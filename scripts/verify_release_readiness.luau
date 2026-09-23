@@ -1144,8 +1144,29 @@ assert(string.find(cfg, 'Id = "wave41-offline-brief"', 1, true), "Story wave41 r
 assert(string.find(cfg, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail wave41 residual for release")
 mark("wave41 publicplayer settingsseal research wheel boot densify content residuals")
 
--- Wave41 residuals raise the offline subset past checks=46.
-assert(#passed > 46, "release-readiness offline subset must stay beyond checks=46, got " .. tostring(#passed))
+-- Wave42: NoticeMath peel + Missions/Worlds densify + DENSE floors + DV21.
+local noticeWave42 = fs.readFile("src/Client/AstralForge/noticeMath.luau")
+assert(string.find(noticeWave42, "function NoticeMath.NormalizeTitle", 1, true), "NoticeMath.NormalizeTitle residual for release")
+assert(string.find(noticeWave42, "function NoticeMath.ShouldDedupe", 1, true), "NoticeMath.ShouldDedupe residual for release")
+local mainWave42 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave42, 'require(script.Parent.noticeMath)', 1, true), "MainGame noticeMath require residual for release")
+assert(string.find(mainWave42, "NoticeMath.NormalizeTitle", 1, true), "MainGame NoticeMath.NormalizeTitle residual for release")
+assert(not string.find(mainWave42, 'if title == "Boost online" then "Boost on"', 1, true), "title normalize must leave MainGame for release")
+local missionsWave42 = fs.readFile("src/Client/AstralForge/pages/MissionsView.luau")
+assert(string.find(missionsWave42, "Canonical softMotion antilag gate — MissionRow", 1, true), "MissionRow softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(missionsWave42, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 16, "Missions softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave42-offline-brief"', 1, true), "Story wave42 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave42-offline"', 1, true), "Mail wave42 residual for release")
+mark("wave42 noticemath peel missions worlds densify content residuals")
+
+-- Wave42 residuals raise the offline subset past checks=47.
+assert(#passed > 47, "release-readiness offline subset must stay beyond checks=47, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

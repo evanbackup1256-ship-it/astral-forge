@@ -5388,6 +5388,21 @@ local GameConfig = {
 			Reward = { Stardust = 104, CashMinutes = 47, Signals = 49 },
 			Color = Color3.fromRGB(0, 205, 160),
 		},
+		{
+			Id = "wave42-offline-brief",
+			Title = "Wave Forty Two Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "NoticeMath peel + Missions/Worlds densify; DENSE floors; readiness past checks=47.",
+			Body = {
+				"NoticeMath peels toast title/signature/dedupe/lifetime math out of MainGame.",
+				"Missions/Worlds thicken softMotion; playability DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 106, CashMinutes = 48, Signals = 50 },
+			Color = Color3.fromRGB(0, 210, 165),
+		},
 
 
 
@@ -5469,6 +5484,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 104, Stardust = 120, Signals = 53 },
 			Color = Color3.fromRGB(0, 205, 160),
+		},
+		{
+			Id = "update-5-1-wave42-offline",
+			Subject = "Dock note — wave forty two offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "NoticeMath peel + missions/worlds softMotion floors — still DataVersion 21.",
+			Body = {
+				"NoticeMath peels toast dedupe/lifetime math from MainGame; Missions/Worlds densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=47 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 106, Stardust = 122, Signals = 54 },
+			Color = Color3.fromRGB(0, 210, 165),
 		},
 
 		{

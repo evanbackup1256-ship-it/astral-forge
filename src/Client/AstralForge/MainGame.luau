@@ -69,6 +69,7 @@ local _AdminPrankOverlay = require(script.Parent.AdminPrankOverlay)
 local AdminPrankOverlay = _AdminPrankOverlay.AdminPrankOverlay
 local HudPrankStage = _AdminPrankOverlay.HudPrankStage
 local ActionCopy = require(script.Parent.actionCopy)
+local NoticeMath = require(script.Parent.noticeMath)
 local _appNav = require(script.Parent.appNav)
 local AppHelpers = _appNav.AppHelpers
 local NetworkPolicy = require(script.Parent.networkPolicy)
@@ -485,18 +486,18 @@ local function MainGame(_param)
 			_condition_4 = body
 		end
 		body = _condition_4
-		local normalizedTitle = if title == "Boost online" then "Boost on" elseif title == "Rebirth" then "Rebirth done" elseif title == "Order paid" then "Claimed" elseif title == "Studio grant" then "Purchase test" else title
-		local signature = `{normalizedTitle}|{body}|{tone}`
+		local normalizedTitle = NoticeMath.NormalizeTitle(title)
+		local signature = NoticeMath.Signature(normalizedTitle, body, tone)
 		local now = os.clock()
-		if lastNotice.current.signature == signature and now - lastNotice.current.at < 0.55 then
+		if NoticeMath.ShouldDedupe(lastNotice.current.signature, lastNotice.current.at, signature, now) then
 			return nil
 		end
 		lastNotice.current = {
 			signature = signature,
 			at = now,
 		}
-		local lifetime = 2.8 + notificationDurationRef.current * 4.4
-		local maxNotices = math.clamp(math.floor(2 + toastDensityRef.current * 3 + 0.5), 2, 5)
+		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
+		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
 		local _exp_1 = noticesLive.current
 		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(notice)

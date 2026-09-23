@@ -96,6 +96,10 @@ local function MissionRow(_param)
 	local quest = _param.quest
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — MissionRow.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local position = _param.position
 	local stack = _param.stack
 	local ready = not quest.Claimed and quest.Progress >= quest.Target
@@ -110,7 +114,7 @@ local function MissionRow(_param)
 	local progressFrac = math.clamp(quest.Progress / math.max(1, quest.Target), 0, 1)
 	local meterSize = UDim2.new(1, if stack then 0 else -182, 0, 8)
 	local meterPosition = UDim2.fromOffset(0, meterY)
-	local readyPop = useReadyPop(ready, reducedMotion)
+	local readyPop = useReadyPop(ready, softMotion)
 	local iconScale = readyPop:map(function(amount)
 		return 1 + amount * 0.22
 	end)
@@ -127,7 +131,7 @@ local function MissionRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = quest.Name,
@@ -157,7 +161,7 @@ local function MissionRow(_param)
 		padding = pad,
 		interactive = true,
 		highlight = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement(Text, {
 		value = reward,
 		size = 11,
@@ -177,7 +181,7 @@ local function MissionRow(_param)
 	}), React.createElement(Meter, {
 		value = if quest.Claimed or ready then 1 else progressFrac,
 		color = if quest.Claimed then Palette.muted else accent,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = ready,
 		position = meterPosition,
 		size = meterSize,
@@ -185,7 +189,7 @@ local function MissionRow(_param)
 		progress = progressFrac,
 		ready = ready,
 		accent = accent,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement(Button, {
@@ -200,7 +204,7 @@ local function MissionRow(_param)
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -(TapTarget + 6)),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = quest.Claimed or not ready,
 		highlight = ready,
 	}) else React.createElement(Button, {
@@ -215,7 +219,7 @@ local function MissionRow(_param)
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.fromOffset(166, 44),
 		position = UDim2.new(1, -166, 0.5, -22),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = quest.Claimed or not ready,
 		highlight = ready,
 	}))
