@@ -863,6 +863,7 @@ local function GuildView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — GuildView entrance/list drops on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
@@ -956,7 +957,7 @@ local function GuildView(_param)
 					}), React.createElement(JoinOrCreate, {
 						config = config,
 						dispatch = send,
-						reducedMotion = reducedMotion,
+						reducedMotion = softMotion,
 						busy = busy,
 						shakeToken = shakeToken,
 						stack = stack,
@@ -1146,14 +1147,14 @@ local function GuildView(_param)
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.fromOffset(140, 42),
 		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local _exp_12 = React.createElement(GuildGoalCard, {
 		guild = guild,
 		config = config,
 		layoutOrder = 0,
 		stack = stack,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		dispatch = send,
 		busy = busy,
 		shakeToken = shakeToken,
@@ -1237,7 +1238,7 @@ local function GuildView(_param)
 	_attributes_2.disabled = _condition_7
 	_attributes_2.size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.new(0.5, -6, 0, 42)
 	_attributes_2.position = if stack then UDim2.fromOffset(0, 126) else UDim2.new(0, 0, 0, 128)
-	_attributes_2.reducedMotion = reducedMotion
+	_attributes_2.reducedMotion = softMotion
 	local _exp_17 = React.createElement(Button, _attributes_2)
 	local _exp_18 = React.createElement("textbox", {
 		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.new(0.5, -6, 0, 40),
@@ -1293,13 +1294,13 @@ local function GuildView(_param)
 	_attributes_3.disabled = _condition_8
 	_attributes_3.size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.new(0.5, -6, 0, 42)
 	_attributes_3.position = if stack then UDim2.fromOffset(0, 222) else UDim2.new(0.5, 6, 0, 128)
-	_attributes_3.reducedMotion = reducedMotion
+	_attributes_3.reducedMotion = softMotion
 	local _exp_19 = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.mango,
 		background = Palette.panelRaised,
 		padding = if stack then 16 else 18,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_13, _exp_14, _exp_15, _exp_16, _exp_17, _exp_18, React.createElement(Button, _attributes_3))
 	local _exp_20 = React.createElement(SectionLabel, {

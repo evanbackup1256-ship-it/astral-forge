@@ -5297,11 +5297,43 @@ local GameConfig = {
 			Color = Color3.fromRGB(10, 195, 150),
 		},
 
+		{
+			Id = "wave36-offline-brief",
+			Title = "Wave Thirty Six Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "ShellFx extract + Inventory/Guild/Anomaly softMotion densify; readiness past checks=41.",
+			Body = {
+				"AmbientLayer/ConfettiBurst live in ShellFx.luau; Inventory/Guild/Anomaly densify softMotion past prior floors.",
+				"MainGame sheds shell FX chrome while DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 94, CashMinutes = 42, Signals = 44 },
+			Color = Color3.fromRGB(5, 190, 145),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave36-offline",
+			Subject = "Dock note — wave thirty six offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ShellFx extract + Inventory/Guild/Anomaly softMotion — still DataVersion 21.",
+			Body = {
+				"ShellFx peels AmbientLayer/ConfettiBurst out of MainGame; dense pages thicken softMotion.",
+				"Offline release-readiness checks grow past checks=41 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 94, Stardust = 110, Signals = 48 },
+			Color = Color3.fromRGB(5, 190, 145),
+		},
 
 		{
 			Id = "update-5-1-wave35-offline",

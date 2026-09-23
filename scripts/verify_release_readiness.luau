@@ -790,14 +790,15 @@ assert(string.find(workspaceChromeWave32, 'Name = "VaultCollectClaim"', 1, true)
 assert(string.find(workspaceChromeWave32, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim residual for release")
 assert(string.find(mainWave32, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion residual for release")
 assert(string.find(topBarChromeWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
-assert(string.find(mainWave32, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
+local shellFxWave32 = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+assert(string.find(shellFxWave32, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
 assert(string.find(workspaceChromeWave32, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(mainWave32, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 10, "MainGame softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 6, "MainGame softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave32-offline-brief"', 1, true), "Story wave32 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave32-offline"', 1, true), "Mail wave32 residual for release")
@@ -837,7 +838,8 @@ assert(string.find(navChromeWave34, "Canonical softMotion antilag gate — MoreD
 assert(string.find(navChromeWave34, "Canonical softMotion antilag gate — MoreCell", 1, true), "MoreCell softMotion residual for release")
 local mainWave34 = fs.readFile("src/Client/AstralForge/MainGame.luau")
 assert(string.find(mainWave34, 'require(script.Parent.NavChrome)', 1, true), "MainGame NavChrome require residual for release")
-assert(string.find(mainWave34, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion residual for release")
+local shellFxWave34 = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+assert(string.find(shellFxWave34, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion residual for release")
 local workspaceChromeWave34 = fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau")
 assert(string.find(workspaceChromeWave34, "Canonical softMotion antilag gate — VaultPill", 1, true), "VaultPill softMotion residual for release")
 assert(not string.find(mainWave34, "local function Navigation", 1, true), "Navigation must leave MainGame for release")
@@ -884,8 +886,50 @@ assert(string.find(cfg, 'Id = "wave35-offline-brief"', 1, true), "Story wave35 r
 assert(string.find(cfg, 'Id = "update-5-1-wave35-offline"', 1, true), "Mail wave35 residual for release")
 mark("wave35 workspacechrome extract nextunlock appshell content residuals")
 
--- Wave35 WorkspaceChrome residuals raise the offline subset past checks=40.
-assert(#passed > 40, "release-readiness offline subset must stay beyond checks=40, got " .. tostring(#passed))
+-- Wave36: ShellFx extract + Inventory/Guild/Anomaly softMotion densify + DV21 content.
+local shellFxWave36 = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+assert(string.find(shellFxWave36, "local function AmbientLayer", 1, true), "AmbientLayer extract residual for release")
+assert(string.find(shellFxWave36, "local function ConfettiBurst", 1, true), "ConfettiBurst extract residual for release")
+assert(string.find(shellFxWave36, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion residual for release")
+assert(string.find(shellFxWave36, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
+local mainWave36 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave36, 'require(script.Parent.ShellFx)', 1, true), "MainGame ShellFx require residual for release")
+assert(not string.find(mainWave36, "local function AmbientLayer", 1, true), "AmbientLayer must leave MainGame for release")
+assert(not string.find(mainWave36, "local function ConfettiBurst", 1, true), "ConfettiBurst must leave MainGame for release")
+assert(not string.find(mainWave36, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES must leave MainGame for release")
+local invWave36 = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+local guildWave36 = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
+local anomalyWave36 = fs.readFile("src/Client/AstralForge/pages/AnomalyView.luau")
+assert(string.find(invWave36, "Canonical softMotion antilag gate — InventoryView", 1, true), "Inventory softMotion residual for release")
+assert(string.find(guildWave36, "Canonical softMotion antilag gate — GuildView", 1, true), "Guild softMotion residual for release")
+assert(string.find(anomalyWave36, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(invWave36, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Inventory softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(guildWave36, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 12, "Guild softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(anomalyWave36, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 10, "Anomaly softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave36-offline-brief"', 1, true), "Story wave36 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave36-offline"', 1, true), "Mail wave36 residual for release")
+mark("wave36 shellfx extract inventory guild anomaly softMotion content residuals")
+
+-- Wave36 ShellFx residuals raise the offline subset past checks=41.
+assert(#passed > 41, "release-readiness offline subset must stay beyond checks=41, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

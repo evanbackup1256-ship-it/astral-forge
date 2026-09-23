@@ -1285,6 +1285,7 @@ local function ReactorConsole(_param)
 	local compactLandscape = not stack and chrome.landscape and viewport.height < 500
 	local antilag = useAntilag()
 	local skipEntrance = reducedMotion or antilag.skipEntrance
+	-- Canonical softMotion antilag gate — AnomalyView pulse/flash drops on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local anomalyClaimHostRef = React.useRef(nil)
@@ -1374,7 +1375,7 @@ local function ReactorConsole(_param)
 		return 1 + amount * 0.14
 	end)
 	local missFlash, setMissFlash = React.useState(0)
-	local missGlow = useGlowStroke(missFlash > 0, reducedMotion, 0, 0.18, 0.72, 3.2)
+	local missGlow = useGlowStroke(missFlash > 0, softMotion, 0, 0.18, 0.72, 3.2)
 	local tierUpBanner, setTierUpBanner = React.useState()
 	local overdriveFlash, setOverdriveFlash = React.useState(0)
 	React.useEffect(function()
@@ -1560,7 +1561,7 @@ local function ReactorConsole(_param)
 	local dirRowH = if stack then 184 else 156
 	local protoRowH = if stack then 168 else 132
 	local order = 0
-	local heroReveal = useStagger(0, skipEntrance)
+	local heroReveal = useStagger(0, softMotion or skipEntrance)
 	local _attributes = {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,

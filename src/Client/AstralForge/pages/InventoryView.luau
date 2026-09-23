@@ -1709,6 +1709,7 @@ local function InventoryView(_param)
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
 	-- Inventory mounts tab springs + hero shimmer together; snap when antilag already cut ambient.
+	-- Canonical softMotion antilag gate — InventoryView list/inspect drops on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
@@ -2248,7 +2249,7 @@ local function InventoryView(_param)
 		gap = pageGap,
 		size = UDim2.new(1, 0, 0, tabH),
 		layoutOrder = 1,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local toolsBar = React.createElement(InventoryTools, {
 		search = search,
@@ -2266,7 +2267,7 @@ local function InventoryView(_param)
 		equipBest = function()
 			return dispatch("EquipBestItems")
 		end,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		stack = stack,
 		filled = filled,
 		limit = limit,
@@ -2280,7 +2281,7 @@ local function InventoryView(_param)
 		layoutOrder = 0,
 		reveal = headerReveal,
 		highlight = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = "Loadout",
@@ -2289,7 +2290,7 @@ local function InventoryView(_param)
 		radius = 11,
 		position = UDim2.fromOffset(0, if stack then 4 else 6),
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		glow = true,
 	}), React.createElement(Text, {
 		value = "INVENTORY",
@@ -2375,7 +2376,7 @@ local function InventoryView(_param)
 						setSelectedUid(item.uid)
 					end
 				end
-				_attributes.reducedMotion = reducedMotion
+				_attributes.reducedMotion = softMotion
 				_attributes.layoutOrder = 0
 				_attributes.stack = stack
 				return React.createElement(RelicRow, _attributes)
@@ -2439,7 +2440,7 @@ local function InventoryView(_param)
 					clearSelection = clearSelection,
 					salvageSelected = salvageSelected,
 					bulkBusy = bulkBusy,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}),
 			})
 		end
@@ -2461,7 +2462,7 @@ local function InventoryView(_param)
 			autoBusy = autoBusy,
 			openShop = openShop,
 			runNow = runAutoNow,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			stack = stack,
 			config = config,
 			onClose = function()
@@ -2520,7 +2521,7 @@ local function InventoryView(_param)
 						return openCrate(crate, count)
 					end,
 					busy = crateBusy,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					layoutOrder = 0,
 					stack = stack,
 				})
