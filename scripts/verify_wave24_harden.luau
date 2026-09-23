@@ -8,12 +8,13 @@ local fs = require("@lune/fs")
 local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local crew = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
 local overview = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+local workshop = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
 local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
 local readme = fs.readFile("README.md")
 
 local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 
-assert(string.find(router, CANON, 1, true), "PageRouter softMotion canon")
+assert(string.find(workshop, CANON, 1, true), "Workshop softMotion canon")
 assert(string.find(overview, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true), "Overview quietMotion")
 assert(string.find(overview, CANON, 1, true), "Overview softMotion canon")
 assert(string.find(crew, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim")

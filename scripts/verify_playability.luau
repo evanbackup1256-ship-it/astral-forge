@@ -30,10 +30,11 @@ end
 -- Keep this list complete for every primary page migrated onto PageScaffold.
 -- Overview lives in OverviewView; Mailbox stays dual-pane (no outer scaffold).
 local HOT_PAGES = {
-	"src/Client/AstralForge/pages/PageRouter.luau",
+	"src/Client/AstralForge/pages/WorkshopView.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",
 	"src/Client/AstralForge/pages/WorldsView.luau",
 	"src/Client/AstralForge/pages/RewardsView.luau",
+	"src/Client/AstralForge/pages/WorkshopView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/BoostsView.luau",
@@ -342,7 +343,7 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/MissionsView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/StarGridView.luau",
-	"src/Client/AstralForge/pages/PageRouter.luau",
+	"src/Client/AstralForge/pages/WorkshopView.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",
 	"src/Client/AstralForge/pages/WorldsView.luau",
 	"src/Client/AstralForge/pages/RewardsView.luau",
@@ -416,6 +417,7 @@ do
 		["src/Client/AstralForge/pages/CrewView.luau"] = 8,
 		["src/Client/AstralForge/pages/WorldsView.luau"] = 8,
 		["src/Client/AstralForge/pages/RewardsView.luau"] = 8,
+		["src/Client/AstralForge/pages/WorkshopView.luau"] = 8,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
@@ -441,6 +443,7 @@ do
 		"src/Client/AstralForge/pages/CrewView.luau",
 		"src/Client/AstralForge/pages/WorldsView.luau",
 		"src/Client/AstralForge/pages/RewardsView.luau",
+		"src/Client/AstralForge/pages/WorkshopView.luau",
 		"src/Client/AstralForge/pages/RebirthPanel.luau",
 		"src/Client/AstralForge/pages/ContinuumView.luau",
 		"src/Client/AstralForge/pages/MailboxView.luau",
@@ -486,7 +489,9 @@ end
 	local research = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
 	assert(string.find(research, "overscanRows = if softMotion then 0", 1, true), "Research VirtualGrid must softMotion-gate overscan")
 	local routerReady = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-	assert(string.find(routerReady, "PageReadyMath.CountReadyQuests", 1, true), "PageRouter must use PageReadyMath")
+	assert(string.find(routerReady, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter must lazy-load WorkshopView")
+	local overviewReady = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+	assert(string.find(overviewReady, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
 	-- Wave15: Boosts/Inventory/Anomaly overscan softMotion-gated.
 	local boostsSoft = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
 	assert(string.find(boostsSoft, "overscan = if softMotion then 0", 1, true), "Boosts FlatList must softMotion-gate overscan")
@@ -526,8 +531,8 @@ end
 	-- Wave19: Milestones FlatList overscan softMotion-gated (Echo/Command ClaimActions clips below).
 	local milestonesSoft = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
 	assert(string.find(milestonesSoft, "overscan = if softMotion then 0", 1, true), "Milestones FlatList must softMotion-gate overscan")
-	-- Wave20: UpgradeBoard (PageRouter) VirtualGrid overscan softMotion-gated.
-	local upgradeSoft = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+	-- Wave20: UpgradeBoard (WorkshopView) VirtualGrid overscan softMotion-gated.
+	local upgradeSoft = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
 	assert(
 		string.find(upgradeSoft, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
 		"UpgradeBoard VirtualGrid must softMotion-gate overscanRows"
@@ -644,8 +649,10 @@ do
 	assert(string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewards Daily Claim host must be named RewardsDailyClaimActions")
 	assert(string.find(rewards, 'Name = "RewardsTimedClaimActions"', 1, true), "Rewards Timed CLAIM host must be named RewardsTimedClaimActions")
 	assert(string.find(rewards, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "RewardsView must softMotion via antilag")
-	-- UpgradeBoard still owns a softMotion canon line inside PageRouter.
-	assert(string.find(router, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "UpgradeBoard must softMotion via antilag")
+	local workshop = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+	assert(string.find(workshop, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "UpgradeBoard/Workshop must softMotion via antilag")
+	assert(string.find(workshop, 'Name = "WorkshopBuyClaim"', 1, true), "WorkshopBuyClaim host must stay named")
+	assert(string.find(workshop, "GamepadNavigationService.FocusClaim", 1, true), "Workshop must FocusClaim BUY ALL")
 
 	local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
 	assert(string.find(credits, 'Name = "CreditsClaimActions"', 1, true), "Credits primary CTA host must be named CreditsClaimActions")
@@ -828,6 +835,7 @@ do
 		"src/Client/AstralForge/pages/CrewView.luau",
 		"src/Client/AstralForge/pages/WorldsView.luau",
 		"src/Client/AstralForge/pages/RewardsView.luau",
+		"src/Client/AstralForge/pages/WorkshopView.luau",
 	} do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")

@@ -19,6 +19,7 @@ local files = {
 	"src/Client/AstralForge/pages/OverviewView.luau",
 	"src/Client/AstralForge/pages/WorldsView.luau",
 	"src/Client/AstralForge/pages/RewardsView.luau",
+	"src/Client/AstralForge/pages/WorkshopView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
 	"src/Client/AstralForge/pages/ForgePathView.luau",

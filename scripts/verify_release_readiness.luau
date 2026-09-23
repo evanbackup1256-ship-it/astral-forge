@@ -417,9 +417,9 @@ do
 	local hostSlice = string.sub(shopRelease, hostStart, hostStart + 420)
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "ShopClaimCode clips residual for release")
 end
-local routerRelease = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+local workshopRelease = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
 assert(
-	string.find(routerRelease, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
+	string.find(workshopRelease, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
 	"UpgradeBoard overscan softMotion residual for release"
 )
 mark("crate shop upgradeboard clip softmotion residuals")
@@ -437,8 +437,10 @@ assert(string.find(networkPolicySrc, "function NetworkPolicy.Cooldown", 1, true)
 assert(string.find(networkPolicySrc, "function NetworkPolicy.IsPipelined", 1, true), "NetworkPolicy.IsPipelined missing")
 assert(string.find(mainReleaseSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame NetworkPolicy residual for release")
 assert(string.find(pageBoardSrc, "function PageBoardHeights.Machine", 1, true), "PageBoardHeights.Machine missing")
-assert(string.find(routerReleaseSrc, "PageBoardHeights.Machine", 1, true), "PageRouter PageBoardHeights residual for release")
-assert(string.find(routerReleaseSrc, "PageReadyMath.AnomalyReady", 1, true), "PageRouter AnomalyReady residual for release")
+local workshopReleaseSrc = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+assert(string.find(workshopReleaseSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView PageBoardHeights residual for release")
+local overviewReleaseReady = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewReleaseReady, "PageReadyMath.AnomalyReady", 1, true), "OverviewView AnomalyReady residual for release")
 assert(string.find(telemetrySrc, "function TelemetryMath.Encode", 1, true), "TelemetryMath.Encode missing")
 assert(string.find(ssReleaseSrc, "TelemetryMath.Encode", 1, true), "ServerServices Telemetry residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Day", 1, true), "UtcClockMath.Day missing")
@@ -607,10 +609,11 @@ assert(
 	),
 	"Crew softMotion canon residual for release"
 )
--- Rewards still owns a softMotion canon line inside PageRouter.
+-- Rewards owns a softMotion canon line inside RewardsView; UpgradeBoard lives in WorkshopView.
+local rewardsWave24Canon = fs.readFile("src/Client/AstralForge/pages/RewardsView.luau")
 assert(
 	string.find(
-		routerWave24,
+		rewardsWave24Canon,
 		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
 		1,
 		true
@@ -759,8 +762,23 @@ assert(string.find(cfg, 'Id = "wave30-offline-brief"', 1, true), "Story wave30 r
 assert(string.find(cfg, 'Id = "update-5-1-wave30-offline"', 1, true), "Mail wave30 residual for release")
 mark("wave30 worlds rewards extract statchip softMotion content residuals")
 
--- Raise floor past checks=35 once wave30 Worlds/Rewards residuals land.
-assert(#passed > 34, "release-readiness offline subset must stay beyond checks=34, got " .. tostring(#passed))
+-- Wave31: WorkshopView extract + Buy FocusClaim + thin PageRouter + DV21 content.
+local workshopWave31 = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+assert(string.find(workshopWave31, 'Name = "WorkshopBuyClaim"', 1, true), "WorkshopBuyClaim residual for release")
+assert(string.find(workshopWave31, "GamepadNavigationService.FocusClaim", 1, true), "Workshop FocusClaim residual for release")
+assert(string.find(workshopWave31, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true), "UpgradeBoard overscan residual for release")
+local routerWave31 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(string.find(routerWave31, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter lazy Workshop residual for release")
+assert(not string.find(routerWave31, "local function UpgradeBoard", 1, true), "UpgradeBoard must leave PageRouter for release")
+assert(not string.find(routerWave31, "softMotion", 1, true), "PageRouter softMotion residual for release")
+local overviewWave31 = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewWave31, "PageReadyMath.CountReadyQuests", 1, true), "Overview CountReadyQuests residual for release")
+assert(string.find(cfg, 'Id = "wave31-offline-brief"', 1, true), "Story wave31 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave31-offline"', 1, true), "Mail wave31 residual for release")
+mark("wave31 workshop extract buy claim thin pagerouter content residuals")
+
+-- Wave31 Workshop residuals raise the offline subset past checks=36.
+assert(#passed > 36, "release-readiness offline subset must stay beyond checks=36, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

@@ -141,8 +141,9 @@ assert(string.find(adminSrc, "ProfileBagMath.EnsureItems", 1, true), "Admin must
 assert(string.find(adminSrc, "ProfileBagMath.BumpStat", 1, true), "Admin GrantRelic must BumpStat")
 assert(string.find(adminSrc, "CommandMath.Ensure", 1, true), "Admin GrantSignals must CommandMath.Ensure")
 assert(string.find(adminSrc, "WheelMath.Ensure", 1, true), "Admin GrantFreeSpins must WheelMath.Ensure")
-assert(string.find(routerSrc, "PageReadyMath.CountReadyQuests", 1, true), "PageRouter must use PageReadyMath")
-assert(string.find(routerSrc, "PageReadyMath.ForgePathReady", 1, true), "PageRouter must use ForgePathReady")
+local overviewBag = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewBag, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
+assert(string.find(overviewBag, "PageReadyMath.ForgePathReady", 1, true), "OverviewView must use ForgePathReady")
 local crewSrc = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
 assert(string.find(crewSrc, "PageReadyMath.SameCrewSnapshot", 1, true), "CrewView must use SameCrewSnapshot")
 

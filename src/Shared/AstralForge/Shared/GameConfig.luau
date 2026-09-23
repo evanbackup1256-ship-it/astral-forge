@@ -5217,11 +5217,44 @@ local GameConfig = {
 			Color = Color3.fromRGB(35, 220, 175),
 		},
 
+		{
+			Id = "wave31-offline-brief",
+			Title = "Wave Thirty One Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "WorkshopView extract + Buy FocusClaim/softMotion; PageRouter thinned to lazy dispatcher; readiness past checks=36.",
+			Body = {
+				"MachineRow/UpgradeBoard/AutoForge live in WorkshopView.luau with WorkshopBuyClaim FocusClaim and densified softMotion.",
+				"PageRouter is a thin lazy-view dispatcher; Overview PageReadyMath wiring is fixed; offline checks grow past checks=36.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 84, CashMinutes = 37, Signals = 39 },
+			Color = Color3.fromRGB(30, 215, 170),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave31-offline",
+			Subject = "Dock note — wave thirty one offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "WorkshopView extract + Buy FocusClaim; PageRouter thinned — still DataVersion 21.",
+			Body = {
+				"WorkshopView peels UpgradeBoard/AutoForge out of PageRouter; WorkshopBuyClaim parks gamepad on BUY ALL.",
+				"Offline release-readiness checks grow past checks=36 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 84, Stardust = 100, Signals = 43 },
+			Color = Color3.fromRGB(30, 215, 170),
+		},
+
 
 		{
 			Id = "update-5-1-wave30-offline",
