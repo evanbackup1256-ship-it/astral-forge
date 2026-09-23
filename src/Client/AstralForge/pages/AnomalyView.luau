@@ -1935,7 +1935,7 @@ local function ReactorConsole(_param)
 		data = listData,
 		itemHeight = listStride,
 		headerHeight = 0,
-		overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+		overscan = if softMotion then 0 else (if antilag.tier <= 1 or antilag.constrained then 1 else 2),
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = accent,

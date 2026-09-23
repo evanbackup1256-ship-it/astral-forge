@@ -319,11 +319,13 @@ assert(
 	"AchievementProgress must track Expeditions kind"
 )
 assert(
-	string.find(adminSrc, "Stats.ItemsFound", 1, true) ~= nil,
+	string.find(adminSrc, "Stats.ItemsFound", 1, true) ~= nil
+		or string.find(adminSrc, 'BumpStat(profile, "ItemsFound"', 1, true) ~= nil,
 	"Admin createRelic must bump Stats.ItemsFound"
 )
 assert(
-	string.find(adminSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	string.find(adminSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil
+		or string.find(adminSrc, "ProfileBagMath.BumpStat", 1, true) ~= nil,
 	"Admin createRelic must nil-safe Stats before ItemsFound bump"
 )
 assert(
@@ -418,7 +420,8 @@ assert(
 	"AchievementStates must not raw-index Achievements"
 )
 assert(
-	string.find(adminSrc, 'type(profile.Items.Inventory) ~= "table"', 1, true) ~= nil,
+	string.find(adminSrc, 'type(profile.Items.Inventory) ~= "table"', 1, true) ~= nil
+		or string.find(adminSrc, "ProfileBagMath.EnsureItems", 1, true) ~= nil,
 	"Admin createRelic must nil-safe Items.Inventory"
 )
 
@@ -438,12 +441,16 @@ assert(
 -- sanitize threw iterating nil Protocols. FreeSpins seeds Wheel={FreeSpins=0}.
 -- EnsureQuests / EnsureTimedRewards / Progress / ClaimQuest raw-indexed missing bags.
 assert(
-	string.find(dataSrc, 'type(profile.Items) ~= "table"', 1, true) ~= nil
-		and string.find(dataSrc, 'type(profile.Items.Shop) ~= "table"', 1, true) ~= nil,
+	(
+		string.find(dataSrc, 'type(profile.Items) ~= "table"', 1, true) ~= nil
+		and string.find(dataSrc, 'type(profile.Items.Shop) ~= "table"', 1, true) ~= nil
+	)
+		or string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true) ~= nil,
 	"DataService sanitize must rebuild Keys-only Items before Shop access"
 )
 assert(
-	string.find(dataSrc, 'type(profile.Anomaly.Protocols) ~= "table"', 1, true) ~= nil,
+	string.find(dataSrc, 'type(profile.Anomaly.Protocols) ~= "table"', 1, true) ~= nil
+		or string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true) ~= nil,
 	"DataService sanitize must rebuild Fragments-only Anomaly.Protocols"
 )
 assert(

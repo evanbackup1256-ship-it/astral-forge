@@ -216,11 +216,13 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function inventoryCount(profile): number
-		return ShopGrantEligibility.InventoryCount(profile.Items.Inventory)
+		local items = ProfileBagMath.EnsureItems(profile)
+		return ShopGrantEligibility.InventoryCount(items.Inventory)
 	end
 
 	local function ensureItemShop(profile): boolean
-		return ShopGrantEligibility.EnsureShop(profile.Items.Shop, GameConfig.Items.ShopOffers, utcDay())
+		local items = ProfileBagMath.EnsureItems(profile)
+		return ShopGrantEligibility.EnsureShop(items.Shop, GameConfig.Items.ShopOffers, utcDay())
 	end
 
 	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — collect / tap /
@@ -946,13 +948,8 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function ensureAutoSalvage(profile)
-		if type(profile.Items.AutoSalvage) ~= "table" then
-			profile.Items.AutoSalvage = { Enabled = false, KeepNew = true, Rarities = {} }
-		end
-		if type(profile.Items.AutoSalvage.Rarities) ~= "table" then
-			profile.Items.AutoSalvage.Rarities = {}
-		end
-		return profile.Items.AutoSalvage
+		-- Keys-only Items bags omit AutoSalvage — crate open must rebuild before indexing.
+		return ProfileBagMath.EnsureAutoSalvage(profile)
 	end
 
 
@@ -2593,21 +2590,23 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_createItem(profile, definitionId: string): string?
+		-- Keys-only Items bags omit Inventory/NextId — market/crate grants must Ensure first.
+		local items = ProfileBagMath.EnsureItems(profile)
 		if not itemById[definitionId] or inventoryCount(profile) >= GameConfig.Items.InventoryLimit then
 			return nil
 		end
 		local uid
 		repeat
-			uid = string.format("IT%07d", profile.Items.NextId)
-			profile.Items.NextId += 1
-		until not profile.Items.Inventory[uid]
-		profile.Items.Inventory[uid] = {
+			uid = string.format("IT%07d", items.NextId)
+			items.NextId += 1
+		until not items.Inventory[uid]
+		items.Inventory[uid] = {
 			DefinitionId = definitionId,
 			Level = 1,
 			AcquiredAt = os.time(),
 		}
-		profile.Items.Discovered = type(profile.Items.Discovered) == "table" and profile.Items.Discovered or {}
-		profile.Items.Discovered[definitionId] = true
+		items.Discovered = type(items.Discovered) == "table" and items.Discovered or {}
+		items.Discovered[definitionId] = true
 		bumpStat(profile, "ItemsFound", 1)
 		return uid
 	end
@@ -2633,9 +2632,11 @@ serviceFactories["GameService"] = function()
 		end
 		local offer = itemOfferById[offerId]
 		local result = self:_mutate(player, function(profile)
+			-- Keys-only / Shop-missing Items bags crash EnsureShop / Keys / Essence indexes.
+			local items = ProfileBagMath.EnsureItems(profile)
 			ensureItemShop(profile)
 			local stockMax = offerStockMax(offer)
-			local remaining = ShopGrantEligibility.RemainingStock(profile.Items.Shop.Stock[offerId], stockMax)
+			local remaining = ShopGrantEligibility.RemainingStock(items.Shop.Stock[offerId], stockMax)
 			local eligible, denyReason = ShopGrantEligibility.EvaluateBuy(
 				offer,
 				remaining,
@@ -2652,9 +2653,9 @@ serviceFactories["GameService"] = function()
 			profile[offer.Currency] -= offer.Price
 			local itemUid
 			if offer.Kind == "Key" then
-				profile.Items.Keys[offer.CrateId] = (profile.Items.Keys[offer.CrateId] or 0) + offer.Amount
+				items.Keys[offer.CrateId] = (items.Keys[offer.CrateId] or 0) + offer.Amount
 			elseif offer.Kind == "Essence" then
-				profile.Items.Essence += offer.Amount
+				items.Essence += offer.Amount
 			elseif offer.Kind == "Item" then
 				itemUid = self:_createItem(profile, offer.ItemId)
 				if not itemUid then
@@ -2664,8 +2665,8 @@ serviceFactories["GameService"] = function()
 				return responseError("That market offer is misconfigured.")
 			end
 			local nextStock = remaining - 1
-			profile.Items.Shop.Stock[offerId] = nextStock
-			profile.Items.Shop.Purchased[offerId] = nextStock <= 0
+			items.Shop.Stock[offerId] = nextStock
+			items.Shop.Purchased[offerId] = nextStock <= 0
 			bumpStat(profile, "ShopPurchases", 1)
 			return responseSuccess(offer.Name .. " bought.", { ItemUid = itemUid, Stock = nextStock })
 		end)
@@ -2682,11 +2683,13 @@ serviceFactories["GameService"] = function()
 		end
 		local crate = crateById[crateId]
 		local result = self:_mutate(player, function(profile)
-			if (profile.Items.Keys[crateId] or 0) < count then
+			-- Keys-only Items bags omit Keys/Pity/Discovered — crate open must Ensure first.
+			local items = ProfileBagMath.EnsureItems(profile)
+			if (items.Keys[crateId] or 0) < count then
 				return responseError(
 					string.format(
 						"You need %d more %s keys.",
-						count - (profile.Items.Keys[crateId] or 0),
+						count - (items.Keys[crateId] or 0),
 						crate.Name
 					)
 				)
@@ -2706,16 +2709,16 @@ serviceFactories["GameService"] = function()
 			if inventoryCount(profile) + requiredSlots > GameConfig.Items.InventoryLimit then
 				return responseError("Your item inventory does not have enough open slots.")
 			end
-			profile.Items.Keys[crateId] -= count
+			items.Keys[crateId] -= count
 			local rolls = {}
 			for index = 1, count do
-				local pity = profile.Items.Pity[crateId] or 0
+				local pity = items.Pity[crateId] or 0
 				local definition, rarity, pityHit = self:_rollItemDefinition(crate, pity)
 				if not definition then
 					return responseError("That crate has no valid drops configured.")
 				end
-				profile.Items.Discovered = type(profile.Items.Discovered) == "table" and profile.Items.Discovered or {}
-				local wasOwned = profile.Items.Discovered[definition.Id] == true
+				items.Discovered = type(items.Discovered) == "table" and items.Discovered or {}
+				local wasOwned = items.Discovered[definition.Id] == true
 				local shouldAutoSalvage = autoEnabled
 					and autoRules.Rarities[rarity] == true
 					and not (autoRules.KeepNew ~= false and not wasOwned)
@@ -2723,19 +2726,19 @@ serviceFactories["GameService"] = function()
 				local autoEssence = 0
 				if shouldAutoSalvage then
 					autoEssence = itemSalvageValue({ Level = 1 }, definition)
-					profile.Items.Essence += autoEssence
+					items.Essence += autoEssence
 					bumpStat(profile, "ItemsFound", 1)
 					bumpStat(profile, "ItemsSalvaged", 1)
-					profile.Items.Discovered[definition.Id] = true
-					uid = string.format("AUTO%07d", profile.Items.NextId)
-					profile.Items.NextId += 1
+					items.Discovered[definition.Id] = true
+					uid = string.format("AUTO%07d", items.NextId)
+					items.NextId += 1
 				else
 					uid = self:_createItem(profile, definition.Id)
 					if not uid then
 						return responseError("The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot.")
 					end
 				end
-				profile.Items.Pity[crateId] = pityHit and 0 or pity + 1
+				items.Pity[crateId] = pityHit and 0 or pity + 1
 				rolls[index] = {
 					Uid = uid,
 					DefinitionId = definition.Id,
@@ -2750,7 +2753,7 @@ serviceFactories["GameService"] = function()
 			LabService.Progress(profile, "OpenCrate", count)
 			return responseSuccess(
 				string.format("Decoded %d %s%s.", count, crate.Name, count == 1 and "" or "s"),
-				{ Rolls = rolls, CrateId = crateId, Pity = profile.Items.Pity[crateId] }
+				{ Rolls = rolls, CrateId = crateId, Pity = items.Pity[crateId] }
 			)
 		end)
 		return result

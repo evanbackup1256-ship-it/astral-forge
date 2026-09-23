@@ -153,26 +153,18 @@ return function(loadService: (string) -> any)
 		end
 		if not definition then return false end
 		-- Partial Items bags (Studio fixtures / Keys-only ensure) must not crash GrantRelic.
-		if type(profile.Items) ~= "table" then
-			profile.Items = { Inventory = {}, NextId = 1, Essence = 0, Keys = {}, Equipped = {}, Discovered = {} }
-		end
-		if type(profile.Items.Inventory) ~= "table" then
-			profile.Items.Inventory = {}
-		end
+		local items = ProfileBagMath.EnsureItems(profile)
 		local count = 0
-		for _ in profile.Items.Inventory do count += 1 end
+		for _ in items.Inventory do count += 1 end
 		if count >= GameConfig.Items.InventoryLimit then return false end
 		local uid
 		repeat
-			uid = string.format("IT%07d", math.max(1, math.floor(profile.Items.NextId or 1)))
-			profile.Items.NextId = math.max(1, math.floor(profile.Items.NextId or 1)) + 1
-		until not profile.Items.Inventory[uid]
-		profile.Items.Inventory[uid] = { DefinitionId = definition.Id, Level = 1, AcquiredAt = os.time() }
+			uid = string.format("IT%07d", math.max(1, math.floor(items.NextId or 1)))
+			items.NextId = math.max(1, math.floor(items.NextId or 1)) + 1
+		until not items.Inventory[uid]
+		items.Inventory[uid] = { DefinitionId = definition.Id, Level = 1, AcquiredAt = os.time() }
 		-- Partial Stats bags (Studio fixtures) must not crash GrantRelic before the item sticks.
-		if type(profile.Stats) ~= "table" then
-			profile.Stats = { ItemsFound = 0 }
-		end
-		profile.Stats.ItemsFound = math.max(0, math.floor(tonumber(profile.Stats.ItemsFound) or 0)) + 1
+		ProfileBagMath.BumpStat(profile, "ItemsFound", 1)
 		return true
 	end
 

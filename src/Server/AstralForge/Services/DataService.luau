@@ -11,6 +11,7 @@ return function(loadService: (string) -> any)
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
@@ -137,21 +138,16 @@ return function(loadService: (string) -> any)
 			end
 			profile[key] = persisted
 		end
-		if type(profile.Domain) ~= "table" then
-			profile.Domain = { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0, SkillPoints = 0, Nodes = {} }
-		end
-		if type(profile.Domain.Nodes) ~= "table" then
-			profile.Domain.Nodes = {}
-		end
+		-- Partial Domain/Continuum bags (Studio fixtures / mid-migrate) rebuild via
+		-- ProfileBagMath before clamp — same Ensures Admin/Progression use.
+		ProfileBagMath.EnsureDomain(profile)
 		profile.Domain.SkillPoints = math.floor(nonNegative(profile.Domain.SkillPoints))
 		profile.Domain.Rank = math.floor(nonNegative(profile.Domain.Rank))
 		profile.Domain.Essence = math.min(1_000_000, math.floor(nonNegative(tonumber(profile.Domain.Essence) or 0)))
 		profile.Domain.LastExpandedAt = math.floor(nonNegative(profile.Domain.LastExpandedAt))
 		profile.Domain.TotalRebirthsSpent = math.floor(nonNegative(profile.Domain.TotalRebirthsSpent))
 		profile.Domain.TotalCoresSpent = math.floor(nonNegative(profile.Domain.TotalCoresSpent))
-		if type(profile.Continuum) ~= "table" then
-			profile.Continuum = { Rank = 0, TotalFluxSpent = 0, TotalStardustSpent = 0 }
-		end
+		ProfileBagMath.EnsureContinuum(profile)
 		profile.Continuum.Rank = math.clamp(
 			math.floor(nonNegative(profile.Continuum.Rank)),
 			0,
@@ -453,34 +449,7 @@ return function(loadService: (string) -> any)
 		profile.Wheel.FreeSpins = math.floor(nonNegative(profile.Wheel.FreeSpins))
 		-- ApplyReward Keys may seed Items={Keys={}} without Shop/Inventory/Equipped/Pity —
 		-- post-claim sanitize must rebuild the bag (same class of footgun as ForgePath).
-		if type(profile.Items) ~= "table" then
-			profile.Items = {
-				NextId = 1,
-				Inventory = {},
-				Discovered = {},
-				Equipped = {},
-				Essence = 0,
-				Keys = {},
-				Pity = {},
-				Shop = { Day = -1, Purchased = {}, Stock = {} },
-				AutoSalvage = { Enabled = false, KeepNew = true, Rarities = { Common = true, Uncommon = true } },
-			}
-		end
-		if type(profile.Items.Keys) ~= "table" then
-			profile.Items.Keys = {}
-		end
-		if type(profile.Items.Pity) ~= "table" then
-			profile.Items.Pity = {}
-		end
-		if type(profile.Items.Inventory) ~= "table" then
-			profile.Items.Inventory = {}
-		end
-		if type(profile.Items.Equipped) ~= "table" then
-			profile.Items.Equipped = {}
-		end
-		if type(profile.Items.Shop) ~= "table" then
-			profile.Items.Shop = { Day = -1, Purchased = {}, Stock = {} }
-		end
+		ProfileBagMath.EnsureItems(profile)
 		profile.Items.NextId = math.max(1, math.floor(nonNegative(profile.Items.NextId)))
 		profile.Items.Essence = math.floor(nonNegative(profile.Items.Essence))
 		profile.Items.Shop.Day = math.floor(nonNegative(profile.Items.Shop.Day))
@@ -516,7 +485,7 @@ return function(loadService: (string) -> any)
 				profile.Items.Pity[crateId] = nil
 			end
 		end
-		profile.Items.AutoSalvage = type(profile.Items.AutoSalvage) == "table" and profile.Items.AutoSalvage or {}
+		ProfileBagMath.EnsureAutoSalvage(profile)
 		profile.Items.AutoSalvage.Enabled = profile.Items.AutoSalvage.Enabled == true
 		profile.Items.AutoSalvage.KeepNew = profile.Items.AutoSalvage.KeepNew ~= false
 		profile.Items.AutoSalvage.Rarities = type(profile.Items.AutoSalvage.Rarities) == "table"
@@ -572,34 +541,7 @@ return function(loadService: (string) -> any)
 		end
 		-- ApplyReward Fragments may seed Anomaly={Fragments=0} without Protocols /
 		-- Discoveries / MilestoneClaims — sanitize must not throw iterating nil maps.
-		if type(profile.Anomaly) ~= "table" then
-			profile.Anomaly = {
-				Cycle = -1,
-				Charge = 0,
-				Fragments = 0,
-				Stabilizations = 0,
-				Chain = 0,
-				BestChain = 0,
-				LastActionAt = 0,
-				SurgeEndsAt = 0,
-				Channel = "Flux",
-				Protocols = {},
-				Discoveries = {},
-				MilestoneClaims = {},
-				DirectiveCycle = -1,
-				DirectiveProgress = {},
-				DirectiveClaims = {},
-				PulseWindowStartedAt = 0,
-				Combo = 0,
-				BestCombo = 0,
-				Loadout = {},
-				CoreTier = 0,
-				CoreXP = 0,
-			}
-		end
-		if type(profile.Anomaly.Protocols) ~= "table" then
-			profile.Anomaly.Protocols = {}
-		end
+		ProfileBagMath.EnsureAnomaly(profile)
 		if type(profile.Anomaly.Discoveries) ~= "table" then
 			profile.Anomaly.Discoveries = {}
 		end

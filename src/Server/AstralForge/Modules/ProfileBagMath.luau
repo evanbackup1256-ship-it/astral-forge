@@ -56,7 +56,8 @@ function ProfileBagMath.EnsureItemKeys(profile: any): { [string]: number }
 	return profile.Items.Keys
 end
 
--- Minimal Items rebuild for Admin grant/drain/relic paths on Keys-only bags.
+-- Minimal Items rebuild for Admin grant/drain/relic + market buy/crate paths on
+-- Keys-only bags. Shop must exist before ShopGrantEligibility.EnsureShop indexes it.
 function ProfileBagMath.EnsureItems(profile: any): any
 	if type(profile.Items) ~= "table" then
 		profile.Items = {
@@ -67,6 +68,7 @@ function ProfileBagMath.EnsureItems(profile: any): any
 			Pity = {},
 			Equipped = {},
 			Discovered = {},
+			Shop = { Day = -1, Purchased = {}, Stock = {} },
 			AutoSalvage = { Enabled = false, KeepNew = true, Rarities = { Common = true, Uncommon = true } },
 		}
 		return profile.Items
@@ -86,9 +88,34 @@ function ProfileBagMath.EnsureItems(profile: any): any
 	if type(profile.Items.Discovered) ~= "table" then
 		profile.Items.Discovered = {}
 	end
+	if type(profile.Items.Shop) ~= "table" then
+		profile.Items.Shop = { Day = -1, Purchased = {}, Stock = {} }
+	else
+		if type(profile.Items.Shop.Purchased) ~= "table" then
+			profile.Items.Shop.Purchased = {}
+		end
+		if type(profile.Items.Shop.Stock) ~= "table" then
+			profile.Items.Shop.Stock = {}
+		end
+		profile.Items.Shop.Day = math.floor(tonumber(profile.Items.Shop.Day) or -1)
+	end
 	profile.Items.Essence = math.max(0, math.floor(tonumber(profile.Items.Essence) or 0))
 	profile.Items.NextId = math.max(1, math.floor(tonumber(profile.Items.NextId) or 1))
 	return profile.Items
+end
+
+-- AutoSalvage nest on Keys-only / Essence-only Items bags (crate open paths).
+function ProfileBagMath.EnsureAutoSalvage(profile: any): any
+	local items = ProfileBagMath.EnsureItems(profile)
+	if type(items.AutoSalvage) ~= "table" then
+		items.AutoSalvage = { Enabled = false, KeepNew = true, Rarities = {} }
+	end
+	if type(items.AutoSalvage.Rarities) ~= "table" then
+		items.AutoSalvage.Rarities = {}
+	end
+	items.AutoSalvage.Enabled = items.AutoSalvage.Enabled == true
+	items.AutoSalvage.KeepNew = items.AutoSalvage.KeepNew ~= false
+	return items.AutoSalvage
 end
 
 function ProfileBagMath.EnsureActiveBoost(profile: any): { Id: string, EndsAt: number }

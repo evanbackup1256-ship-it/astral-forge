@@ -10,6 +10,7 @@ return function()
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local ProgressionOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionOpsMath"))
 
 	local ProgressionService = {}
 
@@ -94,6 +95,29 @@ return function()
 	end
 
 	ProgressionService.AwardCommandXP = awardCommandXP
+
+	local function findOperation(list, id: string)
+		return ProgressionOpsMath.FindById(list, id)
+	end
+
+	local function currentWeeklyValue(profile, kind: string): number
+		return ProgressionOpsMath.WeeklyValue(profile, kind)
+	end
+
+	local function commanderReward(level: number)
+		return ProgressionOpsMath.CommanderReward(level)
+	end
+
+	local function titleUnlocked(profile, title): boolean
+		local command = ensureCommand(profile)
+		return ProgressionOpsMath.TitleUnlocked(
+			profile,
+			title,
+			command,
+			commanderLevel(command.XP),
+			Economy.Gte
+		)
+	end
 
 	function ProgressionService.ApplyReward(profile, reward, production: number?): string
 		local parts = {}
@@ -419,30 +443,6 @@ return function()
 		return true, ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
 	end
 
-	local function findOperation(list, id: string)
-		for _, item in list do
-			if item.Id == id then
-				return item
-			end
-		end
-		return nil
-	end
-
-	local function currentWeeklyValue(profile, kind: string): number
-		local stats = profile.Stats
-		if kind == "Upgrades" then
-			return math.max(0, math.floor(tonumber(stats and stats.MachinesBought) or 0))
-				+ math.max(0, math.floor(tonumber(stats and stats.ResearchBought) or 0))
-		elseif kind == "Expeditions" then
-			local command = profile.Command
-			return math.max(0, math.floor(tonumber(command and command.ExpeditionsCompleted) or 0))
-		end
-		if type(stats) ~= "table" then
-			return 0
-		end
-		return math.max(0, math.floor(tonumber(stats[kind]) or 0))
-	end
-
 	function ProgressionService.EnsureWeekly(profile): boolean
 		local command = ensureCommand(profile)
 		local week = currentWeek()
@@ -510,27 +510,6 @@ return function()
 			end
 		end
 		return false, "Weekly directive not found."
-	end
-
-	local function titleUnlocked(profile, title): boolean
-		local command = ensureCommand(profile)
-		local level = commanderLevel(command.XP)
-		if title.Kind == "Level" then
-			return level >= title.Target
-		elseif title.Kind == "Expeditions" then
-			return command.ExpeditionsCompleted >= title.Target
-		elseif title.Kind == "Artifacts" then
-			local count = 0
-			for _ in command.Artifacts do
-				count += 1
-			end
-			return count >= title.Target
-		elseif title.Kind == "LifetimeCash" then
-			return Economy.Gte(profile.LifetimeCash, title.Target)
-		elseif title.Kind == "Rebirths" then
-			return (tonumber(profile.Rebirths) or 0) >= title.Target
-		end
-		return false
 	end
 
 	function ProgressionService.TitleStates(profile)
@@ -740,15 +719,6 @@ return function()
 		profile.Command.Crew[roleId] += 1
 		awardCommandXP(profile, 60 * level)
 		return true, string.format("%s advanced to level %d.", role.Name, level + 1)
-	end
-
-	local function commanderReward(level: number)
-		if level % 10 == 0 then
-			return { Cores = math.max(1, level / 10), Stardust = 10 + level, Signals = 10 + level }
-		elseif level % 5 == 0 then
-			return { Stardust = 8 + level, Signals = 8 + math.floor(level / 2), StreakShield = 1 }
-		end
-		return { CashMinutes = 5 + level, Signals = 3 + math.floor(level / 3) }
 	end
 
 	function ProgressionService.ClaimCommanderReward(profile, rawLevel: any): (boolean, string)

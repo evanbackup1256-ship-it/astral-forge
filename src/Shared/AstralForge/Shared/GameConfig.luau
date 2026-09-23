@@ -634,6 +634,28 @@ local GameConfig = {
 				Reward = { Stardust = 50, CashMinutes = 4, Signals = 17 },
 				Color = Color3.fromRGB(255, 195, 200),
 			},
+			{
+				Id = "Wave15OpsMath",
+				Name = "Wave Fifteen Ops Math",
+				Description = "Tap through a short tally while ProgressionOpsMath WeeklyValue/CommanderReward stay Lune-wired.",
+				Kind = "Tap",
+				BaseTarget = 110,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 38, CashMinutes = 3, Signals = 14 },
+				Color = Color3.fromRGB(140, 230, 255),
+			},
+			{
+				Id = "Wave15ItemsShopSoftMotion",
+				Name = "Wave Fifteen Items Shop Soft Motion",
+				Description = "Bank flux while market/crate Items.Shop Ensures + Admin/Boosts softMotion density stay wired.",
+				Kind = "BankFlux",
+				BaseTarget = 4_600,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 52, CashMinutes = 4, Signals = 18 },
+				Color = Color3.fromRGB(255, 190, 210),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3026,6 +3048,22 @@ local GameConfig = {
 			Target = 26,
 			Reward = { Stardust = 290, Signals = 78, CashMinutes = 26, Boost = "Afterburner" },
 		},
+		{
+			Id = "Wave15OpsCourier",
+			Name = "Wave Fifteen Ops Courier",
+			Description = "Claim 58 story chapters after ProgressionOpsMath extract + Items.Shop market nil-safety.",
+			Kind = "StoryClaims",
+			Target = 58,
+			Reward = { Stardust = 290, Signals = 80, CashMinutes = 27, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave15SoftMotionRunner",
+			Name = "Wave Fifteen Soft Motion Runner",
+			Description = "Hold a 28-day daily streak while Admin/Boosts/Inventory softMotion density + FocusClaim stay verified.",
+			Kind = "DailyStreak",
+			Target = 28,
+			Reward = { Stardust = 300, Signals = 82, CashMinutes = 27, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4564,9 +4602,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(150, 220, 255),
 		},
 
+		{
+			Id = "wave15-harden-brief",
+			Title = "Wave Fifteen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "ProgressionOpsMath extract; Items.Shop market Ensures and softMotion density stay honest.",
+			Body = {
+				"ProgressionOpsMath WeeklyValue/CommanderReward/TitleUnlocked/FindById keep weekly and commander claim paths Lune-testable.",
+				"ProfileBagMath EnsureItems rebuilds Shop/AutoSalvage; DataService/ServerServices market and crate paths no longer throw on Keys-only fixtures.",
+				"Admin/Boosts/Credits/Anomaly/Inventory softMotion density thickens with overscan gates; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 50, CashMinutes = 20, Signals = 22 },
+			Color = Color3.fromRGB(140, 230, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave15-harden",
+			Subject = "Dock note — wave fifteen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ProgressionOpsMath extract + Items.Shop Ensures + softMotion density — still DataVersion 21.",
+			Body = {
+				"Weekly/commander/title ops math is Lune-testable; market buy and crate open Ensure Items.Shop before indexing Keys-only bags.",
+				"DataService sanitize shares ProfileBagMath Domain/Continuum/Anomaly/Items Ensures with Admin/Progression; Admin/Boosts softMotion stays thick.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 50, Stardust = 66, Signals = 26 },
+			Color = Color3.fromRGB(140, 230, 255),
+		},
 
 		{
 			Id = "update-5-1-wave14-harden",

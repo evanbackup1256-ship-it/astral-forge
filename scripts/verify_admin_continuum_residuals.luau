@@ -109,6 +109,11 @@ assert(string.find(dataSrc, "TotalRebirthsSpent", 1, true), "DataService Domain 
 assert(string.find(dataSrc, "profile.ForgePath", 1, true), "DataService ForgePath sanitize residual")
 assert(string.find(dataSrc, "profile.Anomaly", 1, true), "DataService Anomaly sanitize residual")
 
+assert(string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true), "DataService EnsureItems residual")
+assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "DataService EnsureDomain residual")
+assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "DataService EnsureContinuum residual")
+assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual")
+
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
 assert(string.find(progressionSrc, "TotalRebirthsSpent", 1, true), "Progression achievement residual")
@@ -121,6 +126,11 @@ assert(string.find(progressionSrc, "ProfileBagMath.EnsureBoostInventory", 1, tru
 assert(string.find(progressionSrc, "ProfileBagMath.EnsureDomain", 1, true), "Progression EnsureDomain residual")
 assert(string.find(progressionSrc, "ProfileBagMath.EnsureDaily", 1, true), "Progression EnsureDaily residual")
 assert(string.find(progressionSrc, "ProfileBagMath.BumpStat", 1, true), "Progression BumpStat residual")
+
+assert(string.find(progressionSrc, "ProgressionOpsMath.WeeklyValue", 1, true), "Progression WeeklyValue residual")
+assert(string.find(progressionSrc, "ProgressionOpsMath.CommanderReward", 1, true), "Progression CommanderReward residual")
+assert(string.find(progressionSrc, "ProgressionOpsMath.TitleUnlocked", 1, true), "Progression TitleUnlocked residual")
+assert(string.find(progressionSrc, "ProgressionOpsMath.FindById", 1, true), "Progression FindById residual")
 
 assert(string.find(economySrc, "ContinuumDomainMath.ContinuumCosts", 1, true), "Economy must delegate ContinuumCosts")
 assert(string.find(economySrc, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy must delegate DomainRequirements")

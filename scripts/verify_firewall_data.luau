@@ -102,14 +102,25 @@ assert(string.find(dataSrc, "profile.Mailbox", 1, true) or string.find(dataSrc, 
 assert(string.find(dataSrc, "profile.Trade.Sent", 1, true), "sanitize must harden Trade.Sent")
 assert(string.find(dataSrc, "ClaimedSteps", 1, true), "sanitize must harden ForgePath.ClaimedSteps")
 -- wave11: ApplyReward Keys/Fragments/FreeSpins partial bags must not crash sanitize.
-assert(string.find(dataSrc, 'type(profile.Items) ~= "table"', 1, true), "sanitize must rebuild Keys-only Items")
-assert(string.find(dataSrc, 'type(profile.Anomaly.Protocols) ~= "table"', 1, true), "sanitize must rebuild Fragments-only Anomaly.Protocols")
+assert(
+	string.find(dataSrc, 'type(profile.Items) ~= "table"', 1, true)
+		or string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true),
+	"sanitize must rebuild Keys-only Items"
+)
+assert(
+	string.find(dataSrc, 'type(profile.Anomaly.Protocols) ~= "table"', 1, true)
+		or string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true),
+	"sanitize must rebuild Fragments-only Anomaly.Protocols"
+)
 assert(string.find(dataSrc, 'type(profile.Wheel) ~= "table"', 1, true), "sanitize must rebuild FreeSpins-only Wheel")
 assert(string.find(dataSrc, 'type(profile.Quests) ~= "table"', 1, true), "sanitize must harden Quests")
 assert(string.find(dataSrc, 'type(profile.TimedRewards) ~= "table"', 1, true), "sanitize must harden TimedRewards")
 -- wave13: ApplyReward Signals seeds Command={Signals=N}; Studio fixtures may omit Lab.
 assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "sanitize must rebuild Signals-only Command")
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "sanitize must rebuild missing Lab")
+-- wave15: Domain/Continuum/Anomaly/Items share ProfileBagMath Ensures with Admin/Progression.
+assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "sanitize must EnsureDomain via ProfileBagMath")
+assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "sanitize must EnsureContinuum via ProfileBagMath")
 
 ------------------------------------------------------------------------
 -- Config RemoteFirewall overrides stay present

@@ -391,6 +391,9 @@ do
 		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 6,
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 6,
+		["src/Client/AstralForge/pages/CreditsView.luau"] = 6,
+		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
+		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
 	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
@@ -408,6 +411,8 @@ do
 		"src/Client/AstralForge/pages/MilestonesView.luau",
 		"src/Client/AstralForge/pages/ResearchView.luau",
 		"src/Client/AstralForge/pages/LeaderboardsView.luau",
+		"src/Client/AstralForge/pages/AnomalyView.luau",
+		"src/Client/AstralForge/pages/InventoryView.luau",
 	} do
 		local src = fs.readFile(path)
 		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")
@@ -437,6 +442,13 @@ end
 	assert(string.find(research, "overscanRows = if softMotion then 0", 1, true), "Research VirtualGrid must softMotion-gate overscan")
 	local routerReady = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 	assert(string.find(routerReady, "PageReadyMath.CountReadyQuests", 1, true), "PageRouter must use PageReadyMath")
+	-- Wave15: Boosts/Inventory/Anomaly overscan softMotion-gated.
+	local boostsSoft = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
+	assert(string.find(boostsSoft, "overscan = if softMotion then 0", 1, true), "Boosts FlatList must softMotion-gate overscan")
+	local invSoft = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+	assert(string.find(invSoft, "overscan = if softMotion then 0", 1, true), "Inventory FlatList must softMotion-gate overscan")
+	local anomalySoft = fs.readFile("src/Client/AstralForge/pages/AnomalyView.luau")
+	assert(string.find(anomalySoft, "overscan = if softMotion then 0", 1, true), "Anomaly FlatList must softMotion-gate overscan")
 
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------

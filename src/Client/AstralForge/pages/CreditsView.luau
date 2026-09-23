@@ -481,6 +481,7 @@ local function CreditsOverlay(_param)
 		zIndex = 321,
 		clips = false,
 		reveal = reveal,
+		reducedMotion = softMotion,
 	}, _exp_2, _exp_3, _exp_4, _exp_5, _result, stack and React.createElement("frame", {
 		Size = UDim2.fromOffset(0, closeSize),
 		AutomaticSize = Enum.AutomaticSize.X,

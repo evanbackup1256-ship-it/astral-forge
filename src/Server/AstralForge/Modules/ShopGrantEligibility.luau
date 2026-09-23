@@ -31,7 +31,12 @@ function ShopGrantEligibility.StockMax(offer: OfferLike): number
 	return 1
 end
 
-function ShopGrantEligibility.InventoryCount(inventory: { [string]: any }): number
+-- Keys-only / missing Inventory bags (Studio fixtures) must count as empty —
+-- callers that pass profile.Items.Inventory without Ensure must not throw.
+function ShopGrantEligibility.InventoryCount(inventory: any): number
+	if type(inventory) ~= "table" then
+		return 0
+	end
 	local count = 0
 	for _ in inventory do
 		count += 1
@@ -89,7 +94,11 @@ end
 
 -- Ensure Stock/Purchased tables exist, clamp values, and daily-refresh when day rolls.
 -- Mutates `shop` in place. Returns whether anything changed.
-function ShopGrantEligibility.EnsureShop(shop: ShopState, offers: { OfferLike }, utcDay: number): boolean
+-- Nil shop (Items without Shop nest) is a no-op — callers must ProfileBagMath.EnsureItems first.
+function ShopGrantEligibility.EnsureShop(shop: any, offers: { OfferLike }, utcDay: number): boolean
+	if type(shop) ~= "table" then
+		return false
+	end
 	if type(shop.Stock) ~= "table" then
 		shop.Stock = {}
 	end
