@@ -5343,6 +5343,21 @@ local GameConfig = {
 			Reward = { Stardust = 98, CashMinutes = 44, Signals = 46 },
 			Color = Color3.fromRGB(0, 190, 145),
 		},
+		{
+			Id = "wave39-offline-brief",
+			Title = "Wave Thirty Nine Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Anomaly/Milestones/Convergence/ForgePath densify + OfflineRewards/Feedback softMotion; DENSE floors; readiness past checks=44.",
+			Body = {
+				"Progression pages and haul/feedback overlays thicken softMotion under the canonical antilag gate.",
+				"Playability DENSE floors climb for Anomaly/Milestones/Convergence/ForgePath; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 100, CashMinutes = 45, Signals = 47 },
+			Color = Color3.fromRGB(0, 195, 150),
+		},
 
 
 
@@ -5379,6 +5394,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 98, Stardust = 114, Signals = 50 },
 			Color = Color3.fromRGB(0, 190, 145),
+		},
+		{
+			Id = "update-5-1-wave39-offline",
+			Subject = "Dock note — wave thirty nine offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Progression-page + overlay softMotion floors — still DataVersion 21.",
+			Body = {
+				"Anomaly/Milestones/Convergence/ForgePath densify softMotion; OfflineRewards/Feedback overlays gain antilag softMotion gates.",
+				"Offline release-readiness checks grow past checks=44 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 100, Stardust = 116, Signals = 51 },
+			Color = Color3.fromRGB(0, 195, 150),
 		},
 
 		{

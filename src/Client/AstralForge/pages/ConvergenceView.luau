@@ -39,6 +39,7 @@ local function ConvergenceView(_param)
 	local now = useWallClock(event ~= nil)
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
+	local revealTiers = useStagger(1, softMotion)
 	if event == nil then
 		return React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
@@ -97,6 +98,7 @@ local function ConvergenceView(_param)
 		background = Palette.panelRaised,
 		padding = 16,
 		reveal = reveal,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "WEEKLY COOPERATIVE EVENT",
@@ -162,7 +164,7 @@ local function ConvergenceView(_param)
 			accent = if tier.CanClaim then Palette.mint else Palette.violet,
 			padding = 13,
 			layoutOrder = index,
-			reveal = reveal,
+			reveal = revealTiers,
 			interactive = tier.CanClaim,
 			reducedMotion = softMotion,
 			clips = false,

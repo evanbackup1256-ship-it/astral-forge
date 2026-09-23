@@ -1023,8 +1023,67 @@ assert(string.find(cfg, 'Id = "wave38-offline-brief"', 1, true), "Story wave38 r
 assert(string.find(cfg, 'Id = "update-5-1-wave38-offline"', 1, true), "Mail wave38 residual for release")
 mark("wave38 appshellchrome extract crew missions milestones boards densify content residuals")
 
--- Wave38 residuals raise the offline subset past checks=43.
-assert(#passed > 43, "release-readiness offline subset must stay beyond checks=43, got " .. tostring(#passed))
+-- Wave39: Anomaly/Milestones/Convergence/ForgePath densify + OfflineRewards/Feedback softMotion + DENSE floors + DV21.
+local anomalyWave39 = fs.readFile("src/Client/AstralForge/pages/AnomalyView.luau")
+local milestonesWave39 = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
+local convergenceWave39 = fs.readFile("src/Client/AstralForge/pages/ConvergenceView.luau")
+local forgePathWave39 = fs.readFile("src/Client/AstralForge/pages/ForgePathView.luau")
+assert(string.find(anomalyWave39, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion residual for release")
+assert(string.find(milestonesWave39, "Canonical softMotion antilag gate — MilestonesView", 1, true), "Milestones softMotion residual for release")
+assert(string.find(convergenceWave39, "Canonical softMotion antilag gate — ConvergenceView", 1, true), "Convergence softMotion residual for release")
+assert(string.find(forgePathWave39, "Canonical softMotion antilag gate — ForgePathView", 1, true), "ForgePath softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(anomalyWave39, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Anomaly softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(milestonesWave39, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Milestones softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(convergenceWave39, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 12, "Convergence softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(forgePathWave39, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 12, "ForgePath softMotion densify residual for release, got " .. tostring(soft))
+end
+local offlineWave39 = fs.readFile("src/Client/AstralForge/OfflineRewardsOverlay.luau")
+local feedbackWave39 = fs.readFile("src/Client/AstralForge/FeedbackOverlay.luau")
+assert(string.find(offlineWave39, "Canonical softMotion antilag gate — OfflineRewardsOverlay", 1, true), "OfflineRewards softMotion residual for release")
+assert(string.find(feedbackWave39, "Canonical softMotion antilag gate — FeedbackOverlay", 1, true), "Feedback softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(offlineWave39, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 10, "OfflineRewards softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(feedbackWave39, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 8, "Feedback softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave39-offline-brief"', 1, true), "Story wave39 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave39-offline"', 1, true), "Mail wave39 residual for release")
+mark("wave39 anomaly milestones convergence forgepath overlay softMotion densify content residuals")
+
+-- Wave39 residuals raise the offline subset past checks=44.
+assert(#passed > 44, "release-readiness offline subset must stay beyond checks=44, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

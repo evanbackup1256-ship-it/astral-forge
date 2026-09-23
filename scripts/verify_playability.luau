@@ -403,12 +403,12 @@ do
 	local DENSE = {
 		["src/Client/AstralForge/pages/TradeView.luau"] = 10,
 		["src/Client/AstralForge/pages/GuildView.luau"] = 10,
-		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 8,
+		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 10,
 		["src/Client/AstralForge/pages/SettingsView.luau"] = 12,
 		["src/Client/AstralForge/pages/ContinuumView.luau"] = 12,
 		["src/Client/AstralForge/pages/MailboxView.luau"] = 6,
 		["src/Client/AstralForge/pages/MissionsView.luau"] = 10,
-		["src/Client/AstralForge/pages/MilestonesView.luau"] = 10,
+		["src/Client/AstralForge/pages/MilestonesView.luau"] = 12,
 		["src/Client/AstralForge/pages/ResearchView.luau"] = 6,
 		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 10,
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
@@ -419,7 +419,7 @@ do
 		["src/Client/AstralForge/pages/RewardsView.luau"] = 8,
 		["src/Client/AstralForge/pages/WorkshopView.luau"] = 8,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
-		["src/Client/AstralForge/pages/AnomalyView.luau"] = 10,
+		["src/Client/AstralForge/pages/AnomalyView.luau"] = 12,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 12,
 		["src/Client/AstralForge/pages/ChatView.luau"] = 6,
 		["src/Client/AstralForge/pages/CommandView.luau"] = 12,
@@ -429,7 +429,7 @@ do
 		["src/Client/AstralForge/pages/StarGridView.luau"] = 6,
 		["src/Client/AstralForge/pages/StoryView.luau"] = 6,
 		["src/Client/AstralForge/pages/EchoForgeView.luau"] = 6,
-		["src/Client/AstralForge/pages/ForgePathView.luau"] = 6,
+		["src/Client/AstralForge/pages/ForgePathView.luau"] = 10,
 	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",

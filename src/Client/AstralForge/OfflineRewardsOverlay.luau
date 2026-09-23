@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.antilag).useAntilag
 local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local Audio = require(script.Parent.audio).Audio
 local _format = require(script.Parent.format)
@@ -30,7 +31,11 @@ local function StatTile(_param)
 	local color = _param.color
 	local index = _param.index
 	local reducedMotion = _param.reducedMotion
-	local reveal = useStagger(index, reducedMotion, 0.07, 0.22)
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — OfflineRewardsOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
+	local reveal = useStagger(index, softMotion, 0.07, 0.22)
 	return React.createElement("frame", {
 		Size = UDim2.new(0.25, -6, 1, 0),
 		Position = UDim2.new(index * 0.25, if index == 0 then 0 else 6, 0, 0),
@@ -68,6 +73,10 @@ local function OfflineRewardsOverlay(_param)
 	local efficiency = _param.efficiency
 	local capped = _param.capped
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — OfflineRewardsOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local effectsEnabled = _param.effectsEnabled
 	local production = _param.production
 	local awaySeconds = _param.awaySeconds
@@ -78,8 +87,8 @@ local function OfflineRewardsOverlay(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.stack or viewport.width < 720
-	local enter = useEntrance(reducedMotion)
-	local _binding = useExitTransition(reducedMotion, 0.32)
+	local enter = useEntrance(softMotion)
+	local _binding = useExitTransition(softMotion, 0.32)
 	local leave = _binding[1]
 	local closing = _binding[2]
 	local beginExit = _binding[3]
@@ -137,7 +146,7 @@ local function OfflineRewardsOverlay(_param)
 	-- welcome-back moment read as more exciting than a routine five-minute check-in.
 	local rewardAmount = asFlux(reward)
 	local bigHaul = rate > 0 and rewardAmount >= rate * 3600
-	local rewardGlow = useGlowStroke(bigHaul, reducedMotion, 0.35, 0.15, 0.62, 1.6)
+	local rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6)
 	local cardWidth = math.min(if stack then math.max(280, viewport.width - chrome.sideSafe * 2 - 20) else 560, 560)
 	local cardHeight = math.min(if stack then 468 else 420, math.max(300, viewport.height - viewport.topInset - chrome.bottomSafe - 24))
 	local finish = React.useCallback(function(bankVault)
@@ -230,7 +239,7 @@ local function OfflineRewardsOverlay(_param)
 		position = UDim2.fromOffset(0, 0),
 		glow = effectsEnabled or bigHaul,
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_7 = React.createElement(Text, {
 		value = "WELCOME BACK",
@@ -274,7 +283,7 @@ local function OfflineRewardsOverlay(_param)
 		sizeConstraint = UDim2.new(1, -28, 0, 14),
 	}), React.createElement(NumberSpinnerHost, {
 		value = rewardAmount,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		duration = 0.85,
 		prefix = "+",
 		extraSuffix = " FLUX",
@@ -294,7 +303,7 @@ local function OfflineRewardsOverlay(_param)
 			value = row.value,
 			color = row.color,
 			index = index,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		})
 	end
 	for _k, _v in rows do
@@ -332,7 +341,7 @@ local function OfflineRewardsOverlay(_param)
 		_attributes.textColor = Palette.ink
 		_attributes.size = UDim2.new(1, 0, 0, TapTarget)
 		_attributes.position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8))
-		_attributes.reducedMotion = reducedMotion
+		_attributes.reducedMotion = softMotion
 		_attributes.disabled = closing
 		_attributes.highlight = true
 		_result_1 = React.createElement(Button, _attributes)
@@ -347,7 +356,7 @@ local function OfflineRewardsOverlay(_param)
 			textColor = Palette.ink,
 			size = UDim2.new(1, 0, 0, TapTarget),
 			position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8)),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			disabled = closing,
 			highlight = true,
 		})
@@ -402,7 +411,7 @@ local function OfflineRewardsOverlay(_param)
 		textColor = Palette.cream,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = closing,
 	})))))))
 end

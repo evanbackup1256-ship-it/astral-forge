@@ -64,7 +64,7 @@ end
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/CrewView.luau"] = 12', 1, true), "Crew DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/MissionsView.luau"] = 10', 1, true), "Missions DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/MilestonesView.luau"] = 10', 1, true), "Milestones DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/MilestonesView.luau"] = 12', 1, true), "Milestones DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 10', 1, true), "Leaderboards DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

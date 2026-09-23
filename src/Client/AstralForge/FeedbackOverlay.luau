@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.antilag).useAntilag
 local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -24,6 +25,10 @@ local CATEGORIES = { "Bug", "Suggestion", "Balance", "Other" }
 local function FeedbackOverlay(_param)
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — FeedbackOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local onClose = _param.onClose
 	local notify = _param.notify
 	local viewport = useViewport()
@@ -43,8 +48,8 @@ local function FeedbackOverlay(_param)
 			mountedRef.current = false
 		end
 	end, {})
-	local enter = useEntrance(reducedMotion)
-	local _binding = useExitTransition(reducedMotion)
+	local enter = useEntrance(softMotion)
+	local _binding = useExitTransition(softMotion)
 	local leave = _binding[1]
 	local closing = _binding[2]
 	local beginExit = _binding[3]
@@ -216,7 +221,7 @@ local function FeedbackOverlay(_param)
 		size = if compact then 44 else 50,
 		radius = 14,
 		filled = sent,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_4 = not keyboardCompact and React.createElement(Text, {
 		value = if sent then "THANK YOU" else "FEEDBACK",
@@ -247,7 +252,7 @@ local function FeedbackOverlay(_param)
 		textColor = Palette.coral,
 		size = UDim2.fromOffset(TapTarget, TapTarget),
 		position = UDim2.new(1, -TapTarget, 0, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = sending or closing,
 	})
 	local _condition = not sent and not keyboardCompact
@@ -276,7 +281,7 @@ local function FeedbackOverlay(_param)
 		_attributes.columns = categoryColumns
 		_attributes.gap = 6
 		_attributes.size = UDim2.fromScale(1, 1)
-		_attributes.reducedMotion = reducedMotion
+		_attributes.reducedMotion = softMotion
 		_attributes.zIndex = 475
 		_condition = React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, categoryH),
@@ -380,7 +385,7 @@ local function FeedbackOverlay(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	}) else React.createElement(Button, {
 		text = if sending then "SENDING..." elseif #trimmed < 8 then "WRITE A LITTLE MORE" else "SEND FEEDBACK",
@@ -391,7 +396,7 @@ local function FeedbackOverlay(_param)
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
 		disabled = not canSend,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = canSend,
 	}))))))
 end

@@ -1079,6 +1079,10 @@ local function DirectiveRow(_param)
 	local directive = _param.directive
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — DirectiveRow.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local order = _param.order
 	local stack = _param.stack
 	local ready = not directive.Claimed and directive.Progress >= directive.Target
@@ -1144,14 +1148,14 @@ local function DirectiveRow(_param)
 		layoutOrder = order,
 		interactive = true,
 		highlight = ready and not armed,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, _exp, _exp_1, _exp_2, React.createElement(Text, _attributes_1), React.createElement(Meter, {
 		value = math.clamp(directive.Progress / math.max(1, directive.Target), 0, 1),
 		color = accent,
 		position = UDim2.fromOffset(0, if stack then 90 else 88),
 		size = UDim2.new(1, if stack then 0 else -220, 0, 7),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = ready,
 	}), formatReward(directive.Reward) ~= "" and React.createElement(Text, {
 		value = formatReward(directive.Reward),
@@ -1170,7 +1174,7 @@ local function DirectiveRow(_param)
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(198, 44),
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -198, 0.5, -22),
 		disabled = not ready or armed,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = ready and not armed,
 	}))
 end
@@ -1180,6 +1184,10 @@ local function ProtocolRow(_param)
 	local fragments = _param.fragments
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ProtocolRow.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local order = _param.order
 	local stack = _param.stack
 	local cost = protocolCost(protocol, level)
@@ -1220,7 +1228,7 @@ local function ProtocolRow(_param)
 		layoutOrder = order,
 		interactive = not maxed,
 		highlight = affordable,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = protocol.Name,
@@ -1248,7 +1256,7 @@ local function ProtocolRow(_param)
 		color = protocol.Color,
 		position = UDim2.fromOffset(0, if stack then 96 else 100),
 		size = UDim2.new(1, if stack then 0 else -220, 0, 5),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = affordable,
 	}), React.createElement(Text, {
 		value = if maxed then "Fully tuned" else `{compactNumber(fragments)} / {compactNumber(cost)} fragments to level up`,
@@ -1268,7 +1276,7 @@ local function ProtocolRow(_param)
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(198, 44),
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -198, 0.5, -22),
 		disabled = not affordable,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = affordable,
 	}))
 end
@@ -1285,7 +1293,7 @@ local function ReactorConsole(_param)
 	local compactLandscape = not stack and chrome.landscape and viewport.height < 500
 	local antilag = useAntilag()
 	local skipEntrance = reducedMotion or antilag.skipEntrance
-	-- Canonical softMotion antilag gate — AnomalyView pulse/flash drops on soft tiers.
+	-- Canonical softMotion antilag gate — AnomalyView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local anomalyClaimHostRef = React.useRef(nil)

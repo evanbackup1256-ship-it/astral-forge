@@ -80,6 +80,10 @@ local function MilestoneRow(_param)
 	local achievement = _param.achievement
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — MilestoneRow.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local position = _param.position
 	local stack = _param.stack
 	local claimHostRef = _param.claimHostRef
@@ -112,7 +116,7 @@ local function MilestoneRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = achievement.Name,
@@ -142,7 +146,7 @@ local function MilestoneRow(_param)
 		padding = pad,
 		interactive = true,
 		highlight = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, _exp, _exp_1, React.createElement(Text, _attributes), reward ~= "" and React.createElement(Text, {
 		value = reward,
 		size = 11,
@@ -162,7 +166,7 @@ local function MilestoneRow(_param)
 	}), React.createElement(Meter, {
 		value = if achievement.Claimed or ready then 1 else progressFrac,
 		color = if achievement.Claimed then Palette.muted else accent,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = ready,
 		position = meterPosition,
 		size = meterSize,
@@ -170,7 +174,7 @@ local function MilestoneRow(_param)
 		progress = progressFrac,
 		ready = ready,
 		accent = accent,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement("frame", {
@@ -192,7 +196,7 @@ local function MilestoneRow(_param)
 		color = if ready then Palette.green else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
 	})) else React.createElement("frame", {
@@ -214,7 +218,7 @@ local function MilestoneRow(_param)
 		color = if ready then Palette.green else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
 	})))
