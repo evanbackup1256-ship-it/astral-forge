@@ -47,7 +47,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: cf1ea9e
+# Expect at or after: 54c492e
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
@@ -116,6 +116,7 @@ git merge-base --is-ancestor 7af98e6 HEAD && echo wave32-offline OK
 git merge-base --is-ancestor 09a20cb HEAD && echo wave33-offline OK
 git merge-base --is-ancestor 97ee141 HEAD && echo wave34-offline OK
 git merge-base --is-ancestor e62b190 HEAD && echo wave35-offline OK
+git merge-base --is-ancestor 54c492e HEAD && echo wave36-offline OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -159,7 +160,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: cf1ea9e
+# Expect at or after: 54c492e
 argon serve default.project.json
 ```
 
