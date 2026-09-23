@@ -64,6 +64,13 @@ serviceFactories["GameService"] = function()
 	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CrateRoll"))
 	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ShopGrantEligibility"))
 	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandActionValidators"))
+	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SocialBoost"))
+	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemSalvage"))
+	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OverchargeCombo"))
+	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RankBracket"))
+	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
+	local ActionResponse = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionResponse"))
+	local GeneralBoardValue = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GeneralBoardValue"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -96,28 +103,7 @@ serviceFactories["GameService"] = function()
 	local RANK_PING_INTERVAL = 20
 
 	local function applySocialBoost(profile, friendCount: number, premium: boolean): boolean
-		local friendLimit = GameConfig.Social.MaxBoostedFriends
-		local count = math.clamp(math.floor(friendCount), 0, friendLimit)
-		local friendBonus = count * GameConfig.Social.FriendProductionPerPlayer
-		local premiumBonus = premium and GameConfig.Social.PremiumProductionBonus or 0
-		local multiplier = 1 + friendBonus + premiumBonus
-		local previous = profile.SocialBoost
-		local changed = type(previous) ~= "table"
-			or previous.FriendCount ~= count
-			or previous.FriendLimit ~= friendLimit
-			or previous.FriendBonus ~= friendBonus
-			or previous.Premium ~= premium
-			or previous.PremiumBonus ~= premiumBonus
-			or previous.Multiplier ~= multiplier
-		profile.SocialBoost = {
-			FriendCount = count,
-			FriendLimit = friendLimit,
-			FriendBonus = friendBonus,
-			Premium = premium,
-			PremiumBonus = premiumBonus,
-			Multiplier = multiplier,
-		}
-		return changed
+		return SocialBoost.Apply(profile, friendCount, premium, GameConfig.Social)
 	end
 
 	local GENERAL_BOARD_STORE_NAMES = {
@@ -131,41 +117,10 @@ serviceFactories["GameService"] = function()
 	}
 
 	local function generalBoardValue(profile, id: string)
-		if id == "Flux" then return Economy.Persist(profile.LifetimeCash) end
-		if id == "Rebirths" then return math.max(0, math.floor(tonumber(profile.Rebirths) or 0)) end
-		if id == "PlayTime" then return math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.PlayTime) or 0)) end
-		if id == "Dust" then return math.max(0, math.floor(tonumber(profile.Stardust) or 0)) end
-		if id == "Cores" then return math.max(0, math.floor(tonumber(profile.Cores) or 0)) end
-		if id == "Domain" then return math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0)) end
-		if id == "Worlds" then return math.max(1, math.floor(tonumber(profile.Zone) or 1)) end
-		return 0
+		return GeneralBoardValue.Of(profile, id, Economy.Persist)
 	end
 
-	local anomalyChargeByAction = {
-		[Protocol.Actions.CollectVault] = 8,
-		[Protocol.Actions.Overcharge] = 3,
-		[Protocol.Actions.BuyMachine] = 5,
-		[Protocol.Actions.BuyResearch] = 5,
-		[Protocol.Actions.BuyGridUpgrade] = 6,
-		[Protocol.Actions.UpgradeContinuum] = 18,
-		[Protocol.Actions.UpgradeArtifact] = 6,
-		[Protocol.Actions.UpgradeCrew] = 5,
-		[Protocol.Actions.UnlockZone] = 16,
-		[Protocol.Actions.Rebirth] = 24,
-		[Protocol.Actions.ClaimQuest] = 7,
-		[Protocol.Actions.ClaimAchievement] = 12,
-		[Protocol.Actions.ClaimDaily] = 14,
-		[Protocol.Actions.ClaimTimedReward] = 9,
-		[Protocol.Actions.SpinWheel] = 12,
-		[Protocol.Actions.ClaimExpedition] = 20,
-		[Protocol.Actions.ClaimCommanderReward] = 8,
-		[Protocol.Actions.ClaimWeeklyDirective] = 16,
-		[Protocol.Actions.ClaimSeasonTier] = 12,
-		[Protocol.Actions.OpenItemCrate] = 14,
-		[Protocol.Actions.UpgradeItem] = 7,
-		[Protocol.Actions.EquipBestItems] = 10,
-		[Protocol.Actions.BulkSalvageItems] = 10,
-	}
+	local anomalyChargeByAction = ActionFeatureMaps.ANOMALY_CHARGE
 
 	local function telemetryNumber(value: any): number
 		local numeric = Economy.AsNumber(value)
@@ -211,91 +166,8 @@ serviceFactories["GameService"] = function()
 		return packed
 	end
 
-	local anomalySignalByAction = {
-		[Protocol.Actions.CollectVault] = "Collect",
-		[Protocol.Actions.BuyMachine] = "Upgrade",
-		[Protocol.Actions.BuyResearch] = "Upgrade",
-		[Protocol.Actions.BuyGridUpgrade] = "Upgrade",
-		[Protocol.Actions.UpgradeContinuum] = "Upgrade",
-		[Protocol.Actions.UpgradeItem] = "Upgrade",
-		[Protocol.Actions.EquipBestItems] = "Upgrade",
-		[Protocol.Actions.UpgradeArtifact] = "Upgrade",
-		[Protocol.Actions.UpgradeCrew] = "Upgrade",
-		[Protocol.Actions.ClaimQuest] = "Reward",
-		[Protocol.Actions.ClaimAchievement] = "Reward",
-		[Protocol.Actions.ClaimDaily] = "Reward",
-		[Protocol.Actions.ClaimTimedReward] = "Reward",
-		[Protocol.Actions.ClaimExpedition] = "Reward",
-		[Protocol.Actions.ClaimCommanderReward] = "Reward",
-		[Protocol.Actions.ClaimWeeklyDirective] = "Reward",
-		[Protocol.Actions.ClaimSeasonTier] = "Reward",
-		[Protocol.Actions.ClaimForgePathStep] = "Reward",
-	}
-
-	local featureByAction = {
-		[Protocol.Actions.VisitPlot] = "Crew",
-		[Protocol.Actions.LeavePlot] = "Crew",
-		[Protocol.Actions.NudgeCrew] = "Crew",
-		[Protocol.Actions.BuyResearch] = "Research",
-		[Protocol.Actions.BuyGridUpgrade] = "StarGrid",
-		[Protocol.Actions.UnlockZone] = "Worlds",
-		[Protocol.Actions.SelectZone] = "Worlds",
-		[Protocol.Actions.Rebirth] = "Rebirth",
-		[Protocol.Actions.DomainExpansion] = "Domain",
-		[Protocol.Actions.UnlockDomainNode] = "Domain",
-		[Protocol.Actions.UpgradeContinuum] = "Continuum",
-		[Protocol.Actions.CaptureEcho] = "Echoes",
-		[Protocol.Actions.ClaimEcho] = "Echoes",
-		[Protocol.Actions.EquipEcho] = "Echoes",
-		[Protocol.Actions.UpgradeEcho] = "Echoes",
-		[Protocol.Actions.DismantleEcho] = "Echoes",
-		[Protocol.Actions.ClaimQuest] = "Missions",
-		[Protocol.Actions.ClaimAchievement] = "Milestones",
-		[Protocol.Actions.SpinWheel] = "Wheel",
-		[Protocol.Actions.ClaimDaily] = "Rewards",
-		[Protocol.Actions.ClaimTimedReward] = "Rewards",
-		[Protocol.Actions.ActivateBoost] = "Rewards",
-		[Protocol.Actions.LaunchExpedition] = "Command",
-		[Protocol.Actions.ClaimExpedition] = "Command",
-		[Protocol.Actions.EquipArtifact] = "Command",
-		[Protocol.Actions.UpgradeArtifact] = "Command",
-		[Protocol.Actions.UpgradeCrew] = "Command",
-		[Protocol.Actions.ClaimCommanderReward] = "Command",
-		[Protocol.Actions.ClaimWeeklyDirective] = "Command",
-		[Protocol.Actions.ClaimSeasonTier] = "Command",
-		[Protocol.Actions.BuySignalOffer] = "Command",
-		[Protocol.Actions.EquipTitle] = "Command",
-		[Protocol.Actions.RedeemCode] = "Shop",
-		[Protocol.Actions.VerifyCreatorFollow] = "Shop",
-		[Protocol.Actions.BuyItemOffer] = "Inventory",
-		[Protocol.Actions.OpenItemCrate] = "Inventory",
-		[Protocol.Actions.EquipItem] = "Inventory",
-		[Protocol.Actions.UnequipItem] = "Inventory",
-		[Protocol.Actions.UpgradeItem] = "Inventory",
-		[Protocol.Actions.SalvageItem] = "Inventory",
-		[Protocol.Actions.BulkSalvageItems] = "Inventory",
-		[Protocol.Actions.EquipBestItems] = "Inventory",
-		[Protocol.Actions.ToggleItemLock] = "Inventory",
-		[Protocol.Actions.SetItemAutoSalvage] = "Inventory",
-		[Protocol.Actions.PulseAnomaly] = "Anomaly",
-		[Protocol.Actions.StabilizeAnomaly] = "Anomaly",
-		[Protocol.Actions.BuyAnomalyProtocol] = "Anomaly",
-		[Protocol.Actions.ActivateAnomalySurge] = "Anomaly",
-		[Protocol.Actions.SetAnomalyChannel] = "Anomaly",
-		[Protocol.Actions.SetAnomalyLoadout] = "Anomaly",
-		[Protocol.Actions.ClaimAnomalyMilestone] = "Anomaly",
-		[Protocol.Actions.ClaimAnomalyDirective] = "Anomaly",
-		[Protocol.Actions.ClaimLabOrder] = "Lab",
-		[Protocol.Actions.RouteLabPower] = "Lab",
-		[Protocol.Actions.ReadStoryChapter] = "Story",
-		[Protocol.Actions.ClaimStoryChapter] = "Story",
-		[Protocol.Actions.ReadMail] = "Mail",
-		[Protocol.Actions.ClaimMail] = "Mail",
-		[Protocol.Actions.ClaimAllMail] = "Mail",
-		[Protocol.Actions.DeleteMail] = "Mail",
-		[Protocol.Actions.GetLeaderboard] = "Leaderboards",
-		[Protocol.Actions.ClaimConvergenceReward] = "Convergence",
-	}
+	local anomalySignalByAction = ActionFeatureMaps.ANOMALY_SIGNAL
+	local featureByAction = ActionFeatureMaps.FEATURE
 
 
 	-- Deferred snapshot / high-value grant tables live in CommandActionValidators.
@@ -405,14 +277,11 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function responseError(message: string)
-		return { ok = false, error = message }
+		return ActionResponse.Error(message)
 	end
 
 	local function responseSuccess(message: string?, extra)
-		local response = extra or {}
-		response.ok = true
-		response.message = message
-		return response
+		return ActionResponse.Success(message, extra)
 	end
 
 	local function publicPlayerRecord(player: Player, profile, viewer: Player, presence)
@@ -1090,7 +959,7 @@ serviceFactories["GameService"] = function()
 	local function itemSalvageValue(instance, definition): number
 		local rarity = GameConfig.Items.Rarities[definition.Rarity]
 		local rank = rarity and rarity.Rank or 1
-		return rank * rank * 8 + math.max(0, instance.Level - 1) * rank * 3
+		return ItemSalvage.Value(instance.Level, rank)
 	end
 
 	local function ensureAutoSalvage(profile)
@@ -1320,11 +1189,11 @@ serviceFactories["GameService"] = function()
 	local OVERCHARGE_COMBO_BONUS = GameConfig.Overcharge.ComboBonusPerStack
 
 	local function overchargeComboWindow(profile): number
-		return OVERCHARGE_COMBO_WINDOW
+		return OverchargeCombo.Window(OVERCHARGE_COMBO_WINDOW)
 	end
 
 	local function overchargeComboMultiplier(profile, combo: number): number
-		return 1 + math.min(OVERCHARGE_COMBO_MAX, math.max(0, combo)) * OVERCHARGE_COMBO_BONUS
+		return OverchargeCombo.Multiplier(combo, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS)
 	end
 
 	function GameService:_snapshot(player: Player)
@@ -3979,18 +3848,8 @@ serviceFactories["GameService"] = function()
 
 	local RANK_PING_BOARD = "Flux"
 	local RANK_PING_BOARD_LABEL = "Lifetime Flux"
-	local RANK_PING_BRACKETS = { 1, 3, 10, 25 }
-
-	local RANK_PING_UNRANKED = math.huge
-
-	local function rankBracket(rank: number): number
-		for _, bracket in RANK_PING_BRACKETS do
-			if rank <= bracket then
-				return bracket
-			end
-		end
-		return RANK_PING_UNRANKED
-	end
+	local RANK_PING_BRACKETS = RankBracket.DEFAULT_BRACKETS
+	local RANK_PING_UNRANKED = RankBracket.UNRANKED
 
 	function GameService:_announceRankClimbs(id: string, rows)
 		if id ~= RANK_PING_BOARD then return end
@@ -4004,11 +3863,7 @@ serviceFactories["GameService"] = function()
 			if runtime and rank then
 				local previous = math.max(0, math.floor(tonumber(runtime.LeaderboardRank) or 0))
 				runtime.LeaderboardRank = rank
-				local bracket = rankBracket(rank)
-				local previousBracket = previous > 0 and rankBracket(previous) or RANK_PING_UNRANKED
-				local seeded = previous > 0
-				local crossed = bracket ~= RANK_PING_UNRANKED and bracket < previousBracket
-				if seeded and rank < previous and crossed then
+				if RankBracket.ShouldAnnounce(previous, rank, RANK_PING_BRACKETS, RANK_PING_UNRANKED) then
 					self:_toastPlayer(
 						online,
 						"Leaderboard climb",

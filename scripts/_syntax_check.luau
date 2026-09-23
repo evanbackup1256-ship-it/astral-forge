@@ -54,6 +54,8 @@ local files = {
 	"src/Client/AstralForge/layoutSectionPlan.luau",
 	"src/Client/AstralForge/navRouteTable.luau",
 	"src/Client/AstralForge/vaultCollectEligibility.luau",
+	"src/Client/AstralForge/actionCopy.luau",
+	"src/Client/AstralForge/boostIconKind.luau",
 	-- Shared catalog (parse only — no require)
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
 	-- Server trade desk (offer validation / exchange)
@@ -74,6 +76,13 @@ local files = {
 	"src/Server/AstralForge/Modules/CrateRoll.luau",
 	"src/Server/AstralForge/Modules/ShopGrantEligibility.luau",
 	"src/Server/AstralForge/Modules/CommandActionValidators.luau",
+	"src/Server/AstralForge/Modules/SocialBoost.luau",
+	"src/Server/AstralForge/Modules/ItemSalvage.luau",
+	"src/Server/AstralForge/Modules/OverchargeCombo.luau",
+	"src/Server/AstralForge/Modules/RankBracket.luau",
+	"src/Server/AstralForge/Modules/ActionFeatureMaps.luau",
+	"src/Server/AstralForge/Modules/ActionResponse.luau",
+	"src/Server/AstralForge/Modules/GeneralBoardValue.luau",
 	"src/Server/AstralForge/Services/AnomalyService.luau",
 	"src/Server/AstralForge/Services/GuildService.luau",
 	"src/Server/AstralForge/Services/ForgeEchoService.luau",
