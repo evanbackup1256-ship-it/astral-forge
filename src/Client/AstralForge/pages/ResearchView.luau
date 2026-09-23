@@ -10,6 +10,7 @@ local AmountToggle = _ui.AmountToggle
 local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local Layout = _theme.Layout
@@ -187,6 +188,9 @@ local function ResearchView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local scrollRef = React.useRef()
 	local entries = React.useMemo(function()
@@ -246,7 +250,7 @@ local function ResearchView(_param)
 		end
 		-- ▲ ReadonlyArray.forEach ▲
 	end
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local listGap = if stack then chrome.panelGap else Layout.panelGap
 	-- Stack mode header padding is 14, and the AmountToggle row sits at y=132 with height
 	-- TapTarget(48), ending at 180 — needs 180 + 28 = 208. Non-stack ends its content at

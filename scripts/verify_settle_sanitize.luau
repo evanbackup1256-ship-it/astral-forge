@@ -55,6 +55,8 @@ end
 assert(getCount >= 4, "Hello/Beat/Txn helpers should share _get, got " .. tostring(getCount))
 assert(string.find(gateSrc, "session bag via _get", 1, true), "TxnLookup must document Studio bag via _get")
 assert(string.find(gateSrc, "TXN_RING", 1, true), "txn ring must bound sanitize/eviction")
+assert(string.find(gateSrc, "Studio skips gen/nonce auth", 1, true), "CheckGrant Studio path must document _get allocation")
+assert(string.find(gateSrc, "Share _get with Claim/Store", 1, true), "TxnRelease must share _get allocator")
 
 ------------------------------------------------------------------------
 -- DataService sanitize bags (progression / economy bags that crash when partial)

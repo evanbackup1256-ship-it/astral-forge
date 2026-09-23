@@ -121,4 +121,42 @@ do
 	end
 end
 
+-- Studio CheckGrant must allocate a session bag via _get so Peek/txn helpers stay coherent
+-- when grants run without Hello (Studio short-circuits auth).
+do
+	local studioGame = {
+		GetService = function(_, name)
+			if name == "HttpService" then
+				return {
+					GenerateGUID = function()
+						guidCounter += 1
+						return "studio-nonce-" .. tostring(guidCounter)
+					end,
+				}
+			elseif name == "RunService" then
+				return {
+					IsStudio = function()
+						return true
+					end,
+					IsServer = function()
+						return true
+					end,
+				}
+			end
+			error("unexpected service " .. tostring(name))
+		end,
+	}
+	local studioFactory = luau.load(src, { environment = setmetatable({ game = studioGame }, { __index = getfenv(0) }) })()
+	local studioGate = studioFactory().new()
+	local studioPlayer = { Name = "StudioDev", UserId = 99 }
+	assert(studioGate:CheckGrant(studioPlayer, nil, nil, true) == true, "Studio CheckGrant must pass")
+	local sGen, sNonce = studioGate:Peek(studioPlayer)
+	assert(type(sGen) == "number" and type(sNonce) == "string", "Studio CheckGrant must allocate session for Peek")
+	local claimStatus = studioGate:TxnClaim(studioPlayer, "studio-no-hello")
+	assert(claimStatus == "new", "Studio txn claim after CheckGrant must work")
+	studioGate:TxnRelease(studioPlayer, "studio-no-hello")
+	claimStatus = studioGate:TxnClaim(studioPlayer, "studio-no-hello")
+	assert(claimStatus == "new", "Studio TxnRelease via _get must clear pending")
+end
+
 print("[INFO] [TEST] session gate production path passed")

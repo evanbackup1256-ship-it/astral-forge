@@ -63,9 +63,10 @@ local function MessageRow(_param)
 	local animate = _param.animate
 	local rowHeight = _param.rowHeight
 	local antilag = useAntilag()
-	local enter = useMessageEntrance(animate, reducedMotion)
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local enter = useMessageEntrance(animate, softMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)
-	local pulse = usePulse(not message.system and not reducedMotion and antilag.tier >= 2, 2.4 + math.abs(message.userId % 5) * 0.14)
+	local pulse = usePulse(not message.system and not softMotion and antilag.tier >= 2, 2.4 + math.abs(message.userId % 5) * 0.14)
 	local fade = enter:map(function(amount)
 		return 1 - amount
 	end)
@@ -265,6 +266,9 @@ local function ChatView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local bodySize = if chrome.mobile then 16 else 15
 	local rowHeight = if chrome.mobile then 144 else ROW_HEIGHT
 	local condensed = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
