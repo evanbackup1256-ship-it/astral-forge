@@ -2633,9 +2633,9 @@ local GameConfig = {
 		{
 			Id = "CtaClipCloser",
 			Name = "Clip Closer",
-			Description = "Bank the vault 12 times after CTA clip polish.",
-			Kind = "Collects",
-			Target = 12,
+			Description = "Log 900 seconds on-shift after CTA clip polish.",
+			Kind = "PlayTime",
+			Target = 900,
 			Reward = { Stardust = 95, Signals = 28, CashMinutes = 12, Boost = "VaultSurge" },
 		},
 	},
