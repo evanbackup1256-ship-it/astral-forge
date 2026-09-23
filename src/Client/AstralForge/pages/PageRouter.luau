@@ -89,6 +89,7 @@ local LayoutSectionPlan = require(script.Parent.Parent.layoutSectionPlan)
 local VaultCollectEligibility = require(script.Parent.Parent.vaultCollectEligibility)
 local PageReadyMath = require(script.Parent.Parent.pageReadyMath)
 local PageBoardHeights = require(script.Parent.Parent.pageBoardHeights)
+local ReleaseClockMath = require(script.Parent.Parent.releaseClockMath)
 local function Metric(_param)
 	local label = _param.label
 	local value = _param.value
@@ -173,8 +174,8 @@ local function ReleaseCountdown(_param)
 			end)
 		end
 	end, {})
-	local remaining = math.max(0, releaseAt - now)
-	local live = remaining <= 0
+	local remaining = ReleaseClockMath.Remaining(releaseAt, now)
+	local live = ReleaseClockMath.IsLive(releaseAt, now)
 	local slam, setSlam = React.useState(0)
 	local wasLive = React.useRef(live)
 	React.useEffect(function()

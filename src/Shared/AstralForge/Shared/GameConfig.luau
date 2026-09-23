@@ -810,6 +810,28 @@ local GameConfig = {
 				Reward = { Stardust = 64, CashMinutes = 4, Signals = 24 },
 				Color = Color3.fromRGB(255, 155, 245),
 			},
+			{
+				Id = "Wave22SessionEchoExtract",
+				Name = "Wave Twenty Two Session Echo Extract",
+				Description = "Tap through a short tally while RemoteFirewallMath IsSessionOnlyPayload and ForgeEchoMath Sanitize stay Lune-testable.",
+				Kind = "Tap",
+				BaseTarget = 160,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 54, CashMinutes = 3, Signals = 22 },
+				Color = Color3.fromRGB(70, 255, 210),
+			},
+			{
+				Id = "Wave22LoadoutItemExtract",
+				Name = "Wave Twenty Two Loadout Item Extract",
+				Description = "Bank flux while ItemLoadoutMath EquipBest, EconomyEnvelopeMath ItemEffect, and InventoryMath ChipRows/LoadoutEffectLines stay Lune-testable.",
+				Kind = "BankFlux",
+				BaseTarget = 6_100,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 68, CashMinutes = 4, Signals = 26 },
+				Color = Color3.fromRGB(255, 145, 240),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3330,6 +3352,22 @@ local GameConfig = {
 			Target = 42,
 			Reward = { Stardust = 370, Signals = 100, CashMinutes = 34, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave22ExtractCourier",
+			Name = "Wave Twenty Two Extract Courier",
+			Description = "Claim 76 story chapters after SessionOnly payload + ForgeEcho Sanitize + ItemLoadout EquipBest extracts.",
+			Kind = "StoryClaims",
+			Target = 76,
+			Reward = { Stardust = 380, Signals = 102, CashMinutes = 35, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave22ReadinessRunner",
+			Name = "Wave Twenty Two Readiness Runner",
+			Description = "Hold a 46-day daily streak while release-readiness offline checks grow past checks=27 toward RunQuick parity.",
+			Kind = "DailyStreak",
+			Target = 46,
+			Reward = { Stardust = 390, Signals = 104, CashMinutes = 36, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4996,9 +5034,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(80, 255, 220),
 		},
 
+		{
+			Id = "wave22-extract-brief",
+			Title = "Wave Twenty Two Extract Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "SessionOnly payload + ForgeEcho Sanitize + ItemLoadout EquipBest extracts; readiness past checks=27.",
+			Body = {
+				"RemoteFirewallMath IsSessionOnlyPayload, ForgeEchoMath Sanitize, DataSanitizeMath ClampAutoForge, EconomyEnvelopeMath ItemEffect, ItemLoadoutMath PlanEquipBest, ProgressionOpsMath ApplyCommandXP, and ReleaseClockMath Remaining stay Lune-testable.",
+				"InventoryMath ChipRows/LoadoutEffectLines thin InventoryView; offline release-readiness checks grow past checks=27 toward RunQuick parity.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 68, CashMinutes = 29, Signals = 31 },
+			Color = Color3.fromRGB(70, 255, 210),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave22-extract",
+			Subject = "Dock note — wave twenty two extract",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "SessionOnly + Echo Sanitize + ItemLoadout EquipBest extracts — still DataVersion 21.",
+			Body = {
+				"NO_PAYLOAD session gates, ForgeEcho sanitize, AutoForge clamps, equipped ItemEffect, EquipBest planning, CommandXP scaling, and release countdown remaining are Lune-testable.",
+				"Inventory ChipRows/LoadoutEffectLines thin InventoryView; offline release-readiness checks grow past checks=27 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 68, Stardust = 84, Signals = 35 },
+			Color = Color3.fromRGB(70, 255, 210),
+		},
 
 		{
 			Id = "update-5-1-wave21-extract",

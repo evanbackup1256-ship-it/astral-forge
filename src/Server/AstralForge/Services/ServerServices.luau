@@ -77,6 +77,7 @@ serviceFactories["GameService"] = function()
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local ProfileClampMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileClampMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemLoadoutMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -3068,17 +3069,12 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_equipBestItems(player: Player)
 		return self:_mutate(player, function(profile)
-			local targets = {}
-			for _, machine in GameConfig.Machines do
-				if (profile.Machines[machine.Id] or 0) >= 1 then
-					table.insert(targets, { Id = "Machine:" .. machine.Id, Slot = "Machine", TargetId = machine.Id })
-				end
-			end
-			for _, research in GameConfig.Research do
-				if (profile.Research[research.Id] or 0) >= 1 then
-					table.insert(targets, { Id = "Research:" .. research.Id, Slot = "Research", TargetId = research.Id })
-				end
-			end
+			local targets = ItemLoadoutMath.BuildTargets(
+				GameConfig.Machines,
+				GameConfig.Research,
+				profile.Machines,
+				profile.Research
+			)
 			local candidates = {}
 			for uid, instance in profile.Items.Inventory do
 				local definition = itemById[instance.DefinitionId]
@@ -3087,58 +3083,16 @@ serviceFactories["GameService"] = function()
 						Uid = uid,
 						Instance = instance,
 						Definition = definition,
-						Power = definition.BaseEffect * (1 + definition.LevelGrowth * math.max(0, instance.Level - 1)),
+						Power = ItemLoadoutMath.CandidatePower(definition, instance.Level),
 					})
 				end
 			end
-			table.sort(candidates, function(a, b)
-				if a.Power ~= b.Power then return a.Power > b.Power end
-				local aRank = GameConfig.Items.Rarities[a.Definition.Rarity].Rank
-				local bRank = GameConfig.Items.Rarities[b.Definition.Rarity].Rank
-				if aRank ~= bRank then return aRank > bRank end
-				if a.Instance.Level ~= b.Instance.Level then return a.Instance.Level > b.Instance.Level end
-				return a.Uid < b.Uid
-			end)
-
-			local function compatibleCount(target): number
-				local count = 0
-				for _, candidate in candidates do
-					local definition = candidate.Definition
-					if definition.Slot == target.Slot
-						and (not definition.Targets or table.find(definition.Targets, target.TargetId) ~= nil)
-					then count += 1 end
-				end
-				return count
-			end
-			table.sort(targets, function(a, b)
-				local aCount = compatibleCount(a)
-				local bCount = compatibleCount(b)
-				if aCount ~= bCount then return aCount < bCount end
-				return a.Id < b.Id
-			end)
-			local nextEquipped = {}
-			local used = {}
-			local equippedCount = 0
-			for _, target in targets do
-				for _, candidate in candidates do
-					local definition = candidate.Definition
-					local compatible = definition.Slot == target.Slot
-						and (not definition.Targets or table.find(definition.Targets, target.TargetId) ~= nil)
-					if compatible and not used[candidate.Uid] then
-						nextEquipped[target.Id] = candidate.Uid
-						used[candidate.Uid] = true
-						equippedCount += 1
-						break
-					end
-				end
-			end
-			local changed = 0
-			for target, uid in nextEquipped do
-				if profile.Items.Equipped[target] ~= uid then changed += 1 end
-			end
-			for target in profile.Items.Equipped do
-				if not nextEquipped[target] then changed += 1 end
-			end
+			local nextEquipped, equippedCount, changed = ItemLoadoutMath.PlanEquipBest(
+				targets,
+				candidates,
+				GameConfig.Items.Rarities,
+				profile.Items.Equipped
+			)
 			profile.Items.Equipped = nextEquipped
 			return responseSuccess(
 				#targets == 0 and "Unlock a machine or research socket first."

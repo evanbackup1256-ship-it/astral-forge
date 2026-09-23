@@ -162,85 +162,23 @@ return function(loadService: (string) -> any)
 			0,
 			GameConfig.Continuum.MaxRank
 		)
-		-- Charge-only / Draft-less Studio fixtures share ForgeEchoMath.Ensure with
-		-- Admin GrantEchoCharge and ForgeEchoService before clamp/sanitize.
-		profile.ForgeEchoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
-		local echoes = profile.ForgeEchoes
-		echoes.Charge = math.clamp(nonNegative(echoes.Charge), 0, GameConfig.ForgeEchoes.ChargeTarget)
-		echoes.Resonance = math.floor(nonNegative(echoes.Resonance))
-		echoes.Captures = math.floor(nonNegative(echoes.Captures))
-		echoes.NextId = math.max(1, math.floor(nonNegative(echoes.NextId)))
-		if type(echoes.Pattern) ~= "table" then echoes.Pattern = {} end
-		for _, id in { "Collect", "Surge", "Build", "Explore" } do
-			echoes.Pattern[id] = math.clamp(nonNegative(echoes.Pattern[id]), 0, 1e9)
-		end
-		for id in echoes.Pattern do
-			if id ~= "Collect" and id ~= "Surge" and id ~= "Build" and id ~= "Explore" then
-				echoes.Pattern[id] = nil
-			end
-		end
-		if type(echoes.Inventory) ~= "table" then echoes.Inventory = {} end
-		local echoCount = 0
-		for uid, instance in echoes.Inventory do
-			local trait = type(instance) == "table" and echoTraitById[instance.TraitId]
-			if type(uid) ~= "string" or not trait or echoCount >= GameConfig.ForgeEchoes.InventoryLimit then
-				echoes.Inventory[uid] = nil
-			else
-				echoCount += 1
-				instance.Uid = nil
-				instance.Level = math.clamp(math.floor(nonNegative(instance.Level)), 1, GameConfig.ForgeEchoes.MaxLevel)
-				instance.Strength = math.clamp(nonNegative(instance.Strength), 0.75, 1.5)
-				instance.CapturedAt = math.floor(nonNegative(instance.CapturedAt))
-				instance.Origin = type(instance.Origin) == "string" and instance.Origin or "Collect"
-			end
-		end
-		if type(echoes.Equipped) ~= "table" then echoes.Equipped = {} end
-		local equippedEchoes = {}
-		for slot = 1, GameConfig.ForgeEchoes.MaxSlots do
-			local key = tostring(slot)
-			local uid = echoes.Equipped[key]
-			if type(uid) ~= "string" or uid == "" or not echoes.Inventory[uid] or equippedEchoes[uid] then
-				echoes.Equipped[key] = ""
-			else
-				equippedEchoes[uid] = true
-			end
-		end
-		for key in echoes.Equipped do
-			local slot = tonumber(key)
-			if not slot or slot ~= math.floor(slot) or slot < 1 or slot > GameConfig.ForgeEchoes.MaxSlots then
-				echoes.Equipped[key] = nil
-			end
-		end
-		if type(echoes.Draft) ~= "table" then echoes.Draft = { Id = "", Choices = {} } end
-		echoes.Draft.Id = type(echoes.Draft.Id) == "string" and echoes.Draft.Id:sub(1, 48) or ""
-		if type(echoes.Draft.Choices) ~= "table" then echoes.Draft.Choices = {} end
-		local safeChoices = {}
-		for _, choice in echoes.Draft.Choices do
-			local trait = type(choice) == "table" and echoTraitById[choice.TraitId]
-			if trait and type(choice.Uid) == "string" and #safeChoices < 3 then
-				choice.Uid = choice.Uid:sub(1, 56)
-				choice.Level = 1
-				choice.Strength = math.clamp(nonNegative(choice.Strength), 0.9, 1.32)
-				choice.CapturedAt = math.floor(nonNegative(choice.CapturedAt))
-				choice.Origin = type(choice.Origin) == "string" and choice.Origin or "Collect"
-				table.insert(safeChoices, choice)
-			end
-		end
-		echoes.Draft.Choices = safeChoices
-		if #safeChoices == 0 then echoes.Draft.Id = "" end
+		-- Charge-only / Draft-less Studio fixtures share ForgeEchoMath.Sanitize with
+		-- Admin GrantEchoCharge and ForgeEchoService before clamp/persist.
+		profile.ForgeEchoes = ForgeEchoMath.Sanitize(profile.ForgeEchoes, echoTraitById, {
+			ChargeTarget = GameConfig.ForgeEchoes.ChargeTarget,
+			MaxLevel = GameConfig.ForgeEchoes.MaxLevel,
+			InventoryLimit = GameConfig.ForgeEchoes.InventoryLimit,
+			MaxSlots = GameConfig.ForgeEchoes.MaxSlots,
+		}, nonNegative)
 		profile.Zone = math.clamp(math.floor(nonNegative(profile.Zone)), 1, GameConfig.MaxZone)
 		profile.CurrentZone = math.clamp(math.floor(nonNegative(profile.CurrentZone)), 1, profile.Zone)
 		DataSanitizeMath.ClampLevelBag(profile.Machines, machineById, nonNegative)
-		if type(profile.AutoForge) ~= "table" then
-			profile.AutoForge = { Enabled = false, MachineId = "StellarCore", Reserve = 0.25, Bought = 0 }
-		end
-		profile.AutoForge.Enabled = profile.AutoForge.Enabled == true
-		profile.AutoForge.MachineId = type(profile.AutoForge.MachineId) == "string"
-			and machineById[profile.AutoForge.MachineId]
-			and profile.AutoForge.MachineId
-			or "StellarCore"
-		profile.AutoForge.Reserve = math.clamp(nonNegative(profile.AutoForge.Reserve), 0, 0.9)
-		profile.AutoForge.Bought = math.floor(nonNegative(profile.AutoForge.Bought))
+		profile.AutoForge = DataSanitizeMath.ClampAutoForge(
+			profile.AutoForge,
+			machineById,
+			"StellarCore",
+			nonNegative
+		)
 		DataSanitizeMath.ClampLevelBag(profile.Research, researchById, nonNegative)
 		DataSanitizeMath.ClampLevelBag(profile.GridUpgrades, gridById, nonNegative)
 		-- ApplyReward may seed Signals/XP-only Command bags — rebuild nested Crew/
@@ -642,8 +580,8 @@ return function(loadService: (string) -> any)
 			then
 				profile.Lab.Orders[index] = nil
 			else
-				order.Progress = nonNegative(order.Progress)
-				order.Target = math.max(1, nonNegative(order.Target))
+				order.Progress = nonNegative(tonumber(order.Progress) or 0)
+				order.Target = math.max(1, nonNegative(tonumber(order.Target) or 0))
 				order.Claimed = order.Claimed == true
 			end
 		end

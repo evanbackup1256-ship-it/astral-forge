@@ -186,42 +186,19 @@ function Economy.ItemEffect(
 	slotFilter: string?,
 	targetFilter: string?
 ): number
-	if not profile.Items then
-		return 0
-	end
 	-- ApplyReward Keys / partial Studio fixtures may leave Items without Equipped
 	-- or Inventory tables — production projections must not throw.
-	local equipped = profile.Items.Equipped
-	local inventory = profile.Items.Inventory
-	if type(equipped) ~= "table" or type(inventory) ~= "table" then
-		return 0
-	end
-	local machines = profile.Machines
-	local research = profile.Research
-	local total = 0
-	for target, uid in equipped do
-		local instance = inventory[uid]
-		local definition = instance and Economy.GetItemDefinition(instance.DefinitionId)
-		local slot, targetId = string.match(target, "^(%a+):([%w_]+)$")
-		-- Nil-safe Machines/Research: mid-sanitize / partial fixtures must not throw
-		-- when Equipped still points at a slot bag that reconcile has not finished.
-		local ownedLevel = if slot == "Machine" and type(machines) == "table"
-			then machines[targetId]
-			elseif slot == "Research" and type(research) == "table"
-			then research[targetId]
-			else nil
-		if
-			definition
-			and type(ownedLevel) == "number"
-			and ownedLevel > 0
-			and definition.EffectKind == effectKind
-			and (not slotFilter or slot == slotFilter)
-			and (not targetFilter or target == targetFilter)
-		then
-			total += EconomyEnvelopeMath.EffectAtLevel(definition, instance.Level)
-		end
-	end
-	return total
+	-- Nil-safe Machines/Research: mid-sanitize / partial fixtures must not throw
+	-- when Equipped still points at a slot bag that reconcile has not finished.
+	return EconomyEnvelopeMath.ItemEffect(
+		profile.Items,
+		profile.Machines,
+		profile.Research,
+		effectKind,
+		Economy.GetItemDefinition,
+		slotFilter,
+		targetFilter
+	)
 end
 
 function Economy.ArtifactEffect(profile: ProfileLike, effectKind: string): number

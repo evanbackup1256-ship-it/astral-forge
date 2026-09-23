@@ -361,4 +361,37 @@ function InventoryMath.UpgradeState(level: any, maxLevel: any, essence: any, cos
 	return canUpgrade, maxed
 end
 
+-- Chip grid row count for socket target lists (stack → 2 cols, desk → 3).
+function InventoryMath.ChipRows(targetCount: any, stack: boolean?): number
+	local targets = math.max(0, math.floor(tonumber(targetCount) or 0))
+	if targets <= 0 then
+		return 0
+	end
+	local cols = if stack == true then 2 else 3
+	return math.max(1, math.ceil(targets / cols))
+end
+
+InventoryMath.LOADOUT_EFFECT_KEYS = table.freeze({
+	{ id = "Production", label = "Production" },
+	{ id = "Capacity", label = "Vault" },
+	{ id = "Tap", label = "Overcharge" },
+	{ id = "Critical", label = "Critical" },
+	{ id = "Automation", label = "Auto" },
+	{ id = "Offline", label = "Offline" },
+})
+
+-- Loadout board effect strip values from Items.Effects (nil-safe → 0).
+function InventoryMath.LoadoutEffectLines(effects: any): { { id: string, label: string, value: number } }
+	local bag = if type(effects) == "table" then effects else {}
+	local lines = {}
+	for _, entry in InventoryMath.LOADOUT_EFFECT_KEYS do
+		table.insert(lines, {
+			id = entry.id,
+			label = entry.label,
+			value = tonumber(bag[entry.id]) or 0,
+		})
+	end
+	return lines
+end
+
 return table.freeze(InventoryMath)

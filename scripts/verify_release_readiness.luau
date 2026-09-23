@@ -521,8 +521,41 @@ assert(not string.find(forgeEchoRelease, "GetService", 1, true), "ForgeEchoMath 
 assert(not string.find(adminGrantRelease, "GetService", 1, true), "AdminGrantMath must stay pure")
 mark("wave21 extract firewall echo envelope residuals")
 
--- Raise floor past checks=25 once wave21 extract-checks RunQuick-adjacent residuals land.
-assert(#passed > 25, "release-readiness offline subset must stay beyond checks=25, got " .. tostring(#passed))
+-- Wave22 extract-checks residuals (complement wave22-harden Lab/Anomaly/clips):
+-- SessionOnly payload, ForgeEcho Sanitize, ClampAutoForge, ItemEffect,
+-- ItemLoadout EquipBest, ChipRows/LoadoutEffectLines, CommandXP, ReleaseClock.
+assert(string.find(firewallMathSrc, "function RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "RemoteFirewallMath.IsSessionOnlyPayload missing")
+assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "RemoteFirewall session residual for release")
+assert(string.find(forgeEchoRelease, "function ForgeEchoMath.Sanitize", 1, true), "ForgeEchoMath.Sanitize missing")
+assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService Sanitize residual for release")
+assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampAutoForge", 1, true), "DataSanitizeMath.ClampAutoForge missing")
+assert(string.find(dataSrc, "DataSanitizeMath.ClampAutoForge", 1, true), "DataService ClampAutoForge residual for release")
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.ItemEffect", 1, true), "EconomyEnvelopeMath.ItemEffect missing")
+assert(string.find(economyBody, "EconomyEnvelopeMath.ItemEffect", 1, true), "Economy ItemEffect residual for release")
+local itemLoadoutSrc = fs.readFile("src/Server/AstralForge/Modules/ItemLoadoutMath.luau")
+assert(string.find(itemLoadoutSrc, "function ItemLoadoutMath.PlanEquipBest", 1, true), "ItemLoadoutMath.PlanEquipBest missing")
+assert(string.find(ssReleaseSrc, "ItemLoadoutMath.PlanEquipBest", 1, true), "ServerServices EquipBest residual for release")
+assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.ApplyCommandXP", 1, true), "Progression ApplyCommandXP residual for release")
+assert(string.find(inventoryMathSrc, "function InventoryMath.ChipRows", 1, true), "InventoryMath.ChipRows missing")
+assert(string.find(invViewSrc, "InventoryMath.ChipRows", 1, true), "InventoryView ChipRows residual for release")
+assert(string.find(inventoryMathSrc, "function InventoryMath.LoadoutEffectLines", 1, true), "InventoryMath.LoadoutEffectLines missing")
+assert(string.find(invViewSrc, "InventoryMath.LoadoutEffectLines", 1, true), "InventoryView LoadoutEffectLines residual for release")
+local releaseClockSrc = fs.readFile("src/Client/AstralForge/releaseClockMath.luau")
+assert(string.find(releaseClockSrc, "function ReleaseClockMath.Remaining", 1, true), "ReleaseClockMath.Remaining missing")
+local mainReleaseSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local routerReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(string.find(mainReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "MainGame ReleaseClock residual for release")
+assert(string.find(routerReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "PageRouter ReleaseClock residual for release")
+assert(string.find(utcClockSrc, "function UtcClockMath.Remaining", 1, true), "UtcClockMath.Remaining missing")
+assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick PrestigeReward still present for wave22 adjacency")
+assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for wave22 adjacency")
+assert(string.find(releaseSrc, "ProfileIntegrity.VerifyAndRecover", 1, true), "RunQuick profile recovery still present for wave22 adjacency")
+assert(not string.find(itemLoadoutSrc, "GetService", 1, true), "ItemLoadoutMath must stay pure")
+assert(not string.find(releaseClockSrc, "GetService", 1, true), "ReleaseClockMath must stay pure")
+mark("wave22 extract session echo loadout residuals")
+
+-- Raise floor past checks=27 once wave22 extract-checks RunQuick-adjacent residuals land.
+assert(#passed > 27, "release-readiness offline subset must stay beyond checks=27, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

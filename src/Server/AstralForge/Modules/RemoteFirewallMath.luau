@@ -230,4 +230,27 @@ function RemoteFirewallMath.Inspect(
 	return true
 end
 
+-- Session/auth envelope keys that may ride with NO_PAYLOAD actions (Gen/N/Auth/Txn).
+RemoteFirewallMath.SESSION_KEYS = table.freeze({
+	Gen = true,
+	N = true,
+	Auth = true,
+	Txn = true,
+	TxnId = true,
+})
+
+-- True when every key is a session/auth field. Used by NO_PAYLOAD action gates.
+function RemoteFirewallMath.IsSessionOnlyPayload(payload: any, sessionKeys: { [string]: boolean }?): boolean
+	if type(payload) ~= "table" then
+		return false
+	end
+	local allowed = sessionKeys or RemoteFirewallMath.SESSION_KEYS
+	for key in payload do
+		if allowed[key] ~= true then
+			return false
+		end
+	end
+	return true
+end
+
 return table.freeze(RemoteFirewallMath)
