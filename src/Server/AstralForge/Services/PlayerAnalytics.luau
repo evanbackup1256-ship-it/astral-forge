@@ -31,9 +31,11 @@ return function(loadService: (string) -> any)
 	function PlayerAnalytics:PlayerJoined(player: Player, profile)
 		self._joinedAt[player] = os.clock()
 		emit("session", function()
-			AnalyticsService:LogCustomEvent(player, "AF_SessionStart", profile.Stats.Joins, {
+			-- Partial Stats bags (Studio fixtures) must not throw before session analytics fire.
+			local joins = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.Joins) or 0))
+			AnalyticsService:LogCustomEvent(player, "AF_SessionStart", joins, {
 				world = tostring(profile.CurrentZone),
-				first_session = profile.Stats.Joins <= 1 and "true" or "false",
+				first_session = joins <= 1 and "true" or "false",
 			})
 		end)
 	end

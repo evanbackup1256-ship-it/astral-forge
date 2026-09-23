@@ -351,6 +351,8 @@ return function()
 
 	function ProgressionService.AchievementStates(profile)
 		local states = {}
+		-- Partial Profiles (Studio fixtures) may omit Achievements — UI projection must not throw.
+		local claimed = type(profile.Achievements) == "table" and profile.Achievements or {}
 		for _, achievement in GameConfig.Achievements do
 			table.insert(states, {
 				Id = achievement.Id,
@@ -362,7 +364,7 @@ return function()
 					ProgressionService.AchievementProgress(profile, achievement.Kind)
 				),
 				Reward = copyReward(achievement.Reward),
-				Claimed = profile.Achievements[achievement.Id] == true,
+				Claimed = claimed[achievement.Id] == true,
 			})
 		end
 		return states
@@ -371,6 +373,9 @@ return function()
 	function ProgressionService.ClaimAchievement(profile, achievementId: string): (boolean, string)
 		for _, achievement in GameConfig.Achievements do
 			if achievement.Id == achievementId then
+				if type(profile.Achievements) ~= "table" then
+					profile.Achievements = {}
+				end
 				if profile.Achievements[achievementId] then
 					return false, "That milestone was already claimed."
 				end

@@ -70,11 +70,13 @@ local files = {
 	"src/Shared/AstralForge/Shared/ZoneUnlock.luau",
 	"src/Server/AstralForge/Modules/AnomalyPulseScore.luau",
 	"src/Server/AstralForge/Modules/GuildMath.luau",
+	"src/Server/AstralForge/Modules/ForgeEchoMath.luau",
 	"src/Server/AstralForge/Modules/CrateRoll.luau",
 	"src/Server/AstralForge/Modules/ShopGrantEligibility.luau",
 	"src/Server/AstralForge/Modules/CommandActionValidators.luau",
 	"src/Server/AstralForge/Services/AnomalyService.luau",
 	"src/Server/AstralForge/Services/GuildService.luau",
+	"src/Server/AstralForge/Services/ForgeEchoService.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",
 	"src/Client/AstralForge/tests/taskFilter.test.luau",
