@@ -3022,6 +3022,8 @@ local function VaultPill(_param)
 	-- motor cost between updates.
 	local gains, setGains = React.useState(0)
 	local previousVault = React.useRef(state.Vault)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	React.useEffect(function()
 		if asFlux(state.Vault) > asFlux(previousVault.current) then
 			setGains(function(current)
@@ -3030,7 +3032,7 @@ local function VaultPill(_param)
 		end
 		previousVault.current = state.Vault
 	end, { state.Vault })
-	local vaultFlash = useFlash(gains, reducedMotion, 0.5)
+	local vaultFlash = useFlash(gains, softMotion, 0.5)
 	local vaultTextColor = vaultFlash:map(function(amount)
 		return ensureContrast(Palette.panelRaised, if ready then Palette.cream else Palette.muted):Lerp(bar, amount * 0.7)
 	end)

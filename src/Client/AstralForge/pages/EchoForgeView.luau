@@ -14,6 +14,7 @@ local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local ensureContrast = _theme.ensureContrast
+local Layout = _theme.Layout
 local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
@@ -630,19 +631,20 @@ local function EchoForgeView(_param)
 		return setArmedUid(nil)
 	end, { #echoes.Inventory })
 	local patternTotal = echoes.Pattern.Collect + echoes.Pattern.Surge + echoes.Pattern.Build + echoes.Pattern.Explore
-	local heroH = if stack then 264 else 258
+	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
+	local heroH = if stack then 264 else 278
 	local choiceRows = if #echoes.Choices > 0 then (if stack then #echoes.Choices else 1) else 0
-	local choiceGridH = choiceRows * 214 + math.max(0, choiceRows - 1) * 10
+	local choiceGridH = choiceRows * 214 + math.max(0, choiceRows - 1) * sectionGap
 	local choiceSectionH = if choiceRows > 0 then 30 + choiceGridH else 0
 	local slotRows = if stack then #echoes.Equipped else 1
-	local slotGridH = slotRows * 108 + math.max(0, slotRows - 1) * 10
+	local slotGridH = slotRows * 116 + math.max(0, slotRows - 1) * sectionGap
 	local slotSectionH = 30 + slotGridH
 	local patternRows = if stack then 2 else 1
-	local patternSectionH = 30 + patternRows * 82 + math.max(0, patternRows - 1) * 10
+	local patternSectionH = 30 + patternRows * 88 + math.max(0, patternRows - 1) * sectionGap
 	local inventoryRows = math.max(1, if stack then #echoes.Inventory else math.ceil(#echoes.Inventory / 2))
-	local inventoryGridH = inventoryRows * 188 + math.max(0, inventoryRows - 1) * 10
+	local inventoryGridH = inventoryRows * 196 + math.max(0, inventoryRows - 1) * sectionGap
 	local inventorySectionH = 30 + inventoryGridH
-	local contentH = heroH + choiceSectionH + slotSectionH + patternSectionH + inventorySectionH + 52 + scrollTail(chrome.stack, chrome.bottomSafe, 64)
+	local contentH = heroH + choiceSectionH + slotSectionH + patternSectionH + inventorySectionH + sectionGap * 4 + scrollTail(chrome.stack, chrome.bottomSafe, if stack then 72 else 56)
 	local dominant = PATTERN_COPY[echoes.DominantPattern]
 	local chargeFill = echoes.Charge / math.max(1, echoes.ChargeTarget)
 	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
@@ -654,14 +656,14 @@ local function EchoForgeView(_param)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
+		Padding = UDim.new(0, sectionGap),
 	})
 	local _exp_1 = React.createElement(ScrollPads)
 	local _exp_2 = React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, heroH),
 		accent = chargeAccent,
 		background = heroSurface,
-		padding = if stack then 15 else 20,
+		padding = if stack then 15 else Layout.cardPadding,
 		layoutOrder = 1,
 		highlight = echoes.Ready,
 		reducedMotion = reducedMotion,
@@ -748,7 +750,7 @@ local function EchoForgeView(_param)
 		local _exp_4 = React.createElement(AutoGrid, {
 			columns = if stack then 1 else 3,
 			cellHeight = 214,
-			gap = 10,
+			gap = sectionGap,
 		})
 		local _exp_5 = echoes.Choices
 		-- ▼ ReadonlyArray.map ▼
@@ -784,8 +786,8 @@ local function EchoForgeView(_param)
 	})
 	local _exp_4 = React.createElement(AutoGrid, {
 		columns = if stack then 1 else 3,
-		cellHeight = 108,
-		gap = 10,
+		cellHeight = 116,
+		gap = sectionGap,
 	})
 	local _exp_5 = echoes.Equipped
 	-- ▼ ReadonlyArray.map ▼
@@ -818,8 +820,8 @@ local function EchoForgeView(_param)
 	})
 	local _exp_8 = React.createElement(AutoGrid, {
 		columns = if stack then 2 else 4,
-		cellHeight = 82,
-		gap = 10,
+		cellHeight = 88,
+		gap = sectionGap,
 	})
 	local _exp_9 = ({ "Collect", "Surge", "Build", "Explore" })
 	-- ▼ ReadonlyArray.map ▼
@@ -856,8 +858,8 @@ local function EchoForgeView(_param)
 	})
 	local _exp_12 = React.createElement(AutoGrid, {
 		columns = if stack then 1 else 2,
-		cellHeight = 178,
-		gap = 10,
+		cellHeight = 196,
+		gap = sectionGap,
 	})
 	local _result
 	if #echoes.Inventory > 0 then
@@ -920,7 +922,7 @@ local function EchoForgeView(_param)
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.3,
+		ScrollBarImageTransparency = 0.2,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,

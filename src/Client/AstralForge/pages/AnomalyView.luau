@@ -1278,9 +1278,11 @@ local function ReactorConsole(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
+	local phoneLandscape = stack and chrome.landscape
 	local compactLandscape = not stack and chrome.landscape and viewport.height < 500
 	local antilag = useAntilag()
 	local skipEntrance = reducedMotion or antilag.skipEntrance
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local timer = useWallClock(true)
 	-- Needle/combo stay playable whenever motion is allowed; ring spin needs ambient + tier 2+.
 	local animateCore = not reducedMotion and motionAmount > 0.03
@@ -1342,7 +1344,7 @@ local function ReactorConsole(_param)
 	-- 0 -- unlike a UIScale mutated directly (scale.Scale = 1.14), which has no spring goal to
 	-- return to once set that way and just stays there forever, which is what actually made the
 	-- core balloon up on the first pulse and never come back down.
-	local punchFlash = useFlash(pulsePunch, reducedMotion, 0.32)
+	local punchFlash = useFlash(pulsePunch, softMotion, 0.32)
 	local coreScale = punchFlash:map(function(amount)
 		return 1 + amount * 0.14
 	end)
@@ -1501,19 +1503,19 @@ local function ReactorConsole(_param)
 			}, milestoneReady)
 		end
 	end
-	local dialSize = if stack then 172 elseif compactLandscape then 132 else 188
+	local dialSize = if phoneLandscape then 112 elseif stack then 156 elseif compactLandscape then 132 else 188
 	-- Explicit running-offset layout for the hero panel instead of independently guessed
 	-- constants for each row, so the dial/detail/stat/action rows can never end up overlapping
 	-- each other the way a taller dial size silently would with fixed offsets.
-	local heroTitleH = 76
+	local heroTitleH = if phoneLandscape then 60 else 76
 	local dialTop = heroTitleH
 	local dialBottom = dialTop + dialSize
 	local detailH = 60
-	local statsH = 44
-	local actionH = if stack then TapTarget * 2 + 8 else TapTarget
-	local heroContentBottom = if stack then dialBottom + 14 + 88 + 12 + statsH else math.max(dialBottom, dialTop + detailH) + 12 + statsH
+	local statsH = if phoneLandscape then 36 else 44
+	local actionH = if phoneLandscape then TapTarget elseif stack then TapTarget * 2 + 8 else TapTarget
+	local heroContentBottom = if stack then dialBottom + (if phoneLandscape then 8 else 14) + (if phoneLandscape then 64 else 88) + 12 + statsH else math.max(dialBottom, dialTop + detailH) + 12 + statsH
 	local heroH = heroContentBottom + 16 + actionH
-	local statsTop = if stack then dialBottom + 14 + 88 + 12 else math.max(dialBottom, dialTop + detailH) + 12
+	local statsTop = if stack then dialBottom + (if phoneLandscape then 8 else 14) + (if phoneLandscape then 64 else 88) + 12 else math.max(dialBottom, dialTop + detailH) + 12
 	local channelCount = (function()
 		local count = 0
 		for _id in pairs(config.Channels) do
@@ -1526,14 +1528,15 @@ local function ReactorConsole(_param)
 	local channelRows = math.ceil(channelCount / channelCols)
 	local channelRailH = channelRows * CHANNEL_CARD_H + math.max(0, channelRows - 1) * GAP
 	local channelH = CHANNEL_DECK_HEADER_H + channelRailH
-	local milestoneH = if stack then 154 else 110
-	local directiveH = if stack then 184 else 156
-	local protocolH = if stack then 168 else 132
+	local milestoneH = if stack then 154 else 118
+	local directiveH = if stack then 184 else 164
+	local protocolH = if stack then 168 else 140
 	local overdriveReserve = if anomaly.Overdrive ~= nil then OVERDRIVE_BAR_H + GAP else 0
 	local coreTierStripH = coreTierStripHeight(anomaly.NextCoreTier, contentWidth)
 	local coreTierReserve = coreTierStripH + GAP
 	local sectionCount = 4 + #anomaly.Directives + #config.Protocols
-	local canvasHeight = heroH + overdriveReserve + channelH + coreTierReserve + (if milestone ~= nil then milestoneH + GAP else 0) + #anomaly.Directives * (directiveH + GAP) + #config.Protocols * (protocolH + GAP) + sectionCount * GAP + SCROLL_EDGE * 2 + scrollTail(stack, chrome.bottomSafe, 36)
+	local anomalyTail = if phoneLandscape then 48 elseif stack then 56 else 40
+	local canvasHeight = heroH + overdriveReserve + channelH + coreTierReserve + (if milestone ~= nil then milestoneH + GAP else 0) + #anomaly.Directives * (directiveH + GAP) + #config.Protocols * (protocolH + GAP) + sectionCount * GAP + SCROLL_EDGE * 2 + scrollTail(stack, chrome.bottomSafe, anomalyTail)
 	local order = 0
 	local heroReveal = useStagger(0, skipEntrance)
 	local _exp_2 = React.createElement("uilistlayout", {
@@ -1746,8 +1749,8 @@ local function ReactorConsole(_param)
 		sound = "reactorPulse",
 		color = accent,
 		textColor = ensureContrast(accent, Palette.ink),
-		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.32, -5, 1, 0),
-		reducedMotion = reducedMotion,
+		size = if phoneLandscape then UDim2.new(1 / 3, -4, 1, 0) elseif stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.32, -5, 1, 0),
+		reducedMotion = softMotion,
 		highlight = not anomaly.Ready,
 	}), React.createElement(Button, {
 		text = if stabilizeArmed then "BANKING" elseif anomaly.Ready then "BANK" else "CHARGING",
@@ -1756,10 +1759,10 @@ local function ReactorConsole(_param)
 		sound = if canStabilize then "collect" else "locked",
 		color = if canStabilize then Palette.mint else Palette.panelSoft,
 		textColor = if canStabilize then Palette.ink else Palette.muted,
-		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.36, -6, 1, 0),
-		position = if stack then UDim2.new(0.5, 4, 0, 0) else UDim2.new(0.32, 5, 0, 0),
+		size = if phoneLandscape then UDim2.new(1 / 3, -4, 1, 0) elseif stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.36, -6, 1, 0),
+		position = if phoneLandscape then UDim2.new(1 / 3, 2, 0, 0) elseif stack then UDim2.new(0.5, 4, 0, 0) else UDim2.new(0.32, 5, 0, 0),
 		disabled = not canStabilize,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = canStabilize,
 	}), React.createElement(Button, {
 		text = if surgeArmed then "SURGING" else surgeText,
@@ -1768,10 +1771,10 @@ local function ReactorConsole(_param)
 		sound = "reactorSurge",
 		color = if isSurging then Palette.violet elseif canSurge then Palette.mango else Palette.panelSoft,
 		textColor = if isSurging or canSurge then Palette.ink else Palette.muted,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.32, -5, 1, 0),
-		position = if stack then UDim2.new(0, 0, 0, TapTarget + 8) else UDim2.new(0.68, 5, 0, 0),
+		size = if phoneLandscape then UDim2.new(1 / 3, -4, 1, 0) elseif stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.32, -5, 1, 0),
+		position = if phoneLandscape then UDim2.new(2 / 3, 4, 0, 0) elseif stack then UDim2.new(0, 0, 0, TapTarget + 8) else UDim2.new(0.68, 5, 0, 0),
 		disabled = not canSurge,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = canSurge,
 	})), tierUpBanner ~= nil and React.createElement(TierUpBanner, {
 		key = tierUpBanner.id,

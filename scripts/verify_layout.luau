@@ -2,7 +2,9 @@
 -- These assertions exercise the pure device-planning layer without Studio.
 Color3 = { fromRGB = function(r, g, b) return { r = r, g = g, b = b } end }
 
-local planMobileLayout = require("../src/Client/AstralForge/mobileLayout").planMobileLayout
+local mobileLayout = require("../src/Client/AstralForge/mobileLayout")
+local planMobileLayout = mobileLayout.planMobileLayout
+local scrollTail = mobileLayout.scrollTail
 
 local TAP_TARGET = 48
 local MIN_CONTENT_BUDGET = 120
@@ -59,8 +61,12 @@ for _, case in cases do
 			assert(layout.sideSafe >= sideInset, case.name .. " sideSafe >= sideInset")
 		end
 		assert(layout.topbarRows + layout.tabBarH < case.height * 0.7, case.name .. " chrome does not dominate viewport")
+		local tail = scrollTail(true, layout.bottomSafe, if layout.landscape then 48 else 56)
+		assert(tail >= layout.bottomSafe + 40, case.name .. " scrollTail clears chrome (" .. tostring(tail) .. ")")
+		assert(layout.topbarRows <= (if layout.landscape then 36 else 52), case.name .. " compact mobile header")
 	else
 		assert(layout.tabBarH == 0, case.name .. " desktop has no tab bar")
+		assert(scrollTail(false, 0, 40) == 40, case.name .. " desktop scrollTail is base only")
 	end
 end
 

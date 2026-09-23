@@ -61,7 +61,9 @@ local function scrollTail(stack, bottomSafe, base)
 	if not stack then
 		return base
 	end
-	return base + math.max(bottomSafe, 12) + 16
+	-- Extra clearance past bottomSafe so last-row CTAs clear the tab bar, home
+	-- indicator, and Workshop floating quick-action cluster without dead zones.
+	return base + math.max(bottomSafe, 12) + 28
 end
 local function planMobileLayout(input)
 	local _binding = input
@@ -104,14 +106,14 @@ local function planMobileLayout(input)
 	local phone = stack
 	local tablet = phone and width >= 700 and not landscape
 	-- Header shrinks in landscape (vertical room is scarce) and grows slightly on tablets
-	-- (more breathing room, still touch-first). PC gets a taller topbar so controls stay scannable.
-	local topbarRows = if not phone then 74 elseif landscape then 36 elseif tablet then 52 else 48
+	-- (more breathing room, still touch-first). PC topbar stays at Layout.topbarHeight (74).
+	local topbarRows = if not phone then 74 elseif landscape then 34 elseif tablet then 52 else 46
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else 0
 	-- Phone keeps touch-first insets; desktop gets breathing room so sections separate clearly.
 	local panelGap = if landscape then 8 elseif phone then 12 else 14
-	local pagePadding = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 16 else 18
-	local contentInset = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 16 else 18
+	local pagePadding = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif compact then 16 else 18
+	local contentInset = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif compact then 16 else 18
 	-- MobileShell already renders MobileHeader with the page title/chips. A second Workspace
 	-- header on phone duplicates chrome and eats the content budget — keep it at 0 whenever
 	-- the bottom-tab phone shell is active. Desktop keeps a readable workspace header.

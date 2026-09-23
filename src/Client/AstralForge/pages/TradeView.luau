@@ -13,7 +13,9 @@ local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
+local Layout = _theme.Layout
 local Palette = _theme.Palette
+local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
@@ -1131,7 +1133,7 @@ local function TradeView(_param)
 		return React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
 			accent = paneAccent,
-			padding = 12,
+			padding = if compactTrade then 12 else Layout.cardPadding,
 			clips = true,
 			reducedMotion = reducedMotion,
 		}, header, React.createElement("scrollingframe", {
@@ -1141,7 +1143,7 @@ local function TradeView(_param)
 			BorderSizePixel = 0,
 			ScrollBarThickness = 5,
 			ScrollBarImageColor3 = paneAccent,
-			ScrollBarImageTransparency = 0.28,
+			ScrollBarImageTransparency = 0.2,
 			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 			CanvasSize = UDim2.new(0, 0, 0, 0),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -1320,10 +1322,11 @@ local function TradeView(_param)
 		return React.createElement(PageScaffold, {
 			scrollBarColor = accent,
 			scrollBarThickness = 4,
-			tailPad = 8,
+			tailPad = scrollTail(true, chrome.bottomSafe, if chrome.landscape then 28 else 36),
+			gap = if chrome.landscape then 8 else Layout.stackGap,
 			sections = { {
 				id = "status",
-				height = 60,
+				height = if chrome.landscape then 52 else 60,
 				element = React.createElement("frame", {
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
@@ -1387,12 +1390,12 @@ local function TradeView(_param)
 	end
 	if compactTrade then
 		local _exp_2 = React.createElement("uipadding", {
-			PaddingBottom = UDim.new(0, 16),
+			PaddingBottom = UDim.new(0, scrollTail(true, chrome.bottomSafe, if chrome.landscape then 24 else 32)),
 		})
 		local _exp_3 = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 10),
+			Padding = UDim.new(0, if chrome.landscape then 8 else Layout.stackGap),
 		})
 		local _exp_4 = React.createElement(Text, {
 			value = dailyLabel,
@@ -1430,7 +1433,7 @@ local function TradeView(_param)
 			_condition_5 = React.createElement(Panel, {
 				size = UDim2.new(1, 0, 0, 86),
 				accent = Palette.muted,
-				padding = 12,
+				padding = if compactTrade then 12 else Layout.cardPadding,
 				reducedMotion = reducedMotion,
 				layoutOrder = 1,
 			}, _exp_5, React.createElement(Text, _attributes))
@@ -1438,7 +1441,7 @@ local function TradeView(_param)
 		local _exp_5 = inviteLive and session == nil and React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, 128),
 			accent = Palette.cyan,
-			padding = 12,
+			padding = if compactTrade then 12 else Layout.cardPadding,
 			reducedMotion = reducedMotion,
 			layoutOrder = 2,
 		}, React.createElement(AvatarMark, {
@@ -1499,7 +1502,7 @@ local function TradeView(_param)
 		local _exp_6 = outgoingLive and session == nil and not inviteLive and React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, 124),
 			accent = Palette.mango,
-			padding = 12,
+			padding = if compactTrade then 12 else Layout.cardPadding,
 			reducedMotion = reducedMotion,
 			layoutOrder = 3,
 		}, React.createElement(Icon, {
@@ -1621,7 +1624,7 @@ local function TradeView(_param)
 			BorderSizePixel = 0,
 			ScrollBarThickness = 4,
 			ScrollBarImageColor3 = accent,
-			ScrollBarImageTransparency = 0.28,
+			ScrollBarImageTransparency = 0.2,
 			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 			CanvasSize = UDim2.new(0, 0, 0, 1200),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -1718,7 +1721,7 @@ local function TradeView(_param)
 			size = UDim2.new(1, 0, 0, lockH - 6),
 			position = UDim2.fromOffset(0, headerH + 6),
 			accent = Palette.muted,
-			padding = 12,
+			padding = if compactTrade then 12 else Layout.cardPadding,
 			reducedMotion = reducedMotion,
 		}, _exp_3, React.createElement(Text, _attributes))
 	end
@@ -1726,7 +1729,7 @@ local function TradeView(_param)
 		size = UDim2.new(1, 0, 0, inviteH),
 		position = UDim2.fromOffset(0, headerH + 6 + lockH),
 		accent = Palette.cyan,
-		padding = 12,
+		padding = if compactTrade then 12 else Layout.cardPadding,
 		reducedMotion = reducedMotion,
 	}, React.createElement(AvatarMark, {
 		userId = invite.FromUserId,
@@ -1822,7 +1825,7 @@ local function TradeView(_param)
 		size = UDim2.new(1, 0, 0, 64),
 		position = UDim2.fromOffset(0, headerH + 6 + lockH),
 		accent = Palette.mango,
-		padding = 12,
+		padding = if compactTrade then 12 else Layout.cardPadding,
 		reducedMotion = reducedMotion,
 	}, React.createElement(Icon, {
 		kind = "Timer",
@@ -1891,7 +1894,7 @@ local function TradeView(_param)
 			BorderSizePixel = 0,
 			ScrollBarThickness = 4,
 			ScrollBarImageColor3 = accent,
-			ScrollBarImageTransparency = 0.28,
+			ScrollBarImageTransparency = 0.2,
 			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 			CanvasSize = UDim2.new(0, 0, 0, 0),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,

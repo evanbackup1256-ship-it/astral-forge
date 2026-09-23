@@ -15,6 +15,7 @@ local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
+local Layout = _theme.Layout
 local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
@@ -59,6 +60,8 @@ local function ProgressCloseGlow(_param)
 	}))
 end
 local function useReadyPop(ready, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local wasReady = React.useRef(ready)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()
@@ -69,7 +72,7 @@ local function useReadyPop(ready, reducedMotion)
 		end
 		wasReady.current = ready
 	end, { ready })
-	return useFlash(trigger, reducedMotion, 0.6)
+	return useFlash(trigger, softMotion, 0.6)
 end
 local EMPTY_CONTINUUM = {
 	Rank = 0,
@@ -94,25 +97,25 @@ local function EffectCell(_param)
 	return React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
-		background = darken(accent, 0.9),
-		padding = 12,
+		background = Palette.panelRaised,
+		padding = 14,
 		reveal = reveal,
 		reducedMotion = reducedMotion,
 	}, React.createElement(Text, {
 		value = label,
-		size = 9,
-		color = Palette.muted,
+		size = 10,
+		color = lighten(accent, 0.12),
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
 	}), React.createElement(Text, {
 		value = value,
-		size = 20,
+		size = 22,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 12,
-		position = UDim2.fromOffset(0, 19),
-		sizeConstraint = UDim2.new(1, 0, 0, 28),
+		position = UDim2.fromOffset(0, 20),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
 	}))
 end
 local function ContinuumCore(_param)
@@ -240,15 +243,16 @@ local function ContinuumView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local continuum = state.Continuum or EMPTY_CONTINUUM
-	local heroH = if stack then 236 else 230
-	local effectsH = if stack then 184 else 104
-	local forgeH = if stack then 292 else 248
-	local milestoneH = if stack then 156 else 132
-	local contentH = heroH + effectsH + forgeH + milestoneH + 48 + scrollTail(stack, chrome.bottomSafe, 48)
+	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
+	local heroH = if stack then 236 else 248
+	local effectsH = if stack then 184 else 118
+	local forgeH = if stack then 292 else 268
+	local milestoneH = if stack then 156 else 148
+	local contentH = heroH + effectsH + forgeH + milestoneH + sectionGap * 3 + scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48)
 	local canvasH = contentH + SCROLL_EDGE * 2
 	local progress = math.clamp((continuum.Rank % 25) / 25, 0, 1)
 	local milestoneComplete = continuum.Rank > 0 and continuum.Rank % 25 == 0
-	local coreSize = if stack then 78 else 132
+	local coreSize = if stack then 78 else 140
 	local canFlux = gteFlux(state.Cash, continuum.FluxCost)
 	local canDust = gteFlux(state.Stardust, continuum.StardustCost)
 	local fluxFill = meterFill(asFlux(state.Cash), math.max(1, asFlux(continuum.FluxCost)))
@@ -271,7 +275,7 @@ local function ContinuumView(_param)
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = Palette.violet,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.2,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
@@ -288,7 +292,7 @@ local function ContinuumView(_param)
 		size = UDim2.new(1, 0, 0, heroH),
 		accent = Palette.violet,
 		background = darken(Palette.violet, 0.92),
-		padding = if stack then 16 else 20,
+		padding = if stack then 16 else Layout.cardPadding,
 		highlight = continuum.Rank > 0,
 		reducedMotion = reducedMotion,
 		clips = true,
@@ -310,7 +314,7 @@ local function ContinuumView(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(Text, {
 		value = "ENDLESS PROGRESSION",
-		size = 9,
+		size = 10,
 		color = Palette.cyan,
 		weight = Enum.FontWeight.Bold,
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
@@ -339,14 +343,14 @@ local function ContinuumView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}))), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, effectsH),
-		Position = UDim2.fromOffset(0, heroH + 12),
+		Position = UDim2.fromOffset(0, heroH + sectionGap),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(AutoGrid, {
 		columns = if stack then 2 else 4,
 		cellHeight = if stack then 101 else effectsH,
-		rowGap = 10,
-		columnGap = 10,
+		rowGap = if stack then 10 else Layout.controlGap,
+		columnGap = if stack then 10 else Layout.controlGap,
 	}), React.createElement(EffectCell, {
 		label = "PRODUCTION",
 		value = `{compactNumber(continuum.ProductionMultiplier)}×`,
@@ -373,10 +377,10 @@ local function ContinuumView(_param)
 		reducedMotion = reducedMotion,
 	})), React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, forgeH),
-		position = UDim2.fromOffset(0, heroH + effectsH + 24),
+		position = UDim2.fromOffset(0, heroH + effectsH + sectionGap * 2),
 		accent = if continuum.CanUpgrade then Palette.pink else Palette.violet,
 		background = Palette.panelRaised,
-		padding = if stack then 15 else 18,
+		padding = if stack then 15 else Layout.cardPadding,
 		highlight = continuum.CanUpgrade,
 		reducedMotion = reducedMotion,
 		clips = false,
@@ -464,7 +468,7 @@ local function ContinuumView(_param)
 		highlight = continuum.CanUpgrade,
 	})), React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, milestoneH),
-		position = UDim2.fromOffset(0, heroH + effectsH + forgeH + 36),
+		position = UDim2.fromOffset(0, heroH + effectsH + forgeH + sectionGap * 3),
 		accent = Palette.cyan,
 		background = Palette.panel,
 		padding = if stack then 14 else 18,

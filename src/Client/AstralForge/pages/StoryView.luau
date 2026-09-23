@@ -12,6 +12,7 @@ local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local darken = _theme.darken
+local Layout = _theme.Layout
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
@@ -341,15 +342,15 @@ local function StoryBeat(_param)
 	local actionIcon = if not tuned then "Anomaly" elseif final then if claimed then "Check" else "Gift" else "Chevron"
 	local tipText = if replay then "Replay — browse freely" elseif tuned then `Part {index + 1} of {total}` else "Tap Warm up three times to continue"
 	local decorated = illuminate(text, color)
-	local btnH = if stack then TapTarget else 46
+	local btnH = if stack then TapTarget else 48
 	local showTip = not condensed and (not stack or not tuned)
-	local tipH = if showTip then (if stack then 36 else 28) else 0
-	local tipGap = if showTip then (if stack then 8 else 10) else 0
+	local tipH = if showTip then (if stack then 36 else 32) else 0
+	local tipGap = if showTip then (if stack then 8 else Layout.stackGap) else 0
 	local actionsH = if stack and not condensed then btnH * 2 + 10 else btnH
 	local bottomReserve = tipH + tipGap + actionsH + 6
-	local headerH = if stack then 28 else 36
-	local bodySize = if stack then 17 else 19
-	local lineHeight = if stack then 1.36 else 1.4
+	local headerH = if stack then 28 else 40
+	local bodySize = if stack then 17 else 20
+	local lineHeight = if stack then 1.36 else 1.42
 	local partFill = meterFill(index + 1, total)
 	local tipAccent = if tuned then Palette.green else color
 	return React.createElement("frame", {
@@ -400,9 +401,9 @@ local function StoryBeat(_param)
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, if stack then 16 else 18),
+		Padding = UDim.new(0, if stack then 16 else Layout.panelGap),
 	}), React.createElement("uipadding", {
-		PaddingRight = UDim.new(0, if stack then 4 else 8),
+		PaddingRight = UDim.new(0, if stack then 4 else Layout.stackGap),
 		PaddingBottom = UDim.new(0, 12),
 	}), React.createElement("textlabel", {
 		Size = UDim2.new(1, -4, 0, 0),
@@ -729,7 +730,7 @@ local function StoryView(_param)
 	end
 	local multi = chapterCount > 1
 	local railMarkH = if multi and not stack then (if shortLandscape then 76 else 180) else (if stack then markH else 0)
-	local readerPad = if shortLandscape then 14 elseif stack then (if started then 12 else 14) else 28
+	local readerPad = if shortLandscape then 12 elseif stack then (if started then 12 else 14) else Layout.contentInset
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
 	})
