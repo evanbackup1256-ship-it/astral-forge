@@ -46,15 +46,18 @@ assert(
 
 -- --- Economy nil-safety ------------------------------------------------------
 assert(
-	string.find(economySrc, 'type(claimed) ~= "table"', 1, true) ~= nil,
-	"ForgePathEffect must nil-guard ClaimedSteps"
+	string.find(economySrc, "ForgePathClaim.Effect", 1, true) ~= nil
+		or string.find(economySrc, 'type(claimed) ~= "table"', 1, true) ~= nil,
+	"ForgePathEffect must nil-guard ClaimedSteps via ForgePathClaim.Effect"
 )
 assert(
-	string.find(economySrc, 'type(machines) ~= "table"', 1, true) ~= nil,
-	"TotalMachineLevels must nil-guard Machines"
+	string.find(economySrc, "EconomyEnvelopeMath.SumNumericLevels", 1, true) ~= nil
+		or string.find(economySrc, 'type(machines) ~= "table"', 1, true) ~= nil,
+	"TotalMachineLevels must nil-guard Machines via EconomyEnvelopeMath"
 )
 assert(
-	string.find(economySrc, 'type(research) ~= "table"', 1, true) ~= nil,
+	string.find(economySrc, "EconomyEnvelopeMath.SumNumericLevels", 1, true) ~= nil
+		or string.find(economySrc, 'type(research) ~= "table"', 1, true) ~= nil,
 	"TotalResearchLevels / researchLevel must nil-guard Research"
 )
 assert(
@@ -62,25 +65,15 @@ assert(
 	"ItemEffect must nil-guard Machines before indexing"
 )
 
--- Pure replica of ForgePathEffect nil-guards (must stay aligned with Economy.luau).
+-- Pure ForgePathClaim.Effect nil-guards (must stay aligned with Economy.luau).
+local ForgePathClaim = require("../src/Server/AstralForge/Modules/ForgePathClaim")
+local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
 local function forgePathEffect(profile: any, effectKind: string, steps: { any }): number
 	local forgePath = profile and profile.ForgePath
 	if forgePath == nil then
 		return 0
 	end
-	local claimed = forgePath.ClaimedSteps
-	if type(claimed) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for stepKey in claimed do
-		local stepIndex = tonumber(stepKey)
-		local step = stepIndex and steps[stepIndex]
-		if step and step.EffectKind == effectKind then
-			total += step.EffectAmount
-		end
-	end
-	return total / 100
+	return ForgePathClaim.Effect(forgePath.ClaimedSteps, steps, effectKind)
 end
 
 local fakeSteps = {
@@ -95,20 +88,13 @@ assert(
 )
 assert(forgePathEffect({ ForgePath = { ClaimedSteps = { ["1"] = true } } }, "Tap", fakeSteps) == 0, "wrong kind → 0")
 
-local function totalLevels(bag: any): number
-	if type(bag) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for _, value in bag do
-		if type(value) == "number" then
-			total += value
-		end
-	end
-	return total
-end
-assert(totalLevels(nil) == 0, "nil bag levels → 0")
-assert(totalLevels({ A = 2, B = 3 }) == 5, "sum levels")
+assert(EconomyEnvelopeMath.SumNumericLevels(nil) == 0, "nil bag levels → 0")
+assert(EconomyEnvelopeMath.SumNumericLevels({ A = 2, B = 3 }) == 5, "sum levels")
+
+assert(
+	string.find(forgeClaimSrc, "function ForgePathClaim.Effect", 1, true) ~= nil,
+	"ForgePathClaim.Effect must exist for Economy.ForgePathEffect"
+)
 
 -- --- DataService / ProgressionService ForgePath harden -----------------------
 assert(
@@ -396,7 +382,8 @@ assert(
 	"ArtifactEffect must nil-guard Command.Artifacts"
 )
 assert(
-	string.find(economySrc, 'type(mastery) ~= "table"', 1, true) ~= nil,
+	string.find(economySrc, "EconomyEnvelopeMath.MasteryMultiplier", 1, true) ~= nil
+		or string.find(economySrc, 'type(mastery) ~= "table"', 1, true) ~= nil,
 	"MasteryMultiplier must nil-guard MachineMastery"
 )
 assert(

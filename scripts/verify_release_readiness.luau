@@ -309,7 +309,49 @@ assert(not string.find(economyBody, "vendor/", 1, true), "Economy must not refer
 assert(not string.find(economyBody, "Packages/", 1, true), "Economy must not reference Packages/")
 mark("runquick pure production capacity tapPower parity")
 
-assert(#passed > 14, "release-readiness offline subset must stay beyond checks=14, got " .. tostring(#passed))
+-- Pure RunQuick continuum effects / prestige target / offline envelope parity.
+assert(string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumEffects", 1, true), "ContinuumDomainMath.ContinuumEffects missing")
+assert(string.find(economyBody, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate for release")
+assert(string.find(rebirthGateSrc, "function RebirthGate.NextPrestigeTarget", 1, true), "RebirthGate.NextPrestigeTarget missing")
+assert(string.find(economyBody, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate for release")
+local envelopeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyEnvelopeMath.luau")
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.OfflineHours", 1, true), "EconomyEnvelopeMath.OfflineHours missing")
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.AutoCollectRate", 1, true), "EconomyEnvelopeMath.AutoCollectRate missing")
+assert(string.find(economyBody, "EconomyEnvelopeMath.OfflineHours", 1, true), "Economy OfflineHours residual for release")
+assert(string.find(economyBody, "EconomyEnvelopeMath.AutoCollectRate", 1, true), "Economy AutoCollectRate residual for release")
+assert(string.find(economyBody, "ForgePathClaim.Effect", 1, true), "Economy ForgePathEffect residual for release")
+assert(not string.find(envelopeSrc, "vendor/", 1, true), "EconomyEnvelopeMath must not reference vendor/")
+assert(not string.find(envelopeSrc, "Packages/", 1, true), "EconomyEnvelopeMath must not reference Packages/")
+mark("runquick pure continuum effects offline envelope parity")
+
+-- InventoryMath extract + ItemSalvage parity residual (offline inventory tooling).
+local inventoryMathSrc = fs.readFile("src/Client/AstralForge/inventoryMath.luau")
+assert(string.find(inventoryMathSrc, "function InventoryMath.SalvageValue", 1, true), "InventoryMath.SalvageValue missing")
+assert(string.find(inventoryMathSrc, "function InventoryMath.FilterOwned", 1, true), "InventoryMath.FilterOwned missing")
+local invViewSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+assert(string.find(invViewSrc, "InventoryMath.SalvagePreview", 1, true), "InventoryView SalvagePreview residual for release")
+assert(string.find(invViewSrc, "InventoryMath.FilterOwned", 1, true), "InventoryView FilterOwned residual for release")
+assert(not string.find(inventoryMathSrc, "vendor/", 1, true), "InventoryMath must not reference vendor/")
+assert(not string.find(inventoryMathSrc, "Packages/", 1, true), "InventoryMath must not reference Packages/")
+mark("inventory math salvage filter residuals")
+
+-- DataService / Admin / Progression / RemoteFirewall residuals for release past checks=16.
+assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual for release")
+assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEchoMath residual for release")
+assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual for release")
+local adminReleaseSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
+assert(string.find(adminReleaseSrc, "ProfileBagMath.EnsureFlags", 1, true), "Admin EnsureFlags residual for release")
+assert(string.find(adminReleaseSrc, "ForgeEchoMath.Ensure", 1, true), "Admin ForgeEchoMath residual for release")
+local progressionReleaseSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.WeeklyValue", 1, true), "Progression WeeklyValue residual for release")
+assert(string.find(progressionReleaseSrc, "ForgePathClaim.Ensure", 1, true), "Progression ForgePathClaim residual for release")
+local firewallReleaseSrc = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
+assert(string.find(firewallReleaseSrc, "BulkSalvageItems", 1, true), "RemoteFirewall BulkSalvage residual for release")
+assert(string.find(firewallReleaseSrc, "SetItemAutoSalvage", 1, true), "RemoteFirewall AutoSalvage residual for release")
+assert(string.find(firewallReleaseSrc, "local function cooldownKey", 1, true), "RemoteFirewall cooldownKey residual for release")
+mark("data admin progression firewall residuals")
+
+assert(#passed > 16, "release-readiness offline subset must stay beyond checks=16, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

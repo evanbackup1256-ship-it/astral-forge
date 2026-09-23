@@ -21,6 +21,7 @@ local contrastOn = _theme.contrastOn
 local scrollTail = _theme.scrollTail
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
+local InventoryMath = require(script.Parent.Parent.inventoryMath)
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -122,7 +123,7 @@ local TOOL_FIELD_DESK = 50
 local STATS_H = 36
 local BULK_DOCK_H = 58
 local function relicRowHeight(stack)
-	return if stack then ROW_H_STACK else ROW_H
+	return InventoryMath.RelicRowHeight(stack)
 end
 local function rarityColor(config, rarity)
 	local _result = config.Items
@@ -139,36 +140,22 @@ local function rarityColor(config, rarity)
 	return _condition
 end
 local function rarityRank(config, rarity)
-	local _result = config.Items
-	if _result ~= nil then
-		_result = _result.Rarities[rarity]
-		if _result ~= nil then
-			_result = _result.Rank
-		end
-	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = 0
-	end
-	return _condition
+	return InventoryMath.RarityRank(config, rarity)
 end
 local function effectAtLevel(definition, level)
-	return definition.BaseEffect * (1 + definition.LevelGrowth * math.max(0, level - 1))
+	return InventoryMath.EffectAtLevel(definition, level)
 end
 local function effectLabel(definition, level)
-	local pct = math.floor(effectAtLevel(definition, level) * 1000 + 0.5) / 10
-	return `+{pct}% {definition.EffectKind}`
+	return InventoryMath.EffectLabel(definition, level)
 end
 local function upgradeCost(definition, level)
-	return math.floor(definition.EssenceBase * 1.55 ^ math.max(0, level - 1))
+	return InventoryMath.UpgradeCost(definition, level)
 end
 local function salvagePreview(config, definition, level)
-	local rank = rarityRank(config, definition.Rarity)
-	return rank * rank * 8 + math.max(0, level - 1) * rank * 3
+	return InventoryMath.SalvagePreview(config, definition, level)
 end
 local function socketLabel(target)
-	local parts = string.split(target, ":")
-	return if #parts >= 2 then `{parts[1]} / {parts[2]}` else target
+	return InventoryMath.SocketLabel(target)
 end
 local function collectOwned(state, config)
 	local items = state.Items
@@ -212,137 +199,13 @@ local function collectOwned(state, config)
 	return owned
 end
 local function sortOwned(list, config, sort)
-	local _array = {}
-	local _length = #_array
-	table.move(list, 1, #list, _length + 1, _array)
-	local copy = _array
-	table.sort(copy, function(a, b)
-		if sort == "Level" then
-			if a.instance.Level ~= b.instance.Level then
-				return a.instance.Level > b.instance.Level
-			end
-			return a.definition.Name < b.definition.Name
-		end
-		if sort == "Name" then
-			return a.definition.Name < b.definition.Name
-		end
-		if sort == "Newest" then
-			if a.instance.AcquiredAt ~= b.instance.AcquiredAt then
-				return a.instance.AcquiredAt > b.instance.AcquiredAt
-			end
-			return a.uid > b.uid
-		end
-		if sort == "Power" then
-			local pa = effectAtLevel(a.definition, a.instance.Level)
-			local pb = effectAtLevel(b.definition, b.instance.Level)
-			if pa ~= pb then
-				return pa > pb
-			end
-			return rarityRank(config, a.definition.Rarity) > rarityRank(config, b.definition.Rarity)
-		end
-		local ra = rarityRank(config, a.definition.Rarity)
-		local rb = rarityRank(config, b.definition.Rarity)
-		if ra ~= rb then
-			return ra > rb
-		end
-		if a.instance.Level ~= b.instance.Level then
-			return a.instance.Level > b.instance.Level
-		end
-		return a.definition.Name < b.definition.Name
-	end)
-	return copy
+	return InventoryMath.SortOwned(list, config, sort)
 end
 local function filterOwned(list, filter)
-	if filter == "All" then
-		return list
-	end
-	if filter == "Equipped" then
-		-- ▼ ReadonlyArray.filter ▼
-		local _newValue_1 = {}
-		local _callback_1 = function(item)
-			return item.equippedOn ~= nil
-		end
-		local _length = 0
-		for _k, _v in list do
-			if _callback_1(_v, _k - 1, list) == true then
-				_length += 1
-				_newValue_1[_length] = _v
-			end
-		end
-		-- ▲ ReadonlyArray.filter ▲
-		return _newValue_1
-	end
-	if filter == "Unequipped" then
-		-- ▼ ReadonlyArray.filter ▼
-		local _newValue_1 = {}
-		local _callback_1 = function(item)
-			return item.equippedOn == nil
-		end
-		local _length = 0
-		for _k, _v in list do
-			if _callback_1(_v, _k - 1, list) == true then
-				_length += 1
-				_newValue_1[_length] = _v
-			end
-		end
-		-- ▲ ReadonlyArray.filter ▲
-		return _newValue_1
-	end
-	if filter == "Protected" then
-		-- ▼ ReadonlyArray.filter ▼
-		local _newValue_1 = {}
-		local _callback_1 = function(item)
-			return item.instance.Locked == true
-		end
-		local _length = 0
-		for _k, _v in list do
-			if _callback_1(_v, _k - 1, list) == true then
-				_length += 1
-				_newValue_1[_length] = _v
-			end
-		end
-		-- ▲ ReadonlyArray.filter ▲
-		return _newValue_1
-	end
-	-- ▼ ReadonlyArray.filter ▼
-	local _newValue_1 = {}
-	local _callback_1 = function(item)
-		return item.definition.Slot == filter
-	end
-	local _length = 0
-	for _k, _v in list do
-		if _callback_1(_v, _k - 1, list) == true then
-			_length += 1
-			_newValue_1[_length] = _v
-		end
-	end
-	-- ▲ ReadonlyArray.filter ▲
-	return _newValue_1
+	return InventoryMath.FilterOwned(list, filter)
 end
 local function searchOwned(list, query, rarity)
-	local needle = (string.gsub(string.lower(query), "^%s*(.-)%s*$", "%1"))
-	-- ▼ ReadonlyArray.filter ▼
-	local _newValue_1 = {}
-	local _callback_1 = function(item)
-		if rarity ~= "Any" and item.definition.Rarity ~= rarity then
-			return false
-		end
-		if needle == "" then
-			return true
-		end
-		local haystack = string.lower(`{item.definition.Name} {item.definition.Description} {item.definition.EffectKind} {item.uid}`)
-		local match = string.find(haystack, needle, 1, true)
-		return match ~= nil
-	end
-	local _length = 0
-	for _k, _v in list do
-		if _callback_1(_v, _k - 1, list) == true then
-			_length += 1
-			_newValue_1[_length] = _v
-		end
-	end
-	-- ▲ ReadonlyArray.filter ▲
-	return _newValue_1
+	return InventoryMath.SearchOwned(list, query, rarity)
 end
 local function socketTargets(state, config, definition)
 	local out = {}
@@ -428,13 +291,7 @@ local function ChipRow(_param)
 	}, _exp, _newValue_1)
 end
 local function autoSalvageSignature(rules)
-	local active = {}
-	for _, rarity in AUTO_RARITIES do
-		if rarity ~= "Any" and rules.Rarities[rarity] == true then
-			table.insert(active, rarity)
-		end
-	end
-	return `{if rules.Enabled then 1 else 0}:{if rules.KeepNew then 1 else 0}:{table.concat(active, ",")}`
+	return InventoryMath.AutoSalvageSignature(rules, AUTO_RARITIES)
 end
 local function InventoryTools(_param)
 	local search = _param.search

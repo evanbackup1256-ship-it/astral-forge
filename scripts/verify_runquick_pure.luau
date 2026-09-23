@@ -306,4 +306,31 @@ print(string.format(
 	#machines,
 	#research
 ))
+
+------------------------------------------------------------------------
+-- ContinuumEffects / NextPrestigeTarget / OfflineHours pure parity
+------------------------------------------------------------------------
+do
+	assert(string.find(economySrc, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate")
+	assert(string.find(economySrc, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate")
+	assert(string.find(economySrc, "EconomyEnvelopeMath.OfflineHours", 1, true), "Economy OfflineHours must delegate")
+	local continuumFx = {
+		ProductionScale = 1.16,
+		MilestoneEvery = 25,
+		MilestoneScale = 1.5,
+		CapacityScale = 1.10,
+		TapScale = 1.14,
+		OfflineCap = 0.45,
+		OfflinePerRank = 0.0025,
+	}
+	local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
+	local RebirthGate = require("../src/Server/AstralForge/Modules/RebirthGate")
+	local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
+	local prod, cap, tap, off = ContinuumDomainMath.ContinuumEffects(OmegaMath, continuumFx, 0)
+	assert(isPersist(prod) and isPersist(cap) and isPersist(tap) and finiteNumber(off), "ContinuumEffects overflow")
+	local nextTarget = RebirthGate.NextPrestigeTarget(OmegaMath, 0, 1000, 0.5)
+	assert(isPersist(nextTarget), "NextPrestigeTarget must persist")
+	assert(EconomyEnvelopeMath.OfflineHours(4, 0, 0, 24) == 4, "OfflineHours identity")
+end
+
 print("[INFO] [TEST] Studio-only remainder: ReleaseReadiness.RunQuick 50k soak + RunSoak (not claimed by npm test)")

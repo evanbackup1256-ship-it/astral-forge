@@ -55,4 +55,22 @@ function ForgePathClaim.TryClaim(forgePath, rawStep: any, steps: { StepLike }): 
 	return true, nil, step
 end
 
+-- Sums EffectAmount (whole-number percent, e.g. 2 = "+2%") across claimed steps
+-- whose EffectKind matches, returning a 0..N fraction for `1 + result` multipliers.
+-- Partial ClaimedSteps / missing steps must not throw (corrupt save / mid-ensure).
+function ForgePathClaim.Effect(claimedSteps: any, steps: any, effectKind: string): number
+	if type(claimedSteps) ~= "table" or type(steps) ~= "table" then
+		return 0
+	end
+	local total = 0
+	for stepKey in claimedSteps do
+		local stepIndex = tonumber(stepKey)
+		local step = stepIndex and steps[stepIndex]
+		if type(step) == "table" and step.EffectKind == effectKind then
+			total += tonumber(step.EffectAmount) or 0
+		end
+	end
+	return total / 100
+end
+
 return table.freeze(ForgePathClaim)
