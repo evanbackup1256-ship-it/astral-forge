@@ -145,6 +145,7 @@ assert(string.find(invSrc, "InventoryMath.RestockClock", 1, true), "InventoryVie
 assert(string.find(invSrc, "InventoryMath.OfferStock", 1, true), "InventoryView OfferStock residual")
 assert(string.find(invSrc, "InventoryMath.InspectPanelHeight", 1, true), "InventoryView InspectPanelHeight residual")
 assert(string.find(invSrc, "InventoryMath.RarityColor", 1, true), "InventoryView RarityColor residual")
+assert(string.find(invSrc, "InventoryMath.UpgradeState", 1, true), "InventoryView UpgradeState residual")
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
@@ -155,6 +156,7 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 local mathSrc = fs.readFile("src/Client/AstralForge/inventoryMath.luau")
+assert(string.find(mathSrc, "function InventoryMath.UpgradeState", 1, true), "InventoryMath.UpgradeState missing")
 for _, body in { mathSrc, invSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")

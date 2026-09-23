@@ -155,4 +155,79 @@ function RemoteFirewallMath.NumberField(
 		and value <= maximum
 end
 
+
+RemoteFirewallMath.INSPECT_MAX_DEPTH = 3
+RemoteFirewallMath.INSPECT_MAX_ENTRIES = 32
+RemoteFirewallMath.INSPECT_MAX_STRING = 600
+RemoteFirewallMath.INSPECT_MAX_KEY_LEN = 64
+RemoteFirewallMath.INSPECT_MAX_INDEX = 10000
+
+-- Recursive remote-payload shape gate. Pure `type` (not Roblox typeof) so Lune
+-- can exercise nesting/cycle/budget rejects without Studio. Instance payloads
+-- are rejected as unsupported — RemoteFirewall unwraps Player before inspect.
+function RemoteFirewallMath.Inspect(
+	value: any,
+	depth: number?,
+	seen: { [any]: boolean }?,
+	budget: { Value: number }?
+): (boolean, string?)
+	local nest = math.max(0, math.floor(tonumber(depth) or 0))
+	local visited = seen or {}
+	local entries = budget or { Value = 0 }
+	local valueType = type(value)
+	if value == nil or valueType == "boolean" then
+		return true
+	end
+	if valueType == "number" then
+		return RemoteFirewallMath.SafeNumber(value), "number is outside the safe range"
+	end
+	if valueType == "string" then
+		return value:len() <= RemoteFirewallMath.INSPECT_MAX_STRING, "string is too long"
+	end
+	if valueType ~= "table" then
+		return false, "payload contains an unsupported value"
+	end
+	if nest > RemoteFirewallMath.INSPECT_MAX_DEPTH then
+		return false, "payload nesting is too deep"
+	end
+	if visited[value] then
+		return false, "payload contains a cycle"
+	end
+	visited[value] = true
+	for key, child in value do
+		entries.Value += 1
+		if entries.Value > RemoteFirewallMath.INSPECT_MAX_ENTRIES then
+			visited[value] = nil
+			return false, "payload is too large"
+		end
+		local keyType = type(key)
+		if keyType ~= "string" and keyType ~= "number" then
+			visited[value] = nil
+			return false, "payload keys must be strings or numbers"
+		end
+		if keyType == "string" and key:len() > RemoteFirewallMath.INSPECT_MAX_KEY_LEN then
+			visited[value] = nil
+			return false, "payload key is too long"
+		end
+		if
+			keyType == "number"
+			and (
+				not RemoteFirewallMath.SafeNumber(key)
+				or not RemoteFirewallMath.Integer(key)
+				or math.abs(key) > RemoteFirewallMath.INSPECT_MAX_INDEX
+			)
+		then
+			visited[value] = nil
+			return false, "payload index is outside the safe range"
+		end
+		local ok, reason = RemoteFirewallMath.Inspect(child, nest + 1, visited, entries)
+		if not ok then
+			visited[value] = nil
+			return false, reason
+		end
+	end
+	visited[value] = nil
+	return true
+end
+
 return table.freeze(RemoteFirewallMath)

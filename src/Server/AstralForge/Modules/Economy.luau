@@ -11,6 +11,7 @@ local RebirthGate = require(script.Parent:WaitForChild("RebirthGate"))
 local ContinuumDomainMath = require(script.Parent:WaitForChild("ContinuumDomainMath"))
 local ForgePathClaim = require(script.Parent:WaitForChild("ForgePathClaim"))
 local EconomyEnvelopeMath = require(script.Parent:WaitForChild("EconomyEnvelopeMath"))
+local ForgeEchoMath = require(script.Parent:WaitForChild("ForgeEchoMath"))
 
 local Economy = {}
 
@@ -421,63 +422,36 @@ function Economy.ForgePathEffect(profile: ProfileLike?, effectKind: string): num
 end
 
 function Economy.PermanentMultiplier(profile: ProfileLike): Persist
-	local cores = math.max(0, tonumber(profile.Cores) or 0)
-	local coreBonus = GameConfig.Economy.CoreMultiplier * (cores ^ GameConfig.Economy.CoreExponent)
 	local domain = profile.Domain
-	local rank = domain and math.max(0, tonumber(domain.Rank) or 0) or 0
-	local essence = domain and math.max(0, tonumber(domain.Essence) or 0) or 0
-	if essence > 1_000_000 then
-		essence = 1_000_000
-	end
-	local rebirths = math.max(0, tonumber(profile.Rebirths) or 0)
-	local domainMultiplier = 1
-		+ rank * GameConfig.Domain.ProductionPerRank
-		+ essence * GameConfig.Domain.ProductionPerEssence
-		+ Economy.DomainTreeBonus(profile, "Production")
-		+ Economy.ForgePathEffect(profile, "Production")
 	local insightResearch = profile.Research
 	local insightLevel = (type(insightResearch) == "table" and insightResearch.Insight) or 0
-	local rebirthMultiplier = GameConfig.Economy.RebirthMultiplier
-		* (1 + Economy.ForgePathEffect(profile, "RebirthMultiplier"))
-		* (1 + insightLevel * 0.02)
-	return bounded((1 + coreBonus + rebirths * rebirthMultiplier) * domainMultiplier)
+	return bounded(EconomyEnvelopeMath.PermanentMultiplier(
+		profile.Cores,
+		GameConfig.Economy.CoreMultiplier,
+		GameConfig.Economy.CoreExponent,
+		domain and domain.Rank or 0,
+		domain and domain.Essence or 0,
+		1_000_000,
+		GameConfig.Domain.ProductionPerRank,
+		GameConfig.Domain.ProductionPerEssence,
+		Economy.DomainTreeBonus(profile, "Production"),
+		Economy.ForgePathEffect(profile, "Production"),
+		profile.Rebirths,
+		GameConfig.Economy.RebirthMultiplier,
+		Economy.ForgePathEffect(profile, "RebirthMultiplier"),
+		insightLevel
+	))
 end
 
 
 function Economy.EchoEffect(profile: ProfileLike, effectKind: string): number
-	local echoes = profile.ForgeEchoes
-	if not echoes or type(echoes.Inventory) ~= "table" or type(echoes.Equipped) ~= "table" then
-		return 0
-	end
-	local total = 0
-	local affinities = {}
-	local equippedCount = 0
-	local used = {}
-	for _, uid in echoes.Equipped do
-		local instance = type(uid) == "string" and echoes.Inventory[uid] or nil
-		if instance and not used[uid] then
-			used[uid] = true
-			local trait = nil
-			for _, candidate in GameConfig.ForgeEchoes.Traits do
-				if candidate.Id == instance.TraitId then trait = candidate break end
-			end
-			if trait then
-				equippedCount += 1
-				affinities[trait.Affinity] = true
-				if trait.EffectKind == effectKind then
-					local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, GameConfig.ForgeEchoes.MaxLevel)
-					local strength = math.clamp(tonumber(instance.Strength) or 1, 0.75, 1.5)
-					total += (trait.BaseEffect + trait.EffectPerLevel * (level - 1)) * strength
-				end
-			end
-		end
-	end
-	local affinityCount = 0
-	for _ in affinities do affinityCount += 1 end
-	if equippedCount >= 2 and affinityCount == equippedCount then
-		total *= 1 + GameConfig.ForgeEchoes.HarmonyBonus
-	end
-	return total
+	return ForgeEchoMath.EquippedEffect(
+		profile.ForgeEchoes,
+		effectKind,
+		GameConfig.ForgeEchoes.Traits,
+		GameConfig.ForgeEchoes.MaxLevel,
+		GameConfig.ForgeEchoes.HarmonyBonus
+	)
 end
 
 function Economy.ContinuumCosts(rank: number): (Persist, Persist)

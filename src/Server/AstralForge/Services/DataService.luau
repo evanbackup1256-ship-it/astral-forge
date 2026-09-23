@@ -230,11 +230,7 @@ return function(loadService: (string) -> any)
 		if #safeChoices == 0 then echoes.Draft.Id = "" end
 		profile.Zone = math.clamp(math.floor(nonNegative(profile.Zone)), 1, GameConfig.MaxZone)
 		profile.CurrentZone = math.clamp(math.floor(nonNegative(profile.CurrentZone)), 1, profile.Zone)
-		for key, value in profile.Machines do
-			local item = machineById[key]
-			local nextValue = item and math.clamp(math.floor(nonNegative(value)), 0, item.MaxLevel) or 0
-			profile.Machines[key] = nextValue > 0 and nextValue or nil
-		end
+		DataSanitizeMath.ClampLevelBag(profile.Machines, machineById, nonNegative)
 		if type(profile.AutoForge) ~= "table" then
 			profile.AutoForge = { Enabled = false, MachineId = "StellarCore", Reserve = 0.25, Bought = 0 }
 		end
@@ -245,16 +241,8 @@ return function(loadService: (string) -> any)
 			or "StellarCore"
 		profile.AutoForge.Reserve = math.clamp(nonNegative(profile.AutoForge.Reserve), 0, 0.9)
 		profile.AutoForge.Bought = math.floor(nonNegative(profile.AutoForge.Bought))
-		for key, value in profile.Research do
-			local item = researchById[key]
-			local nextValue = item and math.clamp(math.floor(nonNegative(value)), 0, item.MaxLevel) or 0
-			profile.Research[key] = nextValue > 0 and nextValue or nil
-		end
-		for key, value in profile.GridUpgrades do
-			local item = gridById[key]
-			local nextValue = item and math.clamp(math.floor(nonNegative(value)), 0, item.MaxLevel) or 0
-			profile.GridUpgrades[key] = nextValue > 0 and nextValue or nil
-		end
+		DataSanitizeMath.ClampLevelBag(profile.Research, researchById, nonNegative)
+		DataSanitizeMath.ClampLevelBag(profile.GridUpgrades, gridById, nonNegative)
 		-- ApplyReward may seed Signals/XP-only Command bags — rebuild nested Crew/
 		-- Artifacts/Weekly/Shop before sanitize iterates them.
 		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)

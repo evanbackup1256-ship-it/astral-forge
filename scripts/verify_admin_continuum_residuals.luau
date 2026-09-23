@@ -118,6 +118,8 @@ assert(string.find(adminSrc, "ProfileBagMath.EnsureBoostInventory", 1, true), "A
 assert(string.find(adminSrc, "WheelMath.Ensure", 1, true), "Admin WheelMath.Ensure residual")
 assert(string.find(adminSrc, "CommandMath.Ensure", 1, true), "Admin CommandMath.Ensure residual")
 assert(string.find(adminSrc, "ForgeEchoMath.Ensure", 1, true), "Admin ForgeEchoMath.Ensure residual")
+assert(string.find(adminSrc, "AdminGrantMath.NextRelicUid", 1, true), "Admin NextRelicUid residual")
+assert(string.find(adminSrc, "AdminGrantMath.BuildRelicInstance", 1, true), "Admin BuildRelicInstance residual")
 assert(string.find(adminSrc, "ProfileBagMath.EnsureFlags", 1, true), "Admin EnsureFlags residual")
 assert(string.find(adminSrc, "ProfileBagMath.BumpStat", 1, true), "Admin BumpStat residual")
 assert(

@@ -883,8 +883,12 @@ local function DetailPanel(_param)
 	end
 	local essence = _condition
 	local cost = upgradeCost(item.definition, item.instance.Level)
-	local maxed = item.instance.Level >= item.definition.MaxLevel
-	local canUpgrade = not maxed and essence >= cost
+	local canUpgrade, maxed = InventoryMath.UpgradeState(
+		item.instance.Level,
+		item.definition.MaxLevel,
+		essence,
+		cost
+	)
 	local targets = React.useMemo(function()
 		return socketTargets(state, config, item.definition)
 	end, { config, item.definition, state.Machines, state.Research })

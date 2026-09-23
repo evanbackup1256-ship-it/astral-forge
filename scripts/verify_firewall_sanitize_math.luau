@@ -80,13 +80,18 @@ assert(string.find(firewallSrc, "RemoteFirewallMath.ExtractUserId", 1, true), "F
 assert(string.find(firewallSrc, "RemoteFirewallMath.CooldownKey", 1, true), "Firewall CooldownKey residual")
 assert(string.find(firewallSrc, "RemoteFirewallMath.StringField", 1, true), "Firewall StringField residual")
 assert(string.find(firewallSrc, "RemoteFirewallMath.NumberField", 1, true), "Firewall NumberField residual")
+assert(string.find(firewallSrc, "RemoteFirewallMath.Inspect", 1, true), "Firewall Inspect residual")
 assert(string.find(firewallSrc, "BulkSalvageItems", 1, true), "Firewall BulkSalvage residual")
 assert(string.find(firewallSrc, "SetItemAutoSalvage", 1, true), "Firewall AutoSalvage residual")
 assert(string.find(dataSrc, "DataSanitizeMath.DeepCopy", 1, true), "DataService DeepCopy residual")
 assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService Reconcile residual")
 assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService NonNegative residual")
+assert(string.find(dataSrc, "DataSanitizeMath.ClampLevelBag", 1, true), "DataService ClampLevelBag residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual")
 assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEcho residual")
+
+assert(string.find(fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"), "function RemoteFirewallMath.Inspect", 1, true), "Inspect exported")
+assert(string.find(fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau"), "function DataSanitizeMath.ClampLevelBag", 1, true), "ClampLevelBag exported")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) == 21, "DataVersion must remain 21")

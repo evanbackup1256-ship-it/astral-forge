@@ -496,8 +496,33 @@ end
 assert(commandGateCount >= 3, "Command titles overscan softMotion residual for release")
 mark("wave21 clamp quest trade admin story residuals")
 
--- Raise floor past checks=22 once pure RunQuick-adjacent monolith extracts land.
-assert(#passed > 22, "release-readiness offline subset must stay beyond checks=22, got " .. tostring(#passed))
+-- Wave21 extract-checks residuals (complement wave21-harden ProfileClamp/quest):
+-- RemoteFirewall Inspect, ForgeEcho EquippedEffect, PermanentMultiplier,
+-- ClampLevelBag, Admin relic uid, UtcClock Week, Inventory UpgradeState.
+assert(string.find(firewallMathSrc, "function RemoteFirewallMath.Inspect", 1, true), "RemoteFirewallMath.Inspect missing")
+assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.Inspect", 1, true), "RemoteFirewall Inspect residual for release")
+local forgeEchoRelease = fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau")
+assert(string.find(forgeEchoRelease, "function ForgeEchoMath.EquippedEffect", 1, true), "ForgeEchoMath.EquippedEffect missing")
+assert(string.find(economyBody, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EquippedEffect residual for release")
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.PermanentMultiplier", 1, true), "EconomyEnvelopeMath.PermanentMultiplier missing")
+assert(string.find(economyBody, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier residual for release")
+assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampLevelBag", 1, true), "DataSanitizeMath.ClampLevelBag missing")
+assert(string.find(dataSrc, "DataSanitizeMath.ClampLevelBag", 1, true), "DataService ClampLevelBag residual for release")
+local adminGrantRelease = fs.readFile("src/Server/AstralForge/Modules/AdminGrantMath.luau")
+assert(string.find(adminGrantRelease, "function AdminGrantMath.NextRelicUid", 1, true), "AdminGrantMath.NextRelicUid missing")
+assert(string.find(adminReleaseSrc, "AdminGrantMath.NextRelicUid", 1, true), "Admin NextRelicUid residual for release")
+assert(string.find(utcClockSrc, "function UtcClockMath.Week", 1, true), "UtcClockMath.Week missing")
+assert(string.find(progressionReleaseSrc, "UtcClockMath.Week", 1, true), "Progression Week residual for release")
+assert(string.find(inventoryMathSrc, "function InventoryMath.UpgradeState", 1, true), "InventoryMath.UpgradeState missing")
+assert(string.find(invViewSrc, "InventoryMath.UpgradeState", 1, true), "InventoryView UpgradeState residual for release")
+assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick PrestigeReward still present for wave21 adjacency")
+assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for wave21 adjacency")
+assert(not string.find(forgeEchoRelease, "GetService", 1, true), "ForgeEchoMath must stay pure")
+assert(not string.find(adminGrantRelease, "GetService", 1, true), "AdminGrantMath must stay pure")
+mark("wave21 extract firewall echo envelope residuals")
+
+-- Raise floor past checks=25 once wave21 extract-checks RunQuick-adjacent residuals land.
+assert(#passed > 25, "release-readiness offline subset must stay beyond checks=25, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

@@ -158,12 +158,12 @@ return function(loadService: (string) -> any)
 		local count = 0
 		for _ in items.Inventory do count += 1 end
 		if count >= GameConfig.Items.InventoryLimit then return false end
-		local uid
-		repeat
-			uid = string.format("IT%07d", math.max(1, math.floor(items.NextId or 1)))
-			items.NextId = math.max(1, math.floor(items.NextId or 1)) + 1
-		until not items.Inventory[uid]
-		items.Inventory[uid] = { DefinitionId = definition.Id, Level = 1, AcquiredAt = os.time() }
+		local uid, nextId = AdminGrantMath.NextRelicUid(items.Inventory, items.NextId)
+		if uid == nil then return false end
+		local instance = AdminGrantMath.BuildRelicInstance(definition.Id, os.time())
+		if instance == nil then return false end
+		items.NextId = nextId
+		items.Inventory[uid] = instance
 		-- Partial Stats bags (Studio fixtures) must not crash GrantRelic before the item sticks.
 		ProfileBagMath.BumpStat(profile, "ItemsFound", 1)
 		return true
