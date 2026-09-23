@@ -542,15 +542,29 @@ return function()
 			return false, "Pick a positive contribution amount."
 		end
 		amount = math.floor(amount)
-		local field = currency == "Cash" and "Cash" or currency == "Dust" and "Stardust" or nil
-		if not field then return false, "Contribute flux or dust." end
-		if profile[field] < amount then return false, "You do not have enough currency." end
+		if currency ~= "Cash" and currency ~= "Dust" then
+			return false, "Contribute flux or dust."
+		end
+		if currency == "Cash" then
+			-- Cash can be an OmegaMath string at high exponents — never use raw `<` / `-=`.
+			if OmegaMath.Lt(profile.Cash, amount) then
+				return false, "You do not have enough currency."
+			end
+		else
+			if (tonumber(profile.Stardust) or 0) < amount then
+				return false, "You do not have enough currency."
+			end
+		end
 
 		local ok, message, updated = self:_update(guildId, function(guild)
 			local member = guild.Members[tostring(player.UserId)]
 			if not member then return nil end
 			local bankKey = currency == "Cash" and "BankCash" or "BankDust"
-			guild[bankKey] = math.min(MAX_GUILD_NUMBER, finiteNonNegative(guild[bankKey]) + amount)
+			if currency == "Cash" then
+				guild[bankKey] = OmegaMath.Add(guild[bankKey] or 0, amount)
+			else
+				guild[bankKey] = math.min(MAX_GUILD_NUMBER, finiteNonNegative(guild[bankKey]) + amount)
+			end
 			guild.Activity = math.min(MAX_GUILD_NUMBER, finiteNonNegative(guild.Activity) + amount)
 			member.Contributed = math.min(MAX_GUILD_NUMBER, finiteNonNegative(member.Contributed) + amount)
 			if member.Name == nil or member.Name == "" then
@@ -566,7 +580,11 @@ return function()
 			return guild
 		end)
 		if not ok then return false, message or "You are not in that guild.", updated end
-		profile[field] -= amount
+		if currency == "Cash" then
+			profile.Cash = OmegaMath.Sub(profile.Cash, amount)
+		else
+			profile.Stardust -= amount
+		end
 		return true, "Contribution deposited.", updated
 	end
 
@@ -586,9 +604,15 @@ return function()
 		local cost = upgradeCost(definition, level)
 		local bankKey = definition.Currency == "Cash" and "BankCash" or "BankDust"
 		local bank = guild[bankKey] or 0
-		if bank < cost then
+		local canAfford = if definition.Currency == "Cash"
+			then not OmegaMath.Lt(bank, cost)
+			else (tonumber(bank) or 0) >= cost
+		if not canAfford then
 			local label = definition.Currency == "Cash" and "flux" or "dust"
-			return false, string.format("Need %d %s in the guild bank (have %d). Contribute first.", cost, label, math.floor(bank))
+			local haveLabel = if definition.Currency == "Cash"
+				then tostring(bank)
+				else tostring(math.floor(tonumber(bank) or 0))
+			return false, string.format("Need %d %s in the guild bank (have %s). Contribute first.", cost, label, haveLabel)
 		end
 		local ok, message, updated = self:_update(guildId, function(current)
 			local actor = current.Members[tostring(player.UserId)]
@@ -596,8 +620,14 @@ return function()
 			local nextLevel = current.Upgrades[upgradeId] or 0
 			if nextLevel >= definition.MaxLevel then return nil end
 			local nextCost = upgradeCost(definition, nextLevel)
-			if (current[bankKey] or 0) < nextCost then return nil end
-			current[bankKey] -= nextCost
+			local nextBank = current[bankKey] or 0
+			if definition.Currency == "Cash" then
+				if OmegaMath.Lt(nextBank, nextCost) then return nil end
+				current[bankKey] = OmegaMath.Sub(nextBank, nextCost)
+			else
+				if (tonumber(nextBank) or 0) < nextCost then return nil end
+				current[bankKey] = (tonumber(nextBank) or 0) - nextCost
+			end
 			current.Upgrades[upgradeId] = nextLevel + 1
 			current.Activity = math.min(MAX_GUILD_NUMBER, finiteNonNegative(current.Activity) + nextCost)
 			advanceGoal(current, tostring(player.UserId), "Upgrades", 1, os.time())
