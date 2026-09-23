@@ -35,7 +35,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 0017275ba6a31011fa92cac8016db90149fa4efc
+# Expect at or after: 5002639df7cb3150eb0fd698d7ad023f6bdf6f0f
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
@@ -44,7 +44,7 @@ git merge-base --is-ancestor d3b0d55 HEAD && echo color-pc OK
 git merge-base --is-ancestor 9bcb0c5 HEAD && echo trade OK
 git merge-base --is-ancestor 9c30593 HEAD && echo inventory OK
 git merge-base --is-ancestor a08ddef HEAD && echo playability OK
-git merge-base --is-ancestor 0017275 HEAD && echo pagescaffold-remaining OK
+git merge-base --is-ancestor 5002639 HEAD && echo pagescaffold-remaining OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
