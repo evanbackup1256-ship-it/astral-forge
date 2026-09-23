@@ -14,10 +14,9 @@
 --   - "desktop"  unchanged, full sidebar shell (this module does not size desktop chrome)
 local TAP_TARGET = 48
 local MORE_COUNT = 10
-local function isMobileLandscape(width, height, compact, tight)
-	if not (compact or tight) then
-		return false
-	end
+-- Modern phones in landscape are often ≥900px wide, so do not gate on compact/tight
+-- (those flags key off width and wrongly force landscape phones into portrait tablet chrome).
+local function isMobileLandscape(width, height, _compact, _tight)
 	return width > height and height < 700
 end
 local function fitPanelHeight(desired, budget, minH, maxShare)
@@ -112,12 +111,14 @@ local function planMobileLayout(input)
 	local panelGap = if landscape then 8 elseif phone then 12 else 12
 	local pagePadding = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 14 else 18
 	local contentInset = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 16 else 18
-	local workspaceHeaderH = if landscape then 40 elseif phone then (if tablet then 58 else 52) else 94
-	-- Bottom tab bar: a fixed-height strip anchored to the bottom safe area. Landscape gets a
-	-- slimmer bar since vertical space is the scarce resource there; portrait/tablet get a
-	-- taller, easier-to-thumb bar. This height never changes once computed for a given
-	-- viewport — no spring, no animated resize, so it can never render "mid-transition".
-	local tabBarCore = if landscape then 56 elseif tablet then 70 else 64
+	-- MobileShell already renders MobileHeader with the page title/chips. A second Workspace
+	-- header on phone duplicates chrome and eats the content budget — keep it at 0 whenever
+	-- the bottom-tab phone shell is active (portrait, landscape, and tablet-width stack).
+	local workspaceHeaderH = if phone then 0 else 94
+	-- Bottom tab bar: fixed-height strip. Core height is always ≥ TAP_TARGET so each tab
+	-- remains thumbable; landscape stays at the floor, tablet gets a little more room.
+	-- Height never animates, so it cannot render mid-transition.
+	local tabBarCore = if landscape then TAP_TARGET elseif tablet then 56 else 52
 	local tabBarH = if phone then tabBarCore + bottomSafe else 0
 	-- How many destinations fit across the bar before a "More" tab is needed to hold the rest.
 	-- A tab needs roughly 64px of comfortable tap width; reserve one slot for "More" whenever
