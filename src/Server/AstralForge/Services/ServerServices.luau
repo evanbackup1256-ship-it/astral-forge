@@ -793,26 +793,82 @@ serviceFactories["GameService"] = function()
 			if not ok then
 				return responseError(err)
 			end
-		if session and session.Confirmed[session.Host] and session.Confirmed[session.Guest] then
-			local host = Players:GetPlayerByUserId(session.Host)
-			local guest = Players:GetPlayerByUserId(session.Guest)
-			local hostProfile = host and self._data:Get(host)
-			local guestProfile = guest and self._data:Get(guest)
-			if not host or not guest or not hostProfile or not guestProfile then
-				self._trades:Cancel(player)
-				return responseError("A trader left before the swap finished.")
-			end
-			local settleErr = self._trades:Settle(session, hostProfile, guestProfile, now)
-				if settleErr then
+			if session and session.Confirmed[session.Host] and session.Confirmed[session.Guest] then
+				local host = Players:GetPlayerByUserId(session.Host)
+				local guest = Players:GetPlayerByUserId(session.Guest)
+				local hostProfile = host and self._data:Get(host)
+				local guestProfile = guest and self._data:Get(guest)
+				if not host or not guest or not hostProfile or not guestProfile then
+					self._trades:Cancel(player)
+					return responseError("A trader left before the swap finished.")
+				end
+				local plan, planErr = self._trades:Plan(session, hostProfile, guestProfile, now)
+				if not plan then
 					session.Confirmed[session.Host] = false
 					session.Confirmed[session.Guest] = false
 					session.ConfirmEndsAt = 0
 					session.Status = "Open"
 					self:_pushTradePartners(session.Host, session.Guest)
-					return responseError(settleErr)
+					return responseError(planErr or "That trade could not be settled.")
 				end
-				self._data:MarkDirty(host)
-				self._data:MarkDirty(guest)
+				local hostOk, hostResult = self._data:AtomicUpdate(host, function(profile)
+					local applyErr = self._trades:ApplyExchange(
+						profile,
+						plan.HostOffer,
+						plan.GuestOffer,
+						plan.HostItems,
+						plan.GuestItems,
+						plan.Now
+					)
+					if applyErr then
+						return { ok = false, error = applyErr }
+					end
+					return { ok = true }
+				end, true, "trade-host")
+				if not hostOk or type(hostResult) ~= "table" or hostResult.ok ~= true then
+					session.Confirmed[session.Host] = false
+					session.Confirmed[session.Guest] = false
+					session.ConfirmEndsAt = 0
+					session.Status = "Open"
+					self:_pushTradePartners(session.Host, session.Guest)
+					local message = if type(hostResult) == "table" then hostResult.error else nil
+					return responseError(message or "Host side of the trade failed.")
+				end
+				local guestOk, guestResult = self._data:AtomicUpdate(guest, function(profile)
+					local applyErr = self._trades:ApplyExchange(
+						profile,
+						plan.GuestOffer,
+						plan.HostOffer,
+						plan.GuestItems,
+						plan.HostItems,
+						plan.Now
+					)
+					if applyErr then
+						return { ok = false, error = applyErr }
+					end
+					return { ok = true }
+				end, true, "trade-guest")
+				if not guestOk or type(guestResult) ~= "table" or guestResult.ok ~= true then
+					self._data:AtomicUpdate(host, function(profile)
+						self._trades:RevertExchange(
+							profile,
+							plan.HostOffer,
+							plan.GuestOffer,
+							plan.HostItems,
+							plan.GuestItems,
+							plan.Now
+						)
+						return { ok = true }
+					end, true, "trade-revert")
+					session.Confirmed[session.Host] = false
+					session.Confirmed[session.Guest] = false
+					session.ConfirmEndsAt = 0
+					session.Status = "Open"
+					self:_pushTradePartners(session.Host, session.Guest)
+					local message = if type(guestResult) == "table" then guestResult.error else nil
+					return responseError(message or "Guest side of the trade failed.")
+				end
+				self._trades:Close(session)
 				self:_toastPlayer(host, "Trade complete", "The exchange is locked in.", "Success")
 				self:_toastPlayer(guest, "Trade complete", "The exchange is locked in.", "Success")
 				self:_pushTradePartners(session.Host, session.Guest)
@@ -1772,12 +1828,16 @@ serviceFactories["GameService"] = function()
 		end
 		local details = nil
 		local result = self:_mutate(player, function(profile)
-			local success, message, payload = AnomalyService.SetChannel(profile, channelId)
+			local success, message, payload = AnomalyService.SetLoadout(profile, { channelId })
 			details = payload
 			return success and responseSuccess(message, payload) or responseError(message)
 		end)
 		if result.ok and details then
-			self._effect:FireClient(player, { Type = "AnomalyChannel", Channel = details.Channel })
+			self._effect:FireClient(player, {
+				Type = "AnomalyLoadout",
+				Loadout = details.Loadout,
+				Channel = details.Loadout and details.Loadout[1] or channelId,
+			})
 		end
 		return result
 	end
@@ -2316,6 +2376,7 @@ serviceFactories["GameService"] = function()
 						.. " run flux first."
 				)
 			end
+			local bankedVault = profile.Vault
 			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
 			local stardustReward = math.max(4, math.floor(math.sqrt(Economy.AsNumber(reward)) * 5))
@@ -3421,6 +3482,7 @@ serviceFactories["GameService"] = function()
 			profile.Domain.TotalRebirthsSpent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0)) + spentRebirths
 			profile.Domain.TotalCoresSpent = math.max(0, math.floor(tonumber(profile.Domain.TotalCoresSpent) or 0)) + spentCores
 
+			ForgeEchoService.Record(profile, "Explore", 14)
 
 			profile.Cash = GameConfig.Economy.StartingCash
 			profile.Vault = 0
@@ -3429,7 +3491,6 @@ serviceFactories["GameService"] = function()
 			profile.RunCash = 0
 			profile.Zone = 1
 			profile.CurrentZone = 1
-			ForgeEchoService.Record(profile, "Explore", 14)
 			profile.Machines = { StellarCore = 1 }
 			if profile.AutoForge then
 				profile.AutoForge.Enabled = false
@@ -4997,16 +5058,24 @@ serviceFactories["GameService"] = function()
 				end
 			end
 			local txnId = payloadTable and type(payloadTable.TxnId) == "string" and payloadTable.TxnId or nil
+			local txnClaimed = false
 			if txnId then
-				local hit, storedResult = self._session:TxnLookup(player, txnId)
-				if hit then
+				local status, storedResult = self._session:TxnClaim(player, txnId)
+				if status == "done" then
 					return storedResult
 				end
+				if status == "busy" then
+					return responseError("Still working on that.")
+				end
+				txnClaimed = true
 			end
 			local success, result = pcall(function()
 				return self:_handleAction(player, action, payload)
 			end)
 			if not success then
+				if txnClaimed and txnId then
+					self._session:TxnRelease(player, txnId)
+				end
 				ModuleLog.Every(
 					string.format("action:%d:%s", player.UserId, tostring(action)),
 					5,
@@ -5016,6 +5085,9 @@ serviceFactories["GameService"] = function()
 				return responseError("The forge encountered an error. Please try again.")
 			end
 			if type(result) ~= "table" or type(result.ok) ~= "boolean" then
+				if txnClaimed and txnId then
+					self._session:TxnRelease(player, txnId)
+				end
 				ModuleLog.Every(
 					string.format("action-contract:%d:%s", player.UserId, tostring(action)),
 					5,
@@ -5024,8 +5096,12 @@ serviceFactories["GameService"] = function()
 				)
 				return responseError("The forge returned an invalid response. Please try again.")
 			end
-			if txnId and result.ok then
-				self._session:TxnStore(player, txnId, result)
+			if txnClaimed and txnId then
+				if result.ok then
+					self._session:TxnStore(player, txnId, result)
+				else
+					self._session:TxnRelease(player, txnId)
+				end
 			end
 			if result.ok == false
 				and action ~= Protocol.Actions.ReportPresence

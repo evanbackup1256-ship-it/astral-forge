@@ -1,5 +1,4 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
 local Players = game:GetService("Players")
 local Audio = require(script.Parent.audio).Audio
 local Icon = require(script.Parent.Icon).Icon

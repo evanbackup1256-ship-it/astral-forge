@@ -73,4 +73,14 @@ assert(gate:CheckGrant(player, liveGen, liveNonce, true) == true, "grant should 
 local pGen, pNonce = gate:Peek(player)
 assert(pGen == liveGen and pNonce == liveNonce, "peek should return live creds")
 
+local claimStatus, claimStored = gate:TxnClaim(player, "txn-1")
+assert(claimStatus == "new", "first claim should be fresh")
+assert(gate:TxnClaim(player, "txn-1") == "busy", "pending claim should be busy")
+gate:TxnRelease(player, "txn-1")
+claimStatus = gate:TxnClaim(player, "txn-1")
+assert(claimStatus == "new", "released txn should be reclaimable")
+gate:TxnStore(player, "txn-1", { ok = true, echo = 1 })
+claimStatus, claimStored = gate:TxnClaim(player, "txn-1")
+assert(claimStatus == "done" and claimStored and claimStored.echo == 1, "stored txn should short-circuit")
+
 print("[INFO] [TEST] session gate production path passed")

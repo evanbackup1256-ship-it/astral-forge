@@ -132,12 +132,18 @@ end
 local function isAuthed()
 	return auth
 end
+local function makeTxnId()
+	return string.sub(HttpService:GenerateGUID(false), 1, 40)
+end
 -- Grant payloads attach these two fields so the server's SessionGate can verify the request
 -- carries the live gen (and, for high-value actions, the live nonce) instead of trusting the
 -- action name alone.
 local function attachGrantFields(payload)
 	payload.Gen = gen
 	payload.N = nonce
+	if type(payload.TxnId) ~= "string" or payload.TxnId == "" then
+		payload.TxnId = makeTxnId()
+	end
 	return payload
 end
 local function adopt(response)
@@ -220,9 +226,6 @@ local function startSession(remotes)
 			worker = nil
 		end
 	end
-end
-local function makeTxnId()
-	return string.sub(HttpService:GenerateGUID(false), 1, 40)
 end
 return {
 	setPresencePage = setPresencePage,
