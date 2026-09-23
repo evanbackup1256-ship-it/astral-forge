@@ -794,20 +794,25 @@ serviceFactories["GameService"] = function()
 				return responseError(err)
 			end
 			if session and session.Confirmed[session.Host] and session.Confirmed[session.Guest] then
+				-- Cross-player settle cannot be one AtomicUpdate; harden with a
+				-- single-flight settle lock + checked host revert (with retries)
+				-- if the guest apply fails after host already committed.
+				if not self._trades:TryBeginSettle(session) then
+					self:_pushTradePartners(session.Host, session.Guest)
+					return responseSuccess("Trade is settling.")
+				end
 				local host = Players:GetPlayerByUserId(session.Host)
 				local guest = Players:GetPlayerByUserId(session.Guest)
 				local hostProfile = host and self._data:Get(host)
 				local guestProfile = guest and self._data:Get(guest)
 				if not host or not guest or not hostProfile or not guestProfile then
+					self._trades:FailSettle(session, false)
 					self._trades:Cancel(player)
 					return responseError("A trader left before the swap finished.")
 				end
 				local plan, planErr = self._trades:Plan(session, hostProfile, guestProfile, now)
 				if not plan then
-					session.Confirmed[session.Host] = false
-					session.Confirmed[session.Guest] = false
-					session.ConfirmEndsAt = 0
-					session.Status = "Open"
+					self._trades:FailSettle(session, false)
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseError(planErr or "That trade could not be settled.")
 				end
@@ -826,13 +831,35 @@ serviceFactories["GameService"] = function()
 					return { ok = true }
 				end, true, "trade-host")
 				if not hostOk or type(hostResult) ~= "table" or hostResult.ok ~= true then
-					session.Confirmed[session.Host] = false
-					session.Confirmed[session.Guest] = false
-					session.ConfirmEndsAt = 0
-					session.Status = "Open"
+					self._trades:FailSettle(session, false)
 					self:_pushTradePartners(session.Host, session.Guest)
 					local message = if type(hostResult) == "table" then hostResult.error else nil
 					return responseError(message or "Host side of the trade failed.")
+				end
+				-- Re-read guest after host commit so inventory/currency races surface after Plan.
+				guestProfile = self._data:Get(guest)
+				if not guestProfile then
+					local reverted = false
+					for _ = 1, 3 do
+						local revertOk, revertResult = self._data:AtomicUpdate(host, function(profile)
+							self._trades:RevertExchange(
+								profile,
+								plan.HostOffer,
+								plan.GuestOffer,
+								plan.HostItems,
+								plan.GuestItems,
+								plan.Now
+							)
+							return { ok = true }
+						end, true, "trade-revert")
+						if revertOk and type(revertResult) == "table" and revertResult.ok == true then
+							reverted = true
+							break
+						end
+					end
+					self._trades:FailSettle(session, not reverted)
+					self:_pushTradePartners(session.Host, session.Guest)
+					return responseError(if reverted then "Guest left during settle — host side was reverted." else "Guest left and host revert failed. Cancel and contact support.")
 				end
 				local guestOk, guestResult = self._data:AtomicUpdate(guest, function(profile)
 					local applyErr = self._trades:ApplyExchange(
@@ -849,23 +876,30 @@ serviceFactories["GameService"] = function()
 					return { ok = true }
 				end, true, "trade-guest")
 				if not guestOk or type(guestResult) ~= "table" or guestResult.ok ~= true then
-					self._data:AtomicUpdate(host, function(profile)
-						self._trades:RevertExchange(
-							profile,
-							plan.HostOffer,
-							plan.GuestOffer,
-							plan.HostItems,
-							plan.GuestItems,
-							plan.Now
-						)
-						return { ok = true }
-					end, true, "trade-revert")
-					session.Confirmed[session.Host] = false
-					session.Confirmed[session.Guest] = false
-					session.ConfirmEndsAt = 0
-					session.Status = "Open"
+					local reverted = false
+					for _ = 1, 3 do
+						local revertOk, revertResult = self._data:AtomicUpdate(host, function(profile)
+							self._trades:RevertExchange(
+								profile,
+								plan.HostOffer,
+								plan.GuestOffer,
+								plan.HostItems,
+								plan.GuestItems,
+								plan.Now
+							)
+							return { ok = true }
+						end, true, "trade-revert")
+						if revertOk and type(revertResult) == "table" and revertResult.ok == true then
+							reverted = true
+							break
+						end
+					end
+					self._trades:FailSettle(session, not reverted)
 					self:_pushTradePartners(session.Host, session.Guest)
 					local message = if type(guestResult) == "table" then guestResult.error else nil
+					if not reverted then
+						return responseError("Guest side failed and host revert did not commit. Cancel the table and contact support.")
+					end
 					return responseError(message or "Guest side of the trade failed.")
 				end
 				self._trades:Close(session)

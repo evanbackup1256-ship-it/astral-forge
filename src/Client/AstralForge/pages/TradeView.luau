@@ -1173,18 +1173,28 @@ local function TradeView(_param)
 	end
 	local dailyLimit = _condition_4
 	local dailyLabel = if daily ~= nil and dailyLimit ~= nil then `{daily.Completed} / {dailyLimit} trades today` else "Daily limits on every side"
+	-- Shared action handlers for CONFIRM_TRADE_TREE:compact (sessionActions) and
+	-- CONFIRM_TRADE_TREE:desktop (inline horizontal bar). Layout differs; behavior must stay identical.
+	local function onReadyClick()
+		if tableEmpty and not youReadyLocal then
+			return nil
+		end
+		local following = not youReadyLocal
+		setYouReadyLocal(following)
+		run("SetTradeReady", {
+			Ready = following,
+		})
+	end
+	local function onConfirmClick()
+		return run("ConfirmTrade")
+	end
+	local function onCancelClick()
+		return run("CancelTrade")
+	end
+	-- CONFIRM_TRADE_TREE:compact
 	local sessionActions = if session ~= nil then React.createElement(React.Fragment, nil, React.createElement(Button, {
 		text = if youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
-		onClick = function()
-			if tableEmpty and not youReadyLocal then
-				return nil
-			end
-			local following = not youReadyLocal
-			setYouReadyLocal(following)
-			run("SetTradeReady", {
-				Ready = following,
-			})
-		end,
+		onClick = onReadyClick,
 		color = if youReadyLocal then Palette.panelSoft else accent,
 		textColor = if youReadyLocal then Palette.cream else Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
@@ -1195,9 +1205,7 @@ local function TradeView(_param)
 		highlight = not youReadyLocal and not tableEmpty,
 	}), React.createElement(Button, {
 		text = if session.YouConfirmed then "CONFIRMED" elseif confirmLeft > 0 then `CONFIRM  {clockLabel(session.ConfirmEndsAt, now)}` else "CONFIRM",
-		onClick = function()
-			return run("ConfirmTrade")
-		end,
+		onClick = onConfirmClick,
 		color = Palette.mango,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
@@ -1208,9 +1216,7 @@ local function TradeView(_param)
 		highlight = bothReady and not session.YouConfirmed,
 	}), React.createElement(Button, {
 		text = "CANCEL",
-		onClick = function()
-			return run("CancelTrade")
-		end,
+		onClick = onCancelClick,
 		color = Palette.coral,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
@@ -2021,17 +2027,9 @@ local function TradeView(_param)
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		HorizontalFlex = Enum.UIFlexAlignment.Fill,
 	}), React.createElement(Button, {
+		-- CONFIRM_TRADE_TREE:desktop
 		text = if youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
-		onClick = function()
-			if tableEmpty and not youReadyLocal then
-				return nil
-			end
-			local following = not youReadyLocal
-			setYouReadyLocal(following)
-			run("SetTradeReady", {
-				Ready = following,
-			})
-		end,
+		onClick = onReadyClick,
 		color = if youReadyLocal then Palette.panelSoft else accent,
 		textColor = if youReadyLocal then Palette.cream else Palette.ink,
 		size = UDim2.new(0, 0, 0, TapTarget),
@@ -2042,9 +2040,7 @@ local function TradeView(_param)
 		highlight = not youReadyLocal and not tableEmpty,
 	}), React.createElement(Button, {
 		text = if session.YouConfirmed then "CONFIRMED" elseif confirmLeft > 0 then `CONFIRM  {clockLabel(session.ConfirmEndsAt, now)}` else "CONFIRM",
-		onClick = function()
-			return run("ConfirmTrade")
-		end,
+		onClick = onConfirmClick,
 		color = Palette.mango,
 		textColor = Palette.ink,
 		size = UDim2.new(0, 0, 0, TapTarget),
@@ -2055,9 +2051,7 @@ local function TradeView(_param)
 		highlight = bothReady and not session.YouConfirmed,
 	}), React.createElement(Button, {
 		text = "CANCEL",
-		onClick = function()
-			return run("CancelTrade")
-		end,
+		onClick = onCancelClick,
 		color = Palette.coral,
 		textColor = Palette.ink,
 		size = UDim2.new(0, 0, 0, TapTarget),

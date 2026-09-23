@@ -29,6 +29,7 @@ local files = {
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
 	-- Server trade desk (offer validation / exchange)
 	"src/Server/AstralForge/Modules/TradeDesk.luau",
+	"src/Server/AstralForge/Modules/TradeExchange.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",
 	"src/Client/AstralForge/tests/taskFilter.test.luau",
