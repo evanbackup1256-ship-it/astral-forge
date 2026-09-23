@@ -462,21 +462,23 @@ local function OverviewView(_param)
 	end
 	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` else "OVERCHARGE"
 	local landscapePhone = phone and chrome.landscape
+	-- Wide PC: vault hero sits beside the metrics column instead of stacking full-width bands.
+	local wideOverview = not stack and viewport.width >= 1180
+	local ultraOverview = not stack and viewport.width >= 1680
 	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
 	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
-	local heroH = if landscapePhone then 196 elseif phone then 336 else 252
-	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 280 else 340) else 208) else 0
-	local domainH = if domainVisible then (if phone then (if landscapePhone then 300 else 372) else 232) else 0
-	-- Content coords inside a Panel are relative to its padded area (padding=18 both
-	-- modes), so required height = content bottom + 36. Body ends at 126 (stack) / 94
-	-- (non-stack) below, giving 162 / 130.
-	local notesH = if stack then (if landscapePhone then 168 else 196) else 148
-	local metricCardH = if stack then (if landscapePhone then 72 else 86) else 0
-	local metricsH = if stack then metricCardH * 3 + 20 else 104
+	local heroH = if landscapePhone then 196 elseif phone then 336 elseif wideOverview then 220 else 236
+	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 280 else 340) else 196) else 0
+	local domainH = if domainVisible then (if phone then (if landscapePhone then 300 else 372) else 212) else 0
+	local notesH = if stack then (if landscapePhone then 168 else 196) else 132
+	local metricCardH = if stack then (if landscapePhone then 72 else 86) elseif wideOverview then 64 else 0
+	local metricsH = if stack then metricCardH * 3 + 20 elseif wideOverview then heroH else 96
 	local countdownInPage = true
-	local countdownH = if stack then (if landscapePhone then 140 else 168) else 148
-	local sectionCount = 3 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
-	local canvasH = heroH + notesH + metricsH + rebirthH + domainH + countdownH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
+	local countdownH = if stack then (if landscapePhone then 140 else 168) else 132
+	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
+	local topBandH = if wideOverview then heroH else heroH + metricsH + Layout.panelGap
+	local sectionCount = 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
+	local canvasH = topBandH + notesH + (if countdownInPage then countdownH else 0) + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
 	local ctaH = TapTarget
 	local heroReadoutH = if landscapePhone then 118 elseif phone then 176 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
@@ -522,9 +524,20 @@ local function OverviewView(_param)
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Padding = UDim.new(0, if stack then chrome.panelGap else Layout.panelGap),
-	}), React.createElement(ScrollPads), React.createElement(Panel, {
+	}), React.createElement(ScrollPads), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, topBandH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = if wideOverview then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, if wideOverview then 12 else Layout.panelGap),
+		VerticalAlignment = Enum.VerticalAlignment.Top,
+	}), React.createElement(Panel, {
 		layoutOrder = 0,
-		size = UDim2.new(1, 0, 0, heroH),
+		size = if wideOverview then UDim2.new(0.62, -6, 1, 0) else UDim2.new(1, 0, 0, heroH),
 		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		background = Palette.panelRaised,
 		padding = if stack then chrome.cardPadding else 20,
@@ -680,18 +693,18 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 		align = Enum.TextXAlignment.Center,
 	}))), React.createElement(Flex, {
-		direction = if stack then "column" else "row",
+		direction = if wideOverview or stack then "column" else "row",
 		wrap = false,
 		justify = "fill",
 		align = "stretch",
-		gap = if stack then 10 else 12,
-		size = UDim2.new(1, 0, 0, metricsH),
+		gap = if stack then 10 elseif wideOverview then 8 else 12,
+		size = if wideOverview then UDim2.new(0.38, -6, 1, 0) else UDim2.new(1, 0, 0, metricsH),
 		layoutOrder = 1,
 		exact = true,
 	}, React.createElement(FlexItem, {
 		mode = "fill",
-		minWidth = if stack then 160 else 180,
-		minHeight = if stack then metricCardH else 72,
+		minWidth = if stack then 160 else 160,
+		minHeight = if stack then metricCardH elseif wideOverview then metricCardH else 72,
 		layoutOrder = 0,
 	}, React.createElement(Metric, {
 		label = "LIVE OUTPUT",
@@ -704,7 +717,7 @@ local function OverviewView(_param)
 	})), React.createElement(FlexItem, {
 		mode = "fill",
 		minWidth = if stack then 160 else 180,
-		minHeight = if stack then metricCardH else 72,
+		minHeight = if stack then metricCardH elseif wideOverview then metricCardH else 72,
 		layoutOrder = 1,
 	}, React.createElement(Metric, {
 		label = "BANKED FLUX",
@@ -717,7 +730,7 @@ local function OverviewView(_param)
 	})), React.createElement(FlexItem, {
 		mode = "fill",
 		minWidth = if stack then 160 else 180,
-		minHeight = if stack then metricCardH else 72,
+		minHeight = if stack then metricCardH elseif wideOverview then metricCardH else 72,
 		layoutOrder = 2,
 	}, React.createElement(Metric, {
 		label = "LONG-TERM",
@@ -727,7 +740,7 @@ local function OverviewView(_param)
 		size = UDim2.fromScale(1, 1),
 		compact = stack,
 		reveal = metricsReveal,
-	}))), React.createElement(Panel, {
+	})))), React.createElement(Panel, {
 		layoutOrder = 2,
 		size = UDim2.new(1, 0, 0, notesH),
 		accent = Palette.cyan,
@@ -1146,9 +1159,9 @@ local function OverviewView(_param)
 	})))))
 end
 local ROW_HEIGHTS = {
-	machine = 132,
+	machine = 120,
 	machineStack = 188,
-	world = 166,
+	world = 148,
 	worldStack = 218,
 	visit = 268,
 	visitStack = 380,
@@ -1446,10 +1459,10 @@ local function UpgradeBoard(_param)
 	local filterW = 176
 	local controlGap = 12
 	local controlsWrap = not stack and viewport.width < 900
-	local headerHeight = if stack then 280 else (if controlsWrap then 236 else 196)
+	local headerHeight = if stack then 280 else (if controlsWrap then 200 else 168)
 	local rowH = if stack then ROW_HEIGHTS.machineStack else ROW_HEIGHTS.machine
 	local gap = if stack then chrome.panelGap else Layout.panelGap
-	local columns = if stack then 1 elseif viewport.width >= 1500 then 3 elseif viewport.width >= 900 then 2 else 1
+	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
 	local rowStride = rowH + gap
 	local columnWidth = UDim2.new(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH)
 	local featureBlock = if featurePanel ~= nil then featurePanelHeight + gap else 0
@@ -2072,7 +2085,7 @@ local function WorkshopView(_param)
 	local entries = React.useMemo(function()
 		return AppHelpers:buildUpgradeEntries(config.Machines, state.Machines, state)
 	end, { config.Machines, state.Machines, state.Zone, state.Rebirths })
-	local featureHeight = if chromeFor(viewport).stack then 292 else 186
+	local featureHeight = if chromeFor(viewport).stack then 292 else 160
 	return React.createElement(UpgradeBoard, {
 		title = "More hands. Less waiting.",
 		eyebrow = "BUILD QUEUE",
@@ -2246,9 +2259,10 @@ local function WorldsView(_param)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
 	local headerReveal = useStagger(0, reducedMotion)
-	local headerHeight = if stack then 168 else 136
+	local headerHeight = if stack then 168 else 112
 	local rowHeight = if stack then ROW_HEIGHTS.worldStack else ROW_HEIGHTS.world
 	local rowGap = if stack then chrome.panelGap else Layout.panelGap
+	local worldColumns = if stack then 1 elseif viewport.width >= 1700 then 3 elseif viewport.width >= 1100 then 2 else 1
 	local listPad = Layout.stackGap * 2
 	local _condition = config.MaxZone
 	if _condition == nil then
@@ -2321,7 +2335,8 @@ local function WorldsView(_param)
 		end)
 	end
 	local moreLabel = if remainingBelow > 0 then `SHOW MORE  ({remainingBelow} left)` elseif remainingAbove > 0 then `SHOW EARLIER  ({remainingAbove})` else "SHOW MORE"
-	local canvasHeight = headerHeight + rowGap + shownCount * (rowHeight + rowGap) + (if canShowMore then TapTarget + rowGap else 0) + listPad + scrollTail(stack, chrome.bottomSafe, 40)
+	local gridRows = math.ceil(math.max(1, shownCount) / worldColumns)
+	local canvasHeight = headerHeight + rowGap + gridRows * (rowHeight + rowGap) + (if canShowMore then TapTarget + rowGap else 0) + listPad + scrollTail(stack, chrome.bottomSafe, 40)
 	local rows = {}
 	do
 		local index = range.start
@@ -2366,6 +2381,22 @@ local function WorldsView(_param)
 			table.insert(rows, _arg0)
 		end
 	end
+	local rowsBlock = React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+		ClipsDescendants = false,
+	}, (if worldColumns > 1 then React.createElement("uigridlayout", {
+		CellSize = UDim2.new(1 / worldColumns, -math.floor(rowGap * (worldColumns - 1) / worldColumns), 0, rowHeight),
+		CellPadding = UDim2.fromOffset(rowGap, rowGap),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		FillDirectionMaxCells = worldColumns,
+	}) else React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, rowGap),
+	})), rows)
 	return React.createElement("scrollingframe", {
 		ref = scrollRef,
 		Size = UDim2.fromScale(1, 1),
@@ -2390,7 +2421,7 @@ local function WorldsView(_param)
 		size = UDim2.new(1, 0, 0, headerHeight),
 		accent = Palette.mint,
 		background = Palette.panelRaised,
-		padding = if stack then 16 else 18,
+		padding = if stack then 16 else 14,
 		reveal = headerReveal,
 		layoutOrder = 0,
 		clips = false,
@@ -2452,7 +2483,7 @@ local function WorldsView(_param)
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
 		reducedMotion = reducedMotion,
-	})), rows, canShowMore and React.createElement("frame", {
+	})), rowsBlock, canShowMore and React.createElement("frame", {
 		Size = UDim2.new(1, -4, 0, TapTarget + 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
