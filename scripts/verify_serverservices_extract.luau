@@ -28,7 +28,8 @@ assert(CrateRoll.TotalWeight(weights, rarities, 3) == 10, "rare+ only")
 
 assert(CrateRoll.SelectRarity(1, weights, rarities, 0, "Epic") == "Common", "low roll → common")
 assert(CrateRoll.SelectRarity(71, weights, rarities, 0, "Epic") == "Uncommon", "mid roll → uncommon")
-assert(CrateRoll.SelectRarity(99, weights, rarities, 0, "Epic") == "Rare", "high roll → rare")
+assert(CrateRoll.SelectRarity(91, weights, rarities, 0, "Epic") == "Rare", "high roll → rare")
+assert(CrateRoll.SelectRarity(99, weights, rarities, 0, "Epic") == "Epic", "top roll → epic")
 assert(CrateRoll.SelectRarity(1, weights, rarities, 3, "Epic") == "Rare", "pity floor skips common")
 
 local defs = {
