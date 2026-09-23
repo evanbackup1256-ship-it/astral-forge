@@ -1,4 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _format = require(script.Parent.Parent.format)
 local amountPayload = _format.amountPayload
 local bulkCost = _format.bulkCost
@@ -359,6 +361,10 @@ local function StarGridViewComponent(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
+	local buyAllHostRef = React.useRef(nil)
 	local branches = config.GridBranches or {}
 	local grid = state.GridUpgrades or {}
 	local nodesByBranch = React.useMemo(function()
@@ -539,7 +545,15 @@ local function StarGridViewComponent(_param)
 		position = if stack then UDim2.new(0, 0, 0, 124) else UDim2.new(1, -280, 0, 28),
 		size = if stack then UDim2.new(0.62, -6, 0, TapTarget) else UDim2.fromOffset(268, if touchLayout then TapTarget else 42),
 		reducedMotion = reducedMotion,
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		-- FocusClaim prefers Buy-named hosts for Star Grid bulk purchase.
+		Name = "StarGridBuyClaimActions",
+		Size = if stack then UDim2.new(0.38, -6, 0, TapTarget) else UDim2.fromOffset(268, 36),
+		Position = if stack then UDim2.new(0.62, 6, 0, 124) else UDim2.new(1, -280, 0, 72),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = buyAllHostRef,
+	}, React.createElement(Button, {
 		text = "BUY ALL",
 		icon = "Dust",
 		onClick = function()
@@ -579,11 +593,29 @@ local function StarGridViewComponent(_param)
 		end,
 		color = Palette.mango,
 		textColor = Palette.ink,
-		size = if stack then UDim2.new(0.38, -6, 0, TapTarget) else UDim2.fromOffset(268, 36),
-		position = if stack then UDim2.new(0.62, 6, 0, 124) else UDim2.new(1, -280, 0, 72),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		highlight = true,
-	}))
+	})))
+	-- Gamepad: park Selection on BUY ALL for Controller Emulator FocusClaim path.
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = buyAllHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { buyAmount, state.Stardust, state.Rebirths })
 	local _exp_1 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,

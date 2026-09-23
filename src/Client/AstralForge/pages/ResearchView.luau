@@ -1,4 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _ui = require(script.Parent.Parent.ui)
 local IconTile = _ui.IconTile
 local Panel = _ui.Panel
@@ -193,6 +195,7 @@ local function ResearchView(_param)
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local scrollRef = React.useRef()
+	local buyAllHostRef = React.useRef(nil)
 	local entries = React.useMemo(function()
 		return AppHelpers:buildUpgradeEntries(config.Research, state.Research, state)
 	end, { config.Research, state.Research, state.Zone, state.Rebirths })
@@ -250,6 +253,26 @@ local function ResearchView(_param)
 		end
 		-- ▲ ReadonlyArray.forEach ▲
 	end
+	-- Gamepad: park Selection on BUY ALL when any research line is affordable.
+	local canBuyAll = nextEntry ~= nil and gteFlux(state.Cash, nextEntry.price)
+	React.useEffect(function()
+		if not canBuyAll or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = buyAllHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { canBuyAll, buyAmount, unlockedCount })
 	local headerReveal = useStagger(0, softMotion)
 	local listGap = if stack then chrome.panelGap else Layout.panelGap
 	-- Stack mode header padding is 14, and the AmountToggle row sits at y=132 with height
@@ -315,34 +338,47 @@ local function ResearchView(_param)
 					position = UDim2.new(1, -240, 0, 16),
 					size = UDim2.fromOffset(240, 32),
 					reducedMotion = reducedMotion,
-				}), React.createElement(Button, {
+				}), React.createElement("frame", {
+					-- FocusClaim prefers Buy-named hosts for research bulk purchase.
+					Name = "ResearchBuyClaimActions",
+					Size = UDim2.fromOffset(240, 32),
+					Position = UDim2.new(1, -240, 0, 56),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ref = if canBuyAll then buyAllHostRef else nil,
+				}, React.createElement(Button, {
 					text = "BUY ALL AFFORDABLE",
 					icon = "Flux",
 					onClick = onBuyAll,
 					color = Palette.cyan,
 					textColor = Palette.ink,
-					size = UDim2.fromOffset(240, 32),
-					position = UDim2.new(1, -240, 0, 56),
+					size = UDim2.fromScale(1, 1),
 					reducedMotion = reducedMotion,
 					highlight = true,
-				})), stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
+				}))), stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
 					value = buyAmount,
 					onChange = setBuyAmount,
 					accent = Palette.cyan,
 					position = UDim2.new(0, 0, 0, 132),
 					size = UDim2.new(1, -(TapTarget + 8), 0, TapTarget),
 					reducedMotion = reducedMotion,
-				}), React.createElement(Button, {
+				}), React.createElement("frame", {
+					Name = "ResearchBuyClaimActions",
+					Size = UDim2.fromOffset(TapTarget, TapTarget),
+					Position = UDim2.new(1, -TapTarget, 0, 132),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ref = if canBuyAll then buyAllHostRef else nil,
+				}, React.createElement(Button, {
 					text = "ALL",
 					icon = "Flux",
 					onClick = onBuyAll,
 					color = Palette.cyan,
 					textColor = Palette.ink,
-					size = UDim2.fromOffset(TapTarget, TapTarget),
-					position = UDim2.new(1, -TapTarget, 0, 132),
+					size = UDim2.fromScale(1, 1),
 					reducedMotion = reducedMotion,
 					highlight = true,
-				}))),
+				})))),
 			},
 			{
 				id = "chain",

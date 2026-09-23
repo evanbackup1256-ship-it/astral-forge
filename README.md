@@ -91,14 +91,65 @@ ProfileIntegrity recovery) — those stay Studio-only via `init.server.luau`.
 Argon validates the project mapping; it does **not**
 execute the game or check every Luau runtime path.
 
-Before publishing, run Studio Device Simulator and Controller Emulator at those
-sizes, plus a 4:3 tablet and 1080p/4K TV. Verify the crate reveal is centered,
-its claim button is reachable by D-pad/A, the software keyboard does not cover
-fields, two touches do not produce duplicate actions, and the bottom navigation
-stays within the hardware safe area. Run the Studio release-readiness
-(`ReleaseReadiness.RunQuick` / soak) and profile load/save tests with copied
-v4.12 and current save fixtures; never use live player data as a migration test
-fixture. npm test alone is not ENTIRE-game release complete.
+### Studio QA checklist (ENTIRE-goal closeout)
+
+`npm test` alone is **not** ENTIRE-game release complete. Sign off the items
+below on the tip SHA after `git pull origin master` + Argon reconnect. Capture
+walkthrough / Device Simulator evidence before claiming ENTIRE complete.
+
+**0. Argon pull tip SHA (do this first)**
+
+```bash
+git fetch origin && git checkout master && git pull origin master
+git rev-parse HEAD
+# Expect at or after: <TIP_SHA_AFTER_LAND>
+argon serve default.project.json
+```
+
+Reconnect the Argon plugin in Studio. Do not QA a stale `.rbxlx` or feature branch.
+
+**1. Device Simulator sizes** (Test → Device Emulator / Device Simulator)
+
+| Size | Notes |
+|------|--------|
+| Phone portrait (~390×844) | Bottom nav inside safe area; crate reveal centered |
+| Phone landscape (~844×390) | Notch + home-indicator insets |
+| Short landscape (~640×320) | Chrome must not dominate; CTAs reachable |
+| iPhone SE portrait (~375×667) | Compact content budget |
+| Tablet (~768×1024) | Plus a 4:3 tablet variant |
+| Foldable (~600×700) | Mid-height stack |
+| Desktop 1080p (~1920×1080) | Readable PC density |
+| Ultrawide (~3440×1440) | No crushed side panels |
+| 1080p / 4K TV | Ten-foot / TV-safe margins |
+
+Also: software keyboard open (portrait + landscape) must not cover input fields;
+two simultaneous touches must not double-fire actions.
+
+**2. Controller Emulator — FocusClaim paths** (Emulate gamepad / Controller Emulator)
+
+With gamepad enabled, confirm D-pad/A can reach and activate each host (Selection
+parks via `GamepadNavigationService.FocusClaim`):
+
+- Crate reveal CLAIM (stage + overlay)
+- Trade Ready / Confirm / Cancel
+- Story Continue/Back; Mail CLAIM/ARCHIVE
+- Rebirth CONFIRM; Continuum FORGE; Missions/Lab CLAIM ALL
+- Anomaly PULSE/BANK strip; Wheel SPIN; Forge Path CLAIM NOW
+- Inventory SOCKET/UPGRADE; Boosts Activate; Milestones CLAIM
+- Guild CLAIM REWARD; Convergence CLAIM; Echo LINK SLOT
+- Research BUY ALL; Star Grid BUY ALL
+- Shop CLAIM CODE; Admin ARM/RUN; Credits primary CTA
+
+**3. ReleaseReadiness (Studio-only)**
+
+From a Studio play session (see `init.server.luau` wiring):
+
+1. `ReleaseReadiness.RunQuick()` — Economy cost envelope soak + ProfileIntegrity recovery
+2. `ReleaseReadiness.RunSoak()` — long Studio-only economy soak (`RunService:IsStudio()` gated)
+3. Profile load/save with **copied** v4.12 and current save fixtures — never live player data
+
+UNTIL steps 0–3 have tip-SHA evidence, ENTIRE-game remains **not complete**
+even if `npm test` is green.
 
 The client adapts effects and preload work to measured performance. Roblox
 controls physical render resolution, so this project cannot promise a fixed

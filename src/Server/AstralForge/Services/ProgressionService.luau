@@ -60,11 +60,19 @@ return function()
 		return "FORGE CADET"
 	end
 
+	local function ensureCommand(profile)
+		if type(profile.Command) ~= "table" then
+			profile.Command = { XP = 0, SeasonXP = 0, Signals = 0, StreakShields = 0 }
+		end
+		return profile.Command
+	end
+
 	local function awardCommandXP(profile, amount: number)
 		local value = math.max(0, math.floor(amount))
 		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
-		profile.Command.XP += value
-		profile.Command.SeasonXP += value
+		local command = ensureCommand(profile)
+		command.XP = (tonumber(command.XP) or 0) + value
+		command.SeasonXP = (tonumber(command.SeasonXP) or 0) + value
 	end
 
 	ProgressionService.AwardCommandXP = awardCommandXP
@@ -85,19 +93,24 @@ return function()
 			table.insert(parts, Format.Number(generated) .. " flux")
 		end
 		if reward.Stardust and reward.Stardust > 0 then
-			profile.Stardust += reward.Stardust
+			-- Partial Profiles (Studio fixtures) may omit numeric Stardust/Cores.
+			profile.Stardust = (tonumber(profile.Stardust) or 0) + reward.Stardust
 			table.insert(parts, Format.Number(reward.Stardust) .. " stardust")
 		end
 		if reward.Cores and reward.Cores > 0 then
-			profile.Cores += reward.Cores
+			profile.Cores = (tonumber(profile.Cores) or 0) + reward.Cores
 			table.insert(parts, Format.Number(reward.Cores) .. " cores")
 		end
 		if reward.Boost and GameConfig.Boosts[reward.Boost] then
-			profile.BoostInventory[reward.Boost] = (profile.BoostInventory[reward.Boost] or 0) + 1
+			if type(profile.BoostInventory) ~= "table" then
+				profile.BoostInventory = {}
+			end
+			profile.BoostInventory[reward.Boost] = (tonumber(profile.BoostInventory[reward.Boost]) or 0) + 1
 			table.insert(parts, GameConfig.Boosts[reward.Boost].Name)
 		end
 		if reward.Signals and reward.Signals > 0 then
-			profile.Command.Signals += reward.Signals
+			local command = ensureCommand(profile)
+			command.Signals = (tonumber(command.Signals) or 0) + reward.Signals
 			table.insert(parts, Format.Number(reward.Signals) .. " signals")
 		end
 		if reward.CommandXP and reward.CommandXP > 0 then
@@ -105,7 +118,8 @@ return function()
 			table.insert(parts, Format.Number(reward.CommandXP) .. " command XP")
 		end
 		if reward.StreakShield and reward.StreakShield > 0 then
-			profile.Command.StreakShields += reward.StreakShield
+			local command = ensureCommand(profile)
+			command.StreakShields = (tonumber(command.StreakShields) or 0) + reward.StreakShield
 			table.insert(parts, Format.Number(reward.StreakShield) .. " streak shield")
 		end
 		if reward.Essence and reward.Essence > 0 then
@@ -119,10 +133,16 @@ return function()
 			table.insert(parts, Format.Number(reward.DomainEssence) .. " domain essence")
 		end
 		if reward.Fragments and reward.Fragments > 0 then
-			profile.Anomaly.Fragments += math.floor(reward.Fragments)
+			if type(profile.Anomaly) ~= "table" then
+				profile.Anomaly = { Fragments = 0 }
+			end
+			profile.Anomaly.Fragments = (tonumber(profile.Anomaly.Fragments) or 0) + math.floor(reward.Fragments)
 			table.insert(parts, Format.Number(reward.Fragments) .. " fragments")
 		end
 		if reward.FreeSpins and reward.FreeSpins > 0 then
+			if type(profile.Wheel) ~= "table" then
+				profile.Wheel = { FreeSpins = 0 }
+			end
 			profile.Wheel.FreeSpins = math.max(0, math.floor(tonumber(profile.Wheel.FreeSpins) or 0)) + math.floor(reward.FreeSpins)
 			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
 		end

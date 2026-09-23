@@ -19,6 +19,15 @@ return function(loadService: (string) -> any)
 		return Workspace:GetServerTimeNow()
 	end
 
+	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — pulse /
+	-- stabilize / protocol / directive ledgers must not throw before the Anomaly bag updates.
+	local function bumpAnomalyStat(profile, key: string)
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = {}
+		end
+		profile.Stats[key] = math.max(0, math.floor(tonumber(profile.Stats[key]) or 0)) + 1
+	end
+
 	-- Overdrive: a server-wide (not per-player) shared meter. Deliberately module-level state
 	-- rather than anything persisted -- Luau modules are singletons per server, so this is
 	-- naturally scoped to "this server instance," resets cleanly on restart, and needs no
@@ -239,7 +248,7 @@ return function(loadService: (string) -> any)
 		)
 		AnomalyService.Signal(profile, "Pulse", 1)
 		AnomalyService.Signal(profile, "Combo", profile.Anomaly.Combo)
-		profile.Stats.AnomalyPulses += 1
+		bumpAnomalyStat(profile, "AnomalyPulses")
 		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, now)
 		return true,
 			accurate
@@ -288,7 +297,7 @@ return function(loadService: (string) -> any)
 		profile.Anomaly.Charge = math.max(0, profile.Anomaly.Charge - target)
 		profile.Anomaly.Stabilizations += 1
 		profile.Anomaly.Discoveries[anomaly.Id] = (profile.Anomaly.Discoveries[anomaly.Id] or 0) + 1
-		profile.Stats.AnomalyStabilizations += 1
+		bumpAnomalyStat(profile, "AnomalyStabilizations")
 		AnomalyService.Signal(profile, "Stabilize", 1)
 		local tiersGained = applyCoreXP(profile, GameConfig.Anomalies.CoreXPPerStabilization)
 		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdriveStabilizeContribution, now)
@@ -342,7 +351,7 @@ return function(loadService: (string) -> any)
 		end
 		profile.Anomaly.Fragments -= cost
 		profile.Anomaly.Protocols[protocol.Id] = level + 1
-		profile.Stats.AnomalyProtocols += 1
+		bumpAnomalyStat(profile, "AnomalyProtocols")
 		return true,
 			string.format("%s advanced to level %d.", protocol.Name, level + 1),
 			{
@@ -453,7 +462,7 @@ return function(loadService: (string) -> any)
 		end
 		profile.Anomaly.DirectiveClaims[definition.Id] = true
 		profile.Anomaly.Fragments += definition.Fragments
-		profile.Stats.AnomalyDirectives += 1
+		bumpAnomalyStat(profile, "AnomalyDirectives")
 		local rewardText = ProgressionService.ApplyReward(profile, definition.Reward, Economy.SteadyProduction(profile))
 		return true,
 			string.format("%s complete: %d fragments, %s.", definition.Name, definition.Fragments, rewardText),
