@@ -607,8 +607,30 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	return OmegaMath.Mul(Economy.RawProduction(profile), multiplier)
 end
 
+-- Permanent/steady production only: excludes ActiveBoost.Multiplier and Anomaly Surge.
+-- Flux Surge / Convergence are applied by callers on top of Production — never feed those
+-- into Capacity. When temporary multipliers end, vault clamps and overflow deletes.
+function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
+	local efficiencyLevel = profile.Research.Efficiency or 0
+	local zone = Economy.GetZone(profile.CurrentZone) or GameConfig.Zones[1]
+	local passProduction = select(1, Economy.PassBonuses(profile))
+	local multiplier = OmegaMath.Mul(1 + efficiencyLevel * 0.15, zone.Multiplier)
+	multiplier = OmegaMath.Mul(multiplier, Economy.PermanentMultiplier(profile))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.GridEffect(profile, "GridProduction"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.EchoEffect(profile, "Production"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ArtifactEffect(profile, "Production"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.AnomalyEffect(profile, "Production", now))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.LabPowerEffect(profile, "Production"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + passProduction)
+	multiplier = OmegaMath.Mul(multiplier, 1 + (profile.GuildBonuses and profile.GuildBonuses.Production or 0))
+	multiplier = OmegaMath.Mul(multiplier, math.max(1, profile.SocialBoost and profile.SocialBoost.Multiplier or 1))
+	multiplier = OmegaMath.Mul(multiplier, Economy.MasteryMultiplier(profile))
+	multiplier = OmegaMath.Mul(multiplier, select(1, Economy.ContinuumEffects(profile)))
+	return OmegaMath.Mul(Economy.RawProduction(profile), multiplier)
+end
 
-function Economy.Capacity(profile: ProfileLike, now: number?, production: any): Persist
+function Economy.Capacity(profile: ProfileLike, now: number?, _production: any): Persist
 	local storageLevel = profile.Research.Storage or 0
 	local passCapacity = select(2, Economy.PassBonuses(profile))
 	local seconds = GameConfig.Economy.BaseCapacitySeconds
@@ -634,7 +656,8 @@ function Economy.Capacity(profile: ProfileLike, now: number?, production: any): 
 	end
 	seconds = math.clamp(seconds, 1, GameConfig.Economy.MaxCapacitySeconds)
 
-	local output = production or Economy.Production(profile, now)
+	seconds *= 1 + Economy.DomainTreeBonus(profile, "Capacity")
+	local output = Economy.SteadyProduction(profile, now)
 
 	local capacity = OmegaMath.Floor(OmegaMath.Max(
 		GameConfig.Economy.BaseCapacity,
@@ -644,12 +667,12 @@ function Economy.Capacity(profile: ProfileLike, now: number?, production: any): 
 end
 
 
-function Economy.CapacitySeconds(profile: ProfileLike, now: number?, production: any): number
-	local output = production or Economy.Production(profile, now)
+function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production: any): number
+	local output = Economy.SteadyProduction(profile, now)
 	if Economy.Lte(output, 0) then
 		return 0
 	end
-	return OmegaMath.ToNumber(OmegaMath.Div(Economy.Capacity(profile, now, output), output))
+	return OmegaMath.ToNumber(OmegaMath.Div(Economy.Capacity(profile, now), output))
 end
 
 function Economy.TapPower(profile: ProfileLike, now: number?): Persist

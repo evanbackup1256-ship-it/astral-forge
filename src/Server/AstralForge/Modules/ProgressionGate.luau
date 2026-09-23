@@ -23,7 +23,7 @@ function ProgressionGate.Progress(profile, kind: string): number
 			spent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0))
 		end
 		return current + spent
-	elseif kind == "Domain" then
+	elseif kind == "Domain" or kind == "DomainRank" then
 		return math.max(0, tonumber(profile.Domain and profile.Domain.Rank) or 0)
 	elseif kind == "Zone" then
 		return profile.Zone
@@ -31,6 +31,15 @@ function ProgressionGate.Progress(profile, kind: string): number
 		return profile.Stats.PlayTime
 	elseif kind == "AnomalyStabilizations" then
 		return profile.Anomaly.Stabilizations
+	elseif kind == "ForgePathSteps" then
+		local claimed = 0
+		local forgePath = profile.ForgePath
+		if type(forgePath) == "table" and type(forgePath.ClaimedSteps) == "table" then
+			for _ in forgePath.ClaimedSteps do
+				claimed += 1
+			end
+		end
+		return claimed
 	end
 	return 0
 end
