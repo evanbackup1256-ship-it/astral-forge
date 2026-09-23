@@ -433,6 +433,7 @@ local function BoostsView(_param)
 		stack = stack,
 		boostKinds = boostKinds,
 		totalBoosts = totalBoosts,
+		reducedMotion = softMotion,
 	})
 	local _exp_4 = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -444,16 +445,19 @@ local function BoostsView(_param)
 		accent = Palette.pink,
 		position = UDim2.fromOffset(0, 0),
 		size = if stack then UDim2.new(0.5, -4, 1, 0) else UDim2.fromOffset(160, statsH),
+		reducedMotion = softMotion,
 	}), React.createElement(StatChip, {
 		label = "TYPES OWNED",
 		value = `{boostKinds} / {#boosts}`,
 		accent = Palette.cyan,
 		position = if stack then UDim2.new(0.5, 4, 0, 0) else UDim2.fromOffset(168, 0),
 		size = if stack then UDim2.new(0.5, -4, 1, 0) else UDim2.fromOffset(160, statsH),
+		reducedMotion = softMotion,
 	}))
 	local _exp_5 = React.createElement(SectionLabel, {
 		value = "ALL BOOSTS",
 		color = Palette.pink,
+		reducedMotion = softMotion,
 	})
 	local gridElement
 	if #boosts == 0 then

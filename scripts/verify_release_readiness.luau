@@ -625,8 +625,31 @@ assert(string.find(cfg, 'Id = "update-5-1-wave24-offline"', 1, true), "Mail wave
 assert(string.find(cfg, 'Id = "update-5-1-wave25-offline"', 1, true), "Mail wave25 residual for release")
 mark("wave25 leaderboards focusclaim crate softmotion content residuals")
 
--- Raise floor past checks=30 once wave25 Leaderboards/Crate/content residuals land.
-assert(#passed > 29, "release-readiness offline subset must stay beyond checks=29, got " .. tostring(#passed))
+-- Wave26: Mailbox body FlatList + Items EnsureShop snapshot + Boosts density + DV21 content.
+local mailboxWave26 = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
+assert(string.find(mailboxWave26, "createElement(FlatList", 1, true), "Mailbox FlatList residual for release")
+assert(not string.find(mailboxWave26, 'createElement("scrollingframe"', 1, true), "Mailbox raw scrollingframe residual for release")
+assert(string.find(mailboxWave26, 'Name = "MailClaimActions"', 1, true), "MailClaimActions residual for release")
+do
+	local hostStart = string.find(mailboxWave26, 'Name = "MailClaimActions"', 1, true)
+	assert(hostStart, "MailClaimActions host missing")
+	local hostSlice = string.sub(mailboxWave26, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "MailClaimActions clips residual for release")
+end
+assert(string.find(ssReleaseSrc, "ensureItemShop(profile)", 1, true), "SS ensureItemShop residual for release")
+assert(string.find(ssReleaseSrc, "ProfileBagMath.EnsureItems(profile)", 1, true), "SS EnsureItems residual for release")
+local boostsWave26 = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
+local boostSoft = 0
+for _ in string.gmatch(boostsWave26, "softMotion") do
+	boostSoft += 1
+end
+assert(boostSoft >= 8, "Boosts softMotion density residual for release, got " .. tostring(boostSoft))
+assert(string.find(cfg, 'Id = "wave26-offline-brief"', 1, true), "Story wave26 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave26-offline"', 1, true), "Mail wave26 residual for release")
+mark("wave26 mailbox flatlist items ensure boosts content residuals")
+
+-- Raise floor past checks=31 once wave26 Mailbox/Items/Boosts residuals land.
+assert(#passed > 30, "release-readiness offline subset must stay beyond checks=30, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

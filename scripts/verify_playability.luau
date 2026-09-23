@@ -178,7 +178,8 @@ do
 	local path = "src/Client/AstralForge/pages/MailboxView.luau"
 	local src = fs.readFile(path)
 	assert(not string.find(src, "pageScaffold", 1, true), path .. " must not nest PageScaffold (double-scroll trap)")
-	assert(string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must keep a body scrollingframe")
+	assert(string.find(src, "createElement(FlatList", 1, true), path .. " must FlatList inbox and body catalogs")
+	assert(not string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must not keep raw body scrollingframe")
 	assert(string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true), path .. " must expose CLAIM/ARCHIVE")
 	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -footerH)", 1, true), path .. " must pin footer to bottom")
 	assert(string.find(src, "stackListH", 1, true), path .. " must reserve stack list height so detail actions stay reachable")
@@ -402,7 +403,7 @@ do
 		["src/Client/AstralForge/pages/ResearchView.luau"] = 6,
 		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 6,
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
-		["src/Client/AstralForge/pages/BoostsView.luau"] = 6,
+		["src/Client/AstralForge/pages/BoostsView.luau"] = 8,
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 6,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,

@@ -559,62 +559,64 @@ local function MailboxView(_param)
 			position = UDim2.new(1, -200, 0, 56),
 			sizeConstraint = UDim2.fromOffset(180, 16),
 		}))
-		local _exp_9 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 8),
-		})
 		local _exp_10 = message.Body
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue = table.create(#_exp_10)
-		local _callback_3 = function(paragraph, index)
-			return if index == 0 then React.createElement(ScriptedText, {
-				key = `{message.Id}:0`,
-				layoutOrder = 0,
-				text = paragraph,
-				width = paragraphWidth,
-				height = paragraphHeight(paragraph, paragraphWidth, bodyTextSize),
-				size = bodyTextSize,
-				color = Palette.creamSoft,
-				weight = Enum.FontWeight.SemiBold,
-				typewriterInterval = 0.012,
-				reducedMotion = reducedMotion,
-			}) else React.createElement(Text, {
-				key = index,
-				layoutOrder = index,
-				value = paragraph,
-				size = bodyTextSize,
-				color = Palette.creamSoft,
-				wrap = true,
-				weight = Enum.FontWeight.Regular,
-				sizeConstraint = UDim2.new(1, -8, 0, paragraphHeight(paragraph, paragraphWidth, bodyTextSize)),
-			})
+		local bodyRows = table.create(#_exp_10)
+		local bodyStride = 28
+		for index, paragraph in _exp_10 do
+			local height = paragraphHeight(paragraph, paragraphWidth, bodyTextSize)
+			bodyStride = math.max(bodyStride, height + 8)
+			bodyRows[index] = {
+				Id = `{message.Id}:{index}`,
+				Text = paragraph,
+				Index = index - 1,
+				Height = height,
+			}
 		end
-		for _k, _v in _exp_10 do
-			_newValue[_k] = _callback_3(_v, _k - 1, _exp_10)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		-- Pin header + CLAIM/ARCHIVE footer; only the message body scrolls.
-		_condition_5 = React.createElement(React.Fragment, nil, _exp_8, React.createElement("scrollingframe", {
+		-- Pin header + CLAIM/ARCHIVE footer; message body virtualizes via FlatList (no raw scrollingframe).
+		_condition_5 = React.createElement(React.Fragment, nil, _exp_8, React.createElement(FlatList, {
 			key = message.Id,
+			data = bodyRows,
+			itemHeight = bodyStride,
+			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
+			canvasTail = 8,
 			Size = UDim2.new(1, -40, 1, -(detailHeaderH + footerH + 8)),
 			Position = UDim2.fromOffset(20, detailHeaderH + 4),
-			CanvasPosition = Vector2.zero,
-			CanvasSize = UDim2.new(0, 0, 0, 0),
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = message.Color,
-			ScrollBarImageTransparency = 0.18,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			VerticalScrollBarInset = Enum.ScrollBarInset.None,
-			ElasticBehavior = Enum.ElasticBehavior.Never,
-			ClipsDescendants = true,
-			Active = true,
-			Selectable = false,
-			ZIndex = 2,
-		}, _exp_9, _newValue), React.createElement("frame", {
+			scrollBarColor = message.Color,
+			scrollBarThickness = 3,
+			scrollBarTransparency = 0.18,
+			keyExtractor = function(row)
+				return row.Id
+			end,
+			renderItem = function(_param_1)
+				local row = _param_1.item
+				local index = row.Index
+				local paragraph = row.Text
+				if index == 0 then
+					return React.createElement(ScriptedText, {
+						key = row.Id,
+						layoutOrder = 0,
+						text = paragraph,
+						width = paragraphWidth,
+						height = row.Height,
+						size = bodyTextSize,
+						color = Palette.creamSoft,
+						weight = Enum.FontWeight.SemiBold,
+						typewriterInterval = 0.012,
+						reducedMotion = softMotion,
+					})
+				end
+				return React.createElement(Text, {
+					key = row.Id,
+					layoutOrder = index,
+					value = paragraph,
+					size = bodyTextSize,
+					color = Palette.creamSoft,
+					wrap = true,
+					weight = Enum.FontWeight.Regular,
+					sizeConstraint = UDim2.new(1, -8, 0, row.Height),
+				})
+			end,
+		}), React.createElement("frame", {
 			ref = mailActionsHostRef,
 			key = "footer",
 			Name = "MailClaimActions",
@@ -637,7 +639,7 @@ local function MailboxView(_param)
 			accent = message.Color,
 			size = 30,
 			position = UDim2.fromOffset(14, 20),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}), React.createElement(Text, {
 			value = "ATTACHMENT",
 			size = 12,

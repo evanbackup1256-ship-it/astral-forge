@@ -5136,11 +5136,45 @@ local GameConfig = {
 			Color = Color3.fromRGB(60, 245, 200),
 		},
 
+		{
+			Id = "wave26-offline-brief",
+			Title = "Wave Twenty Six Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Mailbox body FlatList + Items EnsureShop snapshot nil-guards; readiness past checks=31.",
+			Body = {
+				"Mailbox detail body virtualizes via FlatList; MailClaimActions stay unclipped for CLAIM/ARCHIVE.",
+				"ServerServices EnsureItems/EnsureShop before crew Inventory and shop Stock indexes; Boosts softMotion density thickens past DENSE.",
+				"Offline release-readiness checks grow past checks=31 toward RunQuick parity.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 74, CashMinutes = 32, Signals = 34 },
+			Color = Color3.fromRGB(55, 240, 195),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave26-offline",
+			Subject = "Dock note — wave twenty six offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Mailbox body FlatList + Items EnsureShop snapshot nil-guards — still DataVersion 21.",
+			Body = {
+				"Mailbox detail body FlatList replaces the raw scrollingframe; CLAIM/ARCHIVE hosts stay unclipped.",
+				"Crew public records and shop snapshot EnsureItems/EnsureShop before bag indexes; Boosts softMotion past DENSE.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 74, Stardust = 90, Signals = 38 },
+			Color = Color3.fromRGB(55, 240, 195),
+		},
+
 
 		{
 			Id = "update-5-1-wave25-offline",

@@ -249,14 +249,15 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function publicPlayerRecord(player: Player, profile, viewer: Player, presence)
-
+		-- Keys-only Items bags (mid-migrate / partial fixtures) must not throw on Inventory.
+		local items = ProfileBagMath.EnsureItems(profile)
 		local itemCount = 0
-		for _ in profile.Items.Inventory do
+		for _ in items.Inventory do
 			itemCount += 1
 		end
 		local equippedItems = {}
-		for _, uid in profile.Items.Equipped do
-			local instance = profile.Items.Inventory[uid]
+		for _, uid in items.Equipped do
+			local instance = items.Inventory[uid]
 			local definition = instance and itemById[instance.DefinitionId]
 			if definition then
 				table.insert(equippedItems, definition.Name)
@@ -1144,6 +1145,8 @@ serviceFactories["GameService"] = function()
 			runtime.SnapshotId = (runtime.SnapshotId or 0) + 1
 		end
 		local itemShop = {}
+		-- Ensure Shop bag before RemainingStock indexes Stock[offer.Id] (Keys-only Items path).
+		ensureItemShop(profile)
 		for index, offer in GameConfig.Items.ShopOffers do
 			local state = copyDictionary(offer)
 			local stockMax = offerStockMax(offer)
