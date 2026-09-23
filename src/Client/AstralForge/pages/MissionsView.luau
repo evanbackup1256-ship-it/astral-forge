@@ -2,11 +2,12 @@ local exports = {}
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local PageReadyMath = require(script.Parent.Parent.pageReadyMath)
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useFlash = _motion.useFlash
 local usePulse = _motion.usePulse
-local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
@@ -229,6 +230,7 @@ local function MissionsView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local quests = state.Quests
 	local filter, setFilter = React.useState("All")
@@ -255,9 +257,17 @@ local function MissionsView(_param)
 	end, { counts.Ready, filter })
 	local guide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Missions else nil
 	local claimAllReady = function()
+		-- Partial Quests bags / incomplete entries must not throw Progress>=Target compares.
+		if type(quests) ~= "table" then
+			return
+		end
 		for _, quest in quests do
-			if not quest.Claimed and quest.Progress >= quest.Target then
-				dispatch("ClaimQuest", { Id = quest.Id })
+			if type(quest) == "table" and not quest.Claimed then
+				local progress = tonumber(quest.Progress) or 0
+				local target = tonumber(quest.Target) or 0
+				if target > 0 and progress >= target then
+					dispatch("ClaimQuest", { Id = quest.Id })
+				end
 			end
 		end
 	end
@@ -288,7 +298,6 @@ local function MissionsView(_param)
 	end
 	-- ▲ ReadonlyArray.filter ▲
 	local visible = _newValue_1
-	local headerReveal = useStagger(0, reducedMotion)
 	local headerHeight = if stack then (if chrome.landscape then 188 else 204) else 168
 	local rowStride = (if stack then 220 else 148) + 16
 	local pageGap = 10
@@ -297,7 +306,8 @@ local function MissionsView(_param)
 		accent = Palette.cyan,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = headerReveal,
+		reveal = enter,
+		reducedMotion = softMotion,
 		zIndex = 30,
 		clips = false,
 	}, if stack then React.createElement(React.Fragment, nil, React.createElement(Text, {
@@ -407,7 +417,7 @@ local function MissionsView(_param)
 		data = visible,
 		itemHeight = rowStride,
 		headerHeight = 0,
-		overscan = 2,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.cyan,
@@ -421,7 +431,7 @@ local function MissionsView(_param)
 			return React.createElement(MissionRow, {
 				quest = item,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				position = UDim2.fromOffset(0, 0),
 				stack = stack,
 			})

@@ -102,7 +102,7 @@ local function MailRow(_param)
 		size = 26,
 		position = UDim2.fromOffset(11, 11),
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -80, 1, -16),
 		Position = UDim2.fromOffset(72, 12),
@@ -346,7 +346,7 @@ local function MailboxView(_param)
 		size = 24,
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement(Text, {
 		value = "INBOX",
 		size = 11,
@@ -375,7 +375,7 @@ local function MailboxView(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(if compactChrome then 108 else 132, TapTarget),
 		position = UDim2.new(1, -(if compactChrome then 116 else 140), 0.5, -TapTarget / 2),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	}) else React.createElement(Badge, {
 		value = if unreadCount > 0 then `{unreadCount} NEW` else "CAUGHT UP",
@@ -413,7 +413,7 @@ local function MailboxView(_param)
 			itemHeight = rowStride,
 			headerHeight = 0,
 			footerHeight = TapTarget + 8,
-			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 			canvasTail = 4,
 			Size = UDim2.new(1, -20, 1, -(listHeaderH + 12)),
 			Position = UDim2.fromOffset(10, listHeaderH + 4),
@@ -431,7 +431,7 @@ local function MailboxView(_param)
 					unread = not row.mailState.Read,
 					cardH = cardH,
 					stack = stack,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					layoutOrder = 0,
 					onChoose = choose,
 				})

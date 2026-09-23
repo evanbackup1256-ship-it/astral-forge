@@ -190,6 +190,27 @@ do
 end
 
 ------------------------------------------------------------------------
+-- PrestigeReward pure parity (RunQuick soak exercises Economy.PrestigeReward)
+------------------------------------------------------------------------
+do
+	local RebirthGate = require("../src/Server/AstralForge/Modules/RebirthGate")
+	local req = parseNumber(string.match(extractSection(cfg, "\n\tEconomy = {"), "PrestigeRequirement%s*=%s*([%d_]+)"))
+	local exp = parseNumber(string.match(extractSection(cfg, "\n\tEconomy = {"), "PrestigeExponent%s*=%s*([%d%.]+)"))
+	assert(req and exp, "PrestigeRequirement/Exponent missing")
+	assert(string.find(economySrc, "RebirthGate.PrestigeReward", 1, true), "Economy PrestigeReward must delegate RebirthGate")
+	local below = RebirthGate.PrestigeReward(OmegaMath, req - 1, req, exp, OmegaMath.Lt)
+	assert(below == 0, "prestige below requirement must be 0")
+	local at = RebirthGate.PrestigeReward(OmegaMath, req, req, exp, OmegaMath.Lt)
+	assert(OmegaMath.Gte(at, 1), "prestige at requirement must grant >=1")
+	local higher = RebirthGate.PrestigeReward(OmegaMath, req * 100, req, exp, OmegaMath.Lt)
+	assert(OmegaMath.Gte(higher, at), "prestige reward must not regress with more run cash")
+	assert(RebirthGate.CanRebirth(at, OmegaMath.Gte), "CanRebirth at threshold")
+	assert(not RebirthGate.CanRebirth(0, OmegaMath.Gte), "CanRebirth rejects 0")
+	local dust = RebirthGate.StardustReward(4, 5, 4)
+	assert(dust >= 4, "StardustReward minimum")
+end
+
+------------------------------------------------------------------------
 -- ProfileIntegrity recovery (RunQuick "profile corruption recovery")
 ------------------------------------------------------------------------
 assert(string.find(integritySrc, "function ProfileIntegrity.Record", 1, true), "ProfileIntegrity.Record missing")

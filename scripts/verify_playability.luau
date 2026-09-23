@@ -371,8 +371,10 @@ for _, path in SOFT_MOTION_FILES do
 	end
 end
 
--- Thicken softMotion density on Trade/Command + Guild/Admin/Convergence/Settings/Credits/Rebirth.
--- Guild/Convergence/Settings/Trade must stay past floor=4 (wave softmotion-gates).
+-- Thicken softMotion density on Trade/Command + Guild/Admin/Convergence/Settings/Credits/Rebirth
+-- plus Continuum/Mailbox/Missions/Milestones/Research/Leaderboards thin surfaces.
+-- Continuum/Mailbox/Missions/Milestones/Research/Leaderboards must stay past floor=4
+-- (wave softmotion-thin-surfaces). Guild/Convergence/Settings/Trade stay past floor=4 too.
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	local DENSE = {
@@ -380,6 +382,12 @@ do
 		["src/Client/AstralForge/pages/GuildView.luau"] = 6,
 		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 6,
 		["src/Client/AstralForge/pages/SettingsView.luau"] = 6,
+		["src/Client/AstralForge/pages/ContinuumView.luau"] = 6,
+		["src/Client/AstralForge/pages/MailboxView.luau"] = 6,
+		["src/Client/AstralForge/pages/MissionsView.luau"] = 6,
+		["src/Client/AstralForge/pages/MilestonesView.luau"] = 6,
+		["src/Client/AstralForge/pages/ResearchView.luau"] = 6,
+		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 6,
 	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
@@ -390,6 +398,12 @@ do
 		"src/Client/AstralForge/pages/SettingsView.luau",
 		"src/Client/AstralForge/pages/CreditsView.luau",
 		"src/Client/AstralForge/pages/RebirthPanel.luau",
+		"src/Client/AstralForge/pages/ContinuumView.luau",
+		"src/Client/AstralForge/pages/MailboxView.luau",
+		"src/Client/AstralForge/pages/MissionsView.luau",
+		"src/Client/AstralForge/pages/MilestonesView.luau",
+		"src/Client/AstralForge/pages/ResearchView.luau",
+		"src/Client/AstralForge/pages/LeaderboardsView.luau",
 	} do
 		local src = fs.readFile(path)
 		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")
