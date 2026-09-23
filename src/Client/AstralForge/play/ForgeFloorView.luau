@@ -1083,7 +1083,7 @@ local function ForgeFloorView(_param)
 		BackgroundTransparency = 1,
 		LayoutOrder = 1,
 	}, React.createElement(Button, {
-		text = if nextMachine ~= nil then (if canBuyNext then `TUNE  {nextMachine.Name}` else `NEED  {compactNumber(nextPrice)}`) else "STATIONS MAXED",
+		text = if nextMachine ~= nil then (if canBuyNext then `BUY  {nextMachine.Name}` else `NEED  {compactNumber(nextPrice)} FOR {nextMachine.Name}`) else "OPEN WORKSHOP",
 		icon = "Forge",
 		onClick = function()
 			if nextMachine ~= nil then
@@ -1096,7 +1096,7 @@ local function ForgeFloorView(_param)
 		textColor = if canBuyNext then Palette.ink else Palette.creamSoft,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
-		disabled = nextMachine == nil and not canBuyNext,
+		disabled = nextMachine == nil,
 		highlight = canBuyNext,
 	})), React.createElement("frame", {
 		Size = UDim2.new(0.5, -4, 1, 0),

@@ -217,6 +217,7 @@ local function MissionRow(_param)
 end
 local function MissionsView(_param)
 	local state = _param.state
+	local config = _param.config
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
@@ -225,6 +226,14 @@ local function MissionsView(_param)
 	local quests = state.Quests
 	local filter, setFilter = React.useState("All")
 	local counts = taskFilterCounts(quests)
+	local guide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Missions else nil
+	local claimAllReady = function()
+		for _, quest in quests do
+			if not quest.Claimed and quest.Progress >= quest.Target then
+				dispatch("ClaimQuest", { Id = quest.Id })
+			end
+		end
+	end
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#TASK_FILTERS)
 	local _callback = function(option)
@@ -253,7 +262,7 @@ local function MissionsView(_param)
 	-- ▲ ReadonlyArray.filter ▲
 	local visible = _newValue_1
 	local headerReveal = useStagger(0, reducedMotion)
-	local headerHeight = if stack then (if chrome.landscape then 144 else 148) else 148
+	local headerHeight = if stack then (if chrome.landscape then 188 else 204) else 168
 	local rowStride = (if stack then 220 else 148) + 16
 	local rowStart = headerHeight + 10 + SCROLL_EDGE
 	return React.createElement(FlatList, {
@@ -291,6 +300,16 @@ local function MissionsView(_param)
 			color = Palette.muted,
 			wrap = true,
 			sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 36),
+		}), counts.Ready > 0 and React.createElement(Button, {
+			text = `CLAIM ALL READY · {counts.Ready}`,
+			icon = "Gift",
+			onClick = claimAllReady,
+			color = Palette.green,
+			textColor = Palette.ink,
+			size = UDim2.new(1, 0, 0, TapTarget),
+			position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
+			reducedMotion = reducedMotion,
+			highlight = true,
 		}), React.createElement(Dropdown, {
 			options = options,
 			value = filter,
@@ -331,6 +350,16 @@ local function MissionsView(_param)
 			size = UDim2.fromOffset(224, 48),
 			reducedMotion = reducedMotion,
 			zIndex = 44,
+		}), counts.Ready > 0 and React.createElement(Button, {
+			text = `CLAIM ALL · {counts.Ready}`,
+			icon = "Gift",
+			onClick = claimAllReady,
+			color = Palette.green,
+			textColor = Palette.ink,
+			size = UDim2.fromOffset(168, 40),
+			position = UDim2.new(0, 236, 0, 74),
+			reducedMotion = reducedMotion,
+			highlight = true,
 		}), React.createElement(Text, {
 			value = `{counts.Done} / {#quests}`,
 			size = 18,
@@ -364,7 +393,7 @@ local function MissionsView(_param)
 		}, React.createElement(EmptyState, {
 			icon = "Mission",
 			title = if #quests == 0 then "No missions yet" else "Nothing in this filter",
-			body = if #quests == 0 then "New dailies land at reset." else "Switch the filter back to Everything.",
+			body = if #quests == 0 then ((guide and guide.EmptyNone) or "New dailies land at reset.") else ((guide and guide.EmptyFilter) or "Switch the filter back to Everything."),
 			accent = Palette.cyan,
 		})) else nil,
 	})

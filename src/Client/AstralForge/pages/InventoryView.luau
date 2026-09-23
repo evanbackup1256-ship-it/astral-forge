@@ -2606,7 +2606,7 @@ local function InventoryView(_param)
 		local _exp_12 = #filtered == 0 and React.createElement(EmptyState, {
 			icon = "Loadout",
 			title = if #owned == 0 then "No relics yet" else "Nothing matches",
-			body = if #owned == 0 then "Open crates or buy a starter coupler from the Market tab." else "Clear the search or set the filters back to All relics.",
+			body = if #owned == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyItems) or "Open crates or buy a starter coupler from the Market tab.") else "Clear the search or set the filters back to All relics.",
 			accent = Palette.violet,
 			layoutOrder = 0,
 		})
@@ -2846,7 +2846,7 @@ local function InventoryView(_param)
 	local _exp_13 = tab == "Market" and #shopOffers == 0 and (React.createElement(EmptyState, {
 		icon = "Shop",
 		title = "Market offline",
-		body = "No dock offers right now — check back after the next restock.",
+		body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
 		accent = Palette.mango,
 		layoutOrder = 3,
 		reducedMotion = reducedMotion,

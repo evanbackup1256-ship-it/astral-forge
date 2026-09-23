@@ -1553,7 +1553,7 @@ local function TradeView(_param)
 		local _exp_8 = session == nil and #visibleRows == 0 and React.createElement(EmptyState, {
 			icon = "Crew",
 			title = if #rows == 0 then "Server is quiet" else "No match",
-			body = if #rows == 0 then "Nobody else is in this server. Invites only work here." else "Try a different name.",
+			body = if #rows == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Trade and config.ClientPageGuides.Trade.EmptySession) or "Nobody else is in this server. Invites only work here.") else "Try a different name.",
 			accent = accent,
 			compact = true,
 			layoutOrder = 5,
@@ -1893,7 +1893,7 @@ local function TradeView(_param)
 		}), #visibleRows == 0 and React.createElement(EmptyState, {
 			icon = "Crew",
 			title = if #rows == 0 then "Server is quiet" else "No match",
-			body = if #rows == 0 then "Nobody else is in this server. Invites only work here." else "Try a different name.",
+			body = if #rows == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Trade and config.ClientPageGuides.Trade.EmptyBoard) or "Nobody else is in this server. Invites only work here.") else "Try a different name.",
 			accent = accent,
 			compact = true,
 			reducedMotion = reducedMotion,

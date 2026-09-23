@@ -853,7 +853,8 @@ local function GuildView(_param)
 		end)
 	end, { dispatch })
 	if guild == nil or guild.Id == "" then
-		local canvasHeight = 276 + 192 + 24 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
+		local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Guild else nil
+		local canvasHeight = 132 + 276 + 192 + 36 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
 		return React.createElement("scrollingframe", {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
@@ -873,7 +874,36 @@ local function GuildView(_param)
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 12),
-		}), React.createElement(ScrollPads), React.createElement(JoinOrCreate, {
+		}), React.createElement(ScrollPads), React.createElement(Panel, {
+			size = UDim2.new(1, 0, 0, 120),
+			accent = Palette.violet,
+			background = Palette.panelRaised,
+			padding = 18,
+			layoutOrder = 0,
+			reveal = reveal,
+			clips = false,
+		}, React.createElement(Text, {
+			value = (guide and guide.EmptyTitle) or "No guild yet",
+			size = 20,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Heavy,
+			sizeConstraint = UDim2.new(1, 0, 0, 28),
+		}), React.createElement(Text, {
+			value = (guide and guide.EmptyBody) or "Charter one for shared upgrades, or join with a tag.",
+			size = 12,
+			color = Palette.creamSoft,
+			wrap = true,
+			position = UDim2.fromOffset(0, 34),
+			sizeConstraint = UDim2.new(1, 0, 0, 36),
+		}), React.createElement(Text, {
+			value = (guide and guide.Benefits) or "Shared production, vault, offline, automation, and tap boosts.",
+			size = 11,
+			color = Palette.violet,
+			weight = Enum.FontWeight.Bold,
+			wrap = true,
+			position = UDim2.fromOffset(0, 78),
+			sizeConstraint = UDim2.new(1, 0, 0, 28),
+		})), React.createElement(JoinOrCreate, {
 			config = config,
 			dispatch = send,
 			reducedMotion = reducedMotion,
