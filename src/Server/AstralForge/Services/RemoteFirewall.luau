@@ -8,6 +8,7 @@ return function(loadService: (string) -> any)
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
+	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RemoteFirewallMath"))
 	local ServerTelemetry = loadService("ServerTelemetry")
 
 	type Rule = {
@@ -64,17 +65,10 @@ return function(loadService: (string) -> any)
 	local DEFAULT_RULE: Rule = { Cost = 1, Cooldown = 0.06 }
 
 
-	local COOLDOWN_KEY_FIELDS = { "Id", "Key", "Index", "Code", "Channel", "Target", "Uid", "ChoiceId", "Slot", "Tier", "Level", "Role", "UserId", "MachineId" }
+	local COOLDOWN_KEY_FIELDS = RemoteFirewallMath.COOLDOWN_KEY_FIELDS
 
 	local function cooldownKey(action: string, payload: any): string
-		if type(payload) ~= "table" then return action end
-		local parts = table.create(#COOLDOWN_KEY_FIELDS)
-		for _, field in COOLDOWN_KEY_FIELDS do
-			local value = payload[field]
-			if value ~= nil then table.insert(parts, field .. "=" .. tostring(value)) end
-		end
-		if #parts == 0 then return action end
-		return action .. ":" .. table.concat(parts, "|")
+		return RemoteFirewallMath.CooldownKey(action, payload, COOLDOWN_KEY_FIELDS)
 	end
 
 	local RULES: { [string]: Rule } = {
@@ -203,15 +197,11 @@ return function(loadService: (string) -> any)
 	}
 
 	local function integer(value: any): boolean
-		return type(value) == "number" and value == math.floor(value)
+		return RemoteFirewallMath.Integer(value)
 	end
 
 	local function safeNumber(value: any): boolean
-		return type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and math.abs(value) <= 9007199254740991
+		return RemoteFirewallMath.SafeNumber(value)
 	end
 
 	local function inspect(
@@ -270,29 +260,14 @@ return function(loadService: (string) -> any)
 	end
 
 	local function stringField(payload: { [any]: any }, key: string, minimum: number, maximum: number): boolean
-		local value = payload[key]
-		return type(value) == "string" and value:len() >= minimum and value:len() <= maximum
+		return RemoteFirewallMath.StringField(payload, key, minimum, maximum)
 	end
 
 	-- Bounds the array itself (max entry count) and every entry's own length, rejecting anything
 	-- malformed outright rather than truncating/coercing it -- a mismatched size here is a sign
 	-- of a hand-crafted payload, not a legitimate client miscount.
 	local function stringArrayField(payload: { [any]: any }, key: string, maxEntries: number, entryMinLen: number, entryMaxLen: number): boolean
-		local value = payload[key]
-		if type(value) ~= "table" then
-			return false
-		end
-		local count = 0
-		for _, entry in value do
-			count += 1
-			if count > maxEntries then
-				return false
-			end
-			if type(entry) ~= "string" or entry:len() < entryMinLen or entry:len() > entryMaxLen then
-				return false
-			end
-		end
-		return true
+		return RemoteFirewallMath.StringArrayField(payload, key, maxEntries, entryMinLen, entryMaxLen)
 	end
 
 	local function numberField(
@@ -302,76 +277,22 @@ return function(loadService: (string) -> any)
 		maximum: number,
 		mustBeInteger: boolean?
 	): boolean
-		local value = payload[key]
-		return safeNumber(value)
-			and (not mustBeInteger or integer(value))
-			and value >= minimum
-			and value <= maximum
+		return RemoteFirewallMath.NumberField(payload, key, minimum, maximum, mustBeInteger)
 	end
-
-
-	local MAX_SAFE_USER_ID = 9007199254740991
-	local MIN_SAFE_USER_ID = -9007199254740991
 
 	local function coerceUserId(raw: any): number?
 		local value = raw
 		if typeof(value) == "Instance" and value:IsA("Player") then
 			value = value.UserId
 		end
-		if type(value) == "string" then
-			local trimmed = string.match(value, "^%s*(%-?%d+)%s*$")
-			if not trimmed then
-				return nil
-			end
-			value = tonumber(trimmed)
-		end
-		if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
-			return nil
-		end
-
-		local rounded = if value >= 0 then math.floor(value + 0.5) else math.ceil(value - 0.5)
-		if math.abs(value - rounded) > 1e-6 then
-			return nil
-		end
-
-		if rounded == 0 then
-			return nil
-		end
-		if rounded < MIN_SAFE_USER_ID or rounded > MAX_SAFE_USER_ID then
-			return nil
-		end
-		if not RunService:IsStudio() and rounded < 1 then
-			return nil
-		end
-		return rounded
+		return RemoteFirewallMath.CoerceUserId(value, RunService:IsStudio())
 	end
 
 	local function extractUserId(payload: any): any
-		if payload == nil then
-			return nil
-		end
-
-		if type(payload) == "number" or type(payload) == "string" then
-			return payload
-		end
 		if typeof(payload) == "Instance" and payload:IsA("Player") then
 			return payload.UserId
 		end
-		if type(payload) ~= "table" then
-			return nil
-		end
-
-		local raw = payload.UserId
-		if raw == nil then
-			raw = payload.userId
-		end
-		if raw == nil then
-			raw = payload.Id
-		end
-		if raw == nil then
-			raw = payload.TargetUserId
-		end
-		return raw
+		return RemoteFirewallMath.ExtractUserId(payload)
 	end
 
 	local function userIdField(payload: any): boolean

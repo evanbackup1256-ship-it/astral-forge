@@ -13,6 +13,7 @@ return function(loadService: (string) -> any)
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
@@ -31,7 +32,7 @@ return function(loadService: (string) -> any)
 
 	local CACHE_SYNC_INTERVAL = 1.5
 
-	local MAX_PERSISTED_NUMBER = 1e308
+	local MAX_PERSISTED_NUMBER = DataSanitizeMath.MAX_PERSISTED_NUMBER
 
 	local machineById = {}
 	local researchById = {}
@@ -91,37 +92,15 @@ return function(loadService: (string) -> any)
 	end
 
 	local function deepCopy(value)
-		if type(value) ~= "table" then
-			return value
-		end
-		local copy = {}
-		for key, child in value do
-			copy[deepCopy(key)] = deepCopy(child)
-		end
-		return copy
+		return DataSanitizeMath.DeepCopy(value)
 	end
 
 	local function reconcile(target, template)
-		for key, defaultValue in template do
-			local currentValue = target[key]
-			if type(defaultValue) == "table" and type(currentValue) == "table" then
-				reconcile(currentValue, defaultValue)
-			elseif currentValue == nil then
-				target[key] = deepCopy(defaultValue)
-			elseif type(defaultValue) == "number" and type(currentValue) == "string" then
-
-			elseif type(defaultValue) ~= type(currentValue) then
-				target[key] = deepCopy(defaultValue)
-			end
-		end
-		return target
+		return DataSanitizeMath.Reconcile(target, template)
 	end
 
 	local function nonNegative(value): number
-		if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
-			return 0
-		end
-		return math.clamp(value, 0, MAX_PERSISTED_NUMBER)
+		return DataSanitizeMath.NonNegative(value, MAX_PERSISTED_NUMBER)
 	end
 
 	local function sanitize(profile)

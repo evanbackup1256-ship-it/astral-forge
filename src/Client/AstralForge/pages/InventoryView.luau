@@ -158,45 +158,7 @@ local function socketLabel(target)
 	return InventoryMath.SocketLabel(target)
 end
 local function collectOwned(state, config)
-	local items = state.Items
-	local _definitions = config.Items
-	if _definitions ~= nil then
-		_definitions = _definitions.Definitions
-	end
-	local definitions = _definitions
-	if items == nil or definitions == nil then
-		return {}
-	end
-	local byId = {}
-	for _, definition in definitions do
-		local _id = definition.Id
-		byId[_id] = definition
-	end
-	local equippedByUid = {}
-	for target, uid in pairs(items.Equipped) do
-		if type(uid) == "string" then
-			equippedByUid[uid] = target
-		end
-	end
-	local owned = {}
-	for uid, instance in pairs(items.Inventory) do
-		if not (type(uid) == "string") or not (type(instance) == "table") then
-			continue
-		end
-		local _definitionId = instance.DefinitionId
-		local definition = byId[_definitionId]
-		if definition == nil then
-			continue
-		end
-		local _arg0 = {
-			uid = uid,
-			instance = instance,
-			definition = definition,
-			equippedOn = equippedByUid[uid],
-		}
-		table.insert(owned, _arg0)
-	end
-	return owned
+	return InventoryMath.CollectOwned(state, config)
 end
 local function sortOwned(list, config, sort)
 	return InventoryMath.SortOwned(list, config, sort)
@@ -208,38 +170,7 @@ local function searchOwned(list, query, rarity)
 	return InventoryMath.SearchOwned(list, query, rarity)
 end
 local function socketTargets(state, config, definition)
-	local out = {}
-	local pushUpgrade = function(upgrades, slot, owned)
-		for _, upgrade in upgrades do
-			local _condition = owned[upgrade.Id]
-			if _condition == nil then
-				_condition = 0
-			end
-			if _condition < 1 then
-				continue
-			end
-			local _condition_1 = definition.Targets ~= nil
-			if _condition_1 then
-				local _targets = definition.Targets
-				local _id = upgrade.Id
-				_condition_1 = (table.find(_targets, _id) or 0) - 1 < 0
-			end
-			if _condition_1 then
-				continue
-			end
-			local _arg0 = {
-				id = `{slot}:{upgrade.Id}`,
-				label = upgrade.Name,
-			}
-			table.insert(out, _arg0)
-		end
-	end
-	if definition.Slot == "Machine" then
-		pushUpgrade(config.Machines, "Machine", state.Machines)
-	else
-		pushUpgrade(config.Research, "Research", state.Research)
-	end
-	return out
+	return InventoryMath.SocketTargets(state, config, definition)
 end
 local function ChipRow(_param)
 	local options = _param.options
@@ -923,30 +854,18 @@ local function RelicRow(_param)
 		size = if stack then UDim2.fromOffset(52, 20) else UDim2.fromOffset(84, 20),
 	}))))
 end
-local INSPECT_PAD = 14
-local INSPECT_BTN_GAP = 8
-local INSPECT_FOOTER_H = 18
-local ACTION_BTN = 56
+local INSPECT_PAD = InventoryMath.INSPECT_PAD
+local INSPECT_BTN_GAP = InventoryMath.INSPECT_BTN_GAP
+local INSPECT_FOOTER_H = InventoryMath.INSPECT_FOOTER_H
+local ACTION_BTN = InventoryMath.ACTION_BTN
 local function inspectSocketBlock(equipped, targetCount, chipRows, stack)
-	if stack == nil then
-		stack = false
-	end
-	if equipped then
-		return 20
-	end
-	if targetCount > 0 then
-		return 18 + chipRows * (if stack then TapTarget + 6 else 42)
-	end
-	return 28
+	return InventoryMath.InspectSocketBlock(equipped, targetCount, chipRows, stack, TapTarget)
 end
 local function inspectActionsHeight(stack)
-	return if stack then ACTION_BTN * 2 + INSPECT_BTN_GAP else ACTION_BTN
+	return InventoryMath.InspectActionsHeight(stack)
 end
 local function inspectPanelHeight(socketBlock, stack)
-	if stack == nil then
-		stack = false
-	end
-	return INSPECT_PAD * 2 + socketBlock + INSPECT_BTN_GAP + inspectActionsHeight(stack) + INSPECT_BTN_GAP + INSPECT_FOOTER_H
+	return InventoryMath.InspectPanelHeight(socketBlock, stack)
 end
 local function DetailPanel(_param)
 	local item = _param.item
@@ -1432,37 +1351,10 @@ local function CrateCard(_param)
 	}), actions)
 end
 local function restockClock(seconds)
-	local total = math.max(0, math.floor(seconds))
-	if total <= 0 then
-		return "READY"
-	end
-	local hours = math.floor(total / 3600)
-	local minutes = math.floor((total % 3600) / 60)
-	if hours > 0 then
-		return `{hours}h {minutes}m`
-	end
-	if minutes > 0 then
-		return `{minutes}m`
-	end
-	return `{total}s`
+	return InventoryMath.RestockClock(seconds)
 end
 local function offerStock(offer)
-	local _condition = offer.StockMax
-	if _condition == nil then
-		_condition = 1
-	end
-	local stockMax = math.max(1, _condition)
-	local _condition_1 = offer.Stock
-	if _condition_1 == nil then
-		_condition_1 = (if offer.Purchased == true then 0 else stockMax)
-	end
-	local stock = math.clamp(_condition_1, 0, stockMax)
-	return {
-		stock = stock,
-		stockMax = stockMax,
-		soldOut = stock <= 0,
-		daily = offer.DailyRefresh == true,
-	}
+	return InventoryMath.OfferStock(offer)
 end
 local MARKET_BANNER_H = 126
 local MARKET_CARD_H = 176

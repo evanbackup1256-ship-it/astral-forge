@@ -53,4 +53,32 @@ function AdminGrantMath.CommandDanger(definition: { [string]: any }?): string
 	return "quick"
 end
 
+-- Audit-only reason strings that must not surface to the kicked player.
+AdminGrantMath.AUDIT_ONLY_REASONS = table.freeze({
+	["Owner gameplay administration"] = true,
+	["Balance correction"] = true,
+	["Playtest grant"] = true,
+	["Troll / joke"] = true,
+	["Moderation action"] = true,
+	["Player request"] = true,
+	["Bug recovery"] = true,
+	["Trade settle recovery"] = true,
+})
+
+-- Player-facing kick/ban copy. Audit-only reasons fall back to command defaults.
+function AdminGrantMath.PlayerFacingReason(command: any, reason: any, auditOnly: { [string]: boolean }?): string
+	local safeReason = if type(reason) == "string" then reason else ""
+	local blocked = auditOnly or AdminGrantMath.AUDIT_ONLY_REASONS
+	if safeReason ~= "" and blocked[safeReason] ~= true then
+		return safeReason
+	end
+	if command == "ServerBan" then
+		return "You are banned from this Astral Forge server."
+	end
+	if command == "GlobalBan" then
+		return "You are banned from Astral Forge."
+	end
+	return "You were kicked from this Astral Forge server by an administrator."
+end
+
 return table.freeze(AdminGrantMath)

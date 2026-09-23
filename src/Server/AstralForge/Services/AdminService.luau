@@ -556,28 +556,10 @@ return function(loadService: (string) -> any)
 		}
 	end
 
-	local AUDIT_ONLY_REASONS = {
-		["Owner gameplay administration"] = true,
-		["Balance correction"] = true,
-		["Playtest grant"] = true,
-		["Troll / joke"] = true,
-		["Moderation action"] = true,
-		["Player request"] = true,
-		["Bug recovery"] = true,
-		["Trade settle recovery"] = true,
-	}
+	local AUDIT_ONLY_REASONS = AdminGrantMath.AUDIT_ONLY_REASONS
 
 	local function playerFacingReason(command: string, reason: string): string
-		if reason ~= "" and AUDIT_ONLY_REASONS[reason] ~= true then
-			return reason
-		end
-		if command == "ServerBan" then
-			return "You are banned from this Astral Forge server."
-		end
-		if command == "GlobalBan" then
-			return "You are banned from Astral Forge."
-		end
-		return "You were kicked from this Astral Forge server by an administrator."
+		return AdminGrantMath.PlayerFacingReason(command, reason, AUDIT_ONLY_REASONS)
 	end
 
 	function AdminService:_moderate(actor: Player, command: string, targetUserId: number, amountRaw: any, option: string, reason: string)

@@ -139,20 +139,26 @@ assert(
 --      guards — partial bags threw mid-claim; boost rewards silently dropped when the
 --      inventory key was absent.
 assert(
-	string.find(progressionSrc, "TotalRebirthsSpent", 1, true) ~= nil,
+	string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true) ~= nil,
+	"AchievementProgress must delegate ProgressionOpsMath"
+)
+local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+assert(
+	string.find(progressionOpsSrc, "TotalRebirthsSpent", 1, true) ~= nil,
 	"AchievementProgress Rebirths must include Domain.TotalRebirthsSpent"
 )
 assert(
-	string.find(progressionSrc, "anomaly and anomaly.Stabilizations", 1, true) ~= nil
-		or string.find(progressionSrc, "anomaly.Stabilizations", 1, true) ~= nil,
+	string.find(progressionOpsSrc, "anomaly and anomaly.Stabilizations", 1, true) ~= nil
+		or string.find(progressionOpsSrc, "anomaly.Stabilizations", 1, true) ~= nil,
 	"AchievementProgress AnomalyStabilizations must prefer Anomaly bag"
 )
 assert(
-	string.find(progressionSrc, "tonumber(stats and stats.PlayTime)", 1, true) ~= nil,
+	string.find(progressionOpsSrc, "tonumber(stats and stats.PlayTime)", 1, true) ~= nil,
 	"AchievementProgress PlayTime must nil-safe Stats"
 )
 assert(
-	string.find(progressionSrc, "tonumber(command and command.ExpeditionsCompleted)", 1, true) ~= nil,
+	string.find(progressionOpsSrc, "tonumber(command and command.ExpeditionsCompleted)", 1, true) ~= nil
+		or string.find(progressionSrc, "ProgressionOpsMath.WeeklyValue", 1, true) ~= nil,
 	"currentWeeklyValue Expeditions must nil-safe Command"
 )
 assert(
@@ -298,7 +304,7 @@ assert(
 	"BuySignalOffer must not raw-index Stats.ShopPurchases"
 )
 assert(
-	string.find(progressionSrc, 'kind == "Expeditions"', 1, true) ~= nil,
+	string.find(progressionOpsSrc, 'kind == "Expeditions"', 1, true) ~= nil,
 	"AchievementProgress must track Expeditions kind"
 )
 assert(

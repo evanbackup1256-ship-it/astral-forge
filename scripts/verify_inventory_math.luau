@@ -84,6 +84,52 @@ local sig = InventoryMath.AutoSalvageSignature({
 assert(sig == "1:0:Common,Rare", "auto salvage signature")
 
 ------------------------------------------------------------------------
+-- CollectOwned / SocketTargets / RestockClock / OfferStock / Inspect heights
+------------------------------------------------------------------------
+local collectState = {
+	Items = {
+		Inventory = {
+			u1 = { DefinitionId = "CoreA", Level = 2 },
+			bad = { DefinitionId = "Missing" },
+			u2 = { DefinitionId = "FrameB", Level = 1 },
+		},
+		Equipped = { ["Machine:Drill"] = "u1" },
+	},
+}
+local collectConfig = {
+	Items = {
+		Definitions = {
+			{ Id = "CoreA", Name = "Core A", Slot = "Machine", Targets = { "Drill" } },
+			{ Id = "FrameB", Name = "Frame B", Slot = "Research" },
+		},
+	},
+	Machines = { { Id = "Drill", Name = "Flux Drill" }, { Id = "Pump", Name = "Pump" } },
+	Research = { { Id = "Critical", Name = "Critical" } },
+}
+local collected = InventoryMath.CollectOwned(collectState, collectConfig)
+assert(#collected == 2, "collectOwned drops unknown defs")
+local sockets = InventoryMath.SocketTargets(
+	{ Machines = { Drill = 2, Pump = 0 }, Research = {} },
+	collectConfig,
+	{ Slot = "Machine", Targets = { "Drill" } }
+)
+assert(#sockets == 1 and sockets[1].id == "Machine:Drill", "socket targets filter")
+assert(InventoryMath.RestockClock(0) == "READY", "restock ready")
+assert(InventoryMath.RestockClock(3661) == "1h 1m", "restock hours")
+assert(InventoryMath.RestockClock(90) == "1m", "restock minutes")
+assert(InventoryMath.RestockClock(9) == "9s", "restock seconds")
+local stock = InventoryMath.OfferStock({ StockMax = 3, Stock = 1, DailyRefresh = true })
+assert(stock.stock == 1 and stock.stockMax == 3 and stock.soldOut == false and stock.daily == true, "offer stock")
+assert(InventoryMath.OfferStock({ Purchased = true }).soldOut == true, "purchased sold out")
+assert(InventoryMath.InspectSocketBlock(true, 2, 1, false) == 20, "inspect equipped block")
+assert(InventoryMath.InspectActionsHeight(true) == InventoryMath.ACTION_BTN * 2 + InventoryMath.INSPECT_BTN_GAP, "inspect stack actions")
+assert(
+	InventoryMath.InspectPanelHeight(20, false)
+		== InventoryMath.INSPECT_PAD * 2 + 20 + InventoryMath.INSPECT_BTN_GAP + InventoryMath.ACTION_BTN + InventoryMath.INSPECT_BTN_GAP + InventoryMath.INSPECT_FOOTER_H,
+	"inspect panel height"
+)
+
+------------------------------------------------------------------------
 -- InventoryView wiring residual
 ------------------------------------------------------------------------
 local invSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
@@ -93,6 +139,11 @@ assert(string.find(invSrc, "InventoryMath.SortOwned", 1, true), "InventoryView S
 assert(string.find(invSrc, "InventoryMath.SearchOwned", 1, true), "InventoryView SearchOwned residual")
 assert(string.find(invSrc, "InventoryMath.SalvagePreview", 1, true), "InventoryView SalvagePreview residual")
 assert(string.find(invSrc, "InventoryMath.AutoSalvageSignature", 1, true), "InventoryView AutoSalvageSignature residual")
+assert(string.find(invSrc, "InventoryMath.CollectOwned", 1, true), "InventoryView CollectOwned residual")
+assert(string.find(invSrc, "InventoryMath.SocketTargets", 1, true), "InventoryView SocketTargets residual")
+assert(string.find(invSrc, "InventoryMath.RestockClock", 1, true), "InventoryView RestockClock residual")
+assert(string.find(invSrc, "InventoryMath.OfferStock", 1, true), "InventoryView OfferStock residual")
+assert(string.find(invSrc, "InventoryMath.InspectPanelHeight", 1, true), "InventoryView InspectPanelHeight residual")
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
@@ -108,4 +159,4 @@ for _, body in { mathSrc, invSrc } do
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] InventoryMath extract guards passed | salvage parity + filter/sort/search")
+print("[INFO] [TEST] InventoryMath extract guards passed | salvage parity + filter/sort/search + collect/socket/market")

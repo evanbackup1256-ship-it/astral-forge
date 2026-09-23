@@ -12,47 +12,21 @@ local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 ------------------------------------------------------------------------
 -- RemoteFirewall: user-id coerce/extract + quarantine + action allowlist
 ------------------------------------------------------------------------
-assert(string.find(firewallSrc, "local function coerceUserId", 1, true), "RemoteFirewall must define coerceUserId")
-assert(string.find(firewallSrc, "local function extractUserId", 1, true), "RemoteFirewall must define extractUserId")
+assert(string.find(firewallSrc, "RemoteFirewallMath.CoerceUserId", 1, true), "RemoteFirewall must delegate CoerceUserId")
+assert(string.find(firewallSrc, "RemoteFirewallMath.ExtractUserId", 1, true), "RemoteFirewall must delegate ExtractUserId")
 assert(string.find(firewallSrc, "Firewall.CoerceUserId = coerceUserId", 1, true), "CoerceUserId must be exported")
 assert(string.find(firewallSrc, "Firewall.ExtractUserId = extractUserId", 1, true), "ExtractUserId must be exported")
 assert(string.find(firewallSrc, "TargetUserId", 1, true), "extractUserId must read TargetUserId")
-assert(string.find(firewallSrc, "MAX_SAFE_USER_ID", 1, true), "coerce must bound safe integer ids")
+assert(string.find(firewallSrc, "RemoteFirewallMath.MAX_SAFE_USER_ID", 1, true) or string.find(fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"), "MAX_SAFE_USER_ID", 1, true), "coerce must bound safe integer ids")
 assert(string.find(firewallSrc, "QuarantineUntil", 1, true), "firewall must track quarantine")
 assert(string.find(firewallSrc, "function Firewall:Check", 1, true), "Firewall:Check must remain entry")
 assert(string.find(firewallSrc, "function Firewall:Forget", 1, true), "Firewall:Forget must clear player state")
 assert(string.find(firewallSrc, "CLIENT_SIGNAL_RULES", 1, true), "client integrity signal allowlist must stay")
 
--- Pure coerce replica (mirrors RemoteFirewall.coerceUserId numeric path; no Instance).
-local MAX_SAFE_USER_ID = 9007199254740991
-local MIN_SAFE_USER_ID = -9007199254740991
-local function coerceUserId(raw: any, studio: boolean?): number?
-	local value = raw
-	if type(value) == "string" then
-		local trimmed = string.match(value, "^%s*(%-?%d+)%s*$")
-		if not trimmed then
-			return nil
-		end
-		value = tonumber(trimmed)
-	end
-	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
-		return nil
-	end
-	local rounded = if value >= 0 then math.floor(value + 0.5) else math.ceil(value - 0.5)
-	if math.abs(value - rounded) > 1e-6 then
-		return nil
-	end
-	if rounded == 0 then
-		return nil
-	end
-	if rounded < MIN_SAFE_USER_ID or rounded > MAX_SAFE_USER_ID then
-		return nil
-	end
-	if studio ~= true and rounded < 1 then
-		return nil
-	end
-	return rounded
-end
+-- Pure coerce via extracted module (mirrors RemoteFirewall numeric path; no Instance).
+local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/RemoteFirewallMath")
+local coerceUserId = RemoteFirewallMath.CoerceUserId
+local extractUserId = RemoteFirewallMath.ExtractUserId
 assert(coerceUserId(42) == 42, "positive id ok")
 assert(coerceUserId(" 99 ") == 99, "trimmed string id ok")
 assert(coerceUserId(0) == nil, "zero rejected")
@@ -60,29 +34,6 @@ assert(coerceUserId(1.5) == nil, "non-integer rejected")
 assert(coerceUserId(-3) == nil, "live negative rejected")
 assert(coerceUserId(-3, true) == -3, "Studio negative allowed")
 assert(coerceUserId("nope") == nil, "garbage string rejected")
-
-local function extractUserId(payload: any): any
-	if payload == nil then
-		return nil
-	end
-	if type(payload) == "number" or type(payload) == "string" then
-		return payload
-	end
-	if type(payload) ~= "table" then
-		return nil
-	end
-	local raw = payload.UserId
-	if raw == nil then
-		raw = payload.userId
-	end
-	if raw == nil then
-		raw = payload.Id
-	end
-	if raw == nil then
-		raw = payload.TargetUserId
-	end
-	return raw
-end
 assert(extractUserId({ TargetUserId = 7 }) == 7, "TargetUserId extracted")
 assert(extractUserId({ userId = "8" }) == "8", "userId extracted")
 assert(coerceUserId(extractUserId({ UserId = "12" })) == 12, "coerce∘extract roundtrip")
@@ -90,6 +41,9 @@ assert(coerceUserId(extractUserId({ UserId = "12" })) == 12, "coerce∘extract r
 ------------------------------------------------------------------------
 -- DataService sanitize residuals (boost bag + guild/anomaly/mailbox)
 ------------------------------------------------------------------------
+assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService NonNegative residual")
+assert(string.find(dataSrc, "DataSanitizeMath.DeepCopy", 1, true), "DataService DeepCopy residual")
+assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService Reconcile residual")
 assert(string.find(dataSrc, "local function sanitize(profile)", 1, true), "DataService sanitize must exist")
 assert(string.find(dataSrc, "profile.BoostInventory", 1, true), "sanitize must harden BoostInventory")
 assert(string.find(dataSrc, "profile.ActiveBoost", 1, true), "sanitize must harden ActiveBoost")
@@ -130,7 +84,7 @@ assert(string.find(dataSrc, "ProfileIntegrity.EnsureEnvelope", 1, true), "DataSe
 ------------------------------------------------------------------------
 -- RemoteFirewall cooldownKey + integrity residual markers
 ------------------------------------------------------------------------
-assert(string.find(firewallSrc, "local function cooldownKey", 1, true), "RemoteFirewall must define cooldownKey")
+assert(string.find(firewallSrc, "RemoteFirewallMath.CooldownKey", 1, true), "RemoteFirewall must delegate cooldownKey")
 assert(string.find(firewallSrc, "COOLDOWN_KEY_FIELDS", 1, true), "RemoteFirewall COOLDOWN_KEY_FIELDS residual")
 assert(string.find(firewallSrc, "CLIENT_INTEGRITY_REPORTS", 1, true), "RemoteFirewall client integrity reports residual")
 assert(string.find(firewallSrc, "BulkSalvageItems", 1, true), "RemoteFirewall must rate-limit BulkSalvageItems")
@@ -138,24 +92,8 @@ assert(string.find(firewallSrc, "EquipBestItems", 1, true), "RemoteFirewall must
 assert(string.find(firewallSrc, "SetItemAutoSalvage", 1, true), "RemoteFirewall must rate-limit SetItemAutoSalvage")
 assert(string.find(firewallSrc, "OpenItemCrate", 1, true), "RemoteFirewall must rate-limit OpenItemCrate")
 
--- Pure cooldownKey replica (payload field join; no Instance).
-local COOLDOWN_KEY_FIELDS = { "Id", "Key", "Index", "Code", "Channel", "Target", "Uid", "ChoiceId", "Slot", "Tier", "Level", "Role", "UserId", "MachineId" }
-local function cooldownKey(action: string, payload: any): string
-	if type(payload) ~= "table" then
-		return action
-	end
-	local parts = {}
-	for _, field in COOLDOWN_KEY_FIELDS do
-		local value = payload[field]
-		if value ~= nil then
-			table.insert(parts, field .. "=" .. tostring(value))
-		end
-	end
-	if #parts == 0 then
-		return action
-	end
-	return action .. ":" .. table.concat(parts, "|")
-end
+-- Pure cooldownKey via extracted module
+local cooldownKey = RemoteFirewallMath.CooldownKey
 assert(cooldownKey("OpenItemCrate", nil) == "OpenItemCrate", "nil payload → action")
 assert(cooldownKey("OpenItemCrate", {}) == "OpenItemCrate", "empty payload → action")
 assert(cooldownKey("ToggleItemLock", { Uid = "abc", Level = 2 }) == "ToggleItemLock:Uid=abc|Level=2", "cooldown key fields")

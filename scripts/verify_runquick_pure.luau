@@ -331,6 +331,8 @@ do
 	local nextTarget = RebirthGate.NextPrestigeTarget(OmegaMath, 0, 1000, 0.5)
 	assert(isPersist(nextTarget), "NextPrestigeTarget must persist")
 	assert(EconomyEnvelopeMath.OfflineHours(4, 0, 0, 24) == 4, "OfflineHours identity")
+	assert(EconomyEnvelopeMath.LabPowerEffect({ Tap = 2 }, "Tap", { EffectPerCell = 0.05 }) == 0.1, "LabPowerEffect parity")
+	assert(string.find(economySrc, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "Economy LabPowerEffect must delegate")
 end
 
 print("[INFO] [TEST] Studio-only remainder: ReleaseReadiness.RunQuick 50k soak + RunSoak (not claimed by npm test)")
