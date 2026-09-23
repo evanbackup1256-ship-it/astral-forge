@@ -874,7 +874,7 @@ local function IconTile(_param)
 	local interactionMotion = reducedMotion or effectsPaused
 	local background = if filled then darken(accent, 0.28) else darken(accent, 0.48):Lerp(Palette.panelSoft, 0.42)
 	local glyph = Palette.cream
-	local strokeTransparency = useGlowStroke(glow and not interactionMotion, interactionMotion, 0.55, 0.28, 0.58, 1.45
+	local strokeTransparency = useGlowStroke(glow and not interactionMotion, interactionMotion, 0.55, 0.28, 0.58, 1.45)
 	local _condition = radius
 	if _condition == nil then
 		_condition = math.floor(size * 0.26)
