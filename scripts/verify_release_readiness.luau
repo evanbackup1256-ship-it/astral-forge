@@ -424,7 +424,39 @@ assert(
 )
 mark("crate shop upgradeboard clip softmotion residuals")
 
-assert(#passed > 19, "release-readiness offline subset must stay beyond checks=19, got " .. tostring(#passed))
+-- Wave20 monolith split residuals: NetworkPolicy / PageBoardHeights / Telemetry /
+-- UtcClock / EconomyEnvelope grid+item+artifact (pure RunQuick-adjacent).
+local networkPolicySrc = fs.readFile("src/Client/AstralForge/networkPolicy.luau")
+local pageBoardSrc = fs.readFile("src/Client/AstralForge/pageBoardHeights.luau")
+local telemetrySrc = fs.readFile("src/Server/AstralForge/Modules/TelemetryMath.luau")
+local utcClockSrc = fs.readFile("src/Server/AstralForge/Modules/UtcClockMath.luau")
+local mainReleaseSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local routerReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+local ssReleaseSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(networkPolicySrc, "function NetworkPolicy.Cooldown", 1, true), "NetworkPolicy.Cooldown missing")
+assert(string.find(networkPolicySrc, "function NetworkPolicy.IsPipelined", 1, true), "NetworkPolicy.IsPipelined missing")
+assert(string.find(mainReleaseSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame NetworkPolicy residual for release")
+assert(string.find(pageBoardSrc, "function PageBoardHeights.Machine", 1, true), "PageBoardHeights.Machine missing")
+assert(string.find(routerReleaseSrc, "PageBoardHeights.Machine", 1, true), "PageRouter PageBoardHeights residual for release")
+assert(string.find(routerReleaseSrc, "PageReadyMath.AnomalyReady", 1, true), "PageRouter AnomalyReady residual for release")
+assert(string.find(telemetrySrc, "function TelemetryMath.Encode", 1, true), "TelemetryMath.Encode missing")
+assert(string.find(ssReleaseSrc, "TelemetryMath.Encode", 1, true), "ServerServices Telemetry residual for release")
+assert(string.find(utcClockSrc, "function UtcClockMath.Day", 1, true), "UtcClockMath.Day missing")
+assert(string.find(ssReleaseSrc, "UtcClockMath.Day", 1, true), "ServerServices UtcClock residual for release")
+assert(string.find(ssReleaseSrc, "DataSanitizeMath.DeepCopy", 1, true), "ServerServices DeepCopy residual for release")
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.GridEffect", 1, true), "EconomyEnvelopeMath.GridEffect missing")
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.EffectAtLevel", 1, true), "EconomyEnvelopeMath.EffectAtLevel missing")
+assert(string.find(economyBody, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect residual for release")
+assert(string.find(economyBody, "EconomyEnvelopeMath.EffectAtLevel", 1, true), "Economy EffectAtLevel residual for release")
+assert(string.find(inventoryMathSrc, "function InventoryMath.RarityColor", 1, true), "InventoryMath.RarityColor missing")
+assert(string.find(invViewSrc, "InventoryMath.RarityColor", 1, true), "InventoryView RarityColor residual for release")
+assert(not string.find(networkPolicySrc, "GetService", 1, true), "NetworkPolicy must stay pure")
+assert(not string.find(telemetrySrc, "GetService", 1, true), "TelemetryMath must stay pure")
+assert(not string.find(utcClockSrc, "GetService", 1, true), "UtcClockMath must stay pure")
+mark("wave20 monolith network telemetry board residuals")
+
+-- Raise floor past checks=22 once pure RunQuick-adjacent monolith extracts land.
+assert(#passed > 22, "release-readiness offline subset must stay beyond checks=22, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

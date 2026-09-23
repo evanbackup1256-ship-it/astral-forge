@@ -144,6 +144,7 @@ assert(string.find(invSrc, "InventoryMath.SocketTargets", 1, true), "InventoryVi
 assert(string.find(invSrc, "InventoryMath.RestockClock", 1, true), "InventoryView RestockClock residual")
 assert(string.find(invSrc, "InventoryMath.OfferStock", 1, true), "InventoryView OfferStock residual")
 assert(string.find(invSrc, "InventoryMath.InspectPanelHeight", 1, true), "InventoryView InspectPanelHeight residual")
+assert(string.find(invSrc, "InventoryMath.RarityColor", 1, true), "InventoryView RarityColor residual")
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")

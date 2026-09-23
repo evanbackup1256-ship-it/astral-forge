@@ -133,4 +133,47 @@ function EconomyEnvelopeMath.LabPowerEffect(routing: any, channelId: any, channe
 	return math.max(0, cells) * perCell
 end
 
+-- Relic / item effect at level: BaseEffect * (1 + LevelGrowth * max(0, level-1)).
+-- Matches InventoryMath.EffectAtLevel — keep formulas in lockstep via verify.
+function EconomyEnvelopeMath.EffectAtLevel(definition: any, level: any): number
+	if type(definition) ~= "table" then
+		return 0
+	end
+	local base = tonumber(definition.BaseEffect) or 0
+	local growth = tonumber(definition.LevelGrowth) or 0
+	local safeLevel = if type(level) == "number" then level else 1
+	return base * (1 + growth * math.max(0, safeLevel - 1))
+end
+
+-- Artifact effect: EffectPerLevel * owned.Level when kinds match.
+function EconomyEnvelopeMath.ArtifactLevelEffect(artifact: any, owned: any, effectKind: any): number
+	if type(artifact) ~= "table" or type(owned) ~= "table" then
+		return 0
+	end
+	if artifact.EffectKind ~= effectKind then
+		return 0
+	end
+	local perLevel = tonumber(artifact.EffectPerLevel) or 0
+	local level = tonumber(owned.Level) or 0
+	return perLevel * math.max(0, level)
+end
+
+-- Grid upgrade bag → effect total for `effectKind`. `gridById` maps id → upgrade.
+function EconomyEnvelopeMath.GridEffect(levels: any, gridById: any, effectKind: any): number
+	if type(levels) ~= "table" or type(gridById) ~= "table" then
+		return 0
+	end
+	local total = 0
+	for id, level in levels do
+		if type(level) == "number" and level > 0 then
+			local upgrade = gridById[id]
+			if type(upgrade) == "table" and upgrade.EffectKind == effectKind then
+				local per = tonumber(upgrade.EffectPerLevel) or 0
+				total += level * per
+			end
+		end
+	end
+	return total
+end
+
 return table.freeze(EconomyEnvelopeMath)
