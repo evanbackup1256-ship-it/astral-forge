@@ -52,7 +52,11 @@ return function()
 		end
 		self._revision = math.max(self._revision, revisionOf(self._value))
 		self._busy = true
-		local draft = clone(self._value)
+		local cloneOk, draft = pcall(clone, self._value)
+		if not cloneOk then
+			self._busy = false
+			return false, draft, self._revision
+		end
 		local ok, result = pcall(callback, draft, self._revision + 1)
 		local shouldCommit = ok and not (type(result) == "table" and result.ok == false)
 		if shouldCommit then

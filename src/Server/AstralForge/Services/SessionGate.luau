@@ -152,18 +152,41 @@ return function()
 		return true
 	end
 
-	-- Ring buffer dedupe for grant TxnIds. Hit returns the stored result so the caller can
-	-- short-circuit before running Economy a second time; miss reserves the slot for Store.
+	local TXN_PENDING = { __txn = "pending" }
+
 	function SessionGate:TxnLookup(player: Player, txnId: string): (boolean, any)
 		local session = self._sessions[player]
 		if not session then
 			return false, nil
 		end
 		local stored = session.txns[txnId]
-		if stored == nil then
+		if stored == nil or stored == TXN_PENDING then
 			return false, nil
 		end
 		return true, stored
+	end
+
+	function SessionGate:TxnClaim(player: Player, txnId: string): (string, any)
+		local session = self._sessions[player]
+		if not session then
+			return "new", nil
+		end
+		local stored = session.txns[txnId]
+		if stored == TXN_PENDING then
+			return "busy", nil
+		end
+		if stored ~= nil then
+			return "done", stored
+		end
+		table.insert(session.txnOrder, txnId)
+		if #session.txnOrder > TXN_RING then
+			local oldest = table.remove(session.txnOrder, 1)
+			if oldest then
+				session.txns[oldest] = nil
+			end
+		end
+		session.txns[txnId] = TXN_PENDING
+		return "new", nil
 	end
 
 	function SessionGate:TxnStore(player: Player, txnId: string, result: any)
@@ -181,6 +204,22 @@ return function()
 			end
 		end
 		session.txns[txnId] = result
+	end
+
+	function SessionGate:TxnRelease(player: Player, txnId: string)
+		local session = self._sessions[player]
+		if not session then
+			return
+		end
+		if session.txns[txnId] == TXN_PENDING then
+			session.txns[txnId] = nil
+			for index, id in session.txnOrder do
+				if id == txnId then
+					table.remove(session.txnOrder, index)
+					break
+				end
+			end
+		end
 	end
 
 	-- Read-only peek at the live gen/nonce, used to resync a client whose grant request
