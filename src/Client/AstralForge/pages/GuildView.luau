@@ -19,14 +19,13 @@ local Layout = _theme.Layout
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
 local EmptyState = _ui.EmptyState
 local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local ROLE_RANK = {
@@ -860,65 +859,70 @@ local function GuildView(_param)
 	if guild == nil or guild.Id == "" then
 		local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Guild else nil
 		local pageGap = if stack then 12 else Layout.panelGap
-		local canvasHeight = 140 + 276 + 192 + 36 + pageGap * 3 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
-		return React.createElement("scrollingframe", {
-			Size = UDim2.fromScale(1, 1),
-			CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-			AutomaticCanvasSize = Enum.AutomaticSize.None,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 4,
-			ScrollBarImageColor3 = Palette.violet,
-			ScrollBarImageTransparency = 0.2,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ClipsDescendants = true,
-			Active = true,
-			Selectable = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, pageGap),
-		}), React.createElement(ScrollPads), React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, 128),
-			accent = Palette.violet,
-			background = Palette.panelRaised,
-			padding = if stack then 16 else 20,
-			highlight = true,
-			layoutOrder = 0,
-			reveal = reveal,
-			clips = false,
-		}, React.createElement(Text, {
-			value = (guide and guide.EmptyTitle) or "No guild yet",
-			size = 20,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
-			sizeConstraint = UDim2.new(1, 0, 0, 28),
-		}), React.createElement(Text, {
-			value = (guide and guide.EmptyBody) or "Charter one for shared upgrades, or join with a tag.",
-			size = 12,
-			color = Palette.creamSoft,
-			wrap = true,
-			position = UDim2.fromOffset(0, 34),
-			sizeConstraint = UDim2.new(1, 0, 0, 36),
-		}), React.createElement(Text, {
-			value = (guide and guide.Benefits) or "Shared production, vault, offline, automation, and tap boosts.",
-			size = 11,
-			color = Palette.violet,
-			weight = Enum.FontWeight.Bold,
-			wrap = true,
-			position = UDim2.fromOffset(0, 78),
-			sizeConstraint = UDim2.new(1, 0, 0, 28),
-		})), React.createElement(JoinOrCreate, {
-			config = config,
-			dispatch = send,
-			reducedMotion = reducedMotion,
-			busy = busy,
-			shakeToken = shakeToken,
-			stack = stack,
-			cash = state.Cash,
-		}))
+		local joinBlockH = 276 + pageGap + 192
+		return React.createElement(PageScaffold, {
+			gap = pageGap,
+			tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
+			scrollBarColor = Palette.violet,
+			scrollBarThickness = 4,
+			sections = {
+				{
+					id = "empty-hero",
+					height = 128,
+					element = React.createElement(Panel, {
+						size = UDim2.fromScale(1, 1),
+						accent = Palette.violet,
+						background = Palette.panelRaised,
+						padding = if stack then 16 else 20,
+						highlight = true,
+						reveal = reveal,
+						clips = false,
+					}, React.createElement(Text, {
+						value = (guide and guide.EmptyTitle) or "No guild yet",
+						size = 20,
+						color = Palette.cream,
+						weight = Enum.FontWeight.Heavy,
+						sizeConstraint = UDim2.new(1, 0, 0, 28),
+					}), React.createElement(Text, {
+						value = (guide and guide.EmptyBody) or "Charter one for shared upgrades, or join with a tag.",
+						size = 12,
+						color = Palette.creamSoft,
+						wrap = true,
+						position = UDim2.fromOffset(0, 34),
+						sizeConstraint = UDim2.new(1, 0, 0, 36),
+					}), React.createElement(Text, {
+						value = (guide and guide.Benefits) or "Shared production, vault, offline, automation, and tap boosts.",
+						size = 11,
+						color = Palette.violet,
+						weight = Enum.FontWeight.Bold,
+						wrap = true,
+						position = UDim2.fromOffset(0, 78),
+						sizeConstraint = UDim2.new(1, 0, 0, 28),
+					})),
+				},
+				{
+					id = "join",
+					height = joinBlockH,
+					element = React.createElement("frame", {
+						Size = UDim2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+					}, React.createElement("uilistlayout", {
+						FillDirection = Enum.FillDirection.Vertical,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						Padding = UDim.new(0, pageGap),
+					}), React.createElement(JoinOrCreate, {
+						config = config,
+						dispatch = send,
+						reducedMotion = reducedMotion,
+						busy = busy,
+						shakeToken = shakeToken,
+						stack = stack,
+						cash = state.Cash,
+					})),
+				},
+			},
+		})
 	end
 	local members = {}
 	for key, member in pairs(guild.Members) do
@@ -974,14 +978,9 @@ local function GuildView(_param)
 	local upgradeHeight = if stack then 180 else 140
 	local memberHeight = if stack then 122 elseif canManage then 112 else 84
 	local sectionLabelH = 34
-	local canvasHeight = heroHeight + goalHeight + bankHeight + sectionLabelH + #rows * (upgradeHeight + pageGap) + sectionLabelH + #members * (memberHeight + pageGap) + 96 + pageGap * 4 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
+	local upgradesH = if #rows == 0 then 150 else #rows * upgradeHeight + math.max(0, #rows - 1) * pageGap
+	local membersH = math.max(1, #members) * memberHeight + math.max(0, #members - 1) * pageGap
 	local heroSurface = darken(Palette.violet, 0.9)
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, pageGap),
-	})
-	local _exp_1 = React.createElement(ScrollPads)
 	local _attributes = {}
 	local _exp_2 = guild.Tag
 	local _exp_3 = #members
@@ -1070,11 +1069,10 @@ local function GuildView(_param)
 	_attributes_1.position = UDim2.fromOffset(0, if stack then 86 else 88)
 	_attributes_1.sizeConstraint = UDim2.new(1, -8, 0, if stack then 46 else 32)
 	local _exp_11 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, heroHeight),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.violet,
 		background = heroSurface,
 		padding = if stack then 16 else 20,
-		layoutOrder = 1,
 		reveal = reveal,
 		highlight = true,
 		reducedMotion = reducedMotion,
@@ -1113,7 +1111,7 @@ local function GuildView(_param)
 	local _exp_12 = React.createElement(GuildGoalCard, {
 		guild = guild,
 		config = config,
-		layoutOrder = 2,
+		layoutOrder = 0,
 		stack = stack,
 		reducedMotion = reducedMotion,
 		dispatch = send,
@@ -1257,33 +1255,26 @@ local function GuildView(_param)
 	_attributes_3.position = if stack then UDim2.fromOffset(0, 222) else UDim2.new(0.5, 6, 0, 128)
 	_attributes_3.reducedMotion = reducedMotion
 	local _exp_19 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, bankHeight),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.mango,
 		background = Palette.panelRaised,
 		padding = if stack then 16 else 18,
-		layoutOrder = 3,
 		reducedMotion = reducedMotion,
 		clips = false,
 	}, _exp_13, _exp_14, _exp_15, _exp_16, _exp_17, _exp_18, React.createElement(Button, _attributes_3))
 	local _exp_20 = React.createElement(SectionLabel, {
 		value = "HALL UPGRADES",
 		color = Palette.violet,
-		layoutOrder = 4,
 	})
 	local _result_7
 	if #rows == 0 then
-		_result_7 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 150),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 5,
-		}, React.createElement(EmptyState, {
+		_result_7 = React.createElement(EmptyState, {
 			title = "No hall upgrades",
 			body = "Upgrade definitions are still loading.",
 			icon = "Forge",
 			accent = Palette.violet,
 			size = UDim2.fromScale(1, 1),
-		}))
+		})
 	else
 		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#rows)
@@ -1298,19 +1289,26 @@ local function GuildView(_param)
 				dispatch = send,
 				busy = busy,
 				shakeToken = shakeToken,
-				layoutOrder = 10 + index,
+				layoutOrder = index,
 			})
 		end
 		for _k, _v in rows do
 			_newValue[_k] = _callback(_v, _k - 1, rows)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_result_7 = _newValue
+		_result_7 = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, pageGap),
+		}), _newValue)
 	end
 	local _exp_21 = React.createElement(SectionLabel, {
 		value = "MEMBERS",
 		color = Palette.cyan,
-		layoutOrder = 100,
 	})
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#members)
@@ -1340,29 +1338,65 @@ local function GuildView(_param)
 		_attributes_4.dispatch = send
 		_attributes_4.busy = busy
 		_attributes_4.shakeToken = shakeToken
-		_attributes_4.layoutOrder = 110 + index
+		_attributes_4.layoutOrder = index
 		return React.createElement(MemberRow, _attributes_4)
 	end
 	for _k, _v in members do
 		_newValue[_k] = _callback(_v, _k - 1, members)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("scrollingframe", {
+	local membersBlock = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.violet,
-		ScrollBarImageTransparency = 0.2,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_11, _exp_12, _exp_19, _exp_20, _result_7, _exp_21, _newValue)
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, pageGap),
+	}), _newValue)
+	return React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
+		scrollBarColor = Palette.violet,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero",
+				height = heroHeight,
+				element = _exp_11,
+			},
+			{
+				id = "goal",
+				height = goalHeight,
+				element = _exp_12,
+			},
+			{
+				id = "bank",
+				height = bankHeight,
+				element = _exp_19,
+			},
+			{
+				id = "upgrades-label",
+				height = sectionLabelH,
+				element = _exp_20,
+			},
+			{
+				id = "upgrades",
+				height = upgradesH,
+				element = _result_7,
+			},
+			{
+				id = "members-label",
+				height = sectionLabelH,
+				element = _exp_21,
+			},
+			{
+				id = "members",
+				height = membersH,
+				element = membersBlock,
+			},
+		},
+	})
 end
 return {
 	GuildView = GuildView,
