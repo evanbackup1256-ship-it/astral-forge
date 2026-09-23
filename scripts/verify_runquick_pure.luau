@@ -9,6 +9,7 @@ local fs = require("@lune/fs")
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local UpgradeCostReason = require("../src/Server/AstralForge/Modules/UpgradeCostReason")
+local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
 local ProfileIntegrity = require("../src/Server/AstralForge/Services/ProfileIntegrity")()
 
 local cfg = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
@@ -38,6 +39,9 @@ assert(string.find(releaseSrc, "Economy.ContinuumCosts", 1, true), "RunQuick mus
 assert(string.find(releaseSrc, "ProfileIntegrity.VerifyAndRecover", 1, true), "RunQuick must VerifyAndRecover")
 assert(string.find(economySrc, "function Economy.MachineCost", 1, true), "Economy.MachineCost missing")
 assert(string.find(economySrc, "UpgradeCostReason.LevelCost", 1, true), "MachineCost must delegate UpgradeCostReason.LevelCost")
+assert(string.find(economySrc, "ContinuumDomainMath.ContinuumCosts", 1, true), "Economy must delegate ContinuumDomainMath.ContinuumCosts")
+assert(string.find(economySrc, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy must delegate DomainRequirements")
+assert(string.find(economySrc, "ContinuumDomainMath.DomainRewards", 1, true), "Economy must delegate DomainRewards")
 
 local function extractSection(src, startNeedle)
 	local startPos = string.find(src, startNeedle, 1, true)
@@ -154,6 +158,35 @@ for _, rank in { 0, 1, 10, 100, 10_000, 9_000_000_000_000_000 } do
 	local domainDust = math.floor(math.min(MAX_VALUE, baseDomainDust + rank * domainDustPer))
 	assert(finiteNumber(rebirths) and isPersist(cores), "Domain requirement overflow at rank " .. tostring(rank))
 	assert(finiteNumber(essence) and finiteNumber(domainDust), "Domain reward overflow at rank " .. tostring(rank))
+end
+
+
+-- ContinuumDomainMath pure parity (same knobs Economy.ContinuumCosts / Domain* use).
+do
+	local continuumCfg = {
+		BaseFluxCost = baseFlux,
+		FluxCostScale = fluxScale,
+		BaseStardustCost = baseDust,
+		StardustCostScale = dustScale,
+	}
+	local domainCfg = {
+		BaseRequiredRebirths = baseRebirths,
+		RebirthsPerRank = rebirthsPer,
+		BaseRequiredCores = baseCores,
+		CoreRequirementScale = coreScale,
+		BaseEssenceReward = baseEssence,
+		EssencePerRank = essencePer,
+		BaseStardustReward = baseDomainDust,
+		StardustPerRank = domainDustPer,
+	}
+	for _, rank in { 0, 1, 10, 100 } do
+		local flux, dust = ContinuumDomainMath.ContinuumCosts(OmegaMath, continuumCfg, rank)
+		assert(isPersist(flux) and isPersist(dust), "ContinuumDomainMath overflow at " .. tostring(rank))
+		local rebirths, cores = ContinuumDomainMath.DomainRequirements(OmegaMath, domainCfg, rank)
+		local essence, domainDust = ContinuumDomainMath.DomainRewards(domainCfg, rank)
+		assert(finiteNumber(rebirths) and isPersist(cores), "DomainRequirements overflow")
+		assert(finiteNumber(essence) and finiteNumber(domainDust), "DomainRewards overflow")
+	end
 end
 
 ------------------------------------------------------------------------

@@ -10,6 +10,7 @@ local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
 local gteFlux = _format.gteFlux
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
@@ -864,6 +865,7 @@ local function GuildView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
+	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
 	local busy, setBusy = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
@@ -913,7 +915,8 @@ local function GuildView(_param)
 						background = Palette.panelRaised,
 						padding = if stack then 16 else 20,
 						highlight = true,
-						reveal = reveal,
+						reveal = enter,
+						reducedMotion = softMotion,
 						clips = false,
 					}, React.createElement(Text, {
 						value = (guide and guide.EmptyTitle) or "No guild yet",

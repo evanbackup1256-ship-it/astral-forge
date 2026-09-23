@@ -11,6 +11,7 @@ local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavig
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
+local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
@@ -427,6 +428,7 @@ local function TradeView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
+	local reveal = useStagger(0, softMotion)
 	local now = useSecondClock()
 	local trade = state.Trade
 	local _result = trade
@@ -1326,7 +1328,8 @@ local function TradeView(_param)
 			background = if active then darken(accent, 0.82) else Palette.panel,
 			padding = 10,
 			interactive = true,
-			reducedMotion = reducedMotion,
+			reveal = reveal,
+			reducedMotion = softMotion,
 			layoutOrder = 6 + index,
 		}, React.createElement("textbutton", {
 			Size = UDim2.new(1, if compactTrade then 0 else -118, 0, if compactTrade then 48 else 46),
@@ -1762,7 +1765,7 @@ local function TradeView(_param)
 		local rosterElement = if _exp_8 then _exp_8 elseif #visibleRows >= 8 then React.createElement(FlatList, {
 			data = visibleRows,
 			itemHeight = rosterStride,
-			overscan = 2,
+			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 			canvasTail = 8,
 			Size = UDim2.fromScale(1, 1),
 			scrollBarColor = accent,

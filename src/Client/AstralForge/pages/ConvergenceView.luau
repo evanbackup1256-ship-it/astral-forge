@@ -5,6 +5,7 @@ local clockText = _format.clockText
 local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
@@ -35,12 +36,15 @@ local function ConvergenceView(_param)
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local now = useWallClock(event ~= nil)
+	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
 	if event == nil then
 		return React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
 			accent = Palette.mango,
 			padding = 22,
+			reveal = enter,
+			reducedMotion = softMotion,
 		}, React.createElement(Text, {
 			value = "FORGE CONVERGENCE",
 			size = 26,
@@ -159,7 +163,7 @@ local function ConvergenceView(_param)
 			layoutOrder = index,
 			reveal = reveal,
 			interactive = tier.CanClaim,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			clips = false,
 		}, React.createElement(Text, {
 			value = `TIER {tier.Tier}  •  {compactNumber(event.PersonalContribution)} / {compactNumber(tier.Required)}`,
@@ -182,7 +186,7 @@ local function ConvergenceView(_param)
 			color = if tier.CanClaim then Palette.mint else Palette.violet,
 			position = if stack then UDim2.fromOffset(0, 54) else UDim2.new(0, 0, 1, -12),
 			size = UDim2.new(1, if stack then 0 else -170, 0, 6),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}), React.createElement("frame", {
 			Name = "ConvergenceClaimActions",
 			Size = if stack then UDim2.new(1, 0, 0, 48) else UDim2.fromOffset(150, 48),
@@ -204,7 +208,7 @@ local function ConvergenceView(_param)
 			textColor = if tier.CanClaim then Palette.ink else Palette.creamSoft,
 			disabled = not tier.CanClaim,
 			size = UDim2.fromScale(1, 1),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		})))
 	end
 	for _k, _v in tiers do

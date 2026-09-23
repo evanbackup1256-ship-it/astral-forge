@@ -219,7 +219,27 @@ assert(string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true) or string.find
 	"init.server must still expose Studio ReleaseReadiness runners")
 mark("studio runners still wired")
 
-assert(#passed > 9, "release-readiness offline subset must stay beyond checks=9, got " .. tostring(#passed))
+-- Pure RunQuick parity: ContinuumDomainMath + ProfileIntegrity markers (offline;
+-- full 50k soak stays Studio-only behind ReleaseReadiness.RunQuick).
+local continuumMathSrc = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
+assert(string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumCosts", 1, true), "ContinuumDomainMath.ContinuumCosts missing")
+assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRequirements", 1, true), "ContinuumDomainMath.DomainRequirements missing")
+assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRewards", 1, true), "ContinuumDomainMath.DomainRewards missing")
+local economyBody = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+assert(string.find(economyBody, "ContinuumDomainMath.ContinuumCosts", 1, true), "Economy must delegate ContinuumCosts")
+assert(string.find(economyBody, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy must delegate DomainRequirements")
+assert(string.find(economyBody, "ContinuumDomainMath.DomainRewards", 1, true), "Economy must delegate DomainRewards")
+assert(string.find(economyBody, "RebirthGate.PrestigeReward", 1, true), "Economy PrestigeReward must stay pure-delegated")
+local integrityBody = fs.readFile("src/Server/AstralForge/Services/ProfileIntegrity.luau")
+assert(string.find(integrityBody, "function ProfileIntegrity.VerifyAndRecover", 1, true), "ProfileIntegrity.VerifyAndRecover missing")
+assert(string.find(integrityBody, "function ProfileIntegrity.Seal", 1, true), "ProfileIntegrity.Seal missing")
+assert(string.find(releaseSrc, 'passed("endless economy envelope")', 1, true), "RunQuick endless economy envelope marker")
+assert(string.find(releaseSrc, 'passed("profile corruption recovery")', 1, true), "RunQuick profile corruption recovery marker")
+assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService CommandMath residual for release")
+assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService LabOrderMath residual for release")
+mark("runquick pure continuum domain parity")
+
+assert(#passed > 10, "release-readiness offline subset must stay beyond checks=10, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",
