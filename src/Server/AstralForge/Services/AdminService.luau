@@ -754,12 +754,12 @@ return function(loadService: (string) -> any)
 			elseif command == "GrantAnomalyStabilizations" then profile.Anomaly.Stabilizations += math.floor(amount)
 			elseif command == "GrantFreeSpins" then profile.Wheel.FreeSpins += math.floor(amount)
 			elseif command == "GrantCrateKeys" then
-				if profile.Items.Keys[option] == nil then return { ok = false, error = "Use ForgeCrate, NebulaCrate, or SingularityCrate." } end
+				if profile.Items.Keys[option] == nil then return { ok = false, error = "Unknown crate id." } end
 				profile.Items.Keys[option] += math.floor(amount)
 			elseif command == "GrantAllCrateKeys" then
 				for crateId in profile.Items.Keys do profile.Items.Keys[crateId] += math.floor(amount) end
 			elseif command == "GrantPity" then
-				if profile.Items.Pity[option] == nil then return { ok = false, error = "Use ForgeCrate, NebulaCrate, or SingularityCrate." } end
+				if profile.Items.Pity[option] == nil then return { ok = false, error = "Unknown crate id." } end
 				profile.Items.Pity[option] += math.floor(amount)
 			elseif command == "GrantBoost" then
 				if not GameConfig.Boosts[option] then return { ok = false, error = "Unknown boost id." } end

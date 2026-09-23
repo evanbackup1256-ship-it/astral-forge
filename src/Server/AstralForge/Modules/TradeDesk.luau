@@ -15,7 +15,7 @@ local BOOST_IDS = {
 	"DomainSurge", "Overdrive", "Hyperdrive", "VaultSurge", "NightShift", "FoundryRush",
 	"Afterburner", "SteadyBurn", "CoreSurge", "StarforgeFlow", "EchoDrive", "Ionstorm", "TwinCatalyst", "MidnightForge",
 }
-local KEY_IDS = { "ForgeCrate", "NebulaCrate", "SingularityCrate" }
+local KEY_IDS = { "ForgeCrate", "CrystalCrate", "HorizonCrate", "NebulaCrate", "OrbitCrate", "SingularityCrate", "EchoCrate" }
 
 local itemNames: { [string]: string }? = nil
 local function itemNameFor(definitionId: string): string
@@ -49,7 +49,7 @@ local function emptyOffer()
 			DomainSurge = 0, Overdrive = 0, Hyperdrive = 0, VaultSurge = 0, NightShift = 0, FoundryRush = 0,
 			Afterburner = 0, SteadyBurn = 0, CoreSurge = 0, StarforgeFlow = 0, EchoDrive = 0, Ionstorm = 0, TwinCatalyst = 0, MidnightForge = 0,
 		},
-		Keys = { ForgeCrate = 0, NebulaCrate = 0, SingularityCrate = 0 },
+		Keys = { ForgeCrate = 0, CrystalCrate = 0, HorizonCrate = 0, NebulaCrate = 0, OrbitCrate = 0, SingularityCrate = 0, EchoCrate = 0 },
 		ItemIds = {},
 	}
 end

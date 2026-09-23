@@ -455,7 +455,10 @@ local function OverviewView(_param)
 	local navigate = _param.navigate
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local quietMotion = reducedMotion or effectsPaused
+	local antilag = useAntilag()
+	-- Drop entrance/stagger springs when antilag already wants skipEntrance or
+	-- ambient motion is off — Overview mounts several stagger clocks at once.
+	local quietMotion = reducedMotion or effectsPaused or antilag.skipEntrance or not antilag.allowAmbient
 	local stack = chrome.contentStack
 	local phone = chrome.stack
 	local canCollect = asFlux(state.Vault) >= 0.01
@@ -470,12 +473,12 @@ local function OverviewView(_param)
 	local vaultSeconds = _condition
 	local rebirthVisible = AppHelpers:featureUnlocked(state, "Rebirth")
 	local domainVisible = AppHelpers:featureUnlocked(state, "Domain")
-	local heroReveal = useStagger(0, reducedMotion)
-	local metricsReveal = useStagger(1, reducedMotion)
-	local rebirthReveal = useStagger(2, reducedMotion)
-	local domainReveal = useStagger(3, reducedMotion)
-	local notesReveal = useStagger(4, reducedMotion)
-	local opsReveal = useStagger(5, reducedMotion)
+	local heroReveal = useStagger(0, quietMotion)
+	local metricsReveal = useStagger(1, quietMotion)
+	local rebirthReveal = useStagger(2, quietMotion)
+	local domainReveal = useStagger(3, quietMotion)
+	local notesReveal = useStagger(4, quietMotion)
+	local opsReveal = useStagger(5, quietMotion)
 	local missionsReady = countReadyQuests(state.Quests)
 	local labReady = countReadyLabOrders(state.Lab)
 	local pathReady = forgePathReady(state, config)
@@ -2713,8 +2716,10 @@ local function RewardChargeRail(_param)
 	local reducedMotion = _param.reducedMotion
 	local position = _param.position
 	local size = _param.size
-	local progress = useFlipperSpring(math.clamp(value, 0, 1), reducedMotion, 420, 32)
-	local emphasis = useFlipperSpring(if ready then 1 else 0, reducedMotion, 460, 32)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or not antilag.allowAmbient
+	local progress = useFlipperSpring(math.clamp(value, 0, 1), softMotion, 420, 32)
+	local emphasis = useFlipperSpring(if ready then 1 else 0, softMotion, 460, 32)
 	local fillSize = progress:map(function(amount)
 		return UDim2.new(math.clamp(amount, 0, 1), 0, 1, 0)
 	end)
