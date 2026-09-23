@@ -174,7 +174,8 @@ assert(
 	"Admin GrantAnomalyStabilizations must exist"
 )
 assert(
-	string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true) ~= nil,
+	string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true) ~= nil
+		or string.find(adminSrc, 'BumpStat(profile, "AnomalyStabilizations"', 1, true) ~= nil,
 	"Admin GrantAnomalyStabilizations must sync Stats.AnomalyStabilizations"
 )
 assert(
@@ -269,11 +270,13 @@ assert(
 	"ProgressionService.ApplyReward must nil-safe Command via ensureCommand"
 )
 assert(
-	string.find(progressionSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil,
+	string.find(progressionSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil
+		or string.find(progressionSrc, "ProfileBagMath.EnsureBoostInventory", 1, true) ~= nil,
 	"ProgressionService.ApplyReward must nil-safe BoostInventory"
 )
 assert(
-	string.find(progressionSrc, 'type(profile.Anomaly) ~= "table"', 1, true) ~= nil,
+	string.find(progressionSrc, 'type(profile.Anomaly) ~= "table"', 1, true) ~= nil
+		or string.find(progressionSrc, "ProfileBagMath.EnsureAnomaly", 1, true) ~= nil,
 	"ProgressionService.ApplyReward must nil-safe Anomaly before Fragments"
 )
 assert(
@@ -291,7 +294,8 @@ assert(
 	"Progression claim paths must nil-safe Stats via ensureStats/bumpStat"
 )
 assert(
-	string.find(progressionSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	string.find(progressionSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil
+		or string.find(progressionSrc, "ProfileBagMath.EnsureStats", 1, true) ~= nil,
 	"Progression ensureStats must nil-safe Stats"
 )
 assert(
@@ -471,11 +475,13 @@ assert(
 	"EnsureTimedRewards must not raw-compare TimedRewards.Day"
 )
 assert(
-	string.find(adminSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil,
+	string.find(adminSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil
+		or string.find(adminSrc, "ProfileBagMath.EnsureBoostInventory", 1, true) ~= nil,
 	"Admin GrantBoost must nil-safe BoostInventory"
 )
 assert(
-	string.find(adminSrc, 'type(profile.Command.Artifacts) ~= "table"', 1, true) ~= nil,
+	string.find(adminSrc, 'type(profile.Command.Artifacts) ~= "table"', 1, true) ~= nil
+		or string.find(adminSrc, "CommandMath.Ensure", 1, true) ~= nil,
 	"Admin DiscoverArts must nil-safe Command.Artifacts"
 )
 
@@ -498,11 +504,13 @@ assert(
 	"inline WHEEL_RARITY_RANK must move to WheelMath"
 )
 assert(
-	string.find(adminSrc, 'type(profile.Wheel) ~= "table"', 1, true) ~= nil,
+	string.find(adminSrc, 'type(profile.Wheel) ~= "table"', 1, true) ~= nil
+		or string.find(adminSrc, "WheelMath.Ensure", 1, true) ~= nil,
 	"Admin ResetWheelCooldown must nil-safe Wheel"
 )
 assert(
-	string.find(adminSrc, 'type(profile.Daily) ~= "table"', 1, true) ~= nil,
+	string.find(adminSrc, 'type(profile.Daily) ~= "table"', 1, true) ~= nil
+		or string.find(adminSrc, "ProfileBagMath.EnsureDaily", 1, true) ~= nil,
 	"Admin ResetDailyClaim must nil-safe Daily"
 )
 
