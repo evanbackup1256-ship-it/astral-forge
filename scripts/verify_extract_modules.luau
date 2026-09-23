@@ -218,6 +218,8 @@ local offlineSrc = fs.readFile("src/Server/AstralForge/Modules/OfflineProjection
 
 assert(string.find(economySrc, "OfflineProjection.Project", 1, true), "Economy must delegate OfflineProjection")
 assert(string.find(economySrc, "UpgradeCostReason.LevelCost", 1, true), "Economy must use UpgradeCostReason costs")
+assert(string.find(economySrc, "TapCritProjection.TapPower", 1, true), "Economy must delegate TapCritProjection")
+assert(string.find(economySrc, "CapacityProjection.SteadyProduction", 1, true), "Economy must delegate CapacityProjection")
 assert(string.find(gateSrc, "UpgradeCostReason.Evaluate", 1, true), "ProgressionGate must delegate Evaluate")
 assert(string.find(progressionSrc, "ForgePathClaim.TryClaim", 1, true), "ProgressionService must delegate TryClaim")
 

@@ -59,6 +59,8 @@ local files = {
 	"src/Server/AstralForge/Modules/UpgradeCostReason.luau",
 	"src/Server/AstralForge/Modules/ForgePathClaim.luau",
 	"src/Server/AstralForge/Modules/OfflineProjection.luau",
+	"src/Server/AstralForge/Modules/TapCritProjection.luau",
+	"src/Shared/AstralForge/Shared/CapacityProjection.luau",
 	"src/Server/AstralForge/Services/AnomalyService.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",

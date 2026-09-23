@@ -3,7 +3,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("CapacityProjection"))
 local OfflineProjection = require(script.Parent:WaitForChild("OfflineProjection"))
+local TapCritProjection = require(script.Parent:WaitForChild("TapCritProjection"))
 local UpgradeCostReason = require(script.Parent:WaitForChild("UpgradeCostReason"))
 
 local Economy = {}
@@ -599,66 +601,75 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 	local efficiencyLevel = (type(research) == "table" and research.Efficiency) or 0
 	local zone = Economy.GetZone(profile.CurrentZone) or GameConfig.Zones[1]
 	local passProduction = select(1, Economy.PassBonuses(profile))
-	local multiplier = OmegaMath.Mul(1 + efficiencyLevel * 0.15, zone.Multiplier)
-	multiplier = OmegaMath.Mul(multiplier, Economy.PermanentMultiplier(profile))
-	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.GridEffect(profile, "GridProduction"))
-	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.EchoEffect(profile, "Production"))
-	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ArtifactEffect(profile, "Production"))
-	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"))
-	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.AnomalyEffect(profile, "Production", now))
-	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.LabPowerEffect(profile, "Production"))
-	multiplier = OmegaMath.Mul(multiplier, 1 + passProduction)
-	multiplier = OmegaMath.Mul(multiplier, 1 + (profile.GuildBonuses and profile.GuildBonuses.Production or 0))
-	multiplier = OmegaMath.Mul(multiplier, math.max(1, profile.SocialBoost and profile.SocialBoost.Multiplier or 1))
-	multiplier = OmegaMath.Mul(multiplier, Economy.MasteryMultiplier(profile))
-	multiplier = OmegaMath.Mul(multiplier, select(1, Economy.ContinuumEffects(profile)))
-	return OmegaMath.Mul(Economy.RawProduction(profile), multiplier)
+	return CapacityProjection.SteadyProduction(OmegaMath, Economy.RawProduction(profile), {
+		EfficiencyLevel = efficiencyLevel,
+		ZoneMultiplier = zone.Multiplier,
+		PermanentMultiplier = Economy.PermanentMultiplier(profile),
+		Additives = {
+			Economy.GridEffect(profile, "GridProduction"),
+			Economy.EchoEffect(profile, "Production"),
+			Economy.ArtifactEffect(profile, "Production"),
+			Economy.ItemEffect(profile, "Production", "Research"),
+			Economy.AnomalyEffect(profile, "Production", now),
+			Economy.LabPowerEffect(profile, "Production"),
+			passProduction,
+			profile.GuildBonuses and profile.GuildBonuses.Production or 0,
+		},
+		SocialMultiplier = profile.SocialBoost and profile.SocialBoost.Multiplier or 1,
+		MasteryMultiplier = Economy.MasteryMultiplier(profile),
+		ContinuumProduction = select(1, Economy.ContinuumEffects(profile)),
+	})
 end
 
 function Economy.Capacity(profile: ProfileLike, now: number?, _production: any): Persist
 	local research = profile.Research
 	local storageLevel = (type(research) == "table" and research.Storage) or 0
 	local passCapacity = select(2, Economy.PassBonuses(profile))
-	local seconds = GameConfig.Economy.BaseCapacitySeconds
-		* (GameConfig.Economy.CapacitySecondsPerLevel ^ storageLevel)
-	seconds *= 1 + Economy.GridEffect(profile, "GridCapacity")
-	seconds *= 1 + Economy.EchoEffect(profile, "Capacity")
-	seconds *= 1 + Economy.ArtifactEffect(profile, "Capacity")
-	seconds *= 1 + Economy.ItemEffect(profile, "Capacity", "Research")
-	seconds *= 1 + Economy.AnomalyEffect(profile, "Capacity", now)
-	seconds *= 1 + Economy.LabPowerEffect(profile, "Storage")
-	seconds *= 1 + passCapacity
-	seconds *= 1 + (profile.GuildBonuses and profile.GuildBonuses.Capacity or 0)
-	seconds *= 1 + Economy.ForgePathEffect(profile, "Capacity")
 	local _, continuumCapacity = Economy.ContinuumEffects(profile)
 	local domainRank = profile.Domain and math.max(0, profile.Domain.Rank or 0) or 0
-	seconds *= 1 + domainRank * GameConfig.Domain.CapacityPerRank
+	local boostCapacityMultiplier = 1
 	local activeBoost = profile.ActiveBoost
 	if activeBoost and activeBoost.EndsAt > (now or os.time()) then
 		local boost = GameConfig.Boosts[activeBoost.Id]
 		if boost and boost.CapacityMultiplier then
-			seconds *= boost.CapacityMultiplier
+			boostCapacityMultiplier = boost.CapacityMultiplier
 		end
 	end
-	seconds = math.clamp(seconds, 1, GameConfig.Economy.MaxCapacitySeconds)
-
-	seconds *= 1 + Economy.DomainTreeBonus(profile, "Capacity")
+	local seconds = CapacityProjection.Seconds({
+		BaseSeconds = GameConfig.Economy.BaseCapacitySeconds,
+		SecondsPerLevel = GameConfig.Economy.CapacitySecondsPerLevel,
+		StorageLevel = storageLevel,
+		Additives = {
+			Economy.GridEffect(profile, "GridCapacity"),
+			Economy.EchoEffect(profile, "Capacity"),
+			Economy.ArtifactEffect(profile, "Capacity"),
+			Economy.ItemEffect(profile, "Capacity", "Research"),
+			Economy.AnomalyEffect(profile, "Capacity", now),
+			Economy.LabPowerEffect(profile, "Storage"),
+			passCapacity,
+			profile.GuildBonuses and profile.GuildBonuses.Capacity or 0,
+			Economy.ForgePathEffect(profile, "Capacity"),
+		},
+		DomainRank = domainRank,
+		CapacityPerRank = GameConfig.Domain.CapacityPerRank,
+		BoostCapacityMultiplier = boostCapacityMultiplier,
+		MaxSeconds = GameConfig.Economy.MaxCapacitySeconds,
+		DomainTreeCapacity = Economy.DomainTreeBonus(profile, "Capacity"),
+	})
 	local output = Economy.SteadyProduction(profile, now)
-
-	local capacity = OmegaMath.Floor(OmegaMath.Max(
+	return CapacityProjection.Vault(
+		OmegaMath,
 		GameConfig.Economy.BaseCapacity,
-		OmegaMath.Mul(OmegaMath.Mul(output, seconds), continuumCapacity)
-	))
-	return capacity
+		output,
+		seconds,
+		continuumCapacity
+	)
 end
 
 
 function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production: any): number
 	local output = Economy.SteadyProduction(profile, now)
-	if Economy.Lte(output, 0) then
-		return 0
-	end
-	return OmegaMath.ToNumber(OmegaMath.Div(Economy.Capacity(profile, now), output))
+	return CapacityProjection.CapacitySeconds(OmegaMath, Economy.Capacity(profile, now), output, Economy.Lte)
 end
 
 local function researchLevel(profile: ProfileLike, key: string): number
@@ -672,40 +683,37 @@ end
 function Economy.TapPower(profile: ProfileLike, now: number?): Persist
 	-- Same nil-safe Research path as SteadyProduction: partial fixtures / mid-sanitize
 	-- profiles must not throw on Overcharge reads during Overcharge / tap grants.
-	local overchargeLevel = researchLevel(profile, "Overcharge")
-	local tap = OmegaMath.Max(1, OmegaMath.Mul(Economy.Production(profile, now), 0.15))
-	tap = OmegaMath.Mul(tap, 1 + overchargeLevel * 0.35)
-	tap = OmegaMath.Mul(tap, 1 + Economy.GridEffect(profile, "GridTap"))
-	tap = OmegaMath.Mul(tap, 1 + Economy.EchoEffect(profile, "Tap"))
-	tap = OmegaMath.Mul(tap, 1 + Economy.ArtifactEffect(profile, "Tap"))
-	tap = OmegaMath.Mul(tap, 1 + Economy.ItemEffect(profile, "Tap", "Research"))
-	tap = OmegaMath.Mul(tap, 1 + Economy.AnomalyEffect(profile, "Tap", now))
-	tap = OmegaMath.Mul(tap, 1 + Economy.LabPowerEffect(profile, "Tap"))
-	tap = OmegaMath.Mul(tap, 1 + (profile.GuildBonuses and profile.GuildBonuses.Tap or 0))
-	tap = OmegaMath.Mul(tap, select(3, Economy.ContinuumEffects(profile)))
-	tap = OmegaMath.Mul(tap, 1 + Economy.ForgePathEffect(profile, "TapPower"))
-	return tap
+	return TapCritProjection.TapPower(OmegaMath, Economy.Production(profile, now), researchLevel(profile, "Overcharge"), {
+		Grid = Economy.GridEffect(profile, "GridTap"),
+		Echo = Economy.EchoEffect(profile, "Tap"),
+		Artifact = Economy.ArtifactEffect(profile, "Tap"),
+		Item = Economy.ItemEffect(profile, "Tap", "Research"),
+		Anomaly = Economy.AnomalyEffect(profile, "Tap", now),
+		Lab = Economy.LabPowerEffect(profile, "Tap"),
+		Guild = profile.GuildBonuses and profile.GuildBonuses.Tap or 0,
+		Continuum = select(3, Economy.ContinuumEffects(profile)),
+		ForgePath = Economy.ForgePathEffect(profile, "TapPower"),
+	})
 end
 
 function Economy.CriticalChance(profile: ProfileLike): number
-	return math.min(
-		0.75,
-		0.05
-			+ researchLevel(profile, "Critical") * 0.012
-			+ Economy.GridEffect(profile, "GridCritical")
-			+ Economy.EchoEffect(profile, "Critical")
-			+ Economy.ArtifactEffect(profile, "Critical")
-			+ Economy.ItemEffect(profile, "Critical", "Research")
-			+ Economy.AnomalyEffect(profile, "Critical")
-			+ Economy.ForgePathEffect(profile, "CriticalChance")
+	return TapCritProjection.CriticalChance(
+		researchLevel(profile, "Critical"),
+		Economy.GridEffect(profile, "GridCritical"),
+		Economy.EchoEffect(profile, "Critical"),
+		Economy.ArtifactEffect(profile, "Critical"),
+		Economy.ItemEffect(profile, "Critical", "Research"),
+		Economy.AnomalyEffect(profile, "Critical"),
+		Economy.ForgePathEffect(profile, "CriticalChance")
 	)
 end
 
 function Economy.CriticalMultiplier(profile: ProfileLike): number
-	return 2
-		+ math.floor(researchLevel(profile, "Critical") / 5) * 0.5
-		+ researchLevel(profile, "Impact") * 0.1
-		+ Economy.ForgePathEffect(profile, "CriticalMultiplier")
+	return TapCritProjection.CriticalMultiplier(
+		researchLevel(profile, "Critical"),
+		researchLevel(profile, "Impact"),
+		Economy.ForgePathEffect(profile, "CriticalMultiplier")
+	)
 end
 
 function Economy.AutoCollectRate(profile: ProfileLike): number
