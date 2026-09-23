@@ -29,6 +29,7 @@ local TASK_FILTERS = _MissionsView.TASK_FILTERS
 local taskFilterCounts = _MissionsView.taskFilterCounts
 local taskMatchesFilter = _MissionsView.taskMatchesFilter
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local NEAR_COMPLETE_THRESHOLD = 0.85
 local function ProgressCloseGlow(_param)
 	local progress = _param.progress
@@ -59,6 +60,8 @@ local function ProgressCloseGlow(_param)
 	}))
 end
 local function useReadyPop(ready, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local wasReady = React.useRef(ready)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()
@@ -69,7 +72,7 @@ local function useReadyPop(ready, reducedMotion)
 		end
 		wasReady.current = ready
 	end, { ready })
-	return useFlash(trigger, reducedMotion, 0.6)
+	return useFlash(trigger, softMotion, 0.6)
 end
 local function MilestoneRow(_param)
 	local achievement = _param.achievement
@@ -239,37 +242,16 @@ local function MilestonesView(_param)
 	local headerReveal = useStagger(0, reducedMotion)
 	local headerHeight = if stack then (if chrome.landscape then 144 else 176) else 148
 	local rowStride = (if stack then 220 else 148) + 16
-	local rowStart = headerHeight + 10 + SCROLL_EDGE
-	return React.createElement(FlatList, {
-		data = visible,
-		itemHeight = rowStride,
-		headerHeight = rowStart,
-		overscan = 2,
-		canvasTail = SCROLL_EDGE + scrollTail(stack, chrome.bottomSafe, 24),
-		scrollBarColor = Palette.mango,
-		keyExtractor = function(achievement)
-			return achievement.Id
-		end,
-		renderItem = function(_param_1)
-			local item = _param_1.item
-			return React.createElement(MilestoneRow, {
-				achievement = item,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-				position = UDim2.fromOffset(0, 0),
-				stack = stack,
-			})
-		end,
-		ListHeaderComponent = React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, headerHeight),
-			position = UDim2.fromOffset(0, SCROLL_EDGE),
-			accent = Palette.mango,
-			background = Palette.panelRaised,
-			padding = 16,
-			reveal = headerReveal,
-			zIndex = 30,
-			clips = false,
-		}, if stack then React.createElement(React.Fragment, nil, not chrome.landscape and React.createElement(React.Fragment, nil, React.createElement(Text, {
+	local pageGap = if stack then chrome.panelGap else 10
+	local headerPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = Palette.mango,
+		background = Palette.panelRaised,
+		padding = 16,
+		reveal = headerReveal,
+		zIndex = 30,
+		clips = false,
+	},  if stack then React.createElement(React.Fragment, nil, not chrome.landscape and React.createElement(React.Fragment, nil, React.createElement(Text, {
 			value = "MILESTONES",
 			size = 10,
 			color = Palette.mango,
@@ -355,18 +337,56 @@ local function MilestonesView(_param)
 			align = Enum.TextXAlignment.Right,
 			position = UDim2.new(1, -120, 0, 72),
 			sizeConstraint = UDim2.new(0, 120, 0, 24),
-		}))),
-		ListEmptyComponent = if #visible == 0 then React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 150),
-			Position = UDim2.fromOffset(0, rowStart),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(EmptyState, {
+		})))
+	local milestonesList = React.createElement(FlatList, {
+		data = visible,
+		itemHeight = rowStride,
+		headerHeight = 0,
+		overscan = 2,
+		canvasTail = 8,
+		Size = UDim2.fromScale(1, 1),
+		scrollBarColor = Palette.mango,
+		scrollBarThickness = 3,
+		scrollBarTransparency = 0.28,
+		keyExtractor = function(achievement)
+			return achievement.Id
+		end,
+		renderItem = function(_param_1)
+			local item = _param_1.item
+			return React.createElement(MilestoneRow, {
+				achievement = item,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+				position = UDim2.fromOffset(0, 0),
+				stack = stack,
+			})
+		end,
+		ListEmptyComponent = if #visible == 0 then React.createElement(EmptyState, {
 			icon = "Settings",
 			title = if #list == 0 then "No milestones yet" else "Nothing in this filter",
 			body = if #list == 0 then "Keep playing — they'll show up." else "Switch the filter back to Everything.",
 			accent = Palette.mango,
-		})) else nil,
+			size = UDim2.fromScale(1, 1),
+		}) else nil,
+	})
+	return React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe, 24),
+		scrollBarColor = Palette.mango,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero",
+				height = headerHeight,
+				element = headerPanel,
+			},
+			{
+				id = "list",
+				fill = true,
+				minHeight = math.max(160, rowStride * 2),
+				element = milestonesList,
+			},
+		},
 	})
 end
 return {

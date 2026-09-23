@@ -24,6 +24,7 @@ local meterFill = _ui.meterFill
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
 local ScrollPads = _ui.ScrollPads
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local SearchField = _ui.SearchField
 local ShimmerText = _ui.ShimmerText
 local Text = _ui.Text
@@ -592,7 +593,7 @@ local function OverviewView(_param)
 	local topBandH = if wideOverview then heroH else heroH + metricsH + sectionGap
 	local sectionCount = 1 + 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
 	local overviewTail = if landscapePhone then 48 elseif stack then 56 else (if ultraOverview then 48 else 40)
-	local canvasH = topBandH + notesH + opsH + countdownH + rebirthH + domainH + sectionGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, overviewTail) + SCROLL_EDGE * 2
+	local contentIntrinsic = topBandH + notesH + opsH + countdownH + rebirthH + domainH + sectionGap * math.max(0, sectionCount - 1)
 	local columnMax = if stack then math.huge else Layout.contentMaxWidth
 	local columnPad = if not stack and viewport.width >= Layout.contentMaxWidth + 80 then 12 else 0
 	local ctaH = TapTarget
@@ -623,39 +624,36 @@ local function OverviewView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasH),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, -columnPad * 2, 1, 0),
+		Position = UDim2.fromScale(0.5, 0),
+		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.green,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		HorizontalAlignment = if stack then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Center,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 0),
-	}), React.createElement(ScrollPads), React.createElement("frame", {
-		Size = UDim2.new(1, -columnPad * 2, 0, canvasH - SCROLL_EDGE * 2),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 1,
 		ClipsDescendants = false,
 	}, React.createElement("uisizeconstraint", {
 		MaxSize = Vector2.new(columnMax, math.huge),
-	}), React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, sectionGap),
-	}), React.createElement("frame", {
+	}), React.createElement(PageScaffold, {
+		gap = 0,
+		tailPad = scrollTail(stack, chrome.bottomSafe, overviewTail),
+		scrollBarColor = Palette.green,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "body",
+				fill = true,
+				minHeight = 200,
+				height = contentIntrinsic,
+				element = React.createElement("frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ClipsDescendants = false,
+				}, React.createElement("uilistlayout", {
+					FillDirection = Enum.FillDirection.Vertical,
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Padding = UDim.new(0, sectionGap),
+				}), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, topBandH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1405,7 +1403,7 @@ local function OverviewView(_param)
 		position = UDim2.fromOffset(0, 96),
 		reducedMotion = reducedMotion,
 		highlight = domain.CanExpand,
-	}))))))
+	}))))}}})))
 end
 local ROW_HEIGHTS = {
 	machine = 120,

@@ -28,6 +28,7 @@ local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SectionLabel = _ui.SectionLabel
 local Stroke = _ui.Stroke
 local Text = _ui.Text
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local GRID_CHUNK = 8
 local GRID_MAX_VISIBLE = 16
 local BRANCH_H = 140
@@ -70,6 +71,8 @@ end
 -- Fires a brief flourish only on the false->true edge (node just became buyable or was just
 -- maxed out), so idle nodes never carry a flash subscription.
 local function useNodeUnlockPop(unlocked, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local wasUnlocked = React.useRef(unlocked)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()
@@ -80,7 +83,7 @@ local function useNodeUnlockPop(unlocked, reducedMotion)
 		end
 		wasUnlocked.current = unlocked
 	end, { unlocked })
-	return useFlash(trigger, reducedMotion, 0.6)
+	return useFlash(trigger, softMotion, 0.6)
 end
 local function branchIcon(branchId)
 	if branchId == "Output" or branchId == "Throughput" or branchId == "Helix" then
@@ -114,7 +117,8 @@ local function BranchHeader(_param)
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
 	local antilag = useAntilag()
-	local reveal = useStagger(staggerIndex, reducedMotion)
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local reveal = useStagger(staggerIndex, softMotion)
 	local rowH = if stack then BRANCH_H_STACK else BRANCH_H
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, rowH),
@@ -200,7 +204,8 @@ local function NodeRow(_param)
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
 	local antilag = useAntilag()
-	local reveal = useStagger(staggerIndex, reducedMotion)
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local reveal = useStagger(staggerIndex, softMotion)
 	local rowH = if stack then NODE_H_STACK else NODE_H
 	local _condition = upgrade.PreviousId == nil
 	if not _condition then
@@ -479,26 +484,24 @@ local function StarGridViewComponent(_param)
 			return _object
 		end)
 	end
-	local canvas = headerH + SCROLL_EDGE * 2 + 24
+	local bodyIntrinsic = 24
 	for _, branch in branches do
 		local nodes = nodesByBranch[branch.Id] or {}
 		local shown = visibleFor(branch.Id, #nodes)
 		local canMore = shown < #nodes
 		local canLess = shown > GRID_CHUNK
-		canvas += branchH + Layout.panelGap
+		bodyIntrinsic += branchH + Layout.panelGap
 		if branch.Id == activeBranch then
-			canvas += shown * (nodeH + Layout.panelGap)
+			bodyIntrinsic += shown * (nodeH + Layout.panelGap)
 			if canMore or canLess then
-				canvas += TapTarget + Layout.panelGap + 8
+				bodyIntrinsic += TapTarget + Layout.panelGap + 8
 			end
 		end
 	end
-	canvas += scrollTail(stack, chrome.bottomSafe)
 	local order = 1
 	local stagger = 0
 	local _exp = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, headerH),
-		Position = UDim2.fromOffset(0, SCROLL_EDGE),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(SectionLabel, {
@@ -727,32 +730,31 @@ local function StarGridViewComponent(_param)
 		_newValue[_k] = _callback(_v, _k - 1, branches)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("scrollingframe", {
+	local bodyPane = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvas),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.mango,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, canvas - headerH - SCROLL_EDGE),
-		Position = UDim2.fromOffset(0, headerH + SCROLL_EDGE),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, _exp_1, _newValue, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, SCROLL_EDGE),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 9999,
-	})))
+	}, _exp_1, _newValue)
+	return React.createElement(PageScaffold, {
+		gap = Layout.panelGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe),
+		scrollBarColor = Palette.mango,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "header",
+				height = headerH,
+				element = _exp,
+			},
+			{
+				id = "body",
+				fill = true,
+				minHeight = 160,
+				height = bodyIntrinsic,
+				element = bodyPane,
+			},
+		},
+	})
 end
 local function sameNumberMap(left, right)
 	if left == right then
