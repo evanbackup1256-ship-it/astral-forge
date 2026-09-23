@@ -7,37 +7,37 @@ exports.isMobileLandscape = _mobileLayout.isMobileLandscape
 exports.moreDockHeight = _mobileLayout.moreDockHeight
 exports.planMobileLayout = _mobileLayout.planMobileLayout
 exports.scrollTail = _mobileLayout.scrollTail
--- Calmer astral surfaces: cooler voids, softer edges, accents dialed down from neon so
--- chrome and content share one quiet forge language instead of competing glow.
+-- Astral Forge brand chroma: cool voids with vivid forge accents so CTAs, tabs,
+-- meters, and active chrome read clearly on PC without flattening into gray fog.
 local Palette = {
-	void = Color3.fromRGB(6, 8, 14),
-	ink = Color3.fromRGB(10, 13, 20),
-	night = Color3.fromRGB(14, 18, 27),
-	panel = Color3.fromRGB(17, 22, 32),
-	panelRaised = Color3.fromRGB(23, 29, 42),
-	panelSoft = Color3.fromRGB(38, 48, 68),
-	line = Color3.fromRGB(46, 58, 80),
-	lineSoft = Color3.fromRGB(74, 92, 120),
-	cream = Color3.fromRGB(246, 248, 252),
-	creamSoft = Color3.fromRGB(198, 210, 226),
-	muted = Color3.fromRGB(132, 150, 174),
-	cyan = Color3.fromRGB(86, 196, 228),
-	mint = Color3.fromRGB(90, 208, 168),
-	coral = Color3.fromRGB(228, 108, 122),
-	mango = Color3.fromRGB(232, 176, 70),
-	violet = Color3.fromRGB(150, 128, 220),
-	pink = Color3.fromRGB(220, 112, 176),
-	blue = Color3.fromRGB(96, 158, 232),
+	void = Color3.fromRGB(5, 7, 12),
+	ink = Color3.fromRGB(9, 12, 19),
+	night = Color3.fromRGB(13, 17, 26),
+	panel = Color3.fromRGB(18, 23, 34),
+	panelRaised = Color3.fromRGB(26, 33, 49),
+	panelSoft = Color3.fromRGB(46, 58, 82),
+	line = Color3.fromRGB(52, 66, 92),
+	lineSoft = Color3.fromRGB(88, 108, 142),
+	cream = Color3.fromRGB(248, 250, 255),
+	creamSoft = Color3.fromRGB(214, 224, 238),
+	muted = Color3.fromRGB(142, 160, 185),
+	cyan = Color3.fromRGB(64, 224, 255),
+	mint = Color3.fromRGB(80, 238, 180),
+	coral = Color3.fromRGB(255, 98, 118),
+	mango = Color3.fromRGB(255, 188, 56),
+	violet = Color3.fromRGB(164, 124, 255),
+	pink = Color3.fromRGB(245, 96, 184),
+	blue = Color3.fromRGB(82, 162, 255),
 	white = Color3.fromRGB(255, 255, 255),
-	green = Color3.fromRGB(96, 214, 162),
-	red = Color3.fromRGB(220, 88, 102),
+	green = Color3.fromRGB(94, 234, 168),
+	red = Color3.fromRGB(238, 74, 92),
 	shadow = Color3.fromRGB(0, 0, 0),
-	graphite = Color3.fromRGB(17, 22, 32),
-	steel = Color3.fromRGB(176, 200, 226),
-	steelBright = Color3.fromRGB(246, 248, 252),
-	brass = Color3.fromRGB(222, 170, 72),
-	brassDeep = Color3.fromRGB(118, 82, 32),
-	ember = Color3.fromRGB(220, 92, 104),
+	graphite = Color3.fromRGB(18, 23, 34),
+	steel = Color3.fromRGB(192, 218, 242),
+	steelBright = Color3.fromRGB(248, 250, 255),
+	brass = Color3.fromRGB(245, 182, 68),
+	brassDeep = Color3.fromRGB(128, 86, 28),
+	ember = Color3.fromRGB(240, 80, 96),
 }
 local ACCESSIBLE_BASE = {
 	void = Palette.void,
@@ -94,24 +94,24 @@ local function applyAccessibilityTheme(highContrast, colorblind)
 	end
 end
 local Layout = {
-	pagePadding = 14,
-	topbarClearance = 4,
+	-- Desktop breathing room: denser "too clean" chrome made sections hard to scan.
+	pagePadding = 18,
+	topbarClearance = 6,
 	minTopInset = 36,
-	panelGap = 10,
-	stackGap = 10,
-	controlGap = 12,
-	lineGap = 8,
-	cardPadding = 14,
+	panelGap = 14,
+	stackGap = 12,
+	controlGap = 14,
+	lineGap = 10,
+	cardPadding = 18,
 	cardRadius = 12,
 	buttonRadius = 9,
-	-- Desktop chrome stays short so page content owns the viewport.
-	topbarHeight = 62,
-	sidebarWidth = 252,
-	sidebarCollapsedWidth = 72,
+	topbarHeight = 74,
+	sidebarWidth = 268,
+	sidebarCollapsedWidth = 78,
 	rightRailWidth = 296,
 	contentMinWidth = 620,
-	contentInset = 14,
-	workspaceHeaderHeight = 66,
+	contentInset = 18,
+	workspaceHeaderHeight = 86,
 	-- Soft cap for readable page columns on ultrawide; shell still spans the monitor.
 	contentMaxWidth = 1680,
 	maxShellWidth = 3440,
@@ -121,16 +121,16 @@ local Layout = {
 	maxScale = 1,
 	chromeScale = 1,
 }
--- Shared chrome opacities so panels, buttons, and rails stay visually consistent.
+-- Shared chrome opacities — lower = more visible strokes/shadows/accents.
 local Chrome = {
-	panelShadow = 0.84,
-	panelStrokeIdle = 0.62,
-	panelStrokeHover = 0.38,
-	buttonShadow = 0.7,
-	railStrokeIdle = 0.88,
-	railStrokeActive = 0.42,
-	accentHairline = 0.42,
-	meterTrack = 0.38,
+	panelShadow = 0.72,
+	panelStrokeIdle = 0.48,
+	panelStrokeHover = 0.22,
+	buttonShadow = 0.5,
+	railStrokeIdle = 0.72,
+	railStrokeActive = 0.18,
+	accentHairline = 0.08,
+	meterTrack = 0.22,
 }
 local Breakpoints = {
 	tight = 840,
@@ -284,12 +284,12 @@ local function surfaceGradient(base, strength)
 	if strength == nil then
 		strength = 1
 	end
-	-- Softer lift/sink so surfaces read as one plane rather than frosted glass slabs.
+	-- Clearer lift/sink so panels separate from the void without frosted-glass noise.
 	return ColorSequence.new({
-		ColorSequenceKeypoint.new(0, lighten(base, 0.048 * strength)),
-		ColorSequenceKeypoint.new(0.22, lighten(base, 0.016 * strength)),
-		ColorSequenceKeypoint.new(0.72, base),
-		ColorSequenceKeypoint.new(1, darken(base, 0.072 * strength)),
+		ColorSequenceKeypoint.new(0, lighten(base, 0.068 * strength)),
+		ColorSequenceKeypoint.new(0.16, lighten(base, 0.022 * strength)),
+		ColorSequenceKeypoint.new(0.64, base),
+		ColorSequenceKeypoint.new(1, darken(base, 0.1 * strength)),
 	})
 end
 exports.applyAccessibilityTheme = applyAccessibilityTheme
