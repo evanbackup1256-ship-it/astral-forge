@@ -819,8 +819,16 @@ return function(loadService: (string) -> any)
 					profile.ActiveBoost.Id = ""
 					profile.ActiveBoost.EndsAt = 0
 				end
-			elseif command == "ResetWheelCooldown" then profile.Wheel.LastSpinAt = 0
-			elseif command == "ResetDailyClaim" then profile.Daily.LastClaimDay = -1
+			elseif command == "ResetWheelCooldown" then
+				if type(profile.Wheel) ~= "table" then
+					profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
+				end
+				profile.Wheel.LastSpinAt = 0
+			elseif command == "ResetDailyClaim" then
+				if type(profile.Daily) ~= "table" then
+					profile.Daily = { LastClaimDay = -1, Streak = 0 }
+				end
+				profile.Daily.LastClaimDay = -1
 			elseif command == "ClearVault" then profile.Vault = 0
 			elseif command == "SetZone" then
 				local zone = math.clamp(math.floor(amount), 1, GameConfig.MaxZone)

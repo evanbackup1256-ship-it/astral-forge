@@ -285,6 +285,7 @@ local function CrateRevealExperience(_param)
 	local present = live
 	-- Soft boat tweens on antilag tiers avoid Flipper spring chatter during claim/earn moments.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local boatShow = useBoatTween(if present then 1 else 0, if present then 0.3 else EXIT_SETTLE, softMotion, easeOutCubic, 0)
 	local showSpring = useFlipperSpring(if present then 1 else 0, softMotion, 720, 36)
 	local showBoat = useBoatTween(if present then 1 else 0, if present then 0.28 else EXIT_SETTLE, softMotion, easeOutCubic, 0)

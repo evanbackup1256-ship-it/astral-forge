@@ -306,6 +306,7 @@ local function StoryBeat(_param)
 	local condensed = _param.condensed
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local visible, setVisible = React.useBinding(if softMotion then #text else 0)
 	local needsWarmup = not stack and not replay
@@ -757,6 +758,7 @@ local function StoryView(_param)
 	local story = if status then chapterConfig(config, status.Id) else nil
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local intro = useEntrance(softMotion)
 	local archivePulse = usePulse(not softMotion and not started, 3.4)
 	if not story or not status then

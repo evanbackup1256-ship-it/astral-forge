@@ -371,6 +371,7 @@ local function CrateRevealStage(props)
 					Size = UDim2.fromScale(1, 1),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
+					ClipsDescendants = false,
 					ZIndex = 456,
 				}, h(Button, {
 					text = if canClaim then props.claimText else "SKIP ROLL",
