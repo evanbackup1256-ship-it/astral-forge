@@ -356,7 +356,13 @@ do
 
 	local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
 	assert(string.find(boosts, "clips = false", 1, true), "Boosts cards must keep clips = false for Activate CTA")
-	assert(string.find(boosts, "position = UDim2.new(0, 0, 1, -TapTarget)", 1, true), "Boosts Activate must stay bottom-pinned")
+	assert(string.find(boosts, "position = UDim2.new(0, 0, 1, -TapTarget)", 1, true) or string.find(boosts, 'Name = "BoostClaimActions"', 1, true), "Boosts Activate must stay bottom-pinned")
+	assert(string.find(boosts, "GamepadNavigationService.FocusClaim", 1, true), "Boosts Activate must FocusClaim when ready")
+	assert(string.find(boosts, 'Name = "BoostClaimActions"', 1, true), "Boosts Activate host must be named BoostClaimActions")
+
+	local milestones = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
+	assert(string.find(milestones, "GamepadNavigationService.FocusClaim", 1, true), "Milestones CLAIM must FocusClaim when ready")
+	assert(string.find(milestones, 'Name = "MilestoneClaimActions"', 1, true), "Milestones CLAIM host must be named MilestoneClaimActions")
 
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")

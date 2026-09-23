@@ -758,7 +758,16 @@ return function(loadService: (string) -> any)
 			elseif command == "GrantContinuumRanks" then
 				profile.Continuum.Rank = math.min(GameConfig.Continuum.MaxRank, profile.Continuum.Rank + math.floor(amount))
 			elseif command == "GrantAnomalyCharge" then profile.Anomaly.Charge += math.floor(amount)
-			elseif command == "GrantAnomalyStabilizations" then profile.Anomaly.Stabilizations += math.floor(amount)
+			elseif command == "GrantAnomalyStabilizations" then
+				-- Keep Stats in lockstep with Anomaly.Stabilizations — AchievementProgress /
+				-- weekly AnomalyStabilizations directives read Stats when the bag is absent,
+				-- and AnomalyService.Stabilize always bumps both.
+				local n = math.floor(amount)
+				profile.Anomaly.Stabilizations += n
+				if type(profile.Stats) == "table" then
+					profile.Stats.AnomalyStabilizations =
+						math.max(0, math.floor(tonumber(profile.Stats.AnomalyStabilizations) or 0)) + n
+				end
 			elseif command == "GrantFreeSpins" then profile.Wheel.FreeSpins += math.floor(amount)
 			elseif command == "GrantCrateKeys" then
 				if profile.Items.Keys[option] == nil then return { ok = false, error = "Unknown crate id." } end

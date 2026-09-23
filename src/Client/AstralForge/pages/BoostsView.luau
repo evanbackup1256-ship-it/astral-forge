@@ -1,5 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
@@ -187,6 +189,7 @@ local function BoostCard(_param)
 	local index = _param.index
 	local stack = _param.stack
 	local columns = _param.columns
+	local activateHostRef = _param.activateHostRef
 	local reveal = useStagger(index, reducedMotion)
 	local ready = owned > 0 and canActivate
 	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE
@@ -274,7 +277,15 @@ local function BoostCard(_param)
 		minSize = 8,
 		layoutOrder = 3,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	})), React.createElement(Button, {
+	})), React.createElement("frame", {
+		-- FocusClaim prefers Claim-named hosts; Activate is the claim CTA on boost cards.
+		Name = "BoostClaimActions",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		Position = UDim2.new(0, 0, 1, -TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = if ready then activateHostRef else nil,
+	}, React.createElement(Button, {
 		text = if owned <= 0 then "None owned" elseif canActivate then "Activate" else "One at a time",
 		icon = "Boost",
 		onClick = function()
@@ -284,12 +295,11 @@ local function BoostCard(_param)
 		end,
 		color = if ready then boost.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.muted,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		disabled = not ready,
 		highlight = ready,
-	})))
+	}))))
 end
 local function BoostsView(_param)
 	local state = _param.state
@@ -302,6 +312,7 @@ local function BoostsView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
+	local activateHostRef = React.useRef(nil)
 	local now = useWallClock(true):map(function(seconds)
 		return seconds
 	end)
@@ -337,6 +348,7 @@ local function BoostsView(_param)
 	local activeBoost = if boostRunning and boostDefinitions ~= nil then boostDefinitions[activeId] else nil
 	local totalBoosts = 0
 	local boostKinds = 0
+	local firstReadyId = nil
 	for _, boost in boosts do
 		local _result_2 = state.BoostInventory
 		if _result_2 ~= nil then
@@ -351,7 +363,29 @@ local function BoostsView(_param)
 		if owned > 0 then
 			boostKinds += 1
 		end
+		if firstReadyId == nil and owned > 0 and not boostRunning then
+			firstReadyId = boost.Id
+		end
 	end
+	-- Gamepad: park Selection on the first Activate CTA that can fire.
+	React.useEffect(function()
+		if firstReadyId == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = activateHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { firstReadyId, boostRunning })
 	local headerReveal = useStagger(0, softMotion)
 	local heroH = if activeBoost ~= nil then (if stack then HERO_H_STACK else HERO_H_WIDE) else (if stack then IDLE_HERO_H_STACK else IDLE_HERO_H_WIDE)
 	local statsH = if stack then 88 else 72
@@ -446,6 +480,9 @@ local function BoostsView(_param)
 			_attributes.index = index
 			_attributes.stack = stack
 			_attributes.columns = columns
+			if boost.Id == firstReadyId then
+				_attributes.activateHostRef = activateHostRef
+			end
 			return React.createElement(BoostCard, _attributes)
 		end
 		for _k, _v in boosts do

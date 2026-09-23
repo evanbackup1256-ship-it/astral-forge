@@ -140,6 +140,69 @@ assert(
 	"ProgressionGate.UpgradeReason must delegate to UpgradeCostReason.Evaluate"
 )
 
+-- --- AchievementProgress / Admin anomaly grant desync -------------------------
+-- Evidence:
+--   1) Domain expand zeroes profile.Rebirths while TotalRebirthsSpent accumulates —
+--      AchievementProgress used to return only live Rebirths → TenRebirths regresses.
+--   2) Admin GrantAnomalyStabilizations bumped Anomaly.Stabilizations only; Stats lagged
+--      so weekly AnomalyStabilizations + achievement ledgers stayed at 0 after grants.
+--   3) Partial Stats bags crashed AchievementProgress / currentWeeklyValue / Lab ClaimOrder.
+assert(
+	string.find(progressionSrc, "TotalRebirthsSpent", 1, true) ~= nil,
+	"AchievementProgress Rebirths must include Domain.TotalRebirthsSpent"
+)
+assert(
+	string.find(progressionSrc, "anomaly and anomaly.Stabilizations", 1, true) ~= nil
+		or string.find(progressionSrc, "anomaly.Stabilizations", 1, true) ~= nil,
+	"AchievementProgress AnomalyStabilizations must prefer Anomaly bag"
+)
+assert(
+	string.find(progressionSrc, "tonumber(stats and stats.PlayTime)", 1, true) ~= nil,
+	"AchievementProgress PlayTime must nil-safe Stats"
+)
+assert(
+	string.find(progressionSrc, "tonumber(command and command.ExpeditionsCompleted)", 1, true) ~= nil,
+	"currentWeeklyValue Expeditions must nil-safe Command"
+)
+assert(
+	string.find(adminSrc, "GrantAnomalyStabilizations", 1, true) ~= nil,
+	"Admin GrantAnomalyStabilizations must exist"
+)
+assert(
+	string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true) ~= nil,
+	"Admin GrantAnomalyStabilizations must sync Stats.AnomalyStabilizations"
+)
+
+-- Pure replica of AchievementProgress Rebirths + AnomalyStabilizations nil-guards.
+local function achievementRebirths(profile: any): number
+	local current = math.max(0, math.floor(tonumber(profile.Rebirths) or 0))
+	local spent = 0
+	if type(profile.Domain) == "table" then
+		spent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0))
+	end
+	return current + spent
+end
+local function achievementStabilizations(profile: any): number
+	local anomaly = profile.Anomaly
+	local fromAnomaly = tonumber(anomaly and anomaly.Stabilizations)
+	if fromAnomaly ~= nil then
+		return math.max(0, math.floor(fromAnomaly))
+	end
+	local stats = profile.Stats
+	return math.max(0, math.floor(tonumber(stats and stats.AnomalyStabilizations) or 0))
+end
+assert(achievementRebirths({ Rebirths = 0, Domain = { TotalRebirthsSpent = 12 } }) == 12, "spent rebirths count")
+assert(achievementRebirths({ Rebirths = 3, Domain = { TotalRebirthsSpent = 10 } }) == 13, "live+spent rebirths")
+assert(achievementRebirths({ Rebirths = nil, Domain = nil }) == 0, "nil rebirth bags → 0")
+assert(achievementStabilizations({ Anomaly = { Stabilizations = 7 }, Stats = { AnomalyStabilizations = 0 } }) == 7, "prefer Anomaly bag")
+assert(achievementStabilizations({ Anomaly = nil, Stats = nil }) == 0, "nil anomaly/stats → 0")
+
+local labSrc = fs.readFile("src/Server/AstralForge/Services/LabService.luau")
+assert(
+	string.find(labSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	"LabService.ClaimOrder must nil-safe Stats before OrdersCompleted bump"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -149,9 +212,9 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 -- Do not couple these modules to vendor/Packages (tree may exist; we must not reference it).
-for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc } do
+for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress nil-safe")
