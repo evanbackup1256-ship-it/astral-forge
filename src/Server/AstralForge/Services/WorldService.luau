@@ -1,6 +1,5 @@
 --!strict
 
-local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
@@ -58,6 +57,7 @@ return function()
 		local self = setmetatable({}, WorldService)
 		self._interactionHandler = nil
 		self._plots = {}
+		self._plotIndex = {}
 		self._folder = nil
 		return self
 	end
@@ -282,16 +282,22 @@ return function()
 		if not self._folder then
 			return nil
 		end
+		local keptIndex = self._plotIndex[player]
 		if self._plots[player] then
-			self:RemovePlot(player)
+			self:RemovePlot(player, true)
 		end
 
-		local index = 0
-		for _, p in Players:GetPlayers() do
-			if p == player then
-				break
+		local index = keptIndex
+		if index == nil then
+			local used = {}
+			for _, occupied in self._plotIndex do
+				used[occupied] = true
 			end
-			index += 1
+			index = 0
+			while used[index] do
+				index += 1
+			end
+			self._plotIndex[player] = index
 		end
 
 		local model = Instance.new("Model")
@@ -406,12 +412,15 @@ return function()
 		return Vector3.zero
 	end
 
-	function WorldService:RemovePlot(player: Player)
+	function WorldService:RemovePlot(player: Player, keepSlot: boolean?)
 		local plot = self._plots[player]
 		if plot then
 			plot:Destroy()
 		end
 		self._plots[player] = nil
+		if not keepSlot then
+			self._plotIndex[player] = nil
+		end
 	end
 
 	return WorldService

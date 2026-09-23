@@ -1923,6 +1923,14 @@ do
 		if self.ready then
 			return nil
 		end
+		-- Sounds live on SoundService, so a second mixer (script reload, or a
+		-- start that replaced musicDirector without disposing it) keeps the
+		-- previous beds audible. Drop those leftovers before building a new set.
+		for _, child in SoundService:GetChildren() do
+			if child:IsA("Sound") and (child.Name == "ViewMusicA" or child.Name == "ViewMusicB" or string.sub(child.Name, 1, 4) == "Sfx_") then
+				child:Destroy()
+			end
+		end
 		self.disposed = false
 		self.ready = true
 		self.lifecycleToken += 1

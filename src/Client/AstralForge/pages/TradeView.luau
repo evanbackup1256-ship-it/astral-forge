@@ -1805,11 +1805,9 @@ local function TradeView(_param)
 		}), rosterCards)
 		table.insert(sections, {
 			id = "roster",
-			fill = true,
-			minHeight = 120,
-			-- Long rosters virtualize inside FlatList (no content-floor); short lists keep a floor
-			-- so PageScaffold can still scroll the invite chrome when the board is sparse.
-			height = if #visibleRows >= 8 then nil else rosterFloor,
+			fill = #visibleRows >= 4,
+			minHeight = rosterFloor,
+			height = rosterFloor,
 			element = rosterElement,
 		})
 		if _condition_6 then

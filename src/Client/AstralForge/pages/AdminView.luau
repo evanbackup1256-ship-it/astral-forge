@@ -31,7 +31,7 @@ local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 -- predictable instead of rearranging under the cursor. PageScaffold owns the
 -- outer Y scroll; FlatList owns the long player/command catalogs.
 local GAP = 14
-local HEADER_H = 62
+local HEADER_H = 92
 local PLAYERS_W = 280
 local DETAIL_W = 340
 local CMD_MIN = 360
@@ -464,7 +464,7 @@ local function AdminView(_param)
 	local FIELD_H = 50
 	local EXEC_TITLE = 40
 	local EXEC_BUTTON = 46
-	local EXEC_NOTE = 22
+	local EXEC_NOTE = 36
 	local executeH = EXEC_TITLE + math.max(0, fieldSlots) * FIELD_H + EXEC_BUTTON + EXEC_NOTE + 20
 
 	local INSPECT_TITLE = 34
@@ -825,7 +825,8 @@ local function AdminView(_param)
 		onClick = execute,
 		color = runColor,
 		textColor = Palette.ink,
-		size = UDim2.fromScale(1, 1),
+		size = UDim2.fromOffset(200, 36),
+		position = UDim2.new(0.5, -100, 0.5, -18),
 		disabled = runDisabled,
 		loading = busy,
 		shakeToken = shakeToken,
@@ -863,8 +864,10 @@ local function AdminView(_param)
 		Padding = UDim.new(0, 3),
 	}), #recent == 0 and React.createElement(Text, {
 		value = "No commands run yet.",
-		size = 10,
+		size = 11,
 		color = Palette.muted,
+		position = UDim2.fromOffset(0, 6),
+		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}) or (function()
 		local rows = table.create(math.min(6, #recent))
 		for i = 1, math.min(6, #recent) do

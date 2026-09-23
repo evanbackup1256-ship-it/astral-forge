@@ -235,7 +235,9 @@ local function chromeFor(viewport)
 	if _condition_4 == nil then
 		_condition_4 = viewport.height
 	end
-	return mobileChrome(_exp, _exp_1, _exp_2, _exp_3, _exp_4, _condition, _condition_1, _condition_2, _condition_3, _condition_4)
+	local chrome = mobileChrome(_exp, _exp_1, _exp_2, _exp_3, _exp_4, _condition, _condition_1, _condition_2, _condition_3, _condition_4)
+	chrome.tenFoot = viewport.tenFoot == true
+	return chrome
 end
 local function lighten(color, amount)
 	return color:Lerp(Palette.white, math.clamp(amount, 0, 1))

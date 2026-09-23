@@ -229,6 +229,10 @@ local function AutoScale(_param)
 	-- degenerate, and `short` (below) now flips so the layout switches to its compact chrome.
 	local layoutHeight = math.max(1, math.floor(hostHeight / chromeScale))
 	local desktop = usesDesktopStructure(screenWidth, screenHeight)
+	local preferred = UserInputService.PreferredInput
+	local preferredPad = preferred == Enum.PreferredInput.Gamepad or preferred == Enum.PreferredInput.MicroGamepad
+	local consoleLike = UserInputService.GamepadEnabled and not UserInputService.MouseEnabled and not UserInputService.TouchEnabled
+	local tenFoot = desktop and screenWidth >= 1280 and screenHeight >= 720 and (preferredPad or consoleLike or (UserInputService.GamepadEnabled and GuiService.ViewportDisplaySize == Enum.DisplaySize.Large))
 	local scale = computeViewportScale(layoutWidth, layoutHeight)
 	local scaledInset = math.max(0, math.ceil(insets.top / chromeScale))
 	-- While the keyboard is up the layout already stops above it, so the home-indicator inset is
@@ -254,11 +258,12 @@ local function AutoScale(_param)
 			screenHeight = screenHeight,
 			keyboardOpen = keyboardOpen,
 			desktop = desktop,
+			tenFoot = tenFoot,
 			compact = compact,
 			tight = tight,
 			short = short,
 		}
-	end, { bottomInset, compact, desktop, keyboardOpen, layoutHeight, layoutWidth, scale, scaledInset, screenHeight, screenWidth, short, sideInset, tight })
+	end, { bottomInset, compact, desktop, keyboardOpen, layoutHeight, layoutWidth, scale, scaledInset, screenHeight, screenWidth, short, sideInset, tenFoot, tight })
 	React.useEffect(function()
 		if not keyboardOpen then
 			return nil

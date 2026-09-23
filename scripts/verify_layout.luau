@@ -162,3 +162,22 @@ for _, case in scaffoldCases do
 end
 
 print("[INFO] [TEST] pageScaffold fill/minHeight cases passed | Count: " .. tostring(#scaffoldCases))
+
+local planFittedHeights = require("../src/Client/AstralForge/pageScaffoldPlan").planFittedHeights
+local fitted = planFittedHeights({
+	{ id = "hero", height = 278 },
+	{ id = "notes", height = 196 },
+}, 367, 8, 8)
+assert(fitted[1] == 359, "partial second section grows the first so the fold is clean, got " .. tostring(fitted[1]))
+assert(fitted[2] == 196, "the following section keeps its height")
+local fittedAll = planFittedHeights({
+	{ id = "hero", height = 200 },
+	{ id = "notes", height = 140 },
+}, 400, 8, 8)
+assert(fittedAll[1] == 200 and fittedAll[2] == 140, "sections that already fit stay at their design height")
+local fittedFirst = planFittedHeights({
+	{ id = "hero", height = 420 },
+	{ id = "notes", height = 140 },
+}, 367, 8, 8)
+assert(fittedFirst[1] == 420, "a section taller than the window is left unchanged")
+print("[INFO] [TEST] pageScaffold fold fit passed")

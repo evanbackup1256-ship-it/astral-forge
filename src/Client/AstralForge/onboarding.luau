@@ -7,6 +7,7 @@ local _motion = require(script.Parent.motion)
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
 local useExitTransition = _motion.useExitTransition
+local usePulse = _motion.usePulse
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.theme)
@@ -55,7 +56,60 @@ local function TutorialOverlay(_param)
 	local hasGoal = copy.goal ~= nil and copy.goal ~= ""
 	local hasHint = copy.hint ~= nil and copy.hint ~= ""
 	local hasControls = copy.controls ~= nil and copy.controls ~= ""
-	local dockH = (if phone then 178 else 164) + (if hasGoal then 18 else 0) + (if hasHint then 18 else 0) + (if hasControls then 16 else 0) + (if hasCta then TapTarget + 8 else 0)
+	local live = _param.live
+	if type(live) ~= "table" then
+		live = {}
+	end
+	local watch = copy.watch
+	local vaultNow = live.vaultFlux
+	if type(vaultNow) ~= "number" then
+		vaultNow = 0
+	end
+	local collected, setCollected = React.useState(false)
+	local vaultMark = React.useRef(vaultNow)
+	React.useEffect(function()
+		setCollected(false)
+		vaultMark.current = vaultNow
+	end, { step })
+	React.useEffect(function()
+		if watch == "collect" and vaultNow < vaultMark.current - 0.5 then
+			setCollected(true)
+		end
+	end, { step, vaultNow, watch })
+	local ownedMachines = live.ownedMachines
+	if type(ownedMachines) ~= "number" then
+		ownedMachines = 0
+	end
+	local buyAmount = live.buyAmount
+	if type(buyAmount) ~= "number" then
+		buyAmount = 1
+	end
+	local here = live.page
+	local goalMet = watch == "finish"
+	if watch == "vault" then
+		goalMet = here == "Overview"
+	elseif watch == "collect" then
+		goalMet = collected
+	elseif watch == "workshop" then
+		goalMet = here == "Workshop"
+	elseif watch == "buy" then
+		goalMet = ownedMachines > 0
+	elseif watch == "amount" then
+		goalMet = buyAmount ~= 1
+	elseif watch == "research" then
+		goalMet = here == "Research"
+	elseif watch == "rebirth" then
+		goalMet = here == "Overview"
+	end
+	local liveText = `VAULT {live.vault or "0"}  ·  {live.production or "0"} / sec`
+	if watch == "workshop" or watch == "buy" or watch == "amount" then
+		liveText = `MACHINES {ownedMachines}  ·  BUY x{buyAmount}  ·  {here or "Workshop"}`
+	elseif watch == "research" or watch == "rebirth" or watch == "finish" then
+		liveText = `{here or "Overview"}  ·  {live.production or "0"} / sec`
+	end
+	local beat = usePulse(not reducedMotion, if goalMet then 1.15 else 1.7)
+	local progress = math.clamp((step - (if goalMet then 0 else 0.45)) / math.max(1, count), 0.08, 1)
+	local dockH = (if phone then 212 else 198) + (if hasGoal then 18 else 0) + (if hasHint then 18 else 0) + (if hasControls then 16 else 0) + (if hasCta then TapTarget + 8 else 0)
 	local nextLabel = if step >= count then "FINISH" else "CONTINUE"
 	local requestNext = React.useCallback(function()
 		if exiting then
@@ -277,13 +331,45 @@ local function TutorialOverlay(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
 		zIndex = 312,
 	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 28),
+		Position = UDim2.new(0, 0, 1, -((if hasCta then TapTarget * 2 + 8 else TapTarget) + 32)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 313,
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 4),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		ZIndex = 313,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("frame", {
+		Size = UDim2.fromScale(progress, 1),
+		BackgroundColor3 = if goalMet then Palette.mint else Palette.cyan,
+		BackgroundTransparency = beat:map(function(amount)
+			return if goalMet then 0.05 else 0.2 + (1 - amount) * 0.35
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 314,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}))), React.createElement(Text, {
+		value = if goalMet then `READY  ·  {liveText}` else liveText,
+		size = 11,
+		color = if goalMet then Palette.mint else Palette.creamSoft,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(0, 8),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+		zIndex = 314,
+	})), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, if hasCta then TapTarget * 2 + 8 else TapTarget),
 		Position = UDim2.new(0, 0, 1, -(if hasCta then TapTarget * 2 + 8 else TapTarget)),
 		BackgroundTransparency = 1,
 		ZIndex = 312,
 	}, hasCta and React.createElement(Button, {
-		text = ctaLabel,
-		onClick = onCta,
+		text = if goalMet and (watch == "workshop" or watch == "buy") then "YOU'RE IN WORKSHOP" elseif goalMet and watch == "collect" then "VAULT CASHED" elseif goalMet and watch == "research" then "RESEARCH IS OPEN" else ctaLabel,
+		onClick = if goalMet and (watch == "collect" or watch == "workshop" or watch == "buy" or watch == "research") then requestNext else onCta,
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
@@ -318,16 +404,16 @@ local function TutorialOverlay(_param)
 		reducedMotion = reducedMotion,
 		zIndex = 312,
 	}), React.createElement(Button, {
-		text = nextLabel,
+		text = if goalMet and step < count then "CONTINUE" else nextLabel,
 		onClick = requestNext,
 		sound = if step >= count then "tutorialFinish" else "tutorialStep",
-		color = if hasCta then Palette.panelSoft else Palette.mint,
-		textColor = if hasCta then Palette.cream else Palette.ink,
+		color = if goalMet or not hasCta then Palette.mint else Palette.panelSoft,
+		textColor = if goalMet or not hasCta then Palette.ink else Palette.cream,
 		size = UDim2.new(0.52, -2, 1, 0),
 		position = UDim2.new(0.48, 4, 0, 0),
 		reducedMotion = reducedMotion,
 		disabled = exiting,
-		highlight = not hasCta,
+		highlight = goalMet or not hasCta,
 		zIndex = 312,
 	})))))))
 end

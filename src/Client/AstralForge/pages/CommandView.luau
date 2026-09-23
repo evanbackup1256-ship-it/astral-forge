@@ -223,6 +223,7 @@ local CommandTitleCard = React.memo(function(props)
 		fx = props.fx,
 		size = if props.stack then 17 else 15,
 		reducedMotion = props.reducedMotion,
+		preview = not props.equipped,
 		transparency = if props.unlocked then 0 else 0.46,
 	}))
 	local _attributes = {}
@@ -905,7 +906,7 @@ local function CommandView(_param)
 				columns = titleCols,
 				cellHeight = titleCellH,
 				gap = gridGap,
-				overscanRows = if softMotion then 0 else 1,
+				overscanRows = 1,
 				position = UDim2.fromOffset(0, 52),
 				itemKey = function(index)
 					local title = command.Titles[index + 1]

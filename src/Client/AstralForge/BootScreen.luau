@@ -8,6 +8,7 @@ local _theme = require(script.Parent.theme)
 local Palette = _theme.Palette
 local surfaceGradient = _theme.surfaceGradient
 local BOOT_MODULE_TIMEOUT = 9
+local MIN_BOOT_SECONDS = 3.2
 local BOOT_MOTION = {
 	motionScale = 1,
 	viewportScale = 1,
@@ -46,7 +47,7 @@ local function statusFor(marks, ready, stalled, loaded, total)
 	end
 	return _condition
 end
-local function progressFor(marks, assetsLoaded, assetsTotal)
+local function progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 	local complete = 0
 	for _, key in SYSTEMS do
 		if marks[key] then
@@ -55,7 +56,10 @@ local function progressFor(marks, assetsLoaded, assetsTotal)
 	end
 	local partial = 0
 	if not marks.assets and assetsTotal ~= nil and assetsTotal > 0 and assetsLoaded ~= nil then
-		partial = math.clamp(assetsLoaded / assetsTotal, 0, 1) * 0.8
+		partial += math.clamp(assetsLoaded / assetsTotal, 0, 1) * 0.85
+	end
+	if not marks.modules and modulesTotal ~= nil and modulesTotal > 0 and modulesLoaded ~= nil then
+		partial += math.clamp(modulesLoaded / modulesTotal, 0, 1) * 0.85
 	end
 	return math.clamp((complete + partial) / #SYSTEMS, 0, 1)
 end
@@ -67,8 +71,8 @@ local function bootChecklistReady(marks)
 	end
 	return true
 end
-local function bootProgress(marks, assetsLoaded, assetsTotal)
-	return progressFor(marks, assetsLoaded, assetsTotal)
+local function bootProgress(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
+	return progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 end
 local function BootScreen(_param)
 	local marks = _param.marks
@@ -81,6 +85,8 @@ local function BootScreen(_param)
 	local startedAt = _param.startedAt
 	local assetsLoaded = _param.assetsLoaded
 	local assetsTotal = _param.assetsTotal
+	local modulesLoaded = _param.modulesLoaded
+	local modulesTotal = _param.modulesTotal
 	local _version = _param.version
 	local onExitDone = _param.onExitDone
 	local _condition = startedAt
@@ -141,12 +147,22 @@ local function BootScreen(_param)
 	end, { ready })
 	React.useEffect(function()
 		if ready and not exiting and not finished.current then
-			finished.current = true
-			exitClock.current = 0
-			setExiting(true)
-			Audio:play("bootReady")
+			local elapsed = os.clock() - mountedAt.current
+			local hold = math.max(0, MIN_BOOT_SECONDS - elapsed)
+			local token = task.delay(hold, function()
+				if finished.current then
+					return nil
+				end
+				finished.current = true
+				exitClock.current = 0
+				setExiting(true)
+				Audio:play("bootReady")
+			end)
+			return function()
+				task.cancel(token)
+			end
 		elseif not exiting and not finished.current then
-			local timeout = if RunService:IsStudio() then 8 else 20
+			local timeout = if RunService:IsStudio() then 22 else 36
 			local token = task.delay(timeout, function()
 				if not finished.current then
 					finished.current = true
@@ -200,7 +216,7 @@ local function BootScreen(_param)
 		})
 	end
 	local status = statusFor(marks, ready, stalled, assetsLoaded, assetsTotal)
-	local progress = if ready then 1 else progressFor(marks, assetsLoaded, assetsTotal)
+	local progress = if ready then 1 else progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 	local progressPct = math.floor(progress * 100 + 0.5)
 	local spinHide = spinFade:map(function(amount)
 		return amount
@@ -217,12 +233,23 @@ local function BootScreen(_param)
 	-- the counter would just read "0 / 0" while other boot phases (bridge/state/fonts)
 	-- are still running and assetsTotal hasn't been measured yet.
 	local _result
-	if not ready and assetsTotal ~= nil and assetsTotal > 0 then
-		local _condition_2 = assetsLoaded
-		if _condition_2 == nil then
-			_condition_2 = 0
+	if not ready and ((assetsTotal ~= nil and assetsTotal > 0) or (modulesTotal ~= nil and modulesTotal > 0)) then
+		local pieces = {}
+		if assetsTotal ~= nil and assetsTotal > 0 then
+			local shownAssets = assetsLoaded
+			if shownAssets == nil then
+				shownAssets = 0
+			end
+			table.insert(pieces, `{math.min(shownAssets, assetsTotal)} / {assetsTotal} assets`)
 		end
-		_result = `{math.min(_condition_2, assetsTotal)} / {assetsTotal} assets`
+		if modulesTotal ~= nil and modulesTotal > 0 then
+			local shownModules = modulesLoaded
+			if shownModules == nil then
+				shownModules = 0
+			end
+			table.insert(pieces, `{math.min(shownModules, modulesTotal)} / {modulesTotal} modules`)
+		end
+		_result = table.concat(pieces, "  ·  ")
 	else
 		_result = `{progressPct}%`
 	end

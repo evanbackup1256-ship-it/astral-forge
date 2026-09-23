@@ -199,6 +199,7 @@ return function(loadService: (string) -> any)
 		end
 
 		local lastPosition = state.LastPosition
+		local elapsed = now - state.LastAt
 		state.LastAt = now
 
 		-- Anti-Void & Floor Fall-Through Recovery Guard

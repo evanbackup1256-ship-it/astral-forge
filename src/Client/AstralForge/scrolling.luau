@@ -599,7 +599,9 @@ local function VirtualGrid(_param)
 	local cellHeight = _param.cellHeight
 	local gap = _param.gap
 	local overscanRows = _param.overscanRows
-	if overscanRows == nil then
+	if overscanRows == nil or overscanRows < 1 then
+		-- One extra row stays mounted so a card that is half on screen is not
+		-- unmounted and clipped while the page is still scrolling.
 		overscanRows = 1
 	end
 	local layoutOrder = _param.layoutOrder
@@ -613,14 +615,13 @@ local function VirtualGrid(_param)
 	local rows = math.ceil(count / math.max(1, columns))
 	local stride = cellHeight + gap
 	local height = math.max(0, rows * cellHeight + math.max(0, rows - 1) * gap)
+	local seedLast = if count <= 0 then -1 else math.min(count - 1, math.max(columns * 3, columns) - 1)
 	local initial = {
 		first = 0,
-		last = -1,
+		last = seedLast,
 	}
 	local window, setWindow = React.useState(initial)
 	local latest = React.useRef(initial)
-	local renderWindow, setRenderWindow = React.useState(initial)
-	local rendered = React.useRef(initial)
 	React.useEffect(function()
 		local host = hostRef.current
 		local scroll = scrollRef.current
@@ -664,54 +665,10 @@ local function VirtualGrid(_param)
 			end
 		end
 	end, { cellHeight, columns, count, gap, overscanRows, rows, scrollRef, stride })
-	React.useEffect(function()
-		if window.last < window.first then
-			rendered.current = window
-			setRenderWindow(window)
-			return nil
-		end
-		local previous = rendered.current
-		local overlapsPrevious = previous.last >= window.first and previous.first <= window.last
-		if previous.last >= previous.first and overlapsPrevious then
-			rendered.current = window
-			setRenderWindow(window)
-			return nil
-		end
-		local alive = true
-		local last = math.min(window.last, window.first + columns - 1)
-		local firstBatch = {
-			first = window.first,
-			last = last,
-		}
-		rendered.current = firstBatch
-		setRenderWindow(firstBatch)
-		local worker = task.spawn(function()
-			while alive and last < window.last do
-				RunService.Heartbeat:Wait()
-				if not alive then
-					return nil
-				end
-				last = math.min(window.last, last + columns)
-				local batch = {
-					first = window.first,
-					last = last,
-				}
-				rendered.current = batch
-				setRenderWindow(batch)
-			end
-			alive = false
-		end)
-		return function()
-			if alive then
-				alive = false
-				task.cancel(worker)
-			end
-		end
-	end, { columns, window.first, window.last })
 	local visible = {}
-	if renderWindow.last >= renderWindow.first then
+	if window.last >= window.first then
 		do
-			local index = renderWindow.first
+			local index = window.first
 			local _shouldIncrement = false
 			while true do
 				if _shouldIncrement then
@@ -719,7 +676,7 @@ local function VirtualGrid(_param)
 				else
 					_shouldIncrement = true
 				end
-				if not (index <= renderWindow.last) then
+				if not (index <= window.last) then
 					break
 				end
 				local row = math.floor(index / columns)
@@ -742,7 +699,7 @@ local function VirtualGrid(_param)
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
 		Active = false,
-		ClipsDescendants = true,
+		ClipsDescendants = false,
 	}, visible)
 end
 local function useVirtualWindow(count, stride, topOffset, overscan)
@@ -751,6 +708,7 @@ local function useVirtualWindow(count, stride, topOffset, overscan)
 		-- and cuts React mounts during fast flings roughly in half vs overscan=2.
 		overscan = if CONSTRAINED_SCROLL then 1 else 2
 	end
+	overscan = math.max(1, overscan)
 	local frame = React.useRef()
 	local initial = {
 		first = 0,

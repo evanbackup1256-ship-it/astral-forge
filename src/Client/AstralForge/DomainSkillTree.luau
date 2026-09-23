@@ -268,71 +268,63 @@ end
 local function LatticeField(_param)
 	local reducedMotion = _param.reducedMotion
 	local accent = _param.accent
-	local drift = useClock(not reducedMotion, 0.18, 1)
-	local motes = { 0, 1, 2, 3, 4, 5 }
-	local _exp = { 0, 1, 2, 3, 4 }
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#_exp)
-	local _callback = function(index)
-		return React.createElement("frame", {
-			key = `grid-{index}`,
-			Size = UDim2.new(1, 0, 0, 1),
-			Position = UDim2.new(0, 0, (index + 1) / 6, 0),
-			BackgroundColor3 = Palette.lineSoft,
-			BackgroundTransparency = 0.82,
-			BorderSizePixel = 0,
-		})
-	end
-	for _k, _v in _exp do
-		_newValue[_k] = _callback(_v, _k - 1, _exp)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	local _exp_1 = { 0, 1, 2, 3, 4, 5 }
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue_1 = table.create(#_exp_1)
-	local _callback_1 = function(index)
-		return React.createElement("frame", {
-			key = `col-{index}`,
-			Size = UDim2.new(0, 1, 1, 0),
-			Position = UDim2.new((index + 1) / 7, 0, 0, 0),
-			BackgroundColor3 = Palette.lineSoft,
-			BackgroundTransparency = 0.86,
-			BorderSizePixel = 0,
-		})
-	end
-	for _k, _v in _exp_1 do
-		_newValue_1[_k] = _callback_1(_v, _k - 1, _exp_1)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue_2 = table.create(#motes)
-	local _callback_2 = function(index)
-		local seed = 0.07 + index * 0.083
-		return React.createElement("frame", {
-			key = `mote-{index}`,
-			Size = UDim2.fromOffset(if index % 3 == 0 then 4 else 2, if index % 3 == 0 then 4 else 2),
+	local drift = useClock(not reducedMotion, 0.04, 1)
+	local curtains = {
+		{ y = 0.18, h = 0.22, color = accent, slide = 0.08 },
+		{ y = 0.42, h = 0.28, color = Palette.violet, slide = -0.06 },
+		{ y = 0.66, h = 0.2, color = Palette.cyan, slide = 0.05 },
+	}
+	local bands = table.create(#curtains)
+	for index, curtain in curtains do
+		bands[index] = React.createElement("frame", {
+			key = `aurora-{index}`,
+			Size = UDim2.fromScale(1.4, curtain.h),
 			Position = drift:map(function(phase)
-				local t = (phase + seed) % 1
-				return UDim2.fromScale((seed * 9) % 1, (t * 0.9 + ((index * 17) % 10) / 40) % 1)
+				local wave = math.sin(phase * math.pi * 2 + index) * curtain.slide
+				return UDim2.new(-0.2 + wave, 0, curtain.y, 0)
 			end),
-			BackgroundColor3 = if index % 2 == 0 then accent else Palette.cream,
-			BackgroundTransparency = 0.72,
+			BackgroundColor3 = curtain.color,
+			BackgroundTransparency = 0.9,
+			BorderSizePixel = 0,
+			ZIndex = 1,
+		}, React.createElement("uigradient", {
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.35, 0.15),
+				NumberSequenceKeypoint.new(0.7, 0.45),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Rotation = 18 + index * 12,
+		}))
+	end
+	local seeds = { 0, 1, 2, 3, 4, 5, 6, 7 }
+	local motes = table.create(#seeds)
+	for index, seed in seeds do
+		local color = if seed % 3 == 0 then accent elseif seed % 3 == 1 then Palette.cyan else Palette.violet
+		motes[index] = React.createElement("frame", {
+			key = `mote-{seed}`,
+			Size = UDim2.fromOffset(if seed % 2 == 0 then 5 else 3, if seed % 2 == 0 then 5 else 3),
+			Position = drift:map(function(phase)
+				local t = (phase + seed * 0.13) % 1
+				local x = (seed * 0.11 + math.sin(t * math.pi * 2) * 0.04) % 1
+				local y = (0.12 + seed * 0.09 + t * 0.22) % 1
+				return UDim2.fromScale(x, y)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = color,
+			BackgroundTransparency = 0.45,
 			BorderSizePixel = 0,
 			ZIndex = 2,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
 		}))
 	end
-	for _k, _v in motes do
-		_newValue_2[_k] = _callback_2(_v, _k - 1, motes)
-	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-	}, _newValue, _newValue_1, _newValue_2)
+	}, bands, motes)
 end
 local function BranchVein(_param)
 	local from = _param.from
@@ -342,13 +334,17 @@ local function BranchVein(_param)
 	local reducedMotion = _param.reducedMotion
 	local pulse = useClock(live and selected and not reducedMotion, 0.9, 1)
 	local accent = if live then from.accent else Palette.lineSoft
-	local marks = if selected then { 0.28, 0.5, 0.72 } else { 0.5 }
+	local steps = if selected then 8 elseif live then 6 else 4
+	local marks = table.create(steps)
+	for step = 1, steps do
+		marks[step] = step / (steps + 1)
+	end
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#marks)
 	local _callback = function(alpha)
 		return React.createElement("frame", {
 			key = `seg-{alpha}`,
-			Size = UDim2.fromOffset(if selected then 7 else 5, if selected then 7 else 5),
+			Size = UDim2.fromOffset(if selected then 8 else 4, if alpha > 0.45 and alpha < 0.55 then 10 else 4),
 			Position = UDim2.fromScale(from.x + (to.x - from.x) * alpha, from.y + (to.y - from.y) * alpha),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = accent,
@@ -463,7 +459,12 @@ local function HexNode(_param)
 		ClipsDescendants = true,
 		ZIndex = 40,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Color = if selected or owned then Palette.cream elseif ready then node.accent else Palette.lineSoft,
+		Thickness = if selected then 2.4 else 1.4,
+		Transparency = if owned then 0.12 elseif ready then 0.28 else 0.55,
 	}), React.createElement("uigradient", {
 		Color = ColorSequence.new(lighten(fill, 0.22), darken(fill, 0.12)),
 		Rotation = 90,
@@ -471,7 +472,7 @@ local function HexNode(_param)
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
 		zIndex = 41,
-		radius = 12,
+		radius = math.floor(size / 2),
 	}), ready and not owned and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = node.accent,
@@ -481,7 +482,7 @@ local function HexNode(_param)
 		BorderSizePixel = 0,
 		ZIndex = 41,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(1, 0),
 	})), owned and React.createElement("frame", {
 		Size = UDim2.new(0.48, 0, 0, 3),
 		Position = UDim2.new(0.5, 0, 1, -5),

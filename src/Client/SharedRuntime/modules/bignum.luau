@@ -7,7 +7,9 @@
 	 * evaluated during add or multiply.
 	 
 ]]
-local finite
+local function finite(value)
+	return value == value and value ~= math.huge and value ~= -math.huge
+end
 local AlyaNum
 do
 	AlyaNum = setmetatable({}, {
@@ -121,11 +123,8 @@ do
 	end
 	AlyaNum.ZERO = AlyaNum.new(0, 0, 0)
 end
-function finite(value)
-	return value == value and value ~= math.huge and value ~= -math.huge
-end
 local function alya(value)
-	return if TS.instanceof(value, AlyaNum) then value else AlyaNum:fromNumber(value)
+	return if type(value) == "table" and getmetatable(value) == AlyaNum then value else AlyaNum:fromNumber(value)
 end
 local function addBig(left, right)
 	return AlyaNum:addValues(alya(left), alya(right))

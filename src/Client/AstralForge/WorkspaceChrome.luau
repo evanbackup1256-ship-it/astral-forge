@@ -304,8 +304,9 @@ local function Workspace(_param)
 	-- title block must stop before it. -392 used to run 8px into the pill; -344 keeps a 6px
 	-- clearance on every desktop width.
 	local titleReserve = if keyboardCompact then -(titleLeft + vaultBtn + 18) else (if chrome.stack then -(vaultBtn + 18) elseif chrome.tight then -(vaultBtn + 28) else -344) - (titleLeft - (if chrome.stack then 14 else 22))
-	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 72
-	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 48
+	local denseHeader = not keyboardCompact and not chrome.landscape and not chrome.stack and headerHeight < 74
+	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 elseif denseHeader then 44 else 72
+	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 elseif denseHeader then 36 else 48
 	local headerTitleY = if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else math.max(10, math.floor((headerHeight - titleBlockH) / 2))
 	local vaultPillY = math.max(8, math.floor((headerHeight - 52) / 2))
 	return React.createElement("frame", {
@@ -374,15 +375,15 @@ local function Workspace(_param)
 		ZIndex = 3,
 	}, React.createElement(ShimmerText, {
 		value = if entry.label == "Games" then "Mini Games" elseif entry.label == "Ranks" then "Leaderboards" else entry.label,
-		size = if chrome.stack then chrome.titleText else 26,
+		size = if chrome.stack then chrome.titleText elseif denseHeader then 18 else 22,
 		color = ensureContrast(Palette.panel, Palette.cream),
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 16,
+		fit = false,
+		minSize = 14,
 		position = enter:map(function(amount)
 			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 2)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 28 elseif chrome.stack then 28 else 34),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 22 elseif chrome.stack then 24 elseif denseHeader then 22 else 28),
 		reducedMotion = reducedMotion,
 		enabled = not reducedMotion,
 		periodSeconds = 4.2,
@@ -393,9 +394,9 @@ local function Workspace(_param)
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 32 else 40)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 28 elseif denseHeader then 26 else 32)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 else 28),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 elseif denseHeader then 16 else 28),
 		transparency = revealFade,
 	})), not chrome.stack and React.createElement(VaultPill, {
 		state = state,

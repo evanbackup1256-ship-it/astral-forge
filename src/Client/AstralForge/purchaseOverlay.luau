@@ -253,13 +253,14 @@ local function PurchaseOverlay(_param)
 	local cardWidth = math.min(if shortLandscape then 540 else 430, availableWidth)
 	local cardHeight = if shortLandscape then math.clamp(safeHeight - 16, 184, 218) else math.clamp(safeHeight - 20, 232, 272)
 	local compactVertical = not shortLandscape and cardHeight < 260
-	local centerY = topSafe + safeHeight * 0.5
 	local presence = React.joinBindings({ show, card, exitAmount }):map(function(values)
 		return math.min(values[1], values[2], values[3])
 	end)
 	local cardTravel = 22
+	-- Center in the host. Viewport offsets push the card down-right when the
+	-- host is the page, not the full screen.
 	local cardPosition = presence:map(function(amount)
-		return UDim2.fromOffset(math.floor(viewport.width * 0.5), math.floor(centerY + (1 - amount) * cardTravel))
+		return UDim2.new(0.5, 0, 0.5, math.floor((1 - amount) * cardTravel))
 	end)
 	local cardScale = React.joinBindings({ presence, flash }):map(function(values)
 		return 0.94 + math.clamp(values[1], 0, 1) * 0.06 + values[2] * 0.025
@@ -269,8 +270,8 @@ local function PurchaseOverlay(_param)
 	local orbAnchor = if shortLandscape then Vector2.new(0, 0.5) else Vector2.new(0.5, 0)
 	local copyLeft = if shortLandscape then orbSize + 42 else 18
 	local copyWidth = if shortLandscape then -(copyLeft + 20) else -36
-	local titleY = if shortLandscape then math.max(28, math.floor(cardHeight * 0.5) - 44) elseif compactVertical then 136 else 158
-	local detailY = if shortLandscape then titleY + 32 elseif compactVertical then titleY + 28 else 188
+	local titleY = if shortLandscape then math.max(28, math.floor(cardHeight * 0.5) - 44) else orbSize + (if compactVertical then 32 else 40)
+	local detailY = titleY + (if shortLandscape then 28 else 24)
 	local railLeft = if shortLandscape then copyLeft else 26
 	local railBottom = if shortLandscape then 28 elseif compactVertical then 29 else 38
 	local _exp = React.createElement("frame", {

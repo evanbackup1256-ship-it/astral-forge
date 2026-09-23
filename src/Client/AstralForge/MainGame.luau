@@ -93,6 +93,7 @@ local ClientActions = _clientStore.ClientActions
 local useClientDispatch = _clientStore.useClientDispatch
 local useClientSelector = _clientStore.useClientSelector
 local preloadMountedGame = require(script.Parent.assetPreloader).preloadMountedGame
+local warmClientModules = require(script.Parent.assetPreloader).warmClientModules
 local useClientIntegrityProbe = require(script.Parent.clientIntegrity).useClientIntegrityProbe
 -- Action toast copy (friendlyPlayerMessage / failureTitle / failureBody /
 -- friendlyActionResponse) lives in actionCopy — Lune-tested, behavior unchanged.
@@ -239,6 +240,10 @@ local function MainGame(_param)
 		loaded = 0,
 		total = 0,
 	})
+	local moduleProgress, setModuleProgress = React.useState({
+		loaded = 0,
+		total = 0,
+	})
 	local onBootExitDone = React.useCallback(function()
 		return setBootVisible(false)
 	end, {})
@@ -265,18 +270,21 @@ local function MainGame(_param)
 	local bootReducedMotion = _result_2 == true
 	React.useEffect(function()
 		local assetShare = if assetProgress.total > 0 then math.clamp(assetProgress.loaded / assetProgress.total, 0, 1) elseif bootMarks.assets then 1 else 0
+		local moduleShare = if moduleProgress.total > 0 then math.clamp(moduleProgress.loaded / moduleProgress.total, 0, 1) elseif bootMarks.modules then 1 else 0
 		local _result_3 = onBootStatus
 		if _result_3 ~= nil then
 			_result_3({
 				marks = bootMarks,
 				ready = bootReady,
-				progress = bootFill * 0.55 + assetShare * 0.45,
+				progress = bootFill * 0.4 + assetShare * 0.3 + moduleShare * 0.3,
 				reducedMotion = bootReducedMotion,
 				assetsLoaded = assetProgress.loaded,
 				assetsTotal = assetProgress.total,
+				modulesLoaded = moduleProgress.loaded,
+				modulesTotal = moduleProgress.total,
 			})
 		end
-	end, { assetProgress.loaded, assetProgress.total, bootFill, bootMarks, bootReady, bootReducedMotion, onBootStatus })
+	end, { assetProgress.loaded, assetProgress.total, bootFill, bootMarks, bootReady, bootReducedMotion, moduleProgress.loaded, moduleProgress.total, onBootStatus })
 	local adminPrank, setAdminPrank = React.useState()
 	local pops, setPops = React.useState({})
 	local popId = React.useRef(0)
@@ -1576,6 +1584,14 @@ local function MainGame(_param)
 						starterScripts:FindFirstChild("AstralForge")
 					end
 				end)
+				warmClientModules(function(loaded, total)
+					if alive then
+						setModuleProgress({
+							loaded = loaded,
+							total = total,
+						})
+					end
+				end)
 			end)
 			if alive then
 				markBoot("modules")
@@ -2201,6 +2217,10 @@ local function MainGame(_param)
 		end
 		_attributes_1.reducedMotion = _result_40 == true
 		_attributes_1.startedAt = bootStartedAt
+		_attributes_1.assetsLoaded = assetProgress.loaded
+		_attributes_1.assetsTotal = assetProgress.total
+		_attributes_1.modulesLoaded = moduleProgress.loaded
+		_attributes_1.modulesTotal = moduleProgress.total
 		_attributes_1.onExitDone = onBootExitDone
 		_condition_10 = React.createElement(MotionSettingsContext.Provider, {
 			value = Boot.BOOT_MOTION,

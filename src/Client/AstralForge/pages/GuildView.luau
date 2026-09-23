@@ -1313,99 +1313,84 @@ local function GuildView(_param)
 		value = "HALL UPGRADES",
 		color = Palette.violet,
 	})
-	local listStride = math.max(upgradeHeight, memberHeight, 150, sectionLabelH) + pageGap
-	local listData = {}
+	local upgradeChildren = {}
 	if #rows == 0 then
-		table.insert(listData, {
-			Id = "empty-upgrades",
-			kind = "empty-upgrades",
+		upgradeChildren[1] = React.createElement(EmptyState, {
+			key = "empty-upgrades",
+			title = "No hall upgrades",
+			body = "Upgrade definitions are still loading.",
+			icon = "Forge",
+			accent = Palette.violet,
+			size = UDim2.new(1, 0, 0, 72),
+			layoutOrder = 1,
 		})
 	else
-		for _, row in rows do
-			table.insert(listData, {
-				Id = `upgrade-{row.id}`,
-				kind = "upgrade",
+		for index, row in rows do
+			upgradeChildren[index] = React.createElement(UpgradeCard, {
+				key = row.id,
 				row = row,
-			})
-		end
-	end
-	table.insert(listData, {
-		Id = "members-label",
-		kind = "members-label",
-	})
-	for _, member in members do
-		table.insert(listData, {
-			Id = `member-{member.key}`,
-			kind = "member",
-			member = member,
-		})
-	end
-	local hallList = React.createElement(FlatList, {
-		data = listData,
-		itemHeight = listStride,
-		headerHeight = 0,
-		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-		canvasTail = 8,
-		Size = UDim2.fromScale(1, 1),
-		scrollBarColor = Palette.violet,
-		scrollBarThickness = 3,
-		scrollBarTransparency = 0.28,
-		keyExtractor = function(entry)
-			return entry.Id
-		end,
-		renderItem = function(_param_1)
-			local entry = _param_1.item
-			if entry.kind == "empty-upgrades" then
-				return React.createElement(EmptyState, {
-					title = "No hall upgrades",
-					body = "Upgrade definitions are still loading.",
-					icon = "Forge",
-					accent = Palette.violet,
-					size = UDim2.fromScale(1, 1),
-				})
-			elseif entry.kind == "members-label" then
-				return React.createElement(SectionLabel, {
-					value = "MEMBERS",
-					color = Palette.cyan,
-					layoutOrder = 0,
-				})
-			elseif entry.kind == "upgrade" then
-				return React.createElement(UpgradeCard, {
-					row = entry.row,
-					guild = guild,
-					canBuy = canBuy,
-					stack = stack,
-					reducedMotion = reducedMotion,
-					dispatch = send,
-					busy = busy,
-					shakeToken = shakeToken,
-					layoutOrder = 0,
-				})
-			end
-			local member = entry.member
-			local share = 0
-			if goalContributors ~= nil then
-				share = goalContributors[member.key] or 0
-			end
-			return React.createElement(MemberRow, {
-				userKey = member.key,
-				name = member.name,
-				role = member.role,
-				contributed = member.contributed,
-				goalShare = share,
-				share = if totalContributed > 0 then member.contributed / totalContributed else 0,
-				isLocal = member.key == localKey,
-				canManage = canManage and member.key ~= localKey,
-				isLeader = member.role == "Leader",
+				guild = guild,
+				canBuy = canBuy,
 				stack = stack,
 				reducedMotion = reducedMotion,
 				dispatch = send,
 				busy = busy,
 				shakeToken = shakeToken,
-				layoutOrder = 0,
+				layoutOrder = index,
 			})
-		end,
-	})
+		end
+	end
+	local upgradeBlockH = if #rows == 0 then 72 else #rows * upgradeHeight + math.max(0, #rows - 1) * pageGap
+	local upgradeList = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, pageGap),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), upgradeChildren)
+	local memberChildren = {}
+	for index, member in members do
+		local share = 0
+		if goalContributors ~= nil then
+			share = goalContributors[member.key] or 0
+		end
+		memberChildren[index] = React.createElement(MemberRow, {
+			key = member.key,
+			userKey = member.key,
+			name = member.name,
+			role = member.role,
+			contributed = member.contributed,
+			goalShare = share,
+			share = if totalContributed > 0 then member.contributed / totalContributed else 0,
+			isLocal = member.key == localKey,
+			canManage = canManage and member.key ~= localKey,
+			isLeader = member.role == "Leader",
+			stack = stack,
+			reducedMotion = reducedMotion,
+			dispatch = send,
+			busy = busy,
+			shakeToken = shakeToken,
+			layoutOrder = index,
+		})
+	end
+	local memberBlockH = if #members == 0 then 72 else #members * memberHeight + math.max(0, #members - 1) * pageGap
+	local memberList = if #members == 0 then React.createElement(EmptyState, {
+		title = "No members",
+		body = "Members show up here.",
+		icon = "Pilot",
+		accent = Palette.cyan,
+		size = UDim2.new(1, 0, 0, 72),
+	}) else React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, pageGap),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), memberChildren)
 	return React.createElement(PageScaffold, {
 		gap = pageGap,
 		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
@@ -1433,10 +1418,22 @@ local function GuildView(_param)
 				element = _exp_20,
 			},
 			{
-				id = "hall-list",
-				fill = true,
-				minHeight = math.max(180, listStride * 2),
-				element = hallList,
+				id = "upgrades",
+				height = upgradeBlockH,
+				element = upgradeList,
+			},
+			{
+				id = "members-label",
+				height = sectionLabelH,
+				element = React.createElement(SectionLabel, {
+					value = "MEMBERS",
+					color = Palette.cyan,
+				}),
+			},
+			{
+				id = "members",
+				height = memberBlockH,
+				element = memberList,
 			},
 		},
 	})

@@ -914,7 +914,7 @@ local function SettingsView(_param)
 	-- ▲ ReadonlyArray.filter ▲
 	local visibleRows = _newValue_1
 	local rowStride = if touchRows then 124 else 108
-	local headerH = if stack then 232 else 156
+	local headerH = if stack then 176 else 156
 	local preset = matchingPreset(state.Settings)
 	local applyPreset = function(id)
 		local entry = FX_PRESETS[id]
@@ -925,7 +925,8 @@ local function SettingsView(_param)
 	end
 	local tabCols = if stack then 2 else #availableSections
 	local tabRows = math.ceil(#availableSections / tabCols)
-	local tabsH = tabRows * (TapTarget + 8) + 20
+	local tabButtonH = if stack then 40 else TapTarget
+	local tabsH = tabRows * (tabButtonH + 8) + 16
 	local editorH = if mobileHudAvailable and activeSection == "mobile" then (if stack then 138 else 92) else 0
 	-- Long section catalogs virtualize inside a fixed viewport so PageScaffold stays scrollable.
 	local virtSettings = #visibleRows >= VIRT_SETTINGS_MIN
@@ -1094,8 +1095,8 @@ local function SettingsView(_param)
 		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 16),
 	}), React.createElement("frame", {
 		Name = "SettingsClaimActions",
-		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(300, 42),
-		Position = if stack then UDim2.fromOffset(0, 70) else UDim2.new(1, -300, 0, 10),
+		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(300, 42),
+		Position = if stack then UDim2.fromOffset(0, 66) else UDim2.new(1, -300, 0, 10),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -1124,8 +1125,8 @@ local function SettingsView(_param)
 		position = UDim2.new(0.5, 4, 0, 0),
 		reducedMotion = softMotion,
 	})), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(300, 42),
-		Position = if stack then UDim2.fromOffset(0, 70 + TapTarget + 10) else UDim2.new(1, -300, 0, 62),
+		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(300, 42),
+		Position = if stack then UDim2.fromOffset(0, 114) else UDim2.new(1, -300, 0, 62),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 6,
@@ -1163,10 +1164,10 @@ local function SettingsView(_param)
 		highlight = preset == "high",
 	})))
 	local _exp_3 = React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
+		size = UDim2.new(1, 0, 0, tabsH),
 		accent = SECTION_META[activeSection].accent,
 		background = Palette.panelRaised,
-		padding = 10,
+		padding = 8,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SegmentedTabs, {
@@ -1176,7 +1177,7 @@ local function SettingsView(_param)
 		accent = SECTION_META[activeSection].accent,
 		columns = tabCols,
 		gap = 8,
-		size = UDim2.fromScale(1, 1),
+		size = UDim2.new(1, 0, 0, math.max(36, tabsH - 16)),
 		reducedMotion = softMotion,
 	}))
 	local _exp_3b = controllerHintsH > 0 and React.createElement(Panel, {

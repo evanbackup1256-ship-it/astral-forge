@@ -38,8 +38,8 @@ assert(phonePortrait.rebirthH == 300, "phone portrait rebirth")
 assert(phonePortrait.domainH == 320, "phone portrait domain")
 assert(phonePortrait.notesH == 168, "phone portrait notes")
 assert(phonePortrait.opsH == 196, "phone portrait ops")
-assert(phonePortrait.metricCardH == 86, "phone portrait metric card")
-assert(phonePortrait.metricsH == 86 * 3 + 16, "phone portrait metrics")
+assert(phonePortrait.metricCardH == 92, "phone portrait metric card")
+assert(phonePortrait.metricsH == 92 * 3 + 16, "phone portrait metrics")
 assert(phonePortrait.countdownH == 0, "no countdown height")
 assert(phonePortrait.sectionGap == 10, "stack uses chrome panel gap")
 assert(phonePortrait.sectionCount == 5, "hero+notes+ops+rebirth+domain")
@@ -88,7 +88,7 @@ local wideDesktop = LayoutSectionPlan.planOverview({
 	chromePanelGap = 10,
 	layoutPanelGap = 14,
 })
-assert(wideDesktop.heroH == 232, "wide desktop hero")
+assert(wideDesktop.heroH == 258, "wide desktop hero")
 assert(wideDesktop.metricsH == wideDesktop.heroH, "wide metrics matches hero")
 assert(wideDesktop.topBandH == wideDesktop.heroH, "wide top band collapses")
 assert(wideDesktop.sectionGap == 16, "wide gap")
@@ -106,7 +106,7 @@ local ultra = LayoutSectionPlan.planOverview({
 	chromePanelGap = 10,
 	layoutPanelGap = 14,
 })
-assert(ultra.heroH == 240, "ultra hero")
+assert(ultra.heroH == 268, "ultra hero")
 assert(ultra.sectionGap == 18, "ultra gap")
 assert(ultra.sectionCount == 6, "all sections")
 assert(ultra.countdownH == 152, "ultra countdown")

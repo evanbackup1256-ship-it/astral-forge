@@ -15,6 +15,7 @@ local meterFill = _ui.meterFill
 local Panel = _ui.Panel
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local NumberSpinnerHost = require(script.Parent.Parent.NumberSpinnerHost).NumberSpinnerHost
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _theme = require(script.Parent.Parent.theme)
 local Palette = _theme.Palette

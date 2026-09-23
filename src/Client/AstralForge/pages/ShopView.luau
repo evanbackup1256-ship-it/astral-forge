@@ -1054,13 +1054,15 @@ local function ShopView(_param)
 		reducedMotion = softMotion,
 		highlight = not followClaimed and not followBusy,
 	}))))
+	local catalogH = math.max(offerStride, #offerRows * offerStride)
 	local offerList = React.createElement(FlatList, {
 		data = offerRows,
 		itemHeight = offerStride,
 		headerHeight = 0,
 		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
-		Size = UDim2.fromScale(1, 1),
+		embedded = true,
+		Size = UDim2.new(1, 0, 0, catalogH),
 		scrollBarColor = Palette.mango,
 		scrollBarThickness = 3,
 		scrollBarTransparency = 0.28,
@@ -1159,12 +1161,12 @@ local function ShopView(_param)
 			element = codesPane,
 		})
 	else
+		local catalogH = math.max(offerStride, #offerRows * offerStride)
 		table.insert(sections, {
 			id = "list",
-			fill = true,
-			minHeight = math.max(180, offerStride * 2),
+			height = catalogH,
 			element = React.createElement(Panel, {
-				size = UDim2.fromScale(1, 1),
+				size = UDim2.new(1, 0, 0, catalogH),
 				accent = Palette.mango,
 				background = Palette.panel,
 				padding = 0,

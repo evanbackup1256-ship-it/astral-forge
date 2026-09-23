@@ -19,6 +19,7 @@ local files = {
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/clientStore.luau",
 	"src/Client/AstralForge/layoutGuard.luau",
+	"src/Client/AstralForge/layoutGeom.luau",
 	-- Hot pages (keep in sync with scripts/verify_playability.luau HOT_PAGES)
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",

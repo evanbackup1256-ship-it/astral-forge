@@ -391,6 +391,7 @@ local function NoticeCard(props)
 		Position = UDim2.fromOffset(40, 22),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		Text = notice.body,
 		TextColor3 = bodyColor,
 		TextTransparency = fade:map(function(amount)
@@ -399,10 +400,14 @@ local function NoticeCard(props)
 		TextSize = bodySize,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		TextScaled = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 105,
-	}), count > 1 and React.createElement("frame", {
+	}, React.createElement("uitextsizeconstraint", {
+		MinTextSize = 9,
+		MaxTextSize = bodySize,
+	})), count > 1 and React.createElement("frame", {
 		Size = UDim2.fromOffset(24, 16),
 		Position = UDim2.new(1, -(dismiss + 30), 0, 6),
 		BackgroundColor3 = color,
@@ -659,8 +664,12 @@ local function ToastRail(_param)
 	local rendered = React.useMemo(_exp, { _result_1, plan.mobile, reducedMotion, remove, setHovered, stack, visible })
 	local hiddenCount = math.max(0, #live - maxVisible)
 	local useCustom = mobileLayout ~= nil
-	local defaultPosition = if stack then UDim2.new(0.5, 0, 1, -(plan.tabBarH + plan.bottomSafe + 14)) else UDim2.new(1, -20, 1, -(plan.bottomSafe + 28))
-	local defaultAnchor = if stack then Vector2.new(0.5, 1) else Vector2.new(1, 1)
+	-- Desktop notices sit at the bottom of the nav column so they don't cover
+	-- the page's right-hand stats or the goal badge.
+	local defaultPosition = if stack
+		then UDim2.new(0.5, 0, 1, -(plan.tabBarH + plan.bottomSafe + 14))
+		else UDim2.new(0, Layout.sidebarWidth + 16, 1, -(plan.bottomSafe + 16))
+	local defaultAnchor = if stack then Vector2.new(0.5, 1) else Vector2.new(0, 1)
 	return React.createElement("frame", {
 		Size = UDim2.new(0, railW, 0, railHeight),
 		Position = if useCustom then UDim2.fromScale(customX, customY) else defaultPosition,

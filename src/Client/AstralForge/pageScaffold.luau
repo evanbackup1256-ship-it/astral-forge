@@ -1,6 +1,16 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Palette = require(script.Parent.theme).Palette
 local planFillHeight = require(script.Parent.pageScaffoldPlan).planFillHeight
+local planFittedHeights = require(script.Parent.pageScaffoldPlan).planFittedHeights
+local function SpringSection(props)
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, math.max(0, props.height)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = props.layoutOrder,
+		ClipsDescendants = false,
+	}, props.element)
+end
 -- PageScaffold — the one vertical-stack layout primitive pages should use instead of hand-
 -- computed absolute bands. Every "mobile layout bug" class this project has hit (negative
 -- heights from `Size = 1, -(a + b + c)`, action bars landing on top of lists, content that
@@ -83,7 +93,7 @@ local function PageScaffold(_param)
 	end
 	-- ▲ ReadonlyArray.find ▲
 	local fillSection = _result
-	local fillHeight = planFillHeight(sections, available, gap, tailPad)
+	local fittedHeights = planFittedHeights(sections, available, gap, tailPad)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -101,22 +111,14 @@ local function PageScaffold(_param)
 		local _attributes = {
 			key = section.id,
 		}
-		local _result_3
-		if section.fill == true then
-			_result_3 = fillHeight
-		else
-			local _condition = section.height
-			if _condition == nil then
-				_condition = 0
-			end
-			_result_3 = _condition
+		local _result_3 = fittedHeights[index + 1]
+		if _result_3 == nil then
+			_result_3 = 0
 		end
-		_attributes.Size = UDim2.new(1, 0, 0, _result_3)
-		_attributes.BackgroundTransparency = 1
-		_attributes.BorderSizePixel = 0
-		_attributes.LayoutOrder = index
-		_attributes.ClipsDescendants = false
-		return React.createElement("frame", _attributes, section.element)
+		_attributes.height = _result_3
+		_attributes.layoutOrder = index
+		_attributes.element = section.element
+		return React.createElement(SpringSection, _attributes)
 	end
 	for _k, _v in sections do
 		_newValue[_k] = _callback_2(_v, _k - 1, sections)

@@ -343,9 +343,15 @@ local function NumberSpinnerHost(_param)
 		lastMantissaRef.current = nil
 		lastBandRef.current = ""
 		if spinner ~= nil then
-			pcall(function()
-				return spinner.Destroy()
+			local frame = spinner.Frame
+			local destroyed = pcall(function()
+				spinner:Destroy()
 			end)
+			if not destroyed and typeof(frame) == "Instance" then
+				pcall(function()
+					frame:Destroy()
+				end)
+			end
 		end
 		local guide = guideRef.current
 		if guide ~= nil then
@@ -390,7 +396,8 @@ local function NumberSpinnerHost(_param)
 			return nil
 		end
 		local existing = spinnerRef.current
-		if existing ~= nil and existing.Parent ~= nil then
+		local existingFrame = if existing ~= nil then existing.Frame else nil
+		if typeof(existingFrame) == "Instance" and existingFrame.Parent ~= nil then
 			return existing
 		end
 		destroySpinner()
@@ -403,6 +410,11 @@ local function NumberSpinnerHost(_param)
 		if fallback ~= nil then
 			fallback.Visible = false
 			fallback.TextTransparency = 1
+		end
+		for _, child in host:GetChildren() do
+			if child.Name == "NumberSpinnerGuide" or string.sub(child.Name, 1, 8) == "Spinner_" then
+				child:Destroy()
+			end
 		end
 		local style = styleRef.current
 		local guide = Instance.new("TextLabel")
@@ -697,15 +709,21 @@ local function NumberSpinnerHost(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		Text = label,
 		TextColor3 = color,
 		TextSize = size,
 		FontFace = SPINNER_FONT,
 		TextXAlignment = align,
 		TextYAlignment = Enum.TextYAlignment.Center,
+		TextScaled = true,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextStrokeTransparency = 1,
 		ZIndex = zIndex,
-	})))
+	}, React.createElement("uitextsizeconstraint", {
+		MinTextSize = math.min(10, math.max(1, size)),
+		MaxTextSize = math.max(size, 1),
+	}))))
 end
 return {
 	NumberSpinnerHost = NumberSpinnerHost,

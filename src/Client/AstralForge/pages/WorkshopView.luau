@@ -364,7 +364,9 @@ local function UpgradeBoard(_param)
 	-- Portrait: title + Buy All + search/filters. Landscape: Buy All only.
 	-- Keep machines above the fold — every 20px of header is a lost buy CTA.
 	local stackControlsY = if chrome.landscape then 40 else 56
-	local headerHeight = if chrome.landscape and stack then 92 elseif stack then 168 else (if controlsWrap then 184 else 156)
+	-- Header must clear the search row. A short section lets those controls
+	-- paint on top of the first machine cards.
+	local headerHeight = if chrome.landscape and stack then 136 elseif stack then 268 else (if controlsWrap then 232 else 188)
 	local rowH = PageBoardHeights.Machine(stack)
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1

@@ -437,9 +437,11 @@ local function PrizeWheelMachine(_param)
 	local segment = 360 / count
 	local innerDiameter = math.floor(diameter * 0.84)
 	local compactMachine = diameter < 230
-	local medallionSize = math.floor(math.clamp(diameter * 0.145, if compactMachine then 32 else 36, 54))
-	local hubSize = math.floor(math.clamp(diameter * 0.225, if compactMachine then 58 else 66, 94))
-	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 12
+	local roughRadius = innerDiameter / 2 - 24
+	local span = (2 * math.pi * math.max(48, roughRadius)) / count
+	local medallionSize = math.floor(math.clamp(math.min(diameter * 0.11, span * 0.56), 22, 40))
+	local hubSize = math.floor(math.clamp(diameter * 0.2, if compactMachine then 52 else 60, 84))
+	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 10
 	local landing = useFlash(controller.impactNonce, softMotion, if antilag.tier < 1 then 0.34 else 0.56)
 	local launch = useFlash(controller.launchNonce, softMotion, 0.58)
 	-- Decorative hub glow + idle orbit only when ambient is allowed and antilag tier is 2+.
@@ -481,7 +483,7 @@ local function PrizeWheelMachine(_param)
 	}):map(function(_param_1)
 		local tick = _param_1.tick
 		local hit = _param_1.landing
-		return UDim2.new(0.5, 0, 0, -5 - tick * 4 - hit * 5)
+		return UDim2.new(0.5, 0, 0, 10 - tick * 3 - hit * 3)
 	end)
 	local wheelGlow = controller.spinEnergy:map(function(energy)
 		return 0.95 - energy * 0.16 * antilag.glowScale
@@ -514,7 +516,7 @@ local function PrizeWheelMachine(_param)
 		Scale = carrierScale,
 	})
 	local _exp_3 = React.createElement("frame", {
-		Size = UDim2.new(1, 22, 1, 22),
+		Size = UDim2.new(1, -16, 1, -16),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Rotation = idleOrbit,
@@ -1190,6 +1192,14 @@ local function WheelView(props)
 	local consoleH = if shortLandscape then 198 elseif chrome.contentStack then 230 else 232
 	local stageH = if split then math.max(wheelDiameter, consoleH) else wheelDiameter + 16 + consoleH
 	local panelH = headerH + stageH + Layout.cardPadding * 2
+	local tablePeek = 28 + 140
+	local pageBudget = math.max(420, viewport.height - 110)
+	if panelH + tablePeek > pageBudget then
+		local shrink = panelH + tablePeek - pageBudget
+		wheelDiameter = math.max(200, wheelDiameter - shrink)
+		stageH = if split then math.max(wheelDiameter, consoleH) else wheelDiameter + 16 + consoleH
+		panelH = headerH + stageH + Layout.cardPadding * 2
+	end
 	local headerReveal = useStagger(0, softMotion)
 	local _result
 	if controller.winner >= 0 then
@@ -1260,7 +1270,7 @@ local function WheelView(props)
 					size = if shortLandscape then 16 elseif chrome.contentStack then 18 else 21,
 					color = Palette.cream,
 					weight = Enum.FontWeight.Heavy,
-					fit = true,
+					fit = false,
 					minSize = if narrowPortrait then 10 else 15,
 					wrap = narrowPortrait,
 					position = UDim2.fromOffset(0, if shortLandscape then 14 else 18),
@@ -1269,7 +1279,7 @@ local function WheelView(props)
 					value = descriptor,
 					size = if narrowPortrait then 9 else 10,
 					color = Palette.muted,
-					fit = not narrowPortrait,
+					fit = false,
 					wrap = narrowPortrait,
 					position = UDim2.fromOffset(0, if narrowPortrait then 57 elseif shortLandscape then 36 else 46),
 					sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 18 else 16),
@@ -1279,7 +1289,7 @@ local function WheelView(props)
 					AnchorPoint = if split then Vector2.new(0.5, 0.5) else Vector2.new(0.5, 0),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
-					ClipsDescendants = false,
+					ClipsDescendants = true,
 				}, React.createElement(PrizeWheelMachine, {
 					rewards = rewards,
 					controller = controller,

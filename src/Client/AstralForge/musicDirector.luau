@@ -193,6 +193,7 @@ local function smoothstep(alpha)
 	local t = math.clamp(alpha, 0, 1)
 	return t * t * (3 - 2 * t)
 end
+local activeDirector = nil
 local function makeDeck(name, group)
 	local sound = Instance.new("Sound")
 	sound.Name = name
@@ -375,6 +376,10 @@ do
 		if self.started or self.disposed then
 			return nil
 		end
+		if activeDirector ~= nil and activeDirector ~= self and not activeDirector.disposed then
+			activeDirector:dispose()
+		end
+		activeDirector = self
 		self.started = true
 		self.rotateBed = false
 		self:clearTransition()
@@ -650,6 +655,9 @@ do
 		end
 		self.disposed = true
 		self.started = false
+		if activeDirector == self then
+			activeDirector = nil
+		end
 		self.transitionToken += 1
 		self:clearTransition()
 		if self.startDelay ~= nil then

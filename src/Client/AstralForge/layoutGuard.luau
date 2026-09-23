@@ -8,27 +8,36 @@ local ClientLog = require(script.Parent.log).ClientLog
 -- import of this file would otherwise create (framework/index.ts -> layoutGuard.ts -> back to
 -- framework/index.ts). Keep this a `import type` — switching it to a value import would
 -- reintroduce that cycle.
--- A generic runtime layout-repair pass: watches a designated GUI root for the specific
--- failure shapes that actually happen in this app (a ScrollingFrame's CanvasSize falling out
--- of sync with its real content so the player can't scroll to the bottom; a stray
--- GuiObject rendered with degenerate/off-screen geometry after a bad state transition;
--- two interactive controls stacked so the top one silently eats the bottom one's input) and
--- applies the narrow, safe correction for each one. It does not attempt general "does this
--- look right" layout reasoning — that would be far too prone to false-positiving on
--- deliberately overlapping decorative frames (glows, gradients, accent bars) that this UI
--- uses constantly. An element opts out of the overlap check entirely by setting the
--- "LayoutGuardIgnore" attribute to true, which is the same escape hatch decorative composed
--- stacks (IconTile glow layers, Panel accent bars, etc.) already need.
-local SCAN_INTERVAL_SECONDS = 0.75
+-- Layout guard for a UI-only game.
+-- React and the engine layout objects already place almost everything. This pass
+-- only repairs what they leave behind, and it refuses to fight them:
+--   * text that spills its box, and buttons clipped on a wild aspect ratio
+--   * CanvasGroup positions that land on a fractional pixel (that is what blurs them)
+--   * a scrolling canvas that is shorter than its content
+-- It walks a small slice of the tree per tick, writes a property only when the
+-- measured defect is still there, and gives up if a write does not stick. That
+-- keeps the screen from flickering and keeps AbsoluteSize reads off the hot path.
+local Geom = require(script.Parent.layoutGeom)
+local SCAN_INTERVAL_SECONDS = 2
 local IGNORE_ATTRIBUTE = "LayoutGuardIgnore"
-local MAX_NODES_PER_SCAN = 4000
+local SLICE_BUDGET = 280
+local FIT_SLOP = 6
+local WILD_ASPECT_SLOP = 2
+local MAX_TRIES = 3
+local CANVAS_SHARP_EDGE = 512
 local stats = {
 	scans = 0,
 	canvasDesyncFixed = 0,
 	scrollingReenabled = 0,
 	degenerateHidden = 0,
 	overlapDemoted = 0,
+	outOfBoxFixed = 0,
+	textFitFixed = 0,
+	canvasSharpFixed = 0,
+	gaveUp = 0,
 }
+local tryCount = setmetatable({}, { __mode = "k" })
+local abandoned = setmetatable({}, { __mode = "k" })
 local function isFiniteNumber(value)
 	return value == value and value ~= math.huge and value ~= -math.huge
 end
@@ -50,6 +59,194 @@ end
 local function rectArea(rect)
 	return math.max(0, rect.x1 - rect.x0) * math.max(0, rect.y1 - rect.y0)
 end
+local function engineOwns(gui)
+	if gui:FindFirstChildOfClass("UIFlexItem") ~= nil then
+		return true
+	end
+	local parent = gui.Parent
+	if parent == nil then
+		return false
+	end
+	for _, child in parent:GetChildren() do
+		if child:IsA("UIListLayout") or child:IsA("UIGridLayout") or child:IsA("UIPageLayout") or child:IsA("UITableLayout") then
+			return true
+		end
+	end
+	return false
+end
+local function allowWrite(inst)
+	if abandoned[inst] then
+		return false
+	end
+	local tries = tryCount[inst] or 0
+	if tries >= MAX_TRIES then
+		abandoned[inst] = true
+		stats.gaveUp += 1
+		return false
+	end
+	tryCount[inst] = tries + 1
+	return true
+end
+local function repairText(label)
+	if abandoned[label] or label:GetAttribute(IGNORE_ATTRIBUTE) == true then
+		return nil
+	end
+	if label.Text == "" or not label.Visible then
+		return nil
+	end
+	local size = label.AbsoluteSize
+	if size.X < 8 or size.Y < 8 or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+		return nil
+	end
+	if label.TextFits then
+		tryCount[label] = nil
+		return nil
+	end
+	if not allowWrite(label) then
+		return nil
+	end
+	local wrote = false
+	if not label.TextScaled then
+		label.TextScaled = true
+		wrote = true
+		local constraint = label:FindFirstChildOfClass("UITextSizeConstraint")
+		if constraint == nil then
+			constraint = Instance.new("UITextSizeConstraint")
+			constraint.Name = "LayoutGuardTextFit"
+			constraint.MinTextSize = 8
+			constraint.MaxTextSize = math.clamp(label.TextSize, 8, 42)
+			constraint.Parent = label
+		end
+	elseif not label.TextWrapped and label.TextTruncate == Enum.TextTruncate.None then
+		label.TextTruncate = Enum.TextTruncate.AtEnd
+		wrote = true
+	end
+	if wrote then
+		stats.textFitFixed += 1
+	else
+		abandoned[label] = true
+		stats.gaveUp += 1
+	end
+end
+local function repairButton(button)
+	if button:IsA("TextButton") then
+		repairText(button)
+	end
+	if abandoned[button] or button:GetAttribute(IGNORE_ATTRIBUTE) == true then
+		return nil
+	end
+	local parent = button.Parent
+	if parent == nil or not parent:IsA("GuiObject") or parent:IsA("ScrollingFrame") or engineOwns(button) then
+		return nil
+	end
+	local pad = parent:FindFirstChildOfClass("UIPadding")
+	local parentSize = parent.AbsoluteSize
+	local parentPos = parent.AbsolutePosition
+	local left = if pad ~= nil then pad.PaddingLeft.Scale * parentSize.X + pad.PaddingLeft.Offset else 0
+	local top = if pad ~= nil then pad.PaddingTop.Scale * parentSize.Y + pad.PaddingTop.Offset else 0
+	local right = if pad ~= nil then pad.PaddingRight.Scale * parentSize.X + pad.PaddingRight.Offset else 0
+	local bottom = if pad ~= nil then pad.PaddingBottom.Scale * parentSize.Y + pad.PaddingBottom.Offset else 0
+	local box = Geom.rect(parentPos.X + left, parentPos.Y + top, parentPos.X + parentSize.X - right, parentPos.Y + parentSize.Y - bottom)
+	local pos = button.AbsolutePosition
+	local size = button.AbsoluteSize
+	if not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+		return nil
+	end
+	local rect = Geom.rectFromPosSize(pos.X, pos.Y, size.X, size.Y)
+	if Geom.rectWidth(box) < 8 or Geom.rectHeight(box) < 8 then
+		return nil
+	end
+	if Geom.overflowAmount(rect, box) <= (if math.max(size.X, size.Y) < 64 then WILD_ASPECT_SLOP else FIT_SLOP) then
+		tryCount[button] = nil
+		return nil
+	end
+	if not allowWrite(button) then
+		return nil
+	end
+	local fitted = Geom.fitRect(rect, box, button.AnchorPoint.X, button.AnchorPoint.Y, 28, 28)
+	local dw = Geom.rectWidth(fitted) - size.X
+	local dh = Geom.rectHeight(fitted) - size.Y
+	local shift = Geom.offsetDelta(button.AnchorPoint.X, button.AnchorPoint.Y, fitted.x0 - pos.X, fitted.y0 - pos.Y, dw, dh)
+	button.Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + dw, button.Size.Y.Scale, button.Size.Y.Offset + dh)
+	button.Position = UDim2.new(button.Position.X.Scale, button.Position.X.Offset + shift.x, button.Position.Y.Scale, button.Position.Y.Offset + shift.y)
+	stats.outOfBoxFixed += 1
+end
+local function repairCanvasGroup(group)
+	if abandoned[group] or group:GetAttribute(IGNORE_ATTRIBUTE) == true or engineOwns(group) then
+		return nil
+	end
+	local size = group.AbsoluteSize
+	local pos = group.AbsolutePosition
+	if not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y) or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+		return nil
+	end
+	-- Larger than the sharp raster: resizing it would fight the layout that sized it.
+	if math.max(size.X, size.Y) > CANVAS_SHARP_EDGE then
+		return nil
+	end
+	local dx = Geom.snapPixel(pos.X) - pos.X
+	local dy = Geom.snapPixel(pos.Y) - pos.Y
+	if math.abs(dx) < 0.05 and math.abs(dy) < 0.05 then
+		tryCount[group] = nil
+		return nil
+	end
+	if not allowWrite(group) then
+		return nil
+	end
+	group.Position = UDim2.new(group.Position.X.Scale, group.Position.X.Offset + dx, group.Position.Y.Scale, group.Position.Y.Offset + dy)
+	stats.canvasSharpFixed += 1
+end
+-- AutomaticCanvasSize covers most cases, but any ScrollingFrame that computes CanvasSize
+-- manually can drift short of its content. Grow only; never shrink a canvas that is
+-- intentionally taller for bottom padding. One frame per visit, not a full-tree walk.
+local function repairScrollingFrame(descendant)
+	if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
+		return nil
+	end
+	if not descendant.ScrollingEnabled and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true then
+		descendant.ScrollingEnabled = true
+		stats.scrollingReenabled += 1
+		ClientLog:warnEvery(`layoutguard:scrolldisabled:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`)
+	end
+	if descendant.AutomaticCanvasSize ~= Enum.AutomaticSize.None then
+		return nil
+	end
+	local maxBottom = 0
+	for _, child in descendant:GetChildren() do
+		if child:IsA("UIListLayout") or child:IsA("UIGridLayout") then
+			local layoutContentHeight = child.AbsoluteContentSize.Y
+			if isFiniteNumber(layoutContentHeight) then
+				maxBottom = layoutContentHeight
+			end
+			break
+		end
+	end
+	if maxBottom <= 0 then
+		for _, child in descendant:GetChildren() do
+			if not child:IsA("GuiObject") or not child.Visible then
+				continue
+			end
+			local bottom = child.Position.Y.Scale * descendant.AbsoluteSize.Y + child.Position.Y.Offset + child.Size.Y.Scale * descendant.AbsoluteSize.Y + child.Size.Y.Offset
+			if isFiniteNumber(bottom) then
+				maxBottom = math.max(maxBottom, bottom)
+			end
+		end
+	end
+	if maxBottom <= 0 then
+		return nil
+	end
+	local currentCanvas = descendant.CanvasSize.Y.Offset
+	if currentCanvas + 24 >= maxBottom then
+		tryCount[descendant] = nil
+		return nil
+	end
+	if not allowWrite(descendant) then
+		return nil
+	end
+	descendant.CanvasSize = UDim2.new(descendant.CanvasSize.X.Scale, descendant.CanvasSize.X.Offset, 0, math.ceil(maxBottom))
+	stats.canvasDesyncFixed += 1
+	ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize ({currentCanvas}px) was shorter than its content ({string.format("%.0f", maxBottom)}px) — resynced`)
+end
 -- Roblox already ignores hits on a GuiObject with Visible=false or Active=false, and
 -- InputBegan doesn't fire on descendants covered by a higher-ZIndex sibling that also has
 -- Active=true — that native occlusion is exactly what we're checking hasn't gone wrong here.
@@ -59,7 +256,8 @@ end
 -- pattern this app uses everywhere and must not be touched).
 local function checkOverlappingHitboxes(root)
 	local byParent = {}
-	for _, descendant in root:GetDescendants() do
+	local list = if typeof(root) == "table" then root else root:GetDescendants()
+	for _, descendant in list do
 		if not descendant:IsA("GuiButton") then
 			continue
 		end
@@ -139,97 +337,6 @@ local function checkOverlappingHitboxes(root)
 		end
 	end
 end
--- AutomaticCanvasSize covers most cases, but any ScrollingFrame that computes CanvasSize
--- manually (this app has several, sized off a hand-rolled row/virtualization total) can drift
--- from its real content if a size calculation elsewhere is wrong — the failure mode is
--- "content extends past the bottom of the canvas and the player can never scroll to see it."
--- Detect that specific direction only (canvas too small) and grow it to fit; never shrinks a
--- canvas, since a canvas intentionally taller than content (for bottom padding/safe-area) is
--- normal and not a bug.
-local function checkScrollingFrames(root)
-	for _, descendant in root:GetDescendants() do
-		if not descendant:IsA("ScrollingFrame") then
-			continue
-		end
-		if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
-			continue
-		end
-		if not descendant.ScrollingEnabled and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true then
-			descendant.ScrollingEnabled = true
-			stats.scrollingReenabled += 1
-			ClientLog:warnEvery(`layoutguard:scrolldisabled:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`)
-		end
-		if descendant.AutomaticCanvasSize ~= Enum.AutomaticSize.None then
-			continue
-		end
-		local maxBottom = 0
-		-- Prefer Roblox's own authoritative measurement when a UIListLayout/UIGridLayout is
-		-- driving this frame's children — it already accounts for padding, fill direction, and
-		-- wrapping correctly, which the manual per-child scan below can't fully replicate.
-		local layoutContentHeight
-		for _1, child in descendant:GetChildren() do
-			if child:IsA("UIListLayout") or child:IsA("UIGridLayout") then
-				layoutContentHeight = child.AbsoluteContentSize.Y
-				break
-			end
-		end
-		if layoutContentHeight ~= nil then
-			if isFiniteNumber(layoutContentHeight) then
-				maxBottom = layoutContentHeight
-			end
-		else
-			for _1, child in descendant:GetChildren() do
-				if not child:IsA("GuiObject") or not child.Visible then
-					continue
-				end
-				local bottom = child.Position.Y.Scale * descendant.AbsoluteSize.Y + child.Position.Y.Offset + child.Size.Y.Scale * descendant.AbsoluteSize.Y + child.Size.Y.Offset
-				if isFiniteNumber(bottom) then
-					maxBottom = math.max(maxBottom, bottom)
-				end
-			end
-		end
-		if maxBottom <= 0 then
-			continue
-		end
-		local currentCanvas = descendant.CanvasSize.Y.Offset
-		-- Layouts here already build in their own bottom safe-area padding, so only correct a
-		-- canvas that's actually short of content — a modest margin (24px) avoids fighting
-		-- sub-pixel layout math with a fix-loop on every scan.
-		if currentCanvas + 24 < maxBottom then
-			descendant.CanvasSize = UDim2.new(descendant.CanvasSize.X, UDim.new(0, math.ceil(maxBottom)))
-			stats.canvasDesyncFixed += 1
-			ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize ({currentCanvas}px) was shorter than its content ({string.format("%.0f", maxBottom)}px) — resynced`)
-		end
-	end
-end
--- A GuiObject can end up with NaN/inf geometry after a bad computed Position/Size (e.g. a
--- division by a transient zero during a viewport resize race) — Roblox renders that as
--- either invisible or wildly off-screen depending on platform, so it fails silently instead
--- of erroring. Hiding it is strictly safer than trying to guess a corrected position: a
--- hidden broken element is a visual gap; a guessed-wrong position is fully overlapping the
--- wrong content, which is worse to run into live.
-local function checkDegenerateGeometry(root)
-	for _, descendant in root:GetDescendants() do
-		if not descendant:IsA("GuiObject") then
-			continue
-		end
-		if not descendant.Visible then
-			continue
-		end
-		if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
-			continue
-		end
-		local size = descendant.AbsoluteSize
-		local pos = descendant.AbsolutePosition
-		local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
-		if not broken then
-			continue
-		end
-		descendant.Visible = false
-		stats.degenerateHidden += 1
-		ClientLog:warnEvery(`layoutguard:degenerate:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
-	end
-end
 -- A Flamework controller rather than a plain module: its "root" is the same singleton
 -- ScreenGui that UiRootComponent/DiagnosticsController already resolve via Components DI
 -- (see framework/index.ts), so unlike most systems in this app it has no runtime constructor
@@ -250,7 +357,10 @@ do
 	function LayoutGuardController:constructor(components)
 		self.components = components
 		self.elapsed = 0
-		self.scanning = false
+		self.queue = {}
+		self.cursor = 1
+		self.lastWidth = -1
+		self.lastHeight = -1
 	end
 	function LayoutGuardController:onStart()
 		self.components:onComponentAdded(function(component)
@@ -272,21 +382,60 @@ do
 		if root == nil then
 			return nil
 		end
+		local rootSize = root.AbsoluteSize
+		local resized = rootSize.X ~= self.lastWidth or rootSize.Y ~= self.lastHeight
+		if resized then
+			self.lastWidth = rootSize.X
+			self.lastHeight = rootSize.Y
+			table.clear(tryCount)
+			table.clear(abandoned)
+			self.queue = {}
+			self.cursor = 1
+		end
 		self.elapsed += _dt
-		if self.elapsed < SCAN_INTERVAL_SECONDS then
+		if self.elapsed < SCAN_INTERVAL_SECONDS and not resized then
 			return nil
 		end
 		self.elapsed = 0
-		if self.scanning then
-			return nil
+		if self.cursor > #self.queue then
+			local queue = {}
+			for _, descendant in root:GetDescendants() do
+				if descendant:IsA("TextLabel") or descendant:IsA("TextBox") or descendant:IsA("GuiButton") or descendant:IsA("CanvasGroup") or descendant:IsA("ScrollingFrame") then
+					table.insert(queue, descendant)
+				end
+			end
+			self.queue = queue
+			self.cursor = 1
+			stats.scans += 1
+			checkOverlappingHitboxes(self.queue)
 		end
-		self.scanning = true
-		task.defer(function()
-			checkScrollingFrames(root)
-			checkDegenerateGeometry(root)
-			checkOverlappingHitboxes(root)
-			self.scanning = false
-		end)
+		local budget = SLICE_BUDGET
+		while budget > 0 and self.cursor <= #self.queue do
+			local inst = self.queue[self.cursor]
+			self.cursor += 1
+			budget -= 1
+			if inst.Parent == nil then
+				continue
+			end
+			local size = inst.AbsoluteSize
+			local pos = inst.AbsolutePosition
+			local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
+			if broken and inst:IsA("GuiObject") and inst.Visible and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+				inst.Visible = false
+				stats.degenerateHidden += 1
+				ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
+				continue
+			end
+			if inst:IsA("ScrollingFrame") then
+				repairScrollingFrame(inst)
+			elseif inst:IsA("CanvasGroup") then
+				repairCanvasGroup(inst)
+			elseif inst:IsA("GuiButton") then
+				repairButton(inst)
+			elseif inst:IsA("TextLabel") or inst:IsA("TextBox") then
+				repairText(inst)
+			end
+		end
 	end
 	do
 		-- (Flamework) LayoutGuardController metadata

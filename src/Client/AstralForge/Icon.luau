@@ -386,10 +386,6 @@ function Icon(_param)
 	if spin == nil then
 		spin = true
 	end
-	local reducedMotion = _param.reducedMotion
-	if reducedMotion == nil then
-		reducedMotion = false
-	end
 	local hoverAmount = _param.hoverAmount
 	local clipSafe = _param.clipSafe
 	if clipSafe == nil then
@@ -408,7 +404,7 @@ function Icon(_param)
 	local animated = kind == "Brand" or kind == "World" or kind == "Wheel" or kind == "StarGrid" or kind == "Anomaly" or kind == "Rebirth" or kind == "Flux" or kind == "Core" or kind == "Dust" or kind == "Boost" or kind == "Jackpot"
 	local speed = if kind == "Brand" then 13 elseif kind == "Wheel" then 11 elseif kind == "Anomaly" then 7 elseif kind == "Rebirth" then 9 else 5
 	local scrollSafe = clipSafe or hoverAmount ~= nil
-	local orbitEnabled = iconScale > 0.02 and spin and animated and not reducedMotion and not scrollSafe
+	local orbitEnabled = iconScale > 0.02 and spin and animated and not scrollSafe
 	local rotation = useRotation(orbitEnabled, speed * math.clamp(viewportScale * iconScale, 0, 2))
 	local restingHover = React.useBinding(0)
 	local hover = hoverAmount or restingHover
@@ -419,21 +415,18 @@ function Icon(_param)
 	local visualSize = hover:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
 		local base = 0.94
-		if reducedMotion then
-			return UDim2.fromScale(base, base)
-		end
 		return UDim2.fromScale(base + amount * 0.045, base - amount * 0.018)
 	end)
 	local visualPosition = hover:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
-		return if reducedMotion then UDim2.fromScale(0.5, 0.5) else UDim2.new(0.5, direction * amount * 0.7, 0.5, -math.round(amount * 1.25))
+		return UDim2.new(0.5, direction * amount * 0.7, 0.5, -math.round(amount * 1.25))
 	end)
 	local rimPosition = hover:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
 		return UDim2.new(0.5, direction * (0.25 + amount * 0.65), 0.5, 0.25 + amount * 0.65)
 	end)
 	local rimTransparency = hover:map(function(raw)
-		return if reducedMotion then 1 else 1 - math.clamp(raw, 0, 1) * 0.88
+		return 1 - math.clamp(raw, 0, 1) * 0.88
 	end)
 	local showDepth = hoverAmount ~= nil and antilag.tier >= 2
 	return React.createElement("frame", {

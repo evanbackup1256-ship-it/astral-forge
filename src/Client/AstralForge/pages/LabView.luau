@@ -176,6 +176,8 @@ local function PowerRow(_param)
 	local reducedMotion = _param.reducedMotion
 	local y = _param.y
 	local stack = _param.stack
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local half = POWER_BTN / 2
 	local rowH = if stack then POWER_ROW_H_STACK else POWER_ROW_H
 	local plusX = POWER_BTN + ROW_RIGHT

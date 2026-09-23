@@ -357,8 +357,8 @@ function MoreCell(_param)
 		align = Enum.TextXAlignment.Center,
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(2, 40),
-		sizeConstraint = UDim2.new(1, -4, 0, 26),
+		position = UDim2.new(0, 2, 1, -18),
+		sizeConstraint = UDim2.new(1, -4, 0, 16),
 		zIndex = 206,
 	}))))
 end

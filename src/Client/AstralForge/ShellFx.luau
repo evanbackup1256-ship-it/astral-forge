@@ -166,7 +166,7 @@ local function TradeReturnPill(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(reducedMotion)
-	local pulse = usePulse(not softMotion, 1.35)
+	local pulse = usePulse(true, 1.35)
 	local width = if stack then 176 else 198
 	local height = if stack then 48 else 46
 	local tradeReturnHostRef = React.useRef(nil)
@@ -405,21 +405,6 @@ local function ConfettiBurst(_param)
 		Active = false,
 	}, _newValue, _newValue_1)
 end
-local CHIP_TIPS = {
-	FLUX = {
-		title = "Flux",
-		body = "Spendable cash from your vault. Bank production, then buy machines and research.",
-	},
-	DUST = {
-		title = "Stardust",
-		body = "Premium dust from rebirths and rewards. Spend it on Star Grid routes.",
-	},
-	CORES = {
-		title = "Astral cores",
-		body = "Permanent rebirth currency. Multiplies future runs and unlocks prestige tech.",
-	},
-}
-
 return {
 	TradeReturnPill = TradeReturnPill,
 	AmbientLayer = AmbientLayer,

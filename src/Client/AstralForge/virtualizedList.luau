@@ -76,6 +76,9 @@ local function VirtualizedList(props)
 	local overscan = props.overscan
 	local count = #data
 	local window = useVirtualWindow(count, itemHeight, headerHeight, overscan)
+	local embedded = props.embedded == true
+	local rangeFirst = if embedded then 0 else window.first
+	local rangeLast = if embedded then count - 1 else window.last
 	local ownedRef = React.useRef()
 	local bindRef = function(frame)
 		ownedRef.current = frame
@@ -86,7 +89,7 @@ local function VirtualizedList(props)
 	end
 	local rows = {}
 	do
-		local index = window.first
+		local index = rangeFirst
 		local _shouldIncrement = false
 		while true do
 			if _shouldIncrement then
@@ -94,7 +97,7 @@ local function VirtualizedList(props)
 			else
 				_shouldIncrement = true
 			end
-			if not (index <= window.last) then
+			if not (index <= rangeLast) then
 				break
 			end
 			local item = data[index + 1]
@@ -149,7 +152,15 @@ local function VirtualizedList(props)
 	_attributes.ClipsDescendants = true
 	_attributes.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
 	_attributes.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-	_attributes.Active = true
+	_attributes.Active = not embedded
+	if embedded then
+		-- The page scaffold is the only scroller. An inner ScrollingFrame steals
+		-- the wheel and fights that parent.
+		_attributes.ScrollingEnabled = false
+		_attributes.ScrollBarThickness = 0
+		_attributes.ClipsDescendants = false
+		_attributes.Size = UDim2.new(1, 0, 0, if count > 0 then canvasH else emptyCanvas)
+	end
 	_attributes.Selectable = false
 	_attributes.ZIndex = props.ZIndex
 	_attributes.LayoutOrder = props.layoutOrder

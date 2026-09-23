@@ -35,6 +35,52 @@ local function planFillHeight(sections: { any }, availableHeight: number, gap: n
 	return math.max(minHeight, contentFloor, availableHeight - fixedTotal - gapsTotal - resolvedTail)
 end
 
+-- When only a short sliver of the next card would show, grow the last section that
+-- fully fits so the fold lands on a gap. A large remainder stays scrollable content.
+local function planFittedHeights(sections: { any }, availableHeight: number, gap: number?, tailPad: number?): { number }
+	local resolvedGap = if gap == nil then 10 else gap
+	local fillHeight = planFillHeight(sections, availableHeight, gap, tailPad)
+	local heights = table.create(#sections)
+	for index, section in sections do
+		if section.fill == true then
+			heights[index] = fillHeight
+		else
+			local height = section.height
+			heights[index] = if height == nil then 0 else height
+		end
+	end
+	if availableHeight <= 0 or #heights <= 1 then
+		return heights
+	end
+	local cursor = 0
+	local lastFit = 0
+	for index, height in heights do
+		if cursor + height > availableHeight then
+			break
+		end
+		lastFit = index
+		cursor += height
+		if index < #heights then
+			cursor += resolvedGap
+		end
+	end
+	if lastFit == 0 or lastFit == #heights then
+		return heights
+	end
+	local extra = availableHeight - cursor
+	local nextHeight = heights[lastFit + 1]
+	if nextHeight == nil then
+		nextHeight = 0
+	end
+	-- 96 covers the layout test's 81px peek. Hundreds of leftover pixels are the
+	-- next card, and folding them into the previous section leaves an empty panel.
+	if extra > 0 and extra <= 96 and extra < nextHeight then
+		heights[lastFit] += extra
+	end
+	return heights
+end
+
 return {
 	planFillHeight = planFillHeight,
+	planFittedHeights = planFittedHeights,
 }

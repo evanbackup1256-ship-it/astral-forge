@@ -158,6 +158,23 @@ local function ForgeFloorView(_param)
 	local openDomain = _param.openDomain
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local function inputIsPad(inputType)
+		return inputType == Enum.UserInputType.Gamepad1 or inputType == Enum.UserInputType.Gamepad2 or inputType == Enum.UserInputType.Gamepad3 or inputType == Enum.UserInputType.Gamepad4
+	end
+	local padHint, setPadHint = React.useState(function()
+		return inputIsPad(UserInputService:GetLastInputType()) or UserInputService.PreferredInput == Enum.PreferredInput.Gamepad
+	end)
+	React.useEffect(function()
+		local connection = UserInputService.LastInputTypeChanged:Connect(function(inputType)
+			local nextPad = inputIsPad(inputType)
+			setPadHint(function(current)
+				return if nextPad == current then current else nextPad
+			end)
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, {})
 	local antilag = useAntilag()
 	local quiet = reducedMotion or effectsPaused
 	local stack = chrome.contentStack
@@ -1014,8 +1031,8 @@ local function ForgeFloorView(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement(Text, {
-		value = if overheated then "TOO HOT" elseif lastGrade == "PERFECT" then "CRIT" else "CLICK THE FORGE",
-		size = 11,
+		value = if overheated then "TOO HOT" elseif padHint or chrome.tenFoot then "X  STRIKE    ·    Y  BANK" elseif lastGrade == "PERFECT" then "CRIT" else "CLICK THE FORGE",
+		size = if chrome.tenFoot then 18 else 13,
 		color = if overheated then Palette.coral elseif lastGrade == "PERFECT" then Palette.mango else Palette.creamSoft,
 		weight = Enum.FontWeight.Heavy,
 		align = Enum.TextXAlignment.Center,
@@ -1033,7 +1050,7 @@ local function ForgeFloorView(_param)
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, TapTarget),
+		Size = UDim2.new(1, 0, 0, if chrome.tenFoot then 64 else TapTarget),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 1,
@@ -1070,7 +1087,7 @@ local function ForgeFloorView(_param)
 		disabled = not canBank,
 		highlight = vaultFill >= 0.7,
 	}))), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, TapTarget),
+		Size = UDim2.new(1, 0, 0, if chrome.tenFoot then 64 else TapTarget),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 2,

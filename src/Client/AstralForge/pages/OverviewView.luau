@@ -18,8 +18,11 @@ local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local meterFill = _ui.meterFill
 local Panel = _ui.Panel
+local ShimmerText = _ui.ShimmerText
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local NumberSpinnerHost = require(script.Parent.Parent.NumberSpinnerHost).NumberSpinnerHost
+local RebirthPanel = require(script.Parent.RebirthPanel).RebirthPanel
 local _theme = require(script.Parent.Parent.theme)
 local Layout = _theme.Layout
 local Palette = _theme.Palette
@@ -97,11 +100,11 @@ local function ReleaseCountdown(_param)
 			wasLive.current = false
 		end
 	end, { live, softMotion })
-	-- Live wash/orbit are decorative; keep them on high tier only so Overview stays calm under load.
-	local animateLive = live and not softMotion and antilag.allowAmbient
+	-- The live release wash and orbit stay on for the whole countdown.
+	local animateLive = live
 	local pulse = usePulse(animateLive, 2.15)
 	local flash = useFlash(slam, softMotion, 1.2)
-	local orbit = useClock(animateLive and antilag.tier >= 2, 0.48, 1, true)
+	local orbit = useClock(animateLive, 0.48, 1, true)
 	local values = { {
 		label = "DAYS",
 		value = math.floor(remaining / 86400),
@@ -180,8 +183,8 @@ local function ReleaseCountdown(_param)
 					end),
 					Position = orbit:map(function(turn)
 						local angle = turn * math.pi * 2 + index * (math.pi / 4)
-						local radius = 86 + math.sin(turn * math.pi * 2 + index) * 10
-						return UDim2.new(0.5, math.floor(math.cos(angle) * radius), 0.5, math.floor(math.sin(angle) * 22))
+						local radius = 36 + math.sin(turn * math.pi * 2 + index) * 4
+						return UDim2.new(0.5, math.floor(math.cos(angle) * radius), 0.5, math.floor(math.sin(angle) * 12))
 					end),
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundColor3 = if index % 2 == 0 then Palette.mint else Palette.cyan,
@@ -204,7 +207,7 @@ local function ReleaseCountdown(_param)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			ClipsDescendants = false,
+			ClipsDescendants = true,
 		}, _condition, React.createElement("frame", {
 			Size = UDim2.new(0.62, 0, 1, -4),
 			Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -339,32 +342,39 @@ local function Metric(_param)
 	return React.createElement(Panel, {
 		size = size,
 		background = Palette.panelRaised,
-		padding = if compact then 10 else 14,
+		padding = if compact then 8 else 10,
 		layoutOrder = layoutOrder,
 		reveal = reveal,
-	}, React.createElement(Text, {
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = Enum.HorizontalAlignment.Left,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 2),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Text, {
 		value = label,
 		size = 10,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
+		layoutOrder = 0,
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
 	}), React.createElement(Text, {
 		value = value,
-		size = if compact then 18 else 24,
+		size = if compact then 18 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(0, if compact then 16 else 19),
-		sizeConstraint = UDim2.new(1, 0, 0, if compact then 22 else 32),
+		layoutOrder = 1,
+		sizeConstraint = UDim2.new(1, 0, 0, if compact then 22 else 26),
 	}), React.createElement(Text, {
 		value = detail,
-		size = if compact then 9 else 10,
+		size = 11,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
-		position = UDim2.fromOffset(0, if compact then 40 else 56),
-		sizeConstraint = UDim2.new(1, 0, 0, if compact then 14 else 17),
+		layoutOrder = 2,
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
 	}))
 end
 
@@ -497,6 +507,13 @@ local function OverviewView(_param)
 		end
 		return os.time()
 	end)()
+	local fitHeight = nil
+	if chrome.short == true and not stack then
+		local shellTop = 6 + chrome.topbarRows + chrome.panelGap
+		local workspaceChrome = chrome.workspaceHeaderH + 32 + chrome.contentInset
+		local bottom = chrome.bottomSafe + chrome.pagePadding + 12
+		fitHeight = math.max(280, math.floor(viewport.height - shellTop - workspaceChrome - bottom))
+	end
 	local overviewPlan = LayoutSectionPlan.planOverview({
 		stack = stack,
 		phone = phone,
@@ -506,8 +523,10 @@ local function OverviewView(_param)
 		rebirthVisible = rebirthVisible,
 		domainVisible = domainVisible,
 		countdownInPage = countdownInPage,
+		short = chrome.short == true,
 		chromePanelGap = chrome.panelGap,
 		layoutPanelGap = Layout.panelGap,
+		fitHeight = fitHeight,
 	})
 	local heroH = overviewPlan.heroH
 	local rebirthH = overviewPlan.rebirthH
@@ -522,7 +541,9 @@ local function OverviewView(_param)
 	local overviewTail = overviewPlan.overviewTail
 	local columnMax = if stack then math.huge else Layout.contentMaxWidth
 	local columnPad = if not stack and viewport.width >= Layout.contentMaxWidth + 80 then 12 else 0
-	local ctaH = TapTarget
+	local denseHero = chrome.short == true and wideOverview and not phone
+	local readoutRow = if denseHero then heroH - metricCardH - 8 else heroH
+	local ctaH = if denseHero then 40 else TapTarget
 	local heroReadoutH = if landscapePhone then 108 elseif phone then 168 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
 	local opsButtonRows = if stack then 2 else 1
@@ -575,16 +596,16 @@ local function OverviewView(_param)
 		LayoutOrder = 0,
 		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
-		FillDirection = if wideOverview then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
+		FillDirection = if denseHero then Enum.FillDirection.Vertical elseif wideOverview then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, if wideOverview then (if ultraOverview then 16 else 12) else sectionGap),
+		Padding = UDim.new(0, if denseHero then 8 elseif wideOverview then (if ultraOverview then 16 else 12) else sectionGap),
 		VerticalAlignment = Enum.VerticalAlignment.Top,
 	}), React.createElement(Panel, {
 		layoutOrder = 0,
-		size = if wideOverview then UDim2.new(0.62, -6, 1, 0) else UDim2.new(1, 0, 0, heroH),
+		size = if denseHero then UDim2.new(1, 0, 0, readoutRow) elseif wideOverview then UDim2.new(0.62, -6, 1, 0) else UDim2.new(1, 0, 0, heroH),
 		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		background = Palette.panelRaised,
-		padding = if stack then chrome.cardPadding elseif ultraOverview then 22 else 20,
+		padding = if stack then chrome.cardPadding elseif denseHero then 10 elseif ultraOverview then 22 else 20,
 		reveal = heroReveal,
 		highlight = vaultFill >= 0.99 and not effectsPaused,
 		reducedMotion = quietMotion,
@@ -592,18 +613,33 @@ local function OverviewView(_param)
 	}, React.createElement("uigradient", {
 		Color = surfaceGradient(if vaultFill >= 0.99 then Palette.mango else Palette.green, 0.94),
 		Rotation = 62,
+	}), not phone and React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 16),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		HorizontalFlex = Enum.UIFlexAlignment.Fill,
 	}), React.createElement("frame", {
-		Size = if phone then UDim2.new(1, 0, 0, heroReadoutH) else UDim2.new(1, -246, 1, 0),
+		Size = if phone then UDim2.new(1, 0, 0, heroReadoutH) else UDim2.new(0, 0, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+		LayoutOrder = 0,
 		ZIndex = 2,
-	}, React.createElement(Text, {
+	}, React.createElement("uiflexitem", {
+		FlexMode = Enum.UIFlexMode.Fill,
+	}), React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, if landscapePhone or denseHero then 4 else 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}), React.createElement(Text, {
 		value = "CURRENT RUN",
-		size = 10,
+		size = 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
+		layoutOrder = 0,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
 		value = compactNumber(state.Vault),
@@ -612,21 +648,21 @@ local function OverviewView(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 22,
-		position = UDim2.fromOffset(0, if landscapePhone then 12 else 18),
-		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 36 else 54),
+		layoutOrder = 1,
+		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone or denseHero then 36 else 54),
 	}), React.createElement(Text, {
 		value = `of {compactNumber(state.Capacity)} vault capacity`,
 		size = if stack then chrome.labelText else 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(0, if landscapePhone then 46 elseif stack then 70 else 74),
+		layoutOrder = 2,
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Meter, {
 		value = vaultFill,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		reducedMotion = quietMotion,
 		shimmer = vaultFill >= 0.99 and not effectsPaused,
-		position = UDim2.fromOffset(0, if landscapePhone then 66 elseif stack then 96 else 100),
+		layoutOrder = 3,
 		size = UDim2.new(1, 0, 0, 10),
 	}), React.createElement(Text, {
 		value = if vaultFill >= 0.99 then "Vault full — production is being wasted." else `{compactNumber(state.Production)} flux / sec flowing in`,
@@ -634,8 +670,8 @@ local function OverviewView(_param)
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
-		position = UDim2.fromOffset(0, if landscapePhone then 80 elseif stack then 112 else 116),
-		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 22 else 28),
+		layoutOrder = 4,
+		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 22 elseif denseHero then 16 else 28),
 	})), if phone then React.createElement("frame", {
 		Name = "OverviewVaultClaimActions",
 		ref = vaultClaimHostRef,
@@ -695,8 +731,8 @@ local function OverviewView(_param)
 	}))) else React.createElement("frame", {
 		Name = "OverviewVaultClaimActions",
 		ref = vaultClaimHostRef,
-		Size = UDim2.fromOffset(230, 168),
-		Position = UDim2.new(1, -230, 0, 14),
+		Size = if denseHero then UDim2.new(0, 250, 1, 0) else UDim2.fromOffset(230, 168),
+		LayoutOrder = 1,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
@@ -704,7 +740,7 @@ local function OverviewView(_param)
 		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, Layout.controlGap),
+		Padding = UDim.new(0, if denseHero then 4 else Layout.controlGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
 		text = "COLLECT VAULT",
@@ -754,12 +790,12 @@ local function OverviewView(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})))), React.createElement(Flex, {
-		direction = if wideOverview or stack then "column" else "row",
+		direction = if denseHero then "row" elseif wideOverview or stack then "column" else "row",
 		wrap = false,
 		justify = "fill",
 		align = "stretch",
-		gap = if stack then 10 elseif ultraOverview then 12 elseif wideOverview then 8 else 12,
-		size = if wideOverview then UDim2.new(0.38, -6, 1, 0) else UDim2.new(1, 0, 0, metricsH),
+		gap = if stack then 10 elseif denseHero then 8 elseif ultraOverview then 12 elseif wideOverview then 8 else 12,
+		size = if denseHero then UDim2.new(1, 0, 0, metricCardH) elseif wideOverview then UDim2.new(0.38, -6, 1, 0) else UDim2.new(1, 0, 0, metricsH),
 		layoutOrder = 1,
 		exact = true,
 	}, React.createElement(FlexItem, {
@@ -773,7 +809,7 @@ local function OverviewView(_param)
 		detail = `{compactNumber(state.RawProduction)} base`,
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
-		compact = stack,
+		compact = stack or denseHero,
 		reveal = metricsReveal,
 	})), React.createElement(FlexItem, {
 		mode = "fill",
@@ -786,7 +822,7 @@ local function OverviewView(_param)
 		detail = `{compactNumber(state.RunCash)} this run`,
 		accent = Palette.mango,
 		size = UDim2.fromScale(1, 1),
-		compact = stack,
+		compact = stack or denseHero,
 		reveal = metricsReveal,
 	})), React.createElement(FlexItem, {
 		mode = "fill",
@@ -799,7 +835,7 @@ local function OverviewView(_param)
 		detail = `{compactNumber(state.Rebirths)} resets`,
 		accent = Palette.violet,
 		size = UDim2.fromScale(1, 1),
-		compact = stack,
+		compact = stack or denseHero,
 		reveal = metricsReveal,
 	})))),
 			},
@@ -1000,11 +1036,11 @@ local function OverviewView(_param)
 			color = accent,
 			reducedMotion = quietMotion,
 			shimmer = meter >= 0.99 and not effectsPaused,
-			position = UDim2.fromOffset(copyLeft, if stack then notesH - (if cta ~= "" then TapTarget + 28 else 28) else notesH - 40),
+			position = UDim2.fromOffset(copyLeft, if stack then notesH - (if cta ~= "" then TapTarget + 28 else 28) else notesH - 52),
 			size = UDim2.new(1, copyWidth - copyLeft, 0, 8),
 		}), not stack and React.createElement("frame", {
-			Size = UDim2.fromOffset(196, 108),
-			Position = UDim2.new(1, -196, 0, 4),
+			Size = UDim2.fromOffset(196, 112),
+			Position = UDim2.new(1, -196, 0.5, -56),
 			BackgroundColor3 = Palette.ink,
 			BorderSizePixel = 0,
 			ZIndex = 3,
@@ -1069,6 +1105,11 @@ local function OverviewView(_param)
 		highlight = opsClaims > 0 and not effectsPaused,
 		reducedMotion = quietMotion,
 		clips = false,
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 1, -(opsButtonH + 8)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
 	}, React.createElement(Text, {
 		value = (opsGuide and opsGuide.OpsTitle) or "OPS PULSE",
 		size = 10,
@@ -1090,7 +1131,7 @@ local function OverviewView(_param)
 		wrap = true,
 		position = UDim2.fromOffset(0, 46),
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
-	}), React.createElement("frame", {
+	})), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, opsButtonH),
 		Position = UDim2.new(0, 0, 1, -opsButtonH),
 		BackgroundTransparency = 1,

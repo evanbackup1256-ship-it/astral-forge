@@ -167,9 +167,9 @@ local function StarField(_param)
 	local accent = _param.accent
 	local reducedMotion = _param.reducedMotion
 	local antilag = useAntilag()
-	local enabled = not reducedMotion and antilag.tier > 0 and antilag.maxStars > 0 and antilag.allowAmbient
+	local enabled = antilag.tier > 0 and antilag.maxStars > 0 and antilag.allowAmbient
 	local clock = useClock(enabled, if antilag.constrained then 0.7 else 1.1)
-	local starCap = if antilag.constrained then math.min(antilag.maxStars, 3) else antilag.maxStars
+	local starCap = antilag.maxStars
 	local budgeted = math.clamp(math.floor(#STARS * antilag.fxBudget), 0, #STARS)
 	local count = if enabled then math.clamp(math.min(budgeted, starCap), 0, #STARS) else 0
 	if count <= 0 then

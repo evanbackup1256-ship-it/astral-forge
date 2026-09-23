@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
 local UserInputService = game:GetService("UserInputService")
 local Icon = require(script.Parent.Icon).Icon
 local useAntilag = require(script.Parent.antilag).useAntilag
@@ -14,9 +15,11 @@ local CountBadge = _ui.CountBadge
 local Text = _ui.Text
 local acquireDropdownPortal = _ui.acquireDropdownPortal
 local releaseDropdownPortal = _ui.releaseDropdownPortal
+local subscribeInputCancellation = _ui.subscribeInputCancellation
 local useButtonChrome = _ui.useButtonChrome
 local _theme = require(script.Parent.theme)
 local Layout = _theme.Layout
+local moreDockHeight = _theme.moreDockHeight
 local Palette = _theme.Palette
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
@@ -246,8 +249,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 10,
-		position = UDim2.fromOffset(56, 10),
-		sizeConstraint = UDim2.new(1, -66, 0, 22),
+		position = UDim2.fromOffset(56, if rowHeight <= 54 then 4 else 10),
+		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 18 else 22),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
 		size = 10,
@@ -255,8 +258,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Bold,
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(56, 34),
-		sizeConstraint = UDim2.new(1, -66, 0, 18),
+		position = UDim2.fromOffset(56, if rowHeight <= 54 then 22 else 34),
+		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 14 else 18),
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
 		zIndex = 12,
@@ -1040,10 +1043,42 @@ local function Navigation(_param)
 	local sectionH = if showSecondarySection then 22 else 0
 	local railCount = if fromMore then #secondaryEntries else (#primaryEntries + #secondaryEntries)
 	local canvasHeight = math.max(1, railCount) * (rowHeight + chrome.railGap) - chrome.railGap + Layout.stackGap * 2 + sectionH
-	local headerHeight = if collapsed then 12 else 48
+	local headerHeight = 12
 	local showBoost = activeBoost ~= nil and not chrome.mobile and page ~= "Rewards" and wallClock ~= nil and openBoosts ~= nil
 	local boostHeight = if showBoost then (if collapsed then 62 else 64) else 0
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
+	local railScrollRef = React.useRef(nil)
+	local railCropRef = React.useRef(0)
+	local railCrop, setRailCrop = React.useState(0)
+	React.useEffect(function()
+		local scroll = railScrollRef.current
+		if scroll == nil then
+			return nil
+		end
+		local function fit()
+			if collapsed or not showSecondarySection then
+				if railCropRef.current ~= 0 then
+					railCropRef.current = 0
+					setRailCrop(0)
+				end
+				return nil
+			end
+			local stride = rowHeight + chrome.railGap
+			local secondaryTop = #primaryEntries * stride + sectionH + chrome.railGap
+			local windowH = scroll.AbsoluteSize.Y + railCropRef.current
+			local sliver = windowH - secondaryTop
+			local next = if sliver > 2 and sliver < rowHeight - 2 then math.floor(sliver) else 0
+			if next ~= railCropRef.current then
+				railCropRef.current = next
+				setRailCrop(next)
+			end
+		end
+		fit()
+		local conn = scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+		return function()
+			conn:Disconnect()
+		end
+	end, { chrome.railGap, collapsed, primaryEntries, rowHeight, sectionH, showSecondarySection })
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	})
@@ -1058,28 +1093,7 @@ local function Navigation(_param)
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 	})
-	local _exp_3 = not collapsed and React.createElement("frame", {
-		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 28),
-		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 10),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(6, 6),
-		Position = UDim2.new(0, 4, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = AppHelpers:pageAccent(page),
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement(Text, {
-		value = "Forge",
-		size = 10,
-		color = Palette.creamSoft,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(18, 0),
-		sizeConstraint = UDim2.new(0.58, -18, 1, 0),
-	}))
+	local _exp_3 = nil
 	local _exp_4 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		Padding = UDim.new(0, chrome.railGap),
@@ -1147,7 +1161,8 @@ local function Navigation(_param)
 		-- FocusClaim rail nav must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement("scrollingframe", {
-		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve)),
+		ref = railScrollRef,
+		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve + railCrop)),
 		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, headerHeight),
 		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
 		AutomaticCanvasSize = Enum.AutomaticSize.None,

@@ -723,12 +723,13 @@ local function EchoForgeView(_param)
 	local patternRows = if stack then 2 else 1
 	local patternSectionH = 30 + patternRows * 88 + math.max(0, patternRows - 1) * sectionGap
 	local inventoryColumns = if stack then 1 else 2
-	local inventoryRows = math.max(1, if stack then #echoes.Inventory else math.ceil(math.max(1, #echoes.Inventory) / inventoryColumns))
-	local inventoryGridH = inventoryRows * INVENTORY_CARD_H + math.max(0, inventoryRows - 1) * sectionGap
+	local EMPTY_VAULT_H = 96
+	local inventoryRows = if #echoes.Inventory == 0 then 0 elseif stack then #echoes.Inventory else math.ceil(#echoes.Inventory / inventoryColumns)
+	local inventoryGridH = if inventoryRows == 0 then EMPTY_VAULT_H else inventoryRows * INVENTORY_CARD_H + math.max(0, inventoryRows - 1) * sectionGap
 	local virtInventory = #echoes.Inventory >= VIRT_INVENTORY_MIN
 	local inventoryRowStride = INVENTORY_CARD_H + sectionGap
 	local inventoryViewportRows = if virtInventory then math.min(inventoryRows, VIRT_INVENTORY_VISIBLE_ROWS) else inventoryRows
-	local inventoryViewportH = if #echoes.Inventory == 0 then inventoryGridH elseif virtInventory then inventoryViewportRows * inventoryRowStride else inventoryGridH
+	local inventoryViewportH = if #echoes.Inventory == 0 then EMPTY_VAULT_H elseif virtInventory then inventoryViewportRows * inventoryRowStride else inventoryGridH
 	local inventorySectionH = 30 + inventoryViewportH
 	local dominant = PATTERN_COPY[echoes.DominantPattern]
 	local chargeFill = echoes.Charge / math.max(1, echoes.ChargeTarget)
@@ -1028,9 +1029,9 @@ local function EchoForgeView(_param)
 		end
 	else
 		inventoryBody = React.createElement(Panel, {
-			size = UDim2.fromScale(1, 1),
+			size = UDim2.new(1, 0, 0, EMPTY_VAULT_H),
 			accent = Palette.lineSoft,
-			padding = 16,
+			padding = 14,
 		}, React.createElement(Icon, {
 			kind = "Wave",
 			color = Palette.muted,
@@ -1050,8 +1051,8 @@ local function EchoForgeView(_param)
 			size = 11,
 			color = Palette.muted,
 			wrap = true,
-			position = UDim2.fromOffset(46, 26),
-			sizeConstraint = UDim2.new(1, -54, 0, 38),
+			position = UDim2.fromOffset(46, 24),
+			sizeConstraint = UDim2.new(1, -54, 0, 28),
 		}))
 	end
 	table.insert(sections, {

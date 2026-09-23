@@ -26,6 +26,7 @@ local beginUiTransition = _motion.beginUiTransition
 local setClockBudget = _motion.setClockBudget
 local setDecorativeMotionFrozen = _motion.setDecorativeMotionFrozen
 local useFlipperSpring = _motion.useFlipperSpring
+local useDynamicLayoutNumber = require(script.Parent.dynamicLayout).useDynamicLayoutNumber
 local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
 local _ui = require(script.Parent.ui)
@@ -36,6 +37,7 @@ local Layout = _theme.Layout
 local Palette = _theme.Palette
 local chromeFor = _theme.chromeFor
 local _format = require(script.Parent.format)
+local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
 local CreditsOverlay = require(script.Parent.pages.CreditsView).CreditsOverlay
@@ -82,6 +84,7 @@ local TUTORIAL_STEPS = { {
 	hint = "The green number is what you've stored.",
 	controls = "Tap CONTINUE  ·  Xbox: A",
 	page = "Overview",
+	watch = "vault",
 }, {
 	title = "Cash it out",
 	goal = "Collect the vault",
@@ -91,6 +94,7 @@ local TUTORIAL_STEPS = { {
 	page = "Overview",
 	cta = "collect",
 	ctaLabel = "COLLECT VAULT",
+	watch = "collect",
 }, {
 	title = "Buy a machine",
 	goal = "Buy Stellar Core",
@@ -100,6 +104,7 @@ local TUTORIAL_STEPS = { {
 	page = "Workshop",
 	cta = "workshop",
 	ctaLabel = "OPEN WORKSHOP",
+	watch = "buy",
 }, {
 	title = "Buy faster",
 	goal = "Try x5 or MAX",
@@ -107,6 +112,7 @@ local TUTORIAL_STEPS = { {
 	hint = "Stay on x1 until prices make sense.",
 	controls = "Xbox: LT / RT changes buy amount",
 	page = "Workshop",
+	watch = "amount",
 }, {
 	title = "Research never resets",
 	goal = "Open Research",
@@ -116,6 +122,7 @@ local TUTORIAL_STEPS = { {
 	page = "Research",
 	cta = "research",
 	ctaLabel = "OPEN RESEARCH",
+	watch = "research",
 }, {
 	title = "Rebirth for cores",
 	goal = "Read the rebirth panel",
@@ -123,6 +130,7 @@ local TUTORIAL_STEPS = { {
 	hint = "Don't rush it. Overview shows the payout before you confirm.",
 	controls = "Tap CONTINUE when you've read the panel",
 	page = "Overview",
+	watch = "rebirth",
 }, {
 	title = "You're set",
 	goal = "Finish the guide",
@@ -130,6 +138,7 @@ local TUTORIAL_STEPS = { {
 	hint = "You get a small Flux bonus for finishing.",
 	controls = "Tap FINISH  ·  Xbox: A",
 	page = "Overview",
+	watch = "finish",
 } }
 local SHELL_CHROME = {
 	railGutter = 18,
@@ -235,7 +244,7 @@ local function AppShell(_param)
 				if _condition_2 == nil then
 					_condition_2 = 0
 				end
-				_result_1 = if _condition_2 >= 0.5 then math.max(52, Layout.topbarHeight - 8) else Layout.topbarHeight
+				_result_1 = if _condition_2 >= 0.5 then math.max(52, chrome.topbarRows - 8) else chrome.topbarRows
 			end
 			_result = _result_1
 		end
@@ -289,6 +298,8 @@ local function AppShell(_param)
 	-- Canonical softMotion antilag gate — AppShell chrome springs drop on soft tiers.
 	local softMotion = reducedMotion or antilagShell.tier <= 1 or not antilagShell.allowAmbient
 	reducedMotion = softMotion
+	local shellTopLive = useDynamicLayoutNumber(shellTop, softMotion)
+	local topbarLive = useDynamicLayoutNumber(topbarHeight, softMotion)
 	React.useEffect(function()
 		Audio:setView(page, false)
 	end, { page })
@@ -996,6 +1007,7 @@ local function AppShell(_param)
 			width = viewport.width,
 			topPad = topPad,
 			barHeight = topbarHeight,
+			barHeightMotion = topbarLive,
 			edgePad = edgePad,
 			reducedMotion = softMotion,
 		}
@@ -1115,8 +1127,12 @@ local function AppShell(_param)
 	end
 	local gamepadReserve = if gamepadActive then 44 else 0
 	local _exp_8 = React.createElement("frame", {
-		Size = UDim2.new(1, -edgePad * 2, 1, -(shellTop + bottomPad + gamepadReserve)),
-		Position = UDim2.fromOffset(edgePad, shellTop),
+		Size = shellTopLive:map(function(top)
+			return UDim2.new(1, -edgePad * 2, 1, -(top + bottomPad + gamepadReserve))
+		end),
+		Position = shellTopLive:map(function(top)
+			return UDim2.fromOffset(edgePad, top)
+		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, _exp_6, _exp_7, _condition_19)
@@ -1220,6 +1236,19 @@ local function AppShell(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = softMotion,
 	}))
+	local ownedMachines = 0
+	local machineTable = state.Machines
+	if type(machineTable) == "table" then
+		for _, level in machineTable do
+			local amount = level
+			if type(amount) == "table" then
+				amount = amount.Level or amount.level or 0
+			end
+			if type(amount) == "number" and amount > 0 then
+				ownedMachines += 1
+			end
+		end
+	end
 	local _exp_14 = not state.Flags.TutorialDone and tutorial ~= nil and React.createElement(TutorialOverlay, {
 		copy = tutorial,
 		step = tutorialStep,
@@ -1227,6 +1256,14 @@ local function AppShell(_param)
 		viewportWidth = viewport.width,
 		viewportHeight = viewport.height,
 		reducedMotion = softMotion,
+		live = {
+			page = page,
+			vault = compactNumber(state.Vault),
+			vaultFlux = asFlux(state.Vault),
+			production = compactNumber(state.Production),
+			ownedMachines = ownedMachines,
+			buyAmount = buyAmount,
+		},
 		ctaLabel = tutorial.ctaLabel,
 		onCta = if tutorial.cta == "collect" then function()
 			return dispatch("CollectVault")

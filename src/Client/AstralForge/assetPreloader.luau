@@ -213,7 +213,7 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		local queue = {}
 		collectStaticContent(seenContentIds, queue)
 		collectConfigContent(seenContentIds, queue)
-		collectMountedContent(seenInstances, queue, false)
+		collectMountedContent(seenInstances, queue, true)
 		-- Atlas tint/size variants and sprite frames share the same underlying asset ID.
 		-- Preloading thousands of temporary UI instances bought no network coverage.
 		local warmupTotal = 0
@@ -297,14 +297,8 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		while not cancelled and shellReady ~= nil and not shellReady() and os.clock() - startedAt < PRELOAD_FAIL_OPEN_SECONDS do
 			RunService.Heartbeat:Wait()
 		end
-		-- The first pass covered the static manifest and all currently mounted UI content,
-		-- which is enough for the shell to render. Mark boot ready now and keep warming
-		-- late-loading assets in the background.
-		markBootReady()
-		if watchdog ~= nil then
-			task.cancel(watchdog)
-			watchdog = nil
-		end
+		-- Stay on the loading screen until the stability sweeps finish. The game
+		-- then opens with those assets already resident instead of hitching in.
 		local stableSweeps = 0
 		do
 			local sweep = 0
@@ -376,6 +370,11 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		if failedBatches > 0 or failedAssets > 0 then
 			ClientLog:warn("Assets", `{failedAssets} assets and {failedBatches} batches will stream on demand`)
 		end
+		markBootReady()
+		if watchdog ~= nil then
+			task.cancel(watchdog)
+			watchdog = nil
+		end
 		ClientLog:once("asset-preload-ready", "assets", `{loaded} assets ready in {string.format("%.2f", os.clock() - startedAt)}s`)
 		worker = nil
 	end)
@@ -402,6 +401,80 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		watchdog = nil
 	end
 end
+local MODULE_FRAME_BUDGET = if UserInputService.TouchEnabled then 0.006 else 0.008
+local function collectModuleScripts(root, seen, list)
+	if root == nil or seen[root] ~= nil then
+		return nil
+	end
+	seen[root] = true
+	if root:IsA("ModuleScript") then
+		table.insert(list, root)
+	end
+	for _, child in root:GetDescendants() do
+		if child:IsA("ModuleScript") and seen[child] == nil then
+			seen[child] = true
+			table.insert(list, child)
+		end
+	end
+end
+local function skipWarmModule(moduleScript)
+	local name = moduleScript.Name
+	if name == "TestBootstrap" or string.sub(name, -5) == ".spec" or string.sub(name, -5) == ".test" then
+		return true
+	end
+	local fullName = moduleScript:GetFullName()
+	-- Compiled roblox-ts packages read their runtime from _G[script]. A raw require
+	-- leaves that nil, prints "attempt to index nil with 'import'", and caches the
+	-- module as failed for the rest of the session.
+	if string.find(fullName, "FlameworkRuntime", 1, true) ~= nil then
+		return true
+	end
+	if string.find(fullName, "node_modules", 1, true) ~= nil then
+		return true
+	end
+	if string.find(fullName, ".tests", 1, true) ~= nil then
+		return true
+	end
+	return false
+end
+local function warmClientModules(onProgress)
+	local seen = {}
+	local modules = {}
+	local replicated = ReplicatedStorage
+	collectModuleScripts(replicated:FindFirstChild("AstralForge"), seen, modules)
+	local playerScripts = Players.LocalPlayer and Players.LocalPlayer:FindFirstChild("PlayerScripts")
+	if playerScripts ~= nil then
+		collectModuleScripts(playerScripts:FindFirstChild("AstralForge"), seen, modules)
+		collectModuleScripts(playerScripts:FindFirstChild("SharedRuntime"), seen, modules)
+	end
+	local total = #modules
+	local loaded = 0
+	local lastReport = 0
+	if onProgress ~= nil then
+		onProgress(0, math.max(total, 1))
+	end
+	local index = 1
+	while index <= total do
+		local sliceStarted = os.clock()
+		while index <= total and os.clock() - sliceStarted < MODULE_FRAME_BUDGET do
+			local moduleScript = modules[index]
+			index += 1
+			if moduleScript.Parent ~= nil and not skipWarmModule(moduleScript) then
+				pcall(require, moduleScript)
+			end
+			loaded += 1
+		end
+		local now = os.clock()
+		if onProgress ~= nil and (index > total or now - lastReport >= 0.12) then
+			lastReport = now
+			onProgress(loaded, total)
+		end
+		RunService.Heartbeat:Wait()
+	end
+	ClientLog:once("module-warm-ready", "modules", `{loaded} modules warm in client, vendor, and packages`)
+	return loaded, total
+end
 return {
 	preloadMountedGame = preloadMountedGame,
+	warmClientModules = warmClientModules,
 }

@@ -287,16 +287,16 @@ local function Text(_param)
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
 	local font = if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold or boldText >= 0.5 then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 	local painted = if surface ~= nil and typeof(color) == "Color3" then ensureContrast(surface, color) else color
-	local _condition = fit
-	if _condition then
-		local _attributes = {}
-		local _condition_1 = minSize
-		if _condition_1 == nil then
-			_condition_1 = math.max(MIN_UI_TEXT_SIZE, size * 0.72)
+	local constraint = false
+	if fit then
+		local floorSize = minSize
+		if floorSize == nil then
+			floorSize = math.max(MIN_UI_TEXT_SIZE, size * 0.72)
 		end
-		_attributes.MinTextSize = math.clamp(math.floor(_condition_1 * textScale), MIN_UI_TEXT_SIZE, scaledSize)
-		_attributes.MaxTextSize = scaledSize
-		_condition = React.createElement("uitextsizeconstraint", _attributes)
+		constraint = React.createElement("uitextsizeconstraint", {
+			MinTextSize = math.clamp(math.floor(floorSize * textScale), MIN_UI_TEXT_SIZE, scaledSize),
+			MaxTextSize = scaledSize,
+		})
 	end
 	return React.createElement("textlabel", {
 		Size = sizeConstraint or UDim2.fromScale(1, 1),
@@ -314,10 +314,10 @@ local function Text(_param)
 		TextWrapped = wrap,
 		TextScaled = fit,
 		LineHeight = if wrap then 1.12 else 1,
-		TextTruncate = if fit then Enum.TextTruncate.None elseif wrap then Enum.TextTruncate.None else Enum.TextTruncate.AtEnd,
+		TextTruncate = if wrap or fit then Enum.TextTruncate.None else Enum.TextTruncate.AtEnd,
 		ZIndex = zIndex,
 		LayoutOrder = layoutOrder,
-	}, _condition)
+	}, constraint)
 end
 local function fontForWeight(weight)
 	return if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
@@ -485,7 +485,7 @@ local function ShimmerText(_param)
 	if shimmerScale == nil then
 		shimmerScale = 1
 	end
-	local want = enabled and shimmerScale > 0.02 and not reducedMotion and not effectsPaused
+	local want = enabled and shimmerScale > 0.02
 	local speed = 1 / math.max(1.2, periodSeconds)
 	local phase = useClock(want, speed, 1, true)
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
@@ -503,17 +503,12 @@ local function ShimmerText(_param)
 	})
 	local _condition = want
 	if _condition then
-		local _condition_1 = fit
-		if _condition_1 then
-			local _attributes = {}
-			local _condition_2 = minSize
-			if _condition_2 == nil then
-				_condition_2 = math.max(MIN_UI_TEXT_SIZE, size * 0.72)
-			end
-			_attributes.MinTextSize = math.clamp(math.floor(_condition_2 * textScale), MIN_UI_TEXT_SIZE, scaledSize)
-			_attributes.MaxTextSize = scaledSize
-			_condition_1 = React.createElement("uitextsizeconstraint", _attributes)
-		end
+		local floorSize = if minSize ~= nil then minSize else MIN_UI_TEXT_SIZE
+		local minText = math.clamp(math.floor(floorSize * textScale + 0.5), MIN_UI_TEXT_SIZE, scaledSize)
+		local shimmerConstraint = React.createElement("uitextsizeconstraint", {
+			MinTextSize = minText,
+			MaxTextSize = scaledSize,
+		})
 		_condition = React.createElement("textlabel", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -525,10 +520,10 @@ local function ShimmerText(_param)
 			FontFace = Font.fromEnum(font),
 			TextXAlignment = align,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			TextScaled = fit,
-			TextTruncate = if fit then Enum.TextTruncate.None else Enum.TextTruncate.AtEnd,
+			TextScaled = true,
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			ZIndex = zIndex + 1,
-		}, _condition_1, React.createElement("uigradient", {
+		}, shimmerConstraint, React.createElement("uigradient", {
 			Color = ColorSequence.new(Palette.white),
 			Transparency = SHIMMER_GLINT,
 			Offset = phase:map(function(amount)
@@ -1053,10 +1048,13 @@ local function CountBadge(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextScaled = false,
+		TextScaled = true,
 		TextWrapped = false,
 		ZIndex = zIndex + 1,
-	}))))
+	}, React.createElement("uitextsizeconstraint", {
+		MinTextSize = 8,
+		MaxTextSize = MIN_UI_TEXT_SIZE,
+	})))))
 end
 local function Panel(_param)
 	local children = _param.children
@@ -1332,7 +1330,7 @@ local function Divider(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
-	local reveal = useEntrance(effectsPaused or motionScale <= 0.08)
+	local reveal = useEntrance(false)
 	return React.createElement("frame", {
 		Size = reveal:map(function(amount)
 			return UDim2.new(math.clamp(amount, 0, 1), 0, 0, 1)
@@ -1388,17 +1386,17 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local active = not disabled
 	-- Press sinks the surface; hover lifts it. Touch uses a deeper press so the
 	-- squash reads under a finger without relying on a hover state that never comes.
-	local liftTarget = if softMotion then 0 elseif disabled then 0 elseif pressed then (if touchChrome then 3 else 2) elseif hovered then -2 else 0
-	local offsetY = useOptionalFlipperSpring(liftTarget, engaged, softMotion, if softMotion then 900 else 780, if softMotion then 40 else 30)
-	local pressAmount = useOptionalFlipperSpring(if disabled or softMotion then 0 elseif pressed then 1 else 0, engaged, softMotion, if softMotion then 900 else 920, 30)
-	local hoverAmount = useOptionalFlipperSpring(if disabled or softMotion then 0 elseif hovered then 1 else 0, engaged, softMotion, if softMotion then 900 else 760, 32)
-	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, engaged, softMotion, if softMotion then 900 else 760, 32)
+	local liftTarget = if disabled then 0 elseif pressed then (if touchChrome then 3 else 2) elseif hovered then -2 else 0
+	local offsetY = useOptionalFlipperSpring(liftTarget, true, false, 780, 30)
+	local pressAmount = useOptionalFlipperSpring(if disabled then 0 elseif pressed then 1 else 0, true, false, 920, 30)
+	local hoverAmount = useOptionalFlipperSpring(if disabled then 0 elseif hovered then 1 else 0, true, false, 760, 32)
+	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, false, 760, 32)
 	-- Impact flash is keyed off popTrigger so every successful activate gets a
 	-- one-shot white wash — previously useFlash(0) never fired.
-	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.2 else 0.26)
-	local popAmount = useOptionalFlipperSpring(popGoal, engaged, softMotion, if softMotion then 900 else 980, 24)
+	local impact = useFlash(popTrigger, false, if touchChrome then 0.2 else 0.26)
+	local popAmount = useOptionalFlipperSpring(popGoal, true, false, 980, 24)
 	React.useEffect(function()
-		if popTrigger <= 0 or softMotion then
+		if popTrigger <= 0 then
 			return nil
 		end
 		setPopGoal(1)
@@ -1413,7 +1411,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	-- hovered -- the sweep clock has to keep running in that case too, or it freezes mid-gradient
 	-- the instant hover ends and leaves a stuck streak baked into the always-visible idle frame
 	-- instead of continuing its loop or fading cleanly away.
-	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not softMotion and hovered
+	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active
 	local shimmer = useClock(shimmerWanted, SHIMMER_SWEEP_SPEED, 1, true)
 	local surfaceSize = pressAmount:map(function()
 		return UDim2.fromScale(1, 1)
@@ -1482,11 +1480,9 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		lastActivationAt.current = now
 		setEngaged(true)
 		setPressed(false)
-		if not softMotion then
-			setPopTrigger(function(current)
-				return current + 1
-			end)
-		end
+		setPopTrigger(function(current)
+			return current + 1
+		end)
 		local pressEnergy = if touchChrome then 1.08 else 1.03
 		if sound ~= false then
 			Audio:play(sound, pressEnergy)
@@ -1634,10 +1630,14 @@ function Button(_param)
 	end
 	local position = _param.position
 	local color = _param.color
-	if color == nil then
-		color = Palette.cream
-	end
 	local textColor = _param.textColor
+	if color == nil then
+		-- Uncolored actions were filling with cream, which reads as a white slab.
+		color = Palette.panelSoft
+		if textColor == nil then
+			textColor = Palette.cream
+		end
+	end
 	local icon = _param.icon
 	local disabled = _param.disabled
 	if disabled == nil then
@@ -1690,7 +1690,7 @@ function Button(_param)
 	local focusRing = _binding.focusRing
 	local touchScale = _binding.touchScale
 	local events = _binding.events
-	local spinnerTurn = useRotation(loading and not reducedMotion, 260)
+	local spinnerTurn = useRotation(loading, 260)
 	local labelHiddenByLoading = useFlipperSpring(if loading then 1 else 0, reducedMotion, 520, 40)
 	-- Error shake: bump `shakeToken` from the caller's failure handler to jitter the button
 	-- horizontally and flash it red, so a rejected action reacts at the point of the tap
@@ -1706,7 +1706,7 @@ function Button(_param)
 	end)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local presence = useExitPresence()
-	local arrival = useEntrance(reducedMotion or effectsPaused)
+	local arrival = useEntrance(false)
 	local visualPosition = React.joinBindings({ arrival, shakeOffsetX }):map(function(values)
 		return UDim2.new(0.5, math.round(values[2]), 0.5, math.round((1 - math.clamp(values[1], 0, 1)) * 8))
 	end)
@@ -1717,8 +1717,8 @@ function Button(_param)
 	local canSelect = _condition
 	-- "You should tap this" idle breathing glow for claim/collect-style highlight buttons —
 	-- only while the action is actually available, gated on ambient FX like other decorative motion.
-	local breatheWanted = highlight and active and not reducedMotion and not effectsPaused
-	local breatheStroke = useGlowStroke(breatheWanted, reducedMotion or effectsPaused, 0.32, 0.22, 0.46, 1.15)
+	local breatheWanted = highlight and active
+	local breatheStroke = useGlowStroke(breatheWanted, false, 0.32, 0.22, 0.46, 1.15)
 	local buttonRef = React.useRef()
 	local assistId = React.useRef(nil)
 	if assistId.current == nil then
@@ -2082,6 +2082,10 @@ local function Meter(_param)
 	if size == nil then
 		size = UDim2.new(1, 0, 0, 8)
 	end
+	local layoutOrder = _param.layoutOrder
+	if layoutOrder == nil then
+		layoutOrder = 0
+	end
 	local reducedMotion = _param.reducedMotion
 	if reducedMotion == nil then
 		reducedMotion = false
@@ -2100,12 +2104,12 @@ local function Meter(_param)
 	local literal = if type(value) == "number" then (if value == value then math.clamp(value, 0, 1) else 0) else nil
 	local empty = literal ~= nil and literal <= METER_EMPTY_EPS
 	local snap = literal ~= nil and (empty or literal >= 0.999)
-	local animateLiteral = literal ~= nil and not snap and not lowMotion
+	local animateLiteral = literal ~= nil and not empty
 	local _condition = literal
 	if _condition == nil then
 		_condition = 0
 	end
-	local eased = useOptionalFlipperSpring(_condition, animateLiteral, lowMotion or snap, 420, 38)
+	local eased = useOptionalFlipperSpring(_condition, animateLiteral, false, 420, 38)
 	local fill = if empty then UDim2.new(0, 0, 1, 0) elseif literal ~= nil and not animateLiteral then UDim2.new(literal, 0, 1, 0) else (if literal ~= nil then eased else value):map(function(amount)
 		local _amount = amount
 		local _condition_1 = type(_amount) == "number"
@@ -2118,8 +2122,8 @@ local function Meter(_param)
 		end
 		return UDim2.new(t, 0, 1, 0)
 	end)
-	local wantShimmer = shimmer and shimmerScale > 0.02 and not reducedMotion and not effectsPaused and not empty
-	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then 1 else 0, wantShimmer, lowMotion or empty, 400, 34)
+	local wantShimmer = shimmer and shimmerScale > 0.02 and not empty
+	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then 1 else 0, true, false, 400, 34)
 	local readyPulse = usePulse(wantShimmer, 2)
 	local shimmerPhase = useClock(wantShimmer, 0.72, 1, true)
 	local _exp = React.createElement("uisizeconstraint", {
@@ -2169,6 +2173,7 @@ local function Meter(_param)
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
+		LayoutOrder = layoutOrder,
 		BackgroundColor3 = Palette.line,
 		BackgroundTransparency = Chrome.meterTrack,
 		BorderSizePixel = 0,
@@ -2780,7 +2785,7 @@ local function SegmentedTabs(_param)
 	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 880, 34)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
-	local tabSweep = useClock(not reducedMotion, SHIMMER_SWEEP_SPEED, 1, true)
+	local tabSweep = useClock(true, SHIMMER_SWEEP_SPEED, 1, true)
 	local _result = options[activeIndex + 1]
 	if _result ~= nil then
 		_result = _result.accent
@@ -3923,7 +3928,7 @@ local function LogoLockup(_param)
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement(Text, {
 		value = if micro or compact then "ASTRAL" else "ASTRAL FORGE",
-		size = if micro then 13 elseif compact then 15 else 19,
+		size = if micro then 14 elseif compact then 16 else 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
@@ -3931,7 +3936,7 @@ local function LogoLockup(_param)
 		sizeConstraint = UDim2.new(1, -textX, 0, if micro then 23 else 26),
 	}), React.createElement(Text, {
 		value = "IDLE FORGE",
-		size = if micro then 8 else 9,
+		size = if micro then 10 else 11,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
 		fit = false,

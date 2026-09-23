@@ -146,7 +146,7 @@ local function ScriptedText(_param)
 		richRef.current = nil
 		if rich ~= nil then
 			pcall(function()
-				return rich.Destroy()
+				rich:Destroy()
 			end)
 		end
 		setLive(false)
@@ -201,7 +201,7 @@ local function ScriptedText(_param)
 					end
 				end)
 			end
-			rich.Render(text, false, true, false)
+			rich:Render(text, false, true, false)
 		end
 		local mountJob = task.defer(tryMount)
 		return function()

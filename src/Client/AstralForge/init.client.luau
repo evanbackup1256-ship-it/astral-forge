@@ -427,6 +427,8 @@ local function ClientBootstrap(_param)
 		_attributes.startedAt = startedAt
 		_attributes.assetsLoaded = status.assetsLoaded
 		_attributes.assetsTotal = status.assetsTotal
+		_attributes.modulesLoaded = status.modulesLoaded
+		_attributes.modulesTotal = status.modulesTotal
 		_attributes.onExitDone = finishBoot
 		_condition_1 = React.createElement(MotionSettingsContext.Provider, {
 			key = "boot",

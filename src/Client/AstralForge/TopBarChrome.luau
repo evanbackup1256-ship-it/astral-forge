@@ -33,6 +33,21 @@ local BoostIconKind = require(script.Parent.boostIconKind)
 local ReleaseClockMath = require(script.Parent.releaseClockMath)
 local Audio = require(script.Parent.audio).Audio
 
+local CHIP_TIPS = {
+	FLUX = {
+		title = "Flux",
+		body = "Spendable cash from your vault. Bank production, then buy machines and research.",
+	},
+	DUST = {
+		title = "Stardust",
+		body = "Premium dust from rebirths and rewards. Spend it on Star Grid routes.",
+	},
+	CORES = {
+		title = "Astral cores",
+		body = "Permanent rebirth currency. Multiplies future runs and unlocks prestige tech.",
+	},
+}
+
 local SHELL_CHROME = {
 	railGutter = 18,
 	topbarControl = 48,
@@ -87,7 +102,7 @@ local function StatChip(_param)
 	local flash = useFlash(gains, reducedMotion)
 	local chipH = if tall then TapTarget else 54
 	local iconSize = if tall then 32 else 28
-	local valueSize = if tall then 17 else 16
+	local valueSize = if tall then 15 else 14
 	local tip = CHIP_TIPS[label]
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
@@ -138,26 +153,29 @@ local function StatChip(_param)
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Padding = UDim.new(0, 0),
 	})
+	local valueMaxW = if tall then 84 else 96
 	local _exp_7 = showLabel and React.createElement("textlabel", {
-		Size = UDim2.new(0, 0, 0, 14),
-		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(valueMaxW, 14),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = label,
 		TextColor3 = ensureContrast(Palette.panel, accent),
-		TextSize = 12,
+		TextSize = 11,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
+		TextScaled = false,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		LayoutOrder = 1,
 	})
 	local _result
 	if placeholder ~= nil or not animateValue or type(value) == "string" then
 		local _attributes = {
-			Size = UDim2.fromOffset(valueSize, 20),
-			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(valueMaxW, 20),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			TextScaled = false,
+			TextTruncate = Enum.TextTruncate.AtEnd,
 		}
 		local _condition = placeholder
 		if _condition == nil then
@@ -170,7 +188,10 @@ local function StatChip(_param)
 		_attributes.TextXAlignment = Enum.TextXAlignment.Left
 		_attributes.TextYAlignment = Enum.TextYAlignment.Center
 		_attributes.LayoutOrder = 2
-		_result = React.createElement("textlabel", _attributes)
+		_result = React.createElement("textlabel", _attributes, React.createElement("uitextsizeconstraint", {
+			MinTextSize = 10,
+			MaxTextSize = valueSize,
+		}))
 	else
 		_result = React.createElement(NumberSpinnerHost, {
 			value = value,
@@ -179,8 +200,8 @@ local function StatChip(_param)
 			duration = 0.55,
 			size = valueSize,
 			color = ensureContrast(Palette.panel, Palette.cream),
-			autoWidth = true,
-			sizeConstraint = UDim2.fromOffset(0, 20),
+			autoWidth = false,
+			sizeConstraint = UDim2.fromOffset(valueMaxW, 20),
 			layoutOrder = 2,
 			zIndex = 3,
 		})
@@ -566,7 +587,6 @@ local function TopbarReleaseCountdown(_param)
 	end, { live, reducedMotion })
 	local pulse = usePulse(live and not reducedMotion, 2.4)
 	local flash = useFlash(slam, reducedMotion, 1.05)
-	local orbit = useClock(live and not reducedMotion, 0.7, 1, true)
 	local days = math.floor(remaining / 86400)
 	local hours = math.floor(remaining / 3600) % 24
 	local minutes = math.floor(remaining / 60) % 60
@@ -622,43 +642,7 @@ local function TopbarReleaseCountdown(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 11),
 	}))
-	local _condition = live and not reducedMotion
-	if _condition then
-		local _exp_3 = { 0, 1, 2, 3, 4, 5 }
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue = table.create(#_exp_3)
-		local _callback = function(index)
-			return React.createElement("frame", {
-				key = index,
-				Size = flash:map(function(amount)
-					return UDim2.fromOffset(3 + math.floor(amount * 3), 3 + math.floor(amount * 3))
-				end),
-				Position = orbit:map(function(turn)
-					local angle = turn * math.pi * 2 + index * (math.pi / 3)
-					return UDim2.new(0.72, math.floor(math.cos(angle) * 34), 0.5, math.floor(math.sin(angle) * 16))
-				end),
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = if index % 2 == 0 then Palette.mint else Palette.cyan,
-				BackgroundTransparency = pulse:map(function(amount)
-					return 0.12 + (1 - amount) * 0.55
-				end),
-				BorderSizePixel = 0,
-				ZIndex = 2,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(1, 0),
-			}))
-		end
-		for _k, _v in _exp_3 do
-			_newValue[_k] = _callback(_v, _k - 1, _exp_3)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		_condition = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 2,
-		}, _newValue)
-	end
+	local _condition = nil
 	local _exp_3 = React.createElement("frame", {
 		Size = UDim2.fromOffset(26, 26),
 		Position = UDim2.fromOffset(9, 11),
@@ -729,16 +713,16 @@ local function TopbarReleaseCountdown(_param)
 			BorderSizePixel = 0,
 			Text = entry.value,
 			TextColor3 = entry.color,
-			TextSize = if live then 18 else 14,
+			TextSize = if live then 15 else 14,
 			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			TextScaled = false,
-			ZIndex = 3,
+			TextTruncate = Enum.TextTruncate.None,
+			ZIndex = 4,
 		}), React.createElement(Text, {
 			value = entry.unit,
-			size = 8,
-			minSize = 7,
+			size = 10,
+			minSize = 9,
 			color = if live then Palette.mint else Palette.muted,
 			weight = Enum.FontWeight.Heavy,
 			fit = true,
@@ -757,7 +741,7 @@ local function TopbarReleaseCountdown(_param)
 		BackgroundColor3 = Palette.ink,
 		BackgroundTransparency = 0.04,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
+		ClipsDescendants = true,
 	}, _exp, _exp_1, _exp_2, _condition, _exp_3, _exp_4, _exp_5, _exp_6, React.createElement("frame", {
 		Size = UDim2.new(1, -(labelW + 7), 1, -6),
 		Position = UDim2.fromOffset(labelW + 5, 3),
@@ -777,6 +761,7 @@ local function TopBar(_param)
 	local width = _param.width
 	local topPad = _param.topPad
 	local barHeight = _param.barHeight
+	local barHeightMotion = _param.barHeightMotion
 	local edgePad = _param.edgePad
 	local reducedMotion = _param.reducedMotion
 	local releaseAt = _param.releaseAt
@@ -791,7 +776,7 @@ local function TopBar(_param)
 	local shortRow = barHeight <= 54 and width < 980
 	local micro = barHeight <= 54 and width < 620
 	local stacked = barHeight > Layout.topbarHeight
-	local chipWidthEstimate = if stacked then 128 elseif micro then 132 else 140
+	local chipWidthEstimate = if stacked then 148 elseif micro then 150 else 164
 	local logoCompact = tight or stacked or barHeight <= Layout.topbarHeight
 	local logoWidth = if micro then 40 elseif stacked then 148 elseif shortRow then 146 elseif logoCompact then 172 else 228
 	local pageTitleW = 0
@@ -946,6 +931,7 @@ local function TopBar(_param)
 		Position = UDim2.fromOffset(12 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap + logoWidth + 14, math.floor((row1H - 48) / 2)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		ZIndex = 22,
 	}, React.createElement(TopbarReleaseCountdown, {
 		releaseAt = releaseAt,
@@ -1098,7 +1084,9 @@ local function TopBar(_param)
 		}, React.createElement(PerformanceStats, _attributes))
 	end
 	return React.createElement("frame", {
-		Size = UDim2.new(1, -edgePad * 2, 0, barHeight),
+		Size = if barHeightMotion ~= nil then barHeightMotion:map(function(height)
+			return UDim2.new(1, -edgePad * 2, 0, height)
+		end) else UDim2.new(1, -edgePad * 2, 0, barHeight),
 		Position = UDim2.fromOffset(edgePad, topPad),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,

@@ -15,8 +15,10 @@ export type OverviewFlags = {
 	rebirthVisible: boolean,
 	domainVisible: boolean,
 	countdownInPage: boolean,
+	short: boolean,
 	chromePanelGap: number,
 	layoutPanelGap: number,
+	fitHeight: number?,
 }
 
 export type OverviewPlan = {
@@ -59,14 +61,17 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 	local rebirthVisible = flags.rebirthVisible == true
 	local domainVisible = flags.domainVisible == true
 	local countdownInPage = flags.countdownInPage == true
+	local short = flags.short == true and not stack
 	local chromePanelGap = tonumber(flags.chromePanelGap) or 10
 	local layoutPanelGap = tonumber(flags.layoutPanelGap) or 14
 
 	local heroH = if landscapePhone
 		then 176
 		elseif phone then 272
-		elseif ultraOverview then 240
-		elseif wideOverview then 232
+		elseif short and wideOverview then 260
+		elseif short then 248
+		elseif ultraOverview then 268
+		elseif wideOverview then 258
 		else 248
 	local rebirthH = if rebirthVisible
 		then (if phone then (if landscapePhone then 248 else 300) else (if ultraOverview then 220 else 208))
@@ -76,12 +81,13 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 		else 0
 	local notesH = if stack
 		then (if landscapePhone then 132 else 168)
-		else (if ultraOverview then 152 else 140)
+		elseif short then 168
+		else (if ultraOverview then 160 else 148)
 	-- Ops Pulse: phone uses a 2×2 claim grid so Collect stays above the fold.
-	local opsH = if landscapePhone then 156 elseif stack then 196 else (if ultraOverview then 168 else 156)
+	local opsH = if landscapePhone then 156 elseif stack then 196 else (if short or ultraOverview then 176 else 172)
 	local metricCardH = if stack
-		then (if landscapePhone then 64 else 86)
-		elseif wideOverview then (if ultraOverview then 76 else 68)
+		then (if landscapePhone then 72 else 92)
+		elseif wideOverview then (if ultraOverview then 84 else 80)
 		else 0
 	local metricsH = if stack then metricCardH * 3 + 16 elseif wideOverview then heroH else 104
 	local countdownH = if countdownInPage
@@ -90,9 +96,29 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
 	local sectionGap = if stack
 		then chromePanelGap
+		elseif short then 10
 		elseif ultraOverview then 18
 		elseif wideOverview then 16
 		else layoutPanelGap
+	-- Short PC windows only have a few hundred pixels under the chrome. Pack the
+	-- hero and the next-goal card into that budget so the fold lands on a gap
+	-- instead of slicing a panel in half.
+	local fitHeight = tonumber(flags.fitHeight)
+	if short and wideOverview and fitHeight ~= nil and fitHeight > 0 then
+		sectionGap = 8
+		metricCardH = 72
+		local heroFloor = 212
+		local notesFloor = 146
+		local pair = heroFloor + notesFloor + sectionGap
+		if fitHeight <= pair then
+			heroH = heroFloor
+			notesH = math.max(140, notesFloor - (pair - fitHeight))
+		else
+			heroH = math.min(240, heroFloor + (fitHeight - pair))
+			notesH = notesFloor
+		end
+		metricsH = heroH
+	end
 	local topBandH = if wideOverview then heroH else heroH + metricsH + sectionGap
 	local sectionCount = 1
 		+ 1
@@ -145,7 +171,7 @@ function LayoutSectionPlan.planWorkspace(flags: WorkspaceFlags): WorkspacePlan
 	elseif stack then
 		headerHeight = workspaceHeaderH
 	else
-		headerHeight = layoutWorkspaceHeaderHeight
+		headerHeight = if workspaceHeaderH > 0 then workspaceHeaderH else layoutWorkspaceHeaderHeight
 	end
 
 	-- Next-goal strip: skip on landscape and whenever the workspace header itself is gone.

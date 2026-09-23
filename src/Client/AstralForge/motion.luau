@@ -342,8 +342,11 @@ local function tickClocks(list, deltaTime, budget)
 			end
 			local advanced = (slot.phase + deltaTime * slot.speed) % slot.period
 			slot.phase = advanced
-			if live < budget then
-				live += 1
+			live += 1
+			-- Advance every clock so phase stays coherent, but only push the
+			-- rotating budget into React. Pushing every binding every frame
+			-- was the main UI cost once dozens of pulses were alive.
+			if offset < math.max(1, budget) then
 				slot.push(advanced)
 			end
 		end
@@ -383,11 +386,11 @@ local function dropClock(slot, realtime)
 	end
 	stopDriverIfIdle()
 end
-local function setContinuousMotionRate(rate)
-	-- Floor at 12 so constrained antilag can target ~18Hz decorative clocks
-	-- without being clamped back up to a desktop-ish 20.
-	continuousRate = math.clamp(math.floor(rate + 0.5), 12, 60)
-	continuousAccumulator = math.min(continuousAccumulator, 1 / continuousRate)
+local function setContinuousMotionRate(_rate)
+	-- Decorative clocks stay on a full frame. Throttling this rate made sweeps
+	-- and pulses look paused on constrained devices.
+	continuousRate = 60
+	continuousAccumulator = 0
 end
 local function setDecorativeMotionFrozen(frozen)
 	if freezeExternal == frozen then
@@ -403,23 +406,9 @@ local function setHitchMotionFrozen(frozen)
 	freezeHitch = frozen
 	applyFrozenFlag()
 end
-local function beginUiTransition(seconds)
-	-- Touch freezes decorative motion briefly so page swaps stay sharp without
-	-- leaving ambient clocks stuck off for a noticeable beat on lower refresh rates.
-	local fallback = if isTouchPrimary() then 0.07 else 0.1
-	local requested = if seconds == nil then fallback else seconds
-	local span = if UserInputService.TouchEnabled then math.clamp(requested, 0.05, 0.08) else math.max(0.06, requested)
-	navFreezeGeneration += 1
-	local generation = navFreezeGeneration
-	freezeNav = true
-	applyFrozenFlag()
-	task.delay(span, function()
-		if generation ~= navFreezeGeneration then
-			return nil
-		end
-		freezeNav = false
-		applyFrozenFlag()
-	end)
+local function beginUiTransition(_seconds)
+	-- Page changes keep their clocks and springs running. Freezing here left
+	-- ambient motion idle until the thaw, and sometimes it never resumed.
 end
 local function isUiTransitioning()
 	return freezeNav
@@ -469,36 +458,25 @@ function ensureDriver()
 				active(clamped)
 			end
 		end
-		if decorativeFrozen then
-			if not ranRealtime then
-				stopDriverIfIdle()
-			end
-			return nil
-		end
-		continuousAccumulator += clamped
-		local step = 1 / continuousRate
-		if continuousAccumulator + 1e-5 < step then
-			return nil
-		end
-		local sampledDelta = continuousAccumulator
-		continuousAccumulator = 0
+		-- Decorative pulses, glows, and ambient clocks advance on the same frame
+		-- as springs. Subsampling them made sweeps hitch and read as idle.
 		if decorativeClockCount > 0 then
-			tickClocks(decorativeClocks, sampledDelta, clockBudget)
+			tickClocks(decorativeClocks, clamped, clockBudget)
 		end
 		if continuousListenerCount > 0 then
 			for active in continuousListeners do
-				active(sampledDelta)
+				active(clamped)
 			end
 		end
 	end)
 end
 function stopDriverIfIdle()
-	if driverHasWork() or driver == nil then
-		return nil
+	-- Stay connected for the whole session. Disconnecting when the last spring
+	-- settled left the next clock or layout change with no driver until something
+	-- else re-armed it, so motion read as idle.
+	if driver == nil then
+		ensureDriver()
 	end
-	driver:Disconnect()
-	driver = nil
-	continuousAccumulator = 0
 end
 local function subscribe(listener)
 	local _listener = listener
@@ -572,16 +550,10 @@ local function useSpring(goal, reducedMotion, stiffness, damping, initial)
 		dampingRatio = math.clamp(damping / 48, 0.52, 0.92),
 	})
 	React.useEffect(function()
-		if reducedMotion or motionScale <= MOTION_OFF_THRESHOLD then
-			ripple:halt()
-			ripple:setGoal(goal)
-			ripple:setPosition(goal)
-		else
-			ripple:setGoal(goal, {
-				frequency = math.max(1.2, effectiveStiffness / 140),
-				dampingRatio = math.clamp(damping / 48, 0.52, 0.92),
-			})
-		end
+		ripple:setGoal(goal, {
+			frequency = math.max(1.2, effectiveStiffness / 140),
+			dampingRatio = math.clamp(damping / 48, 0.52, 0.92),
+		})
 	end, { damping, effectiveStiffness, goal, motionScale, reducedMotion, ripple })
 	return binding
 end
@@ -612,13 +584,7 @@ local function useFlipperSpring(goal, reducedMotion, stiffness, damping, initial
 	React.useEffect(function()
 		local active = motor.current
 		active:configure(effectiveStiffness, damping)
-		if reducedMotion or motionScale <= MOTION_OFF_THRESHOLD then
-			active:halt()
-			active:setPosition(goal)
-			setBinding(goal)
-		else
-			active:setGoal(goal)
-		end
+		active:setGoal(goal)
 	end, { damping, effectiveStiffness, goal, motionScale, reducedMotion, setBinding })
 	React.useEffect(function()
 		return function()
@@ -647,7 +613,7 @@ local function useOtterSpring(goal, reducedMotion, initial, dampingRatio, freque
 	local current = React.useRef(initial)
 	React.useEffect(function()
 		local otter = loadOtter()
-		if reducedMotion or motionScale <= MOTION_OFF_THRESHOLD or otter == nil then
+		if otter == nil then
 			current.current = goal
 			setBinding(goal)
 			return nil
@@ -685,7 +651,6 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
-	local suppressOnMount = React.useRef(React.useContext(EntranceMotionSuppressedContext)).current
 	local scaleRef = React.useRef()
 	local mounted = React.useRef(false)
 	React.useEffect(function()
@@ -693,7 +658,7 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 		if scale == nil then
 			return nil
 		end
-		local still = reducedMotion or suppressOnMount or motionScale <= MOTION_OFF_THRESHOLD
+		local still = false
 		spr.stop(scale)
 		if not mounted.current then
 			mounted.current = true
@@ -778,13 +743,7 @@ local function useOptionalFlipperSpring(goal, enabled, reducedMotion, stiffness,
 		local disconnect = active:onChange(function(value)
 			return setBinding(value)
 		end)
-		if reducedMotion or motionScale <= MOTION_OFF_THRESHOLD then
-			active:halt()
-			active:setPosition(goal)
-			setBinding(goal)
-		else
-			active:setGoal(goal)
-		end
+		active:setGoal(goal)
 		return disconnect
 	end, { damping, effectiveStiffness, enabled, goal, motionScale, reducedMotion, setBinding })
 	React.useEffect(function()
@@ -808,25 +767,10 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 	if easing == nil then
 		easing = easeOutCubic
 	end
-	local _result
-	if reducedMotion then
-		_result = goal
-	else
-		local _condition = initial
-		if _condition == nil then
-			_condition = goal
-		end
-		_result = _condition
-	end
-	local start = _result
+	local start = if initial == nil then goal else initial
 	local binding, setBinding = React.useBinding(start)
 	local current = React.useRef(start)
 	React.useEffect(function()
-		if reducedMotion then
-			current.current = goal
-			setBinding(goal)
-			return nil
-		end
 		local from = current.current
 		if math.abs(from - goal) < 0.001 then
 			current.current = goal
@@ -889,12 +833,6 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 		finished.current = false
 		afterRef.current = after
 		setExiting(true)
-		if reducedMotion then
-			setAmount(0)
-			finished.current = true
-			after()
-			return nil
-		end
 		local startedAt = os.clock()
 		local span = math.max(0.12, duration)
 		local _result = driver.current
@@ -959,7 +897,7 @@ local function useTokenEntrance(token, reducedMotion, duration)
 	if duration == nil then
 		duration = 0.18
 	end
-	local skip = reducedMotion
+	local skip = false
 	local binding, setBinding = React.useBinding(if skip then 1 else 0)
 	local motor = React.useRef()
 	-- Softer entrance spring so page swaps settle deliberately instead of snapping.
@@ -1000,8 +938,7 @@ local function useEntrance(reducedMotion)
 	if reducedMotion == nil then
 		reducedMotion = false
 	end
-	local suppressOnMount = React.useRef(React.useContext(EntranceMotionSuppressedContext)).current
-	local skip = reducedMotion or suppressOnMount
+	local skip = false
 	return useFlipperSpring(1, skip, 560, 34, if skip then 1 else 0)
 end
 local function useStagger(index, reducedMotion, step, duration)
@@ -1014,8 +951,7 @@ local function useStagger(index, reducedMotion, step, duration)
 	if duration == nil then
 		duration = 0.14
 	end
-	local suppressOnMount = React.useRef(React.useContext(EntranceMotionSuppressedContext)).current
-	local skip = reducedMotion or suppressOnMount or index > 8
+	local skip = false
 	local binding, setBinding = React.useBinding(if skip then 1 else 0)
 	local motor = React.useRef()
 	if motor.current == nil then
@@ -1072,7 +1008,7 @@ local function useClock(enabled, speed, period, realtime)
 	-- Scale clock advance by motion settings so reduced/low-motion players get
 	-- quieter ambient loops without every caller needing a second gate.
 	local scaledSpeed = speed * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
-	local live = enabled and speed > 0 and motionScale > MOTION_OFF_THRESHOLD
+	local live = enabled and speed > 0
 	local binding, setBinding = React.useBinding(0)
 	local phase = React.useRef(0)
 	React.useEffect(function()
@@ -1147,7 +1083,7 @@ local function useFlash(trigger, reducedMotion, duration)
 	end
 	local binding, setBinding = React.useBinding(0)
 	React.useEffect(function()
-		if trigger == 0 or reducedMotion or isUiTransitioning() then
+		if trigger == 0 then
 			setBinding(0)
 			return nil
 		end
@@ -1202,7 +1138,7 @@ local function useGlowStroke(active, reducedMotion, rest, near, far, speed)
 			setEverActive(true)
 		end
 	end, { active })
-	local pulse = usePulse(active and not reducedMotion, speed)
+	local pulse = usePulse(active, speed)
 	local blend = useOptionalFlipperSpring(if active then 1 else 0, everActive, reducedMotion, 420, 36)
 	return React.useMemo(function()
 		return React.joinBindings({ pulse, blend }):map(function(values)
@@ -1304,6 +1240,7 @@ local function useViewport()
 		}
 	end, { host, size })
 end
+ensureDriver()
 return {
 	bezierOrbit = bezierOrbit,
 	createFlipperMotor = createFlipperMotor,

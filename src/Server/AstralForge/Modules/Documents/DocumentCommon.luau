@@ -8,13 +8,13 @@ local function requireDocumentService()
 
 	local sibling = script.Parent:FindFirstChild("DocumentService")
 	if sibling then
-		return require(sibling)
+		return (require :: any)(sibling)
 	end
 
 
 	sibling = script.Parent:WaitForChild("DocumentService", 5)
 	if sibling then
-		return require(sibling)
+		return (require :: any)(sibling)
 	end
 
 
@@ -34,7 +34,7 @@ local function requireDocumentService()
 		if packages then
 			local module = packages:FindFirstChild("DocumentService")
 			if module then
-				return require(module)
+				return (require :: any)(module)
 			end
 		end
 	end

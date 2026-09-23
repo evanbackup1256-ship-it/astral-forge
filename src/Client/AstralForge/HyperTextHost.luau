@@ -186,8 +186,13 @@ local function buildKindMarkup(kind, body)
 		return `<color={colorTag(accent)}>{body}</color>`
 	until true
 end
-local function buildMarkup(kind, text)
+local function buildMarkup(kind, text, preview)
 	local body = safeText(text)
+	if preview then
+		local accent = FX_ACCENT[kind] or Palette.cream
+		-- Visible motion without per-card particle emitters. Full kinds stay on the equipped title.
+		return `<interval={REVEAL_STAGGER}><anim=wiggle freq=.7 amp=.22 offset=.1 rot=true loop=true><gradient=true colors={colorTag(accent)};{colorTag(Palette.cream)};{colorTag(accent)} individual=false moveDir=right moveSpeed=.42>{body}</gradient></anim></interval>`
+	end
 	return `<interval={REVEAL_STAGGER}>{buildKindMarkup(kind, body)}</interval>`
 end
 local cachedModule
@@ -287,6 +292,7 @@ local function AnimatedTitle(_param)
 	local width = sizeConstraint or UDim2.new(1, 0, 0, size + 4)
 	local pos = position or UDim2.fromOffset(0, 0)
 	local accent = if kind ~= nil then FX_ACCENT[kind] else Palette.creamSoft
+	local preview = _param.preview == true
 	local live = kind ~= nil and not reducedMotion and text ~= ""
 	local hostRef = React.useRef()
 	local richRef = React.useRef()
@@ -340,7 +346,7 @@ local function AnimatedTitle(_param)
 				return nil
 			end
 			local okRender = pcall(function()
-				return rich:Render(buildMarkup(kind, text), false, false, false)
+				return rich:Render(buildMarkup(kind, text, preview), false, false, false)
 			end)
 			if not okRender then
 				pcall(function()
@@ -364,7 +370,7 @@ local function AnimatedTitle(_param)
 			destroy()
 		end
 		-- eslint-disable-next-line react-hooks/exhaustive-deps
-	end, { live, kind, text, size, align, destroy })
+	end, { live, kind, text, size, align, preview, destroy })
 	local showFallback = not live or not mounted
 	return React.createElement("frame", {
 		Size = width,
@@ -415,6 +421,7 @@ local function AnimatedTitlePreview(_param)
 	if transparency == nil then
 		transparency = 0
 	end
+	local preview = _param.preview == true
 	return React.createElement(AnimatedTitle, {
 		text = text,
 		fx = fx,
@@ -422,6 +429,7 @@ local function AnimatedTitlePreview(_param)
 		reducedMotion = reducedMotion,
 		transparency = transparency,
 		align = Enum.TextXAlignment.Center,
+		preview = preview,
 	})
 end
 return {

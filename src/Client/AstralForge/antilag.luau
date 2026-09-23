@@ -548,7 +548,7 @@ local function infoFromQuality(quality, fps, pressure, hitchScore)
 	-- schedule at desktop densities on thermal-limited hardware.
 	local qEff = if tight then math.min(q, 0.78) else q
 	local tier = if qEff < 0.2 then 0 elseif qEff < 0.44 then 1 elseif qEff < 0.7 then 2 else 3
-	local fxBudget = math.clamp(0.05 + qEff * (if tight then 0.34 else 0.42) + qEff * qEff * (if tight then 0.18 else 0.28), 0.05, if tight then 0.68 else 0.86)
+	local fxBudget = math.clamp(0.05 + qEff * (if tight then 0.28 else 0.34) + qEff * qEff * (if tight then 0.12 else 0.18), 0.05, if tight then 0.52 else 0.7)
 	local renderRate = math.clamp(math.floor((if tight then 12 else 16) + qEff * (if tight then 28 else 34) + 0.5), if tight then 12 else 16, if tight then 42 else 56)
 	return {
 		fps = fps,
@@ -566,7 +566,7 @@ local function infoFromQuality(quality, fps, pressure, hitchScore)
 		allowConfetti = qEff >= (if tight then 0.42 else 0.34),
 		skipEntrance = tight and qEff < 0.32,
 		freezeIcons = tight and qEff < 0.22,
-		maxClocks = math.clamp(math.floor((if tight then 3 else 4) + (if tight then 8 else 12) * qEff + 0.5), if tight then 3 else 4, if tight then 10 else 16),
+		maxClocks = math.clamp(math.floor((if tight then 2 else 3) + (if tight then 6 else 8) * qEff + 0.5), if tight then 2 else 3, if tight then 8 else 12),
 		maxPops = math.clamp(math.floor(1 + (if tight then 2 else 3) * qEff + 0.5), 1, if tight then 3 else 4),
 		maxStars = if qEff < (if tight then 0.5 else 0.42) then 0 else math.clamp(math.floor(qEff * (if tight then 3.5 else 5) + 0.5), 1, if tight then 3 else 5),
 		constrained = tight,
@@ -633,7 +633,12 @@ local function seedAntilagFromBoot(fps)
 	local measured = math.clamp(fps, 8, 120)
 	bootSeededFps = measured
 	local raw = math.clamp((measured - 16) / 44, 0.12, 1)
-	bootSeededQuality = if IS_CONSTRAINED then math.min(raw, 0.74) else raw
+	-- Boot samples run while the shell is still mounting, so they read low.
+	-- A modest floor keeps the first second off tier 0. Steady telemetry
+	-- still pulls quality down when the device is actually slow.
+	local motionFloor = if IS_CONSTRAINED then 0.4 else 0.48
+	local seeded = math.max(raw, motionFloor)
+	bootSeededQuality = if IS_CONSTRAINED then math.min(seeded, 0.74) else seeded
 	for _, listener in bootSeedListeners do
 		listener(bootSeededQuality, measured)
 	end
@@ -726,6 +731,7 @@ local function AntilagProvider(_param)
 		local holdUntil = 0
 		local hitchStrikes = 0
 		local hitchHoldUntil = 0
+		local evaluateStartedAt = os.clock()
 		local evaluate = function(sample)
 			local raw = scoreWindow(sample)
 			slope = slope * 0.55 + (raw - previousScore) * 0.45
@@ -735,36 +741,47 @@ local function AntilagProvider(_param)
 			local touchCeil = if IS_CONSTRAINED then 0.82 else 1
 			local target = math.clamp(raw - scene - prefer, 0.08, touchCeil)
 			local now = os.clock()
-			local spiked = sample.hitchScore >= 0.16 or sample.p99FrameTimeMs >= 56
-			local collapsed = sample.fps < 22 or sample.p95FrameTimeMs >= 48
+			-- Boot frames are fat while the shell mounts. Don't park springs on that.
+			local warming = now - evaluateStartedAt < 1
+			if warming then
+				target = math.max(target, quality)
+			end
+			local spiked = not warming and (sample.hitchScore >= 0.12 or sample.p99FrameTimeMs >= 42)
+			local collapsed = not warming and (sample.fps < 40 or sample.p95FrameTimeMs >= 32)
 			if spiked or collapsed then
 				hitchStrikes += 1
-				hitchHoldUntil = now + (if collapsed then 0.7 else 0.32)
+				hitchHoldUntil = now + (if collapsed then 1.8 else 0.6)
 				setHitchMotionFrozen(true)
 				if collapsed and hitchStrikes >= 2 then
-					target = math.min(target, 0.18)
-					holdUntil = now + 1.1
-				elseif hitchStrikes >= 3 then
-					target = math.min(target, math.max(0.28, quality - 0.14))
-					holdUntil = now + 0.7
+					target = math.min(target, 0.16)
+					holdUntil = now + 2.6
+				elseif hitchStrikes >= 2 then
+					target = math.min(target, math.max(0.22, quality - 0.22))
+					holdUntil = now + 1.4
 				end
 			else
 				hitchStrikes = math.max(0, hitchStrikes - 1)
-				if now >= hitchHoldUntil and sample.hitchScore < 0.07 then
+				if now >= hitchHoldUntil and sample.hitchScore < 0.05 and sample.fps >= 50 then
 					setHitchMotionFrozen(false)
 				end
 			end
-			if slope < -0.04 then
-				target = math.max(0.1, target - 0.08)
+			if sample.fps < 50 and not warming then
+				target = math.min(target, 0.22 + (sample.fps / 50) * 0.4)
+			end
+			if slope < -0.03 and not warming then
+				target = math.max(0.1, target - 0.12)
+			end
+			if warming then
+				target = math.max(target, quality)
 			end
 			local falling = target < quality - 0.02
 			local rising = target > quality + 0.05
 			if falling then
-				local alpha = if collapsed then 0.55 else 0.28
+				local alpha = if collapsed then 0.72 else 0.4
 				quality += (target - quality) * alpha
 				lastDropAt = now
-			elseif rising and now >= holdUntil and now - lastDropAt >= 1.6 and now - lastRiseAt >= 0.7 then
-				quality += (target - quality) * 0.06
+			elseif rising and now >= holdUntil and now - lastDropAt >= 2.2 and now - lastRiseAt >= 1.1 then
+				quality += (target - quality) * 0.08
 				lastRiseAt = now
 			else
 				quality += (target - quality) * 0.02
