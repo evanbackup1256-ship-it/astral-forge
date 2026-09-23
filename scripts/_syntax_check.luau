@@ -14,7 +14,7 @@ local files = {
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/clientStore.luau",
 	"src/Client/AstralForge/layoutGuard.luau",
-	-- Hot pages
+	-- Hot pages (keep in sync with scripts/verify_playability.luau HOT_PAGES)
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
@@ -35,6 +35,11 @@ local files = {
 	"src/Client/AstralForge/pages/StarGridView.luau",
 	"src/Client/AstralForge/pages/MilestonesView.luau",
 	"src/Client/AstralForge/pages/MissionsView.luau",
+	"src/Client/AstralForge/pages/ContinuumView.luau",
+	"src/Client/AstralForge/pages/ConvergenceView.luau",
+	"src/Client/AstralForge/pages/ResearchView.luau",
+	"src/Client/AstralForge/pages/BoostsView.luau",
+	"src/Client/AstralForge/pages/StoryView.luau",
 	"src/Client/AstralForge/OfflineRewardsOverlay.luau",
 	"src/Client/AstralForge/DomainExpansionOverlay.luau",
 	"src/Client/AstralForge/FeedbackOverlay.luau",
