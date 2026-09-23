@@ -176,6 +176,19 @@ assert(
 	"TradeDesk EnsureLedger residual"
 )
 
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Services/ServerServices.luau"), "ProfileClampMath.ClampProgressionNumbers", 1, true),
+	"ServerServices ProfileClamp residual"
+)
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau"), "ProgressionOpsMath.AdvanceQuestProgress", 1, true),
+	"Progression AdvanceQuestProgress residual"
+)
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau"), "ProgressionOpsMath.CanClaimQuest", 1, true),
+	"Progression CanClaimQuest residual"
+)
+
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
 assert(string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress residual")

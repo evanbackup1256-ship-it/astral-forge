@@ -138,6 +138,31 @@ assert(
 assert(ProgressionOpsMath.AchievementProgress({ LifetimeCash = 50 }, "LifetimeCash", nil) == 0, "lifetime needs inject")
 
 ------------------------------------------------------------------------
+-- AdvanceQuestProgress / CanClaimQuest (string Progress/Target evidence)
+------------------------------------------------------------------------
+local items = {
+	{ Id = "a", Kind = "Tap", Progress = "9", Target = "10", Claimed = false },
+	{ Id = "b", Kind = "BuyAny", Progress = 1, Target = 5, Claimed = false },
+	{ Id = "c", Kind = "EarnCash", Progress = 3, Target = 3, Claimed = true },
+}
+assert(ProgressionOpsMath.AdvanceQuestProgress(items, "Tap", 2) == 1, "tap advance count")
+assert(items[1].Progress == 10, "string progress + amount must not concatenate")
+assert(ProgressionOpsMath.AdvanceQuestProgress(items, "BuyMachine", 3) == 1, "BuyAny matches BuyMachine")
+assert(items[2].Progress == 4, "BuyAny progress")
+assert(ProgressionOpsMath.AdvanceQuestProgress(nil, "Tap", 1) == 0, "nil items")
+assert(ProgressionOpsMath.AdvanceQuestProgress(items, "Tap", "2") == 1, "string amount")
+assert(items[1].Progress == 10, "capped at target")
+
+local ok, reason = ProgressionOpsMath.CanClaimQuest(items[1])
+assert(ok == true and reason == "", "claimable after advance")
+local denied, deniedReason = ProgressionOpsMath.CanClaimQuest(items[3])
+assert(denied == false and string.find(deniedReason, "already claimed", 1, true), "claimed deny")
+-- Lexicographic footgun: "9" < "10" is false in Lua — tonumber gate must deny incomplete.
+local incomplete = { Progress = "9", Target = "10", Claimed = false }
+local incompleteOk, incompleteReason = ProgressionOpsMath.CanClaimQuest(incomplete)
+assert(incompleteOk == false and string.find(incompleteReason, "not complete", 1, true), "string 9 < 10 deny")
+
+------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
 local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
@@ -152,6 +177,8 @@ assert(string.find(progressionSrc, "ProgressionOpsMath.CommanderReward", 1, true
 assert(string.find(progressionSrc, "ProgressionOpsMath.TitleUnlocked", 1, true), "Progression TitleUnlocked")
 assert(string.find(progressionSrc, "ProgressionOpsMath.FindById", 1, true), "Progression FindById")
 assert(string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress")
+assert(string.find(progressionSrc, "ProgressionOpsMath.AdvanceQuestProgress", 1, true), "Progression AdvanceQuestProgress")
+assert(string.find(progressionSrc, "ProgressionOpsMath.CanClaimQuest", 1, true), "Progression CanClaimQuest")
 assert(string.find(progressionSrc, "Economy.AsNumber", 1, true), "AchievementProgress injects AsNumber")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true), "DataService EnsureItems")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "DataService EnsureDomain")
@@ -178,5 +205,7 @@ assert(string.find(configSrc, "Wave15ItemsShopSoftMotion", 1, true), "DV21 lab W
 assert(string.find(configSrc, "Wave15OpsCourier", 1, true), "DV21 achievement Wave15OpsCourier")
 assert(string.find(configSrc, "wave15-harden-brief", 1, true), "DV21 story wave15")
 assert(string.find(configSrc, "update-5-1-wave15-harden", 1, true), "DV21 mail wave15")
+assert(string.find(configSrc, "Wave21QuestClampProgress", 1, true), "DV21 lab Wave21QuestClampProgress")
+assert(string.find(configSrc, "wave21-harden-brief", 1, true), "DV21 story wave21")
 
 print("[INFO] [TEST] ProgressionOpsMath extract + Items.Shop Ensures + DV21 append passed")

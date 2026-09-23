@@ -455,6 +455,47 @@ assert(not string.find(telemetrySrc, "GetService", 1, true), "TelemetryMath must
 assert(not string.find(utcClockSrc, "GetService", 1, true), "UtcClockMath must stay pure")
 mark("wave20 monolith network telemetry board residuals")
 
+-- Wave21: ProfileClampMath + AdvanceQuestProgress/CanClaimQuest + Trade/Admin/Story clips.
+local profileClampSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileClampMath.luau")
+assert(string.find(profileClampSrc, "function ProfileClampMath.ClampProgressionNumbers", 1, true), "ProfileClampMath.ClampProgressionNumbers missing")
+assert(string.find(ssReleaseSrc, "ProfileClampMath.ClampProgressionNumbers", 1, true), "ServerServices ProfileClamp residual for release")
+assert(not string.find(profileClampSrc, "GetService", 1, true), "ProfileClampMath must stay pure")
+assert(not string.find(profileClampSrc, "vendor/", 1, true), "ProfileClampMath must not reference vendor/")
+local progressionOpsRelease = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+assert(string.find(progressionOpsRelease, "function ProgressionOpsMath.AdvanceQuestProgress", 1, true), "AdvanceQuestProgress missing")
+assert(string.find(progressionOpsRelease, "function ProgressionOpsMath.CanClaimQuest", 1, true), "CanClaimQuest missing")
+local progressionRelease = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+assert(string.find(progressionRelease, "ProgressionOpsMath.AdvanceQuestProgress", 1, true), "Progression AdvanceQuestProgress residual for release")
+assert(string.find(progressionRelease, "ProgressionOpsMath.CanClaimQuest", 1, true), "Progression CanClaimQuest residual for release")
+local tradeRelease = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+do
+	local hostStart = string.find(tradeRelease, 'Name = "TradeSessionActions"', 1, true)
+	assert(hostStart, "TradeSessionActions host missing for release")
+	local hostSlice = string.sub(tradeRelease, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "TradeSessionActions clips residual for release")
+end
+local adminRelease = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")
+do
+	local hostStart = string.find(adminRelease, 'Name = "AdminExecuteActions"', 1, true)
+	assert(hostStart, "AdminExecuteActions host missing for release")
+	local hostSlice = string.sub(adminRelease, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "AdminExecuteActions clips residual for release")
+end
+local storyRelease = fs.readFile("src/Client/AstralForge/pages/StoryView.luau")
+do
+	local hostStart = string.find(storyRelease, 'Name = "StoryBeatActions"', 1, true)
+	assert(hostStart, "StoryBeatActions host missing for release")
+	local hostSlice = string.sub(storyRelease, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "StoryBeatActions clips residual for release")
+end
+local commandRelease = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
+local commandGateCount = 0
+for _ in string.gmatch(commandRelease, "overscanRows = if softMotion then 0 else 1") do
+	commandGateCount += 1
+end
+assert(commandGateCount >= 3, "Command titles overscan softMotion residual for release")
+mark("wave21 clamp quest trade admin story residuals")
+
 -- Raise floor past checks=22 once pure RunQuick-adjacent monolith extracts land.
 assert(#passed > 22, "release-readiness offline subset must stay beyond checks=22, got " .. tostring(#passed))
 

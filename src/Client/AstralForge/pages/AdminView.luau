@@ -805,6 +805,8 @@ local function AdminView(_param)
 		Position = UDim2.fromOffset(0, EXEC_TITLE + fieldSlots * FIELD_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim ARM/RUN must not clip CTA overshoot.
+		ClipsDescendants = false,
 		ref = executeActionsHostRef,
 	}, React.createElement("frame", {
 		Name = "AdminConfirmRun",

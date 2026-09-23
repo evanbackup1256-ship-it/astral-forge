@@ -657,6 +657,8 @@ local function StoryBeat(_param)
 		Position = UDim2.new(0, 0, 1, -actionsH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim Continue/Back/Claim must not clip CTA overshoot.
+		ClipsDescendants = false,
 		ZIndex = 6,
 	}, actionsElement))
 end
