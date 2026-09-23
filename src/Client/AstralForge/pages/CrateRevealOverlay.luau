@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local InteractionFeedback = require(script.Parent.Parent.interaction).InteractionFeedback
 local _motion = require(script.Parent.Parent.motion)
 local easeOutCubic = _motion.easeOutCubic
@@ -21,6 +22,7 @@ local _ui = require(script.Parent.Parent.ui)
 local Button = _ui.Button
 local Panel = _ui.Panel
 local Text = _ui.Text
+local useGamepadAutofocus = _ui.useGamepadAutofocus
 local CrateRevealStage = require(script.Parent.CrateRevealStageSimple).CrateRevealStage
 local CARD_W = 156
 local CARD_H = 132
@@ -281,33 +283,41 @@ local function CrateRevealExperience(_param)
 		end
 	end, {})
 	local present = live
-	local boatShow = useBoatTween(if present then 1 else 0, if present then 0.3 else EXIT_SETTLE, reducedMotion, easeOutCubic, 0)
-	local show = useFlipperSpring(if present then 1 else 0, reducedMotion, 720, 36)
+	-- Soft boat tweens on antilag tiers avoid Flipper spring chatter during claim/earn moments.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local boatShow = useBoatTween(if present then 1 else 0, if present then 0.3 else EXIT_SETTLE, softMotion, easeOutCubic, 0)
+	local showSpring = useFlipperSpring(if present then 1 else 0, softMotion, 720, 36)
+	local showBoat = useBoatTween(if present then 1 else 0, if present then 0.28 else EXIT_SETTLE, softMotion, easeOutCubic, 0)
+	local show = if softMotion then showBoat else showSpring
 	local landHold = phase == "land" or phase == "done" or phase == "exit"
 	local claimHold = phase == "done" or phase == "exit"
-	local landPop = useFlipperSpring(if landHold then 1 else 0, reducedMotion, 640, 14)
-	local claimSlide = useFlipperSpring(if claimHold then 1 else 0, reducedMotion, 520, 24)
-	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, reducedMotion, 0.62)
-	local chargePulse = useFlipperSpring(if phase == "charge" then 1 else 0, reducedMotion, 360, 19)
-	local currentRoll = session.rolls[math.clamp(rollIndex, 0, #session.rolls - 1) + 1]
+	local landPopSpring = useFlipperSpring(if landHold then 1 else 0, softMotion, 640, 14)
+	local landPopBoat = useBoatTween(if landHold then 1 else 0, 0.22, softMotion, easeOutCubic, 0)
+	local landPop = if softMotion then landPopBoat else landPopSpring
+	local claimSlideSpring = useFlipperSpring(if claimHold then 1 else 0, softMotion, 520, 24)
+	local claimSlideBoat = useBoatTween(if claimHold then 1 else 0, 0.2, softMotion, easeOutCubic, 0)
+	local claimSlide = if softMotion then claimSlideBoat else claimSlideSpring
+	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, softMotion, 0.62)
+	-- Claim CTA flash — intentional polish without noisy springs on low tiers.
+	local claimFlash = useFlash(if phase == "done" then rollIndex + 11 else 0, softMotion, 0.48)
+	local chargePulseSpring = useFlipperSpring(if phase == "charge" then 1 else 0, softMotion, 360, 19)
+	local chargePulseBoat = useBoatTween(if phase == "charge" then 1 else 0, 0.18, softMotion, easeOutCubic, 0)
+	local chargePulse = if softMotion then chargePulseBoat else chargePulseSpring
+	local rolls = session.rolls
+	if type(rolls) ~= "table" then
+		rolls = {}
+	end
+	local currentRoll = rolls[math.clamp(rollIndex, 0, math.max(0, #rolls - 1)) + 1]
 	local strip = React.useMemo(function()
 		return buildStrip(config, session, currentRoll, rollIndex)
 	end, { config, currentRoll, rollIndex, session })
 	local travelDistance = TARGET_OFFSET - START_OFFSET
 	React.useEffect(function()
-		local previousNavigation = GuiService.GuiNavigationEnabled
-		local previousAutoSelect = GuiService.AutoSelectGuiEnabled
-		local previousSelection = GuiService.SelectedObject
 		local previousTouch = GuiService.TouchControlsEnabled
-		GuiService.GuiNavigationEnabled = false
-		GuiService.AutoSelectGuiEnabled = false
-		GuiService.SelectedObject = nil
+		GamepadNavigationService.BeginOverlayFocus()
 		GuiService.TouchControlsEnabled = false
 		return function()
-			GuiService.GuiNavigationEnabled = previousNavigation
-			GuiService.AutoSelectGuiEnabled = previousAutoSelect
-			local restore = if previousSelection ~= nil and previousSelection.Parent ~= nil and previousSelection.AbsoluteSize.X >= 2 and previousSelection.AbsoluteSize.Y >= 2 then previousSelection else nil
-			GuiService.SelectedObject = restore
+			GamepadNavigationService.EndOverlayFocus()
 			GuiService.TouchControlsEnabled = previousTouch
 		end
 	end, {})
@@ -315,25 +325,25 @@ local function CrateRevealExperience(_param)
 		if phase ~= "enter" then
 			return nil
 		end
-		local job = task.delay(if reducedMotion then 0.02 else 0.2, function()
+		local job = task.delay(if softMotion then 0.02 else 0.2, function()
 			return setPhase("charge")
 		end)
 		return function()
 			return task.cancel(job)
 		end
-	end, { phase, reducedMotion })
+	end, { phase, softMotion })
 	React.useEffect(function()
 		if phase ~= "charge" then
 			return nil
 		end
 		Audio:play("crateCharge")
-		local job = task.delay(if reducedMotion then 0.02 else 0.48, function()
+		local job = task.delay(if softMotion then 0.02 else 0.48, function()
 			return setPhase("spin")
 		end)
 		return function()
 			return task.cancel(job)
 		end
-	end, { phase, reducedMotion })
+	end, { phase, softMotion })
 	local landCurrent = React.useCallback(function()
 		if spinSettledRef.current then
 			return nil
@@ -344,12 +354,16 @@ local function CrateRevealExperience(_param)
 		setSpinProgress(1)
 		setTickEnergy(1)
 		setPhase("land")
-		local mythic = currentRoll.Rarity == "Mythic"
-		local special = currentRoll.New == true or currentRoll.Pity == true or currentRoll.Rarity == "Legendary" or mythic
-		if mythic then
-			Audio:playCelebration({ "crateRare", "discovery", "reward" }, 0.08)
+		if currentRoll ~= nil then
+			local mythic = currentRoll.Rarity == "Mythic"
+			local special = currentRoll.New == true or currentRoll.Pity == true or currentRoll.Rarity == "Legendary" or mythic
+			if mythic then
+				Audio:playCelebration({ "crateRare", "discovery", "reward" }, 0.08)
+			else
+				Audio:play(if special then "crateRare" else "crateLand")
+			end
 		else
-			Audio:play(if special then "crateRare" else "crateLand")
+			Audio:play("crateLand")
 		end
 		InteractionFeedback.reward()
 	end, { currentRoll, setOffset, setSpinEnergy, setSpinProgress, setTickEnergy })
@@ -368,7 +382,7 @@ local function CrateRevealExperience(_param)
 			return nil
 		end
 		spinSettledRef.current = false
-		if reducedMotion then
+		if softMotion then
 			landCurrent()
 			return nil
 		end
@@ -443,13 +457,13 @@ local function CrateRevealExperience(_param)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { landCurrent, phase, reducedMotion, reelFrameRate, rollIndex, setOffset, setSpinEnergy, setSpinProgress, setTickEnergy, travelDistance })
+	end, { landCurrent, phase, softMotion, reelFrameRate, rollIndex, setOffset, setSpinEnergy, setSpinProgress, setTickEnergy, travelDistance })
 	React.useEffect(function()
 		if phase ~= "land" then
 			return nil
 		end
-		local job = task.delay(if rollIndex >= #session.rolls - 1 then 0.72 else 0.62, function()
-			if rollIndex >= #session.rolls - 1 then
+		local job = task.delay(if rollIndex >= #rolls - 1 then 0.72 else 0.62, function()
+			if rollIndex >= #rolls - 1 then
 				setPhase("done")
 			else
 				setRollIndex(function(value)
@@ -461,16 +475,14 @@ local function CrateRevealExperience(_param)
 		return function()
 			return task.cancel(job)
 		end
-	end, { phase, rollIndex, session.rolls })
+	end, { phase, rollIndex, rolls })
 	local finish = React.useCallback(function()
 		if closedRef.current or phase == "exit" or exiting then
 			return nil
 		end
-		GuiService.SelectedObject = nil
-		GuiService.GuiNavigationEnabled = false
-		GuiService.AutoSelectGuiEnabled = false
+		GamepadNavigationService.ClearSelection()
 		Audio:play("crateClaim")
-		InteractionFeedback.tap()
+		InteractionFeedback.confirm()
 		setPhase("exit")
 		beginExit(function()
 			if not closedRef.current then
@@ -510,21 +522,29 @@ local function CrateRevealExperience(_param)
 			ContextActionService:UnbindAction(actionName)
 		end
 	end, { finish, phase, skipSpin })
-	local count = #session.rolls
-	local winnerAccent = rarityColor(config, currentRoll.Rarity)
+	local count = #rolls
+	local safeRoll = currentRoll or {
+		Rarity = "Common",
+		DefinitionId = "Unknown",
+		New = false,
+		Pity = false,
+		AutoSalvaged = false,
+		Essence = 0,
+	}
+	local winnerAccent = rarityColor(config, safeRoll.Rarity)
 	local _result
-	if currentRoll.AutoSalvaged == true then
-		local _condition = currentRoll.Essence
+	if safeRoll.AutoSalvaged == true then
+		local _condition = safeRoll.Essence
 		if _condition == nil then
 			_condition = 0
 		end
 		_result = `+{_condition} ESSENCE`
 	else
-		_result = if currentRoll.New == true then "NEW FIND" elseif currentRoll.Pity == true then "PITY DROP" else "OWNED"
+		_result = if safeRoll.New == true then "NEW FIND" elseif safeRoll.Pity == true then "PITY DROP" else "OWNED"
 	end
 	local resultTag = _result
-	local resultDetail = if currentRoll.AutoSalvaged == true then "Relic Recycler converted this drop into essence." elseif currentRoll.Pity == true then "Pity protection delivered this rarity." elseif currentRoll.New == true then "Added to your relic inventory." else "Added to your inventory."
-	local _exp = session.rolls
+	local resultDetail = if safeRoll.AutoSalvaged == true then "Relic Recycler converted this drop into essence." elseif safeRoll.Pity == true then "Pity protection delivered this rarity." elseif safeRoll.New == true then "Added to your relic inventory." else "Added to your inventory."
+	local _exp = rolls
 	-- ▼ ReadonlyArray.every ▼
 	local _result_1 = true
 	local _callback = function(roll)
@@ -541,8 +561,8 @@ local function CrateRevealExperience(_param)
 	local visualShow = React.joinBindings({ show, boatShow, exitAmount }):map(function(values)
 		return math.clamp(math.min(values[1], values[2], values[3]), 0, 1)
 	end)
-	local winnerCardScale = React.joinBindings({ landPop, landFlash }):map(function(values)
-		return 0.94 + values[1] * 0.075 + values[2] * 0.025
+	local winnerCardScale = React.joinBindings({ landPop, landFlash, claimFlash }):map(function(values)
+		return 0.94 + values[1] * 0.075 + values[2] * 0.025 + values[3] * 0.02
 	end)
 	return React.createElement(CrateRevealStage, {
 		crateName = session.crateName,
@@ -555,8 +575,8 @@ local function CrateRevealExperience(_param)
 		phase = phase,
 		rollIndex = rollIndex,
 		rollCount = count,
-		winnerName = definitionName(config, currentRoll.DefinitionId),
-		winnerRarity = currentRoll.Rarity,
+		winnerName = definitionName(config, safeRoll.DefinitionId),
+		winnerRarity = safeRoll.Rarity,
 		winnerAccent = winnerAccent,
 		resultTag = resultTag,
 		resultDetail = resultDetail,
@@ -592,7 +612,16 @@ local function EmptyCrateReveal(_param)
 	local viewport = useViewport()
 	local safeGutter = viewport.sideInset + 10
 	local width = math.max(1, math.min(360, viewport.width - safeGutter * 2))
+	local focusRef = useGamepadAutofocus(true)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
 	return React.createElement("frame", {
+		ref = focusRef,
+		Name = "CrateClaim",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = 0.02,
@@ -641,12 +670,17 @@ local function EmptyCrateReveal(_param)
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
 		reducedMotion = reducedMotion,
+		selectable = true,
+		highlight = true,
 		zIndex = 413,
 	}))))
 end
 local function CrateRevealOverlay(props)
+	local session = props.session
+	local rolls = if session ~= nil then session.rolls else nil
+	local hasRolls = type(rolls) == "table" and #rolls > 0
 	local _result
-	if #props.session.rolls > 0 then
+	if hasRolls then
 		local _attributes = table.clone(props)
 		setmetatable(_attributes, nil)
 		_result = React.createElement(CrateRevealExperience, _attributes)

@@ -1,6 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _theme = require(script.Parent.Parent.theme)
 local Palette = _theme.Palette
 local _ui = require(script.Parent.Parent.ui)
@@ -87,25 +87,28 @@ end
 
 local function CrateRevealStage(props)
 	local panelRef = React.useRef(nil)
+	-- README checklist: claim/skip must be D-pad/A reachable via Selection.
 	React.useEffect(function()
-		if not UserInputService.GamepadEnabled then return nil end
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
 		local panel = panelRef.current
-		if not panel then return nil end
+		if panel == nil then
+			return nil
+		end
 		if props.phase ~= "spin" and props.phase ~= "done" then
-			GuiService.GuiNavigationEnabled = false
-			GuiService.SelectedObject = nil
+			GamepadNavigationService.ClearSelection()
 			return nil
 		end
 		local selectJob = task.defer(function()
-			if panel.Parent == nil then return end
-			local target = panel:FindFirstChildWhichIsA("GuiButton", true)
-			if target and target.Selectable then
-				GuiService.GuiNavigationEnabled = true
-				GuiService.AutoSelectGuiEnabled = true
-				GuiService.SelectedObject = target
+			if panel.Parent == nil then
+				return
 			end
+			GamepadNavigationService.FocusClaim(panel)
 		end)
-		return function() task.cancel(selectJob) end
+		return function()
+			task.cancel(selectJob)
+		end
 	end, { props.phase })
 	local landed = props.phase == "land" or props.phase == "done" or props.phase == "exit"
 	local canClaim = props.phase == "done"
@@ -363,7 +366,13 @@ local function CrateRevealStage(props)
 				BorderSizePixel = 0,
 				ZIndex = 455,
 			},
-				(props.phase == "spin" or canClaim) and h(Button, {
+				(props.phase == "spin" or canClaim) and h("frame", {
+					Name = if canClaim then "CrateClaim" else "CrateSkip",
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ZIndex = 456,
+				}, h(Button, {
 					text = if canClaim then props.claimText else "SKIP ROLL",
 					onClick = if canClaim then props.onClaim else props.onQuickLand,
 					color = if canClaim then props.sessionAccent else Palette.panelSoft,
@@ -371,9 +380,10 @@ local function CrateRevealStage(props)
 					outline = not canClaim,
 					size = UDim2.fromScale(1, 1),
 					reducedMotion = props.reducedMotion,
+					highlight = canClaim,
 					selectable = true,
 					zIndex = 456,
-				}))
+				})))
 		)
 	)
 end

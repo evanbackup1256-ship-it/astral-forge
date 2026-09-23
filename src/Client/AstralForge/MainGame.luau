@@ -5747,6 +5747,7 @@ local function MainGame(_param)
 		elseif action == "CollectVault" then
 			Audio:play("vaultDeposit")
 			InteractionFeedback.reward()
+			InteractionFeedback.confirm()
 			celebrate()
 		elseif action == "Overcharge" then
 			if response.Combo ~= nil and response.ComboMultiplier ~= nil then

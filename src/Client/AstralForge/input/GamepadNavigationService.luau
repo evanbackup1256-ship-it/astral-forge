@@ -19,6 +19,8 @@ local disconnectedConnection: RBXScriptConnection? = nil
 local initialized = false
 local previousAutoSelect = false
 local previousNavigation = false
+local overlayFocusDepth = 0
+local overlayPreviousSelection: GuiObject? = nil
 
 local tabCycleCallback: ((delta: number) -> ())? = nil
 local modalCloseCallback: (() -> ())? = nil
@@ -41,6 +43,12 @@ local TUTORIAL_HINTS = {
 	{ id = "back", label = "B back" },
 }
 
+-- README checklist: crate reveal claim must be D-pad/A reachable.
+local CRATE_HINTS = {
+	{ id = "confirm", label = "A claim / skip" },
+	{ id = "back", label = "B claim / skip" },
+}
+
 function GamepadNavigationService.GetTVSafeInsets(viewportSize: Vector2): { top: number, bottom: number, left: number, right: number }
 	local marginX = math.floor(viewportSize.X * TV_SAFE_MARGIN_RATIO)
 	local marginY = math.floor(viewportSize.Y * TV_SAFE_MARGIN_RATIO)
@@ -50,6 +58,9 @@ end
 function GamepadNavigationService.GetHints(kind: string?): { { id: string, label: string } }
 	if kind == "tutorial" then
 		return TUTORIAL_HINTS
+	end
+	if kind == "crate" then
+		return CRATE_HINTS
 	end
 	return CONTROLLER_HINTS
 end
@@ -61,6 +72,123 @@ function GamepadNavigationService.GetHintLabels(kind: string?): { string }
 		labels[index] = entry.label
 	end
 	return labels
+end
+
+function GamepadNavigationService.IsValidFocusTarget(object: Instance?): boolean
+	if object == nil or not object:IsA("GuiObject") then
+		return false
+	end
+	local gui = object :: GuiObject
+	if not gui.Visible or gui.AbsoluteSize.X < 2 or gui.AbsoluteSize.Y < 2 then
+		return false
+	end
+	if gui:IsA("GuiButton") then
+		local button = gui :: GuiButton
+		if not button.Selectable or not button.Active then
+			return false
+		end
+	elseif not gui.Selectable then
+		return false
+	end
+	local current: Instance? = gui
+	while current ~= nil do
+		if current:IsA("GuiObject") and (current :: GuiObject).Visible == false then
+			return false
+		end
+		current = current.Parent
+	end
+	return true
+end
+
+function GamepadNavigationService.AssignSelection(object: Instance?)
+	if not GamepadNavigationService.IsValidFocusTarget(object) then
+		return false
+	end
+	local ok = pcall(function()
+		GuiService.SelectedObject = object :: GuiObject
+	end)
+	return ok
+end
+
+function GamepadNavigationService.ClearSelection()
+	pcall(function()
+		GuiService.SelectedObject = nil
+	end)
+end
+
+-- Claim / skip path for crate reveal and similar overlays: enable Gui navigation
+-- and park Selection on the first valid GuiButton under `root`.
+function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
+	if not UserInputService.GamepadEnabled then
+		return nil
+	end
+	if root == nil or root.Parent == nil then
+		return nil
+	end
+	GuiService.GuiNavigationEnabled = true
+	GuiService.AutoSelectGuiEnabled = true
+	local preferred: GuiObject? = nil
+	local function tagMatch(instance: Instance): boolean
+		local current: Instance? = instance
+		while current ~= nil and current ~= root do
+			local name = string.lower(current.Name)
+			if string.find(name, "claim", 1, true) or string.find(name, "skip", 1, true) then
+				return true
+			end
+			current = current.Parent
+		end
+		return false
+	end
+	for _, child in root:GetDescendants() do
+		if child:IsA("GuiButton") and GamepadNavigationService.IsValidFocusTarget(child) then
+			if tagMatch(child) then
+				preferred = child
+				break
+			end
+			if preferred == nil then
+				preferred = child
+			end
+		end
+	end
+	if preferred ~= nil then
+		GamepadNavigationService.AssignSelection(preferred)
+	end
+	return preferred
+end
+
+-- Begin a modal overlay focus session (crate reveal, empty reveal). Call EndOverlayFocus on exit.
+function GamepadNavigationService.BeginOverlayFocus()
+	if overlayFocusDepth == 0 then
+		overlayPreviousSelection = GuiService.SelectedObject
+		GuiService.GuiNavigationEnabled = false
+		GuiService.AutoSelectGuiEnabled = false
+		GamepadNavigationService.ClearSelection()
+	end
+	overlayFocusDepth += 1
+end
+
+function GamepadNavigationService.EndOverlayFocus()
+	if overlayFocusDepth <= 0 then
+		return
+	end
+	overlayFocusDepth -= 1
+	if overlayFocusDepth > 0 then
+		return
+	end
+	local restore = overlayPreviousSelection
+	overlayPreviousSelection = nil
+	if isConsoleMode then
+		GuiService.GuiNavigationEnabled = true
+		GuiService.AutoSelectGuiEnabled = true
+	else
+		GuiService.GuiNavigationEnabled = previousNavigation
+		GuiService.AutoSelectGuiEnabled = previousAutoSelect
+	end
+	if GamepadNavigationService.IsValidFocusTarget(restore) then
+		GamepadNavigationService.AssignSelection(restore)
+	else
+		GamepadNavigationService.ClearSelection()
+	end
 end
 
 function GamepadNavigationService.Init()
@@ -112,6 +240,8 @@ function GamepadNavigationService.Stop()
 	end
 	initialized = false
 	isConsoleMode = false
+	overlayFocusDepth = 0
+	overlayPreviousSelection = nil
 	tabCycleCallback = nil
 	modalCloseCallback = nil
 	quickVaultCallback = nil
