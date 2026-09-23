@@ -10,7 +10,9 @@ local LiveOpsConfig = require(script.Parent:WaitForChild("LiveOpsConfig"))
 -- (EffectKind/EffectAmount, applied the same way the old skill tree's nodes were) AND one
 -- reward chest (Reward), claimed together in one action — replaces the old three-way split
 -- between Progression Tree (skills), Prestige (tier multipliers), and Season Pass (chests).
-local FORGE_PATH_STEP_COUNT = 40
+-- 80-step linear track. Keep in lockstep with buildForgePathSteps() in
+-- src/Client/AstralForge/types.luau so client preview and server grants never drift.
+local FORGE_PATH_STEP_COUNT = 80
 type ForgePathEffectSlot = { Kind: string, Base: number }
 local FORGE_PATH_EFFECT_CYCLE: { ForgePathEffectSlot } = {
 	{ Kind = "Production", Base = 3 },
@@ -21,6 +23,17 @@ local FORGE_PATH_EFFECT_CYCLE: { ForgePathEffectSlot } = {
 	{ Kind = "Offline", Base = 2 },
 	{ Kind = "CriticalMultiplier", Base = 2 },
 	{ Kind = "RebirthMultiplier", Base = 2 },
+}
+
+local FORGE_PATH_MILESTONE_BOOSTS = {
+	[10] = "Hyperdrive",
+	[20] = "Afterburner",
+	[30] = "Ionstorm",
+	[40] = "DomainSurge",
+	[50] = "CoreSurge",
+	[60] = "TwinCatalyst",
+	[70] = "MidnightForge",
+	[80] = "DomainSurge",
 }
 
 export type ForgePathStepConfig = {
@@ -36,13 +49,46 @@ local function buildForgePathSteps(): { ForgePathStepConfig }
 	for step = 1, FORGE_PATH_STEP_COUNT do
 		local slot = FORGE_PATH_EFFECT_CYCLE[((step - 1) % #FORGE_PATH_EFFECT_CYCLE) + 1]
 		local effectAmount = math.floor(slot.Base * (1 + (step - 1) * 0.35))
-		local xpCost = math.floor(120 * 1.24 ^ (step - 1))
+		local xpExponent = step <= 40 and (step - 1) or (39 + (step - 40) * 0.72)
+		local xpCost = math.floor(120 * 1.24 ^ xpExponent)
 		local major = step % 5 == 0
-		local reward: { [string]: number | string } = major
-			and { Cores = math.floor(4 + step * 1.6), Stardust = math.floor(80 + step * 40), Essence = math.floor(step / 10) }
-			or { Cash = math.floor(2000 * 1.3 ^ (step - 1)), Stardust = math.floor(20 + step * 10) }
-		if step % 10 == 0 then
-			reward.Boost = "Hyperdrive"
+		local apex = step % 20 == 0
+		local reward: { [string]: number | string }
+		if apex then
+			reward = {
+				Cores = math.floor(8 + step * 2.4),
+				Stardust = math.floor(160 + step * 55),
+				Essence = math.floor(1 + step / 8),
+				Signals = math.floor(12 + step * 0.8),
+				CommandXP = math.floor(80 + step * 6),
+			}
+		elseif major then
+			reward = {
+				Cores = math.floor(4 + step * 1.6),
+				Stardust = math.floor(80 + step * 40),
+				Essence = math.floor(step / 10),
+			}
+		else
+			reward = {
+				Cash = math.floor(2000 * 1.3 ^ math.min(step - 1, 55)),
+				Stardust = math.floor(20 + step * 10),
+			}
+			if step % 3 == 0 then
+				reward.CashMinutes = math.floor(2 + step * 0.15)
+			end
+			if step % 7 == 0 then
+				reward.Signals = math.floor(4 + step * 0.35)
+			end
+		end
+		local boostId = FORGE_PATH_MILESTONE_BOOSTS[step]
+		if boostId then
+			reward.Boost = boostId
+		elseif step % 15 == 0 then
+			reward.Boost = "VaultSurge"
+		end
+		if step == FORGE_PATH_STEP_COUNT then
+			reward.FreeSpins = 3
+			reward.StreakShield = 1
 		end
 		steps[step] = {
 			Step = step,
@@ -61,10 +107,10 @@ local GameConfig = {
 	Game = {
 		Name = "ASTRAL FORGE",
 		Subtitle = "IDLE INDUSTRIES",
-		Version = "5.0.0",
+		Version = "5.1.0",
 		Update = {
-			Title = "Official launch",
-			Subtitle = "Countdown ends August 31, 2026.",
+			Title = "Progression lanes",
+			Subtitle = "Forge Path 80, deeper daily pay, Domain lattice.",
 			TargetUnix = 1_788_195_600,
 		},
 		-- Save schema, independent of the displayed game version. Bump only with
@@ -169,6 +215,61 @@ local GameConfig = {
 				Reward = { Stardust = 34, CashMinutes = 6 },
 				Color = Color3.fromRGB(88, 214, 255),
 			},
+			{
+				Id = "PulseDrill",
+				Name = "Pulse Drill",
+				Description = "Fire manual quantum pulses until the needle sings.",
+				Kind = "Tap",
+				BaseTarget = 80,
+				ProductionSeconds = 0,
+				PerRebirth = 0.4,
+				Reward = { Stardust = 28, Signals = 12, CashMinutes = 3 },
+				Color = Color3.fromRGB(255, 140, 90),
+			},
+			{
+				Id = "CoreAudit",
+				Name = "Core Audit",
+				Description = "Stabilize anomalies and log clean fragment yields.",
+				Kind = "Stabilize",
+				BaseTarget = 3,
+				ProductionSeconds = 0,
+				PerRebirth = 0.04,
+				Reward = { Stardust = 40, Cores = 1, CashMinutes = 5 },
+				Color = Color3.fromRGB(255, 90, 160),
+			},
+			{
+				Id = "DustLedger",
+				Name = "Dust Ledger",
+				Description = "Bank a long shift and prove the books still balance.",
+				Kind = "BankFlux",
+				BaseTarget = 18_000,
+				ProductionSeconds = 120,
+				PerRebirth = 0.03,
+				Reward = { Stardust = 48, CashMinutes = 8, Boost = "SteadyBurn" },
+				Color = Color3.fromRGB(120, 255, 200),
+			},
+			{
+				Id = "RouteSurvey",
+				Name = "Route Survey",
+				Description = "Unlock a new world marker for the dock charts.",
+				Kind = "UnlockWorld",
+				BaseTarget = 1,
+				ProductionSeconds = 0,
+				PerRebirth = 0,
+				Reward = { Cores = 2, Stardust = 35, Signals = 10 },
+				Color = Color3.fromRGB(100, 160, 255),
+			},
+			{
+				Id = "CrateHaul",
+				Name = "Crate Haul",
+				Description = "Open orbital crates for workshop stock.",
+				Kind = "OpenCrate",
+				BaseTarget = 2,
+				ProductionSeconds = 0,
+				PerRebirth = 0.02,
+				Reward = { Stardust = 36, CashMinutes = 5, Boost = "Overdrive" },
+				Color = Color3.fromRGB(180, 130, 255),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -207,6 +308,8 @@ local GameConfig = {
 	-- Tree + Prestige + Season Pass split with one linear track: each step grants a permanent
 	-- stat bonus and a reward chest together, claimed in one action, funded by ForgePath XP
 	-- (a passive trickle off lifetime flux — see Economy.ForgePathXP).
+	-- CLIENT RULE: ForgePathView must read GameConfig.ForgePath.Steps (decorate with display
+	-- metadata only). Do not keep a separate client step generator — it will go stale.
 	ForgePath = {
 		Steps = FORGE_PATH_STEPS,
 	},
@@ -456,6 +559,20 @@ local GameConfig = {
 				EffectAmount = 0.12,
 				Color = Color3.fromRGB(255, 92, 190),
 			},
+			Strike = {
+				Name = "Harder Strikes",
+				Description = "+14% overcharge power while selected.",
+				EffectKind = "Tap",
+				EffectAmount = 0.14,
+				Color = Color3.fromRGB(255, 170, 70),
+			},
+			Chrono = {
+				Name = "Night Lattice",
+				Description = "+10% offline yield while selected.",
+				EffectKind = "Offline",
+				EffectAmount = 0.1,
+				Color = Color3.fromRGB(120, 160, 255),
+			},
 		},
 		Protocols = {
 			{
@@ -640,6 +757,11 @@ local GameConfig = {
 			{ Tier = 8, RequiredXP = 4200, MaximumTargetBonus = 10800, PassiveProduction = 0.05 },
 			{ Tier = 9, RequiredXP = 6400, MaximumTargetBonus = 14200, PassiveProduction = 0.06 },
 			{ Tier = 10, RequiredXP = 9600, MaximumTargetBonus = 18400, PassiveProduction = 0.08 },
+			{ Tier = 11, RequiredXP = 14_000, MaximumTargetBonus = 24_000, PassiveProduction = 0.09 },
+			{ Tier = 12, RequiredXP = 20_000, MaximumTargetBonus = 31_000, PassiveProduction = 0.1 },
+			{ Tier = 13, RequiredXP = 28_000, MaximumTargetBonus = 40_000, PassiveProduction = 0.11 },
+			{ Tier = 14, RequiredXP = 38_000, MaximumTargetBonus = 52_000, PassiveProduction = 0.12 },
+			{ Tier = 15, RequiredXP = 52_000, MaximumTargetBonus = 68_000, PassiveProduction = 0.14 },
 		},
 
 		-- Overdrive: a server-wide (not per-player) shared meter. Every player's Pulse and
@@ -673,6 +795,34 @@ local GameConfig = {
 		CoreExponent = 0.82,
 		RebirthMultiplier = 0.14,
 		TutorialReward = 250,
+		-- Vault capacity MUST size from SteadyProduction (permanent multipliers only).
+		-- Temporary production boosts / Flux Surge / Anomaly Surge never inflate capacity —
+		-- when they end, Economy.Min(capacity, vault) deletes the overflow.
+		ForgePathXP = {
+			LogScale = 4,
+			Minimum = 1,
+			DailySoftCap = 12_000,
+			SoftCapScale = 0.35,
+		},
+		Rebirth = {
+			BankVaultIntoRun = true,
+			BonusOverdrive = 1,
+			StardustSqrtScale = 5,
+			StardustMinimum = 4,
+			CelebrationBoostId = "Overdrive",
+		},
+	},
+
+	-- Server-wide timed production event. Module-level state in FluxSurgeService.
+	-- Multiplier applies to tick production only — never to Capacity.
+	FluxSurge = {
+		IntervalSeconds = 20 * 60,
+		DurationSeconds = 60,
+		Multiplier = 2,
+		ToastTitle = "Flux Surge!",
+		ToastBody = "All production is doubled for 60 seconds!",
+		EndTitle = "Flux Surge ended",
+		EndBody = "Production returned to normal.",
 	},
 
 	Social = {
@@ -698,6 +848,14 @@ local GameConfig = {
 		OfflineEfficiencyPerRank = 0.06,
 		SurgeBoostId = "DomainSurge",
 		SkillPointPerRank = 2,
+		Expansion = {
+			FreeSpins = 3,
+			BonusBoostId = "DomainSurge",
+			BonusBoostCount = 1,
+			OverflowRebirthScale = 18,
+			OverflowCoreSqrtScale = 6,
+			CooldownSeconds = 6,
+		},
 		Tree = {
 			{ Id = "FluxVein", Name = "Flux Vein", Description = "+12% production.", Cost = 2, Requires = {}, Production = 0.12 },
 			{ Id = "VaultLattice", Name = "Vault Lattice", Description = "+18% vault capacity.", Cost = 2, Requires = {}, Capacity = 0.18 },
@@ -715,6 +873,10 @@ local GameConfig = {
 			{ Id = "VaultHeartNode", Name = "Vault Heart", Description = "+14% vault capacity.", Cost = 4, Requires = { "PrismGate" }, Capacity = 0.14 },
 			{ Id = "EmberWell", Name = "Ember Well", Description = "+12% overcharge power.", Cost = 4, Requires = { "EchoChamber" }, Tap = 0.12 },
 			{ Id = "ApexLattice", Name = "Apex Lattice", Description = "+8% production from the finished lattice.", Cost = 6, Requires = { "OverchargeChannel", "ContinuumBind" }, Production = 0.08 },
+			{ Id = "ForgeMnemonic", Name = "Forge Mnemonic", Description = "+10% forge path XP from banking.", Cost = 3, Requires = { "StarWell" }, ForgePathXP = 0.1 },
+			{ Id = "SignalCrown", Name = "Signal Crown", Description = "+15% command XP from rewards.", Cost = 4, Requires = { "DomainPulse" }, CommandXP = 0.15 },
+			{ Id = "VaultSpire", Name = "Vault Spire", Description = "+10% vault capacity late tree.", Cost = 5, Requires = { "VaultHeartNode", "TideLock" }, Capacity = 0.1 },
+			{ Id = "AstralCrown", Name = "Astral Crown", Description = "+12% production at the crown.", Cost = 7, Requires = { "ApexLattice", "VaultSpire" }, Production = 0.12 },
 		},
 	},
 
@@ -1970,6 +2132,94 @@ local GameConfig = {
 			Target = 250,
 			Reward = { Stardust = 1_000, Cores = 25, Boost = "Hyperdrive" },
 		},
+		{
+			Id = "ForgeWalker",
+			Name = "Forge Walker",
+			Description = "Claim 10 Forge Path steps.",
+			Kind = "ForgePathSteps",
+			Target = 10,
+			Reward = { Stardust = 40, CashMinutes = 8 },
+		},
+		{
+			Id = "ForgeAdept",
+			Name = "Forge Adept",
+			Description = "Claim 40 Forge Path steps.",
+			Kind = "ForgePathSteps",
+			Target = 40,
+			Reward = { Stardust = 120, Cores = 3, Boost = "Afterburner" },
+		},
+		{
+			Id = "ForgeApex",
+			Name = "Forge Apex",
+			Description = "Claim all 80 Forge Path steps.",
+			Kind = "ForgePathSteps",
+			Target = 80,
+			Reward = { Stardust = 500, Cores = 15, Essence = 8, Boost = "DomainSurge" },
+		},
+		{
+			Id = "DailyDevotee",
+			Name = "Daily Devotee",
+			Description = "Reach a 7-day login streak.",
+			Kind = "DailyStreak",
+			Target = 7,
+			Reward = { Stardust = 80, Boost = "VaultSurge", FreeSpins = 1 },
+		},
+		{
+			Id = "WheelFortune",
+			Name = "Fortune Operator",
+			Description = "Spin the fortune reactor 25 times.",
+			Kind = "WheelSpins",
+			Target = 25,
+			Reward = { Stardust = 90, Cores = 2, FreeSpins = 2 },
+		},
+		{
+			Id = "LabShift",
+			Name = "Lab Shift Lead",
+			Description = "Complete 20 workshop lab orders.",
+			Kind = "LabOrders",
+			Target = 20,
+			Reward = { Stardust = 110, CashMinutes = 12, Boost = "SteadyBurn" },
+		},
+		{
+			Id = "DomainInitiate",
+			Name = "Domain Initiate",
+			Description = "Expand your Domain once.",
+			Kind = "DomainRank",
+			Target = 1,
+			Reward = { Stardust = 150, Essence = 4, Boost = "DomainSurge" },
+		},
+		{
+			Id = "DomainArchitect",
+			Name = "Domain Architect",
+			Description = "Reach Domain rank 5.",
+			Kind = "DomainRank",
+			Target = 5,
+			Reward = { Stardust = 400, Cores = 8, Essence = 10 },
+		},
+		{
+			Id = "StoryKeeper",
+			Name = "Story Keeper",
+			Description = "Claim 8 story chapter rewards.",
+			Kind = "StoryClaims",
+			Target = 8,
+			Reward = { Stardust = 60, CashMinutes = 10, Signals = 20 },
+		},
+		{
+			Id = "Billionaire",
+			Name = "Flux Billionaire",
+			Description = "Bank 1 billion lifetime flux.",
+			Kind = "LifetimeCash",
+			Target = 1_000_000_000,
+			Reward = { Stardust = 120, Cores = 2 },
+		},
+		{
+			Id = "TenRebirths",
+			Name = "Ten Cycles",
+			Description = "Complete 10 rebirths.",
+			Kind = "Rebirths",
+			Target = 10,
+			Reward = { Stardust = 200, Cores = 4, Boost = "Hyperdrive" },
+		},
 	},
 
 	DailyRewards = {
@@ -1980,6 +2230,13 @@ local GameConfig = {
 		{ CashMinutes = 30, Stardust = 22, Boost = "VaultSurge" },
 		{ CashMinutes = 45, Stardust = 30 },
 		{ CashMinutes = 60, Stardust = 50, Cores = 1, Boost = "Hyperdrive" },
+		{ CashMinutes = 75, Stardust = 60, Signals = 15 },
+		{ CashMinutes = 90, Stardust = 75, Boost = "SteadyBurn" },
+		{ CashMinutes = 100, Stardust = 90, Cores = 1, FreeSpins = 1 },
+		{ CashMinutes = 110, Stardust = 100, Boost = "Afterburner" },
+		{ CashMinutes = 120, Stardust = 125, Cores = 2, Boost = "Hyperdrive", StreakShield = 1 },
+		{ CashMinutes = 140, Stardust = 150, Signals = 25, CommandXP = 120 },
+		{ CashMinutes = 180, Stardust = 200, Cores = 3, Boost = "DomainSurge", FreeSpins = 2 },
 	},
 
 	Wheel = {
@@ -2086,6 +2343,51 @@ local GameConfig = {
 				Weight = 2,
 				Color = Color3.fromRGB(255, 60, 60),
 				Reward = { Boost = "Ionstorm" },
+			},
+			{
+				Id = "SignalPack",
+				Name = "Signal Pack",
+				ShortLabel = "40 SIG",
+				Rarity = "UNCOMMON",
+				Weight = 11,
+				Color = Color3.fromRGB(80, 210, 220),
+				Reward = { Signals = 40, CommandXP = 60 },
+			},
+			{
+				Id = "EssenceSip",
+				Name = "Essence Siphon",
+				ShortLabel = "+2 ESS",
+				Rarity = "RARE",
+				Weight = 5,
+				Color = Color3.fromRGB(255, 140, 200),
+				Reward = { Essence = 2, Stardust = 20 },
+			},
+			{
+				Id = "FreeSpinToken",
+				Name = "Reactor Token",
+				ShortLabel = "+1 SPIN",
+				Rarity = "RARE",
+				Weight = 4,
+				Color = Color3.fromRGB(255, 220, 100),
+				Reward = { FreeSpins = 1, Stardust = 10 },
+			},
+			{
+				Id = "DomainGift",
+				Name = "Domain Gift",
+				ShortLabel = "DOMAIN",
+				Rarity = "LEGENDARY",
+				Weight = 2,
+				Color = Color3.fromRGB(255, 90, 180),
+				Reward = { Essence = 3, Boost = "DomainSurge", Cores = 1 },
+			},
+			{
+				Id = "TwinJackpot",
+				Name = "Twin Catalyst Jackpot",
+				ShortLabel = "TWIN",
+				Rarity = "MYTHIC",
+				Weight = 1,
+				Color = Color3.fromRGB(255, 160, 60),
+				Reward = { CashMinutes = 90, Stardust = 90, Cores = 3, Boost = "TwinCatalyst" },
 			},
 		},
 	},
@@ -2567,6 +2869,10 @@ local GameConfig = {
 		{ Minutes = 60, Reward = { CashMinutes = 40, Stardust = 20, Boost = "VaultSurge" } },
 		{ Minutes = 90, Reward = { CashMinutes = 55, Stardust = 28, Boost = "Hyperdrive" } },
 		{ Minutes = 120, Reward = { CashMinutes = 75, Stardust = 35, Cores = 1 } },
+		{ Minutes = 150, Reward = { CashMinutes = 90, Stardust = 42, Signals = 20 } },
+		{ Minutes = 180, Reward = { CashMinutes = 110, Stardust = 50, Boost = "SteadyBurn", FreeSpins = 1 } },
+		{ Minutes = 240, Reward = { CashMinutes = 150, Stardust = 70, Cores = 2, CommandXP = 200 } },
+		{ Minutes = 360, Reward = { CashMinutes = 220, Stardust = 100, Cores = 3, Boost = "DomainSurge", Essence = 2 } },
 	},
 
 	Unlocks = {
@@ -3023,9 +3329,70 @@ local GameConfig = {
 			Reward = { CashMinutes = 18, Stardust = 28, Signals = 15 },
 			Color = Color3.fromRGB(255, 100, 160),
 		},
+		{
+			Id = "path-of-eighty",
+			Title = "The Eighty Marks",
+			Chapter = "LORE: FORGE PATH",
+			Summary = "Why the forge path has eighty notches.",
+			Body = {
+				"Vale carved eighty notches into Bay Seven's rail — one for every failed rewrite she refused to delete.",
+				"Claiming a step doesn't erase the notch. It lights it. The path is a ledger of patience.",
+				"When the last mark lights, leave three free spins for the next operator. That's the dock rule.",
+			},
+			Kind = "ForgePathSteps",
+			Target = 20,
+			Reward = { Stardust = 40, CashMinutes = 12, FreeSpins = 1 },
+			Color = Color3.fromRGB(242, 96, 112),
+		},
+		{
+			Id = "domain-blueprint",
+			Title = "Domain Blueprint",
+			Chapter = "SIDE STORY: DOMAIN",
+			Summary = "Expansion is a rewrite with witnesses.",
+			Body = {
+				"Domain Expansion isn't a wipe — it's a treaty. Rebirths spent become essence; cores spent become proof.",
+				"The lattice only opens for operators who can explain every node they light.",
+				"Bring overflow. The crown feeds on honesty more than greed.",
+			},
+			Kind = "DomainRank",
+			Target = 1,
+			Reward = { Essence = 3, Stardust = 50, Boost = "DomainSurge" },
+			Color = Color3.fromRGB(255, 90, 180),
+		},
+		{
+			Id = "timed-shift",
+			Title = "Timed Shift Notes",
+			Chapter = "LORE: CLOCK",
+			Summary = "Playtime rewards are shift pay, not charity.",
+			Body = {
+				"The dock clock still ticks in Vale's handwriting. Two minutes: coffee. Six hours: a real stipend.",
+				"Claim what you earned. Leaving pay on the table insults the quiet engine.",
+				"If the surge hits mid-shift, bank before the vault argues.",
+			},
+			Kind = "PlayTime",
+			Target = 3_600,
+			Reward = { CashMinutes = 20, Stardust = 25, Boost = "SteadyBurn" },
+			Color = Color3.fromRGB(90, 205, 232),
+		},
 	},
 
 	Mail = {
+		{
+			Id = "update-5-1-progression-lanes",
+			Subject = "Update 5.1 — Progression Lanes",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Forge Path stretches to 80, daily/timed pay expands, and Domain gets new lattice nodes.",
+			Body = {
+				"Astral Forge 5.1 widens the progression lanes without touching your save schema (still DataVersion 21).",
+				"Forge Path now runs 80 steps with chapter marks, richer chests, and soft XP scaling past 40.",
+				"Daily login and timed shift rewards go deeper. Lab orders, wheel prizes, achievements, and story/mail all got new entries.",
+				"Vault capacity still sizes from steady production only — temporary surges never inflate the vault. Overflow deletes when they end.",
+				"A small attachment is included for showing up.",
+			},
+			Attachment = { CashMinutes = 45, Stardust = 75, FreeSpins = 1 },
+			Color = Color3.fromRGB(90, 210, 255),
+		},
 		{
 			Id = "update-5-0-grand-overhaul",
 			Subject = "Update 5.0 — The Grand Overhaul",
