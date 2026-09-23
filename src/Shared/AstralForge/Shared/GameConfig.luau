@@ -392,6 +392,17 @@ local GameConfig = {
 				Reward = { Stardust = 32, CashMinutes = 3, Boost = "Overdrive" },
 				Color = Color3.fromRGB(255, 155, 80),
 			},
+			{
+				Id = "GatePolishSweep",
+				Name = "Gate Polish Sweep",
+				Description = "Tap through a soft-motion warm-up while QA re-checks clipped CTAs.",
+				Kind = "Tap",
+				BaseTarget = 80,
+				ProductionSeconds = 0,
+				PerRebirth = 0.4,
+				Reward = { Stardust = 28, CashMinutes = 3, Boost = "SteadyBurn" },
+				Color = Color3.fromRGB(120, 210, 190),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2600,6 +2611,14 @@ local GameConfig = {
 			Target = 32,
 			Reward = { Stardust = 300, Signals = 80, CashMinutes = 28, FreeSpins = 2 },
 		},
+		{
+			Id = "LabGateRunner",
+			Name = "Gate Runner",
+			Description = "Clear 18 lab orders after the content-gates polish.",
+			Kind = "LabOrders",
+			Target = 18,
+			Reward = { Stardust = 120, Signals = 36, CashMinutes = 14, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -3951,9 +3970,39 @@ local GameConfig = {
 			Reward = { Stardust = 22, CashMinutes = 7 },
 			Color = Color3.fromRGB(255, 170, 110),
 		},
+		{
+			Id = "content-gates-brief",
+			Title = "Content Gates Brief",
+			Chapter = "LORE: DOCK QA",
+			Summary = "Offline gates catch clipped CTAs before Studio.",
+			Body = {
+				"Bay Seven now fails CI when softMotion skips antilag, when inspect panels clip SOCKET/UPGRADE, or when FocusClaim hosts go missing.",
+				"Inventory, Boosts, Forge Path, and Echo Forge snap decorative motion under the same softMotion line as Shop and Trade.",
+				"Studio still owns soak and full ReleaseReadiness — npm test covers the Lune-safe footguns only.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 26, CashMinutes = 8, Signals = 10 },
+			Color = Color3.fromRGB(110, 205, 185),
+		},
 	},
 
 	Mail = {
+		{
+			Id = "update-5-1-content-gates-polish",
+			Subject = "Dock note — content gates & CTA polish",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "softMotion/FocusClaim footguns gated offline; inspect CTAs unclipped — still DataVersion 21.",
+			Body = {
+				"Inventory inspect and Echo inventory cards no longer clip bottom SOCKET/LINK CTAs under tight phone chrome.",
+				"Boosts, Inventory, Forge Path, and Echo Forge now share the canonical softMotion antilag gate.",
+				"npm test adds verify_playability checks for those footguns; economy soak + Studio Device Simulator still required.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 30, Stardust = 40, Signals = 14 },
+			Color = Color3.fromRGB(110, 205, 185),
+		},
 		{
 			Id = "update-5-1-trade-gamepad-release",
 			Subject = "Dock note — trade pad focus & offline gates",

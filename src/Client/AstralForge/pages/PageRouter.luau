@@ -2806,7 +2806,7 @@ local function RewardChargeRail(_param)
 	local position = _param.position
 	local size = _param.size
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or not antilag.allowAmbient
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local progress = useFlipperSpring(math.clamp(value, 0, 1), softMotion, 420, 32)
 	local emphasis = useFlipperSpring(if ready then 1 else 0, softMotion, 460, 32)
 	local fillSize = progress:map(function(amount)

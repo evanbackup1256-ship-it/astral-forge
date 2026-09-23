@@ -535,7 +535,8 @@ local function InventoryCard(_param)
 		interactive = true,
 		reducedMotion = reducedMotion,
 		reveal = reveal,
-		clips = true,
+		-- LINK/UPGRADE/BREAK sit on the panel floor — clipping them was a short-phone CTA footgun.
+		clips = false,
 	}, React.createElement(Icon, {
 		kind = effectIcon(item.EffectKind),
 		color = ensureContrast(surface, Palette.cream),
@@ -625,6 +626,8 @@ local function EchoForgeView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local echoes = state.ForgeEchoes or EMPTY_ECHOES
 	local armedUid, setArmedUid = React.useState()
 	React.useEffect(function()
@@ -650,7 +653,7 @@ local function EchoForgeView(_param)
 	local heroSurface = darken(Palette.cyan, 0.95)
 	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
 	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
-	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
+	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not softMotion, 1.7)
 	local loomSize = if stack then 72 else 128
 	local heroPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
@@ -658,8 +661,8 @@ local function EchoForgeView(_param)
 		background = heroSurface,
 		padding = if stack then 15 else Layout.cardPadding,
 		highlight = echoes.Ready,
-		reducedMotion = reducedMotion,
-		clips = true,
+		reducedMotion = softMotion,
+		clips = false,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(loomSize, loomSize),
 		Position = if stack then UDim2.new(0.5, -loomSize / 2, 0, 4) else UDim2.fromOffset(4, 10),
@@ -668,7 +671,7 @@ local function EchoForgeView(_param)
 	}, React.createElement(EchoLoom, {
 		size = loomSize,
 		active = echoes.Ready or #echoes.Choices > 0,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, 0, 0, 154) else UDim2.new(1, -(loomSize + 34), 0, 202),
 		Position = if stack then UDim2.fromOffset(0, loomSize + 8) else UDim2.fromOffset(loomSize + 24, 8),
@@ -717,7 +720,7 @@ local function EchoForgeView(_param)
 		color = chargeAccent,
 		position = UDim2.fromOffset(0, if stack then 98 else 120),
 		size = UDim2.new(1, 0, 0, 7),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = echoes.Ready,
 	}), React.createElement(Button, {
 		text = if #echoes.Choices > 0 then "CHOOSE AN ECHO BELOW" elseif echoes.Ready then "CAPTURE THIS PATTERN" else "KEEP FORGING",
@@ -730,7 +733,7 @@ local function EchoForgeView(_param)
 		disabled = not echoes.Ready or #echoes.Choices > 0,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = echoes.Ready,
 	})))
 	local sections = {
@@ -750,7 +753,7 @@ local function EchoForgeView(_param)
 				item = item,
 				index = index,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 			})
 		end
 		for _k, _v in _exp_5 do
@@ -786,7 +789,7 @@ local function EchoForgeView(_param)
 		return React.createElement(SlotCard, {
 			key = `slot-{slot.Slot}`,
 			slot = slot,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		})
 	end
 	for _k, _v in _exp_5 do
@@ -825,7 +828,7 @@ local function EchoForgeView(_param)
 			total = patternTotal,
 			dominant = id == echoes.DominantPattern,
 			index = index,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		})
 	end
 	for _k, _v in _exp_9 do
@@ -865,7 +868,7 @@ local function EchoForgeView(_param)
 				echoes = echoes,
 				state = state,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				armed = armedUid == item.Uid,
 				arm = function()
 					return setArmedUid(item.Uid)

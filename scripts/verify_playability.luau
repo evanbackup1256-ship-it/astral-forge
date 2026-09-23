@@ -272,6 +272,10 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/TradeView.luau",
 	"src/Client/AstralForge/pages/StoryView.luau",
 	"src/Client/AstralForge/pages/LeaderboardsView.luau",
+	"src/Client/AstralForge/pages/BoostsView.luau",
+	"src/Client/AstralForge/pages/InventoryView.luau",
+	"src/Client/AstralForge/pages/ForgePathView.luau",
+	"src/Client/AstralForge/pages/EchoForgeView.luau",
 }
 
 for _, path in SOFT_MOTION_FILES do
@@ -283,12 +287,64 @@ for _, path in SOFT_MOTION_FILES do
 		string.find(src, "local softMotion =", 1, true),
 		path .. " must declare local softMotion ="
 	)
-	local softLine = string.match(src, "local softMotion = ([^\n]+)")
-	assert(softLine, path .. " softMotion assignment unreadable")
+	-- Footgun: every softMotion assignment must reference antilag (tier and/or allowAmbient).
+	for softLine in string.gmatch(src, "local softMotion = ([^\n]+)") do
+		assert(
+			string.find(softLine, "antilag", 1, true),
+			path .. " softMotion must reference antilag on the assignment line: " .. softLine
+		)
+		assert(
+			string.find(softLine, "allowAmbient", 1, true) or string.find(softLine, "tier", 1, true),
+			path .. " softMotion must gate on antilag.allowAmbient or antilag.tier: " .. softLine
+		)
+	end
+end
+
+------------------------------------------------------------------------
+-- Known CTA / FocusClaim footguns (offline)
+------------------------------------------------------------------------
+do
+	local inv = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+	assert(string.find(inv, "InspectClaimActions", 1, true), "Inventory DetailPanel must name InspectClaimActions")
+	assert(string.find(inv, "GamepadNavigationService.FocusClaim", 1, true), "Inventory inspect must FocusClaim")
+	assert(string.find(inv, "clips = false", 1, true), "Inventory DetailPanel must not clip SOCKET/UPGRADE CTAs")
+	assert(string.find(inv, "AutoSalvageSheet", 1, true), "Inventory AutoSalvage sheet must stay named for FocusClaim")
+	assert(string.find(inv, "BeginOverlayFocus", 1, true), "Inventory AutoSalvage sheet must BeginOverlayFocus")
+	assert(string.find(inv, "EndOverlayFocus", 1, true), "Inventory AutoSalvage sheet must EndOverlayFocus")
+
+	local echo = fs.readFile("src/Client/AstralForge/pages/EchoForgeView.luau")
+	-- Inventory echo cards pin LINK/UPGRADE/BREAK to the panel floor — clips=true was a footgun.
 	assert(
-		string.find(softLine, "antilag", 1, true),
-		path .. " softMotion must reference antilag on the assignment line"
+		string.find(echo, "LINK SLOT", 1, true) and string.find(echo, "clips = false", 1, true),
+		"EchoForge inventory cards must keep clips = false near LINK SLOT CTAs"
 	)
+
+	local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
+	assert(string.find(boosts, "clips = false", 1, true), "Boosts cards must keep clips = false for Activate CTA")
+	assert(string.find(boosts, "position = UDim2.new(0, 0, 1, -TapTarget)", 1, true), "Boosts Activate must stay bottom-pinned")
+
+	-- Crate reveal claim hosts (stage + overlay) must FocusClaim so D-pad/A can reach CLAIM.
+	for _, path in {
+		"src/Client/AstralForge/pages/CrateRevealStage.luau",
+		"src/Client/AstralForge/pages/CrateRevealStageSimple.luau",
+		"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
+	} do
+		local src = fs.readFile(path)
+		assert(string.find(src, "GamepadNavigationService.FocusClaim", 1, true), path .. " must FocusClaim claim CTA")
+	end
+end
+
+------------------------------------------------------------------------
+-- Footgun: do not grow MainGame / ServerServices via this polish lane
+------------------------------------------------------------------------
+do
+	local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
+	local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+	-- Soft ceiling: polish PRs must not dump huge extracts into these files.
+	assert(#main < 420000, "MainGame.luau unexpectedly huge — avoid polish dumps here")
+	assert(#services < 320000, "ServerServices.luau unexpectedly huge — avoid polish dumps here")
+	assert(not string.find(main, "vendor/", 1, true), "MainGame must not reference vendor/")
+	assert(not string.find(services, "Packages/", 1, true), "ServerServices must not reference Packages/")
 end
 
 print(string.format(

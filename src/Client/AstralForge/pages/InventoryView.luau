@@ -1,6 +1,8 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local Audio = require(script.Parent.Parent.audio).Audio
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local itemIconKind = require(script.Parent.Parent.Icon).itemIconKind
 local _format = require(script.Parent.Parent.format)
 local asFlux = _format.asFlux
@@ -713,8 +715,33 @@ local function AutoSalvageSheet(_param)
 	local stack = _param.stack
 	local config = _param.config
 	local onClose = _param.onClose
+	local sheetHostRef = React.useRef(nil)
 	local fieldH = if stack then math.max(TapTarget, 52) else TOOL_FIELD_DESK
 	local rarityH = if stack then TapTarget else 36
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = sheetHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { passOwned, autoBusy })
 	local toggleAutoRarity = function(entry)
 		if entry == "Any" then
 			return nil
@@ -898,12 +925,15 @@ local function AutoSalvageSheet(_param)
 		}, _newValue_1))
 	end
 	return React.createElement("frame", {
+		ref = sheetHostRef,
+		Name = "AutoSalvageSheet",
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 40,
 		ClipsDescendants = false,
 	}, React.createElement("frame", {
+		Name = "AutoSalvageClaim",
 		Size = UDim2.new(1, -8, 0, 0),
 		Position = UDim2.fromOffset(4, 6),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -1076,6 +1106,7 @@ local function DetailPanel(_param)
 	if fill == nil then
 		fill = false
 	end
+	local inspectActionsHostRef = React.useRef(nil)
 	local accent = rarityColor(config, item.definition.Rarity)
 	local _result = state.Items
 	if _result ~= nil then
@@ -1146,6 +1177,25 @@ local function DetailPanel(_param)
 	local actionsH = inspectActionsHeight(stack)
 	local detailH = inspectPanelHeight(socketBlock, stack)
 	local actionSize = if stack then UDim2.new(0.5, -5, 0, ACTION_BTN) else UDim2.new(0.25, -7, 0, ACTION_BTN)
+	-- Gamepad: park Selection on SOCKET/UPGRADE when inspect mounts (FocusClaim prefers Claim-named hosts).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = inspectActionsHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { item.uid, equipped, locked, canUpgrade, target })
 	local socketBtn = function(size, position)
 		return if equipped then React.createElement(Button, {
 			text = "DETACH",
@@ -1312,7 +1362,8 @@ local function DetailPanel(_param)
 		background = Palette.panelRaised,
 		padding = INSPECT_PAD,
 		layoutOrder = layoutOrder,
-		clips = true,
+		-- SOCKET/UPGRADE/PROTECT/SALVAGE sit on the panel floor — clipping them was a short-phone CTA footgun.
+		clips = false,
 		zIndex = 20,
 	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -1326,11 +1377,62 @@ local function DetailPanel(_param)
 		layoutOrder = 0,
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
 	}), React.createElement("frame", {
+		ref = inspectActionsHostRef,
+		Name = "InspectClaimActions",
 		Size = UDim2.new(1, 0, 0, actionsH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 2,
-	}, if stack then React.createElement(React.Fragment, nil, socketBtn(actionSize, UDim2.fromOffset(0, 0)), upgradeBtn(actionSize, UDim2.new(0.5, 5, 0, 0)), lockBtn(actionSize, UDim2.fromOffset(0, ACTION_BTN + INSPECT_BTN_GAP)), salvageBtn(actionSize, UDim2.new(0.5, 5, 0, ACTION_BTN + INSPECT_BTN_GAP))) else React.createElement(React.Fragment, nil, socketBtn(actionSize, UDim2.fromOffset(0, 0)), upgradeBtn(actionSize, UDim2.new(0.25, 2, 0, 0)), lockBtn(actionSize, UDim2.new(0.5, 4, 0, 0)), salvageBtn(actionSize, UDim2.new(0.75, 6, 0, 0)))), React.createElement(Text, {
+		ClipsDescendants = false,
+	}, if stack then React.createElement(React.Fragment, nil, React.createElement("frame", {
+		Name = "InspectSocketClaim",
+		Size = actionSize,
+		Position = UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
+		Name = "InspectUpgradeClaim",
+		Size = actionSize,
+		Position = UDim2.new(0.5, 5, 0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
+		Name = "InspectProtect",
+		Size = actionSize,
+		Position = UDim2.fromOffset(0, ACTION_BTN + INSPECT_BTN_GAP),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, lockBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
+		Name = "InspectSalvage",
+		Size = actionSize,
+		Position = UDim2.new(0.5, 5, 0, ACTION_BTN + INSPECT_BTN_GAP),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, salvageBtn(UDim2.fromScale(1, 1), nil))) else React.createElement(React.Fragment, nil, React.createElement("frame", {
+		Name = "InspectSocketClaim",
+		Size = actionSize,
+		Position = UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
+		Name = "InspectUpgradeClaim",
+		Size = actionSize,
+		Position = UDim2.new(0.25, 2, 0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
+		Name = "InspectProtect",
+		Size = actionSize,
+		Position = UDim2.new(0.5, 4, 0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, lockBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
+		Name = "InspectSalvage",
+		Size = actionSize,
+		Position = UDim2.new(0.75, 6, 0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, salvageBtn(UDim2.fromScale(1, 1), nil)))), React.createElement(Text, {
 		value = if equipped then "Detach before salvaging." elseif locked then "Protected relics cannot be salvaged." else `Essence bank: {compactNumber(essence)}`,
 		size = 12,
 		color = Palette.muted,
@@ -1988,13 +2090,13 @@ local function InventoryView(_param)
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
 	-- Inventory mounts tab springs + hero shimmer together; snap when antilag already cut ambient.
-	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
-	local headerReveal = useStagger(0, quietMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local tab, setTab = React.useState("Relics")
 	local activeTabIndex = math.max(0, (table.find(TABS, tab) or 0) - 1)
-	local paneTravel = useFlipperSpring(activeTabIndex, quietMotion, 1540, 40)
+	local paneTravel = useFlipperSpring(activeTabIndex, softMotion, 1540, 40)
 	local panePosition = paneTravel:map(function(position)
 		return UDim2.new(0, math.round(math.clamp(position - activeTabIndex, -1, 1) * 22), 0, 0)
 	end)
@@ -2583,7 +2685,7 @@ local function InventoryView(_param)
 		fit = false,
 		position = UDim2.fromOffset(if stack then 50 else 56, 20),
 		sizeConstraint = UDim2.new(1, if stack then -58 else -20, 0, 26),
-		enabled = not quietMotion,
+		enabled = not softMotion,
 		periodSeconds = 4.8,
 	}), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, 0, 0, 28) else UDim2.fromOffset(220, 30),
@@ -2690,7 +2792,7 @@ local function InventoryView(_param)
 					state = state,
 					config = config,
 					dispatch = dispatch,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					layoutOrder = 0,
 					stack = stack,
 					fill = true,

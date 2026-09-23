@@ -300,7 +300,7 @@ local function BoostsView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
 	local now = useWallClock(true):map(function(seconds)
 		return seconds
@@ -352,7 +352,7 @@ local function BoostsView(_param)
 			boostKinds += 1
 		end
 	end
-	local headerReveal = useStagger(0, quietMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local heroH = if activeBoost ~= nil then (if stack then HERO_H_STACK else HERO_H_WIDE) else (if stack then IDLE_HERO_H_STACK else IDLE_HERO_H_WIDE)
 	local statsH = if stack then 88 else 72
 	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE
@@ -387,7 +387,7 @@ local function BoostsView(_param)
 		boost = activeBoost,
 		endsAt = activeEndsAt,
 		now = now,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		stack = stack,
 	}) else React.createElement(IdleHero, {
 		stack = stack,
@@ -442,7 +442,7 @@ local function BoostsView(_param)
 			_attributes.owned = _condition_3
 			_attributes.canActivate = not boostRunning
 			_attributes.dispatch = dispatch
-			_attributes.reducedMotion = reducedMotion
+			_attributes.reducedMotion = softMotion
 			_attributes.index = index
 			_attributes.stack = stack
 			_attributes.columns = columns
