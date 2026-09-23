@@ -135,4 +135,12 @@ do
 	assertUnique("Items.ShopOffers", collectIds(shopBody))
 end
 
+-- DV21 append gates (wave9): lab / achievements / story / mail ids must stay present.
+assert(string.find(src, 'Id = "Wave9DailyClaim"', 1, true), "Lab.Orders must append Wave9DailyClaim")
+assert(string.find(src, 'Id = "Wave9VaultLedger"', 1, true), "Lab.Orders must append Wave9VaultLedger")
+assert(string.find(src, 'Id = "Wave9DailyStreakRunner"', 1, true), "Achievements must append Wave9DailyStreakRunner")
+assert(string.find(src, 'Id = "Wave9StoryCourier"', 1, true), "Achievements must append Wave9StoryCourier")
+assert(string.find(src, 'Id = "bug-content-wave9-brief"', 1, true), "Story must append bug-content-wave9-brief")
+assert(string.find(src, 'Id = "update-5-1-bug-content-wave9"', 1, true), "Mail must append update-5-1-bug-content-wave9")
+
 print("[INFO] [TEST] content ids unique; DataVersion 21; PlatformBadges zeroed")

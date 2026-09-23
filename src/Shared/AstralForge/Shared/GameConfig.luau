@@ -502,6 +502,28 @@ local GameConfig = {
 				Reward = { Stardust = 38, CashMinutes = 4, Signals = 11 },
 				Color = Color3.fromRGB(255, 160, 140),
 			},
+			{
+				Id = "Wave9DailyClaim",
+				Name = "Wave Nine Daily Claim",
+				Description = "Tap through a short tally while Rewards Daily Claim FocusClaim is wired.",
+				Kind = "Tap",
+				BaseTarget = 80,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 29, CashMinutes = 3, Signals = 9 },
+				Color = Color3.fromRGB(120, 230, 200),
+			},
+			{
+				Id = "Wave9VaultLedger",
+				Name = "Wave Nine Vault Ledger",
+				Description = "Bank flux while collect / production Stats bumps nil-safe partial bags.",
+				Kind = "BankFlux",
+				BaseTarget = 3_400,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 40, CashMinutes = 4, Signals = 12 },
+				Color = Color3.fromRGB(255, 175, 150),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2798,6 +2820,22 @@ local GameConfig = {
 			Target = 44,
 			Reward = { Stardust = 220, Signals = 60, CashMinutes = 20, FreeSpins = 1 },
 		},
+		{
+			Id = "Wave9DailyStreakRunner",
+			Name = "Wave Nine Daily Streak Runner",
+			Description = "Hold a 16-day daily streak (ClaimDaily nil-safes Daily/Command bags).",
+			Kind = "DailyStreak",
+			Target = 16,
+			Reward = { Stardust = 240, Signals = 64, CashMinutes = 21, Boost = "SteadyBurn" },
+		},
+		{
+			Id = "Wave9StoryCourier",
+			Name = "Wave Nine Story Courier",
+			Description = "Claim 46 story chapters after Rewards FocusClaim + ApplyReward Keys nil-safety.",
+			Kind = "StoryClaims",
+			Target = 46,
+			Reward = { Stardust = 230, Signals = 62, CashMinutes = 21, FreeSpins = 1 },
+		},
 	},
 
 	DailyRewards = {
@@ -4239,9 +4277,43 @@ local GameConfig = {
 			Reward = { Stardust = 36, CashMinutes = 13, Signals = 15 },
 			Color = Color3.fromRGB(100, 220, 190),
 		},
+
+		{
+			Id = "bug-content-wave9-brief",
+			Title = "Bug Content Wave Nine Brief",
+			Chapter = "LORE: REWARDS BAY",
+			Summary = "Daily claim bags, ApplyReward Keys, and vault Stats stay honest.",
+			Body = {
+				"ClaimDaily nil-safes Daily/Command streak shields; ApplyReward Keys grants no longer throw on partial Items bags (WeeklyRelics).",
+				"Collect / tap / crate / continuum / production Stats bumps and ActivateBoost tolerate partial Studio fixtures.",
+				"Rewards Daily Claim and Timed CLAIM FocusClaim under gamepad; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 38, CashMinutes = 14, Signals = 16 },
+			Color = Color3.fromRGB(120, 230, 200),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-bug-content-wave9",
+			Subject = "Dock note — bug content wave nine",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Daily/Keys/Stats nil-safety + Rewards FocusClaim — still DataVersion 21.",
+			Body = {
+				"Daily streak claim and crate-key rewards no longer crash on partial Daily/Command/Items bags.",
+				"Vault collect, overcharge, crates, continuum, and ActivateBoost keep Stats/ActiveBoost coherent on Studio fixtures.",
+				"Rewards Daily Claim and Timed CLAIM park gamepad Selection; pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 38, Stardust = 54, Signals = 20 },
+			Color = Color3.fromRGB(120, 230, 200),
+		},
+
 		{
 			Id = "update-5-1-bug-content-wave8",
 			Subject = "Dock note — bug content wave eight",

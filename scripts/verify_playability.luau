@@ -406,8 +406,16 @@ do
 	assert(string.find(shop, "GamepadNavigationService.FocusClaim", 1, true), "Shop must FocusClaim CLAIM CODE / offer hosts")
 	assert(string.find(shop, "ref = if tab == \"Codes\" then shopHostRef else nil", 1, true), "Shop Codes tab must park FocusClaim on ShopClaimCode")
 
-	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+	assert(string.find(router, "GamepadNavigationService.FocusClaim", 1, true), "Rewards Daily/Timed CLAIM must FocusClaim when ready")
+	assert(string.find(router, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewards Daily Claim host must be named RewardsDailyClaimActions")
+	assert(string.find(router, 'Name = "RewardsTimedClaimActions"', 1, true), "Rewards Timed CLAIM host must be named RewardsTimedClaimActions")
+	assert(string.find(router, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "RewardsView must softMotion via antilag")
+
+	local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
+	assert(string.find(credits, 'Name = "CreditsClaimActions"', 1, true), "Credits primary CTA host must be named CreditsClaimActions")
+
+	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local crewClips = string.match(router, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
 	assert(crewClips == "false", "Crew header must keep clips = false so REFRESH stays reachable")
 

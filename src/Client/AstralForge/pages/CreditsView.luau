@@ -415,6 +415,8 @@ local function CreditsOverlay(_param)
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
 	}, React.createElement("frame", {
+		-- FocusClaim prefers Claim-named hosts; CLOSE is the primary Credits CTA.
+		Name = "CreditsClaimActions",
 		ref = overlayHostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,

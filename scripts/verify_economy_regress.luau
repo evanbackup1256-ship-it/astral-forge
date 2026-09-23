@@ -327,6 +327,56 @@ assert(
 	"Admin createRelic must not raw-increment Stats.ItemsFound"
 )
 
+-- --- ApplyReward Keys + ClaimDaily + GameService Stats nil-safety -------------
+-- Evidence: WeeklyRelics Grant Keys via ApplyReward — profile.Items.Keys raw index
+-- threw on partial Items bags. ClaimDaily raw-indexed Command.StreakShields /
+-- Daily.* — Studio fixtures without those bags crashed before ApplyReward.
+-- GameService collect/tap/crate/continuum/production raw Stats increments threw
+-- the same way; ActivateBoost raw ActiveBoost/BoostInventory likewise.
+assert(
+	string.find(progressionSrc, "ensureItemKeys", 1, true) ~= nil,
+	"ProgressionService.ApplyReward must nil-safe Items.Keys via ensureItemKeys"
+)
+assert(
+	string.find(progressionSrc, "profile.Items.Keys[crateId] = (profile.Items.Keys[crateId] or 0)", 1, true) == nil,
+	"ApplyReward must not raw-index profile.Items.Keys"
+)
+assert(
+	string.find(progressionSrc, "ensureDaily", 1, true) ~= nil,
+	"ProgressionService.ClaimDaily must nil-safe Daily via ensureDaily"
+)
+assert(
+	string.find(progressionSrc, "profile.Command.StreakShields > 0", 1, true) == nil,
+	"ClaimDaily must not raw-compare Command.StreakShields"
+)
+
+local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(
+	string.find(servicesSrc, "bumpStat", 1, true) ~= nil
+		and string.find(servicesSrc, "ensureStats", 1, true) ~= nil,
+	"GameService must nil-safe Stats via ensureStats/bumpStat"
+)
+assert(
+	string.find(servicesSrc, "profile.Stats.Taps += 1", 1, true) == nil,
+	"Overcharge must not raw-increment Stats.Taps"
+)
+assert(
+	string.find(servicesSrc, "profile.Stats.CratesOpened += count", 1, true) == nil,
+	"OpenCrate must not raw-increment Stats.CratesOpened"
+)
+assert(
+	string.find(servicesSrc, "ensureActiveBoost", 1, true) ~= nil,
+	"ActivateBoost / production tick must nil-safe ActiveBoost"
+)
+assert(
+	string.find(servicesSrc, "ensureBoostInventory", 1, true) ~= nil,
+	"ActivateBoost must nil-safe BoostInventory"
+)
+assert(
+	string.find(servicesSrc, "profile.ActiveBoost.EndsAt > os.time()", 1, true) == nil,
+	"ActivateBoost must not raw-index ActiveBoost.EndsAt"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -336,9 +386,9 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 -- Do not couple these modules to vendor/Packages (tree may exist; we must not reference it).
-for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc, anomalySrc } do
+for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc, anomalySrc, servicesSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats nil-safe")

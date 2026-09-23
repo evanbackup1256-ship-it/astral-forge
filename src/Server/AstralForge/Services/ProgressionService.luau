@@ -83,6 +83,26 @@ return function()
 		return stats[key]
 	end
 
+	-- WeeklyRelics (and similar) grant Keys tables — ApplyReward must not throw when
+	-- Items / Items.Keys are absent on Studio fixtures before the Claimed flag sticks.
+	local function ensureItemKeys(profile)
+		if type(profile.Items) ~= "table" then
+			profile.Items = { Keys = {} }
+		elseif type(profile.Items.Keys) ~= "table" then
+			profile.Items.Keys = {}
+		end
+		return profile.Items.Keys
+	end
+
+	local function ensureDaily(profile)
+		if type(profile.Daily) ~= "table" then
+			profile.Daily = { LastClaimDay = -1, Streak = 0 }
+		end
+		profile.Daily.LastClaimDay = math.floor(tonumber(profile.Daily.LastClaimDay) or -1)
+		profile.Daily.Streak = math.max(0, math.floor(tonumber(profile.Daily.Streak) or 0))
+		return profile.Daily
+	end
+
 	local function awardCommandXP(profile, amount: number)
 		local value = math.max(0, math.floor(amount))
 		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
@@ -163,9 +183,10 @@ return function()
 			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
 		end
 		if type(reward.Keys) == "table" then
+			local keys = ensureItemKeys(profile)
 			for crateId, amount in reward.Keys do
 				if type(crateId) == "string" and type(amount) == "number" and amount > 0 then
-					profile.Items.Keys[crateId] = (profile.Items.Keys[crateId] or 0) + math.floor(amount)
+					keys[crateId] = (tonumber(keys[crateId]) or 0) + math.floor(amount)
 					table.insert(parts, Format.Number(amount) .. " " .. crateId)
 				end
 			end
@@ -365,19 +386,20 @@ return function()
 
 	function ProgressionService.DailyState(profile)
 		local day = currentDay()
-		local canClaim = profile.Daily.LastClaimDay < day
+		local daily = ensureDaily(profile)
+		local canClaim = daily.LastClaimDay < day
 		local nextStreak
-		if profile.Daily.LastClaimDay == day - 1 then
-			nextStreak = profile.Daily.Streak + 1
+		if daily.LastClaimDay == day - 1 then
+			nextStreak = daily.Streak + 1
 		elseif canClaim then
 			nextStreak = 1
 		else
-			nextStreak = profile.Daily.Streak
+			nextStreak = daily.Streak
 		end
 		local rewardIndex = ((math.max(1, nextStreak) - 1) % #GameConfig.DailyRewards) + 1
 		return {
 			CanClaim = canClaim,
-			Streak = profile.Daily.Streak,
+			Streak = daily.Streak,
 			NextStreak = nextStreak,
 			RewardIndex = rewardIndex,
 			Rewards = GameConfig.DailyRewards,
@@ -386,23 +408,27 @@ return function()
 
 	function ProgressionService.ClaimDaily(profile): (boolean, string)
 		local day = currentDay()
-		if profile.Daily.LastClaimDay >= day then
+		local daily = ensureDaily(profile)
+		if daily.LastClaimDay >= day then
 			return false, "Come back tomorrow for the next daily."
 		end
-		if profile.Daily.LastClaimDay == day - 1 then
-			profile.Daily.Streak += 1
-		elseif
-			profile.Daily.LastClaimDay < day - 1
-			and profile.Daily.Streak > 0
-			and profile.Command.StreakShields > 0
-		then
-			profile.Command.StreakShields -= 1
-			profile.Daily.Streak += 1
+		if daily.LastClaimDay == day - 1 then
+			daily.Streak += 1
+		elseif daily.LastClaimDay < day - 1 and daily.Streak > 0 then
+			-- Partial Command bags must not throw before streak shield consume / ApplyReward.
+			local command = ensureCommand(profile)
+			local shields = math.max(0, math.floor(tonumber(command.StreakShields) or 0))
+			if shields > 0 then
+				command.StreakShields = shields - 1
+				daily.Streak += 1
+			else
+				daily.Streak = 1
+			end
 		else
-			profile.Daily.Streak = 1
+			daily.Streak = 1
 		end
-		profile.Daily.LastClaimDay = day
-		local rewardIndex = ((profile.Daily.Streak - 1) % #GameConfig.DailyRewards) + 1
+		daily.LastClaimDay = day
+		local rewardIndex = ((daily.Streak - 1) % #GameConfig.DailyRewards) + 1
 		local reward = GameConfig.DailyRewards[rewardIndex]
 		return true, ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
 	end
