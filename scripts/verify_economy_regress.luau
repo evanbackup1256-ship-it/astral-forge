@@ -231,16 +231,12 @@ assert(
 
 local convergenceSrc = fs.readFile("src/Server/AstralForge/Services/ConvergenceService.luau")
 assert(
-	string.find(convergenceSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
-	"Convergence applyReward must nil-safe Stats before Collected bump"
+	string.find(convergenceSrc, "ConvergenceOpsMath.EnsureRewardBags", 1, true) ~= nil,
+	"Convergence applyReward must EnsureRewardBags before Collected/Signals/Boost bumps"
 )
 assert(
-	string.find(convergenceSrc, 'type(profile.Command) ~= "table"', 1, true) ~= nil,
-	"Convergence applyReward must nil-safe Command before Signals bump"
-)
-assert(
-	string.find(convergenceSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil,
-	"Convergence applyReward must nil-safe BoostInventory before boost grant"
+	string.find(convergenceSrc, "ConvergenceOpsMath.EnsureEventProfile", 1, true) ~= nil,
+	"Convergence Flush/Claim must EnsureEventProfile before Contribution bump"
 )
 assert(
 	string.find(convergenceSrc, "profile.BoostInventory[reward.Boost] ~= nil", 1, true) == nil,
