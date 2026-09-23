@@ -1,9 +1,11 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local _AnimatedTitle = require(script.Parent.Parent.AnimatedTitle)
 local AnimatedTitle = _AnimatedTitle.AnimatedTitle
 local titleFxAccent = _AnimatedTitle.titleFxAccent
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local Audio = require(script.Parent.Parent.audio).Audio
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _Icon = require(script.Parent.Parent.Icon)
 local Icon = _Icon.Icon
 local PlayerMark = _Icon.PlayerMark
@@ -287,6 +289,7 @@ local function ChatView(_param)
 	local stickBottom = React.useRef(true)
 	local lastCount = React.useRef(0)
 	local sendAttempt = React.useRef(0)
+	local chatClaimHostRef = React.useRef(nil)
 	local headerReveal = useStagger(0, reducedMotion)
 	React.useEffect(function()
 		return function()
@@ -438,6 +441,25 @@ local function ChatView(_param)
 		end)
 	end
 	local canSend = chat.connected and (string.gsub(draft, "%s", "")) ~= ""
+	-- Gamepad: park Selection on SEND (FocusClaim prefers Claim-named hosts).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = chatClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { condensed, canSend })
 	local statusLabel = if chat.connected then "ONLINE" else "CONNECTING"
 	local statusAccent = if chat.connected then Palette.green else Palette.mango
 	local bannerY = -(inputHeight + chromeGap + BANNER_HEIGHT + chromeGap)
@@ -658,6 +680,7 @@ local function ChatView(_param)
 			end,
 		},
 	}), React.createElement("frame", {
+		Name = "ChatClaimActions",
 		Size = UDim2.fromOffset(0, 48),
 		AutomaticSize = Enum.AutomaticSize.X,
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -665,6 +688,7 @@ local function ChatView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+		ref = chatClaimHostRef,
 	}, React.createElement(Button, {
 		text = "SEND",
 		icon = "Send",

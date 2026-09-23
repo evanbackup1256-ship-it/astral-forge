@@ -428,6 +428,57 @@ assert(
 	"PlayerAnalytics must not raw-pass Stats.Joins"
 )
 
+-- --- Quests / TimedRewards + sanitize rebuild after ApplyReward (wave11) ------
+-- Evidence: ApplyReward Keys seeds Items={Keys={}} — post-claim sanitize threw on
+-- Items.Shop / Inventory. ApplyReward Fragments seeds Anomaly={Fragments=0} —
+-- sanitize threw iterating nil Protocols. FreeSpins seeds Wheel={FreeSpins=0}.
+-- EnsureQuests / EnsureTimedRewards / Progress / ClaimQuest raw-indexed missing bags.
+assert(
+	string.find(dataSrc, 'type(profile.Items) ~= "table"', 1, true) ~= nil
+		and string.find(dataSrc, 'type(profile.Items.Shop) ~= "table"', 1, true) ~= nil,
+	"DataService sanitize must rebuild Keys-only Items before Shop access"
+)
+assert(
+	string.find(dataSrc, 'type(profile.Anomaly.Protocols) ~= "table"', 1, true) ~= nil,
+	"DataService sanitize must rebuild Fragments-only Anomaly.Protocols"
+)
+assert(
+	string.find(dataSrc, 'type(profile.Wheel) ~= "table"', 1, true) ~= nil,
+	"DataService sanitize must rebuild FreeSpins-only Wheel"
+)
+assert(
+	string.find(dataSrc, 'type(profile.Quests) ~= "table"', 1, true) ~= nil,
+	"DataService sanitize must harden Quests bag"
+)
+assert(
+	string.find(dataSrc, 'type(profile.TimedRewards) ~= "table"', 1, true) ~= nil,
+	"DataService sanitize must harden TimedRewards bag"
+)
+assert(
+	string.find(progressionSrc, "ensureQuests", 1, true) ~= nil,
+	"ProgressionService must nil-safe Quests via ensureQuests"
+)
+assert(
+	string.find(progressionSrc, "profile.Quests.Day == day and #profile.Quests.Items > 0", 1, true) == nil,
+	"EnsureQuests must not raw-index Quests.Day/Items"
+)
+assert(
+	string.find(progressionSrc, "ensureTimedRewardsBag", 1, true) ~= nil,
+	"ProgressionService must nil-safe TimedRewards via ensureTimedRewardsBag"
+)
+assert(
+	string.find(progressionSrc, "profile.TimedRewards.Day == day", 1, true) == nil,
+	"EnsureTimedRewards must not raw-compare TimedRewards.Day"
+)
+assert(
+	string.find(adminSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil,
+	"Admin GrantBoost must nil-safe BoostInventory"
+)
+assert(
+	string.find(adminSrc, 'type(profile.Command.Artifacts) ~= "table"', 1, true) ~= nil,
+	"Admin DiscoverArts must nil-safe Command.Artifacts"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -442,4 +493,4 @@ for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgrade
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements+QuestsTimed+SanitizeBags nil-safe")

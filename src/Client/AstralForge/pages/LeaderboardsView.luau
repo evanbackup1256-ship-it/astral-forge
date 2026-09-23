@@ -743,6 +743,7 @@ local function LeaderboardsView(_param)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
 	local entries, setEntries = React.useState({})

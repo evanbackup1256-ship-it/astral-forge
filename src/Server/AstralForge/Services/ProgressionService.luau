@@ -103,6 +103,28 @@ return function()
 		return profile.Daily
 	end
 
+	-- Studio fixtures / mid-migrate bags may omit Quests entirely — EnsureQuests /
+	-- Progress / ClaimQuest must not throw before the day roll can seed Items.
+	local function ensureQuests(profile)
+		if type(profile.Quests) ~= "table" then
+			profile.Quests = { Day = -1, Items = {} }
+		elseif type(profile.Quests.Items) ~= "table" then
+			profile.Quests.Items = {}
+		end
+		return profile.Quests
+	end
+
+	-- ApplyReward FreeSpins may leave TimedRewards untouched while Studio fixtures
+	-- omit the bag — EnsureTimedRewards / ClaimTimedReward must nil-safe first.
+	local function ensureTimedRewardsBag(profile)
+		if type(profile.TimedRewards) ~= "table" then
+			profile.TimedRewards = { Day = -1, PlaySeconds = 0, Claimed = {} }
+		elseif type(profile.TimedRewards.Claimed) ~= "table" then
+			profile.TimedRewards.Claimed = {}
+		end
+		return profile.TimedRewards
+	end
+
 	local function awardCommandXP(profile, amount: number)
 		local value = math.max(0, math.floor(amount))
 		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
@@ -196,15 +218,16 @@ return function()
 
 	function ProgressionService.EnsureQuests(profile, userId: number)
 		local day = currentDay()
-		if profile.Quests.Day == day and #profile.Quests.Items > 0 then
+		local questsBag = ensureQuests(profile)
+		if questsBag.Day == day and #questsBag.Items > 0 then
 			return false
 		end
 
 		local production = Economy.Max(4, Economy.Production(profile))
-		local scale = 1 + profile.Rebirths * 0.15
+		local scale = 1 + (tonumber(profile.Rebirths) or 0) * 0.15
 		local earnTarget = math.floor(math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale))
-		local tapTarget = math.floor((40 + profile.Rebirths * 3) * scale)
-		local upgradeTarget = math.floor(3 + math.min(7, profile.Rebirths / 2))
+		local tapTarget = math.floor((40 + (tonumber(profile.Rebirths) or 0) * 3) * scale)
+		local upgradeTarget = math.floor(3 + math.min(7, (tonumber(profile.Rebirths) or 0) / 2))
 		local rotation = (day + userId) % 3
 
 		local quests = {
@@ -246,7 +269,8 @@ return function()
 	end
 
 	function ProgressionService.Progress(profile, kind: string, amount: number)
-		for _, quest in profile.Quests.Items do
+		local questsBag = ensureQuests(profile)
+		for _, quest in questsBag.Items do
 			if
 				quest.Kind == kind
 				or (quest.Kind == "BuyAny" and (kind == "BuyMachine" or kind == "BuyResearch"))
@@ -257,7 +281,8 @@ return function()
 	end
 
 	function ProgressionService.ClaimQuest(profile, questId: string): (boolean, string)
-		for _, quest in profile.Quests.Items do
+		local questsBag = ensureQuests(profile)
+		for _, quest in questsBag.Items do
 			if quest.Id == questId then
 				if quest.Claimed then
 					return false, "That mission reward was already claimed."
@@ -988,7 +1013,8 @@ return function()
 
 	function ProgressionService.EnsureTimedRewards(profile): boolean
 		local day = currentDay()
-		if profile.TimedRewards.Day == day then
+		local timed = ensureTimedRewardsBag(profile)
+		if timed.Day == day then
 			return false
 		end
 		profile.TimedRewards = {
@@ -1000,9 +1026,10 @@ return function()
 	end
 
 	function ProgressionService.TimedRewardState(profile)
-		local dayMatches = profile.TimedRewards.Day == currentDay()
-		local playSeconds = dayMatches and profile.TimedRewards.PlaySeconds or 0
-		local claimed = dayMatches and profile.TimedRewards.Claimed or {}
+		local timed = ensureTimedRewardsBag(profile)
+		local dayMatches = timed.Day == currentDay()
+		local playSeconds = dayMatches and timed.PlaySeconds or 0
+		local claimed = dayMatches and timed.Claimed or {}
 		local rewards = {}
 		for index, timedReward in GameConfig.TimedRewards do
 			table.insert(rewards, {
@@ -1028,14 +1055,15 @@ return function()
 		if not timedReward then
 			return false, "That playtime gift does not exist."
 		end
+		local timed = ensureTimedRewardsBag(profile)
 		local key = tostring(index)
-		if profile.TimedRewards.Claimed[key] then
+		if timed.Claimed[key] then
 			return false, "That playtime gift was already claimed today."
 		end
-		if profile.TimedRewards.PlaySeconds < timedReward.Minutes * 60 then
+		if timed.PlaySeconds < timedReward.Minutes * 60 then
 			return false, "Keep playing to unlock that gift."
 		end
-		profile.TimedRewards.Claimed[key] = true
+		timed.Claimed[key] = true
 		return true, ProgressionService.ApplyReward(profile, timedReward.Reward, Economy.Production(profile))
 	end
 

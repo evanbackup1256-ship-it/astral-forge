@@ -37,7 +37,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 8308a2f
+# Expect at or after: 9d80f47
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
@@ -71,6 +71,7 @@ git merge-base --is-ancestor 78e593d HEAD && echo settle-gates-more OK
 git merge-base --is-ancestor eec599c HEAD && echo echo-research-virt OK
 git merge-base --is-ancestor 15c0aba HEAD && echo bug-content-wave9 OK
 git merge-base --is-ancestor d059e83 HEAD && echo wave10-harden OK
+git merge-base --is-ancestor 8308a2f HEAD && echo split-maingame-ss OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -111,7 +112,7 @@ walkthrough / Device Simulator evidence before claiming ENTIRE complete.
 ```bash
 git fetch origin && git checkout master && git pull origin master
 git rev-parse HEAD
-# Expect at or after: 8308a2f
+# Expect at or after: 9d80f47
 argon serve default.project.json
 ```
 
@@ -150,6 +151,7 @@ parks via `GamepadNavigationService.FocusClaim`):
 - Shop CLAIM CODE; Admin ARM/RUN; Credits primary CTA
 - Command commander/weekly/expedition/season CLAIM
 - Settings GUIDE/UPDATES
+- Chat SEND
 
 **3. ReleaseReadiness (Studio-only)**
 

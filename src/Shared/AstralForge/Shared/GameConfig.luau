@@ -546,6 +546,28 @@ local GameConfig = {
 				Reward = { Stardust = 42, CashMinutes = 4, Signals = 13 },
 				Color = Color3.fromRGB(255, 190, 160),
 			},
+			{
+				Id = "Wave11QuestSanitize",
+				Name = "Wave Eleven Quest Sanitize",
+				Description = "Tap through a short tally while Quests/TimedRewards nil-safety + Chat SEND FocusClaim stay wired.",
+				Kind = "Tap",
+				BaseTarget = 90,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 31, CashMinutes = 3, Signals = 10 },
+				Color = Color3.fromRGB(160, 220, 190),
+			},
+			{
+				Id = "Wave11SanitizeBags",
+				Name = "Wave Eleven Sanitize Bags",
+				Description = "Bank flux while DataService rebuilds Keys-only Items and Fragments-only Anomaly after claim.",
+				Kind = "BankFlux",
+				BaseTarget = 3_800,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 44, CashMinutes = 4, Signals = 14 },
+				Color = Color3.fromRGB(255, 200, 170),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2874,6 +2896,22 @@ local GameConfig = {
 			Target = 18,
 			Reward = { Stardust = 250, Signals = 66, CashMinutes = 22, Boost = "Afterburner" },
 		},
+		{
+			Id = "Wave11MissionCourier",
+			Name = "Wave Eleven Mission Courier",
+			Description = "Claim 50 story chapters after Quests/TimedRewards nil-safety + Chat SEND FocusClaim.",
+			Kind = "StoryClaims",
+			Target = 50,
+			Reward = { Stardust = 250, Signals = 66, CashMinutes = 23, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave11SanitizeRunner",
+			Name = "Wave Eleven Sanitize Runner",
+			Description = "Hold a 20-day daily streak while DataService rebuilds partial Items/Anomaly bags.",
+			Kind = "DailyStreak",
+			Target = 20,
+			Reward = { Stardust = 260, Signals = 68, CashMinutes = 23, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4348,9 +4386,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(140, 200, 255),
 		},
 
+		{
+			Id = "bug-content-wave11-brief",
+			Title = "Bug Content Wave Eleven Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Sanitize rebuilds Keys/Fragments bags; Quests/TimedRewards and Chat SEND stay honest.",
+			Body = {
+				"DataService sanitize rebuilds Keys-only Items, Fragments-only Anomaly, and FreeSpins-only Wheel before iterating Shop/Protocols maps.",
+				"EnsureQuests / EnsureTimedRewards / ClaimQuest tolerate missing Quests and TimedRewards bags on Studio fixtures.",
+				"Chat SEND FocusClaim under gamepad; Shop/Echo/Boosts/Inventory softMotion folds into reducedMotion; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 42, CashMinutes = 16, Signals = 18 },
+			Color = Color3.fromRGB(160, 220, 190),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-bug-content-wave11",
+			Subject = "Dock note — bug content wave eleven",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Sanitize rebuilds partial bags + Quests/Chat FocusClaim — still DataVersion 21.",
+			Body = {
+				"Post-claim sanitize no longer throws on Keys-only Items or Fragments-only Anomaly bags seeded by ApplyReward.",
+				"Missions EnsureQuests / TimedRewards tolerate missing bags; Chat SEND parks gamepad Selection.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 42, Stardust = 58, Signals = 22 },
+			Color = Color3.fromRGB(160, 220, 190),
+		},
 
 		{
 			Id = "update-5-1-wave10-harden",

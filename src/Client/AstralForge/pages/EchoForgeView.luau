@@ -644,6 +644,7 @@ local function EchoForgeView(_param)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local echoes = state.ForgeEchoes or EMPTY_ECHOES
 	local armedUid, setArmedUid = React.useState()
 	React.useEffect(function()

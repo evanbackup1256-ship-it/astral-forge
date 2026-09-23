@@ -135,18 +135,24 @@ do
 	assertUnique("Items.ShopOffers", collectIds(shopBody))
 end
 
--- DV21 append gates (wave10): lab / achievements / story / mail ids must stay present.
+-- DV21 append gates (wave11): lab / achievements / story / mail ids must stay present.
 assert(string.find(src, 'Id = "Wave9DailyClaim"', 1, true), "Lab.Orders must append Wave9DailyClaim")
 assert(string.find(src, 'Id = "Wave9VaultLedger"', 1, true), "Lab.Orders must append Wave9VaultLedger")
 assert(string.find(src, 'Id = "Wave10EchoVault"', 1, true), "Lab.Orders must append Wave10EchoVault")
 assert(string.find(src, 'Id = "Wave10EconomyBags"', 1, true), "Lab.Orders must append Wave10EconomyBags")
+assert(string.find(src, 'Id = "Wave11QuestSanitize"', 1, true), "Lab.Orders must append Wave11QuestSanitize")
+assert(string.find(src, 'Id = "Wave11SanitizeBags"', 1, true), "Lab.Orders must append Wave11SanitizeBags")
 assert(string.find(src, 'Id = "Wave9DailyStreakRunner"', 1, true), "Achievements must append Wave9DailyStreakRunner")
 assert(string.find(src, 'Id = "Wave9StoryCourier"', 1, true), "Achievements must append Wave9StoryCourier")
 assert(string.find(src, 'Id = "Wave10EchoArchivist"', 1, true), "Achievements must append Wave10EchoArchivist")
 assert(string.find(src, 'Id = "Wave10SettingsCourier"', 1, true), "Achievements must append Wave10SettingsCourier")
+assert(string.find(src, 'Id = "Wave11MissionCourier"', 1, true), "Achievements must append Wave11MissionCourier")
+assert(string.find(src, 'Id = "Wave11SanitizeRunner"', 1, true), "Achievements must append Wave11SanitizeRunner")
 assert(string.find(src, 'Id = "bug-content-wave9-brief"', 1, true), "Story must append bug-content-wave9-brief")
 assert(string.find(src, 'Id = "wave10-harden-brief"', 1, true), "Story must append wave10-harden-brief")
+assert(string.find(src, 'Id = "bug-content-wave11-brief"', 1, true), "Story must append bug-content-wave11-brief")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave9"', 1, true), "Mail must append update-5-1-bug-content-wave9")
 assert(string.find(src, 'Id = "update-5-1-wave10-harden"', 1, true), "Mail must append update-5-1-wave10-harden")
+assert(string.find(src, 'Id = "update-5-1-bug-content-wave11"', 1, true), "Mail must append update-5-1-bug-content-wave11")
 
 print("[INFO] [TEST] content ids unique; DataVersion 21; PlatformBadges zeroed")
