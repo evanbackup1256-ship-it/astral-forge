@@ -67,10 +67,10 @@ local function TabButton(_param)
 		return -math.round(math.clamp(raw, 0, 1) * 2)
 	end)
 	local indicatorSize = selection:map(function(raw)
-		return UDim2.fromOffset(22 * math.clamp(raw, 0, 1), 3)
+		return UDim2.fromOffset(20 * math.clamp(raw, 0, 1), 2)
 	end)
 	local indicatorTransparency = selection:map(function(raw)
-		return 1 - math.clamp(raw, 0, 1)
+		return 1 - math.clamp(raw, 0, 1) * 0.72
 	end)
 	-- Packed to fit a TAP_TARGET (48px) tab core: icon + label must clear inside the bar
 	-- before bottomSafe, especially on landscape phones.
@@ -188,21 +188,21 @@ local function MoreSheet(_param)
 		},
 	})
 	local _exp_1 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 20),
+		CornerRadius = UDim.new(0, 22),
 	})
 	local _exp_2 = React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.62,
+		Transparency = 0.76,
 	})
 	local _exp_3 = React.createElement("frame", {
-		Size = UDim2.fromOffset(40, 4),
+		Size = UDim2.fromOffset(36, 3),
 		Position = UDim2.new(0.5, 0, 0, 10),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.lineSoft,
-		BackgroundTransparency = 0.3,
+		BackgroundTransparency = 0.45,
 		BorderSizePixel = 0,
 		ZIndex = 202,
 	}, React.createElement("uicorner", {
@@ -313,8 +313,8 @@ function MoreCell(_param)
 			return UDim2.new(0.5, 0, 0.5, math.round(amount))
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = if active then darken(entry.accent, 0.7) else Palette.panelRaised,
-		BackgroundTransparency = 0.06,
+		BackgroundColor3 = if active then darken(entry.accent, 0.74) else Palette.panelRaised,
+		BackgroundTransparency = if active then 0.02 else 0.12,
 		BorderSizePixel = 0,
 		ZIndex = 205,
 		ClipsDescendants = true,
@@ -325,7 +325,7 @@ function MoreCell(_param)
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = if active then entry.accent else Palette.lineSoft,
 		Thickness = 1,
-		Transparency = if active then 0.35 else 0.7,
+		Transparency = if active then 0.48 else 0.8,
 	}), React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
@@ -462,13 +462,13 @@ local function MobileTabBar(_param)
 	local overflowBadgeTotal = _result_1
 	local moreActive = activeInOverflow ~= nil or moreOpen
 	local _exp = React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.5),
+		Color = surfaceGradient(Palette.night, 0.36),
 		Rotation = 90,
 	})
 	local _exp_1 = React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 1),
 		BackgroundColor3 = Palette.lineSoft,
-		BackgroundTransparency = 0.55,
+		BackgroundTransparency = 0.72,
 		BorderSizePixel = 0,
 		ZIndex = 41,
 	})
@@ -599,20 +599,21 @@ local function MobileHeader(_param)
 		ZIndex = 20,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.58),
+		Color = surfaceGradient(Palette.panel, 0.4),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.55,
+		Transparency = 0.72,
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(52, 2),
+		Size = UDim2.fromOffset(40, 1),
 		Position = UDim2.fromOffset(14, 0),
 		BackgroundColor3 = accent,
+		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),

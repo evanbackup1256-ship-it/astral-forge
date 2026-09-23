@@ -156,7 +156,7 @@ local function PageScaffold(_param)
 		BorderSizePixel = 0,
 		ScrollBarThickness = scrollBarThickness,
 		ScrollBarImageColor3 = scrollBarColor or Palette.muted,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.42,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,

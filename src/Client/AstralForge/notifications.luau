@@ -329,20 +329,22 @@ local function NoticeCard(props)
 			end,
 		},
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = color,
+		Color = Palette.lineSoft,
 		Thickness = 1,
 		Transparency = fade:map(function(amount)
-			return 0.5 + amount * 0.5
+			return 0.62 + amount * 0.38
 		end),
 	}), React.createElement("frame", {
-		Size = UDim2.new(0, 4, 1, -8),
-		Position = UDim2.fromOffset(4, 4),
+		Size = UDim2.new(0, 3, 1, -10),
+		Position = UDim2.fromOffset(5, 5),
 		BackgroundColor3 = color,
-		BackgroundTransparency = fade,
+		BackgroundTransparency = fade:map(function(amount)
+			return 0.18 + amount
+		end),
 		BorderSizePixel = 0,
 		ZIndex = 102,
 	}, React.createElement("uicorner", {
@@ -357,7 +359,7 @@ local function NoticeCard(props)
 		BorderSizePixel = 0,
 		ZIndex = 103,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 6),
+		CornerRadius = UDim.new(0, 7),
 	}), React.createElement(Icon, {
 		kind = toneIcon(notice.tone),
 		color = color,
@@ -659,7 +661,7 @@ local function ToastRail(_param)
 		Position = UDim2.new(0.5, 0, 0, -(if stack then 28 else 30)),
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundColor3 = Palette.panelRaised,
-		BackgroundTransparency = 0.08,
+		BackgroundTransparency = 0.12,
 		BorderSizePixel = 0,
 		ZIndex = 249,
 	}, React.createElement("uicorner", {
@@ -667,7 +669,7 @@ local function ToastRail(_param)
 	}), React.createElement(Stroke, {
 		color = Palette.lineSoft,
 		thickness = 1,
-		transparency = 0.5,
+		transparency = 0.62,
 	}), React.createElement(Text, {
 		value = `+{hiddenCount} more`,
 		size = 11,

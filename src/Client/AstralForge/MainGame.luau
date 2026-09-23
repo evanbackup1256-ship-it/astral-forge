@@ -1932,11 +1932,11 @@ local function RailButton(_param)
 	end)
 	local fillTransparency = emphasis:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
-		return 0.34 - amount * 0.34
+		return 0.52 - amount * 0.42
 	end)
 	local strokeTransparency = emphasis:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
-		return math.clamp(0.82 - amount * 0.62, 0.18, 0.85)
+		return math.clamp(0.9 - amount * 0.48, 0.32, 0.92)
 	end)
 	local markerSize = emphasis:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
@@ -1946,7 +1946,7 @@ local function RailButton(_param)
 		return if disabled then Palette.panelSoft else Palette.panelRaised:Lerp(darken(entry.accent, 0.52), math.clamp(raw, 0, 1))
 	end)
 	local ringTransparency = emphasis:map(function(raw)
-		return math.clamp(0.78 - math.clamp(raw, 0, 1) * 0.7, 0.05, 0.82)
+		return math.clamp(0.86 - math.clamp(raw, 0, 1) * 0.48, 0.28, 0.9)
 	end)
 	local labelColor = emphasis:map(function(raw)
 		return if disabled then Palette.muted else Palette.creamSoft:Lerp(Palette.cream, math.clamp(raw, 0, 1))
@@ -2047,12 +2047,14 @@ local function RailButton(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
+		CornerRadius = UDim.new(0, 10),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.7),
+		Color = surfaceGradient(Palette.panel, 0.48),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
-		Color = entry.accent,
+		Color = emphasis:map(function(raw)
+			return Palette.lineSoft:Lerp(entry.accent, math.clamp(raw, 0, 1) * 0.85)
+		end),
 		Thickness = 1,
 		Transparency = strokeTransparency,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -2063,14 +2065,14 @@ local function RailButton(_param)
 		BackgroundTransparency = pressWash,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
+		CornerRadius = UDim.new(0, 10),
 	})), React.createElement("frame", {
 		Size = markerSize,
 		Position = UDim2.fromScale(0, 0.5),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = entry.accent,
 		BackgroundTransparency = emphasis:map(function(amount)
-			return if amount < 0.08 then 1 else 0.75 - amount * 0.75
+			return if amount < 0.08 then 1 else 0.55 - amount * 0.4
 		end),
 		BorderSizePixel = 0,
 		Visible = emphasis:map(function(amount)
@@ -2865,16 +2867,16 @@ local function Navigation(_param)
 	local boostHeight = if showBoost then (if collapsed then 56 else 58) else 0
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
 	local _exp = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 14),
 	})
 	local _exp_1 = React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.5),
+		Color = surfaceGradient(Palette.night, 0.38),
 		Rotation = 90,
 	})
 	local _exp_2 = React.createElement("uistroke", {
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.68,
+		Transparency = 0.78,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 	})
@@ -2884,21 +2886,22 @@ local function Navigation(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(6, 6),
+		Size = UDim2.fromOffset(5, 5),
 		Position = UDim2.new(0, 4, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = AppHelpers:pageAccent(page),
+		BackgroundTransparency = 0.28,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement(Text, {
 		value = "Forge",
 		size = 10,
-		color = Palette.creamSoft,
+		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(18, 0),
-		sizeConstraint = UDim2.new(0.58, -18, 1, 0),
+		position = UDim2.fromOffset(16, 0),
+		sizeConstraint = UDim2.new(0.58, -16, 1, 0),
 	}))
 	local _exp_4 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -3036,20 +3039,20 @@ local function VaultPill(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, -2, 1, -2),
 		Position = UDim2.fromOffset(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 11),
+		CornerRadius = UDim.new(0, 13),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = if full then Palette.mango else Palette.lineSoft,
 		Thickness = 1,
-		Transparency = if full then 0.35 else 0.72,
+		Transparency = if full then 0.48 else 0.78,
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(32, 32),
 		Position = UDim2.fromOffset(10, 10),
@@ -3111,7 +3114,7 @@ local function NextUnlockStrip(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.7),
+		Color = surfaceGradient(Palette.night, 0.4),
 		Rotation = 90,
 	}), React.createElement(Text, {
 		value = if goal ~= nil then "NEXT UNLOCK" else "FORGE OPEN",
@@ -3252,13 +3255,13 @@ local function Workspace(_param)
 		ZIndex = 5,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
+		CornerRadius = UDim.new(0, 16),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.58,
+		Transparency = 0.72,
 	}), headerHeight > 0 and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, headerHeight),
 		BackgroundColor3 = Palette.panel,
@@ -3266,25 +3269,26 @@ local function Workspace(_param)
 		ZIndex = 20,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
+		CornerRadius = UDim.new(0, 16),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.58),
+		Color = surfaceGradient(Palette.panel, 0.42),
 		Rotation = 90,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 14),
 		Position = UDim2.new(0, 0, 1, -14),
-		BackgroundColor3 = darken(Palette.panel, 0.24),
+		BackgroundColor3 = darken(Palette.panel, 0.18),
 		BorderSizePixel = 0,
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(78, 2),
-		Position = UDim2.fromOffset(18, 0),
+		Size = UDim2.fromOffset(56, 1),
+		Position = UDim2.fromOffset(20, 0),
 		BackgroundColor3 = accent,
+		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.68, 0.18), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.6, 0.4), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(headerIconSize, headerIconSize),
 		Position = enter:map(function(amount)
