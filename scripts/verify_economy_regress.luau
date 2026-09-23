@@ -506,6 +506,30 @@ assert(
 	"Admin ResetDailyClaim must nil-safe Daily"
 )
 
+-- --- CommandMath extract + Signals-only Command / Lab sanitize (wave13) ------
+-- Evidence: ApplyReward Signals seeds Command={Signals=N} without Crew/Artifacts —
+-- sanitize iterated nil Crew/MachineMastery/Artifacts. Studio fixtures omitting Lab
+-- crashed sanitize on Orders/Routing. MailClaimActions ClipsDescendants=true buried
+-- CLAIM on short phones (same class as Continuum/crate CLAIM clips).
+assert(
+	string.find(progressionSrc, "CommandMath.Ensure", 1, true) ~= nil
+		and string.find(progressionSrc, "ensureCommand", 1, true) ~= nil,
+	"ProgressionService must nil-safe Command via CommandMath.Ensure / ensureCommand"
+)
+assert(
+	string.find(progressionSrc, 'profile.Command = { XP = 0, SeasonXP = 0, Signals = 0, StreakShields = 0 }', 1, true) == nil,
+	"thin Signals-only ensureCommand seed must be removed"
+)
+assert(
+	string.find(dataSrc, "CommandMath.Ensure", 1, true) ~= nil,
+	"DataService sanitize must rebuild Signals-only Command"
+)
+assert(
+	string.find(dataSrc, "LabOrderMath.Ensure", 1, true) ~= nil
+		and string.find(dataSrc, "LabOrderMath.NormalizeRouting", 1, true) ~= nil,
+	"DataService sanitize must rebuild + normalize Lab bags"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -520,4 +544,4 @@ for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgrade
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements+QuestsTimed+SanitizeBags+WheelMath nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements+QuestsTimed+SanitizeBags+WheelMath+CommandMath nil-safe")

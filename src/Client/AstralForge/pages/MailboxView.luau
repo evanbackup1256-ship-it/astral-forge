@@ -622,7 +622,8 @@ local function MailboxView(_param)
 			Position = UDim2.new(0, 0, 1, -footerH),
 			BackgroundColor3 = Palette.panel,
 			BorderSizePixel = 0,
-			ClipsDescendants = true,
+			-- CLAIM/ARCHIVE must stay unclipped (claimSlide overshoot on short phones).
+			ClipsDescendants = false,
 			ZIndex = 6,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 12),

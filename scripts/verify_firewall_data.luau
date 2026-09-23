@@ -107,6 +107,9 @@ assert(string.find(dataSrc, 'type(profile.Anomaly.Protocols) ~= "table"', 1, tru
 assert(string.find(dataSrc, 'type(profile.Wheel) ~= "table"', 1, true), "sanitize must rebuild FreeSpins-only Wheel")
 assert(string.find(dataSrc, 'type(profile.Quests) ~= "table"', 1, true), "sanitize must harden Quests")
 assert(string.find(dataSrc, 'type(profile.TimedRewards) ~= "table"', 1, true), "sanitize must harden TimedRewards")
+-- wave13: ApplyReward Signals seeds Command={Signals=N}; Studio fixtures may omit Lab.
+assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "sanitize must rebuild Signals-only Command")
+assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "sanitize must rebuild missing Lab")
 
 ------------------------------------------------------------------------
 -- Config RemoteFirewall overrides stay present

@@ -590,6 +590,28 @@ local GameConfig = {
 				Reward = { Stardust = 46, CashMinutes = 4, Signals = 15 },
 				Color = Color3.fromRGB(255, 210, 180),
 			},
+			{
+				Id = "Wave13CommandMath",
+				Name = "Wave Thirteen Command Math",
+				Description = "Tap through a short tally while CommandMath extract + Signals-only Command bag nil-safety stay wired.",
+				Kind = "Tap",
+				BaseTarget = 100,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 34, CashMinutes = 3, Signals = 12 },
+				Color = Color3.fromRGB(160, 210, 255),
+			},
+			{
+				Id = "Wave13MailLabClips",
+				Name = "Wave Thirteen Mail Lab Clips",
+				Description = "Bank flux while Mail CLAIM stays unclipped and LabOrderMath Ensure rebuilds missing Lab bags.",
+				Kind = "BankFlux",
+				BaseTarget = 4_200,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 48, CashMinutes = 4, Signals = 16 },
+				Color = Color3.fromRGB(255, 200, 190),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2950,6 +2972,22 @@ local GameConfig = {
 			Target = 22,
 			Reward = { Stardust = 270, Signals = 70, CashMinutes = 24, Boost = "Afterburner" },
 		},
+		{
+			Id = "Wave13CommandCourier",
+			Name = "Wave Thirteen Command Courier",
+			Description = "Claim 54 story chapters after CommandMath extract + Signals-only Command bag nil-safety.",
+			Kind = "StoryClaims",
+			Target = 54,
+			Reward = { Stardust = 270, Signals = 72, CashMinutes = 25, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave13MailClipRunner",
+			Name = "Wave Thirteen Mail Clip Runner",
+			Description = "Hold a 24-day daily streak while MailClaimActions unclipped + Lab Ensure stay verified.",
+			Kind = "DailyStreak",
+			Target = 24,
+			Reward = { Stardust = 280, Signals = 74, CashMinutes = 25, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4456,9 +4494,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(180, 210, 255),
 		},
 
+		{
+			Id = "wave13-harden-brief",
+			Title = "Wave Thirteen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "CommandMath extract hardens Signals bags; Mail CLAIM clips and Lab Ensure stay honest.",
+			Body = {
+				"CommandMath Ensure/Level/Rank keep CommandState and sanitize from throwing on Signals-only bags seeded by ApplyReward.",
+				"LabOrderMath Ensure/NormalizeRouting rebuild missing Lab Orders/Routing; MailClaimActions keep ClipsDescendants false.",
+				"Mailbox/Lab/Anomaly/Research/Wheel softMotion fold into reducedMotion; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 46, CashMinutes = 18, Signals = 20 },
+			Color = Color3.fromRGB(160, 210, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave13-harden",
+			Subject = "Dock note — wave thirteen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "CommandMath extract + Signals Command nil-safety + Mail CLAIM clips — still DataVersion 21.",
+			Body = {
+				"Command bag math is Lune-testable; sanitize / CommandState no longer throw on Signals-only bags after ApplyReward grants.",
+				"LabOrderMath Ensure rebuilds missing Lab bags; MailClaimActions stay unclipped so CLAIM/ARCHIVE remain reachable.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 46, Stardust = 62, Signals = 24 },
+			Color = Color3.fromRGB(160, 210, 255),
+		},
 
 		{
 			Id = "update-5-1-wave12-harden",

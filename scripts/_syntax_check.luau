@@ -75,6 +75,7 @@ local files = {
 	"src/Server/AstralForge/Modules/GuildMath.luau",
 	"src/Server/AstralForge/Modules/ForgeEchoMath.luau",
 	"src/Server/AstralForge/Modules/WheelMath.luau",
+	"src/Server/AstralForge/Modules/CommandMath.luau",
 	"src/Server/AstralForge/Modules/CrateRoll.luau",
 	"src/Server/AstralForge/Modules/ShopGrantEligibility.luau",
 	"src/Server/AstralForge/Modules/CommandActionValidators.luau",
