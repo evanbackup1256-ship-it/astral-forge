@@ -379,6 +379,14 @@ do
 	assert(string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true), "Convergence CLAIM must FocusClaim when ready")
 	assert(string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true), "Convergence CLAIM host must be named ConvergenceClaimActions")
 
+	local research = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
+	assert(string.find(research, "GamepadNavigationService.FocusClaim", 1, true), "Research BUY ALL must FocusClaim when affordable")
+	assert(string.find(research, 'Name = "ResearchBuyClaimActions"', 1, true), "Research BUY ALL host must be named ResearchBuyClaimActions")
+
+	local starGrid = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
+	assert(string.find(starGrid, "GamepadNavigationService.FocusClaim", 1, true), "StarGrid BUY ALL must FocusClaim")
+	assert(string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true), "StarGrid BUY ALL host must be named StarGridBuyClaimActions")
+
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 	local crewClips = string.match(router, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')

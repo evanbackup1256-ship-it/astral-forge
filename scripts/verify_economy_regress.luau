@@ -246,6 +246,41 @@ assert(
 	"Convergence must not silently drop boost rewards when the inventory key is absent"
 )
 
+local anomalySrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
+assert(
+	string.find(anomalySrc, "bumpAnomalyStat", 1, true) ~= nil,
+	"AnomalyService must nil-safe Stats bumps via bumpAnomalyStat"
+)
+assert(
+	string.find(anomalySrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	"AnomalyService bumpAnomalyStat must nil-safe Stats"
+)
+assert(
+	string.find(anomalySrc, 'profile.Stats.AnomalyPulses += 1', 1, true) == nil,
+	"AnomalyService must not raw-increment Stats.AnomalyPulses"
+)
+assert(
+	string.find(anomalySrc, 'profile.Stats.AnomalyStabilizations += 1', 1, true) == nil,
+	"AnomalyService must not raw-increment Stats.AnomalyStabilizations"
+)
+
+assert(
+	string.find(progressionSrc, "ensureCommand", 1, true) ~= nil,
+	"ProgressionService.ApplyReward must nil-safe Command via ensureCommand"
+)
+assert(
+	string.find(progressionSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil,
+	"ProgressionService.ApplyReward must nil-safe BoostInventory"
+)
+assert(
+	string.find(progressionSrc, 'type(profile.Anomaly) ~= "table"', 1, true) ~= nil,
+	"ProgressionService.ApplyReward must nil-safe Anomaly before Fragments"
+)
+assert(
+	string.find(progressionSrc, "profile.Stardust = (tonumber(profile.Stardust) or 0)", 1, true) ~= nil,
+	"ProgressionService.ApplyReward must tonumber Stardust"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -255,9 +290,9 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 -- Do not couple these modules to vendor/Packages (tree may exist; we must not reference it).
-for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc } do
+for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc, anomalySrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward nil-safe")
