@@ -208,6 +208,12 @@ do
 	assert(string.find(wheel, "PrizeCatalogRow", 1, true), "Wheel prize table must render PrizeCatalogRow")
 	local command = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
 	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
+	-- Expeditions / Weekly / Season long catalogs must VirtualGrid (or FlatList) — never map-mount.
+	assert(string.find(command, "count = #ops.Expeditions", 1, true), "Command Expeditions must VirtualGrid count")
+	assert(string.find(command, "count = #command.Weekly", 1, true), "Command Weekly must VirtualGrid count")
+	assert(string.find(command, "count = #ops.SeasonTiers", 1, true), "Command Season must VirtualGrid count")
+	assert(string.find(command, "Weekly jobs", 1, true), "Command Weekly jobs header must stay")
+	assert(string.find(command, "overscanRows = if softMotion then 0 else 1", 1, true), "Command catalogs must softMotion-gate overscan")
 end
 
 ------------------------------------------------------------------------
@@ -344,6 +350,24 @@ for _, path in SOFT_MOTION_FILES do
 			string.find(softLine, "allowAmbient", 1, true) or string.find(softLine, "tier", 1, true),
 			path .. " softMotion must gate on antilag.allowAmbient or antilag.tier: " .. softLine
 		)
+	end
+end
+
+-- Thicken softMotion density on Trade/Command (still-thin vs Shop/Story): fold into reducedMotion.
+do
+	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+	for _, path in {
+		"src/Client/AstralForge/pages/TradeView.luau",
+		"src/Client/AstralForge/pages/CommandView.luau",
+	} do
+		local src = fs.readFile(path)
+		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")
+		assert(string.find(src, "reducedMotion = softMotion", 1, true), path .. " must fold softMotion into reducedMotion")
+		local softUses = 0
+		for _ in string.gmatch(src, "softMotion") do
+			softUses += 1
+		end
+		assert(softUses >= 4, path .. " softMotion density too thin, got " .. tostring(softUses))
 	end
 end
 

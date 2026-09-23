@@ -286,6 +286,8 @@ local function CommandView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — fold into reducedMotion so TabPane boat tweens,
+	-- meters, and claim CTAs all snap when tier<=1 or ambient is off (parity with Shop/Trade).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local claimHostRef = React.useRef(nil)
@@ -749,117 +751,127 @@ local function CommandView(_param)
 			fit = false,
 			sizeConstraint = UDim2.new(1, 0, 0, 24),
 		})
-		local _exp_13 = command.Weekly
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue_4 = table.create(#_exp_13)
-		local _callback_6 = function(directive, index)
-			local ready = not directive.Claimed and directive.Progress >= directive.Target
-			local rewardLine = formatReward(directive.Reward)
-			local _exp_14 = React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 10),
-			})
-			local _exp_15 = React.createElement("uistroke", {
-				Color = if ready then Palette.green else Palette.lineSoft,
-				Thickness = 1,
-				Transparency = 0.45,
-			})
-			local _exp_16 = React.createElement(Text, {
-				value = directive.Name,
-				size = 13,
-				color = if ready then Palette.green else Palette.cream,
-				weight = Enum.FontWeight.Heavy,
-				fit = false,
-				position = UDim2.fromOffset(12, 8),
-				sizeConstraint = UDim2.new(1, if stack then -24 else -156, 0, 18),
-			})
-			local _attributes_1 = {}
-			local _condition_5 = directive.Description
-			if _condition_5 == nil then
-				_condition_5 = ""
-			end
-			_attributes_1.value = _condition_5
-			_attributes_1.size = 11
-			_attributes_1.color = Palette.muted
-			_attributes_1.fit = false
-			_attributes_1.position = UDim2.fromOffset(12, 28)
-			_attributes_1.sizeConstraint = UDim2.new(1, if stack then -24 else -156, 0, 16)
-			return React.createElement("frame", {
-				key = directive.Id,
-				Size = UDim2.new(1, 0, 0, if stack then 148 else 92),
-				Position = UDim2.fromOffset(0, 36 + index * (if stack then 156 else 100)),
-				BackgroundColor3 = Palette.ink,
-				BorderSizePixel = 0,
-			}, _exp_14, _exp_15, _exp_16, React.createElement(Text, _attributes_1), React.createElement(Text, {
-				value = if rewardLine ~= "" then rewardLine else `{compactNumber(directive.Progress)} / {compactNumber(directive.Target)}`,
-				size = 10,
-				color = Palette.creamSoft,
-				wrap = true,
-				fit = false,
-				position = UDim2.fromOffset(12, 46),
-				sizeConstraint = UDim2.new(1, if stack then -24 else -156, 0, 28),
-			}), React.createElement(Meter, {
-				value = meterFill(directive.Progress, directive.Target, directive.Claimed or ready),
-				color = Palette.green,
-				reducedMotion = reducedMotion,
-				position = UDim2.fromOffset(12, if stack then 78 else 76),
-				size = UDim2.new(1, if stack then -24 else -156, 0, 7),
-			}), if stack then React.createElement("frame", {
-				Name = "CommandClaimActions",
-				Size = UDim2.new(1, -24, 0, TapTarget),
-				Position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-				ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
-			}, React.createElement(Button, {
-				text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
-				onClick = function()
-					return dispatch("ClaimWeeklyDirective", {
-						Id = directive.Id,
-					})
-				end,
-				color = Palette.green,
-				textColor = Palette.ink,
-				size = UDim2.fromScale(1, 1),
-				disabled = directive.Claimed or not ready,
-				reducedMotion = reducedMotion,
-				highlight = ready,
-			})) else React.createElement("frame", {
-				Name = "CommandClaimActions",
-				Size = UDim2.fromOffset(140, 44),
-				Position = UDim2.new(1, -150, 0.5, -22),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-				ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
-			}, React.createElement(Button, {
-				text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
-				onClick = function()
-					return dispatch("ClaimWeeklyDirective", {
-						Id = directive.Id,
-					})
-				end,
-				color = Palette.green,
-				textColor = Palette.ink,
-				size = UDim2.fromScale(1, 1),
-				disabled = directive.Claimed or not ready,
-				reducedMotion = reducedMotion,
-				highlight = ready,
-			})))
-		end
-		for _k, _v in _exp_13 do
-			_newValue_4[_k] = _callback_6(_v, _k - 1, _exp_13)
-		end
-		-- ▲ ReadonlyArray.map ▲
+		-- VirtualGrid long Weekly catalogs so Overview never map-mounts every directive.
+		local _exp_13 = React.createElement(VirtualGrid, {
+			scrollRef = scrollRef,
+			count = #command.Weekly,
+			columns = 1,
+			cellHeight = weeklyItemH,
+			gap = weeklyStride - weeklyItemH,
+			overscanRows = if softMotion then 0 else 1,
+			position = UDim2.fromOffset(0, 36),
+			itemKey = function(index)
+				local directive = command.Weekly[index + 1]
+				return if directive ~= nil then directive.Id else `weekly-{index}`
+			end,
+			renderItem = function(index)
+				local directive = command.Weekly[index + 1]
+				if directive == nil then
+					return nil
+				end
+				local ready = not directive.Claimed and directive.Progress >= directive.Target
+				local rewardLine = formatReward(directive.Reward)
+				local _exp_14 = React.createElement("uicorner", {
+					CornerRadius = UDim.new(0, 10),
+				})
+				local _exp_15 = React.createElement("uistroke", {
+					Color = if ready then Palette.green else Palette.lineSoft,
+					Thickness = 1,
+					Transparency = 0.45,
+				})
+				local _exp_16 = React.createElement(Text, {
+					value = directive.Name,
+					size = 13,
+					color = if ready then Palette.green else Palette.cream,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					position = UDim2.fromOffset(12, 8),
+					sizeConstraint = UDim2.new(1, if stack then -24 else -156, 0, 18),
+				})
+				local _attributes_1 = {}
+				local _condition_5 = directive.Description
+				if _condition_5 == nil then
+					_condition_5 = ""
+				end
+				_attributes_1.value = _condition_5
+				_attributes_1.size = 11
+				_attributes_1.color = Palette.muted
+				_attributes_1.fit = false
+				_attributes_1.position = UDim2.fromOffset(12, 28)
+				_attributes_1.sizeConstraint = UDim2.new(1, if stack then -24 else -156, 0, 16)
+				return React.createElement("frame", {
+					Size = UDim2.new(1, 0, 0, weeklyItemH),
+					BackgroundColor3 = Palette.ink,
+					BorderSizePixel = 0,
+				}, _exp_14, _exp_15, _exp_16, React.createElement(Text, _attributes_1), React.createElement(Text, {
+					value = if rewardLine ~= "" then rewardLine else `{compactNumber(directive.Progress)} / {compactNumber(directive.Target)}`,
+					size = 10,
+					color = Palette.creamSoft,
+					wrap = true,
+					fit = false,
+					position = UDim2.fromOffset(12, 46),
+					sizeConstraint = UDim2.new(1, if stack then -24 else -156, 0, 28),
+				}), React.createElement(Meter, {
+					value = meterFill(directive.Progress, directive.Target, directive.Claimed or ready),
+					color = Palette.green,
+					reducedMotion = softMotion,
+					position = UDim2.fromOffset(12, if stack then 78 else 76),
+					size = UDim2.new(1, if stack then -24 else -156, 0, 7),
+				}), if stack then React.createElement("frame", {
+					-- FocusClaim prefers Claim-named hosts; weekly CLAIM is the Overview job CTA.
+					Name = "CommandClaimActions",
+					Size = UDim2.new(1, -24, 0, TapTarget),
+					Position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ClipsDescendants = false,
+					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
+				}, React.createElement(Button, {
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
+					onClick = function()
+						return dispatch("ClaimWeeklyDirective", {
+							Id = directive.Id,
+						})
+					end,
+					color = Palette.green,
+					textColor = Palette.ink,
+					size = UDim2.fromScale(1, 1),
+					disabled = directive.Claimed or not ready,
+					reducedMotion = softMotion,
+					highlight = ready,
+				})) else React.createElement("frame", {
+					Name = "CommandClaimActions",
+					Size = UDim2.fromOffset(140, 44),
+					Position = UDim2.new(1, -150, 0.5, -22),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ClipsDescendants = false,
+					ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
+				}, React.createElement(Button, {
+					text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
+					onClick = function()
+						return dispatch("ClaimWeeklyDirective", {
+							Id = directive.Id,
+						})
+					end,
+					color = Palette.green,
+					textColor = Palette.ink,
+					size = UDim2.fromScale(1, 1),
+					disabled = directive.Claimed or not ready,
+					reducedMotion = softMotion,
+					highlight = ready,
+				})))
+			end,
+		})
 		local _exp_14 = React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, weeklyH),
 			accent = Palette.green,
 			background = Palette.panel,
 			padding = 14,
 			layoutOrder = nextOrder(),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			clips = false,
-		}, _exp_12, _newValue_4)
+		}, _exp_12, _exp_13)
 		local _exp_15 = React.createElement(Text, {
 			value = "Title wardrobe",
 			size = 18,
@@ -1170,6 +1182,7 @@ local function CommandView(_param)
 			columns = 1,
 			cellHeight = expeditionRowH,
 			gap = Layout.panelGap,
+			overscanRows = if softMotion then 0 else 1,
 			layoutOrder = nextOrder(),
 			itemKey = function(index)
 				local expedition = ops.Expeditions[index + 1]
@@ -1412,6 +1425,7 @@ local function CommandView(_param)
 		columns = 1,
 		cellHeight = seasonRowH,
 		gap = Layout.panelGap,
+		overscanRows = if softMotion then 0 else 1,
 		layoutOrder = nextOrder(),
 		itemKey = function(index)
 			local tier = ops.SeasonTiers[index + 1]

@@ -186,6 +186,7 @@ mark("progression envelopes")
 local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
 assert(string.find(settleSrc, "function TradeSettle.RunHostGuest", 1, true), "TradeSettle.RunHostGuest missing")
 assert(string.find(settleSrc, "function TradeSettle.IsCommitOk", 1, true), "TradeSettle.IsCommitOk missing")
+assert(string.find(settleSrc, "function TradeSettle.CancelBlocked", 1, true), "TradeSettle.CancelBlocked missing")
 assert(not string.find(settleSrc, "vendor/", 1, true), "TradeSettle must not reference vendor/")
 assert(not string.find(settleSrc, "Packages/", 1, true), "TradeSettle must not reference Packages/")
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
@@ -196,13 +197,29 @@ assert(string.find(tradingBody, "SessionSeconds", 1, true), "Trading.SessionSeco
 assert(string.find(tradingBody, "MaxItems", 1, true), "Trading.MaxItems missing")
 mark("trade settle orchestration")
 
+-- DataService busy-window + Guild claim + residual txn markers (offline parity with
+-- verify_busy_guild_txn; kept here so release-readiness checks grow past checks=9).
+local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
+assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService:IsBusy missing")
+assert(string.find(servicesSrc, "self._data:IsBusy(player)", 1, true), "production must consult IsBusy")
+assert(string.find(servicesSrc, "maxCatchUp = GameConfig.Game.ProductionTick * 4", 1, true), "busy-window catch-up missing")
+local guildSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
+assert(string.find(guildSrc, "function GuildService:ClaimGoal", 1, true), "GuildService:ClaimGoal missing")
+assert(string.find(guildSrc, "goal.Claimed[userKey] = true", 1, true), "Guild claim must stamp Claimed")
+assert(string.find(guildBody, "MinContributionForReward", 1, true) or string.find(cfg, "MinContributionForReward", 1, true), "Guild MinContributionForReward missing")
+local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
+assert(string.find(gateSrc, "TXN_RING", 1, true), "SessionGate TXN_RING missing")
+assert(string.find(gateSrc, "function SessionGate:TxnClaim", 1, true), "SessionGate:TxnClaim missing")
+assert(string.find(settleSrc, "RevertFailed", 1, true), "TradeSettle RevertFailed residual missing")
+mark("busy-window guild claim residual txn")
+
 -- Document Studio-only remainder so npm test never silently pretends soak/integrity ran.
 local initSrc = fs.readFile("src/Server/AstralForge/init.server.luau")
 assert(string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true) or string.find(initSrc, "ReleaseReadiness.RunSoak", 1, true),
 	"init.server must still expose Studio ReleaseReadiness runners")
 mark("studio runners still wired")
 
-assert(#passed > 7, "release-readiness offline subset must stay beyond checks=7, got " .. tostring(#passed))
+assert(#passed > 9, "release-readiness offline subset must stay beyond checks=9, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

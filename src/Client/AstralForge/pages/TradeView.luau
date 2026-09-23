@@ -422,8 +422,10 @@ local function TradeView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Decorative entrance spring only; trade session scrolls stay on reducedMotion props.
+	-- Canonical softMotion antilag gate (same line as Shop/Command): fold into reducedMotion
+	-- so every decorative Button/Meter/Panel on the desk snaps under tier/ambient pressure.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local now = useSecondClock()
 	local trade = state.Trade
