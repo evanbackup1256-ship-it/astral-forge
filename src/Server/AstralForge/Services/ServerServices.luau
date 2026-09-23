@@ -734,30 +734,46 @@ serviceFactories["GameService"] = function()
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseError(planErr or "That trade could not be settled.")
 				end
-				local hostOk, hostResult = self._data:AtomicUpdate(host, function(profile)
-					local applyErr = self._trades:ApplyExchange(
-						profile,
-						plan.HostOffer,
-						plan.GuestOffer,
-						plan.HostItems,
-						plan.GuestItems,
-						plan.Now
-					)
-					if applyErr then
-						return { ok = false, error = applyErr }
-					end
-					return { ok = true }
-				end, true, "trade-host")
-				if not hostOk or type(hostResult) ~= "table" or hostResult.ok ~= true then
-					self._trades:FailSettle(session, false)
-					self:_pushTradePartners(session.Host, session.Guest)
-					local message = if type(hostResult) == "table" then hostResult.error else nil
-					return responseError(message or "Host side of the trade failed.")
-				end
-				-- Re-read guest after host commit so inventory/currency races surface after Plan.
-				guestProfile = self._data:Get(guest)
-				if not guestProfile then
-					local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, function()
+				-- Host→guest AtomicUpdate pair lives in TradeSettle.RunHostGuest so
+				-- apply → guest re-read → guest apply → host revert retries are Lune-testable.
+				local outcome = TradeSettle.RunHostGuest(session, {
+					applyHost = function()
+						return self._data:AtomicUpdate(host, function(profile)
+							local applyErr = self._trades:ApplyExchange(
+								profile,
+								plan.HostOffer,
+								plan.GuestOffer,
+								plan.HostItems,
+								plan.GuestItems,
+								plan.Now
+							)
+							if applyErr then
+								return { ok = false, error = applyErr }
+							end
+							return { ok = true }
+						end, true, "trade-host")
+					end,
+					-- Re-read guest after host commit so inventory/currency races surface after Plan.
+					guestPresent = function()
+						return self._data:Get(guest) ~= nil
+					end,
+					applyGuest = function()
+						return self._data:AtomicUpdate(guest, function(profile)
+							local applyErr = self._trades:ApplyExchange(
+								profile,
+								plan.GuestOffer,
+								plan.HostOffer,
+								plan.GuestItems,
+								plan.HostItems,
+								plan.Now
+							)
+							if applyErr then
+								return { ok = false, error = applyErr }
+							end
+							return { ok = true }
+						end, true, "trade-guest")
+					end,
+					revertHostOnce = function()
 						local revertOk, revertResult = self._data:AtomicUpdate(host, function(profile)
 							self._trades:RevertExchange(
 								profile,
@@ -769,74 +785,23 @@ serviceFactories["GameService"] = function()
 							)
 							return { ok = true }
 						end, true, "trade-revert")
-						return revertOk and type(revertResult) == "table" and revertResult.ok == true
-					end)
-					self._trades:FailSettle(session, not reverted, TradeSettle.REASON_GUEST_LEFT)
-					self:_pushTradePartners(session.Host, session.Guest)
-					if not reverted then
+						return TradeSettle.IsCommitOk(revertOk, revertResult)
+					end,
+				})
+				self:_pushTradePartners(session.Host, session.Guest)
+				if not outcome.ok then
+					if type(outcome.log) == "string" then
 						ModuleLog.Warn(
 							"Trade",
-							TradeSettle.FormatRevertFailedLog(
-								session.Id,
-								session.Host,
-								session.Guest,
-								TradeSettle.REASON_GUEST_LEFT
-							),
+							outcome.log,
 							{ SessionId = session.Id, Host = session.Host, Guest = session.Guest }
 						)
 					end
-					return responseError(TradeSettle.GuestLeftMessage(reverted))
-				end
-				local guestOk, guestResult = self._data:AtomicUpdate(guest, function(profile)
-					local applyErr = self._trades:ApplyExchange(
-						profile,
-						plan.GuestOffer,
-						plan.HostOffer,
-						plan.GuestItems,
-						plan.HostItems,
-						plan.Now
-					)
-					if applyErr then
-						return { ok = false, error = applyErr }
-					end
-					return { ok = true }
-				end, true, "trade-guest")
-				if not guestOk or type(guestResult) ~= "table" or guestResult.ok ~= true then
-					local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, function()
-						local revertOk, revertResult = self._data:AtomicUpdate(host, function(profile)
-							self._trades:RevertExchange(
-								profile,
-								plan.HostOffer,
-								plan.GuestOffer,
-								plan.HostItems,
-								plan.GuestItems,
-								plan.Now
-							)
-							return { ok = true }
-						end, true, "trade-revert")
-						return revertOk and type(revertResult) == "table" and revertResult.ok == true
-					end)
-					self._trades:FailSettle(session, not reverted, TradeSettle.REASON_GUEST_APPLY)
-					self:_pushTradePartners(session.Host, session.Guest)
-					local message = if type(guestResult) == "table" then guestResult.error else nil
-					if not reverted then
-						ModuleLog.Warn(
-							"Trade",
-							TradeSettle.FormatRevertFailedLog(
-								session.Id,
-								session.Host,
-								session.Guest,
-								TradeSettle.REASON_GUEST_APPLY
-							),
-							{ SessionId = session.Id, Host = session.Host, Guest = session.Guest }
-						)
-					end
-					return responseError(TradeSettle.GuestApplyMessage(reverted, message))
+					return responseError(outcome.message or "That trade could not be settled.")
 				end
 				self._trades:Close(session)
 				self:_toastPlayer(host, "Trade complete", "The exchange is locked in.", "Success")
 				self:_toastPlayer(guest, "Trade complete", "The exchange is locked in.", "Success")
-				self:_pushTradePartners(session.Host, session.Guest)
 				return responseSuccess("Trade complete.")
 			end
 			if session then

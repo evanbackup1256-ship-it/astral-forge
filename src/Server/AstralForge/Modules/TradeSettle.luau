@@ -1,8 +1,9 @@
 --!strict
--- Pure settle lock / fail / cancel residual / revert-retry helpers for peer trades.
--- No Roblox services — TradeDesk, ServerServices, and Lune verify scripts share this
--- so host→guest settle races and RevertFailed recovery can be tested without Studio.
--- AtomicUpdate / ApplyExchange / RevertExchange still live with the caller.
+-- Pure settle lock / fail / cancel residual / revert-retry / host→guest orchestration
+-- helpers for peer trades. No Roblox services — TradeDesk, ServerServices, and Lune
+-- verify scripts share this so host→guest AtomicUpdate races and RevertFailed recovery
+-- can be tested without Studio. Callers inject apply/revert/presence hooks; ApplyExchange
+-- / RevertExchange / DataService.AtomicUpdate stay with the caller.
 
 local TradeSettle = {}
 
@@ -11,6 +12,10 @@ TradeSettle.ADMIN_NOTE = "Trade settle recovery"
 TradeSettle.REASON_GUEST_LEFT = "guest-left-during-settle"
 TradeSettle.REASON_GUEST_APPLY = "guest-apply-failed"
 TradeSettle.REASON_HOST_REVERT = "host-revert-failed"
+TradeSettle.KIND_COMPLETE = "complete"
+TradeSettle.KIND_HOST_FAILED = "host-failed"
+TradeSettle.KIND_GUEST_LEFT = "guest-left"
+TradeSettle.KIND_GUEST_FAILED = "guest-failed"
 
 -- Single-flight settle gate: both Confirm handlers can race once Confirmed[host]
 -- and Confirmed[guest] flip true; only one caller may own the host→guest apply pair.
@@ -102,6 +107,92 @@ function TradeSettle.FormatRevertFailedLog(sessionId: any, hostId: number, guest
 		reason,
 		TradeSettle.ADMIN_NOTE
 	)
+end
+
+-- AtomicUpdate result shape used by ConfirmTrade host/guest commits.
+function TradeSettle.IsCommitOk(committed: boolean?, result: any): boolean
+	return committed == true and type(result) == "table" and result.ok == true
+end
+
+function TradeSettle.CommitError(result: any): string?
+	if type(result) == "table" and type(result.error) == "string" and result.error ~= "" then
+		return result.error
+	end
+	return nil
+end
+
+-- Host→guest settle orchestration after TryBegin + Plan succeed.
+-- hooks.applyHost / hooks.applyGuest → (committed, result) matching AtomicUpdate.
+-- hooks.guestPresent → true when guest profile is still readable after host commit.
+-- hooks.revertHostOnce → true when one host revert AtomicUpdate committed.
+-- Returns a plain outcome table so ServerServices can toast / ModuleLog / respond
+-- without owning the control flow of apply → re-read → apply → revert retries.
+function TradeSettle.RunHostGuest(session, hooks: any): any
+	assert(type(hooks) == "table", "RunHostGuest requires hooks")
+	assert(type(hooks.applyHost) == "function", "hooks.applyHost required")
+	assert(type(hooks.guestPresent) == "function", "hooks.guestPresent required")
+	assert(type(hooks.applyGuest) == "function", "hooks.applyGuest required")
+	assert(type(hooks.revertHostOnce) == "function", "hooks.revertHostOnce required")
+
+	local hostCommitted, hostResult = hooks.applyHost()
+	if not TradeSettle.IsCommitOk(hostCommitted, hostResult) then
+		TradeSettle.Fail(session, false)
+		return {
+			ok = false,
+			kind = TradeSettle.KIND_HOST_FAILED,
+			message = TradeSettle.CommitError(hostResult) or "Host side of the trade failed.",
+			permanent = false,
+		}
+	end
+
+	if not hooks.guestPresent() then
+		local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, hooks.revertHostOnce)
+		TradeSettle.Fail(session, not reverted, TradeSettle.REASON_GUEST_LEFT)
+		local outcome: any = {
+			ok = false,
+			kind = TradeSettle.KIND_GUEST_LEFT,
+			message = TradeSettle.GuestLeftMessage(reverted),
+			permanent = not reverted,
+			reason = TradeSettle.REASON_GUEST_LEFT,
+		}
+		if not reverted then
+			outcome.log = TradeSettle.FormatRevertFailedLog(
+				session.Id,
+				session.Host,
+				session.Guest,
+				TradeSettle.REASON_GUEST_LEFT
+			)
+		end
+		return outcome
+	end
+
+	local guestCommitted, guestResult = hooks.applyGuest()
+	if not TradeSettle.IsCommitOk(guestCommitted, guestResult) then
+		local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, hooks.revertHostOnce)
+		TradeSettle.Fail(session, not reverted, TradeSettle.REASON_GUEST_APPLY)
+		local outcome: any = {
+			ok = false,
+			kind = TradeSettle.KIND_GUEST_FAILED,
+			message = TradeSettle.GuestApplyMessage(reverted, TradeSettle.CommitError(guestResult)),
+			permanent = not reverted,
+			reason = TradeSettle.REASON_GUEST_APPLY,
+		}
+		if not reverted then
+			outcome.log = TradeSettle.FormatRevertFailedLog(
+				session.Id,
+				session.Host,
+				session.Guest,
+				TradeSettle.REASON_GUEST_APPLY
+			)
+		end
+		return outcome
+	end
+
+	return {
+		ok = true,
+		kind = TradeSettle.KIND_COMPLETE,
+		permanent = false,
+	}
 end
 
 return table.freeze(TradeSettle)

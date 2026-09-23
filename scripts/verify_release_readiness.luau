@@ -169,11 +169,40 @@ assert(string.find(firewallBody, "PulseAnomaly", 1, true), "RemoteFirewall must 
 assert(countKeys(boostIds) >= 8, "Boosts catalog must stay release-sized, got " .. tostring(countKeys(boostIds)))
 mark("firewall and boost envelopes")
 
+-- Progression / ops envelopes that release soaks exercise but quickChecks skip.
+local continuumBody = extractSection(cfg, "\n\tContinuum = {")
+assert(string.find(continuumBody, "BaseFluxCost", 1, true), "Continuum.BaseFluxCost missing")
+assert(string.find(continuumBody, "MaxRank", 1, true), "Continuum.MaxRank missing")
+assert(string.find(continuumBody, "MilestoneEvery", 1, true), "Continuum.MilestoneEvery missing")
+local labBody = extractSection(cfg, "\n\tLab = {")
+assert(string.find(labBody, "Orders", 1, true) or string.find(labBody, "Power", 1, true) or string.find(labBody, "Slots", 1, true), "Lab progression knobs missing")
+local forgePathBody = extractSection(cfg, "\n\tForgePath = {")
+assert(string.find(forgePathBody, "Steps", 1, true) or string.find(forgePathBody, "Tracks", 1, true) or string.find(forgePathBody, "XP", 1, true), "ForgePath envelope missing")
+local wheelBody = extractSection(cfg, "\n\tWheel = {")
+assert(string.find(wheelBody, "Rewards", 1, true) or string.find(wheelBody, "Segments", 1, true) or string.find(wheelBody, "Cost", 1, true), "Wheel envelope missing")
+mark("progression envelopes")
+
+-- Trade settle orchestration extract must stay Lune-wired for host→guest AtomicUpdate.
+local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+assert(string.find(settleSrc, "function TradeSettle.RunHostGuest", 1, true), "TradeSettle.RunHostGuest missing")
+assert(string.find(settleSrc, "function TradeSettle.IsCommitOk", 1, true), "TradeSettle.IsCommitOk missing")
+assert(not string.find(settleSrc, "vendor/", 1, true), "TradeSettle must not reference vendor/")
+assert(not string.find(settleSrc, "Packages/", 1, true), "TradeSettle must not reference Packages/")
+local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(servicesSrc, "TradeSettle.RunHostGuest", 1, true), "ConfirmTrade must delegate RunHostGuest")
+assert(string.find(servicesSrc, "trade-host", 1, true) and string.find(servicesSrc, "trade-guest", 1, true), "host/guest AtomicUpdate labels")
+assert(string.find(tradingBody, "InviteSeconds", 1, true), "Trading.InviteSeconds missing")
+assert(string.find(tradingBody, "SessionSeconds", 1, true), "Trading.SessionSeconds missing")
+assert(string.find(tradingBody, "MaxItems", 1, true), "Trading.MaxItems missing")
+mark("trade settle orchestration")
+
 -- Document Studio-only remainder so npm test never silently pretends soak/integrity ran.
 local initSrc = fs.readFile("src/Server/AstralForge/init.server.luau")
 assert(string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true) or string.find(initSrc, "ReleaseReadiness.RunSoak", 1, true),
 	"init.server must still expose Studio ReleaseReadiness runners")
 mark("studio runners still wired")
+
+assert(#passed > 7, "release-readiness offline subset must stay beyond checks=7, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",
