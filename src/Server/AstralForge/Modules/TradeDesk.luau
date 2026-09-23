@@ -601,15 +601,20 @@ function TradeDesk:FailSettle(session, permanent: boolean?)
 	end
 end
 
-function TradeDesk:Cancel(player: Player): (any, number?)
+function TradeDesk:Cancel(player: Player): (any, number?, string?)
 	local session = self._sessions[self._byUser[player.UserId]]
 	if not session then
 		self._invites[player.UserId] = nil
-		return nil, nil
+		return nil, nil, nil
+	end
+	-- Refuse cancel while settle owns the table. Closing mid-apply leaves residual
+	-- host→guest mutations and lets partners open a new desk before ConfirmTrade finishes.
+	if session.Settling == true or session.Status == "Settling" then
+		return session, nil, "That trade is already settling."
 	end
 	local other = if session.Host == player.UserId then session.Guest else session.Host
 	self:Close(session)
-	return session, other
+	return session, other, nil
 end
 
 function TradeDesk:Plan(session, hostProfile, guestProfile, now: number): (any?, string?)

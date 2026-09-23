@@ -580,7 +580,8 @@ function Economy.DomainRewards(rank: number): (number, number)
 end
 
 function Economy.Production(profile: ProfileLike, now: number?): Persist
-	local efficiencyLevel = profile.Research.Efficiency or 0
+	local research = profile.Research
+	local efficiencyLevel = (type(research) == "table" and research.Efficiency) or 0
 	local zone = Economy.GetZone(profile.CurrentZone) or GameConfig.Zones[1]
 	local passProduction = select(1, Economy.PassBonuses(profile))
 	local multiplier = OmegaMath.Mul(1 + efficiencyLevel * 0.15, zone.Multiplier)
@@ -611,7 +612,10 @@ end
 -- Flux Surge / Convergence are applied by callers on top of Production — never feed those
 -- into Capacity. When temporary multipliers end, vault clamps and overflow deletes.
 function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
-	local efficiencyLevel = profile.Research.Efficiency or 0
+	-- Nil-safe Research: migration edges and partial fixtures can hit SteadyProduction
+	-- (lab bank targets, vault capacity) before sanitize finishes Research bags.
+	local research = profile.Research
+	local efficiencyLevel = (type(research) == "table" and research.Efficiency) or 0
 	local zone = Economy.GetZone(profile.CurrentZone) or GameConfig.Zones[1]
 	local passProduction = select(1, Economy.PassBonuses(profile))
 	local multiplier = OmegaMath.Mul(1 + efficiencyLevel * 0.15, zone.Multiplier)
@@ -631,7 +635,8 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 end
 
 function Economy.Capacity(profile: ProfileLike, now: number?, _production: any): Persist
-	local storageLevel = profile.Research.Storage or 0
+	local research = profile.Research
+	local storageLevel = (type(research) == "table" and research.Storage) or 0
 	local passCapacity = select(2, Economy.PassBonuses(profile))
 	local seconds = GameConfig.Economy.BaseCapacitySeconds
 		* (GameConfig.Economy.CapacitySecondsPerLevel ^ storageLevel)

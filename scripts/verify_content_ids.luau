@@ -1,32 +1,24 @@
 -- Uniqueness + kind sanity for GameConfig content tables (DataVersion stays untouched).
 local fs = require("@lune/fs")
-local luau = require("@lune/luau")
 
--- Minimal Color3 stub so GameConfig loads under lune.
-local env = {
-	Color3 = {
-		fromRGB = function(r, g, b)
-			return { R = r, G = g, B = b }
-		end,
-	},
-	game = {
-		GetService = function()
-			error("GameConfig should not GetService during content id verify")
-		end,
-	},
-}
-
--- GameConfig requires LiveOpsConfig via relative require path through Rojo tree.
--- Load a trimmed extractor instead: parse Id fields from the source text.
 local src = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(src, "DataVersion = 21", 1, true), "DataVersion must remain 21")
 assert(string.find(src, 'Version = "5.1.0"', 1, true), "display version should stay 5.1.0")
 
-local function collect(sectionName)
-	local pattern = sectionName .. " = %{(.-)\n\t%},"
-	-- Prefer first occurrence for top-level tables.
-	local startPos = string.find(src, "\n\t" .. sectionName .. " = {", 1, true)
-	assert(startPos, "missing section " .. sectionName)
+-- Match bare `Id = "..."` only — not suffixes like `CrateId` / `ItemId` / `TraitId`.
+local ID_PATTERN = "([^%w_])Id = \"([^\"]+)\""
+
+local function collectIds(body)
+	local ids = {}
+	for _prefix, id in string.gmatch(body, ID_PATTERN) do
+		table.insert(ids, id)
+	end
+	return ids
+end
+
+local function extractSection(startNeedle)
+	local startPos = string.find(src, startNeedle, 1, true)
+	assert(startPos, "missing section " .. startNeedle)
 	local bodyStart = string.find(src, "{", startPos, true)
 	local depth = 0
 	local i = bodyStart
@@ -37,17 +29,12 @@ local function collect(sectionName)
 		elseif ch == "}" then
 			depth -= 1
 			if depth == 0 then
-				local body = string.sub(src, bodyStart + 1, i - 1)
-				local ids = {}
-				for id in string.gmatch(body, 'Id = "([^"]+)"') do
-					table.insert(ids, id)
-				end
-				return ids
+				return string.sub(src, bodyStart + 1, i - 1)
 			end
 		end
 		i += 1
 	end
-	error("unclosed section " .. sectionName)
+	error("unclosed section " .. startNeedle)
 end
 
 local function assertUnique(label, ids)
@@ -60,14 +47,14 @@ local function assertUnique(label, ids)
 	print(string.format("[INFO] [TEST] %s ids=%d", label, #ids))
 end
 
--- Lab.Orders is nested; scan from Lab = 
 local labStart = string.find(src, "\n\tLab = {", 1, true)
 assert(labStart)
 local ordersStart = string.find(src, "Orders = {", labStart, true)
-local bodyStart = string.find(src, "{", ordersStart, true)
+assert(ordersStart)
+local ordersBodyStart = string.find(src, "{", ordersStart, true)
 local depth = 0
-local i = bodyStart
-local labIds = {}
+local i = ordersBodyStart
+local labBody
 while i <= #src do
 	local ch = string.sub(src, i, i)
 	if ch == "{" then
@@ -75,19 +62,17 @@ while i <= #src do
 	elseif ch == "}" then
 		depth -= 1
 		if depth == 0 then
-			local body = string.sub(src, bodyStart + 1, i - 1)
-			for id in string.gmatch(body, 'Id = "([^"]+)"') do
-				table.insert(labIds, id)
-			end
+			labBody = string.sub(src, ordersBodyStart + 1, i - 1)
 			break
 		end
 	end
 	i += 1
 end
-assertUnique("Lab.Orders", labIds)
-assertUnique("Achievements", collect("Achievements"))
-assertUnique("Story", collect("Story"))
-assertUnique("Mail", collect("Mail"))
+assert(labBody, "Lab.Orders unclosed")
+assertUnique("Lab.Orders", collectIds(labBody))
+assertUnique("Achievements", collectIds(extractSection("\n\tAchievements = {")))
+assertUnique("Story", collectIds(extractSection("\n\tStory = {")))
+assertUnique("Mail", collectIds(extractSection("\n\tMail = {")))
 
 -- PlatformBadges stay zeroed
 local badges = string.match(src, "PlatformBadges = %{(.-)\n\t%},")
@@ -95,4 +80,32 @@ assert(badges, "PlatformBadges missing")
 for id, value in string.gmatch(badges, "(%w+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
+
+-- Items.ShopOffers uniqueness (DV21 shop headroom). Do not match Crates[].Id via CrateId.
+do
+	local itemsStart = string.find(src, "\n\tItems = {", 1, true)
+	assert(itemsStart, "Items section missing")
+	local shopStart = string.find(src, "ShopOffers = {", itemsStart, true)
+	assert(shopStart, "Items.ShopOffers missing")
+	local bodyStart = string.find(src, "{", shopStart, true)
+	local d = 0
+	local j = bodyStart
+	local shopBody
+	while j <= #src do
+		local ch = string.sub(src, j, j)
+		if ch == "{" then
+			d += 1
+		elseif ch == "}" then
+			d -= 1
+			if d == 0 then
+				shopBody = string.sub(src, bodyStart + 1, j - 1)
+				break
+			end
+		end
+		j += 1
+	end
+	assert(shopBody, "Items.ShopOffers unclosed")
+	assertUnique("Items.ShopOffers", collectIds(shopBody))
+end
+
 print("[INFO] [TEST] content ids unique; DataVersion 21; PlatformBadges zeroed")

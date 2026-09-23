@@ -928,7 +928,10 @@ serviceFactories["GameService"] = function()
 			end
 			return responseSuccess()
 		elseif action == Protocol.Actions.CancelTrade then
-			local session, otherId = self._trades:Cancel(player)
+			local session, otherId, cancelErr = self._trades:Cancel(player)
+			if cancelErr then
+				return responseError(cancelErr)
+			end
 			if otherId then
 				local other = Players:GetPlayerByUserId(otherId)
 				if other then

@@ -461,6 +461,24 @@ local function clientReducer(state, action)
 			if state.session == nil then
 				return state
 			end
+			-- Reject stale patches that carry an older Revision/SnapshotId than the live
+			-- session (e.g. LeaveGuild cleanup arriving after a newer pushState snapshot).
+			local patch = action.patch
+			if type(patch) == "table" then
+				local patchRevision = tonumber(patch.Revision)
+				local patchSnapshot = tonumber(patch.SnapshotId)
+				if patchRevision ~= nil and patchRevision < state.session.Revision then
+					return state
+				end
+				if
+					patchRevision ~= nil
+					and patchRevision == state.session.Revision
+					and patchSnapshot ~= nil
+					and patchSnapshot < state.session.SnapshotId
+				then
+					return state
+				end
+			end
 			local _object = table.clone(state)
 			setmetatable(_object, nil)
 			local _left = "session"
