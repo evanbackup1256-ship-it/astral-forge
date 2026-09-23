@@ -70,7 +70,11 @@ argon build default.project.json -x -o "Astral Forge v2.rbxlx"
 ```
 
 `npm test` covers phone portrait/landscape, short landscape, tablet, foldable,
-desktop, ultrawide layout planning, and fail-closed profile version guards.
+desktop, ultrawide layout planning, fail-closed profile version guards, and a
+**Lune-safe ReleaseReadiness subset** (`scripts/verify_release_readiness.luau`:
+config identity, PreviousId/ArtifactId/CrateId/Boost refs, DV21 + PlatformBadges).
+It does **not** run `ReleaseReadiness.RunQuick` / `RunSoak` (Economy soak +
+ProfileIntegrity recovery) — those stay Studio-only via `init.server.luau`.
 Argon validates the project mapping; it does **not**
 execute the game or check every Luau runtime path.
 
@@ -78,9 +82,10 @@ Before publishing, run Studio Device Simulator and Controller Emulator at those
 sizes, plus a 4:3 tablet and 1080p/4K TV. Verify the crate reveal is centered,
 its claim button is reachable by D-pad/A, the software keyboard does not cover
 fields, two touches do not produce duplicate actions, and the bottom navigation
-stays within the hardware safe area. Run the Studio release-readiness and profile
-load/save tests with copied v4.12 and current save fixtures; never use live player
-data as a migration test fixture.
+stays within the hardware safe area. Run the Studio release-readiness
+(`ReleaseReadiness.RunQuick` / soak) and profile load/save tests with copied
+v4.12 and current save fixtures; never use live player data as a migration test
+fixture. npm test alone is not ENTIRE-game release complete.
 
 The client adapts effects and preload work to measured performance. Roblox
 controls physical render resolution, so this project cannot promise a fixed

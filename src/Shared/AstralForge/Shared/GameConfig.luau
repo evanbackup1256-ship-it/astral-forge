@@ -3955,6 +3955,21 @@ local GameConfig = {
 
 	Mail = {
 		{
+			Id = "update-5-1-trade-gamepad-release",
+			Subject = "Dock note — trade pad focus & offline gates",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Ready/Confirm/Cancel grab gamepad focus; release-readiness subset runs in npm test — still DataVersion 21.",
+			Body = {
+				"Trade tables now park controller Selection on the pinned Ready/Confirm/Cancel strip (compact and desktop share one panel).",
+				"Story Continue/Back and Mail Claim/Archive follow the same FocusClaim pattern so short phones keep CTAs reachable.",
+				"npm test now runs a Lune-safe ReleaseReadiness config subset; economy soak + profile integrity still need Studio.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 32, Stardust = 44, Signals = 15 },
+			Color = Color3.fromRGB(255, 190, 110),
+		},
+		{
 			Id = "update-5-1-content-trade-closeout",
 			Subject = "Dock note — zone lore & settle logs",
 			Sender = "Mara / Dockmaster",

@@ -1,8 +1,10 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local formatReward = require(script.Parent.Parent.format).formatReward
 local Icon = require(script.Parent.Parent.Icon).Icon
 local ClientLog = require(script.Parent.Parent.log).ClientLog
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _motion = require(script.Parent.Parent.motion)
@@ -364,6 +366,26 @@ local function StoryBeat(_param)
 	-- Content floor so PageScaffold grows the fill section when copy wraps long;
 	-- Continue/Back stay pinned below the scaffold so short phones never bury CTAs.
 	local viewport = useViewport()
+	local storyActionsHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on pinned Continue/Claim (FocusClaim prefers continue/claim tags).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = storyActionsHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { index, tuned, claimed, actionText })
 	local measureWidth = math.max(160, math.floor((viewport.width or 390) * (if stack then 0.92 else 0.55)) - bodyPadR - 12)
 	-- GetTextSize ignores TextLabel LineHeight — scale measured lines so the floor covers wrap.
 	local textH = math.max(64, math.ceil(measureWrappedTextHeight(text, measureWidth, bodySize, Enum.FontWeight.Medium) * lineHeight) + 8)
@@ -539,6 +561,41 @@ local function StoryBeat(_param)
 		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = 4,
 	})))
+	local continueSlot = React.createElement("frame", {
+		Name = if final and not claimed then "StoryClaim" else "StoryContinue",
+		Size = if stack and not condensed then UDim2.new(1, 0, 0, btnH) else UDim2.new(1, -140, 0, btnH),
+		Position = if stack and not condensed then nil else UDim2.fromOffset(140, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 0,
+	}, React.createElement(Button, {
+		text = actionText,
+		icon = actionIcon,
+		onClick = action,
+		color = if not tuned then color elseif final then color else Palette.mint,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
+		highlight = not claimed or not tuned or replay,
+	}))
+	local backSlot = React.createElement("frame", {
+		Name = "StoryBack",
+		Size = if stack and not condensed then UDim2.new(1, 0, 0, btnH) else UDim2.fromOffset(128, btnH),
+		Position = if stack and not condensed then nil else UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+	}, React.createElement(Button, {
+		text = "Back",
+		icon = "Back",
+		onClick = onBack,
+		color = Palette.panelSoft,
+		textColor = Palette.creamSoft,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		disabled = index <= 0,
+		reducedMotion = softMotion,
+	}))
 	local actionsElement = if stack and not condensed then React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -547,53 +604,11 @@ local function StoryBeat(_param)
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Padding = UDim.new(0, 10),
-	}), React.createElement(Button, {
-		text = actionText,
-		icon = actionIcon,
-		onClick = action,
-		color = if not tuned then color elseif final then color else Palette.mint,
-		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, btnH),
-		layoutOrder = 0,
-		reducedMotion = softMotion,
-		highlight = not claimed or not tuned or replay,
-	}), React.createElement(Button, {
-		text = "Back",
-		icon = "Back",
-		onClick = onBack,
-		color = Palette.panelSoft,
-		textColor = Palette.creamSoft,
-		outline = true,
-		size = UDim2.new(1, 0, 0, btnH),
-		layoutOrder = 1,
-		disabled = index <= 0,
-		reducedMotion = softMotion,
-	})) else React.createElement("frame", {
+	}), continueSlot, backSlot) else React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, React.createElement(Button, {
-		text = "Back",
-		icon = "Back",
-		onClick = onBack,
-		color = Palette.panelSoft,
-		textColor = Palette.creamSoft,
-		outline = true,
-		size = UDim2.fromOffset(128, btnH),
-		position = UDim2.fromOffset(0, 0),
-		disabled = index <= 0,
-		reducedMotion = softMotion,
-	}), React.createElement(Button, {
-		text = actionText,
-		icon = actionIcon,
-		onClick = action,
-		color = if not tuned then color elseif final then color else Palette.mint,
-		textColor = Palette.ink,
-		size = UDim2.new(1, -140, 0, btnH),
-		position = UDim2.fromOffset(140, 0),
-		reducedMotion = softMotion,
-		highlight = not claimed or not tuned or replay,
-	}))
+	}, backSlot, continueSlot)
 	local sections = {
 		{
 			id = "beat-header",
@@ -635,6 +650,8 @@ local function StoryBeat(_param)
 		scrollBarThickness = if stack then 4 else 3,
 		sections = sections,
 	})), React.createElement("frame", {
+		ref = storyActionsHostRef,
+		Name = "StoryBeatActions",
 		Size = UDim2.new(1, 0, 0, actionsH),
 		Position = UDim2.new(0, 0, 1, -actionsH),
 		BackgroundTransparency = 1,

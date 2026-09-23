@@ -232,6 +232,21 @@ for _, path in FOCUS_OVERLAYS do
 	)
 end
 
+-- High-traffic pinned CTAs (page chrome, not full-screen overlays) still FocusClaim.
+do
+	local trade = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+	assert(string.find(trade, "GamepadNavigationService.BeginOverlayFocus", 1, true), "TradeView session must BeginOverlayFocus")
+	assert(string.find(trade, "GamepadNavigationService.EndOverlayFocus", 1, true), "TradeView session must EndOverlayFocus")
+	assert(string.find(trade, "GamepadNavigationService.FocusClaim", 1, true), "TradeView session must FocusClaim")
+	assert(string.find(trade, "TradeSessionActions", 1, true), "TradeView must host FocusClaim on TradeSessionActions")
+	local story = fs.readFile("src/Client/AstralForge/pages/StoryView.luau")
+	assert(string.find(story, "GamepadNavigationService.FocusClaim", 1, true), "StoryBeat must FocusClaim pinned Continue/Back")
+	assert(string.find(story, "StoryBeatActions", 1, true), "StoryBeat must name the pinned actions host")
+	local mailbox = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
+	assert(string.find(mailbox, "GamepadNavigationService.FocusClaim", 1, true), "Mailbox must FocusClaim CLAIM/ARCHIVE")
+	assert(string.find(mailbox, "MailClaimActions", 1, true), "Mailbox must host FocusClaim on MailClaimActions")
+end
+
 ------------------------------------------------------------------------
 -- Antilag softMotion usages on motion-heavy hot surfaces
 ------------------------------------------------------------------------

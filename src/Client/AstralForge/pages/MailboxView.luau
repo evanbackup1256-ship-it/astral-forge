@@ -1,8 +1,10 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local formatReward = require(script.Parent.Parent.format).formatReward
 local Icon = require(script.Parent.Parent.Icon).Icon
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
@@ -146,6 +148,7 @@ local function MailboxView(_param)
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local mountedRef = React.useRef(true)
+	local mailActionsHostRef = React.useRef(nil)
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
@@ -284,6 +287,25 @@ local function MailboxView(_param)
 		_result_9 = _result_9.Read
 	end
 	React.useEffect(_exp_1, { _result_8, _result_9 })
+	-- Gamepad: pinned CLAIM/ARCHIVE footer must be Selection-reachable (FocusClaim prefers claim).
+	React.useEffect(function()
+		if message == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = mailActionsHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { selectedId, claimed, message ~= nil })
 	local choose = function(id)
 		if id == selectedId then
 			return nil
@@ -591,7 +613,9 @@ local function MailboxView(_param)
 			Selectable = false,
 			ZIndex = 2,
 		}, _exp_9, _newValue), React.createElement("frame", {
+			ref = mailActionsHostRef,
 			key = "footer",
+			Name = "MailClaimActions",
 			Size = UDim2.new(1, 0, 0, footerH),
 			Position = UDim2.new(0, 0, 1, -footerH),
 			BackgroundColor3 = Palette.panel,
@@ -640,7 +664,13 @@ local function MailboxView(_param)
 			VerticalAlignment = Enum.VerticalAlignment.Top,
 			Padding = UDim.new(0, chrome.controlGap),
 			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), React.createElement(Button, {
+		}), React.createElement("frame", {
+			Name = "MailClaim",
+			Size = UDim2.new(1, 0, 0, TapTarget),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = 1,
+		}, React.createElement(Button, {
 			text = if claimed then "COLLECTED" else "CLAIM",
 			icon = "Gift",
 			onClick = function()
@@ -650,11 +680,17 @@ local function MailboxView(_param)
 			end,
 			color = if claimed then Palette.panelSoft else message.Color,
 			textColor = if claimed then Palette.muted else Palette.ink,
-			size = UDim2.new(1, 0, 0, TapTarget),
+			size = UDim2.fromScale(1, 1),
 			disabled = claimed,
 			reducedMotion = reducedMotion,
 			highlight = not claimed,
-		}), React.createElement(Button, {
+		})), React.createElement("frame", {
+			Name = "MailArchive",
+			Size = UDim2.new(1, 0, 0, TapTarget),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = 2,
+		}, React.createElement(Button, {
 			text = "ARCHIVE",
 			icon = "Close",
 			onClick = function()
@@ -669,10 +705,10 @@ local function MailboxView(_param)
 			color = Palette.coral,
 			textColor = if claimed then Palette.cream else Palette.muted,
 			outline = true,
-			size = UDim2.new(1, 0, 0, TapTarget),
+			size = UDim2.fromScale(1, 1),
 			disabled = not claimed,
 			reducedMotion = reducedMotion,
-		})) else React.createElement("frame", {
+		}))) else React.createElement("frame", {
 			Size = UDim2.fromOffset(0, TapTarget),
 			AutomaticSize = Enum.AutomaticSize.X,
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -686,7 +722,14 @@ local function MailboxView(_param)
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 			Padding = UDim.new(0, Layout.controlGap),
 			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), React.createElement(Button, {
+		}), React.createElement("frame", {
+			Name = "MailClaim",
+			Size = UDim2.fromOffset(0, TapTarget),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = 1,
+		}, React.createElement(Button, {
 			text = if claimed then "COLLECTED" else "CLAIM",
 			icon = "Gift",
 			onClick = function()
@@ -701,7 +744,14 @@ local function MailboxView(_param)
 			disabled = claimed,
 			reducedMotion = reducedMotion,
 			highlight = not claimed,
-		}), React.createElement(Button, {
+		})), React.createElement("frame", {
+			Name = "MailArchive",
+			Size = UDim2.fromOffset(0, TapTarget),
+			AutomaticSize = Enum.AutomaticSize.X,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = 2,
+		}, React.createElement(Button, {
 			text = "ARCHIVE",
 			icon = "Close",
 			onClick = function()

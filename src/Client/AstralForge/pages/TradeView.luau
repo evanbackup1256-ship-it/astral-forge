@@ -1202,7 +1202,18 @@ local function TradeView(_param)
 	end
 	local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)
 	local confirmDisabled = busy ~= "" or not bothReady
-	-- Gamepad: Ready/Confirm must be Selection-reachable (FocusClaim prefers Confirm when live).
+	-- Gamepad: session Ready/Confirm/Cancel act like a modal focus zone while a trade is live.
+	-- BeginOverlayFocus clears prior Selection; FocusClaim prefers Confirm (TradeConfirm) when live.
+	React.useEffect(function()
+		if session == nil then
+			GamepadNavigationService.EndOverlayFocus()
+			return nil
+		end
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, { session ~= nil })
 	React.useEffect(function()
 		if session == nil or not UserInputService.GamepadEnabled then
 			return nil

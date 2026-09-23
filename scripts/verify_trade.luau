@@ -246,6 +246,8 @@ do
 	assert(loadingConfirm == 1, "shared Confirm panel must declare ConfirmTrade loading once, got " .. tostring(loadingConfirm))
 	assert(string.find(view, "TradeReady", 1, true) and string.find(view, "TradeConfirm", 1, true), "Ready/Confirm must be named for FocusClaim")
 	assert(string.find(view, "GamepadNavigationService.FocusClaim", 1, true), "session actions must FocusClaim")
+	assert(string.find(view, "GamepadNavigationService.BeginOverlayFocus", 1, true), "session actions must BeginOverlayFocus")
+	assert(string.find(view, "GamepadNavigationService.EndOverlayFocus", 1, true), "session actions must EndOverlayFocus on exit")
 	-- Compact + desktop call the same buildConfirmActions panel (vertical vs horizontal).
 	-- Compact pins that panel below PageScaffold so long offer lists never bury Ready/Confirm.
 	assert(
