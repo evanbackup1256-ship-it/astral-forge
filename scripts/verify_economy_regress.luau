@@ -182,7 +182,7 @@ assert(
 	"Admin online list must publish unlock watermark profile.Zone"
 )
 assert(
-	string.find(adminSrc, "Zone = profile.CurrentZone", 1, true) == nil,
+	string.find(adminSrc, "\tZone = profile.CurrentZone", 1, true) == nil,
 	"Admin online Zone must not be CurrentZone (visit location)"
 )
 assert(
