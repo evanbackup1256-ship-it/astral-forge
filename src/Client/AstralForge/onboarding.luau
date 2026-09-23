@@ -34,6 +34,11 @@ local function TutorialOverlay(_param)
 	React.useEffect(function()
 		Audio:play("modalOpen")
 	end, {})
+	React.useEffect(function()
+		if step > 1 then
+			Audio:play("tutorialStep")
+		end
+	end, { step })
 	local sideInset = math.max(10, viewport.sideInset)
 	local bottomInset = math.max(12, viewport.bottomInset)
 	local phone = viewport.width < 720 or viewport.height < 560
@@ -46,7 +51,9 @@ local function TutorialOverlay(_param)
 	local dockW = math.min(if phone then viewportWidth - sideInset * 2 else 560, viewportWidth - sideInset * 2)
 	local hasCta = ctaLabel ~= nil and onCta ~= nil
 	local hasGoal = copy.goal ~= nil and copy.goal ~= ""
-	local dockH = (if phone then 178 else 164) + (if hasGoal then 18 else 0) + (if hasCta then TapTarget + 8 else 0)
+	local hasHint = copy.hint ~= nil and copy.hint ~= ""
+	local hasControls = copy.controls ~= nil and copy.controls ~= ""
+	local dockH = (if phone then 178 else 164) + (if hasGoal then 18 else 0) + (if hasHint then 18 else 0) + (if hasControls then 16 else 0) + (if hasCta then TapTarget + 8 else 0)
 	local nextLabel = if step >= count then "FINISH" else "CONTINUE"
 	local requestNext = React.useCallback(function()
 		if exiting then
@@ -75,6 +82,26 @@ local function TutorialOverlay(_param)
 			return ContextActionService:UnbindAction(actionName)
 		end
 	end, { exiting, onBack, step })
+	React.useEffect(function()
+		local actionName = "AstralForgeTutorialConfirm"
+		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
+			if inputState == Enum.UserInputState.Begin and not exiting then
+				if hasCta and onCta ~= nil then
+					onCta()
+				else
+					requestNext()
+				end
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, 2300, Enum.KeyCode.ButtonA)
+		return function()
+			return ContextActionService:UnbindAction(actionName)
+		end
+	end, { exiting, hasCta, onCta, requestNext })
+	local bodyTop = if hasGoal then 72 else 54
+	local hintTop = bodyTop + (if phone then 42 else 36)
+	local controlsTop = hintTop + (if hasHint then 18 else 0)
+	local padFocus = useGamepadAutofocus(true)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		Padding = UDim.new(0, 0),
@@ -137,6 +164,7 @@ local function TutorialOverlay(_param)
 			return amount > 0.015
 		end),
 	}, React.createElement("frame", {
+		ref = padFocus,
 		Size = UDim2.new(0, dockW, 0, dockH),
 		Position = reveal:map(function(amount)
 			return UDim2.new(0.5, 0, 1, -(bottomInset + 10) + math.floor((1 - amount) * 24))
@@ -180,7 +208,7 @@ local function TutorialOverlay(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 24),
 		zIndex = 312,
 	}), hasGoal and React.createElement(Text, {
-		value = copy.goal,
+		value = `GOAL · {copy.goal}`,
 		size = 11,
 		color = Palette.mint,
 		weight = Enum.FontWeight.Heavy,
@@ -194,8 +222,28 @@ local function TutorialOverlay(_param)
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(0, if hasGoal then 72 else 54),
+		position = UDim2.fromOffset(0, bodyTop),
 		sizeConstraint = UDim2.new(1, 0, 0, if phone then 40 else 34),
+		zIndex = 312,
+	}), hasHint and React.createElement(Text, {
+		value = copy.hint,
+		size = 11,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(0, hintTop),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+		zIndex = 312,
+	}), hasControls and React.createElement(Text, {
+		value = copy.controls,
+		size = 10,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 8,
+		position = UDim2.fromOffset(0, controlsTop),
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
 		zIndex = 312,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, if hasCta then TapTarget * 2 + 8 else TapTarget),

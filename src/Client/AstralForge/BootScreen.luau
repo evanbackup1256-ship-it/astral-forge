@@ -16,7 +16,7 @@ local EXIT_VEIL_SECONDS = 0.32
 local STALL_SECONDS = 45
 local SYSTEMS = { "bridge", "remotes", "state", "assets", "modules", "fonts", "audio", "shell", "mail", "research", "forge", "trade", "boosts", "settings", "mobile" }
 local STAGE_LABELS = { "CONNECTING", "LOADING ASSETS", "LOADING FONTS", "LOADING SOUNDS", "LOADING ANIMATIONS", "LOADING UI", "LOADING SAVES", "LOADING MAIL", "LOADING RESEARCH", "LOADING FORGE", "LOADING TRADE", "LOADING BOOSTS", "LOADING SETTINGS", "LOADING MOBILE", "FINISHING", "READY" }
-local LOADING_TIPS = { "Tap machines to overcharge them for bonus flux.", "Research is permanent — it survives rebirths.", "Complete daily lab orders for stardust rewards.", "Build your guild hall and recruit forgemasters.", "Check the Star Grid for permanent passive boosts.", "Stabilize anomalies to charge the reactor faster.", "Trade with other players to complete your collection.", "Activate boosts before a long session for max gains.", "Rebirth at the right moment to multiply your output.", "Equip relics to specialize your forge style.", "Claim mail rewards daily for free resources.", "Unlock new worlds to access rare machines.", "Join a guild goal — everyone's contribution counts.", "Weekly directives reset every Monday with fresh rewards.", "Spin the wheel daily — pity guarantees a rare eventually.", "Command XP unlocks crew upgrades and expedition slots.", "Forge echoes stack traits — chase a matching affinity set.", "Convergence events reward a shared production boost.", "Auto-forge keeps your best machine buying while you're away.", "Milestones track lifetime stats — they never reset.", "Season tiers bank XP even before you claim a reward.", "Salvage unwanted relics for essence to reroll better ones.", "Signal shop offers rotate daily — check back often.", "Streak shields protect your daily login streak once." }
+local LOADING_TIPS = { "Tap machines to overcharge them for bonus flux.", "Research is permanent — it survives rebirths.", "Complete daily lab orders for stardust rewards.", "Build your guild hall and recruit forgemasters.", "Check the Star Grid for permanent passive boosts.", "Stabilize anomalies to charge the reactor faster.", "Trade with other players to complete your collection.", "Activate boosts before a long session for max gains.", "Rebirth at the right moment to multiply your output.", "Equip relics to specialize your forge style.", "Claim mail rewards daily for free resources.", "Unlock new worlds to access rare machines.", "Join a guild goal — everyone's contribution counts.", "Weekly directives reset every Monday with fresh rewards.", "Spin the wheel daily — pity guarantees a rare eventually.", "Command XP unlocks crew upgrades and expedition slots.", "Forge echoes stack traits — chase a matching affinity set.", "Convergence events reward a shared production boost.", "Auto-forge keeps your best machine buying while you're away.", "Milestones track lifetime stats — they never reset.", "Season tiers bank XP even before you claim a reward.", "Salvage unwanted relics for essence to reroll better ones.", "Signal shop offers rotate daily — check back often.", "Streak shields protect your daily login streak once.", "Open Settings → GUIDE anytime to replay the tutorial.", "Xbox: Y collects the vault · LB / RB switches pages." }
 local function clamp01(value)
 	return math.clamp(value, 0, 1)
 end
@@ -92,6 +92,7 @@ local function BootScreen(_param)
 	local clock, setClock = React.useBinding(0)
 	local spinFade, setSpinFade = React.useBinding(0)
 	local veilFade, setVeilFade = React.useBinding(0)
+	local progressPulse, setProgressPulse = React.useBinding(0)
 	React.useEffect(function()
 		local alive = true
 		Audio:setScene("boot")
@@ -112,7 +113,7 @@ local function BootScreen(_param)
 	end, {})
 	React.useEffect(function()
 		local current = tipIndex
-		local token = task.delay(2.8, function()
+		local token = task.delay(3.2, function()
 			return setTipIndex((current + 1) % #LOADING_TIPS)
 		end)
 		return function()
@@ -157,6 +158,7 @@ local function BootScreen(_param)
 			if not exiting then
 				spinClock.current += dt
 				setClock(spinClock.current)
+				setProgressPulse((math.sin(spinClock.current * 2.4) + 1) * 0.5)
 			end
 			if not exiting then
 				return nil
@@ -190,6 +192,8 @@ local function BootScreen(_param)
 		})
 	end
 	local status = statusFor(marks, ready, stalled, assetsLoaded, assetsTotal)
+	local progress = if ready then 1 else progressFor(marks, assetsLoaded, assetsTotal)
+	local progressPct = math.floor(progress * 100 + 0.5)
 	local spinHide = spinFade:map(function(amount)
 		return amount
 	end)
@@ -212,7 +216,7 @@ local function BootScreen(_param)
 		end
 		_result = `{math.min(_condition_2, assetsTotal)} / {assetsTotal} assets`
 	else
-		_result = ""
+		_result = `{progressPct}%`
 	end
 	local assetCountText = _result
 	return React.createElement("frame", {
@@ -278,13 +282,38 @@ local function BootScreen(_param)
 		Visible = spinFade:map(function(amount)
 			return amount < 0.98
 		end),
-	}), React.createElement("textlabel", {
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(220, 4),
+		Position = UDim2.new(0.5, 0, 0.44, 78),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = Color3.fromRGB(36, 40, 48),
+		BackgroundTransparency = spinHide:map(function(amount)
+			return 0.2 + amount
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 4,
+		Visible = spinFade:map(function(amount)
+			return amount < 0.98
+		end),
+		ClipsDescendants = true,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("frame", {
+		Size = UDim2.new(math.clamp(progress, 0.04, 1), 0, 1, 0),
+		BackgroundColor3 = Palette.mint,
+		BackgroundTransparency = React.joinBindings({ spinHide, progressPulse }):map(function(values)
+			return 0.12 + values[1] + (1 - progress) * 0.15 * values[2]
+		end),
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}))), React.createElement("textlabel", {
 		Size = UDim2.new(0, 420, 0, 16),
 		Position = UDim2.new(0.5, 0, 1, -52),
 		AnchorPoint = Vector2.new(0.5, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = if stalled then "Taking longer than expected..." else tipText,
+		Text = if stalled then "Still loading — hang tight, your save is safe." else tipText,
 		TextColor3 = if stalled then Palette.mango else Color3.fromRGB(120, 124, 132),
 		TextTransparency = spinHide:map(function(amount)
 			return 0.28 + amount
