@@ -229,6 +229,7 @@ do
 		self.positions = {}
 		self.activeDeck = 0
 		self.mix = 1
+		self.duck = 1
 		self.crossfade = 0.62
 		self.audible = true
 		self.started = false
@@ -237,17 +238,35 @@ do
 		self.transitionFromUnit = 0
 		self.disposed = false
 		self.bedIndex = 0
+		self.rotateBed = false
 		self.theme = initialTheme
 		self.decks = { makeDeck("ViewMusicA", group), makeDeck("ViewMusicB", group) }
 	end
 	function MusicDirector:currentBed()
 		return BEDS[self.bedIndex + 1] or GAME_BED
 	end
+	function MusicDirector:bedForTheme(theme)
+		if theme == "boot" then
+			return GAME_BED
+		end
+		local mapped = THEMES[theme]
+		if mapped ~= nil then
+			return mapped
+		end
+		return self:currentBed()
+	end
+	function MusicDirector:resolveBed(theme, preferRotated)
+		if preferRotated then
+			return self:currentBed()
+		end
+		return self:bedForTheme(theme)
+	end
 	function MusicDirector:targetVolume(theme)
 		if theme == nil then
 			theme = self.theme
 		end
-		return BASE_VOLUME * THEMES[theme].gain * self.mix
+		local bed = self:bedForTheme(theme)
+		return BASE_VOLUME * bed.gain * self.mix * self.duck
 	end
 	function MusicDirector:clearTransition()
 		self.transitionOutgoing = nil
@@ -261,8 +280,8 @@ do
 		if outgoingIndex == nil or incomingIndex == nil then
 			return false
 		end
-		local enabled = self.audible and self.mix > 0.001
-		self.decks[outgoingIndex + 1].sound.Volume = if enabled then self.transitionFromUnit * self.mix * (1 - self.transitionAlpha) else 0
+		local enabled = self.audible and self.mix * self.duck > 0.001
+		self.decks[outgoingIndex + 1].sound.Volume = if enabled then self.transitionFromUnit * self.mix * self.duck * (1 - self.transitionAlpha) else 0
 		self.decks[incomingIndex + 1].sound.Volume = if enabled then self:targetVolume(self.theme) * self.transitionAlpha else 0
 		return true
 	end
@@ -272,7 +291,7 @@ do
 		if outgoingIndex == nil or incomingIndex == nil then
 			return false
 		end
-		if not self.audible or self.mix <= 0.001 then
+		if not self.audible or self.mix * self.duck <= 0.001 then
 			return true
 		end
 		local outgoing = self.decks[outgoingIndex + 1].sound
@@ -288,7 +307,7 @@ do
 	end
 	function MusicDirector:configure(index, theme, token)
 		local deck = self.decks[index + 1]
-		local spec = if theme == "boot" then GAME_BED else self:currentBed()
+		local spec = self:resolveBed(theme, self.rotateBed)
 		self.deckThemes[index + 1] = theme
 		local _result = deck.loaded
 		if _result ~= nil then
@@ -327,7 +346,7 @@ do
 				return nil
 			end
 			deck.sound.SoundId = FALLBACK_BED
-			if self.audible and self.mix > 0.001 and not deck.sound.IsPlaying then
+			if self.audible and self.mix * self.duck > 0.001 and not deck.sound.IsPlaying then
 				deck.sound:Play()
 			end
 		end
@@ -357,6 +376,7 @@ do
 			return nil
 		end
 		self.started = true
+		self.rotateBed = false
 		self:clearTransition()
 		self.transitionToken += 1
 		local token = self.transitionToken
@@ -369,7 +389,7 @@ do
 			if token ~= self.transitionToken or deckIndex ~= self.activeDeck or active.Parent == nil then
 				return nil
 			end
-			if self.audible and self.mix > 0.001 and not active.IsPlaying then
+			if self.audible and self.mix * self.duck > 0.001 and not active.IsPlaying then
 				active:Play()
 			end
 		end)
@@ -426,6 +446,7 @@ do
 			_positions[outgoingTheme] = _timePosition
 		end
 		self.theme = theme
+		self.rotateBed = forceBed == true
 		self.activeDeck = outgoingIndex
 		self.transitionToken += 1
 		local token = self.transitionToken
@@ -437,13 +458,14 @@ do
 		self.transitionWorker = nil
 		self:configure(incomingIndex, theme, token)
 		local incoming = self.decks[incomingIndex + 1].sound
-		if self.audible and self.mix > 0.001 and not incoming.IsPlaying then
+		if self.audible and self.mix * self.duck > 0.001 and not incoming.IsPlaying then
 			incoming:Play()
 		end
 		self.transitionOutgoing = outgoingIndex
 		self.transitionIncoming = incomingIndex
 		self.transitionAlpha = 0
-		self.transitionFromUnit = if self.mix > 0.001 and outgoing.Volume > 0.0001 then outgoing.Volume / self.mix else BASE_VOLUME * THEMES[outgoingTheme or "Overview"].gain
+		local outgoingGain = self:bedForTheme(outgoingTheme or "Overview").gain
+		self.transitionFromUnit = if self.mix * self.duck > 0.001 and outgoing.Volume > 0.0001 then outgoing.Volume / math.max(0.0001, self.mix * self.duck) else BASE_VOLUME * outgoingGain
 		self:applyTransitionMix()
 		self.transitionWorker = task.defer(function()
 			local loadStartedAt = os.clock()
@@ -465,10 +487,11 @@ do
 				self.theme = outgoingTheme or "Overview"
 				self:clearTransition()
 				outgoing.Volume = if self.audible then self:targetVolume(self.theme) else 0
-				if self.audible and self.mix > 0.001 and not outgoing.IsPlaying then
+				if self.audible and self.mix * self.duck > 0.001 and not outgoing.IsPlaying then
 					outgoing:Play()
 				end
-				ClientLog:warnEvery(`music-load-{theme}`, 30, "Audio", `{THEMES[theme].name} will retry on the next visit`)
+				local bedName = self:bedForTheme(theme).name
+				ClientLog:warnEvery(`music-load-{theme}`, 30, "Audio", `{bedName} will retry on the next visit`)
 				return nil
 			end
 			local fadeSeconds = 0.18 + self.crossfade * 0.82
@@ -501,7 +524,7 @@ do
 			self.activeDeck = incomingIndex
 			self:clearTransition()
 			incoming.Volume = self:targetVolume(theme)
-			if not self.audible or self.mix <= 0.001 then
+			if not self.audible or self.mix * self.duck <= 0.001 then
 				incoming:Pause()
 			elseif not incoming.IsPlaying then
 				incoming:Play()
@@ -522,7 +545,7 @@ do
 			return nil
 		end
 		if self:applyTransitionMix() then
-			if self.mix <= 0.001 then
+			if self.mix * self.duck <= 0.001 then
 				for _, deck in self.decks do
 					deck.sound:Pause()
 				end
@@ -539,9 +562,39 @@ do
 				self.decks[index + 1].sound:Pause()
 			end
 		end
-		if self.mix <= 0.001 then
+		if self.mix * self.duck <= 0.001 then
 			active:Pause()
 		else
+			self:resume()
+		end
+	end
+	function MusicDirector:setDuck(value)
+		if self.disposed then
+			return nil
+		end
+		local nextDuck = math.clamp(value, 0, 1)
+		if math.abs(nextDuck - self.duck) <= 0.0005 then
+			return nil
+		end
+		self.duck = nextDuck
+		if not self.started then
+			return nil
+		end
+		if self:applyTransitionMix() then
+			if self.mix * self.duck <= 0.001 then
+				for _, deck in self.decks do
+					deck.sound:Pause()
+				end
+			else
+				self:resumeTransition()
+			end
+			return nil
+		end
+		local active = self.decks[self.activeDeck + 1].sound
+		active.Volume = if self.audible then self:targetVolume() else 0
+		if self.mix * self.duck <= 0.001 then
+			active:Pause()
+		elseif self.audible then
 			self:resume()
 		end
 	end
@@ -570,12 +623,13 @@ do
 			return nil
 		end
 		if self.deckThemes[self.activeDeck + 1] ~= self.theme then
+			self.rotateBed = false
 			self:configure(self.activeDeck, self.theme, self.transitionToken)
 		end
 		self:resume()
 	end
 	function MusicDirector:resume()
-		if self.disposed or not self.started or not self.audible or self.mix <= 0.001 then
+		if self.disposed or not self.started or not self.audible or self.mix * self.duck <= 0.001 then
 			return nil
 		end
 		if self:resumeTransition() then
