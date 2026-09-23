@@ -88,6 +88,7 @@ local AppHelpers = require(script.Parent.Parent.appNav).AppHelpers
 local LayoutSectionPlan = require(script.Parent.Parent.layoutSectionPlan)
 local VaultCollectEligibility = require(script.Parent.Parent.vaultCollectEligibility)
 local PageReadyMath = require(script.Parent.Parent.pageReadyMath)
+local PageBoardHeights = require(script.Parent.Parent.pageBoardHeights)
 local function Metric(_param)
 	local label = _param.label
 	local value = _param.value
@@ -420,6 +421,9 @@ end
 local function forgePathReady(state, config)
 	return PageReadyMath.ForgePathReady(state, config)
 end
+local function anomalyReadyFrom(anomaly)
+	return PageReadyMath.AnomalyReady(anomaly)
+end
 local function OverviewView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -473,23 +477,8 @@ local function OverviewView(_param)
 	local missionsReady = countReadyQuests(state.Quests)
 	local labReady = countReadyLabOrders(state.Lab)
 	local pathReady = forgePathReady(state, config)
-	local anomalyReady = false
-	do
-		local anomaly = state.Anomaly
-		if anomaly ~= nil then
-			if anomaly.Ready == true then
-				anomalyReady = true
-			elseif anomaly.Directives ~= nil then
-				for _, directive in anomaly.Directives do
-					if not directive.Claimed and directive.Progress ~= nil and directive.Target ~= nil and directive.Progress >= directive.Target then
-						anomalyReady = true
-						break
-					end
-				end
-			end
-		end
-	end
-	local opsClaims = missionsReady + labReady + (if pathReady then 1 else 0) + (if anomalyReady then 1 else 0)
+	local anomalyReady = anomalyReadyFrom(state.Anomaly)
+	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, anomalyReady)
 	local opsGuide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Overview else nil
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
 	local overchargeReadyAt, setOverchargeReadyAt = React.useState(0)
@@ -1408,14 +1397,6 @@ local function OverviewView(_param)
 	})))
 end
 
-local ROW_HEIGHTS = {
-	machine = 120,
-	machineStack = 188,
-	world = 148,
-	worldStack = 218,
-	visit = 268,
-	visitStack = 380,
-}
 local function MachineRow(_param)
 	local machine = _param.machine
 	local level = _param.level
@@ -1432,7 +1413,7 @@ local function MachineRow(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	local rowH = if stack then ROW_HEIGHTS.machineStack else ROW_HEIGHTS.machine
+	local rowH = PageBoardHeights.Machine(stack)
 	local price = bulkCost(machine.BaseCost, machine.CostScale, level, buyAmount, machine.MaxLevel, cash)
 	local maxed = level >= machine.MaxLevel
 	local ready = unlocked and gteFlux(cash, price) and not maxed
@@ -1600,10 +1581,14 @@ local function UpgradeBoard(_param)
 	end
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — VirtualGrid overscan must drop on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local query, setQuery = React.useState("")
 	local sort, setSort = React.useState("Default")
 	local filter, setFilter = React.useState("All")
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local cash = state.Cash
 	local canBuy = function(entry)
 		return entry.unlocked and not entry.maxed and gteFlux(cash, entry.price)
@@ -1715,7 +1700,7 @@ local function UpgradeBoard(_param)
 	-- Keep machines above the fold — every 20px of header is a lost buy CTA.
 	local stackControlsY = if chrome.landscape then 40 else 56
 	local headerHeight = if chrome.landscape and stack then 92 elseif stack then 168 else (if controlsWrap then 184 else 156)
-	local rowH = if stack then ROW_HEIGHTS.machineStack else ROW_HEIGHTS.machine
+	local rowH = PageBoardHeights.Machine(stack)
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
 	local rowStride = rowH + gap
@@ -1927,7 +1912,7 @@ local function UpgradeBoard(_param)
 			columns = columns,
 			cellHeight = rowH,
 			gap = gap,
-			overscanRows = if stack then 2 else 3,
+			overscanRows = if softMotion then 0 else (if stack then 2 else 3),
 			itemKey = function(index)
 				return visible[index + 1].config.Id
 			end,
@@ -2433,7 +2418,7 @@ local function WorldRow(_param)
 	local cta = if current then "CURRENT" elseif unlocked then "ENTER" elseif canUnlock then "UNLOCK" elseif missing ~= nil then string.upper(missing) else "LOCKED"
 	local btnColor = if current then Palette.green elseif unlocked then Palette.green elseif canUnlock then Palette.mango else Palette.panelSoft
 	local btnText = if (current or unlocked or canUnlock) then Palette.ink else Palette.muted
-	local rowH = if stack then ROW_HEIGHTS.worldStack else ROW_HEIGHTS.world
+	local rowH = PageBoardHeights.World(stack)
 	return React.createElement("frame", {
 		Size = UDim2.new(1, -4, 0, rowH),
 		BackgroundTransparency = 1,
@@ -2526,7 +2511,7 @@ local function WorldsView(_param)
 	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
 	local headerReveal = useStagger(0, quietMotion)
 	local headerHeight = if stack then 168 else 112
-	local rowHeight = if stack then ROW_HEIGHTS.worldStack else ROW_HEIGHTS.world
+	local rowHeight = PageBoardHeights.World(stack)
 	local rowGap = if stack then chrome.panelGap else Layout.panelGap
 	local worldColumns = if stack then 1 elseif viewport.width >= 1700 then 3 elseif viewport.width >= 1100 then 2 else 1
 	local listPad = Layout.stackGap * 2
@@ -3489,7 +3474,7 @@ local function VisitPanel(_param)
 	end
 	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, if stack then ROW_HEIGHTS.visitStack else ROW_HEIGHTS.visit),
+		size = UDim2.new(1, 0, 0, PageBoardHeights.Visit(stack)),
 		accent = Palette.blue,
 		background = Palette.panelRaised,
 		padding = 16,
@@ -3672,7 +3657,7 @@ local function CrewView(_param)
 	local rowStride = if stack then 176 else 124
 	local headerH = if stack then 130 else 112
 	local listGap = if visit ~= nil then math.max(chrome.panelGap, 18) else math.max(chrome.panelGap, 12)
-	local visitBlock = if visit ~= nil then (if stack then ROW_HEIGHTS.visitStack else ROW_HEIGHTS.visit) else 0
+	local visitBlock = if visit ~= nil then PageBoardHeights.Visit(stack) else 0
 	local crewTail = scrollTail(stack, chrome.bottomSafe, 48)
 	local headerPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
@@ -3762,7 +3747,7 @@ local function CrewView(_param)
 	if visitPanel then
 		table.insert(sections, {
 			id = "visit",
-			height = if stack then ROW_HEIGHTS.visitStack else ROW_HEIGHTS.visit,
+			height = PageBoardHeights.Visit(stack),
 			element = visitPanel,
 		})
 	end

@@ -163,6 +163,18 @@ assert(
 	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.CanClaimGoal", 1, true),
 	"GuildService CanClaimGoal residual"
 )
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "AnomalyOpsMath.ApplyCoreXP", 1, true),
+	"AnomalyService ApplyCoreXP residual"
+)
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau"), "TradeOfferMath.CopyOffer", 1, true),
+	"TradeDesk CopyOffer residual"
+)
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau"), "TradeOfferMath.EnsureLedger", 1, true),
+	"TradeDesk EnsureLedger residual"
+)
 
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
