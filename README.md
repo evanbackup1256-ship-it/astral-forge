@@ -82,6 +82,7 @@ git merge-base --is-ancestor d740cac HEAD && echo softmotion-admin OK
 git merge-base --is-ancestor ca2bb29 HEAD && echo wave15-harden OK
 git merge-base --is-ancestor d942e37 HEAD && echo wave16-harden OK
 git merge-base --is-ancestor 2f66f7e HEAD && echo wave17-harden OK
+git merge-base --is-ancestor e5f361c HEAD && echo softmotion-ungated OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -122,7 +123,7 @@ walkthrough / Device Simulator evidence before claiming ENTIRE complete.
 ```bash
 git fetch origin && git checkout master && git pull origin master
 git rev-parse HEAD
-# Expect at or after: 2f66f7e
+# Expect at or after: da96e87
 argon serve default.project.json
 ```
 
