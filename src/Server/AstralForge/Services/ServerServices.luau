@@ -61,6 +61,9 @@ serviceFactories["GameService"] = function()
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RebirthGate"))
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeDesk"))
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSettle"))
+	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CrateRoll"))
+	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ShopGrantEligibility"))
+	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandActionValidators"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -295,39 +298,7 @@ serviceFactories["GameService"] = function()
 	}
 
 
-	local DEFERRED_SNAPSHOT_ACTIONS = {
-		[Protocol.Actions.Overcharge] = true,
-		[Protocol.Actions.PulseAnomaly] = true,
-
-		[Protocol.Actions.RouteLabPower] = true,
-		[Protocol.Actions.SetAutoForge] = true,
-		[Protocol.Actions.SetAnomalyChannel] = true,
-		[Protocol.Actions.SetAnomalyLoadout] = true,
-		[Protocol.Actions.SetSetting] = true,
-		[Protocol.Actions.SetMobileLayout] = true,
-		[Protocol.Actions.SetTutorialStep] = true,
-		[Protocol.Actions.ReplayTutorial] = true,
-		[Protocol.Actions.DismissRelease] = true,
-		[Protocol.Actions.OpenRelease] = true,
-		[Protocol.Actions.ReadStoryChapter] = true,
-		[Protocol.Actions.ReadMail] = true,
-		[Protocol.Actions.ReportPresence] = true,
-		[Protocol.Actions.SelectZone] = true,
-	}
-
-	-- Grants that also require the request to carry the session's live nonce, not just a matching
-	-- gen -- the highest-value actions (spend currency, open a crate, redeem a code, admin power)
-	-- get the extra check; the rest of the grant surface still needs gen but not nonce, since gen
-	-- alone already stops a dumped remote from working past a session's next rotation.
-	local HIGH_VALUE_GRANT_ACTIONS = {
-		[Protocol.Actions.SpinWheel] = true,
-		[Protocol.Actions.OpenItemCrate] = true,
-		[Protocol.Actions.CollectVault] = true,
-		[Protocol.Actions.Rebirth] = true,
-		[Protocol.Actions.DomainExpansion] = true,
-		[Protocol.Actions.RedeemCode] = true,
-		[Protocol.Actions.AdminExecute] = true,
-	}
+	-- Deferred snapshot / high-value grant tables live in CommandActionValidators.
 
 	local function enforceUnlimitedMoney(profile)
 		if profile.Flags.UnlimitedMoney then
@@ -367,71 +338,15 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function offerStockMax(offer): number
-		local stockMax = offer.StockMax
-		if type(stockMax) == "number" and stockMax > 0 then
-			return math.floor(stockMax)
-		end
-		return 1
+		return ShopGrantEligibility.StockMax(offer)
 	end
 
 	local function inventoryCount(profile): number
-		local count = 0
-		for _ in profile.Items.Inventory do
-			count += 1
-		end
-		return count
+		return ShopGrantEligibility.InventoryCount(profile.Items.Inventory)
 	end
 
 	local function ensureItemShop(profile): boolean
-		local shop = profile.Items.Shop
-		if type(shop.Stock) ~= "table" then
-			shop.Stock = {}
-		end
-		if type(shop.Purchased) ~= "table" then
-			shop.Purchased = {}
-		end
-		local day = utcDay()
-		local changed = false
-
-
-		for _, offer in GameConfig.Items.ShopOffers do
-			local stockMax = offerStockMax(offer)
-			local current = shop.Stock[offer.Id]
-			if type(current) ~= "number" then
-				if shop.Purchased[offer.Id] == true then
-					shop.Stock[offer.Id] = 0
-				else
-					shop.Stock[offer.Id] = stockMax
-				end
-				changed = true
-			else
-				local clamped = math.clamp(math.floor(current), 0, stockMax)
-				if clamped ~= current then
-					shop.Stock[offer.Id] = clamped
-					changed = true
-				end
-			end
-		end
-
-		if shop.Day == day then
-			return changed
-		end
-
-		shop.Day = day
-		shop.Purchased = {}
-		for _, offer in GameConfig.Items.ShopOffers do
-			local stockMax = offerStockMax(offer)
-			if offer.DailyRefresh == true then
-
-				shop.Stock[offer.Id] = stockMax
-			else
-
-				local restock = type(offer.DailyRestock) == "number" and math.max(0, math.floor(offer.DailyRestock)) or 0
-				local current = shop.Stock[offer.Id] or 0
-				shop.Stock[offer.Id] = math.min(stockMax, current + restock)
-			end
-		end
-		return true
+		return ShopGrantEligibility.EnsureShop(profile.Items.Shop, GameConfig.Items.ShopOffers, utcDay())
 	end
 
 	local function copyDictionary(source)
@@ -2754,7 +2669,7 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_studioGrantProduct(player: Player, rawKey: any)
-		if not RunService:IsStudio() then
+		if not ShopGrantEligibility.StudioGrantAllowed(RunService:IsStudio()) then
 			return responseError("Studio grants are disabled in live servers.")
 		end
 		if type(rawKey) ~= "string" then
@@ -2833,40 +2748,18 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_rollItemDefinition(crate, pity: number)
-		local order = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" }
-		local pityRank = GameConfig.Items.Rarities[crate.PityRarity].Rank
-		local minimumRank = pity + 1 >= crate.PityAfter and pityRank or 0
-		local totalWeight = 0
-		for rarity, weight in crate.Weights do
-			local data = GameConfig.Items.Rarities[rarity]
-			if data and data.Rank >= minimumRank then
-				totalWeight += weight
+		return CrateRoll.Roll(
+			crate,
+			pity,
+			GameConfig.Items.Rarities,
+			GameConfig.Items.Definitions,
+			function(lo, hi)
+				return self._random:NextNumber(lo, hi)
+			end,
+			function(lo, hi)
+				return self._random:NextInteger(lo, hi)
 			end
-		end
-		local roll = self._random:NextNumber(0, math.max(totalWeight, 0.001))
-		local selectedRarity = crate.PityRarity
-		for _, rarity in order do
-			local data = GameConfig.Items.Rarities[rarity]
-			local weight = crate.Weights[rarity] or 0
-			if data.Rank >= minimumRank and weight > 0 then
-				roll -= weight
-				if roll <= 0 then
-					selectedRarity = rarity
-					break
-				end
-			end
-		end
-		local candidates = {}
-		for _, definition in GameConfig.Items.Definitions do
-			if definition.Rarity == selectedRarity then
-				table.insert(candidates, definition)
-			end
-		end
-		local selected = candidates[self._random:NextInteger(1, math.max(1, #candidates))]
-		if not selected then
-			return nil, selectedRarity, false
-		end
-		return selected, selectedRarity, GameConfig.Items.Rarities[selectedRarity].Rank >= pityRank
+		)
 	end
 
 	function GameService:_buyItemOffer(player: Player, offerId: any)
@@ -2877,29 +2770,19 @@ serviceFactories["GameService"] = function()
 		local result = self:_mutate(player, function(profile)
 			ensureItemShop(profile)
 			local stockMax = offerStockMax(offer)
-			local remaining = profile.Items.Shop.Stock[offerId]
-			if type(remaining) ~= "number" then
-				remaining = stockMax
-			end
-			remaining = math.clamp(math.floor(remaining), 0, stockMax)
-			if remaining <= 0 then
-				return responseError(
-					offer.DailyRefresh == true and "That daily offer is sold out. Come back after refresh."
-						or "That market offer is sold out."
-				)
-			end
-			if offer.Kind == "Item" and inventoryCount(profile) >= GameConfig.Items.InventoryLimit then
-				return responseError("Your item inventory is full. Salvage something first.")
-			end
-			local balance = profile[offer.Currency]
-			if type(balance) ~= "number" or balance < offer.Price then
-				return responseError(
-					string.format(
-						"You need %s more %s.",
-						Format.Number(math.max(0, offer.Price - (balance or 0))),
-						offer.Currency
-					)
-				)
+			local remaining = ShopGrantEligibility.RemainingStock(profile.Items.Shop.Stock[offerId], stockMax)
+			local eligible, denyReason = ShopGrantEligibility.EvaluateBuy(
+				offer,
+				remaining,
+				inventoryCount(profile),
+				GameConfig.Items.InventoryLimit,
+				profile[offer.Currency],
+				function(need, currency)
+					return string.format("You need %s more %s.", Format.Number(need), currency)
+				end
+			)
+			if not eligible then
+				return responseError(denyReason or "That market offer is unavailable.")
 			end
 			profile[offer.Currency] -= offer.Price
 			local itemUid
@@ -2928,9 +2811,9 @@ serviceFactories["GameService"] = function()
 		if type(crateId) ~= "string" or not crateById[crateId] then
 			return responseError("That crate channel does not exist.")
 		end
-		local count = type(rawCount) == "number" and math.clamp(math.floor(rawCount), 1, 5) or 1
-		if count ~= 1 and count ~= 5 then
-			return responseError("Crates can be opened one or five at a time.")
+		local count, countError = CrateRoll.NormalizeOpenCount(rawCount)
+		if not count then
+			return responseError(countError or "Crates can be opened one or five at a time.")
 		end
 		local crate = crateById[crateId]
 		local result = self:_mutate(player, function(profile)
@@ -2948,16 +2831,13 @@ serviceFactories["GameService"] = function()
 				and profile.OwnedPasses
 				and profile.OwnedPasses.AutoSalvage == true
 
-			local guaranteedRecycle = autoEnabled and autoRules.KeepNew == false
-			if guaranteedRecycle then
-				for rarity, weight in crate.Weights do
-					if weight > 0 and autoRules.Rarities[rarity] ~= true then
-						guaranteedRecycle = false
-						break
-					end
-				end
-			end
-			local requiredSlots = guaranteedRecycle and 0 or count
+			local guaranteedRecycle = CrateRoll.GuaranteedRecycle(
+				crate.Weights,
+				autoEnabled,
+				autoRules.KeepNew,
+				autoRules.Rarities
+			)
+			local requiredSlots = CrateRoll.RequiredSlots(count, guaranteedRecycle)
 			if inventoryCount(profile) + requiredSlots > GameConfig.Items.InventoryLimit then
 				return responseError("Your item inventory does not have enough open slots.")
 			end
@@ -4191,7 +4071,7 @@ serviceFactories["GameService"] = function()
 
 
 	function GameService:_handleAction(player: Player, action: any, payload: any)
-		if type(action) ~= "string" then
+		if not CommandActionValidators.IsValidAction(action) then
 			return responseError("Invalid request.")
 		end
 		if action == Protocol.Actions.ReportClientIntegrity then
@@ -5103,33 +4983,14 @@ serviceFactories["GameService"] = function()
 				end
 				return responseError(firewallMessage or "Please slow down for a moment.")
 			end
-			local readOnly = action == Protocol.Actions.GetState
-				or action == Protocol.Actions.MeasureLatency
-				or action == Protocol.Actions.SubmitFeedback
-				or action == Protocol.Actions.ReportPlayer
-				or action == Protocol.Actions.GetPlayers
-				or action == Protocol.Actions.GetPlayerMirror
-				or action == Protocol.Actions.VisitPlot
-				or action == Protocol.Actions.LeavePlot
-				or action == Protocol.Actions.NudgeCrew
-				or action == Protocol.Actions.ReportPresence
-				or action == Protocol.Actions.GetGuild
-				or action == Protocol.Actions.GetGuildLeaderboard
-				or action == Protocol.Actions.GetLeaderboard
-				or action == Protocol.Actions.GetAdminState
-				or action == Protocol.Actions.GetTrade
-				or action == Protocol.Actions.TradeViewAway
-				or action == Protocol.Actions.ReportClientIntegrity
-				or action == Protocol.Actions.ReportPerformance
-				or action == Protocol.Actions.SetTutorialStep
-				or action == Protocol.Actions.ReplayTutorial
+			local readOnly = CommandActionValidators.IsReadOnly(action)
 			local payloadTable = type(payload) == "table" and payload or nil
 			if not readOnly then
 				local grantOk, grantReason = self._session:CheckGrant(
 					player,
 					payloadTable and payloadTable.Gen,
 					payloadTable and payloadTable.N,
-					HIGH_VALUE_GRANT_ACTIONS[action] == true
+					CommandActionValidators.RequiresHighValueNonce(action)
 				)
 				if not grantOk then
 					ModuleLog.Every(
@@ -5220,7 +5081,7 @@ serviceFactories["GameService"] = function()
 						self._badges:Evaluate(player, profile, tostring(action))
 					end
 					self:_syncLeaderstats(player, profile)
-					if not DEFERRED_SNAPSHOT_ACTIONS[action] then self:_queueStatePush(player) end
+					if not CommandActionValidators.IsDeferredSnapshot(action) then self:_queueStatePush(player) end
 				end)
 			end
 			if not readOnly and result.Gen == nil then
@@ -5253,7 +5114,7 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:GrantStudioMoney(player: Player): (boolean, string, number?)
-		if not RunService:IsStudio() then
+		if not ShopGrantEligibility.StudioGrantAllowed(RunService:IsStudio()) then
 			return false, "Studio grants are disabled in published servers."
 		end
 		if player.Parent ~= Players then
@@ -5281,7 +5142,7 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:GrantStudioWheelSpins(player: Player, amount: number?): (boolean, string, number?)
-		if not RunService:IsStudio() then
+		if not ShopGrantEligibility.StudioGrantAllowed(RunService:IsStudio()) then
 			return false, "Studio grants are disabled in published servers."
 		end
 		if player.Parent ~= Players then
@@ -5291,7 +5152,7 @@ serviceFactories["GameService"] = function()
 			return false, "The player's profile is still loading. Wait for the game UI, then retry."
 		end
 
-		local grant = math.clamp(math.floor(tonumber(amount) or 100), 1, 500)
+		local grant = ShopGrantEligibility.ClampWheelGrant(amount)
 		local total = 0
 		local updated, updateError = self._data:Update(player, function(profile)
 			local current = math.max(0, math.floor(tonumber(profile.Wheel.FreeSpins) or 0))

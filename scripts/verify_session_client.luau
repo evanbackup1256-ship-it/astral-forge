@@ -9,6 +9,7 @@ local fs = require("@lune/fs")
 local protocolSrc = fs.readFile("src/Shared/AstralForge/Shared/Protocol.luau")
 local sessionSrc = fs.readFile("src/Client/AstralForge/session.luau")
 local serverSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+local commandValidators = require("../src/Server/AstralForge/Modules/CommandActionValidators")
 
 local function extractStringKeys(block: string): { [string]: boolean }
 	local keys = {}
@@ -16,6 +17,9 @@ local function extractStringKeys(block: string): { [string]: boolean }
 		keys[key] = true
 	end
 	for key in string.gmatch(block, "%[Protocol%.Actions%.([%w]+)%]%s*=%s*true") do
+		keys[key] = true
+	end
+	for key in string.gmatch(block, "([%w]+)%s*=%s*true") do
 		keys[key] = true
 	end
 	return keys
@@ -37,33 +41,21 @@ local grantBlock = string.match(sessionSrc, "local GRANT_ACTIONS%s*=%s*%{(.-)\n%
 assert(grantBlock, "client GRANT_ACTIONS missing")
 local grantActions = extractStringKeys(grantBlock)
 
-local highValueBlock = string.match(serverSrc, "local HIGH_VALUE_GRANT_ACTIONS%s*=%s*%{(.-)\n\t%}")
-assert(highValueBlock, "HIGH_VALUE_GRANT_ACTIONS missing")
-local highValue = extractStringKeys(highValueBlock)
+assert(
+	string.find(serverSrc, "CommandActionValidators.RequiresHighValueNonce", 1, true),
+	"ServerServices must use CommandActionValidators for high-value grants"
+)
+local highValue = {}
+for action in pairs(commandValidators.HIGH_VALUE_GRANT) do
+	highValue[action] = true
+end
 
--- Mirror the server readOnly set from GameService request dispatch.
-local readOnly = {
-	GetState = true,
-	MeasureLatency = true,
-	SubmitFeedback = true,
-	ReportPlayer = true,
-	GetPlayers = true,
-	GetPlayerMirror = true,
-	VisitPlot = true,
-	LeavePlot = true,
-	NudgeCrew = true,
-	ReportPresence = true,
-	GetGuild = true,
-	GetGuildLeaderboard = true,
-	GetLeaderboard = true,
-	GetAdminState = true,
-	GetTrade = true,
-	TradeViewAway = true,
-	ReportClientIntegrity = true,
-	ReportPerformance = true,
-	SetTutorialStep = true,
-	ReplayTutorial = true,
-}
+-- Mirror the server readOnly set from CommandActionValidators (shared with GameService).
+local readOnly = {}
+for action in pairs(commandValidators.READ_ONLY) do
+	readOnly[action] = true
+end
+assert(string.find(serverSrc, "CommandActionValidators.IsReadOnly", 1, true), "ServerServices must use IsReadOnly")
 
 -- Confirm the server source still lists each readOnly action we mirror.
 for action in pairs(readOnly) do
