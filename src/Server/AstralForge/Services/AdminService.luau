@@ -11,6 +11,9 @@ return function(loadService: (string) -> any)
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local AdminGrantMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AdminGrantMath"))
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -746,47 +749,61 @@ return function(loadService: (string) -> any)
 			elseif command == "GrantCores" then profile.Cores += amount
 			elseif command == "GrantStardust" then profile.Stardust += amount
 			elseif command == "GrantRebirths" then profile.Rebirths += math.floor(amount)
-			elseif command == "GrantDomainEssence" then profile.Domain.Essence += math.floor(amount)
-			elseif command == "GrantAnomalyFragments" then profile.Anomaly.Fragments += math.floor(amount)
-			elseif command == "GrantSignals" then profile.Command.Signals += math.floor(amount)
-			elseif command == "GrantCommandXP" then profile.Command.XP += math.floor(amount)
-			elseif command == "GrantSeasonXP" then profile.Command.SeasonXP += math.floor(amount)
-			elseif command == "GrantStreakShields" then profile.Command.StreakShields += math.floor(amount)
-			elseif command == "GrantItemEssence" then profile.Items.Essence += math.floor(amount)
+			elseif command == "GrantDomainEssence" then
+				-- Partial Domain bags (Studio fixtures) must not crash GrantDomainEssence.
+				ProfileBagMath.EnsureDomain(profile).Essence += math.floor(amount)
+			elseif command == "GrantAnomalyFragments" then
+				ProfileBagMath.EnsureAnomaly(profile).Fragments += math.floor(amount)
+			elseif command == "GrantSignals" then
+				-- ApplyReward Signals-only bags omit Crew/Artifacts — grant must Ensure first.
+				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+				profile.Command.Signals += math.floor(amount)
+			elseif command == "GrantCommandXP" then
+				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+				profile.Command.XP += math.floor(amount)
+			elseif command == "GrantSeasonXP" then
+				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+				profile.Command.SeasonXP += math.floor(amount)
+			elseif command == "GrantStreakShields" then
+				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+				profile.Command.StreakShields += math.floor(amount)
+			elseif command == "GrantItemEssence" then
+				-- Keys-only Items bags omit Essence — rebuild before +=.
+				ProfileBagMath.EnsureItems(profile).Essence += math.floor(amount)
 			elseif command == "GrantContinuumRanks" then
-				profile.Continuum.Rank = math.min(GameConfig.Continuum.MaxRank, profile.Continuum.Rank + math.floor(amount))
-			elseif command == "GrantAnomalyCharge" then profile.Anomaly.Charge += math.floor(amount)
+				local continuum = ProfileBagMath.EnsureContinuum(profile)
+				continuum.Rank = math.min(GameConfig.Continuum.MaxRank, continuum.Rank + math.floor(amount))
+			elseif command == "GrantAnomalyCharge" then
+				ProfileBagMath.EnsureAnomaly(profile).Charge += math.floor(amount)
 			elseif command == "GrantAnomalyStabilizations" then
 				-- Keep Stats in lockstep with Anomaly.Stabilizations — AchievementProgress /
 				-- weekly AnomalyStabilizations directives read Stats when the bag is absent,
 				-- and AnomalyService.Stabilize always bumps both.
 				local n = math.floor(amount)
-				profile.Anomaly.Stabilizations += n
-				if type(profile.Stats) == "table" then
-					profile.Stats.AnomalyStabilizations =
-						math.max(0, math.floor(tonumber(profile.Stats.AnomalyStabilizations) or 0)) + n
-				end
-			elseif command == "GrantFreeSpins" then profile.Wheel.FreeSpins += math.floor(amount)
+				ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
+				ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
+			elseif command == "GrantFreeSpins" then
+				profile.Wheel = WheelMath.Ensure(profile.Wheel)
+				profile.Wheel.FreeSpins += math.floor(amount)
 			elseif command == "GrantCrateKeys" then
-				if profile.Items.Keys[option] == nil then return { ok = false, error = "Unknown crate id." } end
-				profile.Items.Keys[option] += math.floor(amount)
+				local keys = ProfileBagMath.EnsureItemKeys(profile)
+				if keys[option] == nil then return { ok = false, error = "Unknown crate id." } end
+				keys[option] += math.floor(amount)
 			elseif command == "GrantAllCrateKeys" then
-				for crateId in profile.Items.Keys do profile.Items.Keys[crateId] += math.floor(amount) end
+				local keys = ProfileBagMath.EnsureItemKeys(profile)
+				for crateId in keys do keys[crateId] += math.floor(amount) end
 			elseif command == "GrantPity" then
-				if profile.Items.Pity[option] == nil then return { ok = false, error = "Unknown crate id." } end
-				profile.Items.Pity[option] += math.floor(amount)
+				local items = ProfileBagMath.EnsureItems(profile)
+				if items.Pity[option] == nil then return { ok = false, error = "Unknown crate id." } end
+				items.Pity[option] += math.floor(amount)
 			elseif command == "GrantBoost" then
 				if not GameConfig.Boosts[option] then return { ok = false, error = "Unknown boost id." } end
-				if type(profile.BoostInventory) ~= "table" then
-					profile.BoostInventory = {}
-				end
-				profile.BoostInventory[option] = (profile.BoostInventory[option] or 0) + math.floor(amount)
+				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+				inventory[option] = (inventory[option] or 0) + math.floor(amount)
 			elseif command == "GrantAllBoosts" then
-				if type(profile.BoostInventory) ~= "table" then
-					profile.BoostInventory = {}
-				end
+				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
 				for boostId in GameConfig.Boosts do
-					profile.BoostInventory[boostId] = (profile.BoostInventory[boostId] or 0) + math.floor(amount)
+					inventory[boostId] = (inventory[boostId] or 0) + math.floor(amount)
 				end
 			elseif command == "GrantRelic" then
 				changedAmount = 0
@@ -796,29 +813,23 @@ return function(loadService: (string) -> any)
 				end
 				if changedAmount <= 0 then return { ok = false, error = "Relic id is invalid or inventory is full." } end
 			elseif command == "ClearActiveBoost" then
-				if type(profile.ActiveBoost) ~= "table" then
-					profile.ActiveBoost = { Id = "", EndsAt = 0 }
-				else
-					profile.ActiveBoost.Id = ""
-					profile.ActiveBoost.EndsAt = 0
-				end
+				local active = ProfileBagMath.EnsureActiveBoost(profile)
+				active.Id = ""
+				active.EndsAt = 0
 			elseif command == "ResetWheelCooldown" then
-				if type(profile.Wheel) ~= "table" then
-					profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
-				end
+				profile.Wheel = WheelMath.Ensure(profile.Wheel)
 				profile.Wheel.LastSpinAt = 0
 			elseif command == "ResetDailyClaim" then
-				if type(profile.Daily) ~= "table" then
-					profile.Daily = { LastClaimDay = -1, Streak = 0 }
-				end
-				profile.Daily.LastClaimDay = -1
+				ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
 			elseif command == "ClearVault" then profile.Vault = 0
 			elseif command == "SetZone" then
 				local zone = math.clamp(math.floor(amount), 1, GameConfig.MaxZone)
 				profile.Zone = math.max(profile.Zone, zone)
 				profile.CurrentZone = zone
-			elseif command == "EnableUnlimitedFlux" then profile.Flags.UnlimitedMoney = true
-			elseif command == "DisableUnlimitedFlux" then profile.Flags.UnlimitedMoney = false
+			elseif command == "EnableUnlimitedFlux" then
+				ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = true
+			elseif command == "DisableUnlimitedFlux" then
+				ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = false
 			elseif command == "UnlockProgression" then
 				profile.Zone = GameConfig.MaxZone
 				profile.CurrentZone = profile.Zone
@@ -851,41 +862,48 @@ return function(loadService: (string) -> any)
 				-- profile.Capacity was always nil, so FillVault was a silent no-op.
 				profile.Vault = Economy.Capacity(profile)
 			elseif command == "DrainKeys" then
-				for crateId in profile.Items.Keys do profile.Items.Keys[crateId] = 0 end
+				local keys = ProfileBagMath.EnsureItemKeys(profile)
+				for crateId in keys do keys[crateId] = 0 end
 			elseif command == "DrainBoosts" then
-				for boostId in profile.BoostInventory do profile.BoostInventory[boostId] = 0 end
+				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+				for boostId in inventory do inventory[boostId] = 0 end
 			elseif command == "LockRelics" then
-				for _, instance in profile.Items.Inventory do instance.Locked = true end
+				local items = ProfileBagMath.EnsureItems(profile)
+				for _, instance in items.Inventory do instance.Locked = true end
 			elseif command == "UnlockRelics" then
-				for _, instance in profile.Items.Inventory do instance.Locked = false end
+				local items = ProfileBagMath.EnsureItems(profile)
+				for _, instance in items.Inventory do instance.Locked = false end
 			elseif command == "SalvageRelics" then
+				local items = ProfileBagMath.EnsureItems(profile)
 				local kept = {}
 				local salvaged = 0
-				for uid, instance in profile.Items.Inventory do
+				for uid, instance in items.Inventory do
 					local equipped = false
-					for _, equippedUid in profile.Items.Equipped do
+					for _, equippedUid in items.Equipped do
 						if equippedUid == uid then equipped = true break end
 					end
 					if equipped or instance.Locked == true then
 						kept[uid] = instance
 					else
 						salvaged += 1
-						profile.Items.Essence += 8
+						items.Essence += 8
 					end
 				end
-				profile.Items.Inventory = kept
+				items.Inventory = kept
 				changedAmount = salvaged
 			elseif command == "SetRebirths" then profile.Rebirths = math.max(0, math.floor(amount))
 			elseif command == "SetCores" then profile.Cores = math.max(0, math.floor(amount))
 			elseif command == "SetStardust" then profile.Stardust = math.max(0, math.floor(amount))
 			elseif command == "SetDomainRank" then
-				profile.Domain.Rank = math.max(0, math.floor(amount))
+				ProfileBagMath.EnsureDomain(profile).Rank = math.max(0, math.floor(amount))
 			elseif command == "GrantSkillPoints" then
-				profile.Domain.SkillPoints = (profile.Domain.SkillPoints or 0) + math.floor(amount)
+				local domain = ProfileBagMath.EnsureDomain(profile)
+				domain.SkillPoints = (domain.SkillPoints or 0) + math.floor(amount)
 			elseif command == "ResetDomain" then
-				profile.Domain.Rank = 0
-				profile.Domain.SkillPoints = 0
-				profile.Domain.Nodes = {}
+				local domain = ProfileBagMath.EnsureDomain(profile)
+				domain.Rank = 0
+				domain.SkillPoints = 0
+				domain.Nodes = {}
 			elseif command == "MaxMachines" then
 				for _, machine in GameConfig.Machines do profile.Machines[machine.Id] = machine.MaxLevel end
 			elseif command == "ResetMachines" then
@@ -899,14 +917,16 @@ return function(loadService: (string) -> any)
 			elseif command == "ResetGrid" then
 				profile.GridUpgrades = {}
 			elseif command == "FillPityAll" then
-				for crateId in profile.Items.Pity do profile.Items.Pity[crateId] = 99 end
+				local items = ProfileBagMath.EnsureItems(profile)
+				for crateId in items.Pity do items.Pity[crateId] = 99 end
 			elseif command == "ResetTrades" then
 				if profile.Trade then
 					profile.Trade.Completed = 0
 					profile.Trade.Day = -1
 				end
 			elseif command == "ResetDailies" then
-				profile.Daily.LastClaimDay = -1
+				ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
+				profile.Wheel = WheelMath.Ensure(profile.Wheel)
 				profile.Wheel.LastSpinAt = 0
 				if profile.Trade then profile.Trade.Day = -1 end
 			elseif command == "ZeroZone" then
@@ -937,32 +957,16 @@ return function(loadService: (string) -> any)
 				profile.Cores += math.max(1000, math.floor(amount))
 				profile.Stardust += math.max(100000, math.floor(amount))
 				profile.Rebirths += math.max(100, math.floor(amount))
-				if type(profile.Domain) ~= "table" then
-					profile.Domain = { Rank = 0, Essence = 0, Nodes = {}, SkillPoints = 0 }
-				end
-				profile.Domain.Essence += math.max(100, math.floor(amount))
-				if type(profile.Anomaly) ~= "table" then
-					profile.Anomaly = { Fragments = 0 }
-				end
-				profile.Anomaly.Fragments += math.max(10000, math.floor(amount))
-				if type(profile.Command) ~= "table" then
-					profile.Command = { Signals = 0 }
-				end
+				ProfileBagMath.EnsureDomain(profile).Essence += math.max(100, math.floor(amount))
+				ProfileBagMath.EnsureAnomaly(profile).Fragments += math.max(10000, math.floor(amount))
+				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.Signals += math.max(10000, math.floor(amount))
-				if type(profile.Wheel) ~= "table" then
-					profile.Wheel = { FreeSpins = 0 }
-				end
+				profile.Wheel = WheelMath.Ensure(profile.Wheel)
 				profile.Wheel.FreeSpins += math.max(100, math.floor(amount))
-				if type(profile.Items) ~= "table" then
-					profile.Items = { Keys = {} }
-				elseif type(profile.Items.Keys) ~= "table" then
-					profile.Items.Keys = {}
-				end
-				for crateId in profile.Items.Keys do profile.Items.Keys[crateId] += 100 end
-				if type(profile.BoostInventory) ~= "table" then
-					profile.BoostInventory = {}
-				end
-				for boostId in GameConfig.Boosts do profile.BoostInventory[boostId] = (profile.BoostInventory[boostId] or 0) + 25 end
+				local keys = ProfileBagMath.EnsureItemKeys(profile)
+				for crateId in keys do keys[crateId] += 100 end
+				local boosts = ProfileBagMath.EnsureBoostInventory(profile)
+				for boostId in GameConfig.Boosts do boosts[boostId] = (boosts[boostId] or 0) + 25 end
 			else return { ok = false, error = "Admin command has no executor." } end
 			return { ok = true }
 		end, true, "admin:" .. command)

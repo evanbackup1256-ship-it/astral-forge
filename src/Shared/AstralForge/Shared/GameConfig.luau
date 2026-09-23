@@ -612,6 +612,28 @@ local GameConfig = {
 				Reward = { Stardust = 48, CashMinutes = 4, Signals = 16 },
 				Color = Color3.fromRGB(255, 200, 190),
 			},
+			{
+				Id = "Wave14ProfileBags",
+				Name = "Wave Fourteen Profile Bags",
+				Description = "Tap through a short tally while ProfileBagMath Ensure rebuilds Stats/Daily/Quests/Items bags.",
+				Kind = "Tap",
+				BaseTarget = 105,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 36, CashMinutes = 3, Signals = 13 },
+				Color = Color3.fromRGB(150, 220, 255),
+			},
+			{
+				Id = "Wave14PageReadySoftMotion",
+				Name = "Wave Fourteen Page Ready Soft Motion",
+				Description = "Bank flux while PageReadyMath readiness + Admin grant Ensures + softMotion density stay wired.",
+				Kind = "BankFlux",
+				BaseTarget = 4_400,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 50, CashMinutes = 4, Signals = 17 },
+				Color = Color3.fromRGB(255, 195, 200),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2988,6 +3010,22 @@ local GameConfig = {
 			Target = 24,
 			Reward = { Stardust = 280, Signals = 74, CashMinutes = 25, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave14ProfileCourier",
+			Name = "Wave Fourteen Profile Courier",
+			Description = "Claim 56 story chapters after ProfileBagMath extract + Admin grant bag nil-safety.",
+			Kind = "StoryClaims",
+			Target = 56,
+			Reward = { Stardust = 280, Signals = 76, CashMinutes = 26, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave14SoftMotionRunner",
+			Name = "Wave Fourteen Soft Motion Runner",
+			Description = "Hold a 26-day daily streak while Research/Continuum/Missions softMotion density + PageReady stay verified.",
+			Kind = "DailyStreak",
+			Target = 26,
+			Reward = { Stardust = 290, Signals = 78, CashMinutes = 26, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4510,9 +4548,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(160, 210, 255),
 		},
 
+		{
+			Id = "wave14-harden-brief",
+			Title = "Wave Fourteen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "ProfileBagMath + PageReadyMath extracts; Admin grant Ensures and softMotion density stay honest.",
+			Body = {
+				"ProfileBagMath Ensure/BumpStat rebuild Stats/Daily/Quests/Items/Boost/Domain/Anomaly bags shared by Progression and ServerServices.",
+				"PageReadyMath CountReadyQuests/LabOrders/ForgePathReady tolerate partial bags; Admin GrantSignals/ItemEssence/DrainKeys no longer throw on Keys-only fixtures.",
+				"Research/Continuum/Missions/Mailbox softMotion density thickens with overscan gates; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 48, CashMinutes = 19, Signals = 21 },
+			Color = Color3.fromRGB(150, 220, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave14-harden",
+			Subject = "Dock note — wave fourteen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ProfileBagMath + PageReadyMath extracts + Admin grant Ensures — still DataVersion 21.",
+			Body = {
+				"Profile bag Ensures are Lune-testable across Progression/ServerServices/Admin; Keys-only Items and Signals-only Command no longer crash grants.",
+				"PageReadyMath keeps Overview readiness honest on partial Quests/Lab/ForgePath; Research/Missions softMotion density stays thick.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 48, Stardust = 64, Signals = 25 },
+			Color = Color3.fromRGB(150, 220, 255),
+		},
 
 		{
 			Id = "update-5-1-wave13-harden",

@@ -545,3 +545,36 @@ for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgrade
 end
 
 print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements+QuestsTimed+SanitizeBags+WheelMath+CommandMath nil-safe")
+
+-- --- Admin grant bag Ensures (wave14) ----------------------------------------
+-- Evidence: GrantDomainEssence/GrantSignals/GrantItemEssence/GrantFreeSpins/
+-- DrainKeys raw-indexed Domain/Command/Items/Wheel on Keys-only Studio fixtures.
+assert(
+	string.find(adminSrc, "ProfileBagMath.EnsureDomain", 1, true) ~= nil,
+	"Admin GrantDomainEssence must ProfileBagMath.EnsureDomain"
+)
+assert(
+	string.find(adminSrc, "CommandMath.Ensure", 1, true) ~= nil,
+	"Admin GrantSignals must CommandMath.Ensure"
+)
+assert(
+	string.find(adminSrc, "ProfileBagMath.EnsureItems", 1, true) ~= nil,
+	"Admin GrantItemEssence must EnsureItems"
+)
+assert(
+	string.find(adminSrc, "WheelMath.Ensure", 1, true) ~= nil,
+	"Admin GrantFreeSpins must WheelMath.Ensure"
+)
+assert(
+	string.find(adminSrc, "ProfileBagMath.EnsureItemKeys", 1, true) ~= nil,
+	"Admin DrainKeys/GrantCrateKeys must EnsureItemKeys"
+)
+assert(
+	string.find(adminSrc, "profile.Items.Essence +=", 1, true) == nil,
+	"GrantItemEssence must not raw-index Items.Essence"
+)
+assert(
+	string.find(progressionSrc, "ProfileBagMath.EnsureStats", 1, true) ~= nil,
+	"Progression must delegate EnsureStats to ProfileBagMath"
+)
+print("[INFO] [TEST] wave14 Admin/Progression ProfileBagMath grant guards passed")

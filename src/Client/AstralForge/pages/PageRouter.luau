@@ -87,6 +87,7 @@ local BoostsView = lazyView("BoostsView", "BoostsView")
 local AppHelpers = require(script.Parent.Parent.appNav).AppHelpers
 local LayoutSectionPlan = require(script.Parent.Parent.layoutSectionPlan)
 local VaultCollectEligibility = require(script.Parent.Parent.vaultCollectEligibility)
+local PageReadyMath = require(script.Parent.Parent.pageReadyMath)
 local function Metric(_param)
 	local label = _param.label
 	local value = _param.value
@@ -411,55 +412,13 @@ local function ReleaseCountdown(_param)
 end
 
 local function countReadyQuests(quests)
-	local ready = 0
-	if quests == nil then
-		return 0
-	end
-	for _, quest in quests do
-		if not quest.Claimed and quest.Progress >= quest.Target then
-			ready += 1
-		end
-	end
-	return ready
+	return PageReadyMath.CountReadyQuests(quests)
 end
 local function countReadyLabOrders(lab)
-	local ready = 0
-	if lab == nil or lab.Orders == nil then
-		return 0
-	end
-	for _, order in lab.Orders do
-		if not order.Claimed and order.Progress >= order.Target then
-			ready += 1
-		end
-	end
-	return ready
+	return PageReadyMath.CountReadyLabOrders(lab)
 end
 local function forgePathReady(state, config)
-	local forgePath = state.ForgePath
-	if forgePath == nil then
-		return false
-	end
-	local steps = nil
-	if config ~= nil and config.ForgePath ~= nil then
-		steps = config.ForgePath.Steps
-	end
-	if steps == nil or #steps == 0 then
-		return false
-	end
-	local claimed = {}
-	for _, stepId in forgePath.ClaimedSteps or {} do
-		claimed[stepId] = true
-	end
-	for _, step in steps do
-		if claimed[step.Step] == nil then
-			local unlocked = step.Step == 1 or claimed[step.Step - 1] ~= nil
-			if unlocked then
-				return forgePath.XP >= step.XPCost
-			end
-			return false
-		end
-	end
-	return false
+	return PageReadyMath.ForgePathReady(state, config)
 end
 local function OverviewView(_param)
 	local state = _param.state
@@ -3567,17 +3526,7 @@ local function VisitPanel(_param)
 	}))
 end
 local function sameCrewSnapshot(left, right)
-	if #left ~= #right then
-		return false
-	end
-	for index = 0, #left - 1 do
-		local a = left[index + 1]
-		local b = right[index + 1]
-		if a == nil or b == nil or a.UserId ~= b.UserId or a.Name ~= b.Name or a.DisplayName ~= b.DisplayName or a.CurrentZone ~= b.CurrentZone or a.Rebirths ~= b.Rebirths or a.Production ~= b.Production or a.LifetimeCash ~= b.LifetimeCash or a.IsLocal ~= b.IsLocal or a.CurrentPage ~= b.CurrentPage then
-			return false
-		end
-	end
-	return true
+	return PageReadyMath.SameCrewSnapshot(left, right)
 end
 local function CrewView(_param)
 	local state = _param.state
