@@ -33,6 +33,30 @@ local function formatReward(reward)
 		local _arg0 = `{reward.StreakShield} streak shield`
 		table.insert(parts, _arg0)
 	end
+	local essenceAmount = 0
+	if reward.Essence ~= nil and reward.Essence > 0 then
+		essenceAmount += reward.Essence
+	end
+	if reward.DomainEssence ~= nil and reward.DomainEssence > 0 then
+		essenceAmount += reward.DomainEssence
+	end
+	if essenceAmount > 0 then
+		table.insert(parts, `{compactNumber(essenceAmount)} domain essence`)
+	end
+	if reward.Fragments ~= nil and reward.Fragments > 0 then
+		table.insert(parts, `{compactNumber(reward.Fragments)} fragments`)
+	end
+	if reward.FreeSpins ~= nil and reward.FreeSpins > 0 then
+		local spinLabel = if reward.FreeSpins == 1 then "free spin" else "free spins"
+		table.insert(parts, `{compactNumber(reward.FreeSpins)} {spinLabel}`)
+	end
+	if type(reward.Keys) == "table" then
+		for crateId, amount in reward.Keys do
+			if type(crateId) == "string" and type(amount) == "number" and amount > 0 then
+				table.insert(parts, `{compactNumber(amount)} {crateId}`)
+			end
+		end
+	end
 	if reward.Boost ~= nil then
 		local _boost = reward.Boost
 		table.insert(parts, _boost)
