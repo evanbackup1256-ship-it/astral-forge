@@ -42,84 +42,85 @@ pause OneDrive sync for this folder (or move the clone out of OneDrive), answer
 break git object cleanup.
 
 ```powershell
-# From your Astral Forge v2 folder (already there — skip cd):
+# From your Astral Forge v2 folder (already there — skip cd).
+# Windows PowerShell 5: do not use bash `&&` — use `; if ($LASTEXITCODE -eq 0)` as below.
 git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
 # Expect at or after: 70b55bd
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
-git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
+git merge-base --is-ancestor 5e55aab HEAD; if ($LASTEXITCODE -eq 0) { echo integrate OK }
 
 # Confirm color / trade / inventory / playability / closeout landed:
-git merge-base --is-ancestor d3b0d55 HEAD && echo color-pc OK
-git merge-base --is-ancestor 9bcb0c5 HEAD && echo trade OK
-git merge-base --is-ancestor 9c30593 HEAD && echo inventory OK
-git merge-base --is-ancestor a08ddef HEAD && echo playability OK
-git merge-base --is-ancestor 4146904 HEAD && echo pagescaffold-remaining OK
-git merge-base --is-ancestor 6297d4f HEAD && echo goal-closeout OK
-git merge-base --is-ancestor 3a900b4 HEAD && echo playability-residuals OK
-git merge-base --is-ancestor 38d3052 HEAD && echo allowlist-polish OK
-git merge-base --is-ancestor dd10c4b HEAD && echo studio-edge-harden OK
-git merge-base --is-ancestor ef4134f HEAD && echo trade-gamepad-release OK
-git merge-base --is-ancestor cbd4cf0 HEAD && echo content-gates-polish OK
-git merge-base --is-ancestor 9973c1c HEAD && echo bug-polish OK
-git merge-base --is-ancestor f8240e4 HEAD && echo extract-economy-more OK
-git merge-base --is-ancestor d08a852 HEAD && echo extract-progression-lab OK
-git merge-base --is-ancestor 227f8a5 HEAD && echo cta-clip-polish OK
-git merge-base --is-ancestor 88369d7 HEAD && echo extract-anomaly OK
-git merge-base --is-ancestor e693912 HEAD && echo content-bug-wave OK
-git merge-base --is-ancestor a97b5a8 HEAD && echo extract-guild-bugs OK
-git merge-base --is-ancestor f100cf5 HEAD && echo settle-virt-release OK
-git merge-base --is-ancestor a318638 HEAD && echo extract-pagerouter-maingame OK
-git merge-base --is-ancestor e304f15 HEAD && echo bug-content-wave7 OK
-git merge-base --is-ancestor 897d932 HEAD && echo bug-studio-checklist OK
-git merge-base --is-ancestor 3cf76a0 HEAD && echo extract-serverservices OK
-git merge-base --is-ancestor 49f1d8e HEAD && echo bug-content-wave8 OK
-git merge-base --is-ancestor 2a7d9a6 HEAD && echo inv-crates-admin-scaffold OK
-git merge-base --is-ancestor 78e593d HEAD && echo settle-gates-more OK
-git merge-base --is-ancestor eec599c HEAD && echo echo-research-virt OK
-git merge-base --is-ancestor 15c0aba HEAD && echo bug-content-wave9 OK
-git merge-base --is-ancestor d059e83 HEAD && echo wave10-harden OK
-git merge-base --is-ancestor 8308a2f HEAD && echo split-maingame-ss OK
-git merge-base --is-ancestor 2321f3d HEAD && echo bug-content-wave11 OK
-git merge-base --is-ancestor 8cc1e7f HEAD && echo wave12-harden OK
-git merge-base --is-ancestor 98bf1c3 HEAD && echo chat-credits-softmotion OK
-git merge-base --is-ancestor 38fdd2d HEAD && echo wave13-harden OK
-git merge-base --is-ancestor 45849b3 HEAD && echo softmotion-thin OK
-git merge-base --is-ancestor 6385be9 HEAD && echo wave14-harden OK
-git merge-base --is-ancestor d740cac HEAD && echo softmotion-admin OK
-git merge-base --is-ancestor ca2bb29 HEAD && echo wave15-harden OK
-git merge-base --is-ancestor d942e37 HEAD && echo wave16-harden OK
-git merge-base --is-ancestor 2f66f7e HEAD && echo wave17-harden OK
-git merge-base --is-ancestor e5f361c HEAD && echo softmotion-ungated OK
-git merge-base --is-ancestor 0ce4e32 HEAD && echo wave18-harden OK
-git merge-base --is-ancestor b829dc9 HEAD && echo economy-inv-readme OK
-git merge-base --is-ancestor 3b108bb HEAD && echo wave19-harden OK
-git merge-base --is-ancestor 504833d HEAD && echo dataservice-admin-extract OK
-git merge-base --is-ancestor 975abca HEAD && echo wave20-harden OK
-git merge-base --is-ancestor 978eaa5 HEAD && echo split-monoliths-wave20 OK
-git merge-base --is-ancestor b46f905 HEAD && echo wave21-harden OK
-git merge-base --is-ancestor 38d3197 HEAD && echo extract-checks-wave21 OK
-git merge-base --is-ancestor 9003943 HEAD && echo wave22-harden OK
-git merge-base --is-ancestor 505f565 HEAD && echo extract-checks-wave22 OK
-git merge-base --is-ancestor 6af2030 HEAD && echo extract-checks-wave22-tip OK
-git merge-base --is-ancestor 0e6d84a HEAD && echo wave24-offline OK
-git merge-base --is-ancestor 315720b HEAD && echo wave25-offline OK
-git merge-base --is-ancestor 68c71bf HEAD && echo wave26-offline OK
-git merge-base --is-ancestor 78ba94a HEAD && echo wave27-offline OK
-git merge-base --is-ancestor 75bbeec HEAD && echo wave28-offline OK
-git merge-base --is-ancestor 268ba8a HEAD && echo wave29-offline OK
-git merge-base --is-ancestor 05b12ae HEAD && echo wave30-offline OK
-git merge-base --is-ancestor fd27fbe HEAD && echo wave31-offline OK
-git merge-base --is-ancestor 7af98e6 HEAD && echo wave32-offline OK
-git merge-base --is-ancestor 09a20cb HEAD && echo wave33-offline OK
-git merge-base --is-ancestor 97ee141 HEAD && echo wave34-offline OK
-git merge-base --is-ancestor e62b190 HEAD && echo wave35-offline OK
-git merge-base --is-ancestor 54c492e HEAD && echo wave36-offline OK
-git merge-base --is-ancestor 8da6fe5 HEAD && echo wave37-offline OK
-git merge-base --is-ancestor cfc57a1 HEAD && echo wave38-offline OK
-git merge-base --is-ancestor c2f0b4a HEAD && echo wave39-offline OK
+git merge-base --is-ancestor d3b0d55 HEAD; if ($LASTEXITCODE -eq 0) { echo color-pc OK }
+git merge-base --is-ancestor 9bcb0c5 HEAD; if ($LASTEXITCODE -eq 0) { echo trade OK }
+git merge-base --is-ancestor 9c30593 HEAD; if ($LASTEXITCODE -eq 0) { echo inventory OK }
+git merge-base --is-ancestor a08ddef HEAD; if ($LASTEXITCODE -eq 0) { echo playability OK }
+git merge-base --is-ancestor 4146904 HEAD; if ($LASTEXITCODE -eq 0) { echo pagescaffold-remaining OK }
+git merge-base --is-ancestor 6297d4f HEAD; if ($LASTEXITCODE -eq 0) { echo goal-closeout OK }
+git merge-base --is-ancestor 3a900b4 HEAD; if ($LASTEXITCODE -eq 0) { echo playability-residuals OK }
+git merge-base --is-ancestor 38d3052 HEAD; if ($LASTEXITCODE -eq 0) { echo allowlist-polish OK }
+git merge-base --is-ancestor dd10c4b HEAD; if ($LASTEXITCODE -eq 0) { echo studio-edge-harden OK }
+git merge-base --is-ancestor ef4134f HEAD; if ($LASTEXITCODE -eq 0) { echo trade-gamepad-release OK }
+git merge-base --is-ancestor cbd4cf0 HEAD; if ($LASTEXITCODE -eq 0) { echo content-gates-polish OK }
+git merge-base --is-ancestor 9973c1c HEAD; if ($LASTEXITCODE -eq 0) { echo bug-polish OK }
+git merge-base --is-ancestor f8240e4 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-economy-more OK }
+git merge-base --is-ancestor d08a852 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-progression-lab OK }
+git merge-base --is-ancestor 227f8a5 HEAD; if ($LASTEXITCODE -eq 0) { echo cta-clip-polish OK }
+git merge-base --is-ancestor 88369d7 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-anomaly OK }
+git merge-base --is-ancestor e693912 HEAD; if ($LASTEXITCODE -eq 0) { echo content-bug-wave OK }
+git merge-base --is-ancestor a97b5a8 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-guild-bugs OK }
+git merge-base --is-ancestor f100cf5 HEAD; if ($LASTEXITCODE -eq 0) { echo settle-virt-release OK }
+git merge-base --is-ancestor a318638 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-pagerouter-maingame OK }
+git merge-base --is-ancestor e304f15 HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave7 OK }
+git merge-base --is-ancestor 897d932 HEAD; if ($LASTEXITCODE -eq 0) { echo bug-studio-checklist OK }
+git merge-base --is-ancestor 3cf76a0 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-serverservices OK }
+git merge-base --is-ancestor 49f1d8e HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave8 OK }
+git merge-base --is-ancestor 2a7d9a6 HEAD; if ($LASTEXITCODE -eq 0) { echo inv-crates-admin-scaffold OK }
+git merge-base --is-ancestor 78e593d HEAD; if ($LASTEXITCODE -eq 0) { echo settle-gates-more OK }
+git merge-base --is-ancestor eec599c HEAD; if ($LASTEXITCODE -eq 0) { echo echo-research-virt OK }
+git merge-base --is-ancestor 15c0aba HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave9 OK }
+git merge-base --is-ancestor d059e83 HEAD; if ($LASTEXITCODE -eq 0) { echo wave10-harden OK }
+git merge-base --is-ancestor 8308a2f HEAD; if ($LASTEXITCODE -eq 0) { echo split-maingame-ss OK }
+git merge-base --is-ancestor 2321f3d HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave11 OK }
+git merge-base --is-ancestor 8cc1e7f HEAD; if ($LASTEXITCODE -eq 0) { echo wave12-harden OK }
+git merge-base --is-ancestor 98bf1c3 HEAD; if ($LASTEXITCODE -eq 0) { echo chat-credits-softmotion OK }
+git merge-base --is-ancestor 38fdd2d HEAD; if ($LASTEXITCODE -eq 0) { echo wave13-harden OK }
+git merge-base --is-ancestor 45849b3 HEAD; if ($LASTEXITCODE -eq 0) { echo softmotion-thin OK }
+git merge-base --is-ancestor 6385be9 HEAD; if ($LASTEXITCODE -eq 0) { echo wave14-harden OK }
+git merge-base --is-ancestor d740cac HEAD; if ($LASTEXITCODE -eq 0) { echo softmotion-admin OK }
+git merge-base --is-ancestor ca2bb29 HEAD; if ($LASTEXITCODE -eq 0) { echo wave15-harden OK }
+git merge-base --is-ancestor d942e37 HEAD; if ($LASTEXITCODE -eq 0) { echo wave16-harden OK }
+git merge-base --is-ancestor 2f66f7e HEAD; if ($LASTEXITCODE -eq 0) { echo wave17-harden OK }
+git merge-base --is-ancestor e5f361c HEAD; if ($LASTEXITCODE -eq 0) { echo softmotion-ungated OK }
+git merge-base --is-ancestor 0ce4e32 HEAD; if ($LASTEXITCODE -eq 0) { echo wave18-harden OK }
+git merge-base --is-ancestor b829dc9 HEAD; if ($LASTEXITCODE -eq 0) { echo economy-inv-readme OK }
+git merge-base --is-ancestor 3b108bb HEAD; if ($LASTEXITCODE -eq 0) { echo wave19-harden OK }
+git merge-base --is-ancestor 504833d HEAD; if ($LASTEXITCODE -eq 0) { echo dataservice-admin-extract OK }
+git merge-base --is-ancestor 975abca HEAD; if ($LASTEXITCODE -eq 0) { echo wave20-harden OK }
+git merge-base --is-ancestor 978eaa5 HEAD; if ($LASTEXITCODE -eq 0) { echo split-monoliths-wave20 OK }
+git merge-base --is-ancestor b46f905 HEAD; if ($LASTEXITCODE -eq 0) { echo wave21-harden OK }
+git merge-base --is-ancestor 38d3197 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-checks-wave21 OK }
+git merge-base --is-ancestor 9003943 HEAD; if ($LASTEXITCODE -eq 0) { echo wave22-harden OK }
+git merge-base --is-ancestor 505f565 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-checks-wave22 OK }
+git merge-base --is-ancestor 6af2030 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-checks-wave22-tip OK }
+git merge-base --is-ancestor 0e6d84a HEAD; if ($LASTEXITCODE -eq 0) { echo wave24-offline OK }
+git merge-base --is-ancestor 315720b HEAD; if ($LASTEXITCODE -eq 0) { echo wave25-offline OK }
+git merge-base --is-ancestor 68c71bf HEAD; if ($LASTEXITCODE -eq 0) { echo wave26-offline OK }
+git merge-base --is-ancestor 78ba94a HEAD; if ($LASTEXITCODE -eq 0) { echo wave27-offline OK }
+git merge-base --is-ancestor 75bbeec HEAD; if ($LASTEXITCODE -eq 0) { echo wave28-offline OK }
+git merge-base --is-ancestor 268ba8a HEAD; if ($LASTEXITCODE -eq 0) { echo wave29-offline OK }
+git merge-base --is-ancestor 05b12ae HEAD; if ($LASTEXITCODE -eq 0) { echo wave30-offline OK }
+git merge-base --is-ancestor fd27fbe HEAD; if ($LASTEXITCODE -eq 0) { echo wave31-offline OK }
+git merge-base --is-ancestor 7af98e6 HEAD; if ($LASTEXITCODE -eq 0) { echo wave32-offline OK }
+git merge-base --is-ancestor 09a20cb HEAD; if ($LASTEXITCODE -eq 0) { echo wave33-offline OK }
+git merge-base --is-ancestor 97ee141 HEAD; if ($LASTEXITCODE -eq 0) { echo wave34-offline OK }
+git merge-base --is-ancestor e62b190 HEAD; if ($LASTEXITCODE -eq 0) { echo wave35-offline OK }
+git merge-base --is-ancestor 54c492e HEAD; if ($LASTEXITCODE -eq 0) { echo wave36-offline OK }
+git merge-base --is-ancestor 8da6fe5 HEAD; if ($LASTEXITCODE -eq 0) { echo wave37-offline OK }
+git merge-base --is-ancestor cfc57a1 HEAD; if ($LASTEXITCODE -eq 0) { echo wave38-offline OK }
+git merge-base --is-ancestor c2f0b4a HEAD; if ($LASTEXITCODE -eq 0) { echo wave39-offline OK }
 
 # Stop any old Argon session, then:
 argon serve default.project.json
