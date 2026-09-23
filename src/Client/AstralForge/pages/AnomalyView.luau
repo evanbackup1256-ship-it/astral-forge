@@ -507,14 +507,19 @@ local function ReactorCore(_param)
 	local charge = _param.charge
 	local ready = _param.ready
 	local animate = _param.animate
+	local decorate = _param.decorate
+	if decorate == nil then
+		decorate = animate
+	end
 	local motionAmount = _param.motionAmount
 	local pulseWindowStartedAt = _param.pulseWindowStartedAt
 	local pulseWindowSeconds = _param.pulseWindowSeconds
 	local pulseWindowSweetZone = _param.pulseWindowSweetZone
 	local combo = _param.combo
-	local spin = useClock(animate, 0.1 + charge * 0.42 + motionAmount * 0.22, 360, true)
-	local readyGlow = useGlowStroke(ready, not animate, 0.22, 0.14, 0.42, 1.5)
-	local pulse = usePulse(ready and animate, 1.65)
+	-- Spin/ready pulse are decorative; pulse-window needle stays on `animate` for gameplay timing.
+	local spin = useClock(decorate, 0.1 + charge * 0.42 + motionAmount * 0.22, 360, true)
+	local readyGlow = useGlowStroke(ready, not decorate, 0.22, 0.14, 0.42, 1.5)
+	local pulse = usePulse(ready and decorate, 1.65)
 	local core = math.floor(size * 0.56)
 	local ringInset = math.floor(size * 0.06)
 	return React.createElement("frame", {
@@ -611,7 +616,7 @@ local function ReactorCore(_param)
 	})), combo > 0 and React.createElement(ComboBadgeHot, {
 		size = size,
 		combo = combo,
-		animate = animate,
+		animate = decorate,
 	}))
 end
 -- slotIndex is 1-based when the channel is currently slotted (shown as a numbered badge so
@@ -1275,9 +1280,11 @@ local function ReactorConsole(_param)
 	local stack = chrome.contentStack
 	local compactLandscape = not stack and chrome.landscape and viewport.height < 500
 	local antilag = useAntilag()
-	local skipEntrance = reducedMotion
+	local skipEntrance = reducedMotion or antilag.skipEntrance
 	local timer = useWallClock(true)
-	local animateCore = not reducedMotion and motionAmount > 0.03 and antilag.allowAmbient
+	-- Needle/combo stay playable whenever motion is allowed; ring spin needs ambient + tier 2+.
+	local animateCore = not reducedMotion and motionAmount > 0.03
+	local decorateCore = animateCore and antilag.allowAmbient and antilag.tier >= 2
 	local _exp = config.Types
 	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)
@@ -1593,6 +1600,7 @@ local function ReactorConsole(_param)
 		charge = charge,
 		ready = anomaly.Ready,
 		animate = animateCore,
+		decorate = decorateCore,
 		motionAmount = motionAmount,
 	}
 	local _condition_3 = anomaly.PulseWindowStartedAt

@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local AutoGrid = require(script.Parent.Parent.scrolling).AutoGrid
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
@@ -134,11 +135,13 @@ local function EchoLoom(_param)
 	local size = _param.size
 	local active = _param.active
 	local reducedMotion = _param.reducedMotion
-	local outer = useRotation(not reducedMotion, 26)
-	local inner = useRotation(not reducedMotion, -38)
-	local drift = useRotation(not reducedMotion, 9)
-	local pulse = usePulse(active and not reducedMotion, 1.05)
-	local breathe = usePulse(not reducedMotion, 0.32)
+	local antilag = useAntilag()
+	local animate = not reducedMotion and antilag.allowAmbient and antilag.tier >= 2
+	local outer = useRotation(animate, 26)
+	local inner = useRotation(animate, -38)
+	local drift = useRotation(animate, 9)
+	local pulse = usePulse(active and animate, 1.05)
+	local breathe = usePulse(animate, 0.32)
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		BackgroundTransparency = 1,

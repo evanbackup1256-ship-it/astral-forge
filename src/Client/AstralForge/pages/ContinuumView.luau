@@ -119,10 +119,12 @@ local function ContinuumCore(_param)
 	local rank = _param.rank
 	local reducedMotion = _param.reducedMotion
 	local size = _param.size
-	local outerRotation = useRotation(not reducedMotion, 20)
-	local innerRotation = useRotation(not reducedMotion, -30)
-	local drift = useRotation(not reducedMotion, 7)
-	local breathe = usePulse(not reducedMotion, 0.3)
+	local antilag = useAntilag()
+	local animate = not reducedMotion and antilag.allowAmbient and antilag.tier >= 2
+	local outerRotation = useRotation(animate, 20)
+	local innerRotation = useRotation(animate, -30)
+	local drift = useRotation(animate, 7)
+	local breathe = usePulse(animate, 0.3)
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		BackgroundTransparency = 1,

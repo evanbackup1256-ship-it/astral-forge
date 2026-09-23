@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local Audio = require(script.Parent.Parent.audio).Audio
 local itemIconKind = require(script.Parent.Parent.Icon).itemIconKind
 local _format = require(script.Parent.Parent.format)
@@ -17,6 +18,7 @@ local TapTarget = _theme.TapTarget
 local contrastOn = _theme.contrastOn
 local scrollTail = _theme.scrollTail
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -31,11 +33,10 @@ local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local ShimmerText = _ui.ShimmerText
 local Text = _ui.Text
--- RelicRow can render up to Items.InventoryLimit (100) instances at once in a plain, unvirtualized
--- scrollingframe -- Panel's automatic entrance reveal is a live per-instance flipper spring, so 100
--- simultaneous rows meant 100 concurrent springs plus a staggered fade-in that mostly just looked
--- like flicker at that count anyway. A shared static "already shown" binding skips that spring
--- entirely for every relic row without touching the render count itself.
+-- Relic bay virtualizes through FlatList so InventoryLimit (~100) rows never all mount at once.
+-- Panel entrance springs are still skipped via a shared static reveal binding — virtualization cuts
+-- the mount count, the binding keeps any visible row from spinning up a per-instance flipper.
+-- Inspect stays in its own PageScaffold section so row height stays fixed for the window.
 local RELIC_ROW_SHOWN = React.createBinding(1)
 local TABS = { "Relics", "Crates", "Market", "Loadout" }
 -- ▼ ReadonlyArray.map ▼
@@ -1980,12 +1981,15 @@ local function InventoryView(_param)
 	local openShop = _param.openShop
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	-- Inventory mounts tab springs + hero shimmer together; snap when antilag already cut ambient.
+	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, quietMotion)
 	local tab, setTab = React.useState("Relics")
 	local activeTabIndex = math.max(0, (table.find(TABS, tab) or 0) - 1)
-	local paneTravel = useFlipperSpring(activeTabIndex, reducedMotion, 1540, 40)
+	local paneTravel = useFlipperSpring(activeTabIndex, quietMotion, 1540, 40)
 	local panePosition = paneTravel:map(function(position)
 		return UDim2.new(0, math.round(math.clamp(position - activeTabIndex, -1, 1) * 22), 0, 0)
 	end)
@@ -2044,6 +2048,7 @@ local function InventoryView(_param)
 	end
 	local selected = _condition
 	local relicListRef = React.useRef()
+	local relicRowStride = relicRowHeight(stack) + ROW_GAP
 	React.useEffect(function()
 		if selected ~= nil and selected.uid ~= selectedUid then
 			setSelectedUid(selected.uid)
@@ -2057,20 +2062,15 @@ local function InventoryView(_param)
 		if frame == nil or selected == nil or bulkMode or tab ~= "Relics" then
 			return nil
 		end
-		local top = SCROLL_PAD
-		local block = relicRowHeight(stack)
-		for _, item in filtered do
-			local open = item.uid == selected.uid
-			local sockets = if open then socketTargets(state, config, item.definition) else {}
-			local chips = if open and item.equippedOn == nil and #sockets > 0 then math.max(1, math.ceil(#sockets / (if stack then 2 else 3))) else 0
-			local inspectH = if open then inspectPanelHeight(inspectSocketBlock(item.equippedOn ~= nil, #sockets, chips, stack), stack) else 0
-			local height = relicRowHeight(stack) + (if open then 8 + inspectH else 0)
-			if open then
-				block = height
+		local selectedIndex = 0
+		for index, item in filtered do
+			if item.uid == selected.uid then
+				selectedIndex = index - 1
 				break
 			end
-			top += height + ROW_GAP
 		end
+		local top = SCROLL_PAD + selectedIndex * relicRowStride
+		local block = relicRowHeight(stack)
 		local view = frame.AbsoluteWindowSize.Y
 		if view <= 1 then
 			return nil
@@ -2092,7 +2092,7 @@ local function InventoryView(_param)
 	if _result_3 ~= nil then
 		_result_3 = _result_3.uid
 	end
-	React.useEffect(_exp_2, { bulkMode, filter, _exp_3, rarity, search, _result_3, sort, stack, tab })
+	React.useEffect(_exp_2, { bulkMode, filter, _exp_3, rarity, relicRowStride, search, _result_3, sort, stack, tab })
 	local _exp_4 = function()
 		local present = {}
 		for _, item in owned do
@@ -2164,8 +2164,9 @@ local function InventoryView(_param)
 	end
 	local targetsForSelected = React.useMemo(_exp_5, { config, _result_7, state.Machines, state.Research })
 	local chipRows = if selected ~= nil and selected.equippedOn == nil and #targetsForSelected > 0 then math.max(1, math.ceil(#targetsForSelected / (if stack then 2 else 3))) else 0
-	local detailH = if tab == "Relics" and selected ~= nil and not bulkMode then inspectPanelHeight(inspectSocketBlock(selected.equippedOn ~= nil, #targetsForSelected, chipRows, stack), stack) + ROW_GAP else 0
-	local listH = math.max(1, #filtered) * (relicRowHeight(stack) + ROW_GAP)
+	local inspectPanelH = if tab == "Relics" and selected ~= nil and not bulkMode then inspectPanelHeight(inspectSocketBlock(selected.equippedOn ~= nil, #targetsForSelected, chipRows, stack), stack) else 0
+	local detailH = if inspectPanelH > 0 then inspectPanelH + ROW_GAP else 0
+	local listH = math.max(1, #filtered) * relicRowStride
 	local listStart = heroH + ROW_GAP + tabH + ROW_GAP + toolsH + detailH + SCROLL_EDGE
 	local _result_8 = config.Items
 	if _result_8 ~= nil then
@@ -2577,7 +2578,7 @@ local function InventoryView(_param)
 		fit = false,
 		position = UDim2.fromOffset(if stack then 50 else 56, 20),
 		sizeConstraint = UDim2.new(1, if stack then -58 else -20, 0, 26),
-		enabled = not reducedMotion,
+		enabled = not quietMotion,
 		periodSeconds = 4.8,
 	}), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, 0, 0, 28) else UDim2.fromOffset(220, 30),
@@ -2600,109 +2601,6 @@ local function InventoryView(_param)
 		size = UDim2.fromOffset(if stack then 100 else 112, 28),
 	})))
 	if tab == "Relics" then
-		local canvasH = SCROLL_PAD
-		-- ▼ ReadonlyArray.forEach ▼
-		local _callback_2 = function(item, index)
-			local _result_13 = selected
-			if _result_13 ~= nil then
-				_result_13 = _result_13.uid
-			end
-			local _condition_7 = _result_13 == item.uid
-			if _condition_7 then
-				_condition_7 = not bulkMode
-			end
-			local open = _condition_7
-			local chips = if open and item.equippedOn == nil and #targetsForSelected > 0 then math.max(1, math.ceil(#targetsForSelected / (if stack then 2 else 3))) else 0
-			local inspectH = if open then inspectPanelHeight(inspectSocketBlock(item.equippedOn ~= nil, #targetsForSelected, chips, stack), stack) else 0
-			local block = relicRowHeight(stack) + (if open then 8 + inspectH else 0)
-			canvasH += block + (if index < #filtered - 1 then ROW_GAP else 0)
-		end
-		for _k, _v in filtered do
-			_callback_2(_v, _k - 1, filtered)
-		end
-		-- ▲ ReadonlyArray.forEach ▲
-		if #filtered == 0 then
-			canvasH += 150
-		end
-		canvasH += SCROLL_PAD
-		local listGap = if stack then ROW_GAP else pageGap
-		local _exp_10 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, listGap),
-		})
-		local _exp_11 = React.createElement("uisizeconstraint", {
-			MinSize = Vector2.new(80, relicRowHeight(stack)),
-		})
-		local _exp_12 = #filtered == 0 and React.createElement(EmptyState, {
-			icon = "Loadout",
-			title = if #owned == 0 then "No relics yet" else "Nothing matches",
-			body = if #owned == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyItems) or "Open crates or buy a starter coupler from the Market tab.") else "Clear the search or set the filters back to All relics.",
-			accent = Palette.violet,
-			layoutOrder = 0,
-		})
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue_1 = table.create(#filtered)
-		local _callback_3 = function(item, index)
-			local _result_13 = selected
-			if _result_13 ~= nil then
-				_result_13 = _result_13.uid
-			end
-			local _condition_7 = _result_13 == item.uid
-			if _condition_7 then
-				_condition_7 = not bulkMode
-			end
-			local open = _condition_7
-			local chips = if open and item.equippedOn == nil and #targetsForSelected > 0 then math.max(1, math.ceil(#targetsForSelected / (if stack then 2 else 3))) else 0
-			local inspectH = if open then inspectPanelHeight(inspectSocketBlock(item.equippedOn ~= nil, #targetsForSelected, chips, stack), stack) else 0
-			local _exp_13 = React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Vertical,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 8),
-			})
-			local _attributes = {
-				item = item,
-				config = config,
-			}
-			local _result_14 = selected
-			if _result_14 ~= nil then
-				_result_14 = _result_14.uid
-			end
-			_attributes.selected = _result_14 == item.uid
-			local _uid = item.uid
-			_attributes.bulkSelected = (table.find(bulkSelected, _uid) or 0) - 1 >= 0
-			_attributes.bulkMode = bulkMode
-			_attributes.onSelect = function()
-				Audio:play("tick")
-				if bulkMode then
-					toggleBulkItem(item)
-				else
-					setSelectedUid(item.uid)
-				end
-			end
-			_attributes.reducedMotion = reducedMotion
-			_attributes.layoutOrder = 0
-			_attributes.stack = stack
-			return React.createElement("frame", {
-				key = item.uid,
-				Size = UDim2.new(1, 0, 0, relicRowHeight(stack) + (if open then 8 + inspectH else 0)),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				LayoutOrder = index + 1,
-			}, _exp_13, React.createElement(RelicRow, _attributes), open and (React.createElement(DetailPanel, {
-				item = item,
-				state = state,
-				config = config,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-				layoutOrder = 1,
-				stack = stack,
-			})))
-		end
-		for _k, _v in filtered do
-			_newValue_1[_k] = _callback_3(_v, _k - 1, filtered)
-		end
-		-- ▲ ReadonlyArray.map ▲
 		local listPane = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -2711,24 +2609,56 @@ local function InventoryView(_param)
 		}, React.createElement(SectionLabel, {
 			value = if bulkMode then "SELECT RELICS" else "RELIC BAY",
 			color = if bulkMode then Palette.coral else Palette.violet,
-		}), React.createElement("scrollingframe", {
-			ref = relicListRef,
+		}), React.createElement(FlatList, {
+			data = filtered,
+			itemHeight = relicRowStride,
+			headerHeight = SCROLL_PAD,
+			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+			canvasTail = SCROLL_PAD,
+			frameRef = relicListRef,
 			Size = UDim2.new(1, 0, 1, -34),
 			Position = UDim2.fromOffset(0, 34),
-			CanvasSize = UDim2.new(0, 0, 0, canvasH),
-			AutomaticCanvasSize = Enum.AutomaticSize.None,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollBarThickness = 4,
-			ScrollBarImageColor3 = Palette.violet,
-			ScrollBarImageTransparency = 0.22,
-			ClipsDescendants = true,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-			Active = true,
-			Selectable = false,
-		}, _exp_10, _exp_11, _exp_12, _newValue_1))
+			scrollBarColor = Palette.violet,
+			scrollBarThickness = 4,
+			scrollBarTransparency = 0.22,
+			keyExtractor = function(item)
+				return item.uid
+			end,
+			renderItem = function(_param_1)
+				local item = _param_1.item
+				local _attributes = {
+					item = item,
+					config = config,
+				}
+				local _result_13 = selected
+				if _result_13 ~= nil then
+					_result_13 = _result_13.uid
+				end
+				_attributes.selected = _result_13 == item.uid
+				local _uid = item.uid
+				_attributes.bulkSelected = (table.find(bulkSelected, _uid) or 0) - 1 >= 0
+				_attributes.bulkMode = bulkMode
+				_attributes.onSelect = function()
+					Audio:play("tick")
+					if bulkMode then
+						toggleBulkItem(item)
+					else
+						setSelectedUid(item.uid)
+					end
+				end
+				_attributes.reducedMotion = reducedMotion
+				_attributes.layoutOrder = 0
+				_attributes.stack = stack
+				return React.createElement(RelicRow, _attributes)
+			end,
+			ListEmptyComponent = React.createElement(EmptyState, {
+				icon = "Loadout",
+				title = if #owned == 0 then "No relics yet" else "Nothing matches",
+				body = if #owned == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyItems) or "Open crates or buy a starter coupler from the Market tab.") else "Clear the search or set the filters back to All relics.",
+				accent = Palette.violet,
+				layoutOrder = 0,
+			}),
+		}))
 		local sections = {
 			{
 				id = "hero",
@@ -2745,13 +2675,29 @@ local function InventoryView(_param)
 				height = toolsH,
 				element = toolsBar,
 			},
-			{
-				id = "list",
-				fill = true,
-				minHeight = math.max(160, relicRowHeight(stack) + 48),
-				element = listPane,
-			},
 		}
+		if inspectPanelH > 0 and selected ~= nil then
+			table.insert(sections, {
+				id = "inspect",
+				height = inspectPanelH,
+				element = React.createElement(DetailPanel, {
+					item = selected,
+					state = state,
+					config = config,
+					dispatch = dispatch,
+					reducedMotion = reducedMotion,
+					layoutOrder = 0,
+					stack = stack,
+					fill = true,
+				}),
+			})
+		end
+		table.insert(sections, {
+			id = "list",
+			fill = true,
+			minHeight = math.max(160, relicRowHeight(stack) + 48),
+			element = listPane,
+		})
 		if bulkMode then
 			table.insert(sections, {
 				id = "bulk",

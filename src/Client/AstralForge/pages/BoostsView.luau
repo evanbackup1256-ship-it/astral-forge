@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
@@ -300,6 +301,8 @@ local function BoostsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
+	local antilag = useAntilag()
+	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
 	local now = useWallClock(true):map(function(seconds)
 		return seconds
@@ -351,7 +354,7 @@ local function BoostsView(_param)
 			boostKinds += 1
 		end
 	end
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, quietMotion)
 	local heroH = if activeBoost ~= nil then (if stack then HERO_H_STACK else HERO_H_WIDE) else (if stack then IDLE_HERO_H_STACK else IDLE_HERO_H_WIDE)
 	local statsH = if stack then 88 else 64
 	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE

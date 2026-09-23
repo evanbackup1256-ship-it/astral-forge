@@ -137,6 +137,7 @@ local function ReleaseCountdown(_param)
 	local stack = _param.stack
 	local layoutOrder = _param.layoutOrder
 	local viewport = useViewport()
+	local antilag = useAntilag()
 	local Workspace = game:GetService("Workspace")
 	local function syncedNow()
 		local ok, value = pcall(function()
@@ -184,9 +185,11 @@ local function ReleaseCountdown(_param)
 			wasLive.current = false
 		end
 	end, { live, reducedMotion })
-	local pulse = usePulse(live and not reducedMotion, 2.15)
+	-- Live wash/orbit are decorative; keep them on high tier only so Overview stays calm under load.
+	local animateLive = live and not reducedMotion and antilag.allowAmbient
+	local pulse = usePulse(animateLive, 2.15)
 	local flash = useFlash(slam, reducedMotion, 1.2)
-	local orbit = useClock(live and not reducedMotion, 0.48, 1, true)
+	local orbit = useClock(animateLive and antilag.tier >= 2, 0.48, 1, true)
 	local values = { {
 		label = "DAYS",
 		value = math.floor(remaining / 86400),
@@ -2366,7 +2369,7 @@ local function WorldRow(_param)
 	local coresOk = _param.coresOk
 	local rebirthOk = _param.rebirthOk
 	local antilag = useAntilag()
-	local skipMotion = reducedMotion or layoutOrder > 4
+	local skipMotion = reducedMotion or layoutOrder > 4 or antilag.skipEntrance or not antilag.allowAmbient
 	local reveal = useStagger(math.min(layoutOrder, 4), skipMotion, 0.02, 0.14)
 	local _condition = zone.Features[1]
 	if _condition == nil then
@@ -2484,7 +2487,8 @@ local function WorldsView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local headerReveal = useStagger(0, reducedMotion)
+	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
+	local headerReveal = useStagger(0, quietMotion)
 	local headerHeight = if stack then 168 else 112
 	local rowHeight = if stack then ROW_HEIGHTS.worldStack else ROW_HEIGHTS.world
 	local rowGap = if stack then chrome.panelGap else Layout.panelGap

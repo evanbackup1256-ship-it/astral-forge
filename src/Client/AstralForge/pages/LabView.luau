@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
@@ -285,8 +286,10 @@ local function LabView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local lab = state.Lab
+	local antilag = useAntilag()
+	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
 	local now = useWallClock(true)
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, quietMotion)
 	if lab == nil then
 		return React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, 160),
