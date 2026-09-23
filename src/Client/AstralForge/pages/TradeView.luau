@@ -2150,8 +2150,7 @@ local function TradeView(_param)
 		shakeToken = shakeFor("CancelTrade"),
 		reducedMotion = reducedMotion,
 		selectable = busy == "",
-	})))))
-
+	}))))))
 end
 return {
 	TradeView = TradeView,

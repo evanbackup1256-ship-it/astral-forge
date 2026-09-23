@@ -466,7 +466,7 @@ local function PurchaseOverlay(_param)
 		highlight = true,
 		selectable = true,
 		zIndex = 412,
-	}))))))
+	})))))))
 	return React.createElement("frame", {
 		ref = overlayHostRef,
 		Name = "PurchaseOverlayHost",

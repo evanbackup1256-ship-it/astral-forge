@@ -224,8 +224,16 @@ do
 		confirmRuns += 1
 	end
 	assert(confirmRuns == 1, "ConfirmTrade should funnel through one shared handler, got " .. tostring(confirmRuns))
+	assert(
+		string.find(view, 'local confirmDisabled = busy ~= "" or not bothReady', 1, true),
+		"confirmDisabled must share the bothReady gate"
+	)
+	assert(
+		string.find(view, 'local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)', 1, true),
+		"readyDisabled must share the tableEmpty gate"
+	)
 	local disabledConfirm = 0
-	for _ in string.gmatch(view, 'disabled = busy ~= "" or not bothReady') do
+	for _ in string.gmatch(view, "disabled = confirmDisabled") do
 		disabledConfirm += 1
 	end
 	assert(disabledConfirm == 2, "compact+desktop confirm disabled predicates must match")
@@ -234,6 +242,8 @@ do
 		loadingConfirm += 1
 	end
 	assert(loadingConfirm == 2, "compact+desktop confirm loading predicates must match")
+	assert(string.find(view, "TradeReady", 1, true) and string.find(view, "TradeConfirm", 1, true), "Ready/Confirm must be named for FocusClaim")
+	assert(string.find(view, "GamepadNavigationService.FocusClaim", 1, true), "session actions must FocusClaim")
 end
 
 

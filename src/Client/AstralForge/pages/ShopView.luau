@@ -325,7 +325,7 @@ local function OfferTile(_param)
 		reducedMotion = reducedMotion,
 		highlight = canBuy,
 		selectable = canBuy,
-	})))
+	}))))
 end
 local function ShopView(_param)
 	local state = _param.state
