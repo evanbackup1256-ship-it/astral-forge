@@ -25,6 +25,7 @@ local darken = _theme.darken
 local lighten = _theme.lighten
 local scrollTail = _theme.scrollTail
 local surfaceGradient = _theme.surfaceGradient
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -1128,81 +1129,78 @@ local function WheelView(props)
 	local headline = if narrowPortrait then "Spin it. Win something." else "Your next prize is one spin away."
 	local descriptor = if narrowPortrait then `{#rewards} prizes / rare-win protection` else `{#rewards} prizes  /  better odds after every miss`
 	local containedEffects = chrome.portrait or shortLandscape or viewport.width <= 420 or (landscape and viewport.height <= 480)
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, panelH + scrollTail(chrome.stack, chrome.bottomSafe, 40)),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = accent,
-		ScrollBarImageTransparency = 0.3,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, panelH),
-		accent = accent,
-		background = Palette.panelRaised,
-		padding = Layout.cardPadding,
-		reveal = headerReveal,
-		clips = false,
-	}, React.createElement(Text, {
-		value = "PRIZE WHEEL",
-		size = if shortLandscape then 9 else 10,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		sizeConstraint = UDim2.new(1, 0, 0, if shortLandscape then 14 else 16),
-	}), React.createElement(Text, {
-		value = headline,
-		size = if shortLandscape then 16 elseif chrome.contentStack then 18 else 21,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = if narrowPortrait then 10 else 15,
-		wrap = narrowPortrait,
-		position = UDim2.fromOffset(0, if shortLandscape then 14 else 18),
-		sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 36 elseif shortLandscape then 22 else 28),
-	}), React.createElement(Text, {
-		value = descriptor,
-		size = if narrowPortrait then 9 else 10,
-		color = Palette.muted,
-		fit = not narrowPortrait,
-		wrap = narrowPortrait,
-		position = UDim2.fromOffset(0, if narrowPortrait then 57 elseif shortLandscape then 36 else 46),
-		sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 18 else 16),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(wheelDiameter, wheelDiameter),
-		Position = if split then UDim2.new(0.25, 0, 0, headerH + stageH / 2) else UDim2.new(0.5, 0, 0, headerH),
-		AnchorPoint = if split then Vector2.new(0.5, 0.5) else Vector2.new(0.5, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(PrizeWheelMachine, {
-		rewards = rewards,
-		controller = controller,
-		diameter = wheelDiameter,
-		canSpin = state.Wheel.CanSpin == true,
-		reducedMotion = reducedMotion,
-		containedEffects = containedEffects,
-	})), React.createElement("frame", {
-		Size = if split then UDim2.new(0.48, -10, 0, consoleH) else UDim2.new(1, 0, 0, consoleH),
-		Position = if split then UDim2.new(0.52, 10, 0, headerH + (stageH - consoleH) / 2) else UDim2.fromOffset(0, headerH + wheelDiameter + 16),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(WheelConsole, {
-		state = state,
-		config = config,
-		controller = controller,
-		onSpin = controller.spin,
-		height = consoleH,
-		reducedMotion = reducedMotion,
-		compact = shortLandscape,
-	}))))
+	return React.createElement(PageScaffold, {
+		gap = 0,
+		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 40),
+		scrollBarColor = accent,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "wheel",
+				height = panelH,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1),
+					accent = accent,
+					background = Palette.panelRaised,
+					padding = Layout.cardPadding,
+					reveal = headerReveal,
+					clips = false,
+				}, React.createElement(Text, {
+					value = "PRIZE WHEEL",
+					size = if shortLandscape then 9 else 10,
+					color = Palette.mango,
+					weight = Enum.FontWeight.Heavy,
+					fit = false,
+					sizeConstraint = UDim2.new(1, 0, 0, if shortLandscape then 14 else 16),
+				}), React.createElement(Text, {
+					value = headline,
+					size = if shortLandscape then 16 elseif chrome.contentStack then 18 else 21,
+					color = Palette.cream,
+					weight = Enum.FontWeight.Heavy,
+					fit = true,
+					minSize = if narrowPortrait then 10 else 15,
+					wrap = narrowPortrait,
+					position = UDim2.fromOffset(0, if shortLandscape then 14 else 18),
+					sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 36 elseif shortLandscape then 22 else 28),
+				}), React.createElement(Text, {
+					value = descriptor,
+					size = if narrowPortrait then 9 else 10,
+					color = Palette.muted,
+					fit = not narrowPortrait,
+					wrap = narrowPortrait,
+					position = UDim2.fromOffset(0, if narrowPortrait then 57 elseif shortLandscape then 36 else 46),
+					sizeConstraint = UDim2.new(1, 0, 0, if narrowPortrait then 18 else 16),
+				}), React.createElement("frame", {
+					Size = UDim2.fromOffset(wheelDiameter, wheelDiameter),
+					Position = if split then UDim2.new(0.25, 0, 0, headerH + stageH / 2) else UDim2.new(0.5, 0, 0, headerH),
+					AnchorPoint = if split then Vector2.new(0.5, 0.5) else Vector2.new(0.5, 0),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ClipsDescendants = false,
+				}, React.createElement(PrizeWheelMachine, {
+					rewards = rewards,
+					controller = controller,
+					diameter = wheelDiameter,
+					canSpin = state.Wheel.CanSpin == true,
+					reducedMotion = reducedMotion,
+					containedEffects = containedEffects,
+				})), React.createElement("frame", {
+					Size = if split then UDim2.new(0.48, -10, 0, consoleH) else UDim2.new(1, 0, 0, consoleH),
+					Position = if split then UDim2.new(0.52, 10, 0, headerH + (stageH - consoleH) / 2) else UDim2.fromOffset(0, headerH + wheelDiameter + 16),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}, React.createElement(WheelConsole, {
+					state = state,
+					config = config,
+					controller = controller,
+					onSpin = controller.spin,
+					height = consoleH,
+					reducedMotion = reducedMotion,
+					compact = shortLandscape,
+				}))),
+			},
+		},
+	})
 end
 return {
 	WheelView = WheelView,
