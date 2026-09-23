@@ -123,6 +123,32 @@ local scaffoldCases = {
 		},
 		expect = 120,
 	},
+	{
+		name = "fill honors intrinsic content height above leftover",
+		available = 400,
+		gap = 10,
+		tailPad = 8,
+		sections = {
+			{ id = "header", height = 56 },
+			{ id = "tabs", height = 48 },
+			-- leftover = 400 - 56 - 48 - 20 - 8 = 268; content floor 520 wins
+			{ id = "body", fill = true, minHeight = 160, height = 520 },
+		},
+		expect = 520,
+	},
+	{
+		name = "fill expands when content is shorter than leftover",
+		available = 640,
+		gap = 10,
+		tailPad = 8,
+		sections = {
+			{ id = "header", height = 56 },
+			{ id = "tabs", height = 48 },
+			-- leftover = 640 - 56 - 48 - 20 - 8 = 508; content floor 200 loses
+			{ id = "body", fill = true, minHeight = 160, height = 200 },
+		},
+		expect = 508,
+	},
 }
 
 for _, case in scaffoldCases do

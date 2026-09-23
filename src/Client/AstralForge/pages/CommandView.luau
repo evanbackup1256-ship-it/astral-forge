@@ -435,18 +435,24 @@ local function CommandView(_param)
 	local seasonRowH = if stack then 148 else 112
 	local heroInfoWidth = if stack then -100 else -(114 + 210 + 14)
 	local tabContent = 0
+	local listContent = 0
+	local tabHeroH = 0
 	if tab == "Overview" then
 		tabContent = heroH + crewH + weeklyH + titlesH + shopH + masteryH + Layout.panelGap * 5
 	elseif tab == "Expeditions" then
-		tabContent = expeditionHeroH + #ops.Expeditions * (expeditionRowH + Layout.panelGap)
+		tabHeroH = expeditionHeroH
+		listContent = #ops.Expeditions * expeditionRowH + math.max(0, #ops.Expeditions - 1) * Layout.panelGap
 	elseif tab == "Artifacts" then
-		tabContent = artifactHeroH + #ops.Artifacts * (artifactRowH + Layout.panelGap)
+		tabHeroH = artifactHeroH
+		listContent = #ops.Artifacts * artifactRowH + math.max(0, #ops.Artifacts - 1) * Layout.panelGap
 	else
-		tabContent = seasonHeroH + #ops.SeasonTiers * (seasonRowH + Layout.panelGap)
+		tabHeroH = seasonHeroH
+		listContent = #ops.SeasonTiers * seasonRowH + math.max(0, #ops.SeasonTiers - 1) * Layout.panelGap
 	end
 	local headerH = 56
 	local tabsH = if stack then 52 else 48
 	local commandTail = scrollTail(stack, chrome.bottomSafe, if stack then 72 else 48)
+	local useFillList = tab ~= "Overview"
 	local order = 0
 	local nextOrder = function()
 		order += 1
@@ -809,10 +815,14 @@ local function CommandView(_param)
 				overscanRows = 0,
 				position = UDim2.fromOffset(0, 52),
 				itemKey = function(index)
-					return command.Titles[index + 1].Id
+					local title = command.Titles[index + 1]
+					return if title ~= nil then title.Id else `title-{index}`
 				end,
 				renderItem = function(index)
 					local title = command.Titles[index + 1]
+					if title == nil then
+						return nil
+					end
 					local _condition_5 = title.Fx
 					if _condition_5 == nil then
 						_condition_5 = TITLE_FX_FALLBACKS[index % #TITLE_FX_FALLBACKS + 1]
@@ -884,10 +894,14 @@ local function CommandView(_param)
 			gap = gridGap,
 			position = UDim2.fromOffset(0, 36),
 			itemKey = function(index)
-				return command.Shop[index + 1].Id
+				local offer = command.Shop[index + 1]
+				return if offer ~= nil then offer.Id else `shop-{index}`
 			end,
 			renderItem = function(index)
 				local offer = command.Shop[index + 1]
+				if offer == nil then
+					return nil
+				end
 				local can = not offer.Purchased and command.Signals >= offer.Price
 				return React.createElement("frame", {
 					Size = UDim2.fromScale(1, 1),
@@ -954,10 +968,14 @@ local function CommandView(_param)
 			gap = gridGap,
 			position = UDim2.fromOffset(0, 36),
 			itemKey = function(index)
-				return config.Machines[index + 1].Id
+				local machine = config.Machines[index + 1]
+				return if machine ~= nil then machine.Id else `machine-{index}`
 			end,
 			renderItem = function(index)
 				local machine = config.Machines[index + 1]
+				if machine == nil then
+					return nil
+				end
 				local _condition_5 = command.MachineMastery[machine.Id]
 				if _condition_5 == nil then
 					_condition_5 = 0
@@ -1075,10 +1093,14 @@ local function CommandView(_param)
 			gap = Layout.panelGap,
 			layoutOrder = nextOrder(),
 			itemKey = function(index)
-				return ops.Expeditions[index + 1].Id
+				local expedition = ops.Expeditions[index + 1]
+				return if expedition ~= nil then expedition.Id else `expedition-{index}`
 			end,
 			renderItem = function(index)
 				local expedition = ops.Expeditions[index + 1]
+				if expedition == nil then
+					return nil
+				end
 				local locked = command.Level < expedition.RequiredLevel
 				local busy = activeId ~= ""
 				local can = not locked and not busy
@@ -1186,10 +1208,14 @@ local function CommandView(_param)
 		gap = Layout.panelGap,
 		layoutOrder = nextOrder(),
 		itemKey = function(index)
-			return ops.Artifacts[index + 1].Id
+			local artifact = ops.Artifacts[index + 1]
+			return if artifact ~= nil then artifact.Id else `artifact-{index}`
 		end,
 		renderItem = function(index)
 			local artifact = ops.Artifacts[index + 1]
+			if artifact == nil then
+				return nil
+			end
 			local owned = command.Artifacts[artifact.Id]
 			local equipped = command.EquippedArtifact == artifact.Id
 			local fragmentCost = if owned then 4 + owned.Level * 2 else 0
@@ -1309,10 +1335,14 @@ local function CommandView(_param)
 		gap = Layout.panelGap,
 		layoutOrder = nextOrder(),
 		itemKey = function(index)
-			return tostring(ops.SeasonTiers[index + 1].Tier)
+			local tier = ops.SeasonTiers[index + 1]
+			return if tier ~= nil then tostring(tier.Tier) else `tier-{index}`
 		end,
 		renderItem = function(index)
 			local tier = ops.SeasonTiers[index + 1]
+			if tier == nil then
+				return nil
+			end
 			local unlocked = command.SeasonXP >= tier.RequiredXP
 			local claimed = command.SeasonClaims[tostring(tier.Tier)] == true
 			local major = tier.Tier % 5 == 0
@@ -1397,6 +1427,9 @@ local function CommandView(_param)
 			})))
 		end,
 	})))
+	-- Fill body expands into leftover viewport when the tab is short; intrinsic height
+	-- (content floor) keeps hostRef VirtualGrid rows reachable when the list is long.
+	local bodyIntrinsic = if useFillList then tabHeroH + listContent + Layout.panelGap else tabContent
 	return React.createElement(PageScaffold, {
 		hostRef = scrollRef,
 		gap = Layout.panelGap,
@@ -1416,7 +1449,9 @@ local function CommandView(_param)
 			},
 			{
 				id = "body",
-				height = tabContent,
+				fill = true,
+				minHeight = 200,
+				height = bodyIntrinsic,
 				element = bodyPane,
 			},
 		},

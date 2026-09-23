@@ -25,7 +25,14 @@ local function planFillHeight(sections: { any }, availableHeight: number, gap: n
 	if minHeight == nil then
 		minHeight = 120
 	end
-	return math.max(minHeight, availableHeight - fixedTotal - gapsTotal - resolvedTail)
+	-- Optional intrinsic `height` on a fill section is a content floor: VirtualGrid /
+	-- hostRef lists need the section tall enough for every row, while still expanding
+	-- into leftover viewport when the list is shorter than the pane.
+	local contentFloor = fillSection.height
+	if contentFloor == nil then
+		contentFloor = 0
+	end
+	return math.max(minHeight, contentFloor, availableHeight - fixedTotal - gapsTotal - resolvedTail)
 end
 
 return {

@@ -289,7 +289,7 @@ local function PodiumCard(_param)
 		reveal = reveal,
 		reducedMotion = reducedMotion,
 		highlight = rank == 1 and entry ~= nil,
-		clips = true,
+		clips = false,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(34, 24),
 		BackgroundColor3 = darken(accent, 0.68),
@@ -375,7 +375,10 @@ local function RankRow(_param)
 	local rank = _param.rank
 	local meta = _param.meta
 	local isLocal = _param.isLocal
-	local y = _param.y
+	local layoutOrder = _param.layoutOrder
+	if layoutOrder == nil then
+		layoutOrder = rank
+	end
 	local reducedMotion = _param.reducedMotion
 	local stack = _param.stack
 	local accent = if isLocal then Palette.green else medalColor(rank, meta.accent)
@@ -387,9 +390,9 @@ local function RankRow(_param)
 	-- 248 name-end-gap / 160 value) regardless of viewport -- fine on a 1280px desktop row, but on
 	-- a 320-360px phone that left the name column at a negative or near-zero width (86 to
 	-- width-248 is already negative below 334px), so the player's actual name could render fully
-	-- clipped to nothing. Mobile keeps the same one-line row (ROW_H doesn't flex per-row without
-	-- also touching every Y-offset computed from it above), just with narrower rank/avatar/value
-	-- columns so the name gets real room instead of none.
+	-- clipped to nothing. Mobile keeps the same one-line row with narrower rank/avatar/value
+	-- columns so the name gets real room instead of none. Rows are stacked by UIListLayout —
+	-- no absolute Y — so scaffold section height stays honest on short phones.
 	local rankW = if stack then 26 else 40
 	local avatarSize = if stack then 28 else 34
 	local avatarX = if stack then rankW + 4 else 44
@@ -398,14 +401,14 @@ local function RankRow(_param)
 	local nameReserve = if stack then -(valueW + 12) else -248
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, ROW_H),
-		position = UDim2.fromOffset(0, y),
+		layoutOrder = layoutOrder,
 		accent = accent,
 		background = surface,
 		padding = 10,
 		reveal = reveal,
 		reducedMotion = reducedMotion,
 		highlight = isLocal,
-		clips = true,
+		clips = false,
 	}, React.createElement(Text, {
 		value = `#{rank}`,
 		size = if stack then 12 else 15,
@@ -853,16 +856,21 @@ local function LeaderboardsView(_param)
 	local filterGap = 7
 	local filtersH = if stack then TapTarget + 18 else filterRows * TapTarget + (filterRows - 1) * filterGap + 8
 	local scopeH = if guildBoard then 0 else TapTarget * 0.72 + 10
-	local podiumH = if stack then 148 else 160
+	-- Phone stacks the podium as three short cards (no 1/3-width squeeze / clip); desktop keeps
+	-- the classic three-across band. Section heights are intrinsic — UIListLayout owns vertical
+	-- flow so RankRow / PodiumCard never need absolute Y under the scaffold.
+	local podiumCardH = if stack then 118 else 152
+	local podiumGap = if stack then 8 else 8
+	local podiumBandH = if stack then podiumCardH * 3 + podiumGap * 2 else podiumCardH
+	local podiumSectionH = 22 + podiumBandH
 	local guildHeroH = if stack then 156 else 148
 	local guildBlockH = guildHeroH + 34 + GUILD_ROWS_SHOWN * (GUILD_ROW_H + ROW_GAP)
-	-- Board content is a PageScaffold section; Y bands are local to that section (boardTop=0).
-	local boardTop = 0
-	local podiumY = boardTop + heroH + 44
-	local listY = podiumY + podiumH + 40
 	local hasEntries = #ranked > 0
 	local remaining = math.max(0, #ranked - 3)
-	local boardH = if guildBoard then guildBlockH elseif hasEntries then listY + math.max(remaining, 1) * (ROW_H + ROW_GAP) else podiumY + 190
+	local ranksLabelH = 22
+	local ranksListH = if hasEntries then math.max(remaining, 0) * (ROW_H + ROW_GAP) - (if remaining > 0 then ROW_GAP else 0) else 0
+	local emptyOrLoadingH = 160
+	local ranksSectionH = if hasEntries then ranksLabelH + ranksListH else emptyOrLoadingH
 	local leaderTail = scrollTail(stack, chrome.bottomSafe, 56)
 	local own = if guildBoard then 0 else ownValue(state, selected)
 	-- ▼ ReadonlyArray.findIndex ▼
@@ -946,225 +954,206 @@ local function LeaderboardsView(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	}))
-	local _result_2
-	if guildBoard then
-		_result_2 = React.createElement(GuildSpotlight, {
-			state = state,
-			dispatch = dispatch,
-			stack = stack,
+	local heroPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = meta.accent,
+		background = heroSurface,
+		padding = if stack then 12 else 16,
+		highlight = not loading,
+		reducedMotion = reducedMotion,
+		clips = false,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(if stack then 44 else 56, if stack then 44 else 56),
+		BackgroundColor3 = darken(meta.accent, 0.72),
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 14),
+	}), React.createElement("uistroke", {
+		Color = meta.accent,
+		Thickness = 2,
+		Transparency = 0.18,
+	}), React.createElement(Icon, {
+		kind = meta.icon,
+		color = ensureContrast(darken(meta.accent, 0.72), Palette.cream),
+		accent = meta.accent,
+		size = if stack then 44 else 56,
+		reducedMotion = reducedMotion,
+	})), React.createElement(Text, {
+		value = if scope == "Server" then "THIS SERVER" else "ALL-TIME RANKINGS",
+		size = 9,
+		color = heroEyebrow,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(if stack then 56 else 72, 0),
+		sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, 14),
+	}), React.createElement(Text, {
+		value = meta.label,
+		size = if stack then 18 else 24,
+		color = heroTitle,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 14,
+		position = UDim2.fromOffset(if stack then 56 else 72, 16),
+		sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, if stack then 24 else 32),
+	}), React.createElement(Text, {
+		value = meta.description,
+		size = if stack then 10 else 12,
+		color = heroBody,
+		wrap = true,
+		position = UDim2.fromOffset(if stack then 56 else 72, if stack then 42 else 50),
+		sizeConstraint = UDim2.new(1, if stack then -56 else -280, 0, if stack then 28 else 36),
+	}), React.createElement("frame", {
+		Size = if stack then UDim2.new(1, 0, 0, 52) else UDim2.fromOffset(220, 76),
+		Position = if stack then UDim2.new(0, 0, 1, -54) else UDim2.new(1, -220, 0.5, -38),
+		BackgroundColor3 = recordFill,
+		BackgroundTransparency = 0.12,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uistroke", {
+		Color = meta.accent,
+		Thickness = 1,
+		Transparency = 0.42,
+	}), React.createElement(Text, {
+		value = "YOUR RECORD",
+		size = 8,
+		color = recordLabel,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(12, 4),
+		sizeConstraint = UDim2.new(1, -24, 0, 12),
+	}), React.createElement(Text, {
+		value = formatValue(selected, own),
+		size = if stack then 16 else 22,
+		color = recordValue,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 11,
+		position = UDim2.fromOffset(12, 16),
+		sizeConstraint = UDim2.new(1, -24, 0, 20),
+	}), React.createElement(Text, {
+		value = if localRank ~= nil then `{if scope == "Server" then "SERVER" else "GLOBAL"} POSITION #{localRank}` elseif scope == "Server" then "NOT RANKED HERE YET" else "PUSH HIGHER TO ENTER TOP 25",
+		size = 8,
+		color = recordRank,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.new(0, 12, 1, -16),
+		sizeConstraint = UDim2.new(1, -24, 0, 12),
+	})))
+	local podiumSlots = { 0, 1, 2 }
+	local podiumCards = table.create(#podiumSlots)
+	for _k, index in podiumSlots do
+		podiumCards[_k] = React.createElement("frame", {
+			key = `podium-{index}`,
+			Size = if stack then UDim2.new(1, 0, 0, podiumCardH) else UDim2.new(1 / 3, -16 / 3, 1, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = index,
+			ClipsDescendants = false,
+		}, React.createElement(PodiumCard, {
+			entry = ranked[index + 1],
+			rank = index + 1,
+			meta = meta,
+			width = UDim2.fromScale(1, 1),
+			height = podiumCardH,
 			reducedMotion = reducedMotion,
-			position = UDim2.fromOffset(0, 0),
+		}))
+	end
+	local podiumPane = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 8),
+	}), React.createElement(Text, {
+		value = "TOP PILOTS",
+		size = 10,
+		color = ensureContrast(Palette.night, Palette.muted),
+		weight = Enum.FontWeight.Heavy,
+		layoutOrder = 0,
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, podiumBandH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = if stack then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, podiumGap),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), podiumCards))
+	local ranksPane
+	if loading and not hasEntries then
+		ranksPane = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1),
+			accent = meta.accent,
+			background = Palette.panel,
+			padding = 16,
+			reducedMotion = reducedMotion,
+		}, React.createElement(Text, {
+			value = "Updating rankings…",
+			size = 14,
+			color = ensureContrast(Palette.panel, Palette.creamSoft),
+			weight = Enum.FontWeight.Bold,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.fromScale(1, 1),
+		}))
+	elseif not hasEntries then
+		ranksPane = React.createElement(EmptyState, {
+			title = "No ranked pilots yet",
+			body = "Your first saved score will open this board.",
+			icon = "Leaderboard",
+			accent = meta.accent,
+			size = UDim2.fromScale(1, 1),
 		})
 	else
-		local _exp_2 = React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, heroH),
-			position = UDim2.fromOffset(0, boardTop),
-			accent = meta.accent,
-			background = heroSurface,
-			padding = if stack then 12 else 16,
-			highlight = not loading,
-			reducedMotion = reducedMotion,
-			clips = false,
-		}, React.createElement("frame", {
-			Size = UDim2.fromOffset(if stack then 44 else 56, if stack then 44 else 56),
-			BackgroundColor3 = darken(meta.accent, 0.72),
-			BorderSizePixel = 0,
-			ZIndex = 3,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 14),
-		}), React.createElement("uistroke", {
-			Color = meta.accent,
-			Thickness = 2,
-			Transparency = 0.18,
-		}), React.createElement(Icon, {
-			kind = meta.icon,
-			color = ensureContrast(darken(meta.accent, 0.72), Palette.cream),
-			accent = meta.accent,
-			size = if stack then 44 else 56,
-			reducedMotion = reducedMotion,
-		})), React.createElement(Text, {
-			value = if scope == "Server" then "THIS SERVER" else "ALL-TIME RANKINGS",
-			size = 9,
-			color = heroEyebrow,
-			weight = Enum.FontWeight.Bold,
-			position = UDim2.fromOffset(if stack then 56 else 72, 0),
-			sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, 14),
-		}), React.createElement(Text, {
-			value = meta.label,
-			size = if stack then 18 else 24,
-			color = heroTitle,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			minSize = 14,
-			position = UDim2.fromOffset(if stack then 56 else 72, 16),
-			sizeConstraint = UDim2.new(1, if stack then -56 else -260, 0, if stack then 24 else 32),
-		}), React.createElement(Text, {
-			value = meta.description,
-			size = if stack then 10 else 12,
-			color = heroBody,
-			wrap = true,
-			position = UDim2.fromOffset(if stack then 56 else 72, if stack then 42 else 50),
-			sizeConstraint = UDim2.new(1, if stack then -56 else -280, 0, if stack then 28 else 36),
-		}), React.createElement("frame", {
-			Size = if stack then UDim2.new(1, 0, 0, 52) else UDim2.fromOffset(220, 76),
-			Position = if stack then UDim2.new(0, 0, 1, -54) else UDim2.new(1, -220, 0.5, -38),
-			BackgroundColor3 = recordFill,
-			BackgroundTransparency = 0.12,
-			BorderSizePixel = 0,
-			ZIndex = 3,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 12),
-		}), React.createElement("uistroke", {
-			Color = meta.accent,
-			Thickness = 1,
-			Transparency = 0.42,
-		}), React.createElement(Text, {
-			value = "YOUR RECORD",
-			size = 8,
-			color = recordLabel,
-			weight = Enum.FontWeight.Heavy,
-			position = UDim2.fromOffset(12, 4),
-			sizeConstraint = UDim2.new(1, -24, 0, 12),
-		}), React.createElement(Text, {
-			value = formatValue(selected, own),
-			size = if stack then 16 else 22,
-			color = recordValue,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			minSize = 11,
-			position = UDim2.fromOffset(12, 16),
-			sizeConstraint = UDim2.new(1, -24, 0, 20),
-		}), React.createElement(Text, {
-			value = if localRank ~= nil then `{if scope == "Server" then "SERVER" else "GLOBAL"} POSITION #{localRank}` elseif scope == "Server" then "NOT RANKED HERE YET" else "PUSH HIGHER TO ENTER TOP 25",
-			size = 8,
-			color = recordRank,
-			weight = Enum.FontWeight.Heavy,
-			position = UDim2.new(0, 12, 1, -16),
-			sizeConstraint = UDim2.new(1, -24, 0, 12),
-		})))
-		local _exp_3 = React.createElement(Text, {
-			value = "TOP PILOTS",
-			size = 10,
-			color = ensureContrast(Palette.night, Palette.muted),
-			weight = Enum.FontWeight.Heavy,
-			position = UDim2.fromOffset(0, podiumY - 30),
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		})
-		local _condition = hasEntries
-		if _condition then
-			local _exp_4 = React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Horizontal,
-				Padding = UDim.new(0, 8),
-				SortOrder = Enum.SortOrder.LayoutOrder,
-			})
-			local _exp_5 = { 0, 1, 2 }
-			-- ▼ ReadonlyArray.map ▼
-			local _newValue_1 = table.create(#_exp_5)
-			local _callback_2 = function(index)
-				return React.createElement("frame", {
-					key = `podium-{index}`,
-					Size = UDim2.new(1 / 3, -16 / 3, 1, 0),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					LayoutOrder = index,
-				}, React.createElement(PodiumCard, {
-					entry = ranked[index + 1],
-					rank = index + 1,
+		local rest = {}
+		local restCount = 0
+		for index, entry in ranked do
+			if index > 3 then
+				restCount += 1
+				rest[restCount] = React.createElement(RankRow, {
+					key = `{selected}-{entry.UserId}`,
+					entry = entry,
+					rank = index,
 					meta = meta,
-					width = UDim2.fromScale(1, 1),
-					height = podiumH,
+					isLocal = entry.UserId == localId,
+					layoutOrder = index,
 					reducedMotion = reducedMotion,
-				}))
+					stack = stack,
+				})
 			end
-			for _k, _v in _exp_5 do
-				_newValue_1[_k] = _callback_2(_v, _k - 1, _exp_5)
-			end
-			-- ▲ ReadonlyArray.map ▲
-			_condition = React.createElement("frame", {
-				Size = UDim2.new(1, -2, 0, podiumH),
-				Position = UDim2.fromOffset(0, podiumY),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = true,
-			}, _exp_4, _newValue_1)
 		end
-		local _exp_4 = hasEntries and React.createElement(Text, {
+		ranksPane = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, ROW_GAP),
+		}), React.createElement(Text, {
 			value = if loading then "GETTING THE LATEST SCORES…" else `UPDATES EVERY {AUTO_REFRESH_SECONDS} SECONDS`,
 			size = 10,
 			color = ensureContrast(Palette.night, Palette.muted),
 			weight = Enum.FontWeight.Heavy,
-			position = UDim2.fromOffset(0, listY - 22),
+			layoutOrder = 0,
 			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		})
-		local _result_3
-		if loading and not hasEntries then
-			_result_3 = React.createElement(Panel, {
-				size = UDim2.new(1, 0, 0, 150),
-				position = UDim2.fromOffset(0, podiumY),
-				accent = meta.accent,
-				background = Palette.panel,
-				padding = 16,
-				reducedMotion = reducedMotion,
-			}, React.createElement(Text, {
-				value = "Updating rankings…",
-				size = 14,
-				color = ensureContrast(Palette.panel, Palette.creamSoft),
-				weight = Enum.FontWeight.Bold,
-				align = Enum.TextXAlignment.Center,
-				sizeConstraint = UDim2.fromScale(1, 1),
-			}))
-		else
-			local _result_4
-			if not hasEntries then
-				_result_4 = React.createElement("frame", {
-					Size = UDim2.new(1, 0, 0, 170),
-					Position = UDim2.fromOffset(0, podiumY),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-				}, React.createElement(EmptyState, {
-					title = "No ranked pilots yet",
-					body = "Your first saved score will open this board.",
-					icon = "Leaderboard",
-					accent = meta.accent,
-					size = UDim2.fromScale(1, 1),
-				}))
-			else
-				-- ▼ ReadonlyArray.filter ▼
-				local _newValue_1 = {}
-				local _callback_2 = function(_, index)
-					return index >= 3
-				end
-				local _length_1 = 0
-				for _k, _v in ranked do
-					if _callback_2(_v, _k - 1, ranked) == true then
-						_length_1 += 1
-						_newValue_1[_length_1] = _v
-					end
-				end
-				-- ▲ ReadonlyArray.filter ▲
-				-- ▼ ReadonlyArray.map ▼
-				local _newValue_2 = table.create(#_newValue_1)
-				local _callback_3 = function(entry, index)
-					return React.createElement(RankRow, {
-						key = `{selected}-{entry.UserId}`,
-						entry = entry,
-						rank = index + 4,
-						meta = meta,
-						isLocal = entry.UserId == localId,
-						y = listY + index * (ROW_H + ROW_GAP),
-						reducedMotion = reducedMotion,
-						stack = stack,
-					})
-				end
-				for _k, _v in _newValue_1 do
-					_newValue_2[_k] = _callback_3(_v, _k - 1, _newValue_1)
-				end
-				-- ▲ ReadonlyArray.map ▲
-				_result_4 = _newValue_2
-			end
-			_result_3 = _result_4
-		end
-		_result_2 = React.createElement(React.Fragment, nil, _exp_2, _exp_3, _condition, _exp_4, _result_3)
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, ranksListH),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = 1,
+			ClipsDescendants = false,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, ROW_GAP),
+		}), rest))
 	end
 	local sections = {
 		{
@@ -1179,17 +1168,36 @@ local function LeaderboardsView(_param)
 			height = scopeH,
 			element = _exp_1,
 		})
+		table.insert(sections, {
+			id = "hero",
+			height = heroH,
+			element = heroPanel,
+		})
+		if hasEntries then
+			table.insert(sections, {
+				id = "podium",
+				height = podiumSectionH,
+				element = podiumPane,
+			})
+		end
+		table.insert(sections, {
+			id = "ranks",
+			height = ranksSectionH,
+			element = ranksPane,
+		})
+	else
+		table.insert(sections, {
+			id = "guilds",
+			height = guildBlockH,
+			element = React.createElement(GuildSpotlight, {
+				state = state,
+				dispatch = dispatch,
+				stack = stack,
+				reducedMotion = reducedMotion,
+				position = UDim2.fromOffset(0, 0),
+			}),
+		})
 	end
-	table.insert(sections, {
-		id = "board",
-		height = boardH,
-		element = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-		}, _result_2),
-	})
 	return React.createElement(PageScaffold, {
 		gap = 12,
 		tailPad = leaderTail,

@@ -27,6 +27,7 @@ local files = {
 	"src/Client/AstralForge/pages/TradeView.luau",
 	"src/Client/AstralForge/pages/WheelView.luau",
 	"src/Client/AstralForge/pages/CommandView.luau",
+	"src/Client/AstralForge/pages/LeaderboardsView.luau",
 	"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
 	"src/Client/AstralForge/pages/CrateRevealStage.luau",
 	"src/Client/AstralForge/pages/CrateRevealStageSimple.luau",

@@ -8,7 +8,8 @@ local planFillHeight = require(script.Parent.pageScaffoldPlan).planFillHeight
 -- viewport themselves. This component removes the entire class:
 --
 --   - Sections are declared as `fixed` (intrinsic pixel height) or `fill` (takes whatever
---     space is left over, never less than `minHeight`).
+--     space is left over, never less than `minHeight`, and never less than an optional
+--     intrinsic `height` content floor used by hostRef VirtualGrid lists).
 --   - The scaffold measures its own rendered height, so it works identically in a page, an
 --     overlay, or a drawer — no caller passes viewport math in.
 --   - If the sections' minimum total exceeds the available space, the whole thing becomes a

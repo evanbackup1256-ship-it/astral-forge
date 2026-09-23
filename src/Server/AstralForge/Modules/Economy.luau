@@ -488,7 +488,8 @@ function Economy.PermanentMultiplier(profile: ProfileLike): Persist
 		+ essence * GameConfig.Domain.ProductionPerEssence
 		+ Economy.DomainTreeBonus(profile, "Production")
 		+ Economy.ForgePathEffect(profile, "Production")
-	local insightLevel = profile.Research.Insight or 0
+	local insightResearch = profile.Research
+	local insightLevel = (type(insightResearch) == "table" and insightResearch.Insight) or 0
 	local rebirthMultiplier = GameConfig.Economy.RebirthMultiplier
 		* (1 + Economy.ForgePathEffect(profile, "RebirthMultiplier"))
 		* (1 + insightLevel * 0.02)
@@ -680,8 +681,18 @@ function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production
 	return OmegaMath.ToNumber(OmegaMath.Div(Economy.Capacity(profile, now), output))
 end
 
+local function researchLevel(profile: ProfileLike, key: string): number
+	local research = profile.Research
+	if type(research) ~= "table" then
+		return 0
+	end
+	return research[key] or 0
+end
+
 function Economy.TapPower(profile: ProfileLike, now: number?): Persist
-	local overchargeLevel = profile.Research.Overcharge or 0
+	-- Same nil-safe Research path as SteadyProduction: partial fixtures / mid-sanitize
+	-- profiles must not throw on Overcharge reads during Overcharge / tap grants.
+	local overchargeLevel = researchLevel(profile, "Overcharge")
 	local tap = OmegaMath.Max(1, OmegaMath.Mul(Economy.Production(profile, now), 0.15))
 	tap = OmegaMath.Mul(tap, 1 + overchargeLevel * 0.35)
 	tap = OmegaMath.Mul(tap, 1 + Economy.GridEffect(profile, "GridTap"))
@@ -700,7 +711,7 @@ function Economy.CriticalChance(profile: ProfileLike): number
 	return math.min(
 		0.75,
 		0.05
-			+ (profile.Research.Critical or 0) * 0.012
+			+ researchLevel(profile, "Critical") * 0.012
 			+ Economy.GridEffect(profile, "GridCritical")
 			+ Economy.EchoEffect(profile, "Critical")
 			+ Economy.ArtifactEffect(profile, "Critical")
@@ -712,15 +723,15 @@ end
 
 function Economy.CriticalMultiplier(profile: ProfileLike): number
 	return 2
-		+ math.floor((profile.Research.Critical or 0) / 5) * 0.5
-		+ (profile.Research.Impact or 0) * 0.1
+		+ math.floor(researchLevel(profile, "Critical") / 5) * 0.5
+		+ researchLevel(profile, "Impact") * 0.1
 		+ Economy.ForgePathEffect(profile, "CriticalMultiplier")
 end
 
 function Economy.AutoCollectRate(profile: ProfileLike): number
 	return math.min(
 		0.8,
-		(profile.Research.Automation or 0) * 0.02
+		researchLevel(profile, "Automation") * 0.02
 			+ Economy.GridEffect(profile, "GridAutomation")
 			+ Economy.EchoEffect(profile, "Automation")
 			+ Economy.ArtifactEffect(profile, "Automation")
@@ -735,7 +746,7 @@ function Economy.OfflineHours(profile: ProfileLike): number
 	return math.min(
 		24,
 		GameConfig.Economy.BaseOfflineHours
-			+ (profile.Research.Offline or 0) * 1.25
+			+ researchLevel(profile, "Offline") * 1.25
 			+ Economy.ArtifactEffect(profile, "OfflineHours")
 	)
 end
@@ -745,7 +756,7 @@ function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 	return math.min(
 		1,
 		GameConfig.Economy.BaseOfflineEfficiency
-			+ (profile.Research.Offline or 0) * 0.06
+			+ researchLevel(profile, "Offline") * 0.06
 			+ Economy.GridEffect(profile, "GridOffline")
 			+ Economy.EchoEffect(profile, "Offline")
 			+ Economy.ArtifactEffect(profile, "Offline")

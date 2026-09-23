@@ -569,13 +569,13 @@ local function OverviewView(_param)
 	local ultraOverview = not stack and viewport.width >= 1680
 	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
 	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
-	local heroH = if landscapePhone then 176 elseif phone then 272 elseif wideOverview then 228 else 248
-	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 248 else 300) else 208) else 0
-	local domainH = if domainVisible then (if phone then (if landscapePhone then 268 else 320) else 224) else 0
-	local notesH = if stack then (if landscapePhone then 132 else 168) else 140
+	local heroH = if landscapePhone then 176 elseif phone then 272 elseif ultraOverview then 240 elseif wideOverview then 232 else 248
+	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 248 else 300) else (if ultraOverview then 220 else 208)) else 0
+	local domainH = if domainVisible then (if phone then (if landscapePhone then 268 else 320) else (if ultraOverview then 236 else 224)) else 0
+	local notesH = if stack then (if landscapePhone then 132 else 168) else (if ultraOverview then 152 else 140)
 	-- Ops Pulse: phone uses a 2×2 claim grid so Collect stays above the fold.
-	local opsH = if landscapePhone then 156 elseif stack then 196 else 156
-	local metricCardH = if stack then (if landscapePhone then 64 else 86) elseif wideOverview then 68 else 0
+	local opsH = if landscapePhone then 156 elseif stack then 196 else (if ultraOverview then 168 else 156)
+	local metricCardH = if stack then (if landscapePhone then 64 else 86) elseif wideOverview then (if ultraOverview then 76 else 68) else 0
 	local metricsH = if stack then metricCardH * 3 + 16 elseif wideOverview then heroH else 104
 	local countdownInPage = type(releaseAt) == "number" and releaseAt > (function()
 		local ok, value = pcall(function()
@@ -586,12 +586,15 @@ local function OverviewView(_param)
 		end
 		return os.time()
 	end)()
-	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 128 else 168) else 140) else 0
+	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 128 else 168) else (if ultraOverview then 152 else 140)) else 0
 	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
-	local topBandH = if wideOverview then heroH else heroH + metricsH + Layout.panelGap
+	local sectionGap = if stack then chrome.panelGap elseif ultraOverview then 18 elseif wideOverview then 16 else Layout.panelGap
+	local topBandH = if wideOverview then heroH else heroH + metricsH + sectionGap
 	local sectionCount = 1 + 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
-	local overviewTail = if landscapePhone then 48 elseif stack then 56 else 40
-	local canvasH = topBandH + notesH + opsH + countdownH + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, overviewTail) + SCROLL_EDGE * 2
+	local overviewTail = if landscapePhone then 48 elseif stack then 56 else (if ultraOverview then 48 else 40)
+	local canvasH = topBandH + notesH + opsH + countdownH + rebirthH + domainH + sectionGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, overviewTail) + SCROLL_EDGE * 2
+	local columnMax = if stack then math.huge else Layout.contentMaxWidth
+	local columnPad = if not stack and viewport.width >= Layout.contentMaxWidth + 80 then 12 else 0
 	local ctaH = TapTarget
 	local heroReadoutH = if landscapePhone then 108 elseif phone then 168 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
@@ -637,9 +640,22 @@ local function OverviewView(_param)
 		Selectable = false,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
+		HorizontalAlignment = if stack then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Center,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, if stack then chrome.panelGap else Layout.panelGap),
+		Padding = UDim.new(0, 0),
 	}), React.createElement(ScrollPads), React.createElement("frame", {
+		Size = UDim2.new(1, -columnPad * 2, 0, canvasH - SCROLL_EDGE * 2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+		ClipsDescendants = false,
+	}, React.createElement("uisizeconstraint", {
+		MaxSize = Vector2.new(columnMax, math.huge),
+	}), React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, sectionGap),
+	}), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, topBandH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -648,14 +664,14 @@ local function OverviewView(_param)
 	}, React.createElement("uilistlayout", {
 		FillDirection = if wideOverview then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, if wideOverview then 12 else Layout.panelGap),
+		Padding = UDim.new(0, if wideOverview then (if ultraOverview then 16 else 12) else sectionGap),
 		VerticalAlignment = Enum.VerticalAlignment.Top,
 	}), React.createElement(Panel, {
 		layoutOrder = 0,
 		size = if wideOverview then UDim2.new(0.62, -6, 1, 0) else UDim2.new(1, 0, 0, heroH),
 		accent = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		background = Palette.panelRaised,
-		padding = if stack then chrome.cardPadding else 20,
+		padding = if stack then chrome.cardPadding elseif ultraOverview then 22 else 20,
 		reveal = heroReveal,
 		highlight = vaultFill >= 0.99 and not effectsPaused,
 		reducedMotion = quietMotion,
@@ -823,7 +839,7 @@ local function OverviewView(_param)
 		wrap = false,
 		justify = "fill",
 		align = "stretch",
-		gap = if stack then 10 elseif wideOverview then 8 else 12,
+		gap = if stack then 10 elseif ultraOverview then 12 elseif wideOverview then 8 else 12,
 		size = if wideOverview then UDim2.new(0.38, -6, 1, 0) else UDim2.new(1, 0, 0, metricsH),
 		layoutOrder = 1,
 		exact = true,
@@ -871,7 +887,7 @@ local function OverviewView(_param)
 		size = UDim2.new(1, 0, 0, notesH),
 		accent = Palette.cyan,
 		background = Palette.panel,
-		padding = if stack then chrome.cardPadding else 18,
+		padding = if stack then chrome.cardPadding elseif ultraOverview then 20 else 18,
 		reveal = notesReveal,
 		clips = false,
 	}, (function()
@@ -1389,7 +1405,7 @@ local function OverviewView(_param)
 		position = UDim2.fromOffset(0, 96),
 		reducedMotion = reducedMotion,
 		highlight = domain.CanExpand,
-	})))))
+	}))))))
 end
 local ROW_HEIGHTS = {
 	machine = 120,
