@@ -404,7 +404,7 @@ do
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 6,
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 6,
-		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 6,
+		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
 		["src/Client/AstralForge/pages/ChatView.luau"] = 6,
@@ -528,6 +528,22 @@ end
 		titleGateCount += 1
 	end
 	assert(titleGateCount >= 3, "Command catalogs + titles must softMotion-gate overscanRows, got " .. tostring(titleGateCount))
+
+	-- Wave22: MailClaim + Inspect SOCKET/UPGRADE nested hosts must not clip CTA overshoot.
+	for _, entry in {
+		{ path = "src/Client/AstralForge/pages/MailboxView.luau", name = "MailClaim" },
+		{ path = "src/Client/AstralForge/pages/InventoryView.luau", name = "InspectSocketClaim" },
+		{ path = "src/Client/AstralForge/pages/InventoryView.luau", name = "InspectUpgradeClaim" },
+	} do
+		local src = fs.readFile(entry.path)
+		local hostStart = string.find(src, 'Name = "' .. entry.name .. '"', 1, true)
+		assert(hostStart, entry.name .. " host missing")
+		assert(string.find(string.sub(src, hostStart, hostStart + 280), "ClipsDescendants = false", 1, true), entry.name .. " clips")
+	end
+	local rebirthSoft = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
+	local rebirthSoftUses = 0
+	for _ in string.gmatch(rebirthSoft, "softMotion") do rebirthSoftUses += 1 end
+	assert(rebirthSoftUses >= 8, "RebirthPanel softMotion density too thin after wave22")
 
 ------------------------------------------------------------------------
 -- Known CTA / FocusClaim footguns (offline)

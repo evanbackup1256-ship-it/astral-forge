@@ -84,4 +84,20 @@ function ContinuumDomainMath.ContinuumEffects(
 	return production, capacity, tap, offline
 end
 
+
+function ContinuumDomainMath.DomainProductionMultiplier(rank: any, essence: any, productionPerRank: any, productionPerEssence: any, essenceCap: any, domainTreeBonus: any): number
+	local safeRank = math.max(0, math.floor(tonumber(rank) or 0))
+	local safeEssence = math.max(0, tonumber(essence) or 0)
+	local cap = tonumber(essenceCap) or 1_000_000
+	if safeEssence > cap then
+		safeEssence = cap
+	end
+	return 1 + safeRank * (tonumber(productionPerRank) or 0) + safeEssence * (tonumber(productionPerEssence) or 0) + (tonumber(domainTreeBonus) or 0)
+end
+
+function ContinuumDomainMath.DomainRankBonus(rank: any, perRank: any, domainTreeBonus: any): number
+	local safeRank = math.max(0, math.floor(tonumber(rank) or 0))
+	return safeRank * (tonumber(perRank) or 0) + (tonumber(domainTreeBonus) or 0)
+end
+
 return table.freeze(ContinuumDomainMath)

@@ -1159,12 +1159,14 @@ local function DetailPanel(_param)
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectUpgradeClaim",
 		Size = actionSize,
 		Position = UDim2.new(0.5, 5, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectProtect",
 		Size = actionSize,
@@ -1183,12 +1185,14 @@ local function DetailPanel(_param)
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectUpgradeClaim",
 		Size = actionSize,
 		Position = UDim2.new(0.25, 2, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectProtect",
 		Size = actionSize,

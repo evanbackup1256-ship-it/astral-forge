@@ -672,6 +672,7 @@ local function MailboxView(_param)
 			Size = UDim2.new(1, 0, 0, TapTarget),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			ClipsDescendants = false,
 			LayoutOrder = 1,
 		}, React.createElement(Button, {
 			text = if claimed then "COLLECTED" else "CLAIM",
@@ -731,6 +732,7 @@ local function MailboxView(_param)
 			AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			ClipsDescendants = false,
 			LayoutOrder = 1,
 		}, React.createElement(Button, {
 			text = if claimed then "COLLECTED" else "CLAIM",

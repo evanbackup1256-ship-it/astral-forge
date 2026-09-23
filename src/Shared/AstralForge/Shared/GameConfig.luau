@@ -810,6 +810,29 @@ local GameConfig = {
 				Reward = { Stardust = 64, CashMinutes = 4, Signals = 24 },
 				Color = Color3.fromRGB(255, 155, 245),
 			},
+
+			{
+				Id = "Wave22LabOrderProgress",
+				Name = "Wave Twenty Two Lab Order Progress",
+				Description = "Tap through a short tally while LabOrderMath IsReady/ApplyProgress tonumber-safes string Progress/Target and AnomalyOpsMath Effect/Surge stay Lune-testable.",
+				Kind = "Tap",
+				BaseTarget = 150,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 52, CashMinutes = 3, Signals = 21 },
+				Color = Color3.fromRGB(75, 255, 225),
+			},
+			{
+				Id = "Wave22ClaimClipsSoftMotion",
+				Name = "Wave Twenty Two Claim Clips Soft Motion",
+				Description = "Bank flux while MailClaim/Inspect SOCKET/UPGRADE stay unclipped and Rebirth softMotion density thickens.",
+				Kind = "BankFlux",
+				BaseTarget = 6_000,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 66, CashMinutes = 4, Signals = 25 },
+				Color = Color3.fromRGB(255, 150, 250),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3330,6 +3353,23 @@ local GameConfig = {
 			Target = 42,
 			Reward = { Stardust = 370, Signals = 100, CashMinutes = 34, Boost = "SteadyBurn" },
 		},
+
+		{
+			Id = "Wave22LabCourier",
+			Name = "Wave Twenty Two Lab Courier",
+			Description = "Claim 74 story chapters after LabOrderMath string Progress/Target fix + AnomalyOpsMath Effect/Surge extracts.",
+			Kind = "StoryClaims",
+			Target = 74,
+			Reward = { Stardust = 370, Signals = 100, CashMinutes = 35, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave22ClaimClipRunner",
+			Name = "Wave Twenty Two Claim Clip Runner",
+			Description = "Hold a 44-day daily streak while MailClaim/Inspect SOCKET/UPGRADE unclipped + Rebirth softMotion density stay verified.",
+			Kind = "DailyStreak",
+			Target = 44,
+			Reward = { Stardust = 380, Signals = 102, CashMinutes = 35, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4996,9 +5036,42 @@ local GameConfig = {
 			Color = Color3.fromRGB(80, 255, 220),
 		},
 
+
+		{
+			Id = "wave22-harden-brief",
+			Title = "Wave Twenty Two Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "LabOrderMath Progress coerce + AnomalyOpsMath Effect/Surge + DomainProductionMultiplier; Mail/Inspect clips and Rebirth softMotion stay honest.",
+			Body = {
+				"LabOrderMath IsReady/ApplyProgress/TryClaim tonumber-safes string Progress/Target; DataService sanitize coerces before NonNegative; AnomalyOpsMath Effect/SurgeMultiplier keep partial Anomaly bags Lune-testable.",
+				"ContinuumDomainMath DomainProductionMultiplier thins ServerServices snapshot; MailClaim and Inspect SOCKET/UPGRADE keep ClipsDescendants false; Rebirth softMotion density thickens.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 66, CashMinutes = 28, Signals = 30 },
+			Color = Color3.fromRGB(75, 255, 225),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave22-harden",
+			Subject = "Dock note — wave twenty two harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "LabOrderMath Progress coerce + Anomaly Effect/Surge extracts + Mail/Inspect clips — still DataVersion 21.",
+			Body = {
+				"Lab order Progress no longer false-readies string fixtures; Anomaly surge no longer throws on string SurgeEndsAt; Domain snapshot multipliers stay Lune-testable.",
+				"MailClaim and Inspect SOCKET/UPGRADE keep ClipsDescendants false; Rebirth softMotion density thickens.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 66, Stardust = 82, Signals = 34 },
+			Color = Color3.fromRGB(75, 255, 225),
+		},
 
 		{
 			Id = "update-5-1-wave21-extract",
