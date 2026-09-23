@@ -1,6 +1,6 @@
 # Astral Forge v2
 
-Argon-synced project for Astral Forge 5.0.0. Argon reads the existing
+Argon-synced project for Astral Forge 5.1.0. Argon reads the existing
 `default.project.json` mapping (its Rojo-compatible project format). The game version is **not** the save-schema
 version: live saves currently use `GameConfig.Game.DataVersion = 21`. Do not bump
 that value or delete the `DataService` legacy transfer without save fixtures.
