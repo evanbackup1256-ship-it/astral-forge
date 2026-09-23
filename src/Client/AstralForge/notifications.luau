@@ -82,6 +82,13 @@ local RAIL_WIDTH = 268
 local RAIL_WIDTH_MOBILE = 236
 local MAX_VISIBLE = 3
 local MAX_VISIBLE_MOBILE = 2
+local function densityVisibleCap(density, stack)
+	local clamped = math.clamp(if type(density) == "number" then density else 0.55, 0, 1)
+	if stack then
+		return math.clamp(math.floor(1 + clamped * 2 + 0.35), 1, 3)
+	end
+	return math.clamp(math.floor(2 + clamped * 3 + 0.5), 2, 5)
+end
 local function NoticeCard(props)
 	local isActive = useComponentIsActive(props)
 	useComponentLifetime(props, NOTICE_EXIT_SECONDS)
@@ -476,6 +483,10 @@ local function ToastRail(_param)
 		reducedMotion = false
 	end
 	local mobileLayout = _param.mobileLayout
+	local density = _param.density
+	if density == nil then
+		density = 0.55
+	end
 	local screen, setScreen = React.useState(function()
 		local _result = Workspace.CurrentCamera
 		if _result ~= nil then
@@ -557,19 +568,21 @@ local function ToastRail(_param)
 	})
 	local stack = plan.stack
 	local layoutScale = if mobileLayout ~= nil then 0.88 + math.clamp(mobileLayout.scale, 0, 1) * 0.12 else 1
-	local railW = (if stack then math.min(RAIL_WIDTH_MOBILE, math.max(220, width - plan.sideSafe * 2 - 24)) else RAIL_WIDTH) * layoutScale
+	local railW = (if stack then math.min(RAIL_WIDTH_MOBILE, math.max(200, width - plan.sideSafe * 2 - 20)) else RAIL_WIDTH) * layoutScale
 	local cardH = if stack then CARD_HEIGHT_MOBILE else CARD_HEIGHT
-	local cardGap = if stack then CARD_GAP_MOBILE else CARD_GAP
-	local topInset = math.max(topbarInset, Layout.minTopInset) + (if stack then plan.topbarRows + 12 else Layout.topbarClearance + 12)
+	local cardGap = if stack then math.max(4, CARD_GAP_MOBILE - math.floor(density * 2)) else CARD_GAP
+	local topInset = math.max(topbarInset, Layout.minTopInset) + (if stack then plan.topbarRows + 10 else Layout.topbarClearance + 12)
 	local keyboardOpen = UserInputService.TouchEnabled and UserInputService.OnScreenKeyboardVisible
-	local requestedVisible = if keyboardOpen then 1 else (if stack then MAX_VISIBLE_MOBILE else MAX_VISIBLE)
-	local fittingVisible = math.max(1, math.floor((height - topInset - plan.bottomSafe - plan.tabBarH - 8) / math.max(1, cardH + cardGap)))
-	local maxVisible = math.max(1, math.min(requestedVisible, fittingVisible))
+	local densityCap = densityVisibleCap(density, stack)
+	local requestedVisible = if keyboardOpen then 1 else densityCap
+	local bottomReserve = plan.bottomSafe + plan.tabBarH + (if stack then 18 else 12)
+	local fittingVisible = math.max(1, math.floor((height - topInset - bottomReserve - 8) / math.max(1, cardH + cardGap)))
+	local maxVisible = math.max(1, math.min(requestedVisible, fittingVisible, if stack then MAX_VISIBLE_MOBILE + 1 else MAX_VISIBLE + 2))
 	local railHeight = maxVisible * (cardH + cardGap)
 	local minX = (plan.sideSafe + 8 + railW / 2) / width
 	local maxX = math.max(minX, 1 - minX)
 	local minY = topInset / height
-	local maxY = math.max(minY, (height - plan.bottomSafe - plan.tabBarH - railHeight - 12) / height)
+	local maxY = math.max(minY, (height - bottomReserve - railHeight - 8) / height)
 	local customX = if mobileLayout ~= nil then math.clamp(mobileLayout.x, minX, maxX) else 0.5
 	local customY = if mobileLayout ~= nil then math.clamp(mobileLayout.y, minY, maxY) else minY
 	-- ▼ ReadonlyArray.filter ▼
@@ -644,7 +657,7 @@ local function ToastRail(_param)
 	local rendered = React.useMemo(_exp, { _result_1, plan.mobile, reducedMotion, remove, setHovered, stack, visible })
 	local hiddenCount = math.max(0, #live - maxVisible)
 	local useCustom = mobileLayout ~= nil
-	local defaultPosition = if stack then UDim2.new(0.5, 0, 1, -(plan.tabBarH + plan.bottomSafe + 16)) else UDim2.new(1, -20, 1, -(plan.bottomSafe + 28))
+	local defaultPosition = if stack then UDim2.new(0.5, 0, 1, -(plan.tabBarH + plan.bottomSafe + 14)) else UDim2.new(1, -20, 1, -(plan.bottomSafe + 28))
 	local defaultAnchor = if stack then Vector2.new(0.5, 1) else Vector2.new(1, 1)
 	return React.createElement("frame", {
 		Size = UDim2.new(0, railW, 0, railHeight),

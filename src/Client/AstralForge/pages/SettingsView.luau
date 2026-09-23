@@ -86,6 +86,12 @@ local SETTINGS = { {
 	section = "audio",
 	kind = "toggle",
 }, {
+	id = "MusicCrossfade",
+	label = "Music crossfade",
+	description = "How long beds blend when you change pages.",
+	accent = Palette.mint,
+	section = "audio",
+}, {
 	id = "SoundVariation",
 	label = "Sound variation",
 	description = "Slight pitch change so clicks don't all sound identical.",
@@ -1040,7 +1046,7 @@ local function SettingsView(_param)
 		position = UDim2.fromOffset(0, 16),
 		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 30),
 	}), React.createElement(Text, {
-		value = `v{state.Game.Version}  ·  {#SETTINGS} options  ·  saves as you change them`,
+		value = `v{state.Game.Version}  ·  GUIDE replays the tutorial  ·  UPDATES shows patch notes`,
 		size = 10,
 		color = Palette.muted,
 		fit = true,
@@ -1059,10 +1065,11 @@ local function SettingsView(_param)
 		onClick = function()
 			return dispatch("ReplayTutorial")
 		end,
-		color = Palette.panelSoft,
-		textColor = Palette.mint,
+		color = Palette.mint,
+		textColor = Palette.ink,
 		size = UDim2.new(0.5, -4, 1, 0),
 		reducedMotion = reducedMotion,
+		highlight = true,
 	}), React.createElement(Button, {
 		text = "UPDATES",
 		icon = "Gift",
@@ -1131,6 +1138,29 @@ local function SettingsView(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	}))
+	local controllerHints = UserInputService.GamepadEnabled
+	local _exp_3b = controllerHints and activeSection == "interface" and React.createElement(Panel, {
+		size = UDim2.new(1, 0, 0, if stack then 96 else 78),
+		accent = Palette.cyan,
+		background = Palette.panelRaised,
+		padding = 14,
+		layoutOrder = nextOrder(),
+		reducedMotion = reducedMotion,
+		clips = false,
+	}, React.createElement(Text, {
+		value = "CONTROLLER",
+		size = 10,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
+	}), React.createElement(Text, {
+		value = "LB / RB switch pages · Y vault · X overcharge · LT / RT buy amount · B back · Start opens Settings",
+		size = 12,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(0, 22),
+		sizeConstraint = UDim2.new(1, 0, 0, if stack then 52 else 40),
+	}))
 	local _exp_4 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1166,7 +1196,7 @@ local function SettingsView(_param)
 		BorderSizePixel = 0,
 	}, React.createElement("scrollingframe", {
 		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasH),
+		CanvasSize = UDim2.new(0, 0, 0, canvasH + (if controllerHints and activeSection == "interface" then (if stack then 108 else 90) else 0)),
 		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1179,7 +1209,7 @@ local function SettingsView(_param)
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 		Active = true,
 		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement("frame", {
+	}, _exp, _exp_1, _exp_2, _exp_3, _exp_3b, React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, paneH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,

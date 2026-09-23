@@ -301,13 +301,13 @@ local TUTORIAL_STEPS = { {
 	goal = "Look at the vault",
 	body = "Machines make Flux on their own. It piles up in the Vault until you cash it out. A full vault stops making money.",
 	hint = "The green number is what you've stored.",
-	controls = "Tap CONTINUE to keep going",
+	controls = "Tap CONTINUE  ·  Xbox: A",
 	page = "Overview",
 }, {
 	title = "Cash it out",
 	goal = "Collect the vault",
 	body = "Collect turns stored Flux into cash you can spend. Empty it often — a full vault wastes production.",
-	hint = "The green Collect button is on this page.",
+	hint = "Use COLLECT VAULT below, or the green Collect button on this page.",
 	controls = "Keyboard: E   ·   Xbox: Y",
 	page = "Overview",
 	cta = "collect",
@@ -317,6 +317,7 @@ local TUTORIAL_STEPS = { {
 	goal = "Buy Stellar Core",
 	body = "Open Workshop and buy Stellar Core. That's your first income. Each level makes more Flux per second.",
 	hint = "If Buy is grey, collect the vault first, then come back.",
+	controls = "Xbox: A opens Workshop",
 	page = "Workshop",
 	cta = "workshop",
 	ctaLabel = "OPEN WORKSHOP",
@@ -325,13 +326,14 @@ local TUTORIAL_STEPS = { {
 	goal = "Try x5 or MAX",
 	body = "x1 buys one level. x5 buys five. MAX spends what you can afford and never overspends.",
 	hint = "Stay on x1 until prices make sense.",
-	controls = "Xbox: LT / RT",
+	controls = "Xbox: LT / RT changes buy amount",
 	page = "Workshop",
 }, {
 	title = "Research never resets",
 	goal = "Open Research",
 	body = "Research bonuses survive rebirth. Buy the lit nodes in order. Grey nodes tell you what's missing.",
 	hint = "If Research is locked, skip this — it unlocks after a little play.",
+	controls = "Xbox: A opens Research",
 	page = "Research",
 	cta = "research",
 	ctaLabel = "OPEN RESEARCH",
@@ -340,12 +342,14 @@ local TUTORIAL_STEPS = { {
 	goal = "Read the rebirth panel",
 	body = "When you're ready, rebirth trades this run's machines for Cores. Research, relics, and Stardust stay. Cores make the next run stronger.",
 	hint = "Don't rush it. Overview shows the payout before you confirm.",
+	controls = "Tap CONTINUE when you've read the panel",
 	page = "Overview",
 }, {
 	title = "You're set",
 	goal = "Finish the guide",
-	body = "That's the loop: collect, buy machines, research, rebirth. Everything else unlocks as you play. Replay this from Settings anytime.",
+	body = "That's the loop: collect, buy machines, research, rebirth. Everything else unlocks as you play. Replay this anytime from Settings → GUIDE.",
 	hint = "You get a small Flux bonus for finishing.",
+	controls = "Tap FINISH  ·  Xbox: A",
 	page = "Overview",
 } }
 local SHELL_CHROME = {
@@ -4507,9 +4511,9 @@ local function AppShell(_param)
 			return dispatch("CompleteTutorial")
 		end,
 	})
-	local _condition_23 = gamepadActive and not hidden
+	local _condition_23 = gamepadActive and not hidden and not tutorialOpen
 	if _condition_23 then
-		local _exp_15 = ({ "LB / RB pages", "Y vault", "X overcharge", "LT / RT buy ×", "B back", "View hide", "Start settings" })
+		local _exp_15 = require(script.Parent.input.GamepadNavigationService).GetHintLabels()
 		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_15)
 		local _callback = function(hint, index)
@@ -6783,6 +6787,7 @@ local function MainGame(_param)
 			remove = dismissNotice,
 			setHovered = setNoticeHovered,
 			reducedMotion = state.Settings.ReducedMotion == true,
+			density = toastDensityRef.current,
 		}
 		local _result_41
 		if touchUi then
