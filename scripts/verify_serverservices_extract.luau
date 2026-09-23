@@ -129,7 +129,7 @@ ok, reason = ShopGrantEligibility.EvaluateBuy(offer, 1, 0, 10, 50, function()
 end)
 assert(ok == true and reason == nil, "eligible buy")
 
-local shop: any = { Day = 0, Stock = {}, Purchased = {} }
+local shop: any = { Day = 9, Stock = { daily = 0, persist = 0 }, Purchased = {} }
 local offers = {
 	{ Id = "daily", StockMax = 2, DailyRefresh = true },
 	{ Id = "persist", StockMax = 5, DailyRestock = 1 },
