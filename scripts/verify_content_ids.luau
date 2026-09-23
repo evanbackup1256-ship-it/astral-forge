@@ -222,6 +222,9 @@ assert(string.find(src, 'Id = "wave20-harden-brief"', 1, true), "Story must appe
 assert(string.find(src, 'Id = "wave21-harden-brief"', 1, true), "Story must append wave21-harden-brief")
 assert(string.find(src, 'Id = "wave21-extract-brief"', 1, true), "Story must append wave21-extract-brief")
 assert(string.find(src, 'Id = "wave22-harden-brief"', 1, true), "Story must append wave22-harden-brief")
+assert(string.find(src, 'Id = "wave22-extract-brief"', 1, true), "Story must append wave22-extract-brief")
+assert(string.find(src, 'Id = "wave24-offline-brief"', 1, true), "Story must append wave24-offline-brief")
+assert(string.find(src, 'Id = "wave25-offline-brief"', 1, true), "Story must append wave25-offline-brief")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave9"', 1, true), "Mail must append update-5-1-bug-content-wave9")
 assert(string.find(src, 'Id = "update-5-1-wave10-harden"', 1, true), "Mail must append update-5-1-wave10-harden")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave11"', 1, true), "Mail must append update-5-1-bug-content-wave11")
@@ -237,5 +240,8 @@ assert(string.find(src, 'Id = "update-5-1-wave20-harden"', 1, true), "Mail must 
 assert(string.find(src, 'Id = "update-5-1-wave21-harden"', 1, true), "Mail must append update-5-1-wave21-harden")
 assert(string.find(src, 'Id = "update-5-1-wave21-extract"', 1, true), "Mail must append update-5-1-wave21-extract")
 assert(string.find(src, 'Id = "update-5-1-wave22-harden"', 1, true), "Mail must append update-5-1-wave22-harden")
+assert(string.find(src, 'Id = "update-5-1-wave22-extract"', 1, true), "Mail must append update-5-1-wave22-extract")
+assert(string.find(src, 'Id = "update-5-1-wave24-offline"', 1, true), "Mail must append update-5-1-wave24-offline")
+assert(string.find(src, 'Id = "update-5-1-wave25-offline"', 1, true), "Mail must append update-5-1-wave25-offline")
 
 print("[INFO] [TEST] content ids unique; DataVersion 21; PlatformBadges zeroed")

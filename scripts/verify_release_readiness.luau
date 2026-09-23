@@ -602,8 +602,31 @@ end
 assert(guildSoft >= 8, "Guild softMotion density residual for release, got " .. tostring(guildSoft))
 mark("wave24 crew flatlist focusclaim overview softmotion residuals")
 
--- Raise floor past checks=29 once wave24 Crew/Overview/Guild residuals land.
-assert(#passed > 28, "release-readiness offline subset must stay beyond checks=28, got " .. tostring(#passed))
+-- Wave25: Leaderboards FocusClaim + CrateRevealStage softMotion + DV21 content.
+local boardsRelease = fs.readFile("src/Client/AstralForge/pages/LeaderboardsView.luau")
+assert(string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true), "LeaderboardConfirm host missing for release")
+do
+	local hostStart = string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true)
+	assert(hostStart, "LeaderboardConfirm host missing")
+	local hostSlice = string.sub(boardsRelease, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "LeaderboardConfirm clips residual for release")
+end
+assert(string.find(boardsRelease, 'Name = "LeaderboardConfirmFilters"', 1, true), "LeaderboardConfirmFilters residual for release")
+assert(string.find(boardsRelease, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim residual for release")
+local stageRelease = fs.readFile("src/Client/AstralForge/pages/CrateRevealStage.luau")
+assert(
+	string.find(stageRelease, "local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+	"CrateRevealStage softMotion canon residual for release"
+)
+assert(string.find(stageRelease, "local reducedMotion = softMotion", 1, true), "CrateRevealStage softMotion fold residual for release")
+assert(string.find(cfg, 'Id = "wave24-offline-brief"', 1, true), "Story wave24 residual for release")
+assert(string.find(cfg, 'Id = "wave25-offline-brief"', 1, true), "Story wave25 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave24-offline"', 1, true), "Mail wave24 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave25-offline"', 1, true), "Mail wave25 residual for release")
+mark("wave25 leaderboards focusclaim crate softmotion content residuals")
+
+-- Raise floor past checks=30 once wave25 Leaderboards/Crate/content residuals land.
+assert(#passed > 29, "release-readiness offline subset must stay beyond checks=29, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

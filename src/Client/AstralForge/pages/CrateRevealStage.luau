@@ -3,6 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local itemIconKind = require(script.Parent.Parent.Icon).itemIconKind
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local ScaleFromCenter = require(script.Parent.Parent.motion).ScaleFromCenter
 local _theme = require(script.Parent.Parent.theme)
 local darken = _theme.darken
@@ -1097,6 +1098,11 @@ end
 -- ─── CrateRevealStage (root) ───────────────────────────────────────────────────
 local function CrateRevealStage(props)
 	local layout = resolveLayout(props)
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — shimmer/halo/ambient drop on soft tiers.
+	local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local reducedMotion = softMotion
+	local allowAmbient = not softMotion and props.allowAmbient ~= false and antilag.allowAmbient
 	local actionHostRef = React.useRef(nil)
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
@@ -1127,6 +1133,11 @@ local function CrateRevealStage(props)
 		return 1 - math.clamp(amount, 0, 1) * 0.08
 	end)
 	local showingClaim = props.phase == "done" or props.phase == "exit"
+
+	-- Fold softMotion into downstream props without mutating the caller table.
+	local stageProps = table.clone(props)
+	stageProps.reducedMotion = reducedMotion
+	stageProps.allowAmbient = allowAmbient
 
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -1182,11 +1193,11 @@ local function CrateRevealStage(props)
 			scale = props.shellScale,
 			zIndex = 404,
 		},
-			React.createElement(ForgeBackdrop, { props = props, layout = layout }),
-			React.createElement(RevealHeader, { props = props, layout = layout }),
-			React.createElement(ForgeReel, { props = props, layout = layout }),
-			React.createElement(LandingBurst, { props = props, layout = layout }),
-			React.createElement(ResultPanel, { props = props, layout = layout }),
+			React.createElement(ForgeBackdrop, { props = stageProps, layout = layout }),
+			React.createElement(RevealHeader, { props = stageProps, layout = layout }),
+			React.createElement(ForgeReel, { props = stageProps, layout = layout }),
+			React.createElement(LandingBurst, { props = stageProps, layout = layout }),
+			React.createElement(ResultPanel, { props = stageProps, layout = layout }),
 			-- SKIP button (during spin)
 			props.phase == "spin" and React.createElement("frame", {
 				ref = actionHostRef,
@@ -1205,7 +1216,7 @@ local function CrateRevealStage(props)
 				textColor = Palette.creamSoft,
 				outline = true,
 				size = UDim2.fromScale(1, 1),
-				reducedMotion = props.reducedMotion,
+				reducedMotion = softMotion,
 				selectable = true,
 			})),
 			-- CLAIM button (after land)
@@ -1231,7 +1242,7 @@ local function CrateRevealStage(props)
 				color = props.sessionAccent,
 				textColor = Palette.ink,
 				size = UDim2.fromScale(1, 1),
-				reducedMotion = props.reducedMotion,
+				reducedMotion = softMotion,
 				highlight = true,
 				selectable = true,
 				disabled = props.phase == "exit",

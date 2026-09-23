@@ -1,5 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local _Icon = require(script.Parent.Parent.Icon)
 local Icon = _Icon.Icon
 local PlayerMark = _Icon.PlayerMark
@@ -20,6 +21,7 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _ui = require(script.Parent.Parent.ui)
@@ -746,8 +748,28 @@ local function LeaderboardsView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
+	local boardHostRef = React.useRef(nil)
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
+	-- Gamepad: park Selection on board filter tabs (FocusClaim prefers Confirm-named hosts).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = boardHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { selected, scope })
 	local entries, setEntries = React.useState({})
 	local loading, setLoading = React.useState(true)
 	local requestId = React.useRef(0)
@@ -909,6 +931,7 @@ local function LeaderboardsView(_param)
 	local recordValue = ensureContrast(recordFill, meta.accent)
 	local recordRank = ensureContrast(recordFill, if localRank ~= nil then Palette.green else Palette.muted)
 	local _exp = React.createElement("frame", {
+		Name = "LeaderboardConfirmFilters",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1224,14 +1247,21 @@ local function LeaderboardsView(_param)
 			}),
 		})
 	end
-	return React.createElement(PageScaffold, {
+	return React.createElement("frame", {
+		ref = boardHostRef,
+		Name = "LeaderboardConfirm",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement(PageScaffold, {
 		gap = 12,
 		tailPad = leaderTail,
 		scrollBarColor = meta.accent,
 		scrollBarThickness = 4,
 		inset = 0,
 		sections = sections,
-	})
+	}))
 end
 return {
 	LeaderboardsView = LeaderboardsView,

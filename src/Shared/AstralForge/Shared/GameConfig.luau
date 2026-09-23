@@ -5104,9 +5104,76 @@ local GameConfig = {
 			Color = Color3.fromRGB(70, 255, 210),
 		},
 
+		{
+			Id = "wave24-offline-brief",
+			Title = "Wave Twenty Four Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Crew FlatList/FocusClaim + Overview softMotion canon; Windows Argon sync docs.",
+			Body = {
+				"Crew rosters virtualize at eight players; VISIT Confirm hosts park gamepad Selection; Overview keeps effectsPaused on quietMotion only.",
+				"Guild softMotion density past DENSE; README drops the /path/to placeholder and documents OneDrive git locks.",
+				"Offline release-readiness checks grow to 30; Studio Device Simulator still owns ENTIRE closeout.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 70, CashMinutes = 30, Signals = 32 },
+			Color = Color3.fromRGB(65, 250, 205),
+		},
+		{
+			Id = "wave25-offline-brief",
+			Title = "Wave Twenty Five Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Leaderboards FocusClaim + CrateRevealStage softMotion; readiness past checks=30.",
+			Body = {
+				"Leaderboard Confirm hosts park gamepad Selection on board filters; CrateRevealStage folds the canonical softMotion antilag gate into shimmer and claim motion.",
+				"Offline release-readiness checks grow past checks=30 toward RunQuick parity.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 72, CashMinutes = 31, Signals = 33 },
+			Color = Color3.fromRGB(60, 245, 200),
+		},
+
+
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave25-offline",
+			Subject = "Dock note — wave twenty five offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Leaderboards FocusClaim + CrateRevealStage softMotion — still DataVersion 21.",
+			Body = {
+				"Leaderboard Confirm parks gamepad Selection on board filters; CrateRevealStage softMotion gates shimmer and claim motion under the same antilag line as Overlay.",
+				"Offline release-readiness checks grow past checks=30 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 72, Stardust = 88, Signals = 37 },
+			Color = Color3.fromRGB(60, 245, 200),
+		},
+
+		{
+			Id = "update-5-1-wave24-offline",
+			Subject = "Dock note — wave twenty four offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Crew FlatList/FocusClaim + Overview softMotion canon + Windows Argon docs — still DataVersion 21.",
+			Body = {
+				"Crew VISIT Confirm hosts and FlatList virtualization land; Overview softMotion stays canonical; Guild softMotion thickens past DENSE.",
+				"README PowerShell sync drops /path/to and documents OneDrive .git locks; offline checks=30.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 70, Stardust = 86, Signals = 36 },
+			Color = Color3.fromRGB(65, 250, 205),
+		},
+
 
 		{
 			Id = "update-5-1-wave22-extract",
