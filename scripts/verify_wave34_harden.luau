@@ -32,8 +32,9 @@ do
 end
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, 'require(script.Parent.NavChrome)', 1, true), "MainGame requires NavChrome")
-assert(string.find(main, "local Navigation = _NavChrome.Navigation", 1, true), "MainGame binds Navigation")
+local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+assert(string.find(appShell, 'require(script.Parent.NavChrome)', 1, true), "AppShellChrome requires NavChrome")
+assert(string.find(appShell, "local Navigation = _NavChrome.Navigation", 1, true), "AppShellChrome binds Navigation")
 local shellFx = fs.readFile("src/Client/AstralForge/ShellFx.luau")
 assert(string.find(shellFx, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion")
 local workspaceChrome = fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau")

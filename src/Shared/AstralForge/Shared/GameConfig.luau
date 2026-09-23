@@ -5328,6 +5328,21 @@ local GameConfig = {
 			Reward = { Stardust = 96, CashMinutes = 43, Signals = 45 },
 			Color = Color3.fromRGB(0, 185, 140),
 		},
+		{
+			Id = "wave38-offline-brief",
+			Title = "Wave Thirty Eight Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "AppShell into AppShellChrome + Crew/Missions/Milestones/Leaderboards densify; DENSE floors; readiness past checks=43.",
+			Body = {
+				"AppShell/TUTORIAL_STEPS live in AppShellChrome; MainGame binds Shell + pausePassivePaints.",
+				"Crew/Missions/Milestones/Leaderboards thicken softMotion; playability DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 98, CashMinutes = 44, Signals = 46 },
+			Color = Color3.fromRGB(0, 190, 145),
+		},
 
 
 
@@ -5349,6 +5364,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 96, Stardust = 112, Signals = 49 },
 			Color = Color3.fromRGB(0, 185, 140),
+		},
+		{
+			Id = "update-5-1-wave38-offline",
+			Subject = "Dock note — wave thirty eight offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "AppShellChrome peel + roster/boards softMotion floors — still DataVersion 21.",
+			Body = {
+				"AppShell moves into AppShellChrome; Crew/Missions/Milestones/Leaderboards densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=43 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 98, Stardust = 114, Signals = 50 },
+			Color = Color3.fromRGB(0, 190, 145),
 		},
 
 		{

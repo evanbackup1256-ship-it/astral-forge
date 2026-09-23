@@ -46,11 +46,12 @@ local navChrome = fs.readFile("src/Client/AstralForge/NavChrome.luau")
 assert(string.find(navChrome, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion gate")
 assert(string.find(navChrome, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion gate")
 do
+	local shell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
 	local soft = 0
-	for _ in string.gmatch(main, "softMotion") do
+	for _ in string.gmatch(shell, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 3, "MainGame softMotion densify, got " .. tostring(soft))
+	assert(soft >= 3, "AppShellChrome softMotion densify, got " .. tostring(soft))
 end
 
 local admin = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")

@@ -37,9 +37,13 @@ local function CrewRow(_param)
 	local onVisit = _param.onVisit
 	local onNudge = _param.onNudge
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — CrewRow.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local layoutOrder = _param.layoutOrder
 	local stack = _param.stack
-	local reveal = useStagger(math.min(layoutOrder, 8), reducedMotion)
+	local reveal = useStagger(math.min(layoutOrder, 8), softMotion)
 	local accent = if player.IsLocal then Palette.green else Palette.blue
 	local rowH = if stack then (if player.IsLocal then 118 else 158) else 100
 	local pad = if stack then 14 else 12
@@ -120,7 +124,7 @@ local function CrewRow(_param)
 		reveal = reveal,
 		interactive = not player.IsLocal,
 		highlight = visiting,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, _exp, _exp_1, _exp_2, _exp_3, _condition, if player.IsLocal then React.createElement(Text, {
 		value = if visitorsHere > 0 then `{visitorsHere} visiting your shop` else `{player.Rebirths} resets`,
@@ -153,7 +157,7 @@ local function CrewRow(_param)
 		color = Palette.cyan,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Name = "CrewVisitConfirm",
 		Size = UDim2.new(0.5, -4, 0, TapTarget),
@@ -168,7 +172,7 @@ local function CrewRow(_param)
 		color = if visiting then Palette.green else Palette.blue,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = visiting,
 		highlight = visiting,
 	}))) else React.createElement("frame", {
@@ -192,7 +196,7 @@ local function CrewRow(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(0, TapTarget),
 		hug = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Name = "CrewVisitConfirm",
 		Size = UDim2.fromOffset(0, TapTarget),
@@ -209,7 +213,7 @@ local function CrewRow(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(0, TapTarget),
 		hug = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = visiting,
 		highlight = visiting,
 	}))))
@@ -218,9 +222,13 @@ local function VisitPanel(_param)
 	local visit = _param.visit
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — VisitPanel.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local layoutOrder = _param.layoutOrder
 	local stack = _param.stack
-	local reveal = useStagger(0, reducedMotion)
+	local reveal = useStagger(0, softMotion)
 	local vaultFill = meterFill(asFlux(visit.Vault), asFlux(visit.Capacity))
 	local machineBits = {}
 	for id, level in pairs(visit.Machines) do
@@ -266,7 +274,7 @@ local function VisitPanel(_param)
 		textColor = Palette.creamSoft,
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(120, 40),
 		position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -120, 0, 12),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_4 = { {
 		label = "FLUX / SEC",
@@ -306,7 +314,7 @@ local function VisitPanel(_param)
 			sizeConstraint = UDim2.new(1, -20, 0, 14),
 		}), React.createElement(NumberSpinnerHost, {
 			value = asFlux(stat.value),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			duration = 0.4,
 			size = 16,
 			color = stat.color,
@@ -326,7 +334,7 @@ local function VisitPanel(_param)
 		layoutOrder = layoutOrder,
 		reveal = reveal,
 		highlight = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, if stack then 152 else 72),
@@ -344,7 +352,7 @@ local function VisitPanel(_param)
 	}), React.createElement(Meter, {
 		value = vaultFill,
 		color = Palette.blue,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = UDim2.fromOffset(0, if stack then 258 else 192),
 		size = UDim2.new(1, 0, 0, 7),
 	}), React.createElement(Text, {
@@ -370,7 +378,7 @@ local function CrewView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — Crew roster FlatList overscan drops on soft tiers.
+	-- Canonical softMotion antilag gate — CrewView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local players, setPlayers = React.useState({})

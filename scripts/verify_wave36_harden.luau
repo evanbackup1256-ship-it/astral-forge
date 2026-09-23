@@ -19,8 +19,9 @@ do
 end
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, 'require(script.Parent.ShellFx)', 1, true), "MainGame requires ShellFx")
-assert(string.find(main, "local AmbientLayer = _ShellFx.AmbientLayer", 1, true), "MainGame binds AmbientLayer")
+local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+assert(string.find(appShell, 'require(script.Parent.ShellFx)', 1, true), "AppShellChrome requires ShellFx")
+assert(string.find(appShell, "local AmbientLayer = _ShellFx.AmbientLayer", 1, true), "AppShellChrome binds AmbientLayer")
 assert(not string.find(main, "local function AmbientLayer", 1, true), "AmbientLayer must leave MainGame")
 assert(not string.find(main, "local function ConfettiBurst", 1, true), "ConfettiBurst must leave MainGame")
 assert(not string.find(main, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES must leave MainGame")

@@ -25,8 +25,9 @@ do
 end
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, 'require(script.Parent.TopBarChrome)', 1, true), "MainGame requires TopBarChrome")
-assert(string.find(main, "local TopBar = _TopBarChrome.TopBar", 1, true), "MainGame binds TopBar")
+local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+assert(string.find(appShell, 'require(script.Parent.TopBarChrome)', 1, true), "AppShellChrome requires TopBarChrome")
+assert(string.find(appShell, "local TopBar = _TopBarChrome.TopBar", 1, true), "AppShellChrome binds TopBar")
 local nav = fs.readFile("src/Client/AstralForge/NavChrome.luau")
 assert(string.find(nav, "ActiveBoostIcon = require(script.Parent.TopBarChrome).ActiveBoostIcon", 1, true), "NavChrome binds ActiveBoostIcon")
 local shellFx = fs.readFile("src/Client/AstralForge/ShellFx.luau")

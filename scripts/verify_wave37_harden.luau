@@ -18,7 +18,8 @@ do
 end
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, "local TradeReturnPill = _ShellFx.TradeReturnPill", 1, true), "MainGame binds TradeReturnPill")
+local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+assert(string.find(appShell, "local TradeReturnPill = _ShellFx.TradeReturnPill", 1, true), "AppShellChrome binds TradeReturnPill")
 assert(not string.find(main, "local function TradeReturnPill", 1, true), "TradeReturnPill must leave MainGame")
 
 local command = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")

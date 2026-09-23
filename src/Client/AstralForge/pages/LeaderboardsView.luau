@@ -745,6 +745,7 @@ local function LeaderboardsView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — LeaderboardsView
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
@@ -988,7 +989,7 @@ local function LeaderboardsView(_param)
 		color = ensureContrast(darken(meta.accent, 0.72), Palette.cream),
 		accent = meta.accent,
 		size = if stack then 44 else 56,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement(Text, {
 		value = if scope == "Server" then "THIS SERVER" else "ALL-TIME RANKINGS",
 		size = 9,
@@ -1065,7 +1066,7 @@ local function LeaderboardsView(_param)
 			meta = meta,
 			width = UDim2.fromScale(1, 1),
 			height = podiumCardH,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}))
 	end
 	local podiumPane = React.createElement("frame", {
@@ -1102,7 +1103,7 @@ local function LeaderboardsView(_param)
 			accent = meta.accent,
 			background = Palette.panel,
 			padding = 16,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}, React.createElement(Text, {
 			value = "Updating rankings…",
 			size = 14,
@@ -1165,7 +1166,7 @@ local function LeaderboardsView(_param)
 					meta = meta,
 					isLocal = entry.UserId == localId,
 					layoutOrder = index + 3,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					stack = stack,
 				})
 			end
@@ -1242,7 +1243,7 @@ local function LeaderboardsView(_param)
 				state = state,
 				dispatch = dispatch,
 				stack = stack,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				position = UDim2.fromOffset(0, 0),
 			}),
 		})

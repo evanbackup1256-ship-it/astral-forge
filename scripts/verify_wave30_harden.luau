@@ -52,11 +52,12 @@ local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
 local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
 assert(string.find(topBarChrome, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion gate")
 do
+	local shell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
 	local soft = 0
-	for _ in string.gmatch(main, "softMotion") do
+	for _ in string.gmatch(shell, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 3, "MainGame softMotion densify, got " .. tostring(soft))
+	assert(soft >= 3, "AppShellChrome softMotion densify, got " .. tostring(soft))
 end
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

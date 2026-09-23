@@ -228,6 +228,7 @@ local function MissionsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — MissionsView
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
@@ -331,7 +332,7 @@ local function MissionsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	})), React.createElement(Dropdown, {
 		options = options,
@@ -340,7 +341,7 @@ local function MissionsView(_param)
 		accent = Palette.cyan,
 		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
 		size = UDim2.new(1, 0, 0, TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		zIndex = 44,
 	})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = "MISSIONS",
@@ -371,7 +372,7 @@ local function MissionsView(_param)
 		accent = Palette.cyan,
 		position = UDim2.new(0, 0, 0, 70),
 		size = UDim2.fromOffset(224, 48),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		zIndex = 44,
 	}), counts.Ready > 0 and React.createElement("frame", {
 		Name = "MissionClaimActions",
@@ -388,7 +389,7 @@ local function MissionsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	})), React.createElement(Text, {
 		value = `{counts.Done} / {#quests}`,

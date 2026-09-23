@@ -28,9 +28,10 @@ do
 end
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, 'require(script.Parent.WorkspaceChrome)', 1, true), "MainGame requires WorkspaceChrome")
-assert(string.find(main, "local Workspace = _WorkspaceChrome.Workspace", 1, true), "MainGame binds Workspace")
-assert(string.find(main, "Canonical softMotion antilag gate — AppShell", 1, true), "AppShell softMotion")
+local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+assert(string.find(appShell, 'require(script.Parent.WorkspaceChrome)', 1, true), "AppShellChrome requires WorkspaceChrome")
+assert(string.find(appShell, "local Workspace = _WorkspaceChrome.Workspace", 1, true), "AppShellChrome binds Workspace")
+assert(string.find(appShell, "Canonical softMotion antilag gate — AppShell", 1, true), "AppShell softMotion")
 assert(not string.find(main, "local function Workspace", 1, true), "Workspace must leave MainGame")
 assert(not string.find(main, "local function VaultPill", 1, true), "VaultPill must leave MainGame")
 assert(not string.find(main, "local function NextUnlockStrip", 1, true), "NextUnlockStrip must leave MainGame")
