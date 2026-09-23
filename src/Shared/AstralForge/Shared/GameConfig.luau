@@ -788,6 +788,28 @@ local GameConfig = {
 				Reward = { Stardust = 64, CashMinutes = 4, Signals = 24 },
 				Color = Color3.fromRGB(255, 160, 240),
 			},
+			{
+				Id = "Wave21FirewallEchoExtract",
+				Name = "Wave Twenty One Firewall Echo Extract",
+				Description = "Tap through a short tally while RemoteFirewallMath Inspect and ForgeEchoMath EquippedEffect keep payload/echo gates Lune-testable.",
+				Kind = "Tap",
+				BaseTarget = 145,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 50, CashMinutes = 3, Signals = 20 },
+				Color = Color3.fromRGB(80, 255, 220),
+			},
+			{
+				Id = "Wave21EnvelopeUtcExtract",
+				Name = "Wave Twenty One Envelope Utc Extract",
+				Description = "Bank flux while EconomyEnvelopeMath PermanentMultiplier, DataSanitizeMath ClampLevelBag, and UtcClockMath Week stay Lune-testable.",
+				Kind = "BankFlux",
+				BaseTarget = 5_900,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 64, CashMinutes = 4, Signals = 24 },
+				Color = Color3.fromRGB(255, 155, 245),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3292,6 +3314,22 @@ local GameConfig = {
 			Target = 40,
 			Reward = { Stardust = 360, Signals = 98, CashMinutes = 33, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave21ExtractCourier",
+			Name = "Wave Twenty One Extract Courier",
+			Description = "Claim 72 story chapters after RemoteFirewallMath Inspect + ForgeEchoMath EquippedEffect + EconomyEnvelope PermanentMultiplier extracts.",
+			Kind = "StoryClaims",
+			Target = 72,
+			Reward = { Stardust = 360, Signals = 98, CashMinutes = 34, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave21ReadinessRunner",
+			Name = "Wave Twenty One Readiness Runner",
+			Description = "Hold a 42-day daily streak while release-readiness offline checks grow past checks=25 toward RunQuick parity.",
+			Kind = "DailyStreak",
+			Target = 42,
+			Reward = { Stardust = 370, Signals = 100, CashMinutes = 34, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4942,9 +4980,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(85, 255, 230),
 		},
 
+		{
+			Id = "wave21-extract-brief",
+			Title = "Wave Twenty One Extract Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "RemoteFirewall Inspect + ForgeEcho EquippedEffect + PermanentMultiplier extracts; readiness past checks=25.",
+			Body = {
+				"RemoteFirewallMath Inspect, ForgeEchoMath EquippedEffect, EconomyEnvelopeMath PermanentMultiplier, DataSanitizeMath ClampLevelBag, AdminGrantMath NextRelicUid, and UtcClockMath Week stay Lune-testable.",
+				"InventoryMath UpgradeState thins InventoryView detail affordability; release-readiness offline subset grows toward RunQuick parity.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 64, CashMinutes = 27, Signals = 29 },
+			Color = Color3.fromRGB(80, 255, 220),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave21-extract",
+			Subject = "Dock note — wave twenty one extract",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Firewall Inspect + Echo EquippedEffect + PermanentMultiplier extracts — still DataVersion 21.",
+			Body = {
+				"Payload Inspect, equipped echo totals, permanent multiplier arithmetic, level-bag clamps, relic uid allocation, and UTC week rolls are Lune-testable.",
+				"Inventory detail UpgradeState thins InventoryView; offline release-readiness checks grow past checks=25 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 64, Stardust = 80, Signals = 33 },
+			Color = Color3.fromRGB(80, 255, 220),
+		},
 
 		{
 			Id = "update-5-1-wave21-harden",

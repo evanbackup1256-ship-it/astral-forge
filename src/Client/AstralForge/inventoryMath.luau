@@ -351,4 +351,14 @@ function InventoryMath.InspectPanelHeight(socketBlock: any, stack: boolean?): nu
 		+ InventoryMath.INSPECT_FOOTER_H
 end
 
+
+-- Detail-panel upgrade affordability. Returns canUpgrade, maxed.
+function InventoryMath.UpgradeState(level: any, maxLevel: any, essence: any, cost: any): (boolean, boolean)
+	local safeLevel = math.max(0, math.floor(tonumber(level) or 0))
+	local safeMax = math.max(0, math.floor(tonumber(maxLevel) or 0))
+	local maxed = safeMax > 0 and safeLevel >= safeMax
+	local canUpgrade = not maxed and (tonumber(essence) or 0) >= (tonumber(cost) or 0)
+	return canUpgrade, maxed
+end
+
 return table.freeze(InventoryMath)

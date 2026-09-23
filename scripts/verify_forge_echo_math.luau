@@ -73,6 +73,8 @@ assert(string.find(serviceSrc, "ForgeEchoMath.EffectValue", 1, true), "ForgeEcho
 assert(string.find(serviceSrc, "ForgeEchoMath.DominantPattern", 1, true), "ForgeEchoService must delegate DominantPattern")
 assert(string.find(serviceSrc, "ForgeEchoMath.UpgradeCost", 1, true), "ForgeEchoService must delegate UpgradeCost")
 assert(string.find(serviceSrc, "ForgeEchoMath.Ensure", 1, true), "ForgeEchoService must delegate Ensure")
+assert(string.find(mathSrc, "function ForgeEchoMath.EquippedEffect", 1, true), "ForgeEchoMath.EquippedEffect missing")
+assert(string.find(fs.readFile("src/Server/AstralForge/Modules/Economy.luau"), "ForgeEchoMath.EquippedEffect", 1, true), "Economy must delegate EquippedEffect")
 assert(not string.find(serviceSrc, "local function inventoryCount", 1, true), "inline inventoryCount must be removed")
 assert(not string.find(serviceSrc, "local function unlockedSlots", 1, true), "inline unlockedSlots must be removed")
 assert(not string.find(serviceSrc, "local function dominantPattern", 1, true), "inline dominantPattern must be removed")

@@ -176,4 +176,44 @@ function EconomyEnvelopeMath.GridEffect(levels: any, gridById: any, effectKind: 
 	return total
 end
 
+
+-- Permanent production multiplier parts (cores ^ exp, domain rank/essence, rebirths).
+-- Domain-tree / ForgePath / Insight addends are injected so Economy stays the
+-- catalog owner while the arithmetic stays Lune-testable.
+function EconomyEnvelopeMath.PermanentMultiplier(
+	cores: any,
+	coreMultiplier: any,
+	coreExponent: any,
+	rank: any,
+	essence: any,
+	essenceCap: any,
+	productionPerRank: any,
+	productionPerEssence: any,
+	domainTreeBonus: any,
+	forgePathProduction: any,
+	rebirths: any,
+	rebirthMultiplier: any,
+	forgePathRebirth: any,
+	insightLevel: any
+): number
+	local safeCores = math.max(0, tonumber(cores) or 0)
+	local coreBonus = (tonumber(coreMultiplier) or 0) * (safeCores ^ (tonumber(coreExponent) or 0))
+	local safeRank = math.max(0, tonumber(rank) or 0)
+	local safeEssence = math.max(0, tonumber(essence) or 0)
+	local cap = tonumber(essenceCap) or 1_000_000
+	if safeEssence > cap then
+		safeEssence = cap
+	end
+	local safeRebirths = math.max(0, tonumber(rebirths) or 0)
+	local domainMultiplier = 1
+		+ safeRank * (tonumber(productionPerRank) or 0)
+		+ safeEssence * (tonumber(productionPerEssence) or 0)
+		+ (tonumber(domainTreeBonus) or 0)
+		+ (tonumber(forgePathProduction) or 0)
+	local rebirthScale = (tonumber(rebirthMultiplier) or 0)
+		* (1 + (tonumber(forgePathRebirth) or 0))
+		* (1 + math.max(0, tonumber(insightLevel) or 0) * 0.02)
+	return (1 + coreBonus + safeRebirths * rebirthScale) * domainMultiplier
+end
+
 return table.freeze(EconomyEnvelopeMath)

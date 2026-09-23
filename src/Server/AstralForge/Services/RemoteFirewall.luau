@@ -210,53 +210,7 @@ return function(loadService: (string) -> any)
 		seen: { [any]: boolean },
 		budget: { Value: number }
 	): (boolean, string?)
-		local valueType = typeof(value)
-		if value == nil or valueType == "boolean" then
-			return true
-		end
-		if valueType == "number" then
-			return safeNumber(value), "number is outside the safe range"
-		end
-		if valueType == "string" then
-			return value:len() <= 600, "string is too long"
-		end
-		if valueType ~= "table" then
-			return false, "payload contains an unsupported value"
-		end
-		if depth > 3 then
-			return false, "payload nesting is too deep"
-		end
-		if seen[value] then
-			return false, "payload contains a cycle"
-		end
-		seen[value] = true
-		for key, child in value do
-			budget.Value += 1
-			if budget.Value > 32 then
-				seen[value] = nil
-				return false, "payload is too large"
-			end
-			local keyType = typeof(key)
-			if keyType ~= "string" and keyType ~= "number" then
-				seen[value] = nil
-				return false, "payload keys must be strings or numbers"
-			end
-			if keyType == "string" and key:len() > 64 then
-				seen[value] = nil
-				return false, "payload key is too long"
-			end
-			if keyType == "number" and (not safeNumber(key) or not integer(key) or math.abs(key) > 10000) then
-				seen[value] = nil
-				return false, "payload index is outside the safe range"
-			end
-			local ok, reason = inspect(child, depth + 1, seen, budget)
-			if not ok then
-				seen[value] = nil
-				return false, reason
-			end
-		end
-		seen[value] = nil
-		return true
+		return RemoteFirewallMath.Inspect(value, depth, seen, budget)
 	end
 
 	local function stringField(payload: { [any]: any }, key: string, minimum: number, maximum: number): boolean

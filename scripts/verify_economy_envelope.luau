@@ -108,6 +108,8 @@ assert(string.find(economySrc, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "
 assert(string.find(economySrc, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.EffectAtLevel", 1, true), "Economy ItemEffect must use EffectAtLevel")
 assert(string.find(economySrc, "EconomyEnvelopeMath.ArtifactLevelEffect", 1, true), "Economy ArtifactEffect must delegate")
+assert(string.find(economySrc, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier must delegate")
+assert(string.find(economySrc, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EchoEffect must delegate EquippedEffect")
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")

@@ -125,4 +125,59 @@ function ForgeEchoMath.DominantPattern(
 	return best, affinity[best] or "Industry"
 end
 
+
+-- Sum equipped echo effects for `effectKind`. Traits may be a list or Id→trait map.
+-- Harmony bonus applies when every equipped slot shares a distinct affinity.
+function ForgeEchoMath.EquippedEffect(
+	echoes: any,
+	effectKind: any,
+	traits: any,
+	maxLevel: any,
+	harmonyBonus: any
+): number
+	if type(echoes) ~= "table" or type(effectKind) ~= "string" then
+		return 0
+	end
+	if type(echoes.Inventory) ~= "table" or type(echoes.Equipped) ~= "table" then
+		return 0
+	end
+	local traitById: { [string]: any } = {}
+	if type(traits) == "table" then
+		for key, candidate in traits do
+			if type(candidate) == "table" and type(candidate.Id) == "string" then
+				traitById[candidate.Id] = candidate
+			elseif type(key) == "string" and type(candidate) == "table" then
+				traitById[key] = candidate
+			end
+		end
+	end
+	local levelCap = math.max(1, math.floor(tonumber(maxLevel) or 1))
+	local total = 0
+	local affinities = {}
+	local equippedCount = 0
+	local used = {}
+	for _, uid in echoes.Equipped do
+		local instance = type(uid) == "string" and echoes.Inventory[uid] or nil
+		if instance and not used[uid] then
+			used[uid] = true
+			local trait = traitById[instance.TraitId]
+			if trait then
+				equippedCount += 1
+				affinities[trait.Affinity] = true
+				if trait.EffectKind == effectKind then
+					total += ForgeEchoMath.EffectValue(instance, trait, levelCap)
+				end
+			end
+		end
+	end
+	local affinityCount = 0
+	for _ in affinities do
+		affinityCount += 1
+	end
+	if equippedCount >= 2 and affinityCount == equippedCount then
+		total *= 1 + (tonumber(harmonyBonus) or 0)
+	end
+	return total
+end
+
 return table.freeze(ForgeEchoMath)

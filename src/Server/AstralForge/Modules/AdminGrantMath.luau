@@ -81,4 +81,32 @@ function AdminGrantMath.PlayerFacingReason(command: any, reason: any, auditOnly:
 	return "You were kicked from this Astral Forge server by an administrator."
 end
 
+
+-- Allocate the next unused relic uid from Items.NextId. Returns uid + bumped NextId.
+-- Inventory collision loops stay pure so GrantRelic can be Lune-tested.
+function AdminGrantMath.NextRelicUid(inventory: any, nextId: any): (string?, number)
+	local bag = if type(inventory) == "table" then inventory else {}
+	local cursor = math.max(1, math.floor(tonumber(nextId) or 1))
+	for _ = 1, 64 do
+		local uid = string.format("IT%07d", cursor)
+		cursor += 1
+		if bag[uid] == nil then
+			return uid, cursor
+		end
+	end
+	return nil, cursor
+end
+
+-- Fresh relic instance for GrantRelic. AcquiredAt is injected (os.time in production).
+function AdminGrantMath.BuildRelicInstance(definitionId: any, acquiredAt: any): { [string]: any }?
+	if type(definitionId) ~= "string" or definitionId == "" then
+		return nil
+	end
+	return {
+		DefinitionId = definitionId,
+		Level = 1,
+		AcquiredAt = math.max(0, math.floor(tonumber(acquiredAt) or 0)),
+	}
+end
+
 return table.freeze(AdminGrantMath)

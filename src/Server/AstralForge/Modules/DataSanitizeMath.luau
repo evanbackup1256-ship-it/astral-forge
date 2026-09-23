@@ -49,4 +49,34 @@ function DataSanitizeMath.NonNegative(value: any, ceiling: number?): number
 	return math.clamp(value, 0, cap)
 end
 
+
+-- Clamp a Machines/Research/Grid level bag against a catalog `byId` map.
+-- Unknown ids and zero levels are dropped. `nonNegative` is injected so
+-- DataService can pass DataSanitizeMath.NonNegative with its persist ceiling.
+function DataSanitizeMath.ClampLevelBag(
+	bag: any,
+	byId: any,
+	nonNegative: ((any) -> number)?
+): any
+	if type(bag) ~= "table" then
+		return bag
+	end
+	local catalog = if type(byId) == "table" then byId else {}
+	local clamp = nonNegative
+	if type(clamp) ~= "function" then
+		clamp = function(value: any): number
+			return DataSanitizeMath.NonNegative(value)
+		end
+	end
+	for key, value in bag do
+		local item = catalog[key]
+		local maxLevel = type(item) == "table" and tonumber(item.MaxLevel) or nil
+		local nextValue = if maxLevel ~= nil
+			then math.clamp(math.floor(clamp(value)), 0, maxLevel)
+			else 0
+		bag[key] = if nextValue > 0 then nextValue else nil
+	end
+	return bag
+end
+
 return table.freeze(DataSanitizeMath)
