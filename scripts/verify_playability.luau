@@ -494,6 +494,19 @@ end
 	assert(string.find(echoSoft, "overscan = if softMotion then 0", 1, true), "EchoForge FlatList must softMotion-gate overscan")
 	local storySoft = fs.readFile("src/Client/AstralForge/pages/StoryView.luau")
 	assert(string.find(storySoft, "overscan = if softMotion then 0", 1, true), "Story FlatList must softMotion-gate overscan")
+	-- Wave18: Missions/Mailbox/Guild/Trade/Admin/Leaderboards FlatList overscan softMotion-gated.
+	local missionsSoft = fs.readFile("src/Client/AstralForge/pages/MissionsView.luau")
+	assert(string.find(missionsSoft, "overscan = if softMotion then 0", 1, true), "Missions FlatList must softMotion-gate overscan")
+	local mailboxSoft = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
+	assert(string.find(mailboxSoft, "overscan = if softMotion then 0", 1, true), "Mailbox FlatList must softMotion-gate overscan")
+	local guildSoft = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
+	assert(string.find(guildSoft, "overscan = if softMotion then 0", 1, true), "Guild FlatList must softMotion-gate overscan")
+	local tradeSoft = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+	assert(string.find(tradeSoft, "overscan = if softMotion then 0", 1, true), "Trade FlatList must softMotion-gate overscan")
+	local adminSoft = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")
+	assert(string.find(adminSoft, "overscan = if softMotion then 0", 1, true), "Admin FlatList must softMotion-gate overscan")
+	local boardsSoft = fs.readFile("src/Client/AstralForge/pages/LeaderboardsView.luau")
+	assert(string.find(boardsSoft, "overscan = if softMotion then 0", 1, true), "Leaderboards FlatList must softMotion-gate overscan")
 
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
@@ -644,6 +657,29 @@ do
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"ForgePathClaimActions host must keep ClipsDescendants = false"
+		)
+	end
+	-- Wave18: Research/Missions/Continuum/Boosts/Anomaly/Settings/Rewards/Rebirth/Credits ClaimActions must not clip CTA overshoot.
+	for _, entry in {
+		{ path = "src/Client/AstralForge/pages/ResearchView.luau", name = "ResearchBuyClaimActions" },
+		{ path = "src/Client/AstralForge/pages/MissionsView.luau", name = "MissionClaimActions" },
+		{ path = "src/Client/AstralForge/pages/ContinuumView.luau", name = "ContinuumClaimActions" },
+		{ path = "src/Client/AstralForge/pages/BoostsView.luau", name = "BoostClaimActions" },
+		{ path = "src/Client/AstralForge/pages/AnomalyView.luau", name = "AnomalyClaimActions" },
+		{ path = "src/Client/AstralForge/pages/SettingsView.luau", name = "SettingsClaimActions" },
+		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsDailyClaimActions" },
+		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsTimedClaimActions" },
+		{ path = "src/Client/AstralForge/pages/RebirthPanel.luau", name = "RebirthClaimActions" },
+		{ path = "src/Client/AstralForge/pages/CreditsView.luau", name = "CreditsClaimActions" },
+	} do
+		local src = fs.readFile(entry.path)
+		local needle = 'Name = "' .. entry.name .. '"'
+		local hostStart = string.find(src, needle, 1, true)
+		assert(hostStart, entry.name .. " host missing in " .. entry.path)
+		local hostSlice = string.sub(src, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			entry.name .. " host must keep ClipsDescendants = false"
 		)
 	end
 

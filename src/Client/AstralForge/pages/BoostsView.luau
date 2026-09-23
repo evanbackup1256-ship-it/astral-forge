@@ -287,6 +287,7 @@ local function BoostCard(_param)
 		Position = UDim2.new(0, 0, 1, -TapTarget),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = if ready then activateHostRef else nil,
 	}, React.createElement(Button, {
 		text = if owned <= 0 then "None owned" elseif canActivate then "Activate" else "One at a time",

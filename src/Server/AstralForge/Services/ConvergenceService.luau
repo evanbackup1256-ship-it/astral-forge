@@ -7,6 +7,7 @@ return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 	local LiveOps = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("LiveOpsConfig"))
+	local ConvergenceOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ConvergenceOpsMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
 	local ConvergenceService = {}
@@ -16,54 +17,22 @@ return function()
 	local TOPIC = "AF_ConvergenceChanged_v1"
 	local SHUTDOWN_FLUSH_SECONDS = 2.5
 
-	local function eventProfile(profile, eventId: string)
-		profile.LiveOps = type(profile.LiveOps) == "table" and profile.LiveOps or {}
-		local current = profile.LiveOps.Convergence
-		if type(current) ~= "table" or current.EventId ~= eventId then
-			current = { EventId = eventId, Contribution = 0, Claimed = {} }
-			profile.LiveOps.Convergence = current
-		end
-		current.Claimed = type(current.Claimed) == "table" and current.Claimed or {}
-		return current
-	end
-
-	local function readEventProfile(profile, eventId: string)
-		local liveOps = type(profile.LiveOps) == "table" and profile.LiveOps or nil
-		local current = liveOps and liveOps.Convergence or nil
-		if type(current) ~= "table" or current.EventId ~= eventId then
-			return { EventId = eventId, Contribution = 0, Claimed = {} }
-		end
-		return {
-			EventId = eventId,
-			Contribution = math.max(0, tonumber(current.Contribution) or 0),
-			Claimed = type(current.Claimed) == "table" and current.Claimed or {},
-		}
-	end
-
 	local function applyReward(profile, reward)
 		local cash = math.max(0, tonumber(reward.Cash) or 0)
 		local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+		-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats/Command/BoostInventory —
+		-- claiming a convergence tier must not throw before the Claimed flag sticks.
+		ConvergenceOpsMath.EnsureRewardBags(profile)
 		profile.Cash = OmegaMath.Add(profile.Cash, cash)
 		profile.RunCash = OmegaMath.Add(profile.RunCash, cash)
 		profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, cash)
-		-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats/Command/BoostInventory —
-		-- claiming a convergence tier must not throw before the Claimed flag sticks.
-		if type(profile.Stats) ~= "table" then
-			profile.Stats = {}
-		end
 		profile.Stats.Collected = OmegaMath.Add(profile.Stats.Collected, cash)
 		profile.Stardust = (tonumber(profile.Stardust) or 0) + math.max(0, tonumber(reward.Stardust) or 0)
 		profile.Cores = (tonumber(profile.Cores) or 0) + math.max(0, tonumber(reward.Cores) or 0)
 		if reward.Signals then
-			if type(profile.Command) ~= "table" then
-				profile.Command = { Signals = 0 }
-			end
 			profile.Command.Signals = (tonumber(profile.Command.Signals) or 0) + math.max(0, tonumber(reward.Signals) or 0)
 		end
 		if reward.Boost then
-			if type(profile.BoostInventory) ~= "table" then
-				profile.BoostInventory = {}
-			end
 			profile.BoostInventory[reward.Boost] = (tonumber(profile.BoostInventory[reward.Boost]) or 0) + 1
 		end
 	end
@@ -108,7 +77,7 @@ return function()
 		if amount <= 0 then return true end
 		self._pending[player] = 0
 		local ok = self._data:AtomicUpdate(player, function(profile)
-			local state = eventProfile(profile, manifest.EventId)
+			local state = ConvergenceOpsMath.EnsureEventProfile(profile, manifest.EventId)
 			state.Contribution += amount
 		end, true, "convergence")
 		if not ok then self._pending[player] = (self._pending[player] or 0) + amount end
@@ -143,33 +112,26 @@ return function()
 	end
 
 	function ConvergenceService:Multiplier(): number
-		local multiplier = 1
-		local total = self._global + self._pendingGlobal
-		for _, phase in LiveOps.Convergence.GlobalPhases do
-			if total >= phase.Target then multiplier = phase.ProductionMultiplier else break end
-		end
-		return multiplier
+		return ConvergenceOpsMath.ProductionMultiplier(
+			self._global + self._pendingGlobal,
+			LiveOps.Convergence.GlobalPhases
+		)
 	end
 
 	function ConvergenceService:State(player: Player, profile)
 		local manifest = self:_manifest()
 
-		local saved = readEventProfile(profile, manifest.EventId)
+		local saved = ConvergenceOpsMath.ReadEventProfile(profile, manifest.EventId)
 		local personal = saved.Contribution + (self._pending[player] or 0)
 		local total = self._global + self._pendingGlobal
-		local phaseIndex, phaseName, nextTarget = 0, "HEATING", LiveOps.Convergence.GlobalPhases[1].Target
-		for index, phase in LiveOps.Convergence.GlobalPhases do
-			if total >= phase.Target then
-				phaseIndex, phaseName = index, phase.Name
-				nextTarget = LiveOps.Convergence.GlobalPhases[index + 1] and LiveOps.Convergence.GlobalPhases[index + 1].Target or phase.Target
-			else nextTarget = phase.Target; break end
-		end
+		local phaseIndex, phaseName, nextTarget =
+			ConvergenceOpsMath.PhaseState(total, LiveOps.Convergence.GlobalPhases)
 		local tiers = {}
 		for index, tier in LiveOps.Convergence.PersonalTiers do
 			tiers[index] = {
 				Tier = index, Required = tier.Required, Reward = tier.Reward,
 				Claimed = saved.Claimed[tostring(index)] == true,
-				CanClaim = personal >= tier.Required and saved.Claimed[tostring(index)] ~= true,
+				CanClaim = ConvergenceOpsMath.CanClaimTier(personal, tier.Required, saved.Claimed, index),
 			}
 		end
 		return {
@@ -190,7 +152,7 @@ return function()
 		if not tier then return { ok = false, error = "That convergence reward does not exist." } end
 		local manifest = self:_manifest()
 		local ok, result = self._data:AtomicUpdate(player, function(profile)
-			local state = eventProfile(profile, manifest.EventId)
+			local state = ConvergenceOpsMath.EnsureEventProfile(profile, manifest.EventId)
 			local key = tostring(tierIndex)
 			if state.Claimed[key] then return { ok = false, error = "That reward was already claimed." } end
 			if state.Contribution < tier.Required then return { ok = false, error = "Keep forging to unlock this reward." } end

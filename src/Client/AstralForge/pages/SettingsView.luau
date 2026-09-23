@@ -1087,6 +1087,7 @@ local function SettingsView(_param)
 		Position = if stack then UDim2.fromOffset(0, 70) else UDim2.new(1, -300, 0, 10),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ZIndex = 6,
 		ref = settingsClaimHostRef,
 	}, React.createElement(Button, {

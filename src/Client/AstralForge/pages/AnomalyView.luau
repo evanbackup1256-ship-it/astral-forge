@@ -1759,6 +1759,7 @@ local function ReactorConsole(_param)
 		Position = UDim2.new(0, 0, 1, -actionH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = anomalyClaimHostRef,
 	}, React.createElement(Button, {
 		text = "PULSE",

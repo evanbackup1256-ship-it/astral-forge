@@ -347,6 +347,7 @@ local function ResearchView(_param)
 					Position = UDim2.new(1, -240, 0, 56),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
+					ClipsDescendants = false,
 					ref = if canBuyAll then buyAllHostRef else nil,
 				}, React.createElement(Button, {
 					text = "BUY ALL AFFORDABLE",
@@ -370,6 +371,7 @@ local function ResearchView(_param)
 					Position = UDim2.new(1, -TapTarget, 0, 132),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
+					ClipsDescendants = false,
 					ref = if canBuyAll then buyAllHostRef else nil,
 				}, React.createElement(Button, {
 					text = "ALL",
