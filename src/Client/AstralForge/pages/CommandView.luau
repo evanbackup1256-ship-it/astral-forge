@@ -29,7 +29,6 @@ local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local meterFill = _ui.meterFill
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
@@ -1397,7 +1396,7 @@ local function CommandView(_param)
 				highlight = unlocked and not claimed,
 			})))
 		end,
-	}))
+	})))
 	return React.createElement(PageScaffold, {
 		hostRef = scrollRef,
 		gap = Layout.panelGap,
