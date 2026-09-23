@@ -3,6 +3,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+local OfflineProjection = require(script.Parent:WaitForChild("OfflineProjection"))
+local UpgradeCostReason = require(script.Parent:WaitForChild("UpgradeCostReason"))
 
 local Economy = {}
 
@@ -342,35 +344,19 @@ function Economy.DomainTreeBonus(profile: ProfileLike, field: string): number
 end
 
 function Economy.MachineCost(id: string, currentLevel: number): number
-	local machine = Economy.GetMachine(id)
-	if not machine then
-		return math.huge
-	end
-	return scaledCost(machine.BaseCost, machine.CostScale, currentLevel)
+	return UpgradeCostReason.LevelCost(OmegaMath, Economy.GetMachine(id), currentLevel)
 end
 
 function Economy.ResearchCost(id: string, currentLevel: number): number
-	local research = Economy.GetResearch(id)
-	if not research then
-		return math.huge
-	end
-	return scaledCost(research.BaseCost, research.CostScale, currentLevel)
+	return UpgradeCostReason.LevelCost(OmegaMath, Economy.GetResearch(id), currentLevel)
 end
 
 function Economy.GridUpgradeCost(id: string, currentLevel: number): number
-	local upgrade = Economy.GetGridUpgrade(id)
-	if not upgrade then
-		return math.huge
-	end
-	return scaledCost(upgrade.BaseCost, upgrade.CostScale, currentLevel)
+	return UpgradeCostReason.LevelCost(OmegaMath, Economy.GetGridUpgrade(id), currentLevel)
 end
 
 function Economy.GridBulkCost(id: string, currentLevel: number, count: number): Persist
-	local upgrade = Economy.GetGridUpgrade(id)
-	if not upgrade then
-		return math.huge
-	end
-	return OmegaMath.GeometricSum(upgrade.BaseCost, upgrade.CostScale, currentLevel, count)
+	return UpgradeCostReason.BulkCost(OmegaMath, Economy.GetGridUpgrade(id), currentLevel, count)
 end
 
 function Economy.AffordableGridLevels(
@@ -379,27 +365,15 @@ function Economy.AffordableGridLevels(
 	stardust: any,
 	maximum: number
 ): (number, Persist)
-	local upgrade = Economy.GetGridUpgrade(id)
-	if not upgrade then
-		return 0, 0
-	end
-	return OmegaMath.AffordableCount(upgrade.BaseCost, upgrade.CostScale, currentLevel, stardust, maximum)
+	return UpgradeCostReason.AffordableLevels(OmegaMath, Economy.GetGridUpgrade(id), currentLevel, stardust, maximum)
 end
 
 function Economy.MachineBulkCost(id: string, currentLevel: number, count: number): Persist
-	local machine = Economy.GetMachine(id)
-	if not machine then
-		return math.huge
-	end
-	return OmegaMath.GeometricSum(machine.BaseCost, machine.CostScale, currentLevel, count)
+	return UpgradeCostReason.BulkCost(OmegaMath, Economy.GetMachine(id), currentLevel, count)
 end
 
 function Economy.ResearchBulkCost(id: string, currentLevel: number, count: number): Persist
-	local research = Economy.GetResearch(id)
-	if not research then
-		return math.huge
-	end
-	return OmegaMath.GeometricSum(research.BaseCost, research.CostScale, currentLevel, count)
+	return UpgradeCostReason.BulkCost(OmegaMath, Economy.GetResearch(id), currentLevel, count)
 end
 
 function Economy.AffordableMachineLevels(
@@ -408,11 +382,7 @@ function Economy.AffordableMachineLevels(
 	cash: any,
 	maximum: number
 ): (number, Persist)
-	local machine = Economy.GetMachine(id)
-	if not machine then
-		return 0, 0
-	end
-	return OmegaMath.AffordableCount(machine.BaseCost, machine.CostScale, currentLevel, cash, maximum)
+	return UpgradeCostReason.AffordableLevels(OmegaMath, Economy.GetMachine(id), currentLevel, cash, maximum)
 end
 
 function Economy.AffordableResearchLevels(
@@ -421,11 +391,7 @@ function Economy.AffordableResearchLevels(
 	cash: any,
 	maximum: number
 ): (number, Persist)
-	local research = Economy.GetResearch(id)
-	if not research then
-		return 0, 0
-	end
-	return OmegaMath.AffordableCount(research.BaseCost, research.CostScale, currentLevel, cash, maximum)
+	return UpgradeCostReason.AffordableLevels(OmegaMath, Economy.GetResearch(id), currentLevel, cash, maximum)
 end
 
 function Economy.RawProduction(profile: ProfileLike): Persist
@@ -789,47 +755,24 @@ function Economy.OfflineEarnings(
 	startedAt: number,
 	endedAt: number
 ): (Persist, number, number, boolean)
-	local rawElapsed = math.max(0, endedAt - startedAt)
-	local maximum = math.max(0, Economy.OfflineHours(profile) * 3600)
-	local elapsed = math.min(rawElapsed, maximum)
-	if elapsed < 30 then
-		return 0, elapsed, 0, rawElapsed > maximum
-	end
-
-
-	local from = startedAt
-	local to = startedAt + elapsed
-	local boundaries = { from, to }
-	local cycleSeconds = math.max(1, GameConfig.Anomalies.CycleSeconds)
-	local nextCycle = (math.floor(from / cycleSeconds) + 1) * cycleSeconds
-	while nextCycle < to do
-		table.insert(boundaries, nextCycle)
-		nextCycle += cycleSeconds
-	end
-	local boostEnd = profile.ActiveBoost and profile.ActiveBoost.EndsAt or 0
-	if boostEnd > from and boostEnd < to then
-		table.insert(boundaries, boostEnd)
-	end
-	local surgeEnd = profile.Anomaly and profile.Anomaly.SurgeEndsAt or 0
-	if surgeEnd > from and surgeEnd < to then
-		table.insert(boundaries, surgeEnd)
-	end
-	table.sort(boundaries)
-
-	local reward = 0
-	local weightedEfficiency = 0
-	for index = 1, #boundaries - 1 do
-		local left = boundaries[index]
-		local right = boundaries[index + 1]
-		local duration = right - left
-		if duration > 0 then
-			local sample = left + duration * 0.5
-			local efficiency = Economy.OfflineEfficiency(profile, sample)
-			reward = Economy.Add(reward, Economy.Mul(Economy.Production(profile, sample), efficiency * duration))
-			weightedEfficiency += efficiency * duration
-		end
-	end
-	return bounded(reward), elapsed, weightedEfficiency / elapsed, rawElapsed > maximum
+	return OfflineProjection.Project(
+		startedAt,
+		endedAt,
+		Economy.OfflineHours(profile) * 3600,
+		30,
+		GameConfig.Anomalies.CycleSeconds,
+		profile.ActiveBoost and profile.ActiveBoost.EndsAt or 0,
+		profile.Anomaly and profile.Anomaly.SurgeEndsAt or 0,
+		function(sample: number)
+			return {
+				Production = Economy.Production(profile, sample),
+				Efficiency = Economy.OfflineEfficiency(profile, sample),
+			}
+		end,
+		Economy.Add,
+		Economy.Mul,
+		bounded
+	)
 end
 
 function Economy.PrestigeReward(runCash: any): Persist

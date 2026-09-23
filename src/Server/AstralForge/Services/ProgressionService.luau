@@ -6,6 +6,7 @@ return function()
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Format"))
+	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
 
 	local ProgressionService = {}
 
@@ -707,17 +708,7 @@ return function()
 	-- permanent stat bonus (Economy.ForgePathEffect reads ClaimedSteps the same way the old
 	-- tree read UnlockedNodes) and a one-time reward chest together.
 	local function ensureForgePath(profile)
-		if type(profile.ForgePath) ~= "table" then
-			profile.ForgePath = { ClaimedSteps = {}, XP = 0, XPDay = -1, XPEarnedToday = 0 }
-			return
-		end
-		-- Partial ForgePath bags (XP-only / missing ClaimedSteps) used to throw on claim.
-		if type(profile.ForgePath.ClaimedSteps) ~= "table" then
-			profile.ForgePath.ClaimedSteps = {}
-		end
-		profile.ForgePath.XP = math.max(0, math.floor(tonumber(profile.ForgePath.XP) or 0))
-		profile.ForgePath.XPDay = math.floor(tonumber(profile.ForgePath.XPDay) or -1)
-		profile.ForgePath.XPEarnedToday = math.max(0, math.floor(tonumber(profile.ForgePath.XPEarnedToday) or 0))
+		profile.ForgePath = ForgePathClaim.Ensure(profile.ForgePath)
 	end
 
 	local function awardForgePathXP(profile, amount: number)
@@ -749,26 +740,10 @@ return function()
 
 	function ProgressionService.ClaimForgePathStep(profile, rawStep: any): (boolean, string)
 		ensureForgePath(profile)
-		if type(rawStep) ~= "number" then
-			return false, "Invalid forge path step."
+		local ok, err, step = ForgePathClaim.TryClaim(profile.ForgePath, rawStep, GameConfig.ForgePath.Steps)
+		if not ok or not step then
+			return false, err or "Invalid forge path step."
 		end
-		local stepIndex = math.floor(rawStep)
-		local step = GameConfig.ForgePath.Steps[stepIndex]
-		if not step then
-			return false, "That forge path step doesn't exist."
-		end
-		local key = tostring(stepIndex)
-		if profile.ForgePath.ClaimedSteps[key] then
-			return false, "That step was already claimed."
-		end
-		if stepIndex > 1 and not profile.ForgePath.ClaimedSteps[tostring(stepIndex - 1)] then
-			return false, "Claim the previous step first."
-		end
-		if profile.ForgePath.XP < step.XPCost then
-			return false, "Not enough forge XP for that step."
-		end
-		profile.ForgePath.XP -= step.XPCost
-		profile.ForgePath.ClaimedSteps[key] = true
 		return true, ProgressionService.ApplyReward(profile, step.Reward, Economy.SteadyProduction(profile))
 	end
 

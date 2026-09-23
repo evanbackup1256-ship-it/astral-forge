@@ -56,6 +56,9 @@ local files = {
 	-- Server trade desk (offer validation / exchange)
 	"src/Server/AstralForge/Modules/TradeDesk.luau",
 	"src/Server/AstralForge/Modules/TradeExchange.luau",
+	"src/Server/AstralForge/Modules/UpgradeCostReason.luau",
+	"src/Server/AstralForge/Modules/ForgePathClaim.luau",
+	"src/Server/AstralForge/Modules/OfflineProjection.luau",
 	"src/Server/AstralForge/Services/AnomalyService.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",

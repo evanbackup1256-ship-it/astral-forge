@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Economy = require(script.Parent:WaitForChild("Economy"))
+local UpgradeCostReason = require(script.Parent:WaitForChild("UpgradeCostReason"))
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 local ProgressionGate = {}
@@ -79,26 +80,13 @@ function ProgressionGate.FeatureStates(profile)
 end
 
 function ProgressionGate.UpgradeReason(profile, upgrade, levels): string?
-	local requiredZone = upgrade.RequiredZone or 1
-	local zoneOwned = math.max(0, math.floor(tonumber(profile.Zone) or 0))
-	if zoneOwned < requiredZone then
+	return UpgradeCostReason.Evaluate(profile, upgrade, levels, function(requiredZone: number): string?
 		local zone = GameConfig.Zones[requiredZone]
-		return "Reach " .. (zone and zone.Name or ("World " .. tostring(requiredZone)))
-	end
-	local requiredRebirths = upgrade.RequiredRebirths or 0
-	local rebirths = math.max(0, math.floor(tonumber(profile.Rebirths) or 0))
-	if rebirths < requiredRebirths then
-		return string.format("Complete %d rebirth%s", requiredRebirths, requiredRebirths == 1 and "" or "s")
-	end
-	if upgrade.PreviousId and (levels[upgrade.PreviousId] or 0) < (upgrade.PreviousLevel or 1) then
-		local previous = Economy.GetMachine(upgrade.PreviousId) or Economy.GetResearch(upgrade.PreviousId)
-		return string.format(
-			"Raise %s to level %d",
-			previous and previous.Name or upgrade.PreviousId,
-			upgrade.PreviousLevel or 1
-		)
-	end
-	return nil
+		return zone and zone.Name
+	end, function(previousId: string): string?
+		local previous = Economy.GetMachine(previousId) or Economy.GetResearch(previousId)
+		return previous and previous.Name
+	end)
 end
 
 return table.freeze(ProgressionGate)

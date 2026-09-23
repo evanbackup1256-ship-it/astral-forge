@@ -14,6 +14,8 @@ local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
 local gateSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionGate.luau")
+local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/UpgradeCostReason.luau")
+local forgeClaimSrc = fs.readFile("src/Server/AstralForge/Modules/ForgePathClaim.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 -- --- Admin dead fields -------------------------------------------------------
@@ -114,16 +116,24 @@ assert(
 	"DataService sanitize must ensure ForgePath.ClaimedSteps"
 )
 assert(
-	string.find(progressionSrc, 'type(profile.ForgePath.ClaimedSteps) ~= "table"', 1, true) ~= nil,
-	"ensureForgePath must fill missing ClaimedSteps on partial bags"
+	string.find(progressionSrc, "ForgePathClaim.Ensure", 1, true) ~= nil,
+	"ensureForgePath must delegate to ForgePathClaim.Ensure"
 )
 assert(
-	string.find(gateSrc, "tonumber(profile.Zone)", 1, true) ~= nil,
-	"UpgradeReason must tonumber Zone (nil-safe)"
+	string.find(forgeClaimSrc, 'type(forgePath.ClaimedSteps) ~= "table"', 1, true) ~= nil,
+	"ForgePathClaim.Ensure must fill missing ClaimedSteps on partial bags"
 )
 assert(
-	string.find(gateSrc, "tonumber(profile.Rebirths)", 1, true) ~= nil,
-	"UpgradeReason must tonumber Rebirths (nil-safe)"
+	string.find(upgradeSrc, "tonumber(profile.Zone)", 1, true) ~= nil,
+	"UpgradeCostReason must tonumber Zone (nil-safe)"
+)
+assert(
+	string.find(upgradeSrc, "tonumber(profile.Rebirths)", 1, true) ~= nil,
+	"UpgradeCostReason must tonumber Rebirths (nil-safe)"
+)
+assert(
+	string.find(gateSrc, "UpgradeCostReason.Evaluate", 1, true) ~= nil,
+	"ProgressionGate.UpgradeReason must delegate to UpgradeCostReason.Evaluate"
 )
 
 -- --- HARD constraints still hold ---------------------------------------------
@@ -135,7 +145,7 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 -- Do not couple these modules to vendor/Packages (tree may exist; we must not reference it).
-for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc } do
+for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
