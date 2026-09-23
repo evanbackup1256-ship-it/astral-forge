@@ -590,7 +590,10 @@ local function MobileHeader(_param)
 	-- percentages on both sides is exactly what let them overlap in the middle on narrow
 	-- phones once real (long) numbers pushed the chip row wider than assumed.
 	local chipCount = (if showCores then 1 else 0) + (if showDust then 1 else 0) + 1
-	local chipReserve = chipCount * 64 + (chipCount - 1) * 6 + 12
+	local chipW = if barHeight <= 40 then 56 else 64
+	local chipReserve = chipCount * chipW + (chipCount - 1) * 6 + 12
+	local titleSize = if barHeight <= 40 then 13 else 15
+	local iconSize = if barHeight <= 40 then 26 else 30
 	return React.createElement("frame", {
 		Size = UDim2.new(1, -edgePad * 2, 0, barHeight),
 		Position = UDim2.fromOffset(edgePad, topPad),
@@ -637,32 +640,32 @@ local function MobileHeader(_param)
 	}, React.createElement(IconTile, {
 		kind = entry.icon,
 		accent = accent,
-		size = 30,
+		size = iconSize,
 		radius = 10,
-		position = UDim2.fromOffset(10, math.floor((barHeight - 30) / 2)),
+		position = UDim2.fromOffset(10, math.floor((barHeight - iconSize) / 2)),
 		spin = false,
 		reducedMotion = reducedMotion,
 		zIndex = 4,
 	}), React.createElement(Text, {
 		value = entry.label,
-		size = 15,
+		size = titleSize,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 11,
-		position = UDim2.fromOffset(48, math.floor(barHeight / 2) - 10),
-		sizeConstraint = UDim2.new(1, -56, 0, 20),
+		minSize = 10,
+		position = UDim2.fromOffset(10 + iconSize + 8, math.floor(barHeight / 2) - 10),
+		sizeConstraint = UDim2.new(1, -(10 + iconSize + 16), 0, 20),
 		zIndex = 4,
 	}), visitorsHere > 0 and React.createElement("frame", {
 		Size = UDim2.fromOffset(8, 8),
-		Position = UDim2.fromOffset(38, math.floor((barHeight - 30) / 2) - 2),
+		Position = UDim2.fromOffset(10 + iconSize - 2, math.floor((barHeight - iconSize) / 2) - 2),
 		BackgroundColor3 = Palette.mango,
 		BorderSizePixel = 0,
 		ZIndex = 5,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("frame", {
-		Size = UDim2.fromOffset(0, TapTarget - 10),
+		Size = UDim2.fromOffset(0, math.min(TapTarget - 10, barHeight - 8)),
 		AutomaticSize = Enum.AutomaticSize.X,
 		Position = UDim2.new(1, -8, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -680,24 +683,31 @@ local function MobileHeader(_param)
 		value = state.Cores,
 		accent = Palette.violet,
 		layoutOrder = 1,
+		width = chipW,
 	}), showDust and React.createElement(MiniChip, {
 		label = "DUST",
 		value = state.Stardust,
 		accent = Palette.mango,
 		layoutOrder = 2,
+		width = chipW,
 	}), React.createElement(MiniChip, {
 		label = "FLUX",
 		value = state.Cash,
 		accent = if vaultReady then Palette.cyan else Palette.muted,
 		layoutOrder = 3,
+		width = chipW,
 	})))
 end
 function MiniChip(_param)
 	local value = _param.value
 	local accent = _param.accent
 	local layoutOrder = _param.layoutOrder
+	local width = _param.width
+	if width == nil then
+		width = 64
+	end
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(64, 30),
+		Size = UDim2.fromOffset(width, 30),
 		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
@@ -705,8 +715,8 @@ function MiniChip(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 8),
 	}), React.createElement("uipadding", {
-		PaddingLeft = UDim.new(0, 8),
-		PaddingRight = UDim.new(0, 8),
+		PaddingLeft = UDim.new(0, 6),
+		PaddingRight = UDim.new(0, 6),
 	}), React.createElement(Text, {
 		value = `{compactNumber(value)}`,
 		size = 12,

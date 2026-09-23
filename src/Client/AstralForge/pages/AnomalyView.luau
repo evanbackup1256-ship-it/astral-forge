@@ -365,7 +365,7 @@ local function PulseWindowNeedle(_param)
 	local period = math.max(0.1, periodSeconds)
 	local anchor = if type(startedAt) == "number" then startedAt else 0
 	-- Drive the needle from Workspace:GetServerTimeNow so client prediction stays
-	-- locked to the same unix epoch the server stamps into PulseWindowStartedAt.
+	-- locked to the same Roblox-synced clock the server stamps into PulseWindowStartedAt.
 	local heartbeat = useClock(animate, 1, 1000, true)
 	local fraction = heartbeat:map(function()
 		local elapsed = (Workspace:GetServerTimeNow() - anchor) % period
@@ -379,6 +379,7 @@ local function PulseWindowNeedle(_param)
 		return UDim2.new(0.5 + math.cos(rad) * 0.5, 0, 0.5 + math.sin(rad) * 0.5, 0)
 	end)
 	local sweetZoneDeg = sweetZone * 360
+	local cuePulse = usePulse(animate, 2.4)
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -399,14 +400,16 @@ local function PulseWindowNeedle(_param)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
 		Color = Palette.mint,
-		Thickness = 3,
-		Transparency = 0.35,
+		Thickness = 4,
+		Transparency = inSweetZone:map(function(hit)
+			return if hit then 0.12 else 0.38
+		end),
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 	}, React.createElement("uigradient", {
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1 - sweetZoneDeg / 360, 1), NumberSequenceKeypoint.new(1, 0.05) }),
 	})))), React.createElement("frame", {
-		Size = UDim2.fromOffset(11, 11),
+		Size = UDim2.fromOffset(13, 13),
 		Position = dotPosition,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = inSweetZone:map(function(hit)
@@ -414,7 +417,11 @@ local function PulseWindowNeedle(_param)
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 7,
-	}, React.createElement("uicorner", {
+	}, React.createElement("uiscale", {
+		Scale = inSweetZone:map(function(hit)
+			return if hit then 1.35 else 1
+		end),
+	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("frame", {
 		Size = UDim2.fromScale(1.7, 1.7),
@@ -424,17 +431,48 @@ local function PulseWindowNeedle(_param)
 			return if hit then Palette.mint else accent
 		end),
 		BackgroundTransparency = inSweetZone:map(function(hit)
-			return if hit then 0.55 else 0.72
+			return if hit then 0.4 else 0.72
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 6,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	}))))
+	}))), React.createElement("frame", {
+		Size = UDim2.fromOffset(72, 18),
+		Position = UDim2.new(0.5, 0, 1, 4),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = inSweetZone:map(function(hit)
+			return if hit then 0.15 else 0.55
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 8,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 6),
+	}), React.createElement("uiscale", {
+		Scale = React.joinBindings({ hit = inSweetZone, pulse = cuePulse }):map(function(values)
+			if values.hit then
+				return 1 + values.pulse * 0.06
+			end
+			return 1
+		end),
+	}), React.createElement(Text, {
+		value = inSweetZone:map(function(hit)
+			return if hit then "HIT NOW" else "WAIT"
+		end),
+		size = 10,
+		color = inSweetZone:map(function(hit)
+			return if hit then Palette.mint else Palette.muted
+		end),
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		fit = true,
+		minSize = 8,
+		position = UDim2.fromOffset(2, 1),
+		sizeConstraint = UDim2.new(1, -4, 1, -2),
+		zIndex = 9,
+	})))
 end
--- The combo badge heats up as the streak climbs: color shifts from mint toward a hot
--- orange/coral at the top of the range, and its pulse speeds up with it, so the escalation is
--- felt at a glance instead of just reading a bigger number.
 local function ComboBadgeHot(_param)
 	local size = _param.size
 	local combo = _param.combo
@@ -1626,25 +1664,25 @@ local function ReactorConsole(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(Text, {
-		value = if anomaly.Ready then "Charge full — bank the yield." else "Pulse the core to fill the cell.",
-		size = if stack then 15 else 16,
+		value = if anomaly.Ready then "Charge full — bank the yield." else "Pulse when the mint arc lights — HIT NOW means perfect.",
+		size = if stack then 14 else 16,
 		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
 		fit = false,
-		sizeConstraint = UDim2.new(1, 0, 0, 22),
+		sizeConstraint = UDim2.new(1, 0, 0, if stack then 36 else 22),
 	}), React.createElement(Text, {
 		value = `{compactNumber(math.min(anomaly.Charge, anomaly.Target))} / {compactNumber(anomaly.Target)} charge`,
 		size = 11,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(0, 24),
+		position = UDim2.fromOffset(0, if stack then 38 else 24),
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Meter, {
 		value = charge,
 		color = accent,
-		position = UDim2.fromOffset(0, 42),
+		position = UDim2.fromOffset(0, if stack then 56 else 42),
 		size = UDim2.new(1, 0, 0, 8),
 		reducedMotion = reducedMotion,
 		shimmer = anomaly.Ready,

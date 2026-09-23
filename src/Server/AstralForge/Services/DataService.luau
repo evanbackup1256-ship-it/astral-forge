@@ -539,7 +539,8 @@ return function(loadService: (string) -> any)
 			end
 			profile.Anomaly.Loadout = sanitizedLoadout
 		end
-		profile.Anomaly.PulseWindowStartedAt = math.floor(nonNegative(profile.Anomaly.PulseWindowStartedAt or 0))
+		-- Keep fractional seconds: the pulse window is ~1.6s with a sub-second sweet zone.
+		profile.Anomaly.PulseWindowStartedAt = nonNegative(profile.Anomaly.PulseWindowStartedAt or 0)
 		profile.Anomaly.Combo = math.floor(nonNegative(profile.Anomaly.Combo or 0))
 		profile.Anomaly.BestCombo = math.floor(nonNegative(profile.Anomaly.BestCombo or 0))
 		profile.Anomaly.CoreTier = math.floor(nonNegative(profile.Anomaly.CoreTier or 0))
