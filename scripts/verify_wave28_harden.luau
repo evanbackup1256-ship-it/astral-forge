@@ -27,7 +27,8 @@ assert(not string.find(router, "local FlatList = require", 1, true), "PageRouter
 assert(not string.find(router, 'GetService("Players")', 1, true), "PageRouter must drop Players import")
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion gate")
+local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+assert(string.find(topBarChrome, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion gate")
 assert(string.find(main, "Canonical softMotion antilag gate — MoreDock", 1, true), "MoreDock softMotion gate")
 do
 	local soft = 0

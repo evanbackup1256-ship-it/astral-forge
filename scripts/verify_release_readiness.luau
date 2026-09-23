@@ -556,8 +556,9 @@ assert(string.find(invViewSrc, "InventoryMath.LoadoutEffectLines", 1, true), "In
 local releaseClockSrc = fs.readFile("src/Client/AstralForge/releaseClockMath.luau")
 assert(string.find(releaseClockSrc, "function ReleaseClockMath.Remaining", 1, true), "ReleaseClockMath.Remaining missing")
 local mainReleaseSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local topBarChromeReleaseSrc = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
 local routerReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(mainReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "MainGame ReleaseClock residual for release")
+assert(string.find(topBarChromeReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "TopBarChrome ReleaseClock residual for release")
 local overviewReleaseClock = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
 assert(string.find(overviewReleaseClock, "ReleaseClockMath.Remaining", 1, true), "OverviewView ReleaseClock residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Remaining", 1, true), "UtcClockMath.Remaining missing")
@@ -709,7 +710,8 @@ assert(string.find(routerWave28, 'lazyView("CrewView", "CrewView")', 1, true), "
 assert(not string.find(routerWave28, "local function CrewRow", 1, true), "CrewRow must leave PageRouter for release")
 assert(not string.find(routerWave28, "local FlatList = require", 1, true), "PageRouter FlatList import residual for release")
 local mainWave28 = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(mainWave28, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion residual for release")
+local topBarChromeWave28 = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+assert(string.find(topBarChromeWave28, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion residual for release")
 assert(string.find(mainWave28, "Canonical softMotion antilag gate — MoreDock", 1, true), "MoreDock softMotion residual for release")
 assert(string.find(cfg, 'Id = "wave28-offline-brief"', 1, true), "Story wave28 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave28-offline"', 1, true), "Mail wave28 residual for release")
@@ -757,7 +759,8 @@ assert(string.find(routerWave30, 'lazyView("RewardsView", "RewardsView")', 1, tr
 assert(not string.find(routerWave30, "local function RewardsView", 1, true), "inline RewardsView must leave PageRouter for release")
 assert(not string.find(routerWave30, "GamepadNavigationService", 1, true), "PageRouter GamepadNavigation residual for release")
 local mainWave30 = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(mainWave30, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion residual for release")
+local topBarChromeWave30 = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+assert(string.find(topBarChromeWave30, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion residual for release")
 assert(string.find(cfg, 'Id = "wave30-offline-brief"', 1, true), "Story wave30 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave30-offline"', 1, true), "Mail wave30 residual for release")
 mark("wave30 worlds rewards extract statchip softMotion content residuals")
@@ -779,10 +782,11 @@ mark("wave31 workshop extract buy claim thin pagerouter content residuals")
 
 -- Wave32: MainGame VaultCollectClaim + chrome softMotion densify + DV21 content.
 local mainWave32 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local topBarChromeWave32 = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
 assert(string.find(mainWave32, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
 assert(string.find(mainWave32, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim residual for release")
 assert(string.find(mainWave32, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion residual for release")
-assert(string.find(mainWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
+assert(string.find(topBarChromeWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
 assert(string.find(mainWave32, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
 assert(string.find(mainWave32, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion residual for release")
 do
@@ -790,14 +794,36 @@ do
 	for _ in string.gmatch(mainWave32, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 22, "MainGame softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 18, "MainGame softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave32-offline-brief"', 1, true), "Story wave32 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave32-offline"', 1, true), "Mail wave32 residual for release")
 mark("wave32 vault collect claim chrome softMotion content residuals")
 
--- Wave32 chrome residuals raise the offline subset past checks=37.
-assert(#passed > 37, "release-readiness offline subset must stay beyond checks=37, got " .. tostring(#passed))
+-- Wave33: TopBarChrome extract + TradeReturnClaim + TopbarReleaseCountdown softMotion + DV21 content.
+local topBarChromeWave33 = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+assert(string.find(topBarChromeWave33, "local function TopBar", 1, true), "TopBar extract residual for release")
+assert(string.find(topBarChromeWave33, "local function StatChip", 1, true), "StatChip extract residual for release")
+assert(string.find(topBarChromeWave33, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon extract residual for release")
+assert(string.find(topBarChromeWave33, "Canonical softMotion antilag gate — TopbarReleaseCountdown", 1, true), "TopbarReleaseCountdown softMotion residual for release")
+local mainWave33 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave33, 'require(script.Parent.TopBarChrome)', 1, true), "MainGame TopBarChrome require residual for release")
+assert(string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
+assert(not string.find(mainWave33, "local function TopBar", 1, true), "TopBar must leave MainGame for release")
+assert(not string.find(mainWave33, "local function StatChip", 1, true), "StatChip must leave MainGame for release")
+assert(not string.find(mainWave33, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon must leave MainGame for release")
+do
+	local hostStart = string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true)
+	assert(hostStart, "TradeReturnClaim missing for release")
+	local hostSlice = string.sub(mainWave33, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "TradeReturnClaim clips residual for release")
+end
+assert(string.find(cfg, 'Id = "wave33-offline-brief"', 1, true), "Story wave33 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave33-offline"', 1, true), "Mail wave33 residual for release")
+mark("wave33 topbarchrome extract trade return claim content residuals")
+
+-- Wave33 TopBarChrome residuals raise the offline subset past checks=38.
+assert(#passed > 38, "release-readiness offline subset must stay beyond checks=38, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

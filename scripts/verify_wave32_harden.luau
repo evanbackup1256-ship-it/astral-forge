@@ -5,10 +5,11 @@
 local fs = require("@lune/fs")
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
 assert(string.find(main, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim host")
 assert(string.find(main, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim")
 assert(string.find(main, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion")
-assert(string.find(main, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion")
+assert(string.find(topBarChrome, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion")
 assert(string.find(main, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion")
 assert(string.find(main, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion")
 do
@@ -22,7 +23,7 @@ do
 	for _ in string.gmatch(main, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 22, "MainGame softMotion densify, got " .. tostring(soft))
+	assert(soft >= 18, "MainGame softMotion densify, got " .. tostring(soft))
 end
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

@@ -151,12 +151,13 @@ assert(GeneralBoardValue.Of({}, "Unknown", persist) == 0, "unknown board")
 -- --- Wiring + HARD gates -------------------------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local topBarChromeSrc = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(mainSrc, 'require(script.Parent.actionCopy)', 1, true), "MainGame requires actionCopy")
-assert(string.find(mainSrc, 'require(script.Parent.boostIconKind)', 1, true), "MainGame requires boostIconKind")
+assert(string.find(topBarChromeSrc, 'require(script.Parent.boostIconKind)', 1, true), "TopBarChrome requires boostIconKind")
 assert(string.find(mainSrc, "ActionCopy.friendlyPlayerMessage", 1, true), "MainGame wires friendlyPlayerMessage")
-assert(string.find(mainSrc, "BoostIconKind.of", 1, true), "MainGame wires BoostIconKind")
+assert(string.find(topBarChromeSrc, "BoostIconKind.of", 1, true), "TopBarChrome wires BoostIconKind")
 assert(not string.find(mainSrc, 'local PLAYER_COPY = {', 1, true), "inline PLAYER_COPY removed")
 assert(not string.find(mainSrc, "local FAILURE_TITLE_PREFIXES = {", 1, true), "inline FAILURE_TITLE_PREFIXES removed")
 

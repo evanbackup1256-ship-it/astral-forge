@@ -5249,11 +5249,43 @@ local GameConfig = {
 			Color = Color3.fromRGB(25, 210, 165),
 		},
 
+		{
+			Id = "wave33-offline-brief",
+			Title = "Wave Thirty Three Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "TopBarChrome extract + TradeReturnClaim FocusClaim; TopbarReleaseCountdown softMotion; readiness past checks=38.",
+			Body = {
+				"StatChip/PerformanceStats/ActiveBoostIcon/TopbarReleaseCountdown/TopBar live in TopBarChrome.luau with densified softMotion.",
+				"TradeReturnClaim parks gamepad on BACK TO TRADE; MainGame sheds the topbar chrome cluster while DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 88, CashMinutes = 39, Signals = 41 },
+			Color = Color3.fromRGB(20, 205, 160),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave33-offline",
+			Subject = "Dock note — wave thirty three offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "TopBarChrome extract + TradeReturnClaim — still DataVersion 21.",
+			Body = {
+				"TopBarChrome peels topbar chrome out of MainGame; TradeReturnClaim parks gamepad on BACK TO TRADE.",
+				"Offline release-readiness checks grow past checks=38 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 88, Stardust = 104, Signals = 45 },
+			Color = Color3.fromRGB(20, 205, 160),
+		},
 
 		{
 			Id = "update-5-1-wave32-offline",

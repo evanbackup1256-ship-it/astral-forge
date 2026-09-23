@@ -179,6 +179,7 @@ local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local progSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
 local invSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
 local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local topBarChromeSrc = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
@@ -191,7 +192,7 @@ assert(string.find(ssSrc, "ItemLoadoutMath.BuildTargets", 1, true), "ServerServi
 assert(string.find(progSrc, "ProgressionOpsMath.ApplyCommandXP", 1, true), "Progression ApplyCommandXP residual")
 assert(string.find(invSrc, "InventoryMath.ChipRows", 1, true), "Inventory ChipRows residual")
 assert(string.find(invSrc, "InventoryMath.LoadoutEffectLines", 1, true), "Inventory LoadoutEffectLines residual")
-assert(string.find(mainSrc, "ReleaseClockMath.Remaining", 1, true), "MainGame ReleaseClock residual")
+assert(string.find(topBarChromeSrc, "ReleaseClockMath.Remaining", 1, true), "TopBarChrome ReleaseClock residual")
 local overviewSrc = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
 assert(string.find(overviewSrc, "ReleaseClockMath.Remaining", 1, true), "OverviewView ReleaseClock residual")
 

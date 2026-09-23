@@ -49,7 +49,8 @@ assert(not string.find(router, "local function RewardChargeRail", 1, true), "Rew
 assert(not string.find(router, "GamepadNavigationService", 1, true), "PageRouter must drop GamepadNavigationService")
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion gate")
+local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+assert(string.find(topBarChrome, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion gate")
 do
 	local soft = 0
 	for _ in string.gmatch(main, "softMotion") do
