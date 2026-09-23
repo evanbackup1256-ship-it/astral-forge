@@ -28,9 +28,10 @@ end
 -- Hot primary pages: must import + mount PageScaffold
 ------------------------------------------------------------------------
 -- Keep this list complete for every primary page migrated onto PageScaffold.
--- Overview lives inside PageRouter; Chat/Admin/Credits stay out (special chrome).
+-- Overview lives inside PageRouter; Chat/Credits stay out (special chrome).
 local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PageRouter.luau",
+	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/BoostsView.luau",
 	"src/Client/AstralForge/pages/CommandView.luau",
@@ -258,6 +259,12 @@ do
 	assert(string.find(admin, "AdminConfirmRun", 1, true), "Admin ARM/RUN must be Confirm-tagged for FocusClaim")
 	assert(string.find(admin, "Capacity or 0", 1, true), "Admin VAULT cell must show vault/capacity")
 	assert(string.find(admin, "FlatList", 1, true), "Admin long player/command lists must FlatList")
+	assert(string.find(admin, "createElement(PageScaffold", 1, true), "Admin must mount PageScaffold")
+	assert(not string.find(admin, 'createElement("scrollingframe"', 1, true), "Admin must not keep raw scrollingframes under PageScaffold")
+	local invCrates = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+	assert(string.find(invCrates, 'id = "crates"', 1, true), "Inventory Crates tab must stay named")
+	assert(string.find(invCrates, "crateStride", 1, true), "Inventory Crates must FlatList with crateStride")
+	assert(string.find(invCrates, "CRATE CHANNELS", 1, true), "Inventory Crates must keep CRATE CHANNELS header")
 	local starGrid = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
 	assert(string.find(starGrid, "FlatList", 1, true), "StarGrid long node boards must FlatList")
 	local boostsVirt = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
