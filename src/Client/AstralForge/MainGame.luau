@@ -1678,6 +1678,10 @@ local function RailButton(_param)
 	local rowHeight = _param.rowHeight
 	local bodySize = _param.bodySize
 	local viewport = useViewport()
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — RailButton springs drop on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local touchChrome = viewport.compact or viewport.tight
 	local disabled = entry.disabled == true
 	local hovered, setHovered = React.useState(false)
@@ -2618,6 +2622,10 @@ local function Navigation(_param)
 	local wallClock = _param.wallClock
 	local openBoosts = _param.openBoosts
 	local viewport = useViewport()
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — Navigation rail motion drops on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local chrome = chromeFor(viewport)
 	local rowHeight = if collapsed then chrome.railCollapsedRow else chrome.railRow
 	local primaryEntries = if fromMore then {} else AppHelpers:filterNav(PRIMARY_NAV, state, tutorialPage)

@@ -203,6 +203,7 @@ end
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+local overviewSrc = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
 local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
 local navSrc = fs.readFile("src/Client/AstralForge/appNav.luau")
 local planSrc = fs.readFile("src/Client/AstralForge/layoutSectionPlan.luau")
@@ -210,11 +211,11 @@ local routeSrc = fs.readFile("src/Client/AstralForge/navRouteTable.luau")
 local vaultSrc = fs.readFile("src/Client/AstralForge/vaultCollectEligibility.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
-assert(string.find(routerSrc, "LayoutSectionPlan.planOverview", 1, true), "PageRouter must plan Overview via LayoutSectionPlan")
-assert(string.find(routerSrc, "VaultCollectEligibility.isEligible", 1, true), "PageRouter must use vault eligibility")
+assert(string.find(overviewSrc, "LayoutSectionPlan.planOverview", 1, true), "OverviewView must plan Overview via LayoutSectionPlan")
+assert(string.find(overviewSrc, "VaultCollectEligibility.isEligible", 1, true), "OverviewView must use vault eligibility")
+assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView must use OpsClaims")
 assert(string.find(routerSrc, "PageReadyMath.CountReadyQuests", 1, true), "PageRouter must use PageReadyMath")
 assert(string.find(routerSrc, "PageReadyMath.AnomalyReady", 1, true), "PageRouter must use AnomalyReady")
-assert(string.find(routerSrc, "PageReadyMath.OpsClaims", 1, true), "PageRouter must use OpsClaims")
 assert(string.find(routerSrc, "PageBoardHeights.Machine", 1, true), "PageRouter must use PageBoardHeights")
 local readySrc = fs.readFile("src/Client/AstralForge/pageReadyMath.luau")
 assert(not string.find(readySrc, "GetService", 1, true), "pageReadyMath must stay pure")

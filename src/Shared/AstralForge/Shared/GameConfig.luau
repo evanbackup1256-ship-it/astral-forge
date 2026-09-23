@@ -5185,11 +5185,44 @@ local GameConfig = {
 			Color = Color3.fromRGB(45, 230, 185),
 		},
 
+		{
+			Id = "wave29-offline-brief",
+			Title = "Wave Twenty Nine Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "OverviewView extract + Collect FocusClaim + MainGame Rail/Navigation softMotion; readiness past checks=34.",
+			Body = {
+				"Overview vault hero and ReleaseCountdown live in OverviewView.luau; PageRouter lazy-loads it with Collect/Overcharge FocusClaim.",
+				"MainGame RailButton and Navigation fold the canonical softMotion antilag gate; offline release-readiness checks grow past checks=34.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 80, CashMinutes = 35, Signals = 37 },
+			Color = Color3.fromRGB(40, 225, 180),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave29-offline",
+			Subject = "Dock note — wave twenty nine offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "OverviewView extract + Collect FocusClaim + Rail/Navigation softMotion — still DataVersion 21.",
+			Body = {
+				"OverviewView peels vault Collect/Overcharge FocusClaim out of PageRouter; RailButton/Navigation softMotion gates chrome motion.",
+				"Offline release-readiness checks grow past checks=34 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 80, Stardust = 96, Signals = 41 },
+			Color = Color3.fromRGB(40, 225, 180),
+		},
+
 
 		{
 			Id = "update-5-1-wave28-offline",

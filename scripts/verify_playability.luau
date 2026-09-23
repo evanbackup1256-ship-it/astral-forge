@@ -28,9 +28,10 @@ end
 -- Hot primary pages: must import + mount PageScaffold
 ------------------------------------------------------------------------
 -- Keep this list complete for every primary page migrated onto PageScaffold.
--- Overview lives inside PageRouter; Mailbox stays dual-pane (no outer scaffold).
+-- Overview lives in OverviewView; Mailbox stays dual-pane (no outer scaffold).
 local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PageRouter.luau",
+	"src/Client/AstralForge/pages/OverviewView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/BoostsView.luau",
@@ -340,6 +341,7 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/StarGridView.luau",
 	"src/Client/AstralForge/pages/PageRouter.luau",
+	"src/Client/AstralForge/pages/OverviewView.luau",
 	"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
 	"src/Client/AstralForge/pages/ShopView.luau",
 	"src/Client/AstralForge/pages/WheelView.luau",
@@ -712,8 +714,10 @@ do
 		{ path = "src/Client/AstralForge/pages/SettingsView.luau", name = "SettingsClaimActions" },
 		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsDailyClaimActions" },
 		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsTimedClaimActions" },
+		{ path = "src/Client/AstralForge/pages/OverviewView.luau", name = "OverviewVaultClaimActions" },
 		{ path = "src/Client/AstralForge/pages/RebirthPanel.luau", name = "RebirthClaimActions" },
 		{ path = "src/Client/AstralForge/pages/CreditsView.luau", name = "CreditsClaimActions" },
+		{ path = "src/Client/AstralForge/pages/AdminView.luau", name = "AdminConfirmRun" },
 	} do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'

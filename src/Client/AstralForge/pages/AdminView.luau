@@ -813,6 +813,8 @@ local function AdminView(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim ARM/RUN must not clip CTA overshoot.
+		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = runLabel,
 		icon = "Lock",

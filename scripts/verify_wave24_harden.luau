@@ -1,19 +1,21 @@
 --!strict
 -- Wave24 offline residuals: Crew FlatList/FocusClaim/softMotion (CrewView extract owns
--- roster hosts as of wave28), Overview softMotion canon (effectsPaused on quietMotion
--- only), Guild softMotion past DENSE floor.
+-- roster hosts as of wave28), Overview softMotion canon (OverviewView as of wave29;
+-- effectsPaused on quietMotion only), Guild softMotion past DENSE floor.
 
 local fs = require("@lune/fs")
 
 local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local crew = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+local overview = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
 local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
 local readme = fs.readFile("README.md")
 
 local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 
 assert(string.find(router, CANON, 1, true), "PageRouter softMotion canon")
-assert(string.find(router, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true), "Overview quietMotion")
+assert(string.find(overview, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true), "Overview quietMotion")
+assert(string.find(overview, CANON, 1, true), "Overview softMotion canon")
 assert(string.find(crew, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim")
 assert(string.find(crew, 'Name = "CrewVisitConfirm"', 1, true), "CrewVisitConfirm")
 assert(string.find(crew, "GamepadNavigationService.FocusClaim", 1, true), "Crew FocusClaim")

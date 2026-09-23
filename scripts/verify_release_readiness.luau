@@ -556,7 +556,8 @@ assert(string.find(releaseClockSrc, "function ReleaseClockMath.Remaining", 1, tr
 local mainReleaseSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
 local routerReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 assert(string.find(mainReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "MainGame ReleaseClock residual for release")
-assert(string.find(routerReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "PageRouter ReleaseClock residual for release")
+local overviewReleaseClock = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewReleaseClock, "ReleaseClockMath.Remaining", 1, true), "OverviewView ReleaseClock residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Remaining", 1, true), "UtcClockMath.Remaining missing")
 assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick PrestigeReward still present for wave22 adjacency")
 assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for wave22 adjacency")
@@ -566,9 +567,10 @@ assert(not string.find(releaseClockSrc, "GetService", 1, true), "ReleaseClockMat
 mark("wave22 extract session echo loadout residuals")
 
 -- Wave24: Crew FlatList + FocusClaim + Overview softMotion canon residuals.
--- Wave28 moved Crew roster hosts into CrewView; keep Overview quietMotion on PageRouter.
+-- Wave28 moved Crew roster hosts into CrewView; wave29 moved Overview quietMotion into OverviewView.
 local routerWave24 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local crewWave24 = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+local overviewWave24 = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
 assert(string.find(crewWave24, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim host missing for release")
 do
 	local hostStart = string.find(crewWave24, 'Name = "CrewVisitClaim"', 1, true)
@@ -585,7 +587,7 @@ assert(
 )
 assert(
 	string.find(
-		routerWave24,
+		overviewWave24,
 		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
 		1,
 		true
@@ -593,7 +595,7 @@ assert(
 	"Overview softMotion canon residual for release"
 )
 assert(
-	string.find(routerWave24, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true),
+	string.find(overviewWave24, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true),
 	"Overview quietMotion fold residual for release"
 )
 assert(
@@ -604,6 +606,16 @@ assert(
 		true
 	),
 	"Crew softMotion canon residual for release"
+)
+-- Rewards still owns a softMotion canon line inside PageRouter.
+assert(
+	string.find(
+		routerWave24,
+		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
+		1,
+		true
+	),
+	"Rewards softMotion canon residual for release"
 )
 local guildWave24 = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
 local guildSoft = 0
@@ -700,8 +712,35 @@ assert(string.find(cfg, 'Id = "wave28-offline-brief"', 1, true), "Story wave28 r
 assert(string.find(cfg, 'Id = "update-5-1-wave28-offline"', 1, true), "Mail wave28 residual for release")
 mark("wave28 crew extract maingame softMotion content residuals")
 
--- Raise floor past checks=33 once wave28 Crew/MainGame residuals land.
-assert(#passed > 32, "release-readiness offline subset must stay beyond checks=32, got " .. tostring(#passed))
+-- Wave29: OverviewView extract + Collect FocusClaim + Rail/Navigation softMotion + DV21 content.
+local overviewWave29 = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewWave29, 'Name = "OverviewVaultClaimActions"', 1, true), "OverviewVaultClaimActions residual for release")
+assert(string.find(overviewWave29, "GamepadNavigationService.FocusClaim", 1, true), "Overview FocusClaim residual for release")
+assert(string.find(overviewWave29, "LayoutSectionPlan.planOverview", 1, true), "Overview planOverview residual for release")
+assert(
+	string.find(overviewWave29, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true),
+	"Overview quietMotion residual for release"
+)
+local routerWave29 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(string.find(routerWave29, 'lazyView("OverviewView", "OverviewView")', 1, true), "PageRouter lazy OverviewView residual for release")
+assert(not string.find(routerWave29, "local function OverviewView", 1, true), "inline OverviewView must leave PageRouter for release")
+assert(not string.find(routerWave29, "local function ReleaseCountdown", 1, true), "ReleaseCountdown must leave PageRouter for release")
+local mainWave29 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave29, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion residual for release")
+assert(string.find(mainWave29, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion residual for release")
+local adminWave29 = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")
+do
+	local hostStart = string.find(adminWave29, 'Name = "AdminConfirmRun"', 1, true)
+	assert(hostStart, "AdminConfirmRun missing for release")
+	local hostSlice = string.sub(adminWave29, hostStart, hostStart + 280)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "AdminConfirmRun clips residual for release")
+end
+assert(string.find(cfg, 'Id = "wave29-offline-brief"', 1, true), "Story wave29 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave29-offline"', 1, true), "Mail wave29 residual for release")
+mark("wave29 overview extract maingame rail softMotion content residuals")
+
+-- Raise floor past checks=34 once wave29 Overview/MainGame residuals land.
+assert(#passed > 33, "release-readiness offline subset must stay beyond checks=33, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

@@ -192,7 +192,8 @@ assert(string.find(progSrc, "ProgressionOpsMath.ApplyCommandXP", 1, true), "Prog
 assert(string.find(invSrc, "InventoryMath.ChipRows", 1, true), "Inventory ChipRows residual")
 assert(string.find(invSrc, "InventoryMath.LoadoutEffectLines", 1, true), "Inventory LoadoutEffectLines residual")
 assert(string.find(mainSrc, "ReleaseClockMath.Remaining", 1, true), "MainGame ReleaseClock residual")
-assert(string.find(routerSrc, "ReleaseClockMath.Remaining", 1, true), "PageRouter ReleaseClock residual")
+local overviewSrc = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewSrc, "ReleaseClockMath.Remaining", 1, true), "OverviewView ReleaseClock residual")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
