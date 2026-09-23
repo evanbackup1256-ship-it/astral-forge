@@ -29,16 +29,17 @@ assert(string.find(main, 'require(script.Parent.TopBarChrome)', 1, true), "MainG
 assert(string.find(main, "local TopBar = _TopBarChrome.TopBar", 1, true), "MainGame binds TopBar")
 local nav = fs.readFile("src/Client/AstralForge/NavChrome.luau")
 assert(string.find(nav, "ActiveBoostIcon = require(script.Parent.TopBarChrome).ActiveBoostIcon", 1, true), "NavChrome binds ActiveBoostIcon")
-assert(string.find(main, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim host")
-assert(string.find(main, "GamepadNavigationService.FocusClaim", 1, true), "TradeReturn FocusClaim")
+local shellFx = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+assert(string.find(shellFx, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim host")
+assert(string.find(shellFx, "GamepadNavigationService.FocusClaim", 1, true), "TradeReturn FocusClaim")
 assert(not string.find(main, "local function TopBar", 1, true), "TopBar must leave MainGame")
 assert(not string.find(main, "local function StatChip", 1, true), "StatChip must leave MainGame")
 assert(not string.find(main, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon must leave MainGame")
 assert(not string.find(main, "local function TopbarReleaseCountdown", 1, true), "TopbarReleaseCountdown must leave MainGame")
 do
-	local hostStart = string.find(main, 'Name = "TradeReturnClaim"', 1, true)
+	local hostStart = string.find(shellFx, 'Name = "TradeReturnClaim"', 1, true)
 	assert(hostStart, "TradeReturnClaim missing")
-	local hostSlice = string.sub(main, hostStart, hostStart + 420)
+	local hostSlice = string.sub(shellFx, hostStart, hostStart + 420)
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "TradeReturnClaim clips")
 end
 

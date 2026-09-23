@@ -788,9 +788,9 @@ local topBarChromeWave32 = fs.readFile("src/Client/AstralForge/TopBarChrome.luau
 local workspaceChromeWave32 = fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau")
 assert(string.find(workspaceChromeWave32, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
 assert(string.find(workspaceChromeWave32, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim residual for release")
-assert(string.find(mainWave32, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion residual for release")
-assert(string.find(topBarChromeWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
 local shellFxWave32 = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+assert(string.find(shellFxWave32, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion residual for release")
+assert(string.find(topBarChromeWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
 assert(string.find(shellFxWave32, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
 assert(string.find(workspaceChromeWave32, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion residual for release")
 do
@@ -798,7 +798,7 @@ do
 	for _ in string.gmatch(mainWave32, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 6, "MainGame softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 3, "MainGame softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave32-offline-brief"', 1, true), "Story wave32 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave32-offline"', 1, true), "Mail wave32 residual for release")
@@ -812,14 +812,15 @@ assert(string.find(topBarChromeWave33, "local function ActiveBoostIcon", 1, true
 assert(string.find(topBarChromeWave33, "Canonical softMotion antilag gate — TopbarReleaseCountdown", 1, true), "TopbarReleaseCountdown softMotion residual for release")
 local mainWave33 = fs.readFile("src/Client/AstralForge/MainGame.luau")
 assert(string.find(mainWave33, 'require(script.Parent.TopBarChrome)', 1, true), "MainGame TopBarChrome require residual for release")
-assert(string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
+assert(string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true) or string.find(fs.readFile("src/Client/AstralForge/ShellFx.luau"), 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
 assert(not string.find(mainWave33, "local function TopBar", 1, true), "TopBar must leave MainGame for release")
 assert(not string.find(mainWave33, "local function StatChip", 1, true), "StatChip must leave MainGame for release")
 assert(not string.find(mainWave33, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon must leave MainGame for release")
 do
-	local hostStart = string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true)
+	local shellFxWave33 = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+	local hostStart = string.find(shellFxWave33, 'Name = "TradeReturnClaim"', 1, true)
 	assert(hostStart, "TradeReturnClaim missing for release")
-	local hostSlice = string.sub(mainWave33, hostStart, hostStart + 420)
+	local hostSlice = string.sub(shellFxWave33, hostStart, hostStart + 420)
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "TradeReturnClaim clips residual for release")
 end
 assert(string.find(cfg, 'Id = "wave33-offline-brief"', 1, true), "Story wave33 residual for release")
@@ -928,8 +929,44 @@ assert(string.find(cfg, 'Id = "wave36-offline-brief"', 1, true), "Story wave36 r
 assert(string.find(cfg, 'Id = "update-5-1-wave36-offline"', 1, true), "Mail wave36 residual for release")
 mark("wave36 shellfx extract inventory guild anomaly softMotion content residuals")
 
--- Wave36 ShellFx residuals raise the offline subset past checks=41.
-assert(#passed > 41, "release-readiness offline subset must stay beyond checks=41, got " .. tostring(#passed))
+-- Wave37: TradeReturn into ShellFx + Command/Settings/Lab/Continuum densify + DENSE floors + DV21.
+local shellFxWave37 = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+assert(string.find(shellFxWave37, "local function TradeReturnPill", 1, true), "TradeReturnPill extract residual for release")
+assert(string.find(shellFxWave37, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
+local mainWave37 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave37, "local TradeReturnPill = _ShellFx.TradeReturnPill", 1, true), "MainGame TradeReturnPill bind residual for release")
+assert(not string.find(mainWave37, "local function TradeReturnPill", 1, true), "TradeReturnPill must leave MainGame for release")
+local commandWave37 = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
+local settingsWave37 = fs.readFile("src/Client/AstralForge/pages/SettingsView.luau")
+local labWave37 = fs.readFile("src/Client/AstralForge/pages/LabView.luau")
+local continuumWave37 = fs.readFile("src/Client/AstralForge/pages/ContinuumView.luau")
+assert(string.find(commandWave37, "Canonical softMotion antilag gate — CommandView", 1, true), "Command softMotion residual for release")
+assert(string.find(settingsWave37, "Canonical softMotion antilag gate — SettingsView", 1, true), "Settings softMotion residual for release")
+assert(string.find(labWave37, "Canonical softMotion antilag gate — LabView", 1, true), "Lab softMotion residual for release")
+assert(string.find(continuumWave37, "Canonical softMotion antilag gate — ContinuumView", 1, true), "Continuum softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(commandWave37, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Command softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(settingsWave37, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Settings softMotion densify residual for release, got " .. tostring(soft))
+end
+local playabilityWave37 = fs.readFile("scripts/verify_playability.luau")
+assert(string.find(playabilityWave37, '["src/Client/AstralForge/pages/InventoryView.luau"] = 12', 1, true), "Inventory DENSE floor residual for release")
+assert(string.find(playabilityWave37, '["src/Client/AstralForge/pages/CommandView.luau"] = 12', 1, true), "Command DENSE floor residual for release")
+assert(string.find(cfg, 'Id = "wave37-offline-brief"', 1, true), "Story wave37 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave37-offline"', 1, true), "Mail wave37 residual for release")
+mark("wave37 tradereturn shellfx command settings lab continuum densify content residuals")
+
+-- Wave37 residuals raise the offline subset past checks=42.
+assert(#passed > 42, "release-readiness offline subset must stay beyond checks=42, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

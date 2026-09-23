@@ -90,6 +90,7 @@ local ActionCopy = require(script.Parent.actionCopy)
 local _TopBarChrome = require(script.Parent.TopBarChrome)
 local TopBar = _TopBarChrome.TopBar
 local _ShellFx = require(script.Parent.ShellFx)
+local TradeReturnPill = _ShellFx.TradeReturnPill
 local AmbientLayer = _ShellFx.AmbientLayer
 local ConfettiBurst = _ShellFx.ConfettiBurst
 local _NavChrome = require(script.Parent.NavChrome)
@@ -131,68 +132,6 @@ local friendlyPlayerMessage = ActionCopy.friendlyPlayerMessage
 local failureTitle = ActionCopy.failureTitle
 local failureBody = ActionCopy.failureBody
 local friendlyActionResponse = ActionCopy.friendlyActionResponse
-local function TradeReturnPill(_param)
-	local stack = _param.stack
-	local bottomPad = _param.bottomPad
-	local reducedMotion = _param.reducedMotion
-	local onReturn = _param.onReturn
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — TradeReturnPill springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local enter = useEntrance(reducedMotion)
-	local pulse = usePulse(not softMotion, 1.35)
-	local width = if stack then 176 else 198
-	local height = if stack then 48 else 46
-	local tradeReturnHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on BACK TO TRADE (FocusClaim prefers Claim-named hosts).
-	React.useEffect(function()
-		if not UserInputService.GamepadEnabled then
-			return nil
-		end
-		local host = tradeReturnHostRef.current
-		if host == nil then
-			return nil
-		end
-		local selectJob = task.defer(function()
-			if host.Parent == nil then
-				return
-			end
-			GamepadNavigationService.FocusClaim(host)
-		end)
-		return function()
-			task.cancel(selectJob)
-		end
-	end, { onReturn })
-	return React.createElement("frame", {
-		Name = "TradeReturnClaim",
-		ref = tradeReturnHostRef,
-		Size = UDim2.fromOffset(width, height),
-		-- FocusClaim BACK TO TRADE must not clip CTA overshoot.
-		ClipsDescendants = false,
-		Position = enter:map(function(amount)
-			return UDim2.new(0.5, 0, 1, -(bottomPad + (if stack then 10 else 16) - math.round((1 - amount) * 22)))
-		end),
-		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 80,
-	}, React.createElement("uiscale", {
-		Scale = pulse:map(function(amount)
-			return 1 + amount * 0.03
-		end),
-	}), React.createElement(Button, {
-		text = "BACK TO TRADE",
-		icon = "Visit",
-		onClick = onReturn,
-		sound = "open",
-		color = Palette.mint,
-		textColor = Palette.ink,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		highlight = true,
-	}))
-end
 local pausePassivePaints = {
 	current = false,
 }

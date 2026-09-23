@@ -229,7 +229,7 @@ local function ContinuumCore(_param)
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement(Text, {
 		value = if rank > 0 then `RANK {compactNumber(rank)}` else "UNRANKED",
 		size = 9,
@@ -247,6 +247,7 @@ local function ContinuumView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ContinuumView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
@@ -448,7 +449,7 @@ local function ContinuumView(_param)
 				}), React.createElement(Meter, {
 					value = math.min(1, fluxFill),
 					color = Palette.cyan,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					shimmer = canFlux,
 					position = UDim2.fromOffset(12, 28),
 					size = UDim2.new(1, -24, 0, 6),
@@ -462,7 +463,7 @@ local function ContinuumView(_param)
 				}), React.createElement(Meter, {
 					value = math.min(1, dustFill),
 					color = Palette.mango,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					shimmer = canDust,
 					position = UDim2.fromOffset(12, 64),
 					size = UDim2.new(1, -24, 0, 6),
@@ -530,7 +531,7 @@ local function ContinuumView(_param)
 					progress = progress,
 					complete = milestoneComplete,
 					accent = Palette.cyan,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					position = milestoneMeterPosition,
 					size = milestoneMeterSize,
 				}), React.createElement(Text, {

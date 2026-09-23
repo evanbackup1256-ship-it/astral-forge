@@ -50,7 +50,7 @@ do
 	for _ in string.gmatch(main, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 6, "MainGame softMotion densify, got " .. tostring(soft))
+	assert(soft >= 3, "MainGame softMotion densify, got " .. tostring(soft))
 end
 
 local admin = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")

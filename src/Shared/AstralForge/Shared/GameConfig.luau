@@ -5313,11 +5313,43 @@ local GameConfig = {
 			Color = Color3.fromRGB(5, 190, 145),
 		},
 
+		{
+			Id = "wave37-offline-brief",
+			Title = "Wave Thirty Seven Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "TradeReturn into ShellFx + Command/Settings/Lab/Continuum densify; DENSE floors raised; readiness past checks=42.",
+			Body = {
+				"TradeReturnPill/TradeReturnClaim live in ShellFx; Command/Settings/Lab/Continuum thicken softMotion.",
+				"Playability DENSE floors climb for Inventory/Guild/Anomaly/Command/Settings/Lab/Continuum; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 96, CashMinutes = 43, Signals = 45 },
+			Color = Color3.fromRGB(0, 185, 140),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave37-offline",
+			Subject = "Dock note — wave thirty seven offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "TradeReturn ShellFx + dense-page softMotion floors — still DataVersion 21.",
+			Body = {
+				"TradeReturnClaim moves into ShellFx; Command/Settings/Lab/Continuum densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=42 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 96, Stardust = 112, Signals = 49 },
+			Color = Color3.fromRGB(0, 185, 140),
+		},
 
 		{
 			Id = "update-5-1-wave36-offline",

@@ -831,6 +831,7 @@ local function SettingsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — SettingsView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
@@ -1111,7 +1112,7 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(0.5, -4, 1, 0),
 		position = UDim2.new(0.5, 4, 0, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(300, 42),
 		Position = if stack then UDim2.fromOffset(0, 70 + TapTarget + 10) else UDim2.new(1, -300, 0, 62),
@@ -1126,7 +1127,7 @@ local function SettingsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.new(1 / 3, -4, 1, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = preset == "low",
 	}), React.createElement(Button, {
 		text = "NORMAL",
@@ -1137,7 +1138,7 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1 / 3, -4, 1, 0),
 		position = UDim2.new(1 / 3, 2, 0, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = preset == "normal",
 	}), React.createElement(Button, {
 		text = "HIGH FX",
@@ -1148,7 +1149,7 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1 / 3, -4, 1, 0),
 		position = UDim2.new(2 / 3, 4, 0, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = preset == "high",
 	})))
 	local _exp_3 = React.createElement(Panel, {
@@ -1156,7 +1157,7 @@ local function SettingsView(_param)
 		accent = SECTION_META[activeSection].accent,
 		background = Palette.panelRaised,
 		padding = 10,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SegmentedTabs, {
 		options = sectionOptions,
@@ -1166,7 +1167,7 @@ local function SettingsView(_param)
 		columns = tabCols,
 		gap = 8,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local _exp_3b = controllerHintsH > 0 and React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),

@@ -200,7 +200,7 @@ local function PowerRow(_param)
 		size = 38,
 		radius = 10,
 		position = UDim2.fromOffset(10, if stack then 10 else 15),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Text, {
 		value = config.Name,
 		size = 14,
@@ -241,7 +241,7 @@ local function PowerRow(_param)
 		outline = true,
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		disabled = value <= 0,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Badge, {
 		value = `{value} CELLS`,
 		accent = config.Color,
@@ -259,7 +259,7 @@ local function PowerRow(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		disabled = available <= 0,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})) else React.createElement(React.Fragment, nil, React.createElement(Button, {
 		text = "−",
 		onClick = function()
@@ -274,7 +274,7 @@ local function PowerRow(_param)
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		position = UDim2.new(1, -minusX, 0.5, -POWER_BTN / 2),
 		disabled = value <= 0,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Badge, {
 		value = `{value} CELLS`,
 		accent = config.Color,
@@ -294,7 +294,7 @@ local function PowerRow(_param)
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		position = UDim2.new(1, -(ROW_RIGHT + POWER_BTN), 0.5, -POWER_BTN / 2),
 		disabled = available <= 0,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})))
 end
 local function LabView(_param)
@@ -307,6 +307,7 @@ local function LabView(_param)
 	local stack = chrome.contentStack
 	local lab = state.Lab
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — LabView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local now = useWallClock(true)

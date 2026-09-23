@@ -288,6 +288,7 @@ local function CommandView(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — fold into reducedMotion so TabPane boat tweens,
 	-- meters, and claim CTAs all snap when tier<=1 or ambient is off (parity with Shop/Trade).
+	-- Canonical softMotion antilag gate — CommandView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local claimHostRef = React.useRef(nil)
@@ -549,7 +550,7 @@ local function CommandView(_param)
 	}, React.createElement(TabRail, {
 		active = tab,
 		setActive = changeTab,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		stack = stack,
 	}))
 	local _condition_3 = tab == "Overview"
@@ -600,7 +601,7 @@ local function CommandView(_param)
 			background = Palette.panelRaised,
 			padding = 16,
 			layoutOrder = nextOrder(),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}, _exp_6, React.createElement(Text, _attributes), React.createElement(Text, {
 			value = if maxed then "Top rank" else `{compactNumber(math.max(0, command.NextLevelXP - command.XP))} XP to next`,
 			size = 12,
@@ -611,7 +612,7 @@ local function CommandView(_param)
 		}), React.createElement(Meter, {
 			value = levelProgress,
 			color = Palette.cyan,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			position = UDim2.fromOffset(if stack then 88 else 114, 60),
 			size = UDim2.new(1, heroInfoWidth, 0, 8),
 		}), React.createElement(Text, {
@@ -644,7 +645,7 @@ local function CommandView(_param)
 			textColor = Palette.ink,
 			size = UDim2.fromScale(1, 1),
 			disabled = nextClaim == nil,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = nextClaim ~= nil,
 		})))
 		local _exp_8 = React.createElement(Text, {
@@ -722,7 +723,7 @@ local function CommandView(_param)
 				size = UDim2.new(1, -20, 0, if stack then TapTarget else 36),
 				position = UDim2.new(0, 10, 1, -(if stack then TapTarget + 8 else 44)),
 				disabled = not can,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				highlight = can,
 			}))
 		end
@@ -736,7 +737,7 @@ local function CommandView(_param)
 			background = Palette.panel,
 			padding = panelPad,
 			layoutOrder = nextOrder(),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}, _exp_8, _exp_9, React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap),
 			Position = UDim2.fromOffset(0, 54),
