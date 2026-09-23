@@ -5,6 +5,7 @@
 -- upgrades. Every dispatch action, payload shape, and the state comparator at the bottom are
 -- unchanged from the prior implementation — this only restructures how it's presented.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local Workspace = game:GetService("Workspace")
 local Audio = require(script.Parent.Parent.audio).Audio
 local useUnixDeadline = require(script.Parent.Parent.deadlines).useUnixDeadline
 local _format = require(script.Parent.Parent.format)
@@ -361,10 +362,14 @@ local function PulseWindowNeedle(_param)
 	local periodSeconds = _param.periodSeconds
 	local sweetZone = _param.sweetZone
 	local animate = _param.animate
-	local phaseOffset = (os.time() - startedAt) % math.max(0.1, periodSeconds)
-	local sweep = useClock(animate, 1 / math.max(0.1, periodSeconds), 1, true)
-	local fraction = sweep:map(function(raw)
-		return (raw + phaseOffset / periodSeconds) % 1
+	local period = math.max(0.1, periodSeconds)
+	local anchor = if type(startedAt) == "number" then startedAt else 0
+	-- Drive the needle from Workspace:GetServerTimeNow so client prediction stays
+	-- locked to the same unix epoch the server stamps into PulseWindowStartedAt.
+	local heartbeat = useClock(animate, 1, 1000, true)
+	local fraction = heartbeat:map(function()
+		local elapsed = (Workspace:GetServerTimeNow() - anchor) % period
+		return elapsed / period
 	end)
 	local inSweetZone = fraction:map(function(value)
 		return value >= 1 - sweetZone
@@ -412,13 +417,15 @@ local function PulseWindowNeedle(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("frame", {
-		Size = UDim2.fromScale(2, 2),
+		Size = UDim2.fromScale(1.7, 1.7),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = inSweetZone:map(function(hit)
 			return if hit then Palette.mint else accent
 		end),
-		BackgroundTransparency = 0.68,
+		BackgroundTransparency = inSweetZone:map(function(hit)
+			return if hit then 0.55 else 0.72
+		end),
 		BorderSizePixel = 0,
 		ZIndex = 6,
 	}, React.createElement("uicorner", {
@@ -467,9 +474,9 @@ local function ReactorCore(_param)
 	local pulseWindowSeconds = _param.pulseWindowSeconds
 	local pulseWindowSweetZone = _param.pulseWindowSweetZone
 	local combo = _param.combo
-	local spin = useClock(animate, 0.12 + charge * 0.5 + motionAmount * 0.3, 360, true)
-	local readyGlow = useGlowStroke(ready, not animate, 0.15, 0.08, 0.55, 2.6)
-	local pulse = usePulse(ready and animate, 2.2)
+	local spin = useClock(animate, 0.1 + charge * 0.42 + motionAmount * 0.22, 360, true)
+	local readyGlow = useGlowStroke(ready, not animate, 0.22, 0.14, 0.42, 1.5)
+	local pulse = usePulse(ready and animate, 1.65)
 	local core = math.floor(size * 0.56)
 	local ringInset = math.floor(size * 0.06)
 	return React.createElement("frame", {
@@ -1293,7 +1300,7 @@ local function ReactorConsole(_param)
 		return 1 + amount * 0.14
 	end)
 	local missFlash, setMissFlash = React.useState(0)
-	local missGlow = useGlowStroke(missFlash > 0, reducedMotion, 0, 0.1, 0.9, 5)
+	local missGlow = useGlowStroke(missFlash > 0, reducedMotion, 0, 0.18, 0.72, 3.2)
 	local tierUpBanner, setTierUpBanner = React.useState()
 	local overdriveFlash, setOverdriveFlash = React.useState(0)
 	React.useEffect(function()

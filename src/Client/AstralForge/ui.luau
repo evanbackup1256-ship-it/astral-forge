@@ -106,10 +106,10 @@ end
 local function buttonLabelWidth(label)
 	return measureButtonLabel(label)
 end
--- A glass-glint sweep used everywhere something shimmers (meters, buttons, tab selection,
--- shimmer text): a tight hot core with a longer soft tail trailing behind it, closer to how
--- light actually reflects off a curved surface than a symmetric triangle wave.
-local SHIMMER_GLINT = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.36, 1), NumberSequenceKeypoint.new(0.46, 0.4), NumberSequenceKeypoint.new(0.5, 0.02), NumberSequenceKeypoint.new(0.55, 0.4), NumberSequenceKeypoint.new(0.7, 0.88), NumberSequenceKeypoint.new(1, 1) })
+-- Soft glass-glint: narrow bright core with a long low-contrast tail. Peak stays
+-- above 0.12 so idle shimmer reads as light, not a strobe.
+local SHIMMER_GLINT = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 1), NumberSequenceKeypoint.new(0.47, 0.55), NumberSequenceKeypoint.new(0.5, 0.18), NumberSequenceKeypoint.new(0.54, 0.55), NumberSequenceKeypoint.new(0.72, 0.92), NumberSequenceKeypoint.new(1, 1) })
+local SHIMMER_SWEEP_SPEED = 0.72
 local inputCancelListeners = {}
 local inputCancelConnection
 local menuCancelConnection
@@ -874,7 +874,7 @@ local function IconTile(_param)
 	local interactionMotion = reducedMotion or effectsPaused
 	local background = if filled then darken(accent, 0.28) else darken(accent, 0.48):Lerp(Palette.panelSoft, 0.42)
 	local glyph = Palette.cream
-	local strokeTransparency = useGlowStroke(glow and not interactionMotion, interactionMotion, 0.62, 0.32, 0.72, 2.1)
+	local strokeTransparency = useGlowStroke(glow and not interactionMotion, interactionMotion, 0.55, 0.28, 0.58, 1.45
 	local _condition = radius
 	if _condition == nil then
 		_condition = math.floor(size * 0.26)
@@ -1128,7 +1128,7 @@ local function Panel(_param)
 	local accentColor = accent or Palette.lineSoft
 	local highlightOn = useOptionalFlipperSpring(if highlight and not effectsPaused then 1 else 0, highlight, interactionMotion, 420, 36)
 	local shimmerWanted = shimmer and interactive and shimmerScale > 0.02 and not interactionMotion
-	local whiteSweep = useClock(shimmerWanted and hovered, 1.05, 1, true)
+	local whiteSweep = useClock(shimmerWanted and hovered, SHIMMER_SWEEP_SPEED, 1, true)
 	-- Clear hover glow on interactive cards with an accent color — separate from the subtle
 	-- stroke-brighten below, gated on ambient FX the same way the shimmer sweep above is.
 	local glowWanted = interactive and accent ~= nil and not interactionMotion
@@ -1376,19 +1376,23 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local pressWasTouch = React.useRef(false)
 	local hoverStall = React.useRef(0)
 	local active = not disabled
-	local liftTarget = if softMotion then 0 elseif disabled then 0 elseif pressed then 2 elseif hovered then -2 else 0
-	local offsetY = useOptionalFlipperSpring(liftTarget, engaged, softMotion, if softMotion then 900 else 700, if softMotion then 40 else 32)
-	local pressAmount = useOptionalFlipperSpring(if disabled or softMotion then 0 elseif pressed then 1 else 0, engaged, softMotion, if softMotion then 900 else 820, 34)
+	-- Press sinks the surface; hover lifts it. Touch uses a deeper press so the
+	-- squash reads under a finger without relying on a hover state that never comes.
+	local liftTarget = if softMotion then 0 elseif disabled then 0 elseif pressed then (if touchChrome then 3 else 2) elseif hovered then -2 else 0
+	local offsetY = useOptionalFlipperSpring(liftTarget, engaged, softMotion, if softMotion then 900 else 780, if softMotion then 40 else 30)
+	local pressAmount = useOptionalFlipperSpring(if disabled or softMotion then 0 elseif pressed then 1 else 0, engaged, softMotion, if softMotion then 900 else 920, 30)
 	local hoverAmount = useOptionalFlipperSpring(if disabled or softMotion then 0 elseif hovered then 1 else 0, engaged, softMotion, if softMotion then 900 else 760, 32)
 	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, engaged, softMotion, if softMotion then 900 else 760, 32)
-	local impact = useFlash(0, softMotion, if touchChrome then 0.28 else 0.32)
-	local popAmount = useOptionalFlipperSpring(popGoal, engaged, softMotion, if softMotion then 900 else 880, 26)
+	-- Impact flash is keyed off popTrigger so every successful activate gets a
+	-- one-shot white wash — previously useFlash(0) never fired.
+	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.2 else 0.26)
+	local popAmount = useOptionalFlipperSpring(popGoal, engaged, softMotion, if softMotion then 900 else 980, 24)
 	React.useEffect(function()
 		if popTrigger <= 0 or softMotion then
 			return nil
 		end
 		setPopGoal(1)
-		local settle = task.delay(0.06, function()
+		local settle = task.delay(0.05, function()
 			return setPopGoal(0)
 		end)
 		return function()
@@ -1400,14 +1404,14 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	-- the instant hover ends and leaves a stuck streak baked into the always-visible idle frame
 	-- instead of continuing its loop or fading cleanly away.
 	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not softMotion and hovered
-	local shimmer = useClock(shimmerWanted, 1.05, 1, true)
+	local shimmer = useClock(shimmerWanted, SHIMMER_SWEEP_SPEED, 1, true)
 	local surfaceSize = pressAmount:map(function()
 		return UDim2.fromScale(1, 1)
 	end)
 	local touchScale = React.joinBindings({ pressAmount, popAmount, hoverAmount }):map(function(values)
-		local press = if touchChrome then 1 - values[1] * 0.08 else 1 - values[1] * 0.04
-		local pop = if touchChrome then values[2] * 0.06 else values[2] * 0.05
-		local hoverBonus = if touchChrome then 0 else values[3] * 0.024
+		local press = if touchChrome then 1 - values[1] * 0.1 else 1 - values[1] * 0.055
+		local pop = if touchChrome then values[2] * 0.08 else values[2] * 0.065
+		local hoverBonus = if touchChrome then 0 else values[3] * 0.02
 		return press + pop + hoverBonus
 	end)
 	React.useEffect(function()
@@ -1606,7 +1610,7 @@ local function ButtonShimmer(_param)
 		Rotation = 16,
 		Transparency = SHIMMER_GLINT,
 		Offset = shimmer:map(function(phase)
-			return Vector2.new(phase * 2.3 - 1.15, 0)
+			return Vector2.new(phase * 2.1 - 1.05, 0)
 		end),
 	}))
 end
@@ -1704,7 +1708,7 @@ function Button(_param)
 	-- "You should tap this" idle breathing glow for claim/collect-style highlight buttons —
 	-- only while the action is actually available, gated on ambient FX like other decorative motion.
 	local breatheWanted = highlight and active and not reducedMotion and not effectsPaused
-	local breatheStroke = useGlowStroke(breatheWanted, reducedMotion or effectsPaused, 0.28, 0.16, 0.5, 1.4)
+	local breatheStroke = useGlowStroke(breatheWanted, reducedMotion or effectsPaused, 0.32, 0.22, 0.46, 1.15)
 	local buttonRef = React.useRef()
 	local assistId = React.useRef(nil)
 	if assistId.current == nil then
@@ -2766,7 +2770,7 @@ local function SegmentedTabs(_param)
 	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 880, 34)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
-	local tabSweep = useClock(not reducedMotion, 0.95, 1, true)
+	local tabSweep = useClock(not reducedMotion, SHIMMER_SWEEP_SPEED, 1, true)
 	local _result = options[activeIndex + 1]
 	if _result ~= nil then
 		_result = _result.accent

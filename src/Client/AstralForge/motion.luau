@@ -216,6 +216,11 @@ local MOTION_SCALE_FLOOR = 0.32
 local MOTION_SCALE_CEIL = 1.6
 local MOTION_OFF_THRESHOLD = 0.08
 local TAU = math.pi * 2
+-- Realtime clocks (spinners, pulse needles, celebration timers) get a higher tick
+-- budget than decorative shimmer, but touch devices hard-cap near 24 so rapid
+-- hover/press storms cannot starve critical presence clocks.
+local REALTIME_CLOCK_BUDGET = 48
+local TOUCH_REALTIME_CLOCK_BUDGET = 24
 local listeners = {}
 local continuousListeners = {}
 local realtimeClocks = {}
@@ -238,6 +243,15 @@ local navFreezeGeneration = 0
 local flipperMotors = {}
 local flipperCount = 0
 local ensureDriver
+local function isTouchPrimary()
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end
+local function realtimeClockBudget()
+	if UserInputService.TouchEnabled then
+		return TOUCH_REALTIME_CLOCK_BUDGET
+	end
+	return REALTIME_CLOCK_BUDGET
+end
 function armFlipper(motor)
 	local _motor = motor
 	if flipperMotors[_motor] ~= nil then
@@ -390,14 +404,16 @@ local function setHitchMotionFrozen(frozen)
 	applyFrozenFlag()
 end
 local function beginUiTransition(seconds)
-	if seconds == nil then
-		seconds = 0.1
-	end
+	-- Touch freezes decorative motion briefly so page swaps stay sharp without
+	-- leaving ambient clocks stuck off for a noticeable beat on lower refresh rates.
+	local fallback = if isTouchPrimary() then 0.07 else 0.1
+	local requested = if seconds == nil then fallback else seconds
+	local span = if UserInputService.TouchEnabled then math.clamp(requested, 0.05, 0.08) else math.max(0.06, requested)
 	navFreezeGeneration += 1
 	local generation = navFreezeGeneration
 	freezeNav = true
 	applyFrozenFlag()
-	task.delay(math.max(0.06, seconds), function()
+	task.delay(span, function()
 		if generation ~= navFreezeGeneration then
 			return nil
 		end
@@ -445,7 +461,7 @@ function ensureDriver()
 		end
 		if realtimeClockCount > 0 then
 			ranRealtime = true
-			tickClocks(realtimeClocks, clamped, 48)
+			tickClocks(realtimeClocks, clamped, realtimeClockBudget())
 		end
 		if listenerCount > 0 then
 			ranRealtime = true
@@ -941,13 +957,14 @@ local function useTokenEntrance(token, reducedMotion, duration)
 		reducedMotion = false
 	end
 	if duration == nil then
-		duration = 0.12
+		duration = 0.18
 	end
 	local skip = reducedMotion
 	local binding, setBinding = React.useBinding(if skip then 1 else 0)
 	local motor = React.useRef()
+	-- Softer entrance spring so page swaps settle deliberately instead of snapping.
 	if motor.current == nil then
-		motor.current = createFlipperMotor(if skip then 1 else 0, 720, 38)
+		motor.current = createFlipperMotor(if skip then 1 else 0, 560, 34)
 	end
 	React.useEffect(function()
 		local active = motor.current
@@ -965,7 +982,7 @@ local function useTokenEntrance(token, reducedMotion, duration)
 		end
 		active:setPosition(0)
 		setBinding(0)
-		active:configure(720, 38)
+		active:configure(560, 34)
 		active:setGoal(1)
 	end, { duration, reducedMotion, setBinding, skip, token })
 	React.useEffect(function()
@@ -985,7 +1002,7 @@ local function useEntrance(reducedMotion)
 	end
 	local suppressOnMount = React.useRef(React.useContext(EntranceMotionSuppressedContext)).current
 	local skip = reducedMotion or suppressOnMount
-	return useFlipperSpring(1, skip, 720, 38, if skip then 1 else 0)
+	return useFlipperSpring(1, skip, 560, 34, if skip then 1 else 0)
 end
 local function useStagger(index, reducedMotion, step, duration)
 	if reducedMotion == nil then
@@ -1050,14 +1067,20 @@ local function useClock(enabled, speed, period, realtime)
 	if realtime == nil then
 		realtime = false
 	end
+	local _binding = useMotionSettings()
+	local motionScale = _binding.motionScale
+	-- Scale clock advance by motion settings so reduced/low-motion players get
+	-- quieter ambient loops without every caller needing a second gate.
+	local scaledSpeed = speed * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
+	local live = enabled and speed > 0 and motionScale > MOTION_OFF_THRESHOLD
 	local binding, setBinding = React.useBinding(0)
 	local phase = React.useRef(0)
 	React.useEffect(function()
-		if not enabled or speed <= 0 then
+		if not live then
 			return nil
 		end
 		local slot = {
-			speed = speed,
+			speed = scaledSpeed,
 			period = period,
 			phase = phase.current,
 			push = function(value)
@@ -1071,7 +1094,7 @@ local function useClock(enabled, speed, period, realtime)
 			phase.current = slot.phase
 			dropClock(slot, realtime)
 		end
-	end, { enabled, period, realtime, setBinding, speed })
+	end, { live, period, realtime, setBinding, scaledSpeed })
 	return binding
 end
 local function useWallClock(enabled)
@@ -1145,7 +1168,7 @@ local function useFlash(trigger, reducedMotion, duration)
 end
 local function usePulse(enabled, speed)
 	if speed == nil then
-		speed = 1.6
+		speed = 1.35
 	end
 	local clock = useClock(enabled, speed, TAU)
 	return clock:map(function(phase)
@@ -1153,14 +1176,16 @@ local function usePulse(enabled, speed)
 	end)
 end
 local function useGlowStroke(active, reducedMotion, rest, near, far, speed)
+	-- Quieter defaults: slower breath, narrower transparency swing — keeps idle
+	-- presence without the noisy neon strobe that stacked glows used to create.
 	if near == nil then
-		near = 0.12
+		near = 0.2
 	end
 	if far == nil then
-		far = 0.6
+		far = 0.48
 	end
 	if speed == nil then
-		speed = 2.2
+		speed = 1.55
 	end
 	local everActive, setEverActive = React.useState(active)
 	React.useEffect(function()
@@ -1169,7 +1194,7 @@ local function useGlowStroke(active, reducedMotion, rest, near, far, speed)
 		end
 	end, { active })
 	local pulse = usePulse(active and not reducedMotion, speed)
-	local blend = useOptionalFlipperSpring(if active then 1 else 0, everActive, reducedMotion, 520, 40)
+	local blend = useOptionalFlipperSpring(if active then 1 else 0, everActive, reducedMotion, 420, 36)
 	return React.useMemo(function()
 		return React.joinBindings({ pulse, blend }):map(function(values)
 			local swept = near + (1 - values[1]) * (far - near)

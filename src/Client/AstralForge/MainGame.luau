@@ -3179,7 +3179,7 @@ local function Workspace(_param)
 	local mobileHeaderCompact = _condition
 	local accent = AppHelpers:pageAccent(page)
 	local entry = AppHelpers:pageEntry(page)
-	local enter = useTokenEntrance(page, reducedMotion, 0.14)
+	local enter = useTokenEntrance(page, reducedMotion, 0.2)
 	local entranceLock, setEntranceLock = React.useState({
 		page = page,
 		suppress = false,
@@ -3190,7 +3190,7 @@ local function Workspace(_param)
 			page = page,
 			suppress = false,
 		})
-		local job = task.delay(0.28, function()
+		local job = task.delay(0.34, function()
 			return setEntranceLock({
 				page = page,
 				suppress = true,
@@ -3229,7 +3229,7 @@ local function Workspace(_param)
 	local ready = asFlux(state.Vault) >= 0.01
 	local contentPosition = enter:map(function(amount)
 		local t = math.clamp(amount, 0, 1)
-		local lift = math.round((1 - t) * 6)
+		local lift = math.round((1 - t) * 12)
 		return UDim2.new(0, inset, 0, headerHeight + unlockH + inset + lift)
 	end)
 	local revealFade = enter:map(function(amount)
@@ -3237,7 +3237,7 @@ local function Workspace(_param)
 	end)
 	local contentFade = enter:map(function(amount)
 		local t = math.clamp(amount, 0, 1)
-		return (1 - t) * 0.28
+		return (1 - t) * 0.4
 	end)
 	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 72
 	-- Desktop reserves room for the right-side VaultPill (248px wide, anchored at -316): the
@@ -3730,7 +3730,7 @@ local function AppShell(_param)
 		end
 		Audio:setView(pageId)
 		ClientLog:debug("nav", pageId)
-		beginUiTransition(0.12)
+		beginUiTransition(0.1)
 		setPage(pageId)
 		if drawerNav then
 			setRailOpen(false)
@@ -5739,7 +5739,9 @@ local function MainGame(_param)
 			InteractionFeedback.reward()
 			celebrate()
 		elseif action == "CollectVault" then
-			Audio:play("vaultBank")
+			Audio:play("vaultDeposit")
+			InteractionFeedback.reward()
+			celebrate()
 		elseif action == "Overcharge" then
 			if response.Combo ~= nil and response.ComboMultiplier ~= nil then
 				local _exp_2 = response.Combo
