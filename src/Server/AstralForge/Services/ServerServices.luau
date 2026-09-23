@@ -71,6 +71,8 @@ serviceFactories["GameService"] = function()
 	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
 	local ActionResponse = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionResponse"))
 	local GeneralBoardValue = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GeneralBoardValue"))
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -224,44 +226,25 @@ serviceFactories["GameService"] = function()
 	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — collect / tap /
 	-- crate / continuum / production ledgers must not throw before the mutation commits.
 	local function ensureStats(profile)
-		if type(profile.Stats) ~= "table" then
-			profile.Stats = {}
-		end
-		return profile.Stats
+		return ProfileBagMath.EnsureStats(profile)
 	end
 
 	local function bumpStat(profile, key: string, amount: number?)
-		local stats = ensureStats(profile)
-		local delta = math.max(0, math.floor(tonumber(amount) or 1))
-		stats[key] = math.max(0, math.floor(tonumber(stats[key]) or 0)) + delta
-		return stats[key]
+		return ProfileBagMath.BumpStat(profile, key, amount)
 	end
 
 	local function ensureActiveBoost(profile)
-		if type(profile.ActiveBoost) ~= "table" then
-			profile.ActiveBoost = { Id = "", EndsAt = 0 }
-		end
-		profile.ActiveBoost.EndsAt = math.max(0, math.floor(tonumber(profile.ActiveBoost.EndsAt) or 0))
-		if type(profile.ActiveBoost.Id) ~= "string" then
-			profile.ActiveBoost.Id = ""
-		end
-		return profile.ActiveBoost
+		return ProfileBagMath.EnsureActiveBoost(profile)
 	end
 
 	local function ensureBoostInventory(profile)
-		if type(profile.BoostInventory) ~= "table" then
-			profile.BoostInventory = {}
-		end
-		return profile.BoostInventory
+		return ProfileBagMath.EnsureBoostInventory(profile)
 	end
 
 	local function ensureCommandMastery(profile)
-		if type(profile.Command) ~= "table" then
-			profile.Command = { MachineMastery = {} }
-		elseif type(profile.Command.MachineMastery) ~= "table" then
-			profile.Command.MachineMastery = {}
-		end
-		return profile.Command.MachineMastery
+		local command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = command
+		return command.MachineMastery
 	end
 
 	local function copyDictionary(source)

@@ -424,6 +424,16 @@ do
 end
 
 ------------------------------------------------------------------------
+
+	-- Wave14: Missions claimAllReady must tonumber Progress/Target; Research overscan softMotion-gated.
+	local missions = fs.readFile("src/Client/AstralForge/pages/MissionsView.luau")
+	assert(string.find(missions, "tonumber(quest.Progress)", 1, true), "Missions claimAllReady must tonumber Progress")
+	assert(string.find(missions, 'type(quests) ~= "table"', 1, true), "Missions claimAllReady must nil-guard quests")
+	local research = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
+	assert(string.find(research, "overscanRows = if softMotion then 0", 1, true), "Research VirtualGrid must softMotion-gate overscan")
+	local routerReady = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+	assert(string.find(routerReady, "PageReadyMath.CountReadyQuests", 1, true), "PageRouter must use PageReadyMath")
+
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
 do

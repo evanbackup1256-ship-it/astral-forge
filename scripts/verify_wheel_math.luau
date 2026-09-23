@@ -73,12 +73,18 @@ assert(string.find(progressionSrc, "profile.Wheel.LastSpinAt + GameConfig.Wheel.
 assert(string.find(progressionSrc, "local WHEEL_RARITY_RANK", 1, true) == nil, "inline WHEEL_RARITY_RANK must be removed")
 assert(
 	string.find(adminSrc, 'command == "ResetWheelCooldown"', 1, true) ~= nil
-		and string.find(adminSrc, 'type(profile.Wheel) ~= "table"', 1, true) ~= nil,
+		and (
+			string.find(adminSrc, 'type(profile.Wheel) ~= "table"', 1, true) ~= nil
+			or string.find(adminSrc, "WheelMath.Ensure", 1, true) ~= nil
+		),
 	"Admin ResetWheelCooldown must nil-safe Wheel"
 )
 assert(
 	string.find(adminSrc, 'command == "ResetDailyClaim"', 1, true) ~= nil
-		and string.find(adminSrc, 'type(profile.Daily) ~= "table"', 1, true) ~= nil,
+		and (
+			string.find(adminSrc, 'type(profile.Daily) ~= "table"', 1, true) ~= nil
+			or string.find(adminSrc, "ProfileBagMath.EnsureDaily", 1, true) ~= nil
+		),
 	"Admin ResetDailyClaim must nil-safe Daily"
 )
 

@@ -75,11 +75,23 @@ local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(adminSrc, "AdminGrantMath.BoundedAmount", 1, true), "Admin must delegate BoundedAmount")
 assert(string.find(adminSrc, "AdminGrantMath.CleanText", 1, true), "Admin must delegate CleanText")
 assert(string.find(adminSrc, "AdminGrantMath.CommandDanger", 1, true), "Admin must delegate CommandDanger")
-assert(string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true), "Admin GrantAnomalyStabilizations must sync Stats")
+assert(
+	string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true)
+		or string.find(adminSrc, 'BumpStat(profile, "AnomalyStabilizations"', 1, true),
+	"Admin GrantAnomalyStabilizations must sync Stats"
+)
 assert(string.find(adminSrc, "Zone = profile.Zone", 1, true), "Admin online Zone watermark residual")
 assert(string.find(adminSrc, "GrantDomainEssence", 1, true), "Admin GrantDomainEssence residual")
-assert(string.find(adminSrc, "profile.Continuum.Rank", 1, true), "Admin Continuum.Rank residual")
-assert(string.find(adminSrc, "profile.Domain.Essence", 1, true), "Admin Domain.Essence residual")
+assert(
+	string.find(adminSrc, "profile.Continuum.Rank", 1, true)
+		or string.find(adminSrc, "EnsureContinuum", 1, true),
+	"Admin Continuum.Rank residual"
+)
+assert(
+	string.find(adminSrc, "profile.Domain.Essence", 1, true)
+		or string.find(adminSrc, "EnsureDomain", 1, true),
+	"Admin Domain.Essence residual"
+)
 
 assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService must Ensure Command")
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService must Ensure Lab")

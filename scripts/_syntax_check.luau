@@ -55,6 +55,7 @@ local files = {
 	"src/Client/AstralForge/layoutSectionPlan.luau",
 	"src/Client/AstralForge/navRouteTable.luau",
 	"src/Client/AstralForge/vaultCollectEligibility.luau",
+	"src/Client/AstralForge/pageReadyMath.luau",
 	"src/Client/AstralForge/actionCopy.luau",
 	"src/Client/AstralForge/boostIconKind.luau",
 	-- Shared catalog (parse only — no require)
@@ -76,6 +77,7 @@ local files = {
 	"src/Server/AstralForge/Modules/ForgeEchoMath.luau",
 	"src/Server/AstralForge/Modules/WheelMath.luau",
 	"src/Server/AstralForge/Modules/CommandMath.luau",
+	"src/Server/AstralForge/Modules/ProfileBagMath.luau",
 "src/Server/AstralForge/Modules/AdminGrantMath.luau",
 "src/Server/AstralForge/Modules/ContinuumDomainMath.luau",
 	"src/Server/AstralForge/Modules/CrateRoll.luau",

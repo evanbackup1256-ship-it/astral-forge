@@ -9,6 +9,7 @@ return function()
 	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 
 	local ProgressionService = {}
 
@@ -48,59 +49,33 @@ return function()
 	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — weekly /
 	-- expedition / season / signal-shop claim paths must not throw before rewards apply.
 	local function ensureStats(profile)
-		if type(profile.Stats) ~= "table" then
-			profile.Stats = {}
-		end
-		return profile.Stats
+		return ProfileBagMath.EnsureStats(profile)
 	end
 
 	local function bumpStat(profile, key: string, amount: number?)
-		local stats = ensureStats(profile)
-		local delta = math.max(0, math.floor(tonumber(amount) or 1))
-		stats[key] = math.max(0, math.floor(tonumber(stats[key]) or 0)) + delta
-		return stats[key]
+		return ProfileBagMath.BumpStat(profile, key, amount)
 	end
 
 	-- WeeklyRelics (and similar) grant Keys tables — ApplyReward must not throw when
 	-- Items / Items.Keys are absent on Studio fixtures before the Claimed flag sticks.
 	local function ensureItemKeys(profile)
-		if type(profile.Items) ~= "table" then
-			profile.Items = { Keys = {} }
-		elseif type(profile.Items.Keys) ~= "table" then
-			profile.Items.Keys = {}
-		end
-		return profile.Items.Keys
+		return ProfileBagMath.EnsureItemKeys(profile)
 	end
 
 	local function ensureDaily(profile)
-		if type(profile.Daily) ~= "table" then
-			profile.Daily = { LastClaimDay = -1, Streak = 0 }
-		end
-		profile.Daily.LastClaimDay = math.floor(tonumber(profile.Daily.LastClaimDay) or -1)
-		profile.Daily.Streak = math.max(0, math.floor(tonumber(profile.Daily.Streak) or 0))
-		return profile.Daily
+		return ProfileBagMath.EnsureDaily(profile)
 	end
 
 	-- Studio fixtures / mid-migrate bags may omit Quests entirely — EnsureQuests /
 	-- Progress / ClaimQuest must not throw before the day roll can seed Items.
 	local function ensureQuests(profile)
-		if type(profile.Quests) ~= "table" then
-			profile.Quests = { Day = -1, Items = {} }
-		elseif type(profile.Quests.Items) ~= "table" then
-			profile.Quests.Items = {}
-		end
-		return profile.Quests
+		return ProfileBagMath.EnsureQuests(profile)
 	end
 
 	-- ApplyReward FreeSpins may leave TimedRewards untouched while Studio fixtures
 	-- omit the bag — EnsureTimedRewards / ClaimTimedReward must nil-safe first.
 	local function ensureTimedRewardsBag(profile)
-		if type(profile.TimedRewards) ~= "table" then
-			profile.TimedRewards = { Day = -1, PlaySeconds = 0, Claimed = {} }
-		elseif type(profile.TimedRewards.Claimed) ~= "table" then
-			profile.TimedRewards.Claimed = {}
-		end
-		return profile.TimedRewards
+		return ProfileBagMath.EnsureTimedRewards(profile)
 	end
 
 	-- ApplyReward FreeSpins seeds Wheel={FreeSpins=N} without LastSpinAt/Spins —
@@ -145,10 +120,8 @@ return function()
 			table.insert(parts, Format.Number(reward.Cores) .. " cores")
 		end
 		if reward.Boost and GameConfig.Boosts[reward.Boost] then
-			if type(profile.BoostInventory) ~= "table" then
-				profile.BoostInventory = {}
-			end
-			profile.BoostInventory[reward.Boost] = (tonumber(profile.BoostInventory[reward.Boost]) or 0) + 1
+			local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+			inventory[reward.Boost] = (tonumber(inventory[reward.Boost]) or 0) + 1
 			table.insert(parts, GameConfig.Boosts[reward.Boost].Name)
 		end
 		if reward.Signals and reward.Signals > 0 then
@@ -166,13 +139,13 @@ return function()
 			table.insert(parts, Format.Number(reward.StreakShield) .. " streak shield")
 		end
 		if reward.Essence and reward.Essence > 0 then
-			profile.Domain = profile.Domain or { Rank = 0, Essence = 0, Nodes = {}, SkillPoints = 0 }
-			profile.Domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0)) + math.floor(reward.Essence))
+			local domain = ProfileBagMath.EnsureDomain(profile)
+			domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(domain.Essence) or 0)) + math.floor(reward.Essence))
 			table.insert(parts, Format.Number(reward.Essence) .. " domain essence")
 		end
 		if reward.DomainEssence and reward.DomainEssence > 0 then
-			profile.Domain = profile.Domain or { Rank = 0, Essence = 0, Nodes = {}, SkillPoints = 0 }
-			profile.Domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0)) + math.floor(reward.DomainEssence))
+			local domain = ProfileBagMath.EnsureDomain(profile)
+			domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(domain.Essence) or 0)) + math.floor(reward.DomainEssence))
 			table.insert(parts, Format.Number(reward.DomainEssence) .. " domain essence")
 		end
 		if reward.Fragments and reward.Fragments > 0 then
