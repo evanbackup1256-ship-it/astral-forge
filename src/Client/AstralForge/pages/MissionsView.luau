@@ -59,6 +59,8 @@ local function ProgressCloseGlow(_param)
 	}))
 end
 local function useReadyPop(ready, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local wasReady = React.useRef(ready)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()
@@ -69,7 +71,7 @@ local function useReadyPop(ready, reducedMotion)
 		end
 		wasReady.current = ready
 	end, { ready })
-	return useFlash(trigger, reducedMotion, 0.6)
+	return useFlash(trigger, softMotion, 0.6)
 end
 local _taskFilter_1 = require(script.Parent.Parent.taskFilter)
 exports.taskFilterCounts = _taskFilter_1.taskFilterCounts

@@ -5,6 +5,7 @@ local clockText = _format.clockText
 local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
 local _motion = require(script.Parent.Parent.motion)
+local useFlash = _motion.useFlash
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
@@ -25,12 +26,12 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ORDER_HEIGHT = 156
+local ORDER_HEIGHT = 168
 local ORDER_HEIGHT_STACK = 224
 local ORDER_GAP = Layout.panelGap
 local CHANNEL_IDS = { "Production", "Storage", "Tap" }
-local SCROLL_PAD = 28 + 16
-local BTN_W = 168
+local SCROLL_PAD = 36 + 16
+local BTN_W = 176
 local SCROLL_BAR = 4
 local ROW_RIGHT = SCROLL_BAR + 10
 local function OrderRow(_param)
@@ -42,34 +43,57 @@ local function OrderRow(_param)
 	local stack = _param.stack
 	local ready = not state.Claimed and state.Progress >= state.Target
 	local fill = meterFill(state.Progress, state.Target, state.Claimed or ready)
-	local reveal = useStagger(order, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local reveal = useStagger(order, softMotion)
+	local claimTrigger, setClaimTrigger = React.useState(0)
+	local claimFlash = useFlash(claimTrigger, softMotion, 0.4)
+	local fireClaim = function()
+		if not ready then
+			return nil
+		end
+		setClaimTrigger(function(value)
+			return value + 1
+		end)
+		return dispatch("ClaimLabOrder", {
+			Id = state.Id,
+		})
+	end
 	local rowH = if stack then ORDER_HEIGHT_STACK else ORDER_HEIGHT
-	local pad = if stack then 14 else 16
+	local pad = if stack then 14 else Layout.cardPadding
 	local contentH = rowH - pad * 2
 	local btnReserve = if stack then TapTarget + 14 else 0
-	local meterY = if stack then contentH - btnReserve - 8 else 112
+	local meterY = if stack then contentH - btnReserve - 8 else 118
 	local progressY = meterY - 18
 	local meterSize = if stack then UDim2.new(1, 0, 0, 8) else UDim2.new(1, -(BTN_W + ROW_RIGHT + 12), 0, 8)
 	local textW = if stack then -(58 + 12) else -(BTN_W + 74 + ROW_RIGHT)
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, rowH),
 		accent = config.Color,
-		background = Palette.panel,
+		background = Palette.panelRaised,
 		padding = pad,
 		layoutOrder = order,
 		reveal = reveal,
 		interactive = true,
 		highlight = ready,
-		reducedMotion = reducedMotion,
-	}, React.createElement(IconTile, {
+		reducedMotion = softMotion,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(46, 46),
+		Position = UDim2.fromOffset(0, if stack then 4 else 10),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uiscale", {
+		Scale = claimFlash:map(function(amount)
+			return 1 + amount * 0.18
+		end),
+	}), React.createElement(IconTile, {
 		kind = "Mission",
 		accent = config.Color,
 		size = 46,
 		radius = 12,
-		position = UDim2.fromOffset(0, if stack then 4 else 10),
 		glow = ready,
-		reducedMotion = reducedMotion,
-	}), React.createElement(Text, {
+		reducedMotion = softMotion,
+	})), React.createElement(Text, {
 		value = config.Name,
 		size = 17,
 		color = Palette.cream,
@@ -106,37 +130,29 @@ local function OrderRow(_param)
 		color = config.Color,
 		position = UDim2.fromOffset(0, meterY),
 		size = meterSize,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = ready or state.Claimed,
 	}), if stack then React.createElement(Button, {
 		text = if state.Claimed then "PAID" elseif ready then "COLLECT" else "IN PROGRESS",
 		icon = "Gift",
-		onClick = function()
-			return dispatch("ClaimLabOrder", {
-				Id = state.Id,
-			})
-		end,
+		onClick = fireClaim,
 		color = if ready then config.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -(TapTarget + 6)),
 		disabled = not ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = ready,
 	}) else React.createElement(Button, {
 		text = if state.Claimed then "PAID" elseif ready then "COLLECT" else "IN PROGRESS",
 		icon = "Gift",
-		onClick = function()
-			return dispatch("ClaimLabOrder", {
-				Id = state.Id,
-			})
-		end,
+		onClick = fireClaim,
 		color = if ready then config.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
-		size = UDim2.fromOffset(BTN_W, 46),
-		position = UDim2.new(1, -(BTN_W + ROW_RIGHT), 0.5, -23),
+		size = UDim2.fromOffset(BTN_W, 48),
+		position = UDim2.new(1, -(BTN_W + ROW_RIGHT), 0.5, -24),
 		disabled = not ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = ready,
 	}))
 end
@@ -329,7 +345,7 @@ local function LabView(_param)
 	local orderBlock = if #lab.Orders > 0 then #lab.Orders * (orderH + ORDER_GAP) else 160
 	local powerStride = if stack then POWER_ROW_STRIDE_STACK else POWER_ROW_STRIDE
 	local powerBoardH = POWER_ROW_START + #CHANNEL_IDS * powerStride + 10 + 28
-	local heroHeight = if stack then (if chrome.landscape then 168 else 196) else 156
+	local heroHeight = if stack then (if chrome.landscape then 156 else 188) else 168
 	local canvasHeight = heroHeight + ORDER_GAP + 18 + orderBlock + 18 + powerBoardH + scrollTail(stack, chrome.bottomSafe, SCROLL_PAD) + SCROLL_EDGE
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -594,7 +610,7 @@ local function LabView(_param)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = SCROLL_BAR,
 		ScrollBarImageColor3 = Palette.lineSoft,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.2,
 		ClipsDescendants = true,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
@@ -603,8 +619,8 @@ local function LabView(_param)
 	}, _exp, _exp_1, _exp_3, _exp_4, ordersBlock, _exp_6, React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, powerBoardH),
 		accent = Palette.mango,
-		background = Palette.panel,
-		padding = 14,
+		background = Palette.panelRaised,
+		padding = if stack then 14 else Layout.cardPadding,
 		layoutOrder = 21,
 		clips = false,
 	}, _exp_7, _exp_8, _exp_9, _newValue_1), React.createElement("frame", {

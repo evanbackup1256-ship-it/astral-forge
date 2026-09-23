@@ -18,6 +18,7 @@ local Text = _ui.Text
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
+local Layout = _theme.Layout
 local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
@@ -37,12 +38,12 @@ local function boostIconKind(boostId)
 	return "Reactor"
 end
 local HERO_H_STACK = 210
-local HERO_H_WIDE = 148
+local HERO_H_WIDE = 160
 local IDLE_HERO_H_STACK = 110
-local IDLE_HERO_H_WIDE = 88
+local IDLE_HERO_H_WIDE = 96
 local CARD_H_STACK = 196
-local CARD_H_WIDE = 168
-local CARD_GAP = 12
+local CARD_H_WIDE = 180
+local CARD_GAP = Layout.panelGap
 local function ActiveBoostHero(_param)
 	local boost = _param.boost
 	local endsAt = _param.endsAt
@@ -59,7 +60,7 @@ local function ActiveBoostHero(_param)
 		size = UDim2.new(1, 0, 0, if stack then HERO_H_STACK else HERO_H_WIDE),
 		accent = boost.Color,
 		background = Palette.panelRaised,
-		padding = 16,
+		padding = if stack then 16 else Layout.cardPadding,
 		layoutOrder = 0,
 		highlight = true,
 		reducedMotion = reducedMotion,
@@ -121,8 +122,8 @@ local function IdleHero(_param)
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, h),
 		accent = Palette.muted,
-		background = Palette.panel,
-		padding = 16,
+		background = Palette.panelRaised,
+		padding = if stack then 16 else Layout.cardPadding,
 		layoutOrder = 0,
 		clips = false,
 	}, React.createElement(IconTile, {
@@ -216,8 +217,8 @@ local function BoostCard(_param)
 	}, React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = if owned > 0 then boost.Color else Palette.muted,
-		background = Palette.panel,
-		padding = 14,
+		background = Palette.panelRaised,
+		padding = if stack then 14 else Layout.cardPadding,
 		reveal = reveal,
 		interactive = true,
 		highlight = ready,
@@ -356,23 +357,24 @@ local function BoostsView(_param)
 	end
 	local headerReveal = useStagger(0, quietMotion)
 	local heroH = if activeBoost ~= nil then (if stack then HERO_H_STACK else HERO_H_WIDE) else (if stack then IDLE_HERO_H_STACK else IDLE_HERO_H_WIDE)
-	local statsH = if stack then 88 else 64
+	local statsH = if stack then 88 else 72
 	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE
 	local rows = math.ceil(math.max(1, #boosts) / columns)
 	local gridH = if #boosts > 0 then rows * cardH + (rows - 1) * CARD_GAP else 150
-	local headerH = 72
-	local canvasHeight = headerH + 12 + heroH + 12 + statsH + 12 + 24 + 12 + gridH + scrollTail(stack, chrome.bottomSafe, 48) + SCROLL_EDGE * 2
+	local headerH = if stack then 72 else 80
+	local pageGap = if stack then 12 else Layout.panelGap
+	local canvasHeight = headerH + pageGap + heroH + pageGap + statsH + pageGap + 24 + pageGap + gridH + scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48) + SCROLL_EDGE * 2
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
+		Padding = UDim.new(0, pageGap),
 	})
 	local _exp_1 = React.createElement(ScrollPads)
 	local _exp_2 = React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, headerH),
 		accent = Palette.pink,
 		background = Palette.panelRaised,
-		padding = 14,
+		padding = if stack then 14 else Layout.cardPadding,
 		layoutOrder = 0,
 		reveal = headerReveal,
 		clips = false,
@@ -484,7 +486,7 @@ local function BoostsView(_param)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = Palette.pink,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.2,
 		ClipsDescendants = true,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,

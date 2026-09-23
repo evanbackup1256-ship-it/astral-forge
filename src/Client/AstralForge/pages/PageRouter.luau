@@ -472,6 +472,7 @@ local function OverviewView(_param)
 	-- Drop entrance/stagger springs when antilag already wants skipEntrance or
 	-- ambient motion is off — Overview mounts several stagger clocks at once.
 	local quietMotion = reducedMotion or effectsPaused or antilag.skipEntrance or not antilag.allowAmbient
+	local softMotion = quietMotion or antilag.tier <= 1
 	local stack = chrome.contentStack
 	local phone = chrome.stack
 	local canCollect = asFlux(state.Vault) >= 0.01
@@ -492,6 +493,17 @@ local function OverviewView(_param)
 	local domainReveal = useStagger(3, quietMotion)
 	local notesReveal = useStagger(4, quietMotion)
 	local opsReveal = useStagger(5, quietMotion)
+	local collectTrigger, setCollectTrigger = React.useState(0)
+	local collectFlash = useFlash(collectTrigger, softMotion, 0.42)
+	local fireCollect = function()
+		if not canCollect then
+			return nil
+		end
+		setCollectTrigger(function(value)
+			return value + 1
+		end)
+		return dispatch("CollectVault")
+	end
 	local missionsReady = countReadyQuests(state.Quests)
 	local labReady = countReadyLabOrders(state.Lab)
 	local pathReady = forgePathReady(state, config)
@@ -516,7 +528,7 @@ local function OverviewView(_param)
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
 	local overchargeReadyAt, setOverchargeReadyAt = React.useState(0)
 	local overchargeLeft, setOverchargeLeft = React.useState(0)
-	local overchargeFlash = useFlash(overchargeTrigger, quietMotion, 0.3)
+	local overchargeFlash = useFlash(overchargeTrigger, softMotion, 0.3)
 	React.useEffect(function()
 		if overchargeReadyAt <= 0 then
 			setOverchargeLeft(0)
@@ -557,14 +569,14 @@ local function OverviewView(_param)
 	local ultraOverview = not stack and viewport.width >= 1680
 	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
 	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
-	local heroH = if landscapePhone then 196 elseif phone then 288 elseif wideOverview then 220 else 236
-	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 260 else 300) else 196) else 0
-	local domainH = if domainVisible then (if phone then (if landscapePhone then 280 else 320) else 212) else 0
-	local notesH = if stack then (if landscapePhone then 148 else 168) else 132
+	local heroH = if landscapePhone then 176 elseif phone then 272 elseif wideOverview then 228 else 248
+	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 248 else 300) else 208) else 0
+	local domainH = if domainVisible then (if phone then (if landscapePhone then 268 else 320) else 224) else 0
+	local notesH = if stack then (if landscapePhone then 132 else 168) else 140
 	-- Ops Pulse: phone uses a 2×2 claim grid so Collect stays above the fold.
-	local opsH = if landscapePhone then 168 elseif stack then 196 else 148
-	local metricCardH = if stack then (if landscapePhone then 72 else 86) elseif wideOverview then 64 else 0
-	local metricsH = if stack then metricCardH * 3 + 20 elseif wideOverview then heroH else 96
+	local opsH = if landscapePhone then 156 elseif stack then 196 else 156
+	local metricCardH = if stack then (if landscapePhone then 64 else 86) elseif wideOverview then 68 else 0
+	local metricsH = if stack then metricCardH * 3 + 16 elseif wideOverview then heroH else 104
 	local countdownInPage = type(releaseAt) == "number" and releaseAt > (function()
 		local ok, value = pcall(function()
 			return game:GetService("Workspace"):GetServerTimeNow()
@@ -574,13 +586,14 @@ local function OverviewView(_param)
 		end
 		return os.time()
 	end)()
-	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 140 else 168) else 132) else 0
+	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 128 else 168) else 140) else 0
 	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
 	local topBandH = if wideOverview then heroH else heroH + metricsH + Layout.panelGap
 	local sectionCount = 1 + 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
-	local canvasH = topBandH + notesH + opsH + countdownH + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
+	local overviewTail = if landscapePhone then 48 elseif stack then 56 else 40
+	local canvasH = topBandH + notesH + opsH + countdownH + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, overviewTail) + SCROLL_EDGE * 2
 	local ctaH = TapTarget
-	local heroReadoutH = if landscapePhone then 118 elseif phone then 176 else 0
+	local heroReadoutH = if landscapePhone then 108 elseif phone then 168 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
 	local opsButtonRows = if stack then 2 else 1
 	local opsButtonH = TapTarget * opsButtonRows + (if stack then 8 else 0)
@@ -670,21 +683,21 @@ local function OverviewView(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 22,
-		position = UDim2.fromOffset(0, if landscapePhone then 14 else 18),
-		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 40 else 54),
+		position = UDim2.fromOffset(0, if landscapePhone then 12 else 18),
+		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 36 else 54),
 	}), React.createElement(Text, {
 		value = `of {compactNumber(state.Capacity)} vault capacity`,
 		size = if stack then chrome.labelText else 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(0, if landscapePhone then 52 elseif stack then 70 else 74),
+		position = UDim2.fromOffset(0, if landscapePhone then 46 elseif stack then 70 else 74),
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Meter, {
 		value = vaultFill,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		reducedMotion = quietMotion,
 		shimmer = vaultFill >= 0.99 and not effectsPaused,
-		position = UDim2.fromOffset(0, if landscapePhone then 74 elseif stack then 96 else 100),
+		position = UDim2.fromOffset(0, if landscapePhone then 66 elseif stack then 96 else 100),
 		size = UDim2.new(1, 0, 0, 10),
 	}), React.createElement(Text, {
 		value = if vaultFill >= 0.99 then "Vault full — production is being wasted." else `{compactNumber(state.Production)} flux / sec flowing in`,
@@ -692,7 +705,7 @@ local function OverviewView(_param)
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
-		position = UDim2.fromOffset(0, if landscapePhone then 88 elseif stack then 112 else 116),
+		position = UDim2.fromOffset(0, if landscapePhone then 80 elseif stack then 112 else 116),
 		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 22 else 28),
 	})), if phone then React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, phoneCtaBlockH),
@@ -709,13 +722,11 @@ local function OverviewView(_param)
 	}), React.createElement(Button, {
 		text = if landscapePhone then "COLLECT" else "COLLECT VAULT",
 		icon = "Collect",
-		onClick = function()
-			return dispatch("CollectVault")
-		end,
+		onClick = fireCollect,
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = if landscapePhone then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not canCollect,
 		highlight = vaultFill >= 0.85,
 	}), React.createElement(Button, {
@@ -726,7 +737,7 @@ local function OverviewView(_param)
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
 		textColor = if overchargeLeft > 0.02 then Palette.muted else Palette.ink,
 		size = if landscapePhone then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = overchargeLeft > 0.02,
 	}), not landscapePhone and React.createElement(Meter, {
 		value = if overchargeLeft > 0 then 1 - overchargeLeft / 0.45 else 1,
@@ -735,14 +746,15 @@ local function OverviewView(_param)
 		position = UDim2.new(0, 0, 1, -4),
 		size = UDim2.new(1, 0, 0, 4),
 	}), React.createElement("frame", {
-		Size = overchargeFlash:map(function(amount)
+		Size = React.joinBindings({ collectFlash, overchargeFlash }):map(function(values)
+			local amount = math.max(values[1], values[2])
 			return UDim2.new(amount, 0, 0, 2)
 		end),
 		Position = UDim2.new(0.5, 0, 1, -2),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.cream,
-		BackgroundTransparency = overchargeFlash:map(function(amount)
-			return 1 - amount
+		BackgroundTransparency = React.joinBindings({ collectFlash, overchargeFlash }):map(function(values)
+			return 1 - math.max(values[1], values[2])
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 8,
@@ -762,13 +774,11 @@ local function OverviewView(_param)
 	}), React.createElement(Button, {
 		text = "COLLECT VAULT",
 		icon = "Collect",
-		onClick = function()
-			return dispatch("CollectVault")
-		end,
+		onClick = fireCollect,
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not canCollect,
 		highlight = vaultFill >= 0.85,
 	}), React.createElement(Button, {
@@ -779,7 +789,7 @@ local function OverviewView(_param)
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
 		textColor = if overchargeLeft > 0.02 then Palette.muted else Palette.ink,
 		size = UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = overchargeLeft > 0.02,
 	}), React.createElement(Meter, {
 		value = if overchargeLeft > 0 then 1 - overchargeLeft / 0.45 else 1,
@@ -794,7 +804,21 @@ local function OverviewView(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 		align = Enum.TextXAlignment.Center,
-	}))), React.createElement(Flex, {
+	}), React.createElement("frame", {
+		Size = collectFlash:map(function(amount)
+			return UDim2.new(amount, 0, 0, 2)
+		end),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		AnchorPoint = Vector2.new(0.5, 1),
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = collectFlash:map(function(amount)
+			return 1 - amount
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 8,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})))), React.createElement(Flex, {
 		direction = if wideOverview or stack then "column" else "row",
 		wrap = false,
 		justify = "fill",
@@ -1670,8 +1694,8 @@ local function UpgradeBoard(_param)
 	local controlsWrap = not stack and viewport.width < 900
 	-- Portrait: title + Buy All + search/filters. Landscape: Buy All only.
 	-- Keep machines above the fold — every 20px of header is a lost buy CTA.
-	local stackControlsY = if chrome.landscape then 44 else 64
-	local headerHeight = if chrome.landscape and stack then 104 elseif stack then 196 else (if controlsWrap then 184 else 156)
+	local stackControlsY = if chrome.landscape then 40 else 56
+	local headerHeight = if chrome.landscape and stack then 92 elseif stack then 168 else (if controlsWrap then 184 else 156)
 	local rowH = if stack then ROW_HEIGHTS.machineStack else ROW_HEIGHTS.machine
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
@@ -1684,7 +1708,7 @@ local function UpgradeBoard(_param)
 	local machinesBlock = if #visible == 0 then 150 else gridRows * rowStride
 	local featureTop = listOffset + machinesBlock + (if featurePanel ~= nil then gap else 0)
 	-- Extra mobile scroll tail so the floating vault/tap cluster never covers the last Buy button.
-	local machineScrollTail = if stack then scrollTail(stack, chrome.bottomSafe, if chrome.landscape then 36 else 56) else scrollTail(stack, chrome.bottomSafe, 28)
+	local machineScrollTail = if stack then scrollTail(stack, chrome.bottomSafe, if chrome.landscape then 52 else 80) else scrollTail(stack, chrome.bottomSafe, 28)
 	local canvasHeight = listOffset + machinesBlock + featureBlock + machineScrollTail + SCROLL_EDGE
 	local window = useVirtualizedList(gridRows, rowStride, listOffset, 3)
 	local mounted = {}
@@ -2314,7 +2338,7 @@ local function WorkshopView(_param)
 	local entries = React.useMemo(function()
 		return AppHelpers:buildUpgradeEntries(config.Machines, state.Machines, state)
 	end, { config.Machines, state.Machines, state.Zone, state.Rebirths })
-	local featureHeight = if chromeFor(viewport).landscape then 140 elseif chromeFor(viewport).stack then 200 else 160
+	local featureHeight = if chromeFor(viewport).landscape then 128 elseif chromeFor(viewport).stack then 188 else 168
 	return React.createElement(UpgradeBoard, {
 		title = "More hands. Less waiting.",
 		eyebrow = "BUILD QUEUE",
