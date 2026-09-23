@@ -108,6 +108,7 @@ git merge-base --is-ancestor 0e6d84a HEAD && echo wave24-offline OK
 git merge-base --is-ancestor 315720b HEAD && echo wave25-offline OK
 git merge-base --is-ancestor 68c71bf HEAD && echo wave26-offline OK
 git merge-base --is-ancestor 78ba94a HEAD && echo wave27-offline OK
+git merge-base --is-ancestor 75bbeec HEAD && echo wave28-offline OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
