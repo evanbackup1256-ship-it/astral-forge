@@ -1,5 +1,6 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
+local luau = require("@lune/luau")
 
 local function hsvToRgb(h: number, s: number, v: number): (number, number, number)
 	local i = math.floor(h * 6)
@@ -89,12 +90,16 @@ env.script = {
 function env.require(path: any)
 	if type(path) == "string" and path:find("LiveOpsConfig$") then
 		local liveOpsSource = fs.readFile("build/LiveOpsConfig.luau")
-		local chunk, loadErr = loadstring(liveOpsSource, "LiveOpsConfig")
+		local okCompile, compiledOrErr = pcall(luau.compile, liveOpsSource)
+		if not okCompile then
+			error("Failed to compile build/LiveOpsConfig.luau: " .. tostring(compiledOrErr))
+		end
+		local chunk, loadErr = luau.load(compiledOrErr, {
+			debugName = "LiveOpsConfig",
+			environment = env,
+		})
 		if not chunk then
 			error("Failed to load build/LiveOpsConfig.luau: " .. tostring(loadErr))
-		end
-		if setfenv then
-			setfenv(chunk, env)
 		end
 		return chunk()
 	end
@@ -102,14 +107,17 @@ function env.require(path: any)
 end
 
 local source = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
-local chunk, loadErr = loadstring(source, "GameConfig")
+-- Lune has no loadstring/setfenv; compile+load with an explicit environment.
+local okCompile, compiledOrErr = pcall(luau.compile, source)
+if not okCompile then
+	error("Failed to compile GameConfig: " .. tostring(compiledOrErr))
+end
+local chunk, loadErr = luau.load(compiledOrErr, {
+	debugName = "GameConfig",
+	environment = env,
+})
 if not chunk then
 	error("Failed to load GameConfig: " .. tostring(loadErr))
-end
-
--- Apply the sandboxed environment.
-if setfenv then
-	setfenv(chunk, env)
 end
 
 local GameConfig = chunk()

@@ -592,7 +592,9 @@ local function ChannelCard(_param)
 	local selected = slotIndex ~= nil
 	local disabled = not selected and atCapacity
 	local hovered, setHovered = React.useState(false)
-	local emphasis = useFlipperSpring(if selected then 1 elseif hovered then 0.4 else 0, false, 420, 32)
+	local antilag = useAntilag()
+	-- Channel cards mount several springs; snap when ambient motion is cut.
+	local emphasis = useFlipperSpring(if selected then 1 elseif hovered then 0.4 else 0, not antilag.allowAmbient, 420, 32)
 	return React.createElement("frame", {
 		Size = width,
 		BackgroundTransparency = 1,

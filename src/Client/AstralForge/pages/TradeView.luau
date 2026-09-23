@@ -28,7 +28,7 @@ local SegmentedTabs = _ui.SegmentedTabs
 local Stroke = _ui.Stroke
 local Text = _ui.Text
 local BOOSTS = { "DomainSurge", "Overdrive", "Hyperdrive", "VaultSurge", "NightShift", "FoundryRush", "Afterburner", "SteadyBurn", "CoreSurge", "StarforgeFlow", "EchoDrive", "Ionstorm", "TwinCatalyst", "MidnightForge" }
-local KEYS = { "ForgeCrate", "NebulaCrate", "SingularityCrate" }
+local KEYS = { "ForgeCrate", "CrystalCrate", "HorizonCrate", "NebulaCrate", "OrbitCrate", "SingularityCrate", "EchoCrate" }
 local BOOST_LABELS = {
 	Overdrive = "Overdrive",
 	Hyperdrive = "Hyperdrive",
@@ -47,8 +47,12 @@ local BOOST_LABELS = {
 }
 local KEY_LABELS = {
 	ForgeCrate = "Forge key",
+	CrystalCrate = "Crystal key",
+	HorizonCrate = "Horizon key",
 	NebulaCrate = "Nebula key",
+	OrbitCrate = "Orbit key",
 	SingularityCrate = "Singularity key",
+	EchoCrate = "Echo key",
 }
 local function emptyOffer()
 	return {
@@ -75,8 +79,12 @@ local function emptyOffer()
 		},
 		Keys = {
 			ForgeCrate = 0,
+			CrystalCrate = 0,
+			HorizonCrate = 0,
 			NebulaCrate = 0,
+			OrbitCrate = 0,
 			SingularityCrate = 0,
+			EchoCrate = 0,
 		},
 		ItemIds = {},
 		Items = {},

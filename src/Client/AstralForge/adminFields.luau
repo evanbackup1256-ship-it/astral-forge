@@ -285,7 +285,7 @@ local GLOBAL_BAN = namedAmounts({ {
 	label = "Permanent",
 } }, "Lock")
 local CLOWNS = { pick("CLOWN", "CLOWN"), pick("JESTER", "JESTER"), pick("HONK", "HONK"), pick("GOOFBALL", "GOOFBALL"), pick("ADMIN'S FAVORITE", "ADMIN'S FAVORITE") }
-local FALLBACK_CRATES = { pick("ForgeCrate", "Forge Crate", "Crate"), pick("NebulaCrate", "Nebula Crate", "Crate"), pick("SingularityCrate", "Singularity Crate", "Crate") }
+local FALLBACK_CRATES = { pick("ForgeCrate", "Forge Crate", "Crate"), pick("CrystalCrate", "Crystal Crate", "Crate"), pick("HorizonCrate", "Horizon Crate", "Crate"), pick("NebulaCrate", "Nebula Crate", "Crate"), pick("OrbitCrate", "Orbit Crate", "Crate"), pick("SingularityCrate", "Singularity Crate", "Crate"), pick("EchoCrate", "Echo Crate", "Crate") }
 local FALLBACK_BOOSTS = { pick("DomainSurge", "Domain Surge", "Boost"), pick("Overdrive", "Overdrive", "Boost"), pick("Hyperdrive", "Hyperdrive", "Boost"), pick("VaultSurge", "Vault Surge", "Boost") }
 local function pack(amountChoices, amountLabel, optionChoices, optionLabel, overridesTarget)
 	if overridesTarget == nil then
