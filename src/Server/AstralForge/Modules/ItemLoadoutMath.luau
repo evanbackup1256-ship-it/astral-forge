@@ -157,4 +157,16 @@ function ItemLoadoutMath.PlanEquipBest(
 	return nextEquipped, equippedCount, changed
 end
 
+-- Aggregated item effect multipliers for client rails (wave49).
+function ItemLoadoutMath.EffectsPublic(profile, Economy)
+	return {
+		Production = Economy.ItemEffect(profile, "Production"),
+		Capacity = Economy.ItemEffect(profile, "Capacity"),
+		Tap = Economy.ItemEffect(profile, "Tap"),
+		Critical = Economy.ItemEffect(profile, "Critical"),
+		Automation = Economy.ItemEffect(profile, "Automation"),
+		Offline = Economy.ItemEffect(profile, "Offline"),
+	}
+end
+
 return table.freeze(ItemLoadoutMath)

@@ -425,6 +425,7 @@ local function TradeView(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate (same line as Shop/Command): fold into reducedMotion
 	-- so every decorative Button/Meter/Panel on the desk snaps under tier/ambient pressure.
+	-- Canonical softMotion antilag gate — TradeView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
@@ -432,8 +433,14 @@ local function TradeView(_param)
 	local boardReveal = useStagger(1, softMotion)
 	local inviteReveal = useStagger(2, softMotion)
 	local confirmReveal = useStagger(3, softMotion)
+	-- Canonical softMotion antilag gate — TradeBoard.
+	local deskReveal = useStagger(4, softMotion)
+	-- Canonical softMotion antilag gate — TradeDesk.
+	local dailyReveal = useStagger(5, softMotion)
+	-- Canonical softMotion antilag gate — TradeDaily.
 	local softInvite = softMotion or inviteReveal ~= nil
 	local softConfirm = softMotion or confirmReveal ~= nil
+	local tradeSoft = softMotion or deskReveal == nil or dailyReveal == nil
 	local now = useSecondClock()
 	local trade = state.Trade
 	local _result = trade
@@ -1337,8 +1344,8 @@ local function TradeView(_param)
 			background = if active then darken(accent, 0.82) else Palette.panel,
 			padding = 10,
 			interactive = true,
-			reveal = boardReveal,
-			reducedMotion = softMotion,
+			reveal = if softMotion then deskReveal else boardReveal,
+			reducedMotion = softMotion or tradeSoft,
 			layoutOrder = 6 + index,
 		}, React.createElement("textbutton", {
 			Size = UDim2.new(1, if compactTrade then 0 else -118, 0, if compactTrade then 48 else 46),

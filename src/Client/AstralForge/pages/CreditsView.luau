@@ -67,6 +67,10 @@ local function CreditsOverlay(_param)
 	local rolesReveal = useStagger(1, softMotion)
 	-- Canonical softMotion antilag gate — CreditsRoles.
 	local thanksReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — CreditsThanks.
+	local closingReveal = useStagger(3, softMotion)
+	-- Canonical softMotion antilag gate — CreditsClose.
+	local brandReveal = useStagger(4, softMotion)
 	local _binding = useExitTransition(softMotion)
 	local exit = _binding[1]
 	local exiting = _binding[2]
@@ -75,7 +79,7 @@ local function CreditsOverlay(_param)
 	-- Prefer softMotion stagger when antilag already wants quiet decoration.
 	local panelReveal = if softMotion then headerReveal else reveal
 	local listReveal = if softMotion then rolesReveal else reveal
-	local thanksSoft = softMotion or thanksReveal == nil
+	local thanksSoft = softMotion or thanksReveal == nil or closingReveal == nil or brandReveal == nil
 	local rolesSoft = softMotion or listReveal == nil
 	local requestClose = React.useCallback(function()
 		if exiting then

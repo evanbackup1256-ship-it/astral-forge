@@ -5493,6 +5493,21 @@ local GameConfig = {
 			Reward = { Stardust = 118, CashMinutes = 54, Signals = 56 },
 			Color = Color3.fromRGB(0, 230, 185),
 		},
+		{
+			Id = "wave49-offline-brief",
+			Title = "Wave Forty Nine Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Mailbox/Shop/ItemEffects/FluxSurge peels + Credits/Inventory/Rebirth/Settings/Trade densify; readiness past checks=54.",
+			Body = {
+				"StoryMailSnapshot MailboxPublic, ShopGrantEligibility CatalogPublic, ItemLoadoutMath EffectsPublic, FluxSurgeService IdleState peel ServerServices bags.",
+				"Credits/Inventory/Rebirth/Settings/Trade thicken softMotion; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 120, CashMinutes = 55, Signals = 57 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
 
 
 
@@ -5678,6 +5693,21 @@ local GameConfig = {
 				"Schema stays DataVersion 21. Attachment for reading the memo.",
 			},
 			Attachment = { CashMinutes = 118, Stardust = 134, Signals = 60 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
+		{
+			Id = "update-5-1-wave49-offline",
+			Subject = "Dock note — wave forty nine offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Mailbox/Shop/ItemEffects/FluxSurge peels + credits/inventory/rebirth/settings/trade softMotion — still DataVersion 21.",
+			Body = {
+				"StoryMailSnapshot MailboxPublic, ShopGrantEligibility CatalogPublic, ItemLoadoutMath EffectsPublic, and FluxSurgeService IdleState peel ServerServices bags; Credits/Inventory/Rebirth/Settings/Trade densify softMotion.",
+				"Offline release-readiness checks grow past checks=54 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 120, Stardust = 136, Signals = 61 },
 			Color = Color3.fromRGB(0, 230, 185),
 		},
 

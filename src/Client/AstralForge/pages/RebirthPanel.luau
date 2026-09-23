@@ -59,6 +59,12 @@ local function RebirthPanel(_param)
 	-- Canonical softMotion antilag gate — RebirthConfirm.
 	local confirmReveal = useStagger(0, softMotion)
 	local heroReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — RebirthHero.
+	local meterReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — RebirthMeter.
+	local rewardReveal = useStagger(3, softMotion)
+	-- Canonical softMotion antilag gate — RebirthReward.
+	local rebirthSoft = softMotion or meterReveal == nil or rewardReveal == nil
 	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
@@ -129,7 +135,7 @@ local function RebirthPanel(_param)
 		background = if confirming then darken(Palette.coral, 0.92) else Palette.panelRaised,
 		padding = if stack then chrome.cardPadding else 18,
 		reveal = reveal or (if confirming then confirmReveal else heroReveal),
-		highlight = (canRebirth or confirming) and not effectsPaused and not softMotion,
+		highlight = (canRebirth or confirming) and not effectsPaused and not softMotion and not rebirthSoft,
 		reducedMotion = softMotion or effectsPaused,
 		clips = false,
 	}, React.createElement(IconTile, {

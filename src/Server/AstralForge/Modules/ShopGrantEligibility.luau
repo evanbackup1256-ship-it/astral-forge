@@ -149,4 +149,12 @@ function ShopGrantEligibility.EnsureShop(shop: any, offers: { OfferLike }, utcDa
 	return true
 end
 
+-- Monetization catalog rail bag (wave49).
+function ShopGrantEligibility.CatalogPublic(ownedPasses: any, copyDictionary)
+	return {
+		OwnedPasses = copyDictionary(type(ownedPasses) == "table" and ownedPasses or {}),
+		CatalogVersion = 1,
+	}
+end
+
 return table.freeze(ShopGrantEligibility)

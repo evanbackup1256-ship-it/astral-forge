@@ -835,6 +835,15 @@ local function SettingsView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
+	-- Canonical softMotion antilag gate — SettingsAudio.
+	local audioReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — SettingsMotion.
+	local motionReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — SettingsVisual.
+	local visualReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — SettingsNav.
+	local navReveal = useStagger(3, softMotion)
+	local settingsSoft = softMotion or audioReveal == nil or motionReveal == nil or visualReveal == nil or navReveal == nil
 	-- isTouchDevice() (called with no viewport args) re-derives its own desktop/mobile guess from
 	-- the raw camera ViewportSize instead of trusting the already-computed, correctly-scaled
 	-- `viewport.desktop` that AutoScale produced -- the two can disagree (most visibly in Roblox
@@ -1056,7 +1065,8 @@ local function SettingsView(_param)
 		accent = Palette.violet,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = enter,
+		reveal = if softMotion then audioReveal else enter,
+		highlight = not settingsSoft,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {

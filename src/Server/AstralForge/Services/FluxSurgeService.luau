@@ -92,5 +92,14 @@ return function()
 		end
 	end
 
+	-- Cold / missing service fallback for client rails (wave49).
+	function FluxSurgeService.IdleState()
+		return {
+			Active = false,
+			Multiplier = 1,
+			AffectsCapacity = false,
+		}
+	end
+
 	return FluxSurgeService
 end

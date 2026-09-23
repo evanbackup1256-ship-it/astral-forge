@@ -37,4 +37,12 @@ function StoryMailSnapshot.BuildMailbox(profile, mailMessages, ProgressionGate)
 	return mailState, unreadMail
 end
 
+-- Client Mailbox rail bag (wave49).
+function StoryMailSnapshot.MailboxPublic(messages, unread: number)
+	return {
+		Messages = messages,
+		Unread = unread,
+	}
+end
+
 return StoryMailSnapshot

@@ -106,6 +106,7 @@ serviceFactories["GameService"] = function()
 	local PlayerAnalytics = loadService("PlayerAnalytics")
 	local PlayerBadges = loadService("PlayerBadges")
 	local ForgeEchoService = loadService("ForgeEchoService")
+	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 
 	local GameService = {}
@@ -1203,14 +1204,7 @@ serviceFactories["GameService"] = function()
 				Shop = itemShop,
 				ShopRefreshAt = nextUtcMidnight(),
 				AutoSalvage = AutoSalvageSnapshot.Public(profile.Items.AutoSalvage, copyDictionary),
-				Effects = {
-					Production = Economy.ItemEffect(profile, "Production"),
-					Capacity = Economy.ItemEffect(profile, "Capacity"),
-					Tap = Economy.ItemEffect(profile, "Tap"),
-					Critical = Economy.ItemEffect(profile, "Critical"),
-					Automation = Economy.ItemEffect(profile, "Automation"),
-					Offline = Economy.ItemEffect(profile, "Offline"),
-				},
+				Effects = ItemLoadoutMath.EffectsPublic(profile, Economy),
 			},
 			Anomaly = AnomalyService.State(profile),
 			Lab = LabService.State(profile),
@@ -1223,21 +1217,18 @@ serviceFactories["GameService"] = function()
 			Convergence = self._convergence:State(player, profile),
 			FeatureUnlocks = featureUnlocks,
 			Story = storyState,
-			Mailbox = { Messages = mailState, Unread = unreadMail },
+			Mailbox = StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
 			Admin = self._admin and self._admin:State(player) or { Access = false },
 			Settings = copyDictionary(profile.Settings),
 			Flags = copyDictionary(profile.Flags),
 			Stats = copyDictionary(profile.Stats),
-			Shop = {
-				OwnedPasses = copyDictionary(profile.OwnedPasses or {}),
-				CatalogVersion = 1,
-			},
+			Shop = ShopGrantEligibility.CatalogPublic(profile.OwnedPasses, copyDictionary),
 			Production = production,
 			RawProduction = Economy.RawProduction(profile),
 			Capacity = capacity,
 			CapacitySeconds = Economy.CapacitySeconds(profile, now),
 			SteadyProduction = Economy.SteadyProduction(profile, now),
-			FluxSurge = self._fluxSurge and self._fluxSurge:State(now) or { Active = false, Multiplier = 1, AffectsCapacity = false },
+			FluxSurge = self._fluxSurge and self._fluxSurge:State(now) or FluxSurgeService.IdleState(),
 			PermanentMultiplier = Economy.PermanentMultiplier(profile),
 			AutoCollectRate = Economy.AutoCollectRate(profile),
 			OfflineHours = Economy.OfflineHours(profile),

@@ -1715,6 +1715,13 @@ local function InventoryView(_param)
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local headerReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — InventoryTabs.
+	local tabsReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — InventoryInspect.
+	local inspectReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — InventoryBulk.
+	local bulkReveal = useStagger(3, softMotion)
+	local inventorySoft = softMotion or tabsReveal == nil or inspectReveal == nil or bulkReveal == nil
 	local tab, setTab = React.useState("Relics")
 	local activeTabIndex = math.max(0, (table.find(TABS, tab) or 0) - 1)
 	local paneTravel = useFlipperSpring(activeTabIndex, softMotion, 1540, 40)
@@ -2279,8 +2286,8 @@ local function InventoryView(_param)
 		background = Palette.panelRaised,
 		padding = if stack then 14 else 18,
 		layoutOrder = 0,
-		reveal = headerReveal,
-		highlight = true,
+		reveal = if softMotion then tabsReveal else headerReveal,
+		highlight = not inventorySoft,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(IconTile, {
