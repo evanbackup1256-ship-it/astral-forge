@@ -461,20 +461,25 @@ local function OverviewView(_param)
 		dispatch("Overcharge")
 	end
 	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` else "OVERCHARGE"
-	local heroH = if phone then 336 else 252
-	local rebirthH = if rebirthVisible then (if phone then 340 else 208) else 0
-	local domainH = if domainVisible then (if phone then 372 else 232) else 0
+	local landscapePhone = phone and chrome.landscape
+	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
+	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
+	local heroH = if landscapePhone then 196 elseif phone then 336 else 252
+	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 280 else 340) else 208) else 0
+	local domainH = if domainVisible then (if phone then (if landscapePhone then 300 else 372) else 232) else 0
 	-- Content coords inside a Panel are relative to its padded area (padding=18 both
 	-- modes), so required height = content bottom + 36. Body ends at 126 (stack) / 94
 	-- (non-stack) below, giving 162 / 130.
-	local notesH = if stack then 196 else 148
-	local metricCardH = if stack then 86 else 0
+	local notesH = if stack then (if landscapePhone then 168 else 196) else 148
+	local metricCardH = if stack then (if landscapePhone then 72 else 86) else 0
 	local metricsH = if stack then metricCardH * 3 + 20 else 104
 	local countdownInPage = true
-	local countdownH = if stack then 168 else 148
+	local countdownH = if stack then (if landscapePhone then 140 else 168) else 148
 	local sectionCount = 3 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
 	local canvasH = heroH + notesH + metricsH + rebirthH + domainH + countdownH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
 	local ctaH = TapTarget
+	local heroReadoutH = if landscapePhone then 118 elseif phone then 176 else 0
+	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
 	local domain = state.Domain or {
 		Rank = 0,
 		Essence = 0,
@@ -531,7 +536,7 @@ local function OverviewView(_param)
 		Color = surfaceGradient(if vaultFill >= 0.99 then Palette.mango else Palette.green, 0.94),
 		Rotation = 62,
 	}), React.createElement("frame", {
-		Size = if phone then UDim2.new(1, 0, 0, 176) else UDim2.new(1, -246, 1, 0),
+		Size = if phone then UDim2.new(1, 0, 0, heroReadoutH) else UDim2.new(1, -246, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -545,26 +550,26 @@ local function OverviewView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
 		value = compactNumber(state.Vault),
-		size = if stack then 38 else 46,
+		size = if landscapePhone then 32 elseif stack then 38 else 46,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 22,
-		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.new(1, 0, 0, 54),
+		position = UDim2.fromOffset(0, if landscapePhone then 14 else 18),
+		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 40 else 54),
 	}), React.createElement(Text, {
 		value = `of {compactNumber(state.Capacity)} vault capacity`,
 		size = if stack then chrome.labelText else 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(0, if stack then 70 else 74),
+		position = UDim2.fromOffset(0, if landscapePhone then 52 elseif stack then 70 else 74),
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Meter, {
 		value = vaultFill,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		reducedMotion = quietMotion,
 		shimmer = vaultFill >= 0.99 and not effectsPaused,
-		position = UDim2.fromOffset(0, if stack then 96 else 100),
+		position = UDim2.fromOffset(0, if landscapePhone then 74 elseif stack then 96 else 100),
 		size = UDim2.new(1, 0, 0, 10),
 	}), React.createElement(Text, {
 		value = if vaultFill >= 0.99 then "Vault full — production is being wasted." else `{compactNumber(state.Production)} flux / sec flowing in`,
@@ -572,28 +577,29 @@ local function OverviewView(_param)
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
-		position = UDim2.fromOffset(0, if stack then 112 else 116),
-		sizeConstraint = UDim2.new(1, 0, 0, 28),
+		position = UDim2.fromOffset(0, if landscapePhone then 88 elseif stack then 112 else 116),
+		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone then 22 else 28),
 	})), if phone then React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, ctaH * 2 + 12),
-		Position = UDim2.new(0, 0, 1, -(ctaH * 2 + 16)),
+		Size = UDim2.new(1, 0, 0, phoneCtaBlockH),
+		Position = UDim2.new(0, 0, 1, -(phoneCtaBlockH + 4)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
 		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
+		FillDirection = if landscapePhone then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Button, {
-		text = "COLLECT VAULT",
+		text = if landscapePhone then "COLLECT" else "COLLECT VAULT",
 		icon = "Collect",
 		onClick = function()
 			return dispatch("CollectVault")
 		end,
 		color = Palette.green,
 		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, ctaH),
+		size = if landscapePhone then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
 		reducedMotion = reducedMotion,
 		disabled = not canCollect,
 		highlight = vaultFill >= 0.85,
@@ -604,10 +610,10 @@ local function OverviewView(_param)
 		sound = "reactorPulse",
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
 		textColor = if overchargeLeft > 0.02 then Palette.muted else Palette.ink,
-		size = UDim2.new(1, 0, 0, ctaH),
+		size = if landscapePhone then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
 		reducedMotion = reducedMotion,
 		disabled = overchargeLeft > 0.02,
-	}), React.createElement(Meter, {
+	}), not landscapePhone and React.createElement(Meter, {
 		value = if overchargeLeft > 0 then 1 - overchargeLeft / 0.45 else 1,
 		color = Palette.mango,
 		reducedMotion = quietMotion,
@@ -1447,9 +1453,12 @@ local function UpgradeBoard(_param)
 	local rowStride = rowH + gap
 	local columnWidth = UDim2.new(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH)
 	local featureBlock = if featurePanel ~= nil then featurePanelHeight + gap else 0
-	local listOffset = SCROLL_EDGE + headerHeight + gap + featureBlock
+	local listOffset = SCROLL_EDGE + headerHeight + gap
 	local gridRows = math.ceil(math.max(1, #visible) / columns)
-	local canvasHeight = listOffset + gridRows * rowStride + scrollTail(stack, chrome.bottomSafe, 28) + SCROLL_EDGE
+	-- Machines come first so buy CTAs stay above the fold; AutoForge sits below the grid.
+	local machinesBlock = if #visible == 0 then 150 else gridRows * rowStride
+	local featureTop = listOffset + machinesBlock + (if featurePanel ~= nil then gap else 0)
+	local canvasHeight = listOffset + machinesBlock + featureBlock + scrollTail(stack, chrome.bottomSafe, 28) + SCROLL_EDGE
 	local window = useVirtualizedList(gridRows, rowStride, listOffset, 3)
 	local mounted = {}
 	do
@@ -1674,7 +1683,7 @@ local function UpgradeBoard(_param)
 		zIndex = 42,
 	}))), featurePanel ~= nil and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, featurePanelHeight),
-		Position = UDim2.fromOffset(0, SCROLL_EDGE + headerHeight + gap),
+		Position = UDim2.fromOffset(0, featureTop),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 24,

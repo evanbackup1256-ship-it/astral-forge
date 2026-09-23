@@ -56,7 +56,7 @@ local function TabButton(_param)
 	local disabled = entry.disabled == true
 	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true)
 	local selection = useFlipperSpring(if active and not disabled then 1 else 0, reducedMotion, 520, 34)
-	local iconSize = 24
+	local iconSize = 22
 	local iconColor = selection:map(function(raw)
 		return if disabled then Palette.muted else Palette.creamSoft:Lerp(entry.accent, math.clamp(raw, 0, 1))
 	end)
@@ -72,6 +72,10 @@ local function TabButton(_param)
 	local indicatorTransparency = selection:map(function(raw)
 		return 1 - math.clamp(raw, 0, 1)
 	end)
+	-- Packed to fit a TAP_TARGET (48px) tab core: icon + label must clear inside the bar
+	-- before bottomSafe, especially on landscape phones.
+	local iconTop = 3
+	local labelTop = 26
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -102,7 +106,7 @@ local function TabButton(_param)
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(iconSize, iconSize),
 		Position = liftY:map(function(lift)
-			return UDim2.new(0.5, 0, 0, 4 + lift)
+			return UDim2.new(0.5, 0, 0, iconTop + lift)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
@@ -127,7 +131,7 @@ local function TabButton(_param)
 		align = Enum.TextXAlignment.Center,
 		fit = true,
 		minSize = 8,
-		position = UDim2.new(0, 0, 0, 30),
+		position = UDim2.new(0, 0, 0, labelTop),
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
 		zIndex = 42,
 	}), React.createElement("frame", {

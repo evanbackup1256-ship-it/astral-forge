@@ -3180,15 +3180,21 @@ local function Workspace(_param)
 		end
 	end, { page })
 	local inset = if keyboardCompact then 6 elseif chrome.stack then chrome.contentInset else Layout.contentInset
-	-- While the keyboard is open on a landscape phone, the usable area above it can be under
-	-- 60px — a 48px workspace header on top of that left the page with a ~20px sliver (or a
-	-- negative-height content frame). Collapse the header entirely there; the tab bar and
-	-- mobile header are already hidden in this mode, and the focused field is what matters.
-	local headerHeight = if keyboardCompact then (if chrome.landscape then 0 else TapTarget) elseif chrome.landscape then 44 elseif mobileHeaderCompact then math.max(52, chrome.workspaceHeaderH) elseif chrome.stack then chrome.workspaceHeaderH else Layout.workspaceHeaderHeight
-	-- The next-goal strip costs 32px that a landscape phone's content area (~90px) cannot
-	-- spare; keep it on portrait/tablet where vertical room exists.
+	-- Phone stack uses MobileHeader for page chrome, so chrome.workspaceHeaderH is 0 and the
+	-- Workspace title/collect strip must stay collapsed — otherwise we double-tax vertical
+	-- space and first-screen CTAs fall below the fold. Keyboard-open with a zero plan header
+	-- stays collapsed (MobileHeader + tab bar are already hidden in that mode).
+	local headerHeight
+	if keyboardCompact then
+		headerHeight = if chrome.landscape or chrome.workspaceHeaderH <= 0 then 0 else TapTarget
+	elseif chrome.stack then
+		headerHeight = chrome.workspaceHeaderH
+	else
+		headerHeight = Layout.workspaceHeaderHeight
+	end
+	-- Next-goal strip: skip on landscape and whenever the workspace header itself is gone.
 	local _result
-	if keyboardCompact or chrome.landscape then
+	if keyboardCompact or chrome.landscape or headerHeight <= 0 then
 		_result = 0
 	else
 		local _condition_1 = state.Settings.ShowNextGoal
@@ -3474,7 +3480,9 @@ local function AppShell(_param)
 			_condition_2 = 1
 		end
 		local mobileQuickEnabled = _condition_2 >= 0.5
-		local quickActionsVisible = mobileQuickEnabled and moreAtBottom and (page == "Overview" or page == "Workshop") and not viewport.keyboardOpen and not arcadeBusy and crateReveal == nil and not railOpen
+		-- Overview already exposes Collect/Overcharge in its hero; keep the floating cluster
+		-- on Workshop only so it does not cover Overview first-screen CTAs.
+		local quickActionsVisible = mobileQuickEnabled and moreAtBottom and page == "Workshop" and not viewport.keyboardOpen and not arcadeBusy and crateReveal == nil and not railOpen
 		local quickBottomOffset = tabBarH + 12
 		local bottomPad = if keyboardShellCompact then 4 elseif moreAtBottom then (if quickActionsVisible then tabBarH + 68 + chrome.panelGap else tabBarH + chrome.panelGap) else math.max(8, math.floor(edgePad * 0.6))
 		return {
