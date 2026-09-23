@@ -95,6 +95,7 @@ local MORE_NAV = _appNav.MORE_NAV
 local PRIMARY_NAV = _appNav.PRIMARY_NAV
 local LayoutSectionPlan = require(script.Parent.layoutSectionPlan)
 local VaultCollectEligibility = require(script.Parent.vaultCollectEligibility)
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local ActionCopy = require(script.Parent.actionCopy)
 local BoostIconKind = require(script.Parent.boostIconKind)
 local NetworkPolicy = require(script.Parent.networkPolicy)
@@ -137,8 +138,12 @@ local function TradeReturnPill(_param)
 	local bottomPad = _param.bottomPad
 	local reducedMotion = _param.reducedMotion
 	local onReturn = _param.onReturn
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — TradeReturnPill springs drop on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local enter = useEntrance(reducedMotion)
-	local pulse = usePulse(not reducedMotion, 1.35)
+	local pulse = usePulse(not softMotion, 1.35)
 	local width = if stack then 176 else 198
 	local height = if stack then 48 else 46
 	return React.createElement("frame", {
@@ -427,9 +432,12 @@ local function ConfettiBurst(_param)
 		intensity = 1
 	end
 	local antilag = useAntilag()
-	local clock = useClock(antilag.allowConfetti, 1, 1000, true)
+	-- Canonical softMotion antilag gate — ConfettiBurst skips particle clocks on soft tiers.
+	local softMotion = antilag.tier <= 1 or not antilag.allowAmbient
+	local confettiLive = antilag.allowConfetti and not softMotion
+	local clock = useClock(confettiLive, 1, 1000, true)
 	React.useEffect(function()
-		if not antilag.allowConfetti then
+		if not confettiLive then
 			onDone()
 			return nil
 		end
@@ -443,8 +451,8 @@ local function ConfettiBurst(_param)
 			alive = false
 			task.cancel(completion)
 		end
-	end, { antilag.allowConfetti, onDone })
-	if not antilag.allowConfetti then
+	end, { confettiLive, onDone })
+	if not confettiLive then
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -822,6 +830,10 @@ local function ActiveBoostIcon(_param)
 	if compact == nil then
 		compact = false
 	end
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ActiveBoostIcon springs drop on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local remaining = now:map(function(timestamp)
 		return clockText(math.max(0, endsAt - timestamp))
 	end)
@@ -2944,6 +2956,10 @@ local function Workspace(_param)
 	local children = _param.children
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — Workspace entrance drops on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local keyboardCompact = viewport.keyboardOpen
 	local _condition = chrome.stack
 	if _condition then
@@ -2999,6 +3015,26 @@ local function Workspace(_param)
 	local unlockH = workspacePlan.unlockH
 	local vaultBtn = if chrome.stack then TapTarget else 44
 	local ready = VaultCollectEligibility.isEligible(asFlux(state.Vault))
+	local vaultCollectHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on Workspace COLLECT (FocusClaim prefers Claim-named hosts).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = vaultCollectHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { ready, page })
 	local contentPosition = enter:map(function(amount)
 		local t = math.clamp(amount, 0, 1)
 		local lift = math.round((1 - t) * 12)
@@ -3114,7 +3150,17 @@ local function Workspace(_param)
 		reducedMotion = reducedMotion,
 		accent = accent,
 		top = vaultPillY,
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		Name = "VaultCollectClaim",
+		ref = vaultCollectHostRef,
+		Size = UDim2.fromOffset(vaultBtn, vaultBtn),
+		Position = UDim2.new(1, -(vaultBtn + 14), 0, math.floor((headerHeight - vaultBtn) / 2)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 22,
+		-- FocusClaim COLLECT must not clip CTA overshoot.
+		ClipsDescendants = false,
+	}, React.createElement(Button, {
 		text = "",
 		icon = "Collect",
 		onClick = function()
@@ -3122,13 +3168,12 @@ local function Workspace(_param)
 		end,
 		color = if ready then accent else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.muted,
-		size = UDim2.fromOffset(vaultBtn, vaultBtn),
-		position = UDim2.new(1, -(vaultBtn + 14), 0, math.floor((headerHeight - vaultBtn) / 2)),
+		size = UDim2.fromScale(1, 1),
 		disabled = not ready,
 		reducedMotion = reducedMotion,
 		highlight = asFlux(state.Vault) >= asFlux(state.Capacity) * VaultCollectEligibility.NEAR_FULL,
 		zIndex = 22,
-	})), unlockH > 0 and React.createElement("frame", {
+	}))), unlockH > 0 and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, unlockH),
 		Position = UDim2.fromOffset(0, headerHeight),
 		BackgroundTransparency = 1,

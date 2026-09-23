@@ -777,8 +777,27 @@ assert(string.find(cfg, 'Id = "wave31-offline-brief"', 1, true), "Story wave31 r
 assert(string.find(cfg, 'Id = "update-5-1-wave31-offline"', 1, true), "Mail wave31 residual for release")
 mark("wave31 workshop extract buy claim thin pagerouter content residuals")
 
--- Wave31 Workshop residuals raise the offline subset past checks=36.
-assert(#passed > 36, "release-readiness offline subset must stay beyond checks=36, got " .. tostring(#passed))
+-- Wave32: MainGame VaultCollectClaim + chrome softMotion densify + DV21 content.
+local mainWave32 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave32, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
+assert(string.find(mainWave32, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim residual for release")
+assert(string.find(mainWave32, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion residual for release")
+assert(string.find(mainWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
+assert(string.find(mainWave32, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
+assert(string.find(mainWave32, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(mainWave32, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 22, "MainGame softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave32-offline-brief"', 1, true), "Story wave32 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave32-offline"', 1, true), "Mail wave32 residual for release")
+mark("wave32 vault collect claim chrome softMotion content residuals")
+
+-- Wave32 chrome residuals raise the offline subset past checks=37.
+assert(#passed > 37, "release-readiness offline subset must stay beyond checks=37, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

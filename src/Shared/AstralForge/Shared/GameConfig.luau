@@ -5233,11 +5233,43 @@ local GameConfig = {
 			Color = Color3.fromRGB(30, 215, 170),
 		},
 
+		{
+			Id = "wave32-offline-brief",
+			Title = "Wave Thirty Two Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "MainGame VaultCollectClaim FocusClaim + chrome softMotion densify; readiness past checks=37.",
+			Body = {
+				"Workspace COLLECT parks gamepad via VaultCollectClaim; TradeReturnPill/ActiveBoostIcon/ConfettiBurst/Workspace gate softMotion.",
+				"MainGame softMotion density climbs past the wave30 floor while DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 86, CashMinutes = 38, Signals = 40 },
+			Color = Color3.fromRGB(25, 210, 165),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave32-offline",
+			Subject = "Dock note — wave thirty two offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "VaultCollectClaim + MainGame chrome softMotion densify — still DataVersion 21.",
+			Body = {
+				"Workspace COLLECT FocusClaim parks gamepad on the vault pill strip; softMotion densifies TradeReturn/Boost/Confetti/Workspace.",
+				"Offline release-readiness checks grow past checks=37 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 86, Stardust = 102, Signals = 44 },
+			Color = Color3.fromRGB(25, 210, 165),
+		},
 
 		{
 			Id = "update-5-1-wave31-offline",
