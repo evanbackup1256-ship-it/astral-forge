@@ -66,6 +66,7 @@ local function MessageRow(_param)
 	local animate = _param.animate
 	local rowHeight = _param.rowHeight
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ChatView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local enter = useMessageEntrance(animate, softMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)

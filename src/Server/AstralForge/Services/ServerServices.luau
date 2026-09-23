@@ -67,6 +67,8 @@ serviceFactories["GameService"] = function()
 	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SocialBoost"))
 	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemSalvage"))
 	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("VisitSnapshot"))
+	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("PublicPlayerRecord"))
+	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SettingsSeal"))
 	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OverchargeCombo"))
 	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RankBracket"))
 	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
@@ -251,40 +253,11 @@ serviceFactories["GameService"] = function()
 
 	local function publicPlayerRecord(player: Player, profile, viewer: Player, presence)
 		-- Keys-only Items bags (mid-migrate / partial fixtures) must not throw on Inventory.
-		local items = ProfileBagMath.EnsureItems(profile)
-		local itemCount = 0
-		for _ in items.Inventory do
-			itemCount += 1
-		end
-		local equippedItems = {}
-		for _, uid in items.Equipped do
-			local instance = items.Inventory[uid]
-			local definition = instance and itemById[instance.DefinitionId]
-			if definition then
-				table.insert(equippedItems, definition.Name)
-			end
-		end
-		local liveEntry = presence and presence[player.UserId]
-		return {
-			UserId = math.floor(player.UserId),
-			Name = player.Name,
-			DisplayName = player.DisplayName,
-			Zone = profile.Zone,
-			CurrentZone = profile.CurrentZone,
-			Rebirths = profile.Rebirths,
-			Production = Economy.Production(profile),
-			LifetimeCash = profile.LifetimeCash,
-			Stardust = profile.Stardust,
-			Cores = profile.Cores,
-			DomainRank = profile.Domain and profile.Domain.Rank or 0,
-			PlayTime = profile.Stats and profile.Stats.PlayTime or 0,
-			ItemCount = itemCount,
-			EquippedItems = equippedItems,
-			IsLocal = player == viewer,
-			SocialFlags = 0,
-			CurrentPage = liveEntry and liveEntry.Page or "Overview",
-			PresenceAge = liveEntry and math.max(0, os.time() - liveEntry.UpdatedAt) or -1,
-		}
+		return PublicPlayerRecord.Build(player, profile, viewer, presence, {
+			EnsureItems = ProfileBagMath.EnsureItems,
+			itemById = itemById,
+			Economy = Economy,
+		})
 	end
 
 	local function buildVisitSnapshot(player: Player, profile)
@@ -2879,9 +2852,7 @@ serviceFactories["GameService"] = function()
 			NotifyGuild = true,
 		}
 		local function sealSettings(profile)
-			profile.Settings.SoundEffects = (tonumber(profile.Settings.SoundVolume) or 0) > 0.001
-			profile.Settings.UIEffects = (tonumber(profile.Settings.EffectsIntensity) or 0) > 0.001
-			profile.Settings.ReducedMotion = (tonumber(profile.Settings.MotionIntensity) or 1) <= 0.03
+			SettingsSeal.Apply(profile)
 		end
 		if type(payload.Values) == "table" then
 			return self:_mutate(player, function(profile)

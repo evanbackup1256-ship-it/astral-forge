@@ -817,6 +817,10 @@ local function WheelConsole(_param)
 	local onSpin = _param.onSpin
 	local height = _param.height
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — WheelView.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local spinClaimHostRef = _param.spinClaimHostRef
 	local compact = _param.compact
 	if compact == nil then
@@ -962,7 +966,7 @@ local function WheelConsole(_param)
 		size = if compact then 40 else 48,
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clipSafe = true,
 	}))
 	local _exp_5 = React.createElement(Badge, {
@@ -1079,7 +1083,7 @@ local function WheelConsole(_param)
 	}), React.createElement(Meter, {
 		value = pityFill,
 		color = if pityArmed then Palette.mango else Palette.violet,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = pityArmed,
 		position = UDim2.fromOffset(10, if compact then 27 else 31),
 		size = UDim2.new(1, -20, 0, if compact then 6 else 7),
@@ -1098,7 +1102,7 @@ local function WheelConsole(_param)
 		color = if canSpin and not controller.spinning then Palette.mango else Palette.panelSoft,
 		textColor = if canSpin and not controller.spinning then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = controller.spinning or not canSpin,
 		highlight = canSpin and not controller.spinning,
 	})))
@@ -1108,13 +1112,17 @@ local function PrizeCatalogRow(_param)
 	local reward = _param.reward
 	local weightTotal = _param.weightTotal
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — WheelView.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local chance = if weightTotal > 0 then (reward.Weight / weightTotal) * 100 else 0
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, PRIZE_ROW_H - 6),
 		accent = reward.Color,
 		background = Palette.panel,
 		padding = 10,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = reward.Name or reward.Id,

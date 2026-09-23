@@ -1112,8 +1112,40 @@ assert(string.find(cfg, 'Id = "wave40-offline-brief"', 1, true), "Story wave40 r
 assert(string.find(cfg, 'Id = "update-5-1-wave40-offline"', 1, true), "Mail wave40 residual for release")
 mark("wave40 visitsnapshot peel domain purchase boosts softMotion densify content residuals")
 
--- Wave40 residuals raise the offline subset past checks=45.
-assert(#passed > 45, "release-readiness offline subset must stay beyond checks=45, got " .. tostring(#passed))
+-- Wave41: PublicPlayerRecord/SettingsSeal peels + Research/Wheel/Boot/AdminPrank densify + DENSE floors + DV21.
+local publicRecWave41 = fs.readFile("src/Server/AstralForge/Modules/PublicPlayerRecord.luau")
+assert(string.find(publicRecWave41, "function PublicPlayerRecord.Build", 1, true), "PublicPlayerRecord.Build residual for release")
+local sealWave41 = fs.readFile("src/Server/AstralForge/Modules/SettingsSeal.luau")
+assert(string.find(sealWave41, "function SettingsSeal.Apply", 1, true), "SettingsSeal.Apply residual for release")
+local serverWave41 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(serverWave41, 'WaitForChild("PublicPlayerRecord")', 1, true), "ServerServices PublicPlayerRecord require residual for release")
+assert(string.find(serverWave41, "SettingsSeal.Apply", 1, true), "ServerServices SettingsSeal.Apply residual for release")
+local researchWave41 = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
+local wheelWave41 = fs.readFile("src/Client/AstralForge/pages/WheelView.luau")
+local bootWave41 = fs.readFile("src/Client/AstralForge/BootScreen.luau")
+assert(string.find(researchWave41, "Canonical softMotion antilag gate — ResearchView", 1, true), "Research softMotion residual for release")
+assert(string.find(wheelWave41, "Canonical softMotion antilag gate — WheelView", 1, true), "Wheel softMotion residual for release")
+assert(string.find(bootWave41, "Canonical softMotion antilag gate — BootScreen", 1, true), "BootScreen softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(researchWave41, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Research softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(wheelWave41, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Wheel softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave41-offline-brief"', 1, true), "Story wave41 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail wave41 residual for release")
+mark("wave41 publicplayer settingsseal research wheel boot densify content residuals")
+
+-- Wave41 residuals raise the offline subset past checks=46.
+assert(#passed > 46, "release-readiness offline subset must stay beyond checks=46, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

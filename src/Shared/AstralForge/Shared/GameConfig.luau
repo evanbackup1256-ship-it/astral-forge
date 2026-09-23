@@ -5373,6 +5373,21 @@ local GameConfig = {
 			Reward = { Stardust = 102, CashMinutes = 46, Signals = 48 },
 			Color = Color3.fromRGB(0, 200, 155),
 		},
+		{
+			Id = "wave41-offline-brief",
+			Title = "Wave Forty One Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "PublicPlayerRecord/SettingsSeal peels + Research/Wheel/Boot/AdminPrank densify; DENSE floors; readiness past checks=46.",
+			Body = {
+				"PublicPlayerRecord and SettingsSeal peel pure crew/settings math out of ServerServices.",
+				"Research/Wheel/Chat/StarGrid and Boot/AdminPrank thicken softMotion; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 104, CashMinutes = 47, Signals = 49 },
+			Color = Color3.fromRGB(0, 205, 160),
+		},
 
 
 
@@ -5439,6 +5454,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 102, Stardust = 118, Signals = 52 },
 			Color = Color3.fromRGB(0, 200, 155),
+		},
+		{
+			Id = "update-5-1-wave41-offline",
+			Subject = "Dock note — wave forty one offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "PublicPlayerRecord/SettingsSeal peels + research/wheel/boot softMotion — still DataVersion 21.",
+			Body = {
+				"PublicPlayerRecord and SettingsSeal peel pure math; Research/Wheel/Boot/AdminPrank densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=46 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 104, Stardust = 120, Signals = 53 },
+			Color = Color3.fromRGB(0, 205, 160),
 		},
 
 		{

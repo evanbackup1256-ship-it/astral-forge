@@ -67,10 +67,14 @@ local ResearchNode = React.memo(function(props)
 	local _binding = props
 	local entry = _binding.entry
 	local reducedMotion = _binding.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ResearchNode.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local index = _binding.index
 	local onBuy = _binding.onBuy
 	local stack = _binding.stack
-	local reveal = useStagger(math.min(index, 6), reducedMotion, 0.02, 0.14)
+	local reveal = useStagger(math.min(index, 6), softMotion, 0.02, 0.14)
 	local accent = entry.config.Accent or entry.config.Color
 	local maxed = entry.maxed
 	local ready = entry.unlocked and entry.affordable and not maxed
@@ -98,7 +102,7 @@ local ResearchNode = React.memo(function(props)
 		padding = 14,
 		reveal = reveal,
 		highlight = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = if entry.unlocked then "Research" else "Lock",
@@ -108,7 +112,7 @@ local ResearchNode = React.memo(function(props)
 		position = UDim2.fromOffset(0, 6),
 		glow = maxed,
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Text, {
 		value = entry.config.Name,
 		size = 16,
@@ -137,7 +141,7 @@ local ResearchNode = React.memo(function(props)
 	}), React.createElement(Meter, {
 		value = levelFrac,
 		color = if maxed then Palette.mango else accent,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = UDim2.fromOffset(56, 80),
 		size = UDim2.new(1, textReserve, 0, 6),
 	})), if stack then (if maxed then React.createElement(Badge, {
@@ -156,7 +160,7 @@ local ResearchNode = React.memo(function(props)
 		textColor = if ready then Palette.ink else Palette.muted,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not ready,
 		highlight = ready,
 	})) else (if maxed then React.createElement(Badge, {
@@ -175,7 +179,7 @@ local ResearchNode = React.memo(function(props)
 		textColor = if ready then Palette.ink else Palette.muted,
 		size = UDim2.fromOffset(130, 32),
 		position = UDim2.new(1, -140, 0, 24),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not ready,
 		highlight = ready,
 	}))))
@@ -192,6 +196,7 @@ local function ResearchView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ResearchView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)

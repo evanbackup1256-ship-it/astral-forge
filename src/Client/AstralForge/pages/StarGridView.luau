@@ -76,6 +76,7 @@ end
 -- maxed out), so idle nodes never carry a flash subscription.
 local function useNodeUnlockPop(unlocked, reducedMotion)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — StarGridView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local wasUnlocked = React.useRef(unlocked)
 	local trigger, setTrigger = React.useState(0)

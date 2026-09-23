@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.antilag).useAntilag
 local UserInputService = game:GetService("UserInputService")
 local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.motion)
@@ -27,6 +28,10 @@ local function PrankCard(_param)
 	local accent = _param.accent
 	local height = _param.height
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — AdminPrankOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local onClose = _param.onClose
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -73,7 +78,7 @@ local function PrankCard(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	})))
 end
@@ -138,6 +143,10 @@ end
 local function AdminPrankOverlay(_param)
 	local prank = _param.prank
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — AdminPrankOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local onClose = _param.onClose
 	local kind = prank.kind
 	local viewport = useViewport()
@@ -188,7 +197,7 @@ local function AdminPrankOverlay(_param)
 	end, { onClose, prank.endsAt, prank.kind })
 	local left = math.max(0, prank.endsAt - now)
 	local washOn = kind == "DiscoHud" or kind == "RainbowHud"
-	local wash = useClock(washOn and not reducedMotion, 0.42, 1, true)
+	local wash = useClock(washOn and not softMotion, 0.42, 1, true)
 	local washColor = wash:map(function(alpha)
 		return Color3.fromHSV(alpha, if kind == "RainbowHud" then 0.55 else 0.88, 1)
 	end)
@@ -236,7 +245,7 @@ local function AdminPrankOverlay(_param)
 		action = "OK",
 		accent = Palette.coral,
 		height = 248,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeCrash and React.createElement(PrankCard, {
 		title = "Couldn't reach the forge",
@@ -244,7 +253,7 @@ local function AdminPrankOverlay(_param)
 		action = "RETRY",
 		accent = Palette.mango,
 		height = 248,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), jump and React.createElement(PrankCard, {
 		title = "BEHIND YOU",
@@ -252,7 +261,7 @@ local function AdminPrankOverlay(_param)
 		action = "OK FINE",
 		accent = Palette.coral,
 		height = 240,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeRebirth and React.createElement(PrankCard, {
 		title = "REBIRTH NOW?",
@@ -260,7 +269,7 @@ local function AdminPrankOverlay(_param)
 		action = "NOT TODAY",
 		accent = Palette.violet,
 		height = 268,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeTrade and React.createElement(PrankCard, {
 		title = "INCOMING TRADE",
@@ -268,7 +277,7 @@ local function AdminPrankOverlay(_param)
 		action = "DECLINE JOKE",
 		accent = Palette.cyan,
 		height = 268,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), fakeRob and React.createElement(PrankCard, {
 		title = "WALLET COMPROMISED",
@@ -276,7 +285,7 @@ local function AdminPrankOverlay(_param)
 		action = "RECOVER",
 		accent = Palette.coral,
 		height = 268,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), update and React.createElement(PrankCard, {
 		title = "UPDATE REQUIRED",
@@ -284,7 +293,7 @@ local function AdminPrankOverlay(_param)
 		action = "REMIND ME NEVER",
 		accent = Palette.mango,
 		height = 268,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}), confetti and React.createElement(React.Fragment, nil, React.createElement(ConfettiBits), React.createElement(Text, {
 		value = "CONFETTI TAX",
@@ -345,7 +354,7 @@ local function AdminPrankOverlay(_param)
 		textColor = Palette.cream,
 		size = UDim2.new(0.42, 0, 0, 44),
 		position = UDim2.new(0.29, 0, 0.66, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), blue and React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = ":(",
 		size = 72,
@@ -376,7 +385,7 @@ local function AdminPrankOverlay(_param)
 		textColor = Color3.fromRGB(0, 94, 184),
 		size = UDim2.new(0.36, 0, 0, 44),
 		position = UDim2.new(0, 40, 0, 290),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	})), battery and React.createElement(React.Fragment, nil, React.createElement("frame", {
 		Size = UDim2.new(0.72, 0, 0, 18),
@@ -450,7 +459,7 @@ local function AdminPrankOverlay(_param)
 		action = "CLOSE",
 		accent = Palette.violet,
 		height = 248,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = onClose,
 	}))
 end

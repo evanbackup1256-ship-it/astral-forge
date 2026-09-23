@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.antilag).useAntilag
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.audio).Audio
@@ -73,6 +74,10 @@ local function BootScreen(_param)
 	local marks = _param.marks
 	local ready = _param.ready
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — BootScreen.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local startedAt = _param.startedAt
 	local assetsLoaded = _param.assetsLoaded
 	local assetsTotal = _param.assetsTotal
@@ -156,7 +161,7 @@ local function BootScreen(_param)
 	end, { exiting, ready })
 	React.useEffect(function()
 		local connection = RunService.RenderStepped:Connect(function(dt)
-			if not exiting then
+			if not exiting and not softMotion then
 				spinClock.current += dt
 				setClock(spinClock.current)
 				setProgressPulse((math.sin(spinClock.current * 2.4) + 1) * 0.5)
@@ -166,13 +171,15 @@ local function BootScreen(_param)
 			end
 			exitClock.current += dt
 			local elapsed = exitClock.current
-			setSpinFade(clamp01(elapsed / EXIT_SPIN_SECONDS))
-			setVeilFade(clamp01((elapsed - EXIT_SPIN_SECONDS) / EXIT_VEIL_SECONDS))
+			local spinSeconds = if softMotion then EXIT_SPIN_SECONDS * 0.55 else EXIT_SPIN_SECONDS
+			local veilSeconds = if softMotion then EXIT_VEIL_SECONDS * 0.55 else EXIT_VEIL_SECONDS
+			setSpinFade(clamp01(elapsed / spinSeconds))
+			setVeilFade(clamp01((elapsed - spinSeconds) / veilSeconds))
 		end)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { exiting, reducedMotion, setClock, setSpinFade, setVeilFade })
+	end, { exiting, softMotion, setClock, setSpinFade, setVeilFade })
 	React.useEffect(function()
 		if not exiting then
 			return nil
@@ -271,7 +278,7 @@ local function BootScreen(_param)
 		clock = clock,
 		leaving = spinHide,
 		ready = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		compact = false,
 	})), React.createElement("textlabel", {
 		Size = UDim2.new(0, 320, 0, 24),
