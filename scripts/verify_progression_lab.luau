@@ -91,7 +91,8 @@ assert(RebirthGate.CanRebirth(prestige, gte) == true, "can rebirth when reward >
 assert(RebirthGate.CanRebirth(0, gte) == false, "cannot rebirth on 0")
 
 assert(RebirthGate.StardustReward(100, 5, 4) == 50, "stardust sqrt*scale")
-assert(RebirthGate.StardustReward(1, 5, 4) == 4, "stardust floors at minimum")
+assert(RebirthGate.StardustReward(0, 5, 4) == 4, "stardust floors at minimum")
+assert(RebirthGate.StardustReward(1, 5, 4) == 5, "stardust sqrt(1)*5")
 
 -- --- ZoneUnlock --------------------------------------------------------------
 local zone2 = { Id = 2, Name = "Nebula", RequiredRebirths = 2, CoreCost = 5, Cost = 1000 }
