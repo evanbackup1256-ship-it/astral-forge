@@ -2,6 +2,7 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.audio).Audio
 local Icon = require(script.Parent.Icon).Icon
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.motion)
 local composePresence = _motion.composePresence
 local ScaleFromCenter = _motion.ScaleFromCenter
@@ -587,6 +588,31 @@ local function DomainSkillTree(_param)
 		Audio:play("close")
 		beginExit(onClose)
 	end
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, {})
 	local cardTravel = if stack then 22 else 18
 	local cardPosition = motion:map(function(amount)
 		local _exp = UDim2.fromScale(0.5, 0.5)
@@ -998,6 +1024,7 @@ local function DomainSkillTree(_param)
 	return React.createElement(OverlayPresence, {
 		amount = motion,
 	}, React.createElement("frame", {
+		ref = overlayHostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,

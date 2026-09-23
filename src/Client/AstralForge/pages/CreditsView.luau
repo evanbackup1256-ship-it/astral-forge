@@ -1,6 +1,8 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local ClientLog = require(script.Parent.Parent.log).ClientLog
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
@@ -92,6 +94,31 @@ local function CreditsOverlay(_param)
 		end
 	end, {})
 	local padFocus = useGamepadAutofocus(true)
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current or padFocus.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, {})
 	local _exp = React.createElement("imagebutton", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -384,6 +411,7 @@ local function CreditsOverlay(_param)
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
 	}, React.createElement("frame", {
+		ref = overlayHostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = reveal:map(function(amount)

@@ -14,7 +14,6 @@ local Palette = _theme.Palette
 local darken = _theme.darken
 local TapTarget = _theme.TapTarget
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
-local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -29,8 +28,6 @@ local LIST_GAP = 10
 local DETAIL_HEADER = 96
 local FOOTER_HEIGHT = 84
 local FOOTER_HEIGHT_MOBILE = 168
-local BODY_PAD = 12
-local BODY_TOP = DETAIL_HEADER + BODY_PAD
 -- Was a crude character-count bucket (<=80 chars -> 38px, <=160 -> 58px, else 80px) that ignored
 -- actual rendered width, font size, and real wrap points -- silently too short for a paragraph
 -- full of long words that wrap early, or wasteful for one that happens to wrap late. Now measures
@@ -162,7 +159,6 @@ local function MailboxView(_param)
 	local compactChrome = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
 	local listHeaderH = if compactChrome then 56 else LIST_HEADER
 	local detailHeaderH = if compactChrome then 56 else DETAIL_HEADER
-	local detailBodyTop = detailHeaderH + BODY_PAD
 	local cardH = if stack then LIST_CARD_MOBILE else LIST_CARD
 	local footerH = if stack then FOOTER_HEIGHT_MOBILE else FOOTER_HEIGHT
 	local rowStride = cardH + LIST_GAP
@@ -260,27 +256,6 @@ local function MailboxView(_param)
 	local detailPaneWidth = if mobileRoute or stack then viewport.width else viewport.width * 0.66 - 7
 	local paragraphWidth = math.max(40, detailPaneWidth - 8)
 	local bodyTextSize = if stack then 16 else 15
-	local _result_6 = message
-	if _result_6 ~= nil then
-		local _exp_1 = _result_6.Body
-		-- ▼ ReadonlyArray.reduce ▼
-		local _result_7 = 0
-		local _callback_3 = function(total, paragraph)
-			return total + paragraphHeight(paragraph, paragraphWidth, bodyTextSize)
-		end
-		for _i = 1, #_exp_1 do
-			_result_7 = _callback_3(_result_7, _exp_1[_i], _i - 1, _exp_1)
-		end
-		-- ▲ ReadonlyArray.reduce ▲
-		_result_6 = _result_7
-	end
-	local _condition_3 = _result_6
-	if _condition_3 == nil then
-		_condition_3 = 0
-	end
-	local bodyHeight = _condition_3
-	local bodyGaps = if message ~= nil then math.max(0, #message.Body - 1) * 8 else 0
-	local detailCanvas = bodyHeight + bodyGaps + BODY_PAD + footerH + 8
 	local _result_7 = selectedState
 	if _result_7 ~= nil then
 		_result_7 = _result_7.Claimed
@@ -389,7 +364,7 @@ local function MailboxView(_param)
 	if inboxEmpty then
 		_result_10 = React.createElement("frame", {
 			Size = UDim2.new(1, -16, 1, -(listHeaderH + 12)),
-			Position = UDim2.fromOffset(8, listHeaderH + 2),
+			Position = UDim2.fromOffset(8, listHeaderH + 4),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 		}, React.createElement(EmptyState, {
@@ -416,8 +391,8 @@ local function MailboxView(_param)
 			footerHeight = TapTarget + 8,
 			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
 			canvasTail = 4,
-			Size = UDim2.new(1, -20, 1, -8),
-			Position = UDim2.fromOffset(10, 4),
+			Size = UDim2.new(1, -20, 1, -(listHeaderH + 12)),
+			Position = UDim2.fromOffset(10, listHeaderH + 4),
 			scrollBarColor = Palette.cyan,
 			scrollBarThickness = 3,
 			scrollBarTransparency = 0.28,
@@ -456,49 +431,20 @@ local function MailboxView(_param)
 			})),
 		})
 	end
-	local listBody = if inboxEmpty then React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(EmptyState, {
-		icon = "Mail",
-		title = "Tray empty",
-		body = "Patch notes and gifts land here.",
-		accent = Palette.cyan,
-		size = UDim2.fromScale(1, 1),
-		titleSize = 20,
-		bodySize = 15,
-		iconSize = 52,
-		reducedMotion = reducedMotion,
-	})) else _result_10
-	-- Keep split list/detail chrome; PageScaffold only stacks header+list inside the list pane.
+	-- Stack: reserve enough detail height so CLAIM/ARCHIVE stay above the fold.
+	-- Desktop keeps the side-by-side split chrome (do not shrink PC panes).
+	local stackListH = if stack and not mobileRoute then math.clamp(listHeaderH + cardH + 28, math.floor(viewport.height * 0.28), math.floor(viewport.height * 0.38)) else 0
+	-- Single scroller per pane: header + FlatList (no outer PageScaffold) to avoid double-scroll.
 	local listPane = React.createElement("frame", {
-		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0.38, -4) else UDim2.new(0.34, -7, 1, 0),
+		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0, stackListH) else UDim2.new(0.34, -7, 1, 0),
 		Position = listPanePosition,
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-	}, _exp_2, _exp_3, React.createElement(PageScaffold, {
-		gap = 0,
-		tailPad = 4,
-		scrollBarThickness = 0,
-		sections = {
-			{
-				id = "header",
-				height = listHeaderH,
-				element = _exp_4,
-			},
-			{
-				id = "list",
-				fill = true,
-				minHeight = 120,
-				element = listBody,
-			},
-		},
-	}))
+	}, _exp_2, _exp_3, _exp_4, _result_10)
 	local detailPanePosition = if mobileRoute then detailReveal:map(function(amount)
 		return UDim2.new(1 - math.clamp(amount, 0, 1), 0, 0, 0)
-	end) elseif stack then UDim2.new(0, 0, 0.38, 4) else UDim2.new(0.34, 7, 0, 0)
+	end) elseif stack then UDim2.new(0, 0, 0, stackListH + 8) else UDim2.new(0.34, 7, 0, 0)
 	local _exp_5 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
 	})
@@ -535,6 +481,7 @@ local function MailboxView(_param)
 	if _condition_5 then
 		local _exp_8 = React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, detailHeaderH),
+			Position = UDim2.fromOffset(0, 0),
 			BackgroundColor3 = message.Color,
 			BackgroundTransparency = 0.9,
 			BorderSizePixel = 0,
@@ -623,24 +570,11 @@ local function MailboxView(_param)
 			_newValue[_k] = _callback_3(_v, _k - 1, _exp_10)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_condition_5 = React.createElement(PageScaffold, {
-			gap = 0,
-			tailPad = 0,
-			scrollBarThickness = 0,
-			sections = {
-				{
-					id = "header",
-					height = detailHeaderH,
-					element = _exp_8,
-				},
-				{
-					id = "body",
-					fill = true,
-					minHeight = 80,
-					element = React.createElement("scrollingframe", {
+		-- Pin header + CLAIM/ARCHIVE footer; only the message body scrolls.
+		_condition_5 = React.createElement(React.Fragment, nil, _exp_8, React.createElement("scrollingframe", {
 			key = message.Id,
-			Size = UDim2.new(1, -40, 1, -8),
-			Position = UDim2.fromOffset(20, 4),
+			Size = UDim2.new(1, -40, 1, -(detailHeaderH + footerH + 8)),
+			Position = UDim2.fromOffset(20, detailHeaderH + 4),
 			CanvasPosition = Vector2.zero,
 			CanvasSize = UDim2.new(0, 0, 0, 0),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -656,18 +590,14 @@ local function MailboxView(_param)
 			Active = true,
 			Selectable = false,
 			ZIndex = 2,
-		}, _exp_9, _newValue),
-				},
-				{
-					id = "footer",
-					height = footerH,
-					element = React.createElement("frame", {
+		}, _exp_9, _newValue), React.createElement("frame", {
 			key = "footer",
-			LayoutOrder = #message.Body + 1,
-			Size = UDim2.fromScale(1, 1),
+			Size = UDim2.new(1, 0, 0, footerH),
+			Position = UDim2.new(0, 0, 1, -footerH),
 			BackgroundColor3 = Palette.panel,
 			BorderSizePixel = 0,
 			ClipsDescendants = true,
+			ZIndex = 6,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 12),
 		}), React.createElement("uistroke", {
@@ -790,14 +720,11 @@ local function MailboxView(_param)
 			hug = true,
 			disabled = not claimed,
 			reducedMotion = reducedMotion,
-		}))),
-				},
-			},
-		})
+		}))))
 	end
 
 	local detailPane = React.createElement("frame", {
-		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0.62, -4) else UDim2.new(0.66, -7, 1, 0),
+		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 1, -(stackListH + 8)) else UDim2.new(0.66, -7, 1, 0),
 		Position = detailPanePosition,
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,

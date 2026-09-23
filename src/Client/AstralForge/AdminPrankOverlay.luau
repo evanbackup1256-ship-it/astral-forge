@@ -1,4 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.motion)
 local useClock = _motion.useClock
 local useRotation = _motion.useRotation
@@ -140,6 +142,7 @@ local function AdminPrankOverlay(_param)
 	local kind = prank.kind
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local overlayHostRef = React.useRef(nil)
 	local _exp = chrome.bottomSafe
 	local _condition = viewport.bottomInset
 	if _condition == nil then
@@ -147,6 +150,30 @@ local function AdminPrankOverlay(_param)
 	end
 	local toastInset = math.max(_exp, _condition, 8)
 	local now, setNow = React.useState(os.clock())
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, { prank.kind })
 	React.useEffect(function()
 		local worker = task.spawn(function()
 			while os.clock() < prank.endsAt do
@@ -189,6 +216,7 @@ local function AdminPrankOverlay(_param)
 	local fillAlpha = if blind then 0.04 elseif fakeBan or fakeCrash or fakeRebirth or fakeTrade or fakeRob or update or jump then 0.14 elseif blue then 0 elseif battery then 0.28 elseif loading then 0.18 elseif confetti then 0.78 elseif disco or rainbow then 0.48 elseif clown then 0.22 elseif muteToasts then 1 elseif emptyBag then 0.22 elseif stageOnly then 0.86 else 0.7
 	local banner = if stageOnly then (if kind == "InvertHud" then "HUD INVERTED" elseif kind == "SpinHud" then "HUD SPINNING" elseif kind == "TinyHud" then "TINY HUD" elseif kind == "GiantHud" then "GIANT HUD" else "HUD SHAKING") else nil
 	return React.createElement("frame", {
+		ref = overlayHostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = if washOn then washColor else fill,
 		BackgroundTransparency = fillAlpha,

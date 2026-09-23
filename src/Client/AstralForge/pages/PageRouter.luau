@@ -47,7 +47,7 @@ local clockText = _format.clockText
 local compareFlux = _format.compareFlux
 local formatReward = _format.formatReward
 local gteFlux = _format.gteFlux
-local useVirtualizedList = require(script.Parent.Parent.virtualizedList).useVirtualizedList
+local VirtualGrid = require(script.Parent.Parent.scrolling).VirtualGrid
 local Audio = require(script.Parent.Parent.audio).Audio
 local function lazyView(moduleName, exportName)
 	local component
@@ -634,27 +634,16 @@ local function OverviewView(_param)
 	}, React.createElement("uisizeconstraint", {
 		MaxSize = Vector2.new(columnMax, math.huge),
 	}), React.createElement(PageScaffold, {
-		gap = 0,
+		gap = sectionGap,
 		tailPad = scrollTail(stack, chrome.bottomSafe, overviewTail),
 		scrollBarColor = Palette.green,
 		scrollBarThickness = 4,
 		sections = {
 			{
-				id = "body",
-				fill = true,
-				minHeight = 200,
-				height = contentIntrinsic,
+				id = "top",
+				height = topBandH,
 				element = React.createElement("frame", {
-					Size = UDim2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ClipsDescendants = false,
-				}, React.createElement("uilistlayout", {
-					FillDirection = Enum.FillDirection.Vertical,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					Padding = UDim.new(0, sectionGap),
-				}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, topBandH),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 0,
@@ -880,9 +869,14 @@ local function OverviewView(_param)
 		size = UDim2.fromScale(1, 1),
 		compact = stack,
 		reveal = metricsReveal,
-	})))), React.createElement(Panel, {
+	})))),
+			},
+			{
+				id = "notes",
+				height = notesH,
+				element = React.createElement(Panel, {
 		layoutOrder = 2,
-		size = UDim2.new(1, 0, 0, notesH),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.cyan,
 		background = Palette.panel,
 		padding = if stack then chrome.cardPadding elseif ultraOverview then 20 else 18,
@@ -1128,9 +1122,14 @@ local function OverviewView(_param)
 			reducedMotion = reducedMotion,
 			highlight = meter >= 0.99,
 		}))
-	end)()), React.createElement(Panel, {
+	end)()),
+			},
+			{
+				id = "ops",
+				height = opsH,
+				element = React.createElement(Panel, {
 		layoutOrder = 3,
-		size = UDim2.new(1, 0, 0, opsH),
+		size = UDim2.fromScale(1, 1),
 		accent = if opsClaims > 0 then Palette.green else Palette.cyan,
 		background = Palette.panel,
 		padding = if stack then chrome.cardPadding else 16,
@@ -1235,23 +1234,46 @@ local function OverviewView(_param)
 		reducedMotion = reducedMotion,
 		highlight = anomalyReady,
 		layoutOrder = 3,
-	}))), countdownInPage and React.createElement(ReleaseCountdown, {
-		releaseAt = releaseAt,
-		reducedMotion = reducedMotion,
-		stack = stack,
-		layoutOrder = 6,
-	}), rebirthVisible and React.createElement(RebirthPanel, {
-		state = state,
-		dispatch = dispatch,
-		reducedMotion = reducedMotion,
-		effectsPaused = effectsPaused,
-		height = rebirthH,
-		reveal = rebirthReveal,
-		openWorkshop = openWorkshop,
-		layoutOrder = 4,
-	}), domainVisible and React.createElement(Panel, {
+	}))),
+			},
+			{
+				id = "countdown",
+				height = if countdownInPage then countdownH else 0,
+				element = if countdownInPage then React.createElement(ReleaseCountdown, {
+					releaseAt = releaseAt,
+					reducedMotion = reducedMotion,
+					stack = stack,
+					layoutOrder = 6,
+				}) else React.createElement("frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}),
+			},
+			{
+				id = "rebirth",
+				height = if rebirthVisible then rebirthH else 0,
+				element = if rebirthVisible then React.createElement(RebirthPanel, {
+					state = state,
+					dispatch = dispatch,
+					reducedMotion = reducedMotion,
+					effectsPaused = effectsPaused,
+					height = rebirthH,
+					reveal = rebirthReveal,
+					openWorkshop = openWorkshop,
+					layoutOrder = 4,
+				}) else React.createElement("frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}),
+			},
+			{
+				id = "domain",
+				height = if domainVisible then domainH else 0,
+				element = if domainVisible then React.createElement(Panel, {
 		layoutOrder = 5,
-		size = UDim2.new(1, 0, 0, domainH),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.pink,
 		background = darken(Palette.violet, 0.9),
 		padding = if stack then chrome.cardPadding else 18,
@@ -1403,8 +1425,16 @@ local function OverviewView(_param)
 		position = UDim2.fromOffset(0, 96),
 		reducedMotion = reducedMotion,
 		highlight = domain.CanExpand,
-	}))))}}})))
+	}))) else React.createElement("frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}),
+			},
+		},
+	})))
 end
+
 local ROW_HEIGHTS = {
 	machine = 120,
 	machineStack = 188,
@@ -1469,9 +1499,11 @@ local function MachineRow(_param)
 	-- with.
 	local cardWidth = if width ~= nil then width.X.Offset + (width.X.Scale * viewport.width) else viewport.width
 	local buttonBesideText = not stack and cardWidth >= 360
+	local absolute = y ~= nil or x ~= nil
+	local layoutY = if y == nil then 0 else y
 	return React.createElement("frame", {
-		Size = width or UDim2.new(1, 0, 0, rowH),
-		Position = if x ~= nil then UDim2.new(x.X.Scale, x.X.Offset, 0, y) else UDim2.fromOffset(0, y),
+		Size = if absolute then (width or UDim2.new(1, 0, 0, rowH)) else UDim2.fromScale(1, 1),
+		Position = if x ~= nil then UDim2.new(x.X.Scale, x.X.Offset, 0, layoutY) else UDim2.fromOffset(0, layoutY),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(Panel, {
@@ -1715,55 +1747,12 @@ local function UpgradeBoard(_param)
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
 	local rowStride = rowH + gap
 	local columnWidth = UDim2.new(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH)
-	local featureBlock = if featurePanel ~= nil then featurePanelHeight + gap else 0
-	local listOffset = SCROLL_EDGE + headerHeight + gap
 	local gridRows = math.ceil(math.max(1, #visible) / columns)
 	-- Machines come first so buy CTAs stay above the fold; AutoForge sits below the grid.
-	local machinesBlock = if #visible == 0 then 150 else gridRows * rowStride
-	local featureTop = listOffset + machinesBlock + (if featurePanel ~= nil then gap else 0)
+	local machinesBlock = if #visible == 0 then 150 else (gridRows * rowH + math.max(0, gridRows - 1) * gap)
 	-- Extra mobile scroll tail so the floating vault/tap cluster never covers the last Buy button.
 	local machineScrollTail = if stack then scrollTail(stack, chrome.bottomSafe, if chrome.landscape then 52 else 80) else scrollTail(stack, chrome.bottomSafe, 28)
-	local canvasHeight = listOffset + machinesBlock + featureBlock + machineScrollTail + SCROLL_EDGE
-	local window = useVirtualizedList(gridRows, rowStride, listOffset, 3)
-	local mounted = {}
-	do
-		local rowIndex = window.first
-		local _shouldIncrement = false
-		while true do
-			if _shouldIncrement then
-				rowIndex += 1
-			else
-				_shouldIncrement = true
-			end
-			if not (rowIndex <= window.last) then
-				break
-			end
-			for col = 0, columns - 1 do
-				local index = rowIndex * columns + col
-				local entry = visible[index + 1]
-				if entry == nil then
-					continue
-				end
-				local _arg0 = React.createElement(MachineRow, {
-					key = entry.config.Id,
-					machine = entry.config,
-					level = entry.level,
-					cash = state.Cash,
-					buyAmount = buyAmount,
-					reducedMotion = reducedMotion,
-					onBuy = function()
-						return onBuy(entry.config.Id)
-					end,
-					y = listOffset + rowIndex * rowStride,
-					x = if columns > 1 then UDim2.new(col / columns, if col > 0 then (gap * col) / columns else 0, 0, 0) else nil,
-					width = if columns > 1 then columnWidth else nil,
-					unlocked = entry.unlocked,
-					lockReason = entry.lockReason,
-				})
-				table.insert(mounted, _arg0)
-			end
-		end
-	end
+	local scrollRef = React.useRef()
 	local controlH = TapTarget
 	local desktopControlH = if touchLayout then TapTarget else 40
 	local controlsY = if controlsWrap then 98 else 100
@@ -1773,25 +1762,8 @@ local function UpgradeBoard(_param)
 	local stackCompact = stack and chrome.landscape
 	local stackSearchY = stackControlsY + controlH + 6
 	local stackFilterY = stackControlsY + (controlH + 6) * 2
-	return React.createElement("scrollingframe", {
-		ref = window.frame,
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.lineSoft,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, React.createElement(Panel, {
-		size = UDim2.new(1, -4, 0, headerHeight),
-		position = UDim2.fromOffset(0, SCROLL_EDGE),
+	local headerPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = accent,
 		background = Palette.panelRaised,
 		padding = if stack then chrome.cardPadding else 14,
@@ -1949,15 +1921,11 @@ local function UpgradeBoard(_param)
 		size = UDim2.new(0.5, -4, 0, controlH),
 		reducedMotion = reducedMotion,
 		zIndex = 42,
-	}))), featurePanel ~= nil and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, featurePanelHeight),
-		Position = UDim2.fromOffset(0, featureTop),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 24,
-	}, featurePanel), #visible == 0 and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 150),
-		Position = UDim2.fromOffset(0, listOffset),
+	})))
+	local machinesElement
+	if #visible == 0 then
+		machinesElement = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(EmptyState, {
@@ -1978,8 +1946,65 @@ local function UpgradeBoard(_param)
 		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
 		reducedMotion = reducedMotion,
 		highlight = true,
-	})), mounted)
+	}))
+	else
+		machinesElement = React.createElement(VirtualGrid, {
+			scrollRef = scrollRef,
+			count = #visible,
+			columns = columns,
+			cellHeight = rowH,
+			gap = gap,
+			overscanRows = if stack then 2 else 3,
+			itemKey = function(index)
+				return visible[index + 1].config.Id
+			end,
+			renderItem = function(index)
+				local entry = visible[index + 1]
+				return React.createElement(MachineRow, {
+					machine = entry.config,
+					level = entry.level,
+					cash = state.Cash,
+					buyAmount = buyAmount,
+					reducedMotion = reducedMotion,
+					onBuy = function()
+						return onBuy(entry.config.Id)
+					end,
+					width = columnWidth,
+					unlocked = entry.unlocked,
+					lockReason = entry.lockReason,
+				})
+			end,
+		})
+	end
+	local sections = {
+		{
+			id = "header",
+			height = headerHeight,
+			element = headerPanel,
+		},
+		{
+			id = "machines",
+			height = machinesBlock,
+			element = machinesElement,
+		},
+	}
+	if featurePanel ~= nil then
+		table.insert(sections, {
+			id = "autoforge",
+			height = featurePanelHeight,
+			element = featurePanel,
+		})
+	end
+	return React.createElement(PageScaffold, {
+		hostRef = scrollRef,
+		gap = gap,
+		tailPad = machineScrollTail,
+		scrollBarColor = accent,
+		scrollBarThickness = 4,
+		sections = sections,
+	})
 end
+
 local AUTO_FORGE_RESERVES = { {
 	id = "NONE",
 	label = "No reserve",
@@ -2604,7 +2629,8 @@ local function WorldsView(_param)
 	end
 	local moreLabel = if remainingBelow > 0 then `SHOW MORE  ({remainingBelow} left)` elseif remainingAbove > 0 then `SHOW EARLIER  ({remainingAbove})` else "SHOW MORE"
 	local gridRows = math.ceil(math.max(1, shownCount) / worldColumns)
-	local canvasHeight = headerHeight + rowGap + gridRows * (rowHeight + rowGap) + (if canShowMore then TapTarget + rowGap else 0) + listPad + scrollTail(stack, chrome.bottomSafe, 40)
+	local rowsHeight = math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap)
+	local worldTail = scrollTail(stack, chrome.bottomSafe, 40)
 	local rows = {}
 	do
 		local index = range.start
@@ -2665,28 +2691,12 @@ local function WorldsView(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Padding = UDim.new(0, rowGap),
 	})), rows)
-	return React.createElement("scrollingframe", {
-		ref = scrollRef,
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.lineSoft,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, rowGap),
-	}), React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, headerHeight),
+	local sections = {
+		{
+			id = "header",
+			height = headerHeight,
+			element = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.mint,
 		background = Palette.panelRaised,
 		padding = if stack then 16 else 14,
@@ -2751,26 +2761,42 @@ local function WorldsView(_param)
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
 		reducedMotion = reducedMotion,
-	})), rowsBlock, canShowMore and React.createElement("frame", {
-		Size = UDim2.new(1, -4, 0, TapTarget + 8),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 8000,
-	}, React.createElement(Button, {
-		text = moreLabel,
-		icon = "Chevron",
-		onClick = showMore,
-		color = Palette.panelSoft,
-		textColor = Palette.cream,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		reducedMotion = reducedMotion,
-		outline = true,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, listPad),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 9000,
-	}))
+	})),
+		},
+		{
+			id = "rows",
+			height = rowsHeight,
+			element = rowsBlock,
+		},
+	}
+	if canShowMore then
+		table.insert(sections, {
+			id = "more",
+			height = TapTarget + 8,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+			}, React.createElement(Button, {
+				text = moreLabel,
+				icon = "Chevron",
+				onClick = showMore,
+				color = Palette.panelSoft,
+				textColor = Palette.cream,
+				size = UDim2.new(1, 0, 0, TapTarget),
+				reducedMotion = reducedMotion,
+				outline = true,
+			})),
+		})
+	end
+	return React.createElement(PageScaffold, {
+		hostRef = scrollRef,
+		gap = rowGap,
+		tailPad = worldTail + listPad,
+		scrollBarColor = Palette.mint,
+		scrollBarThickness = 4,
+		sections = sections,
+	})
 end
 local function RewardChargeRail(_param)
 	local value = _param.value
@@ -2974,15 +3000,9 @@ local function RewardsView(_param)
 	local dailyReveal = useStagger(1, reducedMotion)
 	local timedReveal = useStagger(2, reducedMotion)
 	local rewardCardH = if stack then 172 else 110
-	local canvasHeight = 72 + rewardCardH * 2 + 104 + scrollTail(stack, chrome.bottomSafe, 48) + SCROLL_EDGE * 2
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
-	})
-	local _exp_1 = React.createElement(ScrollPads)
-	local _exp_2 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, 72),
+	local rewardsTail = scrollTail(stack, chrome.bottomSafe, 48)
+	local headerPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.pink,
 		background = Palette.panelRaised,
 		padding = 14,
@@ -3034,8 +3054,8 @@ local function RewardsView(_param)
 	_attributes.wrap = true
 	_attributes.position = UDim2.fromOffset(60, 32)
 	_attributes.sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 20)
-	local _exp_5 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, rewardCardH),
+	local dailyPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.mint,
 		background = Palette.panel,
 		padding = 14,
@@ -3107,23 +3127,8 @@ local function RewardsView(_param)
 	_attributes_1.fit = true
 	_attributes_1.position = UDim2.fromOffset(60, 32)
 	_attributes_1.sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 17)
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.pink,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _exp_5, React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, rewardCardH),
+	local timedPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.violet,
 		background = Palette.panel,
 		padding = 14,
@@ -3155,12 +3160,41 @@ local function RewardsView(_param)
 		reducedMotion = reducedMotion,
 		disabled = not timedReady,
 		highlight = timedReady,
-	})), React.createElement(TimedRewardQueue, {
+	}))
+	local queuePanel =  React.createElement(TimedRewardQueue, {
 		entries = timedEntries,
 		played = played,
 		reducedMotion = reducedMotion,
 		layoutOrder = 3,
-	}))
+	})
+	return React.createElement(PageScaffold, {
+		gap = 12,
+		tailPad = rewardsTail,
+		scrollBarColor = Palette.pink,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "header",
+				height = 72,
+				element = headerPanel,
+			},
+			{
+				id = "daily",
+				height = rewardCardH,
+				element = dailyPanel,
+			},
+			{
+				id = "timed",
+				height = rewardCardH,
+				element = timedPanel,
+			},
+			{
+				id = "queue",
+				height = 104,
+				element = queuePanel,
+			},
+		},
+	})
 end
 local function CrewRow(_param)
 	local player = _param.player
@@ -3635,14 +3669,9 @@ local function CrewView(_param)
 	local headerH = if stack then 130 else 112
 	local listGap = if visit ~= nil then math.max(chrome.panelGap, 18) else math.max(chrome.panelGap, 12)
 	local visitBlock = if visit ~= nil then (if stack then ROW_HEIGHTS.visitStack else ROW_HEIGHTS.visit) else 0
-	local canvasHeight = headerH + listGap + visitBlock + #players * (rowStride + listGap) + scrollTail(stack, chrome.bottomSafe, 48)
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, listGap),
-	})
-	local _exp_1 = React.createElement(Panel, {
-		size = UDim2.new(1, -4, 0, headerH),
+	local crewTail = scrollTail(stack, chrome.bottomSafe, 48)
+	local headerPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.blue,
 		background = Palette.panelRaised,
 		padding = chrome.cardPadding,
@@ -3682,14 +3711,14 @@ local function CrewView(_param)
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -170, 0, 24),
 		reducedMotion = reducedMotion,
 	}))
-	local _exp_2 = visit ~= nil and React.createElement(VisitPanel, {
+	local visitPanel = visit ~= nil and React.createElement(VisitPanel, {
 		visit = visit,
 		dispatch = dispatch,
 		reducedMotion = reducedMotion,
 		layoutOrder = 1,
 		stack = stack,
 	})
-	local _exp_3 = #players == 0 and React.createElement(EmptyState, {
+	local emptyPanel = #players == 0 and React.createElement(EmptyState, {
 		icon = "Crew",
 		title = "No one else is on shift",
 		body = "Crew shows up here once someone else is online with you.",
@@ -3719,22 +3748,41 @@ local function CrewView(_param)
 		_newValue[_k] = _callback(_v, _k - 1, players)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.blue,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _exp_3, _newValue)
+	local sections = {
+		{
+			id = "header",
+			height = headerH,
+			element = headerPanel,
+		},
+	}
+	if visitPanel then
+		table.insert(sections, {
+			id = "visit",
+			height = if stack then ROW_HEIGHTS.visitStack else ROW_HEIGHTS.visit,
+			element = visitPanel,
+		})
+	end
+	if emptyPanel then
+		table.insert(sections, {
+			id = "empty",
+			height = 180,
+			element = emptyPanel,
+		})
+	end
+	for index, row in _newValue do
+		table.insert(sections, {
+			id = "crew-" .. tostring(index),
+			height = rowStride,
+			element = row,
+		})
+	end
+	return React.createElement(PageScaffold, {
+		gap = listGap,
+		tailPad = crewTail,
+		scrollBarColor = Palette.blue,
+		scrollBarThickness = 4,
+		sections = sections,
+	})
 end
 local function PageContentInner(props)
 	local _binding = props

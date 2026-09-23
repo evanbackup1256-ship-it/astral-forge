@@ -42,7 +42,6 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/InventoryView.luau",
 	"src/Client/AstralForge/pages/LabView.luau",
 	"src/Client/AstralForge/pages/LeaderboardsView.luau",
-	"src/Client/AstralForge/pages/MailboxView.luau",
 	"src/Client/AstralForge/pages/MilestonesView.luau",
 	"src/Client/AstralForge/pages/MissionsView.luau",
 	"src/Client/AstralForge/pages/ResearchView.luau",
@@ -118,11 +117,9 @@ end
 -- PageScaffold owns the outer AutomaticCanvasSize.Y scroll. Nested raw frames are
 -- only OK when justified below (horizontal chips, dual-pane body, dual Confirm trees).
 local RAW_SCROLL_ALLOWLIST = {
-	["src/Client/AstralForge/pages/MailboxView.luau"] = "nested message-body scroll inside PageScaffold fill pane (split list/detail)",
 	["src/Client/AstralForge/pages/LeaderboardsView.luau"] = "horizontal filter-tab strip (ScrollingDirection.X), not page body",
 	["src/Client/AstralForge/pages/TradeView.luau"] = "nested offer/session scrolls inside dual compact/desktop Confirm trees",
 	["src/Client/AstralForge/pages/StoryView.luau"] = "nested chapter/content scrolls under scaffolded story chrome",
-	["src/Client/AstralForge/pages/PageRouter.luau"] = "Workshop/Worlds/Rewards/Crew still hand-canvas; Overview uses PageScaffold — leave alone while parallel PageRouter migrations land",
 }
 
 local function countRawScrollingFrames(src)
@@ -158,6 +155,20 @@ for _, path in HOT_PAGES do
 end
 
 ------------------------------------------------------------------------
+-- Mailbox dual-pane: pinned CLAIM/ARCHIVE footer (no outer PageScaffold double-scroll)
+------------------------------------------------------------------------
+do
+	local path = "src/Client/AstralForge/pages/MailboxView.luau"
+	local src = fs.readFile(path)
+	assert(not string.find(src, "pageScaffold", 1, true), path .. " must not nest PageScaffold (double-scroll trap)")
+	assert(string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must keep a body scrollingframe")
+	assert(string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true), path .. " must expose CLAIM/ARCHIVE")
+	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -footerH)", 1, true), path .. " must pin footer to bottom")
+	assert(string.find(src, "stackListH", 1, true), path .. " must reserve stack list height so detail actions stay reachable")
+	assert(string.find(src, "0.34, -7", 1, true) and string.find(src, "0.66, -7", 1, true), path .. " must keep desktop split chrome widths")
+end
+
+------------------------------------------------------------------------
 -- Overlay FocusClaim (modal overlays that steal gamepad focus)
 ------------------------------------------------------------------------
 local FOCUS_OVERLAYS = {
@@ -166,9 +177,12 @@ local FOCUS_OVERLAYS = {
 	"src/Client/AstralForge/FeedbackOverlay.luau",
 	"src/Client/AstralForge/purchaseOverlay.luau",
 	"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
+	"src/Client/AstralForge/AdminPrankOverlay.luau",
+	"src/Client/AstralForge/pages/CreditsView.luau",
+	"src/Client/AstralForge/DomainSkillTree.luau",
 }
--- Non-modal / autofocus-only overlays intentionally omit FocusClaim:
--- AdminPrankOverlay (useGamepadAutofocus), PlayerlistOverlay (persistent HUD list).
+-- Non-modal / persistent HUD overlays intentionally omit FocusClaim:
+-- PlayerlistOverlay (persistent HUD list), MobilePreviewGate (boot gate).
 
 for _, path in FOCUS_OVERLAYS do
 	assert(fs.isFile(path), "overlay missing: " .. path)
