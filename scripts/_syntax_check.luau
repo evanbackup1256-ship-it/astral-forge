@@ -12,6 +12,7 @@ local files = {
 	"src/Client/AstralForge/MainGame.luau",
 	"src/Client/AstralForge/TopBarChrome.luau",
 	"src/Client/AstralForge/NavChrome.luau",
+	"src/Client/AstralForge/WorkspaceChrome.luau",
 	"src/Client/AstralForge/ui.luau",
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/clientStore.luau",

@@ -5281,11 +5281,43 @@ local GameConfig = {
 			Color = Color3.fromRGB(15, 200, 155),
 		},
 
+		{
+			Id = "wave35-offline-brief",
+			Title = "Wave Thirty Five Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "WorkspaceChrome extract + NextUnlock/AppShell softMotion; readiness past checks=40.",
+			Body = {
+				"VaultPill/NextUnlockStrip/Workspace live in WorkspaceChrome.luau with VaultCollectClaim FocusClaim.",
+				"NextUnlockStrip and AppShell densify softMotion; MainGame sheds workspace chrome while DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 92, CashMinutes = 41, Signals = 43 },
+			Color = Color3.fromRGB(10, 195, 150),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave35-offline",
+			Subject = "Dock note — wave thirty five offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "WorkspaceChrome extract + AppShell softMotion — still DataVersion 21.",
+			Body = {
+				"WorkspaceChrome peels VaultPill/Workspace out of MainGame; VaultCollectClaim stays with COLLECT.",
+				"Offline release-readiness checks grow past checks=40 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 92, Stardust = 108, Signals = 47 },
+			Color = Color3.fromRGB(10, 195, 150),
+		},
 
 		{
 			Id = "update-5-1-wave34-offline",
