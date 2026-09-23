@@ -4,6 +4,7 @@ return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 	local LabService = {}
@@ -20,10 +21,10 @@ return function()
 	end
 
 	local function totalCells(profile): number
-		return math.clamp(
-			GameConfig.Lab.Power.BaseCells
-				+ math.floor(math.max(0, profile.Rebirths) / GameConfig.Lab.Power.RebirthsPerCell),
+		return LabOrderMath.TotalCells(
+			profile.Rebirths,
 			GameConfig.Lab.Power.BaseCells,
+			GameConfig.Lab.Power.RebirthsPerCell,
 			GameConfig.Lab.Power.MaxCells
 		)
 	end
@@ -64,13 +65,14 @@ return function()
 	end
 
 	local function orderTarget(profile, order): number
+		local bankFluxTarget = nil
 		if order.Kind == "BankFlux" then
 			-- Size bank targets from SteadyProduction so Flux Surge / ActiveBoost / Anomaly Surge
 			-- cannot inflate lab targets mid-shift the way they must not inflate vault capacity.
 			local steady = Economy.SteadyProduction(profile)
-			return math.max(order.BaseTarget, math.floor(Economy.AsNumber(Economy.Mul(steady, order.ProductionSeconds))))
+			bankFluxTarget = Economy.AsNumber(Economy.Mul(steady, order.ProductionSeconds))
 		end
-		return math.max(1, math.floor(order.BaseTarget + math.max(0, profile.Rebirths) * order.PerRebirth))
+		return LabOrderMath.OrderTarget(order, math.max(0, profile.Rebirths), bankFluxTarget)
 	end
 
 	local function rollOrders(profile, day: number, userId: number)
@@ -133,40 +135,15 @@ return function()
 	end
 
 	function LabService.Progress(profile, kind: string, amount: number): boolean
-		local gain = math.max(0, amount)
-		if gain <= 0 then
-			return false
-		end
-		local changed = false
-		for _, state in profile.Lab.Orders do
-			local definition = orderById[state.Id]
-			if definition and definition.Kind == kind and not state.Claimed and state.Progress < state.Target then
-				state.Progress = math.min(state.Target, state.Progress + gain)
-				changed = true
-			end
-		end
-		return changed
+		return LabOrderMath.ApplyProgress(profile.Lab.Orders, orderById, kind, amount)
 	end
 
 	function LabService.ClaimOrder(profile, orderId: string)
-		local definition = orderById[orderId]
-		if not definition then
-			return false, "That order is no longer on the board."
+		local ok, message, reward = LabOrderMath.TryClaim(profile.Lab.Orders, orderById, orderId)
+		if ok then
+			profile.Stats.OrdersCompleted += 1
 		end
-		for _, state in profile.Lab.Orders do
-			if state.Id == orderId then
-				if state.Claimed then
-					return false, "That order has already been paid."
-				end
-				if state.Progress < state.Target then
-					return false, "That order is not finished yet."
-				end
-				state.Claimed = true
-				profile.Stats.OrdersCompleted += 1
-				return true, "Order paid.", definition.Reward
-			end
-		end
-		return false, "That order is no longer on the board."
+		return ok, message, reward
 	end
 
 	function LabService.RoutePower(profile, channelId: string, delta: number)

@@ -58,10 +58,12 @@ serviceFactories["GameService"] = function()
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Format"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionGate"))
+	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RebirthGate"))
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeDesk"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+	local ZoneUnlock = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ZoneUnlock"))
 
 	local ProgressionService = loadService("ProgressionService")
 	local AnomalyService = loadService("AnomalyService")
@@ -1531,7 +1533,7 @@ serviceFactories["GameService"] = function()
 				TotalCoresSpent = math.max(0, math.floor(tonumber(domain.TotalCoresSpent) or 0)),
 				RequiredRebirths = domainRequiredRebirths,
 				RequiredCores = domainRequiredCores,
-				CanExpand = Economy.Gte(profile.Rebirths, domainRequiredRebirths) and Economy.Gte(profile.Cores, domainRequiredCores),
+				CanExpand = RebirthGate.MeetsRequired(profile.Rebirths, domainRequiredRebirths) and Economy.Gte(profile.Cores, domainRequiredCores),
 				EssenceReward = domainEssenceReward,
 				StardustReward = domainStardustReward,
 				ProductionMultiplier = 1
@@ -2320,8 +2322,8 @@ serviceFactories["GameService"] = function()
 			if level >= upgrade.MaxLevel then
 				return responseError("That Star Grid node is already complete.")
 			end
-			if profile.Rebirths < upgrade.RequiredRebirths then
-				return responseError(string.format("Requires %d rebirths.", upgrade.RequiredRebirths))
+			if not RebirthGate.MeetsRequired(profile.Rebirths, upgrade.RequiredRebirths) then
+				return responseError(RebirthGate.RequirementMessage(upgrade.RequiredRebirths))
 			end
 			if upgrade.PreviousId then
 				local previous = Economy.GetGridUpgrade(upgrade.PreviousId)
@@ -2377,21 +2379,24 @@ serviceFactories["GameService"] = function()
 			return responseError("That world does not exist.")
 		end
 		local result = self:_mutate(player, function(profile)
-			if zoneId <= profile.Zone then
+			local kind, err = ZoneUnlock.Evaluate(
+				profile.Zone,
+				profile.Rebirths,
+				profile.Cores,
+				profile.Cash,
+				zoneId,
+				zone,
+				Economy.Lt
+			)
+			if kind == "Travel" then
 				profile.CurrentZone = zoneId
 				return responseSuccess("Traveled to " .. zone.Name .. ".")
 			end
-			if zoneId ~= profile.Zone + 1 then
-				return responseError("Worlds must be unlocked in order.")
-			end
-			if profile.Rebirths < zone.RequiredRebirths then
-				return responseError(string.format("Requires %d rebirths.", zone.RequiredRebirths))
-			end
-			if profile.Cores < zone.CoreCost then
-				return responseError(string.format("Requires %d astral cores.", zone.CoreCost))
-			end
-			if Economy.Lt(profile.Cash, zone.Cost) then
-				return responseError("You need " .. Format.Number(Economy.Sub(zone.Cost, profile.Cash)) .. " more flux.")
+			if kind == "Error" then
+				if err == "NEED_MORE_FLUX" then
+					return responseError("You need " .. Format.Number(Economy.Sub(zone.Cost, profile.Cash)) .. " more flux.")
+				end
+				return responseError(err :: string)
 			end
 			profile.Cash = Economy.Sub(profile.Cash, zone.Cost)
 			profile.Zone = zoneId
@@ -2440,7 +2445,7 @@ serviceFactories["GameService"] = function()
 				then Economy.Add(profile.RunCash, profile.Vault)
 				else profile.RunCash
 			local reward = Economy.PrestigeReward(effectiveRun)
-			if Economy.Lt(reward, 1) then
+			if not RebirthGate.CanRebirth(reward, Economy.Gte) then
 				return responseError(
 					"Bank at least "
 						.. Format.Number(GameConfig.Economy.PrestigeRequirement)
@@ -2452,7 +2457,7 @@ serviceFactories["GameService"] = function()
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
 			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
 			local stardustMinimum = tonumber(rebirthConfig.StardustMinimum) or 4
-			local stardustReward = math.max(stardustMinimum, math.floor(math.sqrt(Economy.AsNumber(reward)) * stardustScale))
+			local stardustReward = RebirthGate.StardustReward(Economy.AsNumber(reward), stardustScale, stardustMinimum)
 			profile.Stardust += stardustReward
 			profile.BoostInventory = profile.BoostInventory or {}
 			local celebrationBoost = rebirthConfig.CelebrationBoostId or "Overdrive"
@@ -3543,7 +3548,7 @@ serviceFactories["GameService"] = function()
 				return responseError("Reality is still settling.")
 			end
 			local requiredRebirths, requiredCores = Economy.DomainRequirements(rank)
-			if profile.Rebirths < requiredRebirths then
+			if not RebirthGate.MeetsRequired(profile.Rebirths, requiredRebirths) then
 				return responseError(string.format("Domain rank %d requires %d rebirths.", rank + 1, requiredRebirths))
 			end
 			if profile.Cores < requiredCores then
