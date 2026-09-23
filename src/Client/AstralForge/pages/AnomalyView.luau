@@ -48,11 +48,11 @@ local SCROLL_EDGE = _ui.SCROLL_EDGE
 local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
-local GAP = 12
+local GAP = Layout.panelGap -- desktop-friendly section breathing room
 local ACTION_FAILSAFE = 8
-local CHANNEL_CARD_H = 78
-local CHANNEL_CARD_MIN_W = 150
-local CHANNEL_DECK_HEADER_H = 64
+local CHANNEL_CARD_H = 84
+local CHANNEL_CARD_MIN_W = 160
+local CHANNEL_DECK_HEADER_H = 70
 -- Shared by ChannelDeck (actual rendering) and ReactorConsole (canvas-height estimate for the
 -- outer scrollingframe) so both always agree on how many rows the channel grid takes — computing
 -- this in two places that could independently drift is exactly what caused the desktop
@@ -1078,7 +1078,7 @@ local function DirectiveRow(_param)
 	local armed = _binding[1]
 	local run = _binding[2]
 	local accent = directive.Color or Palette.mango
-	local height = if stack then 180 else 148
+	local height = if stack then 184 else 156
 	local collect = function()
 		return run(dispatch, "ClaimAnomalyDirective", {
 			Id = directive.Id,
@@ -1186,7 +1186,7 @@ local function ProtocolRow(_param)
 	local armed = _binding[1]
 	local run = _binding[2]
 	local affordable = gteFlux(fragments, cost) and not maxed and not armed
-	local height = if stack then 164 else 124
+	local height = if stack then 168 else 132
 	local _result
 	if type(cost) == "number" then
 		_result = cost
@@ -1520,8 +1520,8 @@ local function ReactorConsole(_param)
 	local channelRailH = channelRows * CHANNEL_CARD_H + math.max(0, channelRows - 1) * GAP
 	local channelH = CHANNEL_DECK_HEADER_H + channelRailH
 	local milestoneH = if stack then 154 else 110
-	local directiveH = if stack then 180 else 148
-	local protocolH = if stack then 164 else 124
+	local directiveH = if stack then 184 else 156
+	local protocolH = if stack then 168 else 132
 	local overdriveReserve = if anomaly.Overdrive ~= nil then OVERDRIVE_BAR_H + GAP else 0
 	local coreTierStripH = coreTierStripHeight(anomaly.NextCoreTier, contentWidth)
 	local coreTierReserve = coreTierStripH + GAP
@@ -1539,13 +1539,13 @@ local function ReactorConsole(_param)
 		size = UDim2.new(1, 0, 0, heroH),
 		accent = accent,
 		background = Palette.panelRaised,
-		padding = if stack then 14 else 18,
+		padding = if stack then 14 else 20,
 	}
 	local _original = order
 	order += 1
 	_attributes.layoutOrder = _original
 	_attributes.reveal = heroReveal
-	_attributes.highlight = anomaly.Ready
+	_attributes.highlight = true
 	_attributes.reducedMotion = reducedMotion
 	_attributes.clips = false
 	local _exp_4 = React.createElement("uigradient", {
@@ -1951,7 +1951,7 @@ local function ReactorConsole(_param)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = accent,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.2,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 		ClipsDescendants = true,

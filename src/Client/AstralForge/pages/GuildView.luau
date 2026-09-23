@@ -15,6 +15,7 @@ local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local ensureContrast = _theme.ensureContrast
+local Layout = _theme.Layout
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
@@ -188,9 +189,10 @@ local function GuildGoalCard(_param)
 	local localKey = tostring(Players.LocalPlayer.UserId)
 	if goal == nil then
 		return React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, 108),
+			size = UDim2.new(1, 0, 0, 116),
 			accent = Palette.mint,
-			padding = 16,
+			background = Palette.panelRaised,
+			padding = if stack then 16 else 18,
 			layoutOrder = layoutOrder,
 			reducedMotion = reducedMotion,
 		}, React.createElement(Text, {
@@ -231,7 +233,7 @@ local function GuildGoalCard(_param)
 	local canClaim = goal.Completed and helped and not claimed
 	local accent = if goal.Completed then Palette.mint else Palette.mango
 	local surface = darken(accent, 0.9)
-	local height = if stack then 226 else 186
+	local height = if stack then 234 else 196
 	-- The highlight breathing pulse fires only while the reward is actually claimable.
 	local _exp = React.createElement(Text, {
 		value = if goal.Completed then "GUILD GOAL • COMPLETE" else "GUILD GOAL",
@@ -369,7 +371,7 @@ local function UpgradeCard(_param)
 	-- Progress toward affording the next tier, so the bar always means "how close are we".
 	local fill = if row.maxed then 1 else math.clamp(bank / math.max(1, row.cost), 0, 1)
 	local actionable = canBuy and row.affordable and not row.maxed
-	local height = if stack then 176 else 132
+	local height = if stack then 180 else 140
 	local _exp = React.createElement(Text, {
 		value = row.config.Name,
 		size = if stack then 15 else 17,
@@ -418,7 +420,8 @@ local function UpgradeCard(_param)
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, height),
 		accent = row.accent,
-		padding = 14,
+		background = Palette.panelRaised,
+		padding = if stack then 14 else 16,
 		layoutOrder = layoutOrder,
 		interactive = actionable,
 		highlight = actionable,
@@ -489,12 +492,14 @@ local function MemberRow(_param)
 	-- buttons drew on top of the text. Manageable rows now get extra height and the buttons
 	-- pinned to the bottom instead of vertically centered, the same pattern the stack layout
 	-- already used correctly.
-	local height = if stack then 118 elseif manageable then 108 else 76
+	-- Keep in sync with GuildView's canvas memberHeight — short desktop rows used to clip
+	-- promote/kick controls when the canvas reserved only 76px for a 108px manageable row.
+	local height = if stack then 122 elseif manageable then 112 else 84
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, height),
 		accent = if isLocal then Palette.green else accent,
 		background = surface,
-		padding = 12,
+		padding = if stack then 12 else 14,
 		layoutOrder = layoutOrder,
 		reducedMotion = reducedMotion,
 		clips = false,
@@ -854,7 +859,8 @@ local function GuildView(_param)
 	end, { dispatch })
 	if guild == nil or guild.Id == "" then
 		local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Guild else nil
-		local canvasHeight = 132 + 276 + 192 + 36 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
+		local pageGap = if stack then 12 else Layout.panelGap
+		local canvasHeight = 140 + 276 + 192 + 36 + pageGap * 3 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
 		return React.createElement("scrollingframe", {
 			Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
@@ -863,7 +869,7 @@ local function GuildView(_param)
 			BorderSizePixel = 0,
 			ScrollBarThickness = 4,
 			ScrollBarImageColor3 = Palette.violet,
-			ScrollBarImageTransparency = 0.28,
+			ScrollBarImageTransparency = 0.2,
 			ScrollingDirection = Enum.ScrollingDirection.Y,
 			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
@@ -873,12 +879,13 @@ local function GuildView(_param)
 		}, React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 12),
+			Padding = UDim.new(0, pageGap),
 		}), React.createElement(ScrollPads), React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, 120),
+			size = UDim2.new(1, 0, 0, 128),
 			accent = Palette.violet,
 			background = Palette.panelRaised,
-			padding = 18,
+			padding = if stack then 16 else 20,
+			highlight = true,
 			layoutOrder = 0,
 			reveal = reveal,
 			clips = false,
@@ -960,17 +967,19 @@ local function GuildView(_param)
 		_goalContributors = _goalContributors.Contributors
 	end
 	local goalContributors = _goalContributors
-	local heroHeight = if stack then 210 else 178
-	local goalHeight = if guild.Goal == nil then 108 elseif stack then 226 else 186
-	local bankHeight = if stack then 302 else 200
-	local upgradeHeight = if stack then 176 else 132
-	local memberHeight = if stack then 118 else 76
-	local canvasHeight = heroHeight + goalHeight + bankHeight + 34 + #rows * (upgradeHeight + 12) + 34 + #members * (memberHeight + 12) + 96 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
+	local pageGap = if stack then 12 else Layout.panelGap
+	local heroHeight = if stack then 218 else 188
+	local goalHeight = if guild.Goal == nil then 116 elseif stack then 234 else 196
+	local bankHeight = if stack then 310 else 216
+	local upgradeHeight = if stack then 180 else 140
+	local memberHeight = if stack then 122 elseif canManage then 112 else 84
+	local sectionLabelH = 34
+	local canvasHeight = heroHeight + goalHeight + bankHeight + sectionLabelH + #rows * (upgradeHeight + pageGap) + sectionLabelH + #members * (memberHeight + pageGap) + 96 + pageGap * 4 + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
 	local heroSurface = darken(Palette.violet, 0.9)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
+		Padding = UDim.new(0, pageGap),
 	})
 	local _exp_1 = React.createElement(ScrollPads)
 	local _attributes = {}
@@ -1064,9 +1073,10 @@ local function GuildView(_param)
 		size = UDim2.new(1, 0, 0, heroHeight),
 		accent = Palette.violet,
 		background = heroSurface,
-		padding = 16,
+		padding = if stack then 16 else 20,
 		layoutOrder = 1,
 		reveal = reveal,
+		highlight = true,
 		reducedMotion = reducedMotion,
 		clips = false,
 	}, _exp_4, _exp_5, _exp_6, React.createElement(Text, _attributes_1), if canManage and #members == 1 then React.createElement(Button, {
@@ -1188,7 +1198,7 @@ local function GuildView(_param)
 	end
 	_attributes_2.disabled = _condition_7
 	_attributes_2.size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.new(0.5, -6, 0, 42)
-	_attributes_2.position = if stack then UDim2.fromOffset(0, 122) else UDim2.new(0, 0, 0, 122)
+	_attributes_2.position = if stack then UDim2.fromOffset(0, 126) else UDim2.new(0, 0, 0, 128)
 	_attributes_2.reducedMotion = reducedMotion
 	local _exp_17 = React.createElement(Button, _attributes_2)
 	local _exp_18 = React.createElement("textbox", {
@@ -1244,12 +1254,13 @@ local function GuildView(_param)
 	end
 	_attributes_3.disabled = _condition_8
 	_attributes_3.size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.new(0.5, -6, 0, 42)
-	_attributes_3.position = if stack then UDim2.fromOffset(0, 218) else UDim2.new(0.5, 6, 0, 122)
+	_attributes_3.position = if stack then UDim2.fromOffset(0, 222) else UDim2.new(0.5, 6, 0, 128)
 	_attributes_3.reducedMotion = reducedMotion
 	local _exp_19 = React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, bankHeight),
 		accent = Palette.mango,
-		padding = 16,
+		background = Palette.panelRaised,
+		padding = if stack then 16 else 18,
 		layoutOrder = 3,
 		reducedMotion = reducedMotion,
 		clips = false,
@@ -1344,7 +1355,7 @@ local function GuildView(_param)
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = Palette.violet,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.2,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,

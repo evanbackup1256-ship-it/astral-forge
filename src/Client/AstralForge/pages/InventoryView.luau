@@ -11,10 +11,12 @@ local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
+local Layout = _theme.Layout
 local Palette = _theme.Palette
 local TapTarget = _theme.TapTarget
 local contrastOn = _theme.contrastOn
 local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -107,14 +109,15 @@ local RARITY_FILTERS = { {
 	label = "Mythic",
 } }
 local AUTO_RARITIES = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" }
-local HERO_H = 88
-local HERO_H_STACK = 118
-local ROW_H = 108
-local ROW_H_STACK = 128
+local HERO_H = 96
+local HERO_H_STACK = 124
+local ROW_H = 112
+local ROW_H_STACK = 132
 local ROW_GAP = 10
 local SCROLL_PAD = 24 + 16
-local TOOL_FIELD_DESK = 48
+local TOOL_FIELD_DESK = 50
 local STATS_H = 36
+local BULK_DOCK_H = 58
 local function relicRowHeight(stack)
 	return if stack then ROW_H_STACK else ROW_H
 end
@@ -450,12 +453,13 @@ local function InventoryTools(_param)
 	local limit = _param.limit
 	local essence = _param.essence
 	local fieldH = if stack then math.max(TapTarget, 52) else TOOL_FIELD_DESK
-	local gap = 8
+	local gap = if stack then 8 else 10
+	local pad = if stack then 8 else 12
 	local filterOptions = FILTERS
 	local rarityOptions = RARITY_FILTERS
 	local sortOptions = SORTS
-	local bagW = if stack then 100 else 96
-	local essW = if stack then 112 else 110
+	local bagW = if stack then 100 else 104
+	local essW = if stack then 112 else 116
 	local metaW = bagW + essW + gap
 	local filterH = if stack then fieldH * 2 + gap else fieldH
 	local actionW = UDim2.new(1 / 3, -math.ceil((gap * 2) / 3), 0, fieldH)
@@ -474,7 +478,7 @@ local function InventoryTools(_param)
 	return React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = Palette.panel,
+		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
@@ -483,13 +487,13 @@ local function InventoryTools(_param)
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = accent,
-		Thickness = 1,
-		Transparency = 0.45,
+		Thickness = 1.5,
+		Transparency = 0.28,
 	}), React.createElement("uipadding", {
-		PaddingTop = UDim.new(0, 8),
-		PaddingBottom = UDim.new(0, 8),
-		PaddingLeft = UDim.new(0, 10),
-		PaddingRight = UDim.new(0, 10),
+		PaddingTop = UDim.new(0, pad),
+		PaddingBottom = UDim.new(0, pad),
+		PaddingLeft = UDim.new(0, pad + 2),
+		PaddingRight = UDim.new(0, pad + 2),
 	}), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -640,7 +644,6 @@ local function InventoryTools(_param)
 		outline = not autoOpen,
 	})))
 end
-local BULK_DOCK_H = 56
 local function BulkDock(_param)
 	local selectedCount = _param.selectedCount
 	local selectableCount = _param.selectableCount
@@ -650,9 +653,10 @@ local function BulkDock(_param)
 	local salvageSelected = _param.salvageSelected
 	local bulkBusy = _param.bulkBusy
 	local reducedMotion = _param.reducedMotion
+	-- Sized by the parent PageScaffold section — do not absolute-anchor to the viewport
+	-- bottom (that class of layout collapses the list height on short screens).
 	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, BULK_DOCK_H),
-		Position = UDim2.new(0, 0, 1, -BULK_DOCK_H),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		ZIndex = 30,
@@ -663,13 +667,13 @@ local function BulkDock(_param)
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.coral,
-		Thickness = 1,
-		Transparency = 0.4,
+		Thickness = 1.5,
+		Transparency = 0.28,
 	}), React.createElement("uipadding", {
-		PaddingTop = UDim.new(0, 6),
-		PaddingBottom = UDim.new(0, 6),
-		PaddingLeft = UDim.new(0, 8),
-		PaddingRight = UDim.new(0, 8),
+		PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 8),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
 	}), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		Padding = UDim.new(0, 8),
@@ -2145,10 +2149,12 @@ local function InventoryView(_param)
 	end
 	local essence = _condition_2
 	local heroH = if stack then HERO_H_STACK else HERO_H
+	local pageGap = if stack then ROW_GAP else Layout.panelGap
+	local toolPad = if stack then 8 else 12
+	local toolGap = if stack then 8 else 10
 	local tabH = if touchLayout then 54 else 56
 	local fieldH = if stack then math.max(TapTarget, 52) else TOOL_FIELD_DESK
-	local toolsH = if tab == "Relics" then 16 + (if stack then 26 + 8 else 0) + (if stack then fieldH * 2 + 8 else fieldH) + 8 + fieldH else 0
-	local relicsChromeH = tabH + ROW_GAP + toolsH + ROW_GAP
+	local toolsH = if tab == "Relics" then toolPad * 2 + (if stack then 26 + toolGap else 0) + (if stack then fieldH * 2 + toolGap else fieldH) + toolGap + fieldH else 0
 	local _exp_5 = function()
 		return if selected ~= nil then socketTargets(state, config, selected.definition) else {}
 	end
@@ -2465,7 +2471,7 @@ local function InventoryView(_param)
 		local gridH = math.ceil(6 / cols) * (if stack then 66 else 62)
 		canvasHeight = listStart + 54 + gridH + 18 + 28 + math.max(1, equippedCount) * 32 + scrollTail(chrome.stack, chrome.bottomSafe, SCROLL_PAD)
 	end
-	local paneHeight = math.max(1, canvasHeight - heroH - tabH - ROW_GAP * 2)
+	local paneHeight = math.max(1, canvasHeight - heroH - tabH - pageGap * 2)
 	local openCrate = function(crate, count)
 		if crateBusy or crateRevealActive then
 			return nil
@@ -2509,7 +2515,7 @@ local function InventoryView(_param)
 		end,
 		accent = Palette.violet,
 		columns = #TABS,
-		gap = 8,
+		gap = pageGap,
 		size = UDim2.new(1, 0, 0, tabH),
 		layoutOrder = 1,
 		reducedMotion = reducedMotion,
@@ -2536,10 +2542,65 @@ local function InventoryView(_param)
 		limit = limit,
 		essence = essence,
 	})
+	local heroPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = Palette.violet,
+		background = Palette.panelRaised,
+		padding = if stack then 14 else 18,
+		layoutOrder = 0,
+		reveal = headerReveal,
+		highlight = true,
+		reducedMotion = reducedMotion,
+		clips = false,
+	}, React.createElement(IconTile, {
+		kind = "Loadout",
+		accent = Palette.violet,
+		size = if stack then 38 else 44,
+		radius = 11,
+		position = UDim2.fromOffset(0, if stack then 4 else 6),
+		spin = false,
+		reducedMotion = reducedMotion,
+		glow = true,
+	}), React.createElement(Text, {
+		value = "INVENTORY",
+		size = 12,
+		color = Palette.violet,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(if stack then 50 else 56, 2),
+		sizeConstraint = UDim2.new(1, if stack then -58 else -20, 0, 16),
+	}), React.createElement(ShimmerText, {
+		value = "Relics, crates, and sockets.",
+		size = if stack then 18 else 22,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(if stack then 50 else 56, 20),
+		sizeConstraint = UDim2.new(1, if stack then -58 else -20, 0, 26),
+		enabled = not reducedMotion,
+		periodSeconds = 4.8,
+	}), React.createElement("frame", {
+		Size = if stack then UDim2.new(1, 0, 0, 28) else UDim2.fromOffset(220, 30),
+		Position = if stack then UDim2.new(0, 0, 1, -28) else UDim2.new(1, -220, 0.5, -15),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = if stack then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Right,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Badge, {
+		value = `{filled} / {limit} BAG`,
+		accent = Palette.violet,
+		filled = true,
+		size = UDim2.fromOffset(if stack then 108 else 118, 28),
+	}), React.createElement(Badge, {
+		value = `{compactNumber(essence)} ESS`,
+		accent = Palette.mango,
+		size = UDim2.fromOffset(if stack then 100 else 112, 28),
+	})))
 	if tab == "Relics" then
 		local canvasH = SCROLL_PAD
-		local selectedTop = 0
-		local selectedBlock = relicRowHeight(stack)
 		-- ▼ ReadonlyArray.forEach ▼
 		local _callback_2 = function(item, index)
 			local _result_13 = selected
@@ -2554,10 +2615,6 @@ local function InventoryView(_param)
 			local chips = if open and item.equippedOn == nil and #targetsForSelected > 0 then math.max(1, math.ceil(#targetsForSelected / (if stack then 2 else 3))) else 0
 			local inspectH = if open then inspectPanelHeight(inspectSocketBlock(item.equippedOn ~= nil, #targetsForSelected, chips, stack), stack) else 0
 			local block = relicRowHeight(stack) + (if open then 8 + inspectH else 0)
-			if open then
-				selectedTop = canvasH
-				selectedBlock = block
-			end
 			canvasH += block + (if index < #filtered - 1 then ROW_GAP else 0)
 		end
 		for _k, _v in filtered do
@@ -2567,38 +2624,12 @@ local function InventoryView(_param)
 		if #filtered == 0 then
 			canvasH += 150
 		end
-		canvasH += SCROLL_PAD + (if bulkMode then BULK_DOCK_H + 8 else 0)
-		local _exp_6 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, ROW_GAP),
-			VerticalFlex = Enum.UIFlexAlignment.Fill,
-		})
-		local _exp_7 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, tabH),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 0,
-			ClipsDescendants = false,
-		}, React.createElement("uiflexitem", {
-			FlexMode = Enum.UIFlexMode.None,
-		}), tabsBar)
-		local _exp_8 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 1,
-		}, React.createElement("uiflexitem", {
-			FlexMode = Enum.UIFlexMode.None,
-		}), toolsBar)
-		local _exp_9 = React.createElement("uiflexitem", {
-			FlexMode = Enum.UIFlexMode.Fill,
-		})
+		canvasH += SCROLL_PAD
+		local listGap = if stack then ROW_GAP else pageGap
 		local _exp_10 = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, ROW_GAP),
+			Padding = UDim.new(0, listGap),
 		})
 		local _exp_11 = React.createElement("uisizeconstraint", {
 			MinSize = Vector2.new(80, relicRowHeight(stack)),
@@ -2672,42 +2703,82 @@ local function InventoryView(_param)
 			_newValue_1[_k] = _callback_3(_v, _k - 1, filtered)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		return React.createElement("frame", {
+		local listPane = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ClipsDescendants = false,
-		}, _exp_6, _exp_7, _exp_8, React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 0),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 2,
-			ClipsDescendants = false,
-		}, _exp_9, React.createElement("scrollingframe", {
+		}, React.createElement(SectionLabel, {
+			value = if bulkMode then "SELECT RELICS" else "RELIC BAY",
+			color = if bulkMode then Palette.coral else Palette.violet,
+		}), React.createElement("scrollingframe", {
 			ref = relicListRef,
-			Size = UDim2.new(1, 0, 1, if bulkMode then -BULK_DOCK_H else 0),
+			Size = UDim2.new(1, 0, 1, -34),
+			Position = UDim2.fromOffset(0, 34),
 			CanvasSize = UDim2.new(0, 0, 0, canvasH),
 			AutomaticCanvasSize = Enum.AutomaticSize.None,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ScrollingDirection = Enum.ScrollingDirection.Y,
 			ScrollBarThickness = 4,
-			ScrollBarImageColor3 = Palette.lineSoft,
-			ScrollBarImageTransparency = 0.28,
+			ScrollBarImageColor3 = Palette.violet,
+			ScrollBarImageTransparency = 0.22,
 			ClipsDescendants = true,
 			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 			Active = true,
 			Selectable = false,
-		}, _exp_10, _exp_11, _exp_12, _newValue_1), bulkMode and React.createElement(BulkDock, {
-			selectedCount = #selectedForBulk,
-			selectableCount = #selectableVisible,
-			selectionEssence = selectionEssence,
-			selectVisible = selectVisible,
-			clearSelection = clearSelection,
-			salvageSelected = salvageSelected,
-			bulkBusy = bulkBusy,
-			reducedMotion = reducedMotion,
+		}, _exp_10, _exp_11, _exp_12, _newValue_1))
+		local sections = {
+			{
+				id = "hero",
+				height = heroH,
+				element = heroPanel,
+			},
+			{
+				id = "tabs",
+				height = tabH,
+				element = tabsBar,
+			},
+			{
+				id = "tools",
+				height = toolsH,
+				element = toolsBar,
+			},
+			{
+				id = "list",
+				fill = true,
+				minHeight = math.max(160, relicRowHeight(stack) + 48),
+				element = listPane,
+			},
+		}
+		if bulkMode then
+			table.insert(sections, {
+				id = "bulk",
+				height = BULK_DOCK_H,
+				element = React.createElement(BulkDock, {
+					selectedCount = #selectedForBulk,
+					selectableCount = #selectableVisible,
+					selectionEssence = selectionEssence,
+					selectVisible = selectVisible,
+					clearSelection = clearSelection,
+					salvageSelected = salvageSelected,
+					bulkBusy = bulkBusy,
+					reducedMotion = reducedMotion,
+				}),
+			})
+		end
+		return React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+		}, React.createElement(PageScaffold, {
+			gap = pageGap,
+			tailPad = if stack then 10 else 14,
+			scrollBarColor = Palette.violet,
+			scrollBarThickness = 4,
+			sections = sections,
 		}), autoOpen and React.createElement(AutoSalvageSheet, {
 			passOwned = passOwned,
 			rules = autoRules,
@@ -2721,74 +2792,25 @@ local function InventoryView(_param)
 			onClose = function()
 				return setAutoOpen(false)
 			end,
-		})))
+		}))
 	end
 	local _exp_6 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, ROW_GAP),
+		Padding = UDim.new(0, pageGap),
 	})
 	local _exp_7 = React.createElement(ScrollPads)
-	local _exp_8 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, heroH),
-		accent = Palette.violet,
-		background = Palette.panelRaised,
-		padding = if stack then 14 else 16,
-		layoutOrder = 0,
-		reveal = headerReveal,
-		clips = false,
-	}, React.createElement(IconTile, {
-		kind = "Loadout",
-		accent = Palette.violet,
-		size = if stack then 36 else 40,
-		radius = 10,
-		position = UDim2.fromOffset(0, if stack then 2 else 4),
-		spin = false,
-		reducedMotion = reducedMotion,
-		glow = true,
-	}), React.createElement(Text, {
-		value = "INVENTORY",
-		size = 11,
-		color = Palette.violet,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(if stack then 48 else 52, 0),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -16, 0, 14),
-	}), React.createElement(ShimmerText, {
-		value = "Relics, crates, and sockets.",
-		size = if stack then 17 else 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(if stack then 48 else 52, 16),
-		sizeConstraint = UDim2.new(1, if stack then -56 else -16, 0, 24),
-		enabled = not reducedMotion,
-		periodSeconds = 4.8,
-	}), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 28) else UDim2.fromOffset(196, 28),
-		Position = if stack then UDim2.new(0, 0, 1, -28) else UDim2.new(1, -196, 0.5, -14),
+	local _exp_8 = React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, heroH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = if stack then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Right,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement(Badge, {
-		value = `{filled} / {limit} BAG`,
-		accent = Palette.violet,
-		filled = true,
-		size = UDim2.fromOffset(if stack then 108 else 112, 26),
-	}), React.createElement(Badge, {
-		value = `{compactNumber(essence)} ESS`,
-		accent = Palette.mango,
-		size = UDim2.fromOffset(if stack then 100 else 108, 26),
-	})))
+		LayoutOrder = 0,
+	}, heroPanel)
 	local _exp_9 = tabsBar
 	local _exp_10 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, ROW_GAP),
+		Padding = UDim.new(0, pageGap),
 	})
 	local _exp_11 = tab == "Crates" and React.createElement(SectionLabel, {
 		value = "CRATE CHANNELS",
@@ -2888,8 +2910,8 @@ local function InventoryView(_param)
 		BorderSizePixel = 0,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.lineSoft,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageColor3 = Palette.violet,
+		ScrollBarImageTransparency = 0.22,
 		ClipsDescendants = true,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,

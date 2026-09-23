@@ -28,6 +28,7 @@ local IconTile = _ui.IconTile
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
 local ScrollPads = _ui.ScrollPads
+local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local ClientLog = require(script.Parent.Parent.log).ClientLog
@@ -233,7 +234,7 @@ local function OfferTile(_param)
 	local stack = packed or chrome.contentStack
 	local reveal = useStagger(staggerIndex, reducedMotion, 0.036, 0.26)
 	local canBuy = owned ~= true and not disabled
-	local rowH = if packed then 236 elseif stack then 176 else 156
+	local rowH = if packed then 244 elseif stack then 184 else 168
 	local ctaH = if stack then TapTarget else 44
 	return React.createElement("frame", {
 		Size = if packed then UDim2.fromScale(1, 1) else UDim2.new(1, -4, 0, rowH),
@@ -260,8 +261,8 @@ local function OfferTile(_param)
 		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uistroke", {
 		Color = accent,
-		Thickness = 1,
-		Transparency = 0.42,
+		Thickness = 1.5,
+		Transparency = 0.28,
 	}), React.createElement(Icon, {
 		kind = icon,
 		color = Palette.cream,
@@ -736,16 +737,18 @@ local function ShopView(_param)
 	local featuredPasses = _newValue_2
 	local listCount = if tab == "Codes" then 1 elseif tab == "Featured" then #featuredProducts + #featuredPasses elseif tab == "Passes" then #passes else #products
 	local packCols = useShopColumns()
-	local packedH = if stack then 200 else 236
+	local packedH = if stack then 208 else 244
 	local packRows = math.max(1, math.ceil(listCount / packCols))
 	local rowH = packedH
-	local codePanelH = if stack then 206 else 164
-	local followPanelH = if stack then 178 else 136
+	local codePanelH = if stack then 214 else 176
+	local followPanelH = if stack then 186 else 148
 	local codesH = codePanelH + Layout.panelGap + followPanelH
-	local listHeight = if tab == "Codes" then codesH else packRows * (rowH + 12)
-	local heroH = if stack then 96 else 112
-	local tabRowH = if stack then TapTarget else 44
-	local canvasHeight = heroH + Layout.panelGap + tabRowH + Layout.panelGap + listHeight + SCROLL_EDGE * 2
+	local pageGap = if stack then Layout.stackGap else Layout.panelGap
+	local listHeight = if tab == "Codes" then codesH else packRows * (rowH + pageGap)
+	local heroH = if stack then 104 else 124
+	local tabRowH = if stack then TapTarget else 50
+	local sectionLabelH = 34
+	local canvasHeight = heroH + pageGap + tabRowH + pageGap + sectionLabelH + pageGap + listHeight + SCROLL_EDGE * 2
 	local codeReady = (string.gsub(code, "%s", "")) ~= ""
 	local redeemDisabled = busy or not codeReady or purchasePhase == "pending"
 	return React.createElement("frame", {
@@ -762,7 +765,7 @@ local function ShopView(_param)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = Palette.mango,
-		ScrollBarImageTransparency = 0.28,
+		ScrollBarImageTransparency = 0.2,
 		ClipsDescendants = true,
 		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
@@ -770,14 +773,14 @@ local function ShopView(_param)
 		Selectable = false,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, Layout.panelGap),
+		Padding = UDim.new(0, pageGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(ScrollPads), React.createElement(Panel, {
 		layoutOrder = 0,
 		size = UDim2.new(1, 0, 0, heroH),
 		accent = Palette.mango,
 		background = Palette.panelRaised,
-		padding = 16,
+		padding = if stack then 14 else 20,
 		reveal = heroReveal,
 		highlight = true,
 		reducedMotion = reducedMotion,
@@ -823,7 +826,7 @@ local function ShopView(_param)
 		size = UDim2.fromOffset(68, 20),
 	}), React.createElement(Text, {
 		value = "Passes, packs, and codes.",
-		size = 24,
+		size = 26,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
@@ -849,8 +852,12 @@ local function ShopView(_param)
 		size = UDim2.new(1, 0, 0, tabRowH),
 		layoutOrder = 1,
 		reducedMotion = reducedMotion,
+	}), React.createElement(SectionLabel, {
+		value = if tab == "Codes" then "REDEEM" elseif tab == "Passes" then "GAME PASSES" elseif tab == "Supplies" then "SUPPLY PACKS" else "FEATURED OFFERS",
+		color = Palette.mango,
+		layoutOrder = 2,
 	}), React.createElement("frame", {
-		LayoutOrder = 2,
+		LayoutOrder = 3,
 		Size = UDim2.new(1, 0, 0, listHeight),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -866,13 +873,13 @@ local function ShopView(_param)
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, Layout.panelGap),
+		Padding = UDim.new(0, pageGap),
 	}), React.createElement(Panel, {
 		layoutOrder = 1,
 		size = UDim2.new(1, -4, 0, codePanelH),
 		accent = Palette.cyan,
-		background = Palette.panel,
-		padding = 16,
+		background = Palette.panelRaised,
+		padding = if stack then 14 else 18,
 		reducedMotion = reducedMotion,
 	}, React.createElement(Text, {
 		value = "Promo codes",
