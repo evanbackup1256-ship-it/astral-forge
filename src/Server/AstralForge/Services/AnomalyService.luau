@@ -294,7 +294,7 @@ return function(loadService: (string) -> any)
 			Cores = level % 5 == 0 and math.max(1, math.floor(level / 5)) or nil,
 		}
 		profile.Anomaly.Fragments += fragments
-		local rewardText = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
+		local rewardText = ProgressionService.ApplyReward(profile, reward, Economy.SteadyProduction(profile))
 		local message = string.format("%s stabilized: %d fragments, %s.", anomaly.Name, fragments, rewardText)
 		if tiersGained > 0 then
 			message = string.format("%s Core Tier %d reached!", message, profile.Anomaly.CoreTier)
@@ -412,7 +412,7 @@ return function(loadService: (string) -> any)
 			return false, "That anomaly milestone was already claimed."
 		end
 		profile.Anomaly.MilestoneClaims[key] = true
-		local rewardText = ProgressionService.ApplyReward(profile, milestone.Reward, Economy.Production(profile))
+		local rewardText = ProgressionService.ApplyReward(profile, milestone.Reward, Economy.SteadyProduction(profile))
 		return true,
 			string.format("Reactor mark %d: %s.", tier, rewardText),
 			{
@@ -445,7 +445,7 @@ return function(loadService: (string) -> any)
 		profile.Anomaly.DirectiveClaims[definition.Id] = true
 		profile.Anomaly.Fragments += definition.Fragments
 		profile.Stats.AnomalyDirectives += 1
-		local rewardText = ProgressionService.ApplyReward(profile, definition.Reward, Economy.Production(profile))
+		local rewardText = ProgressionService.ApplyReward(profile, definition.Reward, Economy.SteadyProduction(profile))
 		return true,
 			string.format("%s complete: %d fragments, %s.", definition.Name, definition.Fragments, rewardText),
 			{

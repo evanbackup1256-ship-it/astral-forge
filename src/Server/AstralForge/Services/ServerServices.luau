@@ -512,7 +512,7 @@ serviceFactories["GameService"] = function()
 			Production = production,
 			Cash = profile.Cash,
 			Vault = profile.Vault,
-			Capacity = Economy.Capacity(profile, os.time(), production),
+			Capacity = Economy.Capacity(profile, os.time()),
 			Cores = profile.Cores,
 			Stardust = profile.Stardust,
 			LifetimeCash = profile.LifetimeCash,
@@ -1358,7 +1358,7 @@ serviceFactories["GameService"] = function()
 		end
 		local now = os.time()
 		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier())
-		local capacity = Economy.Capacity(profile, now, production)
+		local capacity = Economy.Capacity(profile, now)
 		local prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault))
 		local domain = profile.Domain or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
 		local domainRank = math.max(0, math.floor(tonumber(domain.Rank) or 0))
@@ -1606,7 +1606,9 @@ serviceFactories["GameService"] = function()
 			Production = production,
 			RawProduction = Economy.RawProduction(profile),
 			Capacity = capacity,
-			CapacitySeconds = Economy.CapacitySeconds(profile, now, production),
+			CapacitySeconds = Economy.CapacitySeconds(profile, now),
+			SteadyProduction = Economy.SteadyProduction(profile, now),
+			FluxSurge = self._fluxSurge and self._fluxSurge:State(now) or { Active = false, Multiplier = 1, AffectsCapacity = false },
 			PermanentMultiplier = Economy.PermanentMultiplier(profile),
 			AutoCollectRate = Economy.AutoCollectRate(profile),
 			OfflineHours = Economy.OfflineHours(profile),
@@ -1957,7 +1959,12 @@ serviceFactories["GameService"] = function()
 			)
 			ProgressionService.AwardForgePathXP(
 				profile,
-				math.max(1, math.floor(math.log(amountNumber + 1) / math.log(10) * 4))
+				(function()
+					local xpConfig = GameConfig.Economy.ForgePathXP
+					local scale = tonumber(xpConfig and xpConfig.LogScale) or 4
+					local minimum = tonumber(xpConfig and xpConfig.Minimum) or 1
+					return math.max(minimum, math.floor(math.log(amountNumber + 1) / math.log(10) * scale))
+				end)()
 			)
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })
@@ -2367,7 +2374,12 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_rebirth(player: Player)
 		local result = self:_mutate(player, function(profile)
-			local effectiveRun = Economy.Add(profile.RunCash, profile.Vault)
+			local rebirthConfig = GameConfig.Economy.Rebirth or {}
+			local bankVault = rebirthConfig.BankVaultIntoRun ~= false
+			local bankedVault = profile.Vault
+			local effectiveRun = if bankVault
+				then Economy.Add(profile.RunCash, profile.Vault)
+				else profile.RunCash
 			local reward = Economy.PrestigeReward(effectiveRun)
 			if Economy.Lt(reward, 1) then
 				return responseError(
@@ -2379,10 +2391,16 @@ serviceFactories["GameService"] = function()
 			local bankedVault = profile.Vault
 			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
-			local stardustReward = math.max(4, math.floor(math.sqrt(Economy.AsNumber(reward)) * 5))
+			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
+			local stardustMinimum = tonumber(rebirthConfig.StardustMinimum) or 4
+			local stardustReward = math.max(stardustMinimum, math.floor(math.sqrt(Economy.AsNumber(reward)) * stardustScale))
 			profile.Stardust += stardustReward
 			profile.BoostInventory = profile.BoostInventory or {}
-			profile.BoostInventory.Overdrive = (profile.BoostInventory.Overdrive or 0) + 1
+			local celebrationBoost = rebirthConfig.CelebrationBoostId or "Overdrive"
+			local bonusCount = math.max(1, math.floor(tonumber(rebirthConfig.BonusOverdrive) or 1))
+			if GameConfig.Boosts[celebrationBoost] then
+				profile.BoostInventory[celebrationBoost] = (profile.BoostInventory[celebrationBoost] or 0) + bonusCount
+			end
 			profile.Rebirths += 1
 			profile.Cash = GameConfig.Economy.StartingCash
 			profile.Vault = 0
@@ -2406,6 +2424,7 @@ serviceFactories["GameService"] = function()
 				Reward = reward,
 				StardustReward = stardustReward,
 				BankedVault = bankedVault,
+				CelebrationBoost = celebrationBoost,
 				NextTarget = GameConfig.Economy.PrestigeRequirement,
 			})
 		end)
@@ -2415,6 +2434,10 @@ serviceFactories["GameService"] = function()
 				Type = "Rebirth",
 				UserId = player.UserId,
 				Position = self._world:GetPlotPosition(player),
+				Reward = result.Reward,
+				StardustReward = result.StardustReward,
+				BankedVault = result.BankedVault,
+				CelebrationBoost = result.CelebrationBoost,
 			})
 		end
 		return result
@@ -3454,8 +3477,10 @@ serviceFactories["GameService"] = function()
 				TotalRebirthsSpent = 0,
 				TotalCoresSpent = 0,
 			}
+			local expansion = GameConfig.Domain.Expansion or {}
+			local cooldown = math.max(1, math.floor(tonumber(expansion.CooldownSeconds) or 6))
 			local rank = math.max(0, math.floor(tonumber(profile.Domain.Rank) or 0))
-			if os.time() - math.max(0, math.floor(tonumber(profile.Domain.LastExpandedAt) or 0)) < 6 then
+			if os.time() - math.max(0, math.floor(tonumber(profile.Domain.LastExpandedAt) or 0)) < cooldown then
 				return responseError("Reality is still settling.")
 			end
 			local requiredRebirths, requiredCores = Economy.DomainRequirements(rank)
@@ -3471,7 +3496,9 @@ serviceFactories["GameService"] = function()
 			local spentCores = profile.Cores
 			local overflowRebirths = math.max(0, spentRebirths - requiredRebirths)
 			local overflowCores = math.max(0, spentCores - requiredCores)
-			local overflowReward = math.floor(overflowRebirths * 18 + math.sqrt(overflowCores) * 6)
+			local overflowRebirthScale = tonumber(expansion.OverflowRebirthScale) or 18
+			local overflowCoreScale = tonumber(expansion.OverflowCoreSqrtScale) or 6
+			local overflowReward = math.floor(overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale)
 			local nextRank = rank + 1
 			profile.Domain.Rank = nextRank
 			profile.Domain.Nodes = type(profile.Domain.Nodes) == "table" and profile.Domain.Nodes or {}
@@ -3510,8 +3537,13 @@ serviceFactories["GameService"] = function()
 
 			stardustReward = stardustReward + overflowReward
 			profile.Stardust += stardustReward
-			profile.Wheel.FreeSpins = (profile.Wheel.FreeSpins or 0) + 3
-			profile.BoostInventory.DomainSurge = (profile.BoostInventory.DomainSurge or 0) + 1
+			local freeSpins = math.max(0, math.floor(tonumber(expansion.FreeSpins) or 3))
+			profile.Wheel.FreeSpins = (profile.Wheel.FreeSpins or 0) + freeSpins
+			local bonusBoostId = expansion.BonusBoostId or GameConfig.Domain.SurgeBoostId
+			local bonusBoostCount = math.max(1, math.floor(tonumber(expansion.BonusBoostCount) or 1))
+			if GameConfig.Boosts[bonusBoostId] then
+				profile.BoostInventory[bonusBoostId] = (profile.BoostInventory[bonusBoostId] or 0) + bonusBoostCount
+			end
 			profile.BoostInventory.Hyperdrive = (profile.BoostInventory.Hyperdrive or 0) + 2
 			profile.BoostInventory.Overdrive = (profile.BoostInventory.Overdrive or 0) + 3
 			profile.BoostInventory.VaultSurge = (profile.BoostInventory.VaultSurge or 0) + 2
@@ -3526,7 +3558,8 @@ serviceFactories["GameService"] = function()
 				ConsumedRebirths = spentRebirths,
 				ConsumedCores = spentCores,
 				BoostEndsAt = profile.ActiveBoost.EndsAt,
-				FreeSpins = 3,
+				FreeSpins = freeSpins,
+				BonusBoost = bonusBoostId,
 			}
 			local nextRequiredRebirths, nextRequiredCores = Economy.DomainRequirements(nextRank)
 			details.NextRequiredRebirths = nextRequiredRebirths
@@ -4768,7 +4801,7 @@ serviceFactories["GameService"] = function()
 						profile.ActiveBoost = { Id = "", EndsAt = 0 }
 					end
 					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now))
-					local capacity = Economy.Capacity(profile, now, production)
+					local capacity = Economy.Capacity(profile, now)
 					local produced = Economy.Mul(production, step)
 					profile.Vault = Economy.Min(capacity, Economy.Add(profile.Vault, produced))
 

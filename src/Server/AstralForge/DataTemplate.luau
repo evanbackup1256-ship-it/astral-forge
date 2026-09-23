@@ -103,6 +103,8 @@ function DataTemplate.New()
 		ForgePath = {
 			ClaimedSteps = {},
 			XP = 0,
+			XPDay = -1,
+			XPEarnedToday = 0,
 		},
 		GridUpgrades = {},
 		TimedRewards = {
