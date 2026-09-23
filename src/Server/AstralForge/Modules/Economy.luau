@@ -188,13 +188,20 @@ function Economy.ItemEffect(
 	if not profile.Items then
 		return 0
 	end
+	local machines = profile.Machines
+	local research = profile.Research
 	local total = 0
 	for target, uid in profile.Items.Equipped do
 		local instance = profile.Items.Inventory[uid]
 		local definition = instance and Economy.GetItemDefinition(instance.DefinitionId)
 		local slot, targetId = string.match(target, "^(%a+):([%w_]+)$")
-		local ownedLevel = slot == "Machine" and profile.Machines[targetId]
-			or slot == "Research" and profile.Research[targetId]
+		-- Nil-safe Machines/Research: mid-sanitize / partial fixtures must not throw
+		-- when Equipped still points at a slot bag that reconcile has not finished.
+		local ownedLevel = if slot == "Machine" and type(machines) == "table"
+			then machines[targetId]
+			elseif slot == "Research" and type(research) == "table"
+			then research[targetId]
+			else nil
 		if
 			definition
 			and type(ownedLevel) == "number"
@@ -462,8 +469,15 @@ function Economy.ForgePathEffect(profile: ProfileLike?, effectKind: string): num
 	if forgePath == nil then
 		return 0
 	end
+	-- ClaimedSteps may be missing on partial ForgePath bags (corrupt save / mid
+	-- ensure). ProgressionGate already guards this; PermanentMultiplier must too
+	-- or a single missing table throws the whole production tick.
+	local claimed = forgePath.ClaimedSteps
+	if type(claimed) ~= "table" then
+		return 0
+	end
 	local total = 0
-	for stepKey in forgePath.ClaimedSteps do
+	for stepKey in claimed do
 		local stepIndex = tonumber(stepKey)
 		local step = stepIndex and GameConfig.ForgePath.Steps[stepIndex]
 		if step and step.EffectKind == effectKind then
@@ -835,17 +849,29 @@ function Economy.NextPrestigeTarget(currentReward: any): Persist
 end
 
 function Economy.TotalMachineLevels(profile: ProfileLike): number
+	local machines = profile.Machines
+	if type(machines) ~= "table" then
+		return 0
+	end
 	local total = 0
-	for _, value in profile.Machines do
-		total += value
+	for _, value in machines do
+		if type(value) == "number" then
+			total += value
+		end
 	end
 	return total
 end
 
 function Economy.TotalResearchLevels(profile: ProfileLike): number
+	local research = profile.Research
+	if type(research) ~= "table" then
+		return 0
+	end
 	local total = 0
-	for _, value in profile.Research do
-		total += value
+	for _, value in research do
+		if type(value) == "number" then
+			total += value
+		end
 	end
 	return total
 end

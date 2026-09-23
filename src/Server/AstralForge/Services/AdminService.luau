@@ -9,6 +9,7 @@ return function(loadService: (string) -> any)
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -486,6 +487,8 @@ return function(loadService: (string) -> any)
 						end
 					end
 				end
+				-- Production/Capacity are EncodeState projections, not persisted profile
+				-- fields — reading profile.Production left Admin RATE stuck at 0/s.
 				table.insert(online, {
 					UserId = player.UserId,
 					Name = player.Name,
@@ -495,7 +498,7 @@ return function(loadService: (string) -> any)
 					Cores = profile.Cores,
 					Rebirths = profile.Rebirths,
 					Zone = profile.CurrentZone,
-					Production = profile.Production,
+					Production = Economy.Production(profile),
 					Stardust = profile.Stardust,
 					Essence = essence,
 					Keys = keys,
@@ -816,7 +819,9 @@ return function(loadService: (string) -> any)
 				profile.Cash = profile.Vault
 				profile.Vault = parked
 			elseif command == "FillVault" then
-				profile.Vault = profile.Capacity or profile.Vault
+				-- Capacity is computed (Economy.Capacity), never stored on the profile.
+				-- profile.Capacity was always nil, so FillVault was a silent no-op.
+				profile.Vault = Economy.Capacity(profile)
 			elseif command == "DrainKeys" then
 				for crateId in profile.Items.Keys do profile.Items.Keys[crateId] = 0 end
 			elseif command == "DrainBoosts" then

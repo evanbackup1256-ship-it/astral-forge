@@ -709,7 +709,15 @@ return function()
 	local function ensureForgePath(profile)
 		if type(profile.ForgePath) ~= "table" then
 			profile.ForgePath = { ClaimedSteps = {}, XP = 0, XPDay = -1, XPEarnedToday = 0 }
+			return
 		end
+		-- Partial ForgePath bags (XP-only / missing ClaimedSteps) used to throw on claim.
+		if type(profile.ForgePath.ClaimedSteps) ~= "table" then
+			profile.ForgePath.ClaimedSteps = {}
+		end
+		profile.ForgePath.XP = math.max(0, math.floor(tonumber(profile.ForgePath.XP) or 0))
+		profile.ForgePath.XPDay = math.floor(tonumber(profile.ForgePath.XPDay) or -1)
+		profile.ForgePath.XPEarnedToday = math.max(0, math.floor(tonumber(profile.ForgePath.XPEarnedToday) or 0))
 	end
 
 	local function awardForgePathXP(profile, amount: number)

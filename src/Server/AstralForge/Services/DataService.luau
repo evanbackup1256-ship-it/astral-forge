@@ -571,6 +571,37 @@ return function(loadService: (string) -> any)
 				profile.Anomaly.DirectiveClaims[directiveId] = nil
 			end
 		end
+		-- ForgePath was the only major progression bag without a sanitize pass. Partial
+		-- bags (XP without ClaimedSteps) crashed Economy.ForgePathEffect / claim paths.
+		if type(profile.ForgePath) ~= "table" then
+			profile.ForgePath = { ClaimedSteps = {}, XP = 0, XPDay = -1, XPEarnedToday = 0 }
+		end
+		if type(profile.ForgePath.ClaimedSteps) ~= "table" then
+			profile.ForgePath.ClaimedSteps = {}
+		end
+		local forgeStepCount = GameConfig.ForgePath and GameConfig.ForgePath.StepCount
+			or (GameConfig.ForgePath and #GameConfig.ForgePath.Steps)
+			or 0
+		for key, claimed in profile.ForgePath.ClaimedSteps do
+			local stepIndex = tonumber(key)
+			if
+				type(claimed) ~= "boolean"
+				or claimed ~= true
+				or not stepIndex
+				or stepIndex ~= math.floor(stepIndex)
+				or stepIndex < 1
+				or (forgeStepCount > 0 and stepIndex > forgeStepCount)
+			then
+				profile.ForgePath.ClaimedSteps[key] = nil
+			elseif type(key) == "number" then
+				-- Persist string keys so ClaimForgePathStep tostring lookups stay consistent.
+				profile.ForgePath.ClaimedSteps[key] = nil
+				profile.ForgePath.ClaimedSteps[tostring(stepIndex)] = true
+			end
+		end
+		profile.ForgePath.XP = math.floor(nonNegative(profile.ForgePath.XP))
+		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay) or -1
+		profile.ForgePath.XPEarnedToday = math.floor(nonNegative(profile.ForgePath.XPEarnedToday))
 		profile.Lab.Day = type(profile.Lab.Day) == "number" and math.max(-1, math.floor(profile.Lab.Day)) or -1
 		for index, order in profile.Lab.Orders do
 			if

@@ -80,12 +80,14 @@ end
 
 function ProgressionGate.UpgradeReason(profile, upgrade, levels): string?
 	local requiredZone = upgrade.RequiredZone or 1
-	if profile.Zone < requiredZone then
+	local zoneOwned = math.max(0, math.floor(tonumber(profile.Zone) or 0))
+	if zoneOwned < requiredZone then
 		local zone = GameConfig.Zones[requiredZone]
 		return "Reach " .. (zone and zone.Name or ("World " .. tostring(requiredZone)))
 	end
 	local requiredRebirths = upgrade.RequiredRebirths or 0
-	if profile.Rebirths < requiredRebirths then
+	local rebirths = math.max(0, math.floor(tonumber(profile.Rebirths) or 0))
+	if rebirths < requiredRebirths then
 		return string.format("Complete %d rebirth%s", requiredRebirths, requiredRebirths == 1 and "" or "s")
 	end
 	if upgrade.PreviousId and (levels[upgrade.PreviousId] or 0) < (upgrade.PreviousLevel or 1) then
