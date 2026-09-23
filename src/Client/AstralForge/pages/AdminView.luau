@@ -661,7 +661,7 @@ local function AdminView(_param)
 				layoutOrder = index + 1,
 			})
 		end,
-	}))
+	})))
 
 	-- Column 3 top: target inspect.
 	local inspectSection = React.createElement(Panel, {
