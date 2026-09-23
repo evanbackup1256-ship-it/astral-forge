@@ -42,12 +42,18 @@ local function ConvergenceView(_param)
 	local revealTiers = useStagger(1, softMotion)
 	-- Canonical softMotion antilag gate — ConvergenceTier.
 	local revealClaim = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — ConvergenceHero.
+	local revealHero = useStagger(3, softMotion)
+	-- Canonical softMotion antilag gate — ConvergenceFill.
+	local revealFill = useStagger(4, softMotion)
+	local convergenceSoft = softMotion or revealHero == nil or revealFill == nil
 	if event == nil then
 		return React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
 			accent = Palette.mango,
 			padding = 22,
-			reveal = enter,
+			reveal = if softMotion then revealHero else enter,
+			highlight = not convergenceSoft,
 			reducedMotion = softMotion,
 		}, React.createElement(Text, {
 			value = "FORGE CONVERGENCE",

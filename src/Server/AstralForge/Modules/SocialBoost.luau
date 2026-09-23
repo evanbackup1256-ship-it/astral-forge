@@ -72,4 +72,12 @@ function SocialBoost.PublicSnapshot(raw: any, maxBoostedFriends: number, copyDic
 	return copyDictionary(type(raw) == "table" and raw or SocialBoost.DefaultSnapshot(maxBoostedFriends))
 end
 
+-- Creator-follow reward rail bag (wave48).
+function SocialBoost.CreatorRewardsPublic(raw: any, creatorName: string): any
+	return {
+		CreatorFollowClaimed = type(raw) == "table" and raw.CreatorFollowClaimed == true,
+		CreatorName = creatorName,
+	}
+end
+
 return table.freeze(SocialBoost)

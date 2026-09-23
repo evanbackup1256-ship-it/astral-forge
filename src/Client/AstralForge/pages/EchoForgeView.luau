@@ -647,6 +647,13 @@ local function EchoForgeView(_param)
 	-- Canonical softMotion antilag gate — EchoForgeView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	-- Canonical softMotion antilag gate — EchoBoard.
+	local boardReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — EchoSlots.
+	local slotsReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — EchoInventoryGate.
+	local inventoryGateReveal = useStagger(2, softMotion)
+	local echoSoft = softMotion or boardReveal == nil or slotsReveal == nil or inventoryGateReveal == nil
 	local echoes = state.ForgeEchoes or EMPTY_ECHOES
 	local armedUid, setArmedUid = React.useState()
 	React.useEffect(function()
@@ -739,8 +746,8 @@ local function EchoForgeView(_param)
 		accent = chargeAccent,
 		background = heroSurface,
 		padding = if stack then 15 else Layout.cardPadding,
-		highlight = echoes.Ready,
-		reveal = chargeReveal,
+		highlight = echoes.Ready and not echoSoft,
+		reveal = if softMotion then boardReveal else chargeReveal,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("frame", {

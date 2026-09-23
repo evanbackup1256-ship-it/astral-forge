@@ -312,6 +312,13 @@ local function LabView(_param)
 	reducedMotion = softMotion
 	local now = useWallClock(true)
 	local headerReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — LabOrders.
+	local ordersReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — LabClaim.
+	local claimReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — LabBoard.
+	local boardReveal = useStagger(3, softMotion)
+	local labSoft = softMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
 	local labClaimHostRef = React.useRef(nil)
 	if lab == nil then
 		return React.createElement(Panel, {
@@ -518,7 +525,9 @@ local function LabView(_param)
 		accent = Palette.mint,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = headerReveal,
+		reveal = if softMotion then boardReveal else headerReveal,
+		highlight = not labSoft,
+		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_2, _result)
 	local _exp_4 = React.createElement(SectionLabel, {

@@ -71,4 +71,36 @@ function OfflineProjection.Project(
 	return reward, elapsed, weightedEfficiency / elapsed, capped
 end
 
+-- Client Offline rail bag (wave48). Runtime fields optional when session cold.
+function OfflineProjection.PublicSnapshot(args: {
+	runtime: any?,
+	production: any,
+	vault: any,
+	offlineHours: number,
+}): any
+	local runtime = args.runtime
+	if runtime then
+		return {
+			Reward = runtime.OfflineReward,
+			Seconds = runtime.OfflineSeconds,
+			Efficiency = runtime.OfflineEfficiency,
+			Capped = runtime.OfflineCapped,
+			Production = args.production,
+			AwaySeconds = runtime.OfflineAwaySeconds or runtime.OfflineSeconds,
+			CapHours = runtime.OfflineCapHours or args.offlineHours,
+			Vault = args.vault,
+		}
+	end
+	return {
+		Reward = 0,
+		Seconds = 0,
+		Efficiency = 0,
+		Capped = false,
+		Production = args.production,
+		AwaySeconds = 0,
+		CapHours = args.offlineHours,
+		Vault = args.vault,
+	}
+end
+
 return table.freeze(OfflineProjection)

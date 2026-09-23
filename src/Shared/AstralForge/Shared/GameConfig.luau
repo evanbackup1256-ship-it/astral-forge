@@ -5478,6 +5478,21 @@ local GameConfig = {
 			Reward = { Stardust = 116, CashMinutes = 53, Signals = 55 },
 			Color = Color3.fromRGB(0, 230, 185),
 		},
+		{
+			Id = "wave48-offline-brief",
+			Title = "Wave Forty Eight Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Offline/ForgePathXP/SocialRewards peels + Convergence/Echo/Command/Lab densify; readiness past checks=53.",
+			Body = {
+				"OfflineProjection PublicSnapshot, ForgePathClaim XpFromBankedAmount, SocialBoost CreatorRewardsPublic peel ServerServices bags.",
+				"Convergence/EchoForge/Command/Lab thicken softMotion; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 118, CashMinutes = 54, Signals = 56 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
 
 
 
@@ -5648,6 +5663,21 @@ local GameConfig = {
 				"Schema stays DataVersion 21. Attachment for reading the memo.",
 			},
 			Attachment = { CashMinutes = 116, Stardust = 132, Signals = 59 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
+		{
+			Id = "update-5-1-wave48-offline",
+			Subject = "Dock note — wave forty eight offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Offline/ForgePathXP/SocialRewards peels + convergence/echo/command/lab softMotion — still DataVersion 21.",
+			Body = {
+				"OfflineProjection PublicSnapshot, ForgePathClaim XpFromBankedAmount, and SocialBoost CreatorRewardsPublic peel ServerServices bags; Convergence/EchoForge/Command/Lab densify softMotion.",
+				"Offline release-readiness checks grow past checks=53 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 118, Stardust = 134, Signals = 60 },
 			Color = Color3.fromRGB(0, 230, 185),
 		},
 

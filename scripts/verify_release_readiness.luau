@@ -1291,8 +1291,13 @@ assert(string.find(cfg, 'Id = "wave47-offline-brief"', 1, true), "Story wave47 r
 assert(string.find(cfg, 'Id = "update-5-1-wave47-offline"', 1, true), "Mail wave47 residual for release")
 mark("wave47 guild trade overcharge visit leaderboards chat densify content residuals")
 
--- Wave47 residuals raise the offline subset past checks=52.
-assert(#passed > 52, "release-readiness offline subset must stay beyond checks=52, got " .. tostring(#passed))
+-- Wave48 peel/densify asserts live in verify_wave48_harden (release-readiness register budget).
+assert(string.find(cfg, 'Id = "wave48-offline-brief"', 1, true), "Story wave48 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave48-offline"', 1, true), "Mail wave48 residual for release")
+mark("wave48 offline forgepath socialrewards convergence echo command lab densify content residuals")
+
+-- Wave48 residuals raise the offline subset past checks=53.
+assert(#passed > 53, "release-readiness offline subset must stay beyond checks=53, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

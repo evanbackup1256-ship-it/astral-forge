@@ -73,4 +73,12 @@ function ForgePathClaim.Effect(claimedSteps: any, steps: any, effectKind: string
 	return total / 100
 end
 
+-- Forge-path XP awarded when banking flux (wave48). Injected xpConfig from GameConfig.
+function ForgePathClaim.XpFromBankedAmount(amountNumber: number, xpConfig: any): number
+	local scale = tonumber(xpConfig and xpConfig.LogScale) or 4
+	local minimum = tonumber(xpConfig and xpConfig.Minimum) or 1
+	local safeAmount = math.max(0, tonumber(amountNumber) or 0)
+	return math.max(minimum, math.floor(math.log(safeAmount + 1) / math.log(10) * scale))
+end
+
 return table.freeze(ForgePathClaim)

@@ -87,6 +87,8 @@ serviceFactories["GameService"] = function()
 	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ContinuumDomainMath"))
 	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemLoadoutMath"))
 	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
+	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
+	local OfflineProjection = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OfflineProjection"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -1215,10 +1217,7 @@ serviceFactories["GameService"] = function()
 			Guild = GuildMath.SnapshotPublic(guildMembership, guildCachedPublic),
 			GuildBonuses = copyDictionary(profile.GuildBonuses),
 			SocialBoost = SocialBoost.PublicSnapshot(profile.SocialBoost, GameConfig.Social.MaxBoostedFriends, copyDictionary),
-			SocialRewards = {
-				CreatorFollowClaimed = profile.SocialRewards and profile.SocialRewards.CreatorFollowClaimed == true,
-				CreatorName = ServerConfig.CreatorUsername,
-			},
+			SocialRewards = SocialBoost.CreatorRewardsPublic(profile.SocialRewards, ServerConfig.CreatorUsername),
 			AutoForge = AutoSalvageSnapshot.PublicAutoForge(profile.AutoForge, copyDictionary),
 			Trade = if self._trades then self._trades:StatePublic(profile, player, now) else TradeDesk.LockedPublic(),
 			Convergence = self._convergence:State(player, profile),
@@ -1268,25 +1267,12 @@ serviceFactories["GameService"] = function()
 				profile.Cores,
 				profile.Stardust
 			),
-			Offline = runtime and {
-				Reward = runtime.OfflineReward,
-				Seconds = runtime.OfflineSeconds,
-				Efficiency = runtime.OfflineEfficiency,
-				Capped = runtime.OfflineCapped,
-				Production = production,
-				AwaySeconds = runtime.OfflineAwaySeconds or runtime.OfflineSeconds,
-				CapHours = runtime.OfflineCapHours or Economy.OfflineHours(profile),
-				Vault = profile.Vault,
-			} or {
-				Reward = 0,
-				Seconds = 0,
-				Efficiency = 0,
-				Capped = false,
-				Production = production,
-				AwaySeconds = 0,
-				CapHours = Economy.OfflineHours(profile),
-				Vault = profile.Vault,
-			},
+			Offline = OfflineProjection.PublicSnapshot({
+				runtime = runtime,
+				production = production,
+				vault = profile.Vault,
+				offlineHours = Economy.OfflineHours(profile),
+			}),
 			Visitors = self:_visitorList(player),
 			Visit = VisitSnapshot.Resolve(self._visiting[player], Players:GetPlayers(), function(host)
 				return self._data:Get(host)
@@ -1575,12 +1561,7 @@ serviceFactories["GameService"] = function()
 			)
 			ProgressionService.AwardForgePathXP(
 				profile,
-				(function()
-					local xpConfig = GameConfig.Economy.ForgePathXP
-					local scale = tonumber(xpConfig and xpConfig.LogScale) or 4
-					local minimum = tonumber(xpConfig and xpConfig.Minimum) or 1
-					return math.max(minimum, math.floor(math.log(amountNumber + 1) / math.log(10) * scale))
-				end)()
+				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP)
 			)
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })

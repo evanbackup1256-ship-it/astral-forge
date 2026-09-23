@@ -15,6 +15,7 @@ local formatReward = _format.formatReward
 local _motion = require(script.Parent.Parent.motion)
 local easeOutCubic = _motion.easeOutCubic
 local useBoatTween = _motion.useBoatTween
+local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _theme = require(script.Parent.Parent.theme)
@@ -291,6 +292,13 @@ local function CommandView(_param)
 	-- Canonical softMotion antilag gate — CommandView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	-- Canonical softMotion antilag gate — CommandOverview.
+	local overviewReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — CommandExpeditions.
+	local expeditionsReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — CommandOps.
+	local opsReveal = useStagger(2, softMotion)
+	local commandSoft = softMotion or overviewReveal == nil or expeditionsReveal == nil or opsReveal == nil
 	local claimHostRef = React.useRef(nil)
 	local stack = chrome.contentStack
 	local ops = config.Operations
@@ -550,7 +558,7 @@ local function CommandView(_param)
 	}, React.createElement(TabRail, {
 		active = tab,
 		setActive = changeTab,
-		reducedMotion = softMotion,
+		reducedMotion = softMotion or commandSoft,
 		stack = stack,
 	}))
 	local _condition_3 = tab == "Overview"
