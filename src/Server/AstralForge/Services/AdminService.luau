@@ -10,6 +10,7 @@ return function(loadService: (string) -> any)
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+	local AdminGrantMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AdminGrantMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -17,7 +18,7 @@ return function(loadService: (string) -> any)
 	local AdminService = {}
 	AdminService.__index = AdminService
 
-	local MAX_GRANT = 1e308
+	local MAX_GRANT = AdminGrantMath.DEFAULT_MAX_GRANT
 	local MAX_AUDIT_MEMORY = 40
 	local MAX_AUDIT_PERSISTED = 100
 	local NONCE_TTL = 300
@@ -118,33 +119,15 @@ return function(loadService: (string) -> any)
 	local CATEGORY_RANK = { Economy = 1, Progress = 2, Items = 3, Resets = 4, Troll = 5, Moderation = 6 }
 
 	local function commandDanger(definition: { [string]: any }): string
-		if type(definition.Danger) == "string" and definition.Danger ~= "" then
-			return definition.Danger
-		end
-		local category = definition.Category or "Economy"
-		if category == "Troll" or category == "Resets" or category == "Moderation" then
-			return "arm"
-		end
-		return "quick"
-	end
-
-	local function finite(value: any): boolean
-		return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+		return AdminGrantMath.CommandDanger(definition)
 	end
 
 	local function boundedAmount(raw: any, fallback: number?): number?
-		local value = if type(raw) == "string" then tonumber(raw) else raw
-		if value == nil and fallback ~= nil then value = fallback end
-		if not finite(value) or value <= 0 then return nil end
-		return math.clamp(value, 1, MAX_GRANT)
+		return AdminGrantMath.BoundedAmount(raw, fallback, MAX_GRANT)
 	end
 
 	local function cleanText(raw: any, maximum: number): string
-		if type(raw) ~= "string" then return "" end
-		local value = string.gsub(raw, "[%c]", " ")
-		value = string.gsub(value, "^%s+", "")
-		value = string.gsub(value, "%s+$", "")
-		return string.sub(value, 1, maximum)
+		return AdminGrantMath.CleanText(raw, maximum)
 	end
 
 	local function onlinePlayer(userId: any): Player?

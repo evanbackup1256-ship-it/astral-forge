@@ -372,8 +372,15 @@ for _, path in SOFT_MOTION_FILES do
 end
 
 -- Thicken softMotion density on Trade/Command + Guild/Admin/Convergence/Settings/Credits/Rebirth.
+-- Guild/Convergence/Settings/Trade must stay past floor=4 (wave softmotion-gates).
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+	local DENSE = {
+		["src/Client/AstralForge/pages/TradeView.luau"] = 6,
+		["src/Client/AstralForge/pages/GuildView.luau"] = 6,
+		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 6,
+		["src/Client/AstralForge/pages/SettingsView.luau"] = 6,
+	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
 		"src/Client/AstralForge/pages/CommandView.luau",
@@ -391,7 +398,8 @@ do
 		for _ in string.gmatch(src, "softMotion") do
 			softUses += 1
 		end
-		assert(softUses >= 4, path .. " softMotion density too thin, got " .. tostring(softUses))
+		local floor = DENSE[path] or 4
+		assert(softUses >= floor, path .. " softMotion density too thin, got " .. tostring(softUses) .. " need >=" .. tostring(floor))
 	end
 	-- Footgun: Rebirth must not fold effectsPaused into the softMotion assignment line.
 	local rebirth = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")

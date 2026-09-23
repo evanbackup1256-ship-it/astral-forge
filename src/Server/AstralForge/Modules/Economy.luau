@@ -8,6 +8,7 @@ local OfflineProjection = require(script.Parent:WaitForChild("OfflineProjection"
 local TapCritProjection = require(script.Parent:WaitForChild("TapCritProjection"))
 local UpgradeCostReason = require(script.Parent:WaitForChild("UpgradeCostReason"))
 local RebirthGate = require(script.Parent:WaitForChild("RebirthGate"))
+local ContinuumDomainMath = require(script.Parent:WaitForChild("ContinuumDomainMath"))
 
 local Economy = {}
 
@@ -536,11 +537,7 @@ function Economy.EchoEffect(profile: ProfileLike, effectKind: string): number
 end
 
 function Economy.ContinuumCosts(rank: number): (Persist, Persist)
-	local safeRank = math.max(0, math.floor(rank))
-	local config = GameConfig.Continuum
-	local flux = OmegaMath.Floor(OmegaMath.Mul(config.BaseFluxCost, boundedPower(config.FluxCostScale, safeRank)))
-	local stardust = OmegaMath.Floor(OmegaMath.Mul(config.BaseStardustCost, boundedPower(config.StardustCostScale, safeRank)))
-	return flux, stardust
+	return ContinuumDomainMath.ContinuumCosts(OmegaMath, GameConfig.Continuum, rank)
 end
 
 function Economy.ContinuumEffects(profile: ProfileLike): (Persist, Persist, Persist, number)
@@ -556,30 +553,11 @@ function Economy.ContinuumEffects(profile: ProfileLike): (Persist, Persist, Pers
 end
 
 function Economy.DomainRequirements(rank: number): (number, number)
-	local safeRank = math.max(0, math.floor(rank))
-	local rebirths = math.floor(math.min(
-		MAX_ECONOMY_NUMBER,
-		GameConfig.Domain.BaseRequiredRebirths + safeRank * GameConfig.Domain.RebirthsPerRank
-	))
-	local cores = scaledCost(
-		GameConfig.Domain.BaseRequiredCores,
-		GameConfig.Domain.CoreRequirementScale,
-		safeRank
-	)
-	return rebirths, OmegaMath.ToNumber(cores)
+	return ContinuumDomainMath.DomainRequirements(OmegaMath, GameConfig.Domain, rank)
 end
 
 function Economy.DomainRewards(rank: number): (number, number)
-	local safeRank = math.max(0, math.floor(rank))
-	local essence = math.floor(math.min(
-		MAX_ECONOMY_NUMBER,
-		GameConfig.Domain.BaseEssenceReward + safeRank * GameConfig.Domain.EssencePerRank
-	))
-	local stardust = math.floor(math.min(
-		MAX_ECONOMY_NUMBER,
-		GameConfig.Domain.BaseStardustReward + safeRank * GameConfig.Domain.StardustPerRank
-	))
-	return essence, stardust
+	return ContinuumDomainMath.DomainRewards(GameConfig.Domain, rank)
 end
 
 function Economy.Production(profile: ProfileLike, now: number?): Persist

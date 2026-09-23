@@ -5,6 +5,7 @@ local _mobileLayout = require(script.Parent.Parent.mobileLayout)
 local fitTouchGridWidth = _mobileLayout.fitTouchGridWidth
 local moreDockHeight = _mobileLayout.moreDockHeight
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
@@ -826,6 +827,7 @@ local function SettingsView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local enter = useEntrance(softMotion)
 	-- isTouchDevice() (called with no viewport args) re-derives its own desktop/mobile guess from
 	-- the raw camera ViewportSize instead of trusting the already-computed, correctly-scaled
 	-- `viewport.desktop` that AutoScale produced -- the two can disagree (most visibly in Roblox
@@ -911,6 +913,7 @@ local function SettingsView(_param)
 	local editorH = if mobileHudAvailable and activeSection == "mobile" then (if stack then 138 else 92) else 0
 	local paneH = 42 + #visibleRows * rowStride + editorH
 	local headerReveal = useStagger(0, softMotion)
+	local _ = headerReveal
 	local quickScale = savedValue(state.Settings, "MobileQuickScale")
 	local dockScale = savedValue(state.Settings, "MobileDockScale")
 	local toastScale = savedValue(state.Settings, "MobileToastScale")
@@ -1041,7 +1044,8 @@ local function SettingsView(_param)
 		accent = Palette.violet,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = headerReveal,
+		reveal = enter,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "SETTINGS",
@@ -1083,7 +1087,7 @@ local function SettingsView(_param)
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(0.5, -4, 1, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	}), React.createElement(Button, {
 		text = "UPDATES",
