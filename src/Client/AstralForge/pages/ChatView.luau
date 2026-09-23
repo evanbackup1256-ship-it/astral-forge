@@ -24,6 +24,7 @@ local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
 local Text = _ui.Text
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local useVirtualizedList = require(script.Parent.Parent.virtualizedList).useVirtualizedList
 local ROW_HEIGHT = 98
 local CARD_H = 90
@@ -278,10 +279,6 @@ local function ChatView(_param)
 	local showBanner = not condensed and viewport.height >= 760
 	local chromeGap = if condensed then 6 else GAP
 	local inputHeight = if condensed then 52 else INPUT_HEIGHT
-	local statusHeight = if showStatus then STATUS_HEIGHT else 0
-	local scrollTop = statusHeight + (if showStatus then chromeGap else 0)
-	local bottomChrome = inputHeight + chromeGap + (if showBanner then BANNER_HEIGHT + chromeGap else 0)
-	local scrollChrome = scrollTop + bottomChrome
 	local draft, setDraft = React.useState("")
 	local failure, setFailure = React.useState("")
 	local viewHeight, setViewHeight = React.useState(0)
@@ -290,7 +287,7 @@ local function ChatView(_param)
 	local lastCount = React.useRef(0)
 	local sendAttempt = React.useRef(0)
 	local chatClaimHostRef = React.useRef(nil)
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
 	React.useEffect(function()
 		return function()
 			sendAttempt.current += 1
@@ -301,7 +298,7 @@ local function ChatView(_param)
 	local stackH = math.max(0, count) * rowHeight
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local canvasH = math.max(viewHeight, stackH + topPad, 1)
-	local window = useVirtualizedList(count, rowHeight, topPad, 4)
+	local window = useVirtualizedList(count, rowHeight, topPad, if softMotion then 1 else 4)
 	local rendered = {}
 	do
 		local index = window.first
@@ -462,20 +459,9 @@ local function ChatView(_param)
 	end, { condensed, canSend })
 	local statusLabel = if chat.connected then "ONLINE" else "CONNECTING"
 	local statusAccent = if chat.connected then Palette.green else Palette.mango
-	local bannerY = -(inputHeight + chromeGap + BANNER_HEIGHT + chromeGap)
-	local inputY = -(inputHeight + chromeGap)
 	local placeholder = if failure ~= "" then failure else "Say something... (/help)"
-	local _exp = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, Layout.cardRadius),
-	})
-	local _exp_1 = React.createElement("uistroke", {
-		Color = Palette.cyan,
-		Thickness = 1,
-		Transparency = 0.55,
-	})
-	local _exp_2 = showStatus and React.createElement("frame", {
-		Size = UDim2.new(1, -SIDE_INSET * 2, 0, STATUS_HEIGHT),
-		Position = UDim2.fromOffset(SIDE_INSET, 0),
+	local statusElement = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
@@ -511,7 +497,7 @@ local function ChatView(_param)
 		size = 26,
 		position = UDim2.fromOffset(8, 8),
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -(STATUS_RESERVE + 68), 0, 48),
 		Position = UDim2.fromOffset(68, 8),
@@ -553,7 +539,7 @@ local function ChatView(_param)
 			key = message.id,
 			message = message,
 			position = UDim2.fromOffset(0, topPad + index * rowHeight),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			bodySize = bodySize,
 			animate = animate,
 			rowHeight = rowHeight,
@@ -563,15 +549,11 @@ local function ChatView(_param)
 		_newValue[_k] = _callback(_v, _k - 1, rendered)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, _exp, _exp_1, _exp_2, React.createElement("scrollingframe", {
+	-- Message list keeps its own Y scroller (virtualized stick-to-bottom). PageScaffold
+	-- owns status / banner / SEND chrome as fixed sections so short phones never bury SEND.
+	local messagesElement = React.createElement("scrollingframe", {
 		ref = window.frame,
-		Size = UDim2.new(1, -SIDE_INSET * 2, 1, -scrollChrome),
-		Position = UDim2.fromOffset(SIDE_INSET, scrollTop),
+		Size = UDim2.fromScale(1, 1),
 		CanvasSize = UDim2.new(0, 0, 0, canvasH),
 		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
@@ -587,9 +569,9 @@ local function ChatView(_param)
 		Active = true,
 		Selectable = false,
 		ZIndex = 10,
-	}, _newValue), showBanner and React.createElement("frame", {
-		Size = UDim2.new(1, -SIDE_INSET * 2, 0, BANNER_HEIGHT),
-		Position = UDim2.new(0, SIDE_INSET, 1, bannerY),
+	}, _newValue)
+	local bannerElement = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
@@ -614,7 +596,7 @@ local function ChatView(_param)
 		size = 24,
 		position = UDim2.fromOffset(14, 14),
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Text, {
 		value = "KEEP IT CLEAN",
 		size = 12,
@@ -631,9 +613,9 @@ local function ChatView(_param)
 		fit = false,
 		position = UDim2.fromOffset(48, 28),
 		sizeConstraint = UDim2.new(1, -60, 0, 16),
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, -SIDE_INSET * 2, 0, inputHeight),
-		Position = UDim2.new(0, SIDE_INSET, 1, inputY),
+	}))
+	local inputElement = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -698,9 +680,54 @@ local function ChatView(_param)
 		size = UDim2.fromOffset(0, 48),
 		hug = true,
 		disabled = not canSend,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = canSend,
-	}))))
+	})))
+	local sections = {}
+	if showStatus then
+		table.insert(sections, {
+			id = "status",
+			height = STATUS_HEIGHT,
+			element = statusElement,
+		})
+	end
+	table.insert(sections, {
+		id = "messages",
+		fill = true,
+		minHeight = 120,
+		element = messagesElement,
+	})
+	if showBanner then
+		table.insert(sections, {
+			id = "banner",
+			height = BANNER_HEIGHT,
+			element = bannerElement,
+		})
+	end
+	table.insert(sections, {
+		id = "input",
+		height = inputHeight,
+		element = inputElement,
+	})
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, Layout.cardRadius),
+	}), React.createElement("uistroke", {
+		Color = Palette.cyan,
+		Thickness = 1,
+		Transparency = 0.55,
+	}), React.createElement(PageScaffold, {
+		gap = chromeGap,
+		inset = SIDE_INSET,
+		tailPad = chromeGap,
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 0,
+		sections = sections,
+	}))
 end
 return {
 	ChatView = ChatView,
