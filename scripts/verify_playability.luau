@@ -252,6 +252,11 @@ do
 	local mailbox = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
 	assert(string.find(mailbox, "GamepadNavigationService.FocusClaim", 1, true), "Mailbox must FocusClaim CLAIM/ARCHIVE")
 	assert(string.find(mailbox, "MailClaimActions", 1, true), "Mailbox must host FocusClaim on MailClaimActions")
+	local admin = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")
+	assert(string.find(admin, "GamepadNavigationService.FocusClaim", 1, true), "Admin must FocusClaim ARM/RUN")
+	assert(string.find(admin, "AdminExecuteActions", 1, true), "Admin must host FocusClaim on AdminExecuteActions")
+	assert(string.find(admin, "AdminConfirmRun", 1, true), "Admin ARM/RUN must be Confirm-tagged for FocusClaim")
+	assert(string.find(admin, "Capacity or 0", 1, true), "Admin VAULT cell must show vault/capacity")
 end
 
 ------------------------------------------------------------------------
@@ -276,6 +281,13 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/InventoryView.luau",
 	"src/Client/AstralForge/pages/ForgePathView.luau",
 	"src/Client/AstralForge/pages/EchoForgeView.luau",
+	"src/Client/AstralForge/pages/ResearchView.luau",
+	"src/Client/AstralForge/pages/ConvergenceView.luau",
+	"src/Client/AstralForge/pages/SettingsView.luau",
+	"src/Client/AstralForge/pages/CommandView.luau",
+	"src/Client/AstralForge/pages/GuildView.luau",
+	"src/Client/AstralForge/pages/ChatView.luau",
+	"src/Client/AstralForge/pages/AdminView.luau",
 }
 
 for _, path in SOFT_MOTION_FILES do

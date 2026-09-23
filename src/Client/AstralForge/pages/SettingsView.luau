@@ -7,6 +7,7 @@ local moreDockHeight = _mobileLayout.moreDockHeight
 local _motion = require(script.Parent.Parent.motion)
 local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
@@ -821,6 +822,9 @@ local function SettingsView(_param)
 	local activeSection, setActiveSection = React.useState("audio")
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	-- isTouchDevice() (called with no viewport args) re-derives its own desktop/mobile guess from
 	-- the raw camera ViewportSize instead of trusting the already-computed, correctly-scaled
 	-- `viewport.desktop` that AutoScale produced -- the two can disagree (most visibly in Roblox

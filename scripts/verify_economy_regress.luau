@@ -36,6 +36,10 @@ assert(
 	"Admin online list must project Economy.Production(profile)"
 )
 assert(
+	string.find(adminSrc, "Capacity = Economy.Capacity(profile)", 1, true) ~= nil,
+	"Admin online list must project Economy.Capacity(profile) for FillVault vault/cap"
+)
+assert(
 	string.find(adminSrc, 'WaitForChild("Economy")', 1, true) ~= nil,
 	"AdminService must require Economy module"
 )

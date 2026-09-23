@@ -14,6 +14,7 @@ local _motion = require(script.Parent.Parent.motion)
 local easeOutCubic = _motion.easeOutCubic
 local useBoatTween = _motion.useBoatTween
 local useViewport = _motion.useViewport
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _theme = require(script.Parent.Parent.theme)
 local Layout = _theme.Layout
 local chromeFor = _theme.chromeFor
@@ -282,6 +283,9 @@ local function CommandView(_param)
 	local onSectionChange = _param.onSectionChange
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local ops = config.Operations
 	local command = state.Command

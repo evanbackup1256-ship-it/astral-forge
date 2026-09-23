@@ -136,6 +136,12 @@ return function()
 	-- connection or backgrounded mobile app should not keep granting on a stale session.
 	function SessionGate:CheckGrant(player: Player, gen: any, n: any, requireNonce: boolean): (boolean, string?)
 		if RunService:IsStudio() then
+			-- Studio skips gen/nonce auth, but still allocate the session bag so Peek and
+			-- txn helpers stay coherent after grants that never said Hello (TxnClaim/_get
+			-- alone used to be the only Studio allocator — Peek then returned nil,nil).
+			local session = self:_get(player)
+			session.auth = true
+			session.lastBeat = os.clock()
 			return true
 		end
 		local session = self._sessions[player]
@@ -212,10 +218,11 @@ return function()
 	end
 
 	function SessionGate:TxnRelease(player: Player, txnId: string)
-		local session = self._sessions[player]
-		if not session then
-			return
-		end
+		-- Share _get with Claim/Store so Studio grants that never Hello'd still release
+		-- against the same txn bag (previously Release no-op'd when _sessions was empty
+		-- even after Claim allocated via _get on a different code path — impossible now,
+		-- but keep one allocator for the whole txn surface).
+		local session = self:_get(player)
 		if session.txns[txnId] == TXN_PENDING then
 			session.txns[txnId] = nil
 			for index, id in session.txnOrder do

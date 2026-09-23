@@ -1,7 +1,10 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local Icon = require(script.Parent.Parent.Icon).Icon
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
 local useStagger = _motion.useStagger
@@ -284,6 +287,10 @@ local function AdminView(_param)
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local admin = state.Admin
+
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 
 	local targetId, setTargetId = React.useState((admin and admin.SelfUserId) or (admin and admin.Online and admin.Online[1] and admin.Online[1].UserId) or 0)
 	local command, setCommand = React.useState((admin and admin.Commands and admin.Commands[1] and admin.Commands[1].Id) or "GrantFlux")
@@ -689,7 +696,7 @@ local function AdminView(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		FillDirection = Enum.FillDirection.Horizontal,
 	}), React.createElement(StatCell, { label = "CASH", value = selectedPlayer and compactNumber(selectedPlayer.Cash or 0) or "--", accent = Palette.cyan }),
-		React.createElement(StatCell, { label = "VAULT", value = selectedPlayer and compactNumber(selectedPlayer.Vault or 0) or "--", accent = Palette.mint }),
+		React.createElement(StatCell, { label = "VAULT", value = selectedPlayer and `{compactNumber(selectedPlayer.Vault or 0)}/{compactNumber(selectedPlayer.Capacity or 0)}` or "--", accent = Palette.mint }),
 		React.createElement(StatCell, { label = "CORES", value = selectedPlayer and compactNumber(selectedPlayer.Cores or 0) or "--", accent = Palette.violet }),
 		React.createElement(StatCell, { label = "REBIRTHS", value = selectedPlayer and compactNumber(selectedPlayer.Rebirths or 0) or "--", accent = Palette.pink }),
 		React.createElement(StatCell, { label = "WORLD", value = selectedPlayer and tostring(selectedPlayer.Zone or 1) or "--", accent = Palette.mango }),
@@ -698,6 +705,27 @@ local function AdminView(_param)
 		React.createElement(StatCell, { label = "KEYS", value = selectedPlayer and compactNumber(selectedPlayer.Keys or 0) or "--", accent = Palette.violet })))
 
 	-- Column 3 middle: execute dock.
+	local executeActionsHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on ARM/RUN (FocusClaim prefers Confirm-named hosts).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = executeActionsHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { command, armed, busy, targetId })
+
 	local executeDock = React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, executeH),
 		accent = if armed then Palette.coral else accent,
@@ -773,20 +801,31 @@ local function AdminView(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		zIndex = 60,
-	}))), React.createElement(Button, {
+	}))), React.createElement("frame", {
+		Name = "AdminExecuteActions",
+		Size = UDim2.new(1, 0, 0, EXEC_BUTTON),
+		Position = UDim2.fromOffset(0, EXEC_TITLE + fieldSlots * FIELD_H),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = executeActionsHostRef,
+	}, React.createElement("frame", {
+		Name = "AdminConfirmRun",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Button, {
 		text = runLabel,
 		icon = "Lock",
 		onClick = execute,
 		color = runColor,
 		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, EXEC_BUTTON),
-		position = UDim2.fromOffset(0, EXEC_TITLE + fieldSlots * FIELD_H),
+		size = UDim2.fromScale(1, 1),
 		disabled = runDisabled,
 		loading = busy,
 		shakeToken = shakeToken,
 		highlight = armed or not needsArm,
 		reducedMotion = reducedMotion,
-	}), React.createElement(Text, {
+	}))), React.createElement(Text, {
 		value = if lastNote ~= "" then lastNote else (if needsArm then "Arm first. Dangerous commands need a second tap." else "Economy, progress, and item grants run on one tap."),
 		size = 9,
 		color = if lastNote ~= "" then (if lastOk then Palette.mint else Palette.coral) else Palette.muted,

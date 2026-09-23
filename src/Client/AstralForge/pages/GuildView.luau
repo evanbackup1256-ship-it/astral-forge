@@ -828,6 +828,8 @@ local function GuildView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local reveal = useStagger(0, reducedMotion)
 	local busy, setBusy = React.useState(false)

@@ -6,6 +6,7 @@ local formatReward = _format.formatReward
 local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local useWallClock = _motion.useWallClock
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
@@ -27,6 +28,9 @@ local function ConvergenceView(_param)
 	local event = state.Convergence
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local now = useWallClock(event ~= nil)
 	local reveal = useStagger(0, reducedMotion)

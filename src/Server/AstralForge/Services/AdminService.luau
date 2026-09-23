@@ -489,12 +489,15 @@ return function(loadService: (string) -> any)
 				end
 				-- Production/Capacity are EncodeState projections, not persisted profile
 				-- fields — reading profile.Production left Admin RATE stuck at 0/s.
+				-- Capacity is what FillVault writes to; surface it so operators can see
+				-- vault/cap instead of guessing after a fill.
 				table.insert(online, {
 					UserId = player.UserId,
 					Name = player.Name,
 					DisplayName = player.DisplayName,
 					Cash = profile.Cash,
 					Vault = profile.Vault,
+					Capacity = Economy.Capacity(profile),
 					Cores = profile.Cores,
 					Rebirths = profile.Rebirths,
 					Zone = profile.CurrentZone,
