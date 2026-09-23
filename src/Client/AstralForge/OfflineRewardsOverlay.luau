@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local Audio = require(script.Parent.audio).Audio
 local _format = require(script.Parent.format)
 local asFlux = _format.asFlux
@@ -84,6 +85,31 @@ local function OfflineRewardsOverlay(_param)
 	local beginExit = _binding[3]
 	local motion = composePresence(enter, leave)
 	local padFocus = useGamepadAutofocus(true)
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current or padFocus.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, {})
 	local bankedSeconds = math.max(0, seconds)
 	local _condition = awaySeconds
 	if _condition == nil then
@@ -337,7 +363,10 @@ local function OfflineRewardsOverlay(_param)
 			return amount > 0.004
 		end),
 	}, _exp_3, React.createElement("frame", {
-		ref = padFocus,
+		ref = function(node)
+			padFocus.current = node
+			overlayHostRef.current = node
+		end,
 		Size = UDim2.fromOffset(cardWidth, cardHeight),
 		Position = cardPosition,
 		AnchorPoint = Vector2.new(0.5, 0.5),

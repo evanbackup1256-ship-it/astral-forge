@@ -14,6 +14,7 @@ local Palette = _theme.Palette
 local darken = _theme.darken
 local TapTarget = _theme.TapTarget
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -47,7 +48,9 @@ local function MailRow(_param)
 	local reducedMotion = _param.reducedMotion
 	local layoutOrder = _param.layoutOrder
 	local onChoose = _param.onChoose
-	local reveal = useStagger(layoutOrder, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local reveal = useStagger(layoutOrder, softMotion)
 	return React.createElement("imagebutton", {
 		LayoutOrder = layoutOrder,
 		Size = UDim2.new(1, -4, 0, cardH),
@@ -413,8 +416,8 @@ local function MailboxView(_param)
 			footerHeight = TapTarget + 8,
 			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
 			canvasTail = 4,
-			Size = UDim2.new(1, -20, 1, -(listHeaderH + 10)),
-			Position = UDim2.fromOffset(10, listHeaderH),
+			Size = UDim2.new(1, -20, 1, -8),
+			Position = UDim2.fromOffset(10, 4),
 			scrollBarColor = Palette.cyan,
 			scrollBarThickness = 3,
 			scrollBarTransparency = 0.28,
@@ -453,13 +456,46 @@ local function MailboxView(_param)
 			})),
 		})
 	end
+	local listBody = if inboxEmpty then React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(EmptyState, {
+		icon = "Mail",
+		title = "Tray empty",
+		body = "Patch notes and gifts land here.",
+		accent = Palette.cyan,
+		size = UDim2.fromScale(1, 1),
+		titleSize = 20,
+		bodySize = 15,
+		iconSize = 52,
+		reducedMotion = reducedMotion,
+	})) else _result_10
+	-- Keep split list/detail chrome; PageScaffold only stacks header+list inside the list pane.
 	local listPane = React.createElement("frame", {
 		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0.38, -4) else UDim2.new(0.34, -7, 1, 0),
 		Position = listPanePosition,
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-	}, _exp_2, _exp_3, _exp_4, _result_10)
+	}, _exp_2, _exp_3, React.createElement(PageScaffold, {
+		gap = 0,
+		tailPad = 4,
+		scrollBarThickness = 0,
+		sections = {
+			{
+				id = "header",
+				height = listHeaderH,
+				element = _exp_4,
+			},
+			{
+				id = "list",
+				fill = true,
+				minHeight = 120,
+				element = listBody,
+			},
+		},
+	}))
 	local detailPanePosition = if mobileRoute then detailReveal:map(function(amount)
 		return UDim2.new(1 - math.clamp(amount, 0, 1), 0, 0, 0)
 	end) elseif stack then UDim2.new(0, 0, 0.38, 4) else UDim2.new(0.34, 7, 0, 0)
@@ -587,13 +623,27 @@ local function MailboxView(_param)
 			_newValue[_k] = _callback_3(_v, _k - 1, _exp_10)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_condition_5 = React.createElement(React.Fragment, nil, _exp_8, React.createElement("scrollingframe", {
+		_condition_5 = React.createElement(PageScaffold, {
+			gap = 0,
+			tailPad = 0,
+			scrollBarThickness = 0,
+			sections = {
+				{
+					id = "header",
+					height = detailHeaderH,
+					element = _exp_8,
+				},
+				{
+					id = "body",
+					fill = true,
+					minHeight = 80,
+					element = React.createElement("scrollingframe", {
 			key = message.Id,
-			Size = UDim2.new(1, -40, 1, -(detailBodyTop + BODY_PAD)),
-			Position = UDim2.fromOffset(20, detailBodyTop),
+			Size = UDim2.new(1, -40, 1, -8),
+			Position = UDim2.fromOffset(20, 4),
 			CanvasPosition = Vector2.zero,
-			CanvasSize = UDim2.new(0, 0, 0, detailCanvas),
-			AutomaticCanvasSize = Enum.AutomaticSize.None,
+			CanvasSize = UDim2.new(0, 0, 0, 0),
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ScrollBarThickness = 3,
@@ -606,10 +656,15 @@ local function MailboxView(_param)
 			Active = true,
 			Selectable = false,
 			ZIndex = 2,
-		}, _exp_9, _newValue, React.createElement("frame", {
+		}, _exp_9, _newValue),
+				},
+				{
+					id = "footer",
+					height = footerH,
+					element = React.createElement("frame", {
 			key = "footer",
 			LayoutOrder = #message.Body + 1,
-			Size = UDim2.new(1, -4, 0, footerH),
+			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Palette.panel,
 			BorderSizePixel = 0,
 			ClipsDescendants = true,
@@ -735,8 +790,12 @@ local function MailboxView(_param)
 			hug = true,
 			disabled = not claimed,
 			reducedMotion = reducedMotion,
-		})))))
+		}))),
+				},
+			},
+		})
 	end
+
 	local detailPane = React.createElement("frame", {
 		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0.62, -4) else UDim2.new(0.66, -7, 1, 0),
 		Position = detailPanePosition,

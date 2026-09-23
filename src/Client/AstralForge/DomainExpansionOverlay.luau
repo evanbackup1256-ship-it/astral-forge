@@ -1,4 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
+local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 local AutoGrid = require(script.Parent.scrolling).AutoGrid
@@ -516,6 +518,31 @@ local function DomainExpansionOverlay(_param)
 	local rebirthReady = currentRebirths >= domain.RequiredRebirths
 	local coresReady = currentCores >= domain.RequiredCores
 	local padFocus = useGamepadAutofocus(true)
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current or padFocus.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, { resultMode, ready })
 	local _exp = React.createElement("imagebutton", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -1103,7 +1130,10 @@ local function DomainExpansionOverlay(_param)
 	return React.createElement(OverlayPresence, {
 		amount = enter,
 	}, React.createElement("frame", {
-		ref = padFocus,
+		ref = function(node)
+			padFocus.current = node
+			overlayHostRef.current = node
+		end,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = rootTransparency,

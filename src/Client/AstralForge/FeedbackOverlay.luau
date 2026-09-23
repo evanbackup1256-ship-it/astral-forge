@@ -1,4 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
+local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local Audio = require(script.Parent.audio).Audio
 local _motion = require(script.Parent.motion)
@@ -125,6 +127,31 @@ local function FeedbackOverlay(_param)
 		end)
 	end, { canSend, category, dispatch, notify, trimmed })
 	local padFocus = useGamepadAutofocus(true)
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current or padFocus.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, { sent })
 	local cardTravel = 16
 	local cardPosition = motion:map(function(amount)
 		return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * cardTravel))
@@ -270,7 +297,10 @@ local function FeedbackOverlay(_param)
 			return amount > 0.003
 		end),
 	}, _exp, React.createElement("frame", {
-		ref = padFocus,
+		ref = function(node)
+			padFocus.current = node
+			overlayHostRef.current = node
+		end,
 		Size = UDim2.fromOffset(width, height),
 		Position = cardPosition,
 		AnchorPoint = Vector2.new(0.5, 0.5),

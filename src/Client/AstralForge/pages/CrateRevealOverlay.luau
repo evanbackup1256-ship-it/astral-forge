@@ -619,6 +619,21 @@ local function EmptyCrateReveal(_param)
 			GamepadNavigationService.EndOverlayFocus()
 		end
 	end, {})
+	React.useEffect(function()
+		local host = focusRef.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, {})
 	return React.createElement("frame", {
 		ref = focusRef,
 		Name = "CrateClaim",
