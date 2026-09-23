@@ -35,7 +35,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: b3ce6aa9973827e2a7cdeab2fd51fe431cad8e62
+# Expect at or after: 78a89a297312a0d15f20a67b028b45bfdf37d74a
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
