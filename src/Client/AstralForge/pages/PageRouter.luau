@@ -1,10 +1,12 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local _flexbox = require(script.Parent.Parent.flexbox)
 local Flex = _flexbox.Flex
 local FlexItem = _flexbox.FlexItem
 local PlayerMark = require(script.Parent.Parent.Icon).PlayerMark
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useClock = _motion.useClock
 local useFlash = _motion.useFlash
@@ -2985,6 +2987,9 @@ local function RewardsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local dailyReady = state.Daily.CanClaim == true
 	local timedEntries = state.TimedRewards.Rewards or {}
 	-- ▼ ReadonlyArray.find ▼
@@ -3008,11 +3013,32 @@ local function RewardsView(_param)
 	local timedReady = nextTimed ~= nil and played >= nextTimed.Seconds
 	local timedProgress = if nextTimed ~= nil then math.clamp(played / math.max(1, nextTimed.Seconds), 0, 1) else 1
 	local dailyReward = state.Daily.Rewards[state.Daily.RewardIndex]
-	local headerReveal = useStagger(0, reducedMotion)
-	local dailyReveal = useStagger(1, reducedMotion)
-	local timedReveal = useStagger(2, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
+	local dailyReveal = useStagger(1, softMotion)
+	local timedReveal = useStagger(2, softMotion)
 	local rewardCardH = if stack then 172 else 110
 	local rewardsTail = scrollTail(stack, chrome.bottomSafe, 48)
+	local rewardsClaimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on Daily Claim or Timed CLAIM (FocusClaim prefers Claim-named hosts).
+	local rewardsClaimReady = dailyReady or timedReady
+	React.useEffect(function()
+		if not rewardsClaimReady or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = rewardsClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { dailyReady, timedReady, rewardsClaimReady })
 	local headerPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.pink,
@@ -3044,7 +3070,7 @@ local function RewardsView(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, if stack then 4 else 18),
 		glow = dailyReady,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_4 = React.createElement(Text, {
 		value = "Daily parcel",
@@ -3074,7 +3100,8 @@ local function RewardsView(_param)
 		layoutOrder = 1,
 		reveal = dailyReveal,
 		highlight = dailyReady,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
+		clips = false,
 	}, _exp_3, _exp_4, React.createElement(Text, _attributes), React.createElement(Text, {
 		value = "Streak " .. tostring(state.Daily.Streak) .. "  ·  next at " .. tostring(state.Daily.NextStreak),
 		size = 10,
@@ -3087,10 +3114,17 @@ local function RewardsView(_param)
 		value = 1,
 		accent = if dailyReady then Palette.mint else Palette.lineSoft,
 		ready = dailyReady,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = UDim2.fromOffset(if stack then 0 else 60, if stack then 80 else 76),
 		size = UDim2.new(1, if stack then 0 else -230, 0, 5),
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		Name = "RewardsDailyClaimActions",
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(150, 44),
+		Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = if dailyReady then rewardsClaimHostRef else nil,
+	}, React.createElement(Button, {
 		text = if dailyReady then "Claim" else "Claimed",
 		icon = "Calendar",
 		onClick = function()
@@ -3098,12 +3132,11 @@ local function RewardsView(_param)
 		end,
 		color = if dailyReady then Palette.mint else Palette.panelSoft,
 		textColor = if dailyReady then Palette.ink else Palette.muted,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(150, 44),
-		position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
-		reducedMotion = reducedMotion,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
 		disabled = not dailyReady,
 		highlight = dailyReady,
-	}))
+	})))
 	local _exp_6 = React.createElement(IconTile, {
 		kind = "Timer",
 		accent = if timedReady then Palette.violet else Palette.panelSoft,
@@ -3111,7 +3144,7 @@ local function RewardsView(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, if stack then 4 else 18),
 		glow = timedReady,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_7 = React.createElement(Text, {
 		value = "Timed drop",
@@ -3147,15 +3180,24 @@ local function RewardsView(_param)
 		layoutOrder = 2,
 		reveal = timedReveal,
 		highlight = timedReady,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
+		clips = false,
 	}, _exp_6, _exp_7, React.createElement(Text, _attributes_1), React.createElement(RewardChargeRail, {
 		value = timedProgress,
 		accent = if timedReady then Palette.violet else Palette.cyan,
 		ready = timedReady,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = UDim2.fromOffset(if stack then 0 else 60, if stack then 76 else 58),
 		size = UDim2.new(1, if stack then 0 else -230, 0, 6),
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		Name = "RewardsTimedClaimActions",
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(150, 44),
+		Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		-- Prefer Daily Claim when both ready; otherwise park on Timed CLAIM.
+		ref = if timedReady and not dailyReady then rewardsClaimHostRef else nil,
+	}, React.createElement(Button, {
 		text = if timedReady then "CLAIM" else "CHARGING",
 		icon = "Timer",
 		onClick = function()
@@ -3167,16 +3209,15 @@ local function RewardsView(_param)
 		end,
 		color = if timedReady then Palette.violet else Palette.panelSoft,
 		textColor = if timedReady then Palette.ink else Palette.muted,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(150, 44),
-		position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
-		reducedMotion = reducedMotion,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
 		disabled = not timedReady,
 		highlight = timedReady,
-	}))
+	})))
 	local queuePanel =  React.createElement(TimedRewardQueue, {
 		entries = timedEntries,
 		played = played,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		layoutOrder = 3,
 	})
 	return React.createElement(PageScaffold, {

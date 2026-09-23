@@ -349,6 +349,49 @@ serviceFactories["GameService"] = function()
 		return ShopGrantEligibility.EnsureShop(profile.Items.Shop, GameConfig.Items.ShopOffers, utcDay())
 	end
 
+	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — collect / tap /
+	-- crate / continuum / production ledgers must not throw before the mutation commits.
+	local function ensureStats(profile)
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = {}
+		end
+		return profile.Stats
+	end
+
+	local function bumpStat(profile, key: string, amount: number?)
+		local stats = ensureStats(profile)
+		local delta = math.max(0, math.floor(tonumber(amount) or 1))
+		stats[key] = math.max(0, math.floor(tonumber(stats[key]) or 0)) + delta
+		return stats[key]
+	end
+
+	local function ensureActiveBoost(profile)
+		if type(profile.ActiveBoost) ~= "table" then
+			profile.ActiveBoost = { Id = "", EndsAt = 0 }
+		end
+		profile.ActiveBoost.EndsAt = math.max(0, math.floor(tonumber(profile.ActiveBoost.EndsAt) or 0))
+		if type(profile.ActiveBoost.Id) ~= "string" then
+			profile.ActiveBoost.Id = ""
+		end
+		return profile.ActiveBoost
+	end
+
+	local function ensureBoostInventory(profile)
+		if type(profile.BoostInventory) ~= "table" then
+			profile.BoostInventory = {}
+		end
+		return profile.BoostInventory
+	end
+
+	local function ensureCommandMastery(profile)
+		if type(profile.Command) ~= "table" then
+			profile.Command = { MachineMastery = {} }
+		elseif type(profile.Command.MachineMastery) ~= "table" then
+			profile.Command.MachineMastery = {}
+		end
+		return profile.Command.MachineMastery
+	end
+
 	local function copyDictionary(source)
 		local result = {}
 		for key, value in source do
@@ -1882,7 +1925,8 @@ serviceFactories["GameService"] = function()
 			profile.Cash = Economy.Add(profile.Cash, amount)
 			profile.RunCash = Economy.Add(profile.RunCash, amount)
 			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, amount)
-			profile.Stats.Collected = Economy.Add(profile.Stats.Collected, amount)
+			local stats = ensureStats(profile)
+			stats.Collected = Economy.Add(stats.Collected, amount)
 			local amountNumber = Economy.AsNumber(amount)
 			ProgressionService.Progress(profile, "EarnCash", amountNumber)
 			LabService.Progress(profile, "BankFlux", amountNumber)
@@ -1954,7 +1998,7 @@ serviceFactories["GameService"] = function()
 			end
 			amount = Economy.Min(room, amount)
 			profile.Vault = Economy.Add(profile.Vault, amount)
-			profile.Stats.Taps += 1
+			bumpStat(profile, "Taps", 1)
 			LabService.Progress(profile, "Tap", 1)
 			ProgressionService.Progress(profile, "Tap", 1)
 			ProgressionService.AwardCommandXP(profile, 1)
@@ -2024,9 +2068,10 @@ serviceFactories["GameService"] = function()
 			end
 			profile.Cash = Economy.Sub(profile.Cash, cost)
 			profile.Machines[machineId] = level + count
-			profile.Stats.MachinesBought += count
+			bumpStat(profile, "MachinesBought", count)
 			LabService.Progress(profile, "BuyLevels", count)
-			profile.Command.MachineMastery[machineId] = (profile.Command.MachineMastery[machineId] or 0) + count
+			local mastery = ensureCommandMastery(profile)
+			mastery[machineId] = (tonumber(mastery[machineId]) or 0) + count
 			ProgressionService.Progress(profile, "BuyMachine", count)
 			ProgressionService.AwardCommandXP(profile, count * 5)
 			ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12))
@@ -2114,10 +2159,11 @@ serviceFactories["GameService"] = function()
 			end
 			profile.Cash = Economy.Sub(profile.Cash, cost)
 			profile.Machines[machine.Id] = currentLevel + count
-			profile.Stats.MachinesBought += count
+			bumpStat(profile, "MachinesBought", count)
 			current.Bought = math.max(0, math.floor(tonumber(current.Bought) or 0)) + count
 			LabService.Progress(profile, "BuyLevels", count)
-			profile.Command.MachineMastery[machine.Id] = (profile.Command.MachineMastery[machine.Id] or 0) + count
+			local mastery = ensureCommandMastery(profile)
+			mastery[machine.Id] = (tonumber(mastery[machine.Id]) or 0) + count
 			ProgressionService.Progress(profile, "BuyMachine", count)
 			ProgressionService.AwardCommandXP(profile, count * 5)
 			ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12))
@@ -2169,7 +2215,7 @@ serviceFactories["GameService"] = function()
 			end
 			profile.Cash = Economy.Sub(profile.Cash, cost)
 			profile.Research[researchId] = level + count
-			profile.Stats.ResearchBought += count
+			bumpStat(profile, "ResearchBought", count)
 			LabService.Progress(profile, "BuyLevels", count)
 			ProgressionService.Progress(profile, "BuyResearch", count)
 			ProgressionService.AwardCommandXP(profile, count * 4)
@@ -2679,13 +2725,15 @@ serviceFactories["GameService"] = function()
 		end
 		local boost = GameConfig.Boosts[boostId]
 		local result = self:_mutate(player, function(profile)
-			if profile.ActiveBoost.EndsAt > os.time() then
+			local active = ensureActiveBoost(profile)
+			if active.EndsAt > os.time() then
 				return responseError("Another boost is already active.")
 			end
-			if (profile.BoostInventory[boostId] or 0) < 1 then
+			local inventory = ensureBoostInventory(profile)
+			if (tonumber(inventory[boostId]) or 0) < 1 then
 				return responseError("You do not own that boost.")
 			end
-			profile.BoostInventory[boostId] -= 1
+			inventory[boostId] = math.max(0, math.floor(tonumber(inventory[boostId]) or 0) - 1)
 			profile.ActiveBoost = { Id = boostId, EndsAt = os.time() + boost.Duration }
 			return responseSuccess(boost.Name .. " activated!")
 		end)
@@ -2708,7 +2756,7 @@ serviceFactories["GameService"] = function()
 		}
 		profile.Items.Discovered = type(profile.Items.Discovered) == "table" and profile.Items.Discovered or {}
 		profile.Items.Discovered[definitionId] = true
-		profile.Stats.ItemsFound += 1
+		bumpStat(profile, "ItemsFound", 1)
 		return uid
 	end
 
@@ -2766,7 +2814,7 @@ serviceFactories["GameService"] = function()
 			local nextStock = remaining - 1
 			profile.Items.Shop.Stock[offerId] = nextStock
 			profile.Items.Shop.Purchased[offerId] = nextStock <= 0
-			profile.Stats.ShopPurchases += 1
+			bumpStat(profile, "ShopPurchases", 1)
 			return responseSuccess(offer.Name .. " bought.", { ItemUid = itemUid, Stock = nextStock })
 		end)
 		return result
@@ -2824,8 +2872,8 @@ serviceFactories["GameService"] = function()
 				if shouldAutoSalvage then
 					autoEssence = itemSalvageValue({ Level = 1 }, definition)
 					profile.Items.Essence += autoEssence
-					profile.Stats.ItemsFound += 1
-					profile.Stats.ItemsSalvaged += 1
+					bumpStat(profile, "ItemsFound", 1)
+					bumpStat(profile, "ItemsSalvaged", 1)
 					profile.Items.Discovered[definition.Id] = true
 					uid = string.format("AUTO%07d", profile.Items.NextId)
 					profile.Items.NextId += 1
@@ -2846,7 +2894,7 @@ serviceFactories["GameService"] = function()
 					Essence = autoEssence,
 				}
 			end
-			profile.Stats.CratesOpened += count
+			bumpStat(profile, "CratesOpened", count)
 			LabService.Progress(profile, "OpenCrate", count)
 			return responseSuccess(
 				string.format("Decoded %d %s%s.", count, crate.Name, count == 1 and "" or "s"),
@@ -2967,7 +3015,7 @@ serviceFactories["GameService"] = function()
 			local essence = itemSalvageValue(instance, definition)
 			profile.Items.Inventory[uid] = nil
 			profile.Items.Essence += essence
-			profile.Stats.ItemsSalvaged += 1
+			bumpStat(profile, "ItemsSalvaged", 1)
 			return responseSuccess(
 				string.format("Salvaged %s for %d essence.", definition.Name, essence),
 				{ Amount = essence }
@@ -3129,9 +3177,10 @@ serviceFactories["GameService"] = function()
 				1e308,
 				math.max(0, tonumber(profile.Continuum.TotalStardustSpent) or 0) + stardustCost
 			)
-			profile.Stats.ContinuumUpgrades = math.min(
+			local stats = ensureStats(profile)
+			stats.ContinuumUpgrades = math.min(
 				1e308,
-				math.max(0, tonumber(profile.Stats.ContinuumUpgrades) or 0) + 1
+				math.max(0, tonumber(stats.ContinuumUpgrades) or 0) + 1
 			)
 			ProgressionService.AwardCommandXP(profile, 20 + math.min(480, rank * 2))
 
@@ -3210,7 +3259,7 @@ serviceFactories["GameService"] = function()
 				return responseError(protected > 0 and "Every selected relic is equipped or protected." or "Those relics are no longer available.")
 			end
 			profile.Items.Essence += essence
-			profile.Stats.ItemsSalvaged += removed
+			bumpStat(profile, "ItemsSalvaged", removed)
 			return responseSuccess(
 				string.format("Salvaged %d relic%s for %d essence%s.", removed, removed == 1 and "" or "s", essence, protected > 0 and string.format("; %d protected", protected) or ""),
 				{ Count = removed, Amount = essence, Protected = protected }
@@ -4294,7 +4343,8 @@ serviceFactories["GameService"] = function()
 			profile.Cash = Economy.Add(profile.Cash, reward)
 			profile.RunCash = Economy.Add(profile.RunCash, reward)
 			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, reward)
-			profile.Stats.Collected = Economy.Add(profile.Stats.Collected, reward)
+			local stats = ensureStats(profile)
+			stats.Collected = Economy.Add(stats.Collected, reward)
 			local rewardNumber = Economy.AsNumber(reward)
 			ProgressionService.Progress(profile, "EarnCash", rewardNumber)
 			LabService.Progress(profile, "BankFlux", rewardNumber)
@@ -4340,7 +4390,7 @@ serviceFactories["GameService"] = function()
 		ensureItemShop(profile)
 		AnomalyService.Ensure(profile)
 		LabService.Ensure(profile, player.UserId)
-		profile.Stats.Joins += 1
+		bumpStat(profile, "Joins", 1)
 		profile.Meta.Revision += 1
 		self._data:MarkDirty(player)
 		self._runtime[player] = {
@@ -4703,7 +4753,8 @@ serviceFactories["GameService"] = function()
 				runtime.ProductionAccumulator = 0
 				local ok = self._data:AtomicUpdate(player, function(profile)
 					local now = os.time()
-					if profile.ActiveBoost.EndsAt > 0 and profile.ActiveBoost.EndsAt <= now then
+					local active = ensureActiveBoost(profile)
+					if active.EndsAt > 0 and active.EndsAt <= now then
 						profile.ActiveBoost = { Id = "", EndsAt = 0 }
 					end
 					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now))
@@ -4722,12 +4773,13 @@ serviceFactories["GameService"] = function()
 							profile.Cash = Economy.Add(profile.Cash, collected)
 							profile.RunCash = Economy.Add(profile.RunCash, collected)
 							profile.LifetimeCash = Economy.Add(profile.LifetimeCash, collected)
-							profile.Stats.Collected = Economy.Add(profile.Stats.Collected, collected)
+							local stats = ensureStats(profile)
+							stats.Collected = Economy.Add(stats.Collected, collected)
 							ProgressionService.Progress(profile, "EarnCash", Economy.AsNumber(collected))
 							LabService.Progress(profile, "BankFlux", Economy.AsNumber(collected))
 						end
 					end
-					profile.Stats.PlayTime += step
+					bumpStat(profile, "PlayTime", step)
 					ProgressionService.EnsureTimedRewards(profile)
 					profile.TimedRewards.PlaySeconds += step
 					if pendingAnomalyCount > 0 then
