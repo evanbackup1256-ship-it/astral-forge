@@ -1089,6 +1089,7 @@ local function WheelConsole(_param)
 		Position = UDim2.new(0, edge, 1, -(buttonHeight + buttonBottom)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = spinClaimHostRef,
 	}, React.createElement(Button, {
 		text = if controller.spinning then "SPINNING" elseif canSpin then (if pityArmed then (if compact then "SPIN · PITY" else "SPIN · PITY ARMED") elseif compact then "SPIN WHEEL" else "SPIN PRIZE WHEEL") else "DRAW NOT READY",
@@ -1207,7 +1208,7 @@ local function WheelView(props)
 	local prizeList = React.createElement(FlatList, {
 		data = rewards,
 		itemHeight = PRIZE_ROW_H,
-		overscan = 2,
+		overscan = if softMotion then 0 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = accent,

@@ -113,6 +113,8 @@ assert(string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true), "DataService
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "DataService EnsureDomain residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "DataService EnsureContinuum residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "AnomalyOpsMath.ChargeTarget", 1, true), "AnomalyService ChargeTarget residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "ProfileBagMath.EnsureAnomaly", 1, true), "AnomalyService EnsureAnomaly residual")
 
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")

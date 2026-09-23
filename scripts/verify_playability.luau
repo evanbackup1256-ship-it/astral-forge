@@ -449,6 +449,15 @@ end
 	assert(string.find(invSoft, "overscan = if softMotion then 0", 1, true), "Inventory FlatList must softMotion-gate overscan")
 	local anomalySoft = fs.readFile("src/Client/AstralForge/pages/AnomalyView.luau")
 	assert(string.find(anomalySoft, "overscan = if softMotion then 0", 1, true), "Anomaly FlatList must softMotion-gate overscan")
+	-- Wave16: Lab/Wheel/StarGrid/Shop FlatList overscan softMotion-gated.
+	local labSoft = fs.readFile("src/Client/AstralForge/pages/LabView.luau")
+	assert(string.find(labSoft, "overscan = if softMotion then 0", 1, true), "Lab FlatList must softMotion-gate overscan")
+	local wheelSoft = fs.readFile("src/Client/AstralForge/pages/WheelView.luau")
+	assert(string.find(wheelSoft, "overscan = if softMotion then 0", 1, true), "Wheel FlatList must softMotion-gate overscan")
+	local starSoft = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
+	assert(string.find(starSoft, "overscan = if softMotion then 0", 1, true), "StarGrid FlatList must softMotion-gate overscan")
+	local shopSoft = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
+	assert(string.find(shopSoft, "overscan = if softMotion then", 1, true), "Shop FlatList must softMotion-gate overscan")
 
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
@@ -489,6 +498,16 @@ do
 	local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
 	assert(string.find(guild, "GamepadNavigationService.FocusClaim", 1, true), "Guild CLAIM REWARD must FocusClaim when ready")
 	assert(string.find(guild, 'Name = "GuildClaimActions"', 1, true), "Guild CLAIM host must be named GuildClaimActions")
+	-- CLAIM REWARD footgun: parent clips=true buried claimSlide overshoot on short phones.
+	do
+		local hostStart = string.find(guild, 'Name = "GuildClaimActions"', 1, true)
+		assert(hostStart, "Guild GuildClaimActions host missing")
+		local hostSlice = string.sub(guild, hostStart, hostStart + 280)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"Guild GuildClaimActions host must keep ClipsDescendants = false"
+		)
+	end
 
 	local convergence = fs.readFile("src/Client/AstralForge/pages/ConvergenceView.luau")
 	assert(string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true), "Convergence CLAIM must FocusClaim when ready")
@@ -497,6 +516,15 @@ do
 	local starGrid = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
 	assert(string.find(starGrid, "GamepadNavigationService.FocusClaim", 1, true), "StarGrid BUY ALL must FocusClaim")
 	assert(string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true), "StarGrid BUY ALL host must be named StarGridBuyClaimActions")
+	do
+		local hostStart = string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true)
+		assert(hostStart, "StarGridBuyClaimActions host missing")
+		local hostSlice = string.sub(starGrid, hostStart, hostStart + 280)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"StarGridBuyClaimActions host must keep ClipsDescendants = false"
+		)
+	end
 
 	local command = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
 	assert(string.find(command, "GamepadNavigationService.FocusClaim", 1, true), "Command claim CTAs must FocusClaim when ready")
@@ -526,6 +554,28 @@ do
 	assert(string.find(chat, "GamepadNavigationService.FocusClaim", 1, true), "Chat SEND must FocusClaim")
 	assert(string.find(chat, 'Name = "ChatClaimActions"', 1, true), "Chat SEND host must be named ChatClaimActions")
 	assert(string.find(chat, "reducedMotion = softMotion", 1, true), "ChatView must fold softMotion into reducedMotion")
+
+	-- Wave16: Lab CLAIM ALL / Wheel SPIN hosts must not clip CTA overshoot.
+	local labClips = fs.readFile("src/Client/AstralForge/pages/LabView.luau")
+	do
+		local hostStart = string.find(labClips, 'Name = "LabClaimActions"', 1, true)
+		assert(hostStart, "LabClaimActions host missing")
+		local hostSlice = string.sub(labClips, hostStart, hostStart + 280)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"LabClaimActions host must keep ClipsDescendants = false"
+		)
+	end
+	local wheelClips = fs.readFile("src/Client/AstralForge/pages/WheelView.luau")
+	do
+		local hostStart = string.find(wheelClips, 'Name = "WheelSpinClaimActions"', 1, true)
+		assert(hostStart, "WheelSpinClaimActions host missing")
+		local hostSlice = string.sub(wheelClips, hostStart, hostStart + 280)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"WheelSpinClaimActions host must keep ClipsDescendants = false"
+		)
+	end
 
 	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards
 	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken).

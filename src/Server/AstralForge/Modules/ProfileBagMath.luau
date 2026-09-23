@@ -163,6 +163,9 @@ function ProfileBagMath.EnsureDomain(profile: any): any
 	return profile.Domain
 end
 
+-- AnomalyService Pulse/Stabilize/Signal index nested bags (Protocols /
+-- Discoveries / DirectiveProgress / MilestoneClaims). Fragments-only fixtures
+-- from Admin grants must rebuild before those paths run.
 function ProfileBagMath.EnsureAnomaly(profile: any): any
 	if type(profile.Anomaly) ~= "table" then
 		profile.Anomaly = {
@@ -170,13 +173,57 @@ function ProfileBagMath.EnsureAnomaly(profile: any): any
 			Fragments = 0,
 			Stabilizations = 0,
 			Protocols = {},
+			Discoveries = {},
+			DirectiveProgress = {},
+			DirectiveClaims = {},
+			MilestoneClaims = {},
+			Loadout = {},
+			Channel = "",
+			Cycle = -1,
+			DirectiveCycle = -1,
+			LastActionAt = 0,
+			PulseWindowStartedAt = 0,
+			Combo = 0,
+			BestCombo = 0,
+			CoreXP = 0,
+			CoreTier = 0,
+			SurgeEndsAt = 0,
 		}
-	elseif type(profile.Anomaly.Protocols) ~= "table" then
-		profile.Anomaly.Protocols = {}
+	else
+		if type(profile.Anomaly.Protocols) ~= "table" then
+			profile.Anomaly.Protocols = {}
+		end
+		if type(profile.Anomaly.Discoveries) ~= "table" then
+			profile.Anomaly.Discoveries = {}
+		end
+		if type(profile.Anomaly.DirectiveProgress) ~= "table" then
+			profile.Anomaly.DirectiveProgress = {}
+		end
+		if type(profile.Anomaly.DirectiveClaims) ~= "table" then
+			profile.Anomaly.DirectiveClaims = {}
+		end
+		if type(profile.Anomaly.MilestoneClaims) ~= "table" then
+			profile.Anomaly.MilestoneClaims = {}
+		end
+		if type(profile.Anomaly.Loadout) ~= "table" then
+			profile.Anomaly.Loadout = {}
+		end
+		if type(profile.Anomaly.Channel) ~= "string" then
+			profile.Anomaly.Channel = ""
+		end
 	end
-	profile.Anomaly.Charge = math.max(0, math.floor(tonumber(profile.Anomaly.Charge) or 0))
+	profile.Anomaly.Charge = math.max(0, tonumber(profile.Anomaly.Charge) or 0)
 	profile.Anomaly.Fragments = math.max(0, math.floor(tonumber(profile.Anomaly.Fragments) or 0))
 	profile.Anomaly.Stabilizations = math.max(0, math.floor(tonumber(profile.Anomaly.Stabilizations) or 0))
+	profile.Anomaly.Cycle = math.floor(tonumber(profile.Anomaly.Cycle) or -1)
+	profile.Anomaly.DirectiveCycle = math.floor(tonumber(profile.Anomaly.DirectiveCycle) or -1)
+	profile.Anomaly.LastActionAt = math.max(0, tonumber(profile.Anomaly.LastActionAt) or 0)
+	profile.Anomaly.PulseWindowStartedAt = math.max(0, tonumber(profile.Anomaly.PulseWindowStartedAt) or 0)
+	profile.Anomaly.Combo = math.max(0, math.floor(tonumber(profile.Anomaly.Combo) or 0))
+	profile.Anomaly.BestCombo = math.max(0, math.floor(tonumber(profile.Anomaly.BestCombo) or 0))
+	profile.Anomaly.CoreXP = math.max(0, math.floor(tonumber(profile.Anomaly.CoreXP) or 0))
+	profile.Anomaly.CoreTier = math.max(0, math.floor(tonumber(profile.Anomaly.CoreTier) or 0))
+	profile.Anomaly.SurgeEndsAt = math.max(0, tonumber(profile.Anomaly.SurgeEndsAt) or 0)
 	return profile.Anomaly
 end
 

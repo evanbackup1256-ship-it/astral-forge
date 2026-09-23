@@ -499,6 +499,7 @@ local function LabView(_param)
 			Position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 78),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			ClipsDescendants = false,
 			ref = labClaimHostRef,
 		}, React.createElement(Button, {
 			text = `CLAIM ALL · {readyOrders}`,
@@ -554,7 +555,7 @@ local function LabView(_param)
 	}) elseif virtOrders then React.createElement(FlatList, {
 		data = lab.Orders,
 		itemHeight = orderStride,
-		overscan = 2,
+		overscan = if softMotion then 0 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.mint,

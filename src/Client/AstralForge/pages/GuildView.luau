@@ -372,6 +372,7 @@ local function GuildGoalCard(_param)
 		Position = if stack then UDim2.new(0, 0, 1, -46) else UDim2.new(1, -160, 1, -46),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = if canClaim then claimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "IN PROGRESS",
