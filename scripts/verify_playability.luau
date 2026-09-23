@@ -210,6 +210,9 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/StarGridView.luau",
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
+	"src/Client/AstralForge/pages/ShopView.luau",
+	"src/Client/AstralForge/pages/WheelView.luau",
+	"src/Client/AstralForge/pages/TradeView.luau",
 }
 
 for _, path in SOFT_MOTION_FILES do

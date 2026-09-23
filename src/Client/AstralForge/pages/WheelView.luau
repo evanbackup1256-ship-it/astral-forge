@@ -427,6 +427,8 @@ local function PrizeWheelMachine(_param)
 		containedEffects = false
 	end
 	local antilag = useAntilag()
+	-- Decorative springs soft-gate under low antilag; spin gameplay keeps reducedMotion only.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local count = math.max(1, #rewards)
 	local segment = 360 / count
 	local innerDiameter = math.floor(diameter * 0.84)
@@ -437,9 +439,9 @@ local function PrizeWheelMachine(_param)
 	local landing = useFlash(controller.impactNonce, reducedMotion, if antilag.tier < 1 then 0.34 else 0.56)
 	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
 	-- Decorative hub glow + idle orbit only when ambient is allowed and antilag tier is 2+.
-	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2
-	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, reducedMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
-	local idleOrbit = useRotation(not reducedMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
+	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2 and not softMotion
+	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, softMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
+	local idleOrbit = useRotation(not softMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
 	local reverseOrbit = idleOrbit:map(function(angle)
 		return -angle * 0.62
 	end)
@@ -1097,6 +1099,7 @@ local function WheelView(props)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local controller = useWheelController(props)
 	local rewards = config.Wheel.Rewards
 	local landscape = chrome.landscape or (viewport.width > viewport.height * 1.35 and viewport.height < 680)
@@ -1110,7 +1113,7 @@ local function WheelView(props)
 	local consoleH = if shortLandscape then 198 elseif chrome.contentStack then 230 else 232
 	local stageH = if split then math.max(wheelDiameter, consoleH) else wheelDiameter + 16 + consoleH
 	local panelH = headerH + stageH + Layout.cardPadding * 2
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local _result
 	if controller.winner >= 0 then
 		local _result_1 = rewards[controller.winner + 1]

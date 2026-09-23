@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _flexbox = require(script.Parent.Parent.flexbox)
 local FlexGrid = _flexbox.FlexGrid
@@ -32,6 +33,7 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local ClientLog = require(script.Parent.Parent.log).ClientLog
 local Audio = require(script.Parent.Parent.audio).Audio
 local SHOP_TABS = { "Featured", "Passes", "Supplies", "Codes" }
@@ -334,6 +336,9 @@ local function ShopView(_param)
 	local monetization = useMonetization()
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	-- Snap decorative tile/hero springs when antilag already cut ambient or is on a low tier.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local stack = chrome.contentStack
 	local tab, setTab = React.useState("Featured")
 	local code, setCode = React.useState("")
@@ -344,7 +349,7 @@ local function ShopView(_param)
 	local banner, setBanner = React.useState("Buy a pack, a pass, or enter a code.")
 	local purchasePhase, setPurchasePhase = React.useState("hidden")
 	local purchaseDetail, setPurchaseDetail = React.useState()
-	local heroReveal = useStagger(0, reducedMotion)
+	local heroReveal = useStagger(0, softMotion)
 	local _result = state.Shop
 	if _result ~= nil then
 		_result = _result.OwnedPasses
@@ -745,19 +750,56 @@ local function ShopView(_param)
 	local listCount = if tab == "Codes" then 1 elseif tab == "Featured" then #featuredProducts + #featuredPasses elseif tab == "Passes" then #passes else #products
 	local packCols = useShopColumns()
 	local packedH = if stack then 208 else 244
-	local packRows = math.max(1, math.ceil(listCount / packCols))
-	local rowH = packedH
 	local codePanelH = if stack then 214 else 176
 	local followPanelH = if stack then 186 else 148
 	local codesH = codePanelH + Layout.panelGap + followPanelH
 	local pageGap = if stack then Layout.stackGap else Layout.panelGap
-	local listHeight = if tab == "Codes" then codesH else packRows * (rowH + pageGap)
+	local offerStride = packedH + pageGap
 	local heroH = if stack then 104 else 124
 	local tabRowH = if stack then TapTarget else 50
 	local sectionLabelH = 34
 	local codeReady = (string.gsub(code, "%s", "")) ~= ""
 	local redeemDisabled = busy or not codeReady or purchasePhase == "pending"
 	local shopHostRef = React.useRef(nil)
+	-- Flatten pass/product offers into row chunks so FlatList virtualizes long Supplies/Passes catalogs.
+	local offerRows = {}
+	if tab ~= "Codes" then
+		local passList = if tab == "Featured" then featuredPasses elseif tab == "Passes" then passes else {}
+		local productList = if tab == "Featured" then featuredProducts elseif tab == "Supplies" then products else {}
+		local flatOffers = {}
+		for _, pass in passList do
+			table.insert(flatOffers, {
+				kind = "pass",
+				key = pass.Key,
+				pass = pass,
+			})
+		end
+		for _, product in productList do
+			table.insert(flatOffers, {
+				kind = "product",
+				key = product.Key,
+				product = product,
+			})
+		end
+		do
+			local index = 1
+			while index <= #flatOffers do
+				local row = {
+					Id = `row-{tab}-{index}`,
+					cells = {},
+				}
+				for col = 1, packCols do
+					local entry = flatOffers[index]
+					if entry == nil then
+						break
+					end
+					table.insert(row.cells, entry)
+					index += 1
+				end
+				table.insert(offerRows, row)
+			end
+		end
+	end
 	React.useEffect(function()
 		if purchasePhase ~= "hidden" or not UserInputService.GamepadEnabled then
 			return nil
@@ -783,7 +825,7 @@ local function ShopView(_param)
 		padding = if stack then 14 else 20,
 		reveal = heroReveal,
 		highlight = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, if stack then React.createElement(React.Fragment, nil, React.createElement(Badge, {
 		value = "SHOP",
@@ -812,7 +854,7 @@ local function ShopView(_param)
 		radius = 14,
 		position = UDim2.fromOffset(0, 16),
 		glow = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, -68, 0, 94),
 		Position = UDim2.fromOffset(64, 8),
@@ -851,22 +893,17 @@ local function ShopView(_param)
 		columns = #SHOP_TABS,
 		gap = Layout.stackGap,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local sectionLabel = React.createElement(SectionLabel, {
 		value = if tab == "Codes" then "REDEEM" elseif tab == "Passes" then "GAME PASSES" elseif tab == "Supplies" then "SUPPLY PACKS" else "FEATURED OFFERS",
 		color = Palette.mango,
 	})
-	local listPane = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(TabPane, {
-		key = tab,
-		reducedMotion = reducedMotion,
-		height = listHeight,
-	}, tab == "Codes" and React.createElement("frame", {
+	local codesPane = React.createElement(TabPane, {
+		key = "Codes",
+		reducedMotion = softMotion,
+		height = codesH,
+	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -880,7 +917,7 @@ local function ShopView(_param)
 		accent = Palette.cyan,
 		background = Palette.panelRaised,
 		padding = if stack then 14 else 18,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, React.createElement(Text, {
 		value = "Promo codes",
 		size = 18,
@@ -957,7 +994,7 @@ local function ShopView(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
 		disabled = redeemDisabled,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = not redeemDisabled,
 		selectable = not redeemDisabled,
 	})), codeFeedback ~= "" and React.createElement(Text, {
@@ -975,7 +1012,7 @@ local function ShopView(_param)
 		accent = Palette.mint,
 		background = Palette.panelRaised,
 		padding = 16,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, React.createElement(Icon, {
 		kind = "Pilot",
 		color = Palette.cream,
@@ -1007,84 +1044,121 @@ local function ShopView(_param)
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(190, 48),
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -190, 0.5, -24),
 		disabled = followClaimed or followBusy,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = not followClaimed and not followBusy,
-	}))), tab ~= "Codes" and React.createElement(FlexGrid, {
-		columns = packCols,
-		cellMinHeight = packedH,
-		size = UDim2.fromScale(1, 1),
-	}, (function()
-		local tiles = {}
-		local passList = if tab == "Featured" then featuredPasses elseif tab == "Passes" then passes else {}
-		local productList = if tab == "Featured" then featuredProducts elseif tab == "Supplies" then products else {}
-		-- ▼ ReadonlyArray.forEach ▼
-		local _callback_3 = function(pass, index)
-			local cta = if owned[pass.Key] == true then "Owned" else priceText(pass.PriceLabel, pass.StudioPrice, pass.PassId)
-			local unavailable = pass.PassId <= 0 and not RunService:IsStudio()
-			local _arg0 = React.createElement(OfferTile, {
-				key = `{tab}-{pass.Key}`,
-				layoutOrder = index,
-				staggerIndex = index,
-				title = pass.Name,
-				detail = pass.Description,
-				meta = passBenefitLine(pass),
-				accent = accentOf(pass.Accent),
-				icon = iconOf(pass.Icon),
-				cta = cta,
-				disabled = unavailable or busy,
-				owned = owned[pass.Key] == true,
-				onClick = function()
-					return promptPass(pass)
-				end,
-				reducedMotion = reducedMotion,
-				packed = true,
-			})
-			table.insert(tiles, _arg0)
-		end
-		for _k, _v in passList do
-			_callback_3(_v, _k - 1, passList)
-		end
-		-- ▲ ReadonlyArray.forEach ▲
-		-- ▼ ReadonlyArray.forEach ▼
-		local _callback_4 = function(product, index)
-			local unavailable = product.ProductId <= 0 and not RunService:IsStudio()
-			local staggerBase = #passList
-			local _arg0 = React.createElement(OfferTile, {
-				key = `{tab}-{product.Key}`,
-				layoutOrder = staggerBase + index,
-				staggerIndex = staggerBase + index,
-				title = product.Name,
-				detail = product.Description,
-				meta = rewardLine(product.Reward),
-				accent = accentOf(product.Accent),
-				icon = iconOf(product.Icon),
-				cta = priceText(product.PriceLabel, product.StudioPrice, product.ProductId),
-				disabled = unavailable or busy,
-				onClick = function()
-					return promptProduct(product)
-				end,
-				reducedMotion = reducedMotion,
-				packed = true,
-			})
-			table.insert(tiles, _arg0)
-		end
-		for _k, _v in productList do
-			_callback_4(_v, _k - 1, productList)
-		end
-		-- ▲ ReadonlyArray.forEach ▲
-		if #tiles == 0 then
-			table.insert(tiles, React.createElement(EmptyState, {
-				key = "shop-empty",
-				icon = "Shop",
-				title = "Nothing listed",
-				body = "Nothing listed in this tab right now.",
-				accent = Palette.mango,
-				layoutOrder = 0,
-				reducedMotion = reducedMotion,
-			}))
-		end
-		return tiles
-	end)())))
+	}))))
+	local offerList = React.createElement(FlatList, {
+		data = offerRows,
+		itemHeight = offerStride,
+		headerHeight = 0,
+		overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+		canvasTail = 8,
+		Size = UDim2.fromScale(1, 1),
+		scrollBarColor = Palette.mango,
+		scrollBarThickness = 3,
+		scrollBarTransparency = 0.28,
+		keyExtractor = function(row)
+			return row.Id
+		end,
+		renderItem = function(_param_1)
+			local row = _param_1.item
+			local rowIndex = _param_1.index
+			return React.createElement(FlexGrid, {
+				columns = packCols,
+				cellMinHeight = packedH,
+				size = UDim2.fromScale(1, 1),
+			}, (function()
+				local tiles = {}
+				for cellIndex, entry in row.cells do
+					local staggerIndex = rowIndex * packCols + (cellIndex - 1)
+					if entry.kind == "pass" then
+						local pass = entry.pass
+						local cta = if owned[pass.Key] == true then "Owned" else priceText(pass.PriceLabel, pass.StudioPrice, pass.PassId)
+						local unavailable = pass.PassId <= 0 and not RunService:IsStudio()
+						table.insert(tiles, React.createElement(OfferTile, {
+							key = `{tab}-{pass.Key}`,
+							layoutOrder = cellIndex,
+							staggerIndex = staggerIndex,
+							title = pass.Name,
+							detail = pass.Description,
+							meta = passBenefitLine(pass),
+							accent = accentOf(pass.Accent),
+							icon = iconOf(pass.Icon),
+							cta = cta,
+							disabled = unavailable or busy,
+							owned = owned[pass.Key] == true,
+							onClick = function()
+								return promptPass(pass)
+							end,
+							reducedMotion = softMotion,
+							packed = true,
+						}))
+					else
+						local product = entry.product
+						local unavailable = product.ProductId <= 0 and not RunService:IsStudio()
+						table.insert(tiles, React.createElement(OfferTile, {
+							key = `{tab}-{product.Key}`,
+							layoutOrder = cellIndex,
+							staggerIndex = staggerIndex,
+							title = product.Name,
+							detail = product.Description,
+							meta = rewardLine(product.Reward),
+							accent = accentOf(product.Accent),
+							icon = iconOf(product.Icon),
+							cta = priceText(product.PriceLabel, product.StudioPrice, product.ProductId),
+							disabled = unavailable or busy,
+							onClick = function()
+								return promptProduct(product)
+							end,
+							reducedMotion = softMotion,
+							packed = true,
+						}))
+					end
+				end
+				return tiles
+			end)())
+		end,
+		ListEmptyComponent = React.createElement(EmptyState, {
+			key = "shop-empty",
+			icon = "Shop",
+			title = "Nothing listed",
+			body = "Nothing listed in this tab right now.",
+			accent = Palette.mango,
+			layoutOrder = 0,
+			reducedMotion = softMotion,
+		}),
+	})
+	local sections = {
+		{
+			id = "hero",
+			height = heroH,
+			element = heroPanel,
+		},
+		{
+			id = "tabs",
+			height = tabRowH,
+			element = tabsBar,
+		},
+		{
+			id = "label",
+			height = sectionLabelH,
+			element = sectionLabel,
+		},
+	}
+	if tab == "Codes" then
+		table.insert(sections, {
+			id = "list",
+			height = codesH,
+			element = codesPane,
+		})
+	else
+		table.insert(sections, {
+			id = "list",
+			fill = true,
+			minHeight = math.max(180, offerStride * 2),
+			element = offerList,
+		})
+	end
 	return React.createElement("frame", {
 		ref = shopHostRef,
 		Name = "ShopViewHost",
@@ -1097,34 +1171,14 @@ local function ShopView(_param)
 		tailPad = scrollTail(stack, chrome.bottomSafe, SCROLL_PAD),
 		scrollBarColor = Palette.mango,
 		scrollBarThickness = 4,
-		sections = {
-			{
-				id = "hero",
-				height = heroH,
-				element = heroPanel,
-			},
-			{
-				id = "tabs",
-				height = tabRowH,
-				element = tabsBar,
-			},
-			{
-				id = "label",
-				height = sectionLabelH,
-				element = sectionLabel,
-			},
-			{
-				id = "list",
-				height = listHeight,
-				element = listPane,
-			},
-		},
+		sections = sections,
 	}), React.createElement(PurchaseOverlay, {
 		phase = purchasePhase,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		detail = purchaseDetail,
 		onDismiss = dismissPurchase,
 	}))
+
 end
 return {
 	ShopView = ShopView,

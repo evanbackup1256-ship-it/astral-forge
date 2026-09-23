@@ -8,6 +8,7 @@ local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
 local Icon = require(script.Parent.Parent.Icon).Icon
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
 local useViewport = _motion.useViewport
@@ -419,7 +420,10 @@ local function TradeView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local enter = useEntrance(reducedMotion)
+	local antilag = useAntilag()
+	-- Decorative entrance spring only; trade session scrolls stay on reducedMotion props.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local enter = useEntrance(softMotion)
 	local now = useSecondClock()
 	local trade = state.Trade
 	local _result = trade
