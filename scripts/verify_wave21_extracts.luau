@@ -53,7 +53,7 @@ local echoes = {
 	},
 	Equipped = { ["1"] = "A", ["2"] = "B" },
 }
-assert(math.abs(ForgeEchoMath.EquippedEffect(echoes, "Production", traits, 10, 0.25) - 0.15) < 1e-9, "equipped production")
+assert(math.abs(ForgeEchoMath.EquippedEffect(echoes, "Production", traits, 10, 0.25) - 0.1875) < 1e-9, "equipped production with harmony")
 assert(ForgeEchoMath.EquippedEffect(nil, "Production", traits, 10, 0.25) == 0, "nil echoes")
 -- Same affinity on two slots → no harmony; distinct affinities → harmony.
 local same = {
