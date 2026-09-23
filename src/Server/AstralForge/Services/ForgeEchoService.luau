@@ -4,6 +4,7 @@ return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 
 	local ForgeEchoService = {}
 	local Config = GameConfig.ForgeEchoes
@@ -13,12 +14,7 @@ return function()
 		traitById[trait.Id] = trait
 	end
 
-	local patternAffinity = {
-		Collect = "Industry",
-		Surge = "Impulse",
-		Build = "Craft",
-		Explore = "Void",
-	}
+	local patternAffinity = ForgeEchoMath.PATTERN_AFFINITY
 
 	local function ensure(profile)
 		local echoes = profile.ForgeEchoes
@@ -45,40 +41,6 @@ return function()
 		return echoes
 	end
 
-	local function inventoryCount(echoes): number
-		local count = 0
-		for _ in echoes.Inventory do count += 1 end
-		return count
-	end
-
-	local function unlockedSlots(echoes): number
-		local captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0))
-		local slots = 1
-		for index, requirement in Config.SlotCaptureRequirements do
-			if captures >= requirement then slots = index end
-		end
-		return math.clamp(slots, 1, Config.MaxSlots)
-	end
-
-	local function effectValue(instance, trait): number
-		local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, Config.MaxLevel)
-		local strength = math.clamp(tonumber(instance.Strength) or 1, 0.75, 1.5)
-		return (trait.BaseEffect + trait.EffectPerLevel * (level - 1)) * strength
-	end
-
-	local function dominantPattern(echoes): (string, string)
-		local best = "Collect"
-		local value = -1
-		for _, id in { "Collect", "Surge", "Build", "Explore" } do
-			local score = math.max(0, tonumber(echoes.Pattern[id]) or 0)
-			if score > value then
-				best = id
-				value = score
-			end
-		end
-		return best, patternAffinity[best]
-	end
-
 	local function display(instance, uidOverride: string?)
 		local trait = traitById[instance.TraitId]
 		if not trait then return nil end
@@ -92,9 +54,8 @@ return function()
 			EffectKind = trait.EffectKind,
 			Level = level,
 			Strength = math.clamp(tonumber(instance.Strength) or 1, 0.75, 1.5),
-			EffectValue = effectValue(instance, trait),
-			UpgradeCost = level >= Config.MaxLevel and 0
-				or math.max(1, math.floor(Config.UpgradeBaseDust * (Config.UpgradeScale ^ (level - 1)) + 0.5)),
+			EffectValue = ForgeEchoMath.EffectValue(instance, trait, Config.MaxLevel),
+			UpgradeCost = ForgeEchoMath.UpgradeCost(level, Config.MaxLevel, Config.UpgradeBaseDust, Config.UpgradeScale),
 			Color = trait.Color,
 			CapturedAt = math.max(0, math.floor(tonumber(instance.CapturedAt) or 0)),
 			Origin = tostring(instance.Origin or "Collect"),
@@ -116,9 +77,9 @@ return function()
 	function ForgeEchoService.Capture(profile, random: Random): (boolean, string, any?)
 		local echoes = ensure(profile)
 		if #(echoes.Draft.Choices) > 0 then return false, "Choose one of the echoes already waiting." end
-		if inventoryCount(echoes) >= Config.InventoryLimit then return false, "Your echo vault is full. Dismantle one first." end
+		if ForgeEchoMath.InventoryCount(echoes.Inventory) >= Config.InventoryLimit then return false, "Your echo vault is full. Dismantle one first." end
 		if (tonumber(echoes.Charge) or 0) < Config.ChargeTarget then return false, "The forge has not recorded a complete pattern yet." end
-		local origin, affinity = dominantPattern(echoes)
+		local origin, affinity = ForgeEchoMath.DominantPattern(echoes.Pattern, patternAffinity)
 		local pool = table.clone(Config.Traits)
 		local selected = {}
 		local used = {}
@@ -165,14 +126,14 @@ return function()
 			if choice.Uid == choiceId then picked = choice break end
 		end
 		if not picked or not traitById[picked.TraitId] then return false, "That echo is no longer available." end
-		if inventoryCount(echoes) >= Config.InventoryLimit then return false, "Your echo vault is full." end
+		if ForgeEchoMath.InventoryCount(echoes.Inventory) >= Config.InventoryLimit then return false, "Your echo vault is full." end
 		local uid = "E" .. tostring(math.max(1, math.floor(tonumber(echoes.NextId) or 1)))
 		echoes.NextId = math.max(1, math.floor(tonumber(echoes.NextId) or 1)) + 1
 		picked.Uid = uid
 		echoes.Inventory[uid] = picked
 		echoes.Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0)) + 1
 		echoes.Draft = { Id = "", Choices = {} }
-		local slots = unlockedSlots(echoes)
+		local slots = ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots)
 		for slot = 1, slots do
 			local key = tostring(slot)
 			if not echoes.Equipped[key] or echoes.Equipped[key] == "" then
@@ -188,15 +149,21 @@ return function()
 		if type(uid) ~= "string" or type(slot) ~= "number" or slot ~= math.floor(slot) then return false, "Choose a valid echo slot." end
 		local echoes = ensure(profile)
 		if not echoes.Inventory[uid] then return false, "That echo is not in your vault." end
-		if slot < 1 or slot > unlockedSlots(echoes) then return false, "That echo slot has not stabilized yet." end
+		if slot < 1 or slot > ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots) then
+			return false, "That echo slot has not stabilized yet."
+		end
 		for key, equippedUid in echoes.Equipped do if equippedUid == uid then echoes.Equipped[key] = "" end end
 		echoes.Equipped[tostring(slot)] = uid
 		return true, "Echo linked to slot " .. tostring(slot) .. "."
 	end
 
 	function ForgeEchoService.UpgradeCost(instance): number
-		local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, Config.MaxLevel)
-		return math.max(1, math.floor(Config.UpgradeBaseDust * (Config.UpgradeScale ^ (level - 1)) + 0.5))
+		return ForgeEchoMath.UpgradeCost(
+			instance and instance.Level,
+			Config.MaxLevel,
+			Config.UpgradeBaseDust,
+			Config.UpgradeScale
+		)
 	end
 
 	function ForgeEchoService.Upgrade(profile, uid: any): (boolean, string, any?)
@@ -239,7 +206,7 @@ return function()
 		end)
 		local choices = {}
 		for index, choice in echoes.Draft.Choices do choices[index] = display(choice) end
-		local slots = unlockedSlots(echoes)
+		local slots = ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots)
 		local equipped = {}
 		local affinities = {}
 		local equippedCount = 0
@@ -255,7 +222,7 @@ return function()
 		local affinityCount = 0
 		for _ in affinities do affinityCount += 1 end
 		local harmony = equippedCount >= 2 and affinityCount == equippedCount
-		local origin, _ = dominantPattern(echoes)
+		local origin, _ = ForgeEchoMath.DominantPattern(echoes.Pattern, patternAffinity)
 		local nextRequirement = slots < Config.MaxSlots and Config.SlotCaptureRequirements[slots + 1] or nil
 		return {
 			Charge = math.clamp(tonumber(echoes.Charge) or 0, 0, Config.ChargeTarget),

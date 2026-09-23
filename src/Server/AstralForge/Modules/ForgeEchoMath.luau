@@ -1,0 +1,87 @@
+--!strict
+-- Pure forge-echo inventory / slot / effect / pattern helpers. No Roblox
+-- services — ForgeEchoService and Lune verify scripts share this so vault math
+-- can be tested without Studio. Profile mutation and Random draft picks stay
+-- with the caller; Config / trait tables are injected.
+
+local ForgeEchoMath = {}
+
+ForgeEchoMath.PATTERN_IDS = { "Collect", "Surge", "Build", "Explore" }
+
+ForgeEchoMath.PATTERN_AFFINITY = {
+	Collect = "Industry",
+	Surge = "Impulse",
+	Build = "Craft",
+	Explore = "Void",
+}
+
+function ForgeEchoMath.InventoryCount(inventory: any): number
+	if type(inventory) ~= "table" then
+		return 0
+	end
+	local count = 0
+	for _ in inventory do
+		count += 1
+	end
+	return count
+end
+
+-- Captures unlock slots by SlotCaptureRequirements index; clamped to [1, maxSlots].
+function ForgeEchoMath.UnlockedSlots(
+	captures: any,
+	slotCaptureRequirements: { number },
+	maxSlots: number
+): number
+	local safeCaptures = math.max(0, math.floor(tonumber(captures) or 0))
+	local slots = 1
+	for index, requirement in slotCaptureRequirements do
+		if safeCaptures >= requirement then
+			slots = index
+		end
+	end
+	return math.clamp(slots, 1, maxSlots)
+end
+
+function ForgeEchoMath.EffectValue(
+	instance: any,
+	trait: { BaseEffect: number, EffectPerLevel: number },
+	maxLevel: number
+): number
+	local level = math.clamp(math.floor(tonumber(instance and instance.Level) or 1), 1, maxLevel)
+	local strength = math.clamp(tonumber(instance and instance.Strength) or 1, 0.75, 1.5)
+	return (trait.BaseEffect + trait.EffectPerLevel * (level - 1)) * strength
+end
+
+function ForgeEchoMath.UpgradeCost(
+	level: any,
+	maxLevel: number,
+	upgradeBaseDust: number,
+	upgradeScale: number
+): number
+	local safeLevel = math.clamp(math.floor(tonumber(level) or 1), 1, maxLevel)
+	if safeLevel >= maxLevel then
+		return 0
+	end
+	return math.max(1, math.floor(upgradeBaseDust * (upgradeScale ^ (safeLevel - 1)) + 0.5))
+end
+
+-- Returns dominant pattern id and its affinity label. Empty / missing Pattern → Collect.
+function ForgeEchoMath.DominantPattern(
+	pattern: any,
+	patternAffinity: { [string]: string }?
+): (string, string)
+	local affinity = patternAffinity or ForgeEchoMath.PATTERN_AFFINITY
+	local best = "Collect"
+	local value = -1
+	local bag = type(pattern) == "table" and pattern or {}
+	for _, id in ForgeEchoMath.PATTERN_IDS do
+		local score = math.max(0, tonumber(bag[id]) or 0)
+		if score > value then
+			best = id
+			value = score
+		end
+	end
+	return best, affinity[best] or "Industry"
+end
+
+return table.freeze(ForgeEchoMath)

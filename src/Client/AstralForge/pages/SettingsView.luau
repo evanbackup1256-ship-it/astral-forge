@@ -15,6 +15,7 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _ui = require(script.Parent.Parent.ui)
 local Button = _ui.Button
 local Panel = _ui.Panel
@@ -836,6 +837,26 @@ local function SettingsView(_param)
 	local mobileHudAvailable = touch and chrome.stack
 	local touchRows = stack
 	local availableSections = if mobileHudAvailable then { "audio", "motion", "visual", "interface", "accessibility", "mobile" } else { "audio", "motion", "visual", "interface", "accessibility" }
+	local settingsClaimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on GUIDE/UPDATES (FocusClaim prefers Claim-named hosts).
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = settingsClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { activeSection })
 	React.useEffect(function()
 		if not mobileHudAvailable and activeSection == "mobile" then
 			setActiveSection("interface")
@@ -1046,11 +1067,13 @@ local function SettingsView(_param)
 		position = UDim2.fromOffset(0, 46),
 		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 16),
 	}), React.createElement("frame", {
+		Name = "SettingsClaimActions",
 		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(300, 42),
 		Position = if stack then UDim2.fromOffset(0, 70) else UDim2.new(1, -300, 0, 10),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 6,
+		ref = settingsClaimHostRef,
 	}, React.createElement(Button, {
 		text = "GUIDE",
 		icon = "Guide",

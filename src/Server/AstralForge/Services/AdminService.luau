@@ -166,6 +166,13 @@ return function(loadService: (string) -> any)
 			if candidate.Id == definitionId then definition = candidate break end
 		end
 		if not definition then return false end
+		-- Partial Items bags (Studio fixtures / Keys-only ensure) must not crash GrantRelic.
+		if type(profile.Items) ~= "table" then
+			profile.Items = { Inventory = {}, NextId = 1, Essence = 0, Keys = {}, Equipped = {}, Discovered = {} }
+		end
+		if type(profile.Items.Inventory) ~= "table" then
+			profile.Items.Inventory = {}
+		end
 		local count = 0
 		for _ in profile.Items.Inventory do count += 1 end
 		if count >= GameConfig.Items.InventoryLimit then return false end

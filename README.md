@@ -148,6 +148,7 @@ parks via `GamepadNavigationService.FocusClaim`):
 - Research BUY ALL; Star Grid BUY ALL
 - Shop CLAIM CODE; Admin ARM/RUN; Credits primary CTA
 - Command commander/weekly/expedition/season CLAIM
+- Settings GUIDE/UPDATES
 
 **3. ReleaseReadiness (Studio-only)**
 

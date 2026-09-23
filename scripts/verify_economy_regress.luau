@@ -377,6 +377,57 @@ assert(
 	"ActivateBoost must not raw-index ActiveBoost.EndsAt"
 )
 
+-- --- Economy bag + Achievements + Admin Items nil-safety (wave10) ------------
+-- Evidence: ApplyReward Keys seeds Items={Keys={}} without Equipped/Inventory —
+-- ItemEffect threw during Production. ApplyReward Fragments seeds Anomaly=
+-- {Fragments=0} without Protocols — AnomalyEffect threw. ensureCommand omits
+-- Artifacts/MachineMastery — ArtifactEffect/MasteryMultiplier threw.
+-- ClaimAchievement / AchievementStates raw-indexed profile.Achievements.
+-- Admin createRelic raw-indexed Items.Inventory on Keys-only bags.
+assert(
+	string.find(economySrc, 'type(equipped) ~= "table" or type(inventory) ~= "table"', 1, true) ~= nil,
+	"ItemEffect must nil-guard Equipped/Inventory tables"
+)
+assert(
+	string.find(economySrc, 'type(command.Artifacts) ~= "table"', 1, true) ~= nil,
+	"ArtifactEffect must nil-guard Command.Artifacts"
+)
+assert(
+	string.find(economySrc, 'type(mastery) ~= "table"', 1, true) ~= nil,
+	"MasteryMultiplier must nil-guard MachineMastery"
+)
+assert(
+	string.find(economySrc, "local protocols = state.Protocols", 1, true) ~= nil
+		and string.find(economySrc, 'type(protocols) == "table"', 1, true) ~= nil,
+	"AnomalyEffect must nil-guard Protocols"
+)
+assert(
+	string.find(economySrc, "state.Protocols[protocol.Id]", 1, true) == nil,
+	"AnomalyEffect must not raw-index state.Protocols"
+)
+assert(
+	string.find(progressionSrc, 'type(profile.Achievements) ~= "table"', 1, true) ~= nil,
+	"ClaimAchievement must nil-safe Achievements"
+)
+assert(
+	string.find(progressionSrc, "profile.Achievements[achievement.Id] == true", 1, true) == nil,
+	"AchievementStates must not raw-index Achievements"
+)
+assert(
+	string.find(adminSrc, 'type(profile.Items.Inventory) ~= "table"', 1, true) ~= nil,
+	"Admin createRelic must nil-safe Items.Inventory"
+)
+
+local analyticsSrc = fs.readFile("src/Server/AstralForge/Services/PlayerAnalytics.luau")
+assert(
+	string.find(analyticsSrc, "profile.Stats and profile.Stats.Joins", 1, true) ~= nil,
+	"PlayerAnalytics session start must nil-safe Stats.Joins"
+)
+assert(
+	string.find(analyticsSrc, "profile.Stats.Joins,", 1, true) == nil,
+	"PlayerAnalytics must not raw-pass Stats.Joins"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -386,9 +437,9 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 -- Do not couple these modules to vendor/Packages (tree may exist; we must not reference it).
-for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc, anomalySrc, servicesSrc } do
+for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc, anomalySrc, servicesSrc, analyticsSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements nil-safe")

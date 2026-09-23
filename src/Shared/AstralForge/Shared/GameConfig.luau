@@ -524,6 +524,28 @@ local GameConfig = {
 				Reward = { Stardust = 40, CashMinutes = 4, Signals = 12 },
 				Color = Color3.fromRGB(255, 175, 150),
 			},
+			{
+				Id = "Wave10EchoVault",
+				Name = "Wave Ten Echo Vault",
+				Description = "Tap through a short tally while ForgeEchoMath extract + LINK FocusClaim stay wired.",
+				Kind = "Tap",
+				BaseTarget = 85,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 30, CashMinutes = 3, Signals = 10 },
+				Color = Color3.fromRGB(140, 200, 255),
+			},
+			{
+				Id = "Wave10EconomyBags",
+				Name = "Wave Ten Economy Bags",
+				Description = "Bank flux while Item/Anomaly/Artifact projections nil-safe partial bags.",
+				Kind = "BankFlux",
+				BaseTarget = 3_600,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 42, CashMinutes = 4, Signals = 13 },
+				Color = Color3.fromRGB(255, 190, 160),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2836,6 +2858,22 @@ local GameConfig = {
 			Target = 46,
 			Reward = { Stardust = 230, Signals = 62, CashMinutes = 21, FreeSpins = 1 },
 		},
+		{
+			Id = "Wave10EchoArchivist",
+			Name = "Wave Ten Echo Archivist",
+			Description = "Claim 48 story chapters after ForgeEchoMath extract + Economy bag nil-safety.",
+			Kind = "StoryClaims",
+			Target = 48,
+			Reward = { Stardust = 240, Signals = 64, CashMinutes = 22, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave10SettingsCourier",
+			Name = "Wave Ten Settings Courier",
+			Description = "Hold an 18-day daily streak while Settings GUIDE FocusClaim is verified.",
+			Kind = "DailyStreak",
+			Target = 18,
+			Reward = { Stardust = 250, Signals = 66, CashMinutes = 22, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4294,9 +4332,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(120, 230, 200),
 		},
 
+		{
+			Id = "wave10-harden-brief",
+			Title = "Wave Ten Harden Brief",
+			Chapter = "LORE: ECHO FORGE",
+			Summary = "ForgeEchoMath extract, Economy bag nil-safety, and Settings FocusClaim.",
+			Body = {
+				"ForgeEcho vault slot / effect / pattern math lives in a Lune-pure ForgeEchoMath module shared with offline verify.",
+				"ItemEffect / ArtifactEffect / MasteryMultiplier / AnomalyEffect tolerate Keys-only Items, Fragments-only Anomaly, and partial Command bags.",
+				"Settings GUIDE/UPDATES FocusClaim under gamepad; ClaimAchievement nil-safes Achievements; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 40, CashMinutes = 15, Signals = 17 },
+			Color = Color3.fromRGB(140, 200, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave10-harden",
+			Subject = "Dock note — wave ten harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ForgeEchoMath extract + Economy bag nil-safety + Settings FocusClaim — still DataVersion 21.",
+			Body = {
+				"Echo vault math is Lune-testable; production projections no longer throw on partial Items/Anomaly/Command bags after Keys or Fragments grants.",
+				"ClaimAchievement / GrantRelic / session analytics tolerate missing Achievements/Items/Stats bags on Studio fixtures.",
+				"Settings GUIDE/UPDATES park gamepad Selection; pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 40, Stardust = 56, Signals = 21 },
+			Color = Color3.fromRGB(140, 200, 255),
+		},
 
 		{
 			Id = "update-5-1-bug-content-wave9",

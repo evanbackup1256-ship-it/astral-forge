@@ -193,11 +193,18 @@ function Economy.ItemEffect(
 	if not profile.Items then
 		return 0
 	end
+	-- ApplyReward Keys / partial Studio fixtures may leave Items without Equipped
+	-- or Inventory tables — production projections must not throw.
+	local equipped = profile.Items.Equipped
+	local inventory = profile.Items.Inventory
+	if type(equipped) ~= "table" or type(inventory) ~= "table" then
+		return 0
+	end
 	local machines = profile.Machines
 	local research = profile.Research
 	local total = 0
-	for target, uid in profile.Items.Equipped do
-		local instance = profile.Items.Inventory[uid]
+	for target, uid in equipped do
+		local instance = inventory[uid]
 		local definition = instance and Economy.GetItemDefinition(instance.DefinitionId)
 		local slot, targetId = string.match(target, "^(%a+):([%w_]+)$")
 		-- Nil-safe Machines/Research: mid-sanitize / partial fixtures must not throw
@@ -226,6 +233,10 @@ function Economy.ArtifactEffect(profile: ProfileLike, effectKind: string): numbe
 	if not command or command.EquippedArtifact == "" then
 		return 0
 	end
+	-- Partial Command bags (ensureCommand Signals path) may omit Artifacts.
+	if type(command.Artifacts) ~= "table" then
+		return 0
+	end
 	local artifact = Economy.GetArtifact(command.EquippedArtifact)
 	local owned = command.Artifacts[command.EquippedArtifact]
 	if not artifact or not owned or artifact.EffectKind ~= effectKind then
@@ -239,8 +250,12 @@ function Economy.MasteryMultiplier(profile: ProfileLike): number
 	if not command then
 		return 1
 	end
+	local mastery = command.MachineMastery
+	if type(mastery) ~= "table" then
+		return 1
+	end
 	local points = 0
-	for _, value in command.MachineMastery do
+	for _, value in mastery do
 		points += value
 	end
 	return 1 + math.min(0.5, points * 0.002)
@@ -269,9 +284,13 @@ function Economy.AnomalyEffect(profile: ProfileLike, effectKind: string, now: nu
 		return 0
 	end
 	local total = 0
-	for _, protocol in GameConfig.Anomalies.Protocols do
-		if protocol.EffectKind == effectKind then
-			total += (state.Protocols[protocol.Id] or 0) * protocol.EffectPerLevel
+	-- ApplyReward Fragments may seed Anomaly without Protocols — projections must not throw.
+	local protocols = state.Protocols
+	if type(protocols) == "table" then
+		for _, protocol in GameConfig.Anomalies.Protocols do
+			if protocol.EffectKind == effectKind then
+				total += (protocols[protocol.Id] or 0) * protocol.EffectPerLevel
+			end
 		end
 	end
 	-- Overdrive Core: Channel (a single always-on selection) is replaced by Loadout, up to

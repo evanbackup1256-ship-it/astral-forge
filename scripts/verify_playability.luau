@@ -439,6 +439,19 @@ do
 	local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
 	assert(string.find(credits, 'Name = "CreditsClaimActions"', 1, true), "Credits primary CTA host must be named CreditsClaimActions")
 
+	local settings = fs.readFile("src/Client/AstralForge/pages/SettingsView.luau")
+	assert(string.find(settings, "GamepadNavigationService.FocusClaim", 1, true), "Settings GUIDE/UPDATES must FocusClaim")
+	assert(string.find(settings, 'Name = "SettingsClaimActions"', 1, true), "Settings GUIDE/UPDATES host must be named SettingsClaimActions")
+	assert(string.find(settings, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "SettingsView must softMotion via antilag")
+
+	local continuumClips = fs.readFile("src/Client/AstralForge/pages/ContinuumView.luau")
+	assert(string.find(continuumClips, 'Name = "ContinuumClaimActions"', 1, true), "Continuum forge CTA host must stay named")
+	assert(
+		string.find(continuumClips, "clips = false", 1, true)
+			and string.find(continuumClips, "ContinuumClaimActions", 1, true),
+		"Continuum forge panel must keep clips = false near FORGE CTA"
+	)
+
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local crewClips = string.match(router, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
 	assert(crewClips == "false", "Crew header must keep clips = false so REFRESH stays reachable")
