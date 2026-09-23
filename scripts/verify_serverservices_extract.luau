@@ -43,7 +43,7 @@ assert(CrateRoll.PickCandidate(candidates, 2).Id == "C", "pick index 2")
 assert(CrateRoll.PickCandidate({}, 1) == nil, "empty candidates")
 
 local rolledDef, rolledRarity, pityHit = CrateRoll.Roll(
-	{ PityRarity = "Epic", PityAfter = 10, Weights = weights },
+	{ PityRarity = "Rare", PityAfter = 10, Weights = weights },
 	9,
 	rarities,
 	defs,
@@ -55,7 +55,7 @@ local rolledDef, rolledRarity, pityHit = CrateRoll.Roll(
 	end
 )
 assert(rolledDef and rolledDef.Id == "B", "pity roll picks first rare")
-assert(rolledRarity == "Rare" and pityHit == false, "rare below epic pity")
+assert(rolledRarity == "Rare" and pityHit == true, "rare at pity floor hits")
 
 local count, countErr = CrateRoll.NormalizeOpenCount(nil)
 assert(count == 1 and countErr == nil, "nil count → 1")
