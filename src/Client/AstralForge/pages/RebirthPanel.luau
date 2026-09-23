@@ -176,7 +176,7 @@ local function RebirthPanel(_param)
 	}), not stack and React.createElement(Meter, {
 		value = progress,
 		color = accent,
-		reducedMotion = reducedMotion or effectsPaused,
+		reducedMotion = softMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused,
 		position = UDim2.fromOffset(0, 132),
 		size = UDim2.new(1, 0, 0, 9),
@@ -211,7 +211,7 @@ local function RebirthPanel(_param)
 	}), React.createElement(Meter, {
 		value = progress,
 		color = accent,
-		reducedMotion = reducedMotion or effectsPaused,
+		reducedMotion = softMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused,
 		position = UDim2.fromOffset(12, 34),
 		size = UDim2.new(1, -24, 0, 9),
@@ -253,7 +253,7 @@ local function RebirthPanel(_param)
 		color = if canRebirth then accent else Palette.panelSoft,
 		textColor = if canRebirth then Palette.ink else Palette.muted,
 		size = UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not canRebirth or busy,
 		loading = busy,
 		shakeToken = shakeToken,
@@ -270,9 +270,9 @@ local function RebirthPanel(_param)
 		outline = true,
 		size = UDim2.new(1, 0, 0, ctaH),
 		position = UDim2.fromOffset(0, ctaH + 8),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = busy,
-	})), canRebirth and not effectsPaused and not reducedMotion and React.createElement("frame", {
+	})), canRebirth and not effectsPaused and not softMotion and React.createElement("frame", {
 		Size = readiness:map(function(amount)
 			return UDim2.fromOffset(18 + amount * 54, 18 + amount * 54)
 		end),

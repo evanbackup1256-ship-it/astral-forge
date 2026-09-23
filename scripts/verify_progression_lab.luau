@@ -48,6 +48,12 @@ assert(orders[2].Progress == 10, "B already at target stays")
 assert(LabOrderMath.ApplyProgress(orders, byId, "Tap", 0) == false, "zero gain no-op")
 assert(LabOrderMath.ApplyProgress(orders, byId, "BankFlux", 5) == false, "claimed C ignores progress")
 
+local stringOrders = { { Id = "S", Progress = "9", Target = "10", Claimed = false } }
+local stringById = { S = { Id = "S", Kind = "Tap", BaseTarget = 10 } }
+assert(LabOrderMath.IsReady(stringOrders[1]) == false, "string 9/10 not ready")
+assert(LabOrderMath.ApplyProgress(stringOrders, stringById, "Tap", 1) == true, "string progress applies")
+assert(stringOrders[1].Progress == 10, "string progress coerced")
+
 local ok, msg, reward = LabOrderMath.TryClaim(orders, byId, "missing")
 assert(ok == false and msg == "That order is no longer on the board.", "missing order")
 

@@ -191,4 +191,79 @@ function AnomalyOpsMath.NextCoreTier(coreTier: any, tierConfigs: any): any?
 	return nil
 end
 
+
+function AnomalyOpsMath.LoadoutEffect(loadout: any, channels: any, effectKind: string): number
+	if type(loadout) ~= "table" or type(channels) ~= "table" or type(effectKind) ~= "string" then
+		return 0
+	end
+	local total = 0
+	for _, channelId in loadout do
+		local channel = channels[channelId]
+		if type(channel) == "table" and channel.EffectKind == effectKind then
+			total += tonumber(channel.EffectAmount) or 0
+		end
+	end
+	return total
+end
+
+function AnomalyOpsMath.CycleTypeEffect(types: any, cycleSeconds: any, now: any, effectKind: string): number
+	if type(types) ~= "table" or type(effectKind) ~= "string" then
+		return 0
+	end
+	local count = #types
+	if count <= 0 then
+		return 0
+	end
+	local seconds = math.max(1, math.floor(tonumber(cycleSeconds) or 1))
+	local timestamp = math.max(0, math.floor(tonumber(now) or 0))
+	local cycle = math.floor(timestamp / seconds)
+	local anomaly = types[cycle % count + 1]
+	if type(anomaly) == "table" and anomaly.EffectKind == effectKind then
+		return tonumber(anomaly.EffectAmount) or 0
+	end
+	return 0
+end
+
+function AnomalyOpsMath.CorePassiveProduction(coreTier: any, tierConfigs: any): number
+	local tier = math.max(0, math.floor(tonumber(coreTier) or 0))
+	if tier <= 0 or type(tierConfigs) ~= "table" then
+		return 0
+	end
+	local total = 0
+	for _, tierConfig in tierConfigs do
+		if type(tierConfig) == "table" then
+			local configTier = math.max(0, math.floor(tonumber(tierConfig.Tier) or 0))
+			if configTier <= tier then
+				total += tonumber(tierConfig.PassiveProduction) or 0
+			end
+		end
+	end
+	return total
+end
+
+function AnomalyOpsMath.Effect(state: any, effectKind: string, protocolDefs: any, channels: any, types: any, cycleSeconds: any, now: any, coreTiers: any): number
+	if type(state) ~= "table" or type(effectKind) ~= "string" then
+		return 0
+	end
+	local total = AnomalyOpsMath.ProtocolEffect(state.Protocols, protocolDefs, effectKind)
+	total += AnomalyOpsMath.LoadoutEffect(state.Loadout, channels, effectKind)
+	total += AnomalyOpsMath.CycleTypeEffect(types, cycleSeconds, now, effectKind)
+	if effectKind == "Production" then
+		total += AnomalyOpsMath.CorePassiveProduction(state.CoreTier, coreTiers)
+	end
+	return total
+end
+
+function AnomalyOpsMath.SurgeMultiplier(state: any, now: any, surgeMultiplier: any): number
+	if type(state) ~= "table" then
+		return 1
+	end
+	local endsAt = tonumber(state.SurgeEndsAt)
+	local timestamp = tonumber(now) or 0
+	if endsAt ~= nil and endsAt > timestamp then
+		return math.max(1, tonumber(surgeMultiplier) or 1)
+	end
+	return 1
+end
+
 return table.freeze(AnomalyOpsMath)

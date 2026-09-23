@@ -12,6 +12,7 @@ local ContinuumDomainMath = require(script.Parent:WaitForChild("ContinuumDomainM
 local ForgePathClaim = require(script.Parent:WaitForChild("ForgePathClaim"))
 local EconomyEnvelopeMath = require(script.Parent:WaitForChild("EconomyEnvelopeMath"))
 local ForgeEchoMath = require(script.Parent:WaitForChild("ForgeEchoMath"))
+local AnomalyOpsMath = require(script.Parent:WaitForChild("AnomalyOpsMath"))
 
 local Economy = {}
 
@@ -258,52 +259,11 @@ function Economy.AnomalyEffect(profile: ProfileLike, effectKind: string, now: nu
 	if not state then
 		return 0
 	end
-	local total = 0
-	-- ApplyReward Fragments may seed Anomaly without Protocols — projections must not throw.
-	local protocols = state.Protocols
-	if type(protocols) == "table" then
-		for _, protocol in GameConfig.Anomalies.Protocols do
-			if protocol.EffectKind == effectKind then
-				total += (protocols[protocol.Id] or 0) * protocol.EffectPerLevel
-			end
-		end
-	end
-	-- Overdrive Core: Channel (a single always-on selection) is replaced by Loadout, up to
-	-- LoadoutSlots channels slotted at once, each still applying its own EffectAmount -- this
-	-- sums every slotted channel that matches effectKind instead of reading one field. Loadout
-	-- may be empty on profiles that haven't re-slotted since the old single-Channel system;
-	-- DataService's sanitize pass seeds Loadout from the legacy Channel field on load, so this
-	-- never silently drops a returning player's existing selection.
-	if type(state.Loadout) == "table" then
-		for _, channelId in state.Loadout do
-			local channel = GameConfig.Anomalies.Channels[channelId]
-			if channel and channel.EffectKind == effectKind then
-				total += channel.EffectAmount
-			end
-		end
-	end
-	local timestamp = now or os.time()
-	local cycle = math.floor(timestamp / GameConfig.Anomalies.CycleSeconds)
-	local anomaly = GameConfig.Anomalies.Types[cycle % #GameConfig.Anomalies.Types + 1]
-	if anomaly and anomaly.EffectKind == effectKind then
-		total += anomaly.EffectAmount
-	end
-	if effectKind == "Production" and type(state.CoreTier) == "number" and state.CoreTier > 0 then
-		for _, tierConfig in GameConfig.Anomalies.CoreTiers do
-			if tierConfig.Tier <= state.CoreTier then
-				total += tierConfig.PassiveProduction
-			end
-		end
-	end
-	return total
+	return AnomalyOpsMath.Effect(state, effectKind, GameConfig.Anomalies.Protocols, GameConfig.Anomalies.Channels, GameConfig.Anomalies.Types, GameConfig.Anomalies.CycleSeconds, now or os.time(), GameConfig.Anomalies.CoreTiers)
 end
 
 function Economy.AnomalySurgeMultiplier(profile: ProfileLike, now: number?): number
-	local state = profile.Anomaly
-	if state and state.SurgeEndsAt > (now or os.time()) then
-		return GameConfig.Anomalies.SurgeMultiplier
-	end
-	return 1
+	return AnomalyOpsMath.SurgeMultiplier(profile.Anomaly, now or os.time(), GameConfig.Anomalies.SurgeMultiplier)
 end
 
 function Economy.GetZone(id: number)

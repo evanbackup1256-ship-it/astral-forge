@@ -642,8 +642,8 @@ return function(loadService: (string) -> any)
 			then
 				profile.Lab.Orders[index] = nil
 			else
-				order.Progress = nonNegative(order.Progress)
-				order.Target = math.max(1, nonNegative(order.Target))
+				order.Progress = nonNegative(tonumber(order.Progress) or 0)
+				order.Target = math.max(1, nonNegative(tonumber(order.Target) or 0))
 				order.Claimed = order.Claimed == true
 			end
 		end

@@ -164,6 +164,8 @@ assert(string.find(src, 'Id = "Wave21QuestClampProgress"', 1, true), "Lab.Orders
 assert(string.find(src, 'Id = "Wave21ClaimClipsSoftMotion"', 1, true), "Lab.Orders must append Wave21ClaimClipsSoftMotion")
 assert(string.find(src, 'Id = "Wave21FirewallEchoExtract"', 1, true), "Lab.Orders must append Wave21FirewallEchoExtract")
 assert(string.find(src, 'Id = "Wave21EnvelopeUtcExtract"', 1, true), "Lab.Orders must append Wave21EnvelopeUtcExtract")
+assert(string.find(src, 'Id = "Wave22LabOrderProgress"', 1, true), "Lab.Orders must append Wave22LabOrderProgress")
+assert(string.find(src, 'Id = "Wave22ClaimClipsSoftMotion"', 1, true), "Lab.Orders must append Wave22ClaimClipsSoftMotion")
 -- Footgun: Wave16 briefly nested AnomalyOps inside Wave15ItemsShopSoftMotion — keep top-level.
 do
 	local wave15 = string.find(src, 'Id = "Wave15ItemsShopSoftMotion"', 1, true)
@@ -203,6 +205,8 @@ assert(string.find(src, 'Id = "Wave21QuestCourier"', 1, true), "Achievements mus
 assert(string.find(src, 'Id = "Wave21ClaimClipRunner"', 1, true), "Achievements must append Wave21ClaimClipRunner")
 assert(string.find(src, 'Id = "Wave21ExtractCourier"', 1, true), "Achievements must append Wave21ExtractCourier")
 assert(string.find(src, 'Id = "Wave21ReadinessRunner"', 1, true), "Achievements must append Wave21ReadinessRunner")
+assert(string.find(src, 'Id = "Wave22LabCourier"', 1, true), "Achievements must append Wave22LabCourier")
+assert(string.find(src, 'Id = "Wave22ClaimClipRunner"', 1, true), "Achievements must append Wave22ClaimClipRunner")
 assert(string.find(src, 'Id = "bug-content-wave9-brief"', 1, true), "Story must append bug-content-wave9-brief")
 assert(string.find(src, 'Id = "wave10-harden-brief"', 1, true), "Story must append wave10-harden-brief")
 assert(string.find(src, 'Id = "bug-content-wave11-brief"', 1, true), "Story must append bug-content-wave11-brief")
@@ -217,6 +221,7 @@ assert(string.find(src, 'Id = "wave19-harden-brief"', 1, true), "Story must appe
 assert(string.find(src, 'Id = "wave20-harden-brief"', 1, true), "Story must append wave20-harden-brief")
 assert(string.find(src, 'Id = "wave21-harden-brief"', 1, true), "Story must append wave21-harden-brief")
 assert(string.find(src, 'Id = "wave21-extract-brief"', 1, true), "Story must append wave21-extract-brief")
+assert(string.find(src, 'Id = "wave22-harden-brief"', 1, true), "Story must append wave22-harden-brief")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave9"', 1, true), "Mail must append update-5-1-bug-content-wave9")
 assert(string.find(src, 'Id = "update-5-1-wave10-harden"', 1, true), "Mail must append update-5-1-wave10-harden")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave11"', 1, true), "Mail must append update-5-1-bug-content-wave11")
@@ -231,5 +236,6 @@ assert(string.find(src, 'Id = "update-5-1-wave19-harden"', 1, true), "Mail must 
 assert(string.find(src, 'Id = "update-5-1-wave20-harden"', 1, true), "Mail must append update-5-1-wave20-harden")
 assert(string.find(src, 'Id = "update-5-1-wave21-harden"', 1, true), "Mail must append update-5-1-wave21-harden")
 assert(string.find(src, 'Id = "update-5-1-wave21-extract"', 1, true), "Mail must append update-5-1-wave21-extract")
+assert(string.find(src, 'Id = "update-5-1-wave22-harden"', 1, true), "Mail must append update-5-1-wave22-harden")
 
 print("[INFO] [TEST] content ids unique; DataVersion 21; PlatformBadges zeroed")

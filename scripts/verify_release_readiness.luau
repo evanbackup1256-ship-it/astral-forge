@@ -521,8 +521,20 @@ assert(not string.find(forgeEchoRelease, "GetService", 1, true), "ForgeEchoMath 
 assert(not string.find(adminGrantRelease, "GetService", 1, true), "AdminGrantMath must stay pure")
 mark("wave21 extract firewall echo envelope residuals")
 
--- Raise floor past checks=25 once wave21 extract-checks RunQuick-adjacent residuals land.
-assert(#passed > 25, "release-readiness offline subset must stay beyond checks=25, got " .. tostring(#passed))
+local labOrderRelease = fs.readFile("src/Server/AstralForge/Modules/LabOrderMath.luau")
+assert(string.find(labOrderRelease, "tonumber(state and state.Progress)", 1, true), "LabOrderMath Progress coerce missing")
+assert(string.find(dataSrc, "nonNegative(tonumber(order.Progress)", 1, true), "DataService Progress coerce residual")
+local anomalyOpsRelease = fs.readFile("src/Server/AstralForge/Modules/AnomalyOpsMath.luau")
+assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.Effect", 1, true), "AnomalyOpsMath.Effect missing")
+assert(string.find(economyBody, "AnomalyOpsMath.Effect", 1, true), "Economy AnomalyEffect residual")
+assert(string.find(economyBody, "AnomalyOpsMath.SurgeMultiplier", 1, true), "Economy Surge residual")
+local continuumDomainRelease = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
+assert(string.find(continuumDomainRelease, "function ContinuumDomainMath.DomainProductionMultiplier", 1, true), "DomainProductionMultiplier missing")
+assert(string.find(ssReleaseSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction residual")
+assert(string.find(ssReleaseSrc, "ShopGrantEligibility.RemainingStock", 1, true), "SS RemainingStock residual")
+mark("wave22 lab anomaly domain mail inspect residuals")
+
+assert(#passed > 26, "release-readiness offline subset must stay beyond checks=26, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

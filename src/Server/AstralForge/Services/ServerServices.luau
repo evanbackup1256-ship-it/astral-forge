@@ -77,6 +77,7 @@ serviceFactories["GameService"] = function()
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local ProfileClampMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileClampMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ContinuumDomainMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -1145,11 +1146,7 @@ serviceFactories["GameService"] = function()
 		for index, offer in GameConfig.Items.ShopOffers do
 			local state = copyDictionary(offer)
 			local stockMax = offerStockMax(offer)
-			local stock = profile.Items.Shop.Stock[offer.Id]
-			if type(stock) ~= "number" then
-				stock = stockMax
-			end
-			stock = math.clamp(math.floor(stock), 0, stockMax)
+			local stock = ShopGrantEligibility.RemainingStock(profile.Items.Shop.Stock[offer.Id], stockMax)
 			state.Stock = stock
 			state.StockMax = stockMax
 			state.DailyRefresh = offer.DailyRefresh == true
@@ -1244,12 +1241,10 @@ serviceFactories["GameService"] = function()
 				CanExpand = RebirthGate.MeetsRequired(profile.Rebirths, domainRequiredRebirths) and Economy.Gte(profile.Cores, domainRequiredCores),
 				EssenceReward = domainEssenceReward,
 				StardustReward = domainStardustReward,
-				ProductionMultiplier = 1
-					+ domainRank * GameConfig.Domain.ProductionPerRank
-					+ math.min(1_000_000, math.max(0, tonumber(domain.Essence) or 0)) * GameConfig.Domain.ProductionPerEssence
-					+ Economy.DomainTreeBonus(profile, "Production"),
-				CapacityMultiplier = 1 + domainRank * GameConfig.Domain.CapacityPerRank + Economy.DomainTreeBonus(profile, "Capacity"),
-				OfflineBonus = domainRank * GameConfig.Domain.OfflineEfficiencyPerRank + Economy.DomainTreeBonus(profile, "Offline"),
+				ProductionMultiplier = ContinuumDomainMath.DomainProductionMultiplier(
+					domainRank, domain.Essence, GameConfig.Domain.ProductionPerRank, GameConfig.Domain.ProductionPerEssence, 1_000_000, Economy.DomainTreeBonus(profile, "Production")),
+				CapacityMultiplier = 1 + ContinuumDomainMath.DomainRankBonus(domainRank, GameConfig.Domain.CapacityPerRank, Economy.DomainTreeBonus(profile, "Capacity")),
+				OfflineBonus = ContinuumDomainMath.DomainRankBonus(domainRank, GameConfig.Domain.OfflineEfficiencyPerRank, Economy.DomainTreeBonus(profile, "Offline")),
 				SkillPoints = math.max(0, math.floor(tonumber(domain.SkillPoints) or 0)),
 				Nodes = type(domain.Nodes) == "table" and domain.Nodes or {},
 			},

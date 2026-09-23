@@ -117,8 +117,21 @@ function LabOrderMath.OrderTarget(order: OrderDefinition, rebirths: number, bank
 	return math.max(1, math.floor(order.BaseTarget + math.max(0, rebirths) * per))
 end
 
+-- Studio fixtures / mid-migrate bags may store Progress/Target as numeric strings.
+-- Bare `progress + gain` concatenates; `"9" < "10"` is false and `"9" >= "10"` is
+-- true lexicographically — incomplete orders looked ready and skipped ApplyProgress.
+local function progressPair(state: any): (number, number)
+	local progress = math.max(0, math.floor(tonumber(state and state.Progress) or 0))
+	local target = math.max(0, math.floor(tonumber(state and state.Target) or 0))
+	return progress, target
+end
+
 function LabOrderMath.IsReady(state: OrderState): boolean
-	return not state.Claimed and state.Progress >= state.Target
+	if type(state) ~= "table" or state.Claimed == true then
+		return false
+	end
+	local progress, target = progressPair(state)
+	return progress >= target and target > 0
 end
 
 function LabOrderMath.CountReady(orders: { OrderState }): number
@@ -131,30 +144,30 @@ function LabOrderMath.CountReady(orders: { OrderState }): number
 	return ready
 end
 
--- Apply progress gain to matching unclaimed orders. Mutates orders in place.
 function LabOrderMath.ApplyProgress(
 	orders: { OrderState },
 	orderById: { [string]: OrderDefinition },
 	kind: string,
 	amount: number
 ): boolean
-	local gain = math.max(0, amount)
+	local gain = math.max(0, math.floor(tonumber(amount) or 0))
 	if gain <= 0 then
 		return false
 	end
 	local changed = false
 	for _, state in orders do
 		local definition = orderById[state.Id]
-		if definition and definition.Kind == kind and not state.Claimed and state.Progress < state.Target then
-			state.Progress = math.min(state.Target, state.Progress + gain)
-			changed = true
+		if definition and definition.Kind == kind and not state.Claimed then
+			local progress, target = progressPair(state)
+			if progress < target then
+				state.Progress = math.min(target, progress + gain)
+				changed = true
+			end
 		end
 	end
 	return changed
 end
 
--- Mutates matching order Claimed=true on success. Does not touch Stats —
--- LabService bumps OrdersCompleted after a successful claim.
 function LabOrderMath.TryClaim(
 	orders: { OrderState },
 	orderById: { [string]: OrderDefinition },
@@ -169,10 +182,13 @@ function LabOrderMath.TryClaim(
 			if state.Claimed then
 				return false, "That order has already been paid.", nil
 			end
-			if state.Progress < state.Target then
+			local progress, target = progressPair(state)
+			if progress < target then
 				return false, "That order is not finished yet.", nil
 			end
 			state.Claimed = true
+			state.Progress = progress
+			state.Target = math.max(1, target)
 			return true, "Order paid.", definition.Reward
 		end
 	end
