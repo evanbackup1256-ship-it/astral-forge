@@ -18,6 +18,7 @@ local ensureContrast = _theme.ensureContrast
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
@@ -739,6 +740,8 @@ local function LeaderboardsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
 	local entries, setEntries = React.useState({})
@@ -921,7 +924,7 @@ local function LeaderboardsView(_param)
 		columns = #RANK_TABS,
 		gap = filterGap,
 		size = UDim2.fromOffset(filterCanvasWidth, TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})) else React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,

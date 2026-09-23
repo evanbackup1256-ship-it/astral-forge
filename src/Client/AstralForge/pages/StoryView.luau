@@ -1113,13 +1113,17 @@ local function StoryView(_param)
 		local _attributes = {
 			key = `{story.Id}:{beat}:{if finished then "replay" else "live"}`,
 		}
-		local _condition_4 = story.Body[beat + 1]
+		local body = story.Body
+		if type(body) ~= "table" then
+			body = {}
+		end
+		local _condition_4 = body[beat + 1]
 		if _condition_4 == nil then
 			_condition_4 = ""
 		end
 		_attributes.text = _condition_4
 		_attributes.index = beat
-		_attributes.total = #story.Body
+		_attributes.total = math.max(1, #body)
 		_attributes.color = story.Color
 		_attributes.reducedMotion = reducedMotion
 		_attributes.claimed = status.Claimed

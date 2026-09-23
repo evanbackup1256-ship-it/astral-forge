@@ -1,5 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local Audio = require(script.Parent.audio).Audio
 local _motion = require(script.Parent.motion)
 local composePresence = _motion.composePresence
@@ -102,6 +104,32 @@ local function TutorialOverlay(_param)
 	local hintTop = bodyTop + (if phone then 42 else 36)
 	local controlsTop = hintTop + (if hasHint then 18 else 0)
 	local padFocus = useGamepadAutofocus(true)
+
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current or padFocus.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, {})
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		Padding = UDim.new(0, 0),
@@ -164,7 +192,10 @@ local function TutorialOverlay(_param)
 			return amount > 0.015
 		end),
 	}, React.createElement("frame", {
-		ref = padFocus,
+		ref = function(node)
+			padFocus.current = node
+			overlayHostRef.current = node
+		end,
 		Size = UDim2.new(0, dockW, 0, dockH),
 		Position = reveal:map(function(amount)
 			return UDim2.new(0.5, 0, 1, -(bottomInset + 10) + math.floor((1 - amount) * 24))
@@ -615,6 +646,32 @@ local function ReleaseNotesModal(_param)
 	-- ▲ ReadonlyArray.reduce ▲
 	local canvasH = _result + math.max(0, #effectiveHistory - 1) * 8
 	local padFocus = useGamepadAutofocus(true)
+
+	local overlayHostRef = React.useRef(nil)
+	React.useEffect(function()
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, {})
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current or padFocus.current
+		if host == nil then
+			return nil
+		end
+		local job = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(job)
+		end
+	end, {})
 	local _exp = React.createElement("imagebutton", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
@@ -737,7 +794,10 @@ local function ReleaseNotesModal(_param)
 			return amount > 0.01
 		end),
 	}, _exp, React.createElement("frame", {
-		ref = padFocus,
+		ref = function(node)
+			padFocus.current = node
+			overlayHostRef.current = node
+		end,
 		Size = UDim2.fromOffset(width, height),
 		Position = reveal:map(function(amount)
 			return UDim2.new(0.5, 0, 0, centerY + math.floor((1 - amount) * 18))

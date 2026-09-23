@@ -117,9 +117,18 @@ end
 -- PageScaffold owns the outer AutomaticCanvasSize.Y scroll. Nested raw frames are
 -- only OK when justified below (horizontal chips, dual-pane body, dual Confirm trees).
 local RAW_SCROLL_ALLOWLIST = {
-	["src/Client/AstralForge/pages/LeaderboardsView.luau"] = "horizontal filter-tab strip (ScrollingDirection.X), not page body",
-	["src/Client/AstralForge/pages/TradeView.luau"] = "nested offer/session scrolls inside dual compact/desktop Confirm trees",
-	["src/Client/AstralForge/pages/StoryView.luau"] = "nested chapter/content scrolls under scaffolded story chrome",
+	-- Stack phones cannot fit RANK_TABS in one row; X-scroll preserves SegmentedTabs UX without
+	-- collapsing filters into a second vertical page body scroller under PageScaffold.
+	["src/Client/AstralForge/pages/LeaderboardsView.luau"] = "single ScrollingDirection.X filter-tab strip on stack; PageScaffold owns vertical body",
+	-- Dual Confirm trees keep independent offer-pane Y scroll so Ready/Confirm stay pinned while
+	-- lines grow; desktop also keeps a thin X chip strip + roster pane scroll outside the compact
+	-- PageScaffold invite board (compact invite migrated off raw outer scroll).
+	["src/Client/AstralForge/pages/TradeView.luau"] = "offer-pane Y + desktop roster/status-X only; compact invite uses PageScaffold fill-safe CTA pin",
+}
+
+local RAW_SCROLL_BUDGET = {
+	["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 1,
+	["src/Client/AstralForge/pages/TradeView.luau"] = 3,
 }
 
 local function countRawScrollingFrames(src)
@@ -140,7 +149,7 @@ for _, path in HOT_PAGES do
 	local reason = RAW_SCROLL_ALLOWLIST[path]
 	if rawCount > 0 then
 		assert(
-			reason ~= nil and #reason > 12,
+			reason ~= nil and #reason > 40,
 			path .. " has " .. tostring(rawCount) .. " raw scrollingframe(s); migrate to PageScaffold or document allowlist justification"
 		)
 		-- Allowlisted pages must still show CanvasSize / AutomaticCanvasSize near the raw frame
@@ -149,6 +158,17 @@ for _, path in HOT_PAGES do
 			string.find(src, "CanvasSize", 1, true) and string.find(src, "AutomaticCanvasSize", 1, true),
 			path .. " allowlisted raw scroll must still declare CanvasSize/AutomaticCanvasSize"
 		)
+		assert(
+			string.find(src, "ScrollingDirection", 1, true),
+			path .. " allowlisted raw scroll must declare ScrollingDirection (X vs Y justification)"
+		)
+		local budget = RAW_SCROLL_BUDGET[path]
+		if budget ~= nil then
+			assert(
+				rawCount <= budget,
+				path .. " raw scrollingframe budget " .. tostring(budget) .. " exceeded: " .. tostring(rawCount)
+			)
+		end
 	else
 		assert(reason == nil, path .. " is allowlisted for raw scroll but has none — drop stale allowlist entry")
 	end
@@ -180,6 +200,7 @@ local FOCUS_OVERLAYS = {
 	"src/Client/AstralForge/AdminPrankOverlay.luau",
 	"src/Client/AstralForge/pages/CreditsView.luau",
 	"src/Client/AstralForge/DomainSkillTree.luau",
+	"src/Client/AstralForge/onboarding.luau",
 }
 -- Non-modal / persistent HUD overlays intentionally omit FocusClaim:
 -- PlayerlistOverlay (persistent HUD list), MobilePreviewGate (boot gate).
@@ -213,6 +234,8 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/ShopView.luau",
 	"src/Client/AstralForge/pages/WheelView.luau",
 	"src/Client/AstralForge/pages/TradeView.luau",
+	"src/Client/AstralForge/pages/StoryView.luau",
+	"src/Client/AstralForge/pages/LeaderboardsView.luau",
 }
 
 for _, path in SOFT_MOTION_FILES do
