@@ -82,6 +82,7 @@ local files = {
 	"src/Server/AstralForge/Modules/ProfileBagMath.luau",
 	"src/Server/AstralForge/Modules/ProgressionOpsMath.luau",
 	"src/Server/AstralForge/Modules/AnomalyOpsMath.luau",
+	"src/Server/AstralForge/Modules/TradeOfferMath.luau",
 	"src/Server/AstralForge/Modules/ConvergenceOpsMath.luau",
 	"src/Server/AstralForge/Modules/AdminGrantMath.luau",
 	"src/Server/AstralForge/Modules/ContinuumDomainMath.luau",

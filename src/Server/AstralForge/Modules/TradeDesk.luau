@@ -7,6 +7,7 @@ local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitFor
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local ProgressionGate = require(script.Parent:WaitForChild("ProgressionGate"))
 local TradeExchange = require(script.Parent:WaitForChild("TradeExchange"))
+local TradeOfferMath = require(script.Parent:WaitForChild("TradeOfferMath"))
 local TradeSettle = require(script.Parent:WaitForChild("TradeSettle"))
 
 local TradeDesk = {}
@@ -32,67 +33,12 @@ local function itemNameFor(definitionId: string): string
 	return itemNames[definitionId] or "Relic"
 end
 
-local function utcDay(now: number): number
-	local date = os.date("!*t", now)
-	return date.year * 1000 + date.yday
-end
-
 local function emptyOffer()
-	return {
-		Cash = 0,
-		Stardust = 0,
-		Cores = 0,
-		Signals = 0,
-		Essence = 0,
-		Boosts = {
-			DomainSurge = 0, Overdrive = 0, Hyperdrive = 0, VaultSurge = 0, NightShift = 0, FoundryRush = 0,
-			Afterburner = 0, SteadyBurn = 0, CoreSurge = 0, StarforgeFlow = 0, EchoDrive = 0, Ionstorm = 0, TwinCatalyst = 0, MidnightForge = 0,
-		},
-		Keys = { ForgeCrate = 0, CrystalCrate = 0, HorizonCrate = 0, NebulaCrate = 0, OrbitCrate = 0, SingularityCrate = 0, EchoCrate = 0 },
-		ItemIds = {},
-	}
+	return TradeOfferMath.EmptyOffer(BOOST_IDS, KEY_IDS)
 end
 
 local function copyOffer(offer)
-	local nextOffer = emptyOffer()
-	if type(offer) ~= "table" then
-		return nextOffer
-	end
-	for _, key in CURRENCIES do
-		nextOffer[key] = math.max(0, math.floor(tonumber(offer[key]) or 0))
-	end
-	if type(offer.Boosts) == "table" then
-		for _, id in BOOST_IDS do
-			nextOffer.Boosts[id] = math.max(0, math.floor(tonumber(offer.Boosts[id]) or 0))
-		end
-	end
-	if type(offer.Keys) == "table" then
-		for _, id in KEY_IDS do
-			nextOffer.Keys[id] = math.max(0, math.floor(tonumber(offer.Keys[id]) or 0))
-		end
-	end
-	if type(offer.ItemIds) == "table" then
-		local seen = {}
-		for _, uid in offer.ItemIds do
-			if type(uid) == "string" and uid ~= "" and not seen[uid] then
-				seen[uid] = true
-				table.insert(nextOffer.ItemIds, uid)
-			end
-		end
-	end
-	if type(offer.Items) == "table" then
-		nextOffer.Items = {}
-		for _, row in offer.Items do
-			if type(row) == "table" and type(row.Uid) == "string" then
-				table.insert(nextOffer.Items, {
-					Uid = row.Uid,
-					DefinitionId = type(row.DefinitionId) == "string" and row.DefinitionId or "",
-					Name = type(row.Name) == "string" and row.Name or "Relic",
-				})
-			end
-		end
-	end
-	return nextOffer
+	return TradeOfferMath.CopyOffer(offer, CURRENCIES, BOOST_IDS, KEY_IDS)
 end
 
 local function stampItems(offer, profile)
@@ -113,75 +59,27 @@ local function stampItems(offer, profile)
 end
 
 local function offerEmpty(offer): boolean
-	for _, key in CURRENCIES do
-		if offer[key] > 0 then
-			return false
-		end
-	end
-	for _, id in BOOST_IDS do
-		if offer.Boosts[id] > 0 then
-			return false
-		end
-	end
-	for _, id in KEY_IDS do
-		if offer.Keys[id] > 0 then
-			return false
-		end
-	end
-	return #offer.ItemIds == 0
+	return TradeOfferMath.OfferEmpty(offer, CURRENCIES, BOOST_IDS, KEY_IDS)
 end
 
 local function ensureLedger(profile, now: number)
-	if type(profile.Trade) ~= "table" then
-		profile.Trade = { Day = -1, Completed = 0, Sent = {} }
-	end
-	local day = utcDay(now)
-	if profile.Trade.Day ~= day then
-		profile.Trade.Day = day
-		profile.Trade.Completed = 0
-		profile.Trade.Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 }
-	end
-	if type(profile.Trade.Sent) ~= "table" then
-		profile.Trade.Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 }
-	end
+	TradeOfferMath.EnsureLedger(profile, now)
 end
 
 local function itemEquipped(profile, uid: string): boolean
-	if type(profile.Items) ~= "table" or type(profile.Items.Equipped) ~= "table" then
-		return false
-	end
-	for _, equipped in profile.Items.Equipped do
-		if equipped == uid then
-			return true
-		end
-	end
-	return false
+	return TradeOfferMath.ItemEquipped(profile, uid)
 end
 
 local function countInventory(profile): number
-	local count = 0
-	if profile.Items and type(profile.Items.Inventory) == "table" then
-		for _ in profile.Items.Inventory do
-			count += 1
-		end
-	end
-	return count
+	return TradeOfferMath.CountInventory(profile)
 end
 
 local function boostTotal(offer): number
-	local total = 0
-	for _, id in BOOST_IDS do
-		total += offer.Boosts[id]
-	end
-	return total
+	return TradeOfferMath.BoostTotal(offer, BOOST_IDS)
 end
 
 local function keyTotal(offer): number
-	local total = 0
-	for _, id in KEY_IDS do
-		total += offer.Keys[id]
-	end
-	return total
+	return TradeOfferMath.KeyTotal(offer, KEY_IDS)
 end
 
 function TradeDesk.new()

@@ -68,6 +68,26 @@ assert(math.abs(AnomalyOpsMath.RewardMultiplier(1.2, 0.5, 0.1) - (1.2 * 1.5 * 1.
 assert(AnomalyOpsMath.RewardMultiplier(1, 0, nil) == 1, "no channel")
 
 ------------------------------------------------------------------------
+-- ApplyCoreXP / NextCoreTier (evidence: string CoreXP concatenated on Stabilize)
+------------------------------------------------------------------------
+local coreTiers = {
+	{ Tier = 1, RequiredXP = 10, MaximumTargetBonus = 50 },
+	{ Tier = 2, RequiredXP = 30, MaximumTargetBonus = 120 },
+	{ Tier = 3, RequiredXP = 80, MaximumTargetBonus = 200 },
+}
+local bag = { CoreXP = "12", CoreTier = 0 }
+assert(AnomalyOpsMath.ApplyCoreXP(bag, 5, coreTiers) == 1, "string CoreXP + xp crosses tier 1")
+assert(bag.CoreXP == 17 and bag.CoreTier == 1, "tonumber + tier write")
+assert(AnomalyOpsMath.ApplyCoreXP(bag, 100, coreTiers) == 2, "multi-tier bank")
+assert(bag.CoreTier == 3 and bag.CoreXP == 117, "tier 3")
+assert(AnomalyOpsMath.ApplyCoreXP(nil, 10, coreTiers) == 0, "nil anomaly")
+assert(AnomalyOpsMath.ApplyCoreXP({ CoreXP = 0 }, "bad", coreTiers) == 0, "bad xp")
+local nextTier = AnomalyOpsMath.NextCoreTier(1, coreTiers)
+assert(nextTier ~= nil and nextTier.Tier == 2, "next tier 2")
+assert(AnomalyOpsMath.NextCoreTier(9, coreTiers) == nil, "above max")
+assert(AnomalyOpsMath.NextCoreTier(0, nil) == nil, "nil configs")
+
+------------------------------------------------------------------------
 -- EnsureAnomaly Discoveries rebuild (evidence: Stabilize cloned nil Discoveries)
 ------------------------------------------------------------------------
 local rebuilt = ProfileBagMath.EnsureAnomaly({ Anomaly = { Fragments = 9 } })
@@ -93,6 +113,8 @@ assert(string.find(serviceSrc, "AnomalyOpsMath.ChargeTarget", 1, true), "ChargeT
 assert(string.find(serviceSrc, "AnomalyOpsMath.SelectDirectives", 1, true), "SelectDirectives wire")
 assert(string.find(serviceSrc, "AnomalyOpsMath.ProtocolCost", 1, true), "ProtocolCost wire")
 assert(string.find(serviceSrc, "AnomalyOpsMath.RewardMultiplier", 1, true), "RewardMultiplier wire")
+assert(string.find(serviceSrc, "AnomalyOpsMath.ApplyCoreXP", 1, true), "ApplyCoreXP wire")
+assert(string.find(serviceSrc, "AnomalyOpsMath.NextCoreTier", 1, true), "NextCoreTier wire")
 assert(string.find(serviceSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "EnsureAnomaly wire")
 assert(string.find(serviceSrc, "ProfileBagMath.BumpStat", 1, true), "BumpStat wire")
 assert(string.find(bagSrc, "Discoveries = {}", 1, true), "EnsureAnomaly seeds Discoveries")
@@ -109,10 +131,10 @@ for id, value in string.gmatch(badges, "(%w+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 
-assert(string.find(configSrc, "Wave16AnomalyOps", 1, true), "DV21 lab Wave16AnomalyOps")
-assert(string.find(configSrc, "Wave16ClaimClipsSoftMotion", 1, true), "DV21 lab Wave16ClaimClipsSoftMotion")
-assert(string.find(configSrc, "Wave16AnomalyCourier", 1, true), "DV21 achievement Wave16AnomalyCourier")
-assert(string.find(configSrc, "wave16-harden-brief", 1, true), "DV21 story wave16")
-assert(string.find(configSrc, "update-5-1-wave16-harden", 1, true), "DV21 mail wave16")
+assert(string.find(configSrc, "Wave20TradeOfferCoreXP", 1, true), "DV21 lab Wave20TradeOfferCoreXP")
+assert(string.find(configSrc, "Wave20ClaimClipsSoftMotion", 1, true), "DV21 lab Wave20ClaimClipsSoftMotion")
+assert(string.find(configSrc, "Wave20TradeCourier", 1, true), "DV21 achievement Wave20TradeCourier")
+assert(string.find(configSrc, "wave20-harden-brief", 1, true), "DV21 story wave20")
+assert(string.find(configSrc, "update-5-1-wave20-harden", 1, true), "DV21 mail wave20")
 
-print("[INFO] [TEST] AnomalyOpsMath extract + Fragments-only EnsureAnomaly + DV21 append passed")
+print("[INFO] [TEST] AnomalyOpsMath extract + ApplyCoreXP + Fragments-only EnsureAnomaly + DV21 append passed")

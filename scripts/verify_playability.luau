@@ -404,6 +404,7 @@ do
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 6,
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 6,
+		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 6,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
 		["src/Client/AstralForge/pages/ChatView.luau"] = 6,
@@ -510,6 +511,16 @@ end
 	-- Wave19: Milestones FlatList overscan softMotion-gated (Echo/Command ClaimActions clips below).
 	local milestonesSoft = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
 	assert(string.find(milestonesSoft, "overscan = if softMotion then 0", 1, true), "Milestones FlatList must softMotion-gate overscan")
+	-- Wave20: UpgradeBoard (PageRouter) VirtualGrid overscan softMotion-gated.
+	local upgradeSoft = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+	assert(
+		string.find(upgradeSoft, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
+		"UpgradeBoard VirtualGrid must softMotion-gate overscanRows"
+	)
+	assert(
+		string.find(upgradeSoft, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+		"UpgradeBoard must declare canonical softMotion"
+	)
 
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
@@ -704,6 +715,29 @@ do
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			entry.name .. " host must keep ClipsDescendants = false"
+		)
+	end
+
+	-- Wave20: ShopClaimCode + CrateRevealOverlay CrateClaim must not clip CTA overshoot.
+	-- Evidence: Overlay CrateClaim previously omitted ClipsDescendants (Stage/Simple already false).
+	do
+		local shopClips = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
+		local hostStart = string.find(shopClips, 'Name = "ShopClaimCode"', 1, true)
+		assert(hostStart, "ShopClaimCode host missing")
+		local hostSlice = string.sub(shopClips, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"ShopClaimCode host must keep ClipsDescendants = false"
+		)
+	end
+	do
+		local overlayClips = fs.readFile("src/Client/AstralForge/pages/CrateRevealOverlay.luau")
+		local hostStart = string.find(overlayClips, 'Name = "CrateClaim"', 1, true)
+		assert(hostStart, "CrateRevealOverlay CrateClaim host missing")
+		local hostSlice = string.sub(overlayClips, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"CrateRevealOverlay CrateClaim host must keep ClipsDescendants = false"
 		)
 	end
 

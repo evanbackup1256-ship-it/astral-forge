@@ -1,7 +1,8 @@
 --!strict
--- Pure anomaly protocol / charge-target / directive helpers. No Roblox services —
--- AnomalyService and Lune verify scripts share FindProtocol / ProtocolEffect /
--- ChargeTarget / SelectDirectives / ProtocolCost so reactor math stays testable
+-- Pure anomaly protocol / charge-target / directive / core-XP helpers. No Roblox
+-- services — AnomalyService and Lune verify scripts share FindProtocol /
+-- ProtocolEffect / ChargeTarget / SelectDirectives / ProtocolCost /
+-- RewardMultiplier / ApplyCoreXP / NextCoreTier so reactor math stays testable
 -- without Studio. Clocks and profile mutation stay with the caller; balance
 -- tables are injected (GameConfig values).
 
@@ -140,6 +141,54 @@ function AnomalyOpsMath.RewardMultiplier(
 	local protocol = 1 + math.max(0, tonumber(protocolRewardEffect) or 0)
 	local channel = 1 + math.max(0, tonumber(channelRewardAmount) or 0)
 	return base * protocol * channel
+end
+
+-- Bank Core XP and advance every CoreTier the bag now qualifies for.
+-- Evidence: string/non-number CoreXP in Studio fixtures made `(CoreXP or 0) + xp`
+-- concatenate instead of add; tonumber + multi-tier walk keeps Stabilize honest.
+-- Mutates anomaly in place; returns tiers gained.
+function AnomalyOpsMath.ApplyCoreXP(anomaly: any, xp: any, tierConfigs: any): number
+	if type(anomaly) ~= "table" then
+		return 0
+	end
+	local add = math.max(0, tonumber(xp) or 0)
+	local coreXP = math.max(0, tonumber(anomaly.CoreXP) or 0) + add
+	anomaly.CoreXP = coreXP
+	local currentTier = math.max(0, math.floor(tonumber(anomaly.CoreTier) or 0))
+	local gained = 0
+	if type(tierConfigs) == "table" then
+		for _, tierConfig in tierConfigs do
+			if type(tierConfig) == "table" then
+				local configTier = math.max(0, math.floor(tonumber(tierConfig.Tier) or 0))
+				local required = math.max(0, tonumber(tierConfig.RequiredXP) or 0)
+				if configTier > currentTier and coreXP >= required then
+					currentTier = configTier
+					gained += 1
+				end
+			end
+		end
+	end
+	if gained > 0 then
+		anomaly.CoreTier = currentTier
+	end
+	return gained
+end
+
+-- First CoreTiers entry with Tier > currentTier (State progress rail).
+function AnomalyOpsMath.NextCoreTier(coreTier: any, tierConfigs: any): any?
+	local tier = math.max(0, math.floor(tonumber(coreTier) or 0))
+	if type(tierConfigs) ~= "table" then
+		return nil
+	end
+	for _, tierConfig in tierConfigs do
+		if type(tierConfig) == "table" then
+			local configTier = math.max(0, math.floor(tonumber(tierConfig.Tier) or 0))
+			if configTier > tier then
+				return tierConfig
+			end
+		end
+	end
+	return nil
 end
 
 return table.freeze(AnomalyOpsMath)

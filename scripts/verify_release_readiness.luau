@@ -382,6 +382,48 @@ assert(not string.find(firewallMathSrc, "GetService", 1, true), "RemoteFirewallM
 assert(not string.find(sanitizeMathSrc, "GetService", 1, true), "DataSanitizeMath must stay pure")
 mark("firewall sanitize pure module residuals")
 
+-- TradeOfferMath + AnomalyOpsMath.ApplyCoreXP residuals past checks=19.
+local tradeOfferSrc = fs.readFile("src/Server/AstralForge/Modules/TradeOfferMath.luau")
+assert(string.find(tradeOfferSrc, "function TradeOfferMath.CopyOffer", 1, true), "TradeOfferMath.CopyOffer missing")
+assert(string.find(tradeOfferSrc, "function TradeOfferMath.EnsureLedger", 1, true), "TradeOfferMath.EnsureLedger missing")
+assert(string.find(tradeOfferSrc, "function TradeOfferMath.OfferEmpty", 1, true), "TradeOfferMath.OfferEmpty missing")
+local deskReleaseSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+assert(string.find(deskReleaseSrc, "TradeOfferMath.CopyOffer", 1, true), "TradeDesk CopyOffer residual for release")
+assert(string.find(deskReleaseSrc, "TradeOfferMath.EnsureLedger", 1, true), "TradeDesk EnsureLedger residual for release")
+local anomalyOpsRelease = fs.readFile("src/Server/AstralForge/Modules/AnomalyOpsMath.luau")
+assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.ApplyCoreXP", 1, true), "AnomalyOpsMath.ApplyCoreXP missing")
+assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.NextCoreTier", 1, true), "AnomalyOpsMath.NextCoreTier missing")
+local anomalyServiceRelease = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
+assert(string.find(anomalyServiceRelease, "AnomalyOpsMath.ApplyCoreXP", 1, true), "AnomalyService ApplyCoreXP residual for release")
+assert(string.find(anomalyServiceRelease, "AnomalyOpsMath.NextCoreTier", 1, true), "AnomalyService NextCoreTier residual for release")
+assert(not string.find(tradeOfferSrc, "GetService", 1, true), "TradeOfferMath must stay pure")
+assert(not string.find(tradeOfferSrc, "vendor/", 1, true), "TradeOfferMath must not reference vendor/")
+assert(not string.find(anomalyOpsRelease, "Packages/", 1, true), "AnomalyOpsMath must not reference Packages/")
+mark("trade offer corexp pure module residuals")
+
+-- CrateRevealOverlay / ShopClaimCode / UpgradeBoard softMotion residuals.
+local crateOverlayRelease = fs.readFile("src/Client/AstralForge/pages/CrateRevealOverlay.luau")
+assert(string.find(crateOverlayRelease, 'Name = "CrateClaim"', 1, true), "CrateRevealOverlay CrateClaim residual for release")
+do
+	local hostStart = string.find(crateOverlayRelease, 'Name = "CrateClaim"', 1, true)
+	assert(hostStart, "CrateClaim host missing for release")
+	local hostSlice = string.sub(crateOverlayRelease, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "CrateRevealOverlay CrateClaim clips residual for release")
+end
+local shopRelease = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
+do
+	local hostStart = string.find(shopRelease, 'Name = "ShopClaimCode"', 1, true)
+	assert(hostStart, "ShopClaimCode host missing for release")
+	local hostSlice = string.sub(shopRelease, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "ShopClaimCode clips residual for release")
+end
+local routerRelease = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(
+	string.find(routerRelease, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
+	"UpgradeBoard overscan softMotion residual for release"
+)
+mark("crate shop upgradeboard clip softmotion residuals")
+
 assert(#passed > 19, "release-readiness offline subset must stay beyond checks=19, got " .. tostring(#passed))
 
 print(string.format(

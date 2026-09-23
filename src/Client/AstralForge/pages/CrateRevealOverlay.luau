@@ -642,6 +642,8 @@ local function EmptyCrateReveal(_param)
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = 0.02,
 		BorderSizePixel = 0,
+		-- FocusClaim CLAIM CTA must not clip overshoot (Stage/StageSimple already false).
+		ClipsDescendants = false,
 		Active = true,
 		ZIndex = 400,
 	}, React.createElement("frame", {

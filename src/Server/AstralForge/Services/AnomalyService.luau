@@ -256,20 +256,9 @@ return function(loadService: (string) -> any)
 	-- Applies pending Core XP, advancing CoreTier as many times as it now qualifies for (banking
 	-- a big XP gain can cross more than one tier at once). Returns the number of tiers gained,
 	-- so the caller can surface a "Core Tier up!" moment distinct from a routine stabilization.
+	-- AnomalyOpsMath.ApplyCoreXP tonumber-safes CoreXP (string fixtures used to concatenate).
 	local function applyCoreXP(profile, xp: number): number
-		profile.Anomaly.CoreXP = (profile.Anomaly.CoreXP or 0) + xp
-		local currentTier = profile.Anomaly.CoreTier or 0
-		local gained = 0
-		for _, tierConfig in GameConfig.Anomalies.CoreTiers do
-			if tierConfig.Tier > currentTier and profile.Anomaly.CoreXP >= tierConfig.RequiredXP then
-				currentTier = tierConfig.Tier
-				gained += 1
-			end
-		end
-		if gained > 0 then
-			profile.Anomaly.CoreTier = currentTier
-		end
-		return gained
+		return AnomalyOpsMath.ApplyCoreXP(profile.Anomaly, xp, GameConfig.Anomalies.CoreTiers)
 	end
 
 	function AnomalyService.Stabilize(profile): (boolean, string, any?)
@@ -525,15 +514,9 @@ return function(loadService: (string) -> any)
 			elseif ready then "Ready"
 			else "Charging"
 
-		local coreTier = profile.Anomaly.CoreTier or 0
-		local coreXP = profile.Anomaly.CoreXP or 0
-		local nextCoreTier = nil
-		for _, tierConfig in GameConfig.Anomalies.CoreTiers do
-			if tierConfig.Tier > coreTier then
-				nextCoreTier = tierConfig
-				break
-			end
-		end
+		local coreTier = math.max(0, math.floor(tonumber(profile.Anomaly.CoreTier) or 0))
+		local coreXP = math.max(0, tonumber(profile.Anomaly.CoreXP) or 0)
+		local nextCoreTier = AnomalyOpsMath.NextCoreTier(coreTier, GameConfig.Anomalies.CoreTiers)
 		local loadout = type(profile.Anomaly.Loadout) == "table" and profile.Anomaly.Loadout or {}
 		if #loadout == 0 and profile.Anomaly.Channel and GameConfig.Anomalies.Channels[profile.Anomaly.Channel] then
 			loadout = { profile.Anomaly.Channel }

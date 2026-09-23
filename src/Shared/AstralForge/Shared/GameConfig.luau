@@ -744,6 +744,28 @@ local GameConfig = {
 				Reward = { Stardust = 60, CashMinutes = 4, Signals = 22 },
 				Color = Color3.fromRGB(255, 170, 230),
 			},
+			{
+				Id = "Wave20TradeOfferCoreXP",
+				Name = "Wave Twenty Trade Offer Core XP",
+				Description = "Tap through a short tally while TradeOfferMath CopyOffer and AnomalyOpsMath ApplyCoreXP keep offer/ledger + string-CoreXP Stabilize Lune-testable.",
+				Kind = "Tap",
+				BaseTarget = 135,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 48, CashMinutes = 3, Signals = 19 },
+				Color = Color3.fromRGB(90, 255, 240),
+			},
+			{
+				Id = "Wave20ClaimClipsSoftMotion",
+				Name = "Wave Twenty Claim Clips Soft Motion",
+				Description = "Bank flux while CrateRevealOverlay/ShopClaimCode stay unclipped and UpgradeBoard VirtualGrid overscan softMotion-gates.",
+				Kind = "BankFlux",
+				BaseTarget = 5_600,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 62, CashMinutes = 4, Signals = 23 },
+				Color = Color3.fromRGB(255, 165, 235),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3216,6 +3238,22 @@ local GameConfig = {
 			Target = 36,
 			Reward = { Stardust = 340, Signals = 94, CashMinutes = 31, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave20TradeCourier",
+			Name = "Wave Twenty Trade Courier",
+			Description = "Claim 68 story chapters after TradeOfferMath extract + AnomalyOpsMath ApplyCoreXP string-CoreXP Stabilize fix.",
+			Kind = "StoryClaims",
+			Target = 68,
+			Reward = { Stardust = 340, Signals = 94, CashMinutes = 32, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave20ClaimClipRunner",
+			Name = "Wave Twenty Claim Clip Runner",
+			Description = "Hold a 38-day daily streak while CrateRevealOverlay/ShopClaimCode unclipped + UpgradeBoard overscan stay verified.",
+			Kind = "DailyStreak",
+			Target = 38,
+			Reward = { Stardust = 350, Signals = 96, CashMinutes = 32, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4834,9 +4872,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(100, 250, 255),
 		},
 
+		{
+			Id = "wave20-harden-brief",
+			Title = "Wave Twenty Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "TradeOfferMath + ApplyCoreXP extracts; CrateRevealOverlay clips and UpgradeBoard overscan stay honest.",
+			Body = {
+				"TradeOfferMath EmptyOffer/CopyOffer/OfferEmpty/EnsureLedger keep TradeDesk offer validation Lune-testable; AnomalyOpsMath ApplyCoreXP tonumber-safes string CoreXP Stabilize.",
+				"CrateRevealOverlay CrateClaim and ShopClaimCode keep ClipsDescendants false; UpgradeBoard VirtualGrid overscan softMotion-gates.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 60, CashMinutes = 25, Signals = 27 },
+			Color = Color3.fromRGB(90, 255, 240),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave20-harden",
+			Subject = "Dock note — wave twenty harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "TradeOfferMath + ApplyCoreXP extracts + CrateRevealOverlay clips — still DataVersion 21.",
+			Body = {
+				"Trade offer Empty/Copy/Ledger helpers are Lune-testable; Stabilize no longer concatenates string CoreXP fixtures.",
+				"CrateRevealOverlay CrateClaim and ShopClaimCode keep ClipsDescendants false; UpgradeBoard VirtualGrid overscan softMotion-gates.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 60, Stardust = 76, Signals = 31 },
+			Color = Color3.fromRGB(90, 255, 240),
+		},
 
 		{
 			Id = "update-5-1-wave19-harden",
