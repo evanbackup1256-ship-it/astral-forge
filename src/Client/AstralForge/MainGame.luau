@@ -2047,14 +2047,12 @@ local function RailButton(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 8),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.48),
+		Color = surfaceGradient(Palette.panel, 0.7),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
-		Color = emphasis:map(function(raw)
-			return Palette.lineSoft:Lerp(entry.accent, math.clamp(raw, 0, 1) * 0.85)
-		end),
+		Color = entry.accent,
 		Thickness = 1,
 		Transparency = strokeTransparency,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -2065,14 +2063,14 @@ local function RailButton(_param)
 		BackgroundTransparency = pressWash,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 8),
 	})), React.createElement("frame", {
 		Size = markerSize,
 		Position = UDim2.fromScale(0, 0.5),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = entry.accent,
 		BackgroundTransparency = emphasis:map(function(amount)
-			return if amount < 0.08 then 1 else 0.55 - amount * 0.4
+			return if amount < 0.08 then 1 else 0.75 - amount * 0.75
 		end),
 		BorderSizePixel = 0,
 		Visible = emphasis:map(function(amount)
@@ -2110,8 +2108,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 10,
-		position = UDim2.fromOffset(52, 7),
-		sizeConstraint = UDim2.new(1, -62, 0, 20),
+		position = UDim2.fromOffset(56, 10),
+		sizeConstraint = UDim2.new(1, -66, 0, 22),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
 		size = 10,
@@ -2119,8 +2117,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Bold,
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(52, 28),
-		sizeConstraint = UDim2.new(1, -62, 0, 16),
+		position = UDim2.fromOffset(56, 34),
+		sizeConstraint = UDim2.new(1, -66, 0, 18),
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
 		zIndex = 12,
@@ -2876,32 +2874,31 @@ local function Navigation(_param)
 	local _exp_2 = React.createElement("uistroke", {
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.78,
+		Transparency = 0.68,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 	})
 	local _exp_3 = not collapsed and React.createElement("frame", {
-		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 22),
-		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 8),
+		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 28),
+		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 10),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(5, 5),
+		Size = UDim2.fromOffset(6, 6),
 		Position = UDim2.new(0, 4, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = AppHelpers:pageAccent(page),
-		BackgroundTransparency = 0.28,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement(Text, {
 		value = "Forge",
 		size = 10,
-		color = Palette.muted,
+		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(16, 0),
-		sizeConstraint = UDim2.new(0.58, -16, 1, 0),
+		position = UDim2.fromOffset(18, 0),
+		sizeConstraint = UDim2.new(0.58, -18, 1, 0),
 	}))
 	local _exp_4 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
