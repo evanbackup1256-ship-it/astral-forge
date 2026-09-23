@@ -24,6 +24,33 @@ Connect the Studio plugin to that session. The vendored Luau packages in
 `vendor/` are mapped into `ReplicatedStorage.rbxts_include.node_modules` by
 `default.project.json`; do not delete them during `npm install`.
 
+## Sync Studio after a GitHub merge
+
+Argon syncs **local disk only**. A cloud agent push to `origin/master` does **not**
+update Roblox Studio until you pull on this machine and restart `argon serve`.
+
+```bash
+cd /path/to/astral-forge
+git fetch origin
+git checkout master
+git pull origin master
+git rev-parse HEAD
+# Expected tip (integrate merge): 5e55aab2c0dd28a3151353483da923fcc41605ec
+# Message: Sync README game version string to 5.1.0.
+
+# Confirm color / trade / inventory landed:
+git merge-base --is-ancestor d3b0d55 HEAD && echo color-pc OK
+git merge-base --is-ancestor 9bcb0c5 HEAD && echo trade OK
+git merge-base --is-ancestor 9c30593 HEAD && echo inventory OK
+
+# Stop any old Argon session, then:
+argon serve default.project.json
+```
+
+In Studio: reconnect the Argon plugin to that session (or stop/start sync).
+Default branch is `master` on `origin` only — do not stay on feature branches like
+`cursor/client-page-features-4e51` if you want the integrate tip.
+
 ## Checks
 
 Install [Lune](https://lune-org.github.io/docs/) for the pure layout tests, then run:
