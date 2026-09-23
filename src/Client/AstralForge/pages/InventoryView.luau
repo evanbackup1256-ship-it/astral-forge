@@ -1349,10 +1349,10 @@ local function CrateCard(_param)
 	local layoutOrder = _param.layoutOrder
 	local stack = _param.stack
 	local reveal = useStagger(layoutOrder, reducedMotion)
-	local cardH = if stack then 236 else 148
+	local cardH = if stack then 248 else 160
 	local actions = if stack then React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, TapTarget * 2 + 8),
-		Position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 12)),
+		Position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 14)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("uilistlayout", {
@@ -1432,18 +1432,20 @@ local function CrateCard(_param)
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, cardH),
 		accent = crate.Color,
-		background = Palette.panel,
-		padding = 16,
+		background = Palette.panelRaised,
+		padding = if stack then 16 else 18,
 		layoutOrder = layoutOrder,
 		reveal = reveal,
+		highlight = keys >= 1 and not busy,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = "Crate",
 		accent = crate.Color,
 		size = 48,
 		radius = 12,
-		position = UDim2.fromOffset(0, if stack then 8 else 20),
+		position = UDim2.fromOffset(0, if stack then 8 else 24),
 		reducedMotion = reducedMotion,
+		glow = keys >= 1,
 	}), React.createElement(Text, {
 		value = crate.Name,
 		size = 18,
@@ -1458,15 +1460,15 @@ local function CrateCard(_param)
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(60, 32),
-		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 36),
+		position = UDim2.fromOffset(60, 34),
+		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 40),
 	}), React.createElement(Text, {
 		value = `{keys} keys  ·  pity {pity}/{crate.PityAfter} → {crate.PityRarity}`,
 		size = 12,
 		color = crate.Color,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(60, 78),
+		position = UDim2.fromOffset(60, 84),
 		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 18),
 	}), actions)
 end
@@ -1503,9 +1505,9 @@ local function offerStock(offer)
 		daily = offer.DailyRefresh == true,
 	}
 end
-local MARKET_BANNER_H = 118
-local MARKET_CARD_H = 168
-local MARKET_CARD_H_STACK = 200
+local MARKET_BANNER_H = 126
+local MARKET_CARD_H = 176
+local MARKET_CARD_H_STACK = 210
 local function MarketBanner(_param)
 	local refreshText = _param.refreshText
 	local reducedMotion = _param.reducedMotion
@@ -1612,10 +1614,11 @@ local function MarketCard(_param)
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, cardH),
 		accent = accent,
-		background = if soldOut then Palette.panelSoft else Palette.panel,
-		padding = 16,
+		background = if soldOut then Palette.panelSoft else Palette.panelRaised,
+		padding = if stack then 16 else 18,
 		layoutOrder = layoutOrder,
 		clips = false,
+		highlight = canBuy,
 		reducedMotion = reducedMotion,
 	}, React.createElement(IconTile, {
 		kind = if offer.Kind == "Essence" then "Dust" elseif offer.Kind == "Key" then "Gift" else "Loadout",
@@ -1648,7 +1651,7 @@ local function MarketCard(_param)
 	}), React.createElement(Text, {
 		value = offer.Description,
 		size = 11,
-		color = Palette.muted,
+		color = Palette.creamSoft,
 		wrap = true,
 		position = UDim2.fromOffset(56, if stack then 56 else 30),
 		sizeConstraint = UDim2.new(1, textReserve, 0, 34),
@@ -1880,18 +1883,19 @@ local function LoadoutBoard(_param)
 			key = line.id,
 			Size = UDim2.new(1 / cols, -tileGap, 0, tileH),
 			Position = UDim2.new(col / cols, if col == 0 then 0 else tileGap / 2, 0, row * (tileH + tileGap)),
-			BackgroundColor3 = Palette.ink,
-			BackgroundTransparency = 0.08,
+			BackgroundColor3 = Palette.panelSoft,
+			BackgroundTransparency = 0.04,
 			BorderSizePixel = 0,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 10),
 		}), React.createElement("uistroke", {
 			Color = if line.value > 0 then line.color else Palette.lineSoft,
-			Transparency = 0.42,
+			Transparency = 0.28,
+			Thickness = 1.5,
 		}), React.createElement(Text, {
 			value = line.label,
 			size = 10,
-			color = Palette.muted,
+			color = Palette.creamSoft,
 			weight = Enum.FontWeight.Bold,
 			fit = false,
 			position = UDim2.fromOffset(10, 8),
@@ -1960,12 +1964,13 @@ local function LoadoutBoard(_param)
 	end
 	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, 36 + gridH + 18 + listH),
+		size = UDim2.new(1, 0, 0, 40 + gridH + 22 + listH),
 		accent = Palette.violet,
-		background = Palette.panel,
-		padding = 14,
+		background = Palette.panelRaised,
+		padding = if stack then 14 else 18,
 		layoutOrder = layoutOrder,
 		clips = false,
+		highlight = true,
 	}, _exp, _exp_1, _exp_2, _exp_3, _newValue_2)
 end
 local function InventoryView(_param)
@@ -2167,7 +2172,7 @@ local function InventoryView(_param)
 	local inspectPanelH = if tab == "Relics" and selected ~= nil and not bulkMode then inspectPanelHeight(inspectSocketBlock(selected.equippedOn ~= nil, #targetsForSelected, chipRows, stack), stack) else 0
 	local detailH = if inspectPanelH > 0 then inspectPanelH + ROW_GAP else 0
 	local listH = math.max(1, #filtered) * relicRowStride
-	local listStart = heroH + ROW_GAP + tabH + ROW_GAP + toolsH + detailH + SCROLL_EDGE
+	local listStart = heroH + pageGap + tabH + pageGap + toolsH + detailH + SCROLL_EDGE
 	local _result_8 = config.Items
 	if _result_8 ~= nil then
 		_result_8 = _result_8.Crates
@@ -2455,10 +2460,10 @@ local function InventoryView(_param)
 	if tab == "Relics" then
 		canvasHeight = listStart + listH + scrollTail(chrome.stack, chrome.bottomSafe, SCROLL_PAD)
 	elseif tab == "Crates" then
-		canvasHeight = listStart + #crates * ((if stack then 236 else 148) + ROW_GAP) + scrollTail(chrome.stack, chrome.bottomSafe, SCROLL_PAD)
+		canvasHeight = listStart + #crates * ((if stack then 248 else 160) + pageGap) + scrollTail(chrome.stack, chrome.bottomSafe, SCROLL_PAD)
 	elseif tab == "Market" then
 		local marketCardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
-		canvasHeight = listStart + marketBannerH + ROW_GAP + math.max(1, #shopOffers) * (marketCardH + ROW_GAP) + scrollTail(chrome.stack, chrome.bottomSafe, SCROLL_PAD)
+		canvasHeight = listStart + marketBannerH + pageGap + math.max(1, #shopOffers) * (marketCardH + pageGap) + scrollTail(chrome.stack, chrome.bottomSafe, SCROLL_PAD)
 	else
 		local equippedCount = 0
 		if items ~= nil then
@@ -2740,157 +2745,177 @@ local function InventoryView(_param)
 			end,
 		}))
 	end
-	local _exp_6 = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, pageGap),
-	})
-	local _exp_7 = React.createElement(ScrollPads)
-	local _exp_8 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, heroH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 0,
-	}, heroPanel)
-	local _exp_9 = tabsBar
-	local _exp_10 = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, pageGap),
-	})
-	local _exp_11 = tab == "Crates" and React.createElement(SectionLabel, {
-		value = "CRATE CHANNELS",
-		color = Palette.violet,
-		layoutOrder = 2,
-	})
-	local _condition_7 = tab == "Crates"
-	if _condition_7 then
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue_1 = table.create(#crates)
-		local _callback_2 = function(crate, index)
-			local _attributes = {
+	-- Crates / Market / Loadout: PageScaffold so desktop pageGap vs ROW_GAP cannot clip lists
+	-- the way the old absolute canvasHeight + nested pane math did.
+	local sections = {
+		{
+			id = "hero",
+			height = heroH,
+			element = heroPanel,
+		},
+		{
+			id = "tabs",
+			height = tabH,
+			element = tabsBar,
+		},
+	}
+	if tab == "Crates" then
+		local crateCardH = if stack then 248 else 160
+		local crateKids = {
+			React.createElement(SectionLabel, {
+				key = "label",
+				value = "CRATE CHANNELS",
+				color = Palette.violet,
+				layoutOrder = 0,
+			}),
+		}
+		for index, crate in crates do
+			local keysTable = if items ~= nil then items.Keys else nil
+			local pityTable = if items ~= nil then items.Pity else nil
+			local keyCount = if type(keysTable) == "table" then keysTable[crate.Id] else nil
+			local pityCount = if type(pityTable) == "table" then pityTable[crate.Id] else nil
+			table.insert(crateKids, React.createElement(CrateCard, {
 				key = crate.Id,
 				crate = crate,
-			}
-			local _result_13 = items
-			if _result_13 ~= nil then
-				_result_13 = _result_13.Keys[crate.Id]
-			end
-			local _condition_8 = _result_13
-			if _condition_8 == nil then
-				_condition_8 = 0
-			end
-			_attributes.keys = _condition_8
-			local _result_14 = items
-			if _result_14 ~= nil then
-				_result_14 = _result_14.Pity[crate.Id]
-			end
-			local _condition_9 = _result_14
-			if _condition_9 == nil then
-				_condition_9 = 0
-			end
-			_attributes.pity = _condition_9
-			_attributes.onOpen = function(count)
-				return openCrate(crate, count)
-			end
-			_attributes.busy = crateBusy
-			_attributes.reducedMotion = reducedMotion
-			_attributes.layoutOrder = 3 + index
-			_attributes.stack = stack
-			return React.createElement(CrateCard, _attributes)
-		end
-		for _k, _v in crates do
-			_newValue_1[_k] = _callback_2(_v, _k - 1, crates)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		_condition_7 = _newValue_1
-	end
-	local _exp_12 = tab == "Market" and (React.createElement(MarketBanner, {
-		refreshText = keysRefreshText,
-		reducedMotion = reducedMotion,
-		layoutOrder = 2,
-		stack = stack,
-	}))
-	local _exp_13 = tab == "Market" and #shopOffers == 0 and (React.createElement(EmptyState, {
-		icon = "Shop",
-		title = "Market offline",
-		body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
-		accent = Palette.mango,
-		layoutOrder = 3,
-		reducedMotion = reducedMotion,
-	}))
-	local _condition_8 = tab == "Market"
-	if _condition_8 then
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue_1 = table.create(#shopOffers)
-		local _callback_2 = function(offer, index)
-			return React.createElement(MarketCard, {
-				key = offer.Id,
-				offer = offer,
-				dispatch = dispatch,
+				keys = if type(keyCount) == "number" then keyCount else 0,
+				pity = if type(pityCount) == "number" then pityCount else 0,
+				onOpen = function(count)
+					return openCrate(crate, count)
+				end,
+				busy = crateBusy,
 				reducedMotion = reducedMotion,
-				layoutOrder = 4 + index,
-				cash = state.Cash,
-				stardust = state.Stardust,
-				cores = state.Cores,
-				refreshShort = refreshShort,
+				layoutOrder = index,
 				stack = stack,
-			})
+			}))
 		end
-		for _k, _v in shopOffers do
-			_newValue_1[_k] = _callback_2(_v, _k - 1, shopOffers)
+		if #crates == 0 then
+			table.insert(crateKids, React.createElement(EmptyState, {
+				key = "empty",
+				icon = "Crate",
+				title = "No crate channels",
+				body = "Crate channels unlock as you progress — check back after more story and lab work.",
+				accent = Palette.violet,
+				layoutOrder = 1,
+				reducedMotion = reducedMotion,
+			}))
 		end
-		-- ▲ ReadonlyArray.map ▲
-		_condition_8 = _newValue_1
+		local crateCount = math.max(1, #crates)
+		local bodyH = 28 + pageGap + crateCount * crateCardH + math.max(0, crateCount - 1) * pageGap
+		table.insert(sections, {
+			id = "crates",
+			height = bodyH,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+			}, React.createElement("uilistlayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, pageGap),
+			}), table.unpack(crateKids)),
+		})
+	elseif tab == "Market" then
+		local marketCardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
+		local marketKids = {
+			React.createElement(MarketBanner, {
+				key = "banner",
+				refreshText = keysRefreshText,
+				reducedMotion = reducedMotion,
+				layoutOrder = 0,
+				stack = stack,
+			}),
+		}
+		if #shopOffers == 0 then
+			table.insert(marketKids, React.createElement(EmptyState, {
+				key = "empty",
+				icon = "Shop",
+				title = "Market offline",
+				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
+				accent = Palette.mango,
+				layoutOrder = 1,
+				reducedMotion = reducedMotion,
+			}))
+		else
+			for index, offer in shopOffers do
+				table.insert(marketKids, React.createElement(MarketCard, {
+					key = offer.Id,
+					offer = offer,
+					dispatch = dispatch,
+					reducedMotion = reducedMotion,
+					layoutOrder = 1 + index,
+					cash = state.Cash,
+					stardust = state.Stardust,
+					cores = state.Cores,
+					refreshShort = refreshShort,
+					stack = stack,
+				}))
+			end
+		end
+		local offerCount = math.max(1, #shopOffers)
+		local bodyH = marketBannerH + pageGap + offerCount * marketCardH + math.max(0, offerCount - 1) * pageGap
+		table.insert(sections, {
+			id = "market",
+			height = bodyH,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+			}, React.createElement("uilistlayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, pageGap),
+			}), table.unpack(marketKids)),
+		})
+	else
+		local equippedCount = 0
+		if items ~= nil then
+			for _, uid in pairs(items.Equipped) do
+				if type(uid) == "string" and items.Inventory[uid] ~= nil then
+					equippedCount += 1
+				end
+			end
+		end
+		local cols = if stack then 2 else 3
+		local tileH = if stack then 58 else 54
+		local tileGap = 8
+		local gridH = math.ceil(6 / cols) * (tileH + tileGap)
+		-- Must match LoadoutBoard panel: 40 + gridH + 22 + listH
+		local loadoutH = 40 + gridH + 22 + 28 + math.max(1, equippedCount) * 32
+		table.insert(sections, {
+			id = "loadout-label",
+			height = 28,
+			element = React.createElement(SectionLabel, {
+				value = "SOCKET SUMMARY",
+				color = Palette.mint,
+				layoutOrder = 0,
+			}),
+		})
+		table.insert(sections, {
+			id = "loadout",
+			height = loadoutH,
+			element = React.createElement(LoadoutBoard, {
+				state = state,
+				config = config,
+				reducedMotion = reducedMotion,
+				layoutOrder = 0,
+				stack = stack,
+			}),
+		})
 	end
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.violet,
-		ScrollBarImageTransparency = 0.22,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp_6, _exp_7, _exp_8, _exp_9, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, paneHeight),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 2,
-		ClipsDescendants = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = panePosition,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, _exp_10, _exp_11, _condition_7, _exp_12, _exp_13, _condition_8, tab == "Loadout" and React.createElement(SectionLabel, {
-		value = "SOCKET SUMMARY",
-		color = Palette.mint,
-		layoutOrder = 2,
-	}), tab == "Loadout" and React.createElement(LoadoutBoard, {
-		state = state,
-		config = config,
-		reducedMotion = reducedMotion,
-		layoutOrder = 3,
-		stack = stack,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, SCROLL_PAD),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 9000,
-	})))))
+	}, React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = if stack then 10 else 14,
+		scrollBarColor = if tab == "Market" then Palette.mango else Palette.violet,
+		scrollBarThickness = 4,
+		sections = sections,
+	}))
 end
 return {
 	InventoryView = InventoryView,

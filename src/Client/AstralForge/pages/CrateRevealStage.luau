@@ -1,6 +1,8 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local itemIconKind = require(script.Parent.Parent.Icon).itemIconKind
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local ScaleFromCenter = require(script.Parent.Parent.motion).ScaleFromCenter
 local _theme = require(script.Parent.Parent.theme)
 local darken = _theme.darken
@@ -1095,6 +1097,29 @@ end
 -- ─── CrateRevealStage (root) ───────────────────────────────────────────────────
 local function CrateRevealStage(props)
 	local layout = resolveLayout(props)
+	local actionHostRef = React.useRef(nil)
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = actionHostRef.current
+		if host == nil then
+			return nil
+		end
+		if props.phase ~= "spin" and props.phase ~= "done" then
+			GamepadNavigationService.ClearSelection()
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { props.phase })
 	local dimmer = props.visualShow:map(function(amount)
 		return 1 - math.clamp(amount, 0, 1) * 0.985
 	end)
@@ -1164,6 +1189,8 @@ local function CrateRevealStage(props)
 			React.createElement(ResultPanel, { props = props, layout = layout }),
 			-- SKIP button (during spin)
 			props.phase == "spin" and React.createElement("frame", {
+				ref = actionHostRef,
+				Name = "CrateSkip",
 				Size = layout.actionSize,
 				Position = layout.actionPosition,
 				AnchorPoint = layout.actionAnchor,
@@ -1179,10 +1206,12 @@ local function CrateRevealStage(props)
 				outline = true,
 				size = UDim2.fromScale(1, 1),
 				reducedMotion = props.reducedMotion,
-				selectable = false,
+				selectable = true,
 			})),
 			-- CLAIM button (after land)
 			showingClaim and React.createElement("frame", {
+				ref = actionHostRef,
+				Name = "CrateClaim",
 				Size = layout.actionSize,
 				Position = props.claimSlide:map(function(amount)
 					return UDim2.new(
@@ -1203,7 +1232,7 @@ local function CrateRevealStage(props)
 				size = UDim2.fromScale(1, 1),
 				reducedMotion = props.reducedMotion,
 				highlight = true,
-				selectable = false,
+				selectable = true,
 				disabled = props.phase == "exit",
 			}))
 		))
