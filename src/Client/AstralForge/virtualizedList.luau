@@ -23,9 +23,7 @@ local function useVirtualizedList(count, itemHeight, headerHeight, overscan)
 	if headerHeight == nil then
 		headerHeight = 0
 	end
-	if overscan == nil then
-		overscan = 2
-	end
+	-- nil overscan lets useVirtualWindow pick the constrained-aware default.
 	return useVirtualWindow(count, itemHeight, headerHeight, overscan)
 end
 local function resolveKey(item, index, extractor)
@@ -73,11 +71,9 @@ local function VirtualizedList(props)
 		_condition_1 = 0
 	end
 	local footerHeight = math.max(0, _condition_1)
-	local _condition_2 = props.overscan
-	if _condition_2 == nil then
-		_condition_2 = 2
-	end
-	local overscan = _condition_2
+	-- Pass nil through so scrolling.useVirtualWindow can apply the constrained
+	-- overscan=1 default instead of forcing desktop overscan=2 on phones.
+	local overscan = props.overscan
 	local count = #data
 	local window = useVirtualWindow(count, itemHeight, headerHeight, overscan)
 	local ownedRef = React.useRef()

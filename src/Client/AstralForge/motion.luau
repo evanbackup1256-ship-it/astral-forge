@@ -47,20 +47,30 @@ local function useCursorProximity(elementRef, maxRadius)
 	if maxRadius == nil then
 		maxRadius = 160
 	end
-	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-		return 0
-	end
+	-- Always call hooks (Rules of Hooks). Touch-primary devices short-circuit the
+	-- effect body so we never attach a RenderStepped listener for a cursor that
+	-- does not exist, but the hook order stays identical across platforms.
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 	local proximity, setProximity = React.useState(0)
 	local lastProximity = React.useRef(0)
 	React.useEffect(function()
+		if touchOnly then
+			if lastProximity.current ~= 0 then
+				lastProximity.current = 0
+				setProximity(0)
+			end
+			return nil
+		end
 		local active = true
 		local frame = 0
+		-- Sample every 3rd frame — proximity drives soft glow, not gameplay.
+		local stride = 3
 		local conn = RunService.RenderStepped:Connect(function()
 			if not active or not elementRef.current then
 				return nil
 			end
 			frame += 1
-			if frame % 2 ~= 0 then
+			if frame % stride ~= 0 then
 				return nil
 			end
 			local el = elementRef.current
@@ -75,7 +85,7 @@ local function useCursorProximity(elementRef, maxRadius)
 			local center = el.AbsolutePosition + (el.AbsoluteSize * 0.5)
 			local dist = (mousePos - center).Magnitude
 			local norm = math.clamp(1 - (dist / maxRadius), 0, 1)
-			if math.abs(norm - lastProximity.current) > 0.02 then
+			if math.abs(norm - lastProximity.current) > 0.03 then
 				lastProximity.current = norm
 				setProximity(norm)
 			end
@@ -84,8 +94,8 @@ local function useCursorProximity(elementRef, maxRadius)
 			active = false
 			conn:Disconnect()
 		end
-	end, { maxRadius })
-	return proximity
+	end, { maxRadius, touchOnly })
+	return if touchOnly then 0 else proximity
 end
 local function bezierOrbit(progress)
 	local wrapped = ((progress % 1) + 1) % 1
@@ -260,6 +270,12 @@ local function applyFrozenFlag()
 	decorativeFrozen = frozen
 	if frozen then
 		continuousAccumulator = 0
+		-- When hitch/nav freeze parks decorative work and nothing realtime is
+		-- left, drop the RenderStepped driver entirely instead of spinning a
+		-- no-op callback every frame until thaw.
+		stopDriverIfIdle()
+	elseif listenerCount > 0 or continuousListenerCount > 0 or flipperCount > 0 or realtimeClockCount > 0 or decorativeClockCount > 0 then
+		ensureDriver()
 	end
 end
 local function compactClocks(list)
@@ -280,6 +296,10 @@ end
 -- are alive at once (e.g. many buttons shimmering from rapid hover/click),
 -- every slot past the first `budget` in array order never ticks again until
 -- enough earlier slots die off, which reads as a permanently frozen shimmer.
+--
+-- Phase still advances for every live slot even past the budget: only the
+-- React binding push is rate-limited. That keeps shimmer phase coherent when
+-- a slot rotates into the push window without scheduling N updates/frame.
 local tickRotation = 0
 local function tickClocks(list, deltaTime, budget)
 	local size = #list
@@ -306,17 +326,16 @@ local function tickClocks(list, deltaTime, budget)
 				dead += 1
 				continue
 			end
-			if live >= budget then
-				continue
-			end
-			live += 1
 			local advanced = (slot.phase + deltaTime * slot.speed) % slot.period
 			slot.phase = advanced
-			slot.push(advanced)
+			if live < budget then
+				live += 1
+				slot.push(advanced)
+			end
 		end
 	end
 	if size > 0 then
-		tickRotation = (tickRotation + budget) % size
+		tickRotation = (tickRotation + math.max(1, budget)) % size
 	end
 	if dead >= 6 then
 		compactClocks(list)
@@ -351,7 +370,9 @@ local function dropClock(slot, realtime)
 	stopDriverIfIdle()
 end
 local function setContinuousMotionRate(rate)
-	continuousRate = math.clamp(math.floor(rate + 0.5), 20, 60)
+	-- Floor at 12 so constrained antilag can target ~18Hz decorative clocks
+	-- without being clamped back up to a desktop-ish 20.
+	continuousRate = math.clamp(math.floor(rate + 0.5), 12, 60)
 	continuousAccumulator = math.min(continuousAccumulator, 1 / continuousRate)
 end
 local function setDecorativeMotionFrozen(frozen)
@@ -397,7 +418,15 @@ local function decorativeClockSlotsUsed()
 	return decorativeClockCount
 end
 local function driverHasWork()
-	return listenerCount > 0 or continuousListenerCount > 0 or flipperCount > 0 or realtimeClockCount > 0 or decorativeClockCount > 0
+	-- Decorative/continuous work does not keep the driver alive while frozen —
+	-- otherwise hitch freezes still paid for a RenderStepped no-op every frame.
+	if listenerCount > 0 or flipperCount > 0 or realtimeClockCount > 0 then
+		return true
+	end
+	if decorativeFrozen then
+		return false
+	end
+	return continuousListenerCount > 0 or decorativeClockCount > 0
 end
 function ensureDriver()
 	if driver ~= nil then
@@ -405,7 +434,9 @@ function ensureDriver()
 	end
 	driver = RunService.RenderStepped:Connect(function(deltaTime)
 		local clamped = math.min(deltaTime, 0.05)
+		local ranRealtime = false
 		if flipperCount > 0 then
+			ranRealtime = true
 			for motor in flipperMotors do
 				if motor:step(clamped) then
 					disarmFlipper(motor)
@@ -413,14 +444,19 @@ function ensureDriver()
 			end
 		end
 		if realtimeClockCount > 0 then
+			ranRealtime = true
 			tickClocks(realtimeClocks, clamped, 48)
 		end
 		if listenerCount > 0 then
+			ranRealtime = true
 			for active in listeners do
 				active(clamped)
 			end
 		end
 		if decorativeFrozen then
+			if not ranRealtime then
+				stopDriverIfIdle()
+			end
 			return nil
 		end
 		continuousAccumulator += clamped

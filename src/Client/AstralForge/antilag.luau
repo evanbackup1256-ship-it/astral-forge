@@ -9,13 +9,37 @@ local _motion = require(script.Parent.motion)
 local setClockBudget = _motion.setClockBudget
 local setContinuousMotionRate = _motion.setContinuousMotionRate
 local setHitchMotionFrozen = _motion.setHitchMotionFrozen
+-- Touch-primary phones/tablets and gamepad-primary consoles share a tighter
+-- budget profile. Declared above startTelemetry — calling it from a local that
+-- is defined later used to crash with `attempt to call a nil value`.
+local function constrainedDevice()
+	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+		return true
+	end
+	if UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled then
+		return true
+	end
+	local preferredOk, preferred = pcall(function()
+		return UserInputService.PreferredInput
+	end)
+	if preferredOk and preferred ~= nil then
+		if preferred == Enum.PreferredInput.Touch then
+			return true
+		end
+		if preferred == Enum.PreferredInput.Gamepad then
+			return true
+		end
+	end
+	return false
+end
+local IS_CONSTRAINED = constrainedDevice()
 local DEFAULT_TELEMETRY = {
-	fps = if UserInputService.TouchEnabled then 48 else 60,
-	lowFps = if UserInputService.TouchEnabled then 42 else 55,
-	frameTimeMs = if UserInputService.TouchEnabled then 1000 / 48 else 1000 / 60,
-	p50FrameTimeMs = if UserInputService.TouchEnabled then 1000 / 48 else 1000 / 60,
-	p95FrameTimeMs = if UserInputService.TouchEnabled then 1000 / 48 else 1000 / 60,
-	p99FrameTimeMs = if UserInputService.TouchEnabled then 1000 / 48 else 1000 / 60,
+	fps = if IS_CONSTRAINED then 48 else 60,
+	lowFps = if IS_CONSTRAINED then 42 else 55,
+	frameTimeMs = if IS_CONSTRAINED then 1000 / 48 else 1000 / 60,
+	p50FrameTimeMs = if IS_CONSTRAINED then 1000 / 48 else 1000 / 60,
+	p95FrameTimeMs = if IS_CONSTRAINED then 1000 / 48 else 1000 / 60,
+	p99FrameTimeMs = if IS_CONSTRAINED then 1000 / 48 else 1000 / 60,
 	jankRatio = 0,
 	hitchScore = 0,
 	sampledAt = 0,
@@ -32,8 +56,10 @@ local latencyProbeWorkers = {}
 local latencyTimeoutWorkers = {}
 local latencyGeneration = 0
 local lastRoundTripProbeAt = -math.huge
-local FRAME_RING = 72
-local SAMPLE_SECONDS = 0.32
+-- Constrained devices sample less often: sorting ~20 frames ~2Hz instead of 3Hz
+-- cuts percentile work ~33% with no perceptible quality lag on touch/console.
+local FRAME_RING = if IS_CONSTRAINED then 48 else 72
+local SAMPLE_SECONDS = if IS_CONSTRAINED then 0.48 else 0.32
 local frames = table.create(FRAME_RING)
 local scratch = table.create(FRAME_RING)
 for index = 0, FRAME_RING - 1 do
@@ -43,7 +69,7 @@ end
 local frameWrite = 0
 local frameFilled = 0
 local liveScene = "normal"
-local livePreference = if UserInputService.TouchEnabled then 0.58 else 0.42
+local livePreference = if IS_CONSTRAINED then 0.62 else 0.42
 local sceneListeners = {}
 local function validPing(value)
 	local _value = value
@@ -376,7 +402,16 @@ local function startTelemetry()
 		return nil
 	end
 	local elapsed = 0
-	telemetryConnection = RunService.RenderStepped:Connect(function(deltaTime)
+	-- Capture once: PreferredInput can change mid-session but re-querying every
+	-- frame is pure waste. Budgets close over sampleSeconds / hitch thresholds.
+	local tight = constrainedDevice()
+	local sampleSeconds = if tight then 0.48 else SAMPLE_SECONDS
+	local jankThreshold = if tight then 1 / 30 else 1 / 36
+	local hitchThreshold = if tight then 0.04 else 0.032
+	-- Heartbeat is enough for telemetry on constrained devices — frees
+	-- RenderStepped for UI/motion work.
+	local signal = if tight then RunService.Heartbeat else RunService.RenderStepped
+	telemetryConnection = signal:Connect(function(deltaTime)
 		local clamped = math.clamp(deltaTime, 0.001, 0.12)
 		frames[frameWrite + 1] = clamped
 		frameWrite = (frameWrite + 1) % FRAME_RING
@@ -384,7 +419,7 @@ local function startTelemetry()
 			frameFilled += 1
 		end
 		elapsed += clamped
-		if elapsed < SAMPLE_SECONDS then
+		if elapsed < sampleSeconds then
 			return nil
 		end
 		elapsed = 0
@@ -423,10 +458,10 @@ local function startTelemetry()
 				end
 				local time = scratch[index + 1]
 				total += time
-				if time > 1 / 36 then
+				if time > jankThreshold then
 					jankFrames += 1
 				end
-				if time > 0.032 then
+				if time > hitchThreshold then
 					hitchFrames += 1
 				end
 			end
@@ -508,9 +543,13 @@ local function usePerformanceTelemetry()
 end
 local function infoFromQuality(quality, fps, pressure, hitchScore)
 	local q = math.clamp(quality, 0, 1)
-	local tier = if q < 0.2 then 0 elseif q < 0.44 then 1 elseif q < 0.7 then 2 else 3
-	local fxBudget = math.clamp(0.05 + q * 0.42 + q * q * 0.28, 0.05, 0.86)
-	local renderRate = math.clamp(math.floor(16 + q * 34 + 0.5), 16, 56)
+	local tight = IS_CONSTRAINED
+	-- Constrained ceilings sit below desktop so particle/glow/clock systems never
+	-- schedule at desktop densities on thermal-limited hardware.
+	local qEff = if tight then math.min(q, 0.78) else q
+	local tier = if qEff < 0.2 then 0 elseif qEff < 0.44 then 1 elseif qEff < 0.7 then 2 else 3
+	local fxBudget = math.clamp(0.05 + qEff * (if tight then 0.34 else 0.42) + qEff * qEff * (if tight then 0.18 else 0.28), 0.05, if tight then 0.68 else 0.86)
+	local renderRate = math.clamp(math.floor((if tight then 12 else 16) + qEff * (if tight then 28 else 34) + 0.5), if tight then 12 else 16, if tight then 42 else 56)
 	return {
 		fps = fps,
 		tier = tier,
@@ -519,17 +558,18 @@ local function infoFromQuality(quality, fps, pressure, hitchScore)
 		hitchScore = math.clamp(hitchScore, 0, 1),
 		frameBudgetMs = 1000 / renderRate,
 		fxBudget = fxBudget,
-		particleBudget = math.clamp(math.floor(1 + 12 * q + 0.5), 1, 14),
-		titleGlyphLimit = 18,
+		particleBudget = math.clamp(math.floor(1 + (if tight then 8 else 12) * qEff + 0.5), 1, if tight then 9 else 14),
+		titleGlyphLimit = if tight then 12 else 18,
 		renderRate = renderRate,
-		glowScale = math.clamp(0.1 + q * 0.72, 0.1, 0.86),
-		allowAmbient = q >= 0.58,
-		allowConfetti = q >= 0.34,
-		skipEntrance = false,
-		freezeIcons = false,
-		maxClocks = math.clamp(math.floor(4 + 12 * q + 0.5), 4, 16),
-		maxPops = math.clamp(math.floor(1 + 3 * q + 0.5), 1, 4),
-		maxStars = if q < 0.42 then 0 else math.clamp(math.floor(q * 5 + 0.5), 1, 5),
+		glowScale = math.clamp(0.08 + qEff * (if tight then 0.52 else 0.72), 0.08, if tight then 0.62 else 0.86),
+		allowAmbient = qEff >= (if tight then 0.64 else 0.58),
+		allowConfetti = qEff >= (if tight then 0.42 else 0.34),
+		skipEntrance = tight and qEff < 0.32,
+		freezeIcons = tight and qEff < 0.22,
+		maxClocks = math.clamp(math.floor((if tight then 3 else 4) + (if tight then 8 else 12) * qEff + 0.5), if tight then 3 else 4, if tight then 10 else 16),
+		maxPops = math.clamp(math.floor(1 + (if tight then 2 else 3) * qEff + 0.5), 1, if tight then 3 else 4),
+		maxStars = if qEff < (if tight then 0.5 else 0.42) then 0 else math.clamp(math.floor(qEff * (if tight then 3.5 else 5) + 0.5), 1, if tight then 3 else 5),
+		constrained = tight,
 	}
 end
 local function tierCeiling(tier)
@@ -544,7 +584,7 @@ local function tierCeiling(tier)
 	end
 	return 1
 end
-local DEFAULT_INFO = infoFromQuality(if UserInputService.TouchEnabled then 0.62 else 0.88, if UserInputService.TouchEnabled then 50 else 60, 0.2, 0)
+local DEFAULT_INFO = infoFromQuality(if IS_CONSTRAINED then 0.55 else 0.88, if IS_CONSTRAINED then 48 else 60, 0.2, 0)
 local AntilagContext = React.createContext(DEFAULT_INFO)
 local bootSeededQuality
 local bootSeededFps
@@ -562,7 +602,11 @@ local function sceneLoad(scene)
 	return 0
 end
 local function applyMotionRate(info)
-	local rate = if info.tier >= 2 then math.max(info.renderRate, 40) else math.max(24, info.renderRate)
+	-- Constrained devices never force decorative clocks above ~36Hz even at
+	-- tier 2+ — the continuous accumulator already batches work.
+	local floor = if IS_CONSTRAINED then 18 else 24
+	local boost = if IS_CONSTRAINED then 32 else 40
+	local rate = if info.tier >= 2 then math.max(info.renderRate, boost) else math.max(floor, info.renderRate)
 	setContinuousMotionRate(rate)
 	setClockBudget(info.maxClocks)
 end
@@ -589,7 +633,7 @@ local function seedAntilagFromBoot(fps)
 	local measured = math.clamp(fps, 8, 120)
 	bootSeededFps = measured
 	local raw = math.clamp((measured - 16) / 44, 0.12, 1)
-	bootSeededQuality = if UserInputService.TouchEnabled then math.min(raw, 0.82) else raw
+	bootSeededQuality = if IS_CONSTRAINED then math.min(raw, 0.74) else raw
 	for _, listener in bootSeedListeners do
 		listener(bootSeededQuality, measured)
 	end
@@ -613,12 +657,12 @@ local function continuousBudgetsChanged(left, right)
 	return math.abs(left.fxBudget - right.fxBudget) >= 0.2 or math.abs(left.glowScale - right.glowScale) >= 0.25
 end
 local function scoreWindow(sample)
-	local targetFps = if UserInputService.TouchEnabled then 48 else 58
+	local targetFps = if IS_CONSTRAINED then 45 else 58
 	local fpsScore = math.clamp(sample.fps / targetFps, 0, 1.15)
-	local p95Score = math.clamp(1 - (sample.p95FrameTimeMs - 16) / 48, 0, 1)
-	local p99Score = math.clamp(1 - (sample.p99FrameTimeMs - 20) / 70, 0, 1)
-	local jankScore = 1 - math.clamp(sample.jankRatio * 1.7, 0, 1)
-	local hitchPenalty = math.clamp(sample.hitchScore * 2.1, 0, 1)
+	local p95Score = math.clamp(1 - (sample.p95FrameTimeMs - (if IS_CONSTRAINED then 20 else 16)) / 48, 0, 1)
+	local p99Score = math.clamp(1 - (sample.p99FrameTimeMs - (if IS_CONSTRAINED then 28 else 20)) / 70, 0, 1)
+	local jankScore = 1 - math.clamp(sample.jankRatio * (if IS_CONSTRAINED then 1.4 else 1.7), 0, 1)
+	local hitchPenalty = math.clamp(sample.hitchScore * (if IS_CONSTRAINED then 2.4 else 2.1), 0, 1)
 	local pingPenalty = if sample.pingMs ~= nil and sample.pingMs > 180 then math.clamp((sample.pingMs - 180) / 500, 0, 0.16) else 0
 	local blended = fpsScore * 0.3 + p95Score * 0.28 + p99Score * 0.18 + jankScore * 0.24
 	return math.clamp(blended - hitchPenalty * 0.62 - pingPenalty, 0, 1)
@@ -628,12 +672,12 @@ local function AntilagProvider(_param)
 	local children = _param.children
 	local _condition = bootSeededQuality
 	if _condition == nil then
-		_condition = (if UserInputService.TouchEnabled then 0.62 else 0.88)
+		_condition = (if IS_CONSTRAINED then 0.55 else 0.88)
 	end
 	local startingQuality = _condition
 	local _condition_1 = bootSeededFps
 	if _condition_1 == nil then
-		_condition_1 = (if UserInputService.TouchEnabled then 50 else 60)
+		_condition_1 = (if IS_CONSTRAINED then 48 else 60)
 	end
 	local startingFps = _condition_1
 	local info, setInfo = React.useState(function()
@@ -688,7 +732,7 @@ local function AntilagProvider(_param)
 			previousScore = raw
 			local scene = sceneLoad(liveScene)
 			local prefer = livePreference * 0.48
-			local touchCeil = if UserInputService.TouchEnabled then 0.9 else 1
+			local touchCeil = if IS_CONSTRAINED then 0.82 else 1
 			local target = math.clamp(raw - scene - prefer, 0.08, touchCeil)
 			local now = os.clock()
 			local spiked = sample.hitchScore >= 0.16 or sample.p99FrameTimeMs >= 56
@@ -778,6 +822,7 @@ local function useAntilag()
 end
 return {
 	watchPing = watchPing,
+	constrainedDevice = constrainedDevice,
 	usePerformanceTelemetry = usePerformanceTelemetry,
 	setAntilagScene = setAntilagScene,
 	setAntilagPreference = setAntilagPreference,

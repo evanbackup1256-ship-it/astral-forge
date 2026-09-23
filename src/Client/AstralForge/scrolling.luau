@@ -13,10 +13,15 @@ local momentumPreference = 0.75
 local titleFxHoldGeneration = 0
 local titleFxHeld = false
 local motions = {}
+local motionCount = 0
 local gamepadAxis = Vector2.zero
 local lastScrollSound = -math.huge
 local motionDriver
 local globalConnections = {}
+-- Touch/console: coast on Heartbeat at half rate so RenderStepped stays free
+-- for layout/input. Desktop keeps RenderStepped for snappier mouse-wheel feel.
+local CONSTRAINED_SCROLL = (UserInputService.TouchEnabled and not UserInputService.MouseEnabled)
+	or (UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled)
 local function holdTitleFx()
 	if not titleFxHeld then
 		titleFxHeld = true
@@ -53,6 +58,7 @@ local function disposeScrollPerformance()
 	end
 	motionDriver = nil
 	table.clear(motions)
+	motionCount = 0
 	gamepadAxis = Vector2.zero
 end
 local function setScrollSpeed(value)
@@ -142,6 +148,7 @@ local function targetFor(frame)
 	}
 	local _frame_1 = frame
 	motions[_frame_1] = created
+	motionCount += 1
 	ensureMotionDriver()
 	return created
 end
@@ -153,7 +160,16 @@ function ensureMotionDriver()
 	if motionDriver ~= nil then
 		return nil
 	end
-	motionDriver = RunService.RenderStepped:Connect(function(deltaTime)
+	local frameSkip = 0
+	local signal = if CONSTRAINED_SCROLL then RunService.Heartbeat else RunService.RenderStepped
+	motionDriver = signal:Connect(function(deltaTime)
+		-- Constrained: advance coast every other heartbeat (~30Hz).
+		if CONSTRAINED_SCROLL then
+			frameSkip += 1
+			if frameSkip % 2 == 1 and gamepadAxis.Magnitude <= 0.16 then
+				return nil
+			end
+		end
 		local selectedFrame = scrollingAncestor(GuiService.SelectedObject)
 		if selectedFrame ~= nil and gamepadAxis.Magnitude > 0.16 then
 			local speed = 260 + scrollPreference * 220
@@ -173,6 +189,7 @@ function ensureMotionDriver()
 		for frame, motion in motions do
 			if frame.Parent == nil or not frame.Visible or not frame.ScrollingEnabled then
 				motions[frame] = nil
+				motionCount = math.max(0, motionCount - 1)
 				continue
 			end
 			motion.target = clampFor(frame, motion.target)
@@ -187,15 +204,10 @@ function ensureMotionDriver()
 			if _condition then
 				frame.CanvasPosition = motion.target
 				motions[frame] = nil
+				motionCount = math.max(0, motionCount - 1)
 			end
 		end
-		-- ▼ ReadonlyMap.size ▼
-		local _size = 0
-		for _ in motions do
-			_size += 1
-		end
-		-- ▲ ReadonlyMap.size ▲
-		local _condition = _size == 0
+		local _condition = motionCount <= 0
 		if _condition then
 			_condition = gamepadAxis.Magnitude <= 0.16
 		end
@@ -205,6 +217,7 @@ function ensureMotionDriver()
 				_result:Disconnect()
 			end
 			motionDriver = nil
+			motionCount = 0
 		end
 	end)
 end
@@ -349,13 +362,7 @@ local function installScrollPerformance()
 		end
 		-- Nothing is coasting, so there is nothing to stop — skip the rest entirely. This is the
 		-- common case for every tap on a phone and GetGuiObjectsAtPosition is not cheap.
-		-- ▼ ReadonlyMap.size ▼
-		local _size = 0
-		for _ in motions do
-			_size += 1
-		end
-		-- ▲ ReadonlyMap.size ▲
-		if _size == 0 then
+		if motionCount <= 0 then
 			return nil
 		end
 		local position = Vector2.new(input.Position.X, input.Position.Y)
@@ -368,8 +375,9 @@ local function installScrollPerformance()
 		-- whole map meant a tap on one panel froze an unrelated list mid-scroll, and two nested
 		-- surfaces (a horizontal carousel inside a vertical page) cancelled each other constantly.
 		local frame = frameUnderInput(position)
-		if frame ~= nil then
+		if frame ~= nil and motions[frame] ~= nil then
 			motions[frame] = nil
+			motionCount = math.max(0, motionCount - 1)
 		end
 	end)
 	table.insert(globalConnections, _arg0)
@@ -739,12 +747,14 @@ local function VirtualGrid(_param)
 end
 local function useVirtualWindow(count, stride, topOffset, overscan)
 	if overscan == nil then
-		overscan = 2
+		-- Constrained devices mount fewer offscreen rows; one row of slack is enough
+		-- and cuts React mounts during fast flings roughly in half vs overscan=2.
+		overscan = if CONSTRAINED_SCROLL then 1 else 2
 	end
 	local frame = React.useRef()
 	local initial = {
 		first = 0,
-		last = math.min(math.max(0, count - 1), 10),
+		last = math.min(math.max(0, count - 1), if CONSTRAINED_SCROLL then 6 else 10),
 	}
 	local window, setWindow = React.useState(initial)
 	local latest = React.useRef(initial)
@@ -753,7 +763,13 @@ local function useVirtualWindow(count, stride, topOffset, overscan)
 		if not scrolling then
 			return nil
 		end
-		local update = function()
+		local scheduled = false
+		local alive = true
+		local sync = function()
+			scheduled = false
+			if not alive then
+				return nil
+			end
 			if count <= 0 then
 				local empty = {
 					first = 0,
@@ -778,10 +794,19 @@ local function useVirtualWindow(count, stride, topOffset, overscan)
 			latest.current = range
 			setWindow(range)
 		end
-		update()
-		local moved = scrolling:GetPropertyChangedSignal("CanvasPosition"):Connect(update)
-		local resized = scrolling:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(update)
+		-- Coalesce CanvasPosition storms from flings into one defer per frame.
+		local schedule = function()
+			if scheduled then
+				return nil
+			end
+			scheduled = true
+			task.defer(sync)
+		end
+		sync()
+		local moved = scrolling:GetPropertyChangedSignal("CanvasPosition"):Connect(schedule)
+		local resized = scrolling:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(schedule)
 		return function()
+			alive = false
 			moved:Disconnect()
 			resized:Disconnect()
 		end
