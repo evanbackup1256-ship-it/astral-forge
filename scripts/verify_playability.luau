@@ -117,17 +117,13 @@ end
 -- PageScaffold owns the outer AutomaticCanvasSize.Y scroll. Nested raw frames are
 -- only OK when justified below (horizontal chips, dual-pane body, dual Confirm trees).
 local RAW_SCROLL_ALLOWLIST = {
-	-- Stack phones cannot fit RANK_TABS in one row; X-scroll preserves SegmentedTabs UX without
-	-- collapsing filters into a second vertical page body scroller under PageScaffold.
-	["src/Client/AstralForge/pages/LeaderboardsView.luau"] = "single ScrollingDirection.X filter-tab strip on stack; PageScaffold owns vertical body",
 	-- Dual Confirm trees keep independent offer-pane Y scroll so Ready/Confirm stay pinned while
 	-- lines grow; desktop also keeps a thin X chip strip + roster pane scroll outside the compact
 	-- PageScaffold invite board (compact invite migrated off raw outer scroll).
-	["src/Client/AstralForge/pages/TradeView.luau"] = "offer-pane Y + desktop roster/status-X only; compact invite uses PageScaffold fill-safe CTA pin",
+	["src/Client/AstralForge/pages/TradeView.luau"] = "offer-pane Y + desktop roster/status-X only; compact+desktop pin Confirm panel below offer scroll",
 }
 
 local RAW_SCROLL_BUDGET = {
-	["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 1,
 	["src/Client/AstralForge/pages/TradeView.luau"] = 3,
 }
 
@@ -186,6 +182,24 @@ do
 	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -footerH)", 1, true), path .. " must pin footer to bottom")
 	assert(string.find(src, "stackListH", 1, true), path .. " must reserve stack list height so detail actions stay reachable")
 	assert(string.find(src, "0.34, -7", 1, true) and string.find(src, "0.66, -7", 1, true), path .. " must keep desktop split chrome widths")
+end
+
+------------------------------------------------------------------------
+-- Studio edge harden (offline): Trade Confirm pin, StoryBeat CTA pin, LB wrap tabs
+------------------------------------------------------------------------
+do
+	local trade = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+	assert(string.find(trade, "buildConfirmActions", 1, true), "TradeView must share Confirm panel builder")
+	assert(string.find(trade, "CONFIRM_TRADE_PANEL", 1, true), "TradeView must mark shared Confirm panel")
+	local story = fs.readFile("src/Client/AstralForge/pages/StoryView.luau")
+	assert(string.find(story, "estimatedBodyH", 1, true), "StoryBeat must keep content-floor estimate")
+	assert(string.find(story, "measureWrappedTextHeight", 1, true), "StoryBeat content floor must measure wrap")
+	assert(string.find(story, "Position = UDim2.new(0, 0, 1, -actionsH)", 1, true), "StoryBeat must pin Continue/Back")
+	assert(string.find(story, "Pin Continue/Back", 1, true), "StoryBeat must document pinned CTAs")
+	local boards = fs.readFile("src/Client/AstralForge/pages/LeaderboardsView.luau")
+	assert(not string.find(boards, 'createElement("scrollingframe"', 1, true), "Leaderboards must not X-scroll filter tabs")
+	assert(string.find(boards, "filterColumns = 4", 1, true), "Leaderboards must wrap RANK_TABS in a 4-column grid")
+	assert(string.find(boards, "ClipsDescendants = false", 1, true), "Leaderboards filter strip must not clip selection")
 end
 
 ------------------------------------------------------------------------

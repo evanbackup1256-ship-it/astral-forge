@@ -361,11 +361,12 @@ local function StoryBeat(_param)
 	local tipAccent = if tuned then Palette.green else color
 	local bodyGap = if stack then 16 else Layout.panelGap
 	local bodyPadR = if stack then 4 else Layout.stackGap
-	-- Content floor so PageScaffold grows the fill section + outer-scrolls when copy is long;
-	-- tip/actions stay layout-owned (no absolute bottomReserve clipping).
+	-- Content floor so PageScaffold grows the fill section when copy wraps long;
+	-- Continue/Back stay pinned below the scaffold so short phones never bury CTAs.
 	local viewport = useViewport()
-	local measureWidth = math.max(160, math.floor((viewport.width or 390) * (if stack then 0.92 else 0.55)) - bodyPadR - 8)
-	local textH = math.max(64, math.ceil(measureWrappedTextHeight(text, measureWidth, bodySize, Enum.FontWeight.Medium) * lineHeight))
+	local measureWidth = math.max(160, math.floor((viewport.width or 390) * (if stack then 0.92 else 0.55)) - bodyPadR - 12)
+	-- GetTextSize ignores TextLabel LineHeight — scale measured lines so the floor covers wrap.
+	local textH = math.max(64, math.ceil(measureWrappedTextHeight(text, measureWidth, bodySize, Enum.FontWeight.Medium) * lineHeight) + 8)
 	local estimatedBodyH = textH + (if final then 56 + bodyGap else 0) + (if stack then 24 else 16) + 12
 	local headerElement = if stack then React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -602,7 +603,7 @@ local function StoryBeat(_param)
 		{
 			id = "beat-body",
 			fill = true,
-			minHeight = 96,
+			minHeight = 72,
 			height = estimatedBodyH,
 			element = bodyElement,
 		},
@@ -614,18 +615,32 @@ local function StoryBeat(_param)
 			element = tipElement,
 		})
 	end
-	table.insert(sections, {
-		id = "beat-actions",
-		height = actionsH,
-		element = actionsElement,
-	})
-	return React.createElement(PageScaffold, {
+	-- Pin Continue/Back under the scaffold: long wrapped beats scroll in the body fill,
+	-- but CTAs stay reachable on short phones without chasing the content floor.
+	local actionsGap = 8
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 1, -(actionsH + actionsGap)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, React.createElement(PageScaffold, {
 		gap = if showTip then (if stack then 8 else Layout.stackGap) else 6,
 		tailPad = 4,
 		scrollBarColor = color,
 		scrollBarThickness = if stack then 4 else 3,
 		sections = sections,
-	})
+	})), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, actionsH),
+		Position = UDim2.new(0, 0, 1, -actionsH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 6,
+	}, actionsElement))
 end
 
 local function chapterConfig(config, id)

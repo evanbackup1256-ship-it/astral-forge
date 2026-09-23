@@ -854,10 +854,12 @@ local function LeaderboardsView(_param)
 	end
 	local ranked = _result
 	local heroH = if stack then 148 else 148
-	local filterColumns = if stack then 0 else 4
-	local filterRows = if stack then 1 else math.ceil(#RANK_TABS / filterColumns)
+	-- Narrow stack wraps RANK_TABS into two rows so the selection carrier never clips inside
+	-- an X-scroller; desktop keeps a 4-column grid. PageScaffold owns vertical body scroll.
+	local filterColumns = 4
+	local filterRows = math.ceil(#RANK_TABS / filterColumns)
 	local filterGap = 7
-	local filtersH = if stack then TapTarget + 18 else filterRows * TapTarget + (filterRows - 1) * filterGap + 8
+	local filtersH = filterRows * TapTarget + (filterRows - 1) * filterGap + 8
 	local scopeH = if guildBoard then 0 else TapTarget * 0.72 + 10
 	-- Phone stacks the podium as three short cards (no 1/3-width squeeze / clip); desktop keeps
 	-- the classic three-across band. Section heights are intrinsic — UIListLayout owns vertical
@@ -898,34 +900,7 @@ local function LeaderboardsView(_param)
 	local recordLabel = ensureContrast(recordFill, Palette.muted)
 	local recordValue = ensureContrast(recordFill, meta.accent)
 	local recordRank = ensureContrast(recordFill, if localRank ~= nil then Palette.green else Palette.muted)
-	local filterWidth = if stack then 104 else 118
-	local filterCanvasWidth = #RANK_TABS * filterWidth + (#RANK_TABS - 1) * filterGap
-	local _exp = if stack then React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, filterCanvasWidth + 16, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
-		ScrollBarImageColor3 = meta.accent,
-		ScrollBarImageTransparency = 0.28,
-		ScrollingDirection = Enum.ScrollingDirection.X,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		HorizontalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, React.createElement(SegmentedTabs, {
-		options = RANK_TABS,
-		value = selected,
-		onChange = setSelected,
-		accent = meta.accent,
-		sound = "leaderboardSwitch",
-		columns = #RANK_TABS,
-		gap = filterGap,
-		size = UDim2.fromOffset(filterCanvasWidth, TapTarget),
-		reducedMotion = softMotion,
-	})) else React.createElement("frame", {
+	local _exp = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -939,7 +914,7 @@ local function LeaderboardsView(_param)
 		columns = filterColumns,
 		gap = filterGap,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local _exp_1 = not guildBoard and React.createElement("frame", {
 		Size = UDim2.new(0, if stack then 220 else 260, 0, math.max(1, scopeH - 10)),

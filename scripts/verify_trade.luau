@@ -218,6 +218,8 @@ do
 	local view = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
 	assert(string.find(view, "CONFIRM_TRADE_TREE:compact", 1, true), "compact ConfirmTrade tree marker")
 	assert(string.find(view, "CONFIRM_TRADE_TREE:desktop", 1, true), "desktop ConfirmTrade tree marker")
+	assert(string.find(view, "CONFIRM_TRADE_PANEL", 1, true), "shared Confirm panel marker")
+	assert(string.find(view, "buildConfirmActions", 1, true), "shared Confirm panel builder")
 	assert(string.find(view, "onConfirmClick", 1, true), "shared confirm handler")
 	local confirmRuns = 0
 	for _ in string.gmatch(view, 'run%("ConfirmTrade"%)') do
@@ -236,21 +238,29 @@ do
 	for _ in string.gmatch(view, "disabled = confirmDisabled") do
 		disabledConfirm += 1
 	end
-	assert(disabledConfirm == 2, "compact+desktop confirm disabled predicates must match")
+	assert(disabledConfirm == 1, "shared Confirm panel must declare confirmDisabled once, got " .. tostring(disabledConfirm))
 	local loadingConfirm = 0
 	for _ in string.gmatch(view, 'loading = busy == "ConfirmTrade"') do
 		loadingConfirm += 1
 	end
-	assert(loadingConfirm == 2, "compact+desktop confirm loading predicates must match")
+	assert(loadingConfirm == 1, "shared Confirm panel must declare ConfirmTrade loading once, got " .. tostring(loadingConfirm))
 	assert(string.find(view, "TradeReady", 1, true) and string.find(view, "TradeConfirm", 1, true), "Ready/Confirm must be named for FocusClaim")
 	assert(string.find(view, "GamepadNavigationService.FocusClaim", 1, true), "session actions must FocusClaim")
-	-- Compact vs desktop Confirm trees stay duplicated on purpose (vertical stack vs
-	-- horizontal flex). Shared handlers + matching predicates are the invariant;
-	-- extracting one React tree would risk paren/layout regressions for little gain.
+	-- Compact + desktop call the same buildConfirmActions panel (vertical vs horizontal).
+	-- Compact pins that panel below PageScaffold so long offer lists never bury Ready/Confirm.
 	assert(
 		string.find(view, "Shared action handlers for CONFIRM_TRADE_TREE", 1, true),
-		"TradeView must document shared handlers across dual Confirm trees"
+		"TradeView must document shared handlers across Confirm trees"
 	)
+	assert(
+		string.find(view, 'Position = UDim2.new(0, 0, 1, -actionH)', 1, true),
+		"Ready/Confirm must pin to bottom on compact+desktop session chrome"
+	)
+	local pinCount = 0
+	for _ in string.gmatch(view, 'Position = UDim2%.new%(0, 0, 1, %-actionH%)') do
+		pinCount += 1
+	end
+	assert(pinCount >= 2, "compact+desktop must both pin Confirm actions, got " .. tostring(pinCount))
 end
 
 
