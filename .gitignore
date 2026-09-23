@@ -1,0 +1,15 @@
+# Project place file
+/Astral Forge v2.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+sourcemap.json
+
+# Reinstallable roblox-ts packages and generated output
+/node_modules/
+/out/
+/.rojo-validation.rbxlx
+/.argon-validation.rbxlx
+/.argon-ts-validation.rbxlx

@@ -1,0 +1,120 @@
+{
+  "name": "Astral Forge v2",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "AstralForge": {
+        "$path": "src/Shared/AstralForge"
+      },
+      "Packages": {
+        "$path": "src/Shared/Packages"
+      },
+      "rbxts_include": {
+        "$path": "include",
+        "node_modules": {
+          "$className": "Folder",
+          "@rbxts": {
+            "$className": "Folder",
+            "react": {
+              "$path": "vendor/@rbxts/react"
+            },
+            "react-roblox": {
+              "$path": "vendor/@rbxts/react-roblox.luau"
+            },
+            "3a": {
+              "$path": "vendor/@rbxts/3a/out"
+            },
+            "bezierts": {
+              "$path": "vendor/@rbxts/bezierts/out.luau"
+            },
+            "flipper": {
+              "$path": "vendor/@rbxts/flipper/src"
+            },
+            "react-ripple": {
+              "$path": "vendor/@rbxts/react-ripple"
+            },
+            "spr": {
+              "$path": "vendor/@rbxts/spr"
+            },
+            "React": {
+              "$path": "vendor/@rbxts/react-ripple/React.luau"
+            },
+            "Ripple": {
+              "$path": "vendor/@rbxts/react-ripple/Ripple.luau"
+            },
+            "react-lifetime-component": {
+              "$path": "vendor/@rbxts/react-lifetime-component"
+            },
+            "rodux": {
+              "$path": "vendor/@rbxts/rodux/src"
+            },
+            "layoututil": {
+              "$path": "vendor/@rbxts/layoututil"
+            },
+            "lunit": {
+              "$path": "vendor/@rbxts/lunit/out"
+            },
+            "lemon-signal": {
+              "$path": "vendor/@rbxts/lemon-signal"
+            },
+            "pretty-react-hooks": {
+              "$path": "vendor/@rbxts/pretty-react-hooks"
+            },
+            "ripple": {
+              "$path": "vendor/@rbxts/ripple"
+            },
+            "set-timeout": {
+              "$path": "vendor/@rbxts/set-timeout"
+            },
+            "ui-labs": {
+              "$path": "vendor/@rbxts/ui-labs/src"
+            },
+            "services": {
+              "$path": "node_modules/@rbxts/services"
+            },
+            "signal": {
+              "$path": "vendor/@rbxts/signal.luau"
+            },
+            "maid": {
+              "$path": "vendor/@rbxts/maid"
+            },
+            "t": {
+              "$path": "vendor/@rbxts/t"
+            },
+            "matter": {
+              "$path": "vendor/@rbxts/matter"
+            }
+          },
+          "@rbxts-js": {
+            "$path": "vendor/@rbxts-js"
+          },
+          "@flamework": {
+            "$path": "vendor/@flamework"
+          }
+        }
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "AstralForge": {
+        "$path": "src/Server/AstralForge"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "AstralForge": {
+          "$path": "src/Client/AstralForge"
+        },
+        "PlayerScriptsLoader": {
+          "$path": "src/Client/PlayerScriptsLoader.client.luau"
+        },
+        "SharedRuntime": {
+          "$path": "src/Client/SharedRuntime"
+        }
+      }
+    }
+  }
+}
