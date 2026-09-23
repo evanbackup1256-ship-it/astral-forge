@@ -5433,6 +5433,21 @@ local GameConfig = {
 			Reward = { Stardust = 110, CashMinutes = 50, Signals = 52 },
 			Color = Color3.fromRGB(0, 220, 175),
 		},
+		{
+			Id = "wave45-offline-brief",
+			Title = "Wave Forty Five Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "VisitorList/AutoSalvageSnapshot peels + Shop/Admin/Story/Rebirth densify; DENSE floors; readiness past checks=50.",
+			Body = {
+				"VisitorList and AutoSalvageSnapshot peel roster/snapshot bags out of ServerServices; SocialBoost gains PublicSnapshot.",
+				"Shop/Admin/Story/Rebirth thicken softMotion; playability DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 112, CashMinutes = 51, Signals = 53 },
+			Color = Color3.fromRGB(0, 225, 180),
+		},
 
 
 
@@ -5559,6 +5574,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 110, Stardust = 126, Signals = 56 },
 			Color = Color3.fromRGB(0, 220, 175),
+		},
+		{
+			Id = "update-5-1-wave45-offline",
+			Subject = "Dock note — wave forty five offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "VisitorList/AutoSalvageSnapshot + shop/admin/story/rebirth softMotion — still DataVersion 21.",
+			Body = {
+				"VisitorList and AutoSalvageSnapshot peel ServerServices roster/snapshot bags; Shop/Admin/Story/Rebirth densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=50 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 112, Stardust = 128, Signals = 57 },
+			Color = Color3.fromRGB(0, 225, 180),
 		},
 
 		{

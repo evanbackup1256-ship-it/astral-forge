@@ -71,6 +71,8 @@ serviceFactories["GameService"] = function()
 	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SettingsSeal"))
 	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UnlimitedMoneySeal"))
 	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("StoryMailSnapshot"))
+	local VisitorList = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("VisitorList"))
+	local AutoSalvageSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AutoSalvageSnapshot"))
 	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OverchargeCombo"))
 	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RankBracket"))
 	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
@@ -263,24 +265,9 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_visitorList(host: Player)
-		local bucket = self._visitors[host.UserId]
-		local list = {}
-		if not bucket then
-			return list
-		end
-		for visitor in bucket do
-			if visitor.Parent == Players then
-				table.insert(list, {
-					UserId = visitor.UserId,
-					Name = visitor.Name,
-					DisplayName = visitor.DisplayName,
-				})
-			end
-		end
-		table.sort(list, function(left, right)
-			return left.DisplayName < right.DisplayName
+		return VisitorList.Build(self._visitors[host.UserId], function(visitor)
+			return visitor.Parent == Players
 		end)
-		return list
 	end
 
 	function GameService:_clearVisit(visitor: Player, notifyHost: boolean)
@@ -1139,8 +1126,6 @@ serviceFactories["GameService"] = function()
 		end
 		local storyState = StoryMailSnapshot.BuildStory(profile, GameConfig.Story, ProgressionGate)
 		local mailState, unreadMail = StoryMailSnapshot.BuildMailbox(profile, GameConfig.Mail, ProgressionGate)
-		local autoSalvage = type(profile.Items.AutoSalvage) == "table" and profile.Items.AutoSalvage
-			or { Enabled = false, KeepNew = true, Rarities = {} }
 
 		return {
 			Game = {
@@ -1214,11 +1199,7 @@ serviceFactories["GameService"] = function()
 				InventoryLimit = GameConfig.Items.InventoryLimit,
 				Shop = itemShop,
 				ShopRefreshAt = nextUtcMidnight(),
-				AutoSalvage = {
-					Enabled = autoSalvage.Enabled == true,
-					KeepNew = autoSalvage.KeepNew ~= false,
-					Rarities = copyDictionary(type(autoSalvage.Rarities) == "table" and autoSalvage.Rarities or {}),
-				},
+				AutoSalvage = AutoSalvageSnapshot.Public(profile.Items.AutoSalvage, copyDictionary),
 				Effects = {
 					Production = Economy.ItemEffect(profile, "Production"),
 					Capacity = Economy.ItemEffect(profile, "Capacity"),
@@ -1252,19 +1233,12 @@ serviceFactories["GameService"] = function()
 				}
 			end)(),
 			GuildBonuses = copyDictionary(profile.GuildBonuses),
-			SocialBoost = copyDictionary(profile.SocialBoost or {
-				FriendCount = 0,
-				FriendLimit = GameConfig.Social.MaxBoostedFriends,
-				FriendBonus = 0,
-				Premium = false,
-				PremiumBonus = 0,
-				Multiplier = 1,
-			}),
+			SocialBoost = SocialBoost.PublicSnapshot(profile.SocialBoost, GameConfig.Social.MaxBoostedFriends, copyDictionary),
 			SocialRewards = {
 				CreatorFollowClaimed = profile.SocialRewards and profile.SocialRewards.CreatorFollowClaimed == true,
 				CreatorName = ServerConfig.CreatorUsername,
 			},
-			AutoForge = copyDictionary(profile.AutoForge or { Enabled = false, MachineId = "StellarCore", Reserve = 0.25, Bought = 0 }),
+			AutoForge = AutoSalvageSnapshot.PublicAutoForge(profile.AutoForge, copyDictionary),
 			Trade = (function()
 				if not self._trades then
 					return { Unlocked = false, Epoch = 0 }

@@ -1226,8 +1226,39 @@ assert(string.find(cfg, 'Id = "wave44-offline-brief"', 1, true), "Story wave44 r
 assert(string.find(cfg, 'Id = "update-5-1-wave44-offline"', 1, true), "Mail wave44 residual for release")
 mark("wave44 unlimitedmoney storymail overview feedback mailbox echo densify content residuals")
 
--- Wave44 residuals raise the offline subset past checks=49.
-assert(#passed > 49, "release-readiness offline subset must stay beyond checks=49, got " .. tostring(#passed))
+-- Wave45: VisitorList/AutoSalvageSnapshot peels + Shop/Admin/Story/Rebirth densify + DENSE floors + DV21.
+local visitorWave45 = fs.readFile("src/Server/AstralForge/Modules/VisitorList.luau")
+assert(string.find(visitorWave45, "function VisitorList.Build", 1, true), "VisitorList.Build residual for release")
+local salvageWave45 = fs.readFile("src/Server/AstralForge/Modules/AutoSalvageSnapshot.luau")
+assert(string.find(salvageWave45, "function AutoSalvageSnapshot.Public", 1, true), "AutoSalvageSnapshot.Public residual for release")
+local servicesWave45 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(servicesWave45, "VisitorList.Build", 1, true), "ServerServices VisitorList residual for release")
+assert(string.find(servicesWave45, "AutoSalvageSnapshot.Public", 1, true), "ServerServices AutoSalvageSnapshot residual for release")
+assert(not string.find(servicesWave45, 'Enabled = false, MachineId = "StellarCore", Reserve = 0.25', 1, true), "AutoForge default must leave ServerServices for release")
+local shopWave45 = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
+assert(string.find(shopWave45, "Canonical softMotion antilag gate — ShopCatalog", 1, true), "ShopCatalog softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(shopWave45, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 16, "Shop softMotion densify residual for release, got " .. tostring(soft))
+end
+local rebirthWave45 = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
+assert(string.find(rebirthWave45, "Canonical softMotion antilag gate — RebirthConfirm", 1, true), "RebirthConfirm softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(rebirthWave45, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Rebirth softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave45-offline-brief"', 1, true), "Story wave45 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave45-offline"', 1, true), "Mail wave45 residual for release")
+mark("wave45 visitorlist autosalvage shop admin story rebirth densify content residuals")
+
+-- Wave45 residuals raise the offline subset past checks=50.
+assert(#passed > 50, "release-readiness offline subset must stay beyond checks=50, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

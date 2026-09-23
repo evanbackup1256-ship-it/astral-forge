@@ -57,4 +57,19 @@ function SocialBoost.Apply(profile: any, friendCount: number, premium: boolean, 
 	return changed
 end
 
+function SocialBoost.DefaultSnapshot(maxBoostedFriends: number): SocialBoostState
+	return {
+		FriendCount = 0,
+		FriendLimit = maxBoostedFriends,
+		FriendBonus = 0,
+		Premium = false,
+		PremiumBonus = 0,
+		Multiplier = 1,
+	}
+end
+
+function SocialBoost.PublicSnapshot(raw: any, maxBoostedFriends: number, copyDictionary): SocialBoostState
+	return copyDictionary(type(raw) == "table" and raw or SocialBoost.DefaultSnapshot(maxBoostedFriends))
+end
+
 return table.freeze(SocialBoost)

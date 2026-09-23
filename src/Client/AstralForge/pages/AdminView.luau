@@ -295,6 +295,7 @@ local function AdminView(_param)
 	local admin = state.Admin
 
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — AdminView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 
@@ -314,6 +315,8 @@ local function AdminView(_param)
 	local mountedRef = React.useRef(true)
 	local executeAttempt = React.useRef(0)
 	local enter = useEntrance(softMotion)
+	-- Canonical softMotion antilag gate — AdminTools.
+	local toolsReveal = useStagger(0, softMotion)
 
 	React.useEffect(function()
 		return function()
@@ -731,6 +734,7 @@ local function AdminView(_param)
 		padding = 12,
 		layoutOrder = 1,
 		highlight = armed,
+		reveal = toolsReveal,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SectionTitle, {

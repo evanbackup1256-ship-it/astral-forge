@@ -10,6 +10,7 @@ local gteFlux = _format.gteFlux
 local InteractionFeedback = require(script.Parent.Parent.interaction).InteractionFeedback
 local _motion = require(script.Parent.Parent.motion)
 local useFlash = _motion.useFlash
+local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
@@ -55,6 +56,9 @@ local function RebirthPanel(_param)
 	local mountedRef = React.useRef(true)
 	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
+	-- Canonical softMotion antilag gate — RebirthConfirm.
+	local confirmReveal = useStagger(0, softMotion)
+	local heroReveal = useStagger(1, softMotion)
 	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
@@ -124,8 +128,8 @@ local function RebirthPanel(_param)
 		accent = accent,
 		background = if confirming then darken(Palette.coral, 0.92) else Palette.panelRaised,
 		padding = if stack then chrome.cardPadding else 18,
-		reveal = reveal,
-		highlight = (canRebirth or confirming) and not effectsPaused,
+		reveal = reveal or (if confirming then confirmReveal else heroReveal),
+		highlight = (canRebirth or confirming) and not effectsPaused and not softMotion,
 		reducedMotion = softMotion or effectsPaused,
 		clips = false,
 	}, React.createElement(IconTile, {
@@ -134,8 +138,8 @@ local function RebirthPanel(_param)
 		size = if stack then 52 else 58,
 		radius = 16,
 		position = UDim2.fromOffset(0, if stack then 4 else 10),
-		glow = canRebirth and not effectsPaused,
-		spin = canRebirth and not effectsPaused,
+		glow = canRebirth and not effectsPaused and not softMotion,
+		spin = canRebirth and not effectsPaused and not softMotion,
 		reducedMotion = softMotion or effectsPaused,
 	}), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, -66, 0, 126) else UDim2.new(1, -(76 + 310), 1, 0),

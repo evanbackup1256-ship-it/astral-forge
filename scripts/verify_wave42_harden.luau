@@ -40,7 +40,7 @@ end
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/MissionsView.luau"] = 12', 1, true), "Missions DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/WorldsView.luau"] = 10', 1, true), "Worlds DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/RebirthPanel.luau"] = 11', 1, true), "Rebirth DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/RebirthPanel.luau"] = 12', 1, true), "Rebirth DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/ChatView.luau"] = 12', 1, true), "Chat DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/StarGridView.luau"] = 12', 1, true), "StarGrid DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/ConvergenceView.luau"] = 12', 1, true), "Convergence DENSE floor")

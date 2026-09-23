@@ -11,6 +11,7 @@ local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
 local useFlipperSpring = _motion.useFlipperSpring
 local usePulse = _motion.usePulse
+local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
@@ -305,6 +306,7 @@ local function StoryBeat(_param)
 	local stack = _param.stack
 	local condensed = _param.condensed
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — StoryBeat.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
@@ -759,10 +761,13 @@ local function StoryView(_param)
 	local status = _result
 	local story = if status then chapterConfig(config, status.Id) else nil
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — StoryView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local intro = useEntrance(softMotion)
 	local archivePulse = usePulse(not softMotion and not started, 3.4)
+	-- Canonical softMotion antilag gate — StoryArchive.
+	local archiveReveal = useStagger(0, softMotion)
 	if not story or not status then
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
@@ -908,6 +913,9 @@ local function StoryView(_param)
 				weight = Enum.FontWeight.Heavy,
 				fit = false,
 				sizeConstraint = UDim2.new(1, 0, 0, 16),
+				transparency = archiveReveal:map(function(amount)
+					return 1 - amount
+				end),
 			}), React.createElement(FlatList, {
 				data = railChapters,
 				itemHeight = CHAPTER_ROW_STRIDE,

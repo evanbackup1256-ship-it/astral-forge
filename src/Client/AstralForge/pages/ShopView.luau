@@ -337,7 +337,7 @@ local function ShopView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Snap decorative tile/hero springs when antilag already cut ambient or is on a low tier.
+	-- Canonical softMotion antilag gate — ShopView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
@@ -351,6 +351,8 @@ local function ShopView(_param)
 	local purchasePhase, setPurchasePhase = React.useState("hidden")
 	local purchaseDetail, setPurchaseDetail = React.useState()
 	local heroReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — ShopCatalog.
+	local catalogReveal = useStagger(1, softMotion)
 	local _result = state.Shop
 	if _result ~= nil then
 		_result = _result.OwnedPasses
@@ -1161,7 +1163,15 @@ local function ShopView(_param)
 			id = "list",
 			fill = true,
 			minHeight = math.max(180, offerStride * 2),
-			element = offerList,
+			element = React.createElement(Panel, {
+				size = UDim2.fromScale(1, 1),
+				accent = Palette.mango,
+				background = Palette.panel,
+				padding = 0,
+				reveal = catalogReveal,
+				reducedMotion = softMotion,
+				clips = false,
+			}, offerList),
 		})
 	end
 	return React.createElement("frame", {
