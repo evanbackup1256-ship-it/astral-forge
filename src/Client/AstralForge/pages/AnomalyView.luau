@@ -1283,10 +1283,11 @@ local function ReactorConsole(_param)
 	local antilag = useAntilag()
 	local skipEntrance = reducedMotion or antilag.skipEntrance
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	-- Cycle/surge countdowns stay live (gameplay timers). Decorative ring spin gates below.
 	local timer = useWallClock(true)
 	-- Needle/combo stay playable whenever motion is allowed; ring spin needs ambient + tier 2+.
 	local animateCore = not reducedMotion and motionAmount > 0.03
-	local decorateCore = animateCore and antilag.allowAmbient and antilag.tier >= 2
+	local decorateCore = animateCore and not softMotion
 	local _exp = config.Types
 	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)

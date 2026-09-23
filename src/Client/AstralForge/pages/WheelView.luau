@@ -435,8 +435,10 @@ local function PrizeWheelMachine(_param)
 	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 12
 	local landing = useFlash(controller.impactNonce, reducedMotion, if antilag.tier < 1 then 0.34 else 0.56)
 	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
-	local hubStroke = useGlowStroke(canSpin and not controller.spinning, reducedMotion, 0.58, 0.12, 0.7, 1.8)
-	local idleOrbit = useRotation(not reducedMotion and not controller.spinning and canSpin and antilag.allowAmbient, 5.5)
+	-- Decorative hub glow + idle orbit only when ambient is allowed and antilag tier is 2+.
+	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2
+	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, reducedMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
+	local idleOrbit = useRotation(not reducedMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
 	local reverseOrbit = idleOrbit:map(function(angle)
 		return -angle * 0.62
 	end)

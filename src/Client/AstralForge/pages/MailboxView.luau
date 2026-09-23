@@ -2,6 +2,7 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local Audio = require(script.Parent.Parent.audio).Audio
 local formatReward = require(script.Parent.Parent.format).formatReward
 local Icon = require(script.Parent.Parent.Icon).Icon
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _motion = require(script.Parent.Parent.motion)
 local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
@@ -12,6 +13,7 @@ local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local darken = _theme.darken
 local TapTarget = _theme.TapTarget
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -151,6 +153,7 @@ local function MailboxView(_param)
 	end, {})
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
 	local stack = chrome.contentStack
 	local mobileRoute = chrome.mobile
 	local compactChrome = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
@@ -159,6 +162,7 @@ local function MailboxView(_param)
 	local detailBodyTop = detailHeaderH + BODY_PAD
 	local cardH = if stack then LIST_CARD_MOBILE else LIST_CARD
 	local footerH = if stack then FOOTER_HEIGHT_MOBILE else FOOTER_HEIGHT
+	local rowStride = cardH + LIST_GAP
 	local _result = state.Mailbox
 	if _result ~= nil then
 		_result = _result.Messages
@@ -168,6 +172,23 @@ local function MailboxView(_param)
 		_condition = {}
 	end
 	local messages = _condition
+	local inboxRows = {}
+	for _, mailState in messages do
+		local mailDef
+		for _, value in config.Mail do
+			if value.Id == mailState.Id then
+				mailDef = value
+				break
+			end
+		end
+		if mailDef ~= nil then
+			table.insert(inboxRows, {
+				Id = mailDef.Id,
+				item = mailDef,
+				mailState = mailState,
+			})
+		end
+	end
 	local _result_1 = state.Mailbox
 	if _result_1 ~= nil then
 		_result_1 = _result_1.Unread
@@ -257,13 +278,12 @@ local function MailboxView(_param)
 	local bodyHeight = _condition_3
 	local bodyGaps = if message ~= nil then math.max(0, #message.Body - 1) * 8 else 0
 	local detailCanvas = bodyHeight + bodyGaps + BODY_PAD + footerH + 8
-	local listCanvas = #messages * (cardH + LIST_GAP) + 48 + 12
 	local _result_7 = selectedState
 	if _result_7 ~= nil then
 		_result_7 = _result_7.Claimed
 	end
 	local claimed = _result_7 == true
-	local inboxEmpty = #messages == 0
+	local inboxEmpty = #inboxRows == 0
 	local showMobileDetail = mobileRoute and explicitSelection ~= nil
 	-- Mobile swaps the whole list<->detail pane on tap instead of showing both side by side; a
 	-- flat Visible toggle snapped between them with no transition at all. Slide+fade both panes
@@ -335,7 +355,7 @@ local function MailboxView(_param)
 		position = UDim2.fromOffset(60, 14),
 		sizeConstraint = UDim2.new(1, -180, 0, 18),
 	}), React.createElement(Text, {
-		value = if inboxEmpty then "No letters" else `{#messages} letter{if #messages == 1 then "" else "s"}`,
+		value = if inboxEmpty then "No letters" else `{#inboxRows} letter{if #inboxRows == 1 then "" else "s"}`,
 		size = 16,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -381,87 +401,57 @@ local function MailboxView(_param)
 			reducedMotion = reducedMotion,
 		}))
 	else
-		local _exp_5 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, LIST_GAP),
-		})
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue = table.create(#messages)
-		local _callback_3 = function(mailState, index)
-			local _exp_6 = config.Mail
-			-- ▼ ReadonlyArray.find ▼
-			local _callback_4 = function(value)
-				return value.Id == mailState.Id
-			end
-			local _result_11
-			for _i, _v in _exp_6 do
-				if _callback_4(_v, _i - 1, _exp_6) == true then
-					_result_11 = _v
-					break
-				end
-			end
-			-- ▲ ReadonlyArray.find ▲
-			local item = _result_11
-			if not item then
-				return nil
-			end
-			local _exp_7 = item.Id
-			local _result_12 = selectedState
-			if _result_12 ~= nil then
-				_result_12 = _result_12.Id
-			end
-			local active = _exp_7 == _result_12
-			local unread = not mailState.Read
-			return React.createElement(MailRow, {
-				key = item.Id,
-				item = item,
-				active = active,
-				unread = unread,
-				cardH = cardH,
-				stack = stack,
-				reducedMotion = reducedMotion,
-				layoutOrder = index,
-				onChoose = choose,
-			})
+		local _result_11 = selectedState
+		if _result_11 ~= nil then
+			_result_11 = _result_11.Id
 		end
-		for _k, _v in messages do
-			_newValue[_k] = _callback_3(_v, _k - 1, messages)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		_result_10 = React.createElement("scrollingframe", {
+		local selectedRowId = _result_11
+		_result_10 = React.createElement(FlatList, {
+			data = inboxRows,
+			itemHeight = rowStride,
+			headerHeight = 0,
+			footerHeight = TapTarget + 8,
+			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+			canvasTail = 4,
 			Size = UDim2.new(1, -20, 1, -(listHeaderH + 10)),
 			Position = UDim2.fromOffset(10, listHeaderH),
-			CanvasSize = UDim2.new(0, 0, 0, listCanvas),
-			AutomaticCanvasSize = Enum.AutomaticSize.None,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = Palette.cyan,
-			ScrollBarImageTransparency = 0.28,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			VerticalScrollBarInset = Enum.ScrollBarInset.None,
-			ClipsDescendants = true,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			Active = true,
-			Selectable = false,
-		}, _exp_5, _newValue, React.createElement("frame", {
-			LayoutOrder = #messages + 1,
-			Size = UDim2.new(1, -4, 0, TapTarget),
-			BackgroundColor3 = Palette.panelRaised,
-			BackgroundTransparency = 0.55,
-			BorderSizePixel = 0,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 10),
-		}), React.createElement(Text, {
-			value = if #messages == 1 then "Caught up" else "End of inbox",
-			size = 13,
-			color = Palette.muted,
-			weight = Enum.FontWeight.Bold,
-			align = Enum.TextXAlignment.Center,
-			fit = false,
-			sizeConstraint = UDim2.fromScale(1, 1),
-		})))
+			scrollBarColor = Palette.cyan,
+			scrollBarThickness = 3,
+			scrollBarTransparency = 0.28,
+			keyExtractor = function(row)
+				return row.Id
+			end,
+			renderItem = function(_param_1)
+				local row = _param_1.item
+				return React.createElement(MailRow, {
+					item = row.item,
+					active = row.Id == selectedRowId,
+					unread = not row.mailState.Read,
+					cardH = cardH,
+					stack = stack,
+					reducedMotion = reducedMotion,
+					layoutOrder = 0,
+					onChoose = choose,
+				})
+			end,
+			ListFooterComponent = React.createElement("frame", {
+				Size = UDim2.new(1, -4, 0, TapTarget),
+				Position = UDim2.fromOffset(0, #inboxRows * rowStride + 4),
+				BackgroundColor3 = Palette.panelRaised,
+				BackgroundTransparency = 0.55,
+				BorderSizePixel = 0,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(0, 10),
+			}), React.createElement(Text, {
+				value = if #inboxRows == 1 then "Caught up" else "End of inbox",
+				size = 13,
+				color = Palette.muted,
+				weight = Enum.FontWeight.Bold,
+				align = Enum.TextXAlignment.Center,
+				fit = false,
+				sizeConstraint = UDim2.fromScale(1, 1),
+			})),
+		})
 	end
 	local listPane = React.createElement("frame", {
 		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0.38, -4) else UDim2.new(0.34, -7, 1, 0),
