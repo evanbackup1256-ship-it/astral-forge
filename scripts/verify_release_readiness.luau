@@ -250,7 +250,18 @@ assert(not string.find(rebirthGateSrc, "vendor/", 1, true), "RebirthGate must no
 assert(not string.find(rebirthGateSrc, "Packages/", 1, true), "RebirthGate must not reference Packages/")
 mark("runquick pure prestige reward parity")
 
-assert(#passed > 11, "release-readiness offline subset must stay beyond checks=11, got " .. tostring(#passed))
+-- Pure RunQuick domain requirements/rewards parity (ContinuumDomainMath; soak Studio-only).
+assert(string.find(releaseSrc, "Economy.DomainRequirements", 1, true), "RunQuick must exercise DomainRequirements")
+assert(string.find(releaseSrc, "Economy.DomainRewards", 1, true), "RunQuick must exercise DomainRewards")
+assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRequirements", 1, true), "ContinuumDomainMath.DomainRequirements missing")
+assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRewards", 1, true), "ContinuumDomainMath.DomainRewards missing")
+assert(string.find(economyBody, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy.DomainRequirements must delegate ContinuumDomainMath")
+assert(string.find(economyBody, "ContinuumDomainMath.DomainRewards", 1, true), "Economy.DomainRewards must delegate ContinuumDomainMath")
+assert(not string.find(continuumMathSrc, "vendor/", 1, true), "ContinuumDomainMath must not reference vendor/")
+assert(not string.find(continuumMathSrc, "Packages/", 1, true), "ContinuumDomainMath must not reference Packages/")
+mark("runquick pure domain requirements parity")
+
+assert(#passed > 12, "release-readiness offline subset must stay beyond checks=12, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

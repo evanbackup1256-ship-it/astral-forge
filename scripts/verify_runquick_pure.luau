@@ -211,6 +211,40 @@ do
 end
 
 ------------------------------------------------------------------------
+-- DomainRequirements / DomainRewards pure parity (RunQuick endless economy)
+------------------------------------------------------------------------
+do
+	assert(string.find(releaseSrc, "Economy.DomainRequirements", 1, true), "RunQuick must exercise DomainRequirements")
+	assert(string.find(releaseSrc, "Economy.DomainRewards", 1, true), "RunQuick must exercise DomainRewards")
+	assert(string.find(economySrc, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy DomainRequirements must delegate")
+	assert(string.find(economySrc, "ContinuumDomainMath.DomainRewards", 1, true), "Economy DomainRewards must delegate")
+	local domainCfg = {
+		BaseRequiredRebirths = baseRebirths,
+		RebirthsPerRank = rebirthsPer,
+		BaseRequiredCores = baseCores,
+		CoreRequirementScale = coreScale,
+		BaseEssenceReward = baseEssence,
+		EssencePerRank = essencePer,
+		BaseStardustReward = baseDomainDust,
+		StardustPerRank = domainDustPer,
+	}
+	local prevRebirths = -1
+	local prevEssence = -1
+	for _, rank in { 0, 1, 10, 100, 1000 } do
+		local rebirths, cores = ContinuumDomainMath.DomainRequirements(OmegaMath, domainCfg, rank)
+		local essence, domainDust = ContinuumDomainMath.DomainRewards(domainCfg, rank)
+		assert(finiteNumber(rebirths) and isPersist(cores), "DomainRequirements overflow at " .. tostring(rank))
+		assert(finiteNumber(essence) and finiteNumber(domainDust), "DomainRewards overflow at " .. tostring(rank))
+		assert(rebirths >= prevRebirths, "DomainRequirements rebirths must not regress")
+		assert(essence >= prevEssence, "DomainRewards essence must not regress")
+		assert(rebirths == baseRebirths + rank * rebirthsPer, "DomainRequirements rebirths formula")
+		assert(essence == baseEssence + rank * essencePer, "DomainRewards essence formula")
+		prevRebirths = rebirths
+		prevEssence = essence
+	end
+end
+
+------------------------------------------------------------------------
 -- ProfileIntegrity recovery (RunQuick "profile corruption recovery")
 ------------------------------------------------------------------------
 assert(string.find(integritySrc, "function ProfileIntegrity.Record", 1, true), "ProfileIntegrity.Record missing")

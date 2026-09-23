@@ -404,6 +404,7 @@ local function BoostsView(_param)
 		background = Palette.panelRaised,
 		padding = if stack then 14 else Layout.cardPadding,
 		reveal = headerReveal,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "BOOSTS",
@@ -511,7 +512,7 @@ local function BoostsView(_param)
 			gridElement = React.createElement(FlatList, {
 				data = offerRows,
 				itemHeight = rowH,
-				overscan = 2,
+				overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 				canvasTail = 8,
 				Size = UDim2.fromScale(1, 1),
 				scrollBarColor = Palette.pink,
