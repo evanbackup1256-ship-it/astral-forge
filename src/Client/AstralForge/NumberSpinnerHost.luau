@@ -176,33 +176,34 @@ local function setDigitTracking(spinner, scale, gap)
 		child.Size = UDim2.fromOffset(width, child.Size.Y.Offset)
 	end
 end
-local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand)
+local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand, motionScale)
+	local scale = math.clamp(if motionScale == nil then 1 else motionScale, 0.35, 1.35)
 	if fromBand ~= toBand then
-		return 0.03
+		return 0.04 * scale
 	end
 	local jump = math.abs(toRaw - fromRaw)
 	local magnitude = math.log10(math.max(1, jump))
 	local rel = if fromRaw > 0 then jump / fromRaw else jump
 	if magnitude >= 6 or rel >= 0.35 then
-		return 0.1
+		return 0.08 * scale
 	end
 	if magnitude >= 4 or rel >= 0.12 then
-		return 0.2
+		return 0.16 * scale
 	end
 	local fromParts = compactSpinParts(fromRaw)
 	local toParts = compactSpinParts(toRaw)
 	local mantJump = math.abs(toParts.value - fromParts.value)
 	if mantJump >= 50 then
-		return 0.16
+		return 0.14 * scale
 	end
 	if mantJump >= 8 then
-		return 0.28
+		return 0.24 * scale
 	end
-	return math.clamp(base * 0.7, 0.32, 0.55)
+	return math.clamp(base * 0.62 * scale, 0.26, 0.48)
 end
 local VELOCITY_TICK_HZ = 5
 local VELOCITY_TICK_DT = 1 / VELOCITY_TICK_HZ
-local VELOCITY_ROLL = 0.08
+local VELOCITY_ROLL = 0.07
 local function NumberSpinnerHost(_param)
 	local value = _param.value
 	local requestedReducedMotion = _param.reducedMotion
@@ -271,6 +272,10 @@ local function NumberSpinnerHost(_param)
 	if numberScale == nil then
 		numberScale = 1
 	end
+	local motionScale = _binding.motionScale
+	if motionScale == nil then
+		motionScale = 1
+	end
 	local reducedMotion = requestedReducedMotion or numberScale <= 0.02
 	local hostRef = React.useRef()
 	local spinnerRef = React.useRef()
@@ -294,6 +299,8 @@ local function NumberSpinnerHost(_param)
 	})
 	local velocitySnapRef = React.useRef(false)
 	local pulseResetRef = React.useRef()
+	local motionScaleRef = React.useRef(motionScale)
+	motionScaleRef.current = motionScale
 	local live, setLive = React.useState(false)
 	local label = formatRawLabel(value, prefix, extraSuffix)
 	local contentWidth, setContentWidth = React.useState(function()
@@ -316,8 +323,8 @@ local function NumberSpinnerHost(_param)
 		if pulseResetRef.current ~= nil then
 			task.cancel(pulseResetRef.current)
 		end
-		spinner.TextColor3 = lighten(base, 0.38)
-		pulseResetRef.current = task.delay(0.28, function()
+		spinner.TextColor3 = lighten(base, 0.48)
+		pulseResetRef.current = task.delay(0.18, function()
 			pulseResetRef.current = nil
 			if spinnerRef.current ~= spinner then
 				return nil
@@ -503,10 +510,10 @@ local function NumberSpinnerHost(_param)
 		end
 		local fromBand = if previous ~= nil then spinDisplay(previous, style.extraSuffix).band else ""
 		local toBand = spinDisplay(value, style.extraSuffix).band
-		local roll = if previous ~= nil then rollDurationForJump(style.duration, previous, value, fromBand, toBand) else 0.08
+		local roll = if previous ~= nil then rollDurationForJump(style.duration, previous, value, fromBand, toBand, motionScaleRef.current) else 0.08
 		velocitySnapRef.current = false
 		local jump = if previous ~= nil then math.abs(value - previous) else 0
-		local shouldPulse = previous ~= nil and jump >= math.max(25, math.abs(previous) * 0.04 + 1)
+		local shouldPulse = previous ~= nil and jump >= math.max(18, math.abs(previous) * 0.03 + 1)
 		pushDisplay(spinner, value, roll, shouldPulse)
 	end, { align, color, duration, ensureSpinner, extraSuffix, prefix, pushDisplay, reducedMotion, size, value })
 	React.useEffect(function()

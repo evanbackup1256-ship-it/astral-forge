@@ -145,24 +145,25 @@ local function ComboBadge(_param)
 		end
 		lastCombo.current = combo
 	end, { combo })
-	local punch = useFlash(tapPunch, reducedMotion, 0.22)
-	local presence = useOptionalFlipperSpring(if visible then 1 else 0, everVisible, reducedMotion, 640, 34)
-	local intensitySpring = useOptionalFlipperSpring(ratio, visible, reducedMotion, 420, 30)
-	local glow = useGlowStroke(maxed and visible and antilag.allowAmbient, reducedMotion, 0.5, 0.14, 0.6, if maxed then 3.4 else 2.2)
-	local maxPulse = usePulse(maxed and visible and not reducedMotion, 3.1)
+	local punch = useFlash(tapPunch, reducedMotion, 0.28)
+	local presence = useOptionalFlipperSpring(if visible then 1 else 0, everVisible, reducedMotion, 580, 32)
+	local intensitySpring = useOptionalFlipperSpring(ratio, visible, reducedMotion, 380, 28)
+	-- Maxed glow breathes slowly; punch carries the beat hierarchy.
+	local glow = useGlowStroke(maxed and visible and antilag.allowAmbient, reducedMotion, 0.42, 0.22, 0.5, if maxed then 1.6 else 1.2)
+	local maxPulse = usePulse(maxed and visible and not reducedMotion, 1.7)
 	local scale = React.useMemo(function()
 		return React.joinBindings({ presence, intensitySpring, punch }):map(function(values)
-			return 0.7 + values[1] * 0.3 + values[2] * 0.06 + values[3] * 0.1
+			return 0.72 + values[1] * 0.28 + values[2] * 0.05 + values[3] * 0.14
 		end)
 	end, { presence, intensitySpring, punch })
 	local iconScale = React.useMemo(function()
 		return punch:map(function(amount)
-			return 1 + amount * 0.22
+			return 1 + amount * 0.28
 		end)
 	end, { punch })
 	local rise = React.useMemo(function()
 		return presence:map(function(amount)
-			return math.round((1 - amount) * 14)
+			return math.round((1 - amount) * 18)
 		end)
 	end, { presence })
 	local fade = React.useMemo(function()
@@ -282,7 +283,7 @@ local function ComboBadge(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.mango,
 		BackgroundTransparency = maxPulse:map(function(amount)
-			return 0.86 - amount * 0.1
+			return 0.9 - amount * 0.06
 		end),
 		BorderSizePixel = 0,
 		ZIndex = zIndex - 1,

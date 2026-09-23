@@ -140,6 +140,11 @@ local function easeOutCubic(value)
 	local inverse = 1 - math.clamp(value, 0, 1)
 	return 1 - inverse * inverse * inverse
 end
+local function easeOutBack(value)
+	local overshoot = 1.55
+	local shifted = math.clamp(value, 0, 1) - 1
+	return 1 + (overshoot + 1) * shifted * shifted * shifted + overshoot * shifted * shifted
+end
 local function styleForSeed(seed)
 	return STYLES[math.abs(math.floor(seed)) % #STYLES + 1]
 end
@@ -260,7 +265,7 @@ local function ForgeParticle(_param)
 			rotation = rotation,
 			size = sizeFor(particle.shape, particle.size, progress),
 			transparency = 1 - visibility,
-			glowTransparency = math.clamp(1 - visibility * 0.34, 0.66, 1),
+			glowTransparency = math.clamp(1 - visibility * 0.18, 0.78, 1),
 		}
 	end)
 	local position = motion:map(function(value)
@@ -448,14 +453,14 @@ local function RewardReceipt(_param)
 	local reducedMotion = _param.reducedMotion
 	local compact = _param.compact
 	local motion = time:map(function(seconds)
-		local arrival = math.clamp(seconds / 0.2, 0, 1)
+		local arrival = math.clamp(seconds / 0.18, 0, 1)
 		local departure = math.clamp((seconds - duration * 0.72) / math.max(0.18, duration * 0.25), 0, 1)
-		local settle = easeOutCubic(arrival)
+		local settle = if reducedMotion then arrival else easeOutBack(arrival)
 		return {
-			scale = if reducedMotion then 1 else 0.78 + settle * 0.25 - departure * 0.08,
+			scale = if reducedMotion then 1 else 0.72 + settle * 0.32 - departure * 0.1,
 			transparency = math.clamp(1 - arrival + departure, 0, 1),
-			rotation = if reducedMotion then 0 else (1 - settle) * -5 + math.sin(arrival * math.pi) * 1.5,
-			y = math.round((1 - settle) * 28 - departure * 34),
+			rotation = if reducedMotion then 0 else (1 - settle) * -7 + math.sin(arrival * math.pi) * 2,
+			y = math.round((1 - settle) * 36 - departure * 40),
 		}
 	end)
 	local receiptW = if compact then 236 else 306
@@ -646,7 +651,7 @@ local function CelebrationBurst(_param)
 	local particles = _newValue
 	local detailed = not minimal and antilag.quality >= 0.72 and activeCount <= 10 and not (viewport.compact or viewport.tight)
 	local impact = time:map(function(seconds)
-		return easeOutCubic(math.clamp(seconds / 0.36, 0, 1))
+		return easeOutBack(math.clamp(seconds / 0.28, 0, 1))
 	end)
 	local rayCount = if minimal then 0 elseif antilag.quality >= 0.62 then 4 elseif antilag.quality >= 0.28 then 2 else 0
 	local rays = if rayCount == 4 then { 0, 90, 180, 270 } elseif rayCount == 2 then { 0, 180 } else {}
@@ -663,7 +668,7 @@ local function CelebrationBurst(_param)
 			Rotation = angle,
 			BackgroundColor3 = if index % 3 == 0 then Palette.cream elseif index % 2 == 0 then style.accent else style.secondary,
 			BackgroundTransparency = time:map(function(seconds)
-				return math.clamp(0.62 + seconds * 2.1, 0.62, 1)
+				return math.clamp(0.72 + seconds * 1.8, 0.72, 1)
 			end),
 			BorderSizePixel = 0,
 			ZIndex = 142,
@@ -710,7 +715,7 @@ local function CelebrationBurst(_param)
 			Color = if ring == 1 then style.secondary else style.accent,
 			Thickness = if minimal then 1 else 1.8 - ring * 0.3,
 			Transparency = impact:map(function(value)
-				return math.clamp(0.48 + value * 0.52 + ring * 0.05, 0, 1)
+				return math.clamp(0.58 + value * 0.42 + ring * 0.06, 0, 1)
 			end),
 		}))
 	end
