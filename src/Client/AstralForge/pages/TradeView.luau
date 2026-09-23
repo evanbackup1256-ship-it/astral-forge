@@ -1,11 +1,13 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local unixNow = require(script.Parent.Parent.deadlines).unixNow
 local _format = require(script.Parent.Parent.format)
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
 local Icon = require(script.Parent.Parent.Icon).Icon
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
 local useViewport = _motion.useViewport
@@ -455,6 +457,7 @@ local function TradeView(_param)
 	local offerTab, setOfferTab = React.useState("You")
 	local dirtyRef = React.useRef(false)
 	local flushRef = React.useRef(nil)
+	local sessionActionsHostRef = React.useRef(nil)
 	local _result_1 = state.Items
 	if _result_1 ~= nil then
 		_result_1 = _result_1.Inventory
@@ -1193,40 +1196,92 @@ local function TradeView(_param)
 	local function onCancelClick()
 		return run("CancelTrade")
 	end
+	local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)
+	local confirmDisabled = busy ~= "" or not bothReady
+	-- Gamepad: Ready/Confirm must be Selection-reachable (FocusClaim prefers Confirm when live).
+	React.useEffect(function()
+		if session == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = sessionActionsHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { session ~= nil, bothReady, youReadyLocal, tableEmpty, busy, readyDisabled, confirmDisabled })
 	-- CONFIRM_TRADE_TREE:compact
-	local sessionActions = if session ~= nil then React.createElement(React.Fragment, nil, React.createElement(Button, {
+	local sessionActions = if session ~= nil then React.createElement("frame", {
+		ref = sessionActionsHostRef,
+		Name = "TradeSessionActions",
+		Size = UDim2.new(1, 0, 0, TapTarget * 3 + 16),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 8),
+	}), React.createElement("frame", {
+		Name = "TradeReady",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+	}, React.createElement(Button, {
 		text = if youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
 		onClick = onReadyClick,
 		color = if youReadyLocal then Palette.panelSoft else accent,
 		textColor = if youReadyLocal then Palette.cream else Palette.ink,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		disabled = busy ~= "" or (tableEmpty and not youReadyLocal),
+		size = UDim2.fromScale(1, 1),
+		disabled = readyDisabled,
 		loading = busy == "SetTradeReady",
 		shakeToken = shakeFor("SetTradeReady"),
 		reducedMotion = reducedMotion,
 		highlight = not youReadyLocal and not tableEmpty,
-	}), React.createElement(Button, {
+		selectable = not readyDisabled,
+	})), React.createElement("frame", {
+		Name = "TradeConfirm",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 2,
+	}, React.createElement(Button, {
 		text = if session.YouConfirmed then "CONFIRMED" elseif confirmLeft > 0 then `CONFIRM  {clockLabel(session.ConfirmEndsAt, now)}` else "CONFIRM",
 		onClick = onConfirmClick,
 		color = Palette.mango,
 		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		disabled = busy ~= "" or not bothReady,
+		size = UDim2.fromScale(1, 1),
+		disabled = confirmDisabled,
 		loading = busy == "ConfirmTrade",
 		shakeToken = shakeFor("ConfirmTrade"),
 		reducedMotion = reducedMotion,
 		highlight = bothReady and not session.YouConfirmed,
-	}), React.createElement(Button, {
+		selectable = not confirmDisabled,
+	})), React.createElement("frame", {
+		Name = "TradeCancel",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 3,
+	}, React.createElement(Button, {
 		text = "CANCEL",
 		onClick = onCancelClick,
 		color = Palette.coral,
 		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, TapTarget),
+		size = UDim2.fromScale(1, 1),
 		disabled = busy ~= "",
 		loading = busy == "CancelTrade",
 		shakeToken = shakeFor("CancelTrade"),
 		reducedMotion = reducedMotion,
-	})) else nil
+		selectable = busy == "",
+	}))) else nil
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#visibleRows)
 	local _callback_1 = function(row, index)
@@ -2023,46 +2078,79 @@ local function TradeView(_param)
 		Position = UDim2.new(0, 0, 1, -actionH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+	}, React.createElement("frame", {
+		-- CONFIRM_TRADE_TREE:desktop
+		ref = sessionActionsHostRef,
+		Name = "TradeSessionActions",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Padding = UDim.new(0, 8),
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		HorizontalFlex = Enum.UIFlexAlignment.Fill,
+	}), React.createElement("frame", {
+		Name = "TradeReady",
+		Size = UDim2.new(0, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 1,
+	}, React.createElement("uiflexitem", {
+		FlexMode = Enum.UIFlexMode.Fill,
 	}), React.createElement(Button, {
-		-- CONFIRM_TRADE_TREE:desktop
 		text = if youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
 		onClick = onReadyClick,
 		color = if youReadyLocal then Palette.panelSoft else accent,
 		textColor = if youReadyLocal then Palette.cream else Palette.ink,
-		size = UDim2.new(0, 0, 0, TapTarget),
-		disabled = busy ~= "" or (tableEmpty and not youReadyLocal),
+		size = UDim2.fromScale(1, 1),
+		disabled = readyDisabled,
 		loading = busy == "SetTradeReady",
 		shakeToken = shakeFor("SetTradeReady"),
 		reducedMotion = reducedMotion,
 		highlight = not youReadyLocal and not tableEmpty,
+		selectable = not readyDisabled,
+	})), React.createElement("frame", {
+		Name = "TradeConfirm",
+		Size = UDim2.new(0, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 2,
+	}, React.createElement("uiflexitem", {
+		FlexMode = Enum.UIFlexMode.Fill,
 	}), React.createElement(Button, {
 		text = if session.YouConfirmed then "CONFIRMED" elseif confirmLeft > 0 then `CONFIRM  {clockLabel(session.ConfirmEndsAt, now)}` else "CONFIRM",
 		onClick = onConfirmClick,
 		color = Palette.mango,
 		textColor = Palette.ink,
-		size = UDim2.new(0, 0, 0, TapTarget),
-		disabled = busy ~= "" or not bothReady,
+		size = UDim2.fromScale(1, 1),
+		disabled = confirmDisabled,
 		loading = busy == "ConfirmTrade",
 		shakeToken = shakeFor("ConfirmTrade"),
 		reducedMotion = reducedMotion,
 		highlight = bothReady and not session.YouConfirmed,
+		selectable = not confirmDisabled,
+	})), React.createElement("frame", {
+		Name = "TradeCancel",
+		Size = UDim2.new(0, 0, 0, TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		LayoutOrder = 3,
+	}, React.createElement("uiflexitem", {
+		FlexMode = Enum.UIFlexMode.Fill,
 	}), React.createElement(Button, {
 		text = "CANCEL",
 		onClick = onCancelClick,
 		color = Palette.coral,
 		textColor = Palette.ink,
-		size = UDim2.new(0, 0, 0, TapTarget),
+		size = UDim2.fromScale(1, 1),
 		disabled = busy ~= "",
 		loading = busy == "CancelTrade",
 		shakeToken = shakeFor("CancelTrade"),
 		reducedMotion = reducedMotion,
-	}))))
+		selectable = busy == "",
+	}))))))
 end
 return {
 	TradeView = TradeView,

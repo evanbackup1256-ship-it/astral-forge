@@ -1,5 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Palette = require(script.Parent.theme).Palette
+local planFillHeight = require(script.Parent.pageScaffoldPlan).planFillHeight
 -- PageScaffold — the one vertical-stack layout primitive pages should use instead of hand-
 -- computed absolute bands. Every "mobile layout bug" class this project has hit (negative
 -- heights from `Size = 1, -(a + b + c)`, action bars landing on top of lists, content that
@@ -75,39 +76,7 @@ local function PageScaffold(_param)
 	end
 	-- ▲ ReadonlyArray.find ▲
 	local fillSection = _result
-	-- ▼ ReadonlyArray.reduce ▼
-	local _result_1 = 0
-	local _callback_1 = function(sum, section)
-		local _exp = sum
-		local _result_2
-		if section.fill == true then
-			_result_2 = 0
-		else
-			local _condition = section.height
-			if _condition == nil then
-				_condition = 0
-			end
-			_result_2 = _condition
-		end
-		return _exp + _result_2
-	end
-	for _i = 1, #sections do
-		_result_1 = _callback_1(_result_1, sections[_i], _i - 1, sections)
-	end
-	-- ▲ ReadonlyArray.reduce ▲
-	local fixedTotal = _result_1
-	local gapsTotal = gap * math.max(0, #sections - 1)
-	local _result_2
-	if fillSection ~= nil then
-		local _condition = fillSection.minHeight
-		if _condition == nil then
-			_condition = 120
-		end
-		_result_2 = math.max(_condition, available - fixedTotal - gapsTotal - tailPad)
-	else
-		_result_2 = 0
-	end
-	local fillHeight = _result_2
+	local fillHeight = planFillHeight(sections, available, gap, tailPad)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -173,4 +142,5 @@ local function PageScaffold(_param)
 end
 return {
 	PageScaffold = PageScaffold,
+	planFillHeight = planFillHeight,
 }

@@ -3,6 +3,8 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _flexbox = require(script.Parent.Parent.flexbox)
 local FlexGrid = _flexbox.FlexGrid
 local useShopColumns = _flexbox.useShopColumns
@@ -306,18 +308,24 @@ local function OfferTile(_param)
 		filled = true,
 		position = UDim2.new(if stack then 0 else 1, if stack then 0 else -150, 1, -(ctaH + 4)),
 		size = if stack then UDim2.new(1, 0, 0, ctaH) else UDim2.fromOffset(136, ctaH),
-	}) else React.createElement(Button, {
+	}) else React.createElement("frame", {
+		Name = "ShopBuyCta",
+		Size = if stack then UDim2.new(1, 0, 0, ctaH) else UDim2.fromOffset(148, ctaH),
+		Position = UDim2.new(if stack then 0 else 1, if stack then 0 else -158, 1, -(ctaH + 4)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Button, {
 		text = cta,
 		icon = if disabled then "Lock" else "Shop",
 		onClick = onClick,
 		color = if disabled then Palette.panelSoft else accent,
 		textColor = if disabled then Palette.creamSoft else Palette.ink,
-		size = if stack then UDim2.new(1, 0, 0, ctaH) else UDim2.fromOffset(148, ctaH),
-		position = UDim2.new(if stack then 0 else 1, if stack then 0 else -158, 1, -(ctaH + 4)),
+		size = UDim2.fromScale(1, 1),
 		disabled = not canBuy,
 		reducedMotion = reducedMotion,
 		highlight = canBuy,
-	})))
+		selectable = canBuy,
+	}))))
 end
 local function ShopView(_param)
 	local state = _param.state
@@ -751,7 +759,28 @@ local function ShopView(_param)
 	local canvasHeight = heroH + pageGap + tabRowH + pageGap + sectionLabelH + pageGap + listHeight + SCROLL_EDGE * 2
 	local codeReady = (string.gsub(code, "%s", "")) ~= ""
 	local redeemDisabled = busy or not codeReady or purchasePhase == "pending"
+	local shopHostRef = React.useRef(nil)
+	React.useEffect(function()
+		if purchasePhase ~= "hidden" or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = shopHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { tab, purchasePhase, listCount, redeemDisabled })
 	return React.createElement("frame", {
+		ref = shopHostRef,
+		Name = "ShopViewHost",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -943,18 +972,24 @@ local function ShopView(_param)
 				end
 			end,
 		},
-	})), React.createElement(Button, {
+	})), React.createElement("frame", {
+		Name = "ShopClaimCode",
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(148, 48),
+		Position = if stack then UDim2.fromOffset(0, 122) else UDim2.new(1, -148, 0, 66),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Button, {
 		text = if busy then "CHECKING…" else "CLAIM CODE",
 		icon = "Code",
 		onClick = redeem,
 		color = Palette.cyan,
 		textColor = Palette.ink,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(148, 48),
-		position = if stack then UDim2.fromOffset(0, 122) else UDim2.new(1, -148, 0, 66),
+		size = UDim2.fromScale(1, 1),
 		disabled = redeemDisabled,
 		reducedMotion = reducedMotion,
 		highlight = not redeemDisabled,
-	}), codeFeedback ~= "" and React.createElement(Text, {
+		selectable = not redeemDisabled,
+	})), codeFeedback ~= "" and React.createElement(Text, {
 		value = codeFeedback,
 		size = 11,
 		color = Palette.creamSoft,

@@ -25,11 +25,23 @@ local files = {
 	"src/Client/AstralForge/pages/ShopView.luau",
 	"src/Client/AstralForge/pages/InventoryView.luau",
 	"src/Client/AstralForge/pages/TradeView.luau",
+	"src/Client/AstralForge/pages/WheelView.luau",
+	"src/Client/AstralForge/pages/CommandView.luau",
+	"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
+	"src/Client/AstralForge/pages/CrateRevealStage.luau",
+	"src/Client/AstralForge/pages/CrateRevealStageSimple.luau",
+	"src/Client/AstralForge/pages/MailboxView.luau",
+	"src/Client/AstralForge/pages/SettingsView.luau",
+	"src/Client/AstralForge/input/GamepadNavigationService.luau",
+	"src/Client/AstralForge/purchaseOverlay.luau",
+	"src/Client/AstralForge/pageScaffold.luau",
+	"src/Client/AstralForge/pageScaffoldPlan.luau",
 	-- Shared catalog (parse only — no require)
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
 	-- Server trade desk (offer validation / exchange)
 	"src/Server/AstralForge/Modules/TradeDesk.luau",
 	"src/Server/AstralForge/Modules/TradeExchange.luau",
+	"src/Server/AstralForge/Services/AnomalyService.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",
 	"src/Client/AstralForge/tests/taskFilter.test.luau",

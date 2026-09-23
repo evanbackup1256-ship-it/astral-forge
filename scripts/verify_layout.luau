@@ -71,3 +71,63 @@ for _, case in cases do
 end
 
 print("[INFO] [TEST] responsive layout cases passed | Count: " .. tostring(#cases))
+
+-- PageScaffold fill/minHeight planner (pure; mirrors pageScaffoldPlan.luau).
+local planFillHeight = require("../src/Client/AstralForge/pageScaffoldPlan").planFillHeight
+
+local scaffoldCases = {
+	{
+		name = "fill honors minHeight when viewport is tight",
+		available = 200,
+		gap = 10,
+		tailPad = 8,
+		sections = {
+			{ id = "hero", height = 80 },
+			{ id = "list", fill = true, minHeight = 120 },
+			{ id = "actions", height = 48 },
+		},
+		-- 200 - 80 - 48 - 20 - 8 = 44, clamped to minHeight 120
+		expect = 120,
+	},
+	{
+		name = "fill expands into leftover space",
+		available = 640,
+		gap = 10,
+		tailPad = 8,
+		sections = {
+			{ id = "hero", height = 100 },
+			{ id = "list", fill = true, minHeight = 120 },
+			{ id = "actions", height = 56 },
+		},
+		-- 640 - 100 - 56 - 20 - 8 = 456
+		expect = 456,
+	},
+	{
+		name = "no fill section yields zero",
+		available = 400,
+		gap = 8,
+		tailPad = 0,
+		sections = {
+			{ id = "a", height = 40 },
+			{ id = "b", height = 40 },
+		},
+		expect = 0,
+	},
+	{
+		name = "default minHeight is 120",
+		available = 100,
+		gap = 0,
+		tailPad = 0,
+		sections = {
+			{ id = "list", fill = true },
+		},
+		expect = 120,
+	},
+}
+
+for _, case in scaffoldCases do
+	local got = planFillHeight(case.sections, case.available, case.gap, case.tailPad)
+	assert(got == case.expect, case.name .. " expected " .. tostring(case.expect) .. " got " .. tostring(got))
+end
+
+print("[INFO] [TEST] pageScaffold fill/minHeight cases passed | Count: " .. tostring(#scaffoldCases))
