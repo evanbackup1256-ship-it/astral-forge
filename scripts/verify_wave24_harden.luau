@@ -1,10 +1,12 @@
 --!strict
--- Wave24 offline residuals: Crew FlatList/FocusClaim/softMotion, Overview softMotion
--- canon (effectsPaused on quietMotion only), Guild softMotion past DENSE floor.
+-- Wave24 offline residuals: Crew FlatList/FocusClaim/softMotion (CrewView extract owns
+-- roster hosts as of wave28), Overview softMotion canon (effectsPaused on quietMotion
+-- only), Guild softMotion past DENSE floor.
 
 local fs = require("@lune/fs")
 
 local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+local crew = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
 local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
 local readme = fs.readFile("README.md")
 
@@ -12,12 +14,13 @@ local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not anti
 
 assert(string.find(router, CANON, 1, true), "PageRouter softMotion canon")
 assert(string.find(router, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true), "Overview quietMotion")
-assert(string.find(router, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim")
-assert(string.find(router, 'Name = "CrewVisitConfirm"', 1, true), "CrewVisitConfirm")
-assert(string.find(router, "GamepadNavigationService.FocusClaim", 1, true), "Crew FocusClaim")
-assert(string.find(router, "createElement(FlatList", 1, true), "Crew FlatList")
-assert(string.find(router, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true), "Crew overscan")
-assert(string.find(router, "virtRoster = #players >= 8", 1, true) or string.find(router, "#players >= 8", 1, true), "Crew virt threshold")
+assert(string.find(crew, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim")
+assert(string.find(crew, 'Name = "CrewVisitConfirm"', 1, true), "CrewVisitConfirm")
+assert(string.find(crew, "GamepadNavigationService.FocusClaim", 1, true), "Crew FocusClaim")
+assert(string.find(crew, "createElement(FlatList", 1, true), "Crew FlatList")
+assert(string.find(crew, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true), "Crew overscan")
+assert(string.find(crew, "virtRoster = #players >= 8", 1, true) or string.find(crew, "#players >= 8", 1, true), "Crew virt threshold")
+assert(string.find(crew, CANON, 1, true), "Crew softMotion canon")
 
 local guildSoft = 0
 for _ in string.gmatch(guild, "softMotion") do

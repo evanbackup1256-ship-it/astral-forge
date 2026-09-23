@@ -1302,6 +1302,10 @@ local function TopBar(_param)
 	local visit = _param.visit
 	local openPlayerlist = _param.openPlayerlist
 	local openFeedback = _param.openFeedback
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — TopBar chips/pills drop springs on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local accent = AppHelpers:pageAccent(page)
 	local shortRow = barHeight <= 54 and width < 980
 	local micro = barHeight <= 54 and width < 620
@@ -2310,6 +2314,13 @@ function MoreCell(_param)
 	}))))
 end
 local function MoreDock(_param)
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — MoreDock motion drops on soft tiers.
+	local softMotion = (_param.reducedMotion or false) or antilag.tier <= 1 or not antilag.allowAmbient
+	if softMotion then
+		_param = table.clone(_param)
+		_param.reducedMotion = true
+	end
 	local page = _param.page
 	local setPage = _param.setPage
 	local reducedMotion = _param.reducedMotion

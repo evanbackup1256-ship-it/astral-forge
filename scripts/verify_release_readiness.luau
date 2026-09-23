@@ -566,19 +566,21 @@ assert(not string.find(releaseClockSrc, "GetService", 1, true), "ReleaseClockMat
 mark("wave22 extract session echo loadout residuals")
 
 -- Wave24: Crew FlatList + FocusClaim + Overview softMotion canon residuals.
+-- Wave28 moved Crew roster hosts into CrewView; keep Overview quietMotion on PageRouter.
 local routerWave24 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(routerWave24, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim host missing for release")
+local crewWave24 = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+assert(string.find(crewWave24, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim host missing for release")
 do
-	local hostStart = string.find(routerWave24, 'Name = "CrewVisitClaim"', 1, true)
+	local hostStart = string.find(crewWave24, 'Name = "CrewVisitClaim"', 1, true)
 	assert(hostStart, "CrewVisitClaim host missing")
-	local hostSlice = string.sub(routerWave24, hostStart, hostStart + 420)
+	local hostSlice = string.sub(crewWave24, hostStart, hostStart + 420)
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "CrewVisitClaim clips residual for release")
 end
-assert(string.find(routerWave24, 'Name = "CrewVisitConfirm"', 1, true), "CrewVisitConfirm residual for release")
-assert(string.find(routerWave24, "GamepadNavigationService.FocusClaim", 1, true), "Crew FocusClaim residual for release")
-assert(string.find(routerWave24, "createElement(FlatList", 1, true), "Crew FlatList residual for release")
+assert(string.find(crewWave24, 'Name = "CrewVisitConfirm"', 1, true), "CrewVisitConfirm residual for release")
+assert(string.find(crewWave24, "GamepadNavigationService.FocusClaim", 1, true), "Crew FocusClaim residual for release")
+assert(string.find(crewWave24, "createElement(FlatList", 1, true), "Crew FlatList residual for release")
 assert(
-	string.find(routerWave24, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true),
+	string.find(crewWave24, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true),
 	"Crew FlatList softMotion overscan residual for release"
 )
 assert(
@@ -588,11 +590,20 @@ assert(
 		1,
 		true
 	),
-	"Overview/Crew softMotion canon residual for release"
+	"Overview softMotion canon residual for release"
 )
 assert(
 	string.find(routerWave24, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true),
 	"Overview quietMotion fold residual for release"
+)
+assert(
+	string.find(
+		crewWave24,
+		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
+		1,
+		true
+	),
+	"Crew softMotion canon residual for release"
 )
 local guildWave24 = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
 local guildSoft = 0
@@ -673,8 +684,24 @@ assert(string.find(cfg, 'Id = "wave27-offline-brief"', 1, true), "Story wave27 r
 assert(string.find(cfg, 'Id = "update-5-1-wave27-offline"', 1, true), "Mail wave27 residual for release")
 mark("wave27 inventory continuum trade credits content residuals")
 
--- Raise floor past checks=32 once wave27 Inventory/Continuum/Trade residuals land.
-assert(#passed > 31, "release-readiness offline subset must stay beyond checks=31, got " .. tostring(#passed))
+-- Wave28: CrewView extract + MainGame TopBar/MoreDock softMotion + DV21 content.
+local crewWave28 = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+assert(string.find(crewWave28, "createElement(FlatList", 1, true), "Crew FlatList residual for release")
+assert(string.find(crewWave28, "FocusClaim", 1, true), "Crew FocusClaim residual for release")
+assert(string.find(crewWave28, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true), "Crew overscan residual for release")
+local routerWave28 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(string.find(routerWave28, 'lazyView("CrewView", "CrewView")', 1, true), "PageRouter lazy CrewView residual for release")
+assert(not string.find(routerWave28, "local function CrewRow", 1, true), "CrewRow must leave PageRouter for release")
+assert(not string.find(routerWave28, "local FlatList = require", 1, true), "PageRouter FlatList import residual for release")
+local mainWave28 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave28, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion residual for release")
+assert(string.find(mainWave28, "Canonical softMotion antilag gate — MoreDock", 1, true), "MoreDock softMotion residual for release")
+assert(string.find(cfg, 'Id = "wave28-offline-brief"', 1, true), "Story wave28 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave28-offline"', 1, true), "Mail wave28 residual for release")
+mark("wave28 crew extract maingame softMotion content residuals")
+
+-- Raise floor past checks=33 once wave28 Crew/MainGame residuals land.
+assert(#passed > 32, "release-readiness offline subset must stay beyond checks=32, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

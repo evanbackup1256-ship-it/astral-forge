@@ -143,7 +143,8 @@ assert(string.find(adminSrc, "CommandMath.Ensure", 1, true), "Admin GrantSignals
 assert(string.find(adminSrc, "WheelMath.Ensure", 1, true), "Admin GrantFreeSpins must WheelMath.Ensure")
 assert(string.find(routerSrc, "PageReadyMath.CountReadyQuests", 1, true), "PageRouter must use PageReadyMath")
 assert(string.find(routerSrc, "PageReadyMath.ForgePathReady", 1, true), "PageRouter must use ForgePathReady")
-assert(string.find(routerSrc, "PageReadyMath.SameCrewSnapshot", 1, true), "PageRouter must use SameCrewSnapshot")
+local crewSrc = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+assert(string.find(crewSrc, "PageReadyMath.SameCrewSnapshot", 1, true), "CrewView must use SameCrewSnapshot")
 
 -- Evidence: Admin GrantItemEssence / GrantSignals used to raw-index partial bags.
 assert(string.find(adminSrc, "profile.Items.Essence +=", 1, true) == nil, "GrantItemEssence must not raw-index Items.Essence")
@@ -158,7 +159,7 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 
-for _, body in { bagSrc, readySrc, progressionSrc, servicesSrc, adminSrc, routerSrc } do
+for _, body in { bagSrc, readySrc, progressionSrc, servicesSrc, adminSrc, routerSrc, crewSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end

@@ -39,6 +39,7 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/ContinuumView.luau",
 	"src/Client/AstralForge/pages/ConvergenceView.luau",
 	"src/Client/AstralForge/pages/CreditsView.luau",
+	"src/Client/AstralForge/pages/CrewView.luau",
 	"src/Client/AstralForge/pages/EchoForgeView.luau",
 	"src/Client/AstralForge/pages/ForgePathView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
@@ -355,6 +356,7 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/CommandView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
 	"src/Client/AstralForge/pages/ChatView.luau",
+	"src/Client/AstralForge/pages/CrewView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/RebirthPanel.luau",
 	"src/Client/AstralForge/pages/CreditsView.luau",
@@ -405,6 +407,7 @@ do
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 8,
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 8,
+		["src/Client/AstralForge/pages/CrewView.luau"] = 8,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
@@ -427,6 +430,7 @@ do
 		"src/Client/AstralForge/pages/ConvergenceView.luau",
 		"src/Client/AstralForge/pages/SettingsView.luau",
 		"src/Client/AstralForge/pages/CreditsView.luau",
+		"src/Client/AstralForge/pages/CrewView.luau",
 		"src/Client/AstralForge/pages/RebirthPanel.luau",
 		"src/Client/AstralForge/pages/ContinuumView.luau",
 		"src/Client/AstralForge/pages/MailboxView.luau",
@@ -805,6 +809,7 @@ do
 		"src/Client/AstralForge/pages/CommandView.luau",
 		"src/Client/AstralForge/pages/StarGridView.luau",
 		"src/Client/AstralForge/pages/ForgePathView.luau",
+		"src/Client/AstralForge/pages/CrewView.luau",
 	} do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")
@@ -820,8 +825,12 @@ do
 	)
 
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
-	local crewClips = string.match(router, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
+	-- Wave28: CrewView extract owns this panel; keep the footgun assert on the extract.
+	local crewViewSrc = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+	local crewClips = string.match(crewViewSrc, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
 	assert(crewClips == "false", "Crew header must keep clips = false so REFRESH stays reachable")
+	assert(string.find(crewViewSrc, "GamepadNavigationService.FocusClaim", 1, true), "Crew must FocusClaim VISIT/REFRESH hosts")
+	assert(string.find(crewViewSrc, 'Name = "CrewVisitClaim"', 1, true), "Crew Visit host must stay named CrewVisitClaim")
 
 	-- Crate reveal claim hosts (stage + overlay) must FocusClaim so D-pad/A can reach CLAIM.
 	for _, path in {

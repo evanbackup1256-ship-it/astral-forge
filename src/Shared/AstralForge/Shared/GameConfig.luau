@@ -5169,11 +5169,44 @@ local GameConfig = {
 			Color = Color3.fromRGB(50, 235, 190),
 		},
 
+		{
+			Id = "wave28-offline-brief",
+			Title = "Wave Twenty Eight Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "CrewView extract from PageRouter + MainGame TopBar/MoreDock softMotion; readiness past checks=33.",
+			Body = {
+				"Crew roster FlatList/FocusClaim lives in CrewView.luau; PageRouter lazy-loads it and drops unused FlatList/Players imports.",
+				"MainGame TopBar and MoreDock fold the canonical softMotion antilag gate; offline release-readiness checks grow past checks=33.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 78, CashMinutes = 34, Signals = 36 },
+			Color = Color3.fromRGB(45, 230, 185),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave28-offline",
+			Subject = "Dock note — wave twenty eight offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "CrewView extract + MainGame TopBar/MoreDock softMotion — still DataVersion 21.",
+			Body = {
+				"CrewView peels roster FlatList/FocusClaim out of PageRouter; TopBar/MoreDock softMotion gates chrome motion.",
+				"Offline release-readiness checks grow past checks=33 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 78, Stardust = 94, Signals = 40 },
+			Color = Color3.fromRGB(45, 230, 185),
+		},
+
 
 		{
 			Id = "update-5-1-wave27-offline",
