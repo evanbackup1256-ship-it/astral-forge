@@ -48,7 +48,9 @@ local function MailRow(_param)
 	local layoutOrder = _param.layoutOrder
 	local onChoose = _param.onChoose
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — MailRow.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local reveal = useStagger(layoutOrder, softMotion)
 	return React.createElement("imagebutton", {
 		LayoutOrder = layoutOrder,
@@ -157,6 +159,7 @@ local function MailboxView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — MailboxView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack

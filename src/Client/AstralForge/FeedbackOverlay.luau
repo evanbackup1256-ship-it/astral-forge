@@ -9,6 +9,7 @@ local composePresence = _motion.composePresence
 local ScaleFromCenter = _motion.ScaleFromCenter
 local useEntrance = _motion.useEntrance
 local useExitTransition = _motion.useExitTransition
+local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.theme)
 local chromeFor = _theme.chromeFor
@@ -49,6 +50,8 @@ local function FeedbackOverlay(_param)
 		end
 	end, {})
 	local enter = useEntrance(softMotion)
+	local headerReveal = useStagger(0, softMotion)
+	local footerReveal = useStagger(1, softMotion)
 	local _binding = useExitTransition(softMotion)
 	local leave = _binding[1]
 	local closing = _binding[2]
@@ -221,7 +224,9 @@ local function FeedbackOverlay(_param)
 		size = if compact then 44 else 50,
 		radius = 14,
 		filled = sent,
+		reveal = headerReveal,
 		reducedMotion = softMotion,
+		glow = sent and not softMotion,
 	})
 	local _exp_4 = not keyboardCompact and React.createElement(Text, {
 		value = if sent then "THANK YOU" else "FEEDBACK",
@@ -232,6 +237,9 @@ local function FeedbackOverlay(_param)
 		position = UDim2.fromOffset(if compact then 56 else 62, 0),
 		sizeConstraint = UDim2.new(1, -116, 0, 16),
 		zIndex = 474,
+		transparency = headerReveal:map(function(amount)
+			return 1 - amount
+		end),
 	})
 	local _exp_5 = React.createElement(Text, {
 		value = if sent then "Got it. Thanks." elseif keyboardCompact then "Send feedback" else "What's bugging you?",
@@ -384,7 +392,9 @@ local function FeedbackOverlay(_param)
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
+		position = footerReveal:map(function(amount)
+			return UDim2.new(0, 0, 1, -TapTarget + math.round((1 - amount) * 10))
+		end),
 		reducedMotion = softMotion,
 		highlight = true,
 	}) else React.createElement(Button, {
@@ -394,10 +404,12 @@ local function FeedbackOverlay(_param)
 		color = if canSend then Palette.cyan else Palette.panelSoft,
 		textColor = if canSend then Palette.ink else Palette.muted,
 		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
+		position = footerReveal:map(function(amount)
+			return UDim2.new(0, 0, 1, -TapTarget + math.round((1 - amount) * 10))
+		end),
 		disabled = not canSend,
 		reducedMotion = softMotion,
-		highlight = canSend,
+		highlight = canSend and not softMotion,
 	}))))))
 end
 return {

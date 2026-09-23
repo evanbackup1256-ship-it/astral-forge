@@ -1195,8 +1195,39 @@ assert(string.find(cfg, 'Id = "wave43-offline-brief"', 1, true), "Story wave43 r
 assert(string.find(cfg, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43 residual for release")
 mark("wave43 snapshotenvelope chat convergence stargrid densify content residuals")
 
--- Wave43 residuals raise the offline subset past checks=48.
-assert(#passed > 48, "release-readiness offline subset must stay beyond checks=48, got " .. tostring(#passed))
+-- Wave44: UnlimitedMoneySeal/StoryMailSnapshot peels + Overview/Feedback/Mailbox/Echo densify + DENSE floors + DV21.
+local moneyWave44 = fs.readFile("src/Server/AstralForge/Modules/UnlimitedMoneySeal.luau")
+assert(string.find(moneyWave44, "function UnlimitedMoneySeal.Apply", 1, true), "UnlimitedMoneySeal.Apply residual for release")
+local storyMailWave44 = fs.readFile("src/Server/AstralForge/Modules/StoryMailSnapshot.luau")
+assert(string.find(storyMailWave44, "function StoryMailSnapshot.BuildStory", 1, true), "StoryMailSnapshot.BuildStory residual for release")
+local servicesWave44 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(servicesWave44, "UnlimitedMoneySeal.Apply", 1, true), "ServerServices UnlimitedMoneySeal residual for release")
+assert(string.find(servicesWave44, "StoryMailSnapshot.BuildMailbox", 1, true), "ServerServices StoryMailSnapshot residual for release")
+assert(not string.find(servicesWave44, "profile.Cash = MAX_SAFE_CURRENCY", 1, true), "cash seal must leave ServerServices for release")
+local overviewWave44 = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+assert(string.find(overviewWave44, "Canonical softMotion antilag gate — ReleaseCountdown", 1, true), "ReleaseCountdown softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(overviewWave44, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 16, "Overview softMotion densify residual for release, got " .. tostring(soft))
+end
+local echoWave44 = fs.readFile("src/Client/AstralForge/pages/EchoForgeView.luau")
+assert(string.find(echoWave44, "Canonical softMotion antilag gate — EchoCharge", 1, true), "EchoCharge softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(echoWave44, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Echo softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave44-offline-brief"', 1, true), "Story wave44 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave44-offline"', 1, true), "Mail wave44 residual for release")
+mark("wave44 unlimitedmoney storymail overview feedback mailbox echo densify content residuals")
+
+-- Wave44 residuals raise the offline subset past checks=49.
+assert(#passed > 49, "release-readiness offline subset must stay beyond checks=49, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

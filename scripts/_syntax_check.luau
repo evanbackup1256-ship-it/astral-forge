@@ -115,6 +115,8 @@ local files = {
 	"src/Server/AstralForge/Modules/VisitSnapshot.luau",
 	"src/Server/AstralForge/Modules/PublicPlayerRecord.luau",
 	"src/Server/AstralForge/Modules/SettingsSeal.luau",
+	"src/Server/AstralForge/Modules/UnlimitedMoneySeal.luau",
+	"src/Server/AstralForge/Modules/StoryMailSnapshot.luau",
 	"src/Server/AstralForge/Modules/ItemLoadoutMath.luau",
 	"src/Server/AstralForge/Modules/OverchargeCombo.luau",
 	"src/Server/AstralForge/Modules/RankBracket.luau",

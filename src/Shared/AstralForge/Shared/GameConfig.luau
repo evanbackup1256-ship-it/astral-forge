@@ -5418,6 +5418,21 @@ local GameConfig = {
 			Reward = { Stardust = 108, CashMinutes = 49, Signals = 51 },
 			Color = Color3.fromRGB(0, 215, 170),
 		},
+		{
+			Id = "wave44-offline-brief",
+			Title = "Wave Forty Four Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "UnlimitedMoneySeal/StoryMailSnapshot peels + Overview/Feedback/Mailbox/Echo densify; DENSE floors; readiness past checks=49.",
+			Body = {
+				"UnlimitedMoneySeal and StoryMailSnapshot peel pure seal/snapshot builders out of ServerServices.",
+				"Overview/Feedback/Mailbox/Echo thicken softMotion; playability DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 110, CashMinutes = 50, Signals = 52 },
+			Color = Color3.fromRGB(0, 220, 175),
+		},
 
 
 
@@ -5529,6 +5544,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 108, Stardust = 124, Signals = 55 },
 			Color = Color3.fromRGB(0, 215, 170),
+		},
+		{
+			Id = "update-5-1-wave44-offline",
+			Subject = "Dock note — wave forty four offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "UnlimitedMoneySeal/StoryMailSnapshot + overview/feedback/mailbox/echo softMotion — still DataVersion 21.",
+			Body = {
+				"UnlimitedMoneySeal and StoryMailSnapshot peel ServerServices seal/snapshot math; Overview/Feedback/Mailbox/Echo densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=49 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 110, Stardust = 126, Signals = 56 },
+			Color = Color3.fromRGB(0, 220, 175),
 		},
 
 		{

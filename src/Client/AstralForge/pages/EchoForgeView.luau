@@ -644,6 +644,7 @@ local function EchoForgeView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — EchoForgeView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local echoes = state.ForgeEchoes or EMPTY_ECHOES
@@ -729,6 +730,9 @@ local function EchoForgeView(_param)
 	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
 	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
 	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not softMotion, 1.7)
+	-- Canonical softMotion antilag gate — EchoCharge.
+	local chargeReveal = useStagger(0, softMotion)
+	local inventoryReveal = useStagger(1, softMotion)
 	local loomSize = if stack then 72 else 128
 	local heroPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
@@ -736,6 +740,7 @@ local function EchoForgeView(_param)
 		background = heroSurface,
 		padding = if stack then 15 else Layout.cardPadding,
 		highlight = echoes.Ready,
+		reveal = chargeReveal,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("frame", {
@@ -1045,10 +1050,14 @@ local function EchoForgeView(_param)
 	table.insert(sections, {
 		id = "inventory",
 		height = inventorySectionH,
-		element = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
+		element = React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1),
+			accent = Palette.cyan,
+			background = Palette.panel,
+			padding = 0,
+			reveal = inventoryReveal,
+			reducedMotion = softMotion,
+			clips = false,
 		}, React.createElement(SectionLabel, {
 			value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,
 			color = Palette.cyan,

@@ -69,6 +69,8 @@ serviceFactories["GameService"] = function()
 	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("VisitSnapshot"))
 	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("PublicPlayerRecord"))
 	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SettingsSeal"))
+	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UnlimitedMoneySeal"))
+	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("StoryMailSnapshot"))
 	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OverchargeCombo"))
 	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RankBracket"))
 	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
@@ -165,11 +167,7 @@ serviceFactories["GameService"] = function()
 	-- Deferred snapshot / high-value grant tables live in CommandActionValidators.
 
 	local function enforceUnlimitedMoney(profile)
-		if profile.Flags.UnlimitedMoney then
-			profile.Cash = MAX_SAFE_CURRENCY
-			profile.RunCash = MAX_SAFE_CURRENCY
-			profile.LifetimeCash = Economy.Max(profile.LifetimeCash, MAX_SAFE_CURRENCY)
-		end
+		UnlimitedMoneySeal.Apply(profile, MAX_SAFE_CURRENCY, Economy)
 	end
 
 	local itemById = {}
@@ -1139,34 +1137,8 @@ serviceFactories["GameService"] = function()
 			end
 			runtime.FeatureUnlocks = current
 		end
-		local storyState = {}
-		for index, chapter in GameConfig.Story do
-			storyState[index] = {
-				Id = chapter.Id,
-				Unlocked = ProgressionGate.Progress(profile, chapter.Kind) >= chapter.Target,
-				Progress = ProgressionGate.Progress(profile, chapter.Kind),
-				Target = chapter.Target,
-				Read = profile.Story.Read[chapter.Id] == true,
-				Claimed = profile.Story.Claimed[chapter.Id] == true,
-			}
-		end
-		local mailState = {}
-		local unreadMail = 0
-		for _, message in GameConfig.Mail do
-			if
-				not profile.Mailbox.Deleted[message.Id] and ProgressionGate.Meets(profile, message.Requirement)
-			then
-				local read = profile.Mailbox.Read[message.Id] == true
-				if not read then
-					unreadMail += 1
-				end
-				table.insert(mailState, {
-					Id = message.Id,
-					Read = read,
-					Claimed = profile.Mailbox.Claimed[message.Id] == true,
-				})
-			end
-		end
+		local storyState = StoryMailSnapshot.BuildStory(profile, GameConfig.Story, ProgressionGate)
+		local mailState, unreadMail = StoryMailSnapshot.BuildMailbox(profile, GameConfig.Mail, ProgressionGate)
 		local autoSalvage = type(profile.Items.AutoSalvage) == "table" and profile.Items.AutoSalvage
 			or { Enabled = false, KeepNew = true, Rarities = {} }
 

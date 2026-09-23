@@ -406,11 +406,11 @@ do
 		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 12,
 		["src/Client/AstralForge/pages/SettingsView.luau"] = 12,
 		["src/Client/AstralForge/pages/ContinuumView.luau"] = 12,
-		["src/Client/AstralForge/pages/MailboxView.luau"] = 6,
+		["src/Client/AstralForge/pages/MailboxView.luau"] = 12,
 		["src/Client/AstralForge/pages/MissionsView.luau"] = 12,
 		["src/Client/AstralForge/pages/MilestonesView.luau"] = 12,
 		["src/Client/AstralForge/pages/ResearchView.luau"] = 10,
-		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 10,
+		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 12,
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 12,
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 10,
@@ -428,8 +428,10 @@ do
 		["src/Client/AstralForge/pages/WheelView.luau"] = 10,
 		["src/Client/AstralForge/pages/StarGridView.luau"] = 12,
 		["src/Client/AstralForge/pages/StoryView.luau"] = 6,
-		["src/Client/AstralForge/pages/EchoForgeView.luau"] = 6,
+		["src/Client/AstralForge/pages/EchoForgeView.luau"] = 12,
 		["src/Client/AstralForge/pages/ForgePathView.luau"] = 10,
+		["src/Client/AstralForge/pages/OverviewView.luau"] = 12,
+		["src/Client/AstralForge/FeedbackOverlay.luau"] = 12,
 	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
@@ -461,6 +463,8 @@ do
 		"src/Client/AstralForge/pages/StoryView.luau",
 		"src/Client/AstralForge/pages/EchoForgeView.luau",
 		"src/Client/AstralForge/pages/ForgePathView.luau",
+		"src/Client/AstralForge/pages/OverviewView.luau",
+		"src/Client/AstralForge/FeedbackOverlay.luau",
 	} do
 		local src = fs.readFile(path)
 		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")

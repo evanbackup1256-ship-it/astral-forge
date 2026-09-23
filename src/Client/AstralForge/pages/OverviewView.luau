@@ -47,6 +47,9 @@ local function ReleaseCountdown(_param)
 	local layoutOrder = _param.layoutOrder
 	local viewport = useViewport()
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ReleaseCountdown.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local Workspace = game:GetService("Workspace")
 	local function syncedNow()
 		local ok, value = pcall(function()
@@ -85,7 +88,7 @@ local function ReleaseCountdown(_param)
 			setSlam(function(n)
 				return n + 1
 			end)
-			if not reducedMotion then
+			if not softMotion then
 				Audio:play("prestige")
 				Audio:play("bootFinaleBang")
 			end
@@ -93,11 +96,11 @@ local function ReleaseCountdown(_param)
 		if not live then
 			wasLive.current = false
 		end
-	end, { live, reducedMotion })
+	end, { live, softMotion })
 	-- Live wash/orbit are decorative; keep them on high tier only so Overview stays calm under load.
-	local animateLive = live and not reducedMotion and antilag.allowAmbient
+	local animateLive = live and not softMotion and antilag.allowAmbient
 	local pulse = usePulse(animateLive, 2.15)
-	local flash = useFlash(slam, reducedMotion, 1.2)
+	local flash = useFlash(slam, softMotion, 1.2)
 	local orbit = useClock(animateLive and antilag.tier >= 2, 0.48, 1, true)
 	local values = { {
 		label = "DAYS",
@@ -140,8 +143,8 @@ local function ReleaseCountdown(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, 2),
 		glow = live,
-		spin = live and not reducedMotion,
-		reducedMotion = reducedMotion,
+		spin = live and not softMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_2 = React.createElement(Text, {
 		value = if live then "LAUNCH" else "RELEASE COUNTDOWN",
@@ -164,7 +167,7 @@ local function ReleaseCountdown(_param)
 	})
 	local _result
 	if live then
-		local _condition = not reducedMotion
+		local _condition = not softMotion
 		if _condition then
 			local _exp_4 = { 0, 1, 2, 3, 4, 5, 6, 7 }
 			-- ▼ ReadonlyArray.map ▼
@@ -235,9 +238,9 @@ local function ReleaseCountdown(_param)
 			fit = true,
 			minSize = 16,
 			sizeConstraint = UDim2.fromScale(1, 1),
-			enabled = not reducedMotion,
+			enabled = not softMotion,
 			periodSeconds = 1.6,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		})))
 	else
 		-- ▼ ReadonlyArray.map ▼
@@ -271,7 +274,7 @@ local function ReleaseCountdown(_param)
 				CornerRadius = UDim.new(1, 0),
 			})), React.createElement(NumberSpinnerHost, {
 				value = entry.value,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				duration = 0.36,
 				size = if stack then 20 else 24,
 				color = entry.color,
@@ -301,7 +304,7 @@ local function ReleaseCountdown(_param)
 		accent = accent,
 		background = Palette.panelRaised,
 		padding = 16,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = live,
 		clips = false,
 	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement("frame", {
