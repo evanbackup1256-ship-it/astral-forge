@@ -1,7 +1,9 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local PlayerMark = require(script.Parent.Parent.Icon).PlayerMark
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
@@ -240,6 +242,26 @@ local function GuildGoalCard(_param)
 	local accent = if goal.Completed then Palette.mint else Palette.mango
 	local surface = darken(accent, 0.9)
 	local height = if stack then 234 else 196
+	local claimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on CLAIM REWARD when the shared goal is ready for this member.
+	React.useEffect(function()
+		if not canClaim or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = claimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { canClaim, goal.TypeId, goal.Completed })
 	-- The highlight breathing pulse fires only while the reward is actually claimable.
 	local _exp = React.createElement(Text, {
 		value = if goal.Completed then "GUILD GOAL • COMPLETE" else "GUILD GOAL",
@@ -343,7 +365,14 @@ local function GuildGoalCard(_param)
 		minSize = 8,
 		position = UDim2.fromOffset(0, if stack then 146 else 148),
 		sizeConstraint = UDim2.new(1, if stack then 0 else -170, 0, 16),
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		Name = "GuildClaimActions",
+		Size = if stack then UDim2.new(1, 0, 0, 46) else UDim2.fromOffset(160, 46),
+		Position = if stack then UDim2.new(0, 0, 1, -46) else UDim2.new(1, -160, 1, -46),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = if canClaim then claimHostRef else nil,
+	}, React.createElement(Button, {
 		text = if claimed then "CLAIMED" elseif canClaim then "CLAIM REWARD" elseif goal.Completed then "NOT ELIGIBLE" else "IN PROGRESS",
 		icon = if claimed then "Check" else "Gift",
 		onClick = function()
@@ -357,10 +386,9 @@ local function GuildGoalCard(_param)
 		loading = canClaim and busy,
 		shakeToken = if canClaim then shakeToken else 0,
 		highlight = canClaim,
-		size = if stack then UDim2.new(1, 0, 0, 46) else UDim2.fromOffset(160, 46),
-		position = if stack then UDim2.new(0, 0, 1, -46) else UDim2.new(1, -160, 1, -46),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
-	}))
+	})))
 end
 local function UpgradeCard(_param)
 	local row = _param.row

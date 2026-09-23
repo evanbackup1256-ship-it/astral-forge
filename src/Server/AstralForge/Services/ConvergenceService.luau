@@ -46,12 +46,25 @@ return function()
 		profile.Cash = OmegaMath.Add(profile.Cash, cash)
 		profile.RunCash = OmegaMath.Add(profile.RunCash, cash)
 		profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, cash)
+		-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats/Command/BoostInventory —
+		-- claiming a convergence tier must not throw before the Claimed flag sticks.
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = {}
+		end
 		profile.Stats.Collected = OmegaMath.Add(profile.Stats.Collected, cash)
-		profile.Stardust += math.max(0, tonumber(reward.Stardust) or 0)
-		profile.Cores += math.max(0, tonumber(reward.Cores) or 0)
-		if reward.Signals then profile.Command.Signals += math.max(0, tonumber(reward.Signals) or 0) end
-		if reward.Boost and profile.BoostInventory[reward.Boost] ~= nil then
-			profile.BoostInventory[reward.Boost] += 1
+		profile.Stardust = (tonumber(profile.Stardust) or 0) + math.max(0, tonumber(reward.Stardust) or 0)
+		profile.Cores = (tonumber(profile.Cores) or 0) + math.max(0, tonumber(reward.Cores) or 0)
+		if reward.Signals then
+			if type(profile.Command) ~= "table" then
+				profile.Command = { Signals = 0 }
+			end
+			profile.Command.Signals = (tonumber(profile.Command.Signals) or 0) + math.max(0, tonumber(reward.Signals) or 0)
+		end
+		if reward.Boost then
+			if type(profile.BoostInventory) ~= "table" then
+				profile.BoostInventory = {}
+			end
+			profile.BoostInventory[reward.Boost] = (tonumber(profile.BoostInventory[reward.Boost]) or 0) + 1
 		end
 	end
 

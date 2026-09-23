@@ -176,7 +176,11 @@ return function()
 			return false, "That rail is already empty."
 		end
 		profile.Lab.Routing[channelId] = current + delta
-		profile.Stats.PowerMoves += 1
+		-- Partial Stats bags (same class as ClaimOrder) must not crash power routing.
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = { PowerMoves = 0 }
+		end
+		profile.Stats.PowerMoves = math.max(0, math.floor(tonumber(profile.Stats.PowerMoves) or 0)) + 1
 		return true, delta > 0 and "Power cell assigned." or "Power cell returned."
 	end
 

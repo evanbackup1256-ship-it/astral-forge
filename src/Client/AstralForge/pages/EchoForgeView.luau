@@ -1,5 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local AutoGrid = require(script.Parent.Parent.scrolling).AutoGrid
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
@@ -472,6 +474,7 @@ local function InventoryCard(_param)
 	local armed = _param.armed
 	local arm = _param.arm
 	local index = _param.index
+	local linkHostRef = _param.linkHostRef
 	local _exp = echoes.Equipped
 	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(slot)
@@ -575,7 +578,15 @@ local function InventoryCard(_param)
 		fit = true,
 		position = UDim2.fromOffset(0, 82),
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		-- FocusClaim prefers Claim-named hosts; LINK is the primary inventory CTA.
+		Name = "EchoClaimActions",
+		Size = UDim2.new(0.48, -4, 0, TapTarget),
+		Position = UDim2.new(0, 0, 1, -TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = linkHostRef,
+	}, React.createElement(Button, {
 		text = if current ~= nil and echoes.SlotsUnlocked == 1 then "LINKED" else `LINK SLOT {nextSlot}`,
 		icon = "Wave",
 		onClick = function()
@@ -587,10 +598,9 @@ local function InventoryCard(_param)
 		color = if current ~= nil and echoes.SlotsUnlocked == 1 then Palette.panelSoft else item.Color,
 		textColor = Palette.cream,
 		disabled = current ~= nil and echoes.SlotsUnlocked == 1,
-		size = UDim2.new(0.48, -4, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -TapTarget),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
-	}), React.createElement(Button, {
+	})), React.createElement(Button, {
 		text = if maxed then "MAX" else `{compactNumber(item.UpgradeCost)} DUST`,
 		icon = "Research",
 		onClick = function()
@@ -633,6 +643,43 @@ local function EchoForgeView(_param)
 	React.useEffect(function()
 		return setArmedUid(nil)
 	end, { #echoes.Inventory })
+	local linkHostRef = React.useRef(nil)
+	local firstLinkUid = nil
+	for _, item in echoes.Inventory do
+		local alreadySoloLinked = false
+		if echoes.SlotsUnlocked == 1 then
+			for _, slot in echoes.Equipped do
+				local echo = slot.Echo
+				if echo ~= nil and echo.Uid == item.Uid then
+					alreadySoloLinked = true
+					break
+				end
+			end
+		end
+		if not alreadySoloLinked then
+			firstLinkUid = item.Uid
+			break
+		end
+	end
+	-- Gamepad: park Selection on the first actionable LINK SLOT CTA.
+	React.useEffect(function()
+		if firstLinkUid == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = linkHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { firstLinkUid, #echoes.Inventory, echoes.SlotsUnlocked })
 	local patternTotal = echoes.Pattern.Collect + echoes.Pattern.Surge + echoes.Pattern.Build + echoes.Pattern.Explore
 	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
 	local heroH = if stack then 264 else 278
@@ -874,6 +921,7 @@ local function EchoForgeView(_param)
 					return setArmedUid(item.Uid)
 				end,
 				index = index,
+				linkHostRef = if item.Uid == firstLinkUid then linkHostRef else nil,
 			})
 		end
 		for _k, _v in _exp_13 do

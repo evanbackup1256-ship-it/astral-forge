@@ -147,6 +147,11 @@ assert(
 --   2) Admin GrantAnomalyStabilizations bumped Anomaly.Stabilizations only; Stats lagged
 --      so weekly AnomalyStabilizations + achievement ledgers stayed at 0 after grants.
 --   3) Partial Stats bags crashed AchievementProgress / currentWeeklyValue / Lab ClaimOrder.
+--   4) Admin online WORLD published CurrentZone (visit) as Zone → unlock watermark lagged
+--      whenever a player stood in an earlier world (SetZone / Discord use profile.Zone).
+--   5) Convergence applyReward indexed profile.Stats / Command / BoostInventory without
+--      guards — partial bags threw mid-claim; boost rewards silently dropped when the
+--      inventory key was absent.
 assert(
 	string.find(progressionSrc, "TotalRebirthsSpent", 1, true) ~= nil,
 	"AchievementProgress Rebirths must include Domain.TotalRebirthsSpent"
@@ -171,6 +176,18 @@ assert(
 assert(
 	string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true) ~= nil,
 	"Admin GrantAnomalyStabilizations must sync Stats.AnomalyStabilizations"
+)
+assert(
+	string.find(adminSrc, "Zone = profile.Zone", 1, true) ~= nil,
+	"Admin online list must publish unlock watermark profile.Zone"
+)
+assert(
+	string.find(adminSrc, "\tZone = profile.CurrentZone", 1, true) == nil,
+	"Admin online Zone must not be CurrentZone (visit location)"
+)
+assert(
+	string.find(adminSrc, "CurrentZone = profile.CurrentZone", 1, true) ~= nil,
+	"Admin online list may still expose CurrentZone separately for visit clarity"
 )
 
 -- Pure replica of AchievementProgress Rebirths + AnomalyStabilizations nil-guards.
@@ -202,6 +219,32 @@ assert(
 	string.find(labSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
 	"LabService.ClaimOrder must nil-safe Stats before OrdersCompleted bump"
 )
+assert(
+	string.find(labSrc, "Stats.PowerMoves", 1, true) ~= nil,
+	"LabService.RoutePower must bump Stats.PowerMoves"
+)
+assert(
+	string.find(labSrc, "tonumber(profile.Stats.PowerMoves)", 1, true) ~= nil,
+	"LabService.RoutePower must tonumber PowerMoves (nil-safe)"
+)
+
+local convergenceSrc = fs.readFile("src/Server/AstralForge/Services/ConvergenceService.luau")
+assert(
+	string.find(convergenceSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	"Convergence applyReward must nil-safe Stats before Collected bump"
+)
+assert(
+	string.find(convergenceSrc, 'type(profile.Command) ~= "table"', 1, true) ~= nil,
+	"Convergence applyReward must nil-safe Command before Signals bump"
+)
+assert(
+	string.find(convergenceSrc, 'type(profile.BoostInventory) ~= "table"', 1, true) ~= nil,
+	"Convergence applyReward must nil-safe BoostInventory before boost grant"
+)
+assert(
+	string.find(convergenceSrc, "profile.BoostInventory[reward.Boost] ~= nil", 1, true) == nil,
+	"Convergence must not silently drop boost rewards when the inventory key is absent"
+)
 
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
@@ -212,9 +255,9 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 -- Do not couple these modules to vendor/Packages (tree may exist; we must not reference it).
-for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc } do
+for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgradeSrc, forgeClaimSrc, labSrc, convergenceSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence nil-safe")

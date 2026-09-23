@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
@@ -8,6 +9,7 @@ local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local useWallClock = _motion.useWallClock
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
@@ -57,6 +59,33 @@ local function ConvergenceView(_param)
 	local tierHeight = if stack then 154 else 94
 	local pageGap = 12
 	local tiersH = if #tiers > 0 then #tiers * tierHeight + math.max(0, #tiers - 1) * pageGap else 0
+	local claimHostRef = React.useRef(nil)
+	local firstClaimTier = nil
+	for _, tier in tiers do
+		if tier.CanClaim then
+			firstClaimTier = tier.Tier
+			break
+		end
+	end
+	-- Gamepad: park Selection on the first claimable personal tier CTA.
+	React.useEffect(function()
+		if firstClaimTier == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = claimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { firstClaimTier, event.EventId })
 	local _exp_2 = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.mango,
@@ -154,7 +183,14 @@ local function ConvergenceView(_param)
 			position = if stack then UDim2.fromOffset(0, 54) else UDim2.new(0, 0, 1, -12),
 			size = UDim2.new(1, if stack then 0 else -170, 0, 6),
 			reducedMotion = reducedMotion,
-		}), React.createElement(Button, {
+		}), React.createElement("frame", {
+			Name = "ConvergenceClaimActions",
+			Size = if stack then UDim2.new(1, 0, 0, 48) else UDim2.fromOffset(150, 48),
+			Position = if stack then UDim2.new(0, 0, 1, -48) else UDim2.new(1, -150, 0.5, -24),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ref = if tier.Tier == firstClaimTier then claimHostRef else nil,
+		}, React.createElement(Button, {
 			text = if tier.Claimed then "CLAIMED" elseif tier.CanClaim then "CLAIM" else "LOCKED",
 			icon = if tier.Claimed then "Check" else "Gift",
 			onClick = function()
@@ -167,10 +203,9 @@ local function ConvergenceView(_param)
 			color = buttonColor,
 			textColor = if tier.CanClaim then Palette.ink else Palette.creamSoft,
 			disabled = not tier.CanClaim,
-			size = if stack then UDim2.new(1, 0, 0, 48) else UDim2.fromOffset(150, 48),
-			position = if stack then UDim2.new(0, 0, 1, -48) else UDim2.new(1, -150, 0.5, -24),
+			size = UDim2.fromScale(1, 1),
 			reducedMotion = reducedMotion,
-		}))
+		})))
 	end
 	for _k, _v in tiers do
 		_newValue[_k] = _callback(_v, _k - 1, tiers)

@@ -358,6 +358,8 @@ do
 		string.find(echo, "LINK SLOT", 1, true) and string.find(echo, "clips = false", 1, true),
 		"EchoForge inventory cards must keep clips = false near LINK SLOT CTAs"
 	)
+	assert(string.find(echo, "GamepadNavigationService.FocusClaim", 1, true), "EchoForge LINK must FocusClaim when actionable")
+	assert(string.find(echo, 'Name = "EchoClaimActions"', 1, true), "EchoForge LINK host must be named EchoClaimActions")
 
 	local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
 	assert(string.find(boosts, "clips = false", 1, true), "Boosts cards must keep clips = false for Activate CTA")
@@ -368,6 +370,14 @@ do
 	local milestones = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
 	assert(string.find(milestones, "GamepadNavigationService.FocusClaim", 1, true), "Milestones CLAIM must FocusClaim when ready")
 	assert(string.find(milestones, 'Name = "MilestoneClaimActions"', 1, true), "Milestones CLAIM host must be named MilestoneClaimActions")
+
+	local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
+	assert(string.find(guild, "GamepadNavigationService.FocusClaim", 1, true), "Guild CLAIM REWARD must FocusClaim when ready")
+	assert(string.find(guild, 'Name = "GuildClaimActions"', 1, true), "Guild CLAIM host must be named GuildClaimActions")
+
+	local convergence = fs.readFile("src/Client/AstralForge/pages/ConvergenceView.luau")
+	assert(string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true), "Convergence CLAIM must FocusClaim when ready")
+	assert(string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true), "Convergence CLAIM host must be named ConvergenceClaimActions")
 
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
