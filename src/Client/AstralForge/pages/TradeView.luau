@@ -1288,6 +1288,8 @@ local function TradeView(_param)
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
+				-- FocusClaim Ready/Confirm/Cancel must not clip CTA overshoot.
+				ClipsDescendants = false,
 			}, React.createElement("uilistlayout", {
 				FillDirection = Enum.FillDirection.Vertical,
 				SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1300,6 +1302,8 @@ local function TradeView(_param)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			-- FocusClaim Ready/Confirm/Cancel must not clip CTA overshoot.
+			ClipsDescendants = false,
 		}, React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
 			SortOrder = Enum.SortOrder.LayoutOrder,

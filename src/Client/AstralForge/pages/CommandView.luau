@@ -896,7 +896,7 @@ local function CommandView(_param)
 				columns = titleCols,
 				cellHeight = titleCellH,
 				gap = gridGap,
-				overscanRows = 0,
+				overscanRows = if softMotion then 0 else 1,
 				position = UDim2.fromOffset(0, 52),
 				itemKey = function(index)
 					local title = command.Titles[index + 1]

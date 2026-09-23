@@ -11,15 +11,16 @@ return function()
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local ProgressionOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionOpsMath"))
+	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UtcClockMath"))
 
 	local ProgressionService = {}
 
 	local function currentDay(): number
-		return math.floor(os.time() / 86400)
+		return UtcClockMath.Day(os.time())
 	end
 
 	local function currentWeek(): number
-		return math.floor(os.time() / (86400 * 7))
+		return UtcClockMath.Week(os.time())
 	end
 
 	local function copyReward(reward)
@@ -181,7 +182,9 @@ return function()
 		end
 		if reward.FreeSpins and reward.FreeSpins > 0 then
 			local wheel = ensureWheel(profile)
-			wheel.FreeSpins = wheel.FreeSpins + math.floor(reward.FreeSpins)
+			-- Belt-and-suspenders: Ensure already tonumber-safes, but keep grant
+			-- path robust if a caller bypasses Ensure with a string FreeSpins bag.
+			wheel.FreeSpins = (tonumber(wheel.FreeSpins) or 0) + math.floor(reward.FreeSpins)
 			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
 		end
 		if type(reward.Keys) == "table" then
@@ -250,25 +253,18 @@ return function()
 
 	function ProgressionService.Progress(profile, kind: string, amount: number)
 		local questsBag = ensureQuests(profile)
-		for _, quest in questsBag.Items do
-			if
-				quest.Kind == kind
-				or (quest.Kind == "BuyAny" and (kind == "BuyMachine" or kind == "BuyResearch"))
-			then
-				quest.Progress = math.min(quest.Target, quest.Progress + amount)
-			end
-		end
+		-- Progress/Target may arrive as numeric strings from Studio fixtures —
+		-- AdvanceQuestProgress tonumber-safes before summing.
+		ProgressionOpsMath.AdvanceQuestProgress(questsBag.Items, kind, amount)
 	end
 
 	function ProgressionService.ClaimQuest(profile, questId: string): (boolean, string)
 		local questsBag = ensureQuests(profile)
 		for _, quest in questsBag.Items do
 			if quest.Id == questId then
-				if quest.Claimed then
-					return false, "That mission reward was already claimed."
-				end
-				if quest.Progress < quest.Target then
-					return false, "That mission is not complete yet."
+				local ok, reason = ProgressionOpsMath.CanClaimQuest(quest)
+				if not ok then
+					return false, reason
 				end
 				quest.Claimed = true
 				return true, ProgressionService.ApplyReward(profile, quest.Reward)

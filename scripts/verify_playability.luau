@@ -521,7 +521,15 @@ end
 		string.find(upgradeSoft, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
 		"UpgradeBoard must declare canonical softMotion"
 	)
+	-- Wave21: Command titles VirtualGrid overscan softMotion-gated (catalogs already gated).
+	local commandTitlesSoft = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
+	local titleGateCount = 0
+	for _ in string.gmatch(commandTitlesSoft, "overscanRows = if softMotion then 0 else 1") do
+		titleGateCount += 1
+	end
+	assert(titleGateCount >= 3, "Command catalogs + titles must softMotion-gate overscanRows, got " .. tostring(titleGateCount))
 
+------------------------------------------------------------------------
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
 do
@@ -738,6 +746,24 @@ do
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"CrateRevealOverlay CrateClaim host must keep ClipsDescendants = false"
+		)
+	end
+
+	-- Wave21: TradeSessionActions / AdminExecuteActions / StoryBeatActions must not clip CTA overshoot.
+	-- Evidence: Trade Ready/Confirm/Cancel, Admin ARM/RUN, and Story Continue/Back previously omitted ClipsDescendants.
+	for _, entry in {
+		{ path = "src/Client/AstralForge/pages/TradeView.luau", name = "TradeSessionActions" },
+		{ path = "src/Client/AstralForge/pages/AdminView.luau", name = "AdminExecuteActions" },
+		{ path = "src/Client/AstralForge/pages/StoryView.luau", name = "StoryBeatActions" },
+	} do
+		local src = fs.readFile(entry.path)
+		local needle = 'Name = "' .. entry.name .. '"'
+		local hostStart = string.find(src, needle, 1, true)
+		assert(hostStart, entry.name .. " host missing in " .. entry.path)
+		local hostSlice = string.sub(src, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			entry.name .. " host must keep ClipsDescendants = false"
 		)
 	end
 

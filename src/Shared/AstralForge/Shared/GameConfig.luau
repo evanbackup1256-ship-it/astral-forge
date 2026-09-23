@@ -766,6 +766,28 @@ local GameConfig = {
 				Reward = { Stardust = 62, CashMinutes = 4, Signals = 23 },
 				Color = Color3.fromRGB(255, 165, 235),
 			},
+			{
+				Id = "Wave21QuestClampProgress",
+				Name = "Wave Twenty One Quest Clamp Progress",
+				Description = "Tap through a short tally while ProgressionOpsMath AdvanceQuestProgress + ProfileClampMath keep string Progress/Target and post-mutate currency Lune-testable.",
+				Kind = "Tap",
+				BaseTarget = 140,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 50, CashMinutes = 3, Signals = 20 },
+				Color = Color3.fromRGB(85, 255, 230),
+			},
+			{
+				Id = "Wave21ClaimClipsSoftMotion",
+				Name = "Wave Twenty One Claim Clips Soft Motion",
+				Description = "Bank flux while Trade/Admin/Story ClaimActions stay unclipped and Command titles VirtualGrid overscan softMotion-gates.",
+				Kind = "BankFlux",
+				BaseTarget = 5_800,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 64, CashMinutes = 4, Signals = 24 },
+				Color = Color3.fromRGB(255, 160, 240),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3254,6 +3276,22 @@ local GameConfig = {
 			Target = 38,
 			Reward = { Stardust = 350, Signals = 96, CashMinutes = 32, Boost = "Afterburner" },
 		},
+		{
+			Id = "Wave21QuestCourier",
+			Name = "Wave Twenty One Quest Courier",
+			Description = "Claim 70 story chapters after ProfileClampMath extract + AdvanceQuestProgress string Progress/Target fix.",
+			Kind = "StoryClaims",
+			Target = 70,
+			Reward = { Stardust = 350, Signals = 96, CashMinutes = 33, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave21ClaimClipRunner",
+			Name = "Wave Twenty One Claim Clip Runner",
+			Description = "Hold a 40-day daily streak while Trade/Admin/Story ClaimActions unclipped + Command titles overscan stay verified.",
+			Kind = "DailyStreak",
+			Target = 40,
+			Reward = { Stardust = 360, Signals = 98, CashMinutes = 33, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4888,9 +4926,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(90, 255, 240),
 		},
 
+		{
+			Id = "wave21-harden-brief",
+			Title = "Wave Twenty One Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "ProfileClampMath + AdvanceQuestProgress extracts; Trade/Admin/Story clips and Command titles overscan stay honest.",
+			Body = {
+				"ProfileClampMath ClampProgressionNumbers keeps post-mutate currency/Stats/Continuum Lune-testable; ProgressionOpsMath AdvanceQuestProgress/CanClaimQuest tonumber-safes string Progress/Target.",
+				"TradeSessionActions, AdminExecuteActions, and StoryBeatActions keep ClipsDescendants false; Command titles VirtualGrid overscan softMotion-gates.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 62, CashMinutes = 26, Signals = 28 },
+			Color = Color3.fromRGB(85, 255, 230),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave21-harden",
+			Subject = "Dock note — wave twenty one harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ProfileClampMath + AdvanceQuestProgress extracts + Trade/Admin/Story clips — still DataVersion 21.",
+			Body = {
+				"Post-mutate currency clamp is Lune-testable; mission Progress no longer concatenates string Progress fixtures.",
+				"TradeSessionActions, AdminExecuteActions, and StoryBeatActions keep ClipsDescendants false; Command titles VirtualGrid overscan softMotion-gates.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 62, Stardust = 78, Signals = 32 },
+			Color = Color3.fromRGB(85, 255, 230),
+		},
 
 		{
 			Id = "update-5-1-wave20-harden",

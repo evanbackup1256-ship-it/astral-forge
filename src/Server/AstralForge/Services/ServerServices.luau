@@ -75,6 +75,7 @@ serviceFactories["GameService"] = function()
 	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UtcClockMath"))
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local ProfileClampMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileClampMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
@@ -1030,40 +1031,7 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function clampProgressionNumbers(profile)
-		for _, key in { "Cash", "Vault", "RunCash", "LifetimeCash" } do
-			local persisted = Economy.Persist(profile[key])
-			if type(persisted) == "number" and persisted < 0 then
-				persisted = 0
-			end
-			profile[key] = persisted
-		end
-		for _, key in { "Cores", "Stardust", "Rebirths" } do
-			local value = tonumber(profile[key])
-			profile[key] = value and value == value and value ~= math.huge and value ~= -math.huge
-				and math.clamp(value, 0, MAX_SAFE_CURRENCY)
-				or 0
-		end
-		if type(profile.Stats) == "table" then
-			if profile.Stats.Collected ~= nil then
-				profile.Stats.Collected = Economy.Persist(profile.Stats.Collected)
-			end
-			for key, raw in profile.Stats do
-				if key ~= "Collected" and type(raw) == "number" then
-					profile.Stats[key] = raw == raw and raw ~= math.huge and raw ~= -math.huge
-						and math.clamp(raw, 0, MAX_SAFE_CURRENCY)
-						or 0
-				end
-			end
-		end
-		if type(profile.Continuum) == "table" then
-			profile.Continuum.TotalFluxSpent = Economy.Persist(profile.Continuum.TotalFluxSpent)
-			for _, key in { "TotalStardustSpent" } do
-				local raw = tonumber(profile.Continuum[key])
-				profile.Continuum[key] = raw and raw == raw and raw ~= math.huge and raw ~= -math.huge
-					and math.clamp(raw, 0, MAX_SAFE_CURRENCY)
-					or 0
-			end
-		end
+		ProfileClampMath.ClampProgressionNumbers(profile, Economy.Persist, MAX_SAFE_CURRENCY)
 	end
 
 	function GameService:_toastPlayer(player: Player, title: string, body: string, tone: string?)

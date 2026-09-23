@@ -1,9 +1,10 @@
 --!strict
 -- Pure Progression ops helpers. No Roblox services — ProgressionService and
 -- Lune verify scripts share WeeklyValue / CommanderReward / TitleUnlocked /
--- FindById / AchievementProgress so weekly directives, commander gifts, title
--- gates, and milestone progress stay testable without Studio. Command Ensure
--- and Economy.Gte / AsNumber stay with the caller (injected).
+-- FindById / AchievementProgress / AdvanceQuestProgress / CanClaimQuest so
+-- weekly directives, commander gifts, title gates, milestone progress, and
+-- daily mission Progress/Target tonumber stay testable without Studio.
+-- Command Ensure and Economy.Gte / AsNumber stay with the caller (injected).
 
 local ProgressionOpsMath = {}
 
@@ -190,6 +191,52 @@ function ProgressionOpsMath.AchievementProgress(profile: any, kind: string, life
 		return count
 	end
 	return 0
+end
+
+-- Advance matching quest Progress. Studio fixtures / mid-migrate bags may store
+-- Progress/Target as numeric strings — bare `progress + amount` concatenates.
+-- BuyAny matches BuyMachine / BuyResearch the same way ProgressionService.Progress does.
+function ProgressionOpsMath.AdvanceQuestProgress(items: any, kind: any, amount: any): number
+	if type(items) ~= "table" or type(kind) ~= "string" then
+		return 0
+	end
+	local delta = math.max(0, math.floor(tonumber(amount) or 0))
+	if delta <= 0 then
+		return 0
+	end
+	local updated = 0
+	for _, quest in items do
+		if type(quest) == "table" then
+			local questKind = quest.Kind
+			if
+				questKind == kind
+				or (questKind == "BuyAny" and (kind == "BuyMachine" or kind == "BuyResearch"))
+			then
+				local progress = math.max(0, math.floor(tonumber(quest.Progress) or 0))
+				local target = math.max(0, math.floor(tonumber(quest.Target) or 0))
+				quest.Progress = math.min(target, progress + delta)
+				updated += 1
+			end
+		end
+	end
+	return updated
+end
+
+-- Claim gate for a single quest bag. Returns ok, reason. Numeric-string Progress
+-- / Target must not lexicographically compare (e.g. "9" < "10" is false).
+function ProgressionOpsMath.CanClaimQuest(quest: any): (boolean, string)
+	if type(quest) ~= "table" then
+		return false, "Mission not found."
+	end
+	if quest.Claimed == true then
+		return false, "That mission reward was already claimed."
+	end
+	local progress = math.max(0, math.floor(tonumber(quest.Progress) or 0))
+	local target = math.max(0, math.floor(tonumber(quest.Target) or 0))
+	if progress < target then
+		return false, "That mission is not complete yet."
+	end
+	return true, ""
 end
 
 return table.freeze(ProgressionOpsMath)
