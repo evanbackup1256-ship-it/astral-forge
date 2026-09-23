@@ -13,11 +13,10 @@ local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Button = _ui.Button
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Slider = _ui.Slider
@@ -886,13 +885,7 @@ local function SettingsView(_param)
 	local tabsH = tabRows * (TapTarget + 8) + 20
 	local editorH = if mobileHudAvailable and activeSection == "mobile" then (if stack then 138 else 92) else 0
 	local paneH = 42 + #visibleRows * rowStride + editorH
-	local canvasH = headerH + tabsH + paneH + scrollTail(stack, chrome.bottomSafe, 64) + SCROLL_EDGE * 2
 	local headerReveal = useStagger(0, reducedMotion)
-	local order = 0
-	local nextOrder = function()
-		order += 1
-		return order
-	end
 	local quickScale = savedValue(state.Settings, "MobileQuickScale")
 	local dockScale = savedValue(state.Settings, "MobileDockScale")
 	local toastScale = savedValue(state.Settings, "MobileToastScale")
@@ -1016,18 +1009,13 @@ local function SettingsView(_param)
 		table.insert(slots, _object)
 		return slots
 	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, state.Settings.MobileDockX, state.Settings.MobileDockY, state.Settings.MobileQuickX, state.Settings.MobileQuickY, state.Settings.MobileToastX, state.Settings.MobileToastY, toastHeight, toastWidth, viewport.height })
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
-	})
-	local _exp_1 = React.createElement(ScrollPads)
+	local controllerHints = UserInputService.GamepadEnabled
+	local controllerHintsH = if controllerHints and activeSection == "interface" then (if stack then 96 else 78) else 0
 	local _exp_2 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, headerH),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.violet,
 		background = Palette.panelRaised,
 		padding = 16,
-		layoutOrder = nextOrder(),
 		reveal = headerReveal,
 		clips = false,
 	}, React.createElement(Text, {
@@ -1121,11 +1109,10 @@ local function SettingsView(_param)
 		highlight = preset == "high",
 	})))
 	local _exp_3 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, tabsH),
+		size = UDim2.fromScale(1, 1),
 		accent = SECTION_META[activeSection].accent,
 		background = Palette.panelRaised,
 		padding = 10,
-		layoutOrder = nextOrder(),
 		reducedMotion = reducedMotion,
 		clips = false,
 	}, React.createElement(SegmentedTabs, {
@@ -1138,13 +1125,11 @@ local function SettingsView(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	}))
-	local controllerHints = UserInputService.GamepadEnabled
-	local _exp_3b = controllerHints and activeSection == "interface" and React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, if stack then 96 else 78),
+	local _exp_3b = controllerHintsH > 0 and React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.cyan,
 		background = Palette.panelRaised,
 		padding = 14,
-		layoutOrder = nextOrder(),
 		reducedMotion = reducedMotion,
 		clips = false,
 	}, React.createElement(Text, {
@@ -1161,11 +1146,6 @@ local function SettingsView(_param)
 		position = UDim2.fromOffset(0, 22),
 		sizeConstraint = UDim2.new(1, 0, 0, if stack then 52 else 40),
 	}))
-	local _exp_4 = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
-	})
 	local _exp_5 = React.createElement(SectionLabel, {
 		value = `{SECTION_META[activeSection].label}  ·  {#visibleRows}`,
 		color = SECTION_META[activeSection].accent,
@@ -1190,30 +1170,10 @@ local function SettingsView(_param)
 		_newValue_2[_k] = _callback_3(_v, _k - 1, visibleRows)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("frame", {
+	local paneElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasH + (if controllerHints and activeSection == "interface" then (if stack then 108 else 90) else 0)),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.violet,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _exp_3, _exp_3b, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, paneH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = nextOrder(),
 		ClipsDescendants = false,
 	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -1221,7 +1181,11 @@ local function SettingsView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-	}, _exp_4, _exp_5, _newValue_2, mobileHudAvailable and activeSection == "mobile" and React.createElement(Panel, {
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 12),
+	}), _exp_5, _newValue_2, mobileHudAvailable and activeSection == "mobile" and React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, if stack then 128 else 82),
 		accent = Palette.cyan,
 		background = Palette.panelRaised,
@@ -1255,7 +1219,42 @@ local function SettingsView(_param)
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(120, TapTarget),
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -120, 0.5, -TapTarget / 2),
 		reducedMotion = reducedMotion,
-	}))))), mobileHudAvailable and activeSection == "mobile" and React.createElement(MobileControls, {
+	}))))
+	local sections = {
+		{
+			id = "hero",
+			height = headerH,
+			element = _exp_2,
+		},
+		{
+			id = "tabs",
+			height = tabsH,
+			element = _exp_3,
+		},
+	}
+	if controllerHintsH > 0 then
+		table.insert(sections, {
+			id = "controller",
+			height = controllerHintsH,
+			element = _exp_3b,
+		})
+	end
+	table.insert(sections, {
+		id = "pane",
+		height = paneH,
+		element = paneElement,
+	})
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(PageScaffold, {
+		gap = 12,
+		tailPad = scrollTail(stack, chrome.bottomSafe, 64),
+		scrollBarColor = Palette.violet,
+		scrollBarThickness = 4,
+		sections = sections,
+	}), mobileHudAvailable and activeSection == "mobile" and React.createElement(MobileControls, {
 		visible = mobileEdit,
 		dispatch = dispatch,
 		reducedMotion = reducedMotion,

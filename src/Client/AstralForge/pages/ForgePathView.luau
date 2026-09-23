@@ -8,8 +8,6 @@ local Text = _ui.Text
 local Meter = _ui.Meter
 local Badge = _ui.Badge
 local EmptyState = _ui.EmptyState
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
@@ -21,6 +19,7 @@ local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
@@ -107,20 +106,19 @@ end
 local function SpotlightPanel(_param)
 	local step, xp, ready, complete, guide = _param.step, _param.xp, _param.ready, _param.complete, _param.guide
 	local onClaim, reducedMotion, stack = _param.onClaim, _param.reducedMotion, _param.stack
-	local height = if stack then SPOTLIGHT_H_STACK else SPOTLIGHT_H
 	if complete then
-		return React.createElement(Panel, { size = UDim2.new(1, -4, 0, height), accent = Palette.mint, background = Palette.panelRaised, padding = if stack then 14 else 16, layoutOrder = 1, clips = false },
+		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mint, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
 			React.createElement(EmptyState, { icon = "Check", title = "Forge Path complete", body = (guide and guide.Complete) or "Path cleared. Permanent bonuses stay through rebirth.", accent = Palette.mint, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	if step == nil then
-		return React.createElement(Panel, { size = UDim2.new(1, -4, 0, height), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16, layoutOrder = 1, clips = false },
+		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
 			React.createElement(EmptyState, { icon = "Forge", title = "No steps configured", body = "Forge Path steps come from GameConfig.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	local progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1)
 	local needXp = not ready and xp < step.XPCost
 	return React.createElement(Panel, {
-		size = UDim2.new(1, -4, 0, height), accent = if ready then step.Color else Palette.violet, background = Palette.panelRaised,
-		padding = if stack then 14 else 16, layoutOrder = 1, highlight = ready, reducedMotion = reducedMotion, clips = false,
+		size = UDim2.fromScale(1, 1), accent = if ready then step.Color else Palette.violet, background = Palette.panelRaised,
+		padding = if stack then 14 else 16, highlight = ready, reducedMotion = reducedMotion, clips = false,
 	}, React.createElement(Text, { value = if ready then "READY TO CLAIM" else "NEXT STEP", size = 10, color = if ready then step.Color else Palette.violet, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
 	React.createElement(Text, { value = `Step {step.Step} · {effectLabel(step)}`, size = if stack then 18 else 22, color = Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(0, 18), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 28) }),
 	React.createElement(Text, { value = if needXp then ((guide and guide.NeedXp) or "Earn Forge Path XP by banking flux — it trickles in as you play.") else formatReward(step.Reward), size = 11, color = if needXp then Palette.creamSoft else Palette.mango, wrap = true, position = UDim2.fromOffset(0, 50), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 32) }),
@@ -157,7 +155,7 @@ local function ForgePathViewComponent(_param)
 	local headerH = if stack then 148 else 128
 	local spotlightH = if stack then SPOTLIGHT_H_STACK else SPOTLIGHT_H
 	local stepRowHeight = if stack then STEP_ROW_HEIGHT_STACK else STEP_ROW_HEIGHT
-	local canvasHeight = headerH + listGap + spotlightH + listGap * (totalCount + 1) + totalCount * stepRowHeight + scrollTail(stack, chrome.bottomSafe, 48) + SCROLL_EDGE * 2
+	local stepsBlockH = if totalCount == 0 then 160 else totalCount * stepRowHeight + math.max(0, totalCount - 1) * listGap
 	local progressFrac = if totalCount > 0 then claimedCount / totalCount else 0
 	local heroBlurb = (guide and guide.HeroBlurb) or "One track. Every step pays out."
 	local rows = table.create(#steps)
@@ -169,26 +167,54 @@ local function ForgePathViewComponent(_param)
 			reducedMotion = reducedMotion, index = index + 1, stack = stack,
 		})
 	end
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1), CanvasSize = UDim2.new(0, 0, 0, canvasHeight), AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1, BorderSizePixel = 0, ScrollingDirection = Enum.ScrollingDirection.Y, ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.violet, ScrollBarImageTransparency = 0.28, ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable, VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar, Active = true, Selectable = false,
-	}, React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, listGap) }),
-	React.createElement(ScrollPads),
-	React.createElement(Panel, {
-		size = UDim2.new(1, -4, 0, headerH), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16,
-		reveal = headerReveal, clips = false, layoutOrder = 0,
-	}, React.createElement(IconTile, { kind = "Forge", accent = Palette.violet, size = if stack then 48 else 56, radius = 14, position = UDim2.fromOffset(0, if stack then 4 else 18), glow = true, spin = false, reducedMotion = reducedMotion }),
-	React.createElement(Text, { value = "FORGE PATH", size = 10, color = Palette.violet, weight = Enum.FontWeight.Heavy, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 60 else 0), sizeConstraint = UDim2.new(1, if stack then -8 else -220, 0, 16) }),
-	React.createElement(Text, { value = heroBlurb, size = if stack then 16 else 22, color = Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 78 else 18), sizeConstraint = UDim2.new(1, if stack then -8 else -220, 0, 32) }),
-	React.createElement(Meter, { value = progressFrac, color = Palette.violet, reducedMotion = reducedMotion, shimmer = nextReady, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 114 else 56), size = UDim2.new(1, if stack then -8 else -220, 0, 8) }),
-	React.createElement(Text, { value = `{claimedCount} / {totalCount} steps claimed  ·  {compactNumber(forgePath.XP)} XP banked`, size = 11, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 126 else 70), sizeConstraint = UDim2.new(1, if stack then -8 else -220, 0, 24) }),
-	not stack and React.createElement("frame", { Size = UDim2.new(0, 200, 0, 40), Position = UDim2.new(1, -200, 0.5, -20), BackgroundTransparency = 1, BorderSizePixel = 0 },
-		React.createElement(Text, { value = `{compactNumber(forgePath.XP)}`, size = 26, color = Palette.violet, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(0, 0), sizeConstraint = UDim2.new(1, 0, 0, 32) }),
-		React.createElement(Text, { value = "FORGE XP", size = 10, color = Palette.muted, weight = Enum.FontWeight.Bold, fit = true, position = UDim2.fromOffset(0, 34), sizeConstraint = UDim2.new(1, 0, 0, 14) }))),
-	React.createElement(SpotlightPanel, { step = nextStep, xp = forgePath.XP, ready = nextReady, complete = pathComplete, guide = guide, onClaim = onClaim, reducedMotion = reducedMotion, stack = stack }),
-	if totalCount == 0 then React.createElement(EmptyState, { icon = "Forge", title = "Forge Path offline", body = "Steps load from GameConfig.ForgePath.Steps.", accent = Palette.violet, layoutOrder = 2, reducedMotion = reducedMotion }) else rows)
+	local stepsElement = if totalCount == 0 then React.createElement(EmptyState, {
+		icon = "Forge",
+		title = "Forge Path offline",
+		body = "Steps load from GameConfig.ForgePath.Steps.",
+		accent = Palette.violet,
+		reducedMotion = reducedMotion,
+	}) else React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, listGap),
+	}), rows)
+	return React.createElement(PageScaffold, {
+		gap = listGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe, 48),
+		scrollBarColor = Palette.violet,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero",
+				height = headerH,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16,
+					reveal = headerReveal, clips = false,
+				}, React.createElement(IconTile, { kind = "Forge", accent = Palette.violet, size = if stack then 48 else 56, radius = 14, position = UDim2.fromOffset(0, if stack then 4 else 18), glow = true, spin = false, reducedMotion = reducedMotion }),
+				React.createElement(Text, { value = "FORGE PATH", size = 10, color = Palette.violet, weight = Enum.FontWeight.Heavy, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 60 else 0), sizeConstraint = UDim2.new(1, if stack then -8 else -220, 0, 16) }),
+				React.createElement(Text, { value = heroBlurb, size = if stack then 16 else 22, color = Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 78 else 18), sizeConstraint = UDim2.new(1, if stack then -8 else -220, 0, 32) }),
+				React.createElement(Meter, { value = progressFrac, color = Palette.violet, reducedMotion = reducedMotion, shimmer = nextReady, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 114 else 56), size = UDim2.new(1, if stack then -8 else -220, 0, 8) }),
+				React.createElement(Text, { value = `{claimedCount} / {totalCount} steps claimed  ·  {compactNumber(forgePath.XP)} XP banked`, size = 11, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(if stack then 0 else 72, if stack then 126 else 70), sizeConstraint = UDim2.new(1, if stack then -8 else -220, 0, 24) }),
+				not stack and React.createElement("frame", { Size = UDim2.new(0, 200, 0, 40), Position = UDim2.new(1, -200, 0.5, -20), BackgroundTransparency = 1, BorderSizePixel = 0 },
+					React.createElement(Text, { value = `{compactNumber(forgePath.XP)}`, size = 26, color = Palette.violet, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(0, 0), sizeConstraint = UDim2.new(1, 0, 0, 32) }),
+					React.createElement(Text, { value = "FORGE XP", size = 10, color = Palette.muted, weight = Enum.FontWeight.Bold, fit = true, position = UDim2.fromOffset(0, 34), sizeConstraint = UDim2.new(1, 0, 0, 14) }))),
+			},
+			{
+				id = "spotlight",
+				height = spotlightH,
+				element = React.createElement(SpotlightPanel, { step = nextStep, xp = forgePath.XP, ready = nextReady, complete = pathComplete, guide = guide, onClaim = onClaim, reducedMotion = reducedMotion, stack = stack }),
+			},
+			{
+				id = "steps",
+				height = stepsBlockH,
+				element = stepsElement,
+			},
+		},
+	})
 end
 local ForgePathView = React.memo(ForgePathViewComponent, function(previous, incoming)
 	local prevXp = previous.state.ForgePath and previous.state.ForgePath.XP

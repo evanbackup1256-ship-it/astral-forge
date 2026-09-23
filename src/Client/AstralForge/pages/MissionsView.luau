@@ -14,7 +14,6 @@ local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local Stroke = _ui.Stroke
 local Text = _ui.Text
 local _theme = require(script.Parent.Parent.theme)
@@ -22,6 +21,7 @@ local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local TapTarget = _theme.TapTarget
 local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
@@ -266,14 +266,116 @@ local function MissionsView(_param)
 	local headerReveal = useStagger(0, reducedMotion)
 	local headerHeight = if stack then (if chrome.landscape then 188 else 204) else 168
 	local rowStride = (if stack then 220 else 148) + 16
-	local rowStart = headerHeight + 10 + SCROLL_EDGE
-	return React.createElement(FlatList, {
+	local pageGap = 10
+	local headerPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = Palette.cyan,
+		background = Palette.panelRaised,
+		padding = 16,
+		reveal = headerReveal,
+		zIndex = 30,
+		clips = false,
+	}, if stack then React.createElement(React.Fragment, nil, React.createElement(Text, {
+		value = "Finish these for flux and stardust. They refresh every day.",
+		size = 12,
+		color = Palette.muted,
+		wrap = true,
+		sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 36),
+	}), counts.Ready > 0 and React.createElement(Button, {
+		text = `CLAIM ALL READY · {counts.Ready}`,
+		icon = "Gift",
+		onClick = claimAllReady,
+		color = Palette.green,
+		textColor = Palette.ink,
+		size = UDim2.new(1, 0, 0, TapTarget),
+		position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
+		reducedMotion = reducedMotion,
+		highlight = true,
+	}), React.createElement(Dropdown, {
+		options = options,
+		value = filter,
+		onChange = setFilter,
+		accent = Palette.cyan,
+		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
+		size = UDim2.new(1, 0, 0, TapTarget),
+		reducedMotion = reducedMotion,
+		zIndex = 44,
+	})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
+		value = "MISSIONS",
+		size = 10,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		sizeConstraint = UDim2.new(1, -160, 0, 16),
+	}), React.createElement(Text, {
+		value = "Daily checklist.",
+		size = 22,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(0, 16),
+		sizeConstraint = UDim2.new(1, -180, 0, 30),
+	}), React.createElement(Text, {
+		value = "Finish these for flux and stardust. They refresh every day.",
+		size = 10,
+		color = Palette.muted,
+		wrap = true,
+		position = UDim2.fromOffset(0, 48),
+		sizeConstraint = UDim2.new(1, -180, 0, 16),
+	}), React.createElement(Dropdown, {
+		options = options,
+		value = filter,
+		onChange = setFilter,
+		accent = Palette.cyan,
+		position = UDim2.new(0, 0, 0, 70),
+		size = UDim2.fromOffset(224, 48),
+		reducedMotion = reducedMotion,
+		zIndex = 44,
+	}), counts.Ready > 0 and React.createElement(Button, {
+		text = `CLAIM ALL · {counts.Ready}`,
+		icon = "Gift",
+		onClick = claimAllReady,
+		color = Palette.green,
+		textColor = Palette.ink,
+		size = UDim2.fromOffset(168, 40),
+		position = UDim2.new(0, 236, 0, 74),
+		reducedMotion = reducedMotion,
+		highlight = true,
+	}), React.createElement(Text, {
+		value = `{counts.Done} / {#quests}`,
+		size = 18,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		position = UDim2.new(1, -120, 0, 4),
+		sizeConstraint = UDim2.new(0, 120, 0, 26),
+		align = Enum.TextXAlignment.Right,
+	}), counts.Ready > 0 and React.createElement(Badge, {
+		value = `{counts.Ready} READY`,
+		accent = Palette.green,
+		filled = true,
+		position = UDim2.new(1, -120, 0, 34),
+		size = UDim2.fromOffset(120, 22),
+	}), React.createElement(Text, {
+		value = `{#visible} shown`,
+		size = 10,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.new(1, -120, 0, 72),
+		sizeConstraint = UDim2.new(0, 120, 0, 24),
+	})))
+	local missionsList = React.createElement(FlatList, {
 		data = visible,
 		itemHeight = rowStride,
-		headerHeight = rowStart,
+		headerHeight = 0,
 		overscan = 2,
-		canvasTail = SCROLL_EDGE + scrollTail(stack, chrome.bottomSafe, 24),
+		canvasTail = 8,
+		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 3,
+		scrollBarTransparency = 0.28,
 		keyExtractor = function(quest)
 			return quest.Id
 		end,
@@ -287,117 +389,32 @@ local function MissionsView(_param)
 				stack = stack,
 			})
 		end,
-		ListHeaderComponent = React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, headerHeight),
-			position = UDim2.fromOffset(0, SCROLL_EDGE),
-			accent = Palette.cyan,
-			background = Palette.panelRaised,
-			padding = 16,
-			reveal = headerReveal,
-			zIndex = 30,
-			clips = false,
-		}, if stack then React.createElement(React.Fragment, nil, React.createElement(Text, {
-			value = "Finish these for flux and stardust. They refresh every day.",
-			size = 12,
-			color = Palette.muted,
-			wrap = true,
-			sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 36),
-		}), counts.Ready > 0 and React.createElement(Button, {
-			text = `CLAIM ALL READY · {counts.Ready}`,
-			icon = "Gift",
-			onClick = claimAllReady,
-			color = Palette.green,
-			textColor = Palette.ink,
-			size = UDim2.new(1, 0, 0, TapTarget),
-			position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
-			reducedMotion = reducedMotion,
-			highlight = true,
-		}), React.createElement(Dropdown, {
-			options = options,
-			value = filter,
-			onChange = setFilter,
-			accent = Palette.cyan,
-			position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
-			size = UDim2.new(1, 0, 0, TapTarget),
-			reducedMotion = reducedMotion,
-			zIndex = 44,
-		})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
-			value = "MISSIONS",
-			size = 10,
-			color = Palette.cyan,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			sizeConstraint = UDim2.new(1, -160, 0, 16),
-		}), React.createElement(Text, {
-			value = "Daily checklist.",
-			size = 22,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			position = UDim2.fromOffset(0, 16),
-			sizeConstraint = UDim2.new(1, -180, 0, 30),
-		}), React.createElement(Text, {
-			value = "Finish these for flux and stardust. They refresh every day.",
-			size = 10,
-			color = Palette.muted,
-			wrap = true,
-			position = UDim2.fromOffset(0, 48),
-			sizeConstraint = UDim2.new(1, -180, 0, 16),
-		}), React.createElement(Dropdown, {
-			options = options,
-			value = filter,
-			onChange = setFilter,
-			accent = Palette.cyan,
-			position = UDim2.new(0, 0, 0, 70),
-			size = UDim2.fromOffset(224, 48),
-			reducedMotion = reducedMotion,
-			zIndex = 44,
-		}), counts.Ready > 0 and React.createElement(Button, {
-			text = `CLAIM ALL · {counts.Ready}`,
-			icon = "Gift",
-			onClick = claimAllReady,
-			color = Palette.green,
-			textColor = Palette.ink,
-			size = UDim2.fromOffset(168, 40),
-			position = UDim2.new(0, 236, 0, 74),
-			reducedMotion = reducedMotion,
-			highlight = true,
-		}), React.createElement(Text, {
-			value = `{counts.Done} / {#quests}`,
-			size = 18,
-			color = Palette.cyan,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			position = UDim2.new(1, -120, 0, 4),
-			sizeConstraint = UDim2.new(0, 120, 0, 26),
-			align = Enum.TextXAlignment.Right,
-		}), counts.Ready > 0 and React.createElement(Badge, {
-			value = `{counts.Ready} READY`,
-			accent = Palette.green,
-			filled = true,
-			position = UDim2.new(1, -120, 0, 34),
-			size = UDim2.fromOffset(120, 22),
-		}), React.createElement(Text, {
-			value = `{#visible} shown`,
-			size = 10,
-			color = Palette.muted,
-			weight = Enum.FontWeight.Bold,
-			fit = true,
-			align = Enum.TextXAlignment.Right,
-			position = UDim2.new(1, -120, 0, 72),
-			sizeConstraint = UDim2.new(0, 120, 0, 24),
-		}))),
-		ListEmptyComponent = if #visible == 0 then React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 150),
-			Position = UDim2.fromOffset(0, rowStart),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(EmptyState, {
+		ListEmptyComponent = if #visible == 0 then React.createElement(EmptyState, {
 			icon = "Mission",
 			title = if #quests == 0 then "No missions yet" else "Nothing in this filter",
 			body = if #quests == 0 then ((guide and guide.EmptyNone) or "New dailies land at reset.") else ((guide and guide.EmptyFilter) or "Switch the filter back to Everything."),
 			accent = Palette.cyan,
-		})) else nil,
+			size = UDim2.fromScale(1, 1),
+		}) else nil,
+	})
+	return React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe, 24),
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero",
+				height = headerHeight,
+				element = headerPanel,
+			},
+			{
+				id = "list",
+				fill = true,
+				minHeight = math.max(160, rowStride * 2),
+				element = missionsList,
+			},
+		},
 	})
 end
 exports.MissionsView = MissionsView

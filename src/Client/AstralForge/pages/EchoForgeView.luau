@@ -19,17 +19,17 @@ local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
 local Meter = _ui.Meter
 local OrbitDot = _ui.OrbitDot
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local SweptRing = _ui.SweptRing
 local Text = _ui.Text
+local SECTION_LABEL_H = 30
 local EMPTY_ECHOES = {
 	Charge = 0,
 	ChargeTarget = 100,
@@ -644,7 +644,6 @@ local function EchoForgeView(_param)
 	local inventoryRows = math.max(1, if stack then #echoes.Inventory else math.ceil(#echoes.Inventory / 2))
 	local inventoryGridH = inventoryRows * 196 + math.max(0, inventoryRows - 1) * sectionGap
 	local inventorySectionH = 30 + inventoryGridH
-	local contentH = heroH + choiceSectionH + slotSectionH + patternSectionH + inventorySectionH + sectionGap * 4 + scrollTail(chrome.stack, chrome.bottomSafe, if stack then 72 else 56)
 	local dominant = PATTERN_COPY[echoes.DominantPattern]
 	local chargeFill = echoes.Charge / math.max(1, echoes.ChargeTarget)
 	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
@@ -653,18 +652,11 @@ local function EchoForgeView(_param)
 	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
 	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
 	local loomSize = if stack then 72 else 128
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, sectionGap),
-	})
-	local _exp_1 = React.createElement(ScrollPads)
-	local _exp_2 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, heroH),
+	local heroPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = chargeAccent,
 		background = heroSurface,
 		padding = if stack then 15 else Layout.cardPadding,
-		layoutOrder = 1,
 		highlight = echoes.Ready,
 		reducedMotion = reducedMotion,
 		clips = true,
@@ -741,17 +733,14 @@ local function EchoForgeView(_param)
 		reducedMotion = reducedMotion,
 		highlight = echoes.Ready,
 	})))
-	local _condition = choiceRows > 0
-	if _condition then
-		local _exp_3 = React.createElement(SectionLabel, {
-			value = "PICK ONE ECHO",
-			color = Palette.mango,
-		})
-		local _exp_4 = React.createElement(AutoGrid, {
-			columns = if stack then 1 else 3,
-			cellHeight = 214,
-			gap = sectionGap,
-		})
+	local sections = {
+		{
+			id = "hero",
+			height = heroH,
+			element = heroPanel,
+		},
+	}
+	if choiceRows > 0 then
 		local _exp_5 = echoes.Choices
 		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_5)
@@ -768,27 +757,28 @@ local function EchoForgeView(_param)
 			_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_condition = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, choiceSectionH),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 2,
-		}, _exp_3, React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, choiceGridH),
-			Position = UDim2.fromOffset(0, 30),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, _exp_4, _newValue))
+		table.insert(sections, {
+			id = "choices",
+			height = choiceSectionH,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+			}, React.createElement(SectionLabel, {
+				value = "PICK ONE ECHO",
+				color = Palette.mango,
+			}), React.createElement("frame", {
+				Size = UDim2.new(1, 0, 0, choiceGridH),
+				Position = UDim2.fromOffset(0, SECTION_LABEL_H),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+			}, React.createElement(AutoGrid, {
+				columns = if stack then 1 else 3,
+				cellHeight = 214,
+				gap = sectionGap,
+			}), _newValue)),
+		})
 	end
-	local _exp_3 = React.createElement(SectionLabel, {
-		value = if echoes.Harmony then `LINKED ECHOES · HARMONY +{math.floor(echoes.HarmonyBonus * 100 + 0.5)}%` else `LINKED ECHOES · {echoes.SlotsUnlocked}/3 OPEN`,
-		color = if echoes.Harmony then Palette.mint else Palette.violet,
-	})
-	local _exp_4 = React.createElement(AutoGrid, {
-		columns = if stack then 1 else 3,
-		cellHeight = 116,
-		gap = sectionGap,
-	})
 	local _exp_5 = echoes.Equipped
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#_exp_5)
@@ -803,25 +793,26 @@ local function EchoForgeView(_param)
 		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	local _exp_6 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, slotSectionH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 3,
-	}, _exp_3, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, slotGridH),
-		Position = UDim2.fromOffset(0, 30),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, _exp_4, _newValue))
-	local _exp_7 = React.createElement(SectionLabel, {
-		value = "CURRENT PROGRESS",
-		color = dominant.color,
-	})
-	local _exp_8 = React.createElement(AutoGrid, {
-		columns = if stack then 2 else 4,
-		cellHeight = 88,
-		gap = sectionGap,
+	table.insert(sections, {
+		id = "slots",
+		height = slotSectionH,
+		element = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(SectionLabel, {
+			value = if echoes.Harmony then `LINKED ECHOES · HARMONY +{math.floor(echoes.HarmonyBonus * 100 + 0.5)}%` else `LINKED ECHOES · {echoes.SlotsUnlocked}/3 OPEN`,
+			color = if echoes.Harmony then Palette.mint else Palette.violet,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, slotGridH),
+			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(AutoGrid, {
+			columns = if stack then 1 else 3,
+			cellHeight = 116,
+			gap = sectionGap,
+		}), _newValue)),
 	})
 	local _exp_9 = ({ "Collect", "Surge", "Build", "Explore" })
 	-- ▼ ReadonlyArray.map ▼
@@ -841,27 +832,28 @@ local function EchoForgeView(_param)
 		_newValue_1[_k] = _callback_1(_v, _k - 1, _exp_9)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	local _exp_10 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, patternSectionH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 4,
-	}, _exp_7, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, patternSectionH - 30),
-		Position = UDim2.fromOffset(0, 30),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, _exp_8, _newValue_1))
-	local _exp_11 = React.createElement(SectionLabel, {
-		value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,
-		color = Palette.cyan,
+	table.insert(sections, {
+		id = "pattern",
+		height = patternSectionH,
+		element = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(SectionLabel, {
+			value = "CURRENT PROGRESS",
+			color = dominant.color,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, patternSectionH - SECTION_LABEL_H),
+			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(AutoGrid, {
+			columns = if stack then 2 else 4,
+			cellHeight = 88,
+			gap = sectionGap,
+		}), _newValue_1)),
 	})
-	local _exp_12 = React.createElement(AutoGrid, {
-		columns = if stack then 1 else 2,
-		cellHeight = 196,
-		gap = sectionGap,
-	})
-	local _result
+	local inventoryBody
 	if #echoes.Inventory > 0 then
 		local _exp_13 = echoes.Inventory
 		-- ▼ ReadonlyArray.map ▼
@@ -885,9 +877,9 @@ local function EchoForgeView(_param)
 			_newValue_2[_k] = _callback_2(_v, _k - 1, _exp_13)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_result = _newValue_2
+		inventoryBody = _newValue_2
 	else
-		_result = React.createElement(Panel, {
+		inventoryBody = React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
 			accent = Palette.lineSoft,
 			padding = 16,
@@ -914,32 +906,34 @@ local function EchoForgeView(_param)
 			sizeConstraint = UDim2.new(1, -54, 0, 38),
 		}))
 	end
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, contentH + SCROLL_EDGE * 2),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.2,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _condition, _exp_6, _exp_10, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, inventorySectionH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 5,
-	}, _exp_11, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, inventoryGridH),
-		Position = UDim2.fromOffset(0, 30),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, _exp_12, _result)))
+	table.insert(sections, {
+		id = "inventory",
+		height = inventorySectionH,
+		element = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(SectionLabel, {
+			value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,
+			color = Palette.cyan,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, inventoryGridH),
+			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(AutoGrid, {
+			columns = if stack then 1 else 2,
+			cellHeight = 196,
+			gap = sectionGap,
+		}), inventoryBody)),
+	})
+	return React.createElement(PageScaffold, {
+		gap = sectionGap,
+		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, if stack then 72 else 56),
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 4,
+		sections = sections,
+	})
 end
 return {
 	EchoForgeView = EchoForgeView,

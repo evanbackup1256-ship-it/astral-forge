@@ -6,8 +6,6 @@ local Button = _ui.Button
 local Text = _ui.Text
 local Meter = _ui.Meter
 local Badge = _ui.Badge
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local AmountToggle = _ui.AmountToggle
 local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
@@ -18,6 +16,7 @@ local Layout = _theme.Layout
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
@@ -256,126 +255,118 @@ local function ResearchView(_param)
 	local headerH = if stack then 208 else 128
 	local chainCount = #entries
 	local rowStride = (if stack then NODE_ROW_HEIGHT_STACK else NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT
-	local canvasHeight = headerH + listGap + chainCount * rowStride + scrollTail(stack, chrome.bottomSafe, 48) + SCROLL_EDGE * 2
-	return React.createElement("scrollingframe", {
-		ref = scrollRef,
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 0),
-	}), React.createElement(ScrollPads), React.createElement(Panel, {
-		size = UDim2.new(1, -4, 0, headerH),
-		accent = Palette.cyan,
-		background = Palette.panelRaised,
-		padding = if stack then 14 else 16,
-		reveal = headerReveal,
-		clips = false,
-	}, React.createElement(IconTile, {
-		kind = "Research",
-		accent = Palette.cyan,
-		size = if stack then 48 else 56,
-		radius = 14,
-		position = UDim2.fromOffset(0, if stack then 4 else 18),
-		glow = true,
-		spin = false,
-		reducedMotion = reducedMotion,
-	}), React.createElement(Text, {
-		value = "RESEARCH CHAIN",
-		size = 10,
-		color = Palette.cyan,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(if stack then 0 else 72, if stack then 60 else 0),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 16),
-	}), React.createElement(Text, {
-		value = "Permanent upgrades. They stick through rebirths.",
-		size = if stack then 18 else 24,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(if stack then 0 else 72, if stack then 78 else 18),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 32),
-	}), React.createElement(Text, {
-		value = `{unlockedCount} / {#entries} unlocked  ·  {maxedCount} maxed{if nextEntry ~= nil then `  ·  next: {nextEntry.config.Name}` else ""}`,
-		size = 11,
-		color = Palette.creamSoft,
-		wrap = true,
-		position = UDim2.fromOffset(if stack then 0 else 72, if stack then 108 else 56),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 24),
-	}), not stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
-		value = buyAmount,
-		onChange = setBuyAmount,
-		accent = Palette.cyan,
-		position = UDim2.new(1, -240, 0, 16),
-		size = UDim2.fromOffset(240, 32),
-		reducedMotion = reducedMotion,
-	}), React.createElement(Button, {
-		text = "BUY ALL AFFORDABLE",
-		icon = "Flux",
-		onClick = onBuyAll,
-		color = Palette.cyan,
-		textColor = Palette.ink,
-		size = UDim2.fromOffset(240, 32),
-		position = UDim2.new(1, -240, 0, 56),
-		reducedMotion = reducedMotion,
-		highlight = true,
-	})), stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
-		value = buyAmount,
-		onChange = setBuyAmount,
-		accent = Palette.cyan,
-		position = UDim2.new(0, 0, 0, 132),
-		size = UDim2.new(1, -(TapTarget + 8), 0, TapTarget),
-		reducedMotion = reducedMotion,
-	}), React.createElement(Button, {
-		text = "ALL",
-		icon = "Flux",
-		onClick = onBuyAll,
-		color = Palette.cyan,
-		textColor = Palette.ink,
-		size = UDim2.fromOffset(TapTarget, TapTarget),
-		position = UDim2.new(1, -TapTarget, 0, 132),
-		reducedMotion = reducedMotion,
-		highlight = true,
-	}))), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, listGap),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 1,
-	}), React.createElement(VirtualGrid, {
-		scrollRef = scrollRef,
-		count = chainCount,
-		columns = 1,
-		cellHeight = rowStride,
-		gap = 0,
-		overscanRows = 2,
-		layoutOrder = 2,
-		itemKey = function(index)
-			return entries[index + 1].config.Id
-		end,
-		renderItem = function(index)
-			return React.createElement(ResearchNode, {
-				entry = entries[index + 1],
-				buyAmount = buyAmount,
-				reducedMotion = reducedMotion,
-				index = index,
-				onBuy = onBuy,
-				stack = stack,
-			})
-		end,
-	}))
+	local chainH = math.max(rowStride, chainCount * rowStride)
+	return React.createElement(PageScaffold, {
+		hostRef = scrollRef,
+		gap = listGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe, 48),
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero",
+				height = headerH,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.cyan,
+					background = Palette.panelRaised,
+					padding = if stack then 14 else 16,
+					reveal = headerReveal,
+					clips = false,
+				}, React.createElement(IconTile, {
+					kind = "Research",
+					accent = Palette.cyan,
+					size = if stack then 48 else 56,
+					radius = 14,
+					position = UDim2.fromOffset(0, if stack then 4 else 18),
+					glow = true,
+					spin = false,
+					reducedMotion = reducedMotion,
+				}), React.createElement(Text, {
+					value = "RESEARCH CHAIN",
+					size = 10,
+					color = Palette.cyan,
+					weight = Enum.FontWeight.Heavy,
+					position = UDim2.fromOffset(if stack then 0 else 72, if stack then 60 else 0),
+					sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 16),
+				}), React.createElement(Text, {
+					value = "Permanent upgrades. They stick through rebirths.",
+					size = if stack then 18 else 24,
+					color = Palette.cream,
+					weight = Enum.FontWeight.Heavy,
+					fit = true,
+					position = UDim2.fromOffset(if stack then 0 else 72, if stack then 78 else 18),
+					sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 32),
+				}), React.createElement(Text, {
+					value = `{unlockedCount} / {#entries} unlocked  ·  {maxedCount} maxed{if nextEntry ~= nil then `  ·  next: {nextEntry.config.Name}` else ""}`,
+					size = 11,
+					color = Palette.creamSoft,
+					wrap = true,
+					position = UDim2.fromOffset(if stack then 0 else 72, if stack then 108 else 56),
+					sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 24),
+				}), not stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
+					value = buyAmount,
+					onChange = setBuyAmount,
+					accent = Palette.cyan,
+					position = UDim2.new(1, -240, 0, 16),
+					size = UDim2.fromOffset(240, 32),
+					reducedMotion = reducedMotion,
+				}), React.createElement(Button, {
+					text = "BUY ALL AFFORDABLE",
+					icon = "Flux",
+					onClick = onBuyAll,
+					color = Palette.cyan,
+					textColor = Palette.ink,
+					size = UDim2.fromOffset(240, 32),
+					position = UDim2.new(1, -240, 0, 56),
+					reducedMotion = reducedMotion,
+					highlight = true,
+				})), stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
+					value = buyAmount,
+					onChange = setBuyAmount,
+					accent = Palette.cyan,
+					position = UDim2.new(0, 0, 0, 132),
+					size = UDim2.new(1, -(TapTarget + 8), 0, TapTarget),
+					reducedMotion = reducedMotion,
+				}), React.createElement(Button, {
+					text = "ALL",
+					icon = "Flux",
+					onClick = onBuyAll,
+					color = Palette.cyan,
+					textColor = Palette.ink,
+					size = UDim2.fromOffset(TapTarget, TapTarget),
+					position = UDim2.new(1, -TapTarget, 0, 132),
+					reducedMotion = reducedMotion,
+					highlight = true,
+				}))),
+			},
+			{
+				id = "chain",
+				height = chainH,
+				element = React.createElement(VirtualGrid, {
+					scrollRef = scrollRef,
+					count = chainCount,
+					columns = 1,
+					cellHeight = rowStride,
+					gap = 0,
+					overscanRows = 2,
+					itemKey = function(index)
+						return entries[index + 1].config.Id
+					end,
+					renderItem = function(index)
+						return React.createElement(ResearchNode, {
+							entry = entries[index + 1],
+							buyAmount = buyAmount,
+							reducedMotion = reducedMotion,
+							index = index,
+							onBuy = onBuy,
+							stack = stack,
+						})
+					end,
+				}),
+			},
+		},
+	})
 end
 return {
 	ResearchView = ResearchView,

@@ -11,15 +11,15 @@ local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
 local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
+local SECTION_LABEL_H = 28
 local function ConvergenceView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -51,19 +51,13 @@ local function ConvergenceView(_param)
 	local tiers = event.Tiers or {}
 	local heroHeight = if stack then 226 else 198
 	local tierHeight = if stack then 154 else 94
-	local canvasHeight = heroHeight + 90 + #tiers * (tierHeight + 12) + scrollTail(chrome.stack, chrome.bottomSafe, 80) + SCROLL_EDGE * 2
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
-	})
-	local _exp_1 = React.createElement(ScrollPads)
+	local pageGap = 12
+	local tiersH = if #tiers > 0 then #tiers * tierHeight + math.max(0, #tiers - 1) * pageGap else 0
 	local _exp_2 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, heroHeight),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.mango,
 		background = Palette.panelRaised,
 		padding = 16,
-		layoutOrder = 1,
 		reveal = reveal,
 		clips = false,
 	}, React.createElement(Text, {
@@ -119,11 +113,6 @@ local function ConvergenceView(_param)
 		position = UDim2.new(0, 0, 1, -18),
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}))
-	local _exp_3 = React.createElement(SectionLabel, {
-		value = "YOUR CONTRIBUTION REWARDS",
-		color = Palette.violet,
-		layoutOrder = 2,
-	})
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#tiers)
 	local _callback = function(tier, index)
@@ -134,7 +123,7 @@ local function ConvergenceView(_param)
 			size = UDim2.new(1, 0, 0, tierHeight),
 			accent = if tier.CanClaim then Palette.mint else Palette.violet,
 			padding = 13,
-			layoutOrder = 10 + index,
+			layoutOrder = index,
 			reveal = reveal,
 			interactive = tier.CanClaim,
 			reducedMotion = reducedMotion,
@@ -183,22 +172,43 @@ local function ConvergenceView(_param)
 		_newValue[_k] = _callback(_v, _k - 1, tiers)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.mango,
-		ScrollBarImageTransparency = 0.28,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _exp_3, _newValue)
+	local sections = {
+		{
+			id = "hero",
+			height = heroHeight,
+			element = _exp_2,
+		},
+		{
+			id = "tiers-label",
+			height = SECTION_LABEL_H,
+			element = React.createElement(SectionLabel, {
+				value = "YOUR CONTRIBUTION REWARDS",
+				color = Palette.violet,
+			}),
+		},
+	}
+	if tiersH > 0 then
+		table.insert(sections, {
+			id = "tiers",
+			height = tiersH,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+			}, React.createElement("uilistlayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, pageGap),
+			}), _newValue),
+		})
+	end
+	return React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
+		scrollBarColor = Palette.mango,
+		scrollBarThickness = 4,
+		sections = sections,
+	})
 end
 return {
 	ConvergenceView = ConvergenceView,

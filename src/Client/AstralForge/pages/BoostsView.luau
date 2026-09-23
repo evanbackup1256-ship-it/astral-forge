@@ -11,8 +11,6 @@ local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local _theme = require(script.Parent.Parent.theme)
@@ -23,8 +21,10 @@ local lighten = _theme.lighten
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local AppHelpers = require(script.Parent.Parent.appNav).AppHelpers
 local clockText = require(script.Parent.Parent.format).clockText
+local SECTION_LABEL_H = 28
 local function boostIconKind(boostId)
 	if boostId == "DomainSurge" then
 		return "Domain"
@@ -57,11 +57,10 @@ local function ActiveBoostHero(_param)
 		return math.clamp((endsAt - timestamp) / math.max(1, boost.Duration), 0, 1)
 	end)
 	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, if stack then HERO_H_STACK else HERO_H_WIDE),
+		size = UDim2.fromScale(1, 1),
 		accent = boost.Color,
 		background = Palette.panelRaised,
 		padding = if stack then 16 else Layout.cardPadding,
-		layoutOrder = 0,
 		highlight = true,
 		reducedMotion = reducedMotion,
 		clips = false,
@@ -118,13 +117,11 @@ local function IdleHero(_param)
 	local stack = _param.stack
 	local boostKinds = _param.boostKinds
 	local totalBoosts = _param.totalBoosts
-	local h = if stack then IDLE_HERO_H_STACK else IDLE_HERO_H_WIDE
 	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, h),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.muted,
 		background = Palette.panelRaised,
 		padding = if stack then 16 else Layout.cardPadding,
-		layoutOrder = 0,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = "Boost",
@@ -363,19 +360,11 @@ local function BoostsView(_param)
 	local gridH = if #boosts > 0 then rows * cardH + (rows - 1) * CARD_GAP else 150
 	local headerH = if stack then 72 else 80
 	local pageGap = if stack then 12 else Layout.panelGap
-	local canvasHeight = headerH + pageGap + heroH + pageGap + statsH + pageGap + 24 + pageGap + gridH + scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48) + SCROLL_EDGE * 2
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, pageGap),
-	})
-	local _exp_1 = React.createElement(ScrollPads)
 	local _exp_2 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, headerH),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.pink,
 		background = Palette.panelRaised,
 		padding = if stack then 14 else Layout.cardPadding,
-		layoutOrder = 0,
 		reveal = headerReveal,
 		clips = false,
 	}, React.createElement(Text, {
@@ -394,12 +383,7 @@ local function BoostsView(_param)
 		position = UDim2.fromOffset(0, 18),
 		sizeConstraint = UDim2.new(1, -16, 0, 28),
 	}))
-	local _exp_3 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, heroH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 1,
-	}, if activeBoost ~= nil then React.createElement(ActiveBoostHero, {
+	local _exp_3 = if activeBoost ~= nil then React.createElement(ActiveBoostHero, {
 		boost = activeBoost,
 		endsAt = activeEndsAt,
 		now = now,
@@ -409,12 +393,11 @@ local function BoostsView(_param)
 		stack = stack,
 		boostKinds = boostKinds,
 		totalBoosts = totalBoosts,
-	}))
+	})
 	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, statsH),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		LayoutOrder = 2,
 	}, React.createElement(StatChip, {
 		label = "STORED",
 		value = `{totalBoosts}`,
@@ -431,17 +414,16 @@ local function BoostsView(_param)
 	local _exp_5 = React.createElement(SectionLabel, {
 		value = "ALL BOOSTS",
 		color = Palette.pink,
-		layoutOrder = 3,
 	})
-	local _exp_6 = #boosts == 0 and React.createElement(EmptyState, {
-		icon = "Forge",
-		title = "No boosts yet",
-		body = "Win them from the prize draw, then turn them on here.",
-		accent = Palette.cyan,
-		layoutOrder = 4,
-	})
-	local _condition_2 = #boosts > 0
-	if _condition_2 then
+	local gridElement
+	if #boosts == 0 then
+		gridElement = React.createElement(EmptyState, {
+			icon = "Forge",
+			title = "No boosts yet",
+			body = "Win them from the prize draw, then turn them on here.",
+			accent = Palette.cyan,
+		})
+	else
 		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#boosts)
 		local _callback = function(boost, index)
@@ -470,29 +452,45 @@ local function BoostsView(_param)
 			_newValue[_k] = _callback(_v, _k - 1, boosts)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_condition_2 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, gridH),
+		gridElement = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			LayoutOrder = 4,
 		}, _newValue)
 	end
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.pink,
-		ScrollBarImageTransparency = 0.2,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, _exp_6, _condition_2)
+	return React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48),
+		scrollBarColor = Palette.pink,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero-title",
+				height = headerH,
+				element = _exp_2,
+			},
+			{
+				id = "active",
+				height = heroH,
+				element = _exp_3,
+			},
+			{
+				id = "stats",
+				height = statsH,
+				element = _exp_4,
+			},
+			{
+				id = "grid-label",
+				height = SECTION_LABEL_H,
+				element = _exp_5,
+			},
+			{
+				id = "grid",
+				height = gridH,
+				element = gridElement,
+			},
+		},
+	})
 end
 return {
 	BoostsView = BoostsView,
