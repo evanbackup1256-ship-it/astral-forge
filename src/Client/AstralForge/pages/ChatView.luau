@@ -25,7 +25,7 @@ local Badge = _ui.Badge
 local Button = _ui.Button
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
-local useVirtualizedList = require(script.Parent.Parent.virtualizedList).useVirtualizedList
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local ROW_HEIGHT = 98
 local CARD_H = 90
 local SYSTEM_CARD_H = 66
@@ -294,42 +294,28 @@ local function ChatView(_param)
 		end
 	end, {})
 	local enteredIds = React.useRef({})
+	local listFrame = React.useRef(nil)
 	local count = #chat.messages
 	local stackH = math.max(0, count) * rowHeight
+	-- Stick short logs to the bottom of the fill viewport via FlatList headerHeight.
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
-	local canvasH = math.max(viewHeight, stackH + topPad, 1)
-	local window = useVirtualizedList(count, rowHeight, topPad, if softMotion then 1 else 4)
-	local rendered = {}
+	local renderedIds = {}
 	do
-		local index = window.first
-		local _shouldIncrement = false
-		while true do
-			if _shouldIncrement then
-				index += 1
-			else
-				_shouldIncrement = true
-			end
-			if not (index <= window.last) then
-				break
-			end
+		local index = 0
+		while index < count do
 			local message = chat.messages[index + 1]
-			if message == nil then
-				continue
+			if message ~= nil then
+				local _current = enteredIds.current
+				local _id = message.id
+				local animate = not (_current[_id] ~= nil)
+				if animate then
+					local _current_1 = enteredIds.current
+					local _id_1 = message.id
+					_current_1[_id_1] = true
+				end
+				renderedIds[message.id] = animate
 			end
-			local _current = enteredIds.current
-			local _id = message.id
-			local animate = not (_current[_id] ~= nil)
-			if animate then
-				local _current_1 = enteredIds.current
-				local _id_1 = message.id
-				_current_1[_id_1] = true
-			end
-			local _arg0 = {
-				message = message,
-				index = index,
-				animate = animate,
-			}
-			table.insert(rendered, _arg0)
+			index += 1
 		end
 	end
 	-- chat.messages is capped at MAX_MESSAGES and evicts from the front, but this Set only
@@ -351,7 +337,7 @@ local function ChatView(_param)
 	end
 	local scrollToBottom = React.useCallback(function(force)
 		task.defer(function()
-			local frame = window.frame.current
+			local frame = listFrame.current
 			if not frame then
 				return nil
 			end
@@ -362,9 +348,9 @@ local function ChatView(_param)
 			frame.CanvasPosition = Vector2.new(0, bottom)
 			stickBottom.current = true
 		end)
-	end, { window.frame })
+	end, { listFrame })
 	React.useEffect(function()
-		local frame = window.frame.current
+		local frame = listFrame.current
 		if not frame then
 			return nil
 		end
@@ -381,7 +367,7 @@ local function ChatView(_param)
 			sizeConn:Disconnect()
 			scrollConn:Disconnect()
 		end
-	end, { window.frame })
+	end, { listFrame, count, topPad })
 	React.useEffect(function()
 		if count > lastCount.current then
 			scrollToBottom()
@@ -529,47 +515,35 @@ local function ChatView(_param)
 		position = UDim2.new(1, -(STATUS_RESERVE - 4), 0.5, -13),
 		size = UDim2.fromOffset(STATUS_RESERVE - 16, 26),
 	}))
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#rendered)
-	local _callback = function(_param_1)
-		local message = _param_1.message
-		local index = _param_1.index
-		local animate = _param_1.animate
-		return React.createElement(MessageRow, {
-			key = message.id,
-			message = message,
-			position = UDim2.fromOffset(0, topPad + index * rowHeight),
-			reducedMotion = softMotion,
-			bodySize = bodySize,
-			animate = animate,
-			rowHeight = rowHeight,
-		})
-	end
-	for _k, _v in rendered do
-		_newValue[_k] = _callback(_v, _k - 1, rendered)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	-- Message list keeps its own Y scroller (virtualized stick-to-bottom). PageScaffold
-	-- owns status / banner / SEND chrome as fixed sections so short phones never bury SEND.
-	local messagesElement = React.createElement("scrollingframe", {
-		ref = window.frame,
+	-- Message list FlatLists under PageScaffold fill; status/banner/SEND stay fixed sections
+	-- so stick-to-bottom chat chrome never buries SEND. No page-local scrollingframe.
+	local messagesElement = React.createElement(FlatList, {
+		data = chat.messages,
+		itemHeight = rowHeight,
+		headerHeight = topPad,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
+		canvasTail = 0,
 		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasH),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingEnabled = true,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.12,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 4,
+		scrollBarTransparency = 0.12,
 		ZIndex = 10,
-	}, _newValue)
+		frameRef = listFrame,
+		keyExtractor = function(message)
+			return message.id
+		end,
+		renderItem = function(_param_1)
+			local message = _param_1.item
+			local animate = renderedIds[message.id] == true
+			return React.createElement(MessageRow, {
+				message = message,
+				reducedMotion = softMotion,
+				bodySize = bodySize,
+				animate = animate,
+				rowHeight = rowHeight,
+			})
+		end,
+	})
 	local bannerElement = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panel,

@@ -120,12 +120,12 @@ end
 -- PageScaffold owns the outer AutomaticCanvasSize.Y scroll. Nested raw frames are
 -- only OK when justified below (horizontal chips, dual-pane body). Prefer FlatList /
 -- VirtualGrid / PageScaffold fill instead of page-local scrollingframe literals.
+-- Chat message list migrated onto FlatList (virtualizedList owns the scroller) so the
+-- raw-scroll allowlist stays empty — reintroduce entries only with a >40-char justification.
 local RAW_SCROLL_ALLOWLIST = {
-	["src/Client/AstralForge/pages/ChatView.luau"] = "message list VirtualizedList Y-scroll under PageScaffold fill; status/banner/SEND stay fixed sections so stick-to-bottom chat chrome never buries SEND",
 }
 
 local RAW_SCROLL_BUDGET = {
-	["src/Client/AstralForge/pages/ChatView.luau"] = 1,
 }
 
 local function countRawScrollingFrames(src)
@@ -293,6 +293,16 @@ do
 	assert(string.find(starGrid, "FlatList", 1, true), "StarGrid long node boards must FlatList")
 	local boostsVirt = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
 	assert(string.find(boostsVirt, "FlatList", 1, true), "Boosts long inventory must FlatList")
+	local settingsVirt = fs.readFile("src/Client/AstralForge/pages/SettingsView.luau")
+	assert(string.find(settingsVirt, "FlatList", 1, true), "Settings long section catalogs must FlatList")
+	assert(string.find(settingsVirt, "virtSettings", 1, true), "Settings must gate catalog virtualization")
+	assert(string.find(settingsVirt, "VIRT_SETTINGS_MIN", 1, true), "Settings must keep VIRT_SETTINGS_MIN threshold")
+	assert(not string.find(settingsVirt, 'createElement("scrollingframe"', 1, true), "Settings must not keep raw scrollingframes under PageScaffold")
+	local chatVirt = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
+	assert(string.find(chatVirt, "FlatList", 1, true), "Chat message list must FlatList under PageScaffold fill")
+	assert(not string.find(chatVirt, 'createElement("scrollingframe"', 1, true), "Chat must not keep raw scrollingframes (allowlist cleared)")
+	assert(string.find(chatVirt, "headerHeight = topPad", 1, true), "Chat FlatList must stick short logs via headerHeight topPad")
+	assert(string.find(chatVirt, "overscan = if softMotion then 0", 1, true), "Chat FlatList must softMotion-gate overscan")
 	local rebirth = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
 	assert(string.find(rebirth, "GamepadNavigationService.FocusClaim", 1, true), "RebirthPanel must FocusClaim REBIRTH/CONFIRM")
 	assert(string.find(rebirth, "RebirthClaimActions", 1, true), "RebirthPanel must host FocusClaim on RebirthClaimActions")
@@ -521,11 +531,14 @@ do
 	assert(string.find(settings, "GamepadNavigationService.FocusClaim", 1, true), "Settings GUIDE/UPDATES must FocusClaim")
 	assert(string.find(settings, 'Name = "SettingsClaimActions"', 1, true), "Settings GUIDE/UPDATES host must be named SettingsClaimActions")
 	assert(string.find(settings, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "SettingsView must softMotion via antilag")
+	assert(string.find(settings, "overscan = if softMotion then 0", 1, true), "Settings FlatList must softMotion-gate overscan")
 
 	local chat = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
 	assert(string.find(chat, "GamepadNavigationService.FocusClaim", 1, true), "Chat SEND must FocusClaim")
 	assert(string.find(chat, 'Name = "ChatClaimActions"', 1, true), "Chat SEND host must be named ChatClaimActions")
 	assert(string.find(chat, "reducedMotion = softMotion", 1, true), "ChatView must fold softMotion into reducedMotion")
+	assert(string.find(chat, "createElement(FlatList", 1, true), "ChatView must mount FlatList for messages")
+	assert(not string.find(chat, "useVirtualizedList", 1, true), "ChatView must not hand-roll useVirtualizedList + raw scrollingframe")
 
 	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards
 	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken).

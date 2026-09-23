@@ -261,6 +261,18 @@ assert(not string.find(continuumMathSrc, "vendor/", 1, true), "ContinuumDomainMa
 assert(not string.find(continuumMathSrc, "Packages/", 1, true), "ContinuumDomainMath must not reference Packages/")
 mark("runquick pure domain requirements parity")
 
+-- Settings FlatList + Chat allowlist-clear residuals (offline playability parity).
+local settingsSrc = fs.readFile("src/Client/AstralForge/pages/SettingsView.luau")
+assert(string.find(settingsSrc, "FlatList", 1, true), "Settings must FlatList long catalogs for release")
+assert(string.find(settingsSrc, "virtSettings", 1, true), "Settings virtSettings gate missing")
+assert(not string.find(settingsSrc, 'createElement("scrollingframe"', 1, true), "Settings must not reintroduce raw scrollingframes")
+local chatSrc = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
+assert(string.find(chatSrc, "createElement(FlatList", 1, true), "Chat must FlatList messages for release")
+assert(not string.find(chatSrc, 'createElement("scrollingframe"', 1, true), "Chat raw scrollingframe allowlist must stay cleared")
+assert(not string.find(chatSrc, "vendor/", 1, true), "Chat must not reference vendor/")
+assert(not string.find(settingsSrc, "Packages/", 1, true), "Settings must not reference Packages/")
+mark("settings chat virtualization residuals")
+
 assert(#passed > 12, "release-readiness offline subset must stay beyond checks=12, got " .. tostring(#passed))
 
 print(string.format(
