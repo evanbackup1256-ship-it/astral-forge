@@ -274,11 +274,8 @@ return function(loadService: (string) -> any)
 		-- action payload — rejecting them trapped players in the changelog overlay
 		-- (DismissRelease) and would also break CollectVault/Overcharge/Rebirth.
 		if NO_PAYLOAD_ACTIONS[action] then
-			local SESSION_KEYS = { Gen = true, N = true, Auth = true, Txn = true, TxnId = true }
-			for key in payload do
-				if not SESSION_KEYS[key] then
-					return false, "this action does not accept a payload"
-				end
+			if not RemoteFirewallMath.IsSessionOnlyPayload(payload) then
+				return false, "this action does not accept a payload"
 			end
 		end
 

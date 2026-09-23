@@ -939,7 +939,7 @@ local function DetailPanel(_param)
 	local equipped = item.equippedOn ~= nil
 	local locked = item.instance.Locked == true
 	local chipCols = if stack then 2 else 3
-	local chipRows = math.max(1, math.ceil(#targets / chipCols))
+	local chipRows = InventoryMath.ChipRows(#targets, stack)
 	local socketBlock = inspectSocketBlock(equipped, #targets, chipRows, stack)
 	local chipHeight = if stack then TapTarget else 40
 	local chipStep = if stack then TapTarget + 6 else 42
@@ -1159,6 +1159,7 @@ local function DetailPanel(_param)
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectUpgradeClaim",
@@ -1166,6 +1167,7 @@ local function DetailPanel(_param)
 		Position = UDim2.new(0.5, 5, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectProtect",
@@ -1185,6 +1187,7 @@ local function DetailPanel(_param)
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectUpgradeClaim",
@@ -1192,6 +1195,7 @@ local function DetailPanel(_param)
 		Position = UDim2.new(0.25, 2, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectProtect",
@@ -1579,97 +1583,23 @@ local function LoadoutBoard(_param)
 		_effects = _effects.Effects
 	end
 	local effects = _effects
-	local _object = {
-		id = "Production",
-		label = "Production",
+	local paletteById = {
+		Production = Palette.green,
+		Capacity = Palette.cyan,
+		Tap = Palette.mango,
+		Critical = Palette.pink,
+		Automation = Palette.mint,
+		Offline = Palette.violet,
 	}
-	local _left = "value"
-	local _result = effects
-	if _result ~= nil then
-		_result = _result.Production
+	local lines = {}
+	for _, entry in InventoryMath.LoadoutEffectLines(effects) do
+		table.insert(lines, {
+			id = entry.id,
+			label = entry.label,
+			value = entry.value,
+			color = paletteById[entry.id] or Palette.muted,
+		})
 	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = 0
-	end
-	_object[_left] = _condition
-	_object.color = Palette.green
-	local _object_1 = {
-		id = "Capacity",
-		label = "Vault",
-	}
-	local _left_1 = "value"
-	local _result_1 = effects
-	if _result_1 ~= nil then
-		_result_1 = _result_1.Capacity
-	end
-	local _condition_1 = _result_1
-	if _condition_1 == nil then
-		_condition_1 = 0
-	end
-	_object_1[_left_1] = _condition_1
-	_object_1.color = Palette.cyan
-	local _object_2 = {
-		id = "Tap",
-		label = "Overcharge",
-	}
-	local _left_2 = "value"
-	local _result_2 = effects
-	if _result_2 ~= nil then
-		_result_2 = _result_2.Tap
-	end
-	local _condition_2 = _result_2
-	if _condition_2 == nil then
-		_condition_2 = 0
-	end
-	_object_2[_left_2] = _condition_2
-	_object_2.color = Palette.mango
-	local _object_3 = {
-		id = "Critical",
-		label = "Critical",
-	}
-	local _left_3 = "value"
-	local _result_3 = effects
-	if _result_3 ~= nil then
-		_result_3 = _result_3.Critical
-	end
-	local _condition_3 = _result_3
-	if _condition_3 == nil then
-		_condition_3 = 0
-	end
-	_object_3[_left_3] = _condition_3
-	_object_3.color = Palette.pink
-	local _object_4 = {
-		id = "Automation",
-		label = "Auto",
-	}
-	local _left_4 = "value"
-	local _result_4 = effects
-	if _result_4 ~= nil then
-		_result_4 = _result_4.Automation
-	end
-	local _condition_4 = _result_4
-	if _condition_4 == nil then
-		_condition_4 = 0
-	end
-	_object_4[_left_4] = _condition_4
-	_object_4.color = Palette.mint
-	local _object_5 = {
-		id = "Offline",
-		label = "Offline",
-	}
-	local _left_5 = "value"
-	local _result_5 = effects
-	if _result_5 ~= nil then
-		_result_5 = _result_5.Offline
-	end
-	local _condition_5 = _result_5
-	if _condition_5 == nil then
-		_condition_5 = 0
-	end
-	_object_5[_left_5] = _condition_5
-	_object_5.color = Palette.violet
-	local lines = { _object, _object_1, _object_2, _object_3, _object_4, _object_5 }
 	local equipped = {}
 	local byId = {}
 	local _result_6 = config.Items
@@ -2017,7 +1947,9 @@ local function InventoryView(_param)
 		_result_7 = _result_7.uid
 	end
 	local targetsForSelected = React.useMemo(_exp_5, { config, _result_7, state.Machines, state.Research })
-	local chipRows = if selected ~= nil and selected.equippedOn == nil and #targetsForSelected > 0 then math.max(1, math.ceil(#targetsForSelected / (if stack then 2 else 3))) else 0
+	local chipRows = if selected ~= nil and selected.equippedOn == nil and #targetsForSelected > 0
+		then InventoryMath.ChipRows(#targetsForSelected, stack)
+		else 0
 	local inspectPanelH = if tab == "Relics" and selected ~= nil and not bulkMode then inspectPanelHeight(inspectSocketBlock(selected.equippedOn ~= nil, #targetsForSelected, chipRows, stack), stack) else 0
 	local detailH = if inspectPanelH > 0 then inspectPanelH + ROW_GAP else 0
 	local listH = math.max(1, #filtered) * relicRowStride

@@ -239,4 +239,22 @@ function ProgressionOpsMath.CanClaimQuest(quest: any): (boolean, string)
 	return true, ""
 end
 
+-- Scale raw command XP by a Domain-tree CommandXP bonus (fraction). Always ≥ 0.
+function ProgressionOpsMath.ScaledCommandXP(amount: any, domainBonus: any): number
+	local value = math.max(0, math.floor(tonumber(amount) or 0))
+	local bonus = tonumber(domainBonus) or 0
+	return math.floor(value * (1 + bonus))
+end
+
+-- Apply ScaledCommandXP onto an Ensure'd Command bag (XP + SeasonXP). Returns granted.
+function ProgressionOpsMath.ApplyCommandXP(command: any, amount: any, domainBonus: any): number
+	if type(command) ~= "table" then
+		return 0
+	end
+	local granted = ProgressionOpsMath.ScaledCommandXP(amount, domainBonus)
+	command.XP = (tonumber(command.XP) or 0) + granted
+	command.SeasonXP = (tonumber(command.SeasonXP) or 0) + granted
+	return granted
+end
+
 return table.freeze(ProgressionOpsMath)

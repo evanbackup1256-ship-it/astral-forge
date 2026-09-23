@@ -216,4 +216,51 @@ function EconomyEnvelopeMath.PermanentMultiplier(
 	return (1 + coreBonus + safeRebirths * rebirthScale) * domainMultiplier
 end
 
+-- Sum equipped relic effects for `effectKind`. `getDefinition(id)` resolves catalogs;
+-- Machines/Research owned levels gate socket eligibility. Partial Items bags → 0.
+function EconomyEnvelopeMath.ItemEffect(
+	items: any,
+	machines: any,
+	research: any,
+	effectKind: any,
+	getDefinition: ((any) -> any)?,
+	slotFilter: any?,
+	targetFilter: any?
+): number
+	if type(items) ~= "table" or type(effectKind) ~= "string" then
+		return 0
+	end
+	local equipped = items.Equipped
+	local inventory = items.Inventory
+	if type(equipped) ~= "table" or type(inventory) ~= "table" then
+		return 0
+	end
+	local resolve = getDefinition
+	if type(resolve) ~= "function" then
+		return 0
+	end
+	local total = 0
+	for target, uid in equipped do
+		local instance = inventory[uid]
+		local definition = instance and resolve(instance.DefinitionId)
+		local slot, targetId = string.match(tostring(target), "^(%a+):([%w_]+)$")
+		local ownedLevel = if slot == "Machine" and type(machines) == "table"
+			then machines[targetId]
+			elseif slot == "Research" and type(research) == "table"
+			then research[targetId]
+			else nil
+		if
+			type(definition) == "table"
+			and type(ownedLevel) == "number"
+			and ownedLevel > 0
+			and definition.EffectKind == effectKind
+			and (not slotFilter or slot == slotFilter)
+			and (not targetFilter or target == targetFilter)
+		then
+			total += EconomyEnvelopeMath.EffectAtLevel(definition, instance.Level)
+		end
+	end
+	return total
+end
+
 return table.freeze(EconomyEnvelopeMath)

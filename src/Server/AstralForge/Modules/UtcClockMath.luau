@@ -23,4 +23,14 @@ function UtcClockMath.NextMidnight(now: any): number
 	return (UtcClockMath.Day(now) + 1) * UtcClockMath.DAY_SECONDS
 end
 
+-- Seconds remaining until `deadline` (unix). Never negative.
+function UtcClockMath.Remaining(deadline: any, now: any): number
+	return math.max(0, (tonumber(deadline) or 0) - (tonumber(now) or 0))
+end
+
+-- True when the deadline has elapsed (remaining == 0).
+function UtcClockMath.IsLive(deadline: any, now: any): boolean
+	return UtcClockMath.Remaining(deadline, now) <= 0
+end
+
 return table.freeze(UtcClockMath)

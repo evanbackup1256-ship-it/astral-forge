@@ -79,4 +79,37 @@ function DataSanitizeMath.ClampLevelBag(
 	return bag
 end
 
+-- Clamp AutoForge bag against a machine catalog. Missing bag → defaults.
+-- `nonNegative` is injected so DataService can pass its persist ceiling.
+function DataSanitizeMath.ClampAutoForge(
+	autoForge: any,
+	machineById: any,
+	defaultMachineId: any,
+	nonNegative: ((any) -> number)?
+): { [string]: any }
+	local catalog = if type(machineById) == "table" then machineById else {}
+	local fallback = if type(defaultMachineId) == "string" and catalog[defaultMachineId]
+		then defaultMachineId
+		else "StellarCore"
+	local clamp = nonNegative
+	if type(clamp) ~= "function" then
+		clamp = function(value: any): number
+			return DataSanitizeMath.NonNegative(value)
+		end
+	end
+	local bag = if type(autoForge) == "table" then autoForge else {
+		Enabled = false,
+		MachineId = fallback,
+		Reserve = 0.25,
+		Bought = 0,
+	}
+	bag.Enabled = bag.Enabled == true
+	bag.MachineId = if type(bag.MachineId) == "string" and catalog[bag.MachineId]
+		then bag.MachineId
+		else fallback
+	bag.Reserve = math.clamp(clamp(bag.Reserve), 0, 0.9)
+	bag.Bought = math.floor(clamp(bag.Bought))
+	return bag
+end
+
 return table.freeze(DataSanitizeMath)

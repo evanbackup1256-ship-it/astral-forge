@@ -106,7 +106,11 @@ assert(string.find(economySrc, "EconomyEnvelopeMath.MasteryMultiplier", 1, true)
 assert(string.find(economySrc, "EconomyEnvelopeMath.DomainTreeBonus", 1, true), "Economy DomainTreeBonus must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "Economy LabPowerEffect must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect must delegate")
-assert(string.find(economySrc, "EconomyEnvelopeMath.EffectAtLevel", 1, true), "Economy ItemEffect must use EffectAtLevel")
+assert(
+	string.find(economySrc, "EconomyEnvelopeMath.ItemEffect", 1, true) ~= nil
+		or string.find(economySrc, "EconomyEnvelopeMath.EffectAtLevel", 1, true) ~= nil,
+	"Economy ItemEffect must use EffectAtLevel"
+)
 assert(string.find(economySrc, "EconomyEnvelopeMath.ArtifactLevelEffect", 1, true), "Economy ArtifactEffect must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier must delegate")
 assert(string.find(economySrc, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EchoEffect must delegate EquippedEffect")

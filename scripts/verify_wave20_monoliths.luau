@@ -115,7 +115,11 @@ assert(string.find(ssSrc, "TelemetryMath.Encode", 1, true), "ServerServices Tele
 assert(string.find(ssSrc, "UtcClockMath.Day", 1, true), "ServerServices UtcClockMath")
 assert(string.find(ssSrc, "DataSanitizeMath.DeepCopy", 1, true), "ServerServices DeepCopy")
 assert(string.find(econSrc, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect residual")
-assert(string.find(econSrc, "EconomyEnvelopeMath.EffectAtLevel", 1, true), "Economy EffectAtLevel residual")
+assert(
+	string.find(econSrc, "EconomyEnvelopeMath.ItemEffect", 1, true) ~= nil
+		or string.find(econSrc, "EconomyEnvelopeMath.EffectAtLevel", 1, true) ~= nil,
+	"Economy EffectAtLevel residual"
+)
 assert(string.find(econSrc, "EconomyEnvelopeMath.ArtifactLevelEffect", 1, true), "Economy Artifact residual")
 assert(string.find(invSrc, "InventoryMath.RarityColor", 1, true), "InventoryView RarityColor")
 

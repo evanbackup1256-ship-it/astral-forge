@@ -180,4 +180,125 @@ function ForgeEchoMath.EquippedEffect(
 	return total
 end
 
+export type SanitizeEchoConfig = {
+	ChargeTarget: number?,
+	MaxLevel: number?,
+	InventoryLimit: number?,
+	MaxSlots: number?,
+}
+
+-- Persist clamp for ForgeEchoes after Ensure. `traitById` maps TraitId → trait;
+-- `nonNegative` is injected so DataService can pass its persist ceiling.
+function ForgeEchoMath.Sanitize(
+	echoes: any,
+	traitById: any,
+	config: SanitizeEchoConfig?,
+	nonNegative: ((any) -> number)?
+): ForgeEchoesBag
+	local bag = ForgeEchoMath.Ensure(echoes)
+	local clamp = nonNegative
+	if type(clamp) ~= "function" then
+		clamp = function(value: any): number
+			local n = tonumber(value)
+			if n == nil or n ~= n or n == math.huge or n == -math.huge then
+				return 0
+			end
+			return math.max(0, n)
+		end
+	end
+	local cfg = if type(config) == "table" then config else {}
+	local chargeTarget = math.max(0, tonumber(cfg.ChargeTarget) or 100)
+	local maxLevel = math.max(1, math.floor(tonumber(cfg.MaxLevel) or 10))
+	local inventoryLimit = math.max(0, math.floor(tonumber(cfg.InventoryLimit) or 24))
+	local maxSlots = math.max(1, math.floor(tonumber(cfg.MaxSlots) or 3))
+	local traits = if type(traitById) == "table" then traitById else {}
+
+	bag.Charge = math.clamp(clamp(bag.Charge), 0, chargeTarget)
+	bag.Resonance = math.floor(clamp(bag.Resonance))
+	bag.Captures = math.floor(clamp(bag.Captures))
+	bag.NextId = math.max(1, math.floor(clamp(bag.NextId)))
+
+	if type(bag.Pattern) ~= "table" then
+		bag.Pattern = {}
+	end
+	for _, id in ForgeEchoMath.PATTERN_IDS do
+		bag.Pattern[id] = math.clamp(clamp(bag.Pattern[id]), 0, 1e9)
+	end
+	for id in bag.Pattern do
+		local known = false
+		for _, patternId in ForgeEchoMath.PATTERN_IDS do
+			if id == patternId then
+				known = true
+				break
+			end
+		end
+		if not known then
+			bag.Pattern[id] = nil
+		end
+	end
+
+	if type(bag.Inventory) ~= "table" then
+		bag.Inventory = {}
+	end
+	local echoCount = 0
+	for uid, instance in bag.Inventory do
+		local trait = type(instance) == "table" and traits[instance.TraitId]
+		if type(uid) ~= "string" or not trait or echoCount >= inventoryLimit then
+			bag.Inventory[uid] = nil
+		else
+			echoCount += 1
+			instance.Uid = nil
+			instance.Level = math.clamp(math.floor(clamp(instance.Level)), 1, maxLevel)
+			instance.Strength = math.clamp(clamp(instance.Strength), 0.75, 1.5)
+			instance.CapturedAt = math.floor(clamp(instance.CapturedAt))
+			instance.Origin = type(instance.Origin) == "string" and instance.Origin or "Collect"
+		end
+	end
+
+	if type(bag.Equipped) ~= "table" then
+		bag.Equipped = {}
+	end
+	local equippedEchoes = {}
+	for slot = 1, maxSlots do
+		local key = tostring(slot)
+		local uid = bag.Equipped[key]
+		if type(uid) ~= "string" or uid == "" or not bag.Inventory[uid] or equippedEchoes[uid] then
+			bag.Equipped[key] = ""
+		else
+			equippedEchoes[uid] = true
+		end
+	end
+	for key in bag.Equipped do
+		local slot = tonumber(key)
+		if not slot or slot ~= math.floor(slot) or slot < 1 or slot > maxSlots then
+			bag.Equipped[key] = nil
+		end
+	end
+
+	if type(bag.Draft) ~= "table" then
+		bag.Draft = { Id = "", Choices = {} }
+	end
+	bag.Draft.Id = type(bag.Draft.Id) == "string" and bag.Draft.Id:sub(1, 48) or ""
+	if type(bag.Draft.Choices) ~= "table" then
+		bag.Draft.Choices = {}
+	end
+	local safeChoices = {}
+	for _, choice in bag.Draft.Choices do
+		local trait = type(choice) == "table" and traits[choice.TraitId]
+		if trait and type(choice.Uid) == "string" and #safeChoices < 3 then
+			choice.Uid = choice.Uid:sub(1, 56)
+			choice.Level = 1
+			choice.Strength = math.clamp(clamp(choice.Strength), 0.9, 1.32)
+			choice.CapturedAt = math.floor(clamp(choice.CapturedAt))
+			choice.Origin = type(choice.Origin) == "string" and choice.Origin or "Collect"
+			table.insert(safeChoices, choice)
+		end
+	end
+	bag.Draft.Choices = safeChoices
+	if #safeChoices == 0 then
+		bag.Draft.Id = ""
+	end
+	return bag
+end
+
 return table.freeze(ForgeEchoMath)

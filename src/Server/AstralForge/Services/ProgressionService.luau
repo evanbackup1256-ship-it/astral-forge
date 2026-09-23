@@ -88,11 +88,12 @@ return function()
 	end
 
 	local function awardCommandXP(profile, amount: number)
-		local value = math.max(0, math.floor(amount))
-		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
 		local command = ensureCommand(profile)
-		command.XP = (tonumber(command.XP) or 0) + value
-		command.SeasonXP = (tonumber(command.SeasonXP) or 0) + value
+		ProgressionOpsMath.ApplyCommandXP(
+			command,
+			amount,
+			Economy.DomainTreeBonus(profile, "CommandXP")
+		)
 	end
 
 	ProgressionService.AwardCommandXP = awardCommandXP

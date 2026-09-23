@@ -88,7 +88,7 @@ assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService
 assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService NonNegative residual")
 assert(string.find(dataSrc, "DataSanitizeMath.ClampLevelBag", 1, true), "DataService ClampLevelBag residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual")
-assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEcho residual")
+assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true) or string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService ForgeEcho residual")
 
 assert(string.find(fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"), "function RemoteFirewallMath.Inspect", 1, true), "Inspect exported")
 assert(string.find(fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau"), "function DataSanitizeMath.ClampLevelBag", 1, true), "ClampLevelBag exported")

@@ -98,6 +98,7 @@ local VaultCollectEligibility = require(script.Parent.vaultCollectEligibility)
 local ActionCopy = require(script.Parent.actionCopy)
 local BoostIconKind = require(script.Parent.boostIconKind)
 local NetworkPolicy = require(script.Parent.networkPolicy)
+local ReleaseClockMath = require(script.Parent.releaseClockMath)
 local ClientLog = require(script.Parent.log).ClientLog
 local _session = require(script.Parent.session)
 local GRANT_ACTIONS = _session.GRANT_ACTIONS
@@ -1063,8 +1064,8 @@ local function TopbarReleaseCountdown(_param)
 			end)
 		end
 	end, {})
-	local remaining = math.max(0, releaseAt - now)
-	local live = remaining <= 0
+	local remaining = ReleaseClockMath.Remaining(releaseAt, now)
+	local live = ReleaseClockMath.IsLive(releaseAt, now)
 	local slam, setSlam = React.useState(0)
 	local wasLive = React.useRef(live)
 	React.useEffect(function()
