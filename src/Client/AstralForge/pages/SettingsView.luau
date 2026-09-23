@@ -16,7 +16,13 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
+local SECTION_LABEL_H = 28
+local SCROLL_BAR = 4
+-- FlatList long section catalogs once they would otherwise map-mount every row under PageScaffold.
+local VIRT_SETTINGS_MIN = 6
+local VIRT_SETTINGS_VISIBLE = 5
 local _ui = require(script.Parent.Parent.ui)
 local Button = _ui.Button
 local Panel = _ui.Panel
@@ -911,7 +917,12 @@ local function SettingsView(_param)
 	local tabRows = math.ceil(#availableSections / tabCols)
 	local tabsH = tabRows * (TapTarget + 8) + 20
 	local editorH = if mobileHudAvailable and activeSection == "mobile" then (if stack then 138 else 92) else 0
-	local paneH = 42 + #visibleRows * rowStride + editorH
+	-- Long section catalogs virtualize inside a fixed viewport so PageScaffold stays scrollable.
+	local virtSettings = #visibleRows >= VIRT_SETTINGS_MIN
+	local settingsListH = if virtSettings
+		then math.min(#visibleRows, VIRT_SETTINGS_VISIBLE) * rowStride
+		else #visibleRows * rowStride
+	local paneH = SECTION_LABEL_H + 14 + settingsListH + editorH
 	local headerReveal = useStagger(0, softMotion)
 	local _ = headerReveal
 	local quickScale = savedValue(state.Settings, "MobileQuickScale")
@@ -1182,47 +1193,74 @@ local function SettingsView(_param)
 		color = SECTION_META[activeSection].accent,
 		layoutOrder = 0,
 	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue_2 = table.create(#visibleRows)
-	local _callback_3 = function(data, index)
-		return React.createElement(SettingRow, {
-			key = data.id,
-			data = data,
-			index = index,
-			state = state,
-			dispatch = dispatch,
-			reducedMotion = reducedMotion,
-			layoutOrder = index + 1,
-			stack = touchRows,
-			touch = touch,
+	local settingsRows
+	if virtSettings then
+		settingsRows = React.createElement(FlatList, {
+			data = visibleRows,
+			itemHeight = rowStride,
+			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
+			canvasTail = 8,
+			Size = UDim2.new(1, 0, 0, settingsListH),
+			scrollBarColor = SECTION_META[activeSection].accent,
+			scrollBarThickness = SCROLL_BAR,
+			layoutOrder = 1,
+			keyExtractor = function(data)
+				return data.id
+			end,
+			renderItem = function(_param_1)
+				local data = _param_1.item
+				local index = _param_1.index
+				return React.createElement(SettingRow, {
+					data = data,
+					index = index,
+					state = state,
+					dispatch = dispatch,
+					reducedMotion = softMotion,
+					layoutOrder = index + 1,
+					stack = touchRows,
+					touch = touch,
+				})
+			end,
 		})
+	else
+		-- ▼ ReadonlyArray.map ▼
+		local _newValue_2 = table.create(#visibleRows)
+		local _callback_3 = function(data, index)
+			return React.createElement(SettingRow, {
+				key = data.id,
+				data = data,
+				index = index,
+				state = state,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+				layoutOrder = index + 1,
+				stack = touchRows,
+				touch = touch,
+			})
+		end
+		for _k, _v in visibleRows do
+			_newValue_2[_k] = _callback_3(_v, _k - 1, visibleRows)
+		end
+		-- ▲ ReadonlyArray.map ▲
+		settingsRows = React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, settingsListH),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+			layoutOrder = 1,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 12),
+		}), _newValue_2)
 	end
-	for _k, _v in visibleRows do
-		_newValue_2[_k] = _callback_3(_v, _k - 1, visibleRows)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	local paneElement = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = panePosition,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
-	}), _exp_5, _newValue_2, mobileHudAvailable and activeSection == "mobile" and React.createElement(Panel, {
+	local mobileEditor = mobileHudAvailable and activeSection == "mobile" and React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, if stack then 128 else 82),
 		accent = Palette.cyan,
 		background = Palette.panelRaised,
 		padding = 14,
-		layoutOrder = #visibleRows + 1,
-		reducedMotion = reducedMotion,
+		layoutOrder = 2,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "Phone HUD",
@@ -1249,8 +1287,24 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(120, TapTarget),
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -120, 0.5, -TapTarget / 2),
-		reducedMotion = reducedMotion,
-	}))))
+		reducedMotion = softMotion,
+	}))
+	local paneElement = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = panePosition,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 12),
+	}), _exp_5, settingsRows, mobileEditor))
 	local sections = {
 		{
 			id = "hero",
