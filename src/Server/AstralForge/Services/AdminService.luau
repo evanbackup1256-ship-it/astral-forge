@@ -14,6 +14,7 @@ return function(loadService: (string) -> any)
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
+	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -829,10 +830,13 @@ return function(loadService: (string) -> any)
 				for _, research in GameConfig.Research do profile.Research[research.Id] = research.MaxLevel end
 				for _, upgrade in GameConfig.GridUpgrades do profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel end
 			elseif command == "ResetTutorial" then
-				profile.Flags.TutorialDone = false
-				profile.Flags.TutorialStep = 1
-				profile.Flags.TutorialRewardClaimed = false
-			elseif command == "ShowUpdates" then profile.Flags.LastSeenVersion = ""
+				-- Flags-only / missing Flags fixtures must not crash ResetTutorial.
+				local flags = ProfileBagMath.EnsureFlags(profile)
+				flags.TutorialDone = false
+				flags.TutorialStep = 1
+				flags.TutorialRewardClaimed = false
+			elseif command == "ShowUpdates" then
+				ProfileBagMath.EnsureFlags(profile).LastSeenVersion = ""
 			elseif command == "WipeFlux" then
 				profile.Cash = 0
 				profile.RunCash = 0
@@ -925,20 +929,27 @@ return function(loadService: (string) -> any)
 				profile.Zone = 1
 				profile.CurrentZone = 1
 			elseif command == "GrantEchoCharge" then
-				if profile.ForgeEchoes then profile.ForgeEchoes.Charge += math.floor(amount) end
+				-- Charge-only / missing ForgeEchoes fixtures must Ensure before +=
+				-- (evidence: bare `if profile.ForgeEchoes then Charge +=` was a silent no-op).
+				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
+				profile.ForgeEchoes = echoes
+				echoes.Charge += math.floor(amount)
 			elseif command == "MaxCrew" then
-				if profile.Command and profile.Command.Crew then
-					for role in profile.Command.Crew do profile.Command.Crew[role] = 10 end
+				-- Signals-only Command bags omit Crew — Ensure before MaxCrew (evidence:
+				-- prior `if profile.Command and profile.Command.Crew` skipped empty bags).
+				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+				for roleId in profile.Command.Crew do
+					profile.Command.Crew[roleId] = 10
 				end
 			elseif command == "DiscoverArts" then
 				if GameConfig.Operations and GameConfig.Operations.Artifacts then
-					if type(profile.Command) ~= "table" then
-						profile.Command = { Artifacts = {} }
-					elseif type(profile.Command.Artifacts) ~= "table" then
+					profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+					if type(profile.Command.Artifacts) ~= "table" then
 						profile.Command.Artifacts = {}
 					end
 					for _, artifact in GameConfig.Operations.Artifacts do
-						profile.Command.Artifacts[artifact.Id] = profile.Command.Artifacts[artifact.Id] or { Level = 1, Fragments = 0 }
+						profile.Command.Artifacts[artifact.Id] = profile.Command.Artifacts[artifact.Id]
+							or { Level = 1, Fragments = 0 }
 					end
 				end
 			elseif command == "GrantEverything" then

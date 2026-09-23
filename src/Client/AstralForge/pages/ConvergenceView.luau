@@ -193,6 +193,7 @@ local function ConvergenceView(_param)
 			Position = if stack then UDim2.new(0, 0, 1, -48) else UDim2.new(1, -150, 0.5, -24),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			ClipsDescendants = false,
 			ref = if tier.Tier == firstClaimTier then claimHostRef else nil,
 		}, React.createElement(Button, {
 			text = if tier.Claimed then "CLAIMED" elseif tier.CanClaim then "CLAIM" else "LOCKED",

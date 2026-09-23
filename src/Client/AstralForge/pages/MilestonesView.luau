@@ -179,6 +179,7 @@ local function MilestoneRow(_param)
 		Position = UDim2.new(0, 0, 1, -(TapTarget + 6)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = if ready then claimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM" else "LOCKED",
@@ -200,6 +201,7 @@ local function MilestoneRow(_param)
 		Position = UDim2.new(1, -166, 0.5, -22),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = if ready then claimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM" else "LOCKED",

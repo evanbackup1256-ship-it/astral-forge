@@ -46,9 +46,25 @@ assert(id == "Collect" and affinity == "Industry", "all-zero ties Collect")
 id, affinity = ForgeEchoMath.DominantPattern({ Explore = 4 }, { Explore = "Void", Collect = "Industry" })
 assert(id == "Explore" and affinity == "Void", "injected affinity map")
 
+-- --- Ensure (Charge-only / missing bags) --------------------------------------
+local fresh = ForgeEchoMath.Ensure(nil)
+assert(fresh.Charge == 0 and fresh.NextId == 1, "nil → empty bag")
+assert(type(fresh.Pattern) == "table" and type(fresh.Draft.Choices) == "table", "nil seeds Pattern/Draft")
+assert(type(fresh.Inventory) == "table" and type(fresh.Equipped) == "table", "nil seeds Inventory/Equipped")
+
+local chargeOnly = ForgeEchoMath.Ensure({ Charge = 12.7 })
+assert(chargeOnly.Charge == 12.7, "Charge-only keeps Charge")
+assert(type(chargeOnly.Draft.Choices) == "table", "Charge-only rebuilds Draft.Choices")
+assert(type(chargeOnly.Pattern.Collect) == "number", "Charge-only rebuilds Pattern")
+assert(chargeOnly.Captures == 0 and chargeOnly.NextId == 1, "Charge-only defaults Captures/NextId")
+
+local partialDraft = ForgeEchoMath.Ensure({ Charge = 3, Draft = { Id = "D1" } })
+assert(partialDraft.Draft.Id == "D1" and type(partialDraft.Draft.Choices) == "table", "Draft without Choices rebuilt")
+
 -- --- Source wiring + HARD constraints ----------------------------------------
 local serviceSrc = fs.readFile("src/Server/AstralForge/Services/ForgeEchoService.luau")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau")
+local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(serviceSrc, "ForgeEchoMath.InventoryCount", 1, true), "ForgeEchoService must delegate InventoryCount")
@@ -56,9 +72,21 @@ assert(string.find(serviceSrc, "ForgeEchoMath.UnlockedSlots", 1, true), "ForgeEc
 assert(string.find(serviceSrc, "ForgeEchoMath.EffectValue", 1, true), "ForgeEchoService must delegate EffectValue")
 assert(string.find(serviceSrc, "ForgeEchoMath.DominantPattern", 1, true), "ForgeEchoService must delegate DominantPattern")
 assert(string.find(serviceSrc, "ForgeEchoMath.UpgradeCost", 1, true), "ForgeEchoService must delegate UpgradeCost")
+assert(string.find(serviceSrc, "ForgeEchoMath.Ensure", 1, true), "ForgeEchoService must delegate Ensure")
 assert(not string.find(serviceSrc, "local function inventoryCount", 1, true), "inline inventoryCount must be removed")
 assert(not string.find(serviceSrc, "local function unlockedSlots", 1, true), "inline unlockedSlots must be removed")
 assert(not string.find(serviceSrc, "local function dominantPattern", 1, true), "inline dominantPattern must be removed")
+assert(
+	string.find(adminSrc, "ForgeEchoMath.Ensure", 1, true),
+	"Admin GrantEchoCharge must ForgeEchoMath.Ensure"
+)
+assert(
+	not string.find(adminSrc, "if profile.ForgeEchoes then profile.ForgeEchoes.Charge", 1, true),
+	"Admin GrantEchoCharge must not silent-noop missing ForgeEchoes"
+)
+assert(string.find(configSrc, "Wave17EchoEnsure", 1, true), "DV21 lab Wave17EchoEnsure")
+assert(string.find(configSrc, "Wave17ClaimClipsSoftMotion", 1, true), "DV21 lab Wave17ClaimClipsSoftMotion")
+assert(string.find(configSrc, "Wave17EchoCourier", 1, true), "DV21 achievement Wave17EchoCourier")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -68,7 +96,7 @@ for badgeId, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. badgeId .. " must be 0")
 end
 
-for _, body in { serviceSrc, mathSrc } do
+for _, body in { serviceSrc, mathSrc, adminSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end

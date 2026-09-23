@@ -96,10 +96,21 @@ assert(string.find(adminSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "Admin En
 assert(string.find(adminSrc, "ProfileBagMath.EnsureBoostInventory", 1, true), "Admin EnsureBoostInventory residual")
 assert(string.find(adminSrc, "WheelMath.Ensure", 1, true), "Admin WheelMath.Ensure residual")
 assert(string.find(adminSrc, "CommandMath.Ensure", 1, true), "Admin CommandMath.Ensure residual")
+assert(string.find(adminSrc, "ForgeEchoMath.Ensure", 1, true), "Admin ForgeEchoMath.Ensure residual")
+assert(string.find(adminSrc, "ProfileBagMath.EnsureFlags", 1, true), "Admin EnsureFlags residual")
 assert(string.find(adminSrc, "ProfileBagMath.BumpStat", 1, true), "Admin BumpStat residual")
+assert(
+	not string.find(adminSrc, "if profile.ForgeEchoes then profile.ForgeEchoes.Charge", 1, true),
+	"Admin GrantEchoCharge must not silent-noop"
+)
+assert(
+	not string.find(adminSrc, "if profile.Command and profile.Command.Crew then", 1, true),
+	"Admin MaxCrew must Ensure before Crew"
+)
 
 assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService must Ensure Command")
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService must Ensure Lab")
+assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEchoMath.Ensure residual")
 assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService IsBusy residual")
 assert(string.find(dataSrc, "profile.Continuum", 1, true), "DataService Continuum sanitize residual")
 assert(string.find(dataSrc, "profile.Domain", 1, true), "DataService Domain sanitize residual")

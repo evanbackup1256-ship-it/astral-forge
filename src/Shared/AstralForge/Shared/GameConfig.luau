@@ -655,7 +655,8 @@ local GameConfig = {
 				PerRebirth = 0,
 				Reward = { Stardust = 52, CashMinutes = 4, Signals = 18 },
 				Color = Color3.fromRGB(255, 190, 210),
-				{
+			},
+			{
 				Id = "Wave16AnomalyOps",
 				Name = "Wave Sixteen Anomaly Ops",
 				Description = "Tap through a short tally while AnomalyOpsMath ChargeTarget/ProtocolEffect stay Lune-wired.",
@@ -677,7 +678,28 @@ local GameConfig = {
 				Reward = { Stardust = 54, CashMinutes = 4, Signals = 19 },
 				Color = Color3.fromRGB(255, 185, 215),
 			},
-		},
+			{
+				Id = "Wave17EchoEnsure",
+				Name = "Wave Seventeen Echo Ensure",
+				Description = "Tap through a short tally while ForgeEchoMath.Ensure rebuilds Charge-only ForgeEchoes bags.",
+				Kind = "Tap",
+				BaseTarget = 120,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 42, CashMinutes = 3, Signals = 16 },
+				Color = Color3.fromRGB(120, 240, 255),
+			},
+			{
+				Id = "Wave17ClaimClipsSoftMotion",
+				Name = "Wave Seventeen Claim Clips Soft Motion",
+				Description = "Bank flux while Convergence/Milestones/ForgePath ClaimActions stay unclipped and ForgePath overscan softMotion-gates.",
+				Kind = "BankFlux",
+				BaseTarget = 5_000,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 56, CashMinutes = 4, Signals = 20 },
+				Color = Color3.fromRGB(255, 180, 220),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3102,6 +3124,22 @@ local GameConfig = {
 			Target = 30,
 			Reward = { Stardust = 310, Signals = 86, CashMinutes = 28, Boost = "Afterburner" },
 		},
+		{
+			Id = "Wave17EchoCourier",
+			Name = "Wave Seventeen Echo Courier",
+			Description = "Claim 62 story chapters after ForgeEchoMath.Ensure extract + Admin GrantEchoCharge nil-safety.",
+			Kind = "StoryClaims",
+			Target = 62,
+			Reward = { Stardust = 310, Signals = 88, CashMinutes = 29, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave17ClaimClipRunner",
+			Name = "Wave Seventeen Claim Clip Runner",
+			Description = "Hold a 32-day daily streak while Convergence/Milestones/ForgePath ClaimActions unclipped + overscan stay verified.",
+			Kind = "DailyStreak",
+			Target = 32,
+			Reward = { Stardust = 320, Signals = 90, CashMinutes = 29, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4672,9 +4710,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(130, 235, 255),
 		},
 
+		{
+			Id = "wave17-harden-brief",
+			Title = "Wave Seventeen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "ForgeEchoMath.Ensure extract; Admin echo/crew/flags Ensures and ClaimActions clips stay honest.",
+			Body = {
+				"ForgeEchoMath.Ensure rebuilds Charge-only ForgeEchoes bags; Admin GrantEchoCharge/MaxCrew/DiscoverArts/ResetTutorial no longer silent-noop or throw on partial fixtures.",
+				"Wave16 Lab.Orders nesting fixed so Wave16AnomalyOps is a top-level order again.",
+				"Convergence/Milestones/ForgePath ClaimActions stay unclipped; ForgePath/Echo/Story FlatList overscan softMotion-gates; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 54, CashMinutes = 22, Signals = 24 },
+			Color = Color3.fromRGB(120, 240, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave17-harden",
+			Subject = "Dock note — wave seventeen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ForgeEchoMath.Ensure extract + Admin echo/crew Ensures + ClaimActions clips — still DataVersion 21.",
+			Body = {
+				"Forge echo bag Ensure is Lune-testable; GrantEchoCharge/MaxCrew/DiscoverArts/ResetTutorial rebuild Charge-only / Signals-only / Flags-missing fixtures.",
+				"Wave16 Lab.Orders nesting fixed; Convergence/Milestones/ForgePath ClaimActions keep ClipsDescendants false; ForgePath/Echo/Story overscan softMotion-gates.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 54, Stardust = 70, Signals = 28 },
+			Color = Color3.fromRGB(120, 240, 255),
+		},
 
 		{
 			Id = "update-5-1-wave16-harden",
