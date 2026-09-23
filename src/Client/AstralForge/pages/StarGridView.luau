@@ -29,8 +29,10 @@ local SectionLabel = _ui.SectionLabel
 local Stroke = _ui.Stroke
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local GRID_CHUNK = 8
 local GRID_MAX_VISIBLE = 16
+local VIRT_NODE_MIN = 8
 local BRANCH_H = 140
 local BRANCH_H_STACK = 132
 local NODE_H = 136
@@ -487,6 +489,7 @@ local function StarGridViewComponent(_param)
 		end)
 	end
 	local bodyIntrinsic = 24
+	local nodeStride = nodeH + Layout.panelGap
 	for _, branch in branches do
 		local nodes = nodesByBranch[branch.Id] or {}
 		local shown = visibleFor(branch.Id, #nodes)
@@ -494,7 +497,12 @@ local function StarGridViewComponent(_param)
 		local canLess = shown > GRID_CHUNK
 		bodyIntrinsic += branchH + Layout.panelGap
 		if branch.Id == activeBranch then
-			bodyIntrinsic += shown * (nodeH + Layout.panelGap)
+			-- Long node boards virtualize inside a fixed viewport so PageScaffold stays scrollable.
+			if shown >= VIRT_NODE_MIN then
+				bodyIntrinsic += math.min(shown, 6) * nodeStride
+			else
+				bodyIntrinsic += shown * nodeStride
+			end
 			if canMore or canLess then
 				bodyIntrinsic += TapTarget + Layout.panelGap + 8
 			end
@@ -625,6 +633,7 @@ local function StarGridViewComponent(_param)
 			_result = {}
 		end
 		local slice = _result
+		local virtNodes = #slice >= VIRT_NODE_MIN
 		local _exp_2 = React.createElement(BranchHeader, {
 			branch = branch,
 			levels = levels,
@@ -640,9 +649,7 @@ local function StarGridViewComponent(_param)
 		})
 		local _condition = active
 		if _condition then
-			-- ▼ ReadonlyArray.map ▼
-			local _newValue_1 = table.create(#slice)
-			local _callback_1 = function(upgrade)
+			local renderNode = function(upgrade, index)
 				local nodeOrder = order
 				order += 1
 				local nodeStagger = math.min(stagger, 5)
@@ -684,11 +691,39 @@ local function StarGridViewComponent(_param)
 				_attributes.layoutOrder = nodeOrder
 				return React.createElement(NodeRow, _attributes)
 			end
-			for _k, _v in slice do
-				_newValue_1[_k] = _callback_1(_v, _k - 1, slice)
+			if virtNodes then
+				local viewportH = math.min(#slice, 6) * nodeStride
+				local listOrder = order
+				order += 1
+				_condition = React.createElement("frame", {
+					Size = UDim2.new(1, -4, 0, viewportH),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					LayoutOrder = listOrder,
+				}, React.createElement(FlatList, {
+					data = slice,
+					itemHeight = nodeStride,
+					overscan = 2,
+					canvasTail = 4,
+					Size = UDim2.fromScale(1, 1),
+					scrollBarColor = Palette.mango,
+					scrollBarThickness = SCROLL_BAR,
+					keyExtractor = function(upgrade)
+						return upgrade.Id
+					end,
+					renderItem = function(_param_1)
+						return renderNode(_param_1.item, _param_1.index)
+					end,
+				}))
+			else
+				-- ▼ ReadonlyArray.map ▼
+				local _newValue_1 = table.create(#slice)
+				for _k, _v in slice do
+					_newValue_1[_k] = renderNode(_v, _k - 1)
+				end
+				-- ▲ ReadonlyArray.map ▲
+				_condition = _newValue_1
 			end
-			-- ▲ ReadonlyArray.map ▲
-			_condition = _newValue_1
 		end
 		local _condition_1 = active and (canMore or canLess)
 		if _condition_1 then

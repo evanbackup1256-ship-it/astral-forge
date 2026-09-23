@@ -143,6 +143,32 @@ for boost in string.gmatch(cfg, 'Boost = "([^"]+)"') do
 end
 mark("configuration references")
 
+-- Envelope / identity extras beyond the ReleaseReadiness.quickChecks core four.
+local achievementIds = assertUnique("achievements", collectStringIds(extractSection(cfg, "\n\tAchievements = {")))
+local mailIds = assertUnique("mail", collectStringIds(extractSection(cfg, "\n\tMail = {")))
+local storyIds = assertUnique("story", collectStringIds(extractSection(cfg, "\n\tStory = {")))
+assert(countKeys(achievementIds) >= 8, "achievements must keep a release catalog, got " .. tostring(countKeys(achievementIds)))
+assert(countKeys(mailIds) >= 4, "mail must keep dock notes, got " .. tostring(countKeys(mailIds)))
+assert(countKeys(storyIds) >= 4, "story beats must stay catalogued, got " .. tostring(countKeys(storyIds)))
+mark("content envelopes")
+
+local tradingBody = extractSection(cfg, "\n\tTrading = {")
+assert(string.find(tradingBody, "DailyTrades", 1, true), "Trading.DailyTrades missing")
+assert(string.find(tradingBody, "ConfirmSeconds", 1, true), "Trading.ConfirmSeconds missing")
+assert(string.find(tradingBody, "PerTrade", 1, true), "Trading.PerTrade envelope missing")
+assert(string.find(tradingBody, "Daily", 1, true), "Trading.Daily envelope missing")
+local guildBody = extractSection(cfg, "\n\tGuild = {")
+assert(string.find(guildBody, "Upgrades", 1, true), "Guild.Upgrades missing")
+assert(string.find(guildBody, "MaxMembers", 1, true) or string.find(guildBody, "MemberCap", 1, true) or string.find(guildBody, "Capacity", 1, true), "Guild member capacity knob missing")
+mark("trading and guild envelopes")
+
+local firewallBody = extractSection(cfg, "\n\tRemoteFirewall = {")
+assert(string.find(firewallBody, "Overrides", 1, true), "RemoteFirewall.Overrides missing")
+assert(string.find(firewallBody, "ActivateBoost", 1, true), "RemoteFirewall must rate-limit ActivateBoost")
+assert(string.find(firewallBody, "PulseAnomaly", 1, true), "RemoteFirewall must rate-limit PulseAnomaly")
+assert(countKeys(boostIds) >= 8, "Boosts catalog must stay release-sized, got " .. tostring(countKeys(boostIds)))
+mark("firewall and boost envelopes")
+
 -- Document Studio-only remainder so npm test never silently pretends soak/integrity ran.
 local initSrc = fs.readFile("src/Server/AstralForge/init.server.luau")
 assert(string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true) or string.find(initSrc, "ReleaseReadiness.RunSoak", 1, true),
@@ -150,7 +176,7 @@ assert(string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true) or string.find
 mark("studio runners still wired")
 
 print(string.format(
-	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d",
+	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",
 	#passed,
 	countKeys(machineIds),
 	countKeys(researchIds),
@@ -160,6 +186,10 @@ print(string.format(
 	countKeys(expeditionIds),
 	countKeys(weeklyIds),
 	countKeys(shopIds),
-	countKeys(defIds)
+	countKeys(defIds),
+	countKeys(achievementIds),
+	countKeys(mailIds),
+	countKeys(storyIds),
+	countKeys(boostIds)
 ))
 print("[INFO] [TEST] Studio-only remainder: ReleaseReadiness.RunQuick/RunSoak + Device Simulator (not claimed by npm test)")

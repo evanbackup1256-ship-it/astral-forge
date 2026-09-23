@@ -7,6 +7,7 @@ local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitFor
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local ProgressionGate = require(script.Parent:WaitForChild("ProgressionGate"))
 local TradeExchange = require(script.Parent:WaitForChild("TradeExchange"))
+local TradeSettle = require(script.Parent:WaitForChild("TradeSettle"))
 
 local TradeDesk = {}
 TradeDesk.__index = TradeDesk
@@ -572,39 +573,11 @@ end
 -- Single-flight settle gate: both Confirm handlers can race once Confirmed[host]
 -- and Confirmed[guest] flip true; only one caller may own the host→guest apply pair.
 function TradeDesk:TryBeginSettle(session): boolean
-	if not session then
-		return false
-	end
-	if session.Settling == true or session.Status == "Settling" or session.Status == "RevertFailed" then
-		return false
-	end
-	if session.Confirmed[session.Host] ~= true or session.Confirmed[session.Guest] ~= true then
-		return false
-	end
-	session.Settling = true
-	session.Status = "Settling"
-	return true
+	return TradeSettle.TryBegin(session)
 end
 
 function TradeDesk:FailSettle(session, permanent: boolean?, reason: string?)
-	if not session then
-		return
-	end
-	session.Settling = false
-	session.Confirmed[session.Host] = false
-	session.Confirmed[session.Guest] = false
-	session.ConfirmEndsAt = 0
-	if permanent then
-		session.Status = "RevertFailed"
-		-- Ops note: host→guest residual may remain until Cancel clears the desk.
-		-- Admins should treat follow-up as "Trade settle recovery" / bug recovery.
-		session.RevertFailedAt = os.time()
-		session.RevertFailedReason = if type(reason) == "string" and reason ~= "" then reason else "host-revert-failed"
-	else
-		session.Status = "Open"
-		session.RevertFailedAt = nil
-		session.RevertFailedReason = nil
-	end
+	TradeSettle.Fail(session, permanent, reason)
 end
 
 function TradeDesk:Cancel(player: Player): (any, number?, string?)
@@ -615,8 +588,9 @@ function TradeDesk:Cancel(player: Player): (any, number?, string?)
 	end
 	-- Refuse cancel while settle owns the table. Closing mid-apply leaves residual
 	-- host→guest mutations and lets partners open a new desk before ConfirmTrade finishes.
-	if session.Settling == true or session.Status == "Settling" then
-		return session, nil, "That trade is already settling."
+	local blocked, blockReason = TradeSettle.CancelBlocked(session)
+	if blocked then
+		return session, nil, blockReason
 	end
 	local other = if session.Host == player.UserId then session.Guest else session.Host
 	self:Close(session)

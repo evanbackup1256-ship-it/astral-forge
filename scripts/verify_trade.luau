@@ -150,9 +150,10 @@ do
 end
 
 ------------------------------------------------------------------------
--- 3. Settle lock semantics (pure session table, mirrors TradeDesk)
+-- 3. Settle lock semantics (TradeSettle pure helpers)
 ------------------------------------------------------------------------
 do
+	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
 	local session = {
 		Host = 1,
 		Guest = 2,
@@ -161,19 +162,8 @@ do
 		Status = "Confirming",
 		ConfirmEndsAt = 0,
 	}
-	local function tryBegin(s)
-		if s.Settling == true or s.Status == "Settling" or s.Status == "RevertFailed" then
-			return false
-		end
-		if s.Confirmed[s.Host] ~= true or s.Confirmed[s.Guest] ~= true then
-			return false
-		end
-		s.Settling = true
-		s.Status = "Settling"
-		return true
-	end
-	assert(tryBegin(session) == true, "first settle claim wins")
-	assert(tryBegin(session) == false, "second settle claim must lose (race guard)")
+	assert(TradeSettle.TryBegin(session) == true, "first settle claim wins")
+	assert(TradeSettle.TryBegin(session) == false, "second settle claim must lose (race guard)")
 	assert(session.Status == "Settling", "status settles")
 end
 
@@ -200,16 +190,17 @@ do
 	assert(string.find(services, "TryBeginSettle", 1, true), "ConfirmTrade must use TryBeginSettle")
 	assert(string.find(services, "FailSettle", 1, true), "ConfirmTrade must FailSettle on abort")
 	assert(string.find(services, "trade-revert", 1, true), "guest-fail path must revert host")
+	assert(string.find(services, "TradeSettle.RevertWithRetries", 1, true), "revert must use TradeSettle retries")
 	local revertCount = 0
 	for _ in string.gmatch(services, 'true, "trade%-revert"') do
 		revertCount += 1
 	end
 	assert(revertCount >= 2, "host revert must be attempted from multiple failure paths")
-	assert(string.find(services, "for _ = 1, 3 do", 1, true), "revert must retry")
 
 	local desk = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
 	assert(string.find(desk, "function TradeDesk:TryBeginSettle", 1, true))
 	assert(string.find(desk, "function TradeDesk:FailSettle", 1, true))
+	assert(string.find(desk, "TradeSettle.TryBegin", 1, true), "desk must delegate settle begin")
 	assert(string.find(desk, "TradeExchange.ApplyExchange", 1, true), "desk must delegate apply")
 	assert(string.find(desk, "TradeExchange.RevertExchange", 1, true), "desk must delegate revert")
 	assert(not string.find(desk, "vendor/", 1, true))
@@ -272,14 +263,16 @@ end
 -- 6. Cancel refused while Settling (trade residual guard)
 ------------------------------------------------------------------------
 do
+	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
 	local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
-	assert(string.find(deskSrc, 'session.Status == "Settling"', 1, true), "Cancel must gate on Settling")
-	assert(string.find(deskSrc, "already settling", 1, true), "Cancel must return settling error")
-	assert(string.find(deskSrc, "RevertFailedReason", 1, true), "FailSettle permanent must stamp RevertFailedReason")
+	assert(string.find(deskSrc, "TradeSettle.CancelBlocked", 1, true), "Cancel must gate via TradeSettle")
+	assert(string.find(deskSrc, "RevertFailedReason", 1, true) or string.find(deskSrc, "TradeSettle.Fail", 1, true), "FailSettle permanent must stamp RevertFailedReason")
 	local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 	assert(string.find(services, "cancelErr", 1, true), "ConfirmTrade Cancel path must surface cancelErr")
-	assert(string.find(services, "RevertFailed session=", 1, true), "permanent settle failure must ModuleLog RevertFailed")
-	assert(string.find(services, "admin note: Trade settle recovery", 1, true), "RevertFailed log must cite admin note")
+	assert(string.find(services, "FormatRevertFailedLog", 1, true), "permanent settle failure must ModuleLog via TradeSettle")
+	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+	assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
+	assert(string.find(settleSrc, "Trade settle recovery", 1, true), "TradeSettle must cite Trade settle recovery")
 	local adminFields = fs.readFile("src/Client/AstralForge/adminFields.luau")
 	assert(string.find(adminFields, "Trade settle recovery", 1, true), "admin reasons must include Trade settle recovery")
 	local adminService = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
@@ -293,18 +286,12 @@ do
 		Status = "Settling",
 		ConfirmEndsAt = 0,
 	}
-	local function tryCancel(s)
-		if s.Settling == true or s.Status == "Settling" then
-			return false, "That trade is already settling."
-		end
-		return true
-	end
-	local ok, err = tryCancel(session)
-	assert(ok == false and err == "That trade is already settling.", "cancel during settle must refuse")
+	local blocked, err = TradeSettle.CancelBlocked(session)
+	assert(blocked == true and err == "That trade is already settling.", "cancel during settle must refuse")
 	session.Settling = false
 	session.Status = "RevertFailed"
-	ok = tryCancel(session)
-	assert(ok == true, "cancel after RevertFailed must be allowed to clear residual")
+	blocked = TradeSettle.CancelBlocked(session)
+	assert(blocked == false, "cancel after RevertFailed must be allowed to clear residual")
 end
 
 ------------------------------------------------------------------------

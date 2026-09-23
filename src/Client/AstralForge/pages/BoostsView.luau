@@ -24,9 +24,12 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local AppHelpers = require(script.Parent.Parent.appNav).AppHelpers
 local clockText = require(script.Parent.Parent.format).clockText
 local SECTION_LABEL_H = 28
+local VIRT_BOOST_MIN = 8
+local SCROLL_BAR = 4
 local function boostIconKind(boostId)
 	if boostId == "DomainSurge" then
 		return "Domain"
@@ -458,9 +461,7 @@ local function BoostsView(_param)
 			accent = Palette.cyan,
 		})
 	else
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue = table.create(#boosts)
-		local _callback = function(boost, index)
+		local function boostCardFor(boost, index)
 			local _attributes = {
 				key = boost.Id,
 				boost = boost,
@@ -485,16 +486,67 @@ local function BoostsView(_param)
 			end
 			return React.createElement(BoostCard, _attributes)
 		end
-		for _k, _v in boosts do
-			_newValue[_k] = _callback(_v, _k - 1, boosts)
+		-- Flatten inventory into row chunks so FlatList virtualizes long boost catalogs.
+		if #boosts >= VIRT_BOOST_MIN then
+			local offerRows = {}
+			local index = 1
+			while index <= #boosts do
+				local row = {
+					Id = `boost-row-{index}`,
+					cells = {},
+				}
+				for col = 0, columns - 1 do
+					local boost = boosts[index]
+					if boost == nil then
+						break
+					end
+					-- Column-local index so BoostCard parks at y=0 within the row.
+					table.insert(row.cells, { boost = boost, index = col, globalIndex = index - 1 })
+					index += 1
+				end
+				table.insert(offerRows, row)
+			end
+			local rowH = cardH + CARD_GAP
+			gridElement = React.createElement(FlatList, {
+				data = offerRows,
+				itemHeight = rowH,
+				overscan = 2,
+				canvasTail = 8,
+				Size = UDim2.fromScale(1, 1),
+				scrollBarColor = Palette.pink,
+				scrollBarThickness = SCROLL_BAR,
+				keyExtractor = function(row)
+					return row.Id
+				end,
+				renderItem = function(_param_1)
+					local row = _param_1.item
+					local cells = {}
+					for cellIndex, cell in row.cells do
+						-- Reveal stagger still follows global catalog order.
+						cells[cellIndex] = boostCardFor(cell.boost, cell.index)
+					end
+					return React.createElement("frame", {
+						Size = UDim2.new(1, 0, 0, cardH),
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+					}, cells)
+				end,
+			})
+		else
+			-- ▼ ReadonlyArray.map ▼
+			local _newValue = table.create(#boosts)
+			for _k, _v in boosts do
+				_newValue[_k] = boostCardFor(_v, _k - 1)
+			end
+			-- ▲ ReadonlyArray.map ▲
+			gridElement = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+			}, _newValue)
 		end
-		-- ▲ ReadonlyArray.map ▲
-		gridElement = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, _newValue)
 	end
+	local gridSectionH = if #boosts >= VIRT_BOOST_MIN then math.min(rows, 4) * (cardH + CARD_GAP) else gridH
 	return React.createElement(PageScaffold, {
 		gap = pageGap,
 		tailPad = scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48),
@@ -523,7 +575,7 @@ local function BoostsView(_param)
 			},
 			{
 				id = "grid",
-				height = gridH,
+				height = gridSectionH,
 				element = gridElement,
 			},
 		},

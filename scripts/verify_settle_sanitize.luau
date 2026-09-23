@@ -15,31 +15,28 @@ local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 -- RevertFailed path markers (FailSettle permanent + ModuleLog + cancel residual)
 ------------------------------------------------------------------------
 assert(string.find(deskSrc, "function TradeDesk:FailSettle", 1, true), "FailSettle must exist")
-assert(string.find(deskSrc, 'session.Status = "RevertFailed"', 1, true), "permanent FailSettle must stamp RevertFailed")
-assert(string.find(deskSrc, "RevertFailedAt", 1, true), "permanent FailSettle must stamp RevertFailedAt")
-assert(string.find(deskSrc, "RevertFailedReason", 1, true), "permanent FailSettle must stamp RevertFailedReason")
-assert(string.find(deskSrc, "host-revert-failed", 1, true), "FailSettle must default reason host-revert-failed")
-assert(string.find(deskSrc, "Trade settle recovery", 1, true), "FailSettle must cite Trade settle recovery ops note")
+assert(string.find(deskSrc, "TradeSettle.Fail", 1, true), "FailSettle must delegate to TradeSettle")
+local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+assert(string.find(settleSrc, 'session.Status = "RevertFailed"', 1, true), "permanent FailSettle must stamp RevertFailed")
+assert(string.find(settleSrc, "RevertFailedAt", 1, true), "permanent FailSettle must stamp RevertFailedAt")
+assert(string.find(settleSrc, "RevertFailedReason", 1, true), "permanent FailSettle must stamp RevertFailedReason")
+assert(string.find(settleSrc, "host-revert-failed", 1, true), "FailSettle must default reason host-revert-failed")
+assert(string.find(settleSrc, "Trade settle recovery", 1, true), "FailSettle must cite Trade settle recovery ops note")
 
-assert(string.find(services, "guest-left-during-settle", 1, true), "ConfirmTrade must FailSettle guest-left path")
-assert(string.find(services, "guest-apply-failed", 1, true), "ConfirmTrade must FailSettle guest-apply path")
-assert(string.find(services, "RevertFailed session=", 1, true), "permanent settle failure must ModuleLog RevertFailed")
-assert(string.find(services, "admin note: Trade settle recovery", 1, true), "RevertFailed log must cite admin note")
+assert(string.find(services, "REASON_GUEST_LEFT", 1, true) or string.find(services, "guest-left-during-settle", 1, true), "ConfirmTrade must FailSettle guest-left path")
+assert(string.find(services, "REASON_GUEST_APPLY", 1, true) or string.find(services, "guest-apply-failed", 1, true), "ConfirmTrade must FailSettle guest-apply path")
+assert(string.find(services, "FormatRevertFailedLog", 1, true), "permanent settle failure must ModuleLog RevertFailed")
+assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
 
--- Pure replica of Cancel vs RevertFailed residual (must stay aligned with TradeDesk:Cancel).
-local function tryCancel(s: any): (boolean, string?)
-	if s.Settling == true or s.Status == "Settling" then
-		return false, "That trade is already settling."
-	end
-	return true, nil
-end
+-- Pure Cancel vs RevertFailed residual via TradeSettle.
+local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
 do
 	local settling = { Settling = true, Status = "Settling" }
-	local ok, err = tryCancel(settling)
-	assert(ok == false and err == "That trade is already settling.", "cancel during Settling must refuse")
+	local blocked, err = TradeSettle.CancelBlocked(settling)
+	assert(blocked == true and err == "That trade is already settling.", "cancel during Settling must refuse")
 	local residual = { Settling = false, Status = "RevertFailed", RevertFailedReason = "guest-apply-failed" }
-	ok = tryCancel(residual)
-	assert(ok == true, "cancel after RevertFailed must clear residual desk")
+	blocked = TradeSettle.CancelBlocked(residual)
+	assert(blocked == false, "cancel after RevertFailed must clear residual desk")
 end
 
 ------------------------------------------------------------------------
@@ -76,6 +73,8 @@ assert(string.find(dataSrc, "ClaimedSteps", 1, true), "sanitize must harden Forg
 assert(string.find(dataSrc, "profile.Trade.Sent", 1, true), "sanitize must harden Trade.Sent bag")
 assert(string.find(dataSrc, "profile.Lab.Orders", 1, true), "sanitize must harden Lab.Orders bag")
 assert(string.find(dataSrc, "profile.Wheel.PityMisses", 1, true), "sanitize must harden Wheel pity bag")
+assert(string.find(dataSrc, "profile.BoostInventory", 1, true), "sanitize must harden BoostInventory bag")
+assert(string.find(dataSrc, "profile.ActiveBoost", 1, true), "sanitize must harden ActiveBoost bag")
 
 ------------------------------------------------------------------------
 -- HARD constraints

@@ -391,6 +391,31 @@ return function(loadService: (string) -> any)
 		profile.SocialBoost.Premium = profile.SocialBoost.Premium == true
 		profile.SocialBoost.PremiumBonus = profile.SocialBoost.Premium and GameConfig.Social.PremiumProductionBonus or 0
 		profile.SocialBoost.Multiplier = 1 + profile.SocialBoost.FriendBonus + profile.SocialBoost.PremiumBonus
+		-- Boost inventory / active boost residuals: partial profiles crash ActivateBoost + trade apply.
+		if type(profile.BoostInventory) ~= "table" then
+			profile.BoostInventory = {}
+		end
+		for boostId in profile.BoostInventory do
+			if not GameConfig.Boosts[boostId] then
+				profile.BoostInventory[boostId] = nil
+			else
+				profile.BoostInventory[boostId] = math.floor(nonNegative(profile.BoostInventory[boostId]))
+			end
+		end
+		for boostId in GameConfig.Boosts do
+			if profile.BoostInventory[boostId] == nil then
+				profile.BoostInventory[boostId] = 0
+			end
+		end
+		if type(profile.ActiveBoost) ~= "table" then
+			profile.ActiveBoost = { Id = "", EndsAt = 0 }
+		end
+		if type(profile.ActiveBoost.Id) ~= "string" or (profile.ActiveBoost.Id ~= "" and not GameConfig.Boosts[profile.ActiveBoost.Id]) then
+			profile.ActiveBoost.Id = ""
+			profile.ActiveBoost.EndsAt = 0
+		else
+			profile.ActiveBoost.EndsAt = math.floor(nonNegative(profile.ActiveBoost.EndsAt))
+		end
 		if type(profile.Trade) ~= "table" then
 			profile.Trade = { Day = -1, Completed = 0, Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 } }
 		end

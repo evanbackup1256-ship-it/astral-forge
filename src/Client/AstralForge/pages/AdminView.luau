@@ -22,6 +22,7 @@ local EmptyState = _ui.EmptyState
 local Panel = _ui.Panel
 local SearchField = _ui.SearchField
 local Text = _ui.Text
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 
 -- Admin is the one page that is deliberately desktop-only: a fixed three-column
 -- console instead of the stacked/reflow layout every other page uses. On small
@@ -35,7 +36,11 @@ local CMD_MIN = 360
 local CONSOLE_W = PLAYERS_W + DETAIL_W + CMD_MIN + GAP * 2
 local RECENT_MIN = 200
 local PLAYER_ROW = 56
+local PLAYER_ROW_STRIDE = PLAYER_ROW + 6
 local COMMAND_ROW = 48
+local COMMAND_ROW_STRIDE = COMMAND_ROW + 6
+local VIRT_LIST_MIN = 8
+local SCROLL_BAR = 4
 
 local ADMIN_CATS = {
 	{ id = "All", label = "ALL" },
@@ -541,31 +546,47 @@ local function AdminView(_param)
 		size = UDim2.new(1, 0, 0, 36),
 		position = UDim2.fromOffset(0, 20),
 		reducedMotion = reducedMotion,
-	}), React.createElement("scrollingframe", {
-		Size = UDim2.new(1, 0, 1, -64),
-		Position = UDim2.fromOffset(0, 64),
-		CanvasSize = UDim2.new(0, 0, 0, math.max(1, #shownPlayers) * (PLAYER_ROW + 6)),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.3,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 6),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), #shownPlayers == 0 and React.createElement(Text, {
-		value = "No players match.",
-		size = 11,
-		color = Palette.muted,
-	}) or (function()
+	}), (function()
+		local listSize = UDim2.new(1, 0, 1, -64)
+		local listPos = UDim2.fromOffset(0, 64)
+		if #shownPlayers == 0 then
+			return React.createElement("frame", {
+				Size = listSize,
+				Position = listPos,
+				BackgroundTransparency = 1,
+			}, React.createElement(Text, {
+				value = "No players match.",
+				size = 11,
+				color = Palette.muted,
+			}))
+		end
+		if #shownPlayers >= VIRT_LIST_MIN then
+			return React.createElement(FlatList, {
+				data = shownPlayers,
+				itemHeight = PLAYER_ROW_STRIDE,
+				overscan = 2,
+				canvasTail = 4,
+				Size = listSize,
+				Position = listPos,
+				scrollBarColor = Palette.cyan,
+				scrollBarThickness = SCROLL_BAR,
+				keyExtractor = function(player)
+					return tostring(player.UserId)
+				end,
+				renderItem = function(_param)
+					local player = _param.item
+					local index = _param.index
+					return React.createElement(PlayerRow, {
+						player = player,
+						selected = player.UserId == targetId,
+						you = player.UserId == admin.SelfUserId,
+						onClick = function() setTargetId(player.UserId) end,
+						layoutOrder = index + 1,
+						reducedMotion = reducedMotion,
+					})
+				end,
+			})
+		end
 		local rows = table.create(#shownPlayers)
 		for i, player in shownPlayers do
 			rows[i] = React.createElement(PlayerRow, {
@@ -578,8 +599,28 @@ local function AdminView(_param)
 				reducedMotion = reducedMotion,
 			})
 		end
-		return rows
-	end)()))
+		return React.createElement("scrollingframe", {
+			Size = listSize,
+			Position = listPos,
+			CanvasSize = UDim2.new(0, 0, 0, math.max(1, #shownPlayers) * PLAYER_ROW_STRIDE),
+			AutomaticCanvasSize = Enum.AutomaticSize.None,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = SCROLL_BAR,
+			ScrollBarImageColor3 = Palette.cyan,
+			ScrollBarImageTransparency = 0.3,
+			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+			ClipsDescendants = true,
+			Active = true,
+			Selectable = false,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}), rows)
+	end)())
 
 	-- Column 2: commands.
 	local commandSection = React.createElement(Panel, {
@@ -633,26 +674,31 @@ local function AdminView(_param)
 		value = "Nothing matches that filter.",
 		size = 11,
 		color = Palette.muted,
-	}) or React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, math.max(1, #shownCommands) * COMMAND_ROW),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.violet,
-		ScrollBarImageTransparency = 0.3,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, 6),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), (function()
+	}) or (function()
+		if #shownCommands >= VIRT_LIST_MIN then
+			return React.createElement(FlatList, {
+				data = shownCommands,
+				itemHeight = COMMAND_ROW_STRIDE,
+				overscan = 2,
+				canvasTail = 4,
+				Size = UDim2.fromScale(1, 1),
+				scrollBarColor = Palette.violet,
+				scrollBarThickness = SCROLL_BAR,
+				keyExtractor = function(entry)
+					return entry.Id
+				end,
+				renderItem = function(_param)
+					local entry = _param.item
+					local index = _param.index
+					return React.createElement(CommandRow, {
+						entry = entry,
+						selected = entry.Id == command,
+						onClick = function() setCommand(entry.Id) end,
+						layoutOrder = index + 1,
+					})
+				end,
+			})
+		end
 		local rows = table.create(#shownCommands)
 		for i, entry in shownCommands do
 			rows[i] = React.createElement(CommandRow, {
@@ -663,8 +709,27 @@ local function AdminView(_param)
 				layoutOrder = i,
 			})
 		end
-		return rows
-	end)())))
+		return React.createElement("scrollingframe", {
+			Size = UDim2.fromScale(1, 1),
+			CanvasSize = UDim2.new(0, 0, 0, math.max(1, #shownCommands) * COMMAND_ROW_STRIDE),
+			AutomaticCanvasSize = Enum.AutomaticSize.None,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = SCROLL_BAR,
+			ScrollBarImageColor3 = Palette.violet,
+			ScrollBarImageTransparency = 0.3,
+			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+			ClipsDescendants = true,
+			Active = true,
+			Selectable = false,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}), rows)
+	end)()))
 
 	-- Column 3 top: target inspect.
 	local inspectSection = React.createElement(Panel, {

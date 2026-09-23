@@ -60,6 +60,7 @@ serviceFactories["GameService"] = function()
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionGate"))
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RebirthGate"))
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeDesk"))
+	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSettle"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -841,8 +842,7 @@ serviceFactories["GameService"] = function()
 				-- Re-read guest after host commit so inventory/currency races surface after Plan.
 				guestProfile = self._data:Get(guest)
 				if not guestProfile then
-					local reverted = false
-					for _ = 1, 3 do
+					local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, function()
 						local revertOk, revertResult = self._data:AtomicUpdate(host, function(profile)
 							self._trades:RevertExchange(
 								profile,
@@ -854,26 +854,23 @@ serviceFactories["GameService"] = function()
 							)
 							return { ok = true }
 						end, true, "trade-revert")
-						if revertOk and type(revertResult) == "table" and revertResult.ok == true then
-							reverted = true
-							break
-						end
-					end
-					self._trades:FailSettle(session, not reverted, "guest-left-during-settle")
+						return revertOk and type(revertResult) == "table" and revertResult.ok == true
+					end)
+					self._trades:FailSettle(session, not reverted, TradeSettle.REASON_GUEST_LEFT)
 					self:_pushTradePartners(session.Host, session.Guest)
 					if not reverted then
 						ModuleLog.Warn(
 							"Trade",
-							string.format(
-								"RevertFailed session=%s host=%d guest=%d reason=guest-left-during-settle — cancel table; admin note: Trade settle recovery",
-								tostring(session.Id),
+							TradeSettle.FormatRevertFailedLog(
+								session.Id,
 								session.Host,
-								session.Guest
+								session.Guest,
+								TradeSettle.REASON_GUEST_LEFT
 							),
 							{ SessionId = session.Id, Host = session.Host, Guest = session.Guest }
 						)
 					end
-					return responseError(if reverted then "Guest left during settle — host side was reverted." else "Guest left and host revert failed. Cancel and contact support.")
+					return responseError(TradeSettle.GuestLeftMessage(reverted))
 				end
 				local guestOk, guestResult = self._data:AtomicUpdate(guest, function(profile)
 					local applyErr = self._trades:ApplyExchange(
@@ -890,8 +887,7 @@ serviceFactories["GameService"] = function()
 					return { ok = true }
 				end, true, "trade-guest")
 				if not guestOk or type(guestResult) ~= "table" or guestResult.ok ~= true then
-					local reverted = false
-					for _ = 1, 3 do
+					local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, function()
 						local revertOk, revertResult = self._data:AtomicUpdate(host, function(profile)
 							self._trades:RevertExchange(
 								profile,
@@ -903,28 +899,24 @@ serviceFactories["GameService"] = function()
 							)
 							return { ok = true }
 						end, true, "trade-revert")
-						if revertOk and type(revertResult) == "table" and revertResult.ok == true then
-							reverted = true
-							break
-						end
-					end
-					self._trades:FailSettle(session, not reverted, "guest-apply-failed")
+						return revertOk and type(revertResult) == "table" and revertResult.ok == true
+					end)
+					self._trades:FailSettle(session, not reverted, TradeSettle.REASON_GUEST_APPLY)
 					self:_pushTradePartners(session.Host, session.Guest)
 					local message = if type(guestResult) == "table" then guestResult.error else nil
 					if not reverted then
 						ModuleLog.Warn(
 							"Trade",
-							string.format(
-								"RevertFailed session=%s host=%d guest=%d reason=guest-apply-failed — cancel table; admin note: Trade settle recovery",
-								tostring(session.Id),
+							TradeSettle.FormatRevertFailedLog(
+								session.Id,
 								session.Host,
-								session.Guest
+								session.Guest,
+								TradeSettle.REASON_GUEST_APPLY
 							),
 							{ SessionId = session.Id, Host = session.Host, Guest = session.Guest }
 						)
-						return responseError("Guest side failed and host revert did not commit. Cancel the table and contact support.")
 					end
-					return responseError(message or "Guest side of the trade failed.")
+					return responseError(TradeSettle.GuestApplyMessage(reverted, message))
 				end
 				self._trades:Close(session)
 				self:_toastPlayer(host, "Trade complete", "The exchange is locked in.", "Success")

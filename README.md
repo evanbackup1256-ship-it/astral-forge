@@ -81,7 +81,8 @@ argon build default.project.json -x -o "Astral Forge v2.rbxlx"
 `npm test` covers phone portrait/landscape, short landscape, tablet, foldable,
 desktop, ultrawide layout planning, fail-closed profile version guards, and a
 **Lune-safe ReleaseReadiness subset** (`scripts/verify_release_readiness.luau`:
-config identity, PreviousId/ArtifactId/CrateId/Boost refs, DV21 + PlatformBadges).
+config identity, PreviousId/ArtifactId/CrateId/Boost refs, achievement/mail/story
+envelopes, Trading/Guild/RemoteFirewall knobs, DV21 + PlatformBadges).
 It does **not** run `ReleaseReadiness.RunQuick` / `RunSoak` (Economy soak +
 ProfileIntegrity recovery) — those stay Studio-only via `init.server.luau`.
 Argon validates the project mapping; it does **not**
