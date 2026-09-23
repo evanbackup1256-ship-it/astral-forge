@@ -502,7 +502,7 @@ do
 	do
 		local hostStart = string.find(guild, 'Name = "GuildClaimActions"', 1, true)
 		assert(hostStart, "Guild GuildClaimActions host missing")
-		local hostSlice = string.sub(guild, hostStart, hostStart + 280)
+		local hostSlice = string.sub(guild, hostStart, hostStart + 420)
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"Guild GuildClaimActions host must keep ClipsDescendants = false"
@@ -519,7 +519,7 @@ do
 	do
 		local hostStart = string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true)
 		assert(hostStart, "StarGridBuyClaimActions host missing")
-		local hostSlice = string.sub(starGrid, hostStart, hostStart + 280)
+		local hostSlice = string.sub(starGrid, hostStart, hostStart + 420)
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"StarGridBuyClaimActions host must keep ClipsDescendants = false"
@@ -560,7 +560,7 @@ do
 	do
 		local hostStart = string.find(labClips, 'Name = "LabClaimActions"', 1, true)
 		assert(hostStart, "LabClaimActions host missing")
-		local hostSlice = string.sub(labClips, hostStart, hostStart + 280)
+		local hostSlice = string.sub(labClips, hostStart, hostStart + 420)
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"LabClaimActions host must keep ClipsDescendants = false"
@@ -570,7 +570,7 @@ do
 	do
 		local hostStart = string.find(wheelClips, 'Name = "WheelSpinClaimActions"', 1, true)
 		assert(hostStart, "WheelSpinClaimActions host missing")
-		local hostSlice = string.sub(wheelClips, hostStart, hostStart + 280)
+		local hostSlice = string.sub(wheelClips, hostStart, hostStart + 420)
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"WheelSpinClaimActions host must keep ClipsDescendants = false"

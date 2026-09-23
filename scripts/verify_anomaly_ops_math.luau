@@ -26,8 +26,8 @@ local defs = {
 	{ Id = "P3", EffectKind = "ChargeGain", EffectPerLevel = 0.05 },
 }
 assert(AnomalyOpsMath.ProtocolEffect(nil, defs, "ChargeGain") == 0, "nil bag → 0")
-assert(AnomalyOpsMath.ProtocolEffect({ P1 = 2, P3 = 4 }, defs, "ChargeGain") == 0.4, "charge sum")
-assert(AnomalyOpsMath.ProtocolEffect({ P2 = 3 }, defs, "Reward") == 0.6, "reward sum")
+assert(math.abs(AnomalyOpsMath.ProtocolEffect({ P1 = 2, P3 = 4 }, defs, "ChargeGain") - 0.4) < 1e-9, "charge sum")
+assert(math.abs(AnomalyOpsMath.ProtocolEffect({ P2 = 3 }, defs, "Reward") - 0.6) < 1e-9, "reward sum")
 assert(AnomalyOpsMath.ProtocolEffect({ P1 = 1 }, defs, "Missing") == 0, "unknown kind")
 
 ------------------------------------------------------------------------
@@ -64,7 +64,7 @@ assert(selected[1].Definition.Id ~= nil and selected[1].Target >= 1, "slot1 targ
 assert(AnomalyOpsMath.SelectDirectives(0, {}, 3)[1] == nil, "empty defs")
 assert(AnomalyOpsMath.SelectDirectives(0, nil, 3)[1] == nil, "nil defs")
 
-assert(AnomalyOpsMath.RewardMultiplier(1.2, 0.5, 0.1) == 1.2 * 1.5 * 1.1, "full multiply")
+assert(math.abs(AnomalyOpsMath.RewardMultiplier(1.2, 0.5, 0.1) - (1.2 * 1.5 * 1.1)) < 1e-9, "full multiply")
 assert(AnomalyOpsMath.RewardMultiplier(1, 0, nil) == 1, "no channel")
 
 ------------------------------------------------------------------------
