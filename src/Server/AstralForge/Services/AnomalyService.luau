@@ -5,6 +5,7 @@ return function(loadService: (string) -> any)
 	local Workspace = game:GetService("Workspace")
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+	local AnomalyPulseScore = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AnomalyPulseScore"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local ProgressionService = loadService("ProgressionService")
 
@@ -197,40 +198,36 @@ return function(loadService: (string) -> any)
 		return amount, not wasReady and profile.Anomaly.Charge >= target
 	end
 
-	-- Server-authoritative timing-window accuracy. PulseWindowStartedAt anchors a sweep of
-	-- length PulseWindowSeconds; the "sweet zone" is the tail fraction of that sweep, matching
-	-- what the client's needle visually approaches. Computed entirely from the server's own
-	-- clock and the server's own record of when the current window began -- the client never
-	-- reports a timing/accuracy value that gets trusted, so there is no new spoofing surface.
-	-- A pulse always starts the next window regardless of accuracy, so players are never stuck
-	-- unable to pulse while waiting out a window they didn't want.
-	local function pulseAccuracy(profile, now: number): boolean
-		local period = GameConfig.Anomalies.PulseWindowSeconds
-		local startedAt = profile.Anomaly.PulseWindowStartedAt
-		if type(startedAt) ~= "number" or startedAt <= 0 then
-			return false
-		end
-		local elapsed = (now - startedAt) % period
-		local sweetZone = period * GameConfig.Anomalies.PulseWindowSweetZone
-		return elapsed >= period - sweetZone
-	end
-
+	-- Server-authoritative timing-window accuracy via AnomalyPulseScore. PulseWindowStartedAt
+	-- anchors a sweep of length PulseWindowSeconds; the "sweet zone" is the tail fraction of
+	-- that sweep, matching what the client's needle visually approaches. Computed entirely from
+	-- the server's own clock and the server's own record of when the current window began -- the
+	-- client never reports a timing/accuracy value that gets trusted, so there is no new spoofing
+	-- surface. A pulse always starts the next window regardless of accuracy, so players are never
+	-- stuck unable to pulse while waiting out a window they didn't want.
 	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
 		local now = pulseNow()
-		local accurate = pulseAccuracy(profile, now)
+		local accurate = AnomalyPulseScore.IsAccurate(
+			now,
+			profile.Anomaly.PulseWindowStartedAt,
+			GameConfig.Anomalies.PulseWindowSeconds,
+			GameConfig.Anomalies.PulseWindowSweetZone
+		)
 		profile.Anomaly.PulseWindowStartedAt = now
 
+		profile.Anomaly.Combo = AnomalyPulseScore.NextCombo(
+			profile.Anomaly.Combo,
+			accurate,
+			GameConfig.Anomalies.PulseComboMax
+		)
 		if accurate then
-			profile.Anomaly.Combo = math.min(GameConfig.Anomalies.PulseComboMax, (profile.Anomaly.Combo or 0) + 1)
-			profile.Anomaly.BestCombo = math.max(profile.Anomaly.BestCombo or 0, profile.Anomaly.Combo)
-		else
-			profile.Anomaly.Combo = 0
+			profile.Anomaly.BestCombo = AnomalyPulseScore.NextBestCombo(profile.Anomaly.BestCombo, profile.Anomaly.Combo)
 		end
-		local comboBonus = 1 + math.min(1, profile.Anomaly.Combo * GameConfig.Anomalies.PulseComboBonusPerStack)
-		local accuracyBonus = 1
-		if accurate then
-			accuracyBonus = 1 + GameConfig.Anomalies.PulseAccurateBonus
-		end
+		local comboBonus = AnomalyPulseScore.ComboBonus(
+			profile.Anomaly.Combo,
+			GameConfig.Anomalies.PulseComboBonusPerStack
+		)
+		local accuracyBonus = AnomalyPulseScore.AccuracyBonus(accurate, GameConfig.Anomalies.PulseAccurateBonus)
 
 		-- Overdrive / Progress share the pulse clock so BonusEndsAt / LastActionAt match
 		-- client GetServerTimeNow countdowns (no os.time dual-clock drift).
