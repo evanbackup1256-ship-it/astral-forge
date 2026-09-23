@@ -128,7 +128,7 @@ walkthrough / Device Simulator evidence before claiming ENTIRE complete.
 ```bash
 git fetch origin && git checkout master && git pull origin master
 git rev-parse HEAD
-# Expect at or after: 6f47c04
+# Expect at or after: 94d091e
 argon serve default.project.json
 ```
 
