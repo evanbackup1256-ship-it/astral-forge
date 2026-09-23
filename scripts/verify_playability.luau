@@ -367,6 +367,12 @@ do
 	)
 	assert(string.find(echo, "GamepadNavigationService.FocusClaim", 1, true), "EchoForge LINK must FocusClaim when actionable")
 	assert(string.find(echo, 'Name = "EchoClaimActions"', 1, true), "EchoForge LINK host must be named EchoClaimActions")
+	assert(string.find(echo, "FlatList", 1, true), "EchoForge vault must FlatList long inventory catalogs")
+
+	local research = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
+	assert(string.find(research, "GamepadNavigationService.FocusClaim", 1, true), "Research BUY ALL must FocusClaim when affordable")
+	assert(string.find(research, 'Name = "ResearchBuyClaimActions"', 1, true), "Research BUY ALL host must be named ResearchBuyClaimActions")
+	assert(string.find(research, "VirtualGrid", 1, true), "Research chain must stay VirtualGrid")
 
 	local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
 	assert(string.find(boosts, "clips = false", 1, true), "Boosts cards must keep clips = false for Activate CTA")
@@ -385,10 +391,6 @@ do
 	local convergence = fs.readFile("src/Client/AstralForge/pages/ConvergenceView.luau")
 	assert(string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true), "Convergence CLAIM must FocusClaim when ready")
 	assert(string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true), "Convergence CLAIM host must be named ConvergenceClaimActions")
-
-	local research = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
-	assert(string.find(research, "GamepadNavigationService.FocusClaim", 1, true), "Research BUY ALL must FocusClaim when affordable")
-	assert(string.find(research, 'Name = "ResearchBuyClaimActions"', 1, true), "Research BUY ALL host must be named ResearchBuyClaimActions")
 
 	local starGrid = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
 	assert(string.find(starGrid, "GamepadNavigationService.FocusClaim", 1, true), "StarGrid BUY ALL must FocusClaim")

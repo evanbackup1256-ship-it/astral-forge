@@ -1,8 +1,10 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local AutoGrid = require(script.Parent.Parent.scrolling).AutoGrid
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
 local levelCapLabel = _format.levelCapLabel
@@ -32,6 +34,10 @@ local SectionLabel = _ui.SectionLabel
 local SweptRing = _ui.SweptRing
 local Text = _ui.Text
 local SECTION_LABEL_H = 30
+local INVENTORY_CARD_H = 196
+-- FlatList the vault once it would otherwise mount a long AutoGrid (InventoryLimit ~18).
+local VIRT_INVENTORY_MIN = 6
+local VIRT_INVENTORY_VISIBLE_ROWS = 4
 local EMPTY_ECHOES = {
 	Charge = 0,
 	ChargeTarget = 100,
@@ -662,22 +668,37 @@ local function EchoForgeView(_param)
 		end
 	end
 	-- Gamepad: park Selection on the first actionable LINK SLOT CTA.
+	-- FlatList may mount the host a frame after layout — retry until the Claim host exists.
 	React.useEffect(function()
 		if firstLinkUid == nil or not UserInputService.GamepadEnabled then
 			return nil
 		end
-		local host = linkHostRef.current
-		if host == nil then
-			return nil
-		end
-		local selectJob = task.defer(function()
-			if host.Parent == nil then
+		local cancelled = false
+		local claimed = false
+		local heartbeat = nil
+		local tryClaim = function()
+			if cancelled or claimed then
 				return
 			end
+			local host = linkHostRef.current
+			if host == nil or host.Parent == nil then
+				return
+			end
+			claimed = true
 			GamepadNavigationService.FocusClaim(host)
-		end)
+			if heartbeat ~= nil then
+				heartbeat:Disconnect()
+				heartbeat = nil
+			end
+		end
+		local selectJob = task.defer(tryClaim)
+		heartbeat = RunService.Heartbeat:Connect(tryClaim)
 		return function()
+			cancelled = true
 			task.cancel(selectJob)
+			if heartbeat ~= nil then
+				heartbeat:Disconnect()
+			end
 		end
 	end, { firstLinkUid, #echoes.Inventory, echoes.SlotsUnlocked })
 	local patternTotal = echoes.Pattern.Collect + echoes.Pattern.Surge + echoes.Pattern.Build + echoes.Pattern.Explore
@@ -691,9 +712,14 @@ local function EchoForgeView(_param)
 	local slotSectionH = 30 + slotGridH
 	local patternRows = if stack then 2 else 1
 	local patternSectionH = 30 + patternRows * 88 + math.max(0, patternRows - 1) * sectionGap
-	local inventoryRows = math.max(1, if stack then #echoes.Inventory else math.ceil(#echoes.Inventory / 2))
-	local inventoryGridH = inventoryRows * 196 + math.max(0, inventoryRows - 1) * sectionGap
-	local inventorySectionH = 30 + inventoryGridH
+	local inventoryColumns = if stack then 1 else 2
+	local inventoryRows = math.max(1, if stack then #echoes.Inventory else math.ceil(math.max(1, #echoes.Inventory) / inventoryColumns))
+	local inventoryGridH = inventoryRows * INVENTORY_CARD_H + math.max(0, inventoryRows - 1) * sectionGap
+	local virtInventory = #echoes.Inventory >= VIRT_INVENTORY_MIN
+	local inventoryRowStride = INVENTORY_CARD_H + sectionGap
+	local inventoryViewportRows = if virtInventory then math.min(inventoryRows, VIRT_INVENTORY_VISIBLE_ROWS) else inventoryRows
+	local inventoryViewportH = if #echoes.Inventory == 0 then inventoryGridH elseif virtInventory then inventoryViewportRows * inventoryRowStride else inventoryGridH
+	local inventorySectionH = 30 + inventoryViewportH
 	local dominant = PATTERN_COPY[echoes.DominantPattern]
 	local chargeFill = echoes.Charge / math.max(1, echoes.ChargeTarget)
 	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
@@ -905,10 +931,7 @@ local function EchoForgeView(_param)
 	})
 	local inventoryBody
 	if #echoes.Inventory > 0 then
-		local _exp_13 = echoes.Inventory
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue_2 = table.create(#_exp_13)
-		local _callback_2 = function(item, index)
+		local makeCard = function(item, index)
 			return React.createElement(InventoryCard, {
 				key = item.Uid,
 				item = item,
@@ -924,11 +947,71 @@ local function EchoForgeView(_param)
 				linkHostRef = if item.Uid == firstLinkUid then linkHostRef else nil,
 			})
 		end
-		for _k, _v in _exp_13 do
-			_newValue_2[_k] = _callback_2(_v, _k - 1, _exp_13)
+		if virtInventory then
+			-- Flatten vault into row chunks so FlatList virtualizes long catalogs (InventoryLimit ~18).
+			local offerRows = {}
+			local index = 1
+			while index <= #echoes.Inventory do
+				local row = {
+					Id = `echo-row-{index}`,
+					cells = {},
+				}
+				for col = 0, inventoryColumns - 1 do
+					local item = echoes.Inventory[index]
+					if item == nil then
+						break
+					end
+					table.insert(row.cells, {
+						item = item,
+						index = index - 1,
+						col = col,
+					})
+					index += 1
+				end
+				table.insert(offerRows, row)
+			end
+			local rowStride = inventoryRowStride
+			inventoryBody = React.createElement(FlatList, {
+				data = offerRows,
+				itemHeight = rowStride,
+				overscan = if softMotion then 1 else 2,
+				canvasTail = 4,
+				Size = UDim2.fromScale(1, 1),
+				scrollBarColor = Palette.cyan,
+				scrollBarThickness = 3,
+				keyExtractor = function(row)
+					return row.Id
+				end,
+				renderItem = function(_param_1)
+					local row = _param_1.item
+					local cells = {}
+					local columns = inventoryColumns
+					for cellIndex, cell in row.cells do
+						local col = cell.col
+						cells[cellIndex] = React.createElement("frame", {
+							key = cell.item.Uid,
+							Size = UDim2.new(1 / columns, -(sectionGap * (columns - 1)) / columns, 0, INVENTORY_CARD_H),
+							Position = UDim2.new(col / columns, (col * sectionGap) / columns, 0, 0),
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+						}, makeCard(cell.item, cell.index))
+					end
+					return React.createElement("frame", {
+						Size = UDim2.new(1, 0, 0, INVENTORY_CARD_H),
+						BackgroundTransparency = 1,
+						BorderSizePixel = 0,
+					}, cells)
+				end,
+			})
+		else
+			-- ▼ ReadonlyArray.map ▼
+			local _newValue_2 = table.create(#echoes.Inventory)
+			for _k, _v in echoes.Inventory do
+				_newValue_2[_k] = makeCard(_v, _k - 1)
+			end
+			-- ▲ ReadonlyArray.map ▲
+			inventoryBody = _newValue_2
 		end
-		-- ▲ ReadonlyArray.map ▲
-		inventoryBody = _newValue_2
 	else
 		inventoryBody = React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
@@ -968,15 +1051,15 @@ local function EchoForgeView(_param)
 			value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,
 			color = Palette.cyan,
 		}), React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, inventoryGridH),
+			Size = UDim2.new(1, 0, 0, inventoryViewportH),
 			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-		}, React.createElement(AutoGrid, {
-			columns = if stack then 1 else 2,
-			cellHeight = 196,
+		}, if #echoes.Inventory > 0 and not virtInventory then React.createElement(AutoGrid, {
+			columns = inventoryColumns,
+			cellHeight = INVENTORY_CARD_H,
 			gap = sectionGap,
-		}), inventoryBody)),
+		}) else nil, inventoryBody)),
 	})
 	return React.createElement(PageScaffold, {
 		gap = sectionGap,
