@@ -102,8 +102,7 @@ local function Metric(_param)
 	end
 	return React.createElement(Panel, {
 		size = size,
-		accent = accent,
-		background = Palette.panel,
+		background = Palette.panelRaised,
 		padding = if compact then 10 else 14,
 		layoutOrder = layoutOrder,
 		reveal = reveal,

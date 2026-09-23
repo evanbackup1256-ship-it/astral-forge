@@ -4,7 +4,9 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.audio).Audio
 local LoadingDots = require(script.Parent.LoadingDots).LoadingDots
-local Palette = require(script.Parent.theme).Palette
+local _theme = require(script.Parent.theme)
+local Palette = _theme.Palette
+local surfaceGradient = _theme.surfaceGradient
 local BOOT_MODULE_TIMEOUT = 9
 local BOOT_MOTION = {
 	motionScale = 1,
@@ -217,7 +219,7 @@ local function BootScreen(_param)
 	local assetCountText = _result
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = veilHide,
 		BorderSizePixel = 0,
 		Active = not exiting and not gone,
@@ -227,6 +229,32 @@ local function BootScreen(_param)
 			return amount < 0.995
 		end),
 	}, React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.ink,
+		BackgroundTransparency = veilHide:map(function(amount)
+			return math.clamp(0.35 + amount, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, React.createElement("uigradient", {
+		Color = surfaceGradient(Palette.void, 0.9),
+		Rotation = 112,
+	})), React.createElement("frame", {
+		Size = UDim2.fromOffset(160, 1),
+		Position = UDim2.new(0.5, 0, 0.44, -18),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.cyan,
+		BackgroundTransparency = spinHide:map(function(amount)
+			return 0.72 + amount
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 2,
+		Visible = spinFade:map(function(amount)
+			return amount < 0.98
+		end),
+	}, React.createElement("uigradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(1, 1) }),
+	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(112, 26),
 		Position = UDim2.new(0.5, 0, 0.44, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -251,9 +279,9 @@ local function BootScreen(_param)
 		Text = "ASTRAL FORGE",
 		TextColor3 = Palette.cream,
 		TextTransparency = spinHide:map(function(amount)
-			return 0.08 + amount
+			return 0.04 + amount
 		end),
-		TextSize = 16,
+		TextSize = 18,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		ZIndex = 4,
@@ -267,9 +295,9 @@ local function BootScreen(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = status,
-		TextColor3 = Color3.fromRGB(170, 176, 186),
+		TextColor3 = Palette.muted,
 		TextTransparency = spinHide:map(function(amount)
-			return 0.18 + amount
+			return 0.12 + amount
 		end),
 		TextSize = 12,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
@@ -285,9 +313,9 @@ local function BootScreen(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = if stalled then "Taking longer than expected..." else tipText,
-		TextColor3 = if stalled then Palette.mango else Color3.fromRGB(120, 124, 132),
+		TextColor3 = if stalled then Palette.mango else Palette.muted,
 		TextTransparency = spinHide:map(function(amount)
-			return 0.28 + amount
+			return (if stalled then 0.08 else 0.22) + amount
 		end),
 		TextSize = 11,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
@@ -303,9 +331,9 @@ local function BootScreen(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = assetCountText,
-		TextColor3 = Color3.fromRGB(90, 94, 102),
+		TextColor3 = Palette.lineSoft,
 		TextTransparency = spinHide:map(function(amount)
-			return 0.4 + amount
+			return 0.28 + amount
 		end),
 		TextSize = 10,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
