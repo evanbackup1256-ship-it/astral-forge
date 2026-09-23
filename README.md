@@ -37,7 +37,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: b37218f
+# Expect at or after: d059e83
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
@@ -70,6 +70,7 @@ git merge-base --is-ancestor 2a7d9a6 HEAD && echo inv-crates-admin-scaffold OK
 git merge-base --is-ancestor 78e593d HEAD && echo settle-gates-more OK
 git merge-base --is-ancestor eec599c HEAD && echo echo-research-virt OK
 git merge-base --is-ancestor 15c0aba HEAD && echo bug-content-wave9 OK
+git merge-base --is-ancestor d059e83 HEAD && echo wave10-harden OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -110,7 +111,7 @@ walkthrough / Device Simulator evidence before claiming ENTIRE complete.
 ```bash
 git fetch origin && git checkout master && git pull origin master
 git rev-parse HEAD
-# Expect at or after: b37218f
+# Expect at or after: d059e83
 argon serve default.project.json
 ```
 
