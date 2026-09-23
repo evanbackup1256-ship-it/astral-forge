@@ -472,11 +472,10 @@ local function OverviewView(_param)
 	local metricsH = if stack then metricCardH * 3 + 20 elseif wideOverview then heroH else 96
 	local countdownInPage = true
 	local countdownH = if stack then 168 else 132
+	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
 	local topBandH = if wideOverview then heroH else heroH + metricsH + Layout.panelGap
-	local midBandH = if ultraOverview then math.max(notesH, countdownH) else notesH + (if countdownInPage then countdownH + Layout.panelGap else 0)
-	local lowerBandH = if ultraOverview and rebirthVisible and domainVisible then math.max(rebirthH, domainH) else rebirthH + (if domainVisible and rebirthVisible then Layout.panelGap else 0) + domainH
-	local sectionCount = (if wideOverview then 1 else 2) + (if ultraOverview then 1 else (1 + (if countdownInPage then 1 else 0))) + (if ultraOverview and rebirthVisible and domainVisible then 1 else ((if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)))
-	local canvasH = topBandH + midBandH + lowerBandH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
+	local sectionCount = 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
+	local canvasH = topBandH + notesH + (if countdownInPage then countdownH else 0) + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
 	local ctaH = TapTarget
 	local domain = state.Domain or {
 		Rank = 0,
