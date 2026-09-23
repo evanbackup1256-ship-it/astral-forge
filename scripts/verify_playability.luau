@@ -457,6 +457,8 @@ do
 		"src/Client/AstralForge/pages/BoostsView.luau",
 		"src/Client/AstralForge/pages/InventoryView.luau",
 		"src/Client/AstralForge/pages/LeaderboardsView.luau",
+		"src/Client/AstralForge/pages/StoryView.luau",
+		"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
 	} do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")
@@ -484,6 +486,20 @@ do
 		local src = fs.readFile(path)
 		assert(string.find(src, "GamepadNavigationService.FocusClaim", 1, true), path .. " must FocusClaim claim CTA")
 	end
+
+	-- CLAIM hosts must not clip the button (short phones / claimSlide overshoot).
+	local crateStage = fs.readFile("src/Client/AstralForge/pages/CrateRevealStage.luau")
+	assert(
+		string.find(crateStage, 'Name = "CrateClaim"', 1, true)
+			and string.find(crateStage, "ClipsDescendants = false", 1, true),
+		"CrateRevealStage CrateClaim host must keep ClipsDescendants = false"
+	)
+	local crateSimple = fs.readFile("src/Client/AstralForge/pages/CrateRevealStageSimple.luau")
+	assert(
+		string.find(crateSimple, 'Name = if canClaim then "CrateClaim"', 1, true)
+			and string.find(crateSimple, "ClipsDescendants = false", 1, true),
+		"CrateRevealStageSimple CrateClaim host must keep ClipsDescendants = false"
+	)
 end
 
 ------------------------------------------------------------------------

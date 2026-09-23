@@ -568,6 +568,28 @@ local GameConfig = {
 				Reward = { Stardust = 44, CashMinutes = 4, Signals = 14 },
 				Color = Color3.fromRGB(255, 200, 170),
 			},
+			{
+				Id = "Wave12WheelMath",
+				Name = "Wave Twelve Wheel Math",
+				Description = "Tap through a short tally while WheelMath extract + SpinWheel FreeSpins-bag nil-safety stay wired.",
+				Kind = "Tap",
+				BaseTarget = 95,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 32, CashMinutes = 3, Signals = 11, FreeSpins = 1 },
+				Color = Color3.fromRGB(180, 210, 255),
+			},
+			{
+				Id = "Wave12StorySoftMotion",
+				Name = "Wave Twelve Story Soft Motion",
+				Description = "Bank flux while Story/Crate softMotion folds into reducedMotion and CLAIM hosts stay unclipped.",
+				Kind = "BankFlux",
+				BaseTarget = 4_000,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 46, CashMinutes = 4, Signals = 15 },
+				Color = Color3.fromRGB(255, 210, 180),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2912,6 +2934,22 @@ local GameConfig = {
 			Target = 20,
 			Reward = { Stardust = 260, Signals = 68, CashMinutes = 23, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave12WheelCourier",
+			Name = "Wave Twelve Wheel Courier",
+			Description = "Claim 52 story chapters after WheelMath extract + FreeSpins-bag SpinWheel nil-safety.",
+			Kind = "StoryClaims",
+			Target = 52,
+			Reward = { Stardust = 260, Signals = 68, CashMinutes = 24, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave12SoftMotionRunner",
+			Name = "Wave Twelve Soft Motion Runner",
+			Description = "Hold a 22-day daily streak while Story/Crate softMotion fold + CLAIM clips stay verified.",
+			Kind = "DailyStreak",
+			Target = 22,
+			Reward = { Stardust = 270, Signals = 70, CashMinutes = 24, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4402,9 +4440,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(160, 220, 190),
 		},
 
+		{
+			Id = "wave12-harden-brief",
+			Title = "Wave Twelve Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "WheelMath extract hardens FreeSpins bags; Story/Crate softMotion and CLAIM clips stay honest.",
+			Body = {
+				"WheelMath Ensure/Snapshot/BuildPool keep SpinWheel and WheelState from throwing on FreeSpins-only bags seeded by ApplyReward.",
+				"Admin ResetWheelCooldown / ResetDailyClaim nil-safe partial Wheel/Daily bags on Studio fixtures.",
+				"Story and CrateReveal softMotion fold into reducedMotion; crate CLAIM hosts keep ClipsDescendants false; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 44, CashMinutes = 17, Signals = 19 },
+			Color = Color3.fromRGB(180, 210, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave12-harden",
+			Subject = "Dock note — wave twelve harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "WheelMath extract + FreeSpins SpinWheel nil-safety + Story/Crate softMotion — still DataVersion 21.",
+			Body = {
+				"Fortune-wheel bag math is Lune-testable; SpinWheel / WheelState no longer throw on FreeSpins-only bags after ApplyReward grants.",
+				"Admin ResetWheelCooldown and ResetDailyClaim tolerate missing Wheel/Daily bags; Story and CrateReveal fold softMotion into reducedMotion.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 44, Stardust = 60, Signals = 23 },
+			Color = Color3.fromRGB(180, 210, 255),
+		},
 
 		{
 			Id = "update-5-1-bug-content-wave11",

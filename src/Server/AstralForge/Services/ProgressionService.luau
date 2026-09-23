@@ -7,6 +7,7 @@ return function()
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Format"))
 	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
 
 	local ProgressionService = {}
 
@@ -125,6 +126,13 @@ return function()
 		return profile.TimedRewards
 	end
 
+	-- ApplyReward FreeSpins seeds Wheel={FreeSpins=N} without LastSpinAt/Spins —
+	-- WheelState / SpinWheel must rebuild before cooldown arithmetic.
+	local function ensureWheel(profile)
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+		return profile.Wheel
+	end
+
 	local function awardCommandXP(profile, amount: number)
 		local value = math.max(0, math.floor(amount))
 		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
@@ -198,10 +206,8 @@ return function()
 			table.insert(parts, Format.Number(reward.Fragments) .. " fragments")
 		end
 		if reward.FreeSpins and reward.FreeSpins > 0 then
-			if type(profile.Wheel) ~= "table" then
-				profile.Wheel = { FreeSpins = 0 }
-			end
-			profile.Wheel.FreeSpins = math.max(0, math.floor(tonumber(profile.Wheel.FreeSpins) or 0)) + math.floor(reward.FreeSpins)
+			local wheel = ensureWheel(profile)
+			wheel.FreeSpins = wheel.FreeSpins + math.floor(reward.FreeSpins)
 			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
 		end
 		if type(reward.Keys) == "table" then
@@ -919,90 +925,52 @@ return function()
 	end
 
 	function ProgressionService.WheelState(profile)
-		local now = os.time()
-		local readyAt = profile.Wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds
-		local freeSpins = math.max(0, math.floor(tonumber(profile.Wheel.FreeSpins) or 0))
-		local pityMisses = math.floor(tonumber(profile.Wheel.PityMisses) or 0)
-		local pityAfter = math.max(1, math.floor(tonumber(GameConfig.Wheel.PityAfter) or 8))
-		local cooldownReady = now >= readyAt
-		return {
-			CanSpin = freeSpins > 0 or cooldownReady,
-			ReadyAt = if freeSpins > 0 then now else math.max(now, readyAt),
-			Spins = profile.Wheel.Spins,
-			FreeSpins = freeSpins,
-			PityMisses = pityMisses,
-			PityAfter = pityAfter,
-			PityArmed = pityMisses + 1 >= pityAfter,
-		}
+		local wheel = ensureWheel(profile)
+		return WheelMath.Snapshot(
+			os.time(),
+			wheel,
+			GameConfig.Wheel.CooldownSeconds,
+			GameConfig.Wheel.PityAfter
+		)
 	end
-
-	local WHEEL_RARITY_RANK = {
-		COMMON = 1,
-		UNCOMMON = 2,
-		RARE = 3,
-		EPIC = 4,
-		LEGENDARY = 5,
-		MYTHIC = 6,
-	}
 
 	function ProgressionService.SpinWheel(profile, random: Random): (boolean, string, number?, string?, boolean?)
 		local now = os.time()
-		local freeSpins = math.max(0, math.floor(tonumber(profile.Wheel.FreeSpins) or 0))
-		local onCooldown = now < profile.Wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds
+		local wheel = ensureWheel(profile)
+		local freeSpins = wheel.FreeSpins
+		local onCooldown = now < wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds
 		if freeSpins <= 0 and onCooldown then
 			return false, "The fortune reactor is still recharging."
 		end
 
-		profile.Wheel.PityMisses = math.floor(tonumber(profile.Wheel.PityMisses) or 0)
 		local pityAfter = math.max(1, math.floor(tonumber(GameConfig.Wheel.PityAfter) or 8))
-		local pityRarity = string.upper(tostring(GameConfig.Wheel.PityRarity or "RARE"))
-		local floorRank = WHEEL_RARITY_RANK[pityRarity] or 3
-		local forcePity = profile.Wheel.PityMisses + 1 >= pityAfter
+		local pityKey = string.upper(tostring(GameConfig.Wheel.PityRarity or "RARE"))
+		local floorRank = WheelMath.RARITY_RANK[pityKey] or 3
+		local forcePity = wheel.PityMisses + 1 >= pityAfter
 
-		local pool = {}
-		local totalWeight = 0
-		for index, prize in GameConfig.Wheel.Rewards do
-			local rank = WHEEL_RARITY_RANK[string.upper(prize.Rarity)] or 1
-			if not forcePity or rank >= floorRank then
-				table.insert(pool, { Index = index, Prize = prize, Weight = prize.Weight })
-				totalWeight += prize.Weight
-			end
-		end
+		local pool, totalWeight = WheelMath.BuildPool(GameConfig.Wheel.Rewards, forcePity, floorRank)
 		if totalWeight <= 0 then
-			pool = {}
-			for index, prize in GameConfig.Wheel.Rewards do
-				table.insert(pool, { Index = index, Prize = prize, Weight = prize.Weight })
-				totalWeight += prize.Weight
-			end
+			pool, totalWeight = WheelMath.FullPool(GameConfig.Wheel.Rewards)
 		end
 
 		local roll = random:NextNumber(0, totalWeight)
-		local selectedEntry = pool[#pool]
-		local cursor = 0
-		for _, entry in pool do
-			cursor += entry.Weight
-			if roll <= cursor then
-				selectedEntry = entry
-				break
-			end
+		local selectedEntry = WheelMath.PickEntry(pool, totalWeight, roll)
+		if selectedEntry == nil then
+			return false, "The fortune reactor has no prizes configured."
 		end
 
 		local selectedIndex = selectedEntry.Index
 		local selected = selectedEntry.Prize
-		local selectedRank = WHEEL_RARITY_RANK[string.upper(selected.Rarity)] or 1
+		local selectedRank = WheelMath.RarityRank(selected.Rarity)
 		local pityHit = forcePity
-		if selectedRank >= floorRank then
-			profile.Wheel.PityMisses = 0
-		else
-			profile.Wheel.PityMisses += 1
-		end
+		wheel.PityMisses = WheelMath.NextPityMisses(wheel.PityMisses, selectedRank, floorRank)
 
 		if freeSpins > 0 then
-			profile.Wheel.FreeSpins = freeSpins - 1
+			wheel.FreeSpins = freeSpins - 1
 		else
-			profile.Wheel.LastSpinAt = now
+			wheel.LastSpinAt = now
 		end
-		profile.Wheel.Spins += 1
+		wheel.Spins += 1
 		local rewardText = ProgressionService.ApplyReward(profile, selected.Reward, Economy.Production(profile))
 		local label = selected.Name .. ": " .. rewardText
 		if pityHit then

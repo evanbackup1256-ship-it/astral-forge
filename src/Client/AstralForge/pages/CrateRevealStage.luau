@@ -1222,6 +1222,7 @@ local function CrateRevealStage(props)
 				AnchorPoint = layout.actionAnchor,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
+				ClipsDescendants = false,
 				ZIndex = 456,
 			}, React.createElement(Button, {
 				text = props.claimText,

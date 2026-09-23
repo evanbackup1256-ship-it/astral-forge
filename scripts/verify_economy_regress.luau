@@ -479,6 +479,33 @@ assert(
 	"Admin DiscoverArts must nil-safe Command.Artifacts"
 )
 
+-- --- WheelMath extract + FreeSpins SpinWheel nil-safety (wave12) --------------
+-- Evidence: ApplyReward FreeSpins seeds Wheel={FreeSpins=N} without LastSpinAt —
+-- WheelState did `profile.Wheel.LastSpinAt + Cooldown` (nil+number throw) and
+-- SpinWheel crashed before the spin. Admin ResetWheelCooldown / ResetDailyClaim
+-- raw-indexed missing bags on Studio fixtures.
+assert(
+	string.find(progressionSrc, "WheelMath.Ensure", 1, true) ~= nil
+		and string.find(progressionSrc, "ensureWheel", 1, true) ~= nil,
+	"ProgressionService must nil-safe Wheel via WheelMath.Ensure / ensureWheel"
+)
+assert(
+	string.find(progressionSrc, "profile.Wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds", 1, true) == nil,
+	"WheelState / SpinWheel must not raw-add LastSpinAt on partial bags"
+)
+assert(
+	string.find(progressionSrc, "local WHEEL_RARITY_RANK", 1, true) == nil,
+	"inline WHEEL_RARITY_RANK must move to WheelMath"
+)
+assert(
+	string.find(adminSrc, 'type(profile.Wheel) ~= "table"', 1, true) ~= nil,
+	"Admin ResetWheelCooldown must nil-safe Wheel"
+)
+assert(
+	string.find(adminSrc, 'type(profile.Daily) ~= "table"', 1, true) ~= nil,
+	"Admin ResetDailyClaim must nil-safe Daily"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -493,4 +520,4 @@ for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgrade
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements+QuestsTimed+SanitizeBags nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats+KeysDaily+GameServiceStats+EconomyBags+Achievements+QuestsTimed+SanitizeBags+WheelMath nil-safe")
