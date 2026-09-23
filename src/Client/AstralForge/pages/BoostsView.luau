@@ -299,7 +299,7 @@ local function BoostCard(_param)
 		reducedMotion = reducedMotion,
 		disabled = not ready,
 		highlight = ready,
-	})))
+	}))))
 end
 local function BoostsView(_param)
 	local state = _param.state

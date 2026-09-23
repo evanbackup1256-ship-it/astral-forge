@@ -215,7 +215,7 @@ local function MilestoneRow(_param)
 		reducedMotion = reducedMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
-	}))
+	})))
 end
 local function MilestonesView(_param)
 	local state = _param.state
