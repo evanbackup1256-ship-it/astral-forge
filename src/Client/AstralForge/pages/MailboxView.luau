@@ -770,7 +770,7 @@ local function MailboxView(_param)
 			hug = true,
 			disabled = not claimed,
 			reducedMotion = reducedMotion,
-		}))))
+		})))))
 	end
 
 	local detailPane = React.createElement("frame", {
