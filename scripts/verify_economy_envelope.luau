@@ -38,6 +38,13 @@ near(
 	math.min(1, 0.25 + 0.06 + 0.05 + 0.02 + 0.1 + 0.02),
 	"offline efficiency"
 )
+near(
+	EconomyEnvelopeMath.LabPowerEffect({ Tap = 3 }, "Tap", { EffectPerCell = 0.02 }),
+	0.06,
+	"lab power effect"
+)
+assert(EconomyEnvelopeMath.LabPowerEffect(nil, "Tap", { EffectPerCell = 0.02 }) == 0, "lab nil routing")
+assert(EconomyEnvelopeMath.LabPowerEffect({ Tap = 3 }, "Tap", nil) == 0, "lab nil channel")
 
 ------------------------------------------------------------------------
 -- ContinuumDomainMath.ContinuumEffects
@@ -97,6 +104,7 @@ assert(string.find(economySrc, "EconomyEnvelopeMath.OfflineEfficiency", 1, true)
 assert(string.find(economySrc, "EconomyEnvelopeMath.SumNumericLevels", 1, true), "Economy totals must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.MasteryMultiplier", 1, true), "Economy MasteryMultiplier must delegate")
 assert(string.find(economySrc, "EconomyEnvelopeMath.DomainTreeBonus", 1, true), "Economy DomainTreeBonus must delegate")
+assert(string.find(economySrc, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "Economy LabPowerEffect must delegate")
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
@@ -117,4 +125,4 @@ for _, body in {
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy envelope extract passed | ContinuumEffects+ForgePathEffect+NextPrestige+Envelope")
+print("[INFO] [TEST] economy envelope extract passed | ContinuumEffects+ForgePathEffect+NextPrestige+Envelope+LabPower")

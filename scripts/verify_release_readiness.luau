@@ -339,19 +339,50 @@ mark("inventory math salvage filter residuals")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual for release")
 assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEchoMath residual for release")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual for release")
+assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService DataSanitizeMath residual for release")
+assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService Reconcile residual for release")
 local adminReleaseSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 assert(string.find(adminReleaseSrc, "ProfileBagMath.EnsureFlags", 1, true), "Admin EnsureFlags residual for release")
 assert(string.find(adminReleaseSrc, "ForgeEchoMath.Ensure", 1, true), "Admin ForgeEchoMath residual for release")
+assert(string.find(adminReleaseSrc, "AdminGrantMath.PlayerFacingReason", 1, true), "Admin PlayerFacingReason residual for release")
 local progressionReleaseSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
 assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.WeeklyValue", 1, true), "Progression WeeklyValue residual for release")
 assert(string.find(progressionReleaseSrc, "ForgePathClaim.Ensure", 1, true), "Progression ForgePathClaim residual for release")
+assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress residual for release")
 local firewallReleaseSrc = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
 assert(string.find(firewallReleaseSrc, "BulkSalvageItems", 1, true), "RemoteFirewall BulkSalvage residual for release")
 assert(string.find(firewallReleaseSrc, "SetItemAutoSalvage", 1, true), "RemoteFirewall AutoSalvage residual for release")
-assert(string.find(firewallReleaseSrc, "local function cooldownKey", 1, true), "RemoteFirewall cooldownKey residual for release")
+assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.CooldownKey", 1, true), "RemoteFirewall CooldownKey residual for release")
+assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.CoerceUserId", 1, true), "RemoteFirewall CoerceUserId residual for release")
 mark("data admin progression firewall residuals")
 
-assert(#passed > 16, "release-readiness offline subset must stay beyond checks=16, got " .. tostring(#passed))
+-- Pure RunQuick LabPowerEffect envelope parity (finite; soak Studio-only).
+assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.LabPowerEffect", 1, true), "EconomyEnvelopeMath.LabPowerEffect missing")
+assert(string.find(economyBody, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "Economy LabPowerEffect residual for release")
+assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for LabPower adjacency")
+mark("runquick pure lab power envelope parity")
+
+-- Inventory CollectOwned / SocketTargets / market clock residuals past checks=19.
+assert(string.find(inventoryMathSrc, "function InventoryMath.CollectOwned", 1, true), "InventoryMath.CollectOwned missing")
+assert(string.find(inventoryMathSrc, "function InventoryMath.SocketTargets", 1, true), "InventoryMath.SocketTargets missing")
+assert(string.find(inventoryMathSrc, "function InventoryMath.RestockClock", 1, true), "InventoryMath.RestockClock missing")
+assert(string.find(inventoryMathSrc, "function InventoryMath.OfferStock", 1, true), "InventoryMath.OfferStock missing")
+assert(string.find(invViewSrc, "InventoryMath.CollectOwned", 1, true), "InventoryView CollectOwned residual for release")
+assert(string.find(invViewSrc, "InventoryMath.OfferStock", 1, true), "InventoryView OfferStock residual for release")
+mark("inventory collect socket market residuals")
+
+-- RemoteFirewallMath + DataSanitizeMath modules present for offline RunQuick-adjacent gates.
+local firewallMathSrc = fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau")
+local sanitizeMathSrc = fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau")
+assert(string.find(firewallMathSrc, "function RemoteFirewallMath.CoerceUserId", 1, true), "RemoteFirewallMath.CoerceUserId missing")
+assert(string.find(firewallMathSrc, "function RemoteFirewallMath.ExtractUserId", 1, true), "RemoteFirewallMath.ExtractUserId missing")
+assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.DeepCopy", 1, true), "DataSanitizeMath.DeepCopy missing")
+assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.NonNegative", 1, true), "DataSanitizeMath.NonNegative missing")
+assert(not string.find(firewallMathSrc, "GetService", 1, true), "RemoteFirewallMath must stay pure")
+assert(not string.find(sanitizeMathSrc, "GetService", 1, true), "DataSanitizeMath must stay pure")
+mark("firewall sanitize pure module residuals")
+
+assert(#passed > 19, "release-readiness offline subset must stay beyond checks=19, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

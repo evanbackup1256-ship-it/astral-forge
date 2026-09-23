@@ -123,4 +123,14 @@ function EconomyEnvelopeMath.DomainTreeBonus(nodes: any, tree: any, field: strin
 	return total
 end
 
+-- Lab power channel bonus: routing cells × EffectPerCell. Missing channel → 0.
+function EconomyEnvelopeMath.LabPowerEffect(routing: any, channelId: any, channel: any): number
+	if type(routing) ~= "table" or type(channel) ~= "table" or type(channelId) ~= "string" then
+		return 0
+	end
+	local perCell = tonumber(channel.EffectPerCell) or 0
+	local cells = tonumber(routing[channelId]) or 0
+	return math.max(0, cells) * perCell
+end
+
 return table.freeze(EconomyEnvelopeMath)

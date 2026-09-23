@@ -193,4 +193,148 @@ function InventoryMath.AutoSalvageSignature(rules: any, rarities: { string }?): 
 	return `{if bag.Enabled then 1 else 0}:{if bag.KeepNew then 1 else 0}:{table.concat(active, ",")}`
 end
 
+-- Build owned-item rows from Items.Inventory + Definitions (+ Equipped map).
+function InventoryMath.CollectOwned(state: any, config: any): { any }
+	local items = type(state) == "table" and state.Items or nil
+	local definitions = type(config) == "table" and config.Items and config.Items.Definitions or nil
+	if type(items) ~= "table" or type(definitions) ~= "table" then
+		return {}
+	end
+	local inventory = items.Inventory
+	if type(inventory) ~= "table" then
+		return {}
+	end
+	local byId = {}
+	for _, definition in definitions do
+		if type(definition) == "table" and type(definition.Id) == "string" then
+			byId[definition.Id] = definition
+		end
+	end
+	local equippedByUid = {}
+	if type(items.Equipped) == "table" then
+		for target, uid in pairs(items.Equipped) do
+			if type(uid) == "string" then
+				equippedByUid[uid] = target
+			end
+		end
+	end
+	local owned = {}
+	for uid, instance in pairs(inventory) do
+		if type(uid) ~= "string" or type(instance) ~= "table" then
+			continue
+		end
+		local definition = byId[instance.DefinitionId]
+		if definition == nil then
+			continue
+		end
+		table.insert(owned, {
+			uid = uid,
+			instance = instance,
+			definition = definition,
+			equippedOn = equippedByUid[uid],
+		})
+	end
+	return owned
+end
+
+-- Socket targets for a relic definition given owned Machines/Research levels.
+function InventoryMath.SocketTargets(state: any, config: any, definition: any): { any }
+	local out = {}
+	if type(definition) ~= "table" or type(config) ~= "table" or type(state) ~= "table" then
+		return out
+	end
+	local function pushUpgrade(upgrades: any, slot: string, owned: any)
+		if type(upgrades) ~= "table" or type(owned) ~= "table" then
+			return
+		end
+		for _, upgrade in upgrades do
+			if type(upgrade) ~= "table" or type(upgrade.Id) ~= "string" then
+				continue
+			end
+			local level = owned[upgrade.Id]
+			if type(level) ~= "number" or level < 1 then
+				continue
+			end
+			local targets = definition.Targets
+			if type(targets) == "table" and (table.find(targets, upgrade.Id) or 0) - 1 < 0 then
+				continue
+			end
+			table.insert(out, {
+				id = `{slot}:{upgrade.Id}`,
+				label = upgrade.Name,
+			})
+		end
+	end
+	if definition.Slot == "Machine" then
+		pushUpgrade(config.Machines, "Machine", state.Machines)
+	else
+		pushUpgrade(config.Research, "Research", state.Research)
+	end
+	return out
+end
+
+function InventoryMath.RestockClock(seconds: any): string
+	local total = math.max(0, math.floor(tonumber(seconds) or 0))
+	if total <= 0 then
+		return "READY"
+	end
+	local hours = math.floor(total / 3600)
+	local minutes = math.floor((total % 3600) / 60)
+	if hours > 0 then
+		return `{hours}h {minutes}m`
+	end
+	if minutes > 0 then
+		return `{minutes}m`
+	end
+	return `{total}s`
+end
+
+function InventoryMath.OfferStock(offer: any): { stock: number, stockMax: number, soldOut: boolean, daily: boolean }
+	if type(offer) ~= "table" then
+		return { stock = 0, stockMax = 1, soldOut = true, daily = false }
+	end
+	local stockMax = math.max(1, tonumber(offer.StockMax) or 1)
+	local defaultStock = if offer.Purchased == true then 0 else stockMax
+	local stock = math.clamp(tonumber(offer.Stock) or defaultStock, 0, stockMax)
+	return {
+		stock = stock,
+		stockMax = stockMax,
+		soldOut = stock <= 0,
+		daily = offer.DailyRefresh == true,
+	}
+end
+
+InventoryMath.INSPECT_PAD = 14
+InventoryMath.INSPECT_BTN_GAP = 8
+InventoryMath.INSPECT_FOOTER_H = 18
+InventoryMath.ACTION_BTN = 56
+
+function InventoryMath.InspectSocketBlock(equipped: any, targetCount: any, chipRows: any, stack: boolean?, tapTarget: number?): number
+	local stacked = stack == true
+	if equipped then
+		return 20
+	end
+	local targets = math.max(0, math.floor(tonumber(targetCount) or 0))
+	if targets > 0 then
+		local rowH = if stacked then (tonumber(tapTarget) or 48) + 6 else 42
+		return 18 + math.max(0, math.floor(tonumber(chipRows) or 0)) * rowH
+	end
+	return 28
+end
+
+function InventoryMath.InspectActionsHeight(stack: boolean?): number
+	return if stack == true
+		then InventoryMath.ACTION_BTN * 2 + InventoryMath.INSPECT_BTN_GAP
+		else InventoryMath.ACTION_BTN
+end
+
+function InventoryMath.InspectPanelHeight(socketBlock: any, stack: boolean?): number
+	return InventoryMath.INSPECT_PAD * 2
+		+ math.max(0, tonumber(socketBlock) or 0)
+		+ InventoryMath.INSPECT_BTN_GAP
+		+ InventoryMath.InspectActionsHeight(stack)
+		+ InventoryMath.INSPECT_BTN_GAP
+		+ InventoryMath.INSPECT_FOOTER_H
+end
+
 return table.freeze(InventoryMath)

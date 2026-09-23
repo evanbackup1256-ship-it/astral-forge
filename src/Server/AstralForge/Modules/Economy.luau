@@ -131,7 +131,7 @@ function Economy.LabPowerEffect(profile: ProfileLike, channelId: string): number
 	if not lab or not lab.Routing or not channel then
 		return 0
 	end
-	return math.max(0, lab.Routing[channelId] or 0) * channel.EffectPerCell
+	return EconomyEnvelopeMath.LabPowerEffect(lab.Routing, channelId, channel)
 end
 
 local machineById = {}

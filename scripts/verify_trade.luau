@@ -281,7 +281,10 @@ do
 	local adminFields = fs.readFile("src/Client/AstralForge/adminFields.luau")
 	assert(string.find(adminFields, "Trade settle recovery", 1, true), "admin reasons must include Trade settle recovery")
 	local adminService = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
-	assert(string.find(adminService, '["Trade settle recovery"] = true', 1, true), "Trade settle recovery must be audit-only")
+	assert(string.find(adminService, "AdminGrantMath.AUDIT_ONLY_REASONS", 1, true), "Admin must use AdminGrantMath audit-only reasons")
+	local adminGrantSrc = fs.readFile("src/Server/AstralForge/Modules/AdminGrantMath.luau")
+	assert(string.find(adminGrantSrc, '["Trade settle recovery"] = true', 1, true), "Trade settle recovery must be audit-only")
+	assert(string.find(adminService, "AdminGrantMath.PlayerFacingReason", 1, true), "Admin must delegate PlayerFacingReason")
 
 	local session = {
 		Host = 1,

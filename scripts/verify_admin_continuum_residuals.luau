@@ -28,6 +28,25 @@ assert(AdminGrantMath.CommandDanger({ Category = "Economy" }) == "quick", "econo
 assert(AdminGrantMath.CommandDanger({ Category = "Moderation" }) == "arm", "mod arm")
 assert(AdminGrantMath.CommandDanger({ Danger = "critical", Category = "Troll" }) == "critical", "explicit Danger")
 assert(AdminGrantMath.CommandDanger(nil) == "quick", "nil → quick")
+assert(
+	AdminGrantMath.PlayerFacingReason("Kick", "Custom note", nil) == "Custom note",
+	"player-facing keeps custom"
+)
+assert(
+	AdminGrantMath.PlayerFacingReason("ServerBan", "Playtest grant", nil)
+		== "You are banned from this Astral Forge server.",
+	"audit-only ServerBan fallback"
+)
+assert(
+	AdminGrantMath.PlayerFacingReason("GlobalBan", "Bug recovery", nil) == "You are banned from Astral Forge.",
+	"audit-only GlobalBan fallback"
+)
+assert(
+	AdminGrantMath.PlayerFacingReason("Kick", "Owner gameplay administration", nil)
+		== "You were kicked from this Astral Forge server by an administrator.",
+	"audit-only kick fallback"
+)
+assert(AdminGrantMath.AUDIT_ONLY_REASONS["Trade settle recovery"] == true, "audit reason table")
 
 ------------------------------------------------------------------------
 -- ContinuumDomainMath (RunQuick endless economy envelope parity)
@@ -75,6 +94,8 @@ local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(adminSrc, "AdminGrantMath.BoundedAmount", 1, true), "Admin must delegate BoundedAmount")
 assert(string.find(adminSrc, "AdminGrantMath.CleanText", 1, true), "Admin must delegate CleanText")
 assert(string.find(adminSrc, "AdminGrantMath.CommandDanger", 1, true), "Admin must delegate CommandDanger")
+assert(string.find(adminSrc, "AdminGrantMath.PlayerFacingReason", 1, true), "Admin must delegate PlayerFacingReason")
+assert(string.find(adminSrc, "AdminGrantMath.AUDIT_ONLY_REASONS", 1, true), "Admin AUDIT_ONLY_REASONS residual")
 assert(
 	string.find(adminSrc, "Stats.AnomalyStabilizations", 1, true)
 		or string.find(adminSrc, 'BumpStat(profile, "AnomalyStabilizations"', 1, true),
@@ -145,12 +166,14 @@ assert(
 
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
-assert(string.find(progressionSrc, "TotalRebirthsSpent", 1, true), "Progression achievement residual")
+assert(string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress residual")
+local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+assert(string.find(progressionOpsSrc, "TotalRebirthsSpent", 1, true), "Progression achievement residual")
 assert(string.find(progressionSrc, "WheelMath.Ensure", 1, true), "Progression Wheel residual")
 assert(string.find(progressionSrc, "EnsureQuests", 1, true), "Progression EnsureQuests residual")
 assert(string.find(progressionSrc, "EnsureTimedRewards", 1, true), "Progression EnsureTimedRewards residual")
 assert(string.find(progressionSrc, "ForgePathClaim.Ensure", 1, true), "Progression ForgePath residual")
-assert(string.find(progressionSrc, "AnomalyStabilizations", 1, true), "Progression AnomalyStabilizations residual")
+assert(string.find(progressionOpsSrc, "AnomalyStabilizations", 1, true), "Progression AnomalyStabilizations residual")
 assert(string.find(progressionSrc, "ProfileBagMath.EnsureBoostInventory", 1, true), "Progression BoostInventory residual")
 assert(string.find(progressionSrc, "ProfileBagMath.EnsureDomain", 1, true), "Progression EnsureDomain residual")
 assert(string.find(progressionSrc, "ProfileBagMath.EnsureDaily", 1, true), "Progression EnsureDaily residual")

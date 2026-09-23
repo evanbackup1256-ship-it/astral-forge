@@ -98,6 +98,46 @@ assert(
 )
 
 ------------------------------------------------------------------------
+-- AchievementProgress
+------------------------------------------------------------------------
+assert(ProgressionOpsMath.AchievementProgress(nil, "Zone") == 0, "nil profile progress")
+assert(ProgressionOpsMath.AchievementProgress({ Zone = 4 }, "Zone") == 4, "zone progress")
+assert(
+	ProgressionOpsMath.AchievementProgress({ Machines = { A = 2, B = 3 } }, "MachineLevels") == 5,
+	"machine levels"
+)
+assert(
+	ProgressionOpsMath.AchievementProgress({ Research = { X = 1 } }, "ResearchLevels") == 1,
+	"research levels"
+)
+assert(
+	ProgressionOpsMath.AchievementProgress({ Rebirths = 2, Domain = { TotalRebirthsSpent = 3 } }, "Rebirths") == 5,
+	"rebirths + spent"
+)
+assert(
+	ProgressionOpsMath.AchievementProgress({ Anomaly = { Stabilizations = 7 }, Stats = { AnomalyStabilizations = 1 } }, "AnomalyStabilizations")
+		== 7,
+	"anomaly bag preferred"
+)
+assert(
+	ProgressionOpsMath.AchievementProgress({ Command = { ExpeditionsCompleted = 9 }, Stats = { Expeditions = 1 } }, "Expeditions")
+		== 9,
+	"command expeditions preferred"
+)
+assert(
+	ProgressionOpsMath.AchievementProgress({ ForgePath = { ClaimedSteps = { ["1"] = true, ["2"] = true } } }, "ForgePathSteps")
+		== 2,
+	"forge path steps"
+)
+assert(
+	ProgressionOpsMath.AchievementProgress({ LifetimeCash = "100" }, "LifetimeCash", function(v)
+		return tonumber(v) or 0
+	end) == 100,
+	"lifetime inject"
+)
+assert(ProgressionOpsMath.AchievementProgress({ LifetimeCash = 50 }, "LifetimeCash", nil) == 0, "lifetime needs inject")
+
+------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
 local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
@@ -111,6 +151,8 @@ assert(string.find(progressionSrc, "ProgressionOpsMath.WeeklyValue", 1, true), "
 assert(string.find(progressionSrc, "ProgressionOpsMath.CommanderReward", 1, true), "Progression CommanderReward")
 assert(string.find(progressionSrc, "ProgressionOpsMath.TitleUnlocked", 1, true), "Progression TitleUnlocked")
 assert(string.find(progressionSrc, "ProgressionOpsMath.FindById", 1, true), "Progression FindById")
+assert(string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress")
+assert(string.find(progressionSrc, "Economy.AsNumber", 1, true), "AchievementProgress injects AsNumber")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true), "DataService EnsureItems")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "DataService EnsureDomain")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "DataService EnsureContinuum")
