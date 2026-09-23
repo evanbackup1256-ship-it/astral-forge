@@ -35,9 +35,9 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expected tip: b8df05c855828b5ce68429045b410cb97c1cc97b
-# Message: Document local Argon sync after master merges.
-# (Game integrate tip: 5e55aab — color/trade/inventory already included.)
+# Current origin/master docs tip: 35a3d58227161b585db2f02f3306ac4b412f5aa1
+# Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
+git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
 # Confirm color / trade / inventory landed:
 git merge-base --is-ancestor d3b0d55 HEAD && echo color-pc OK
