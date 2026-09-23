@@ -565,7 +565,45 @@ assert(not string.find(itemLoadoutSrc, "GetService", 1, true), "ItemLoadoutMath 
 assert(not string.find(releaseClockSrc, "GetService", 1, true), "ReleaseClockMath must stay pure")
 mark("wave22 extract session echo loadout residuals")
 
-assert(#passed > 27, "release-readiness offline subset must stay beyond checks=27, got " .. tostring(#passed))
+-- Wave24: Crew FlatList + FocusClaim + Overview softMotion canon residuals.
+local routerWave24 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(string.find(routerWave24, 'Name = "CrewVisitClaim"', 1, true), "CrewVisitClaim host missing for release")
+do
+	local hostStart = string.find(routerWave24, 'Name = "CrewVisitClaim"', 1, true)
+	assert(hostStart, "CrewVisitClaim host missing")
+	local hostSlice = string.sub(routerWave24, hostStart, hostStart + 420)
+	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "CrewVisitClaim clips residual for release")
+end
+assert(string.find(routerWave24, 'Name = "CrewVisitConfirm"', 1, true), "CrewVisitConfirm residual for release")
+assert(string.find(routerWave24, "GamepadNavigationService.FocusClaim", 1, true), "Crew FocusClaim residual for release")
+assert(string.find(routerWave24, "createElement(FlatList", 1, true), "Crew FlatList residual for release")
+assert(
+	string.find(routerWave24, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true),
+	"Crew FlatList softMotion overscan residual for release"
+)
+assert(
+	string.find(
+		routerWave24,
+		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
+		1,
+		true
+	),
+	"Overview/Crew softMotion canon residual for release"
+)
+assert(
+	string.find(routerWave24, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true),
+	"Overview quietMotion fold residual for release"
+)
+local guildWave24 = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
+local guildSoft = 0
+for _ in string.gmatch(guildWave24, "softMotion") do
+	guildSoft += 1
+end
+assert(guildSoft >= 8, "Guild softMotion density residual for release, got " .. tostring(guildSoft))
+mark("wave24 crew flatlist focusclaim overview softmotion residuals")
+
+-- Raise floor past checks=29 once wave24 Crew/Overview/Guild residuals land.
+assert(#passed > 28, "release-readiness offline subset must stay beyond checks=28, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

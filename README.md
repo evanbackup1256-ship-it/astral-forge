@@ -31,13 +31,23 @@ delete them during `npm install`.
 Argon syncs **local disk only**. A cloud agent push to `origin/master` does **not**
 update Roblox Studio until you pull on this machine and restart `argon serve`.
 
-```bash
-cd /path/to/astral-forge
+You are already inside the repo folder when the PowerShell prompt shows
+`...\Astral Forge v2>` — **do not** `cd /path/to/...` (that is a placeholder and
+will fail). Stay put, or `cd` to your real clone (example:
+`C:\Users\evanm\OneDrive\Desktop\Astral Forge v2`).
+
+If git prints `Deletion of directory '.git/objects/...' failed` under OneDrive:
+pause OneDrive sync for this folder (or move the clone out of OneDrive), answer
+`n` to abort the stuck delete retry, then re-run `git pull`. OneDrive file locks
+break git object cleanup.
+
+```powershell
+# From your Astral Forge v2 folder (already there — skip cd):
 git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 46fc2d3
+# Expect at or after: 6af2030
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
@@ -93,6 +103,7 @@ git merge-base --is-ancestor b46f905 HEAD && echo wave21-harden OK
 git merge-base --is-ancestor 38d3197 HEAD && echo extract-checks-wave21 OK
 git merge-base --is-ancestor 9003943 HEAD && echo wave22-harden OK
 git merge-base --is-ancestor 505f565 HEAD && echo extract-checks-wave22 OK
+git merge-base --is-ancestor 6af2030 HEAD && echo extract-checks-wave22-tip OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -130,10 +141,13 @@ walkthrough / Device Simulator evidence before claiming ENTIRE complete.
 
 **0. Argon pull tip SHA (do this first)**
 
-```bash
-git fetch origin && git checkout master && git pull origin master
+```powershell
+# From your Astral Forge v2 folder — skip any `cd /path/to/...` placeholder.
+git fetch origin
+git checkout master
+git pull origin master
 git rev-parse HEAD
-# Expect at or after: 46fc2d3
+# Expect at or after: 6af2030
 argon serve default.project.json
 ```
 

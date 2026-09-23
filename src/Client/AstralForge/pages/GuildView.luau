@@ -1115,7 +1115,7 @@ local function GuildView(_param)
 		padding = if stack then 16 else 20,
 		reveal = reveal,
 		highlight = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_4, _exp_5, _exp_6, React.createElement(Text, _attributes_1), if canManage and #members == 1 then React.createElement(Button, {
 		text = "DISBAND",
@@ -1131,7 +1131,7 @@ local function GuildView(_param)
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.fromOffset(140, 42),
 		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}) else React.createElement(Button, {
 		text = "LEAVE",
 		onClick = function()

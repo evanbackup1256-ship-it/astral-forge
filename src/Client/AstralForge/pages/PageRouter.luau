@@ -50,6 +50,7 @@ local compareFlux = _format.compareFlux
 local formatReward = _format.formatReward
 local gteFlux = _format.gteFlux
 local VirtualGrid = require(script.Parent.Parent.scrolling).VirtualGrid
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local Audio = require(script.Parent.Parent.audio).Audio
 local function lazyView(moduleName, exportName)
 	local component
@@ -438,10 +439,10 @@ local function OverviewView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Drop entrance/stagger springs when antilag already wants skipEntrance or
-	-- ambient motion is off — Overview mounts several stagger clocks at once.
-	local quietMotion = reducedMotion or effectsPaused or antilag.skipEntrance or not antilag.allowAmbient
-	local softMotion = quietMotion or antilag.tier <= 1
+	-- Canonical softMotion antilag gate — effectsPaused/skipEntrance stay on quietMotion
+	-- so decorative Overview stagger can mute without folding pause into softMotion.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local quietMotion = softMotion or effectsPaused or antilag.skipEntrance
 	local stack = chrome.contentStack
 	local phone = chrome.stack
 	local canCollect = VaultCollectEligibility.isEligible(asFlux(state.Vault))
@@ -3321,10 +3322,12 @@ local function CrewRow(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	})), React.createElement("frame", {
+		Name = "CrewVisitConfirm",
 		Size = UDim2.new(0.5, -4, 0, TapTarget),
 		LayoutOrder = 2,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = if visiting then "HERE" else "VISIT",
 		icon = "Visit",
@@ -3357,7 +3360,15 @@ local function CrewRow(_param)
 		size = UDim2.fromOffset(0, TapTarget),
 		hug = true,
 		reducedMotion = reducedMotion,
-	}), React.createElement(Button, {
+	}), React.createElement("frame", {
+		Name = "CrewVisitConfirm",
+		Size = UDim2.fromOffset(0, TapTarget),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		LayoutOrder = 2,
+	}, React.createElement(Button, {
 		text = if visiting then "HERE" else "VISIT",
 		icon = "Visit",
 		onClick = onVisit,
@@ -3368,7 +3379,7 @@ local function CrewRow(_param)
 		reducedMotion = reducedMotion,
 		disabled = visiting,
 		highlight = visiting,
-	})))
+	}))))
 end
 local function VisitPanel(_param)
 	local visit = _param.visit
@@ -3525,9 +3536,14 @@ local function CrewView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — Crew roster FlatList overscan drops on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local players, setPlayers = React.useState({})
 	local mountedRef = React.useRef(true)
 	local visitAttemptRef = React.useRef(0)
+	local crewHostRef = React.useRef(nil)
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
@@ -3581,6 +3597,26 @@ local function CrewView(_param)
 			end)
 		end
 	end, { refresh })
+	-- Gamepad: park Selection on VISIT (FocusClaim prefers Confirm-named hosts).
+	local crewFocusReady = #players > 0
+	React.useEffect(function()
+		if not crewFocusReady or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = crewHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { crewFocusReady, #players })
 	local _visitUserId = visit
 	if _visitUserId ~= nil then
 		_visitUserId = _visitUserId.UserId
@@ -3645,7 +3681,7 @@ local function CrewView(_param)
 			userId = id,
 		})
 	end
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local _result = state.Visitors
 	if _result ~= nil then
 		_result = #_result
@@ -3699,12 +3735,12 @@ local function CrewView(_param)
 		textColor = Palette.ink,
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(170, 44),
 		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -170, 0, 24),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local visitPanel = visit ~= nil and React.createElement(VisitPanel, {
 		visit = visit,
 		dispatch = dispatch,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		layoutOrder = 1,
 		stack = stack,
 	})
@@ -3715,29 +3751,6 @@ local function CrewView(_param)
 		accent = Palette.blue,
 		layoutOrder = 2,
 	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#players)
-	local _callback = function(player, index)
-		return React.createElement(CrewRow, {
-			key = player.UserId,
-			player = player,
-			visiting = visitUserId == player.UserId,
-			visitorsHere = if player.IsLocal then visitorsHere else 0,
-			onVisit = function()
-				return startVisit(player.UserId)
-			end,
-			onNudge = function()
-				return nudgeCrew(player.UserId)
-			end,
-			reducedMotion = reducedMotion,
-			layoutOrder = index + 3,
-			stack = stack,
-		})
-	end
-	for _k, _v in players do
-		_newValue[_k] = _callback(_v, _k - 1, players)
-	end
-	-- ▲ ReadonlyArray.map ▲
 	local sections = {
 		{
 			id = "header",
@@ -3759,20 +3772,85 @@ local function CrewView(_param)
 			element = emptyPanel,
 		})
 	end
-	for index, row in _newValue do
+	-- Long crew rosters virtualize inside FlatList; short lists keep per-row PageScaffold sections.
+	local virtRoster = #players >= 8
+	if virtRoster then
+		local rosterCards = table.create(#players)
+		for index, player in players do
+			rosterCards[index] = React.createElement(CrewRow, {
+				key = player.UserId,
+				player = player,
+				visiting = visitUserId == player.UserId,
+				visitorsHere = if player.IsLocal then visitorsHere else 0,
+				onVisit = function()
+					return startVisit(player.UserId)
+				end,
+				onNudge = function()
+					return nudgeCrew(player.UserId)
+				end,
+				reducedMotion = softMotion,
+				layoutOrder = index,
+				stack = stack,
+			})
+		end
 		table.insert(sections, {
-			id = "crew-" .. tostring(index),
-			height = rowStride,
-			element = row,
+			id = "roster",
+			fill = true,
+			minHeight = 120,
+			element = React.createElement(FlatList, {
+				data = players,
+				itemHeight = rowStride,
+				overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
+				canvasTail = 8,
+				Size = UDim2.fromScale(1, 1),
+				scrollBarColor = Palette.blue,
+				scrollBarThickness = 4,
+				keyExtractor = function(player)
+					return player.UserId
+				end,
+				renderItem = function(_param_1)
+					local index = _param_1.index
+					return rosterCards[index + 1]
+				end,
+			}),
 		})
+	else
+		for index, player in players do
+			table.insert(sections, {
+				id = "crew-" .. tostring(index),
+				height = rowStride,
+				element = React.createElement(CrewRow, {
+					key = player.UserId,
+					player = player,
+					visiting = visitUserId == player.UserId,
+					visitorsHere = if player.IsLocal then visitorsHere else 0,
+					onVisit = function()
+						return startVisit(player.UserId)
+					end,
+					onNudge = function()
+						return nudgeCrew(player.UserId)
+					end,
+					reducedMotion = softMotion,
+					layoutOrder = index + 3,
+					stack = stack,
+				}),
+			})
+		end
 	end
-	return React.createElement(PageScaffold, {
+	return React.createElement("frame", {
+		ref = crewHostRef,
+		Name = "CrewVisitClaim",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement(PageScaffold, {
 		gap = listGap,
 		tailPad = crewTail,
 		scrollBarColor = Palette.blue,
 		scrollBarThickness = 4,
 		sections = sections,
-	})
+	}))
 end
 local function PageContentInner(props)
 	local _binding = props
