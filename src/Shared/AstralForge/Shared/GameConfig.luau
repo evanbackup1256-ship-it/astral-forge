@@ -767,7 +767,6 @@ local GameConfig = {
 				Color = Color3.fromRGB(255, 165, 235),
 			},
 			{
-			{
 				Id = "Wave21QuestClampProgress",
 				Name = "Wave Twenty One Quest Clamp Progress",
 				Description = "Tap through a short tally while ProgressionOpsMath AdvanceQuestProgress + ProfileClampMath keep string Progress/Target and post-mutate currency Lune-testable.",
@@ -3300,7 +3299,6 @@ local GameConfig = {
 			Reward = { Stardust = 350, Signals = 96, CashMinutes = 32, Boost = "Afterburner" },
 		},
 		{
-		{
 			Id = "Wave21QuestCourier",
 			Name = "Wave Twenty One Quest Courier",
 			Description = "Claim 70 story chapters after ProfileClampMath extract + AdvanceQuestProgress string Progress/Target fix.",
@@ -4966,7 +4964,6 @@ local GameConfig = {
 			Color = Color3.fromRGB(90, 255, 240),
 		},
 
-		{
 		{
 			Id = "wave21-harden-brief",
 			Title = "Wave Twenty One Harden Brief",
