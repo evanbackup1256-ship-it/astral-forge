@@ -507,6 +507,9 @@ end
 	assert(string.find(adminSoft, "overscan = if softMotion then 0", 1, true), "Admin FlatList must softMotion-gate overscan")
 	local boardsSoft = fs.readFile("src/Client/AstralForge/pages/LeaderboardsView.luau")
 	assert(string.find(boardsSoft, "overscan = if softMotion then 0", 1, true), "Leaderboards FlatList must softMotion-gate overscan")
+	-- Wave19: Milestones FlatList overscan softMotion-gated (Echo/Command ClaimActions clips below).
+	local milestonesSoft = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
+	assert(string.find(milestonesSoft, "overscan = if softMotion then 0", 1, true), "Milestones FlatList must softMotion-gate overscan")
 
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
@@ -671,6 +674,27 @@ do
 		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsTimedClaimActions" },
 		{ path = "src/Client/AstralForge/pages/RebirthPanel.luau", name = "RebirthClaimActions" },
 		{ path = "src/Client/AstralForge/pages/CreditsView.luau", name = "CreditsClaimActions" },
+	} do
+		local src = fs.readFile(entry.path)
+		local needle = 'Name = "' .. entry.name .. '"'
+		local hostStart = string.find(src, needle, 1, true)
+		assert(hostStart, entry.name .. " host missing in " .. entry.path)
+		local hostSlice = string.sub(src, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			entry.name .. " host must keep ClipsDescendants = false"
+		)
+	end
+
+	-- Wave19: Echo/Chat/Command/Guild/Inventory/StarGrid ClaimActions must not clip CTA overshoot.
+	-- Evidence: EchoClaimActions and Overview CommandClaimActions previously omitted ClipsDescendants.
+	for _, entry in {
+		{ path = "src/Client/AstralForge/pages/EchoForgeView.luau", name = "EchoClaimActions" },
+		{ path = "src/Client/AstralForge/pages/ChatView.luau", name = "ChatClaimActions" },
+		{ path = "src/Client/AstralForge/pages/CommandView.luau", name = "CommandClaimActions" },
+		{ path = "src/Client/AstralForge/pages/GuildView.luau", name = "GuildClaimActions" },
+		{ path = "src/Client/AstralForge/pages/InventoryView.luau", name = "InspectClaimActions" },
+		{ path = "src/Client/AstralForge/pages/StarGridView.luau", name = "StarGridBuyClaimActions" },
 	} do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'

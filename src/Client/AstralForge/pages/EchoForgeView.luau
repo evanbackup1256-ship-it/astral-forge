@@ -591,6 +591,7 @@ local function InventoryCard(_param)
 		Position = UDim2.new(0, 0, 1, -TapTarget),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = linkHostRef,
 	}, React.createElement(Button, {
 		text = if current ~= nil and echoes.SlotsUnlocked == 1 then "LINKED" else `LINK SLOT {nextSlot}`,

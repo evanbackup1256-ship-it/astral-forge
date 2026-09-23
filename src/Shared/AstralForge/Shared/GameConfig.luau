@@ -722,6 +722,28 @@ local GameConfig = {
 				Reward = { Stardust = 58, CashMinutes = 4, Signals = 21 },
 				Color = Color3.fromRGB(255, 175, 225),
 			},
+			{
+				Id = "Wave19GuildGoal",
+				Name = "Wave Nineteen Guild Goal",
+				Description = "Tap through a short tally while GuildGoalMath EnsureGoal rebuilds nil-Claimed co-op goal bags.",
+				Kind = "Tap",
+				BaseTarget = 130,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 46, CashMinutes = 3, Signals = 18 },
+				Color = Color3.fromRGB(100, 250, 255),
+			},
+			{
+				Id = "Wave19ClaimClipsSoftMotion",
+				Name = "Wave Nineteen Claim Clips Soft Motion",
+				Description = "Bank flux while Echo/Chat/Command/Guild/Inventory/StarGrid ClaimActions stay unclipped and Milestones overscan softMotion-gates.",
+				Kind = "BankFlux",
+				BaseTarget = 5_400,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 60, CashMinutes = 4, Signals = 22 },
+				Color = Color3.fromRGB(255, 170, 230),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3178,6 +3200,22 @@ local GameConfig = {
 			Target = 34,
 			Reward = { Stardust = 330, Signals = 92, CashMinutes = 30, Boost = "Afterburner" },
 		},
+		{
+			Id = "Wave19GuildCourier",
+			Name = "Wave Nineteen Guild Courier",
+			Description = "Claim 66 story chapters after GuildGoalMath EnsureGoal extract + nil-Claimed ClaimGoal persist fix.",
+			Kind = "StoryClaims",
+			Target = 66,
+			Reward = { Stardust = 330, Signals = 92, CashMinutes = 31, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave19ClaimClipRunner",
+			Name = "Wave Nineteen Claim Clip Runner",
+			Description = "Hold a 36-day daily streak while Echo/Chat/Command/Guild ClaimActions unclipped + Milestones overscan stay verified.",
+			Kind = "DailyStreak",
+			Target = 36,
+			Reward = { Stardust = 340, Signals = 94, CashMinutes = 31, Boost = "SteadyBurn" },
+		},
 	},
 
 	DailyRewards = {
@@ -4780,9 +4818,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(110, 245, 255),
 		},
 
+		{
+			Id = "wave19-harden-brief",
+			Title = "Wave Nineteen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "GuildGoalMath extract; nil-Claimed ClaimGoal persist fix and ClaimActions clips stay honest.",
+			Body = {
+				"GuildGoalMath EnsureGoal/RollGoal/AdvanceGoal/CanClaimGoal keep co-op goal Rotate/Claim Lune-testable.",
+				"TypeId-matched goals missing Claimed/Contributors no longer drop repairs when ClaimGoal denies; Echo/Overview Command ClaimActions keep ClipsDescendants false.",
+				"Echo/Chat/Command/Guild/Inventory/StarGrid ClaimActions stay unclipped; Milestones FlatList overscan softMotion-gates; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 58, CashMinutes = 24, Signals = 26 },
+			Color = Color3.fromRGB(100, 250, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave19-harden",
+			Subject = "Dock note — wave nineteen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "GuildGoalMath extract + nil-Claimed ClaimGoal persist fix + ClaimActions clips — still DataVersion 21.",
+			Body = {
+				"Guild co-op goal Ensure is Lune-testable; ClaimGoal no longer drops Claimed/Contributors repairs on deny paths.",
+				"Echo/Chat/Command/Guild/Inventory/StarGrid ClaimActions keep ClipsDescendants false; Milestones FlatList overscan softMotion-gates.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 58, Stardust = 74, Signals = 30 },
+			Color = Color3.fromRGB(100, 250, 255),
+		},
 
 		{
 			Id = "update-5-1-wave18-harden",
