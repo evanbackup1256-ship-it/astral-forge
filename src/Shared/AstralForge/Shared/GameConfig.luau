@@ -5403,6 +5403,21 @@ local GameConfig = {
 			Reward = { Stardust = 106, CashMinutes = 48, Signals = 50 },
 			Color = Color3.fromRGB(0, 210, 165),
 		},
+		{
+			Id = "wave43-offline-brief",
+			Title = "Wave Forty Three Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "SnapshotEnvelopeMath peel + Chat/Convergence/StarGrid densify; DENSE floors; readiness past checks=48.",
+			Body = {
+				"SnapshotEnvelopeMath peels snapshot envelope validators out of MainGame acceptState.",
+				"Chat/Convergence/StarGrid thicken softMotion; playability DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 108, CashMinutes = 49, Signals = 51 },
+			Color = Color3.fromRGB(0, 215, 170),
+		},
 
 
 
@@ -5499,6 +5514,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 106, Stardust = 122, Signals = 54 },
 			Color = Color3.fromRGB(0, 210, 165),
+		},
+		{
+			Id = "update-5-1-wave43-offline",
+			Subject = "Dock note — wave forty three offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "SnapshotEnvelopeMath peel + chat/convergence/stargrid softMotion — still DataVersion 21.",
+			Body = {
+				"SnapshotEnvelopeMath peels envelope validators from MainGame; Chat/Convergence/StarGrid densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=48 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 108, Stardust = 124, Signals = 55 },
+			Color = Color3.fromRGB(0, 215, 170),
 		},
 
 		{

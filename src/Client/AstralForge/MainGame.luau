@@ -70,6 +70,7 @@ local AdminPrankOverlay = _AdminPrankOverlay.AdminPrankOverlay
 local HudPrankStage = _AdminPrankOverlay.HudPrankStage
 local ActionCopy = require(script.Parent.actionCopy)
 local NoticeMath = require(script.Parent.noticeMath)
+local SnapshotEnvelopeMath = require(script.Parent.snapshotEnvelopeMath)
 local _appNav = require(script.Parent.appNav)
 local AppHelpers = _appNav.AppHelpers
 local NetworkPolicy = require(script.Parent.networkPolicy)
@@ -304,76 +305,7 @@ local function MainGame(_param)
 			return false
 		end
 		local candidate = rawSnapshot
-		local numericKeys = { "Revision", "SnapshotId", "ServerTime", "Cores", "Stardust", "Rebirths", "Zone", "CurrentZone" }
-		local persistKeys = { "Cash", "Vault", "RunCash", "LifetimeCash", "Production", "Capacity" }
-		local tableKeys = { "Game", "Machines", "Research", "Wheel", "Daily", "TimedRewards", "Quests", "Settings", "Flags" }
-		local isFiniteNumber = function(value)
-			local _value = value
-			local _condition = type(_value) == "number"
-			if _condition then
-				_condition = value == value and value ~= math.huge and value ~= -math.huge
-			end
-			return _condition
-		end
-		local isPersist = function(value)
-			if isFiniteNumber(value) then
-				return value >= 0
-			end
-			local _value = value
-			local _condition = not (type(_value) == "string")
-			if not _condition then
-				_condition = #value == 0
-			end
-			if _condition then
-				return false
-			end
-			local lower = string.lower(value)
-			if lower == "inf" or lower == "infinity" then
-				return true
-			end
-			return (string.match(value, "^[%+%-]?%d+%.?%d*[eE][%+%-]?%d+$")) ~= nil or tonumber(value) ~= nil
-		end
-		-- ▼ ReadonlyArray.every ▼
-		local _result_3 = true
-		local _callback = function(key)
-			return isFiniteNumber(candidate[key])
-		end
-		for _k, _v in numericKeys do
-			if not _callback(_v, _k - 1, numericKeys) then
-				_result_3 = false
-				break
-			end
-		end
-		-- ▲ ReadonlyArray.every ▲
-		local validNumbers = _result_3
-		-- ▼ ReadonlyArray.every ▼
-		local _result_4 = true
-		local _callback_1 = function(key)
-			return isPersist(candidate[key])
-		end
-		for _k, _v in persistKeys do
-			if not _callback_1(_v, _k - 1, persistKeys) then
-				_result_4 = false
-				break
-			end
-		end
-		-- ▲ ReadonlyArray.every ▲
-		local validPersist = _result_4
-		-- ▼ ReadonlyArray.every ▼
-		local _result_5 = true
-		local _callback_2 = function(key)
-			local _arg0 = candidate[key]
-			return type(_arg0) == "table"
-		end
-		for _k, _v in tableKeys do
-			if not _callback_2(_v, _k - 1, tableKeys) then
-				_result_5 = false
-				break
-			end
-		end
-		-- ▲ ReadonlyArray.every ▲
-		local validTables = _result_5
-		if not validNumbers or not validPersist or not validTables or (candidate.Revision) < 0 or (candidate.SnapshotId) < 0 then
+		if not SnapshotEnvelopeMath.IsValidEnvelope(candidate) then
 			ClientLog:warnEvery("state-envelope", 10, "UI", "ignored an incomplete snapshot")
 			return false
 		end

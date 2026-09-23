@@ -71,6 +71,7 @@ local files = {
 	"src/Client/AstralForge/inventoryMath.luau",
 	"src/Client/AstralForge/actionCopy.luau",
 	"src/Client/AstralForge/noticeMath.luau",
+	"src/Client/AstralForge/snapshotEnvelopeMath.luau",
 	"src/Client/AstralForge/boostIconKind.luau",
 	"src/Client/AstralForge/networkPolicy.luau",
 	-- Shared catalog (parse only — no require)

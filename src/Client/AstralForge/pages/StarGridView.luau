@@ -122,6 +122,7 @@ local function BranchHeader(_param)
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — BranchHeader.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local reveal = useStagger(staggerIndex, softMotion)
@@ -133,14 +134,14 @@ local function BranchHeader(_param)
 		padding = 16,
 		layoutOrder = layoutOrder,
 		reveal = reveal,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, React.createElement(IconTile, {
 		kind = branchIcon(branch.Id),
 		accent = branch.Color,
 		size = if stack then 56 else 72,
 		radius = 16,
 		position = UDim2.fromOffset(0, if stack then 10 else 8),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Text, {
 		value = branch.Name,
 		size = if stack then 20 else 24,
@@ -165,7 +166,7 @@ local function BranchHeader(_param)
 		highlight = active,
 		size = UDim2.fromOffset(88, TapTarget),
 		position = UDim2.new(1, -220, 1, -42),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(BADGE_W - 8, BADGE_H),
 		AnchorPoint = Vector2.new(1, 1),
@@ -192,7 +193,7 @@ local function BranchHeader(_param)
 		highlight = active,
 		size = UDim2.fromOffset(BADGE_W, TapTarget),
 		position = UDim2.new(1, -(BADGE_W + 16), 0, 56),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})))
 end
 local function NodeRow(_param)
@@ -210,6 +211,7 @@ local function NodeRow(_param)
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — StarGridNode.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local reveal = useStagger(staggerIndex, softMotion)
@@ -243,7 +245,7 @@ local function NodeRow(_param)
 	local near = not maxed and fill >= NEAR_COMPLETE_THRESHOLD
 	local meterPosition = UDim2.fromOffset(82, 76)
 	local meterSize = UDim2.new(1, if stack then -96 else -(btnW + 100 + SCROLL_BAR), 0, 10)
-	local unlockPop = useNodeUnlockPop(canBuy or maxed, reducedMotion)
+	local unlockPop = useNodeUnlockPop(canBuy or maxed, softMotion)
 	local tierScale = unlockPop:map(function(amount)
 		return 1 + amount * 0.16
 	end)
@@ -256,7 +258,7 @@ local function NodeRow(_param)
 		reveal = reveal,
 		interactive = not maxed,
 		highlight = canBuy,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(64, 64),
 		Position = UDim2.fromOffset(2, if stack then 10 else 22),
@@ -300,15 +302,15 @@ local function NodeRow(_param)
 	}), React.createElement(Meter, {
 		value = fill,
 		color = if maxed then Palette.muted else branch.Color,
-		reducedMotion = reducedMotion,
-		shimmer = canBuy,
+		reducedMotion = softMotion,
+		shimmer = canBuy and not softMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), React.createElement(NodeProgressGlow, {
 		near = near,
 		maxed = maxed,
 		accent = branch.Color,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement(Button, {
@@ -328,7 +330,7 @@ local function NodeRow(_param)
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -(TapTarget + 10)),
 		disabled = not canBuy,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = canBuy,
 	}) else React.createElement(Button, {
 		text = cta,
@@ -347,7 +349,7 @@ local function NodeRow(_param)
 		size = UDim2.fromOffset(btnW, 52),
 		position = UDim2.new(1, -(btnW + SCROLL_BAR + 10), 0.5, -26),
 		disabled = not canBuy,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = canBuy,
 	}))
 end
@@ -363,6 +365,7 @@ local function StarGridViewComponent(_param)
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — StarGridView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local buyAllHostRef = React.useRef(nil)

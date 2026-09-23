@@ -40,6 +40,8 @@ local function ConvergenceView(_param)
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
 	local revealTiers = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — ConvergenceTier.
+	local revealClaim = useStagger(2, softMotion)
 	if event == nil then
 		return React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
@@ -158,13 +160,14 @@ local function ConvergenceView(_param)
 	local _callback = function(tier, index)
 		local progress = math.clamp(event.PersonalContribution / math.max(1, tier.Required), 0, 1)
 		local buttonColor = if tier.CanClaim then Palette.mint elseif tier.Claimed then Palette.panelSoft else Palette.violet
+		local tierReveal = if tier.CanClaim then revealClaim else revealTiers
 		return React.createElement(Panel, {
 			key = `tier-{tier.Tier}`,
 			size = UDim2.new(1, 0, 0, tierHeight),
 			accent = if tier.CanClaim then Palette.mint else Palette.violet,
 			padding = 13,
 			layoutOrder = index,
-			reveal = revealTiers,
+			reveal = tierReveal,
 			interactive = tier.CanClaim,
 			reducedMotion = softMotion,
 			clips = false,
@@ -190,6 +193,7 @@ local function ConvergenceView(_param)
 			position = if stack then UDim2.fromOffset(0, 54) else UDim2.new(0, 0, 1, -12),
 			size = UDim2.new(1, if stack then 0 else -170, 0, 6),
 			reducedMotion = softMotion,
+			shimmer = tier.CanClaim and not softMotion,
 		}), React.createElement("frame", {
 			Name = "ConvergenceClaimActions",
 			Size = if stack then UDim2.new(1, 0, 0, 48) else UDim2.fromOffset(150, 48),
@@ -213,6 +217,7 @@ local function ConvergenceView(_param)
 			disabled = not tier.CanClaim,
 			size = UDim2.fromScale(1, 1),
 			reducedMotion = softMotion,
+			highlight = tier.CanClaim and not softMotion,
 		})))
 	end
 	for _k, _v in tiers do

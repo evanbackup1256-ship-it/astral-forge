@@ -1165,8 +1165,38 @@ assert(string.find(cfg, 'Id = "wave42-offline-brief"', 1, true), "Story wave42 r
 assert(string.find(cfg, 'Id = "update-5-1-wave42-offline"', 1, true), "Mail wave42 residual for release")
 mark("wave42 noticemath peel missions worlds densify content residuals")
 
--- Wave42 residuals raise the offline subset past checks=47.
-assert(#passed > 47, "release-readiness offline subset must stay beyond checks=47, got " .. tostring(#passed))
+-- Wave43: SnapshotEnvelopeMath peel + Chat/Convergence/StarGrid densify + DENSE floors + DV21.
+local envelopeWave43 = fs.readFile("src/Client/AstralForge/snapshotEnvelopeMath.luau")
+assert(string.find(envelopeWave43, "function SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "SnapshotEnvelopeMath.IsValidEnvelope residual for release")
+assert(string.find(envelopeWave43, "function SnapshotEnvelopeMath.IsFiniteNumber", 1, true), "SnapshotEnvelopeMath.IsFiniteNumber residual for release")
+local mainWave43 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave43, 'require(script.Parent.snapshotEnvelopeMath)', 1, true), "MainGame snapshotEnvelopeMath require residual for release")
+assert(string.find(mainWave43, "SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "MainGame IsValidEnvelope residual for release")
+assert(not string.find(mainWave43, 'local numericKeys = { "Revision", "SnapshotId"', 1, true), "numericKeys must leave MainGame for release")
+local chatWave43 = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
+assert(string.find(chatWave43, "Canonical softMotion antilag gate — MessageRow", 1, true), "MessageRow softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(chatWave43, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Chat softMotion densify residual for release, got " .. tostring(soft))
+end
+local starWave43 = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
+assert(string.find(starWave43, "Canonical softMotion antilag gate — StarGridNode", 1, true), "StarGridNode softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(starWave43, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 16, "StarGrid softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave43-offline-brief"', 1, true), "Story wave43 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43 residual for release")
+mark("wave43 snapshotenvelope chat convergence stargrid densify content residuals")
+
+-- Wave43 residuals raise the offline subset past checks=48.
+assert(#passed > 48, "release-readiness offline subset must stay beyond checks=48, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

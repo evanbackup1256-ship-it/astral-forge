@@ -41,6 +41,17 @@ pause OneDrive sync for this folder (or move the clone out of OneDrive), answer
 `n` to abort the stuck delete retry, then re-run `git pull`. OneDrive file locks
 break git object cleanup.
 
+If `git pull` aborts with `Your local changes ... would be overwritten by merge`,
+your tree is dirty (often leftover Argon/Studio edits). Discard local edits and
+fast-forward to tip:
+
+```powershell
+git fetch origin
+git checkout master
+git reset --hard origin/master
+git rev-parse HEAD
+```
+
 ```powershell
 # From your Astral Forge v2 folder (already there — skip cd).
 # Windows PowerShell 5: do not use bash `&&` — use `; if ($LASTEXITCODE -eq 0)` as below.
@@ -124,6 +135,7 @@ git merge-base --is-ancestor c2f0b4a HEAD; if ($LASTEXITCODE -eq 0) { echo wave3
 git merge-base --is-ancestor aab618d HEAD; if ($LASTEXITCODE -eq 0) { echo wave40-offline OK }
 git merge-base --is-ancestor 1388e6b HEAD; if ($LASTEXITCODE -eq 0) { echo wave41-offline OK }
 git merge-base --is-ancestor 850050c HEAD; if ($LASTEXITCODE -eq 0) { echo wave42-offline OK }
+git merge-base --is-ancestor PLACEHOLDER_WAVE43_FEATURE HEAD; if ($LASTEXITCODE -eq 0) { echo wave43-offline OK }
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -163,11 +175,12 @@ walkthrough / Device Simulator evidence before claiming ENTIRE complete.
 
 ```powershell
 # From your Astral Forge v2 folder — skip any `cd /path/to/...` placeholder.
+# If pull aborts on dirty local files: git reset --hard origin/master
 git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 32ca20d
+# Expect at or after: PLACEHOLDER_WAVE43
 argon serve default.project.json
 ```
 

@@ -66,8 +66,9 @@ local function MessageRow(_param)
 	local animate = _param.animate
 	local rowHeight = _param.rowHeight
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ChatView.
+	-- Canonical softMotion antilag gate — MessageRow.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local enter = useMessageEntrance(animate, softMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)
 	local pulse = usePulse(not message.system and not softMotion and antilag.tier >= 2, 2.4 + math.abs(message.userId % 5) * 0.14)
@@ -225,7 +226,7 @@ local function MessageRow(_param)
 		text = message.titleName,
 		fx = message.titleFx,
 		size = 12,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		inline = true,
 		position = UDim2.fromOffset(66, 28),
 		sizeConstraint = UDim2.new(1, -(STATUS_RESERVE + 72), 0, 18),
@@ -271,6 +272,7 @@ local function ChatView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — ChatView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local bodySize = if chrome.mobile then 16 else 15
