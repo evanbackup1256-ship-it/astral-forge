@@ -190,12 +190,16 @@ do
 	assert(string.find(services, "TryBeginSettle", 1, true), "ConfirmTrade must use TryBeginSettle")
 	assert(string.find(services, "FailSettle", 1, true), "ConfirmTrade must FailSettle on abort")
 	assert(string.find(services, "trade-revert", 1, true), "guest-fail path must revert host")
-	assert(string.find(services, "TradeSettle.RevertWithRetries", 1, true), "revert must use TradeSettle retries")
+	assert(string.find(services, "TradeSettle.RunHostGuest", 1, true), "ConfirmTrade must orchestrate via RunHostGuest")
+	assert(string.find(services, "revertHostOnce", 1, true), "ConfirmTrade must inject revertHostOnce")
 	local revertCount = 0
-	for _ in string.gmatch(services, 'true, "trade%-revert"') do
+	for _ in string.gmatch(services, '"trade%-revert"') do
 		revertCount += 1
 	end
-	assert(revertCount >= 2, "host revert must be attempted from multiple failure paths")
+	assert(revertCount >= 1, "host revert AtomicUpdate must remain in ConfirmTrade hooks")
+	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+	assert(string.find(settleSrc, "RevertWithRetries", 1, true), "revert retries stay in TradeSettle")
+	assert(string.find(settleSrc, "function TradeSettle.RunHostGuest", 1, true), "RunHostGuest exported")
 
 	local desk = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
 	assert(string.find(desk, "function TradeDesk:TryBeginSettle", 1, true))
@@ -269,8 +273,9 @@ do
 	assert(string.find(deskSrc, "RevertFailedReason", 1, true) or string.find(deskSrc, "TradeSettle.Fail", 1, true), "FailSettle permanent must stamp RevertFailedReason")
 	local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 	assert(string.find(services, "cancelErr", 1, true), "ConfirmTrade Cancel path must surface cancelErr")
-	assert(string.find(services, "FormatRevertFailedLog", 1, true), "permanent settle failure must ModuleLog via TradeSettle")
+	assert(string.find(services, "outcome.log", 1, true), "permanent settle failure must ModuleLog outcome.log")
 	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+	assert(string.find(settleSrc, "FormatRevertFailedLog", 1, true), "TradeSettle must format RevertFailed logs")
 	assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
 	assert(string.find(settleSrc, "Trade settle recovery", 1, true), "TradeSettle must cite Trade settle recovery")
 	local adminFields = fs.readFile("src/Client/AstralForge/adminFields.luau")

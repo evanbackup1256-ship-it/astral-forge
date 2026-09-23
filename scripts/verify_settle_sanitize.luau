@@ -23,9 +23,12 @@ assert(string.find(settleSrc, "RevertFailedReason", 1, true), "permanent FailSet
 assert(string.find(settleSrc, "host-revert-failed", 1, true), "FailSettle must default reason host-revert-failed")
 assert(string.find(settleSrc, "Trade settle recovery", 1, true), "FailSettle must cite Trade settle recovery ops note")
 
-assert(string.find(services, "REASON_GUEST_LEFT", 1, true) or string.find(services, "guest-left-during-settle", 1, true), "ConfirmTrade must FailSettle guest-left path")
-assert(string.find(services, "REASON_GUEST_APPLY", 1, true) or string.find(services, "guest-apply-failed", 1, true), "ConfirmTrade must FailSettle guest-apply path")
-assert(string.find(services, "FormatRevertFailedLog", 1, true), "permanent settle failure must ModuleLog RevertFailed")
+assert(string.find(settleSrc, "REASON_GUEST_LEFT", 1, true) or string.find(settleSrc, "guest-left-during-settle", 1, true), "TradeSettle must own guest-left reason")
+assert(string.find(settleSrc, "REASON_GUEST_APPLY", 1, true) or string.find(settleSrc, "guest-apply-failed", 1, true), "TradeSettle must own guest-apply reason")
+assert(string.find(settleSrc, "FormatRevertFailedLog", 1, true), "TradeSettle must format RevertFailed logs")
+assert(string.find(settleSrc, "function TradeSettle.RunHostGuest", 1, true), "RunHostGuest must own host→guest AtomicUpdate path")
+assert(string.find(services, "TradeSettle.RunHostGuest", 1, true), "ConfirmTrade must delegate RunHostGuest")
+assert(string.find(services, "outcome.log", 1, true), "permanent settle failure must ModuleLog outcome.log")
 assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
 
 -- Pure Cancel vs RevertFailed residual via TradeSettle.
