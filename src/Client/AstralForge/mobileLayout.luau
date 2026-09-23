@@ -105,7 +105,7 @@ local function planMobileLayout(input)
 	local tablet = phone and width >= 700 and not landscape
 	-- Header shrinks in landscape (vertical room is scarce) and grows slightly on tablets
 	-- (more breathing room, still touch-first).
-	local topbarRows = if not phone then 62 elseif landscape then 40 elseif tablet then 64 else 56
+	local topbarRows = if not phone then 62 elseif landscape then 36 elseif tablet then 52 else 48
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else 0
 	-- Desktop denser gaps/padding; phone keeps touch-first insets from mobile playability.

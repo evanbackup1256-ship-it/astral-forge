@@ -541,23 +541,25 @@ local function OverviewView(_param)
 	local ultraOverview = not stack and viewport.width >= 1680
 	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
 	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
-	local heroH = if landscapePhone then 196 elseif phone then 336 elseif wideOverview then 220 else 236
-	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 280 else 340) else 196) else 0
-	local domainH = if domainVisible then (if phone then (if landscapePhone then 300 else 372) else 212) else 0
-	local notesH = if stack then (if landscapePhone then 168 else 196) else 132
-	-- Ops Pulse claim strip from client page features (missions/lab/path/anomaly shortcuts).
-	local opsH = if landscapePhone then 280 elseif stack then 320 else 148
+	local heroH = if landscapePhone then 196 elseif phone then 288 elseif wideOverview then 220 else 236
+	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 260 else 300) else 196) else 0
+	local domainH = if domainVisible then (if phone then (if landscapePhone then 280 else 320) else 212) else 0
+	local notesH = if stack then (if landscapePhone then 148 else 168) else 132
+	-- Ops Pulse: phone uses a 2×2 claim grid so Collect stays above the fold.
+	local opsH = if landscapePhone then 168 elseif stack then 196 else 148
 	local metricCardH = if stack then (if landscapePhone then 72 else 86) elseif wideOverview then 64 else 0
 	local metricsH = if stack then metricCardH * 3 + 20 elseif wideOverview then heroH else 96
-	local countdownInPage = true
-	local countdownH = if stack then (if landscapePhone then 140 else 168) else 132
+	local countdownInPage = type(releaseAt) == "number" and releaseAt > os.time()
+	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 140 else 168) else 132) else 0
 	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
 	local topBandH = if wideOverview then heroH else heroH + metricsH + Layout.panelGap
 	local sectionCount = 1 + 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
-	local canvasH = topBandH + notesH + opsH + (if countdownInPage then countdownH else 0) + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
+	local canvasH = topBandH + notesH + opsH + countdownH + rebirthH + domainH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
 	local ctaH = TapTarget
 	local heroReadoutH = if landscapePhone then 118 elseif phone then 176 else 0
 	local phoneCtaBlockH = if landscapePhone then ctaH + 8 else ctaH * 2 + 12
+	local opsButtonRows = if stack then 2 else 1
+	local opsButtonH = TapTarget * opsButtonRows + (if stack then 8 else 0)
 	local domain = state.Domain or {
 		Rank = 0,
 		Essence = 0,
@@ -1065,7 +1067,7 @@ local function OverviewView(_param)
 			highlight = meter >= 0.99,
 		}))
 	end)()), React.createElement(Panel, {
-		layoutOrder = 6,
+		layoutOrder = 3,
 		size = UDim2.new(1, 0, 0, opsH),
 		accent = if opsClaims > 0 then Palette.green else Palette.cyan,
 		background = Palette.panel,
@@ -1096,12 +1098,15 @@ local function OverviewView(_param)
 		position = UDim2.fromOffset(0, 46),
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, if stack then TapTarget * 4 + 24 else TapTarget),
-		Position = UDim2.new(0, 0, 1, -(if stack then TapTarget * 4 + 24 else TapTarget)),
+		Size = UDim2.new(1, 0, 0, opsButtonH),
+		Position = UDim2.new(0, 0, 1, -opsButtonH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("uilistlayout", {
-		FillDirection = if stack then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalFlex = Enum.UIFlexAlignment.Fill,
+		VerticalFlex = Enum.UIFlexAlignment.Fill,
+		Wraps = stack,
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
@@ -1116,7 +1121,7 @@ local function OverviewView(_param)
 		end,
 		color = if missionsReady > 0 then Palette.cyan else Palette.panelSoft,
 		textColor = if missionsReady > 0 then Palette.ink else Palette.creamSoft,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
 		highlight = missionsReady > 0,
 		layoutOrder = 0,
@@ -1132,7 +1137,7 @@ local function OverviewView(_param)
 		end,
 		color = if labReady > 0 then Palette.mint else Palette.panelSoft,
 		textColor = if labReady > 0 then Palette.ink else Palette.creamSoft,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
 		highlight = labReady > 0,
 		layoutOrder = 1,
@@ -1148,7 +1153,7 @@ local function OverviewView(_param)
 		end,
 		color = if pathReady then Palette.violet else Palette.panelSoft,
 		textColor = if pathReady then Palette.ink else Palette.creamSoft,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
 		highlight = pathReady,
 		layoutOrder = 2,
@@ -1164,7 +1169,7 @@ local function OverviewView(_param)
 		end,
 		color = if anomalyReady then Palette.pink else Palette.panelSoft,
 		textColor = if anomalyReady then Palette.ink else Palette.creamSoft,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
 		highlight = anomalyReady,
 		layoutOrder = 3,
@@ -1172,7 +1177,7 @@ local function OverviewView(_param)
 		releaseAt = releaseAt,
 		reducedMotion = reducedMotion,
 		stack = stack,
-		layoutOrder = 5,
+		layoutOrder = 6,
 	}), rebirthVisible and React.createElement(RebirthPanel, {
 		state = state,
 		dispatch = dispatch,
@@ -1181,9 +1186,9 @@ local function OverviewView(_param)
 		height = rebirthH,
 		reveal = rebirthReveal,
 		openWorkshop = openWorkshop,
-		layoutOrder = 3,
-	}), domainVisible and React.createElement(Panel, {
 		layoutOrder = 4,
+	}), domainVisible and React.createElement(Panel, {
+		layoutOrder = 5,
 		size = UDim2.new(1, 0, 0, domainH),
 		accent = Palette.pink,
 		background = darken(Palette.violet, 0.9),

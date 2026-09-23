@@ -10,9 +10,9 @@ local LiveOpsConfig = require(script.Parent:WaitForChild("LiveOpsConfig"))
 -- (EffectKind/EffectAmount, applied the same way the old skill tree's nodes were) AND one
 -- reward chest (Reward), claimed together in one action — replaces the old three-way split
 -- between Progression Tree (skills), Prestige (tier multipliers), and Season Pass (chests).
--- 80-step linear track. Keep in lockstep with buildForgePathSteps() in
+-- 96-step linear track. Keep in lockstep with buildForgePathSteps() in
 -- src/Client/AstralForge/types.luau so client preview and server grants never drift.
-local FORGE_PATH_STEP_COUNT = 80
+local FORGE_PATH_STEP_COUNT = 96
 type ForgePathEffectSlot = { Kind: string, Base: number }
 local FORGE_PATH_EFFECT_CYCLE: { ForgePathEffectSlot } = {
 	{ Kind = "Production", Base = 3 },
@@ -304,7 +304,7 @@ local GameConfig = {
 		ComboBonusPerStack = 0.045,
 	},
 
-	-- Generated 80-step table. See buildForgePathSteps() above. Replaces the old Progression
+	-- Generated 96-step table. See buildForgePathSteps() above. Replaces the old Progression
 	-- Tree + Prestige + Season Pass split with one linear track: each step grants a permanent
 	-- stat bonus and a reward chest together, claimed in one action, funded by ForgePath XP
 	-- (a passive trickle off lifetime flux — see Economy.ForgePathXP).
@@ -2245,6 +2245,8 @@ local GameConfig = {
 		{ CashMinutes = 120, Stardust = 125, Cores = 2, Boost = "Hyperdrive", StreakShield = 1 },
 		{ CashMinutes = 140, Stardust = 150, Signals = 25, CommandXP = 120 },
 		{ CashMinutes = 180, Stardust = 200, Cores = 3, Boost = "DomainSurge", FreeSpins = 2 },
+		{ CashMinutes = 200, Stardust = 240, Cores = 3, Signals = 40, Essence = 2 },
+		{ CashMinutes = 240, Stardust = 300, Cores = 4, Boost = "Hyperdrive", FreeSpins = 2, StreakShield = 1 },
 	},
 
 	Wheel = {
@@ -2881,6 +2883,9 @@ local GameConfig = {
 		{ Minutes = 180, Reward = { CashMinutes = 110, Stardust = 50, Boost = "SteadyBurn", FreeSpins = 1 } },
 		{ Minutes = 240, Reward = { CashMinutes = 150, Stardust = 70, Cores = 2, CommandXP = 200 } },
 		{ Minutes = 360, Reward = { CashMinutes = 220, Stardust = 100, Cores = 3, Boost = "DomainSurge", Essence = 2 } },
+		{ Minutes = 480, Reward = { CashMinutes = 280, Stardust = 130, Cores = 4, Signals = 35, FreeSpins = 1 } },
+		{ Minutes = 600, Reward = { CashMinutes = 340, Stardust = 160, Cores = 5, Boost = "Hyperdrive", Essence = 3 } },
+		{ Minutes = 720, Reward = { CashMinutes = 420, Stardust = 200, Cores = 6, Boost = "DomainSurge", FreeSpins = 2, CommandXP = 400 } },
 	},
 
 	Unlocks = {
