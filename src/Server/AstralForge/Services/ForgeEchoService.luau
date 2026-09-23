@@ -17,28 +17,9 @@ return function()
 	local patternAffinity = ForgeEchoMath.PATTERN_AFFINITY
 
 	local function ensure(profile)
-		local echoes = profile.ForgeEchoes
-		if type(echoes) ~= "table" then
-			echoes = {
-				Charge = 0,
-				Resonance = 0,
-				Captures = 0,
-				NextId = 1,
-				Pattern = { Collect = 0, Surge = 0, Build = 0, Explore = 0 },
-				Draft = { Id = "", Choices = {} },
-				Inventory = {},
-				Equipped = { ["1"] = "", ["2"] = "", ["3"] = "" },
-			}
-			profile.ForgeEchoes = echoes
-		end
-		echoes.Pattern = type(echoes.Pattern) == "table" and echoes.Pattern
-			or { Collect = 0, Surge = 0, Build = 0, Explore = 0 }
-		echoes.Draft = type(echoes.Draft) == "table" and echoes.Draft or { Id = "", Choices = {} }
-		echoes.Draft.Choices = type(echoes.Draft.Choices) == "table" and echoes.Draft.Choices or {}
-		echoes.Inventory = type(echoes.Inventory) == "table" and echoes.Inventory or {}
-		echoes.Equipped = type(echoes.Equipped) == "table" and echoes.Equipped
-			or { ["1"] = "", ["2"] = "", ["3"] = "" }
-		return echoes
+		-- Charge-only / Draft-less Studio fixtures must rebuild before Record/Capture.
+		profile.ForgeEchoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
+		return profile.ForgeEchoes
 	end
 
 	local function display(instance, uidOverride: string?)

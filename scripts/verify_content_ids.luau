@@ -152,6 +152,19 @@ assert(string.find(src, 'Id = "Wave15OpsMath"', 1, true), "Lab.Orders must appen
 assert(string.find(src, 'Id = "Wave15ItemsShopSoftMotion"', 1, true), "Lab.Orders must append Wave15ItemsShopSoftMotion")
 assert(string.find(src, 'Id = "Wave16AnomalyOps"', 1, true), "Lab.Orders must append Wave16AnomalyOps")
 assert(string.find(src, 'Id = "Wave16ClaimClipsSoftMotion"', 1, true), "Lab.Orders must append Wave16ClaimClipsSoftMotion")
+assert(string.find(src, 'Id = "Wave17EchoEnsure"', 1, true), "Lab.Orders must append Wave17EchoEnsure")
+assert(string.find(src, 'Id = "Wave17ClaimClipsSoftMotion"', 1, true), "Lab.Orders must append Wave17ClaimClipsSoftMotion")
+-- Footgun: Wave16 briefly nested AnomalyOps inside Wave15ItemsShopSoftMotion — keep top-level.
+do
+	local wave15 = string.find(src, 'Id = "Wave15ItemsShopSoftMotion"', 1, true)
+	local wave16 = string.find(src, 'Id = "Wave16AnomalyOps"', 1, true)
+	assert(wave15 and wave16 and wave16 > wave15, "Wave16AnomalyOps must follow Wave15ItemsShopSoftMotion")
+	local between = string.sub(src, wave15, wave16)
+	assert(
+		string.find(between, "Color = Color3.fromRGB(255, 190, 210),\n\t\t\t},", 1, true),
+		"Wave15ItemsShopSoftMotion must close before Wave16AnomalyOps (no nested Lab.Orders)"
+	)
+end
 assert(string.find(src, 'Id = "Wave9DailyStreakRunner"', 1, true), "Achievements must append Wave9DailyStreakRunner")
 assert(string.find(src, 'Id = "Wave9StoryCourier"', 1, true), "Achievements must append Wave9StoryCourier")
 assert(string.find(src, 'Id = "Wave10EchoArchivist"', 1, true), "Achievements must append Wave10EchoArchivist")
@@ -168,6 +181,8 @@ assert(string.find(src, 'Id = "Wave15OpsCourier"', 1, true), "Achievements must 
 assert(string.find(src, 'Id = "Wave15SoftMotionRunner"', 1, true), "Achievements must append Wave15SoftMotionRunner")
 assert(string.find(src, 'Id = "Wave16AnomalyCourier"', 1, true), "Achievements must append Wave16AnomalyCourier")
 assert(string.find(src, 'Id = "Wave16ClaimClipRunner"', 1, true), "Achievements must append Wave16ClaimClipRunner")
+assert(string.find(src, 'Id = "Wave17EchoCourier"', 1, true), "Achievements must append Wave17EchoCourier")
+assert(string.find(src, 'Id = "Wave17ClaimClipRunner"', 1, true), "Achievements must append Wave17ClaimClipRunner")
 assert(string.find(src, 'Id = "bug-content-wave9-brief"', 1, true), "Story must append bug-content-wave9-brief")
 assert(string.find(src, 'Id = "wave10-harden-brief"', 1, true), "Story must append wave10-harden-brief")
 assert(string.find(src, 'Id = "bug-content-wave11-brief"', 1, true), "Story must append bug-content-wave11-brief")
@@ -176,6 +191,7 @@ assert(string.find(src, 'Id = "wave13-harden-brief"', 1, true), "Story must appe
 assert(string.find(src, 'Id = "wave14-harden-brief"', 1, true), "Story must append wave14-harden-brief")
 assert(string.find(src, 'Id = "wave15-harden-brief"', 1, true), "Story must append wave15-harden-brief")
 assert(string.find(src, 'Id = "wave16-harden-brief"', 1, true), "Story must append wave16-harden-brief")
+assert(string.find(src, 'Id = "wave17-harden-brief"', 1, true), "Story must append wave17-harden-brief")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave9"', 1, true), "Mail must append update-5-1-bug-content-wave9")
 assert(string.find(src, 'Id = "update-5-1-wave10-harden"', 1, true), "Mail must append update-5-1-wave10-harden")
 assert(string.find(src, 'Id = "update-5-1-bug-content-wave11"', 1, true), "Mail must append update-5-1-bug-content-wave11")
@@ -184,5 +200,6 @@ assert(string.find(src, 'Id = "update-5-1-wave13-harden"', 1, true), "Mail must 
 assert(string.find(src, 'Id = "update-5-1-wave14-harden"', 1, true), "Mail must append update-5-1-wave14-harden")
 assert(string.find(src, 'Id = "update-5-1-wave15-harden"', 1, true), "Mail must append update-5-1-wave15-harden")
 assert(string.find(src, 'Id = "update-5-1-wave16-harden"', 1, true), "Mail must append update-5-1-wave16-harden")
+assert(string.find(src, 'Id = "update-5-1-wave17-harden"', 1, true), "Mail must append update-5-1-wave17-harden")
 
 print("[INFO] [TEST] content ids unique; DataVersion 21; PlatformBadges zeroed")

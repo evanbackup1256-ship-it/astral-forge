@@ -12,6 +12,7 @@ return function(loadService: (string) -> any)
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
@@ -182,18 +183,9 @@ return function(loadService: (string) -> any)
 			0,
 			GameConfig.Continuum.MaxRank
 		)
-		if type(profile.ForgeEchoes) ~= "table" then
-			profile.ForgeEchoes = {
-				Charge = 0,
-				Resonance = 0,
-				Captures = 0,
-				NextId = 1,
-				Pattern = { Collect = 0, Surge = 0, Build = 0, Explore = 0 },
-				Draft = { Id = "", Choices = {} },
-				Inventory = {},
-				Equipped = { ["1"] = "", ["2"] = "", ["3"] = "" },
-			}
-		end
+		-- Charge-only / Draft-less Studio fixtures share ForgeEchoMath.Ensure with
+		-- Admin GrantEchoCharge and ForgeEchoService before clamp/sanitize.
+		profile.ForgeEchoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
 		local echoes = profile.ForgeEchoes
 		echoes.Charge = math.clamp(nonNegative(echoes.Charge), 0, GameConfig.ForgeEchoes.ChargeTarget)
 		echoes.Resonance = math.floor(nonNegative(echoes.Resonance))

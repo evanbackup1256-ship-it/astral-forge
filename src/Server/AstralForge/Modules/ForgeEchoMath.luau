@@ -15,6 +15,47 @@ ForgeEchoMath.PATTERN_AFFINITY = {
 	Explore = "Void",
 }
 
+export type ForgeEchoesBag = {
+	Charge: number,
+	Resonance: number,
+	Captures: number,
+	NextId: number,
+	Pattern: { [string]: number },
+	Draft: { Id: string, Choices: { any } },
+	Inventory: { [string]: any },
+	Equipped: { [string]: string },
+}
+
+-- Studio fixtures / mid-migrate bags may omit ForgeEchoes entirely, or leave
+-- Pattern/Draft/Inventory/Equipped nil — Admin GrantEchoCharge and
+-- ForgeEchoService paths must rebuild before indexing Charge / Draft.Choices.
+function ForgeEchoMath.Ensure(echoes: any): ForgeEchoesBag
+	if type(echoes) ~= "table" then
+		return {
+			Charge = 0,
+			Resonance = 0,
+			Captures = 0,
+			NextId = 1,
+			Pattern = { Collect = 0, Surge = 0, Build = 0, Explore = 0 },
+			Draft = { Id = "", Choices = {} },
+			Inventory = {},
+			Equipped = { ["1"] = "", ["2"] = "", ["3"] = "" },
+		}
+	end
+	echoes.Pattern = type(echoes.Pattern) == "table" and echoes.Pattern
+		or { Collect = 0, Surge = 0, Build = 0, Explore = 0 }
+	echoes.Draft = type(echoes.Draft) == "table" and echoes.Draft or { Id = "", Choices = {} }
+	echoes.Draft.Choices = type(echoes.Draft.Choices) == "table" and echoes.Draft.Choices or {}
+	echoes.Inventory = type(echoes.Inventory) == "table" and echoes.Inventory or {}
+	echoes.Equipped = type(echoes.Equipped) == "table" and echoes.Equipped
+		or { ["1"] = "", ["2"] = "", ["3"] = "" }
+	echoes.Charge = math.max(0, tonumber(echoes.Charge) or 0)
+	echoes.Resonance = math.max(0, math.floor(tonumber(echoes.Resonance) or 0))
+	echoes.Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0))
+	echoes.NextId = math.max(1, math.floor(tonumber(echoes.NextId) or 1))
+	return echoes :: ForgeEchoesBag
+end
+
 function ForgeEchoMath.InventoryCount(inventory: any): number
 	if type(inventory) ~= "table" then
 		return 0

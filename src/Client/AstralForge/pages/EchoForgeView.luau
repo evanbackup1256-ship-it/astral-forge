@@ -975,7 +975,7 @@ local function EchoForgeView(_param)
 			inventoryBody = React.createElement(FlatList, {
 				data = offerRows,
 				itemHeight = rowStride,
-				overscan = if softMotion then 1 else 2,
+				overscan = if softMotion then 0 else 2,
 				canvasTail = 4,
 				Size = UDim2.fromScale(1, 1),
 				scrollBarColor = Palette.cyan,

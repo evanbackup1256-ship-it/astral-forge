@@ -468,6 +468,13 @@ end
 	assert(string.find(starSoft, "overscan = if softMotion then 0", 1, true), "StarGrid FlatList must softMotion-gate overscan")
 	local shopSoft = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
 	assert(string.find(shopSoft, "overscan = if softMotion then", 1, true), "Shop FlatList must softMotion-gate overscan")
+	-- Wave17: ForgePath/Echo/Story FlatList overscan softMotion-gated to 0.
+	local forgeSoft = fs.readFile("src/Client/AstralForge/pages/ForgePathView.luau")
+	assert(string.find(forgeSoft, "overscan = if softMotion then 0", 1, true), "ForgePath FlatList must softMotion-gate overscan")
+	local echoSoft = fs.readFile("src/Client/AstralForge/pages/EchoForgeView.luau")
+	assert(string.find(echoSoft, "overscan = if softMotion then 0", 1, true), "EchoForge FlatList must softMotion-gate overscan")
+	local storySoft = fs.readFile("src/Client/AstralForge/pages/StoryView.luau")
+	assert(string.find(storySoft, "overscan = if softMotion then 0", 1, true), "Story FlatList must softMotion-gate overscan")
 
 -- Known CTA / FocusClaim footguns (offline)
 ------------------------------------------------------------------------
@@ -587,6 +594,37 @@ do
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"WheelSpinClaimActions host must keep ClipsDescendants = false"
+		)
+	end
+	-- Wave17: Convergence/Milestones/ForgePath ClaimActions must not clip CTA overshoot.
+	local convergenceClips = fs.readFile("src/Client/AstralForge/pages/ConvergenceView.luau")
+	do
+		local hostStart = string.find(convergenceClips, 'Name = "ConvergenceClaimActions"', 1, true)
+		assert(hostStart, "ConvergenceClaimActions host missing")
+		local hostSlice = string.sub(convergenceClips, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"ConvergenceClaimActions host must keep ClipsDescendants = false"
+		)
+	end
+	local milestoneClips = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
+	do
+		local hostStart = string.find(milestoneClips, 'Name = "MilestoneClaimActions"', 1, true)
+		assert(hostStart, "MilestoneClaimActions host missing")
+		local hostSlice = string.sub(milestoneClips, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"MilestoneClaimActions host must keep ClipsDescendants = false"
+		)
+	end
+	local forgePathClips = fs.readFile("src/Client/AstralForge/pages/ForgePathView.luau")
+	do
+		local hostStart = string.find(forgePathClips, 'Name = "ForgePathClaimActions"', 1, true)
+		assert(hostStart, "ForgePathClaimActions host missing")
+		local hostSlice = string.sub(forgePathClips, hostStart, hostStart + 420)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"ForgePathClaimActions host must keep ClipsDescendants = false"
 		)
 	end
 
