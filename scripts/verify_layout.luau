@@ -14,8 +14,13 @@ local cases = {
 	{ name = "phone landscape", width = 844, height = 390, desktop = false, mobile = true, landscape = true },
 	{ name = "short landscape", width = 640, height = 320, desktop = false, mobile = true, landscape = true },
 	{ name = "tablet", width = 768, height = 1024, desktop = false, mobile = true, landscape = false },
+	-- 4:3 tablet variants stay under the mobile planner (width < 900 / narrow).
+	{ name = "tablet 4:3 landscape", width = 800, height = 600, desktop = false, mobile = true, landscape = true },
+	{ name = "tablet 4:3 portrait", width = 720, height = 960, desktop = false, mobile = true, landscape = false },
 	{ name = "foldable", width = 600, height = 700, desktop = false, mobile = true, landscape = false },
 	{ name = "desktop", width = 1920, height = 1080, desktop = true, mobile = false, landscape = false },
+	{ name = "1080p tv", width = 1920, height = 1080, desktop = true, mobile = false, landscape = false },
+	{ name = "4k tv", width = 3840, height = 2160, desktop = true, mobile = false, landscape = false },
 	{ name = "ultrawide", width = 3440, height = 1440, desktop = true, mobile = false, landscape = false },
 	{ name = "pro max landscape", width = 932, height = 430, desktop = false, mobile = true, landscape = true },
 	{ name = "iphone SE portrait", width = 375, height = 667, desktop = false, mobile = true, landscape = false },

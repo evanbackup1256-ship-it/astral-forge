@@ -386,6 +386,8 @@ end
 -- Continuum/Mailbox/Missions/Milestones/Research/Leaderboards must stay past floor=4
 -- (wave softmotion-thin-surfaces). Guild/Convergence/Settings/Trade stay past floor=4 too.
 -- Admin/Boosts must stay past softUses=5 toward DENSE≥6 (wave softmotion-admin-boosts).
+-- Chat/Command/Lab/Shop/Wheel/StarGrid/Story/Echo/ForgePath must stay DENSE≥6
+-- (wave softmotion-ungated-layout).
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	local DENSE = {
@@ -404,6 +406,15 @@ do
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 6,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
+		["src/Client/AstralForge/pages/ChatView.luau"] = 6,
+		["src/Client/AstralForge/pages/CommandView.luau"] = 6,
+		["src/Client/AstralForge/pages/LabView.luau"] = 6,
+		["src/Client/AstralForge/pages/ShopView.luau"] = 6,
+		["src/Client/AstralForge/pages/WheelView.luau"] = 6,
+		["src/Client/AstralForge/pages/StarGridView.luau"] = 6,
+		["src/Client/AstralForge/pages/StoryView.luau"] = 6,
+		["src/Client/AstralForge/pages/EchoForgeView.luau"] = 6,
+		["src/Client/AstralForge/pages/ForgePathView.luau"] = 6,
 	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
@@ -423,6 +434,14 @@ do
 		"src/Client/AstralForge/pages/LeaderboardsView.luau",
 		"src/Client/AstralForge/pages/AnomalyView.luau",
 		"src/Client/AstralForge/pages/InventoryView.luau",
+		"src/Client/AstralForge/pages/ChatView.luau",
+		"src/Client/AstralForge/pages/LabView.luau",
+		"src/Client/AstralForge/pages/ShopView.luau",
+		"src/Client/AstralForge/pages/WheelView.luau",
+		"src/Client/AstralForge/pages/StarGridView.luau",
+		"src/Client/AstralForge/pages/StoryView.luau",
+		"src/Client/AstralForge/pages/EchoForgeView.luau",
+		"src/Client/AstralForge/pages/ForgePathView.luau",
 	} do
 		local src = fs.readFile(path)
 		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")
@@ -467,7 +486,7 @@ end
 	local starSoft = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
 	assert(string.find(starSoft, "overscan = if softMotion then 0", 1, true), "StarGrid FlatList must softMotion-gate overscan")
 	local shopSoft = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
-	assert(string.find(shopSoft, "overscan = if softMotion then", 1, true), "Shop FlatList must softMotion-gate overscan")
+	assert(string.find(shopSoft, "overscan = if softMotion then 0", 1, true), "Shop FlatList must softMotion-gate overscan to 0")
 	-- Wave17: ForgePath/Echo/Story FlatList overscan softMotion-gated to 0.
 	local forgeSoft = fs.readFile("src/Client/AstralForge/pages/ForgePathView.luau")
 	assert(string.find(forgeSoft, "overscan = if softMotion then 0", 1, true), "ForgePath FlatList must softMotion-gate overscan")
@@ -629,7 +648,8 @@ do
 	end
 
 	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards
-	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken).
+	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken) and Chat/Command/StarGrid/ForgePath
+	-- (wave softmotion-ungated-layout).
 	local CANON_SOFT = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	for _, path in {
 		"src/Client/AstralForge/pages/ShopView.luau",
@@ -644,6 +664,10 @@ do
 		"src/Client/AstralForge/pages/AnomalyView.luau",
 		"src/Client/AstralForge/pages/ResearchView.luau",
 		"src/Client/AstralForge/pages/WheelView.luau",
+		"src/Client/AstralForge/pages/ChatView.luau",
+		"src/Client/AstralForge/pages/CommandView.luau",
+		"src/Client/AstralForge/pages/StarGridView.luau",
+		"src/Client/AstralForge/pages/ForgePathView.luau",
 	} do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")

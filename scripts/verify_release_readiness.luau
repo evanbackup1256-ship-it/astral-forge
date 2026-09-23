@@ -273,7 +273,43 @@ assert(not string.find(chatSrc, "vendor/", 1, true), "Chat must not reference ve
 assert(not string.find(settingsSrc, "Packages/", 1, true), "Settings must not reference Packages/")
 mark("settings chat virtualization residuals")
 
-assert(#passed > 12, "release-readiness offline subset must stay beyond checks=12, got " .. tostring(#passed))
+-- AtomicState / Security / GameAntiCheat residuals (offline parity with verify_atomic_security;
+-- full Authority/Filter/Observe paths still need Studio).
+assert(string.find(dataSrc, "AtomicState.new(profile)", 1, true), "DataService AtomicState.new residual for release")
+assert(string.find(dataSrc, "atom:Transact", 1, true), "DataService atom:Transact residual for release")
+assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService IsBusy residual for release")
+assert(string.find(servicesSrc, 'serviceFactories["AtomicState"]', 1, true), "AtomicState factory residual for release")
+assert(string.find(servicesSrc, 'serviceFactories["Security"]', 1, true), "Security factory residual for release")
+assert(string.find(servicesSrc, 'serviceFactories["GameAntiCheat"]', 1, true), "GameAntiCheat factory residual for release")
+assert(string.find(servicesSrc, "self._security.Authority:Validate", 1, true), "Authority:Validate residual for release")
+assert(string.find(servicesSrc, "self._antiCheat:Observe", 1, true), "GameAntiCheat Observe residual for release")
+assert(string.find(servicesSrc, "self._antiCheat:SyncBaseline", 1, true), "GameAntiCheat SyncBaseline residual for release")
+local atomicReleaseSrc = fs.readFile("src/Server/AstralForge/Services/AtomicState.luau")
+assert(string.find(atomicReleaseSrc, "function AtomicState:Transact", 1, true), "AtomicState:Transact missing for release")
+assert(string.find(atomicReleaseSrc, "CONTENTION_TIMEOUT_SECONDS", 1, true), "AtomicState contention residual for release")
+local securityReleaseSrc = fs.readFile("src/Server/AstralForge/Services/Security.luau")
+assert(string.find(securityReleaseSrc, "function Authority:Validate", 1, true), "Security Authority residual for release")
+assert(string.find(securityReleaseSrc, "function Rate:Allow", 1, true), "Security Rate residual for release")
+local antiReleaseSrc = fs.readFile("src/Server/AstralForge/Services/GameAntiCheat.luau")
+assert(string.find(antiReleaseSrc, "function AntiCheat:Observe", 1, true), "GameAntiCheat Observe residual for release")
+assert(string.find(antiReleaseSrc, "function AntiCheat:SyncBaseline", 1, true), "GameAntiCheat SyncBaseline residual for release")
+assert(not string.find(atomicReleaseSrc, "vendor/", 1, true), "AtomicState must not reference vendor/")
+assert(not string.find(securityReleaseSrc, "Packages/", 1, true), "Security must not reference Packages/")
+assert(not string.find(antiReleaseSrc, "vendor/", 1, true), "GameAntiCheat must not reference vendor/")
+mark("atomic security anticheat residuals")
+
+-- Pure RunQuick production/capacity/tapPower envelope parity (finite checks; soak Studio-only).
+assert(string.find(economyBody, "function Economy.Production", 1, true), "Economy.Production missing")
+assert(string.find(economyBody, "function Economy.Capacity", 1, true), "Economy.Capacity missing")
+assert(string.find(economyBody, "function Economy.TapPower", 1, true), "Economy.TapPower missing")
+assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick must exercise Economy.Production")
+assert(string.find(releaseSrc, "Economy.Capacity", 1, true), "RunQuick must exercise Economy.Capacity")
+assert(string.find(releaseSrc, "Economy.TapPower", 1, true), "RunQuick must exercise Economy.TapPower")
+assert(not string.find(economyBody, "vendor/", 1, true), "Economy must not reference vendor/")
+assert(not string.find(economyBody, "Packages/", 1, true), "Economy must not reference Packages/")
+mark("runquick pure production capacity tapPower parity")
+
+assert(#passed > 14, "release-readiness offline subset must stay beyond checks=14, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

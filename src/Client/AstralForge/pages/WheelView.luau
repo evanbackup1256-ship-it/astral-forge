@@ -440,8 +440,8 @@ local function PrizeWheelMachine(_param)
 	local medallionSize = math.floor(math.clamp(diameter * 0.145, if compactMachine then 32 else 36, 54))
 	local hubSize = math.floor(math.clamp(diameter * 0.225, if compactMachine then 58 else 66, 94))
 	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 12
-	local landing = useFlash(controller.impactNonce, reducedMotion, if antilag.tier < 1 then 0.34 else 0.56)
-	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
+	local landing = useFlash(controller.impactNonce, softMotion, if antilag.tier < 1 then 0.34 else 0.56)
+	local launch = useFlash(controller.launchNonce, softMotion, 0.58)
 	-- Decorative hub glow + idle orbit only when ambient is allowed and antilag tier is 2+.
 	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2 and not softMotion
 	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, softMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
@@ -1208,7 +1208,7 @@ local function WheelView(props)
 	local prizeList = React.createElement(FlatList, {
 		data = rewards,
 		itemHeight = PRIZE_ROW_H,
-		overscan = if softMotion then 0 else 2,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = accent,

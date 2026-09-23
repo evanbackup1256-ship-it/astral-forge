@@ -910,7 +910,7 @@ local function StoryView(_param)
 				data = railChapters,
 				itemHeight = CHAPTER_ROW_STRIDE,
 				headerHeight = 0,
-				overscan = if softMotion then 0 else 2,
+				overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 				canvasTail = 8,
 				Size = UDim2.new(1, 0, 1, -railHeaderH),
 				Position = UDim2.fromOffset(0, railHeaderH),

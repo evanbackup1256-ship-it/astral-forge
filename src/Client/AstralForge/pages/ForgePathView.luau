@@ -197,7 +197,7 @@ local function ForgePathViewComponent(_param)
 	}) else React.createElement(FlatList, {
 		data = steps,
 		itemHeight = stepStride,
-		overscan = if softMotion then 0 else 2,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.violet,
