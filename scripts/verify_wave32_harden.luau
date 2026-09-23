@@ -23,7 +23,7 @@ do
 	for _ in string.gmatch(main, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 18, "MainGame softMotion densify, got " .. tostring(soft))
+	assert(soft >= 14, "MainGame softMotion densify, got " .. tostring(soft))
 end
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

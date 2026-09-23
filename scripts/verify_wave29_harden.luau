@@ -42,8 +42,9 @@ assert(not string.find(router, "local function ReleaseCountdown", 1, true), "Rel
 assert(not string.find(router, "LayoutSectionPlan.planOverview", 1, true), "planOverview must leave PageRouter")
 
 local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion gate")
-assert(string.find(main, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion gate")
+local navChrome = fs.readFile("src/Client/AstralForge/NavChrome.luau")
+assert(string.find(navChrome, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion gate")
+assert(string.find(navChrome, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion gate")
 do
 	local soft = 0
 	for _ in string.gmatch(main, "softMotion") do

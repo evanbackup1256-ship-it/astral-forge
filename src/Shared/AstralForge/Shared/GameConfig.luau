@@ -5265,11 +5265,43 @@ local GameConfig = {
 			Color = Color3.fromRGB(20, 205, 160),
 		},
 
+		{
+			Id = "wave34-offline-brief",
+			Title = "Wave Thirty Four Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "NavChrome extract + RailNavClaim FocusClaim; MoreDock densify; Ambient/Vault softMotion; readiness past checks=39.",
+			Body = {
+				"RailButton/MoreDock/Navigation live in NavChrome.luau with RailNavClaim FocusClaim and densified softMotion.",
+				"AmbientLayer and VaultPill gate softMotion in MainGame; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 90, CashMinutes = 40, Signals = 42 },
+			Color = Color3.fromRGB(15, 200, 155),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave34-offline",
+			Subject = "Dock note — wave thirty four offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "NavChrome extract + RailNavClaim — still DataVersion 21.",
+			Body = {
+				"NavChrome peels rail/MoreDock chrome out of MainGame; RailNavClaim parks gamepad on the sidebar.",
+				"Offline release-readiness checks grow past checks=39 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 90, Stardust = 106, Signals = 46 },
+			Color = Color3.fromRGB(15, 200, 155),
+		},
 
 		{
 			Id = "update-5-1-wave33-offline",
