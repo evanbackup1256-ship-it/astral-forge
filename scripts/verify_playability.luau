@@ -375,6 +375,7 @@ end
 -- plus Continuum/Mailbox/Missions/Milestones/Research/Leaderboards thin surfaces.
 -- Continuum/Mailbox/Missions/Milestones/Research/Leaderboards must stay past floor=4
 -- (wave softmotion-thin-surfaces). Guild/Convergence/Settings/Trade stay past floor=4 too.
+-- Admin/Boosts must stay past softUses=5 toward DENSE≥6 (wave softmotion-admin-boosts).
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	local DENSE = {
@@ -388,12 +389,15 @@ do
 		["src/Client/AstralForge/pages/MilestonesView.luau"] = 6,
 		["src/Client/AstralForge/pages/ResearchView.luau"] = 6,
 		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 6,
+		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
+		["src/Client/AstralForge/pages/BoostsView.luau"] = 6,
 	}
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
 		"src/Client/AstralForge/pages/CommandView.luau",
 		"src/Client/AstralForge/pages/GuildView.luau",
 		"src/Client/AstralForge/pages/AdminView.luau",
+		"src/Client/AstralForge/pages/BoostsView.luau",
 		"src/Client/AstralForge/pages/ConvergenceView.luau",
 		"src/Client/AstralForge/pages/SettingsView.luau",
 		"src/Client/AstralForge/pages/CreditsView.luau",

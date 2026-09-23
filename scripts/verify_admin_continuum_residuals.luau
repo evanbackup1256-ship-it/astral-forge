@@ -92,6 +92,11 @@ assert(
 		or string.find(adminSrc, "EnsureDomain", 1, true),
 	"Admin Domain.Essence residual"
 )
+assert(string.find(adminSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "Admin EnsureAnomaly residual")
+assert(string.find(adminSrc, "ProfileBagMath.EnsureBoostInventory", 1, true), "Admin EnsureBoostInventory residual")
+assert(string.find(adminSrc, "WheelMath.Ensure", 1, true), "Admin WheelMath.Ensure residual")
+assert(string.find(adminSrc, "CommandMath.Ensure", 1, true), "Admin CommandMath.Ensure residual")
+assert(string.find(adminSrc, "ProfileBagMath.BumpStat", 1, true), "Admin BumpStat residual")
 
 assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService must Ensure Command")
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService must Ensure Lab")
@@ -101,6 +106,8 @@ assert(string.find(dataSrc, "profile.Domain", 1, true), "DataService Domain sani
 assert(string.find(dataSrc, "ProfileIntegrity.EnsureEnvelope", 1, true), "DataService ProfileIntegrity envelope residual")
 assert(string.find(dataSrc, "LabOrderMath.NormalizeRouting", 1, true), "DataService Lab routing residual")
 assert(string.find(dataSrc, "TotalRebirthsSpent", 1, true), "DataService Domain TotalRebirthsSpent residual")
+assert(string.find(dataSrc, "profile.ForgePath", 1, true), "DataService ForgePath sanitize residual")
+assert(string.find(dataSrc, "profile.Anomaly", 1, true), "DataService Anomaly sanitize residual")
 
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
@@ -110,6 +117,10 @@ assert(string.find(progressionSrc, "EnsureQuests", 1, true), "Progression Ensure
 assert(string.find(progressionSrc, "EnsureTimedRewards", 1, true), "Progression EnsureTimedRewards residual")
 assert(string.find(progressionSrc, "ForgePathClaim.Ensure", 1, true), "Progression ForgePath residual")
 assert(string.find(progressionSrc, "AnomalyStabilizations", 1, true), "Progression AnomalyStabilizations residual")
+assert(string.find(progressionSrc, "ProfileBagMath.EnsureBoostInventory", 1, true), "Progression BoostInventory residual")
+assert(string.find(progressionSrc, "ProfileBagMath.EnsureDomain", 1, true), "Progression EnsureDomain residual")
+assert(string.find(progressionSrc, "ProfileBagMath.EnsureDaily", 1, true), "Progression EnsureDaily residual")
+assert(string.find(progressionSrc, "ProfileBagMath.BumpStat", 1, true), "Progression BumpStat residual")
 
 assert(string.find(economySrc, "ContinuumDomainMath.ContinuumCosts", 1, true), "Economy must delegate ContinuumCosts")
 assert(string.find(economySrc, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy must delegate DomainRequirements")
