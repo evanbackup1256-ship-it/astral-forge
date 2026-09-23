@@ -1056,7 +1056,7 @@ local function ShopView(_param)
 		data = offerRows,
 		itemHeight = offerStride,
 		headerHeight = 0,
-		overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+		overscan = if softMotion then 1 else (if antilag.tier <= 1 or antilag.constrained then 1 else 2),
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.mango,

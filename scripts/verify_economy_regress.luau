@@ -253,7 +253,8 @@ assert(
 	"AnomalyService must nil-safe Stats bumps via bumpAnomalyStat"
 )
 assert(
-	string.find(anomalySrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	string.find(anomalySrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil
+		or string.find(anomalySrc, "ProfileBagMath.BumpStat", 1, true) ~= nil,
 	"AnomalyService bumpAnomalyStat must nil-safe Stats"
 )
 assert(

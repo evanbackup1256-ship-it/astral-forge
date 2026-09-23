@@ -552,6 +552,7 @@ local function StarGridViewComponent(_param)
 		Position = if stack then UDim2.new(0.62, 6, 0, 124) else UDim2.new(1, -280, 0, 72),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = buyAllHostRef,
 	}, React.createElement(Button, {
 		text = "BUY ALL",
@@ -735,7 +736,7 @@ local function StarGridViewComponent(_param)
 				}, React.createElement(FlatList, {
 					data = slice,
 					itemHeight = nodeStride,
-					overscan = 2,
+					overscan = if softMotion then 0 else 2,
 					canvasTail = 4,
 					Size = UDim2.fromScale(1, 1),
 					scrollBarColor = Palette.mango,

@@ -6,6 +6,8 @@ return function(loadService: (string) -> any)
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local AnomalyPulseScore = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AnomalyPulseScore"))
+	local AnomalyOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AnomalyOpsMath"))
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local ProgressionService = loadService("ProgressionService")
 
@@ -22,10 +24,7 @@ return function(loadService: (string) -> any)
 	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — pulse /
 	-- stabilize / protocol / directive ledgers must not throw before the Anomaly bag updates.
 	local function bumpAnomalyStat(profile, key: string)
-		if type(profile.Stats) ~= "table" then
-			profile.Stats = {}
-		end
-		profile.Stats[key] = math.max(0, math.floor(tonumber(profile.Stats[key]) or 0)) + 1
+		ProfileBagMath.BumpStat(profile, key, 1)
 	end
 
 	-- Overdrive: a server-wide (not per-player) shared meter. Deliberately module-level state
@@ -87,84 +86,71 @@ return function(loadService: (string) -> any)
 	end
 
 	local function findProtocol(protocolId: string)
-		for _, protocol in GameConfig.Anomalies.Protocols do
-			if protocol.Id == protocolId then
-				return protocol
-			end
-		end
-		return nil
+		return AnomalyOpsMath.FindProtocol(GameConfig.Anomalies.Protocols, protocolId)
 	end
 
 	local function activeDirectives(cycle: number)
-		local definitions = GameConfig.Anomalies.Directives
-		local selected = {}
-		local count = #definitions
-		local start = cycle % count
-		for slot = 1, GameConfig.Anomalies.DirectiveSlots do
-			local index = (start + (slot - 1) * 3) % count + 1
-			local definition = definitions[index]
-			local difficulty = ((cycle * 7 + slot * 13) % 5) / 4
-			local target = math.floor(
-				definition.TargetMin + (definition.TargetMax - definition.TargetMin) * difficulty + 0.5
-			)
-			selected[slot] = {
-				Definition = definition,
-				Target = math.max(1, target),
-			}
-		end
-		return selected
-	end
-
-	local function protocolEffect(profile, effectKind: string): number
-		local total = 0
-		for _, protocol in GameConfig.Anomalies.Protocols do
-			if protocol.EffectKind == effectKind then
-				total += (profile.Anomaly.Protocols[protocol.Id] or 0) * protocol.EffectPerLevel
-			end
-		end
-		return total
-	end
-
-	local function rewardMultiplier(profile, anomaly): number
-		local multiplier = anomaly.RewardMultiplier * (1 + protocolEffect(profile, "Reward"))
-		local channel = GameConfig.Anomalies.Channels[profile.Anomaly.Channel]
-		if channel and channel.EffectKind == "Reward" then
-			multiplier *= 1 + channel.EffectAmount
-		end
-		return multiplier
-	end
-
-	local function coreTierMaximumBonus(profile): number
-		local tier = profile.Anomaly.CoreTier or 0
-		local bonus = 0
-		for _, tierConfig in GameConfig.Anomalies.CoreTiers do
-			if tierConfig.Tier <= tier then
-				bonus = tierConfig.MaximumTargetBonus
-			end
-		end
-		return bonus
-	end
-
-	function AnomalyService.Target(profile): number
-		return math.min(
-			GameConfig.Anomalies.MaximumTarget + coreTierMaximumBonus(profile),
-			GameConfig.Anomalies.BaseTarget
-				+ profile.Anomaly.Stabilizations * GameConfig.Anomalies.TargetPerStabilization
+		return AnomalyOpsMath.SelectDirectives(
+			cycle,
+			GameConfig.Anomalies.Directives,
+			GameConfig.Anomalies.DirectiveSlots
 		)
 	end
 
+	local function protocolEffect(profile, effectKind: string): number
+		local anomaly = profile.Anomaly
+		return AnomalyOpsMath.ProtocolEffect(
+			anomaly and anomaly.Protocols,
+			GameConfig.Anomalies.Protocols,
+			effectKind
+		)
+	end
+
+	local function rewardMultiplier(profile, anomaly): number
+		local channelAmount = 0
+		local channelId = profile.Anomaly and profile.Anomaly.Channel
+		local channel = if type(channelId) == "string" then GameConfig.Anomalies.Channels[channelId] else nil
+		if channel and channel.EffectKind == "Reward" then
+			channelAmount = channel.EffectAmount
+		end
+		return AnomalyOpsMath.RewardMultiplier(
+			anomaly.RewardMultiplier,
+			protocolEffect(profile, "Reward"),
+			channelAmount
+		)
+	end
+
+	local function coreTierMaximumBonus(profile): number
+		local tier = profile.Anomaly and profile.Anomaly.CoreTier
+		return AnomalyOpsMath.CoreTierMaximumBonus(tier, GameConfig.Anomalies.CoreTiers)
+	end
+
+	function AnomalyService.Target(profile): number
+		local anomaly = ProfileBagMath.EnsureAnomaly(profile)
+		return AnomalyOpsMath.ChargeTarget(
+			GameConfig.Anomalies.BaseTarget,
+			GameConfig.Anomalies.TargetPerStabilization,
+			GameConfig.Anomalies.MaximumTarget,
+			anomaly.Stabilizations,
+			coreTierMaximumBonus(profile)
+		)
+	end
+
+	-- Fragments-only / nil Anomaly bags (Admin grants, Studio fixtures) must rebuild
+	-- Discoveries/Directives/Protocols before Pulse/Stabilize/Signal index them.
 	function AnomalyService.Ensure(profile): boolean
+		local anomaly = ProfileBagMath.EnsureAnomaly(profile)
 		local cycle = currentCycle()
 		local changed = false
-		if profile.Anomaly.Cycle ~= cycle then
-			profile.Anomaly.Cycle = cycle
-			profile.Anomaly.LastActionAt = 0
+		if anomaly.Cycle ~= cycle then
+			anomaly.Cycle = cycle
+			anomaly.LastActionAt = 0
 			changed = true
 		end
-		if profile.Anomaly.DirectiveCycle ~= cycle then
-			profile.Anomaly.DirectiveCycle = cycle
-			profile.Anomaly.DirectiveProgress = {}
-			profile.Anomaly.DirectiveClaims = {}
+		if anomaly.DirectiveCycle ~= cycle then
+			anomaly.DirectiveCycle = cycle
+			anomaly.DirectiveProgress = {}
+			anomaly.DirectiveClaims = {}
 			changed = true
 		end
 		return changed
@@ -215,6 +201,7 @@ return function(loadService: (string) -> any)
 	-- surface. A pulse always starts the next window regardless of accuracy, so players are never
 	-- stuck unable to pulse while waiting out a window they didn't want.
 	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
+		AnomalyService.Ensure(profile)
 		local now = pulseNow()
 		local accurate = AnomalyPulseScore.IsAccurate(
 			now,
@@ -333,24 +320,26 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.ProtocolCost(protocol, level: number): number
-		return math.max(1, math.floor(protocol.BaseCost * protocol.CostScale ^ math.max(0, level) + 0.5))
+		return AnomalyOpsMath.ProtocolCost(protocol, level)
 	end
 
 	function AnomalyService.BuyProtocol(profile, protocolId: string): (boolean, string, any?)
+		AnomalyService.Ensure(profile)
 		local protocol = findProtocol(protocolId)
 		if not protocol then
 			return false, "That reactor upgrade was not found."
 		end
-		local level = profile.Anomaly.Protocols[protocol.Id] or 0
+		local anomaly = profile.Anomaly
+		local level = anomaly.Protocols[protocol.Id] or 0
 		if level >= protocol.MaxLevel then
 			return false, "That reactor upgrade is at max level."
 		end
 		local cost = AnomalyService.ProtocolCost(protocol, level)
-		if profile.Anomaly.Fragments < cost then
+		if anomaly.Fragments < cost then
 			return false, string.format("Requires %d anomaly fragments.", cost)
 		end
-		profile.Anomaly.Fragments -= cost
-		profile.Anomaly.Protocols[protocol.Id] = level + 1
+		anomaly.Fragments -= cost
+		anomaly.Protocols[protocol.Id] = level + 1
 		bumpAnomalyStat(profile, "AnomalyProtocols")
 		return true,
 			string.format("%s advanced to level %d.", protocol.Name, level + 1),
@@ -362,21 +351,23 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.ActivateSurge(profile): (boolean, string, any?)
+		AnomalyService.Ensure(profile)
 		local now = pulseNow()
-		if profile.Anomaly.SurgeEndsAt > now then
+		local anomaly = profile.Anomaly
+		if anomaly.SurgeEndsAt > now then
 			return false, "Quantum Surge is already active."
 		end
 		local cost = GameConfig.Anomalies.SurgeCost
-		if profile.Anomaly.Fragments < cost then
+		if anomaly.Fragments < cost then
 			return false, string.format("Requires %d anomaly fragments.", cost)
 		end
-		profile.Anomaly.Fragments -= cost
+		anomaly.Fragments -= cost
 		local duration = GameConfig.Anomalies.SurgeBaseSeconds + protocolEffect(profile, "SurgeDuration")
-		profile.Anomaly.SurgeEndsAt = now + duration
+		anomaly.SurgeEndsAt = now + duration
 		return true,
 			string.format("Surge on for %d seconds.", duration),
 			{
-				EndsAt = profile.Anomaly.SurgeEndsAt,
+				EndsAt = anomaly.SurgeEndsAt,
 				Duration = duration,
 			}
 	end
@@ -474,6 +465,7 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.State(profile)
+		AnomalyService.Ensure(profile)
 		local now = pulseNow()
 		local cycle, anomaly, endsAt = currentCycle(now)
 

@@ -68,6 +68,8 @@ assert(string.find(serviceSrc, "AnomalyPulseScore.IsAccurate", 1, true), "Anomal
 assert(string.find(serviceSrc, "AnomalyPulseScore.NextCombo", 1, true), "AnomalyService must delegate NextCombo")
 assert(string.find(serviceSrc, "AnomalyPulseScore.ComboBonus", 1, true), "AnomalyService must delegate ComboBonus")
 assert(string.find(serviceSrc, "AnomalyPulseScore.AccuracyBonus", 1, true), "AnomalyService must delegate AccuracyBonus")
+assert(string.find(serviceSrc, "AnomalyOpsMath.ChargeTarget", 1, true), "AnomalyService must delegate ChargeTarget")
+assert(string.find(serviceSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "AnomalyService must EnsureAnomaly")
 assert(not string.find(serviceSrc, "local function pulseAccuracy", 1, true), "inline pulseAccuracy must be removed")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")

@@ -655,7 +655,29 @@ local GameConfig = {
 				PerRebirth = 0,
 				Reward = { Stardust = 52, CashMinutes = 4, Signals = 18 },
 				Color = Color3.fromRGB(255, 190, 210),
+				{
+				Id = "Wave16AnomalyOps",
+				Name = "Wave Sixteen Anomaly Ops",
+				Description = "Tap through a short tally while AnomalyOpsMath ChargeTarget/ProtocolEffect stay Lune-wired.",
+				Kind = "Tap",
+				BaseTarget = 115,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 40, CashMinutes = 3, Signals = 15 },
+				Color = Color3.fromRGB(130, 235, 255),
 			},
+			{
+				Id = "Wave16ClaimClipsSoftMotion",
+				Name = "Wave Sixteen Claim Clips Soft Motion",
+				Description = "Bank flux while Lab/Wheel/Guild/StarGrid ClaimActions stay unclipped and FlatList overscan softMotion-gates.",
+				Kind = "BankFlux",
+				BaseTarget = 4_800,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 54, CashMinutes = 4, Signals = 19 },
+				Color = Color3.fromRGB(255, 185, 215),
+			},
+		},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3064,6 +3086,22 @@ local GameConfig = {
 			Target = 28,
 			Reward = { Stardust = 300, Signals = 82, CashMinutes = 27, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave16AnomalyCourier",
+			Name = "Wave Sixteen Anomaly Courier",
+			Description = "Claim 60 story chapters after AnomalyOpsMath extract + Fragments-only Discoveries nil-safety.",
+			Kind = "StoryClaims",
+			Target = 60,
+			Reward = { Stardust = 300, Signals = 84, CashMinutes = 28, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave16ClaimClipRunner",
+			Name = "Wave Sixteen Claim Clip Runner",
+			Description = "Hold a 30-day daily streak while Lab/Wheel/Guild/StarGrid ClaimActions unclipped + overscan stay verified.",
+			Kind = "DailyStreak",
+			Target = 30,
+			Reward = { Stardust = 310, Signals = 86, CashMinutes = 28, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4618,9 +4656,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(140, 230, 255),
 		},
 
+		{
+			Id = "wave16-harden-brief",
+			Title = "Wave Sixteen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "AnomalyOpsMath extract; Fragments-only Anomaly Ensures and ClaimActions clips stay honest.",
+			Body = {
+				"AnomalyOpsMath ChargeTarget/ProtocolEffect/SelectDirectives/ProtocolCost keep reactor math Lune-testable.",
+				"ProfileBagMath EnsureAnomaly rebuilds Discoveries/Directives/MilestoneClaims; Pulse/Stabilize/State no longer throw on Fragments-only fixtures.",
+				"Lab/Wheel/Guild/StarGrid ClaimActions stay unclipped; FlatList overscan softMotion-gates; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 52, CashMinutes = 21, Signals = 23 },
+			Color = Color3.fromRGB(130, 235, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave16-harden",
+			Subject = "Dock note — wave sixteen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "AnomalyOpsMath extract + Fragments-only Anomaly Ensures + ClaimActions clips — still DataVersion 21.",
+			Body = {
+				"Reactor protocol/charge/directive math is Lune-testable; Pulse/Stabilize/State Ensure Discoveries before indexing Fragments-only bags.",
+				"Lab/Wheel/Guild/StarGrid ClaimActions keep ClipsDescendants false; FlatList overscan softMotion-gates on Lab/Wheel/StarGrid/Shop.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 52, Stardust = 68, Signals = 27 },
+			Color = Color3.fromRGB(130, 235, 255),
+		},
 
 		{
 			Id = "update-5-1-wave15-harden",

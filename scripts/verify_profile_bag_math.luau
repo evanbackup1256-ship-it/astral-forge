@@ -53,6 +53,8 @@ local domain = ProfileBagMath.EnsureDomain({})
 assert(domain.Rank == 0 and type(domain.Nodes) == "table", "domain defaults")
 local anomaly = ProfileBagMath.EnsureAnomaly({ Anomaly = { Fragments = 9 } })
 assert(anomaly.Fragments == 9 and type(anomaly.Protocols) == "table", "anomaly Protocols rebuild")
+assert(type(anomaly.Discoveries) == "table", "anomaly Discoveries rebuild")
+assert(type(anomaly.MilestoneClaims) == "table", "anomaly MilestoneClaims rebuild")
 local continuum = ProfileBagMath.EnsureContinuum({})
 assert(continuum.Rank == 0, "continuum defaults")
 
