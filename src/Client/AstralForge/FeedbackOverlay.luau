@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ContextActionService = game:GetService("ContextActionService")
 local Audio = require(script.Parent.audio).Audio
 local _motion = require(script.Parent.motion)
 local composePresence = _motion.composePresence
@@ -35,6 +36,7 @@ local function FeedbackOverlay(_param)
 	local sent, setSent = React.useState(false)
 	local mountedRef = React.useRef(true)
 	React.useEffect(function()
+		Audio:play("modalOpen")
 		return function()
 			mountedRef.current = false
 		end
@@ -66,6 +68,31 @@ local function FeedbackOverlay(_param)
 		Audio:play("close")
 		beginExit(onClose)
 	end, { beginExit, closing, onClose, sending })
+	React.useEffect(function()
+		local actionName = "AstralForgeFeedbackClose"
+		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
+			if inputState == Enum.UserInputState.Begin then
+				close()
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, 2400, Enum.KeyCode.ButtonB)
+		return function()
+			return ContextActionService:UnbindAction(actionName)
+		end
+	end, { close })
+	React.useEffect(function()
+		if not sent then
+			return nil
+		end
+		local token = task.delay(2.4, function()
+			if mountedRef.current and not closing then
+				beginExit(onClose)
+			end
+		end)
+		return function()
+			return task.cancel(token)
+		end
+	end, { beginExit, closing, onClose, sent })
 	local submit = React.useCallback(function()
 		if not canSend then
 			return nil
@@ -89,6 +116,7 @@ local function FeedbackOverlay(_param)
 					end
 				end
 				notify("Couldn't send feedback", _condition)
+				Audio:play("noticeError")
 				return nil
 			end
 			setSent(true)
@@ -282,7 +310,7 @@ local function FeedbackOverlay(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = message,
-		PlaceholderText = "What happened, or what should we add?",
+		PlaceholderText = "What happened, or what should we add? (8+ characters)",
 		PlaceholderColor3 = Palette.muted,
 		TextColor3 = Palette.cream,
 		TextSize = 15,
@@ -306,9 +334,9 @@ local function FeedbackOverlay(_param)
 			end,
 		},
 	}), React.createElement(Text, {
-		value = `{#message} / 600`,
+		value = if #trimmed < 8 then `{math.max(0, 8 - #trimmed)} more to send  ·  {#message} / 600` else `{#message} / 600`,
 		size = 11,
-		color = if #message >= 580 then Palette.mango else Palette.muted,
+		color = if #trimmed < 8 then Palette.mango elseif #message >= 580 then Palette.mango else Palette.muted,
 		align = Enum.TextXAlignment.Right,
 		fit = false,
 		position = UDim2.new(0, 12, 1, -26),

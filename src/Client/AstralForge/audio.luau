@@ -1514,6 +1514,14 @@ local VIEW_STINGS = {
 	Admin = { "adminArm", 0.96 },
 	ForgePath = { "researchUnlock", 0.98 },
 }
+local MUSIC_DUCK_CUES = {
+	reward = 0.38, unlock = 0.34, discovery = 0.36, prestige = 0.52,
+	rebirthCharge = 0.45, rebirthBloom = 0.5, domainCharge = 0.48, domainImpact = 0.5, domainReward = 0.42,
+	wheelLand = 0.4, crateLand = 0.36, crateRare = 0.42, crateClaim = 0.34,
+	missionClaim = 0.32, achievementClaim = 0.4, dailyClaim = 0.34, seasonClaim = 0.4,
+	tutorialFinish = 0.36, purchaseResult = 0.3, boostReady = 0.28, bootReady = 0.32,
+	bootFinaleBang = 0.48, bootImpact = 0.4, comboMilestone = 0.34, echoCapture = 0.36, zoneUnlock = 0.38,
+}
 local function labelContains(label, ...)
 	local needles = { ... }
 	local upper = string.upper(label)
@@ -1749,6 +1757,8 @@ do
 		self.releaseWorkers = {}
 		self.masterLinear = 0.75
 		self.musicMix = 1
+		self.musicDuck = 1
+		self.duckToken = 0
 		self.sfxMix = 1
 		self.uiMix = 0.9
 		self.gameplayMix = 1
@@ -1779,7 +1789,7 @@ do
 		if cue == "reward" or cue == "unlock" or cue == "discovery" or cue == "prestige" or cue == "rebirthCharge" or cue == "rebirthBloom" or cue == "domainCharge" or cue == "domainCrack" or cue == "domainImpact" or cue == "domainReward" or cue == "wheelLand" or cue == "crateLand" or cue == "crateRare" or cue == "crateClaim" or cue == "missionClaim" or cue == "achievementClaim" or cue == "dailyClaim" or cue == "timedClaim" or cue == "seasonClaim" or cue == "mailClaim" or cue == "codeReward" or cue == "tutorialFinish" or cue == "purchaseResult" or cue == "boostReady" then
 			return self.rewardMix
 		end
-		if cue == "hover" or cue == "click" or cue == "tick" or cue == "confirm" or cue == "locked" or cue == "error" or cue == "page" or cue == "open" or cue == "close" or cue == "settings" or cue == "scroll" or cue == "toggleOn" or cue == "toggleOff" or cue == "sliderStep" or cue == "sliderCommit" or cue == "inputFocus" or cue == "inputClear" or cue == "tabSwitch" or cue == "filterOpen" or cue == "filterPick" or cue == "amountChange" or cue == "modalOpen" or cue == "purchaseExit" or cue == "playerlistOpen" or cue == "playerlistSelect" or cue == "playerlistAction" or cue == "playerlistClose" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose" then
+		if cue == "hover" or cue == "click" or cue == "tick" or cue == "confirm" or cue == "locked" or cue == "error" or cue == "page" or cue == "open" or cue == "close" or cue == "settings" or cue == "scroll" or cue == "toggleOn" or cue == "toggleOff" or cue == "sliderStep" or cue == "sliderCommit" or cue == "inputFocus" or cue == "inputClear" or cue == "tabSwitch" or cue == "filterOpen" or cue == "filterPick" or cue == "amountChange" or cue == "modalOpen" or cue == "modalPop" or cue == "modalDismiss" or cue == "purchaseExit" or cue == "playerlistOpen" or cue == "playerlistSelect" or cue == "playerlistAction" or cue == "playerlistClose" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose" or cue == "tutorialStep" or cue == "hoverTick" or cue == "velocitySlide" then
 			return self.uiMix
 		end
 		return self.gameplayMix
@@ -2087,6 +2097,12 @@ do
 		self:syncMusicState()
 	end
 	function Mixer:resolvedMusicTheme()
+		if self.scene == "boot" or self.scene == "shutdown" then
+			return "boot"
+		end
+		if VIEW_STINGS[self.currentView] ~= nil then
+			return self.currentView
+		end
 		return "Overview"
 	end
 	function Mixer:syncMusicState()
@@ -2096,7 +2112,60 @@ do
 		end
 		local mix = self.musicMix
 		director:setMix(mix)
+		if director.setDuck ~= nil then
+			director:setDuck(self.musicDuck)
+		end
 		director:setAudible(self.pageMusic and softMaster(self.masterLinear) > 0.001 and mix > 0.001)
+	end
+	function Mixer:duckMusic(depth, holdSeconds, releaseSeconds)
+		if depth == nil then
+			depth = 0.36
+		end
+		if holdSeconds == nil then
+			holdSeconds = 0.28
+		end
+		if releaseSeconds == nil then
+			releaseSeconds = 0.55
+		end
+		if not self.ready then
+			return nil
+		end
+		local clamped = math.clamp(depth, 0, 0.72)
+		if clamped <= 0.01 then
+			return nil
+		end
+		self.duckToken += 1
+		local token = self.duckToken
+		self.musicDuck = 1 - clamped
+		self:syncMusicState()
+		task.delay(holdSeconds, function()
+			if token ~= self.duckToken then
+				return nil
+			end
+			local steps = math.clamp(math.floor(releaseSeconds / 0.04 + 0.5), 4, 24)
+			task.spawn(function()
+				for step = 1, steps do
+					if token ~= self.duckToken then
+						return nil
+					end
+					local alpha = step / steps
+					self.musicDuck = (1 - clamped) + clamped * alpha
+					self:syncMusicState()
+					task.wait(0.04)
+				end
+				if token == self.duckToken then
+					self.musicDuck = 1
+					self:syncMusicState()
+				end
+			end)
+		end)
+	end
+	function Mixer:clearMusicDuck()
+		self.duckToken += 1
+		self.musicDuck = 1
+		if self.ready then
+			self:syncMusicState()
+		end
 	end
 	function Mixer:setSfxVolume(value)
 		self.sfxMix = math.clamp(value, 0, 1)
@@ -2188,6 +2257,11 @@ do
 		if not self:ensureStarted() then
 			return nil
 		end
+		if scene == "boot" or scene == "shutdown" then
+			self:duckMusic(0.22, 0.4, 0.8)
+		elseif self.musicDuck < 0.999 then
+			self:clearMusicDuck()
+		end
 		local _result = self.musicDirector
 		if _result ~= nil then
 			_result:setTheme(self:resolvedMusicTheme())
@@ -2203,7 +2277,7 @@ do
 		end
 		local changed = self.currentView ~= page
 		self.currentView = page
-		if self.scene ~= "boot" then
+		if self.scene ~= "boot" and self.scene ~= "shutdown" then
 			self.scene = "default"
 			local _result = self.musicDirector
 			if _result ~= nil then
@@ -2211,10 +2285,10 @@ do
 			end
 			self:syncMusicState()
 			if changed and playSting and self.pageStingers then
-				local _binding = VIEW_STINGS[page]
-				local cue = _binding[1]
-				local speed = _binding[2]
-				self:play(cue, speed)
+				local sting = VIEW_STINGS[page]
+				if sting ~= nil then
+					self:play(sting[1], sting[2])
+				end
 			end
 		end
 	end
@@ -2468,7 +2542,8 @@ do
 		_channelCue[channel] = _cue_1
 		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * spec.variance * self.soundVariation else 0
 		local speed = math.clamp(spec.speed * math.clamp(speedMult, 0.82, 1.28) + variance, 0.5, 1.65)
-		channel.SoundGroup = if UI_CUES[cue] then self.uiGroup elseif cue == "reactor" or cue == "reactorReady" then self.ambientGroup else self.group
+		local ambientCue = cue == "reactor" or cue == "reactorReady" or cue == "reactorPulse" or cue == "reactorChannel" or cue == "reactorStabilize" or cue == "autoForge"
+		channel.SoundGroup = if UI_CUES[cue] then self.uiGroup elseif ambientCue then self.ambientGroup else self.group
 		channel.Volume = spec.volume * CUE_GAIN * softSfx(self.sfxMix) * cueMix
 		channel.PlaybackSpeed = speed
 		channel.Looped = false
@@ -2491,6 +2566,10 @@ do
 		local _cue_2 = cue
 		_lastPlayed_1[_cue_2] = now
 		self:scheduleRelease(channel, cue, spec, generation, token, speed)
+		local duckDepth = MUSIC_DUCK_CUES[cue]
+		if duckDepth ~= nil then
+			self:duckMusic(duckDepth, math.max(0.18, (spec.stopAfter or 0.45) * 0.55), 0.62)
+		end
 		return true
 	end
 	function Mixer:play(cue, speedMult)
@@ -2514,6 +2593,7 @@ do
 		if not self:ensureStarted() or #cues == 0 then
 			return false
 		end
+		self:duckMusic(0.46, 0.2 + staggerSeconds * #cues, 0.7)
 		local firedFirst = false
 		for i = 0, #cues - 1 do
 			local cue = cues[i + 1]
@@ -2627,6 +2707,8 @@ do
 		table.clear(self.warmWaiters)
 		self.scene = "default"
 		self.currentView = "Overview"
+		self.musicDuck = 1
+		self.duckToken += 1
 	end
 end
 local Audio = Mixer.new()
