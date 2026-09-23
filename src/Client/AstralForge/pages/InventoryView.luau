@@ -2862,60 +2862,66 @@ local function InventoryView(_param)
 		},
 	}
 	if tab == "Crates" then
+		-- Virtualize crate channels the same way Market virtualizes dock offers.
 		local crateCardH = if stack then 248 else 160
-		local crateKids = {
-			React.createElement(SectionLabel, {
-				key = "label",
+		local crateStride = crateCardH + pageGap
+		local crateLabelH = 28
+		local crateList = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+		}, React.createElement(FlatList, {
+			data = crates,
+			itemHeight = crateStride,
+			headerHeight = crateLabelH + pageGap,
+			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+			canvasTail = SCROLL_PAD,
+			Size = UDim2.fromScale(1, 1),
+			scrollBarColor = Palette.violet,
+			scrollBarThickness = 4,
+			scrollBarTransparency = 0.22,
+			keyExtractor = function(crate)
+				return crate.Id
+			end,
+			renderItem = function(_param_1)
+				local crate = _param_1.item
+				local keysTable = if items ~= nil then items.Keys else nil
+				local pityTable = if items ~= nil then items.Pity else nil
+				local keyCount = if type(keysTable) == "table" then keysTable[crate.Id] else nil
+				local pityCount = if type(pityTable) == "table" then pityTable[crate.Id] else nil
+				return React.createElement(CrateCard, {
+					crate = crate,
+					keys = if type(keyCount) == "number" then keyCount else 0,
+					pity = if type(pityCount) == "number" then pityCount else 0,
+					onOpen = function(count)
+						return openCrate(crate, count)
+					end,
+					busy = crateBusy,
+					reducedMotion = reducedMotion,
+					layoutOrder = 0,
+					stack = stack,
+				})
+			end,
+			ListHeaderComponent = React.createElement(SectionLabel, {
 				value = "CRATE CHANNELS",
 				color = Palette.violet,
 				layoutOrder = 0,
 			}),
-		}
-		for index, crate in crates do
-			local keysTable = if items ~= nil then items.Keys else nil
-			local pityTable = if items ~= nil then items.Pity else nil
-			local keyCount = if type(keysTable) == "table" then keysTable[crate.Id] else nil
-			local pityCount = if type(pityTable) == "table" then pityTable[crate.Id] else nil
-			table.insert(crateKids, React.createElement(CrateCard, {
-				key = crate.Id,
-				crate = crate,
-				keys = if type(keyCount) == "number" then keyCount else 0,
-				pity = if type(pityCount) == "number" then pityCount else 0,
-				onOpen = function(count)
-					return openCrate(crate, count)
-				end,
-				busy = crateBusy,
-				reducedMotion = reducedMotion,
-				layoutOrder = index,
-				stack = stack,
-			}))
-		end
-		if #crates == 0 then
-			table.insert(crateKids, React.createElement(EmptyState, {
-				key = "empty",
+			ListEmptyComponent = React.createElement(EmptyState, {
 				icon = "Crate",
 				title = "No crate channels",
 				body = "Crate channels unlock as you progress — check back after more story and lab work.",
 				accent = Palette.violet,
-				layoutOrder = 1,
+				layoutOrder = 0,
 				reducedMotion = reducedMotion,
-			}))
-		end
-		local crateCount = math.max(1, #crates)
-		local bodyH = 28 + pageGap + crateCount * crateCardH + math.max(0, crateCount - 1) * pageGap
+			}),
+		}))
 		table.insert(sections, {
 			id = "crates",
-			height = bodyH,
-			element = React.createElement("frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-			}, React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Vertical,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, pageGap),
-			}), table.unpack(crateKids)),
+			fill = true,
+			minHeight = math.max(160, crateLabelH + crateCardH + pageGap * 2),
+			element = crateList,
 		})
 	elseif tab == "Market" then
 		local marketCardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
