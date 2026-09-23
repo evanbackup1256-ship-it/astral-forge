@@ -566,7 +566,7 @@ local function SectionLabel(_param)
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(18, 2),
+		Size = UDim2.fromOffset(22, 3),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = color,
@@ -575,16 +575,16 @@ local function SectionLabel(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.12), NumberSequenceKeypoint.new(0.7, 0.35), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.7, 0.22), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement(Text, {
 		value = value,
-		size = 13,
+		size = 14,
 		color = labelColor,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 13,
-		position = UDim2.fromOffset(26, 0),
-		sizeConstraint = UDim2.new(1, -34, 0, 22),
+		minSize = 14,
+		position = UDim2.fromOffset(30, 0),
+		sizeConstraint = UDim2.new(1, -38, 0, 22),
 	}))
 end
 local Button
@@ -872,9 +872,9 @@ local function IconTile(_param)
 	end
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local interactionMotion = reducedMotion or effectsPaused
-	local background = if filled then darken(accent, 0.28) else darken(accent, 0.48):Lerp(Palette.panelSoft, 0.42)
+	local background = if filled then darken(accent, 0.22) else darken(accent, 0.42):Lerp(Palette.panelSoft, 0.28)
 	local glyph = Palette.cream
-	local strokeTransparency = useGlowStroke(glow and not interactionMotion, interactionMotion, 0.55, 0.28, 0.58, 1.45)
+	local strokeTransparency = useGlowStroke(glow and not interactionMotion, interactionMotion, 0.55, 0.2, 0.62, 2.1)
 	local _condition = radius
 	if _condition == nil then
 		_condition = math.floor(size * 0.26)
@@ -899,7 +899,7 @@ local function IconTile(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, math.max(1, corner - 1)),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(background, 0.48),
+		Color = surfaceGradient(background, 0.62),
 		Rotation = 90,
 	}), React.createElement(Icon, {
 		kind = kind,
@@ -922,9 +922,9 @@ local function IconTile(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, math.max(1, corner - 1)),
 	}), React.createElement(Stroke, {
-		color = if filled then accent else Palette.lineSoft,
+		color = accent,
 		thickness = 1,
-		transparency = if glow then strokeTransparency elseif filled then 0.42 else 0.58,
+		transparency = if glow then strokeTransparency elseif filled then 0.28 else 0.4,
 	})))
 end
 local function Badge(_param)
@@ -946,21 +946,21 @@ local function Badge(_param)
 	if zIndex == nil then
 		zIndex = 3
 	end
-	local fill = if filled then darken(accent, 0.34) else Palette.panelRaised
-	local label = ensureContrast(fill, if filled then Palette.cream else lighten(accent, 0.12))
+	local fill = if filled then darken(accent, 0.28) else Palette.panelRaised
+	local label = ensureContrast(fill, if filled then Palette.cream else lighten(accent, 0.18))
 	local compressLabel = #value > 7
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
 		BackgroundColor3 = fill,
-		BackgroundTransparency = if filled then 0 else 0.02,
+		BackgroundTransparency = if filled then 0 else 0.04,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 7),
+		CornerRadius = UDim.new(0, 6),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(fill, 0.42),
+		Color = surfaceGradient(fill, 0.55),
 		Rotation = 90,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, -2, 1, -2),
@@ -969,11 +969,21 @@ local function Badge(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 6),
+		CornerRadius = UDim.new(0, 5),
 	}), React.createElement(Stroke, {
-		color = if filled then accent else Palette.lineSoft,
+		color = accent,
 		thickness = 1,
-		transparency = if filled then 0.48 else 0.52,
+		transparency = if filled then 0.36 else 0.28,
+	})), filled and React.createElement("frame", {
+		Size = UDim2.new(0.38, 0, 0, 2),
+		Position = UDim2.fromOffset(8, 0),
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+		ZIndex = zIndex + 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement(Text, {
 		value = value,
 		size = 13,
@@ -1160,7 +1170,7 @@ local function Panel(_param)
 		return -math.round(amount)
 	end)
 	local revealY = activeReveal:map(function(amount)
-		return math.round((1 - math.clamp(amount, 0, 1)) * 8)
+		return math.round((1 - math.clamp(amount, 0, 1)) * 10)
 	end)
 	local surfaceY = React.joinBindings({ liftPx, revealY }):map(function(values)
 		return values[1] + values[2]
@@ -1169,13 +1179,13 @@ local function Panel(_param)
 		return amount > 0.04
 	end)
 	local hoverWashAlpha = lift:map(function(amount)
-		return if amount < 0.04 then 1 else 1 - amount * 0.28
+		return if amount < 0.04 then 1 else 1 - amount * 0.38
 	end)
 	local highlightWashVisible = highlightOn:map(function(amount)
 		return amount > 0.05
 	end)
 	local highlightWashAlpha = highlightOn:map(function(amount)
-		return if amount < 0.05 then 1 else 0.96 + (1 - amount) * 0.04
+		return if amount < 0.05 then 1 else 0.94 + (1 - amount) * 0.06
 	end)
 	return React.createElement("frame", {
 		Size = size,
@@ -1205,9 +1215,9 @@ local function Panel(_param)
 			end,
 		} else {},
 	}, paintChrome and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 1, -2),
+		Size = UDim2.new(1, 0, 1, -3),
 		Position = surfaceY:map(function(y)
-			return UDim2.new(0, 0, 0, 2 + y)
+			return UDim2.new(0, 0, 0, 3 + y)
 		end),
 		BackgroundColor3 = Palette.shadow,
 		BackgroundTransparency = if revealFade ~= nil then revealFade:map(function(amount)
@@ -1230,7 +1240,7 @@ local function Panel(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(background, 0.52),
+		Color = surfaceGradient(background, 0.7),
 		Rotation = 90,
 	}), stroke and React.createElement("frame", {
 		Size = UDim2.new(1, -2, 1, -2),
@@ -1257,10 +1267,10 @@ local function Panel(_param)
 	}), React.createElement(Stroke, {
 		color = accentColor,
 		thickness = hoverGlow:map(function(amount)
-			return 1 + amount * 1.2
+			return 1 + amount * 1.8
 		end),
 		transparency = hoverGlow:map(function(amount)
-			return 1 - amount * 0.55
+			return 1 - amount * 0.78
 		end),
 	})), interactive and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -1288,8 +1298,8 @@ local function Panel(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	})), accent ~= nil and React.createElement("frame", {
-		Size = UDim2.fromOffset(math.max(36, radius * 3.5), 1),
-		Position = UDim2.fromOffset(radius + 4, 0),
+		Size = UDim2.fromOffset(math.max(44, radius * 5), 2),
+		Position = UDim2.fromOffset(radius + 2, 0),
 		BackgroundColor3 = accent,
 		BackgroundTransparency = if revealFade ~= nil then revealFade:map(function(amount)
 			return math.clamp(Chrome.accentHairline + amount * (1 - Chrome.accentHairline), 0, 1)
@@ -1299,7 +1309,7 @@ local function Panel(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.18), NumberSequenceKeypoint.new(0.55, 0.35), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.66, 0.18), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -padding * 2, 1, -padding * 2),
 		Position = UDim2.fromOffset(padding, padding),
@@ -1317,7 +1327,7 @@ local function Divider(_param)
 	end
 	local transparency = _param.transparency
 	if transparency == nil then
-		transparency = 0.72
+		transparency = 0.62
 	end
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local _binding = useMotionSettings()
@@ -1820,7 +1830,7 @@ function Button(_param)
 			return UDim2.new(0, 0, 0, 2 - math.round(amount))
 		end),
 		BackgroundColor3 = Palette.shadow,
-		BackgroundTransparency = if effectivelyDisabled then 0.82 else Chrome.buttonShadow,
+		BackgroundTransparency = if effectivelyDisabled then 0.72 else Chrome.buttonShadow,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {
@@ -1838,13 +1848,13 @@ function Button(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
 	}), not outline and not effectivelyDisabled and React.createElement("uigradient", {
-		Color = surfaceGradient(baseFill, 0.55),
+		Color = surfaceGradient(baseFill, 0.72),
 		Rotation = 90,
 	}), not compactRipple and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.white,
 		BackgroundTransparency = React.joinBindings({ hoverAmount, impact }):map(function(values)
-			return math.clamp(1 - values[1] * 0.035 - values[2] * 0.045, 0.88, 1)
+			return math.clamp(1 - values[1] * 0.05 - values[2] * 0.06, 0.82, 1)
 		end),
 		BorderSizePixel = 0,
 		ZIndex = zIndex + 2,
@@ -1997,7 +2007,7 @@ function Button(_param)
 	}), React.createElement(Stroke, {
 		color = color,
 		thickness = 1,
-		transparency = if outline then 0.28 elseif highlight and active then breatheStroke else 1,
+		transparency = if outline then 0.14 elseif highlight and active then breatheStroke else 1,
 	})), highlight and active and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = offsetY:map(function(amount)
@@ -2010,10 +2020,10 @@ function Button(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
 	}), React.createElement(Stroke, {
-		color = lighten(color, 0.22),
+		color = lighten(color, 0.3),
 		thickness = 2,
 		transparency = breatheStroke:map(function(amount)
-			return math.clamp(0.62 + amount * 0.85, 0.62, 1)
+			return math.clamp(0.55 + amount * 0.9, 0.55, 1)
 		end),
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -2027,9 +2037,9 @@ function Button(_param)
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
 	}), React.createElement(Stroke, {
 		color = Palette.cream,
-		thickness = 3,
+		thickness = 4,
 		transparency = focusRing:map(function(amount)
-			return 1 - amount * 0.88
+			return 1 - amount * 0.98
 		end),
 	})))))
 end
@@ -2127,13 +2137,13 @@ local function Meter(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(color, 0.22), color),
+		Color = ColorSequence.new(lighten(color, 0.32), color),
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(2, 2),
-		Position = UDim2.new(1, -3, 0.5, 0),
+		Size = UDim2.fromOffset(3, 3),
+		Position = UDim2.new(1, -4, 0.5, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = 0.42,
+		BackgroundTransparency = 0.22,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
@@ -2142,7 +2152,7 @@ local function Meter(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.white,
 		BackgroundTransparency = React.joinBindings({ readyPulse, shimmerBlend }):map(function(values)
-			return math.clamp(1 - values[2] * (0.14 + values[1] * 0.08), 0, 1)
+			return math.clamp(1 - values[2] * (0.2 + values[1] * 0.12), 0, 1)
 		end),
 		BorderSizePixel = 0,
 		Visible = shimmerBlend:map(function(amount)
@@ -2790,10 +2800,10 @@ local function SegmentedTabs(_param)
 		return UDim2.new(math.clamp(values[1], 0, columnCount - 1) / columnCount, gap * math.clamp(values[1], 0, columnCount - 1) / columnCount, math.clamp(values[2], 0, rowCount - 1) / rowCount, gap * math.clamp(values[2], 0, rowCount - 1) / rowCount)
 	end)
 	local _exp = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(0, 11),
 	})
 	local _exp_1 = React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.42),
+		Color = surfaceGradient(Palette.panel, 0.58),
 		Rotation = 90,
 	})
 	local _exp_2 = React.createElement("uistroke", {
@@ -2801,32 +2811,32 @@ local function SegmentedTabs(_param)
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.72,
+		Transparency = 0.62,
 	})
 	local _exp_3 = React.createElement("frame", {
 		Size = cellSize,
 		Position = carrierPosition,
 		BackgroundColor3 = selectionFlash:map(function(amount)
-			return darken(selectedAccent, 0.42):Lerp(lighten(selectedAccent, 0.06), amount)
+			return lighten(selectedAccent, amount * 0.14)
 		end),
 		BorderSizePixel = 0,
 		ZIndex = zIndex + 1,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 9),
+		CornerRadius = UDim.new(0, 8),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(selectedAccent, 0.08), darken(selectedAccent, 0.18)),
+		Color = ColorSequence.new(lighten(selectedAccent, 0.14), darken(selectedAccent, 0.06)),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = lighten(selectedAccent, 0.12),
+		Color = lighten(selectedAccent, 0.24),
 		Thickness = 1,
-		Transparency = 0.48,
+		Transparency = 0.28,
 	}), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = 0.9,
+		BackgroundTransparency = 0.78,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	}, React.createElement("uigradient", {
@@ -2835,6 +2845,15 @@ local function SegmentedTabs(_param)
 		Offset = tabSweep:map(function(phase)
 			return Vector2.new(phase * 2.2 - 1.1, 0)
 		end),
+	})), React.createElement("frame", {
+		Size = UDim2.new(0.52, 0, 0, 2),
+		Position = UDim2.new(0.5, 0, 1, -3),
+		AnchorPoint = Vector2.new(0.5, 1),
+		BackgroundColor3 = Palette.white,
+		BackgroundTransparency = 0.12,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
 	})))
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#options)
@@ -2860,7 +2879,7 @@ local function SegmentedTabs(_param)
 		Size = size,
 		Position = position,
 		BackgroundColor3 = Palette.ink,
-		BackgroundTransparency = 0.08,
+		BackgroundTransparency = 0.18,
 		BorderSizePixel = 0,
 		LayoutOrder = layoutOrder,
 		ZIndex = zIndex,
@@ -3720,29 +3739,31 @@ local function SearchField(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 9),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.ink, 0.48),
+		Color = surfaceGradient(Palette.ink, 0.7),
 		Rotation = 90,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, -4, 1, -4),
 		Position = UDim2.fromOffset(2, 2),
 		BackgroundColor3 = accent,
 		BackgroundTransparency = focus:map(function(amount)
-			return 1 - amount * 0.72
+			return 1 - amount * 0.94
 		end),
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 7),
 	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.72), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.65), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = focus:map(function(amount)
-			return Palette.lineSoft:Lerp(accent, amount * 0.7)
+			return Palette.lineSoft:Lerp(accent, amount)
 		end),
-		Thickness = 1,
+		Thickness = focus:map(function(amount)
+			return if amount > 0.45 then 2 else 1
+		end),
 		Transparency = focus:map(function(amount)
-			return 0.58 - amount * 0.28
+			return 0.5 - amount * 0.42
 		end),
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(16, 16),
@@ -3880,7 +3901,7 @@ local function LogoLockup(_param)
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(mark, mark),
 		Position = UDim2.fromOffset(0, if micro then 7 elseif compact then 7 else 8),
-		BackgroundColor3 = Palette.void,
+		BackgroundColor3 = Color3.fromRGB(7, 17, 28),
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
@@ -3888,12 +3909,12 @@ local function LogoLockup(_param)
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = Palette.lineSoft,
-		Thickness = 1,
-		Transparency = 0.42,
+		Color = Palette.cyan,
+		Thickness = 1.25,
+		Transparency = 0.18,
 	}), React.createElement("imagelabel", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
+		BackgroundColor3 = Color3.fromRGB(7, 17, 28),
 		BorderSizePixel = 0,
 		Image = GAME_ICON_ASSET,
 		ScaleType = Enum.ScaleType.Fit,
@@ -3911,7 +3932,7 @@ local function LogoLockup(_param)
 	}), React.createElement(Text, {
 		value = "IDLE FORGE",
 		size = if micro then 8 else 9,
-		color = Palette.muted,
+		color = accent,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
 		position = UDim2.fromOffset(textX, if micro then 29 else 36),

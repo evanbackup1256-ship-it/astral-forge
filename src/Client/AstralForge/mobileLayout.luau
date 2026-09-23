@@ -104,18 +104,18 @@ local function planMobileLayout(input)
 	local phone = stack
 	local tablet = phone and width >= 700 and not landscape
 	-- Header shrinks in landscape (vertical room is scarce) and grows slightly on tablets
-	-- (more breathing room, still touch-first).
-	local topbarRows = if not phone then 62 elseif landscape then 36 elseif tablet then 52 else 48
+	-- (more breathing room, still touch-first). PC gets a taller topbar so controls stay scannable.
+	local topbarRows = if not phone then 74 elseif landscape then 36 elseif tablet then 52 else 48
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else 0
-	-- Desktop denser gaps/padding; phone keeps touch-first insets from mobile playability.
-	local panelGap = if landscape then 8 elseif phone then 12 else 10
-	local pagePadding = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 14 else 14
-	local contentInset = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 14 else 14
+	-- Phone keeps touch-first insets; desktop gets breathing room so sections separate clearly.
+	local panelGap = if landscape then 8 elseif phone then 12 else 14
+	local pagePadding = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 16 else 18
+	local contentInset = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 16 else 18
 	-- MobileShell already renders MobileHeader with the page title/chips. A second Workspace
 	-- header on phone duplicates chrome and eats the content budget — keep it at 0 whenever
-	-- the bottom-tab phone shell is active. Desktop uses the denser 66px workspace header.
-	local workspaceHeaderH = if phone then 0 else 66
+	-- the bottom-tab phone shell is active. Desktop keeps a readable workspace header.
+	local workspaceHeaderH = if phone then 0 else 86
 	-- Bottom tab bar: fixed-height strip. Core height is always ≥ TAP_TARGET so each tab
 	-- remains thumbable; landscape stays at the floor, tablet gets a little more room.
 	-- Height never animates, so it cannot render mid-transition.
@@ -145,16 +145,16 @@ local function planMobileLayout(input)
 		tablet = tablet,
 		pagePadding = pagePadding,
 		contentInset = contentInset,
-		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) else 14,
+		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) else 18,
 		panelGap = panelGap,
-		controlGap = if landscape then 8 elseif phone then 10 else 12,
-		-- Dense sidebar rows so primary + secondary destinations fit without a More dock.
-		railRow = if landscape then 52 elseif phone then 60 elseif compact then 56 else 52,
-		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif compact then 52 else 52,
-		railGap = if phone then 8 elseif compact then 8 else 6,
-		bodyText = if landscape then 13 elseif phone then 14 else 13,
-		labelText = if landscape then 11 elseif phone then 13 else 11,
-		titleText = if landscape then 16 elseif phone then (if tablet then 20 else 18) else 22,
+		controlGap = if landscape then 8 elseif phone then 10 else 14,
+		-- Desktop sidebar rows are taller so labels stay readable; phone stays thumb-sized.
+		railRow = if landscape then 52 elseif phone then 60 elseif compact then 60 else 64,
+		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif compact then 54 else 56,
+		railGap = if phone then 8 elseif compact then 10 else 12,
+		bodyText = if landscape then 13 elseif phone then 14 else 14,
+		labelText = if landscape then 11 elseif phone then 13 else 12,
+		titleText = if landscape then 16 elseif phone then (if tablet then 20 else 18) else 26,
 		bottomSafe = bottomSafe,
 		sideSafe = sideSafe,
 		topbarRows = topbarRows,

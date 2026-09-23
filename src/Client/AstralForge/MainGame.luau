@@ -353,9 +353,9 @@ local TUTORIAL_STEPS = { {
 	page = "Overview",
 } }
 local SHELL_CHROME = {
-	railGutter = 12,
-	topbarControl = 44,
-	topbarControlGap = 10,
+	railGutter = 18,
+	topbarControl = 48,
+	topbarControlGap = 12,
 }
 local NETWORK = {
 	actionCooldowns = {
@@ -1932,11 +1932,11 @@ local function RailButton(_param)
 	end)
 	local fillTransparency = emphasis:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
-		return 0.52 - amount * 0.42
+		return 0.34 - amount * 0.34
 	end)
 	local strokeTransparency = emphasis:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
-		return math.clamp(0.9 - amount * 0.48, 0.32, 0.92)
+		return math.clamp(0.82 - amount * 0.62, 0.18, 0.85)
 	end)
 	local markerSize = emphasis:map(function(raw)
 		local amount = math.clamp(raw, 0, 1)
@@ -1946,7 +1946,7 @@ local function RailButton(_param)
 		return if disabled then Palette.panelSoft else Palette.panelRaised:Lerp(darken(entry.accent, 0.52), math.clamp(raw, 0, 1))
 	end)
 	local ringTransparency = emphasis:map(function(raw)
-		return math.clamp(0.86 - math.clamp(raw, 0, 1) * 0.48, 0.28, 0.9)
+		return math.clamp(0.78 - math.clamp(raw, 0, 1) * 0.7, 0.05, 0.82)
 	end)
 	local labelColor = emphasis:map(function(raw)
 		return if disabled then Palette.muted else Palette.creamSoft:Lerp(Palette.cream, math.clamp(raw, 0, 1))
@@ -2047,14 +2047,12 @@ local function RailButton(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 8),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.48),
+		Color = surfaceGradient(Palette.panel, 0.7),
 		Rotation = 90,
 	}), React.createElement("uistroke", {
-		Color = emphasis:map(function(raw)
-			return Palette.lineSoft:Lerp(entry.accent, math.clamp(raw, 0, 1) * 0.85)
-		end),
+		Color = entry.accent,
 		Thickness = 1,
 		Transparency = strokeTransparency,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -2065,14 +2063,14 @@ local function RailButton(_param)
 		BackgroundTransparency = pressWash,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 8),
 	})), React.createElement("frame", {
 		Size = markerSize,
 		Position = UDim2.fromScale(0, 0.5),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = entry.accent,
 		BackgroundTransparency = emphasis:map(function(amount)
-			return if amount < 0.08 then 1 else 0.55 - amount * 0.4
+			return if amount < 0.08 then 1 else 0.75 - amount * 0.75
 		end),
 		BorderSizePixel = 0,
 		Visible = emphasis:map(function(amount)
@@ -2110,8 +2108,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 10,
-		position = UDim2.fromOffset(52, 7),
-		sizeConstraint = UDim2.new(1, -62, 0, 20),
+		position = UDim2.fromOffset(56, 10),
+		sizeConstraint = UDim2.new(1, -66, 0, 22),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
 		size = 10,
@@ -2119,8 +2117,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Bold,
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(52, 28),
-		sizeConstraint = UDim2.new(1, -62, 0, 16),
+		position = UDim2.fromOffset(56, 34),
+		sizeConstraint = UDim2.new(1, -66, 0, 18),
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
 		zIndex = 12,
@@ -2862,46 +2860,45 @@ local function Navigation(_param)
 	local sectionH = if showSecondarySection then 22 else 0
 	local railCount = if fromMore then #secondaryEntries else (#primaryEntries + #secondaryEntries)
 	local canvasHeight = math.max(1, railCount) * (rowHeight + chrome.railGap) - chrome.railGap + Layout.stackGap * 2 + sectionH
-	local headerHeight = if collapsed then 10 else 36
+	local headerHeight = if collapsed then 12 else 48
 	local showBoost = activeBoost ~= nil and not chrome.mobile and page ~= "Rewards" and wallClock ~= nil and openBoosts ~= nil
-	local boostHeight = if showBoost then (if collapsed then 56 else 58) else 0
+	local boostHeight = if showBoost then (if collapsed then 62 else 64) else 0
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
 	local _exp = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
+		CornerRadius = UDim.new(0, 10),
 	})
 	local _exp_1 = React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.38),
+		Color = surfaceGradient(Palette.night, 0.5),
 		Rotation = 90,
 	})
 	local _exp_2 = React.createElement("uistroke", {
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.78,
+		Transparency = 0.68,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 	})
 	local _exp_3 = not collapsed and React.createElement("frame", {
-		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 22),
-		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 8),
+		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 28),
+		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 10),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(5, 5),
+		Size = UDim2.fromOffset(6, 6),
 		Position = UDim2.new(0, 4, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = AppHelpers:pageAccent(page),
-		BackgroundTransparency = 0.28,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement(Text, {
 		value = "Forge",
 		size = 10,
-		color = Palette.muted,
+		color = Palette.creamSoft,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		position = UDim2.fromOffset(16, 0),
-		sizeConstraint = UDim2.new(0.58, -16, 1, 0),
+		position = UDim2.fromOffset(18, 0),
+		sizeConstraint = UDim2.new(0.58, -18, 1, 0),
 	}))
 	local _exp_4 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -3052,7 +3049,7 @@ local function VaultPill(_param)
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = if full then Palette.mango else Palette.lineSoft,
 		Thickness = 1,
-		Transparency = if full then 0.48 else 0.78,
+		Transparency = if full then 0.35 else 0.72,
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(32, 32),
 		Position = UDim2.fromOffset(10, 10),
@@ -3114,7 +3111,7 @@ local function NextUnlockStrip(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.4),
+		Color = surfaceGradient(Palette.night, 0.7),
 		Rotation = 90,
 	}), React.createElement(Text, {
 		value = if goal ~= nil then "NEXT UNLOCK" else "FORGE OPEN",
@@ -3239,15 +3236,15 @@ local function Workspace(_param)
 		local t = math.clamp(amount, 0, 1)
 		return (1 - t) * 0.4
 	end)
-	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 72
+	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 84
 	-- Desktop reserves room for the right-side VaultPill (248px wide, anchored at -316): the
 	-- title block must stop before it. -392 used to run 8px into the pill; -344 keeps a 6px
 	-- clearance on every desktop width.
 	local titleReserve = if keyboardCompact then -(titleLeft + vaultBtn + 18) else (if chrome.stack then -(vaultBtn + 18) elseif chrome.tight then -(vaultBtn + 28) else -344) - (titleLeft - (if chrome.stack then 14 else 22))
-	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 48
-	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 40
-	local headerTitleY = if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else math.max(8, math.floor((headerHeight - titleBlockH) / 2))
-	local vaultPillY = math.max(6, math.floor((headerHeight - 52) / 2))
+	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 72
+	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 48
+	local headerTitleY = if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else math.max(10, math.floor((headerHeight - titleBlockH) / 2))
+	local vaultPillY = math.max(8, math.floor((headerHeight - 52) / 2))
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.ink,
@@ -3255,13 +3252,13 @@ local function Workspace(_param)
 		ZIndex = 5,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
+		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.72,
+		Transparency = 0.58,
 	}), headerHeight > 0 and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, headerHeight),
 		BackgroundColor3 = Palette.panel,
@@ -3269,26 +3266,25 @@ local function Workspace(_param)
 		ZIndex = 20,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
+		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.42),
+		Color = surfaceGradient(Palette.panel, 0.58),
 		Rotation = 90,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 14),
 		Position = UDim2.new(0, 0, 1, -14),
-		BackgroundColor3 = darken(Palette.panel, 0.18),
+		BackgroundColor3 = darken(Palette.panel, 0.24),
 		BorderSizePixel = 0,
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(56, 1),
-		Position = UDim2.fromOffset(20, 0),
+		Size = UDim2.fromOffset(78, 2),
+		Position = UDim2.fromOffset(18, 0),
 		BackgroundColor3 = accent,
-		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.6, 0.4), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.04), NumberSequenceKeypoint.new(0.68, 0.18), NumberSequenceKeypoint.new(1, 1) }),
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(headerIconSize, headerIconSize),
 		Position = enter:map(function(amount)
@@ -3315,28 +3311,28 @@ local function Workspace(_param)
 		ZIndex = 3,
 	}, React.createElement(ShimmerText, {
 		value = if entry.label == "Games" then "Mini Games" elseif entry.label == "Ranks" then "Leaderboards" else entry.label,
-		size = if chrome.stack then chrome.titleText else 22,
+		size = if chrome.stack then chrome.titleText else 26,
 		color = ensureContrast(Palette.panel, Palette.cream),
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 16,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 0)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 2)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 28 elseif chrome.stack then 28 else 26),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 28 elseif chrome.stack then 28 else 34),
 		reducedMotion = reducedMotion,
 		enabled = not reducedMotion,
 		periodSeconds = 4.2,
 	}), not keyboardCompact and not mobileHeaderCompact and not chrome.landscape and React.createElement(Text, {
 		value = if page == "Overview" then `World {state.CurrentZone}  /  {compactNumber(state.Production)}/s` else entry.eyebrow,
-		size = if chrome.stack then chrome.labelText else 11,
+		size = if chrome.stack then chrome.labelText else 12,
 		color = ensureContrast(Palette.panel, accent),
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 32 else 28)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 32 else 40)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 else 18),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 else 28),
 		transparency = revealFade,
 	})), not chrome.stack and React.createElement(VaultPill, {
 		state = state,
