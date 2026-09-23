@@ -648,8 +648,33 @@ assert(string.find(cfg, 'Id = "wave26-offline-brief"', 1, true), "Story wave26 r
 assert(string.find(cfg, 'Id = "update-5-1-wave26-offline"', 1, true), "Mail wave26 residual for release")
 mark("wave26 mailbox flatlist items ensure boosts content residuals")
 
--- Raise floor past checks=31 once wave26 Mailbox/Items/Boosts residuals land.
-assert(#passed > 30, "release-readiness offline subset must stay beyond checks=30, got " .. tostring(#passed))
+-- Wave27: InventoryMath direct calls + SnapshotDomainInts + Trade/Credits softMotion + DV21 content.
+local invWave27 = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+assert(not string.find(invWave27, "local function relicRowHeight", 1, true), "Inventory relicRowHeight wrapper residual for release")
+assert(string.find(invWave27, "InventoryMath.RelicRowHeight", 1, true), "Inventory RelicRowHeight residual for release")
+assert(string.find(invWave27, "InventoryMath.OfferStock", 1, true), "Inventory OfferStock residual for release")
+local continuumWave27 = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
+assert(string.find(continuumWave27, "function ContinuumDomainMath.SnapshotDomainInts", 1, true), "SnapshotDomainInts missing for release")
+assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual for release")
+assert(not string.find(continuumWave27, "GetService", 1, true), "ContinuumDomainMath must stay pure for release")
+local tradeWave27 = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+local tradeSoft = 0
+for _ in string.gmatch(tradeWave27, "softMotion") do
+	tradeSoft += 1
+end
+assert(tradeSoft >= 10, "Trade softMotion density residual for release, got " .. tostring(tradeSoft))
+local creditsWave27 = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
+local creditsSoft = 0
+for _ in string.gmatch(creditsWave27, "softMotion") do
+	creditsSoft += 1
+end
+assert(creditsSoft >= 8, "Credits softMotion density residual for release, got " .. tostring(creditsSoft))
+assert(string.find(cfg, 'Id = "wave27-offline-brief"', 1, true), "Story wave27 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave27-offline"', 1, true), "Mail wave27 residual for release")
+mark("wave27 inventory continuum trade credits content residuals")
+
+-- Raise floor past checks=32 once wave27 Inventory/Continuum/Trade residuals land.
+assert(#passed > 31, "release-readiness offline subset must stay beyond checks=31, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

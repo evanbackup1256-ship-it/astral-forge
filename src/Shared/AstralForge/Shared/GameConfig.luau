@@ -5153,11 +5153,44 @@ local GameConfig = {
 			Color = Color3.fromRGB(55, 240, 195),
 		},
 
+		{
+			Id = "wave27-offline-brief",
+			Title = "Wave Twenty Seven Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "InventoryMath wrappers collapse + ContinuumDomain SnapshotDomainInts; Trade/Credits softMotion.",
+			Body = {
+				"InventoryView calls InventoryMath directly; ContinuumDomainMath SnapshotDomainInts coerces Domain snapshot ints.",
+				"Trade and Credits softMotion density thickens past DENSE; offline release-readiness checks grow past checks=32.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 76, CashMinutes = 33, Signals = 35 },
+			Color = Color3.fromRGB(50, 235, 190),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave27-offline",
+			Subject = "Dock note — wave twenty seven offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "InventoryMath wrappers collapse + Domain SnapshotDomainInts — still DataVersion 21.",
+			Body = {
+				"InventoryView drops one-line InventoryMath wrappers; ContinuumDomainMath SnapshotDomainInts keeps Domain snapshot ints Lune-testable.",
+				"Trade/Credits softMotion density thickens; offline checks grow past checks=32 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 76, Stardust = 92, Signals = 39 },
+			Color = Color3.fromRGB(50, 235, 190),
+		},
+
 
 		{
 			Id = "update-5-1-wave26-offline",

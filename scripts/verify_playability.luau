@@ -392,7 +392,7 @@ end
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	local DENSE = {
-		["src/Client/AstralForge/pages/TradeView.luau"] = 6,
+		["src/Client/AstralForge/pages/TradeView.luau"] = 10,
 		["src/Client/AstralForge/pages/GuildView.luau"] = 6,
 		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 6,
 		["src/Client/AstralForge/pages/SettingsView.luau"] = 6,
@@ -404,7 +404,7 @@ do
 		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 6,
 		["src/Client/AstralForge/pages/AdminView.luau"] = 6,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 8,
-		["src/Client/AstralForge/pages/CreditsView.luau"] = 6,
+		["src/Client/AstralForge/pages/CreditsView.luau"] = 8,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,

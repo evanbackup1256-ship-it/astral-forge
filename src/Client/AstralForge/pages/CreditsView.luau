@@ -8,6 +8,7 @@ local _motion = require(script.Parent.Parent.motion)
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
 local useExitTransition = _motion.useExitTransition
+local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.theme)
 local Palette = _theme.Palette
@@ -61,11 +62,17 @@ local function CreditsOverlay(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
+	local headerReveal = useStagger(0, softMotion)
+	local rolesReveal = useStagger(1, softMotion)
 	local _binding = useExitTransition(softMotion)
 	local exit = _binding[1]
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
 	local reveal = composePresence(enter, exit)
+	-- Prefer softMotion stagger when antilag already wants quiet decoration.
+	local panelReveal = if softMotion then headerReveal else reveal
+	local listReveal = if softMotion then rolesReveal else reveal
+	local rolesSoft = softMotion or listReveal == nil
 	local requestClose = React.useCallback(function()
 		if exiting then
 			return nil
@@ -182,7 +189,7 @@ local function CreditsOverlay(_param)
 		outline = true,
 		size = UDim2.fromOffset(closeSize, closeSize),
 		position = UDim2.new(1, -closeSize, 0, 0),
-		reducedMotion = softMotion,
+		reducedMotion = rolesSoft,
 		disabled = exiting,
 		zIndex = 323,
 	})
@@ -481,7 +488,7 @@ local function CreditsOverlay(_param)
 		padding = pad,
 		zIndex = 321,
 		clips = false,
-		reveal = reveal,
+		reveal = panelReveal,
 		reducedMotion = softMotion,
 	}, _exp_2, _exp_3, _exp_4, _exp_5, _result, stack and React.createElement("frame", {
 		Size = UDim2.fromOffset(0, closeSize),

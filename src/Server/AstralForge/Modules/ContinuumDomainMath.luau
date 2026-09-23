@@ -100,4 +100,27 @@ function ContinuumDomainMath.DomainRankBonus(rank: any, perRank: any, domainTree
 	return safeRank * (tonumber(perRank) or 0) + (tonumber(domainTreeBonus) or 0)
 end
 
+-- Non-negative integer coerce for Domain/Continuum snapshot bags (string fixtures).
+function ContinuumDomainMath.NonNegativeInt(value: any): number
+	return math.max(0, math.floor(tonumber(value) or 0))
+end
+
+-- Snapshot Domain bag fields that must stay numeric for client UI rails.
+function ContinuumDomainMath.SnapshotDomainInts(domain: any): {
+	Essence: number,
+	LastExpandedAt: number,
+	TotalRebirthsSpent: number,
+	TotalCoresSpent: number,
+	SkillPoints: number,
+}
+	local bag = if type(domain) == "table" then domain else {}
+	return {
+		Essence = ContinuumDomainMath.NonNegativeInt(bag.Essence),
+		LastExpandedAt = ContinuumDomainMath.NonNegativeInt(bag.LastExpandedAt),
+		TotalRebirthsSpent = ContinuumDomainMath.NonNegativeInt(bag.TotalRebirthsSpent),
+		TotalCoresSpent = ContinuumDomainMath.NonNegativeInt(bag.TotalCoresSpent),
+		SkillPoints = ContinuumDomainMath.NonNegativeInt(bag.SkillPoints),
+	}
+end
+
 return table.freeze(ContinuumDomainMath)

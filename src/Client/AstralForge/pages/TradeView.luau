@@ -429,6 +429,11 @@ local function TradeView(_param)
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
+	local boardReveal = useStagger(1, softMotion)
+	local inviteReveal = useStagger(2, softMotion)
+	local confirmReveal = useStagger(3, softMotion)
+	local softInvite = softMotion or inviteReveal ~= nil
+	local softConfirm = softMotion or confirmReveal ~= nil
 	local now = useSecondClock()
 	local trade = state.Trade
 	local _result = trade
@@ -757,7 +762,7 @@ local function TradeView(_param)
 			color = Palette.panelSoft,
 			textColor = Palette.creamSoft,
 			size = UDim2.new(1, 0, 0, if phone then TapTarget else 34),
-			reducedMotion = reducedMotion,
+			reducedMotion = softInvite,
 		})
 		local _condition_4 = editor
 		if _condition_4 then
@@ -767,7 +772,7 @@ local function TradeView(_param)
 				value = draft.Cash,
 				max = cap("Cash", asFlux(state.Cash)),
 				accent = Palette.cyan,
-				reducedMotion = reducedMotion,
+				reducedMotion = softConfirm,
 				onChange = function(value)
 					local _object = table.clone(draft)
 					setmetatable(_object, nil)
@@ -780,7 +785,7 @@ local function TradeView(_param)
 				value = draft.Stardust,
 				max = cap("Stardust", state.Stardust),
 				accent = Palette.mango,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				onChange = function(value)
 					local _object = table.clone(draft)
 					setmetatable(_object, nil)
@@ -793,7 +798,7 @@ local function TradeView(_param)
 				value = draft.Cores,
 				max = cap("Cores", state.Cores),
 				accent = Palette.violet,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				onChange = function(value)
 					local _object = table.clone(draft)
 					setmetatable(_object, nil)
@@ -815,7 +820,7 @@ local function TradeView(_param)
 			end
 			_attributes.max = cap("Signals", _condition_5)
 			_attributes.accent = Palette.cyan
-			_attributes.reducedMotion = reducedMotion
+			_attributes.reducedMotion = softMotion
 			_attributes.onChange = function(value)
 				local _object = table.clone(draft)
 				setmetatable(_object, nil)
@@ -837,7 +842,7 @@ local function TradeView(_param)
 			end
 			_attributes_1.max = cap("Essence", _condition_6)
 			_attributes_1.accent = Palette.pink
-			_attributes_1.reducedMotion = reducedMotion
+			_attributes_1.reducedMotion = softMotion
 			_attributes_1.onChange = function(value)
 				local _object = table.clone(draft)
 				setmetatable(_object, nil)
@@ -902,7 +907,7 @@ local function TradeView(_param)
 				end
 				_attributes_2.max = math.min(remainingBudget, _condition_10)
 				_attributes_2.accent = Palette.coral
-				_attributes_2.reducedMotion = reducedMotion
+				_attributes_2.reducedMotion = softMotion
 				_attributes_2.onChange = function(value)
 					local _object = table.clone(draft)
 					setmetatable(_object, nil)
@@ -953,7 +958,7 @@ local function TradeView(_param)
 				end
 				_attributes_2.max = math.min(_condition_9, _condition_10)
 				_attributes_2.accent = Palette.mango
-				_attributes_2.reducedMotion = reducedMotion
+				_attributes_2.reducedMotion = softMotion
 				_attributes_2.onChange = function(value)
 					local _object = table.clone(draft)
 					setmetatable(_object, nil)
@@ -1332,7 +1337,7 @@ local function TradeView(_param)
 			background = if active then darken(accent, 0.82) else Palette.panel,
 			padding = 10,
 			interactive = true,
-			reveal = reveal,
+			reveal = boardReveal,
 			reducedMotion = softMotion,
 			layoutOrder = 6 + index,
 		}, React.createElement("textbutton", {

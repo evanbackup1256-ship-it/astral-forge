@@ -1234,12 +1234,14 @@ serviceFactories["GameService"] = function()
 			Cores = profile.Cores,
 			Stardust = profile.Stardust,
 			Rebirths = profile.Rebirths,
-			Domain = {
+			Domain = (function()
+				local ints = ContinuumDomainMath.SnapshotDomainInts(domain)
+				return {
 				Rank = domainRank,
-				Essence = math.max(0, math.floor(tonumber(domain.Essence) or 0)),
-				LastExpandedAt = math.max(0, math.floor(tonumber(domain.LastExpandedAt) or 0)),
-				TotalRebirthsSpent = math.max(0, math.floor(tonumber(domain.TotalRebirthsSpent) or 0)),
-				TotalCoresSpent = math.max(0, math.floor(tonumber(domain.TotalCoresSpent) or 0)),
+				Essence = ints.Essence,
+				LastExpandedAt = ints.LastExpandedAt,
+				TotalRebirthsSpent = ints.TotalRebirthsSpent,
+				TotalCoresSpent = ints.TotalCoresSpent,
 				RequiredRebirths = domainRequiredRebirths,
 				RequiredCores = domainRequiredCores,
 				CanExpand = RebirthGate.MeetsRequired(profile.Rebirths, domainRequiredRebirths) and Economy.Gte(profile.Cores, domainRequiredCores),
@@ -1249,9 +1251,10 @@ serviceFactories["GameService"] = function()
 					domainRank, domain.Essence, GameConfig.Domain.ProductionPerRank, GameConfig.Domain.ProductionPerEssence, 1_000_000, Economy.DomainTreeBonus(profile, "Production")),
 				CapacityMultiplier = 1 + ContinuumDomainMath.DomainRankBonus(domainRank, GameConfig.Domain.CapacityPerRank, Economy.DomainTreeBonus(profile, "Capacity")),
 				OfflineBonus = ContinuumDomainMath.DomainRankBonus(domainRank, GameConfig.Domain.OfflineEfficiencyPerRank, Economy.DomainTreeBonus(profile, "Offline")),
-				SkillPoints = math.max(0, math.floor(tonumber(domain.SkillPoints) or 0)),
+				SkillPoints = ints.SkillPoints,
 				Nodes = type(domain.Nodes) == "table" and domain.Nodes or {},
-			},
+			}
+			end)(),
 			Continuum = {
 				Rank = continuumRank,
 				TotalFluxSpent = continuum.TotalFluxSpent,

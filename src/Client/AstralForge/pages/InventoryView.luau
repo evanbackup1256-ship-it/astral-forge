@@ -122,45 +122,6 @@ local SCROLL_PAD = 24 + 16
 local TOOL_FIELD_DESK = 50
 local STATS_H = 36
 local BULK_DOCK_H = 58
-local function relicRowHeight(stack)
-	return InventoryMath.RelicRowHeight(stack)
-end
-local function rarityColor(config, rarity)
-	return InventoryMath.RarityColor(config, rarity, Palette.muted)
-end
-local function rarityRank(config, rarity)
-	return InventoryMath.RarityRank(config, rarity)
-end
-local function effectAtLevel(definition, level)
-	return InventoryMath.EffectAtLevel(definition, level)
-end
-local function effectLabel(definition, level)
-	return InventoryMath.EffectLabel(definition, level)
-end
-local function upgradeCost(definition, level)
-	return InventoryMath.UpgradeCost(definition, level)
-end
-local function salvagePreview(config, definition, level)
-	return InventoryMath.SalvagePreview(config, definition, level)
-end
-local function socketLabel(target)
-	return InventoryMath.SocketLabel(target)
-end
-local function collectOwned(state, config)
-	return InventoryMath.CollectOwned(state, config)
-end
-local function sortOwned(list, config, sort)
-	return InventoryMath.SortOwned(list, config, sort)
-end
-local function filterOwned(list, filter)
-	return InventoryMath.FilterOwned(list, filter)
-end
-local function searchOwned(list, query, rarity)
-	return InventoryMath.SearchOwned(list, query, rarity)
-end
-local function socketTargets(state, config, definition)
-	return InventoryMath.SocketTargets(state, config, definition)
-end
 local function ChipRow(_param)
 	local options = _param.options
 	local value = _param.value
@@ -209,9 +170,6 @@ local function ChipRow(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, _exp, _newValue_1)
-end
-local function autoSalvageSignature(rules)
-	return InventoryMath.AutoSalvageSignature(rules, AUTO_RARITIES)
 end
 local function InventoryTools(_param)
 	local search = _param.search
@@ -680,7 +638,7 @@ local function AutoSalvageSheet(_param)
 				onClick = function()
 					return toggleAutoRarity(entry)
 				end,
-				color = if active then rarityColor(config, entry) else Palette.panelSoft,
+				color = if active then InventoryMath.RarityColor(config, entry, Palette.muted) else Palette.panelSoft,
 				textColor = if active then Palette.ink else Palette.muted,
 				position = UDim2.new(col / cols, if col == 0 then 0 else 4, 0, row * (rarityH + 8)),
 				size = UDim2.new(1 / cols, -6, 0, rarityH),
@@ -737,10 +695,10 @@ local function RelicRow(_param)
 	if stack == nil then
 		stack = false
 	end
-	local accent = rarityColor(config, item.definition.Rarity)
+	local accent = InventoryMath.RarityColor(config, item.definition.Rarity, Palette.muted)
 	local textW = if stack then -(58 + 8) else -176
 	local locked = item.instance.Locked == true
-	local height = relicRowHeight(stack)
+	local height = InventoryMath.RelicRowHeight(stack)
 	return React.createElement("imagebutton", {
 		Size = UDim2.new(1, 0, 0, height),
 		Position = if y ~= nil then UDim2.fromOffset(0, y) else nil,
@@ -790,14 +748,14 @@ local function RelicRow(_param)
 		position = UDim2.fromOffset(58, 0),
 		sizeConstraint = UDim2.new(1, textW, 0, 22),
 	}), React.createElement(Text, {
-		value = `{item.definition.Description}  ·  {effectLabel(item.definition, item.instance.Level)}`,
+		value = `{item.definition.Description}  ·  {InventoryMath.EffectLabel(item.definition, item.instance.Level)}`,
 		size = 11,
 		color = accent,
 		wrap = false,
 		position = UDim2.fromOffset(58, 24),
 		sizeConstraint = UDim2.new(1, textW, 0, 18),
 	}), React.createElement(Text, {
-		value = if item.equippedOn ~= nil then `On {socketLabel(item.equippedOn)}` elseif locked then "Protected" else `{item.definition.Slot} relic`,
+		value = if item.equippedOn ~= nil then `On {InventoryMath.SocketLabel(item.equippedOn)}` elseif locked then "Protected" else `{item.definition.Slot} relic`,
 		size = 11,
 		color = if item.equippedOn ~= nil then Palette.mint elseif locked then Palette.mango else Palette.creamSoft,
 		fit = true,
@@ -847,15 +805,6 @@ local INSPECT_PAD = InventoryMath.INSPECT_PAD
 local INSPECT_BTN_GAP = InventoryMath.INSPECT_BTN_GAP
 local INSPECT_FOOTER_H = InventoryMath.INSPECT_FOOTER_H
 local ACTION_BTN = InventoryMath.ACTION_BTN
-local function inspectSocketBlock(equipped, targetCount, chipRows, stack)
-	return InventoryMath.InspectSocketBlock(equipped, targetCount, chipRows, stack, TapTarget)
-end
-local function inspectActionsHeight(stack)
-	return InventoryMath.InspectActionsHeight(stack)
-end
-local function inspectPanelHeight(socketBlock, stack)
-	return InventoryMath.InspectPanelHeight(socketBlock, stack)
-end
 local function DetailPanel(_param)
 	local item = _param.item
 	local state = _param.state
@@ -872,7 +821,7 @@ local function DetailPanel(_param)
 		fill = false
 	end
 	local inspectActionsHostRef = React.useRef(nil)
-	local accent = rarityColor(config, item.definition.Rarity)
+	local accent = InventoryMath.RarityColor(config, item.definition.Rarity, Palette.muted)
 	local _result = state.Items
 	if _result ~= nil then
 		_result = _result.Essence
@@ -882,7 +831,7 @@ local function DetailPanel(_param)
 		_condition = 0
 	end
 	local essence = _condition
-	local cost = upgradeCost(item.definition, item.instance.Level)
+	local cost = InventoryMath.UpgradeCost(item.definition, item.instance.Level)
 	local canUpgrade, maxed = InventoryMath.UpgradeState(
 		item.instance.Level,
 		item.definition.MaxLevel,
@@ -890,7 +839,7 @@ local function DetailPanel(_param)
 		cost
 	)
 	local targets = React.useMemo(function()
-		return socketTargets(state, config, item.definition)
+		return InventoryMath.SocketTargets(state, config, item.definition)
 	end, { config, item.definition, state.Machines, state.Research })
 	local _condition_1 = item.equippedOn
 	if _condition_1 == nil then
@@ -935,16 +884,16 @@ local function DetailPanel(_param)
 			return _condition_2
 		end)
 	end, { item.uid, item.equippedOn, targets })
-	local salvage = salvagePreview(config, item.definition, item.instance.Level)
+	local salvage = InventoryMath.SalvagePreview(config, item.definition, item.instance.Level)
 	local equipped = item.equippedOn ~= nil
 	local locked = item.instance.Locked == true
 	local chipCols = if stack then 2 else 3
 	local chipRows = InventoryMath.ChipRows(#targets, stack)
-	local socketBlock = inspectSocketBlock(equipped, #targets, chipRows, stack)
+	local socketBlock = InventoryMath.InspectSocketBlock(equipped, #targets, chipRows, stack, TapTarget)
 	local chipHeight = if stack then TapTarget else 40
 	local chipStep = if stack then TapTarget + 6 else 42
-	local actionsH = inspectActionsHeight(stack)
-	local detailH = inspectPanelHeight(socketBlock, stack)
+	local actionsH = InventoryMath.InspectActionsHeight(stack)
+	local detailH = InventoryMath.InspectPanelHeight(socketBlock, stack)
 	local actionSize = if stack then UDim2.new(0.5, -5, 0, ACTION_BTN) else UDim2.new(0.25, -7, 0, ACTION_BTN)
 	-- Gamepad: park Selection on SOCKET/UPGRADE when inspect mounts (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
@@ -1059,7 +1008,7 @@ local function DetailPanel(_param)
 		Padding = UDim.new(0, INSPECT_BTN_GAP),
 	})
 	local _exp_1 = equipped and React.createElement(Text, {
-		value = `Socketed on {socketLabel(item.equippedOn)}`,
+		value = `Socketed on {InventoryMath.SocketLabel(item.equippedOn)}`,
 		size = 13,
 		color = Palette.mint,
 		weight = Enum.FontWeight.Bold,
@@ -1351,12 +1300,6 @@ local function CrateCard(_param)
 		sizeConstraint = UDim2.new(1, if stack then -(60 + 16) else -280, 0, 18),
 	}), actions)
 end
-local function restockClock(seconds)
-	return InventoryMath.RestockClock(seconds)
-end
-local function offerStock(offer)
-	return InventoryMath.OfferStock(offer)
-end
 local MARKET_BANNER_H = 126
 local MARKET_CARD_H = 176
 local MARKET_CARD_H_STACK = 210
@@ -1449,7 +1392,7 @@ local function MarketCard(_param)
 		stack = false
 	end
 	local balance = if offer.Currency == "Cash" then asFlux(cash) elseif offer.Currency == "Stardust" then stardust else cores
-	local _binding = offerStock(offer)
+	local _binding = InventoryMath.OfferStock(offer)
 	local stock = _binding.stock
 	local stockMax = _binding.stockMax
 	local soldOut = _binding.soldOut
@@ -1728,9 +1671,9 @@ local function LoadoutBoard(_param)
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 8),
 		}), React.createElement(Text, {
-			value = `{socketLabel(entry.target)}  ·  {entry.name}`,
+			value = `{InventoryMath.SocketLabel(entry.target)}  ·  {entry.name}`,
 			size = 12,
-			color = rarityColor(config, entry.rarity),
+			color = InventoryMath.RarityColor(config, entry.rarity, Palette.muted),
 			weight = Enum.FontWeight.Bold,
 			fit = false,
 			position = UDim2.fromOffset(10, 0),
@@ -1799,7 +1742,7 @@ local function InventoryView(_param)
 	end, {})
 	local items = state.Items
 	local _exp = function()
-		return collectOwned(state, config)
+		return InventoryMath.CollectOwned(state, config)
 	end
 	local _exp_1 = config.Items
 	local _result = items
@@ -1812,7 +1755,7 @@ local function InventoryView(_param)
 	end
 	local owned = React.useMemo(_exp, { _exp_1, _result, _result_1 })
 	local filtered = React.useMemo(function()
-		return sortOwned(searchOwned(filterOwned(owned, filter), search, rarity), config, sort)
+		return InventoryMath.SortOwned(InventoryMath.SearchOwned(InventoryMath.FilterOwned(owned, filter), search, rarity), config, sort)
 	end, { config.Items, filter, owned, rarity, search, sort })
 	-- ▼ ReadonlyArray.find ▼
 	local _callback_1 = function(entry)
@@ -1832,7 +1775,7 @@ local function InventoryView(_param)
 	end
 	local selected = _condition
 	local relicListRef = React.useRef()
-	local relicRowStride = relicRowHeight(stack) + ROW_GAP
+	local relicRowStride = InventoryMath.RelicRowHeight(stack) + ROW_GAP
 	React.useEffect(function()
 		if selected ~= nil and selected.uid ~= selectedUid then
 			setSelectedUid(selected.uid)
@@ -1854,7 +1797,7 @@ local function InventoryView(_param)
 			end
 		end
 		local top = SCROLL_PAD + selectedIndex * relicRowStride
-		local block = relicRowHeight(stack)
+		local block = InventoryMath.RelicRowHeight(stack)
 		local view = frame.AbsoluteWindowSize.Y
 		if view <= 1 then
 			return nil
@@ -1940,7 +1883,7 @@ local function InventoryView(_param)
 	local fieldH = if stack then math.max(TapTarget, 52) else TOOL_FIELD_DESK
 	local toolsH = if tab == "Relics" then toolPad * 2 + (if stack then 26 + toolGap else 0) + (if stack then fieldH * 2 + toolGap else fieldH) + toolGap + fieldH else 0
 	local _exp_5 = function()
-		return if selected ~= nil then socketTargets(state, config, selected.definition) else {}
+		return if selected ~= nil then InventoryMath.SocketTargets(state, config, selected.definition) else {}
 	end
 	local _result_7 = selected
 	if _result_7 ~= nil then
@@ -1950,7 +1893,7 @@ local function InventoryView(_param)
 	local chipRows = if selected ~= nil and selected.equippedOn == nil and #targetsForSelected > 0
 		then InventoryMath.ChipRows(#targetsForSelected, stack)
 		else 0
-	local inspectPanelH = if tab == "Relics" and selected ~= nil and not bulkMode then inspectPanelHeight(inspectSocketBlock(selected.equippedOn ~= nil, #targetsForSelected, chipRows, stack), stack) else 0
+	local inspectPanelH = if tab == "Relics" and selected ~= nil and not bulkMode then InventoryMath.InspectPanelHeight(InventoryMath.InspectSocketBlock(selected.equippedOn ~= nil, #targetsForSelected, chipRows, stack, TapTarget), stack) else 0
 	local detailH = if inspectPanelH > 0 then inspectPanelH + ROW_GAP else 0
 	local listH = math.max(1, #filtered) * relicRowStride
 	local listStart = heroH + pageGap + tabH + pageGap + toolsH + detailH + SCROLL_EDGE
@@ -1985,11 +1928,11 @@ local function InventoryView(_param)
 	local marketBannerH = if stack then 132 else MARKET_BANNER_H
 	local keysRefreshText = marketNow:map(function(timestamp)
 		local remaining = math.max(0, shopRefreshAt - timestamp)
-		return if remaining > 0 then `Keys refresh in {restockClock(remaining)}` else "Keys refreshing now…"
+		return if remaining > 0 then `Keys refresh in {InventoryMath.RestockClock(remaining)}` else "Keys refreshing now…"
 	end)
 	local refreshShort = marketNow:map(function(timestamp)
 		local remaining = math.max(0, shopRefreshAt - timestamp)
-		return if remaining > 0 then `Restock in {restockClock(remaining)}` else "Restocking…"
+		return if remaining > 0 then `Restock in {InventoryMath.RestockClock(remaining)}` else "Restocking…"
 	end)
 	local selectedForBulk = React.useMemo(function()
 		-- ▼ ReadonlyArray.filter ▼
@@ -2030,7 +1973,7 @@ local function InventoryView(_param)
 	end, { filtered })
 	local selectionEssence = 0
 	for _, item in selectedForBulk do
-		selectionEssence += salvagePreview(config, item.definition, item.instance.Level)
+		selectionEssence += InventoryMath.SalvagePreview(config, item.definition, item.instance.Level)
 	end
 	local _result_11 = state.Shop
 	if _result_11 ~= nil then
@@ -2054,8 +1997,8 @@ local function InventoryView(_param)
 	end
 	local serverAutoRules = _condition_6
 	local autoRules = autoDraft or serverAutoRules
-	local serverAutoSignature = autoSalvageSignature(serverAutoRules)
-	local draftAutoSignature = if autoDraft ~= nil then autoSalvageSignature(autoDraft) else nil
+	local serverAutoSignature = InventoryMath.AutoSalvageSignature(serverAutoRules, AUTO_RARITIES)
+	local draftAutoSignature = if autoDraft ~= nil then InventoryMath.AutoSalvageSignature(autoDraft, AUTO_RARITIES) else nil
 	React.useEffect(function()
 		if draftAutoSignature ~= nil and draftAutoSignature == serverAutoSignature then
 			setAutoDraft(nil)
@@ -2481,7 +2424,7 @@ local function InventoryView(_param)
 		table.insert(sections, {
 			id = "list",
 			fill = true,
-			minHeight = math.max(160, relicRowHeight(stack) + 48),
+			minHeight = math.max(160, InventoryMath.RelicRowHeight(stack) + 48),
 			element = listPane,
 		})
 		if bulkMode then
