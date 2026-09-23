@@ -61,6 +61,7 @@ return function()
 
 	local function awardCommandXP(profile, amount: number)
 		local value = math.max(0, math.floor(amount))
+		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
 		profile.Command.XP += value
 		profile.Command.SeasonXP += value
 	end
@@ -76,7 +77,7 @@ return function()
 			table.insert(parts, Format.Number(reward.Cash) .. " flux")
 		end
 		if reward.CashMinutes and reward.CashMinutes > 0 then
-			local generated = Economy.Max(500, Economy.Mul(production or Economy.Production(profile), 60 * reward.CashMinutes))
+			local generated = Economy.Max(500, Economy.Mul(production or Economy.SteadyProduction(profile), 60 * reward.CashMinutes))
 			profile.Cash = Economy.Add(profile.Cash, generated)
 			profile.RunCash = Economy.Add(profile.RunCash, generated)
 			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, generated)
@@ -105,6 +106,24 @@ return function()
 		if reward.StreakShield and reward.StreakShield > 0 then
 			profile.Command.StreakShields += reward.StreakShield
 			table.insert(parts, Format.Number(reward.StreakShield) .. " streak shield")
+		end
+		if reward.Essence and reward.Essence > 0 then
+			profile.Domain = profile.Domain or { Rank = 0, Essence = 0, Nodes = {}, SkillPoints = 0 }
+			profile.Domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0)) + math.floor(reward.Essence))
+			table.insert(parts, Format.Number(reward.Essence) .. " domain essence")
+		end
+		if reward.DomainEssence and reward.DomainEssence > 0 then
+			profile.Domain = profile.Domain or { Rank = 0, Essence = 0, Nodes = {}, SkillPoints = 0 }
+			profile.Domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0)) + math.floor(reward.DomainEssence))
+			table.insert(parts, Format.Number(reward.DomainEssence) .. " domain essence")
+		end
+		if reward.Fragments and reward.Fragments > 0 then
+			profile.Anomaly.Fragments += math.floor(reward.Fragments)
+			table.insert(parts, Format.Number(reward.Fragments) .. " fragments")
+		end
+		if reward.FreeSpins and reward.FreeSpins > 0 then
+			profile.Wheel.FreeSpins = math.max(0, math.floor(tonumber(profile.Wheel.FreeSpins) or 0)) + math.floor(reward.FreeSpins)
+			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
 		end
 		if type(reward.Keys) == "table" then
 			for crateId, amount in reward.Keys do
@@ -214,6 +233,34 @@ return function()
 			return profile.Stats.AnomalyStabilizations
 		elseif kind == "AnomalyProtocols" then
 			return profile.Stats.AnomalyProtocols
+		elseif kind == "ForgePathSteps" then
+			local claimed = 0
+			local forgePath = profile.ForgePath
+			if type(forgePath) == "table" and type(forgePath.ClaimedSteps) == "table" then
+				for _ in forgePath.ClaimedSteps do
+					claimed += 1
+				end
+			end
+			return claimed
+		elseif kind == "DailyStreak" then
+			return math.max(0, math.floor(tonumber(profile.Daily and profile.Daily.Streak) or 0))
+		elseif kind == "WheelSpins" then
+			return math.max(0, math.floor(tonumber(profile.Wheel and profile.Wheel.Spins) or 0))
+		elseif kind == "LabOrders" then
+			return math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.OrdersCompleted) or 0))
+		elseif kind == "DomainRank" or kind == "Domain" then
+			return math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0))
+		elseif kind == "StoryClaims" then
+			local count = 0
+			local claimed = profile.Story and profile.Story.Claimed
+			if type(claimed) == "table" then
+				for _, value in claimed do
+					if value == true then
+						count += 1
+					end
+				end
+			end
+			return count
 		end
 		return 0
 	end
@@ -656,18 +703,33 @@ return function()
 	-- that replaced the old three-way split between Progression Tree (skill grid), Prestige
 	-- (tier multipliers), and Season Pass (battle-pass chests). XP trickles in passively from
 	-- normal play (see the CollectVault handler, which is the sole XP source) and each of the
-	-- 40 steps (GameConfig.ForgePath.Steps) is claimed as one action that grants both a
+	-- 80 steps (GameConfig.ForgePath.Steps) is claimed as one action that grants both a
 	-- permanent stat bonus (Economy.ForgePathEffect reads ClaimedSteps the same way the old
 	-- tree read UnlockedNodes) and a one-time reward chest together.
 	local function ensureForgePath(profile)
 		if type(profile.ForgePath) ~= "table" then
-			profile.ForgePath = { ClaimedSteps = {}, XP = 0 }
+			profile.ForgePath = { ClaimedSteps = {}, XP = 0, XPDay = -1, XPEarnedToday = 0 }
 		end
 	end
 
 	local function awardForgePathXP(profile, amount: number)
 		ensureForgePath(profile)
 		local value = math.max(0, math.floor(amount))
+		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "ForgePathXP")))
+		local config = GameConfig.Economy.ForgePathXP
+		if type(config) == "table" then
+			local day = currentDay()
+			if profile.ForgePath.XPDay ~= day then
+				profile.ForgePath.XPDay = day
+				profile.ForgePath.XPEarnedToday = 0
+			end
+			local earned = math.max(0, math.floor(tonumber(profile.ForgePath.XPEarnedToday) or 0))
+			local softCap = math.max(1, math.floor(tonumber(config.DailySoftCap) or 12_000))
+			if earned >= softCap then
+				value = math.max(0, math.floor(value * (tonumber(config.SoftCapScale) or 0.35)))
+			end
+			profile.ForgePath.XPEarnedToday = earned + value
+		end
 		profile.ForgePath.XP += value
 	end
 	ProgressionService.AwardForgePathXP = awardForgePathXP
@@ -699,7 +761,7 @@ return function()
 		end
 		profile.ForgePath.XP -= step.XPCost
 		profile.ForgePath.ClaimedSteps[key] = true
-		return true, ProgressionService.ApplyReward(profile, step.Reward, Economy.Production(profile))
+		return true, ProgressionService.ApplyReward(profile, step.Reward, Economy.SteadyProduction(profile))
 	end
 
 	function ProgressionService.ForgePathState(profile)
@@ -711,6 +773,9 @@ return function()
 		return {
 			ClaimedSteps = claimed,
 			XP = profile.ForgePath.XP,
+			StepCount = GameConfig.ForgePath.StepCount or #GameConfig.ForgePath.Steps,
+			ChapterMarks = GameConfig.ForgePath.ChapterMarks,
+			XPEarnedToday = math.max(0, math.floor(tonumber(profile.ForgePath.XPEarnedToday) or 0)),
 		}
 	end
 
