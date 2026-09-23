@@ -16,6 +16,7 @@ local Palette = _theme.Palette
 local TapTarget = _theme.TapTarget
 local scrollTail = _theme.scrollTail
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -513,12 +514,41 @@ local function LabView(_param)
 		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 	end
 	-- ▲ ReadonlyArray.map ▲
+	local orderStride = orderH + ORDER_GAP
+	local virtOrders = #lab.Orders >= 6
 	local ordersBlock = if #lab.Orders == 0 then React.createElement(EmptyState, {
 		icon = "Lab",
 		title = "No orders yet",
 		body = (guide and guide.EmptyOrders) or "Orders refresh at the lab reset clock.",
 		accent = Palette.mint,
 		reducedMotion = reducedMotion,
+	}) elseif virtOrders then React.createElement(FlatList, {
+		data = lab.Orders,
+		itemHeight = orderStride,
+		overscan = 2,
+		canvasTail = 8,
+		Size = UDim2.fromScale(1, 1),
+		scrollBarColor = Palette.mint,
+		scrollBarThickness = SCROLL_BAR,
+		keyExtractor = function(orderState)
+			return orderState.Id
+		end,
+		renderItem = function(_param_1)
+			local orderState = _param_1.item
+			local index = _param_1.index
+			local orderConfig = orderConfigs[orderState.Id]
+			if orderConfig == nil then
+				return nil
+			end
+			return React.createElement(OrderRow, {
+				state = orderState,
+				config = orderConfig,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+				order = index,
+				stack = stack,
+			})
+		end,
 	}) else React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -612,7 +642,8 @@ local function LabView(_param)
 			},
 			{
 				id = "orders",
-				height = orderBlock,
+				-- Long order boards virtualize in a fixed viewport so Power Board stays reachable below.
+				height = if virtOrders then math.min(orderBlock, orderStride * 4) else orderBlock,
 				element = ordersBlock,
 			},
 			{

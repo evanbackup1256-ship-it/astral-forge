@@ -5,6 +5,7 @@ local Audio = require(script.Parent.Parent.audio).Audio
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
+local formatReward = _format.formatReward
 local _Icon = require(script.Parent.Parent.Icon)
 local Icon = _Icon.Icon
 local WheelPrizeViewport = _Icon.WheelPrizeViewport
@@ -26,6 +27,7 @@ local lighten = _theme.lighten
 local scrollTail = _theme.scrollTail
 local surfaceGradient = _theme.surfaceGradient
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -1091,6 +1093,42 @@ local function WheelConsole(_param)
 		highlight = canSpin and not controller.spinning,
 	}))
 end
+local PRIZE_ROW_H = 56
+local function PrizeCatalogRow(_param)
+	local reward = _param.reward
+	local weightTotal = _param.weightTotal
+	local reducedMotion = _param.reducedMotion
+	local chance = if weightTotal > 0 then (reward.Weight / weightTotal) * 100 else 0
+	return React.createElement(Panel, {
+		size = UDim2.new(1, 0, 0, PRIZE_ROW_H - 6),
+		accent = reward.Color,
+		background = Palette.panel,
+		padding = 10,
+		reducedMotion = reducedMotion,
+		clips = false,
+	}, React.createElement(Text, {
+		value = reward.Name or reward.Id,
+		size = 14,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		sizeConstraint = UDim2.new(1, -110, 0, 20),
+	}), React.createElement(Text, {
+		value = `{reward.Rarity} · {string.format("%.1f", chance)}%`,
+		size = 11,
+		color = reward.Color,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		position = UDim2.fromOffset(0, 22),
+		sizeConstraint = UDim2.new(1, -110, 0, 16),
+	}), React.createElement(Badge, {
+		value = reward.ShortLabel or formatReward(reward.Reward),
+		accent = reward.Color,
+		filled = true,
+		position = UDim2.new(1, -100, 0.5, -12),
+		size = UDim2.fromOffset(100, 24),
+	}))
+end
 local function WheelView(props)
 	local _binding = props
 	local state = _binding.state
@@ -1132,6 +1170,29 @@ local function WheelView(props)
 	local headline = if narrowPortrait then "Spin it. Win something." else "Your next prize is one spin away."
 	local descriptor = if narrowPortrait then `{#rewards} prizes / rare-win protection` else `{#rewards} prizes  /  better odds after every miss`
 	local containedEffects = chrome.portrait or shortLandscape or viewport.width <= 420 or (landscape and viewport.height <= 480)
+	local weightTotal = 0
+	for _, reward in rewards do
+		weightTotal += reward.Weight or 0
+	end
+	local prizeList = React.createElement(FlatList, {
+		data = rewards,
+		itemHeight = PRIZE_ROW_H,
+		overscan = 2,
+		canvasTail = 8,
+		Size = UDim2.fromScale(1, 1),
+		scrollBarColor = accent,
+		scrollBarThickness = 3,
+		keyExtractor = function(reward)
+			return reward.Id
+		end,
+		renderItem = function(_param_1)
+			return React.createElement(PrizeCatalogRow, {
+				reward = _param_1.item,
+				weightTotal = weightTotal,
+				reducedMotion = softMotion,
+			})
+		end,
+	})
 	return React.createElement(PageScaffold, {
 		gap = 0,
 		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 40),
@@ -1201,6 +1262,23 @@ local function WheelView(props)
 					reducedMotion = reducedMotion,
 					compact = shortLandscape,
 				}))),
+			},
+			{
+				id = "prizes-label",
+				height = 28,
+				element = React.createElement(Text, {
+					value = "PRIZE TABLE",
+					size = 11,
+					color = Palette.mango,
+					weight = Enum.FontWeight.Heavy,
+					sizeConstraint = UDim2.new(1, 0, 0, 20),
+				}),
+			},
+			{
+				id = "prizes",
+				fill = true,
+				minHeight = math.max(140, PRIZE_ROW_H * 3),
+				element = prizeList,
 			},
 		},
 	})

@@ -20,6 +20,7 @@ local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local EmptyState = _ui.EmptyState
@@ -873,7 +874,11 @@ local function LeaderboardsView(_param)
 	local hasEntries = #ranked > 0
 	local remaining = math.max(0, #ranked - 3)
 	local ranksLabelH = 22
-	local ranksListH = if hasEntries then math.max(remaining, 0) * (ROW_H + ROW_GAP) - (if remaining > 0 then ROW_GAP else 0) else 0
+	local rankStride = ROW_H + ROW_GAP
+	local ranksListH = if hasEntries then (
+		if remaining >= 8 then math.min(remaining, 12) * rankStride - ROW_GAP
+		else math.max(remaining, 0) * rankStride - (if remaining > 0 then ROW_GAP else 0)
+	) else 0
 	local emptyOrLoadingH = 160
 	local ranksSectionH = if hasEntries then ranksLabelH + ranksListH else emptyOrLoadingH
 	local leaderTail = scrollTail(stack, chrome.bottomSafe, 56)
@@ -1088,23 +1093,66 @@ local function LeaderboardsView(_param)
 			size = UDim2.fromScale(1, 1),
 		})
 	else
-		local rest = {}
+		local restEntries = {}
 		local restCount = 0
 		for index, entry in ranked do
 			if index > 3 then
 				restCount += 1
-				rest[restCount] = React.createElement(RankRow, {
-					key = `{selected}-{entry.UserId}`,
+				restEntries[restCount] = entry
+			end
+		end
+		local rankStride = ROW_H + ROW_GAP
+		local virtRanks = restCount >= 8
+		local ranksBody = if virtRanks then React.createElement(FlatList, {
+			data = restEntries,
+			itemHeight = rankStride,
+			overscan = 2,
+			canvasTail = 8,
+			Size = UDim2.new(1, 0, 0, ranksListH),
+			scrollBarColor = meta.accent,
+			scrollBarThickness = 3,
+			keyExtractor = function(entry)
+				return `{selected}-{entry.UserId}`
+			end,
+			renderItem = function(_param_1)
+				local entry = _param_1.item
+				local index = _param_1.index
+				local rank = index + 4
+				return React.createElement(RankRow, {
 					entry = entry,
-					rank = index,
+					rank = rank,
 					meta = meta,
 					isLocal = entry.UserId == localId,
-					layoutOrder = index,
+					layoutOrder = rank,
+					reducedMotion = reducedMotion,
+					stack = stack,
+				})
+			end,
+		}) else (function()
+			local rest = {}
+			for index, entry in restEntries do
+				rest[index] = React.createElement(RankRow, {
+					key = `{selected}-{entry.UserId}`,
+					entry = entry,
+					rank = index + 3,
+					meta = meta,
+					isLocal = entry.UserId == localId,
+					layoutOrder = index + 3,
 					reducedMotion = reducedMotion,
 					stack = stack,
 				})
 			end
-		end
+			return React.createElement("frame", {
+				Size = UDim2.new(1, 0, 0, ranksListH),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+			}, React.createElement("uilistlayout", {
+				FillDirection = Enum.FillDirection.Vertical,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, ROW_GAP),
+			}), rest)
+		end)()
 		ranksPane = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -1127,11 +1175,7 @@ local function LeaderboardsView(_param)
 			BorderSizePixel = 0,
 			LayoutOrder = 1,
 			ClipsDescendants = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, ROW_GAP),
-		}), rest))
+		}, ranksBody))
 	end
 	local sections = {
 		{

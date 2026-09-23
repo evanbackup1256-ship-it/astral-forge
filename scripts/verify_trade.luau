@@ -216,8 +216,9 @@ do
 	assert(not string.find(desk, "Packages/", 1, true))
 
 	local view = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
-	assert(string.find(view, "CONFIRM_TRADE_TREE:compact", 1, true), "compact ConfirmTrade tree marker")
-	assert(string.find(view, "CONFIRM_TRADE_TREE:desktop", 1, true), "desktop ConfirmTrade tree marker")
+	assert(string.find(view, "CONFIRM_TRADE_TREE:shared", 1, true), "shared ConfirmTrade tree marker")
+	assert(not string.find(view, "CONFIRM_TRADE_TREE:compact", 1, true), "compact Confirm tree must be collapsed into shared")
+	assert(not string.find(view, "CONFIRM_TRADE_TREE:desktop", 1, true), "desktop Confirm tree must be collapsed into shared")
 	assert(string.find(view, "CONFIRM_TRADE_PANEL", 1, true), "shared Confirm panel marker")
 	assert(string.find(view, "buildConfirmActions", 1, true), "shared Confirm panel builder")
 	assert(string.find(view, "onConfirmClick", 1, true), "shared confirm handler")
@@ -248,21 +249,22 @@ do
 	assert(string.find(view, "GamepadNavigationService.FocusClaim", 1, true), "session actions must FocusClaim")
 	assert(string.find(view, "GamepadNavigationService.BeginOverlayFocus", 1, true), "session actions must BeginOverlayFocus")
 	assert(string.find(view, "GamepadNavigationService.EndOverlayFocus", 1, true), "session actions must EndOverlayFocus on exit")
-	-- Compact + desktop call the same buildConfirmActions panel (vertical vs horizontal).
-	-- Compact pins that panel below PageScaffold so long offer lists never bury Ready/Confirm.
+	assert(not string.find(view, 'createElement("scrollingframe"', 1, true), "TradeView must have zero raw scrollingframes")
+	assert(string.find(view, "FlatList", 1, true), "Trade roster must FlatList long catalogs")
+	-- Shared pin+PageScaffold tree: orientation differs; handlers + pin stay identical.
 	assert(
 		string.find(view, "Shared action handlers for CONFIRM_TRADE_TREE", 1, true),
 		"TradeView must document shared handlers across Confirm trees"
 	)
 	assert(
 		string.find(view, 'Position = UDim2.new(0, 0, 1, -actionH)', 1, true),
-		"Ready/Confirm must pin to bottom on compact+desktop session chrome"
+		"Ready/Confirm must pin to bottom on shared session chrome"
 	)
 	local pinCount = 0
 	for _ in string.gmatch(view, 'Position = UDim2%.new%(0, 0, 1, %-actionH%)') do
 		pinCount += 1
 	end
-	assert(pinCount >= 2, "compact+desktop must both pin Confirm actions, got " .. tostring(pinCount))
+	assert(pinCount >= 1, "shared Confirm tree must pin actions, got " .. tostring(pinCount))
 end
 
 

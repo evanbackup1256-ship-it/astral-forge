@@ -20,6 +20,7 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
@@ -158,30 +159,40 @@ local function ForgePathViewComponent(_param)
 	local stepsBlockH = if totalCount == 0 then 160 else totalCount * stepRowHeight + math.max(0, totalCount - 1) * listGap
 	local progressFrac = if totalCount > 0 then claimedCount / totalCount else 0
 	local heroBlurb = (guide and guide.HeroBlurb) or "One track. Every step pays out."
-	local rows = table.create(#steps)
-	for index, step in steps do
-		rows[index] = React.createElement(ForgePathRow, {
-			key = step.Step, step = step, claimed = claimedSet[step.Step] ~= nil,
-			unlockedForClaim = step.Step == 1 or claimedSet[step.Step - 1] ~= nil,
-			affordable = forgePath.XP >= step.XPCost, xp = forgePath.XP, onClaim = onClaim,
-			reducedMotion = reducedMotion, index = index + 1, stack = stack,
-		})
-	end
+	local stepStride = stepRowHeight + listGap
 	local stepsElement = if totalCount == 0 then React.createElement(EmptyState, {
 		icon = "Forge",
 		title = "Forge Path offline",
 		body = "Steps load from GameConfig.ForgePath.Steps.",
 		accent = Palette.violet,
 		reducedMotion = reducedMotion,
-	}) else React.createElement("frame", {
+	}) else React.createElement(FlatList, {
+		data = steps,
+		itemHeight = stepStride,
+		overscan = 2,
+		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, listGap),
-	}), rows)
+		scrollBarColor = Palette.violet,
+		scrollBarThickness = 4,
+		keyExtractor = function(step)
+			return step.Step
+		end,
+		renderItem = function(_param_1)
+			local step = _param_1.item
+			local index = _param_1.index
+			return React.createElement(ForgePathRow, {
+				step = step,
+				claimed = claimedSet[step.Step] ~= nil,
+				unlockedForClaim = step.Step == 1 or claimedSet[step.Step - 1] ~= nil,
+				affordable = forgePath.XP >= step.XPCost,
+				xp = forgePath.XP,
+				onClaim = onClaim,
+				reducedMotion = reducedMotion,
+				index = index + 1,
+				stack = stack,
+			})
+		end,
+	})
 	return React.createElement(PageScaffold, {
 		gap = listGap,
 		tailPad = scrollTail(stack, chrome.bottomSafe, 48),
@@ -210,7 +221,8 @@ local function ForgePathViewComponent(_param)
 			},
 			{
 				id = "steps",
-				height = stepsBlockH,
+				fill = true,
+				minHeight = math.max(160, stepStride * 2),
 				element = stepsElement,
 			},
 		},

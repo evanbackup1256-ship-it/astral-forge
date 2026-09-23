@@ -13,6 +13,7 @@ local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
 local useViewport = _motion.useViewport
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
@@ -1112,58 +1113,34 @@ local function TradeView(_param)
 			position = UDim2.new(1, -108, 0, 8),
 			size = UDim2.fromOffset(108, 28),
 		}))
-		if flow then
-			return React.createElement("frame", {
-				Size = UDim2.new(1, 0, 0, 0),
-				AutomaticSize = Enum.AutomaticSize.Y,
-				BackgroundColor3 = Palette.panel,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-				LayoutOrder = flowOrder,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 12),
-			}), React.createElement(Stroke, {
-				color = paneAccent,
-				thickness = 1,
-				transparency = 0.42,
-			}), React.createElement("uipadding", {
-				PaddingTop = UDim.new(0, 12),
-				PaddingBottom = UDim.new(0, 12),
-				PaddingLeft = UDim.new(0, 12),
-				PaddingRight = UDim.new(0, 12),
-			}), React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Vertical,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 8),
-			}), header, offerBody(editor, lines))
+		-- Always flow-size the pane: PageScaffold / parent FlatList owns scroll so TradeView
+		-- stays free of raw scrollingframe literals (playability allowlist → 0).
+		if flow == false then
+			flow = true
 		end
-		return React.createElement(Panel, {
-			size = UDim2.fromScale(1, 1),
-			accent = paneAccent,
-			padding = if compactTrade then 12 else Layout.cardPadding,
-			clips = true,
-			reducedMotion = reducedMotion,
-		}, header, React.createElement("scrollingframe", {
-			Size = UDim2.new(1, 0, 1, -58),
-			Position = UDim2.fromOffset(0, 56),
-			BackgroundTransparency = 1,
+		return React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = Palette.panel,
 			BorderSizePixel = 0,
-			ScrollBarThickness = 5,
-			ScrollBarImageColor3 = paneAccent,
-			ScrollBarImageTransparency = 0.2,
-			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-			CanvasSize = UDim2.new(0, 0, 0, 0),
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ClipsDescendants = true,
-			Active = true,
-			Selectable = false,
-		}, React.createElement("uilistlayout", {
+			ClipsDescendants = false,
+			LayoutOrder = flowOrder,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 12),
+		}), React.createElement(Stroke, {
+			color = paneAccent,
+			thickness = 1,
+			transparency = 0.42,
+		}), React.createElement("uipadding", {
+			PaddingTop = UDim.new(0, 12),
+			PaddingBottom = UDim.new(0, 12),
+			PaddingLeft = UDim.new(0, 12),
+			PaddingRight = UDim.new(0, 12),
+		}), React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 8),
-		}), offerBody(editor, lines)))
+		}), header, offerBody(editor, lines))
 	end
 	-- daily.Limit has shown up empty in the wild despite the type claiming it's
 	-- always a number — falling back to the client's own config mirror keeps
@@ -1182,7 +1159,7 @@ local function TradeView(_param)
 	end
 	local dailyLimit = _condition_4
 	local dailyLabel = if daily ~= nil and dailyLimit ~= nil then `{daily.Completed} / {dailyLimit} trades today` else "Daily limits on every side"
-	-- Shared action handlers for CONFIRM_TRADE_TREE:compact / :desktop via one Confirm panel builder.
+	-- Shared action handlers for CONFIRM_TRADE_TREE:shared (compact+desktop) via one Confirm panel builder.
 	-- Orientation differs (vertical stack vs horizontal flex); predicates + handlers stay identical.
 	local function onReadyClick()
 		if tableEmpty and not youReadyLocal then
@@ -1411,11 +1388,23 @@ local function TradeView(_param)
 	end
 	-- ▲ ReadonlyArray.map ▲
 	local rosterCards = _newValue
-	if compactTrade and session ~= nil then
-		-- Pin Ready/Confirm/Cancel below the scaffold so long offer lists (internal Y scroll)
-		-- never push the Confirm panel off a short viewport. PageScaffold owns status/tabs/offer only.
-		-- CONFIRM_TRADE_TREE:compact
-		local pinnedActions = buildConfirmActions("vertical")
+	if session ~= nil then
+		-- CONFIRM_TRADE_TREE:shared — one pin+PageScaffold tree for compact and desktop.
+		-- Offer panes are flow-sized; fill section content-floor lets PageScaffold scroll long offers
+		-- so Ready/Confirm stay pinned without a second raw scrollingframe.
+		local pinnedActions = buildConfirmActions(if compactTrade then "vertical" else "horizontal")
+		local stepRow = if phone then TapTarget + 10 else 48
+		local lineRow = if phone then 64 else 58
+		local function offerFloor(editor, lines)
+			local header = 96
+			if not editor then
+				return header + math.max(#lines, 1) * lineRow + 24
+			end
+			return header + 40 + 6 * stepRow + 140 + math.min(#relics, 24) * stepRow
+		end
+		local youFloor = offerFloor(true, yourLines)
+		local themFloor = offerFloor(false, theirLines)
+		local offerContentFloor = if compactTrade then (if offerTab == "You" then youFloor else themFloor) else math.max(youFloor, themFloor)
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -1479,7 +1468,25 @@ local function TradeView(_param)
 				id = "offer",
 				fill = true,
 				minHeight = 120,
-				element = if offerTab == "You" then offerPane("YOUR OFFER", `{#yourLines} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true) else offerPane(string.upper(session.PartnerName), if session.ThemReady then "They locked their side" else "Still arranging", session.ThemReady, session.ThemConfirmed, theirLines, false),
+				height = offerContentFloor,
+				element = if compactTrade then (
+					if offerTab == "You" then offerPane("YOUR OFFER", `{#yourLines} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true) else offerPane(string.upper(session.PartnerName), if session.ThemReady then "They locked their side" else "Still arranging", session.ThemReady, session.ThemConfirmed, theirLines, false, true)
+				) else React.createElement("frame", {
+					Size = UDim2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}, React.createElement("frame", {
+					Size = UDim2.new(0.49, -4, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}, offerPane("YOUR OFFER", `{#yourLines} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true)), React.createElement("frame", {
+					Size = UDim2.new(0.49, -4, 0, 0),
+					Position = UDim2.new(0.51, 4, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}, offerPane(string.upper(session.PartnerName), if session.ThemReady then "They locked their side" else "Still arranging", session.ThemReady, session.ThemConfirmed, theirLines, false, true))),
 			} },
 		})), React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, actionH),
@@ -1489,7 +1496,8 @@ local function TradeView(_param)
 			ZIndex = 6,
 		}, pinnedActions))
 	end
-	if compactTrade then
+	do
+		-- Invite/roster board (compact+desktop): PageScaffold owns scroll; FlatList virtualizes long rosters.
 		local _exp_4 = React.createElement(Text, {
 			value = dailyLabel,
 			size = 14,
@@ -1749,7 +1757,23 @@ local function TradeView(_param)
 				element = _exp_7,
 			})
 		end
-		local rosterElement = if _exp_8 then _exp_8 else React.createElement("frame", {
+		local rosterElement = if _exp_8 then _exp_8 elseif #visibleRows >= 8 then React.createElement(FlatList, {
+			data = visibleRows,
+			itemHeight = rosterStride,
+			overscan = 2,
+			canvasTail = 8,
+			Size = UDim2.fromScale(1, 1),
+			scrollBarColor = accent,
+			scrollBarThickness = 4,
+			keyExtractor = function(row)
+				return row.UserId
+			end,
+			renderItem = function(_param_1)
+				local row = _param_1.item
+				local index = _param_1.index
+				return rosterCards[index + 1]
+			end,
+		}) else React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
@@ -1762,7 +1786,9 @@ local function TradeView(_param)
 			id = "roster",
 			fill = true,
 			minHeight = 120,
-			height = rosterFloor,
+			-- Long rosters virtualize inside FlatList (no content-floor); short lists keep a floor
+			-- so PageScaffold can still scroll the invite chrome when the board is sparse.
+			height = if #visibleRows >= 8 then nil else rosterFloor,
 			element = rosterElement,
 		})
 		if _condition_6 then
@@ -1780,365 +1806,6 @@ local function TradeView(_param)
 			sections = sections,
 		})
 	end
-	local _exp_2 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, headerH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 8),
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement(Text, {
-		value = dailyLabel,
-		size = 13,
-		color = Palette.mint,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		layoutOrder = 0,
-		sizeConstraint = UDim2.new(0, 220, 1, 0),
-		transparency = fade,
-	}), session ~= nil and React.createElement(StatusChip, {
-		label = if sessionLeft > 0 then `Table {clockLabel(session.ExpiresAt, now)}` else "Table expired",
-		live = sessionLeft > 12,
-		accent = if sessionLeft > 12 then Palette.mint else Palette.coral,
-	}), confirmLeft > 0 and React.createElement(StatusChip, {
-		label = `Confirm {clockLabel(session.ConfirmEndsAt, now)}`,
-		live = true,
-		accent = Palette.mango,
-	}))
-	local _condition_5 = lockBanner and session == nil
-	if _condition_5 then
-		local _exp_3 = React.createElement(Text, {
-			value = "Player trading is locked",
-			size = 14,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
-			sizeConstraint = UDim2.new(1, 0, 0, 20),
-		})
-		local _attributes = {}
-		local _result_11 = lock
-		if _result_11 ~= nil then
-			_result_11 = _result_11.Requirement
-		end
-		local _condition_6 = _result_11
-		if _condition_6 == nil then
-			_condition_6 = "Complete your first rebirth."
-		end
-		_attributes.value = _condition_6
-		_attributes.size = 12
-		_attributes.color = Palette.creamSoft
-		_attributes.wrap = true
-		_attributes.position = UDim2.fromOffset(0, 22)
-		_attributes.sizeConstraint = UDim2.new(1, 0, 0, 36)
-		_condition_5 = React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, lockH - 6),
-			position = UDim2.fromOffset(0, headerH + 6),
-			accent = Palette.muted,
-			padding = if compactTrade then 12 else Layout.cardPadding,
-			reducedMotion = reducedMotion,
-		}, _exp_3, React.createElement(Text, _attributes))
-	end
-	local _exp_3 = inviteLive and session == nil and React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, inviteH),
-		position = UDim2.fromOffset(0, headerH + 6 + lockH),
-		accent = Palette.cyan,
-		padding = if compactTrade then 12 else Layout.cardPadding,
-		reducedMotion = reducedMotion,
-	}, React.createElement(AvatarMark, {
-		userId = invite.FromUserId,
-		accent = Palette.cyan,
-		size = 44,
-	}), React.createElement(Text, {
-		value = `{invite.FromName} invited you`,
-		size = 16,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(56, 2),
-		sizeConstraint = UDim2.new(1, if compactTrade then -56 else -236, 0, 22),
-	}), React.createElement(Text, {
-		value = `Accept to open a live table · {clockLabel(invite.ExpiresAt, now)} left`,
-		size = 12,
-		color = Palette.creamSoft,
-		fit = true,
-		position = UDim2.fromOffset(56, 26),
-		sizeConstraint = UDim2.new(1, if compactTrade then -56 else -236, 0, 18),
-	}), if compactTrade then React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, TapTarget),
-		Position = UDim2.new(0, 0, 1, -TapTarget),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(Button, {
-		text = "ACCEPT",
-		onClick = function()
-			return run("RespondTrade", {
-				Accept = true,
-			})
-		end,
-		color = Palette.mint,
-		textColor = Palette.ink,
-		size = UDim2.new(0.48, -4, 1, 0),
-		disabled = busy ~= "",
-		loading = busy == "RespondTrade",
-		shakeToken = shakeFor("RespondTrade"),
-		reducedMotion = reducedMotion,
-		highlight = true,
-	}), React.createElement(Button, {
-		text = "DECLINE",
-		onClick = function()
-			return run("RespondTrade", {
-				Accept = false,
-			})
-		end,
-		color = Palette.coral,
-		textColor = Palette.ink,
-		size = UDim2.new(0.48, -4, 1, 0),
-		position = UDim2.new(0.52, 4, 0, 0),
-		disabled = busy ~= "",
-		loading = busy == "RespondTrade",
-		shakeToken = shakeFor("RespondTrade"),
-		reducedMotion = reducedMotion,
-	})) else React.createElement("frame", {
-		Size = UDim2.new(0, 220, 0, 40),
-		Position = UDim2.new(1, -220, 0.5, -20),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(Button, {
-		text = "ACCEPT",
-		onClick = function()
-			return run("RespondTrade", {
-				Accept = true,
-			})
-		end,
-		color = Palette.mint,
-		textColor = Palette.ink,
-		size = UDim2.new(0.48, -4, 1, 0),
-		disabled = busy ~= "",
-		loading = busy == "RespondTrade",
-		shakeToken = shakeFor("RespondTrade"),
-		reducedMotion = reducedMotion,
-		highlight = true,
-	}), React.createElement(Button, {
-		text = "DECLINE",
-		onClick = function()
-			return run("RespondTrade", {
-				Accept = false,
-			})
-		end,
-		color = Palette.coral,
-		textColor = Palette.ink,
-		size = UDim2.new(0.48, -4, 1, 0),
-		position = UDim2.new(0.52, 4, 0, 0),
-		disabled = busy ~= "",
-		loading = busy == "RespondTrade",
-		shakeToken = shakeFor("RespondTrade"),
-		reducedMotion = reducedMotion,
-	})))
-	local _exp_4 = outgoingLive and session == nil and not inviteLive and React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, 64),
-		position = UDim2.fromOffset(0, headerH + 6 + lockH),
-		accent = Palette.mango,
-		padding = if compactTrade then 12 else Layout.cardPadding,
-		reducedMotion = reducedMotion,
-	}, React.createElement(Icon, {
-		kind = "Timer",
-		color = Palette.mango,
-		accent = Palette.mango,
-		size = 22,
-		position = UDim2.fromOffset(2, 6),
-		clipSafe = true,
-		spin = false,
-	}), React.createElement(Text, {
-		value = `Waiting on {outgoing.ToName}`,
-		size = 15,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(32, 2),
-		sizeConstraint = UDim2.new(1, -140, 0, 22),
-	}), React.createElement(Text, {
-		value = `Invite expires in {clockLabel(outgoing.ExpiresAt, now)}`,
-		size = 12,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		position = UDim2.fromOffset(32, 26),
-		sizeConstraint = UDim2.new(1, -140, 0, 16),
-	}), React.createElement(Button, {
-		text = "CANCEL",
-		onClick = function()
-			return run("CancelTrade")
-		end,
-		color = Palette.coral,
-		textColor = Palette.ink,
-		size = if phone then UDim2.fromOffset(84, TapTarget) else UDim2.fromOffset(96, 36),
-		position = if phone then UDim2.new(1, -84, 0.5, -TapTarget / 2) else UDim2.new(1, -96, 0.5, -18),
-		disabled = busy ~= "",
-		loading = busy == "CancelTrade",
-		shakeToken = shakeFor("CancelTrade"),
-		reducedMotion = reducedMotion,
-	}))
-	local _condition_6 = session == nil
-	if _condition_6 then
-		local _exp_5 = React.createElement(SearchField, {
-			value = query,
-			onChange = setQuery,
-			accent = accent,
-			placeholder = "Find a forgemaster",
-			size = UDim2.new(1, -(searchH + 8), 0, searchH),
-			reducedMotion = reducedMotion,
-		})
-		local _exp_6 = React.createElement(Button, {
-			text = "",
-			icon = "Refresh",
-			onClick = function()
-				return loadRoster()
-			end,
-			color = Palette.panelSoft,
-			textColor = Palette.cream,
-			size = UDim2.fromOffset(searchH, searchH),
-			position = UDim2.new(1, -searchH, 0, 0),
-			reducedMotion = reducedMotion,
-		})
-		local _exp_7 = React.createElement("scrollingframe", {
-			Size = UDim2.new(1, 0, 1, -(searchH + 8 + TapTarget + 8)),
-			Position = UDim2.fromOffset(0, searchH + 8),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 4,
-			ScrollBarImageColor3 = accent,
-			ScrollBarImageTransparency = 0.2,
-			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-			CanvasSize = UDim2.new(0, 0, 0, 0),
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ClipsDescendants = true,
-			Active = true,
-			Selectable = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 8),
-		}), #visibleRows == 0 and React.createElement(EmptyState, {
-			icon = "Crew",
-			title = if #rows == 0 then "Server is quiet" else "No match",
-			body = if #rows == 0 then ((config.ClientPageGuides and config.ClientPageGuides.Trade and config.ClientPageGuides.Trade.EmptyBoard) or "Nobody else is in this server. Invites only work here.") else "Try a different name.",
-			accent = accent,
-			compact = true,
-			reducedMotion = reducedMotion,
-		}), rosterCards)
-		local _attributes = {
-			text = if selectedRow ~= nil then `INVITE  {string.upper(selectedRow.DisplayName)}` else "CHOOSE SOMEONE",
-			icon = "Send",
-			onClick = function()
-				if selected ~= 0 then
-					run("InviteTrade", {
-						UserId = selected,
-					})
-				end
-			end,
-			color = accent,
-			textColor = Palette.ink,
-			size = UDim2.new(1, 0, 0, TapTarget),
-			position = UDim2.new(0, 0, 1, -TapTarget),
-		}
-		local _condition_7 = selected == 0 or busy ~= ""
-		if not _condition_7 then
-			local _condition_8 = outgoingLive
-			if _condition_8 then
-				local _result_11 = outgoing
-				if _result_11 ~= nil then
-					_result_11 = _result_11.ToUserId
-				end
-				_condition_8 = _result_11 == selected
-			end
-			_condition_7 = _condition_8
-			if not _condition_7 then
-				_condition_7 = not unlocked
-			end
-		end
-		_attributes.disabled = _condition_7
-		_attributes.loading = busy == "InviteTrade"
-		_attributes.shakeToken = shakeFor("InviteTrade")
-		_attributes.reducedMotion = reducedMotion
-		_attributes.highlight = true
-		_condition_6 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 1, -(headerH + 8 + noticeH)),
-			Position = UDim2.fromOffset(0, headerH + 8 + noticeH),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, _exp_5, _exp_6, _exp_7, React.createElement(Button, _attributes))
-	end
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, _exp_2, _condition_5, _exp_3, _exp_4, _condition_6, session ~= nil and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 1, -(headerH + 8)),
-		Position = UDim2.fromOffset(0, headerH + 8),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("scrollingframe", {
-		Size = UDim2.new(1, 0, 0, statusH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 0,
-		ScrollingDirection = Enum.ScrollingDirection.X,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.X,
-		ElasticBehavior = Enum.ElasticBehavior.Never,
-		ClipsDescendants = false,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 8),
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement(StatusChip, {
-		label = if sessionLeft > 0 then `Table {clockLabel(session.ExpiresAt, now)}` else "Table expired",
-		live = sessionLeft > 12,
-		accent = if sessionLeft > 12 then Palette.mint else Palette.coral,
-	}), confirmLeft > 0 and React.createElement(StatusChip, {
-		label = `Confirm {clockLabel(session.ConfirmEndsAt, now)}`,
-		live = true,
-		accent = Palette.mango,
-	}), React.createElement(StatusChip, {
-		label = if youReadyLocal then "You ready" else "You editing",
-		live = youReadyLocal,
-		accent = accent,
-	}), React.createElement(StatusChip, {
-		label = if session.ThemReady then `{session.PartnerName} ready` else `Waiting on {session.PartnerName}`,
-		live = session.ThemReady,
-		accent = Palette.cyan,
-	}), React.createElement(StatusChip, {
-		label = if session.YouConfirmed then "You confirmed" elseif bothReady then "Tap confirm" else "Ready first",
-		live = session.YouConfirmed,
-		accent = Palette.mango,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 1, -(statusH + 10 + actionH)),
-		Position = UDim2.fromOffset(0, statusH + 8),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("frame", {
-		Size = UDim2.new(0.49, -4, 1, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, offerPane("YOUR OFFER", `{#yourLines} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true)), React.createElement("frame", {
-		Size = UDim2.new(0.49, -4, 1, 0),
-		Position = UDim2.new(0.51, 4, 0, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, offerPane(string.upper(session.PartnerName), if session.ThemReady then "They locked their side" else "Still arranging", session.ThemReady, session.ThemConfirmed, theirLines, false))), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, actionH),
-		Position = UDim2.new(0, 0, 1, -actionH),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		-- CONFIRM_TRADE_TREE:desktop
-	}, buildConfirmActions("horizontal"))))
 end
 return {
 	TradeView = TradeView,

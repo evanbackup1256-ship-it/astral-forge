@@ -115,16 +115,12 @@ end
 -- Raw ScrollingFrame canvas patterns on scaffold pages → fail unless allowlisted
 ------------------------------------------------------------------------
 -- PageScaffold owns the outer AutomaticCanvasSize.Y scroll. Nested raw frames are
--- only OK when justified below (horizontal chips, dual-pane body, dual Confirm trees).
+-- only OK when justified below (horizontal chips, dual-pane body). Prefer FlatList /
+-- VirtualGrid / PageScaffold fill instead of page-local scrollingframe literals.
 local RAW_SCROLL_ALLOWLIST = {
-	-- Dual Confirm trees keep independent offer-pane Y scroll so Ready/Confirm stay pinned while
-	-- lines grow; desktop also keeps a thin X chip strip + roster pane scroll outside the compact
-	-- PageScaffold invite board (compact invite migrated off raw outer scroll).
-	["src/Client/AstralForge/pages/TradeView.luau"] = "offer-pane Y + desktop roster/status-X only; compact+desktop pin Confirm panel below offer scroll",
 }
 
 local RAW_SCROLL_BUDGET = {
-	["src/Client/AstralForge/pages/TradeView.luau"] = 3,
 }
 
 local function countRawScrollingFrames(src)
@@ -200,6 +196,17 @@ do
 	assert(not string.find(boards, 'createElement("scrollingframe"', 1, true), "Leaderboards must not X-scroll filter tabs")
 	assert(string.find(boards, "filterColumns = 4", 1, true), "Leaderboards must wrap RANK_TABS in a 4-column grid")
 	assert(string.find(boards, "ClipsDescendants = false", 1, true), "Leaderboards filter strip must not clip selection")
+	assert(string.find(boards, "FlatList", 1, true), "Leaderboards must FlatList long rank catalogs")
+	local lab = fs.readFile("src/Client/AstralForge/pages/LabView.luau")
+	assert(string.find(lab, "FlatList", 1, true), "Lab must FlatList long order catalogs")
+	assert(string.find(lab, "virtOrders", 1, true), "Lab must gate order virtualization")
+	local forge = fs.readFile("src/Client/AstralForge/pages/ForgePathView.luau")
+	assert(string.find(forge, "FlatList", 1, true), "ForgePath must FlatList step catalog")
+	local wheel = fs.readFile("src/Client/AstralForge/pages/WheelView.luau")
+	assert(string.find(wheel, "FlatList", 1, true), "Wheel must FlatList prize table")
+	assert(string.find(wheel, "PrizeCatalogRow", 1, true), "Wheel prize table must render PrizeCatalogRow")
+	local command = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
+	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
 end
 
 ------------------------------------------------------------------------
