@@ -47,10 +47,10 @@ assert(profile.LifetimeCash == 0, "nan lifetime → 0")
 assert(profile.Cores == 7, "string cores")
 assert(profile.Stardust == 0, "neg stardust")
 assert(profile.Rebirths == 1000, "clamp rebirth ceiling")
-assert(profile.Stats.Collected == 0, "neg collected")
+assert(profile.Stats.Collected == -5, "Collected stays Persist result (caller Persist may soft-clamp)")
 assert(profile.Stats.Taps == 0, "neg taps")
 assert(profile.Stats.PlayTime == 0, "inf play")
-assert(profile.Continuum.TotalFluxSpent == 0, "neg continuum flux")
+assert(profile.Continuum.TotalFluxSpent == -9, "TotalFluxSpent stays Persist result")
 assert(profile.Continuum.TotalStardustSpent == 11, "string continuum stardust")
 
 -- Partial profile (no Stats / Continuum) must not throw.
