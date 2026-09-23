@@ -180,7 +180,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: PLACEHOLDER_WAVE43
+# Expect at or after: 32ca20d
 argon serve default.project.json
 ```
 
