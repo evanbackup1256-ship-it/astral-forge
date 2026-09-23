@@ -139,9 +139,18 @@ return function()
 	end
 
 	function LabService.ClaimOrder(profile, orderId: string)
-		local ok, message, reward = LabOrderMath.TryClaim(profile.Lab.Orders, orderById, orderId)
+		local orders = profile.Lab and profile.Lab.Orders
+		if type(orders) ~= "table" then
+			return false, "That order is no longer on the board.", nil
+		end
+		local ok, message, reward = LabOrderMath.TryClaim(orders, orderById, orderId)
 		if ok then
-			profile.Stats.OrdersCompleted += 1
+			-- Partial / mid-sanitize fixtures may lack Stats; don't throw on claim.
+			if type(profile.Stats) ~= "table" then
+				profile.Stats = { OrdersCompleted = 0 }
+			end
+			profile.Stats.OrdersCompleted =
+				math.max(0, math.floor(tonumber(profile.Stats.OrdersCompleted) or 0)) + 1
 		end
 		return ok, message, reward
 	end

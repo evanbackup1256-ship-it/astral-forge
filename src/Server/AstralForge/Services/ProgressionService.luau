@@ -223,17 +223,35 @@ return function()
 		elseif kind == "ResearchLevels" then
 			return Economy.TotalResearchLevels(profile)
 		elseif kind == "Rebirths" then
-			return profile.Rebirths
+			-- Match ProgressionGate: Domain expand zeroes current Rebirths but keeps
+			-- TotalRebirthsSpent — achievements must not regress after expansion.
+			local current = math.max(0, math.floor(tonumber(profile.Rebirths) or 0))
+			local spent = 0
+			if type(profile.Domain) == "table" then
+				spent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0))
+			end
+			return current + spent
 		elseif kind == "Zone" then
-			return profile.Zone
+			return math.max(0, math.floor(tonumber(profile.Zone) or 0))
 		elseif kind == "PlayTime" then
-			return profile.Stats.PlayTime
+			local stats = profile.Stats
+			return math.max(0, math.floor(tonumber(stats and stats.PlayTime) or 0))
 		elseif kind == "AnomalyPulses" then
-			return profile.Stats.AnomalyPulses
+			local stats = profile.Stats
+			return math.max(0, math.floor(tonumber(stats and stats.AnomalyPulses) or 0))
 		elseif kind == "AnomalyStabilizations" then
-			return profile.Stats.AnomalyStabilizations
+			-- Prefer Anomaly bag (source of truth + Admin GrantAnomalyStabilizations);
+			-- Stats can lag when admin grants only bump Anomaly.Stabilizations.
+			local anomaly = profile.Anomaly
+			local fromAnomaly = tonumber(anomaly and anomaly.Stabilizations)
+			if fromAnomaly ~= nil then
+				return math.max(0, math.floor(fromAnomaly))
+			end
+			local stats = profile.Stats
+			return math.max(0, math.floor(tonumber(stats and stats.AnomalyStabilizations) or 0))
 		elseif kind == "AnomalyProtocols" then
-			return profile.Stats.AnomalyProtocols
+			local stats = profile.Stats
+			return math.max(0, math.floor(tonumber(stats and stats.AnomalyProtocols) or 0))
 		elseif kind == "ForgePathSteps" then
 			local claimed = 0
 			local forgePath = profile.ForgePath
@@ -355,12 +373,18 @@ return function()
 	end
 
 	local function currentWeeklyValue(profile, kind: string): number
+		local stats = profile.Stats
 		if kind == "Upgrades" then
-			return (profile.Stats.MachinesBought or 0) + (profile.Stats.ResearchBought or 0)
+			return math.max(0, math.floor(tonumber(stats and stats.MachinesBought) or 0))
+				+ math.max(0, math.floor(tonumber(stats and stats.ResearchBought) or 0))
 		elseif kind == "Expeditions" then
-			return profile.Command.ExpeditionsCompleted
+			local command = profile.Command
+			return math.max(0, math.floor(tonumber(command and command.ExpeditionsCompleted) or 0))
 		end
-		return profile.Stats[kind] or 0
+		if type(stats) ~= "table" then
+			return 0
+		end
+		return math.max(0, math.floor(tonumber(stats[kind]) or 0))
 	end
 
 	function ProgressionService.EnsureWeekly(profile): boolean

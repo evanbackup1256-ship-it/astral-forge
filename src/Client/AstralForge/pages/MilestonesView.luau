@@ -1,5 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useFlash = _motion.useFlash
 local usePulse = _motion.usePulse
@@ -80,6 +82,7 @@ local function MilestoneRow(_param)
 	local reducedMotion = _param.reducedMotion
 	local position = _param.position
 	local stack = _param.stack
+	local claimHostRef = _param.claimHostRef
 	local ready = not achievement.Claimed and achievement.Progress >= achievement.Target
 	local reward = formatReward(achievement.Reward)
 	local accent = if achievement.Claimed then Palette.muted elseif ready then Palette.green else Palette.mango
@@ -170,7 +173,14 @@ local function MilestoneRow(_param)
 		reducedMotion = reducedMotion,
 		position = meterPosition,
 		size = meterSize,
-	}), if stack then React.createElement(Button, {
+	}), if stack then React.createElement("frame", {
+		Name = "MilestoneClaimActions",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		Position = UDim2.new(0, 0, 1, -(TapTarget + 6)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = if ready then claimHostRef else nil,
+	}, React.createElement(Button, {
 		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM" else "LOCKED",
 		icon = "Wheel",
 		onClick = function()
@@ -180,12 +190,18 @@ local function MilestoneRow(_param)
 		end,
 		color = if ready then Palette.green else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -(TapTarget + 6)),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
-	}) else React.createElement(Button, {
+	})) else React.createElement("frame", {
+		Name = "MilestoneClaimActions",
+		Size = UDim2.fromOffset(166, 44),
+		Position = UDim2.new(1, -166, 0.5, -22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = if ready then claimHostRef else nil,
+	}, React.createElement(Button, {
 		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM" else "LOCKED",
 		icon = "Wheel",
 		onClick = function()
@@ -195,8 +211,7 @@ local function MilestoneRow(_param)
 		end,
 		color = if ready then Palette.green else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
-		size = UDim2.fromOffset(166, 44),
-		position = UDim2.new(1, -166, 0.5, -22),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
@@ -242,6 +257,33 @@ local function MilestonesView(_param)
 	end
 	-- ▲ ReadonlyArray.filter ▲
 	local visible = _newValue_1
+	local claimHostRef = React.useRef(nil)
+	local firstReadyId = nil
+	for _, achievement in visible do
+		if not achievement.Claimed and achievement.Progress >= achievement.Target then
+			firstReadyId = achievement.Id
+			break
+		end
+	end
+	-- Gamepad: park Selection on the first ready CLAIM CTA in the filtered list.
+	React.useEffect(function()
+		if firstReadyId == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = claimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { firstReadyId, filter })
 	local headerReveal = useStagger(0, reducedMotion)
 	local headerHeight = if stack then (if chrome.landscape then 144 else 176) else 148
 	local rowStride = (if stack then 220 else 148) + 16
@@ -362,6 +404,7 @@ local function MilestonesView(_param)
 				reducedMotion = reducedMotion,
 				position = UDim2.fromOffset(0, 0),
 				stack = stack,
+				claimHostRef = if item.Id == firstReadyId then claimHostRef else nil,
 			})
 		end,
 		ListEmptyComponent = if #visible == 0 then React.createElement(EmptyState, {

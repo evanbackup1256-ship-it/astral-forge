@@ -74,6 +74,32 @@ assertUnique("Achievements", collectIds(extractSection("\n\tAchievements = {")))
 assertUnique("Story", collectIds(extractSection("\n\tStory = {")))
 assertUnique("Mail", collectIds(extractSection("\n\tMail = {")))
 
+-- Achievement Kind must be one AchievementProgress understands (Collects was a silent always-0).
+do
+	local VALID = {
+		LifetimeCash = true,
+		MachineLevels = true,
+		ResearchLevels = true,
+		Rebirths = true,
+		Zone = true,
+		PlayTime = true,
+		AnomalyPulses = true,
+		AnomalyStabilizations = true,
+		AnomalyProtocols = true,
+		ForgePathSteps = true,
+		DailyStreak = true,
+		WheelSpins = true,
+		LabOrders = true,
+		DomainRank = true,
+		Domain = true,
+		StoryClaims = true,
+	}
+	local achBody = extractSection("\n\tAchievements = {")
+	for kind in string.gmatch(achBody, 'Kind = "([^"]+)"') do
+		assert(VALID[kind], "Achievement Kind not tracked by AchievementProgress: " .. kind)
+	end
+end
+
 -- PlatformBadges stay zeroed
 local badges = string.match(src, "PlatformBadges = %{(.-)\n\t%},")
 assert(badges, "PlatformBadges missing")
