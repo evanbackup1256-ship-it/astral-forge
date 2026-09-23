@@ -18,11 +18,11 @@ local ensureContrast = _theme.ensureContrast
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local EmptyState = _ui.EmptyState
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local BOARDS = { {
@@ -856,13 +856,14 @@ local function LeaderboardsView(_param)
 	local podiumH = if stack then 148 else 160
 	local guildHeroH = if stack then 156 else 148
 	local guildBlockH = guildHeroH + 34 + GUILD_ROWS_SHOWN * (GUILD_ROW_H + ROW_GAP)
-	local boardTop = filtersH + scopeH + 12
+	-- Board content is a PageScaffold section; Y bands are local to that section (boardTop=0).
+	local boardTop = 0
 	local podiumY = boardTop + heroH + 44
 	local listY = podiumY + podiumH + 40
 	local hasEntries = #ranked > 0
 	local remaining = math.max(0, #ranked - 3)
-	local contentH = if guildBoard then boardTop + guildBlockH + scrollTail(stack, chrome.bottomSafe, 56) elseif hasEntries then listY + math.max(remaining, 1) * (ROW_H + ROW_GAP) + scrollTail(stack, chrome.bottomSafe, 56) else podiumY + 190 + scrollTail(stack, chrome.bottomSafe, 56)
-	local canvasH = contentH + SCROLL_EDGE * 2
+	local boardH = if guildBoard then guildBlockH elseif hasEntries then listY + math.max(remaining, 1) * (ROW_H + ROW_GAP) else podiumY + 190
+	local leaderTail = scrollTail(stack, chrome.bottomSafe, 56)
 	local own = if guildBoard then 0 else ownValue(state, selected)
 	-- ▼ ReadonlyArray.findIndex ▼
 	local _callback_1 = function(entry)
@@ -889,8 +890,7 @@ local function LeaderboardsView(_param)
 	local filterWidth = if stack then 104 else 118
 	local filterCanvasWidth = #RANK_TABS * filterWidth + (#RANK_TABS - 1) * filterGap
 	local _exp = if stack then React.createElement("scrollingframe", {
-		Size = UDim2.new(1, 0, 0, filtersH),
-		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromScale(1, 1),
 		CanvasSize = UDim2.new(0, filterCanvasWidth + 16, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
@@ -915,8 +915,7 @@ local function LeaderboardsView(_param)
 		size = UDim2.fromOffset(filterCanvasWidth, TapTarget),
 		reducedMotion = reducedMotion,
 	})) else React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, filtersH),
-		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -932,8 +931,8 @@ local function LeaderboardsView(_param)
 		reducedMotion = reducedMotion,
 	}))
 	local _exp_1 = not guildBoard and React.createElement("frame", {
-		Size = UDim2.new(0, if stack then 220 else 260, 0, scopeH - 10),
-		Position = UDim2.fromOffset(0, filtersH + 6),
+		Size = UDim2.new(0, if stack then 220 else 260, 0, math.max(1, scopeH - 10)),
+		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement(SegmentedTabs, {
@@ -954,7 +953,7 @@ local function LeaderboardsView(_param)
 			dispatch = dispatch,
 			stack = stack,
 			reducedMotion = reducedMotion,
-			position = UDim2.fromOffset(0, boardTop),
+			position = UDim2.fromOffset(0, 0),
 		})
 	else
 		local _exp_2 = React.createElement(Panel, {
@@ -1167,32 +1166,38 @@ local function LeaderboardsView(_param)
 		end
 		_result_2 = React.createElement(React.Fragment, nil, _exp_2, _exp_3, _condition, _exp_4, _result_3)
 	end
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasH),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = meta.accent,
-		ScrollBarImageTransparency = 0.28,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("frame", {
-		Size = UDim2.new(1, -12, 0, contentH),
-		Position = UDim2.fromOffset(0, SCROLL_EDGE),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, _exp, _exp_1, _result_2)))
+	local sections = {
+		{
+			id = "filters",
+			height = filtersH,
+			element = _exp,
+		},
+	}
+	if not guildBoard then
+		table.insert(sections, {
+			id = "scope",
+			height = scopeH,
+			element = _exp_1,
+		})
+	end
+	table.insert(sections, {
+		id = "board",
+		height = boardH,
+		element = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+		}, _result_2),
+	})
+	return React.createElement(PageScaffold, {
+		gap = 12,
+		tailPad = leaderTail,
+		scrollBarColor = meta.accent,
+		scrollBarThickness = 4,
+		inset = 0,
+		sections = sections,
+	})
 end
 return {
 	LeaderboardsView = LeaderboardsView,
