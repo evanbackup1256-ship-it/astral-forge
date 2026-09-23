@@ -184,6 +184,26 @@ function TradeDesk:DailyPublic(profile, now: number)
 	}
 end
 
+-- Locked / missing desk fallback for client rails (wave47).
+function TradeDesk.LockedPublic()
+	return { Unlocked = false, Epoch = 0 }
+end
+
+-- Full Trade snapshot bag for client rails (wave47).
+function TradeDesk:StatePublic(profile, player: Player, now: number)
+	local ok, result = pcall(function()
+		return {
+			Unlocked = self:Unlocked(profile),
+			Epoch = self:Epoch(),
+			Session = self:Public(self:SessionFor(player.UserId), player.UserId),
+			Invite = self:InvitePublic(player.UserId),
+			Outgoing = self:OutgoingPublic(player.UserId),
+			Daily = self:DailyPublic(profile, now),
+		}
+	end)
+	return ok and result or TradeDesk.LockedPublic()
+end
+
 function TradeDesk:Drop(userId: number): { number }
 	local notify = {}
 	local invite = self._invites[userId]

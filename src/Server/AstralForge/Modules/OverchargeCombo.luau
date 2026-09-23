@@ -23,4 +23,21 @@ function OverchargeCombo.Expired(elapsed: number, comboWindow: number): boolean
 	return elapsed > comboWindow
 end
 
+-- Public Overcharge bag for client rails (wave47).
+function OverchargeCombo.PublicSnapshot(args: {
+	combo: number,
+	comboMultiplier: number,
+	comboMax: number,
+	comboWindow: number,
+	comboBonusPerStack: number,
+}): any
+	return {
+		Combo = args.combo,
+		ComboMultiplier = args.comboMultiplier,
+		ComboMax = args.comboMax,
+		ComboWindow = args.comboWindow,
+		ComboBonusPerStack = args.comboBonusPerStack,
+	}
+end
+
 return table.freeze(OverchargeCombo)

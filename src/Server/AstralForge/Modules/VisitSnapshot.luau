@@ -1,5 +1,5 @@
 --!strict
--- Pure visit snapshot builder peeled from ServerServices (wave40).
+-- Pure visit snapshot builder peeled from ServerServices (wave40 / wave47 Resolve).
 
 local VisitSnapshot = {}
 
@@ -32,6 +32,22 @@ function VisitSnapshot.Build(player: Player, profile, Economy)
 		MachineKinds = machineCount,
 		ServerTime = os.time(),
 	}
+end
+
+-- Resolve visiting host into a Visit bag (wave47). `players` + `getProfile` injected.
+function VisitSnapshot.Resolve(hostUserId: number?, players: { Player }, getProfile: (Player) -> any, Economy): any
+	if hostUserId == nil then
+		return nil
+	end
+	for _, host in players do
+		if host.UserId == hostUserId then
+			local hostProfile = getProfile(host)
+			if hostProfile then
+				return VisitSnapshot.Build(host, hostProfile, Economy)
+			end
+		end
+	end
+	return nil
 end
 
 return VisitSnapshot

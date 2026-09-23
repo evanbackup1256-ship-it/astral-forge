@@ -5463,6 +5463,21 @@ local GameConfig = {
 			Reward = { Stardust = 114, CashMinutes = 52, Signals = 54 },
 			Color = Color3.fromRGB(0, 230, 185),
 		},
+		{
+			Id = "wave47-offline-brief",
+			Title = "Wave Forty Seven Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Guild/Trade/Overcharge/Visit snapshot peels + Leaderboards/Guild/Chat/Mailbox densify; DENSE floors; readiness past checks=52.",
+			Body = {
+				"GuildMath/TradeDesk/OverchargeCombo/VisitSnapshot peel remaining ServerServices snapshot IIFEs.",
+				"Leaderboards/Guild/Chat/Mailbox thicken softMotion; Research/Wheel/ForgePath DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 116, CashMinutes = 53, Signals = 55 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
 
 
 
@@ -5618,6 +5633,21 @@ local GameConfig = {
 				"Schema stays DataVersion 21. Attachment for reading the memo.",
 			},
 			Attachment = { CashMinutes = 114, Stardust = 130, Signals = 58 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
+		{
+			Id = "update-5-1-wave47-offline",
+			Subject = "Dock note — wave forty seven offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Guild/Trade/Overcharge/Visit peels + leaderboards/guild/chat/mailbox softMotion — still DataVersion 21.",
+			Body = {
+				"GuildMath SnapshotPublic, TradeDesk StatePublic, OverchargeCombo PublicSnapshot, and VisitSnapshot Resolve peel ServerServices bags; Leaderboards/Guild/Chat/Mailbox densify softMotion and Research/Wheel/ForgePath DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=52 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 116, Stardust = 132, Signals = 59 },
 			Color = Color3.fromRGB(0, 230, 185),
 		},
 

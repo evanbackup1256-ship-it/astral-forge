@@ -170,6 +170,13 @@ local function MailboxView(_param)
 	local cardH = if stack then LIST_CARD_MOBILE else LIST_CARD
 	local footerH = if stack then FOOTER_HEIGHT_MOBILE else FOOTER_HEIGHT
 	local rowStride = cardH + LIST_GAP
+	-- Canonical softMotion antilag gate — MailboxList.
+	local listReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — MailboxDetail.
+	local detailSoftReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — MailboxFooter.
+	local footerReveal = useStagger(2, softMotion)
+	local mailboxSoft = softMotion or listReveal == nil or detailSoftReveal == nil or footerReveal == nil
 	local _result = state.Mailbox
 	if _result ~= nil then
 		_result = _result.Messages
@@ -379,7 +386,7 @@ local function MailboxView(_param)
 		size = UDim2.fromOffset(if compactChrome then 108 else 132, TapTarget),
 		position = UDim2.new(1, -(if compactChrome then 116 else 140), 0.5, -TapTarget / 2),
 		reducedMotion = softMotion,
-		highlight = true,
+		highlight = not mailboxSoft,
 	}) else React.createElement(Badge, {
 		value = if unreadCount > 0 then `{unreadCount} NEW` else "CAUGHT UP",
 		accent = if unreadCount > 0 then Palette.coral else Palette.mint,

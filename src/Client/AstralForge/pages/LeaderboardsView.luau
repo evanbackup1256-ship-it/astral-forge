@@ -749,6 +749,12 @@ local function LeaderboardsView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
+	-- Canonical softMotion antilag gate — LeaderboardsBoard.
+	local boardReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — LeaderboardsScope.
+	local scopeReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — LeaderboardsRows.
+	local rowsReveal = useStagger(2, softMotion)
 	local boardHostRef = React.useRef(nil)
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
@@ -964,13 +970,14 @@ local function LeaderboardsView(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = softMotion,
 	}))
+	local boardSoft = softMotion or scopeReveal == nil or rowsReveal == nil
 	local heroPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = meta.accent,
 		background = heroSurface,
 		padding = if stack then 12 else 16,
-		highlight = not loading,
-		reveal = enter,
+		highlight = not loading and not softMotion and not boardSoft,
+		reveal = if softMotion then boardReveal else enter,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("frame", {

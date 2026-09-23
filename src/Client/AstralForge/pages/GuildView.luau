@@ -869,6 +869,12 @@ local function GuildView(_param)
 	local stack = chrome.contentStack
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — GuildBank.
+	local bankReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — GuildMembers.
+	local membersReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — GuildGoal.
+	local goalReveal = useStagger(3, softMotion)
 	local busy, setBusy = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
 	local contributeCash, setContributeCash = React.useState("")
@@ -1114,8 +1120,8 @@ local function GuildView(_param)
 		accent = Palette.violet,
 		background = heroSurface,
 		padding = if stack then 16 else 20,
-		reveal = reveal,
-		highlight = true,
+		reveal = if softMotion then bankReveal else reveal,
+		highlight = not softMotion and membersReveal ~= nil and goalReveal ~= nil,
 		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_4, _exp_5, _exp_6, React.createElement(Text, _attributes_1), if canManage and #members == 1 then React.createElement(Button, {

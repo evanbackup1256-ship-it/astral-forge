@@ -291,6 +291,12 @@ local function ChatView(_param)
 	local sendAttempt = React.useRef(0)
 	local chatClaimHostRef = React.useRef(nil)
 	local headerReveal = useStagger(0, softMotion)
+	-- Canonical softMotion antilag gate — ChatBanner.
+	local bannerReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — ChatComposer.
+	local composerReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — ChatStatus.
+	local statusReveal = useStagger(3, softMotion)
 	React.useEffect(function()
 		return function()
 			sendAttempt.current += 1
@@ -511,6 +517,9 @@ local function ChatView(_param)
 		fit = false,
 		position = UDim2.fromOffset(0, 28),
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
+		transparency = (if showBanner then bannerReveal else statusReveal):map(function(amount)
+			return 1 - amount
+		end),
 	})), React.createElement(Badge, {
 		value = statusLabel,
 		accent = statusAccent,
@@ -518,6 +527,9 @@ local function ChatView(_param)
 		position = UDim2.new(1, -(STATUS_RESERVE - 4), 0.5, -13),
 		size = UDim2.fromOffset(STATUS_RESERVE - 16, 26),
 	}))
+	-- Prefer composerReveal when softMotion already quieted chrome.
+	local composerSoft = softMotion or composerReveal == nil
+	local _chatSoftKeep = if composerSoft then bannerReveal else statusReveal
 	-- Message list FlatLists under PageScaffold fill; status/banner/SEND stay fixed sections
 	-- so stick-to-bottom chat chrome never buries SEND. No page-local scrollingframe.
 	local messagesElement = React.createElement(FlatList, {

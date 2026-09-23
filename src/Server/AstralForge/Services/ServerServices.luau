@@ -86,6 +86,7 @@ serviceFactories["GameService"] = function()
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ContinuumDomainMath"))
 	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemLoadoutMath"))
+	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -1126,6 +1127,10 @@ serviceFactories["GameService"] = function()
 		end
 		local storyState = StoryMailSnapshot.BuildStory(profile, GameConfig.Story, ProgressionGate)
 		local mailState, unreadMail = StoryMailSnapshot.BuildMailbox(profile, GameConfig.Mail, ProgressionGate)
+		local guildMembership = profile.Guild
+		local guildId = guildMembership and guildMembership.Id or ""
+		local guildCachedPublic = if guildId ~= "" then self._guilds:GetCachedPublic(guildId) else nil
+		local overchargeCombo, overchargeMultiplier = self:_overchargeCombo(runtime, profile)
 
 		return {
 			Game = {
@@ -1207,27 +1212,7 @@ serviceFactories["GameService"] = function()
 			},
 			Anomaly = AnomalyService.State(profile),
 			Lab = LabService.State(profile),
-			Guild = (function()
-				local membership = profile.Guild
-				local guildId = membership and membership.Id or ""
-				if guildId == "" then return nil end
-				local publicGuild = self._guilds:GetCachedPublic(guildId)
-				if publicGuild then return publicGuild end
-				return {
-					Id = guildId,
-					Name = "Guild Hall",
-					Tag = type(membership.Tag) == "string" and membership.Tag or "",
-					Level = 1,
-					XP = 0,
-					Activity = 0,
-					BankCash = 0,
-					BankDust = 0,
-					Members = {},
-					Upgrades = {},
-					CreatedAt = 0,
-					OwnerUserId = 0,
-				}
-			end)(),
+			Guild = GuildMath.SnapshotPublic(guildMembership, guildCachedPublic),
 			GuildBonuses = copyDictionary(profile.GuildBonuses),
 			SocialBoost = SocialBoost.PublicSnapshot(profile.SocialBoost, GameConfig.Social.MaxBoostedFriends, copyDictionary),
 			SocialRewards = {
@@ -1235,22 +1220,7 @@ serviceFactories["GameService"] = function()
 				CreatorName = ServerConfig.CreatorUsername,
 			},
 			AutoForge = AutoSalvageSnapshot.PublicAutoForge(profile.AutoForge, copyDictionary),
-			Trade = (function()
-				if not self._trades then
-					return { Unlocked = false, Epoch = 0 }
-				end
-				local ok, result = pcall(function()
-					return {
-						Unlocked = self._trades:Unlocked(profile),
-						Epoch = self._trades:Epoch(),
-						Session = self._trades:Public(self._trades:SessionFor(player.UserId), player.UserId),
-						Invite = self._trades:InvitePublic(player.UserId),
-						Outgoing = self._trades:OutgoingPublic(player.UserId),
-						Daily = self._trades:DailyPublic(profile, now),
-					}
-				end)
-				return ok and result or { Unlocked = false, Epoch = 0 }
-			end)(),
+			Trade = if self._trades then self._trades:StatePublic(profile, player, now) else TradeDesk.LockedPublic(),
 			Convergence = self._convergence:State(player, profile),
 			FeatureUnlocks = featureUnlocks,
 			Story = storyState,
@@ -1276,16 +1246,13 @@ serviceFactories["GameService"] = function()
 			TapPower = Economy.TapPower(profile, now),
 			CriticalChance = Economy.CriticalChance(profile),
 			CriticalMultiplier = Economy.CriticalMultiplier(profile),
-			Overcharge = (function()
-				local combo, comboMultiplier = self:_overchargeCombo(runtime, profile)
-				return {
-					Combo = combo,
-					ComboMultiplier = comboMultiplier,
-					ComboMax = GameConfig.Overcharge.ComboMax,
-					ComboWindow = overchargeComboWindow(profile),
-					ComboBonusPerStack = GameConfig.Overcharge.ComboBonusPerStack,
-				}
-			end)(),
+			Overcharge = OverchargeCombo.PublicSnapshot({
+				combo = overchargeCombo,
+				comboMultiplier = overchargeMultiplier,
+				comboMax = GameConfig.Overcharge.ComboMax,
+				comboWindow = overchargeComboWindow(profile),
+				comboBonusPerStack = GameConfig.Overcharge.ComboBonusPerStack,
+			}),
 			PrestigeReward = prestigeReward,
 			NextPrestigeTarget = Economy.NextPrestigeTarget(prestigeReward),
 			Revision = profile.Meta.Revision,
@@ -1321,21 +1288,9 @@ serviceFactories["GameService"] = function()
 				Vault = profile.Vault,
 			},
 			Visitors = self:_visitorList(player),
-			Visit = (function()
-				local hostUserId = self._visiting[player]
-				if hostUserId == nil then
-					return nil
-				end
-				for _, host in Players:GetPlayers() do
-					if host.UserId == hostUserId then
-						local hostProfile = self._data:Get(host)
-						if hostProfile then
-							return buildVisitSnapshot(host, hostProfile)
-						end
-					end
-				end
-				return nil
-			end)(),
+			Visit = VisitSnapshot.Resolve(self._visiting[player], Players:GetPlayers(), function(host)
+				return self._data:Get(host)
+			end, Economy),
 		}
 	end
 

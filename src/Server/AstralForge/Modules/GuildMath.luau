@@ -146,4 +146,36 @@ function GuildMath.AddClamped(current: any, amount: number): number
 	return math.min(GuildMath.MAX_NUMBER, GuildMath.FiniteNonNegative(current) + amount)
 end
 
+-- Fallback public hall bag when GetCachedPublic misses (wave47).
+function GuildMath.EmptyHall(membership: any)
+	local tag = type(membership) == "table" and type(membership.Tag) == "string" and membership.Tag or ""
+	local guildId = type(membership) == "table" and membership.Id or ""
+	return {
+		Id = guildId,
+		Name = "Guild Hall",
+		Tag = tag,
+		Level = 1,
+		XP = 0,
+		Activity = 0,
+		BankCash = 0,
+		BankDust = 0,
+		Members = {},
+		Upgrades = {},
+		CreatedAt = 0,
+		OwnerUserId = 0,
+	}
+end
+
+-- Snapshot Guild bag for client rails: nil when not joined, cached public, or empty hall.
+function GuildMath.SnapshotPublic(membership: any, publicGuild: any): any
+	local guildId = type(membership) == "table" and membership.Id or ""
+	if guildId == "" then
+		return nil
+	end
+	if publicGuild ~= nil then
+		return publicGuild
+	end
+	return GuildMath.EmptyHall(membership)
+end
+
 return table.freeze(GuildMath)

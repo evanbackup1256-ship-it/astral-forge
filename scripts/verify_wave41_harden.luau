@@ -65,9 +65,9 @@ end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/ChatView.luau"] = 12', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/ResearchView.luau"] = 10', 1, true), "Research DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/ResearchView.luau"] = 12', 1, true), "Research DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/StarGridView.luau"] = 12', 1, true), "StarGrid DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/WheelView.luau"] = 10', 1, true), "Wheel DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/WheelView.luau"] = 12', 1, true), "Wheel DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave41-offline-brief"', 1, true), "Story wave41")
