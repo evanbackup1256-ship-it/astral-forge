@@ -6,16 +6,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local ProgressionGate = require(script.Parent:WaitForChild("ProgressionGate"))
+local TradeExchange = require(script.Parent:WaitForChild("TradeExchange"))
 
 local TradeDesk = {}
 TradeDesk.__index = TradeDesk
 
-local CURRENCIES = { "Cash", "Stardust", "Cores", "Signals", "Essence" }
-local BOOST_IDS = {
-	"DomainSurge", "Overdrive", "Hyperdrive", "VaultSurge", "NightShift", "FoundryRush",
-	"Afterburner", "SteadyBurn", "CoreSurge", "StarforgeFlow", "EchoDrive", "Ionstorm", "TwinCatalyst", "MidnightForge",
-}
-local KEY_IDS = { "ForgeCrate", "CrystalCrate", "HorizonCrate", "NebulaCrate", "OrbitCrate", "SingularityCrate", "EchoCrate" }
+local CURRENCIES = TradeExchange.CURRENCIES
+local BOOST_IDS = TradeExchange.BOOST_IDS
+local KEY_IDS = TradeExchange.KEY_IDS
 
 local itemNames: { [string]: string }? = nil
 local function itemNameFor(definitionId: string): string
@@ -485,6 +483,7 @@ function TradeDesk:Respond(guest: Player, guestProfile, accept: boolean, now: nu
 		Ready = { [invite.From] = false, [guest.UserId] = false },
 		Confirmed = { [invite.From] = false, [guest.UserId] = false },
 		ConfirmEndsAt = 0,
+		Settling = false,
 		Status = "Open",
 		ExpiresAt = now + GameConfig.Trading.SessionSeconds,
 	}
@@ -499,6 +498,12 @@ function TradeDesk:UpdateOffer(player: Player, profile, rawOffer, now: number): 
 	local session = self._sessions[self._byUser[player.UserId]]
 	if not session or session.ExpiresAt < now then
 		return false, "That trade is no longer open."
+	end
+	if session.Settling == true or session.Status == "Settling" then
+		return false, "That trade is already settling."
+	end
+	if session.Status == "RevertFailed" then
+		return false, "That trade needs to be cancelled — settle recovery failed."
 	end
 	local offer = copyOffer(rawOffer)
 	local reason = self:_validateOffer(profile, offer, now, false)
@@ -520,6 +525,9 @@ function TradeDesk:SetReady(player: Player, profile, ready: boolean, now: number
 	local session = self._sessions[self._byUser[player.UserId]]
 	if not session or session.ExpiresAt < now then
 		return false, "That trade is no longer open."
+	end
+	if session.Settling == true or session.Status == "Settling" or session.Status == "RevertFailed" then
+		return false, "That trade is already settling."
 	end
 	if ready then
 		local reason = self:_validateOffer(profile, session.Offers[player.UserId], now, false)
@@ -543,6 +551,9 @@ function TradeDesk:Confirm(player: Player, now: number): (boolean, string?, any)
 	if not session or session.ExpiresAt < now then
 		return false, "That trade is no longer open."
 	end
+	if session.Settling == true or session.Status == "Settling" or session.Status == "RevertFailed" then
+		return false, "That trade is already settling."
+	end
 	if session.Ready[session.Host] ~= true or session.Ready[session.Guest] ~= true then
 		return false, "Both sides need to ready up first."
 	end
@@ -558,6 +569,38 @@ function TradeDesk:Confirm(player: Player, now: number): (boolean, string?, any)
 	return true, nil, session
 end
 
+-- Single-flight settle gate: both Confirm handlers can race once Confirmed[host]
+-- and Confirmed[guest] flip true; only one caller may own the host→guest apply pair.
+function TradeDesk:TryBeginSettle(session): boolean
+	if not session then
+		return false
+	end
+	if session.Settling == true or session.Status == "Settling" or session.Status == "RevertFailed" then
+		return false
+	end
+	if session.Confirmed[session.Host] ~= true or session.Confirmed[session.Guest] ~= true then
+		return false
+	end
+	session.Settling = true
+	session.Status = "Settling"
+	return true
+end
+
+function TradeDesk:FailSettle(session, permanent: boolean?)
+	if not session then
+		return
+	end
+	session.Settling = false
+	session.Confirmed[session.Host] = false
+	session.Confirmed[session.Guest] = false
+	session.ConfirmEndsAt = 0
+	if permanent then
+		session.Status = "RevertFailed"
+	else
+		session.Status = "Open"
+	end
+end
+
 function TradeDesk:Cancel(player: Player): (any, number?)
 	local session = self._sessions[self._byUser[player.UserId]]
 	if not session then
@@ -567,48 +610,6 @@ function TradeDesk:Cancel(player: Player): (any, number?)
 	local other = if session.Host == player.UserId then session.Guest else session.Host
 	self:Close(session)
 	return session, other
-end
-
-local function copyItemInstance(instance)
-	if type(instance) ~= "table" then
-		return nil
-	end
-	local copy = {}
-	for key, value in instance do
-		if type(value) == "table" then
-			local nested = {}
-			for nestedKey, nestedValue in value do
-				nested[nestedKey] = nestedValue
-			end
-			copy[key] = nested
-		else
-			copy[key] = value
-		end
-	end
-	return copy
-end
-
-local function snapshotOfferItems(offer, profile)
-	local payloads = {}
-	local inventory = profile and profile.Items and profile.Items.Inventory
-	if type(inventory) ~= "table" then
-		return payloads
-	end
-	for _, uid in offer.ItemIds do
-		local instance = inventory[uid]
-		if type(instance) == "table" then
-			payloads[uid] = copyItemInstance(instance)
-		end
-	end
-	return payloads
-end
-
-local function ensureTradeBags(profile)
-	profile.Command = type(profile.Command) == "table" and profile.Command or {}
-	profile.Items = type(profile.Items) == "table" and profile.Items or { Inventory = {}, Keys = {}, Essence = 0 }
-	profile.Items.Inventory = type(profile.Items.Inventory) == "table" and profile.Items.Inventory or {}
-	profile.Items.Keys = type(profile.Items.Keys) == "table" and profile.Items.Keys or {}
-	profile.BoostInventory = type(profile.BoostInventory) == "table" and profile.BoostInventory or {}
 end
 
 function TradeDesk:Plan(session, hostProfile, guestProfile, now: number): (any?, string?)
@@ -646,118 +647,20 @@ function TradeDesk:Plan(session, hostProfile, guestProfile, now: number): (any?,
 	return {
 		HostOffer = hostOffer,
 		GuestOffer = guestOffer,
-		HostItems = snapshotOfferItems(hostOffer, hostProfile),
-		GuestItems = snapshotOfferItems(guestOffer, guestProfile),
+		HostItems = TradeExchange.SnapshotOfferItems(hostOffer, hostProfile),
+		GuestItems = TradeExchange.SnapshotOfferItems(guestOffer, guestProfile),
 		Now = now,
 	}, nil
 end
 
 function TradeDesk:ApplyExchange(profile, give, take, giveItems, takeItems, now: number): string?
-	ensureLedger(profile, now)
-	ensureTradeBags(profile)
-	local reason = self:_validateOffer(profile, give, now)
-	if reason then
-		return reason
-	end
-	local incomingCount = 0
-	if type(take) == "table" and type(take.ItemIds) == "table" then
-		incomingCount = #take.ItemIds
-	end
-	if countInventory(profile) - #give.ItemIds + incomingCount > GameConfig.Items.InventoryLimit then
-		return "Inventory cannot hold those relics."
-	end
-
-	profile.Cash = OmegaMath.Sub(profile.Cash, give.Cash)
-	profile.Cash = OmegaMath.Add(profile.Cash, take.Cash)
-	profile.Stardust = math.max(0, (tonumber(profile.Stardust) or 0) - give.Stardust) + take.Stardust
-	profile.Cores = math.max(0, (tonumber(profile.Cores) or 0) - give.Cores) + take.Cores
-	profile.Command.Signals = math.max(0, (tonumber(profile.Command.Signals) or 0) - give.Signals) + take.Signals
-	profile.Items.Essence = math.max(0, (tonumber(profile.Items.Essence) or 0) - give.Essence) + take.Essence
-
-	for _, id in BOOST_IDS do
-		local giveAmount = give.Boosts[id]
-		local takeAmount = take.Boosts[id]
-		if giveAmount > 0 or takeAmount > 0 then
-			profile.BoostInventory[id] = math.max(0, (tonumber(profile.BoostInventory[id]) or 0) - giveAmount) + takeAmount
-		end
-	end
-	for _, id in KEY_IDS do
-		local giveAmount = give.Keys[id]
-		local takeAmount = take.Keys[id]
-		if giveAmount > 0 or takeAmount > 0 then
-			profile.Items.Keys[id] = math.max(0, (tonumber(profile.Items.Keys[id]) or 0) - giveAmount) + takeAmount
-		end
-	end
-	for _, uid in give.ItemIds do
-		profile.Items.Inventory[uid] = nil
-	end
-	if type(take.ItemIds) == "table" then
-		for _, uid in take.ItemIds do
-			local payload = takeItems and takeItems[uid]
-			if payload ~= nil then
-				profile.Items.Inventory[uid] = copyItemInstance(payload)
-			end
-		end
-	end
-
-	profile.Trade.Sent.Cash += give.Cash
-	profile.Trade.Sent.Stardust += give.Stardust
-	profile.Trade.Sent.Cores += give.Cores
-	profile.Trade.Sent.Signals += give.Signals
-	profile.Trade.Sent.Essence += give.Essence
-	profile.Trade.Sent.Boost += boostTotal(give)
-	profile.Trade.Sent.Keys += keyTotal(give)
-	profile.Trade.Sent.Items += #give.ItemIds
-	profile.Trade.Completed += 1
-	return nil
+	return TradeExchange.ApplyExchange(GameConfig, OmegaMath, profile, give, take, giveItems, takeItems, now, function(p, offer, at)
+		return self:_validateOffer(p, offer, at)
+	end)
 end
 
 function TradeDesk:RevertExchange(profile, give, take, giveItems, takeItems, now: number)
-	ensureLedger(profile, now)
-	ensureTradeBags(profile)
-
-	profile.Cash = OmegaMath.Add(profile.Cash, give.Cash)
-	profile.Cash = OmegaMath.Sub(profile.Cash, take.Cash)
-	profile.Stardust = math.max(0, (tonumber(profile.Stardust) or 0) + give.Stardust - take.Stardust)
-	profile.Cores = math.max(0, (tonumber(profile.Cores) or 0) + give.Cores - take.Cores)
-	profile.Command.Signals = math.max(0, (tonumber(profile.Command.Signals) or 0) + give.Signals - take.Signals)
-	profile.Items.Essence = math.max(0, (tonumber(profile.Items.Essence) or 0) + give.Essence - take.Essence)
-
-	for _, id in BOOST_IDS do
-		local giveAmount = give.Boosts[id]
-		local takeAmount = take.Boosts[id]
-		if giveAmount > 0 or takeAmount > 0 then
-			profile.BoostInventory[id] = math.max(0, (tonumber(profile.BoostInventory[id]) or 0) + giveAmount - takeAmount)
-		end
-	end
-	for _, id in KEY_IDS do
-		local giveAmount = give.Keys[id]
-		local takeAmount = take.Keys[id]
-		if giveAmount > 0 or takeAmount > 0 then
-			profile.Items.Keys[id] = math.max(0, (tonumber(profile.Items.Keys[id]) or 0) + giveAmount - takeAmount)
-		end
-	end
-	if type(take.ItemIds) == "table" then
-		for _, uid in take.ItemIds do
-			profile.Items.Inventory[uid] = nil
-		end
-	end
-	for _, uid in give.ItemIds do
-		local payload = giveItems and giveItems[uid]
-		if payload ~= nil then
-			profile.Items.Inventory[uid] = copyItemInstance(payload)
-		end
-	end
-
-	profile.Trade.Sent.Cash = math.max(0, (profile.Trade.Sent.Cash or 0) - give.Cash)
-	profile.Trade.Sent.Stardust = math.max(0, (profile.Trade.Sent.Stardust or 0) - give.Stardust)
-	profile.Trade.Sent.Cores = math.max(0, (profile.Trade.Sent.Cores or 0) - give.Cores)
-	profile.Trade.Sent.Signals = math.max(0, (profile.Trade.Sent.Signals or 0) - give.Signals)
-	profile.Trade.Sent.Essence = math.max(0, (profile.Trade.Sent.Essence or 0) - give.Essence)
-	profile.Trade.Sent.Boost = math.max(0, (profile.Trade.Sent.Boost or 0) - boostTotal(give))
-	profile.Trade.Sent.Keys = math.max(0, (profile.Trade.Sent.Keys or 0) - keyTotal(give))
-	profile.Trade.Sent.Items = math.max(0, (profile.Trade.Sent.Items or 0) - #give.ItemIds)
-	profile.Trade.Completed = math.max(0, (profile.Trade.Completed or 0) - 1)
+	TradeExchange.RevertExchange(OmegaMath, profile, give, take, giveItems, takeItems, now)
 end
 
 function TradeDesk:Close(session)
