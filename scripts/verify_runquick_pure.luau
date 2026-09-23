@@ -65,8 +65,9 @@ local function collectCostDefs(body)
 	-- Match Id / BaseCost / CostScale within the same table entry window.
 	for block in string.gmatch(body, "%{([%s%S]-)%},?") do
 		local id = string.match(block, 'Id%s*=%s*"([^"]+)"')
-		local base = tonumber(string.match(block, "BaseCost%s*=%s*([%d_]+)"))
+		local baseText = string.match(block, "BaseCost%s*=%s*([%d_]+)")
 		local scale = tonumber(string.match(block, "CostScale%s*=%s*([%d%.]+)"))
+		local base = if baseText then tonumber((string.gsub(baseText, "_", ""))) else nil
 		if id and base and scale then
 			table.insert(defs, {
 				Id = id,
@@ -98,46 +99,61 @@ assertMonotone("machines", machines)
 assertMonotone("research", research)
 
 -- Continuum / Domain cost envelopes (mirror Economy formulas against GameConfig knobs).
+local function parseNumber(text: string?): number?
+	if text == nil then
+		return nil
+	end
+	return tonumber((string.gsub(text, "_", "")))
+end
+
 local continuumBody = extractSection(cfg, "\n\tContinuum = {")
 local domainBody = extractSection(cfg, "\n\tDomain = {")
-local baseFlux = tonumber(string.match(continuumBody, "BaseFluxCost%s*=%s*([%d_]+)"))
-local fluxScale = tonumber(string.match(continuumBody, "FluxCostScale%s*=%s*([%d%.]+)"))
-local baseDust = tonumber(string.match(continuumBody, "BaseStardustCost%s*=%s*([%d_]+)"))
-local dustScale = tonumber(string.match(continuumBody, "StardustCostScale%s*=%s*([%d%.]+)"))
+local baseFlux = parseNumber(string.match(continuumBody, "BaseFluxCost%s*=%s*([%d_]+)"))
+local fluxScale = parseNumber(string.match(continuumBody, "FluxCostScale%s*=%s*([%d%.]+)"))
+local baseDust = parseNumber(string.match(continuumBody, "BaseStardustCost%s*=%s*([%d_]+)"))
+local dustScale = parseNumber(string.match(continuumBody, "StardustCostScale%s*=%s*([%d%.]+)"))
 assert(baseFlux and fluxScale and baseDust and dustScale, "Continuum cost knobs missing")
 
-local baseRebirths = tonumber(string.match(domainBody, "BaseRequiredRebirths%s*=%s*(%d+)"))
-local rebirthsPer = tonumber(string.match(domainBody, "RebirthsPerRank%s*=%s*(%d+)"))
-local baseCores = tonumber(string.match(domainBody, "BaseRequiredCores%s*=%s*([%d_]+)"))
-local coreScale = tonumber(string.match(domainBody, "CoreRequirementScale%s*=%s*([%d%.]+)"))
-local baseEssence = tonumber(string.match(domainBody, "BaseEssenceReward%s*=%s*(%d+)"))
-local essencePer = tonumber(string.match(domainBody, "EssencePerRank%s*=%s*(%d+)"))
-local baseDomainDust = tonumber(string.match(domainBody, "BaseStardustReward%s*=%s*([%d_]+)"))
-local domainDustPer = tonumber(string.match(domainBody, "StardustPerRank%s*=%s*(%d+)"))
+local baseRebirths = parseNumber(string.match(domainBody, "BaseRequiredRebirths%s*=%s*(%d+)"))
+local rebirthsPer = parseNumber(string.match(domainBody, "RebirthsPerRank%s*=%s*(%d+)"))
+local baseCores = parseNumber(string.match(domainBody, "BaseRequiredCores%s*=%s*([%d_]+)"))
+local coreScale = parseNumber(string.match(domainBody, "CoreRequirementScale%s*=%s*([%d%.]+)"))
+local baseEssence = parseNumber(string.match(domainBody, "BaseEssenceReward%s*=%s*(%d+)"))
+local essencePer = parseNumber(string.match(domainBody, "EssencePerRank%s*=%s*(%d+)"))
+local baseDomainDust = parseNumber(string.match(domainBody, "BaseStardustReward%s*=%s*([%d_]+)"))
+local domainDustPer = parseNumber(string.match(domainBody, "StardustPerRank%s*=%s*(%d+)"))
 assert(baseRebirths and rebirthsPer and baseCores and coreScale, "Domain requirement knobs missing")
 assert(baseEssence and essencePer and baseDomainDust and domainDustPer, "Domain reward knobs missing")
 
 local MAX_VALUE = 1e308
-local function finite(value: any): boolean
+local function finiteNumber(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge and math.abs(value) <= MAX_VALUE
 end
 
-local prevFlux = -1
-local prevDust = -1
-for _, rank in { 0, 1, 10, 100, 1000 } do
-	local flux = OmegaMath.ToNumber(OmegaMath.Floor(OmegaMath.Mul(baseFlux, OmegaMath.BoundedPower(fluxScale, rank))))
-	local dust = OmegaMath.ToNumber(OmegaMath.Floor(OmegaMath.Mul(baseDust, OmegaMath.BoundedPower(dustScale, rank))))
-	assert(finite(flux) and finite(dust), "Continuum cost overflow at rank " .. tostring(rank))
-	assert(flux >= prevFlux and dust >= prevDust, "Continuum costs must not regress")
+local function isPersist(value: any): boolean
+	if finiteNumber(value) then
+		return true
+	end
+	-- OmegaMath persists oversized magnitudes as scientific strings.
+	return type(value) == "string" and string.find(value, "^%-?%d") ~= nil
+end
+
+local prevFlux: any = 0
+local prevDust: any = 0
+for _, rank in { 0, 1, 10, 100, 10_000, 9_000_000_000_000_000 } do
+	local flux = OmegaMath.Floor(OmegaMath.Mul(baseFlux, OmegaMath.BoundedPower(fluxScale, rank)))
+	local dust = OmegaMath.Floor(OmegaMath.Mul(baseDust, OmegaMath.BoundedPower(dustScale, rank)))
+	assert(isPersist(flux) and isPersist(dust), "Continuum cost overflow at rank " .. tostring(rank))
+	assert(OmegaMath.Gte(flux, prevFlux) and OmegaMath.Gte(dust, prevDust), "Continuum costs must not regress")
 	prevFlux = flux
 	prevDust = dust
 
 	local rebirths = math.floor(math.min(MAX_VALUE, baseRebirths + rank * rebirthsPer))
-	local cores = OmegaMath.ToNumber(OmegaMath.ScaledCost(baseCores, coreScale, rank))
+	local cores = OmegaMath.ScaledCost(baseCores, coreScale, rank)
 	local essence = math.floor(math.min(MAX_VALUE, baseEssence + rank * essencePer))
 	local domainDust = math.floor(math.min(MAX_VALUE, baseDomainDust + rank * domainDustPer))
-	assert(finite(rebirths) and finite(cores), "Domain requirement overflow at rank " .. tostring(rank))
-	assert(finite(essence) and finite(domainDust), "Domain reward overflow at rank " .. tostring(rank))
+	assert(finiteNumber(rebirths) and isPersist(cores), "Domain requirement overflow at rank " .. tostring(rank))
+	assert(finiteNumber(essence) and finiteNumber(domainDust), "Domain reward overflow at rank " .. tostring(rank))
 end
 
 ------------------------------------------------------------------------
