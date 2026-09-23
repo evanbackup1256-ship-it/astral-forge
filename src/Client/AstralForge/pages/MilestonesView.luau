@@ -3,9 +3,9 @@ local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useFlash = _motion.useFlash
 local usePulse = _motion.usePulse
-local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
@@ -226,6 +226,7 @@ local function MilestonesView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local list = state.Achievements or {}
 	local filter, setFilter = React.useState("All")
@@ -284,7 +285,6 @@ local function MilestonesView(_param)
 			task.cancel(selectJob)
 		end
 	end, { firstReadyId, filter })
-	local headerReveal = useStagger(0, reducedMotion)
 	local headerHeight = if stack then (if chrome.landscape then 144 else 176) else 148
 	local rowStride = (if stack then 220 else 148) + 16
 	local pageGap = if stack then chrome.panelGap else 10
@@ -293,7 +293,8 @@ local function MilestonesView(_param)
 		accent = Palette.mango,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = headerReveal,
+		reveal = enter,
+		reducedMotion = softMotion,
 		zIndex = 30,
 		clips = false,
 	},  if stack then React.createElement(React.Fragment, nil, not chrome.landscape and React.createElement(React.Fragment, nil, React.createElement(Text, {
@@ -387,7 +388,7 @@ local function MilestonesView(_param)
 		data = visible,
 		itemHeight = rowStride,
 		headerHeight = 0,
-		overscan = 2,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.mango,
@@ -401,7 +402,7 @@ local function MilestonesView(_param)
 			return React.createElement(MilestoneRow, {
 				achievement = item,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				position = UDim2.fromOffset(0, 0),
 				stack = stack,
 				claimHostRef = if item.Id == firstReadyId then claimHostRef else nil,

@@ -239,7 +239,18 @@ assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService Command
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService LabOrderMath residual for release")
 mark("runquick pure continuum domain parity")
 
-assert(#passed > 10, "release-readiness offline subset must stay beyond checks=10, got " .. tostring(#passed))
+-- Pure RunQuick prestige reward parity (RebirthGate; soak still Studio-only).
+local rebirthGateSrc = fs.readFile("src/Server/AstralForge/Modules/RebirthGate.luau")
+assert(string.find(rebirthGateSrc, "function RebirthGate.PrestigeReward", 1, true), "RebirthGate.PrestigeReward missing")
+assert(string.find(rebirthGateSrc, "function RebirthGate.CanRebirth", 1, true), "RebirthGate.CanRebirth missing")
+assert(string.find(rebirthGateSrc, "function RebirthGate.StardustReward", 1, true), "RebirthGate.StardustReward missing")
+assert(string.find(economyBody, "RebirthGate.PrestigeReward", 1, true), "Economy.PrestigeReward must delegate RebirthGate")
+assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick must exercise PrestigeReward")
+assert(not string.find(rebirthGateSrc, "vendor/", 1, true), "RebirthGate must not reference vendor/")
+assert(not string.find(rebirthGateSrc, "Packages/", 1, true), "RebirthGate must not reference Packages/")
+mark("runquick pure prestige reward parity")
+
+assert(#passed > 11, "release-readiness offline subset must stay beyond checks=11, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

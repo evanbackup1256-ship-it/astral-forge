@@ -10,6 +10,7 @@ local Meter = _ui.Meter
 local Badge = _ui.Badge
 local AmountToggle = _ui.AmountToggle
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
@@ -193,6 +194,7 @@ local function ResearchView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local scrollRef = React.useRef()
 	local buyAllHostRef = React.useRef(nil)
@@ -273,7 +275,6 @@ local function ResearchView(_param)
 			task.cancel(selectJob)
 		end
 	end, { canBuyAll, buyAmount, unlockedCount })
-	local headerReveal = useStagger(0, softMotion)
 	local listGap = if stack then chrome.panelGap else Layout.panelGap
 	-- Stack mode header padding is 14, and the AmountToggle row sits at y=132 with height
 	-- TapTarget(48), ending at 180 — needs 180 + 28 = 208. Non-stack ends its content at
@@ -298,7 +299,8 @@ local function ResearchView(_param)
 					accent = Palette.cyan,
 					background = Palette.panelRaised,
 					padding = if stack then 14 else 16,
-					reveal = headerReveal,
+					reveal = enter,
+					reducedMotion = softMotion,
 					clips = false,
 				}, React.createElement(IconTile, {
 					kind = "Research",
@@ -308,7 +310,7 @@ local function ResearchView(_param)
 					position = UDim2.fromOffset(0, if stack then 4 else 18),
 					glow = true,
 					spin = false,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}), React.createElement(Text, {
 					value = "RESEARCH CHAIN",
 					size = 10,
@@ -337,7 +339,7 @@ local function ResearchView(_param)
 					accent = Palette.cyan,
 					position = UDim2.new(1, -240, 0, 16),
 					size = UDim2.fromOffset(240, 32),
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}), React.createElement("frame", {
 					-- FocusClaim prefers Buy-named hosts for research bulk purchase.
 					Name = "ResearchBuyClaimActions",
@@ -353,7 +355,7 @@ local function ResearchView(_param)
 					color = Palette.cyan,
 					textColor = Palette.ink,
 					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					highlight = true,
 				}))), stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
 					value = buyAmount,
@@ -361,7 +363,7 @@ local function ResearchView(_param)
 					accent = Palette.cyan,
 					position = UDim2.new(0, 0, 0, 132),
 					size = UDim2.new(1, -(TapTarget + 8), 0, TapTarget),
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}), React.createElement("frame", {
 					Name = "ResearchBuyClaimActions",
 					Size = UDim2.fromOffset(TapTarget, TapTarget),
@@ -376,7 +378,7 @@ local function ResearchView(_param)
 					color = Palette.cyan,
 					textColor = Palette.ink,
 					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					highlight = true,
 				})))),
 			},
@@ -389,7 +391,7 @@ local function ResearchView(_param)
 					columns = 1,
 					cellHeight = rowStride,
 					gap = 0,
-					overscanRows = 2,
+					overscanRows = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 					itemKey = function(index)
 						return entries[index + 1].config.Id
 					end,
@@ -397,7 +399,7 @@ local function ResearchView(_param)
 						return React.createElement(ResearchNode, {
 							entry = entries[index + 1],
 							buyAmount = buyAmount,
-							reducedMotion = reducedMotion,
+							reducedMotion = softMotion,
 							index = index,
 							onBuy = onBuy,
 							stack = stack,

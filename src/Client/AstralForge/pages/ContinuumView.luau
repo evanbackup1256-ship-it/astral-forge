@@ -9,6 +9,7 @@ local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
 local Icon = require(script.Parent.Parent.Icon).Icon
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local useFlash = _motion.useFlash
 local usePulse = _motion.usePulse
 local useRotation = _motion.useRotation
@@ -95,14 +96,16 @@ local function EffectCell(_param)
 	local accent = _param.accent
 	local order = _param.order
 	local reducedMotion = _param.reducedMotion
-	local reveal = useStagger(order, reducedMotion, 0.035, 0.2)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local reveal = useStagger(order, softMotion, 0.035, 0.2)
 	return React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
 		background = Palette.panelRaised,
 		padding = 14,
 		reveal = reveal,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}, React.createElement(Text, {
 		value = label,
 		size = 10,
@@ -246,6 +249,7 @@ local function ContinuumView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local continuum = state.Continuum or EMPTY_CONTINUUM
 	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
@@ -301,7 +305,8 @@ local function ContinuumView(_param)
 					background = darken(Palette.violet, 0.92),
 					padding = if stack then 16 else Layout.cardPadding,
 					highlight = continuum.Rank > 0,
-					reducedMotion = reducedMotion,
+					reveal = enter,
+					reducedMotion = softMotion,
 					clips = true,
 				}, React.createElement("frame", {
 					Size = UDim2.fromOffset(coreSize, coreSize),
@@ -313,7 +318,7 @@ local function ContinuumView(_param)
 				}), React.createElement(ContinuumCore, {
 					rank = continuum.Rank,
 					size = coreSize,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				})), React.createElement("frame", {
 					Size = if stack then UDim2.new(1, 0, 0, 104) else UDim2.new(1, -(coreSize + 34), 1, -20),
 					Position = if stack then UDim2.fromOffset(0, coreSize + 10) else UDim2.fromOffset(coreSize + 24, 10),
@@ -367,25 +372,25 @@ local function ContinuumView(_param)
 					value = `{compactNumber(continuum.ProductionMultiplier)}×`,
 					accent = Palette.cyan,
 					order = 0,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}), React.createElement(EffectCell, {
 					label = "VAULT CAPACITY",
 					value = `{compactNumber(continuum.CapacityMultiplier)}×`,
 					accent = Palette.violet,
 					order = 1,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}), React.createElement(EffectCell, {
 					label = "OVERCHARGE",
 					value = `{compactNumber(continuum.TapMultiplier)}×`,
 					accent = Palette.mango,
 					order = 2,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}), React.createElement(EffectCell, {
 					label = "OFFLINE",
 					value = `+{string.format("%.1f", continuum.OfflineBonus * 100)}%`,
 					accent = Palette.mint,
 					order = 3,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				})),
 			},
 			{
@@ -397,7 +402,7 @@ local function ContinuumView(_param)
 					background = Palette.panelRaised,
 					padding = if stack then 15 else Layout.cardPadding,
 					highlight = continuum.CanUpgrade,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					clips = false,
 				}, React.createElement(Text, {
 					value = `FORGE RANK {compactNumber(continuum.Rank + 1)}`,
@@ -484,7 +489,7 @@ local function ContinuumView(_param)
 					color = if continuum.CanUpgrade then Palette.pink else Palette.panelSoft,
 					textColor = if continuum.CanUpgrade then Palette.ink else Palette.muted,
 					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					disabled = not continuum.CanUpgrade,
 					highlight = continuum.CanUpgrade,
 				}))),
@@ -497,7 +502,7 @@ local function ContinuumView(_param)
 					accent = Palette.cyan,
 					background = Palette.panel,
 					padding = if stack then 14 else 18,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				}, React.createElement(Text, {
 					value = "NEXT 1.5× BOOST",
 					size = 9,
@@ -516,7 +521,7 @@ local function ContinuumView(_param)
 				}), React.createElement(Meter, {
 					value = progress,
 					color = Palette.cyan,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					shimmer = continuum.Rank > 0,
 					position = milestoneMeterPosition,
 					size = milestoneMeterSize,

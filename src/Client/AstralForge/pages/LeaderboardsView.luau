@@ -8,6 +8,7 @@ local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
 local clockText = _format.clockText
 local _motion = require(script.Parent.Parent.motion)
+local useEntrance = _motion.useEntrance
 local usePulse = _motion.usePulse
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
@@ -744,6 +745,7 @@ local function LeaderboardsView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local enter = useEntrance(softMotion)
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
 	local entries, setEntries = React.useState({})
@@ -936,7 +938,7 @@ local function LeaderboardsView(_param)
 		columns = 2,
 		gap = 4,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}))
 	local heroPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
@@ -944,7 +946,8 @@ local function LeaderboardsView(_param)
 		background = heroSurface,
 		padding = if stack then 12 else 16,
 		highlight = not loading,
-		reducedMotion = reducedMotion,
+		reveal = enter,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(if stack then 44 else 56, if stack then 44 else 56),
@@ -1107,7 +1110,7 @@ local function LeaderboardsView(_param)
 		local ranksBody = if virtRanks then React.createElement(FlatList, {
 			data = restEntries,
 			itemHeight = rankStride,
-			overscan = 2,
+			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 			canvasTail = 8,
 			Size = UDim2.new(1, 0, 0, ranksListH),
 			scrollBarColor = meta.accent,
@@ -1125,7 +1128,7 @@ local function LeaderboardsView(_param)
 					meta = meta,
 					isLocal = entry.UserId == localId,
 					layoutOrder = rank,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					stack = stack,
 				})
 			end,
