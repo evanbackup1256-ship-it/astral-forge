@@ -2091,6 +2091,7 @@ local function InventoryView(_param)
 	local antilag = useAntilag()
 	-- Inventory mounts tab springs + hero shimmer together; snap when antilag already cut ambient.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local headerReveal = useStagger(0, softMotion)

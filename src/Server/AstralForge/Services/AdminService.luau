@@ -794,8 +794,14 @@ return function(loadService: (string) -> any)
 				profile.Items.Pity[option] += math.floor(amount)
 			elseif command == "GrantBoost" then
 				if not GameConfig.Boosts[option] then return { ok = false, error = "Unknown boost id." } end
+				if type(profile.BoostInventory) ~= "table" then
+					profile.BoostInventory = {}
+				end
 				profile.BoostInventory[option] = (profile.BoostInventory[option] or 0) + math.floor(amount)
 			elseif command == "GrantAllBoosts" then
+				if type(profile.BoostInventory) ~= "table" then
+					profile.BoostInventory = {}
+				end
 				for boostId in GameConfig.Boosts do
 					profile.BoostInventory[boostId] = (profile.BoostInventory[boostId] or 0) + math.floor(amount)
 				end
@@ -807,8 +813,12 @@ return function(loadService: (string) -> any)
 				end
 				if changedAmount <= 0 then return { ok = false, error = "Relic id is invalid or inventory is full." } end
 			elseif command == "ClearActiveBoost" then
-				profile.ActiveBoost.Id = ""
-				profile.ActiveBoost.EndsAt = 0
+				if type(profile.ActiveBoost) ~= "table" then
+					profile.ActiveBoost = { Id = "", EndsAt = 0 }
+				else
+					profile.ActiveBoost.Id = ""
+					profile.ActiveBoost.EndsAt = 0
+				end
 			elseif command == "ResetWheelCooldown" then profile.Wheel.LastSpinAt = 0
 			elseif command == "ResetDailyClaim" then profile.Daily.LastClaimDay = -1
 			elseif command == "ClearVault" then profile.Vault = 0
@@ -919,6 +929,11 @@ return function(loadService: (string) -> any)
 				end
 			elseif command == "DiscoverArts" then
 				if GameConfig.Operations and GameConfig.Operations.Artifacts then
+					if type(profile.Command) ~= "table" then
+						profile.Command = { Artifacts = {} }
+					elseif type(profile.Command.Artifacts) ~= "table" then
+						profile.Command.Artifacts = {}
+					end
 					for _, artifact in GameConfig.Operations.Artifacts do
 						profile.Command.Artifacts[artifact.Id] = profile.Command.Artifacts[artifact.Id] or { Level = 1, Fragments = 0 }
 					end
@@ -931,11 +946,31 @@ return function(loadService: (string) -> any)
 				profile.Cores += math.max(1000, math.floor(amount))
 				profile.Stardust += math.max(100000, math.floor(amount))
 				profile.Rebirths += math.max(100, math.floor(amount))
+				if type(profile.Domain) ~= "table" then
+					profile.Domain = { Rank = 0, Essence = 0, Nodes = {}, SkillPoints = 0 }
+				end
 				profile.Domain.Essence += math.max(100, math.floor(amount))
+				if type(profile.Anomaly) ~= "table" then
+					profile.Anomaly = { Fragments = 0 }
+				end
 				profile.Anomaly.Fragments += math.max(10000, math.floor(amount))
+				if type(profile.Command) ~= "table" then
+					profile.Command = { Signals = 0 }
+				end
 				profile.Command.Signals += math.max(10000, math.floor(amount))
+				if type(profile.Wheel) ~= "table" then
+					profile.Wheel = { FreeSpins = 0 }
+				end
 				profile.Wheel.FreeSpins += math.max(100, math.floor(amount))
+				if type(profile.Items) ~= "table" then
+					profile.Items = { Keys = {} }
+				elseif type(profile.Items.Keys) ~= "table" then
+					profile.Items.Keys = {}
+				end
 				for crateId in profile.Items.Keys do profile.Items.Keys[crateId] += 100 end
+				if type(profile.BoostInventory) ~= "table" then
+					profile.BoostInventory = {}
+				end
 				for boostId in GameConfig.Boosts do profile.BoostInventory[boostId] = (profile.BoostInventory[boostId] or 0) + 25 end
 			else return { ok = false, error = "Admin command has no executor." } end
 			return { ok = true }

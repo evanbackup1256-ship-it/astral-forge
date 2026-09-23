@@ -438,10 +438,45 @@ return function(loadService: (string) -> any)
 		profile.Settings.SoundEffects = profile.Settings.SoundVolume > 0.001
 		profile.Settings.UIEffects = profile.Settings.EffectsIntensity > 0.001
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
+		-- ApplyReward FreeSpins may seed Wheel={FreeSpins=0} without LastSpinAt/Spins —
+		-- sanitize must not throw after claim transactions on Studio fixtures.
+		if type(profile.Wheel) ~= "table" then
+			profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
+		end
 		profile.Wheel.LastSpinAt = math.floor(nonNegative(profile.Wheel.LastSpinAt))
 		profile.Wheel.Spins = math.floor(nonNegative(profile.Wheel.Spins))
 		profile.Wheel.PityMisses = math.floor(nonNegative(profile.Wheel.PityMisses))
 		profile.Wheel.FreeSpins = math.floor(nonNegative(profile.Wheel.FreeSpins))
+		-- ApplyReward Keys may seed Items={Keys={}} without Shop/Inventory/Equipped/Pity —
+		-- post-claim sanitize must rebuild the bag (same class of footgun as ForgePath).
+		if type(profile.Items) ~= "table" then
+			profile.Items = {
+				NextId = 1,
+				Inventory = {},
+				Discovered = {},
+				Equipped = {},
+				Essence = 0,
+				Keys = {},
+				Pity = {},
+				Shop = { Day = -1, Purchased = {}, Stock = {} },
+				AutoSalvage = { Enabled = false, KeepNew = true, Rarities = { Common = true, Uncommon = true } },
+			}
+		end
+		if type(profile.Items.Keys) ~= "table" then
+			profile.Items.Keys = {}
+		end
+		if type(profile.Items.Pity) ~= "table" then
+			profile.Items.Pity = {}
+		end
+		if type(profile.Items.Inventory) ~= "table" then
+			profile.Items.Inventory = {}
+		end
+		if type(profile.Items.Equipped) ~= "table" then
+			profile.Items.Equipped = {}
+		end
+		if type(profile.Items.Shop) ~= "table" then
+			profile.Items.Shop = { Day = -1, Purchased = {}, Stock = {} }
+		end
 		profile.Items.NextId = math.max(1, math.floor(nonNegative(profile.Items.NextId)))
 		profile.Items.Essence = math.floor(nonNegative(profile.Items.Essence))
 		profile.Items.Shop.Day = math.floor(nonNegative(profile.Items.Shop.Day))
@@ -531,6 +566,48 @@ return function(loadService: (string) -> any)
 				equippedItems[uid] = true
 			end
 		end
+		-- ApplyReward Fragments may seed Anomaly={Fragments=0} without Protocols /
+		-- Discoveries / MilestoneClaims — sanitize must not throw iterating nil maps.
+		if type(profile.Anomaly) ~= "table" then
+			profile.Anomaly = {
+				Cycle = -1,
+				Charge = 0,
+				Fragments = 0,
+				Stabilizations = 0,
+				Chain = 0,
+				BestChain = 0,
+				LastActionAt = 0,
+				SurgeEndsAt = 0,
+				Channel = "Flux",
+				Protocols = {},
+				Discoveries = {},
+				MilestoneClaims = {},
+				DirectiveCycle = -1,
+				DirectiveProgress = {},
+				DirectiveClaims = {},
+				PulseWindowStartedAt = 0,
+				Combo = 0,
+				BestCombo = 0,
+				Loadout = {},
+				CoreTier = 0,
+				CoreXP = 0,
+			}
+		end
+		if type(profile.Anomaly.Protocols) ~= "table" then
+			profile.Anomaly.Protocols = {}
+		end
+		if type(profile.Anomaly.Discoveries) ~= "table" then
+			profile.Anomaly.Discoveries = {}
+		end
+		if type(profile.Anomaly.MilestoneClaims) ~= "table" then
+			profile.Anomaly.MilestoneClaims = {}
+		end
+		if type(profile.Anomaly.DirectiveProgress) ~= "table" then
+			profile.Anomaly.DirectiveProgress = {}
+		end
+		if type(profile.Anomaly.DirectiveClaims) ~= "table" then
+			profile.Anomaly.DirectiveClaims = {}
+		end
 		profile.Anomaly.Cycle = math.floor(nonNegative(profile.Anomaly.Cycle))
 		profile.Anomaly.Charge = nonNegative(profile.Anomaly.Charge)
 		profile.Anomaly.Fragments = math.floor(nonNegative(profile.Anomaly.Fragments))
@@ -597,6 +674,23 @@ return function(loadService: (string) -> any)
 				profile.Anomaly.DirectiveClaims[directiveId] = nil
 			end
 		end
+		-- Quests / TimedRewards rely on reconcile on load but have no prior sanitize pass —
+		-- Studio fixtures and mid-migrate bags must not crash EnsureQuests / EnsureTimedRewards.
+		if type(profile.Quests) ~= "table" then
+			profile.Quests = { Day = -1, Items = {} }
+		end
+		if type(profile.Quests.Items) ~= "table" then
+			profile.Quests.Items = {}
+		end
+		profile.Quests.Day = math.floor(nonNegative(profile.Quests.Day))
+		if type(profile.TimedRewards) ~= "table" then
+			profile.TimedRewards = { Day = -1, PlaySeconds = 0, Claimed = {} }
+		end
+		if type(profile.TimedRewards.Claimed) ~= "table" then
+			profile.TimedRewards.Claimed = {}
+		end
+		profile.TimedRewards.Day = math.floor(nonNegative(profile.TimedRewards.Day))
+		profile.TimedRewards.PlaySeconds = math.floor(nonNegative(profile.TimedRewards.PlaySeconds))
 		-- ForgePath was the only major progression bag without a sanitize pass. Partial
 		-- bags (XP without ClaimedSteps) crashed Economy.ForgePathEffect / claim paths.
 		if type(profile.ForgePath) ~= "table" then

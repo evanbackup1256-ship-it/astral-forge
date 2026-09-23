@@ -314,6 +314,7 @@ local function BoostsView(_param)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
 	local activateHostRef = React.useRef(nil)
 	local now = useWallClock(true):map(function(seconds)

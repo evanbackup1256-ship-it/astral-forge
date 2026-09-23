@@ -444,6 +444,25 @@ do
 	assert(string.find(settings, 'Name = "SettingsClaimActions"', 1, true), "Settings GUIDE/UPDATES host must be named SettingsClaimActions")
 	assert(string.find(settings, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "SettingsView must softMotion via antilag")
 
+	local chat = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
+	assert(string.find(chat, "GamepadNavigationService.FocusClaim", 1, true), "Chat SEND must FocusClaim")
+	assert(string.find(chat, 'Name = "ChatClaimActions"', 1, true), "Chat SEND host must be named ChatClaimActions")
+	assert(string.find(chat, "reducedMotion = softMotion", 1, true), "ChatView must fold softMotion into reducedMotion")
+
+	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards.
+	local CANON_SOFT = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+	for _, path in {
+		"src/Client/AstralForge/pages/ShopView.luau",
+		"src/Client/AstralForge/pages/EchoForgeView.luau",
+		"src/Client/AstralForge/pages/BoostsView.luau",
+		"src/Client/AstralForge/pages/InventoryView.luau",
+		"src/Client/AstralForge/pages/LeaderboardsView.luau",
+	} do
+		local softSrc = fs.readFile(path)
+		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")
+		assert(string.find(softSrc, "reducedMotion = softMotion", 1, true), path .. " must fold softMotion into reducedMotion")
+	end
+
 	local continuumClips = fs.readFile("src/Client/AstralForge/pages/ContinuumView.luau")
 	assert(string.find(continuumClips, 'Name = "ContinuumClaimActions"', 1, true), "Continuum forge CTA host must stay named")
 	assert(

@@ -339,6 +339,7 @@ local function ShopView(_param)
 	local antilag = useAntilag()
 	-- Snap decorative tile/hero springs when antilag already cut ambient or is on a low tier.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local tab, setTab = React.useState("Featured")
 	local code, setCode = React.useState("")
