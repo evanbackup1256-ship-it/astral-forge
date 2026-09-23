@@ -304,7 +304,7 @@ local GameConfig = {
 		ComboBonusPerStack = 0.045,
 	},
 
-	-- Generated 40-step table. See buildForgePathSteps() above. Replaces the old Progression
+	-- Generated 80-step table. See buildForgePathSteps() above. Replaces the old Progression
 	-- Tree + Prestige + Season Pass split with one linear track: each step grants a permanent
 	-- stat bonus and a reward chest together, claimed in one action, funded by ForgePath XP
 	-- (a passive trickle off lifetime flux — see Economy.ForgePathXP).
@@ -312,6 +312,14 @@ local GameConfig = {
 	-- metadata only). Do not keep a separate client step generator — it will go stale.
 	ForgePath = {
 		Steps = FORGE_PATH_STEPS,
+		StepCount = FORGE_PATH_STEP_COUNT,
+		ChapterMarks = {
+			{ Step = 1, Title = "Ignition" },
+			{ Step = 20, Title = "Foundry Lane" },
+			{ Step = 40, Title = "Starwell" },
+			{ Step = 60, Title = "Horizon Bind" },
+			{ Step = 80, Title = "Astral Apex" },
+		},
 	},
 
 	Guild = {
