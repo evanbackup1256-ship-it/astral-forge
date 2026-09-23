@@ -3,6 +3,8 @@ local Audio = require(script.Parent.Parent.audio).Audio
 local formatReward = require(script.Parent.Parent.format).formatReward
 local Icon = require(script.Parent.Parent.Icon).Icon
 local ClientLog = require(script.Parent.Parent.log).ClientLog
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _motion = require(script.Parent.Parent.motion)
 local useEntrance = _motion.useEntrance
 local useFlipperSpring = _motion.useFlipperSpring
@@ -20,7 +22,11 @@ local Badge = _ui.Badge
 local Button = _ui.Button
 local Meter = _ui.Meter
 local meterFill = _ui.meterFill
+local measureWrappedTextHeight = _ui.measureWrappedTextHeight
 local Text = _ui.Text
+local CHAPTER_ROW_H = 58
+local CHAPTER_ROW_GAP = 8
+local CHAPTER_ROW_STRIDE = CHAPTER_ROW_H + CHAPTER_ROW_GAP
 local function illuminate(text, accent)
 	local rgb = `{math.floor(accent.R * 255)},{math.floor(accent.G * 255)},{math.floor(accent.B * 255)}`
 	local result = text
@@ -210,7 +216,7 @@ local function ChapterRailRow(_param)
 	local label = if not open then "LOCK" elseif done then "DONE" else "NEW"
 	local accent = entry.Color
 	return React.createElement("textbutton", {
-		Size = UDim2.new(1, -4, 0, 58),
+		Size = UDim2.new(1, -4, 0, CHAPTER_ROW_H),
 		BackgroundColor3 = if selected then Palette.panel else Palette.ink,
 		BorderSizePixel = 0,
 		Text = "",
@@ -296,19 +302,21 @@ local function StoryBeat(_param)
 	local onResonate = _param.onResonate
 	local stack = _param.stack
 	local condensed = _param.condensed
-	local enter = useEntrance(reducedMotion)
-	local visible, setVisible = React.useBinding(if reducedMotion then #text else 0)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local enter = useEntrance(softMotion)
+	local visible, setVisible = React.useBinding(if softMotion then #text else 0)
 	local needsWarmup = not stack and not replay
 	local tuning, setTuning = React.useState(if needsWarmup then 0 else 3)
-	local tuneSpring = useFlipperSpring(tuning / 3, reducedMotion, 700, 32)
+	local tuneSpring = useFlipperSpring(tuning / 3, softMotion, 700, 32)
 	local tuned = tuning >= 3 or replay or stack
 	React.useEffect(function()
 		local alive = true
 		local revealWorker
-		setVisible(if reducedMotion then #text else 0)
+		setVisible(if softMotion then #text else 0)
 		setTuning(if needsWarmup then 0 else 3)
 		Audio:play("storyBeat")
-		if not reducedMotion then
+		if not softMotion then
 			revealWorker = task.spawn(function()
 				local count = 0
 				local step = math.max(1, math.floor(#text / 72))
@@ -325,7 +333,7 @@ local function StoryBeat(_param)
 				task.cancel(revealWorker)
 			end
 		end
-	end, { index, needsWarmup, reducedMotion, replay, text })
+	end, { index, needsWarmup, softMotion, replay, text })
 	local final = index >= total - 1
 	local resonate = function()
 		if tuned then
@@ -345,20 +353,36 @@ local function StoryBeat(_param)
 	local btnH = if stack then TapTarget else 48
 	local showTip = not condensed and (not stack or not tuned)
 	local tipH = if showTip then (if stack then 36 else 32) else 0
-	local tipGap = if showTip then (if stack then 8 else Layout.stackGap) else 0
 	local actionsH = if stack and not condensed then btnH * 2 + 10 else btnH
-	local bottomReserve = tipH + tipGap + actionsH + 6
 	local headerH = if stack then 28 else 40
 	local bodySize = if stack then 17 else 20
 	local lineHeight = if stack then 1.36 else 1.42
 	local partFill = meterFill(index + 1, total)
 	local tipAccent = if tuned then Palette.green else color
-	return React.createElement("frame", {
+	local bodyGap = if stack then 16 else Layout.panelGap
+	local bodyPadR = if stack then 4 else Layout.stackGap
+	-- Content floor so PageScaffold grows the fill section + outer-scrolls when copy is long;
+	-- tip/actions stay layout-owned (no absolute bottomReserve clipping).
+	local viewport = useViewport()
+	local measureWidth = math.max(160, math.floor((viewport.width or 390) * (if stack then 0.92 else 0.55)) - bodyPadR - 8)
+	local textH = math.max(64, math.ceil(measureWrappedTextHeight(text, measureWidth, bodySize, Enum.FontWeight.Medium) * lineHeight))
+	local estimatedBodyH = textH + (if final then 56 + bodyGap else 0) + (if stack then 24 else 16) + 12
+	local headerElement = if stack then React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, not stack and React.createElement(React.Fragment, nil, React.createElement(Text, {
+	}, React.createElement(Meter, {
+		value = partFill,
+		color = color,
+		reducedMotion = softMotion,
+		shimmer = final,
+		position = UDim2.fromOffset(0, 4),
+		size = UDim2.new(1, 0, 0, 4),
+	})) else React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Text, {
 		value = `Part {index + 1} of {total}`,
 		size = 13,
 		color = color,
@@ -371,39 +395,22 @@ local function StoryBeat(_param)
 	}), React.createElement(Meter, {
 		value = partFill,
 		color = color,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = final,
 		position = UDim2.fromOffset(0, 26),
 		size = UDim2.new(1, 0, 0, 5),
-	})), stack and React.createElement(Meter, {
-		value = partFill,
-		color = color,
-		reducedMotion = reducedMotion,
-		shimmer = final,
-		position = UDim2.fromOffset(0, 4),
-		size = UDim2.new(1, 0, 0, 4),
-	}), React.createElement("scrollingframe", {
-		Size = UDim2.new(1, 0, 1, -(bottomReserve + headerH)),
-		Position = UDim2.fromOffset(0, headerH),
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	}))
+	local bodyElement = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = if stack then 4 else 3,
-		ScrollBarImageColor3 = color,
-		ScrollBarImageTransparency = 0.28,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		Active = true,
-		Selectable = false,
+		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, if stack then 16 else Layout.panelGap),
+		Padding = UDim.new(0, bodyGap),
 	}), React.createElement("uipadding", {
-		PaddingRight = UDim.new(0, if stack then 4 else Layout.stackGap),
+		PaddingRight = UDim.new(0, bodyPadR),
 		PaddingBottom = UDim.new(0, 12),
 	}), React.createElement("textlabel", {
 		Size = UDim2.new(1, -4, 0, 0),
@@ -467,13 +474,12 @@ local function StoryBeat(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 2,
-	})), showTip and stack and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, tipH),
-		Position = UDim2.new(0, 0, 1, -(actionsH + tipGap + tipH)),
+	}))
+	local tipElement = if not showTip then nil elseif stack then React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		ZIndex = 3,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	}), React.createElement("uistroke", {
@@ -489,14 +495,17 @@ local function StoryBeat(_param)
 		fit = false,
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.fromScale(1, 1),
-	})), showTip and not stack and React.createElement("frame", {
+	})) else React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(0, tipH),
 		AutomaticSize = Enum.AutomaticSize.X,
-		Position = UDim2.new(0, 0, 1, -(actionsH + tipGap + tipH)),
 		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		ZIndex = 3,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 8),
 	}), React.createElement("uistroke", {
@@ -528,15 +537,24 @@ local function StoryBeat(_param)
 		TextYAlignment = Enum.TextYAlignment.Center,
 		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = 4,
-	})), if stack and not condensed then React.createElement(React.Fragment, nil, React.createElement(Button, {
+	})))
+	local actionsElement = if stack and not condensed then React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 10),
+	}), React.createElement(Button, {
 		text = actionText,
 		icon = actionIcon,
 		onClick = action,
 		color = if not tuned then color elseif final then color else Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, btnH),
-		position = UDim2.new(0, 0, 1, -(btnH * 2 + 10)),
-		reducedMotion = reducedMotion,
+		layoutOrder = 0,
+		reducedMotion = softMotion,
 		highlight = not claimed or not tuned or replay,
 	}), React.createElement(Button, {
 		text = "Back",
@@ -546,10 +564,14 @@ local function StoryBeat(_param)
 		textColor = Palette.creamSoft,
 		outline = true,
 		size = UDim2.new(1, 0, 0, btnH),
-		position = UDim2.new(0, 0, 1, -btnH),
+		layoutOrder = 1,
 		disabled = index <= 0,
-		reducedMotion = reducedMotion,
-	})) else React.createElement(React.Fragment, nil, React.createElement(Button, {
+		reducedMotion = softMotion,
+	})) else React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Button, {
 		text = "Back",
 		icon = "Back",
 		onClick = onBack,
@@ -557,9 +579,9 @@ local function StoryBeat(_param)
 		textColor = Palette.creamSoft,
 		outline = true,
 		size = UDim2.fromOffset(128, btnH),
-		position = UDim2.new(0, 0, 1, -btnH),
+		position = UDim2.fromOffset(0, 0),
 		disabled = index <= 0,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Button, {
 		text = actionText,
 		icon = actionIcon,
@@ -567,11 +589,45 @@ local function StoryBeat(_param)
 		color = if not tuned then color elseif final then color else Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(1, -140, 0, btnH),
-		position = UDim2.new(0, 140, 1, -btnH),
-		reducedMotion = reducedMotion,
+		position = UDim2.fromOffset(140, 0),
+		reducedMotion = softMotion,
 		highlight = not claimed or not tuned or replay,
-	})))
+	}))
+	local sections = {
+		{
+			id = "beat-header",
+			height = headerH,
+			element = headerElement,
+		},
+		{
+			id = "beat-body",
+			fill = true,
+			minHeight = 96,
+			height = estimatedBodyH,
+			element = bodyElement,
+		},
+	}
+	if showTip and tipElement ~= nil then
+		table.insert(sections, {
+			id = "beat-tip",
+			height = tipH,
+			element = tipElement,
+		})
+	end
+	table.insert(sections, {
+		id = "beat-actions",
+		height = actionsH,
+		element = actionsElement,
+	})
+	return React.createElement(PageScaffold, {
+		gap = if showTip then (if stack then 8 else Layout.stackGap) else 6,
+		tailPad = 4,
+		scrollBarColor = color,
+		scrollBarThickness = if stack then 4 else 3,
+		sections = sections,
+	})
 end
+
 local function chapterConfig(config, id)
 	local _exp = config.Story
 	-- ▼ ReadonlyArray.find ▼
@@ -667,8 +723,10 @@ local function StoryView(_param)
 	-- ▲ ReadonlyArray.find ▲
 	local status = _result
 	local story = if status then chapterConfig(config, status.Id) else nil
-	local intro = useEntrance(reducedMotion)
-	local archivePulse = usePulse(not reducedMotion and not started, 3.4)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local intro = useEntrance(softMotion)
+	local archivePulse = usePulse(not softMotion and not started, 3.4)
 	if not story or not status then
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
@@ -790,62 +848,56 @@ local function StoryView(_param)
 		}))
 		local _condition_2 = not stack and multi
 		if _condition_2 then
-			local _exp_3 = React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Vertical,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 8),
-			})
-			local _exp_4 = React.createElement(Text, {
+			local railChapters = {}
+			for _, chapter in chapters do
+				local entry = chapterConfig(config, chapter.Id)
+				if entry ~= nil then
+					table.insert(railChapters, {
+						chapter = chapter,
+						entry = entry,
+					})
+				end
+			end
+			local railListTop = railMarkH + 10
+			local railHeaderH = 20
+			_condition_2 = React.createElement("frame", {
+				Size = UDim2.new(1, 0, 1, -railListTop),
+				Position = UDim2.fromOffset(0, railListTop),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+			}, React.createElement(Text, {
 				value = "CHAPTERS",
 				size = 10,
 				color = Palette.muted,
 				weight = Enum.FontWeight.Heavy,
 				fit = false,
 				sizeConstraint = UDim2.new(1, 0, 0, 16),
-			})
-			-- ▼ ReadonlyArray.map ▼
-			local _newValue = table.create(#chapters)
-			local _callback_1 = function(chapter, index)
-				local entry = chapterConfig(config, chapter.Id)
-				if not entry then
-					return nil
-				end
-				return React.createElement(ChapterRailRow, {
-					key = chapter.Id,
-					chapter = chapter,
-					entry = entry,
-					selected = chapter.Id == status.Id,
-					onSelect = function()
-						return selectChapter(chapter.Id)
-					end,
-					layoutOrder = index + 1,
-				})
-			end
-			for _k, _v in chapters do
-				_newValue[_k] = _callback_1(_v, _k - 1, chapters)
-			end
-			-- ▲ ReadonlyArray.map ▲
-			_condition_2 = React.createElement("scrollingframe", {
-				Size = UDim2.new(1, 0, 1, -(railMarkH + 10)),
-				Position = UDim2.fromOffset(0, railMarkH + 10),
-				CanvasSize = UDim2.new(0, 0, 0, 0),
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ScrollingDirection = Enum.ScrollingDirection.Y,
-				ScrollBarThickness = 3,
-				ScrollBarImageColor3 = story.Color,
-				ScrollBarImageTransparency = 0.28,
-				VerticalScrollBarInset = Enum.ScrollBarInset.None,
-				ClipsDescendants = true,
-				ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-				Active = true,
-				Selectable = false,
-			}, _exp_3, _exp_4, _newValue, React.createElement("frame", {
-				Size = UDim2.new(1, 0, 0, 8),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				LayoutOrder = 99,
+			}), React.createElement(FlatList, {
+				data = railChapters,
+				itemHeight = CHAPTER_ROW_STRIDE,
+				headerHeight = 0,
+				overscan = if softMotion then 1 else 2,
+				canvasTail = 8,
+				Size = UDim2.new(1, 0, 1, -railHeaderH),
+				Position = UDim2.fromOffset(0, railHeaderH),
+				scrollBarColor = story.Color,
+				scrollBarThickness = 3,
+				keyExtractor = function(item)
+					return item.chapter.Id
+				end,
+				renderItem = function(_param_1)
+					local item = _param_1.item
+					local index = _param_1.index
+					return React.createElement(ChapterRailRow, {
+						chapter = item.chapter,
+						entry = item.entry,
+						selected = item.chapter.Id == status.Id,
+						onSelect = function()
+							return selectChapter(item.chapter.Id)
+						end,
+						layoutOrder = index,
+					})
+				end,
 			}))
 		end
 		_condition_1 = React.createElement("frame", {
@@ -926,10 +978,17 @@ local function StoryView(_param)
 				sizeConstraint = UDim2.new(1, 0, 0, 32),
 			}),
 		}
+		local archiveChapterCount = 0
+		for _, chapter in chapters do
+			if chapterConfig(config, chapter.Id) ~= nil then
+				archiveChapterCount += 1
+			end
+		end
 		local _object = {
 			id = "archive-chapters",
 			fill = true,
 			minHeight = 140,
+			height = math.max(140, archiveChapterCount * CHAPTER_ROW_STRIDE + 8),
 		}
 		local _left = "element"
 		local _exp_7 = React.createElement("uilistlayout", {
@@ -959,21 +1018,11 @@ local function StoryView(_param)
 			_newValue[_k] = _callback_1(_v, _k - 1, chapters)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_object[_left] = React.createElement("scrollingframe", {
+		_object[_left] = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
-			CanvasSize = UDim2.new(0, 0, 0, 0),
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = story.Color,
-			ScrollBarImageTransparency = 0.28,
-			VerticalScrollBarInset = Enum.ScrollBarInset.None,
-			ClipsDescendants = true,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			Active = true,
-			Selectable = false,
+			ClipsDescendants = false,
 		}, _exp_7, _newValue, React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, 8),
 			BackgroundTransparency = 1,
@@ -1064,13 +1113,17 @@ local function StoryView(_param)
 		local _attributes = {
 			key = `{story.Id}:{beat}:{if finished then "replay" else "live"}`,
 		}
-		local _condition_4 = story.Body[beat + 1]
+		local body = story.Body
+		if type(body) ~= "table" then
+			body = {}
+		end
+		local _condition_4 = body[beat + 1]
 		if _condition_4 == nil then
 			_condition_4 = ""
 		end
 		_attributes.text = _condition_4
 		_attributes.index = beat
-		_attributes.total = #story.Body
+		_attributes.total = math.max(1, #body)
 		_attributes.color = story.Color
 		_attributes.reducedMotion = reducedMotion
 		_attributes.claimed = status.Claimed

@@ -1448,14 +1448,6 @@ local function TradeView(_param)
 		})
 	end
 	if compactTrade then
-		local _exp_2 = React.createElement("uipadding", {
-			PaddingBottom = UDim.new(0, scrollTail(true, chrome.bottomSafe, if chrome.landscape then 24 else 32)),
-		})
-		local _exp_3 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, if chrome.landscape then 8 else Layout.stackGap),
-		})
 		local _exp_4 = React.createElement(Text, {
 			value = dailyLabel,
 			size = 14,
@@ -1508,7 +1500,7 @@ local function TradeView(_param)
 			accent = Palette.cyan,
 			size = 44,
 		}), React.createElement(Text, {
-			value = `{invite.FromName} invited you`,
+			value = `{(invite and invite.FromName) or "Someone"} invited you`,
 			size = 16,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Heavy,
@@ -1573,7 +1565,7 @@ local function TradeView(_param)
 			clipSafe = true,
 			spin = false,
 		}), React.createElement(Text, {
-			value = `Waiting on {outgoing.ToName}`,
+			value = `Waiting on {(outgoing and outgoing.ToName) or "partner"}`,
 			size = 15,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Heavy,
@@ -1677,53 +1669,74 @@ local function TradeView(_param)
 				LayoutOrder = 7,
 			}, React.createElement(Button, _attributes))
 		end
-		return React.createElement("scrollingframe", {
+		-- Fill-safe invite board: pin INVITE CTA; roster/notices fill+scroll via PageScaffold.
+		local rosterStride = rosterRowH + (if chrome.landscape then 8 else Layout.stackGap)
+		local rosterFloor = if #visibleRows == 0 then 140 else #visibleRows * rosterStride
+		local sections = {
+			{
+				id = "daily",
+				height = 22,
+				element = _exp_4,
+			},
+		}
+		if _condition_5 then
+			table.insert(sections, {
+				id = "lock",
+				height = 86,
+				element = _condition_5,
+			})
+		end
+		if _exp_5 then
+			table.insert(sections, {
+				id = "invite",
+				height = 128,
+				element = _exp_5,
+			})
+		end
+		if _exp_6 then
+			table.insert(sections, {
+				id = "outgoing",
+				height = 124,
+				element = _exp_6,
+			})
+		end
+		if _exp_7 then
+			table.insert(sections, {
+				id = "search",
+				height = searchH,
+				element = _exp_7,
+			})
+		end
+		local rosterElement = if _exp_8 then _exp_8 else React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			ScrollBarThickness = 4,
-			ScrollBarImageColor3 = accent,
-			ScrollBarImageTransparency = 0.2,
-			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-			CanvasSize = UDim2.new(0, 0, 0, 1200),
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			ClipsDescendants = true,
-			Active = true,
-			Selectable = false,
-		}, _exp_2, _exp_3, _exp_4, _condition_5, _exp_5, _exp_6, _exp_7, _exp_8, _exp_9, _condition_6, session ~= nil and React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 40),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 10,
 		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 8),
+			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Wraps = true,
-		}), React.createElement(StatusChip, {
-			label = if sessionLeft > 0 then `Table {clockLabel(session.ExpiresAt, now)}` else "Table expired",
-			live = sessionLeft > 12,
-			accent = if sessionLeft > 12 then Palette.mint else Palette.coral,
-		}), confirmLeft > 0 and React.createElement(StatusChip, {
-			label = `Confirm {clockLabel(session.ConfirmEndsAt, now)}`,
-			live = true,
-			accent = Palette.mango,
-		}), React.createElement(StatusChip, {
-			label = if youReadyLocal then "You ready" else "You editing",
-			live = youReadyLocal,
-			accent = accent,
-		}), React.createElement(StatusChip, {
-			label = if session.ThemReady then `{session.PartnerName} ready` else `Waiting on {session.PartnerName}`,
-			live = session.ThemReady,
-			accent = Palette.cyan,
-		}), React.createElement(StatusChip, {
-			label = if session.YouConfirmed then "You confirmed" elseif bothReady then "Tap confirm" else "Ready first",
-			live = session.YouConfirmed,
-			accent = Palette.mango,
-		})), session ~= nil and offerPane("YOUR OFFER", `{#yourLines} on the table`, youReadyLocal, session.YouConfirmed, yourLines, true, true), session ~= nil and offerPane(string.upper(session.PartnerName), if session.ThemReady then "They locked their side" else "Still arranging", session.ThemReady, session.ThemConfirmed, theirLines, false, true), session ~= nil and sessionActions)
+			Padding = UDim.new(0, if chrome.landscape then 8 else Layout.stackGap),
+		}), rosterCards)
+		table.insert(sections, {
+			id = "roster",
+			fill = true,
+			minHeight = 120,
+			height = rosterFloor,
+			element = rosterElement,
+		})
+		if _condition_6 then
+			table.insert(sections, {
+				id = "invite-cta",
+				height = TapTarget,
+				element = _condition_6,
+			})
+		end
+		return React.createElement(PageScaffold, {
+			scrollBarColor = accent,
+			scrollBarThickness = 4,
+			tailPad = scrollTail(true, chrome.bottomSafe, if chrome.landscape then 24 else 32),
+			gap = if chrome.landscape then 8 else Layout.stackGap,
+			sections = sections,
+		})
 	end
 	local _exp_2 = React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, headerH),
