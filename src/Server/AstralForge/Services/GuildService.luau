@@ -10,6 +10,7 @@ return function()
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
+	local GuildGoalMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildGoalMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 
@@ -42,98 +43,21 @@ return function()
 	end
 
 	--#region Guild Goal
-	-- A guild's rotating co-op objective. Stored on the guild document as `Goal`:
-	--   { TypeId: string, Target: number, Progress: number, StartedAt: number,
-	--     EndsAt: number, Completed: boolean, CompletedAt: number,
-	--     Contributors: { [userIdString]: number }, Claimed: { [userIdString]: true } }
-	-- Guild documents that predate this field get one lazily via ensureGoal, so nothing has to
-	-- be migrated up front — an old guild simply rolls its first goal the next time it is touched.
+	-- A guild's rotating co-op objective. Stored on the guild document as `Goal`.
+	-- Guild documents that predate this field get one lazily via EnsureGoal
+	-- (GuildGoalMath) — an old guild simply rolls its first goal the next time
+	-- it is touched. Claimed/Contributors rebuilds must persist (EnsureGoal
+	-- returns true) so ClaimGoal deny paths no longer drop repaired bags.
 	local function goalTypeById(typeId: string)
-		for _, entry in GameConfig.Guild.Goal.Types do
-			if entry.Id == typeId then return entry end
-		end
-		return nil
+		return GuildGoalMath.GoalTypeById(GameConfig.Guild.Goal.Types, typeId)
 	end
 
-	local function memberCount(guild): number
-		local count = 0
-		if type(guild.Members) == "table" then
-			for _ in guild.Members do count += 1 end
-		end
-		return count
-	end
-
-	-- Deterministic rotation so every server that touches this guild picks the same next goal
-	-- rather than racing on math.random.
-	local function rollGoal(guild, now: number)
-		local types = GameConfig.Guild.Goal.Types
-		local previous = type(guild.Goal) == "table" and guild.Goal.TypeId or nil
-		local index = 1
-		if previous then
-			for position, entry in types do
-				if entry.Id == previous then
-					index = position % #types + 1
-					break
-				end
-			end
-		else
-			index = (math.floor(now / GameConfig.Guild.Goal.DurationSeconds) % #types) + 1
-		end
-		local definition = types[index]
-		local target = GuildMath.GoalTarget(definition.BaseTarget, definition.TargetPerMember, memberCount(guild))
-		return {
-			TypeId = definition.Id,
-			Target = target,
-			Progress = 0,
-			StartedAt = now,
-			EndsAt = now + GameConfig.Guild.Goal.DurationSeconds,
-			Completed = false,
-			CompletedAt = 0,
-			Contributors = {},
-			Claimed = {},
-		}
-	end
-
-	-- Mutates `guild` in place. Returns true when the goal was created or rotated, so callers
-	-- inside an UpdateAsync transform know the document actually changed.
 	local function ensureGoal(guild, now: number): boolean
-		local goal = guild.Goal
-		if type(goal) ~= "table" or goalTypeById(goal.TypeId or "") == nil then
-			guild.Goal = rollGoal(guild, now)
-			return true
-		end
-		goal.Target = math.max(1, finiteNonNegative(goal.Target))
-		goal.Progress = finiteNonNegative(goal.Progress)
-		goal.EndsAt = finiteNonNegative(goal.EndsAt)
-		goal.Completed = goal.Completed == true
-		goal.CompletedAt = finiteNonNegative(goal.CompletedAt)
-		if type(goal.Contributors) ~= "table" then goal.Contributors = {} end
-		if type(goal.Claimed) ~= "table" then goal.Claimed = {} end
-		-- An expired window rotates. A completed goal stays put until its window ends so
-		-- members who were offline still get a chance to claim the reward they earned.
-		if now >= goal.EndsAt then
-			guild.Goal = rollGoal(guild, now)
-			return true
-		end
-		return false
+		return GuildGoalMath.EnsureGoal(guild, now, GameConfig.Guild.Goal)
 	end
 
-	-- Records progress toward the live goal from a member action. `metric` must match the
-	-- goal type's Metric or the action simply does not count toward this particular goal.
 	local function advanceGoal(guild, userKey: string, metric: string, amount: number, now: number)
-		ensureGoal(guild, now)
-		local goal = guild.Goal
-		if goal.Completed then return end
-		local definition = goalTypeById(goal.TypeId)
-		if not definition or definition.Metric ~= metric then return end
-		local gain = finiteNonNegative(amount)
-		if gain <= 0 then return end
-		goal.Progress = GuildMath.AddClamped(goal.Progress, gain)
-		goal.Contributors[userKey] = GuildMath.AddClamped(goal.Contributors[userKey], gain)
-		if goal.Progress >= goal.Target then
-			goal.Completed = true
-			goal.CompletedAt = now
-		end
+		GuildGoalMath.AdvanceGoal(guild, userKey, metric, amount, now, GameConfig.Guild.Goal)
 	end
 	--#endregion
 
@@ -598,29 +522,28 @@ return function()
 		local rewardTypeId = nil
 		local ok, message, updated = self:_update(guildId, function(guild)
 			local now = os.time()
-			ensureGoal(guild, now)
+			-- Persist Claimed/Contributors rebuilds even when the claim is denied
+			-- (evidence: TypeId-matched bags with nil Claimed used to rebuild then
+			-- return nil on "not finished", dropping the repair from UpdateAsync).
+			local repaired = ensureGoal(guild, now)
 			local goal = guild.Goal
-			if not guild.Members[userKey] then
-				failure = "You are not in that guild."
-				return nil
-			end
-			if not goal.Completed then
-				failure = "The guild goal is not finished yet."
-				return nil
-			end
-			if goal.Claimed[userKey] then
-				failure = "You already claimed this goal."
-				return nil
-			end
-			if finiteNonNegative(goal.Contributors[userKey]) < GameConfig.Guild.Goal.MinContributionForReward then
-				failure = "Only members who helped with this goal can claim it."
-				return nil
+			local canClaim, claimError = GuildGoalMath.CanClaimGoal(
+				goal,
+				userKey,
+				guild.Members[userKey] ~= nil,
+				GameConfig.Guild.Goal.MinContributionForReward
+			)
+			if not canClaim then
+				failure = claimError
+				return if repaired then guild else nil
 			end
 			goal.Claimed[userKey] = true
 			rewardTypeId = goal.TypeId
 			return guild
 		end)
 		if not ok then return false, failure or message or "Could not claim the guild goal." end
+		-- Deny path may still persist Claimed/Contributors repairs (ok=true, failure set).
+		if failure then return false, failure, updated end
 		local definition = rewardTypeId and goalTypeById(rewardTypeId) or nil
 		if not definition then return false, "That guild goal is no longer available." end
 		return true, "Guild goal reward claimed.", updated, definition.Reward

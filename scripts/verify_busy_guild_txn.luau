@@ -31,9 +31,11 @@ assert(string.find(configSrc, "ProductionTick", 1, true), "GameConfig.Game.Produ
 ------------------------------------------------------------------------
 -- Guild ClaimGoal (double-claim + contribution gate)
 ------------------------------------------------------------------------
+local goalMathSrc = fs.readFile("src/Server/AstralForge/Modules/GuildGoalMath.luau")
 assert(string.find(guildSrc, "function GuildService:ClaimGoal", 1, true), "GuildService:ClaimGoal must exist")
 assert(string.find(guildSrc, "goal.Claimed[userKey] = true", 1, true), "ClaimGoal must stamp Claimed inside UpdateAsync")
-assert(string.find(guildSrc, "You already claimed this goal.", 1, true), "ClaimGoal must refuse double-claim")
+assert(string.find(guildSrc, "GuildGoalMath.CanClaimGoal", 1, true), "ClaimGoal must delegate CanClaimGoal")
+assert(string.find(goalMathSrc, "You already claimed this goal.", 1, true), "CanClaimGoal must refuse double-claim")
 assert(
 	string.find(guildSrc, "MinContributionForReward", 1, true),
 	"ClaimGoal must enforce MinContributionForReward"
@@ -43,8 +45,8 @@ assert(
 	"GameConfig.Guild.Goal.MinContributionForReward missing"
 )
 assert(
-	string.find(guildSrc, "Only members who helped with this goal can claim it.", 1, true),
-	"ClaimGoal must refuse zero-contribution claims"
+	string.find(goalMathSrc, "Only members who helped with this goal can claim it.", 1, true),
+	"CanClaimGoal must refuse zero-contribution claims"
 )
 
 ------------------------------------------------------------------------

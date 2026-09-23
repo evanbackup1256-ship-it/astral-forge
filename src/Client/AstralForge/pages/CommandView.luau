@@ -628,6 +628,7 @@ local function CommandView(_param)
 			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0, 16),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			ClipsDescendants = false,
 			ref = if nextClaim ~= nil then claimHostRef else nil,
 		}, React.createElement(Button, {
 			text = if nextClaim ~= nil then `Claim level {nextClaim}` else "Rank gifts complete",

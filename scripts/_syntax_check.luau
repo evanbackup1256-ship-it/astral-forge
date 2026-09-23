@@ -75,6 +75,7 @@ local files = {
 	"src/Shared/AstralForge/Shared/ZoneUnlock.luau",
 	"src/Server/AstralForge/Modules/AnomalyPulseScore.luau",
 	"src/Server/AstralForge/Modules/GuildMath.luau",
+	"src/Server/AstralForge/Modules/GuildGoalMath.luau",
 	"src/Server/AstralForge/Modules/ForgeEchoMath.luau",
 	"src/Server/AstralForge/Modules/WheelMath.luau",
 	"src/Server/AstralForge/Modules/CommandMath.luau",

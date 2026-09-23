@@ -134,6 +134,14 @@ assert(
 	string.find(fs.readFile("src/Server/AstralForge/Services/ConvergenceService.luau"), "ConvergenceOpsMath.EnsureRewardBags", 1, true),
 	"ConvergenceService EnsureRewardBags residual"
 )
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.EnsureGoal", 1, true),
+	"GuildService EnsureGoal residual"
+)
+assert(
+	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.CanClaimGoal", 1, true),
+	"GuildService CanClaimGoal residual"
+)
 
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")

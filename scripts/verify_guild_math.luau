@@ -119,10 +119,11 @@ assert(string.find(serviceSrc, "GuildMath.NormalizeContributionAmount", 1, true)
 assert(string.find(serviceSrc, "GuildMath.CanAffordBank", 1, true), "GuildService must use CanAffordBank")
 assert(string.find(serviceSrc, "GuildMath.CreditBank", 1, true), "GuildService must CreditBank")
 assert(string.find(serviceSrc, "GuildMath.DebitBank", 1, true), "GuildService must DebitBank")
-assert(string.find(serviceSrc, "GuildMath.GoalTarget", 1, true), "GuildService must use GoalTarget")
+assert(string.find(serviceSrc, "GuildGoalMath.EnsureGoal", 1, true), "GuildService must delegate EnsureGoal")
 assert(string.find(serviceSrc, "blockedFull", 1, true), "JoinByTag must surface full-guild message")
 assert(not string.find(serviceSrc, "local function upgradeTier", 1, true), "inline upgradeTier must be removed")
 assert(not string.find(serviceSrc, "GUILD_BONUS_KEYS", 1, true), "inline GUILD_BONUS_KEYS must be removed")
+assert(not string.find(serviceSrc, "local function rollGoal", 1, true), "inline rollGoal must be removed")
 
 -- Client: Cash bank can be Omega string — raw `>=` breaks; gteFlux required.
 assert(string.find(viewSrc, "gteFlux(bank, cost)", 1, true), "GuildView must gteFlux bank vs cost")
