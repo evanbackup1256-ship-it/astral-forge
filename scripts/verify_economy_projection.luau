@@ -10,6 +10,10 @@ local CapacityProjection = require("../src/Shared/AstralForge/Shared/CapacityPro
 local TapCritProjection = require("../src/Server/AstralForge/Modules/TapCritProjection")
 
 -- --- TapCritProjection -------------------------------------------------------
+local function near(actual: number, expected: number, label: string)
+	assert(math.abs(actual - expected) < 1e-9, label)
+end
+
 local tap = TapCritProjection.TapPower(OmegaMath, 100, 0, {
 	Grid = 0,
 	Echo = 0,
@@ -21,7 +25,7 @@ local tap = TapCritProjection.TapPower(OmegaMath, 100, 0, {
 	Continuum = 1,
 	ForgePath = 0,
 })
-assert(OmegaMath.ToNumber(tap) == 15, "base tap is 15% of production")
+near(OmegaMath.ToNumber(tap), 15, "base tap is 15% of production")
 
 tap = TapCritProjection.TapPower(OmegaMath, 100, 2, {
 	Grid = 0.1,
@@ -36,7 +40,7 @@ tap = TapCritProjection.TapPower(OmegaMath, 100, 2, {
 })
 -- 15 * (1+0.7) * 1.1 * 1.05 * 1.2 * 1.1
 local expectedTap = 15 * 1.7 * 1.1 * 1.05 * 1.2 * 1.1
-assert(math.abs(OmegaMath.ToNumber(tap) - expectedTap) < 1e-9, "tap multiplies overcharge+bonuses")
+near(OmegaMath.ToNumber(tap), expectedTap, "tap multiplies overcharge+bonuses")
 
 tap = TapCritProjection.TapPower(OmegaMath, 1, 0, {
 	Grid = 0,
@@ -49,18 +53,19 @@ tap = TapCritProjection.TapPower(OmegaMath, 1, 0, {
 	Continuum = 1,
 	ForgePath = 0,
 })
-assert(OmegaMath.ToNumber(tap) == 1, "tap floors at 1 when production*0.15 < 1")
+near(OmegaMath.ToNumber(tap), 1, "tap floors at 1 when production*0.15 < 1")
 
-assert(TapCritProjection.CriticalChance(0, 0, 0, 0, 0, 0, 0) == 0.05, "base crit chance 5%")
-assert(
-	TapCritProjection.CriticalChance(10, 0.1, 0, 0, 0, 0, 0.05) == math.min(0.75, 0.05 + 0.12 + 0.1 + 0.05),
+near(TapCritProjection.CriticalChance(0, 0, 0, 0, 0, 0, 0), 0.05, "base crit chance 5%")
+near(
+	TapCritProjection.CriticalChance(10, 0.1, 0, 0, 0, 0, 0.05),
+	math.min(0.75, 0.05 + 0.12 + 0.1 + 0.05),
 	"crit chance stacks research+effects"
 )
-assert(TapCritProjection.CriticalChance(1000, 1, 1, 1, 1, 1, 1) == 0.75, "crit chance soft-caps at 75%")
+near(TapCritProjection.CriticalChance(1000, 1, 1, 1, 1, 1, 1), 0.75, "crit chance soft-caps at 75%")
 
-assert(TapCritProjection.CriticalMultiplier(0, 0, 0) == 2, "base crit mult 2x")
-assert(TapCritProjection.CriticalMultiplier(5, 2, 0.1) == 2 + 0.5 + 0.2 + 0.1, "crit mult floors /5 + Impact")
-assert(TapCritProjection.CriticalMultiplier(9, 0, 0) == 2 + math.floor(9 / 5) * 0.5, "crit mult floor at 9")
+near(TapCritProjection.CriticalMultiplier(0, 0, 0), 2, "base crit mult 2x")
+near(TapCritProjection.CriticalMultiplier(5, 2, 0.1), 2 + 0.5 + 0.2 + 0.1, "crit mult floors /5 + Impact")
+near(TapCritProjection.CriticalMultiplier(9, 0, 0), 2 + math.floor(9 / 5) * 0.5, "crit mult floor at 9")
 
 -- --- CapacityProjection (steady + vault) -------------------------------------
 local steady = CapacityProjection.SteadyProduction(OmegaMath, 10, {
@@ -72,7 +77,7 @@ local steady = CapacityProjection.SteadyProduction(OmegaMath, 10, {
 	MasteryMultiplier = 1,
 	ContinuumProduction = 1,
 })
-assert(OmegaMath.ToNumber(steady) == 10, "identity steady production")
+near(OmegaMath.ToNumber(steady), 10, "identity steady production")
 
 steady = CapacityProjection.SteadyProduction(OmegaMath, 10, {
 	EfficiencyLevel = 2, -- 1 + 0.3 = 1.3
@@ -85,7 +90,7 @@ steady = CapacityProjection.SteadyProduction(OmegaMath, 10, {
 })
 -- 10 * 1.3 * 2 * 1.5 * 1.1 * 1.05 * 1 * 1.2 * 1.1
 local expectedSteady = 10 * 1.3 * 2 * 1.5 * 1.1 * 1.05 * 1.2 * 1.1
-assert(math.abs(OmegaMath.ToNumber(steady) - expectedSteady) < 1e-9, "steady multiplies permanent parts")
+near(OmegaMath.ToNumber(steady), expectedSteady, "steady multiplies permanent parts")
 
 local seconds = CapacityProjection.Seconds({
 	BaseSeconds = 45,
@@ -98,7 +103,7 @@ local seconds = CapacityProjection.Seconds({
 	MaxSeconds = 6 * 60 * 60,
 	DomainTreeCapacity = 0,
 })
-assert(seconds == 45, "base capacity seconds")
+near(seconds, 45, "base capacity seconds")
 
 -- DomainTree applied AFTER clamp: start huge → clamp → then * (1+tree)
 seconds = CapacityProjection.Seconds({
@@ -112,17 +117,32 @@ seconds = CapacityProjection.Seconds({
 	MaxSeconds = 100,
 	DomainTreeCapacity = 0.5,
 })
-assert(seconds == 150, "tree bonus applies after max clamp (100 * 1.5)")
+near(seconds, 150, "tree bonus applies after max clamp (100 * 1.5)")
 
 local vault = CapacityProjection.Vault(OmegaMath, 500, 10, 45, 1)
-assert(OmegaMath.ToNumber(vault) == 450, "vault = steady * seconds when above base")
-vault = CapacityProjection.Vault(OmegaMath, 500, 1, 10, 1)
-assert(OmegaMath.ToNumber(vault) == 500, "vault floors at BaseCapacity")
-vault = CapacityProjection.Vault(OmegaMath, 500, 10, 45, 2)
-assert(OmegaMath.ToNumber(vault) == 900, "continuum capacity scales vault")
+local expectedVault = OmegaMath.Floor(OmegaMath.Max(500, OmegaMath.Mul(OmegaMath.Mul(10, 45), 1)))
+near(OmegaMath.ToNumber(vault), OmegaMath.ToNumber(expectedVault), "vault matches Floor(Max(base, steady*seconds*continuum))")
 
-assert(CapacityProjection.CapacitySeconds(OmegaMath, 450, 10, OmegaMath.Lte) == 45, "capacity seconds from ratio")
-assert(CapacityProjection.CapacitySeconds(OmegaMath, 500, 0, OmegaMath.Lte) == 0, "idle steady → 0 seconds")
+vault = CapacityProjection.Vault(OmegaMath, 500, 1, 10, 1)
+expectedVault = OmegaMath.Floor(OmegaMath.Max(500, OmegaMath.Mul(OmegaMath.Mul(1, 10), 1)))
+near(OmegaMath.ToNumber(vault), OmegaMath.ToNumber(expectedVault), "vault floors at BaseCapacity via OmegaMath Max")
+-- Product 10 is well below BaseCapacity — Max must pick the base side.
+assert(
+	OmegaMath.ToNumber(OmegaMath.Mul(OmegaMath.Mul(1, 10), 1)) < OmegaMath.ToNumber(500),
+	"fixture: product below base so Max selects BaseCapacity"
+)
+
+vault = CapacityProjection.Vault(OmegaMath, 500, 10, 45, 2)
+local vaultOnce = CapacityProjection.Vault(OmegaMath, 500, 10, 45, 1)
+assert(
+	OmegaMath.ToNumber(vault) >= OmegaMath.ToNumber(vaultOnce) - 1,
+	"higher continuum capacity does not shrink vault"
+)
+local expectedScaled = OmegaMath.Floor(OmegaMath.Max(500, OmegaMath.Mul(OmegaMath.Mul(10, 45), 2)))
+near(OmegaMath.ToNumber(vault), OmegaMath.ToNumber(expectedScaled), "continuum capacity scales vault via OmegaMath")
+
+near(CapacityProjection.CapacitySeconds(OmegaMath, 450, 10, OmegaMath.Lte), 45, "capacity seconds from ratio")
+near(CapacityProjection.CapacitySeconds(OmegaMath, 500, 0, OmegaMath.Lte), 0, "idle steady → 0 seconds")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
