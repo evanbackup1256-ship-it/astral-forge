@@ -1,182 +1,30 @@
 -- appNav.ts
 local scaledCost = require(script.Parent.format).scaledCost
 local Palette = require(script.Parent.theme).Palette
-local PRIMARY_NAV = { {
-	id = "Overview",
-	label = "Overview",
-	eyebrow = "Vault",
-	icon = "Overview",
-	accent = Palette.green,
-}, {
-	id = "Workshop",
-	label = "Workshop",
-	eyebrow = "Machines",
-	icon = "Forge",
-	accent = Palette.coral,
-}, {
-	id = "Inventory",
-	label = "Inventory",
-	eyebrow = "Relics",
-	icon = "Inventory",
-	accent = Palette.violet,
-}, {
-	id = "Research",
-	label = "Research",
-	eyebrow = "Bonuses",
-	icon = "Research",
-	accent = Palette.cyan,
-}, {
-	id = "Shop",
-	label = "Shop",
-	eyebrow = "Packs",
-	icon = "Shop",
-	accent = Palette.mango,
-}, {
-	id = "Settings",
-	label = "Settings",
-	eyebrow = "Options",
-	icon = "Settings",
-	accent = Palette.violet,
-} }
-local MORE_NAV = { {
-	id = "Worlds",
-	label = "Worlds",
-	eyebrow = "Zones",
-	icon = "World",
-	accent = Palette.mint,
-}, {
-	id = "Missions",
-	label = "Missions",
-	eyebrow = "Jobs",
-	icon = "Mission",
-	accent = Palette.cyan,
-}, {
-	id = "Rewards",
-	label = "Rewards",
-	eyebrow = "Dailies",
-	icon = "Rewards",
-	accent = Palette.pink,
-}, {
-	id = "Boosts",
-	label = "Boosts",
-	eyebrow = "Power up",
-	icon = "Boost",
-	accent = Palette.pink,
-}, {
-	id = "StarGrid",
-	label = "Star Grid",
-	eyebrow = "Dust",
-	icon = "StarGrid",
-	accent = Palette.mango,
-}, {
-	id = "Echoes",
-	label = "Echoes",
-	eyebrow = "Keep",
-	icon = "Wave",
-	accent = Palette.cyan,
-}, {
-	id = "Continuum",
-	label = "Continuum",
-	eyebrow = "Climb",
-	icon = "Continuum",
-	accent = Palette.pink,
-}, {
-	id = "Lab",
-	label = "Lab",
-	eyebrow = "Orders",
-	icon = "Lab",
-	accent = Palette.mint,
-}, {
-	id = "Anomaly",
-	label = "Reactor",
-	eyebrow = "Signal",
-	icon = "Reactor",
-	accent = Palette.pink,
-}, {
-	id = "Wheel",
-	label = "Wheel",
-	eyebrow = "Spin",
-	icon = "Wheel",
-	accent = Palette.mango,
-}, {
-	id = "Command",
-	label = "Command",
-	eyebrow = "Crew",
-	icon = "Command",
-	accent = Palette.cyan,
-}, {
-	id = "Story",
-	label = "Story",
-	eyebrow = "Read",
-	icon = "Story",
-	accent = Palette.mint,
-}, {
-	id = "Mail",
-	label = "Mail",
-	eyebrow = "Inbox",
-	icon = "Mail",
-	accent = Palette.cyan,
-}, {
-	id = "Chat",
-	label = "Chat",
-	eyebrow = "Talk",
-	icon = "Chat",
-	accent = Palette.mint,
-}, {
-	id = "Crew",
-	label = "Crew",
-	eyebrow = "Online",
-	icon = "Crew",
-	accent = Palette.blue,
-}, {
-	id = "Milestones",
-	label = "Milestones",
-	eyebrow = "Goals",
-	icon = "Milestone",
-	accent = Palette.mango,
-}, {
-	id = "Convergence",
-	label = "Converge",
-	eyebrow = "Co-op",
-	icon = "Domain",
-	accent = Palette.mango,
-}, {
-	id = "Guild",
-	label = "Guild",
-	eyebrow = "Hall",
-	icon = "Crew",
-	accent = Palette.violet,
-}, {
-	id = "Leaderboards",
-	label = "Ranks",
-	eyebrow = "Top 25",
-	icon = "Leaderboard",
-	accent = Palette.cyan,
-}, {
-	id = "Trade",
-	label = "Trade",
-	eyebrow = "Swap",
-	icon = "Send",
-	accent = Palette.mint,
-}, {
-	id = "Credits",
-	label = "Credits",
-	eyebrow = "About",
-	icon = "Credits",
-	accent = Palette.violet,
-}, {
-	id = "Admin",
-	label = "Admin",
-	eyebrow = "Owner",
-	icon = "Admin",
-	accent = Palette.coral,
-}, {
-	id = "ForgePath",
-	label = "Forge Path",
-	eyebrow = "Upgrades",
-	icon = "Forge",
-	accent = Palette.violet,
-} }
+local NavRouteTable = require(script.Parent.navRouteTable)
+
+local function withAccent(route)
+	local accent = Palette[route.accentKey]
+	if accent == nil then
+		accent = Palette.green
+	end
+	return {
+		id = route.id,
+		label = route.label,
+		eyebrow = route.eyebrow,
+		icon = route.icon,
+		accent = accent,
+	}
+end
+
+local PRIMARY_NAV = table.create(#NavRouteTable.PRIMARY_ROUTES)
+for index, route in NavRouteTable.PRIMARY_ROUTES do
+	PRIMARY_NAV[index] = withAccent(route)
+end
+local MORE_NAV = table.create(#NavRouteTable.MORE_ROUTES)
+for index, route in NavRouteTable.MORE_ROUTES do
+	MORE_NAV[index] = withAccent(route)
+end
 local _array = {}
 local _length = #_array
 local _pRIMARY_NAVLength = #PRIMARY_NAV

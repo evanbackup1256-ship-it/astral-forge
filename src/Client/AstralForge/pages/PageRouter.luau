@@ -83,6 +83,8 @@ local ForgePathView = lazyView("ForgePathView", "ForgePathView")
 local ResearchView = lazyView("ResearchView", "ResearchView")
 local BoostsView = lazyView("BoostsView", "BoostsView")
 local AppHelpers = require(script.Parent.Parent.appNav).AppHelpers
+local LayoutSectionPlan = require(script.Parent.Parent.layoutSectionPlan)
+local VaultCollectEligibility = require(script.Parent.Parent.vaultCollectEligibility)
 local function Metric(_param)
 	local label = _param.label
 	local value = _param.value
@@ -476,11 +478,13 @@ local function OverviewView(_param)
 	local softMotion = quietMotion or antilag.tier <= 1
 	local stack = chrome.contentStack
 	local phone = chrome.stack
-	local canCollect = asFlux(state.Vault) >= 0.01
+	local canCollect = VaultCollectEligibility.isEligible(asFlux(state.Vault))
 	local canRebirth = gteFlux(state.PrestigeReward, 1)
 	local target = asFlux(state.NextPrestigeTarget)
 	local progress = if canRebirth then 1 else meterFill(asFlux(state.RunCash), math.max(1, target))
 	local vaultFill = meterFill(asFlux(state.Vault), asFlux(state.Capacity))
+	local vaultFull = VaultCollectEligibility.isFull(vaultFill)
+	local vaultNearFull = VaultCollectEligibility.isNearFull(vaultFill)
 	local _condition = state.CapacitySeconds
 	if _condition == nil then
 		_condition = 0
@@ -570,14 +574,6 @@ local function OverviewView(_param)
 	local ultraOverview = not stack and viewport.width >= 1680
 	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
 	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
-	local heroH = if landscapePhone then 176 elseif phone then 272 elseif ultraOverview then 240 elseif wideOverview then 232 else 248
-	local rebirthH = if rebirthVisible then (if phone then (if landscapePhone then 248 else 300) else (if ultraOverview then 220 else 208)) else 0
-	local domainH = if domainVisible then (if phone then (if landscapePhone then 268 else 320) else (if ultraOverview then 236 else 224)) else 0
-	local notesH = if stack then (if landscapePhone then 132 else 168) else (if ultraOverview then 152 else 140)
-	-- Ops Pulse: phone uses a 2×2 claim grid so Collect stays above the fold.
-	local opsH = if landscapePhone then 156 elseif stack then 196 else (if ultraOverview then 168 else 156)
-	local metricCardH = if stack then (if landscapePhone then 64 else 86) elseif wideOverview then (if ultraOverview then 76 else 68) else 0
-	local metricsH = if stack then metricCardH * 3 + 16 elseif wideOverview then heroH else 104
 	local countdownInPage = type(releaseAt) == "number" and releaseAt > (function()
 		local ok, value = pcall(function()
 			return game:GetService("Workspace"):GetServerTimeNow()
@@ -587,13 +583,29 @@ local function OverviewView(_param)
 		end
 		return os.time()
 	end)()
-	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 128 else 168) else (if ultraOverview then 152 else 140)) else 0
-	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
-	local sectionGap = if stack then chrome.panelGap elseif ultraOverview then 18 elseif wideOverview then 16 else Layout.panelGap
-	local topBandH = if wideOverview then heroH else heroH + metricsH + sectionGap
-	local sectionCount = 1 + 1 + 1 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
-	local overviewTail = if landscapePhone then 48 elseif stack then 56 else (if ultraOverview then 48 else 40)
-	local contentIntrinsic = topBandH + notesH + opsH + countdownH + rebirthH + domainH + sectionGap * math.max(0, sectionCount - 1)
+	local overviewPlan = LayoutSectionPlan.planOverview({
+		stack = stack,
+		phone = phone,
+		landscapePhone = landscapePhone,
+		wideOverview = wideOverview,
+		ultraOverview = ultraOverview,
+		rebirthVisible = rebirthVisible,
+		domainVisible = domainVisible,
+		countdownInPage = countdownInPage,
+		chromePanelGap = chrome.panelGap,
+		layoutPanelGap = Layout.panelGap,
+	})
+	local heroH = overviewPlan.heroH
+	local rebirthH = overviewPlan.rebirthH
+	local domainH = overviewPlan.domainH
+	local notesH = overviewPlan.notesH
+	local opsH = overviewPlan.opsH
+	local metricCardH = overviewPlan.metricCardH
+	local metricsH = overviewPlan.metricsH
+	local countdownH = overviewPlan.countdownH
+	local sectionGap = overviewPlan.sectionGap
+	local topBandH = overviewPlan.topBandH
+	local overviewTail = overviewPlan.overviewTail
 	local columnMax = if stack then math.huge else Layout.contentMaxWidth
 	local columnPad = if not stack and viewport.width >= Layout.contentMaxWidth + 80 then 12 else 0
 	local ctaH = TapTarget

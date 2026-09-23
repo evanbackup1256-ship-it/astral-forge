@@ -51,6 +51,9 @@ local files = {
 	"src/Client/AstralForge/purchaseOverlay.luau",
 	"src/Client/AstralForge/pageScaffold.luau",
 	"src/Client/AstralForge/pageScaffoldPlan.luau",
+	"src/Client/AstralForge/layoutSectionPlan.luau",
+	"src/Client/AstralForge/navRouteTable.luau",
+	"src/Client/AstralForge/vaultCollectEligibility.luau",
 	-- Shared catalog (parse only — no require)
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
 	-- Server trade desk (offer validation / exchange)

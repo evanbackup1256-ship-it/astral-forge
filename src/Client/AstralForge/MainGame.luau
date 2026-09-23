@@ -93,6 +93,8 @@ local _appNav = require(script.Parent.appNav)
 local AppHelpers = _appNav.AppHelpers
 local MORE_NAV = _appNav.MORE_NAV
 local PRIMARY_NAV = _appNav.PRIMARY_NAV
+local LayoutSectionPlan = require(script.Parent.layoutSectionPlan)
+local VaultCollectEligibility = require(script.Parent.vaultCollectEligibility)
 local ClientLog = require(script.Parent.log).ClientLog
 local _session = require(script.Parent.session)
 local GRANT_ACTIONS = _session.GRANT_ACTIONS
@@ -3013,8 +3015,8 @@ local function VaultPill(_param)
 		top = 8
 	end
 	local fill = meterFill(asFlux(state.Vault), asFlux(state.Capacity))
-	local ready = asFlux(state.Vault) >= 0.01
-	local full = fill >= 0.99
+	local ready = VaultCollectEligibility.isEligible(asFlux(state.Vault))
+	local full = VaultCollectEligibility.isFull(fill)
 	local bar = if full then Palette.mango else accent
 	-- This number updates on every production tick for the whole session, so it can't afford a
 	-- continuously-running tween -- instead, a brief flash on genuine gains via useFlash (a
@@ -3210,32 +3212,27 @@ local function Workspace(_param)
 		end
 	end, { page })
 	local inset = if keyboardCompact then 6 elseif chrome.stack then chrome.contentInset else Layout.contentInset
-	-- Phone stack uses MobileHeader for page chrome, so chrome.workspaceHeaderH is 0 and the
-	-- Workspace title/collect strip must stay collapsed — otherwise we double-tax vertical
-	-- space and first-screen CTAs fall below the fold. Keyboard-open with a zero plan header
-	-- stays collapsed (MobileHeader + tab bar are already hidden in that mode).
-	local headerHeight
-	if keyboardCompact then
-		headerHeight = if chrome.landscape or chrome.workspaceHeaderH <= 0 then 0 else TapTarget
-	elseif chrome.stack then
-		headerHeight = chrome.workspaceHeaderH
-	else
-		headerHeight = Layout.workspaceHeaderHeight
-	end
-	-- Next-goal strip: skip on landscape and whenever the workspace header itself is gone.
-	local _result
-	if keyboardCompact or chrome.landscape or headerHeight <= 0 then
-		_result = 0
-	else
-		local _condition_1 = state.Settings.ShowNextGoal
-		if _condition_1 == nil then
-			_condition_1 = 1
+	local showNextGoal = true
+	do
+		local setting = state.Settings.ShowNextGoal
+		if setting == nil then
+			setting = 1
 		end
-		_result = if _condition_1 >= 0.5 then 32 else 0
+		showNextGoal = setting >= 0.5
 	end
-	local unlockH = _result
+	local workspacePlan = LayoutSectionPlan.planWorkspace({
+		keyboardCompact = keyboardCompact,
+		stack = chrome.stack,
+		landscape = chrome.landscape,
+		workspaceHeaderH = chrome.workspaceHeaderH,
+		layoutWorkspaceHeaderHeight = Layout.workspaceHeaderHeight,
+		tapTarget = TapTarget,
+		showNextGoal = showNextGoal,
+	})
+	local headerHeight = workspacePlan.headerHeight
+	local unlockH = workspacePlan.unlockH
 	local vaultBtn = if chrome.stack then TapTarget else 44
-	local ready = asFlux(state.Vault) >= 0.01
+	local ready = VaultCollectEligibility.isEligible(asFlux(state.Vault))
 	local contentPosition = enter:map(function(amount)
 		local t = math.clamp(amount, 0, 1)
 		local lift = math.round((1 - t) * 12)
@@ -3363,7 +3360,7 @@ local function Workspace(_param)
 		position = UDim2.new(1, -(vaultBtn + 14), 0, math.floor((headerHeight - vaultBtn) / 2)),
 		disabled = not ready,
 		reducedMotion = reducedMotion,
-		highlight = asFlux(state.Vault) >= asFlux(state.Capacity) * 0.85,
+		highlight = asFlux(state.Vault) >= asFlux(state.Capacity) * VaultCollectEligibility.NEAR_FULL,
 		zIndex = 22,
 	})), unlockH > 0 and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, unlockH),
