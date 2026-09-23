@@ -1101,21 +1101,30 @@ local function useWallClock(enabled)
 	if enabled == nil then
 		enabled = true
 	end
-	local binding, setBinding = React.useBinding(os.time())
+	-- Prefer Roblox-synced server time so surge/overdrive/cycle countdowns match the
+	-- deadlines the server stamps (and the anomaly pulse needle).
+	local Workspace = game:GetService("Workspace")
+	local function syncedNow()
+		local ok, value = pcall(function()
+			return Workspace:GetServerTimeNow()
+		end)
+		if ok and type(value) == "number" then
+			return value
+		end
+		return os.time()
+	end
+	local binding, setBinding = React.useBinding(syncedNow())
 	React.useEffect(function()
-		setBinding(os.time())
+		setBinding(syncedNow())
 		if not enabled then
 			return nil
 		end
 		local alive = true
 		local worker = task.spawn(function()
-			local previous = os.time()
 			while alive do
 				task.wait(0.2)
-				local current = os.time()
-				if current ~= previous then
-					previous = current
-					setBinding(current)
+				if alive then
+					setBinding(syncedNow())
 				end
 			end
 		end)

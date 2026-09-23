@@ -353,9 +353,9 @@ local TUTORIAL_STEPS = { {
 	page = "Overview",
 } }
 local SHELL_CHROME = {
-	railGutter = 12,
-	topbarControl = 44,
-	topbarControlGap = 10,
+	railGutter = 10,
+	topbarControl = 42,
+	topbarControlGap = 8,
 }
 local NETWORK = {
 	actionCooldowns = {
@@ -1291,14 +1291,24 @@ local function TopbarReleaseCountdown(_param)
 	if reducedMotion == nil then
 		reducedMotion = false
 	end
-	local now, setNow = React.useState(os.time())
+	local Workspace = game:GetService("Workspace")
+	local function syncedNow()
+		local ok, value = pcall(function()
+			return Workspace:GetServerTimeNow()
+		end)
+		if ok and type(value) == "number" then
+			return math.floor(value)
+		end
+		return os.time()
+	end
+	local now, setNow = React.useState(syncedNow())
 	React.useEffect(function()
 		local alive = true
 		local worker = task.spawn(function()
 			while alive do
-				task.wait(1)
+				task.wait(0.5)
 				if alive then
-					setNow(os.time())
+					setNow(syncedNow())
 				end
 			end
 		end)
@@ -1548,12 +1558,12 @@ local function TopBar(_param)
 	local openPlayerlist = _param.openPlayerlist
 	local openFeedback = _param.openFeedback
 	local accent = AppHelpers:pageAccent(page)
-	local shortRow = barHeight <= 58 and width < 980
-	local micro = barHeight <= 58 and width < 620
+	local shortRow = barHeight <= 54 and width < 980
+	local micro = barHeight <= 54 and width < 620
 	local stacked = barHeight > Layout.topbarHeight
-	local chipWidthEstimate = if stacked then 132 elseif micro then 136 else 144
+	local chipWidthEstimate = if stacked then 128 elseif micro then 132 else 140
 	local logoCompact = tight or stacked or barHeight <= Layout.topbarHeight
-	local logoWidth = if micro then 42 elseif stacked then 156 elseif shortRow then 154 elseif logoCompact then 184 else 250
+	local logoWidth = if micro then 40 elseif stacked then 148 elseif shortRow then 146 elseif logoCompact then 172 else 228
 	local pageTitleW = 0
 	local _result = state.Visitors
 	if _result ~= nil then
@@ -1597,12 +1607,12 @@ local function TopBar(_param)
 		accent = Palette.cyan,
 	}
 	table.insert(allChips, _arg0)
-	local visitPillWidth = if visitPill ~= nil then (if tight then 132 else 168) else 0
+	local visitPillWidth = if visitPill ~= nil then (if tight then 124 else 156) else 0
 	-- Was hardcoded to 0 (dead space between the logo and the resource chips, with the
 	-- countdown component fully built but never shown). Room only exists for it on a real
 	-- single-row desktop bar -- stacked/short/micro layouts already spend every pixel on the
 	-- logo, chips, and controls.
-	local countdownW = if not stacked and not shortRow and not micro and width >= 900 then 216 else 0
+	local countdownW = if not stacked and not shortRow and not micro and width >= 900 then 200 else 0
 	local _condition_1 = state.Settings.ShowFps
 	if _condition_1 == nil then
 		_condition_1 = 1
@@ -1613,19 +1623,19 @@ local function TopBar(_param)
 		_condition_2 = 1
 	end
 	local performanceCount = _exp + (if _condition_2 >= 0.5 then 1 else 0)
-	local fullPerformanceW = if micro or performanceCount == 0 then 0 elseif performanceCount == 1 then (if stacked then 106 else 96) elseif stacked then 204 else 184
-	local performanceGap = 14
-	local playerControlGap = if shortRow then 8 else 12
-	local playerControlW = if micro or stacked or width < 980 then SHELL_CHROME.topbarControl else 118
-	local feedbackControlGap = if shortRow then 8 else 10
+	local fullPerformanceW = if micro or performanceCount == 0 then 0 elseif performanceCount == 1 then (if stacked then 100 else 90) elseif stacked then 192 else 172
+	local performanceGap = 10
+	local playerControlGap = if shortRow then 6 else 8
+	local playerControlW = if micro or stacked or width < 980 then SHELL_CHROME.topbarControl else 110
+	local feedbackControlGap = if shortRow then 6 else 8
 	local showFeedbackControl = not (stacked and width < 360)
-	local feedbackControlW = if not showFeedbackControl then 0 elseif micro or stacked or width < 1480 then SHELL_CHROME.topbarControl else 124
+	local feedbackControlW = if not showFeedbackControl then 0 elseif micro or stacked or width < 1480 then SHELL_CHROME.topbarControl else 116
 	local controlsW = SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
-	local fixedSingleRow = edgePad * 2 + (logoWidth + 18 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 16 + (if visitPillWidth > 0 then visitPillWidth + 8 else 0) + (if countdownW > 0 then countdownW + 12 else 0)
-	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 8 else 0
+	local fixedSingleRow = edgePad * 2 + (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 12 + (if visitPillWidth > 0 then visitPillWidth + 6 else 0) + (if countdownW > 0 then countdownW + 10 else 0)
+	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 6 else 0
 	local performanceW = if not stacked and fullPerformanceW > 0 and width - fixedSingleRow - fullPerformanceW - performanceGap < minimumResourceRoom then 0 else fullPerformanceW
-	local spare = if stacked then width - edgePad * 2 - 28 - performanceW - performanceGap else width - edgePad * 2 - (logoWidth + 18 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - (if pageTitleW > 0 then pageTitleW + 12 else 0) - controlsW - 16 - (if visitPillWidth > 0 then visitPillWidth + 8 else 0) - performanceW - performanceGap - (if countdownW > 0 then countdownW + 12 else 0)
-	local fitCount = if stacked then math.clamp(math.floor((spare + 8) / (chipWidthEstimate + 8)), 1, math.min(2, #allChips)) else math.clamp(math.floor((spare + 8) / (chipWidthEstimate + 8)), 0, #allChips)
+	local spare = if stacked then width - edgePad * 2 - 24 - performanceW - performanceGap else width - edgePad * 2 - (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - (if pageTitleW > 0 then pageTitleW + 10 else 0) - controlsW - 12 - (if visitPillWidth > 0 then visitPillWidth + 6 else 0) - performanceW - performanceGap - (if countdownW > 0 then countdownW + 10 else 0)
+	local fitCount = if stacked then math.clamp(math.floor((spare + 6) / (chipWidthEstimate + 6)), 1, math.min(2, #allChips)) else math.clamp(math.floor((spare + 6) / (chipWidthEstimate + 6)), 0, #allChips)
 	local chips = {}
 	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(chip, index)
@@ -3239,15 +3249,15 @@ local function Workspace(_param)
 		local t = math.clamp(amount, 0, 1)
 		return (1 - t) * 0.4
 	end)
-	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 72
+	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 64
 	-- Desktop reserves room for the right-side VaultPill (248px wide, anchored at -316): the
 	-- title block must stop before it. -392 used to run 8px into the pill; -344 keeps a 6px
 	-- clearance on every desktop width.
 	local titleReserve = if keyboardCompact then -(titleLeft + vaultBtn + 18) else (if chrome.stack then -(vaultBtn + 18) elseif chrome.tight then -(vaultBtn + 28) else -344) - (titleLeft - (if chrome.stack then 14 else 22))
-	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 48
-	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 40
-	local headerTitleY = if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else math.max(8, math.floor((headerHeight - titleBlockH) / 2))
-	local vaultPillY = math.max(6, math.floor((headerHeight - 52) / 2))
+	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 40
+	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 36
+	local headerTitleY = if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else math.max(6, math.floor((headerHeight - titleBlockH) / 2))
+	local vaultPillY = math.max(4, math.floor((headerHeight - 48) / 2))
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.ink,
@@ -3481,7 +3491,7 @@ local function AppShell(_param)
 				if _condition_2 == nil then
 					_condition_2 = 0
 				end
-				_result_1 = if _condition_2 >= 0.5 then math.max(58, Layout.topbarHeight - 14) else Layout.topbarHeight
+				_result_1 = if _condition_2 >= 0.5 then math.max(52, Layout.topbarHeight - 8) else Layout.topbarHeight
 			end
 			_result = _result_1
 		end
@@ -3502,7 +3512,7 @@ local function AppShell(_param)
 		-- on Workshop only so it does not cover Overview first-screen CTAs.
 		local quickActionsVisible = mobileQuickEnabled and moreAtBottom and page == "Workshop" and not viewport.keyboardOpen and not arcadeBusy and crateReveal == nil and not railOpen
 		local quickBottomOffset = tabBarH + 12
-		local bottomPad = if keyboardShellCompact then 4 elseif moreAtBottom then (if quickActionsVisible then tabBarH + 68 + chrome.panelGap else tabBarH + chrome.panelGap) else math.max(8, math.floor(edgePad * 0.6))
+		local bottomPad = if keyboardShellCompact then 4 elseif moreAtBottom then (if quickActionsVisible then tabBarH + 76 + chrome.panelGap else tabBarH + chrome.panelGap) else math.max(8, math.floor(edgePad * 0.6))
 		return {
 			edgePad = edgePad,
 			topPad = topPad,

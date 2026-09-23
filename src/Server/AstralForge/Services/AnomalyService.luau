@@ -2,12 +2,21 @@
 
 return function(loadService: (string) -> any)
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Workspace = game:GetService("Workspace")
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local ProgressionService = loadService("ProgressionService")
 
 	local AnomalyService = {}
+
+	-- Pulse timing must use Workspace:GetServerTimeNow (sub-second, Roblox-synced), not
+	-- os.time() (1s resolution). A 1.6s sweep with a ~0.35s sweet zone cannot be judged
+	-- fairly from whole-second stamps, and the client needle already predicts from
+	-- GetServerTimeNow — mixing clocks made "perfect" taps miss on the server.
+	local function pulseNow(): number
+		return Workspace:GetServerTimeNow()
+	end
 
 	-- Overdrive: a server-wide (not per-player) shared meter. Deliberately module-level state
 	-- rather than anything persisted -- Luau modules are singletons per server, so this is
@@ -206,7 +215,7 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
-		local now = os.time()
+		local now = pulseNow()
 		local accurate = pulseAccuracy(profile, now)
 		profile.Anomaly.PulseWindowStartedAt = now
 
@@ -222,8 +231,10 @@ return function(loadService: (string) -> any)
 			accuracyBonus = 1 + GameConfig.Anomalies.PulseAccurateBonus
 		end
 
+		-- Overdrive / Progress still key off wall-clock seconds (multi-second durations).
+		local wallNow = os.time()
 		local pulsePower = 1 + protocolEffect(profile, "PulsePower")
-		local overdriveMultiplier = AnomalyService.OverdriveMultiplier(now)
+		local overdriveMultiplier = AnomalyService.OverdriveMultiplier(wallNow)
 		local amount, becameReady = AnomalyService.Progress(
 			profile,
 			random:NextNumber(3.8, 5.4) * pulsePower * comboBonus * accuracyBonus * overdriveMultiplier
@@ -231,7 +242,7 @@ return function(loadService: (string) -> any)
 		AnomalyService.Signal(profile, "Pulse", 1)
 		AnomalyService.Signal(profile, "Combo", profile.Anomaly.Combo)
 		profile.Stats.AnomalyPulses += 1
-		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, now)
+		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, wallNow)
 		return true,
 			accurate
 				and string.format("Perfect pulse! Combo x%d, +%.1f charge.", profile.Anomaly.Combo, amount)

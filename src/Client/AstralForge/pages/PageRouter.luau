@@ -137,14 +137,24 @@ local function ReleaseCountdown(_param)
 	local stack = _param.stack
 	local layoutOrder = _param.layoutOrder
 	local viewport = useViewport()
-	local now, setNow = React.useState(os.time())
+	local Workspace = game:GetService("Workspace")
+	local function syncedNow()
+		local ok, value = pcall(function()
+			return Workspace:GetServerTimeNow()
+		end)
+		if ok and type(value) == "number" then
+			return math.floor(value)
+		end
+		return os.time()
+	end
+	local now, setNow = React.useState(syncedNow())
 	React.useEffect(function()
 		local alive = true
 		local worker = task.spawn(function()
 			while alive do
-				task.wait(1)
+				task.wait(0.5)
 				if alive then
-					setNow(os.time())
+					setNow(syncedNow())
 				end
 			end
 		end)
@@ -549,7 +559,15 @@ local function OverviewView(_param)
 	local opsH = if landscapePhone then 168 elseif stack then 196 else 148
 	local metricCardH = if stack then (if landscapePhone then 72 else 86) elseif wideOverview then 64 else 0
 	local metricsH = if stack then metricCardH * 3 + 20 elseif wideOverview then heroH else 96
-	local countdownInPage = type(releaseAt) == "number" and releaseAt > os.time()
+	local countdownInPage = type(releaseAt) == "number" and releaseAt > (function()
+		local ok, value = pcall(function()
+			return game:GetService("Workspace"):GetServerTimeNow()
+		end)
+		if ok and type(value) == "number" then
+			return value
+		end
+		return os.time()
+	end)()
 	local countdownH = if countdownInPage then (if stack then (if landscapePhone then 140 else 168) else 132) else 0
 	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
 	local topBandH = if wideOverview then heroH else heroH + metricsH + Layout.panelGap
@@ -1644,9 +1662,10 @@ local function UpgradeBoard(_param)
 	local filterW = 176
 	local controlGap = 12
 	local controlsWrap = not stack and viewport.width < 900
-	local stackControlsY = if chrome.landscape then 52 else 78
-	-- Phone landscape: Buy All only. Portrait: Buy All + search + filters, but shorter than before.
-	local headerHeight = if chrome.landscape and stack then 118 elseif stack then 220 else (if controlsWrap then 200 else 168)
+	-- Portrait: title + Buy All + search/filters. Landscape: Buy All only.
+	-- Keep machines above the fold — every 20px of header is a lost buy CTA.
+	local stackControlsY = if chrome.landscape then 44 else 64
+	local headerHeight = if chrome.landscape and stack then 104 elseif stack then 196 else (if controlsWrap then 184 else 156)
 	local rowH = if stack then ROW_HEIGHTS.machineStack else ROW_HEIGHTS.machine
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
@@ -1658,7 +1677,9 @@ local function UpgradeBoard(_param)
 	-- Machines come first so buy CTAs stay above the fold; AutoForge sits below the grid.
 	local machinesBlock = if #visible == 0 then 150 else gridRows * rowStride
 	local featureTop = listOffset + machinesBlock + (if featurePanel ~= nil then gap else 0)
-	local canvasHeight = listOffset + machinesBlock + featureBlock + scrollTail(stack, chrome.bottomSafe, 28) + SCROLL_EDGE
+	-- Extra mobile scroll tail so the floating vault/tap cluster never covers the last Buy button.
+	local machineScrollTail = if stack then scrollTail(stack, chrome.bottomSafe, if chrome.landscape then 36 else 56) else scrollTail(stack, chrome.bottomSafe, 28)
+	local canvasHeight = listOffset + machinesBlock + featureBlock + machineScrollTail + SCROLL_EDGE
 	local window = useVirtualizedList(gridRows, rowStride, listOffset, 3)
 	local mounted = {}
 	do
@@ -1700,14 +1721,14 @@ local function UpgradeBoard(_param)
 		end
 	end
 	local controlH = TapTarget
-	local desktopControlH = if touchLayout then TapTarget else 42
-	local controlsY = 110
+	local desktopControlH = if touchLayout then TapTarget else 40
+	local controlsY = if controlsWrap then 98 else 100
 	local sortX = searchW + controlGap
 	local filterX = sortX + sortW + controlGap
-	local wrapRowY = controlsY + desktopControlH + 8
+	local wrapRowY = controlsY + desktopControlH + 6
 	local stackCompact = stack and chrome.landscape
-	local stackSearchY = stackControlsY + controlH + 8
-	local stackFilterY = stackControlsY + (controlH + 8) * 2
+	local stackSearchY = stackControlsY + controlH + 6
+	local stackFilterY = stackControlsY + (controlH + 6) * 2
 	return React.createElement("scrollingframe", {
 		ref = window.frame,
 		Size = UDim2.fromScale(1, 1),
@@ -1739,36 +1760,36 @@ local function UpgradeBoard(_param)
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, 18),
+		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, if stack then 14 else 18),
 	}), React.createElement(Text, {
 		value = title,
-		size = if stack then 22 else 26,
+		size = if stack then (if stackCompact then 18 else 20) else 24,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(0, 16),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, 32),
-	}), React.createElement(Text, {
+		position = UDim2.fromOffset(0, if stack then 14 else 16),
+		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, if stack then 26 else 30),
+	}), not stackCompact and React.createElement(Text, {
 		value = blurb,
 		size = if stack then chrome.labelText else 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(0, 50),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, if stack then 36 else 22),
+		position = UDim2.fromOffset(0, if stack then 42 else 46),
+		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, if stack then 20 else 20),
 	}), not stack and React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = compactNumber(state.Production) .. " / sec",
-		size = 15,
+		size = 14,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		position = UDim2.new(1, -236, 0, 2),
-		sizeConstraint = UDim2.new(0, 228, 0, 20),
+		sizeConstraint = UDim2.new(0, 228, 0, 18),
 		align = Enum.TextXAlignment.Right,
 	}), React.createElement(AmountToggle, {
 		value = buyAmount,
 		onChange = setBuyAmount,
 		accent = accent,
-		position = UDim2.new(1, -236, 0, 24),
+		position = UDim2.new(1, -236, 0, 22),
 		size = UDim2.fromOffset(228, desktopControlH),
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
@@ -1783,8 +1804,8 @@ local function UpgradeBoard(_param)
 		end,
 		color = if affordableCount > 0 then accent else Palette.panelSoft,
 		textColor = if affordableCount > 0 then Palette.ink else Palette.muted,
-		size = UDim2.fromOffset(228, 32),
-		position = UDim2.new(1, -236, 0, 70),
+		size = UDim2.fromOffset(228, 30),
+		position = UDim2.new(1, -236, 0, 66),
 		disabled = affordableCount <= 0 or onBuyAll == nil,
 		reducedMotion = reducedMotion,
 		highlight = affordableCount > 0,

@@ -105,13 +105,13 @@ local Layout = {
 	cardRadius = 12,
 	buttonRadius = 9,
 	-- Desktop chrome stays short so page content owns the viewport.
-	topbarHeight = 62,
+	topbarHeight = 56,
 	sidebarWidth = 252,
 	sidebarCollapsedWidth = 72,
 	rightRailWidth = 296,
 	contentMinWidth = 620,
-	contentInset = 14,
-	workspaceHeaderHeight = 66,
+	contentInset = 10,
+	workspaceHeaderHeight = 54,
 	-- Soft cap for readable page columns on ultrawide; shell still spans the monitor.
 	contentMaxWidth = 1680,
 	maxShellWidth = 3440,
