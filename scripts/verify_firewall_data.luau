@@ -121,6 +121,44 @@ assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "sanitize must rebu
 -- wave15: Domain/Continuum/Anomaly/Items share ProfileBagMath Ensures with Admin/Progression.
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "sanitize must EnsureDomain via ProfileBagMath")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "sanitize must EnsureContinuum via ProfileBagMath")
+assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "sanitize must EnsureAutoSalvage residual")
+assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "sanitize must ForgeEchoMath.Ensure residual")
+assert(string.find(dataSrc, "WheelMath.Ensure", 1, true) or string.find(dataSrc, 'type(profile.Wheel) ~= "table"', 1, true), "sanitize Wheel residual")
+assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService:IsBusy residual for firewall suite")
+assert(string.find(dataSrc, "ProfileIntegrity.EnsureEnvelope", 1, true), "DataService ProfileIntegrity envelope residual")
+
+------------------------------------------------------------------------
+-- RemoteFirewall cooldownKey + integrity residual markers
+------------------------------------------------------------------------
+assert(string.find(firewallSrc, "local function cooldownKey", 1, true), "RemoteFirewall must define cooldownKey")
+assert(string.find(firewallSrc, "COOLDOWN_KEY_FIELDS", 1, true), "RemoteFirewall COOLDOWN_KEY_FIELDS residual")
+assert(string.find(firewallSrc, "CLIENT_INTEGRITY_REPORTS", 1, true), "RemoteFirewall client integrity reports residual")
+assert(string.find(firewallSrc, "BulkSalvageItems", 1, true), "RemoteFirewall must rate-limit BulkSalvageItems")
+assert(string.find(firewallSrc, "EquipBestItems", 1, true), "RemoteFirewall must rate-limit EquipBestItems")
+assert(string.find(firewallSrc, "SetItemAutoSalvage", 1, true), "RemoteFirewall must rate-limit SetItemAutoSalvage")
+assert(string.find(firewallSrc, "OpenItemCrate", 1, true), "RemoteFirewall must rate-limit OpenItemCrate")
+
+-- Pure cooldownKey replica (payload field join; no Instance).
+local COOLDOWN_KEY_FIELDS = { "Id", "Key", "Index", "Code", "Channel", "Target", "Uid", "ChoiceId", "Slot", "Tier", "Level", "Role", "UserId", "MachineId" }
+local function cooldownKey(action: string, payload: any): string
+	if type(payload) ~= "table" then
+		return action
+	end
+	local parts = {}
+	for _, field in COOLDOWN_KEY_FIELDS do
+		local value = payload[field]
+		if value ~= nil then
+			table.insert(parts, field .. "=" .. tostring(value))
+		end
+	end
+	if #parts == 0 then
+		return action
+	end
+	return action .. ":" .. table.concat(parts, "|")
+end
+assert(cooldownKey("OpenItemCrate", nil) == "OpenItemCrate", "nil payload → action")
+assert(cooldownKey("OpenItemCrate", {}) == "OpenItemCrate", "empty payload → action")
+assert(cooldownKey("ToggleItemLock", { Uid = "abc", Level = 2 }) == "ToggleItemLock:Uid=abc|Level=2", "cooldown key fields")
 
 ------------------------------------------------------------------------
 -- Config RemoteFirewall overrides stay present

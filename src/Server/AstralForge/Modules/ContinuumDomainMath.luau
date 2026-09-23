@@ -15,6 +15,16 @@ export type ContinuumConfig = {
 	StardustCostScale: number,
 }
 
+export type ContinuumEffectsConfig = {
+	ProductionScale: number,
+	MilestoneEvery: number,
+	MilestoneScale: number,
+	CapacityScale: number,
+	TapScale: number,
+	OfflineCap: number,
+	OfflinePerRank: number,
+}
+
 export type DomainConfig = {
 	BaseRequiredRebirths: number,
 	RebirthsPerRank: number,
@@ -54,6 +64,24 @@ function ContinuumDomainMath.DomainRewards(config: DomainConfig, rank: number): 
 		config.BaseStardustReward + safeRank * config.StardustPerRank
 	))
 	return essence, stardust
+end
+
+-- Rank → production/capacity/tap multipliers + offline efficiency addend.
+-- Mirrors Economy.ContinuumEffects; milestones multiply production only.
+function ContinuumDomainMath.ContinuumEffects(
+	omegaMath: any,
+	config: ContinuumEffectsConfig,
+	rank: number
+): (any, any, any, number)
+	local safeRank = math.max(0, math.floor(tonumber(rank) or 0))
+	local every = math.max(1, math.floor(tonumber(config.MilestoneEvery) or 1))
+	local milestones = math.floor(safeRank / every)
+	local milestoneMultiplier = omegaMath.BoundedPower(config.MilestoneScale, milestones)
+	local production = omegaMath.Mul(omegaMath.BoundedPower(config.ProductionScale, safeRank), milestoneMultiplier)
+	local capacity = omegaMath.BoundedPower(config.CapacityScale, safeRank)
+	local tap = omegaMath.BoundedPower(config.TapScale, safeRank)
+	local offline = math.min(config.OfflineCap, safeRank * config.OfflinePerRank)
+	return production, capacity, tap, offline
 end
 
 return table.freeze(ContinuumDomainMath)

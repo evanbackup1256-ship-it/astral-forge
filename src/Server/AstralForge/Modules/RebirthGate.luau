@@ -46,4 +46,16 @@ function RebirthGate.StardustReward(coreReward: number, scale: number, minimum: 
 	return math.max(stardustMinimum, math.floor(math.sqrt(reward) * stardustScale))
 end
 
+-- Run-cash target for the next prestige core after currentReward.
+-- Mirrors Economy.NextPrestigeTarget: floor(req * (max(1, reward+1))^(1/exp)).
+function RebirthGate.NextPrestigeTarget(
+	omegaMath: any,
+	currentReward: any,
+	requirement: number,
+	exponent: number
+): any
+	local desired = omegaMath.Max(1, omegaMath.Add(currentReward, 1))
+	return omegaMath.Floor(omegaMath.Mul(requirement, omegaMath.Pow(desired, 1 / exponent)))
+end
+
 return table.freeze(RebirthGate)

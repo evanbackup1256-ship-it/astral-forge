@@ -9,6 +9,8 @@ local TapCritProjection = require(script.Parent:WaitForChild("TapCritProjection"
 local UpgradeCostReason = require(script.Parent:WaitForChild("UpgradeCostReason"))
 local RebirthGate = require(script.Parent:WaitForChild("RebirthGate"))
 local ContinuumDomainMath = require(script.Parent:WaitForChild("ContinuumDomainMath"))
+local ForgePathClaim = require(script.Parent:WaitForChild("ForgePathClaim"))
+local EconomyEnvelopeMath = require(script.Parent:WaitForChild("EconomyEnvelopeMath"))
 
 local Economy = {}
 
@@ -18,14 +20,6 @@ export type Persist = number | string
 
 local function bounded(value: any): Persist
 	return OmegaMath.Persist(value)
-end
-
-local function scaledCost(baseCost: number, scale: number, level: number): Persist
-	return OmegaMath.ScaledCost(baseCost, scale, level)
-end
-
-local function boundedPower(base: number, exponent: number): Persist
-	return OmegaMath.BoundedPower(base, exponent)
 end
 
 function Economy.Add(left: any, right: any): Persist
@@ -251,15 +245,7 @@ function Economy.MasteryMultiplier(profile: ProfileLike): number
 	if not command then
 		return 1
 	end
-	local mastery = command.MachineMastery
-	if type(mastery) ~= "table" then
-		return 1
-	end
-	local points = 0
-	for _, value in mastery do
-		points += value
-	end
-	return 1 + math.min(0.5, points * 0.002)
+	return EconomyEnvelopeMath.MasteryMultiplier(command.MachineMastery)
 end
 
 function Economy.GridEffect(profile: ProfileLike, effectKind: string): number
@@ -346,24 +332,7 @@ end
 
 function Economy.DomainTreeBonus(profile: ProfileLike, field: string): number
 	local domain = profile.Domain
-	local nodes = domain and domain.Nodes
-	if type(nodes) ~= "table" then
-		return 0
-	end
-	local tree = GameConfig.Domain.Tree
-	if type(tree) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for _, node in tree do
-		if nodes[node.Id] == true then
-			local amount = node[field]
-			if type(amount) == "number" then
-				total += amount
-			end
-		end
-	end
-	return total
+	return EconomyEnvelopeMath.DomainTreeBonus(domain and domain.Nodes, GameConfig.Domain.Tree, field)
 end
 
 function Economy.MachineCost(id: string, currentLevel: number): number
@@ -461,19 +430,7 @@ function Economy.ForgePathEffect(profile: ProfileLike?, effectKind: string): num
 	-- ClaimedSteps may be missing on partial ForgePath bags (corrupt save / mid
 	-- ensure). ProgressionGate already guards this; PermanentMultiplier must too
 	-- or a single missing table throws the whole production tick.
-	local claimed = forgePath.ClaimedSteps
-	if type(claimed) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for stepKey in claimed do
-		local stepIndex = tonumber(stepKey)
-		local step = stepIndex and GameConfig.ForgePath.Steps[stepIndex]
-		if step and step.EffectKind == effectKind then
-			total += step.EffectAmount
-		end
-	end
-	return total / 100
+	return ForgePathClaim.Effect(forgePath.ClaimedSteps, GameConfig.ForgePath.Steps, effectKind)
 end
 
 function Economy.PermanentMultiplier(profile: ProfileLike): Persist
@@ -542,14 +499,7 @@ end
 
 function Economy.ContinuumEffects(profile: ProfileLike): (Persist, Persist, Persist, number)
 	local rank = profile.Continuum and math.max(0, math.floor(profile.Continuum.Rank or 0)) or 0
-	local config = GameConfig.Continuum
-	local milestones = math.floor(rank / config.MilestoneEvery)
-	local milestoneMultiplier = boundedPower(config.MilestoneScale, milestones)
-	local production = OmegaMath.Mul(boundedPower(config.ProductionScale, rank), milestoneMultiplier)
-	local capacity = boundedPower(config.CapacityScale, rank)
-	local tap = boundedPower(config.TapScale, rank)
-	local offline = math.min(config.OfflineCap, rank * config.OfflinePerRank)
-	return production, capacity, tap, offline
+	return ContinuumDomainMath.ContinuumEffects(OmegaMath, GameConfig.Continuum, rank)
 end
 
 function Economy.DomainRequirements(rank: number): (number, number)
@@ -715,43 +665,42 @@ function Economy.CriticalMultiplier(profile: ProfileLike): number
 end
 
 function Economy.AutoCollectRate(profile: ProfileLike): number
-	return math.min(
-		0.8,
-		researchLevel(profile, "Automation") * 0.02
-			+ Economy.GridEffect(profile, "GridAutomation")
-			+ Economy.EchoEffect(profile, "Automation")
-			+ Economy.ArtifactEffect(profile, "Automation")
-			+ Economy.ItemEffect(profile, "Automation", "Research")
-			+ Economy.AnomalyEffect(profile, "Automation")
-			+ (profile.GuildBonuses and profile.GuildBonuses.Automation or 0)
-			+ Economy.ForgePathEffect(profile, "AutoCollect")
+	return EconomyEnvelopeMath.AutoCollectRate(
+		researchLevel(profile, "Automation"),
+		Economy.GridEffect(profile, "GridAutomation"),
+		Economy.EchoEffect(profile, "Automation"),
+		Economy.ArtifactEffect(profile, "Automation"),
+		Economy.ItemEffect(profile, "Automation", "Research"),
+		Economy.AnomalyEffect(profile, "Automation"),
+		profile.GuildBonuses and profile.GuildBonuses.Automation or 0,
+		Economy.ForgePathEffect(profile, "AutoCollect")
 	)
 end
 
 function Economy.OfflineHours(profile: ProfileLike): number
-	return math.min(
-		24,
-		GameConfig.Economy.BaseOfflineHours
-			+ researchLevel(profile, "Offline") * 1.25
-			+ Economy.ArtifactEffect(profile, "OfflineHours")
+	return EconomyEnvelopeMath.OfflineHours(
+		GameConfig.Economy.BaseOfflineHours,
+		researchLevel(profile, "Offline"),
+		Economy.ArtifactEffect(profile, "OfflineHours"),
+		24
 	)
 end
 
 function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 	local _, _, _, continuumOffline = Economy.ContinuumEffects(profile)
-	return math.min(
-		1,
-		GameConfig.Economy.BaseOfflineEfficiency
-			+ researchLevel(profile, "Offline") * 0.06
-			+ Economy.GridEffect(profile, "GridOffline")
-			+ Economy.EchoEffect(profile, "Offline")
-			+ Economy.ArtifactEffect(profile, "Offline")
-			+ Economy.ItemEffect(profile, "Offline", "Research")
-			+ Economy.AnomalyEffect(profile, "Offline", now)
-			+ (profile.GuildBonuses and profile.GuildBonuses.Offline or 0)
-			+ (profile.Domain and math.max(0, profile.Domain.Rank or 0) or 0) * GameConfig.Domain.OfflineEfficiencyPerRank
-			+ continuumOffline
-			+ Economy.ForgePathEffect(profile, "Offline")
+	return EconomyEnvelopeMath.OfflineEfficiency(
+		GameConfig.Economy.BaseOfflineEfficiency,
+		researchLevel(profile, "Offline"),
+		Economy.GridEffect(profile, "GridOffline"),
+		Economy.EchoEffect(profile, "Offline"),
+		Economy.ArtifactEffect(profile, "Offline"),
+		Economy.ItemEffect(profile, "Offline", "Research"),
+		Economy.AnomalyEffect(profile, "Offline", now),
+		profile.GuildBonuses and profile.GuildBonuses.Offline or 0,
+		profile.Domain and math.max(0, profile.Domain.Rank or 0) or 0,
+		GameConfig.Domain.OfflineEfficiencyPerRank,
+		continuumOffline,
+		Economy.ForgePathEffect(profile, "Offline")
 	)
 end
 
@@ -792,39 +741,20 @@ function Economy.PrestigeReward(runCash: any): Persist
 end
 
 function Economy.NextPrestigeTarget(currentReward: any): Persist
-	local desired = OmegaMath.Max(1, OmegaMath.Add(currentReward, 1))
-	return OmegaMath.Floor(OmegaMath.Mul(
+	return RebirthGate.NextPrestigeTarget(
+		OmegaMath,
+		currentReward,
 		GameConfig.Economy.PrestigeRequirement,
-		OmegaMath.Pow(desired, 1 / GameConfig.Economy.PrestigeExponent)
-	))
+		GameConfig.Economy.PrestigeExponent
+	)
 end
 
 function Economy.TotalMachineLevels(profile: ProfileLike): number
-	local machines = profile.Machines
-	if type(machines) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for _, value in machines do
-		if type(value) == "number" then
-			total += value
-		end
-	end
-	return total
+	return EconomyEnvelopeMath.SumNumericLevels(profile.Machines)
 end
 
 function Economy.TotalResearchLevels(profile: ProfileLike): number
-	local research = profile.Research
-	if type(research) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for _, value in research do
-		if type(value) == "number" then
-			total += value
-		end
-	end
-	return total
+	return EconomyEnvelopeMath.SumNumericLevels(profile.Research)
 end
 
 return table.freeze(Economy)
