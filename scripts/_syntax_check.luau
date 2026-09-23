@@ -39,6 +39,7 @@ local files = {
 	"src/Client/AstralForge/pages/ConvergenceView.luau",
 	"src/Client/AstralForge/pages/ResearchView.luau",
 	"src/Client/AstralForge/pages/BoostsView.luau",
+	"src/Client/AstralForge/pages/ChatView.luau",
 	"src/Client/AstralForge/pages/StoryView.luau",
 	"src/Client/AstralForge/OfflineRewardsOverlay.luau",
 	"src/Client/AstralForge/DomainExpansionOverlay.luau",

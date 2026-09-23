@@ -313,7 +313,7 @@ local function AdminView(_param)
 	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
 	local mountedRef = React.useRef(true)
 	local executeAttempt = React.useRef(0)
-	local enter = useEntrance(reducedMotion)
+	local enter = useEntrance(softMotion)
 
 	React.useEffect(function()
 		return function()
@@ -564,7 +564,7 @@ local function AdminView(_param)
 		return React.createElement(FlatList, {
 			data = shownPlayers,
 			itemHeight = PLAYER_ROW_STRIDE,
-			overscan = 2,
+			overscan = if softMotion then 0 else 2,
 			canvasTail = 4,
 			Size = listSize,
 			Position = listPos,
@@ -643,7 +643,7 @@ local function AdminView(_param)
 	}) or React.createElement(FlatList, {
 		data = shownCommands,
 		itemHeight = COMMAND_ROW_STRIDE,
-		overscan = 2,
+		overscan = if softMotion then 0 else 2,
 		canvasTail = 4,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.violet,

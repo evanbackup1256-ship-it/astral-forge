@@ -35,7 +35,7 @@ local function ConvergenceView(_param)
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local now = useWallClock(event ~= nil)
-	local reveal = useStagger(0, reducedMotion)
+	local reveal = useStagger(0, softMotion)
 	if event == nil then
 		return React.createElement(Panel, {
 			size = UDim2.fromScale(1, 1),
@@ -135,7 +135,7 @@ local function ConvergenceView(_param)
 		color = Palette.mango,
 		position = UDim2.new(0, 0, 1, -28),
 		size = UDim2.new(1, 0, 0, 9),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = true,
 	}), React.createElement(Text, {
 		value = `{compactNumber(event.GlobalContribution)} / {compactNumber(event.GlobalTarget)}  •  {string.format("%.2fx", event.ProductionMultiplier)} PRODUCTION`,

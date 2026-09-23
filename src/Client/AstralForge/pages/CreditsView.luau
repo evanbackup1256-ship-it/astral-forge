@@ -22,6 +22,7 @@ local OverlayPresence = _ui.OverlayPresence
 local Panel = _ui.Panel
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local DEV_USERNAME = "usingINales"
 local DEV_USER_ID = 10916707683
 local function DevAvatarThumbnail(_param)
@@ -59,8 +60,8 @@ local function CreditsOverlay(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local enter = useEntrance(reducedMotion)
-	local _binding = useExitTransition(reducedMotion)
+	local enter = useEntrance(softMotion)
+	local _binding = useExitTransition(softMotion)
 	local exit = _binding[1]
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
@@ -90,7 +91,9 @@ local function CreditsOverlay(_param)
 	local stackBodyTop = 70
 	local stackBodyReserve = closeSize + 16
 	local stackBodyH = math.max(120, height - pad * 2 - stackBodyTop - stackBodyReserve)
-	local stackCanvas = avatarSize + 10 + 24 + 8 + 28 + 8 + 48 + 16 + 132 + 28
+	local rolesListH = 132
+	local avatarBlockH = avatarSize + 8 + 28 + 8 + 28 + 8 + 48
+	local attributionH = 20
 	React.useEffect(function()
 		ClientLog:debug("nav", "credits opened")
 		return function()
@@ -179,13 +182,18 @@ local function CreditsOverlay(_param)
 		outline = true,
 		size = UDim2.fromOffset(closeSize, closeSize),
 		position = UDim2.new(1, -closeSize, 0, 0),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = exiting,
 		zIndex = 323,
 	})
 	local _result
 	if stack then
-		local _exp_6 = React.createElement("frame", {
+		local avatarBlock = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 322,
+		}, React.createElement("frame", {
 			Size = UDim2.fromOffset(avatarSize, avatarSize),
 			Position = UDim2.fromOffset(math.floor((width - pad * 2 - avatarSize) / 2), 0),
 			BackgroundTransparency = 1,
@@ -193,16 +201,14 @@ local function CreditsOverlay(_param)
 			ZIndex = 322,
 		}, React.createElement(DevAvatarThumbnail, {
 			size = UDim2.fromScale(1, 1),
-		}))
-		local _exp_7 = React.createElement(Badge, {
+		})), React.createElement(Badge, {
 			value = "SOLO DEV",
 			accent = Palette.violet,
 			filled = true,
 			size = UDim2.fromOffset(110, 28),
 			position = UDim2.fromOffset(math.floor((width - pad * 2 - 110) / 2), avatarSize + 8),
 			zIndex = 322,
-		})
-		local _exp_8 = React.createElement("textlabel", {
+		}), React.createElement("textlabel", {
 			Size = UDim2.new(1, 0, 0, 28),
 			Position = UDim2.fromOffset(0, avatarSize + 40),
 			BackgroundTransparency = 1,
@@ -215,8 +221,7 @@ local function CreditsOverlay(_param)
 			TextYAlignment = Enum.TextYAlignment.Center,
 			TextTruncate = Enum.TextTruncate.None,
 			ZIndex = 322,
-		})
-		local _exp_9 = React.createElement(Text, {
+		}), React.createElement(Text, {
 			value = "Thanks for playing. Built solo — machines, worlds, and stories included.",
 			size = 12,
 			color = Palette.creamSoft,
@@ -224,7 +229,7 @@ local function CreditsOverlay(_param)
 			position = UDim2.fromOffset(0, avatarSize + 72),
 			sizeConstraint = UDim2.new(1, 0, 0, 48),
 			zIndex = 322,
-		})
+		}))
 		local _exp_10 = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			Padding = UDim.new(0, 6),
@@ -266,38 +271,46 @@ local function CreditsOverlay(_param)
 			_newValue[_k] = _callback(_v, _k - 1, ROLES)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_result = (React.createElement("scrollingframe", {
-			Size = UDim2.new(1, 0, 0, stackBodyH),
-			Position = UDim2.fromOffset(0, stackBodyTop),
-			CanvasSize = UDim2.new(0, 0, 0, stackCanvas),
-			AutomaticCanvasSize = Enum.AutomaticSize.None,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = Palette.violet,
-			ScrollBarImageTransparency = 0.28,
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-			VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-			ClipsDescendants = true,
-			Active = true,
-			Selectable = false,
-			ZIndex = 322,
-		}, _exp_6, _exp_7, _exp_8, _exp_9, React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 132),
-			Position = UDim2.fromOffset(0, avatarSize + 132),
+		local rolesBlock = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ZIndex = 322,
-		}, _exp_10, _newValue), React.createElement(Text, {
+		}, _exp_10, _newValue)
+		local attribution = React.createElement(Text, {
 			value = "Interface icons by Flaticon / Freepik Company",
 			size = 9,
 			color = Palette.muted,
 			fit = false,
-			position = UDim2.fromOffset(0, avatarSize + 270),
 			sizeConstraint = UDim2.new(1, 0, 0, 16),
 			zIndex = 322,
-		})))
+		})
+		_result = React.createElement(PageScaffold, {
+			size = UDim2.new(1, 0, 0, stackBodyH),
+			position = UDim2.fromOffset(0, stackBodyTop),
+			gap = 8,
+			tailPad = 4,
+			scrollBarColor = Palette.violet,
+			scrollBarThickness = 3,
+			zIndex = 322,
+			sections = {
+				{
+					id = "avatar",
+					height = avatarBlockH,
+					element = avatarBlock,
+				},
+				{
+					id = "roles",
+					height = rolesListH,
+					element = rolesBlock,
+				},
+				{
+					id = "attribution",
+					height = attributionH,
+					element = attribution,
+				},
+			},
+		})
 	else
 		local _exp_6 = React.createElement("frame", {
 			Size = UDim2.fromOffset(avatarSize, avatarSize),
@@ -396,7 +409,7 @@ local function CreditsOverlay(_param)
 			_newValue[_k] = _callback(_v, _k - 1, ROLES)
 		end
 		-- ▲ ReadonlyArray.map ▲
-		_result = (React.createElement(React.Fragment, nil, _exp_6, _exp_7, _exp_8, _exp_9, _exp_10, React.createElement("frame", {
+		local desktopBody = React.createElement(React.Fragment, nil, _exp_6, _exp_7, _exp_8, _exp_9, _exp_10, React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, 112),
 			Position = UDim2.fromOffset(0, 78 + avatarSize + 16),
 			BackgroundTransparency = 1,
@@ -410,7 +423,25 @@ local function CreditsOverlay(_param)
 			position = UDim2.fromOffset(0, 400),
 			sizeConstraint = UDim2.new(1, 0, 0, 14),
 			zIndex = 322,
-		})))
+		}))
+		-- Desktop fits without nested scroll; still mount PageScaffold so HOT_PAGES stays honest.
+		_result = React.createElement(PageScaffold, {
+			size = UDim2.fromScale(1, 1),
+			gap = 0,
+			tailPad = 0,
+			scrollBarThickness = 0,
+			scrollBarColor = Palette.violet,
+			zIndex = 322,
+			sections = {
+				{
+					id = "desktop",
+					fill = true,
+					minHeight = 420,
+					height = 420,
+					element = desktopBody,
+				},
+			},
+		})
 	end
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
@@ -471,7 +502,7 @@ local function CreditsOverlay(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(0, closeSize),
 		hug = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = exiting,
 		zIndex = 324,
 	}))))))

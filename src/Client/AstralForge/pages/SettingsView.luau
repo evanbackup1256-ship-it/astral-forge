@@ -877,7 +877,7 @@ local function SettingsView(_param)
 	end
 	-- ▲ ReadonlyArray.map ▲
 	local sectionOptions = _newValue
-	local paneTravel = useFlipperSpring(activeSectionIndex, reducedMotion, 1540, 40)
+	local paneTravel = useFlipperSpring(activeSectionIndex, softMotion, 1540, 40)
 	local panePosition = paneTravel:map(function(position)
 		return UDim2.new(0, math.round(math.clamp(position - activeSectionIndex, -1, 1) * 14), 0, 0)
 	end)
@@ -910,7 +910,7 @@ local function SettingsView(_param)
 	local tabsH = tabRows * (TapTarget + 8) + 20
 	local editorH = if mobileHudAvailable and activeSection == "mobile" then (if stack then 138 else 92) else 0
 	local paneH = 42 + #visibleRows * rowStride + editorH
-	local headerReveal = useStagger(0, reducedMotion)
+	local headerReveal = useStagger(0, softMotion)
 	local quickScale = savedValue(state.Settings, "MobileQuickScale")
 	local dockScale = savedValue(state.Settings, "MobileDockScale")
 	local toastScale = savedValue(state.Settings, "MobileToastScale")

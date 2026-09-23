@@ -39,7 +39,8 @@ local function RebirthPanel(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or effectsPaused or antilag.tier <= 1 or not antilag.allowAmbient
+	-- Canonical softMotion antilag gate (effectsPaused stays a separate decorative mute).
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local canRebirth = gteFlux(state.PrestigeReward, 1)
@@ -52,7 +53,7 @@ local function RebirthPanel(_param)
 	local shakeToken, setShakeToken = React.useState(0)
 	local mountedRef = React.useRef(true)
 	local rebirthClaimHostRef = React.useRef(nil)
-	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, reducedMotion or effectsPaused, 0.8)
+	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
 	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
@@ -124,7 +125,7 @@ local function RebirthPanel(_param)
 		padding = if stack then chrome.cardPadding else 18,
 		reveal = reveal,
 		highlight = (canRebirth or confirming) and not effectsPaused,
-		reducedMotion = reducedMotion or effectsPaused,
+		reducedMotion = softMotion or effectsPaused,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = "Rebirth",
@@ -134,7 +135,7 @@ local function RebirthPanel(_param)
 		position = UDim2.fromOffset(0, if stack then 4 else 10),
 		glow = canRebirth and not effectsPaused,
 		spin = canRebirth and not effectsPaused,
-		reducedMotion = reducedMotion or effectsPaused,
+		reducedMotion = softMotion or effectsPaused,
 	}), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, -66, 0, 126) else UDim2.new(1, -(76 + 310), 1, 0),
 		Position = UDim2.fromOffset(if stack then 66 else 76, 0),

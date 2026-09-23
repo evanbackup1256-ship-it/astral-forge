@@ -3,7 +3,7 @@
 -- run under Lune without Studio / Roblox services.
 --
 -- STUDIO-ONLY (not wired here — still required before publish):
---   ReleaseReadiness.RunQuick()  — Economy cost envelope soak + ProfileIntegrity recovery
+--   ReleaseReadiness.RunQuick()  — 50k economy soak (pure cost/integrity subset → verify_runquick_pure)
 --   ReleaseReadiness.RunSoak()   — long Studio-only economy soak (IsStudio gated)
 --   Live profile load/save with copied v4.12 + current fixtures (never live player data)
 -- See README "Checks" for the Studio Device Simulator / Controller Emulator gate.

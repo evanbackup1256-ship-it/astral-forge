@@ -864,7 +864,7 @@ local function GuildView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
-	local reveal = useStagger(0, reducedMotion)
+	local reveal = useStagger(0, softMotion)
 	local busy, setBusy = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
 	local contributeCash, setContributeCash = React.useState("")
@@ -1333,7 +1333,7 @@ local function GuildView(_param)
 		data = listData,
 		itemHeight = listStride,
 		headerHeight = 0,
-		overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
 		scrollBarColor = Palette.violet,

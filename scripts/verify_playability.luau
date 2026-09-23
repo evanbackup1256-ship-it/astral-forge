@@ -28,15 +28,17 @@ end
 -- Hot primary pages: must import + mount PageScaffold
 ------------------------------------------------------------------------
 -- Keep this list complete for every primary page migrated onto PageScaffold.
--- Overview lives inside PageRouter; Chat/Credits stay out (special chrome).
+-- Overview lives inside PageRouter; Mailbox stays dual-pane (no outer scaffold).
 local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/BoostsView.luau",
+	"src/Client/AstralForge/pages/ChatView.luau",
 	"src/Client/AstralForge/pages/CommandView.luau",
 	"src/Client/AstralForge/pages/ContinuumView.luau",
 	"src/Client/AstralForge/pages/ConvergenceView.luau",
+	"src/Client/AstralForge/pages/CreditsView.luau",
 	"src/Client/AstralForge/pages/EchoForgeView.luau",
 	"src/Client/AstralForge/pages/ForgePathView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
@@ -119,9 +121,11 @@ end
 -- only OK when justified below (horizontal chips, dual-pane body). Prefer FlatList /
 -- VirtualGrid / PageScaffold fill instead of page-local scrollingframe literals.
 local RAW_SCROLL_ALLOWLIST = {
+	["src/Client/AstralForge/pages/ChatView.luau"] = "message list VirtualizedList Y-scroll under PageScaffold fill; status/banner/SEND stay fixed sections so stick-to-bottom chat chrome never buries SEND",
 }
 
 local RAW_SCROLL_BUDGET = {
+	["src/Client/AstralForge/pages/ChatView.luau"] = 1,
 }
 
 local function countRawScrollingFrames(src)
@@ -353,12 +357,18 @@ for _, path in SOFT_MOTION_FILES do
 	end
 end
 
--- Thicken softMotion density on Trade/Command (still-thin vs Shop/Story): fold into reducedMotion.
+-- Thicken softMotion density on Trade/Command + Guild/Admin/Convergence/Settings/Credits/Rebirth.
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	for _, path in {
 		"src/Client/AstralForge/pages/TradeView.luau",
 		"src/Client/AstralForge/pages/CommandView.luau",
+		"src/Client/AstralForge/pages/GuildView.luau",
+		"src/Client/AstralForge/pages/AdminView.luau",
+		"src/Client/AstralForge/pages/ConvergenceView.luau",
+		"src/Client/AstralForge/pages/SettingsView.luau",
+		"src/Client/AstralForge/pages/CreditsView.luau",
+		"src/Client/AstralForge/pages/RebirthPanel.luau",
 	} do
 		local src = fs.readFile(path)
 		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")
@@ -369,6 +379,12 @@ do
 		end
 		assert(softUses >= 4, path .. " softMotion density too thin, got " .. tostring(softUses))
 	end
+	-- Footgun: Rebirth must not fold effectsPaused into the softMotion assignment line.
+	local rebirth = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
+	assert(
+		not string.find(rebirth, "local softMotion = reducedMotion or effectsPaused", 1, true),
+		"RebirthPanel must keep effectsPaused off the softMotion assignment line"
+	)
 end
 
 ------------------------------------------------------------------------
