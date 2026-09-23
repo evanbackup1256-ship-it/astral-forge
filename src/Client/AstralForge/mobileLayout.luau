@@ -106,13 +106,13 @@ local function planMobileLayout(input)
 	local tablet = phone and width >= 700 and not landscape
 	-- Header shrinks in landscape (vertical room is scarce) and grows slightly on tablets
 	-- (more breathing room, still touch-first).
-	local topbarRows = if not phone then 84 elseif landscape then 40 elseif tablet then 64 else 56
+	local topbarRows = if not phone then 62 elseif landscape then 40 elseif tablet then 64 else 56
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else 0
-	local panelGap = if landscape then 8 elseif phone then 12 else 12
-	local pagePadding = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 14 else 18
-	local contentInset = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 16 else 18
-	local workspaceHeaderH = if landscape then 40 elseif phone then (if tablet then 58 else 52) else 94
+	local panelGap = if landscape then 8 elseif phone then 12 else 10
+	local pagePadding = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 14 else 14
+	local contentInset = if landscape then 10 elseif phone then (if tablet then 16 else 14) elseif compact then 14 else 14
+	local workspaceHeaderH = if landscape then 40 elseif phone then (if tablet then 58 else 52) else 66
 	-- Bottom tab bar: a fixed-height strip anchored to the bottom safe area. Landscape gets a
 	-- slimmer bar since vertical space is the scarce resource there; portrait/tablet get a
 	-- taller, easier-to-thumb bar. This height never changes once computed for a given
@@ -143,15 +143,16 @@ local function planMobileLayout(input)
 		tablet = tablet,
 		pagePadding = pagePadding,
 		contentInset = contentInset,
-		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) else 18,
+		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) else 14,
 		panelGap = panelGap,
-		controlGap = if landscape then 8 elseif phone then 10 else 14,
-		railRow = if landscape then 52 elseif phone then 60 elseif compact then 64 else 68,
-		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif compact then 56 else 58,
-		railGap = if phone then 8 elseif compact then 10 else 12,
+		controlGap = if landscape then 8 elseif phone then 10 else 12,
+		-- Dense sidebar rows so primary + secondary destinations fit without a More dock.
+		railRow = if landscape then 52 elseif phone then 60 elseif compact then 56 else 52,
+		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif compact then 52 else 52,
+		railGap = if phone then 8 elseif compact then 8 else 6,
 		bodyText = if landscape then 13 elseif phone then 14 else 13,
 		labelText = if landscape then 11 elseif phone then 13 else 11,
-		titleText = if landscape then 16 elseif phone then (if tablet then 20 else 18) else 26,
+		titleText = if landscape then 16 elseif phone then (if tablet then 20 else 18) else 22,
 		bottomSafe = bottomSafe,
 		sideSafe = sideSafe,
 		topbarRows = topbarRows,

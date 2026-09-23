@@ -349,9 +349,9 @@ local TUTORIAL_STEPS = { {
 	page = "Overview",
 } }
 local SHELL_CHROME = {
-	railGutter = 20,
-	topbarControl = 48,
-	topbarControlGap = 12,
+	railGutter = 12,
+	topbarControl = 44,
+	topbarControlGap = 10,
 }
 local NETWORK = {
 	actionCooldowns = {
@@ -2104,8 +2104,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 10,
-		position = UDim2.fromOffset(56, 10),
-		sizeConstraint = UDim2.new(1, -66, 0, 22),
+		position = UDim2.fromOffset(52, 7),
+		sizeConstraint = UDim2.new(1, -62, 0, 20),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
 		size = 10,
@@ -2113,8 +2113,8 @@ local function RailButton(_param)
 		weight = Enum.FontWeight.Bold,
 		fit = true,
 		minSize = 8,
-		position = UDim2.fromOffset(56, 34),
-		sizeConstraint = UDim2.new(1, -66, 0, 18),
+		position = UDim2.fromOffset(52, 28),
+		sizeConstraint = UDim2.new(1, -62, 0, 16),
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
 		zIndex = 12,
@@ -2850,34 +2850,16 @@ local function Navigation(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local rowHeight = if collapsed then chrome.railCollapsedRow else chrome.railRow
-	local _result
-	if fromMore then
-		_result = MORE_NAV
-	else
-		local _result_1
-		if includeSecondary then
-			local _array = {}
-			local _length = #_array
-			local _pRIMARY_NAVLength = #PRIMARY_NAV
-			table.move(PRIMARY_NAV, 1, _pRIMARY_NAVLength, _length + 1, _array)
-			_length += _pRIMARY_NAVLength
-			table.move(MORE_NAV, 1, #MORE_NAV, _length + 1, _array)
-			_result_1 = _array
-		else
-			_result_1 = PRIMARY_NAV
-		end
-		_result = _result_1
-	end
-	local primary = AppHelpers:filterNav(_result, state, tutorialPage)
-	local canvasHeight = math.max(1, #primary) * (rowHeight + chrome.railGap) - chrome.railGap + Layout.stackGap * 2
-	local headerHeight = if collapsed then 12 else 48
+	local primaryEntries = if fromMore then {} else AppHelpers:filterNav(PRIMARY_NAV, state, tutorialPage)
+	local secondaryEntries = if fromMore then AppHelpers:filterNav(MORE_NAV, state, tutorialPage) elseif includeSecondary then AppHelpers:filterNav(MORE_NAV, state, tutorialPage) else {}
+	local showSecondarySection = includeSecondary and not fromMore and #secondaryEntries > 0 and not collapsed
+	local sectionH = if showSecondarySection then 22 else 0
+	local railCount = if fromMore then #secondaryEntries else (#primaryEntries + #secondaryEntries)
+	local canvasHeight = math.max(1, railCount) * (rowHeight + chrome.railGap) - chrome.railGap + Layout.stackGap * 2 + sectionH
+	local headerHeight = if collapsed then 10 else 36
 	local showBoost = activeBoost ~= nil and not chrome.mobile and page ~= "Rewards" and wallClock ~= nil and openBoosts ~= nil
-	local boostHeight = if showBoost then (if collapsed then 62 else 64) else 0
+	local boostHeight = if showBoost then (if collapsed then 56 else 58) else 0
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
-	-- fixedWidth is set by the drawer wrapper, which already sized itself off a real fixed
-	-- pixel value (drawerWidth) rather than the animated sidebar-collapse spring — this frame
-	-- just fills that parent instead of re-deriving a (possibly stuck) width from the spring
-	-- binding a second time.
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	})
@@ -2893,8 +2875,8 @@ local function Navigation(_param)
 		LineJoinMode = Enum.LineJoinMode.Round,
 	})
 	local _exp_3 = not collapsed and React.createElement("frame", {
-		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 28),
-		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 10),
+		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, 22),
+		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("frame", {
@@ -2919,28 +2901,56 @@ local function Navigation(_param)
 		Padding = UDim.new(0, chrome.railGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#primary)
-	local _callback = function(entry, index)
-		return React.createElement(RailButton, {
-			key = entry.id,
-			entry = entry,
-			active = page == entry.id,
-			collapsed = collapsed,
-			onClick = function()
-				return setPage(entry.id)
-			end,
-			layoutOrder = index,
-			reducedMotion = reducedMotion,
-			rowHeight = rowHeight,
-			bodySize = chrome.bodyText,
-			badge = AppHelpers:navBadge(entry, state, chatUnread),
-		})
+	local railChildren = {}
+	local appendRail = function(entries, orderBase)
+		local _callback = function(entry, index)
+			table.insert(railChildren, React.createElement(RailButton, {
+				key = entry.id,
+				entry = entry,
+				active = page == entry.id,
+				collapsed = collapsed,
+				onClick = function()
+					return setPage(entry.id)
+				end,
+				layoutOrder = orderBase + index,
+				reducedMotion = reducedMotion,
+				rowHeight = rowHeight,
+				bodySize = chrome.bodyText,
+				badge = AppHelpers:navBadge(entry, state, chatUnread),
+			}))
+		end
+		for _k, _v in entries do
+			_callback(_v, _k - 1, entries)
+		end
+		return orderBase + #entries
 	end
-	for _k, _v in primary do
-		_newValue[_k] = _callback(_v, _k - 1, primary)
+	local layoutCursor = 0
+	if fromMore then
+		appendRail(secondaryEntries, 0)
+	else
+		layoutCursor = appendRail(primaryEntries, 0)
+		if showSecondarySection then
+			table.insert(railChildren, React.createElement("frame", {
+				key = "nav-more-section",
+				Size = UDim2.new(1, 0, 0, sectionH),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				LayoutOrder = layoutCursor,
+			}, React.createElement(Text, {
+				value = "MORE",
+				size = 9,
+				color = Palette.muted,
+				weight = Enum.FontWeight.Heavy,
+				fit = false,
+				position = UDim2.fromOffset(8, 4),
+				sizeConstraint = UDim2.new(1, -12, 1, -4),
+			})))
+			layoutCursor += 1
+		end
+		if includeSecondary then
+			appendRail(secondaryEntries, layoutCursor)
+		end
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = if fixedWidth ~= nil then UDim2.fromScale(1, 1) else width:map(function(value)
 			return UDim2.new(0, math.max(0, value), 1, 0)
@@ -2965,7 +2975,7 @@ local function Navigation(_param)
 		ClipsDescendants = true,
 		Active = true,
 		Selectable = false,
-	}, _exp_4, _newValue), showBoost and React.createElement("frame", {
+	}, _exp_4, railChildren), showBoost and React.createElement("frame", {
 		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, boostHeight),
 		Position = UDim2.new(0, SHELL_CHROME.railGutter, 1, -(boostHeight + SHELL_CHROME.railGutter)),
 		BackgroundTransparency = 1,
@@ -2984,6 +2994,10 @@ local function VaultPill(_param)
 	local state = _param.state
 	local reducedMotion = _param.reducedMotion
 	local accent = _param.accent
+	local top = _param.top
+	if top == nil then
+		top = 8
+	end
 	local fill = meterFill(asFlux(state.Vault), asFlux(state.Capacity))
 	local ready = asFlux(state.Vault) >= 0.01
 	local full = fill >= 0.99
@@ -3008,7 +3022,7 @@ local function VaultPill(_param)
 	end)
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(248, 52),
-		Position = UDim2.new(1, -316, 0, 20),
+		Position = UDim2.new(1, -316, 0, top),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 22,
@@ -3212,13 +3226,15 @@ local function Workspace(_param)
 		local t = math.clamp(amount, 0, 1)
 		return (1 - t) * 0.28
 	end)
-	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 84
+	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 72
 	-- Desktop reserves room for the right-side VaultPill (248px wide, anchored at -316): the
 	-- title block must stop before it. -392 used to run 8px into the pill; -344 keeps a 6px
 	-- clearance on every desktop width.
 	local titleReserve = if keyboardCompact then -(titleLeft + vaultBtn + 18) else (if chrome.stack then -(vaultBtn + 18) elseif chrome.tight then -(vaultBtn + 28) else -344) - (titleLeft - (if chrome.stack then 14 else 22))
-	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 78
-	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 50
+	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 else 48
+	local headerIconSize = if keyboardCompact then 28 elseif chrome.landscape then 28 elseif chrome.stack then 32 else 40
+	local headerTitleY = if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else math.max(8, math.floor((headerHeight - titleBlockH) / 2))
+	local vaultPillY = math.max(6, math.floor((headerHeight - 52) / 2))
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.ink,
@@ -3278,22 +3294,22 @@ local function Workspace(_param)
 		zIndex = 4,
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, titleReserve, 0, titleBlockH),
-		Position = UDim2.fromOffset(titleLeft, if keyboardCompact then 6 elseif chrome.landscape then 10 elseif chrome.stack then 12 else 16),
+		Position = UDim2.fromOffset(titleLeft, headerTitleY),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		ZIndex = 3,
 	}, React.createElement(ShimmerText, {
 		value = if entry.label == "Games" then "Mini Games" elseif entry.label == "Ranks" then "Leaderboards" else entry.label,
-		size = if chrome.stack then chrome.titleText else 26,
+		size = if chrome.stack then chrome.titleText else 22,
 		color = ensureContrast(Palette.panel, Palette.cream),
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 16,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 2)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 6), 0, if chrome.landscape then 4 else 0)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 28 elseif chrome.stack then 28 else 34),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 28 elseif chrome.stack then 28 else 26),
 		reducedMotion = reducedMotion,
 		enabled = not reducedMotion,
 		periodSeconds = 4.2,
@@ -3304,14 +3320,15 @@ local function Workspace(_param)
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
 		position = enter:map(function(amount)
-			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 32 else 40)
+			return UDim2.new(0, math.round((1 - math.clamp(amount, 0, 1)) * 10), 0, if chrome.stack then 32 else 28)
 		end),
-		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 else 28),
+		sizeConstraint = UDim2.new(1, 0, 0, if chrome.stack then 32 else 18),
 		transparency = revealFade,
 	})), not chrome.stack and React.createElement(VaultPill, {
 		state = state,
 		reducedMotion = reducedMotion,
 		accent = accent,
+		top = vaultPillY,
 	}), React.createElement(Button, {
 		text = "",
 		icon = "Collect",
@@ -3455,20 +3472,13 @@ local function AppShell(_param)
 			_result = _result_1
 		end
 		local topbarHeight = _result
-		-- v2 mobile shell: navigation is a fixed-height bottom tab bar (chrome.tabBarH), not a
-		-- floating draggable dock — its footprint is a constant for a given viewport, computed
-		-- once in mobileLayout.ts, and never animates or repositions.
+		-- Desktop secondary destinations live in the sidebar (includeSecondary). The old
+		-- horizontal MoreDock row above the workspace was wasted chrome on PC/ultrawide.
 		local moreAtBottom = chrome.stack
 		local tabBarH = if keyboardShellCompact then 0 else chrome.tabBarH
-		-- Desktop's "secondary nav" row (MORE_NAV, shown when the shell isn't using the bottom tab
-		-- bar) renders as a horizontal dock above the workspace. desktopDockTop/desktopDockHeight
-		-- are computed once here and reused verbatim both for the dock's own JSX position AND for
-		-- shellTop's reserve, instead of each being hand-derived separately — two independently
-		-- hand-matched formulas is exactly what silently drifted out of sync and caused the
-		-- dock/sidebar overlap bug, since nothing forced them to agree.
-		local desktopDockTop = topPad + topbarHeight + chrome.panelGap
-		local desktopDockHeight = if not moreAtBottom then moreDockHeight(false) else 0
-		local shellTop = if not moreAtBottom then desktopDockTop + desktopDockHeight + chrome.panelGap else topPad + topbarHeight + chrome.panelGap
+		local shellTop = topPad + topbarHeight + chrome.panelGap
+		local desktopDockTop = shellTop
+		local desktopDockHeight = 0
 		local _condition_2 = state.Settings.MobileQuickVisible
 		if _condition_2 == nil then
 			_condition_2 = 1
@@ -4231,32 +4241,8 @@ local function AppShell(_param)
 		end
 		_condition_17 = React.createElement(TopBar, _attributes)
 	end
-	local _condition_18 = not mobileShell and not moreAtBottom
-	if _condition_18 then
-		local _attributes = {
-			page = page,
-			setPage = navigate,
-			reducedMotion = reducedMotion,
-			state = state,
-			chatUnread = chat.unread,
-		}
-		local _result_10 = tutorial
-		if _result_10 ~= nil then
-			_result_10 = _result_10.page
-		end
-		_attributes.tutorialPage = _result_10
-		_attributes.stack = false
-		_attributes.cols = chrome.moreCols
-		_attributes.cellH = chrome.moreCellH
-		_attributes.entries = MORE_NAV
-		_condition_18 = React.createElement("frame", {
-			Size = UDim2.new(1, -edgePad * 2, 0, desktopDockHeight),
-			Position = UDim2.fromOffset(edgePad, desktopDockTop),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 55,
-		}, React.createElement(MoreDock, _attributes))
-	end
+	-- Desktop MoreDock removed: secondary nav is in the sidebar via includeSecondary.
+	local _condition_18 = false
 	local _exp_5 = React.createElement(React.Fragment, nil, _condition_10, _condition_12, _condition_14, _condition_16, _exp_4, _condition_17, _condition_18)
 	local _exp_6 = React.createElement("frame", {
 		Size = workspaceSize,
@@ -4331,7 +4317,7 @@ local function AppShell(_param)
 			_result_10 = _result_10.page
 		end
 		_attributes.tutorialPage = _result_10
-		_attributes.includeSecondary = drawerNav
+		_attributes.includeSecondary = true
 		_attributes.fromMore = false
 		_attributes.activeBoost = activeBoost
 		_attributes.activeBoostEndsAt = activeBoostEndsAt
