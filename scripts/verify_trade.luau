@@ -236,4 +236,51 @@ do
 	assert(loadingConfirm == 2, "compact+desktop confirm loading predicates must match")
 end
 
+
+------------------------------------------------------------------------
+-- 6. Cancel refused while Settling (trade residual guard)
+------------------------------------------------------------------------
+do
+	local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+	assert(string.find(deskSrc, 'session.Status == "Settling"', 1, true), "Cancel must gate on Settling")
+	assert(string.find(deskSrc, "already settling", 1, true), "Cancel must return settling error")
+	local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+	assert(string.find(services, "cancelErr", 1, true), "ConfirmTrade Cancel path must surface cancelErr")
+
+	local session = {
+		Host = 1,
+		Guest = 2,
+		Confirmed = { [1] = true, [2] = true },
+		Settling = true,
+		Status = "Settling",
+		ConfirmEndsAt = 0,
+	}
+	local function tryCancel(s)
+		if s.Settling == true or s.Status == "Settling" then
+			return false, "That trade is already settling."
+		end
+		return true
+	end
+	local ok, err = tryCancel(session)
+	assert(ok == false and err == "That trade is already settling.", "cancel during settle must refuse")
+	session.Settling = false
+	session.Status = "RevertFailed"
+	ok = tryCancel(session)
+	assert(ok == true, "cancel after RevertFailed must be allowed to clear residual")
+end
+
+------------------------------------------------------------------------
+-- 7. SteadyProduction nil-safe Research + SessionGate txn _get
+------------------------------------------------------------------------
+do
+	local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+	assert(string.find(economySrc, 'type(research) == "table"', 1, true), "SteadyProduction must nil-safe Research")
+	local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
+	local getCount = 0
+	for _ in string.gmatch(gateSrc, "self:_get%(player%)") do
+		getCount += 1
+	end
+	assert(getCount >= 4, "Hello/Beat/Txn helpers should share _get")
+end
+
 print("[INFO] [TEST] trade exchange roundtrip + settle invariants passed")

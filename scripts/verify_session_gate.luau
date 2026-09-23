@@ -39,7 +39,11 @@ assert(type(nonce) == "string", "hello should issue a nonce")
 
 local ok, reason, rGen, rNonce = gate:Beat(player, gen, 1, nonce)
 assert(ok == true, "first beat should authenticate: " .. tostring(reason))
-assert(gate:CheckGrant(player, 1, rNonce, true) == true, "grant should pass after auth")
+assert(rGen == 2, "first beat must rotate past the hello nonce")
+assert(rNonce ~= nonce, "rotated nonce must differ from hello")
+assert(gate:CheckGrant(player, rGen, rNonce, true) == true, "grant should pass after auth")
+-- Grace still honors the hello gen with the live nonce for in-flight grants.
+assert(gate:CheckGrant(player, 1, rNonce, true) == true, "grace grant should pass with prev gen")
 
 -- Rejected beats must still return live creds so the client can resync.
 ok, reason, rGen, rNonce = gate:Beat(player, 99, 2, "bogus")
@@ -60,6 +64,18 @@ assert(gate:CheckGrant({ UserId = 999 }, 1, "x", false) == false, "no-session gr
 assert(gate:CheckGrant(player, 999, "x", false) == false, "wrong-gen grant should reject")
 assert(gate:CheckGrant(player, rGen, "wrong", true) == false, "wrong-nonce grant should reject")
 assert(gate:CheckGrant(player, rGen, "wrong", false) == true, "non-nonce grant should pass")
+
+-- TxnClaim/Store must work even when Hello was never beaten (Studio CheckGrant path):
+-- Claim without a prior Hello used to return "new" then Store no-op'd on a missing session.
+do
+	local lonely = { Name = "Lonely", UserId = 42 }
+	local claimStatus = gate:TxnClaim(lonely, "studio-txn")
+	assert(claimStatus == "new", "claim without hello should still allocate")
+	assert(gate:TxnClaim(lonely, "studio-txn") == "busy", "pending claim must stick without Hello")
+	gate:TxnStore(lonely, "studio-txn", { ok = true, echo = 7 })
+	local doneStatus, stored = gate:TxnClaim(lonely, "studio-txn")
+	assert(doneStatus == "done" and stored and stored.echo == 7, "store must persist without prior Hello")
+end
 
 local liveGen, liveNonce = gate:Peek(player)
 for id = 10, 20 do

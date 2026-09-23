@@ -118,7 +118,9 @@ return function()
 			session.auth = false
 		end
 
-		if session.beatsSinceRotate >= ROTATE_EVERY_BEATS or now - session.lastRotate >= ROTATE_EVERY_SEC then
+		-- Hello issues a one-shot nonce: the first successful beat must rotate past it so a
+		-- dumped hello response is stale within one beat. Later rotations keep the cadence.
+		if session.prevNonce == nil or session.beatsSinceRotate >= ROTATE_EVERY_BEATS or now - session.lastRotate >= ROTATE_EVERY_SEC then
 			rotate(session)
 		end
 
@@ -164,10 +166,10 @@ return function()
 	local TXN_PENDING = { __txn = "pending" }
 
 	function SessionGate:TxnLookup(player: Player, txnId: string): (boolean, any)
-		local session = self._sessions[player]
-		if not session then
-			return false, nil
-		end
+		-- Studio CheckGrant short-circuits without Hello, so txn helpers must create the
+		-- session bag via _get — otherwise Claim returns "new", Store no-ops, and retries
+		-- never short-circuit as "done"/"busy".
+		local session = self:_get(player)
 		local stored = session.txns[txnId]
 		if stored == nil or stored == TXN_PENDING then
 			return false, nil
@@ -176,10 +178,7 @@ return function()
 	end
 
 	function SessionGate:TxnClaim(player: Player, txnId: string): (string, any)
-		local session = self._sessions[player]
-		if not session then
-			return "new", nil
-		end
+		local session = self:_get(player)
 		local stored = session.txns[txnId]
 		if stored == TXN_PENDING then
 			return "busy", nil
@@ -199,10 +198,7 @@ return function()
 	end
 
 	function SessionGate:TxnStore(player: Player, txnId: string, result: any)
-		local session = self._sessions[player]
-		if not session then
-			return
-		end
+		local session = self:_get(player)
 		if session.txns[txnId] == nil then
 			table.insert(session.txnOrder, txnId)
 			if #session.txnOrder > TXN_RING then
