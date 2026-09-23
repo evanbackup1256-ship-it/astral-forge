@@ -1946,31 +1946,86 @@ local function ReactorConsole(_param)
 		_newValue_2[_k] = _callback_4(_v, _k - 1, _exp_23)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	local directivesBody = if #anomaly.Directives == 0 then (_condition_12 or React.createElement(EmptyState, {
-		icon = "Mission",
-		title = "No jobs right now",
-		body = "More jobs arrive with the next anomaly.",
-		accent = accent,
-	})) else React.createElement("frame", {
+	local listStride = math.max(dirRowH, protoRowH, 120, SECTION_LABEL_H) + GAP
+	local listData = {}
+	if #anomaly.Directives == 0 then
+		table.insert(listData, {
+			Id = "empty-directives",
+			kind = "empty-directives",
+		})
+	else
+		for _, directive in anomaly.Directives do
+			table.insert(listData, {
+				Id = directive.Id,
+				kind = "directive",
+				directive = directive,
+			})
+		end
+	end
+	table.insert(listData, {
+		Id = "protocols-label",
+		kind = "protocols-label",
+	})
+	for _, protocol in config.Protocols do
+		table.insert(listData, {
+			Id = protocol.Id,
+			kind = "protocol",
+			protocol = protocol,
+		})
+	end
+	local jobsList = React.createElement(FlatList, {
+		data = listData,
+		itemHeight = listStride,
+		headerHeight = 0,
+		overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+		canvasTail = 8,
 		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, GAP),
-	}), _newValue_1)
-	local directivesH = if #anomaly.Directives == 0 then 140 else #anomaly.Directives * dirRowH + math.max(0, #anomaly.Directives - 1) * GAP
-	local protocolsH = math.max(1, #config.Protocols) * protoRowH + math.max(0, #config.Protocols - 1) * GAP
-	local protocolsBody = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, GAP),
-	}), _newValue_2)
+		scrollBarColor = accent,
+		scrollBarThickness = 3,
+		scrollBarTransparency = 0.28,
+		keyExtractor = function(entry)
+			return entry.Id
+		end,
+		renderItem = function(_param_1)
+			local entry = _param_1.item
+			if entry.kind == "empty-directives" then
+				return React.createElement(EmptyState, {
+					icon = "Mission",
+					title = "No jobs right now",
+					body = "More jobs arrive with the next anomaly.",
+					accent = accent,
+					layoutOrder = 0,
+				})
+			elseif entry.kind == "protocols-label" then
+				return React.createElement(SectionLabel, {
+					value = "PERMANENT TUNING",
+					color = Palette.violet,
+					layoutOrder = 0,
+				})
+			elseif entry.kind == "directive" then
+				return React.createElement(DirectiveRow, {
+					directive = entry.directive,
+					dispatch = dispatch,
+					reducedMotion = reducedMotion,
+					order = 0,
+					stack = stack,
+				})
+			end
+			local level = anomaly.Protocols[entry.protocol.Id]
+			if level == nil then
+				level = 0
+			end
+			return React.createElement(ProtocolRow, {
+				protocol = entry.protocol,
+				level = level,
+				fragments = anomaly.Fragments,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+				order = 0,
+				stack = stack,
+			})
+		end,
+	})
 	local sections = {
 		{
 			id = "hero",
@@ -2008,19 +2063,10 @@ local function ReactorConsole(_param)
 		element = _exp_20,
 	})
 	table.insert(sections, {
-		id = "jobs",
-		height = directivesH,
-		element = directivesBody,
-	})
-	table.insert(sections, {
-		id = "tuning-label",
-		height = SECTION_LABEL_H,
-		element = _exp_22,
-	})
-	table.insert(sections, {
-		id = "tuning",
-		height = protocolsH,
-		element = protocolsBody,
+		id = "jobs-tuning",
+		fill = true,
+		minHeight = math.max(180, listStride * 2),
+		element = jobsList,
 	})
 	return React.createElement(PageScaffold, {
 		gap = GAP,
