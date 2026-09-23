@@ -17,6 +17,8 @@ local files = {
 	-- Hot pages (keep in sync with scripts/verify_playability.luau HOT_PAGES)
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",
+	"src/Client/AstralForge/pages/WorldsView.luau",
+	"src/Client/AstralForge/pages/RewardsView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
 	"src/Client/AstralForge/pages/ForgePathView.luau",

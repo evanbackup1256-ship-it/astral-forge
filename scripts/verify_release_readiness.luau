@@ -739,8 +739,28 @@ assert(string.find(cfg, 'Id = "wave29-offline-brief"', 1, true), "Story wave29 r
 assert(string.find(cfg, 'Id = "update-5-1-wave29-offline"', 1, true), "Mail wave29 residual for release")
 mark("wave29 overview extract maingame rail softMotion content residuals")
 
--- Raise floor past checks=34 once wave29 Overview/MainGame residuals land.
-assert(#passed > 33, "release-readiness offline subset must stay beyond checks=33, got " .. tostring(#passed))
+-- Wave30: WorldsView + RewardsView extracts + StatChip softMotion + DV21 content.
+local worldsWave30 = fs.readFile("src/Client/AstralForge/pages/WorldsView.luau")
+assert(string.find(worldsWave30, 'Name = "WorldsTravelClaim"', 1, true), "WorldsTravelClaim residual for release")
+assert(string.find(worldsWave30, "GamepadNavigationService.FocusClaim", 1, true), "Worlds FocusClaim residual for release")
+assert(string.find(worldsWave30, "reducedMotion = softMotion", 1, true), "Worlds softMotion fold residual for release")
+local rewardsWave30 = fs.readFile("src/Client/AstralForge/pages/RewardsView.luau")
+assert(string.find(rewardsWave30, 'Name = "RewardsDailyClaimActions"', 1, true), "RewardsDaily residual for release")
+assert(string.find(rewardsWave30, 'Name = "RewardsTimedClaimActions"', 1, true), "RewardsTimed residual for release")
+assert(string.find(rewardsWave30, "GamepadNavigationService.FocusClaim", 1, true), "Rewards FocusClaim residual for release")
+local routerWave30 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(string.find(routerWave30, 'lazyView("WorldsView", "WorldsView")', 1, true), "PageRouter lazy Worlds residual for release")
+assert(string.find(routerWave30, 'lazyView("RewardsView", "RewardsView")', 1, true), "PageRouter lazy Rewards residual for release")
+assert(not string.find(routerWave30, "local function RewardsView", 1, true), "inline RewardsView must leave PageRouter for release")
+assert(not string.find(routerWave30, "GamepadNavigationService", 1, true), "PageRouter GamepadNavigation residual for release")
+local mainWave30 = fs.readFile("src/Client/AstralForge/MainGame.luau")
+assert(string.find(mainWave30, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion residual for release")
+assert(string.find(cfg, 'Id = "wave30-offline-brief"', 1, true), "Story wave30 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave30-offline"', 1, true), "Mail wave30 residual for release")
+mark("wave30 worlds rewards extract statchip softMotion content residuals")
+
+-- Raise floor past checks=35 once wave30 Worlds/Rewards residuals land.
+assert(#passed > 34, "release-readiness offline subset must stay beyond checks=34, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

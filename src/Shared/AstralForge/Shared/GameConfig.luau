@@ -5201,11 +5201,44 @@ local GameConfig = {
 			Color = Color3.fromRGB(40, 225, 180),
 		},
 
+		{
+			Id = "wave30-offline-brief",
+			Title = "Wave Thirty Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "WorldsView + RewardsView extracts, Worlds FocusClaim/softMotion, StatChip softMotion; readiness past checks=35.",
+			Body = {
+				"Worlds and Rewards peel out of PageRouter with WorldsTravelClaim FocusClaim and Rewards Daily/Timed claim hosts.",
+				"MainGame StatChip folds the canonical softMotion antilag gate; offline release-readiness checks grow past checks=35.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 82, CashMinutes = 36, Signals = 38 },
+			Color = Color3.fromRGB(35, 220, 175),
+		},
+
 
 
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave30-offline",
+			Subject = "Dock note — wave thirty offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "WorldsView + RewardsView extracts + StatChip softMotion — still DataVersion 21.",
+			Body = {
+				"WorldsView densifies softMotion with travel FocusClaim; RewardsView keeps Daily/Timed claim hosts outside PageRouter.",
+				"Offline release-readiness checks grow past checks=35 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 82, Stardust = 98, Signals = 42 },
+			Color = Color3.fromRGB(35, 220, 175),
+		},
+
 
 		{
 			Id = "update-5-1-wave29-offline",

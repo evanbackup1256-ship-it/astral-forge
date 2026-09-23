@@ -32,6 +32,8 @@ end
 local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",
+	"src/Client/AstralForge/pages/WorldsView.luau",
+	"src/Client/AstralForge/pages/RewardsView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
 	"src/Client/AstralForge/pages/BoostsView.luau",
@@ -342,6 +344,8 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/StarGridView.luau",
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",
+	"src/Client/AstralForge/pages/WorldsView.luau",
+	"src/Client/AstralForge/pages/RewardsView.luau",
 	"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
 	"src/Client/AstralForge/pages/ShopView.luau",
 	"src/Client/AstralForge/pages/WheelView.luau",
@@ -410,6 +414,8 @@ do
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 8,
 		["src/Client/AstralForge/pages/CreditsView.luau"] = 8,
 		["src/Client/AstralForge/pages/CrewView.luau"] = 8,
+		["src/Client/AstralForge/pages/WorldsView.luau"] = 8,
+		["src/Client/AstralForge/pages/RewardsView.luau"] = 8,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 8,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 6,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 6,
@@ -433,6 +439,8 @@ do
 		"src/Client/AstralForge/pages/SettingsView.luau",
 		"src/Client/AstralForge/pages/CreditsView.luau",
 		"src/Client/AstralForge/pages/CrewView.luau",
+		"src/Client/AstralForge/pages/WorldsView.luau",
+		"src/Client/AstralForge/pages/RewardsView.luau",
 		"src/Client/AstralForge/pages/RebirthPanel.luau",
 		"src/Client/AstralForge/pages/ContinuumView.luau",
 		"src/Client/AstralForge/pages/MailboxView.luau",
@@ -631,10 +639,13 @@ do
 	assert(string.find(shop, "ref = if tab == \"Codes\" then shopHostRef else nil", 1, true), "Shop Codes tab must park FocusClaim on ShopClaimCode")
 
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-	assert(string.find(router, "GamepadNavigationService.FocusClaim", 1, true), "Rewards Daily/Timed CLAIM must FocusClaim when ready")
-	assert(string.find(router, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewards Daily Claim host must be named RewardsDailyClaimActions")
-	assert(string.find(router, 'Name = "RewardsTimedClaimActions"', 1, true), "Rewards Timed CLAIM host must be named RewardsTimedClaimActions")
-	assert(string.find(router, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "RewardsView must softMotion via antilag")
+	local rewards = fs.readFile("src/Client/AstralForge/pages/RewardsView.luau")
+	assert(string.find(rewards, "GamepadNavigationService.FocusClaim", 1, true), "Rewards Daily/Timed CLAIM must FocusClaim when ready")
+	assert(string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewards Daily Claim host must be named RewardsDailyClaimActions")
+	assert(string.find(rewards, 'Name = "RewardsTimedClaimActions"', 1, true), "Rewards Timed CLAIM host must be named RewardsTimedClaimActions")
+	assert(string.find(rewards, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "RewardsView must softMotion via antilag")
+	-- UpgradeBoard still owns a softMotion canon line inside PageRouter.
+	assert(string.find(router, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "UpgradeBoard must softMotion via antilag")
 
 	local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
 	assert(string.find(credits, 'Name = "CreditsClaimActions"', 1, true), "Credits primary CTA host must be named CreditsClaimActions")
@@ -712,9 +723,10 @@ do
 		{ path = "src/Client/AstralForge/pages/BoostsView.luau", name = "BoostClaimActions" },
 		{ path = "src/Client/AstralForge/pages/AnomalyView.luau", name = "AnomalyClaimActions" },
 		{ path = "src/Client/AstralForge/pages/SettingsView.luau", name = "SettingsClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsDailyClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PageRouter.luau", name = "RewardsTimedClaimActions" },
+		{ path = "src/Client/AstralForge/pages/RewardsView.luau", name = "RewardsDailyClaimActions" },
+		{ path = "src/Client/AstralForge/pages/RewardsView.luau", name = "RewardsTimedClaimActions" },
 		{ path = "src/Client/AstralForge/pages/OverviewView.luau", name = "OverviewVaultClaimActions" },
+		{ path = "src/Client/AstralForge/pages/WorldsView.luau", name = "WorldsTravelClaim" },
 		{ path = "src/Client/AstralForge/pages/RebirthPanel.luau", name = "RebirthClaimActions" },
 		{ path = "src/Client/AstralForge/pages/CreditsView.luau", name = "CreditsClaimActions" },
 		{ path = "src/Client/AstralForge/pages/AdminView.luau", name = "AdminConfirmRun" },
@@ -814,6 +826,8 @@ do
 		"src/Client/AstralForge/pages/StarGridView.luau",
 		"src/Client/AstralForge/pages/ForgePathView.luau",
 		"src/Client/AstralForge/pages/CrewView.luau",
+		"src/Client/AstralForge/pages/WorldsView.luau",
+		"src/Client/AstralForge/pages/RewardsView.luau",
 	} do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")

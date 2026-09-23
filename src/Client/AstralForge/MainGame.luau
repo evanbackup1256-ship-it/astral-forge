@@ -601,6 +601,10 @@ local function StatChip(_param)
 	if animateValue == nil then
 		animateValue = true
 	end
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — StatChip flash/springs drop on soft tiers.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local gains, setGains = React.useState(0)
 	local previous = React.useRef(value)
 	React.useEffect(function()
