@@ -37,7 +37,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 88369d76132e3aa490a7b6d633a969f0e4a01bda
+# Expect at or after: e693912bfcf3db41aa7e5564466875331a03fbb0
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
@@ -58,6 +58,7 @@ git merge-base --is-ancestor f8240e4 HEAD && echo extract-economy-more OK
 git merge-base --is-ancestor d08a852 HEAD && echo extract-progression-lab OK
 git merge-base --is-ancestor 227f8a5 HEAD && echo cta-clip-polish OK
 git merge-base --is-ancestor 88369d7 HEAD && echo extract-anomaly OK
+git merge-base --is-ancestor e693912 HEAD && echo content-bug-wave OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
