@@ -19,6 +19,9 @@ local ADMIN_REASONS = { {
 }, {
 	id = "Bug recovery",
 	label = "Bug recovery",
+}, {
+	id = "Trade settle recovery",
+	label = "Trade settle recovery",
 } }
 local KICK_REASONS = { {
 	id = "You were kicked from this Astral Forge server by an administrator.",

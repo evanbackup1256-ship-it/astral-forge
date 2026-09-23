@@ -564,6 +564,7 @@ return function(loadService: (string) -> any)
 		["Moderation action"] = true,
 		["Player request"] = true,
 		["Bug recovery"] = true,
+		["Trade settle recovery"] = true,
 	}
 
 	local function playerFacingReason(command: string, reason: string): string

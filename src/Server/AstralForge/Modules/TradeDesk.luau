@@ -586,7 +586,7 @@ function TradeDesk:TryBeginSettle(session): boolean
 	return true
 end
 
-function TradeDesk:FailSettle(session, permanent: boolean?)
+function TradeDesk:FailSettle(session, permanent: boolean?, reason: string?)
 	if not session then
 		return
 	end
@@ -596,8 +596,14 @@ function TradeDesk:FailSettle(session, permanent: boolean?)
 	session.ConfirmEndsAt = 0
 	if permanent then
 		session.Status = "RevertFailed"
+		-- Ops note: host→guest residual may remain until Cancel clears the desk.
+		-- Admins should treat follow-up as "Trade settle recovery" / bug recovery.
+		session.RevertFailedAt = os.time()
+		session.RevertFailedReason = if type(reason) == "string" and reason ~= "" then reason else "host-revert-failed"
 	else
 		session.Status = "Open"
+		session.RevertFailedAt = nil
+		session.RevertFailedReason = nil
 	end
 end
 

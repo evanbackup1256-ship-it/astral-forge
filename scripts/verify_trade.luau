@@ -244,6 +244,13 @@ do
 	assert(loadingConfirm == 2, "compact+desktop confirm loading predicates must match")
 	assert(string.find(view, "TradeReady", 1, true) and string.find(view, "TradeConfirm", 1, true), "Ready/Confirm must be named for FocusClaim")
 	assert(string.find(view, "GamepadNavigationService.FocusClaim", 1, true), "session actions must FocusClaim")
+	-- Compact vs desktop Confirm trees stay duplicated on purpose (vertical stack vs
+	-- horizontal flex). Shared handlers + matching predicates are the invariant;
+	-- extracting one React tree would risk paren/layout regressions for little gain.
+	assert(
+		string.find(view, "Shared action handlers for CONFIRM_TRADE_TREE", 1, true),
+		"TradeView must document shared handlers across dual Confirm trees"
+	)
 end
 
 
@@ -254,8 +261,15 @@ do
 	local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
 	assert(string.find(deskSrc, 'session.Status == "Settling"', 1, true), "Cancel must gate on Settling")
 	assert(string.find(deskSrc, "already settling", 1, true), "Cancel must return settling error")
+	assert(string.find(deskSrc, "RevertFailedReason", 1, true), "FailSettle permanent must stamp RevertFailedReason")
 	local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 	assert(string.find(services, "cancelErr", 1, true), "ConfirmTrade Cancel path must surface cancelErr")
+	assert(string.find(services, "RevertFailed session=", 1, true), "permanent settle failure must ModuleLog RevertFailed")
+	assert(string.find(services, "admin note: Trade settle recovery", 1, true), "RevertFailed log must cite admin note")
+	local adminFields = fs.readFile("src/Client/AstralForge/adminFields.luau")
+	assert(string.find(adminFields, "Trade settle recovery", 1, true), "admin reasons must include Trade settle recovery")
+	local adminService = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
+	assert(string.find(adminService, '["Trade settle recovery"] = true', 1, true), "Trade settle recovery must be audit-only")
 
 	local session = {
 		Host = 1,

@@ -857,8 +857,20 @@ serviceFactories["GameService"] = function()
 							break
 						end
 					end
-					self._trades:FailSettle(session, not reverted)
+					self._trades:FailSettle(session, not reverted, "guest-left-during-settle")
 					self:_pushTradePartners(session.Host, session.Guest)
+					if not reverted then
+						ModuleLog.Warn(
+							"Trade",
+							string.format(
+								"RevertFailed session=%s host=%d guest=%d reason=guest-left-during-settle — cancel table; admin note: Trade settle recovery",
+								tostring(session.Id),
+								session.Host,
+								session.Guest
+							),
+							{ SessionId = session.Id, Host = session.Host, Guest = session.Guest }
+						)
+					end
 					return responseError(if reverted then "Guest left during settle — host side was reverted." else "Guest left and host revert failed. Cancel and contact support.")
 				end
 				local guestOk, guestResult = self._data:AtomicUpdate(guest, function(profile)
@@ -894,10 +906,20 @@ serviceFactories["GameService"] = function()
 							break
 						end
 					end
-					self._trades:FailSettle(session, not reverted)
+					self._trades:FailSettle(session, not reverted, "guest-apply-failed")
 					self:_pushTradePartners(session.Host, session.Guest)
 					local message = if type(guestResult) == "table" then guestResult.error else nil
 					if not reverted then
+						ModuleLog.Warn(
+							"Trade",
+							string.format(
+								"RevertFailed session=%s host=%d guest=%d reason=guest-apply-failed — cancel table; admin note: Trade settle recovery",
+								tostring(session.Id),
+								session.Host,
+								session.Guest
+							),
+							{ SessionId = session.Id, Host = session.Host, Guest = session.Guest }
+						)
 						return responseError("Guest side failed and host revert did not commit. Cancel the table and contact support.")
 					end
 					return responseError(message or "Guest side of the trade failed.")

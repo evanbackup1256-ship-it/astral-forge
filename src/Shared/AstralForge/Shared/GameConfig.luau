@@ -2568,6 +2568,38 @@ local GameConfig = {
 			Target = 100,
 			Reward = { Stardust = 280, Cores = 4, FreeSpins = 3, Boost = "Ionstorm" },
 		},
+		{
+			Id = "HaloDockhand",
+			Name = "Halo Dockhand",
+			Description = "Unlock Halo Foundry.",
+			Kind = "Zone",
+			Target = 6,
+			Reward = { Stardust = 180, Cores = 4, CashMinutes = 16, Boost = "FoundryRush" },
+		},
+		{
+			Id = "PaleNavigator",
+			Name = "Pale Navigator",
+			Description = "Unlock Pale Orbit.",
+			Kind = "Zone",
+			Target = 7,
+			Reward = { Stardust = 220, Cores = 5, Signals = 40, Boost = "StarforgeFlow" },
+		},
+		{
+			Id = "CrownSurveyor",
+			Name = "Crown Surveyor",
+			Description = "Unlock Crown Rift.",
+			Kind = "Zone",
+			Target = 12,
+			Reward = { Stardust = 400, Cores = 10, Essence = 4, Boost = "Hyperdrive" },
+		},
+		{
+			Id = "StoryChronicler",
+			Name = "Chronicler",
+			Description = "Claim 32 story chapter rewards.",
+			Kind = "StoryClaims",
+			Target = 32,
+			Reward = { Stardust = 300, Signals = 80, CashMinutes = 28, FreeSpins = 2 },
+		},
 	},
 
 	DailyRewards = {
@@ -3844,9 +3876,99 @@ local GameConfig = {
 			Reward = { Stardust = 110, Cores = 4, Essence = 2, Boost = "Hyperdrive" },
 			Color = Color3.fromRGB(210, 96, 255),
 		},
+		{
+			Id = "event-horizon-rim",
+			Title = "Rim Watch Notes",
+			Chapter = "LORE: WORLD 5",
+			Summary = "Automate hard on the black hole's lip.",
+			Body = {
+				"Event Horizon milks the thin energy that escapes a quiet black hole. Miss a window and the rim goes dark.",
+				"Cores here aren't decorations — every one is a ballast against the pull.",
+				"Vale's chalk on the outer rail: AUTOMATE FIRST. ARGUE LATER.",
+			},
+			Kind = "Zone",
+			Target = 5,
+			Reward = { Stardust = 40, CashMinutes = 10, Cores = 1 },
+			Color = Color3.fromRGB(238, 75, 255),
+		},
+		{
+			Id = "halo-foundry-ring",
+			Title = "Ring Anvil Charter",
+			Chapter = "LORE: WORLD 6",
+			Summary = "Honest multipliers around a dead star.",
+			Body = {
+				"Halo Foundry spends leftover heat from a collapsed sun. Costs bite; the ledger stays fair.",
+				"Wide rails mean big machines. Bring cores you can explain.",
+				"The ring crew stamps every invoice twice — once for flux, once for pride.",
+			},
+			Kind = "Zone",
+			Target = 6,
+			Reward = { Stardust = 48, CashMinutes = 12, Boost = "FoundryRush" },
+			Color = Color3.fromRGB(255, 148, 92),
+		},
+		{
+			Id = "pale-orbit-lanes",
+			Title = "Pale Lane Brief",
+			Chapter = "LORE: WORLD 7",
+			Summary = "Quiet seconds, heavy flux.",
+			Body = {
+				"Pale Orbit stretches the clock. Offline windows run long; levels still move the needle.",
+				"Nothing here is a trap — just expensive honesty for crews that already know the loop.",
+				"Dock rats call it the listening lane. The Hollow Star prefers quiet operators.",
+			},
+			Kind = "Zone",
+			Target = 7,
+			Reward = { Stardust = 55, Signals = 24, CashMinutes = 14 },
+			Color = Color3.fromRGB(164, 196, 255),
+		},
+		{
+			Id = "origin-well-spark",
+			Title = "Origin Well Spark",
+			Chapter = "LORE: WORLD 8",
+			Summary = "Last published dock — not a wall.",
+			Body = {
+				"Origin Well is the last named dock before the authored map frays into Glass Meridian.",
+				"Gates are rebirth-fair. Multipliers are large. The forge still has room after you park.",
+				"Leave a light on the Origin Press. Someone walking home will need it.",
+			},
+			Kind = "Zone",
+			Target = 8,
+			Reward = { Stardust = 65, Cores = 3, CashMinutes = 15, Boost = "Hyperdrive" },
+			Color = Color3.fromRGB(255, 96, 186),
+		},
+		{
+			Id = "settle-recovery-memo",
+			Title = "Settle Recovery Memo",
+			Chapter = "LORE: TRADE DESK",
+			Summary = "When a handshake fails mid-apply.",
+			Body = {
+				"If a desk sticks on RevertFailed, cancel clears the residual — don't keep offering into a dead settle.",
+				"Admins treat settle recovery as bug recovery: reset the day ledger only after the table is closed.",
+				"Confirm once. Wait for both sides. The forge logs the permanent failures so Bay Seven can help.",
+			},
+			Kind = "Rebirths",
+			Target = 2,
+			Reward = { Stardust = 22, CashMinutes = 7 },
+			Color = Color3.fromRGB(255, 170, 110),
+		},
 	},
 
 	Mail = {
+		{
+			Id = "update-5-1-content-trade-closeout",
+			Subject = "Dock note — zone lore & settle logs",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Worlds 5–8 story beats, zone milestones, RevertFailed settle logging — still DataVersion 21.",
+			Body = {
+				"Closing the content/trade residual pass without touching your save schema.",
+				"Story and achievements now cover Halo Foundry through Origin Well, plus Crown Surveyor.",
+				"Trade desks that fail host revert permanently now warn into server logs for admin bug recovery.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 30, Stardust = 40, Signals = 14 },
+			Color = Color3.fromRGB(255, 175, 120),
+		},
 		{
 			Id = "update-5-1-virt-content-wheel",
 			Subject = "Dock note — list virtualization & prize pack",
@@ -4558,6 +4680,35 @@ end
 local ZONE_NAMES = {
 	"Ashen Reach", "Ion Shelf", "Mirror Trench", "Violet Harbor", "Drift Spire",
 	"Hollow Crown", "Nadir Reef", "Aurora Kiln", "Static Orchard", "Null Causeway",
+	"Ember Causeway", "Signal Bazaar", "Folded Pier", "Quiet Anvil", "Prism Quay",
+}
+local ZONE_TAGLINES = {
+	"A generated horizon. Same machines, deeper multipliers.",
+	"Procedural rails with honest rebirth gates.",
+	"Later-line dock — scaled flux, familiar loop.",
+	"Horizon filler with clean vault math.",
+	"Generated bay. Bring cores you can explain.",
+}
+local ZONE_DESCRIPTIONS = {
+	"Procedural world. Only the current and next worlds are materialized.",
+	"Horizon shelf spun from the forge's leftover maps.",
+	"Scaled dock beyond the authored twelve — same loop, heavier mult.",
+	"A thin instance that exists only while you stand on it.",
+	"Generated ring past Crown Rift. Multipliers keep climbing.",
+}
+local ZONE_LORE = {
+	"The forge keeps unfolding. Nothing here is stored as a unique instance until you stand on it.",
+	"Bay Seven chalk still applies: bank honest, buy what you can explain, rebirth when the core is earned.",
+	"Vale never named these shelves. The generator writes lightly so operators can still feel the loop.",
+	"Crews who rush past authored docks find the same machines wearing new paint — and steeper gates.",
+	"If the engine sings out here, answer with patience. Horizon filler still keeps books.",
+}
+local ZONE_FEATURES = {
+	{ "Scaled production", "Rebirth gate", "No extra instances" },
+	{ "Familiar machines", "Steeper cores", "Thin materialization" },
+	{ "Horizon mult", "Honest ledger", "Current+next only" },
+	{ "Generated rails", "Rebirth-fair gates", "Vault-safe offline" },
+	{ "Loop continuity", "Core sinks", "No unique storage" },
 }
 local ZONE_LAYOUTS = { "Dock", "Crystal", "Foundry", "Rift", "Horizon" }
 
@@ -4590,13 +4741,14 @@ function GameConfig.ResolveZone(id: number)
 	local cores = math.floor(20 + tier * 3 + tier ^ 1.15)
 	local rebirths = math.floor(20 + tier * 2)
 	local name = ZONE_NAMES[((index - 1) % #ZONE_NAMES) + 1]
+	local flavor = ((index - 1) % #ZONE_TAGLINES) + 1
 	return {
 		Id = index,
 		Name = string.format("%s %d", name, index),
-		Tagline = "A generated horizon. Same machines, deeper multipliers.",
-		Description = "Procedural world. Only the current and next worlds are materialized.",
-		Lore = "The forge keeps unfolding. Nothing here is stored as a unique instance until you stand on it.",
-		Features = { "Scaled production", "Rebirth gate", "No extra instances" },
+		Tagline = ZONE_TAGLINES[flavor],
+		Description = ZONE_DESCRIPTIONS[flavor],
+		Lore = ZONE_LORE[flavor],
+		Features = ZONE_FEATURES[flavor],
 		Layout = ZONE_LAYOUTS[((index - 1) % #ZONE_LAYOUTS) + 1],
 		ThemeIndex = ((index - 1) % 5) + 1,
 		Cost = cost,
