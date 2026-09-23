@@ -167,38 +167,47 @@ local function StarField(_param)
 	local accent = _param.accent
 	local reducedMotion = _param.reducedMotion
 	local antilag = useAntilag()
-	local enabled = not reducedMotion and antilag.tier > 0 and antilag.maxStars > 0
-	local clock = useClock(enabled, 1.1)
+	local enabled = not reducedMotion and antilag.tier > 0 and antilag.maxStars > 0 and antilag.allowAmbient
+	local clock = useClock(enabled, if antilag.constrained then 0.7 else 1.1)
+	local starCap = if antilag.constrained then math.min(antilag.maxStars, 3) else antilag.maxStars
 	local budgeted = math.clamp(math.floor(#STARS * antilag.fxBudget), 0, #STARS)
-	local count = if enabled then math.clamp(math.min(budgeted, antilag.maxStars), 0, #STARS) else 0
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#STARS)
-	local _callback = function(star, index)
-		return if index < count then React.createElement("frame", {
+	local count = if enabled then math.clamp(math.min(budgeted, starCap), 0, #STARS) else 0
+	if count <= 0 then
+		return React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 1,
+			ClipsDescendants = true,
+		})
+	end
+	local glow = antilag.glowScale
+	-- Only iterate the live prefix — building #STARS nil slots every render was
+	-- free work on every antilag context push.
+	local children = table.create(count)
+	for index = 0, count - 1 do
+		local star = STARS[index + 1]
+		children[index + 1] = React.createElement("frame", {
 			key = index,
 			Size = UDim2.fromOffset(star.size, star.size),
 			Position = UDim2.fromScale(star.x, star.y),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = if index % 3 == 0 then accent else Palette.creamSoft,
 			BackgroundTransparency = clock:map(function(phase)
-				return 0.62 + math.sin(phase + star.phase) * 0.3 * antilag.glowScale
+				return 0.62 + math.sin(phase + star.phase) * 0.3 * glow
 			end),
 			BorderSizePixel = 0,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
-		})) else nil
+		}))
 	end
-	for _k, _v in STARS do
-		_newValue[_k] = _callback(_v, _k - 1, STARS)
-	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 1,
 		ClipsDescendants = true,
-	}, _newValue)
+	}, children)
 end
 local ENERGY_FIELD_RESOLUTION = Vector2.new(48, 28)
 local function CanvasEnergyField(_param)

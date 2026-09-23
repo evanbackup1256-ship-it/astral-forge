@@ -626,9 +626,10 @@ local function CelebrationBurst(_param)
 			Active = false,
 		})
 	end
-	local mobileCap = if viewport.compact or viewport.tight then 8 else 12
-	local desired = math.floor(MAX_PARTICLES * math.clamp(intensity, 0.12, 1))
-	local budgetCap = if minimal then 0 else math.max(4, antilag.particleBudget)
+	local constrained = antilag.constrained == true or viewport.compact or viewport.tight
+	local mobileCap = if constrained then (if antilag.tier <= 1 then 5 else 7) else 12
+	local desired = math.floor(MAX_PARTICLES * math.clamp(intensity, 0.12, 1) * math.max(0.4, antilag.fxBudget))
+	local budgetCap = if minimal then 0 else math.max(if constrained then 2 else 4, antilag.particleBudget)
 	local activeCount = math.clamp(math.min(desired, budgetCap, mobileCap), 0, MAX_PARTICLES)
 	-- ▼ ReadonlyArray.filter ▼
 	local _newValue = {}
@@ -644,11 +645,13 @@ local function CelebrationBurst(_param)
 	end
 	-- ▲ ReadonlyArray.filter ▲
 	local particles = _newValue
-	local detailed = not minimal and antilag.quality >= 0.72 and activeCount <= 10 and not (viewport.compact or viewport.tight)
+	-- Skip per-particle glow frames on constrained/low quality — each glow is an
+	-- extra GuiObject + transparency binding for every spark.
+	local detailed = not minimal and not constrained and antilag.quality >= 0.72 and antilag.glowScale >= 0.45 and activeCount <= 10
 	local impact = time:map(function(seconds)
 		return easeOutCubic(math.clamp(seconds / 0.36, 0, 1))
 	end)
-	local rayCount = if minimal then 0 elseif antilag.quality >= 0.62 then 4 elseif antilag.quality >= 0.28 then 2 else 0
+	local rayCount = if minimal then 0 elseif constrained then (if antilag.quality >= 0.55 then 2 else 0) elseif antilag.quality >= 0.62 then 4 elseif antilag.quality >= 0.28 then 2 else 0
 	local rays = if rayCount == 4 then { 0, 90, 180, 270 } elseif rayCount == 2 then { 0, 180 } else {}
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#rays)
