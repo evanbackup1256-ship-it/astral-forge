@@ -76,7 +76,11 @@ assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "sanitize must rebu
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "sanitize must EnsureDomain via ProfileBagMath")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "sanitize must EnsureContinuum via ProfileBagMath")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "sanitize must EnsureAutoSalvage residual")
-assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "sanitize must ForgeEchoMath.Ensure residual")
+assert(
+	string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true) ~= nil
+		or string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true) ~= nil,
+	"sanitize must ForgeEchoMath.Sanitize residual"
+)
 assert(string.find(dataSrc, "WheelMath.Ensure", 1, true) or string.find(dataSrc, 'type(profile.Wheel) ~= "table"', 1, true), "sanitize Wheel residual")
 assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService:IsBusy residual for firewall suite")
 assert(string.find(dataSrc, "ProfileIntegrity.EnsureEnvelope", 1, true), "DataService ProfileIntegrity envelope residual")

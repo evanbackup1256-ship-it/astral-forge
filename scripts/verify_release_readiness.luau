@@ -337,7 +337,7 @@ mark("inventory math salvage filter residuals")
 
 -- DataService / Admin / Progression / RemoteFirewall residuals for release past checks=16.
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual for release")
-assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEchoMath residual for release")
+assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService ForgeEchoMath residual for release")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual for release")
 assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService DataSanitizeMath residual for release")
 assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService Reconcile residual for release")
@@ -447,7 +447,7 @@ assert(string.find(ssReleaseSrc, "DataSanitizeMath.DeepCopy", 1, true), "ServerS
 assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.GridEffect", 1, true), "EconomyEnvelopeMath.GridEffect missing")
 assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.EffectAtLevel", 1, true), "EconomyEnvelopeMath.EffectAtLevel missing")
 assert(string.find(economyBody, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect residual for release")
-assert(string.find(economyBody, "EconomyEnvelopeMath.EffectAtLevel", 1, true), "Economy EffectAtLevel residual for release")
+assert(string.find(economyBody, "EconomyEnvelopeMath.ItemEffect", 1, true), "Economy ItemEffect residual for release")
 assert(string.find(inventoryMathSrc, "function InventoryMath.RarityColor", 1, true), "InventoryMath.RarityColor missing")
 assert(string.find(invViewSrc, "InventoryMath.RarityColor", 1, true), "InventoryView RarityColor residual for release")
 assert(not string.find(networkPolicySrc, "GetService", 1, true), "NetworkPolicy must stay pure")

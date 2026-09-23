@@ -133,7 +133,7 @@ assert(
 
 assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService must Ensure Command")
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService must Ensure Lab")
-assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true), "DataService ForgeEchoMath.Ensure residual")
+assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true) or string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService ForgeEchoMath.Ensure residual")
 assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService IsBusy residual")
 assert(string.find(dataSrc, "profile.Continuum", 1, true), "DataService Continuum sanitize residual")
 assert(string.find(dataSrc, "profile.Domain", 1, true), "DataService Domain sanitize residual")

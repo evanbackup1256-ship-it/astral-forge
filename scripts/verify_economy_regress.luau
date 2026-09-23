@@ -61,7 +61,8 @@ assert(
 	"TotalResearchLevels / researchLevel must nil-guard Research"
 )
 assert(
-	string.find(economySrc, 'slot == "Machine" and type(machines) == "table"', 1, true) ~= nil,
+	string.find(economySrc, "EconomyEnvelopeMath.ItemEffect", 1, true) ~= nil
+		or string.find(economySrc, 'slot == "Machine" and type(machines) == "table"', 1, true) ~= nil,
 	"ItemEffect must nil-guard Machines before indexing"
 )
 
@@ -380,7 +381,8 @@ assert(
 -- ClaimAchievement / AchievementStates raw-indexed profile.Achievements.
 -- Admin createRelic raw-indexed Items.Inventory on Keys-only bags.
 assert(
-	string.find(economySrc, 'type(equipped) ~= "table" or type(inventory) ~= "table"', 1, true) ~= nil,
+	string.find(economySrc, "EconomyEnvelopeMath.ItemEffect", 1, true) ~= nil
+		or string.find(economySrc, 'type(equipped) ~= "table" or type(inventory) ~= "table"', 1, true) ~= nil,
 	"ItemEffect must nil-guard Equipped/Inventory tables"
 )
 assert(
