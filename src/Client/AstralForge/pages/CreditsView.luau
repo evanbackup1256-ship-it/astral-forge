@@ -59,6 +59,7 @@ local function CreditsOverlay(_param)
 	local reducedMotion = _param.reducedMotion
 	local onClose = _param.onClose
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — CreditsView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)

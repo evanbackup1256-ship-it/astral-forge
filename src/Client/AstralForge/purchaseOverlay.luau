@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useAntilag = require(script.Parent.antilag).useAntilag
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.audio).Audio
@@ -31,6 +32,10 @@ local function ForgeDot(_param)
 	local clock = _param.clock
 	local morph = _param.morph
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — PurchaseOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local color = DOT_COLORS[index + 1]
 	local x = (index - 1) * 26
 	local position = React.joinBindings({ clock, morph }):map(function(values)
@@ -122,17 +127,21 @@ end
 local function PurchaseOverlay(_param)
 	local phase = _param.phase
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — PurchaseOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local detail = _param.detail
 	local onDismiss = _param.onDismiss
 	local visible = phase ~= "hidden"
 	local result = phase == "success" or phase == "fail"
 	local show = useBoatTween(if visible then 1 else 0, if visible then 0.25 else 0.18, reducedMotion, easeOutCubic, 0)
 	local card = useBoatTween(if visible then 1 else 0, if visible then 0.34 else 0.15, reducedMotion, easeOutBack, 0)
-	local _binding = useExitTransition(reducedMotion, 0.32, phase == "hidden")
+	local _binding = useExitTransition(softMotion, 0.32, phase == "hidden")
 	local exitAmount = _binding[1]
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
-	local morph = useFlipperSpring(if result then 1 else 0, reducedMotion, 500, 30)
+	local morph = useFlipperSpring(if result then 1 else 0, softMotion, 500, 30)
 	local clock = useClock(phase == "pending" and not reducedMotion, 1.4, 1)
 	local viewport = useViewport()
 	local nonce, setNonce = React.useState(0)
@@ -159,7 +168,7 @@ local function PurchaseOverlay(_param)
 			end)
 		end
 	end, { phase, result })
-	local flash = useFlash(nonce, reducedMotion, if phase == "fail" then 0.62 else 0.48)
+	local flash = useFlash(nonce, softMotion, if phase == "fail" then 0.62 else 0.48)
 	local dismiss = React.useCallback(function()
 		if not result or exiting or dismissStarted.current then
 			return nil
@@ -344,7 +353,7 @@ local function PurchaseOverlay(_param)
 			index = index,
 			clock = clock,
 			morph = morph,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		})
 	end
 	for _k, _v in _exp_9 do
@@ -462,7 +471,7 @@ local function PurchaseOverlay(_param)
 		color = accent,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 		selectable = true,
 		zIndex = 412,

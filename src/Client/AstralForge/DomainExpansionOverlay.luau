@@ -52,9 +52,13 @@ local function DomainPortal(_param)
 	local size = _param.size
 	local resultMode = _param.resultMode
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local rayCount = _param.rayCount
 	local fade = _param.fade
-	local portalSprRef = useSprScale(1, reducedMotion, 0.78, 0.66, if resultMode then 7.5 else 6.5)
+	local portalSprRef = useSprScale(1, softMotion, 0.78, 0.66, if resultMode then 7.5 else 6.5)
 	local reveal = time:map(function(value)
 		return if reducedMotion then 1 else easeOutBack(phase(value, if resultMode then 0.32 else 0, if resultMode then 1.15 else 0.42))
 	end)
@@ -80,7 +84,7 @@ local function DomainPortal(_param)
 	local _exp = React.createElement(CanvasEnergyField, {
 		time = time,
 		enabled = not reducedMotion and rayCount >= 12,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		zIndex = 712,
 	})
 	-- ▼ ReadonlyArray.filter ▼
@@ -297,6 +301,10 @@ local function RewardChip(_param)
 	local order = _param.order
 	local time = _param.time
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local enter = time:map(function(amount)
 		return if reducedMotion then 1 else easeOutBack(phase(amount, 2.05 + order * 0.12, 2.55 + order * 0.12))
 	end)
@@ -357,6 +365,10 @@ local function DomainExpansionOverlay(_param)
 		busy = false
 	end
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local onConfirm = _param.onConfirm
 	local onClose = _param.onClose
 	local viewport = useViewport()
@@ -370,7 +382,7 @@ local function DomainExpansionOverlay(_param)
 	local safeBottom = math.max(viewport.bottomInset, 12)
 	local safeHeight = math.max(240, viewport.height - safeTop - safeBottom)
 	local time, setTime = React.useBinding(if reducedMotion and resultMode then 4 else 0)
-	local _binding = useExitTransition(reducedMotion, 0.36)
+	local _binding = useExitTransition(softMotion, 0.36)
 	local leave = _binding[1]
 	local leaving = _binding[2]
 	local beginExit = _binding[3]
@@ -382,8 +394,8 @@ local function DomainExpansionOverlay(_param)
 	local portalSize = if resultMode and resultCompact then math.min(190, viewport.width * 0.46) elseif compact then math.min(230, viewport.width * 0.58) elseif short then 210 else 270
 	local rayCount = if reducedMotion then 0 elseif antilag.tier <= 1 then 8 elseif antilag.tier == 2 then 12 else 18
 	local boatEntrance = useBoatTween(1, if resultMode then 0.52 else 0.34, reducedMotion, easeOutCubic, 0)
-	local springEntrance = useFlipperSpring(if motionLive then 1 else 0, reducedMotion, if resultMode then 520 else 660, if resultMode then 28 else 36)
-	local otterEntrance = useOtterSpring(if motionLive then 1 else 0, reducedMotion, 0, if resultMode then 0.76 else 0.84, if resultMode then 3.2 else 4.2)
+	local springEntrance = useFlipperSpring(if motionLive then 1 else 0, softMotion, if resultMode then 520 else 660, if resultMode then 28 else 36)
+	local otterEntrance = useOtterSpring(if motionLive then 1 else 0, softMotion, 0, if resultMode then 0.76 else 0.84, if resultMode then 3.2 else 4.2)
 	React.useEffect(function()
 		local token = task.defer(function()
 			return setMotionLive(true)
@@ -623,7 +635,7 @@ local function DomainExpansionOverlay(_param)
 			time = time,
 			size = portalSize,
 			resultMode = true,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			rayCount = rayCount,
 			fade = enter,
 		})
@@ -757,7 +769,7 @@ local function DomainExpansionOverlay(_param)
 			_attributes.color = Palette.pink
 			_attributes.order = 0
 			_attributes.time = time
-			_attributes.reducedMotion = reducedMotion
+			_attributes.reducedMotion = softMotion
 			local _exp_5 = React.createElement(RewardChip, _attributes)
 			local _attributes_1 = {
 				label = if result ~= nil and result.overflow > 0 then "STARDUST + EXCESS" else "STARDUST",
@@ -774,7 +786,7 @@ local function DomainExpansionOverlay(_param)
 			_attributes_1.color = Palette.violet
 			_attributes_1.order = 1
 			_attributes_1.time = time
-			_attributes_1.reducedMotion = reducedMotion
+			_attributes_1.reducedMotion = softMotion
 			local _exp_6 = React.createElement(RewardChip, _attributes_1)
 			local _exp_7 = React.createElement(RewardChip, {
 				label = "DOMAIN SURGE",
@@ -782,7 +794,7 @@ local function DomainExpansionOverlay(_param)
 				color = Palette.cyan,
 				order = 2,
 				time = time,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 			})
 			local _attributes_2 = {
 				label = "FREE SPINS",
@@ -799,7 +811,7 @@ local function DomainExpansionOverlay(_param)
 			_attributes_2.color = Palette.mango
 			_attributes_2.order = 3
 			_attributes_2.time = time
-			_attributes_2.reducedMotion = reducedMotion
+			_attributes_2.reducedMotion = softMotion
 			_condition_2 = React.createElement(React.Fragment, nil, _exp_5, _exp_6, _exp_7, React.createElement(RewardChip, _attributes_2))
 		end
 		local _condition_3 = resultCompact
@@ -927,7 +939,7 @@ local function DomainExpansionOverlay(_param)
 			textColor = if canClose then Palette.cream else Palette.muted,
 			size = UDim2.fromScale(1, 1),
 			disabled = not canClose or leaving,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = canClose,
 			zIndex = 761,
 		})))
@@ -970,7 +982,7 @@ local function DomainExpansionOverlay(_param)
 			time = time,
 			size = portalSize,
 			resultMode = false,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			rayCount = math.min(rayCount, 12),
 			fade = enter,
 		}), React.createElement(Text, {
@@ -1097,7 +1109,7 @@ local function DomainExpansionOverlay(_param)
 			textColor = if ready then Palette.cream else Palette.muted,
 			size = UDim2.fromScale(1, 1),
 			disabled = not ready or busy,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = ready and not busy,
 			zIndex = 741,
 		})), not shortLandscape and React.createElement(Text, {
@@ -1122,7 +1134,7 @@ local function DomainExpansionOverlay(_param)
 			textColor = Palette.cream,
 			outline = true,
 			size = UDim2.fromScale(1, 1),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			disabled = leaving,
 			zIndex = 751,
 		})))))

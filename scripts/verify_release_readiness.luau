@@ -1082,8 +1082,38 @@ assert(string.find(cfg, 'Id = "wave39-offline-brief"', 1, true), "Story wave39 r
 assert(string.find(cfg, 'Id = "update-5-1-wave39-offline"', 1, true), "Mail wave39 residual for release")
 mark("wave39 anomaly milestones convergence forgepath overlay softMotion densify content residuals")
 
--- Wave39 residuals raise the offline subset past checks=44.
-assert(#passed > 44, "release-readiness offline subset must stay beyond checks=44, got " .. tostring(#passed))
+-- Wave40: VisitSnapshot peel + DomainExpansion/Purchase/Boosts densify + DENSE floors + DV21.
+local visitSnapWave40 = fs.readFile("src/Server/AstralForge/Modules/VisitSnapshot.luau")
+assert(string.find(visitSnapWave40, "function VisitSnapshot.Build", 1, true), "VisitSnapshot.Build residual for release")
+local serverWave40 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(serverWave40, 'WaitForChild("VisitSnapshot")', 1, true), "ServerServices VisitSnapshot require residual for release")
+assert(string.find(serverWave40, "VisitSnapshot.Build", 1, true), "ServerServices VisitSnapshot.Build residual for release")
+local domainWave40 = fs.readFile("src/Client/AstralForge/DomainExpansionOverlay.luau")
+local purchaseWave40 = fs.readFile("src/Client/AstralForge/purchaseOverlay.luau")
+local boostsWave40 = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
+assert(string.find(domainWave40, "Canonical softMotion antilag gate — DomainExpansionOverlay", 1, true), "DomainExpansion softMotion residual for release")
+assert(string.find(purchaseWave40, "Canonical softMotion antilag gate — PurchaseOverlay", 1, true), "Purchase softMotion residual for release")
+assert(string.find(boostsWave40, "Canonical softMotion antilag gate — BoostsView", 1, true), "Boosts softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(domainWave40, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "DomainExpansion softMotion densify residual for release, got " .. tostring(soft))
+end
+do
+	local soft = 0
+	for _ in string.gmatch(boostsWave40, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Boosts softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave40-offline-brief"', 1, true), "Story wave40 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave40-offline"', 1, true), "Mail wave40 residual for release")
+mark("wave40 visitsnapshot peel domain purchase boosts softMotion densify content residuals")
+
+-- Wave40 residuals raise the offline subset past checks=45.
+assert(#passed > 45, "release-readiness offline subset must stay beyond checks=45, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

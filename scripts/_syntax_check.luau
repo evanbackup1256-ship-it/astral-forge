@@ -110,6 +110,7 @@ local files = {
 	"src/Server/AstralForge/Modules/CommandActionValidators.luau",
 	"src/Server/AstralForge/Modules/SocialBoost.luau",
 	"src/Server/AstralForge/Modules/ItemSalvage.luau",
+	"src/Server/AstralForge/Modules/VisitSnapshot.luau",
 	"src/Server/AstralForge/Modules/ItemLoadoutMath.luau",
 	"src/Server/AstralForge/Modules/OverchargeCombo.luau",
 	"src/Server/AstralForge/Modules/RankBracket.luau",

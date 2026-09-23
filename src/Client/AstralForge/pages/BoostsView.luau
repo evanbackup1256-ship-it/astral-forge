@@ -54,6 +54,10 @@ local function ActiveBoostHero(_param)
 	local endsAt = _param.endsAt
 	local now = _param.now
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — BoostsView.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = _param.stack
 	local remaining = now:map(function(timestamp)
 		return math.max(0, endsAt - timestamp)
@@ -67,7 +71,7 @@ local function ActiveBoostHero(_param)
 		background = Palette.panelRaised,
 		padding = if stack then 16 else Layout.cardPadding,
 		highlight = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = boostIconKind(boost.Id),
@@ -77,7 +81,7 @@ local function ActiveBoostHero(_param)
 		position = UDim2.fromOffset(0, if stack then 4 else 8),
 		glow = true,
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement(Badge, {
 		value = "ACTIVE",
 		accent = boost.Color,
@@ -102,7 +106,7 @@ local function ActiveBoostHero(_param)
 	}), React.createElement(Meter, {
 		value = fraction,
 		color = boost.Color,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		shimmer = true,
 		position = UDim2.fromOffset(if stack then 0 else 76, if stack then HERO_H_STACK - 42 else HERO_H_WIDE - 34),
 		size = UDim2.new(1, if stack then 0 else -220, 0, 8),
@@ -189,11 +193,15 @@ local function BoostCard(_param)
 	local canActivate = _param.canActivate
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — BoostsView.
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local index = _param.index
 	local stack = _param.stack
 	local columns = _param.columns
 	local activateHostRef = _param.activateHostRef
-	local reveal = useStagger(index, reducedMotion)
+	local reveal = useStagger(index, softMotion)
 	local ready = owned > 0 and canActivate
 	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE
 	local column = index % columns
@@ -225,7 +233,7 @@ local function BoostCard(_param)
 		reveal = reveal,
 		interactive = true,
 		highlight = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = boostIconKind(boost.Id),
@@ -234,7 +242,7 @@ local function BoostCard(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, 2),
 		glow = ready,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, -104, 1, -(TapTarget + 8)),
 		Position = UDim2.fromOffset(52, 0),
@@ -300,7 +308,7 @@ local function BoostCard(_param)
 		color = if ready then boost.Color else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not ready,
 		highlight = ready,
 	}))))

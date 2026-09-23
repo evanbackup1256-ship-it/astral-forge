@@ -66,6 +66,7 @@ serviceFactories["GameService"] = function()
 	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandActionValidators"))
 	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SocialBoost"))
 	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemSalvage"))
+	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("VisitSnapshot"))
 	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OverchargeCombo"))
 	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RankBracket"))
 	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
@@ -287,34 +288,7 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function buildVisitSnapshot(player: Player, profile)
-		local production = Economy.Production(profile)
-		local machines = {}
-		local machineCount = 0
-		for id, level in profile.Machines do
-			local amount = math.floor(tonumber(level) or 0)
-			if amount > 0 then
-				machines[id] = amount
-				machineCount += 1
-			end
-		end
-		return {
-			UserId = player.UserId,
-			Name = player.Name,
-			DisplayName = player.DisplayName,
-			Zone = profile.Zone,
-			CurrentZone = profile.CurrentZone,
-			Rebirths = profile.Rebirths,
-			Production = production,
-			Cash = profile.Cash,
-			Vault = profile.Vault,
-			Capacity = Economy.Capacity(profile, os.time()),
-			Cores = profile.Cores,
-			Stardust = profile.Stardust,
-			LifetimeCash = profile.LifetimeCash,
-			Machines = machines,
-			MachineKinds = machineCount,
-			ServerTime = os.time(),
-		}
+		return VisitSnapshot.Build(player, profile, Economy)
 	end
 
 	function GameService:_visitorList(host: Player)

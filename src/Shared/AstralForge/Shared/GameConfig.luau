@@ -5358,6 +5358,21 @@ local GameConfig = {
 			Reward = { Stardust = 100, CashMinutes = 45, Signals = 47 },
 			Color = Color3.fromRGB(0, 195, 150),
 		},
+		{
+			Id = "wave40-offline-brief",
+			Title = "Wave Forty Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "VisitSnapshot peel + DomainExpansion/Purchase/Boosts densify; DENSE floors; readiness past checks=45.",
+			Body = {
+				"VisitSnapshot.Build peels crew-visit snapshot math out of ServerServices.",
+				"DomainExpansion/Purchase overlays and Boosts/Credits/Rebirth thicken softMotion; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 102, CashMinutes = 46, Signals = 48 },
+			Color = Color3.fromRGB(0, 200, 155),
+		},
 
 
 
@@ -5409,6 +5424,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 100, Stardust = 116, Signals = 51 },
 			Color = Color3.fromRGB(0, 195, 150),
+		},
+		{
+			Id = "update-5-1-wave40-offline",
+			Subject = "Dock note — wave forty offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "VisitSnapshot peel + domain/purchase/boosts softMotion — still DataVersion 21.",
+			Body = {
+				"VisitSnapshot peels crew-visit snapshot math; DomainExpansion/Purchase/Boosts densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=45 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 102, Stardust = 118, Signals = 52 },
+			Color = Color3.fromRGB(0, 200, 155),
 		},
 
 		{

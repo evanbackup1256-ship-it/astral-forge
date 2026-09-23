@@ -39,7 +39,7 @@ local function RebirthPanel(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate (effectsPaused stays a separate decorative mute).
+	-- Canonical softMotion antilag gate — RebirthPanel (effectsPaused stays a separate decorative mute).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
