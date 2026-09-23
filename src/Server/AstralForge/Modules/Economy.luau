@@ -7,6 +7,7 @@ local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge")
 local OfflineProjection = require(script.Parent:WaitForChild("OfflineProjection"))
 local TapCritProjection = require(script.Parent:WaitForChild("TapCritProjection"))
 local UpgradeCostReason = require(script.Parent:WaitForChild("UpgradeCostReason"))
+local RebirthGate = require(script.Parent:WaitForChild("RebirthGate"))
 
 local Economy = {}
 
@@ -784,11 +785,13 @@ function Economy.OfflineEarnings(
 end
 
 function Economy.PrestigeReward(runCash: any): Persist
-	if Economy.Lt(runCash, GameConfig.Economy.PrestigeRequirement) then
-		return 0
-	end
-	local ratio = OmegaMath.Div(runCash, GameConfig.Economy.PrestigeRequirement)
-	return OmegaMath.Max(1, OmegaMath.Floor(OmegaMath.Pow(ratio, GameConfig.Economy.PrestigeExponent)))
+	return RebirthGate.PrestigeReward(
+		OmegaMath,
+		runCash,
+		GameConfig.Economy.PrestigeRequirement,
+		GameConfig.Economy.PrestigeExponent,
+		Economy.Lt
+	)
 end
 
 function Economy.NextPrestigeTarget(currentReward: any): Persist

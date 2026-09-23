@@ -9,6 +9,7 @@ return function(loadService: (string) -> any)
 	local DataTemplate = require(script.Parent.Parent:WaitForChild("DataTemplate"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
+	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
@@ -619,9 +620,10 @@ return function(loadService: (string) -> any)
 				order.Claimed = order.Claimed == true
 			end
 		end
-		local routeTotal = math.clamp(
-			GameConfig.Lab.Power.BaseCells + math.floor(profile.Rebirths / GameConfig.Lab.Power.RebirthsPerCell),
+		local routeTotal = LabOrderMath.TotalCells(
+			profile.Rebirths,
 			GameConfig.Lab.Power.BaseCells,
+			GameConfig.Lab.Power.RebirthsPerCell,
 			GameConfig.Lab.Power.MaxCells
 		)
 		local routeUsed = 0
