@@ -181,7 +181,7 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 32ca20d
+# Expect at or after: 34c9984
 argon serve default.project.json
 ```
 
