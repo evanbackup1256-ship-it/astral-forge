@@ -123,4 +123,89 @@ function ContinuumDomainMath.SnapshotDomainInts(domain: any): {
 	}
 end
 
+-- Full Domain snapshot bag for client rails (wave46). Injects gate/economy helpers.
+function ContinuumDomainMath.SnapshotDomainPublic(args: {
+	domain: any,
+	rank: number,
+	requiredRebirths: number,
+	requiredCores: number,
+	essenceReward: number,
+	stardustReward: number,
+	rebirths: number,
+	cores: any,
+	domainConfig: any,
+	MeetsRequired: (number, number) -> boolean,
+	Gte: (any, any) -> boolean,
+	DomainTreeBonus: (string) -> number,
+}): any
+	local ints = ContinuumDomainMath.SnapshotDomainInts(args.domain)
+	local bag = if type(args.domain) == "table" then args.domain else {}
+	local config = args.domainConfig or {}
+	return {
+		Rank = args.rank,
+		Essence = ints.Essence,
+		LastExpandedAt = ints.LastExpandedAt,
+		TotalRebirthsSpent = ints.TotalRebirthsSpent,
+		TotalCoresSpent = ints.TotalCoresSpent,
+		RequiredRebirths = args.requiredRebirths,
+		RequiredCores = args.requiredCores,
+		CanExpand = args.MeetsRequired(args.rebirths, args.requiredRebirths) and args.Gte(args.cores, args.requiredCores),
+		EssenceReward = args.essenceReward,
+		StardustReward = args.stardustReward,
+		ProductionMultiplier = ContinuumDomainMath.DomainProductionMultiplier(
+			args.rank,
+			bag.Essence,
+			config.ProductionPerRank,
+			config.ProductionPerEssence,
+			1_000_000,
+			args.DomainTreeBonus("Production")
+		),
+		CapacityMultiplier = 1 + ContinuumDomainMath.DomainRankBonus(
+			args.rank,
+			config.CapacityPerRank,
+			args.DomainTreeBonus("Capacity")
+		),
+		OfflineBonus = ContinuumDomainMath.DomainRankBonus(
+			args.rank,
+			config.OfflineEfficiencyPerRank,
+			args.DomainTreeBonus("Offline")
+		),
+		SkillPoints = ints.SkillPoints,
+		Nodes = type(bag.Nodes) == "table" and bag.Nodes or {},
+	}
+end
+
+-- Full Continuum snapshot bag for client rails (wave46).
+function ContinuumDomainMath.SnapshotContinuumPublic(args: {
+	rank: number,
+	totalFluxSpent: any,
+	totalStardustSpent: any,
+	fluxCost: any,
+	stardustCost: any,
+	cash: any,
+	stardust: any,
+	production: any,
+	capacity: any,
+	tap: any,
+	offline: any,
+	milestoneEvery: number,
+	Gte: (any, any) -> boolean,
+}): any
+	local every = math.max(1, math.floor(tonumber(args.milestoneEvery) or 1))
+	local safeRank = math.max(0, math.floor(tonumber(args.rank) or 0))
+	return {
+		Rank = args.rank,
+		TotalFluxSpent = args.totalFluxSpent,
+		TotalStardustSpent = math.max(0, tonumber(args.totalStardustSpent) or 0),
+		FluxCost = args.fluxCost,
+		StardustCost = args.stardustCost,
+		CanUpgrade = args.Gte(args.cash, args.fluxCost) and args.Gte(args.stardust, args.stardustCost),
+		ProductionMultiplier = args.production,
+		CapacityMultiplier = args.capacity,
+		TapMultiplier = args.tap,
+		OfflineBonus = args.offline,
+		NextMilestone = (math.floor(safeRank / every) + 1) * every,
+	}
+end
+
 return table.freeze(ContinuumDomainMath)

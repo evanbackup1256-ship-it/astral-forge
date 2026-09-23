@@ -5448,6 +5448,21 @@ local GameConfig = {
 			Reward = { Stardust = 112, CashMinutes = 51, Signals = 53 },
 			Color = Color3.fromRGB(0, 225, 180),
 		},
+		{
+			Id = "wave46-offline-brief",
+			Title = "Wave Forty Six Offline Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "Domain/Continuum SnapshotPublic peels + Credits/Worlds/Rewards/Workshop densify; DENSE floors; readiness past checks=51.",
+			Body = {
+				"ContinuumDomainMath SnapshotDomainPublic/SnapshotContinuumPublic peel ServerServices snapshot IIFEs.",
+				"Credits/Worlds/Rewards/Workshop thicken softMotion; playability DENSE floors climb; DataVersion stays 21.",
+				"Schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 114, CashMinutes = 52, Signals = 54 },
+			Color = Color3.fromRGB(0, 230, 185),
+		},
 
 
 
@@ -5589,6 +5604,21 @@ local GameConfig = {
 			},
 			Attachment = { CashMinutes = 112, Stardust = 128, Signals = 57 },
 			Color = Color3.fromRGB(0, 225, 180),
+		},
+		{
+			Id = "update-5-1-wave46-offline",
+			Subject = "Dock note — wave forty six offline",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Domain/Continuum SnapshotPublic + credits/worlds/rewards/workshop softMotion — still DataVersion 21.",
+			Body = {
+				"ContinuumDomainMath SnapshotDomainPublic/SnapshotContinuumPublic peel ServerServices snapshot bags; Credits/Worlds/Rewards/Workshop densify softMotion and DENSE floors rise.",
+				"Offline release-readiness checks grow past checks=51 toward RunQuick parity.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 114, Stardust = 130, Signals = 58 },
+			Color = Color3.fromRGB(0, 230, 185),
 		},
 
 		{

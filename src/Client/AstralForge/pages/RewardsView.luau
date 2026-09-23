@@ -202,6 +202,7 @@ local function RewardsView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	-- Canonical softMotion antilag gate — RewardsView.
 	local dailyReady = state.Daily.CanClaim == true
 	local timedEntries = state.TimedRewards.Rewards or {}
 	-- ▼ ReadonlyArray.find ▼
@@ -228,6 +229,8 @@ local function RewardsView(_param)
 	local headerReveal = useStagger(0, softMotion)
 	local dailyReveal = useStagger(1, softMotion)
 	local timedReveal = useStagger(2, softMotion)
+	-- Canonical softMotion antilag gate — RewardsTimed.
+	local streakReveal = useStagger(3, softMotion)
 	local rewardCardH = if stack then 172 else 110
 	local rewardsTail = scrollTail(stack, chrome.bottomSafe, 48)
 	local rewardsClaimHostRef = React.useRef(nil)
@@ -391,8 +394,8 @@ local function RewardsView(_param)
 		background = Palette.panel,
 		padding = 14,
 		layoutOrder = 2,
-		reveal = timedReveal,
-		highlight = timedReady,
+		reveal = if timedReady then streakReveal else timedReveal,
+		highlight = timedReady and not softMotion,
 		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_6, _exp_7, React.createElement(Text, _attributes_1), React.createElement(RewardChargeRail, {

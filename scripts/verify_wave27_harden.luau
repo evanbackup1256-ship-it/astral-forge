@@ -19,7 +19,7 @@ assert(string.find(continuum, "function ContinuumDomainMath.SnapshotDomainInts",
 assert(not string.find(continuum, "GetService", 1, true), "ContinuumDomainMath must stay pure")
 
 local ss = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(ss, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual")
+assert(string.find(ss, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ss, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual")
 
 local trade = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
 local tradeSoft = 0

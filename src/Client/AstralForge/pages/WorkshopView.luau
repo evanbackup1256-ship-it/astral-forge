@@ -225,6 +225,8 @@ local function UpgradeBoard(_param)
 	-- Canonical softMotion antilag gate — VirtualGrid overscan / Buy CTAs drop on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	-- Canonical softMotion antilag gate — WorkshopBoard.
+	local workshopHostReveal = useStagger(4, softMotion)
 	local workshopBuyHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on BUY ALL (FocusClaim prefers Claim/Buy-named hosts).
 	React.useEffect(function()
@@ -624,6 +626,14 @@ local function UpgradeBoard(_param)
 		BorderSizePixel = 0,
 		-- FocusClaim BUY ALL / machine Buy must not clip CTA overshoot.
 		ClipsDescendants = false,
+	}, React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = Palette.cyan,
+		background = Palette.panel,
+		padding = 0,
+		reveal = workshopHostReveal,
+		reducedMotion = softMotion,
+		clips = false,
 	}, React.createElement(PageScaffold, {
 		hostRef = scrollRef,
 		gap = gap,
@@ -631,7 +641,7 @@ local function UpgradeBoard(_param)
 		scrollBarColor = accent,
 		scrollBarThickness = 4,
 		sections = sections,
-	}))
+	})))
 end
 
 local AUTO_FORGE_RESERVES = { {

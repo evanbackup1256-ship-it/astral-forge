@@ -161,7 +161,10 @@ local function WorldsView(_param)
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
 	local quietMotion = softMotion or antilag.skipEntrance
-	local headerReveal = useStagger(0, quietMotion)
+	-- Canonical softMotion antilag gate — WorldsBoard.
+	local boardReveal = useStagger(0, softMotion)
+	local travelReveal = useStagger(1, softMotion)
+	local headerReveal = boardReveal
 	local worldsHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on FIND CURRENT / travel strip (FocusClaim prefers Confirm-named hosts).
 	React.useEffect(function()
@@ -331,6 +334,8 @@ local function WorldsView(_param)
 		background = Palette.panelRaised,
 		padding = if stack then 16 else 14,
 		reveal = headerReveal,
+		reducedMotion = softMotion,
+		highlight = not softMotion and travelReveal ~= nil,
 		layoutOrder = 0,
 		clips = false,
 	}, React.createElement(Text, {

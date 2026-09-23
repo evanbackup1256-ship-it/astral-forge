@@ -401,8 +401,8 @@ end
 do
 	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	local DENSE = {
-		["src/Client/AstralForge/pages/TradeView.luau"] = 10,
-		["src/Client/AstralForge/pages/GuildView.luau"] = 10,
+		["src/Client/AstralForge/pages/TradeView.luau"] = 12,
+		["src/Client/AstralForge/pages/GuildView.luau"] = 12,
 		["src/Client/AstralForge/pages/ConvergenceView.luau"] = 12,
 		["src/Client/AstralForge/pages/SettingsView.luau"] = 12,
 		["src/Client/AstralForge/pages/ContinuumView.luau"] = 12,
@@ -413,11 +413,11 @@ do
 		["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 12,
 		["src/Client/AstralForge/pages/AdminView.luau"] = 12,
 		["src/Client/AstralForge/pages/BoostsView.luau"] = 12,
-		["src/Client/AstralForge/pages/CreditsView.luau"] = 10,
+		["src/Client/AstralForge/pages/CreditsView.luau"] = 12,
 		["src/Client/AstralForge/pages/CrewView.luau"] = 12,
-		["src/Client/AstralForge/pages/WorldsView.luau"] = 10,
-		["src/Client/AstralForge/pages/RewardsView.luau"] = 8,
-		["src/Client/AstralForge/pages/WorkshopView.luau"] = 8,
+		["src/Client/AstralForge/pages/WorldsView.luau"] = 12,
+		["src/Client/AstralForge/pages/RewardsView.luau"] = 12,
+		["src/Client/AstralForge/pages/WorkshopView.luau"] = 12,
 		["src/Client/AstralForge/pages/RebirthPanel.luau"] = 12,
 		["src/Client/AstralForge/pages/AnomalyView.luau"] = 12,
 		["src/Client/AstralForge/pages/InventoryView.luau"] = 12,

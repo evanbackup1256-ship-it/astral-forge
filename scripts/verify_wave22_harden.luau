@@ -46,7 +46,7 @@ assert(string.find(labMathSrc, "tonumber(state and state.Progress)", 1, true), "
 assert(string.find(dataSrc, "nonNegative(tonumber(order.Progress)", 1, true), "DataService Progress coerce")
 assert(string.find(economySrc, "AnomalyOpsMath.Effect", 1, true), "Economy Effect")
 assert(string.find(economySrc, "AnomalyOpsMath.SurgeMultiplier", 1, true), "Economy Surge")
-assert(string.find(ssSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction")
+assert(string.find(ssSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ssSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction")
 assert(string.find(ssSrc, "ShopGrantEligibility.RemainingStock", 1, true), "SS RemainingStock")
 assert(string.find(anomalySrc, "function AnomalyOpsMath.Effect", 1, true), "Effect fn")
 assert(string.find(continuumSrc, "function ContinuumDomainMath.DomainProductionMultiplier", 1, true), "DomainProduction fn")

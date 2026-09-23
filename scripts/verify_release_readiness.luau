@@ -532,7 +532,7 @@ assert(string.find(economyBody, "AnomalyOpsMath.Effect", 1, true), "Economy Anom
 assert(string.find(economyBody, "AnomalyOpsMath.SurgeMultiplier", 1, true), "Economy Surge residual")
 local continuumDomainRelease = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
 assert(string.find(continuumDomainRelease, "function ContinuumDomainMath.DomainProductionMultiplier", 1, true), "DomainProductionMultiplier missing")
-assert(string.find(ssReleaseSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction residual")
+assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ssReleaseSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction residual")
 assert(string.find(ssReleaseSrc, "ShopGrantEligibility.RemainingStock", 1, true), "SS RemainingStock residual")
 mark("wave22 lab anomaly domain mail inspect residuals")
 
@@ -682,7 +682,7 @@ assert(string.find(invWave27, "InventoryMath.RelicRowHeight", 1, true), "Invento
 assert(string.find(invWave27, "InventoryMath.OfferStock", 1, true), "Inventory OfferStock residual for release")
 local continuumWave27 = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
 assert(string.find(continuumWave27, "function ContinuumDomainMath.SnapshotDomainInts", 1, true), "SnapshotDomainInts missing for release")
-assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual for release")
+assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual for release")
 assert(not string.find(continuumWave27, "GetService", 1, true), "ContinuumDomainMath must stay pure for release")
 local tradeWave27 = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
 local tradeSoft = 0
@@ -1257,8 +1257,37 @@ assert(string.find(cfg, 'Id = "wave45-offline-brief"', 1, true), "Story wave45 r
 assert(string.find(cfg, 'Id = "update-5-1-wave45-offline"', 1, true), "Mail wave45 residual for release")
 mark("wave45 visitorlist autosalvage shop admin story rebirth densify content residuals")
 
--- Wave45 residuals raise the offline subset past checks=50.
-assert(#passed > 50, "release-readiness offline subset must stay beyond checks=50, got " .. tostring(#passed))
+-- Wave46: Domain/Continuum SnapshotPublic peels + Credits/Worlds/Rewards/Workshop densify + DENSE floors + DV21.
+local continuumWave46 = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
+assert(string.find(continuumWave46, "function ContinuumDomainMath.SnapshotDomainPublic", 1, true), "SnapshotDomainPublic residual for release")
+assert(string.find(continuumWave46, "function ContinuumDomainMath.SnapshotContinuumPublic", 1, true), "SnapshotContinuumPublic residual for release")
+local servicesWave46 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
+assert(string.find(servicesWave46, "ContinuumDomainMath.SnapshotDomainPublic", 1, true), "ServerServices SnapshotDomainPublic residual for release")
+assert(not string.find(servicesWave46, "Domain = (function()", 1, true), "Domain IIFE must leave ServerServices for release")
+local creditsWave46 = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
+assert(string.find(creditsWave46, "Canonical softMotion antilag gate — CreditsRoles", 1, true), "CreditsRoles softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(creditsWave46, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 14, "Credits softMotion densify residual for release, got " .. tostring(soft))
+end
+local workshopWave46 = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+assert(string.find(workshopWave46, "Canonical softMotion antilag gate — WorkshopBoard", 1, true), "WorkshopBoard softMotion residual for release")
+do
+	local soft = 0
+	for _ in string.gmatch(workshopWave46, "softMotion") do
+		soft += 1
+	end
+	assert(soft >= 16, "Workshop softMotion densify residual for release, got " .. tostring(soft))
+end
+assert(string.find(cfg, 'Id = "wave46-offline-brief"', 1, true), "Story wave46 residual for release")
+assert(string.find(cfg, 'Id = "update-5-1-wave46-offline"', 1, true), "Mail wave46 residual for release")
+mark("wave46 domain continuum snapshot credits worlds rewards workshop densify content residuals")
+
+-- Wave46 residuals raise the offline subset past checks=51.
+assert(#passed > 51, "release-readiness offline subset must stay beyond checks=51, got " .. tostring(#passed))
 
 print(string.format(
 	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",

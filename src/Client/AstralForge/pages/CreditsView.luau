@@ -65,6 +65,8 @@ local function CreditsOverlay(_param)
 	local enter = useEntrance(softMotion)
 	local headerReveal = useStagger(0, softMotion)
 	local rolesReveal = useStagger(1, softMotion)
+	-- Canonical softMotion antilag gate — CreditsRoles.
+	local thanksReveal = useStagger(2, softMotion)
 	local _binding = useExitTransition(softMotion)
 	local exit = _binding[1]
 	local exiting = _binding[2]
@@ -73,6 +75,7 @@ local function CreditsOverlay(_param)
 	-- Prefer softMotion stagger when antilag already wants quiet decoration.
 	local panelReveal = if softMotion then headerReveal else reveal
 	local listReveal = if softMotion then rolesReveal else reveal
+	local thanksSoft = softMotion or thanksReveal == nil
 	local rolesSoft = softMotion or listReveal == nil
 	local requestClose = React.useCallback(function()
 		if exiting then
@@ -491,6 +494,7 @@ local function CreditsOverlay(_param)
 		clips = false,
 		reveal = panelReveal,
 		reducedMotion = softMotion,
+		highlight = not softMotion and not thanksSoft,
 	}, _exp_2, _exp_3, _exp_4, _exp_5, _result, stack and React.createElement("frame", {
 		Size = UDim2.fromOffset(0, closeSize),
 		AutomaticSize = Enum.AutomaticSize.X,

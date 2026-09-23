@@ -71,7 +71,7 @@ end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
 assert(string.find(playability, '["src/Client/AstralForge/pages/BoostsView.luau"] = 12', 1, true), "Boosts DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/CreditsView.luau"] = 10', 1, true), "Credits DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/CreditsView.luau"] = 12', 1, true), "Credits DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/RebirthPanel.luau"] = 12', 1, true), "Rebirth DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
