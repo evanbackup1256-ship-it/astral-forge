@@ -1644,7 +1644,9 @@ local function UpgradeBoard(_param)
 	local filterW = 176
 	local controlGap = 12
 	local controlsWrap = not stack and viewport.width < 900
-	local headerHeight = if stack then 280 else (if controlsWrap then 200 else 168)
+	local stackControlsY = if chrome.landscape then 52 else 78
+	-- Phone landscape: Buy All only. Portrait: Buy All + search + filters, but shorter than before.
+	local headerHeight = if chrome.landscape and stack then 118 elseif stack then 220 else (if controlsWrap then 200 else 168)
 	local rowH = if stack then ROW_HEIGHTS.machineStack else ROW_HEIGHTS.machine
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
@@ -1703,6 +1705,9 @@ local function UpgradeBoard(_param)
 	local sortX = searchW + controlGap
 	local filterX = sortX + sortW + controlGap
 	local wrapRowY = controlsY + desktopControlH + 8
+	local stackCompact = stack and chrome.landscape
+	local stackSearchY = stackControlsY + controlH + 8
+	local stackFilterY = stackControlsY + (controlH + 8) * 2
 	return React.createElement("scrollingframe", {
 		ref = window.frame,
 		Size = UDim2.fromScale(1, 1),
@@ -1832,7 +1837,7 @@ local function UpgradeBoard(_param)
 		value = buyAmount,
 		onChange = setBuyAmount,
 		accent = accent,
-		position = UDim2.new(0, 0, 0, 92),
+		position = UDim2.new(0, 0, 0, stackControlsY),
 		size = UDim2.new(0.62, -6, 0, controlH),
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
@@ -1848,34 +1853,34 @@ local function UpgradeBoard(_param)
 		color = if affordableCount > 0 then accent else Palette.panelSoft,
 		textColor = if affordableCount > 0 then Palette.ink else Palette.muted,
 		size = UDim2.new(0.38, -6, 0, controlH),
-		position = UDim2.new(0.62, 6, 0, 92),
+		position = UDim2.new(0.62, 6, 0, stackControlsY),
 		disabled = affordableCount <= 0 or onBuyAll == nil,
 		reducedMotion = reducedMotion,
 		highlight = affordableCount > 0,
-	}), React.createElement(SearchField, {
+	}), not stackCompact and React.createElement(SearchField, {
 		value = query,
 		onChange = setQuery,
 		accent = accent,
 		placeholder = "Search upgrades",
-		position = UDim2.new(0, 0, 0, 92 + controlH + 8),
+		position = UDim2.new(0, 0, 0, stackSearchY),
 		size = UDim2.new(1, 0, 0, controlH),
 		reducedMotion = reducedMotion,
 		zIndex = 31,
-	}), React.createElement(Dropdown, {
+	}), not stackCompact and React.createElement(Dropdown, {
 		options = SORT_OPTIONS,
 		value = sort,
 		onChange = setSort,
 		accent = accent,
-		position = UDim2.new(0, 0, 0, 92 + (controlH + 8) * 2),
+		position = UDim2.new(0, 0, 0, stackFilterY),
 		size = UDim2.new(0.5, -4, 0, controlH),
 		reducedMotion = reducedMotion,
 		zIndex = 44,
-	}), React.createElement(Dropdown, {
+	}), not stackCompact and React.createElement(Dropdown, {
 		options = filterOptions,
 		value = filter,
 		onChange = setFilter,
 		accent = accent,
-		position = UDim2.new(0.5, 4, 0, 92 + (controlH + 8) * 2),
+		position = UDim2.new(0.5, 4, 0, stackFilterY),
 		size = UDim2.new(0.5, -4, 0, controlH),
 		reducedMotion = reducedMotion,
 		zIndex = 42,
@@ -2282,7 +2287,7 @@ local function WorkshopView(_param)
 	local entries = React.useMemo(function()
 		return AppHelpers:buildUpgradeEntries(config.Machines, state.Machines, state)
 	end, { config.Machines, state.Machines, state.Zone, state.Rebirths })
-	local featureHeight = if chromeFor(viewport).stack then 292 else 160
+	local featureHeight = if chromeFor(viewport).landscape then 140 elseif chromeFor(viewport).stack then 200 else 160
 	return React.createElement(UpgradeBoard, {
 		title = "More hands. Less waiting.",
 		eyebrow = "BUILD QUEUE",
