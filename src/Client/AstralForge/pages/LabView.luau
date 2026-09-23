@@ -16,6 +16,7 @@ local scrollTail = _theme.scrollTail
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
+local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local meterFill = _ui.meterFill
@@ -307,11 +308,25 @@ local function LabView(_param)
 		local _id = entry.Id
 		orderConfigs[_id] = entry
 	end
+	local readyOrders = 0
+	for _, order in lab.Orders do
+		if not order.Claimed and order.Progress >= order.Target then
+			readyOrders += 1
+		end
+	end
+	local claimAllOrders = function()
+		for _, order in lab.Orders do
+			if not order.Claimed and order.Progress >= order.Target then
+				dispatch("ClaimLabOrder", { Id = order.Id })
+			end
+		end
+	end
+	local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Lab else nil
 	local orderH = if stack then ORDER_HEIGHT_STACK else ORDER_HEIGHT
-	local orderBlock = #lab.Orders * (orderH + ORDER_GAP)
+	local orderBlock = if #lab.Orders > 0 then #lab.Orders * (orderH + ORDER_GAP) else 160
 	local powerStride = if stack then POWER_ROW_STRIDE_STACK else POWER_ROW_STRIDE
 	local powerBoardH = POWER_ROW_START + #CHANNEL_IDS * powerStride + 10 + 28
-	local heroHeight = if stack then (if chrome.landscape then 120 else 148) else 136
+	local heroHeight = if stack then (if chrome.landscape then 168 else 196) else 156
 	local canvasHeight = heroHeight + ORDER_GAP + 18 + orderBlock + 18 + powerBoardH + scrollTail(stack, chrome.bottomSafe, SCROLL_PAD) + SCROLL_EDGE
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -446,6 +461,16 @@ local function LabView(_param)
 			accent = Palette.mango,
 			position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 46),
 			size = UDim2.fromOffset(148, 24),
+		}), readyOrders > 0 and React.createElement(Button, {
+			text = `CLAIM ALL · {readyOrders}`,
+			icon = "Gift",
+			onClick = claimAllOrders,
+			color = Palette.mint,
+			textColor = Palette.ink,
+			size = UDim2.fromOffset(148, 36),
+			position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 78),
+			reducedMotion = reducedMotion,
+			highlight = true,
 		}))
 	end
 	local _exp_3 = React.createElement(Panel, {
@@ -482,6 +507,14 @@ local function LabView(_param)
 		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 	end
 	-- ▲ ReadonlyArray.map ▲
+	local ordersBlock = if #lab.Orders == 0 then React.createElement(EmptyState, {
+		icon = "Lab",
+		title = "No orders yet",
+		body = (guide and guide.EmptyOrders) or "Orders refresh at the lab reset clock.",
+		accent = Palette.mint,
+		layoutOrder = 2,
+		reducedMotion = reducedMotion,
+	}) else _newValue
 	local _exp_6 = React.createElement(SectionLabel, {
 		value = "POWER BOARD",
 		color = Palette.mango,
@@ -564,7 +597,7 @@ local function LabView(_param)
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
 		Active = true,
 		Selectable = false,
-	}, _exp, _exp_1, _exp_3, _exp_4, _newValue, _exp_6, React.createElement(Panel, {
+	}, _exp, _exp_1, _exp_3, _exp_4, ordersBlock, _exp_6, React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, powerBoardH),
 		accent = Palette.mango,
 		background = Palette.panel,
