@@ -6,23 +6,25 @@ version: live saves currently use `GameConfig.Game.DataVersion = 21`. Do not bum
 that value or delete the `DataService` legacy transfer without save fixtures.
 
 ## Getting Started
-Install the npm dependencies, then build the place with Argon:
+Install the npm dependencies, then sync Studio from **source** (source of truth):
 
 ```bash
 npm install
-argon build default.project.json -x -o "Astral Forge v2.rbxlx"
-```
-
-Open the place in Roblox Studio with the Argon plugin, then start an Argon session
-from the project directory:
-
-```bash
 argon serve default.project.json
 ```
 
-Connect the Studio plugin to that session. The vendored Luau packages in
-`vendor/` are mapped into `ReplicatedStorage.rbxts_include.node_modules` by
-`default.project.json`; do not delete them during `npm install`.
+`Astral Forge v2.rbxlx` is a **local** Argon build artifact (gitignored). It may lag
+`origin/master`; do not treat a checked-out or stale `.rbxlx` as newer than `src/`.
+Optional rebuild after pull:
+
+```bash
+argon build default.project.json -x -o "Astral Forge v2.rbxlx"
+```
+
+Open the place in Roblox Studio with the Argon plugin and connect it to the serve
+session. The vendored Luau packages in `vendor/` are mapped into
+`ReplicatedStorage.rbxts_include.node_modules` by `default.project.json`; do not
+delete them during `npm install`.
 
 ## Sync Studio after a GitHub merge
 
@@ -35,16 +37,17 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 4146904b717b3e0e97884ba5fcbb3b88897be51e
+# Expect at or after: TIP_AFTER_LAND
 # Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
 git merge-base --is-ancestor 5e55aab HEAD && echo integrate OK
 
-# Confirm color / trade / inventory / playability landed:
+# Confirm color / trade / inventory / playability / closeout landed:
 git merge-base --is-ancestor d3b0d55 HEAD && echo color-pc OK
 git merge-base --is-ancestor 9bcb0c5 HEAD && echo trade OK
 git merge-base --is-ancestor 9c30593 HEAD && echo inventory OK
 git merge-base --is-ancestor a08ddef HEAD && echo playability OK
 git merge-base --is-ancestor 4146904 HEAD && echo pagescaffold-remaining OK
+git merge-base --is-ancestor TIP_AFTER_LAND HEAD && echo goal-closeout OK
 
 # Stop any old Argon session, then:
 argon serve default.project.json
