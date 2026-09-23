@@ -90,6 +90,7 @@ do
 		DailyStreak = true,
 		WheelSpins = true,
 		LabOrders = true,
+		Expeditions = true,
 		DomainRank = true,
 		Domain = true,
 		StoryClaims = true,

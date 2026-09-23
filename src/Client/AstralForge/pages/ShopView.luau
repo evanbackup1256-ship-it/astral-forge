@@ -918,6 +918,7 @@ local function ShopView(_param)
 		background = Palette.panelRaised,
 		padding = if stack then 14 else 18,
 		reducedMotion = softMotion,
+		clips = false,
 	}, React.createElement(Text, {
 		value = "Promo codes",
 		size = 18,
@@ -986,6 +987,9 @@ local function ShopView(_param)
 		Position = if stack then UDim2.fromOffset(0, 122) else UDim2.new(1, -148, 0, 66),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		-- FocusClaim prefers Claim-named hosts; park Selection on CLAIM CODE when Codes tab is live.
+		ref = if tab == "Codes" then shopHostRef else nil,
 	}, React.createElement(Button, {
 		text = if busy then "CHECKING…" else "CLAIM CODE",
 		icon = "Code",
@@ -1160,7 +1164,7 @@ local function ShopView(_param)
 		})
 	end
 	return React.createElement("frame", {
-		ref = shopHostRef,
+		ref = if tab ~= "Codes" then shopHostRef else nil,
 		Name = "ShopViewHost",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,

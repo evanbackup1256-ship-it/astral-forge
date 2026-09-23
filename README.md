@@ -141,6 +141,7 @@ parks via `GamepadNavigationService.FocusClaim`):
 - Guild CLAIM REWARD; Convergence CLAIM; Echo LINK SLOT
 - Research BUY ALL; Star Grid BUY ALL
 - Shop CLAIM CODE; Admin ARM/RUN; Credits primary CTA
+- Command commander/weekly/expedition/season CLAIM
 
 **3. ReleaseReadiness (Studio-only)**
 

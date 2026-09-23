@@ -1,4 +1,6 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _AnimatedTitle = require(script.Parent.Parent.AnimatedTitle)
 local AnimatedTitlePreview = _AnimatedTitle.AnimatedTitlePreview
 local darkTitlePlate = _AnimatedTitle.darkTitlePlate
@@ -286,6 +288,7 @@ local function CommandView(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
+	local claimHostRef = React.useRef(nil)
 	local stack = chrome.contentStack
 	local ops = config.Operations
 	local command = state.Command
@@ -362,6 +365,48 @@ local function CommandView(_param)
 	local expeditionProgress = if activeId == "" then 0 else math.clamp((now - activeStarted) / math.max(1, activeEnds - activeStarted), 0, 1)
 	local statusLine = if activeId == "" then "Launch an unlocked adventure below." elseif expeditionReady then "Crew is home — collect rewards." else `Back in {clockText(math.max(0, activeEnds - now))}`
 	local claimLabel = if activeId == "" then "Choose below" elseif expeditionReady then "COLLECT" else clockText(math.max(0, activeEnds - now))
+	local firstReadyWeeklyId = nil
+	if type(command.Weekly) == "table" then
+		for _, directive in command.Weekly do
+			if not directive.Claimed and directive.Progress >= directive.Target then
+				firstReadyWeeklyId = directive.Id
+				break
+			end
+		end
+	end
+	local firstReadySeasonTier = nil
+	if type(ops.SeasonTiers) == "table" and type(command.SeasonClaims) == "table" then
+		for _, tier in ops.SeasonTiers do
+			local claimed = command.SeasonClaims[tostring(tier.Tier)] == true
+			local unlocked = command.SeasonXP >= tier.RequiredXP
+			if unlocked and not claimed then
+				firstReadySeasonTier = tier.Tier
+				break
+			end
+		end
+	end
+	-- Gamepad: park Selection on the highest-priority Command claim CTA for the active tab.
+	local commandClaimReady = (tab == "Overview" and (nextClaim ~= nil or firstReadyWeeklyId ~= nil))
+		or (tab == "Expeditions" and expeditionReady)
+		or (tab == "Season" and firstReadySeasonTier ~= nil)
+	React.useEffect(function()
+		if not commandClaimReady or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = claimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { tab, nextClaim, firstReadyWeeklyId, expeditionReady, firstReadySeasonTier, commandClaimReady })
 	local _exp = ops.Expeditions
 	-- ▼ ReadonlyArray.find ▼
 	local _callback_2 = function(item)
@@ -574,7 +619,15 @@ local function CommandView(_param)
 			fit = false,
 			position = UDim2.fromOffset(0, if stack then 100 else 112),
 			sizeConstraint = UDim2.new(1, 0, 0, 18),
-		}), React.createElement(Button, {
+		}), React.createElement("frame", {
+			-- FocusClaim prefers Claim-named hosts; commander rank gift is the Overview primary CTA.
+			Name = "CommandClaimActions",
+			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 46),
+			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0, 16),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ref = if nextClaim ~= nil then claimHostRef else nil,
+		}, React.createElement(Button, {
 			text = if nextClaim ~= nil then `Claim level {nextClaim}` else "Rank gifts complete",
 			icon = "Gift",
 			onClick = function()
@@ -586,12 +639,11 @@ local function CommandView(_param)
 			end,
 			color = Palette.cyan,
 			textColor = Palette.ink,
-			size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 46),
-			position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0, 16),
+			size = UDim2.fromScale(1, 1),
 			disabled = nextClaim == nil,
 			reducedMotion = reducedMotion,
 			highlight = nextClaim ~= nil,
-		}))
+		})))
 		local _exp_8 = React.createElement(Text, {
 			value = "Crew",
 			size = 18,
@@ -751,7 +803,15 @@ local function CommandView(_param)
 				reducedMotion = reducedMotion,
 				position = UDim2.fromOffset(12, if stack then 78 else 76),
 				size = UDim2.new(1, if stack then -24 else -156, 0, 7),
-			}), if stack then React.createElement(Button, {
+			}), if stack then React.createElement("frame", {
+				Name = "CommandClaimActions",
+				Size = UDim2.new(1, -24, 0, TapTarget),
+				Position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+				ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
+			}, React.createElement(Button, {
 				text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
 				onClick = function()
 					return dispatch("ClaimWeeklyDirective", {
@@ -760,12 +820,19 @@ local function CommandView(_param)
 				end,
 				color = Palette.green,
 				textColor = Palette.ink,
-				size = UDim2.new(1, -24, 0, TapTarget),
-				position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
+				size = UDim2.fromScale(1, 1),
 				disabled = directive.Claimed or not ready,
 				reducedMotion = reducedMotion,
 				highlight = ready,
-			}) else React.createElement(Button, {
+			})) else React.createElement("frame", {
+				Name = "CommandClaimActions",
+				Size = UDim2.fromOffset(140, 44),
+				Position = UDim2.new(1, -150, 0.5, -22),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+				ref = if ready and nextClaim == nil and directive.Id == firstReadyWeeklyId then claimHostRef else nil,
+			}, React.createElement(Button, {
 				text = if directive.Claimed then "DONE" elseif ready then "CLAIM" else "OPEN",
 				onClick = function()
 					return dispatch("ClaimWeeklyDirective", {
@@ -774,12 +841,11 @@ local function CommandView(_param)
 				end,
 				color = Palette.green,
 				textColor = Palette.ink,
-				size = UDim2.fromOffset(140, 44),
-				position = UDim2.new(1, -150, 0.5, -22),
+				size = UDim2.fromScale(1, 1),
 				disabled = directive.Claimed or not ready,
 				reducedMotion = reducedMotion,
 				highlight = ready,
-			}))
+			})))
 		end
 		for _k, _v in _exp_13 do
 			_newValue_4[_k] = _callback_6(_v, _k - 1, _exp_13)
@@ -792,6 +858,7 @@ local function CommandView(_param)
 			padding = 14,
 			layoutOrder = nextOrder(),
 			reducedMotion = reducedMotion,
+			clips = false,
 		}, _exp_12, _newValue_4)
 		local _exp_15 = React.createElement(Text, {
 			value = "Title wardrobe",
@@ -1076,7 +1143,16 @@ local function CommandView(_param)
 			reducedMotion = reducedMotion,
 			position = UDim2.fromOffset(0, 80),
 			size = UDim2.new(1, if stack then 0 else -230, 0, 8),
-		}), React.createElement(Button, {
+		}), React.createElement("frame", {
+			-- FocusClaim prefers Claim-named hosts; COLLECT is the expedition claim CTA.
+			Name = "CommandClaimActions",
+			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 48),
+			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0.5, -24),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+			ref = if expeditionReady then claimHostRef else nil,
+		}, React.createElement(Button, {
 			text = claimLabel,
 			icon = "Gift",
 			onClick = function()
@@ -1084,12 +1160,11 @@ local function CommandView(_param)
 			end,
 			color = Palette.green,
 			textColor = Palette.ink,
-			size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 48),
-			position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0.5, -24),
+			size = UDim2.fromScale(1, 1),
 			disabled = not expeditionReady,
 			reducedMotion = reducedMotion,
 			highlight = expeditionReady,
-		})), React.createElement(VirtualGrid, {
+		}))), React.createElement(VirtualGrid, {
 			scrollRef = scrollRef,
 			count = #ops.Expeditions,
 			columns = 1,
@@ -1393,7 +1468,15 @@ local function CommandView(_param)
 				reducedMotion = reducedMotion,
 				position = UDim2.fromOffset(72, if stack then 64 else 72),
 				size = UDim2.new(1, if stack then -84 else -250, 0, 7),
-			}), if stack then React.createElement(Button, {
+			}), if stack then React.createElement("frame", {
+				Name = "CommandClaimActions",
+				Size = UDim2.new(1, -24, 0, TapTarget),
+				Position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+				ref = if unlocked and not claimed and tier.Tier == firstReadySeasonTier then claimHostRef else nil,
+			}, React.createElement(Button, {
 				text = if claimed then "CLAIMED" elseif unlocked then "OPEN" else "LOCKED",
 				onClick = function()
 					return dispatch("ClaimSeasonTier", {
@@ -1402,19 +1485,26 @@ local function CommandView(_param)
 				end,
 				color = if major then Palette.mango else Palette.green,
 				textColor = Palette.ink,
-				size = UDim2.new(1, -24, 0, TapTarget),
-				position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
+				size = UDim2.fromScale(1, 1),
 				disabled = claimed or not unlocked,
 				reducedMotion = reducedMotion,
 				highlight = unlocked and not claimed,
-			}) else React.createElement(React.Fragment, nil, React.createElement(Text, {
+			})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
 				value = progressLabel,
 				size = 11,
 				color = if unlocked then Palette.green else Palette.muted,
 				fit = false,
 				position = UDim2.fromOffset(72, 54),
 				sizeConstraint = UDim2.new(1, -250, 0, 16),
-			}), React.createElement(Button, {
+			}), React.createElement("frame", {
+				Name = "CommandClaimActions",
+				Size = UDim2.fromOffset(150, 44),
+				Position = UDim2.new(1, -158, 0.5, -22),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ClipsDescendants = false,
+				ref = if unlocked and not claimed and tier.Tier == firstReadySeasonTier then claimHostRef else nil,
+			}, React.createElement(Button, {
 				text = if claimed then "CLAIMED" elseif unlocked then "OPEN" else "LOCKED",
 				onClick = function()
 					return dispatch("ClaimSeasonTier", {
@@ -1423,12 +1513,11 @@ local function CommandView(_param)
 				end,
 				color = if major then Palette.mango else Palette.green,
 				textColor = Palette.ink,
-				size = UDim2.fromOffset(150, 44),
-				position = UDim2.new(1, -158, 0.5, -22),
+				size = UDim2.fromScale(1, 1),
 				disabled = claimed or not unlocked,
 				reducedMotion = reducedMotion,
 				highlight = unlocked and not claimed,
-			})))
+			}))))
 		end,
 	})))
 	-- Fill body expands into leftover viewport when the tab is short; intrinsic height

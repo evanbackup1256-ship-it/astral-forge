@@ -281,6 +281,52 @@ assert(
 	"ProgressionService.ApplyReward must tonumber Stardust"
 )
 
+-- --- Progression claim Stats + Admin GrantRelic nil-safety ---------------------
+-- Evidence: ClaimWeeklyDirective / BuySignalOffer / ClaimExpedition / ClaimSeasonTier
+-- raw-indexed profile.Stats.* — partial Studio fixtures (Stats = nil) threw before
+-- ApplyReward. Admin createRelic did the same for Stats.ItemsFound.
+assert(
+	string.find(progressionSrc, "bumpStat", 1, true) ~= nil
+		or string.find(progressionSrc, "ensureStats", 1, true) ~= nil,
+	"Progression claim paths must nil-safe Stats via ensureStats/bumpStat"
+)
+assert(
+	string.find(progressionSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	"Progression ensureStats must nil-safe Stats"
+)
+assert(
+	string.find(progressionSrc, 'profile.Stats.WeeklyClaimed = (profile.Stats.WeeklyClaimed or 0) + 1', 1, true) == nil,
+	"ClaimWeeklyDirective must not raw-index Stats.WeeklyClaimed"
+)
+assert(
+	string.find(progressionSrc, 'profile.Stats.Expeditions = (profile.Stats.Expeditions or 0) + 1', 1, true) == nil,
+	"ClaimExpedition must not raw-index Stats.Expeditions"
+)
+assert(
+	string.find(progressionSrc, 'profile.Stats.SeasonTiers = (profile.Stats.SeasonTiers or 0) + 1', 1, true) == nil,
+	"ClaimSeasonTier must not raw-index Stats.SeasonTiers"
+)
+assert(
+	string.find(progressionSrc, 'profile.Stats.ShopPurchases = (profile.Stats.ShopPurchases or 0) + 1', 1, true) == nil,
+	"BuySignalOffer must not raw-index Stats.ShopPurchases"
+)
+assert(
+	string.find(progressionSrc, 'kind == "Expeditions"', 1, true) ~= nil,
+	"AchievementProgress must track Expeditions kind"
+)
+assert(
+	string.find(adminSrc, "Stats.ItemsFound", 1, true) ~= nil,
+	"Admin createRelic must bump Stats.ItemsFound"
+)
+assert(
+	string.find(adminSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
+	"Admin createRelic must nil-safe Stats before ItemsFound bump"
+)
+assert(
+	string.find(adminSrc, "profile.Stats.ItemsFound += 1", 1, true) == nil,
+	"Admin createRelic must not raw-increment Stats.ItemsFound"
+)
+
 -- --- HARD constraints still hold ---------------------------------------------
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
 assert(dv ~= nil and tonumber(dv) <= 21, "DataVersion must be <= 21")
@@ -295,4 +341,4 @@ for _, body in { adminSrc, economySrc, dataSrc, progressionSrc, gateSrc, upgrade
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 
-print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward nil-safe")
+print("[INFO] [TEST] economy/admin regress guards passed | FillVault+Production+ForgePath+AchievementProgress+AdminZone+Convergence+Anomaly+ApplyReward+ClaimStats nil-safe")

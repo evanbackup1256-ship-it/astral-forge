@@ -175,7 +175,11 @@ return function(loadService: (string) -> any)
 			profile.Items.NextId = math.max(1, math.floor(profile.Items.NextId or 1)) + 1
 		until not profile.Items.Inventory[uid]
 		profile.Items.Inventory[uid] = { DefinitionId = definition.Id, Level = 1, AcquiredAt = os.time() }
-		profile.Stats.ItemsFound += 1
+		-- Partial Stats bags (Studio fixtures) must not crash GrantRelic before the item sticks.
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = { ItemsFound = 0 }
+		end
+		profile.Stats.ItemsFound = math.max(0, math.floor(tonumber(profile.Stats.ItemsFound) or 0)) + 1
 		return true
 	end
 

@@ -67,6 +67,22 @@ return function()
 		return profile.Command
 	end
 
+	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — weekly /
+	-- expedition / season / signal-shop claim paths must not throw before rewards apply.
+	local function ensureStats(profile)
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = {}
+		end
+		return profile.Stats
+	end
+
+	local function bumpStat(profile, key: string, amount: number?)
+		local stats = ensureStats(profile)
+		local delta = math.max(0, math.floor(tonumber(amount) or 1))
+		stats[key] = math.max(0, math.floor(tonumber(stats[key]) or 0)) + delta
+		return stats[key]
+	end
+
 	local function awardCommandXP(profile, amount: number)
 		local value = math.max(0, math.floor(amount))
 		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "CommandXP")))
@@ -287,6 +303,14 @@ return function()
 			return math.max(0, math.floor(tonumber(profile.Wheel and profile.Wheel.Spins) or 0))
 		elseif kind == "LabOrders" then
 			return math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.OrdersCompleted) or 0))
+		elseif kind == "Expeditions" then
+			-- Prefer Command bag (ClaimExpedition source of truth); Stats can lag on partial fixtures.
+			local command = profile.Command
+			local fromCommand = tonumber(command and command.ExpeditionsCompleted)
+			if fromCommand ~= nil then
+				return math.max(0, math.floor(fromCommand))
+			end
+			return math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.Expeditions) or 0))
 		elseif kind == "DomainRank" or kind == "Domain" then
 			return math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0))
 		elseif kind == "StoryClaims" then
@@ -467,7 +491,7 @@ return function()
 					return false, "That weekly directive is not complete."
 				end
 				profile.Command.Weekly.Claimed[directiveId] = true
-				profile.Stats.WeeklyClaimed = (profile.Stats.WeeklyClaimed or 0) + 1
+				bumpStat(profile, "WeeklyClaimed", 1)
 				return true, ProgressionService.ApplyReward(profile, item.Reward, Economy.Production(profile))
 			end
 		end
@@ -573,7 +597,7 @@ return function()
 				end
 				profile.Command.Signals -= offer.Price
 				profile.Command.Shop.Purchased[offerId] = true
-				profile.Stats.ShopPurchases = (profile.Stats.ShopPurchases or 0) + 1
+				bumpStat(profile, "ShopPurchases", 1)
 				return true, ProgressionService.ApplyReward(profile, offer.Reward, Economy.Production(profile))
 			end
 		end
@@ -627,7 +651,7 @@ return function()
 		end
 
 		profile.Command.ExpeditionsCompleted += 1
-		profile.Stats.Expeditions = (profile.Stats.Expeditions or 0) + 1
+		bumpStat(profile, "Expeditions", 1)
 		profile.Command.ActiveExpedition = { Id = "", StartedAt = 0, EndsAt = 0 }
 		local message = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
 
@@ -643,7 +667,7 @@ return function()
 				message ..= string.format(", %s fragments", expedition.ArtifactId)
 			else
 				profile.Command.Artifacts[expedition.ArtifactId] = { Level = 1, Fragments = 0 }
-				profile.Stats.ArtifactsFound = (profile.Stats.ArtifactsFound or 0) + 1
+				bumpStat(profile, "ArtifactsFound", 1)
 				message ..= ", artifact discovered"
 			end
 			return true, message, expedition.ArtifactId, discovered
@@ -740,7 +764,7 @@ return function()
 			return false, "That season tier was already claimed."
 		end
 		profile.Command.SeasonClaims[key] = true
-		profile.Stats.SeasonTiers = (profile.Stats.SeasonTiers or 0) + 1
+		bumpStat(profile, "SeasonTiers", 1)
 		return true, ProgressionService.ApplyReward(profile, tier.Reward, Economy.Production(profile))
 	end
 

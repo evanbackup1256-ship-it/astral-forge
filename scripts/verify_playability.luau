@@ -387,6 +387,16 @@ do
 	assert(string.find(starGrid, "GamepadNavigationService.FocusClaim", 1, true), "StarGrid BUY ALL must FocusClaim")
 	assert(string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true), "StarGrid BUY ALL host must be named StarGridBuyClaimActions")
 
+	local command = fs.readFile("src/Client/AstralForge/pages/CommandView.luau")
+	assert(string.find(command, "GamepadNavigationService.FocusClaim", 1, true), "Command claim CTAs must FocusClaim when ready")
+	assert(string.find(command, 'Name = "CommandClaimActions"', 1, true), "Command claim hosts must be named CommandClaimActions")
+	assert(string.find(command, "clips = false", 1, true), "Command weekly panel must keep clips = false near CLAIM CTAs")
+
+	local shop = fs.readFile("src/Client/AstralForge/pages/ShopView.luau")
+	assert(string.find(shop, 'Name = "ShopClaimCode"', 1, true), "Shop CLAIM CODE host must stay named ShopClaimCode")
+	assert(string.find(shop, "GamepadNavigationService.FocusClaim", 1, true), "Shop must FocusClaim CLAIM CODE / offer hosts")
+	assert(string.find(shop, "ref = if tab == \"Codes\" then shopHostRef else nil", 1, true), "Shop Codes tab must park FocusClaim on ShopClaimCode")
+
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 	local crewClips = string.match(router, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
