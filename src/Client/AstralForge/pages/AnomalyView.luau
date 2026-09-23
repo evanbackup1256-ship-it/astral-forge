@@ -1921,7 +1921,7 @@ local function AnomalyViewComponent(_param)
 		return React.createElement(EmptyState, {
 			icon = "Anomaly",
 			title = "Reactor resting",
-			body = "Come back when the next anomaly begins.",
+			body = ((config.ClientPageGuides and config.ClientPageGuides.Anomaly and config.ClientPageGuides.Anomaly.EmptyDirectives) or "Come back when the next anomaly begins."),
 			accent = Palette.pink,
 		})
 	end

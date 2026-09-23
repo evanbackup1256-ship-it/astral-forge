@@ -867,7 +867,7 @@ local function WheelConsole(_param)
 					if _condition_3 == nil then
 						_condition_3 = 0
 					end
-					_result_3 = (if _condition_3 > 0 then `{compactNumber(state.Wheel.FreeSpins)} free spin{if state.Wheel.FreeSpins == 1 then "" else "s"} ready.` elseif compact then "Tap once to spin." else "Give it a spin and see what lands.")
+					_result_3 = (if _condition_3 > 0 then `{compactNumber(state.Wheel.FreeSpins)} free spin{if state.Wheel.FreeSpins == 1 then "" else "s"} ready.` elseif pityArmed then ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.PityArmed) or "Pity is armed — the next spin is weighted toward a better prize.") elseif compact then "Tap once to spin." else ((config.ClientPageGuides and config.ClientPageGuides.Wheel and config.ClientPageGuides.Wheel.Ready) or "Give it a spin and see what lands."))
 				else
 					_result_3 = cooldown
 				end
@@ -1074,7 +1074,7 @@ local function WheelConsole(_param)
 		position = UDim2.fromOffset(10, if compact then 27 else 31),
 		size = UDim2.new(1, -20, 0, if compact then 6 else 7),
 	}))), React.createElement(Button, {
-		text = if controller.spinning then "SPINNING" elseif canSpin then (if compact then "SPIN WHEEL" else "SPIN PRIZE WHEEL") else "DRAW NOT READY",
+		text = if controller.spinning then "SPINNING" elseif canSpin then (if pityArmed then (if compact then "SPIN · PITY" else "SPIN · PITY ARMED") elseif compact then "SPIN WHEEL" else "SPIN PRIZE WHEEL") else "DRAW NOT READY",
 		icon = "Wheel",
 		onClick = onSpin,
 		color = if canSpin and not controller.spinning then Palette.mango else Palette.panelSoft,

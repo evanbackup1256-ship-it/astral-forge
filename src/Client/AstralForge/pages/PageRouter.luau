@@ -392,8 +392,61 @@ local function ReleaseCountdown(_param)
 		ZIndex = 3,
 	}, _result))
 end
+
+local function countReadyQuests(quests)
+	local ready = 0
+	if quests == nil then
+		return 0
+	end
+	for _, quest in quests do
+		if not quest.Claimed and quest.Progress >= quest.Target then
+			ready += 1
+		end
+	end
+	return ready
+end
+local function countReadyLabOrders(lab)
+	local ready = 0
+	if lab == nil or lab.Orders == nil then
+		return 0
+	end
+	for _, order in lab.Orders do
+		if not order.Claimed and order.Progress >= order.Target then
+			ready += 1
+		end
+	end
+	return ready
+end
+local function forgePathReady(state, config)
+	local forgePath = state.ForgePath
+	if forgePath == nil then
+		return false
+	end
+	local steps = nil
+	if config ~= nil and config.ForgePath ~= nil then
+		steps = config.ForgePath.Steps
+	end
+	if steps == nil or #steps == 0 then
+		return false
+	end
+	local claimed = {}
+	for _, stepId in forgePath.ClaimedSteps or {} do
+		claimed[stepId] = true
+	end
+	for _, step in steps do
+		if claimed[step.Step] == nil then
+			local unlocked = step.Step == 1 or claimed[step.Step - 1] ~= nil
+			if unlocked then
+				return forgePath.XP >= step.XPCost
+			end
+			return false
+		end
+	end
+	return false
+end
 local function OverviewView(_param)
 	local state = _param.state
+	local config = _param.config
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local effectsPaused = _param.effectsPaused
@@ -423,6 +476,28 @@ local function OverviewView(_param)
 	local rebirthReveal = useStagger(2, reducedMotion)
 	local domainReveal = useStagger(3, reducedMotion)
 	local notesReveal = useStagger(4, reducedMotion)
+	local opsReveal = useStagger(5, reducedMotion)
+	local missionsReady = countReadyQuests(state.Quests)
+	local labReady = countReadyLabOrders(state.Lab)
+	local pathReady = forgePathReady(state, config)
+	local anomalyReady = false
+	do
+		local anomaly = state.Anomaly
+		if anomaly ~= nil then
+			if anomaly.Ready == true then
+				anomalyReady = true
+			elseif anomaly.Directives ~= nil then
+				for _, directive in anomaly.Directives do
+					if not directive.Claimed and directive.Progress ~= nil and directive.Target ~= nil and directive.Progress >= directive.Target then
+						anomalyReady = true
+						break
+					end
+				end
+			end
+		end
+	end
+	local opsClaims = missionsReady + labReady + (if pathReady then 1 else 0) + (if anomalyReady then 1 else 0)
+	local opsGuide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Overview else nil
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
 	local overchargeReadyAt, setOverchargeReadyAt = React.useState(0)
 	local overchargeLeft, setOverchargeLeft = React.useState(0)
@@ -468,12 +543,13 @@ local function OverviewView(_param)
 	-- modes), so required height = content bottom + 36. Body ends at 126 (stack) / 94
 	-- (non-stack) below, giving 162 / 130.
 	local notesH = if stack then 196 else 148
+	local opsH = if stack then 320 else 148
 	local metricCardH = if stack then 86 else 0
 	local metricsH = if stack then metricCardH * 3 + 20 else 104
 	local countdownInPage = true
 	local countdownH = if stack then 168 else 148
-	local sectionCount = 3 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
-	local canvasH = heroH + notesH + metricsH + rebirthH + domainH + countdownH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
+	local sectionCount = 4 + (if countdownInPage then 1 else 0) + (if rebirthVisible then 1 else 0) + (if domainVisible then 1 else 0)
+	local canvasH = heroH + notesH + opsH + metricsH + rebirthH + domainH + countdownH + Layout.panelGap * math.max(0, sectionCount - 1) + scrollTail(stack, chrome.bottomSafe, 40) + SCROLL_EDGE * 2
 	local ctaH = TapTarget
 	local domain = state.Domain or {
 		Rank = 0,
@@ -969,7 +1045,111 @@ local function OverviewView(_param)
 			reducedMotion = reducedMotion,
 			highlight = meter >= 0.99,
 		}))
-	end)()), countdownInPage and React.createElement(ReleaseCountdown, {
+	end)()), React.createElement(Panel, {
+		layoutOrder = 6,
+		size = UDim2.new(1, 0, 0, opsH),
+		accent = if opsClaims > 0 then Palette.green else Palette.cyan,
+		background = Palette.panel,
+		padding = if stack then chrome.cardPadding else 16,
+		reveal = opsReveal,
+		highlight = opsClaims > 0 and not effectsPaused,
+		reducedMotion = quietMotion,
+		clips = false,
+	}, React.createElement(Text, {
+		value = (opsGuide and opsGuide.OpsTitle) or "OPS PULSE",
+		size = 10,
+		color = if opsClaims > 0 then Palette.green else Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), React.createElement(Text, {
+		value = if opsClaims > 0 then `{opsClaims} ready to claim` else ((opsGuide and opsGuide.EmptyClaims) or "Nothing ready to claim — keep forging."),
+		size = if stack then 17 else 18,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		position = UDim2.fromOffset(0, 18),
+		sizeConstraint = UDim2.new(1, 0, 0, 24),
+	}), React.createElement(Text, {
+		value = (opsGuide and opsGuide.OpsBody) or "Claims waiting across Missions, Lab, Forge Path, and Anomaly.",
+		size = if stack then chrome.labelText else 11,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(0, 46),
+		sizeConstraint = UDim2.new(1, 0, 0, 28),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, if stack then TapTarget * 4 + 24 else TapTarget),
+		Position = UDim2.new(0, 0, 1, -(if stack then TapTarget * 4 + 24 else TapTarget)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = if stack then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Button, {
+		text = if missionsReady > 0 then `MISSIONS · {missionsReady}` else "MISSIONS",
+		icon = "Mission",
+		onClick = function()
+			local _result = navigate
+			if _result ~= nil then
+				_result = _result("Missions")
+			end
+			return _result
+		end,
+		color = if missionsReady > 0 then Palette.cyan else Palette.panelSoft,
+		textColor = if missionsReady > 0 then Palette.ink else Palette.creamSoft,
+		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		reducedMotion = reducedMotion,
+		highlight = missionsReady > 0,
+		layoutOrder = 0,
+	}), React.createElement(Button, {
+		text = if labReady > 0 then `LAB · {labReady}` else "LAB",
+		icon = "Lab",
+		onClick = function()
+			local _result = navigate
+			if _result ~= nil then
+				_result = _result("Lab")
+			end
+			return _result
+		end,
+		color = if labReady > 0 then Palette.mint else Palette.panelSoft,
+		textColor = if labReady > 0 then Palette.ink else Palette.creamSoft,
+		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		reducedMotion = reducedMotion,
+		highlight = labReady > 0,
+		layoutOrder = 1,
+	}), React.createElement(Button, {
+		text = if pathReady then "FORGE PATH · READY" else "FORGE PATH",
+		icon = "Forge",
+		onClick = function()
+			local _result = navigate
+			if _result ~= nil then
+				_result = _result("ForgePath")
+			end
+			return _result
+		end,
+		color = if pathReady then Palette.violet else Palette.panelSoft,
+		textColor = if pathReady then Palette.ink else Palette.creamSoft,
+		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		reducedMotion = reducedMotion,
+		highlight = pathReady,
+		layoutOrder = 2,
+	}), React.createElement(Button, {
+		text = if anomalyReady then "ANOMALY · READY" else "ANOMALY",
+		icon = "Anomaly",
+		onClick = function()
+			local _result = navigate
+			if _result ~= nil then
+				_result = _result("Anomaly")
+			end
+			return _result
+		end,
+		color = if anomalyReady then Palette.pink else Palette.panelSoft,
+		textColor = if anomalyReady then Palette.ink else Palette.creamSoft,
+		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
+		reducedMotion = reducedMotion,
+		highlight = anomalyReady,
+		layoutOrder = 3,
+	}))), countdownInPage and React.createElement(ReleaseCountdown, {
 		releaseAt = releaseAt,
 		reducedMotion = reducedMotion,
 		stack = stack,
@@ -1685,10 +1865,22 @@ local function UpgradeBoard(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(EmptyState, {
 		icon = "Forge",
-		title = if needle ~= "" or filter ~= "All" then "Nothing matches" else "No upgrades to show",
-		body = if needle ~= "" then "Clear the search to see the board again." elseif filter ~= "All" then "Switch the filter back to Near unlocks." else "Unlock the next machine to fill this board.",
+		title = if needle ~= "" or filter ~= "All" then "Nothing matches" elseif filter == "Affordable" then "Can't afford anything yet" else "No upgrades to show",
+		body = if needle ~= "" then "Clear the search to see the board again." elseif filter == "Affordable" then "Bank the vault, then come back for the next machine." elseif filter ~= "All" then "Switch the filter back to Near unlocks." else "Unlock the next machine to fill this board.",
 		accent = accent,
 		size = UDim2.fromScale(1, 1),
+	}), filter == "Affordable" and affordableCount == 0 and React.createElement(Button, {
+		text = "SHOW NEAR UNLOCKS",
+		icon = "Forge",
+		onClick = function()
+			setFilter("All")
+		end,
+		color = accent,
+		textColor = Palette.ink,
+		size = UDim2.new(1, 0, 0, TapTarget),
+		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
+		reducedMotion = reducedMotion,
+		highlight = true,
 	})), mounted)
 end
 local AUTO_FORGE_RESERVES = { {
@@ -3437,6 +3629,7 @@ local function PageContentInner(props)
 		if page == "Overview" then
 			local _attributes = {
 				state = state,
+				config = config,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 				effectsPaused = props.domainOverlayActive,
@@ -3529,6 +3722,7 @@ local function PageContentInner(props)
 		if page == "Missions" then
 			return React.createElement(MissionsView, {
 				state = state,
+				config = config,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 			})
@@ -3666,6 +3860,7 @@ local function PageContentInner(props)
 		if page == "ForgePath" then
 			return React.createElement(ForgePathView, {
 				state = state,
+				config = config,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 			})

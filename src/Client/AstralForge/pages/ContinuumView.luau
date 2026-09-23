@@ -2,6 +2,7 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local AutoGrid = require(script.Parent.Parent.scrolling).AutoGrid
 local _format = require(script.Parent.Parent.format)
+local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
 local Icon = require(script.Parent.Parent.Icon).Icon
@@ -21,6 +22,7 @@ local TapTarget = _theme.TapTarget
 local _ui = require(script.Parent.Parent.ui)
 local Button = _ui.Button
 local Meter = _ui.Meter
+local meterFill = _ui.meterFill
 local OrbitDot = _ui.OrbitDot
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
@@ -238,7 +240,7 @@ local function ContinuumView(_param)
 	local continuum = state.Continuum or EMPTY_CONTINUUM
 	local heroH = if stack then 236 else 230
 	local effectsH = if stack then 184 else 104
-	local forgeH = if stack then 256 else 218
+	local forgeH = if stack then 292 else 248
 	local milestoneH = if stack then 156 else 132
 	local contentH = heroH + effectsH + forgeH + milestoneH + 48 + scrollTail(stack, chrome.bottomSafe, 48)
 	local canvasH = contentH + SCROLL_EDGE * 2
@@ -247,6 +249,8 @@ local function ContinuumView(_param)
 	local coreSize = if stack then 78 else 132
 	local canFlux = gteFlux(state.Cash, continuum.FluxCost)
 	local canDust = gteFlux(state.Stardust, continuum.StardustCost)
+	local fluxFill = meterFill(asFlux(state.Cash), math.max(1, asFlux(continuum.FluxCost)))
+	local dustFill = meterFill(asFlux(state.Stardust), math.max(1, asFlux(continuum.StardustCost)))
 	local upgradePop = useReadyPop(continuum.CanUpgrade, reducedMotion)
 	local forgeIconScale = upgradePop:map(function(amount)
 		return 1 + amount * 0.18
@@ -397,8 +401,8 @@ local function ContinuumView(_param)
 		position = UDim2.fromOffset(0, 58),
 		sizeConstraint = UDim2.new(1, if stack then 0 else -248, 0, 40),
 	}), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 62) else UDim2.fromOffset(224, 82),
-		Position = if stack then UDim2.fromOffset(0, 108) else UDim2.new(1, -224, 0, 12),
+		Size = if stack then UDim2.new(1, 0, 0, 96) else UDim2.fromOffset(224, 110),
+		Position = if stack then UDim2.fromOffset(0, 108) else UDim2.new(1, -224, 0, 8),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = 0.18,
 		BorderSizePixel = 0,
@@ -410,18 +414,39 @@ local function ContinuumView(_param)
 		Transparency = 0.42,
 	}), React.createElement(Text, {
 		value = `{if canFlux then "READY" else "NEED"}  {compactNumber(continuum.FluxCost)} flux`,
-		size = 12,
+		size = 11,
 		color = if canFlux then Palette.cyan else Palette.creamSoft,
 		weight = Enum.FontWeight.Heavy,
 		position = UDim2.fromOffset(12, 8),
-		sizeConstraint = UDim2.new(1, -24, 0, 18),
+		sizeConstraint = UDim2.new(1, -24, 0, 16),
+	}), React.createElement(Meter, {
+		value = math.min(1, fluxFill),
+		color = Palette.cyan,
+		reducedMotion = reducedMotion,
+		shimmer = canFlux,
+		position = UDim2.fromOffset(12, 28),
+		size = UDim2.new(1, -24, 0, 6),
 	}), React.createElement(Text, {
 		value = `{if canDust then "READY" else "NEED"}  {compactNumber(continuum.StardustCost)} stardust`,
-		size = 12,
+		size = 11,
 		color = if canDust then Palette.mango else Palette.creamSoft,
 		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(12, 33),
-		sizeConstraint = UDim2.new(1, -24, 0, 18),
+		position = UDim2.fromOffset(12, 44),
+		sizeConstraint = UDim2.new(1, -24, 0, 16),
+	}), React.createElement(Meter, {
+		value = math.min(1, dustFill),
+		color = Palette.mango,
+		reducedMotion = reducedMotion,
+		shimmer = canDust,
+		position = UDim2.fromOffset(12, 64),
+		size = UDim2.new(1, -24, 0, 6),
+	}), React.createElement(Text, {
+		value = if continuum.CanUpgrade then "Both costs ready — forge now" else "Fill both meters to unlock the forge",
+		size = 9,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(12, 78),
+		sizeConstraint = UDim2.new(1, -24, 0, 14),
 	})), React.createElement(Button, {
 		text = if continuum.CanUpgrade then "FORGE CONTINUUM RANK" else "GATHER RESOURCES",
 		icon = "Rebirth",

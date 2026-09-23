@@ -207,6 +207,7 @@ local GameConfig = {
 	-- Tree + Prestige + Season Pass split with one linear track: each step grants a permanent
 	-- stat bonus and a reward chest together, claimed in one action, funded by ForgePath XP
 	-- (a passive trickle off lifetime flux — see Economy.ForgePathXP).
+	-- CLIENT RULE: ForgePathView must read GameConfig.ForgePath.Steps (decorate display only).
 	ForgePath = {
 		Steps = FORGE_PATH_STEPS,
 	},
@@ -2690,6 +2691,23 @@ local GameConfig = {
 		WorldFive = 0,
 		DomainExpansion = 0,
 		Convergence = 0,
+	},
+
+	-- Append-only client copy for page empty states / secondary CTAs.
+	ClientPageGuides = {
+		Overview = { OpsTitle = "Ops pulse", OpsBody = "Claims waiting across Missions, Lab, Forge Path, and Anomaly.", EmptyClaims = "Nothing ready to claim — keep forging." },
+		Workshop = { RecommendTitle = "Best buy right now", EmptyAfford = "Bank the vault, then come back for the next machine." },
+		ForgePath = { HeroBlurb = "One track. Every step pays a permanent bonus and a chest.", NeedXp = "Earn Forge Path XP by banking flux — it trickles in as you play.", Complete = "Path cleared. Permanent bonuses stay through rebirth." },
+		Missions = { ClaimAll = "Claim every ready mission in one tap.", EmptyFilter = "Switch the filter back to Everything.", EmptyNone = "New dailies land at reset." },
+		Lab = { ClaimAll = "Collect every finished order.", EmptyOrders = "Orders refresh at the lab reset clock.", PowerHint = "Dump free cells into output, vault time, or tap power." },
+		Continuum = { CostHint = "Both meters must fill before you can forge the next rank." },
+		Guild = { EmptyTitle = "No guild yet", EmptyBody = "Charter one for shared upgrades, or join with a tag.", Benefits = "Shared production, vault, offline, automation, and tap boosts." },
+		Trade = { EmptyBoard = "No open offers — post one or wait for the board to fill.", EmptySession = "Start a trade or accept an offer from the board." },
+		Wheel = { Ready = "Your daily draw is ready — spin once.", PityArmed = "Pity is armed — the next spin is weighted toward a better prize." },
+		Anomaly = { EmptyDirectives = "Stabilize the rift to unlock today's directives.", ReadyClaim = "Directive complete — claim the reward." },
+		Inventory = { EmptyItems = "Open crates or visit Shop to stock this bay.", EmptyMarket = "Market restocks on a drip — check back soon." },
+		Shop = { EmptyTab = "Nothing listed in this tab right now.", OwnedPass = "Already owned — browse packs or codes instead." },
+		Settings = { GuideTitle = "Quick tips", GuideBody = "Audio, motion, and mobile layout live here. Changes save with your profile." },
 	},
 
 	Story = {

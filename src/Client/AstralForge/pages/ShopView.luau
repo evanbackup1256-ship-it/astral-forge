@@ -23,6 +23,7 @@ local scrollTail = _theme.scrollTail
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
+local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
@@ -1058,6 +1059,17 @@ local function ShopView(_param)
 			_callback_4(_v, _k - 1, productList)
 		end
 		-- ▲ ReadonlyArray.forEach ▲
+		if #tiles == 0 then
+			table.insert(tiles, React.createElement(EmptyState, {
+				key = "shop-empty",
+				icon = "Shop",
+				title = "Nothing listed",
+				body = "Nothing listed in this tab right now.",
+				accent = Palette.mango,
+				layoutOrder = 0,
+				reducedMotion = reducedMotion,
+			}))
+		end
 		return tiles
 	end)()))), React.createElement("frame", {
 		LayoutOrder = 99,
