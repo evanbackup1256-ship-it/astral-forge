@@ -140,14 +140,23 @@ return function()
 		if not session then
 			return false, "no session"
 		end
-		if not session.auth or os.clock() - session.lastBeat > UNAUTH_AFTER then
+		local now = os.clock()
+		if not session.auth or now - session.lastBeat > UNAUTH_AFTER then
 			return false, "unauth"
 		end
-		if type(gen) ~= "number" or gen ~= session.gen then
+		-- Match Beat(): in-flight grants that left before a rotation still pass for GRACE_SEC
+		-- with the previous gen/nonce, so mid-flight taps are not dropped as gen mismatches.
+		local inGrace = session.prevNonce ~= nil and now - session.lastRotate < GRACE_SEC
+		local genOk = type(gen) == "number" and (gen == session.gen or (inGrace and gen == session.gen - 1))
+		if not genOk then
 			return false, "gen mismatch"
 		end
-		if requireNonce and (type(n) ~= "string" or n ~= session.nonce) then
-			return false, "nonce mismatch"
+		if requireNonce then
+			local nonceOk = type(n) == "string"
+				and (n == session.nonce or (inGrace and gen == session.gen - 1 and n == session.prevNonce))
+			if not nonceOk then
+				return false, "nonce mismatch"
+			end
 		end
 		return true
 	end

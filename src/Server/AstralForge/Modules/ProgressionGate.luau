@@ -26,11 +26,18 @@ function ProgressionGate.Progress(profile, kind: string): number
 	elseif kind == "Domain" or kind == "DomainRank" then
 		return math.max(0, tonumber(profile.Domain and profile.Domain.Rank) or 0)
 	elseif kind == "Zone" then
-		return profile.Zone
+		return math.max(0, math.floor(tonumber(profile.Zone) or 0))
 	elseif kind == "PlayTime" then
-		return profile.Stats.PlayTime
+		local stats = profile.Stats
+		return math.max(0, math.floor(tonumber(stats and stats.PlayTime) or 0))
 	elseif kind == "AnomalyStabilizations" then
-		return profile.Anomaly.Stabilizations
+		local anomaly = profile.Anomaly
+		local fromAnomaly = tonumber(anomaly and anomaly.Stabilizations)
+		if fromAnomaly ~= nil then
+			return math.max(0, math.floor(fromAnomaly))
+		end
+		local stats = profile.Stats
+		return math.max(0, math.floor(tonumber(stats and stats.AnomalyStabilizations) or 0))
 	elseif kind == "ForgePathSteps" then
 		local claimed = 0
 		local forgePath = profile.ForgePath

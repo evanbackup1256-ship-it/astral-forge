@@ -83,4 +83,26 @@ gate:TxnStore(player, "txn-1", { ok = true, echo = 1 })
 claimStatus, claimStored = gate:TxnClaim(player, "txn-1")
 assert(claimStatus == "done" and claimStored and claimStored.echo == 1, "stored txn should short-circuit")
 
+
+-- After rotation, CheckGrant must honor the same GRACE_SEC prev gen/nonce window as Beat.
+do
+	local g2, n2 = gate:Peek(player)
+	local prevGen, prevNonce = g2, n2
+	-- Force rotate by beating until gen bumps.
+	for id = 30, 50 do
+		local bOk, _, bGen, bNonce = gate:Beat(player, prevGen, id, prevNonce)
+		if bGen ~= prevGen then
+			-- Still inside grace: old creds must grant.
+			local grantOk, grantReason = gate:CheckGrant(player, prevGen, prevNonce, true)
+			assert(grantOk == true, "grace grant should pass with previous creds: " .. tostring(grantReason))
+			assert(gate:CheckGrant(player, bGen, bNonce, true) == true, "live grant should pass after rotate")
+			break
+		end
+		prevGen, prevNonce = bGen, bNonce
+		if not bOk then
+			error("beat failed while forcing rotate")
+		end
+	end
+end
+
 print("[INFO] [TEST] session gate production path passed")

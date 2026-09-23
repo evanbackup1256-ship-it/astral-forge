@@ -65,7 +65,10 @@ return function()
 
 	local function orderTarget(profile, order): number
 		if order.Kind == "BankFlux" then
-			return math.max(order.BaseTarget, math.floor(Economy.AsNumber(Economy.Mul(Economy.Production(profile), order.ProductionSeconds))))
+			-- Size bank targets from SteadyProduction so Flux Surge / ActiveBoost / Anomaly Surge
+			-- cannot inflate lab targets mid-shift the way they must not inflate vault capacity.
+			local steady = Economy.SteadyProduction(profile)
+			return math.max(order.BaseTarget, math.floor(Economy.AsNumber(Economy.Mul(steady, order.ProductionSeconds))))
 		end
 		return math.max(1, math.floor(order.BaseTarget + math.max(0, profile.Rebirths) * order.PerRebirth))
 	end
