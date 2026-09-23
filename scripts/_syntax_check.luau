@@ -65,7 +65,9 @@ local files = {
 	"src/Server/AstralForge/Modules/RebirthGate.luau",
 	"src/Shared/AstralForge/Shared/ZoneUnlock.luau",
 	"src/Server/AstralForge/Modules/AnomalyPulseScore.luau",
+	"src/Server/AstralForge/Modules/GuildMath.luau",
 	"src/Server/AstralForge/Services/AnomalyService.luau",
+	"src/Server/AstralForge/Services/GuildService.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",
 	"src/Client/AstralForge/tests/taskFilter.test.luau",

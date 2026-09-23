@@ -42,7 +42,7 @@ local UPGRADE_ACCENTS = {
 	AutomationBoost = Palette.mint,
 	TapBoost = Palette.violet,
 }
---* Mirrors the server's upgradeEffect: cumulative named tiers, then an endless flat tail. 
+--* Mirrors GuildMath.UpgradeEffect: cumulative named tiers, then an endless flat tail. 
 local function effectAtLevel(config, level)
 	local safe = math.max(0, math.floor(level))
 	if safe <= 0 then
@@ -66,7 +66,9 @@ local function effectAtLevel(config, level)
 			if not (index < named) then
 				break
 			end
-			total += tiers[index + 1].Effect
+			local tier = tiers[index + 1]
+			local effect = if type(tier) == "table" then tier.Effect else nil
+			total += if type(effect) == "number" then effect else 0
 		end
 	end
 	if safe > named then
@@ -74,12 +76,15 @@ local function effectAtLevel(config, level)
 	end
 	return total
 end
---* Mirrors the server's upgradeCost: `level` is current, the purchase priced is level + 1. 
+--* Mirrors GuildMath.UpgradeCost: `level` is current, the purchase priced is level + 1. 
 local function costAtLevel(config, level)
 	local tiers = config.Tiers
 	local nextIndex = level + 1
 	if tiers ~= nil and nextIndex >= 1 and nextIndex <= #tiers then
-		return math.floor(tiers[nextIndex].Cost + 0.5)
+		local tierCost = tiers[nextIndex].Cost
+		if type(tierCost) == "number" then
+			return math.floor(tierCost + 0.5)
+		end
 	end
 	return math.floor(config.BaseCost * config.CostScale ^ math.max(0, level) + 0.5)
 end
@@ -140,7 +145,7 @@ local function buildUpgradeRows(config, guild)
 			nextTierName = if tiers ~= nil and level < tierCount then tiers[level + 1].Name else nil,
 			tierIndex = math.min(level, tierCount),
 			tierCount = tierCount,
-			affordable = not maxed and bank >= cost,
+			affordable = not maxed and gteFlux(bank, cost),
 			maxed = maxed,
 			accent = UPGRADE_ACCENTS[id] or Palette.violet,
 		}

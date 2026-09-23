@@ -9,19 +9,15 @@ return function()
 
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
+	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 
 	local GuildService = {}
 	GuildService.__index = GuildService
 
-	local MAX_GUILD_NUMBER = 1e308
-
 	local function finiteNonNegative(value): number
-		if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
-			return 0
-		end
-		return math.clamp(value, 0, MAX_GUILD_NUMBER)
+		return GuildMath.FiniteNonNegative(value)
 	end
 
 	local function copy(value)
@@ -35,43 +31,14 @@ return function()
 		return string.upper(tag:gsub("%s+", ""))
 	end
 
-	-- Tiered upgrades: Tiers[level] is the milestone unlocked by buying level `level`.
-	-- Past the last named tier the endless tail falls back to BaseCost/CostScale and
-	-- EffectPerLevel, which is exactly the pre-tier behaviour, so guild documents saved
-	-- before tiers existed keep the same costs and the same bonuses.
-	local function upgradeTier(definition, level: number)
-		local tiers = definition.Tiers
-		if type(tiers) ~= "table" then return nil end
-		if level < 1 or level > #tiers then return nil end
-		return tiers[level]
-	end
-
+	-- Tiered upgrades via GuildMath: named Tiers then endless BaseCost/CostScale /
+	-- EffectPerLevel tail so pre-tier guild documents keep the same costs and bonuses.
 	local function upgradeCost(definition, level: number): number
-		-- `level` is the current level; the purchase being priced is level + 1.
-		local tier = upgradeTier(definition, level + 1)
-		if tier and type(tier.Cost) == "number" then
-			return math.floor(tier.Cost + 0.5)
-		end
-		return math.floor(definition.BaseCost * definition.CostScale ^ math.max(0, level) + 0.5)
+		return GuildMath.UpgradeCost(definition, level)
 	end
 
 	local function upgradeEffect(definition, level: number): number
-		local safeLevel = math.max(0, math.floor(level))
-		if safeLevel <= 0 then return 0 end
-		local tiers = definition.Tiers
-		if type(tiers) ~= "table" then
-			return safeLevel * definition.EffectPerLevel
-		end
-		local total = 0
-		local named = math.min(safeLevel, #tiers)
-		for index = 1, named do
-			local tier = tiers[index]
-			total += (type(tier) == "table" and type(tier.Effect) == "number") and tier.Effect or 0
-		end
-		if safeLevel > named then
-			total += (safeLevel - named) * definition.EffectPerLevel
-		end
-		return total
+		return GuildMath.UpgradeEffect(definition, level)
 	end
 
 	--#region Guild Goal
@@ -113,10 +80,7 @@ return function()
 			index = (math.floor(now / GameConfig.Guild.Goal.DurationSeconds) % #types) + 1
 		end
 		local definition = types[index]
-		local target = math.max(
-			1,
-			math.floor(definition.BaseTarget + definition.TargetPerMember * math.max(0, memberCount(guild) - 1) + 0.5)
-		)
+		local target = GuildMath.GoalTarget(definition.BaseTarget, definition.TargetPerMember, memberCount(guild))
 		return {
 			TypeId = definition.Id,
 			Target = target,
@@ -164,8 +128,8 @@ return function()
 		if not definition or definition.Metric ~= metric then return end
 		local gain = finiteNonNegative(amount)
 		if gain <= 0 then return end
-		goal.Progress = math.min(MAX_GUILD_NUMBER, finiteNonNegative(goal.Progress) + gain)
-		goal.Contributors[userKey] = math.min(MAX_GUILD_NUMBER, finiteNonNegative(goal.Contributors[userKey]) + gain)
+		goal.Progress = GuildMath.AddClamped(goal.Progress, gain)
+		goal.Contributors[userKey] = GuildMath.AddClamped(goal.Contributors[userKey], gain)
 		if goal.Progress >= goal.Target then
 			goal.Completed = true
 			goal.CompletedAt = now
@@ -173,29 +137,17 @@ return function()
 	end
 	--#endregion
 
-	-- Keyed by the Bonus field on each upgrade definition so new guild upgrade categories are
-	-- a config-only change. Every key here must be one the Economy module already reads.
-	local GUILD_BONUS_KEYS = { "Production", "Capacity", "Offline", "Automation", "Tap" }
-
+	-- Bonus keys are owned by GuildMath so new categories stay a config-only change
+	-- (every key must still be one Economy already reads).
 	local function emptyBonuses()
-		local result = {}
-		for _, key in GUILD_BONUS_KEYS do result[key] = 0 end
-		return result
+		return GuildMath.EmptyBonuses()
 	end
 
 	local function bonusesFromDocument(guild)
-		local result = emptyBonuses()
-		if not guild or type(guild.Upgrades) ~= "table" then return result end
-		for id, level in guild.Upgrades do
-			local definition = GameConfig.Guild.Upgrades[id]
-			if definition and type(level) == "number" then
-				local key = definition.Bonus
-				if key ~= nil and result[key] ~= nil then
-					result[key] = math.min(1, result[key] + upgradeEffect(definition, level))
-				end
-			end
+		if not guild then
+			return emptyBonuses()
 		end
-		return result
+		return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
 	end
 
 	function GuildService.new()
@@ -426,15 +378,24 @@ return function()
 		end
 		local doc = self:_findByTag(rawTag)
 		if not doc then return false, "No guild has that tag." end
+		-- UpdateAsync transform returning nil is a generic denial; track fullness so the
+		-- player sees "full" instead of "Guild request was denied."
+		local blockedFull = false
 		local ok, message, updated = self:_update(doc.Id, function(guild)
 			local key = tostring(player.UserId)
 			if guild.Members[key] then return guild end
 			local count = 0; for _ in guild.Members do count += 1 end
-			if count >= GameConfig.Guild.MaxMembers then return nil end
+			if count >= GameConfig.Guild.MaxMembers then
+				blockedFull = true
+				return nil
+			end
 			guild.Members[key] = { Name = (player.DisplayName ~= "" and player.DisplayName) or player.Name, Role = "Member", JoinedAt = os.time(), Contributed = 0 }
 			return guild
 		end)
-		if not ok then return false, message end
+		if not ok then
+			if blockedFull then return false, "That guild is full." end
+			return false, message
+		end
 		local membership = updated.Members[tostring(player.UserId)]
 		if not membership then return false, "That guild is full." end
 		profile.Guild = { Id = updated.Id, Role = membership.Role or "Member", JoinedAt = os.time(), Tag = updated.Tag }
@@ -538,10 +499,11 @@ return function()
 	function GuildService:ContributeBank(player, profile, amount: number, currency: string)
 		local guildId = profile.Guild and profile.Guild.Id or ""
 		if guildId == "" then return false, "Join a guild before contributing." end
-		if type(amount) ~= "number" or amount ~= amount or amount == math.huge or amount == -math.huge or amount < 1 or amount > MAX_GUILD_NUMBER then
-			return false, "Pick a positive contribution amount."
+		local normalized, amountError = GuildMath.NormalizeContributionAmount(amount)
+		if not normalized then
+			return false, amountError or "Pick a positive contribution amount."
 		end
-		amount = math.floor(amount)
+		amount = normalized
 		if currency ~= "Cash" and currency ~= "Dust" then
 			return false, "Contribute flux or dust."
 		end
@@ -560,13 +522,9 @@ return function()
 			local member = guild.Members[tostring(player.UserId)]
 			if not member then return nil end
 			local bankKey = currency == "Cash" and "BankCash" or "BankDust"
-			if currency == "Cash" then
-				guild[bankKey] = OmegaMath.Add(guild[bankKey] or 0, amount)
-			else
-				guild[bankKey] = math.min(MAX_GUILD_NUMBER, finiteNonNegative(guild[bankKey]) + amount)
-			end
-			guild.Activity = math.min(MAX_GUILD_NUMBER, finiteNonNegative(guild.Activity) + amount)
-			member.Contributed = math.min(MAX_GUILD_NUMBER, finiteNonNegative(member.Contributed) + amount)
+			guild[bankKey] = GuildMath.CreditBank(OmegaMath, currency, guild[bankKey], amount)
+			guild.Activity = GuildMath.AddClamped(guild.Activity, amount)
+			member.Contributed = GuildMath.AddClamped(member.Contributed, amount)
 			if member.Name == nil or member.Name == "" then
 				member.Name = (player.DisplayName ~= "" and player.DisplayName) or player.Name
 			end
@@ -604,10 +562,7 @@ return function()
 		local cost = upgradeCost(definition, level)
 		local bankKey = definition.Currency == "Cash" and "BankCash" or "BankDust"
 		local bank = guild[bankKey] or 0
-		local canAfford = if definition.Currency == "Cash"
-			then not OmegaMath.Lt(bank, cost)
-			else (tonumber(bank) or 0) >= cost
-		if not canAfford then
+		if not GuildMath.CanAffordBank(OmegaMath, definition.Currency, bank, cost) then
 			local label = definition.Currency == "Cash" and "flux" or "dust"
 			local haveLabel = if definition.Currency == "Cash"
 				then tostring(bank)
@@ -620,16 +575,11 @@ return function()
 			local nextLevel = current.Upgrades[upgradeId] or 0
 			if nextLevel >= definition.MaxLevel then return nil end
 			local nextCost = upgradeCost(definition, nextLevel)
-			local nextBank = current[bankKey] or 0
-			if definition.Currency == "Cash" then
-				if OmegaMath.Lt(nextBank, nextCost) then return nil end
-				current[bankKey] = OmegaMath.Sub(nextBank, nextCost)
-			else
-				if (tonumber(nextBank) or 0) < nextCost then return nil end
-				current[bankKey] = (tonumber(nextBank) or 0) - nextCost
-			end
+			local nextBank = GuildMath.DebitBank(OmegaMath, definition.Currency, current[bankKey], nextCost)
+			if nextBank == nil then return nil end
+			current[bankKey] = nextBank
 			current.Upgrades[upgradeId] = nextLevel + 1
-			current.Activity = math.min(MAX_GUILD_NUMBER, finiteNonNegative(current.Activity) + nextCost)
+			current.Activity = GuildMath.AddClamped(current.Activity, nextCost)
 			advanceGoal(current, tostring(player.UserId), "Upgrades", 1, os.time())
 			return current
 		end)
