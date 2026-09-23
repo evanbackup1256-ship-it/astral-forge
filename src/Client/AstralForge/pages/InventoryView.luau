@@ -2817,56 +2817,59 @@ local function InventoryView(_param)
 		})
 	elseif tab == "Market" then
 		local marketCardH = if stack then MARKET_CARD_H_STACK else MARKET_CARD_H
-		local marketKids = {
-			React.createElement(MarketBanner, {
-				key = "banner",
-				refreshText = keysRefreshText,
-				reducedMotion = reducedMotion,
-				layoutOrder = 0,
-				stack = stack,
-			}),
-		}
-		if #shopOffers == 0 then
-			table.insert(marketKids, React.createElement(EmptyState, {
-				key = "empty",
-				icon = "Shop",
-				title = "Market offline",
-				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
-				accent = Palette.mango,
-				layoutOrder = 1,
-				reducedMotion = reducedMotion,
-			}))
-		else
-			for index, offer in shopOffers do
-				table.insert(marketKids, React.createElement(MarketCard, {
-					key = offer.Id,
+		local marketStride = marketCardH + pageGap
+		local marketList = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+		}, React.createElement(FlatList, {
+			data = shopOffers,
+			itemHeight = marketStride,
+			headerHeight = marketBannerH + pageGap,
+			overscan = if antilag.tier <= 1 or antilag.constrained then 1 else 2,
+			canvasTail = SCROLL_PAD,
+			Size = UDim2.fromScale(1, 1),
+			scrollBarColor = Palette.mango,
+			scrollBarThickness = 4,
+			scrollBarTransparency = 0.22,
+			keyExtractor = function(offer)
+				return offer.Id
+			end,
+			renderItem = function(_param_1)
+				local offer = _param_1.item
+				return React.createElement(MarketCard, {
 					offer = offer,
 					dispatch = dispatch,
 					reducedMotion = reducedMotion,
-					layoutOrder = 1 + index,
+					layoutOrder = 0,
 					cash = state.Cash,
 					stardust = state.Stardust,
 					cores = state.Cores,
 					refreshShort = refreshShort,
 					stack = stack,
-				}))
-			end
-		end
-		local offerCount = math.max(1, #shopOffers)
-		local bodyH = marketBannerH + pageGap + offerCount * marketCardH + math.max(0, offerCount - 1) * pageGap
+				})
+			end,
+			ListHeaderComponent = React.createElement(MarketBanner, {
+				refreshText = keysRefreshText,
+				reducedMotion = reducedMotion,
+				layoutOrder = 0,
+				stack = stack,
+			}),
+			ListEmptyComponent = React.createElement(EmptyState, {
+				icon = "Shop",
+				title = "Market offline",
+				body = ((config.ClientPageGuides and config.ClientPageGuides.Inventory and config.ClientPageGuides.Inventory.EmptyMarket) or "No dock offers right now — check back after the next restock."),
+				accent = Palette.mango,
+				layoutOrder = 0,
+				reducedMotion = reducedMotion,
+			}),
+		}))
 		table.insert(sections, {
 			id = "market",
-			height = bodyH,
-			element = React.createElement("frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-			}, React.createElement("uilistlayout", {
-				FillDirection = Enum.FillDirection.Vertical,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, pageGap),
-			}), table.unpack(marketKids)),
+			fill = true,
+			minHeight = math.max(160, marketBannerH + marketCardH + pageGap * 2),
+			element = marketList,
 		})
 	else
 		local equippedCount = 0

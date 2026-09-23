@@ -15,6 +15,7 @@ local formatReward = _format.formatReward
 local gteFlux = _format.gteFlux
 local scaledCost = _format.scaledCost
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _motion = require(script.Parent.Parent.motion)
 local easeOutBack = _motion.easeOutBack
 local easeOutCubic = _motion.easeOutCubic
@@ -37,6 +38,7 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local surfaceGradient = _theme.surfaceGradient
 local TapTarget = _theme.TapTarget
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -44,8 +46,6 @@ local EmptyState = _ui.EmptyState
 local measureWrappedTextHeight = _ui.measureWrappedTextHeight
 local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local GAP = Layout.panelGap -- desktop-friendly section breathing room
@@ -53,10 +53,11 @@ local ACTION_FAILSAFE = 8
 local CHANNEL_CARD_H = 84
 local CHANNEL_CARD_MIN_W = 160
 local CHANNEL_DECK_HEADER_H = 70
--- Shared by ChannelDeck (actual rendering) and ReactorConsole (canvas-height estimate for the
--- outer scrollingframe) so both always agree on how many rows the channel grid takes — computing
--- this in two places that could independently drift is exactly what caused the desktop
--- dock/sidebar overlap bug earlier, so there is deliberately only one formula for it.
+local SECTION_LABEL_H = 28
+-- Shared by ChannelDeck (actual rendering) and ReactorConsole (PageScaffold section height)
+-- so both always agree on how many rows the channel grid takes — computing this in two places
+-- that could independently drift is exactly what caused the desktop dock/sidebar overlap bug
+-- earlier, so there is deliberately only one formula for it.
 local function channelGridCols(stack, width)
 	return if stack then 1 else math.max(1, math.floor((width + GAP) / (CHANNEL_CARD_MIN_W + GAP)))
 end
@@ -1283,10 +1284,11 @@ local function ReactorConsole(_param)
 	local antilag = useAntilag()
 	local skipEntrance = reducedMotion or antilag.skipEntrance
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	-- Cycle/surge countdowns stay live (gameplay timers). Decorative ring spin gates below.
 	local timer = useWallClock(true)
 	-- Needle/combo stay playable whenever motion is allowed; ring spin needs ambient + tier 2+.
 	local animateCore = not reducedMotion and motionAmount > 0.03
-	local decorateCore = animateCore and antilag.allowAmbient and antilag.tier >= 2
+	local decorateCore = animateCore and not softMotion
 	local _exp = config.Types
 	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)
@@ -1529,24 +1531,15 @@ local function ReactorConsole(_param)
 	local channelRailH = channelRows * CHANNEL_CARD_H + math.max(0, channelRows - 1) * GAP
 	local channelH = CHANNEL_DECK_HEADER_H + channelRailH
 	local milestoneH = if stack then 154 else 118
-	local directiveH = if stack then 184 else 164
-	local protocolH = if stack then 168 else 140
-	local overdriveReserve = if anomaly.Overdrive ~= nil then OVERDRIVE_BAR_H + GAP else 0
+	local overdriveReserve = if anomaly.Overdrive ~= nil then OVERDRIVE_BAR_H else 0
 	local coreTierStripH = coreTierStripHeight(anomaly.NextCoreTier, contentWidth)
-	local coreTierReserve = coreTierStripH + GAP
-	local sectionCount = 4 + #anomaly.Directives + #config.Protocols
 	local anomalyTail = if phoneLandscape then 48 elseif stack then 56 else 40
-	local canvasHeight = heroH + overdriveReserve + channelH + coreTierReserve + (if milestone ~= nil then milestoneH + GAP else 0) + #anomaly.Directives * (directiveH + GAP) + #config.Protocols * (protocolH + GAP) + sectionCount * GAP + SCROLL_EDGE * 2 + scrollTail(stack, chrome.bottomSafe, anomalyTail)
+	local dirRowH = if stack then 184 else 156
+	local protoRowH = if stack then 168 else 132
 	local order = 0
 	local heroReveal = useStagger(0, skipEntrance)
-	local _exp_2 = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, GAP),
-	})
-	local _exp_3 = React.createElement(ScrollPads)
 	local _attributes = {
-		size = UDim2.new(1, 0, 0, heroH),
+		size = UDim2.fromScale(1, 1),
 		accent = accent,
 		background = Palette.panelRaised,
 		padding = if stack then 14 else 20,
@@ -1823,7 +1816,7 @@ local function ReactorConsole(_param)
 	local _condition_11 = milestone ~= nil
 	if _condition_11 then
 		local _attributes_8 = {
-			size = UDim2.new(1, 0, 0, milestoneH),
+			size = UDim2.fromScale(1, 1),
 			accent = Palette.mango,
 			background = Palette.panel,
 			padding = 14,
@@ -1953,22 +1946,89 @@ local function ReactorConsole(_param)
 		_newValue_2[_k] = _callback_4(_v, _k - 1, _exp_23)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("scrollingframe", {
+	local directivesBody = if #anomaly.Directives == 0 then (_condition_12 or React.createElement(EmptyState, {
+		icon = "Mission",
+		title = "No jobs right now",
+		body = "More jobs arrive with the next anomaly.",
+		accent = accent,
+	})) else React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = accent,
-		ScrollBarImageTransparency = 0.2,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-	}, _exp_2, _exp_3, _exp_16, _exp_17, _exp_18, _exp_19, _condition_11, _exp_20, _condition_12, _newValue_1, _exp_22, _newValue_2)
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, GAP),
+	}), _newValue_1)
+	local directivesH = if #anomaly.Directives == 0 then 140 else #anomaly.Directives * dirRowH + math.max(0, #anomaly.Directives - 1) * GAP
+	local protocolsH = math.max(1, #config.Protocols) * protoRowH + math.max(0, #config.Protocols - 1) * GAP
+	local protocolsBody = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, GAP),
+	}), _newValue_2)
+	local sections = {
+		{
+			id = "hero",
+			height = heroH,
+			element = _exp_16,
+		},
+	}
+	if overdriveReserve > 0 then
+		table.insert(sections, {
+			id = "overdrive",
+			height = OVERDRIVE_BAR_H,
+			element = _exp_17,
+		})
+	end
+	table.insert(sections, {
+		id = "channels",
+		height = channelH,
+		element = _exp_18,
+	})
+	table.insert(sections, {
+		id = "core-tier",
+		height = coreTierStripH,
+		element = _exp_19,
+	})
+	if milestone ~= nil and _condition_11 then
+		table.insert(sections, {
+			id = "milestone",
+			height = milestoneH,
+			element = _condition_11,
+		})
+	end
+	table.insert(sections, {
+		id = "jobs-label",
+		height = SECTION_LABEL_H,
+		element = _exp_20,
+	})
+	table.insert(sections, {
+		id = "jobs",
+		height = directivesH,
+		element = directivesBody,
+	})
+	table.insert(sections, {
+		id = "tuning-label",
+		height = SECTION_LABEL_H,
+		element = _exp_22,
+	})
+	table.insert(sections, {
+		id = "tuning",
+		height = protocolsH,
+		element = protocolsBody,
+	})
+	return React.createElement(PageScaffold, {
+		gap = GAP,
+		tailPad = scrollTail(stack, chrome.bottomSafe, anomalyTail),
+		scrollBarColor = accent,
+		scrollBarThickness = 4,
+		sections = sections,
+	})
 end
 local function AnomalyViewComponent(_param)
 	local state = _param.state

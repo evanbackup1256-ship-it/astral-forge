@@ -44,7 +44,13 @@ local function PageScaffold(_param)
 	if zIndex == nil then
 		zIndex = 1
 	end
-	local hostRef = React.useRef()
+	-- Optional hostRef lets VirtualGrid / focus callers bind the same ScrollingFrame
+	-- PageScaffold owns (Command-style lists) without a second outer scroll.
+	local internalRef = React.useRef()
+	local hostRef = _param.hostRef
+	if hostRef == nil then
+		hostRef = internalRef
+	end
 	local available, setAvailable = React.useState(0)
 	React.useEffect(function()
 		local host = hostRef.current

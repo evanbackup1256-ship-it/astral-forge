@@ -22,14 +22,13 @@ local Palette = _theme.Palette
 local darken = _theme.darken
 local TapTarget = _theme.TapTarget
 local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
 local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
@@ -756,7 +755,6 @@ local function ShopView(_param)
 	local heroH = if stack then 104 else 124
 	local tabRowH = if stack then TapTarget else 50
 	local sectionLabelH = 34
-	local canvasHeight = heroH + pageGap + tabRowH + pageGap + sectionLabelH + pageGap + listHeight + SCROLL_EDGE * 2
 	local codeReady = (string.gsub(code, "%s", "")) ~= ""
 	local redeemDisabled = busy or not codeReady or purchasePhase == "pending"
 	local shopHostRef = React.useRef(nil)
@@ -778,35 +776,8 @@ local function ShopView(_param)
 			task.cancel(selectJob)
 		end
 	end, { tab, purchasePhase, listCount, redeemDisabled })
-	return React.createElement("frame", {
-		ref = shopHostRef,
-		Name = "ShopViewHost",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.mango,
-		ScrollBarImageTransparency = 0.2,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, pageGap),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement(ScrollPads), React.createElement(Panel, {
-		layoutOrder = 0,
-		size = UDim2.new(1, 0, 0, heroH),
+	local heroPanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.mango,
 		background = Palette.panelRaised,
 		padding = if stack then 14 else 20,
@@ -868,7 +839,8 @@ local function ShopView(_param)
 		wrap = true,
 		position = UDim2.fromOffset(0, 58),
 		sizeConstraint = UDim2.new(1, 0, 0, 28),
-	})))), React.createElement(SegmentedTabs, {
+	}))))
+	local tabsBar = React.createElement(SegmentedTabs, {
 		options = SHOP_TAB_OPTIONS,
 		value = tab,
 		onChange = function(entry)
@@ -878,16 +850,15 @@ local function ShopView(_param)
 		accent = Palette.mango,
 		columns = #SHOP_TABS,
 		gap = Layout.stackGap,
-		size = UDim2.new(1, 0, 0, tabRowH),
-		layoutOrder = 1,
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
-	}), React.createElement(SectionLabel, {
+	})
+	local sectionLabel = React.createElement(SectionLabel, {
 		value = if tab == "Codes" then "REDEEM" elseif tab == "Passes" then "GAME PASSES" elseif tab == "Supplies" then "SUPPLY PACKS" else "FEATURED OFFERS",
 		color = Palette.mango,
-		layoutOrder = 2,
-	}), React.createElement("frame", {
-		LayoutOrder = 3,
-		Size = UDim2.new(1, 0, 0, listHeight),
+	})
+	local listPane = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -1113,12 +1084,42 @@ local function ShopView(_param)
 			}))
 		end
 		return tiles
-	end)()))), React.createElement("frame", {
-		LayoutOrder = 99,
-		Size = UDim2.new(1, 0, 0, scrollTail(stack, chrome.bottomSafe, SCROLL_PAD)),
+	end)())))
+	return React.createElement("frame", {
+		ref = shopHostRef,
+		Name = "ShopViewHost",
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	})), React.createElement(PurchaseOverlay, {
+		ClipsDescendants = false,
+	}, React.createElement(PageScaffold, {
+		gap = pageGap,
+		tailPad = scrollTail(stack, chrome.bottomSafe, SCROLL_PAD),
+		scrollBarColor = Palette.mango,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "hero",
+				height = heroH,
+				element = heroPanel,
+			},
+			{
+				id = "tabs",
+				height = tabRowH,
+				element = tabsBar,
+			},
+			{
+				id = "label",
+				height = sectionLabelH,
+				element = sectionLabel,
+			},
+			{
+				id = "list",
+				height = listHeight,
+				element = listPane,
+			},
+		},
+	}), React.createElement(PurchaseOverlay, {
 		phase = purchasePhase,
 		reducedMotion = reducedMotion,
 		detail = purchaseDetail,

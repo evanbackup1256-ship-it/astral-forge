@@ -15,6 +15,7 @@ local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local TapTarget = _theme.TapTarget
 local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -25,12 +26,12 @@ local meterFill = _ui.meterFill
 local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local ORDER_HEIGHT = 168
 local ORDER_HEIGHT_STACK = 224
 local ORDER_GAP = Layout.panelGap
 local CHANNEL_IDS = { "Production", "Storage", "Tap" }
 local SCROLL_PAD = 36 + 16
+local SECTION_LABEL_H = 28
 local BTN_W = 176
 local SCROLL_BAR = 4
 local ROW_RIGHT = SCROLL_BAR + 10
@@ -342,22 +343,10 @@ local function LabView(_param)
 	end
 	local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Lab else nil
 	local orderH = if stack then ORDER_HEIGHT_STACK else ORDER_HEIGHT
-	local orderBlock = if #lab.Orders > 0 then #lab.Orders * (orderH + ORDER_GAP) else 160
+	local orderBlock = if #lab.Orders > 0 then #lab.Orders * orderH + math.max(0, #lab.Orders - 1) * ORDER_GAP else 160
 	local powerStride = if stack then POWER_ROW_STRIDE_STACK else POWER_ROW_STRIDE
 	local powerBoardH = POWER_ROW_START + #CHANNEL_IDS * powerStride + 10 + 28
 	local heroHeight = if stack then (if chrome.landscape then 156 else 188) else 168
-	local canvasHeight = heroHeight + ORDER_GAP + 18 + orderBlock + 18 + powerBoardH + scrollTail(stack, chrome.bottomSafe, SCROLL_PAD) + SCROLL_EDGE
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, ORDER_GAP),
-	})
-	local _exp_1 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, SCROLL_EDGE),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = -100000,
-	})
 	local _exp_2 = not stack and React.createElement(IconTile, {
 		kind = "Lab",
 		accent = Palette.mint,
@@ -493,18 +482,16 @@ local function LabView(_param)
 		}))
 	end
 	local _exp_3 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, heroHeight),
+		size = UDim2.fromScale(1, 1),
 		accent = Palette.mint,
 		background = Palette.panelRaised,
 		padding = 16,
-		layoutOrder = 0,
 		reveal = headerReveal,
 		clips = false,
 	}, _exp_2, _result)
 	local _exp_4 = React.createElement(SectionLabel, {
 		value = "TODAY'S ORDERS",
 		color = Palette.mint,
-		layoutOrder = 1,
 	})
 	local _exp_5 = lab.Orders
 	-- ▼ ReadonlyArray.map ▼
@@ -518,7 +505,7 @@ local function LabView(_param)
 			config = orderConfig,
 			dispatch = dispatch,
 			reducedMotion = reducedMotion,
-			order = index + 2,
+			order = index,
 			stack = stack,
 		})
 	end
@@ -531,13 +518,19 @@ local function LabView(_param)
 		title = "No orders yet",
 		body = (guide and guide.EmptyOrders) or "Orders refresh at the lab reset clock.",
 		accent = Palette.mint,
-		layoutOrder = 2,
 		reducedMotion = reducedMotion,
-	}) else _newValue
+	}) else React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, ORDER_GAP),
+	}), _newValue)
 	local _exp_6 = React.createElement(SectionLabel, {
 		value = "POWER BOARD",
 		color = Palette.mango,
-		layoutOrder = 20,
 	})
 	local _exp_7 = React.createElement(Text, {
 		value = "Move cells whenever you like.",
@@ -601,34 +594,45 @@ local function LabView(_param)
 		_newValue_1[_k] = _callback_1(_v, _k - 1, CHANNEL_IDS)
 	end
 	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("scrollingframe", {
-		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = SCROLL_BAR,
-		ScrollBarImageColor3 = Palette.lineSoft,
-		ScrollBarImageTransparency = 0.2,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Active = true,
-		Selectable = false,
-	}, _exp, _exp_1, _exp_3, _exp_4, ordersBlock, _exp_6, React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, powerBoardH),
-		accent = Palette.mango,
-		background = Palette.panelRaised,
-		padding = if stack then 14 else Layout.cardPadding,
-		layoutOrder = 21,
-		clips = false,
-	}, _exp_7, _exp_8, _exp_9, _newValue_1), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, SCROLL_PAD),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 99,
-	}))
+	return React.createElement(PageScaffold, {
+		gap = ORDER_GAP,
+		tailPad = scrollTail(stack, chrome.bottomSafe, SCROLL_PAD),
+		scrollBarColor = Palette.lineSoft,
+		scrollBarThickness = SCROLL_BAR,
+		sections = {
+			{
+				id = "hero",
+				height = heroHeight,
+				element = _exp_3,
+			},
+			{
+				id = "orders-label",
+				height = SECTION_LABEL_H,
+				element = _exp_4,
+			},
+			{
+				id = "orders",
+				height = orderBlock,
+				element = ordersBlock,
+			},
+			{
+				id = "power-label",
+				height = SECTION_LABEL_H,
+				element = _exp_6,
+			},
+			{
+				id = "power",
+				height = powerBoardH,
+				element = React.createElement(Panel, {
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.mango,
+					background = Palette.panelRaised,
+					padding = if stack then 14 else Layout.cardPadding,
+					clips = false,
+				}, _exp_7, _exp_8, _exp_9, _newValue_1),
+			},
+		},
+	})
 end
 return {
 	LabView = LabView,

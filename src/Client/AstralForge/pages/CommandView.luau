@@ -21,6 +21,7 @@ local Palette = _theme.Palette
 local TapTarget = _theme.TapTarget
 local fitPanelHeight = _theme.fitPanelHeight
 local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
 local Button = _ui.Button
@@ -28,7 +29,6 @@ local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local meterFill = _ui.meterFill
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
@@ -434,7 +434,6 @@ local function CommandView(_param)
 	local seasonHeroH = 130
 	local seasonRowH = if stack then 148 else 112
 	local heroInfoWidth = if stack then -100 else -(114 + 210 + 14)
-	local headerBlock = 56 + (if stack then 52 else 48) + Layout.panelGap
 	local tabContent = 0
 	if tab == "Overview" then
 		tabContent = heroH + crewH + weeklyH + titlesH + shopH + masteryH + Layout.panelGap * 5
@@ -445,11 +444,9 @@ local function CommandView(_param)
 	else
 		tabContent = seasonHeroH + #ops.SeasonTiers * (seasonRowH + Layout.panelGap)
 	end
-	-- The content frame ends with a trailing SCROLL_EDGE-tall spacer (LayoutOrder 9999, see the
-	-- list layout below) so the last panel gets real breathing room above the scroll bottom —
-	-- its own height plus the list layout's gap in front of it both have to be counted here or
-	-- this manual CanvasSize permanently undershoots the real content by that amount.
-	local canvas = SCROLL_EDGE * 2 + headerBlock + tabContent + Layout.panelGap * 3 + SCROLL_EDGE + scrollTail(stack, chrome.bottomSafe, if stack then 72 else 48)
+	local headerH = 56
+	local tabsH = if stack then 52 else 48
+	local commandTail = scrollTail(stack, chrome.bottomSafe, if stack then 72 else 48)
 	local order = 0
 	local nextOrder = function()
 		order += 1
@@ -471,10 +468,9 @@ local function CommandView(_param)
 		Padding = UDim.new(0, Layout.panelGap),
 	})
 	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 56),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		LayoutOrder = nextOrder(),
 		Active = false,
 	}, React.createElement(SectionLabel, {
 		value = ops.SeasonName,
@@ -489,10 +485,9 @@ local function CommandView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 32),
 	}))
 	local _exp_5 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, if stack then 52 else 48),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		LayoutOrder = nextOrder(),
 		Active = false,
 	}, React.createElement(TabRail, {
 		active = tab,
@@ -1148,29 +1143,12 @@ local function CommandView(_param)
 			end,
 		}))
 	end
-	return React.createElement("scrollingframe", {
-		ref = scrollRef,
+	local bodyPane = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		CanvasSize = UDim2.new(0, 0, 0, canvas),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.28,
-		ClipsDescendants = true,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		VerticalScrollBarInset = Enum.ScrollBarInset.None,
-		Active = true,
-		Selectable = false,
-	}, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, canvas - SCROLL_EDGE),
-		Position = UDim2.fromOffset(0, SCROLL_EDGE),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Active = false,
-	}, _exp_3, _exp_4, _exp_5, _condition_3, _condition_4, tab == "Artifacts" and React.createElement(TabPane, {
+	}, _exp_3, _condition_3, _condition_4, tab == "Artifacts" and React.createElement(TabPane, {
 		tabKey = "Artifacts",
 		reducedMotion = reducedMotion,
 	}, React.createElement(Panel, {
@@ -1418,12 +1396,31 @@ local function CommandView(_param)
 				highlight = unlocked and not claimed,
 			})))
 		end,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, SCROLL_EDGE),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = 9999,
 	})))
+	return React.createElement(PageScaffold, {
+		hostRef = scrollRef,
+		gap = Layout.panelGap,
+		tailPad = commandTail,
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 4,
+		sections = {
+			{
+				id = "header",
+				height = headerH,
+				element = _exp_4,
+			},
+			{
+				id = "tabs",
+				height = tabsH,
+				element = _exp_5,
+			},
+			{
+				id = "body",
+				height = tabContent,
+				element = bodyPane,
+			},
+		},
+	})
 end
 return {
 	CommandView = CommandView,
