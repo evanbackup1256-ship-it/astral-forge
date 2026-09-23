@@ -393,9 +393,12 @@ assert(
 	"MasteryMultiplier must nil-guard MachineMastery"
 )
 assert(
-	string.find(economySrc, "local protocols = state.Protocols", 1, true) ~= nil
-		and string.find(economySrc, 'type(protocols) == "table"', 1, true) ~= nil,
-	"AnomalyEffect must nil-guard Protocols"
+	string.find(economySrc, "AnomalyOpsMath.Effect", 1, true) ~= nil
+		or (
+			string.find(economySrc, "local protocols = state.Protocols", 1, true) ~= nil
+			and string.find(economySrc, 'type(protocols) == "table"', 1, true) ~= nil
+		),
+	"AnomalyEffect must nil-guard Protocols (via AnomalyOpsMath.Effect or local gate)"
 )
 assert(
 	string.find(economySrc, "state.Protocols[protocol.Id]", 1, true) == nil,
