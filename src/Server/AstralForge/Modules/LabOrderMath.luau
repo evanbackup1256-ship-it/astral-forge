@@ -21,6 +21,76 @@ export type OrderState = {
 	Claimed: boolean,
 }
 
+export type LabBag = {
+	Day: number,
+	Orders: { OrderState },
+	Routing: { [string]: number },
+}
+
+LabOrderMath.CHANNEL_ORDER = { "Production", "Storage", "Tap" }
+
+-- Studio fixtures / mid-migrate bags may omit Lab entirely, or leave Orders /
+-- Routing nil — LabService.Ensure / DataService sanitize must rebuild first.
+function LabOrderMath.Ensure(lab: any, baseCells: number?): LabBag
+	local cells = math.max(3, math.floor(tonumber(baseCells) or 12))
+	local per = math.max(1, math.floor(cells / 3))
+	if type(lab) ~= "table" then
+		return {
+			Day = -1,
+			Orders = {},
+			Routing = { Production = per, Storage = per, Tap = per },
+		}
+	end
+	if type(lab.Orders) ~= "table" then
+		lab.Orders = {}
+	end
+	if type(lab.Routing) ~= "table" then
+		lab.Routing = { Production = per, Storage = per, Tap = per }
+	end
+	lab.Day = if type(lab.Day) == "number" then lab.Day else -1
+	return lab :: LabBag
+end
+
+-- Clamp routing to the power-cell budget; returns whether any channel changed.
+function LabOrderMath.NormalizeRouting(
+	routing: { [string]: number },
+	channelOrder: { string },
+	totalCells: number
+): boolean
+	local changed = false
+	local total = math.max(0, math.floor(tonumber(totalCells) or 0))
+	local used = 0
+	for _, channelId in channelOrder do
+		local value = routing[channelId]
+		if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+			value = 0
+		end
+		local clean = math.clamp(math.floor(value), 0, total)
+		if routing[channelId] ~= clean then
+			routing[channelId] = clean
+			changed = true
+		end
+		used += clean
+	end
+	if used > total then
+		local overflow = used - total
+		for index = #channelOrder, 1, -1 do
+			local channelId = channelOrder[index]
+			local current = routing[channelId] or 0
+			local removed = math.min(current, overflow)
+			if removed > 0 then
+				routing[channelId] = current - removed
+				overflow -= removed
+				changed = true
+			end
+			if overflow <= 0 then
+				break
+			end
+		end
+	end
+	return changed
+end
+
 -- Power-cell budget from rebirths. Mirrors LabService.totalCells / DataService.
 function LabOrderMath.TotalCells(
 	rebirths: number,

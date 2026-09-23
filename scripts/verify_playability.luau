@@ -263,6 +263,20 @@ do
 	local mailbox = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
 	assert(string.find(mailbox, "GamepadNavigationService.FocusClaim", 1, true), "Mailbox must FocusClaim CLAIM/ARCHIVE")
 	assert(string.find(mailbox, "MailClaimActions", 1, true), "Mailbox must host FocusClaim on MailClaimActions")
+	-- CLAIM/ARCHIVE footgun: parent clips=true buried claimSlide overshoot on short phones.
+	do
+		local hostStart = string.find(mailbox, 'Name = "MailClaimActions"', 1, true)
+		assert(hostStart, "Mailbox MailClaimActions host missing")
+		local hostSlice = string.sub(mailbox, hostStart, hostStart + 280)
+		assert(
+			string.find(hostSlice, "ClipsDescendants = false", 1, true),
+			"Mailbox MailClaimActions host must keep ClipsDescendants = false"
+		)
+		assert(
+			not string.find(hostSlice, "ClipsDescendants = true", 1, true),
+			"Mailbox MailClaimActions must not clip CLAIM/ARCHIVE"
+		)
+	end
 	local admin = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")
 	assert(string.find(admin, "GamepadNavigationService.FocusClaim", 1, true), "Admin must FocusClaim ARM/RUN")
 	assert(string.find(admin, "AdminExecuteActions", 1, true), "Admin must host FocusClaim on AdminExecuteActions")
@@ -465,7 +479,8 @@ do
 	assert(string.find(chat, 'Name = "ChatClaimActions"', 1, true), "Chat SEND host must be named ChatClaimActions")
 	assert(string.find(chat, "reducedMotion = softMotion", 1, true), "ChatView must fold softMotion into reducedMotion")
 
-	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards.
+	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards
+	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken).
 	local CANON_SOFT = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 	for _, path in {
 		"src/Client/AstralForge/pages/ShopView.luau",
@@ -475,6 +490,11 @@ do
 		"src/Client/AstralForge/pages/LeaderboardsView.luau",
 		"src/Client/AstralForge/pages/StoryView.luau",
 		"src/Client/AstralForge/pages/CrateRevealOverlay.luau",
+		"src/Client/AstralForge/pages/MailboxView.luau",
+		"src/Client/AstralForge/pages/LabView.luau",
+		"src/Client/AstralForge/pages/AnomalyView.luau",
+		"src/Client/AstralForge/pages/ResearchView.luau",
+		"src/Client/AstralForge/pages/WheelView.luau",
 	} do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")

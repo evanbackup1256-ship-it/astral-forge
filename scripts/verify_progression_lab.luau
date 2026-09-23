@@ -64,6 +64,20 @@ assert(ok == false and msg == "That order has already been paid.", "double claim
 ok, msg, reward = LabOrderMath.TryClaim(orders, byId, "C")
 assert(ok == false and msg == "That order has already been paid.", "pre-claimed C")
 
+-- --- Lab Ensure / NormalizeRouting -------------------------------------------
+local emptyLab = LabOrderMath.Ensure(nil, 12)
+assert(emptyLab.Day == -1 and #emptyLab.Orders == 0, "nil Lab → empty bag")
+assert(emptyLab.Routing.Production == 4 and emptyLab.Routing.Storage == 4 and emptyLab.Routing.Tap == 4, "default routing thirds")
+local partialLab = LabOrderMath.Ensure({ Day = 3 }, 12)
+assert(partialLab.Day == 3 and type(partialLab.Orders) == "table" and type(partialLab.Routing) == "table", "Day-only fills Orders/Routing")
+local sameLab = LabOrderMath.Ensure(partialLab, 12)
+assert(sameLab == partialLab, "Ensure mutates Lab in place")
+local overflow = { Production = 10, Storage = 10, Tap = 10 }
+assert(LabOrderMath.NormalizeRouting(overflow, LabOrderMath.CHANNEL_ORDER, 12) == true, "overflow changes routing")
+assert(overflow.Production + overflow.Storage + overflow.Tap == 12, "overflow clamped to budget")
+local clean = { Production = 2, Storage = 2, Tap = 2 }
+assert(LabOrderMath.NormalizeRouting(clean, LabOrderMath.CHANNEL_ORDER, 12) == false, "in-budget no-op")
+
 -- --- RebirthGate -------------------------------------------------------------
 assert(RebirthGate.MeetsRequired(2, 2) == true, "exact rebirths meet")
 assert(RebirthGate.MeetsRequired(1, 2) == false, "short rebirths fail")
@@ -138,7 +152,11 @@ assert(string.find(labServiceSrc, "LabOrderMath.OrderTarget", 1, true), "LabServ
 assert(string.find(labServiceSrc, "LabOrderMath.ApplyProgress", 1, true), "LabService must delegate ApplyProgress")
 assert(string.find(labServiceSrc, "LabOrderMath.TryClaim", 1, true), "LabService must delegate TryClaim")
 assert(string.find(labServiceSrc, "LabOrderMath.TotalCells", 1, true), "LabService must delegate TotalCells")
+assert(string.find(labServiceSrc, "LabOrderMath.Ensure", 1, true), "LabService must nil-safe Lab via Ensure")
+assert(string.find(labServiceSrc, "LabOrderMath.NormalizeRouting", 1, true), "LabService must delegate NormalizeRouting")
 assert(string.find(dataSrc, "LabOrderMath.TotalCells", 1, true), "DataService must delegate TotalCells")
+assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService sanitize must rebuild Lab via Ensure")
+assert(string.find(dataSrc, "LabOrderMath.NormalizeRouting", 1, true), "DataService sanitize must NormalizeRouting")
 assert(string.find(economySrc, "RebirthGate.PrestigeReward", 1, true), "Economy must delegate PrestigeReward")
 assert(string.find(gameSrc, "ZoneUnlock.Evaluate", 1, true), "GameService must delegate ZoneUnlock.Evaluate")
 assert(string.find(gameSrc, "RebirthGate.CanRebirth", 1, true), "GameService must use CanRebirth")

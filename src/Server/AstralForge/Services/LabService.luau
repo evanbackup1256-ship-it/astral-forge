@@ -14,10 +14,15 @@ return function()
 		orderById[order.Id] = order
 	end
 
-	local channelOrder = { "Production", "Storage", "Tap" }
+	local channelOrder = LabOrderMath.CHANNEL_ORDER
 
 	local function utcDay(): number
 		return math.floor(os.time() / 86_400)
+	end
+
+	local function ensureLab(profile)
+		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
+		return profile.Lab
 	end
 
 	local function totalCells(profile): number
@@ -30,38 +35,8 @@ return function()
 	end
 
 	local function normalizeRouting(profile): boolean
-		local changed = false
-		local total = totalCells(profile)
-		local used = 0
-		for _, channelId in channelOrder do
-			local value = profile.Lab.Routing[channelId]
-			if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
-				value = 0
-			end
-			local clean = math.clamp(math.floor(value), 0, total)
-			if profile.Lab.Routing[channelId] ~= clean then
-				profile.Lab.Routing[channelId] = clean
-				changed = true
-			end
-			used += clean
-		end
-		if used > total then
-			local overflow = used - total
-			for index = #channelOrder, 1, -1 do
-				local channelId = channelOrder[index]
-				local current = profile.Lab.Routing[channelId]
-				local removed = math.min(current, overflow)
-				if removed > 0 then
-					profile.Lab.Routing[channelId] = current - removed
-					overflow -= removed
-					changed = true
-				end
-				if overflow <= 0 then
-					break
-				end
-			end
-		end
-		return changed
+		local lab = ensureLab(profile)
+		return LabOrderMath.NormalizeRouting(lab.Routing, channelOrder, totalCells(profile))
 	end
 
 	local function orderTarget(profile, order): number
@@ -101,15 +76,16 @@ return function()
 	end
 
 	function LabService.Ensure(profile, userId: number): boolean
+		local lab = ensureLab(profile)
 		local changed = normalizeRouting(profile)
 		local day = utcDay()
-		if profile.Lab.Day ~= day then
+		if lab.Day ~= day then
 			rollOrders(profile, day, userId)
 			changed = true
 		else
 			local seen = {}
 			local count = 0
-			for index, state in profile.Lab.Orders do
+			for index, state in lab.Orders do
 				count += 1
 				if
 					type(index) ~= "number"
@@ -135,11 +111,13 @@ return function()
 	end
 
 	function LabService.Progress(profile, kind: string, amount: number): boolean
-		return LabOrderMath.ApplyProgress(profile.Lab.Orders, orderById, kind, amount)
+		local lab = ensureLab(profile)
+		return LabOrderMath.ApplyProgress(lab.Orders, orderById, kind, amount)
 	end
 
 	function LabService.ClaimOrder(profile, orderId: string)
-		local orders = profile.Lab and profile.Lab.Orders
+		local lab = ensureLab(profile)
+		local orders = lab.Orders
 		if type(orders) ~= "table" then
 			return false, "That order is no longer on the board.", nil
 		end
@@ -162,20 +140,21 @@ return function()
 		if delta ~= -1 and delta ~= 1 then
 			return false, "Move one cell at a time."
 		end
+		local lab = ensureLab(profile)
 		normalizeRouting(profile)
 		local total = totalCells(profile)
 		local used = 0
 		for _, id in channelOrder do
-			used += profile.Lab.Routing[id]
+			used += lab.Routing[id]
 		end
-		local current = profile.Lab.Routing[channelId]
+		local current = lab.Routing[channelId]
 		if delta > 0 and used >= total then
 			return false, "All cells are already assigned. Free one first."
 		end
 		if delta < 0 and current <= 0 then
 			return false, "That rail is already empty."
 		end
-		profile.Lab.Routing[channelId] = current + delta
+		lab.Routing[channelId] = current + delta
 		-- Partial Stats bags (same class as ClaimOrder) must not crash power routing.
 		if type(profile.Stats) ~= "table" then
 			profile.Stats = { PowerMoves = 0 }
@@ -186,19 +165,21 @@ return function()
 
 	function LabService.PowerEffect(profile, channelId: string): number
 		local channel = GameConfig.Lab.Power.Channels[channelId]
-		if not channel or not profile.Lab or not profile.Lab.Routing then
+		if not channel then
 			return 0
 		end
-		return math.max(0, profile.Lab.Routing[channelId] or 0) * channel.EffectPerCell
+		local lab = ensureLab(profile)
+		return math.max(0, lab.Routing[channelId] or 0) * channel.EffectPerCell
 	end
 
 	function LabService.State(profile)
+		local lab = ensureLab(profile)
 		local total = totalCells(profile)
 		local used = 0
 		local routing = {}
 		local effects = {}
 		for _, channelId in channelOrder do
-			local raw = profile.Lab.Routing[channelId]
+			local raw = lab.Routing[channelId]
 			local value = if type(raw) == "number" and raw == raw and raw ~= math.huge and raw ~= -math.huge
 				then math.clamp(math.floor(raw), 0, math.max(0, total - used))
 				else 0
@@ -207,8 +188,8 @@ return function()
 			effects[channelId] = if channel then value * channel.EffectPerCell else 0
 			used += value
 		end
-		local orders = table.create(#profile.Lab.Orders)
-		for index, state in profile.Lab.Orders do
+		local orders = table.create(#lab.Orders)
+		for index, state in lab.Orders do
 			orders[index] = {
 				Id = state.Id,
 				Progress = state.Progress,
@@ -217,7 +198,7 @@ return function()
 			}
 		end
 		return {
-			Day = profile.Lab.Day,
+			Day = lab.Day,
 			ResetAt = (utcDay() + 1) * 86_400,
 			Orders = orders,
 			Routing = routing,

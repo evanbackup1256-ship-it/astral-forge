@@ -8,6 +8,7 @@ return function()
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Format"))
 	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
+	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 
 	local ProgressionService = {}
 
@@ -24,47 +25,23 @@ return function()
 	end
 
 	local function commanderLevel(xp: number): number
-		return math.clamp(
-			math.floor(math.sqrt(math.max(0, xp) / 100)) + 1,
-			1,
-			GameConfig.Operations.MaxCommanderLevel
-		)
+		return CommandMath.Level(xp, GameConfig.Operations.MaxCommanderLevel)
 	end
 
 	local function commanderFloorXP(level: number): number
-		return 100 * math.max(0, level - 1) ^ 2
+		return CommandMath.FloorXP(level)
 	end
 
 	local function commanderNextXP(level: number): number
-		if level >= GameConfig.Operations.MaxCommanderLevel then
-			return commanderFloorXP(level)
-		end
-		return 100 * level ^ 2
+		return CommandMath.NextXP(level, GameConfig.Operations.MaxCommanderLevel)
 	end
 
 	local function commanderRank(level: number): string
-		if level >= 60 then
-			return "TIMELESS COMMANDER"
-		elseif level >= 50 then
-			return "VOID MARSHAL"
-		elseif level >= 40 then
-			return "FLEET DIRECTOR"
-		elseif level >= 30 then
-			return "SECTOR ADMIRAL"
-		elseif level >= 20 then
-			return "EXPEDITION CAPTAIN"
-		elseif level >= 10 then
-			return "STAR OFFICER"
-		elseif level >= 5 then
-			return "FLIGHT SPECIALIST"
-		end
-		return "FORGE CADET"
+		return CommandMath.Rank(level)
 	end
 
 	local function ensureCommand(profile)
-		if type(profile.Command) ~= "table" then
-			profile.Command = { XP = 0, SeasonXP = 0, Signals = 0, StreakShields = 0 }
-		end
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 		return profile.Command
 	end
 
@@ -494,13 +471,14 @@ return function()
 	end
 
 	function ProgressionService.EnsureWeekly(profile): boolean
+		local command = ensureCommand(profile)
 		local week = currentWeek()
-		if profile.Command.Weekly.Week == week then
+		if command.Weekly.Week == week then
 
 			local changed = false
 			for _, directive in GameConfig.Operations.WeeklyDirectives do
-				if profile.Command.Weekly.Baseline[directive.Kind] == nil then
-					profile.Command.Weekly.Baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind)
+				if command.Weekly.Baseline[directive.Kind] == nil then
+					command.Weekly.Baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind)
 					changed = true
 				end
 			end
@@ -510,17 +488,17 @@ return function()
 		for _, directive in GameConfig.Operations.WeeklyDirectives do
 			baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind)
 		end
-		profile.Command.Weekly = { Week = week, Baseline = baseline, Claimed = {} }
+		command.Weekly = { Week = week, Baseline = baseline, Claimed = {} }
 		return true
 	end
 
 	function ProgressionService.WeeklyState(profile)
-
-		local current = profile.Command.Weekly
+		local command = ensureCommand(profile)
+		local current = command.Weekly
 		local weekMatches = current.Week == currentWeek()
 		local baselines = weekMatches and current.Baseline or {}
 		local claimed = weekMatches and current.Claimed or {}
-		local level = commanderLevel(profile.Command.XP)
+		local level = commanderLevel(command.XP)
 		local scale = 1 + math.floor((level - 1) / 10) * 0.35
 		local items = {}
 		for _, directive in GameConfig.Operations.WeeklyDirectives do
@@ -543,6 +521,7 @@ return function()
 	end
 
 	function ProgressionService.ClaimWeeklyDirective(profile, directiveId: string): (boolean, string)
+		local command = ensureCommand(profile)
 		ProgressionService.EnsureWeekly(profile)
 		for _, item in ProgressionService.WeeklyState(profile) do
 			if item.Id == directiveId then
@@ -552,7 +531,7 @@ return function()
 				if item.Progress < item.Target then
 					return false, "That weekly directive is not complete."
 				end
-				profile.Command.Weekly.Claimed[directiveId] = true
+				command.Weekly.Claimed[directiveId] = true
 				bumpStat(profile, "WeeklyClaimed", 1)
 				return true, ProgressionService.ApplyReward(profile, item.Reward, Economy.Production(profile))
 			end
@@ -561,14 +540,15 @@ return function()
 	end
 
 	local function titleUnlocked(profile, title): boolean
-		local level = commanderLevel(profile.Command.XP)
+		local command = ensureCommand(profile)
+		local level = commanderLevel(command.XP)
 		if title.Kind == "Level" then
 			return level >= title.Target
 		elseif title.Kind == "Expeditions" then
-			return profile.Command.ExpeditionsCompleted >= title.Target
+			return command.ExpeditionsCompleted >= title.Target
 		elseif title.Kind == "Artifacts" then
 			local count = 0
-			for _ in profile.Command.Artifacts do
+			for _ in command.Artifacts do
 				count += 1
 			end
 			return count >= title.Target
@@ -584,6 +564,7 @@ return function()
 		if GameConfig.Operations.TitlesEnabled == false then
 			return {}
 		end
+		local command = ensureCommand(profile)
 		local titles = {}
 		for _, title in GameConfig.Operations.Titles do
 			table.insert(titles, {
@@ -591,7 +572,7 @@ return function()
 				Name = title.Name,
 				Description = title.Description,
 				Unlocked = titleUnlocked(profile, title),
-				Equipped = profile.Command.EquippedTitle == title.Id,
+				Equipped = command.EquippedTitle == title.Id,
 				Fx = title.Fx,
 			})
 		end
@@ -606,31 +587,33 @@ return function()
 		if not title or not titleUnlocked(profile, title) then
 			return false, "That command title is still locked."
 		end
-		profile.Command.EquippedTitle = titleId
+		ensureCommand(profile).EquippedTitle = titleId
 		return true, title.Name .. " equipped."
 	end
 
 	function ProgressionService.EnsureCommandRotations(profile): boolean
+		local command = ensureCommand(profile)
 		local changed = ProgressionService.EnsureWeekly(profile)
 		local day = currentDay()
-		if profile.Command.Shop.Day ~= day then
-			profile.Command.Shop = { Day = day, Purchased = {} }
+		if command.Shop.Day ~= day then
+			command.Shop = { Day = day, Purchased = {} }
 			changed = true
 		end
-		if profile.Command.SeasonId ~= GameConfig.Operations.SeasonId then
-			profile.Command.SeasonId = GameConfig.Operations.SeasonId
-			profile.Command.SeasonXP = 0
-			profile.Command.SeasonClaims = {}
+		if command.SeasonId ~= GameConfig.Operations.SeasonId then
+			command.SeasonId = GameConfig.Operations.SeasonId
+			command.SeasonXP = 0
+			command.SeasonClaims = {}
 			changed = true
 		end
 		return changed
 	end
 
 	function ProgressionService.SignalShopState(profile)
+		local command = ensureCommand(profile)
 		local offers = {}
 		local source = GameConfig.Operations.ShopOffers
 		local day = currentDay()
-		local purchased = if profile.Command.Shop.Day == day then profile.Command.Shop.Purchased else {}
+		local purchased = if command.Shop.Day == day then command.Shop.Purchased else {}
 		for slot = 1, 4 do
 			local index = ((day + slot - 2) % #source) + 1
 			local offer = source[index]
@@ -893,34 +876,35 @@ return function()
 	end
 
 	function ProgressionService.CommandState(profile)
-		local level = commanderLevel(profile.Command.XP)
+		local command = ensureCommand(profile)
+		local level = commanderLevel(command.XP)
 		local claimable = {}
 		for rewardLevel = 1, level do
-			if not profile.Command.CommanderClaims[tostring(rewardLevel)] then
+			if not command.CommanderClaims[tostring(rewardLevel)] then
 				table.insert(claimable, rewardLevel)
 			end
 		end
 		return {
-			XP = profile.Command.XP,
+			XP = command.XP,
 			Level = level,
 			Rank = commanderRank(level),
 			LevelFloorXP = commanderFloorXP(level),
 			NextLevelXP = commanderNextXP(level),
-			Signals = profile.Command.Signals,
-			StreakShields = profile.Command.StreakShields,
-			ExpeditionsCompleted = profile.Command.ExpeditionsCompleted,
-			ActiveExpedition = profile.Command.ActiveExpedition,
-			Artifacts = profile.Command.Artifacts,
-			EquippedArtifact = profile.Command.EquippedArtifact,
-			Crew = profile.Command.Crew,
-			CommanderClaims = profile.Command.CommanderClaims,
+			Signals = command.Signals,
+			StreakShields = command.StreakShields,
+			ExpeditionsCompleted = command.ExpeditionsCompleted,
+			ActiveExpedition = command.ActiveExpedition,
+			Artifacts = command.Artifacts,
+			EquippedArtifact = command.EquippedArtifact,
+			Crew = command.Crew,
+			CommanderClaims = command.CommanderClaims,
 			ClaimableCommanderLevels = claimable,
-			SeasonXP = profile.Command.SeasonXP,
-			SeasonClaims = profile.Command.SeasonClaims,
+			SeasonXP = command.SeasonXP,
+			SeasonClaims = command.SeasonClaims,
 			Weekly = ProgressionService.WeeklyState(profile),
 			Shop = ProgressionService.SignalShopState(profile),
 			Titles = ProgressionService.TitleStates(profile),
-			MachineMastery = profile.Command.MachineMastery,
+			MachineMastery = command.MachineMastery,
 		}
 	end
 

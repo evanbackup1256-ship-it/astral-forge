@@ -10,6 +10,7 @@ return function(loadService: (string) -> any)
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
+	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
@@ -287,6 +288,9 @@ return function(loadService: (string) -> any)
 			local nextValue = item and math.clamp(math.floor(nonNegative(value)), 0, item.MaxLevel) or 0
 			profile.GridUpgrades[key] = nextValue > 0 and nextValue or nil
 		end
+		-- ApplyReward may seed Signals/XP-only Command bags — rebuild nested Crew/
+		-- Artifacts/Weekly/Shop before sanitize iterates them.
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 		profile.Command.XP = math.floor(nonNegative(profile.Command.XP))
 		profile.Command.Signals = math.floor(nonNegative(profile.Command.Signals))
 		profile.Command.StreakShields = math.floor(nonNegative(profile.Command.StreakShields))
@@ -722,6 +726,9 @@ return function(loadService: (string) -> any)
 		profile.ForgePath.XP = math.floor(nonNegative(profile.ForgePath.XP))
 		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay) or -1
 		profile.ForgePath.XPEarnedToday = math.floor(nonNegative(profile.ForgePath.XPEarnedToday))
+		-- Studio fixtures / mid-migrate bags may omit Lab entirely, or leave Orders /
+		-- Routing nil — sanitize must rebuild before iterating (same class as ForgePath).
+		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
 		profile.Lab.Day = type(profile.Lab.Day) == "number" and math.max(-1, math.floor(profile.Lab.Day)) or -1
 		for index, order in profile.Lab.Orders do
 			if
@@ -745,23 +752,7 @@ return function(loadService: (string) -> any)
 			GameConfig.Lab.Power.RebirthsPerCell,
 			GameConfig.Lab.Power.MaxCells
 		)
-		local routeUsed = 0
-		for _, channelId in { "Production", "Storage", "Tap" } do
-			local value = math.clamp(math.floor(nonNegative(profile.Lab.Routing[channelId])), 0, routeTotal)
-			profile.Lab.Routing[channelId] = value
-			routeUsed += value
-		end
-		if routeUsed > routeTotal then
-			local overflow = routeUsed - routeTotal
-			for _, channelId in { "Tap", "Storage", "Production" } do
-				local removed = math.min(profile.Lab.Routing[channelId], overflow)
-				profile.Lab.Routing[channelId] -= removed
-				overflow -= removed
-				if overflow <= 0 then
-					break
-				end
-			end
-		end
+		LabOrderMath.NormalizeRouting(profile.Lab.Routing, LabOrderMath.CHANNEL_ORDER, routeTotal)
 		for _, collection in { profile.Story.Read, profile.Story.Claimed } do
 			for id, value in collection do
 				if not storyById[id] or type(value) ~= "boolean" then
