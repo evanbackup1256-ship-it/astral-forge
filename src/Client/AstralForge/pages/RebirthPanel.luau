@@ -1,5 +1,8 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _format = require(script.Parent.Parent.format)
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
@@ -35,6 +38,9 @@ local function RebirthPanel(_param)
 	end
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or effectsPaused or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local canRebirth = gteFlux(state.PrestigeReward, 1)
 	local target = math.max(1, asFlux(state.NextPrestigeTarget))
@@ -45,7 +51,27 @@ local function RebirthPanel(_param)
 	local busy, setBusy = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
 	local mountedRef = React.useRef(true)
+	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, reducedMotion or effectsPaused, 0.8)
+	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
+	React.useEffect(function()
+		if not canRebirth or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = rebirthClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { canRebirth, confirming, busy })
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
@@ -212,10 +238,12 @@ local function RebirthPanel(_param)
 		position = UDim2.new(0.48, 4, 0, 0),
 		size = UDim2.new(0.52, -4, 0, 26),
 	})), React.createElement("frame", {
+		Name = "RebirthClaimActions",
 		Size = if stack then UDim2.new(1, 0, 0, ctaH * 2 + 8) else UDim2.fromOffset(286, ctaH * 2 + 8),
 		Position = if stack then UDim2.new(0, 0, 1, -(ctaH * 2 + 8)) else UDim2.new(1, -286, 0, 40),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ref = rebirthClaimHostRef,
 	}, React.createElement(Button, {
 		text = if busy then "REBIRTHING…" elseif confirming then "CONFIRM REBIRTH" elseif canRebirth then "REBIRTH" else "NOT READY",
 		icon = "Rebirth",

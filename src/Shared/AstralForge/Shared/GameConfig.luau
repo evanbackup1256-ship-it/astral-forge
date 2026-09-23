@@ -403,6 +403,17 @@ local GameConfig = {
 				Reward = { Stardust = 28, CashMinutes = 3, Boost = "SteadyBurn" },
 				Color = Color3.fromRGB(120, 210, 190),
 			},
+			{
+				Id = "CtaReachPass",
+				Name = "CTA Reach Pass",
+				Description = "Clear a short tally while QA re-checks FocusClaim hosts.",
+				Kind = "Tap",
+				BaseTarget = 60,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 24, CashMinutes = 3, Signals = 6 },
+				Color = Color3.fromRGB(120, 190, 220),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -2619,6 +2630,14 @@ local GameConfig = {
 			Target = 18,
 			Reward = { Stardust = 120, Signals = 36, CashMinutes = 14, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "CtaClipCloser",
+			Name = "Clip Closer",
+			Description = "Bank the vault 12 times after CTA clip polish.",
+			Kind = "Collects",
+			Target = 12,
+			Reward = { Stardust = 95, Signals = 28, CashMinutes = 12, Boost = "VaultSurge" },
+		},
 	},
 
 	DailyRewards = {
@@ -3985,9 +4004,39 @@ local GameConfig = {
 			Reward = { Stardust = 26, CashMinutes = 8, Signals = 10 },
 			Color = Color3.fromRGB(110, 205, 185),
 		},
+		{
+			Id = "cta-clip-polish-brief",
+			Title = "CTA Clip Polish Brief",
+			Chapter = "LORE: DOCK QA",
+			Summary = "Hot-page FocusClaim hosts and softMotion reach the bottoms.",
+			Body = {
+				"Rebirth, Continuum, Missions, Lab, Anomaly, Wheel, and Forge Path now park gamepad Selection on their claim CTAs.",
+				"Crew REFRESH stays unclipped on short phones; Continuum/Milestones/Lab share the softMotion antilag line.",
+				"npm test gates the hosts offline — Studio Device Simulator still owns the final reachability pass.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 28, CashMinutes = 9, Signals = 11 },
+			Color = Color3.fromRGB(120, 190, 220),
+		},
 	},
 
 	Mail = {
+		{
+			Id = "update-5-1-cta-clip-polish",
+			Subject = "Dock note — CTA clip & FocusClaim polish",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "Hot-page claim CTAs FocusClaim; Crew REFRESH unclipped; softMotion misses closed — still DataVersion 21.",
+			Body = {
+				"Rebirth confirm, Continuum forge, Missions/Lab claim-all, Anomaly pulse strip, Wheel spin, and Forge Path spotlight now FocusClaim.",
+				"Crew header clips=false so the bottom REFRESH stays reachable under phone chrome.",
+				"Continuum, Milestones, Missions, Lab, Mailbox, Credits, and Rebirth gate decorative motion under softMotion.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 31, Stardust = 42, Signals = 15 },
+			Color = Color3.fromRGB(120, 190, 220),
+		},
 		{
 			Id = "update-5-1-content-gates-polish",
 			Subject = "Dock note — content gates & CTA polish",

@@ -1,5 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local AutoGrid = require(script.Parent.Parent.scrolling).AutoGrid
 local _format = require(script.Parent.Parent.format)
 local asFlux = _format.asFlux
@@ -241,6 +243,9 @@ local function ContinuumView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local continuum = state.Continuum or EMPTY_CONTINUUM
 	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
@@ -255,6 +260,26 @@ local function ContinuumView(_param)
 	local canDust = gteFlux(state.Stardust, continuum.StardustCost)
 	local fluxFill = meterFill(asFlux(state.Cash), math.max(1, asFlux(continuum.FluxCost)))
 	local dustFill = meterFill(asFlux(state.Stardust), math.max(1, asFlux(continuum.StardustCost)))
+	local forgeClaimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on FORGE CONTINUUM RANK (FocusClaim prefers Claim-named hosts).
+	React.useEffect(function()
+		if not continuum.CanUpgrade or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = forgeClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { continuum.CanUpgrade, continuum.Rank })
 	local upgradePop = useReadyPop(continuum.CanUpgrade, reducedMotion)
 	local forgeIconScale = upgradePop:map(function(amount)
 		return 1 + amount * 0.18
@@ -443,7 +468,14 @@ local function ContinuumView(_param)
 					weight = Enum.FontWeight.Bold,
 					position = UDim2.fromOffset(12, 78),
 					sizeConstraint = UDim2.new(1, -24, 0, 14),
-				})), React.createElement(Button, {
+				})), React.createElement("frame", {
+					Name = "ContinuumClaimActions",
+					Size = UDim2.new(1, 0, 0, TapTarget),
+					Position = UDim2.new(0, 0, 1, -TapTarget),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ref = forgeClaimHostRef,
+				}, React.createElement(Button, {
 					text = if continuum.CanUpgrade then "FORGE CONTINUUM RANK" else "GATHER RESOURCES",
 					icon = "Rebirth",
 					onClick = function()
@@ -451,12 +483,11 @@ local function ContinuumView(_param)
 					end,
 					color = if continuum.CanUpgrade then Palette.pink else Palette.panelSoft,
 					textColor = if continuum.CanUpgrade then Palette.ink else Palette.muted,
-					size = UDim2.new(1, 0, 0, TapTarget),
-					position = UDim2.new(0, 0, 1, -TapTarget),
+					size = UDim2.fromScale(1, 1),
 					reducedMotion = reducedMotion,
 					disabled = not continuum.CanUpgrade,
 					highlight = continuum.CanUpgrade,
-				})),
+				}))),
 			},
 			{
 				id = "milestone",

@@ -3677,7 +3677,7 @@ local function CrewView(_param)
 		padding = chrome.cardPadding,
 		layoutOrder = 0,
 		reveal = headerReveal,
-		clips = true,
+		clips = false,
 	}, React.createElement(Text, {
 		value = "CREW ROSTER",
 		size = 10,

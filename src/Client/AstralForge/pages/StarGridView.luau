@@ -118,6 +118,7 @@ local function BranchHeader(_param)
 	local layoutOrder = _param.layoutOrder
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local reveal = useStagger(staggerIndex, softMotion)
 	local rowH = if stack then BRANCH_H_STACK else BRANCH_H
 	return React.createElement(Panel, {
@@ -205,6 +206,7 @@ local function NodeRow(_param)
 	local layoutOrder = _param.layoutOrder
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local reveal = useStagger(staggerIndex, softMotion)
 	local rowH = if stack then NODE_H_STACK else NODE_H
 	local _condition = upgrade.PreviousId == nil

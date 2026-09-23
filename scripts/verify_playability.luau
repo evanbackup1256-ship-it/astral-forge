@@ -257,6 +257,27 @@ do
 	assert(string.find(admin, "AdminExecuteActions", 1, true), "Admin must host FocusClaim on AdminExecuteActions")
 	assert(string.find(admin, "AdminConfirmRun", 1, true), "Admin ARM/RUN must be Confirm-tagged for FocusClaim")
 	assert(string.find(admin, "Capacity or 0", 1, true), "Admin VAULT cell must show vault/capacity")
+	local rebirth = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
+	assert(string.find(rebirth, "GamepadNavigationService.FocusClaim", 1, true), "RebirthPanel must FocusClaim REBIRTH/CONFIRM")
+	assert(string.find(rebirth, "RebirthClaimActions", 1, true), "RebirthPanel must host FocusClaim on RebirthClaimActions")
+	local continuum = fs.readFile("src/Client/AstralForge/pages/ContinuumView.luau")
+	assert(string.find(continuum, "GamepadNavigationService.FocusClaim", 1, true), "Continuum must FocusClaim forge CTA")
+	assert(string.find(continuum, "ContinuumClaimActions", 1, true), "Continuum must host FocusClaim on ContinuumClaimActions")
+	local missions = fs.readFile("src/Client/AstralForge/pages/MissionsView.luau")
+	assert(string.find(missions, "GamepadNavigationService.FocusClaim", 1, true), "Missions must FocusClaim CLAIM ALL")
+	assert(string.find(missions, "MissionClaimActions", 1, true), "Missions must host FocusClaim on MissionClaimActions")
+	local lab = fs.readFile("src/Client/AstralForge/pages/LabView.luau")
+	assert(string.find(lab, "GamepadNavigationService.FocusClaim", 1, true), "Lab must FocusClaim CLAIM ALL")
+	assert(string.find(lab, "LabClaimActions", 1, true), "Lab must host FocusClaim on LabClaimActions")
+	local anomaly = fs.readFile("src/Client/AstralForge/pages/AnomalyView.luau")
+	assert(string.find(anomaly, "GamepadNavigationService.FocusClaim", 1, true), "Anomaly must FocusClaim PULSE/BANK strip")
+	assert(string.find(anomaly, "AnomalyClaimActions", 1, true), "Anomaly must host FocusClaim on AnomalyClaimActions")
+	local wheel = fs.readFile("src/Client/AstralForge/pages/WheelView.luau")
+	assert(string.find(wheel, "GamepadNavigationService.FocusClaim", 1, true), "Wheel must FocusClaim SPIN CTA")
+	assert(string.find(wheel, "WheelSpinClaimActions", 1, true), "Wheel must host FocusClaim on WheelSpinClaimActions")
+	local forge = fs.readFile("src/Client/AstralForge/pages/ForgePathView.luau")
+	assert(string.find(forge, "GamepadNavigationService.FocusClaim", 1, true), "ForgePath spotlight must FocusClaim")
+	assert(string.find(forge, "ForgePathClaimActions", 1, true), "ForgePath must host FocusClaim on ForgePathClaimActions")
 end
 
 ------------------------------------------------------------------------
@@ -288,6 +309,8 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/GuildView.luau",
 	"src/Client/AstralForge/pages/ChatView.luau",
 	"src/Client/AstralForge/pages/AdminView.luau",
+	"src/Client/AstralForge/pages/RebirthPanel.luau",
+	"src/Client/AstralForge/pages/CreditsView.luau",
 }
 
 for _, path in SOFT_MOTION_FILES do
@@ -334,6 +357,11 @@ do
 	local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
 	assert(string.find(boosts, "clips = false", 1, true), "Boosts cards must keep clips = false for Activate CTA")
 	assert(string.find(boosts, "position = UDim2.new(0, 0, 1, -TapTarget)", 1, true), "Boosts Activate must stay bottom-pinned")
+
+	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
+	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+	local crewClips = string.match(router, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
+	assert(crewClips == "false", "Crew header must keep clips = false so REFRESH stays reachable")
 
 	-- Crate reveal claim hosts (stage + overlay) must FocusClaim so D-pad/A can reach CLAIM.
 	for _, path in {

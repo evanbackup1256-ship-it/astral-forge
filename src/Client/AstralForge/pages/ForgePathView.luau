@@ -1,4 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Icon = require(script.Parent.Parent.Icon).Icon
 local _ui = require(script.Parent.Parent.ui)
 local IconTile = _ui.IconTile
@@ -12,6 +13,7 @@ local _motion = require(script.Parent.Parent.motion)
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _theme = require(script.Parent.Parent.theme)
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
@@ -108,6 +110,26 @@ end
 local function SpotlightPanel(_param)
 	local step, xp, ready, complete, guide = _param.step, _param.xp, _param.ready, _param.complete, _param.guide
 	local onClaim, reducedMotion, stack = _param.onClaim, _param.reducedMotion, _param.stack
+	local claimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on CLAIM NOW when ready.
+	React.useEffect(function()
+		if not ready or complete or step == nil or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = claimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { ready, complete, if step ~= nil then step.Step else 0 })
 	if complete then
 		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mint, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
 			React.createElement(EmptyState, { icon = "Check", title = "Forge Path complete", body = (guide and guide.Complete) or "Path cleared. Permanent bonuses stay through rebirth.", accent = Palette.mint, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
@@ -126,8 +148,10 @@ local function SpotlightPanel(_param)
 	React.createElement(Text, { value = if needXp then ((guide and guide.NeedXp) or "Earn Forge Path XP by banking flux — it trickles in as you play.") else formatReward(step.Reward), size = 11, color = if needXp then Palette.creamSoft else Palette.mango, wrap = true, position = UDim2.fromOffset(0, 50), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 32) }),
 	React.createElement(Meter, { value = progressFrac, color = if ready then step.Color else Palette.violet, reducedMotion = reducedMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 96 else 92), size = UDim2.new(1, if stack then 0 else -180, 0, 8) }),
 	React.createElement(Text, { value = `{compactNumber(math.min(xp, step.XPCost))} / {compactNumber(step.XPCost)} XP`, size = 10, color = Palette.muted, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(0, if stack then 110 else 106), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
-	if stack then React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED MORE XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget), reducedMotion = reducedMotion, disabled = not ready, highlight = ready })
-	else React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromOffset(160, TapTarget), position = UDim2.new(1, -160, 0.5, -TapTarget / 2), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
+	if stack then React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.new(1, 0, 0, TapTarget), Position = UDim2.new(0, 0, 1, -TapTarget), BackgroundTransparency = 1, BorderSizePixel = 0, ref = claimHostRef },
+		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED MORE XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
+	else React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.fromOffset(160, TapTarget), Position = UDim2.new(1, -160, 0.5, -TapTarget / 2), BackgroundTransparency = 1, BorderSizePixel = 0, ref = claimHostRef },
+		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready })))
 end
 local function ForgePathViewComponent(_param)
 	local state, config, dispatch, reducedMotion = _param.state, _param.config, _param.dispatch, _param.reducedMotion
@@ -136,6 +160,7 @@ local function ForgePathViewComponent(_param)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local forgePath = state.ForgePath or EMPTY_FORGE_PATH
 	local guide = pageGuide(config)
 	local steps = React.useMemo(function()

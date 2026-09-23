@@ -5,6 +5,7 @@
 -- upgrades. Every dispatch action, payload shape, and the state comparator at the bottom are
 -- unchanged from the prior implementation — this only restructures how it's presented.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Audio = require(script.Parent.Parent.audio).Audio
 local useUnixDeadline = require(script.Parent.Parent.deadlines).useUnixDeadline
@@ -15,6 +16,7 @@ local formatReward = _format.formatReward
 local gteFlux = _format.gteFlux
 local scaledCost = _format.scaledCost
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _motion = require(script.Parent.Parent.motion)
 local easeOutBack = _motion.easeOutBack
@@ -1284,6 +1286,27 @@ local function ReactorConsole(_param)
 	local antilag = useAntilag()
 	local skipEntrance = reducedMotion or antilag.skipEntrance
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
+	local anomalyClaimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on PULSE/BANK/SURGE strip.
+	React.useEffect(function()
+		if not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = anomalyClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { anomaly.Ready, anomaly.TypeId })
 	-- Cycle/surge countdowns stay live (gameplay timers). Decorative ring spin gates below.
 	local timer = useWallClock(true)
 	-- Needle/combo stay playable whenever motion is allowed; ring spin needs ambient + tier 2+.
@@ -1731,10 +1754,12 @@ local function ReactorConsole(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, _exp_12, _exp_13, _exp_14, _exp_15, React.createElement(StatPill, _attributes_4)), React.createElement("frame", {
+		Name = "AnomalyClaimActions",
 		Size = UDim2.new(1, 0, 0, actionH),
 		Position = UDim2.new(0, 0, 1, -actionH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ref = anomalyClaimHostRef,
 	}, React.createElement(Button, {
 		text = "PULSE",
 		icon = "Anomaly",

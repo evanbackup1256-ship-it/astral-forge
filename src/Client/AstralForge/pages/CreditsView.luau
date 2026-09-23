@@ -3,6 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.audio).Audio
 local ClientLog = require(script.Parent.Parent.log).ClientLog
 local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
+local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _motion = require(script.Parent.Parent.motion)
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
@@ -55,6 +56,9 @@ local function CreditsOverlay(_param)
 	local version = _param.version
 	local reducedMotion = _param.reducedMotion
 	local onClose = _param.onClose
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local enter = useEntrance(reducedMotion)
 	local _binding = useExitTransition(reducedMotion)
 	local exit = _binding[1]

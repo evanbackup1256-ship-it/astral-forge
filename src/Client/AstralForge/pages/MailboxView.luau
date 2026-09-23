@@ -157,6 +157,8 @@ local function MailboxView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local mobileRoute = chrome.mobile
 	local compactChrome = chrome.landscape or viewport.keyboardOpen or viewport.height < 700

@@ -1,6 +1,8 @@
 local exports = {}
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _motion = require(script.Parent.Parent.motion)
 local useFlash = _motion.useFlash
 local usePulse = _motion.usePulse
@@ -224,10 +226,33 @@ local function MissionsView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local quests = state.Quests
 	local filter, setFilter = React.useState("All")
 	local counts = taskFilterCounts(quests)
+	local missionClaimHostRef = React.useRef(nil)
+	-- Gamepad: park Selection on CLAIM ALL when ready.
+	React.useEffect(function()
+		if counts.Ready <= 0 or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = missionClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { counts.Ready, filter })
 	local guide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Missions else nil
 	local claimAllReady = function()
 		for _, quest in quests do
@@ -281,17 +306,23 @@ local function MissionsView(_param)
 		color = Palette.muted,
 		wrap = true,
 		sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 36),
-	}), counts.Ready > 0 and React.createElement(Button, {
+	}), counts.Ready > 0 and React.createElement("frame", {
+		Name = "MissionClaimActions",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		Position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = missionClaimHostRef,
+	}, React.createElement(Button, {
 		text = `CLAIM ALL READY · {counts.Ready}`,
 		icon = "Gift",
 		onClick = claimAllReady,
 		color = Palette.green,
 		textColor = Palette.ink,
-		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		highlight = true,
-	}), React.createElement(Dropdown, {
+	})), React.createElement(Dropdown, {
 		options = options,
 		value = filter,
 		onChange = setFilter,
@@ -331,17 +362,23 @@ local function MissionsView(_param)
 		size = UDim2.fromOffset(224, 48),
 		reducedMotion = reducedMotion,
 		zIndex = 44,
-	}), counts.Ready > 0 and React.createElement(Button, {
+	}), counts.Ready > 0 and React.createElement("frame", {
+		Name = "MissionClaimActions",
+		Size = UDim2.fromOffset(168, 40),
+		Position = UDim2.new(0, 236, 0, 74),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = missionClaimHostRef,
+	}, React.createElement(Button, {
 		text = `CLAIM ALL · {counts.Ready}`,
 		icon = "Gift",
 		onClick = claimAllReady,
 		color = Palette.green,
 		textColor = Palette.ink,
-		size = UDim2.fromOffset(168, 40),
-		position = UDim2.new(0, 236, 0, 74),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		highlight = true,
-	}), React.createElement(Text, {
+	})), React.createElement(Text, {
 		value = `{counts.Done} / {#quests}`,
 		size = 18,
 		color = Palette.cyan,

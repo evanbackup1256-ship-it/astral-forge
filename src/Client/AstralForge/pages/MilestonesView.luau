@@ -208,6 +208,9 @@ local function MilestonesView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local list = state.Achievements or {}
 	local filter, setFilter = React.useState("All")

@@ -1,6 +1,8 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local Audio = require(script.Parent.Parent.audio).Audio
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
@@ -815,6 +817,7 @@ local function WheelConsole(_param)
 	local onSpin = _param.onSpin
 	local height = _param.height
 	local reducedMotion = _param.reducedMotion
+	local spinClaimHostRef = _param.spinClaimHostRef
 	local compact = _param.compact
 	if compact == nil then
 		compact = false
@@ -1080,18 +1083,24 @@ local function WheelConsole(_param)
 		shimmer = pityArmed,
 		position = UDim2.fromOffset(10, if compact then 27 else 31),
 		size = UDim2.new(1, -20, 0, if compact then 6 else 7),
-	}))), React.createElement(Button, {
+	}))), React.createElement("frame", {
+		Name = "WheelSpinClaimActions",
+		Size = UDim2.new(1, -edge * 2, 0, buttonHeight),
+		Position = UDim2.new(0, edge, 1, -(buttonHeight + buttonBottom)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ref = spinClaimHostRef,
+	}, React.createElement(Button, {
 		text = if controller.spinning then "SPINNING" elseif canSpin then (if pityArmed then (if compact then "SPIN · PITY" else "SPIN · PITY ARMED") elseif compact then "SPIN WHEEL" else "SPIN PRIZE WHEEL") else "DRAW NOT READY",
 		icon = "Wheel",
 		onClick = onSpin,
 		color = if canSpin and not controller.spinning then Palette.mango else Palette.panelSoft,
 		textColor = if canSpin and not controller.spinning then Palette.ink else Palette.muted,
-		size = UDim2.new(1, -edge * 2, 0, buttonHeight),
-		position = UDim2.new(0, edge, 1, -(buttonHeight + buttonBottom)),
+		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		disabled = controller.spinning or not canSpin,
 		highlight = canSpin and not controller.spinning,
-	}))
+	})))
 end
 local PRIZE_ROW_H = 56
 local function PrizeCatalogRow(_param)
@@ -1138,7 +1147,28 @@ local function WheelView(props)
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
+	local spinClaimHostRef = React.useRef(nil)
 	local controller = useWheelController(props)
+	-- Gamepad: park Selection on SPIN CTA.
+	React.useEffect(function()
+		if state.Wheel.CanSpin ~= true or controller.spinning or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = spinClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { state.Wheel.CanSpin, controller.spinning })
 	local rewards = config.Wheel.Rewards
 	local landscape = chrome.landscape or (viewport.width > viewport.height * 1.35 and viewport.height < 680)
 	local shortLandscape = landscape and viewport.width >= 480 and viewport.width < 900 and viewport.height <= 430
@@ -1260,6 +1290,7 @@ local function WheelView(props)
 					onSpin = controller.spin,
 					height = consoleH,
 					reducedMotion = reducedMotion,
+					spinClaimHostRef = spinClaimHostRef,
 					compact = shortLandscape,
 				}))),
 			},

@@ -1,5 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
+local GamepadNavigationService = require(script.Parent.Parent.input.GamepadNavigationService)
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
@@ -305,9 +307,11 @@ local function LabView(_param)
 	local stack = chrome.contentStack
 	local lab = state.Lab
 	local antilag = useAntilag()
-	local quietMotion = reducedMotion or antilag.skipEntrance or not antilag.allowAmbient
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local now = useWallClock(true)
-	local headerReveal = useStagger(0, quietMotion)
+	local headerReveal = useStagger(0, softMotion)
+	local labClaimHostRef = React.useRef(nil)
 	if lab == nil then
 		return React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, 160),
@@ -342,6 +346,25 @@ local function LabView(_param)
 			end
 		end
 	end
+	-- Gamepad: park Selection on CLAIM ALL when orders are ready.
+	React.useEffect(function()
+		if readyOrders <= 0 or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = labClaimHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { readyOrders })
 	local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Lab else nil
 	local orderH = if stack then ORDER_HEIGHT_STACK else ORDER_HEIGHT
 	local orderBlock = if #lab.Orders > 0 then #lab.Orders * orderH + math.max(0, #lab.Orders - 1) * ORDER_GAP else 160
@@ -470,17 +493,23 @@ local function LabView(_param)
 			accent = Palette.mango,
 			position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 46),
 			size = UDim2.fromOffset(148, 24),
-		}), readyOrders > 0 and React.createElement(Button, {
+		}), readyOrders > 0 and React.createElement("frame", {
+			Name = "LabClaimActions",
+			Size = UDim2.fromOffset(148, 36),
+			Position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 78),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ref = labClaimHostRef,
+		}, React.createElement(Button, {
 			text = `CLAIM ALL · {readyOrders}`,
 			icon = "Gift",
 			onClick = claimAllOrders,
 			color = Palette.mint,
 			textColor = Palette.ink,
-			size = UDim2.fromOffset(148, 36),
-			position = UDim2.new(1, -(156 + ROW_RIGHT), 0, 78),
+			size = UDim2.fromScale(1, 1),
 			reducedMotion = reducedMotion,
 			highlight = true,
-		}))
+		})))
 	end
 	local _exp_3 = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
