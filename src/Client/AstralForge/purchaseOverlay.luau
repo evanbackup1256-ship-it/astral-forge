@@ -1,6 +1,8 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.audio).Audio
+local GamepadNavigationService = require(script.Parent.input.GamepadNavigationService)
 local Icon = require(script.Parent.Icon).Icon
 local _motion = require(script.Parent.motion)
 local easeOutBack = _motion.easeOutBack
@@ -17,6 +19,7 @@ local darken = _theme.darken
 local Palette = _theme.Palette
 local surfaceGradient = _theme.surfaceGradient
 local _ui = require(script.Parent.ui)
+local Button = _ui.Button
 local OverlayPresence = _ui.OverlayPresence
 local Text = _ui.Text
 local PURCHASE_RESULT_HOLD = 2.2
@@ -135,6 +138,7 @@ local function PurchaseOverlay(_param)
 	local nonce, setNonce = React.useState(0)
 	local dismissRef = React.useRef(onDismiss)
 	local dismissStarted = React.useRef(false)
+	local overlayHostRef = React.useRef(nil)
 	dismissRef.current = onDismiss
 	local previousPhase = React.useRef("hidden")
 	React.useEffect(function()
@@ -184,6 +188,34 @@ local function PurchaseOverlay(_param)
 			return task.cancel(worker)
 		end
 	end, { dismiss, phase, reducedMotion, result })
+	React.useEffect(function()
+		if phase == "hidden" then
+			GamepadNavigationService.EndOverlayFocus()
+			return nil
+		end
+		GamepadNavigationService.BeginOverlayFocus()
+		return function()
+			GamepadNavigationService.EndOverlayFocus()
+		end
+	end, { phase })
+	React.useEffect(function()
+		if not result or not UserInputService.GamepadEnabled then
+			return nil
+		end
+		local host = overlayHostRef.current
+		if host == nil then
+			return nil
+		end
+		local selectJob = task.defer(function()
+			if host.Parent == nil then
+				return
+			end
+			GamepadNavigationService.FocusClaim(host)
+		end)
+		return function()
+			task.cancel(selectJob)
+		end
+	end, { phase, result })
 	local accent = if phase == "fail" then Palette.coral elseif phase == "success" then Palette.mint else Palette.mango
 	local title = if phase == "pending" then "BUYING..." elseif phase == "success" then "BOUGHT" else "COULDN'T BUY"
 	local _result
@@ -242,6 +274,7 @@ local function PurchaseOverlay(_param)
 		ZIndex = 400,
 	})
 	local _exp_1 = React.createElement("imagebutton", {
+		Name = "PurchaseDismissBackdrop",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Image = "",
@@ -250,6 +283,13 @@ local function PurchaseOverlay(_param)
 		Selectable = false,
 		Modal = visible,
 		ZIndex = 401,
+		Event = {
+			Activated = function()
+				if result and not exiting then
+					dismiss()
+				end
+			end,
+		},
 	})
 	local _exp_2 = React.createElement("frame", {
 		Size = UDim2.new(1, 0, 1, 4),
@@ -409,19 +449,32 @@ local function PurchaseOverlay(_param)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
 		Color = ColorSequence.new(Palette.white, accent),
-	}))), result and React.createElement(Text, {
-		value = "TAP ANYWHERE TO CONTINUE",
-		size = 8,
+	}))), result and React.createElement("frame", {
+		Name = "PurchaseContinue",
+		Size = UDim2.new(1, -(copyLeft + (if shortLandscape then 20 else 26)), 0, 36),
+		Position = UDim2.new(0, copyLeft, 1, -44),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 412,
+	}, React.createElement(Button, {
+		text = "CONTINUE",
+		onClick = dismiss,
 		color = accent,
-		weight = Enum.FontWeight.Bold,
-		align = if shortLandscape then Enum.TextXAlignment.Right else Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 7,
-		position = UDim2.new(0, copyLeft, 1, -23),
-		sizeConstraint = UDim2.new(1, copyWidth, 0, 14),
-		zIndex = 410,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+		highlight = true,
+		selectable = true,
+		zIndex = 412,
 	}))))))
-	return content
+	return React.createElement("frame", {
+		ref = overlayHostRef,
+		Name = "PurchaseOverlayHost",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 400,
+	}, content)
 end
 return {
 	PurchaseOverlay = PurchaseOverlay,

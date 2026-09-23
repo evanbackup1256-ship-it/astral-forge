@@ -51,7 +51,8 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.OverdriveState(now: number?)
-		local timestamp = now or os.time()
+		-- Same GetServerTimeNow clock as pulse / client useWallClock countdowns.
+		local timestamp = now or pulseNow()
 		return {
 			Charge = overdrive.Charge,
 			Target = GameConfig.Anomalies.OverdriveTarget,
@@ -62,14 +63,14 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.OverdriveMultiplier(now: number?): number
-		if overdriveActive(now or os.time()) then
+		if overdriveActive(now or pulseNow()) then
 			return GameConfig.Anomalies.OverdriveBonusMultiplier
 		end
 		return 1
 	end
 
 	local function currentCycle(now: number?): (number, any, number)
-		local timestamp = now or os.time()
+		local timestamp = now or pulseNow()
 		local cycle = math.floor(timestamp / GameConfig.Anomalies.CycleSeconds)
 		local index = cycle % #GameConfig.Anomalies.Types + 1
 		return cycle, GameConfig.Anomalies.Types[index], (cycle + 1) * GameConfig.Anomalies.CycleSeconds
@@ -185,7 +186,7 @@ return function(loadService: (string) -> any)
 	function AnomalyService.Progress(profile, baseAmount: number): (number, boolean)
 		AnomalyService.Ensure(profile)
 		local _, anomaly = currentCycle()
-		profile.Anomaly.LastActionAt = os.time()
+		profile.Anomaly.LastActionAt = pulseNow()
 
 		local target = AnomalyService.Target(profile)
 		local wasReady = profile.Anomaly.Charge >= target
@@ -231,10 +232,10 @@ return function(loadService: (string) -> any)
 			accuracyBonus = 1 + GameConfig.Anomalies.PulseAccurateBonus
 		end
 
-		-- Overdrive / Progress still key off wall-clock seconds (multi-second durations).
-		local wallNow = os.time()
+		-- Overdrive / Progress share the pulse clock so BonusEndsAt / LastActionAt match
+		-- client GetServerTimeNow countdowns (no os.time dual-clock drift).
 		local pulsePower = 1 + protocolEffect(profile, "PulsePower")
-		local overdriveMultiplier = AnomalyService.OverdriveMultiplier(wallNow)
+		local overdriveMultiplier = AnomalyService.OverdriveMultiplier(now)
 		local amount, becameReady = AnomalyService.Progress(
 			profile,
 			random:NextNumber(3.8, 5.4) * pulsePower * comboBonus * accuracyBonus * overdriveMultiplier
@@ -242,7 +243,7 @@ return function(loadService: (string) -> any)
 		AnomalyService.Signal(profile, "Pulse", 1)
 		AnomalyService.Signal(profile, "Combo", profile.Anomaly.Combo)
 		profile.Stats.AnomalyPulses += 1
-		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, wallNow)
+		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, now)
 		return true,
 			accurate
 				and string.format("Perfect pulse! Combo x%d, +%.1f charge.", profile.Anomaly.Combo, amount)
@@ -286,7 +287,7 @@ return function(loadService: (string) -> any)
 			return false, string.format("The anomaly needs %.1f more charge.", target - profile.Anomaly.Charge)
 		end
 
-		local now = os.time()
+		local now = pulseNow()
 		profile.Anomaly.Charge = math.max(0, profile.Anomaly.Charge - target)
 		profile.Anomaly.Stabilizations += 1
 		profile.Anomaly.Discoveries[anomaly.Id] = (profile.Anomaly.Discoveries[anomaly.Id] or 0) + 1
@@ -355,7 +356,7 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.ActivateSurge(profile): (boolean, string, any?)
-		local now = os.time()
+		local now = pulseNow()
 		if profile.Anomaly.SurgeEndsAt > now then
 			return false, "Quantum Surge is already active."
 		end
@@ -365,7 +366,7 @@ return function(loadService: (string) -> any)
 		end
 		profile.Anomaly.Fragments -= cost
 		local duration = GameConfig.Anomalies.SurgeBaseSeconds + protocolEffect(profile, "SurgeDuration")
-		profile.Anomaly.SurgeEndsAt = now + math.floor(duration)
+		profile.Anomaly.SurgeEndsAt = now + duration
 		return true,
 			string.format("Surge on for %d seconds.", duration),
 			{
@@ -467,7 +468,8 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.State(profile)
-		local cycle, anomaly, endsAt = currentCycle()
+		local now = pulseNow()
+		local cycle, anomaly, endsAt = currentCycle(now)
 
 		local directiveCycleIsCurrent = profile.Anomaly.DirectiveCycle == cycle
 		local directiveProgress = directiveCycleIsCurrent and profile.Anomaly.DirectiveProgress or {}
@@ -519,7 +521,7 @@ return function(loadService: (string) -> any)
 		end
 		local target = AnomalyService.Target(profile)
 		local ready = profile.Anomaly.Charge >= target
-		local surgeActive = profile.Anomaly.SurgeEndsAt > os.time()
+		local surgeActive = profile.Anomaly.SurgeEndsAt > now
 		local phase = if surgeActive
 			then (if ready then "SurgingReady" else "Surging")
 			elseif ready then "Ready"
@@ -572,7 +574,7 @@ return function(loadService: (string) -> any)
 			CoreTier = coreTier,
 			CoreXP = coreXP,
 			NextCoreTier = nextCoreTier,
-			Overdrive = AnomalyService.OverdriveState(),
+			Overdrive = AnomalyService.OverdriveState(now),
 		}
 	end
 

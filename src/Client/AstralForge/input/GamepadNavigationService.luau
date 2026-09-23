@@ -116,8 +116,9 @@ function GamepadNavigationService.ClearSelection()
 	end)
 end
 
--- Claim / skip path for crate reveal and similar overlays: enable Gui navigation
--- and park Selection on the first valid GuiButton under `root`.
+-- Claim / skip / ready / confirm / buy path for overlays and session CTAs: enable Gui
+-- navigation and park Selection on the highest-priority valid GuiButton under `root`.
+-- Priority prefers commit actions (claim/confirm/buy) over staging (ready) or dismiss.
 function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
 	if not UserInputService.GamepadEnabled then
 		return nil
@@ -127,33 +128,50 @@ function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
 	end
 	GuiService.GuiNavigationEnabled = true
 	GuiService.AutoSelectGuiEnabled = true
-	local preferred: GuiObject? = nil
-	local function tagMatch(instance: Instance): boolean
+	local TAG_PRIORITY = {
+		claim = 1,
+		confirm = 1,
+		buy = 2,
+		dismiss = 2,
+		continue = 2,
+		ready = 3,
+		skip = 4,
+	}
+	local function tagScore(instance: Instance): number?
 		local current: Instance? = instance
+		local best: number? = nil
 		while current ~= nil and current ~= root do
 			local name = string.lower(current.Name)
-			if string.find(name, "claim", 1, true) or string.find(name, "skip", 1, true) then
-				return true
+			for tag, rank in TAG_PRIORITY do
+				if string.find(name, tag, 1, true) then
+					if best == nil or rank < best then
+						best = rank
+					end
+				end
 			end
 			current = current.Parent
 		end
-		return false
+		return best
 	end
+	local preferred: GuiObject? = nil
+	local preferredScore = math.huge
+	local fallback: GuiObject? = nil
 	for _, child in root:GetDescendants() do
 		if child:IsA("GuiButton") and GamepadNavigationService.IsValidFocusTarget(child) then
-			if tagMatch(child) then
+			local score = tagScore(child)
+			if score ~= nil and score < preferredScore then
 				preferred = child
-				break
-			end
-			if preferred == nil then
-				preferred = child
+				preferredScore = score
+			elseif fallback == nil then
+				fallback = child
 			end
 		end
 	end
-	if preferred ~= nil then
-		GamepadNavigationService.AssignSelection(preferred)
+	local target = preferred or fallback
+	if target ~= nil then
+		GamepadNavigationService.AssignSelection(target)
 	end
-	return preferred
+	return target
 end
 
 -- Begin a modal overlay focus session (crate reveal, empty reveal). Call EndOverlayFocus on exit.
