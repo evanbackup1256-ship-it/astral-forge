@@ -455,6 +455,7 @@ local function CreditsOverlay(_param)
 			return 1 - amount * 0.82
 		end),
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		Active = true,
 		ZIndex = 318,
 		Visible = reveal:map(function(amount)

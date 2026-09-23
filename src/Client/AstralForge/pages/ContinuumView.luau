@@ -479,6 +479,7 @@ local function ContinuumView(_param)
 					Position = UDim2.new(0, 0, 1, -TapTarget),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
+					ClipsDescendants = false,
 					ref = forgeClaimHostRef,
 				}, React.createElement(Button, {
 					text = if continuum.CanUpgrade then "FORGE CONTINUUM RANK" else "GATHER RESOURCES",

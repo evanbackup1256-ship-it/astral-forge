@@ -322,6 +322,7 @@ local function MissionsView(_param)
 		Position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = missionClaimHostRef,
 	}, React.createElement(Button, {
 		text = `CLAIM ALL READY · {counts.Ready}`,
@@ -378,6 +379,7 @@ local function MissionsView(_param)
 		Position = UDim2.new(0, 236, 0, 74),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = missionClaimHostRef,
 	}, React.createElement(Button, {
 		text = `CLAIM ALL · {counts.Ready}`,

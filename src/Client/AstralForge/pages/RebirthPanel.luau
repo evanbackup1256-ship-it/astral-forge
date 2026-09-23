@@ -244,6 +244,7 @@ local function RebirthPanel(_param)
 		Position = if stack then UDim2.new(0, 0, 1, -(ctaH * 2 + 8)) else UDim2.new(1, -286, 0, 40),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = rebirthClaimHostRef,
 	}, React.createElement(Button, {
 		text = if busy then "REBIRTHING…" elseif confirming then "CONFIRM REBIRTH" elseif canRebirth then "REBIRTH" else "NOT READY",

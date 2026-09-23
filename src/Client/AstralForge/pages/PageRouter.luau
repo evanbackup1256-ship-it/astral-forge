@@ -3082,6 +3082,7 @@ local function RewardsView(_param)
 		Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		ref = if dailyReady then rewardsClaimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if dailyReady then "Claim" else "Claimed",
@@ -3154,6 +3155,7 @@ local function RewardsView(_param)
 		Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		-- Prefer Daily Claim when both ready; otherwise park on Timed CLAIM.
 		ref = if timedReady and not dailyReady then rewardsClaimHostRef else nil,
 	}, React.createElement(Button, {

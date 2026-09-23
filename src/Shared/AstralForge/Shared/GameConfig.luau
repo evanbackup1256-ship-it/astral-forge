@@ -700,6 +700,28 @@ local GameConfig = {
 				Reward = { Stardust = 56, CashMinutes = 4, Signals = 20 },
 				Color = Color3.fromRGB(255, 180, 220),
 			},
+			{
+				Id = "Wave18ConvergenceOps",
+				Name = "Wave Eighteen Convergence Ops",
+				Description = "Tap through a short tally while ConvergenceOpsMath EnsureEventProfile rebuilds nil-Contribution LiveOps bags.",
+				Kind = "Tap",
+				BaseTarget = 125,
+				ProductionSeconds = 0,
+				PerRebirth = 0.35,
+				Reward = { Stardust = 44, CashMinutes = 3, Signals = 17 },
+				Color = Color3.fromRGB(110, 245, 255),
+			},
+			{
+				Id = "Wave18ClaimClipsSoftMotion",
+				Name = "Wave Eighteen Claim Clips Soft Motion",
+				Description = "Bank flux while Research/Missions/Continuum/Boosts/Anomaly/Settings ClaimActions stay unclipped and Missions overscan softMotion-gates.",
+				Kind = "BankFlux",
+				BaseTarget = 5_200,
+				ProductionSeconds = 60,
+				PerRebirth = 0,
+				Reward = { Stardust = 58, CashMinutes = 4, Signals = 21 },
+				Color = Color3.fromRGB(255, 175, 225),
+			},
 		},
 		Power = {
 			BaseCells = 12,
@@ -3140,6 +3162,22 @@ local GameConfig = {
 			Target = 32,
 			Reward = { Stardust = 320, Signals = 90, CashMinutes = 29, Boost = "SteadyBurn" },
 		},
+		{
+			Id = "Wave18ConvergenceCourier",
+			Name = "Wave Eighteen Convergence Courier",
+			Description = "Claim 64 story chapters after ConvergenceOpsMath EnsureEventProfile extract + nil-Contribution Flush fix.",
+			Kind = "StoryClaims",
+			Target = 64,
+			Reward = { Stardust = 320, Signals = 90, CashMinutes = 30, FreeSpins = 1 },
+		},
+		{
+			Id = "Wave18ClaimClipRunner",
+			Name = "Wave Eighteen Claim Clip Runner",
+			Description = "Hold a 34-day daily streak while Research/Missions/Continuum/Boosts ClaimActions unclipped + Missions overscan stay verified.",
+			Kind = "DailyStreak",
+			Target = 34,
+			Reward = { Stardust = 330, Signals = 92, CashMinutes = 30, Boost = "Afterburner" },
+		},
 	},
 
 	DailyRewards = {
@@ -4726,9 +4764,41 @@ local GameConfig = {
 			Color = Color3.fromRGB(120, 240, 255),
 		},
 
+		{
+			Id = "wave18-harden-brief",
+			Title = "Wave Eighteen Harden Brief",
+			Chapter = "LORE: MISSION BAY",
+			Summary = "ConvergenceOpsMath extract; nil-Contribution Flush fix and ClaimActions clips stay honest.",
+			Body = {
+				"ConvergenceOpsMath EnsureEventProfile/ReadEventProfile/ProductionMultiplier/PhaseState keep LiveOps Flush/Claim/State Lune-testable.",
+				"EventId-matched bags missing Contribution no longer throw on Flush `Contribution += amount`; Claim EnsureRewardBags before Stats/Command/BoostInventory.",
+				"Research/Missions/Continuum/Boosts/Anomaly/Settings/Rewards/Rebirth/Credits ClaimActions stay unclipped; Missions/Mailbox/Guild/Trade overscan softMotion-gates; schema stays DataVersion 21.",
+			},
+			Kind = "Always",
+			Target = 1,
+			Reward = { Stardust = 56, CashMinutes = 23, Signals = 25 },
+			Color = Color3.fromRGB(110, 245, 255),
+		},
+
 	},
 
 	Mail = {
+
+		{
+			Id = "update-5-1-wave18-harden",
+			Subject = "Dock note — wave eighteen harden",
+			Sender = "Mara / Dockmaster",
+			Date = "SEP 23, 2026",
+			Preview = "ConvergenceOpsMath extract + nil-Contribution Flush fix + ClaimActions clips — still DataVersion 21.",
+			Body = {
+				"Convergence event-profile Ensure is Lune-testable; Flush/Claim no longer throw when EventId-matched bags omit Contribution.",
+				"Research/Missions/Continuum/Boosts/Anomaly/Settings/Rewards/Rebirth/Credits ClaimActions keep ClipsDescendants false; Missions/Mailbox/Guild/Trade overscan softMotion-gates.",
+				"Pull tip SHA and run Device Simulator + ReleaseReadiness before ENTIRE.",
+				"Schema stays DataVersion 21. Attachment for reading the memo.",
+			},
+			Attachment = { CashMinutes = 56, Stardust = 72, Signals = 29 },
+			Color = Color3.fromRGB(110, 245, 255),
+		},
 
 		{
 			Id = "update-5-1-wave17-harden",
