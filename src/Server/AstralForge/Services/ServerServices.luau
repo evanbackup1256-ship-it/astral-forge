@@ -71,6 +71,9 @@ serviceFactories["GameService"] = function()
 	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
 	local ActionResponse = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionResponse"))
 	local GeneralBoardValue = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GeneralBoardValue"))
+	local TelemetryMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TelemetryMath"))
+	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UtcClockMath"))
+	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
@@ -96,8 +99,6 @@ serviceFactories["GameService"] = function()
 	GameService.__index = GameService
 
 	local MAX_SAFE_CURRENCY = 1e308
-	local TELEMETRY_VERSION = 1
-	local TELEMETRY_BYTES = 30
 	local AUTO_FORGE_INTERVAL = 2
 	local PROFILE_MAINTENANCE_INTERVAL = 10
 	local GUILD_REFRESH_INTERVAL = 30
@@ -125,11 +126,7 @@ serviceFactories["GameService"] = function()
 	local anomalyChargeByAction = ActionFeatureMaps.ANOMALY_CHARGE
 
 	local function telemetryNumber(value: any): number
-		local numeric = Economy.AsNumber(value)
-		if numeric ~= numeric or numeric == math.huge or numeric == -math.huge then
-			return 0
-		end
-		return math.clamp(numeric, -3.4e38, 3.4e38)
+		return TelemetryMath.Number(value, Economy.AsNumber)
 	end
 
 	local function encodeTelemetry(
@@ -142,30 +139,17 @@ serviceFactories["GameService"] = function()
 		cores: number,
 		stardust: number
 	): buffer
-		local packed = buffer.create(TELEMETRY_BYTES)
-		local flags = 0
-		if settings.ReducedMotion then
-			flags = bit32.bor(flags, 1)
-		end
-		if settings.UIEffects then
-			flags = bit32.bor(flags, 2)
-		end
-		if settings.SoundEffects then
-			flags = bit32.bor(flags, 4)
-		end
-		if settings.HideOtherPlots then
-			flags = bit32.bor(flags, 8)
-		end
-		buffer.writeu8(packed, 0, TELEMETRY_VERSION)
-		buffer.writeu8(packed, 1, flags)
-		buffer.writeu32(packed, 2, math.floor(math.max(0, revision)) % 4_294_967_296)
-		buffer.writef32(packed, 6, telemetryNumber(cash))
-		buffer.writef32(packed, 10, telemetryNumber(vault))
-		buffer.writef32(packed, 14, telemetryNumber(production))
-		buffer.writef32(packed, 18, telemetryNumber(capacity))
-		buffer.writef32(packed, 22, telemetryNumber(cores))
-		buffer.writef32(packed, 26, telemetryNumber(stardust))
-		return packed
+		return TelemetryMath.Encode(
+			revision,
+			settings,
+			cash,
+			vault,
+			production,
+			capacity,
+			cores,
+			stardust,
+			Economy.AsNumber
+		)
 	end
 
 	local anomalySignalByAction = ActionFeatureMaps.ANOMALY_SIGNAL
@@ -204,11 +188,11 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function utcDay(): number
-		return math.floor(os.time() / 86_400)
+		return UtcClockMath.Day(os.time())
 	end
 
 	local function nextUtcMidnight(): number
-		return (utcDay() + 1) * 86_400
+		return UtcClockMath.NextMidnight(os.time())
 	end
 
 	local function offerStockMax(offer): number
@@ -250,15 +234,7 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function copyDictionary(source)
-		local result = {}
-		for key, value in source do
-			if type(value) == "table" then
-				result[key] = copyDictionary(value)
-			else
-				result[key] = value
-			end
-		end
-		return result
+		return DataSanitizeMath.DeepCopy(source)
 	end
 
 	local function responseError(message: string)

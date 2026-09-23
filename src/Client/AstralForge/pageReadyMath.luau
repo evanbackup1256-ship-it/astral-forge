@@ -108,4 +108,41 @@ function PageReadyMath.SameCrewSnapshot(left: any, right: any): boolean
 	return true
 end
 
+-- Overview ops strip: anomaly pulse ready or any unclaimed met directive.
+function PageReadyMath.AnomalyReady(anomaly: any): boolean
+	if type(anomaly) ~= "table" then
+		return false
+	end
+	if anomaly.Ready == true then
+		return true
+	end
+	local directives = anomaly.Directives
+	if type(directives) ~= "table" then
+		return false
+	end
+	for _, directive in directives do
+		if type(directive) == "table" and not directive.Claimed then
+			local progress = tonumber(directive.Progress)
+			local target = tonumber(directive.Target)
+			if progress ~= nil and target ~= nil and progress >= target then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Sum of ready mission/lab/path/anomaly claim badges on Overview ops rail.
+function PageReadyMath.OpsClaims(missionsReady: any, labReady: any, pathReady: any, anomalyReady: any): number
+	local total = math.max(0, math.floor(tonumber(missionsReady) or 0))
+		+ math.max(0, math.floor(tonumber(labReady) or 0))
+	if pathReady then
+		total += 1
+	end
+	if anomalyReady then
+		total += 1
+	end
+	return total
+end
+
 return table.freeze(PageReadyMath)

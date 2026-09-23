@@ -217,7 +217,7 @@ function Economy.ItemEffect(
 			and (not slotFilter or slot == slotFilter)
 			and (not targetFilter or target == targetFilter)
 		then
-			total += definition.BaseEffect * (1 + definition.LevelGrowth * math.max(0, instance.Level - 1))
+			total += EconomyEnvelopeMath.EffectAtLevel(definition, instance.Level)
 		end
 	end
 	return total
@@ -234,10 +234,10 @@ function Economy.ArtifactEffect(profile: ProfileLike, effectKind: string): numbe
 	end
 	local artifact = Economy.GetArtifact(command.EquippedArtifact)
 	local owned = command.Artifacts[command.EquippedArtifact]
-	if not artifact or not owned or artifact.EffectKind ~= effectKind then
+	if not artifact or not owned then
 		return 0
 	end
-	return artifact.EffectPerLevel * owned.Level
+	return EconomyEnvelopeMath.ArtifactLevelEffect(artifact, owned, effectKind)
 end
 
 function Economy.MasteryMultiplier(profile: ProfileLike): number
@@ -249,20 +249,7 @@ function Economy.MasteryMultiplier(profile: ProfileLike): number
 end
 
 function Economy.GridEffect(profile: ProfileLike, effectKind: string): number
-	local levels = profile.GridUpgrades
-	if type(levels) ~= "table" then
-		return 0
-	end
-	local total = 0
-	for id, level in levels do
-		if type(level) == "number" and level > 0 then
-			local upgrade = gridById[id]
-			if upgrade and upgrade.EffectKind == effectKind then
-				total += level * upgrade.EffectPerLevel
-			end
-		end
-	end
-	return total
+	return EconomyEnvelopeMath.GridEffect(profile.GridUpgrades, gridById, effectKind)
 end
 
 function Economy.AnomalyEffect(profile: ProfileLike, effectKind: string, now: number?): number

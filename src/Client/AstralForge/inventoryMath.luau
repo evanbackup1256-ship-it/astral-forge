@@ -30,7 +30,21 @@ function InventoryMath.EffectAtLevel(definition: any, level: any): number
 	local base = tonumber(definition.BaseEffect) or 0
 	local growth = tonumber(definition.LevelGrowth) or 0
 	local safeLevel = if type(level) == "number" then level else 1
+	-- Keep formula identical to EconomyEnvelopeMath.EffectAtLevel (verify parity).
 	return base * (1 + growth * math.max(0, safeLevel - 1))
+end
+
+-- Color3 (or fallback) for a rarity entry. Fallback is caller-supplied so this
+-- stays free of theme / Roblox Color3 defaults under Lune.
+function InventoryMath.RarityColor(config: any, rarity: any, fallback: any): any
+	local items = type(config) == "table" and config.Items or nil
+	local rarities = type(items) == "table" and items.Rarities or nil
+	local entry = type(rarities) == "table" and rarities[rarity] or nil
+	local color = type(entry) == "table" and entry.Color or nil
+	if color ~= nil then
+		return color
+	end
+	return fallback
 end
 
 function InventoryMath.EffectLabel(definition: any, level: any): string

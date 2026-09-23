@@ -97,6 +97,7 @@ local LayoutSectionPlan = require(script.Parent.layoutSectionPlan)
 local VaultCollectEligibility = require(script.Parent.vaultCollectEligibility)
 local ActionCopy = require(script.Parent.actionCopy)
 local BoostIconKind = require(script.Parent.boostIconKind)
+local NetworkPolicy = require(script.Parent.networkPolicy)
 local ClientLog = require(script.Parent.log).ClientLog
 local _session = require(script.Parent.session)
 local GRANT_ACTIONS = _session.GRANT_ACTIONS
@@ -227,123 +228,6 @@ local SHELL_CHROME = {
 	railGutter = 18,
 	topbarControl = 48,
 	topbarControlGap = 12,
-}
-local NETWORK = {
-	actionCooldowns = {
-		GetState = 0.24,
-		GetPlayers = 0.28,
-		GetPlayerMirror = 0.28,
-		VisitPlot = 0.52,
-		LeavePlot = 0.35,
-		NudgeCrew = 2.7,
-		ReportPresence = 1.6,
-		CollectVault = 0.04,
-		Overcharge = 0.05,
-		PulseAnomaly = 0.05,
-		SpinWheel = 1.4,
-		OpenItemCrate = 0.24,
-		UpgradeContinuum = 0.4,
-		CaptureEcho = 1.2,
-		ClaimEcho = 0.48,
-		EquipEcho = 0.24,
-		UpgradeEcho = 0.3,
-		DismantleEcho = 0.6,
-		SetAutoForge = 0.28,
-		SetItemAutoSalvage = 0.2,
-		BulkSalvageItems = 0.35,
-		SetSetting = 0.18,
-		SetMobileLayout = 0.35,
-		SetTutorialStep = 0.18,
-		ClaimLabOrder = 0.18,
-		RouteLabPower = 0.12,
-		ReadStoryChapter = 0.18,
-		ClaimStoryChapter = 0.18,
-		ReadMail = 0.18,
-		ClaimMail = 0.18,
-		ClaimAllMail = 0.75,
-		DeleteMail = 0.18,
-		RedeemCode = 1.5,
-		SyncShop = 1.3,
-		StudioGrantProduct = 0.45,
-		GetTrade = 0.2,
-		InviteTrade = 0.7,
-		RespondTrade = 0.28,
-		UpdateTradeOffer = 0.08,
-		SetTradeReady = 0.12,
-		ConfirmTrade = 0.28,
-		CancelTrade = 0.2,
-		TradeViewAway = 0.2,
-		DomainExpansion = 5.2,
-		ClaimConvergenceReward = 0.45,
-		GetLeaderboard = 1.1,
-		GetGuildLeaderboard = 1.1,
-		GetAdminState = 0.9,
-		ReportClientIntegrity = 30.5,
-		AdminExecute = 0.9,
-		CreateGuild = 2.1,
-		JoinGuild = 1.1,
-		GetGuild = 0.32,
-		KickGuildMember = 0.6,
-		SetGuildRole = 0.6,
-		ContributeGuild = 0.45,
-		BuyGuildUpgrade = 0.8,
-		LeaveGuild = 1.1,
-	},
-	requestTimeouts = {
-		GetState = 8,
-		GetPlayers = 8,
-		GetPlayerMirror = 8,
-		GetGuild = 8,
-		GetGuildLeaderboard = 8,
-		GetLeaderboard = 8,
-		GetAdminState = 8,
-	},
-	defaultRequestTimeout = 15,
-	maxPhysicalRequests = 12,
-	pipelinedActions = {
-		["Overcharge"] = true,
-		["PulseAnomaly"] = true,
-		["CollectVault"] = true,
-		["RouteLabPower"] = true,
-		["SetAutoForge"] = true,
-		["SetAnomalyChannel"] = true,
-		["SetSetting"] = true,
-		["SetMobileLayout"] = true,
-		["SetTutorialStep"] = true,
-		["ReplayTutorial"] = true,
-		["DismissRelease"] = true,
-		["OpenRelease"] = true,
-		["ReadStoryChapter"] = true,
-		["ReadMail"] = true,
-		["SelectZone"] = true,
-		["UpdateTradeOffer"] = true,
-		["SetTradeReady"] = true,
-		["ConfirmTrade"] = true,
-		["CancelTrade"] = true,
-		["RespondTrade"] = true,
-		["TradeViewAway"] = true,
-		["SetItemAutoSalvage"] = true,
-		["ReportPresence"] = true,
-	},
-	optimisticActions = {
-		["CollectVault"] = true,
-		["Overcharge"] = true,
-		["RouteLabPower"] = true,
-		["SetAutoForge"] = true,
-		["SetAnomalyChannel"] = true,
-		["SetSetting"] = true,
-		["SetMobileLayout"] = true,
-		["SetTutorialStep"] = true,
-		["CompleteTutorial"] = true,
-		["ReplayTutorial"] = true,
-		["DismissRelease"] = true,
-		["OpenRelease"] = true,
-		["ReadStoryChapter"] = true,
-		["ReadMail"] = true,
-		["SelectZone"] = true,
-		["EquipTitle"] = true,
-		["ReportPresence"] = true,
-	},
 }
 local CONFETTI_PIECES = { {
 	x = -240,
@@ -5642,9 +5526,7 @@ local function MainGame(_param)
 		local _payload = payload
 		local value = if type(_payload) == "table" then payload else {}
 		local signature = AppHelpers:actionSignature(action, value)
-		local _pipelinedActions = NETWORK.pipelinedActions
-		local _action = action
-		local pipelined = _pipelinedActions[_action] ~= nil
+		local pipelined = NetworkPolicy.IsPipelined(action)
 		local reject = function(message)
 			local _result_8 = callback
 			if _result_8 ~= nil then
@@ -5673,23 +5555,19 @@ local function MainGame(_param)
 			_condition_4 = 0
 		end
 		local activeRequests = _condition_4
-		local requestLimit = if pipelined then 4 else 2
+		local requestLimit = NetworkPolicy.RequestLimit(pipelined)
 		if activeRequests >= requestLimit then
 			reject("Still working on your last tap.")
 			return nil
 		end
-		if inFlightTotal.current >= NETWORK.maxPhysicalRequests then
+		if inFlightTotal.current >= NetworkPolicy.MAX_PHYSICAL_REQUESTS then
 			reject("The connection is busy. Try again in a moment.")
 			return nil
 		end
 		local now = os.clock()
-		local _condition_5 = NETWORK.actionCooldowns[action]
-		if _condition_5 == nil then
-			_condition_5 = 0.1
-		end
-		local cooldown = _condition_5
+		local cooldown = NetworkPolicy.Cooldown(action)
 		local previous = sentAt.current[signature]
-		if previous ~= nil and now - previous < cooldown then
+		if previous ~= nil and NetworkPolicy.IsCoolingDown(now, previous, cooldown) then
 			reject("Slow down a sec.")
 			return nil
 		end
@@ -5727,9 +5605,7 @@ local function MainGame(_param)
 				end
 			end
 		end
-		local _optimisticActions = NETWORK.optimisticActions
-		local _action_2 = action
-		if _optimisticActions[_action_2] ~= nil then
+		if NetworkPolicy.IsOptimistic(action) then
 			dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version))
 		end
 		if action == "Overcharge" or action == "PulseAnomaly" then
@@ -5767,11 +5643,7 @@ local function MainGame(_param)
 		end
 		local requestTimeout
 		local requestWorker
-		local _condition_6 = NETWORK.requestTimeouts[action]
-		if _condition_6 == nil then
-			_condition_6 = NETWORK.defaultRequestTimeout
-		end
-		local timeoutSeconds = _condition_6
+		local timeoutSeconds = NetworkPolicy.Timeout(action)
 		requestTimeout = task.delay(timeoutSeconds, function()
 			if requestTimeout ~= nil then
 				local _current_1 = requestTimeouts.current

@@ -126,18 +126,7 @@ local function relicRowHeight(stack)
 	return InventoryMath.RelicRowHeight(stack)
 end
 local function rarityColor(config, rarity)
-	local _result = config.Items
-	if _result ~= nil then
-		_result = _result.Rarities[rarity]
-		if _result ~= nil then
-			_result = _result.Color
-		end
-	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = Palette.muted
-	end
-	return _condition
+	return InventoryMath.RarityColor(config, rarity, Palette.muted)
 end
 local function rarityRank(config, rarity)
 	return InventoryMath.RarityRank(config, rarity)
