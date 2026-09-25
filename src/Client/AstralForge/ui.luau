@@ -1713,11 +1713,13 @@ local function ButtonShimmer(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.white,
 		BackgroundTransparency = hoverAmount:map(function(amount)
-			return 1 - math.clamp(amount, 0, 1) * 0.38 * shimmerScale
+			local hoverStrength = math.clamp(amount, 0, 1) * 0.38
+			local idleStrength = if idle then 0.14 else 0
+			return 1 - math.clamp(math.max(hoverStrength, idleStrength) * shimmerScale, 0, 0.5)
 		end),
 		BorderSizePixel = 0,
 		Visible = hoverAmount:map(function(amount)
-			return shimmerScale > 0.02 and amount > 0.02
+			return shimmerScale > 0.02 and (idle or amount > 0.02)
 		end),
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {

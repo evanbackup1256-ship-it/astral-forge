@@ -72,7 +72,10 @@ local function seamWidth(value)
 end
 
 local function travelShift(value)
-	return math.clamp(value, 0, 1.2) * 0.58
+	local progress = math.clamp(value, 0, 1.2)
+	local eased = 1 - math.pow(1 - math.min(progress, 1), 3)
+	local overshoot = if progress > 1 then (progress - 1) * 0.035 else 0
+	return (eased + overshoot) * 0.58
 end
 
 -- Square icon tiles lean a little. A two-word or long caption fills the tile, so it only scales.
@@ -601,6 +604,24 @@ local function SplitCurtain(props)
 		Active = false,
 		ZIndex = 2,
 	}), React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = seam:map(function(value)
+			return math.clamp(0.98 - math.clamp(value, 0, 1) * 0.74, 0.2, 0.98)
+		end),
+		BorderSizePixel = 0,
+		Active = false,
+		Visible = seamVisible,
+		ZIndex = 5,
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = ColorSequence.new(Palette.void, Palette.panel),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.18),
+			NumberSequenceKeypoint.new(0.5, 0.58),
+			NumberSequenceKeypoint.new(1, 0.18),
+		}),
+	})), React.createElement("frame", {
 		Size = UDim2.new(0, 24, 1, 0),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.fromScale(0.5, 0),
