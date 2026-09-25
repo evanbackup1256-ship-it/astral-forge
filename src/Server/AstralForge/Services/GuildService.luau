@@ -113,17 +113,31 @@ return function()
 		table.insert(self._warmQueue, id)
 		while self._warmWorkers < 2 and #self._warmQueue > 0 do
 			self._warmWorkers += 1
-			self:_spawnWorker(function()
-				while self._running and #self._warmQueue > 0 do
-					local nextId = table.remove(self._warmQueue, 1)
-					if nextId then
-						self:_read(nextId)
-						self._warmQueued[nextId] = nil
-						self._leaderboardCacheExpires = 0
+			local worker = self:_spawnWorker(function()
+				local ok, err = pcall(function()
+					while self._running and #self._warmQueue > 0 do
+						local nextId = table.remove(self._warmQueue, 1)
+						if nextId then
+							local readOk, readErr = pcall(function()
+								self:_read(nextId)
+							end)
+							self._warmQueued[nextId] = nil
+							if readOk then
+								self._leaderboardCacheExpires = 0
+							else
+								warn(string.format("[WARN] [GUILD] warm read failed for %s — %s", tostring(nextId), tostring(readErr)))
+							end
+						end
 					end
-				end
+				end)
 				self._warmWorkers -= 1
+				if not ok then
+					warn(string.format("[WARN] [GUILD] warm worker crashed — %s", tostring(err)))
+				end
 			end)
+			if not worker then
+				self._warmWorkers -= 1
+			end
 		end
 	end
 
@@ -133,16 +147,38 @@ return function()
 		self._leaderboardPending[id] = LeaderboardCodec.Encode(activity)
 		if self._leaderboardBusy[id] then return end
 		self._leaderboardBusy[id] = true
-		self:_spawnWorker(function()
-			while self._running and self._leaderboardPending[id] ~= nil do
-				local encoded = self._leaderboardPending[id]
-				self._leaderboardPending[id] = nil
-				pcall(function()
-					self._leaderboard:SetAsync(id, encoded)
-				end)
-			end
+		local worker = self:_spawnWorker(function()
+			local lastWarnAt = 0
+			local ok, err = pcall(function()
+				while self._running and self._leaderboardPending[id] ~= nil do
+					local encoded = self._leaderboardPending[id]
+					self._leaderboardPending[id] = nil
+					local wrote, writeErr = pcall(function()
+						self._leaderboard:SetAsync(id, encoded)
+					end)
+					if not wrote then
+						-- Keep the score queued. Dropping it here made a throttled write
+						-- disappear until some later activity change happened to retry it.
+						if self._leaderboardPending[id] == nil then
+							self._leaderboardPending[id] = encoded
+						end
+						local now = os.clock()
+						if now - lastWarnAt >= 30 then
+							lastWarnAt = now
+							warn(string.format("[WARN] [GUILD] leaderboard write failed for %s — %s", id, tostring(writeErr)))
+						end
+						task.wait(8)
+					end
+				end
+			end)
 			self._leaderboardBusy[id] = nil
+			if not ok then
+				warn(string.format("[WARN] [GUILD] leaderboard worker crashed for %s — %s", tostring(id), tostring(err)))
+			end
 		end)
+		if not worker then
+			self._leaderboardBusy[id] = nil
+		end
 	end
 
 	function GuildService:Destroy()
@@ -263,7 +299,7 @@ return function()
 		ensureGoal(doc, os.time())
 		local documentCreated = false
 		local tagClaimed = false
-		local ok = pcall(function()
+		local ok, err = pcall(function()
 			self._store:UpdateAsync(id, function(existing)
 				if existing ~= nil then return existing end
 				documentCreated = true
@@ -278,10 +314,16 @@ return function()
 				return existing
 			end)
 		end)
+		if not ok then
+			warn(string.format("[WARN] [GUILD] create failed for %s — %s", player.Name, tostring(err)))
+		end
 		if not RunService:IsStudio() and (not ok or not documentCreated or not tagClaimed) then
 
 			if documentCreated and not tagClaimed then
-				pcall(function() self._store:RemoveAsync(id) end)
+				local removed, removeErr = pcall(function() self._store:RemoveAsync(id) end)
+				if not removed then
+					warn(string.format("[WARN] [GUILD] could not roll back guild %s — %s", id, tostring(removeErr)))
+				end
 			end
 			if not ok then return false, "Guild records are unavailable. Try again shortly." end
 			return false, "That guild tag is already in use."
@@ -380,14 +422,24 @@ return function()
 		for _ in guild.Members do memberCount += 1 end
 		if memberCount > 1 then return false, "Remove every other member before disbanding." end
 		local tag = guild.Tag
-		local removedDoc = pcall(function() self._store:RemoveAsync(guildId) end)
+		local removedDoc, removeErr = pcall(function() self._store:RemoveAsync(guildId) end)
+		if not removedDoc and not RunService:IsStudio() then
+			warn(string.format("[WARN] [GUILD] disband could not delete %s — %s", guildId, tostring(removeErr)))
+			return false, "Guild records are unavailable. Try again shortly."
+		end
 		if removedDoc then
-			pcall(function()
+			local released, releaseErr = pcall(function()
 				self._store:UpdateAsync("tag:" .. tag, function(existing)
 					if existing == guildId then return nil end
 					return existing
 				end)
 			end)
+			if not released then
+				warn(string.format("[WARN] [GUILD] disband deleted %s but the tag %s is still reserved — %s", guildId, tostring(tag), tostring(releaseErr)))
+				if not RunService:IsStudio() then
+					return false, "Guild records are unavailable. Try again shortly."
+				end
+			end
 		end
 		self._cache[guildId] = nil
 		self._cacheExpiry[guildId] = nil

@@ -65,6 +65,25 @@ local function scrollTail(stack, bottomSafe, base)
 	-- indicator, and Workshop floating quick-action cluster without dead zones.
 	return base + math.max(bottomSafe, 12) + 28
 end
+local planCache = nil
+local planKey = {
+	width = false,
+	height = false,
+	compact = false,
+	tight = false,
+	short = false,
+	desktop = false,
+	orientationWidth = false,
+	orientationHeight = false,
+	bottomInset = false,
+	sideInset = false,
+}
+local function quantize(value)
+	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+		return 0
+	end
+	return math.floor(value + 0.5)
+end
 local function planMobileLayout(input)
 	local _binding = input
 	local width = _binding.width
@@ -97,6 +116,19 @@ local function planMobileLayout(input)
 		_condition_4 = 0
 	end
 	local sideInset = _condition_4
+	width = quantize(width)
+	height = quantize(height)
+	orientationWidth = quantize(orientationWidth)
+	orientationHeight = quantize(orientationHeight)
+	bottomInset = quantize(bottomInset)
+	sideInset = quantize(sideInset)
+	compact = compact == true
+	tight = tight == true
+	short = short == true
+	desktop = desktop == true
+	if planCache ~= nil and planKey.width == width and planKey.height == height and planKey.compact == compact and planKey.tight == tight and planKey.short == short and planKey.desktop == desktop and planKey.orientationWidth == orientationWidth and planKey.orientationHeight == orientationHeight and planKey.bottomInset == bottomInset and planKey.sideInset == sideInset then
+		return planCache
+	end
 	local narrow = orientationWidth < 840 or orientationHeight < 500
 	local mobile = narrow or (not desktop and (compact or tight or short))
 	local stack = narrow or (not desktop and (tight or (compact and short) or (compact and orientationHeight <= orientationWidth * 1.05 and orientationWidth < 980)))
@@ -140,7 +172,17 @@ local function planMobileLayout(input)
 	-- A hard 208px floor overflowed short landscape screens: chrome + content
 	-- could exceed the actual safe height before the page even mounted.
 	local contentBudget = math.max(1, height - chromeReserve - 4)
-	return {
+	planKey.width = width
+	planKey.height = height
+	planKey.compact = compact
+	planKey.tight = tight
+	planKey.short = short
+	planKey.desktop = desktop
+	planKey.orientationWidth = orientationWidth
+	planKey.orientationHeight = orientationHeight
+	planKey.bottomInset = bottomInset
+	planKey.sideInset = sideInset
+	planCache = {
 		mobile = mobile,
 		stack = stack,
 		contentStack = stack,
@@ -156,9 +198,9 @@ local function planMobileLayout(input)
 		railRow = if landscape then 52 elseif phone then 60 elseif shortDesktop or compact then 52 else 64,
 		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif shortDesktop or compact then 48 else 56,
 		railGap = if phone then 8 elseif compact then 10 else 12,
-		bodyText = if landscape then 13 elseif phone then 14 else 15,
-		labelText = if landscape then 11 elseif phone then 12 else 13,
-		titleText = if landscape then 16 elseif phone then (if tablet then 20 else 18) elseif shortDesktop then 22 else 24,
+		bodyText = if landscape then 14 elseif phone then 15 else 16,
+		labelText = if landscape then 12 elseif phone then 13 else 14,
+		titleText = if landscape then 17 elseif phone then (if tablet then 20 else 18) elseif shortDesktop then 24 else 26,
 		bottomSafe = bottomSafe,
 		sideSafe = sideSafe,
 		topbarRows = topbarRows,
@@ -171,6 +213,7 @@ local function planMobileLayout(input)
 		tabBarH = tabBarH,
 		tabBarSlots = tabBarSlots,
 	}
+	return planCache
 end
 local EDIT_BOUNDS = Color3.fromRGB(72, 190, 255)
 return {

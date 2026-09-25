@@ -16,6 +16,7 @@ local Text = _ui.Text
 local acquireDropdownPortal = _ui.acquireDropdownPortal
 local releaseDropdownPortal = _ui.releaseDropdownPortal
 local subscribeInputCancellation = _ui.subscribeInputCancellation
+local resolvePressMotion = _ui.resolvePressMotion
 local useButtonChrome = _ui.useButtonChrome
 local _theme = require(script.Parent.theme)
 local Layout = _theme.Layout
@@ -25,6 +26,7 @@ local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local lighten = _theme.lighten
 local surfaceGradient = _theme.surfaceGradient
+local strokeGradient = _theme.strokeGradient
 local TapTarget = _theme.TapTarget
 local _appNav = require(script.Parent.appNav)
 local AppHelpers = _appNav.AppHelpers
@@ -65,9 +67,14 @@ local function RailButton(_param)
 	local hovered, setHovered = React.useState(false)
 	local pressed, setPressed = React.useState(false)
 	local hoveredRef = React.useRef(false)
-	local emphasis = useFlipperSpring(if not disabled and active then 1 elseif not disabled and hovered then 0.4 else 0, reducedMotion, 360, 28)
-	local iconHover = useFlipperSpring(if not disabled and hovered then 1 else 0, reducedMotion, 520, 34)
-	local press = useFlipperSpring(if pressed and not reducedMotion then 1 else 0, reducedMotion, 620, 36)
+	local emphasis = useFlipperSpring(if not disabled and active then 1 elseif not disabled and hovered then 0.4 else 0, reducedMotion, 300, 36)
+	local pose = useFlipperSpring(if disabled then 0 elseif pressed then -1 elseif hovered then 1 else 0, reducedMotion, 1180, 46)
+	local iconHover = pose:map(function(value)
+		return math.clamp(value, 0, 1)
+	end)
+	local press = pose:map(function(value)
+		return math.clamp(-value, 0, 1)
+	end)
 	local fill = emphasis:map(function(raw)
 		return if disabled then Palette.panelRaised else Palette.panel:Lerp(Palette.panelSoft, math.clamp(raw, 0, 1))
 	end)
@@ -98,8 +105,18 @@ local function RailButton(_param)
 	local pressWash = press:map(function(amount)
 		return if touchChrome then math.clamp(1 - amount * 0.22, 0.78, 1) else 1
 	end)
-	local pressScale = press:map(function(amount)
-		return if touchChrome then 1 - amount * 0.055 else 1
+	local pressMotion = resolvePressMotion("row")
+	local rowHover = pressMotion.hover
+	local rowPress = pressMotion.press
+	local rowTilt = pressMotion.tilt
+	local pressScale = pose:map(function(value)
+		if value >= 0 then
+			return 1 + math.clamp(value, 0, 1) * rowHover
+		end
+		return 1 - math.clamp(-value, 0, 1) * rowPress
+	end)
+	local tilt = pose:map(function(value)
+		return math.clamp(value, 0, 1) * rowTilt
 	end)
 	local iconSize = if collapsed then 34 else 30
 	local iconX = if collapsed then math.floor((Layout.sidebarCollapsedWidth - SHELL_CHROME.railGutter * 2 - iconSize) / 2) else 12
@@ -173,6 +190,7 @@ local function RailButton(_param)
 		Size = UDim2.fromScale(1, 1),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
+		Rotation = tilt,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -188,7 +206,7 @@ local function RailButton(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
+		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uigradient", {
 		Color = surfaceGradient(Palette.panel, 0.7),
 		Rotation = 90,
@@ -204,7 +222,7 @@ local function RailButton(_param)
 		BackgroundTransparency = pressWash,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
+		CornerRadius = UDim.new(0, 12),
 	})), React.createElement("frame", {
 		Size = markerSize,
 		Position = UDim2.fromScale(0, 0.5),
@@ -247,17 +265,15 @@ local function RailButton(_param)
 		size = bodySize,
 		color = labelColor,
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
+		fit = false,
 		position = UDim2.fromOffset(56, if rowHeight <= 54 then 4 else 10),
 		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 18 else 22),
 	}), not collapsed and React.createElement(Text, {
 		value = entry.eyebrow,
-		size = 10,
+		size = 12,
 		color = eyebrowColor,
 		weight = Enum.FontWeight.Bold,
-		fit = true,
-		minSize = 8,
+		fit = false,
 		position = UDim2.fromOffset(56, if rowHeight <= 54 then 22 else 34),
 		sizeConstraint = UDim2.new(1, -66, 0, if rowHeight <= 54 then 14 else 18),
 	}), badge > 0 and React.createElement(CountBadge, {
@@ -281,9 +297,13 @@ local function MoreDockButton(_param)
 	-- Canonical softMotion antilag gate — MoreDockButton springs drop on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true)
+	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true, false, resolvePressMotion(if fill then "row" else {
+		text = entry.label,
+		icon = entry.icon,
+		size = UDim2.fromOffset(MORE_BTN_W, TapTarget),
+	}))
 	local selection = useFlipperSpring(if active and not disabled then 1 else 0, reducedMotion, 420, 32)
-	local radius = 9
+	local radius = 12
 	local iconSize = if fill then 22 else 28
 	local iconX = if fill then 7 else 9
 	local textX = if fill then 38 else 49
@@ -382,6 +402,7 @@ local function MoreDockButton(_param)
 			return UDim2.new(0.5, 0, 0.5, math.round(amount))
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = chrome.tilt,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -508,10 +529,12 @@ local function MoreDockPopover(_param)
 		end
 	end, {})
 	local panelRef = React.useRef()
+	local onCloseRef = React.useRef(onClose)
+	onCloseRef.current = onClose
 	React.useEffect(function()
 		local connection = UserInputService.InputBegan:Connect(function(input)
 			if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB then
-				onClose()
+				onCloseRef.current()
 				return nil
 			end
 			if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
@@ -526,13 +549,13 @@ local function MoreDockPopover(_param)
 			local extent = panel.AbsoluteSize
 			local inside = point.X >= origin.X and point.X <= origin.X + extent.X and point.Y >= origin.Y and point.Y <= origin.Y + extent.Y
 			if not inside then
-				onClose()
+				onCloseRef.current()
 			end
 		end)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { onClose })
+	end, {})
 	local visible = AppHelpers:filterNav(entries, state, tutorialPage)
 	local cols = math.min(5, math.max(3, math.ceil(math.sqrt(#visible))))
 	local cellW = 132
@@ -635,7 +658,11 @@ function MoreCell(_param)
 	-- Canonical softMotion antilag gate — MoreCell springs drop on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true)
+	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true, false, resolvePressMotion({
+		text = entry.label,
+		icon = entry.icon,
+		size = UDim2.fromScale(1, 1),
+	}))
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -657,12 +684,15 @@ function MoreCell(_param)
 			return UDim2.new(0.5, 0, 0.5, math.round(amount))
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = chrome.tilt,
 		BackgroundColor3 = if active then darken(entry.accent, 0.7) else Palette.panelRaised,
 		BackgroundTransparency = 0.06,
 		BorderSizePixel = 0,
 		ZIndex = 95,
 		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
+	}, React.createElement("uiscale", {
+		Scale = chrome.touchScale,
+	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -710,10 +740,6 @@ local function MoreDock(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — MoreDock motion drops on soft tiers.
 	local softMotion = (_param.reducedMotion or false) or antilag.tier <= 1 or not antilag.allowAmbient
-	if softMotion then
-		_param = table.clone(_param)
-		_param.reducedMotion = true
-	end
 	local page = _param.page
 	local setPage = _param.setPage
 	local reducedMotion = _param.reducedMotion
@@ -1025,14 +1051,16 @@ local function Navigation(_param)
 		if host == nil then
 			return nil
 		end
+		local alive = true
 		local selectJob = task.defer(function()
-			if host.Parent == nil then
+			if not alive or host.Parent == nil then
 				return
 			end
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			alive = false
+			pcall(task.cancel, selectJob)
 		end
 	end, { page, collapsed })
 	local chrome = chromeFor(viewport)
@@ -1050,9 +1078,15 @@ local function Navigation(_param)
 	local railScrollRef = React.useRef(nil)
 	local railCropRef = React.useRef(0)
 	local railCrop, setRailCrop = React.useState(0)
+	local primaryCount = #primaryEntries
+	local railChromeTop = headerHeight + SHELL_CHROME.railGutter + boostReserve
 	React.useEffect(function()
 		local scroll = railScrollRef.current
 		if scroll == nil then
+			return nil
+		end
+		local host = scroll.Parent
+		if host == nil or not host:IsA("GuiObject") then
 			return nil
 		end
 		local function fit()
@@ -1064,8 +1098,10 @@ local function Navigation(_param)
 				return nil
 			end
 			local stride = rowHeight + chrome.railGap
-			local secondaryTop = #primaryEntries * stride + sectionH + chrome.railGap
-			local windowH = scroll.AbsoluteSize.Y + railCropRef.current
+			local secondaryTop = primaryCount * stride + sectionH + chrome.railGap
+			-- Measure the rail, not the scroller. Cropping the scroller used to
+			-- change its AbsoluteSize and schedule another crop.
+			local windowH = host.AbsoluteSize.Y - railChromeTop
 			local sliver = windowH - secondaryTop
 			local next = if sliver > 2 and sliver < rowHeight - 2 then math.floor(sliver) else 0
 			if next ~= railCropRef.current then
@@ -1074,11 +1110,43 @@ local function Navigation(_param)
 			end
 		end
 		fit()
-		local conn = scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+		local conn = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 		return function()
 			conn:Disconnect()
 		end
-	end, { chrome.railGap, collapsed, primaryEntries, rowHeight, sectionH, showSecondarySection })
+	end, { chrome.railGap, collapsed, primaryCount, railChromeTop, rowHeight, sectionH, showSecondarySection })
+	local stride = rowHeight + chrome.railGap
+	local selectionTop = 0
+	local selectionVisible = false
+	local function locateSelection(entries, top)
+		local y = top
+		for _, entry in entries do
+			if page == entry.id then
+				selectionTop = y
+				selectionVisible = true
+			end
+			y += stride
+		end
+		return y
+	end
+	local scanY = 0
+	if fromMore then
+		locateSelection(secondaryEntries, 0)
+	else
+		scanY = locateSelection(primaryEntries, 0)
+		if showSecondarySection then
+			scanY += sectionH + chrome.railGap
+		end
+		if includeSecondary then
+			locateSelection(secondaryEntries, scanY)
+		end
+	end
+	local heldSelection = React.useRef(0)
+	if selectionVisible then
+		heldSelection.current = selectionTop
+	end
+	local selectionY = useFlipperSpring(heldSelection.current, reducedMotion, 340, 42)
+	local selectionAccent = AppHelpers:pageAccent(page)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	})
@@ -1089,10 +1157,13 @@ local function Navigation(_param)
 	local _exp_2 = React.createElement("uistroke", {
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.68,
+		Transparency = 0.55,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-	})
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = strokeGradient(Palette.lineSoft),
+	}))
 	local _exp_3 = nil
 	local _exp_4 = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -1177,7 +1248,47 @@ local function Navigation(_param)
 		ClipsDescendants = true,
 		Active = true,
 		Selectable = false,
-	}, _exp_4, railChildren), showBoost and React.createElement("frame", {
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, canvasHeight),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, selectionVisible and React.createElement("frame", {
+		Size = UDim2.new(1, -4, 0, math.max(8, rowHeight - 4)),
+		Position = selectionY:map(function(y)
+			return UDim2.fromOffset(2, math.round(y) + 2)
+		end),
+		BackgroundColor3 = Palette.panelSoft,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 10),
+	}), React.createElement("uigradient", {
+		Color = surfaceGradient(Palette.panelSoft, 0.9),
+		Rotation = 90,
+	}), React.createElement("uistroke", {
+		Color = selectionAccent,
+		Thickness = 1,
+		Transparency = 0.38,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = strokeGradient(selectionAccent),
+	})), React.createElement("frame", {
+		Size = UDim2.new(0, 3, 1, -14),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = selectionAccent,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 2),
+	}))), React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 2,
+	}, _exp_4, railChildren))), showBoost and React.createElement("frame", {
 		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, boostHeight),
 		Position = UDim2.new(0, SHELL_CHROME.railGutter, 1, -(boostHeight + SHELL_CHROME.railGutter)),
 		BackgroundTransparency = 1,

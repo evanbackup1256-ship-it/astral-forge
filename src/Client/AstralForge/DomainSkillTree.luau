@@ -590,6 +590,13 @@ local function DomainSkillTree(_param)
 		beginExit(onClose)
 	end
 	local overlayHostRef = React.useRef(nil)
+	local alive = React.useRef(true)
+	React.useEffect(function()
+		alive.current = true
+		return function()
+			alive.current = false
+		end
+	end, {})
 	React.useEffect(function()
 		GamepadNavigationService.BeginOverlayFocus()
 		return function()
@@ -718,8 +725,11 @@ local function DomainSkillTree(_param)
 		dispatch("UnlockDomainNode", {
 			Id = selected.id,
 		}, function(response)
+			if not alive.current then
+				return nil
+			end
 			setBusy(false)
-			if response.ok then
+			if type(response) == "table" and response.ok then
 				Audio:play("domainBind")
 				Audio:play("domainReward")
 				setBurstId(selected.id)

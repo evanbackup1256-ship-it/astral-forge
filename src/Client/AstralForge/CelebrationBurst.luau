@@ -613,14 +613,14 @@ local function CelebrationBurst(_param)
 				return onDoneRef.current(seed)
 			end)
 			return function()
-				return task.cancel(completion)
+				pcall(task.cancel, completion)
 			end
 		end
 		local completion = task.delay(duration + 0.06, function()
 			return onDoneRef.current(seed)
 		end)
 		return function()
-			return task.cancel(completion)
+			pcall(task.cancel, completion)
 		end
 	end, { duration, seed, visible })
 	if not visible then

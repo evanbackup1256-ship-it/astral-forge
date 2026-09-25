@@ -396,7 +396,7 @@ local function BoostsView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { firstReadyId, boostRunning })
 	local headerReveal = useStagger(0, softMotion)

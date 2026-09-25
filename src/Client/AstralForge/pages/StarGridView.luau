@@ -88,7 +88,7 @@ local function useNodeUnlockPop(unlocked, reducedMotion)
 		end
 		wasUnlocked.current = unlocked
 	end, { unlocked })
-	return useFlash(trigger, softMotion, 0.6)
+	return useFlash(trigger, reducedMotion, 0.6)
 end
 local function branchIcon(branchId)
 	if branchId == "Output" or branchId == "Throughput" or branchId == "Helix" then
@@ -124,8 +124,7 @@ local function BranchHeader(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — BranchHeader.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local reveal = useStagger(staggerIndex, softMotion)
+	local reveal = useStagger(staggerIndex, reducedMotion)
 	local rowH = if stack then BRANCH_H_STACK else BRANCH_H
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, rowH),
@@ -134,14 +133,14 @@ local function BranchHeader(_param)
 		padding = 16,
 		layoutOrder = layoutOrder,
 		reveal = reveal,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}, React.createElement(IconTile, {
 		kind = branchIcon(branch.Id),
 		accent = branch.Color,
 		size = if stack then 56 else 72,
 		radius = 16,
 		position = UDim2.fromOffset(0, if stack then 10 else 8),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement(Text, {
 		value = branch.Name,
 		size = if stack then 20 else 24,
@@ -166,7 +165,7 @@ local function BranchHeader(_param)
 		highlight = active,
 		size = UDim2.fromOffset(88, TapTarget),
 		position = UDim2.new(1, -220, 1, -42),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(BADGE_W - 8, BADGE_H),
 		AnchorPoint = Vector2.new(1, 1),
@@ -193,7 +192,7 @@ local function BranchHeader(_param)
 		highlight = active,
 		size = UDim2.fromOffset(BADGE_W, TapTarget),
 		position = UDim2.new(1, -(BADGE_W + 16), 0, 56),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	})))
 end
 local function NodeRow(_param)
@@ -213,8 +212,7 @@ local function NodeRow(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — StarGridNode.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local reveal = useStagger(staggerIndex, softMotion)
+	local reveal = useStagger(staggerIndex, reducedMotion)
 	local rowH = if stack then NODE_H_STACK else NODE_H
 	local _condition = upgrade.PreviousId == nil
 	if not _condition then
@@ -245,7 +243,7 @@ local function NodeRow(_param)
 	local near = not maxed and fill >= NEAR_COMPLETE_THRESHOLD
 	local meterPosition = UDim2.fromOffset(82, 76)
 	local meterSize = UDim2.new(1, if stack then -96 else -(btnW + 100 + SCROLL_BAR), 0, 10)
-	local unlockPop = useNodeUnlockPop(canBuy or maxed, softMotion)
+	local unlockPop = useNodeUnlockPop(canBuy or maxed, reducedMotion)
 	local tierScale = unlockPop:map(function(amount)
 		return 1 + amount * 0.16
 	end)
@@ -258,7 +256,7 @@ local function NodeRow(_param)
 		reveal = reveal,
 		interactive = not maxed,
 		highlight = canBuy,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(64, 64),
 		Position = UDim2.fromOffset(2, if stack then 10 else 22),
@@ -303,14 +301,14 @@ local function NodeRow(_param)
 		value = fill,
 		color = if maxed then Palette.muted else branch.Color,
 		reducedMotion = softMotion,
-		shimmer = canBuy and not softMotion,
+		shimmer = canBuy and not reducedMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), React.createElement(NodeProgressGlow, {
 		near = near,
 		maxed = maxed,
 		accent = branch.Color,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement(Button, {
@@ -349,10 +347,11 @@ local function NodeRow(_param)
 		size = UDim2.fromOffset(btnW, 52),
 		position = UDim2.new(1, -(btnW + SCROLL_BAR + 10), 0.5, -26),
 		disabled = not canBuy,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = canBuy,
 	}))
 end
+
 local function StarGridViewComponent(_param)
 	local state = _param.state
 	local config = _param.config
@@ -518,6 +517,31 @@ local function StarGridViewComponent(_param)
 			end
 		end
 	end
+	local canBuyAll = false
+	for _, upgrade in config.GridUpgrades or {} do
+		local level = grid[upgrade.Id]
+		if level == nil then
+			level = 0
+		end
+		if level < upgrade.MaxLevel and state.Rebirths >= upgrade.RequiredRebirths then
+			local blocked = false
+			local previous = if upgrade.PreviousId ~= nil then upgradesById[upgrade.PreviousId] else nil
+			if previous ~= nil then
+				local previousLevel = grid[previous.Id]
+				if previousLevel == nil then
+					previousLevel = 0
+				end
+				blocked = previousLevel < previous.MaxLevel
+			end
+			if not blocked then
+				local cost = bulkCost(upgrade.BaseCost, upgrade.CostScale, level, 0, upgrade.MaxLevel, state.Stardust)
+				if gteFlux(state.Stardust, cost) then
+					canBuyAll = true
+					break
+				end
+			end
+		end
+	end
 	local order = 1
 	local stagger = 0
 	local _exp = React.createElement("frame", {
@@ -548,7 +572,7 @@ local function StarGridViewComponent(_param)
 		accent = Palette.mango,
 		position = if stack then UDim2.new(0, 0, 0, 124) else UDim2.new(1, -280, 0, 28),
 		size = if stack then UDim2.new(0.62, -6, 0, TapTarget) else UDim2.fromOffset(268, if touchLayout then TapTarget else 42),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		-- FocusClaim prefers Buy-named hosts for Star Grid bulk purchase.
 		Name = "StarGridBuyClaimActions",
@@ -596,11 +620,12 @@ local function StarGridViewComponent(_param)
 				})
 			end
 		end,
-		color = Palette.mango,
-		textColor = Palette.ink,
+		color = if canBuyAll then Palette.mango else Palette.panelSoft,
+		textColor = if canBuyAll then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		highlight = true,
+		reducedMotion = softMotion,
+		disabled = not canBuyAll,
+		highlight = canBuyAll,
 	})))
 	-- Gamepad: park Selection on BUY ALL for Controller Emulator FocusClaim path.
 	React.useEffect(function()
@@ -618,7 +643,7 @@ local function StarGridViewComponent(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { buyAmount, state.Stardust, state.Rebirths })
 	local _exp_1 = React.createElement("uilistlayout", {
@@ -722,7 +747,7 @@ local function StarGridViewComponent(_param)
 				_attributes.grid = grid
 				_attributes.previousMaxLevel = previousMaxLevel
 				_attributes.dispatch = dispatch
-				_attributes.reducedMotion = reducedMotion
+				_attributes.reducedMotion = softMotion
 				_attributes.stack = stack
 				_attributes.staggerIndex = nodeStagger
 				_attributes.layoutOrder = nodeOrder
@@ -781,7 +806,7 @@ local function StarGridViewComponent(_param)
 				color = Palette.panelSoft,
 				textColor = Palette.cream,
 				size = UDim2.new(1, 0, 0, TapTarget),
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				outline = true,
 			}) else React.createElement(Button, {
 				text = "SHOW LESS",

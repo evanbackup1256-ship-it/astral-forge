@@ -412,17 +412,23 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 		return failResult
 	end
 
+	-- These throws happen after the before-open hook incremented the store's
+	-- opening count. Skipping the fail hook left that count stuck, so
+	-- CloseAllDocuments waited forever.
 	if transformInvalid then
+		runHooks(self._failHooks.Open)
 		error(
 			`Could not open Document {self._key}. Invalid transform function - must return a table that passes the check function.`
 		)
 	end
 
 	if notStorable then
+		runHooks(self._failHooks.Open)
 		error(`Could not open Document {self._key}. Not storable: {notStorableErr}`)
 	end
 
 	if migrationErrored then
+		runHooks(self._failHooks.Open)
 		error(`Could not open Document {self._key}. Migrations errored: {migrationErr}`)
 	end
 
@@ -578,7 +584,22 @@ function Document.Close<T>(self: Document<T>): WriteResult<T?>
 	local saveResult: WriteResult<T>
 
 	if self._lockSessions then
-		saveResult = self:Save()
+		local saveOk, saveOutcome = pcall(function()
+			return self:Save()
+		end)
+		if not saveOk then
+			-- Save() throws on a non-storable cache. Leaving _isClosing set made
+			-- shutdown wait forever, and the caller's retry loop never ran.
+			self._isClosing = false
+			saveResult = {
+				success = false,
+				reason = "RobloxAPIError",
+			}
+			runHooks(self._failHooks.Close)
+			self._actionSignals.Close:Fire(saveResult)
+			return saveResult
+		end
+		saveResult = saveOutcome
 
 
 		if not saveResult.success then

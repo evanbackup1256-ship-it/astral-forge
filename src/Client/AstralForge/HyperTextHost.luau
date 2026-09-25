@@ -336,19 +336,27 @@ local function AnimatedTitle(_param)
 			local fallback = fallbackRef.current
 			local rich = mod.new(host)
 			local markups = makeTitleMarkups(mod, size, align)
-			local okUpdate = pcall(function()
+			local okUpdate, updateErr = pcall(function()
 				return rich:UpdateDefaultMarkups(markups)
 			end)
 			if not okUpdate then
+				ClientLog:warn("hypertext", `title markup failed: {tostring(updateErr)}`)
 				pcall(function()
 					return rich:Destroy()
 				end)
 				return nil
 			end
-			local okRender = pcall(function()
+			local okRender, renderErr = pcall(function()
 				return rich:Render(buildMarkup(kind, text, preview), false, false, false)
 			end)
 			if not okRender then
+				ClientLog:warn("hypertext", `title render failed: {tostring(renderErr)}`)
+				pcall(function()
+					return rich:Destroy()
+				end)
+				return nil
+			end
+			if cancelled then
 				pcall(function()
 					return rich:Destroy()
 				end)

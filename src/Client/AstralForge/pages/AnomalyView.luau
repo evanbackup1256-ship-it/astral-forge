@@ -147,7 +147,7 @@ local function StepCard(props)
 		background = Palette.panelRaised,
 		padding = 16,
 		highlight = true,
-		reducedMotion = props.reducedMotion,
+			reducedMotion = props.reducedMotion,
 	}, React.createElement(Text, {
 		value = "DO THIS NEXT",
 		size = 11,
@@ -277,7 +277,7 @@ local function ShiftPlan(_param)
 			end
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { anomaly.Ready, anomaly.Charge })
 	local step = nextStep(anomaly, config)
@@ -294,7 +294,7 @@ local function ShiftPlan(_param)
 			height = 132,
 			element = React.createElement(StepCard, {
 				step = step,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 			}),
 		},
 		{
@@ -431,7 +431,7 @@ local function ShiftPlan(_param)
 					color = Palette.muted,
 					weight = Enum.FontWeight.Heavy,
 					sizeConstraint = UDim2.new(1, 0, 0, 16),
-					reducedMotion = softMotion,
+						reducedMotion = softMotion,
 				})),
 			}),
 		},
@@ -445,18 +445,18 @@ local function ShiftPlan(_param)
 				accent = Palette.mango,
 				background = Palette.panelRaised,
 				padding = 12,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 			}, React.createElement(Text, {
 				value = `Tier {compactNumber(milestone.Tier)} reward is ready`,
 				size = 16,
 				color = Palette.cream,
 				weight = Enum.FontWeight.Heavy,
 				sizeConstraint = UDim2.new(1, -140, 0, 22),
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 			}), React.createElement(Button, {
 				text = "CLAIM",
 				highlight = true,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				position = UDim2.new(1, -120, 0.5, -18),
 				size = UDim2.fromOffset(110, 36),
 				onClick = function()
@@ -474,18 +474,18 @@ local function ShiftPlan(_param)
 				accent = Palette.mint,
 				background = Palette.panelRaised,
 				padding = 12,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 			}, React.createElement(Text, {
 				value = job.Name,
 				size = 16,
 				color = Palette.cream,
 				weight = Enum.FontWeight.Heavy,
 				sizeConstraint = UDim2.new(1, -140, 0, 22),
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 			}), React.createElement(Button, {
 				text = "CLAIM",
 				highlight = true,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				position = UDim2.new(1, -120, 0.5, -18),
 				size = UDim2.fromOffset(110, 36),
 				onClick = function()

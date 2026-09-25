@@ -8,6 +8,10 @@ local luau = require("@lune/luau")
 local files = {
 	-- Client boot / shell
 	"src/Client/AstralForge/init.client.luau",
+	"src/Client/AstralForge/vendorHost.luau",
+	"src/Client/AstralForge/reactModules.luau",
+	"src/Client/AstralForge/reactHost.luau",
+	"src/Client/AstralForge/deadlines.luau",
 	"src/Client/AstralForge/BootScreen.luau",
 	"src/Client/AstralForge/MainGame.luau",
 	"src/Client/AstralForge/TopBarChrome.luau",
@@ -15,6 +19,8 @@ local files = {
 	"src/Client/AstralForge/WorkspaceChrome.luau",
 	"src/Client/AstralForge/ShellFx.luau",
 	"src/Client/AstralForge/AppShellChrome.luau",
+	"src/Client/AstralForge/sanctuaryChrome.luau",
+	"src/Client/AstralForge/sanctuaryPresence.luau",
 	"src/Client/AstralForge/ui.luau",
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/clientStore.luau",

@@ -32,7 +32,11 @@ local function loadEgooe()
 	local ok, loaded = pcall(function()
 		return require(out)
 	end)
-	return if ok then loaded else nil
+	if not ok then
+		warn(`[WARN] [EGOOE] couldn't load studio overlay: {tostring(loaded)}`)
+		return nil
+	end
+	return loaded
 end
 local function startEgooeHost(playerGui)
 	if not RunService:IsStudio() then

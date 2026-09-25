@@ -10,6 +10,7 @@ local useTokenEntrance = _motion.useTokenEntrance
 local useViewport = _motion.useViewport
 local _ui = require(script.Parent.ui)
 local Button = _ui.Button
+local resolvePressMotion = _ui.resolvePressMotion
 local IconTile = _ui.IconTile
 local meterFill = _ui.meterFill
 local ScrollEdgeFade = _ui.ScrollEdgeFade
@@ -23,6 +24,7 @@ local darken = _theme.darken
 local ensureContrast = _theme.ensureContrast
 local lighten = _theme.lighten
 local surfaceGradient = _theme.surfaceGradient
+local strokeGradient = _theme.strokeGradient
 local TapTarget = _theme.TapTarget
 local _format = require(script.Parent.format)
 local asFlux = _format.asFlux
@@ -175,7 +177,7 @@ local function NextUnlockStrip(_param)
 		position = UDim2.fromOffset(112, 0),
 		sizeConstraint = UDim2.new(0.42, -112, 1, 0),
 	}), React.createElement(Text, {
-		value = if goal ~= nil then goal.Requirement else "Keep pushing worlds and ranks.",
+		value = if goal ~= nil then `{goal.Requirement} · {compactNumber(goal.Progress)}/{compactNumber(goal.Target)}` else "Keep pushing worlds and ranks.",
 		size = 11,
 		color = Palette.creamSoft,
 		fit = true,
@@ -231,18 +233,23 @@ local function Workspace(_param)
 	})
 	local suppressEntrance = entranceLock.page == page and entranceLock.suppress
 	React.useEffect(function()
+		local alive = true
 		setEntranceLock({
 			page = page,
 			suppress = false,
 		})
 		local job = task.delay(0.34, function()
-			return setEntranceLock({
+			if not alive then
+				return nil
+			end
+			setEntranceLock({
 				page = page,
 				suppress = true,
 			})
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, { page })
 	local inset = if keyboardCompact then 6 elseif chrome.stack then chrome.contentInset else Layout.contentInset
@@ -277,14 +284,16 @@ local function Workspace(_param)
 		if host == nil then
 			return nil
 		end
+		local alive = true
 		local selectJob = task.defer(function()
-			if host.Parent == nil then
+			if not alive or host.Parent == nil then
 				return
 			end
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			alive = false
+			pcall(task.cancel, selectJob)
 		end
 	end, { ready, page })
 	local contentPosition = enter:map(function(amount)
@@ -322,8 +331,11 @@ local function Workspace(_param)
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = Palette.lineSoft,
 		Thickness = 1,
-		Transparency = 0.58,
-	}), headerHeight > 0 and React.createElement("frame", {
+		Transparency = 0.48,
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = strokeGradient(Palette.lineSoft),
+	})), headerHeight > 0 and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, headerHeight),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
@@ -375,7 +387,7 @@ local function Workspace(_param)
 		ZIndex = 3,
 	}, React.createElement(ShimmerText, {
 		value = if entry.label == "Games" then "Mini Games" elseif entry.label == "Ranks" then "Leaderboards" else entry.label,
-		size = if chrome.stack then chrome.titleText elseif denseHeader then 18 else 22,
+		size = if chrome.stack then chrome.titleText elseif denseHeader then 20 else 24,
 		color = ensureContrast(Palette.panel, Palette.cream),
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
@@ -385,11 +397,11 @@ local function Workspace(_param)
 		end),
 		sizeConstraint = UDim2.new(1, 0, 0, if chrome.landscape then 22 elseif chrome.stack then 24 elseif denseHeader then 22 else 28),
 		reducedMotion = reducedMotion,
-		enabled = not reducedMotion,
+		enabled = true,
 		periodSeconds = 4.2,
 	}), not keyboardCompact and not mobileHeaderCompact and not chrome.landscape and React.createElement(Text, {
 		value = if page == "Overview" then `World {state.CurrentZone}  /  {compactNumber(state.Production)}/s` else entry.eyebrow,
-		size = if chrome.stack then chrome.labelText else 12,
+		size = if chrome.stack then chrome.labelText else 14,
 		color = ensureContrast(Palette.panel, accent),
 		weight = Enum.FontWeight.Bold,
 		wrap = true,
@@ -424,6 +436,11 @@ local function Workspace(_param)
 		size = UDim2.fromScale(1, 1),
 		disabled = not ready,
 		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = "",
+			icon = "Collect",
+			size = UDim2.fromOffset(vaultBtn, vaultBtn),
+		}),
 		highlight = asFlux(state.Vault) >= asFlux(state.Capacity) * VaultCollectEligibility.NEAR_FULL,
 		zIndex = 22,
 	}))), unlockH > 0 and React.createElement("frame", {

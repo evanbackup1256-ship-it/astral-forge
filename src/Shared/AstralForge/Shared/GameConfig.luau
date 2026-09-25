@@ -1372,16 +1372,16 @@ local GameConfig = {
 	Economy = {
 		StartingCash = 250,
 
-		BaseCapacity = 500,
+		BaseCapacity = 350,
 
 		BaseCapacitySeconds = 45,
 
 		CapacitySecondsPerLevel = 1.16,
 
 		MaxCapacitySeconds = 6 * 60 * 60,
-		BaseOfflineHours = 2,
-		BaseOfflineEfficiency = 0.35,
-		PrestigeRequirement = 1_000_000,
+		BaseOfflineHours = 3,
+		BaseOfflineEfficiency = 0.5,
+		PrestigeRequirement = 750_000,
 		PrestigeExponent = 0.38,
 		CoreMultiplier = 0.12,
 
@@ -1493,9 +1493,9 @@ local GameConfig = {
 			Id = "StellarCore",
 			Name = "Stellar Core",
 			Description = "Turns leftover starlight into flux.",
-			BaseCost = 60,
+			BaseCost = 35,
 			CostScale = 1.62,
-			BaseProduction = 4,
+			BaseProduction = 8,
 			Growth = 0.12,
 			MaxLevel = ENDLESS_LEVEL_CAP,
 			Endless = true,
@@ -1509,9 +1509,9 @@ local GameConfig = {
 			Id = "LunarExtractor",
 			Name = "Lunar Extractor",
 			Description = "Scoops charged stardust with big magnets.",
-			BaseCost = 800,
+			BaseCost = 480,
 			CostScale = 1.68,
-			BaseProduction = 32,
+			BaseProduction = 50,
 			Growth = 0.13,
 			MaxLevel = ENDLESS_LEVEL_CAP,
 			Endless = true,
@@ -1527,9 +1527,9 @@ local GameConfig = {
 			Id = "PrismRefinery",
 			Name = "Prism Refinery",
 			Description = "Splits flux into hotter, richer streams.",
-			BaseCost = 12_000,
+			BaseCost = 7_500,
 			CostScale = 1.72,
-			BaseProduction = 260,
+			BaseProduction = 380,
 			Growth = 0.14,
 			MaxLevel = ENDLESS_LEVEL_CAP,
 			Endless = true,
@@ -2735,19 +2735,27 @@ local GameConfig = {
 
 	Achievements = {
 		{
+			Id = "CoreOnline",
+			Name = "Core Online",
+			Description = "Buy your first machine.",
+			Kind = "MachineLevels",
+			Target = 1,
+			Reward = { Stardust = 5 },
+		},
+		{
 			Id = "FirstSpark",
 			Name = "First Spark",
-			Description = "Bank 1,000 flux.",
+			Description = "Earn 100 total flux.",
 			Kind = "LifetimeCash",
-			Target = 1_000,
+			Target = 100,
 			Reward = { Stardust = 10 },
 		},
 		{
 			Id = "Industrial",
 			Name = "Industrial",
-			Description = "Own 25 total machine levels.",
+			Description = "Own 5 total machine levels.",
 			Kind = "MachineLevels",
-			Target = 25,
+			Target = 5,
 			Reward = { Stardust = 20 },
 		},
 		{
@@ -4037,8 +4045,8 @@ local GameConfig = {
 		Research = {
 			Name = "Research",
 			Kind = "LifetimeCash",
-			Target = 250,
-			Requirement = "Earn 250 total flux",
+			Target = 100,
+			Requirement = "Earn 100 total flux",
 		},
 		Worlds = {
 			Name = "Worlds",
@@ -4127,8 +4135,8 @@ local GameConfig = {
 		Rebirth = {
 			Name = "Rebirth",
 			Kind = "LifetimeCash",
-			Target = 100_000,
-			Requirement = "Earn 100K total flux",
+			Target = 75_000,
+			Requirement = "Earn 75K total flux",
 		},
 		Domain = {
 			Name = "Domain Expansion",
@@ -6826,7 +6834,7 @@ local function generateGridUpgrades()
 	local gridUpgradeCount = 0
 	local upgrades = rawget(GameConfig, "GridUpgrades")
 	for branchIndex, branch in GameConfig.GridBranches do
-		for tier = 1, 42 do
+		for tier = 1, 420 do
 			gridUpgradeCount += 1
 			local id = string.format("%s_%02d", branch.Id, tier)
 			table.insert(upgrades, {
@@ -6851,7 +6859,7 @@ end
 
 local function generateSeasonTiers()
 	local tiers = rawget(GameConfig, "Operations").SeasonTiers
-	for tier = 1, 30 do
+	for tier = 1, 300 do
 		local reward
 		if tier % 10 == 0 then
 			reward = { Cores = tier / 10, Stardust = 20 + tier, Signals = 18 + tier, CommandXP = 100 + tier * 8 }
@@ -6877,7 +6885,7 @@ end
 
 local function generateMilestones()
 	local milestones = rawget(GameConfig, "Anomalies").Milestones
-	for tier = 1, 30 do
+	for tier = 1, 300 do
 		local reward
 		if tier % 10 == 0 then
 			reward = {
@@ -6912,10 +6920,14 @@ local function generateMilestones()
 	return milestones
 end
 
-GameConfig.MaxZone = 5000
-GameConfig.MaxGeneratedExpeditions = 400
-GameConfig.MaxGeneratedMachines = 280
-GameConfig.MaxGeneratedResearch = 140
+-- Worlds resolve on demand (ResolveZone) and the world list only mounts a window,
+-- so the playable map can grow by 100x. Serialized ladders below are 10x: a literal
+-- 100x of Machines/Research/GridUpgrades is tens of megabytes in GameConfigGenerated,
+-- and Command mastery / Research chain canvases are as tall as the full list.
+GameConfig.MaxZone = 500_000
+GameConfig.MaxGeneratedExpeditions = 4_000
+GameConfig.MaxGeneratedMachines = 2_800
+GameConfig.MaxGeneratedResearch = 1_400
 
 local MACHINE_PREFIX = {
 	"Aether", "Quark", "Helix", "Nova", "Ion", "Prism", "Void", "Solar", "Lunar", "Chrono",
@@ -6947,6 +6959,46 @@ local function generatedHue(seed: number, sat: number, val: number): Color3
 	return Color3.fromHSV(((seed * 47) % 360) / 360, sat, val)
 end
 
+-- coefficient * ratio^exponent, saturated at 1e300.
+-- Evaluated as exp(ln(coefficient) + exponent * ln(ratio)) so a tail like
+-- 1.18^4000 cannot overflow to inf before the cap is applied. For exponents
+-- that still fit in a double this matches base * ratio^n within a few ulps.
+local HORIZON_CAP = 1e300
+local HORIZON_CAP_LN = math.log(HORIZON_CAP)
+
+local function cappedRatio(coefficient: number, ratio: number, exponent: number): number
+	if exponent == 0 then
+		return coefficient
+	end
+	local ln = math.log(coefficient) + exponent * math.log(ratio)
+	if ln ~= ln or ln >= HORIZON_CAP_LN then
+		return HORIZON_CAP
+	end
+	local value = math.exp(ln)
+	if value ~= value or value >= HORIZON_CAP then
+		return HORIZON_CAP
+	end
+	return value
+end
+
+-- Indices 1..90 / 1..80 keep the original horizon curve. Past those caps the old
+-- formula flattened; the tail keeps climbing without hitting the double ceiling.
+local function horizonBaseCost(index: number): number
+	local early = cappedRatio(300_000_000, 1.55, math.min(index, 90))
+	if index <= 90 then
+		return early
+	end
+	return cappedRatio(early, 1.18, index - 90)
+end
+
+local function horizonBaseProduction(index: number): number
+	local early = cappedRatio(1_500_000, 1.48, math.min(index, 80))
+	if index <= 80 then
+		return early
+	end
+	return cappedRatio(early, 1.16, index - 80)
+end
+
 local function generateMachines()
 	local lastMachineId = "ChronoArray"
 	local lastMachineLevel = 20
@@ -6960,9 +7012,9 @@ local function generateMachines()
 			Id = "HorizonForge_" .. tostring(index),
 			Name = name,
 			Description = "A later-line forge that keeps output climbing after Chrono Array.",
-			BaseCost = math.min(1e300, 300_000_000 * (1.55 ^ math.min(index, 90))),
+			BaseCost = horizonBaseCost(index),
 			CostScale = 1.72 + (index % 9) * 0.01,
-			BaseProduction = math.min(1e300, 1_500_000 * (1.48 ^ math.min(index, 80))),
+			BaseProduction = horizonBaseProduction(index),
 			Growth = 0.16 + (index % 7) * 0.005,
 			MaxLevel = ENDLESS_LEVEL_CAP,
 			Endless = true,
@@ -6980,6 +7032,14 @@ local function generateMachines()
 	return machines
 end
 
+local function studyBaseCost(index: number): number
+	local early = cappedRatio(75_000, 1.62, math.min(index, 70))
+	if index <= 70 then
+		return early
+	end
+	return cappedRatio(early, 1.12, index - 70)
+end
+
 local function generateResearch()
 	local lastResearchId = "Automation"
 	local lastResearchLevel = 10
@@ -6993,7 +7053,7 @@ local function generateResearch()
 			Id = "HorizonStudy_" .. tostring(index),
 			Name = name,
 			Description = "Permanent research past the original six. Stacks through rebirths.",
-			BaseCost = math.min(1e300, 75_000 * (1.62 ^ math.min(index, 70))),
+			BaseCost = studyBaseCost(index),
 			CostScale = 1.85 + (index % 8) * 0.02,
 			MaxLevel = ENDLESS_LEVEL_CAP,
 			Endless = true,
@@ -7045,6 +7105,40 @@ local ZONE_FEATURES = {
 }
 local ZONE_LAYOUTS = { "Dock", "Crystal", "Foundry", "Rift", "Horizon" }
 
+-- 1.22^tier matches every world that still fit in a double. Past tier 3400 that curve
+-- overflows, so the tail keeps climbing with a smaller factor through MaxZone.
+local ZONE_FAST_TIER = 3400
+local ZONE_TAIL_RATE = 1.000055
+
+-- ln(1+x) without cancellation when x is a small tail rate (1.000055 - 1).
+local function ln1p(x: number): number
+	local p = 1 + x
+	if p == 1 then
+		return x
+	end
+	return math.log(p) * x / (p - 1)
+end
+
+local function zoneMultiplier(tier: number): number
+	local steps = math.max(0, tier)
+	local fast = math.min(steps, ZONE_FAST_TIER)
+	local tail = steps - fast
+	local ln = math.log(12) + fast * math.log(1.22)
+	if tail > 0 then
+		ln += tail * ln1p(ZONE_TAIL_RATE - 1)
+	end
+	-- Same saturation as the old `value >= 1e308 → 1e300` guard, decided in
+	-- log space so 1.22^3400 * 1.000055^tail cannot spill to inf first.
+	if ln ~= ln or ln >= math.log(1e308) then
+		return 1e300
+	end
+	local value = math.exp(ln)
+	if value ~= value or value >= 1e308 then
+		return 1e300
+	end
+	return value
+end
+
 function GameConfig.ResolveZone(id: number)
 	local authored = GameConfig.Zones[id]
 	if authored then
@@ -7086,7 +7180,7 @@ function GameConfig.ResolveZone(id: number)
 		ThemeIndex = ((index - 1) % 5) + 1,
 		Cost = cost,
 		CoreCost = cores,
-		Multiplier = 12 * (1.22 ^ math.max(0, tier)),
+		Multiplier = zoneMultiplier(tier),
 		RequiredRebirths = rebirths,
 		Color = color,
 		DarkColor = dark,
@@ -7120,6 +7214,29 @@ function GameConfig.ResolveExpedition(id: string)
 		ArtifactChance = math.clamp(0.8 - index * 0.0015, 0.12, 0.8),
 		Color = Color3.fromHSV(hue, 0.5, 0.9),
 	}
+end
+
+local function generateExpeditions()
+	local expeditions = rawget(GameConfig.Operations, "Expeditions")
+	for index = 1, GameConfig.MaxGeneratedExpeditions do
+		local hue = ((index * 29) % 360) / 360
+		table.insert(expeditions, {
+			Id = "HorizonRun_" .. tostring(index),
+			Name = string.format("Horizon Run %d", index),
+			Description = "A generated deep-range salvage. Same claim path, no extra instances.",
+			Duration = math.clamp(30 + index * 18, 30, 8 * 60 * 60),
+			RequiredLevel = math.clamp(1 + math.floor(index / 4), 1, 80),
+			Reward = {
+				CashMinutes = 8 + index * 3,
+				Stardust = 4 + math.floor(index * 0.8),
+				Signals = 8 + index,
+				CommandXP = 90 + index * 16,
+			},
+			ArtifactChance = math.clamp(0.8 - index * 0.0015, 0.12, 0.8),
+			Color = Color3.fromHSV(hue, 0.5, 0.9),
+		})
+	end
+	return expeditions
 end
 
 -- Lazy-load the heavy generated tables so require(GameConfig) returns immediately.
@@ -7159,6 +7276,7 @@ attachLazyLoader(GameConfig.Zones, generateZones)
 attachLazyLoader(GameConfig.GridUpgrades, generateGridUpgrades)
 attachLazyLoader(GameConfig.Operations.SeasonTiers, generateSeasonTiers)
 attachLazyLoader(GameConfig.Anomalies.Milestones, generateMilestones)
+attachLazyLoader(GameConfig.Operations.Expeditions, generateExpeditions)
 
 -- At build time the heavy generated tables are precomputed into GameConfigGenerated.
 -- When that module is present, load it so the game never pays the generation cost at runtime.

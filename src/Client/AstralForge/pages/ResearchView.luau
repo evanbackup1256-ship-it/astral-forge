@@ -24,6 +24,7 @@ local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
+local bulkCost = _format.bulkCost
 local amountPayload = _format.amountPayload
 local AppHelpers = require(script.Parent.Parent.appNav).AppHelpers
 local VirtualGrid = require(script.Parent.Parent.scrolling).VirtualGrid
@@ -70,16 +71,20 @@ local ResearchNode = React.memo(function(props)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — ResearchNode.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local index = _binding.index
 	local onBuy = _binding.onBuy
 	local stack = _binding.stack
-	local reveal = useStagger(math.min(index, 6), softMotion, 0.02, 0.14)
+	local buyAmount = _binding.buyAmount
+	local cash = _binding.cash
+	local reveal = useStagger(math.min(index, 6), reducedMotion, 0.02, 0.14)
 	local accent = entry.config.Accent or entry.config.Color
 	local maxed = entry.maxed
-	local ready = entry.unlocked and entry.affordable and not maxed
+	-- entry.affordable only means the node is unlocked and not maxed. Price must follow the
+	-- amount toggle, or BUY stays live (and shows a 1-level cost) when the click spends more.
+	local price = bulkCost(entry.config.BaseCost, entry.config.CostScale, entry.level, buyAmount, entry.config.MaxLevel, cash)
+	local ready = entry.unlocked and not maxed and gteFlux(cash, price)
 	local levelFrac = math.clamp(entry.level / math.max(1, entry.config.MaxLevel), 0, 1)
-	local buyLabel = if not entry.unlocked then "LOCKED" elseif maxed then "MAXED" elseif ready then `BUY {compactNumber(entry.price)}` else `NEED {compactNumber(entry.price)}`
+	local buyLabel = if not entry.unlocked then "LOCKED" elseif maxed then "MAXED" elseif ready then `BUY {compactNumber(price)}` else `NEED {compactNumber(price)}`
 	local rowH = if stack then NODE_ROW_HEIGHT_STACK else NODE_ROW_HEIGHT
 	local textReserve = if stack then 0 else -200
 	-- Every row reserves CONNECTOR_HEIGHT at its top so the row stride stays uniform for
@@ -102,7 +107,7 @@ local ResearchNode = React.memo(function(props)
 		padding = 14,
 		reveal = reveal,
 		highlight = ready,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		clips = false,
 	}, React.createElement(IconTile, {
 		kind = if entry.unlocked then "Research" else "Lock",
@@ -112,7 +117,7 @@ local ResearchNode = React.memo(function(props)
 		position = UDim2.fromOffset(0, 6),
 		glow = maxed,
 		spin = false,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement(Text, {
 		value = entry.config.Name,
 		size = 16,
@@ -141,7 +146,7 @@ local ResearchNode = React.memo(function(props)
 	}), React.createElement(Meter, {
 		value = levelFrac,
 		color = if maxed then Palette.mango else accent,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		position = UDim2.fromOffset(56, 80),
 		size = UDim2.new(1, textReserve, 0, 6),
 	})), if stack then (if maxed then React.createElement(Badge, {
@@ -154,13 +159,16 @@ local ResearchNode = React.memo(function(props)
 		text = buyLabel,
 		icon = if entry.unlocked then "Flux" else "Lock",
 		onClick = function()
+			if not ready then
+				return nil
+			end
 			return onBuy(entry.config.Id)
 		end,
 		color = if ready then accent else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.muted,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = not ready,
 		highlight = ready,
 	})) else (if maxed then React.createElement(Badge, {
@@ -173,18 +181,21 @@ local ResearchNode = React.memo(function(props)
 		text = buyLabel,
 		icon = if entry.unlocked then "Flux" else "Lock",
 		onClick = function()
+			if not ready then
+				return nil
+			end
 			return onBuy(entry.config.Id)
 		end,
 		color = if ready then accent else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.muted,
 		size = UDim2.fromOffset(130, 32),
 		position = UDim2.new(1, -140, 0, 24),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = not ready,
 		highlight = ready,
 	}))))
 end, function(prev, incoming)
-	return prev.entry.config == incoming.entry.config and prev.entry.level == incoming.entry.level and prev.entry.price == incoming.entry.price and prev.entry.affordable == incoming.entry.affordable and prev.entry.maxed == incoming.entry.maxed and prev.entry.unlocked == incoming.entry.unlocked and prev.entry.lockReason == incoming.entry.lockReason and prev.buyAmount == incoming.buyAmount and prev.reducedMotion == incoming.reducedMotion and prev.index == incoming.index and prev.onBuy == incoming.onBuy and prev.stack == incoming.stack
+	return prev.entry.config == incoming.entry.config and prev.entry.level == incoming.entry.level and prev.entry.price == incoming.entry.price and prev.entry.affordable == incoming.entry.affordable and prev.entry.maxed == incoming.entry.maxed and prev.entry.unlocked == incoming.entry.unlocked and prev.entry.lockReason == incoming.entry.lockReason and prev.buyAmount == incoming.buyAmount and prev.cash == incoming.cash and prev.reducedMotion == incoming.reducedMotion and prev.index == incoming.index and prev.onBuy == incoming.onBuy and prev.stack == incoming.stack
 end)
 local function ResearchView(_param)
 	local state = _param.state
@@ -261,7 +272,15 @@ local function ResearchView(_param)
 		-- ▲ ReadonlyArray.forEach ▲
 	end
 	-- Gamepad: park Selection on BUY ALL when any research line is affordable.
-	local canBuyAll = nextEntry ~= nil and gteFlux(state.Cash, nextEntry.price)
+	-- nextEntry is only the first unlocked node, which can be too expensive while a later
+	-- unlocked node is still buyable. Match the click handler, which walks every line.
+	local canBuyAll = false
+	for _, entry in entries do
+		if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
+			canBuyAll = true
+			break
+		end
+	end
 	React.useEffect(function()
 		if not canBuyAll or not UserInputService.GamepadEnabled then
 			return nil
@@ -277,7 +296,7 @@ local function ResearchView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { canBuyAll, buyAmount, unlockedCount })
 	local listGap = if stack then chrome.panelGap else Layout.panelGap
@@ -286,6 +305,11 @@ local function ResearchView(_param)
 	-- y=88 (56 label offset + 32 line height) with padding 16, needing 88 + 32 = 120; the
 	-- side controls (BUY ALL button ends at 56+32=88) fit the same bound.
 	local headerH = if stack then 208 else 128
+	local researchGate = state.FeatureUnlocks
+	if researchGate ~= nil then
+		researchGate = researchGate.Research
+	end
+	local researchLocked = researchGate ~= nil and researchGate.Unlocked == false
 	local chainCount = #entries
 	local rowStride = (if stack then NODE_ROW_HEIGHT_STACK else NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT
 	local chainH = math.max(rowStride, chainCount * rowStride)
@@ -317,14 +341,14 @@ local function ResearchView(_param)
 					spin = false,
 					reducedMotion = softMotion,
 				}), React.createElement(Text, {
-					value = "RESEARCH CHAIN",
+					value = if researchLocked then "LOCKED UNTIL 100 FLUX" else "RESEARCH CHAIN",
 					size = 10,
 					color = Palette.cyan,
 					weight = Enum.FontWeight.Heavy,
 					position = UDim2.fromOffset(if stack then 0 else 72, if stack then 60 else 0),
 					sizeConstraint = UDim2.new(1, if stack then -8 else -260, 0, 16),
 				}), React.createElement(Text, {
-					value = "Permanent upgrades. They stick through rebirths.",
+					value = if researchLocked then "Earn 100 Flux total. Bonuses stay after rebirth." else "Permanent upgrades. They stick through rebirths.",
 					size = if stack then 18 else 24,
 					color = Palette.cream,
 					weight = Enum.FontWeight.Heavy,
@@ -344,7 +368,7 @@ local function ResearchView(_param)
 					accent = Palette.cyan,
 					position = UDim2.new(1, -240, 0, 16),
 					size = UDim2.fromOffset(240, 32),
-					reducedMotion = softMotion,
+						reducedMotion = softMotion,
 				}), React.createElement("frame", {
 					-- FocusClaim prefers Buy-named hosts for research bulk purchase.
 					Name = "ResearchBuyClaimActions",
@@ -358,18 +382,19 @@ local function ResearchView(_param)
 					text = "BUY ALL AFFORDABLE",
 					icon = "Flux",
 					onClick = onBuyAll,
-					color = Palette.cyan,
-					textColor = Palette.ink,
+					color = if canBuyAll then Palette.cyan else Palette.panelSoft,
+					textColor = if canBuyAll then Palette.ink else Palette.muted,
 					size = UDim2.fromScale(1, 1),
 					reducedMotion = softMotion,
-					highlight = true,
+					disabled = not canBuyAll,
+					highlight = canBuyAll,
 				}))), stack and React.createElement(React.Fragment, nil, React.createElement(AmountToggle, {
 					value = buyAmount,
 					onChange = setBuyAmount,
 					accent = Palette.cyan,
 					position = UDim2.new(0, 0, 0, 132),
 					size = UDim2.new(1, -(TapTarget + 8), 0, TapTarget),
-					reducedMotion = softMotion,
+						reducedMotion = softMotion,
 				}), React.createElement("frame", {
 					Name = "ResearchBuyClaimActions",
 					Size = UDim2.fromOffset(TapTarget, TapTarget),
@@ -382,11 +407,12 @@ local function ResearchView(_param)
 					text = "ALL",
 					icon = "Flux",
 					onClick = onBuyAll,
-					color = Palette.cyan,
-					textColor = Palette.ink,
+					color = if canBuyAll then Palette.cyan else Palette.panelSoft,
+					textColor = if canBuyAll then Palette.ink else Palette.muted,
 					size = UDim2.fromScale(1, 1),
-					reducedMotion = softMotion,
-					highlight = true,
+						reducedMotion = softMotion,
+					disabled = not canBuyAll,
+					highlight = canBuyAll,
 				})))),
 			},
 			{
@@ -406,6 +432,7 @@ local function ResearchView(_param)
 						return React.createElement(ResearchNode, {
 							entry = entries[index + 1],
 							buyAmount = buyAmount,
+							cash = state.Cash,
 							reducedMotion = softMotion,
 							index = index,
 							onBuy = onBuy,

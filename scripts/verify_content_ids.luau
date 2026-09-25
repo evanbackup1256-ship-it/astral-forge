@@ -1,7 +1,7 @@
 -- Uniqueness + kind sanity for GameConfig content tables (DataVersion stays untouched).
 local fs = require("@lune/fs")
 
-local src = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
+local src = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau"):gsub("\r\n", "\n")
 assert(string.find(src, "DataVersion = 21", 1, true), "DataVersion must remain 21")
 assert(string.find(src, 'Version = "5.1.0"', 1, true), "display version should stay 5.1.0")
 

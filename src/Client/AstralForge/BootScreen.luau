@@ -129,7 +129,7 @@ local function BootScreen(_param)
 			return setTipIndex((current + 1) % #LOADING_TIPS)
 		end)
 		return function()
-			return task.cancel(token)
+			pcall(task.cancel, token)
 		end
 	end, { tipIndex })
 	React.useEffect(function()
@@ -142,7 +142,7 @@ local function BootScreen(_param)
 			return setStalled(true)
 		end)
 		return function()
-			return task.cancel(token)
+			pcall(task.cancel, token)
 		end
 	end, { ready })
 	React.useEffect(function()
@@ -159,7 +159,7 @@ local function BootScreen(_param)
 				Audio:play("bootReady")
 			end)
 			return function()
-				task.cancel(token)
+				pcall(task.cancel, token)
 			end
 		elseif not exiting and not finished.current then
 			local timeout = if RunService:IsStudio() then 22 else 36
@@ -171,14 +171,15 @@ local function BootScreen(_param)
 				end
 			end)
 			return function()
-				task.cancel(token)
+				pcall(task.cancel, token)
 			end
 		end
 	end, { exiting, ready })
 	React.useEffect(function()
 		local connection = RunService.RenderStepped:Connect(function(dt)
-			if not exiting and not softMotion then
-				spinClock.current += dt
+			if not exiting then
+				local rate = if softMotion then 0.55 else 1
+				spinClock.current += dt * rate
 				setClock(spinClock.current)
 				setProgressPulse((math.sin(spinClock.current * 2.4) + 1) * 0.5)
 			end
@@ -200,12 +201,13 @@ local function BootScreen(_param)
 		if not exiting then
 			return nil
 		end
-		local token = task.delay(EXIT_SPIN_SECONDS + EXIT_VEIL_SECONDS + 0.05, function()
+		local span = (EXIT_SPIN_SECONDS + EXIT_VEIL_SECONDS) * (if softMotion then 0.55 else 1) + 0.05
+		local token = task.delay(span, function()
 			setGone(true)
 			onExitDone()
 		end)
 		return function()
-			return task.cancel(token)
+			pcall(task.cancel, token)
 		end
 	end, { exiting, onExitDone })
 	if gone then
@@ -305,7 +307,7 @@ local function BootScreen(_param)
 		clock = clock,
 		leaving = spinHide,
 		ready = ready,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		compact = false,
 	})), React.createElement("textlabel", {
 		Size = UDim2.new(0, 320, 0, 24),

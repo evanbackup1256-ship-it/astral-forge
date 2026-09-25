@@ -8,7 +8,6 @@ local recordPerformanceTelemetry = _log.recordPerformanceTelemetry
 local _motion = require(script.Parent.motion)
 local setClockBudget = _motion.setClockBudget
 local setContinuousMotionRate = _motion.setContinuousMotionRate
-local setHitchMotionFrozen = _motion.setHitchMotionFrozen
 -- Touch-primary phones/tablets and gamepad-primary consoles share a tighter
 -- budget profile. Declared above startTelemetry — calling it from a local that
 -- is defined later used to crash with `attempt to call a nil value`.
@@ -277,13 +276,26 @@ local function watchPing(remote, action)
 	if action == nil then
 		action = "MeasureLatency"
 	end
-	if latencyRemote == remote and latencyAction == action then
-		return nil
+	local stopped = false
+	local function disconnect()
+		if stopped then
+			return nil
+		end
+		stopped = true
+		if latencyRemote ~= remote or latencyAction ~= action then
+			return nil
+		end
+		stopLatencyWorker()
+		latencyRemote = nil
+		latencyAction = nil
 	end
-	stopLatencyWorker()
-	latencyRemote = remote
-	latencyAction = action
-	startLatencyWorker()
+	if latencyRemote ~= remote or latencyAction ~= action then
+		stopLatencyWorker()
+		latencyRemote = remote
+		latencyAction = action
+		startLatencyWorker()
+	end
+	return disconnect
 end
 local function median(values)
 	if #values == 0 then
@@ -723,7 +735,12 @@ local function AntilagProvider(_param)
 	React.useEffect(function()
 		local quality = startingQuality
 		local lastLoggedTier = infoRef.current.tier
-		local lastContinuousPushAt = 0
+		-- Quality can cross a tier boundary every sample while a settings slider
+		-- or a resize hitch is in progress. Hold the published tier until the new
+		-- one has stayed put for a short beat so the shell does not flip every frame.
+		local TIER_DEBOUNCE_SECONDS = 0.4
+		local pendingTier = lastLoggedTier
+		local pendingTierSince = os.clock()
 		local lastRiseAt = 0
 		local lastDropAt = 0
 		local slope = 0
@@ -751,7 +768,6 @@ local function AntilagProvider(_param)
 			if spiked or collapsed then
 				hitchStrikes += 1
 				hitchHoldUntil = now + (if collapsed then 1.8 else 0.6)
-				setHitchMotionFrozen(true)
 				if collapsed and hitchStrikes >= 2 then
 					target = math.min(target, 0.16)
 					holdUntil = now + 2.6
@@ -762,7 +778,7 @@ local function AntilagProvider(_param)
 			else
 				hitchStrikes = math.max(0, hitchStrikes - 1)
 				if now >= hitchHoldUntil and sample.hitchScore < 0.05 and sample.fps >= 50 then
-					setHitchMotionFrozen(false)
+					hitchHoldUntil = now
 				end
 			end
 			if sample.fps < 50 and not warming then
@@ -789,23 +805,31 @@ local function AntilagProvider(_param)
 			quality = math.clamp(quality, 0.08, touchCeil)
 			local pressure = math.clamp(1 - raw + scene + prefer, 0, 1)
 			local scored = infoFromQuality(quality, sample.fps, pressure, sample.hitchScore)
+			local published = infoRef.current
+			if scored.tier == published.tier then
+				-- Same tier must not push React. Resize and settings spam re-enter
+				-- evaluate every sample; the live snapshot stays until the tier changes.
+				pendingTier = published.tier
+				pendingTierSince = now
+				applyMotionRate(scored)
+				return nil
+			end
+			if pendingTier ~= scored.tier then
+				pendingTier = scored.tier
+				pendingTierSince = now
+			end
+			if now - pendingTierSince < TIER_DEBOUNCE_SECONDS then
+				-- Hold the previous snapshot entirely. Publishing scored.tier rewritten
+				-- back to the old tier would still ship the new allowAmbient / allowConfetti.
+				return nil
+			end
 			applyMotionRate(scored)
-			-- Keep the module mirror (and all non-React consumers) always fresh, but only
-			-- push through React context on real budget edges — see discrete/continuous
-			-- split above. This is the difference between a couple of re-renders per minute
-			-- and ~180 full-tree re-renders per minute during quality drift.
 			latestAntilagInfo = scored
-			local discrete = discreteBudgetsChanged(infoRef.current, scored)
-			local continuous = continuousBudgetsChanged(infoRef.current, scored)
-			local pushAt = os.clock()
-			if discrete or (continuous and pushAt - lastContinuousPushAt >= 1.1) then
-				lastContinuousPushAt = pushAt
-				infoRef.current = scored
-				setInfo(scored)
-				if scored.tier ~= lastLoggedTier then
-					lastLoggedTier = scored.tier
-					ClientLog:debug("perf", `{math.floor(sample.fps)} fps, quality {string.format("%.2f", quality)}`)
-				end
+			infoRef.current = scored
+			setInfo(scored)
+			if scored.tier ~= lastLoggedTier then
+				lastLoggedTier = scored.tier
+				ClientLog:debug("perf", `{math.floor(sample.fps)} fps, quality {string.format("%.2f", quality)}`)
 			end
 		end
 		local onScene = function()

@@ -9,12 +9,15 @@ local TextChatService = game:GetService("TextChatService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local MainGame = require(script.MainGame).MainGame
+-- Studio drops a script that spends its whole execution budget in one require chain.
+task.wait()
 local _antilag = require(script.antilag)
 local AntilagProvider = _antilag.AntilagProvider
 local watchPing = _antilag.watchPing
 local _audio = require(script.audio)
 local Audio = _audio.Audio
 local hookGuiClicks = _audio.hookGuiClicks
+task.wait()
 local _BootScreen = require(script.BootScreen)
 local BOOT_MOTION = _BootScreen.BOOT_MOTION
 local BootScreen = _BootScreen.BootScreen
@@ -25,8 +28,11 @@ local createClientStore = _clientStore.createClientStore
 local destroyClientStore = _clientStore.destroyClientStore
 local useClientDispatch = _clientStore.useClientDispatch
 local useClientSelector = _clientStore.useClientSelector
+task.wait()
 local DomainExpansionOverlay = require(script.DomainExpansionOverlay).DomainExpansionOverlay
+task.wait()
 local DomainSkillTree = require(script.DomainSkillTree).DomainSkillTree
+task.wait()
 local initializeClientFramework = require(script.frameworkBridge).initializeClientFramework
 local _log = require(script.log)
 local beginClientSession = _log.beginClientSession
@@ -40,9 +46,42 @@ local configureInputPlatform = require(script.inputPlatform).configureInputPlatf
 local startSession = require(script.session).startSession
 local SoftShutdownScreen = require(script.SoftShutdownScreen).SoftShutdownScreen
 local Palette = require(script.theme).Palette
+local PageErrorBoundary = require(script.reactHost).PageErrorBoundary
+local PagePending = require(script.reactHost).PagePending
 local SCREEN_NAME = "AstralForgeStudioUI"
 local REPLICATION_TIMEOUT = 15
 local CHILD_TIMEOUT = 8
+local bootConnections = {}
+local function trackBootConnection(connection)
+	if connection == nil then
+		return connection
+	end
+	table.insert(bootConnections, connection)
+	return connection
+end
+local function disconnectBootConnection(connection)
+	if connection == nil then
+		return nil
+	end
+	local index = table.find(bootConnections, connection)
+	if index ~= nil then
+		table.remove(bootConnections, index)
+	end
+	pcall(function()
+		connection:Disconnect()
+	end)
+end
+local function disconnectBootConnections()
+	for index = #bootConnections, 1, -1 do
+		local connection = bootConnections[index]
+		bootConnections[index] = nil
+		if connection ~= nil then
+			pcall(function()
+				connection:Disconnect()
+			end)
+		end
+	end
+end
 local stopInputPlatform = configureInputPlatform()
 -- Fired once at boot so AutoLocalize'd text (see ui.tsx's Text/TextInput components) doesn't
 -- stall its first translation lookup on the player's own request -- GetTranslatorForPlayerAsync
@@ -331,10 +370,10 @@ local function ClientBootstrap(_param)
 				return StarterGui:SetCore("TopbarEnabled", true)
 			end)
 		end
-		local changed = connection.remotes.Bridge:GetAttributeChangedSignal("BootFailure"):Connect(syncFailure)
+		local changed = trackBootConnection(connection.remotes.Bridge:GetAttributeChangedSignal("BootFailure"):Connect(syncFailure))
 		syncFailure()
 		return function()
-			return changed:Disconnect()
+			disconnectBootConnection(changed)
 		end
 	end, { connection })
 	React.useEffect(function()
@@ -363,12 +402,12 @@ local function ClientBootstrap(_param)
 				Revision = connection.remotes.Bridge:GetAttribute("ShutdownRevision"),
 			})
 		end
-		local eventConnection = connection.remotes.Shutdown.OnClientEvent:Connect(accept)
-		local attributeConnection = connection.remotes.Bridge:GetAttributeChangedSignal("ShutdownRevision"):Connect(syncBridge)
+		local eventConnection = trackBootConnection(connection.remotes.Shutdown.OnClientEvent:Connect(accept))
+		local attributeConnection = trackBootConnection(connection.remotes.Bridge:GetAttributeChangedSignal("ShutdownRevision"):Connect(syncBridge))
 		syncBridge()
 		return function()
-			eventConnection:Disconnect()
-			attributeConnection:Disconnect()
+			disconnectBootConnection(eventConnection)
+			disconnectBootConnection(attributeConnection)
 		end
 	end, { connection })
 	local bootVisibleRef = React.useRef(bootVisible)
@@ -466,10 +505,12 @@ do
 		end
 		local stopScrollPerformance = installScrollPerformance()
 		local stopEgooe = startEgooeHost(playerGui)
+		local shutdownVendor = require(script.vendorHost).shutdown
 		local _exp = self.disposers
 		table.insert(_exp, function()
 			stopScrollPerformance()
 			stopEgooe()
+			shutdownVendor()
 		end)
 		local screen = Instance.new("ScreenGui")
 		screen.Name = SCREEN_NAME
@@ -499,12 +540,12 @@ do
 		self.store = createClientStore()
 		self.root = ReactRoblox.createRoot(screen)
 		initializeClientFramework(screen)
-		local destroying = screen.Destroying:Connect(function()
+		local destroying = trackBootConnection(screen.Destroying:Connect(function()
 			return self:dispose()
-		end)
+		end))
 		local _exp_1 = self.disposers
 		table.insert(_exp_1, function()
-			return destroying:Disconnect()
+			disconnectBootConnection(destroying)
 		end)
 		local _exp_2 = self.disposers
 		table.insert(_exp_2, function()
@@ -524,20 +565,25 @@ do
 		if self.disposed then
 			return nil
 		end
-		self.root:render(React.createElement(ClientStoreProvider, {
+		self.root:render(React.createElement(React.Suspense, {
+			fallback = React.createElement(PagePending),
+		}, React.createElement(PageErrorBoundary, nil, React.createElement(ClientStoreProvider, {
 			store = self.store,
-		}, element))
+		}, element))))
 	end
 	function ClientRuntime:dispose()
 		if self.disposed then
 			return nil
 		end
 		self.disposed = true
+		disconnectBootConnections()
 		pcall(function()
 			return self.root:unmount()
 		end)
-		for index = #self.disposers - 1, 0, -1 do
-			pcall(self.disposers[index + 1])
+		for index = #self.disposers, 1, -1 do
+			local disposer = self.disposers[index]
+			self.disposers[index] = nil
+			pcall(disposer)
 		end
 		table.clear(self.disposers)
 		local purchaseLayer = self.playerGui:FindFirstChild("AstralForgePurchase")
@@ -819,7 +865,7 @@ local remotes = {
 local stopPerformanceTelemetry = startPerformanceTelemetry(remotes.Request)
 runtime:addDisposer(stopPerformanceTelemetry)
 runtime:addDisposer(startSession(remotes))
-watchPing(remotes.Request, "MeasureLatency")
+runtime:addDisposer(watchPing(remotes.Request, "MeasureLatency"))
 ClientLog:debug("net", `connected to {config.Game.Version}`)
 runtime:render(React.createElement(ClientBootstrap, {
 	startedAt = clientStartedAt,

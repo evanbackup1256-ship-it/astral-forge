@@ -1,5 +1,7 @@
 --!strict
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
@@ -53,12 +55,167 @@ return function()
 		return prompt
 	end
 
+	local SANCTUARY_ORIGIN = Vector3.new(1680, 248, -220)
+	local PATH = Color3.fromRGB(88, 98, 120)
+	local DECK = Color3.fromRGB(61, 70, 88)
+	local DARK = Color3.fromRGB(34, 40, 52)
+	local ROCK = Color3.fromRGB(50, 54, 64)
+	local LIP = Color3.fromRGB(73, 82, 100)
+	local CYAN = Color3.fromRGB(64, 224, 255)
+	local MINT = Color3.fromRGB(80, 238, 180)
+
+	local function sanctuaryPart(parent: Instance, className: string, name: string, size: Vector3, center: Vector3, yaw: number, color: Color3, material: Enum.Material, collide: boolean): BasePart
+		local part = Instance.new(className) :: BasePart
+		part.Name = name
+		part.Anchored = true
+		part.CanCollide = collide
+		part.Size = size
+		part.Color = color
+		part.Material = material
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		part.CFrame = CFrame.new(SANCTUARY_ORIGIN + center) * CFrame.Angles(0, math.rad(yaw), 0)
+		part.Parent = parent
+		return part
+	end
+
+	local function topPart(parent: Instance, className: string, name: string, size: Vector3, top: Vector3, yaw: number, color: Color3, material: Enum.Material, collide: boolean): BasePart
+		local center = Vector3.new(top.X, top.Y - size.Y * 0.5, top.Z)
+		return sanctuaryPart(parent, className, name, size, center, yaw, color, material, collide)
+	end
+
+	local function uprightCylinder(parent: Instance, name: string, diameter: number, height: number, center: Vector3, color: Color3, material: Enum.Material, collide: boolean): Part
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Shape = Enum.PartType.Cylinder
+		part.Anchored = true
+		part.CanCollide = collide
+		part.Size = Vector3.new(height, diameter, diameter)
+		part.Color = color
+		part.Material = material
+		part.CFrame = CFrame.new(SANCTUARY_ORIGIN + center) * CFrame.Angles(0, 0, math.rad(90))
+		part.Parent = parent
+		return part
+	end
+
+	local function sanctuaryBall(parent: Instance, name: string, diameter: number, center: Vector3, color: Color3, material: Enum.Material, collide: boolean): Part
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Shape = Enum.PartType.Ball
+		part.Anchored = true
+		part.CanCollide = collide
+		part.Size = Vector3.new(diameter, diameter, diameter)
+		part.Color = color
+		part.Material = material
+		part.CFrame = CFrame.new(SANCTUARY_ORIGIN + center)
+		part.Parent = parent
+		return part
+	end
+
+	local function buildSanctuary(folder: Folder): (CFrame, number)
+		local model = Instance.new("Model")
+		model.Name = "Sanctuary"
+		model.Parent = folder
+
+		-- One walk ribbon at Y=0, then a single step onto an irregular dais.
+		-- The south approach stays low: the overlook camera sits ~24 studs behind spawn and ~14 up.
+		topPart(model, "Part", "PathSouth", Vector3.new(12, 3.2, 20), Vector3.new(2.4, 0, 19), 8, PATH, Enum.Material.Slate, true)
+		topPart(model, "Part", "PathMid", Vector3.new(18, 3.2, 16), Vector3.new(-0.8, 0, 9), -6, PATH, Enum.Material.Slate, true)
+		topPart(model, "Part", "PathApron", Vector3.new(22, 3.2, 12), Vector3.new(0.6, 0, 2.2), 3, PATH, Enum.Material.Cobblestone, true)
+		topPart(model, "Part", "PathFlake", Vector3.new(7, 3.2, 6), Vector3.new(6.5, 0, 15), 18, PATH, Enum.Material.Slate, true)
+
+		topPart(model, "Part", "Dais", Vector3.new(22, 3.4, 16), Vector3.new(-0.6, 1.45, -4.6), -7, DECK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "DaisShoulder", Vector3.new(13, 3.4, 11), Vector3.new(-8.4, 1.45, -1.2), 15, DECK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "DaisNose", Vector3.new(10, 3.4, 9), Vector3.new(7.2, 1.45, -8.6), -16, DECK, Enum.Material.Slate, true)
+
+		-- West lip overlaps the shoulder, then cantilevers with nothing under the outer edge.
+		topPart(model, "Part", "HangLip", Vector3.new(12, 0.7, 14), Vector3.new(-16.2, 1.02, -1.6), 11, LIP, Enum.Material.Slate, true)
+		topPart(model, "Part", "LipRoot", Vector3.new(5, 3.2, 7), Vector3.new(-11.2, 0.15, -1.4), 11, DARK, Enum.Material.Basalt, true)
+
+		topPart(model, "Part", "Keel", Vector3.new(16, 9, 20), Vector3.new(0.4, -0.6, 5), -4, DARK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "KeelWest", Vector3.new(10, 7, 12), Vector3.new(-6.5, -1.4, -2.5), 12, DARK, Enum.Material.Rock, true)
+		topPart(model, "Part", "KeelTail", Vector3.new(9, 6, 11), Vector3.new(2.8, -1.2, 17), 7, DARK, Enum.Material.Rock, true)
+		topPart(model, "Part", "KeelNose", Vector3.new(8, 5, 8), Vector3.new(5.5, -1.6, -7), -14, DARK, Enum.Material.Basalt, true)
+
+		topPart(model, "Part", "EastLedge", Vector3.new(9, 2.6, 13), Vector3.new(13.4, 0.15, -0.4), 9, DECK, Enum.Material.Rock, true)
+		topPart(model, "Part", "RockEast", Vector3.new(5.4, 3.1, 4.4), Vector3.new(14.2, 3.25, -3.6), 22, ROCK, Enum.Material.Rock, true)
+		topPart(model, "Part", "RockEastLow", Vector3.new(3.6, 2.1, 3.2), Vector3.new(16.1, 2.25, 1.4), -28, ROCK, Enum.Material.Slate, true)
+		topPart(model, "WedgePart", "WedgeEast", Vector3.new(4.2, 2.2, 5.2), Vector3.new(11.4, 2.35, 2.2), -18, ROCK, Enum.Material.Rock, true)
+		topPart(model, "Part", "RockNorth", Vector3.new(5.6, 3.2, 4.6), Vector3.new(-3.4, 4.65, -12.4), -24, ROCK, Enum.Material.Rock, true)
+		topPart(model, "WedgePart", "WedgeNorth", Vector3.new(4.4, 2.4, 5), Vector3.new(2.2, 3.6, -12.8), 20, ROCK, Enum.Material.Slate, true)
+		topPart(model, "Part", "RockShoulder", Vector3.new(3.4, 2.2, 3.2), Vector3.new(-11.6, 3.55, 3.2), 36, ROCK, Enum.Material.Rock, true)
+
+		topPart(model, "Part", "PebbleA", Vector3.new(1.6, 0.7, 1.4), Vector3.new(8.4, 0.35, 12.6), 14, ROCK, Enum.Material.Rock, false)
+		topPart(model, "Part", "PebbleB", Vector3.new(1.3, 0.6, 1.2), Vector3.new(-6.2, 0.3, 13.4), -20, ROCK, Enum.Material.Rock, false)
+		topPart(model, "Part", "PebbleC", Vector3.new(1.5, 0.8, 1.3), Vector3.new(15.2, 0.55, 3.6), 8, ROCK, Enum.Material.Rock, false)
+		topPart(model, "Part", "PebbleD", Vector3.new(1.2, 0.5, 1.1), Vector3.new(-14.8, 1.28, 2.4), 16, LIP, Enum.Material.Rock, false)
+
+		local crack = topPart(model, "Part", "RiftCrack", Vector3.new(0.35, 0.16, 6.5), Vector3.new(0.3, 1.54, -2.2), -7, CYAN, Enum.Material.Neon, false)
+		crack.Transparency = 0.32
+		crack.CastShadow = false
+
+		-- One lamp: stone cup, a single flame, no pillar stack.
+		local daisTop = 1.45
+		uprightCylinder(model, "AltarPlinth", 5, 1.05, Vector3.new(0.5, daisTop + 0.52, -3.1), DECK, Enum.Material.Basalt, true)
+		uprightCylinder(model, "AltarCup", 3.2, 0.42, Vector3.new(0.5, daisTop + 1.26, -3.1), DARK, Enum.Material.Slate, true)
+		local flame = sanctuaryBall(model, "AltarFlame", 1.45, Vector3.new(0.5, daisTop + 1.95, -3.1), MINT, Enum.Material.Neon, false)
+		flame.Transparency = 0.22
+		flame.CastShadow = false
+		local flameLight = Instance.new("PointLight")
+		flameLight.Color = CYAN
+		flameLight.Brightness = 1.15
+		flameLight.Range = 22
+		flameLight.Shadows = false
+		flameLight.Parent = flame
+
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "SanctuaryClose"
+		prompt.ActionText = "Seal the rift"
+		prompt.ObjectText = "Forge altar"
+		prompt.KeyboardKeyCode = Enum.KeyCode.E
+		prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+		prompt.MaxActivationDistance = 14
+		prompt.HoldDuration = 0
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = flame
+
+		-- SpawnLocation so LoadCharacter does not drop the avatar at the origin.
+		-- The part name stays Spawn. No extra spire.
+		local spawn = sanctuaryPart(model, "SpawnLocation", "Spawn", Vector3.new(6, 1, 6), Vector3.new(0, 3.5, 7), 0, DECK, Enum.Material.SmoothPlastic, false)
+		spawn.Transparency = 1
+		spawn.CanQuery = false
+		spawn.CanTouch = false
+		if spawn:IsA("SpawnLocation") then
+			spawn.Neutral = true
+			spawn.Duration = 0
+			spawn.AllowTeamChangeOnTouch = false
+			spawn.Enabled = true
+		end
+		local look = SANCTUARY_ORIGIN + Vector3.new(0.5, daisTop + 1.95, -3.1)
+		spawn.CFrame = CFrame.lookAt(spawn.Position, look)
+
+		return spawn.CFrame, SANCTUARY_ORIGIN.Y
+	end
+
 	function WorldService.new()
 		local self = setmetatable({}, WorldService)
 		self._interactionHandler = nil
 		self._plots = {}
 		self._plotIndex = {}
 		self._folder = nil
+		self._sanctuary = {}
+		self._charConns = {}
+		self._spawn = nil
+		self._spawnPart = nil
+		self._originY = 0
+		self._heartbeat = nil
+		self._playerRemoving = nil
+		self._loadQueue = {}
+		self._loadError = {}
+		self._loaderAlive = false
+		self._enterGen = {}
+		self._brokenSince = {}
+		self._loading = {}
 		return self
 	end
 
@@ -84,6 +241,71 @@ return function()
 		base.TopSurface = Enum.SurfaceType.Smooth
 		base.BottomSurface = Enum.SurfaceType.Smooth
 		base.Parent = folder
+		self._spawn, self._originY = buildSanctuary(folder)
+		local sanctuaryModel = folder:FindFirstChild("Sanctuary")
+		local spawnPart = sanctuaryModel and sanctuaryModel:FindFirstChild("Spawn")
+		if spawnPart ~= nil and spawnPart:IsA("BasePart") then
+			self._spawnPart = spawnPart
+		end
+		self:_ensureCharacterLoader()
+		if self._heartbeat then
+			self._heartbeat:Disconnect()
+		end
+		if self._playerRemoving then
+			self._playerRemoving:Disconnect()
+		end
+		self._playerRemoving = Players.PlayerRemoving:Connect(function(player)
+			self._sanctuary[player] = nil
+			self._enterGen[player] = nil
+			self._brokenSince[player] = nil
+			self._loading[player] = nil
+			self._loadError[player] = nil
+			local conn = self._charConns[player]
+			if conn then
+				conn:Disconnect()
+				self._charConns[player] = nil
+			end
+		end)
+		self._heartbeat = RunService.Heartbeat:Connect(function()
+			if next(self._sanctuary) == nil then
+				return
+			end
+			local now = os.clock()
+			for player in self._sanctuary do
+				if player.Parent ~= Players then
+					continue
+				end
+				if self._loading[player] == true then
+					-- A long LoadCharacter must not inherit the empty-avatar timer.
+					self._brokenSince[player] = nil
+					continue
+				end
+				local character = player.Character
+				local root = nil
+				if character ~= nil and character.Parent ~= nil then
+					local found = character:FindFirstChild("HumanoidRootPart")
+					if found ~= nil and found:IsA("BasePart") then
+						root = found
+					end
+				end
+				local broken = character == nil or character.Parent == nil or root == nil
+				if broken then
+					-- A fresh LoadCharacter has no root for a moment. Only replace an avatar that stays empty.
+					local since = self._brokenSince[player]
+					if since == nil then
+						self._brokenSince[player] = now
+					elseif now - since > 3 then
+						self._brokenSince[player] = now
+						self:_queueCharacterLoad(player, true)
+					end
+				else
+					self._brokenSince[player] = nil
+					if root.Position.Y < self._originY - 40 then
+						self:_placeCharacter(player)
+					end
+				end
+			end
+		end)
 	end
 
 	function WorldService:SetInteractionHandler(handler)
@@ -385,6 +607,9 @@ return function()
 	end
 
 	function WorldService:TeleportToPlot(player: Player)
+		if self._sanctuary[player] == true then
+			return
+		end
 		local plot = self._plots[player]
 		if not plot then
 			return
@@ -421,6 +646,245 @@ return function()
 		if not keepSlot then
 			self._plotIndex[player] = nil
 		end
+	end
+
+	function WorldService:_spawnCFrame(player: Player): CFrame
+		local slot = (player.UserId % 4) - 1.5
+		return (self._spawn :: CFrame) * CFrame.new(slot * 3.5, 0, 0)
+	end
+
+	function WorldService:_placeCharacter(player: Player): boolean
+		if typeof(self._spawn) ~= "CFrame" then
+			return false
+		end
+		local character = player.Character
+		if character == nil then
+			return false
+		end
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if root == nil or not root:IsA("BasePart") then
+			return false
+		end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = 16
+			humanoid.JumpPower = 50
+			humanoid.JumpHeight = 7.2
+			if humanoid:GetAttribute("AF_SanctuaryDied") ~= true then
+				humanoid:SetAttribute("AF_SanctuaryDied", true)
+				humanoid.Died:Connect(function()
+					task.delay(0.85, function()
+						if self._sanctuary[player] ~= true or player.Parent ~= Players then
+							return
+						end
+						self:_queueCharacterLoad(player, true)
+					end)
+				end)
+			end
+		end
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+		root.CFrame = self:_spawnCFrame(player)
+		return true
+	end
+
+	function WorldService:_watchSanctuary(player: Player)
+		if self._charConns[player] then
+			return
+		end
+		self._charConns[player] = player.CharacterAdded:Connect(function()
+			if self._sanctuary[player] ~= true then
+				return
+			end
+			task.defer(function()
+				if self._sanctuary[player] == true and player.Parent == Players then
+					self:_placeCharacter(player)
+				end
+			end)
+		end)
+	end
+
+	function WorldService:_awaitSanctuaryPlace(player: Player): boolean
+		local deadline = os.clock() + 6
+		while self._sanctuary[player] == true and player.Parent == Players and os.clock() < deadline do
+			if self:_placeCharacter(player) then
+				return true
+			end
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if character ~= nil and root == nil then
+				local remaining = deadline - os.clock()
+				if remaining <= 0 then
+					break
+				end
+				character:WaitForChild("HumanoidRootPart", remaining)
+			else
+				task.wait(0.05)
+			end
+		end
+		if self._sanctuary[player] == true and player.Parent == Players then
+			return self:_placeCharacter(player)
+		end
+		return false
+	end
+
+	function WorldService:_bindSanctuaryFocus(player: Player)
+		local focus = self._spawnPart
+		if typeof(focus) ~= "Instance" or not focus:IsA("BasePart") or focus.Parent == nil then
+			return
+		end
+		player.ReplicationFocus = focus
+		if focus:IsA("SpawnLocation") then
+			player.RespawnLocation = focus
+		end
+	end
+
+	function WorldService:_queueCharacterLoad(player: Player, replaceBroken: boolean?)
+		if player.Parent ~= Players or self._sanctuary[player] ~= true then
+			return
+		end
+		for _, queued in self._loadQueue do
+			if queued == player then
+				return
+			end
+		end
+		if replaceBroken == true then
+			local character = player.Character
+			if character ~= nil and character.Parent ~= nil then
+				character:Destroy()
+			end
+			player.Character = nil
+		end
+		table.insert(self._loadQueue, player)
+	end
+
+	function WorldService:_ensureCharacterLoader()
+		if self._loaderAlive == true then
+			return
+		end
+		self._loaderAlive = true
+		-- This thread is started with the world, not from a remote callback.
+		-- LoadCharacter yields, and doing that on OnServerInvoke (even via
+		-- task.spawn from the invoke) aborts with "Callbacks cannot yield"
+		-- and leaves an empty character that has no HumanoidRootPart.
+		task.spawn(function()
+			while self._loaderAlive == true do
+				local player = table.remove(self._loadQueue, 1)
+				if player == nil then
+					task.wait(0.05)
+				else
+					local stepOk, stepErr = pcall(function()
+						if player.Parent ~= Players or self._sanctuary[player] ~= true then
+							return
+						end
+						self:_bindSanctuaryFocus(player)
+						local character = player.Character
+						local rooted = false
+						if character ~= nil and character.Parent ~= nil then
+							local root = character:FindFirstChild("HumanoidRootPart")
+							rooted = root ~= nil and root:IsA("BasePart")
+						end
+						if rooted then
+							self:_placeCharacter(player)
+							return
+						end
+						-- An avatar that is still assembling has no root yet.
+						-- Destroying it here is what left the rift with no character.
+						-- Heartbeat replaces one that stays empty.
+						if character ~= nil then
+							return
+						end
+						self._loading[player] = true
+						self._brokenSince[player] = nil
+						local loaded, loadErr = pcall(function()
+							player:LoadCharacter()
+						end)
+						if loaded and self._sanctuary[player] == true then
+							self:_placeCharacter(player)
+						elseif not loaded then
+							self._loadError[player] = tostring(loadErr)
+						end
+						self._loading[player] = nil
+					end)
+					if player ~= nil then
+						self._loading[player] = nil
+					end
+					if not stepOk then
+						self._loadError[player] = tostring(stepErr)
+						warn(string.format("[Sanctuary] loader %s", tostring(stepErr)))
+					end
+				end
+			end
+		end)
+	end
+
+	function WorldService:EnterSanctuary(player: Player): (boolean, CFrame?, boolean)
+		if typeof(self._spawn) ~= "CFrame" then
+			warn("[Sanctuary] enter failed — spawn was not built")
+			return false, nil, false
+		end
+		self._enterGen[player] = (self._enterGen[player] or 0) + 1
+		local generation = self._enterGen[player]
+		self._sanctuary[player] = true
+		self._loadError[player] = nil
+		self._brokenSince[player] = nil
+		self:_bindSanctuaryFocus(player)
+		self:_watchSanctuary(player)
+		self:_ensureCharacterLoader()
+		self:_queueCharacterLoad(player, false)
+
+		local deadline = os.clock() + 12
+		while player.Parent == Players and self._sanctuary[player] == true and self._enterGen[player] == generation and os.clock() < deadline do
+			if self:_placeCharacter(player) then
+				local placed = self:_spawnCFrame(player)
+				task.spawn(function()
+					pcall(function()
+						player:RequestStreamAroundAsync(placed.Position, 5)
+					end)
+				end)
+				return true, placed, false
+			end
+			task.wait(0.05)
+		end
+		-- A close or a newer enter owns the player. Do not answer with the rift error.
+		if self._enterGen[player] ~= generation or self._sanctuary[player] ~= true then
+			return false, nil, true
+		end
+		local why = self._loadError[player]
+		if why == nil then
+			why = "character never gained a HumanoidRootPart"
+		end
+		warn(string.format("[Sanctuary] enter failed — %s", why))
+		self:LeaveSanctuary(player)
+		return false, nil, false
+	end
+
+	function WorldService:LeaveSanctuary(player: Player)
+		self._sanctuary[player] = nil
+		self._enterGen[player] = (self._enterGen[player] or 0) + 1
+		self._brokenSince[player] = nil
+		self._loading[player] = nil
+		pcall(function()
+			player.ReplicationFocus = nil
+			player.RespawnLocation = nil
+		end)
+		local conn = self._charConns[player]
+		if conn then
+			conn:Disconnect()
+			self._charConns[player] = nil
+		end
+		local character = player.Character
+		if character == nil or character.Parent == nil then
+			player.Character = nil
+			return
+		end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = 0
+			humanoid.JumpPower = 0
+			humanoid.JumpHeight = 0
+		end
+		character:Destroy()
 	end
 
 	return WorldService

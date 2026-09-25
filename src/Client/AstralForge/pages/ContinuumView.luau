@@ -104,7 +104,7 @@ local function ContinuumView(_param)
 			end
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { continuum.CanUpgrade, continuum.Rank })
 	local ranksIntoSet = continuum.Rank % 25

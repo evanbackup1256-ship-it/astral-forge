@@ -1,5 +1,6 @@
 -- appNav.ts
 local scaledCost = require(script.Parent.format).scaledCost
+local gteFlux = require(script.Parent.format).gteFlux
 local Palette = require(script.Parent.theme).Palette
 local NavRouteTable = require(script.Parent.navRouteTable)
 
@@ -411,21 +412,30 @@ AppHelpers = {
 			local price = scaledCost(item.BaseCost, item.CostScale, level)
 			local maxed = level >= item.MaxLevel
 			local lockReason = ""
+			local lockShort = ""
 			local _condition_1 = item.RequiredZone
 			if _condition_1 == nil then
 				_condition_1 = 1
 			end
 			local requiredZone = _condition_1
-			if state.Zone < requiredZone then
-				lockReason = `Reach World {item.RequiredZone}`
+			local zone = state.Zone
+			if type(zone) ~= "number" then
+				zone = 0
+			end
+			if zone < requiredZone then
+				lockReason = `Reach World {requiredZone}`
 			else
 				local _condition_2 = item.RequiredRebirths
 				if _condition_2 == nil then
 					_condition_2 = 0
 				end
 				local requiredRebirths = _condition_2
-				if state.Rebirths < requiredRebirths then
-					lockReason = `Complete {item.RequiredRebirths} rebirth{if item.RequiredRebirths == 1 then "" else "s"}`
+				local rebirths = state.Rebirths
+				if type(rebirths) ~= "number" then
+					rebirths = 0
+				end
+				if rebirths < requiredRebirths then
+					lockReason = `Complete {requiredRebirths} rebirth{if requiredRebirths == 1 then "" else "s"}`
 				elseif item.PreviousId ~= nil then
 					local _condition_3 = levels[item.PreviousId]
 					if _condition_3 == nil then
@@ -444,7 +454,8 @@ AppHelpers = {
 							_condition_5 = item.PreviousId
 						end
 						local prevName = _condition_5
-						lockReason = `Raise {prevName} to level {needLevel}`
+						lockReason = `Get {prevName} to level {needLevel}. You have {prevLevel}.`
+						lockShort = `Need level {needLevel}`
 					end
 				end
 			end
@@ -456,7 +467,8 @@ AppHelpers = {
 				maxed = maxed,
 				unlocked = unlocked,
 				lockReason = lockReason,
-				affordable = unlocked and not maxed,
+				lockShort = lockShort,
+				affordable = unlocked and not maxed and gteFlux(state.Cash, price),
 				order = index,
 			}
 			table.insert(entries, _arg0)

@@ -572,6 +572,7 @@ local function MobileHeader(_param)
 	local edgePad = _param.edgePad
 	local reducedMotion = _param.reducedMotion
 	local openPlayerlist = _param.openPlayerlist
+	local openSanctuary = _param.openSanctuary
 	local entry = AppHelpers:pageEntry(page)
 	local vaultReady = asFlux(state.Vault) >= 0.01
 	local showDust = AppHelpers:featureUnlocked(state, "StarGrid")
@@ -591,7 +592,8 @@ local function MobileHeader(_param)
 	-- phones once real (long) numbers pushed the chip row wider than assumed.
 	local chipCount = (if showCores then 1 else 0) + (if showDust then 1 else 0) + 1
 	local chipW = if barHeight <= 40 then 56 else 64
-	local chipReserve = chipCount * chipW + (chipCount - 1) * 6 + 12
+	local sanctuarySlot = if openSanctuary ~= nil then 36 else 0
+	local chipReserve = chipCount * chipW + (chipCount - 1) * 6 + 12 + sanctuarySlot
 	local titleSize = if barHeight <= 40 then 13 else 15
 	local iconSize = if barHeight <= 40 then 26 else 30
 	return React.createElement("frame", {
@@ -678,7 +680,30 @@ local function MobileHeader(_param)
 		HorizontalAlignment = Enum.HorizontalAlignment.Right,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Padding = UDim.new(0, 6),
-	}), showCores and React.createElement(MiniChip, {
+	}), openSanctuary ~= nil and React.createElement("imagebutton", {
+		Size = UDim2.fromOffset(30, 30),
+		BackgroundColor3 = Palette.panelSoft,
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		LayoutOrder = 0,
+		ZIndex = 5,
+		Event = {
+			Activated = function()
+				Audio:play("click")
+				openSanctuary()
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 8),
+	}), React.createElement(Icon, {
+		kind = "Forge",
+		size = 18,
+		color = Palette.cyan,
+		spin = false,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+	})), showCores and React.createElement(MiniChip, {
 		label = "CORES",
 		value = state.Cores,
 		accent = Palette.violet,

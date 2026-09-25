@@ -1702,8 +1702,11 @@ local function MobileQuickBar(_param)
 		local worker = task.spawn(function()
 			while alive do
 				local left = math.max(0, tapReadyAt - os.clock())
+				if not alive then
+					break
+				end
 				setTapLeft(left)
-				if left <= 0 then
+				if not alive or left <= 0 then
 					break
 				end
 				task.wait(0.05)
@@ -1711,7 +1714,9 @@ local function MobileQuickBar(_param)
 		end)
 		return function()
 			alive = false
-			task.cancel(worker)
+			-- The countdown thread has already returned once the timer hits zero.
+			-- task.cancel throws on that dead thread and would skip later cleanup.
+			pcall(task.cancel, worker)
 		end
 	end, { tapReadyAt })
 	local tap = function()

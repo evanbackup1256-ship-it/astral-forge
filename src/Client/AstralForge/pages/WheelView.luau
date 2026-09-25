@@ -216,7 +216,7 @@ local function useWheelController(_param)
 			motor.current.active = false
 			motor.current.onComplete = nil
 			if timeout.current ~= nil then
-				task.cancel(timeout.current)
+				pcall(task.cancel, timeout.current)
 			end
 		end
 	end, {})
@@ -254,7 +254,7 @@ local function useWheelController(_param)
 			end)
 		end
 		if timeout.current ~= nil then
-			task.cancel(timeout.current)
+			pcall(task.cancel, timeout.current)
 		end
 		timeout.current = task.delay(12, function()
 			timeout.current = nil
@@ -277,7 +277,7 @@ local function useWheelController(_param)
 				return nil
 			end
 			if timeout.current ~= nil then
-				task.cancel(timeout.current)
+				pcall(task.cancel, timeout.current)
 				timeout.current = nil
 			end
 			if not response.ok or response.PrizeIndex == nil then
@@ -442,12 +442,12 @@ local function PrizeWheelMachine(_param)
 	local medallionSize = math.floor(math.clamp(math.min(diameter * 0.11, span * 0.56), 22, 40))
 	local hubSize = math.floor(math.clamp(diameter * 0.2, if compactMachine then 52 else 60, 84))
 	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 10
-	local landing = useFlash(controller.impactNonce, softMotion, if antilag.tier < 1 then 0.34 else 0.56)
-	local launch = useFlash(controller.launchNonce, softMotion, 0.58)
+	local landing = useFlash(controller.impactNonce, reducedMotion, if antilag.tier < 1 then 0.34 else 0.56)
+	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
 	-- Decorative hub glow + idle orbit only when ambient is allowed and antilag tier is 2+.
-	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2 and not softMotion
-	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, softMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
-	local idleOrbit = useRotation(not softMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
+	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2 and not reducedMotion
+	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, reducedMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
+	local idleOrbit = useRotation(not reducedMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
 	local reverseOrbit = idleOrbit:map(function(angle)
 		return -angle * 0.62
 	end)
@@ -968,7 +968,7 @@ local function WheelConsole(_param)
 		size = if compact then 40 else 48,
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		clipSafe = true,
 	}))
 	local _exp_5 = React.createElement(Badge, {
@@ -1085,7 +1085,7 @@ local function WheelConsole(_param)
 	}), React.createElement(Meter, {
 		value = pityFill,
 		color = if pityArmed then Palette.mango else Palette.violet,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		shimmer = pityArmed,
 		position = UDim2.fromOffset(10, if compact then 27 else 31),
 		size = UDim2.new(1, -20, 0, if compact then 6 else 7),
@@ -1104,7 +1104,7 @@ local function WheelConsole(_param)
 		color = if canSpin and not controller.spinning then Palette.mango else Palette.panelSoft,
 		textColor = if canSpin and not controller.spinning then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = controller.spinning or not canSpin,
 		highlight = canSpin and not controller.spinning,
 	})))
@@ -1117,14 +1117,13 @@ local function PrizeCatalogRow(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — WheelView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local chance = if weightTotal > 0 then (reward.Weight / weightTotal) * 100 else 0
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, PRIZE_ROW_H - 6),
 		accent = reward.Color,
 		background = Palette.panel,
 		padding = 10,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = reward.Name or reward.Id,
@@ -1177,7 +1176,7 @@ local function WheelView(props)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { state.Wheel.CanSpin, controller.spinning })
 	local rewards = config.Wheel.Rewards
@@ -1257,6 +1256,7 @@ local function WheelView(props)
 					background = Palette.panelRaised,
 					padding = Layout.cardPadding,
 					reveal = headerReveal,
+					reducedMotion = softMotion,
 					clips = false,
 				}, React.createElement(Text, {
 					value = "PRIZE WHEEL",
@@ -1295,7 +1295,7 @@ local function WheelView(props)
 					controller = controller,
 					diameter = wheelDiameter,
 					canSpin = state.Wheel.CanSpin == true,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					containedEffects = containedEffects,
 				})), React.createElement("frame", {
 					Size = if split then UDim2.new(0.48, -10, 0, consoleH) else UDim2.new(1, 0, 0, consoleH),
@@ -1308,7 +1308,7 @@ local function WheelView(props)
 					controller = controller,
 					onSpin = controller.spin,
 					height = consoleH,
-					reducedMotion = reducedMotion,
+						reducedMotion = softMotion,
 					spinClaimHostRef = spinClaimHostRef,
 					compact = shortLandscape,
 				}))),

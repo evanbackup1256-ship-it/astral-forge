@@ -693,6 +693,7 @@ local function SettingRow(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local motionSoft = _param.softMotion or reducedMotion
 	local layoutOrder = _param.layoutOrder
 	local index = _param.index
 	local stack = _param.stack
@@ -708,7 +709,7 @@ local function SettingRow(_param)
 			Value = value,
 		})
 	end, { data.id, dispatch })
-	local reveal = useStagger(math.min(index, 5), reducedMotion, 0.01, 0.14)
+	local reveal = useStagger(math.min(index, 5), motionSoft, 0.01, 0.14)
 	local rowH = if stack then 112 else 96
 	local toggle = data.kind == "toggle"
 	local directionalToggle = data.id == "MobileQuickReverse"
@@ -758,7 +759,7 @@ local function SettingRow(_param)
 		_attributes.textColor = if directionalToggle or draft >= 0.5 then Palette.ink else Palette.creamSoft
 		_attributes.outline = not directionalToggle and draft < 0.5
 		_attributes.size = UDim2.fromScale(1, 1)
-		_attributes.reducedMotion = reducedMotion
+		_attributes.reducedMotion = motionSoft
 		_result = React.createElement("frame", {
 			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(170, TapTarget),
 			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -170, 0.5, -TapTarget / 2),
@@ -774,7 +775,7 @@ local function SettingRow(_param)
 		}, React.createElement(Slider, {
 			value = draft,
 			accent = data.accent,
-			reducedMotion = reducedMotion,
+			reducedMotion = motionSoft,
 			size = UDim2.new(1, -58, 0, TapTarget),
 			onChange = setDraft,
 			onCommit = commit,
@@ -795,7 +796,7 @@ local function SettingRow(_param)
 		}, React.createElement(Slider, {
 			value = draft,
 			accent = data.accent,
-			reducedMotion = reducedMotion,
+			reducedMotion = motionSoft,
 			size = UDim2.fromOffset(172, if touch then TapTarget else 30),
 			onChange = setDraft,
 			onCommit = commit,
@@ -818,7 +819,7 @@ local function SettingRow(_param)
 		layoutOrder = layoutOrder,
 		reveal = reveal,
 		interactive = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = motionSoft,
 		clips = false,
 	}, _exp, _exp_1, _result)
 end
@@ -872,7 +873,7 @@ local function SettingsView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { activeSection })
 	React.useEffect(function()
@@ -1066,9 +1067,9 @@ local function SettingsView(_param)
 		accent = Palette.violet,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = if softMotion then audioReveal else enter,
+		reveal = if reducedMotion then audioReveal else enter,
 		highlight = not settingsSoft,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "SETTINGS",
@@ -1111,7 +1112,7 @@ local function SettingsView(_param)
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(0.5, -4, 1, 0),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		highlight = true,
 	}), React.createElement(Button, {
 		text = "UPDATES",
@@ -1123,7 +1124,7 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(0.5, -4, 1, 0),
 		position = UDim2.new(0.5, 4, 0, 0),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(300, 42),
 		Position = if stack then UDim2.fromOffset(0, 114) else UDim2.new(1, -300, 0, 62),
@@ -1138,7 +1139,7 @@ local function SettingsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.new(1 / 3, -4, 1, 0),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		highlight = preset == "low",
 	}), React.createElement(Button, {
 		text = "NORMAL",
@@ -1149,7 +1150,7 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1 / 3, -4, 1, 0),
 		position = UDim2.new(1 / 3, 2, 0, 0),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		highlight = preset == "normal",
 	}), React.createElement(Button, {
 		text = "HIGH FX",
@@ -1160,7 +1161,7 @@ local function SettingsView(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1 / 3, -4, 1, 0),
 		position = UDim2.new(2 / 3, 4, 0, 0),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		highlight = preset == "high",
 	})))
 	local _exp_3 = React.createElement(Panel, {
@@ -1168,7 +1169,7 @@ local function SettingsView(_param)
 		accent = SECTION_META[activeSection].accent,
 		background = Palette.panelRaised,
 		padding = 8,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SegmentedTabs, {
 		options = sectionOptions,
@@ -1178,14 +1179,14 @@ local function SettingsView(_param)
 		columns = tabCols,
 		gap = 8,
 		size = UDim2.new(1, 0, 0, math.max(36, tabsH - 16)),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}))
 	local _exp_3b = controllerHintsH > 0 and React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.cyan,
 		background = Palette.panelRaised,
 		padding = 14,
-		reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "CONTROLLER",
@@ -1229,6 +1230,7 @@ local function SettingsView(_param)
 					state = state,
 					dispatch = dispatch,
 					reducedMotion = softMotion,
+					softMotion = softMotion,
 					layoutOrder = index + 1,
 					stack = touchRows,
 					touch = touch,
@@ -1245,7 +1247,8 @@ local function SettingsView(_param)
 				index = index,
 				state = state,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
+				softMotion = softMotion,
 				layoutOrder = index + 1,
 				stack = touchRows,
 				touch = touch,
@@ -1273,7 +1276,7 @@ local function SettingsView(_param)
 		background = Palette.panelRaised,
 		padding = 14,
 		layoutOrder = 2,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "Phone HUD",
@@ -1355,7 +1358,7 @@ local function SettingsView(_param)
 	}), mobileHudAvailable and activeSection == "mobile" and React.createElement(MobileControls, {
 		visible = mobileEdit,
 		dispatch = dispatch,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		onClose = function()
 			return setMobileEdit(false)
 		end,

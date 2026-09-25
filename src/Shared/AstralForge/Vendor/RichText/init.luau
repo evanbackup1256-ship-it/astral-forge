@@ -600,17 +600,27 @@ function RichText:Clear()
 
 	if not self.empty or self._preRender then		
 		if self.rendering then
-			coroutine.close(self._executionThread)
+			-- Render sets `rendering` before the thread, folder, and cleared
+			-- event exist. A throw in between used to crash Clear and hide that error.
+			if self._executionThread then
+				coroutine.close(self._executionThread)
+			end
 
 			self.rendering = false
 			
-			self.onRenderEnded:Fire()
+			if self.onRenderEnded then
+				self.onRenderEnded:Fire()
+			end
 		end
 		
-		self._contentFolder:Destroy()
-		self._contentFolder = nil
+		if self._contentFolder then
+			self._contentFolder:Destroy()
+			self._contentFolder = nil
+		end
 		
-		self._clearedEvent:Fire()
+		if self._clearedEvent then
+			self._clearedEvent:Fire()
+		end
 		
 		self.empty = true
 	end

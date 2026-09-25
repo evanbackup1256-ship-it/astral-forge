@@ -23,7 +23,6 @@ local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
-local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _ui = require(script.Parent.Parent.ui)
 local Badge = _ui.Badge
@@ -260,7 +259,7 @@ local function GuildGoalCard(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { canClaim, goal.TypeId, goal.Completed })
 	-- The highlight breathing pulse fires only while the reward is actually claimable.
@@ -1120,8 +1119,8 @@ local function GuildView(_param)
 		accent = Palette.violet,
 		background = heroSurface,
 		padding = if stack then 16 else 20,
-		reveal = if softMotion then bankReveal else reveal,
-		highlight = not softMotion and membersReveal ~= nil and goalReveal ~= nil,
+		reveal = if reducedMotion then bankReveal else reveal,
+		highlight = not reducedMotion and membersReveal ~= nil and goalReveal ~= nil,
 		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_4, _exp_5, _exp_6, React.createElement(Text, _attributes_1), if canManage and #members == 1 then React.createElement(Button, {
@@ -1160,7 +1159,7 @@ local function GuildView(_param)
 		config = config,
 		layoutOrder = 0,
 		stack = stack,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		dispatch = send,
 		busy = busy,
 		shakeToken = shakeToken,
@@ -1244,7 +1243,7 @@ local function GuildView(_param)
 	_attributes_2.disabled = _condition_7
 	_attributes_2.size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.new(0.5, -6, 0, 42)
 	_attributes_2.position = if stack then UDim2.fromOffset(0, 126) else UDim2.new(0, 0, 0, 128)
-	_attributes_2.reducedMotion = softMotion
+	_attributes_2.reducedMotion = reducedMotion
 	local _exp_17 = React.createElement(Button, _attributes_2)
 	local _exp_18 = React.createElement("textbox", {
 		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.new(0.5, -6, 0, 40),
@@ -1300,13 +1299,13 @@ local function GuildView(_param)
 	_attributes_3.disabled = _condition_8
 	_attributes_3.size = if stack then UDim2.new(1, 0, 0, 42) else UDim2.new(0.5, -6, 0, 42)
 	_attributes_3.position = if stack then UDim2.fromOffset(0, 222) else UDim2.new(0.5, 6, 0, 128)
-	_attributes_3.reducedMotion = softMotion
+	_attributes_3.reducedMotion = reducedMotion
 	local _exp_19 = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.mango,
 		background = Palette.panelRaised,
 		padding = if stack then 16 else 18,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		clips = false,
 	}, _exp_13, _exp_14, _exp_15, _exp_16, _exp_17, _exp_18, React.createElement(Button, _attributes_3))
 	local _exp_20 = React.createElement(SectionLabel, {
@@ -1376,6 +1375,7 @@ local function GuildView(_param)
 		})
 	end
 	local memberBlockH = if #members == 0 then 72 else #members * memberHeight + math.max(0, #members - 1) * pageGap
+	local overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2
 	local memberList = if #members == 0 then React.createElement(EmptyState, {
 		title = "No members",
 		body = "Members show up here.",

@@ -118,11 +118,15 @@ local function NoticeCard(props)
 	local dragConn = React.useRef()
 	local dragEndConn = React.useRef()
 	React.useEffect(function()
+		local alive = true
 		local job = task.defer(function()
-			return setEntered(true)
+			if alive then
+				setEntered(true)
+			end
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, {})
 	React.useEffect(function()

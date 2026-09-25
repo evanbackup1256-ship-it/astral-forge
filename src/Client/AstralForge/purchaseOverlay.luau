@@ -130,13 +130,12 @@ local function PurchaseOverlay(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — PurchaseOverlay.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local detail = _param.detail
 	local onDismiss = _param.onDismiss
 	local visible = phase ~= "hidden"
 	local result = phase == "success" or phase == "fail"
-	local show = useBoatTween(if visible then 1 else 0, if visible then 0.25 else 0.18, reducedMotion, easeOutCubic, 0)
-	local card = useBoatTween(if visible then 1 else 0, if visible then 0.34 else 0.15, reducedMotion, easeOutBack, 0)
+	local show = useBoatTween(if visible then 1 else 0, if visible then 0.25 else 0.18, softMotion, easeOutCubic, 0)
+	local card = useBoatTween(if visible then 1 else 0, if visible then 0.34 else 0.15, softMotion, easeOutBack, 0)
 	local _binding = useExitTransition(softMotion, 0.32, phase == "hidden")
 	local exitAmount = _binding[1]
 	local exiting = _binding[2]
@@ -168,7 +167,7 @@ local function PurchaseOverlay(_param)
 			end)
 		end
 	end, { phase, result })
-	local flash = useFlash(nonce, softMotion, if phase == "fail" then 0.62 else 0.48)
+	local flash = useFlash(nonce, reducedMotion, if phase == "fail" then 0.62 else 0.48)
 	local dismiss = React.useCallback(function()
 		if not result or exiting or dismissStarted.current then
 			return nil
@@ -192,9 +191,15 @@ local function PurchaseOverlay(_param)
 		if not result then
 			return nil
 		end
-		local worker = task.delay(if reducedMotion then PURCHASE_RESULT_HOLD_REDUCED else PURCHASE_RESULT_HOLD, dismiss)
+		local alive = true
+		local worker = task.delay(if reducedMotion then PURCHASE_RESULT_HOLD_REDUCED else PURCHASE_RESULT_HOLD, function()
+			if alive then
+				dismiss()
+			end
+		end)
 		return function()
-			return task.cancel(worker)
+			alive = false
+			pcall(task.cancel, worker)
 		end
 	end, { dismiss, phase, reducedMotion, result })
 	React.useEffect(function()
@@ -215,14 +220,16 @@ local function PurchaseOverlay(_param)
 		if host == nil then
 			return nil
 		end
+		local alive = true
 		local selectJob = task.defer(function()
-			if host.Parent == nil then
+			if not alive or host.Parent == nil then
 				return
 			end
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			alive = false
+			pcall(task.cancel, selectJob)
 		end
 	end, { phase, result })
 	local accent = if phase == "fail" then Palette.coral elseif phase == "success" then Palette.mint else Palette.mango
@@ -354,7 +361,7 @@ local function PurchaseOverlay(_param)
 			index = index,
 			clock = clock,
 			morph = morph,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		})
 	end
 	for _k, _v in _exp_9 do
@@ -472,7 +479,7 @@ local function PurchaseOverlay(_param)
 		color = accent,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = true,
 		selectable = true,
 		zIndex = 412,

@@ -510,12 +510,19 @@ HyperText.new = function(
 	
 	updater[self._rowEntriesTransformUpdaterId] = function()
 		task.defer(function()
+			if self._destroyed then
+				return
+			end
 			for entry, _ in pairs(self._transformRowEntries) do
-				entry.character.Position = UDim2.fromScale(
+				local character = entry.character
+				if character == nil or character.Parent == nil then
+					continue
+				end
+				character.Position = UDim2.fromScale(
 					entry.position.X,
 					entry.position.Y
 				)
-				entry.character.Rotation = entry.rotation
+				character.Rotation = entry.rotation
 
 				entry.position = Vector2.zero
 				entry.rotation = 0

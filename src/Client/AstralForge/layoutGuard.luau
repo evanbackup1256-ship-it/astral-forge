@@ -203,10 +203,14 @@ local function repairScrollingFrame(descendant)
 	if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
 	end
+	local heldScroll = false
 	if not descendant.ScrollingEnabled and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true then
-		descendant.ScrollingEnabled = true
-		stats.scrollingReenabled += 1
-		ClientLog:warnEvery(`layoutguard:scrolldisabled:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`)
+		heldScroll = true
+		if allowWrite(descendant) then
+			descendant.ScrollingEnabled = true
+			stats.scrollingReenabled += 1
+			ClientLog:warnEvery(`layoutguard:scrolldisabled:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`)
+		end
 	end
 	if descendant.AutomaticCanvasSize ~= Enum.AutomaticSize.None then
 		return nil
@@ -237,7 +241,9 @@ local function repairScrollingFrame(descendant)
 	end
 	local currentCanvas = descendant.CanvasSize.Y.Offset
 	if currentCanvas + 24 >= maxBottom then
-		tryCount[descendant] = nil
+		if not heldScroll then
+			tryCount[descendant] = nil
+		end
 		return nil
 	end
 	if not allowWrite(descendant) then
@@ -329,6 +335,11 @@ local function checkOverlappingHitboxes(root)
 					-- Fix by giving the later sibling (b, which draws on top and therefore already
 					-- wins ties) priority and nudging the occluded one behind it, restoring input
 					-- to whichever control the ZIndex ordering already implies should win.
+					-- React may write the prop ZIndex back; give up after MAX_TRIES instead of
+					-- climbing forever.
+					if not allowWrite(b) then
+						continue
+					end
 					b.ZIndex = a.ZIndex + 1
 					stats.overlapDemoted += 1
 					ClientLog:warnEvery(`layoutguard:overlap:{a:GetFullName()}`, 30, "LayoutGuard", `{a.Name} and {b.Name} share ZIndex {a.ZIndex} and overlap {string.format("%.0f", (overlap / smaller) * 100)}% — separated so input reaches the top one`)
@@ -354,13 +365,18 @@ do
 		local self = setmetatable({}, LayoutGuardController)
 		return self:constructor(...) or self
 	end
-	function LayoutGuardController:constructor(components)
+	function LayoutGuardController:constructor(components, runtime)
 		self.components = components
+		self.runtime = runtime
 		self.elapsed = 0
 		self.queue = {}
 		self.cursor = 1
 		self.lastWidth = -1
 		self.lastHeight = -1
+		self.armed = false
+	end
+	function LayoutGuardController:onInit()
+		self.armed = true
 	end
 	function LayoutGuardController:onStart()
 		self.components:onComponentAdded(function(component)
@@ -379,16 +395,29 @@ do
 			_root = _root.instance
 		end
 		local root = _root
+		if root == nil and self.runtime ~= nil then
+			local primary = self.runtime:primary()
+			if primary ~= nil then
+				self.target = primary
+				root = primary.instance
+			end
+		end
 		if root == nil then
 			return nil
 		end
 		local rootSize = root.AbsoluteSize
-		local resized = rootSize.X ~= self.lastWidth or rootSize.Y ~= self.lastHeight
+		local firstSize = self.lastWidth < 0
+		local dw = if firstSize then 0 else math.abs(rootSize.X - self.lastWidth)
+		local dh = if firstSize then 0 else math.abs(rootSize.Y - self.lastHeight)
+		-- Sub-pixel viewport jitter must not wipe the 3-write cap or rescan.
+		local resized = firstSize or dw >= 8 or dh >= 8
 		if resized then
 			self.lastWidth = rootSize.X
 			self.lastHeight = rootSize.Y
-			table.clear(tryCount)
-			table.clear(abandoned)
+			if not firstSize then
+				table.clear(tryCount)
+				table.clear(abandoned)
+			end
 			self.queue = {}
 			self.cursor = 1
 		end
@@ -421,9 +450,11 @@ do
 			local pos = inst.AbsolutePosition
 			local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
 			if broken and inst:IsA("GuiObject") and inst.Visible and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
-				inst.Visible = false
-				stats.degenerateHidden += 1
-				ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
+				if allowWrite(inst) then
+					inst.Visible = false
+					stats.degenerateHidden += 1
+					ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
+				end
 				continue
 			end
 			if inst:IsA("ScrollingFrame") then
@@ -440,8 +471,8 @@ do
 	do
 		-- (Flamework) LayoutGuardController metadata
 		Reflect.defineMetadata(LayoutGuardController, "identifier", "client/layoutGuard@LayoutGuardController")
-		Reflect.defineMetadata(LayoutGuardController, "flamework:parameters", { "$c:components@Components" })
-		Reflect.defineMetadata(LayoutGuardController, "flamework:implements", { "$:flamework@OnStart", "$:flamework@OnTick" })
+		Reflect.defineMetadata(LayoutGuardController, "flamework:parameters", { "$c:components@Components", "client/framework/init@UiRuntimeController" })
+		Reflect.defineMetadata(LayoutGuardController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" })
 	end
 end
 -- (Flamework) LayoutGuardController decorators

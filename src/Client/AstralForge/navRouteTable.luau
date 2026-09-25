@@ -15,10 +15,10 @@ export type RouteDef = {
 }
 
 local PRIMARY_ROUTES: { RouteDef } = {
-	{ id = "Overview", label = "Overview", eyebrow = "Vault", icon = "Overview", accentKey = "green" },
-	{ id = "Workshop", label = "Workshop", eyebrow = "Machines", icon = "Forge", accentKey = "coral" },
+	{ id = "Overview", label = "Overview", eyebrow = "Your vault", icon = "Overview", accentKey = "green" },
+	{ id = "Workshop", label = "Workshop", eyebrow = "Buy machines", icon = "Forge", accentKey = "coral" },
 	{ id = "Inventory", label = "Inventory", eyebrow = "Relics", icon = "Inventory", accentKey = "violet" },
-	{ id = "Research", label = "Research", eyebrow = "Bonuses", icon = "Research", accentKey = "cyan" },
+	{ id = "Research", label = "Research", eyebrow = "Permanent bonuses", icon = "Research", accentKey = "cyan" },
 	{ id = "Shop", label = "Shop", eyebrow = "Packs", icon = "Shop", accentKey = "mango" },
 	{ id = "Settings", label = "Settings", eyebrow = "Options", icon = "Settings", accentKey = "violet" },
 }

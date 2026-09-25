@@ -49,40 +49,43 @@ local AUDIO_ASSET_MANIFEST = { UI_HOVER, UI_CLICK, UI_CONFIRM, UI_ALERT, UI_CHIM
 local CUES = {
 	hover = {
 		asset = UI_HOVER,
-		volume = 0.32,
-		speed = 1.06,
-		variance = 0.016,
+		volume = 0.18,
+		speed = 1.32,
+		variance = 0.012,
 		cooldown = 0.06,
+		stopAfter = 0.08,
 	},
 	click = {
 		asset = UI_CLICK,
-		volume = 0.48,
-		speed = 1.02,
-		variance = 0.01,
+		volume = 0.4,
+		speed = 1,
+		variance = 0.008,
 		cooldown = 0.04,
+		stopAfter = 0.12,
 	},
 	tick = {
 		asset = UI_TICK,
-		volume = 0.28,
-		speed = 1.16,
-		variance = 0.02,
+		volume = 0.16,
+		speed = 1.48,
+		variance = 0.016,
 		cooldown = 0.05,
+		stopAfter = 0.07,
 	},
 	confirm = {
 		asset = UI_CONFIRM,
-		volume = 0.48,
-		speed = 1.06,
-		variance = 0.008,
+		volume = 0.42,
+		speed = 1.18,
+		variance = 0.006,
 		cooldown = 0.07,
-		stopAfter = 0.62,
+		stopAfter = 0.42,
 	},
 	purchase = {
 		asset = SFX_COIN,
-		volume = 0.28,
-		speed = 1.02,
-		variance = 0.006,
+		volume = 0.32,
+		speed = 1.55,
+		variance = 0.01,
 		cooldown = 0.12,
-		stopAfter = 0.62,
+		stopAfter = 0.24,
 	},
 	collect = {
 		asset = SFX_COLLECT,
@@ -94,11 +97,11 @@ local CUES = {
 	},
 	reward = {
 		asset = UI_SUCCESS,
-		volume = 0.34,
-		speed = 1.06,
-		variance = 0.006,
+		volume = 0.4,
+		speed = 0.82,
+		variance = 0.004,
 		cooldown = 0.14,
-		stopAfter = 0.68,
+		stopAfter = 0.82,
 	},
 	unlock = {
 		asset = SFX_TRAVEL,
@@ -110,27 +113,27 @@ local CUES = {
 	},
 	locked = {
 		asset = SFX_LOCK,
-		volume = 0.32,
-		speed = 0.96,
+		volume = 0.26,
+		speed = 0.74,
 		variance = 0,
 		cooldown = 0.14,
-		stopAfter = 0.4,
+		stopAfter = 0.26,
 	},
 	error = {
 		asset = SFX_FAIL,
-		volume = 0.3,
-		speed = 0.92,
-		variance = 0.01,
+		volume = 0.34,
+		speed = 0.62,
+		variance = 0,
 		cooldown = 0.2,
-		stopAfter = 0.55,
+		stopAfter = 0.48,
 	},
 	page = {
 		asset = UI_SWITCH,
-		volume = 0.24,
-		speed = 1.12,
-		variance = 0.012,
+		volume = 0.2,
+		speed = 0.86,
+		variance = 0.008,
 		cooldown = 0.05,
-		stopAfter = 0.2,
+		stopAfter = 0.22,
 	},
 	mail = {
 		asset = UI_SLIDE,
@@ -150,11 +153,11 @@ local CUES = {
 	},
 	open = {
 		asset = UI_POP_IN,
-		volume = 0.28,
-		speed = 1.14,
-		variance = 0.012,
+		volume = 0.2,
+		speed = 1.36,
+		variance = 0.008,
 		cooldown = 0.08,
-		stopAfter = 0.4,
+		stopAfter = 0.2,
 	},
 	close = {
 		asset = UI_POP_OUT,
@@ -222,11 +225,11 @@ local CUES = {
 	},
 	travel = {
 		asset = SFX_SWEEP,
-		volume = 0.25,
-		speed = 1.08,
-		variance = 0.01,
+		volume = 0.22,
+		speed = 0.72,
+		variance = 0.006,
 		cooldown = 0.16,
-		stopAfter = 1.1,
+		stopAfter = 0.85,
 	},
 	equip = {
 		asset = UI_SELECT,
@@ -862,11 +865,11 @@ local CUES = {
 	},
 	purchasePress = {
 		asset = SFX_COIN,
-		volume = 0.16,
-		speed = 1.12,
+		volume = 0.28,
+		speed = 1.5,
 		variance = 0.01,
 		cooldown = 0.08,
-		stopAfter = 0.22,
+		stopAfter = 0.18,
 	},
 	dangerPress = {
 		asset = UI_ALERT,
@@ -934,11 +937,11 @@ local CUES = {
 	},
 	researchUnlock = {
 		asset = SFX_WHOOSH,
-		volume = 0.27,
-		speed = 1.15,
-		variance = 0.012,
+		volume = 0.24,
+		speed = 0.88,
+		variance = 0.006,
 		cooldown = 0.15,
-		stopAfter = 0.66,
+		stopAfter = 0.55,
 	},
 	salvage = {
 		asset = UI_DOWN,
@@ -1470,15 +1473,22 @@ for _, cue in {
 	"playerlistOpen", "playerlistSelect", "playerlistAction", "playerlistClose",
 	"noticeInfo", "noticeSuccess", "noticeWarning", "noticeError", "noticeSpecial",
 	"noticeClose", "chatSend", "chatReceive", "hoverTick", "successChime",
-	"errorBuzz", "velocitySlide",
+	"errorBuzz", "velocitySlide", "purchase", "purchasePress", "reward",
+	"collect", "travel", "researchUnlock", "claimPress",
 } do
 	UI_CUES[cue] = true
 end
 local MAX_POOL_SIZE = 12
 local PRELOAD_BATCH_SIZE = 11
 local VOICE_CAP = 22
+local UI_OVERLAP_CAP = 4
 local TRIM_RELEASE_STEPS = 3
-local CUE_GAIN = 1.55
+local CUE_GAIN = 1.05
+local BUTTON_PITCH_CUES = {
+	click = true,
+	hover = true,
+	confirm = true,
+}
 local BOOTSTRAP_ASSETS = AUDIO_ASSET_MANIFEST
 local function residentChannelCount(asset)
 	return if asset == UI_CLICK or asset == UI_TICK or asset == UI_CONFIRM or asset == UI_HOVER or asset == UI_NOTIFY then 4 else 2
@@ -1733,7 +1743,54 @@ local function softMaster(linear)
 end
 local function softSfx(linear)
 	local t = math.clamp(linear, 0, 1)
-	return math.clamp(t * 1.28 + t * t * 0.28, 0, 1.55)
+	return math.clamp(t * 1.05 + t * t * 0.12, 0, 1.15)
+end
+local function cueTone(cue)
+	-- High, mid, low. Ranges stay inside EqualizerSoundEffect (-80..10) and are wide on purpose:
+	-- hover, click, confirm, purchase, and page all alias three assets.
+	if cue == "error" or cue == "errorBuzz" or cue == "noticeError" or cue == "requestTimeout" then
+		return -24, -8, 10
+	end
+	if cue == "locked" or cue == "noticeWarning" or cue == "dangerPress" or cue == "systemAlert" then
+		return -16, -4, 8
+	end
+	if cue == "hover" or cue == "scroll" or cue == "hoverTick" then
+		return 8, -8, -18
+	end
+	if cue == "tick" or cue == "sliderStep" or cue == "filterPick" or cue == "wheelTick" or cue == "crateTick" or cue == "amountChange" then
+		return 10, -10, -20
+	end
+	if cue == "purchase" or cue == "purchasePress" or cue == "purchaseResult" then
+		return 10, 0, -12
+	end
+	if cue == "reward" or cue == "collect" or cue == "unlock" or cue == "successChime" or cue == "dailyClaim" or cue == "prestige" then
+		return 6, 5, -2
+	end
+	if cue == "confirm" or cue == "claimPress" or cue == "noticeSuccess" or cue == "mailClaim" or cue == "tutorialFinish" then
+		return 7, 2, -6
+	end
+	if cue == "click" then
+		return -1, 6, 0
+	end
+	if cue == "page" or cue == "tabSwitch" or cue == "mail" then
+		return 4, -12, -10
+	end
+	if cue == "travel" or cue == "open" or cue == "close" or cue == "boost" or cue == "researchUnlock" or cue == "zoneSelect" or cue == "expeditionLaunch" or cue == "expeditionReturn" or cue == "preview" or cue == "whoosh" then
+		return 6, -9, -5
+	end
+	return 1, 0, -1
+end
+local function paintCue(channel, cue)
+	local color = channel:FindFirstChild("CueColor")
+	if color == nil then
+		color = Instance.new("EqualizerSoundEffect")
+		color.Name = "CueColor"
+		color.Parent = channel
+	end
+	local high, mid, low = cueTone(cue)
+	color.HighGain = high
+	color.MidGain = mid
+	color.LowGain = low
 end
 local Mixer
 do
@@ -1778,6 +1835,9 @@ do
 		self.currentView = "Overview"
 		self.sfxToken = 0
 		self.lifecycleToken = 0
+		self.releases = {}
+		self.releaseByChannel = {}
+		self.releasePump = nil
 	end
 	function Mixer:cueMix(cue)
 		if cue == "hover" and not self.hoverSounds then
@@ -1789,7 +1849,7 @@ do
 		if cue == "reward" or cue == "unlock" or cue == "discovery" or cue == "prestige" or cue == "rebirthCharge" or cue == "rebirthBloom" or cue == "domainCharge" or cue == "domainCrack" or cue == "domainImpact" or cue == "domainReward" or cue == "wheelLand" or cue == "crateLand" or cue == "crateRare" or cue == "crateClaim" or cue == "missionClaim" or cue == "achievementClaim" or cue == "dailyClaim" or cue == "timedClaim" or cue == "seasonClaim" or cue == "mailClaim" or cue == "codeReward" or cue == "tutorialFinish" or cue == "purchaseResult" or cue == "boostReady" then
 			return self.rewardMix
 		end
-		if cue == "hover" or cue == "click" or cue == "tick" or cue == "confirm" or cue == "locked" or cue == "error" or cue == "page" or cue == "open" or cue == "close" or cue == "settings" or cue == "scroll" or cue == "toggleOn" or cue == "toggleOff" or cue == "sliderStep" or cue == "sliderCommit" or cue == "inputFocus" or cue == "inputClear" or cue == "tabSwitch" or cue == "filterOpen" or cue == "filterPick" or cue == "amountChange" or cue == "modalOpen" or cue == "modalPop" or cue == "modalDismiss" or cue == "purchaseExit" or cue == "playerlistOpen" or cue == "playerlistSelect" or cue == "playerlistAction" or cue == "playerlistClose" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose" or cue == "tutorialStep" or cue == "hoverTick" or cue == "velocitySlide" then
+		if cue == "hover" or cue == "click" or cue == "tick" or cue == "confirm" or cue == "locked" or cue == "error" or cue == "page" or cue == "open" or cue == "close" or cue == "settings" or cue == "scroll" or cue == "toggleOn" or cue == "toggleOff" or cue == "sliderStep" or cue == "sliderCommit" or cue == "inputFocus" or cue == "inputClear" or cue == "tabSwitch" or cue == "filterOpen" or cue == "filterPick" or cue == "amountChange" or cue == "modalOpen" or cue == "modalPop" or cue == "modalDismiss" or cue == "purchaseExit" or cue == "playerlistOpen" or cue == "playerlistSelect" or cue == "playerlistAction" or cue == "playerlistClose" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose" or cue == "tutorialStep" or cue == "hoverTick" or cue == "velocitySlide" or cue == "purchase" or cue == "purchasePress" or cue == "claimPress" or cue == "researchUnlock" or cue == "travel" or cue == "collect" then
 			return self.uiMix
 		end
 		return self.gameplayMix
@@ -2010,11 +2070,12 @@ do
 		if not musicEq then
 			musicEq = Instance.new("EqualizerSoundEffect")
 			musicEq.Name = "ForgeBed"
-			musicEq.LowGain = 0.4
-			musicEq.MidGain = -1.2
-			musicEq.HighGain = -4.5
 			musicEq.Parent = musicGroup
 		end
+		-- Light global shelf so per-theme ViewColor (Atrium / Foundry / Core) is what changes.
+		musicEq.LowGain = 0
+		musicEq.MidGain = -0.3
+		musicEq.HighGain = -1.2
 		for _, asset in AUDIO_ASSET_MANIFEST do
 			local pool = {}
 			do
@@ -2144,32 +2205,21 @@ do
 		end
 		self.duckToken += 1
 		local token = self.duckToken
+		self.duckTokenLive = token
+		self.duckClamped = clamped
 		self.musicDuck = 1 - clamped
 		self:syncMusicState()
-		task.delay(holdSeconds, function()
-			if token ~= self.duckToken then
-				return nil
-			end
-			local steps = math.clamp(math.floor(releaseSeconds / 0.04 + 0.5), 4, 24)
-			task.spawn(function()
-				for step = 1, steps do
-					if token ~= self.duckToken then
-						return nil
-					end
-					local alpha = step / steps
-					self.musicDuck = (1 - clamped) + clamped * alpha
-					self:syncMusicState()
-					task.wait(0.04)
-				end
-				if token == self.duckToken then
-					self.musicDuck = 1
-					self:syncMusicState()
-				end
-			end)
-		end)
+		self.duckReleasing = false
+		self.duckReleaseAt = os.clock() + holdSeconds
+		self.duckSteps = math.clamp(math.floor(releaseSeconds / 0.04 + 0.5), 4, 24)
+		self.duckStep = 0
+		self.duckNext = nil
+		self:ensureReleasePump()
 	end
 	function Mixer:clearMusicDuck()
 		self.duckToken += 1
+		self.duckTokenLive = nil
+		self.duckReleasing = false
 		self.musicDuck = 1
 		if self.ready then
 			self:syncMusicState()
@@ -2300,181 +2350,234 @@ do
 			end
 		end
 	end
+	function Mixer:roundRobin(pool, asset)
+		local cursor = self.channelCursor[asset]
+		if cursor == nil then
+			cursor = 0
+		end
+		self.channelCursor[asset] = (cursor + 1) % #pool
+		return pool[cursor % #pool + 1]
+	end
+	function Mixer:countPlayingUi()
+		local count = 0
+		for _, pool in self.assetPools do
+			for _, sound in pool do
+				if sound.IsPlaying and UI_CUES[self.channelCue[sound]] then
+					count += 1
+				end
+			end
+		end
+		return count
+	end
+	function Mixer:silenceOldestUi()
+		local oldestSound = nil
+		local oldestAge = -1
+		for _, pool in self.assetPools do
+			for _, sound in pool do
+				if sound.IsPlaying and UI_CUES[self.channelCue[sound]] then
+					local age = sound.TimePosition
+					if oldestSound == nil or age >= oldestAge then
+						oldestSound = sound
+						oldestAge = age
+					end
+				end
+			end
+		end
+		if oldestSound == nil then
+			return nil
+		end
+		local generation = self.channelGeneration[oldestSound]
+		if generation == nil then
+			generation = 0
+		end
+		self.channelGeneration[oldestSound] = generation + 1
+		self.busyUntil[oldestSound] = 0
+		oldestSound:Stop()
+		oldestSound.Volume = 0
+		local job = self.releaseByChannel[oldestSound]
+		if job ~= nil then
+			job.phase = "idle"
+		end
+		return oldestSound
+	end
 	function Mixer:acquireChannel(spec, cue)
-		local _assetPools = self.assetPools
-		local _asset = spec.asset
-		local pool = _assetPools[_asset]
+		local pool = self.assetPools[spec.asset]
 		if pool == nil or #pool == 0 then
 			return nil
 		end
 		local now = os.clock()
-		-- ▼ ReadonlyArray.find ▼
-		local _callback = function(sound)
-			local _condition = not sound.IsPlaying
-			if _condition then
-				local _busyUntil = self.busyUntil
-				local _sound = sound
-				local _condition_1 = _busyUntil[_sound]
-				if _condition_1 == nil then
-					_condition_1 = 0
-				end
-				_condition = _condition_1 <= now
-			end
-			return _condition
+		local uiCue = UI_CUES[cue] == true
+		if uiCue and self:countPlayingUi() >= UI_OVERLAP_CAP then
+			self:silenceOldestUi()
 		end
-		local _result
-		for _i, _v in pool do
-			if _callback(_v, _i - 1, pool) == true then
-				_result = _v
-				break
+		for _, sound in pool do
+			local busyUntil = self.busyUntil[sound]
+			if busyUntil == nil then
+				busyUntil = 0
+			end
+			if not sound.IsPlaying and busyUntil <= now then
+				return sound
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
-		local free = _result
-		if free ~= nil then
-			return free
-		end
-		if #pool < MAX_POOL_SIZE and self.group ~= nil then
-			local channel = self:makeChannel(spec.asset, #pool + 1, self.group)
-			table.insert(pool, channel)
-			return channel
-		end
-		if cue == "hover" then
-			-- ▼ ReadonlyArray.find ▼
-			local _callback_1 = function(sound)
-				return not sound.IsPlaying
-			end
-			local _result_1
-			for _i, _v in pool do
-				if _callback_1(_v, _i - 1, pool) == true then
-					_result_1 = _v
-					break
-				end
-			end
-			-- ▲ ReadonlyArray.find ▲
-			return _result_1
-		end
-		local _channelCursor = self.channelCursor
-		local _asset_1 = spec.asset
-		local _condition = _channelCursor[_asset_1]
-		if _condition == nil then
-			_condition = 0
-		end
-		local cursor = _condition
-		local _channelCursor_1 = self.channelCursor
-		local _asset_2 = spec.asset
-		local _arg1 = (cursor + 1) % #pool
-		_channelCursor_1[_asset_2] = _arg1
-		return pool[cursor % #pool + 1]
+		-- Resident channels are created once at start. Spam steals one of those
+		-- instead of Instance.new, including when every voice is busy.
+		return self:roundRobin(pool, spec.asset)
 	end
-	function Mixer:scheduleRelease(channel, cue, spec, generation, token, speed)
-		local apply = function(seconds)
-			local _busyUntil = self.busyUntil
-			local _channel = channel
-			local _arg1 = os.clock() + seconds
-			_busyUntil[_channel] = _arg1
-			if spec.stopAfter == nil then
-				return nil
-			end
-			local fadeWorker
-			fadeWorker = task.delay(seconds, function()
-				local _releaseWorkers = self.releaseWorkers
-				local _fadeWorker = fadeWorker
-				_releaseWorkers[_fadeWorker] = nil
-				local _condition = self.disposed
-				if not _condition then
-					local _channelGeneration = self.channelGeneration
-					local _channel_1 = channel
-					_condition = _channelGeneration[_channel_1] ~= generation
-					if not _condition then
-						_condition = token ~= self.sfxToken or not channel.IsPlaying
-					end
-				end
-				if _condition then
-					return nil
-				end
-				local fullVolume = spec.volume * CUE_GAIN * softSfx(self.sfxMix) * self:cueMix(cue)
-				local stepper
-				stepper = task.spawn(function()
-					for step = 1, TRIM_RELEASE_STEPS do
-						local _condition_1 = self.disposed
-						if not _condition_1 then
-							local _channelGeneration = self.channelGeneration
-							local _channel_1 = channel
-							_condition_1 = _channelGeneration[_channel_1] ~= generation
-							if not _condition_1 then
-								_condition_1 = token ~= self.sfxToken
-							end
-						end
-						if _condition_1 then
-							return nil
-						end
-						channel.Volume = fullVolume * (1 - step / TRIM_RELEASE_STEPS)
-						task.wait()
-					end
-					local _releaseWorkers_1 = self.releaseWorkers
-					local _stepper = stepper
-					_releaseWorkers_1[_stepper] = nil
-					local _condition_1 = self.disposed
-					if not _condition_1 then
-						local _channelGeneration = self.channelGeneration
-						local _channel_1 = channel
-						_condition_1 = _channelGeneration[_channel_1] ~= generation
-						if not _condition_1 then
-							_condition_1 = token ~= self.sfxToken
-						end
-					end
-					if _condition_1 then
-						return nil
-					end
-					channel:Stop()
-					channel.Volume = 0
-					local _busyUntil_1 = self.busyUntil
-					local _channel_1 = channel
-					_busyUntil_1[_channel_1] = 0
-				end)
-				local _releaseWorkers_1 = self.releaseWorkers
-				local _stepper = stepper
-				_releaseWorkers_1[_stepper] = true
-			end)
-			local _releaseWorkers = self.releaseWorkers
-			local _fadeWorker = fadeWorker
-			_releaseWorkers[_fadeWorker] = true
+	function Mixer:releaseIsStale(job)
+		if self.disposed then
+			return true
 		end
-		local trimmed = if spec.stopAfter ~= nil then math.max(0.08, spec.stopAfter / math.max(0.05, speed)) else nil
-		if channel.TimeLength > 0 then
-			local natural = channel.TimeLength / math.max(0.05, speed)
-			apply(if trimmed ~= nil then math.min(trimmed, natural) else natural)
+		if self.channelGeneration[job.channel] ~= job.generation then
+			return true
+		end
+		if job.token ~= self.sfxToken then
+			return true
+		end
+		return false
+	end
+	function Mixer:pumpDuck()
+		if self.duckTokenLive == nil or self.duckTokenLive ~= self.duckToken then
 			return nil
 		end
-		local loaded = channel.Loaded:Once(function()
-			local _condition = self.disposed
-			if not _condition then
-				local _channelGeneration = self.channelGeneration
-				local _channel = channel
-				_condition = _channelGeneration[_channel] ~= generation
+		if not self.duckReleasing then
+			if self.duckReleaseAt ~= nil and os.clock() >= self.duckReleaseAt then
+				self.duckReleasing = true
+				self.duckStep = 0
+				self.duckNext = os.clock()
 			end
-			if _condition then
-				return nil
+			return nil
+		end
+		if self.duckNext ~= nil and os.clock() < self.duckNext then
+			return nil
+		end
+		self.duckStep += 1
+		local steps = self.duckSteps
+		if steps == nil or steps < 1 then
+			steps = 1
+		end
+		if self.duckStep >= steps then
+			self.musicDuck = 1
+			self:syncMusicState()
+			self.duckTokenLive = nil
+			self.duckReleasing = false
+			return nil
+		end
+		local alpha = self.duckStep / steps
+		local clamped = self.duckClamped or 0
+		self.musicDuck = (1 - clamped) + clamped * alpha
+		self:syncMusicState()
+		self.duckNext = os.clock() + 0.04
+	end
+	function Mixer:pumpCelebration()
+		local queue = self.celebrationQueue
+		if queue == nil then
+			return nil
+		end
+		local now = os.clock()
+		local index = 1
+		while index <= #queue do
+			local item = queue[index]
+			if item.token ~= self.celebrationToken then
+				table.remove(queue, index)
+			elseif now >= item.at then
+				table.remove(queue, index)
+				self:playChannel(item.cue, false, item.pitch)
+			else
+				index += 1
 			end
-			if channel.TimeLength <= 0 then
-				return nil
+		end
+	end
+	function Mixer:pumpReleases()
+		self:pumpDuck()
+		self:pumpCelebration()
+		for _, job in self.releases do
+			local phase = job.phase
+			if phase == nil or phase == "idle" then
+				continue
 			end
-			local natural = channel.TimeLength / math.max(0.05, speed)
-			apply(if trimmed ~= nil then math.min(trimmed, natural) else natural)
+			if self:releaseIsStale(job) then
+				job.phase = "idle"
+				continue
+			end
+			local channel = job.channel
+			local spec = job.spec
+			local speed = math.max(0.05, job.speed)
+			if phase == "length" then
+				if channel.TimeLength > 0 then
+					local natural = channel.TimeLength / speed
+					local trimmed = if spec.stopAfter ~= nil then math.max(0.08, spec.stopAfter / speed) else nil
+					local seconds = if trimmed ~= nil then math.min(trimmed, natural) else natural
+					self.busyUntil[channel] = os.clock() + seconds
+					if spec.stopAfter == nil then
+						job.phase = "idle"
+					else
+						job.releaseAt = os.clock() + seconds
+						job.phase = "hold"
+					end
+				elseif os.clock() - job.started >= 2 then
+					job.phase = "idle"
+				end
+			elseif phase == "hold" then
+				if os.clock() >= job.releaseAt then
+					if not channel.IsPlaying then
+						job.phase = "idle"
+					else
+						job.fullVolume = spec.volume * CUE_GAIN * softSfx(self.sfxMix) * self:cueMix(job.cue)
+						job.fadeStep = 0
+						job.phase = "fade"
+					end
+				end
+			elseif phase == "fade" then
+				if not channel.IsPlaying then
+					job.phase = "idle"
+				else
+					job.fadeStep += 1
+					local step = job.fadeStep
+					channel.Volume = job.fullVolume * (1 - step / TRIM_RELEASE_STEPS)
+					if step >= TRIM_RELEASE_STEPS then
+						channel:Stop()
+						channel.Volume = 0
+						self.busyUntil[channel] = 0
+						job.phase = "idle"
+					end
+				end
+			end
+		end
+	end
+	function Mixer:ensureReleasePump()
+		if self.releasePump ~= nil or self.disposed then
+			return nil
+		end
+		local pump
+		pump = task.spawn(function()
+			while not self.disposed do
+				self:pumpReleases()
+				task.wait()
+			end
 		end)
-		local timeout
-		timeout = task.delay(2, function()
-			local _releaseWorkers = self.releaseWorkers
-			local _timeout = timeout
-			_releaseWorkers[_timeout] = nil
-			if loaded.Connected then
-				loaded:Disconnect()
-			end
-		end)
-		local _releaseWorkers = self.releaseWorkers
-		local _timeout = timeout
-		_releaseWorkers[_timeout] = true
+		self.releasePump = pump
+		self.releaseWorkers[pump] = true
+	end
+	function Mixer:scheduleRelease(channel, cue, spec, generation, token, speed)
+		local job = self.releaseByChannel[channel]
+		if job == nil then
+			job = {
+				channel = channel,
+			}
+			self.releaseByChannel[channel] = job
+			table.insert(self.releases, job)
+		end
+		job.cue = cue
+		job.spec = spec
+		job.generation = generation
+		job.token = token
+		job.speed = speed
+		job.started = os.clock()
+		job.fadeStep = 0
+		job.releaseAt = nil
+		job.fullVolume = nil
+		job.phase = "length"
+		self:ensureReleasePump()
 	end
 	function Mixer:playChannel(cue, bypassCooldown, speedMult)
 		if bypassCooldown == nil then
@@ -2548,13 +2651,15 @@ do
 		local _channelCue = self.channelCue
 		local _cue_1 = cue
 		_channelCue[channel] = _cue_1
+		local pitchSpread = if BUTTON_PITCH_CUES[cue] then math.random(95, 105) / 100 else 1
 		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * spec.variance * self.soundVariation else 0
-		local speed = math.clamp(spec.speed * math.clamp(speedMult, 0.82, 1.28) + variance, 0.5, 1.65)
+		local speed = math.clamp(spec.speed * math.clamp(speedMult, 0.82, 1.28) * pitchSpread + variance, 0.5, 1.65)
 		local ambientCue = cue == "reactor" or cue == "reactorReady" or cue == "reactorPulse" or cue == "reactorChannel" or cue == "reactorStabilize" or cue == "autoForge"
 		channel.SoundGroup = if UI_CUES[cue] then self.uiGroup elseif ambientCue then self.ambientGroup else self.group
 		channel.Volume = spec.volume * CUE_GAIN * softSfx(self.sfxMix) * cueMix
 		channel.PlaybackSpeed = speed
 		channel.Looped = false
+		paintCue(channel, cue)
 		if token ~= self.sfxToken or channel.Parent == nil or self.channelGeneration[channel] ~= generation then
 			return false
 		end
@@ -2602,6 +2707,10 @@ do
 			return false
 		end
 		self:duckMusic(0.46, 0.2 + staggerSeconds * #cues, 0.7)
+		self.celebrationToken = (self.celebrationToken or 0) + 1
+		local token = self.celebrationToken
+		self.celebrationQueue = {}
+		local now = os.clock()
 		local firedFirst = false
 		for i = 0, #cues - 1 do
 			local cue = cues[i + 1]
@@ -2609,11 +2718,15 @@ do
 			if i == 0 then
 				firedFirst = self:playChannel(cue, false, pitchLift)
 			else
-				task.delay(staggerSeconds * i, function()
-					return self:playChannel(cue, false, pitchLift)
-				end)
+				table.insert(self.celebrationQueue, {
+					cue = cue,
+					at = now + staggerSeconds * i,
+					pitch = pitchLift,
+					token = token,
+				})
 			end
 		end
+		self:ensureReleasePump()
 		if not firedFirst then
 			return false
 		end
@@ -2675,6 +2788,18 @@ do
 			end)
 		end
 		table.clear(self.releaseWorkers)
+		self.releasePump = nil
+		self.celebrationToken = (self.celebrationToken or 0) + 1
+		self.celebrationQueue = nil
+		self.duckToken += 1
+		self.duckTokenLive = nil
+		self.duckReleasing = false
+		if self.releases ~= nil then
+			table.clear(self.releases)
+		end
+		if self.releaseByChannel ~= nil then
+			table.clear(self.releaseByChannel)
+		end
 		self.sfxToken += 1
 		for _, pool in self.assetPools do
 			for _1, sound in pool do

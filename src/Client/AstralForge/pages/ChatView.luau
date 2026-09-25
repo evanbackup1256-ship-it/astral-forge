@@ -49,11 +49,15 @@ local function useMessageEntrance(animate, reducedMotion)
 			return nil
 		end
 		setLive(false)
+		local alive = true
 		local job = task.defer(function()
-			return setLive(true)
+			if alive then
+				setLive(true)
+			end
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, {})
 	return useFlipperSpring(if live then 1 else 0, reducedMotion, 780, 38)
@@ -68,10 +72,9 @@ local function MessageRow(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — MessageRow.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local enter = useMessageEntrance(animate, softMotion)
+	local enter = useMessageEntrance(animate, reducedMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)
-	local pulse = usePulse(not message.system and not softMotion and antilag.tier >= 2, 2.4 + math.abs(message.userId % 5) * 0.14)
+	local pulse = usePulse(not message.system and not reducedMotion and antilag.tier >= 2, 2.4 + math.abs(message.userId % 5) * 0.14)
 	local fade = enter:map(function(amount)
 		return 1 - amount
 	end)
@@ -226,7 +229,7 @@ local function MessageRow(_param)
 		text = message.titleName,
 		fx = message.titleFx,
 		size = 12,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		inline = true,
 		position = UDim2.fromOffset(66, 28),
 		sizeConstraint = UDim2.new(1, -(STATUS_RESERVE + 72), 0, 18),
@@ -449,7 +452,7 @@ local function ChatView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { condensed, canSend })
 	local statusLabel = if chat.connected then "ONLINE" else "CONNECTING"
@@ -527,8 +530,8 @@ local function ChatView(_param)
 		position = UDim2.new(1, -(STATUS_RESERVE - 4), 0.5, -13),
 		size = UDim2.fromOffset(STATUS_RESERVE - 16, 26),
 	}))
-	-- Prefer composerReveal when softMotion already quieted chrome.
-	local composerSoft = softMotion or composerReveal == nil
+	-- Prefer composerReveal when reducedMotion already quieted chrome.
+	local composerSoft = reducedMotion or composerReveal == nil
 	local _chatSoftKeep = if composerSoft then bannerReveal else statusReveal
 	-- Message list FlatLists under PageScaffold fill; status/banner/SEND stay fixed sections
 	-- so stick-to-bottom chat chrome never buries SEND. No page-local scrollingframe.
@@ -585,7 +588,7 @@ local function ChatView(_param)
 		size = 24,
 		position = UDim2.fromOffset(14, 14),
 		spin = false,
-		reducedMotion = softMotion,
+				reducedMotion = softMotion,
 	}), React.createElement(Text, {
 		value = "KEEP IT CLEAN",
 		size = 12,
@@ -669,7 +672,7 @@ local function ChatView(_param)
 		size = UDim2.fromOffset(0, 48),
 		hug = true,
 		disabled = not canSend,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = canSend,
 	})))
 	local sections = {}

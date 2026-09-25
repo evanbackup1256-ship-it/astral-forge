@@ -7,6 +7,7 @@ local AutoGrid = require(script.Parent.Parent.scrolling).AutoGrid
 local FlatList = require(script.Parent.Parent.virtualizedList).FlatList
 local _format = require(script.Parent.Parent.format)
 local compactNumber = _format.compactNumber
+local gteFlux = _format.gteFlux
 local levelCapLabel = _format.levelCapLabel
 local Icon = require(script.Parent.Parent.Icon).Icon
 local _motion = require(script.Parent.Parent.motion)
@@ -382,7 +383,7 @@ local function ChoiceCard(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	}))
 end
@@ -533,7 +534,7 @@ local function InventoryCard(_param)
 	end
 	local nextSlot = _result_2
 	local maxed = item.Level >= echoes.MaxLevel
-	local canUpgrade = not maxed and state.Stardust >= item.UpgradeCost
+	local canUpgrade = not maxed and gteFlux(state.Stardust, item.UpgradeCost)
 	local reveal = useStagger(index, reducedMotion, 0.04, 0.22)
 	local surface = Palette.panel
 	return React.createElement(Panel, {
@@ -653,7 +654,7 @@ local function EchoForgeView(_param)
 	local slotsReveal = useStagger(1, softMotion)
 	-- Canonical softMotion antilag gate — EchoInventoryGate.
 	local inventoryGateReveal = useStagger(2, softMotion)
-	local echoSoft = softMotion or boardReveal == nil or slotsReveal == nil or inventoryGateReveal == nil
+	local echoSoft = reducedMotion or boardReveal == nil or slotsReveal == nil or inventoryGateReveal == nil
 	local echoes = state.ForgeEchoes or EMPTY_ECHOES
 	local armedUid, setArmedUid = React.useState()
 	React.useEffect(function()
@@ -705,7 +706,7 @@ local function EchoForgeView(_param)
 		heartbeat = RunService.Heartbeat:Connect(tryClaim)
 		return function()
 			cancelled = true
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 			if heartbeat ~= nil then
 				heartbeat:Disconnect()
 			end
@@ -737,7 +738,7 @@ local function EchoForgeView(_param)
 	local heroSurface = darken(Palette.cyan, 0.95)
 	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
 	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
-	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not softMotion, 1.7)
+	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
 	-- Canonical softMotion antilag gate — EchoCharge.
 	local chargeReveal = useStagger(0, softMotion)
 	local inventoryReveal = useStagger(1, softMotion)
@@ -748,7 +749,7 @@ local function EchoForgeView(_param)
 		background = heroSurface,
 		padding = if stack then 15 else Layout.cardPadding,
 		highlight = echoes.Ready and not echoSoft,
-		reveal = if softMotion then boardReveal else chargeReveal,
+		reveal = if reducedMotion then boardReveal else chargeReveal,
 		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("frame", {
@@ -821,7 +822,7 @@ local function EchoForgeView(_param)
 		disabled = not echoes.Ready or #echoes.Choices > 0,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = echoes.Ready,
 	})))
 	local sections = {
@@ -877,7 +878,7 @@ local function EchoForgeView(_param)
 		return React.createElement(SlotCard, {
 			key = `slot-{slot.Slot}`,
 			slot = slot,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		})
 	end
 	for _k, _v in _exp_5 do
@@ -916,7 +917,7 @@ local function EchoForgeView(_param)
 			total = patternTotal,
 			dominant = id == echoes.DominantPattern,
 			index = index,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		})
 	end
 	for _k, _v in _exp_9 do
@@ -953,7 +954,7 @@ local function EchoForgeView(_param)
 				echoes = echoes,
 				state = state,
 				dispatch = dispatch,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				armed = armedUid == item.Uid,
 				arm = function()
 					return setArmedUid(item.Uid)
@@ -1064,7 +1065,7 @@ local function EchoForgeView(_param)
 			background = Palette.panel,
 			padding = 0,
 			reveal = inventoryReveal,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			clips = false,
 		}, React.createElement(SectionLabel, {
 			value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,

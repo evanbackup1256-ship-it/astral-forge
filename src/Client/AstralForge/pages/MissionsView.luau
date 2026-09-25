@@ -74,7 +74,7 @@ local function useReadyPop(ready, reducedMotion)
 		end
 		wasReady.current = ready
 	end, { ready })
-	return useFlash(trigger, softMotion, 0.6)
+	return useFlash(trigger, reducedMotion, 0.6)
 end
 local _taskFilter_1 = require(script.Parent.Parent.taskFilter)
 exports.taskFilterCounts = _taskFilter_1.taskFilterCounts
@@ -131,7 +131,7 @@ local function MissionRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = quest.Name,
@@ -257,7 +257,7 @@ local function MissionsView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { counts.Ready, filter })
 	local guide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Missions else nil
@@ -336,7 +336,7 @@ local function MissionsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		highlight = true,
 	})), React.createElement(Dropdown, {
 		options = options,
@@ -345,7 +345,7 @@ local function MissionsView(_param)
 		accent = Palette.cyan,
 		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
 		size = UDim2.new(1, 0, 0, TapTarget),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		zIndex = 44,
 	})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = "MISSIONS",
@@ -376,7 +376,7 @@ local function MissionsView(_param)
 		accent = Palette.cyan,
 		position = UDim2.new(0, 0, 0, 70),
 		size = UDim2.fromOffset(224, 48),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		zIndex = 44,
 	}), counts.Ready > 0 and React.createElement("frame", {
 		Name = "MissionClaimActions",
@@ -393,7 +393,7 @@ local function MissionsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		highlight = true,
 	})), React.createElement(Text, {
 		value = `{counts.Done} / {#quests}`,

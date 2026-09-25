@@ -1127,8 +1127,24 @@ local function MainGame(_param)
 		local _action_1 = action
 		if GRANT_ACTIONS[_action_1] ~= nil then
 			if not isAuthed() then
+				local settled = false
 				whenAuthed(function()
+					if settled then
+						return nil
+					end
+					settled = true
 					return dispatch(action, payload, callback)
+				end)
+				task.delay(4, function()
+					if settled then
+						return nil
+					end
+					settled = true
+					if isAuthed() then
+						dispatch(action, payload, callback)
+						return nil
+					end
+					reject("Your session is still connecting. Try again in a moment.")
 				end)
 				return nil
 			end
@@ -2231,6 +2247,7 @@ local function MainGame(_param)
 	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, _exp_7, _condition_9, _condition_10))
 	return if externalAntilag then content else React.createElement(AntilagProvider, nil, content)

@@ -257,6 +257,8 @@ local function CrateRevealExperience(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local reelFrameRate = 60
 	local rollIndex, setRollIndex = React.useState(0)
 	local phase, setPhase = React.useState("enter")
@@ -275,35 +277,38 @@ local function CrateRevealExperience(_param)
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
 	React.useEffect(function()
+		local alive = true
 		local job = task.defer(function()
-			return setLive(true)
+			if alive then
+				setLive(true)
+			end
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, {})
 	local present = live
 	-- Soft boat tweens on antilag tiers avoid Flipper spring chatter during claim/earn moments.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local boatShow = useBoatTween(if present then 1 else 0, if present then 0.3 else EXIT_SETTLE, softMotion, easeOutCubic, 0)
-	local showSpring = useFlipperSpring(if present then 1 else 0, softMotion, 720, 36)
-	local showBoat = useBoatTween(if present then 1 else 0, if present then 0.28 else EXIT_SETTLE, softMotion, easeOutCubic, 0)
-	local show = if softMotion then showBoat else showSpring
+	local motionScale = if reducedMotion then 0.55 else 1
+	local boatShow = useBoatTween(if present then 1 else 0, (if present then 0.3 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
+	local showSpring = useFlipperSpring(if present then 1 else 0, false, 720, 36)
+	local showBoat = useBoatTween(if present then 1 else 0, (if present then 0.28 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
+	local show = showSpring
 	local landHold = phase == "land" or phase == "done" or phase == "exit"
 	local claimHold = phase == "done" or phase == "exit"
-	local landPopSpring = useFlipperSpring(if landHold then 1 else 0, softMotion, 640, 14)
-	local landPopBoat = useBoatTween(if landHold then 1 else 0, 0.22, softMotion, easeOutCubic, 0)
-	local landPop = if softMotion then landPopBoat else landPopSpring
-	local claimSlideSpring = useFlipperSpring(if claimHold then 1 else 0, softMotion, 520, 24)
-	local claimSlideBoat = useBoatTween(if claimHold then 1 else 0, 0.2, softMotion, easeOutCubic, 0)
-	local claimSlide = if softMotion then claimSlideBoat else claimSlideSpring
-	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, softMotion, 0.62)
+	local landPopSpring = useFlipperSpring(if landHold then 1 else 0, false, 640, 14)
+	local landPopBoat = useBoatTween(if landHold then 1 else 0, 0.22 * motionScale, false, easeOutCubic, 0)
+	local landPop = landPopSpring
+	local claimSlideSpring = useFlipperSpring(if claimHold then 1 else 0, false, 520, 24)
+	local claimSlideBoat = useBoatTween(if claimHold then 1 else 0, 0.2 * motionScale, false, easeOutCubic, 0)
+	local claimSlide = claimSlideSpring
+	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, false, 0.62 * motionScale)
 	-- Claim CTA flash — intentional polish without noisy springs on low tiers.
-	local claimFlash = useFlash(if phase == "done" then rollIndex + 11 else 0, softMotion, 0.48)
-	local chargePulseSpring = useFlipperSpring(if phase == "charge" then 1 else 0, softMotion, 360, 19)
-	local chargePulseBoat = useBoatTween(if phase == "charge" then 1 else 0, 0.18, softMotion, easeOutCubic, 0)
-	local chargePulse = if softMotion then chargePulseBoat else chargePulseSpring
+	local claimFlash = useFlash(if phase == "done" then rollIndex + 11 else 0, false, 0.48 * motionScale)
+	local chargePulseSpring = useFlipperSpring(if phase == "charge" then 1 else 0, false, 360, 19)
+	local chargePulseBoat = useBoatTween(if phase == "charge" then 1 else 0, 0.18 * motionScale, false, easeOutCubic, 0)
+	local chargePulse = chargePulseSpring
 	local rolls = session.rolls
 	if type(rolls) ~= "table" then
 		rolls = {}
@@ -326,25 +331,33 @@ local function CrateRevealExperience(_param)
 		if phase ~= "enter" then
 			return nil
 		end
-		local job = task.delay(if softMotion then 0.02 else 0.2, function()
-			return setPhase("charge")
+		local alive = true
+		local job = task.delay(if reducedMotion then 0.12 else 0.2, function()
+			if alive then
+				setPhase("charge")
+			end
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
-	end, { phase, softMotion })
+	end, { phase, reducedMotion })
 	React.useEffect(function()
 		if phase ~= "charge" then
 			return nil
 		end
 		Audio:play("crateCharge")
-		local job = task.delay(if softMotion then 0.02 else 0.48, function()
-			return setPhase("spin")
+		local alive = true
+		local job = task.delay(if reducedMotion then 0.28 else 0.48, function()
+			if alive then
+				setPhase("spin")
+			end
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
-	end, { phase, softMotion })
+	end, { phase, reducedMotion })
 	local landCurrent = React.useCallback(function()
 		if spinSettledRef.current then
 			return nil
@@ -383,10 +396,6 @@ local function CrateRevealExperience(_param)
 			return nil
 		end
 		spinSettledRef.current = false
-		if softMotion then
-			landCurrent()
-			return nil
-		end
 		setOffset(START_OFFSET)
 		setSpinEnergy(0)
 		setSpinProgress(0)
@@ -397,7 +406,7 @@ local function CrateRevealExperience(_param)
 		Audio:play("crateOpen")
 		local startedAt = os.clock()
 		local lastVisualAt = startedAt - 1 / reelFrameRate
-		local duration = if rollIndex == 0 then SPIN_SECONDS else BATCH_SPIN_SECONDS
+		local duration = (if rollIndex == 0 then SPIN_SECONDS else BATCH_SPIN_SECONDS) * (if reducedMotion then 0.55 else 1)
 		local lastTickSlot = -1
 		local lastTickAt = -math.huge
 		local previousValue = START_OFFSET
@@ -458,12 +467,16 @@ local function CrateRevealExperience(_param)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { landCurrent, phase, softMotion, reelFrameRate, rollIndex, setOffset, setSpinEnergy, setSpinProgress, setTickEnergy, travelDistance })
+	end, { landCurrent, phase, reducedMotion, reelFrameRate, rollIndex, setOffset, setSpinEnergy, setSpinProgress, setTickEnergy, travelDistance })
 	React.useEffect(function()
 		if phase ~= "land" then
 			return nil
 		end
+		local alive = true
 		local job = task.delay(if rollIndex >= #rolls - 1 then 0.72 else 0.62, function()
+			if not alive then
+				return nil
+			end
 			if rollIndex >= #rolls - 1 then
 				setPhase("done")
 			else
@@ -474,7 +487,8 @@ local function CrateRevealExperience(_param)
 			end
 		end)
 		return function()
-			return task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, { phase, rollIndex, rolls })
 	local finish = React.useCallback(function()
@@ -632,7 +646,7 @@ local function EmptyCrateReveal(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(job)
+			pcall(task.cancel, job)
 		end
 	end, {})
 	return React.createElement("frame", {

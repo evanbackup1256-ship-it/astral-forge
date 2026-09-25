@@ -269,14 +269,19 @@ end
 local function useSecondClock()
 	local now, setNow = React.useState(unixNow())
 	React.useEffect(function()
+		local alive = true
 		local worker = task.spawn(function()
-			while true do
+			while alive do
 				task.wait(0.5)
+				if not alive then
+					break
+				end
 				setNow(unixNow())
 			end
 		end)
 		return function()
-			return task.cancel(worker)
+			alive = false
+			pcall(task.cancel, worker)
 		end
 	end, {})
 	return now
@@ -428,15 +433,15 @@ local function TradeView(_param)
 	-- Canonical softMotion antilag gate — TradeView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local enter = useEntrance(softMotion)
+	local enter = useEntrance(reducedMotion)
 	local reveal = useStagger(0, softMotion)
-	local boardReveal = useStagger(1, softMotion)
-	local inviteReveal = useStagger(2, softMotion)
-	local confirmReveal = useStagger(3, softMotion)
+	local boardReveal = useStagger(1, reducedMotion)
+	local inviteReveal = useStagger(2, reducedMotion)
+	local confirmReveal = useStagger(3, reducedMotion)
 	-- Canonical softMotion antilag gate — TradeBoard.
-	local deskReveal = useStagger(4, softMotion)
+	local deskReveal = useStagger(4, reducedMotion)
 	-- Canonical softMotion antilag gate — TradeDesk.
-	local dailyReveal = useStagger(5, softMotion)
+	local dailyReveal = useStagger(5, reducedMotion)
 	-- Canonical softMotion antilag gate — TradeDaily.
 	local softInvite = softMotion or inviteReveal ~= nil
 	local softConfirm = softMotion or confirmReveal ~= nil
@@ -527,18 +532,23 @@ local function TradeView(_param)
 		local removed = Players.PlayerRemoving:Connect(function()
 			return loadRoster()
 		end)
+		local alive = true
 		local pulse = task.spawn(function()
-			while true do
+			while alive do
 				task.wait(4)
+				if not alive then
+					break
+				end
 				if session == nil then
 					loadRoster()
 				end
 			end
 		end)
 		return function()
+			alive = false
 			added:Disconnect()
 			removed:Disconnect()
-			task.cancel(pulse)
+			pcall(task.cancel, pulse)
 		end
 	end
 	local _result_3 = session
@@ -582,7 +592,7 @@ local function TradeView(_param)
 	React.useEffect(function()
 		return function()
 			if flushRef.current ~= nil then
-				task.cancel(flushRef.current)
+				pcall(task.cancel, flushRef.current)
 			end
 		end
 	end, {})
@@ -591,7 +601,7 @@ local function TradeView(_param)
 		setYouReadyLocal(false)
 		dirtyRef.current = true
 		if flushRef.current ~= nil then
-			task.cancel(flushRef.current)
+			pcall(task.cancel, flushRef.current)
 		end
 		flushRef.current = task.delay(0.14, function()
 			flushRef.current = nil
@@ -1004,7 +1014,7 @@ local function TradeView(_param)
 					name = relic.name,
 					picked = picked,
 					touch = phone,
-					reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 					onToggle = function()
 						local pickedIds = {}
 						if picked then
@@ -1222,7 +1232,7 @@ local function TradeView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { session ~= nil, bothReady, youReadyLocal, tableEmpty, busy, readyDisabled, confirmDisabled })
 	-- CONFIRM_TRADE_PANEL: shared Ready/Confirm/Cancel — call sites tag :compact / :desktop.
@@ -1248,7 +1258,7 @@ local function TradeView(_param)
 			disabled = readyDisabled,
 			loading = busy == "SetTradeReady",
 			shakeToken = shakeFor("SetTradeReady"),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = not youReadyLocal and not tableEmpty,
 			selectable = not readyDisabled,
 		}))
@@ -1344,8 +1354,8 @@ local function TradeView(_param)
 			background = if active then darken(accent, 0.82) else Palette.panel,
 			padding = 10,
 			interactive = true,
-			reveal = if softMotion then deskReveal else boardReveal,
-			reducedMotion = softMotion or tradeSoft,
+			reveal = if reducedMotion then deskReveal else boardReveal,
+			reducedMotion = reducedMotion or tradeSoft,
 			layoutOrder = 6 + index,
 		}, React.createElement("textbutton", {
 			Size = UDim2.new(1, if compactTrade then 0 else -118, 0, if compactTrade then 48 else 46),

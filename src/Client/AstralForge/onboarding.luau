@@ -101,7 +101,7 @@ local function TutorialOverlay(_param)
 	elseif watch == "rebirth" then
 		goalMet = here == "Overview"
 	end
-	local liveText = `VAULT {live.vault or "0"}  ·  {live.production or "0"} / sec`
+	local liveText = `Stored Flux {live.vault or "0"}  ·  {live.production or "0"} / sec`
 	if watch == "workshop" or watch == "buy" or watch == "amount" then
 		liveText = `MACHINES {ownedMachines}  ·  BUY x{buyAmount}  ·  {here or "Workshop"}`
 	elseif watch == "research" or watch == "rebirth" or watch == "finish" then
@@ -126,26 +126,38 @@ local function TutorialOverlay(_param)
 			beginExit(onSkip)
 		end
 	end, { beginExit, exiting, onSkip })
+	local onBackRef = React.useRef(onBack)
+	local onCtaRef = React.useRef(onCta)
+	local requestNextRef = React.useRef(requestNext)
+	local stepRef = React.useRef(step)
+	local exitingRef = React.useRef(exiting)
+	local hasCtaRef = React.useRef(hasCta)
+	onBackRef.current = onBack
+	onCtaRef.current = onCta
+	requestNextRef.current = requestNext
+	stepRef.current = step
+	exitingRef.current = exiting
+	hasCtaRef.current = hasCta
 	React.useEffect(function()
 		local actionName = "AstralForgeTutorialBack"
 		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
-			if inputState == Enum.UserInputState.Begin and step > 1 and not exiting then
-				onBack()
+			if inputState == Enum.UserInputState.Begin and stepRef.current > 1 and not exitingRef.current then
+				onBackRef.current()
 			end
 			return Enum.ContextActionResult.Sink
 		end, false, 2300, Enum.KeyCode.ButtonB)
 		return function()
 			return ContextActionService:UnbindAction(actionName)
 		end
-	end, { exiting, onBack, step })
+	end, {})
 	React.useEffect(function()
 		local actionName = "AstralForgeTutorialConfirm"
 		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
-			if inputState == Enum.UserInputState.Begin and not exiting then
-				if hasCta and onCta ~= nil then
-					onCta()
+			if inputState == Enum.UserInputState.Begin and not exitingRef.current then
+				if hasCtaRef.current and onCtaRef.current ~= nil then
+					onCtaRef.current()
 				else
-					requestNext()
+					requestNextRef.current()
 				end
 			end
 			return Enum.ContextActionResult.Sink
@@ -153,7 +165,7 @@ local function TutorialOverlay(_param)
 		return function()
 			return ContextActionService:UnbindAction(actionName)
 		end
-	end, { exiting, hasCta, onCta, requestNext })
+	end, {})
 	local bodyTop = if hasGoal then 72 else 54
 	local hintTop = bodyTop + (if phone then 42 else 36)
 	local controlsTop = hintTop + (if hasHint then 18 else 0)
@@ -174,14 +186,16 @@ local function TutorialOverlay(_param)
 		if host == nil then
 			return nil
 		end
+		local alive = true
 		local job = task.defer(function()
-			if host.Parent == nil then
+			if not alive or host.Parent == nil then
 				return
 			end
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, {})
 	local _exp = React.createElement("uilistlayout", {
@@ -643,18 +657,20 @@ local function ReleaseNotesModal(_param)
 		Audio:play("close")
 		beginExit(onClose)
 	end, { beginExit, onClose })
+	local closeOnceRef = React.useRef(closeOnce)
+	closeOnceRef.current = closeOnce
 	React.useEffect(function()
 		local actionName = "AstralForgeReleaseClose"
 		ContextActionService:BindActionAtPriority(actionName, function(_name, inputState)
 			if inputState == Enum.UserInputState.Begin then
-				closeOnce()
+				closeOnceRef.current()
 			end
 			return Enum.ContextActionResult.Sink
 		end, false, 2300, Enum.KeyCode.ButtonB)
 		return function()
 			return ContextActionService:UnbindAction(actionName)
 		end
-	end, { closeOnce })
+	end, {})
 	local openMail = React.useCallback(function()
 		if closeGuard.current or onOpenMail == nil then
 			return nil
@@ -748,14 +764,16 @@ local function ReleaseNotesModal(_param)
 		if host == nil then
 			return nil
 		end
+		local alive = true
 		local job = task.defer(function()
-			if host.Parent == nil then
+			if not alive or host.Parent == nil then
 				return
 			end
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, {})
 	local _exp = React.createElement("imagebutton", {

@@ -308,37 +308,42 @@ local function StoryBeat(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — StoryBeat.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local enter = useEntrance(softMotion)
-	local visible, setVisible = React.useBinding(if softMotion then #text else 0)
+	local enter = useEntrance(reducedMotion)
+	local visible, setVisible = React.useBinding(0)
 	local needsWarmup = not stack and not replay
 	local tuning, setTuning = React.useState(if needsWarmup then 0 else 3)
-	local tuneSpring = useFlipperSpring(tuning / 3, softMotion, 700, 32)
+	local tuneSpring = useFlipperSpring(tuning / 3, false, 700, 32)
 	local tuned = tuning >= 3 or replay or stack
 	React.useEffect(function()
 		local alive = true
 		local revealWorker
-		setVisible(if softMotion then #text else 0)
+		setVisible(0)
 		setTuning(if needsWarmup then 0 else 3)
 		Audio:play("storyBeat")
-		if not softMotion then
-			revealWorker = task.spawn(function()
-				local count = 0
-				local step = math.max(1, math.floor(#text / 72))
-				while alive and count < #text do
-					count = math.min(#text, count + step)
-					setVisible(count)
-					task.wait(0.022)
+		local stepDiv = if reducedMotion then 28 else 72
+		local stepWait = if reducedMotion then 0.012 else 0.022
+		revealWorker = task.spawn(function()
+			local count = 0
+			local step = math.max(1, math.floor(#text / stepDiv))
+			while alive and count < #text do
+				count = math.min(#text, count + step)
+				if not alive then
+					break
 				end
-			end)
-		end
+				setVisible(count)
+				task.wait(stepWait)
+			end
+		end)
 		return function()
 			alive = false
 			if revealWorker ~= nil then
-				task.cancel(revealWorker)
+				-- The typewriter exits when the line is fully shown. Cancel then throws.
+				pcall(function()
+					task.cancel(revealWorker)
+				end)
 			end
 		end
-	end, { index, needsWarmup, softMotion, replay, text })
+	end, { index, needsWarmup, reducedMotion, replay, text })
 	local final = index >= total - 1
 	local resonate = function()
 		if tuned then
@@ -386,7 +391,7 @@ local function StoryBeat(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { index, tuned, claimed, actionText })
 	local measureWidth = math.max(160, math.floor((viewport.width or 390) * (if stack then 0.92 else 0.55)) - bodyPadR - 12)
@@ -400,7 +405,7 @@ local function StoryBeat(_param)
 	}, React.createElement(Meter, {
 		value = partFill,
 		color = color,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		shimmer = final,
 		position = UDim2.fromOffset(0, 4),
 		size = UDim2.new(1, 0, 0, 4),
@@ -421,7 +426,7 @@ local function StoryBeat(_param)
 	}), React.createElement(Meter, {
 		value = partFill,
 		color = color,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		shimmer = final,
 		position = UDim2.fromOffset(0, 26),
 		size = UDim2.new(1, 0, 0, 5),
@@ -578,7 +583,7 @@ local function StoryBeat(_param)
 		color = if not tuned then color elseif final then color else Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = not claimed or not tuned or replay,
 	}))
 	local backSlot = React.createElement("frame", {
@@ -597,7 +602,7 @@ local function StoryBeat(_param)
 		outline = true,
 		size = UDim2.fromScale(1, 1),
 		disabled = index <= 0,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}))
 	local actionsElement = if stack and not condensed then React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -768,6 +773,7 @@ local function StoryView(_param)
 	local archivePulse = usePulse(not softMotion and not started, 3.4)
 	-- Canonical softMotion antilag gate — StoryArchive.
 	local archiveReveal = useStagger(0, softMotion)
+	local archiveMotionEnabled = softMotion
 	if not story or not status then
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
@@ -878,7 +884,7 @@ local function StoryView(_param)
 		}, React.createElement(ArchiveMark, {
 			accent = story.Color,
 			active = started,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			beat = beat,
 			total = #story.Body,
 			compact = stack or multi,
@@ -952,7 +958,7 @@ local function StoryView(_param)
 		}, _exp_2, _condition_2, not stack and not multi and React.createElement(ArchiveMark, {
 			accent = story.Color,
 			active = started,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			beat = beat,
 			total = #story.Body,
 			compact = false,
@@ -1084,7 +1090,7 @@ local function StoryView(_param)
 				textColor = if locked then Palette.muted else Palette.ink,
 				size = UDim2.fromScale(1, 1),
 				disabled = locked,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				highlight = not locked,
 			}),
 		} }
@@ -1149,7 +1155,7 @@ local function StoryView(_param)
 		size = if shortLandscape then UDim2.fromOffset(210, TapTarget) elseif stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0.5, 0, 0, 52),
 		position = if shortLandscape then UDim2.new(1, -210, 1, -TapTarget) else UDim2.new(0, 0, 1, -(if stack then TapTarget + 4 else 56)),
 		disabled = locked,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = not locked,
 	}))
 	local _condition_3 = started
@@ -1169,7 +1175,7 @@ local function StoryView(_param)
 		_attributes.index = beat
 		_attributes.total = math.max(1, #body)
 		_attributes.color = story.Color
-		_attributes.reducedMotion = reducedMotion
+		_attributes.reducedMotion = softMotion
 		_attributes.claimed = status.Claimed
 		_attributes.reward = formatReward(story.Reward)
 		_attributes.replay = finished

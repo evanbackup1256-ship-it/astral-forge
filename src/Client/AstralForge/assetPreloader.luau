@@ -262,7 +262,7 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 							end
 						end
 					end
-					local ok = pcall(function()
+					local ok, preloadErr = pcall(function()
 						return ContentProvider:PreloadAsync(batch, function(contentId, status)
 							if status == Enum.AssetFetchStatus.Failure or status == Enum.AssetFetchStatus.TimedOut then
 								failedAssets += 1
@@ -283,6 +283,7 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 					end
 					if not ok then
 						failedBatches += 1
+						ClientLog:warnEvery("preload-batch", 10, "Assets", tostring(preloadErr))
 					end
 					loaded += #batch
 					local _result_1 = onProgress

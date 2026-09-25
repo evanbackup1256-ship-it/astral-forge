@@ -414,7 +414,7 @@ function TradeDesk:Respond(guest: Player, guestProfile, accept: boolean, now: nu
 end
 
 function TradeDesk:UpdateOffer(player: Player, profile, rawOffer, now: number): (boolean, string?, any)
-	local session = self._sessions[self._byUser[player.UserId]]
+	local session = self:SessionFor(player.UserId)
 	if not session or session.ExpiresAt < now then
 		return false, "That trade is no longer open."
 	end
@@ -441,7 +441,7 @@ function TradeDesk:UpdateOffer(player: Player, profile, rawOffer, now: number): 
 end
 
 function TradeDesk:SetReady(player: Player, profile, ready: boolean, now: number): (boolean, string?, any)
-	local session = self._sessions[self._byUser[player.UserId]]
+	local session = self:SessionFor(player.UserId)
 	if not session or session.ExpiresAt < now then
 		return false, "That trade is no longer open."
 	end
@@ -466,7 +466,7 @@ function TradeDesk:SetReady(player: Player, profile, ready: boolean, now: number
 end
 
 function TradeDesk:Confirm(player: Player, now: number): (boolean, string?, any)
-	local session = self._sessions[self._byUser[player.UserId]]
+	local session = self:SessionFor(player.UserId)
 	if not session or session.ExpiresAt < now then
 		return false, "That trade is no longer open."
 	end
@@ -499,7 +499,7 @@ function TradeDesk:FailSettle(session, permanent: boolean?, reason: string?)
 end
 
 function TradeDesk:Cancel(player: Player): (any, number?, string?)
-	local session = self._sessions[self._byUser[player.UserId]]
+	local session = self:SessionFor(player.UserId)
 	if not session then
 		self._invites[player.UserId] = nil
 		return nil, nil, nil

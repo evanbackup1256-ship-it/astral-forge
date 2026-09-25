@@ -122,6 +122,91 @@ end
 
 local GameConfig = chunk()
 
+local function assertRising(label: string, previous: number, value: number, id: string)
+	if type(value) ~= "number" or value ~= value or value == math.huge or value <= 0 then
+		error(label .. " not finite at " .. id)
+	end
+	if value <= previous then
+		error(label .. " flattened at " .. id)
+	end
+end
+
+do
+	local economy = GameConfig.Economy
+	local core = GameConfig.Machines[1]
+	local lunar = GameConfig.Machines[2]
+	local prism = GameConfig.Machines[3]
+	assert(GameConfig.Game.DataVersion == 21, "DataVersion must stay 21")
+	assert(core.Id == "StellarCore" and core.BaseCost == 35 and core.BaseProduction == 8, "Stellar Core economy drifted")
+	assert(lunar.Id == "LunarExtractor" and lunar.BaseCost == 480 and lunar.BaseProduction == 50 and lunar.PreviousLevel == 5, "Lunar Extractor economy drifted")
+	assert(prism.Id == "PrismRefinery" and prism.BaseCost == 7500 and prism.BaseProduction == 380, "Prism Refinery economy drifted")
+	assert(economy.StartingCash == 250 and economy.TutorialReward == 250, "starting cash drifted")
+	assert(economy.PrestigeRequirement == 750_000 and economy.BaseCapacity == 350, "prestige or capacity drifted")
+	assert(economy.BaseOfflineHours == 3 and economy.BaseOfflineEfficiency == 0.5, "offline economy drifted")
+	assert(GameConfig.Unlocks.Research.Target == 100 and GameConfig.Unlocks.Rebirth.Target == 75_000, "unlock targets drifted")
+
+	local previousCost = 0
+	local previousProduction = 0
+	local horizon = 0
+	for index = 1, #GameConfig.Machines do
+		local machine = GameConfig.Machines[index]
+		if string.sub(machine.Id, 1, 13) == "HorizonForge_" then
+			horizon += 1
+			assert(machine.Id == "HorizonForge_" .. tostring(horizon), "horizon id order")
+			local expectedPrevious = if horizon == 1 then "ChronoArray" else "HorizonForge_" .. tostring(horizon - 1)
+			assert(machine.PreviousId == expectedPrevious, "horizon chain broke at " .. machine.Id)
+			assertRising("machine cost", previousCost, machine.BaseCost, machine.Id)
+			assertRising("machine production", previousProduction, machine.BaseProduction, machine.Id)
+			previousCost = machine.BaseCost
+			previousProduction = machine.BaseProduction
+		end
+	end
+	assert(horizon == GameConfig.MaxGeneratedMachines, "horizon machine count")
+
+	local previousStudy = 0
+	local studies = 0
+	for index = 1, #GameConfig.Research do
+		local research = GameConfig.Research[index]
+		if string.sub(research.Id, 1, 13) == "HorizonStudy_" then
+			studies += 1
+			assertRising("research cost", previousStudy, research.BaseCost, research.Id)
+			previousStudy = research.BaseCost
+		end
+	end
+	assert(studies == GameConfig.MaxGeneratedResearch, "horizon research count")
+
+	local previousByBranch = {}
+	for index = 1, #GameConfig.GridUpgrades do
+		local upgrade = GameConfig.GridUpgrades[index]
+		local previous = previousByBranch[upgrade.Branch] or 0
+		if upgrade.Tier > 42 then
+			assertRising("grid cost", previous, upgrade.BaseCost, upgrade.Id)
+		elseif upgrade.BaseCost < previous then
+			error("grid cost regressed at " .. upgrade.Id)
+		end
+		previousByBranch[upgrade.Branch] = upgrade.BaseCost
+	end
+	local previousXp = 0
+	for index = 1, #GameConfig.Operations.SeasonTiers do
+		local tier = GameConfig.Operations.SeasonTiers[index]
+		assertRising("season xp", previousXp, tier.RequiredXP, tostring(tier.Tier))
+		previousXp = tier.RequiredXP
+	end
+	local previousMilestone = 0
+	for index = 1, #GameConfig.Anomalies.Milestones do
+		local milestone = GameConfig.Anomalies.Milestones[index]
+		assertRising("milestone", previousMilestone, milestone.Required, tostring(milestone.Tier))
+		previousMilestone = milestone.Required
+	end
+
+	local far = GameConfig.ResolveZone(GameConfig.MaxZone)
+	local mid = GameConfig.ResolveZone(4000)
+	assert(far ~= nil and mid ~= nil, "world tail missing")
+	assert(type(far.Multiplier) == "number" and far.Multiplier < 1e308 and far.Multiplier > mid.Multiplier, "world multiplier tail")
+	assert(far.RequiredRebirths > mid.RequiredRebirths, "world rebirth gate")
+	assert(#GameConfig.Operations.Expeditions == 12 + GameConfig.MaxGeneratedExpeditions, "expedition ladder")
+end
+
 local function isColor3(value): boolean
 	return type(value) == "table" and value.__type == "Color3"
 end
@@ -228,4 +313,14 @@ end
 table.insert(lines, "}")
 
 fs.writeFile("src/Shared/AstralForge/Shared/GameConfigGenerated.luau", table.concat(lines, "\n"))
-print("Wrote src/Shared/AstralForge/Shared/GameConfigGenerated.luau")
+print(string.format(
+	"Wrote GameConfigGenerated | machines=%d research=%d zones=%d grid=%d seasons=%d milestones=%d expeditions=%d maxZone=%d",
+	#GameConfig.Machines,
+	#GameConfig.Research,
+	#GameConfig.Zones,
+	#GameConfig.GridUpgrades,
+	#GameConfig.Operations.SeasonTiers,
+	#GameConfig.Anomalies.Milestones,
+	#GameConfig.Operations.Expeditions,
+	GameConfig.MaxZone
+))

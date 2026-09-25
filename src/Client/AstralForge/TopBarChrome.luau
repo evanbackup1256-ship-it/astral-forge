@@ -15,6 +15,7 @@ local ButtonShimmer = _ui.ButtonShimmer
 local IconTile = _ui.IconTile
 local LogoLockup = _ui.LogoLockup
 local Text = _ui.Text
+local resolvePressMotion = _ui.resolvePressMotion
 local useButtonChrome = _ui.useButtonChrome
 local NumberSpinnerHost = require(script.Parent.NumberSpinnerHost).NumberSpinnerHost
 local _theme = require(script.Parent.theme)
@@ -23,6 +24,7 @@ local Palette = _theme.Palette
 local darken = _theme.darken
 local ensureContrast = _theme.ensureContrast
 local surfaceGradient = _theme.surfaceGradient
+local strokeGradient = _theme.strokeGradient
 local TapTarget = _theme.TapTarget
 local _format = require(script.Parent.format)
 local asFlux = _format.asFlux
@@ -92,7 +94,12 @@ local function StatChip(_param)
 	local gains, setGains = React.useState(0)
 	local previous = React.useRef(value)
 	React.useEffect(function()
-		if reactiveFlash and asFlux(value) > asFlux(previous.current) then
+		local nextFlux = asFlux(value)
+		local prevFlux = asFlux(previous.current)
+		if nextFlux == prevFlux then
+			return nil
+		end
+		if reactiveFlash and nextFlux > prevFlux then
 			setGains(function(current)
 				return current + 1
 			end)
@@ -102,7 +109,7 @@ local function StatChip(_param)
 	local flash = useFlash(gains, reducedMotion)
 	local chipH = if tall then TapTarget else 54
 	local iconSize = if tall then 32 else 28
-	local valueSize = if tall then 15 else 14
+	local valueSize = if tall then 16 else 16
 	local tip = CHIP_TIPS[label]
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
@@ -121,7 +128,12 @@ local function StatChip(_param)
 		Transparency = flash:map(function(amount)
 			return 0.56 - amount * 0.5
 		end),
-	})
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = flash:map(function(amount)
+			return strokeGradient(Palette.lineSoft:Lerp(accent, amount))
+		end),
+	}))
 	local _exp_3 = React.createElement("uipadding", {
 		PaddingLeft = UDim.new(0, if tall then 10 else 9),
 		PaddingRight = UDim.new(0, if tall then 12 else 11),
@@ -160,7 +172,7 @@ local function StatChip(_param)
 		BorderSizePixel = 0,
 		Text = label,
 		TextColor3 = ensureContrast(Palette.panel, accent),
-		TextSize = 11,
+		TextSize = 12,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
@@ -197,10 +209,11 @@ local function StatChip(_param)
 			value = value,
 			velocity = asFlux(velocity),
 			reducedMotion = reducedMotion,
-			duration = 0.55,
+			duration = 0.32,
 			size = valueSize,
 			color = ensureContrast(Palette.panel, Palette.cream),
-			autoWidth = false,
+			autoWidth = true,
+			spacedSuffix = true,
 			sizeConstraint = UDim2.fromOffset(valueMaxW, 20),
 			layoutOrder = 2,
 			zIndex = 3,
@@ -322,7 +335,13 @@ local function ActiveBoostIcon(_param)
 	local fraction = now:map(function(timestamp)
 		return math.clamp((endsAt - timestamp) / math.max(1, boost.Duration), 0, 1)
 	end)
-	local chrome = useButtonChrome(open, reducedMotion, false, "boostOpen", true)
+	local chrome = useButtonChrome(open, reducedMotion, false, "boostOpen", true, false, resolvePressMotion(if compact then {
+		icon = boost.Id,
+		size = UDim2.fromOffset(62, 62),
+	} else {
+		text = boost.Name,
+		size = UDim2.fromOffset(220, 56),
+	}))
 	local reveal = useEntrance(reducedMotion)
 	local radius = if compact then 11 else 12
 	local visualScale = React.joinBindings({
@@ -388,6 +407,7 @@ local function ActiveBoostIcon(_param)
 		Size = UDim2.fromScale(1, 1),
 		Position = visualPosition,
 		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = chrome.tilt,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, React.createElement("uiscale", {
@@ -441,7 +461,7 @@ local function ActiveBoostIcon(_param)
 		size = if compact then 34 else 40,
 		radius = if compact then 9 else 10,
 		position = if compact then UDim2.new(0.5, -17, 0, 4) else UDim2.fromOffset(9, 8),
-		spin = chrome.hovered and not reducedMotion,
+		spin = chrome.hovered,
 		hoverAmount = chrome.hoverAmount,
 		reducedMotion = reducedMotion,
 		zIndex = 3,
@@ -585,7 +605,7 @@ local function TopbarReleaseCountdown(_param)
 			wasLive.current = false
 		end
 	end, { live, reducedMotion })
-	local pulse = usePulse(live and not reducedMotion, 2.4)
+	local pulse = usePulse(live, 2.4)
 	local flash = useFlash(slam, reducedMotion, 1.05)
 	local days = math.floor(remaining / 86400)
 	local hours = math.floor(remaining / 3600) % 24
@@ -654,7 +674,7 @@ local function TopbarReleaseCountdown(_param)
 		color = Palette.cream,
 		accent = if live then Palette.mint else Palette.cyan,
 		size = 26,
-		spin = live and not reducedMotion,
+		spin = live,
 	}))
 	local _exp_4 = React.createElement(Text, {
 		value = if live then "LAUNCH" else "NEXT",
@@ -757,6 +777,7 @@ local function TopBar(_param)
 	local railOpen = _param.railOpen
 	local toggleRail = _param.toggleRail
 	local hideUI = _param.hideUI
+	local openSanctuary = _param.openSanctuary
 	local tight = _param.tight
 	local width = _param.width
 	local topPad = _param.topPad
@@ -778,7 +799,7 @@ local function TopBar(_param)
 	local stacked = barHeight > Layout.topbarHeight
 	local chipWidthEstimate = if stacked then 148 elseif micro then 150 else 164
 	local logoCompact = tight or stacked or barHeight <= Layout.topbarHeight
-	local logoWidth = if micro then 40 elseif stacked then 148 elseif shortRow then 146 elseif logoCompact then 172 else 228
+	local logoWidth = if micro then 48 elseif stacked then 156 elseif shortRow then 156 elseif logoCompact then 168 else 176
 	local pageTitleW = 0
 	local _result = state.Visitors
 	if _result ~= nil then
@@ -823,11 +844,9 @@ local function TopBar(_param)
 	}
 	table.insert(allChips, _arg0)
 	local visitPillWidth = if visitPill ~= nil then (if tight then 124 else 156) else 0
-	-- Was hardcoded to 0 (dead space between the logo and the resource chips, with the
-	-- countdown component fully built but never shown). Room only exists for it on a real
-	-- single-row desktop bar -- stacked/short/micro layouts already spend every pixel on the
-	-- logo, chips, and controls.
-	local countdownW = if not stacked and not shortRow and not micro and width >= 900 then 200 else 0
+	-- Launch countdown is not shown on desktop or mobile. Width stays 0 so the chip
+	-- is not mounted and the bar does not reserve a gap for it.
+	local countdownW = 0
 	local _condition_1 = state.Settings.ShowFps
 	if _condition_1 == nil then
 		_condition_1 = 1
@@ -845,7 +864,9 @@ local function TopBar(_param)
 	local feedbackControlGap = if shortRow then 6 else 8
 	local showFeedbackControl = not (stacked and width < 360)
 	local feedbackControlW = if not showFeedbackControl then 0 elseif micro or stacked or width < 1480 then SHELL_CHROME.topbarControl else 116
-	local controlsW = SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
+	local sanctuaryGap = if openSanctuary ~= nil then (if shortRow then 6 else 8) else 0
+	local sanctuaryW = if openSanctuary ~= nil then SHELL_CHROME.topbarControl else 0
+	local controlsW = sanctuaryW + sanctuaryGap + SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
 	local fixedSingleRow = edgePad * 2 + (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 12 + (if visitPillWidth > 0 then visitPillWidth + 6 else 0) + (if countdownW > 0 then countdownW + 10 else 0)
 	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 6 else 0
 	local performanceW = if not stacked and fullPerformanceW > 0 and width - fixedSingleRow - fullPerformanceW - performanceGap < minimumResourceRoom then 0 else fullPerformanceW
@@ -866,11 +887,13 @@ local function TopBar(_param)
 	local controlsRight = edgePad + 4
 	local hasRightCluster = not stacked and (#chips > 0 or visitPill ~= nil or performanceW > 0)
 	local row1H = if stacked then 62 else barHeight
-	local logoH = if stacked then 52 else math.min(56, math.max(40, barHeight - 16))
-	local logoY = if stacked then 6 else math.max(4, math.floor((row1H - logoH) / 2))
+	local logoMark = if micro then 40 else SHELL_CHROME.topbarControl
+	local logoH = logoMark
+	local controlY = math.floor((row1H - SHELL_CHROME.topbarControl) / 2)
+	local logoY = controlY + math.floor((SHELL_CHROME.topbarControl - logoMark) / 2)
 	local chipRowH = if stacked then TapTarget else 50
 	local _exp_1 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
+		CornerRadius = UDim.new(0, 14),
 	})
 	local _exp_2 = React.createElement("uigradient", {
 		Color = surfaceGradient(Palette.panel, 0.58),
@@ -913,6 +936,11 @@ local function TopBar(_param)
 		textColor = Palette.cream,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = "",
+			icon = if railOpen then "Close" else "Menu",
+			size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
+		}),
 	}))
 	local _exp_7 = React.createElement("frame", {
 		Size = UDim2.fromOffset(logoWidth, logoH),
@@ -1105,6 +1133,11 @@ local function TopBar(_param)
 		textColor = accent,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = "",
+			icon = "Hide",
+			size = UDim2.fromOffset(SHELL_CHROME.topbarControl, SHELL_CHROME.topbarControl),
+		}),
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(playerControlW, SHELL_CHROME.topbarControl),
 		Position = UDim2.new(1, -(SHELL_CHROME.topbarControl + controlsRight + playerControlGap + playerControlW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
@@ -1118,6 +1151,11 @@ local function TopBar(_param)
 		textColor = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = if playerControlW > SHELL_CHROME.topbarControl then "PLAYERS" else "",
+			icon = "Pilot",
+			size = UDim2.fromOffset(playerControlW, SHELL_CHROME.topbarControl),
+		}),
 	})), showFeedbackControl and React.createElement("frame", {
 		Size = UDim2.fromOffset(feedbackControlW, SHELL_CHROME.topbarControl),
 		Position = UDim2.new(1, -(SHELL_CHROME.topbarControl + controlsRight + playerControlGap + playerControlW + feedbackControlGap + feedbackControlW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
@@ -1131,6 +1169,29 @@ local function TopBar(_param)
 		textColor = Palette.mint,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = if feedbackControlW > SHELL_CHROME.topbarControl then "FEEDBACK" else "",
+			icon = "Chat",
+			size = UDim2.fromOffset(feedbackControlW, SHELL_CHROME.topbarControl),
+		}),
+	})), openSanctuary ~= nil and React.createElement("frame", {
+		Size = UDim2.fromOffset(sanctuaryW, SHELL_CHROME.topbarControl),
+		Position = UDim2.new(1, -(SHELL_CHROME.topbarControl + controlsRight + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0) + sanctuaryGap + sanctuaryW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+		BackgroundTransparency = 1,
+		ZIndex = 22,
+	}, React.createElement(Button, {
+		text = "",
+		icon = "Forge",
+		onClick = openSanctuary,
+		color = Palette.panelSoft,
+		textColor = Palette.cyan,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = "",
+			icon = "Forge",
+			size = UDim2.fromOffset(sanctuaryW, SHELL_CHROME.topbarControl),
+		}),
 	})))
 end
 

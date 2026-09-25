@@ -97,7 +97,7 @@ local function ConvergenceView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { firstClaimTier, event.EventId })
 	local _exp_2 = React.createElement(Panel, {

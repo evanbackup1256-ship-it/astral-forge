@@ -85,8 +85,7 @@ local function ForgePathRow(_param)
 	-- Canonical softMotion antilag gate — ForgePathRow.
 	-- Canonical softMotion antilag gate — ForgePathView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local reveal = useStagger(index, softMotion, 0.015, 0.12)
+	local reveal = useStagger(index, reducedMotion, 0.015, 0.12)
 	local ready = not claimed and unlockedForClaim and affordable
 	local locked = not claimed and not unlockedForClaim
 	local accent = if claimed then Palette.muted elseif ready then step.Color else Palette.mango
@@ -97,20 +96,20 @@ local function ForgePathRow(_param)
 	return React.createElement("frame", {
 		Size = UDim2.new(1, -4, 0, rowH), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = index, ClipsDescendants = false,
 	}, React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1), accent = accent, background = Palette.panel, padding = 12, reveal = reveal, highlight = ready, reducedMotion = softMotion, clips = false,
-	}, React.createElement(IconTile, { kind = step.Icon, accent = if claimed then Palette.muted else step.Color, size = 38, radius = 10, position = UDim2.fromOffset(0, 4), spin = false, reducedMotion = softMotion }),
+		size = UDim2.fromScale(1, 1), accent = accent, background = Palette.panel, padding = 12, reveal = reveal, highlight = ready, reducedMotion = reducedMotion, clips = false,
+	}, React.createElement(IconTile, { kind = step.Icon, accent = if claimed then Palette.muted else step.Color, size = 38, radius = 10, position = UDim2.fromOffset(0, 4), spin = false, reducedMotion = reducedMotion }),
 	React.createElement(Text, { value = `STEP {step.Step}`, size = 10, color = if claimed then Palette.muted else step.Color, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(48, 2), sizeConstraint = UDim2.new(1, textW, 0, 16) }),
 	React.createElement(Text, { value = effectLabel(step), size = 14, color = if claimed then Palette.muted else Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(48, 20), sizeConstraint = UDim2.new(1, textW, 0, 20) }),
 	React.createElement(Text, { value = formatReward(step.Reward), size = 10, color = Palette.mango, weight = Enum.FontWeight.Bold, wrap = true, position = UDim2.fromOffset(48, 42), sizeConstraint = UDim2.new(1, textW, 0, 16) }),
 	React.createElement("frame", { Size = UDim2.new(1, textW, 0, 26), Position = UDim2.fromOffset(48, 60), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false },
 		React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }),
 		rewardChips(step.Reward, if claimed then Palette.muted else step.Color)),
-	React.createElement(Meter, { value = if claimed then 1 else progressFrac, color = accent, reducedMotion = softMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 98 else 104), size = UDim2.new(1, if stack then 0 else -200, 0, 8) }),
+	React.createElement(Meter, { value = if claimed then 1 else progressFrac, color = accent, reducedMotion = reducedMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 98 else 104), size = UDim2.new(1, if stack then 0 else -200, 0, 8) }),
 	React.createElement(Text, { value = statusText, size = 10, color = if ready then step.Color else Palette.muted, weight = Enum.FontWeight.Bold, fit = false, position = UDim2.fromOffset(0, if stack then 112 else 118), sizeConstraint = UDim2.new(1, if stack then 0 else -200, 0, 16) }),
 	if stack then (if claimed then React.createElement(Badge, { value = "CLAIMED", accent = Palette.muted, filled = true, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget) })
-		else React.createElement(Button, { text = if ready then "CLAIM STEP" elseif locked then "LOCKED" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget), reducedMotion = softMotion, disabled = not ready, highlight = ready }))
+		else React.createElement(Button, { text = if ready then "CLAIM STEP" elseif locked then "LOCKED" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.new(1, 0, 0, TapTarget), position = UDim2.new(0, 0, 1, -TapTarget), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
 	else (if claimed then React.createElement(Badge, { value = "CLAIMED", accent = Palette.muted, filled = true, position = UDim2.new(1, -150, 0, 26), size = UDim2.fromOffset(140, 32) })
-		else React.createElement(Button, { text = if ready then "CLAIM" elseif locked then "LOCKED" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromOffset(140, 32), position = UDim2.new(1, -150, 0, 26), reducedMotion = softMotion, disabled = not ready, highlight = ready }))))
+		else React.createElement(Button, { text = if ready then "CLAIM" elseif locked then "LOCKED" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromOffset(140, 32), position = UDim2.new(1, -150, 0, 26), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))))
 end
 local function SpotlightPanel(_param)
 	local step, xp, ready, complete, guide = _param.step, _param.xp, _param.ready, _param.complete, _param.guide
@@ -118,7 +117,6 @@ local function SpotlightPanel(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — SpotlightPanel.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local claimHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on CLAIM NOW when ready.
 	React.useEffect(function()
@@ -136,31 +134,31 @@ local function SpotlightPanel(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { ready, complete, if step ~= nil then step.Step else 0 })
 	if complete then
 		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mint, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
-			React.createElement(EmptyState, { icon = "Check", title = "Forge Path complete", body = (guide and guide.Complete) or "Path cleared. Permanent bonuses stay through rebirth.", accent = Palette.mint, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = softMotion }))
+			React.createElement(EmptyState, { icon = "Check", title = "Forge Path complete", body = (guide and guide.Complete) or "Path cleared. Permanent bonuses stay through rebirth.", accent = Palette.mint, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	if step == nil then
 		return React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, background = Palette.panelRaised, padding = if stack then 14 else 16, clips = false },
-			React.createElement(EmptyState, { icon = "Forge", title = "No steps configured", body = "Forge Path steps come from GameConfig.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = softMotion }))
+			React.createElement(EmptyState, { icon = "Forge", title = "No steps configured", body = "Forge Path steps come from GameConfig.", accent = Palette.violet, compact = true, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion }))
 	end
 	local progressFrac = math.clamp(xp / math.max(1, step.XPCost), 0, 1)
 	local needXp = not ready and xp < step.XPCost
 	return React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1), accent = if ready then step.Color else Palette.violet, background = Palette.panelRaised,
-		padding = if stack then 14 else 16, highlight = ready, reducedMotion = softMotion, clips = false,
+		padding = if stack then 14 else 16, highlight = ready, reducedMotion = reducedMotion, clips = false,
 	}, React.createElement(Text, { value = if ready then "READY TO CLAIM" else "NEXT STEP", size = 10, color = if ready then step.Color else Palette.violet, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
 	React.createElement(Text, { value = `Step {step.Step} · {effectLabel(step)}`, size = if stack then 18 else 22, color = Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, position = UDim2.fromOffset(0, 18), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 28) }),
 	React.createElement(Text, { value = if needXp then ((guide and guide.NeedXp) or "Earn Forge Path XP by banking flux — it trickles in as you play.") else formatReward(step.Reward), size = 11, color = if needXp then Palette.creamSoft else Palette.mango, wrap = true, position = UDim2.fromOffset(0, 50), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 32) }),
-	React.createElement(Meter, { value = progressFrac, color = if ready then step.Color else Palette.violet, reducedMotion = softMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 96 else 92), size = UDim2.new(1, if stack then 0 else -180, 0, 8) }),
+	React.createElement(Meter, { value = progressFrac, color = if ready then step.Color else Palette.violet, reducedMotion = reducedMotion, shimmer = ready, position = UDim2.fromOffset(0, if stack then 96 else 92), size = UDim2.new(1, if stack then 0 else -180, 0, 8) }),
 	React.createElement(Text, { value = `{compactNumber(math.min(xp, step.XPCost))} / {compactNumber(step.XPCost)} XP`, size = 10, color = Palette.muted, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(0, if stack then 110 else 106), sizeConstraint = UDim2.new(1, if stack then 0 else -180, 0, 16) }),
 	if stack then React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.new(1, 0, 0, TapTarget), Position = UDim2.new(0, 0, 1, -TapTarget), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, ref = claimHostRef },
-		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED MORE XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = softMotion, disabled = not ready, highlight = ready }))
+		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED MORE XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready }))
 	else React.createElement("frame", { Name = "ForgePathClaimActions", Size = UDim2.fromOffset(160, TapTarget), Position = UDim2.new(1, -160, 0.5, -TapTarget / 2), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = false, ref = claimHostRef },
-		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = softMotion, disabled = not ready, highlight = ready })))
+		React.createElement(Button, { text = if ready then "CLAIM NOW" else "NEED XP", icon = "Check", onClick = function() return onClaim(step.Step) end, color = if ready then step.Color else Palette.panelSoft, textColor = if ready then Palette.ink else Palette.muted, size = UDim2.fromScale(1, 1), reducedMotion = reducedMotion, disabled = not ready, highlight = ready })))
 end
 local function ForgePathViewComponent(_param)
 	local state, config, dispatch, reducedMotion = _param.state, _param.config, _param.dispatch, _param.reducedMotion
@@ -224,7 +222,7 @@ local function ForgePathViewComponent(_param)
 				affordable = forgePath.XP >= step.XPCost,
 				xp = forgePath.XP,
 				onClaim = onClaim,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				index = index + 1,
 				stack = stack,
 			})
@@ -254,7 +252,7 @@ local function ForgePathViewComponent(_param)
 			{
 				id = "spotlight",
 				height = spotlightH,
-				element = React.createElement(SpotlightPanel, { step = nextStep, xp = forgePath.XP, ready = nextReady, complete = pathComplete, guide = guide, onClaim = onClaim, reducedMotion = softMotion, stack = stack }),
+				element = React.createElement(SpotlightPanel, { step = nextStep, xp = forgePath.XP, ready = nextReady, complete = pathComplete, guide = guide, onClaim = onClaim, reducedMotion = reducedMotion, stack = stack }),
 			},
 			{
 				id = "steps",

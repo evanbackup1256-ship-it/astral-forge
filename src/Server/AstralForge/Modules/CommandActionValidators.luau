@@ -26,6 +26,8 @@ CommandActionValidators.READ_ONLY = {
 	TradeViewAway = true,
 	ReportClientIntegrity = true,
 	ReportPerformance = true,
+	EnterSanctuary = true,
+	LeaveSanctuary = true,
 	SetTutorialStep = true,
 	ReplayTutorial = true,
 }

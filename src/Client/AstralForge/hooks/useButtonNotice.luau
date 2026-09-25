@@ -72,11 +72,15 @@ local function useButtonNotice(options)
 		if not active then
 			return nil
 		end
+		local alive = true
 		local token = task.delay(hold, function()
-			return setActive(false)
+			if alive then
+				setActive(false)
+			end
 		end)
 		return function()
-			return task.cancel(token)
+			alive = false
+			pcall(task.cancel, token)
 		end
 	end, { active, hold, trigger })
 	local notify = React.useCallback(function(nextLabel, nextTone)

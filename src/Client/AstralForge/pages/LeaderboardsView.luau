@@ -483,7 +483,7 @@ local function GuildSpotlight(_param)
 		return function()
 			alive.current = false
 			if timer ~= nil then
-				task.cancel(timer)
+				pcall(task.cancel, timer)
 			end
 		end
 	end, { dispatch })
@@ -774,7 +774,7 @@ local function LeaderboardsView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { selected, scope })
 	local entries, setEntries = React.useState({})
@@ -798,7 +798,7 @@ local function LeaderboardsView(_param)
 		setLoading(true)
 		local wait = math.max(0, 1.12 - (os.clock() - lastSentAt.current))
 		if queuedRefresh.current ~= nil then
-			task.cancel(queuedRefresh.current)
+			pcall(task.cancel, queuedRefresh.current)
 		end
 		queuedRefresh.current = task.delay(wait, function()
 			queuedRefresh.current = nil
@@ -857,10 +857,10 @@ local function LeaderboardsView(_param)
 		return function()
 			alive = false
 			if refreshTimer ~= nil then
-				task.cancel(refreshTimer)
+				pcall(task.cancel, refreshTimer)
 			end
 			if queuedRefresh.current ~= nil then
-				task.cancel(queuedRefresh.current)
+				pcall(task.cancel, queuedRefresh.current)
 				queuedRefresh.current = nil
 			end
 			requestId.current += 1
@@ -1110,7 +1110,7 @@ local function LeaderboardsView(_param)
 			accent = meta.accent,
 			background = Palette.panel,
 			padding = 16,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		}, React.createElement(Text, {
 			value = "Updating rankings…",
 			size = 14,
@@ -1159,7 +1159,7 @@ local function LeaderboardsView(_param)
 					meta = meta,
 					isLocal = entry.UserId == localId,
 					layoutOrder = rank,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					stack = stack,
 				})
 			end,
@@ -1173,7 +1173,7 @@ local function LeaderboardsView(_param)
 					meta = meta,
 					isLocal = entry.UserId == localId,
 					layoutOrder = index + 3,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					stack = stack,
 				})
 			end
@@ -1250,7 +1250,7 @@ local function LeaderboardsView(_param)
 				state = state,
 				dispatch = dispatch,
 				stack = stack,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				position = UDim2.fromOffset(0, 0),
 			}),
 		})

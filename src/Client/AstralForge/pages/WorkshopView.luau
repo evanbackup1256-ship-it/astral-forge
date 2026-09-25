@@ -46,6 +46,10 @@ local function MachineRow(_param)
 	local width = _param.width
 	local unlocked = _param.unlocked
 	local lockReason = _param.lockReason
+	local lockShort = _param.lockShort
+	if lockShort == nil then
+		lockShort = ""
+	end
 	local antilag = useAntilag()
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -60,7 +64,7 @@ local function MachineRow(_param)
 	local accent = machine.Accent or machine.Color
 	local running = level > 0
 	local flow = useClock(running and not softMotion and antilag.allowAmbient and antilag.tier >= 2, 0.55, 1)
-	local buyLabel = if not unlocked then "LOCKED" elseif maxed then "MAXED" elseif ready then "BUY" else `NEED  {compactNumber(price)}`
+	local buyLabel = if not unlocked then (if lockShort ~= "" then lockShort else "Locked") elseif maxed then "Maxed" elseif ready then (if level < 1 then "Buy this" else "Buy level") else `Need {compactNumber(price)} Flux`
 	local _condition = machine.BaseProduction
 	if _condition == nil then
 		_condition = 0
@@ -76,7 +80,7 @@ local function MachineRow(_param)
 			if _condition_1 == nil then
 				_condition_1 = 0
 			end
-			_result_1 = `{compactNumber(_condition_1)} flux / sec base · Lv {compactNumber(level)}`
+			_result_1 = if level < 1 then `Earns {compactNumber(_condition_1)} Flux/sec once you buy it` else `{compactNumber(_condition_1)} Flux/sec · level {compactNumber(level)}`
 		else
 			_result_1 = if maxed then `Level {compactNumber(level)} · maxed` else `Level {compactNumber(level)} · next {compactNumber(price)}`
 		end
@@ -106,7 +110,7 @@ local function MachineRow(_param)
 		background = Palette.panel,
 		padding = if stack then chrome.cardPadding else 14,
 		interactive = true,
-		reducedMotion = true,
+		reducedMotion = softMotion,
 	}, React.createElement(IconTile, {
 		kind = if unlocked then ((machine.Icon) or "Forge") else "Lock",
 		accent = if unlocked then machine.Color else Palette.muted,
@@ -114,7 +118,7 @@ local function MachineRow(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, if stack then 6 else 16),
 		spin = false,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = if buttonBesideText then UDim2.new(1, -210, 1, -4) elseif stack then UDim2.new(1, -60, 0, 78) else UDim2.new(1, -60, 0, 78),
 		Position = UDim2.fromOffset(58, if stack or not buttonBesideText then 2 else 4),
@@ -173,7 +177,7 @@ local function MachineRow(_param)
 		textColor = Palette.creamSoft,
 		size = if buttonBesideText then UDim2.fromOffset(150, TapTarget) else UDim2.new(1, 0, 0, TapTarget),
 		position = if buttonBesideText then UDim2.new(1, -158, 0.5, -TapTarget / 2) else UDim2.new(0, 0, 1, -(TapTarget + 4)),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = true,
 		highlight = false,
 	}) else React.createElement(Button, {
@@ -184,7 +188,7 @@ local function MachineRow(_param)
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = if buttonBesideText then UDim2.fromOffset(150, TapTarget) else UDim2.new(1, 0, 0, TapTarget),
 		position = if buttonBesideText then UDim2.new(1, -158, 0.5, -TapTarget / 2) else UDim2.new(0, 0, 1, -(TapTarget + 4)),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		disabled = not ready,
 		highlight = ready,
 	})))
@@ -244,7 +248,7 @@ local function UpgradeBoard(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { buyAmount, #entries })
 	local query, setQuery = React.useState("")
@@ -416,7 +420,7 @@ local function UpgradeBoard(_param)
 		color = Palette.creamSoft,
 		wrap = true,
 		position = UDim2.fromOffset(0, if stack then 42 else 46),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, if stack then 20 else 20),
+		sizeConstraint = UDim2.new(1, if stack then -8 else -248, 0, if stack then 20 else 34),
 	}), not stack and React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = compactNumber(state.Production) .. " / sec",
 		size = 14,
@@ -432,9 +436,9 @@ local function UpgradeBoard(_param)
 		accent = accent,
 		position = UDim2.new(1, -236, 0, 22),
 		size = UDim2.fromOffset(228, desktopControlH),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
-		text = if affordableCount > 0 then `BUY ALL  ·  {affordableCount}` else "BUY ALL",
+		text = if affordableCount > 0 then `Buy all you can · {affordableCount}` else "Nothing to buy yet",
 		icon = "Flux",
 		onClick = function()
 			local _result_3 = onBuyAll
@@ -448,7 +452,7 @@ local function UpgradeBoard(_param)
 		size = UDim2.fromOffset(228, 30),
 		position = UDim2.new(1, -236, 0, 66),
 		disabled = affordableCount <= 0 or onBuyAll == nil,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = affordableCount > 0,
 	}), React.createElement(SearchField, {
 		value = query,
@@ -503,7 +507,7 @@ local function UpgradeBoard(_param)
 		size = UDim2.new(0.62, -6, 0, controlH),
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
-		text = "BUY ALL",
+		text = if affordableCount > 0 then "Buy all you can" else "Nothing to buy",
 		icon = "Flux",
 		onClick = function()
 			local _result_3 = onBuyAll
@@ -555,12 +559,12 @@ local function UpgradeBoard(_param)
 		BorderSizePixel = 0,
 	}, React.createElement(EmptyState, {
 		icon = "Forge",
-		title = if needle ~= "" or filter ~= "All" then "Nothing matches" elseif filter == "Affordable" then "Can't afford anything yet" else "No upgrades to show",
-		body = if needle ~= "" then "Clear the search to see the board again." elseif filter == "Affordable" then "Bank the vault, then come back for the next machine." elseif filter ~= "All" then "Switch the filter back to Near unlocks." else "Unlock the next machine to fill this board.",
+		title = if needle ~= "" or filter ~= "All" then "Nothing matches" elseif filter == "Affordable" then "Can't afford a machine yet" else "No machines to show",
+		body = if needle ~= "" then "Clear the search to see the machines again." elseif filter == "Affordable" then "Collect Flux on Overview, then come back to buy the next machine." elseif filter ~= "All" then "Switch the filter back to Near unlocks." else "Buy a machine to start earning Flux into your vault.",
 		accent = accent,
 		size = UDim2.fromScale(1, 1),
 	}), filter == "Affordable" and affordableCount == 0 and React.createElement(Button, {
-		text = "SHOW NEAR UNLOCKS",
+		text = "Show next machines",
 		icon = "Forge",
 		onClick = function()
 			setFilter("All")
@@ -597,6 +601,7 @@ local function UpgradeBoard(_param)
 					width = columnWidth,
 					unlocked = entry.unlocked,
 					lockReason = entry.lockReason,
+					lockShort = entry.lockShort,
 				})
 			end,
 		})
@@ -634,7 +639,7 @@ local function UpgradeBoard(_param)
 		background = Palette.panel,
 		padding = 0,
 		reveal = workshopHostReveal,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		clips = false,
 	}, React.createElement(PageScaffold, {
 		hostRef = scrollRef,
@@ -900,7 +905,7 @@ local function AutoForgePanel(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, 0),
 		spin = queue.Enabled,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _exp_1 = React.createElement(Text, {
 		value = "AUTO-FORGE",
@@ -967,7 +972,7 @@ local function AutoForgePanel(_param)
 	_attributes.label = "TARGET MACHINE"
 	_attributes.position = UDim2.fromOffset(0, controlY)
 	_attributes.size = machineW
-	_attributes.reducedMotion = reducedMotion
+		_attributes.reducedMotion = softMotion
 	_attributes.zIndex = 54
 	return React.createElement(Panel, {
 		size = UDim2.new(1, -4, 0, height),
@@ -975,7 +980,7 @@ local function AutoForgePanel(_param)
 		background = darken(Palette.mango, 0.9),
 		padding = 14,
 		layoutOrder = 1,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		zIndex = 24,
 		clips = false,
 	}, _exp, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, React.createElement(Dropdown, _attributes), React.createElement(Dropdown, {
@@ -988,7 +993,7 @@ local function AutoForgePanel(_param)
 		label = "FLUX RESERVE",
 		position = if stack then UDim2.fromOffset(0, controlY + TapTarget + 26) else UDim2.fromOffset(282, controlY),
 		size = reserveW,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		zIndex = 52,
 	}), React.createElement("frame", {
 		Size = buttonW,
@@ -1006,10 +1011,17 @@ local function AutoForgePanel(_param)
 		textColor = if queue.Enabled then Palette.cream else Palette.ink,
 		outline = queue.Enabled,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = not queue.Enabled,
 		zIndex = 27,
 	})))
+end
+local function listedFluxPerSec(machine): number
+	local base = if type(machine) == "table" then machine.BaseProduction else nil
+	if type(base) ~= "number" or base <= 0 then
+		return 0
+	end
+	return base
 end
 local function WorkshopView(_param)
 	local state = _param.state
@@ -1019,14 +1031,84 @@ local function WorkshopView(_param)
 	local setBuyAmount = _param.setBuyAmount
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
+	local chainStack = chromeFor(viewport).contentStack
+	local stellarLevel = state.Machines.StellarCore
+	if stellarLevel == nil then
+		stellarLevel = 0
+	end
+	local firstMachine = stellarLevel < 1
+	local chainLine = nil
+	if not firstMachine and config ~= nil and type(config.Machines) == "table" then
+		local names = {}
+		for _, machine in config.Machines do
+			if type(machine) == "table" and type(machine.Id) == "string" then
+				names[machine.Id] = if type(machine.Name) == "string" then machine.Name else machine.Id
+			end
+		end
+		for _, machine in config.Machines do
+			if type(machine) ~= "table" or type(machine.PreviousId) ~= "string" then
+				continue
+			end
+			local needLevel = machine.PreviousLevel
+			if type(needLevel) ~= "number" then
+				needLevel = 1
+			end
+			local haveLevel = state.Machines[machine.PreviousId]
+			if type(haveLevel) ~= "number" then
+				haveLevel = 0
+			end
+			local rebirthsNeed = machine.RequiredRebirths
+			if type(rebirthsNeed) ~= "number" then
+				rebirthsNeed = 0
+			end
+			local zoneNeed = machine.RequiredZone
+			if type(zoneNeed) ~= "number" then
+				zoneNeed = 1
+			end
+			local rebirthsHave = state.Rebirths
+			if type(rebirthsHave) ~= "number" then
+				rebirthsHave = 0
+			end
+			local zoneHave = state.Zone
+			if type(zoneHave) ~= "number" then
+				zoneHave = 1
+			end
+			local machineName = if type(machine.Name) == "string" then machine.Name else machine.Id
+			local rate = listedFluxPerSec(machine)
+			local earns = if rate > 0 then ` earns {compactNumber(rate)} Flux/sec` else ""
+			local rateBit = if rate > 0 then ` +{compactNumber(rate)}/sec` else ""
+			if rebirthsHave < rebirthsNeed then
+				chainLine = if chainStack
+					then `{machineName}{rateBit}. {rebirthsHave}/{rebirthsNeed} rebirths.`
+					else `{machineName}{earns}. Needs {rebirthsNeed} rebirth{if rebirthsNeed == 1 then "" else "s"}. You have {rebirthsHave}.`
+				break
+			elseif zoneHave < zoneNeed then
+				chainLine = if chainStack
+					then `{machineName}{rateBit}. World {zoneHave}/{zoneNeed}.`
+					else `{machineName}{earns}. Needs world {zoneNeed}. You are on world {zoneHave}.`
+				break
+			elseif haveLevel < needLevel then
+				local prevName = names[machine.PreviousId]
+				if prevName == nil then
+					prevName = machine.PreviousId
+				end
+				chainLine = if chainStack
+					then `Next: {machineName}{rateBit}. {prevName} {haveLevel}/{needLevel}.`
+					elseif rate > 0
+					then `Next: {machineName} earns {compactNumber(rate)} Flux/sec. Get {prevName} to level {needLevel}. You have {haveLevel}.`
+					else `Next: {machineName}. Get {prevName} to level {needLevel}. You have {haveLevel}.`
+				break
+			end
+		end
+	end
 	local entries = React.useMemo(function()
 		return AppHelpers:buildUpgradeEntries(config.Machines, state.Machines, state)
 	end, { config.Machines, state.Machines, state.Zone, state.Rebirths })
 	local featureHeight = if chromeFor(viewport).landscape then 128 elseif chromeFor(viewport).stack then 188 else 168
 	return React.createElement(UpgradeBoard, {
-		title = "More hands. Less waiting.",
-		eyebrow = "BUILD QUEUE",
-		blurb = "More machines = more flux, even while you're AFK.",
+		title = if firstMachine then "Buy a machine" else "More hands. Less waiting.",
+		eyebrow = if firstMachine then "EARNS FLUX" else "BUILD QUEUE",
+		blurb = if firstMachine then "A machine earns Flux into your vault every second." elseif chainLine ~= nil then chainLine else "More machines = more flux, even while you're AFK.",
 		accent = Palette.coral,
 		entries = entries,
 		state = state,

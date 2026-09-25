@@ -104,7 +104,7 @@ local function MailRow(_param)
 		size = 26,
 		position = UDim2.fromOffset(11, 11),
 		spin = false,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -80, 1, -16),
 		Position = UDim2.fromOffset(72, 12),
@@ -281,7 +281,7 @@ local function MailboxView(_param)
 	-- Mobile swaps the whole list<->detail pane on tap instead of showing both side by side; a
 	-- flat Visible toggle snapped between them with no transition at all. Slide+fade both panes
 	-- off one spring keyed on the same boolean so they cross-fade instead of popping.
-	local detailReveal = useFlipperSpring(if showMobileDetail then 1 else 0, reducedMotion, 720, 40)
+	local detailReveal = useFlipperSpring(if showMobileDetail then 1 else 0, softMotion, 720, 40)
 	local _exp_1 = function()
 		if not explicitSelection or explicitSelection.Read then
 			return nil
@@ -315,7 +315,7 @@ local function MailboxView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { selectedId, claimed, message ~= nil })
 	local choose = function(id)
@@ -384,8 +384,8 @@ local function MailboxView(_param)
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(if compactChrome then 108 else 132, TapTarget),
-		position = UDim2.new(1, -(if compactChrome then 116 else 140), 0.5, -TapTarget / 2),
 		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = not mailboxSoft,
 	}) else React.createElement(Badge, {
 		value = if unreadCount > 0 then `{unreadCount} NEW` else "CAUGHT UP",
@@ -410,7 +410,7 @@ local function MailboxView(_param)
 			titleSize = 20,
 			bodySize = 15,
 			iconSize = 52,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}))
 	else
 		local _result_11 = selectedState
@@ -540,7 +540,7 @@ local function MailboxView(_param)
 			accent = message.Color,
 			size = 42,
 			position = UDim2.fromOffset(18, math.floor((detailHeaderH - 42) / 2)),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 		}), React.createElement(Text, {
 			value = message.Subject,
 			size = if compactChrome then 16 elseif stack then 18 else 20,
@@ -649,7 +649,7 @@ local function MailboxView(_param)
 			accent = message.Color,
 			size = 30,
 			position = UDim2.fromOffset(14, 20),
-			reducedMotion = softMotion,
+				reducedMotion = softMotion,
 		}), React.createElement(Text, {
 			value = "ATTACHMENT",
 			size = 12,
@@ -698,7 +698,7 @@ local function MailboxView(_param)
 			textColor = if claimed then Palette.muted else Palette.ink,
 			size = UDim2.fromScale(1, 1),
 			disabled = claimed,
-			reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 			highlight = not claimed,
 		})), React.createElement("frame", {
 			Name = "MailArchive",
@@ -723,7 +723,7 @@ local function MailboxView(_param)
 			outline = true,
 			size = UDim2.fromScale(1, 1),
 			disabled = not claimed,
-			reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 		}))) else React.createElement("frame", {
 			Size = UDim2.fromOffset(0, TapTarget),
 			AutomaticSize = Enum.AutomaticSize.X,
@@ -759,7 +759,7 @@ local function MailboxView(_param)
 			size = UDim2.fromOffset(0, TapTarget),
 			hug = true,
 			disabled = claimed,
-			reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 			highlight = not claimed,
 		})), React.createElement("frame", {
 			Name = "MailArchive",
@@ -786,7 +786,7 @@ local function MailboxView(_param)
 			size = UDim2.fromOffset(0, TapTarget),
 			hug = true,
 			disabled = not claimed,
-			reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 		})))))
 	end
 

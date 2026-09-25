@@ -206,9 +206,10 @@ local function ScriptedText(_param)
 		local mountJob = task.defer(tryMount)
 		return function()
 			cancelled = true
-			task.cancel(mountJob)
+			-- A finished defer cannot be cancelled; task.cancel throws and would skip destroy().
+			pcall(task.cancel, mountJob)
 			if retryJob ~= nil then
-				task.cancel(retryJob)
+				pcall(task.cancel, retryJob)
 			end
 			destroy()
 		end

@@ -58,15 +58,16 @@ local function DomainPortal(_param)
 	reducedMotion = softMotion
 	local rayCount = _param.rayCount
 	local fade = _param.fade
-	local portalSprRef = useSprScale(1, softMotion, 0.78, 0.66, if resultMode then 7.5 else 6.5)
+	local portalSprRef = useSprScale(1, reducedMotion, 0.78, 0.66, if resultMode then 7.5 else 6.5)
 	local reveal = time:map(function(value)
-		return if reducedMotion then 1 else easeOutBack(phase(value, if resultMode then 0.32 else 0, if resultMode then 1.15 else 0.42))
+		return easeOutBack(phase(value, if resultMode then 0.32 else 0, if resultMode then 1.15 else 0.42))
 	end)
 	local impact = time:map(function(value)
-		return if reducedMotion or not resultMode then 0 else pulse(value, 1.08, 1.28, 1.7)
+		return if not resultMode then 0 else pulse(value, 1.08, 1.28, 1.7)
 	end)
 	local spin = time:map(function(value)
-		return if reducedMotion then 0 else value * (if resultMode then 34 else 12)
+		local rate = if reducedMotion then 0.55 else 1
+		return value * rate * (if resultMode then 34 else 12)
 	end)
 	local portalScale = if fade ~= nil then React.joinBindings({ reveal, impact, fade }):map(function(_param_1)
 		local shown = _param_1[1]
@@ -84,7 +85,7 @@ local function DomainPortal(_param)
 	local _exp = React.createElement(CanvasEnergyField, {
 		time = time,
 		enabled = not reducedMotion and rayCount >= 12,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		zIndex = 712,
 	})
 	-- ▼ ReadonlyArray.filter ▼
@@ -304,7 +305,6 @@ local function RewardChip(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local enter = time:map(function(amount)
 		return if reducedMotion then 1 else easeOutBack(phase(amount, 2.05 + order * 0.12, 2.55 + order * 0.12))
 	end)
@@ -368,7 +368,6 @@ local function DomainExpansionOverlay(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local onConfirm = _param.onConfirm
 	local onClose = _param.onClose
 	local viewport = useViewport()
@@ -381,78 +380,89 @@ local function DomainExpansionOverlay(_param)
 	local safeTop = math.max(viewport.topInset, 12)
 	local safeBottom = math.max(viewport.bottomInset, 12)
 	local safeHeight = math.max(240, viewport.height - safeTop - safeBottom)
-	local time, setTime = React.useBinding(if reducedMotion and resultMode then 4 else 0)
+	local time, setTime = React.useBinding(0)
 	local _binding = useExitTransition(softMotion, 0.36)
 	local leave = _binding[1]
 	local leaving = _binding[2]
 	local beginExit = _binding[3]
 	local motionLive, setMotionLive = React.useState(false)
-	local canClose, setCanClose = React.useState(not resultMode or reducedMotion)
+	local canClose, setCanClose = React.useState(not resultMode)
 	local start = React.useRef(os.clock())
 	local leavingRef = React.useRef(leaving)
 	leavingRef.current = leaving
 	local portalSize = if resultMode and resultCompact then math.min(190, viewport.width * 0.46) elseif compact then math.min(230, viewport.width * 0.58) elseif short then 210 else 270
-	local rayCount = if reducedMotion then 0 elseif antilag.tier <= 1 then 8 elseif antilag.tier == 2 then 12 else 18
-	local boatEntrance = useBoatTween(1, if resultMode then 0.52 else 0.34, reducedMotion, easeOutCubic, 0)
+	local rayCount = if antilag.tier <= 1 or softMotion then 8 elseif antilag.tier == 2 then 12 else 18
+	local boatEntrance = useBoatTween(1, if resultMode then 0.52 else 0.34, softMotion, easeOutCubic, 0)
 	local springEntrance = useFlipperSpring(if motionLive then 1 else 0, softMotion, if resultMode then 520 else 660, if resultMode then 28 else 36)
 	local otterEntrance = useOtterSpring(if motionLive then 1 else 0, softMotion, 0, if resultMode then 0.76 else 0.84, if resultMode then 3.2 else 4.2)
 	React.useEffect(function()
+		local alive = true
 		local token = task.defer(function()
-			return setMotionLive(true)
+			if alive then
+				setMotionLive(true)
+			end
 		end)
 		return function()
-			return task.cancel(token)
+			-- A defer that already ran is a dead thread. task.cancel throws on it
+			-- and would skip later effect cleanups for this overlay.
+			alive = false
+			pcall(task.cancel, token)
 		end
 	end, {})
 	React.useEffect(function()
 		start.current = os.clock()
-		setTime(if reducedMotion and resultMode then 4 else 0)
-		if reducedMotion then
-			setTime(if resultMode then 4 else 1)
-			return nil
-		end
+		setTime(0)
+		local speed = if reducedMotion then 1.8 else 1
 		local connection = RunService.RenderStepped:Connect(function()
 			if leavingRef.current then
 				return nil
 			end
-			setTime(os.clock() - start.current)
+			setTime((os.clock() - start.current) * speed)
 		end)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { reducedMotion, resultMode, setTime })
-	React.useEffect(function()
-		setCanClose(not resultMode or reducedMotion)
-	end, { reducedMotion, resultMode })
+	end, { reducedMotion, setTime })
 	React.useEffect(function()
 		if not resultMode then
 			Audio:play("domainCharge")
 			return nil
 		end
-		if reducedMotion then
-			Audio:play("domainReward")
-			setCanClose(true)
-			return nil
-		end
 		Audio:play("domainCharge")
-		local crack = task.delay(0.72, function()
-			return Audio:play("domainCrack")
+		local alive = true
+		local cue = if reducedMotion then 0.55 else 1
+		local crack = task.delay(0.72 * cue, function()
+			if alive then
+				Audio:play("domainCrack")
+			end
 		end)
-		local impact = task.delay(1.2, function()
+		local impact = task.delay(1.2 * cue, function()
+			if not alive then
+				return nil
+			end
 			Audio:play("domainImpact")
-			InteractionFeedback.reward()
+			if alive then
+				InteractionFeedback.reward()
+			end
 		end)
-		local reward = task.delay(2.15, function()
-			return Audio:play("domainReward")
+		local reward = task.delay(2.15 * cue, function()
+			if alive then
+				Audio:play("domainReward")
+			end
 		end)
-		local ready = task.delay(2.75, function()
-			return setCanClose(true)
+		local ready = task.delay(2.75 * cue, function()
+			if alive then
+				setCanClose(true)
+			end
 		end)
 		return function()
-			task.cancel(crack)
-			task.cancel(impact)
-			task.cancel(reward)
-			task.cancel(ready)
+			-- Timers that already fired are dead threads. task.cancel throws on those
+			-- and would leave the later cues still scheduled after the overlay is gone.
+			alive = false
+			pcall(task.cancel, crack)
+			pcall(task.cancel, impact)
+			pcall(task.cancel, reward)
+			pcall(task.cancel, ready)
 		end
 	end, { reducedMotion, resultMode })
 	local close = React.useCallback(function()
@@ -475,7 +485,7 @@ local function DomainExpansionOverlay(_param)
 		end
 	end, { close })
 	local timelineEnter = time:map(function(value)
-		return if reducedMotion then 1 else easeOutCubic(phase(value, 0, 0.34))
+		return easeOutCubic(phase(value, 0, 0.34))
 	end)
 	local enter = React.joinBindings({ timelineEnter, boatEntrance, springEntrance, otterEntrance, leave }):map(function(values)
 		return math.clamp(math.min(values[1], values[2], values[3], values[4], values[5]), 0, 1)
@@ -484,14 +494,14 @@ local function DomainExpansionOverlay(_param)
 		return math.clamp(1 - inside * 0.82, 0, 1)
 	end)
 	local impact = time:map(function(value)
-		return if reducedMotion or not resultMode then 0 else pulse(value, 1.12, 1.28, 1.62)
+		return if not resultMode then 0 else pulse(value, 1.12, 1.28, 1.62)
 	end)
 	local titleEnter = React.joinBindings({ time, leave }):map(function(values)
-		local shown = if reducedMotion then 1 else easeOutBack(phase(values[1], if resultMode then 1.22 else 0.1, if resultMode then 1.88 else 0.55))
+		local shown = easeOutBack(phase(values[1], if resultMode then 1.22 else 0.1, if resultMode then 1.88 else 0.55))
 		return shown * math.clamp(values[2], 0, 1)
 	end)
 	local cardEnter = React.joinBindings({ time, leave }):map(function(values)
-		local shown = if reducedMotion then 1 else easeOutBack(phase(values[1], 0.04, 0.48))
+		local shown = easeOutBack(phase(values[1], 0.04, 0.48))
 		return shown * math.clamp(values[2], 0, 1)
 	end)
 	local cardPosition = cardEnter:map(function(amount)
@@ -545,14 +555,16 @@ local function DomainExpansionOverlay(_param)
 		if host == nil then
 			return nil
 		end
+		local alive = true
 		local job = task.defer(function()
-			if host.Parent == nil then
+			if not alive or host.Parent == nil then
 				return
 			end
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(job)
+			alive = false
+			pcall(task.cancel, job)
 		end
 	end, { resultMode, ready })
 	local _exp = React.createElement("imagebutton", {
@@ -786,7 +798,7 @@ local function DomainExpansionOverlay(_param)
 			_attributes_1.color = Palette.violet
 			_attributes_1.order = 1
 			_attributes_1.time = time
-			_attributes_1.reducedMotion = softMotion
+			_attributes_1.reducedMotion = reducedMotion
 			local _exp_6 = React.createElement(RewardChip, _attributes_1)
 			local _exp_7 = React.createElement(RewardChip, {
 				label = "DOMAIN SURGE",
@@ -794,7 +806,7 @@ local function DomainExpansionOverlay(_param)
 				color = Palette.cyan,
 				order = 2,
 				time = time,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 			})
 			local _attributes_2 = {
 				label = "FREE SPINS",
@@ -811,7 +823,7 @@ local function DomainExpansionOverlay(_param)
 			_attributes_2.color = Palette.mango
 			_attributes_2.order = 3
 			_attributes_2.time = time
-			_attributes_2.reducedMotion = softMotion
+			_attributes_2.reducedMotion = reducedMotion
 			_condition_2 = React.createElement(React.Fragment, nil, _exp_5, _exp_6, _exp_7, React.createElement(RewardChip, _attributes_2))
 		end
 		local _condition_3 = resultCompact
@@ -939,7 +951,7 @@ local function DomainExpansionOverlay(_param)
 			textColor = if canClose then Palette.cream else Palette.muted,
 			size = UDim2.fromScale(1, 1),
 			disabled = not canClose or leaving,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			highlight = canClose,
 			zIndex = 761,
 		})))
@@ -982,7 +994,7 @@ local function DomainExpansionOverlay(_param)
 			time = time,
 			size = portalSize,
 			resultMode = false,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			rayCount = math.min(rayCount, 12),
 			fade = enter,
 		}), React.createElement(Text, {
@@ -1109,7 +1121,7 @@ local function DomainExpansionOverlay(_param)
 			textColor = if ready then Palette.cream else Palette.muted,
 			size = UDim2.fromScale(1, 1),
 			disabled = not ready or busy,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			highlight = ready and not busy,
 			zIndex = 741,
 		})), not shortLandscape and React.createElement(Text, {
@@ -1134,7 +1146,7 @@ local function DomainExpansionOverlay(_param)
 			textColor = Palette.cream,
 			outline = true,
 			size = UDim2.fromScale(1, 1),
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			disabled = leaving,
 			zIndex = 751,
 		})))))

@@ -2,192 +2,198 @@ local SoundService = game:GetService("SoundService")
 local ClientLog = require(script.Parent.log).ClientLog
 local FALLBACK_BED = "rbxassetid://9046476113"
 local GAME_BED = {
-	name = "Metal Sci-Fi Universe",
+	name = "Atrium",
 	asset = "rbxassetid://9038252619",
-	gain = 0.92,
-	speed = 0.94,
+	gain = 0.84,
+	speed = 1,
 	startAt = 0,
-	low = 1.15,
-	mid = 0.82,
-	high = 0.9,
+	low = 2.2,
+	mid = 1.6,
+	high = -1.2,
+	glue = 1.7,
+	glueThreshold = -18,
 }
 local ORBIT_BED = {
-	name = "Orbit Drift",
+	name = "Orbit",
 	asset = "rbxassetid://9046476113",
-	gain = 0.88,
-	speed = 0.9,
+	gain = 0.78,
+	speed = 0.97,
 	startAt = 0,
-	low = 1.08,
-	mid = 0.78,
-	high = 0.96,
+	low = -0.5,
+	mid = 2.2,
+	high = 0.6,
 }
 local FORGE_BED = {
-	name = "Deep Forge",
+	name = "Foundry",
 	asset = "rbxassetid://5410086218",
-	gain = 0.84,
-	speed = 0.92,
+	gain = 0.8,
+	speed = 0.95,
 	startAt = 0,
-	low = 1.22,
-	mid = 0.74,
-	high = 0.86,
+	low = 5.5,
+	mid = 0.2,
+	high = -6.5,
+	glue = 3.4,
+	glueThreshold = -13,
 }
 local CORE_IDLE = {
-	name = "Core Idle",
+	name = "Core",
 	asset = "rbxassetid://9120386436",
-	gain = 0.86,
-	speed = 0.91,
+	gain = 0.72,
+	speed = 1.04,
 	startAt = 0,
-	low = 1.1,
-	mid = 0.8,
-	high = 0.94,
+	low = -8,
+	mid = -2.4,
+	high = 7.5,
+	glue = 1.5,
+	glueThreshold = -22,
 }
 local NIGHT_SHIFT = {
-	name = "Night Shift",
-	asset = "rbxassetid://9046476113",
-	gain = 0.8,
-	speed = 0.84,
-	startAt = 12,
-	low = 1.28,
-	mid = 0.7,
-	high = 0.78,
-}
-local VAULT_HUM = {
-	name = "Vault Hum",
-	asset = "rbxassetid://9038252619",
-	gain = 0.78,
-	speed = 0.88,
-	startAt = 24,
-	low = 1.18,
-	mid = 0.76,
-	high = 0.84,
-}
-local SLAG_LINE = {
-	name = "Slag Line",
-	asset = "rbxassetid://5410086218",
-	gain = 0.9,
-	speed = 0.98,
-	startAt = 8,
-	low = 1.05,
-	mid = 0.86,
-	high = 0.92,
-}
-local ION_DRIFT = {
-	name = "Ion Drift",
-	asset = "rbxassetid://9120386436",
-	gain = 0.74,
-	speed = 0.8,
-	startAt = 40,
-	low = 0.92,
-	mid = 0.7,
-	high = 1.12,
-}
-local FOUNDRY_LOW = {
-	name = "Foundry Low",
-	asset = "rbxassetid://5410086218",
-	gain = 0.82,
-	speed = 0.86,
-	startAt = 32,
-	low = 1.34,
-	mid = 0.68,
-	high = 0.72,
-}
-local GRID_WASH = {
-	name = "Grid Wash",
-	asset = "rbxassetid://9038252619",
-	gain = 0.88,
-	speed = 1.02,
-	startAt = 16,
-	low = 0.96,
-	mid = 0.9,
-	high = 1.05,
-}
-local QUIET_DOCK = {
-	name = "Quiet Dock",
+	name = "Night",
 	asset = "rbxassetid://9046476113",
 	gain = 0.7,
-	speed = 0.82,
-	startAt = 48,
-	low = 1.12,
-	mid = 0.74,
-	high = 0.88,
+	speed = 0.92,
+	startAt = 18,
+	low = 3.5,
+	mid = -3,
+	high = -4,
+}
+local VAULT_HUM = {
+	name = "Vault",
+	asset = "rbxassetid://9038252619",
+	gain = 0.72,
+	speed = 0.93,
+	startAt = 28,
+	low = 4.5,
+	mid = -2.5,
+	high = -5,
+}
+local SLAG_LINE = {
+	name = "Line",
+	asset = "rbxassetid://5410086218",
+	gain = 0.8,
+	speed = 1.05,
+	startAt = 10,
+	low = -2.5,
+	mid = 3.2,
+	high = 2.5,
+}
+local ION_DRIFT = {
+	name = "Ion",
+	asset = "rbxassetid://9120386436",
+	gain = 0.74,
+	speed = 0.96,
+	startAt = 36,
+	low = 1.5,
+	mid = -3.5,
+	high = 1.5,
+}
+local FOUNDRY_LOW = {
+	name = "Anvil",
+	asset = "rbxassetid://5410086218",
+	gain = 0.76,
+	speed = 0.91,
+	startAt = 22,
+	low = 2.5,
+	mid = -1.5,
+	high = -2.5,
+}
+local GRID_WASH = {
+	name = "Market",
+	asset = "rbxassetid://9038252619",
+	gain = 0.8,
+	speed = 1.05,
+	startAt = 14,
+	low = -3.5,
+	mid = 0.4,
+	high = 4.5,
+}
+local QUIET_DOCK = {
+	name = "Dock",
+	asset = "rbxassetid://9046476113",
+	gain = 0.58,
+	speed = 0.98,
+	startAt = 44,
+	low = -1,
+	mid = -0.5,
+	high = -2,
 }
 local OVERDRIVE = {
-	name = "Overdrive",
+	name = "Prize",
 	asset = "rbxassetid://5410086218",
-	gain = 0.96,
+	gain = 0.88,
 	speed = 1.06,
-	startAt = 4,
-	low = 1.08,
-	mid = 0.92,
-	high = 1.0,
+	startAt = 6,
+	low = -4.5,
+	mid = 0.8,
+	high = 6,
 }
 local ECHO_HALL = {
-	name = "Echo Hall",
+	name = "Hall",
 	asset = "rbxassetid://9120386436",
-	gain = 0.76,
-	speed = 0.76,
-	startAt = 56,
-	low = 1.02,
-	mid = 0.66,
-	high = 1.08,
+	gain = 0.72,
+	speed = 0.94,
+	startAt = 48,
+	low = -1,
+	mid = 2.5,
+	high = -1.5,
 }
 local STAR_LANE = {
-	name = "Star Lane",
+	name = "Lane",
 	asset = "rbxassetid://9038252619",
-	gain = 0.84,
-	speed = 0.96,
+	gain = 0.78,
+	speed = 1.01,
 	startAt = 20,
-	low = 1.0,
-	mid = 0.84,
-	high = 0.98,
+	low = -1.5,
+	mid = -1.5,
+	high = 3.2,
 }
 local COLD_ANVIL = {
-	name = "Cold Anvil",
+	name = "Shift",
 	asset = "rbxassetid://9046476113",
-	gain = 0.8,
-	speed = 0.78,
-	startAt = 36,
-	low = 1.24,
-	mid = 0.72,
-	high = 0.8,
+	gain = 0.74,
+	speed = 0.96,
+	startAt = 32,
+	low = 0.5,
+	mid = 1.5,
+	high = -2.5,
 }
 local BEDS = { GAME_BED, ORBIT_BED, FORGE_BED, CORE_IDLE, NIGHT_SHIFT, VAULT_HUM, SLAG_LINE, ION_DRIFT, FOUNDRY_LOW, GRID_WASH, QUIET_DOCK, OVERDRIVE, ECHO_HALL, STAR_LANE, COLD_ANVIL }
 local BED_SECONDS = 168
 local THEMES = {
 	Overview = GAME_BED,
 	Workshop = FORGE_BED,
-	Research = GAME_BED,
+	Research = CORE_IDLE,
 	StarGrid = ORBIT_BED,
-	Echoes = ORBIT_BED,
-	Continuum = ORBIT_BED,
+	Echoes = ECHO_HALL,
+	Continuum = ION_DRIFT,
 	Convergence = ORBIT_BED,
 	Lab = FORGE_BED,
-	Anomaly = ORBIT_BED,
-	Worlds = ORBIT_BED,
+	Anomaly = NIGHT_SHIFT,
+	Worlds = STAR_LANE,
 	Missions = GAME_BED,
-	Milestones = GAME_BED,
-	Wheel = GAME_BED,
-	Rewards = GAME_BED,
-	Boosts = GAME_BED,
+	Milestones = VAULT_HUM,
+	Wheel = OVERDRIVE,
+	Rewards = OVERDRIVE,
+	Boosts = SLAG_LINE,
 	Command = GAME_BED,
-	Story = GAME_BED,
-	Mail = GAME_BED,
-	Chat = GAME_BED,
-	Crew = GAME_BED,
-	Guild = GAME_BED,
-	Leaderboards = GAME_BED,
-	Credits = GAME_BED,
-	Shop = GAME_BED,
-	Inventory = GAME_BED,
-	Trade = GAME_BED,
-	Settings = GAME_BED,
-	Admin = GAME_BED,
-	ForgePath = FORGE_BED,
+	Story = ECHO_HALL,
+	Mail = STAR_LANE,
+	Chat = QUIET_DOCK,
+	Crew = STAR_LANE,
+	Guild = VAULT_HUM,
+	Leaderboards = GRID_WASH,
+	Credits = QUIET_DOCK,
+	Shop = GRID_WASH,
+	Inventory = VAULT_HUM,
+	Trade = GRID_WASH,
+	Settings = QUIET_DOCK,
+	Admin = QUIET_DOCK,
+	ForgePath = FOUNDRY_LOW,
 	boot = GAME_BED,
 }
 local MUSIC_ASSET_MANIFEST = { GAME_BED.asset, ORBIT_BED.asset, FORGE_BED.asset, FALLBACK_BED, CORE_IDLE.asset }
 local BASE_VOLUME = 0.16
-local FADE_STEP_SECONDS = 0.022
+local FADE_STEP_SECONDS = 0.02
 local LOAD_DEADLINE_SECONDS = 8
 local function smoothstep(alpha)
 	local t = math.clamp(alpha, 0, 1)
@@ -201,12 +207,20 @@ local function makeDeck(name, group)
 	sound.Volume = 0
 	sound.SoundGroup = group
 	sound.Parent = SoundService
+	local compressor = Instance.new("CompressorSoundEffect")
+	compressor.Name = "BedGlue"
+	compressor.Threshold = -16
+	compressor.Ratio = 2.6
+	compressor.Attack = 0.02
+	compressor.Release = 0.16
+	compressor.Parent = sound
 	local equalizer = Instance.new("EqualizerSoundEffect")
 	equalizer.Name = "ViewColor"
 	equalizer.Parent = sound
 	return {
 		sound = sound,
 		equalizer = equalizer,
+		compressor = compressor,
 	}
 end
 local MusicDirector
@@ -231,7 +245,7 @@ do
 		self.activeDeck = 0
 		self.mix = 1
 		self.duck = 1
-		self.crossfade = 0.62
+		self.crossfade = 0.7
 		self.audible = true
 		self.started = false
 		self.transitionToken = 0
@@ -282,8 +296,11 @@ do
 			return false
 		end
 		local enabled = self.audible and self.mix * self.duck > 0.001
-		self.decks[outgoingIndex + 1].sound.Volume = if enabled then self.transitionFromUnit * self.mix * self.duck * (1 - self.transitionAlpha) else 0
-		self.decks[incomingIndex + 1].sound.Volume = if enabled then self:targetVolume(self.theme) * self.transitionAlpha else 0
+		local fade = math.clamp(self.transitionAlpha, 0, 1)
+		local outCurve = math.cos(fade * math.pi * 0.5)
+		local inCurve = math.sin(fade * math.pi * 0.5)
+		self.decks[outgoingIndex + 1].sound.Volume = if enabled then self.transitionFromUnit * self.mix * self.duck * outCurve else 0
+		self.decks[incomingIndex + 1].sound.Volume = if enabled then self:targetVolume(self.theme) * inCurve else 0
 		return true
 	end
 	function MusicDirector:resumeTransition()
@@ -310,6 +327,9 @@ do
 		local deck = self.decks[index + 1]
 		local spec = self:resolveBed(theme, self.rotateBed)
 		self.deckThemes[index + 1] = theme
+		deck.bed = spec
+		deck.loadToken = (deck.loadToken or 0) + 1
+		local loadToken = deck.loadToken
 		local _result = deck.loaded
 		if _result ~= nil then
 			_result:Disconnect()
@@ -322,6 +342,11 @@ do
 		deck.equalizer.LowGain = spec.low
 		deck.equalizer.MidGain = spec.mid
 		deck.equalizer.HighGain = spec.high
+		local glue = deck.compressor
+		if glue ~= nil then
+			glue.Ratio = if spec.glue ~= nil then spec.glue else 2.6
+			glue.Threshold = if spec.glueThreshold ~= nil then spec.glueThreshold else -16
+		end
 		local _positions = self.positions
 		local _theme = theme
 		local _condition = _positions[_theme]
@@ -330,14 +355,14 @@ do
 		end
 		local desired = _condition
 		local seek = function()
-			if token ~= self.transitionToken or self.theme ~= theme or deck.sound.Parent == nil then
+			if loadToken ~= deck.loadToken or token ~= self.transitionToken or self.disposed or deck.sound.Parent == nil then
 				return nil
 			end
 			local length = deck.sound.TimeLength
 			deck.sound.TimePosition = if length > 1 then desired % math.max(1, length - 0.25) else 0
 		end
 		local armFallback = function()
-			if token ~= self.transitionToken or self.theme ~= theme or deck.sound.Parent == nil then
+			if loadToken ~= deck.loadToken or token ~= self.transitionToken or self.disposed or deck.sound.Parent == nil then
 				return nil
 			end
 			if deck.sound.TimeLength > 0.2 then
@@ -365,7 +390,7 @@ do
 				armFallback()
 			end)
 			task.delay(2.4, function()
-				if token ~= self.transitionToken then
+				if loadToken ~= deck.loadToken or token ~= self.transitionToken or self.disposed then
 					return nil
 				end
 				armFallback()
@@ -413,6 +438,9 @@ do
 				if self.theme == "boot" then
 					continue
 				end
+				if self.transitionIncoming ~= nil and not self.rotateBed then
+					continue
+				end
 				self.bedIndex = (self.bedIndex + 1) % #BEDS
 				self:crossfadeTo(self.theme, true)
 			end
@@ -426,7 +454,6 @@ do
 			self:start()
 		end
 		if self.theme == theme then
-			self:resume()
 			return nil
 		end
 		self:crossfadeTo(theme, false)
@@ -435,9 +462,76 @@ do
 		if self.disposed then
 			return nil
 		end
-		if not forceBed and self.theme == theme then
-			self:resume()
+		local preferRotated = forceBed == true
+		if not preferRotated and self.theme == theme then
 			return nil
+		end
+		local nextBed = self:resolveBed(theme, preferRotated)
+		local fadingIn = self.transitionIncoming
+		local fadingOut = self.transitionOutgoing
+		if fadingIn ~= nil and fadingOut ~= nil then
+			local incomingDeck = self.decks[fadingIn + 1]
+			local outgoingDeck = self.decks[fadingOut + 1]
+			if incomingDeck.bed == nextBed then
+				self.theme = theme
+				self.rotateBed = preferRotated
+				self.deckThemes[fadingIn + 1] = theme
+				return nil
+			end
+			if outgoingDeck.bed == nextBed then
+				local incomingSound = incomingDeck.sound
+				local incomingTheme = self.deckThemes[fadingIn + 1]
+				if incomingTheme ~= nil and incomingSound.TimePosition > 0 then
+					self.positions[incomingTheme] = incomingSound.TimePosition
+				end
+				if self.transitionWorker ~= nil then
+					pcall(function()
+						return task.cancel(self.transitionWorker)
+					end)
+				end
+				self.transitionWorker = nil
+				local _pending = incomingDeck.loaded
+				if _pending ~= nil then
+					_pending:Disconnect()
+				end
+				incomingDeck.loaded = nil
+				incomingDeck.loadToken = (incomingDeck.loadToken or 0) + 1
+				incomingSound:Stop()
+				incomingSound.Volume = 0
+				self.activeDeck = fadingOut
+				self.theme = theme
+				self.rotateBed = false
+				self.deckThemes[fadingOut + 1] = theme
+				self:clearTransition()
+				local outgoingSound = outgoingDeck.sound
+				outgoingSound.Volume = if self.audible then self:targetVolume(theme) else 0
+				if self.audible and self.mix * self.duck > 0.001 then
+					if not outgoingSound.IsPlaying then
+						outgoingSound:Play()
+					end
+				else
+					outgoingSound:Pause()
+				end
+				return nil
+			end
+			self.theme = theme
+			self.rotateBed = preferRotated
+			self.transitionLoadStamp = os.clock()
+			self:configure(fadingIn, theme, self.transitionToken)
+			local incoming = incomingDeck.sound
+			if self.audible and self.mix * self.duck > 0.001 and not incoming.IsPlaying then
+				incoming:Play()
+			end
+			self:applyTransitionMix()
+			return nil
+		end
+		if not preferRotated then
+			local activeDeck = self.decks[self.activeDeck + 1]
+			if activeDeck.bed == nextBed then
+				self.theme = theme
+				self.deckThemes[self.activeDeck + 1] = theme
+				return nil
+			end
 		end
 		local first = self.decks[1].sound
 		local second = self.decks[2].sound
@@ -472,12 +566,15 @@ do
 		local outgoingGain = self:bedForTheme(outgoingTheme or "Overview").gain
 		self.transitionFromUnit = if self.mix * self.duck > 0.001 and outgoing.Volume > 0.0001 then outgoing.Volume / math.max(0.0001, self.mix * self.duck) else BASE_VOLUME * outgoingGain
 		self:applyTransitionMix()
+		self.transitionLoadStamp = os.clock()
 		self.transitionWorker = task.defer(function()
-			local loadStartedAt = os.clock()
-			while token == self.transitionToken and not incoming.IsLoaded and os.clock() - loadStartedAt < LOAD_DEADLINE_SECONDS do
+			if self.transitionLoadStamp == nil then
+				self.transitionLoadStamp = os.clock()
+			end
+			while token == self.transitionToken and self.transitionIncoming == incomingIndex and not incoming.IsLoaded and os.clock() - self.transitionLoadStamp < LOAD_DEADLINE_SECONDS do
 				task.wait(0.08)
 			end
-			if token ~= self.transitionToken then
+			if token ~= self.transitionToken or self.transitionIncoming ~= incomingIndex then
 				return nil
 			end
 			if not incoming.IsLoaded then
@@ -486,8 +583,10 @@ do
 					_result:Disconnect()
 				end
 				self.decks[incomingIndex + 1].loaded = nil
+				self.decks[incomingIndex + 1].loadToken = (self.decks[incomingIndex + 1].loadToken or 0) + 1
 				incoming:Stop()
 				incoming.Volume = 0
+				local failedTheme = self.theme
 				self.activeDeck = outgoingIndex
 				self.theme = outgoingTheme or "Overview"
 				self:clearTransition()
@@ -495,12 +594,12 @@ do
 				if self.audible and self.mix * self.duck > 0.001 and not outgoing.IsPlaying then
 					outgoing:Play()
 				end
-				local bedName = self:bedForTheme(theme).name
-				ClientLog:warnEvery(`music-load-{theme}`, 30, "Audio", `{bedName} will retry on the next visit`)
+				local bedName = self:bedForTheme(failedTheme).name
+				ClientLog:warnEvery(`music-load-{failedTheme}`, 30, "Audio", `{bedName} will retry on the next visit`)
 				return nil
 			end
-			local fadeSeconds = 0.18 + self.crossfade * 0.82
-			local fadeSteps = math.clamp(math.floor(fadeSeconds / FADE_STEP_SECONDS + 0.5), 10, 46)
+			local fadeSeconds = 0.1 + self.crossfade * 0.42
+			local fadeSteps = math.clamp(math.floor(fadeSeconds / FADE_STEP_SECONDS + 0.5), 6, 24)
 			do
 				local step = 1
 				local _shouldIncrement = false
@@ -513,22 +612,54 @@ do
 					if not (step <= fadeSteps) then
 						break
 					end
-					if token ~= self.transitionToken then
+					if token ~= self.transitionToken or self.transitionIncoming ~= incomingIndex then
 						return nil
+					end
+					if not incoming.IsLoaded then
+						if os.clock() - self.transitionLoadStamp >= LOAD_DEADLINE_SECONDS then
+							break
+						end
+						task.wait(0.08)
+						_shouldIncrement = false
+						continue
 					end
 					self.transitionAlpha = smoothstep(step / fadeSteps)
 					self:applyTransitionMix()
 					task.wait(FADE_STEP_SECONDS)
 				end
 			end
-			if token ~= self.transitionToken then
+			while token == self.transitionToken and self.transitionIncoming == incomingIndex and not incoming.IsLoaded and os.clock() - self.transitionLoadStamp < LOAD_DEADLINE_SECONDS do
+				task.wait(0.08)
+			end
+			if token ~= self.transitionToken or self.transitionIncoming ~= incomingIndex then
+				return nil
+			end
+			if not incoming.IsLoaded then
+				local _result = self.decks[incomingIndex + 1].loaded
+				if _result ~= nil then
+					_result:Disconnect()
+				end
+				self.decks[incomingIndex + 1].loaded = nil
+				self.decks[incomingIndex + 1].loadToken = (self.decks[incomingIndex + 1].loadToken or 0) + 1
+				incoming:Stop()
+				incoming.Volume = 0
+				local failedTheme = self.theme
+				self.activeDeck = outgoingIndex
+				self.theme = outgoingTheme or "Overview"
+				self:clearTransition()
+				outgoing.Volume = if self.audible then self:targetVolume(self.theme) else 0
+				if self.audible and self.mix * self.duck > 0.001 and not outgoing.IsPlaying then
+					outgoing:Play()
+				end
+				local bedName = self:bedForTheme(failedTheme).name
+				ClientLog:warnEvery(`music-load-{failedTheme}`, 30, "Audio", `{bedName} will retry on the next visit`)
 				return nil
 			end
 			outgoing:Pause()
 			outgoing.Volume = 0
 			self.activeDeck = incomingIndex
 			self:clearTransition()
-			incoming.Volume = self:targetVolume(theme)
+			incoming.Volume = self:targetVolume(self.theme)
 			if not self.audible or self.mix * self.duck <= 0.001 then
 				incoming:Pause()
 			elseif not incoming.IsPlaying then

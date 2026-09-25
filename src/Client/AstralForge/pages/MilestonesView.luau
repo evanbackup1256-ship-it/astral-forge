@@ -74,7 +74,7 @@ local function useReadyPop(ready, reducedMotion)
 		end
 		wasReady.current = ready
 	end, { ready })
-	return useFlash(trigger, softMotion, 0.6)
+	return useFlash(trigger, reducedMotion, 0.6)
 end
 local function MilestoneRow(_param)
 	local achievement = _param.achievement
@@ -99,7 +99,7 @@ local function MilestoneRow(_param)
 	local progressFrac = math.clamp(achievement.Progress / math.max(1, achievement.Target), 0, 1)
 	local meterSize = UDim2.new(1, if stack then 0 else -182, 0, 8)
 	local meterPosition = UDim2.fromOffset(0, meterY)
-	local readyPop = useReadyPop(ready, reducedMotion)
+	local readyPop = useReadyPop(ready, softMotion)
 	local iconScale = readyPop:map(function(amount)
 		return 1 + amount * 0.22
 	end)
@@ -116,7 +116,7 @@ local function MilestoneRow(_param)
 		size = 42,
 		radius = 11,
 		glow = ready,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}))
 	local _exp_1 = React.createElement(Text, {
 		value = achievement.Name,
@@ -156,7 +156,7 @@ local function MilestoneRow(_param)
 		position = UDim2.fromOffset(56, if stack then 66 else 58),
 		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -182, 0, 16),
 	}), React.createElement(Text, {
-		value = `{compactNumber(achievement.Progress)} / {compactNumber(achievement.Target)}`,
+		value = if ready then "Reward ready" elseif achievement.Claimed then "Claimed" else `{compactNumber(achievement.Progress)} / {compactNumber(achievement.Target)}`,
 		size = 11,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -166,7 +166,7 @@ local function MilestoneRow(_param)
 	}), React.createElement(Meter, {
 		value = if achievement.Claimed or ready then 1 else progressFrac,
 		color = if achievement.Claimed then Palette.muted else accent,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		shimmer = ready,
 		position = meterPosition,
 		size = meterSize,
@@ -174,7 +174,7 @@ local function MilestoneRow(_param)
 		progress = progressFrac,
 		ready = ready,
 		accent = accent,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		position = meterPosition,
 		size = meterSize,
 	}), if stack then React.createElement("frame", {
@@ -186,7 +186,7 @@ local function MilestoneRow(_param)
 		ClipsDescendants = false,
 		ref = if ready then claimHostRef else nil,
 	}, React.createElement(Button, {
-		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM" else "LOCKED",
+		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM REWARD" else "LOCKED",
 		icon = "Wheel",
 		onClick = function()
 			return dispatch("ClaimAchievement", {
@@ -196,7 +196,7 @@ local function MilestoneRow(_param)
 		color = if ready then Palette.green else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
 	})) else React.createElement("frame", {
@@ -208,7 +208,7 @@ local function MilestoneRow(_param)
 		ClipsDescendants = false,
 		ref = if ready then claimHostRef else nil,
 	}, React.createElement(Button, {
-		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM" else "LOCKED",
+		text = if achievement.Claimed then "CLAIMED" elseif ready then "CLAIM REWARD" else "LOCKED",
 		icon = "Wheel",
 		onClick = function()
 			return dispatch("ClaimAchievement", {
@@ -218,7 +218,7 @@ local function MilestoneRow(_param)
 		color = if ready then Palette.green else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.creamSoft,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = achievement.Claimed or not ready,
 		highlight = ready,
 	})))
@@ -232,7 +232,6 @@ local function MilestonesView(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — MilestonesView
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local list = state.Achievements or {}
@@ -265,6 +264,26 @@ local function MilestonesView(_param)
 	end
 	-- ▲ ReadonlyArray.filter ▲
 	local visible = _newValue_1
+	local sourceOrder = {}
+	for index, achievement in visible do
+		sourceOrder[achievement] = index
+	end
+	local function milestoneRank(achievement)
+		if not achievement.Claimed and achievement.Progress >= achievement.Target then
+			return 0
+		elseif achievement.Claimed then
+			return 2
+		end
+		return 1
+	end
+	table.sort(visible, function(left, right)
+		local leftRank = milestoneRank(left)
+		local rightRank = milestoneRank(right)
+		if leftRank ~= rightRank then
+			return leftRank < rightRank
+		end
+		return (sourceOrder[left] or 0) < (sourceOrder[right] or 0)
+	end)
 	local claimHostRef = React.useRef(nil)
 	local firstReadyId = nil
 	for _, achievement in visible do
@@ -289,7 +308,7 @@ local function MilestonesView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { firstReadyId, filter })
 	local headerHeight = if stack then (if chrome.landscape then 144 else 176) else 148
@@ -320,9 +339,9 @@ local function MilestonesView(_param)
 			position = UDim2.fromOffset(0, 16),
 			sizeConstraint = UDim2.new(1, -8, 0, 30),
 		})), React.createElement(Text, {
-			value = "Big achievements that stay even after a rebirth.",
+			value = if counts.Ready > 0 then `{counts.Ready} to claim. They stay after a rebirth.` else "Big achievements that stay even after a rebirth.",
 			size = 12,
-			color = Palette.muted,
+			color = if counts.Ready > 0 then Palette.green else Palette.muted,
 			wrap = true,
 			position = UDim2.fromOffset(0, if chrome.landscape then 0 else 48),
 			sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 32),
@@ -376,7 +395,7 @@ local function MilestonesView(_param)
 			sizeConstraint = UDim2.new(0, 120, 0, 26),
 			align = Enum.TextXAlignment.Right,
 		}), counts.Ready > 0 and React.createElement(Badge, {
-			value = `{counts.Ready} READY`,
+			value = `{counts.Ready} TO CLAIM`,
 			accent = Palette.green,
 			filled = true,
 			position = UDim2.new(1, -120, 0, 34),
@@ -409,7 +428,7 @@ local function MilestonesView(_param)
 			return React.createElement(MilestoneRow, {
 				achievement = item,
 				dispatch = dispatch,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				position = UDim2.fromOffset(0, 0),
 				stack = stack,
 				claimHostRef = if item.Id == firstReadyId then claimHostRef else nil,

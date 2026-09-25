@@ -793,21 +793,37 @@ return function(loadService: (string) -> any)
 		self._leaderboardWorkers[userId] = task.defer(function()
 			local mirror = self._leaderboardMirrors[userId] or {}
 			self._leaderboardMirrors[userId] = mirror
-			while self._leaderboardPending[userId] do
-				local values = self._leaderboardPending[userId]
-				self._leaderboardPending[userId] = nil
-				for id, value in values do
-					local store = self._leaderboardStores[id]
-					if store and mirror[id] ~= value then
-						local ok = pcall(function()
-							store:SetAsync(tostring(userId), LeaderboardCodec.Encode(value))
-						end)
-						if ok then mirror[id] = value end
+			local workerOk, workerErr = pcall(function()
+				while self._leaderboardPending[userId] do
+					local values = self._leaderboardPending[userId]
+					self._leaderboardPending[userId] = nil
+					for id, value in values do
+						local store = self._leaderboardStores[id]
+						if store and mirror[id] ~= value then
+							local ok, writeErr = pcall(function()
+								store:SetAsync(tostring(userId), LeaderboardCodec.Encode(value))
+							end)
+							if ok then
+								mirror[id] = value
+							else
+								ModuleLog.Every(
+									"leaderboard:" .. tostring(userId) .. ":" .. tostring(id),
+									30,
+									"Data",
+									tostring(writeErr)
+								)
+							end
+						end
 					end
 				end
-			end
+			end)
+			-- Always drop the busy flag. A throw above used to leave the player
+			-- stuck so later score updates never started another writer.
 			self._leaderboardPushBusy[userId] = nil
 			self._leaderboardWorkers[userId] = nil
+			if not workerOk then
+				ModuleLog.Warn("Data", string.format("leaderboard push crashed for %d — %s", userId, tostring(workerErr)))
+			end
 
 			if self._profiles[player] == nil then
 				self._leaderboardMirrors[userId] = nil
@@ -851,13 +867,23 @@ return function(loadService: (string) -> any)
 		-- Studio session), Steal lets this Open bypass the other session's lock. The
 		-- displaced session's next save fails closed instead of corrupting data.
 		if stealLock == true then
-			pcall(function()
+			local stole, stealErr = pcall(function()
 				document:Steal()
 			end)
+			if not stole then
+				ModuleLog.Warn("Data", string.format("could not steal %s's session lock — %s", player.Name, tostring(stealErr)))
+			end
 		end
 
 		local openCallOk, openResult = pcall(document.Open, document)
 		if not openCallOk then
+			-- Open can throw after the session lock is written and _open is set
+			-- (post-hook). Leaving it open keeps autosave refreshing that lock.
+			pcall(function()
+				if document:IsOpen() then
+					document:Close()
+				end
+			end)
 			ModuleLog.Warn("Data", string.format("couldn't open %s's save: %s", player.Name, tostring(openResult)))
 			ServerTelemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false)
 			if self._closing or string.find(string.lower(tostring(openResult)), "closing", 1, true) then
@@ -1139,22 +1165,23 @@ return function(loadService: (string) -> any)
 		local saved = false
 		local lastReason = "Unknown"
 		for attempt = 1, ServerConfig.SaveRetries do
-			local result
-			if releaseSession then
-				if not document:IsOpen() then
-
-					saved = true
-					break
-				end
-				result = document:Close()
-			else
-				result = document:Save()
-			end
-			if DocumentCommon.isOk(result) then
+			if releaseSession and not document:IsOpen() then
 				saved = true
 				break
 			end
-			lastReason = DocumentCommon.reason(result) or "Unknown"
+			-- A throw used to abort the remaining attempts and, on release,
+			-- could leave the session lock held.
+			local callOk, result = pcall(function()
+				if releaseSession then
+					return document:Close()
+				end
+				return document:Save()
+			end)
+			if callOk and DocumentCommon.isOk(result) then
+				saved = true
+				break
+			end
+			lastReason = if callOk then (DocumentCommon.reason(result) or "Unknown") else tostring(result)
 			ModuleLog.Warn(
 				"Data",
 				string.format(

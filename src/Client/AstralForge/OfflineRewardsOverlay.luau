@@ -35,8 +35,7 @@ local function StatTile(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — OfflineRewardsOverlay.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local reveal = useStagger(index, softMotion, 0.07, 0.22)
+	local reveal = useStagger(index, reducedMotion, 0.07, 0.22)
 	return React.createElement("frame", {
 		Size = UDim2.new(0.25, -6, 1, 0),
 		Position = UDim2.new(index * 0.25, if index == 0 then 0 else 6, 0, 0),
@@ -304,7 +303,7 @@ local function OfflineRewardsOverlay(_param)
 			value = row.value,
 			color = row.color,
 			index = index,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		})
 	end
 	for _k, _v in rows do
@@ -342,7 +341,7 @@ local function OfflineRewardsOverlay(_param)
 		_attributes.textColor = Palette.ink
 		_attributes.size = UDim2.new(1, 0, 0, TapTarget)
 		_attributes.position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8))
-		_attributes.reducedMotion = softMotion
+		_attributes.reducedMotion = reducedMotion
 		_attributes.disabled = closing
 		_attributes.highlight = true
 		_result_1 = React.createElement(Button, _attributes)
@@ -357,7 +356,7 @@ local function OfflineRewardsOverlay(_param)
 			textColor = Palette.ink,
 			size = UDim2.new(1, 0, 0, TapTarget),
 			position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 8)),
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			disabled = closing,
 			highlight = true,
 		})
@@ -412,7 +411,7 @@ local function OfflineRewardsOverlay(_param)
 		textColor = Palette.cream,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = closing,
 	})))))))
 end

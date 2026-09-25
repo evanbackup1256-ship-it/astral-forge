@@ -480,7 +480,7 @@ local function AdminView(_param)
 		padding = 12,
 		layoutOrder = 0,
 		reveal = enter,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "ADMIN",
@@ -529,7 +529,7 @@ local function AdminView(_param)
 		outline = true,
 		size = UDim2.fromOffset(104, 32),
 		position = UDim2.new(1, -104, 0, 3),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}))
 
 	-- Column 1: players.
@@ -550,7 +550,7 @@ local function AdminView(_param)
 		placeholder = "Search players…",
 		size = UDim2.new(1, 0, 0, 36),
 		position = UDim2.fromOffset(0, 20),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}), (function()
 		local listSize = UDim2.new(1, 0, 1, -64)
 		local listPos = UDim2.fromOffset(0, 64)
@@ -610,7 +610,7 @@ local function AdminView(_param)
 		placeholder = "Search commands…",
 		size = UDim2.new(1, 0, 0, 36),
 		position = UDim2.fromOffset(0, 20),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 30),
 		Position = UDim2.fromOffset(0, 62),
@@ -723,7 +723,7 @@ local function AdminView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { command, armed, busy, targetId })
 
@@ -735,7 +735,7 @@ local function AdminView(_param)
 		layoutOrder = 1,
 		highlight = armed,
 		reveal = toolsReveal,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(SectionTitle, {
 		value = if needsArm then "ARM TO RUN" else "READY",
@@ -775,7 +775,7 @@ local function AdminView(_param)
 		end,
 		accent = Palette.mango,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		zIndex = 80,
 	})), fields.usesOption and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, FIELD_H - 6),
@@ -788,7 +788,7 @@ local function AdminView(_param)
 		onChange = setOption,
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		zIndex = 70,
 	})), needsArm and React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, FIELD_H - 6),
@@ -801,7 +801,7 @@ local function AdminView(_param)
 		onChange = setReason,
 		accent = Palette.steel,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		zIndex = 60,
 	}))), React.createElement("frame", {
 		Name = "AdminExecuteActions",
@@ -831,7 +831,7 @@ local function AdminView(_param)
 		loading = busy,
 		shakeToken = shakeToken,
 		highlight = armed or not needsArm,
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 	}))), React.createElement(Text, {
 		value = if lastNote ~= "" then lastNote else (if needsArm then "Arm first. Dangerous commands need a second tap." else "Economy, progress, and item grants run on one tap."),
 		size = 9,

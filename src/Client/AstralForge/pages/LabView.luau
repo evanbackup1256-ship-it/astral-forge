@@ -30,6 +30,7 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local ORDER_HEIGHT = 168
+	reducedMotion = softMotion
 local ORDER_HEIGHT_STACK = 224
 local ORDER_GAP = Layout.panelGap
 local CHANNEL_IDS = { "Production", "Storage", "Tap" }
@@ -49,9 +50,9 @@ local function OrderRow(_param)
 	local fill = meterFill(state.Progress, state.Target, state.Claimed or ready)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	local reveal = useStagger(order, softMotion)
+	local reveal = useStagger(order, reducedMotion)
 	local claimTrigger, setClaimTrigger = React.useState(0)
-	local claimFlash = useFlash(claimTrigger, softMotion, 0.4)
+	local claimFlash = useFlash(claimTrigger, reducedMotion, 0.4)
 	local fireClaim = function()
 		if not ready then
 			return nil
@@ -80,7 +81,7 @@ local function OrderRow(_param)
 		reveal = reveal,
 		interactive = true,
 		highlight = ready,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(46, 46),
 		Position = UDim2.fromOffset(0, if stack then 4 else 10),
@@ -96,7 +97,7 @@ local function OrderRow(_param)
 		size = 46,
 		radius = 12,
 		glow = ready,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	})), React.createElement(Text, {
 		value = config.Name,
 		size = 17,
@@ -134,7 +135,7 @@ local function OrderRow(_param)
 		color = config.Color,
 		position = UDim2.fromOffset(0, meterY),
 		size = meterSize,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		shimmer = ready or state.Claimed,
 	}), if stack then React.createElement(Button, {
 		text = if state.Claimed then "PAID" elseif ready then "COLLECT" else "IN PROGRESS",
@@ -145,7 +146,7 @@ local function OrderRow(_param)
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -(TapTarget + 6)),
 		disabled = not ready,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = ready,
 	}) else React.createElement(Button, {
 		text = if state.Claimed then "PAID" elseif ready then "COLLECT" else "IN PROGRESS",
@@ -156,7 +157,7 @@ local function OrderRow(_param)
 		size = UDim2.fromOffset(BTN_W, 48),
 		position = UDim2.new(1, -(BTN_W + ROW_RIGHT), 0.5, -24),
 		disabled = not ready,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = ready,
 	}))
 end
@@ -202,7 +203,7 @@ local function PowerRow(_param)
 		size = 38,
 		radius = 10,
 		position = UDim2.fromOffset(10, if stack then 10 else 15),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement(Text, {
 		value = config.Name,
 		size = 14,
@@ -243,7 +244,7 @@ local function PowerRow(_param)
 		outline = true,
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		disabled = value <= 0,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement(Badge, {
 		value = `{value} CELLS`,
 		accent = config.Color,
@@ -261,7 +262,7 @@ local function PowerRow(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		disabled = available <= 0,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	})) else React.createElement(React.Fragment, nil, React.createElement(Button, {
 		text = "−",
 		onClick = function()
@@ -276,7 +277,7 @@ local function PowerRow(_param)
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		position = UDim2.new(1, -minusX, 0.5, -POWER_BTN / 2),
 		disabled = value <= 0,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}), React.createElement(Badge, {
 		value = `{value} CELLS`,
 		accent = config.Color,
@@ -296,7 +297,7 @@ local function PowerRow(_param)
 		size = UDim2.fromOffset(POWER_BTN, POWER_BTN),
 		position = UDim2.new(1, -(ROW_RIGHT + POWER_BTN), 0.5, -POWER_BTN / 2),
 		disabled = available <= 0,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	})))
 end
 local function LabView(_param)
@@ -311,7 +312,6 @@ local function LabView(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — LabView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local now = useWallClock(true)
 	local headerReveal = useStagger(0, softMotion)
 	-- Canonical softMotion antilag gate — LabOrders.
@@ -320,7 +320,7 @@ local function LabView(_param)
 	local claimReveal = useStagger(2, softMotion)
 	-- Canonical softMotion antilag gate — LabBoard.
 	local boardReveal = useStagger(3, softMotion)
-	local labSoft = softMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
+	local labSoft = reducedMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
 	local labClaimHostRef = React.useRef(nil)
 	if lab == nil then
 		return React.createElement(Panel, {
@@ -372,7 +372,7 @@ local function LabView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { readyOrders })
 	local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Lab else nil
@@ -389,7 +389,7 @@ local function LabView(_param)
 		position = UDim2.fromOffset(0, 10),
 		spin = false,
 		glow = true,
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 	})
 	local _result
 	if stack then
@@ -518,7 +518,7 @@ local function LabView(_param)
 			color = Palette.mint,
 			textColor = Palette.ink,
 			size = UDim2.fromScale(1, 1),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = true,
 		})))
 	end
@@ -527,7 +527,7 @@ local function LabView(_param)
 		accent = Palette.mint,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = if softMotion then boardReveal else headerReveal,
+		reveal = if reducedMotion then boardReveal else headerReveal,
 		highlight = not labSoft,
 		reducedMotion = softMotion,
 		clips = false,
@@ -547,7 +547,7 @@ local function LabView(_param)
 			state = orderState,
 			config = orderConfig,
 			dispatch = dispatch,
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			order = index,
 			stack = stack,
 		})
@@ -586,7 +586,7 @@ local function LabView(_param)
 				state = orderState,
 				config = orderConfig,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+					reducedMotion = softMotion,
 				order = index,
 				stack = stack,
 			})

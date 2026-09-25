@@ -133,6 +133,8 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.ConfirmTrade] = { Cost = 1.1, Cooldown = 0.22 },
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
+		[Protocol.Actions.EnterSanctuary] = { Cost = 1, Cooldown = 0.45 },
+		[Protocol.Actions.LeaveSanctuary] = { Cost = 0.4, Cooldown = 0.2 },
 	}
 
 	local EXEMPT_ACTIONS: { [string]: boolean } = {

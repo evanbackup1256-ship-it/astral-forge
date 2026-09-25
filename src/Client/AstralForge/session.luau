@@ -103,6 +103,11 @@ local stopped = true
 local presencePage = "Overview"
 local lastPresenceAt = -1e9
 local authWaiters = {}
+local PRESENCE_TIMEOUT_SECONDS = 5
+local MAX_PRESENCE_IN_FLIGHT = 2
+local presenceSerial = 0
+local presenceInFlight = 0
+local sessionToken = 0
 local function setPresencePage(page)
 	presencePage = page
 end
@@ -163,11 +168,17 @@ local function startSession(remotes)
 	stopped = false
 	helloDone = false
 	lastPresenceAt = -1e9
+	sessionToken += 1
+	local token = sessionToken
 	local worker
 	local beatOnce = function(force)
 		local now = os.clock()
 		if not force and now - lastPresenceAt < 1.7 then
 			return nil
+		end
+		if presenceInFlight >= MAX_PRESENCE_IN_FLIGHT then
+			-- A previous InvokeServer is still hung. Keep the beat loop moving so the next pass can retry.
+			return "retry"
 		end
 		lastPresenceAt = now
 		local payload = {
@@ -179,15 +190,47 @@ local function startSession(remotes)
 			payload.N = nonce
 			nextBeatId += 1
 		end
-		local ok, raw = pcall(function()
-			return remotes.Request:InvokeServer("ReportPresence", payload)
+		presenceSerial += 1
+		local serial = presenceSerial
+		presenceInFlight += 1
+		local finished = false
+		local ok = false
+		local raw = nil
+		task.spawn(function()
+			local callOk, callRaw = pcall(function()
+				return remotes.Request:InvokeServer("ReportPresence", payload)
+			end)
+			presenceInFlight = math.max(0, presenceInFlight - 1)
+			if serial ~= presenceSerial or token ~= sessionToken or stopped then
+				return nil
+			end
+			ok = callOk
+			raw = callRaw
+			finished = true
 		end)
-		if not ok or not (type(raw) == "table") then
+		local started = os.clock()
+		while not finished and not stopped and token == sessionToken and os.clock() - started < PRESENCE_TIMEOUT_SECONDS do
+			task.wait(0.05)
+		end
+		if stopped or token ~= sessionToken then
 			return nil
+		end
+		if not finished then
+			presenceSerial += 1
+			lastPresenceAt = -1e9
+			ClientLog:warnEvery("presence-beat", 15, "auth", "presence beat timed out")
+			return "retry"
+		end
+		if not ok or not (type(raw) == "table") then
+			lastPresenceAt = -1e9
+			ClientLog:warnEvery("presence-beat", 15, "auth", if ok then "presence beat returned no session" else tostring(raw))
+			return "retry"
 		end
 		local response = raw
 		if response.ok ~= true then
-			return nil
+			lastPresenceAt = -1e9
+			ClientLog:warnEvery("presence-reject", 15, "auth", tostring(response.error or "presence rejected"))
+			return "retry"
 		end
 		local wasAuthed = auth
 		adopt(response)
@@ -200,21 +243,23 @@ local function startSession(remotes)
 		if auth then
 			flushAuthWaiters()
 		end
+		return "ok"
 	end
 	worker = task.spawn(function()
-		beatOnce(true)
+		local outcome = beatOnce(true)
 		if not stopped then
-			beatOnce(true)
+			outcome = beatOnce(true)
 		end
 		while not stopped do
-			-- While unauthenticated beat every ~2s so a lost or rejected first beat
-			-- recovers fast instead of leaving queued actions waiting a full interval.
-			local interval = if auth then BEAT_INTERVAL_MIN + math.random() * (BEAT_INTERVAL_MAX - BEAT_INTERVAL_MIN) else 2
+			-- A timed-out or rejected beat retries on the short interval. A hung
+			-- InvokeServer must not sit on this thread, or auth never recovers.
+			local retrySoon = outcome == "retry" or not auth
+			local interval = if retrySoon then 2 else BEAT_INTERVAL_MIN + math.random() * (BEAT_INTERVAL_MAX - BEAT_INTERVAL_MIN)
 			task.wait(interval)
 			if stopped then
 				break
 			end
-			beatOnce(false)
+			outcome = beatOnce(false)
 		end
 	end)
 	return function()

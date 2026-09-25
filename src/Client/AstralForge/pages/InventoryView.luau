@@ -474,7 +474,7 @@ local function AutoSalvageSheet(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { passOwned, autoBusy })
 	local toggleAutoRarity = function(entry)
@@ -911,7 +911,7 @@ local function DetailPanel(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { item.uid, equipped, locked, canUpgrade, target })
 	local socketBtn = function(size, position)
@@ -1724,7 +1724,7 @@ local function InventoryView(_param)
 	local inventorySoft = softMotion or tabsReveal == nil or inspectReveal == nil or bulkReveal == nil
 	local tab, setTab = React.useState("Relics")
 	local activeTabIndex = math.max(0, (table.find(TABS, tab) or 0) - 1)
-	local paneTravel = useFlipperSpring(activeTabIndex, softMotion, 1540, 40)
+	local paneTravel = useFlipperSpring(activeTabIndex, reducedMotion, 1540, 40)
 	local panePosition = paneTravel:map(function(position)
 		return UDim2.new(0, math.round(math.clamp(position - activeTabIndex, -1, 1) * 22), 0, 0)
 	end)
@@ -2286,7 +2286,7 @@ local function InventoryView(_param)
 		background = Palette.panelRaised,
 		padding = if stack then 14 else 18,
 		layoutOrder = 0,
-		reveal = if softMotion then tabsReveal else headerReveal,
+		reveal = if reducedMotion then tabsReveal else headerReveal,
 		highlight = not inventorySoft,
 		reducedMotion = softMotion,
 		clips = false,
@@ -2422,7 +2422,7 @@ local function InventoryView(_param)
 					state = state,
 					config = config,
 					dispatch = dispatch,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					layoutOrder = 0,
 					stack = stack,
 					fill = true,
@@ -2447,7 +2447,7 @@ local function InventoryView(_param)
 					clearSelection = clearSelection,
 					salvageSelected = salvageSelected,
 					bulkBusy = bulkBusy,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 				}),
 			})
 		end
@@ -2469,7 +2469,7 @@ local function InventoryView(_param)
 			autoBusy = autoBusy,
 			openShop = openShop,
 			runNow = runAutoNow,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			stack = stack,
 			config = config,
 			onClose = function()
@@ -2528,7 +2528,7 @@ local function InventoryView(_param)
 						return openCrate(crate, count)
 					end,
 					busy = crateBusy,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					layoutOrder = 0,
 					stack = stack,
 				})

@@ -52,7 +52,6 @@ local function ReleaseCountdown(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — ReleaseCountdown.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local Workspace = game:GetService("Workspace")
 	local function syncedNow()
 		local ok, value = pcall(function()
@@ -91,7 +90,7 @@ local function ReleaseCountdown(_param)
 			setSlam(function(n)
 				return n + 1
 			end)
-			if not softMotion then
+			if not reducedMotion then
 				Audio:play("prestige")
 				Audio:play("bootFinaleBang")
 			end
@@ -99,11 +98,11 @@ local function ReleaseCountdown(_param)
 		if not live then
 			wasLive.current = false
 		end
-	end, { live, softMotion })
+	end, { live, reducedMotion })
 	-- The live release wash and orbit stay on for the whole countdown.
 	local animateLive = live
 	local pulse = usePulse(animateLive, 2.15)
-	local flash = useFlash(slam, softMotion, 1.2)
+	local flash = useFlash(slam, reducedMotion, 1.2)
 	local orbit = useClock(animateLive, 0.48, 1, true)
 	local values = { {
 		label = "DAYS",
@@ -146,8 +145,8 @@ local function ReleaseCountdown(_param)
 		radius = 12,
 		position = UDim2.fromOffset(0, 2),
 		glow = live,
-		spin = live and not softMotion,
-		reducedMotion = softMotion,
+		spin = live and not reducedMotion,
+		reducedMotion = reducedMotion,
 	})
 	local _exp_2 = React.createElement(Text, {
 		value = if live then "LAUNCH" else "RELEASE COUNTDOWN",
@@ -170,7 +169,7 @@ local function ReleaseCountdown(_param)
 	})
 	local _result
 	if live then
-		local _condition = not softMotion
+		local _condition = not reducedMotion
 		if _condition then
 			local _exp_4 = { 0, 1, 2, 3, 4, 5, 6, 7 }
 			-- ▼ ReadonlyArray.map ▼
@@ -241,9 +240,9 @@ local function ReleaseCountdown(_param)
 			fit = true,
 			minSize = 16,
 			sizeConstraint = UDim2.fromScale(1, 1),
-			enabled = not softMotion,
+			enabled = not reducedMotion,
 			periodSeconds = 1.6,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		})))
 	else
 		-- ▼ ReadonlyArray.map ▼
@@ -277,7 +276,7 @@ local function ReleaseCountdown(_param)
 				CornerRadius = UDim.new(1, 0),
 			})), React.createElement(NumberSpinnerHost, {
 				value = entry.value,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				duration = 0.36,
 				size = if stack then 20 else 24,
 				color = entry.color,
@@ -307,7 +306,7 @@ local function ReleaseCountdown(_param)
 		accent = accent,
 		background = Palette.panelRaised,
 		padding = 16,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = live,
 		clips = false,
 	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement("frame", {
@@ -378,6 +377,164 @@ local function Metric(_param)
 	}))
 end
 
+local LADDER_UNLOCKS = { "Research", "Mail", "Rewards", "Story", "Missions", "Worlds", "Shop", "Milestones", "Wheel", "StarGrid", "Rebirth", "Anomaly", "Crew", "Trade", "Command", "Lab", "Echoes", "Convergence", "Continuum" }
+
+local function ladderUnit(kind: string): string
+	if kind == "LifetimeCash" then
+		return "flux"
+	elseif kind == "MachineLevels" then
+		return "levels"
+	elseif kind == "Rebirths" then
+		return "rebirths"
+	elseif kind == "PlayTime" then
+		return "sec"
+	end
+	return ""
+end
+
+-- Listed machine rate from config. Matches the workshop card (BaseProduction), not multiplied output.
+local function listedFluxPerSec(machine): number
+	local base = if type(machine) == "table" then machine.BaseProduction else nil
+	if type(base) ~= "number" or base <= 0 then
+		return 0
+	end
+	return base
+end
+
+-- First core is paid when run flux hits the prestige bar (ratio 1). Stardust follows the rebirth bag.
+local function firstRebirthStardust(config): number
+	local economy = if config ~= nil and type(config.Economy) == "table" then config.Economy else nil
+	local bag = if economy ~= nil and type(economy.Rebirth) == "table" then economy.Rebirth else nil
+	local scale = if type(bag) == "table" and type(bag.StardustSqrtScale) == "number" then bag.StardustSqrtScale else 5
+	local minimum = if type(bag) == "table" and type(bag.StardustMinimum) == "number" then bag.StardustMinimum else 4
+	return math.max(minimum, math.floor(math.sqrt(1) * scale))
+end
+
+local function totalMachineLevels(state): number
+	local total = 0
+	local machines = state.Machines
+	if type(machines) ~= "table" then
+		return 0
+	end
+	for _, level in machines do
+		if type(level) == "number" and level > 0 then
+			total += level
+		end
+	end
+	return total
+end
+
+local function unlockGateLine(state, config, id: string): string?
+	local unlocks = state.FeatureUnlocks
+	local row = if type(unlocks) == "table" then unlocks[id] else nil
+	local rules = if config ~= nil and type(config.Unlocks) == "table" then config.Unlocks else nil
+	local rule = if rules ~= nil then rules[id] else nil
+	local kind = if type(rule) == "table" and type(rule.Kind) == "string" then rule.Kind else nil
+	local name = if type(row) == "table" and type(row.Name) == "string" then row.Name elseif type(rule) == "table" and type(rule.Name) == "string" then rule.Name else id
+	local target = if type(row) == "table" and type(row.Target) == "number" then row.Target elseif type(rule) == "table" and type(rule.Target) == "number" then rule.Target else 0
+	if kind == "Always" or target <= 0 then
+		return nil
+	end
+	local progress
+	if type(row) == "table" and row.Progress ~= nil then
+		progress = asFlux(row.Progress)
+	elseif kind == "LifetimeCash" then
+		progress = asFlux(state.LifetimeCash)
+	elseif kind == "MachineLevels" then
+		progress = totalMachineLevels(state)
+	elseif kind == "Rebirths" then
+		progress = math.max(0, math.floor(tonumber(state.Rebirths) or 0))
+	elseif kind == "PlayTime" then
+		local stats = state.Stats
+		progress = math.max(0, math.floor(tonumber(stats and stats.PlayTime) or 0))
+	else
+		progress = 0
+	end
+	local unlocked = if type(row) == "table" then row.Unlocked == true else progress >= target
+	if unlocked or progress >= target then
+		return nil
+	end
+	local unit = ladderUnit(kind or "")
+	local suffix = if unit ~= "" then ` {unit}` else ""
+	return `Unlock {name} · {compactNumber(progress)}/{compactNumber(target)}{suffix}`
+end
+
+local function nextMachineGateLine(state, config): string?
+	if config == nil or type(config.Machines) ~= "table" or type(state.Machines) ~= "table" then
+		return nil
+	end
+	local names = {}
+	for _, machine in config.Machines do
+		if type(machine) == "table" and type(machine.Id) == "string" then
+			names[machine.Id] = if type(machine.Name) == "string" then machine.Name else machine.Id
+		end
+	end
+	for _, machine in config.Machines do
+		if type(machine) ~= "table" or type(machine.PreviousId) ~= "string" then
+			continue
+		end
+		local needLevel = if type(machine.PreviousLevel) == "number" then machine.PreviousLevel else 1
+		local haveLevel = state.Machines[machine.PreviousId]
+		if type(haveLevel) ~= "number" then
+			haveLevel = 0
+		end
+		local rebirthsNeed = if type(machine.RequiredRebirths) == "number" then machine.RequiredRebirths else 0
+		local zoneNeed = if type(machine.RequiredZone) == "number" then machine.RequiredZone else 1
+		local rebirthsHave = math.max(0, math.floor(tonumber(state.Rebirths) or 0))
+		local zoneHave = math.max(0, math.floor(tonumber(state.Zone) or 0))
+		local machineName = if type(machine.Name) == "string" then machine.Name else machine.Id
+		local rate = listedFluxPerSec(machine)
+		local rateBit = if rate > 0 then ` +{compactNumber(rate)}/sec` else ""
+		if rebirthsHave < rebirthsNeed then
+			return `{machineName}{rateBit} · {rebirthsHave}/{rebirthsNeed} rebirths`
+		elseif zoneHave < zoneNeed then
+			return `{machineName}{rateBit} · world {zoneHave}/{zoneNeed}`
+		elseif haveLevel < needLevel then
+			local prevName = names[machine.PreviousId] or machine.PreviousId
+			return `{machineName}{rateBit} · {prevName} {haveLevel}/{needLevel}`
+		end
+	end
+	return nil
+end
+
+local function rebirthPayoutLine(state, config): string?
+	if gteFlux(state.PrestigeReward, 1) then
+		return nil
+	end
+	local economy = if config ~= nil then config.Economy else nil
+	local target = if type(economy) == "table" and type(economy.PrestigeRequirement) == "number" then economy.PrestigeRequirement else 0
+	if target <= 0 then
+		return nil
+	end
+	local have = math.max(0, asFlux(state.RunCash)) + math.max(0, asFlux(state.Vault))
+	if have >= target then
+		return nil
+	end
+	local dust = firstRebirthStardust(config)
+	return `1 core + {compactNumber(dust)} stardust · {compactNumber(have)}/{compactNumber(target)} flux`
+end
+
+local function progressLadder(state, config, limit: number): { string }
+	local lines = {}
+	local function push(line: string?)
+		if line ~= nil and line ~= "" and #lines < limit then
+			table.insert(lines, line)
+		end
+	end
+	for _, id in LADDER_UNLOCKS do
+		if #lines >= limit then
+			break
+		end
+		push(unlockGateLine(state, config, id))
+		if id == "Research" then
+			push(nextMachineGateLine(state, config))
+		elseif id == "Rebirth" then
+			push(rebirthPayoutLine(state, config))
+		end
+	end
+	return lines
+end
+
 local function OverviewView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -392,8 +549,9 @@ local function OverviewView(_param)
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — effectsPaused/skipEntrance stay on quietMotion
-	-- so decorative Overview stagger can mute without folding pause into softMotion.
+	-- so decorative Overview stagger can mute without folding pause into reducedMotion.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local quietMotion = softMotion or effectsPaused or antilag.skipEntrance
 	local stack = chrome.contentStack
 	local phone = chrome.stack
@@ -409,6 +567,22 @@ local function OverviewView(_param)
 		_condition = 0
 	end
 	local vaultSeconds = _condition
+	local stellarLevel = state.Machines.StellarCore
+	if stellarLevel == nil then
+		stellarLevel = 0
+	end
+	local tutorialDone = false
+	local flags = state.Flags
+	if flags ~= nil and flags.TutorialDone == true then
+		tutorialDone = true
+	end
+	local firstRun = (not tutorialDone) or stellarLevel < 1
+	local showOvercharge = tutorialDone and stellarLevel >= 1
+	local offlineHours = state.OfflineHours
+	if type(offlineHours) ~= "number" then
+		offlineHours = 0
+	end
+	offlineHours = math.floor(offlineHours + 0.5)
 	local rebirthVisible = AppHelpers:featureUnlocked(state, "Rebirth")
 	local domainVisible = AppHelpers:featureUnlocked(state, "Domain")
 	local heroReveal = useStagger(0, quietMotion)
@@ -418,7 +592,7 @@ local function OverviewView(_param)
 	local notesReveal = useStagger(4, quietMotion)
 	local opsReveal = useStagger(5, quietMotion)
 	local collectTrigger, setCollectTrigger = React.useState(0)
-	local collectFlash = useFlash(collectTrigger, softMotion, 0.42)
+	local collectFlash = useFlash(collectTrigger, reducedMotion, 0.42)
 	local fireCollect = function()
 		if not canCollect then
 			return nil
@@ -437,7 +611,7 @@ local function OverviewView(_param)
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
 	local overchargeReadyAt, setOverchargeReadyAt = React.useState(0)
 	local overchargeLeft, setOverchargeLeft = React.useState(0)
-	local overchargeFlash = useFlash(overchargeTrigger, softMotion, 0.3)
+	local overchargeFlash = useFlash(overchargeTrigger, reducedMotion, 0.3)
 	React.useEffect(function()
 		if overchargeReadyAt <= 0 then
 			setOverchargeLeft(0)
@@ -447,6 +621,9 @@ local function OverviewView(_param)
 		local worker = task.spawn(function()
 			while alive do
 				local left = math.max(0, overchargeReadyAt - os.clock())
+				if not alive then
+					break
+				end
 				setOverchargeLeft(left)
 				if left <= 0 then
 					break
@@ -456,7 +633,11 @@ local function OverviewView(_param)
 		end)
 		return function()
 			alive = false
-			task.cancel(worker)
+			-- The worker exits on its own when the cooldown hits zero. Cancelling a
+			-- finished thread throws, which used to fire on the next Overcharge.
+			pcall(function()
+				task.cancel(worker)
+			end)
 		end
 	end, { overchargeReadyAt })
 	local fireOvercharge = function()
@@ -489,10 +670,18 @@ local function OverviewView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { canCollect, overchargeLeft })
 	local landscapePhone = phone and chrome.landscape
+	local primaryIsBuy = (not canCollect) and stellarLevel < 1
+	local primaryText = if primaryIsBuy then (if landscapePhone then "Buy machine" else "Buy a machine") else (if landscapePhone then "Collect" else "Collect stored Flux")
+	local primaryClick = if primaryIsBuy then openWorkshop else fireCollect
+	local primaryDisabled = if primaryIsBuy then false else not canCollect
+	local primaryIcon = if primaryIsBuy then "Forge" else "Collect"
+	local primaryColor = if primaryIsBuy then Palette.coral else Palette.green
+	local primaryHighlight = if primaryIsBuy then true elseif canCollect then (firstRun or vaultFill >= 0.85) else false
+	local comebackLine = `Earns for {offlineHours}h while you're away. Then collect.`
 	-- Wide PC: vault hero sits beside the metrics column instead of stacking full-width bands.
 	local wideOverview = not stack and viewport.width >= 1180
 	local ultraOverview = not stack and viewport.width >= 1680
@@ -608,7 +797,7 @@ local function OverviewView(_param)
 		padding = if stack then chrome.cardPadding elseif denseHero then 10 elseif ultraOverview then 22 else 20,
 		reveal = heroReveal,
 		highlight = vaultFill >= 0.99 and not effectsPaused,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("uigradient", {
 		Color = surfaceGradient(if vaultFill >= 0.99 then Palette.mango else Palette.green, 0.94),
@@ -634,7 +823,7 @@ local function OverviewView(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Text, {
-		value = "CURRENT RUN",
+		value = if firstRun then "YOUR FORGE" else "CURRENT RUN",
 		size = 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
 		weight = Enum.FontWeight.Heavy,
@@ -651,7 +840,7 @@ local function OverviewView(_param)
 		layoutOrder = 1,
 		sizeConstraint = UDim2.new(1, 0, 0, if landscapePhone or denseHero then 36 else 54),
 	}), React.createElement(Text, {
-		value = `of {compactNumber(state.Capacity)} vault capacity`,
+		value = `Flux stored · vault holds {compactNumber(state.Capacity)}`,
 		size = if stack then chrome.labelText else 12,
 		color = Palette.creamSoft,
 		wrap = true,
@@ -660,12 +849,12 @@ local function OverviewView(_param)
 	}), React.createElement(Meter, {
 		value = vaultFill,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.green,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 		shimmer = vaultFill >= 0.99 and not effectsPaused,
 		layoutOrder = 3,
 		size = UDim2.new(1, 0, 0, 10),
 	}), React.createElement(Text, {
-		value = if vaultFill >= 0.99 then "Vault full — production is being wasted." else `{compactNumber(state.Production)} flux / sec flowing in`,
+		value = if vaultFill >= 0.99 then "Vault full — machines stopped. Collect now." elseif firstRun then "Machines earn Flux into this vault. Collect it, then buy more." else `{compactNumber(state.Production)} Flux per second flowing in`,
 		size = if stack then chrome.labelText else 11,
 		color = if vaultFill >= 0.99 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -683,21 +872,21 @@ local function OverviewView(_param)
 		-- FocusClaim COLLECT/OVERCHARGE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
-		FillDirection = if landscapePhone then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
+		FillDirection = if landscapePhone and showOvercharge then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement(Button, {
-		text = if landscapePhone then "COLLECT" else "COLLECT VAULT",
-		icon = "Collect",
-		onClick = fireCollect,
-		color = Palette.green,
+		text = primaryText,
+		icon = primaryIcon,
+		onClick = primaryClick,
+		color = primaryColor,
 		textColor = Palette.ink,
-		size = if landscapePhone then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = softMotion,
-		disabled = not canCollect,
-		highlight = vaultFill >= 0.85,
-	}), React.createElement(Button, {
+		size = if landscapePhone and showOvercharge then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
+		reducedMotion = reducedMotion,
+		disabled = primaryDisabled,
+		highlight = primaryHighlight,
+	}), showOvercharge and React.createElement(Button, {
 		text = overchargeLabel,
 		icon = "Overcharge",
 		onClick = fireOvercharge,
@@ -705,12 +894,19 @@ local function OverviewView(_param)
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
 		textColor = if overchargeLeft > 0.02 then Palette.muted else Palette.ink,
 		size = if landscapePhone then UDim2.new(0.5, -4, 0, ctaH) else UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = overchargeLeft > 0.02,
-	}), not landscapePhone and React.createElement(Meter, {
+	}), (not showOvercharge and not landscapePhone) and React.createElement(Text, {
+		value = comebackLine,
+		size = if stack then chrome.labelText else 12,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Bold,
+		wrap = true,
+		sizeConstraint = UDim2.new(1, 0, 0, ctaH),
+	}), showOvercharge and not landscapePhone and React.createElement(Meter, {
 		value = if overchargeLeft > 0 then 1 - overchargeLeft / 0.45 else 1,
 		color = Palette.mango,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 		position = UDim2.new(0, 0, 1, -4),
 		size = UDim2.new(1, 0, 0, 4),
 	}), React.createElement("frame", {
@@ -743,16 +939,16 @@ local function OverviewView(_param)
 		Padding = UDim.new(0, if denseHero then 4 else Layout.controlGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(Button, {
-		text = "COLLECT VAULT",
-		icon = "Collect",
-		onClick = fireCollect,
-		color = Palette.green,
+		text = primaryText,
+		icon = primaryIcon,
+		onClick = primaryClick,
+		color = primaryColor,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = softMotion,
-		disabled = not canCollect,
-		highlight = vaultFill >= 0.85,
-	}), React.createElement(Button, {
+		reducedMotion = reducedMotion,
+		disabled = primaryDisabled,
+		highlight = primaryHighlight,
+	}), showOvercharge and React.createElement(Button, {
 		text = overchargeLabel,
 		icon = "Overcharge",
 		onClick = fireOvercharge,
@@ -760,20 +956,21 @@ local function OverviewView(_param)
 		color = if overchargeLeft > 0.02 then Palette.panelSoft else Palette.mango,
 		textColor = if overchargeLeft > 0.02 then Palette.muted else Palette.ink,
 		size = UDim2.new(1, 0, 0, ctaH),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		disabled = overchargeLeft > 0.02,
-	}), React.createElement(Meter, {
+	}), showOvercharge and React.createElement(Meter, {
 		value = if overchargeLeft > 0 then 1 - overchargeLeft / 0.45 else 1,
 		color = Palette.mango,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 		size = UDim2.new(1, 0, 0, 4),
 	}), React.createElement(Text, {
-		value = if overchargeLeft > 0.02 then `Ready in {string.format("%.1f", overchargeLeft)}s` else "Tap for a quick vault burst",
+		value = if not showOvercharge then comebackLine elseif overchargeLeft > 0.02 then `Ready in {string.format("%.1f", overchargeLeft)}s` else "Tap for a quick vault burst",
 		size = 10,
 		color = if overchargeLeft > 0.02 then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
+		wrap = not showOvercharge,
+		sizeConstraint = UDim2.new(1, 0, 0, if showOvercharge then 16 else 32),
 		align = Enum.TextXAlignment.Center,
 	}), React.createElement("frame", {
 		Size = collectFlash:map(function(amount)
@@ -804,9 +1001,9 @@ local function OverviewView(_param)
 		minHeight = if stack then metricCardH elseif wideOverview then metricCardH else 72,
 		layoutOrder = 0,
 	}, React.createElement(Metric, {
-		label = "LIVE OUTPUT",
+		label = if firstRun then "Earning now" else "LIVE OUTPUT",
 		value = `{compactNumber(state.Production)} / sec`,
-		detail = `{compactNumber(state.RawProduction)} base`,
+		detail = if firstRun then `{compactNumber(state.RawProduction)} before bonuses` else `{compactNumber(state.RawProduction)} base`,
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
 		compact = stack or denseHero,
@@ -817,7 +1014,7 @@ local function OverviewView(_param)
 		minHeight = if stack then metricCardH elseif wideOverview then metricCardH else 72,
 		layoutOrder = 1,
 	}, React.createElement(Metric, {
-		label = "BANKED FLUX",
+		label = if firstRun then "Cash to spend" else "BANKED FLUX",
 		value = compactNumber(state.Cash),
 		detail = `{compactNumber(state.RunCash)} this run`,
 		accent = Palette.mango,
@@ -830,9 +1027,9 @@ local function OverviewView(_param)
 		minHeight = if stack then metricCardH elseif wideOverview then metricCardH else 72,
 		layoutOrder = 2,
 	}, React.createElement(Metric, {
-		label = "LONG-TERM",
+		label = if firstRun then "Bonus that stays" else "LONG-TERM",
 		value = `{compactNumber(state.PermanentMultiplier)}x`,
-		detail = `{compactNumber(state.Rebirths)} resets`,
+		detail = if firstRun then `{compactNumber(state.Rebirths)} rebirths` else `{compactNumber(state.Rebirths)} resets`,
 		accent = Palette.violet,
 		size = UDim2.fromScale(1, 1),
 		compact = stack or denseHero,
@@ -851,20 +1048,31 @@ local function OverviewView(_param)
 		reveal = notesReveal,
 		clips = false,
 	}, (function()
+		local stellarRate = 0
+		if config ~= nil and type(config.Machines) == "table" then
+			for _, machine in config.Machines do
+				if type(machine) == "table" and machine.Id == "StellarCore" then
+					stellarRate = listedFluxPerSec(machine)
+					break
+				end
+			end
+		end
+		local coreDust = firstRebirthStardust(config)
 		local title = "Push toward rebirth"
-		local body = `Auto-collect {math.floor(math.clamp(state.AutoCollectRate, 0, 1) * 100 + 0.5)}% · offline {math.floor(state.OfflineHours + 0.5)}h · vault holds {clockText(vaultSeconds)}.`
+		local fillLine = `Full bar pays 1 core + {compactNumber(coreDust)} stardust.`
+		local body = `Filling this bar pays 1 core + {compactNumber(coreDust)} stardust. You keep earning for {offlineHours}h away.`
 		local meter = progress
 		local accent = Palette.cyan
 		local cta = ""
 		local ctaAction
 		local statValue = `{math.floor(progress * 100 + 0.5)}%`
-		local statLabel = "TO REBIRTH"
+		local statLabel = "PAYS 1 CORE"
 		if vaultFill >= 0.99 then
-			title = "Bank the vault"
-			body = "You're wasting production while the vault is full. Collect, then buy more machines."
+			title = "Collect stored Flux"
+			body = "The vault is full, so machines stopped earning. Collect now, then buy another level."
 			meter = 1
 			accent = Palette.mango
-			cta = "COLLECT VAULT"
+			cta = "Collect stored Flux"
 			ctaAction = function()
 				return dispatch("CollectVault")
 			end
@@ -876,27 +1084,49 @@ local function OverviewView(_param)
 				_condition_1 = 0
 			end
 			if _condition_1 < 1 then
-				title = "Buy Stellar Core"
-				body = "Open Workshop and buy your first machine — income starts there."
-				meter = 0.08
-				cta = "OPEN WORKSHOP"
-				ctaAction = openWorkshop
-				statValue = "0"
-				statLabel = "MACHINES"
+				if canCollect then
+					title = "Collect stored Flux"
+					body = if stellarRate > 0
+						then `Collect this into cash, then buy Stellar Core (+{compactNumber(stellarRate)}/sec). You keep earning for {offlineHours}h while you're away.`
+						else `Collect this into cash, then buy Stellar Core. You keep earning for {offlineHours}h while you're away.`
+					fillLine = if stellarRate > 0
+						then `Collect pays cash for Stellar Core (+{compactNumber(stellarRate)}/sec).`
+						else "Collect pays cash for Stellar Core."
+					meter = vaultFill
+					accent = Palette.green
+					cta = "Collect stored Flux"
+					ctaAction = fireCollect
+					statValue = compactNumber(state.Vault)
+					statLabel = "INTO CASH"
+				else
+					title = "Buy a machine"
+					body = if stellarRate > 0
+						then `Stellar Core earns {compactNumber(stellarRate)} Flux/sec into this vault once you buy it. You keep earning for {offlineHours}h while you're away.`
+						else `Stellar Core earns Flux into this vault every second. You keep earning for {offlineHours}h while you're away.`
+					fillLine = if stellarRate > 0
+						then `Buying Stellar Core starts {compactNumber(stellarRate)} Flux/sec.`
+						else "Buying Stellar Core starts Flux every second."
+					meter = 0.08
+					cta = "Buy a machine"
+					ctaAction = openWorkshop
+					statValue = if stellarRate > 0 then `+{compactNumber(stellarRate)}` else "0"
+					statLabel = if stellarRate > 0 then "FLUX/SEC" else "MACHINES"
+				end
 			else
 				local _condition_2 = state.Research.Efficiency
 				if _condition_2 == nil then
 					_condition_2 = 0
 				end
 				if _condition_2 < 3 then
-					title = "Research Efficiency to 3"
-					body = "Research is permanent. Raise Quantum Efficiency to unlock Storage."
+					title = "Buy Efficiency to 3"
+					body = "When this bar fills, Storage unlocks. Efficiency stays after rebirth."
+					fillLine = "Full bar unlocks Storage."
 					local _condition_3 = state.Research.Efficiency
 					if _condition_3 == nil then
 						_condition_3 = 0
 					end
 					meter = math.clamp(_condition_3 / 3, 0, 1)
-					cta = "OPEN RESEARCH"
+					cta = "Open Research"
 					ctaAction = function()
 						local _result = navigate
 						if _result ~= nil then
@@ -909,21 +1139,22 @@ local function OverviewView(_param)
 						_condition_4 = 0
 					end
 					statValue = `{_condition_4}/3`
-					statLabel = "EFFICIENCY"
+					statLabel = "UNLOCKS STORAGE"
 				else
 					local _condition_3 = state.Research.Storage
 					if _condition_3 == nil then
 						_condition_3 = 0
 					end
 					if _condition_3 < 3 then
-						title = "Research Storage to 3"
-						body = "Dimensional Storage grows the vault so you can AFK longer."
+						title = "Buy Storage to 3"
+						body = "When this bar fills, the offline relay unlocks. Storage lets the vault hold more."
+						fillLine = "Full bar unlocks the offline relay."
 						local _condition_4 = state.Research.Storage
 						if _condition_4 == nil then
 							_condition_4 = 0
 						end
 						meter = math.clamp(_condition_4 / 3, 0, 1)
-						cta = "OPEN RESEARCH"
+						cta = "Open Research"
 						ctaAction = function()
 							local _result = navigate
 							if _result ~= nil then
@@ -936,17 +1167,18 @@ local function OverviewView(_param)
 							_condition_5 = 0
 						end
 						statValue = `{_condition_5}/3`
-						statLabel = "STORAGE"
+						statLabel = "UNLOCKS RELAY"
 					else
 						local _condition_4 = state.Research.Offline
 						if _condition_4 == nil then
 							_condition_4 = 0
 						end
 						if _condition_4 < 1 then
-							title = "Unlock Deep-Space Relay"
-							body = "Buy Deep-Space Relay next — it unlocks after Storage 3, before Overcharge."
+							title = "Buy the offline relay"
+							body = "When you buy this, Deep-Space Relay pays you for longer while you're away."
+							fillLine = "This buy pays you longer while you're away."
 							meter = 0.15
-							cta = "OPEN RESEARCH"
+							cta = "Open Research"
 							ctaAction = function()
 								local _result = navigate
 								if _result ~= nil then
@@ -955,17 +1187,18 @@ local function OverviewView(_param)
 								return _result
 							end
 							statValue = "NEXT"
-							statLabel = "RELAY"
+							statLabel = "LONGER AFK"
 						else
 							local _condition_5 = state.Research.Overcharge
 							if _condition_5 == nil then
 								_condition_5 = 0
 							end
 							if _condition_5 < 1 then
-								title = "Unlock Overcharge Coil"
-								body = "Overcharge Coil boosts taps. It's next in the research chain."
+								title = "Buy the tap bonus"
+								body = "When you buy this, Overcharge Coil makes the tap button stronger."
+								fillLine = "This buy makes taps stronger."
 								meter = 0.2
-								cta = "OPEN RESEARCH"
+								cta = "Open Research"
 								ctaAction = function()
 									local _result = navigate
 									if _result ~= nil then
@@ -974,25 +1207,45 @@ local function OverviewView(_param)
 									return _result
 								end
 								statValue = "NEXT"
-								statLabel = "COIL"
+								statLabel = "STRONGER TAPS"
 							elseif canRebirth then
-								title = "Rebirth for cores"
-								body = `Reset this run's machines. Keep research. Bank {compactNumber(state.PrestigeReward)} cores from the panel below.`
+								title = "Rebirth for Cores"
+								body = `Reset this run's machines and keep Research. Collect {compactNumber(state.PrestigeReward)} Cores from the panel below.`
+								fillLine = `Collect {compactNumber(state.PrestigeReward)} cores below.`
 								meter = 1
 								accent = Palette.pink
 								statValue = `+{compactNumber(state.PrestigeReward)}`
 								statLabel = "CORES READY"
 							elseif progress < 0.45 then
-								title = "Grow run flux"
-								body = "Buy machines, bank often, and clear missions. Overview tracks rebirth progress."
-								cta = "OPEN WORKSHOP"
+								title = "Buy more machines"
+								body = `Buy machines and collect often. Filling this bar pays 1 core + {compactNumber(coreDust)} stardust.`
+								fillLine = `Full bar pays 1 core + {compactNumber(coreDust)} stardust.`
+								cta = "Buy a machine"
 								ctaAction = openWorkshop
 								statValue = `{math.floor(progress * 100 + 0.5)}%`
-								statLabel = "TO REBIRTH"
+								statLabel = "PAYS 1 CORE"
 							end
 						end
 					end
 				end
+			end
+		end
+		local meterTop = if stack then notesH - (if cta ~= "" then TapTarget + 28 else 28) else notesH - 52
+		local bodyRoom = math.max(16, meterTop - 52 - 6)
+		local ladderSlots = math.clamp(math.floor(bodyRoom / 13), 1, 3)
+		local ladder = if vaultFill >= 0.99 then {} else progressLadder(state, config, ladderSlots)
+		if #ladder > 0 then
+			local keep = {}
+			local limit = if fillLine ~= "" then math.max(0, ladderSlots - 1) else ladderSlots
+			for index = 1, math.min(limit, #ladder) do
+				keep[index] = ladder[index]
+			end
+			if fillLine ~= "" and #keep > 0 then
+				body = fillLine .. "\n" .. table.concat(keep, "\n")
+			elseif fillLine ~= "" then
+				body = fillLine
+			else
+				body = table.concat(ladder, "\n")
 			end
 		end
 		local copyLeft = if stack then 0 else 48
@@ -1026,15 +1279,15 @@ local function OverviewView(_param)
 			sizeConstraint = UDim2.new(1, copyWidth - copyLeft, 0, 28),
 		}), React.createElement(Text, {
 			value = body,
-			size = if stack then chrome.labelText else 12,
+			size = if #ladder > 0 then 11 elseif stack then chrome.labelText else 12,
 			color = Palette.creamSoft,
 			wrap = true,
 			position = UDim2.fromOffset(copyLeft, 52),
-			sizeConstraint = UDim2.new(1, copyWidth - copyLeft, 0, if stack then 48 else 36),
+			sizeConstraint = UDim2.new(1, copyWidth - copyLeft, 0, if #ladder > 0 then bodyRoom else (if stack then 48 else 36)),
 		}), React.createElement(Meter, {
 			value = meter,
 			color = accent,
-			reducedMotion = quietMotion,
+			reducedMotion = softMotion,
 			shimmer = meter >= 0.99 and not effectsPaused,
 			position = UDim2.fromOffset(copyLeft, if stack then notesH - (if cta ~= "" then TapTarget + 28 else 28) else notesH - 52),
 			size = UDim2.new(1, copyWidth - copyLeft, 0, 8),
@@ -1078,7 +1331,7 @@ local function OverviewView(_param)
 			textColor = Palette.ink,
 			size = UDim2.new(1, -16, 0, 36),
 			position = UDim2.fromOffset(8, 64),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = meter >= 0.99,
 		})), stack and cta ~= "" and action ~= nil and React.createElement(Button, {
 			text = cta,
@@ -1087,7 +1340,7 @@ local function OverviewView(_param)
 			textColor = Palette.ink,
 			size = UDim2.new(1, 0, 0, TapTarget),
 			position = UDim2.new(0, 0, 1, -TapTarget),
-			reducedMotion = reducedMotion,
+			reducedMotion = softMotion,
 			highlight = meter >= 0.99,
 		}))
 	end)()),
@@ -1103,7 +1356,7 @@ local function OverviewView(_param)
 		padding = if stack then chrome.cardPadding else 16,
 		reveal = opsReveal,
 		highlight = opsClaims > 0 and not effectsPaused,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("frame", {
 		Size = UDim2.new(1, 0, 1, -(opsButtonH + 8)),
@@ -1111,7 +1364,7 @@ local function OverviewView(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 	}, React.createElement(Text, {
-		value = (opsGuide and opsGuide.OpsTitle) or "OPS PULSE",
+		value = if firstRun and opsClaims == 0 then "Rewards later" else ((opsGuide and opsGuide.OpsTitle) or "OPS PULSE"),
 		size = 10,
 		color = if opsClaims > 0 then Palette.green else Palette.cyan,
 		weight = Enum.FontWeight.Heavy,
@@ -1125,7 +1378,7 @@ local function OverviewView(_param)
 		position = UDim2.fromOffset(0, 18),
 		sizeConstraint = UDim2.new(1, 0, 0, 24),
 	}), React.createElement(Text, {
-		value = (opsGuide and opsGuide.OpsBody) or "Claims waiting across Missions, Lab, Forge Path, and Anomaly.",
+		value = if firstRun and opsClaims == 0 then "Missions and other rewards unlock as you earn Flux. Do the highlighted step above first." else ((opsGuide and opsGuide.OpsBody) or "Claims waiting across Missions, Lab, Forge Path, and Anomaly."),
 		size = if stack then chrome.labelText else 11,
 		color = Palette.creamSoft,
 		wrap = true,
@@ -1228,6 +1481,7 @@ local function OverviewView(_param)
 				height = if rebirthVisible then rebirthH else 0,
 				element = if rebirthVisible then React.createElement(RebirthPanel, {
 					state = state,
+					config = config,
 					dispatch = dispatch,
 					reducedMotion = reducedMotion,
 					effectsPaused = effectsPaused,
@@ -1252,7 +1506,7 @@ local function OverviewView(_param)
 		padding = if stack then chrome.cardPadding else 18,
 		reveal = domainReveal,
 		highlight = domain.CanExpand and not effectsPaused,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement("uigradient", {
 		Color = surfaceGradient(Palette.violet, 0.88),
@@ -1265,7 +1519,7 @@ local function OverviewView(_param)
 		position = UDim2.fromOffset(0, if phone then 4 else 18),
 		glow = domain.CanExpand and not effectsPaused,
 		spin = domain.CanExpand and not effectsPaused,
-		reducedMotion = quietMotion,
+		reducedMotion = softMotion,
 	}), React.createElement("frame", {
 		Size = if phone then UDim2.new(1, -68, 0, 132) else UDim2.new(1, -290, 1, 0),
 		Position = UDim2.fromOffset(if phone then 66 else 80, 0),

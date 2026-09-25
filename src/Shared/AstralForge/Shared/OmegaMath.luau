@@ -210,14 +210,39 @@ function OmegaMath.Pow(left: any, right: any): Persist
 	if a.s < 0 then
 		a = { z = false, s = 1, e = a.e }
 	end
-	if b.e >= LOG10_MAX then
-		return encode({ z = false, s = 1, e = HUGE_EXP })
+	-- Exponents are stored as log10. Rebuilding n as 10^log10(n) is exact for
+	-- small integers and drifts by whole units past ~2^48. That drift is then
+	-- multiplied by log10(base), so 1.72^9e15 was off by about 10^7. Keep the
+	-- historic round-trip while the induced log10 error stays under 1e-8
+	-- (levels the economy actually floors), and multiply by the original
+	-- finite exponent once the round-trip stops being that exponent.
+	local exponent: number
+	local roundTrip = b.s < 0 and -(10 ^ b.e) or (10 ^ b.e)
+	local useDirect = type(right) == "number" and isFinite(right)
+	if useDirect then
+		local direct = right :: number
+		local rebuilt = roundTrip
+		local drift = 0
+		if rebuilt ~= rebuilt or rebuilt == math.huge or rebuilt == -math.huge then
+			drift = math.huge
+		else
+			drift = math.abs(a.e * (rebuilt - direct))
+		end
+		exponent = if drift > 1e-8 then direct else rebuilt
+	else
+		if b.e >= LOG10_MAX then
+			return encode({ z = false, s = 1, e = HUGE_EXP })
+		end
+		exponent = roundTrip
 	end
-	local exponent = b.s < 0 and -(10 ^ b.e) or (10 ^ b.e)
 	if exponent ~= exponent or exponent == math.huge or exponent == -math.huge then
 		return encode({ z = false, s = 1, e = HUGE_EXP })
 	end
-	return encode({ z = false, s = 1, e = a.e * exponent })
+	local powered = a.e * exponent
+	if powered ~= powered or powered >= HUGE_EXP then
+		return encode({ z = false, s = 1, e = HUGE_EXP })
+	end
+	return encode({ z = false, s = 1, e = powered })
 end
 
 function OmegaMath.Max(left: any, right: any): Persist

@@ -76,7 +76,7 @@ local function CreditsOverlay(_param)
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
 	local reveal = composePresence(enter, exit)
-	-- Prefer softMotion stagger when antilag already wants quiet decoration.
+	-- Prefer reducedMotion stagger when antilag already wants quiet decoration.
 	local panelReveal = if softMotion then headerReveal else reveal
 	local listReveal = if softMotion then rolesReveal else reveal
 	local thanksSoft = softMotion or thanksReveal == nil or closingReveal == nil or brandReveal == nil
@@ -138,7 +138,7 @@ local function CreditsOverlay(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(job)
+			pcall(task.cancel, job)
 		end
 	end, {})
 	local _exp = React.createElement("imagebutton", {

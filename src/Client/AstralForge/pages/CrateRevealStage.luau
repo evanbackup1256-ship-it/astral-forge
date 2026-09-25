@@ -1001,11 +1001,13 @@ local function ResultPanel(_param)
 	local props = _param.props
 	local layout = _param.layout
 	local visible = props.phase == "land" or props.phase == "done" or props.phase == "exit"
-	if not visible then return nil end
-
-	-- animated accent underline that grows in on reveal
+	-- Hooks stay above the visibility return. This panel is not the live overlay,
+	-- but mounting it across phases used to skip useBinding/useEffect.
 	local accentLineWidth, setAccentLineWidth = React.useBinding(0)
 	React.useEffect(function()
+		if not visible then
+			return nil
+		end
 		local start = os.clock()
 		local dur = 0.55
 		local conn = RunService.RenderStepped:Connect(function()
@@ -1013,7 +1015,8 @@ local function ResultPanel(_param)
 			setAccentLineWidth(easeOutBack(t))
 		end)
 		return function() conn:Disconnect() end
-	end, { props.winnerName })
+	end, { props.winnerName, visible })
+	if not visible then return nil end
 
 	return React.createElement("frame", {
 		Size = layout.resultSize,
@@ -1102,7 +1105,7 @@ local function CrateRevealStage(props)
 	-- Canonical softMotion antilag gate — shimmer/halo/ambient drop on soft tiers.
 	local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	local reducedMotion = softMotion
-	local allowAmbient = not softMotion and props.allowAmbient ~= false and antilag.allowAmbient
+	local allowAmbient = not reducedMotion and props.allowAmbient ~= false and antilag.allowAmbient
 	local actionHostRef = React.useRef(nil)
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
@@ -1123,7 +1126,7 @@ local function CrateRevealStage(props)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { props.phase })
 	local dimmer = props.visualShow:map(function(amount)
@@ -1134,7 +1137,7 @@ local function CrateRevealStage(props)
 	end)
 	local showingClaim = props.phase == "done" or props.phase == "exit"
 
-	-- Fold softMotion into downstream props without mutating the caller table.
+	-- Fold reducedMotion into downstream props without mutating the caller table.
 	local stageProps = table.clone(props)
 	stageProps.reducedMotion = reducedMotion
 	stageProps.allowAmbient = allowAmbient
@@ -1216,7 +1219,7 @@ local function CrateRevealStage(props)
 				textColor = Palette.creamSoft,
 				outline = true,
 				size = UDim2.fromScale(1, 1),
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				selectable = true,
 			})),
 			-- CLAIM button (after land)
@@ -1242,7 +1245,7 @@ local function CrateRevealStage(props)
 				color = props.sessionAccent,
 				textColor = Palette.ink,
 				size = UDim2.fromScale(1, 1),
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				highlight = true,
 				selectable = true,
 				disabled = props.phase == "exit",

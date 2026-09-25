@@ -32,9 +32,16 @@ local function hugSpinnerContent(host)
 		if layout == nil then
 			continue
 		end
-		child.AutomaticSize = Enum.AutomaticSize.X
-		child.Size = UDim2.new(0, 0, 1, 0)
-		child.ClipsDescendants = true
+		if child.AutomaticSize ~= Enum.AutomaticSize.X then
+			child.AutomaticSize = Enum.AutomaticSize.X
+		end
+		local hug = UDim2.new(0, 0, 1, 0)
+		if child.Size ~= hug then
+			child.Size = hug
+		end
+		if not child.ClipsDescendants then
+			child.ClipsDescendants = true
+		end
 		return layout
 	end
 	return nil
@@ -132,25 +139,32 @@ local function sanitizeValue(value, decimals)
 	local factor = 10 ^ decimals
 	return math.floor(capped * factor + (if capped >= 0 then 0.5 else -0.5)) / factor
 end
-local function spinDisplay(raw, extraSuffix)
+local function spinDisplay(raw, extraSuffix, spacedSuffix)
 	local parts = compactSpinParts(raw)
+	local lead = if spacedSuffix and parts.suffix ~= "" then " " else ""
 	return {
 		value = parts.value,
-		suffix = `{parts.suffix}{extraSuffix}`,
+		suffix = `{lead}{parts.suffix}{extraSuffix}`,
 		decimals = parts.decimals,
 		band = parts.suffix,
 	}
 end
-local function formatRawLabel(value, prefix, extraSuffix)
-	local display = spinDisplay(value, extraSuffix)
+local function formatRawLabel(value, prefix, extraSuffix, spacedSuffix)
+	local display = spinDisplay(value, extraSuffix, spacedSuffix)
 	local amount = sanitizeValue(display.value, display.decimals)
 	local abs = math.abs(amount)
 	local body = string.format(if display.decimals <= 0 then "%.0f" elseif display.decimals == 1 then "%.1f" else "%.2f", abs)
 	return `{prefix}{if amount < 0 then "-" else ""}{body}{display.suffix}`
 end
 local function applyChrome(spinner, opts)
-	spinner.Duration = opts.duration
-	spinner.Decimals = opts.decimals
+	-- Duration and Decimals both call Spinner:Update, which reassigns every digit.
+	-- Skip them when they already match so a value push is not a second roll.
+	if spinner.Duration ~= opts.duration then
+		spinner.Duration = opts.duration
+	end
+	if spinner.Decimals ~= opts.decimals then
+		spinner.Decimals = opts.decimals
+	end
 	spinner.Prefix = opts.prefix
 	spinner.Suffix = opts.suffix
 	spinner.TextSize = opts.size
@@ -163,7 +177,10 @@ local function applyChrome(spinner, opts)
 	spinner.ClipsDescendants = true
 end
 local function setDigitTracking(spinner, scale, gap)
-	spinner.Layout.Padding = UDim.new(0, math.clamp(math.floor(gap), -3, 6))
+	local padding = UDim.new(0, math.clamp(math.floor(gap), -3, 6))
+	if spinner.Layout.Padding ~= padding then
+		spinner.Layout.Padding = padding
+	end
 	if scale >= 0.995 then
 		return nil
 	end
@@ -173,7 +190,10 @@ local function setDigitTracking(spinner, scale, gap)
 		if not child:IsA("Frame") or child.Name ~= "digit" then
 			continue
 		end
-		child.Size = UDim2.fromOffset(width, child.Size.Y.Offset)
+		local nextSize = UDim2.fromOffset(width, child.Size.Y.Offset)
+		if child.Size ~= nextSize then
+			child.Size = nextSize
+		end
 	end
 end
 local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand, motionScale)
@@ -199,7 +219,9 @@ local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand, motio
 	if mantJump >= 8 then
 		return 0.24 * scale
 	end
-	return math.clamp(base * 0.62 * scale, 0.26, 0.48)
+	-- Digit.luau fake-spins an unchanged digit when Duration is at least 0.34.
+	-- That module is shared, not client-owned, so small rolls stay under the snap cutoff.
+	return math.clamp(base * 0.62 * scale, 0.26, 0.33)
 end
 local VELOCITY_TICK_HZ = 5
 local VELOCITY_TICK_DT = 1 / VELOCITY_TICK_HZ
@@ -221,6 +243,10 @@ local function NumberSpinnerHost(_param)
 	local extraSuffix = _param.extraSuffix
 	if extraSuffix == nil then
 		extraSuffix = ""
+	end
+	local spacedSuffix = _param.spacedSuffix
+	if spacedSuffix == nil then
+		spacedSuffix = false
 	end
 	local _decimals = _param.decimals
 	if _decimals == nil then
@@ -291,6 +317,7 @@ local function NumberSpinnerHost(_param)
 		duration = duration,
 		prefix = prefix,
 		extraSuffix = extraSuffix,
+		spacedSuffix = spacedSuffix,
 		size = size,
 		color = color,
 		align = align,
@@ -302,10 +329,18 @@ local function NumberSpinnerHost(_param)
 	local motionScaleRef = React.useRef(motionScale)
 	motionScaleRef.current = motionScale
 	local live, setLive = React.useState(false)
-	local label = formatRawLabel(value, prefix, extraSuffix)
+	local label = formatRawLabel(value, prefix, extraSuffix, spacedSuffix)
 	local contentWidth, setContentWidth = React.useState(function()
 		return estimateLabelWidth(label, size)
 	end)
+	local contentWidthRef = React.useRef(contentWidth)
+	local quietChromeRef = React.useRef({
+		size = nil,
+		color = nil,
+		align = nil,
+		prefix = nil,
+		suffix = nil,
+	})
 	targetRef.current = value
 	velocityRef.current = velocity
 	autoWidthRef.current = autoWidth
@@ -313,6 +348,7 @@ local function NumberSpinnerHost(_param)
 		duration = duration,
 		prefix = prefix,
 		extraSuffix = extraSuffix,
+		spacedSuffix = spacedSuffix,
 		size = size,
 		color = color,
 		align = align,
@@ -321,7 +357,7 @@ local function NumberSpinnerHost(_param)
 	}
 	local pulseAccent = React.useCallback(function(spinner, base)
 		if pulseResetRef.current ~= nil then
-			task.cancel(pulseResetRef.current)
+			pcall(task.cancel, pulseResetRef.current)
 		end
 		spinner.TextColor3 = lighten(base, 0.48)
 		pulseResetRef.current = task.delay(0.18, function()
@@ -334,7 +370,7 @@ local function NumberSpinnerHost(_param)
 	end, {})
 	local destroySpinner = React.useCallback(function()
 		if pulseResetRef.current ~= nil then
-			task.cancel(pulseResetRef.current)
+			pcall(task.cancel, pulseResetRef.current)
 			pulseResetRef.current = nil
 		end
 		local spinner = spinnerRef.current
@@ -367,8 +403,38 @@ local function NumberSpinnerHost(_param)
 	end, {})
 	local pushDisplay = React.useCallback(function(spinner, raw, roll, pulse)
 		local style = styleRef.current
-		local display = spinDisplay(raw, style.extraSuffix)
+		local display = spinDisplay(raw, style.extraSuffix, style.spacedSuffix)
 		local mantissa = sanitizeValue(display.value, display.decimals)
+		local prevMantissa = lastMantissaRef.current
+		local bandChanged = lastBandRef.current ~= display.band
+		lastRawRef.current = raw
+		-- Duration/Decimals/Value all call Spinner:Update, which reassigns every digit.
+		-- An unchanged mantissa still rolls when Duration is >= 0.34, so identical
+		-- production ticks must not touch those props.
+		if prevMantissa == mantissa and not bandChanged then
+			local quiet = quietChromeRef.current
+			if quiet.size ~= style.size then
+				spinner.TextSize = style.size
+				quiet.size = style.size
+			end
+			if quiet.color ~= style.color then
+				spinner.TextColor3 = style.color
+				quiet.color = style.color
+			end
+			if quiet.align ~= style.align then
+				spinner.TextXAlignment = style.align
+				quiet.align = style.align
+			end
+			if quiet.prefix ~= style.prefix then
+				spinner.Prefix = style.prefix
+				quiet.prefix = style.prefix
+			end
+			if quiet.suffix ~= style.suffix then
+				spinner.Suffix = style.suffix
+				quiet.suffix = style.suffix
+			end
+			return nil
+		end
 		applyChrome(spinner, {
 			duration = roll,
 			decimals = display.decimals,
@@ -378,17 +444,17 @@ local function NumberSpinnerHost(_param)
 			color = style.color,
 			align = style.align,
 		})
-		local prevMantissa = lastMantissaRef.current
-		local bandChanged = lastBandRef.current ~= display.band
-		lastRawRef.current = raw
 		lastBandRef.current = display.band
-		if prevMantissa ~= mantissa or bandChanged then
-			spinner.Value = mantissa
-			setDigitTracking(spinner, style.digitWidthScale, style.digitGap)
-			lastMantissaRef.current = mantissa
-			if pulse and prevMantissa ~= nil then
-				pulseAccent(spinner, style.color)
-			end
+		quietChromeRef.current.size = style.size
+		quietChromeRef.current.color = style.color
+		quietChromeRef.current.align = style.align
+		quietChromeRef.current.prefix = style.prefix
+		quietChromeRef.current.suffix = style.suffix
+		spinner.Value = mantissa
+		setDigitTracking(spinner, style.digitWidthScale, style.digitGap)
+		lastMantissaRef.current = mantissa
+		if pulse and prevMantissa ~= nil then
+			pulseAccent(spinner, style.color)
 		end
 	end, { pulseAccent })
 	local ensureSpinner = React.useCallback(function()
@@ -451,7 +517,7 @@ local function NumberSpinnerHost(_param)
 			hugSpinnerContent(host)
 		end
 		local initialRaw = targetRef.current
-		local display = spinDisplay(initialRaw, style.extraSuffix)
+		local display = spinDisplay(initialRaw, style.extraSuffix, style.spacedSuffix)
 		applyChrome(spinner, {
 			duration = 0.08,
 			decimals = display.decimals,
@@ -493,10 +559,10 @@ local function NumberSpinnerHost(_param)
 		return function()
 			cancelled = true
 			if mountJob ~= nil then
-				task.cancel(mountJob)
+				pcall(task.cancel, mountJob)
 			end
 			if retryJob ~= nil then
-				task.cancel(retryJob)
+				pcall(task.cancel, retryJob)
 			end
 			mountJob = nil
 			retryJob = nil
@@ -520,8 +586,8 @@ local function NumberSpinnerHost(_param)
 				return nil
 			end
 		end
-		local fromBand = if previous ~= nil then spinDisplay(previous, style.extraSuffix).band else ""
-		local toBand = spinDisplay(value, style.extraSuffix).band
+		local fromBand = if previous ~= nil then spinDisplay(previous, style.extraSuffix, style.spacedSuffix).band else ""
+		local toBand = spinDisplay(value, style.extraSuffix, style.spacedSuffix).band
 		local roll = if previous ~= nil then rollDurationForJump(style.duration, previous, value, fromBand, toBand, motionScaleRef.current) else 0.08
 		velocitySnapRef.current = false
 		local jump = if previous ~= nil then math.abs(value - previous) else 0
@@ -563,7 +629,7 @@ local function NumberSpinnerHost(_param)
 					displayRaw = ceiling
 				end
 				local style = styleRef.current
-				local compact = spinDisplay(displayRaw, style.extraSuffix)
+				local compact = spinDisplay(displayRaw, style.extraSuffix, style.spacedSuffix)
 				local mantissa = sanitizeValue(compact.value, compact.decimals)
 				if mantissa == lastMantissaRef.current and compact.band == lastBandRef.current then
 					lastRawRef.current = displayRaw
@@ -591,7 +657,7 @@ local function NumberSpinnerHost(_param)
 		end)
 		return function()
 			alive = false
-			task.cancel(worker)
+			pcall(task.cancel, worker)
 		end
 	end, { ensureSpinner, live, reducedMotion, velocity })
 	React.useEffect(function()
@@ -599,7 +665,9 @@ local function NumberSpinnerHost(_param)
 			return nil
 		end
 		if reducedMotion or not live then
-			setContentWidth(estimateLabelWidth(label, size))
+			local estimated = estimateLabelWidth(label, size)
+			contentWidthRef.current = estimated
+			setContentWidth(estimated)
 			return nil
 		end
 		local host = hostRef.current
@@ -629,13 +697,12 @@ local function NumberSpinnerHost(_param)
 				layoutConnection = layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(sync)
 			end
 			local measured = math.ceil(layout.AbsoluteContentSize.X) + AUTO_WIDTH_PAD
-			if measured > AUTO_WIDTH_PAD then
-				setContentWidth(function(current)
-					return math.max(current, measured)
-				end)
+			if measured > AUTO_WIDTH_PAD and measured > contentWidthRef.current then
+				contentWidthRef.current = measured
+				setContentWidth(measured)
 			end
 			if settleJob ~= nil then
-				task.cancel(settleJob)
+				pcall(task.cancel, settleJob)
 			end
 			settleJob = task.delay(0.24, function()
 				settleJob = nil
@@ -643,7 +710,8 @@ local function NumberSpinnerHost(_param)
 					return nil
 				end
 				local settled = math.ceil(boundLayout.AbsoluteContentSize.X) + AUTO_WIDTH_PAD
-				if settled > AUTO_WIDTH_PAD then
+				if settled > AUTO_WIDTH_PAD and settled ~= contentWidthRef.current then
+					contentWidthRef.current = settled
 					setContentWidth(settled)
 				end
 			end)
@@ -654,7 +722,7 @@ local function NumberSpinnerHost(_param)
 		return function()
 			cancelled = true
 			if settleJob ~= nil then
-				task.cancel(settleJob)
+				pcall(task.cancel, settleJob)
 			end
 			local _result = layoutConnection
 			if _result ~= nil then
@@ -669,7 +737,9 @@ local function NumberSpinnerHost(_param)
 		if not autoWidth or (not reducedMotion and live) then
 			return nil
 		end
-		setContentWidth(estimateLabelWidth(label, size))
+		local estimated = estimateLabelWidth(label, size)
+		contentWidthRef.current = estimated
+		setContentWidth(estimated)
 	end, { autoWidth, label, live, reducedMotion, size })
 	local height = if sizeConstraint.Y.Offset > 0 then sizeConstraint.Y.Offset else size + 8
 	local frameSize = if autoWidth then UDim2.fromOffset(math.max(1, contentWidth), height) else sizeConstraint

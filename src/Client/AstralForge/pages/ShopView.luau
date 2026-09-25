@@ -394,7 +394,7 @@ local function ShopView(_param)
 	end
 	local clearFailsafe = function()
 		if failsafe.current ~= nil then
-			task.cancel(failsafe.current)
+			pcall(task.cancel, failsafe.current)
 			failsafe.current = nil
 		end
 	end
@@ -421,7 +421,8 @@ local function ShopView(_param)
 		setPurchaseDetail(nil)
 		clearFailsafe()
 		failsafe.current = task.delay(seconds, function()
-			if sessionRef.current ~= session then
+			failsafe.current = nil
+			if not mountedRef.current or sessionRef.current ~= session then
 				return nil
 			end
 			setPurchasePhase("fail")
@@ -700,6 +701,9 @@ local function ShopView(_param)
 		setFollowBusy(true)
 		setFollowFeedback(`Checking your follow for @{creatorName}…`)
 		dispatch("VerifyCreatorFollow", {}, function(response)
+			if not mountedRef.current then
+				return nil
+			end
 			setFollowBusy(false)
 			local _result_3
 			if response.ok then
@@ -818,7 +822,7 @@ local function ShopView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { tab, purchasePhase, listCount, redeemDisabled })
 	local heroPanel = React.createElement(Panel, {
@@ -1119,7 +1123,7 @@ local function ShopView(_param)
 							onClick = function()
 								return promptProduct(product)
 							end,
-							reducedMotion = softMotion,
+							reducedMotion = reducedMotion,
 							packed = true,
 						}))
 					end
@@ -1134,7 +1138,7 @@ local function ShopView(_param)
 			body = "Nothing listed in this tab right now.",
 			accent = Palette.mango,
 			layoutOrder = 0,
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		}),
 	})
 	local sections = {
@@ -1171,7 +1175,7 @@ local function ShopView(_param)
 				background = Palette.panel,
 				padding = 0,
 				reveal = catalogReveal,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				clips = false,
 			}, offerList),
 		})
@@ -1191,7 +1195,7 @@ local function ShopView(_param)
 		sections = sections,
 	}), React.createElement(PurchaseOverlay, {
 		phase = purchasePhase,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		detail = purchaseDetail,
 		onDismiss = dismissPurchase,
 	}))

@@ -78,7 +78,7 @@ local function PrankCard(_param)
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
 		position = UDim2.new(0, 0, 1, -TapTarget),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = true,
 	})))
 end
@@ -146,7 +146,6 @@ local function AdminPrankOverlay(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — AdminPrankOverlay.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local onClose = _param.onClose
 	local kind = prank.kind
 	local viewport = useViewport()
@@ -201,7 +200,7 @@ local function AdminPrankOverlay(_param)
 	local washColor = wash:map(function(alpha)
 		return Color3.fromHSV(alpha, if kind == "RainbowHud" then 0.55 else 0.88, 1)
 	end)
-	local loadSpin = useRotation(kind == "LoadingForever" and not reducedMotion, 240)
+	local loadSpin = useRotation(kind == "LoadingForever" and not softMotion, 240)
 	local caption = if prank.caption ~= nil and prank.caption ~= "" then prank.caption else "CLOWN"
 	local stageOnly = HUD_STAGE_KINDS[kind] ~= nil
 	local blind = kind == "Blind"
@@ -277,7 +276,7 @@ local function AdminPrankOverlay(_param)
 		action = "DECLINE JOKE",
 		accent = Palette.cyan,
 		height = 268,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = onClose,
 	}), fakeRob and React.createElement(PrankCard, {
 		title = "WALLET COMPROMISED",
@@ -285,7 +284,7 @@ local function AdminPrankOverlay(_param)
 		action = "RECOVER",
 		accent = Palette.coral,
 		height = 268,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = onClose,
 	}), update and React.createElement(PrankCard, {
 		title = "UPDATE REQUIRED",
@@ -293,7 +292,7 @@ local function AdminPrankOverlay(_param)
 		action = "REMIND ME NEVER",
 		accent = Palette.mango,
 		height = 268,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = onClose,
 	}), confetti and React.createElement(React.Fragment, nil, React.createElement(ConfettiBits), React.createElement(Text, {
 		value = "CONFETTI TAX",
@@ -385,7 +384,7 @@ local function AdminPrankOverlay(_param)
 		textColor = Color3.fromRGB(0, 94, 184),
 		size = UDim2.new(0.36, 0, 0, 44),
 		position = UDim2.new(0, 40, 0, 290),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		highlight = true,
 	})), battery and React.createElement(React.Fragment, nil, React.createElement("frame", {
 		Size = UDim2.new(0.72, 0, 0, 18),
@@ -459,7 +458,7 @@ local function AdminPrankOverlay(_param)
 		action = "CLOSE",
 		accent = Palette.violet,
 		height = 248,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = onClose,
 	}))
 end

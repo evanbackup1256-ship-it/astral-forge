@@ -1,4 +1,7 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local reactModules = require(script.Parent.reactModules)
+local useLatestCallback = reactModules.useLatestCallback
+local notePage = require(script.Parent.vendorHost).notePage
 local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
@@ -43,6 +46,7 @@ local gteFlux = _format.gteFlux
 local CreditsOverlay = require(script.Parent.pages.CreditsView).CreditsOverlay
 local CrateRevealOverlay = require(script.Parent.pages.CrateRevealOverlay).CrateRevealOverlay
 local PageContent = require(script.Parent.pages.PageRouter).PageContent
+local PageFrame = require(script.Parent.reactHost).PageFrame
 local useGameChat = require(script.Parent.chat).useGameChat
 local _appNav = require(script.Parent.appNav)
 local AppHelpers = _appNav.AppHelpers
@@ -62,6 +66,8 @@ local ClientLog = require(script.Parent.log).ClientLog
 local _session = require(script.Parent.session)
 local setPresencePage = _session.setPresencePage
 local Audio = require(script.Parent.audio).Audio
+local SplitCurtain = require(script.Parent.sanctuaryChrome).SplitCurtain
+local SanctuaryPresence = require(script.Parent.sanctuaryPresence)
 local _onboarding = require(script.Parent.onboarding)
 local ReleaseNotesModal = _onboarding.ReleaseNotesModal
 local TutorialOverlay = _onboarding.TutorialOverlay
@@ -78,65 +84,65 @@ local pausePassivePaints = {
 	current = false,
 }
 local TUTORIAL_STEPS = { {
-	title = "This is your forge",
-	goal = "Look at the vault",
-	body = "Machines make Flux on their own. It piles up in the Vault until you cash it out. A full vault stops making money.",
-	hint = "The green number is what you've stored.",
-	controls = "Tap CONTINUE  ·  Xbox: A",
+	title = "Machines earn while you play",
+	goal = "See your vault",
+	body = "Machines pour Flux into the vault. Collect it to get cash you can spend.",
+	hint = "The big number is Flux stored right now.",
+	controls = "Tap Continue  ·  Xbox: A",
 	page = "Overview",
 	watch = "vault",
 }, {
-	title = "Cash it out",
+	title = "Collect turns Flux into cash",
 	goal = "Collect the vault",
-	body = "Collect turns stored Flux into cash you can spend. Empty it often — a full vault wastes production.",
-	hint = "Use COLLECT VAULT below, or the green Collect button on this page.",
+	body = "Collect now. A full vault stops earning, so empty it often.",
+	hint = "Tap Collect stored Flux on this page.",
 	controls = "Keyboard: E   ·   Xbox: Y",
 	page = "Overview",
 	cta = "collect",
-	ctaLabel = "COLLECT VAULT",
+	ctaLabel = "Collect stored Flux",
 	watch = "collect",
 }, {
-	title = "Buy a machine",
+	title = "Buy a machine to earn more",
 	goal = "Buy Stellar Core",
-	body = "Open Workshop and buy Stellar Core. That's your first income. Each level makes more Flux per second.",
-	hint = "If Buy is grey, collect the vault first, then come back.",
+	body = "Buy Stellar Core in Workshop. Each level adds Flux per second.",
+	hint = "If the button is grey, collect the vault first.",
 	controls = "Xbox: A opens Workshop",
 	page = "Workshop",
 	cta = "workshop",
-	ctaLabel = "OPEN WORKSHOP",
+	ctaLabel = "Open Workshop",
 	watch = "buy",
 }, {
-	title = "Buy faster",
-	goal = "Try x5 or MAX",
-	body = "x1 buys one level. x5 buys five. MAX spends what you can afford and never overspends.",
-	hint = "Stay on x1 until prices make sense.",
-	controls = "Xbox: LT / RT changes buy amount",
+	title = "Buy several levels at once",
+	goal = "Try x5 or Max",
+	body = "x1 buys one level. x5 buys five. Max buys what you can afford.",
+	hint = "Stay on x1 until the prices make sense.",
+	controls = "Xbox: LT / RT changes the buy amount",
 	page = "Workshop",
 	watch = "amount",
 }, {
-	title = "Research never resets",
+	title = "Research stays after rebirth",
 	goal = "Open Research",
-	body = "Research bonuses survive rebirth. Buy the lit nodes in order. Grey nodes tell you what's missing.",
-	hint = "If Research is locked, skip this — it unlocks after a little play.",
+	body = "Buy the lit bonuses in order. They stay when you rebirth.",
+	hint = "If Research is locked, earn 100 Flux total, or skip — it opens after a little play.",
 	controls = "Xbox: A opens Research",
 	page = "Research",
 	cta = "research",
-	ctaLabel = "OPEN RESEARCH",
+	ctaLabel = "Open Research",
 	watch = "research",
 }, {
-	title = "Rebirth for cores",
+	title = "Rebirth trades machines for Cores",
 	goal = "Read the rebirth panel",
-	body = "When you're ready, rebirth trades this run's machines for Cores. Research, relics, and Stardust stay. Cores make the next run stronger.",
-	hint = "Don't rush it. Overview shows the payout before you confirm.",
-	controls = "Tap CONTINUE when you've read the panel",
+	body = "Rebirth resets machines and pays Cores. Research stays. The next run is stronger.",
+	hint = "Overview shows the Core payout before you confirm.",
+	controls = "Tap Continue when you've read the panel",
 	page = "Overview",
 	watch = "rebirth",
 }, {
-	title = "You're set",
+	title = "Come back and collect",
 	goal = "Finish the guide",
-	body = "That's the loop: collect, buy machines, research, rebirth. Everything else unlocks as you play. Replay this anytime from Settings → GUIDE.",
-	hint = "You get a small Flux bonus for finishing.",
-	controls = "Tap FINISH  ·  Xbox: A",
+	body = "Collect, buy machines, research, rebirth. You keep earning while you're away.",
+	hint = "Finishing pays a small Flux bonus. Replay this from Settings, then Guide.",
+	controls = "Tap Finish  ·  Xbox: A",
 	page = "Overview",
 	watch = "finish",
 } }
@@ -162,6 +168,7 @@ local function AppShell(_param)
 	local setToastsSuppressed = _param.setToastsSuppressed
 	local setPurchasePresentationActive = _param.setPurchasePresentationActive
 	local crateReveal, setCrateReveal = React.useState()
+	local pageHostRef = React.useRef(nil)
 	local cinematicOpen = crateReveal ~= nil or domainOverlayActive
 	React.useEffect(function()
 		pausePassivePaints.current = cinematicOpen
@@ -207,6 +214,34 @@ local function AppShell(_param)
 	end, { drawerNav })
 	local arcadeBusy, setArcadeBusy = React.useState(false)
 	local hidden, setHidden = React.useState(false)
+	local sanctuaryOpen, setSanctuaryOpen = React.useState(false)
+	local riftOpen, setRiftOpen = React.useState(false)
+	local sanctuaryOpenRef = React.useRef(false)
+	sanctuaryOpenRef.current = sanctuaryOpen
+	local blockSanctuaryRef = React.useRef(false)
+	local dispatchRef = React.useRef(dispatch)
+	dispatchRef.current = dispatch
+	React.useEffect(function()
+		if not sanctuaryOpen then
+			return nil
+		end
+		local call = function(action, payload, callback)
+			return dispatchRef.current(action, payload, callback)
+		end
+		local token = SanctuaryPresence.enter(call, function()
+			setRiftOpen(false)
+			setSanctuaryOpen(false)
+		end, function()
+			setRiftOpen(false)
+			setSanctuaryOpen(false)
+		end, function()
+			setRiftOpen(true)
+		end)
+		return function()
+			setRiftOpen(false)
+			SanctuaryPresence.leave(call, token)
+		end
+	end, { sanctuaryOpen })
 	local buyAmount, setBuyAmount = React.useState(1)
 	local chat = useGameChat(page == "Chat", true)
 	local offlineReceiptKey = if state.Offline ~= nil and state.Offline.Seconds >= 30 then `{math.floor(state.Offline.Seconds)}:{compactNumber(state.Offline.Reward)}` else ""
@@ -353,7 +388,7 @@ local function AppShell(_param)
 	end
 	local activeBoost = _result_2
 	local wallClock = useWallClock(activeBoost ~= nil)
-	local hideAmount = useFlipperSpring(if hidden then 1 else 0, reducedMotion, 620, 42)
+	local hideAmount = useFlipperSpring(if hidden then 1 else 0, softMotion, 620, 42)
 	-- The v2 mobile shell (chrome.stack) never uses the drawer/rail system at all — it has its
 	-- own fixed bottom tab bar (MobileTabBar) instead. The drawer/rail below only still applies
 	-- to the non-stack "touch + compact" case (e.g. a touch tablet in a window too wide to
@@ -361,7 +396,7 @@ local function AppShell(_param)
 	local mobileShell = chrome.stack
 	local drawerWidth = math.min(Layout.sidebarWidth, math.max(248, viewport.width - edgePad * 2 - 36))
 	local railTarget = if railOpen then (if drawerNav then drawerWidth else (if viewport.compact then Layout.sidebarCollapsedWidth else Layout.sidebarWidth)) else 0
-	local railWidth = useFlipperSpring(if mobileShell then 0 else railTarget, reducedMotion, 900, 46)
+	local railWidth = useFlipperSpring(if mobileShell then 0 else railTarget, softMotion, 900, 46)
 	local drawerProgress = railWidth:map(function(width)
 		return if drawerNav then math.clamp(width / math.max(drawerWidth, 1), 0, 1) else 0
 	end)
@@ -412,6 +447,7 @@ local function AppShell(_param)
 		end
 	end, { state.Flags.LastSeenVersion })
 	local showRelease = state.Flags.TutorialDone and state.Flags.LastSeenVersion ~= config.Game.Version and not releaseClosedLocally
+	blockSanctuaryRef.current = tutorialOpen or showRelease or crateReveal ~= nil or domainOverlayActive
 	local _condition_4 = offlineReceiptKey ~= "" and not offlineDismissed and state.Flags.TutorialDone
 	if _condition_4 then
 		local _result_3 = state.Offline
@@ -435,24 +471,34 @@ local function AppShell(_param)
 			return setToastsSuppressed(false)
 		end
 	end, { modalOwnsScreen, setToastsSuppressed })
-	React.useEffect(function()
-		if domainOverlayActive or showRelease or tutorialOpen then
+	reactModules.useEventListener(UserInputService.InputBegan, function(input, processed)
+		if UserInputService:GetFocusedTextBox() ~= nil then
 			return nil
 		end
-		local connection = UserInputService.InputBegan:Connect(function(input, processed)
-			if processed or UserInputService:GetFocusedTextBox() ~= nil then
-				return nil
-			end
-			if input.KeyCode == Enum.KeyCode.Backquote then
-				setHidden(function(current)
-					return not current
-				end)
-			end
-		end)
-		return function()
-			return connection:Disconnect()
+		if input.KeyCode == Enum.KeyCode.LeftAlt then
+			setHidden(false)
+			setSanctuaryOpen(function(current)
+				if current then
+					return false
+				end
+				if blockSanctuaryRef.current then
+					return false
+				end
+				return true
+			end)
+			return nil
 		end
-	end, { domainOverlayActive, showRelease, tutorialOpen })
+		if processed or sanctuaryOpenRef.current then
+			return nil
+		end
+		if input.KeyCode == Enum.KeyCode.Backquote then
+			setHidden(function(current)
+				return not current
+			end)
+		end
+	end, {
+		connected = not domainOverlayActive and not showRelease and not tutorialOpen,
+	})
 	local navigate = function(pageId)
 		local entry = AppHelpers:pageEntry(pageId)
 		if entry.disabled == true then
@@ -494,6 +540,13 @@ local function AppShell(_param)
 			if _condition_6 == nil then
 				_condition_6 = "Not unlocked yet."
 			end
+			if pageId == "Research" then
+				_exp_1 = "Research unlocks later"
+				_condition_6 = "Earn 100 Flux in total — collect your vault. Bonuses you buy here stay after rebirth."
+			elseif pageId == "Workshop" then
+				_exp_1 = "Workshop is where you buy machines"
+				_condition_6 = "A machine earns Flux into your vault every second. Collect that, then buy the next level."
+			end
 			addNotice(_exp_1, _condition_6, "Info")
 			return nil
 		end
@@ -519,9 +572,10 @@ local function AppShell(_param)
 	tutorialPageRef.current = _result_4
 	local navigateRef = React.useRef(navigate)
 	navigateRef.current = navigate
-	local navigateStable = React.useCallback(function(pageId)
+	local navigateStable = useLatestCallback(function(pageId)
+		notePage(pageId)
 		return navigateRef.current(pageId)
-	end, {})
+	end)
 	local openWorkshop = React.useCallback(function()
 		return navigateRef.current("Workshop")
 	end, {})
@@ -990,6 +1044,13 @@ local function AppShell(_param)
 			setFeedbackOpen(false)
 			setPlayerlistOpen(true)
 		end,
+		openSanctuary = function()
+			if blockSanctuaryRef.current then
+				return nil
+			end
+			setHidden(false)
+			setSanctuaryOpen(true)
+		end,
 	})
 	local _condition_17 = not keyboardShellCompact and not mobileShell
 	if _condition_17 then
@@ -1025,6 +1086,13 @@ local function AppShell(_param)
 			setPlayerlistOpen(false)
 			setFeedbackOpen(true)
 		end
+		_attributes.openSanctuary = function()
+			if blockSanctuaryRef.current then
+				return nil
+			end
+			setHidden(false)
+			setSanctuaryOpen(true)
+		end
 		_condition_17 = React.createElement(TopBar, _attributes)
 	end
 	-- Desktop MoreDock removed: secondary nav is in the sidebar via includeSecondary.
@@ -1042,14 +1110,17 @@ local function AppShell(_param)
 		page = page,
 		state = state,
 		dispatch = dispatch,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
+	}, React.createElement(PageFrame, {
+		page = page,
+		ref = pageHostRef,
 	}, React.createElement(PageContent, {
 		key = page,
 		page = page,
 		state = state,
 		config = config,
 		dispatch = dispatch,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		domainOverlayActive = domainOverlayActive,
 		openWorkshop = openWorkshop,
 		openDomain = openDomain,
@@ -1068,7 +1139,7 @@ local function AppShell(_param)
 		navigate = navigateStable,
 		setArcadeBusy = setArcadeBusy,
 		setPurchasePresentationActive = setPurchasePresentationActive,
-	}))))
+	})))))
 	local _exp_7 = not mobileShell and drawerNav and React.createElement("imagebutton", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
@@ -1166,7 +1237,7 @@ local function AppShell(_param)
 			_result_11 = _result_11.page
 		end
 		_attributes.tutorialPage = _result_11
-		_attributes.reducedMotion = softMotion
+		_attributes.reducedMotion = reducedMotion
 		_attributes.height = tabBarH
 		_attributes.bottomSafe = chrome.bottomSafe
 		_attributes.visible = not keyboardShellCompact
@@ -1178,13 +1249,13 @@ local function AppShell(_param)
 	local _exp_9 = mobileShell and quickActionsVisible and React.createElement(MobileQuickActions, {
 		state = state,
 		dispatch = dispatch,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		bottomOffset = quickBottomOffset,
 		edgePad = edgePad,
 	})
 	local _exp_10 = not hidden and React.createElement(ComboBadge, {
 		readout = comboReadout,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		position = UDim2.new(1, -18, 0, topPad + topbarHeight + 8),
 		anchorPoint = Vector2.new(1, 0),
 		zIndex = 65,
@@ -1234,7 +1305,7 @@ local function AppShell(_param)
 		color = accent,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 	}))
 	local ownedMachines = 0
 	local machineTable = state.Machines
@@ -1255,7 +1326,7 @@ local function AppShell(_param)
 		count = #TUTORIAL_STEPS,
 		viewportWidth = viewport.width,
 		viewportHeight = viewport.height,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		live = {
 			page = page,
 			vault = compactNumber(state.Vault),
@@ -1354,7 +1425,7 @@ local function AppShell(_param)
 		history = config.Release.History,
 		viewportWidth = viewport.width,
 		viewportHeight = viewport.height,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = function()
 			setReleaseClosedLocally(true)
 			dispatch("DismissRelease")
@@ -1368,7 +1439,7 @@ local function AppShell(_param)
 	})
 	local _exp_16 = page == "Credits" and React.createElement(CreditsOverlay, {
 		version = state.Game.Version,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = function()
 			return navigate("Overview")
 		end,
@@ -1376,7 +1447,7 @@ local function AppShell(_param)
 	local _exp_17 = playerlistOpen and React.createElement(PlayerlistOverlay, {
 		state = state,
 		dispatch = dispatch,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = function()
 			return setPlayerlistOpen(false)
 		end,
@@ -1386,7 +1457,7 @@ local function AppShell(_param)
 	})
 	local _exp_18 = feedbackOpen and React.createElement(FeedbackOverlay, {
 		dispatch = dispatch,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = function()
 			return setFeedbackOpen(false)
 		end,
@@ -1461,7 +1532,7 @@ local function AppShell(_param)
 			_condition_30 = state.Vault
 		end
 		_attributes.vault = _condition_30
-		_attributes.reducedMotion = softMotion
+		_attributes.reducedMotion = reducedMotion
 		local _condition_31 = state.Settings.OfflineRewardEffects
 		if _condition_31 == nil then
 			_condition_31 = 1
@@ -1477,7 +1548,14 @@ local function AppShell(_param)
 	end
 	return React.createElement(AntilagContext.Provider, {
 		value = rootAntilag,
-	}, React.createElement(React.Fragment, nil, React.createElement("frame", {
+	}, React.createElement(React.Fragment, nil, React.createElement(SplitCurtain, {
+		open = riftOpen,
+		reducedMotion = reducedMotion,
+		onNavigate = function(pageId)
+			setSanctuaryOpen(false)
+			navigateStable(pageId)
+		end,
+	}, React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = hideAmount,
@@ -1486,12 +1564,12 @@ local function AppShell(_param)
 		Visible = not arcadeBusy and crateReveal == nil,
 	}, _exp_2, _exp_3, _exp_12, _exp_13, _exp_14, _condition_23, _exp_15, _exp_16, _exp_17, _exp_18, _condition_24, not bootChromeVisible and React.createElement(MobilePreviewGate, {
 		ack = state.Settings.MobilePreviewAck,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		dispatch = dispatch,
-	})), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
+	}))), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
 		session = crateReveal,
 		config = config,
-		reducedMotion = softMotion,
+		reducedMotion = reducedMotion,
 		onClose = function()
 			return setCrateReveal(nil)
 		end,

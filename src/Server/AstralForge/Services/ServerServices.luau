@@ -1747,8 +1747,7 @@ serviceFactories["GameService"] = function()
 			end
 		end
 
-		local purchased = false
-		local ok = self._data:AtomicUpdate(player, function(profile)
+		local ok, result = self._data:AtomicUpdate(player, function(profile)
 			local current = profile.AutoForge
 			if type(current) ~= "table" or current.Enabled ~= true or current.MachineId ~= machine.Id then
 				return responseError("Auto-Forge changed before purchase.")
@@ -1780,10 +1779,15 @@ serviceFactories["GameService"] = function()
 			ForgeEchoService.Record(profile, "Build", math.clamp(2 + count * 0.8, 2, 12))
 			enforceUnlimitedMoney(profile)
 			self._antiCheat:Observe(player, "AutoForge", profile)
-			purchased = true
 			return responseSuccess("Auto-Forge bought one machine level.")
 		end, true, "auto-forge")
-
+		if ok and type(result) == "table" and result.ok == true then
+			local profile = self._data:Get(player)
+			if profile then
+				self._world:RefreshPlot(player, profile)
+			end
+			self:_queueStatePush(player)
+		end
 	end
 
 	function GameService:_buyResearch(player: Player, researchId: any, requestedAmount: any?)
@@ -3882,6 +3886,9 @@ serviceFactories["GameService"] = function()
 			return self:_claimLabOrder(player, payload and payload.Id)
 		elseif action == Protocol.Actions.RouteLabPower then
 			return self:_routeLabPower(player, payload and payload.Channel, payload and payload.Delta)
+		elseif action == Protocol.Actions.LeaveSanctuary then
+			self._world:LeaveSanctuary(player)
+			return responseSuccess(nil)
 		end
 		return responseError("Unknown forge command.")
 	end
@@ -4595,9 +4602,27 @@ serviceFactories["GameService"] = function()
 				end
 				txnClaimed = true
 			end
-			local success, result = pcall(function()
-				return self:_handleAction(player, action, payload)
-			end)
+			local success, result
+			if action == Protocol.Actions.EnterSanctuary then
+				-- Handled outside the action pcall. LoadCharacter is not yieldable
+				-- on this invoke (pcall reports "Callbacks cannot yield" and the
+				-- character stays nil). EnterSanctuary moves that load to a
+				-- spawned thread and only returns once the avatar is placed.
+				success = true
+				local entered, spawnCFrame, cancelled = self._world:EnterSanctuary(player)
+				if entered then
+					result = responseSuccess(nil, if typeof(spawnCFrame) == "CFrame" then { Spawn = spawnCFrame } else nil)
+				elseif cancelled then
+					-- The player closed, or a newer enter took over. Not a failure toast.
+					result = responseSuccess(nil, { Closed = true })
+				else
+					result = responseError("The sanctuary rift is shut.")
+				end
+			else
+				success, result = pcall(function()
+					return self:_handleAction(player, action, payload)
+				end)
+			end
 			if not success then
 				if txnClaimed and txnId then
 					self._session:TxnRelease(player, txnId)

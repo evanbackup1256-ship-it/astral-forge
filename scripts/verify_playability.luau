@@ -273,7 +273,7 @@ do
 	do
 		local hostStart = string.find(mailbox, 'Name = "MailClaimActions"', 1, true)
 		assert(hostStart, "Mailbox MailClaimActions host missing")
-		local hostSlice = string.sub(mailbox, hostStart, hostStart + 280)
+		local hostSlice = string.sub(mailbox, hostStart, hostStart + 420)
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			"Mailbox MailClaimActions host must keep ClipsDescendants = false"

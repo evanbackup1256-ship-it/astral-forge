@@ -34,6 +34,7 @@ local contrastOn = _theme.contrastOn
 local ensureContrast = _theme.ensureContrast
 local chromeFor = _theme.chromeFor
 local surfaceGradient = _theme.surfaceGradient
+local strokeGradient = _theme.strokeGradient
 local TapTarget = _theme.TapTarget
 local _audio = require(script.Parent.audio)
 local Audio = _audio.Audio
@@ -71,13 +72,29 @@ local function Stroke(_param)
 	if transparency == nil then
 		transparency = 0
 	end
+	local gradientColor
+	if typeof(color) == "Color3" then
+		gradientColor = strokeGradient(color)
+	elseif type(color) == "table" and type(color.map) == "function" then
+		gradientColor = color:map(function(value)
+			if typeof(value) ~= "Color3" then
+				return strokeGradient(Palette.lineSoft)
+			end
+			return strokeGradient(value)
+		end)
+	else
+		gradientColor = strokeGradient(Palette.lineSoft)
+	end
 	return React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = color,
 		Thickness = thickness,
 		Transparency = transparency,
-	})
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = gradientColor,
+	}))
 end
 local MIN_UI_TEXT_SIZE = 10
 local BUTTON_LABEL_SIZE = 15
@@ -103,8 +120,12 @@ local function buttonContentWidth(label, hasIcon)
 	local textW = measureButtonLabel(label)
 	return if hasIcon then 10 + 22 + 8 + textW + 10 else 10 + textW + 10
 end
-local function buttonLabelWidth(label)
-	return measureButtonLabel(label)
+-- Layout guard turns overflow into TextScaled. Button labels stay one line and
+-- ellipsize; combining that with TextScaled makes the word shrink and clip.
+local function pinButtonLabel(instance)
+	if instance ~= nil then
+		instance:SetAttribute("LayoutGuardIgnore", true)
+	end
 end
 -- Soft glass-glint: narrow bright core with a long low-contrast tail. Peak stays
 -- above 0.12 so idle shimmer reads as light, not a strobe.
@@ -421,7 +442,7 @@ local function AutoHeightText(_param)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		TextWrapped = true,
 		LineHeight = 1.12,
-		TextTruncate = if maxHeight ~= nil then Enum.TextTruncate.AtEnd else Enum.TextTruncate.None,
+		TextTruncate = Enum.TextTruncate.None,
 		ZIndex = zIndex,
 		LayoutOrder = layoutOrder,
 	})
@@ -521,7 +542,7 @@ local function ShimmerText(_param)
 			TextXAlignment = align,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			TextScaled = true,
-			TextTruncate = Enum.TextTruncate.AtEnd,
+			TextTruncate = Enum.TextTruncate.None,
 			ZIndex = zIndex + 1,
 		}, shimmerConstraint, React.createElement("uigradient", {
 			Color = ColorSequence.new(Palette.white),
@@ -555,7 +576,7 @@ local function SectionLabel(_param)
 	local position = _param.position
 	local labelColor = ensureContrast(Palette.night, color)
 	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 22 + Layout.lineGap),
+		Size = UDim2.new(1, 0, 0, 22),
 		Position = position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -576,8 +597,7 @@ local function SectionLabel(_param)
 		size = 14,
 		color = labelColor,
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 14,
+		fit = false,
 		position = UDim2.fromOffset(30, 0),
 		sizeConstraint = UDim2.new(1, -38, 0, 22),
 	}))
@@ -1071,7 +1091,10 @@ local function Panel(_param)
 	end
 	local padding = _param.padding
 	if padding == nil then
-		padding = Layout.cardPadding
+		padding = 14
+	elseif padding > 16 then
+		-- Callers still pass 18–22 from Layout.cardPadding. Cap so cards share one inset.
+		padding = 16
 	end
 	local zIndex = _param.zIndex
 	if zIndex == nil then
@@ -1126,7 +1149,6 @@ local function Panel(_param)
 	local entranceMotion = interactionMotion or panelEntranceScale <= 0.02 or reveal ~= nil
 	local automaticReveal = useEntrance(entranceMotion)
 	local activeReveal = reveal or automaticReveal
-	local hoverStall = React.useRef(0)
 	React.useEffect(function()
 		if hovered then
 			setHoverArmed(true)
@@ -1177,7 +1199,7 @@ local function Panel(_param)
 		return amount > 0.04
 	end)
 	local hoverWashAlpha = lift:map(function(amount)
-		return if amount < 0.04 then 1 else 1 - amount * 0.38
+		return if amount < 0.04 then 1 else 1 - amount * 0.14
 	end)
 	local highlightWashVisible = highlightOn:map(function(amount)
 		return amount > 0.05
@@ -1201,11 +1223,6 @@ local function Panel(_param)
 		ClipsDescendants = false,
 		Event = if interactive then {
 			MouseEnter = function()
-				local now = os.clock()
-				if now - hoverStall.current < 0.1 then
-					return nil
-				end
-				hoverStall.current = now
 				setHovered(true)
 			end,
 			MouseLeave = function()
@@ -1213,9 +1230,9 @@ local function Panel(_param)
 			end,
 		} else {},
 	}, paintChrome and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 1, -3),
+		Size = UDim2.new(1, 8, 1, -1),
 		Position = surfaceY:map(function(y)
-			return UDim2.new(0, 0, 0, 3 + y)
+			return UDim2.new(0, -4, 0, 7 + y)
 		end),
 		BackgroundColor3 = Palette.shadow,
 		BackgroundTransparency = if revealFade ~= nil then revealFade:map(function(amount)
@@ -1224,7 +1241,7 @@ local function Panel(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, radius),
+		CornerRadius = UDim.new(0, radius + 2),
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = if paintChrome then surfaceY:map(function(y)
@@ -1238,9 +1255,18 @@ local function Panel(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	}), React.createElement("uigradient", {
-		Color = surfaceGradient(background, 0.7),
+		Color = surfaceGradient(background, 0.92),
 		Rotation = 90,
-	}), stroke and React.createElement("frame", {
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -(radius + 6), 0, 1),
+		Position = UDim2.fromOffset(math.floor(radius * 0.5) + 3, 1),
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = 0.78,
+		BorderSizePixel = 0,
+		ZIndex = zIndex + 1,
+	}, React.createElement("uigradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) }),
+	})), stroke and React.createElement("frame", {
 		Size = UDim2.new(1, -2, 1, -2),
 		Position = UDim2.fromOffset(1, 1),
 		BackgroundTransparency = 1,
@@ -1272,7 +1298,7 @@ local function Panel(_param)
 		end),
 	})), interactive and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.white,
+		BackgroundColor3 = Palette.cream,
 		BackgroundTransparency = hoverWashAlpha,
 		BorderSizePixel = 0,
 		Visible = hoverWashVisible,
@@ -1325,27 +1351,107 @@ local function Divider(_param)
 	end
 	local transparency = _param.transparency
 	if transparency == nil then
-		transparency = 0.62
+		transparency = 0.72
 	end
-	local effectsPaused = React.useContext(UiEffectsPausedContext)
-	local _binding = useMotionSettings()
-	local motionScale = _binding.motionScale
-	local reveal = useEntrance(false)
 	return React.createElement("frame", {
-		Size = reveal:map(function(amount)
-			return UDim2.new(math.clamp(amount, 0, 1), 0, 0, 1)
-		end),
+		Size = UDim2.new(1, 0, 0, 1),
 		Position = position,
 		BackgroundColor3 = color,
-		BackgroundTransparency = reveal:map(function(amount)
-			return math.clamp(transparency + (1 - amount) * (1 - transparency), 0, 1)
-		end),
+		BackgroundTransparency = transparency,
 		BorderSizePixel = 0,
 	}, React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.16), NumberSequenceKeypoint.new(0.88, 0.16), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.18, 0.35), NumberSequenceKeypoint.new(0.82, 0.35), NumberSequenceKeypoint.new(1, 1) }),
 	}))
 end
-local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShimmer, _idleShimmer)
+local PRIMARY_ACTION = {
+	collect = true,
+	buy = true,
+	rebirth = true,
+	claim = true,
+}
+local function labelMarksPrimary(text)
+	if type(text) ~= "string" or text == "" then
+		return false
+	end
+	for word in string.gmatch(string.lower(text), "%a+") do
+		if PRIMARY_ACTION[word] == true then
+			return true
+		end
+	end
+	return false
+end
+local function pressAspect(size)
+	if typeof(size) ~= "UDim2" then
+		return nil, false
+	end
+	local xScale = size.X.Scale
+	local yScale = size.Y.Scale
+	local xOffset = math.abs(size.X.Offset)
+	local yOffset = math.abs(size.Y.Offset)
+	if xScale == 0 and yScale == 0 and xOffset > 0 and yOffset > 0 then
+		return xOffset / yOffset, false
+	end
+	if xScale >= 0.9 and yScale < 0.5 then
+		return nil, true
+	end
+	if xScale > 0 and yScale > 0 then
+		return xScale / yScale, false
+	end
+	if xOffset > 0 and yOffset > 0 then
+		return xOffset / yOffset, xScale >= 0.9
+	end
+	return nil, xScale >= 0.9
+end
+-- One press policy for every shared button. Icon and square controls may tilt
+-- about a degree. Text, wide bars, list rows, and primary actions only scale.
+local function resolvePressMotion(spec)
+	if type(spec) == "string" then
+		spec = {
+			kind = spec,
+		}
+	end
+	if spec == nil then
+		spec = {}
+	end
+	local kind = spec.kind
+	if kind ~= "icon" and kind ~= "text" and kind ~= "row" then
+		kind = nil
+	end
+	local text = spec.text
+	local hasLabel = type(text) == "string" and text ~= ""
+	local hasIcon = spec.icon ~= nil and spec.icon ~= false and spec.icon ~= ""
+	local ratio, fullRow = pressAspect(spec.size)
+	local square = ratio ~= nil and ratio >= (1 / 1.35) and ratio <= 1.35
+	local wide = fullRow or (ratio ~= nil and ratio > 1.35)
+	if kind == nil then
+		if hasLabel and labelMarksPrimary(text) then
+			kind = "row"
+		elseif fullRow then
+			kind = "row"
+		elseif hasIcon and not hasLabel and not wide then
+			kind = "icon"
+		elseif square and not hasLabel then
+			kind = "icon"
+		else
+			kind = "text"
+		end
+	end
+	local hoverGain = 0.04
+	local pressDrop = 0.07
+	local tilt = 0
+	if kind == "icon" then
+		tilt = -1
+	elseif kind == "row" then
+		hoverGain = 0.02
+	end
+	return {
+		kind = kind,
+		hover = hoverGain,
+		press = pressDrop,
+		tilt = math.clamp(tilt, -1.5, 1.5),
+	}
+end
+local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShimmer, _idleShimmer, motionSpec)
 	if reducedMotion == nil then
 		reducedMotion = false
 	end
@@ -1375,7 +1481,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local gamepadFocused, setGamepadFocused = React.useState(false)
 	local engaged, setEngaged = React.useState(false)
 	local popTrigger, setPopTrigger = React.useState(0)
-	local popGoal, setPopGoal = React.useState(0)
 	local hoveredRef = React.useRef(false)
 	local activeTouch = React.useRef()
 	local activeTouchEnd = React.useRef()
@@ -1384,43 +1489,48 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local pressWasTouch = React.useRef(false)
 	local hoverStall = React.useRef(0)
 	local active = not disabled
-	-- Press sinks the surface; hover lifts it. Touch uses a deeper press so the
-	-- squash reads under a finger without relying on a hover state that never comes.
-	local liftTarget = if disabled then 0 elseif pressed then (if touchChrome then 3 else 2) elseif hovered then -2 else 0
-	local offsetY = useOptionalFlipperSpring(liftTarget, true, false, 780, 30)
-	local pressAmount = useOptionalFlipperSpring(if disabled then 0 elseif pressed then 1 else 0, true, false, 920, 30)
-	local hoverAmount = useOptionalFlipperSpring(if disabled then 0 elseif hovered then 1 else 0, true, false, 760, 32)
-	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, false, 760, 32)
+	-- One motor for the life of the control. resolvePressMotion picks the scale
+	-- and tilt. Release springs back. softMotion does not snap it.
+	local poseGoal = if disabled then 0 elseif pressed then -1 elseif hovered then 1 else 0
+	local pose = useOptionalFlipperSpring(poseGoal, true, softMotion, 1180, 46)
+	local hoverAmount = pose:map(function(value)
+		return math.clamp(value, 0, 1)
+	end)
+	local pressAmount = pose:map(function(value)
+		return math.clamp(-value, 0, 1)
+	end)
+	local offsetY = pose:map(function(value)
+		if value >= 0 then
+			return -value * 1.4
+		end
+		return -value * 1.1
+	end)
+	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, softMotion, 760, 32)
 	-- Impact flash is keyed off popTrigger so every successful activate gets a
 	-- one-shot white wash — previously useFlash(0) never fired.
-	local impact = useFlash(popTrigger, false, if touchChrome then 0.2 else 0.26)
-	local popAmount = useOptionalFlipperSpring(popGoal, true, false, 980, 24)
-	React.useEffect(function()
-		if popTrigger <= 0 then
-			return nil
-		end
-		setPopGoal(1)
-		local settle = task.delay(0.05, function()
-			return setPopGoal(0)
-		end)
-		return function()
-			return task.cancel(settle)
-		end
-	end, { popTrigger, softMotion })
+	-- Repeat activates reset this same motor. Scale and tilt stay on the pose spring.
+	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.2 else 0.26)
 	-- idleShimmer buttons (highlight/selected states) keep ButtonShimmer visible even when not
 	-- hovered -- the sweep clock has to keep running in that case too, or it freezes mid-gradient
 	-- the instant hover ends and leaves a stuck streak baked into the always-visible idle frame
 	-- instead of continuing its loop or fading cleanly away.
-	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active
+	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not softMotion
 	local shimmer = useClock(shimmerWanted, SHIMMER_SWEEP_SPEED, 1, true)
-	local surfaceSize = pressAmount:map(function()
+	local surfaceSize = pose:map(function()
 		return UDim2.fromScale(1, 1)
 	end)
-	local touchScale = React.joinBindings({ pressAmount, popAmount, hoverAmount }):map(function(values)
-		local press = if touchChrome then 1 - values[1] * 0.1 else 1 - values[1] * 0.055
-		local pop = if touchChrome then values[2] * 0.08 else values[2] * 0.065
-		local hoverBonus = if touchChrome then 0 else values[3] * 0.02
-		return press + pop + hoverBonus
+	local pressMotion = resolvePressMotion(motionSpec)
+	local hoverGain = pressMotion.hover
+	local pressDrop = pressMotion.press
+	local tiltDegrees = pressMotion.tilt
+	local touchScale = pose:map(function(value)
+		if value >= 0 then
+			return 1 + math.clamp(value, 0, 1) * hoverGain
+		end
+		return 1 - math.clamp(-value, 0, 1) * pressDrop
+	end)
+	local tilt = pose:map(function(value)
+		return math.clamp(value, 0, 1) * tiltDegrees
 	end)
 	React.useEffect(function()
 		local cancel = function()
@@ -1457,14 +1567,14 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		if disabled or hoveredRef.current then
 			return nil
 		end
+		setEngaged(true)
+		hoveredRef.current = true
+		setHovered(true)
 		local now = os.clock()
 		if now - hoverStall.current < 0.1 then
 			return nil
 		end
 		hoverStall.current = now
-		setEngaged(true)
-		hoveredRef.current = true
-		setHovered(true)
 		Audio:play("hover")
 	end
 	local clearHover = function()
@@ -1572,6 +1682,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		focusRing = focusRing,
 		surfaceSize = surfaceSize,
 		touchScale = touchScale,
+		tilt = tilt,
 		events = events,
 		assistActivate = function()
 			if os.clock() - lastActivationAt.current > 0.12 then activate() end
@@ -1679,7 +1790,15 @@ function Button(_param)
 	local children = _param.children
 	local resolvedSound = if sound == "auto" then buttonAudioCue(if type(text) == "string" then text else "", icon) else sound
 	local effectivelyDisabled = disabled or loading
-	local _binding = useButtonChrome(onClick, reducedMotion, effectivelyDisabled, resolvedSound, true, highlight)
+	local motion = _param.motion
+	if motion == nil then
+		motion = {
+			text = if type(text) == "string" then text else "",
+			icon = icon,
+			size = size,
+		}
+	end
+	local _binding = useButtonChrome(onClick, reducedMotion, effectivelyDisabled, resolvedSound, true, highlight, motion)
 	local active = _binding.active
 	local engaged = _binding.engaged
 	local hovered = _binding.hovered
@@ -1689,6 +1808,7 @@ function Button(_param)
 	local shimmer = _binding.shimmer
 	local focusRing = _binding.focusRing
 	local touchScale = _binding.touchScale
+	local tilt = _binding.tilt
 	local events = _binding.events
 	local spinnerTurn = useRotation(loading, 260)
 	local labelHiddenByLoading = useFlipperSpring(if loading then 1 else 0, reducedMotion, 520, 40)
@@ -1706,7 +1826,7 @@ function Button(_param)
 	end)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local presence = useExitPresence()
-	local arrival = useEntrance(false)
+	local arrival = useEntrance(reducedMotion or effectsPaused)
 	local visualPosition = React.joinBindings({ arrival, shakeOffsetX }):map(function(values)
 		return UDim2.new(0.5, math.round(values[2]), 0.5, math.round((1 - math.clamp(values[1], 0, 1)) * 8))
 	end)
@@ -1718,7 +1838,7 @@ function Button(_param)
 	-- "You should tap this" idle breathing glow for claim/collect-style highlight buttons —
 	-- only while the action is actually available, gated on ambient FX like other decorative motion.
 	local breatheWanted = highlight and active
-	local breatheStroke = useGlowStroke(breatheWanted, false, 0.32, 0.22, 0.46, 1.15)
+	local breatheStroke = useGlowStroke(breatheWanted, reducedMotion or effectsPaused, 0.32, 0.22, 0.46, 1.15)
 	local buttonRef = React.useRef()
 	local assistId = React.useRef(nil)
 	if assistId.current == nil then
@@ -1779,11 +1899,6 @@ function Button(_param)
 	local labelFade = React.joinBindings({ presence }):map(function(values)
 		return math.clamp(1 - values[1], 0, 1)
 	end)
-	local fixedWidthTooSmall = type(text) == "string" and not hug and size.X.Scale == 0 and size.X.Offset > 0 and buttonContentWidth(text, hasIcon) > size.X.Offset
-	local scaleButtonLabel = not (type(text) == "string") or #text > (if hasIcon then 14 else 18) or fixedWidthTooSmall
-	local compactStaticLabel = type(text) == "string" and not scaleButtonLabel
-	local staticLabelWidth = if compactStaticLabel then buttonLabelWidth(text) else 0
-	local staticClusterWidth = if hasIcon and compactStaticLabel then 22 + 7 + staticLabelWidth else 0
 	local iconAccent = React.joinBindings({
 		label = labelColor,
 		disabled = disabledAmount,
@@ -1819,6 +1934,7 @@ function Button(_param)
 		Size = UDim2.fromScale(1, 1),
 		Position = visualPosition,
 		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = tilt,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
@@ -1827,10 +1943,10 @@ function Button(_param)
 	}), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = offsetY:map(function(amount)
-			return UDim2.new(0, 0, 0, 2 - math.round(amount))
+			return UDim2.new(0, 0, 0, 5 - math.round(amount))
 		end),
 		BackgroundColor3 = Palette.shadow,
-		BackgroundTransparency = if effectivelyDisabled then 0.72 else Chrome.buttonShadow,
+		BackgroundTransparency = if effectivelyDisabled then 0.84 else Chrome.buttonShadow,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {
@@ -1848,8 +1964,15 @@ function Button(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
 	}), not outline and not effectivelyDisabled and React.createElement("uigradient", {
-		Color = surfaceGradient(baseFill, 0.72),
+		Color = surfaceGradient(baseFill, 0.95),
 		Rotation = 90,
+	}), not outline and not effectivelyDisabled and React.createElement("frame", {
+		Size = UDim2.new(1, -12, 0, 1),
+		Position = UDim2.fromOffset(6, 1),
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = 0.7,
+		BorderSizePixel = 0,
+		ZIndex = zIndex + 2,
 	}), not compactRipple and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.white,
@@ -1933,6 +2056,7 @@ function Button(_param)
 		hoverAmount = hoverAmount,
 		reducedMotion = reducedMotion,
 	})), React.createElement("textlabel", {
+		ref = pinButtonLabel,
 		Size = UDim2.new(1, -38, 1, 0),
 		Position = UDim2.fromOffset(32, 0),
 		BackgroundTransparency = 1,
@@ -1946,12 +2070,11 @@ function Button(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextScaled = true,
+		TextWrapped = false,
+		TextScaled = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-	}, React.createElement("uitextsizeconstraint", {
-		MinTextSize = MIN_UI_TEXT_SIZE,
-		MaxTextSize = BUTTON_LABEL_SIZE,
-	}))), not iconOnly and not hasIcon and React.createElement("textlabel", {
+	})), not iconOnly and not hasIcon and React.createElement("textlabel", {
+		ref = pinButtonLabel,
 		Size = UDim2.new(1, -14, 1, 0),
 		Position = UDim2.fromOffset(7, 0),
 		BackgroundTransparency = 1,
@@ -1965,13 +2088,11 @@ function Button(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		TextScaled = true,
+		TextWrapped = false,
+		TextScaled = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = zIndex + 3,
-	}, React.createElement("uitextsizeconstraint", {
-		MinTextSize = MIN_UI_TEXT_SIZE,
-		MaxTextSize = BUTTON_LABEL_SIZE,
-	}))), loading and React.createElement("frame", {
+	})), loading and React.createElement("frame", {
 		Size = UDim2.fromOffset(18, 18),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -2075,7 +2196,7 @@ local function Meter(_param)
 	local value = _param.value
 	local color = _param.color
 	if color == nil then
-		color = Palette.brass
+		color = Palette.cyan
 	end
 	local position = _param.position
 	local size = _param.size
@@ -2109,7 +2230,7 @@ local function Meter(_param)
 	if _condition == nil then
 		_condition = 0
 	end
-	local eased = useOptionalFlipperSpring(_condition, animateLiteral, false, 420, 38)
+	local eased = useOptionalFlipperSpring(_condition, animateLiteral, lowMotion, 420, 38)
 	local fill = if empty then UDim2.new(0, 0, 1, 0) elseif literal ~= nil and not animateLiteral then UDim2.new(literal, 0, 1, 0) else (if literal ~= nil then eased else value):map(function(amount)
 		local _amount = amount
 		local _condition_1 = type(_amount) == "number"
@@ -2122,8 +2243,8 @@ local function Meter(_param)
 		end
 		return UDim2.new(t, 0, 1, 0)
 	end)
-	local wantShimmer = shimmer and shimmerScale > 0.02 and not empty
-	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then 1 else 0, true, false, 400, 34)
+	local wantShimmer = shimmer and shimmerScale > 0.02 and not empty and not lowMotion
+	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then 1 else 0, true, lowMotion, 400, 34)
 	local readyPulse = usePulse(wantShimmer, 2)
 	local shimmerPhase = useClock(wantShimmer, 0.72, 1, true)
 	local _exp = React.createElement("uisizeconstraint", {
@@ -2186,7 +2307,7 @@ local function Slider(_param)
 	local onCommit = _param.onCommit
 	local accent = _param.accent
 	if accent == nil then
-		accent = Palette.brass
+		accent = Palette.cyan
 	end
 	local reducedMotion = _param.reducedMotion
 	if reducedMotion == nil then
@@ -2648,7 +2769,10 @@ local function SegmentedTabHit(_param)
 		if not selected then
 			onSelect(option.id)
 		end
-	end, reducedMotion, false, sound, true, selected)
+	end, reducedMotion, false, sound, true, selected, {
+		text = option.label,
+		size = size,
+	})
 	local selectedInk = contrastOn(accent)
 	local textColor = chrome.hoverAmount:map(function(amount)
 		return if selected then selectedInk else Palette.creamSoft:Lerp(Palette.cream, math.clamp(amount, 0, 1) * 0.72)
@@ -2785,7 +2909,7 @@ local function SegmentedTabs(_param)
 	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 880, 34)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
-	local tabSweep = useClock(true, SHIMMER_SWEEP_SPEED, 1, true)
+	local tabSweep = useClock(reducedMotion ~= true, SHIMMER_SWEEP_SPEED, 1, true)
 	local _result = options[activeIndex + 1]
 	if _result ~= nil then
 		_result = _result.accent
@@ -2922,65 +3046,40 @@ local function EmptyState(_param)
 		compact = false
 	end
 	local reveal = useEntrance(reducedMotion)
-	local _condition = iconSize
-	if _condition == nil then
-		_condition = (if compact then 28 else 44)
-	end
-	local resolvedIcon = _condition
-	local _condition_1 = titleSize
-	if _condition_1 == nil then
-		_condition_1 = (if compact then 14 else 16)
-	end
-	local resolvedTitle = _condition_1
-	local _condition_2 = bodySize
-	if _condition_2 == nil then
-		_condition_2 = (if compact then 11 else 12)
-	end
-	local resolvedBody = _condition_2
+	local fade = reveal:map(function(amount)
+		return 1 - math.clamp(amount, 0, 1)
+	end)
+	local resolvedIcon = if iconSize ~= nil then iconSize elseif compact then 22 else 28
+	local resolvedTitle = if titleSize ~= nil then titleSize elseif compact then 14 else 16
+	local resolvedBody = if bodySize ~= nil then bodySize elseif compact then 12 else 13
 	local resolvedSize = size or (if compact then UDim2.new(1, 0, 0, 112) else UDim2.new(1, 0, 0, 150))
-	local pad = if compact then 12 else 24
-	local titleH = resolvedTitle + (if compact then 4 else 10)
-	local bodyH = if compact then math.max(resolvedBody * 2 + 6, 28) else math.max(resolvedBody * 2 + 16, 48)
-	return React.createElement(Panel, {
-		size = resolvedSize,
-		accent = accent,
-		background = Palette.panel,
-		padding = pad,
-		layoutOrder = layoutOrder,
-		reveal = reveal,
-		clips = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
+	local titleH = resolvedTitle + 4
+	local bodyH = math.max(resolvedBody * 2 + 6, 28)
+	-- Quiet copy on the page, same voice as Divider. A second Panel here read as a card inside a card.
+	return React.createElement("frame", {
+		Size = resolvedSize,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
+		LayoutOrder = layoutOrder,
+	}, React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 14),
+		PaddingBottom = UDim.new(0, 14),
+		PaddingLeft = UDim.new(0, 14),
+		PaddingRight = UDim.new(0, 14),
+	}), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, if compact then 6 else Layout.stackGap),
+		Padding = UDim.new(0, 6),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(resolvedIcon, resolvedIcon),
 		LayoutOrder = 0,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = accent,
-		BackgroundTransparency = 0.9,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement(Stroke, {
-		color = accent,
-		thickness = 1,
-		transparency = 0.72,
-	})), React.createElement(Icon, {
+	}, React.createElement(Icon, {
 		kind = icon,
-		color = Palette.creamSoft,
+		color = Palette.muted,
 		accent = accent,
 		size = resolvedIcon,
 		spin = false,
@@ -2988,13 +3087,13 @@ local function EmptyState(_param)
 	})), React.createElement(Text, {
 		value = title,
 		size = resolvedTitle,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Bold,
 		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = math.max(11, resolvedTitle - 5),
+		fit = false,
+		transparency = fade,
 		layoutOrder = 1,
-		sizeConstraint = UDim2.new(1, -16, 0, titleH),
+		sizeConstraint = UDim2.new(1, 0, 0, titleH),
 	}), React.createElement(Text, {
 		value = body,
 		size = resolvedBody,
@@ -3002,9 +3101,10 @@ local function EmptyState(_param)
 		wrap = true,
 		align = Enum.TextXAlignment.Center,
 		fit = false,
+		transparency = fade,
 		layoutOrder = 2,
-		sizeConstraint = UDim2.new(1, -32, 0, bodyH),
-	})))
+		sizeConstraint = UDim2.new(1, 0, 0, bodyH),
+	}))
 end
 local function Dropdown(_param)
 	local options = _param.options
@@ -3047,15 +3147,15 @@ local function Dropdown(_param)
 	})
 	local portalLayer = React.useState(acquireDropdownPortal)
 	local touchRows = chrome.stack or (not viewport.desktop and UserInputService.TouchEnabled)
-	local rowHeight = if touchRows then TapTarget else 40
+	local rowHeight = if touchRows then TapTarget else 44
 	local listPad = if touchRows then 4 else 2
 	local listInset = if touchRows then 6 else 4
-	local optionText = if touchRows then 15 else 13
+	local optionText = if touchRows then 16 else 16
 	local visibleRows = math.min(#options, rowCap)
 	local listHeight = visibleRows * rowHeight + math.max(0, visibleRows - 1) * listPad + listInset * 2
 	local amount = useFlipperSpring(if open then 1 else 0, reducedMotion, 760, 40)
 	local triggerAmount = useFlipperSpring(if open or hovered or focused then 1 else 0, reducedMotion, 680, 40)
-	local corner = 9
+	local corner = 12
 	local selected = options[1]
 	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(option)
@@ -3329,18 +3429,27 @@ local function Dropdown(_param)
 		size = optionText,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Bold,
-		fit = true,
-		minSize = math.max(10, optionText - 4),
-		position = UDim2.fromOffset(if selected ~= nil and selected.icon ~= nil then 34 else 12, 0),
-		sizeConstraint = UDim2.new(1, if selected ~= nil and selected.icon ~= nil then -64 else -42, 1, 0),
+		fit = false,
+		position = UDim2.fromOffset(if selected ~= nil and selected.icon ~= nil then 36 else 14, 0),
+		sizeConstraint = UDim2.new(1, if selected ~= nil and selected.icon ~= nil then -78 else -52, 1, 0),
 		zIndex = zIndex + 1,
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(14, 14),
-		Position = UDim2.new(1, -14, 0.5, 0),
+		Size = UDim2.fromOffset(26, 26),
+		Position = UDim2.new(1, -8, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = Palette.ink,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		ZIndex = zIndex + 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(12, 12),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
 		Rotation = chevronRotation,
 		BackgroundTransparency = 1,
-		ZIndex = zIndex + 1,
+		ZIndex = zIndex + 2,
 	}, React.createElement("frame", {
 		Size = UDim2.new(0, 9, 0, 2),
 		Position = UDim2.new(0.5, -3, 0.5, 0),
@@ -3361,7 +3470,7 @@ local function Dropdown(_param)
 		ZIndex = zIndex + 1,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	}))))
+	})))))
 	local _exp_3 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, corner),
 	})
@@ -3395,7 +3504,7 @@ local function Dropdown(_param)
 				Size = UDim2.new(1, -4, 0, rowHeight),
 				LayoutOrder = index,
 				BackgroundColor3 = if active then accent else Palette.panelSoft,
-				BackgroundTransparency = if active then 0.82 elseif lit then 0.55 else 1,
+				BackgroundTransparency = if active then 0.55 elseif lit then 0.35 else 1,
 				BorderSizePixel = 0,
 				AutoButtonColor = false,
 				ZIndex = zIndex + 7,
@@ -3454,14 +3563,13 @@ local function Dropdown(_param)
 				size = optionText,
 				color = if active then Palette.cream else Palette.creamSoft,
 				weight = if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
-				fit = true,
-				minSize = math.max(10, optionText - 4),
+				fit = false,
 				position = UDim2.fromOffset(left, if showDetail then 2 else 0),
 				sizeConstraint = UDim2.new(1, -(left + right), if showDetail then 0 else 1, if showDetail then 21 else 0),
 				zIndex = zIndex + 8,
 			}), showDetail and React.createElement(Text, {
 				value = option.detail,
-				size = 9,
+				size = 12,
 				color = Palette.muted,
 				weight = Enum.FontWeight.Medium,
 				fit = false,
@@ -3537,7 +3645,7 @@ local function Dropdown(_param)
 				Size = UDim2.new(1, 0, 0, rowHeight),
 				LayoutOrder = index,
 				BackgroundColor3 = if active then accent else Palette.panelSoft,
-				BackgroundTransparency = if active then 0.82 elseif lit then 0.55 else 1,
+				BackgroundTransparency = if active then 0.55 elseif lit then 0.35 else 1,
 				BorderSizePixel = 0,
 				AutoButtonColor = false,
 				ZIndex = zIndex + 7,
@@ -3596,14 +3704,13 @@ local function Dropdown(_param)
 				size = optionText,
 				color = if active then Palette.cream else Palette.creamSoft,
 				weight = if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
-				fit = true,
-				minSize = math.max(10, optionText - 4),
+				fit = false,
 				position = UDim2.fromOffset(left, if showDetail then 2 else 0),
 				sizeConstraint = UDim2.new(1, -(left + right), if showDetail then 0 else 1, if showDetail then 21 else 0),
 				zIndex = zIndex + 8,
 			}), showDetail and React.createElement(Text, {
 				value = option.detail,
-				size = 9,
+				size = 12,
 				color = Palette.muted,
 				weight = Enum.FontWeight.Medium,
 				fit = false,
@@ -3679,7 +3786,7 @@ local function Dropdown(_param)
 		Size = listSize,
 		Position = listPosition,
 		AnchorPoint = if openUp then Vector2.new(0, 1) else Vector2.zero,
-		BackgroundColor3 = Palette.panelRaised,
+		BackgroundColor3 = Palette.ink,
 		BackgroundTransparency = listTransparency,
 		BorderSizePixel = 0,
 		ZIndex = zIndex + 6,
@@ -3723,56 +3830,85 @@ local function SearchField(_param)
 	end
 	local searchViewport = useViewport()
 	local chrome = chromeFor(searchViewport)
+	local reactModules = require(script.Parent.reactModules)
+	local draft, setDraft = React.useState(value)
+	local boxRef = React.useRef(nil)
 	local focused, setFocused = React.useState(false)
 	local clearHovered, setClearHovered = React.useState(false)
+	local debouncedChange = reactModules.useDebounceCallback(function(text)
+		if onChange ~= nil then
+			onChange(text)
+		end
+	end, {
+		wait = 0.08,
+	})
+	reactModules.useUpdateEffect(function()
+		if value == "" or not focused then
+			setDraft(value)
+		end
+	end, { value, focused })
+	reactModules.useUnmountEffect(function()
+		debouncedChange.flush()
+	end)
+	reactModules.useEventListener(UserInputService.InputBegan, function(input, processed)
+		if processed or input.KeyCode ~= Enum.KeyCode.Escape then
+			return nil
+		end
+		local box = boxRef.current
+		if box ~= nil then
+			box:ReleaseFocus()
+		end
+	end, {
+		connected = focused,
+	})
 	local focus = useFlipperSpring(if focused then 1 else 0, reducedMotion, 720, 40)
 	local clearHover = useFlipperSpring(if clearHovered then 1 else 0, reducedMotion, 680, 42)
 	-- The clear button used to mount/unmount on `value !== ""` with no transition -- a hard pop
 	-- in and out, and the textbox's width snapped to match in the same frame. Both now ride one
 	-- spring keyed off that same boolean, so the button scales/fades in and the textbox's width
 	-- eases over to make room for it (and back) instead of jumping.
-	local hasQuery = value ~= ""
+	local hasQuery = draft ~= ""
 	local clearReveal = useFlipperSpring(if hasQuery then 1 else 0, reducedMotion, 760, 40, if hasQuery then 1 else 0)
 	local clearSize = if chrome.stack or (not searchViewport.desktop and UserInputService.TouchEnabled) then math.max(40, math.min(TapTarget, if size.Y.Offset > 0 then size.Y.Offset else TapTarget)) else 32
+	local fieldText = if chrome.stack then 16 else 16
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
-		BackgroundColor3 = Palette.ink,
+		BackgroundColor3 = Palette.panelSoft,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 9),
-	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.ink, 0.7),
-		Rotation = 90,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -4, 1, -4),
-		Position = UDim2.fromOffset(2, 2),
-		BackgroundColor3 = accent,
-		BackgroundTransparency = focus:map(function(amount)
-			return 1 - amount * 0.94
-		end),
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 7),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.65), NumberSequenceKeypoint.new(1, 1) }),
-	})), React.createElement("uistroke", {
+		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = focus:map(function(amount)
 			return Palette.lineSoft:Lerp(accent, amount)
 		end),
 		Thickness = focus:map(function(amount)
-			return if amount > 0.45 then 2 else 1
+			return 1 + amount
 		end),
 		Transparency = focus:map(function(amount)
-			return 0.5 - amount * 0.42
+			return 0.45 - amount * 0.35
 		end),
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(16, 16),
-		Position = UDim2.new(0, 10, 0.5, 0),
+		Size = focus:map(function(amount)
+			return UDim2.new(0, 3, 1, -16)
+		end),
+		Position = UDim2.new(0, 8, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = accent,
+		BackgroundTransparency = focus:map(function(amount)
+			return 0.85 - amount * 0.7
+		end),
+		BorderSizePixel = 0,
+		ZIndex = zIndex + 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement("frame", {
+		Size = UDim2.fromOffset(20, 20),
+		Position = UDim2.new(0, 16, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
 		ZIndex = zIndex + 1,
@@ -3782,20 +3918,21 @@ local function SearchField(_param)
 			return Palette.muted:Lerp(accent, amount)
 		end),
 		accent = accent,
-		size = 16,
+		size = 20,
 		spin = false,
 	})), React.createElement("textbox", {
+		ref = boxRef,
 		Size = clearReveal:map(function(amount)
-			return UDim2.new(1, -(46 + (clearSize + 4) * math.clamp(amount, 0, 1)), 1, -4)
+			return UDim2.new(1, -(52 + (clearSize + 6) * math.clamp(amount, 0, 1)), 1, -8)
 		end),
-		Position = UDim2.fromOffset(34, 2),
+		Position = UDim2.fromOffset(42, 4),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = value,
+		Text = draft,
 		PlaceholderText = placeholder,
-		PlaceholderColor3 = Palette.creamSoft,
+		PlaceholderColor3 = Palette.muted,
 		TextColor3 = Palette.cream,
-		TextSize = 14,
+		TextSize = fieldText,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
@@ -3805,7 +3942,8 @@ local function SearchField(_param)
 		ZIndex = zIndex + 1,
 		Change = {
 			Text = function(instance)
-				return onChange(instance.Text)
+				setDraft(instance.Text)
+				return debouncedChange.run(instance.Text)
 			end,
 		},
 		Event = {
@@ -3815,7 +3953,8 @@ local function SearchField(_param)
 				InteractionFeedback.tick()
 			end,
 			FocusLost = function()
-				return setFocused(false)
+				setFocused(false)
+				return debouncedChange.flush()
 			end,
 		},
 	}), React.createElement("imagebutton", {
@@ -3840,7 +3979,11 @@ local function SearchField(_param)
 		ZIndex = zIndex + 2,
 		Event = {
 			Activated = function()
-				onChange("")
+				debouncedChange.cancel()
+				setDraft("")
+				if onChange ~= nil then
+					onChange("")
+				end
 				Audio:play("inputClear")
 				InteractionFeedback.tap()
 			end,
@@ -3888,15 +4031,15 @@ local function LogoLockup(_param)
 	end
 	local accent = _param.accent
 	if accent == nil then
-		accent = Palette.brass
+		accent = Palette.cyan
 	end
 	local position = _param.position
 	local reducedMotion = _param.reducedMotion
 	if reducedMotion == nil then
 		reducedMotion = false
 	end
-	local mark = if micro then 34 elseif compact then 42 else 48
-	local textX = if micro then 42 elseif compact then 56 else 64
+	local mark = if micro then 40 else 48
+	local textX = mark + 12
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = position,
@@ -3905,7 +4048,8 @@ local function LogoLockup(_param)
 		ClipsDescendants = false,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(mark, mark),
-		Position = UDim2.fromOffset(0, if micro then 7 elseif compact then 7 else 8),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = Color3.fromRGB(7, 17, 28),
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -3914,7 +4058,7 @@ local function LogoLockup(_param)
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = Palette.cyan,
+		Color = accent,
 		Thickness = 1.25,
 		Transparency = 0.18,
 	}), React.createElement("imagelabel", {
@@ -3926,22 +4070,14 @@ local function LogoLockup(_param)
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	}))), React.createElement(Text, {
-		value = if micro or compact then "ASTRAL" else "ASTRAL FORGE",
-		size = if micro then 14 elseif compact then 16 else 18,
+	}))), not micro and React.createElement(Text, {
+		value = "ASTRAL",
+		size = if compact then 18 else 20,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(textX, if micro then 6 else 8),
-		sizeConstraint = UDim2.new(1, -textX, 0, if micro then 23 else 26),
-	}), React.createElement(Text, {
-		value = "IDLE FORGE",
-		size = if micro then 10 else 11,
-		color = accent,
-		weight = Enum.FontWeight.Bold,
-		fit = false,
-		position = UDim2.fromOffset(textX, if micro then 29 else 36),
-		sizeConstraint = UDim2.new(1, -textX, 0, 16),
+		position = UDim2.fromOffset(textX, 0),
+		sizeConstraint = UDim2.new(1, -textX, 1, 0),
 	}))
 end
 return {
@@ -3967,6 +4103,7 @@ return {
 	Panel = Panel,
 	Divider = Divider,
 	useButtonChrome = useButtonChrome,
+	resolvePressMotion = resolvePressMotion,
 	ButtonShimmer = ButtonShimmer,
 	Button = Button,
 	meterFill = meterFill,

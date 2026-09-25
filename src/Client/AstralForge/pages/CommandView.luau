@@ -11,6 +11,7 @@ local VirtualGrid = _scrolling.VirtualGrid
 local _format = require(script.Parent.Parent.format)
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
+local gteFlux = _format.gteFlux
 local formatReward = _format.formatReward
 local _motion = require(script.Parent.Parent.motion)
 local easeOutCubic = _motion.easeOutCubic
@@ -315,12 +316,17 @@ local function CommandView(_param)
 		local worker = task.spawn(function()
 			while alive do
 				task.wait(1)
+				if not alive then
+					break
+				end
 				setNow(os.time())
 			end
 		end)
 		return function()
 			alive = false
-			task.cancel(worker)
+			pcall(function()
+				task.cancel(worker)
+			end)
 		end
 	end, { tab })
 	React.useEffect(function()
@@ -416,7 +422,7 @@ local function CommandView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { tab, nextClaim, firstReadyWeeklyId, expeditionReady, firstReadySeasonTier, commandClaimReady })
 	local _exp = ops.Expeditions
@@ -559,7 +565,7 @@ local function CommandView(_param)
 	}, React.createElement(TabRail, {
 		active = tab,
 		setActive = changeTab,
-		reducedMotion = softMotion or commandSoft,
+		reducedMotion = reducedMotion or commandSoft,
 		stack = stack,
 	}))
 	local _condition_3 = tab == "Overview"
@@ -746,7 +752,7 @@ local function CommandView(_param)
 			background = Palette.panel,
 			padding = panelPad,
 			layoutOrder = nextOrder(),
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 		}, _exp_8, _exp_9, React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, crewRows * crewCellH + math.max(0, crewRows - 1) * gridGap),
 			Position = UDim2.fromOffset(0, 54),
@@ -825,7 +831,7 @@ local function CommandView(_param)
 				}), React.createElement(Meter, {
 					value = meterFill(directive.Progress, directive.Target, directive.Claimed or ready),
 					color = Palette.green,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					position = UDim2.fromOffset(12, if stack then 78 else 76),
 					size = UDim2.new(1, if stack then -24 else -156, 0, 7),
 				}), if stack then React.createElement("frame", {
@@ -848,7 +854,7 @@ local function CommandView(_param)
 					textColor = Palette.ink,
 					size = UDim2.fromScale(1, 1),
 					disabled = directive.Claimed or not ready,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					highlight = ready,
 				})) else React.createElement("frame", {
 					Name = "CommandClaimActions",
@@ -869,7 +875,7 @@ local function CommandView(_param)
 					textColor = Palette.ink,
 					size = UDim2.fromScale(1, 1),
 					disabled = directive.Claimed or not ready,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					highlight = ready,
 				})))
 			end,
@@ -880,7 +886,7 @@ local function CommandView(_param)
 			background = Palette.panel,
 			padding = 14,
 			layoutOrder = nextOrder(),
-			reducedMotion = softMotion,
+			reducedMotion = reducedMotion,
 			clips = false,
 		}, _exp_12, _exp_13)
 		local _exp_15 = React.createElement(Text, {
@@ -1323,7 +1329,7 @@ local function CommandView(_param)
 			local equipped = command.EquippedArtifact == artifact.Id
 			local fragmentCost = if owned then 4 + owned.Level * 2 else 0
 			local dustCost = if owned then 8 * owned.Level else 0
-			local canUpgrade = owned ~= nil and owned.Level < 10 and owned.Fragments >= fragmentCost and state.Stardust >= dustCost
+			local canUpgrade = owned ~= nil and owned.Level < 10 and owned.Fragments >= fragmentCost and gteFlux(state.Stardust, dustCost)
 			return React.createElement(Panel, {
 				size = UDim2.new(1, 0, 0, artifactRowH),
 				accent = if owned then artifact.Color else Palette.lineSoft,

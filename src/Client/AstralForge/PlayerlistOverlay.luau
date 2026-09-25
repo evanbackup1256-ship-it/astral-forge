@@ -406,12 +406,19 @@ local function PlayerlistOverlay(_param)
 			return nil
 		end
 		local cancel = syncSocial(selected.UserId)
+		local function replaceSocial()
+			if cancel ~= nil then
+				pcall(cancel)
+			end
+			cancel = syncSocial(selected.UserId)
+		end
 		local pulse = task.spawn(function()
 			while alive.current do
 				task.wait(4)
-				if alive.current then
-					syncSocial(selected.UserId)
+				if not alive.current then
+					break
 				end
+				replaceSocial()
 			end
 		end)
 		local friendship
@@ -419,16 +426,15 @@ local function PlayerlistOverlay(_param)
 			local localPlayer = Players.LocalPlayer
 			friendship = localPlayer.FriendStatusChanged:Connect(function()
 				if alive.current then
-					syncSocial(selected.UserId)
+					replaceSocial()
 				end
 			end)
 		end)
 		return function()
-			local _result_2 = cancel
-			if _result_2 ~= nil then
-				_result_2()
+			if cancel ~= nil then
+				pcall(cancel)
 			end
-			task.cancel(pulse)
+			pcall(task.cancel, pulse)
 			local _result_3 = friendship
 			if _result_3 ~= nil then
 				_result_3:Disconnect()
@@ -511,14 +517,22 @@ local function PlayerlistOverlay(_param)
 		end
 		setInviteBusy(true)
 		Audio:play("invite")
-		task.defer(function()
+		local checkDone = false
+		local worker
+		worker = task.defer(function()
 			local canCheck, canInvite = pcall(function()
 				return SocialService:CanSendGameInviteAsync(Players.LocalPlayer)
 			end)
-			local _binding_1 = if canCheck and canInvite == true then { pcall(function()
-				return SocialService:PromptGameInvite(Players.LocalPlayer)
-			end) } else { false }
-			local opened = _binding_1[1]
+			checkDone = true
+			if not alive.current then
+				return nil
+			end
+			local opened = false
+			if canCheck and canInvite == true then
+				opened = pcall(function()
+					return SocialService:PromptGameInvite(Players.LocalPlayer)
+				end)
+			end
 			if not alive.current then
 				return nil
 			end
@@ -526,6 +540,14 @@ local function PlayerlistOverlay(_param)
 			if not opened then
 				notify("Invites unavailable", "Roblox could not open the invite panel on this device.")
 			end
+		end)
+		task.delay(8, function()
+			if checkDone or not alive.current then
+				return nil
+			end
+			pcall(task.cancel, worker)
+			setInviteBusy(false)
+			notify("Invites unavailable", "Roblox could not open the invite panel on this device.")
 		end)
 	end
 	local padFocus = useGamepadAutofocus(true)

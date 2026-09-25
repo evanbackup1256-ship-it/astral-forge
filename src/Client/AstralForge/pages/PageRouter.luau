@@ -1,13 +1,22 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 
 local function lazyView(moduleName, exportName)
-	local component
-	return function(props)
-		if component == nil then
-			component = require(script.Parent[moduleName])[exportName]
+	return React.lazy(function()
+		local thenable = {}
+		function thenable:andThen(resolve, reject)
+			local ok, component = pcall(function()
+				return require(script.Parent[moduleName])[exportName]
+			end)
+			if ok and component ~= nil then
+				resolve({
+					default = component,
+				})
+			else
+				reject(if ok then `Page {exportName} did not load` else component)
+			end
 		end
-		return React.createElement(component, props)
-	end
+		return thenable
+	end)
 end
 
 local MissionsView = lazyView("MissionsView", "MissionsView")

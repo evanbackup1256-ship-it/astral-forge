@@ -10,14 +10,14 @@ exports.scrollTail = _mobileLayout.scrollTail
 -- Astral Forge brand chroma: cool voids with vivid forge accents so CTAs, tabs,
 -- meters, and active chrome read clearly on PC without flattening into gray fog.
 local Palette = {
-	void = Color3.fromRGB(5, 7, 12),
-	ink = Color3.fromRGB(9, 12, 19),
-	night = Color3.fromRGB(13, 17, 26),
-	panel = Color3.fromRGB(18, 23, 34),
-	panelRaised = Color3.fromRGB(26, 33, 49),
-	panelSoft = Color3.fromRGB(46, 58, 82),
-	line = Color3.fromRGB(52, 66, 92),
-	lineSoft = Color3.fromRGB(88, 108, 142),
+	void = Color3.fromRGB(3, 5, 9),
+	ink = Color3.fromRGB(6, 8, 14),
+	night = Color3.fromRGB(9, 12, 20),
+	panel = Color3.fromRGB(14, 18, 28),
+	panelRaised = Color3.fromRGB(20, 26, 40),
+	panelSoft = Color3.fromRGB(36, 46, 68),
+	line = Color3.fromRGB(42, 54, 78),
+	lineSoft = Color3.fromRGB(92, 114, 148),
 	cream = Color3.fromRGB(248, 250, 255),
 	creamSoft = Color3.fromRGB(214, 224, 238),
 	muted = Color3.fromRGB(142, 160, 185),
@@ -103,7 +103,7 @@ local Layout = {
 	controlGap = 14,
 	lineGap = 10,
 	cardPadding = 18,
-	cardRadius = 12,
+	cardRadius = 13,
 	buttonRadius = 9,
 	topbarHeight = 74,
 	sidebarWidth = 268,
@@ -123,14 +123,14 @@ local Layout = {
 }
 -- Shared chrome opacities — lower = more visible strokes/shadows/accents.
 local Chrome = {
-	panelShadow = 0.72,
-	panelStrokeIdle = 0.48,
-	panelStrokeHover = 0.22,
-	buttonShadow = 0.5,
-	railStrokeIdle = 0.72,
-	railStrokeActive = 0.18,
-	accentHairline = 0.08,
-	meterTrack = 0.22,
+	panelShadow = 0.76,
+	panelStrokeIdle = 0.28,
+	panelStrokeHover = 0.06,
+	buttonShadow = 0.64,
+	railStrokeIdle = 0.42,
+	railStrokeActive = 0.08,
+	accentHairline = 0.02,
+	meterTrack = 0.16,
 }
 local Breakpoints = {
 	tight = 840,
@@ -286,12 +286,20 @@ local function surfaceGradient(base, strength)
 	if strength == nil then
 		strength = 1
 	end
-	-- Clearer lift/sink so panels separate from the void without frosted-glass noise.
+	-- Layered night glass: a cool lift at the top edge, then a longer sink into the void.
 	return ColorSequence.new({
-		ColorSequenceKeypoint.new(0, lighten(base, 0.068 * strength)),
-		ColorSequenceKeypoint.new(0.16, lighten(base, 0.022 * strength)),
-		ColorSequenceKeypoint.new(0.64, base),
-		ColorSequenceKeypoint.new(1, darken(base, 0.1 * strength)),
+		ColorSequenceKeypoint.new(0, lighten(base, 0.12 * strength)),
+		ColorSequenceKeypoint.new(0.14, lighten(base, 0.04 * strength)),
+		ColorSequenceKeypoint.new(0.58, base),
+		ColorSequenceKeypoint.new(1, darken(base, 0.2 * strength)),
+	})
+end
+local function strokeGradient(color)
+	-- Directional edge: the top of a stroke reads brighter than the bottom.
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, lighten(color, 0.58)),
+		ColorSequenceKeypoint.new(0.42, color),
+		ColorSequenceKeypoint.new(1, darken(color, 0.62)),
 	})
 end
 exports.applyAccessibilityTheme = applyAccessibilityTheme
@@ -304,6 +312,7 @@ exports.contrastRatio = contrastRatio
 exports.contrastOn = contrastOn
 exports.ensureContrast = ensureContrast
 exports.surfaceGradient = surfaceGradient
+exports.strokeGradient = strokeGradient
 exports.Palette = Palette
 exports.Layout = Layout
 exports.Chrome = Chrome

@@ -107,7 +107,7 @@ local function CrateRevealStage(props)
 			GamepadNavigationService.FocusClaim(panel)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { props.phase })
 	local landed = props.phase == "land" or props.phase == "done" or props.phase == "exit"

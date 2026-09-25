@@ -5,20 +5,28 @@ local function unixNow()
 end
 local function useUnixDeadline(deadline)
 	local active, setActive = React.useState(function()
-		return deadline > unixNow()
+		return type(deadline) == "number" and deadline > unixNow()
 	end)
 	React.useEffect(function()
+		if type(deadline) ~= "number" then
+			setActive(false)
+			return nil
+		end
 		local remaining = deadline - unixNow()
-		if remaining <= 0 then
+		if remaining ~= remaining or remaining <= 0 then
 			setActive(false)
 			return nil
 		end
 		setActive(true)
-		local expiry = task.delay(remaining + 0.05, function()
-			return setActive(false)
+		local alive = true
+		local worker = task.delay(remaining + 0.05, function()
+			if alive then
+				setActive(false)
+			end
 		end)
 		return function()
-			return task.cancel(expiry)
+			alive = false
+			pcall(task.cancel, worker)
 		end
 	end, { deadline })
 	return active

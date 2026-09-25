@@ -381,7 +381,6 @@ local function CrewView(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — CrewView.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local players, setPlayers = React.useState({})
 	local mountedRef = React.useRef(true)
 	local visitAttemptRef = React.useRef(0)
@@ -427,13 +426,18 @@ local function CrewView(_param)
 		end
 	end, { refresh })
 	React.useEffect(function()
+		local alive = true
 		local worker = task.spawn(function()
-			while true do
+			while alive do
 				task.wait(4)
+				if not alive then
+					break
+				end
 				refresh()
 			end
 		end)
 		return function()
+			alive = false
 			pcall(function()
 				return task.cancel(worker)
 			end)
@@ -456,7 +460,7 @@ local function CrewView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { crewFocusReady, #players })
 	local _visitUserId = visit
@@ -630,7 +634,7 @@ local function CrewView(_param)
 				onNudge = function()
 					return nudgeCrew(player.UserId)
 				end,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				layoutOrder = index,
 				stack = stack,
 			})
@@ -672,7 +676,7 @@ local function CrewView(_param)
 					onNudge = function()
 						return nudgeCrew(player.UserId)
 					end,
-					reducedMotion = softMotion,
+					reducedMotion = reducedMotion,
 					layoutOrder = index + 3,
 					stack = stack,
 				}),

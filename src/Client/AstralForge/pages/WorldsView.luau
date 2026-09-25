@@ -39,6 +39,7 @@ local function WorldRow(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — WorldRow entrance drops on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local skipMotion = softMotion or layoutOrder > 4 or antilag.skipEntrance
 	local reveal = useStagger(math.min(layoutOrder, 4), skipMotion, 0.02, 0.14)
 	local _condition = zone.Features[1]
@@ -160,7 +161,7 @@ local function WorldsView(_param)
 	-- Canonical softMotion antilag gate — Worlds travel/unlock CTAs drop springs on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local quietMotion = softMotion or antilag.skipEntrance
+	local quietMotion = reducedMotion or antilag.skipEntrance
 	-- Canonical softMotion antilag gate — WorldsBoard.
 	local boardReveal = useStagger(0, softMotion)
 	local travelReveal = useStagger(1, softMotion)
@@ -182,7 +183,7 @@ local function WorldsView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { state.CurrentZone, state.Zone })
 	local headerHeight = if stack then 168 else 112
@@ -296,7 +297,7 @@ local function WorldsView(_param)
 				cashOk = cashOk,
 				coresOk = coresOk,
 				rebirthOk = rebirthOk,
-				reducedMotion = softMotion,
+				reducedMotion = reducedMotion,
 				onSelect = function()
 					return dispatch(if unlocked then "SelectZone" else "UnlockZone", {
 						Id = zone.Id,

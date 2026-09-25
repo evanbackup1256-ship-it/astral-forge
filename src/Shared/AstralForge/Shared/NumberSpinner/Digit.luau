@@ -159,13 +159,11 @@ function Digit.new(Spinner, LayoutOrder, Value)
 			end
 
 
+			-- Unchanged digit: stay put. A slow Duration used to offset and tween
+			-- the same glyph, which read as a fake spin.
 			if from == target then
-				if digit.Duration < 0.34 then
-					Canvas.Position = UDim2.new(0, 0, -target, 0)
-					return
-				end
-				local offset = (target + 4) % 10
-				Canvas.Position = UDim2.new(0, 0, -offset, 0)
+				Canvas.Position = UDim2.new(0, 0, -target, 0)
+				return
 			end
 
 			local tween = TweenService:Create(Canvas, tweenInfo, { Position = UDim2.new(0, 0, -target, 0) })

@@ -84,6 +84,9 @@
             },
             "matter": {
               "$path": "vendor/@rbxts/matter"
+            },
+            "action-journal": {
+              "$path": "vendor/@rbxts/action-journal"
             }
           },
           "@rbxts-js": {

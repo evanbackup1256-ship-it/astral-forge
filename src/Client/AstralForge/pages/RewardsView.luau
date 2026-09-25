@@ -33,6 +33,7 @@ local function RewardChargeRail(_param)
 	local size = _param.size
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local progress = useFlipperSpring(math.clamp(value, 0, 1), softMotion, 420, 32)
 	local emphasis = useFlipperSpring(if ready then 1 else 0, softMotion, 460, 32)
 	local fillSize = progress:map(function(amount)
@@ -96,7 +97,10 @@ local function TimedRewardQueue(_param)
 			table.insert(pending, entry)
 		end
 	end
-	local reveal = useStagger(3, reducedMotion)
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
+	local reveal = useStagger(3, softMotion)
 	local _exp = React.createElement(Text, {
 		value = "COMING UP",
 		size = 10,
@@ -167,7 +171,7 @@ local function TimedRewardQueue(_param)
 				value = played / math.max(1, entry.Seconds),
 				accent = accent,
 				ready = ready,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
 				position = UDim2.new(0, 8, 1, -4),
 				size = UDim2.new(1, -16, 0, 3),
 			}))
@@ -190,6 +194,7 @@ local function TimedRewardQueue(_param)
 		padding = 14,
 		layoutOrder = layoutOrder,
 		reveal = reveal,
+		reducedMotion = softMotion,
 	}, _exp, _exp_1, _condition)
 end
 local function RewardsView(_param)
@@ -251,7 +256,7 @@ local function RewardsView(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { dailyReady, timedReady, rewardsClaimReady })
 	local headerPanel = React.createElement(Panel, {
@@ -427,7 +432,7 @@ local function RewardsView(_param)
 		color = if timedReady then Palette.violet else Palette.panelSoft,
 		textColor = if timedReady then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
+			reducedMotion = softMotion,
 		disabled = not timedReady,
 		highlight = timedReady,
 	})))

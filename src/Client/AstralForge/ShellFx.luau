@@ -165,7 +165,7 @@ local function TradeReturnPill(_param)
 	-- Canonical softMotion antilag gate — TradeReturnPill springs drop on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local enter = useEntrance(reducedMotion)
+	local enter = useEntrance(softMotion)
 	local pulse = usePulse(true, 1.35)
 	local width = if stack then 176 else 198
 	local height = if stack then 48 else 46
@@ -186,7 +186,7 @@ local function TradeReturnPill(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { onReturn })
 	return React.createElement("frame", {
@@ -214,7 +214,7 @@ local function TradeReturnPill(_param)
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
+		reducedMotion = softMotion,
 		highlight = true,
 	}))
 end
@@ -228,9 +228,8 @@ local function AmbientLayer(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — AmbientLayer clocks drop on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
 	local strength = math.clamp(intensity, 0, 1)
-	local enabled = not softMotion and antilag.allowAmbient and strength > 0.02
+	local enabled = not reducedMotion and antilag.allowAmbient and strength > 0.02
 	local slow = useClock(enabled, 0.17)
 	local breath = useClock(enabled, 0.09)
 	local orbA = slow:map(function(phase)
@@ -275,24 +274,35 @@ local function ConfettiBurst(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — ConfettiBurst skips particle clocks on soft tiers.
 	local softMotion = antilag.tier <= 1 or not antilag.allowAmbient
-	local confettiLive = antilag.allowConfetti and not softMotion
-	local clock = useClock(confettiLive, 1, 1000, true)
+	local confettiLive = antilag.allowConfetti == true
+	local clock = useClock(confettiLive, if softMotion then 1.4 else 1, 1000, true)
+	local confettiSpan = if softMotion then 1.35 else 2.15
+	local onDoneRef = React.useRef(onDone)
+	onDoneRef.current = onDone
+	local spanRef = React.useRef(confettiSpan)
+	spanRef.current = confettiSpan
 	React.useEffect(function()
 		if not confettiLive then
-			onDone()
+			local finish = onDoneRef.current
+			if finish ~= nil then
+				finish()
+			end
 			return nil
 		end
 		local alive = true
-		local completion = task.delay(2.15, function()
+		local completion = task.delay(spanRef.current, function()
 			if alive then
-				onDone()
+				local finish = onDoneRef.current
+				if finish ~= nil then
+					finish()
+				end
 			end
 		end)
 		return function()
 			alive = false
-			task.cancel(completion)
+			pcall(task.cancel, completion)
 		end
-	end, { confettiLive, onDone })
+	end, { confettiLive })
 	if not confettiLive then
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),

@@ -268,24 +268,38 @@ return function(loadService: (string) -> any)
 				end
 			end
 			if pages.IsFinished then break end
-			local advanceOk = pcall(function() pages:AdvanceToNextPageAsync() end)
-			if not advanceOk then break end
+			local advanceOk, advanceErr = pcall(function() pages:AdvanceToNextPageAsync() end)
+			if not advanceOk then
+				ModuleLog.Every("discord-queue-page", 60, "Admin", "Discord mod queue page advance failed: " .. tostring(advanceErr))
+				break
+			end
 		end
 	end
 
 	function AdminService:_claimDiscordEntry(key: string)
 		local entry
-		local getOk = pcall(function()
+		local getOk, getErr = pcall(function()
 			entry = self._discordQueueStore:GetAsync(key)
 		end)
-		if not getOk or type(entry) ~= "table" then return end
+		if not getOk then
+			-- Seen was set by the poller before this call. Leaving it set made a
+			-- transient GetAsync failure skip the kick/ban until this server restarted.
+			self._discordSeenIds[key] = nil
+			ModuleLog.Every("discord-queue-get:" .. key, 60, "Admin", "Discord mod queue read failed: " .. tostring(getErr))
+			return
+		end
+		if type(entry) ~= "table" then return end
 		-- RemoveAsync first so a crash mid-execution can't replay the action
 		-- forever; worst case a transient failure loses one queued action
 		-- rather than double-kicking/banning someone.
-		local removed = pcall(function()
+		local removed, removeErr = pcall(function()
 			self._discordQueueStore:RemoveAsync(key)
 		end)
-		if not removed then return end
+		if not removed then
+			self._discordSeenIds[key] = nil
+			ModuleLog.Every("discord-queue-remove:" .. key, 60, "Admin", "Discord mod queue remove failed: " .. tostring(removeErr))
+			return
+		end
 		self:_executeDiscordAction(entry)
 	end
 

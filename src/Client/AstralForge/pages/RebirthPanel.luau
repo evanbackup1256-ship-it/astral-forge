@@ -25,8 +25,55 @@ local Meter = _ui.Meter
 local Panel = _ui.Panel
 local Text = _ui.Text
 local meterFill = _ui.meterFill
+
+local function featuresOpeningOnNextRebirth(config, nextCount: number): string
+	local unlocks = if config ~= nil and type(config.Unlocks) == "table" then config.Unlocks else nil
+	if unlocks == nil then
+		return ""
+	end
+	local wanted = {}
+	for _, rule in unlocks do
+		if type(rule) == "table" and rule.Kind == "Rebirths" and rule.Target == nextCount and type(rule.Name) == "string" then
+			wanted[rule.Name] = true
+		end
+	end
+	local names = {}
+	for _, name in { "Reactor", "Crew", "Trade Floor", "Command" } do
+		if wanted[name] then
+			table.insert(names, name)
+			wanted[name] = nil
+		end
+	end
+	local rest = {}
+	for name in wanted do
+		table.insert(rest, name)
+	end
+	table.sort(rest)
+	for _, name in rest do
+		table.insert(names, name)
+	end
+	return table.concat(names, ", ")
+end
+
+local function nextMachineRebirthNote(config, rebirths: number): string
+	local machines = if config ~= nil and type(config.Machines) == "table" then config.Machines else nil
+	if machines == nil then
+		return ""
+	end
+	for _, machine in machines do
+		if type(machine) == "table" then
+			local need = if type(machine.RequiredRebirths) == "number" then machine.RequiredRebirths else 0
+			if need > rebirths and type(machine.Name) == "string" then
+				return `{machine.Name} needs {need} rebirth{if need == 1 then "" else "s"}.`
+			end
+		end
+	end
+	return ""
+end
+
 local function RebirthPanel(_param)
 	local state = _param.state
+	local config = _param.config
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local effectsPaused = _param.effectsPaused
@@ -42,14 +89,32 @@ local function RebirthPanel(_param)
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — RebirthPanel (effectsPaused stays a separate decorative mute).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	local quietMotion = softMotion or effectsPaused
 	reducedMotion = softMotion
+	local quietMotion = reducedMotion or effectsPaused
 	local stack = chrome.contentStack
 	local canRebirth = gteFlux(state.PrestigeReward, 1)
 	local target = math.max(1, asFlux(state.NextPrestigeTarget))
 	local conversionFlux = math.max(0, asFlux(state.RunCash)) + math.max(0, asFlux(state.Vault))
 	local progress = if canRebirth then 1 else meterFill(conversionFlux, target)
-	local stardustReward = math.max(1, math.floor(math.sqrt(math.max(0, asFlux(state.PrestigeReward))) * 2))
+	local rebirthBag = if config ~= nil and type(config.Economy) == "table" then config.Economy.Rebirth else nil
+	local stardustScale = if type(rebirthBag) == "table" and type(rebirthBag.StardustSqrtScale) == "number" then rebirthBag.StardustSqrtScale else 5
+	local stardustMinimum = if type(rebirthBag) == "table" and type(rebirthBag.StardustMinimum) == "number" then rebirthBag.StardustMinimum else 4
+	local coreReward = math.max(0, asFlux(state.PrestigeReward))
+	local stardustReward = math.max(stardustMinimum, math.floor(math.sqrt(coreReward) * stardustScale))
+	local rebirths = math.max(0, math.floor(tonumber(state.Rebirths) or 0))
+	local economy = if config ~= nil and type(config.Economy) == "table" then config.Economy else nil
+	local rebirthRate = if economy ~= nil and type(economy.RebirthMultiplier) == "number" then economy.RebirthMultiplier else 0.14
+	local rebirthPercent = math.floor(rebirthRate * 100 + 0.5)
+	local opens = featuresOpeningOnNextRebirth(config, rebirths + 1)
+	local machineNote = nextMachineRebirthNote(config, rebirths)
+	local payoff = `You keep research, stardust, relics, milestones, Domain, and Continuum. You gain cores and +{rebirthPercent}% production per rebirth.`
+	if opens ~= "" then
+		payoff ..= ` Opens {opens}.`
+	end
+	if machineNote ~= "" then
+		payoff ..= ` {machineNote}`
+	end
+	local confirmCopy = `You lose this run's flux and worlds. Machines reset, and Stellar Core comes back at level 1. You keep research, stardust, relics, milestones, Domain, and Continuum. You still gain cores and +{rebirthPercent}% production.`
 	local confirming, setConfirming = React.useState(false)
 	local busy, setBusy = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
@@ -64,7 +129,7 @@ local function RebirthPanel(_param)
 	-- Canonical softMotion antilag gate — RebirthMeter.
 	local rewardReveal = useStagger(3, softMotion)
 	-- Canonical softMotion antilag gate — RebirthReward.
-	local rebirthSoft = softMotion or meterReveal == nil or rewardReveal == nil
+	local rebirthSoft = reducedMotion or meterReveal == nil or rewardReveal == nil
 	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
@@ -81,7 +146,7 @@ local function RebirthPanel(_param)
 			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			task.cancel(selectJob)
+			pcall(task.cancel, selectJob)
 		end
 	end, { canRebirth, confirming, busy })
 	React.useEffect(function()
@@ -161,7 +226,7 @@ local function RebirthPanel(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if confirming then "Reset this run for permanent power?" else "Turn this run into permanent cores.",
+		value = if confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Turn this run into permanent cores.",
 		size = if stack then 19 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
@@ -169,13 +234,13 @@ local function RebirthPanel(_param)
 		position = UDim2.fromOffset(0, 21),
 		sizeConstraint = UDim2.new(1, 0, 0, 31),
 	}), React.createElement(Text, {
-		value = if confirming then "You lose flux, machines, and unlocked worlds from this run. You keep research, relics, Stardust, milestones, Domain, and Continuum." else "Run flux and vault flux both count. Every core permanently boosts all future production.",
+		value = if confirming then confirmCopy else payoff,
 		size = if stack then 11 else 10,
 		color = Palette.creamSoft,
 		wrap = true,
 		fit = false,
 		position = UDim2.fromOffset(0, 57),
-		sizeConstraint = UDim2.new(1, 0, 0, if stack then 52 else 38),
+		sizeConstraint = UDim2.new(1, 0, 0, if stack then 74 else 46),
 	}), not stack and React.createElement(Text, {
 		value = `{compactNumber(conversionFlux)} / {compactNumber(target)} flux needed`,
 		size = 10,
@@ -222,7 +287,7 @@ local function RebirthPanel(_param)
 	}), React.createElement(Meter, {
 		value = progress,
 		color = accent,
-		reducedMotion = softMotion or effectsPaused,
+		reducedMotion = reducedMotion or effectsPaused,
 		shimmer = canRebirth and not effectsPaused,
 		position = UDim2.fromOffset(12, 34),
 		size = UDim2.new(1, -24, 0, 9),
@@ -258,7 +323,7 @@ local function RebirthPanel(_param)
 		ClipsDescendants = false,
 		ref = rebirthClaimHostRef,
 	}, React.createElement(Button, {
-		text = if busy then "REBIRTHING…" elseif confirming then "CONFIRM REBIRTH" elseif canRebirth then "REBIRTH" else "NOT READY",
+		text = if busy then "REBIRTHING…" elseif confirming then "CONFIRM REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
 		icon = "Rebirth",
 		onClick = rebirth,
 		color = if canRebirth then accent else Palette.panelSoft,

@@ -115,6 +115,8 @@ local Protocol = {
 		ConfirmTrade = "ConfirmTrade",
 		CancelTrade = "CancelTrade",
 		TradeViewAway = "TradeViewAway",
+		EnterSanctuary = "EnterSanctuary",
+		LeaveSanctuary = "LeaveSanctuary",
 	},
 }
 
