@@ -1,15 +1,21 @@
 --!strict
 -- Walkable rift behind the shell. The idle UI stays on a scriptable camera.
--- PlayerModule is not under PlayerScripts; this script moves the avatar with
--- WASD and a Scriptable follow camera. Leave restores the forge camera and
--- the server destroys the sanctuary character.
+-- PlayerModule is not under PlayerScripts; sanctuaryControls moves the avatar
+-- and runs the follow camera on every device, and sanctuaryWorld animates the
+-- world. Leave restores the forge camera and lighting, and the server
+-- destroys the sanctuary character.
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+
+local Controls = require(script.Parent.sanctuaryControls)
+local World = require(script.Parent.sanctuaryWorld)
+local SanctuaryLayout = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SanctuaryLayout"))
 
 local Presence = {}
 
@@ -25,7 +31,26 @@ type LightingSnapshot = {
 	clockTime: number,
 }
 
-local DECK_RADIUS = 48
+-- The arrival check: the character has been placed on the forge deck when it
+-- stands this close to the spawn slab. It covers every walkable surface of
+-- the hand-built deck (the far corners sit just past 48 studs). Once walking,
+-- the controls follow the player anywhere inside the sanctuary's bounds
+-- (SanctuaryLayout.WORLD_RADIUS), not just the deck.
+local DECK_RADIUS = 72
+
+-- Post effects that exist only while the sanctuary is open.
+local EFFECT_NAMES = { "AF_SanctuaryBloom", "AF_SanctuaryGrade", "AF_SanctuaryRays" }
+local ATMOSPHERE_NAME = "AF_SanctuaryAtmosphere"
+
+type AtmosphereSnapshot = {
+	instance: Atmosphere,
+	density: number,
+	offset: number,
+	color: Color3,
+	decay: Color3,
+	glare: number,
+	haze: number,
+}
 
 local activeToken = 0
 local walking = false
@@ -38,6 +63,7 @@ local shellCameraType: Enum.CameraType? = nil
 local shellCameraSubject: Instance? = nil
 local connections: { RBXScriptConnection } = {}
 local cameraGuard: RBXScriptConnection? = nil
+local savedAtmosphere: AtmosphereSnapshot? = nil
 
 local function track(connection: RBXScriptConnection)
 	table.insert(connections, connection)
@@ -76,13 +102,92 @@ local function applySanctuaryLighting()
 	Lighting.Brightness = 2.15
 	Lighting.Ambient = Color3.fromRGB(46, 60, 78)
 	Lighting.OutdoorAmbient = Color3.fromRGB(32, 44, 60)
-	Lighting.FogColor = Color3.fromRGB(5, 7, 12)
-	Lighting.FogStart = 70
-	Lighting.FogEnd = 280
+	Lighting.FogColor = Color3.fromRGB(8, 8, 18)
+	-- The world reaches ~500 studs out; distant islands fade into haze rather
+	-- than popping out of a black wall.
+	Lighting.FogStart = 160
+	Lighting.FogEnd = 900
 	Lighting.ClockTime = 18.6
+
+	-- Violet dusk haze. An Atmosphere already in Lighting (the shell's) is
+	-- borrowed and put back exactly; otherwise one is added for the visit.
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	if atmosphere ~= nil and atmosphere.Name ~= ATMOSPHERE_NAME then
+		if savedAtmosphere == nil then
+			savedAtmosphere = {
+				instance = atmosphere,
+				density = atmosphere.Density,
+				offset = atmosphere.Offset,
+				color = atmosphere.Color,
+				decay = atmosphere.Decay,
+				glare = atmosphere.Glare,
+				haze = atmosphere.Haze,
+			}
+		end
+	elseif atmosphere == nil then
+		atmosphere = Instance.new("Atmosphere")
+		atmosphere.Name = ATMOSPHERE_NAME
+		atmosphere.Parent = Lighting
+	end
+	local haze = atmosphere :: Atmosphere
+	haze.Density = 0.3
+	haze.Offset = 0.12
+	haze.Color = Color3.fromRGB(70, 60, 112)
+	haze.Decay = Color3.fromRGB(26, 20, 46)
+	haze.Glare = 0.35
+	haze.Haze = 1.4
+
+	-- Neon (lava, crystals, runes, the Warden) blooms softly; a gentle grade
+	-- lifts contrast so the dusk doesn't read as mud.
+	if Lighting:FindFirstChild(EFFECT_NAMES[1]) == nil then
+		local bloom = Instance.new("BloomEffect")
+		bloom.Name = EFFECT_NAMES[1]
+		bloom.Intensity = 0.55
+		bloom.Size = 26
+		bloom.Threshold = 1.4
+		bloom.Parent = Lighting
+	end
+	if Lighting:FindFirstChild(EFFECT_NAMES[2]) == nil then
+		local grade = Instance.new("ColorCorrectionEffect")
+		grade.Name = EFFECT_NAMES[2]
+		grade.Contrast = 0.08
+		grade.Saturation = 0.1
+		grade.TintColor = Color3.fromRGB(242, 238, 255)
+		grade.Parent = Lighting
+	end
+	if Lighting:FindFirstChild(EFFECT_NAMES[3]) == nil then
+		local rays = Instance.new("SunRaysEffect")
+		rays.Name = EFFECT_NAMES[3]
+		rays.Intensity = 0.04
+		rays.Spread = 0.6
+		rays.Parent = Lighting
+	end
 end
 
 local function restoreLighting()
+	-- Post effects and the haze go whether or not the base lighting was held,
+	-- so a failed entry never leaves any of them behind.
+	for _, name in EFFECT_NAMES do
+		local effect = Lighting:FindFirstChild(name)
+		if effect ~= nil then
+			effect:Destroy()
+		end
+	end
+	local added = Lighting:FindFirstChild(ATMOSPHERE_NAME)
+	if added ~= nil then
+		added:Destroy()
+	end
+	local borrowed = savedAtmosphere
+	savedAtmosphere = nil
+	if borrowed ~= nil and borrowed.instance.Parent ~= nil then
+		borrowed.instance.Density = borrowed.density
+		borrowed.instance.Offset = borrowed.offset
+		borrowed.instance.Color = borrowed.color
+		borrowed.instance.Decay = borrowed.decay
+		borrowed.instance.Glare = borrowed.glare
+		borrowed.instance.Haze = borrowed.haze
+	end
+
 	local saved = savedLighting
 	if not lightingHeld or saved == nil then
 		lightingHeld = false
@@ -201,53 +306,14 @@ ensureCameraGuard = function()
 	if cameraGuard ~= nil then
 		return
 	end
-	local player = Players.LocalPlayer
-	cameraGuard = RunService.RenderStepped:Connect(function()
+	cameraGuard = RunService.RenderStepped:Connect(function(dt: number)
 		local camera = Workspace.CurrentCamera
 		if camera == nil then
 			return
 		end
 		if walking then
-			local character = player.Character
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			local root = character and character:FindFirstChild("HumanoidRootPart")
-			if humanoid == nil or root == nil or not root:IsA("BasePart") then
-				return
-			end
-			-- Scripted WASD. The follow camera stays Scriptable on the deck.
-			local flatLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
-			if flatLook.Magnitude < 0.05 then
-				flatLook = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-			end
-			if flatLook.Magnitude < 0.05 then
-				flatLook = Vector3.new(0, 0, -1)
-			end
-			flatLook = flatLook.Unit
-			local flatRight = Vector3.new(flatLook.Z, 0, -flatLook.X)
-			local move = Vector3.zero
-			if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
-				move += flatLook
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
-				move -= flatLook
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-				move -= flatRight
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-				move += flatRight
-			end
-			if move.Magnitude > 0.05 then
-				humanoid:Move(move.Unit, false)
-			else
-				humanoid:Move(Vector3.zero, false)
-			end
-			local focus = root.Position + Vector3.new(0, 2.5, 0)
-			local eye = focus - flatLook * 16 + Vector3.new(0, 7, 0)
-			local aim = clearCamera(eye, focus)
-			camera.CameraType = Enum.CameraType.Scriptable
-			camera.CameraSubject = nil
-			camera.CFrame = aim
+			-- Movement and the orbit camera, for every input device.
+			Controls.step(dt)
 			return
 		end
 		local aim = overlookCFrame()
@@ -263,6 +329,8 @@ end
 
 local function lockAvatar()
 	walking = false
+	Controls.stop()
+	World.stop()
 	local player = Players.LocalPlayer
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -302,22 +370,14 @@ local function rootOnDeck(root: BasePart): boolean
 	return (root.Position - basis.Position).Magnitude <= DECK_RADIUS
 end
 
-local function seedDeckCamera(root: BasePart)
-	local camera = Workspace.CurrentCamera
-	if camera == nil then
-		return
-	end
-	local flatLook = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-	if flatLook.Magnitude < 0.05 then
-		flatLook = Vector3.new(0, 0, -1)
-	else
-		flatLook = flatLook.Unit
-	end
-	local focus = root.Position + Vector3.new(0, 2.5, 0)
-	local eye = focus - flatLook * 16 + Vector3.new(0, 7, 0)
-	camera.CameraType = Enum.CameraType.Scriptable
-	camera.CameraSubject = nil
-	camera.CFrame = clearCamera(eye, focus)
+-- Anywhere in the sanctuary: the hub, the bridges and every region.
+local function rootInWorld(root: BasePart): boolean
+	local origin = SanctuaryLayout.ORIGIN
+	return SanctuaryLayout.inBounds({
+		X = root.Position.X - origin.X,
+		Y = root.Position.Y - origin.Y,
+		Z = root.Position.Z - origin.Z,
+	})
 end
 
 local function followAvatar(humanoid: Humanoid)
@@ -326,9 +386,15 @@ local function followAvatar(humanoid: Humanoid)
 	humanoid.JumpHeight = 7.2
 	local character = humanoid.Parent
 	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local facing: Vector3? = nil
 	if root ~= nil and root:IsA("BasePart") then
-		seedDeckCamera(root)
+		local flat = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+		facing = if flat.Magnitude > 0.05 then flat.Unit else nil
 	end
+	if not Controls.isActive() then
+		Controls.start(facing)
+	end
+	World.start()
 	walking = true
 	ensureCameraGuard()
 	return true
@@ -423,7 +489,7 @@ function Presence.enter(dispatch: Dispatch, onClose: () -> (), onFailed: () -> (
 					end
 				else
 					missingSince = nil
-					if not walking and rootOnDeck(liveRoot) then
+					if not walking and rootInWorld(liveRoot) then
 						local liveHumanoid = live and live:FindFirstChildOfClass("Humanoid")
 						if liveHumanoid ~= nil then
 							followAvatar(liveHumanoid)

@@ -1,23 +1,21 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local GuiService = game:GetService("GuiService")
-local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.audio).Audio
 local Icon = require(script.Parent.Icon).Icon
 local createFlipperMotor = require(script.Parent.motion).createFlipperMotor
 local useViewport = require(script.Parent.motion).useViewport
 local useClientSelector = require(script.Parent.clientStore).useClientSelector
 local Text = require(script.Parent.ui).Text
-local chromeFor = require(script.Parent.theme).chromeFor
 local Palette = require(script.Parent.theme).Palette
 local surfaceGradient = require(script.Parent.theme).surfaceGradient
+local Curtain = require(script.Parent.curtainTransition)
+local HudPlan = require(script.Parent.sanctuaryHudPlan)
+local SanctuaryHud = require(script.Parent.sanctuaryHud).SanctuaryHud
 
-local SCREEN_NAME = "AstralForgeStudioUI"
-local DOCK_GAP = 14
-local SAFE_EDGE = 24
-local PULSE_SECONDS = 0.16
-local SPLIT_OFFSET = 0.03
-local TRAVEL_STIFFNESS = 340
-local TRAVEL_DAMPING = 46
+-- The parting edge of each half: a hairline rim and a soft inward shadow.
+local RIM_WIDTH = 2
+local EDGE_SHADOW_WIDTH = 36
 
 local LEFT_DOCK = {
 	{ key = "Overview", pageId = "Overview", label = "Overview", icon = "Overview" },
@@ -25,7 +23,7 @@ local LEFT_DOCK = {
 	{ key = "StarGrid", pageId = "StarGrid", label = "Star Grid", icon = "StarGrid" },
 	{ key = "Continuum", pageId = "Continuum", label = "Next Rank", icon = "Continuum" },
 	{ key = "Missions", pageId = "Missions", label = "Missions", icon = "Mission" },
-	{ key = "Rebirth", pageId = "Overview", label = "Rebirth", icon = "Rebirth" },
+	{ key = "Foundry", pageId = "Foundry", label = "Foundry", icon = "Artifact" },
 }
 
 local RIGHT_DOCK = {
@@ -36,6 +34,13 @@ local RIGHT_DOCK = {
 	{ key = "Leaderboards", pageId = "Leaderboards", label = "Ranks", icon = "Leaderboard" },
 	{ key = "Settings", pageId = "Settings", label = "Settings", icon = "Settings" },
 }
+
+-- Every destination, for the menu sheet that replaces the docks on small and
+-- touch screens.
+local ALL_DOCK = table.clone(LEFT_DOCK)
+for _, entry in RIGHT_DOCK do
+	table.insert(ALL_DOCK, entry)
+end
 
 local function muteClone(root)
 	pcall(function()
@@ -60,22 +65,6 @@ local function muteClone(root)
 			descendant.AutoButtonColor = false
 		end
 	end
-end
-
-local function seamTransparency(value)
-	local shown = math.clamp(value, 0, 1)
-	return 1 - shown * 0.96
-end
-
-local function seamWidth(value)
-	return 2 + math.clamp(value, 0, 1) * 10
-end
-
-local function travelShift(value)
-	local progress = math.clamp(value, 0, 1.2)
-	local eased = 1 - math.pow(1 - math.min(progress, 1), 3)
-	local overshoot = if progress > 1 then (progress - 1) * 0.035 else 0
-	return (eased + overshoot) * 0.58
 end
 
 -- Square icon tiles lean a little. A two-word or long caption fills the tile, so it only scales.
@@ -287,12 +276,15 @@ local function DockButton(props)
 	}))))
 end
 
+-- One dock column, placed by the HUD plan (sanctuaryHudPlan) so it never
+-- meets the Warden bar, the ore chips or the strike button.
 local function DockColumn(props)
+	local rect = props.rect
 	local buttons = {
 		Layout = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, DOCK_GAP),
+			Padding = UDim.new(0, props.gap),
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		}),
 	}
@@ -307,9 +299,8 @@ local function DockColumn(props)
 		})
 	end
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(props.button, props.button * #props.entries + DOCK_GAP * (#props.entries - 1)),
-		Position = if props.side == "left" then UDim2.new(0, props.pad, 0.5, 0) else UDim2.new(1, -props.pad, 0.5, 0),
-		AnchorPoint = if props.side == "left" then Vector2.new(0, 0.5) else Vector2.new(1, 0.5),
+		Size = UDim2.fromOffset(rect.w, rect.h),
+		Position = UDim2.fromOffset(rect.x, rect.y),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Active = false,
@@ -318,261 +309,265 @@ local function DockColumn(props)
 	}, buttons)
 end
 
-local function edgePad(chrome, inset)
-	local player = Players.LocalPlayer
-	local playerGui = player and player:FindFirstChildOfClass("PlayerGui")
-	local screen = playerGui and playerGui:FindFirstChild(SCREEN_NAME)
-	local consumed = false
-	if screen ~= nil and screen:IsA("ScreenGui") then
-		consumed = screen.IgnoreGuiInset == false or screen.ScreenInsets ~= Enum.ScreenInsets.None
-	end
-	local sideSafe = if chrome ~= nil and type(chrome.sideSafe) == "number" then chrome.sideSafe else 0
-	local bottomSafe = if chrome ~= nil and type(chrome.bottomSafe) == "number" then chrome.bottomSafe else 0
-	local side = SAFE_EDGE + sideSafe + (if consumed then 0 else inset.X)
-	local top = SAFE_EDGE + (if consumed then 0 else inset.Y)
-	local bottom = SAFE_EDGE + bottomSafe
-	return side, top, bottom
+-- The parting edge of one half: a hairline of light on the edge itself and a
+-- soft shadow falling inward, so each half reads as a panel with thickness
+-- rather than a flat cut. `side` is the side of the half the edge sits on.
+local function PartingEdge(props)
+	local onRight = props.side == "right"
+	local anchor = Vector2.new(if onRight then 1 else 0, 0)
+	local position = UDim2.fromScale(if onRight then 1 else 0, 0)
+	return React.createElement(React.Fragment, nil, React.createElement("frame", {
+		AnchorPoint = anchor,
+		Position = position,
+		Size = UDim2.new(0, EDGE_SHADOW_WIDTH, 1, 0),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = 0.25,
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = 6,
+	}, React.createElement("uigradient", {
+		-- Darkest at the edge, gone a few dozen pixels in.
+		Rotation = if onRight then 0 else 180,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0),
+		}),
+	})), React.createElement("frame", {
+		AnchorPoint = anchor,
+		Position = position,
+		Size = UDim2.new(0, RIM_WIDTH, 1, 0),
+		BackgroundColor3 = Palette.creamSoft,
+		BackgroundTransparency = props.rimTransparency,
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = 7,
+	}, React.createElement("uigradient", {
+		-- The rim fades out toward the top and bottom instead of ending hard.
+		Rotation = 90,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.18, 0.2),
+			NumberSequenceKeypoint.new(0.82, 0.2),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	})))
 end
 
+-- Dims a half as it swings away.
+local function HalfShade(props)
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = props.transparency,
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = 5,
+	})
+end
+
+-- The dark behind the curtain. It hides the world while the sanctuary loads,
+-- so the server round-trip and the camera move into the rift are never seen,
+-- then fades once the sanctuary is ready. Deliberately plain: no text, no
+-- decoration, nothing that could read as something left behind.
+local function RiftVeil(props)
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = props.veil:map(Curtain.veilTransparency),
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = 1,
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.void),
+			ColorSequenceKeypoint.new(0.5, Palette.night),
+			ColorSequenceKeypoint.new(1, Palette.void),
+		}),
+	}))
+end
+
+-- Drives the curtain's travel toward `open` on RenderStepped. The clock starts
+-- on the first frame after the change is committed, so any one-off work in
+-- that commit (the right-half snapshot) delays the start by a frame instead of
+-- showing up as a jump. A change of direction mid-run starts from wherever the
+-- halves are.
+local function useCurtainTravel(open: boolean, reduced: boolean, onSettled: (number) -> ())
+	local travel, setTravel = React.useBinding(0)
+	local current = React.useRef(0)
+	local settledRef = React.useRef(onSettled)
+	settledRef.current = onSettled
+	React.useLayoutEffect(function()
+		local target = if open then 1 else 0
+		local from = current.current
+		local distance = math.abs(target - from)
+		if distance < 1e-4 then
+			current.current = target
+			setTravel(target)
+			settledRef.current(target)
+			return nil
+		end
+		local seconds = Curtain.duration(open, distance, reduced)
+		local startedAt: number? = nil
+		local connection: RBXScriptConnection? = nil
+		connection = RunService.RenderStepped:Connect(function()
+			local now = os.clock()
+			if startedAt == nil then
+				startedAt = now
+			end
+			local elapsed = now - (startedAt :: number)
+			local value = Curtain.sample(from, target, elapsed, seconds)
+			current.current = value
+			setTravel(value)
+			if elapsed >= seconds then
+				if connection ~= nil then
+					connection:Disconnect()
+					connection = nil
+				end
+				current.current = target
+				setTravel(target)
+				settledRef.current(target)
+			end
+		end)
+		return function()
+			if connection ~= nil then
+				connection:Disconnect()
+				connection = nil
+			end
+		end
+	end, { open })
+	return travel, current
+end
+
+-- The rift opens like a stage curtain: the shell splits down the middle and
+-- the two halves slide off opposite edges, revealing the sanctuary. The
+-- halves move on the frame after the rift is requested -- nothing waits on
+-- the server. The veil behind them covers the world until the sanctuary is
+-- ready (`ready`), then fades. Closing brings the halves back together.
 local function SplitCurtain(props)
 	local open = props.open == true
+	local ready = props.ready == true
 	local strictReduced = useClientSelector(settingsReduced)
-	local strictReducedRef = React.useRef(strictReduced)
-	strictReducedRef.current = strictReduced
 	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local inset, setInset = React.useState(function()
-		return GuiService:GetGuiInset()
+	-- True only while the curtain is shut and settled. `split` is derived here,
+	-- so the halves exist on the very frame `open` turns true.
+	local closedAtRest, setClosedAtRest = React.useState(not open)
+	local split = open or not closedAtRest
+	local travel = useCurtainTravel(open, strictReduced == true, function(target)
+		if target <= 0 then
+			setClosedAtRest(true)
+		end
 	end)
-	local phase, setPhase = React.useState("shut")
-	local leftTravel, setLeftTravel = React.useBinding(0)
-	local rightTravel, setRightTravel = React.useBinding(0)
-	local seam, setSeam = React.useBinding(0)
-	local motors = React.useRef(nil)
-	local phaseRef = React.useRef("shut")
-	local openRef = React.useRef(open)
-	local travelSample = React.useRef({
-		left = 0,
-		right = 0,
-		leftPrev = 0,
-		rightPrev = 0,
-	})
-	local delayToken = React.useRef(nil)
-	local commandedTravel = React.useRef(nil)
+	local veil, setVeil = React.useBinding(1)
+	local veilMotor = React.useRef(nil)
+	local wasOpen = React.useRef(open)
 	local paneRef = React.useRef(nil)
 	local rightClipRef = React.useRef(nil)
-	local cloneRef = React.useRef(nil)
-	local wasOpen = React.useRef(false)
-	if motors.current == nil then
-		motors.current = {
-			left = createFlipperMotor(0, TRAVEL_STIFFNESS, TRAVEL_DAMPING),
-			right = createFlipperMotor(0, TRAVEL_STIFFNESS, TRAVEL_DAMPING),
-			seam = createFlipperMotor(0, 640, 44),
-		}
+	if veilMotor.current == nil then
+		veilMotor.current = createFlipperMotor(1, Curtain.VEIL_STIFFNESS, Curtain.VEIL_DAMPING)
 	end
-	phaseRef.current = phase
-	openRef.current = open
-
-	local function noteTravel(side, value)
-		local sample = travelSample.current
-		local previous = sample[side]
-		sample[side] = value
-		if openRef.current or phaseRef.current ~= "apart" then
-			sample[side .. "Prev"] = value
-			return nil
-		end
-		local leftDelta = math.abs(sample.left - sample.leftPrev)
-		local rightDelta = math.abs(sample.right - sample.rightPrev)
-		sample.leftPrev = sample.left
-		sample.rightPrev = sample.right
-		if previous == nil then
-			return nil
-		end
-		-- Flipper snaps the last sample onto the goal. A fly-through still has speed.
-		if math.abs(sample.left) <= 0.001 and math.abs(sample.right) <= 0.001 and leftDelta <= 0.02 and rightDelta <= 0.02 then
-			phaseRef.current = "shut"
-			setPhase("shut")
-		end
-		return nil
-	end
-
-	React.useEffect(function()
-		local function sync()
-			setInset(GuiService:GetGuiInset())
-		end
-		sync()
-		local connection = GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(sync)
-		return function()
-			connection:Disconnect()
-		end
-	end, {})
 
 	-- Subscribe once. Cleanup runs on unmount, not when the curtain retargets.
 	React.useLayoutEffect(function()
-		local pack = motors.current
-		if pack == nil then
+		local motor = veilMotor.current
+		if motor == nil then
 			return nil
 		end
-		local disconnectLeft = pack.left:onChange(function(value)
-			setLeftTravel(value)
-			noteTravel("left", value)
-		end)
-		local disconnectRight = pack.right:onChange(function(value)
-			setRightTravel(value)
-			noteTravel("right", value)
-		end)
-		local disconnectSeam = pack.seam:onChange(setSeam)
+		local disconnect = motor:onChange(setVeil)
 		return function()
-			disconnectLeft()
-			disconnectRight()
-			disconnectSeam()
-			pack.left:destroy()
-			pack.right:destroy()
-			pack.seam:destroy()
-			if motors.current == pack then
-				motors.current = nil
+			disconnect()
+			motor:destroy()
+			if veilMotor.current == motor then
+				veilMotor.current = nil
 			end
 		end
 	end, {})
 
-	React.useEffect(function()
-		if wasOpen.current and not open then
-			Audio:play("close")
-		end
-		wasOpen.current = open
-	end, { open })
-
-	React.useEffect(function()
-		if not open then
-			if phaseRef.current == "pulse" then
-				setPhase("shut")
-			end
-			return nil
-		end
-		if phaseRef.current == "apart" then
-			return nil
-		end
-		setPhase("pulse")
-		Audio:play("tick")
-		local pulse = if strictReducedRef.current then PULSE_SECONDS * 0.5 else PULSE_SECONDS
-		local pending = true
-		local thread = task.delay(pulse, function()
-			pending = false
-			if not openRef.current then
-				return nil
-			end
-			phaseRef.current = "apart"
-			setPhase("apart")
-			return nil
-		end)
-		return function()
-			if pending then
-				pcall(task.cancel, thread)
-			end
-		end
-	end, { open })
-
 	React.useLayoutEffect(function()
-		local pack = motors.current
-		if pack == nil then
-			return nil
+		if open then
+			setClosedAtRest(false)
+		else
+			-- The shell camera and lighting are restored the moment the rift
+			-- closes, so cover the world at once; the halves close over the veil.
+			local motor = veilMotor.current
+			if motor ~= nil then
+				motor:setPosition(1)
+			end
 		end
-		if phase == "pulse" then
-			local stiff = if strictReducedRef.current then 980 else 640
-			pack.seam:configure(stiff, 44)
-			pack.seam:setGoal(1)
-			return nil
+		if open ~= wasOpen.current then
+			wasOpen.current = open
+			Audio:play(if open then "open" else "close")
 		end
-		pack.seam:setGoal(0)
 		return nil
-	end, { phase })
+	end, { open })
 
+	-- Lift the veil once the sanctuary is standing behind the halves.
 	React.useLayoutEffect(function()
-		if phase == "apart" then
-			if cloneRef.current ~= nil then
-				return nil
-			end
-			local pane = paneRef.current
-			local slot = rightClipRef.current
-			if pane == nil or slot == nil then
-				return nil
-			end
-			local copy = pane:Clone()
-			copy.Name = "SanctuaryRightMute"
-			copy.Size = UDim2.fromScale(2, 1)
-			copy.Position = UDim2.fromScale(-1, 0)
-			copy.AnchorPoint = Vector2.new(0, 0)
-			muteClone(copy)
-			copy.Parent = slot
-			cloneRef.current = copy
+		local motor = veilMotor.current
+		if motor == nil or not open then
 			return nil
 		end
-		local existing = cloneRef.current
-		cloneRef.current = nil
-		if existing ~= nil then
+		motor:setGoal(if ready then 0 else 1)
+		return nil
+	end, { open, ready })
+
+	-- A GUI renders in one place only, so the right half shows a muted snapshot
+	-- of the shell. It is re-taken when the rift closes, so the halves always
+	-- meet on the shell as it is now (numbers that ticked while away, or a page
+	-- the player jumped to from the dock), never on a stale picture.
+	React.useLayoutEffect(function()
+		if not split then
+			return nil
+		end
+		local pane = paneRef.current
+		local slot = rightClipRef.current
+		if pane == nil or slot == nil then
+			return nil
+		end
+		local copy = pane:Clone()
+		copy.Name = "SanctuaryRightMute"
+		copy.Size = UDim2.fromScale(2, 1)
+		copy.Position = UDim2.fromScale(-1, 0)
+		copy.AnchorPoint = Vector2.new(0, 0)
+		copy.ZIndex = 1
+		muteClone(copy)
+		copy.Parent = slot
+		return function()
 			pcall(function()
-				existing:Destroy()
+				copy:Destroy()
 			end)
 		end
-		return nil
-	end, { phase })
+	end, { split, open })
 
+	-- The shell takes no input while it is split; the docks drive navigation.
 	React.useLayoutEffect(function()
-		local pack = motors.current
-		if pack == nil or phase ~= "apart" then
-			return nil
-		end
-		local goal = if open then 1 else 0
-		if commandedTravel.current == goal then
-			return nil
-		end
-		commandedTravel.current = goal
-		local stiff = if strictReducedRef.current then TRAVEL_STIFFNESS * 1.75 else TRAVEL_STIFFNESS
-		pack.left:configure(stiff, TRAVEL_DAMPING)
-		pack.right:configure(stiff, TRAVEL_DAMPING)
-		local token = {}
-		delayToken.current = token
-		pack.left:setGoal(goal)
-		local offset = if strictReducedRef.current then SPLIT_OFFSET * 0.5 else SPLIT_OFFSET
-		task.delay(offset, function()
-			if delayToken.current ~= token then
-				return nil
-			end
-			local live = motors.current
-			if live == nil or not live.right:alive() then
-				return nil
-			end
-			live.right:setGoal(goal)
-			return nil
-		end)
-		return nil
-	end, { open, phase })
-
-	React.useEffect(function()
 		local pane = paneRef.current
 		if pane == nil then
 			return nil
 		end
 		pcall(function()
-			pane.Interactable = phase == "shut"
+			pane.Interactable = not split
 		end)
 		return nil
-	end, { phase })
+	end, { split })
 
-	local apart = phase == "apart"
-	local showDocks = apart
-	local seamVisible = seam:map(function(value)
-		return value > 0.05
+	-- One plan places the docks, the HUD and the touch controls, recomputed on
+	-- every viewport change (rotation, resize, keyboard, safe-area change).
+	local plan = HudPlan.compute({
+		width = viewport.width,
+		height = viewport.height,
+		touch = UserInputService.TouchEnabled,
+		dockEntries = #LEFT_DOCK,
+	})
+	local showDocks = open and plan.dockMode == "columns"
+	local leftPosition = travel:map(function(value)
+		return UDim2.fromScale(-Curtain.shift(value), 0)
 	end)
-	local side, topInset, bottomInset = edgePad(chrome, inset)
-	local available = math.max(220, viewport.height - topInset - bottomInset)
-	local button = math.clamp(math.floor((available - DOCK_GAP * (#LEFT_DOCK - 1)) / #LEFT_DOCK), 46, 64)
-	local leftPosition = leftTravel:map(function(value)
-		return UDim2.fromScale(-travelShift(value), 0)
+	local rightPosition = travel:map(function(value)
+		return UDim2.fromScale(0.5 + Curtain.shift(value), 0)
 	end)
-	local rightPosition = rightTravel:map(function(value)
-		return UDim2.fromScale(0.5 + travelShift(value), 0)
-	end)
+	local rimTransparency = travel:map(Curtain.rimTransparency)
+	local shadeTransparency = travel:map(Curtain.shadeTransparency)
 
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -580,21 +575,31 @@ local function SplitCurtain(props)
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		Active = false,
-	}, React.createElement("frame", {
-		Size = if apart then UDim2.fromScale(0.5, 1) else UDim2.fromScale(1, 1),
-		Position = if apart then leftPosition else UDim2.fromScale(0, 0),
+	}, split and React.createElement(RiftVeil, {
+		veil = veil,
+	}), React.createElement("frame", {
+		-- Left half: the live shell, clipped to the left half while split. Its
+		-- inner pane doubles in width so the UI keeps its full-screen layout.
+		Size = if split then UDim2.fromScale(0.5, 1) else UDim2.fromScale(1, 1),
+		Position = if split then leftPosition else UDim2.fromScale(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = apart,
-		Active = not apart,
+		ClipsDescendants = split,
+		Active = not split,
 		ZIndex = 2,
 	}, React.createElement("frame", {
 		ref = paneRef,
-		Size = if apart then UDim2.fromScale(2, 1) else UDim2.fromScale(1, 1),
+		Size = if split then UDim2.fromScale(2, 1) else UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Active = not apart,
-	}, props.children)), apart and React.createElement("frame", {
+		Active = not split,
+	}, props.children), split and React.createElement(HalfShade, {
+		transparency = shadeTransparency,
+	}), split and React.createElement(PartingEdge, {
+		side = "right",
+		rimTransparency = rimTransparency,
+	})), split and React.createElement("frame", {
+		-- Right half: holds the muted snapshot (see the clone effect above).
 		ref = rightClipRef,
 		Size = UDim2.fromScale(0.5, 1),
 		Position = rightPosition,
@@ -603,83 +608,31 @@ local function SplitCurtain(props)
 		ClipsDescendants = true,
 		Active = false,
 		ZIndex = 2,
-	}), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = seam:map(function(value)
-			return math.clamp(0.98 - math.clamp(value, 0, 1) * 0.74, 0.2, 0.98)
-		end),
-		BorderSizePixel = 0,
-		Active = false,
-		Visible = seamVisible,
-		ZIndex = 5,
-	}, React.createElement("uigradient", {
-		Rotation = 90,
-		Color = ColorSequence.new(Palette.void, Palette.panel),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.18),
-			NumberSequenceKeypoint.new(0.5, 0.58),
-			NumberSequenceKeypoint.new(1, 0.18),
-		}),
-	})), React.createElement("frame", {
-		Size = UDim2.new(0, 24, 1, 0),
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Active = false,
-		Visible = seamVisible,
-		ZIndex = 6,
-	}, React.createElement("frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
-		Size = seam:map(function(value)
-			return UDim2.new(0, seamWidth(value) + 6, 1, 0)
-		end),
-		BackgroundColor3 = Palette.ink,
-		BackgroundTransparency = seam:map(function(value)
-			return math.clamp(seamTransparency(value) + 0.28, 0, 1)
-		end),
-		BorderSizePixel = 0,
-		Active = false,
-		ZIndex = 1,
-	}, React.createElement("uigradient", {
-		Rotation = 90,
-		Color = surfaceGradient(Palette.panel, 0.7),
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.15),
-			NumberSequenceKeypoint.new(0.5, 0.45),
-			NumberSequenceKeypoint.new(1, 0.15),
-		}),
-	})), React.createElement("frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
-		Size = seam:map(function(value)
-			return UDim2.new(0, seamWidth(value), 1, 0)
-		end),
-		BackgroundColor3 = Palette.cyan,
-		BackgroundTransparency = seam:map(seamTransparency),
-		BorderSizePixel = 0,
-		Active = false,
-		ZIndex = 2,
-	}, React.createElement("uigradient", {
-		Rotation = 90,
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Palette.cyan),
-			ColorSequenceKeypoint.new(0.5, Palette.mint),
-			ColorSequenceKeypoint.new(1, Palette.cyan),
-		}),
-	}))), showDocks and React.createElement(DockColumn, {
+	}, React.createElement(HalfShade, {
+		transparency = shadeTransparency,
+	}), React.createElement(PartingEdge, {
+		side = "left",
+		rimTransparency = rimTransparency,
+	})), showDocks and React.createElement(DockColumn, {
 		entries = LEFT_DOCK,
 		side = "left",
-		pad = side,
-		button = button,
+		rect = plan.dockLeft,
+		gap = plan.dockGap,
+		button = plan.dockButton,
 		onNavigate = props.onNavigate,
 	}), showDocks and React.createElement(DockColumn, {
 		entries = RIGHT_DOCK,
 		side = "right",
-		pad = side,
-		button = button,
+		rect = plan.dockRight,
+		gap = plan.dockGap,
+		button = plan.dockButton,
+		onNavigate = props.onNavigate,
+	}), open and ready and React.createElement(SanctuaryHud, {
+		plan = plan,
+		ore = props.ore,
+		dispatch = props.dispatch,
+		entries = ALL_DOCK,
+		reducedMotion = strictReduced == true or props.reducedMotion == true,
 		onNavigate = props.onNavigate,
 	}))
 end

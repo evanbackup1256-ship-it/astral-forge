@@ -127,6 +127,15 @@ local function pinButtonLabel(instance)
 		instance:SetAttribute("LayoutGuardIgnore", true)
 	end
 end
+-- LayoutGuardIgnore is an attribute, not a property: passing it as a React prop
+-- makes the renderer try to assign a real member and throw. Deliberately stacked
+-- elements (a segmented control's overlapping hit targets) opt out through this
+-- ref so the guard's overlap pass leaves them alone.
+local function pinLayoutGuardIgnore(instance)
+	if instance ~= nil then
+		instance:SetAttribute("LayoutGuardIgnore", true)
+	end
+end
 -- Soft glass-glint: narrow bright core with a long low-contrast tail. Peak stays
 -- above 0.12 so idle shimmer reads as light, not a strobe.
 local SHIMMER_GLINT = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 1), NumberSequenceKeypoint.new(0.47, 0.55), NumberSequenceKeypoint.new(0.5, 0.18), NumberSequenceKeypoint.new(0.54, 0.55), NumberSequenceKeypoint.new(0.72, 0.92), NumberSequenceKeypoint.new(1, 1) })
@@ -2790,6 +2799,7 @@ local function SegmentedTabHit(_param)
 		AutoButtonColor = false,
 		Active = true,
 		Selectable = true,
+		ref = pinLayoutGuardIgnore,
 		ZIndex = zIndex,
 		Event = chrome.events,
 	}, React.createElement("frame", {

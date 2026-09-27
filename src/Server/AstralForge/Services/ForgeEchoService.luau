@@ -5,6 +5,7 @@ return function()
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionGate"))
 
 	local ForgeEchoService = {}
 	local Config = GameConfig.ForgeEchoes
@@ -44,7 +45,10 @@ return function()
 	end
 
 	function ForgeEchoService.Record(profile, patternId: string, weight: number): boolean
-		if (tonumber(profile.Rebirths) or 0) < GameConfig.Unlocks.Echoes.Target then return false end
+		-- Same gate as the Echoes page. This used to compare this run's rebirths,
+		-- so echoes stopped charging after a domain expansion reset them to 0
+		-- while the page itself stayed open.
+		if not ProgressionGate.IsFeatureUnlocked(profile, "Echoes") then return false end
 		if not patternAffinity[patternId] then return false end
 		local echoes = ensure(profile)
 		if #(echoes.Draft.Choices) > 0 then return false end

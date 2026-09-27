@@ -79,6 +79,8 @@ local PlayerlistOverlay = require(script.Parent.PlayerlistOverlay).PlayerlistOve
 local MobilePreviewGate = require(script.Parent.MobilePreviewGate).MobilePreviewGate
 local OfflineRewardsOverlay = require(script.Parent.OfflineRewardsOverlay).OfflineRewardsOverlay
 local FeedbackOverlay = require(script.Parent.FeedbackOverlay).FeedbackOverlay
+local LevelRoadmapHost = require(script.Parent.levelRoadmap).LevelRoadmapHost
+local readLevelState = require(script.Parent.levelRoadmap).readLevelState
 
 local pausePassivePaints = {
 	current = false,
@@ -123,7 +125,7 @@ local TUTORIAL_STEPS = { {
 	title = "Research stays after rebirth",
 	goal = "Open Research",
 	body = "Buy the lit bonuses in order. They stay when you rebirth.",
-	hint = "If Research is locked, earn 100 Flux total, or skip — it opens after a little play.",
+	hint = "Research opens at Level 2. The level bar at the top of the page shows your next goal.",
 	controls = "Xbox: A opens Research",
 	page = "Research",
 	cta = "research",
@@ -140,8 +142,8 @@ local TUTORIAL_STEPS = { {
 }, {
 	title = "Come back and collect",
 	goal = "Finish the guide",
-	body = "Collect, buy machines, research, rebirth. You keep earning while you're away.",
-	hint = "Finishing pays a small Flux bonus. Replay this from Settings, then Guide.",
+	body = "Collect, buy machines, research, rebirth. Each level you reach opens more of the forge.",
+	hint = "Tap the level bar to see every level. Finishing pays a small Flux bonus; replay from Settings, then Guide.",
 	controls = "Tap Finish  ·  Xbox: A",
 	page = "Overview",
 	watch = "finish",
@@ -151,6 +153,32 @@ local SHELL_CHROME = {
 	topbarControl = 48,
 	topbarControlGap = 12,
 }
+-- Props for the offline-earnings overlay. Built out here rather than inline:
+-- AppShell sits near Luau's 200-local limit, and Studio compiles at O0 when
+-- the debugger is on, where each of these temporaries would count against it.
+local function offlineRewardsProps(state, reducedMotion, dispatch, dismiss)
+	local offline = if type(state.Offline) == "table" then state.Offline else {}
+	local effects = state.Settings.OfflineRewardEffects
+	if effects == nil then
+		effects = 1
+	end
+	return {
+		reward = if offline.Reward ~= nil then offline.Reward else 0,
+		seconds = if offline.Seconds ~= nil then offline.Seconds else 0,
+		efficiency = if offline.Efficiency ~= nil then offline.Efficiency else state.OfflineEfficiency,
+		capped = offline.Capped == true,
+		production = if offline.Production ~= nil then offline.Production else state.Production,
+		awaySeconds = offline.AwaySeconds,
+		capHours = if offline.CapHours ~= nil then offline.CapHours else state.OfflineHours,
+		vault = if offline.Vault ~= nil then offline.Vault else state.Vault,
+		reducedMotion = reducedMotion,
+		effectsEnabled = effects >= 0.5,
+		onCollect = function()
+			return dispatch("CollectVault")
+		end,
+		onClose = dismiss,
+	}
+end
 local function AppShell(_param)
 	local state = _param.state
 	local config = _param.config
@@ -540,12 +568,18 @@ local function AppShell(_param)
 			if _condition_6 == nil then
 				_condition_6 = "Not unlocked yet."
 			end
+			-- Every feature opens at a Forge Level: say which one, and the single
+			-- goal that gets the player closer.
+			local levelNeeded = if lock ~= nil and type(lock.Level) == "number" then lock.Level else nil
+			if levelNeeded ~= nil then
+				local currentLevel, _tier, nextStep = readLevelState(state)
+				_exp_1 = `{_condition_5} opens at Level {levelNeeded}`
+				_condition_6 = if nextStep ~= nil
+					then `You're Level {currentLevel}. Next goal: {nextStep.Text} ({compactNumber(nextStep.Progress)}/{compactNumber(nextStep.Target)}). Tap the level bar to see every level.`
+					else `You're Level {currentLevel}.`
+			end
 			if pageId == "Research" then
-				_exp_1 = "Research unlocks later"
-				_condition_6 = "Earn 100 Flux in total — collect your vault. Bonuses you buy here stay after rebirth."
-			elseif pageId == "Workshop" then
-				_exp_1 = "Workshop is where you buy machines"
-				_condition_6 = "A machine earns Flux into your vault every second. Collect that, then buy the next level."
+				_condition_6 ..= " Research bonuses stay after rebirth."
 			end
 			addNotice(_exp_1, _condition_6, "Info")
 			return nil
@@ -1465,92 +1499,24 @@ local function AppShell(_param)
 			return addNotice(title, body, "Info")
 		end,
 	})
-	local _condition_24 = offlineRewardsOpen
-	if _condition_24 then
-		local _attributes = {}
-		local _result_11 = state.Offline
-		if _result_11 ~= nil then
-			_result_11 = _result_11.Reward
-		end
-		local _condition_25 = _result_11
-		if _condition_25 == nil then
-			_condition_25 = 0
-		end
-		_attributes.reward = _condition_25
-		local _result_12 = state.Offline
-		if _result_12 ~= nil then
-			_result_12 = _result_12.Seconds
-		end
-		local _condition_26 = _result_12
-		if _condition_26 == nil then
-			_condition_26 = 0
-		end
-		_attributes.seconds = _condition_26
-		local _result_13 = state.Offline
-		if _result_13 ~= nil then
-			_result_13 = _result_13.Efficiency
-		end
-		local _condition_27 = _result_13
-		if _condition_27 == nil then
-			_condition_27 = state.OfflineEfficiency
-		end
-		_attributes.efficiency = _condition_27
-		local _result_14 = state.Offline
-		if _result_14 ~= nil then
-			_result_14 = _result_14.Capped
-		end
-		_attributes.capped = _result_14 == true
-		local _result_15 = state.Offline
-		if _result_15 ~= nil then
-			_result_15 = _result_15.Production
-		end
-		local _condition_28 = _result_15
-		if _condition_28 == nil then
-			_condition_28 = state.Production
-		end
-		_attributes.production = _condition_28
-		local _result_16 = state.Offline
-		if _result_16 ~= nil then
-			_result_16 = _result_16.AwaySeconds
-		end
-		_attributes.awaySeconds = _result_16
-		local _result_17 = state.Offline
-		if _result_17 ~= nil then
-			_result_17 = _result_17.CapHours
-		end
-		local _condition_29 = _result_17
-		if _condition_29 == nil then
-			_condition_29 = state.OfflineHours
-		end
-		_attributes.capHours = _condition_29
-		local _result_18 = state.Offline
-		if _result_18 ~= nil then
-			_result_18 = _result_18.Vault
-		end
-		local _condition_30 = _result_18
-		if _condition_30 == nil then
-			_condition_30 = state.Vault
-		end
-		_attributes.vault = _condition_30
-		_attributes.reducedMotion = reducedMotion
-		local _condition_31 = state.Settings.OfflineRewardEffects
-		if _condition_31 == nil then
-			_condition_31 = 1
-		end
-		_attributes.effectsEnabled = _condition_31 >= 0.5
-		_attributes.onCollect = function()
-			return dispatch("CollectVault")
-		end
-		_attributes.onClose = function()
+	local _condition_24 = offlineRewardsOpen and React.createElement(
+		OfflineRewardsOverlay,
+		offlineRewardsProps(state, reducedMotion, dispatch, function()
 			return setDismissedOfflineKey(offlineReceiptKey)
-		end
-		_condition_24 = React.createElement(OfflineRewardsOverlay, _attributes)
-	end
+		end)
+	)
 	return React.createElement(AntilagContext.Provider, {
 		value = rootAntilag,
 	}, React.createElement(React.Fragment, nil, React.createElement(SplitCurtain, {
-		open = riftOpen,
+		-- The curtain answers the press itself; `ready` (the character standing in
+		-- the sanctuary) only lifts the veil behind it, so opening never waits on
+		-- the server round-trip or streaming.
+		open = sanctuaryOpen,
+		ready = riftOpen,
 		reducedMotion = reducedMotion,
+		-- For the sanctuary HUD (ore chips, strikes, waystone travel).
+		ore = state.Ore,
+		dispatch = dispatch,
 		onNavigate = function(pageId)
 			setSanctuaryOpen(false)
 			navigateStable(pageId)
@@ -1562,7 +1528,11 @@ local function AppShell(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Visible = not arcadeBusy and crateReveal == nil,
-	}, _exp_2, _exp_3, _exp_12, _exp_13, _exp_14, _condition_23, _exp_15, _exp_16, _exp_17, _exp_18, _condition_24, not bootChromeVisible and React.createElement(MobilePreviewGate, {
+	}, _exp_2, _exp_3, _exp_12, _exp_13, _exp_14, _condition_23, _exp_15, _exp_16, _exp_17, _exp_18, React.createElement(LevelRoadmapHost, {
+		state = state,
+		config = config,
+		reducedMotion = reducedMotion,
+	}), _condition_24, not bootChromeVisible and React.createElement(MobilePreviewGate, {
 		ack = state.Settings.MobilePreviewAck,
 		reducedMotion = reducedMotion,
 		dispatch = dispatch,

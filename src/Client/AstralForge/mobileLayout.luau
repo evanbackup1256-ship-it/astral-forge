@@ -143,7 +143,10 @@ local function planMobileLayout(input)
 	local shortDesktop = desktop and (short or orientationHeight < 740)
 	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 46
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
-	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else 0
+	-- Tablet and desktop tiers still honour a reported side inset (a notched
+	-- tablet in landscape, a TV overscan margin); it is zero when the ScreenGui
+	-- has already consumed the safe area.
+	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else math.max(0, sideInset)
 	-- Phone keeps touch-first insets; desktop gets breathing room so sections separate clearly.
 	local panelGap = if landscape then 8 elseif phone then 12 elseif shortDesktop then 10 else 14
 	local pagePadding = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18

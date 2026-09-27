@@ -1,5 +1,7 @@
 # Project place file
 /Astral Forge v2.rbxlx
+# Timestamped backups taken before a rebuild
+/*.rbxlx.bak-*
 
 # Roblox Studio lock files
 /*.rbxlx.lock

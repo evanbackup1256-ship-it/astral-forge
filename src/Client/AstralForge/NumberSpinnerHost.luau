@@ -114,7 +114,7 @@ local function loadModule()
 		return nil
 	end
 	local _new = result.new
-	if type(_new) == "function" ~= true then
+	if (type(_new) == "function") ~= true then
 		ClientLog:warn("spinner", "loaded module has no constructor")
 		loadFailed = true
 		return nil

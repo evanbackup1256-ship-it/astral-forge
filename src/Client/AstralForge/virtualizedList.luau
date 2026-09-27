@@ -83,6 +83,14 @@ local function VirtualizedList(props)
 	local bindRef = function(frame)
 		ownedRef.current = frame
 		window.frame.current = frame
+		-- LayoutGuardAllowDisabledScroll is an attribute, not a property. Passing
+		-- it in the props table makes the renderer assign a real member and throw
+		-- at mount, so it has to be set here. It tells the layout guard that this
+		-- frame's ScrollingEnabled = false is deliberate (the page scaffold owns
+		-- the scroll) rather than a defect to repair.
+		if frame ~= nil then
+			frame:SetAttribute("LayoutGuardAllowDisabledScroll", embedded)
+		end
 		if props.frameRef ~= nil then
 			(props.frameRef).current = frame
 		end

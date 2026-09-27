@@ -77,6 +77,46 @@ end
 
 print("[INFO] [TEST] responsive layout cases passed | Count: " .. tostring(#cases))
 
+-- Sweep: every phone/tablet size on a 20px grid, with the insets that
+-- orientation really has (home indicator in portrait, notch + home bar in
+-- landscape), must keep the same promises as the named cases above.
+do
+	local swept = 0
+	for width = 320, 1400, 20 do
+		for height = 280, 1400, 20 do
+			local portrait = height > width
+			local insetSets = if portrait then { { 0, 0 }, { 34, 0 } } else { { 0, 0 }, { 21, 47 } }
+			for _, insets in insetSets do
+				local bottomInset, sideInset = insets[1], insets[2]
+				local layout = planMobileLayout({
+					width = width,
+					height = height,
+					orientationWidth = width,
+					orientationHeight = height,
+					compact = width < 1100,
+					tight = width < 840,
+					short = height < 740,
+					desktop = false,
+					bottomInset = bottomInset,
+					sideInset = sideInset,
+				})
+				local label = string.format("%dx%d (insets %d/%d)", width, height, bottomInset, sideInset)
+				assert(layout.contentBudget > 0, label .. " content budget")
+				assert(layout.sideSafe >= sideInset and layout.bottomSafe >= 0, label .. " safe padding")
+				if layout.stack then
+					assert(layout.contentBudget >= MIN_CONTENT_BUDGET, label .. " content budget " .. tostring(layout.contentBudget))
+					assert(layout.topbarRows + layout.tabBarH < height * 0.7, label .. " chrome dominates the screen")
+					assert(layout.tabBarH - layout.bottomSafe >= TAP_TARGET, label .. " tab tap target")
+					assert(layout.tabBarSlots * 64 <= width - layout.sideSafe * 2 + 1, label .. " tab slots overflow the width")
+					assert(layout.bottomSafe >= bottomInset, label .. " home indicator honored")
+				end
+				swept += 1
+			end
+		end
+	end
+	print("[INFO] [TEST] mobile planner sweep passed | screens: " .. tostring(swept))
+end
+
 -- PageScaffold fill/minHeight planner (pure; mirrors pageScaffoldPlan.luau).
 local planFillHeight = require("../src/Client/AstralForge/pageScaffoldPlan").planFillHeight
 

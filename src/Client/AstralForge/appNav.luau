@@ -39,7 +39,8 @@ AppHelpers = {
 		local _condition = string.sub(action, 1, 3) == "Get"
 		if not _condition then
 			local _action = action
-			_condition = table.find({ "SyncShop", "MeasureLatency", "ReportClientIntegrity", "ReportPerformance" }, _action) ~= nil
+			-- StrikeRiftBoss: the sanctuary HUD reports its own misses inline.
+			_condition = table.find({ "SyncShop", "MeasureLatency", "ReportClientIntegrity", "ReportPerformance", "StrikeRiftBoss" }, _action) ~= nil
 		end
 		return _condition
 	end,
@@ -128,20 +129,6 @@ AppHelpers = {
 			_result = _result.Unlocked
 		end
 		return _result ~= false
-	end,
-	nextUnlock = function(self, state)
-		local ids = { "Research", "Mail", "Rewards", "Story", "Missions", "Worlds", "Wheel", "Shop", "StarGrid", "Milestones", "Rebirth", "Trade", "Echoes", "Anomaly", "Command", "Crew", "Lab", "Convergence", "Domain", "Continuum", "Credits" }
-		for _, id in ids do
-			local _lock = state.FeatureUnlocks
-			if _lock ~= nil then
-				_lock = _lock[id]
-			end
-			local lock = _lock
-			if lock and not lock.Unlocked then
-				return lock
-			end
-		end
-		return nil
 	end,
 	navUnlocked = function(self, state, pageId, tutorialPage)
 		if pageId == "Trade" then

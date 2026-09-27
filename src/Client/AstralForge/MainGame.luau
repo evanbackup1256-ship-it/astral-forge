@@ -716,7 +716,7 @@ local function MainGame(_param)
 			return nil
 		end
 		local machinePurchase = action == "BuyMachine"
-		local progressionPurchase = action == "BuyResearch" or action == "BuyGridUpgrade" or action == "BuyAnomalyProtocol" or action == "UpgradeContinuum" or action == "UpgradeArtifact" or action == "UpgradeCrew" or action == "BuyGuildUpgrade" or action == "UpgradeItem"
+		local progressionPurchase = action == "BuyResearch" or action == "BuyGridUpgrade" or action == "BuyAnomalyProtocol" or action == "UpgradeContinuum" or action == "UpgradeArtifact" or action == "UpgradeCrew" or action == "BuyGuildUpgrade" or action == "UpgradeItem" or action == "BuyOreUpgrade"
 		local purchase = machinePurchase or progressionPurchase or action == "BuySignalOffer" or action == "BuyItemOffer"
 		local reward = action == "ClaimDaily" or action == "ClaimTimedReward" or action == "ClaimQuest" or action == "ClaimAchievement" or action == "ClaimLabOrder" or action == "ClaimCommanderReward" or action == "ClaimWeeklyDirective" or action == "ClaimSeasonTier" or action == "ClaimExpedition" or action == "ClaimConvergenceReward" or action == "ClaimAnomalyDirective" or action == "ClaimAnomalyMilestone" or action == "ClaimForgePathStep"
 		if purchase then
@@ -1439,6 +1439,13 @@ local function MainGame(_param)
 				_condition_5 = ""
 			end
 			local kind = tostring(_condition_5)
+			-- Sanctuary effects (ore, the Rift Warden, waystones) go to the bus the
+			-- world controller and the sanctuary HUD listen on.
+			local sanctuarySignals = require(script.Parent.sanctuarySignals)
+			if sanctuarySignals.handles(kind) then
+				sanctuarySignals.fire(kind, value)
+				return nil
+			end
 			local _amount = value.Amount
 			local amount = if type(_amount) == "number" then value.Amount else 0
 			if kind == "Collect" and amount > 0 then
@@ -1467,6 +1474,12 @@ local function MainGame(_param)
 				end
 			elseif kind == "FeatureUnlocked" and not purchasePresentationActive.current then
 				Audio:play("unlock")
+				InteractionFeedback.reward()
+				celebrate()
+			elseif kind == "LevelUp" and not purchasePresentationActive.current then
+				-- A new Forge Level: the server toast names the level and what it
+				-- opened; this is the felt part of the moment.
+				Audio:play("achievementClaim")
 				InteractionFeedback.reward()
 				celebrate()
 			elseif kind == "AnomalyPulse" then
@@ -1757,24 +1770,12 @@ local function MainGame(_param)
 			_result_17 = _result_17.Settings.PageMusic
 		end
 		_object[_left_6] = _result_17
-		local _left_7 = "MusicCrossfade"
-		local _result_18 = state
-		if _result_18 ~= nil then
-			_result_18 = _result_18.Settings.MusicCrossfade
-		end
-		_object[_left_7] = _result_18
 		local _left_8 = "SoundVariation"
 		local _result_19 = state
 		if _result_19 ~= nil then
 			_result_19 = _result_19.Settings.SoundVariation
 		end
 		_object[_left_8] = _result_19
-		local _left_9 = "PageStingers"
-		local _result_20 = state
-		if _result_20 ~= nil then
-			_result_20 = _result_20.Settings.PageStingers
-		end
-		_object[_left_9] = _result_20
 		Audio:configurePreferences(_object)
 		local _result_21 = state
 		if _result_21 ~= nil then
@@ -1816,17 +1817,9 @@ local function MainGame(_param)
 	if _result_13 ~= nil then
 		_result_13 = _result_13.Settings.HoverSounds
 	end
-	local _result_14 = state
-	if _result_14 ~= nil then
-		_result_14 = _result_14.Settings.MusicCrossfade
-	end
 	local _result_15 = state
 	if _result_15 ~= nil then
 		_result_15 = _result_15.Settings.SoundVariation
-	end
-	local _result_16 = state
-	if _result_16 ~= nil then
-		_result_16 = _result_16.Settings.PageStingers
 	end
 	local _result_17 = state
 	if _result_17 ~= nil then
@@ -1856,7 +1849,7 @@ local function MainGame(_param)
 	if _result_23 ~= nil then
 		_result_23 = _result_23.Settings.UiVolume
 	end
-	React.useEffect(_exp_4, { _result_11, _result_12, _result_13, _result_14, _result_15, _result_16, _result_17, _result_18, _result_19, _result_20, _result_21, _result_22, _result_23 })
+	React.useEffect(_exp_4, { _result_11, _result_12, _result_13, _result_15, _result_17, _result_18, _result_19, _result_20, _result_21, _result_22, _result_23 })
 	local _exp_5 = function()
 		local _result_24 = state
 		if _result_24 ~= nil then

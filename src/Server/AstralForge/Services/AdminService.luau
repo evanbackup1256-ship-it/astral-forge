@@ -990,8 +990,10 @@ return function(loadService: (string) -> any)
 		}
 	end
 
+	-- Wraps the Execute defined above to record the actor's last command. Assigned
+	-- rather than re-declared so it reads as a deliberate wrapper, not a duplicate.
 	local rawExecute = AdminService.Execute
-	function AdminService:Execute(actor: Player, payload: any)
+	AdminService.Execute = function(self, actor: Player, payload: any)
 		local result = rawExecute(self, actor, payload)
 		if type(result) == "table" then
 			if self._lastByActor == nil then

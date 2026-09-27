@@ -20,6 +20,20 @@ local function clampScalar(raw: any, ceiling: number): number
 	return 0
 end
 
+-- A persisted currency value is a plain number below ~1e15 and a sign-prefixed
+-- scientific-notation string ("-5.000000000000e50") above it. The old guard only
+-- tested `type == "number" and < 0`, so a negative Omega-scale balance slipped
+-- through the clamp unchanged. Detect negativity in both domains.
+local function isNegativePersist(persisted: any): boolean
+	if type(persisted) == "number" then
+		return persisted < 0
+	end
+	if type(persisted) == "string" then
+		return string.sub(persisted, 1, 1) == "-"
+	end
+	return false
+end
+
 -- Clamp Cash/Vault/RunCash/LifetimeCash via Persist, Cores/Stardust/Rebirths via
 -- tonumber, and Stats / Continuum spend bags. Partial profiles (Studio fixtures)
 -- must not throw when Stats or Continuum are missing.
@@ -41,7 +55,7 @@ function ProfileClampMath.ClampProgressionNumbers(
 
 	for _, key in { "Cash", "Vault", "RunCash", "LifetimeCash" } do
 		local persisted = persistFn(profile[key])
-		if type(persisted) == "number" and persisted < 0 then
+		if isNegativePersist(persisted) then
 			persisted = 0
 		end
 		profile[key] = persisted
@@ -51,7 +65,11 @@ function ProfileClampMath.ClampProgressionNumbers(
 	end
 	if type(profile.Stats) == "table" then
 		if profile.Stats.Collected ~= nil then
-			profile.Stats.Collected = persistFn(profile.Stats.Collected)
+			local persisted = persistFn(profile.Stats.Collected)
+			if isNegativePersist(persisted) then
+				persisted = 0
+			end
+			profile.Stats.Collected = persisted
 		end
 		for key, raw in profile.Stats do
 			if key ~= "Collected" and type(raw) == "number" then
@@ -60,7 +78,11 @@ function ProfileClampMath.ClampProgressionNumbers(
 		end
 	end
 	if type(profile.Continuum) == "table" then
-		profile.Continuum.TotalFluxSpent = persistFn(profile.Continuum.TotalFluxSpent)
+		local persisted = persistFn(profile.Continuum.TotalFluxSpent)
+		if isNegativePersist(persisted) then
+			persisted = 0
+		end
+		profile.Continuum.TotalFluxSpent = persisted
 		for _, key in { "TotalStardustSpent" } do
 			profile.Continuum[key] = clampScalar(profile.Continuum[key], ceiling)
 		end

@@ -178,7 +178,7 @@ assert(landscapeWs.headerHeight == 0, "landscape keyboard collapses header")
 
 -- --- NavRouteTable -----------------------------------------------------------
 assert(#NavRouteTable.PRIMARY_ROUTES == 6, "primary route count")
-assert(#NavRouteTable.MORE_ROUTES == 23, "more route count")
+assert(#NavRouteTable.MORE_ROUTES == 24, "more route count (Foundry joined the sanctuary features)")
 assert(NavRouteTable.PRIMARY_ROUTES[1].id == "Overview", "primary starts Overview")
 assert(NavRouteTable.find("Trade") ~= nil, "find Trade")
 assert(NavRouteTable.find("Trade").accentKey == "mint", "Trade accent key")
@@ -187,10 +187,10 @@ assert(NavRouteTable.isNavRoute("Credits") == true, "Credits is nav")
 assert(NavRouteTable.isPageRoute("Credits") == false, "Credits not PageRouter page")
 assert(NavRouteTable.isPageRoute("Overview") == true, "Overview is page")
 assert(NavRouteTable.isPageRoute("Workshop") == true, "Workshop is page")
-assert(#NavRouteTable.PAGE_ROUTES == 28, "page route count")
+assert(#NavRouteTable.PAGE_ROUTES == 29, "page route count")
 
 local ids = NavRouteTable.allNavIds()
-assert(#ids == 29, "all nav ids")
+assert(#ids == 30, "all nav ids")
 local seen = {}
 for _, id in ids do
 	assert(seen[id] == nil, "duplicate nav id " .. id)

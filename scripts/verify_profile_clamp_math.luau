@@ -47,11 +47,43 @@ assert(profile.LifetimeCash == 0, "nan lifetime → 0")
 assert(profile.Cores == 7, "string cores")
 assert(profile.Stardust == 0, "neg stardust")
 assert(profile.Rebirths == 1000, "clamp rebirth ceiling")
-assert(profile.Stats.Collected == -5, "Collected stays Persist result (caller Persist may soft-clamp)")
+-- Negatives clamp to 0 in both persisted domains: a plain number, and the
+-- sign-prefixed scientific-notation string used above ~1e15. The old guard only
+-- tested `type == "number" and < 0`, so an Omega-scale negative balance survived.
+assert(profile.Stats.Collected == 0, "neg collected → 0")
 assert(profile.Stats.Taps == 0, "neg taps")
 assert(profile.Stats.PlayTime == 0, "inf play")
-assert(profile.Continuum.TotalFluxSpent == -9, "TotalFluxSpent stays Persist result")
+assert(profile.Continuum.TotalFluxSpent == 0, "neg TotalFluxSpent → 0")
 assert(profile.Continuum.TotalStardustSpent == 11, "string continuum stardust")
+
+-- Omega-scale balances persist as sign-prefixed strings, not numbers. A negative
+-- one must clamp too; a positive one must survive untouched.
+local omegaPersist = function(value: any): any
+	if type(value) == "string" then
+		return value
+	end
+	local n = tonumber(value)
+	if type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge then
+		return n
+	end
+	return 0
+end
+local omega = {
+	Cash = "-5.000000000000e50",
+	Vault = "7.500000000000e42",
+	RunCash = 0,
+	LifetimeCash = 0,
+	Cores = 0,
+	Stardust = 0,
+	Rebirths = 0,
+	Stats = { Collected = "-1.200000000000e30" },
+	Continuum = { TotalFluxSpent = "-9.000000000000e20", TotalStardustSpent = 0 },
+}
+assert(ProfileClampMath.ClampProgressionNumbers(omega, omegaPersist, 1e6) == true, "omega clamp ok")
+assert(omega.Cash == 0, "negative omega cash → 0")
+assert(omega.Vault == "7.500000000000e42", "positive omega vault preserved")
+assert(omega.Stats.Collected == 0, "negative omega collected → 0")
+assert(omega.Continuum.TotalFluxSpent == 0, "negative omega flux spent → 0")
 
 -- Partial profile (no Stats / Continuum) must not throw.
 local partial = { Cash = 5, Cores = 1, Stardust = 2, Rebirths = 0 }

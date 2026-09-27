@@ -63,7 +63,9 @@ local function ProgressCloseGlow(_param)
 end
 local function useReadyPop(ready, reducedMotion)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — useReadyPop (as in MissionsView).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local wasReady = React.useRef(ready)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()

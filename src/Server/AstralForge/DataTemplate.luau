@@ -12,6 +12,13 @@ function DataTemplate.New()
 		Vault = 0,
 		Cores = 0,
 		Stardust = 0,
+		-- Ore mined in the sanctuary, and the Foundry upgrades bought with it.
+		Ore = {
+			Emberite = 0,
+			Voidglass = 0,
+			Starsteel = 0,
+		},
+		OreUpgrades = {},
 		Rebirths = 0,
 		Domain = {
 			Rank = 0,
@@ -208,9 +215,7 @@ function DataTemplate.New()
 			HoverSounds = 1,
 			NotificationSounds = 1,
 			PageMusic = 1,
-			MusicCrossfade = 0.62,
 			SoundVariation = 0.7,
-			PageStingers = 1,
 			ReactorMotion = 0.8,
 			OfflineRewardEffects = 1,
 			EffectsIntensity = 1,
@@ -316,6 +321,8 @@ function DataTemplate.New()
 			PowerMoves = 0,
 			ContinuumUpgrades = 0,
 			Joins = 0,
+			OreMined = 0,
+			WardenDefeats = 0,
 		},
 		Meta = {
 			CreatedAt = now,

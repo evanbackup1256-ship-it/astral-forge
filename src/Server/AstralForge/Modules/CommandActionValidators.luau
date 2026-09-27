@@ -62,6 +62,9 @@ CommandActionValidators.DEFERRED_SNAPSHOT = {
 	ReadMail = true,
 	ReportPresence = true,
 	SelectZone = true,
+	-- A strike changes the Warden, not the striker's profile.
+	StrikeRiftBoss = true,
+	TravelWaystone = true,
 }
 
 function CommandActionValidators.IsValidAction(action: any): boolean

@@ -13,6 +13,7 @@ local ForgePathClaim = require(script.Parent:WaitForChild("ForgePathClaim"))
 local EconomyEnvelopeMath = require(script.Parent:WaitForChild("EconomyEnvelopeMath"))
 local ForgeEchoMath = require(script.Parent:WaitForChild("ForgeEchoMath"))
 local AnomalyOpsMath = require(script.Parent:WaitForChild("AnomalyOpsMath"))
+local OreMath = require(script.Parent:WaitForChild("OreMath"))
 
 local Economy = {}
 
@@ -381,6 +382,12 @@ function Economy.PermanentMultiplier(profile: ProfileLike): Persist
 end
 
 
+-- Bonus from the Foundry's ore upgrades (0.12 = +12%): Production, Capacity,
+-- Tap, BossDamage or OreYield.
+function Economy.OreEffect(profile: ProfileLike, effectKind: string): number
+	return OreMath.Effect((profile :: any).OreUpgrades, effectKind, GameConfig.Ore)
+end
+
 function Economy.EchoEffect(profile: ProfileLike, effectKind: string): number
 	return ForgeEchoMath.EquippedEffect(
 		profile.ForgeEchoes,
@@ -421,6 +428,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.AnomalyEffect(profile, "Production", now))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.LabPowerEffect(profile, "Production"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.OreEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + passProduction)
 	multiplier = OmegaMath.Mul(multiplier, 1 + (profile.GuildBonuses and profile.GuildBonuses.Production or 0))
 	multiplier = OmegaMath.Mul(multiplier, math.max(1, profile.SocialBoost and profile.SocialBoost.Multiplier or 1))
@@ -460,6 +468,7 @@ function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
 			Economy.LabPowerEffect(profile, "Production"),
 			passProduction,
 			profile.GuildBonuses and profile.GuildBonuses.Production or 0,
+			Economy.OreEffect(profile, "Production"),
 		},
 		SocialMultiplier = profile.SocialBoost and profile.SocialBoost.Multiplier or 1,
 		MasteryMultiplier = Economy.MasteryMultiplier(profile),
@@ -495,6 +504,7 @@ function Economy.Capacity(profile: ProfileLike, now: number?, _production: any):
 			passCapacity,
 			profile.GuildBonuses and profile.GuildBonuses.Capacity or 0,
 			Economy.ForgePathEffect(profile, "Capacity"),
+			Economy.OreEffect(profile, "Capacity"),
 		},
 		DomainRank = domainRank,
 		CapacityPerRank = GameConfig.Domain.CapacityPerRank,
@@ -539,6 +549,7 @@ function Economy.TapPower(profile: ProfileLike, now: number?): Persist
 		Guild = profile.GuildBonuses and profile.GuildBonuses.Tap or 0,
 		Continuum = select(3, Economy.ContinuumEffects(profile)),
 		ForgePath = Economy.ForgePathEffect(profile, "TapPower"),
+		Ore = Economy.OreEffect(profile, "Tap"),
 	})
 end
 

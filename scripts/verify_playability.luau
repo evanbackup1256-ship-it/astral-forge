@@ -59,6 +59,7 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/StoryView.luau",
 	"src/Client/AstralForge/pages/TradeView.luau",
 	"src/Client/AstralForge/pages/WheelView.luau",
+	"src/Client/AstralForge/pages/FoundryView.luau",
 }
 
 -- Playability scaffolding + hot pages must stay free of vendor/Packages coupling.
@@ -367,6 +368,7 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/RebirthPanel.luau",
 	"src/Client/AstralForge/pages/CreditsView.luau",
+	"src/Client/AstralForge/pages/FoundryView.luau",
 }
 
 for _, path in SOFT_MOTION_FILES do
