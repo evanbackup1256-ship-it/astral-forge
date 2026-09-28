@@ -14,6 +14,8 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared")
 local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local SanctuaryLayout = require(Shared:WaitForChild("SanctuaryLayout"))
+local AssetKit = require(Shared:WaitForChild("AssetKit"))
+local Vfx = require(Shared:WaitForChild("Vfx"))
 local Modules = script.Parent.Parent:WaitForChild("Modules")
 local OreMath = require(Modules:WaitForChild("OreMath"))
 local Economy = require(Modules:WaitForChild("Economy"))
@@ -52,15 +54,21 @@ local function buildNode(parent: Instance, site, at: Vector3, seed: number): (Mo
 		(model :: any).ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	end)
 
-	local seat = Instance.new("Part")
+	-- The rock the crystals grow from: a kit boulder when the model kit is
+	-- loaded, a plain block otherwise.
+	local seatFrame = CFrame.new(at + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), math.rad(rng:NextNumber(-6, 6)))
+	local seat: BasePart = AssetKit.make("RockB", Vector3.new(7, 2.6, 6), seatFrame, Color3.fromRGB(46, 46, 56), Enum.Material.Rock, true)
+		or Instance.new("Part")
+	if not seat:IsA("MeshPart") then
+		seat.Size = Vector3.new(6.5, 2.2, 5.5)
+		seat.CFrame = seatFrame
+		seat.Color = Color3.fromRGB(46, 46, 56)
+		seat.Material = Enum.Material.Rock
+		;(seat :: Part).TopSurface = Enum.SurfaceType.Smooth
+		;(seat :: Part).BottomSurface = Enum.SurfaceType.Smooth
+	end
 	seat.Name = "Seat"
 	seat.Anchored = true
-	seat.Size = Vector3.new(6.5, 2.2, 5.5)
-	seat.CFrame = CFrame.new(at + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), math.rad(rng:NextNumber(-6, 6)))
-	seat.Color = Color3.fromRGB(46, 46, 56)
-	seat.Material = Enum.Material.Rock
-	seat.TopSurface = Enum.SurfaceType.Smooth
-	seat.BottomSurface = Enum.SurfaceType.Smooth
 	seat.Parent = model
 	model.PrimaryPart = seat
 
@@ -73,7 +81,9 @@ local function buildNode(parent: Instance, site, at: Vector3, seed: number): (Mo
 		local frame = CFrame.new(foot) * CFrame.Angles(0, -angle, 0) * CFrame.Angles(0, 0, math.rad(-lean)) * CFrame.new(0, height / 2, 0)
 		local width = if k == 1 then 1.7 else rng:NextNumber(1.0, 1.4)
 
-		local shell = Instance.new("Part")
+		-- Faceted kit crystals when the model kit is loaded; blocks otherwise.
+		-- The client grows and shrinks either kind the same way.
+		local shell: BasePart = AssetKit.make("Crystal", Vector3.new(width, height, width), nil, nil, nil, false) or Instance.new("Part")
 		shell.Name = "Crystal"
 		shell.Anchored = true
 		shell.CanCollide = false
@@ -89,7 +99,7 @@ local function buildNode(parent: Instance, site, at: Vector3, seed: number): (Mo
 		shell:SetAttribute("RestSize", shell.Size)
 		shell.Parent = model
 
-		local core = Instance.new("Part")
+		local core: BasePart = AssetKit.make("Crystal", Vector3.new(width * 0.45, height * 0.82, width * 0.45), nil, nil, nil, false) or Instance.new("Part")
 		core.Name = "Core"
 		core.Anchored = true
 		core.CanCollide = false
@@ -112,24 +122,12 @@ local function buildNode(parent: Instance, site, at: Vector3, seed: number): (Mo
 			light.Range = 14
 			light.Shadows = false
 			light.Parent = core
-			local sparkle = Instance.new("ParticleEmitter")
+			-- Glints drifting off a ready outcrop (the client pauses them while
+			-- it regrows), and a soft halo that marks it from across the plateau.
+			local sparkle = Vfx.attach(core, "Motes", { Color = glowColor, Rate = 4, Speed = NumberRange.new(0.6, 1.6) })
 			sparkle.Name = "Sparkle"
-			sparkle.Color = ColorSequence.new(glowColor)
-			sparkle.LightEmission = 1
-			sparkle.LightInfluence = 0
-			sparkle.Size = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.18),
-				NumberSequenceKeypoint.new(1, 0),
-			})
-			sparkle.Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.1),
-				NumberSequenceKeypoint.new(1, 1),
-			})
-			sparkle.Lifetime = NumberRange.new(1.2, 2.2)
-			sparkle.Rate = 3
-			sparkle.Speed = NumberRange.new(0.6, 1.6)
-			sparkle.SpreadAngle = Vector2.new(180, 180)
-			sparkle.Parent = core
+			local aura = Vfx.attach(core, "Halo", { Color = color, Size = NumberSequence.new(4, 4.6) })
+			aura.Name = "Aura"
 		end
 	end
 
@@ -165,6 +163,15 @@ function OreService:Start()
 		warn("[Ore] the sanctuary world was not built; outcrops skipped")
 		return
 	end
+	-- Wait (briefly, and only when one is uploaded) for the model kit, so the
+	-- outcrops are built once with the right meshes.
+	task.spawn(function()
+		AssetKit.load(8)
+		self:_buildNodes(folder)
+	end)
+end
+
+function OreService:_buildNodes(folder: Instance)
 	local nodes = Instance.new("Folder")
 	nodes.Name = "OreNodes"
 	nodes.Parent = folder

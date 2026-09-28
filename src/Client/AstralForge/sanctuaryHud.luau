@@ -1357,6 +1357,7 @@ local function SanctuaryHud(props)
 				local crit = response.Crit == true
 				Audio:play(if crit then "wardenCrit" else "wardenStrike")
 				pushHit(damage, crit)
+				Signals.fire("StrikeLanded", { Damage = damage, Crit = crit })
 				if crit then
 					Controls.shake(0.35)
 				end

@@ -1,0 +1,365 @@
+{
+  "sfx": {
+    "length": 76.037,
+    "regions": {
+      "ui_hover": [
+        0.3,
+        0.332
+      ],
+      "ui_click": [
+        0.932,
+        0.09
+      ],
+      "ui_tick": [
+        1.322,
+        0.035
+      ],
+      "ui_confirm": [
+        1.657,
+        0.8564
+      ],
+      "ui_open": [
+        2.8134,
+        0.7619
+      ],
+      "ui_close": [
+        3.8753,
+        0.582
+      ],
+      "ui_toggle_on": [
+        4.7573,
+        0.16
+      ],
+      "ui_toggle_off": [
+        5.2173,
+        0.16
+      ],
+      "ui_error": [
+        5.6773,
+        0.552
+      ],
+      "ui_locked": [
+        6.5293,
+        0.21
+      ],
+      "ui_notify": [
+        7.0393,
+        1.1081
+      ],
+      "ui_warn": [
+        8.4475,
+        0.912
+      ],
+      "ui_page": [
+        9.6595,
+        0.412
+      ],
+      "ui_pop": [
+        10.3715,
+        0.08
+      ],
+      "ui_slider": [
+        10.7515,
+        0.03
+      ],
+      "ui_type": [
+        11.0815,
+        0.02
+      ],
+      "chat_ping": [
+        11.4015,
+        0.5149
+      ],
+      "card_flip": [
+        12.2163,
+        0.05
+      ],
+      "wheel_tick": [
+        12.5663,
+        0.03
+      ],
+      "coin": [
+        12.8963,
+        0.6294
+      ],
+      "collect": [
+        13.8258,
+        0.8909
+      ],
+      "reward": [
+        15.0167,
+        2.1037
+      ],
+      "unlock": [
+        17.4204,
+        1.7071
+      ],
+      "purchase": [
+        19.4274,
+        0.6173
+      ],
+      "claim": [
+        20.3447,
+        1.1798
+      ],
+      "prestige": [
+        21.8245,
+        3.9812
+      ],
+      "hammer": [
+        26.1057,
+        1.1132
+      ],
+      "machine": [
+        27.5189,
+        0.8017
+      ],
+      "whoosh": [
+        28.6206,
+        0.955
+      ],
+      "rumble": [
+        29.8756,
+        1.5
+      ],
+      "impact": [
+        31.6756,
+        1.7994
+      ],
+      "charge": [
+        33.775,
+        1.7071
+      ],
+      "spark": [
+        35.7821,
+        0.5169
+      ],
+      "boot_ignite": [
+        36.5989,
+        1.8324
+      ],
+      "crystal_mine": [
+        38.7314,
+        1.0071
+      ],
+      "crystal_collect": [
+        40.0385,
+        0.9261
+      ],
+      "rift_open": [
+        41.2646,
+        2.527
+      ],
+      "warden_forming": [
+        44.0917,
+        4.812
+      ],
+      "warden_awake": [
+        49.2037,
+        3.3944
+      ],
+      "warden_strike": [
+        52.898,
+        0.6809
+      ],
+      "warden_crit": [
+        53.8789,
+        1.0989
+      ],
+      "slam_charge": [
+        55.2778,
+        2.212
+      ],
+      "slam": [
+        57.7898,
+        3.412
+      ],
+      "warden_defeat": [
+        61.5018,
+        4.5411
+      ],
+      "warden_escape": [
+        66.3429,
+        3.312
+      ],
+      "waystone": [
+        69.9549,
+        2.3707
+      ],
+      "region_enter": [
+        72.6257,
+        3.1114
+      ]
+    },
+    "loudness": {
+      "ui_hover": -15.99,
+      "ui_click": -16.53,
+      "ui_tick": -13.66,
+      "ui_confirm": -17.54,
+      "ui_open": -17.16,
+      "ui_close": -15.89,
+      "ui_toggle_on": -13.77,
+      "ui_toggle_off": -13.68,
+      "ui_error": -12.91,
+      "ui_locked": -14.34,
+      "ui_notify": -17.26,
+      "ui_warn": -12.24,
+      "ui_page": -17.41,
+      "ui_pop": -11.06,
+      "ui_slider": -13.19,
+      "ui_type": -14.55,
+      "chat_ping": -13.09,
+      "card_flip": -16.29,
+      "wheel_tick": -13.5,
+      "coin": -17.6,
+      "collect": -16.82,
+      "reward": -18.62,
+      "unlock": -17.9,
+      "purchase": -18.56,
+      "claim": -19.5,
+      "prestige": -20.69,
+      "hammer": -13.74,
+      "machine": -20.17,
+      "whoosh": -18.21,
+      "rumble": -14.13,
+      "impact": -12.08,
+      "charge": -19.39,
+      "spark": -18.85,
+      "boot_ignite": -13.57,
+      "crystal_mine": -18.42,
+      "crystal_collect": -17.02,
+      "rift_open": -15.34,
+      "warden_forming": -17.93,
+      "warden_awake": -11.89,
+      "warden_strike": -18.73,
+      "warden_crit": -12.83,
+      "slam_charge": -19.84,
+      "slam": -11.61,
+      "warden_defeat": -18.05,
+      "warden_escape": -14.89,
+      "waystone": -18.83,
+      "region_enter": -16.17
+    }
+  },
+  "ambience": {
+    "length": 81.8,
+    "regions": {
+      "amb_heart": [
+        0.3,
+        16.0
+      ],
+      "amb_ember": [
+        16.6,
+        16.0
+      ],
+      "amb_hollows": [
+        32.9,
+        16.0
+      ],
+      "amb_spire": [
+        49.2,
+        16.0
+      ],
+      "amb_riftmaw": [
+        65.5,
+        16.0
+      ]
+    },
+    "loudness": {
+      "amb_heart": -18.71,
+      "amb_ember": -23.47,
+      "amb_hollows": -25.42,
+      "amb_spire": -23.03,
+      "amb_riftmaw": -18.54
+    }
+  },
+  "kit": {
+    "sizes": {
+      "Crystal": [
+        0.8933,
+        3.05,
+        0.9958
+      ],
+      "CrystalShard": [
+        0.7224,
+        2.45,
+        0.8424
+      ],
+      "RockA": [
+        2.2056,
+        1.2028,
+        2.4561
+      ],
+      "RockB": [
+        2.495,
+        1.3747,
+        1.7638
+      ],
+      "RockC": [
+        2.0694,
+        1.6455,
+        2.4439
+      ],
+      "BasaltCluster": [
+        3.0476,
+        4.0478,
+        3.0936
+      ],
+      "VoidSpire": [
+        2.5315,
+        6.7141,
+        1.6285
+      ],
+      "Obelisk": [
+        1.24,
+        7.5,
+        1.24
+      ],
+      "Plinth": [
+        6.0976,
+        1.35,
+        6.0976
+      ],
+      "Lantern": [
+        1.1031,
+        7.1,
+        1.1031
+      ],
+      "ArenaPillar": [
+        3.8803,
+        25.0,
+        3.8803
+      ],
+      "Star": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "WardenCore": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "WardenPlate": [
+        3.1361,
+        4.0898,
+        1.0098
+      ],
+      "WardenBlade": [
+        1.4441,
+        4.966,
+        0.8328
+      ],
+      "Halo": [
+        2.14,
+        0.1212,
+        2.14
+      ],
+      "BridgeDeck": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  }
+}

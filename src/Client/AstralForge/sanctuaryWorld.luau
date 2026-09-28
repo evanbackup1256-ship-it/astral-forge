@@ -26,9 +26,12 @@ local Workspace = game:GetService("Workspace")
 local Audio = require(script.Parent.audio).Audio
 local Signals = require(script.Parent.sanctuarySignals)
 local Controls = require(script.Parent.sanctuaryControls)
+local Ambience = require(script.Parent.sanctuaryAmbience)
 local Shared = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared")
 local Layout = require(Shared:WaitForChild("SanctuaryLayout"))
 local SanctuaryConfig = require(Shared:WaitForChild("SanctuaryConfig"))
+local AssetKit = require(Shared:WaitForChild("AssetKit"))
+local Vfx = require(Shared:WaitForChild("Vfx"))
 
 local World = {}
 
@@ -50,6 +53,8 @@ type AnimEntry = {
 	light: PointLight?,
 	lightBase: number,
 	transparencyBase: number,
+	-- Spin about the world's up axis (tilted rings) instead of the part's own.
+	worldSpin: boolean,
 }
 
 type Crystal = { part: BasePart, restCFrame: CFrame, restSize: Vector3, restTransparency: number }
@@ -61,6 +66,7 @@ type NodeEntry = {
 	light: PointLight?,
 	lightBase: number,
 	sparkle: ParticleEmitter?,
+	aura: ParticleEmitter?,
 	prompt: ProximityPrompt?,
 	fill: number,
 	ready: boolean,
@@ -75,6 +81,8 @@ local nodes: { [Model]: NodeEntry } = {}
 local readyAt: { [string]: number } = {}
 local clientFolder: Folder? = nil
 local currentRegion: string? = nil
+-- The Warden's body waits for the model kit (or for knowing there is none).
+local kitSettled = false
 local regionClock = 0
 
 local function track(connection: RBXScriptConnection)
@@ -144,6 +152,7 @@ local function entryFor(part: BasePart): AnimEntry
 			light = light,
 			lightBase = if light ~= nil then light.Brightness else 0,
 			transparencyBase = part.Transparency,
+			worldSpin = false,
 		}
 		animated[part] = entry
 	end
@@ -157,6 +166,7 @@ local function registerTagged(tag: string, instance: Instance)
 	local entry = entryFor(instance)
 	if tag == "AF_Spin" then
 		entry.spin = tonumber(instance:GetAttribute("Speed")) or 30
+		entry.worldSpin = instance:GetAttribute("World") == true
 	elseif tag == "AF_Bob" then
 		entry.amplitude = tonumber(instance:GetAttribute("Amplitude")) or 1
 		entry.period = math.max(0.5, tonumber(instance:GetAttribute("Period")) or 4)
@@ -195,7 +205,8 @@ local function stepScenery(t: number, cameraPosition: Vector3)
 				frame += Vector3.new(0, math.sin((t + entry.phase) * TAU / entry.period) * entry.amplitude, 0)
 			end
 			if entry.spin ~= 0 then
-				frame *= CFrame.Angles(0, math.rad(entry.spin * t) % TAU, 0)
+				local turn = CFrame.Angles(0, math.rad(entry.spin * t) % TAU, 0)
+				frame = if entry.worldSpin then CFrame.new(frame.Position) * turn * frame.Rotation else frame * turn
 			end
 			table.insert(parts, part)
 			table.insert(frames, frame)
@@ -230,6 +241,7 @@ local function registerNode(model: Instance)
 	local crystals: { Crystal } = {}
 	local light: PointLight? = nil
 	local sparkle: ParticleEmitter? = nil
+	local aura: ParticleEmitter? = nil
 	for _, child in model:GetChildren() do
 		if child:IsA("BasePart") and (child.Name == "Crystal" or child.Name == "Core") then
 			local rest = child:GetAttribute("RestSize")
@@ -241,6 +253,7 @@ local function registerNode(model: Instance)
 			})
 			light = light or child:FindFirstChild("Glow") :: PointLight?
 			sparkle = sparkle or child:FindFirstChild("Sparkle") :: ParticleEmitter?
+			aura = aura or child:FindFirstChild("Aura") :: ParticleEmitter?
 		end
 	end
 	local seat = model:FindFirstChild("Seat")
@@ -252,6 +265,7 @@ local function registerNode(model: Instance)
 		light = light,
 		lightBase = if light ~= nil then light.Brightness else 0,
 		sparkle = sparkle,
+		aura = aura,
 		prompt = if prompt ~= nil and prompt:IsA("ProximityPrompt") then prompt else nil,
 		fill = 1,
 		ready = true,
@@ -280,6 +294,9 @@ local function applyFill(entry: NodeEntry, t: number)
 	end
 	if entry.sparkle ~= nil then
 		entry.sparkle.Enabled = entry.fill > 0.9
+	end
+	if entry.aura ~= nil then
+		entry.aura.Enabled = entry.fill > 0.9
 	end
 end
 
@@ -355,30 +372,18 @@ local function floatText(at: Vector3, text: string, color: Color3)
 	end)
 end
 
+-- A textured burst: glinting shards, a bright core flash and a quick light.
 local function burst(at: Vector3, color: Color3, count: number, speed: number)
-	local holder = vfxPart("Burst", nil, Vector3.new(0.2, 0.2, 0.2), color, Enum.Material.SmoothPlastic)
+	local folder = clientFolder
+	Vfx.burst(at, "Shatter", count, { Color = color, Color2 = Color3.new(1, 1, 1):Lerp(color, 0.5), Speed = NumberRange.new(speed * 0.5, speed) }, folder)
+	Vfx.burst(at, "Flash", 1, { Color = color, Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.3, 3.5),
+		NumberSequenceKeypoint.new(1, 4),
+	}) }, folder)
+	local holder = vfxPart("BurstLight", nil, Vector3.new(0.2, 0.2, 0.2), color, Enum.Material.SmoothPlastic)
 	holder.Transparency = 1
 	holder.CFrame = CFrame.new(at)
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Color = ColorSequence.new(color)
-	emitter.LightEmission = 1
-	emitter.LightInfluence = 0
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.45),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	emitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	emitter.Lifetime = NumberRange.new(0.5, 1.1)
-	emitter.Speed = NumberRange.new(speed * 0.5, speed)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Acceleration = Vector3.new(0, -18, 0)
-	emitter.Drag = 2
-	emitter.Rate = 0
-	emitter.Parent = holder
-	emitter:Emit(count)
 	local flash = Instance.new("PointLight")
 	flash.Color = color
 	flash.Range = 16
@@ -388,13 +393,9 @@ local function burst(at: Vector3, color: Color3, count: number, speed: number)
 		flash.Brightness = 1.5
 	end)
 	task.delay(0.3, function()
-		flash.Enabled = false
-	end)
-	task.delay(1.4, function()
 		holder:Destroy()
 	end)
 end
-
 local function onOreMined(payload)
 	if type(payload) ~= "table" or type(payload.NodeId) ~= "string" then
 		return
@@ -430,16 +431,20 @@ end
 -- The Rift Warden
 ------------------------------------------------------------------------
 
-type Piece = { part: BasePart, base: Vector3, spin: Vector3, velocity: Vector3?, tilt: CFrame, transparency: number }
+type Piece = { part: BasePart, base: Vector3, spin: Vector3, velocity: Vector3?, tilt: CFrame, transparency: number, childOffset: CFrame }
 
 type Boss = {
 	anchor: BasePart,
 	model: Model,
-	core: Part,
-	shell: Part,
-	eye: Part,
+	core: BasePart,
+	shell: BasePart,
+	eye: BasePart,
 	coreLight: PointLight,
 	aura: ParticleEmitter,
+	swirl: ParticleEmitter,
+	glowHalo: ParticleEmitter,
+	coreSize: Vector3,
+	shellSize: Vector3,
 	rings: { Piece },
 	plates: { Piece },
 	shards: { Piece },
@@ -464,10 +469,26 @@ local function findWarden(): Model?
 	return nil
 end
 
+-- A body part from the model kit when it is loaded, else a primitive.
+local function bossPart(kitName: string, name: string, shape: Enum.PartType?, size: Vector3, color: Color3, material: Enum.Material): BasePart
+	local mesh = AssetKit.make(kitName, size, nil, color, material, false)
+	if mesh ~= nil then
+		mesh.Name = name
+		mesh.CanQuery = false
+		mesh.CastShadow = false
+		mesh.Parent = clientFolder
+		return mesh
+	end
+	return vfxPart(name, shape, size, color, material)
+end
+
 local function buildBoss(model: Model): Boss
 	local anchor = model.PrimaryPart :: BasePart
-	local core = vfxPart("WardenCore", Enum.PartType.Ball, Vector3.new(9, 9, 9), RIFT, Enum.Material.Neon)
-	local shell = vfxPart("WardenShell", Enum.PartType.Ball, Vector3.new(11.5, 11.5, 11.5), RIFT_HOT, Enum.Material.Glass)
+	local coreSize = Vector3.new(9, 9, 9)
+	local shellSize = Vector3.new(11.5, 11.5, 11.5)
+	-- Faceted crystal heart inside a glass shell.
+	local core = bossPart("WardenCore", "WardenCore", Enum.PartType.Ball, coreSize, RIFT, Enum.Material.Neon)
+	local shell = bossPart("WardenCore", "WardenShell", Enum.PartType.Ball, shellSize, RIFT_HOT, Enum.Material.Glass)
 	shell.Transparency = 0.6
 	local eye = vfxPart("WardenEye", Enum.PartType.Ball, Vector3.new(2.3, 2.3, 2.3), Color3.fromRGB(240, 250, 255), Enum.Material.Neon)
 	local light = Instance.new("PointLight")
@@ -476,23 +497,10 @@ local function buildBoss(model: Model): Boss
 	light.Brightness = 3
 	light.Shadows = false
 	light.Parent = core
-	local aura = Instance.new("ParticleEmitter")
-	aura.Color = ColorSequence.new(RIFT_HOT)
-	aura.LightEmission = 1
-	aura.LightInfluence = 0
-	aura.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.7),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	aura.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.2),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	aura.Lifetime = NumberRange.new(1.8, 3)
-	aura.Rate = 22
-	aura.Speed = NumberRange.new(2, 5)
-	aura.SpreadAngle = Vector2.new(180, 180)
-	aura.Parent = core
+	-- Motes streaming off the heart, a slow rift vortex and a soft glow.
+	local aura = Vfx.attach(core, "Motes", { Color = RIFT_HOT, Color2 = RIFT, Rate = 16, Speed = NumberRange.new(2, 5) })
+	local swirl = Vfx.attach(core, "Swirl", { Color = RIFT, Color2 = RIFT_HOT, Size = NumberSequence.new(20, 26) })
+	local glowHalo = Vfx.attach(core, "Halo", { Color = RIFT, Size = NumberSequence.new(24, 28) })
 
 	local rings: { Piece } = {}
 	local ringSpecs = {
@@ -501,27 +509,44 @@ local function buildBoss(model: Model): Boss
 		{ diameter = 28, tilt = CFrame.Angles(math.rad(110), math.rad(-40), 0), spin = Vector3.new(0, 18, 0) },
 	}
 	for index, spec in ringSpecs do
-		local ring = vfxPart(`WardenRing{index}`, Enum.PartType.Cylinder, Vector3.new(0.35, spec.diameter, spec.diameter), RIFT_HOT, Enum.Material.Neon)
+		-- The kit halo lies flat (normal +Y); the primitive ring's axis is X.
+		local size = if AssetKit.has("Halo") then Vector3.new(spec.diameter, 0.6, spec.diameter) else Vector3.new(0.35, spec.diameter, spec.diameter)
+		local ring = bossPart("Halo", `WardenRing{index}`, Enum.PartType.Cylinder, size, RIFT_HOT, Enum.Material.Neon)
 		ring.Transparency = 0.5
-		local piece: Piece = { part = ring, base = Vector3.zero, spin = spec.spin, velocity = nil, tilt = spec.tilt, transparency = 0.5 }
+		local tilt = if AssetKit.has("Halo") then spec.tilt * CFrame.Angles(0, 0, math.rad(90)) else spec.tilt
+		local piece: Piece = { part = ring, base = Vector3.zero, spin = spec.spin, velocity = nil, tilt = tilt, transparency = 0.5, childOffset = CFrame.identity }
 		table.insert(rings, piece)
 	end
 
 	local plates: { Piece } = {}
 	for index = 1, 6 do
-		local plate = vfxPart(`WardenPlate{index}`, nil, Vector3.new(5, 7, 1.2), Color3.fromRGB(34, 32, 46), Enum.Material.Basalt)
+		local meshPlate = AssetKit.has("WardenPlate")
+		local plate = bossPart("WardenPlate", `WardenPlate{index}`, nil, if meshPlate then AssetKit.sized("WardenPlate", 1.6) else Vector3.new(5, 7, 1.2), Color3.fromRGB(34, 32, 46), Enum.Material.Basalt)
 		plate.CastShadow = true
-		local seam = vfxPart(`WardenSeam{index}`, nil, Vector3.new(0.4, 6, 0.4), RIFT, Enum.Material.Neon)
+		-- A glowing seam on each plate's outer face. The kit plate's outer
+		-- (convex) side is +Z, so it faces out without the half-turn the flat
+		-- primitive plate needs.
+		local seam: BasePart = if meshPlate
+			then bossPart("WardenPlate", `WardenSeam{index}`, nil, AssetKit.sized("WardenPlate", 0.7), RIFT, Enum.Material.Neon)
+			else vfxPart(`WardenSeam{index}`, nil, Vector3.new(0.4, 6, 0.4), RIFT, Enum.Material.Neon)
 		seam.Parent = plate
-		local piece: Piece = { part = plate, base = Vector3.zero, spin = Vector3.new(0, index, 0), velocity = nil, tilt = CFrame.identity, transparency = 0 }
+		local piece: Piece = {
+			part = plate,
+			base = Vector3.zero,
+			spin = Vector3.new(0, index, 0),
+			velocity = nil,
+			tilt = if meshPlate then CFrame.identity else CFrame.Angles(0, math.pi, 0),
+			transparency = 0,
+			childOffset = if meshPlate then CFrame.new(0, 0, 0.55) else CFrame.new(0, 0, -0.5),
+		}
 		table.insert(plates, piece)
 	end
 
 	local shards: { Piece } = {}
 	for index = 1, 8 do
-		local shard = vfxPart(`WardenShard{index}`, nil, Vector3.new(1, 6.5, 1), RIFT_HOT, Enum.Material.Neon)
+		local shard = bossPart("WardenBlade", `WardenShard{index}`, nil, if AssetKit.has("WardenBlade") then AssetKit.sized("WardenBlade", 1.3) else Vector3.new(1, 6.5, 1), RIFT_HOT, Enum.Material.Neon)
 		shard.Transparency = 0.15
-		local piece: Piece = { part = shard, base = Vector3.zero, spin = Vector3.new(0, index, 0), velocity = nil, tilt = CFrame.identity, transparency = 0.15 }
+		local piece: Piece = { part = shard, base = Vector3.zero, spin = Vector3.new(0, index, 0), velocity = nil, tilt = CFrame.identity, transparency = 0.15, childOffset = CFrame.identity }
 		table.insert(shards, piece)
 	end
 
@@ -533,6 +558,10 @@ local function buildBoss(model: Model): Boss
 		eye = eye,
 		coreLight = light,
 		aura = aura,
+		swirl = swirl,
+		glowHalo = glowHalo,
+		coreSize = coreSize,
+		shellSize = shellSize,
 		rings = rings,
 		plates = plates,
 		shards = shards,
@@ -545,7 +574,6 @@ local function buildBoss(model: Model): Boss
 		visible = 0,
 	}
 end
-
 local function destroyBoss()
 	local current = boss
 	boss = nil
@@ -562,6 +590,18 @@ local function destroyBoss()
 	end
 end
 
+-- Rift tethers (beams from the arena pillars to the seal, built by the
+-- server) light up while the Warden is forming or fighting.
+local tethersOn = false
+local function setTethers(on: boolean)
+	tethersOn = on
+	for _, beam in CollectionService:GetTagged("AF_RiftTether") do
+		if beam:IsA("Beam") then
+			beam.Enabled = on
+		end
+	end
+end
+
 local function setBossTransparency(current: Boss, visible: number)
 	local hide = 1 - math.clamp(visible, 0, 1)
 	current.core.Transparency = hide
@@ -569,6 +609,8 @@ local function setBossTransparency(current: Boss, visible: number)
 	current.eye.Transparency = hide
 	current.coreLight.Enabled = visible > 0.02
 	current.aura.Enabled = visible > 0.2
+	current.swirl.Enabled = visible > 0.3
+	current.glowHalo.Enabled = visible > 0.3
 	for _, list in { current.rings, current.plates, current.shards } do
 		for _, piece in list do
 			piece.part.Transparency = piece.transparency + (1 - piece.transparency) * hide
@@ -583,11 +625,17 @@ end
 
 local function stepBoss(dt: number, t: number)
 	if boss == nil then
+		-- Build once the model kit has loaded (or is known to be absent).
+		if not kitSettled then
+			return
+		end
 		local model = findWarden()
 		if model == nil then
 			return
 		end
 		boss = buildBoss(model)
+		local joined = tostring(model:GetAttribute("Phase") or "Dormant")
+		setTethers(joined == "Forming" or joined == "Active")
 	end
 	local current = boss :: Boss
 	if current.model.Parent == nil then
@@ -602,14 +650,25 @@ local function stepBoss(dt: number, t: number)
 
 	-- Phase changes: sounds and one-off moments.
 	if phase ~= current.lastPhase then
+		local at = current.anchor.Position
 		if phase == "Forming" then
 			Audio:play("wardenForming")
+			setTethers(true)
+			Vfx.burst(at, "Implode", 1, { Color = RIFT_HOT, Color2 = RIFT, Size = NumberSequence.new(40, 2) }, clientFolder)
+			Vfx.burst(at, "Shatter", 40, { Color = RIFT_HOT, Speed = NumberRange.new(4, 10), Acceleration = Vector3.new(0, 6, 0) }, clientFolder)
 		elseif phase == "Active" then
 			Audio:play("wardenAwake")
 			Controls.shake(0.5)
+			setTethers(true)
+			Vfx.burst(at, "Flash", 1, { Color = RIFT_HOT, Size = NumberSequence.new(10, 34) }, clientFolder)
+			Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = RIFT, Size = NumberSequence.new(4, 90) }, clientFolder)
 		elseif phase == "Defeated" then
 			Audio:play("wardenDefeat")
 			current.outroStarted = t
+			setTethers(false)
+			Vfx.burst(at, "Flash", 2, { Color = Color3.new(1, 1, 1), Color2 = RIFT_HOT, Size = NumberSequence.new(12, 44) }, clientFolder)
+			Vfx.burst(at, "Shatter", 110, { Color = RIFT_HOT, Color2 = RIFT, Speed = NumberRange.new(18, 40), Size = NumberSequence.new(1.1, 0) }, clientFolder)
+			Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = RIFT_HOT, Size = NumberSequence.new(6, 120) }, clientFolder)
 			for _, list in { current.rings, current.plates, current.shards } do
 				for _, piece in list do
 					local away = Vector3.new(math.random() - 0.5, math.random() * 0.8, math.random() - 0.5)
@@ -623,7 +682,10 @@ local function stepBoss(dt: number, t: number)
 		elseif phase == "Escaped" then
 			Audio:play("wardenEscape")
 			current.outroStarted = t
+			setTethers(false)
+			Vfx.burst(at, "Implode", 1, { Color = RIFT, Size = NumberSequence.new(30, 0.5) }, clientFolder)
 		elseif phase == "Dormant" then
+			setTethers(false)
 			for _, list in { current.rings, current.plates, current.shards } do
 				for _, piece in list do
 					piece.velocity = nil
@@ -699,7 +761,7 @@ local function stepBoss(dt: number, t: number)
 		for _, child in piece.part:GetChildren() do
 			if child:IsA("BasePart") then
 				table.insert(parts, child)
-				table.insert(frames, frame * CFrame.new(0, 0, -0.5))
+				table.insert(frames, frame * piece.childOffset)
 			end
 		end
 	end
@@ -713,7 +775,7 @@ local function stepBoss(dt: number, t: number)
 		local jolt = current.flash * 0.9
 		local radius = 9.5 + jolt + math.sin(t * 1.3 + index) * 0.4
 		local position = hover + Vector3.new(math.cos(angle) * radius, math.sin(t * 1.1 + index * 0.8) * 1.2, math.sin(angle) * radius)
-		place(plate, CFrame.lookAt(position, hover) * CFrame.Angles(0, math.pi, 0))
+		place(plate, CFrame.lookAt(position, hover) * plate.tilt)
 	end
 	for index, shard in current.shards do
 		local side = if index <= 4 then -1 else 1
@@ -788,6 +850,10 @@ local function onSlamLand(payload)
 	local radius = tonumber(payload.Radius) or 24
 	Audio:play("wardenSlam")
 	burst(center + Vector3.new(0, 1, 0), RIFT_HOT, 40, 28)
+	-- A textured shockwave across the floor, dust thrown up, and a flash.
+	Vfx.burst(center + Vector3.new(0, 0.4, 0), "Shockwave", 1, { Color = RIFT_HOT, Size = NumberSequence.new(4, radius * 2.6) }, clientFolder)
+	Vfx.burst(center, "Dust", 26, { Color = Color3.fromRGB(70, 62, 90) }, clientFolder)
+	Vfx.burst(center + Vector3.new(0, 2, 0), "Flash", 1, { Color = SLAM, Size = NumberSequence.new(6, radius) }, clientFolder)
 	local anchor = vfxPart("ShockAnchor", nil, Vector3.new(0.2, 0.2, 0.2), SLAM, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
@@ -818,6 +884,33 @@ local function onStagger(payload)
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Controls.knockback(center, 58)
 	Controls.shake(1.3)
+	local root = localRoot()
+	if root ~= nil then
+		Vfx.burst(root.Position, "Spark", 18, { Color = SLAM, Color2 = RIFT_HOT }, clientFolder)
+	end
+end
+
+-- The local player's strike landed (the HUD fires this with the result):
+-- sparks off the Warden, and a flash on a critical hit.
+local function onStrikeLanded(payload)
+	local current = boss
+	if current == nil then
+		return
+	end
+	local crit = type(payload) == "table" and payload.Crit == true
+	local root = localRoot()
+	local at = current.core.Position
+	if root ~= nil then
+		-- The side of the Warden facing the player.
+		local toward = root.Position - at
+		if toward.Magnitude > 1 then
+			at += toward.Unit * current.core.Size.X * 0.5
+		end
+	end
+	Vfx.burst(at, "Spark", if crit then 34 else 16, { Color = RIFT_HOT, Color2 = if crit then Color3.fromRGB(255, 214, 120) else RIFT }, clientFolder)
+	if crit then
+		Vfx.burst(at, "Flash", 1, { Color = Color3.fromRGB(255, 226, 150), Size = NumberSequence.new(3, 12) }, clientFolder)
+	end
 end
 
 ------------------------------------------------------------------------
@@ -856,6 +949,10 @@ local function onArrived(payload)
 	if root == nil then
 		return
 	end
+	-- Step out of a column of light.
+	Vfx.burst(root.Position - Vector3.new(0, 2.5, 0), "Rising", 45, { Color = Color3.fromRGB(150, 220, 255), Speed = NumberRange.new(6, 14) }, clientFolder)
+	Vfx.burst(root.Position, "Shatter", 24, { Color = Color3.fromRGB(190, 236, 255), Speed = NumberRange.new(6, 12) }, clientFolder)
+	Vfx.burst(root.Position - Vector3.new(0, 2.8, 0), "Shockwave", 1, { Color = Color3.fromRGB(150, 220, 255), Size = NumberSequence.new(2, 18) }, clientFolder)
 	root.Anchored = true
 	task.spawn(function()
 		local params = RaycastParams.new()
@@ -891,6 +988,22 @@ function World.start()
 	folder.Name = "SanctuaryClientFx"
 	folder.Parent = Workspace
 	clientFolder = folder
+	-- Ambience subscribes to region changes before the first one fires.
+	Ambience.start()
+	-- The Warden's body waits for the model kit (at most a few seconds, and
+	-- not at all when none is uploaded).
+	kitSettled = AssetKit.ready()
+	if not kitSettled then
+		task.spawn(function()
+			AssetKit.load(10)
+			kitSettled = true
+		end)
+	end
+	track(CollectionService:GetInstanceAddedSignal("AF_RiftTether"):Connect(function(beam)
+		if beam:IsA("Beam") then
+			beam.Enabled = tethersOn
+		end
+	end))
 
 	for _, tagName in { "AF_Spin", "AF_Bob", "AF_Pulse" } do
 		for _, instance in CollectionService:GetTagged(tagName) do
@@ -935,6 +1048,7 @@ function World.start()
 	table.insert(unsubscribers, Signals.on("RiftBossSlamLand", onSlamLand))
 	table.insert(unsubscribers, Signals.on("RiftBossStagger", onStagger))
 	table.insert(unsubscribers, Signals.on("WaystoneArrived", onArrived))
+	table.insert(unsubscribers, Signals.on("StrikeLanded", onStrikeLanded))
 
 	track(RunService.RenderStepped:Connect(function(dt)
 		local t = os.clock()
@@ -965,6 +1079,8 @@ function World.stop()
 	end
 	table.clear(unsubscribers)
 	destroyBoss()
+	setTethers(false)
+	Ambience.stop()
 	restoreAnimated()
 	-- Put every outcrop back to full so nothing is left half-drawn. Outcrops
 	-- that streamed out are gone already and come back fresh.

@@ -15,3 +15,6 @@ sourcemap.json
 /.rojo-validation.rbxlx
 /.argon-validation.rbxlx
 /.argon-ts-validation.rbxlx
+
+# Python bytecode from tools/assetgen
+__pycache__/

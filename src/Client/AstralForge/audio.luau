@@ -5,6 +5,10 @@ local ClientLog = require(script.Parent.log).ClientLog
 local MusicDirector = require(script.Parent.musicDirector).MusicDirector
 local MUSIC_DECK_NAMES = require(script.Parent.musicDirector).DECK_NAMES
 local Voicing = require(script.Parent.audioVoicing)
+local SoundSheet = require(script.Parent.soundSheet)
+-- Voices on the sound sheet (tools/assetgen). One file, many regions, so it
+-- gets a larger pool than any single legacy asset.
+local SHEET_CHANNELS = 14
 local UI_HOVER = "rbxassetid://10066931761"
 local UI_CLICK = "rbxassetid://10066921516"
 local UI_CONFIRM = "rbxassetid://10066947742"
@@ -1983,6 +1987,10 @@ do
 			end
 			appendChannel(_result)
 		end
+		-- The sound sheet is one file behind most cues, so it loads first.
+		if self.sheetPool ~= nil then
+			appendChannel(self.sheetPool[1])
+		end
 		local priorityCount = #channels
 		for _, asset in AUDIO_ASSET_MANIFEST do
 			for _1, channel in self.assetPools[asset] or {} do
@@ -2191,6 +2199,19 @@ do
 				end
 			end
 			self.assetPools[asset] = pool
+		end
+		-- The designed sound sheet, once uploaded: every mapped cue plays its own
+		-- slice of it (see soundSheet.luau) instead of a re-voiced legacy click.
+		if SoundSheet.enabled() then
+			local sheetAsset = SoundSheet.assetId()
+			local sheetPool = {}
+			for index = 1, SHEET_CHANNELS do
+				local channel = self:makeChannel(sheetAsset, 100 + index, group)
+				channel.PlaybackRegionsEnabled = true
+				table.insert(sheetPool, channel)
+			end
+			self.assetPools[sheetAsset] = sheetPool
+			self.sheetPool = sheetPool
 		end
 		-- One soundtrack for the whole game; page changes never touch it.
 		local musicDirector = MusicDirector.new(musicGroup)
@@ -2771,6 +2792,12 @@ do
 		if not bypassCooldown and now - previous < DUPLICATE_CUE_SECONDS then
 			return false
 		end
+		if self.sheetPool ~= nil then
+			local start, length = SoundSheet.region(cue)
+			if start ~= nil and length ~= nil then
+				return self:playSheet(cue, spec, start, length, speedMult, now, token)
+			end
+		end
 		local channel = self:acquireChannel(spec, cue)
 		if channel == nil then
 			return false
@@ -2829,6 +2856,67 @@ do
 		local duckDepth = MUSIC_DUCK_CUES[cue]
 		if duckDepth ~= nil then
 			self:duckMusic(duckDepth, math.max(0.18, (spec.stopAfter or 0.45) * 0.55), 0.62)
+		end
+		return true
+	end
+	-- A designed voice from the sound sheet: play just its region. The sound
+	-- already carries its own space and character, so the family voicing
+	-- (pitch shifts, drive, rooms) that made three clicks sound like forty
+	-- things is skipped; only a touch of pitch variety stays.
+	function Mixer:playSheet(cue, spec, start, length, speedMult, now, token)
+		local pool = self.sheetPool
+		local channel = nil
+		local oldest = math.huge
+		for _, sound in pool do
+			local busy = math.max(self.busyUntil[sound] or 0, self.claimedUntil[sound] or 0)
+			if busy <= now and not sound.IsPlaying then
+				channel = sound
+				break
+			end
+			if busy < oldest then
+				oldest = busy
+				channel = sound
+			end
+		end
+		if channel == nil then
+			return false
+		end
+		local generation = (self.channelGeneration[channel] or 0) + 1
+		self.channelGeneration[channel] = generation
+		self.channelCue[channel] = cue
+		local level = SoundSheet.gain(cue)
+		-- Stored as the layer trim so a slider move recomputes the same volume.
+		self.channelLayerGain[channel] = level
+		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * math.min(spec.variance, 0.03) * self.soundVariation else 0
+		local spread = if BUTTON_PITCH_CUES[cue] then math.random(97, 103) / 100 else 1
+		local speed = math.clamp(math.clamp(speedMult, 0.82, 1.28) * spread + variance, 0.5, 2)
+		local cueMix = self:cueMix(cue)
+		local ambientCue = cue == "reactor" or cue == "reactorReady" or cue == "reactorPulse" or cue == "reactorChannel" or cue == "reactorStabilize" or cue == "autoForge"
+		channel.SoundGroup = if UI_CUES[cue] then self.uiGroup elseif ambientCue then self.ambientGroup else self.group
+		if channel.IsPlaying then
+			channel:Stop()
+		end
+		channel.Looped = false
+		channel.PlaybackRegion = NumberRange.new(start, start + length)
+		channel.PlaybackSpeed = speed
+		channel.Volume = spec.volume * CUE_GAIN * Voicing.voiceFor(cue).gain * level * softSfx(self.sfxMix) * cueMix
+		channel.TimePosition = start
+		if token ~= self.sfxToken or channel.Parent == nil then
+			return false
+		end
+		local played = pcall(function()
+			return channel:Play()
+		end)
+		if not played then
+			ClientLog:warnEvery(`audio-sheet-{cue}`, 20, "Audio", `{cue} could not start from the sound sheet`)
+			return false
+		end
+		self.claimedUntil[channel] = now + CHANNEL_CLAIM_SECONDS
+		self.busyUntil[channel] = now + length / speed
+		self.lastPlayed[cue] = now
+		local duckDepth = MUSIC_DUCK_CUES[cue]
+		if duckDepth ~= nil then
+			self:duckMusic(duckDepth, math.max(0.18, length * 0.45), 0.62)
 		end
 		return true
 	end
