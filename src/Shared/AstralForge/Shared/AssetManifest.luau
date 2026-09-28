@@ -10,7 +10,7 @@ export type Region = { number } -- { start seconds, length seconds }
 local Manifest = {}
 
 Manifest.SoundSheet = {
-	Id = 0,
+	Id = 81741977516772,
 	Length = 76.037,
 	Regions = {
 		ui_hover = { 0.3, 0.332 },

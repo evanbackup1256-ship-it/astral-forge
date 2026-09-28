@@ -2792,7 +2792,7 @@ do
 		if not bypassCooldown and now - previous < DUPLICATE_CUE_SECONDS then
 			return false
 		end
-		if self.sheetPool ~= nil then
+		if self.sheetPool ~= nil and self:sheetLoaded() then
 			local start, length = SoundSheet.region(cue)
 			if start ~= nil and length ~= nil then
 				return self:playSheet(cue, spec, start, length, speedMult, now, token)
@@ -2858,6 +2858,20 @@ do
 			self:duckMusic(duckDepth, math.max(0.18, (spec.stopAfter or 0.45) * 0.55), 0.62)
 		end
 		return true
+	end
+	-- The sheet is used only once it has actually loaded. A fresh upload waits
+	-- on moderation (and a rejected one never loads); until then every cue
+	-- keeps its original sound instead of going silent.
+	function Mixer:sheetLoaded()
+		if self.sheetReady then
+			return true
+		end
+		local probe = self.sheetPool ~= nil and self.sheetPool[1] or nil
+		if probe ~= nil and probe.IsLoaded and probe.TimeLength > 1 then
+			self.sheetReady = true
+			ClientLog:once("audio-sheet-ready", "audio", "sound sheet loaded")
+		end
+		return self.sheetReady == true
 	end
 	-- A designed voice from the sound sheet: play just its region. The sound
 	-- already carries its own space and character, so the family voicing

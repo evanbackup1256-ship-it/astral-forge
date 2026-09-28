@@ -101,6 +101,8 @@ for voice in string.gmatch(sheet, '= "([%w_]+)"') do
 	assert(voices[voice], "soundSheet names unknown voice " .. voice)
 end
 assert(string.find(audio, "if SoundSheet.enabled() then", 1, true), "the mixer only builds the sheet pool once it is uploaded")
+assert(string.find(audio, "if self.sheetPool ~= nil and self:sheetLoaded() then", 1, true), "cues use the sheet only after it has loaded (moderation can hold a new upload)")
+assert(string.find(audio, "probe.IsLoaded and probe.TimeLength > 1", 1, true), "sheetLoaded checks the sound really loaded")
 assert(string.find(audio, "channel.PlaybackRegion = NumberRange.new(start, start + length)", 1, true), "sheet cues play their region")
 local used: { [string]: boolean } = {}
 for _, voice in ordered do
