@@ -114,7 +114,7 @@ Manifest.SoundSheet = {
 }
 
 Manifest.Ambience = {
-	Id = 0,
+	Id = 115880030110523,
 	Length = 81.8,
 	Regions = {
 		amb_heart = { 0.3, 16 },
