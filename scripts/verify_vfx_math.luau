@@ -1,5 +1,5 @@
 --!strict
--- Guards for the interface-effect maths (src/Client/AstralForge/vfxMath).
+-- Guards for the interface-effect maths (motionTokens.fx, aliased as vfxMath).
 --
 --   1. The closed-form spark path matches a fine numerical simulation of drag
 --      and gravity (so every frame lands exactly where physics says).
@@ -12,7 +12,7 @@
 -- HARD: pure checks -- no Roblox instances.
 
 local fs = require("@lune/fs")
-local Fx = require("../src/Client/AstralForge/vfxMath")
+local Fx = require("../src/Client/AstralForge/motionTokens").fx
 
 ------------------------------------------------------------------------
 -- 1. Closed form vs simulation

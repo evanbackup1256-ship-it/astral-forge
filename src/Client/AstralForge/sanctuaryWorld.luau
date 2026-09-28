@@ -719,14 +719,18 @@ local function stepBoss(dt: number, t: number)
 	end
 	setBossTransparency(current, current.visible)
 
-	-- Slam wind-up lifts the Warden; the landing drops it.
+	-- Slam wind-up lifts the Warden and heats its core toward the slam colour,
+	-- pulsing faster as the moment nears; the landing drops it.
 	local lift = 0
+	local charge = 0
 	if current.slamUntil > now then
 		local total = config.SlamTelegraphSeconds
 		local k = math.clamp(1 - (current.slamUntil - now) / total, 0, 1)
 		lift = math.sin(k * math.pi * 0.5) * 5
+		charge = k
 	end
 	current.slamLift += (lift - current.slamLift) * (1 - math.exp(-12 * dt))
+	local chargePulse = if charge > 0 then charge * (0.55 + 0.45 * math.sin(t * (8 + charge * 22))) else 0
 
 	local escaping = phase == "Escaped"
 	local collapse = if escaping then math.clamp((t - current.outroStarted) / 1.4, 0, 1) else 0
@@ -734,9 +738,10 @@ local function stepBoss(dt: number, t: number)
 	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
 	coreScale *= (1 - collapse * 0.95)
 	current.core.Size = Vector3.new(9, 9, 9) * coreScale
-	current.core.Color = RIFT:Lerp(Color3.new(1, 1, 1), current.flash * 0.7)
+	current.core.Color = RIFT:Lerp(SLAM, chargePulse * 0.75):Lerp(Color3.new(1, 1, 1), current.flash * 0.7)
 	current.shell.Size = Vector3.new(11.5, 11.5, 11.5) * coreScale
-	current.coreLight.Brightness = 3 + current.flash * 6
+	current.coreLight.Brightness = 3 + current.flash * 6 + chargePulse * 4
+	current.coreLight.Color = RIFT:Lerp(SLAM, chargePulse)
 
 	local parts: { BasePart } = { current.core, current.shell }
 	local frames: { CFrame } = { CFrame.new(hover), CFrame.new(hover) }

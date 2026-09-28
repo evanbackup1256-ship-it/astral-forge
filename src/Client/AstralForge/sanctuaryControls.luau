@@ -49,6 +49,11 @@ local zoom = 18
 local targetZoom = 18
 local focus: Vector3? = nil
 local sprinting = false
+-- Field of view: widens a touch while sprinting, eased, and restored on stop.
+local BASE_FOV = 70
+local SPRINT_FOV = 77
+local fov = BASE_FOV
+local savedFov: number? = nil
 local sprintToggled = false
 local jumpQueued = false
 local shakeStrength = 0
@@ -432,6 +437,13 @@ function Controls.stop()
 	destroyTouchGui()
 	resetTouch()
 	gamepadMove, gamepadLook = Vector2.zero, Vector2.zero
+	-- Put the lens back exactly as the shell had it.
+	local camera = Workspace.CurrentCamera
+	if camera ~= nil and savedFov ~= nil then
+		camera.FieldOfView = savedFov
+	end
+	savedFov = nil
+	fov = BASE_FOV
 	keyboardLooking = false
 	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	local _, humanoid = character()
@@ -529,6 +541,12 @@ function Controls.step(dt: number)
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CameraSubject = nil
 	camera.CFrame = frame
+	-- Speed reads through the lens: the view widens as you sprint.
+	if savedFov == nil then
+		savedFov = camera.FieldOfView
+	end
+	fov += ((if sprinting then SPRINT_FOV else BASE_FOV) - fov) * (1 - math.exp(-6 * dt))
+	camera.FieldOfView = fov
 end
 
 -- The camera's flat forward, for anything that aims relative to the view.
