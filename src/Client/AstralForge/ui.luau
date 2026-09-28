@@ -2963,7 +2963,10 @@ local function SegmentedTabs(_param)
 	-- ▲ ReadonlyArray.forEach ▲
 	local activeColumn = activeIndex % columnCount
 	local activeRow = math.floor(activeIndex / columnCount)
-	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 880, 34)
+	-- A liquid carrier: the leading edge reaches the new tab first and the
+	-- trailing edge follows, so the pill stretches across and gathers in.
+	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 1100, 48)
+	local columnTrail = useFlipperSpring(activeColumn, reducedMotion, 480, 46)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
 	local tabSweep = useClock(reducedMotion ~= true, SHIMMER_SWEEP_SPEED, 1, true)
@@ -2982,8 +2985,14 @@ local function SegmentedTabs(_param)
 		local row = math.floor(index / columnCount)
 		return UDim2.new(column / columnCount, gap * column / columnCount, row / rowCount, gap * row / rowCount)
 	end
-	local carrierPosition = React.joinBindings({ columnSlide, rowSlide }):map(function(values)
-		return UDim2.new(math.clamp(values[1], 0, columnCount - 1) / columnCount, gap * math.clamp(values[1], 0, columnCount - 1) / columnCount, math.clamp(values[2], 0, rowCount - 1) / rowCount, gap * math.clamp(values[2], 0, rowCount - 1) / rowCount)
+	local carrierSpan = React.joinBindings({ columnSlide, columnTrail, rowSlide })
+	local carrierPosition = carrierSpan:map(function(values)
+		local column = math.clamp(math.min(values[1], values[2]), 0, columnCount - 1)
+		return UDim2.new(column / columnCount, gap * column / columnCount, math.clamp(values[3], 0, rowCount - 1) / rowCount, gap * math.clamp(values[3], 0, rowCount - 1) / rowCount)
+	end)
+	local carrierSize = carrierSpan:map(function(values)
+		local stretch = math.clamp(math.abs(values[1] - values[2]), 0, columnCount - 1)
+		return cellSize + UDim2.new(stretch / columnCount, gap * stretch / columnCount, 0, 0)
 	end)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 11),
@@ -3000,7 +3009,7 @@ local function SegmentedTabs(_param)
 		Transparency = 0.62,
 	})
 	local _exp_3 = React.createElement("frame", {
-		Size = cellSize,
+		Size = carrierSize,
 		Position = carrierPosition,
 		BackgroundColor3 = selectionFlash:map(function(amount)
 			return lighten(selectedAccent, amount * 0.14)

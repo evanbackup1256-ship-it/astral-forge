@@ -316,12 +316,13 @@ local function stepNodes(dt: number, t: number)
 		end
 		local target = if ready then 1 else 0
 		if entry.fill ~= target or entry.trembling then
-			-- Sinks quickly when mined, grows back gently.
-			local rate = if target > entry.fill then 1.4 else 5
-			if target > entry.fill then
-				entry.fill = math.min(target, entry.fill + rate * dt)
-			else
-				entry.fill = math.max(target, entry.fill - rate * dt)
+			-- Sinks fast and settles when mined; grows back gently. An eased
+			-- approach (the same at any frame rate) rather than a constant speed,
+			-- so the motion slows into place instead of stopping dead.
+			local rate = if target > entry.fill then 2.6 else 9
+			entry.fill += (target - entry.fill) * (1 - math.exp(-rate * dt))
+			if math.abs(target - entry.fill) < 0.002 then
+				entry.fill = target
 			end
 			applyFill(entry, t)
 		end

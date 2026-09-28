@@ -1145,7 +1145,12 @@ local function Navigation(_param)
 	if selectionVisible then
 		heldSelection.current = selectionTop
 	end
-	local selectionY = useFlipperSpring(heldSelection.current, reducedMotion, 340, 42)
+	-- A liquid pill: its leading edge chases the new row on a fast spring while
+	-- the trailing edge follows on a slower one, so it stretches toward where
+	-- you clicked and gathers itself as it lands.
+	local selectionLead = useFlipperSpring(heldSelection.current, reducedMotion, 720, 48)
+	local selectionTrail = useFlipperSpring(heldSelection.current, reducedMotion, 300, 46)
+	local selectionSpan = React.joinBindings({ selectionLead, selectionTrail })
 	local selectionAccent = AppHelpers:pageAccent(page)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
@@ -1253,9 +1258,12 @@ local function Navigation(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, selectionVisible and React.createElement("frame", {
-		Size = UDim2.new(1, -4, 0, math.max(8, rowHeight - 4)),
-		Position = selectionY:map(function(y)
-			return UDim2.fromOffset(2, math.round(y) + 2)
+		Size = selectionSpan:map(function(values)
+			local stretch = math.abs(values[1] - values[2])
+			return UDim2.new(1, -4, 0, math.max(8, rowHeight - 4) + math.round(stretch))
+		end),
+		Position = selectionSpan:map(function(values)
+			return UDim2.fromOffset(2, math.round(math.min(values[1], values[2])) + 2)
 		end),
 		BackgroundColor3 = Palette.panelSoft,
 		BackgroundTransparency = 0.2,

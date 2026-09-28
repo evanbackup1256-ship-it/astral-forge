@@ -199,12 +199,17 @@ def rock(seed_value, subdivisions=2, roughness=0.22, flatten=0.35, stretch=(1.0,
     verts, faces = icosphere(subdivisions)
     bumps = [(norm((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1))), rng.uniform(0.3, 1.0)) for _ in range(9)]
     shaped = []
+    strata = rng.uniform(0.16, 0.24)
     for v in verts:
         d = 1.0 + sum(w * roughness * max(0.0, dot(v, b)) ** 3 for b, w in bumps) - roughness * 0.35
         d += rng.uniform(-roughness, roughness) * 0.25
         p = (v[0] * d * stretch[0], v[1] * d * stretch[1], v[2] * d * stretch[2])
         if p[1] < -flatten:
             p = (p[0], -flatten + (p[1] + flatten) * 0.15, p[2])
+        # Weathered strata: heights pull toward terraces, so the rock reads as
+        # layered stone rather than a lump.
+        terrace = round(p[1] / strata) * strata
+        p = (p[0], p[1] + (terrace - p[1]) * 0.45, p[2])
         shaped.append(p)
     m = Mesh()
     for a, b, c in faces:
@@ -213,14 +218,21 @@ def rock(seed_value, subdivisions=2, roughness=0.22, flatten=0.35, stretch=(1.0,
 
 
 def crystal(radius=0.5, height=2.2, tip=0.8, sides=6, seed_value=1, lean=0.0):
+    """A natural crystal: flared root, faceted body with a slight twist, a
+    chamfered shoulder and a two-stage point, every ring a little irregular."""
     rng = random.Random(seed_value)
     twist = rng.uniform(0, 1)
+    turn = rng.uniform(-0.12, 0.12)
     rings = [
-        ring(sides, radius * 0.86, 0.0, twist, 0.08, rng),
-        ring(sides, radius, height * 0.18, twist, 0.05, rng),
-        ring(sides, radius * 0.94, height, twist, 0.05, rng),
+        ring(sides, radius * 0.8, 0.0, twist, 0.08, rng),
+        ring(sides, radius * 1.02, height * 0.1, twist, 0.05, rng),
+        ring(sides, radius * 0.98, height * 0.45, twist + turn * 0.5, 0.04, rng),
+        ring(sides, radius * 0.95, height * 0.86, twist + turn, 0.04, rng),
+        # The shoulder: a short chamfer before the point.
+        ring(sides, radius * 0.82, height, twist + turn, 0.03, rng),
+        ring(sides, radius * 0.38, height + tip * 0.55, twist + turn + 0.08, 0.06, rng),
     ]
-    top = (rng.uniform(-0.08, 0.08) * radius, height + tip, rng.uniform(-0.08, 0.08) * radius)
+    top = (rng.uniform(-0.1, 0.1) * radius, height + tip, rng.uniform(-0.1, 0.1) * radius)
     m = loft(rings, top_point=top)
     if lean:
         m = m.transformed(lambda p: rot_z(p, lean))

@@ -4,6 +4,7 @@ local VectorIconFace = require(script.Parent.Icon).VectorIconFace
 local _motion = require(script.Parent.motion)
 local ScaleFromCenter = _motion.ScaleFromCenter
 local useClock = _motion.useClock
+local MotionTokens = require(script.Parent.motionTokens)
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.theme)
 local Palette = _theme.Palette
@@ -136,9 +137,10 @@ local function noise(seed, index, salt)
 	local raw = math.sin(seed * 0.019 + (index + 1) * 12.9898 + salt * 78.233) * 43758.5453
 	return raw - math.floor(raw)
 end
+-- Bursts use the shared decelerate curve: a sharp launch that settles long,
+-- the same arrival the rest of the interface uses.
 local function easeOutCubic(value)
-	local inverse = 1 - math.clamp(value, 0, 1)
-	return 1 - inverse * inverse * inverse
+	return MotionTokens.EASE.decelerate(math.clamp(value, 0, 1))
 end
 local function easeOutBack(value)
 	local overshoot = 1.55
@@ -256,8 +258,9 @@ local function ForgeParticle(_param)
 	local detailed = _param.detailed
 	local motion = time:map(function(seconds)
 		local progress = math.clamp((seconds - particle.delay) / math.max(0.2, duration - 0.2 - particle.delay), 0, 1)
-		local arrival = math.clamp(progress / 0.07, 0, 1)
-		local departure = math.clamp((progress - 0.68) / 0.32, 0, 1)
+		-- Arrive decelerating, leave accelerating (never a linear fade).
+		local arrival = MotionTokens.EASE.decelerate(math.clamp(progress / 0.07, 0, 1))
+		local departure = MotionTokens.EASE.accelerate(math.clamp((progress - 0.68) / 0.32, 0, 1))
 		local visibility = arrival * (1 - departure)
 		local rotation = if style.pattern == "Starfall" then 24 + particle.lane * 20 + progress * particle.spin * 0.18 else particle.phase * 57.2958 + progress * particle.spin
 		return {

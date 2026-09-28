@@ -22,18 +22,22 @@ local function cubicPoint(alpha, p0, p1, p2, p3)
 	local point = BezierCurve:cubicBezier(math.clamp(alpha, 0, 1), p0, p1, p2, p3)
 	return Vector2.new(point.X, point.Y)
 end
+-- The classic easing names now resolve to the shared curves (motionTokens),
+-- so every hand-timed animation in the game moves on the same arcs as the
+-- springs. Inputs are clamped: nothing extrapolates past its end state.
 local easeOutCubic = function(value)
-	return 1 - math.pow(1 - value, 3)
+	return MotionTokens.EASE.standard(math.clamp(value, 0, 1))
 end
 local easeInCubic = function(value)
-	return value * value * value
+	return MotionTokens.EASE.accelerate(math.clamp(value, 0, 1))
 end
 local easeOutQuart = function(value)
-	return 1 - math.pow(1 - value, 4)
+	return MotionTokens.EASE.decelerate(math.clamp(value, 0, 1))
 end
 local easeOutBack = function(value)
-	local overshoot = 1.70158
-	local shifted = value - 1
+	-- A single, soft overshoot (about 6%) rather than a lurch.
+	local overshoot = 1.35
+	local shifted = math.clamp(value, 0, 1) - 1
 	return 1 + (overshoot + 1) * shifted * shifted * shifted + overshoot * shifted * shifted
 end
 local easeOutExpo = function(value)

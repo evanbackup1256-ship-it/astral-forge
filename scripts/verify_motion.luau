@@ -174,6 +174,21 @@ assert(not string.find(motion, "damping / 52, 0.48", 1, true), "the old wobbly F
 assert(not string.find(motion, "damping / 48, 0.52", 1, true), "the old wobbly ripple mapping is gone")
 assert(string.find(motion, "MotionTokens.stagger(index, step)", 1, true), "staggers use the shared cascade")
 assert(string.find(motion, "MotionTokens.EASE.accelerate(alpha)", 1, true), "exits accelerate")
+-- The classic easing names resolve to the shared curves.
+assert(string.find(motion, "return MotionTokens.EASE.standard(math.clamp(value, 0, 1))", 1, true), "easeOutCubic uses the standard curve")
+assert(string.find(motion, "return MotionTokens.EASE.accelerate(math.clamp(value, 0, 1))", 1, true), "easeInCubic uses the accelerate curve")
+assert(string.find(motion, "return MotionTokens.EASE.decelerate(math.clamp(value, 0, 1))", 1, true), "easeOutQuart uses the decelerate curve")
+do
+	-- easeOutBack overshoots once, softly.
+	local overshoot = 1.35
+	local peak = 0
+	for i = 0, 1000 do
+		local shifted = i / 1000 - 1
+		peak = math.max(peak, 1 + (overshoot + 1) * shifted ^ 3 + overshoot * shifted ^ 2)
+	end
+	assert(peak > 1.03 and peak < 1.08, string.format("easeOutBack overshoot %.3f", peak))
+	assert(string.find(motion, "local overshoot = 1.35", 1, true), "easeOutBack keeps its soft overshoot")
+end
 
 print(
 	string.format(

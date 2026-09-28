@@ -138,13 +138,13 @@ Manifest.Kit = {
 	-- Native size of each model (studs, as generated). The game sets
 	-- MeshPart.Size itself; these keep proportions when it scales one axis.
 	Sizes = {
-		Crystal = Vector3.new(0.8933, 3.05, 0.9958),
+		Crystal = Vector3.new(0.9201, 3.05, 1.0186),
 		CrystalShard = Vector3.new(0.7224, 2.45, 0.8424),
-		RockA = Vector3.new(2.2056, 1.2028, 2.4561),
-		RockB = Vector3.new(2.495, 1.3747, 1.7638),
-		RockC = Vector3.new(2.0694, 1.6455, 2.4439),
+		RockA = Vector3.new(2.258, 1.201, 2.4613),
+		RockB = Vector3.new(2.5634, 1.3845, 1.8375),
+		RockC = Vector3.new(2.0783, 1.547, 2.4256),
 		BasaltCluster = Vector3.new(3.0476, 4.0478, 3.0936),
-		VoidSpire = Vector3.new(2.5315, 6.7141, 1.6285),
+		VoidSpire = Vector3.new(2.5449, 6.6929, 1.5524),
 		Obelisk = Vector3.new(1.24, 7.5, 1.24),
 		Plinth = Vector3.new(6.0976, 1.35, 6.0976),
 		Lantern = Vector3.new(1.1031, 7.1, 1.1031),

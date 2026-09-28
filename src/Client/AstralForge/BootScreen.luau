@@ -7,6 +7,8 @@ local LoadingDots = require(script.Parent.LoadingDots).LoadingDots
 local _theme = require(script.Parent.theme)
 local Palette = _theme.Palette
 local surfaceGradient = _theme.surfaceGradient
+-- Pure curves only (the boot screen loads before the React motion stack).
+local MotionTokens = require(script.Parent.motionTokens)
 local BOOT_MODULE_TIMEOUT = 9
 local MIN_BOOT_SECONDS = 3.2
 local BOOT_MOTION = {
@@ -105,6 +107,11 @@ local function BootScreen(_param)
 	local spinFade, setSpinFade = React.useBinding(0)
 	local veilFade, setVeilFade = React.useBinding(0)
 	local progressPulse, setProgressPulse = React.useBinding(0)
+	-- The bar glides toward the real progress instead of jumping between
+	-- loading stages.
+	local shownProgress, setShownProgress = React.useBinding(0)
+	local shownRef = React.useRef(0)
+	local targetProgress = React.useRef(0)
 	React.useEffect(function()
 		local alive = true
 		Audio:setScene("boot")
@@ -177,6 +184,8 @@ local function BootScreen(_param)
 	end, { exiting, ready })
 	React.useEffect(function()
 		local connection = RunService.RenderStepped:Connect(function(dt)
+			shownRef.current += (targetProgress.current - shownRef.current) * (1 - math.exp(-dt * 7))
+			setShownProgress(shownRef.current)
 			if not exiting then
 				local rate = if softMotion then 0.55 else 1
 				spinClock.current += dt * rate
@@ -190,8 +199,9 @@ local function BootScreen(_param)
 			local elapsed = exitClock.current
 			local spinSeconds = if softMotion then EXIT_SPIN_SECONDS * 0.55 else EXIT_SPIN_SECONDS
 			local veilSeconds = if softMotion then EXIT_VEIL_SECONDS * 0.55 else EXIT_VEIL_SECONDS
-			setSpinFade(clamp01(elapsed / spinSeconds))
-			setVeilFade(clamp01((elapsed - spinSeconds) / veilSeconds))
+			-- The spinner leaves by accelerating away; the veil lifts on a smooth S.
+			setSpinFade(MotionTokens.EASE.accelerate(clamp01(elapsed / spinSeconds)))
+			setVeilFade(MotionTokens.EASE.smoothInOut(clamp01((elapsed - spinSeconds) / veilSeconds)))
 		end)
 		return function()
 			return connection:Disconnect()
@@ -220,6 +230,7 @@ local function BootScreen(_param)
 	local status = statusFor(marks, ready, stalled, assetsLoaded, assetsTotal)
 	local progress = if ready then 1 else progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 	local progressPct = math.floor(progress * 100 + 0.5)
+	targetProgress.current = progress
 	local spinHide = spinFade:map(function(amount)
 		return amount
 	end)
@@ -362,7 +373,9 @@ local function BootScreen(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("frame", {
-		Size = UDim2.new(math.clamp(progress, 0.04, 1), 0, 1, 0),
+		Size = shownProgress:map(function(shown)
+			return UDim2.new(math.clamp(shown, 0.04, 1), 0, 1, 0)
+		end),
 		BackgroundColor3 = Palette.mint,
 		BackgroundTransparency = React.joinBindings({ spinHide, progressPulse }):map(function(values)
 			return 0.12 + values[1] + (1 - progress) * 0.15 * values[2]

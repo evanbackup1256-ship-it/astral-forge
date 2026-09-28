@@ -24,6 +24,7 @@ local Palette = require(script.Parent.theme).Palette
 local Signals = require(script.Parent.sanctuarySignals)
 local Controls = require(script.Parent.sanctuaryControls)
 local HudPlan = require(script.Parent.sanctuaryHudPlan)
+local MotionTokens = require(script.Parent.motionTokens)
 local Shared = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared")
 local Layout = require(Shared:WaitForChild("SanctuaryLayout"))
 local SanctuaryConfig = require(Shared:WaitForChild("SanctuaryConfig"))
@@ -93,7 +94,7 @@ end
 -- Hooks
 ------------------------------------------------------------------------
 
--- Eases a binding toward `target` over `seconds` (cubic out), starting from
+-- Eases a binding toward `target` over `seconds` on the shared standard curve, starting from
 -- `initial` on mount (default: already at the target). Instant when motion
 -- is reduced.
 local function useEase(target: number, seconds: number, reduced: boolean, initial: number?)
@@ -112,7 +113,7 @@ local function useEase(target: number, seconds: number, reduced: boolean, initia
 		local connection: RBXScriptConnection? = nil
 		connection = RunService.RenderStepped:Connect(function()
 			local k = math.clamp((os.clock() - started) / duration, 0, 1)
-			local eased = 1 - (1 - k) ^ 3
+			local eased = MotionTokens.EASE.standard(k)
 			local value = from + (target - from) * eased
 			current.current = value
 			setBinding(value)
