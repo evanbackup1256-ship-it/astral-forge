@@ -5,13 +5,18 @@
 -- off opposite edges, revealing the sanctuary. Both halves read one `travel`
 -- value (0 shut .. 1 open), so they always move as an exact mirror pair.
 --
--- Travel is a time-based tween driven on RenderStepped, not a spring: every
--- frame lands on the curve at its true elapsed time, so there is no stepping,
--- no overshoot and no settle wobble. Opening uses a quintic ease-out -- it
--- leaves at full speed on the first frame (no perceptible delay) and glides
--- into place; closing uses a cubic ease-in-out so the halves gather speed and
--- meet softly instead of slamming. A reversal mid-motion starts from wherever
--- the halves are, and a partial run takes proportionally less time.
+-- Travel is a time-based tween driven on RenderStepped, not a spring, so there
+-- is no overshoot and no settle wobble. Opening uses a quartic ease-out -- it
+-- moves on the very first frame (no perceptible delay) at a speed the eye can
+-- follow, then glides into place; closing uses a cubic ease-in-out so the
+-- halves gather speed and meet softly instead of slamming. A reversal
+-- mid-motion starts from wherever the halves are, and a partial run takes
+-- proportionally less time.
+--
+-- Time advances by the frame's delta, capped at MAX_FRAME_STEP. Opening the
+-- rift does one-off work (the right half's snapshot, the sanctuary's lighting,
+-- streaming); a long frame from that used to leap the halves most of the way
+-- across in one step. Now a slow frame just slows the curtain for a moment.
 --
 -- A dark veil sits behind the halves and hides the world until the sanctuary
 -- is ready, so the camera move into the rift is never seen.
@@ -21,8 +26,14 @@
 
 local Curtain = {}
 
-Curtain.OPEN_SECONDS = 0.5
-Curtain.CLOSE_SECONDS = 0.44
+Curtain.OPEN_SECONDS = 0.62
+Curtain.CLOSE_SECONDS = 0.5
+-- The most time one rendered frame may advance the curtain (seconds).
+Curtain.MAX_FRAME_STEP = 1 / 40
+-- How long the rift's loading (camera, lighting, streaming) waits after the
+-- press, so it starts once the halves are mostly apart instead of competing
+-- with their first frames.
+Curtain.LOAD_HEAD_START = 0.36
 -- Reduced motion keeps the same path and runs it in about half the time.
 Curtain.REDUCED_SCALE = 0.55
 -- A partial run (reversing mid-motion) never takes less than this share of a
@@ -44,10 +55,15 @@ local function unit(t: number): number
 	return math.clamp(t, 0, 1)
 end
 
--- Quintic ease-out: full speed at t = 0, a long soft landing.
+-- Quartic ease-out: moving from the first frame, a long soft landing.
 function Curtain.easeOpen(t: number): number
 	local inv = 1 - unit(t)
-	return 1 - inv * inv * inv * inv * inv
+	return 1 - inv * inv * inv * inv
+end
+
+-- Advance a run's clock by one rendered frame.
+function Curtain.advance(elapsed: number, dt: number): number
+	return elapsed + math.clamp(dt, 0, Curtain.MAX_FRAME_STEP)
 end
 
 -- Cubic ease-in-out: the halves gather speed and meet gently.

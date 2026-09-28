@@ -14,6 +14,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Controls = require(script.Parent.sanctuaryControls)
+local Curtain = require(script.Parent.curtainTransition)
 local World = require(script.Parent.sanctuaryWorld)
 local SanctuaryLayout = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SanctuaryLayout"))
 
@@ -553,6 +554,34 @@ function Presence.enter(dispatch: Dispatch, onClose: () -> (), onFailed: () -> (
 		end)
 	end)
 	return token
+end
+
+-- Enter once the curtain has had its head start: the camera move, lighting,
+-- server request and streaming begin after the halves are mostly apart, so
+-- none of that work lands on the curtain's first frames. The veil covers the
+-- world until the sanctuary is ready either way.
+export type EntryHandle = { token: number?, cancelled: boolean, job: thread? }
+
+function Presence.enterSoon(dispatch: Dispatch, onClose: () -> (), onFailed: () -> (), onReady: (() -> ())?): EntryHandle
+	local handle: EntryHandle = { token = nil, cancelled = false, job = nil }
+	handle.job = task.delay(Curtain.LOAD_HEAD_START, function()
+		if handle.cancelled then
+			return
+		end
+		handle.token = Presence.enter(dispatch, onClose, onFailed, onReady)
+	end)
+	return handle
+end
+
+-- Leave (or cancel an entry that hasn't started yet).
+function Presence.leaveSoon(dispatch: Dispatch, handle: EntryHandle)
+	handle.cancelled = true
+	if handle.job ~= nil then
+		pcall(task.cancel, handle.job)
+	end
+	if handle.token ~= nil then
+		Presence.leave(dispatch, handle.token :: number)
+	end
 end
 
 function Presence.leave(dispatch: Dispatch, token: number)

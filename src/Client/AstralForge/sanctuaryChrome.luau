@@ -408,18 +408,16 @@ local function useCurtainTravel(open: boolean, reduced: boolean, onSettled: (num
 			return nil
 		end
 		local seconds = Curtain.duration(open, distance, reduced)
-		local startedAt: number? = nil
+		-- The run's own clock: starts on the first frame after the commit and
+		-- advances by each frame's (capped) delta, so a slow frame never leaps.
+		local elapsed: number? = nil
 		local connection: RBXScriptConnection? = nil
-		connection = RunService.RenderStepped:Connect(function()
-			local now = os.clock()
-			if startedAt == nil then
-				startedAt = now
-			end
-			local elapsed = now - (startedAt :: number)
-			local value = Curtain.sample(from, target, elapsed, seconds)
+		connection = RunService.RenderStepped:Connect(function(dt: number)
+			elapsed = if elapsed == nil then 0 else Curtain.advance(elapsed :: number, dt)
+			local value = Curtain.sample(from, target, elapsed :: number, seconds)
 			current.current = value
 			setTravel(value)
-			if elapsed >= seconds then
+			if (elapsed :: number) >= seconds then
 				if connection ~= nil then
 					connection:Disconnect()
 					connection = nil
@@ -538,6 +536,25 @@ local function SplitCurtain(props)
 			end)
 		end
 	end, { split, open })
+
+	-- While the dark veil fully covers the screen (opening before the sanctuary
+	-- is ready, and all through a close), nothing 3D can be seen, so the 3D
+	-- scene isn't drawn: the curtain gets the whole frame and glides. It comes
+	-- back the moment the veil starts to lift, and always when the curtain goes.
+	local coverWorld = split and not (open and ready)
+	React.useLayoutEffect(function()
+		pcall(function()
+			RunService:Set3dRenderingEnabled(not coverWorld)
+		end)
+		return nil
+	end, { coverWorld })
+	React.useEffect(function()
+		return function()
+			pcall(function()
+				RunService:Set3dRenderingEnabled(true)
+			end)
+		end
+	end, {})
 
 	-- The shell takes no input while it is split; the docks drive navigation.
 	React.useLayoutEffect(function()

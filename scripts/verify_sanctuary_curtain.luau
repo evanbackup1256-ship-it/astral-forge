@@ -145,6 +145,28 @@ local lastStep = Curtain.sample(1, 0, closeSeconds - FRAME, closeSeconds) - Curt
 assert(Curtain.sample(1, 0, closeSeconds, closeSeconds) == 0, "a close run must land exactly on 0")
 assert(lastStep < 0.01, string.format("the halves must meet softly (last frame moved %.4f)", lastStep))
 
+-- A stalled frame never leaps: a 150 ms hitch on the second frame advances the
+-- curtain no further than a normal (capped) frame would.
+do
+	local seconds = Curtain.duration(true, 1, false)
+	local steady = Curtain.advance(0, 1 / 60)
+	local hitched = Curtain.advance(0, 0.15)
+	assert(hitched <= Curtain.MAX_FRAME_STEP + 1e-9, "a long frame is capped")
+	local jump = Curtain.shift(Curtain.sample(0, 1, hitched, seconds))
+	assert(jump <= 0.09, string.format("a hitch at the start moves the halves at most %.3f of the screen (was %.3f)", 0.09, jump))
+	assert(steady <= hitched, "normal frames advance normally")
+	local body = string.match(chromeSource, "local function useCurtainTravel(.-)\nend\n") or ""
+	assert(string.find(body, "Curtain.advance(elapsed :: number, dt)", 1, true), "the curtain clock advances by capped frame deltas")
+	assert(not string.find(body, "os.clock()", 1, true), "the curtain no longer samples the wall clock")
+end
+-- While the veil covers the world, 3D isn't drawn; it always comes back.
+assert(string.find(curtainBody :: string, "local coverWorld = split and not (open and ready)", 1, true), "3D pauses only while the veil covers the world")
+assert(string.find(curtainBody :: string, "RunService:Set3dRenderingEnabled(not coverWorld)", 1, true), "the curtain pauses 3D rendering under the veil")
+assert(string.find(curtainBody :: string, "RunService:Set3dRenderingEnabled(true)", 1, true), "3D rendering is restored when the curtain goes")
+-- The sanctuary's loading starts after the halves have their head start.
+assert(string.find(shellSource, "SanctuaryPresence.enterSoon(call", 1, true), "the shell enters the sanctuary behind the curtain")
+assert(string.find(presenceSource, "task.delay(Curtain.LOAD_HEAD_START", 1, true), "entry waits for the curtain's head start")
+assert(Curtain.LOAD_HEAD_START < Curtain.OPEN_SECONDS, "loading still begins before the curtain finishes")
 -- Reversing mid-run continues from where the halves are: no jump.
 local midway = Curtain.sample(0, 1, 0.1, openSeconds)
 local reverseSeconds = Curtain.duration(false, midway, false)
