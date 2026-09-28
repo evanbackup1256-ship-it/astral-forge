@@ -16,6 +16,7 @@ local planMobileLayout = require(script.Parent.mobileLayout).planMobileLayout
 local _motion = require(script.Parent.motion)
 local useClock = _motion.useClock
 local useFlipperSpring = _motion.useFlipperSpring
+local MotionTokens = require(script.Parent.motionTokens)
 local _theme = require(script.Parent.theme)
 local Palette = _theme.Palette
 local ensureContrast = _theme.ensureContrast
@@ -27,8 +28,8 @@ local Text = _ui.Text
 local NOTICE_LIFETIME = 4.2
 local NOTICE_EXIT_SECONDS = 0.24
 local SWIPE_DISMISS_PX = 56
-local SWIPE_RETURN_STIFFNESS = 420
-local SWIPE_RETURN_DAMPING = 28
+-- A dragged card springs home: about a third of a second, no wobble.
+local SWIPE_RETURN_FEEL = { frequency = 3.3, dampingRatio = 0.86 }
 local function toneColor(tone)
 	if tone == "Success" then
 		return Palette.mint
@@ -181,9 +182,8 @@ local function NoticeCard(props)
 			if state.mode ~= "return" or leavingRef.current then
 				return nil
 			end
-			local accel = -SWIPE_RETURN_STIFFNESS * state.x - SWIPE_RETURN_DAMPING * state.v
-			state.v += accel * dt
-			state.x += state.v * dt
+			-- Exact spring step: the card eases home the same at any frame rate.
+			state.x, state.v = MotionTokens.step(state.x, state.v, 0, SWIPE_RETURN_FEEL, dt)
 			if math.abs(state.x) < 0.4 and math.abs(state.v) < 6 then
 				state.x = 0
 				state.v = 0

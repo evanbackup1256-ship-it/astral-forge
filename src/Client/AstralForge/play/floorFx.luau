@@ -1,9 +1,10 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.Parent.antilag).useAntilag
 local _motion = require(script.Parent.Parent.motion)
-local easeOutBack = _motion.easeOutBack
-local easeOutCubic = _motion.easeOutCubic
 local useClock = _motion.useClock
+local useFlash = _motion.useFlash
+local Motion = require(script.Parent.Parent.motionTokens)
+local Fx = require(script.Parent.Parent.vfxMath)
 local _theme = require(script.Parent.Parent.theme)
 local Palette = _theme.Palette
 local darken = _theme.darken
@@ -13,6 +14,9 @@ local Text = require(script.Parent.Parent.ui).Text
 local function clamp01(value)
 	return math.clamp(value, 0, 1)
 end
+-- A strike's shock: a hot core flash, then rings that burst out fast, slow,
+-- thin as they spread and fade late -- the shape of a real impact.
+local SHOCK_LIFE = 0.55
 local function ShockRing(_param)
 	local trigger = _param.trigger
 	local color = _param.color
@@ -22,16 +26,15 @@ local function ShockRing(_param)
 		size = 280
 	end
 	local clock = useClock(trigger > 0 and not reducedMotion, 1, 1000, true)
-	local _exp = { 0, 1, 2, 3 }
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#_exp)
-	local _callback = function(ring)
-		return React.createElement("frame", {
+	local rings = {}
+	for ring = 0, 2 do
+		local delay = ring * 0.05
+		rings[ring + 1] = React.createElement("frame", {
 			key = ring,
 			Size = clock:map(function(seconds)
-				local t = clamp01((seconds - ring * 0.045) / 0.48)
-				local grow = easeOutCubic(t)
-				return UDim2.fromOffset(28 + grow * (size * 0.96 + ring * 22), 28 + grow * (size * 0.96 + ring * 22))
+				local grow = Fx.ring(seconds - delay, SHOCK_LIFE)
+				local d = 24 + grow * (size * 0.95 + ring * 26)
+				return UDim2.fromOffset(d, d)
 			end),
 			Position = UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -41,18 +44,17 @@ local function ShockRing(_param)
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("uistroke", {
-			Color = if ring % 2 == 0 then color else Palette.cream,
-			Thickness = if ring == 0 then 4 else 2,
+			Color = if ring == 1 then Palette.cream else lighten(color, if ring == 0 then 0.25 else 0),
+			Thickness = clock:map(function(seconds)
+				local _, thin = Fx.ring(seconds - delay, SHOCK_LIFE)
+				return 1 + thin * (if ring == 0 then 5 else 3)
+			end),
 			Transparency = clock:map(function(seconds)
-				local t = clamp01((seconds - ring * 0.045) / 0.48)
-				return 0.04 + t * 0.96
+				local _, _, fade = Fx.ring(seconds - delay, SHOCK_LIFE)
+				return 0.05 + fade * 0.95
 			end),
 		}))
 	end
-	for _k, _v in _exp do
-		_newValue[_k] = _callback(_v, _k - 1, _exp)
-	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		key = `shock-{trigger}`,
 		Size = UDim2.fromOffset(size, size),
@@ -62,7 +64,26 @@ local function ShockRing(_param)
 		BorderSizePixel = 0,
 		ZIndex = 80,
 		Active = false,
-	}, _newValue)
+	}, React.createElement("frame", {
+		-- The core flash: swells and is gone in a blink.
+		Size = clock:map(function(seconds)
+			local d = size * (0.16 + 0.42 * Motion.EASE.decelerate(clamp01(seconds / 0.2)))
+			return UDim2.fromOffset(d, d)
+		end),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = lighten(color, 0.55),
+		BackgroundTransparency = clock:map(function(seconds)
+			return 0.3 + 0.7 * Motion.EASE.accelerate(clamp01(seconds / 0.24))
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 82,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Color = ColorSequence.new(Palette.white, color),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 0.6) }),
+	})), rings)
 end
 local Spark
 local function SparkBurst(_param)
@@ -70,39 +91,21 @@ local function SparkBurst(_param)
 	local reducedMotion = _param.reducedMotion
 	local antilag = useAntilag()
 	local max = math.max(4, math.min(antilag.maxPops * 2, 28))
-	local _result
+	local visible = sparks
 	if #sparks > max then
-		-- ▼ ReadonlyArray.filter ▼
-		local _newValue = {}
-		local _callback = function(_, index)
-			return index >= #sparks - max
+		visible = {}
+		for index = #sparks - max + 1, #sparks do
+			table.insert(visible, sparks[index])
 		end
-		local _length = 0
-		for _k, _v in sparks do
-			if _callback(_v, _k - 1, sparks) == true then
-				_length += 1
-				_newValue[_length] = _v
-			end
-		end
-		-- ▲ ReadonlyArray.filter ▲
-		_result = _newValue
-	else
-		_result = sparks
 	end
-	local visible = _result
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#visible)
-	local _callback = function(spark)
-		return React.createElement(Spark, {
+	local children = table.create(#visible)
+	for index, spark in visible do
+		children[index] = React.createElement(Spark, {
 			key = spark.id,
 			spark = spark,
 			reducedMotion = reducedMotion,
 		})
 	end
-	for _k, _v in visible do
-		_newValue[_k] = _callback(_v, _k - 1, visible)
-	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -110,56 +113,54 @@ local function SparkBurst(_param)
 		ZIndex = 90,
 		Active = false,
 		ClipsDescendants = false,
-	}, _newValue)
+	}, children)
 end
+-- One spark off the anvil: thrown up and out, slowed by the air, pulled down
+-- by gravity, white-hot at birth and cooling to its colour, stretched into a
+-- streak along its path while it's fast.
+local SPARK_LIFE = 0.72
+local SPARK_GRAVITY = 980
+local SPARK_DRAG = 2.6
 function Spark(_param)
 	local spark = _param.spark
 	local reducedMotion = _param.reducedMotion
 	local clock = useClock(true, 1, 1000, true)
 	local crumb = spark.kind == "strike" or spark.kind == "perfect" or spark.kind == "bank"
-	local travel = if spark.kind == "perfect" then 118 elseif spark.kind == "bank" then 92 else 72
-	local width = if crumb then (if spark.kind == "perfect" then 16 else 11) else 7
-	local height = if crumb then (if spark.kind == "perfect" then 12 else 8) else 7
-	local angle = (spark.id % 12) * 30 + spark.id * 7
-	local position = clock:map(function(seconds)
-		local t = easeOutCubic(clamp01(seconds / 0.62))
-		local spread = (spark.id % 9 - 4) * 18
-		local lift = t * travel
-		local wobble = math.sin(seconds * 16 + spark.id) * (1 - t) * 14
-		local _exp = UDim2.fromScale(spark.x, spark.y)
-		local _arg0 = UDim2.fromOffset(spread * t + wobble, -lift + t * t * 28)
-		return _exp + _arg0
-	end)
-	local fade = clock:map(function(seconds)
-		return clamp01((seconds - 0.28) / 0.4)
-	end)
-	local scale = clock:map(function(seconds)
-		return if reducedMotion then 1 else 0.4 + easeOutBack(clamp01(seconds / 0.14)) * 0.85
-	end)
+	local power = if spark.kind == "perfect" then 1.35 elseif spark.kind == "bank" then 1.1 else 0.85
+	local thickness = if spark.kind == "perfect" then 5 elseif crumb then 4 else 3.2
+	local angle = -math.pi / 2 + (Fx.hash(spark.id, 1) - 0.5) * math.rad(150)
+	local speed = (260 + Fx.hash(spark.id, 2) * 260) * power * (if reducedMotion then 0.6 else 1)
+	local function velocity(seconds: number): (number, number)
+		return Fx.velocity(seconds, angle, speed, SPARK_GRAVITY, SPARK_DRAG)
+	end
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(width, height),
-		Position = position,
+		Size = clock:map(function(seconds)
+			local vx, vy = velocity(seconds)
+			local length = thickness * 1.4 * Fx.stretch(math.sqrt(vx * vx + vy * vy))
+			return UDim2.fromOffset(length, thickness)
+		end),
+		Position = clock:map(function(seconds)
+			local dx, dy = Fx.ballistic(seconds, angle, speed, SPARK_GRAVITY, SPARK_DRAG)
+			return UDim2.fromScale(spark.x, spark.y) + UDim2.fromOffset(dx, dy)
+		end),
 		Rotation = clock:map(function(seconds)
-			return angle + seconds * (if spark.id % 2 == 0 then 220 else -260)
+			local vx, vy = velocity(seconds)
+			return math.deg(math.atan2(vy, vx))
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = spark.color,
-		BackgroundTransparency = fade,
+		BackgroundColor3 = clock:map(function(seconds)
+			return spark.color:Lerp(Palette.white, Fx.heat(seconds, 0.16))
+		end),
+		BackgroundTransparency = clock:map(function(seconds)
+			return Fx.fade(seconds, SPARK_LIFE, 0.3)
+		end),
 		BorderSizePixel = 0,
 		ZIndex = 91,
-	}, React.createElement("uiscale", {
-		Scale = scale,
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(if crumb then 0.45 else 1, if crumb then 3 else 0),
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(spark.color, 0.38), darken(spark.color, 0.18)),
-		Rotation = 90,
-	}), React.createElement("uistroke", {
-		Color = lighten(spark.color, 0.46),
-		Thickness = 1,
-		Transparency = fade:map(function(amount)
-			return math.clamp(amount + 0.18, 0, 1)
-		end),
+		-- Bright head, fading tail (the frame's +X points along the motion).
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.85), NumberSequenceKeypoint.new(0.6, 0.15), NumberSequenceKeypoint.new(1, 0) }),
 	}))
 end
 local ClickPop
@@ -168,39 +169,21 @@ local function ClickPops(_param)
 	local reducedMotion = _param.reducedMotion
 	local antilag = useAntilag()
 	local max = math.max(3, math.min(antilag.maxPops, 10))
-	local _result
+	local visible = pops
 	if #pops > max then
-		-- ▼ ReadonlyArray.filter ▼
-		local _newValue = {}
-		local _callback = function(_, index)
-			return index >= #pops - max
+		visible = {}
+		for index = #pops - max + 1, #pops do
+			table.insert(visible, pops[index])
 		end
-		local _length = 0
-		for _k, _v in pops do
-			if _callback(_v, _k - 1, pops) == true then
-				_length += 1
-				_newValue[_length] = _v
-			end
-		end
-		-- ▲ ReadonlyArray.filter ▲
-		_result = _newValue
-	else
-		_result = pops
 	end
-	local visible = _result
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#visible)
-	local _callback = function(pop)
-		return React.createElement(ClickPop, {
+	local children = table.create(#visible)
+	for index, pop in visible do
+		children[index] = React.createElement(ClickPop, {
 			key = pop.id,
 			pop = pop,
 			reducedMotion = reducedMotion,
 		})
 	end
-	for _k, _v in visible do
-		_newValue[_k] = _callback(_v, _k - 1, visible)
-	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -208,29 +191,41 @@ local function ClickPops(_param)
 		ZIndex = 96,
 		Active = false,
 		ClipsDescendants = false,
-	}, _newValue)
+	}, children)
 end
+-- A number stamped out of the strike: it pops past full size and settles,
+-- floats up decelerating, drifts a little, and fades out as it slows. A
+-- critical hit is bigger, flashes white first and lands with a small tilt.
+local POP_LIFE = 0.8
 function ClickPop(_param)
 	local pop = _param.pop
 	local reducedMotion = _param.reducedMotion
 	local clock = useClock(true, 1, 1000, true)
 	local size = if pop.critical then 34 else 24
+	local rise = if pop.critical then 118 else 86
+	local drift = (Fx.hash(pop.id, 3) - 0.5) * 36
+	local tilt = if pop.critical then (Fx.hash(pop.id, 4) - 0.5) * 12 else 0
 	local position = clock:map(function(seconds)
-		local t = easeOutCubic(clamp01(seconds / 0.78))
-		local drift = math.sin(pop.id * 1.7) * 18 * t
-		local _exp = UDim2.fromScale(pop.x, pop.y)
-		local _arg0 = UDim2.fromOffset(drift, -t * (if pop.critical then 126 else 92))
-		return _exp + _arg0
-	end)
-	local fade = clock:map(function(seconds)
-		return clamp01((seconds - 0.36) / 0.42)
+		local t = Motion.EASE.decelerate(clamp01(seconds / POP_LIFE))
+		return UDim2.fromScale(pop.x, pop.y) + UDim2.fromOffset(drift * t, -t * rise)
 	end)
 	local scale = clock:map(function(seconds)
-		return if reducedMotion then 1 else 0.62 + easeOutBack(clamp01(seconds / 0.16)) * (if pop.critical then 0.62 else 0.46)
+		if reducedMotion then
+			return 1
+		end
+		return Fx.popScale(seconds, if pop.critical then 0.24 else 0.18, if pop.critical then 0.55 else 0.4)
 	end)
+	local color = if pop.critical
+		then clock:map(function(seconds)
+			return pop.color:Lerp(Palette.white, Fx.heat(seconds, 0.14))
+		end)
+		else pop.color
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(if pop.critical then 168 else 128, 40),
 		Position = position,
+		Rotation = clock:map(function(seconds)
+			return tilt * (1 - Motion.EASE.decelerate(clamp01(seconds / 0.35)))
+		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -240,12 +235,14 @@ function ClickPop(_param)
 	}), React.createElement(Text, {
 		value = pop.text,
 		size = size,
-		color = pop.color,
+		color = color,
 		weight = Enum.FontWeight.Heavy,
 		align = Enum.TextXAlignment.Center,
 		fit = false,
 		sizeConstraint = UDim2.fromScale(1, 1),
-		transparency = fade,
+		transparency = clock:map(function(seconds)
+			return Fx.fade(seconds, POP_LIFE, 0.5)
+		end),
 	}))
 end
 local function ComboBanner(_param)
@@ -254,6 +251,8 @@ local function ComboBanner(_param)
 	local perfect = _param.perfect
 	local reducedMotion = _param.reducedMotion
 	local pulse = useClock(not reducedMotion and combo > 1, 1.05)
+	-- Every new link in the streak kicks the banner, then it settles.
+	local bump = useFlash(combo, reducedMotion, 0.3)
 	local accent = if perfect then Palette.mango elseif heat > 0.82 then Palette.coral else Palette.brass
 	if combo <= 1 then
 		return React.createElement("frame", {
@@ -270,8 +269,8 @@ local function ComboBanner(_param)
 		BorderSizePixel = 0,
 		ZIndex = 70,
 	}, React.createElement("uiscale", {
-		Scale = pulse:map(function(phase)
-			return 1 + math.sin(phase) * (if perfect then 0.055 else 0.028)
+		Scale = React.joinBindings({ pulse, bump }):map(function(values)
+			return 1 + math.sin(values[1]) * (if perfect then 0.045 else 0.022) + values[2] * 0.16
 		end),
 	}), React.createElement(Text, {
 		value = if perfect then "CRIT" else "STREAK",

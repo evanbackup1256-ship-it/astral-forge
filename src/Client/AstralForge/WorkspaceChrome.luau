@@ -8,6 +8,9 @@ local EntranceMotionSuppressedContext = _motion.EntranceMotionSuppressedContext
 local useFlash = _motion.useFlash
 local useTokenEntrance = _motion.useTokenEntrance
 local useViewport = _motion.useViewport
+local ExitPresenceContext = _motion.ExitPresenceContext
+local useExitPresence = _motion.useExitPresence
+local composePresence = _motion.composePresence
 local _ui = require(script.Parent.ui)
 local Button = _ui.Button
 local resolvePressMotion = _ui.resolvePressMotion
@@ -305,6 +308,12 @@ local function Workspace(_param)
 	local accent = AppHelpers:pageAccent(page)
 	local entry = AppHelpers:pageEntry(page)
 	local enter = useTokenEntrance(page, reducedMotion, 0.2)
+	-- The whole page arrives as one piece: its text and buttons follow the
+	-- page's entrance (cards inside layer their own on top).
+	local shellPresence = useExitPresence()
+	local pagePresence = React.useMemo(function()
+		return composePresence(shellPresence, enter)
+	end, { shellPresence, enter })
 	local entranceLock, setEntranceLock = React.useState({
 		page = page,
 		suppress = false,
@@ -541,7 +550,9 @@ local function Workspace(_param)
 		ClipsDescendants = true,
 	}, React.createElement(EntranceMotionSuppressedContext.Provider, {
 		value = suppressEntrance,
-	}, children), React.createElement(ScrollEdgeFade, {
+	}, React.createElement(ExitPresenceContext.Provider, {
+		value = pagePresence,
+	}, children)), React.createElement(ScrollEdgeFade, {
 		color = Palette.ink,
 		height = if chrome.stack then 18 else 16,
 		zIndex = 200,

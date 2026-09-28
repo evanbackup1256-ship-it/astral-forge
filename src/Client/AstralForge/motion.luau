@@ -13,6 +13,8 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local ViewportScaleContext = require(script.Parent.autoScale).ViewportScaleContext
+-- One motion language: every spring and curve below resolves its feel here.
+local MotionTokens = require(script.Parent.motionTokens)
 local Breakpoints = require(script.Parent.theme).Breakpoints
 local usesDesktopStructure = require(script.Parent.interaction).usesDesktopStructure
 local BEZIER_CIRCLE_KAPPA = 0.5522847498
@@ -121,8 +123,11 @@ local function createFlipperMotor(initial, stiffness, damping)
 		damping = 22
 	end
 	local raw = SingleMotor.new(initial, false)
-	local frequency = math.max(1.35, stiffness / 130)
-	local dampingRatio = math.clamp(damping / 52, 0.48, 0.88)
+	-- The shared feel: each caller keeps its relative speed, and damping is
+	-- lifted into the no-wobble band (see motionTokens).
+	local feel = MotionTokens.feel(stiffness, damping)
+	local frequency = feel.frequency
+	local dampingRatio = feel.dampingRatio
 	local callbacks = {}
 	local destroyed = false
 	local finished = false
@@ -184,8 +189,9 @@ local function createFlipperMotor(initial, stiffness, damping)
 			if destroyed then
 				return nil
 			end
-			frequency = math.max(1.35, nextStiffness / 130)
-			dampingRatio = math.clamp(nextDamping / 52, 0.48, 0.88)
+			local nextFeel = MotionTokens.feel(nextStiffness, nextDamping)
+			frequency = nextFeel.frequency
+			dampingRatio = nextFeel.dampingRatio
 			springGoal._frequency = frequency
 			springGoal._dampingRatio = dampingRatio
 		end,
@@ -622,7 +628,7 @@ local function pumpArrivals()
 			pendingArrivals[motor] = nil
 			pendingArrivalCount -= 1
 			if motor.alive == nil or motor:alive() then
-				motor:configure(920, 44)
+				motor:configure(MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
 				motor:setGoal(1)
 			end
 		end
@@ -757,17 +763,20 @@ local function useSpring(goal, reducedMotion, stiffness, damping, initial)
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
 	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
+	-- Same feel as every Flipper spring, so ripple-driven sliders and tabs move
+	-- like the rest of the interface.
+	local feel = MotionTokens.feel(effectiveStiffness, damping)
 	local binding, ripple = useRippleSpring(initial, {
 		start = true,
-		frequency = math.max(1.2, effectiveStiffness / 140),
-		dampingRatio = math.clamp(damping / 48, 0.52, 0.92),
+		frequency = feel.frequency,
+		dampingRatio = feel.dampingRatio,
 	})
 	React.useEffect(function()
 		-- Always spring. reducedMotion used to snap the motor to its goal, so a
 		-- tier flip made the pose vanish and then replay.
 		ripple:setGoal(goal, {
-			frequency = math.max(1.2, effectiveStiffness / 140),
-			dampingRatio = math.clamp(damping / 48, 0.52, 0.92),
+			frequency = feel.frequency,
+			dampingRatio = feel.dampingRatio,
 		})
 	end, { damping, effectiveStiffness, goal, motionScale, ripple })
 	return binding
@@ -868,7 +877,8 @@ local function useOtterSpring(goal, reducedMotion, initial, dampingRatio, freque
 			end)
 		end
 		motor:setGoal(otter.spring(goal, {
-			dampingRatio = math.clamp(dampingRatio, 0.35, 1.25),
+			-- Explicit pops keep their chosen bounce, but never a wobble.
+			dampingRatio = math.clamp(dampingRatio, 0.6, 1.25),
 			frequency = math.max(0.5, frequency * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)),
 			restingVelocityLimit = 0.001,
 			restingPositionLimit = 0.001,
@@ -911,7 +921,7 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 			scale.Scale = initial
 		end
 		if scale.Parent ~= nil and scaleRef.current == scale then
-			spr.target(scale, math.clamp(dampingRatio, 0.45, 1.25), math.max(1, frequency * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)), {
+			spr.target(scale, math.clamp(dampingRatio, 0.6, 1.25), math.max(1, frequency * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)), {
 				Scale = goal,
 			})
 		end
@@ -1015,7 +1025,8 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 		reducedMotion = false
 	end
 	if easing == nil then
-		easing = easeOutCubic
+		-- The standard curve: quick to respond, long gentle settle.
+		easing = MotionTokens.EASE.standard
 	end
 	local start = if initial == nil then goal else initial
 	local binding, setBinding = React.useBinding(start)
@@ -1112,7 +1123,8 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 				span = 0.01
 			end
 			local alpha = math.clamp((os.clock() - startedAt.current) / span, 0, 1)
-			local shown = if alpha >= 1 then 0 else 1 - easeInCubic(alpha)
+			-- Exits pick up speed as they go (they never linger half-faded).
+			local shown = if alpha >= 1 then 0 else 1 - MotionTokens.EASE.accelerate(alpha)
 			setAmountRef.current(shown)
 			if alpha < 1 then
 				return nil
@@ -1138,7 +1150,7 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 		setExiting(true)
 		setAmount(1)
 		startedAt.current = os.clock()
-		spanRef.current = math.clamp(duration * 0.62, 0.08, 0.18)
+		spanRef.current = MotionTokens.exitSeconds(duration)
 		running.current = true
 	end, { duration, reducedMotion, setAmount })
 	React.useEffect(function()
@@ -1170,9 +1182,10 @@ local function useTokenEntrance(token, reducedMotion, duration)
 	skipRef.current = skip
 	local motor = React.useRef()
 	-- Page swaps always spring in. The softMotion flag must not snap this motor to rest.
-	local span = math.clamp(duration, 0.1, 0.16)
-	local stiffness = math.floor(168 / span)
-	local damping = 46
+	-- The gentle spring: a large surface arrives with one smooth deceleration
+	-- (about a fifth of a second, no overshoot) instead of a snap.
+	local stiffness = MotionTokens.SPRING.gentle.stiffness
+	local damping = MotionTokens.SPRING.gentle.damping
 	if motor.current == nil then
 		motor.current = createFlipperMotor(0, stiffness, damping)
 	end
@@ -1207,7 +1220,7 @@ local function useEntrance(reducedMotion)
 		reducedMotion = false
 	end
 	local skip = reducedMotion == true
-	return useFlipperSpring(1, skip, 980, 46, 0)
+	return useFlipperSpring(1, skip, MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping, 0)
 end
 local function useStagger(index, reducedMotion, step, duration)
 	if reducedMotion == nil then
@@ -1227,7 +1240,7 @@ local function useStagger(index, reducedMotion, step, duration)
 	skipRef.current = skip
 	local motor = React.useRef()
 	if motor.current == nil then
-		motor.current = createFlipperMotor(0, 920, 44)
+		motor.current = createFlipperMotor(0, MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
 	end
 	React.useEffect(function()
 		local active = motor.current
@@ -1251,12 +1264,10 @@ local function useStagger(index, reducedMotion, step, duration)
 		active:halt()
 		active:setPosition(0)
 		setBinding(0)
-		active:configure(920, 44)
-		-- Ease-out curve on the existing arrival spring. The first gap is about one
-		-- step (~0.025s); later siblings open a little wider instead of a linear march.
-		local capped = math.min(math.max(index, 0), 8)
-		local delay = step * (capped ^ 1.15)
-		scheduleArrival(active, delay)
+		active:configure(MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
+		-- The shared cascade: gaps widen gently and the whole run stays under a
+		-- quarter second, so long lists arrive as one motion.
+		scheduleArrival(active, MotionTokens.stagger(index, step))
 		return function()
 			cancelArrival(active)
 		end

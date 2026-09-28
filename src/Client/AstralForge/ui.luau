@@ -13,6 +13,7 @@ local ScaleFromCenter = _motion.ScaleFromCenter
 local useClock = _motion.useClock
 local useEntrance = _motion.useEntrance
 local useExitPresence = _motion.useExitPresence
+local composePresence = _motion.composePresence
 local useFlash = _motion.useFlash
 local useFlipperSpring = _motion.useFlipperSpring
 local useGlowStroke = _motion.useGlowStroke
@@ -1158,6 +1159,14 @@ local function Panel(_param)
 	local entranceMotion = interactionMotion or panelEntranceScale <= 0.02 or reveal ~= nil
 	local automaticReveal = useEntrance(entranceMotion)
 	local activeReveal = reveal or automaticReveal
+	-- The card's content materializes with the card: every Text and Button
+	-- inside reads this presence, so labels fade in with the surface instead of
+	-- popping in fully opaque over a still-fading background. Nested panels and
+	-- overlays compose (the least-present one wins).
+	local parentPresence = useExitPresence()
+	local contentPresence = React.useMemo(function()
+		return composePresence(parentPresence, activeReveal)
+	end, { parentPresence, activeReveal })
 	React.useEffect(function()
 		if hovered then
 			setHoverArmed(true)
@@ -1350,7 +1359,9 @@ local function Panel(_param)
 		BorderSizePixel = 0,
 		ZIndex = zIndex + 1,
 		ClipsDescendants = clips,
-	}, children))))
+	}, React.createElement(ExitPresenceContext.Provider, {
+		value = contentPresence,
+	}, children)))))
 end
 local function Divider(_param)
 	local position = _param.position
@@ -1501,7 +1512,9 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	-- One motor for the life of the control. resolvePressMotion picks the scale
 	-- and tilt. Release springs back. softMotion does not snap it.
 	local poseGoal = if disabled then 0 elseif pressed then -1 elseif hovered then 1 else 0
-	local pose = useOptionalFlipperSpring(poseGoal, true, softMotion, 1180, 46)
+	-- Asymmetric: the press goes in almost at once (a finger expects that),
+	-- and the release eases back out, so a click reads as struck, not toggled.
+	local pose = useOptionalFlipperSpring(poseGoal, true, softMotion, if pressed then 1500 else 900, if pressed then 52 else 44)
 	local hoverAmount = pose:map(function(value)
 		return math.clamp(value, 0, 1)
 	end)
@@ -1532,11 +1545,15 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local hoverGain = pressMotion.hover
 	local pressDrop = pressMotion.press
 	local tiltDegrees = pressMotion.tilt
-	local touchScale = pose:map(function(value)
+	-- Pose sets the resting scale; each activation adds a small outward kick
+	-- that rides the impact flash and settles with it.
+	local touchScale = React.joinBindings({ pose, impact }):map(function(values)
+		local value = values[1]
+		local kick = math.clamp(values[2], 0, 1) * 0.035
 		if value >= 0 then
-			return 1 + math.clamp(value, 0, 1) * hoverGain
+			return 1 + math.clamp(value, 0, 1) * hoverGain + kick
 		end
-		return 1 - math.clamp(-value, 0, 1) * pressDrop
+		return 1 - math.clamp(-value, 0, 1) * pressDrop + kick
 	end)
 	local tilt = pose:map(function(value)
 		return math.clamp(value, 0, 1) * tiltDegrees
@@ -2242,6 +2259,10 @@ local function Meter(_param)
 		_condition = 0
 	end
 	local eased = useOptionalFlipperSpring(_condition, animateLiteral, lowMotion, 420, 38)
+	-- The lead races to a new value; the fill eases after it. On a gain the
+	-- bright lead segment shows energy flowing in; on a loss it reads as the
+	-- chip that trails away.
+	local lead = useOptionalFlipperSpring(_condition, animateLiteral, lowMotion, 1500, 52)
 	local fill = if empty then UDim2.new(0, 0, 1, 0) elseif literal ~= nil and not animateLiteral then UDim2.new(literal, 0, 1, 0) else (if literal ~= nil then eased else value):map(function(amount)
 		local _amount = amount
 		local _condition_1 = type(_amount) == "number"
@@ -2264,22 +2285,46 @@ local function Meter(_param)
 	local _exp_1 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})
+	-- How far the lead is ahead of the fill (0 at rest): lights the head.
+	local rushing = if animateLiteral then React.joinBindings({ lead, eased }):map(function(values)
+		return math.clamp(math.abs(values[1] - values[2]) * 6, 0, 1)
+	end) else nil
+	local _exp_lead = animateLiteral and React.createElement("frame", {
+		Size = lead:map(function(amount)
+			return UDim2.new(math.clamp(amount, 0, 1), 0, 1, 0)
+		end),
+		BackgroundColor3 = lighten(color, 0.45),
+		BackgroundTransparency = rushing:map(function(amount)
+			return 1 - amount * 0.55
+		end),
+		BorderSizePixel = 0,
+		Visible = not empty,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}))
 	local _exp_2 = React.createElement("frame", {
 		Size = fill,
 		BackgroundColor3 = color,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Visible = not empty,
+		ZIndex = 2,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
 		Color = ColorSequence.new(lighten(color, 0.32), color),
 	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(3, 3),
+		-- The head: a point of light at the fill's edge that flares while filling.
+		Size = if rushing ~= nil then rushing:map(function(amount)
+			local d = 3 + amount * 5
+			return UDim2.fromOffset(d, d)
+		end) else UDim2.fromOffset(3, 3),
 		Position = UDim2.new(1, -4, 0.5, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = 0.22,
+		BackgroundTransparency = if rushing ~= nil then rushing:map(function(amount)
+			return 0.22 - amount * 0.2
+		end) else 0.22,
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
@@ -2310,7 +2355,7 @@ local function Meter(_param)
 		BackgroundTransparency = Chrome.meterTrack,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-	}, _exp, _exp_1, _exp_2)
+	}, _exp, _exp_1, _exp_lead, _exp_2)
 end
 local function Slider(_param)
 	local value = _param.value
