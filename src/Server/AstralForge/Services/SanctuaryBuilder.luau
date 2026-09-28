@@ -41,14 +41,16 @@ local STAR = Color3.fromRGB(140, 220, 255)
 local RIFT = Color3.fromRGB(120, 90, 255)
 
 -- Terrain tints: only the sanctuary uses terrain, so these are safe to set.
+-- Mid-tones, not near-blacks: under moonlight anything darker reads as a
+-- flat silhouette with no shape.
 local MATERIAL_COLORS = {
-	[Enum.Material.Slate] = Color3.fromRGB(64, 70, 86),
-	[Enum.Material.Basalt] = Color3.fromRGB(52, 46, 48),
-	[Enum.Material.Rock] = Color3.fromRGB(44, 46, 56),
-	[Enum.Material.Glacier] = Color3.fromRGB(118, 92, 176),
-	[Enum.Material.Limestone] = Color3.fromRGB(150, 168, 196),
-	[Enum.Material.Asphalt] = Color3.fromRGB(38, 38, 50),
-	[Enum.Material.CrackedLava] = Color3.fromRGB(255, 110, 50),
+	[Enum.Material.Slate] = Color3.fromRGB(98, 106, 132),
+	[Enum.Material.Basalt] = Color3.fromRGB(88, 74, 78),
+	[Enum.Material.Rock] = Color3.fromRGB(88, 90, 110),
+	[Enum.Material.Glacier] = Color3.fromRGB(146, 118, 206),
+	[Enum.Material.Limestone] = Color3.fromRGB(172, 188, 216),
+	[Enum.Material.Asphalt] = Color3.fromRGB(74, 70, 98),
+	[Enum.Material.CrackedLava] = Color3.fromRGB(255, 120, 60),
 }
 
 local function world(p: Layout.Point): Vector3
@@ -181,21 +183,6 @@ local function island(terrain: Terrain, center: Vector3, radius: number, top: En
 	task.wait()
 end
 
--- Smaller rocks hanging below and around an island, out of reach.
-local function islets(terrain: Terrain, center: Vector3, radius: number, top: Enum.Material, under: Enum.Material, seed: number)
-	local rng = Random.new(seed)
-	for k = 1, 5 do
-		local angle = rng:NextNumber(0, math.pi * 2)
-		local reach = radius + rng:NextNumber(40, 90)
-		local depth = rng:NextNumber(34, 80)
-		local r = rng:NextNumber(8, 17)
-		local at = center + Vector3.new(math.cos(angle) * reach, -depth, math.sin(angle) * reach)
-		terrain:FillBall(at + Vector3.new(0, -r * 0.5, 0), r, under)
-		terrain:FillCylinder(CFrame.new(at + Vector3.new(0, -2, 0)), 4, r * 0.8, top)
-	end
-	task.wait()
-end
-
 function Builder.BuildTerrain()
 	local terrain = Workspace.Terrain
 	for mat, color in MATERIAL_COLORS do
@@ -208,7 +195,6 @@ function Builder.BuildTerrain()
 		local top = material(region.Top)
 		local under = material(region.Under)
 		island(terrain, center, region.Radius, top, under, index * 7919, landingAngles(region))
-		islets(terrain, center, region.Radius, top, under, index * 104729)
 		if region.Id == "Emberreach" then
 			-- Molten seams: lava patches flush with the plateau, clear of the
 			-- ore rings and the landing.

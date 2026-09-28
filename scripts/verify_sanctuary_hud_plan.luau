@@ -141,6 +141,12 @@ for name, r in Plan.interactive(a) do
 	assert(other ~= nil and other.x == r.x and other.y == r.y and other.w == r.w and other.h == r.h, "the plan must be deterministic")
 end
 assert(columnsSeen > 0, "the sweep never produced dock columns")
+-- The Warden bar sits in the middle of the screen whenever there is room.
+for _, size in { { 1920, 1036 }, { 2560, 1396 }, { 1366, 704 } } do
+	local plan = Plan.compute({ width = size[1], height = size[2], touch = false })
+	local middle = plan.warden.x + plan.warden.w / 2
+	assert(math.abs(middle - plan.width / 2) <= 1, `{size[1]}x{size[2]}: the Warden bar is off centre ({middle} vs {plan.width / 2})`)
+end
 
 -- 7. Everyone reads the plan.
 local hudSource = readSource("src/Client/AstralForge/sanctuaryHud.luau")

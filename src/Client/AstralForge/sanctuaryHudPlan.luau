@@ -199,8 +199,11 @@ function Plan.compute(input: Input): Plan
 		-- fits with room to breathe, otherwise its own row beneath the strip.
 		local between = ore.x - gap - leftEdge
 		if between >= 260 then
+			-- Centred on the screen, and only nudged aside when it would touch
+			-- the menu/recall group or the ore chips.
 			local w = math.min(520, between)
-			warden = rect(leftEdge + (between - w) / 2, top, w, math.max(stripH, wardenH))
+			local x = math.clamp((width - w) / 2, leftEdge, ore.x - gap - w)
+			warden = rect(x, top, w, math.max(stripH, wardenH))
 		else
 			local w = math.min(520, width - 2 * edge)
 			warden = rect((width - w) / 2, top + stripH + gap, w, wardenH)

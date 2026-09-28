@@ -29,8 +29,12 @@ type LightingSnapshot = {
 	fogEnd: number,
 	fogColor: Color3,
 	clockTime: number,
+	colorShiftTop: Color3,
+	colorShiftBottom: Color3,
+	diffuseScale: number,
+	specularScale: number,
+	exposure: number,
 }
-
 -- The arrival check: the character has been placed on the forge deck when it
 -- stands this close to the spawn slab. It covers every walkable surface of
 -- the hand-built deck (the far corners sit just past 48 studs). Once walking,
@@ -41,6 +45,9 @@ local DECK_RADIUS = 72
 -- Post effects that exist only while the sanctuary is open.
 local EFFECT_NAMES = { "AF_SanctuaryBloom", "AF_SanctuaryGrade", "AF_SanctuaryRays" }
 local ATMOSPHERE_NAME = "AF_SanctuaryAtmosphere"
+local SKY_NAME = "AF_SanctuarySky"
+
+type SkySnapshot = { instance: Sky, stars: number, bodies: boolean, moonSize: number }
 
 type AtmosphereSnapshot = {
 	instance: Atmosphere,
@@ -64,6 +71,7 @@ local shellCameraSubject: Instance? = nil
 local connections: { RBXScriptConnection } = {}
 local cameraGuard: RBXScriptConnection? = nil
 local savedAtmosphere: AtmosphereSnapshot? = nil
+local savedSky: SkySnapshot? = nil
 
 local function track(connection: RBXScriptConnection)
 	table.insert(connections, connection)
@@ -96,21 +104,36 @@ local function applySanctuaryLighting()
 			fogEnd = Lighting.FogEnd,
 			fogColor = Lighting.FogColor,
 			clockTime = Lighting.ClockTime,
+			colorShiftTop = Lighting.ColorShift_Top,
+			colorShiftBottom = Lighting.ColorShift_Bottom,
+			diffuseScale = Lighting.EnvironmentDiffuseScale,
+			specularScale = Lighting.EnvironmentSpecularScale,
+			exposure = Lighting.ExposureCompensation,
 		}
 		lightingHeld = true
 	end
-	Lighting.Brightness = 2.15
-	Lighting.Ambient = Color3.fromRGB(46, 60, 78)
-	Lighting.OutdoorAmbient = Color3.fromRGB(32, 44, 60)
-	Lighting.FogColor = Color3.fromRGB(8, 8, 18)
+	-- A clear, starlit night. Moonlight plus a generous violet ambient keeps
+	-- every island readable (a dim dusk turned the rock into black silhouettes),
+	-- and the neon -- lava, crystals, runes, the Warden -- glows against it.
+	Lighting.ClockTime = 0.3
+	Lighting.Brightness = 2.6
+	Lighting.Ambient = Color3.fromRGB(92, 92, 128)
+	Lighting.OutdoorAmbient = Color3.fromRGB(122, 116, 168)
+	Lighting.ColorShift_Top = Color3.fromRGB(150, 160, 230)
+	Lighting.ColorShift_Bottom = Color3.fromRGB(40, 30, 70)
+	Lighting.EnvironmentDiffuseScale = 0.55
+	Lighting.EnvironmentSpecularScale = 0.8
+	Lighting.ExposureCompensation = 0.3
+	Lighting.FogColor = Color3.fromRGB(14, 12, 30)
 	-- The world reaches ~500 studs out; distant islands fade into haze rather
 	-- than popping out of a black wall.
-	Lighting.FogStart = 160
-	Lighting.FogEnd = 900
-	Lighting.ClockTime = 18.6
+	Lighting.FogStart = 200
+	Lighting.FogEnd = 1100
 
-	-- Violet dusk haze. An Atmosphere already in Lighting (the shell's) is
-	-- borrowed and put back exactly; otherwise one is added for the visit.
+	-- Deep violet haze, light enough that the stars show through and dark
+	-- enough that the void below reads as depth rather than a flat floor. An
+	-- Atmosphere already in Lighting (the shell's) is borrowed and put back
+	-- exactly; otherwise one is added for the visit.
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	if atmosphere ~= nil and atmosphere.Name ~= ATMOSPHERE_NAME then
 		if savedAtmosphere == nil then
@@ -130,29 +153,45 @@ local function applySanctuaryLighting()
 		atmosphere.Parent = Lighting
 	end
 	local haze = atmosphere :: Atmosphere
-	haze.Density = 0.3
-	haze.Offset = 0.12
-	haze.Color = Color3.fromRGB(70, 60, 112)
-	haze.Decay = Color3.fromRGB(26, 20, 46)
-	haze.Glare = 0.35
-	haze.Haze = 1.4
+	haze.Density = 0.2
+	haze.Offset = 0.04
+	haze.Color = Color3.fromRGB(48, 40, 94)
+	haze.Decay = Color3.fromRGB(18, 14, 40)
+	haze.Glare = 0
+	haze.Haze = 0.8
 
-	-- Neon (lava, crystals, runes, the Warden) blooms softly; a gentle grade
-	-- lifts contrast so the dusk doesn't read as mud.
+	-- Stars and the moon: Roblox's own sky, with a dense starfield.
+	local sky = Lighting:FindFirstChildOfClass("Sky")
+	if sky ~= nil and sky.Name ~= SKY_NAME then
+		if savedSky == nil then
+			savedSky = { instance = sky, stars = sky.StarCount, bodies = sky.CelestialBodiesShown, moonSize = sky.MoonAngularSize }
+		end
+	elseif sky == nil then
+		sky = Instance.new("Sky")
+		sky.Name = SKY_NAME
+		sky.Parent = Lighting
+	end
+	local night = sky :: Sky
+	night.StarCount = 5000
+	night.CelestialBodiesShown = true
+	night.MoonAngularSize = 14
+
+	-- Neon blooms softly; a gentle grade lifts contrast and colour.
 	if Lighting:FindFirstChild(EFFECT_NAMES[1]) == nil then
 		local bloom = Instance.new("BloomEffect")
 		bloom.Name = EFFECT_NAMES[1]
-		bloom.Intensity = 0.55
+		bloom.Intensity = 0.6
 		bloom.Size = 26
-		bloom.Threshold = 1.4
+		bloom.Threshold = 1.3
 		bloom.Parent = Lighting
 	end
 	if Lighting:FindFirstChild(EFFECT_NAMES[2]) == nil then
 		local grade = Instance.new("ColorCorrectionEffect")
 		grade.Name = EFFECT_NAMES[2]
-		grade.Contrast = 0.08
-		grade.Saturation = 0.1
-		grade.TintColor = Color3.fromRGB(242, 238, 255)
+		grade.Brightness = 0.03
+		grade.Contrast = 0.1
+		grade.Saturation = 0.14
+		grade.TintColor = Color3.fromRGB(238, 236, 255)
 		grade.Parent = Lighting
 	end
 	if Lighting:FindFirstChild(EFFECT_NAMES[3]) == nil then
@@ -165,17 +204,19 @@ local function applySanctuaryLighting()
 end
 
 local function restoreLighting()
-	-- Post effects and the haze go whether or not the base lighting was held,
-	-- so a failed entry never leaves any of them behind.
+	-- Post effects, the haze and the sky go whether or not the base lighting
+	-- was held, so a failed entry never leaves any of them behind.
 	for _, name in EFFECT_NAMES do
 		local effect = Lighting:FindFirstChild(name)
 		if effect ~= nil then
 			effect:Destroy()
 		end
 	end
-	local added = Lighting:FindFirstChild(ATMOSPHERE_NAME)
-	if added ~= nil then
-		added:Destroy()
+	for _, name in { ATMOSPHERE_NAME, SKY_NAME } do
+		local added = Lighting:FindFirstChild(name)
+		if added ~= nil then
+			added:Destroy()
+		end
 	end
 	local borrowed = savedAtmosphere
 	savedAtmosphere = nil
@@ -186,6 +227,13 @@ local function restoreLighting()
 		borrowed.instance.Decay = borrowed.decay
 		borrowed.instance.Glare = borrowed.glare
 		borrowed.instance.Haze = borrowed.haze
+	end
+	local borrowedSky = savedSky
+	savedSky = nil
+	if borrowedSky ~= nil and borrowedSky.instance.Parent ~= nil then
+		borrowedSky.instance.StarCount = borrowedSky.stars
+		borrowedSky.instance.CelestialBodiesShown = borrowedSky.bodies
+		borrowedSky.instance.MoonAngularSize = borrowedSky.moonSize
 	end
 
 	local saved = savedLighting
@@ -202,8 +250,12 @@ local function restoreLighting()
 	Lighting.FogEnd = saved.fogEnd
 	Lighting.FogColor = saved.fogColor
 	Lighting.ClockTime = saved.clockTime
+	Lighting.ColorShift_Top = saved.colorShiftTop
+	Lighting.ColorShift_Bottom = saved.colorShiftBottom
+	Lighting.EnvironmentDiffuseScale = saved.diffuseScale
+	Lighting.EnvironmentSpecularScale = saved.specularScale
+	Lighting.ExposureCompensation = saved.exposure
 end
-
 local ensureCameraGuard: () -> ()
 
 local function rememberShellCamera()
