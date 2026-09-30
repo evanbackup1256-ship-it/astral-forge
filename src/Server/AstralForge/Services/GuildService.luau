@@ -279,6 +279,7 @@ return function()
 	end
 
 	function GuildService:Create(player, profile, rawName: string, rawTag: string)
+		if type(rawName) ~= "string" or type(rawTag) ~= "string" then return false, "Guild names must be 3–28 letters, numbers, spaces, - or _." end
 		if profile.Guild and profile.Guild.Id ~= "" then
 			local existing = self:GetCachedPublic(profile.Guild.Id) or self:GetPublic(profile.Guild.Id)
 			if existing then return true, "You're already in this guild.", existing end
@@ -301,12 +302,14 @@ return function()
 		local tagClaimed = false
 		local ok, err = pcall(function()
 			self._store:UpdateAsync(id, function(existing)
+				documentCreated = false
 				if existing ~= nil then return existing end
 				documentCreated = true
 				return doc
 			end)
 			if not documentCreated then error("generated guild id already exists") end
 			self._store:UpdateAsync("tag:" .. tag, function(existing)
+				tagClaimed = false
 				if existing == nil or existing == id then
 					tagClaimed = true
 					return id
@@ -337,6 +340,7 @@ return function()
 	end
 
 	function GuildService:JoinByTag(player, profile, rawTag: string)
+		if type(rawTag) ~= "string" then return false, "No guild has that tag." end
 		if profile.Guild and profile.Guild.Id ~= "" then
 			local existing = self:GetCachedPublic(profile.Guild.Id) or self:GetPublic(profile.Guild.Id)
 			if existing then return true, "You're already in this guild.", existing end
@@ -348,6 +352,7 @@ return function()
 		-- player sees "full" instead of "Guild request was denied."
 		local blockedFull = false
 		local ok, message, updated = self:_update(doc.Id, function(guild)
+			blockedFull = false
 			local key = tostring(player.UserId)
 			if guild.Members[key] then return guild end
 			local count = 0; for _ in guild.Members do count += 1 end
@@ -373,6 +378,7 @@ return function()
 		if guildId == "" then return false, "You are not in a guild." end
 		local blockedLastMember = false
 		local ok, message, updated = self:_update(guildId, function(guild)
+			blockedLastMember = false
 			local key = tostring(player.UserId)
 			local member = guild.Members[key]
 			if not member then return guild end
@@ -413,6 +419,9 @@ return function()
 	function GuildService:Disband(player, profile)
 		local guildId = profile.Guild and profile.Guild.Id or ""
 		if guildId == "" then return false, "You are not in a guild." end
+		-- Re-read from the store (not the 60s cache) so a member who joined a moment ago blocks the delete.
+		self._cache[guildId] = nil
+		self._cacheExpiry[guildId] = nil
 		local guild = self:_read(guildId)
 		if not guild then return false, "Guild records are unavailable." end
 		local key = tostring(player.UserId)
@@ -428,11 +437,12 @@ return function()
 			return false, "Guild records are unavailable. Try again shortly."
 		end
 		if removedDoc then
+			-- UpdateAsync returning nil cancels the write, so the reservation must be removed
+			-- explicitly, and only if it still points at this guild (re-read fresh first).
 			local released, releaseErr = pcall(function()
-				self._store:UpdateAsync("tag:" .. tag, function(existing)
-					if existing == guildId then return nil end
-					return existing
-				end)
+				if self._store:GetAsync("tag:" .. tag) == guildId then
+					self._store:RemoveAsync("tag:" .. tag)
+				end
 			end)
 			if not released then
 				warn(string.format("[WARN] [GUILD] disband deleted %s but the tag %s is still reserved — %s", guildId, tostring(tag), tostring(releaseErr)))
@@ -454,6 +464,7 @@ return function()
 		local ok, message, updated = self:_update(guildId, function(guild)
 			local actor, target = guild.Members[tostring(player.UserId)], guild.Members[tostring(targetUserId)]
 			if not actor or not target or (actor.Role ~= "Leader" and actor.Role ~= "Officer") or target.Role == "Leader" then return nil end
+			if actor.Role == "Officer" and target.Role == "Officer" then return nil end
 			guild.Members[tostring(targetUserId)] = nil
 			return guild
 		end)
@@ -573,6 +584,8 @@ return function()
 		local failure = nil
 		local rewardTypeId = nil
 		local ok, message, updated = self:_update(guildId, function(guild)
+			failure = nil
+			rewardTypeId = nil
 			local now = os.time()
 			-- Persist Claimed/Contributors rebuilds even when the claim is denied
 			-- (evidence: TypeId-matched bags with nil Claimed used to rebuild then

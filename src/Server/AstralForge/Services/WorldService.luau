@@ -376,6 +376,7 @@ return function()
 			self._brokenSince[player] = nil
 			self._loading[player] = nil
 			self._loadError[player] = nil
+			if self._travelAt then self._travelAt[player] = nil end
 			local conn = self._charConns[player]
 			if conn then
 				conn:Disconnect()
