@@ -369,6 +369,8 @@ function RiftBossService.new(host)
 	self._strikes = {}
 	self._lastStrike = {}
 	self._dazedUntil = {}
+	self._adds = {}
+	self._nextAddId = 1
 	self._phaseIndex = 1
 	self._nextAttackAt = math.huge
 	-- Attacks in flight. Each is { Kind, At, ... } and resolves when `now` passes At.
@@ -523,6 +525,7 @@ function RiftBossService:_step()
 		self._config = self._roster[self._bossIndex]
 		self:_moveToArena()
 		table.clear(self._events)
+		table.clear(self._adds)
 		self._attacking = false
 	elseif entered == "Forming" then
 		table.clear(self._damage)
@@ -549,13 +552,16 @@ function RiftBossService:_step()
 		}, true)
 	elseif entered == "Defeated" then
 		table.clear(self._events)
+		table.clear(self._adds)
 		self:_rewardFighters()
 	elseif entered == "Escaped" then
 		table.clear(self._events)
+		table.clear(self._adds)
 		self:_announce(`{self._config.Name} escaped`, "It slipped back into the rift. It will return.", true)
 	end
 	if state.Phase == "Active" then
 		self:_phases(now)
+		self:_stepAdds(now, inArena)
 		self:_attacks(now, inArena)
 	end
 	self:_publish()
@@ -648,18 +654,96 @@ function RiftBossService:_targets(inArena: { [Player]: Vector3 }): { Vector3 }
 	return targets
 end
 
-function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number, radius: number?)
+-- `element` (Fire, Storm, Frost, Void) only changes how clients dress the blow.
+function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number, radius: number?, element: string?)
 	local config = self._config
 	local center = { X = aim.X, Y = floorY, Z = aim.Z }
 	local size = radius or config.SlamRadius
-	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = size })
+	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = size, Element = element })
 	self:_broadcast({
 		Type = "RiftBossSlam",
 		BossKind = config.Kind,
 		Center = center,
 		Radius = size,
 		DetonateAt = detonateAt,
+		Element = element,
 	}, true)
+end
+
+-- Adds (the boss's summoned wisps) circle the arena on a path both sides can compute from the
+-- spawn message alone, so nothing streams. Where is add `add` at server time `t`?
+local function addPosition(add, t: number): Vector3
+	local angle = add.Angle + add.Speed * (t - add.StartAt)
+	return Vector3.new(add.Center.X + math.cos(angle) * add.Orbit, add.Center.Y + add.Height, add.Center.Z + math.sin(angle) * add.Orbit)
+end
+
+function RiftBossService:_summon(params, now: number, center: Vector3)
+	local config = self._config
+	local fuseAt = now + params.FuseSeconds
+	local spawned = {}
+	local base = self._random:NextNumber() * math.pi * 2
+	for index = 1, params.Count do
+		local add = {
+			Id = self._nextAddId,
+			Angle = base + (index - 1) / params.Count * math.pi * 2,
+			Speed = params.OrbitSpeed * (if index % 2 == 0 then -1 else 1),
+			Orbit = params.Orbit * (0.65 + 0.35 * ((index % 3) / 2)),
+			Height = 4 + (index % 2) * 3,
+			Center = center,
+			StartAt = now,
+			FuseAt = fuseAt,
+			Health = params.Health,
+			BlastRadius = params.BlastRadius,
+			Element = params.Element,
+		}
+		self._nextAddId += 1
+		table.insert(self._adds, add)
+		table.insert(spawned, { Id = add.Id, Angle = add.Angle, Speed = add.Speed, Orbit = add.Orbit, Height = add.Height })
+	end
+	self:_broadcast({
+		Type = "RiftBossAdds",
+		BossKind = config.Kind,
+		Center = center,
+		StartAt = now,
+		FuseAt = fuseAt,
+		Health = params.Health,
+		BlastRadius = params.BlastRadius,
+		Element = params.Element,
+		Adds = spawned,
+	}, true)
+end
+
+-- Adds that reach their fuse blow up where they are; anyone close is staggered.
+function RiftBossService:_stepAdds(now: number, inArena: { [Player]: Vector3 })
+	local adds = self._adds
+	local index = 1
+	while index <= #adds do
+		local add = adds[index]
+		if now >= add.FuseAt then
+			local at = addPosition(add, add.FuseAt)
+			for player, position in inArena do
+				if (Vector3.new(position.X - at.X, 0, position.Z - at.Z)).Magnitude <= add.BlastRadius then
+					self:_daze(player, now, add.Center)
+				end
+			end
+			self:_broadcast({ Type = "RiftBossAddBlast", BossKind = self._config.Kind, Id = add.Id, At = at, Radius = add.BlastRadius, Element = add.Element }, true)
+			table.remove(adds, index)
+		else
+			index += 1
+		end
+	end
+end
+
+-- The add nearest a fighter, if one is within reach of their blade.
+function RiftBossService:_addNear(position: Vector3, now: number)
+	local best, bestDistance = nil, 18
+	for _, add in self._adds do
+		local distance = (addPosition(add, now) - position).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = add, distance
+		end
+	end
+	return best
 end
 
 function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector3 })
@@ -671,7 +755,7 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 	-- Tell clients which move this is: the boss winds up and speaks accordingly.
 	self:_broadcast({ Type = "RiftBossAttack", BossKind = config.Kind, Attack = attack.Kind }, true)
 	if attack.Kind == "Slam" then
-		self:_slamAt(targets[1] or center, center.Y, now + telegraph)
+		self:_slamAt(targets[1] or center, center.Y, now + telegraph, nil, params.Element)
 	elseif attack.Kind == "TwinSlam" then
 		-- Two fighters marked at once; with only one present the second lands beside them.
 		local first = targets[1] or center
@@ -682,7 +766,26 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 		end
 		self:_slamAt(first, center.Y, now + telegraph)
 		self:_slamAt(second, center.Y, now + telegraph + 0.45)
-	elseif attack.Kind == "Rings" then
+	elseif attack.Kind == "Meteors" then
+		-- Fire from the sky across the whole arena: every other one lands on a fighter, the rest
+		-- anywhere, so standing still in a gap is not safe either.
+		local _, _, arenaRadius = self:_arena()
+		for shot = 1, params.Count do
+			local aim
+			local target = targets[(shot - 1) % math.max(1, #targets) + 1]
+			if shot % 2 == 1 and target ~= nil then
+				aim = target
+			else
+				local angle = self._random:NextNumber() * math.pi * 2
+				local distance = math.sqrt(self._random:NextNumber()) * arenaRadius * 0.9
+				aim = Vector3.new(center.X + math.cos(angle) * distance, center.Y, center.Z + math.sin(angle) * distance)
+			end
+			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
+		end
+	elseif attack.Kind == "Summon" then
+		-- Wisps rise from the floor; cut them down before their fuse runs out.
+		table.insert(self._events, { Kind = "Summon", At = now + telegraph, Params = params, Center = center })
+		self:_broadcast({ Type = "RiftBossSummonCall", BossKind = config.Kind, Center = center, Element = params.Element, At = now + telegraph }, true)	elseif attack.Kind == "Rings" then
 		local first = now + telegraph
 		for ring = 1, params.Count do
 			table.insert(self._events, {
@@ -717,7 +820,7 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			local angle = self._random:NextNumber() * math.pi * 2
 			local spread = self._random:NextNumber() * params.Scatter
 			local aim = Vector3.new(target.X + math.cos(angle) * spread, target.Y, target.Z + math.sin(angle) * spread)
-			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale)
+			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
 		end
 	elseif attack.Kind == "Lances" then
 		local angles = RiftBossMath.LanceAngles(params.Count, self._random:NextNumber() * math.pi * 2)
@@ -850,7 +953,10 @@ function RiftBossService:_resolve(event, now: number, inArena: { [Player]: Vecto
 		for _, player in hits do
 			self:_daze(player, now, event.Center)
 		end
-		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius }, true)
+		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius, Element = event.Element }, true)
+		return true
+	elseif event.Kind == "Summon" then
+		self:_summon(event.Params, now, event.Center)
 		return true
 	elseif event.Kind == "Ring" then
 		local center = self:_arena()
@@ -951,6 +1057,23 @@ function RiftBossService:Strike(player: Player)
 	local level = self._host:level(profile)
 	local bonus = Economy.OreEffect(profile, "BossDamage")
 	local damage, crit = RiftBossMath.StrikeDamage(level, bonus, self._random:NextNumber(), config)
+	-- A wisp within reach of the blade takes the blow instead of the boss.
+	local add = self:_addNear(root.Position, now)
+	if add ~= nil then
+		add.Health -= damage
+		local down = add.Health <= 0
+		if down then
+			table.remove(self._adds, table.find(self._adds, add))
+			self:_broadcast({ Type = "RiftBossAddDown", BossKind = config.Kind, Id = add.Id, At = addPosition(add, now), Element = add.Element }, true)
+		end
+		return ActionResponse.Success(nil, {
+			Damage = damage,
+			Crit = crit,
+			Health = self._state.Health,
+			MaxHealth = self._state.MaxHealth,
+			Add = true,
+		})
+	end
 	self._state = RiftBossMath.Hit(self._state, damage)
 	local userId = player.UserId
 	self._damage[userId] = (self._damage[userId] or 0) + damage

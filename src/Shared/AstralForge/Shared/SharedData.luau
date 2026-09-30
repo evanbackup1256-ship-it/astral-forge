@@ -1457,6 +1457,10 @@ SanctuaryConfig.RiftBoss = {
 		{ Kind = "TwinSlam", Weight = 0.8, MinPhase = 2 },
 		-- A well opens under a fighter and drags everyone toward it; the core then detonates.
 		{ Kind = "GravityWell", Weight = 0.9, MinPhase = 2, Params = { Radius = 30, Core = 15, PullSeconds = 3, Strength = 34, TelegraphSeconds = 0.8 } },
+		-- Rifts tear open under the fighters one after another.
+		{ Kind = "Volley", Weight = 0.9, MinPhase = 2, Params = { Count = 5, StepSeconds = 0.4, Scatter = 8, RadiusScale = 0.6, TelegraphSeconds = 1.6, Element = "Void" } },
+		-- Void wisps circle the arena and blow up unless cut down.
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 70, FuseSeconds = 9, Orbit = 34, OrbitSpeed = 0.5, BlastRadius = 11, TelegraphSeconds = 1.4, Element = "Void" } },
 		-- Phase 3: eight beams at once.
 		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 8, HalfWidth = 0.06, Range = 92, TelegraphSeconds = 1.7 } },
 	},
@@ -1473,6 +1477,8 @@ SanctuaryConfig.RiftBoss = {
 			TwinSlam = { "Two fall as one." },
 			GravityWell = { "Come closer.", "The rift will have you." },
 			Lances = { "The seal's own edge -- cross it and be cut." },
+			Volley = { "The door opens where you stand.", "Fall through." },
+			Summon = { "Rise, keepers of the door.", "Let the dark have hands." },
 		},
 	},	-- Quiet time between appearances, and the first appearance after a server starts.
 	IntervalSeconds = 540,
@@ -1558,6 +1564,10 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 		{ Kind = "Dissonance", Weight = 1, Params = { Zones = 3, ZoneRadius = 13, TelegraphSeconds = 2.8 } },
 		-- One note struck three times in the same place, each wider than the last.
 		{ Kind = "EchoSlam", Weight = 0.8, MinPhase = 2, Params = { Hits = 3, StepSeconds = 0.7, Growth = 1.22, TelegraphSeconds = 1.5 } },
+		-- Shards of ice fall in a run of small, fast blows.
+		{ Kind = "Volley", Weight = 0.9, Params = { Count = 5, StepSeconds = 0.3, Scatter = 6, RadiusScale = 0.6, TelegraphSeconds = 1.5, Element = "Frost" } },
+		-- Frozen echoes drift round the hall; shatter them before they ring.
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 60, FuseSeconds = 8, Orbit = 30, OrbitSpeed = 0.6, BlastRadius = 10, TelegraphSeconds = 1.4, Element = "Frost" } },
 		-- Phase 3: fewer pockets, a shorter warning, and the old slam on top.
 		{ Kind = "Dissonance", Weight = 1, MinPhase = 3, Params = { Zones = 2, ZoneRadius = 11, TelegraphSeconds = 2.2 } },
 		{ Kind = "Slam", Weight = 0.7, MinPhase = 3 },
@@ -1575,6 +1585,8 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 			Dissonance = { "Find the harmony.", "Only the still notes are safe." },
 			EchoSlam = { "Echo... echo... echo." },
 			Slam = { "A sour note." },
+			Volley = { "Shatter.", "Glass rain." },
+			Summon = { "My echoes -- sing for me.", "Cold little voices, wake." },
 		},
 	},
 })
@@ -1615,6 +1627,11 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 		{ Kind = "TwinSlam", Weight = 0.6, MinPhase = 2 },
 		-- A wall of flame crosses the arena with one gap to slip through.
 		{ Kind = "Wall", Weight = 0.9, MinPhase = 2, Params = { Speed = 24, Half = 3, Range = 84, GapHalf = 9, TelegraphSeconds = 2.2 } },
+		-- Fire from the sky across the whole arena.
+		{ Kind = "Meteors", Weight = 1, MinPhase = 2, Params = { Count = 7, StepSeconds = 0.35, RadiusScale = 0.7, TelegraphSeconds = 1.9, Element = "Fire" } },
+		-- Ember spirits circle the throne and burst if left alone.
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 90, FuseSeconds = 9, Orbit = 36, OrbitSpeed = 0.55, BlastRadius = 12, TelegraphSeconds = 1.4, Element = "Fire" } },
+		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 11, StepSeconds = 0.28, RadiusScale = 0.7, TelegraphSeconds = 1.7, Element = "Fire" } },
 		-- Phase 3: a faster beam, the other way round.
 		{ Kind = "Sweep", Weight = 1, MinPhase = 3, Params = { Seconds = 4.4, Speed = 1.25, HalfWidth = 0.2, Range = 84, TelegraphSeconds = 1.2 } },
 		{ Kind = "Volley", Weight = 1, MinPhase = 3, Params = { Count = 7, StepSeconds = 0.26, Scatter = 6, RadiusScale = 0.72, TelegraphSeconds = 1.3 } },
@@ -1633,6 +1650,8 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 			Wall = { "The wall advances. Find the gap -- or burn." },
 			Slam = { "Crushed." },
 			TwinSlam = { "Two! Two at once!" },
+			Meteors = { "The sky is mine to throw!", "Let the heavens burn with me." },
+			Summon = { "Rise, my cinders!", "Guard the throne!" },
 		},
 	},
 })

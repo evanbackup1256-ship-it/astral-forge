@@ -179,6 +179,8 @@ local REQUIRED = {
 	EchoSlam = { "Hits", "StepSeconds", "Growth", "TelegraphSeconds" },
 	Volley = { "Count", "StepSeconds", "Scatter", "RadiusScale", "TelegraphSeconds" },
 	Wall = { "Speed", "Half", "Range", "GapHalf", "TelegraphSeconds" },
+	Meteors = { "Count", "StepSeconds", "RadiusScale", "TelegraphSeconds", "Element" },
+	Summon = { "Count", "Health", "FuseSeconds", "Orbit", "OrbitSpeed", "BlastRadius", "TelegraphSeconds", "Element" },
 }
 for _, boss in roster do
 	local label = boss.Name

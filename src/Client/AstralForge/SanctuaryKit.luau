@@ -2999,6 +2999,10 @@ Signals.SERVER_KINDS = table.freeze({
 	RiftBossDissonance = true,
 	RiftBossDissonanceLand = true,
 	RiftBossWall = true,
+	RiftBossSummonCall = true,
+	RiftBossAdds = true,
+	RiftBossAddBlast = true,
+	RiftBossAddDown = true,
 	RiftBossStagger = true,
 	RiftBossDefeated = true,
 	RiftBossFell = true,
@@ -4215,6 +4219,73 @@ local function screenFlash(color: Color3, strength: number, seconds: number)
 	TweenService:Create(frame, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
 end
 
+-- Impact frame: the screen snaps to a hard white-out then a crushed black for a couple of
+-- frames, the way fighting games punctuate a huge hit. Cheap (one colour-correction effect)
+-- and rate limited so a volley of blows is not a strobe.
+local impactEffect: ColorCorrectionEffect? = nil
+local lastImpact = 0
+local function impactFrame(strength: number)
+	local now = os.clock()
+	if now - lastImpact < 0.6 then
+		return
+	end
+	lastImpact = now
+	local lighting = game:GetService("Lighting")
+	local effect = impactEffect
+	if effect == nil or effect.Parent == nil then
+		effect = Instance.new("ColorCorrectionEffect")
+		effect.Name = "BossImpactFrame"
+		effect.Enabled = false
+		effect.Parent = lighting
+		impactEffect = effect
+	end
+	local fx = effect :: ColorCorrectionEffect
+	local power = math.clamp(strength, 0.3, 1)
+	task.spawn(function()
+		fx.Enabled = true
+		fx.Saturation, fx.Contrast, fx.Brightness = -1, 2.4 * power, 0.55 * power
+		task.wait(0.05)
+		fx.Brightness = -0.35 * power
+		task.wait(0.05)
+		fx.Saturation, fx.Contrast, fx.Brightness = -0.6, 0.8 * power, 0.12 * power
+		task.wait(0.06)
+		fx.Enabled = false
+	end)
+end
+
+-- What an element looks like when it lands: flames and embers, a storm's bolts, ice shards and
+-- a cold burst, or void matter collapsing inward. Layered on top of the boss's own effects.
+local function elementBurst(element: any, center: Vector3, radius: number)
+	if type(element) ~= "string" then
+		return
+	end
+	local up = center + Vector3.new(0, 1, 0)
+	if element == "Fire" then
+		Vfx.burst(up, "Flame", 40, { Color = Color3.fromRGB(255, 150, 50), Color2 = Color3.fromRGB(255, 70, 30), Speed = NumberRange.new(10, 26), Acceleration = Vector3.new(0, 22, 0) }, clientFolder)
+		Vfx.burst(up, "Embers", 36, { Color = Color3.fromRGB(255, 210, 120), Color2 = Color3.fromRGB(255, 90, 40) }, clientFolder)
+		Vfx.burst(up + Vector3.new(0, 3, 0), "Smoke", 16, { Color = Color3.fromRGB(40, 30, 30) }, clientFolder)
+		lightPillar(center, Color3.fromRGB(255, 140, 50), 52, math.max(2, radius * 0.3), 0.8)
+	elseif element == "Storm" then
+		local root = localRoot()
+		for _ = 1, 3 do
+			local offset = Vector3.new((math.random() - 0.5) * radius, 0, (math.random() - 0.5) * radius)
+			lightning(center + offset + Vector3.new(0, 80, 0), center + offset, Color3.fromRGB(190, 220, 255), 0.25, 1.1)
+		end
+		Vfx.burst(up, "Spark", 40, { Color = Color3.fromRGB(200, 230, 255), Color2 = Color3.fromRGB(120, 160, 255), Speed = NumberRange.new(14, 34) }, clientFolder)
+		if root ~= nil then
+			screenFlash(Color3.fromRGB(200, 225, 255), 0.25, 0.25)
+		end
+	elseif element == "Frost" then
+		Vfx.burst(up, "Shatter", 44, { Color = Color3.fromRGB(190, 240, 255), Color2 = Color3.fromRGB(110, 190, 255), Speed = NumberRange.new(10, 28), Acceleration = Vector3.new(0, -16, 0) }, clientFolder)
+		Vfx.burst(up, "Motes", 30, { Color = Color3.fromRGB(230, 250, 255), Color2 = Color3.fromRGB(140, 210, 255) }, clientFolder)
+		Vfx.burst(center + Vector3.new(0, 0.5, 0), "Shockwave", 1, { Color = Color3.fromRGB(170, 230, 255), Size = NumberSequence.new(3, radius * 3) }, clientFolder)
+		lightPillar(center, Color3.fromRGB(160, 225, 255), 40, math.max(2, radius * 0.25), 0.7)
+	elseif element == "Void" then
+		Vfx.burst(up + Vector3.new(0, 2, 0), "Implode", 1, { Color = Color3.fromRGB(150, 90, 255), Color2 = Color3.fromRGB(20, 0, 40), Size = NumberSequence.new(radius * 1.4, 2) }, clientFolder)
+		Vfx.burst(up, "Motes", 34, { Color = Color3.fromRGB(190, 140, 255), Color2 = Color3.fromRGB(60, 20, 120) }, clientFolder)
+		Vfx.burst(up, "Smoke", 18, { Color = Color3.fromRGB(25, 10, 50) }, clientFolder)
+	end
+end
 -- Dialogue: a caption box low on the screen, the speaker's name in their colour, and the
 -- line typed out. One line at a time; a new line replaces the last.
 local speechGui: ScreenGui? = nil
@@ -4524,6 +4595,8 @@ local function awakeScene(current: Boss)
 end
 
 local function defeatScene(current: Boss)
+	impactFrame(1)
+	task.delay(0.9, impactFrame, 1)
 	local kind = current.kind
 	speakLines(current, "Defeat", 0.9, 3.2)
 	-- The body comes apart in light: a great column, bolts to every pillar, a white-out.
@@ -4911,6 +4984,13 @@ local function onSlamLand(payload)
 		boss.flash = 1
 		lightning(boss.core.Position, center, pal.Hot, 0.3, 0.9)
 	end
+	elementBurst(payload.Element, center, radius)
+	if radius >= 20 and (tonumber(payload.Radius) or 0) >= 20 then
+		local root = localRoot()
+		if root ~= nil and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(center.X, 0, center.Z)).Magnitude < radius + 20 then
+			impactFrame(0.8)
+		end
+	end
 	local kind = if boss ~= nil then boss.kind else "Warden"
 	if kind == "Regent" then
 		-- Embers thrown up by the blow.
@@ -4978,6 +5058,7 @@ local function onPhase(payload)
 	setAim("roar", nil, serverNow() + 1.6)
 	-- The roar: a white-hot flash, bolts to every pillar, and the boss speaks.
 	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
+	impactFrame(1)
 	screenFlash(pal.Hot, 0.5, 0.9)
 	lightPillar(at - Vector3.new(0, 26, 0), pal.Hot, 80, 6, 1.2)
 	for index, top in pillarTops(current) do
@@ -5352,6 +5433,141 @@ local function onDissonance(payload)
 	end)
 end
 
+-- Summoned wisps (the boss's adds): small glowing spirits that circle the arena on the path
+-- the server described, cut down by the same Strike. They blow up at the fuse, so the ring of
+-- light around each one shrinks toward it -- a readable countdown.
+local wisps: { [number]: { part: Part, ring: any, anchor: Part, add: any, start: number, fuse: number, blast: number, element: string?, center: Vector3 } } = {}
+
+local function elementColors(element: any): (Color3, Color3)
+	if element == "Fire" then
+		return Color3.fromRGB(255, 150, 50), Color3.fromRGB(255, 70, 30)
+	elseif element == "Frost" then
+		return Color3.fromRGB(170, 235, 255), Color3.fromRGB(110, 180, 255)
+	elseif element == "Storm" then
+		return Color3.fromRGB(200, 225, 255), Color3.fromRGB(120, 160, 255)
+	elseif element == "Void" then
+		return Color3.fromRGB(180, 120, 255), Color3.fromRGB(60, 20, 120)
+	end
+	return pal.Hot, pal.Primary
+end
+
+local function removeWisp(id: number)
+	local wisp = wisps[id]
+	if wisp ~= nil then
+		wisps[id] = nil
+		wisp.part:Destroy()
+		wisp.anchor:Destroy()
+	end
+end
+
+local function wispPosition(wisp, t: number): Vector3
+	local add = wisp.add
+	local angle = add.Angle + add.Speed * (t - wisp.start)
+	return Vector3.new(wisp.center.X + math.cos(angle) * add.Orbit, wisp.center.Y + add.Height, wisp.center.Z + math.sin(angle) * add.Orbit)
+end
+
+local wispConnection: RBXScriptConnection? = nil
+local function ensureWispLoop()
+	if wispConnection ~= nil then
+		return
+	end
+	wispConnection = RunService.RenderStepped:Connect(function()
+		local now = serverNow()
+		local any = false
+		for id, wisp in wisps do
+			any = true
+			local at = wispPosition(wisp, math.min(now, wisp.fuse))
+			wisp.part.CFrame = CFrame.new(at)
+			wisp.anchor.CFrame = CFrame.new(at.X, wisp.center.Y + 0.3, at.Z)
+			local k = math.clamp((wisp.fuse - now) / math.max(0.5, wisp.fuse - wisp.start), 0, 1)
+			wisp.ring.Radius = math.max(0.5, wisp.blast * (1 - k * 0.6))
+			wisp.ring.InnerRadius = math.max(0, wisp.ring.Radius - 0.6)
+			wisp.part.Size = Vector3.new(1, 1, 1) * (2.4 + 1.4 * (1 - k) + 0.4 * math.sin(now * (6 + 14 * (1 - k))))
+			if not active or now > wisp.fuse + 1 then
+				removeWisp(id)
+			end
+		end
+		if not any and wispConnection ~= nil then
+			wispConnection:Disconnect()
+			wispConnection = nil
+		end
+	end)
+end
+
+local function onSummonCall(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center)
+	local at = tonumber(payload.At) or (serverNow() + 1.4)
+	windUp(at, at - serverNow())
+	setAim("roar", nil, at)
+	Audio:play(bossCue("Charge"))
+	local primary = elementColors(payload.Element)
+	Vfx.burst(center + Vector3.new(0, 2, 0), "Implode", 1, { Color = primary, Size = NumberSequence.new(40, 4) }, clientFolder)
+	Controls.shake(0.5)
+end
+
+local function onAdds(payload)
+	if type(payload) ~= "table" or type(payload.Adds) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center)
+	local blast = tonumber(payload.BlastRadius) or 10
+	local startAt = tonumber(payload.StartAt) or serverNow()
+	local fuseAt = tonumber(payload.FuseAt) or (startAt + 8)
+	local primary, secondary = elementColors(payload.Element)
+	for _, add in payload.Adds do
+		local id = tonumber(add.Id)
+		if id == nil then
+			continue
+		end
+		removeWisp(id)
+		local part = vfxPart("Wisp", Enum.PartType.Ball, Vector3.new(2.4, 2.4, 2.4), primary, Enum.Material.Neon)
+		part.Transparency = 0.1
+		local anchor = vfxPart("WispMark", nil, Vector3.new(0.2, 0.2, 0.2), secondary, Enum.Material.SmoothPlastic)
+		anchor.Transparency = 1
+		local ring = ringAdornment(anchor, blast, blast - 0.6, secondary, 0.45)
+		Vfx.attach(part, "Motes", { Color = primary, Color2 = secondary })
+		local record: any = { part = part, ring = ring, anchor = anchor, add = add, start = startAt, fuse = fuseAt, blast = blast, element = payload.Element, center = center }
+		wisps[id] = record
+		Vfx.burst(wispPosition(record, startAt), "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 9) }, clientFolder)
+	end
+	ensureWispLoop()
+end
+
+local function onAddBlast(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local id = tonumber(payload.Id)
+	if id ~= nil then
+		removeWisp(id)
+	end
+	local at = worldPoint(payload.At)
+	local radius = tonumber(payload.Radius) or 10
+	Audio:play(bossCue("Land"))
+	Vfx.burst(at, "Shockwave", 1, { Color = (elementColors(payload.Element)), Size = NumberSequence.new(2, radius * 2.4) }, clientFolder)
+	elementBurst(payload.Element, Vector3.new(at.X, at.Y - 4, at.Z), radius)
+	local root = localRoot()
+	if root ~= nil and (root.Position - at).Magnitude < radius + 25 then
+		Controls.shake(0.5)
+	end
+end
+
+local function onAddDown(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local id = tonumber(payload.Id)
+	if id ~= nil then
+		removeWisp(id)
+	end
+	local at = worldPoint(payload.At)
+	local primary, secondary = elementColors(payload.Element)
+	Vfx.burst(at, "Spark", 26, { Color = primary, Color2 = secondary }, clientFolder)
+	Vfx.burst(at, "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 10) }, clientFolder)
+end
 local function onDissonanceLand(payload)
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Audio:play(bossCue("Land"))
@@ -5512,6 +5728,7 @@ local function onStrikeLanded(payload)
 	Vfx.burst(at, "Spark", if crit then 34 else 16, { Color = pal.Hot, Color2 = if crit then Color3.fromRGB(255, 214, 120) else pal.Primary }, clientFolder)
 	if crit then
 		Vfx.burst(at, "Flash", 1, { Color = Color3.fromRGB(255, 226, 150), Size = NumberSequence.new(3, 12) }, clientFolder)
+		impactFrame(0.45)
 	end
 end
 
@@ -5655,6 +5872,10 @@ function World.start()
 	table.insert(unsubscribers, Signals.on("RiftBossDissonance", onDissonance))
 	table.insert(unsubscribers, Signals.on("RiftBossDissonanceLand", onDissonanceLand))
 	table.insert(unsubscribers, Signals.on("RiftBossWall", onWall))
+	table.insert(unsubscribers, Signals.on("RiftBossSummonCall", onSummonCall))
+	table.insert(unsubscribers, Signals.on("RiftBossAdds", onAdds))
+	table.insert(unsubscribers, Signals.on("RiftBossAddBlast", onAddBlast))
+	table.insert(unsubscribers, Signals.on("RiftBossAddDown", onAddDown))
 	table.insert(unsubscribers, Signals.on("WaystoneArrived", onArrived))
 	table.insert(unsubscribers, Signals.on("StrikeLanded", onStrikeLanded))
 
