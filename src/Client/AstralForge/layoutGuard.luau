@@ -44,8 +44,20 @@ local stats = {
 	textFloorRaised = 0,
 	textFloorReverted = 0,
 	canvasSharpFixed = 0,
+	textClearedOfButton = 0,
+	textUnderButtonSeen = 0,
 	gaveUp = 0,
 }
+-- How often repairs are rolled up into one log line (seconds). Individual repairs are
+-- counted in `stats`; only a window that actually repaired something is reported.
+local REPORT_EVERY = 60
+-- A button counts as covering text once it hides this share of the text's real
+-- (TextBounds) WIDTH while overlapping at least TEXT_COVER_HEIGHT of its height.
+local TEXT_COVER_SHARE = 0.08
+local TEXT_COVER_HEIGHT = 0.3
+-- Never shrink a label below this many pixels to clear a button.
+local MIN_LABEL_WIDTH = 40
+local LABEL_GAP = 6
 local tryCount = setmetatable({}, { __mode = "k" })
 local abandoned = setmetatable({}, { __mode = "k" })
 -- Labels whose size was raised for touch legibility, awaiting a fit check:
@@ -378,6 +390,141 @@ local function checkOverlappingHitboxes(root)
 		end
 	end
 end
+-- Does this button actually paint over what is behind it? Most buttons in this UI are
+-- transparent hit areas with painted frames inside them; those cover nothing. Only a
+-- button with its own visible fill, image or label can hide a sibling's text.
+local function paintsOver(button)
+	if button:IsA("TextButton") then
+		return button.BackgroundTransparency < 0.6 or button.Text ~= ""
+	end
+	if button:IsA("ImageButton") then
+		return button.BackgroundTransparency < 0.6 or (button.Image ~= "" and button.ImageTransparency < 0.6)
+	end
+	return false
+end
+-- Where the glyphs really are inside a label (TextBounds placed by the alignment),
+-- which is usually much smaller than the label's box.
+local function textRectOf(label)
+	local pos = label.AbsolutePosition
+	local size = label.AbsoluteSize
+	local bounds = label.TextBounds
+	local w = math.min(bounds.X, size.X)
+	local h = math.min(bounds.Y, size.Y)
+	local x0 = pos.X
+	if label.TextXAlignment == Enum.TextXAlignment.Right then
+		x0 = pos.X + size.X - w
+	elseif label.TextXAlignment == Enum.TextXAlignment.Center then
+		x0 = pos.X + (size.X - w) / 2
+	end
+	local y0 = pos.Y
+	if label.TextYAlignment == Enum.TextYAlignment.Bottom then
+		y0 = pos.Y + size.Y - h
+	elseif label.TextYAlignment == Enum.TextYAlignment.Center then
+		y0 = pos.Y + (size.Y - h) / 2
+	end
+	return { x0 = x0, y0 = y0, x1 = x0 + w, y1 = y0 + h }
+end
+-- A label's text is partly hidden by a painted sibling button. The common shape is a
+-- row: a full-width label with an action button laid over its right (or left) end. The
+-- label is narrowed so its text ends before the button, on the side the button
+-- intrudes from, keeping its anchored edge fixed. Anything the engine lays out, anything
+-- centered, and anything that would end up too narrow is left alone (and only counted).
+local function clearTextOfButton(label, button, buttonRect)
+	if label:GetAttribute(IGNORE_ATTRIBUTE) == true or engineOwns(label) then
+		return false
+	end
+	local labelRect = rectOf(label)
+	local current = labelRect.x1 - labelRect.x0
+	local anchor = label.AnchorPoint.X
+	local target
+	if anchor == 0 and buttonRect.x0 > labelRect.x0 + MIN_LABEL_WIDTH then
+		target = buttonRect.x0 - labelRect.x0 - LABEL_GAP
+	elseif anchor == 1 and buttonRect.x1 < labelRect.x1 - MIN_LABEL_WIDTH then
+		target = labelRect.x1 - buttonRect.x1 - LABEL_GAP
+	else
+		return false
+	end
+	if target >= current - 2 or target < MIN_LABEL_WIDTH then
+		return false
+	end
+	if not allowWrite(label) then
+		return false
+	end
+	local size = label.Size
+	label.Size = UDim2.new(size.X.Scale, size.X.Offset + (target - current), size.Y.Scale, size.Y.Offset)
+	if not label.TextWrapped and not label.TextScaled and label.TextTruncate == Enum.TextTruncate.None then
+		label.TextTruncate = Enum.TextTruncate.AtEnd
+	end
+	stats.textClearedOfButton += 1
+	return true
+end
+-- Sibling pass over the tracked set: for every visible label with text, find a painted
+-- button under the same parent that sits at or above it and covers a meaningful share of
+-- the glyphs. `byParent` is reused between runs (cleared, not rebuilt).
+local textPassLabels = {}
+local textPassButtons = {}
+local function checkTextUnderButtons(list)
+	table.clear(textPassLabels)
+	table.clear(textPassButtons)
+	for _, inst in list do
+		if inst.Parent == nil then
+			continue
+		end
+		if inst:IsA("GuiButton") then
+			if inst.Visible and paintsOver(inst) and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+				local bucket = textPassButtons[inst.Parent]
+				if bucket == nil then
+					bucket = {}
+					textPassButtons[inst.Parent] = bucket
+				end
+				table.insert(bucket, inst)
+			end
+		elseif inst:IsA("TextLabel") and inst.Visible and inst.Text ~= "" then
+			local bucket = textPassLabels[inst.Parent]
+			if bucket == nil then
+				bucket = {}
+				textPassLabels[inst.Parent] = bucket
+			end
+			table.insert(bucket, inst)
+		end
+	end
+	for parent, labels in textPassLabels do
+		local buttons = textPassButtons[parent]
+		if buttons == nil then
+			continue
+		end
+		for _, label in labels do
+			local size = label.AbsoluteSize
+			if size.X < 8 or size.Y < 8 or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+				continue
+			end
+			local textRect = textRectOf(label)
+			local textWidth = textRect.x1 - textRect.x0
+			local textHeight = textRect.y1 - textRect.y0
+			if textWidth <= 0 or textHeight <= 0 then
+				continue
+			end
+			for _, button in buttons do
+				if button.ZIndex < label.ZIndex then
+					continue
+				end
+				local buttonRect = rectOf(button)
+				-- Measured on each axis, not as an area share: tall (wrapped or scaled)
+				-- text would otherwise hide a real slice of its width and still score low.
+				local hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0))
+				local shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0))
+				if hidden / textWidth < TEXT_COVER_SHARE or shared / textHeight < TEXT_COVER_HEIGHT then
+					continue
+				end
+				stats.textUnderButtonSeen += 1
+				if clearTextOfButton(label, button, buttonRect) then
+					ClientLog:warnEvery(`layoutguard:textcover:{label:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text was under {button.Name}; label narrowed to clear it`)
+				end
+				break
+			end
+		end
+	end
+end
 -- One instance: hide non-finite geometry, then the class-specific repair.
 local function inspect(inst)
 	if inst.Parent == nil then
@@ -434,8 +581,19 @@ do
 		self.fresh = {}
 		self.freshReady = {}
 		self.freshSet = setmetatable({}, { __mode = "k" })
-		-- The background sweep.
-		self.queue = {}
+		-- Second buffer for drainFresh: entries are compacted into it and the two swap, so
+		-- draining allocates nothing even when work is being queued while it runs.
+		self.freshScratch = {}
+		self.freshReadyScratch = {}
+		-- The tracked set: every text, button, canvas and scrolling instance under the
+		-- root, kept current from DescendantAdded/Removing instead of being rebuilt by a
+		-- full-tree walk. `trackedIndex` makes removal O(1) (swap with the last entry).
+		self.tracked = {}
+		self.trackedIndex = setmetatable({}, { __mode = "k" })
+		self.lastReportAt = os.clock()
+		self.reportedTotal = 0
+		-- The background sweep: a round-robin cursor over `tracked`.
+		self.queue = self.tracked
 		self.cursor = 1
 		self.lastWidth = -1
 		self.lastHeight = -1
@@ -469,6 +627,28 @@ do
 		table.insert(self.fresh, instance)
 		table.insert(self.freshReady, self.frame + (delay or Plan.SETTLE_FRAMES))
 	end
+	function LayoutGuardController:track(instance)
+		if self.trackedIndex[instance] ~= nil or not isTrackedClass(instance) then
+			return nil
+		end
+		local tracked = self.tracked
+		local index = #tracked + 1
+		tracked[index] = instance
+		self.trackedIndex[instance] = index
+	end
+	function LayoutGuardController:untrack(instance)
+		local index = self.trackedIndex[instance]
+		if index == nil then
+			return nil
+		end
+		local tracked = self.tracked
+		local last = #tracked
+		local moved = tracked[last]
+		tracked[index] = moved
+		self.trackedIndex[moved] = index
+		tracked[last] = nil
+		self.trackedIndex[instance] = nil
+	end
 	function LayoutGuardController:markDirty(instance)
 		if instance ~= nil then
 			tryCount[instance] = nil
@@ -481,13 +661,21 @@ do
 			connection:Disconnect()
 		end
 		table.clear(self.rootConnections)
+		-- Start the tracked set over for the new root: one walk now, then only deltas.
+		table.clear(self.tracked)
+		table.clear(self.trackedIndex)
 		if root == nil then
 			return nil
 		end
+		for _, descendant in root:GetDescendants() do
+			self:track(descendant)
+		end
 		table.insert(self.rootConnections, root.DescendantAdded:Connect(function(instance)
+			self:track(instance)
 			self:markDirty(instance)
 		end))
 		table.insert(self.rootConnections, root.DescendantRemoving:Connect(function(instance)
+			self:untrack(instance)
 			tryCount[instance] = nil
 			abandoned[instance] = nil
 			pendingFloor[instance] = nil
@@ -514,7 +702,8 @@ do
 			table.clear(tryCount)
 			table.clear(abandoned)
 		end
-		self.queue = {}
+		-- Restart the round-robin from the top; the tracked set itself stays (it is kept
+		-- current by the add/remove events, a resize does not change what exists).
 		self.cursor = 1
 		self.sinceSweep = Plan.MIN_SWEEP_SECONDS
 		self.pendingOverlap = false
@@ -554,10 +743,16 @@ do
 		if not anyDue then
 			return nil
 		end
-		local keptItems = {}
-		local keptReady = {}
+		-- Compact into the reusable second buffer and swap. inspect() can queue follow-ups
+		-- (enqueue appends to `fresh` while we iterate), so remember how many entries we
+		-- started with and carry over anything appended past that point afterwards.
+		local keptItems = self.freshScratch
+		local keptReady = self.freshReadyScratch
+		table.clear(keptItems)
+		table.clear(keptReady)
+		local count = #fresh
 		local done = 0
-		for index = 1, #fresh do
+		for index = 1, count do
 			local instance = fresh[index]
 			if done < budget and ready[index] <= self.frame then
 				done += 1
@@ -567,10 +762,16 @@ do
 					stats.freshChecked += 1
 				end
 			else
-				table.insert(keptItems, instance)
-				table.insert(keptReady, ready[index])
+				keptItems[#keptItems + 1] = instance
+				keptReady[#keptReady + 1] = ready[index]
 			end
 		end
+		for index = count + 1, #fresh do
+			keptItems[#keptItems + 1] = fresh[index]
+			keptReady[#keptReady + 1] = ready[index]
+		end
+		self.freshScratch = fresh
+		self.freshReadyScratch = ready
 		self.fresh = keptItems
 		self.freshReady = keptReady
 	end
@@ -602,32 +803,32 @@ do
 		-- The background sweep. A finished sweep runs the hitbox pass over what it
 		-- saw (geometry repairs have settled by then), then waits out the minimum
 		-- interval before walking the tree again.
-		if self.cursor > #self.queue then
+		-- The sweep walks `tracked` with a round-robin cursor: no tree walk, no new table.
+		-- (A removal swaps the last entry into the freed slot, so an entry can occasionally
+		-- be skipped for one pass; the next pass picks it up.)
+		local tracked = self.tracked
+		if self.cursor > #tracked then
 			if self.pendingOverlap then
+				-- self.queue IS the tracked set (aliased in the constructor).
 				checkOverlappingHitboxes(self.queue)
+				checkTextUnderButtons(self.queue)
+				-- Do not keep parents alive between passes.
+				table.clear(textPassLabels)
+				table.clear(textPassButtons)
 				self.pendingOverlap = false
 			end
 			if self.sinceSweep < Plan.MIN_SWEEP_SECONDS then
+				self:report()
 				return nil
 			end
 			self.sinceSweep = 0
-			-- Reuse the previous sweep's table (it is finished with, and the hitbox pass
-			-- that read it already ran above) instead of allocating a new one per sweep.
-			local queue = self.queue
-			table.clear(queue)
-			for _, descendant in root:GetDescendants() do
-				if isTrackedClass(descendant) then
-					table.insert(queue, descendant)
-				end
-			end
-			self.queue = queue
 			self.cursor = 1
 			self.pendingOverlap = true
 			stats.scans += 1
 		end
 		local sweepBudget = budget.sweep
-		while sweepBudget > 0 and self.cursor <= #self.queue do
-			local inst = self.queue[self.cursor]
+		while sweepBudget > 0 and self.cursor <= #tracked do
+			local inst = tracked[self.cursor]
 			self.cursor += 1
 			sweepBudget -= 1
 			if inst.Parent == nil or self.freshSet[inst] then
@@ -636,6 +837,30 @@ do
 			inspect(inst)
 			stats.sweepChecked += 1
 		end
+		self:report()
+	end
+	-- One rolled-up line per window that actually repaired something (instead of a
+	-- warning per repair). Totals are the sum of every repair counter in `stats`.
+	function LayoutGuardController:report()
+		local now = os.clock()
+		if now - self.lastReportAt < REPORT_EVERY then
+			return nil
+		end
+		self.lastReportAt = now
+		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton
+		if total == self.reportedTotal then
+			return nil
+		end
+		local delta = total - self.reportedTotal
+		self.reportedTotal = total
+		ClientLog:info("LayoutGuard", `{delta} repair{if delta == 1 then "" else "s"} in the last {REPORT_EVERY}s`, {
+			tracked = #self.tracked,
+			textFit = stats.textFitFixed,
+			textOffButton = stats.textClearedOfButton,
+			overlap = stats.overlapDemoted,
+			outOfBox = stats.outOfBoxFixed,
+			gaveUp = stats.gaveUp,
+		})
 	end
 	do
 		-- (Flamework) LayoutGuardController metadata
