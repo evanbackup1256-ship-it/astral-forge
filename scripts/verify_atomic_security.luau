@@ -3,7 +3,7 @@
 -- markers wired through DataService / ServerServices. No Studio.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(not string.find(configSrc, "vendor/", 1, true), "GameConfig must not reference vendor/")
@@ -16,8 +16,8 @@ for id, value in string.gmatch(badges, "(%w+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
 
-local atomicSrc = fs.readFile("src/Server/AstralForge/Services/AtomicState.luau")
-local securitySrc = fs.readFile("src/Server/AstralForge/Services/Security.luau")
+local atomicSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#AtomicState")
+local securitySrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#Security")
 local antiSrc = fs.readFile("src/Server/AstralForge/Services/GameAntiCheat.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
@@ -37,7 +37,7 @@ assert(string.find(atomicSrc, "function AtomicState:Replace", 1, true), "AtomicS
 assert(string.find(atomicSrc, "CONTENTION_TIMEOUT_SECONDS", 1, true), "AtomicState contention timeout missing")
 assert(string.find(atomicSrc, "state transaction already in progress", 1, true), "AtomicState busy reject marker missing")
 
-local AtomicState = require("../src/Server/AstralForge/Services/AtomicState")()
+local AtomicState = require("../src/Server/AstralForge/Services/SecurityServices")("AtomicState")()
 local atom = AtomicState.new({ Meta = { Revision = 2 }, Cash = 10 })
 local value, revision = atom:Read()
 assert(revision == 2 and value.Cash == 10, "AtomicState.Read must surface Meta.Revision")

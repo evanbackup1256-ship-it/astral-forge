@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
 local GuildMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildMath")
 
 local function near(actual: number, expected: number, label: string)
@@ -108,7 +108,7 @@ near(GuildMath.AddClamped(10, 5), 15, "add clamped")
 near(GuildMath.AddClamped(nil, 3), 3, "add from nil")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local serviceSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
+local serviceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#GuildMath")
 local viewSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

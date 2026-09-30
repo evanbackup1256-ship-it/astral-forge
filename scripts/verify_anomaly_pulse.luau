@@ -60,7 +60,7 @@ near(AnomalyPulseScore.ScoreMultiplier(10, true, 0.03, 0.75), 1.3 * 1.75, "combi
 near(AnomalyPulseScore.ScoreMultiplier(0, false, 0.03, 0.75), 1.0, "combined miss")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local serviceSrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
+local serviceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService")
 local scoreSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#AnomalyPulseScore")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 

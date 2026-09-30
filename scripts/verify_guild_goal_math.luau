@@ -167,7 +167,7 @@ assert(okClaim == false and string.find(errClaim or "", "not in", 1, true), "non
 ------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
-local serviceSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
+local serviceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#GuildGoalMath")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 

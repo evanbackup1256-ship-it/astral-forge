@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
 local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
 local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 
@@ -87,7 +87,7 @@ end
 ------------------------------------------------------------------------
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
@@ -147,8 +147,8 @@ assert(string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true), "DataService
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "DataService EnsureDomain residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "DataService EnsureContinuum residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual")
-assert(string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "AnomalyOpsMath.ChargeTarget", 1, true), "AnomalyService ChargeTarget residual")
-assert(string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "ProfileBagMath.EnsureAnomaly", 1, true), "AnomalyService EnsureAnomaly residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService"), "AnomalyOpsMath.ChargeTarget", 1, true), "AnomalyService ChargeTarget residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService"), "ProfileBagMath.EnsureAnomaly", 1, true), "AnomalyService EnsureAnomaly residual")
 assert(
 	string.find(fs.readFile("src/Server/AstralForge/Services/ConvergenceService.luau"), "ConvergenceOpsMath.EnsureEventProfile", 1, true),
 	"ConvergenceService EnsureEventProfile residual"
@@ -158,15 +158,15 @@ assert(
 	"ConvergenceService EnsureRewardBags residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.EnsureGoal", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService"), "GuildGoalMath.EnsureGoal", 1, true),
 	"GuildService EnsureGoal residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.CanClaimGoal", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService"), "GuildGoalMath.CanClaimGoal", 1, true),
 	"GuildService CanClaimGoal residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "AnomalyOpsMath.ApplyCoreXP", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService"), "AnomalyOpsMath.ApplyCoreXP", 1, true),
 	"AnomalyService ApplyCoreXP residual"
 )
 assert(
@@ -183,11 +183,11 @@ assert(
 	"ServerServices ProfileClamp residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau"), "ProgressionOpsMath.AdvanceQuestProgress", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService"), "ProgressionOpsMath.AdvanceQuestProgress", 1, true),
 	"Progression AdvanceQuestProgress residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau"), "ProgressionOpsMath.CanClaimQuest", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService"), "ProgressionOpsMath.CanClaimQuest", 1, true),
 	"Progression CanClaimQuest residual"
 )
 

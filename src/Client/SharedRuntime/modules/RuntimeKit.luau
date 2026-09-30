@@ -1,6 +1,72 @@
+--!nonstrict
+--[=[
+	RuntimeKit: merged module suite.
+	Members (6): deepFreeze, gameplay, network, pool, reentrancy, scheduler.
+
+	Each member keeps its original source inside its own closure (so every member
+	still has its own local-register budget) and is evaluated lazily, exactly once,
+	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
+	table with the member name) to get a member's exports.
+]=]
+
+local __defs: { [string]: () -> any } = {}
+local __cache: { [string]: { value: any } } = {}
+local __loading: { [string]: boolean } = {}
+
+local function __load(name: string): any
+	local hit = __cache[name]
+	if hit then return hit.value end
+	local def = __defs[name]
+	if def == nil then error("RuntimeKit: unknown module " .. tostring(name), 2) end
+	if __loading[name] then error("RuntimeKit: cyclic require of member " .. name, 2) end
+	__loading[name] = true
+	local ok, value = pcall(def)
+	__loading[name] = nil
+	if not ok then error(value, 0) end
+	__cache[name] = { value = value }
+	return value
+end
+
+-- ======================================================================
+-- Module: deepFreeze   (merged from deepFreeze.luau, 27 lines)
+-- ======================================================================
+__defs["deepFreeze"] = function()
 -- Compiled with roblox-ts v3.0.0
-local economyScheduler = require(script.Parent.scheduler).economyScheduler
-local deepFreeze = require(script.Parent.deepFreeze).deepFreeze
+local function freezeRecursive(value, visited)
+	local _value = value
+	if not (type(_value) == "table") then
+		return nil
+	end
+	local target = value
+	if visited[target] ~= nil or table.isfrozen(target) then
+		return nil
+	end
+	visited[target] = true
+	for _, child in pairs(target) do
+		freezeRecursive(child, visited)
+	end
+	table.freeze(target)
+end
+local function deepFreeze(value)
+	freezeRecursive(value, {})
+	return value
+end
+local StaticStructureDeepFreezer = table.freeze({
+	freeze = deepFreeze,
+})
+return {
+	deepFreeze = deepFreeze,
+	StaticStructureDeepFreezer = StaticStructureDeepFreezer,
+}
+end
+
+-- ======================================================================
+-- Module: gameplay   (merged from gameplay.luau, 620 lines)
+-- ======================================================================
+__defs["gameplay"] = function()
+-- Compiled with roblox-ts v3.0.0
+local economyScheduler = __load("scheduler").economyScheduler
+local deepFreeze = __load("deepFreeze").deepFreeze
 --* Immutable nested prestige evaluator; committing a layer always returns a new level vector. 
 local MultiTierPrestigeEngine
 do
@@ -618,3 +684,399 @@ return {
 	LocalizationInternationalizationBridge = LocalizationInternationalizationBridge,
 	gameplayEngines = gameplayEngines,
 }
+end
+
+-- ======================================================================
+-- Module: network   (merged from network.luau, 126 lines)
+-- ======================================================================
+__defs["network"] = function()
+-- Compiled with roblox-ts v3.0.0
+local TELEMETRY_VERSION = 1
+local TELEMETRY_BYTES = 30
+local ECONOMY_PACKET_VERSION = 1
+local ECONOMY_PACKET_BYTES = 48
+local TelemetryFlags = {
+	ReducedMotion = 1,
+	UIEffects = 2,
+	SoundEffects = 4,
+	HideOtherPlots = 8,
+}
+local SocialFlags = {
+	Friended = 1,
+	Blocked = 2,
+	Muted = 4,
+	ChatBanned = 8,
+}
+local function finite(value)
+	return value == value and value ~= math.huge and value ~= -math.huge
+end
+local function safeF32(value)
+	if not finite(value) then
+		return 0
+	end
+	return math.clamp(value, -3.4e38, 3.4e38)
+end
+local function safeF64(value)
+	return if finite(value) then value else 0
+end
+local function safeU32(value)
+	if not finite(value) then
+		return 0
+	end
+	return math.floor(math.max(0, value)) % 4_294_967_296
+end
+local function hasFlag(flags, flag)
+	return bit32.band(flags, flag) ~= 0
+end
+local function setFlag(flags, flag, enabled)
+	return if enabled then bit32.bor(flags, flag) else bit32.band(flags, bit32.bnot(flag))
+end
+local function encodeTelemetry(record)
+	local packed = buffer.create(TELEMETRY_BYTES)
+	buffer.writeu8(packed, 0, TELEMETRY_VERSION)
+	buffer.writeu8(packed, 1, bit32.band(record.flags, 0xff))
+	buffer.writeu32(packed, 2, safeU32(record.revision))
+	buffer.writef32(packed, 6, safeF32(record.cash))
+	buffer.writef32(packed, 10, safeF32(record.vault))
+	buffer.writef32(packed, 14, safeF32(record.production))
+	buffer.writef32(packed, 18, safeF32(record.capacity))
+	buffer.writef32(packed, 22, safeF32(record.cores))
+	buffer.writef32(packed, 26, safeF32(record.stardust))
+	return packed
+end
+local function decodeTelemetry(payload)
+	if buffer.len(payload) < TELEMETRY_BYTES or buffer.readu8(payload, 0) ~= TELEMETRY_VERSION then
+		return nil
+	end
+	return {
+		revision = buffer.readu32(payload, 2),
+		flags = buffer.readu8(payload, 1),
+		cash = buffer.readf32(payload, 6),
+		vault = buffer.readf32(payload, 10),
+		production = buffer.readf32(payload, 14),
+		capacity = buffer.readf32(payload, 18),
+		cores = buffer.readf32(payload, 22),
+		stardust = buffer.readf32(payload, 26),
+	}
+end
+--* Compact economy mirror: two bitfields/IDs followed by f64 currency lanes. 
+local function encodeEconomy(record)
+	local packed = buffer.create(ECONOMY_PACKET_BYTES)
+	buffer.writeu8(packed, 0, ECONOMY_PACKET_VERSION)
+	buffer.writeu8(packed, 1, 0)
+	buffer.writeu32(packed, 4, safeU32(record.userId))
+	buffer.writeu32(packed, 8, bit32.band(record.socialFlags, 0xffffffff))
+	buffer.writeu32(packed, 12, safeU32(record.revision))
+	buffer.writef64(packed, 16, safeF64(record.cash))
+	buffer.writef64(packed, 24, safeF64(record.vault))
+	buffer.writef64(packed, 32, safeF64(record.production))
+	buffer.writef64(packed, 40, safeF64(record.capacity))
+	return packed
+end
+local function decodeEconomy(payload)
+	if buffer.len(payload) < ECONOMY_PACKET_BYTES or buffer.readu8(payload, 0) ~= ECONOMY_PACKET_VERSION then
+		return nil
+	end
+	return {
+		userId = buffer.readu32(payload, 4),
+		socialFlags = buffer.readu32(payload, 8),
+		revision = buffer.readu32(payload, 12),
+		cash = buffer.readf64(payload, 16),
+		vault = buffer.readf64(payload, 24),
+		production = buffer.readf64(payload, 32),
+		capacity = buffer.readf64(payload, 40),
+	}
+end
+--* Immutable-name facade used by profile/social replication code. 
+local BinaryStateBitpacker = table.freeze({
+	encodeTelemetry = encodeTelemetry,
+	decodeTelemetry = decodeTelemetry,
+	encodeEconomy = encodeEconomy,
+	decodeEconomy = decodeEconomy,
+})
+--* O(1) relationship flag operations shared by server mirrors and chat gates. 
+local BitfieldRelationshipMatrix = table.freeze({
+	flags = SocialFlags,
+	has = hasFlag,
+	set = setFlag,
+})
+return {
+	hasFlag = hasFlag,
+	setFlag = setFlag,
+	encodeTelemetry = encodeTelemetry,
+	decodeTelemetry = decodeTelemetry,
+	encodeEconomy = encodeEconomy,
+	decodeEconomy = decodeEconomy,
+	TELEMETRY_VERSION = TELEMETRY_VERSION,
+	TELEMETRY_BYTES = TELEMETRY_BYTES,
+	ECONOMY_PACKET_VERSION = ECONOMY_PACKET_VERSION,
+	ECONOMY_PACKET_BYTES = ECONOMY_PACKET_BYTES,
+	TelemetryFlags = TelemetryFlags,
+	SocialFlags = SocialFlags,
+	BinaryStateBitpacker = BinaryStateBitpacker,
+	BitfieldRelationshipMatrix = BitfieldRelationshipMatrix,
+}
+end
+
+-- ======================================================================
+-- Module: pool   (merged from pool.luau, 90 lines)
+-- ======================================================================
+__defs["pool"] = function()
+-- Compiled with roblox-ts v3.0.0
+--* Fixed-capacity object recycler. Luau cannot pin memory, so this is the allocation-free equivalent. 
+local MemoryPinnedTableAllocator
+do
+	MemoryPinnedTableAllocator = setmetatable({}, {
+		__tostring = function()
+			return "MemoryPinnedTableAllocator"
+		end,
+	})
+	MemoryPinnedTableAllocator.__index = MemoryPinnedTableAllocator
+	function MemoryPinnedTableAllocator.new(...)
+		local self = setmetatable({}, MemoryPinnedTableAllocator)
+		return self:constructor(...) or self
+	end
+	function MemoryPinnedTableAllocator:constructor(capacity, factory, reset)
+		self.reset = reset
+		self.free = {}
+		self.leased = {}
+		local bounded = math.max(1, math.floor(capacity))
+		do
+			local index = 0
+			local _shouldIncrement = false
+			while true do
+				if _shouldIncrement then
+					index += 1
+				else
+					_shouldIncrement = true
+				end
+				if not (index < bounded) then
+					break
+				end
+				local _free = self.free
+				local _arg0 = factory(index)
+				table.insert(_free, _arg0)
+			end
+		end
+	end
+	function MemoryPinnedTableAllocator:acquire()
+		local _exp = self.free
+		-- ▼ Array.pop ▼
+		local _length = #_exp
+		local _result = _exp[_length]
+		_exp[_length] = nil
+		-- ▲ Array.pop ▲
+		local value = _result
+		if value ~= nil then
+			self.leased[value] = true
+		end
+		return value
+	end
+	function MemoryPinnedTableAllocator:release(value)
+		local _leased = self.leased
+		local _value = value
+		-- ▼ Set.delete ▼
+		local _valueExisted = _leased[_value] ~= nil
+		_leased[_value] = nil
+		-- ▲ Set.delete ▲
+		if not _valueExisted then
+			return false
+		end
+		self.reset(value)
+		local _free = self.free
+		local _value_1 = value
+		table.insert(_free, _value_1)
+		return true
+	end
+	function MemoryPinnedTableAllocator:releaseAll()
+		for value in self.leased do
+			self.reset(value)
+			local _exp = self.free
+			table.insert(_exp, value)
+		end
+		table.clear(self.leased)
+	end
+	function MemoryPinnedTableAllocator:available()
+		return #self.free
+	end
+	function MemoryPinnedTableAllocator:active()
+		-- ▼ ReadonlySet.size ▼
+		local _size = 0
+		for _ in self.leased do
+			_size += 1
+		end
+		-- ▲ ReadonlySet.size ▲
+		return _size
+	end
+end
+return {
+	MemoryPinnedTableAllocator = MemoryPinnedTableAllocator,
+}
+end
+
+-- ======================================================================
+-- Module: reentrancy   (merged from reentrancy.luau, 51 lines)
+-- ======================================================================
+__defs["reentrancy"] = function()
+-- Compiled with roblox-ts v3.0.0
+--* Per-Actor named lock. Cross-Actor state remains message-owned as required by Parallel Luau. 
+local ParallelTaskReentrancyLock
+do
+	ParallelTaskReentrancyLock = setmetatable({}, {
+		__tostring = function()
+			return "ParallelTaskReentrancyLock"
+		end,
+	})
+	ParallelTaskReentrancyLock.__index = ParallelTaskReentrancyLock
+	function ParallelTaskReentrancyLock.new(...)
+		local self = setmetatable({}, ParallelTaskReentrancyLock)
+		return self:constructor(...) or self
+	end
+	function ParallelTaskReentrancyLock:constructor()
+		self.active = {}
+	end
+	function ParallelTaskReentrancyLock:enter(key)
+		local _active = self.active
+		local _key = key
+		if _active[_key] ~= nil then
+			return false
+		end
+		local _active_1 = self.active
+		local _key_1 = key
+		_active_1[_key_1] = true
+		return true
+	end
+	function ParallelTaskReentrancyLock:leave(key)
+		local _active = self.active
+		local _key = key
+		_active[_key] = nil
+	end
+	function ParallelTaskReentrancyLock:run(key, callback)
+		if not self:enter(key) then
+			return false, nil
+		end
+		local ok, result = pcall(callback)
+		self:leave(key)
+		if not ok then
+			error(result)
+		end
+		return true, result
+	end
+	function ParallelTaskReentrancyLock:clear()
+		table.clear(self.active)
+	end
+end
+return {
+	ParallelTaskReentrancyLock = ParallelTaskReentrancyLock,
+}
+end
+
+-- ======================================================================
+-- Module: scheduler   (merged from scheduler.luau, 92 lines)
+-- ======================================================================
+__defs["scheduler"] = function()
+-- Compiled with roblox-ts v3.0.0
+local ParallelTaskReentrancyLock = __load("reentrancy").ParallelTaskReentrancyLock
+--* Bounded pure-compute queue. It enters Parallel Luau only when hosted by an Actor. 
+local AsynchronousActorScheduler
+do
+	AsynchronousActorScheduler = setmetatable({}, {
+		__tostring = function()
+			return "AsynchronousActorScheduler"
+		end,
+	})
+	AsynchronousActorScheduler.__index = AsynchronousActorScheduler
+	function AsynchronousActorScheduler.new(...)
+		local self = setmetatable({}, AsynchronousActorScheduler)
+		return self:constructor(...) or self
+	end
+	function AsynchronousActorScheduler:constructor(batchSize)
+		if batchSize == nil then
+			batchSize = 8
+		end
+		self.batchSize = batchSize
+		self.queue = {}
+		self.parallel = script:GetActor() ~= nil
+		self.lock = ParallelTaskReentrancyLock.new()
+		self.draining = false
+		self.destroyed = false
+	end
+	function AsynchronousActorScheduler:schedule(job)
+		if self.destroyed then
+			return false
+		end
+		local _queue = self.queue
+		local _job = job
+		table.insert(_queue, _job)
+		if not self.draining then
+			self.draining = true
+			task.defer(function()
+				return self:drain()
+			end)
+		end
+		return true
+	end
+	function AsynchronousActorScheduler:drain()
+		if self.destroyed then
+			return nil
+		end
+		if not self.lock:enter("drain") then
+			return nil
+		end
+		local processed = 0
+		while processed < self.batchSize and #self.queue > 0 do
+			local job = table.remove(self.queue, 1)
+			if not job then
+				break
+			end
+			if self.parallel then
+				task.desynchronize()
+			end
+			local ok, result = pcall(job.compute)
+			if self.parallel then
+				task.synchronize()
+			end
+			if ok then
+				job.complete(result)
+			else
+				local _result = job.failed
+				if _result ~= nil then
+					_result(result)
+				end
+			end
+			processed += 1
+		end
+		self.lock:leave("drain")
+		if #self.queue > 0 then
+			task.defer(function()
+				return self:drain()
+			end)
+		else
+			self.draining = false
+		end
+	end
+	function AsynchronousActorScheduler:destroy()
+		self.destroyed = true
+		table.clear(self.queue)
+		self.lock:clear()
+		self.draining = false
+	end
+end
+local economyScheduler = AsynchronousActorScheduler.new(6)
+return {
+	AsynchronousActorScheduler = AsynchronousActorScheduler,
+	economyScheduler = economyScheduler,
+}
+end
+
+-- ======================================================================
+-- Suite entry point
+-- ======================================================================
+return setmetatable({}, {
+	__call = function(_, name: string): any
+		return __load(name)
+	end,
+	__index = function(_, name: string): any
+		return __load(name)
+	end,
+})

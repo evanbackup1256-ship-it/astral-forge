@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
 local UpgradeCostReason = require("../src/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
 local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
 local OfflineProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")
@@ -210,7 +210,7 @@ assert(math.abs(avgEff - 0.7) < 1e-9, "weighted efficiency 70/100")
 -- --- Source wiring + HARD constraints ----------------------------------------
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local gateSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionGate")
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#UpgradeCostReason")
 local forgeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ForgePathClaim")

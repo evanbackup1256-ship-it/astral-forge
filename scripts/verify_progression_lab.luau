@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
 local ZoneUnlock = require("../src/Shared/AstralForge/Shared/SharedData")("ZoneUnlock")
 local LabOrderMath = require("../src/Server/AstralForge/Modules/LabOrderMath")
 local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
@@ -145,7 +145,7 @@ kind, err = ZoneUnlock.Evaluate(1, 2, 5, 100, 2, zone2, lt)
 assert(kind == "Error" and err == "NEED_MORE_FLUX", "flux sentinel")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local labServiceSrc = fs.readFile("src/Server/AstralForge/Services/LabService.luau")
+local labServiceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#LabService")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local gameSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")

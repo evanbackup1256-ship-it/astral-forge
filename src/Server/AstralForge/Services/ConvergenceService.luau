@@ -19,7 +19,7 @@ return function()
 
 	local function applyReward(profile, reward)
 		local cash = math.max(0, tonumber(reward.Cash) or 0)
-		local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+		local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("OmegaMath")
 		-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats/Command/BoostInventory —
 		-- claiming a convergence tier must not throw before the Claimed flag sticks.
 		ConvergenceOpsMath.EnsureRewardBags(profile)

@@ -1,0 +1,2675 @@
+--!strict
+--[=[
+	CoreServices: merged module suite.
+	Members (5): AnomalyService, ForgeEchoService, GuildService, LabService, ProgressionService.
+
+	Each member keeps its original source inside its own closure (so every member
+	still has its own local-register budget) and is evaluated lazily, exactly once,
+	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
+	table with the member name) to get a member's exports.
+]=]
+
+local __defs: { [string]: () -> any } = {}
+local __cache: { [string]: { value: any } } = {}
+local __loading: { [string]: boolean } = {}
+
+local function __load(name: string): any
+	local hit = __cache[name]
+	if hit then return hit.value end
+	local def = __defs[name]
+	if def == nil then error("CoreServices: unknown module " .. tostring(name), 2) end
+	if __loading[name] then error("CoreServices: cyclic require of member " .. name, 2) end
+	__loading[name] = true
+	local ok, value = pcall(def)
+	__loading[name] = nil
+	if not ok then error(value, 0) end
+	__cache[name] = { value = value }
+	return value
+end
+
+-- ======================================================================
+-- Module: AnomalyService   (merged from AnomalyService.luau, 569 lines)
+-- ======================================================================
+__defs["AnomalyService"] = function()
+
+return function(loadService: (string) -> any)
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Workspace = game:GetService("Workspace")
+
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local AnomalyPulseScore = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("AnomalyPulseScore")
+	local AnomalyOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("AnomalyOpsMath")
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local ProgressionService = loadService("ProgressionService")
+
+	local AnomalyService = {}
+
+	-- Pulse timing must use Workspace:GetServerTimeNow (sub-second, Roblox-synced), not
+	-- os.time() (1s resolution). A 1.6s sweep with a ~0.35s sweet zone cannot be judged
+	-- fairly from whole-second stamps, and the client needle already predicts from
+	-- GetServerTimeNow — mixing clocks made "perfect" taps miss on the server.
+	local function pulseNow(): number
+		return Workspace:GetServerTimeNow()
+	end
+
+	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — pulse /
+	-- stabilize / protocol / directive ledgers must not throw before the Anomaly bag updates.
+	local function bumpAnomalyStat(profile, key: string)
+		ProfileBagMath.BumpStat(profile, key, 1)
+	end
+
+	-- Overdrive: a server-wide (not per-player) shared meter. Deliberately module-level state
+	-- rather than anything persisted -- Luau modules are singletons per server, so this is
+	-- naturally scoped to "this server instance," resets cleanly on restart, and needs no
+	-- datastore surface or save-conflict handling for what's meant to be a bonus layer on top
+	-- of core per-player progression, not part of it.
+	local overdrive: { Charge: number, BonusEndsAt: number } = {
+		Charge = 0,
+		BonusEndsAt = 0,
+	}
+
+	local function overdriveActive(now: number): boolean
+		return overdrive.BonusEndsAt > now
+	end
+
+	-- Adds a contribution to the shared meter and returns true exactly once, the instant the
+	-- meter crosses its target, so the caller can fire a one-time "Overdrive!" broadcast
+	-- instead of every player's next state poll silently noticing it's already full.
+	local function contributeOverdrive(amount: number, now: number): boolean
+		if overdriveActive(now) then
+			return false
+		end
+		local target = GameConfig.Anomalies.OverdriveTarget
+		local before = overdrive.Charge
+		overdrive.Charge = math.min(target, overdrive.Charge + math.max(0, amount))
+		if before < target and overdrive.Charge >= target then
+			overdrive.Charge = 0
+			overdrive.BonusEndsAt = now + GameConfig.Anomalies.OverdriveBonusSeconds
+			return true
+		end
+		return false
+	end
+
+	function AnomalyService.OverdriveState(now: number?)
+		-- Same GetServerTimeNow clock as pulse / client useWallClock countdowns.
+		local timestamp = now or pulseNow()
+		return {
+			Charge = overdrive.Charge,
+			Target = GameConfig.Anomalies.OverdriveTarget,
+			Active = overdriveActive(timestamp),
+			BonusEndsAt = overdrive.BonusEndsAt,
+			Multiplier = GameConfig.Anomalies.OverdriveBonusMultiplier,
+		}
+	end
+
+	function AnomalyService.OverdriveMultiplier(now: number?): number
+		if overdriveActive(now or pulseNow()) then
+			return GameConfig.Anomalies.OverdriveBonusMultiplier
+		end
+		return 1
+	end
+
+	local function currentCycle(now: number?): (number, any, number)
+		local timestamp = now or pulseNow()
+		local cycle = math.floor(timestamp / GameConfig.Anomalies.CycleSeconds)
+		local index = cycle % #GameConfig.Anomalies.Types + 1
+		return cycle, GameConfig.Anomalies.Types[index], (cycle + 1) * GameConfig.Anomalies.CycleSeconds
+	end
+
+	local function findProtocol(protocolId: string)
+		return AnomalyOpsMath.FindProtocol(GameConfig.Anomalies.Protocols, protocolId)
+	end
+
+	local function activeDirectives(cycle: number)
+		return AnomalyOpsMath.SelectDirectives(
+			cycle,
+			GameConfig.Anomalies.Directives,
+			GameConfig.Anomalies.DirectiveSlots
+		)
+	end
+
+	local function protocolEffect(profile, effectKind: string): number
+		local anomaly = profile.Anomaly
+		return AnomalyOpsMath.ProtocolEffect(
+			anomaly and anomaly.Protocols,
+			GameConfig.Anomalies.Protocols,
+			effectKind
+		)
+	end
+
+	local function rewardMultiplier(profile, anomaly): number
+		local channelAmount = 0
+		local channelId = profile.Anomaly and profile.Anomaly.Channel
+		local channel = if type(channelId) == "string" then GameConfig.Anomalies.Channels[channelId] else nil
+		if channel and channel.EffectKind == "Reward" then
+			channelAmount = channel.EffectAmount
+		end
+		return AnomalyOpsMath.RewardMultiplier(
+			anomaly.RewardMultiplier,
+			protocolEffect(profile, "Reward"),
+			channelAmount
+		)
+	end
+
+	local function coreTierMaximumBonus(profile): number
+		local tier = profile.Anomaly and profile.Anomaly.CoreTier
+		return AnomalyOpsMath.CoreTierMaximumBonus(tier, GameConfig.Anomalies.CoreTiers)
+	end
+
+	function AnomalyService.Target(profile): number
+		local anomaly = ProfileBagMath.EnsureAnomaly(profile)
+		return AnomalyOpsMath.ChargeTarget(
+			GameConfig.Anomalies.BaseTarget,
+			GameConfig.Anomalies.TargetPerStabilization,
+			GameConfig.Anomalies.MaximumTarget,
+			anomaly.Stabilizations,
+			coreTierMaximumBonus(profile)
+		)
+	end
+
+	-- Fragments-only / nil Anomaly bags (Admin grants, Studio fixtures) must rebuild
+	-- Discoveries/Directives/Protocols before Pulse/Stabilize/Signal index them.
+	function AnomalyService.Ensure(profile): boolean
+		local anomaly = ProfileBagMath.EnsureAnomaly(profile)
+		local cycle = currentCycle()
+		local changed = false
+		if anomaly.Cycle ~= cycle then
+			anomaly.Cycle = cycle
+			anomaly.LastActionAt = 0
+			changed = true
+		end
+		if anomaly.DirectiveCycle ~= cycle then
+			anomaly.DirectiveCycle = cycle
+			anomaly.DirectiveProgress = {}
+			anomaly.DirectiveClaims = {}
+			changed = true
+		end
+		return changed
+	end
+
+	function AnomalyService.Signal(profile, kind: string, amount: number?)
+		AnomalyService.Ensure(profile)
+		local cycle = currentCycle()
+		for _, directive in activeDirectives(cycle) do
+			local definition = directive.Definition
+			if definition.Kind == kind then
+				local previous = profile.Anomaly.DirectiveProgress[definition.Id] or 0
+				if kind == "Combo" then
+					profile.Anomaly.DirectiveProgress[definition.Id] =
+						math.min(directive.Target, math.max(previous, amount or 0))
+				else
+					profile.Anomaly.DirectiveProgress[definition.Id] =
+						math.min(directive.Target, previous + math.max(0, amount or 1))
+				end
+			end
+		end
+	end
+
+	-- Chain (a bonus for pulsing frequently) used to stack on top of Combo (a bonus for pulsing
+	-- accurately) here -- both rewarded the same repeated-Pulse action, so a player mashing
+	-- Pulse accurately watched two numbers climb for the same clicks with no clear read on which
+	-- one mattered. Combo already covers "keep pulsing well"; Progress now applies only the
+	-- protocol/anomaly-type multipliers, and the caller (Pulse) folds its own comboBonus in.
+	function AnomalyService.Progress(profile, baseAmount: number): (number, boolean)
+		AnomalyService.Ensure(profile)
+		local _, anomaly = currentCycle()
+		profile.Anomaly.LastActionAt = pulseNow()
+
+		local target = AnomalyService.Target(profile)
+		local wasReady = profile.Anomaly.Charge >= target
+		local capture = 1 + protocolEffect(profile, "ChargeGain")
+		local amount = math.max(0, baseAmount) * capture * anomaly.ChargeMultiplier
+		profile.Anomaly.Charge = math.min(target * 1.5, profile.Anomaly.Charge + amount)
+		AnomalyService.Signal(profile, "Action", 1)
+		return amount, not wasReady and profile.Anomaly.Charge >= target
+	end
+
+	-- Server-authoritative timing-window accuracy via AnomalyPulseScore. PulseWindowStartedAt
+	-- anchors a sweep of length PulseWindowSeconds; the "sweet zone" is the tail fraction of
+	-- that sweep, matching what the client's needle visually approaches. Computed entirely from
+	-- the server's own clock and the server's own record of when the current window began -- the
+	-- client never reports a timing/accuracy value that gets trusted, so there is no new spoofing
+	-- surface. A pulse always starts the next window regardless of accuracy, so players are never
+	-- stuck unable to pulse while waiting out a window they didn't want.
+	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
+		AnomalyService.Ensure(profile)
+		local now = pulseNow()
+		local accurate = AnomalyPulseScore.IsAccurate(
+			now,
+			profile.Anomaly.PulseWindowStartedAt,
+			GameConfig.Anomalies.PulseWindowSeconds,
+			GameConfig.Anomalies.PulseWindowSweetZone
+		)
+		profile.Anomaly.PulseWindowStartedAt = now
+
+		profile.Anomaly.Combo = AnomalyPulseScore.NextCombo(
+			profile.Anomaly.Combo,
+			accurate,
+			GameConfig.Anomalies.PulseComboMax
+		)
+		if accurate then
+			profile.Anomaly.BestCombo = AnomalyPulseScore.NextBestCombo(profile.Anomaly.BestCombo, profile.Anomaly.Combo)
+		end
+		local comboBonus = AnomalyPulseScore.ComboBonus(
+			profile.Anomaly.Combo,
+			GameConfig.Anomalies.PulseComboBonusPerStack
+		)
+		local accuracyBonus = AnomalyPulseScore.AccuracyBonus(accurate, GameConfig.Anomalies.PulseAccurateBonus)
+
+		-- Overdrive / Progress share the pulse clock so BonusEndsAt / LastActionAt match
+		-- client GetServerTimeNow countdowns (no os.time dual-clock drift).
+		local pulsePower = 1 + protocolEffect(profile, "PulsePower")
+		local overdriveMultiplier = AnomalyService.OverdriveMultiplier(now)
+		local amount, becameReady = AnomalyService.Progress(
+			profile,
+			random:NextNumber(3.8, 5.4) * pulsePower * comboBonus * accuracyBonus * overdriveMultiplier
+		)
+		AnomalyService.Signal(profile, "Pulse", 1)
+		AnomalyService.Signal(profile, "Combo", profile.Anomaly.Combo)
+		bumpAnomalyStat(profile, "AnomalyPulses")
+		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdrivePulseContribution, now)
+		return true,
+			accurate
+				and string.format("Perfect pulse! Combo x%d, +%.1f charge.", profile.Anomaly.Combo, amount)
+				or string.format("Quantum pulse captured %.1f charge.", amount),
+			{
+				Amount = amount,
+				Charge = profile.Anomaly.Charge,
+				Ready = profile.Anomaly.Charge >= AnomalyService.Target(profile),
+				BecameReady = becameReady,
+				Accurate = accurate,
+				Combo = profile.Anomaly.Combo,
+				PulseWindowStartedAt = profile.Anomaly.PulseWindowStartedAt,
+				OverdriveTriggered = overdriveTriggered,
+			}
+	end
+
+	-- Applies pending Core XP, advancing CoreTier as many times as it now qualifies for (banking
+	-- a big XP gain can cross more than one tier at once). Returns the number of tiers gained,
+	-- so the caller can surface a "Core Tier up!" moment distinct from a routine stabilization.
+	-- AnomalyOpsMath.ApplyCoreXP tonumber-safes CoreXP (string fixtures used to concatenate).
+	local function applyCoreXP(profile, xp: number): number
+		return AnomalyOpsMath.ApplyCoreXP(profile.Anomaly, xp, GameConfig.Anomalies.CoreTiers)
+	end
+
+	function AnomalyService.Stabilize(profile): (boolean, string, any?)
+		AnomalyService.Ensure(profile)
+		local _, anomaly = currentCycle()
+		local target = AnomalyService.Target(profile)
+		if profile.Anomaly.Charge < target then
+			return false, string.format("The anomaly needs %.1f more charge.", target - profile.Anomaly.Charge)
+		end
+
+		local now = pulseNow()
+		profile.Anomaly.Charge = math.max(0, profile.Anomaly.Charge - target)
+		profile.Anomaly.Stabilizations += 1
+		profile.Anomaly.Discoveries[anomaly.Id] = (profile.Anomaly.Discoveries[anomaly.Id] or 0) + 1
+		bumpAnomalyStat(profile, "AnomalyStabilizations")
+		AnomalyService.Signal(profile, "Stabilize", 1)
+		local tiersGained = applyCoreXP(profile, GameConfig.Anomalies.CoreXPPerStabilization)
+		local overdriveTriggered = contributeOverdrive(GameConfig.Anomalies.OverdriveStabilizeContribution, now)
+
+		local level = profile.Anomaly.Stabilizations
+		local yield = rewardMultiplier(profile, anomaly)
+		local fragments = math.max(1, math.floor((4 + level * 0.72) * yield))
+		local reward = {
+			Stardust = math.max(1, math.floor((5 + level * 0.85) * yield)),
+			Signals = math.max(1, math.floor((4 + level * 0.55) * yield)),
+			CommandXP = math.max(10, math.floor((35 + level * 6) * yield)),
+			Cores = level % 5 == 0 and math.max(1, math.floor(level / 5)) or nil,
+		}
+		profile.Anomaly.Fragments = math.max(0, math.floor(tonumber(profile.Anomaly.Fragments) or 0)) + fragments
+		if profile.Anomaly.Fragments ~= profile.Anomaly.Fragments or profile.Anomaly.Fragments == math.huge then
+			profile.Anomaly.Fragments = 1e308
+		end
+		local rewardText = ProgressionService.ApplyReward(profile, reward, Economy.SteadyProduction(profile))
+		local message = string.format("%s stabilized: %d fragments, %s.", anomaly.Name, fragments, rewardText)
+		if tiersGained > 0 then
+			message = string.format("%s Core Tier %d reached!", message, profile.Anomaly.CoreTier)
+		end
+		return true,
+			message,
+			{
+				AnomalyId = anomaly.Id,
+				AnomalyName = anomaly.Name,
+				Fragments = fragments,
+				Stabilizations = level,
+				Reward = reward,
+				CoreTier = profile.Anomaly.CoreTier,
+				CoreXP = profile.Anomaly.CoreXP,
+				TiersGained = tiersGained,
+				OverdriveTriggered = overdriveTriggered,
+			}
+	end
+
+	function AnomalyService.ProtocolCost(protocol, level: number): number
+		return AnomalyOpsMath.ProtocolCost(protocol, level)
+	end
+
+	function AnomalyService.BuyProtocol(profile, protocolId: string): (boolean, string, any?)
+		AnomalyService.Ensure(profile)
+		local protocol = findProtocol(protocolId)
+		if not protocol then
+			return false, "That reactor upgrade was not found."
+		end
+		local anomaly = profile.Anomaly
+		local level = anomaly.Protocols[protocol.Id] or 0
+		if level >= protocol.MaxLevel then
+			return false, "That reactor upgrade is at max level."
+		end
+		local cost = AnomalyService.ProtocolCost(protocol, level)
+		if anomaly.Fragments < cost then
+			return false, string.format("Requires %d anomaly fragments.", cost)
+		end
+		anomaly.Fragments -= cost
+		anomaly.Protocols[protocol.Id] = level + 1
+		bumpAnomalyStat(profile, "AnomalyProtocols")
+		return true,
+			string.format("%s advanced to level %d.", protocol.Name, level + 1),
+			{
+				ProtocolId = protocol.Id,
+				ProtocolName = protocol.Name,
+				Level = level + 1,
+			}
+	end
+
+	function AnomalyService.ActivateSurge(profile): (boolean, string, any?)
+		AnomalyService.Ensure(profile)
+		local now = pulseNow()
+		local anomaly = profile.Anomaly
+		if anomaly.SurgeEndsAt > now then
+			return false, "Quantum Surge is already active."
+		end
+		local cost = GameConfig.Anomalies.SurgeCost
+		if anomaly.Fragments < cost then
+			return false, string.format("Requires %d anomaly fragments.", cost)
+		end
+		anomaly.Fragments -= cost
+		local duration = GameConfig.Anomalies.SurgeBaseSeconds + protocolEffect(profile, "SurgeDuration")
+		anomaly.SurgeEndsAt = now + duration
+		return true,
+			string.format("Surge on for %d seconds.", duration),
+			{
+				EndsAt = anomaly.SurgeEndsAt,
+				Duration = duration,
+			}
+	end
+
+	-- Overdrive Core: replaces the old single-Channel selection with a loadout of up to
+	-- LoadoutSlots channels active at once, each contributing its own EffectAmount (summed in
+	-- Economy.AnomalyEffect). Rejects unknown channel IDs and duplicate entries rather than
+	-- silently deduping/dropping them, so a malformed payload fails cleanly instead of quietly
+	-- saving a loadout the player didn't actually pick.
+	function AnomalyService.SetLoadout(profile, rawLoadout: any): (boolean, string, any?)
+		if type(rawLoadout) ~= "table" then
+			return false, "Invalid reactor loadout."
+		end
+		local slots = GameConfig.Anomalies.LoadoutSlots
+		if #rawLoadout > slots then
+			return false, string.format("You can only slot %d channels at once.", slots)
+		end
+		local seen = {}
+		local resolved = {}
+		for _, channelId in rawLoadout do
+			if type(channelId) ~= "string" then
+				return false, "Invalid reactor loadout."
+			end
+			local channel = GameConfig.Anomalies.Channels[channelId]
+			if not channel then
+				return false, "That channel doesn't exist."
+			end
+			if seen[channelId] then
+				return false, "Each channel can only be slotted once."
+			end
+			seen[channelId] = true
+			table.insert(resolved, channelId)
+		end
+		profile.Anomaly.Loadout = resolved
+		profile.Anomaly.Channel = resolved[1] or "Flux"
+		local label = #resolved == 0 and "cleared" or string.format("%d channel%s slotted", #resolved, #resolved == 1 and "" or "s")
+		return true, string.format("Reactor loadout %s.", label), { Loadout = resolved }
+	end
+
+	function AnomalyService.ClaimMilestone(profile, rawTier: any): (boolean, string, any?)
+		if type(rawTier) ~= "number" then
+			return false, "Invalid anomaly milestone."
+		end
+		local tier = math.floor(rawTier)
+		local milestone = GameConfig.Anomalies.Milestones[tier]
+		if not milestone or profile.Anomaly.Stabilizations < milestone.Required then
+			return false, "That anomaly milestone is still locked."
+		end
+		local key = tostring(tier)
+		if profile.Anomaly.MilestoneClaims[key] then
+			return false, "That anomaly milestone was already claimed."
+		end
+		profile.Anomaly.MilestoneClaims[key] = true
+		local rewardText = ProgressionService.ApplyReward(profile, milestone.Reward, Economy.SteadyProduction(profile))
+		return true,
+			string.format("Reactor mark %d: %s.", tier, rewardText),
+			{
+				Tier = tier,
+				Reward = milestone.Reward,
+			}
+	end
+
+	function AnomalyService.ClaimDirective(profile, directiveId: string): (boolean, string, any?)
+		AnomalyService.Ensure(profile)
+		local cycle = currentCycle()
+		local active = nil
+		for _, directive in activeDirectives(cycle) do
+			if directive.Definition.Id == directiveId then
+				active = directive
+				break
+			end
+		end
+		if not active then
+			return false, "That reactor job isn't active anymore."
+		end
+		local definition = active.Definition
+		if profile.Anomaly.DirectiveClaims[definition.Id] then
+			return false, "You already claimed that job."
+		end
+		local progress = profile.Anomaly.DirectiveProgress[definition.Id] or 0
+		if progress < active.Target then
+			return false, "That job isn't finished yet."
+		end
+		profile.Anomaly.DirectiveClaims[definition.Id] = true
+		profile.Anomaly.Fragments = math.max(0, math.floor(tonumber(profile.Anomaly.Fragments) or 0)) + math.max(0, math.floor(tonumber(definition.Fragments) or 0))
+		if profile.Anomaly.Fragments ~= profile.Anomaly.Fragments or profile.Anomaly.Fragments == math.huge then
+			profile.Anomaly.Fragments = 1e308
+		end
+		bumpAnomalyStat(profile, "AnomalyDirectives")
+		local rewardText = ProgressionService.ApplyReward(profile, definition.Reward, Economy.SteadyProduction(profile))
+		return true,
+			string.format("%s complete: %d fragments, %s.", definition.Name, definition.Fragments, rewardText),
+			{
+				DirectiveId = definition.Id,
+				DirectiveName = definition.Name,
+				Fragments = definition.Fragments,
+			}
+	end
+
+	function AnomalyService.State(profile)
+		AnomalyService.Ensure(profile)
+		local now = pulseNow()
+		local cycle, anomaly, endsAt = currentCycle(now)
+
+		local directiveCycleIsCurrent = profile.Anomaly.DirectiveCycle == cycle
+		local directiveProgress = directiveCycleIsCurrent and profile.Anomaly.DirectiveProgress or {}
+		local directiveClaims = directiveCycleIsCurrent and profile.Anomaly.DirectiveClaims or {}
+		local protocols = {}
+		local protocolLevels = 0
+		for _, protocol in GameConfig.Anomalies.Protocols do
+			local level = profile.Anomaly.Protocols[protocol.Id] or 0
+			protocolLevels += level
+			protocols[protocol.Id] = level
+		end
+		local discoveries = table.clone(profile.Anomaly.Discoveries)
+		local milestones = {}
+		local claimable = 0
+		for tier, milestone in GameConfig.Anomalies.Milestones do
+			local claimed = profile.Anomaly.MilestoneClaims[tostring(tier)] == true
+			if not claimed and profile.Anomaly.Stabilizations >= milestone.Required then
+				claimable += 1
+			end
+			milestones[tier] = {
+				Tier = tier,
+				Required = milestone.Required,
+				Reward = milestone.Reward,
+				Claimed = claimed,
+			}
+		end
+		local directives = {}
+		local claimableDirectives = 0
+		for slot, directive in activeDirectives(cycle) do
+			local definition = directive.Definition
+			local progress = math.min(directive.Target, directiveProgress[definition.Id] or 0)
+			local claimed = directiveClaims[definition.Id] == true
+			if not claimed and progress >= directive.Target then
+				claimableDirectives += 1
+			end
+			local reward = table.clone(definition.Reward)
+			reward.Fragments = definition.Fragments
+			directives[slot] = {
+				Id = definition.Id,
+				Name = definition.Name,
+				Description = definition.Description,
+				Kind = definition.Kind,
+				Target = directive.Target,
+				Progress = progress,
+				Claimed = claimed,
+				Reward = reward,
+				Color = definition.Color,
+			}
+		end
+		local target = AnomalyService.Target(profile)
+		local ready = profile.Anomaly.Charge >= target
+		local surgeActive = profile.Anomaly.SurgeEndsAt > now
+		local phase = if surgeActive
+			then (if ready then "SurgingReady" else "Surging")
+			elseif ready then "Ready"
+			else "Charging"
+
+		local coreTier = math.max(0, math.floor(tonumber(profile.Anomaly.CoreTier) or 0))
+		local coreXP = math.max(0, tonumber(profile.Anomaly.CoreXP) or 0)
+		local nextCoreTier = AnomalyOpsMath.NextCoreTier(coreTier, GameConfig.Anomalies.CoreTiers)
+		local loadout = type(profile.Anomaly.Loadout) == "table" and profile.Anomaly.Loadout or {}
+		if #loadout == 0 and profile.Anomaly.Channel and GameConfig.Anomalies.Channels[profile.Anomaly.Channel] then
+			loadout = { profile.Anomaly.Channel }
+		end
+
+		return {
+			Cycle = cycle,
+			TypeId = anomaly.Id,
+			EndsAt = endsAt,
+			Charge = profile.Anomaly.Charge,
+			Target = target,
+			Ready = ready,
+			Phase = phase,
+			Fragments = profile.Anomaly.Fragments,
+			Stabilizations = profile.Anomaly.Stabilizations,
+			SurgeEndsAt = profile.Anomaly.SurgeEndsAt,
+			Channel = profile.Anomaly.Channel,
+			Loadout = loadout,
+			LoadoutSlots = GameConfig.Anomalies.LoadoutSlots,
+			Protocols = protocols,
+			ProtocolLevels = protocolLevels,
+			Discoveries = discoveries,
+			Milestones = milestones,
+			ClaimableMilestones = claimable,
+			Directives = directives,
+			ClaimableDirectives = claimableDirectives,
+			ChargeMultiplier = anomaly.ChargeMultiplier * (1 + protocolEffect(profile, "ChargeGain")),
+			RewardMultiplier = rewardMultiplier(profile, anomaly),
+			-- Overdrive Core additions.
+			PulseWindowStartedAt = profile.Anomaly.PulseWindowStartedAt or 0,
+			PulseWindowSeconds = GameConfig.Anomalies.PulseWindowSeconds,
+			PulseWindowSweetZone = GameConfig.Anomalies.PulseWindowSweetZone,
+			Combo = profile.Anomaly.Combo or 0,
+			BestCombo = profile.Anomaly.BestCombo or 0,
+			ComboMax = GameConfig.Anomalies.PulseComboMax,
+			CoreTier = coreTier,
+			CoreXP = coreXP,
+			NextCoreTier = nextCoreTier,
+			Overdrive = AnomalyService.OverdriveState(now),
+		}
+	end
+
+	return table.freeze(AnomalyService)
+end
+end
+
+-- ======================================================================
+-- Module: ForgeEchoService   (merged from ForgeEchoService.luau, 239 lines)
+-- ======================================================================
+__defs["ForgeEchoService"] = function()
+
+return function()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
+	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
+
+	local ForgeEchoService = {}
+	local Config = GameConfig.ForgeEchoes
+
+	local traitById = {}
+	for _, trait in Config.Traits do
+		traitById[trait.Id] = trait
+	end
+
+	local patternAffinity = ForgeEchoMath.PATTERN_AFFINITY
+
+	local function ensure(profile)
+		-- Charge-only / Draft-less Studio fixtures must rebuild before Record/Capture.
+		profile.ForgeEchoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
+		return profile.ForgeEchoes
+	end
+
+	local function display(instance, uidOverride: string?)
+		local trait = traitById[instance.TraitId]
+		if not trait then return nil end
+		local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, Config.MaxLevel)
+		return {
+			Uid = tostring(uidOverride or instance.Uid or ""),
+			TraitId = trait.Id,
+			Name = trait.Name,
+			Description = trait.Description,
+			Affinity = trait.Affinity,
+			EffectKind = trait.EffectKind,
+			Level = level,
+			Strength = math.clamp(tonumber(instance.Strength) or 1, 0.75, 1.5),
+			EffectValue = ForgeEchoMath.EffectValue(instance, trait, Config.MaxLevel),
+			UpgradeCost = ForgeEchoMath.UpgradeCost(level, Config.MaxLevel, Config.UpgradeBaseDust, Config.UpgradeScale),
+			Color = trait.Color,
+			CapturedAt = math.max(0, math.floor(tonumber(instance.CapturedAt) or 0)),
+			Origin = tostring(instance.Origin or "Collect"),
+		}
+	end
+
+	function ForgeEchoService.Record(profile, patternId: string, weight: number): boolean
+		-- Same gate as the Echoes page. This used to compare this run's rebirths,
+		-- so echoes stopped charging after a domain expansion reset them to 0
+		-- while the page itself stayed open.
+		if not ProgressionGate.IsFeatureUnlocked(profile, "Echoes") then return false end
+		if not patternAffinity[patternId] then return false end
+		local echoes = ensure(profile)
+		if #(echoes.Draft.Choices) > 0 then return false end
+		local safeWeight = math.clamp(tonumber(weight) or 0, 0, 14)
+		if safeWeight <= 0 then return false end
+		echoes.Pattern[patternId] = math.min(1e9, (tonumber(echoes.Pattern[patternId]) or 0) + safeWeight)
+		echoes.Charge = math.min(Config.ChargeTarget, (tonumber(echoes.Charge) or 0) + safeWeight)
+		return true
+	end
+
+	function ForgeEchoService.Capture(profile, random: Random): (boolean, string, any?)
+		local echoes = ensure(profile)
+		if #(echoes.Draft.Choices) > 0 then return false, "Choose one of the echoes already waiting." end
+		if ForgeEchoMath.InventoryCount(echoes.Inventory) >= Config.InventoryLimit then return false, "Your echo vault is full. Dismantle one first." end
+		if (tonumber(echoes.Charge) or 0) < Config.ChargeTarget then return false, "The forge has not recorded a complete pattern yet." end
+		local origin, affinity = ForgeEchoMath.DominantPattern(echoes.Pattern, patternAffinity)
+		local pool = table.clone(Config.Traits)
+		local selected = {}
+		local used = {}
+		local preferred = {}
+		for _, trait in pool do if trait.Affinity == affinity then table.insert(preferred, trait) end end
+		local first = preferred[random:NextInteger(1, #preferred)]
+		table.insert(selected, first)
+		used[first.Id] = true
+		while #selected < 3 do
+			local candidate = pool[random:NextInteger(1, #pool)]
+			if not used[candidate.Id] then
+				used[candidate.Id] = true
+				table.insert(selected, candidate)
+			end
+		end
+		local qualityBonus = math.min(
+			Config.MaxResonanceQualityBonus,
+			math.sqrt(math.max(0, tonumber(echoes.Resonance) or 0)) * 0.006
+		)
+		local draftId = string.format("D%d_%d", os.time(), random:NextInteger(1000, 9999))
+		local choices = {}
+		for index, trait in selected do
+			local strength = math.clamp(0.9 + random:NextNumber() * 0.22 + qualityBonus, 0.9, 1.32)
+			choices[index] = {
+				Uid = draftId .. "_" .. tostring(index),
+				TraitId = trait.Id,
+				Level = 1,
+				Strength = strength,
+				CapturedAt = os.time(),
+				Origin = origin,
+			}
+		end
+		echoes.Draft = { Id = draftId, Choices = choices }
+		echoes.Charge = 0
+		echoes.Pattern = { Collect = 0, Surge = 0, Build = 0, Explore = 0 }
+		return true, "Three echoes answered your forge pattern.", { Origin = origin }
+	end
+
+	function ForgeEchoService.Claim(profile, choiceId: any): (boolean, string, any?)
+		if type(choiceId) ~= "string" then return false, "That echo is not part of this capture." end
+		local echoes = ensure(profile)
+		local picked = nil
+		for _, choice in echoes.Draft.Choices do
+			if choice.Uid == choiceId then picked = choice break end
+		end
+		if not picked or not traitById[picked.TraitId] then return false, "That echo is no longer available." end
+		if ForgeEchoMath.InventoryCount(echoes.Inventory) >= Config.InventoryLimit then return false, "Your echo vault is full." end
+		local uid = "E" .. tostring(math.max(1, math.floor(tonumber(echoes.NextId) or 1)))
+		echoes.NextId = math.max(1, math.floor(tonumber(echoes.NextId) or 1)) + 1
+		picked.Uid = uid
+		echoes.Inventory[uid] = picked
+		echoes.Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0)) + 1
+		echoes.Draft = { Id = "", Choices = {} }
+		local slots = ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots)
+		for slot = 1, slots do
+			local key = tostring(slot)
+			if not echoes.Equipped[key] or echoes.Equipped[key] == "" then
+				echoes.Equipped[key] = uid
+				break
+			end
+		end
+		local shown = display(picked)
+		return true, "Captured " .. (shown and shown.Name or "a forge echo") .. ".", { EchoUid = uid }
+	end
+
+	function ForgeEchoService.Equip(profile, uid: any, slot: any): (boolean, string)
+		if type(uid) ~= "string" or type(slot) ~= "number" or slot ~= math.floor(slot) then return false, "Choose a valid echo slot." end
+		local echoes = ensure(profile)
+		if not echoes.Inventory[uid] then return false, "That echo is not in your vault." end
+		if slot < 1 or slot > ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots) then
+			return false, "That echo slot has not stabilized yet."
+		end
+		for key, equippedUid in echoes.Equipped do if equippedUid == uid then echoes.Equipped[key] = "" end end
+		echoes.Equipped[tostring(slot)] = uid
+		return true, "Echo linked to slot " .. tostring(slot) .. "."
+	end
+
+	function ForgeEchoService.UpgradeCost(instance): number
+		return ForgeEchoMath.UpgradeCost(
+			instance and instance.Level,
+			Config.MaxLevel,
+			Config.UpgradeBaseDust,
+			Config.UpgradeScale
+		)
+	end
+
+	function ForgeEchoService.Upgrade(profile, uid: any): (boolean, string, any?)
+		if type(uid) ~= "string" then return false, "Choose an echo to tune." end
+		local echoes = ensure(profile)
+		local instance = echoes.Inventory[uid]
+		if not instance or not traitById[instance.TraitId] then return false, "That echo is not in your vault." end
+		local level = math.clamp(math.floor(tonumber(instance.Level) or 1), 1, Config.MaxLevel)
+		if level >= Config.MaxLevel then return false, "That echo is already perfectly tuned." end
+		local cost = ForgeEchoService.UpgradeCost(instance)
+		if Economy.Lt(profile.Stardust, cost) then return false, "You need more stardust to tune that echo." end
+		profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
+		instance.Level = level + 1
+		return true, "Echo tuned to level " .. tostring(instance.Level) .. ".", { Cost = cost, EchoUid = uid }
+	end
+
+	function ForgeEchoService.Dismantle(profile, uid: any): (boolean, string, any?)
+		if type(uid) ~= "string" then return false, "Choose an echo to dismantle." end
+		local echoes = ensure(profile)
+		local instance = echoes.Inventory[uid]
+		if not instance then return false, "That echo is not in your vault." end
+		for key, equippedUid in echoes.Equipped do if equippedUid == uid then echoes.Equipped[key] = "" end end
+		local level = math.max(1, math.floor(tonumber(instance.Level) or 1))
+		local gained = 5 + level * Config.ResonancePerDismantleLevel
+		echoes.Resonance = math.max(0, math.floor(tonumber(echoes.Resonance) or 0)) + gained
+		echoes.Inventory[uid] = nil
+		return true, "Echo returned " .. tostring(gained) .. " resonance.", { Resonance = gained }
+	end
+
+	function ForgeEchoService.State(profile)
+		local echoes = ensure(profile)
+		local inventory = {}
+		for uid, instance in echoes.Inventory do
+			local shown = display(instance, uid)
+			if shown then table.insert(inventory, shown) end
+		end
+		table.sort(inventory, function(a, b)
+			if a.Level == b.Level then return a.Uid < b.Uid end
+			return a.Level > b.Level
+		end)
+		local choices = {}
+		for index, choice in echoes.Draft.Choices do choices[index] = display(choice) end
+		local slots = ForgeEchoMath.UnlockedSlots(echoes.Captures, Config.SlotCaptureRequirements, Config.MaxSlots)
+		local equipped = {}
+		local affinities = {}
+		local equippedCount = 0
+		for slot = 1, Config.MaxSlots do
+			local uid = echoes.Equipped[tostring(slot)] or ""
+			local shown = uid ~= "" and echoes.Inventory[uid] and display(echoes.Inventory[uid], uid) or nil
+			equipped[slot] = { Slot = slot, Unlocked = slot <= slots, Echo = shown }
+			if shown and slot <= slots then
+				equippedCount += 1
+				affinities[shown.Affinity] = true
+			end
+		end
+		local affinityCount = 0
+		for _ in affinities do affinityCount += 1 end
+		local harmony = equippedCount >= 2 and affinityCount == equippedCount
+		local origin, _ = ForgeEchoMath.DominantPattern(echoes.Pattern, patternAffinity)
+		local nextRequirement = slots < Config.MaxSlots and Config.SlotCaptureRequirements[slots + 1] or nil
+		return {
+			Charge = math.clamp(tonumber(echoes.Charge) or 0, 0, Config.ChargeTarget),
+			ChargeTarget = Config.ChargeTarget,
+			Ready = (tonumber(echoes.Charge) or 0) >= Config.ChargeTarget,
+			Resonance = math.max(0, math.floor(tonumber(echoes.Resonance) or 0)),
+			Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0)),
+			InventoryLimit = Config.InventoryLimit,
+			MaxLevel = Config.MaxLevel,
+			SlotsUnlocked = slots,
+			NextSlotAt = nextRequirement,
+			Harmony = harmony,
+			HarmonyBonus = harmony and Config.HarmonyBonus or 0,
+			DominantPattern = origin,
+			Pattern = {
+				Collect = math.max(0, tonumber(echoes.Pattern.Collect) or 0),
+				Surge = math.max(0, tonumber(echoes.Pattern.Surge) or 0),
+				Build = math.max(0, tonumber(echoes.Pattern.Build) or 0),
+				Explore = math.max(0, tonumber(echoes.Pattern.Explore) or 0),
+			},
+			DraftId = tostring(echoes.Draft.Id or ""),
+			Choices = choices,
+			Inventory = inventory,
+			Equipped = equipped,
+		}
+	end
+
+	return table.freeze(ForgeEchoService)
+end
+end
+
+-- ======================================================================
+-- Module: GuildService   (merged from GuildService.luau, 700 lines)
+-- ======================================================================
+__defs["GuildService"] = function()
+
+return function()
+
+	local DataStoreService = game:GetService("DataStoreService")
+	local RunService = game:GetService("RunService")
+	local HttpService = game:GetService("HttpService")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
+	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
+	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildMath")
+	local GuildGoalMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildGoalMath")
+	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("OmegaMath")
+
+	local GuildService = {}
+	GuildService.__index = GuildService
+
+	local function finiteNonNegative(value): number
+		return GuildMath.FiniteNonNegative(value)
+	end
+
+	local function copy(value)
+		if type(value) ~= "table" then return value end
+		local result = {}
+		for key, child in value do result[key] = copy(child) end
+		return result
+	end
+
+	local function normalTag(tag: string): string
+		return string.upper(tag:gsub("%s+", ""))
+	end
+
+	-- Tiered upgrades via GuildMath: named Tiers then endless BaseCost/CostScale /
+	-- EffectPerLevel tail so pre-tier guild documents keep the same costs and bonuses.
+	local function upgradeCost(definition, level: number): number
+		return GuildMath.UpgradeCost(definition, level)
+	end
+
+	local function upgradeEffect(definition, level: number): number
+		return GuildMath.UpgradeEffect(definition, level)
+	end
+
+	--#region Guild Goal
+	-- A guild's rotating co-op objective. Stored on the guild document as `Goal`.
+	-- Guild documents that predate this field get one lazily via EnsureGoal
+	-- (GuildGoalMath) — an old guild simply rolls its first goal the next time
+	-- it is touched. Claimed/Contributors rebuilds must persist (EnsureGoal
+	-- returns true) so ClaimGoal deny paths no longer drop repaired bags.
+	local function goalTypeById(typeId: string)
+		return GuildGoalMath.GoalTypeById(GameConfig.Guild.Goal.Types, typeId)
+	end
+
+	local function ensureGoal(guild, now: number): boolean
+		return GuildGoalMath.EnsureGoal(guild, now, GameConfig.Guild.Goal)
+	end
+
+	local function advanceGoal(guild, userKey: string, metric: string, amount: number, now: number)
+		GuildGoalMath.AdvanceGoal(guild, userKey, metric, amount, now, GameConfig.Guild.Goal)
+	end
+	--#endregion
+
+	-- Bonus keys are owned by GuildMath so new categories stay a config-only change
+	-- (every key must still be one Economy already reads).
+	local function emptyBonuses()
+		return GuildMath.EmptyBonuses()
+	end
+
+	local function bonusesFromDocument(guild)
+		if not guild then
+			return emptyBonuses()
+		end
+		return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
+	end
+
+	function GuildService.new()
+		local self = setmetatable({}, GuildService)
+		self._cache = {}
+		self._cacheExpiry = {}
+		self._cachePruneAt = 0
+		self._studio = {}
+		self._store = DataStoreService:GetDataStore(ServerConfig.GuildStoreName)
+		self._leaderboard = DataStoreService:GetOrderedDataStore(ServerConfig.GuildLeaderboardStoreName)
+		self._leaderboardPending = {}
+		self._leaderboardBusy = {}
+		self._leaderboardCache = nil
+		self._leaderboardCacheExpires = 0
+		self._warmQueue = {}
+		self._warmQueued = {}
+		self._warmWorkers = 0
+		self._running = true
+		self._workers = {}
+		return self
+	end
+
+	function GuildService:_spawnWorker(callback)
+		if not self._running then return nil end
+		local token = {}
+		local worker = task.defer(function()
+			if self._running then callback() end
+			self._workers[token] = nil
+		end)
+		self._workers[token] = worker
+		return worker
+	end
+
+
+	function GuildService:_queueWarmRead(id: string)
+		if not self._running then return end
+		if self._cache[id] or self._studio[id] or self._warmQueued[id] then return end
+		self._warmQueued[id] = true
+		table.insert(self._warmQueue, id)
+		while self._warmWorkers < 2 and #self._warmQueue > 0 do
+			self._warmWorkers += 1
+			local worker = self:_spawnWorker(function()
+				local ok, err = pcall(function()
+					while self._running and #self._warmQueue > 0 do
+						local nextId = table.remove(self._warmQueue, 1)
+						if nextId then
+							local readOk, readErr = pcall(function()
+								self:_read(nextId)
+							end)
+							self._warmQueued[nextId] = nil
+							if readOk then
+								self._leaderboardCacheExpires = 0
+							else
+								warn(string.format("[WARN] [GUILD] warm read failed for %s — %s", tostring(nextId), tostring(readErr)))
+							end
+						end
+					end
+				end)
+				self._warmWorkers -= 1
+				if not ok then
+					warn(string.format("[WARN] [GUILD] warm worker crashed — %s", tostring(err)))
+				end
+			end)
+			if not worker then
+				self._warmWorkers -= 1
+			end
+		end
+	end
+
+
+	function GuildService:_queueLeaderboard(id: string, activity: number)
+		if not self._running then return end
+		self._leaderboardPending[id] = LeaderboardCodec.Encode(activity)
+		if self._leaderboardBusy[id] then return end
+		self._leaderboardBusy[id] = true
+		local worker = self:_spawnWorker(function()
+			local lastWarnAt = 0
+			local ok, err = pcall(function()
+				while self._running and self._leaderboardPending[id] ~= nil do
+					local encoded = self._leaderboardPending[id]
+					self._leaderboardPending[id] = nil
+					local wrote, writeErr = pcall(function()
+						self._leaderboard:SetAsync(id, encoded)
+					end)
+					if not wrote then
+						-- Keep the score queued. Dropping it here made a throttled write
+						-- disappear until some later activity change happened to retry it.
+						if self._leaderboardPending[id] == nil then
+							self._leaderboardPending[id] = encoded
+						end
+						local now = os.clock()
+						if now - lastWarnAt >= 30 then
+							lastWarnAt = now
+							warn(string.format("[WARN] [GUILD] leaderboard write failed for %s — %s", id, tostring(writeErr)))
+						end
+						task.wait(8)
+					end
+				end
+			end)
+			self._leaderboardBusy[id] = nil
+			if not ok then
+				warn(string.format("[WARN] [GUILD] leaderboard worker crashed for %s — %s", tostring(id), tostring(err)))
+			end
+		end)
+		if not worker then
+			self._leaderboardBusy[id] = nil
+		end
+	end
+
+	function GuildService:Destroy()
+		if not self._running then return end
+		self._running = false
+		for _, worker in self._workers do
+			pcall(task.cancel, worker)
+		end
+		table.clear(self._workers)
+		table.clear(self._warmQueue)
+		table.clear(self._warmQueued)
+		table.clear(self._leaderboardPending)
+		table.clear(self._leaderboardBusy)
+		self._warmWorkers = 0
+	end
+
+	function GuildService:_pruneCache()
+		local now = os.clock()
+		if now < self._cachePruneAt then return end
+		self._cachePruneAt = now + 30
+		for id, expiresAt in self._cacheExpiry do
+			if type(expiresAt) ~= "number" or expiresAt <= now then
+				self._cacheExpiry[id] = nil
+				self._cache[id] = nil
+			end
+		end
+	end
+
+	function GuildService:_read(id: string)
+		self:_pruneCache()
+		if RunService:IsStudio() and self._studio[id] then return copy(self._studio[id]) end
+		local cached = self._cache[id]
+		if cached and (self._cacheExpiry[id] or 0) > os.clock() then return copy(cached) end
+		local ok, result = pcall(function() return self._store:GetAsync(id) end)
+		if ok and type(result) == "table" then
+			self._cache[id] = result
+			self._cacheExpiry[id] = os.clock() + 60
+			return copy(result)
+		end
+
+		if cached then return copy(cached) end
+		return nil
+	end
+
+	function GuildService:_update(id: string, transform)
+		local updated
+		local function apply(current)
+			local doc = type(current) == "table" and current or self._studio[id] or self._cache[id]
+			if type(doc) ~= "table" then return nil end
+			local nextDoc = transform(copy(doc))
+
+			if nextDoc == nil then
+				updated = nil
+				return doc
+			end
+			updated = nextDoc
+			return nextDoc
+		end
+		local ok, err = pcall(function()
+			return self._store:UpdateAsync(id, apply)
+		end)
+		if not ok then
+
+			if not RunService:IsStudio() then
+				return false, tostring(err), nil
+			end
+			local fallback = self._studio[id] or self._cache[id]
+			if type(fallback) == "table" then
+				updated = transform(copy(fallback))
+				if type(updated) == "table" then
+					self._studio[id] = updated
+				end
+			else
+				return false, tostring(err), nil
+			end
+		end
+		if type(updated) ~= "table" then return false, "Guild request was denied.", nil end
+		self._cache[id] = updated
+		self._cacheExpiry[id] = os.clock() + 60
+		if RunService:IsStudio() then self._studio[id] = updated end
+		self:_queueLeaderboard(id, updated.Activity)
+		return true, nil, copy(updated)
+	end
+
+	function GuildService:_findByTag(tag: string)
+		self:_pruneCache()
+		local wanted = normalTag(tag)
+		for _, doc in self._cache do
+			if doc.Tag == wanted then return copy(doc) end
+		end
+		for _, doc in self._studio do
+			if doc.Tag == wanted then return copy(doc) end
+		end
+
+		local ok, id = pcall(function() return self._store:GetAsync("tag:" .. wanted) end)
+		if ok and type(id) == "string" then return self:_read(id) end
+		return nil
+	end
+
+	function GuildService:Create(player, profile, rawName: string, rawTag: string)
+		if type(rawName) ~= "string" or type(rawTag) ~= "string" then return false, "Guild names must be 3–28 letters, numbers, spaces, - or _." end
+		if profile.Guild and profile.Guild.Id ~= "" then
+			local existing = self:GetCachedPublic(profile.Guild.Id) or self:GetPublic(profile.Guild.Id)
+			if existing then return true, "You're already in this guild.", existing end
+			return false, "Leave your current guild first."
+		end
+		local name = rawName:gsub("^%s+", ""):gsub("%s+$", "")
+		local tag = normalTag(rawTag)
+		if #name < 3 or #name > 28 or not string.match(name, "^[%w%s%-_]+$") then return false, "Guild names must be 3–28 letters, numbers, spaces, - or _." end
+		if #tag < 3 or #tag > 4 or not string.match(tag, "^[A-Z0-9]+$") then return false, "Guild tags must be 3–4 letters or numbers." end
+		if OmegaMath.Lt(profile.Cash, GameConfig.Guild.CreateCost) then return false, "You need more flux to charter a guild." end
+		if self:_findByTag(tag) then return false, "That guild tag is already in use." end
+		local id = HttpService:GenerateGUID(false)
+		local doc = {
+			Id = id, Name = name, Tag = tag, Level = 1, XP = 0, Activity = 0, BankCash = 0, BankDust = 0,
+			Members = { [tostring(player.UserId)] = { Name = (player.DisplayName ~= "" and player.DisplayName) or player.Name, Role = "Leader", JoinedAt = os.time(), Contributed = 0 } },
+			Upgrades = {}, CreatedAt = os.time(), OwnerUserId = player.UserId,
+		}
+		ensureGoal(doc, os.time())
+		local documentCreated = false
+		local tagClaimed = false
+		local ok, err = pcall(function()
+			self._store:UpdateAsync(id, function(existing)
+				documentCreated = false
+				if existing ~= nil then return existing end
+				documentCreated = true
+				return doc
+			end)
+			if not documentCreated then error("generated guild id already exists") end
+			self._store:UpdateAsync("tag:" .. tag, function(existing)
+				tagClaimed = false
+				if existing == nil or existing == id then
+					tagClaimed = true
+					return id
+				end
+				return existing
+			end)
+		end)
+		if not ok then
+			warn(string.format("[WARN] [GUILD] create failed for %s — %s", player.Name, tostring(err)))
+		end
+		if not RunService:IsStudio() and (not ok or not documentCreated or not tagClaimed) then
+
+			if documentCreated and not tagClaimed then
+				local removed, removeErr = pcall(function() self._store:RemoveAsync(id) end)
+				if not removed then
+					warn(string.format("[WARN] [GUILD] could not roll back guild %s — %s", id, tostring(removeErr)))
+				end
+			end
+			if not ok then return false, "Guild records are unavailable. Try again shortly." end
+			return false, "That guild tag is already in use."
+		end
+		self._cache[id] = doc
+		if RunService:IsStudio() then self._studio[id] = doc end
+		self._cacheExpiry[id] = os.clock() + 60
+		profile.Cash = OmegaMath.Sub(profile.Cash, GameConfig.Guild.CreateCost)
+		profile.Guild = { Id = id, Role = "Leader", JoinedAt = os.time(), Tag = tag }
+		return true, "Guild Hall chartered.", copy(doc)
+	end
+
+	function GuildService:JoinByTag(player, profile, rawTag: string)
+		if type(rawTag) ~= "string" then return false, "No guild has that tag." end
+		if profile.Guild and profile.Guild.Id ~= "" then
+			local existing = self:GetCachedPublic(profile.Guild.Id) or self:GetPublic(profile.Guild.Id)
+			if existing then return true, "You're already in this guild.", existing end
+			return false, "Leave your current guild first."
+		end
+		local doc = self:_findByTag(rawTag)
+		if not doc then return false, "No guild has that tag." end
+		-- UpdateAsync transform returning nil is a generic denial; track fullness so the
+		-- player sees "full" instead of "Guild request was denied."
+		local blockedFull = false
+		local ok, message, updated = self:_update(doc.Id, function(guild)
+			blockedFull = false
+			local key = tostring(player.UserId)
+			if guild.Members[key] then return guild end
+			local count = 0; for _ in guild.Members do count += 1 end
+			if count >= GameConfig.Guild.MaxMembers then
+				blockedFull = true
+				return nil
+			end
+			guild.Members[key] = { Name = (player.DisplayName ~= "" and player.DisplayName) or player.Name, Role = "Member", JoinedAt = os.time(), Contributed = 0 }
+			return guild
+		end)
+		if not ok then
+			if blockedFull then return false, "That guild is full." end
+			return false, message
+		end
+		local membership = updated.Members[tostring(player.UserId)]
+		if not membership then return false, "That guild is full." end
+		profile.Guild = { Id = updated.Id, Role = membership.Role or "Member", JoinedAt = os.time(), Tag = updated.Tag }
+		return true, "Joined " .. updated.Name .. ".", updated
+	end
+
+	function GuildService:Leave(player, profile)
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		if guildId == "" then return false, "You are not in a guild." end
+		local blockedLastMember = false
+		local ok, message, updated = self:_update(guildId, function(guild)
+			blockedLastMember = false
+			local key = tostring(player.UserId)
+			local member = guild.Members[key]
+			if not member then return guild end
+			local otherCount = 0
+			for otherKey in guild.Members do
+				if otherKey ~= key then otherCount += 1 end
+			end
+			if otherCount == 0 then
+				blockedLastMember = true
+				return nil
+			end
+			if member.Role == "Leader" then
+				local successor
+				for otherKey, other in guild.Members do if otherKey ~= key then successor = otherKey; break end end
+				if successor then
+					guild.Members[successor].Role = "Leader"
+					guild.OwnerUserId = tonumber(successor) or 0
+				end
+			end
+			guild.Members[key] = nil
+			return guild
+		end)
+		if not ok then
+			if blockedLastMember then return false, "You're the last member — disband the guild instead of leaving." end
+			return false, message
+		end
+		profile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+		profile.GuildBonuses = emptyBonuses()
+		return true, "Left the guild.", { Id = "", Name = "", Tag = "", Level = 0, XP = 0, Activity = 0, BankCash = 0, BankDust = 0, Members = {}, Upgrades = {}, CreatedAt = 0, OwnerUserId = 0 }
+	end
+
+	-- Leave() refuses to let the last member walk away (there is no invite system, only
+	-- join-by-tag, so without this a solo founder had no way out of their own guild once no
+	-- one else had joined). Disband permanently deletes the guild document and frees its tag
+	-- for reuse; only the Leader can call it, and only once they are the only member left, so a
+	-- leader can never nuke a guild other players are still invested in without emptying it
+	-- via Kick/Leave first.
+	function GuildService:Disband(player, profile)
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		if guildId == "" then return false, "You are not in a guild." end
+		-- Re-read from the store (not the 60s cache) so a member who joined a moment ago blocks the delete.
+		self._cache[guildId] = nil
+		self._cacheExpiry[guildId] = nil
+		local guild = self:_read(guildId)
+		if not guild then return false, "Guild records are unavailable." end
+		local key = tostring(player.UserId)
+		local member = guild.Members[key]
+		if not member or member.Role ~= "Leader" then return false, "Only the guild leader can disband it." end
+		local memberCount = 0
+		for _ in guild.Members do memberCount += 1 end
+		if memberCount > 1 then return false, "Remove every other member before disbanding." end
+		local tag = guild.Tag
+		local removedDoc, removeErr = pcall(function() self._store:RemoveAsync(guildId) end)
+		if not removedDoc and not RunService:IsStudio() then
+			warn(string.format("[WARN] [GUILD] disband could not delete %s — %s", guildId, tostring(removeErr)))
+			return false, "Guild records are unavailable. Try again shortly."
+		end
+		if removedDoc then
+			-- UpdateAsync returning nil cancels the write, so the reservation must be removed
+			-- explicitly, and only if it still points at this guild (re-read fresh first).
+			local released, releaseErr = pcall(function()
+				if self._store:GetAsync("tag:" .. tag) == guildId then
+					self._store:RemoveAsync("tag:" .. tag)
+				end
+			end)
+			if not released then
+				warn(string.format("[WARN] [GUILD] disband deleted %s but the tag %s is still reserved — %s", guildId, tostring(tag), tostring(releaseErr)))
+				if not RunService:IsStudio() then
+					return false, "Guild records are unavailable. Try again shortly."
+				end
+			end
+		end
+		self._cache[guildId] = nil
+		self._cacheExpiry[guildId] = nil
+		if RunService:IsStudio() then self._studio[guildId] = nil end
+		profile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+		profile.GuildBonuses = emptyBonuses()
+		return true, "Guild disbanded.", { Id = "", Name = "", Tag = "", Level = 0, XP = 0, Activity = 0, BankCash = 0, BankDust = 0, Members = {}, Upgrades = {}, CreatedAt = 0, OwnerUserId = 0 }
+	end
+
+	function GuildService:Kick(player, profile, targetUserId: number)
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		local ok, message, updated = self:_update(guildId, function(guild)
+			local actor, target = guild.Members[tostring(player.UserId)], guild.Members[tostring(targetUserId)]
+			if not actor or not target or (actor.Role ~= "Leader" and actor.Role ~= "Officer") or target.Role == "Leader" then return nil end
+			if actor.Role == "Officer" and target.Role == "Officer" then return nil end
+			guild.Members[tostring(targetUserId)] = nil
+			return guild
+		end)
+		return ok, ok and "Member removed." or (message or "You cannot remove that member."), updated
+	end
+
+	function GuildService:SetRole(player, profile, targetUserId: number, role: string)
+		if role ~= "Officer" and role ~= "Member" then return false, "Invalid guild role." end
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		local ok, message, updated = self:_update(guildId, function(guild)
+			local actor, target = guild.Members[tostring(player.UserId)], guild.Members[tostring(targetUserId)]
+			if not actor or actor.Role ~= "Leader" or not target or target.Role == "Leader" then return nil end
+			target.Role = role
+			return guild
+		end)
+		return ok, ok and "Role updated." or (message or "Only the leader can set roles."), updated
+	end
+
+	function GuildService:ContributeBank(player, profile, amount: number, currency: string)
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		if guildId == "" then return false, "Join a guild before contributing." end
+		local normalized, amountError = GuildMath.NormalizeContributionAmount(amount)
+		if not normalized then
+			return false, amountError or "Pick a positive contribution amount."
+		end
+		amount = normalized
+		if currency ~= "Cash" and currency ~= "Dust" then
+			return false, "Contribute flux or dust."
+		end
+		if currency == "Cash" then
+			-- Cash can be an OmegaMath string at high exponents — never use raw `<` / `-=`.
+			if OmegaMath.Lt(profile.Cash, amount) then
+				return false, "You do not have enough currency."
+			end
+		else
+			if (tonumber(profile.Stardust) or 0) < amount then
+				return false, "You do not have enough currency."
+			end
+		end
+
+		local ok, message, updated = self:_update(guildId, function(guild)
+			local member = guild.Members[tostring(player.UserId)]
+			if not member then return nil end
+			local bankKey = currency == "Cash" and "BankCash" or "BankDust"
+			guild[bankKey] = GuildMath.CreditBank(OmegaMath, currency, guild[bankKey], amount)
+			guild.Activity = GuildMath.AddClamped(guild.Activity, amount)
+			member.Contributed = GuildMath.AddClamped(member.Contributed, amount)
+			if member.Name == nil or member.Name == "" then
+				member.Name = (player.DisplayName ~= "" and player.DisplayName) or player.Name
+			end
+			advanceGoal(
+				guild,
+				tostring(player.UserId),
+				currency == "Cash" and "ContributeCash" or "ContributeDust",
+				amount,
+				os.time()
+			)
+			return guild
+		end)
+		if not ok then return false, message or "You are not in that guild.", updated end
+		if currency == "Cash" then
+			profile.Cash = OmegaMath.Sub(profile.Cash, amount)
+		else
+			profile.Stardust -= amount
+		end
+		return true, "Contribution deposited.", updated
+	end
+
+	function GuildService:BuyUpgrade(player, profile, upgradeId: string)
+		local definition = GameConfig.Guild.Upgrades[upgradeId]
+		if not definition then return false, "Unknown guild upgrade." end
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		if guildId == "" then return false, "Join a guild first." end
+		local guild = self:_read(guildId)
+		if not guild then return false, "Guild records are unavailable." end
+		local member = guild.Members[tostring(player.UserId)]
+		if not member or (member.Role ~= "Leader" and member.Role ~= "Officer") then
+			return false, "Only leaders and officers can buy hall upgrades."
+		end
+		local level = guild.Upgrades[upgradeId] or 0
+		if level >= definition.MaxLevel then return false, "That upgrade is already maxed." end
+		local cost = upgradeCost(definition, level)
+		local bankKey = definition.Currency == "Cash" and "BankCash" or "BankDust"
+		local bank = guild[bankKey] or 0
+		if not GuildMath.CanAffordBank(OmegaMath, definition.Currency, bank, cost) then
+			local label = definition.Currency == "Cash" and "flux" or "dust"
+			local haveLabel = if definition.Currency == "Cash"
+				then tostring(bank)
+				else tostring(math.floor(tonumber(bank) or 0))
+			return false, string.format("Need %d %s in the guild bank (have %s). Contribute first.", cost, label, haveLabel)
+		end
+		local ok, message, updated = self:_update(guildId, function(current)
+			local actor = current.Members[tostring(player.UserId)]
+			if not actor or (actor.Role ~= "Leader" and actor.Role ~= "Officer") then return nil end
+			local nextLevel = current.Upgrades[upgradeId] or 0
+			if nextLevel >= definition.MaxLevel then return nil end
+			local nextCost = upgradeCost(definition, nextLevel)
+			local nextBank = GuildMath.DebitBank(OmegaMath, definition.Currency, current[bankKey], nextCost)
+			if nextBank == nil then return nil end
+			current[bankKey] = nextBank
+			current.Upgrades[upgradeId] = nextLevel + 1
+			current.Activity = GuildMath.AddClamped(current.Activity, nextCost)
+			advanceGoal(current, tostring(player.UserId), "Upgrades", 1, os.time())
+			return current
+		end)
+		return ok, ok and "Guild upgrade installed." or (message or "Could not buy that upgrade."), updated
+	end
+
+	-- Marks this member as having claimed the completed goal and reports back which reward
+	-- table the caller should apply. The reward itself is looked up from GameConfig by the
+	-- caller, never taken from the client, and the Claimed flag is set inside the UpdateAsync
+	-- transform so a double-claim cannot slip through a retry or a second server.
+	function GuildService:ClaimGoal(player, profile)
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		if guildId == "" then return false, "Join a guild first." end
+		local userKey = tostring(player.UserId)
+		local failure = nil
+		local rewardTypeId = nil
+		local ok, message, updated = self:_update(guildId, function(guild)
+			failure = nil
+			rewardTypeId = nil
+			local now = os.time()
+			-- Persist Claimed/Contributors rebuilds even when the claim is denied
+			-- (evidence: TypeId-matched bags with nil Claimed used to rebuild then
+			-- return nil on "not finished", dropping the repair from UpdateAsync).
+			local repaired = ensureGoal(guild, now)
+			local goal = guild.Goal
+			local canClaim, claimError = GuildGoalMath.CanClaimGoal(
+				goal,
+				userKey,
+				guild.Members[userKey] ~= nil,
+				GameConfig.Guild.Goal.MinContributionForReward
+			)
+			if not canClaim then
+				failure = claimError
+				return if repaired then guild else nil
+			end
+			goal.Claimed[userKey] = true
+			rewardTypeId = goal.TypeId
+			return guild
+		end)
+		if not ok then return false, failure or message or "Could not claim the guild goal." end
+		-- Deny path may still persist Claimed/Contributors repairs (ok=true, failure set).
+		if failure then return false, failure, updated end
+		local definition = rewardTypeId and goalTypeById(rewardTypeId) or nil
+		if not definition then return false, "That guild goal is no longer available." end
+		return true, "Guild goal reward claimed.", updated, definition.Reward
+	end
+
+	function GuildService:GetPublic(guildId: string)
+		if guildId == "" then return nil end
+		local doc = self:_read(guildId)
+		if not doc then return nil end
+		-- Normalizes the returned copy only. Legacy guilds therefore render a live goal
+		-- immediately; it is persisted the next time the document is actually written.
+		ensureGoal(doc, os.time())
+		return doc
+	end
+
+
+	function GuildService:GetCachedPublic(guildId: string)
+		if guildId == "" then return nil end
+		local doc = self._cache[guildId] or (RunService:IsStudio() and self._studio[guildId] or nil)
+		if type(doc) ~= "table" then
+			doc = self:_read(guildId)
+		end
+		if type(doc) ~= "table" then return nil end
+		local result = copy(doc)
+		ensureGoal(result, os.time())
+		return result
+	end
+
+	function GuildService:GetLeaderboard(page: number)
+		if self._leaderboardCache and self._leaderboardCacheExpires > os.clock() then
+			return copy(self._leaderboardCache)
+		end
+		local entries = {}
+		local hasPlaceholders = false
+		local ok, pages = pcall(function() return self._leaderboard:GetSortedAsync(false, 20, nil, nil) end)
+		if ok and pages then
+			for _, row in pages:GetCurrentPage() do
+				local doc = self._cache[row.key] or self._studio[row.key]
+				if doc then
+					table.insert(entries, { Id = doc.Id, Name = doc.Name, Tag = doc.Tag, Activity = LeaderboardCodec.Decode(row.value), Level = doc.Level })
+				else
+					hasPlaceholders = true
+					self:_queueWarmRead(row.key)
+					table.insert(entries, { Id = row.key, Name = "Uncharted Guild", Tag = "...", Activity = LeaderboardCodec.Decode(row.value), Level = 0 })
+				end
+			end
+		end
+		if #entries == 0 then
+			for _, doc in self._cache do table.insert(entries, { Id = doc.Id, Name = doc.Name, Tag = doc.Tag, Activity = doc.Activity, Level = doc.Level }) end
+			table.sort(entries, function(a, b) return a.Activity > b.Activity end)
+		end
+		self._leaderboardCache = copy(entries)
+		self._leaderboardCacheExpires = os.clock() + (hasPlaceholders and 3 or 15)
+		return copy(entries)
+	end
+
+	function GuildService:GetBonuses(guildId: string)
+		return bonusesFromDocument(self:GetPublic(guildId))
+	end
+
+	function GuildService:GetCachedBonuses(guildId: string)
+		return bonusesFromDocument(self:GetCachedPublic(guildId))
+	end
+
+
+	function GuildService:ReconcileMembership(profile, userId: number): boolean
+		local membership = profile.Guild
+		local guildId = membership and membership.Id or ""
+		if guildId == "" then
+			profile.GuildBonuses = emptyBonuses()
+			return false
+		end
+		local guild = self:_read(guildId)
+		if not guild then return false end
+		local member = guild.Members[tostring(userId)]
+		if not member then
+			profile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+			profile.GuildBonuses = emptyBonuses()
+			return true
+		end
+		local changed = membership.Role ~= member.Role or membership.Tag ~= guild.Tag
+		membership.Role = member.Role
+		membership.Tag = guild.Tag
+		profile.GuildBonuses = bonusesFromDocument(guild)
+		return changed
+	end
+
+	return GuildService
+end
+end
+
+-- ======================================================================
+-- Module: LabService   (merged from LabService.luau, 212 lines)
+-- ======================================================================
+__defs["LabService"] = function()
+
+return function()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
+	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+
+	local LabService = {}
+
+	local orderById = {}
+	for _, order in GameConfig.Lab.Orders do
+		orderById[order.Id] = order
+	end
+
+	local channelOrder = LabOrderMath.CHANNEL_ORDER
+
+	local function utcDay(): number
+		return math.floor(os.time() / 86_400)
+	end
+
+	local function ensureLab(profile)
+		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
+		return profile.Lab
+	end
+
+	local function totalCells(profile): number
+		return LabOrderMath.TotalCells(
+			profile.Rebirths,
+			GameConfig.Lab.Power.BaseCells,
+			GameConfig.Lab.Power.RebirthsPerCell,
+			GameConfig.Lab.Power.MaxCells
+		)
+	end
+
+	local function normalizeRouting(profile): boolean
+		local lab = ensureLab(profile)
+		return LabOrderMath.NormalizeRouting(lab.Routing, channelOrder, totalCells(profile))
+	end
+
+	local function orderTarget(profile, order): number
+		local bankFluxTarget = nil
+		if order.Kind == "BankFlux" then
+			-- Size bank targets from SteadyProduction so Flux Surge / ActiveBoost / Anomaly Surge
+			-- cannot inflate lab targets mid-shift the way they must not inflate vault capacity.
+			local steady = Economy.SteadyProduction(profile)
+			bankFluxTarget = Economy.AsNumber(Economy.Mul(steady, order.ProductionSeconds))
+		end
+		return LabOrderMath.OrderTarget(order, math.max(0, profile.Rebirths), bankFluxTarget)
+	end
+
+	local function rollOrders(profile, day: number, userId: number)
+		local available = table.create(#GameConfig.Lab.Orders)
+		for index, definition in GameConfig.Lab.Orders do
+			if definition.Kind ~= "UnlockWorld" or profile.Zone < GameConfig.MaxZone then
+				table.insert(available, index)
+			end
+		end
+		local seed = math.abs((day * 48_271 + userId * 69_621 + 17) % 2_147_483_647)
+		local random = Random.new(seed)
+		local rolled = {}
+		for slot = 1, math.min(GameConfig.Lab.OrderCount, #available) do
+			local pick = random:NextInteger(1, #available)
+			local definition = GameConfig.Lab.Orders[available[pick]]
+			table.remove(available, pick)
+			rolled[slot] = {
+				Id = definition.Id,
+				Progress = 0,
+				Target = orderTarget(profile, definition),
+				Claimed = false,
+			}
+		end
+		profile.Lab.Day = day
+		profile.Lab.Orders = rolled
+	end
+
+	function LabService.Ensure(profile, userId: number): boolean
+		local lab = ensureLab(profile)
+		local changed = normalizeRouting(profile)
+		local day = utcDay()
+		if lab.Day ~= day then
+			rollOrders(profile, day, userId)
+			changed = true
+		else
+			local seen = {}
+			local count = 0
+			for index, state in lab.Orders do
+				count += 1
+				if
+					type(index) ~= "number"
+					or index ~= math.floor(index)
+					or index < 1
+					or index > GameConfig.Lab.OrderCount
+					or type(state) ~= "table"
+					or not orderById[state.Id]
+					or seen[state.Id]
+				then
+					rollOrders(profile, day, userId)
+					changed = true
+					break
+				end
+				seen[state.Id] = true
+			end
+			if count ~= GameConfig.Lab.OrderCount then
+				rollOrders(profile, day, userId)
+				changed = true
+			end
+		end
+		return changed
+	end
+
+	function LabService.Progress(profile, kind: string, amount: number): boolean
+		local lab = ensureLab(profile)
+		return LabOrderMath.ApplyProgress(lab.Orders, orderById, kind, amount)
+	end
+
+	function LabService.ClaimOrder(profile, orderId: string)
+		local lab = ensureLab(profile)
+		local orders = lab.Orders
+		if type(orders) ~= "table" then
+			return false, "That order is no longer on the board.", nil
+		end
+		local ok, message, reward = LabOrderMath.TryClaim(orders, orderById, orderId)
+		if ok then
+			-- Partial / mid-sanitize fixtures may lack Stats; don't throw on claim.
+			if type(profile.Stats) ~= "table" then
+				profile.Stats = { OrdersCompleted = 0 }
+			end
+			profile.Stats.OrdersCompleted =
+				math.max(0, math.floor(tonumber(profile.Stats.OrdersCompleted) or 0)) + 1
+		end
+		return ok, message, reward
+	end
+
+	function LabService.RoutePower(profile, channelId: string, delta: number)
+		if not GameConfig.Lab.Power.Channels[channelId] then
+			return false, "That power rail does not exist."
+		end
+		if delta ~= -1 and delta ~= 1 then
+			return false, "Move one cell at a time."
+		end
+		local lab = ensureLab(profile)
+		normalizeRouting(profile)
+		local total = totalCells(profile)
+		local used = 0
+		for _, id in channelOrder do
+			used += lab.Routing[id]
+		end
+		local current = lab.Routing[channelId]
+		if delta > 0 and used >= total then
+			return false, "All cells are already assigned. Free one first."
+		end
+		if delta < 0 and current <= 0 then
+			return false, "That rail is already empty."
+		end
+		lab.Routing[channelId] = current + delta
+		-- Partial Stats bags (same class as ClaimOrder) must not crash power routing.
+		if type(profile.Stats) ~= "table" then
+			profile.Stats = { PowerMoves = 0 }
+		end
+		profile.Stats.PowerMoves = math.max(0, math.floor(tonumber(profile.Stats.PowerMoves) or 0)) + 1
+		return true, delta > 0 and "Power cell assigned." or "Power cell returned."
+	end
+
+	function LabService.PowerEffect(profile, channelId: string): number
+		local channel = GameConfig.Lab.Power.Channels[channelId]
+		if not channel then
+			return 0
+		end
+		local lab = ensureLab(profile)
+		return math.max(0, lab.Routing[channelId] or 0) * channel.EffectPerCell
+	end
+
+	function LabService.State(profile)
+		local lab = ensureLab(profile)
+		local total = totalCells(profile)
+		local used = 0
+		local routing = {}
+		local effects = {}
+		for _, channelId in channelOrder do
+			local raw = lab.Routing[channelId]
+			local value = if type(raw) == "number" and raw == raw and raw ~= math.huge and raw ~= -math.huge
+				then math.clamp(math.floor(raw), 0, math.max(0, total - used))
+				else 0
+			routing[channelId] = value
+			local channel = GameConfig.Lab.Power.Channels[channelId]
+			effects[channelId] = if channel then value * channel.EffectPerCell else 0
+			used += value
+		end
+		local orders = table.create(#lab.Orders)
+		for index, state in lab.Orders do
+			orders[index] = {
+				Id = state.Id,
+				Progress = state.Progress,
+				Target = state.Target,
+				Claimed = state.Claimed,
+			}
+		end
+		return {
+			Day = lab.Day,
+			ResetAt = (utcDay() + 1) * 86_400,
+			Orders = orders,
+			Routing = routing,
+			Effects = effects,
+			TotalCells = total,
+			AvailableCells = math.max(0, total - used),
+		}
+	end
+
+	return table.freeze(LabService)
+end
+end
+
+-- ======================================================================
+-- Module: ProgressionService   (merged from ProgressionService.luau, 890 lines)
+-- ======================================================================
+__defs["ProgressionService"] = function()
+
+return function()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
+	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
+	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local ProgressionOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionOpsMath")
+	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UtcClockMath")
+
+	local ProgressionService = {}
+
+	local function currentDay(): number
+		return UtcClockMath.Day(os.time())
+	end
+
+	local function currentWeek(): number
+		return UtcClockMath.Week(os.time())
+	end
+
+	local function copyReward(reward)
+		return table.clone(reward)
+	end
+
+	local function commanderLevel(xp: number): number
+		return CommandMath.Level(xp, GameConfig.Operations.MaxCommanderLevel)
+	end
+
+	local function commanderFloorXP(level: number): number
+		return CommandMath.FloorXP(level)
+	end
+
+	local function commanderNextXP(level: number): number
+		return CommandMath.NextXP(level, GameConfig.Operations.MaxCommanderLevel)
+	end
+
+	local function commanderRank(level: number): string
+		return CommandMath.Rank(level)
+	end
+
+	local function ensureCommand(profile)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		return profile.Command
+	end
+
+	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — weekly /
+	-- expedition / season / signal-shop claim paths must not throw before rewards apply.
+	local function ensureStats(profile)
+		return ProfileBagMath.EnsureStats(profile)
+	end
+
+	local function bumpStat(profile, key: string, amount: number?)
+		return ProfileBagMath.BumpStat(profile, key, amount)
+	end
+
+	-- WeeklyRelics (and similar) grant Keys tables — ApplyReward must not throw when
+	-- Items / Items.Keys are absent on Studio fixtures before the Claimed flag sticks.
+	local function ensureItemKeys(profile)
+		return ProfileBagMath.EnsureItemKeys(profile)
+	end
+
+	local function ensureDaily(profile)
+		return ProfileBagMath.EnsureDaily(profile)
+	end
+
+	-- Studio fixtures / mid-migrate bags may omit Quests entirely — EnsureQuests /
+	-- Progress / ClaimQuest must not throw before the day roll can seed Items.
+	local function ensureQuests(profile)
+		return ProfileBagMath.EnsureQuests(profile)
+	end
+
+	-- ApplyReward FreeSpins may leave TimedRewards untouched while Studio fixtures
+	-- omit the bag — EnsureTimedRewards / ClaimTimedReward must nil-safe first.
+	local function ensureTimedRewardsBag(profile)
+		return ProfileBagMath.EnsureTimedRewards(profile)
+	end
+
+	-- ApplyReward FreeSpins seeds Wheel={FreeSpins=N} without LastSpinAt/Spins —
+	-- WheelState / SpinWheel must rebuild before cooldown arithmetic.
+	local function ensureWheel(profile)
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+		return profile.Wheel
+	end
+
+	local function awardCommandXP(profile, amount: number)
+		local command = ensureCommand(profile)
+		ProgressionOpsMath.ApplyCommandXP(
+			command,
+			amount,
+			Economy.DomainTreeBonus(profile, "CommandXP")
+		)
+	end
+
+	ProgressionService.AwardCommandXP = awardCommandXP
+
+	local function findOperation(list, id: string)
+		return ProgressionOpsMath.FindById(list, id)
+	end
+
+	local function currentWeeklyValue(profile, kind: string): number
+		return ProgressionOpsMath.WeeklyValue(profile, kind)
+	end
+
+	local function commanderReward(level: number)
+		return ProgressionOpsMath.CommanderReward(level)
+	end
+
+	local function titleUnlocked(profile, title): boolean
+		local command = ensureCommand(profile)
+		return ProgressionOpsMath.TitleUnlocked(
+			profile,
+			title,
+			command,
+			commanderLevel(command.XP),
+			Economy.Gte
+		)
+	end
+
+	function ProgressionService.ApplyReward(profile, reward, production: number?): string
+		local parts = {}
+		if reward.Cash and reward.Cash > 0 then
+			profile.Cash = Economy.Add(profile.Cash, reward.Cash)
+			profile.RunCash = Economy.Add(profile.RunCash, reward.Cash)
+			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, reward.Cash)
+			table.insert(parts, Format.Number(reward.Cash) .. " flux")
+		end
+		if reward.CashMinutes and reward.CashMinutes > 0 then
+			local generated = Economy.Max(500, Economy.Mul(production or Economy.SteadyProduction(profile), 60 * reward.CashMinutes))
+			profile.Cash = Economy.Add(profile.Cash, generated)
+			profile.RunCash = Economy.Add(profile.RunCash, generated)
+			profile.LifetimeCash = Economy.Add(profile.LifetimeCash, generated)
+			table.insert(parts, Format.Number(generated) .. " flux")
+		end
+		if reward.Stardust and reward.Stardust > 0 then
+			-- Partial Profiles (Studio fixtures) may omit numeric Stardust/Cores.
+			profile.Stardust = (tonumber(profile.Stardust) or 0) + reward.Stardust
+			table.insert(parts, Format.Number(reward.Stardust) .. " stardust")
+		end
+		if reward.Cores and reward.Cores > 0 then
+			profile.Cores = (tonumber(profile.Cores) or 0) + reward.Cores
+			table.insert(parts, Format.Number(reward.Cores) .. " cores")
+		end
+		if reward.Boost and GameConfig.Boosts[reward.Boost] then
+			local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+			inventory[reward.Boost] = (tonumber(inventory[reward.Boost]) or 0) + 1
+			table.insert(parts, GameConfig.Boosts[reward.Boost].Name)
+		end
+		if reward.Signals and reward.Signals > 0 then
+			local command = ensureCommand(profile)
+			command.Signals = (tonumber(command.Signals) or 0) + reward.Signals
+			table.insert(parts, Format.Number(reward.Signals) .. " signals")
+		end
+		if reward.CommandXP and reward.CommandXP > 0 then
+			awardCommandXP(profile, reward.CommandXP)
+			table.insert(parts, Format.Number(reward.CommandXP) .. " command XP")
+		end
+		if reward.StreakShield and reward.StreakShield > 0 then
+			local command = ensureCommand(profile)
+			command.StreakShields = (tonumber(command.StreakShields) or 0) + reward.StreakShield
+			table.insert(parts, Format.Number(reward.StreakShield) .. " streak shield")
+		end
+		if reward.Essence and reward.Essence > 0 then
+			local domain = ProfileBagMath.EnsureDomain(profile)
+			domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(domain.Essence) or 0)) + math.floor(reward.Essence))
+			table.insert(parts, Format.Number(reward.Essence) .. " domain essence")
+		end
+		if reward.DomainEssence and reward.DomainEssence > 0 then
+			local domain = ProfileBagMath.EnsureDomain(profile)
+			domain.Essence = math.min(1_000_000, math.max(0, math.floor(tonumber(domain.Essence) or 0)) + math.floor(reward.DomainEssence))
+			table.insert(parts, Format.Number(reward.DomainEssence) .. " domain essence")
+		end
+		if reward.Fragments and reward.Fragments > 0 then
+			if type(profile.Anomaly) ~= "table" then
+				profile.Anomaly = { Fragments = 0 }
+			end
+			profile.Anomaly.Fragments = (tonumber(profile.Anomaly.Fragments) or 0) + math.floor(reward.Fragments)
+			table.insert(parts, Format.Number(reward.Fragments) .. " fragments")
+		end
+		if reward.FreeSpins and reward.FreeSpins > 0 then
+			local wheel = ensureWheel(profile)
+			-- Belt-and-suspenders: Ensure already tonumber-safes, but keep grant
+			-- path robust if a caller bypasses Ensure with a string FreeSpins bag.
+			wheel.FreeSpins = (tonumber(wheel.FreeSpins) or 0) + math.floor(reward.FreeSpins)
+			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
+		end
+		if type(reward.Keys) == "table" then
+			local keys = ensureItemKeys(profile)
+			for crateId, amount in reward.Keys do
+				if type(crateId) == "string" and type(amount) == "number" and amount > 0 then
+					keys[crateId] = (tonumber(keys[crateId]) or 0) + math.floor(amount)
+					table.insert(parts, Format.Number(amount) .. " " .. crateId)
+				end
+			end
+		end
+		return table.concat(parts, ", ")
+	end
+
+	function ProgressionService.EnsureQuests(profile, userId: number)
+		local day = currentDay()
+		local questsBag = ensureQuests(profile)
+		if questsBag.Day == day and #questsBag.Items > 0 then
+			return false
+		end
+
+		local production = Economy.Max(4, Economy.Production(profile))
+		local scale = 1 + (tonumber(profile.Rebirths) or 0) * 0.15
+		local earnTarget = math.floor(math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale))
+		local tapTarget = math.floor((40 + (tonumber(profile.Rebirths) or 0) * 3) * scale)
+		local upgradeTarget = math.floor(3 + math.min(7, (tonumber(profile.Rebirths) or 0) / 2))
+		local rotation = (day + userId) % 3
+
+		local quests = {
+			{
+				Id = string.format("earn_%d", day),
+				Name = "Shift Quota",
+				Description = "Bank flux from your vault.",
+				Kind = "EarnCash",
+				Target = earnTarget,
+				Progress = 0,
+				Reward = { Cash = math.floor(earnTarget * 0.15), Stardust = 5 },
+				Claimed = false,
+			},
+			{
+				Id = string.format("tap_%d", day),
+				Name = "Hands On",
+				Description = "Use manual overcharge.",
+				Kind = "Tap",
+				Target = tapTarget,
+				Progress = 0,
+				Reward = { Cash = math.floor(earnTarget * 0.08), Stardust = 4 },
+				Claimed = false,
+			},
+			{
+				Id = string.format("upgrade_%d", day),
+				Name = rotation == 0 and "Machinist" or (rotation == 1 and "Research Grant" or "Expansion Plan"),
+				Description = rotation == 0 and "Upgrade any machines."
+					or (rotation == 1 and "Purchase research levels." or "Purchase machines or research."),
+				Kind = rotation == 0 and "BuyMachine" or (rotation == 1 and "BuyResearch" or "BuyAny"),
+				Target = upgradeTarget,
+				Progress = 0,
+				Reward = { Cash = math.floor(earnTarget * 0.12), Stardust = 6 },
+				Claimed = false,
+			},
+		}
+
+		profile.Quests = { Day = day, Items = quests }
+		return true
+	end
+
+	function ProgressionService.Progress(profile, kind: string, amount: number)
+		local questsBag = ensureQuests(profile)
+		-- Progress/Target may arrive as numeric strings from Studio fixtures —
+		-- AdvanceQuestProgress tonumber-safes before summing.
+		ProgressionOpsMath.AdvanceQuestProgress(questsBag.Items, kind, amount)
+	end
+
+	function ProgressionService.ClaimQuest(profile, questId: string): (boolean, string)
+		local questsBag = ensureQuests(profile)
+		for _, quest in questsBag.Items do
+			if quest.Id == questId then
+				local ok, reason = ProgressionOpsMath.CanClaimQuest(quest)
+				if not ok then
+					return false, reason
+				end
+				quest.Claimed = true
+				return true, ProgressionService.ApplyReward(profile, quest.Reward)
+			end
+		end
+		return false, "Mission not found."
+	end
+
+	function ProgressionService.AchievementProgress(profile, kind: string): number
+		return ProgressionOpsMath.AchievementProgress(profile, kind, Economy.AsNumber)
+	end
+
+	function ProgressionService.AchievementStates(profile)
+		local states = {}
+		-- Partial Profiles (Studio fixtures) may omit Achievements — UI projection must not throw.
+		local claimed = type(profile.Achievements) == "table" and profile.Achievements or {}
+		for _, achievement in GameConfig.Achievements do
+			table.insert(states, {
+				Id = achievement.Id,
+				Name = achievement.Name,
+				Description = achievement.Description,
+				Target = achievement.Target,
+				Progress = math.min(
+					achievement.Target,
+					ProgressionService.AchievementProgress(profile, achievement.Kind)
+				),
+				Reward = copyReward(achievement.Reward),
+				Claimed = claimed[achievement.Id] == true,
+			})
+		end
+		return states
+	end
+
+	function ProgressionService.ClaimAchievement(profile, achievementId: string): (boolean, string)
+		for _, achievement in GameConfig.Achievements do
+			if achievement.Id == achievementId then
+				if type(profile.Achievements) ~= "table" then
+					profile.Achievements = {}
+				end
+				if profile.Achievements[achievementId] then
+					return false, "That milestone was already claimed."
+				end
+				if ProgressionService.AchievementProgress(profile, achievement.Kind) < achievement.Target then
+					return false, "That milestone is not complete yet."
+				end
+				profile.Achievements[achievementId] = true
+				return true, ProgressionService.ApplyReward(profile, achievement.Reward)
+			end
+		end
+		return false, "Milestone not found."
+	end
+
+	function ProgressionService.DailyState(profile)
+		local day = currentDay()
+		local daily = ensureDaily(profile)
+		local canClaim = daily.LastClaimDay < day
+		local nextStreak
+		if daily.LastClaimDay == day - 1 then
+			nextStreak = daily.Streak + 1
+		elseif canClaim then
+			nextStreak = 1
+		else
+			nextStreak = daily.Streak
+		end
+		local rewardIndex = ((math.max(1, nextStreak) - 1) % #GameConfig.DailyRewards) + 1
+		return {
+			CanClaim = canClaim,
+			Streak = daily.Streak,
+			NextStreak = nextStreak,
+			RewardIndex = rewardIndex,
+			Rewards = GameConfig.DailyRewards,
+		}
+	end
+
+	function ProgressionService.ClaimDaily(profile): (boolean, string)
+		local day = currentDay()
+		local daily = ensureDaily(profile)
+		if daily.LastClaimDay >= day then
+			return false, "Come back tomorrow for the next daily."
+		end
+		if daily.LastClaimDay == day - 1 then
+			daily.Streak += 1
+		elseif daily.LastClaimDay < day - 1 and daily.Streak > 0 then
+			-- Partial Command bags must not throw before streak shield consume / ApplyReward.
+			local command = ensureCommand(profile)
+			local shields = math.max(0, math.floor(tonumber(command.StreakShields) or 0))
+			if shields > 0 then
+				command.StreakShields = shields - 1
+				daily.Streak += 1
+			else
+				daily.Streak = 1
+			end
+		else
+			daily.Streak = 1
+		end
+		daily.LastClaimDay = day
+		local rewardIndex = ((daily.Streak - 1) % #GameConfig.DailyRewards) + 1
+		local reward = GameConfig.DailyRewards[rewardIndex]
+		return true, ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
+	end
+
+	function ProgressionService.EnsureWeekly(profile): boolean
+		local command = ensureCommand(profile)
+		local week = currentWeek()
+		if command.Weekly.Week == week then
+
+			local changed = false
+			for _, directive in GameConfig.Operations.WeeklyDirectives do
+				if command.Weekly.Baseline[directive.Kind] == nil then
+					command.Weekly.Baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind)
+					changed = true
+				end
+			end
+			return changed
+		end
+		local baseline = {}
+		for _, directive in GameConfig.Operations.WeeklyDirectives do
+			baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind)
+		end
+		command.Weekly = { Week = week, Baseline = baseline, Claimed = {} }
+		return true
+	end
+
+	function ProgressionService.WeeklyState(profile)
+		local command = ensureCommand(profile)
+		local current = command.Weekly
+		local weekMatches = current.Week == currentWeek()
+		local baselines = weekMatches and current.Baseline or {}
+		local claimed = weekMatches and current.Claimed or {}
+		local level = commanderLevel(command.XP)
+		local scale = 1 + math.floor((level - 1) / 10) * 0.35
+		local items = {}
+		for _, directive in GameConfig.Operations.WeeklyDirectives do
+			local target = math.floor(directive.BaseTarget * scale)
+			local baseline = baselines[directive.Kind]
+			if baseline == nil then
+				baseline = currentWeeklyValue(profile, directive.Kind)
+			end
+			table.insert(items, {
+				Id = directive.Id,
+				Name = directive.Name,
+				Description = directive.Description,
+				Progress = math.min(target, math.max(0, currentWeeklyValue(profile, directive.Kind) - baseline)),
+				Target = target,
+				Reward = copyReward(directive.Reward),
+				Claimed = claimed[directive.Id] == true,
+			})
+		end
+		return items
+	end
+
+	function ProgressionService.ClaimWeeklyDirective(profile, directiveId: string): (boolean, string)
+		local command = ensureCommand(profile)
+		ProgressionService.EnsureWeekly(profile)
+		for _, item in ProgressionService.WeeklyState(profile) do
+			if item.Id == directiveId then
+				if item.Claimed then
+					return false, "That weekly directive was already claimed."
+				end
+				if item.Progress < item.Target then
+					return false, "That weekly directive is not complete."
+				end
+				command.Weekly.Claimed[directiveId] = true
+				bumpStat(profile, "WeeklyClaimed", 1)
+				return true, ProgressionService.ApplyReward(profile, item.Reward, Economy.Production(profile))
+			end
+		end
+		return false, "Weekly directive not found."
+	end
+
+	function ProgressionService.TitleStates(profile)
+		if GameConfig.Operations.TitlesEnabled == false then
+			return {}
+		end
+		local command = ensureCommand(profile)
+		local titles = {}
+		for _, title in GameConfig.Operations.Titles do
+			table.insert(titles, {
+				Id = title.Id,
+				Name = title.Name,
+				Description = title.Description,
+				Unlocked = titleUnlocked(profile, title),
+				Equipped = command.EquippedTitle == title.Id,
+				Fx = title.Fx,
+			})
+		end
+		return titles
+	end
+
+	function ProgressionService.EquipTitle(profile, titleId: string): (boolean, string)
+		if GameConfig.Operations.TitlesEnabled == false then
+			return false, GameConfig.Operations.TitleStatus or "Titles are temporarily unavailable."
+		end
+		local title = findOperation(GameConfig.Operations.Titles, titleId)
+		if not title or not titleUnlocked(profile, title) then
+			return false, "That command title is still locked."
+		end
+		ensureCommand(profile).EquippedTitle = titleId
+		return true, title.Name .. " equipped."
+	end
+
+	function ProgressionService.EnsureCommandRotations(profile): boolean
+		local command = ensureCommand(profile)
+		local changed = ProgressionService.EnsureWeekly(profile)
+		local day = currentDay()
+		if command.Shop.Day ~= day then
+			command.Shop = { Day = day, Purchased = {} }
+			changed = true
+		end
+		if command.SeasonId ~= GameConfig.Operations.SeasonId then
+			command.SeasonId = GameConfig.Operations.SeasonId
+			command.SeasonXP = 0
+			command.SeasonClaims = {}
+			changed = true
+		end
+		return changed
+	end
+
+	function ProgressionService.SignalShopState(profile)
+		local command = ensureCommand(profile)
+		local offers = {}
+		local source = GameConfig.Operations.ShopOffers
+		local day = currentDay()
+		local purchased = if command.Shop.Day == day then command.Shop.Purchased else {}
+		for slot = 1, 4 do
+			local index = ((day + slot - 2) % #source) + 1
+			local offer = source[index]
+			table.insert(offers, {
+				Id = offer.Id,
+				Name = offer.Name,
+				Description = offer.Description,
+				Price = offer.Price,
+				Reward = copyReward(offer.Reward),
+				Color = offer.Color,
+				Purchased = purchased[offer.Id] == true,
+			})
+		end
+		return offers
+	end
+
+	function ProgressionService.BuySignalOffer(profile, offerId: string): (boolean, string)
+		ProgressionService.EnsureCommandRotations(profile)
+		for _, offer in ProgressionService.SignalShopState(profile) do
+			if offer.Id == offerId then
+				if offer.Purchased then
+					return false, "That signal offer was already purchased today."
+				end
+				if profile.Command.Signals < offer.Price then
+					return false, "You need more command signals."
+				end
+				profile.Command.Signals -= offer.Price
+				profile.Command.Shop.Purchased[offerId] = true
+				bumpStat(profile, "ShopPurchases", 1)
+				return true, ProgressionService.ApplyReward(profile, offer.Reward, Economy.Production(profile))
+			end
+		end
+		return false, "That signal offer is not in today's rotation."
+	end
+
+	function ProgressionService.LaunchExpedition(profile, expeditionId: string): (boolean, string)
+		if profile.Command.ActiveExpedition.Id ~= "" then
+			return false, "Claim or finish the active expedition first."
+		end
+		local expedition = Economy.GetExpedition(expeditionId) or findOperation(GameConfig.Operations.Expeditions, expeditionId)
+		if not expedition then
+			return false, "Expedition route not found."
+		end
+		if commanderLevel(profile.Command.XP) < expedition.RequiredLevel then
+			return false, string.format("Commander level %d is required.", expedition.RequiredLevel)
+		end
+		local pilotLevel = profile.Command.Crew.Pilot or 1
+		local durationScale = math.max(0.35, 1 - (pilotLevel - 1) * 0.05)
+		local now = os.time()
+		local duration = math.max(10, math.floor(expedition.Duration * durationScale))
+		profile.Command.ActiveExpedition = { Id = expedition.Id, StartedAt = now, EndsAt = now + duration }
+		return true, expedition.Name .. " launched."
+	end
+
+	function ProgressionService.ClaimExpedition(profile, random: Random): (boolean, string, string?, boolean?)
+		local active = profile.Command.ActiveExpedition
+		if active.Id == "" then
+			return false, "No expedition is currently active."
+		end
+		if os.time() < active.EndsAt then
+			return false, "That expedition is still underway."
+		end
+		local expedition = Economy.GetExpedition(active.Id) or findOperation(GameConfig.Operations.Expeditions, active.Id)
+		if not expedition then
+			profile.Command.ActiveExpedition = { Id = "", StartedAt = 0, EndsAt = 0 }
+			return false, "The expedition route could not be recovered."
+		end
+
+		local reward = copyReward(expedition.Reward)
+		local engineerLevel = profile.Command.Crew.Engineer or 1
+		local yieldScale = 1 + (engineerLevel - 1) * 0.08
+		if reward.CashMinutes then
+			reward.CashMinutes *= yieldScale
+		end
+		if reward.Stardust then
+			reward.Stardust = math.floor(reward.Stardust * yieldScale)
+		end
+		if reward.Signals then
+			reward.Signals = math.floor(reward.Signals * yieldScale)
+		end
+
+		profile.Command.ExpeditionsCompleted += 1
+		bumpStat(profile, "Expeditions", 1)
+		profile.Command.ActiveExpedition = { Id = "", StartedAt = 0, EndsAt = 0 }
+		local message = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
+
+		local navigatorLevel = profile.Command.Crew.Navigator or 1
+		local chance = math.min(0.95, expedition.ArtifactChance + (navigatorLevel - 1) * 0.03)
+		local artifactState = profile.Command.Artifacts[expedition.ArtifactId]
+		local discovered = artifactState == nil
+		local shouldDiscover = discovered and next(profile.Command.Artifacts) == nil
+			or random:NextNumber() <= chance
+		if shouldDiscover then
+			if artifactState then
+				artifactState.Fragments += 4 + math.floor(expedition.RequiredLevel / 10)
+				message ..= string.format(", %s fragments", expedition.ArtifactId)
+			else
+				profile.Command.Artifacts[expedition.ArtifactId] = { Level = 1, Fragments = 0 }
+				bumpStat(profile, "ArtifactsFound", 1)
+				message ..= ", artifact discovered"
+			end
+			return true, message, expedition.ArtifactId, discovered
+		end
+		return true, message
+	end
+
+	function ProgressionService.EquipArtifact(profile, artifactId: string): (boolean, string)
+		local artifact = findOperation(GameConfig.Operations.Artifacts, artifactId)
+		if not artifact or not profile.Command.Artifacts[artifactId] then
+			return false, "That artifact has not been discovered."
+		end
+		profile.Command.EquippedArtifact = artifactId
+		return true, artifact.Name .. " equipped."
+	end
+
+	function ProgressionService.UpgradeArtifact(profile, artifactId: string): (boolean, string)
+		local artifact = findOperation(GameConfig.Operations.Artifacts, artifactId)
+		local owned = profile.Command.Artifacts[artifactId]
+		if not artifact or not owned then
+			return false, "That artifact has not been discovered."
+		end
+		if owned.Level >= 10 then
+			return false, "That artifact is already max level."
+		end
+		local fragmentCost = 4 + owned.Level * 2
+		local dustCost = 8 * owned.Level
+		if owned.Fragments < fragmentCost or Economy.Lt(profile.Stardust, dustCost) then
+			return false, string.format("Requires %d fragments and %d stardust.", fragmentCost, dustCost)
+		end
+		owned.Fragments -= fragmentCost
+		profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, dustCost))
+		owned.Level += 1
+		awardCommandXP(profile, 45 * owned.Level)
+		return true, string.format("%s upgraded to level %d.", artifact.Name, owned.Level)
+	end
+
+	function ProgressionService.UpgradeCrew(profile, roleId: string): (boolean, string)
+		local role = GameConfig.Operations.Crew[roleId]
+		local level = profile.Command.Crew[roleId]
+		if not role or type(level) ~= "number" then
+			return false, "Crew role not found."
+		end
+		if level >= role.MaxLevel then
+			return false, "That crew career is already maxed."
+		end
+		local cost = math.floor(role.BaseCost * level ^ 1.55)
+		if profile.Command.Signals < cost then
+			return false, string.format("Requires %d command signals.", cost)
+		end
+		profile.Command.Signals -= cost
+		profile.Command.Crew[roleId] += 1
+		awardCommandXP(profile, 60 * level)
+		return true, string.format("%s advanced to level %d.", role.Name, level + 1)
+	end
+
+	function ProgressionService.ClaimCommanderReward(profile, rawLevel: any): (boolean, string)
+		if type(rawLevel) ~= "number" then
+			return false, "Invalid commander level."
+		end
+		local level = math.floor(rawLevel)
+		if level < 1 or level > commanderLevel(profile.Command.XP) then
+			return false, "That commander level is not unlocked."
+		end
+		local key = tostring(level)
+		if profile.Command.CommanderClaims[key] then
+			return false, "That commander reward was already claimed."
+		end
+		profile.Command.CommanderClaims[key] = true
+		return true, ProgressionService.ApplyReward(profile, commanderReward(level), Economy.Production(profile))
+	end
+
+	function ProgressionService.ClaimSeasonTier(profile, rawTier: any): (boolean, string)
+		if type(rawTier) ~= "number" then
+			return false, "Invalid season tier."
+		end
+		ProgressionService.EnsureCommandRotations(profile)
+		local tierIndex = math.floor(rawTier)
+		local tier = GameConfig.Operations.SeasonTiers[tierIndex]
+		if not tier or profile.Command.SeasonXP < tier.RequiredXP then
+			return false, "That season tier is still locked."
+		end
+		local key = tostring(tierIndex)
+		if profile.Command.SeasonClaims[key] then
+			return false, "That season tier was already claimed."
+		end
+		profile.Command.SeasonClaims[key] = true
+		bumpStat(profile, "SeasonTiers", 1)
+		return true, ProgressionService.ApplyReward(profile, tier.Reward, Economy.Production(profile))
+	end
+
+	-- "Forge Path" (src_ts/client/pages/ForgePathView.tsx): the single meta-progression track
+	-- that replaced the old three-way split between Progression Tree (skill grid), Prestige
+	-- (tier multipliers), and Season Pass (battle-pass chests). XP trickles in passively from
+	-- normal play (see the CollectVault handler, which is the sole XP source) and each of the
+	-- 80 steps (GameConfig.ForgePath.Steps) is claimed as one action that grants both a
+	-- permanent stat bonus (Economy.ForgePathEffect reads ClaimedSteps the same way the old
+	-- tree read UnlockedNodes) and a one-time reward chest together.
+	local function ensureForgePath(profile)
+		profile.ForgePath = ForgePathClaim.Ensure(profile.ForgePath)
+	end
+
+	local function awardForgePathXP(profile, amount: number)
+		ensureForgePath(profile)
+		local value = math.max(0, math.floor(amount))
+		value = math.floor(value * (1 + Economy.DomainTreeBonus(profile, "ForgePathXP")))
+		local config = GameConfig.Economy.ForgePathXP
+		if type(config) == "table" then
+			local day = currentDay()
+			if profile.ForgePath.XPDay ~= day then
+				profile.ForgePath.XPDay = day
+				profile.ForgePath.XPEarnedToday = 0
+			end
+			local earned = math.max(0, math.floor(tonumber(profile.ForgePath.XPEarnedToday) or 0))
+			local softCap = math.max(1, math.floor(tonumber(config.DailySoftCap) or 12_000))
+			if earned >= softCap then
+				value = math.max(0, math.floor(value * (tonumber(config.SoftCapScale) or 0.35)))
+			end
+			profile.ForgePath.XPEarnedToday = ProfileBagMath.AddFinite(earned, value)
+		end
+		profile.ForgePath.XP = ProfileBagMath.AddFinite(profile.ForgePath.XP, value)
+	end
+	ProgressionService.AwardForgePathXP = awardForgePathXP
+
+	function ProgressionService.TotalForgePathXP(profile): number
+		ensureForgePath(profile)
+		return profile.ForgePath.XP
+	end
+
+	function ProgressionService.ClaimForgePathStep(profile, rawStep: any): (boolean, string)
+		ensureForgePath(profile)
+		local ok, err, step = ForgePathClaim.TryClaim(profile.ForgePath, rawStep, GameConfig.ForgePath.Steps)
+		if not ok or not step then
+			return false, err or "Invalid forge path step."
+		end
+		return true, ProgressionService.ApplyReward(profile, step.Reward, Economy.SteadyProduction(profile))
+	end
+
+	function ProgressionService.ForgePathState(profile)
+		ensureForgePath(profile)
+		local claimed = {}
+		for key in pairs(profile.ForgePath.ClaimedSteps) do
+			table.insert(claimed, tonumber(key))
+		end
+		return {
+			ClaimedSteps = claimed,
+			XP = profile.ForgePath.XP,
+			StepCount = GameConfig.ForgePath.StepCount or #GameConfig.ForgePath.Steps,
+			ChapterMarks = GameConfig.ForgePath.ChapterMarks,
+			XPEarnedToday = math.max(0, math.floor(tonumber(profile.ForgePath.XPEarnedToday) or 0)),
+		}
+	end
+
+	function ProgressionService.CommandState(profile)
+		local command = ensureCommand(profile)
+		local level = commanderLevel(command.XP)
+		local claimable = {}
+		for rewardLevel = 1, level do
+			if not command.CommanderClaims[tostring(rewardLevel)] then
+				table.insert(claimable, rewardLevel)
+			end
+		end
+		return {
+			XP = command.XP,
+			Level = level,
+			Rank = commanderRank(level),
+			LevelFloorXP = commanderFloorXP(level),
+			NextLevelXP = commanderNextXP(level),
+			Signals = command.Signals,
+			StreakShields = command.StreakShields,
+			ExpeditionsCompleted = command.ExpeditionsCompleted,
+			ActiveExpedition = command.ActiveExpedition,
+			Artifacts = command.Artifacts,
+			EquippedArtifact = command.EquippedArtifact,
+			Crew = command.Crew,
+			CommanderClaims = command.CommanderClaims,
+			ClaimableCommanderLevels = claimable,
+			SeasonXP = command.SeasonXP,
+			SeasonClaims = command.SeasonClaims,
+			Weekly = ProgressionService.WeeklyState(profile),
+			Shop = ProgressionService.SignalShopState(profile),
+			Titles = ProgressionService.TitleStates(profile),
+			MachineMastery = command.MachineMastery,
+		}
+	end
+
+	function ProgressionService.WheelState(profile)
+		local wheel = ensureWheel(profile)
+		return WheelMath.Snapshot(
+			os.time(),
+			wheel,
+			GameConfig.Wheel.CooldownSeconds,
+			GameConfig.Wheel.PityAfter
+		)
+	end
+
+	function ProgressionService.SpinWheel(profile, random: Random): (boolean, string, number?, string?, boolean?)
+		local now = os.time()
+		local wheel = ensureWheel(profile)
+		local freeSpins = wheel.FreeSpins
+		local onCooldown = now < wheel.LastSpinAt + GameConfig.Wheel.CooldownSeconds
+		if freeSpins <= 0 and onCooldown then
+			return false, "The fortune reactor is still recharging."
+		end
+
+		local pityAfter = math.max(1, math.floor(tonumber(GameConfig.Wheel.PityAfter) or 8))
+		local pityKey = string.upper(tostring(GameConfig.Wheel.PityRarity or "RARE"))
+		local floorRank = WheelMath.RARITY_RANK[pityKey] or 3
+		local forcePity = wheel.PityMisses + 1 >= pityAfter
+
+		local pool, totalWeight = WheelMath.BuildPool(GameConfig.Wheel.Rewards, forcePity, floorRank)
+		if totalWeight <= 0 then
+			pool, totalWeight = WheelMath.FullPool(GameConfig.Wheel.Rewards)
+		end
+
+		local roll = random:NextNumber(0, totalWeight)
+		local selectedEntry = WheelMath.PickEntry(pool, totalWeight, roll)
+		if selectedEntry == nil then
+			return false, "The fortune reactor has no prizes configured."
+		end
+
+		local selectedIndex = selectedEntry.Index
+		local selected = selectedEntry.Prize
+		local selectedRank = WheelMath.RarityRank(selected.Rarity)
+		local pityHit = forcePity
+		wheel.PityMisses = WheelMath.NextPityMisses(wheel.PityMisses, selectedRank, floorRank)
+
+		if freeSpins > 0 then
+			wheel.FreeSpins = freeSpins - 1
+		else
+			wheel.LastSpinAt = now
+		end
+		wheel.Spins += 1
+		local rewardText = ProgressionService.ApplyReward(profile, selected.Reward, Economy.Production(profile))
+		local label = selected.Name .. ": " .. rewardText
+		if pityHit then
+			label = label .. " (guaranteed)"
+		end
+		return true, label, selectedIndex, selected.Id, pityHit
+	end
+
+	function ProgressionService.EnsureTimedRewards(profile): boolean
+		local day = currentDay()
+		local timed = ensureTimedRewardsBag(profile)
+		if timed.Day == day then
+			return false
+		end
+		profile.TimedRewards = {
+			Day = day,
+			PlaySeconds = 0,
+			Claimed = {},
+		}
+		return true
+	end
+
+	function ProgressionService.TimedRewardState(profile)
+		local timed = ensureTimedRewardsBag(profile)
+		local dayMatches = timed.Day == currentDay()
+		local playSeconds = dayMatches and timed.PlaySeconds or 0
+		local claimed = dayMatches and timed.Claimed or {}
+		local rewards = {}
+		for index, timedReward in GameConfig.TimedRewards do
+			table.insert(rewards, {
+				Index = index,
+				Seconds = timedReward.Minutes * 60,
+				Reward = copyReward(timedReward.Reward),
+				Claimed = claimed[tostring(index)] == true,
+			})
+		end
+		return {
+			PlaySeconds = playSeconds,
+			Rewards = rewards,
+		}
+	end
+
+	function ProgressionService.ClaimTimedReward(profile, rawIndex: any): (boolean, string)
+		ProgressionService.EnsureTimedRewards(profile)
+		if type(rawIndex) ~= "number" then
+			return false, "That playtime gift does not exist."
+		end
+		local index = math.floor(rawIndex)
+		local timedReward = GameConfig.TimedRewards[index]
+		if not timedReward then
+			return false, "That playtime gift does not exist."
+		end
+		local timed = ensureTimedRewardsBag(profile)
+		local key = tostring(index)
+		if timed.Claimed[key] then
+			return false, "That playtime gift was already claimed today."
+		end
+		if timed.PlaySeconds < timedReward.Minutes * 60 then
+			return false, "Keep playing to unlock that gift."
+		end
+		timed.Claimed[key] = true
+		return true, ProgressionService.ApplyReward(profile, timedReward.Reward, Economy.Production(profile))
+	end
+
+	return table.freeze(ProgressionService)
+end
+end
+
+-- ======================================================================
+-- Suite entry point
+-- ======================================================================
+return setmetatable({}, {
+	__call = function(_, name: string): any
+		return __load(name)
+	end,
+	__index = function(_, name: string): any
+		return __load(name)
+	end,
+})

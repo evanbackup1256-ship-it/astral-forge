@@ -11,7 +11,7 @@
 --
 -- HARD: pure checks -- no Roblox instances.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local Fx = require("../src/Client/AstralForge/MotionKit")("motionTokens").fx
 
 ------------------------------------------------------------------------
@@ -94,7 +94,7 @@ end
 ------------------------------------------------------------------------
 -- 4. Wiring
 ------------------------------------------------------------------------
-local floor = (string.gsub(fs.readFile("src/Client/AstralForge/play/floorFx.luau"), "\r\n", "\n"))
+local floor = (string.gsub(fs.readFile("src/Client/AstralForge/UiOverlays.luau#floorFx"), "\r\n", "\n"))
 for _, needle in { "Fx.ballistic(", "Fx.velocity(", "Fx.stretch(", "Fx.fade(", "Fx.ring(", "Fx.popScale(", "Fx.heat(" } do
 	assert(string.find(floor, needle, 1, true), "floorFx must use " .. needle)
 end

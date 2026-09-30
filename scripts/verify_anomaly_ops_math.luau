@@ -102,7 +102,7 @@ assert(ProfileBagMath.EnsureAnomaly({}).Discoveries ~= nil, "nil Anomaly → Dis
 ------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
-local serviceSrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
+local serviceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#AnomalyOpsMath")
 local bagSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileBagMath.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

@@ -129,7 +129,7 @@ assert(
 ------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")

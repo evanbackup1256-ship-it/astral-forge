@@ -1,4 +1,4 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
 
 -- SessionGate is a factory module whose production branches sit behind
@@ -27,7 +27,7 @@ local fakeGame = {
 	end,
 }
 
-local src = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
+local src = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#SessionGate")
 local factory = luau.load(src, { environment = setmetatable({ game = fakeGame }, { __index = getfenv(0) }) })()
 local gate = factory().new()
 

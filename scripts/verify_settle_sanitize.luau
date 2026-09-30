@@ -7,7 +7,7 @@ local fs = require("./_memberfs")(require("@lune/fs"))
 
 local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
+local gateSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#SessionGate")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 

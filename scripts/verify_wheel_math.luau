@@ -58,7 +58,7 @@ assert(last ~= nil and last.Index == 3, "max roll → last")
 assert(WheelMath.PickEntry({}, 0, 0) == nil, "empty pool → nil")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#WheelMath")
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

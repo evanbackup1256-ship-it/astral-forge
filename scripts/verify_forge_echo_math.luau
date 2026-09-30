@@ -62,7 +62,7 @@ local partialDraft = ForgeEchoMath.Ensure({ Charge = 3, Draft = { Id = "D1" } })
 assert(partialDraft.Draft.Id == "D1" and type(partialDraft.Draft.Choices) == "table", "Draft without Choices rebuilt")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local serviceSrc = fs.readFile("src/Server/AstralForge/Services/ForgeEchoService.luau")
+local serviceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ForgeEchoService")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau")
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

@@ -165,7 +165,7 @@ assert(incompleteOk == false and string.find(incompleteReason, "not complete", 1
 ------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionOpsMath")

@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local guildSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
+local guildSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService")
 local worldSrc = fs.readFile("src/Server/AstralForge/Services/WorldServices.luau#WorldService")
 
 local function has(src: string, needle: string, message: string)

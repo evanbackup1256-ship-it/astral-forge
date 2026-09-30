@@ -7,15 +7,15 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
 local UpgradeCostReason = require("../src/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
 local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
-local ProfileIntegrity = require("../src/Server/AstralForge/Services/ProfileIntegrity")()
+local ProfileIntegrity = require("../src/Server/AstralForge/Services/SecurityServices")("ProfileIntegrity")()
 
 local cfg = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local releaseSrc = fs.readFile("src/Server/AstralForge/ReleaseReadiness.luau")
-local integritySrc = fs.readFile("src/Server/AstralForge/Services/ProfileIntegrity.luau")
+local integritySrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#ProfileIntegrity")
 
 assert(not string.find(cfg, "vendor/", 1, true), "GameConfig must not reference vendor/")
 assert(not string.find(cfg, "Packages/", 1, true), "GameConfig must not reference Packages/")

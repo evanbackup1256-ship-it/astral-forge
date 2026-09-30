@@ -12,7 +12,7 @@ local fs = require("./_memberfs")(require("@lune/fs"))
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local gateSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionGate")
 local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#UpgradeCostReason")
 local forgeClaimSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ForgePathClaim")
@@ -208,7 +208,7 @@ assert(achievementRebirths({ Rebirths = nil, Domain = nil }) == 0, "nil rebirth 
 assert(achievementStabilizations({ Anomaly = { Stabilizations = 7 }, Stats = { AnomalyStabilizations = 0 } }) == 7, "prefer Anomaly bag")
 assert(achievementStabilizations({ Anomaly = nil, Stats = nil }) == 0, "nil anomaly/stats → 0")
 
-local labSrc = fs.readFile("src/Server/AstralForge/Services/LabService.luau")
+local labSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#LabService")
 assert(
 	string.find(labSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
 	"LabService.ClaimOrder must nil-safe Stats before OrdersCompleted bump"
@@ -236,7 +236,7 @@ assert(
 	"Convergence must not silently drop boost rewards when the inventory key is absent"
 )
 
-local anomalySrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
+local anomalySrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService")
 assert(
 	string.find(anomalySrc, "bumpAnomalyStat", 1, true) ~= nil,
 	"AnomalyService must nil-safe Stats bumps via bumpAnomalyStat"

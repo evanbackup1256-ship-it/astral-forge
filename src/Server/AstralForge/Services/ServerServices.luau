@@ -11,11 +11,11 @@ serviceFactories["AdminService"] = function() return require(script.Parent:WaitF
 
 
 
-serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("AnomalyService"))(loadService) end
+serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("CoreServices"))("AnomalyService")(loadService) end
 
 
 
-serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("AtomicState"))
+serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
 
 
 
@@ -32,7 +32,7 @@ serviceFactories["DataService"] = function() return require(script.Parent:WaitFo
 
 
 -- DungeonService removed (Dungeons feature retired; route closed, no server support).
-serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("ForgeEchoService"))
+serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("CoreServices"))("ForgeEchoService")
 
 
 
@@ -4875,11 +4875,11 @@ end
 
 
 
-serviceFactories["GuildService"] = require(script.Parent:WaitForChild("GuildService"))
+serviceFactories["GuildService"] = require(script.Parent:WaitForChild("CoreServices"))("GuildService")
 
 
 
-serviceFactories["LabService"] = require(script.Parent:WaitForChild("LabService"))
+serviceFactories["LabService"] = require(script.Parent:WaitForChild("CoreServices"))("LabService")
 -- SanctuaryFeatures returns its class table rather than a factory, so wrap it:
 -- loadService calls every registry entry.
 serviceFactories["SanctuaryFeatures"] = function()
@@ -4900,11 +4900,11 @@ serviceFactories["PlayerBadges"] = require(script.Parent:WaitForChild("PlayerBad
 
 
 
-serviceFactories["ProfileIntegrity"] = require(script.Parent:WaitForChild("ProfileIntegrity"))
+serviceFactories["ProfileIntegrity"] = require(script.Parent:WaitForChild("SecurityServices"))("ProfileIntegrity")
 
 
 
-serviceFactories["ProgressionService"] = require(script.Parent:WaitForChild("ProgressionService"))
+serviceFactories["ProgressionService"] = require(script.Parent:WaitForChild("CoreServices"))("ProgressionService")
 
 
 
@@ -4912,15 +4912,15 @@ serviceFactories["RemoteFirewall"] = function() return require(script.Parent:Wai
 
 
 
-serviceFactories["Security"] = require(script.Parent:WaitForChild("Security"))
+serviceFactories["Security"] = require(script.Parent:WaitForChild("SecurityServices"))("Security")
 
 
 
-serviceFactories["SessionGate"] = require(script.Parent:WaitForChild("SessionGate"))
+serviceFactories["SessionGate"] = require(script.Parent:WaitForChild("SecurityServices"))("SessionGate")
 
 
 
-serviceFactories["ServerTelemetry"] = require(script.Parent:WaitForChild("ServerTelemetry"))
+serviceFactories["ServerTelemetry"] = require(script.Parent:WaitForChild("SecurityServices"))("ServerTelemetry")
 
 
 

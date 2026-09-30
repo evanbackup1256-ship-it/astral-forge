@@ -17,7 +17,7 @@ local files = {
 	"src/Client/AstralForge/LayoutKit.luau",
 	"src/Shared/AstralForge/Shared/SharedData.luau",
 	"src/Client/AstralForge/MotionKit.luau",
-	"src/Client/AstralForge/play/floorFx.luau",
+	"src/Client/AstralForge/UiOverlays.luau",
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/layoutGuard.luau",
 	-- Hot pages (keep in sync with scripts/verify_playability.luau HOT_PAGES)
@@ -28,8 +28,6 @@ local files = {
 	"src/Client/AstralForge/pages/PagesSocial.luau",
 	"src/Client/AstralForge/pages/PagesStory.luau",
 	"src/Client/AstralForge/pages/PagesShop.luau",
-	"src/Client/AstralForge/UiOverlays.luau",
-	"src/Client/AstralForge/input/InputKit.luau",
 	-- Shared catalog (parse only — no require)
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
 	-- Server trade desk (offer validation / exchange)
@@ -42,9 +40,7 @@ local files = {
 	"src/Server/AstralForge/Modules/ProfileBagMath.luau",
 	"src/Server/AstralForge/Modules/ProfileMath.luau",
 	"src/Server/AstralForge/Modules/DataSanitizeMath.luau",
-	"src/Server/AstralForge/Services/AnomalyService.luau",
-	"src/Server/AstralForge/Services/GuildService.luau",
-	"src/Server/AstralForge/Services/ForgeEchoService.luau",
+	"src/Server/AstralForge/Services/CoreServices.luau",
 	"src/Server/AstralForge/Modules/OreMath.luau",
 	"src/Server/AstralForge/Services/WorldServices.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)

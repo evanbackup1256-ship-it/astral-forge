@@ -4,7 +4,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
 local TradeExchange = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileMath")("ProfileVersionGuard")
 
@@ -308,7 +308,7 @@ end
 do
 	local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 	assert(string.find(economySrc, 'type(research) == "table"', 1, true), "SteadyProduction must nil-safe Research")
-	local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
+	local gateSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#SessionGate")
 	local getCount = 0
 	for _ in string.gmatch(gateSrc, "self:_get%(player%)") do
 		getCount += 1

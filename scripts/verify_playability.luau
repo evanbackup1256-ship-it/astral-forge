@@ -67,7 +67,7 @@ do
 	local paths = {
 		"src/Client/AstralForge/LayoutKit.luau#pageScaffold",
 		"src/Client/AstralForge/LayoutKit.luau#pageScaffoldPlan",
-		"src/Client/AstralForge/input/InputKit.luau#GamepadNavigationService",
+		"src/Client/AstralForge/CoreKit.luau#GamepadNavigationService",
 	}
 	for _, path in HOT_PAGES do
 		table.insert(paths, path)

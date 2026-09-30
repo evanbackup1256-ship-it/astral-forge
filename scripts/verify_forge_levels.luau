@@ -30,7 +30,7 @@ end
 local configSource = readSource("src/Shared/AstralForge/Shared/GameConfig.luau")
 local gateSource = readSource("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionGate")
 local servicesSource = readSource("src/Server/AstralForge/Services/ServerServices.luau")
-local echoSource = readSource("src/Server/AstralForge/Services/ForgeEchoService.luau")
+local echoSource = readSource("src/Server/AstralForge/Services/CoreServices.luau#ForgeEchoService")
 local navSource = readSource("src/Client/AstralForge/CoreKit.luau#navRouteTable")
 local workspaceSource = readSource("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
 local shellSource = readSource("src/Client/AstralForge/UiCore.luau#AppShellChrome")
