@@ -406,9 +406,12 @@ local function onOreMined(payload)
 	end
 	local model = nodeById(payload.NodeId)
 	local color, glowColor = oreColor(tostring(payload.Ore))
-	Audio:play("oreMine")
+	local oreId = tostring(payload.Ore)
+	local mineCue = if oreId == "Emberite" or oreId == "Voidglass" or oreId == "Starsteel" then "oreMine" .. oreId else "oreMine"
+	local collectCue = if oreId == "Emberite" or oreId == "Voidglass" or oreId == "Starsteel" then "oreCollect" .. oreId else "oreCollect"
+	Audio:play(mineCue)
 	task.delay(0.14, function()
-		Audio:play("oreCollect")
+		Audio:play(collectCue)
 	end)
 	if model ~= nil and model.PrimaryPart ~= nil then
 		local at = model.PrimaryPart.Position + Vector3.new(0, 3, 0)

@@ -471,6 +471,7 @@ local function HexNode(_param)
 	}), React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
+		live = chrome.shimmerLive,
 		zIndex = 41,
 		radius = math.floor(size / 2),
 	}), ready and not owned and React.createElement("frame", {

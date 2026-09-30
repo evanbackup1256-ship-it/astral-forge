@@ -201,7 +201,7 @@ function ProgressionOpsMath.AdvanceQuestProgress(items: any, kind: any, amount: 
 		return 0
 	end
 	local delta = math.max(0, math.floor(tonumber(amount) or 0))
-	if delta <= 0 then
+	if delta ~= delta or delta == math.huge or delta == -math.huge or delta <= 0 then
 		return 0
 	end
 	local updated = 0

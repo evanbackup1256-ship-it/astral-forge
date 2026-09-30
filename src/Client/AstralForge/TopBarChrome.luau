@@ -110,7 +110,12 @@ local function StatChip(_param)
 	local chipH = if tall then TapTarget else 54
 	local iconSize = if tall then 32 else 28
 	local valueSize = if tall then 16 else 16
-	local tip = CHIP_TIPS[label]
+	-- CHIP_TIPS kept for hover copy elsewhere; never parent tip UI under an
+	-- AutomaticSize chip — Scale-width hairlines + tip AABB blew chips to ~1.3k px
+	-- and shoved CORES/DUST/FPS off the left of the topbar.
+	local _ = CHIP_TIPS[label]
+	local valueMaxW = if tall then 84 else 96
+	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 22 else 20)
 	local _exp = React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	})
@@ -165,7 +170,6 @@ local function StatChip(_param)
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Padding = UDim.new(0, 0),
 	})
-	local valueMaxW = if tall then 84 else 96
 	local _exp_7 = showLabel and React.createElement("textlabel", {
 		Size = UDim2.fromOffset(valueMaxW, 14),
 		BackgroundTransparency = 1,
@@ -212,7 +216,7 @@ local function StatChip(_param)
 			duration = 0.32,
 			size = valueSize,
 			color = ensureContrast(Palette.panel, Palette.cream),
-			autoWidth = true,
+			autoWidth = false,
 			spacedSuffix = true,
 			sizeConstraint = UDim2.fromOffset(valueMaxW, 20),
 			layoutOrder = 2,
@@ -220,27 +224,28 @@ local function StatChip(_param)
 		})
 	end
 	local chip = React.createElement("frame", {
-		Size = UDim2.fromOffset(0, chipH),
-		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(chipInnerW, chipH),
+		AutomaticSize = Enum.AutomaticSize.None,
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
+		ClipsDescendants = true,
 	}, _exp, _exp_1, _exp_2, _exp_3, _exp_4, _exp_5, React.createElement("frame", {
-		Size = UDim2.fromOffset(0, 34),
-		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(valueMaxW, 34),
+		AutomaticSize = Enum.AutomaticSize.None,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 2,
-		ClipsDescendants = false,
+		ClipsDescendants = true,
 	}, _exp_6, _exp_7, _result))
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(0, chipH + 2),
-		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(chipInnerW + 4, chipH + 2),
+		AutomaticSize = Enum.AutomaticSize.None,
 		LayoutOrder = layoutOrder,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 22,
 		ClipsDescendants = false,
+		Name = label,
 	}, React.createElement("uipadding", {
 		PaddingLeft = UDim.new(0, 2),
 		PaddingRight = UDim.new(0, 2),
@@ -452,6 +457,7 @@ local function ActiveBoostIcon(_param)
 	})), React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
+		live = chrome.shimmerLive,
 		idle = true,
 		zIndex = 2,
 		radius = radius,

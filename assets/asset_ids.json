@@ -1,5 +1,9 @@
 {
-    "SoundSheet":  81741977516772,
-    "Ambience":  115880030110523,
-    "Kit":  0
+  "SoundSheet": 81719045964153,
+  "Ambience": 134085646747854,
+  "Kit": 0,
+  "ForgePulse": 79059492969495,
+  "SanctuaryDrift": 130740395926509,
+  "AstralOrbit": 137908904057491,
+  "BossSurge": 109017004194379
 }

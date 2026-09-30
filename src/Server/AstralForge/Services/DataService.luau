@@ -376,7 +376,9 @@ return function(loadService: (string) -> any)
 			if type(stock) ~= "number" then
 				profile.Items.Shop.Stock[offerId] = nil
 			else
-				profile.Items.Shop.Stock[offerId] = math.max(0, math.floor(stock))
+				-- nonNegative rejects NaN/±inf; bare math.floor(math.huge) kept inf
+				-- and ProfileIntegrity.Seal rejected the whole profile.
+				profile.Items.Shop.Stock[offerId] = math.floor(nonNegative(stock))
 			end
 		end
 		for crateId in crateById do
@@ -651,6 +653,9 @@ return function(loadService: (string) -> any)
 		end
 		profile.Meta.Revision = math.max(0, math.floor(nonNegative(profile.Meta.Revision)))
 		ProfileIntegrity.EnsureEnvelope(profile)
+		-- Last pass: scrub any orphaned NaN/±inf leaves that field clamps missed so
+		-- Seal/cache-sync cannot spam "non-finite number" and block saves.
+		DataSanitizeMath.ScrubNonFinite(profile)
 		return profile
 	end
 

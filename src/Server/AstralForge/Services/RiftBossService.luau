@@ -22,6 +22,7 @@ local RiftBossMath = require(Modules:WaitForChild("RiftBossMath"))
 local OreMath = require(Modules:WaitForChild("OreMath"))
 local Economy = require(Modules:WaitForChild("Economy"))
 local ActionResponse = require(Modules:WaitForChild("ActionResponse"))
+local ProfileBagMath = require(Modules:WaitForChild("ProfileBagMath"))
 
 local STEP_SECONDS = 0.25
 
@@ -277,15 +278,13 @@ function RiftBossService:_rewardFighters()
 					continue
 				end
 				if currency == "Stardust" then
-					profile.Stardust = (tonumber(profile.Stardust) or 0) + amount
+					profile.Stardust = ProfileBagMath.AddFinite(profile.Stardust, amount)
 				elseif profile.Ore[currency] ~= nil then
-					profile.Ore[currency] += amount
+					profile.Ore[currency] = ProfileBagMath.AddFinite(profile.Ore[currency], amount)
 				end
 				table.insert(lines, `+{amount} {currency}`)
 			end
-			if type(profile.Stats) == "table" then
-				profile.Stats.WardenDefeats = (tonumber(profile.Stats.WardenDefeats) or 0) + 1
-			end
+			ProfileBagMath.BumpStat(profile, "WardenDefeats", 1)
 			return ActionResponse.Success(nil)
 		end)
 		if type(result) == "table" and result.ok == true then

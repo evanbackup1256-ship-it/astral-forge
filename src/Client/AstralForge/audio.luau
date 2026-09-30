@@ -1560,6 +1560,46 @@ local CUES = {
 		cooldown = 0.18,
 		stopAfter = 0.52,
 	},
+	curtainOpen = {
+		asset = SFX_RAMP,
+		volume = 0.34,
+		speed = 0.88,
+		variance = 0.006,
+		cooldown = 0.5,
+		stopAfter = 0.95,
+	},
+	curtainClose = {
+		asset = SFX_SWEEP,
+		volume = 0.3,
+		speed = 0.92,
+		variance = 0.006,
+		cooldown = 0.45,
+		stopAfter = 0.8,
+	},
+	sanctuaryHover = {
+		asset = UI_HOVER,
+		volume = 0.16,
+		speed = 1.18,
+		variance = 0.014,
+		cooldown = 0.07,
+		stopAfter = 0.1,
+	},
+	sanctuaryClick = {
+		asset = UI_CLICK,
+		volume = 0.36,
+		speed = 0.92,
+		variance = 0.01,
+		cooldown = 0.05,
+		stopAfter = 0.16,
+	},
+	navHover = {
+		asset = UI_HOVER,
+		volume = 0.17,
+		speed = 1.4,
+		variance = 0.012,
+		cooldown = 0.06,
+		stopAfter = 0.08,
+	},
 }
 local UI_CUES = {}
 for _, cue in {
@@ -1572,6 +1612,7 @@ for _, cue in {
 	"noticeClose", "chatSend", "chatReceive", "hoverTick", "successChime",
 	"errorBuzz", "velocitySlide", "purchase", "purchasePress", "reward",
 	"collect", "travel", "researchUnlock", "claimPress",
+	"sanctuaryHover", "sanctuaryClick", "navHover", "curtainOpen", "curtainClose",
 } do
 	UI_CUES[cue] = true
 end
@@ -1824,7 +1865,59 @@ local function buttonAudioCue(label, icon)
 	if icon == "Leaderboard" then
 		return "leaderboardSwitch"
 	end
+	if icon == "Forge" then
+		return "forgePress"
+	end
+	if icon == "Core" then
+		return "corePress"
+	end
+	if icon == "Wave" then
+		return "wavePress"
+	end
+	if icon == "Lab" then
+		return "labPress"
+	end
+	if icon == "Command" then
+		return "commandPress"
+	end
+	if icon == "Admin" then
+		return "adminPress"
+	end
+	if icon == "Credits" then
+		return "creditsPress"
+	end
+	if icon == "Chat" then
+		return "chatPress"
+	end
+	if icon == "Continuum" then
+		return "continuumPress"
+	end
+	if icon == "Mission" then
+		return "missionPress"
+	end
+	if icon == "Overview" then
+		return "overviewPress"
+	end
+	if icon == "Domain" then
+		return "domainCharge"
+	end
 	return "click"
+end
+-- Pointer voice that belongs to a press, when that voice is on the sheet.
+-- Generic click stays on the shared hover; everything else gets its own.
+local function hoverCueFor(pressCue)
+	if type(pressCue) ~= "string" or pressCue == "" or pressCue == "hover" or pressCue == "click" then
+		return "hover"
+	end
+	if string.sub(pressCue, 1, 8) == "navHover" or string.sub(pressCue, -5) == "Hover" then
+		return pressCue
+	end
+	local paired = pressCue .. "Hover"
+	local start = SoundSheet.region(paired)
+	if start ~= nil then
+		return paired
+	end
+	return "hover"
 end
 local function softMaster(linear)
 	local t = math.clamp(linear, 0, 1)
@@ -2177,9 +2270,9 @@ do
 		end
 		-- Light global shelf over the whole soundtrack; each track's own TrackTone
 		-- EQ only evens it out against the others.
-		musicEq.LowGain = 0
-		musicEq.MidGain = -0.3
-		musicEq.HighGain = -1.2
+		musicEq.LowGain = 0.8
+		musicEq.MidGain = -0.5
+		musicEq.HighGain = -1.8
 		for _, asset in AUDIO_ASSET_MANIFEST do
 			local pool = {}
 			do
@@ -2734,7 +2827,28 @@ do
 			return false
 		end
 		local spec = CUES[cue]
-		if spec.asset == "" then
+		-- Cues added on the sheet after the hand-written table still play.
+		-- They only exist as a PlaybackRegion, so the legacy asset is unused
+		-- once the sheet has loaded.
+		if spec == nil then
+			local start = SoundSheet.region(cue)
+			if start ~= nil then
+				spec = {
+					asset = UI_CLICK,
+					volume = 0.34,
+					speed = 1,
+					variance = 0.006,
+					cooldown = 0.05,
+					stopAfter = 0.6,
+				}
+			end
+		end
+		-- Unknown cue names (typos, stale callers) used to nil-index here and
+		-- abort the whole play path; keep the mixer alive and stay silent.
+		if spec == nil or spec.asset == "" then
+			if spec == nil then
+				ClientLog:warnEvery(`audio-missing-{cue}`, 30, "Audio", `unknown cue "{cue}"`)
+			end
 			return false
 		end
 		local now = os.clock()
@@ -2778,7 +2892,7 @@ do
 		-- dropped at the cap; a cue that answers a discrete player action still
 		-- plays (it steals a voice below) so a tap is never silently swallowed.
 		if liveVoices >= VOICE_CAP and not bypassCooldown then
-			local decorative = cue == "hover" or cue == "hoverTick" or cue == "scroll" or cue == "tick" or cue == "wheelTick" or cue == "crateTick" or cue == "sliderStep" or cue == "filterPick" or cue == "amountChange" or cue == "cardDraw" or cue == "bootClang" or cue == "bootTension"
+			local decorative = cue == "hover" or cue == "hoverTick" or cue == "scroll" or cue == "tick" or cue == "wheelTick" or cue == "crateTick" or cue == "sliderStep" or cue == "filterPick" or cue == "amountChange" or cue == "cardDraw" or cue == "bootClang" or cue == "bootTension" or string.sub(cue, 1, 8) == "navHover" or string.sub(cue, -5) == "Hover"
 			if decorative then
 				return false
 			end
@@ -3325,6 +3439,7 @@ local function hookGuiClicks(root)
 end
 return {
 	buttonAudioCue = buttonAudioCue,
+	hoverCueFor = hoverCueFor,
 	hookGuiClicks = hookGuiClicks,
 	AUDIO_ASSET_MANIFEST = AUDIO_ASSET_MANIFEST,
 	Audio = Audio,

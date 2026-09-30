@@ -197,6 +197,16 @@ GLASS = [(1.0, 1.0, 0.9), (2.76, 0.42, 0.45), (5.40, 0.22, 0.22), (8.93, 0.10, 0
 BELL = [(1.0, 1.0, 1.4), (2.0, 0.55, 0.9), (2.4, 0.35, 0.7), (3.0, 0.3, 0.5), (4.16, 0.22, 0.35), (5.43, 0.12, 0.25)]
 METAL = [(1.0, 1.0, 0.6), (1.59, 0.7, 0.45), (2.14, 0.55, 0.35), (2.65, 0.4, 0.3), (3.51, 0.3, 0.2), (4.87, 0.2, 0.14)]
 COIN = [(1.0, 1.0, 0.35), (2.49, 0.6, 0.28), (4.18, 0.35, 0.18), (6.03, 0.18, 0.12)]
+# Ironstone: inharmonic grit for forge / anvil / salvage hits.
+IRON = [(1.0, 1.0, 0.45), (1.41, 0.72, 0.32), (2.05, 0.48, 0.24), (2.93, 0.3, 0.16), (4.11, 0.18, 0.1)]
+# Voidglass: sparse high partials for sanctuary / rift color.
+VOID = [(1.0, 1.0, 1.1), (1.73, 0.38, 0.55), (3.11, 0.22, 0.28), (5.67, 0.12, 0.14), (9.02, 0.06, 0.08)]
+# Neon: bright odd harmonics for foundry UI chrome.
+NEON = [(1.0, 1.0, 0.55), (3.0, 0.55, 0.28), (5.0, 0.28, 0.16), (7.0, 0.14, 0.1)]
+# Plasma: dense mid grit for reactor / charge builds.
+PLASMA = [(1.0, 1.0, 0.7), (1.33, 0.55, 0.4), (2.01, 0.4, 0.28), (2.67, 0.25, 0.18), (3.89, 0.14, 0.1)]
+# Crystal: glassy + odd partials for ore / echo / sanctuary.
+CRYSTAL = [(1.0, 1.0, 1.0), (2.41, 0.48, 0.5), (3.77, 0.28, 0.28), (6.15, 0.14, 0.14), (9.4, 0.07, 0.08)]
 
 
 def bell(freq: float, seconds: float, amp: float = 1.0, kind=BELL, brightness: float = 1.0) -> Buf:
@@ -321,6 +331,32 @@ def delay(buf: Buf, seconds: float, feedback: float = 0.35, wet: float = 0.3, re
         out[i] += echoed * wet
         j = (j + 1) % len(line)
     return out
+
+
+def pulse(freq: float, seconds: float, amp: float = 1.0, width: float = 0.25, phase: float = 0.0) -> Buf:
+    """Soft pulse (band-limited square-ish) for cyber UI / forge meters."""
+    n = frames(seconds)
+    out = [0.0] * n
+    w = TAU * freq / SR
+    for i in range(n):
+        p = (phase + w * i) / TAU % 1.0
+        # Two-edge soft square via tanh of a sine, width-skewed.
+        edge = math.tanh(12 * math.sin(TAU * (p - width * 0.5)))
+        out[i] = amp * edge * 0.55
+    return out
+
+
+def ring_mod(buf: Buf, freq: float, mix_amt: float = 0.5) -> Buf:
+    """Ring-modulate for void / rift colour without adding length."""
+    n = len(buf)
+    w = TAU * freq / SR
+    return [buf[i] * ((1 - mix_amt) + mix_amt * math.sin(w * i)) for i in range(n)]
+
+
+def grit(buf: Buf, amount: float = 0.3) -> Buf:
+    """Fold softclip into a slightly harsher metal edge."""
+    drive = 1.0 + 2.4 * amount
+    return softclip(buf, drive)
 
 
 # ---------------------------------------------------------------------------

@@ -151,6 +151,11 @@ function LabOrderMath.ApplyProgress(
 	amount: number
 ): boolean
 	local gain = math.max(0, math.floor(tonumber(amount) or 0))
+	-- AsNumber(MAX_DOUBLE) / inf must not push Progress to non-finite; orders
+	-- clamp to Target anyway, but a non-finite gain trips ProfileIntegrity.
+	if gain ~= gain or gain == math.huge or gain == -math.huge then
+		return false
+	end
 	if gain <= 0 then
 		return false
 	end

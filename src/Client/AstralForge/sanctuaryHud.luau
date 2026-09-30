@@ -334,7 +334,7 @@ local function IconButton(props)
 	local hovered, pressed, events = useButtonFeel()
 	local merged = table.clone(events)
 	merged.Activated = function()
-		Audio:play("click")
+		Audio:play(props.cue or "sanctuaryClick")
 		props.onActivate()
 	end
 	local position, size = rectProps(props.rect)
@@ -866,7 +866,7 @@ local function RecallButton(props)
 			InputBegan = events.InputBegan,
 			InputEnded = events.InputEnded,
 			Activated = function()
-				Audio:play("click")
+				Audio:play("sanctuaryRecall")
 				props.onRecall()
 			end,
 		},
@@ -969,6 +969,7 @@ local function Sheet(props)
 	}), e(IconButton, {
 		rect = { x = r.w - header - 6, y = 6, w = header, h = header - 12 },
 		icon = "Close",
+		cue = "sanctuarySheetClose",
 		onActivate = props.onClose,
 	}), e("frame", {
 		Position = UDim2.fromOffset(0, header + (if props.subtitle ~= nil then plan.text.label + 2 else 0)),
@@ -1019,7 +1020,7 @@ local function MenuTile(props)
 			InputBegan = events.InputBegan,
 			InputEnded = events.InputEnded,
 			Activated = function()
-				Audio:play("click")
+				Audio:play(props.cue or "sanctuaryClick")
 				props.onActivate()
 			end,
 		},
@@ -1075,6 +1076,7 @@ local function MenuSheet(props)
 			order = index,
 			icon = entry.icon,
 			label = entry.label,
+			cue = "navOpen" .. entry.key,
 			cell = math.min(cell, cellH),
 			buttonRef = if index == 1 then firstRef else nil,
 			onActivate = function()
@@ -1117,7 +1119,7 @@ local function WaystoneRow(props)
 			InputEnded = events.InputEnded,
 			Activated = function()
 				if not here then
-					Audio:play("click")
+					Audio:play(if props.id ~= nil then "waystone" .. props.id else "waystoneTravel")
 					props.onTravel()
 				end
 			end,
@@ -1196,6 +1198,7 @@ local function WaystoneSheet(props)
 		rows[stone.Id] = e(WaystoneRow, {
 			order = index,
 			plan = plan,
+			id = stone.Id,
 			name = stone.Name,
 			line = REGION_LINES[stone.Id] or "",
 			accent = accent,
@@ -1530,6 +1533,7 @@ local function SanctuaryHud(props)
 	}), plan.menuButton ~= nil and e(IconButton, {
 		rect = plan.menuButton,
 		icon = "Menu",
+		cue = "sanctuaryMenu",
 		onActivate = function()
 			setSheet("menu")
 		end,

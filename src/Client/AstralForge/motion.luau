@@ -358,7 +358,7 @@ local freezeExternal = false
 local freezeHitch = false
 local freezeNav = false
 local decorativeFrozen = false
-local clockBudget = 14
+local clockBudget = 24
 local navFreezeGeneration = 0
 local flipperMotors = {}
 local flipperToken = {}
@@ -576,10 +576,11 @@ end
 local function isUiTransitioning()
 	return freezeNav
 end
-local function setClockBudget(_budget)
-	-- Tier budgets must not starve UI clocks. Every decorative spring and pulse
-	-- keeps a full push window; antilag still computes its own particle numbers.
-	clockBudget = 24
+local function setClockBudget(budget)
+	-- Antilag still reports maxClocks, but decorative shimmers share one pool —
+	-- never starve below 20 or the rotating push window freezes most sweeps.
+	local requested = if type(budget) == "number" and budget == budget then budget else 24
+	clockBudget = math.clamp(math.floor(requested + 0.5), 20, 48)
 end
 local function getClockBudget()
 	return clockBudget

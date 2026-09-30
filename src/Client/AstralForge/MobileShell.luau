@@ -329,6 +329,7 @@ function MoreCell(_param)
 	}), React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
+		live = chrome.shimmerLive,
 		zIndex = 205,
 		radius = 14,
 	}), React.createElement("frame", {

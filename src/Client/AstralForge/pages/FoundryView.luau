@@ -136,22 +136,35 @@ local function CostChips(props)
 		end
 		local have = tonumber(props.balances[oreId]) or 0
 		local short = have < amount
+		-- UIListLayout + fixed gem tile — never AbsolutePosition + AutomaticSize
+		-- (Scale/AABB feedback can inflate cost chips under scroll rows).
 		chips[oreId] = React.createElement("frame", {
 			Size = UDim2.fromOffset(0, 20),
 			AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			LayoutOrder = info.order,
+			ClipsDescendants = false,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		}), React.createElement("frame", {
+			Size = UDim2.fromOffset(10, 20),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = 1,
 		}, React.createElement(Gem, {
-			position = UDim2.fromOffset(6, 10),
+			position = UDim2.fromOffset(5, 10),
 			size = 8,
 			color = info.color,
-		}), React.createElement("textlabel", {
-			Position = UDim2.fromOffset(16, 0),
+		})), React.createElement("textlabel", {
 			Size = UDim2.fromOffset(0, 20),
 			AutomaticSize = Enum.AutomaticSize.X,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			LayoutOrder = 2,
 			Text = `{compactNumber(amount)} {info.name}`,
 			TextColor3 = if short then Palette.coral else Palette.creamSoft,
 			TextSize = 12,

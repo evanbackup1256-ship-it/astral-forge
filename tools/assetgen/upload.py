@@ -83,16 +83,23 @@ def creator():
 
 
 def request(method, url, key, body=None, content_type=None):
-    req = urllib.request.Request(url, data=body, method=method)
-    req.add_header("x-api-key", key)
-    if content_type:
-        req.add_header("Content-Type", content_type)
-    try:
-        with urllib.request.urlopen(req, timeout=120) as response:
-            return json.loads(response.read() or b"{}")
-    except urllib.error.HTTPError as err:
-        detail = err.read().decode("utf-8", "replace")
-        sys.exit(f"{method} {url} failed: {err.code} {detail}")
+    last_error = None
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=body, method=method)
+        req.add_header("x-api-key", key)
+        if content_type:
+            req.add_header("Content-Type", content_type)
+        try:
+            with urllib.request.urlopen(req, timeout=180) as response:
+                return json.loads(response.read() or b"{}")
+        except urllib.error.HTTPError as err:
+            detail = err.read().decode("utf-8", "replace")
+            sys.exit(f"{method} {url} failed: {err.code} {detail}")
+        except urllib.error.URLError as err:
+            last_error = err
+            print(f"  connection dropped ({err}); retry {attempt + 1}/4")
+            time.sleep(2 + attempt * 3)
+    sys.exit(f"{method} {url} failed: {last_error}")
 
 
 def upload(key, asset_type, path, mime, name, description):

@@ -3,6 +3,9 @@
 Each loop is rendered a little longer than it plays, then its tail is
 crossfaded into its head, so the seam is inaudible when Roblox loops the
 region (Sound.LoopRegion). Quiet by design: these sit under the soundtrack.
+
+Tone: dark-cyber forge — sub drones, neon grit, voidglass chimes — not soft
+nature pads.
 """
 
 from __future__ import annotations
@@ -11,8 +14,9 @@ import math
 import random
 
 from synth import (
-    GLASS, BELL, SR, apply_env, bell, env_exp, frames, glide, lowpass, mix, noise, normalize, note, reverb, scale,
-    seed, sine, svf, zeros,
+    BELL, CRYSTAL, GLASS, IRON, NEON, PLASMA, SR, VOID, apply_env, bell, env_exp,
+    frames, glide, grit, lowpass, mix, noise, normalize, note, pulse, reverb,
+    ring_mod, scale, seed, sine, softclip, svf, zeros,
 )
 
 LOOP_SECONDS = 16.0
@@ -63,54 +67,72 @@ def _crackle(seconds: float, rate: float, seed_value: int, cutoff: float = 3000,
     return out
 
 
+def _sub_drone(seconds: float, freqs, pulse_hz: float = 0.0):
+    out = zeros(seconds)
+    for f, amp in freqs:
+        mix(out, sine(f, seconds, amp))
+        mix(out, sine(f * 1.003, seconds, amp * 0.45))
+    if pulse_hz > 0:
+        gate = _lfo(seconds, pulse_hz, 0.28, 0.72)
+        out = [v * g for v, g in zip(out, gate)]
+    return out
+
+
 def heart():
+    """Forge altar — slow neon pulse + iron grit under a low D drone."""
     s = LOOP_SECONDS + XFADE
-    out = zeros(s)
-    hum = mix(sine(110, s, 0.25), sine(165, s, 0.12))
-    mix(out, [h * l for h, l in zip(hum, _lfo(s, 0.11, 0.3, 0.7))])
-    mix(out, lowpass(_crackle(s, 7, 3, 2200, 0.25), 2400))
-    mix(out, _chimes(s, 3, ("D5", "A5", "F#5"), 4, 0.06, BELL))
-    return _seamless(reverb(out, room=0.7, wet=0.3, tail=0.0))
+    out = _sub_drone(s, ((55.0, 0.35), (82.5, 0.18), (110.0, 0.12)), pulse_hz=0.55)
+    mix(out, scale(pulse(55.0, s, 0.12, 0.2), 0.55))
+    mix(out, grit(lowpass(_crackle(s, 9, 3, 1800, 0.22), 2000), 0.2), 0.0, 0.8)
+    mix(out, _chimes(s, 2, ("D5", "A5", "F#5"), 4, 0.05, NEON))
+    return _seamless(reverb(out, room=0.72, wet=0.28, tail=0.0))
 
 
 def ember():
+    """Ember fields — heat rumble, forge crackle, occasional iron sigh."""
     s = LOOP_SECONDS + XFADE
     seed(21)
-    out = scale(lowpass(noise(s), 170), 3.5)
-    out = [v * l for v, l in zip(out, _lfo(s, 0.07, 0.35, 0.8))]
-    mix(out, _crackle(s, 18, 22, 3400, 0.45))
+    out = scale(lowpass(noise(s), 150), 3.8)
+    out = [v * l for v, l in zip(out, _lfo(s, 0.08, 0.38, 0.78))]
+    mix(out, grit(_crackle(s, 22, 22, 3200, 0.5), 0.25))
+    mix(out, _sub_drone(s, ((41.2, 0.22), (61.7, 0.12)), pulse_hz=0.35), 0.0, 0.7)
     rng = random.Random(23)
-    for _ in range(4):
+    for _ in range(5):
         at = rng.random() * (s - 1.0)
-        mix(out, apply_env(glide(70, 45, 0.6, 0.5), env_exp(0.6, 0.2)), at)
-    return _seamless(reverb(out, room=0.6, wet=0.2, tail=0.0))
+        mix(out, apply_env(glide(78, 42, 0.7, 0.55), env_exp(0.7, 0.22)), at)
+        mix(out, apply_env(bell(220, 0.4, 0.12, IRON, 0.5), env_exp(0.4, 0.1)), at + 0.05)
+    return _seamless(reverb(softclip(out, 1.15), room=0.58, wet=0.18, tail=0.0))
 
 
 def hollows():
+    """Crystal hollows — voidglass wind + sparse high chimes."""
     s = LOOP_SECONDS + XFADE
-    out = _wind(s, 500, 1300, 0.06, 31)
-    mix(out, _chimes(s, 9, ("D6", "E6", "F#6", "A6", "B6", "D7"), 32, 0.1))
-    return _seamless(reverb(out, room=0.85, wet=0.4, tail=0.0))
+    out = scale(_wind(s, 450, 1400, 0.055, 31), 0.9)
+    mix(out, ring_mod(_wind(s, 900, 2400, 0.09, 33), 37.5, 0.18), 0.0, 0.35)
+    mix(out, _chimes(s, 11, ("C#6", "F#6", "A6", "C#7", "E7"), 32, 0.09, VOID))
+    mix(out, _sub_drone(s, ((36.7, 0.18),), pulse_hz=0.2), 0.0, 0.5)
+    return _seamless(reverb(out, room=0.88, wet=0.42, tail=0.0))
 
 
 def spire():
+    """Voidglass spires — thin high wind, distant neon bells."""
     s = LOOP_SECONDS + XFADE
-    out = _wind(s, 1300, 3200, 0.09, 41)
-    mix(out, _wind(s, 300, 700, 0.05, 42), 0.0, 0.6)
-    mix(out, _chimes(s, 4, ("D5", "A5", "D6"), 43, 0.1, BELL))
-    return _seamless(reverb(out, room=0.9, wet=0.42, tail=0.0))
+    out = _wind(s, 1400, 3600, 0.1, 41)
+    mix(out, _wind(s, 280, 680, 0.045, 42), 0.0, 0.55)
+    mix(out, _chimes(s, 5, ("D5", "A5", "D6", "F#6"), 43, 0.09, CRYSTAL))
+    mix(out, scale(pulse(73.4, s, 0.08, 0.15), 0.35))
+    return _seamless(reverb(out, room=0.9, wet=0.44, tail=0.0))
 
 
 def riftmaw():
+    """Rift maw — beating sub pair, plasma wash, sparse void ticks."""
     s = LOOP_SECONDS + XFADE
-    out = zeros(s)
-    for f, amp in ((36.7, 0.5), (37.2, 0.5), (55.0, 0.25)):
-        mix(out, sine(f, s, amp))
-    pulse = _lfo(s, 0.5, 0.35, 0.65)
-    out = [v * p for v, p in zip(out, pulse)]
+    out = _sub_drone(s, ((36.7, 0.55), (37.4, 0.55), (55.0, 0.22), (73.4, 0.1)), pulse_hz=0.62)
     seed(51)
-    mix(out, svf(noise(s), lambda x: 300 + 200 * math.sin(math.tau * 0.125 * x * s), 2.0), 0.0, 0.4)
-    return _seamless(reverb(out, room=0.9, wet=0.35, tail=0.0))
+    mix(out, svf(noise(s), lambda x: 280 + 260 * math.sin(math.tau * 0.12 * x * s), 2.2), 0.0, 0.42)
+    mix(out, grit(lowpass(_crackle(s, 4, 52, 1600, 0.18), 1400), 0.35), 0.0, 0.55)
+    mix(out, _chimes(s, 2, ("A4", "C#5"), 53, 0.04, PLASMA))
+    return _seamless(reverb(ring_mod(out, 18.5, 0.08), room=0.9, wet=0.36, tail=0.0))
 
 
 LOOPS = {

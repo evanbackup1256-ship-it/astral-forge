@@ -1,37 +1,38 @@
 --!strict
 -- The game's soundtrack.
 --
--- Astral Forge used to score every page separately: 30 views mapped onto 15
--- "beds", and changing page crossfaded the music. There are only four real
--- music files, so those beds were the same few tracks re-EQ'd and re-pitched,
--- and moving around the menus kept restarting and recolouring the music.
+-- One playlist for the whole game (pages never pick music). Tracks play in
+-- order start-to-finish with a long equal-power crossfade at each hand-over.
 --
--- Now there is one soundtrack for the whole game. It plays its tracks in order,
--- each start to finish, and carries on whatever page is open; a track hands
--- over to the next with a long crossfade only when it reaches its end.
+-- Beds are themed as a dark-cyber forge cycle:
+--   ForgePulse      — idle foundry pulse (tense synth meters)
+--   SanctuaryDrift  — voidglass tension under the walkable world
+--   AstralOrbit     — cooler astral drift between peaks
+--   BossSurge       — frenetic intensity for the Warden / spectacle peaks
 --
--- Pure data + math: no Roblox instances, so the sequencing is unit tested under
--- Lune (scripts/verify_soundtrack.luau). musicDirector.luau owns the Sounds.
+-- Pure data + math: no Roblox instances. Sequenced by musicDirector.luau;
+-- unit-tested under Lune (scripts/verify_soundtrack.luau).
 
 export type Track = {
 	name: string,
 	asset: string,
 	-- Loudness trim so every track sits at the same level.
 	gain: number,
-	-- Gentle mastering EQ in dB (EqualizerSoundEffect accepts -80..10). These
+	-- Gentle mastering EQ in dB (equalizerSoundEffect accepts -80..10). These
 	-- only even the tracks out against each other; they do not recolour them.
 	low: number,
 	mid: number,
 	high: number,
 }
 
--- Played in this order, then round again. Atrium is the main theme, so it is
--- what the game opens on.
+-- Original beds rendered by tools/assetgen/soundtrack_gen.py and uploaded
+-- with tools/assetgen/upload_soundtrack.py. New audio stays silent until
+-- Roblox moderation clears it; musicDirector skips a track that fails to load.
 local TRACKS: { Track } = {
-	{ name = "Atrium", asset = "rbxassetid://9038252619", gain = 0.84, low = 1.5, mid = 1, high = -1 },
-	{ name = "Foundry", asset = "rbxassetid://5410086218", gain = 0.8, low = 2, mid = 0, high = -2 },
-	{ name = "Orbit", asset = "rbxassetid://9046476113", gain = 0.78, low = 0, mid = 1.5, high = 0.5 },
-	{ name = "Core", asset = "rbxassetid://9120386436", gain = 0.72, low = -1.5, mid = -0.5, high = 1.5 },
+	{ name = "ForgePulse", asset = "rbxassetid://79059492969495", gain = 0.82, low = 2, mid = 0.5, high = -1.5 },
+	{ name = "SanctuaryDrift", asset = "rbxassetid://130740395926509", gain = 0.74, low = 0, mid = 0.8, high = 0.8 },
+	{ name = "AstralOrbit", asset = "rbxassetid://137908904057491", gain = 0.78, low = 0, mid = 1, high = 1 },
+	{ name = "BossSurge", asset = "rbxassetid://109017004194379", gain = 0.72, low = 1.5, mid = 0, high = -2 },
 }
 
 local Soundtrack = {}

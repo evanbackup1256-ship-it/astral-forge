@@ -129,7 +129,7 @@ local function RailButton(_param)
 		end
 		hoveredRef.current = true
 		setHovered(true)
-		Audio:play("hover")
+		Audio:play("navHover" .. entry.id)
 	end
 	local clearHover = function()
 		hoveredRef.current = false
@@ -161,7 +161,7 @@ local function RailButton(_param)
 				local audioMarker = Audio:captureIntent()
 				onClick()
 				if not disabled then
-					Audio:playIfUnclaimed(audioMarker, "tabSwitch")
+					Audio:playIfUnclaimed(audioMarker, "navOpen" .. entry.id)
 				end
 				InteractionFeedback.tap()
 			end,
@@ -444,6 +444,7 @@ local function MoreDockButton(_param)
 	}, React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
+		live = chrome.shimmerLive,
 		zIndex = 58,
 		radius = radius,
 	})), React.createElement("frame", {
@@ -703,6 +704,7 @@ function MoreCell(_param)
 	}), React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
+		live = chrome.shimmerLive,
 		zIndex = 95,
 		radius = 12,
 	}), React.createElement("frame", {

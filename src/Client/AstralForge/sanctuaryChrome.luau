@@ -168,7 +168,7 @@ local function DockButton(props)
 		end
 		hoveredRef.current = true
 		setHovered(true)
-		Audio:play("hover")
+		Audio:play("sanctuaryHover")
 	end
 	local clearHover = function()
 		hoveredRef.current = false
@@ -200,7 +200,7 @@ local function DockButton(props)
 		ZIndex = 8,
 		Event = {
 			Activated = function()
-				Audio:play("click")
+				Audio:play("sanctuaryClick")
 				props.onNavigate(props.entry.pageId)
 			end,
 			MouseEnter = function()
@@ -494,7 +494,7 @@ local function SplitCurtain(props)
 		end
 		if open ~= wasOpen.current then
 			wasOpen.current = open
-			Audio:play(if open then "open" else "close")
+			Audio:play(if open then "curtainOpen" else "curtainClose")
 		end
 		return nil
 	end, { open })

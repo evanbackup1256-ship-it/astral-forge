@@ -5,8 +5,8 @@ Python 3 (no packages to install).
 
 | File (in `assets/generated/`) | What it is | Upload as |
 | --- | --- | --- |
-| `AstralForgeSFX.wav` | 47 sound effects in one sheet (every UI, reward, forge, sanctuary and Warden sound) | Audio |
-| `AstralForgeAmbience.wav` | 5 seamless region loops for the sanctuary | Audio |
+| `AstralForgeSFX.wav` | ~193 sound effects in one sheet (near 1:1 cue voices: UI, forge, sanctuary curtain/ore/rift, Warden, rewards, boot) | Audio |
+| `AstralForgeAmbience.wav` | 5 seamless region loops for the sanctuary (cosmic foundry beds) | Audio |
 | `AstralForgeKit.glb` | 17 models: crystals, rocks, basalt columns, voidglass spires, obelisk, plinth, lantern, arena pillar, star, the Warden's core, plates, blades and halo, bridge deck | Model |
 
 Until a file is uploaded, the game works exactly as before: the mixer keeps its

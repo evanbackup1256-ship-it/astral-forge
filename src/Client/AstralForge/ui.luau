@@ -40,8 +40,10 @@ local TapTarget = _theme.TapTarget
 local _audio = require(script.Parent.audio)
 local Audio = _audio.Audio
 local buttonAudioCue = _audio.buttonAudioCue
+local hoverCueFor = _audio.hoverCueFor
 local InteractionFeedback = require(script.Parent.interaction).InteractionFeedback
 local TouchGestureService = require(script.Parent.input.TouchGestureService)
+local ShimmerMath = require(script.Parent.shimmer)
 local dropdownPortal
 local dropdownPortalUsers = 0
 local function acquireDropdownPortal()
@@ -137,10 +139,12 @@ local function pinLayoutGuardIgnore(instance)
 		instance:SetAttribute("LayoutGuardIgnore", true)
 	end
 end
--- Soft glass-glint: narrow bright core with a long low-contrast tail. Peak stays
--- above 0.12 so idle shimmer reads as light, not a strobe.
-local SHIMMER_GLINT = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 1), NumberSequenceKeypoint.new(0.47, 0.55), NumberSequenceKeypoint.new(0.5, 0.18), NumberSequenceKeypoint.new(0.54, 0.55), NumberSequenceKeypoint.new(0.72, 0.92), NumberSequenceKeypoint.new(1, 1) })
-local SHIMMER_SWEEP_SPEED = 0.72
+-- Soft specular glint + sweep speed live in shimmer.luau (pure helpers).
+-- Never animate oversized tip frames under AutomaticSize — Offset only.
+local SHIMMER_GLINT = ShimmerMath.GLINT
+local SHIMMER_TRAIL = ShimmerMath.TRAIL
+local SHIMMER_SWEEP_SPEED = ShimmerMath.SWEEP_SPEED
+local shimmerOffset = ShimmerMath.offset
 local inputCancelListeners = {}
 local inputCancelConnection
 local menuCancelConnection
@@ -516,11 +520,16 @@ local function ShimmerText(_param)
 	if shimmerScale == nil then
 		shimmerScale = 1
 	end
-	local want = enabled and shimmerScale > 0.02
-	local speed = 1 / math.max(1.2, periodSeconds)
-	local phase = useClock(want, speed, 1, true)
+	local want = enabled and not reducedMotion and not effectsPaused and shimmerScale > 0.02
+	local speed = (1 / math.max(1.2, periodSeconds)) * math.clamp(0.45 + shimmerScale * 0.55, 0.45, 1)
+	local phase = useClock(want, speed, 1, false)
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
 	local font = if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
+	local glintColor = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, color),
+		ColorSequenceKeypoint.new(0.5, color:Lerp(Palette.cyan, 0.22)),
+		ColorSequenceKeypoint.new(1, color),
+	})
 	local _exp = React.createElement(Text, {
 		value = value,
 		size = size,
@@ -540,13 +549,18 @@ local function ShimmerText(_param)
 			MinTextSize = minText,
 			MaxTextSize = scaledSize,
 		})
+		-- Overlay matches host via Scale inside a clipped shell; motion is
+		-- UIGradient.Offset only — never an oversized tip child.
 		_condition = React.createElement("textlabel", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
+			Active = false,
+			Selectable = false,
 			AutoLocalize = true,
 			Text = value,
-			TextColor3 = Palette.white,
+			TextColor3 = Palette.cream,
+			TextTransparency = math.clamp(1 - shimmerScale * 0.55, 0.35, 0.82),
 			TextSize = scaledSize,
 			FontFace = Font.fromEnum(font),
 			TextXAlignment = align,
@@ -555,12 +569,12 @@ local function ShimmerText(_param)
 			TextTruncate = Enum.TextTruncate.None,
 			ZIndex = zIndex + 1,
 		}, shimmerConstraint, React.createElement("uigradient", {
-			Color = ColorSequence.new(Palette.white),
+			Color = glintColor,
 			Transparency = SHIMMER_GLINT,
 			Offset = phase:map(function(amount)
-				return Vector2.new(amount * 2.2 - 1.1, 0)
+				return shimmerOffset(amount, 2.05)
 			end),
-			Rotation = 12,
+			Rotation = 14,
 		}))
 	end
 	return React.createElement("frame", {
@@ -568,9 +582,11 @@ local function ShimmerText(_param)
 		Position = position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex,
 		LayoutOrder = layoutOrder,
-		ClipsDescendants = false,
+		ClipsDescendants = true,
+		AutomaticSize = Enum.AutomaticSize.None,
 	}, _exp, _condition)
 end
 local function SectionLabel(_param)
@@ -1175,8 +1191,8 @@ local function Panel(_param)
 	local lift = useOptionalFlipperSpring(if interactive and hovered and not effectsPaused and panelHoverScale > 0.02 then panelHoverScale else 0, interactive and hoverArmed, interactionMotion, 480, 38)
 	local accentColor = accent or Palette.lineSoft
 	local highlightOn = useOptionalFlipperSpring(if highlight and not effectsPaused then 1 else 0, highlight, interactionMotion, 420, 36)
-	local shimmerWanted = shimmer and interactive and shimmerScale > 0.02 and not interactionMotion
-	local whiteSweep = useClock(shimmerWanted and hovered, SHIMMER_SWEEP_SPEED, 1, true)
+	local shimmerWanted = shimmer and interactive and shimmerScale > 0.02 and not effectsPaused
+	local whiteSweep = useClock(shimmerWanted and hovered, SHIMMER_SWEEP_SPEED, 1, false)
 	-- Clear hover glow on interactive cards with an accent color — separate from the subtle
 	-- stroke-brighten below, gated on ambient FX the same way the shimmer sweep above is.
 	local glowWanted = interactive and accent ~= nil and not interactionMotion
@@ -1324,11 +1340,11 @@ local function Panel(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	}), shimmer and not interactionMotion and React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.white),
+		Color = ColorSequence.new(Palette.cream),
 		Rotation = 14,
 		Transparency = SHIMMER_GLINT,
 		Offset = whiteSweep:map(function(phase)
-			return Vector2.new(phase * 2.25 - 1.12, 0)
+			return shimmerOffset(phase, 2.25)
 		end),
 	})), highlight and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -1471,7 +1487,7 @@ local function resolvePressMotion(spec)
 		tilt = math.clamp(tilt, -1.5, 1.5),
 	}
 end
-local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShimmer, _idleShimmer, motionSpec)
+local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShimmer, idleShimmer, motionSpec)
 	if reducedMotion == nil then
 		reducedMotion = false
 	end
@@ -1484,8 +1500,8 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	if allowShimmer == nil then
 		allowShimmer = true
 	end
-	if _idleShimmer == nil then
-		_idleShimmer = false
+	if idleShimmer == nil then
+		idleShimmer = false
 	end
 	local viewport = useViewport()
 	local _binding = useMotionSettings()
@@ -1495,6 +1511,10 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	end
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local softMotion = reducedMotion or effectsPaused
+	-- Interactive chrome must stay springy under antilag softMotion. Pages fold
+	-- allowAmbient into reducedMotion, which was snapping every hover/press and
+	-- reading as lag. motionScale already slows springs; only effectsPaused snaps.
+	local springSoft = effectsPaused
 	local touchChrome = viewport.compact or viewport.tight
 	local hovered, setHovered = React.useState(false)
 	local pressed, setPressed = React.useState(false)
@@ -1514,7 +1534,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local poseGoal = if disabled then 0 elseif pressed then -1 elseif hovered then 1 else 0
 	-- Asymmetric: the press goes in almost at once (a finger expects that),
 	-- and the release eases back out, so a click reads as struck, not toggled.
-	local pose = useOptionalFlipperSpring(poseGoal, true, softMotion, if pressed then 1500 else 900, if pressed then 52 else 44)
+	local pose = useOptionalFlipperSpring(poseGoal, true, springSoft, if pressed then 1500 else 900, if pressed then 52 else 44)
 	local hoverAmount = pose:map(function(value)
 		return math.clamp(value, 0, 1)
 	end)
@@ -1527,17 +1547,18 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		end
 		return -value * 1.1
 	end)
-	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, softMotion, 760, 32)
+	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, springSoft, 760, 32)
 	-- Impact flash is keyed off popTrigger so every successful activate gets a
 	-- one-shot white wash — previously useFlash(0) never fired.
 	-- Repeat activates reset this same motor. Scale and tilt stay on the pose spring.
 	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.2 else 0.26)
-	-- idleShimmer buttons (highlight/selected states) keep ButtonShimmer visible even when not
-	-- hovered -- the sweep clock has to keep running in that case too, or it freezes mid-gradient
-	-- the instant hover ends and leaves a stuck streak baked into the always-visible idle frame
-	-- instead of continuing its loop or fading cleanly away.
-	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not softMotion
-	local shimmer = useClock(shimmerWanted, SHIMMER_SWEEP_SPEED, 1, true)
+	-- Phase-locked hover+idle: one DECORATIVE clock (not realtime — realtime
+	-- budget is for spinners/needles; putting shimmers there starved UI and
+	-- made motion feel laggy). Do NOT gate on softMotion/antilag reducedMotion:
+	-- pages fold antilag into reducedMotion and that was killing every shimmer.
+	-- Settings already zero shimmerScale when ButtonShimmers is off.
+	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not effectsPaused and (idleShimmer or hovered or gamepadFocused)
+	local shimmer = useClock(shimmerWanted, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
 	local surfaceSize = pose:map(function()
 		return UDim2.fromScale(1, 1)
 	end)
@@ -1601,7 +1622,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 			return nil
 		end
 		hoverStall.current = now
-		Audio:play("hover")
+		Audio:play(hoverCueFor(sound))
 	end
 	local clearHover = function()
 		hoveredRef.current = false
@@ -1705,6 +1726,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		pressAmount = pressAmount,
 		impact = impact,
 		shimmer = shimmer,
+		shimmerLive = shimmerWanted,
 		focusRing = focusRing,
 		surfaceSize = surfaceSize,
 		touchScale = touchScale,
@@ -1730,34 +1752,103 @@ local function ButtonShimmer(_param)
 	if idle == nil then
 		idle = false
 	end
+	-- Optional; defaults true so existing call sites stay valid. useButtonChrome
+	-- passes shimmerLive so softMotion/antilag unmounts instead of freezing a streak.
+	local live = _param.live
+	if live == nil then
+		live = true
+	end
+	local trail = _param.trail
+	-- Default trail off — dual-pass is costly when many buttons hover at once.
+	-- Highlight/selected call sites can pass trail = true.
+	if trail == nil then
+		trail = idle == true
+	end
+	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local _binding = useMotionSettings()
 	local shimmerScale = _binding.shimmerScale
 	if shimmerScale == nil then
 		shimmerScale = 1
 	end
-	return React.createElement("frame", {
+	if not live or effectsPaused or shimmerScale <= 0.02 then
+		return nil
+	end
+	local useTrail = ShimmerMath.wantTrail(shimmerScale, trail)
+	-- Soft cream→cyan specular. Masked shell fills its host without layout
+	-- participation (Active=false, AutomaticSize=None, ClipsDescendants).
+	-- Sweep is UIGradient.Offset only — no tip frames that inflate AutomaticSize.
+	local specularColor = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Palette.cream),
+		ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.28)),
+		ColorSequenceKeypoint.new(1, Palette.cream),
+	})
+	local trailColor = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Palette.cream),
+		ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.14)),
+		ColorSequenceKeypoint.new(1, Palette.cream),
+	})
+	local strength = hoverAmount:map(function(amount)
+		return ShimmerMath.surfaceStrength(amount, idle, shimmerScale)
+	end)
+	local visible = hoverAmount:map(function(amount)
+		return ShimmerMath.shouldShow(amount, idle, shimmerScale)
+	end)
+	local corner = React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, radius),
+	})
+	local core = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = hoverAmount:map(function(amount)
-			local hoverStrength = math.clamp(amount, 0, 1) * 0.38
-			local idleStrength = if idle then 0.14 else 0
-			return 1 - math.clamp(math.max(hoverStrength, idleStrength) * shimmerScale, 0, 0.5)
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = strength:map(function(s)
+			return 1 - s
 		end),
 		BorderSizePixel = 0,
-		Visible = hoverAmount:map(function(amount)
-			return shimmerScale > 0.02 and (idle or amount > 0.02)
+		Active = false,
+		Selectable = false,
+		AutomaticSize = Enum.AutomaticSize.None,
+		ZIndex = 2,
+	}, corner, React.createElement("uigradient", {
+		Color = specularColor,
+		Rotation = ShimmerMath.ROTATION,
+		Transparency = SHIMMER_GLINT,
+		Offset = shimmer:map(function(phase)
+			return shimmerOffset(phase, ShimmerMath.DEFAULT_TRAVEL, 0)
 		end),
-		ZIndex = zIndex,
+	}))
+	local trailPass = useTrail and React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = strength:map(function(s)
+			return 1 - s * 0.38
+		end),
+		BorderSizePixel = 0,
+		Active = false,
+		Selectable = false,
+		AutomaticSize = Enum.AutomaticSize.None,
+		ZIndex = 1,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.white),
-		Rotation = 16,
-		Transparency = SHIMMER_GLINT,
+		Color = trailColor,
+		Rotation = ShimmerMath.ROTATION,
+		Transparency = SHIMMER_TRAIL,
 		Offset = shimmer:map(function(phase)
-			return Vector2.new(phase * 2.1 - 1.05, 0)
+			return shimmerOffset(phase, ShimmerMath.DEFAULT_TRAVEL, ShimmerMath.TRAIL_LAG)
 		end),
 	}))
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		AutomaticSize = Enum.AutomaticSize.None,
+		Active = false,
+		Selectable = false,
+		Visible = visible,
+		ZIndex = zIndex,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, radius),
+	}), trailPass, core)
 end
 local nextAssistId = 0
 function Button(_param)
@@ -1834,6 +1925,7 @@ function Button(_param)
 	local hoverAmount = _binding.hoverAmount
 	local impact = _binding.impact
 	local shimmer = _binding.shimmer
+	local shimmerLive = _binding.shimmerLive
 	local focusRing = _binding.focusRing
 	local touchScale = _binding.touchScale
 	local tilt = _binding.tilt
@@ -1991,7 +2083,10 @@ function Button(_param)
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
-	}), not outline and not effectivelyDisabled and React.createElement("uigradient", {
+	}), -- Sheen gradient lives only on the fill shell. UIStroke always mounts on
+	-- separate transparent siblings below so a leftover paint gradient can never
+	-- recolor the outline / focus ring.
+	not outline and not effectivelyDisabled and React.createElement("uigradient", {
 		Color = surfaceGradient(baseFill, 0.95),
 		Rotation = 90,
 	}), not outline and not effectivelyDisabled and React.createElement("frame", {
@@ -2000,6 +2095,7 @@ function Button(_param)
 		BackgroundColor3 = Palette.cream,
 		BackgroundTransparency = 0.7,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 2,
 	}), not compactRipple and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -2008,14 +2104,17 @@ function Button(_param)
 			return math.clamp(1 - values[1] * 0.05 - values[2] * 0.06, 0.82, 1)
 		end),
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 2,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
 	})), active and React.createElement(ButtonShimmer, {
 		hoverAmount = hoverAmount,
 		shimmer = shimmer,
+		live = shimmerLive,
 		idle = highlight,
 		zIndex = zIndex + 2,
+		radius = Layout.buttonRadius,
 	}), active and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.white,
@@ -2023,6 +2122,7 @@ function Button(_param)
 			return math.clamp(1 - amount * 0.48, 0.52, 1)
 		end),
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 4,
 		Visible = impact:map(function(amount)
 			return amount > 0.05
@@ -2036,6 +2136,7 @@ function Button(_param)
 			return math.clamp(1 - amount * 0.6, 0.4, 1)
 		end),
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 4,
 		Visible = shake:map(function(amount)
 			return amount > 0.02
@@ -2046,6 +2147,7 @@ function Button(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 3,
 		Visible = labelHiddenByLoading:map(function(amount)
 			return amount < 0.98
@@ -2139,17 +2241,18 @@ function Button(_param)
 		Transparency = labelHiddenByLoading:map(function(amount)
 			return 1 - amount
 		end),
-	}), React.createElement("uigradient", {
+	}, React.createElement("uigradient", {
 		Color = ColorSequence.new(enabledLabelColor),
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.7, 0.6), NumberSequenceKeypoint.new(1, 1) }),
 		Rotation = 90,
-	}))), (outline or highlight) and React.createElement("frame", {
+	})))), (outline or highlight) and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = offsetY:map(function(amount)
 			return UDim2.new(0, 0, 0, math.round(amount))
 		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 4,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
@@ -2164,6 +2267,7 @@ function Button(_param)
 		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 4,
 		Visible = breatheWanted,
 	}, React.createElement("uicorner", {
@@ -2181,6 +2285,7 @@ function Button(_param)
 		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = zIndex + 5,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
@@ -2275,10 +2380,10 @@ local function Meter(_param)
 		end
 		return UDim2.new(t, 0, 1, 0)
 	end)
-	local wantShimmer = shimmer and shimmerScale > 0.02 and not empty and not lowMotion
+	local wantShimmer = shimmer and shimmerScale > 0.02 and not empty and not effectsPaused
 	local shimmerBlend = useOptionalFlipperSpring(if wantShimmer then 1 else 0, true, lowMotion, 400, 34)
 	local readyPulse = usePulse(wantShimmer, 2)
-	local shimmerPhase = useClock(wantShimmer, 0.72, 1, true)
+	local shimmerPhase = useClock(wantShimmer, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
 	local _exp = React.createElement("uisizeconstraint", {
 		MinSize = Vector2.new(48, 3),
 	})
@@ -2340,11 +2445,11 @@ local function Meter(_param)
 			return amount > 0.02
 		end),
 	}, React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.white),
+		Color = ColorSequence.new(Palette.cream),
 		Transparency = SHIMMER_GLINT,
 		Rotation = 22,
 		Offset = shimmerPhase:map(function(phase)
-			return Vector2.new(phase * 2.6 - 1.3, 0)
+			return shimmerOffset(phase, 2.6)
 		end),
 	})))
 	return React.createElement("frame", {
@@ -2865,6 +2970,7 @@ local function SegmentedTabHit(_param)
 	}), React.createElement(ButtonShimmer, {
 		hoverAmount = chrome.hoverAmount,
 		shimmer = chrome.shimmer,
+		live = chrome.shimmerLive,
 		idle = selected,
 		zIndex = zIndex + 1,
 		radius = 8,
@@ -2969,7 +3075,7 @@ local function SegmentedTabs(_param)
 	local columnTrail = useFlipperSpring(activeColumn, reducedMotion, 480, 46)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
-	local tabSweep = useClock(reducedMotion ~= true, SHIMMER_SWEEP_SPEED, 1, true)
+	local tabSweep = useClock(reducedMotion ~= true, SHIMMER_SWEEP_SPEED, 1, false)
 	local _result = options[activeIndex + 1]
 	if _result ~= nil then
 		_result = _result.accent
@@ -3022,29 +3128,38 @@ local function SegmentedTabs(_param)
 	}), React.createElement("uigradient", {
 		Color = ColorSequence.new(lighten(selectedAccent, 0.14), darken(selectedAccent, 0.06)),
 		Rotation = 90,
+	}), React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = zIndex + 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 8),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = lighten(selectedAccent, 0.24),
 		Thickness = 1,
 		Transparency = 0.28,
-	}), React.createElement("frame", {
+	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.white,
+		BackgroundColor3 = Palette.cream,
 		BackgroundTransparency = 0.78,
 		BorderSizePixel = 0,
+		Active = false,
 		ZIndex = 2,
 	}, React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.white),
+		Color = ColorSequence.new(Palette.cream),
 		Transparency = SHIMMER_GLINT,
 		Offset = tabSweep:map(function(phase)
-			return Vector2.new(phase * 2.2 - 1.1, 0)
+			return shimmerOffset(phase, 2.2)
 		end),
 	})), React.createElement("frame", {
 		Size = UDim2.new(0.52, 0, 0, 2),
 		Position = UDim2.new(0.5, 0, 1, -3),
 		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Palette.white,
+		BackgroundColor3 = Palette.cream,
 		BackgroundTransparency = 0.12,
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
@@ -4157,6 +4272,7 @@ return {
 	AutoHeightText = AutoHeightText,
 	OverlayPresence = OverlayPresence,
 	ShimmerText = ShimmerText,
+	shimmerOffset = shimmerOffset,
 	SectionLabel = SectionLabel,
 	QuantityStepper = QuantityStepper,
 	ScrollEdgeFade = ScrollEdgeFade,

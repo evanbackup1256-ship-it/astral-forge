@@ -20,6 +20,7 @@ local Modules = script.Parent.Parent:WaitForChild("Modules")
 local OreMath = require(Modules:WaitForChild("OreMath"))
 local Economy = require(Modules:WaitForChild("Economy"))
 local ActionResponse = require(Modules:WaitForChild("ActionResponse"))
+local ProfileBagMath = require(Modules:WaitForChild("ProfileBagMath"))
 
 local NODE_TAG = "AF_OreNode"
 
@@ -227,10 +228,8 @@ function OreService:Mine(player: Player, nodeId: string)
 			return ActionResponse.Error("Nothing to mine here.")
 		end
 		profile.Ore = OreMath.SanitizeBalances(profile.Ore, GameConfig.Ore)
-		profile.Ore[oreId] += mined
-		if type(profile.Stats) == "table" then
-			profile.Stats.OreMined = (tonumber(profile.Stats.OreMined) or 0) + mined
-		end
+		profile.Ore[oreId] = ProfileBagMath.AddFinite(profile.Ore[oreId], mined)
+		ProfileBagMath.BumpStat(profile, "OreMined", mined)
 		return ActionResponse.Success(nil)
 	end)
 	if type(result) ~= "table" or result.ok ~= true then

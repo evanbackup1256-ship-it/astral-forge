@@ -182,6 +182,7 @@ end
 assign("chrome", {
 	"hover", "hoverTick", "scroll", "tick", "sliderStep", "filterPick",
 	"amountChange", "cardDraw", "storyPage", "wheelTick", "crateTick",
+	"navHover", "sanctuaryHover",
 })
 
 assign("interface", {
@@ -189,6 +190,7 @@ assign("interface", {
 	"inputFocus", "inputClear", "claimPress", "equip", "itemLink", "itemUnlink",
 	"cardBlock", "playerlistSelect", "playerlistAction", "roleChange",
 	"tutorialStep", "codeSubmit", "machineInstall", "mailRead",
+	"sanctuaryClick",
 })
 
 assign("motion", {

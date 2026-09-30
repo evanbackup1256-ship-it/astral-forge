@@ -68,6 +68,28 @@ assert(target.Cores == 2, "reconcile fills nil")
 assert(target.Bag.Y == 3 and target.Bag.X == 1, "reconcile nested fill")
 assert(target.Extra == 4, "reconcile top-level fill")
 
+-- ScrubNonFinite: orphaned NaN/±inf leaves must become 0 without touching
+-- finite numbers or Omega persist strings (Seal rejects non-finite numbers).
+local dirty = {
+	Cash = "inf",
+	Cores = 12,
+	Lab = { Orders = { { Progress = math.huge, Target = 10 }, { Progress = 3, Target = 0 / 0 } } },
+	Stats = { PlayTime = 1e308 + 1e308, Taps = 4 },
+	Nested = { Deep = { Leaf = -math.huge } },
+}
+DataSanitizeMath.ScrubNonFinite(dirty)
+assert(dirty.Cash == "inf", "scrub keeps Omega/inf string")
+assert(dirty.Cores == 12, "scrub keeps finite")
+assert(dirty.Lab.Orders[1].Progress == 0, "scrub zeros +inf progress")
+assert(dirty.Lab.Orders[1].Target == 10, "scrub keeps finite target")
+assert(dirty.Lab.Orders[2].Target == 0, "scrub zeros NaN")
+assert(dirty.Stats.PlayTime == 0, "scrub zeros overflowed PlayTime")
+assert(dirty.Stats.Taps == 4, "scrub keeps finite taps")
+assert(dirty.Nested.Deep.Leaf == 0, "scrub deep -inf")
+assert(DataSanitizeMath.ScrubNonFinite(math.huge) == 0, "scrub top-level inf → 0")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/DataService.luau"), "DataSanitizeMath.ScrubNonFinite", 1, true), "DataService ScrubNonFinite residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau"), "function DataSanitizeMath.ScrubNonFinite", 1, true), "ScrubNonFinite exported")
+
 ------------------------------------------------------------------------
 -- Service wiring residuals
 ------------------------------------------------------------------------
