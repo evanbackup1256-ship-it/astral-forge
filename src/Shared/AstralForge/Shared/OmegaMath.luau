@@ -13,6 +13,17 @@ local function isFinite(n: any): boolean
 	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
 end
 
+-- Ordinary numbers below this stay exact. Routing them through log10 and back turned 36 into
+-- 35.99999999999998, which then floored to 35 and failed exact affordability checks.
+local NATIVE_LIMIT = 1e15
+-- Cancellation noise between plain doubles is a few units in the last place (~1e-16 relative),
+-- so anything below this is treated as exactly zero while real differences survive.
+local CANCEL_EPSILON = 5e-15
+
+local function plain(value: any): boolean
+	return type(value) == "number" and value == value and math.abs(value) < NATIVE_LIMIT
+end
+
 type Decoded = { z: boolean, s: number, e: number }
 
 local function decode(value: any): Decoded
@@ -118,10 +129,16 @@ local function encode(decoded: Decoded): Persist
 end
 
 function OmegaMath.New(value: any): Persist
+	if plain(value) then
+		return if value == 0 then 0 else value
+	end
 	return encode(decode(value))
 end
 
 function OmegaMath.Persist(value: any): Persist
+	if plain(value) then
+		return if value == 0 then 0 else value
+	end
 	return encode(decode(value))
 end
 
@@ -130,6 +147,15 @@ function OmegaMath.IsOmega(_value: any): boolean
 end
 
 function OmegaMath.Add(left: any, right: any): Persist
+	if plain(left) and plain(right) then
+		local sum = left + right
+		if math.abs(sum) < NATIVE_LIMIT then
+			if math.abs(sum) < CANCEL_EPSILON * math.max(math.abs(left), math.abs(right)) then
+				return 0
+			end
+			return sum
+		end
+	end
 	local a = decode(left)
 	local b = decode(right)
 	if a.z then
@@ -167,6 +193,9 @@ function OmegaMath.Add(left: any, right: any): Persist
 end
 
 function OmegaMath.Sub(left: any, right: any): Persist
+	if plain(left) and plain(right) then
+		return OmegaMath.Add(left, -right)
+	end
 	local b = decode(right)
 	if b.z then
 		return encode(decode(left))
@@ -175,6 +204,12 @@ function OmegaMath.Sub(left: any, right: any): Persist
 end
 
 function OmegaMath.Mul(left: any, right: any): Persist
+	if plain(left) and plain(right) then
+		local product = left * right
+		if math.abs(product) < NATIVE_LIMIT then
+			return if product == 0 then 0 else product
+		end
+	end
 	local a = decode(left)
 	local b = decode(right)
 	if a.z or b.z then
@@ -184,6 +219,12 @@ function OmegaMath.Mul(left: any, right: any): Persist
 end
 
 function OmegaMath.Div(left: any, right: any): Persist
+	if plain(left) and plain(right) and right ~= 0 then
+		local quotient = left / right
+		if math.abs(quotient) < NATIVE_LIMIT then
+			return if quotient == 0 then 0 else quotient
+		end
+	end
 	local a = decode(left)
 	local b = decode(right)
 	if b.z then
@@ -260,6 +301,12 @@ function OmegaMath.Min(left: any, right: any): Persist
 end
 
 function OmegaMath.Compare(left: any, right: any): number
+	if plain(left) and plain(right) then
+		if left == right then
+			return 0
+		end
+		return if left > right then 1 else -1
+	end
 	local a = decode(left)
 	local b = decode(right)
 	if a.z and b.z then
@@ -300,6 +347,9 @@ function OmegaMath.Gte(left: any, right: any): boolean
 end
 
 function OmegaMath.ToNumber(value: any): number
+	if plain(value) then
+		return value
+	end
 	local decoded = decode(value)
 	if decoded.z then
 		return 0
@@ -323,6 +373,10 @@ function OmegaMath.Log10(value: any): number
 end
 
 function OmegaMath.Floor(value: any): Persist
+	if plain(value) then
+		local floored = math.floor(value)
+		return if floored == 0 then 0 else floored
+	end
 	local decoded = decode(value)
 	if decoded.z then
 		return 0
@@ -330,8 +384,8 @@ function OmegaMath.Floor(value: any): Persist
 	if decoded.e >= 15 then
 		return encode(decoded)
 	end
-	local numeric = OmegaMath.ToNumber(value)
-	return encode(decode(math.floor(numeric)))
+	local floored = math.floor(OmegaMath.ToNumber(value))
+	return if floored == 0 then 0 else floored
 end
 
 function OmegaMath.ScaledCost(baseCost: number, scale: number, level: number): Persist
