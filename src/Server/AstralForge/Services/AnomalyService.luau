@@ -373,13 +373,25 @@ return function(loadService: (string) -> any)
 		if type(rawLoadout) ~= "table" then
 			return false, "Invalid reactor loadout."
 		end
+		AnomalyService.Ensure(profile)
 		local slots = GameConfig.Anomalies.LoadoutSlots
-		if #rawLoadout > slots then
+		-- #rawLoadout ignores string keys, so {"Flux", a = "Reward", b = "Speed"} used to pass
+		-- the slot check while the loop below saved every entry. Count ALL keys and
+		-- require a plain 1..n array.
+		local count = 0
+		for key in rawLoadout do
+			count += 1
+			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
+				return false, "Invalid reactor loadout."
+			end
+		end
+		if count > slots then
 			return false, string.format("You can only slot %d channels at once.", slots)
 		end
 		local seen = {}
 		local resolved = {}
-		for _, channelId in rawLoadout do
+		for index = 1, count do
+			local channelId = rawLoadout[index]
 			if type(channelId) ~= "string" then
 				return false, "Invalid reactor loadout."
 			end
@@ -403,6 +415,7 @@ return function(loadService: (string) -> any)
 		if type(rawTier) ~= "number" then
 			return false, "Invalid anomaly milestone."
 		end
+		AnomalyService.Ensure(profile)
 		local tier = math.floor(rawTier)
 		local milestone = GameConfig.Anomalies.Milestones[tier]
 		if not milestone or profile.Anomaly.Stabilizations < milestone.Required then

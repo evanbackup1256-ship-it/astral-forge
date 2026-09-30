@@ -244,3 +244,20 @@ controls physical render resolution, so this project cannot promise a fixed
 also requires platform testing and Roblox review. The current UI cue bank has
 three distinct sound asset IDs; assigning ten additional premium effects requires
 licensed, game-accessible audio assets.
+
+## Balancing the economy
+
+Judge pacing changes with the simulator, not by feel:
+
+```bash
+lune run scripts/sim_pacing                    # current GameConfig
+lune run scripts/sim_pacing <path> <gain> <tap> [days]   # before/after copies, policy knobs
+```
+
+It reads the real machine, zone and economy numbers and plays a steady player
+(best-payback purchases, rebirth once the reward is >= `gain` x current cores).
+Findings on the current config: the first ~5 hours are tightly paced, and zones and
+machines are gated by rebirth COUNT, so a player who rebirths often reaches zone 6
+in about 2 hours while one who waits for big payouts does not reach zone 5 in two
+weeks. The rebirth screen therefore names the next count-gate and says to rebirth
+often. Do not bump `DataVersion` for balance changes: tune `GameConfig` numbers.

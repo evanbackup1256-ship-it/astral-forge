@@ -104,6 +104,11 @@ local friendlyActionResponse = ActionCopy.friendlyActionResponse
 local _AppShellChrome = require(script.Parent.AppShellChrome)
 local Shell = _AppShellChrome.Shell
 local pausePassivePaints = _AppShellChrome.pausePassivePaints
+-- Cached on first use; requiring per effect event was a lookup on the tap path.
+local cachedSanctuarySignals = nil
+-- Shared, never-mutated defaults so an absent value does not allocate per render.
+local EMPTY_NOTICES = table.freeze({})
+local NOOP = function() end
 local function MainGame(_param)
 	local remotes = _param.remotes
 	local config = _param.config
@@ -128,6 +133,9 @@ local function MainGame(_param)
 	local requestTimeouts = React.useRef({})
 	local deferredJobs = React.useRef({})
 	React.useEffect(function()
+		-- Re-armed on every (re)mount: an effect re-run without a remount would
+		-- otherwise leave the flag false and silently drop every response.
+		appAlive.current = true
 		return function()
 			appAlive.current = false
 			for worker in requestWorkers.current do
@@ -300,12 +308,17 @@ local function MainGame(_param)
 	local inFlightTotal = React.useRef(0)
 	local requestSequence = React.useRef(0)
 	local sentAt = React.useRef({})
+	local sentAtCount = React.useRef(0)
 	local latestSnapshot = React.useRef(-1)
 	local latestRevision = React.useRef(-1)
 	local lastTradeEpoch = React.useRef(-1)
 	local lastSnapshotPaintAt = React.useRef(-math.huge)
 	local loggedFirstSnapshot = React.useRef(false)
 	local streakToastSent = React.useRef(false)
+	local lastAcceptedSnapshot = React.useRef(nil)
+	local pendingPassive = React.useRef(nil)
+	local passiveFlushJob = React.useRef(nil)
+	local acceptStateRef = React.useRef(nil)
 	local acceptState = React.useCallback(function(rawSnapshot)
 		local _rawSnapshot = rawSnapshot
 		if not (type(_rawSnapshot) == "table") then
@@ -349,10 +362,33 @@ local function MainGame(_param)
 			return true
 		end
 		if latestRevision.current >= 0 and not revisionChanged and not tradeHot and now - lastSnapshotPaintAt.current < passivePaintInterval then
+			-- Throttled, not discarded: if this is the last packet of a burst
+			-- nothing else will paint it, and the UI would sit on stale numbers.
+			-- Keep the newest and paint it once when the window opens.
+			pendingPassive.current = snapshot
+			if passiveFlushJob.current == nil and appAlive.current then
+				local job
+				job = task.delay(math.max(0.02, passivePaintInterval - (now - lastSnapshotPaintAt.current)), function()
+					passiveFlushJob.current = nil
+					deferredJobs.current[job] = nil
+					local pending = pendingPassive.current
+					pendingPassive.current = nil
+					local accept = acceptStateRef.current
+					if pending ~= nil and accept ~= nil and appAlive.current then
+						accept(pending)
+					end
+				end)
+				passiveFlushJob.current = job
+				deferredJobs.current[job] = true
+			end
 			return true
 		end
+		-- A paint is happening now, so any queued trailing snapshot is superseded
+		-- (it is older by definition: latestSnapshot only moves forward).
+		pendingPassive.current = nil
 		latestRevision.current = math.max(latestRevision.current, snapshot.Revision)
 		lastSnapshotPaintAt.current = now
+		lastAcceptedSnapshot.current = snapshot
 		dispatchStore(ClientActions.setSnapshot(snapshot))
 		if not loggedFirstSnapshot.current then
 			loggedFirstSnapshot.current = true
@@ -360,6 +396,7 @@ local function MainGame(_param)
 		end
 		return true
 	end, { dispatchStore })
+	acceptStateRef.current = acceptState
 	local dismissNotice = React.useCallback(function(id)
 		setNotices(function(current)
 			-- ▼ ReadonlyArray.filter ▼
@@ -582,21 +619,21 @@ local function MainGame(_param)
 		local id = popId.current + 1
 		popId.current = id
 		setPops(function(current)
-			local _array = {}
-			local _length = #_array
-			local _currentLength = #current
-			table.move(current, 1, _currentLength, _length + 1, _array)
-			_length += _currentLength
-			_array[_length + 1] = {
+			-- One clone, one append and a single trim: this runs on every tap.
+			local updated = table.clone(current)
+			updated[#updated + 1] = {
 				id = id,
 				text = text,
 				color = color,
 				critical = critical,
 				offset = math.random(-90, 90),
 			}
-			local updated = _array
-			while #updated > 12 do
-				table.remove(updated, 1)
+			local excess = #updated - 12
+			if excess > 0 then
+				table.move(updated, excess + 1, #updated, 1)
+				for index = #updated, #updated - excess + 1, -1 do
+					updated[index] = nil
+				end
 			end
 			return updated
 		end)
@@ -607,23 +644,17 @@ local function MainGame(_param)
 			_current[_job] = nil
 			if appAlive.current then
 				setPops(function(current)
-					local found = false
+					-- Single pass; hands back the same table if it already expired.
+					local kept = table.create(#current)
+					local removed = false
 					for _, pop in current do
 						if pop.id == id then
-							found = true
-							break
+							removed = true
+						else
+							kept[#kept + 1] = pop
 						end
 					end
-					if not found then
-						return current
-					end
-					local _newValue = {}
-					for _, pop in current do
-						if pop.id ~= id then
-							table.insert(_newValue, pop)
-						end
-					end
-					return _newValue
+					return if removed then kept else current
 				end)
 			end
 		end)
@@ -689,6 +720,16 @@ local function MainGame(_param)
 			end
 			local lowered = string.lower(_condition_5)
 			local expectedBusy = (action == "Overcharge" and (string.find(lowered, "cooling", 1, true)) ~= nil) or (string.find(lowered, "still working", 1, true)) ~= nil or (string.find(lowered, "slow down", 1, true)) ~= nil
+			-- A refused optimistic action left its predicted numbers on screen. Revert
+			-- to the last server-accepted snapshot unless the response carried a State
+			-- (already applied above). Routine busy/cooldown refusals are excluded: a
+			-- rapid tap streak would otherwise flicker back on every rejected tap.
+			if not expectedBusy and response.State == nil and NetworkPolicy.IsOptimistic(action) then
+				local accepted = lastAcceptedSnapshot.current
+				if accepted ~= nil and appAlive.current then
+					dispatchStore(ClientActions.setSnapshot(accepted))
+				end
+			end
 			if expectedBusy then
 				return nil
 			end
@@ -1105,7 +1146,7 @@ local function MainGame(_param)
 	if _result_7 ~= nil then
 		_result_7 = _result_7.Settings.ReducedMotion
 	end
-	local applyResponse = React.useCallback(_exp_1, { acceptState, addNotice, applyComboReadout, celebrate, dispatchStore, setVisit, _result_7 })
+	local applyResponse = React.useCallback(_exp_1, { acceptState, addNotice, applyComboReadout, celebrate, dispatchStore, setVisit })
 	local dispatch
 	dispatch = React.useCallback(function(action, payload, callback)
 		if payload == nil then
@@ -1124,19 +1165,26 @@ local function MainGame(_param)
 				})
 			end
 		end
+		-- A queued re-dispatch that fires after unmount would run InvokeServer and
+		-- re-create the worker/timeout entries cleanup already cleared.
+		if not appAlive.current then
+			return nil
+		end
 		local _action_1 = action
 		if GRANT_ACTIONS[_action_1] ~= nil then
 			if not isAuthed() then
 				local settled = false
 				whenAuthed(function()
-					if settled then
+					if settled or not appAlive.current then
 						return nil
 					end
 					settled = true
 					return dispatch(action, payload, callback)
 				end)
-				task.delay(4, function()
-					if settled then
+				local authJob
+				authJob = task.delay(4, function()
+					deferredJobs.current[authJob] = nil
+					if settled or not appAlive.current then
 						return nil
 					end
 					settled = true
@@ -1148,6 +1196,9 @@ local function MainGame(_param)
 				end)
 				return nil
 			end
+			-- Grant fields are written onto the payload; clone first so a caller that
+			-- reuses (or froze) its table neither errors nor leaks them into later calls.
+			value = table.clone(value)
 			attachGrantFields(value)
 		end
 		if not pipelined and busy.current[signature] ~= nil then
@@ -1175,40 +1226,32 @@ local function MainGame(_param)
 			reject("Slow down a sec.")
 			return nil
 		end
-		sentAt.current[signature] = now
-		-- ▼ ReadonlyMap.size ▼
-		local _size = 0
-		for _ in sentAt.current do
-			_size += 1
-		end
-		-- ▲ ReadonlyMap.size ▲
-		if _size > 256 then
-			for key, timestamp in sentAt.current do
-				if now - timestamp > 60 then
-					sentAt.current[key] = nil
-				end
+			-- Counted incrementally: this runs on every tap, and re-counting the
+			-- table (twice) each dispatch was pure overhead.
+			if previous == nil then
+				sentAtCount.current += 1
 			end
-		end
-		-- ▼ ReadonlyMap.size ▼
-		local _size_1 = 0
-		for _ in sentAt.current do
-			_size_1 += 1
-		end
-		-- ▲ ReadonlyMap.size ▲
-		if _size_1 > 384 then
-			for key in sentAt.current do
-				sentAt.current[key] = nil
-				-- ▼ ReadonlyMap.size ▼
-				local _size_2 = 0
-				for _ in sentAt.current do
-					_size_2 += 1
+			sentAt.current[signature] = now
+			if sentAtCount.current > 256 then
+				local remaining = 0
+				for key, timestamp in sentAt.current do
+					if now - timestamp > 60 then
+						sentAt.current[key] = nil
+					else
+						remaining += 1
+					end
 				end
-				-- ▲ ReadonlyMap.size ▲
-				if _size_2 <= 256 then
-					break
+				if remaining > 384 then
+					for key in sentAt.current do
+						sentAt.current[key] = nil
+						remaining -= 1
+						if remaining <= 256 then
+							break
+						end
+					end
 				end
+				sentAtCount.current = remaining
 			end
-		end
 		if NetworkPolicy.IsOptimistic(action) then
 			dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version))
 		end
@@ -1260,18 +1303,19 @@ local function MainGame(_param)
 				busy.current[signature] = nil
 			end
 			requestTimedOut = true
-			if requestWorker ~= nil then
-				local _current_1 = requestWorkers.current
-				local _requestWorker = requestWorker
-				_current_1[_requestWorker] = nil
-				pcall(function()
-					return task.cancel(requestWorker)
-				end)
-				requestWorker = nil
-			end
+			-- The worker is deliberately NOT cancelled: the server may still answer, and
+			-- that answer carries the authoritative state (the action may well have run).
+			-- It finishes on its own and de-registers itself below.
 			releaseRequest()
 			if not appAlive.current or not ownsControl then
 				return nil
+			end
+			-- The answer was discarded, so any optimistic prediction is unconfirmed.
+			if NetworkPolicy.IsOptimistic(action) then
+				local accepted = lastAcceptedSnapshot.current
+				if accepted ~= nil then
+					dispatchStore(ClientActions.setSnapshot(accepted))
+				end
 			end
 			ClientLog:warnEvery(`timeout:{action}`, 8, "UI", `{action} timed out after {timeoutSeconds}s`)
 			addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false)
@@ -1305,6 +1349,18 @@ local function MainGame(_param)
 				return nil
 			end
 			if requestTimedOut then
+				-- A late answer: the user was already told it timed out and any optimistic
+				-- guess was rolled back, so do not call back or toast again -- but take the
+				-- server's real state (and grant fields), or a purchase that DID go through
+				-- would stay invisible until the next unrelated snapshot.
+				if ok and type(raw) == "table" then
+					if GRANT_ACTIONS[action] ~= nil then
+						adopt(raw)
+					end
+					if raw.State then
+						acceptState(raw.State)
+					end
+				end
 				return nil
 			end
 			local _condition_7 = not ok or not (type(raw) == "table")
@@ -1323,10 +1379,18 @@ local function MainGame(_param)
 		local _current_2 = requestWorkers.current
 		local _requestWorker = requestWorker
 		_current_2[_requestWorker] = true
-	end, { addNotice, applyResponse, config.Game.Version, dispatchStore, remotes })
+	end, { acceptState, addNotice, applyResponse, config.Game.Version, dispatchStore, remotes })
 	useClientIntegrityProbe(dispatch)
 	local _exp_2 = function()
-		if state == nil or streakToastSent.current then
+		if state == nil then
+			return nil
+		end
+		-- Re-arm once claimed, so the next claimable day toasts again this session.
+		if state.Daily.CanClaim ~= true then
+			streakToastSent.current = false
+			return nil
+		end
+		if streakToastSent.current then
 			return nil
 		end
 		if state.Daily.CanClaim == true and state.Daily.Streak >= 1 then
@@ -1441,7 +1505,12 @@ local function MainGame(_param)
 			local kind = tostring(_condition_5)
 			-- Sanctuary effects (ore, the Rift Warden, waystones) go to the bus the
 			-- world controller and the sanctuary HUD listen on.
-			local sanctuarySignals = require(script.Parent.sanctuarySignals)
+			-- Resolved once: this runs for every effect event, including per-tap ones.
+			local sanctuarySignals = cachedSanctuarySignals
+			if sanctuarySignals == nil then
+				sanctuarySignals = require(script.Parent.sanctuarySignals)
+				cachedSanctuarySignals = sanctuarySignals
+			end
 			if sanctuarySignals.handles(kind) then
 				sanctuarySignals.fire(kind, value)
 				return nil
@@ -1630,7 +1699,7 @@ local function MainGame(_param)
 			local attempt = 0
 			local lastConnectNotice = 0
 			while alive and latestSnapshot.current < 0 do
-				local bridgeReady = remotes.Bridge:GetAttribute("Ready") == true
+				local bridgeReady = remotes.Bridge ~= nil and remotes.Bridge:GetAttribute("Ready") == true
 				if bridgeReady then
 					markBoot("bridge")
 				end
@@ -1656,7 +1725,7 @@ local function MainGame(_param)
 				end
 				task.wait(math.min(0.2 + attempt * 0.08, 1.5))
 			end
-			if alive and remotes.Bridge:GetAttribute("Ready") == true then
+			if alive and remotes.Bridge ~= nil and remotes.Bridge:GetAttribute("Ready") == true then
 				markBoot("bridge")
 			end
 		end)
@@ -1917,6 +1986,40 @@ local function MainGame(_param)
 	-- usesDesktopStructure() directly with the real camera size at least matches the same
 	-- touch-aware logic AutoScale itself uses internally, instead of two different guesses
 	-- disagreeing about the same device.
+	-- The size is otherwise only read at render, so a rotation or window resize
+	-- kept the old touch/desktop decision until the next snapshot happened to
+	-- re-render (and forever while paused). Re-render when it actually changes.
+	local viewportTick, setViewportTick = React.useState(0)
+	React.useEffect(function()
+		local sizeConnection
+		local function attach()
+			if sizeConnection ~= nil then
+				sizeConnection:Disconnect()
+				sizeConnection = nil
+			end
+			local camera = WorkspaceService.CurrentCamera
+			if camera ~= nil then
+				sizeConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+					setViewportTick(function(current)
+						return current + 1
+					end)
+				end)
+			end
+		end
+		attach()
+		local cameraConnection = WorkspaceService:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+			attach()
+			setViewportTick(function(current)
+				return current + 1
+			end)
+		end)
+		return function()
+			cameraConnection:Disconnect()
+			if sizeConnection ~= nil then
+				sizeConnection:Disconnect()
+			end
+		end
+	end, {})
 	local _result_29 = WorkspaceService.CurrentCamera
 	if _result_29 ~= nil then
 		_result_29 = _result_29.ViewportSize
@@ -2089,6 +2192,12 @@ local function MainGame(_param)
 		_condition_7 = _condition_8 >= 0.5
 	end
 	local mobileToastsVisible = _condition_7
+	-- Stable identities for props that used to be rebuilt every render (and so
+	-- re-rendered Shell/ToastRail/AdminPrankOverlay on every snapshot).
+	local mobileLayoutCache = React.useRef(nil)
+	local clearAdminPrank = React.useCallback(function()
+		setAdminPrank(nil)
+	end, {})
 	local _condition_8 = state ~= nil and shellMounted
 	if _condition_8 then
 		local _attributes = {
@@ -2110,9 +2219,7 @@ local function MainGame(_param)
 		end
 		local _condition_9 = _result_39
 		if _condition_9 == nil then
-			_condition_9 = (function()
-				return nil
-			end)
+			_condition_9 = NOOP
 		end
 		_attributes.openDomain = _condition_9
 		local _result_40 = domainUi
@@ -2124,7 +2231,7 @@ local function MainGame(_param)
 		_attributes.setPurchasePresentationActive = setPurchasePresentationActive
 		local _exp_7 = React.createElement(Shell, _attributes)
 		local _attributes_1 = {
-			notices = if mobileToastsVisible and not toastsSuppressed then notices else {},
+			notices = if mobileToastsVisible and not toastsSuppressed then notices else EMPTY_NOTICES,
 			remove = dismissNotice,
 			setHovered = setNoticeHovered,
 			reducedMotion = state.Settings.ReducedMotion == true,
@@ -2173,7 +2280,14 @@ local function MainGame(_param)
 				_result_42 = _condition_14
 			end
 			_object[_left_3] = _result_42
-			_result_41 = _object
+			-- Same values -> same table, so ToastRail does not re-render on every snapshot.
+			local cachedLayout = mobileLayoutCache.current
+			if cachedLayout ~= nil and cachedLayout.x == _object.x and cachedLayout.y == _object.y and cachedLayout.scale == _object.scale and cachedLayout.opacity == _object.opacity then
+				_result_41 = cachedLayout
+			else
+				mobileLayoutCache.current = _object
+				_result_41 = _object
+			end
 		else
 			_result_41 = nil
 		end
@@ -2207,9 +2321,7 @@ local function MainGame(_param)
 			_result_40 = _result_40.Settings.ReducedMotion
 		end
 		_attributes_1.reducedMotion = _result_40 == true
-		_attributes_1.onClose = function()
-			return setAdminPrank(nil)
-		end
+		_attributes_1.onClose = clearAdminPrank
 		_condition_9 = React.createElement(AdminPrankOverlay, _attributes_1)
 	end
 	local _condition_10 = not externalBoot and bootVisible

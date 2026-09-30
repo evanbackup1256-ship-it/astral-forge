@@ -426,7 +426,8 @@ local function ResearchView(_param)
 					gap = 0,
 					overscanRows = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 					itemKey = function(index)
-						return entries[index + 1].config.Id
+						local entry = entries[index + 1]
+						return if entry ~= nil then entry.config.Id else `node-{index}`
 					end,
 					renderItem = function(index)
 						return React.createElement(ResearchNode, {

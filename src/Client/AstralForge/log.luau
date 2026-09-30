@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local recent = {}
+local recentCount = 0
 local emitted = {}
 local bootMilliseconds = 0
 local bootOrigin = os.clock()
@@ -32,8 +33,15 @@ local function available(key, seconds)
 	if previous ~= nil and now - previous < seconds then
 		return false
 	end
-	local _key_1 = key
-	recent[_key_1] = now
+	-- Keys can embed instance paths, so the table would otherwise only ever grow.
+	if previous == nil then
+		recentCount += 1
+		if recentCount > 512 then
+			table.clear(recent)
+			recentCount = 1
+		end
+	end
+	recent[key] = now
 	return true
 end
 local function debugEnabled()

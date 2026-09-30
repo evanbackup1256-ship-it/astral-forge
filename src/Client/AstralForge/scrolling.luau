@@ -22,16 +22,25 @@ local globalConnections = {}
 -- for layout/input. Desktop keeps RenderStepped for snappier mouse-wheel feel.
 local CONSTRAINED_SCROLL = (UserInputService.TouchEnabled and not UserInputService.MouseEnabled)
 	or (UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled)
+-- Called on every CanvasPosition change (per frame during a fling) and every
+-- impulse. It used to start a fresh task.delay each time; now it only moves a
+-- deadline, and one watcher runs for the whole scroll.
+local titleFxHoldUntil = 0
 local function holdTitleFx()
-	if not titleFxHeld then
-		titleFxHeld = true
-		pcall(function()
-			return Workspace:SetAttribute("AF_TitleFxHold", true)
-		end)
+	titleFxHoldUntil = os.clock() + 0.16
+	if titleFxHeld then
+		return
 	end
+	titleFxHeld = true
+	pcall(function()
+		return Workspace:SetAttribute("AF_TitleFxHold", true)
+	end)
 	titleFxHoldGeneration += 1
 	local generation = titleFxHoldGeneration
-	task.delay(0.16, function()
+	task.spawn(function()
+		while generation == titleFxHoldGeneration and os.clock() < titleFxHoldUntil do
+			task.wait(0.05)
+		end
 		if generation ~= titleFxHoldGeneration then
 			return nil
 		end
@@ -310,10 +319,21 @@ local function bindLayoutUtil(frame)
 			resizeConnection = connection
 		end
 	end
-	task.defer(apply)
-	local added = frame.ChildAdded:Connect(function()
-		return task.defer(apply)
-	end)
+	-- Mounting N rows fires ChildAdded N times in one frame; one deferred apply
+	-- covers all of them (each apply re-finds the layout and reconnects resize).
+	local applyScheduled = false
+	local function scheduleApply()
+		if applyScheduled then
+			return
+		end
+		applyScheduled = true
+		task.defer(function()
+			applyScheduled = false
+			apply()
+		end)
+	end
+	scheduleApply()
+	local added = frame.ChildAdded:Connect(scheduleApply)
 	local scrolled = frame:GetPropertyChangedSignal("CanvasPosition"):Connect(holdTitleFx)
 	frame.Destroying:Once(function()
 		added:Disconnect()
@@ -666,7 +686,11 @@ local function VirtualGrid(_param)
 		end
 	end, { cellHeight, columns, count, gap, overscanRows, rows, scrollRef, stride })
 	local visible = {}
-	if window.last >= window.first then
+	-- The window state lags the list by a frame: when the list shrinks (a filter
+	-- change, an item consumed) it can still point past the new end, and callers'
+	-- itemKey/renderItem index into the shrunken list and throw.
+	local windowLast = math.min(window.last, count - 1)
+	if windowLast >= window.first then
 		do
 			local index = window.first
 			local _shouldIncrement = false
@@ -676,7 +700,7 @@ local function VirtualGrid(_param)
 				else
 					_shouldIncrement = true
 				end
-				if not (index <= window.last) then
+				if not (index <= windowLast) then
 					break
 				end
 				local row = math.floor(index / columns)

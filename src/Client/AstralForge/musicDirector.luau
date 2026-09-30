@@ -16,7 +16,9 @@ local DECK_NAMES = { "SoundtrackA", "SoundtrackB" }
 local POLL_SECONDS = 0.25
 local FADE_STEP_SECONDS = 0.05
 -- A track that has not loaded after this long is skipped (and retried later).
-local LOAD_DEADLINE_SECONDS = 8
+-- Generous: at boot the asset preloader is pulling thousands of assets over the
+-- same connection, and a 6 MB track routinely needs more than 8 seconds then.
+local LOAD_DEADLINE_SECONDS = 30
 
 local activeDirector = nil
 

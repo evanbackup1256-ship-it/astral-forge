@@ -371,7 +371,7 @@ local function BootScreen(_param)
 		Size = UDim2.fromOffset(200, 3),
 		Position = UDim2.new(0.5, 0, 0.42, 100),
 		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Color3.fromRGB(36, 40, 48),
+		BackgroundColor3 = Color3.fromRGB(46, 36, 50),
 		BackgroundTransparency = spinHide:map(function(amount)
 			return 0.28 + amount
 		end),

@@ -18,6 +18,22 @@
 
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+
+-- One RaycastParams for the life of the module: its filter only changes when the
+-- character does. Building a fresh params object (and filter table) every frame
+-- allocated needlessly on the camera path.
+local cameraParams = RaycastParams.new()
+cameraParams.FilterType = Enum.RaycastFilterType.Exclude
+local cameraFilterCharacter: Model? = nil
+local function cameraRayParams(): RaycastParams
+	local character = Players.LocalPlayer.Character
+	if character ~= cameraFilterCharacter then
+		cameraFilterCharacter = character
+		cameraParams.FilterDescendantsInstances = if character ~= nil then { character } else {}
+	end
+	return cameraParams
+end
+
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -525,10 +541,7 @@ function Controls.step(dt: number)
 	zoom += (targetZoom - zoom) * (1 - math.exp(-10 * dt))
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
 	local desiredEye = current - rotation.LookVector * zoom
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local model = Players.LocalPlayer.Character
-	params.FilterDescendantsInstances = if model ~= nil then { model } else {}
+	local params = cameraRayParams()
 	local offset = desiredEye - current
 	local hit = Workspace:Raycast(current, offset, params)
 	local eye = if hit ~= nil then hit.Position - offset.Unit * 0.8 else desiredEye

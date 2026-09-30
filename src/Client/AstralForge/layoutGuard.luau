@@ -542,6 +542,18 @@ do
 		if #fresh == 0 or budget <= 0 then
 			return nil
 		end
+		-- Nothing due yet (the common frame while a batch is still settling): skip the
+		-- two table allocations below.
+		local anyDue = false
+		for index = 1, #fresh do
+			if ready[index] <= self.frame then
+				anyDue = true
+				break
+			end
+		end
+		if not anyDue then
+			return nil
+		end
 		local keptItems = {}
 		local keptReady = {}
 		local done = 0
@@ -599,7 +611,10 @@ do
 				return nil
 			end
 			self.sinceSweep = 0
-			local queue = {}
+			-- Reuse the previous sweep's table (it is finished with, and the hitbox pass
+			-- that read it already ran above) instead of allocating a new one per sweep.
+			local queue = self.queue
+			table.clear(queue)
 			for _, descendant in root:GetDescendants() do
 				if isTrackedClass(descendant) then
 					table.insert(queue, descendant)

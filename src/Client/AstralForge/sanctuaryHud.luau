@@ -155,6 +155,10 @@ local function readWarden(model: Model?): WardenInfo
 	}
 end
 
+local function sameWardenInfo(a: WardenInfo, b: WardenInfo): boolean
+	return a.phase == b.phase and a.endsAt == b.endsAt and a.health == b.health and a.maxHealth == b.maxHealth and a.name == b.name
+end
+
 -- The Warden's replicated state, kept current from its attributes.
 local function useWarden(): WardenInfo
 	local info, setInfo = React.useState(function()
@@ -164,6 +168,17 @@ local function useWarden(): WardenInfo
 		local alive = true
 		local model: Model? = nil
 		local connection: RBXScriptConnection? = nil
+		-- Only publish a change: while the Warden model is missing, attach() runs once a
+		-- second and a fresh table every time re-rendered the whole HUD forever.
+		local function publish()
+			local nextInfo = readWarden(model)
+			setInfo(function(current)
+				if sameWardenInfo(current, nextInfo) then
+					return current
+				end
+				return nextInfo
+			end)
+		end
 		local function attach()
 			if connection ~= nil then
 				connection:Disconnect()
@@ -172,10 +187,10 @@ local function useWarden(): WardenInfo
 			model = findWarden()
 			if model ~= nil then
 				connection = model.AttributeChanged:Connect(function()
-					setInfo(readWarden(model))
+					publish()
 				end)
 			end
-			setInfo(readWarden(model))
+			publish()
 		end
 		attach()
 		task.spawn(function()
@@ -1377,16 +1392,24 @@ local function SanctuaryHud(props)
 
 	-- Cooldown sweeps for strike and recall, driven while they matter.
 	React.useEffect(function()
+		-- Push only on change: at rest both values are constant, and pushing them every
+		-- frame for the whole session was a binding update per frame for nothing.
+		local pushedCooldown = -1
+		local pushedRecharge = -1
 		local connection = RunService.RenderStepped:Connect(function()
 			local now = os.clock()
 			local strikeLeft = math.max(0, STRIKE_COOLDOWN - (now - lastStrike.current))
 			local dazeLeft = math.max(0, dazedUntil - now)
-			if dazeLeft > 0 then
-				setCooldown(dazeLeft / BOSS.DazeSeconds)
-			else
-				setCooldown(strikeLeft / STRIKE_COOLDOWN)
+			local cooldown = if dazeLeft > 0 then dazeLeft / BOSS.DazeSeconds else strikeLeft / STRIKE_COOLDOWN
+			if cooldown ~= pushedCooldown then
+				pushedCooldown = cooldown
+				setCooldown(cooldown)
 			end
-			setRecharge(math.clamp(1 - (now - recallAt) / RECALL_COOLDOWN, 0, 1))
+			local recharge = math.clamp(1 - (now - recallAt) / RECALL_COOLDOWN, 0, 1)
+			if recharge ~= pushedRecharge then
+				pushedRecharge = recharge
+				setRecharge(recharge)
+			end
 			-- Held button or key: keep striking at the cooldown.
 			if holding.current and strikeRef.current ~= nil then
 				strikeRef.current()

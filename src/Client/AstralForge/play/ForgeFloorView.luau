@@ -372,6 +372,11 @@ local function ForgeFloorView(_param)
 				task.wait(0.12)
 				local now = os.clock()
 				setOrbs(function(current)
+					-- Nothing alive: hand back the same table so React bails out
+					-- instead of re-rendering the whole floor 8x a second.
+					if #current == 0 then
+						return current
+					end
 					-- ▼ ReadonlyArray.filter ▼
 					local _newValue = {}
 					local _callback = function(orb)
@@ -415,6 +420,9 @@ local function ForgeFloorView(_param)
 						end
 					end
 					-- ▲ ReadonlyArray.filter ▲
+					if _length == #current then
+						return current
+					end
 					return _newValue
 				end)
 			end

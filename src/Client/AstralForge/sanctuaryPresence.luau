@@ -7,6 +7,22 @@
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
+
+-- One RaycastParams for the life of the module: its filter only changes when the
+-- character does. Building a fresh params object (and filter table) every frame
+-- allocated needlessly on the camera path.
+local cameraParams = RaycastParams.new()
+cameraParams.FilterType = Enum.RaycastFilterType.Exclude
+local cameraFilterCharacter: Model? = nil
+local function cameraRayParams(): RaycastParams
+	local character = Players.LocalPlayer.Character
+	if character ~= cameraFilterCharacter then
+		cameraFilterCharacter = character
+		cameraParams.FilterDescendantsInstances = if character ~= nil then { character } else {}
+	end
+	return cameraParams
+end
+
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -297,12 +313,7 @@ local function releaseCameraGuard()
 end
 
 local function clearCamera(eye: Vector3, focus: Vector3): CFrame
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local character = Players.LocalPlayer.Character
-	if character ~= nil then
-		params.FilterDescendantsInstances = { character }
-	end
+	local params = cameraRayParams()
 	local lifted = eye
 	for _ = 1, 4 do
 		local delta = lifted - focus
