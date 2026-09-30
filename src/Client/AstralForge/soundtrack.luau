@@ -41,7 +41,7 @@ local Soundtrack = {}
 -- song, not a UI transition.
 Soundtrack.CROSSFADE_SECONDS = 4
 -- Level of the music Sounds before track gain, music volume and ducking.
-Soundtrack.BASE_VOLUME = 0.16
+Soundtrack.BASE_VOLUME = 0.85
 -- A track whose asset fails to load is skipped for this long, then retried.
 Soundtrack.RETRY_SECONDS = 120
 
