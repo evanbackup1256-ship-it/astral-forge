@@ -1069,7 +1069,6 @@ local function applyFrozenFlag()
 	end
 	decorativeFrozen = frozen
 	if frozen then
-		continuousAccumulator = 0
 		-- When hitch/nav freeze parks decorative work and nothing realtime is
 		-- left, drop the RenderStepped driver entirely instead of spinning a
 		-- no-op callback every frame until thaw.
@@ -1213,10 +1212,6 @@ local function dropClock(slot, realtime)
 	stopDriverIfIdle()
 end
 local function setContinuousMotionRate(_rate)
-	-- Decorative clocks stay on a full frame. Throttling this rate made sweeps
-	-- and pulses look paused on constrained devices.
-	continuousRate = 60
-	continuousAccumulator = 0
 end
 local function setDecorativeMotionFrozen(frozen)
 	if freezeExternal == frozen then
@@ -1309,7 +1304,6 @@ function ensureDriver()
 	driver = RunService.RenderStepped:Connect(function(deltaTime)
 		local clamped = math.min(deltaTime, 0.05)
 		if flipperCount > 0 then
-			ranRealtime = true
 			for motor in flipperMotors do
 				local token = flipperToken[motor]
 				if motor:step(clamped) then
@@ -1318,11 +1312,9 @@ function ensureDriver()
 			end
 		end
 		if realtimeClockCount > 0 then
-			ranRealtime = true
 			tickClocks(realtimeClocks, clamped, realtimeClockBudget())
 		end
 		if listenerCount > 0 then
-			ranRealtime = true
 			for active in listeners do
 				active(clamped)
 			end
