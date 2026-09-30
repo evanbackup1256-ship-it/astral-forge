@@ -209,7 +209,9 @@ return function()
 
 		local production = Economy.Max(4, Economy.Production(profile))
 		local scale = 1 + (tonumber(profile.Rebirths) or 0) * 0.15
-		local earnTarget = math.floor(math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale))
+		-- AsNumber tops out at the double limit and the rebirth scale can push it to inf, which a
+		-- DataStore cannot serialize; cap just below it.
+		local earnTarget = math.floor(math.min(1e300, math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale)))
 		local tapTarget = math.floor((40 + (tonumber(profile.Rebirths) or 0) * 3) * scale)
 		local upgradeTarget = math.floor(3 + math.min(7, (tonumber(profile.Rebirths) or 0) / 2))
 		local rotation = (day + userId) % 3
@@ -646,7 +648,9 @@ return function()
 	end
 
 	function ProgressionService.ClaimCommanderReward(profile, rawLevel: any): (boolean, string)
-		if type(rawLevel) ~= "number" then
+		-- NaN fails every comparison below, and tostring(NaN) gives more than one spelling, so
+		-- a NaN level could claim a level-1 reward repeatedly under different keys.
+		if type(rawLevel) ~= "number" or rawLevel ~= rawLevel or math.abs(rawLevel) == math.huge then
 			return false, "Invalid commander level."
 		end
 		local level = math.floor(rawLevel)
