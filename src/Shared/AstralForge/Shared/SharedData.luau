@@ -1419,7 +1419,25 @@ SanctuaryConfig.Ore = {
 
 SanctuaryConfig.RiftBoss = {
 	Name = "The Rift Warden",
-	-- Quiet time between appearances, and the first appearance after a server starts.
+	Kind = "Warden",
+	Title = "Keeper of the Riftmaw",
+	-- Colours the client dresses the boss, its telegraphs and its cinematic in.
+	Theme = {
+		Primary = { 128, 92, 255 },
+		Hot = { 214, 196, 255 },
+		Alert = { 255, 84, 120 },
+	},
+	-- Health fractions at which the boss changes phase (phase 1 above the first). Every
+	-- phase after the first speeds it up (PhaseDelayScale) and unlocks harder attacks.
+	Phases = { 0.66, 0.33 },
+	-- Multiplier on the wait between attacks, per phase (the last entry holds).
+	PhaseDelayScale = { 1, 0.8, 0.62 },
+	-- Weighted attack list. MinPhase gates an attack until the boss has reached it.
+	-- Params override what the attack reads; Slam/TwinSlam use the Slam* fields below.
+	Attacks = {
+		{ Kind = "Slam", Weight = 1 },
+		{ Kind = "TwinSlam", Weight = 0.8, MinPhase = 2 },
+	},	-- Quiet time between appearances, and the first appearance after a server starts.
 	IntervalSeconds = 540,
 	FirstDelaySeconds = 150,
 	-- The Warden takes shape in the Riftmaw before it can be struck.
@@ -1454,6 +1472,70 @@ SanctuaryConfig.RiftBoss = {
 		Voidglass = { Base = 3, Share = 7 },
 	},
 }
+
+-- The roster rotates: each appearance is the next boss in this list. Every boss after the
+-- Warden inherits its timings, strikes and rewards and changes only what makes it
+-- different; `Attacks` is replaced wholesale (never merged) so a boss owns its moveset.
+local function bossFrom(base, overrides)
+	local boss = table.clone(base)
+	for key, value in overrides do
+		boss[key] = value
+	end
+	return boss
+end
+
+-- The Hollow Choir (Voidglass Hollows): a conductor of glass. Its attack is a ripple of
+-- shockwave rings; the safe ground is the gaps between them, so the fight is about
+-- reading the rhythm and stepping between beats, not about outrunning one big circle.
+local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
+	Name = "The Hollow Choir",
+	Kind = "Choir",
+	Title = "Seven voices, one silence",
+	Theme = {
+		Primary = { 86, 200, 255 },
+		Hot = { 214, 244, 255 },
+		Alert = { 120, 255, 236 },
+	},
+	BaseHealth = 1000,
+	HealthPerFighter = 760,
+	SlamIntervalMin = 5,
+	SlamIntervalMax = 8,
+	Attacks = {
+		-- Three beats out from the centre; the gaps between rings are safe.
+		{ Kind = "Rings", Weight = 1, Params = { Count = 3, FirstRadius = 16, Gap = 20, Width = 5.5, StepSeconds = 0.6, TelegraphSeconds = 2 } },
+		-- Phase 2: a longer, tighter phrase.
+		{ Kind = "Rings", Weight = 1, MinPhase = 2, Params = { Count = 4, FirstRadius = 14, Gap = 15, Width = 5, StepSeconds = 0.5, TelegraphSeconds = 2 } },
+		-- Phase 3 adds the old slam on top of the rhythm.
+		{ Kind = "Slam", Weight = 0.7, MinPhase = 3 },
+	},
+})
+
+-- The Cinder Regent (Emberreach): a crown of fire. Its attack is a slow rotating beam; the
+-- answer is to keep moving around it. It slams and twin-slams as it is worn down.
+local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
+	Name = "The Cinder Regent",
+	Kind = "Regent",
+	Title = "The last crown of Emberreach",
+	Theme = {
+		Primary = { 255, 132, 48 },
+		Hot = { 255, 226, 170 },
+		Alert = { 255, 70, 40 },
+	},
+	BaseHealth = 1200,
+	HealthPerFighter = 900,
+	ActiveSeconds = 165,
+	SlamIntervalMin = 6,
+	SlamIntervalMax = 9,
+	Attacks = {
+		{ Kind = "Sweep", Weight = 1, Params = { Seconds = 5.2, Speed = 0.85, HalfWidth = 0.17, Range = 84, TelegraphSeconds = 1.6 } },
+		{ Kind = "Slam", Weight = 0.6 },
+		{ Kind = "TwinSlam", Weight = 0.7, MinPhase = 2 },
+		-- Phase 3: a faster beam, the other way round.
+		{ Kind = "Sweep", Weight = 1, MinPhase = 3, Params = { Seconds = 4.4, Speed = 1.25, HalfWidth = 0.2, Range = 84, TelegraphSeconds = 1.2 } },
+	},
+})
+
+SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent })
 
 return SanctuaryConfig
 end

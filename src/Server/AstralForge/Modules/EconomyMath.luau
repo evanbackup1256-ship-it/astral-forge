@@ -2397,6 +2397,113 @@ function RiftBossMath.SlamHits(centerX: number, centerZ: number, radius: number,
 	return hits
 end
 
+-- Roster rules -------------------------------------------------------------
+
+-- Phase 1 until health falls to the first threshold, then one more per threshold crossed.
+-- `thresholds` are health fractions in descending order, e.g. { 0.66, 0.33 }.
+function RiftBossMath.PhaseIndex(health: number, maxHealth: number, thresholds: { number }): number
+	if maxHealth <= 0 then
+		return 1
+	end
+	local fraction = health / maxHealth
+	local phase = 1
+	for _, threshold in thresholds do
+		if fraction <= threshold then
+			phase += 1
+		end
+	end
+	return phase
+end
+
+-- The boss that follows `index` in a roster of `count`, wrapping round.
+function RiftBossMath.NextBoss(index: number, count: number): number
+	if count <= 0 then
+		return 1
+	end
+	return index % count + 1
+end
+
+-- Multiplier on the wait between attacks for a phase; the last entry holds.
+function RiftBossMath.PhaseDelayScale(phase: number, scales: { number }): number
+	return scales[math.min(math.max(1, phase), #scales)] or 1
+end
+
+-- Weighted pick among the attacks unlocked at `phase`. `roll` is uniform in [0, 1).
+-- Returns nil only if nothing is unlocked.
+function RiftBossMath.PickAttack(attacks: { any }, phase: number, roll: number): any?
+	local total = 0
+	for _, attack in attacks do
+		if (attack.MinPhase or 1) <= phase then
+			total += attack.Weight or 1
+		end
+	end
+	if total <= 0 then
+		return nil
+	end
+	local target, last = math.clamp(roll, 0, 0.999999) * total, nil
+	for _, attack in attacks do
+		if (attack.MinPhase or 1) <= phase then
+			last = attack
+			target -= attack.Weight or 1
+			if target < 0 then
+				return attack
+			end
+		end
+	end
+	return last
+end
+
+-- A shockwave ring: catches fighters whose distance to the centre is within half `width`
+-- of `radius`. The ground inside and outside the band is safe.
+function RiftBossMath.RingHits(centerX: number, centerZ: number, radius: number, width: number, positions: { [any]: { X: number, Z: number } }): { any }
+	local hits, half = {}, width / 2
+	for id, position in positions do
+		local dx, dz = position.X - centerX, position.Z - centerZ
+		if math.abs(math.sqrt(dx * dx + dz * dz) - radius) <= half then
+			table.insert(hits, id)
+		end
+	end
+	return hits
+end
+
+-- Heading of a sweeping beam `elapsed` seconds in; `speed` is radians per second and its
+-- sign is the direction of rotation.
+function RiftBossMath.SweepAngleAt(startAngle: number, speed: number, elapsed: number): number
+	return startAngle + speed * math.max(0, elapsed)
+end
+
+-- Smallest signed difference between two angles, in [-pi, pi].
+local function angleDelta(a: number, b: number): number
+	local delta = (a - b) % (2 * math.pi)
+	if delta > math.pi then
+		delta -= 2 * math.pi
+	end
+	return delta
+end
+
+-- Whether a point offset (dx, dz) from the boss lies inside a beam at `angle` (measured as
+-- atan2(dz, dx)) that is `halfWidth` radians either side and `range` studs long.
+function RiftBossMath.SweepCovers(dx: number, dz: number, angle: number, halfWidth: number, range: number): boolean
+	local distance = math.sqrt(dx * dx + dz * dz)
+	if distance > range then
+		return false
+	end
+	if distance < 1e-6 then
+		return true
+	end
+	return math.abs(angleDelta(math.atan2(dz, dx), angle)) <= halfWidth
+end
+
+function RiftBossMath.SweepHits(centerX: number, centerZ: number, angle: number, halfWidth: number, range: number, positions: { [any]: { X: number, Z: number } }): { any }
+	local hits = {}
+	for id, position in positions do
+		if RiftBossMath.SweepCovers(position.X - centerX, position.Z - centerZ, angle, halfWidth, range) then
+			table.insert(hits, id)
+		end
+	end
+	return hits
+end
+
 -- Rewards on defeat. `damage[id]` is damage dealt, `strikes[id]` strike count.
 -- A fighter with fewer than MinStrikesForReward strikes gets nothing; the rest
 -- get Base + Share x (their damage / all counted damage), rounded.

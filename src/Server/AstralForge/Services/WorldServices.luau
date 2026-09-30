@@ -350,6 +350,8 @@ local ActionResponse = require(Modules:WaitForChild("ProfileMath"))("ActionRespo
 local ProfileBagMath = require(Modules:WaitForChild("ProfileBagMath"))
 
 local STEP_SECONDS = 0.25
+-- Quiet time after a phase change before the boss attacks again.
+local PHASE_BREATHER_SECONDS = 3
 
 local RiftBossService = {}
 RiftBossService.__index = RiftBossService
@@ -357,14 +359,18 @@ RiftBossService.__index = RiftBossService
 function RiftBossService.new(host)
 	local self = setmetatable({}, RiftBossService)
 	self._host = host
-	self._config = GameConfig.RiftBoss
+	self._roster = GameConfig.RiftBosses
+	self._bossIndex = 1
+	self._config = self._roster[1]
 	self._state = RiftBossMath.Initial(Workspace:GetServerTimeNow(), self._config)
 	self._damage = {}
 	self._strikes = {}
 	self._lastStrike = {}
 	self._dazedUntil = {}
-	self._nextSlamAt = math.huge
-	self._pendingSlam = nil
+	self._phaseIndex = 1
+	self._nextAttackAt = math.huge
+	-- Attacks in flight. Each is { Kind, At, ... } and resolves when `now` passes At.
+	self._events = {}
 	self._random = Random.new()
 	self._running = false
 	return self
@@ -426,6 +432,11 @@ function RiftBossService:_publish()
 		return
 	end
 	local state = self._state
+	local config = self._config
+	model:SetAttribute("BossName", config.Name)
+	model:SetAttribute("BossKind", config.Kind)
+	model:SetAttribute("BossTitle", config.Title)
+	model:SetAttribute("BossPhase", self._phaseIndex)
 	model:SetAttribute("Phase", state.Phase)
 	model:SetAttribute("EndsAt", state.EndsAt)
 	model:SetAttribute("Health", state.Health)
@@ -468,80 +479,266 @@ function RiftBossService:_step()
 	local present, inArena = self:_fighters()
 	local state, entered = RiftBossMath.Step(self._state, now, #present, self._config)
 	self._state = state
-	if entered == "Forming" then
+	if entered == "Dormant" then
+		-- The roster rotates: the next appearance is the next boss in the list.
+		self._bossIndex = RiftBossMath.NextBoss(self._bossIndex, #self._roster)
+		self._config = self._roster[self._bossIndex]
+		table.clear(self._events)
+		self._attacking = false
+	elseif entered == "Forming" then
 		table.clear(self._damage)
 		table.clear(self._strikes)
 		table.clear(self._dazedUntil)
-		self._pendingSlam = nil
+		table.clear(self._events)
+		self._phaseIndex = 1
+		self._attacking = false
 		self:_announce(
 			`{self._config.Name} is forming`,
 			"It wakes in the Riftmaw in under a minute. Open the rift and head south to fight it.",
 			false
 		)
 	elseif entered == "Active" then
-		self._nextSlamAt = now + RiftBossMath.SlamDelay(self._random:NextNumber(), self._config)
-		self._pendingSlam = nil
-		self:_broadcast({ Type = "RiftBossAwake" }, true)
+		self._phaseIndex = 1
+		self._attacking = false
+		self._nextAttackAt = now + self:_attackDelay(now)
+		table.clear(self._events)
+		self:_broadcast({
+			Type = "RiftBossAwake",
+			Kind = self._config.Kind,
+			Name = self._config.Name,
+			Title = self._config.Title,
+		}, true)
 	elseif entered == "Defeated" then
-		self._pendingSlam = nil
+		table.clear(self._events)
 		self:_rewardFighters()
 	elseif entered == "Escaped" then
-		self._pendingSlam = nil
+		table.clear(self._events)
 		self:_announce(`{self._config.Name} escaped`, "It slipped back into the rift. It will return.", true)
 	end
 	if state.Phase == "Active" then
-		self:_slams(now, inArena)
+		self:_phases(now)
+		self:_attacks(now, inArena)
 	end
 	self:_publish()
 end
 
--- A slam: telegraph a ring on the floor under a fighter, then stagger anyone
--- still inside when it lands.
-function RiftBossService:_slams(now: number, inArena: { [Player]: Vector3 })
-	local pending = self._pendingSlam
-	if pending ~= nil then
-		if now < pending.DetonateAt then
-			return
-		end
-		local positions = {}
-		for player, position in inArena do
-			positions[player] = { X = position.X, Z = position.Z }
-		end
-		local hits = RiftBossMath.SlamHits(pending.Center.X, pending.Center.Z, self._config.SlamRadius, positions)
-		for _, player in hits do
-			self._dazedUntil[player] = now + self._config.DazeSeconds
-			self._host:effect(player, {
-				Type = "RiftBossStagger",
-				Center = pending.Center,
-				Daze = self._config.DazeSeconds,
-			})
-		end
-		self:_broadcast({
-			Type = "RiftBossSlamLand",
-			Center = pending.Center,
-			Radius = self._config.SlamRadius,
-		}, true)
-		self._pendingSlam = nil
-		self._nextSlamAt = now + RiftBossMath.SlamDelay(self._random:NextNumber(), self._config)
+-- Seconds to wait before the next attack, shortened as the fight goes on.
+function RiftBossService:_attackDelay(_now: number): number
+	local config = self._config
+	return RiftBossMath.SlamDelay(self._random:NextNumber(), config)
+		* RiftBossMath.PhaseDelayScale(self._phaseIndex, config.PhaseDelayScale)
+end
+
+-- Crossing a health threshold announces the next phase and gives everyone a breather
+-- before the boss starts on its harder moves.
+function RiftBossService:_phases(now: number)
+	local config = self._config
+	local phase = RiftBossMath.PhaseIndex(self._state.Health, self._state.MaxHealth, config.Phases)
+	if phase <= self._phaseIndex then
 		return
 	end
-	if now < self._nextSlamAt then
+	self._phaseIndex = phase
+	self._nextAttackAt = math.max(self._nextAttackAt, now + PHASE_BREATHER_SECONDS)
+	self:_broadcast({ Type = "RiftBossPhase", Kind = config.Kind, Name = config.Name, Phase = phase, Breather = PHASE_BREATHER_SECONDS }, true)
+end
+
+-- Stagger a fighter unless they already are (so overlapping attacks cannot chain-stun).
+function RiftBossService:_daze(player: Player, now: number, center: Vector3)
+	if (self._dazedUntil[player] or 0) > now then
 		return
 	end
-	local center = self:_arena()
+	self._dazedUntil[player] = now + self._config.DazeSeconds
+	self._host:effect(player, {
+		Type = "RiftBossStagger",
+		Center = center,
+		Daze = self._config.DazeSeconds,
+	})
+end
+
+local function flatPositions(inArena: { [Player]: Vector3 })
+	local positions = {}
+	for player, position in inArena do
+		positions[player] = { X = position.X, Z = position.Z }
+	end
+	return positions
+end
+
+-- Attack scheduler: resolve whatever is in flight, and when nothing is, pick the next
+-- attack (weighted, gated by phase) once the wait is over.
+function RiftBossService:_attacks(now: number, inArena: { [Player]: Vector3 })
+	local events = self._events
+	local index = 1
+	while index <= #events do
+		local event = events[index]
+		if self:_resolve(event, now, inArena) then
+			table.remove(events, index)
+		else
+			index += 1
+		end
+	end
+	if #events > 0 then
+		return
+	end
+	if self._attacking then
+		self._attacking = false
+		self._nextAttackAt = now + self:_attackDelay(now)
+		return
+	end
+	if now < self._nextAttackAt then
+		return
+	end
+	local attack = RiftBossMath.PickAttack(self._config.Attacks, self._phaseIndex, self._random:NextNumber())
+	if attack == nil then
+		self._nextAttackAt = now + self:_attackDelay(now)
+		return
+	end
+	self._attacking = true
+	self:_begin(attack, now, inArena)
+end
+
+-- Fighters to aim at, in a stable random order.
+function RiftBossService:_targets(inArena: { [Player]: Vector3 }): { Vector3 }
 	local targets = {}
 	for _, position in inArena do
 		table.insert(targets, position)
 	end
-	local aim = if #targets > 0 then targets[self._random:NextInteger(1, #targets)] else center
-	local slamAt = { X = aim.X, Y = center.Y, Z = aim.Z }
-	self._pendingSlam = { Center = slamAt, DetonateAt = now + self._config.SlamTelegraphSeconds }
+	for i = #targets, 2, -1 do
+		local j = self._random:NextInteger(1, i)
+		targets[i], targets[j] = targets[j], targets[i]
+	end
+	return targets
+end
+
+function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number)
+	local config = self._config
+	local center = { X = aim.X, Y = floorY, Z = aim.Z }
+	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = config.SlamRadius })
 	self:_broadcast({
 		Type = "RiftBossSlam",
-		Center = slamAt,
-		Radius = self._config.SlamRadius,
-		DetonateAt = now + self._config.SlamTelegraphSeconds,
+		BossKind = config.Kind,
+		Center = center,
+		Radius = config.SlamRadius,
+		DetonateAt = detonateAt,
 	}, true)
+end
+
+function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector3 })
+	local config = self._config
+	local center = self:_arena()
+	local targets = self:_targets(inArena)
+	local params = attack.Params or {}
+	local telegraph = params.TelegraphSeconds or config.SlamTelegraphSeconds
+	if attack.Kind == "Slam" then
+		self:_slamAt(targets[1] or center, center.Y, now + telegraph)
+	elseif attack.Kind == "TwinSlam" then
+		-- Two fighters marked at once; with only one present the second lands beside them.
+		local first = targets[1] or center
+		local second = targets[2]
+		if second == nil then
+			local angle = self._random:NextNumber() * math.pi * 2
+			second = Vector3.new(first.X + math.cos(angle) * 16, first.Y, first.Z + math.sin(angle) * 16)
+		end
+		self:_slamAt(first, center.Y, now + telegraph)
+		self:_slamAt(second, center.Y, now + telegraph + 0.45)
+	elseif attack.Kind == "Rings" then
+		local first = now + telegraph
+		for ring = 1, params.Count do
+			table.insert(self._events, {
+				Kind = "Ring",
+				At = first + (ring - 1) * params.StepSeconds,
+				Radius = params.FirstRadius + (ring - 1) * params.Gap,
+				Width = params.Width,
+				Index = ring,
+			})
+		end
+		self:_broadcast({
+			Type = "RiftBossRings",
+			BossKind = config.Kind,
+			Center = center,
+			Count = params.Count,
+			FirstRadius = params.FirstRadius,
+			Gap = params.Gap,
+			Width = params.Width,
+			StepSeconds = params.StepSeconds,
+			DetonateAt = first,
+		}, true)
+	elseif attack.Kind == "Sweep" then
+		local aim = targets[1] or center
+		local direction = if self._random:NextNumber() < 0.5 then -1 else 1
+		local heading = math.atan2(aim.Z - center.Z, aim.X - center.X)
+		local speed = direction * params.Speed
+		-- Start behind the target so there is time to see it coming.
+		local startAngle = heading - direction * 1.1
+		local beginAt = now + telegraph
+		local endAt = beginAt + params.Seconds
+		table.insert(self._events, {
+			Kind = "Sweep",
+			At = beginAt,
+			EndAt = endAt,
+			Start = startAngle,
+			Speed = speed,
+			HalfWidth = params.HalfWidth,
+			Range = params.Range,
+			Center = center,
+		})
+		self:_broadcast({
+			Type = "RiftBossSweep",
+			BossKind = config.Kind,
+			Center = center,
+			StartAngle = startAngle,
+			Speed = speed,
+			HalfWidth = params.HalfWidth,
+			Range = params.Range,
+			BeginAt = beginAt,
+			EndAt = endAt,
+		}, true)
+	end
+end
+
+-- Returns true once the event is finished and can be dropped.
+function RiftBossService:_resolve(event, now: number, inArena: { [Player]: Vector3 }): boolean
+	if now < event.At then
+		return false
+	end
+	local config = self._config
+	if event.Kind == "Slam" then
+		local hits = RiftBossMath.SlamHits(event.Center.X, event.Center.Z, event.Radius, flatPositions(inArena))
+		for _, player in hits do
+			self:_daze(player, now, event.Center)
+		end
+		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius }, true)
+		return true
+	elseif event.Kind == "Ring" then
+		local center = self:_arena()
+		local hits = RiftBossMath.RingHits(center.X, center.Z, event.Radius, event.Width, flatPositions(inArena))
+		for _, player in hits do
+			self:_daze(player, now, center)
+		end
+		self:_broadcast({
+			Type = "RiftBossRingLand",
+			BossKind = config.Kind,
+			Center = center,
+			Radius = event.Radius,
+			Width = event.Width,
+			Index = event.Index,
+		}, true)
+		return true
+	elseif event.Kind == "Sweep" then
+		local angle = RiftBossMath.SweepAngleAt(event.Start, event.Speed, math.min(now, event.EndAt) - event.At)
+		local hits = RiftBossMath.SweepHits(
+			event.Center.X,
+			event.Center.Z,
+			angle,
+			event.HalfWidth,
+			event.Range,
+			flatPositions(inArena)
+		)
+		for _, player in hits do
+			self:_daze(player, now, event.Center)
+		end
+		return now >= event.EndAt
+	end
+	return true
 end
 
 function RiftBossService:Strike(player: Player)
@@ -615,12 +812,12 @@ function RiftBossService:_rewardFighters()
 		if type(result) == "table" and result.ok == true then
 			table.sort(lines)
 			self._host:toast(player, `{config.Name} defeated`, table.concat(lines, "  ·  "), "Special")
-			self._host:effect(player, { Type = "RiftBossDefeated", Share = bag.Share })
+			self._host:effect(player, { Type = "RiftBossDefeated", Name = config.Name, Share = bag.Share })
 			self._host:pushState(player)
 		end
 	end
 	-- Everyone who watched gets the moment, reward or not.
-	self:_broadcast({ Type = "RiftBossFell" }, true)
+	self:_broadcast({ Type = "RiftBossFell", Kind = config.Kind, Name = config.Name }, true)
 end
 
 function RiftBossService:Forget(player: Player)

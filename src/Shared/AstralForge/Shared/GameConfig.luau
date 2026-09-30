@@ -4090,6 +4090,7 @@ local GameConfig = {
 	-- The sanctuary's ore outcrops and the Rift Warden (see SanctuaryConfig.luau).
 	Ore = SanctuaryConfig.Ore,
 	RiftBoss = SanctuaryConfig.RiftBoss,
+	RiftBosses = SanctuaryConfig.RiftBosses,
 
 	LiveOps = {
 		ManifestVersion = LiveOpsConfig.ManifestVersion,
