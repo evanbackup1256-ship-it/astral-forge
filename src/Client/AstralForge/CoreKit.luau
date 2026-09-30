@@ -882,6 +882,12 @@ local function suffixForGroup(group)
 	return NUMBER_SUFFIXES[index + 1]
 end
 local LAST_NAMED_LOG10 = #NUMBER_SUFFIXES * 3
+-- Three significant figures are shown, so 999.996 prints as "1000". Values that round up to a
+-- full thousand must move to the next suffix instead ("1.00M", never "1000K").
+local function roundsToThousand(absolute)
+	local decimals = if absolute >= 100 then 0 elseif absolute >= 10 then 1 else 2
+	return (tonumber(string.format("%." .. decimals .. "f", absolute)) or 0) >= 1000
+end
 local function formatFromLog10(log10, sign)
 	if sign == nil then
 		sign = 1
@@ -891,7 +897,9 @@ local function formatFromLog10(log10, sign)
 	end
 	if log10 < 3 then
 		local numeric = sign * 10 ^ math.max(0, log10)
-		return string.format("%.0f", numeric)
+		if math.abs(numeric) < 999.5 then
+			return string.format("%.0f", numeric)
+		end
 	end
 	if log10 >= LAST_NAMED_LOG10 then
 		local exponent = math.floor(log10)
@@ -900,7 +908,7 @@ local function formatFromLog10(log10, sign)
 	end
 	local group = math.clamp(math.floor(log10 / 3), 1, #NUMBER_SUFFIXES)
 	local scaled = sign * 10 ^ (log10 - group * 3)
-	if math.abs(scaled) >= 1000 and group < #NUMBER_SUFFIXES then
+	if (math.abs(scaled) >= 1000 or roundsToThousand(math.abs(scaled))) and group < #NUMBER_SUFFIXES then
 		group += 1
 		scaled /= 1000
 	end
@@ -910,9 +918,17 @@ local function formatFromLog10(log10, sign)
 		return string.format("%.0f%s", scaled, suffix)
 	end
 	if absolute >= 10 then
-		return string.format("%.1f%s", scaled, suffix)
+		local text = string.format("%.1f", scaled)
+		if math.abs(tonumber(text) or 0) >= 100 then
+			text = string.format("%.0f", scaled)
+		end
+		return text .. suffix
 	end
-	return string.format("%.2f%s", scaled, suffix)
+	local text = string.format("%.2f", scaled)
+	if math.abs(tonumber(text) or 0) >= 10 then
+		text = string.format("%.1f", scaled)
+	end
+	return text .. suffix
 end
 local function scaleForDisplay(value)
 	local absolute = math.abs(value)
@@ -934,7 +950,7 @@ local function scaleForDisplay(value)
 			suffix = "",
 		}
 	end
-	local log10 = math.log(absolute) / LN10
+	local log10 = math.log10(absolute)
 	if log10 >= LAST_NAMED_LOG10 then
 		return {
 			scaled = 10 ^ (log10 - math.floor(log10)),
@@ -943,7 +959,7 @@ local function scaleForDisplay(value)
 	end
 	local group = math.clamp(math.floor(log10 / 3), 1, #NUMBER_SUFFIXES)
 	local scaled = value / 1000 ^ group
-	if math.abs(scaled) >= 1000 and group < #NUMBER_SUFFIXES then
+	if (math.abs(scaled) >= 1000 or roundsToThousand(math.abs(scaled))) and group < #NUMBER_SUFFIXES then
 		group += 1
 		scaled /= 1000
 	end
@@ -986,7 +1002,7 @@ function log10Flux(value)
 		if value == math.huge then
 			return 1e6
 		end
-		return math.log(value) / LN10
+		return math.log10(value)
 	end
 	local parsed = tonumber(value)
 	if parsed ~= nil and parsed == parsed and parsed ~= math.huge and parsed ~= -math.huge then
@@ -1068,10 +1084,10 @@ function compactNumber(value)
 	if value == 0 then
 		return "0"
 	end
-	if math.abs(value) < 1000 and value ~= math.huge and value ~= -math.huge then
+	if math.abs(value) < 999.5 and value ~= math.huge and value ~= -math.huge then
 		return string.format("%.0f", value)
 	end
-	return formatFromLog10(log10Flux(value), if value < 0 then -1 else 1)
+	return formatFromLog10(log10Flux(math.abs(value)), if value < 0 then -1 else 1)
 end
 local function compactSpinParts(value)
 	local _value = value
