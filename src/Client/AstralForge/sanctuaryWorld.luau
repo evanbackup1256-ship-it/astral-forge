@@ -188,9 +188,15 @@ local function restoreAnimated()
 	table.clear(animated)
 end
 
+-- Reused every frame (cleared, not reallocated).
+local sceneryParts: { BasePart } = {}
+local sceneryFrames: { CFrame } = {}
+
 local function stepScenery(t: number, cameraPosition: Vector3)
-	local parts: { BasePart } = {}
-	local frames: { CFrame } = {}
+	local parts = sceneryParts
+	local frames = sceneryFrames
+	table.clear(parts)
+	table.clear(frames)
 	for part, entry in animated do
 		if part.Parent == nil then
 			animated[part] = nil
@@ -606,8 +612,44 @@ local function setTethers(on: boolean)
 	end
 end
 
+-- A piece's child parts never change after buildBoss, so list them once instead
+-- of calling GetChildren on every piece every frame.
+local pieceKids: { [BasePart]: { BasePart } } = setmetatable({}, { __mode = "k" }) :: any
+local function kidsOf(part: BasePart): { BasePart }
+	local kids = pieceKids[part]
+	if kids == nil then
+		kids = {}
+		for _, child in part:GetChildren() do
+			if child:IsA("BasePart") then
+				table.insert(kids :: { BasePart }, child)
+			end
+		end
+		pieceKids[part] = kids
+	end
+	return kids :: { BasePart }
+end
+
+local function applyPieceTransparency(list: { Piece }, hide: number)
+	for _, piece in list do
+		piece.part.Transparency = piece.transparency + (1 - piece.transparency) * hide
+		for _, child in kidsOf(piece.part) do
+			child.Transparency = hide
+		end
+	end
+end
+
+-- The last (boss, hide) pair written: fades hold at 0 or 1 for long stretches and
+-- rewriting every part's Transparency each frame for nothing is measurable.
+local appliedBoss: Boss? = nil
+local appliedHide = -1
+
 local function setBossTransparency(current: Boss, visible: number)
 	local hide = 1 - math.clamp(visible, 0, 1)
+	if appliedBoss == current and math.abs(appliedHide - hide) < 0.002 then
+		return
+	end
+	appliedBoss = current
+	appliedHide = hide
 	current.core.Transparency = hide
 	current.shell.Transparency = 0.6 + 0.4 * hide
 	current.eye.Transparency = hide
@@ -615,22 +657,21 @@ local function setBossTransparency(current: Boss, visible: number)
 	current.aura.Enabled = visible > 0.2
 	current.swirl.Enabled = visible > 0.3
 	current.glowHalo.Enabled = visible > 0.3
-	for _, list in { current.rings, current.plates, current.shards } do
-		for _, piece in list do
-			piece.part.Transparency = piece.transparency + (1 - piece.transparency) * hide
-			for _, child in piece.part:GetChildren() do
-				if child:IsA("BasePart") then
-					child.Transparency = hide
-				end
-			end
-		end
-	end
+	applyPieceTransparency(current.rings, hide)
+	applyPieceTransparency(current.plates, hide)
+	applyPieceTransparency(current.shards, hide)
 end
+
+-- After a failed frame the warden is torn down; rebuilding it on the very next
+-- frame would repeat a deterministic error 60 times a second.
+local bossRetryAt = 0
+local bossParts: { BasePart } = {}
+local bossFrames: { CFrame } = {}
 
 local function stepBoss(dt: number, t: number)
 	if boss == nil then
 		-- Build once the model kit has loaded (or is known to be absent).
-		if not kitSettled then
+		if not kitSettled or os.clock() < bossRetryAt then
 			return
 		end
 		local model = findWarden()
@@ -746,8 +787,13 @@ local function stepBoss(dt: number, t: number)
 	current.coreLight.Brightness = 3 + current.flash * 6 + chargePulse * 4
 	current.coreLight.Color = RIFT:Lerp(SLAM, chargePulse)
 
-	local parts: { BasePart } = { current.core, current.shell }
-	local frames: { CFrame } = { CFrame.new(hover), CFrame.new(hover) }
+	-- Reused every frame (cleared, not reallocated); BulkMoveTo needs exact-length arrays.
+	local parts = bossParts
+	local frames = bossFrames
+	table.clear(parts)
+	table.clear(frames)
+	parts[1], parts[2] = current.core, current.shell
+	frames[1], frames[2] = CFrame.new(hover), CFrame.new(hover)
 
 	-- The eye turns toward the local player.
 	local root = localRoot()
@@ -767,11 +813,9 @@ local function stepBoss(dt: number, t: number)
 		end
 		table.insert(parts, piece.part)
 		table.insert(frames, frame)
-		for _, child in piece.part:GetChildren() do
-			if child:IsA("BasePart") then
-				table.insert(parts, child)
-				table.insert(frames, frame * piece.childOffset)
-			end
+		for _, child in kidsOf(piece.part) do
+			table.insert(parts, child)
+			table.insert(frames, frame * piece.childOffset)
 		end
 	end
 
@@ -1069,6 +1113,7 @@ function World.start()
 		if not ok then
 			warn(`[sanctuary] warden visuals: {problem}`)
 			destroyBoss()
+			bossRetryAt = os.clock() + 5
 		end
 		stepRegion(dt)
 	end))

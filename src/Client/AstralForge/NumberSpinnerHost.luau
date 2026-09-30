@@ -225,6 +225,33 @@ local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand, motio
 end
 local VELOCITY_TICK_HZ = 5
 local VELOCITY_TICK_DT = 1 / VELOCITY_TICK_HZ
+
+-- One thread for every velocity-driven spinner on screen.
+local velocitySteps = {}
+local velocityStepCount = 0
+local velocityWorker = nil
+local function registerVelocityStep(step)
+	velocitySteps[step] = true
+	velocityStepCount += 1
+	if velocityWorker == nil then
+		velocityWorker = task.spawn(function()
+			while velocityStepCount > 0 do
+				task.wait(VELOCITY_TICK_DT)
+				for step in velocitySteps do
+					-- One spinner erroring must not stop the others (or the ticker).
+					pcall(step)
+				end
+			end
+			velocityWorker = nil
+		end)
+	end
+	return function()
+		if velocitySteps[step] then
+			velocitySteps[step] = nil
+			velocityStepCount -= 1
+		end
+	end
+end
 local VELOCITY_ROLL = 0.07
 local function NumberSpinnerHost(_param)
 	local value = _param.value
@@ -605,18 +632,19 @@ local function NumberSpinnerHost(_param)
 		end
 		local displayRaw = _condition
 		local previousAt = os.clock()
-		local worker = task.spawn(function()
-			while alive do
-				task.wait(VELOCITY_TICK_DT)
+		-- One step per spinner, run by the shared ticker below (was one task.spawn loop
+		-- per spinner: N spinners meant N threads waking 5x a second).
+		local function step()
+			do
 				if not alive then
-					break
+					return
 				end
 				local now = os.clock()
 				local dt = math.min(1, now - previousAt)
 				previousAt = now
 				local spinner = ensureSpinner()
 				if spinner == nil then
-					continue
+					return
 				end
 				local server = targetRef.current
 				local rate = math.max(0, velocityRef.current)
@@ -633,7 +661,7 @@ local function NumberSpinnerHost(_param)
 				local mantissa = sanitizeValue(compact.value, compact.decimals)
 				if mantissa == lastMantissaRef.current and compact.band == lastBandRef.current then
 					lastRawRef.current = displayRaw
-					continue
+					return
 				end
 				local bandChanged = lastBandRef.current ~= compact.band
 				local roll = if bandChanged then 0.03 else VELOCITY_ROLL
@@ -654,10 +682,11 @@ local function NumberSpinnerHost(_param)
 				lastBandRef.current = compact.band
 				lastMantissaRef.current = mantissa
 			end
-		end)
+		end
+		local unregister = registerVelocityStep(step)
 		return function()
 			alive = false
-			pcall(task.cancel, worker)
+			unregister()
 		end
 	end, { ensureSpinner, live, reducedMotion, velocity })
 	React.useEffect(function()

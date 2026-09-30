@@ -29,10 +29,10 @@ export type Track = {
 -- with tools/assetgen/upload_soundtrack.py. New audio stays silent until
 -- Roblox moderation clears it; musicDirector skips a track that fails to load.
 local TRACKS: { Track } = {
-	{ name = "ForgePulse", asset = "rbxassetid://79059492969495", gain = 0.82, low = 2, mid = 0.5, high = -1.5 },
-	{ name = "SanctuaryDrift", asset = "rbxassetid://130740395926509", gain = 0.74, low = 0, mid = 0.8, high = 0.8 },
-	{ name = "AstralOrbit", asset = "rbxassetid://137908904057491", gain = 0.78, low = 0, mid = 1, high = 1 },
-	{ name = "BossSurge", asset = "rbxassetid://109017004194379", gain = 0.72, low = 1.5, mid = 0, high = -2 },
+	{ name = "ForgePulse", asset = "rbxassetid://85607718934391", gain = 0.9, low = 2, mid = 0.5, high = -1.5 },
+	{ name = "SanctuaryDrift", asset = "rbxassetid://98919050616365", gain = 1, low = 0, mid = 0.8, high = 0.8 },
+	{ name = "AstralOrbit", asset = "rbxassetid://84797482092417", gain = 0.95, low = 0, mid = 1, high = 1 },
+	{ name = "BossSurge", asset = "rbxassetid://76558769649423", gain = 0.85, low = 1.5, mid = 0, high = -2 },
 }
 
 local Soundtrack = {}
@@ -41,9 +41,9 @@ local Soundtrack = {}
 -- song, not a UI transition.
 Soundtrack.CROSSFADE_SECONDS = 4
 -- Level of the music Sounds before track gain, music volume and ducking.
-Soundtrack.BASE_VOLUME = 0.85
+Soundtrack.BASE_VOLUME = 1
 -- A track whose asset fails to load is skipped for this long, then retried.
-Soundtrack.RETRY_SECONDS = 120
+Soundtrack.RETRY_SECONDS = 25
 
 function Soundtrack.tracks(): { Track }
 	return TRACKS

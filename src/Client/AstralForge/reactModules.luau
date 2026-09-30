@@ -79,8 +79,13 @@ local function callable(callback)
 		end
 		return nil
 	end
+	-- Debounce fallback: callers use `.run(...)` and `.flush()` as well as calling
+	-- the object. `run` fires immediately (no debounce available), and `flush`
+	-- has nothing pending, so it must NOT invoke the callback with no arguments
+	-- (that used to wipe the parent's filter text on focus loss and unmount).
 	return setmetatable({
-		flush = invoke,
+		run = invoke,
+		flush = function() end,
 		cancel = function() end,
 	}, {
 		__call = function(_, ...)

@@ -7,37 +7,39 @@ exports.isMobileLandscape = _mobileLayout.isMobileLandscape
 exports.moreDockHeight = _mobileLayout.moreDockHeight
 exports.planMobileLayout = _mobileLayout.planMobileLayout
 exports.scrollTail = _mobileLayout.scrollTail
--- Astral Forge brand chroma: cool voids with vivid forge accents so CTAs, tabs,
--- meters, and active chrome read clearly on PC without flattening into gray fog.
+-- Astral Forge "molten forge" chroma: warm charcoal-plum surfaces with brass and
+-- ember heat, cut by cool cyan/mint signal colours. The surfaces are warm so
+-- accents (CTAs, tabs, meters, active chrome) glow against them instead of
+-- sitting on a cold blue wash; semantic colours (success, danger) stay readable.
 local Palette = {
-	void = Color3.fromRGB(3, 5, 9),
-	ink = Color3.fromRGB(6, 8, 14),
-	night = Color3.fromRGB(9, 12, 20),
-	panel = Color3.fromRGB(14, 18, 28),
-	panelRaised = Color3.fromRGB(20, 26, 40),
-	panelSoft = Color3.fromRGB(36, 46, 68),
-	line = Color3.fromRGB(42, 54, 78),
-	lineSoft = Color3.fromRGB(92, 114, 148),
-	cream = Color3.fromRGB(248, 250, 255),
-	creamSoft = Color3.fromRGB(214, 224, 238),
-	muted = Color3.fromRGB(142, 160, 185),
-	cyan = Color3.fromRGB(64, 224, 255),
-	mint = Color3.fromRGB(80, 238, 180),
-	coral = Color3.fromRGB(255, 98, 118),
-	mango = Color3.fromRGB(255, 188, 56),
-	violet = Color3.fromRGB(164, 124, 255),
-	pink = Color3.fromRGB(245, 96, 184),
-	blue = Color3.fromRGB(82, 162, 255),
+	void = Color3.fromRGB(8, 6, 10),
+	ink = Color3.fromRGB(12, 9, 14),
+	night = Color3.fromRGB(19, 14, 20),
+	panel = Color3.fromRGB(27, 21, 29),
+	panelRaised = Color3.fromRGB(39, 31, 42),
+	panelSoft = Color3.fromRGB(62, 49, 66),
+	line = Color3.fromRGB(74, 58, 80),
+	lineSoft = Color3.fromRGB(132, 110, 142),
+	cream = Color3.fromRGB(252, 247, 240),
+	creamSoft = Color3.fromRGB(230, 220, 212),
+	muted = Color3.fromRGB(178, 160, 166),
+	cyan = Color3.fromRGB(70, 218, 242),
+	mint = Color3.fromRGB(86, 236, 178),
+	coral = Color3.fromRGB(255, 104, 112),
+	mango = Color3.fromRGB(255, 184, 52),
+	violet = Color3.fromRGB(178, 134, 255),
+	pink = Color3.fromRGB(250, 104, 178),
+	blue = Color3.fromRGB(96, 166, 255),
 	white = Color3.fromRGB(255, 255, 255),
-	green = Color3.fromRGB(94, 234, 168),
-	red = Color3.fromRGB(238, 74, 92),
+	green = Color3.fromRGB(98, 232, 164),
+	red = Color3.fromRGB(240, 78, 88),
 	shadow = Color3.fromRGB(0, 0, 0),
-	graphite = Color3.fromRGB(18, 23, 34),
-	steel = Color3.fromRGB(192, 218, 242),
-	steelBright = Color3.fromRGB(248, 250, 255),
-	brass = Color3.fromRGB(245, 182, 68),
-	brassDeep = Color3.fromRGB(128, 86, 28),
-	ember = Color3.fromRGB(240, 80, 96),
+	graphite = Color3.fromRGB(22, 17, 25),
+	steel = Color3.fromRGB(204, 214, 234),
+	steelBright = Color3.fromRGB(252, 247, 240),
+	brass = Color3.fromRGB(250, 190, 72),
+	brassDeep = Color3.fromRGB(140, 92, 30),
+	ember = Color3.fromRGB(244, 92, 84),
 }
 local ACCESSIBLE_BASE = {
 	void = Palette.void,
@@ -82,12 +84,12 @@ local function applyAccessibilityTheme(highContrast, colorblind)
 	end
 	if highContrast then
 		mutable.void = Color3.fromRGB(0, 0, 0)
-		mutable.ink = Color3.fromRGB(1, 2, 3)
-		mutable.night = Color3.fromRGB(5, 7, 9)
-		mutable.panel = Color3.fromRGB(8, 11, 14)
-		mutable.panelRaised = Color3.fromRGB(14, 18, 23)
-		mutable.panelSoft = Color3.fromRGB(24, 30, 38)
-		mutable.lineSoft = Color3.fromRGB(139, 153, 170)
+		mutable.ink = Color3.fromRGB(3, 2, 3)
+		mutable.night = Color3.fromRGB(8, 6, 8)
+		mutable.panel = Color3.fromRGB(13, 10, 14)
+		mutable.panelRaised = Color3.fromRGB(21, 16, 23)
+		mutable.panelSoft = Color3.fromRGB(36, 28, 40)
+		mutable.lineSoft = Color3.fromRGB(160, 142, 168)
 		mutable.cream = Color3.fromRGB(255, 255, 255)
 		mutable.creamSoft = Color3.fromRGB(235, 240, 246)
 		mutable.muted = Color3.fromRGB(190, 199, 210)
@@ -103,8 +105,8 @@ local Layout = {
 	controlGap = 14,
 	lineGap = 10,
 	cardPadding = 18,
-	cardRadius = 13,
-	buttonRadius = 9,
+	cardRadius = 16,
+	buttonRadius = 11,
 	topbarHeight = 74,
 	sidebarWidth = 268,
 	sidebarCollapsedWidth = 78,
@@ -123,10 +125,10 @@ local Layout = {
 }
 -- Shared chrome opacities — lower = more visible strokes/shadows/accents.
 local Chrome = {
-	panelShadow = 0.76,
-	panelStrokeIdle = 0.28,
-	panelStrokeHover = 0.06,
-	buttonShadow = 0.64,
+	panelShadow = 0.7,
+	panelStrokeIdle = 0.3,
+	panelStrokeHover = 0.05,
+	buttonShadow = 0.58,
 	railStrokeIdle = 0.42,
 	railStrokeActive = 0.08,
 	accentHairline = 0.02,
@@ -286,12 +288,12 @@ local function surfaceGradient(base, strength)
 	if strength == nil then
 		strength = 1
 	end
-	-- Layered night glass: a cool lift at the top edge, then a longer sink into the void.
+	-- Layered forge glass: a warm lift at the top edge, then a deeper sink into the dark.
 	return ColorSequence.new({
-		ColorSequenceKeypoint.new(0, lighten(base, 0.12 * strength)),
-		ColorSequenceKeypoint.new(0.14, lighten(base, 0.04 * strength)),
-		ColorSequenceKeypoint.new(0.58, base),
-		ColorSequenceKeypoint.new(1, darken(base, 0.2 * strength)),
+		ColorSequenceKeypoint.new(0, lighten(base, 0.15 * strength)),
+		ColorSequenceKeypoint.new(0.12, lighten(base, 0.05 * strength)),
+		ColorSequenceKeypoint.new(0.55, base),
+		ColorSequenceKeypoint.new(1, darken(base, 0.27 * strength)),
 	})
 end
 local function strokeGradient(color)

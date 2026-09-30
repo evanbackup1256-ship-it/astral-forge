@@ -77,6 +77,9 @@ function VfxService.ProximityGlow(props: {
 }): any
 	local frameRef = React.useRef(nil :: GuiObject?)
 	local proximity, setProximity = React.useState(0)
+	-- The frame callback below is created once per radius, so it must compare against
+	-- a ref: reading `proximity` there always saw the first render's 0.
+	local proximityRef = React.useRef(0)
 	local radius = props.maxRadius or 140
 	local color = props.glowColor or Color3.fromRGB(67, 225, 255)
 
@@ -86,7 +89,10 @@ function VfxService.ProximityGlow(props: {
 			if not active or not frameRef.current then return end
 			local el = frameRef.current
 			if not el.Visible or el.AbsoluteSize.Magnitude == 0 then
-				if proximity ~= 0 then setProximity(0) end
+				if proximityRef.current ~= 0 then
+					proximityRef.current = 0
+					setProximity(0)
+				end
 				return
 			end
 			local mousePos = UserInputService:GetMouseLocation()
@@ -94,7 +100,8 @@ function VfxService.ProximityGlow(props: {
 			local dist = (mousePos - center).Magnitude
 			local norm = math.clamp(1 - (dist / radius), 0, 1)
 			-- Smooth dampening threshold
-			if math.abs(norm - proximity) > 0.03 then
+			if math.abs(norm - proximityRef.current) > 0.03 then
+				proximityRef.current = norm
 				setProximity(norm)
 			end
 		end)

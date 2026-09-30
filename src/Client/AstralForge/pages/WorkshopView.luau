@@ -585,7 +585,8 @@ local function UpgradeBoard(_param)
 			gap = gap,
 			overscanRows = if softMotion then 0 else (if stack then 2 else 3),
 			itemKey = function(index)
-				return visible[index + 1].config.Id
+				local entry = visible[index + 1]
+				return if entry ~= nil then entry.config.Id else `machine-{index}`
 			end,
 			renderItem = function(index)
 				local entry = visible[index + 1]

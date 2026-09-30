@@ -296,21 +296,17 @@ local function CrateRevealExperience(_param)
 	local motionScale = if reducedMotion then 0.55 else 1
 	local boatShow = useBoatTween(if present then 1 else 0, (if present then 0.3 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
 	local showSpring = useFlipperSpring(if present then 1 else 0, false, 720, 36)
-	local showBoat = useBoatTween(if present then 1 else 0, (if present then 0.28 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
 	local show = showSpring
 	local landHold = phase == "land" or phase == "done" or phase == "exit"
 	local claimHold = phase == "done" or phase == "exit"
 	local landPopSpring = useFlipperSpring(if landHold then 1 else 0, false, 640, 14)
-	local landPopBoat = useBoatTween(if landHold then 1 else 0, 0.22 * motionScale, false, easeOutCubic, 0)
 	local landPop = landPopSpring
 	local claimSlideSpring = useFlipperSpring(if claimHold then 1 else 0, false, 520, 24)
-	local claimSlideBoat = useBoatTween(if claimHold then 1 else 0, 0.2 * motionScale, false, easeOutCubic, 0)
 	local claimSlide = claimSlideSpring
 	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, false, 0.62 * motionScale)
 	-- Claim CTA flash — intentional polish without noisy springs on low tiers.
 	local claimFlash = useFlash(if phase == "done" then rollIndex + 11 else 0, false, 0.48 * motionScale)
 	local chargePulseSpring = useFlipperSpring(if phase == "charge" then 1 else 0, false, 360, 19)
-	local chargePulseBoat = useBoatTween(if phase == "charge" then 1 else 0, 0.18 * motionScale, false, easeOutCubic, 0)
 	local chargePulse = chargePulseSpring
 	local rolls = session.rolls
 	if type(rolls) ~= "table" then

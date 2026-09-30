@@ -114,6 +114,7 @@ SoundSheet.VOICE = table.freeze({
 	curtainClose = "curtainClose",
 	sanctuaryHover = "sanctuaryHover",
 	sanctuaryClick = "sanctuaryClick",
+	sanctuaryRecall = "sanctuaryRecall",
 	navHover = "navHover",
 
 	-- Currency and rewards
