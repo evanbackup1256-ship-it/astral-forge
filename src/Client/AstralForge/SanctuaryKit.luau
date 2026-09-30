@@ -4033,6 +4033,7 @@ local Workspace = game:GetService("Workspace")
 local Controls = __load("sanctuaryControls")
 local Curtain = __load("curtainTransition")
 local World = __load("sanctuaryWorld")
+local Signals = __load("sanctuarySignals")
 local SanctuaryLayout = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SanctuaryLayout")
 
 local Presence = {}
@@ -4112,8 +4113,144 @@ local function findSpawn(): BasePart?
 	return nil
 end
 
-local function applySanctuaryLighting()
-	if not lightingHeld then
+-- Region moods. The base night (Bridge) is what the sanctuary always used; each region
+-- tints the haze, fog, ambient light and grade toward its own palette as you cross into
+-- it, eased rather than cut. Fields are numbers and Color3s only, so blending is one
+-- lerp per field.
+type Mood = {
+	ambient: Color3,
+	outdoor: Color3,
+	fog: Color3,
+	exposure: number,
+	hazeColor: Color3,
+	hazeDecay: Color3,
+	density: number,
+	haze: number,
+	bloom: number,
+	tint: Color3,
+	saturation: number,
+	contrast: number,
+	rays: number,
+}
+local MOODS: { [string]: Mood } = {
+	Bridge = {
+		ambient = Color3.fromRGB(92, 92, 128), outdoor = Color3.fromRGB(122, 116, 168), fog = Color3.fromRGB(14, 12, 30), exposure = 0.3,
+		hazeColor = Color3.fromRGB(48, 40, 94), hazeDecay = Color3.fromRGB(18, 14, 40), density = 0.2, haze = 0.8,
+		bloom = 0.6, tint = Color3.fromRGB(238, 236, 255), saturation = 0.14, contrast = 0.1, rays = 0.04,
+	},
+	Heart = {
+		ambient = Color3.fromRGB(100, 92, 126), outdoor = Color3.fromRGB(132, 118, 164), fog = Color3.fromRGB(18, 14, 30), exposure = 0.32,
+		hazeColor = Color3.fromRGB(60, 44, 96), hazeDecay = Color3.fromRGB(24, 16, 42), density = 0.2, haze = 0.8,
+		bloom = 0.7, tint = Color3.fromRGB(246, 238, 255), saturation = 0.16, contrast = 0.1, rays = 0.05,
+	},
+	Emberreach = {
+		ambient = Color3.fromRGB(122, 82, 70), outdoor = Color3.fromRGB(156, 102, 86), fog = Color3.fromRGB(36, 14, 10), exposure = 0.36,
+		hazeColor = Color3.fromRGB(118, 54, 36), hazeDecay = Color3.fromRGB(62, 22, 14), density = 0.27, haze = 1.25,
+		bloom = 0.95, tint = Color3.fromRGB(255, 232, 212), saturation = 0.22, contrast = 0.12, rays = 0.08,
+	},
+	Hollows = {
+		ambient = Color3.fromRGB(84, 110, 142), outdoor = Color3.fromRGB(112, 142, 184), fog = Color3.fromRGB(10, 22, 36), exposure = 0.3,
+		hazeColor = Color3.fromRGB(40, 92, 126), hazeDecay = Color3.fromRGB(10, 32, 54), density = 0.22, haze = 0.95,
+		bloom = 0.8, tint = Color3.fromRGB(220, 240, 255), saturation = 0.12, contrast = 0.12, rays = 0.05,
+	},
+	Spire = {
+		ambient = Color3.fromRGB(112, 112, 152), outdoor = Color3.fromRGB(152, 150, 202), fog = Color3.fromRGB(32, 32, 58), exposure = 0.42,
+		hazeColor = Color3.fromRGB(150, 150, 192), hazeDecay = Color3.fromRGB(70, 70, 112), density = 0.12, haze = 0.4,
+		bloom = 0.62, tint = Color3.fromRGB(248, 246, 255), saturation = 0.1, contrast = 0.08, rays = 0.13,
+	},
+	Riftmaw = {
+		ambient = Color3.fromRGB(92, 70, 112), outdoor = Color3.fromRGB(114, 86, 140), fog = Color3.fromRGB(22, 6, 24), exposure = 0.2,
+		hazeColor = Color3.fromRGB(88, 30, 86), hazeDecay = Color3.fromRGB(32, 8, 32), density = 0.3, haze = 1.4,
+		bloom = 1.0, tint = Color3.fromRGB(255, 226, 250), saturation = 0.18, contrast = 0.15, rays = 0.02,
+	},
+}
+local MOOD_TAU = 1.4 -- seconds for a region change to cover ~63% of the way
+local MOOD_SETTLE_SECONDS = 7 -- stop blending this long after the last change (5 tau)
+local moodNow: Mood = table.clone(MOODS.Bridge)
+local moodTarget: Mood = MOODS.Bridge
+local moodUntil = 0
+local moodConnection: RBXScriptConnection? = nil
+local moodRegionSub: (() -> ())? = nil
+
+local function blendMood(alpha: number)
+	local now, target = moodNow, moodTarget
+	now.ambient = now.ambient:Lerp(target.ambient, alpha)
+	now.outdoor = now.outdoor:Lerp(target.outdoor, alpha)
+	now.fog = now.fog:Lerp(target.fog, alpha)
+	now.hazeColor = now.hazeColor:Lerp(target.hazeColor, alpha)
+	now.hazeDecay = now.hazeDecay:Lerp(target.hazeDecay, alpha)
+	now.tint = now.tint:Lerp(target.tint, alpha)
+	now.exposure += (target.exposure - now.exposure) * alpha
+	now.density += (target.density - now.density) * alpha
+	now.haze += (target.haze - now.haze) * alpha
+	now.bloom += (target.bloom - now.bloom) * alpha
+	now.saturation += (target.saturation - now.saturation) * alpha
+	now.contrast += (target.contrast - now.contrast) * alpha
+	now.rays += (target.rays - now.rays) * alpha
+end
+
+local function writeMood()
+	local m = moodNow
+	Lighting.Ambient = m.ambient
+	Lighting.OutdoorAmbient = m.outdoor
+	Lighting.FogColor = m.fog
+	Lighting.ExposureCompensation = m.exposure
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	if atmosphere ~= nil then
+		atmosphere.Color = m.hazeColor
+		atmosphere.Decay = m.hazeDecay
+		atmosphere.Density = m.density
+		atmosphere.Haze = m.haze
+	end
+	local bloom = Lighting:FindFirstChild(EFFECT_NAMES[1])
+	if bloom ~= nil and bloom:IsA("BloomEffect") then
+		bloom.Intensity = m.bloom
+	end
+	local grade = Lighting:FindFirstChild(EFFECT_NAMES[2])
+	if grade ~= nil and grade:IsA("ColorCorrectionEffect") then
+		grade.TintColor = m.tint
+		grade.Saturation = m.saturation
+		grade.Contrast = m.contrast
+	end
+	local rays = Lighting:FindFirstChild(EFFECT_NAMES[3])
+	if rays ~= nil and rays:IsA("SunRaysEffect") then
+		rays.Intensity = m.rays
+	end
+end
+
+local function stopMood()
+	if moodConnection ~= nil then
+		moodConnection:Disconnect()
+		moodConnection = nil
+	end
+	if moodRegionSub ~= nil then
+		moodRegionSub()
+		moodRegionSub = nil
+	end
+end
+
+-- Runs only while the sanctuary lighting is held, and only does work for a few seconds
+-- after a region change (the blend converges; a settled mood costs nothing per frame).
+local function startMood()
+	stopMood()
+	moodNow = table.clone(MOODS.Bridge)
+	moodTarget = MOODS.Bridge
+	moodUntil = 0
+	moodRegionSub = Signals.on("RegionChanged", function(payload)
+		local id = if type(payload) == "table" then payload.Id else nil
+		moodTarget = MOODS[id :: any] or MOODS.Bridge
+		moodUntil = os.clock() + MOOD_SETTLE_SECONDS
+	end)
+	moodConnection = RunService.Heartbeat:Connect(function(dt)
+		if os.clock() > moodUntil then
+			return
+		end
+		blendMood(1 - math.exp(-dt / MOOD_TAU))
+		writeMood()
+	end)
+end
+
+local function applySanctuaryLighting()	if not lightingHeld then
 		savedLighting = {
 			brightness = Lighting.Brightness,
 			ambient = Lighting.Ambient,
@@ -4219,9 +4356,11 @@ local function applySanctuaryLighting()
 		rays.Spread = 0.6
 		rays.Parent = Lighting
 	end
+	startMood()
 end
 
 local function restoreLighting()
+	stopMood()
 	-- Post effects, the haze and the sky go whether or not the base lighting
 	-- was held, so a failed entry never leaves any of them behind.
 	for _, name in EFFECT_NAMES do
