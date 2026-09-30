@@ -3,7 +3,7 @@
 return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 

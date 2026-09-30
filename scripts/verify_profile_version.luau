@@ -1,4 +1,4 @@
-local guard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
+local guard = require("../src/Server/AstralForge/Modules/ProfileMath")("ProfileVersionGuard")
 
 assert(guard.ReadCompatible({}, 21) == 0)
 assert(guard.ReadCompatible({ DataVersion = 21 }, 21) == 21)

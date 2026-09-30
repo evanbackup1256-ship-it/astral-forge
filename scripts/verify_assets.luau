@@ -12,7 +12,7 @@
 --
 -- HARD: pure checks -- no Roblox instances.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 local serde = require("@lune/serde")
 
 local function readSource(path: string): string
@@ -44,7 +44,7 @@ local ids = serde.decode("json", fs.readFile("assets/asset_ids.json"))
 ------------------------------------------------------------------------
 -- 2. Manifest
 ------------------------------------------------------------------------
-local manifest = readSource("src/Shared/AstralForge/Shared/AssetManifest.luau")
+local manifest = readSource("src/Shared/AstralForge/Shared/SharedData.luau#AssetManifest")
 local function block(title: string): string
 	local start = string.find(manifest, "Manifest." .. title .. " = {", 1, true)
 	assert(start, "manifest is missing " .. title)
@@ -82,8 +82,8 @@ end
 ------------------------------------------------------------------------
 -- 3. Sounds
 ------------------------------------------------------------------------
-local audio = readSource("src/Client/AstralForge/audio.luau")
-local sheet = readSource("src/Client/AstralForge/soundSheet.luau")
+local audio = readSource("src/Client/AstralForge/AudioKit.luau#audio")
+local sheet = readSource("src/Client/AstralForge/AudioKit.luau#soundSheet")
 local cuesStart = string.find(audio, "local CUES = {", 1, true)
 local cuesEnd = string.find(audio, "local UI_CUES = {}", 1, true)
 assert(cuesStart and cuesEnd, "audio CUES table not found")
@@ -114,7 +114,7 @@ end
 for name, isUsed in used do
 	assert(isUsed, "voice " .. name .. " is rendered but no cue plays it")
 end
-local ambience = readSource("src/Client/AstralForge/sanctuaryAmbience.luau")
+local ambience = readSource("src/Client/AstralForge/SanctuaryKit.luau#sanctuaryAmbience")
 for bed in string.gmatch(ambience, '= "(amb_[%w_]+)"') do
 	assert(build.ambience.regions[bed] ~= nil, "ambience bed " .. bed .. " isn't in the ambience sheet")
 end
@@ -124,11 +124,11 @@ assert(string.find(ambience, "Manifest.Ambience.Id <= 0", 1, true), "ambience st
 -- 4. Models and effects
 ------------------------------------------------------------------------
 local consumers = {
-	"src/Server/AstralForge/Services/SanctuaryBuilder.luau",
-	"src/Server/AstralForge/Services/OreService.luau",
-	"src/Client/AstralForge/sanctuaryWorld.luau",
+	"src/Server/AstralForge/Services/WorldServices.luau#SanctuaryBuilder",
+	"src/Server/AstralForge/Services/WorldServices.luau#OreService",
+	"src/Client/AstralForge/SanctuaryKit.luau#sanctuaryWorld",
 }
-local vfxSource = readSource("src/Shared/AstralForge/Shared/Vfx.luau")
+local vfxSource = readSource("src/Shared/AstralForge/Shared/SharedData.luau#Vfx")
 local presets: { [string]: boolean } = {}
 local presetStart = string.find(vfxSource, "local PRESETS", 1, true)
 for name in string.gmatch(string.sub(vfxSource, presetStart :: number), "\n\t(%w+) = {") do
@@ -183,10 +183,10 @@ assert(not string.find(vfxSource, "rbxassetid://", 1, true), "Vfx must only use 
 ------------------------------------------------------------------------
 local buildPy = readSource("tools/assetgen/build.py")
 assert(not string.find(buildPy, "import upload", 1, true), "a build must never upload anything")
-local kit = readSource("src/Shared/AstralForge/Shared/AssetKit.luau")
+local kit = readSource("src/Shared/AstralForge/Shared/SharedData.luau#AssetKit")
 assert(string.find(kit, "Manifest.Kit.Id == 0", 1, true), "with no kit, loading returns at once")
 assert(string.find(kit, "pcall(function()\n\t\t\treturn InsertService:LoadAsset", 1, true), "a failed kit load must not throw")
-local builder = readSource("src/Server/AstralForge/Services/SanctuaryBuilder.luau")
+local builder = readSource("src/Server/AstralForge/Services/WorldServices.luau#SanctuaryBuilder")
 assert(string.find(builder, "local mesh = AssetKit.make(kitName", 1, true) and string.find(builder, "return fallback()", 1, true), "every kit mesh has a part fallback")
 assert(string.find(sheet, "return Manifest.SoundSheet.Id > 0", 1, true), "the sheet is used only once uploaded")
 

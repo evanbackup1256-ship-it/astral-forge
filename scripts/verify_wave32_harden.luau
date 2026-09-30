@@ -2,12 +2,12 @@
 -- Wave32 offline residuals: MainGame VaultCollectClaim FocusClaim + chrome softMotion densify
 -- (TradeReturnPill / ActiveBoostIcon / ConfettiBurst / Workspace), DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
-local workspaceChrome = fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau")
-local shellFx = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local topBarChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
+local workspaceChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
+local shellFx = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(workspaceChrome, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim host")
 assert(string.find(workspaceChrome, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim")
 assert(string.find(shellFx, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion")
@@ -21,7 +21,7 @@ do
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "VaultCollectClaim clips")
 end
 do
-	local shell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0
 	for _ in string.gmatch(shell, "softMotion") do
 		soft += 1

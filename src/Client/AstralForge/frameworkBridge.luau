@@ -1,5 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ClientLog = require(script.Parent.log).ClientLog
+local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local bootstrapRoot
 local function installBundledRuntime()
 	local include = ReplicatedStorage:FindFirstChild("rbxts_include")

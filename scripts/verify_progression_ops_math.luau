@@ -4,9 +4,9 @@
 -- pure; TitleUnlocked must tolerate missing Artifacts/Stats without throwing.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/ProgressionOpsMath")
+local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
 
 ------------------------------------------------------------------------
 -- WeeklyValue
@@ -168,7 +168,7 @@ assert(incompleteOk == false and string.find(incompleteReason, "not complete", 1
 local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local mathSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+local mathSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionOpsMath")
 local bagSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileBagMath.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 

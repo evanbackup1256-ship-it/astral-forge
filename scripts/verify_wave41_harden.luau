@@ -3,15 +3,15 @@
 -- Research/Wheel/Chat/StarGrid densify, BootScreen/AdminPrank softMotion,
 -- DENSE floor raises, DV21 Story/Mail.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local publicRec = fs.readFile("src/Server/AstralForge/Modules/PublicPlayerRecord.luau")
+local publicRec = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#PublicPlayerRecord")
 assert(string.find(publicRec, "function PublicPlayerRecord.Build", 1, true), "PublicPlayerRecord.Build missing")
-local seal = fs.readFile("src/Server/AstralForge/Modules/SettingsSeal.luau")
+local seal = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#SettingsSeal")
 assert(string.find(seal, "function SettingsSeal.Apply", 1, true), "SettingsSeal.Apply missing")
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(server, 'WaitForChild("PublicPlayerRecord")', 1, true), "ServerServices requires PublicPlayerRecord")
-assert(string.find(server, 'WaitForChild("SettingsSeal")', 1, true), "ServerServices requires SettingsSeal")
+assert(string.find(server, '("PublicPlayerRecord")', 1, true), "ServerServices requires PublicPlayerRecord")
+assert(string.find(server, '("SettingsSeal")', 1, true), "ServerServices requires SettingsSeal")
 assert(string.find(server, "PublicPlayerRecord.Build", 1, true), "ServerServices binds PublicPlayerRecord.Build")
 assert(string.find(server, "SettingsSeal.Apply", 1, true), "ServerServices binds SettingsSeal.Apply")
 do
@@ -22,12 +22,12 @@ do
 	assert(not string.find(slice, "EquippedItems = equippedItems", 1, true), "public player body must leave ServerServices")
 end
 
-local research = fs.readFile("src/Client/AstralForge/pages/ResearchView.luau")
-local wheel = fs.readFile("src/Client/AstralForge/pages/WheelView.luau")
-local chat = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
-local star = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
-local boot = fs.readFile("src/Client/AstralForge/BootScreen.luau")
-local prank = fs.readFile("src/Client/AstralForge/AdminPrankOverlay.luau")
+local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
+local wheel = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
+local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
+local star = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
+local boot = fs.readFile("src/Client/AstralForge/BootKit.luau#BootScreen")
+local prank = fs.readFile("src/Client/AstralForge/UiCore.luau#AdminPrankOverlay")
 assert(string.find(research, "Canonical softMotion antilag gate — ResearchView", 1, true), "Research softMotion")
 assert(string.find(wheel, "Canonical softMotion antilag gate — WheelView", 1, true), "Wheel softMotion")
 assert(string.find(chat, "Canonical softMotion antilag gate — ChatView", 1, true) or string.find(chat, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "Chat softMotion")
@@ -64,10 +64,10 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/ChatView.luau"] = 12', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/ResearchView.luau"] = 12', 1, true), "Research DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/StarGridView.luau"] = 12', 1, true), "StarGrid DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/WheelView.luau"] = 12', 1, true), "Wheel DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 12', 1, true), "Chat DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = 12', 1, true), "Research DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 12', 1, true), "Wheel DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave41-offline-brief"', 1, true), "Story wave41")
@@ -75,8 +75,8 @@ assert(string.find(config, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail w
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
 -- Pure module smoke
-local PublicPlayerRecord = require("../src/Server/AstralForge/Modules/PublicPlayerRecord")
-local SettingsSeal = require("../src/Server/AstralForge/Modules/SettingsSeal")
+local PublicPlayerRecord = require("../src/Server/AstralForge/Modules/ProfileMath")("PublicPlayerRecord")
+local SettingsSeal = require("../src/Server/AstralForge/Modules/ProfileMath")("SettingsSeal")
 local EconomyStub = {
 	Production = function(_profile)
 		return 9

@@ -3,13 +3,13 @@
 -- and residual SessionGate txn / TradeSettle cancel markers.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local guildSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
 local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
-local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 ------------------------------------------------------------------------
@@ -31,7 +31,7 @@ assert(string.find(configSrc, "ProductionTick", 1, true), "GameConfig.Game.Produ
 ------------------------------------------------------------------------
 -- Guild ClaimGoal (double-claim + contribution gate)
 ------------------------------------------------------------------------
-local goalMathSrc = fs.readFile("src/Server/AstralForge/Modules/GuildGoalMath.luau")
+local goalMathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#GuildGoalMath")
 assert(string.find(guildSrc, "function GuildService:ClaimGoal", 1, true), "GuildService:ClaimGoal must exist")
 assert(string.find(guildSrc, "goal.Claimed[userKey] = true", 1, true), "ClaimGoal must stamp Claimed inside UpdateAsync")
 assert(string.find(guildSrc, "GuildGoalMath.CanClaimGoal", 1, true), "ClaimGoal must delegate CanClaimGoal")
@@ -66,7 +66,7 @@ assert(
 	"TradeSettle must own RevertFailed residual status"
 )
 -- Pure residual: cancel after RevertFailed must clear; cancel while Settling must refuse.
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
+local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 do
 	local settling = { Settling = true, Status = "Settling" }
 	local blocked, err = TradeSettle.CancelBlocked(settling)

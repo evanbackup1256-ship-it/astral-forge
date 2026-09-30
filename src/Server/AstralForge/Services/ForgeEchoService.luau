@@ -3,9 +3,9 @@
 return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
-	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionGate"))
+	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
 
 	local ForgeEchoService = {}
 	local Config = GameConfig.ForgeEchoes

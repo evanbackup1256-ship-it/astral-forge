@@ -13,8 +13,8 @@
 --
 -- HARD: pure checks -- no Roblox instances.
 
-local fs = require("@lune/fs")
-local Tokens = require("../src/Client/AstralForge/motionTokens")
+local fs = require("./_memberfs")(require("@lune/fs"))
+local Tokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
@@ -124,7 +124,7 @@ for _, feel in { { frequency = 3.3, dampingRatio = 0.86 }, { frequency = 6, damp
 	end
 	assert(math.abs(hx) < 0.5, "and it still comes to rest")
 end
-local notifications = readSource("src/Client/AstralForge/notifications.luau")
+local notifications = readSource("src/Client/AstralForge/UiCore.luau#notifications")
 assert(string.find(notifications, "MotionTokens.step(state.x, state.v, 0, SWIPE_RETURN_FEEL, dt)", 1, true), "toast swipe-back uses the exact step")
 assert(not string.find(notifications, "state.v += accel * dt", 1, true), "the Euler swipe integration is gone")
 
@@ -165,8 +165,8 @@ assert(Tokens.stagger(1) - Tokens.stagger(0) <= 0.04, "the first gap is short")
 ------------------------------------------------------------------------
 -- 4. The engine uses the tokens
 ------------------------------------------------------------------------
-local motion = readSource("src/Client/AstralForge/motion.luau")
-assert(string.find(motion, "require(script.Parent.motionTokens)", 1, true), "motion.luau must use the shared tokens")
+local motion = readSource("src/Client/AstralForge/MotionKit.luau#motion")
+assert(string.find(motion, "(\"motionTokens\")", 1, true), "motion.luau must use the shared tokens")
 assert(string.find(motion, "local feel = MotionTokens.feel(stiffness, damping)", 1, true), "Flipper motors take the shared feel")
 assert(string.find(motion, "local nextFeel = MotionTokens.feel(nextStiffness, nextDamping)", 1, true), "reconfigured motors take the shared feel")
 assert(string.find(motion, "local feel = MotionTokens.feel(effectiveStiffness, damping)", 1, true), "ripple springs take the shared feel")

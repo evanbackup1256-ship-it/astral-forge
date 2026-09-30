@@ -17,13 +17,13 @@
 --
 -- HARD: pure checks -- no Roblox instances.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Layout = require("../src/Shared/AstralForge/Shared/SanctuaryLayout")
-local SanctuaryConfig = require("../src/Shared/AstralForge/Shared/SanctuaryConfig")
+local Layout = require("../src/Shared/AstralForge/Shared/SharedData")("SanctuaryLayout")
+local SanctuaryConfig = require("../src/Shared/AstralForge/Shared/SharedData")("SanctuaryConfig")
 local OreMath = require("../src/Server/AstralForge/Modules/OreMath")
-local RiftBossMath = require("../src/Server/AstralForge/Modules/RiftBossMath")
-local Signals = require("../src/Client/AstralForge/sanctuarySignals")
+local RiftBossMath = require("../src/Server/AstralForge/Modules/EconomyMath")("RiftBossMath")
+local Signals = require("../src/Client/AstralForge/SanctuaryKit")("sanctuarySignals")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
@@ -320,9 +320,9 @@ do
 	-- Every effect the sanctuary services fire is forwarded by the client bus,
 	-- and every forwarded kind is fired by someone.
 	local serverFiles = {
-		"src/Server/AstralForge/Services/OreService.luau",
-		"src/Server/AstralForge/Services/RiftBossService.luau",
-		"src/Server/AstralForge/Services/SanctuaryFeatures.luau",
+		"src/Server/AstralForge/Services/WorldServices.luau#OreService",
+		"src/Server/AstralForge/Services/WorldServices.luau#RiftBossService",
+		"src/Server/AstralForge/Services/WorldServices.luau#SanctuaryFeatures",
 	}
 	local fired: { [string]: boolean } = {}
 	for _, path in serverFiles do
@@ -349,9 +349,9 @@ do
 	-- Actions: protocol, firewall, session grants, validators, handler.
 	local protocol = readSource("src/Shared/AstralForge/Shared/Protocol.luau")
 	local firewall = readSource("src/Server/AstralForge/Services/RemoteFirewall.luau")
-	local session = readSource("src/Client/AstralForge/session.luau")
-	local validators = readSource("src/Server/AstralForge/Modules/CommandActionValidators.luau")
-	local features = readSource("src/Server/AstralForge/Services/SanctuaryFeatures.luau")
+	local session = readSource("src/Client/AstralForge/CoreKit.luau#session")
+	local validators = readSource("src/Server/AstralForge/Modules/ProfileMath.luau#CommandActionValidators")
+	local features = readSource("src/Server/AstralForge/Services/WorldServices.luau#SanctuaryFeatures")
 	for _, action in { "BuyOreUpgrade", "StrikeRiftBoss", "TravelWaystone" } do
 		assert(string.find(protocol, action, 1, true), action .. " missing from Protocol")
 		assert(string.find(firewall, action, 1, true), action .. " missing from RemoteFirewall")
@@ -370,10 +370,16 @@ do
 	-- its class table, so it must be wrapped (it once wasn't, and the server
 	-- died at boot with "attempt to call a table value").
 	local registered = 0
-	for moduleName in string.gmatch(services, 'serviceFactories%["%w+"%] = require%(script%.Parent:WaitForChild%("(%w+)"%)%)') do
+	for moduleName, rest in string.gmatch(services, 'serviceFactories%["%w+"%] = require%(script%.Parent:WaitForChild%("(%w+)"%)%)([^\n]*)') do
+		-- Merged service suites are called with the member name: require(suite)("Member")
+		local member = string.match(rest, '^%("(%w+)"%)')
 		local path = "src/Server/AstralForge/Services/" .. moduleName .. ".luau"
 		if not fs.isFile(path) then
 			path = "src/Server/AstralForge/Services/" .. moduleName .. ".lua"
+		end
+		if member then
+			path = path .. "#" .. member
+			moduleName = member
 		end
 		local body = readSource(path)
 		assert(string.find(body, "^return function") or string.find(body, "\nreturn function"), moduleName .. " is registered as a factory but doesn't return one")
@@ -381,11 +387,11 @@ do
 	end
 	assert(registered >= 10, "the registry scan found too few entries -- did the pattern drift?")
 	assert(
-		string.find(services, 'serviceFactories["SanctuaryFeatures"] = function()\n\treturn require(script.Parent:WaitForChild("SanctuaryFeatures"))\nend', 1, true),
+		string.find(services, 'serviceFactories["SanctuaryFeatures"] = function()\n\treturn require(script.Parent:WaitForChild("WorldServices"))("SanctuaryFeatures")\nend', 1, true),
 		"SanctuaryFeatures must be registered through a factory wrapper"
 	)
 
-	local world = readSource("src/Server/AstralForge/Services/WorldService.luau")
+	local world = readSource("src/Server/AstralForge/Services/WorldServices.luau#WorldService")
 	assert(string.find(world, "SanctuaryBuilder.Build(expanse)", 1, true), "WorldService must build the expanse")
 	assert(string.find(world, "SanctuaryLayout.KILL_DEPTH", 1, true), "falls are measured against the shared kill depth")
 
@@ -393,7 +399,7 @@ do
 	-- first version centred a 100-stud ball 10 studs down, capping each region
 	-- -- and the forge deck -- under a rock dome), rim rocks and rim scenery
 	-- leave the bridge landings open, and one failed step can't stop the rest.
-	local builder = readSource("src/Server/AstralForge/Services/SanctuaryBuilder.luau")
+	local builder = readSource("src/Server/AstralForge/Services/WorldServices.luau#SanctuaryBuilder")
 	assert(not string.find(builder, "-(10 + k * radius * 0.3)", 1, true), "the domed underside is gone")
 	assert(string.find(builder, "-4 - rock)", 1, true), "underside rocks keep their tops under the surface")
 	assert(string.find(builder, "local layerTop = -PLATEAU_DEPTH + 4 - k * LAYER_STEP", 1, true), "underside layers start below the plateau")
@@ -418,26 +424,26 @@ do
 	end
 
 	-- Client.
-	local main = readSource("src/Client/AstralForge/MainGame.luau")
+	local main = readSource("src/Client/AstralForge/UiCore.luau#MainGame")
 	assert(string.find(main, "sanctuarySignals.handles(kind)", 1, true), "MainGame must forward sanctuary effects to the bus")
-	local presence = readSource("src/Client/AstralForge/sanctuaryPresence.luau")
+	local presence = readSource("src/Client/AstralForge/SanctuaryKit.luau#sanctuaryPresence")
 	assert(string.find(presence, "Controls.step(dt)", 1, true), "walking must run through sanctuaryControls")
 	assert(string.find(presence, "World.start()", 1, true) and string.find(presence, "World.stop()", 1, true), "the world controller starts and stops with the visit")
 	assert(string.find(presence, "Controls.stop()", 1, true), "leaving must release the controls")
 	assert(not string.find(presence, "IsKeyDown(Enum.KeyCode.W)", 1, true), "the old WASD-only walker is gone")
 	assert(string.find(presence, "effect:Destroy()", 1, true), "sanctuary post effects are removed on leave")
-	local chrome = readSource("src/Client/AstralForge/sanctuaryChrome.luau")
+	local chrome = readSource("src/Client/AstralForge/UiCore.luau#sanctuaryChrome")
 	assert(string.find(chrome, "createElement(SanctuaryHud", 1, true), "the curtain mounts the sanctuary HUD")
 	local router = readSource("src/Client/AstralForge/pages/PageRouter.luau")
-	local nav = readSource("src/Client/AstralForge/navRouteTable.luau")
+	local nav = readSource("src/Client/AstralForge/CoreKit.luau#navRouteTable")
 	assert(string.find(router, 'lazyView("FoundryView", "FoundryView")', 1, true), "the Foundry page is routed")
 	assert(string.find(nav, 'id = "Foundry"', 1, true) and string.find(nav, '"Foundry",', 1, true), "the Foundry is in the nav and the page table")
 
 	-- Every sanctuary sound the client plays is a real cue.
-	local audio = readSource("src/Client/AstralForge/audio.luau")
+	local audio = readSource("src/Client/AstralForge/AudioKit.luau#audio")
 	local clientFiles = {
-		"src/Client/AstralForge/sanctuaryWorld.luau",
-		"src/Client/AstralForge/sanctuaryHud.luau",
+		"src/Client/AstralForge/SanctuaryKit.luau#sanctuaryWorld",
+		"src/Client/AstralForge/SanctuaryKit.luau#sanctuaryHud",
 	}
 	for _, path in clientFiles do
 		local source = readSource(path)

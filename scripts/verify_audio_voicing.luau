@@ -20,11 +20,11 @@
 --
 -- HARD: pure data + string checks. No Roblox instances, no vendor requires.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Voicing = require("../src/Client/AstralForge/audioVoicing")
+local Voicing = require("../src/Client/AstralForge/AudioKit")("audioVoicing")
 
-local audioSource = fs.readFile("src/Client/AstralForge/audio.luau")
+local audioSource = fs.readFile("src/Client/AstralForge/AudioKit.luau#audio")
 
 ------------------------------------------------------------------------
 -- 1. Every voice is physically playable
@@ -179,7 +179,7 @@ assert(layerCount > 0, "expected some layered cues")
 -- 5. audio.luau actually applies the voicing
 ------------------------------------------------------------------------
 assert(
-	string.find(audioSource, "local Voicing = require(script.Parent.audioVoicing)", 1, true),
+	string.find(audioSource, "local Voicing = __load(\"audioVoicing\")", 1, true),
 	"audio.luau must require the voicing table"
 )
 -- Pitch, gain and decay all have to reach the Sound, or the families are inert.

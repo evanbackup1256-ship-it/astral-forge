@@ -3,12 +3,12 @@
 -- Mirrors verify_trade style — require the modules under Lune, assert behavior.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local UpgradeCostReason = require("../src/Server/AstralForge/Modules/UpgradeCostReason")
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/ForgePathClaim")
-local OfflineProjection = require("../src/Server/AstralForge/Modules/OfflineProjection")
+local UpgradeCostReason = require("../src/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
+local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local OfflineProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")
 
 -- --- UpgradeCostReason -------------------------------------------------------
 local cost = UpgradeCostReason.LevelCost(OmegaMath, { BaseCost = 100, CostScale = 1.15 }, 0)
@@ -208,13 +208,13 @@ assert(reward == 70, "segmented boost/cycle reward")
 assert(math.abs(avgEff - 0.7) < 1e-9, "weighted efficiency 70/100")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
-local gateSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionGate.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
+local gateSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionGate")
 local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
-local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/UpgradeCostReason.luau")
-local forgeSrc = fs.readFile("src/Server/AstralForge/Modules/ForgePathClaim.luau")
-local offlineSrc = fs.readFile("src/Server/AstralForge/Modules/OfflineProjection.luau")
+local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#UpgradeCostReason")
+local forgeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ForgePathClaim")
+local offlineSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#OfflineProjection")
 
 assert(string.find(economySrc, "OfflineProjection.Project", 1, true), "Economy must delegate OfflineProjection")
 assert(string.find(economySrc, "UpgradeCostReason.LevelCost", 1, true), "Economy must use UpgradeCostReason costs")

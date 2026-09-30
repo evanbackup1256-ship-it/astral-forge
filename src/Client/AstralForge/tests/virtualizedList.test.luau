@@ -1,7 +1,7 @@
 local _lunit = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].lunit)
 local Assert = _lunit.Assert
 local Test = _lunit.Test
-local virtualRange = require(script.Parent.Parent.virtualizedList).virtualRange
+local virtualRange = require(script.Parent.Parent.LayoutKit)("virtualizedList").virtualRange
 local VirtualizedListTests
 do
 	VirtualizedListTests = setmetatable({}, {

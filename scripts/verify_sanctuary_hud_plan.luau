@@ -14,8 +14,8 @@
 --
 -- HARD: pure checks -- no Roblox instances.
 
-local fs = require("@lune/fs")
-local Plan = require("../src/Client/AstralForge/sanctuaryHudPlan")
+local fs = require("./_memberfs")(require("@lune/fs"))
+local Plan = require("../src/Client/AstralForge/SanctuaryKit")("sanctuaryHudPlan")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
@@ -149,9 +149,9 @@ for _, size in { { 1920, 1036 }, { 2560, 1396 }, { 1366, 704 } } do
 end
 
 -- 7. Everyone reads the plan.
-local hudSource = readSource("src/Client/AstralForge/sanctuaryHud.luau")
-local chromeSource = readSource("src/Client/AstralForge/sanctuaryChrome.luau")
-local controlsSource = readSource("src/Client/AstralForge/sanctuaryControls.luau")
+local hudSource = readSource("src/Client/AstralForge/SanctuaryKit.luau#sanctuaryHud")
+local chromeSource = readSource("src/Client/AstralForge/UiCore.luau#sanctuaryChrome")
+local controlsSource = readSource("src/Client/AstralForge/SanctuaryKit.luau#sanctuaryControls")
 assert(string.find(hudSource, "sanctuaryHudPlan", 1, true), "the HUD must place itself from the plan")
 assert(string.find(chromeSource, "sanctuaryHudPlan", 1, true), "the curtain docks must follow the plan")
 assert(string.find(controlsSource, "sanctuaryHudPlan", 1, true), "the touch controls must follow the plan")

@@ -3,12 +3,12 @@
 -- Mirrors verify_extract_modules style — require under Lune, assert behavior.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ZoneUnlock = require("../src/Shared/AstralForge/Shared/ZoneUnlock")
+local ZoneUnlock = require("../src/Shared/AstralForge/Shared/SharedData")("ZoneUnlock")
 local LabOrderMath = require("../src/Server/AstralForge/Modules/LabOrderMath")
-local RebirthGate = require("../src/Server/AstralForge/Modules/RebirthGate")
+local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)
@@ -147,12 +147,12 @@ assert(kind == "Error" and err == "NEED_MORE_FLUX", "flux sentinel")
 -- --- Source wiring + HARD constraints ----------------------------------------
 local labServiceSrc = fs.readFile("src/Server/AstralForge/Services/LabService.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local gameSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 local labMathSrc = fs.readFile("src/Server/AstralForge/Modules/LabOrderMath.luau")
-local rebirthSrc = fs.readFile("src/Server/AstralForge/Modules/RebirthGate.luau")
-local zoneSrc = fs.readFile("src/Shared/AstralForge/Shared/ZoneUnlock.luau")
+local rebirthSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#RebirthGate")
+local zoneSrc = fs.readFile("src/Shared/AstralForge/Shared/SharedData.luau#ZoneUnlock")
 
 assert(string.find(labServiceSrc, "LabOrderMath.OrderTarget", 1, true), "LabService must delegate OrderTarget")
 assert(string.find(labServiceSrc, "LabOrderMath.ApplyProgress", 1, true), "LabService must delegate ApplyProgress")

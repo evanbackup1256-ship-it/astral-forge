@@ -4,9 +4,9 @@
 -- negative / string scalars must clamp without throwing. HARD: DV<=21,
 -- PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ProfileClampMath = require("../src/Server/AstralForge/Modules/ProfileClampMath")
+local ProfileClampMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ProfileClampMath")
 
 local function identityPersist(value: any): any
 	local n = tonumber(value)
@@ -93,7 +93,7 @@ assert(partial.Cash == 5 and partial.Cores == 1, "partial preserved")
 ------------------------------------------------------------------------
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
-local clampSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileClampMath.luau")
+local clampSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ProfileClampMath")
 local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 

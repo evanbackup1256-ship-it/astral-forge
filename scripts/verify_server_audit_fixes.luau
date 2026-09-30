@@ -3,10 +3,10 @@
 -- Mirrors the repo's other verify scripts: these services need Roblox APIs, so the
 -- behaviours are pinned by the exact guards that implement them.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local guildSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
-local worldSrc = fs.readFile("src/Server/AstralForge/Services/WorldService.luau")
+local worldSrc = fs.readFile("src/Server/AstralForge/Services/WorldServices.luau#WorldService")
 
 local function has(src: string, needle: string, message: string)
 	assert(string.find(src, needle, 1, true), message)

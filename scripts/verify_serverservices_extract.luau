@@ -3,11 +3,11 @@
 -- Mirrors verify_anomaly_pulse style — require under Lune, assert behavior.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local CrateRoll = require("../src/Server/AstralForge/Modules/CrateRoll")
-local ShopGrantEligibility = require("../src/Server/AstralForge/Modules/ShopGrantEligibility")
-local CommandActionValidators = require("../src/Server/AstralForge/Modules/CommandActionValidators")
+local CrateRoll = require("../src/Server/AstralForge/Modules/EconomyMath")("CrateRoll")
+local ShopGrantEligibility = require("../src/Server/AstralForge/Modules/ProfileMath")("ShopGrantEligibility")
+local CommandActionValidators = require("../src/Server/AstralForge/Modules/ProfileMath")("CommandActionValidators")
 
 -- --- CrateRoll ---------------------------------------------------------------
 assert(CrateRoll.MinimumRank(0, 10, 4) == 0, "pity before threshold → 0")
@@ -162,9 +162,9 @@ assert(highValueCount == 7, "seven high-value grants")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local crateSrc = fs.readFile("src/Server/AstralForge/Modules/CrateRoll.luau")
-local shopSrc = fs.readFile("src/Server/AstralForge/Modules/ShopGrantEligibility.luau")
-local cmdSrc = fs.readFile("src/Server/AstralForge/Modules/CommandActionValidators.luau")
+local crateSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#CrateRoll")
+local shopSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ShopGrantEligibility")
+local cmdSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#CommandActionValidators")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(servicesSrc, "CrateRoll.Roll", 1, true), "ServerServices must delegate CrateRoll.Roll")

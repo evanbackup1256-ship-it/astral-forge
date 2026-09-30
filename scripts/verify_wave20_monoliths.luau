@@ -4,15 +4,15 @@
 -- (ServerServices), EconomyEnvelopeMath grid/item/artifact thinning.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local NetworkPolicy = require("../src/Client/AstralForge/networkPolicy")
-local PageBoardHeights = require("../src/Client/AstralForge/pageBoardHeights")
-local PageReadyMath = require("../src/Client/AstralForge/pageReadyMath")
-local InventoryMath = require("../src/Client/AstralForge/inventoryMath")
-local TelemetryMath = require("../src/Server/AstralForge/Modules/TelemetryMath")
-local UtcClockMath = require("../src/Server/AstralForge/Modules/UtcClockMath")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
+local NetworkPolicy = require("../src/Client/AstralForge/CoreKit")("networkPolicy")
+local PageBoardHeights = require("../src/Client/AstralForge/CoreKit")("pageBoardHeights")
+local PageReadyMath = require("../src/Client/AstralForge/LayoutKit")("pageReadyMath")
+local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
+local TelemetryMath = require("../src/Server/AstralForge/Modules/ProfileMath")("TelemetryMath")
+local UtcClockMath = require("../src/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
+local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
 
 -- --- NetworkPolicy -------------------------------------------------------------
@@ -98,18 +98,18 @@ assert(InventoryMath.RarityColor({ Items = { Rarities = { Rare = { Color = "pink
 assert(InventoryMath.RarityColor({}, "Rare", colorFallback) == colorFallback, "rarity fallback")
 
 -- --- Source wiring + HARD constraints -----------------------------------------
-local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
+local mainSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local econSrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
-local invSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+local econSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
+local invSrc = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
-local workshopSrc = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
-local overviewSrc = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+local workshopSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
+local overviewSrc = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 
 assert(string.find(mainSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame NetworkPolicy.Cooldown")
 assert(string.find(mainSrc, "NetworkPolicy.IsPipelined", 1, true), "MainGame IsPipelined")
-assert(string.find(mainSrc, "require(script.Parent.networkPolicy)", 1, true), "MainGame require networkPolicy")
+assert(string.find(mainSrc, "(\"networkPolicy\")", 1, true), "MainGame require networkPolicy")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView board heights")
 assert(string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView AnomalyReady")
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView OpsClaims")
@@ -139,10 +139,10 @@ for _, body in {
 	ssSrc,
 	econSrc,
 	invSrc,
-	fs.readFile("src/Client/AstralForge/networkPolicy.luau"),
-	fs.readFile("src/Client/AstralForge/pageBoardHeights.luau"),
-	fs.readFile("src/Server/AstralForge/Modules/TelemetryMath.luau"),
-	fs.readFile("src/Server/AstralForge/Modules/UtcClockMath.luau"),
+	fs.readFile("src/Client/AstralForge/CoreKit.luau#networkPolicy"),
+	fs.readFile("src/Client/AstralForge/CoreKit.luau#pageBoardHeights"),
+	fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#TelemetryMath"),
+	fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#UtcClockMath"),
 } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")

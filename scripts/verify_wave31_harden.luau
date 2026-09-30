@@ -2,9 +2,9 @@
 -- Wave31 offline residuals: WorkshopView extract (MachineRow/UpgradeBoard/AutoForge),
 -- WorkshopBuyClaim FocusClaim, PageRouter thin dispatcher, Overview PageReadyMath fix, DV21 briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local workshop = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshop, "local function WorkshopView", 1, true), "WorkshopView missing")
 assert(string.find(workshop, "local function MachineRow", 1, true), "MachineRow missing")
 assert(string.find(workshop, "local function UpgradeBoard", 1, true), "UpgradeBoard missing")
@@ -36,7 +36,7 @@ assert(not string.find(router, "VirtualGrid", 1, true), "PageRouter must drop Vi
 assert(not string.find(router, "softMotion", 1, true), "PageRouter must drop softMotion after Workshop peel")
 assert(#router < 20000, "PageRouter must stay thin after Workshop peel")
 
-local overview = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+local overview = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 assert(string.find(overview, "PageReadyMath.CountReadyQuests", 1, true), "Overview CountReadyQuests")
 assert(string.find(overview, "PageReadyMath.ForgePathReady", 1, true), "Overview ForgePathReady")
 assert(not string.find(overview, "countReadyQuests(", 1, true), "Overview must not call missing countReadyQuests local")

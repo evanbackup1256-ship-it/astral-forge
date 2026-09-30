@@ -1,16 +1,16 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local useAntilag = require(script.Parent.Parent.antilag).useAntilag
-local _motion = require(script.Parent.Parent.motion)
+local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
+local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useClock = _motion.useClock
 local useFlash = _motion.useFlash
-local Motion = require(script.Parent.Parent.motionTokens)
-local Fx = require(script.Parent.Parent.vfxMath)
-local _theme = require(script.Parent.Parent.theme)
+local Motion = require(script.Parent.Parent.MotionKit)("motionTokens")
+local Fx = require(script.Parent.Parent.MotionKit)("vfxMath")
+local _theme = require(script.Parent.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
 local darken = _theme.darken
 local lighten = _theme.lighten
 local surfaceGradient = _theme.surfaceGradient
-local Text = require(script.Parent.Parent.ui).Text
+local Text = require(script.Parent.Parent.UiCore)("ui").Text
 local function clamp01(value)
 	return math.clamp(value, 0, 1)
 end

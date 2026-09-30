@@ -9,8 +9,8 @@ return function()
 
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
-	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
-	local GuildGoalMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildGoalMath"))
+	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildMath")
+	local GuildGoalMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildGoalMath")
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 

@@ -12,7 +12,7 @@
 -- HARD: pure checks -- no Roblox instances.
 
 local fs = require("@lune/fs")
-local Fx = require("../src/Client/AstralForge/motionTokens").fx
+local Fx = require("../src/Client/AstralForge/MotionKit")("motionTokens").fx
 
 ------------------------------------------------------------------------
 -- 1. Closed form vs simulation

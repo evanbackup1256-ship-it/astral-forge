@@ -5,10 +5,10 @@
 -- empty-offer Ready checks needed Lune coverage without Studio.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local TradeOfferMath = require("../src/Server/AstralForge/Modules/TradeOfferMath")
-local TradeExchange = require("../src/Server/AstralForge/Modules/TradeExchange")
+local TradeOfferMath = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeOfferMath")
+local TradeExchange = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
 
 local CURRENCIES = TradeExchange.CURRENCIES
 local BOOST_IDS = TradeExchange.BOOST_IDS
@@ -75,8 +75,8 @@ assert(TradeOfferMath.CountInventory({}) == 0, "nil inventory")
 ------------------------------------------------------------------------
 -- Wire + HARD constraints
 ------------------------------------------------------------------------
-local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
-local mathSrc = fs.readFile("src/Server/AstralForge/Modules/TradeOfferMath.luau")
+local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
+local mathSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeOfferMath")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(deskSrc, "TradeOfferMath.CopyOffer", 1, true), "TradeDesk CopyOffer wire")
 assert(string.find(deskSrc, "TradeOfferMath.EnsureLedger", 1, true), "TradeDesk EnsureLedger wire")

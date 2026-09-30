@@ -3,11 +3,11 @@
 -- residual markers on DataService / ProgressionService / AdminService.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local AdminGrantMath = require("../src/Server/AstralForge/Modules/AdminGrantMath")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
+local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
+local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 
 ------------------------------------------------------------------------
 -- AdminGrantMath
@@ -88,7 +88,7 @@ end
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(adminSrc, "AdminGrantMath.BoundedAmount", 1, true), "Admin must delegate BoundedAmount")
@@ -170,11 +170,11 @@ assert(
 	"AnomalyService ApplyCoreXP residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau"), "TradeOfferMath.CopyOffer", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk"), "TradeOfferMath.CopyOffer", 1, true),
 	"TradeDesk CopyOffer residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau"), "TradeOfferMath.EnsureLedger", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk"), "TradeOfferMath.EnsureLedger", 1, true),
 	"TradeDesk EnsureLedger residual"
 )
 
@@ -194,7 +194,7 @@ assert(
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
 assert(string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress residual")
-local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionOpsMath")
 assert(string.find(progressionOpsSrc, "TotalRebirthsSpent", 1, true), "Progression achievement residual")
 assert(string.find(progressionSrc, "WheelMath.Ensure", 1, true), "Progression Wheel residual")
 assert(string.find(progressionSrc, "EnsureQuests", 1, true), "Progression EnsureQuests residual")

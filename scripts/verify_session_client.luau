@@ -4,12 +4,12 @@
 -- and models adopt()/attachGrantFields recovery from gate rejections the same way
 -- SessionGate:Beat/Peek return live creds (pure; does not require Roblox script).
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local protocolSrc = fs.readFile("src/Shared/AstralForge/Shared/Protocol.luau")
-local sessionSrc = fs.readFile("src/Client/AstralForge/session.luau")
+local sessionSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#session")
 local serverSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local commandValidators = require("../src/Server/AstralForge/Modules/CommandActionValidators")
+local commandValidators = require("../src/Server/AstralForge/Modules/ProfileMath")("CommandActionValidators")
 
 local function extractStringKeys(block: string): { [string]: boolean }
 	local keys = {}
@@ -88,7 +88,7 @@ for action in pairs(highValue) do
 end
 
 -- Pure replica of session.adopt / attachGrantFields credential rules (must stay
--- aligned with src/Client/AstralForge/session.luau — string-checked below).
+-- aligned with src/Client/AstralForge/CoreKit.luau#session — string-checked below).
 assert(string.find(sessionSrc, "if response.Gen == nil or response.Gen < gen", 1, true), "adopt gen guard missing")
 assert(string.find(sessionSrc, "payload.Gen = gen", 1, true), "attachGrantFields gen missing")
 assert(string.find(sessionSrc, "payload.N = nonce", 1, true), "attachGrantFields nonce missing")

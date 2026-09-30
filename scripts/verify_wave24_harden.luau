@@ -3,13 +3,13 @@
 -- roster hosts as of wave28), Overview softMotion canon (OverviewView as of wave29;
 -- effectsPaused on quietMotion only), Guild softMotion past DENSE floor.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-local crew = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
-local overview = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
-local workshop = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
-local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
+local crew = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
+local overview = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
+local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
+local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local readme = fs.readFile("README.md")
 
 local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"

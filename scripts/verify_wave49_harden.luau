@@ -2,15 +2,15 @@
 -- Wave49 offline residuals: Mailbox/Shop/ItemEffects/FluxSurge peels,
 -- Credits/Inventory/Rebirth/Settings/Trade densify, DV21 Story/Mail.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local storyMail = fs.readFile("src/Server/AstralForge/Modules/StoryMailSnapshot.luau")
+local storyMail = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#StoryMailSnapshot")
 assert(string.find(storyMail, "function StoryMailSnapshot.MailboxPublic", 1, true), "MailboxPublic missing")
 
-local shop = fs.readFile("src/Server/AstralForge/Modules/ShopGrantEligibility.luau")
+local shop = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ShopGrantEligibility")
 assert(string.find(shop, "function ShopGrantEligibility.CatalogPublic", 1, true), "CatalogPublic missing")
 
-local loadout = fs.readFile("src/Server/AstralForge/Modules/ItemLoadoutMath.luau")
+local loadout = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ItemLoadoutMath")
 assert(string.find(loadout, "function ItemLoadoutMath.EffectsPublic", 1, true), "EffectsPublic missing")
 
 local flux = fs.readFile("src/Server/AstralForge/Services/FluxSurgeService.luau")
@@ -26,11 +26,11 @@ assert(not string.find(services, "OwnedPasses = copyDictionary(profile.OwnedPass
 assert(not string.find(services, 'Automation = Economy.ItemEffect(profile, "Automation")', 1, true), "Item Effects inline must leave")
 assert(not string.find(services, "{ Active = false, Multiplier = 1, AffectsCapacity = false }", 1, true), "FluxSurge idle inline must leave")
 
-local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
-local inventory = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
-local rebirth = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
-local settings = fs.readFile("src/Client/AstralForge/pages/SettingsView.luau")
-local trade = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
+local inventory = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
+local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
+local settings = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
+local trade = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 assert(string.find(credits, "Canonical softMotion antilag gate — CreditsThanks", 1, true), "CreditsThanks softMotion")
 assert(string.find(inventory, "Canonical softMotion antilag gate — InventoryTabs", 1, true), "InventoryTabs softMotion")
 assert(string.find(rebirth, "Canonical softMotion antilag gate — RebirthHero", 1, true), "RebirthHero softMotion")
@@ -77,13 +77,13 @@ assert(string.find(config, 'Id = "wave49-offline-brief"', 1, true), "Story wave4
 assert(string.find(config, 'Id = "update-5-1-wave49-offline"', 1, true), "Mail wave49")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local StoryMailSnapshot = require("../src/Server/AstralForge/Modules/StoryMailSnapshot")
+local StoryMailSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("StoryMailSnapshot")
 do
 	local bag = StoryMailSnapshot.MailboxPublic({ { Id = "a" } }, 2)
 	assert(bag.Unread == 2 and bag.Messages[1].Id == "a", "mailbox public")
 end
 
-local ShopGrantEligibility = require("../src/Server/AstralForge/Modules/ShopGrantEligibility")
+local ShopGrantEligibility = require("../src/Server/AstralForge/Modules/ProfileMath")("ShopGrantEligibility")
 do
 	local bag = ShopGrantEligibility.CatalogPublic({ VIP = true }, function(t)
 		return t
@@ -91,7 +91,7 @@ do
 	assert(bag.CatalogVersion == 1 and bag.OwnedPasses.VIP == true, "catalog public")
 end
 
-local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ItemLoadoutMath")
+local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
 do
 	local effects = ItemLoadoutMath.EffectsPublic({}, {
 		ItemEffect = function(_profile, kind)

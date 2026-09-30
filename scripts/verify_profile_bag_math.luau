@@ -2,10 +2,10 @@
 -- Pure-module extract guards: ProfileBagMath + PageReadyMath.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local ProfileBagMath = require("../src/Server/AstralForge/Modules/ProfileBagMath")
-local PageReadyMath = require("../src/Client/AstralForge/pageReadyMath")
+local PageReadyMath = require("../src/Client/AstralForge/LayoutKit")("pageReadyMath")
 
 ------------------------------------------------------------------------
 -- ProfileBagMath
@@ -134,7 +134,7 @@ local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local bagSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileBagMath.luau")
-local readySrc = fs.readFile("src/Client/AstralForge/pageReadyMath.luau")
+local readySrc = fs.readFile("src/Client/AstralForge/LayoutKit.luau#pageReadyMath")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(progressionSrc, "ProfileBagMath.EnsureStats", 1, true), "Progression must use ProfileBagMath.EnsureStats")
@@ -147,10 +147,10 @@ assert(string.find(adminSrc, "ProfileBagMath.EnsureItems", 1, true), "Admin must
 assert(string.find(adminSrc, "ProfileBagMath.BumpStat", 1, true), "Admin GrantRelic must BumpStat")
 assert(string.find(adminSrc, "CommandMath.Ensure", 1, true), "Admin GrantSignals must CommandMath.Ensure")
 assert(string.find(adminSrc, "WheelMath.Ensure", 1, true), "Admin GrantFreeSpins must WheelMath.Ensure")
-local overviewBag = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+local overviewBag = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 assert(string.find(overviewBag, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
 assert(string.find(overviewBag, "PageReadyMath.ForgePathReady", 1, true), "OverviewView must use ForgePathReady")
-local crewSrc = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+local crewSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 assert(string.find(crewSrc, "PageReadyMath.SameCrewSnapshot", 1, true), "CrewView must use SameCrewSnapshot")
 
 -- Evidence: Admin GrantItemEssence / GrantSignals used to raw-index partial bags.

@@ -3,10 +3,10 @@
 -- goal target, bank credit/debit). Mirrors verify_anomaly_pulse style.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local GuildMath = require("../src/Server/AstralForge/Modules/GuildMath")
+local GuildMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)
@@ -109,8 +109,8 @@ near(GuildMath.AddClamped(nil, 3), 3, "add from nil")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local serviceSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
-local mathSrc = fs.readFile("src/Server/AstralForge/Modules/GuildMath.luau")
-local viewSrc = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
+local mathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#GuildMath")
+local viewSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(serviceSrc, "GuildMath.UpgradeCost", 1, true), "GuildService must delegate UpgradeCost")

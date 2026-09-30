@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local DataTemplate = require(script.Parent:WaitForChild("DataTemplate"))
-local Economy = require(script.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
+local Economy = require(script.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 local ProfileIntegrity = require(script.Parent:WaitForChild("Services"):WaitForChild("ServerServices")).ProfileIntegrity
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 

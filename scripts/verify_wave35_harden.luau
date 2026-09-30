@@ -2,9 +2,9 @@
 -- Wave35 offline residuals: WorkspaceChrome extract (VaultPill/NextUnlockStrip/Workspace),
 -- NextUnlockStrip softMotion densify, AppShell softMotion densify, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local chrome = fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau")
+local chrome = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
 assert(string.find(chrome, "local function Workspace", 1, true), "Workspace missing")
 assert(string.find(chrome, "local function VaultPill", 1, true), "VaultPill missing")
 assert(string.find(chrome, "local function NextUnlockStrip", 1, true), "NextUnlockStrip missing")
@@ -27,9 +27,9 @@ do
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "VaultCollectClaim clips")
 end
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
-assert(string.find(appShell, 'require(script.Parent.WorkspaceChrome)', 1, true), "AppShellChrome requires WorkspaceChrome")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
+assert(string.find(appShell, '("WorkspaceChrome")', 1, true), "AppShellChrome requires WorkspaceChrome")
 assert(string.find(appShell, "local Workspace = _WorkspaceChrome.Workspace", 1, true), "AppShellChrome binds Workspace")
 assert(string.find(appShell, "Canonical softMotion antilag gate — AppShell", 1, true), "AppShell softMotion")
 assert(not string.find(main, "local function Workspace", 1, true), "Workspace must leave MainGame")

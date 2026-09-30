@@ -18,24 +18,24 @@
 --
 -- HARD: pure checks -- no Roblox instances, no vendor requires.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ForgeLevels = require("../src/Shared/AstralForge/Shared/ForgeLevels")
-local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ActionFeatureMaps")
+local ForgeLevels = require("../src/Shared/AstralForge/Shared/SharedData")("ForgeLevels")
+local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
 end
 
 local configSource = readSource("src/Shared/AstralForge/Shared/GameConfig.luau")
-local gateSource = readSource("src/Server/AstralForge/Modules/ProgressionGate.luau")
+local gateSource = readSource("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionGate")
 local servicesSource = readSource("src/Server/AstralForge/Services/ServerServices.luau")
 local echoSource = readSource("src/Server/AstralForge/Services/ForgeEchoService.luau")
-local navSource = readSource("src/Client/AstralForge/navRouteTable.luau")
-local workspaceSource = readSource("src/Client/AstralForge/WorkspaceChrome.luau")
-local shellSource = readSource("src/Client/AstralForge/AppShellChrome.luau")
-local mainSource = readSource("src/Client/AstralForge/MainGame.luau")
-local overviewSource = readSource("src/Client/AstralForge/pages/OverviewView.luau")
+local navSource = readSource("src/Client/AstralForge/CoreKit.luau#navRouteTable")
+local workspaceSource = readSource("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
+local shellSource = readSource("src/Client/AstralForge/UiCore.luau#AppShellChrome")
+local mainSource = readSource("src/Client/AstralForge/UiCore.luau#MainGame")
+local overviewSource = readSource("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 
 local ladder = ForgeLevels.ladder()
 local tiers = ForgeLevels.tiers()

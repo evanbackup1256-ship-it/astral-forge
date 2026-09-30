@@ -2,9 +2,9 @@
 -- Pure-module extract guards: GuildGoalMath (roll / ensure / advance / claim).
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local GuildGoalMath = require("../src/Server/AstralForge/Modules/GuildGoalMath")
+local GuildGoalMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildGoalMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)
@@ -168,7 +168,7 @@ assert(okClaim == false and string.find(errClaim or "", "not in", 1, true), "non
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
 local serviceSrc = fs.readFile("src/Server/AstralForge/Services/GuildService.luau")
-local mathSrc = fs.readFile("src/Server/AstralForge/Modules/GuildGoalMath.luau")
+local mathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#GuildGoalMath")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(serviceSrc, "GuildGoalMath.EnsureGoal", 1, true), "GuildService must delegate EnsureGoal")

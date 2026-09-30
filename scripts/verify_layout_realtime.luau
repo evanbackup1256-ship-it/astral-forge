@@ -14,8 +14,8 @@
 --
 -- HARD: pure checks -- no Roblox instances.
 
-local fs = require("@lune/fs")
-local Plan = require("../src/Client/AstralForge/layoutGuardPlan")
+local fs = require("./_memberfs")(require("@lune/fs"))
+local Plan = require("../src/Client/AstralForge/LayoutKit")("layoutGuardPlan")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
@@ -73,7 +73,7 @@ assert(Plan.TOUCH_TEXT_FLOOR >= 11, "the touch floor must be readable")
 -- 5. Wiring
 ------------------------------------------------------------------------
 local guard = readSource("src/Client/AstralForge/layoutGuard.luau")
-assert(string.find(guard, "require(script.Parent.layoutGuardPlan)", 1, true), "the guard schedules from layoutGuardPlan")
+assert(string.find(guard, "(\"layoutGuardPlan\")", 1, true), "the guard schedules from layoutGuardPlan")
 assert(string.find(guard, "Plan.budget(self.burstLeft, #self.fresh)", 1, true), "every frame spends the planned budget")
 assert(string.find(guard, "root.DescendantAdded:Connect", 1, true), "new elements enter the fresh queue")
 assert(string.find(guard, 'root:GetPropertyChangedSignal("AbsoluteSize")', 1, true), "a resize is handled the frame it happens")
@@ -82,7 +82,7 @@ assert(string.find(guard, "if not label.TextFits then\n\t\t\tlabel.TextSize = or
 assert(not string.find(guard, "SCAN_INTERVAL_SECONDS = 2", 1, true), "the two-second scan is gone")
 assert(string.find(guard, "checkOverlappingHitboxes(self.queue)", 1, true), "the hitbox pass runs over each finished sweep")
 local syntax = readSource("scripts/_syntax_check.luau")
-assert(string.find(syntax, "layoutGuardPlan.luau", 1, true), "layoutGuardPlan is in the O0 compile gate")
+assert(string.find(syntax, "LayoutKit.luau", 1, true), "layoutGuardPlan is in the O0 compile gate")
 
 print(
 	string.format(

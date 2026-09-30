@@ -3,9 +3,9 @@
 -- Mirrors verify_economy_regress style: string markers + lightweight pure logic. No Studio.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
@@ -16,7 +16,7 @@ local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 ------------------------------------------------------------------------
 assert(string.find(deskSrc, "function TradeDesk:FailSettle", 1, true), "FailSettle must exist")
 assert(string.find(deskSrc, "TradeSettle.Fail", 1, true), "FailSettle must delegate to TradeSettle")
-local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle")
 assert(string.find(settleSrc, 'session.Status = "RevertFailed"', 1, true), "permanent FailSettle must stamp RevertFailed")
 assert(string.find(settleSrc, "RevertFailedAt", 1, true), "permanent FailSettle must stamp RevertFailedAt")
 assert(string.find(settleSrc, "RevertFailedReason", 1, true), "permanent FailSettle must stamp RevertFailedReason")
@@ -32,7 +32,7 @@ assert(string.find(services, "outcome.log", 1, true), "permanent settle failure 
 assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
 
 -- Pure Cancel vs RevertFailed residual via TradeSettle.
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
+local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 do
 	local settling = { Settling = true, Status = "Settling" }
 	local blocked, err = TradeSettle.CancelBlocked(settling)

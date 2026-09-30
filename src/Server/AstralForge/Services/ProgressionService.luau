@@ -4,14 +4,14 @@ return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
-	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Format"))
-	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
-	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
+	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
-	local ProgressionOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionOpsMath"))
-	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UtcClockMath"))
+	local ProgressionOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionOpsMath")
+	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UtcClockMath")
 
 	local ProgressionService = {}
 

@@ -8,20 +8,20 @@ local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
-local MainGame = require(script.MainGame).MainGame
+local MainGame = require(script.UiCore)("MainGame").MainGame
 -- Studio drops a script that spends its whole execution budget in one require chain.
 task.wait()
-local _antilag = require(script.antilag)
+local _antilag = require(script.MotionKit)("antilag")
 local AntilagProvider = _antilag.AntilagProvider
 local watchPing = _antilag.watchPing
-local _audio = require(script.audio)
+local _audio = require(script.AudioKit)("audio")
 local Audio = _audio.Audio
 local hookGuiClicks = _audio.hookGuiClicks
 task.wait()
-local _BootScreen = require(script.BootScreen)
+local _BootScreen = require(script.BootKit)("BootScreen")
 local BOOT_MOTION = _BootScreen.BOOT_MOTION
 local BootScreen = _BootScreen.BootScreen
-local _clientStore = require(script.clientStore)
+local _clientStore = require(script.CoreKit)("clientStore")
 local ClientActions = _clientStore.ClientActions
 local ClientStoreProvider = _clientStore.ClientStoreProvider
 local createClientStore = _clientStore.createClientStore
@@ -29,25 +29,25 @@ local destroyClientStore = _clientStore.destroyClientStore
 local useClientDispatch = _clientStore.useClientDispatch
 local useClientSelector = _clientStore.useClientSelector
 task.wait()
-local DomainExpansionOverlay = require(script.DomainExpansionOverlay).DomainExpansionOverlay
+local DomainExpansionOverlay = require(script.UiOverlays)("DomainExpansionOverlay").DomainExpansionOverlay
 task.wait()
-local DomainSkillTree = require(script.DomainSkillTree).DomainSkillTree
+local DomainSkillTree = require(script.UiOverlays)("DomainSkillTree").DomainSkillTree
 task.wait()
 local initializeClientFramework = require(script.frameworkBridge).initializeClientFramework
-local _log = require(script.log)
+local _log = require(script.CoreKit)("log")
 local beginClientSession = _log.beginClientSession
 local ClientLog = _log.ClientLog
 local markBootComplete = _log.markBootComplete
 local startPerformanceTelemetry = _log.startPerformanceTelemetry
-local MotionSettingsContext = require(script.motion).MotionSettingsContext
-local startEgooeHost = require(script.egooeHost).startEgooeHost
-local installScrollPerformance = require(script.scrolling).installScrollPerformance
-local configureInputPlatform = require(script.inputPlatform).configureInputPlatform
-local startSession = require(script.session).startSession
-local SoftShutdownScreen = require(script.SoftShutdownScreen).SoftShutdownScreen
-local Palette = require(script.theme).Palette
-local PageErrorBoundary = require(script.reactHost).PageErrorBoundary
-local PagePending = require(script.reactHost).PagePending
+local MotionSettingsContext = require(script.MotionKit)("motion").MotionSettingsContext
+local startEgooeHost = require(script.ReactHosts)("egooeHost").startEgooeHost
+local installScrollPerformance = require(script.LayoutKit)("scrolling").installScrollPerformance
+local configureInputPlatform = require(script.CoreKit)("inputPlatform").configureInputPlatform
+local startSession = require(script.CoreKit)("session").startSession
+local SoftShutdownScreen = require(script.BootKit)("SoftShutdownScreen").SoftShutdownScreen
+local Palette = require(script.CoreKit)("theme").Palette
+local PageErrorBoundary = require(script.ReactHosts)("reactHost").PageErrorBoundary
+local PagePending = require(script.ReactHosts)("reactHost").PagePending
 local SCREEN_NAME = "AstralForgeStudioUI"
 local REPLICATION_TIMEOUT = 15
 local CHILD_TIMEOUT = 8
@@ -505,7 +505,7 @@ do
 		end
 		local stopScrollPerformance = installScrollPerformance()
 		local stopEgooe = startEgooeHost(playerGui)
-		local shutdownVendor = require(script.vendorHost).shutdown
+		local shutdownVendor = require(script.ReactHosts)("vendorHost").shutdown
 		local _exp = self.disposers
 		table.insert(_exp, function()
 			stopScrollPerformance()

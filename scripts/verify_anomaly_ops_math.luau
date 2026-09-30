@@ -5,9 +5,9 @@
 -- AnomalyService.Ensure now rebuilds via ProfileBagMath before Pulse/Stabilize.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local AnomalyOpsMath = require("../src/Server/AstralForge/Modules/AnomalyOpsMath")
+local AnomalyOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("AnomalyOpsMath")
 local ProfileBagMath = require("../src/Server/AstralForge/Modules/ProfileBagMath")
 
 ------------------------------------------------------------------------
@@ -103,7 +103,7 @@ assert(ProfileBagMath.EnsureAnomaly({}).Discoveries ~= nil, "nil Anomaly → Dis
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
 local serviceSrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
-local mathSrc = fs.readFile("src/Server/AstralForge/Modules/AnomalyOpsMath.luau")
+local mathSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#AnomalyOpsMath")
 local bagSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileBagMath.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
@@ -117,7 +117,7 @@ assert(string.find(serviceSrc, "AnomalyOpsMath.ApplyCoreXP", 1, true), "ApplyCor
 assert(string.find(serviceSrc, "AnomalyOpsMath.NextCoreTier", 1, true), "NextCoreTier wire")
 assert(string.find(mathSrc, "function AnomalyOpsMath.Effect", 1, true), "Effect extract")
 assert(string.find(mathSrc, "function AnomalyOpsMath.SurgeMultiplier", 1, true), "SurgeMultiplier extract")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 assert(string.find(economySrc, "AnomalyOpsMath.Effect", 1, true), "Economy Effect wire")
 assert(string.find(economySrc, "AnomalyOpsMath.SurgeMultiplier", 1, true), "Economy Surge wire")
 assert(string.find(serviceSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "EnsureAnomaly wire")
