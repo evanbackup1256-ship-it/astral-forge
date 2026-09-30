@@ -39,25 +39,71 @@ local recentCount = 0
 local emitted = {}
 local bootMilliseconds = 0
 local bootOrigin = os.clock()
+-- One line per event, same shape on client and server:
+--   "  12.480  info   boot        runtime started  elapsed=31ms"
+-- seconds since this script context started, a fixed-width level, a lowercase scope
+-- column, the message, then key=value pairs (sorted; *Ms keys print as durations).
+local LEVEL_COLUMN = { INFO = "info ", WARN = "warn ", ERROR = "error", FATAL = "fatal", NETWORK = "net  " }
+local SCOPE_COLUMN_WIDTH = 12
+local startedAt = os.clock()
 local function field(value)
-	local sanitized = tostring(value):gsub("[\r\n|]", " ")
+	local sanitized = tostring(value):gsub("[\r\n]+", " ")
 	return sanitized
 end
+local function formatValue(value)
+	local kind = typeof(value)
+	if kind == "number" then
+		if value ~= value then
+			return "nan"
+		end
+		if value == math.huge or value == -math.huge then
+			return if value > 0 then "inf" else "-inf"
+		end
+		if value == math.floor(value) and math.abs(value) < 1e15 then
+			return string.format("%d", value)
+		end
+		return string.format("%.3g", value)
+	end
+	if kind == "boolean" then
+		return tostring(value)
+	end
+	local text = field(value)
+	if text == "" or string.find(text, "[%s=\"]") then
+		return '"' .. string.gsub(text, '"', "'") .. '"'
+	end
+	return text
+end
+local function formatPair(key, value)
+	local name = field(key)
+	name = string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
+	if typeof(value) == "number" and string.sub(name, -2) == "Ms" and #name > 2 then
+		return string.sub(name, 1, -3) .. "=" .. formatValue(value) .. "ms"
+	end
+	return name .. "=" .. formatValue(value)
+end
 local function formatLine(severity, scope, message, params)
-	local paramsStr = ""
+	local pairsText = ""
 	if params ~= nil and type(params) == "table" then
-		local pieces = {}
 		local keys = {}
-		for key in params do table.insert(keys, key) end
-		table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+		for key in params do
+			table.insert(keys, key)
+		end
+		table.sort(keys, function(a, b)
+			return tostring(a) < tostring(b)
+		end)
+		local pieces = table.create(#keys)
 		for _, key in keys do
-			table.insert(pieces, `{field(key)}: {field(params[key])}`)
+			table.insert(pieces, formatPair(key, params[key]))
 		end
 		if #pieces > 0 then
-			paramsStr = " | " .. table.concat(pieces, " | ")
+			pairsText = "  " .. table.concat(pieces, " ")
 		end
 	end
-	return `[{severity}] [{string.upper(field(scope))}] {field(message)}{paramsStr}`
+	local scopeText = string.lower(field(scope))
+	if #scopeText < SCOPE_COLUMN_WIDTH then
+		scopeText ..= string.rep(" ", SCOPE_COLUMN_WIDTH - #scopeText)
+	end
+	return string.format("%8.3f  %s  %s  %s%s", os.clock() - startedAt, LEVEL_COLUMN[severity] or string.lower(severity), scopeText, field(message), pairsText)
 end
 local function available(key, seconds)
 	local now = os.clock()
