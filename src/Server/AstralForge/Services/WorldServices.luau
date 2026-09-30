@@ -337,6 +337,7 @@ __defs["RiftBossService"] = function()
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared")
@@ -360,8 +361,9 @@ function RiftBossService.new(host)
 	local self = setmetatable({}, RiftBossService)
 	self._host = host
 	self._roster = GameConfig.RiftBosses
-	self._bossIndex = 1
-	self._config = self._roster[1]
+	-- Start anywhere in the rotation so the first fight after a server starts varies.
+	self._bossIndex = Random.new():NextInteger(1, #self._roster)
+	self._config = self._roster[self._bossIndex]
 	self._state = RiftBossMath.Initial(Workspace:GetServerTimeNow(), self._config)
 	self._damage = {}
 	self._strikes = {}
@@ -474,8 +476,33 @@ function RiftBossService:_announce(title: string, body: string, onlySanctuary: b
 	end
 end
 
+-- Studio only: workspace:SetAttribute("RiftBossForce", "Choir") (or "Warden", "Regent")
+-- summons that boss now, skipping the wait, so a fight can be seen without sitting through
+-- the 9-minute rotation. Ignored on live servers.
+function RiftBossService:_forced(now: number)
+	if not RunService:IsStudio() then
+		return
+	end
+	local kind = Workspace:GetAttribute("RiftBossForce")
+	if type(kind) ~= "string" then
+		return
+	end
+	Workspace:SetAttribute("RiftBossForce", nil)
+	for index, candidate in self._roster do
+		if candidate.Kind == kind then
+			self._bossIndex = index
+			self._config = candidate
+			table.clear(self._events)
+			self._attacking = false
+			self._state = { Phase = "Dormant", EndsAt = now, Health = 0, MaxHealth = 0 }
+			return
+		end
+	end
+end
+
 function RiftBossService:_step()
 	local now = Workspace:GetServerTimeNow()
+	self:_forced(now)
 	local present, inArena = self:_fighters()
 	local state, entered = RiftBossMath.Step(self._state, now, #present, self._config)
 	self._state = state
