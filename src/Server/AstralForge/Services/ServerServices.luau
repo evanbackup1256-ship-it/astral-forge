@@ -4065,7 +4065,16 @@ serviceFactories["GameService"] = function()
 
 		local previousCharacterConnection = self._characterConnections[player]
 		if previousCharacterConnection then previousCharacterConnection:Disconnect() end
-		self._characterConnections[player] = player.CharacterAdded:Connect(function()
+		self._characterConnections[player] = player.CharacterAdded:Connect(function(character)
+			-- The default Animate script's face "mood" animation is a Roblox asset this
+			-- experience is not permitted to load; it only produces console errors.
+			task.defer(function()
+				local animate = character:WaitForChild("Animate", 3)
+				local mood = animate and animate:FindFirstChild("mood")
+				if mood ~= nil then
+					mood:Destroy()
+				end
+			end)
 			self:_spawnWorker(function()
 				task.wait(0.15)
 				if self._running and player.Parent == Players and self._runtime[player] == joinedRuntime then
