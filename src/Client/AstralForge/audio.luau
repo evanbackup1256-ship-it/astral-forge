@@ -1618,9 +1618,17 @@ for _, cue in {
 end
 local PRELOAD_BATCH_SIZE = 11
 local VOICE_CAP = 22
-local UI_OVERLAP_CAP = 4
+local UI_OVERLAP_CAP = 2
 local TRIM_RELEASE_STEPS = 3
 local CUE_GAIN = 1.05
+-- Per-cue trim for frequent UI feedback so hover/tick/scroll sit well under the music.
+local UI_TRIM = {
+	hover = 0.22, hoverTick = 0.22, tick = 0.35, scroll = 0.2, sliderStep = 0.3,
+	click = 0.5, tabSwitch = 0.4, amountChange = 0.35, inputFocus = 0.35, inputClear = 0.35,
+	page = 0.45, open = 0.5, close = 0.45, confirm = 0.5, toggleOn = 0.45, toggleOff = 0.4,
+	filterOpen = 0.4, filterPick = 0.4, settings = 0.45,
+}
+local UI_TRIM_DEFAULT = 0.5
 -- Every cue aliases one of three real assets, so a single pool absorbs the whole
 -- game's polyphony for that timbre. `IsPlaying` does not flip true on the same
 -- frame as :Play(), so a channel is also reserved for this long after starting;
@@ -2041,7 +2049,7 @@ do
 			return self.rewardMix
 		end
 		if cue == "hover" or cue == "click" or cue == "tick" or cue == "confirm" or cue == "locked" or cue == "error" or cue == "page" or cue == "open" or cue == "close" or cue == "settings" or cue == "scroll" or cue == "toggleOn" or cue == "toggleOff" or cue == "sliderStep" or cue == "sliderCommit" or cue == "inputFocus" or cue == "inputClear" or cue == "tabSwitch" or cue == "filterOpen" or cue == "filterPick" or cue == "amountChange" or cue == "modalOpen" or cue == "modalPop" or cue == "modalDismiss" or cue == "purchaseExit" or cue == "playerlistOpen" or cue == "playerlistSelect" or cue == "playerlistAction" or cue == "playerlistClose" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose" or cue == "tutorialStep" or cue == "hoverTick" or cue == "velocitySlide" or cue == "purchase" or cue == "purchasePress" or cue == "claimPress" or cue == "researchUnlock" or cue == "travel" or cue == "collect" then
-			return self.uiMix
+			return self.uiMix * (UI_TRIM[cue] or UI_TRIM_DEFAULT)
 		end
 		return self.gameplayMix
 	end
@@ -2215,7 +2223,7 @@ do
 		if not uiGroup then
 			uiGroup = Instance.new("SoundGroup")
 			uiGroup.Name = "ForgeUI"
-			uiGroup.Volume = 0.95
+			uiGroup.Volume = 0.3
 			uiGroup.Parent = masterGroup
 		end
 		self.uiGroup = uiGroup
@@ -2256,11 +2264,11 @@ do
 		if not musicGroup then
 			musicGroup = Instance.new("SoundGroup")
 			musicGroup.Name = "ForgeMusic"
-			musicGroup.Volume = 0.38
+			musicGroup.Volume = 0.75
 			musicGroup.Parent = masterGroup
 		end
 		self.musicGroup = musicGroup
-		musicGroup.Volume = 0.38
+		musicGroup.Volume = 0.75
 
 		local musicEq = musicGroup:FindFirstChild("ForgeBed") :: EqualizerSoundEffect
 		if not musicEq then
@@ -2385,7 +2393,8 @@ do
 		if director == nil then
 			return nil
 		end
-		local mix = self.musicMix
+		-- Sliders are linear but loudness is not: a 0.3 slider should still be clearly audible.
+		local mix = math.sqrt(math.clamp(self.musicMix, 0, 1))
 		director:setMix(mix)
 		director:setDuck(self.musicDuck)
 		director:setAudible(self.musicEnabled and softMaster(self.masterLinear) > 0.001 and mix > 0.001)
@@ -2403,7 +2412,7 @@ do
 		if not self.ready then
 			return nil
 		end
-		local clamped = math.clamp(depth, 0, 0.72)
+		local clamped = math.clamp(depth, 0, 0.4) -- keep the bed audible under stingers
 		if clamped <= 0.01 then
 			return nil
 		end
@@ -2724,6 +2733,10 @@ do
 			end
 			local channel = job.channel
 			local spec = job.spec
+			if spec == nil then
+				job.phase = "idle"
+				continue
+			end
 			local speed = math.max(0.05, job.speed)
 			if phase == "length" then
 				if channel.TimeLength > 0 then
