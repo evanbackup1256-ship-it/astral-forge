@@ -15,7 +15,6 @@ local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local Stroke = _ui.Stroke
 local Text = _ui.Text
 local _theme = require(script.Parent.Parent.theme)

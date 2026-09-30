@@ -314,45 +314,6 @@ local function AvatarMark(_param)
 		CornerRadius = UDim.new(1, 0),
 	})))
 end
-local function StatusChip(_param)
-	local label = _param.label
-	local live = _param.live
-	local accent = _param.accent
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(0, 32),
-		AutomaticSize = Enum.AutomaticSize.X,
-		BackgroundColor3 = if live then darken(accent, 0.72) else Palette.panelSoft,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement(Stroke, {
-		color = if live then accent else Palette.lineSoft,
-		thickness = 1,
-		transparency = if live then 0.2 else 0.55,
-	}), React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 6),
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}), React.createElement("uipadding", {
-		PaddingLeft = UDim.new(0, 10),
-		PaddingRight = UDim.new(0, 12),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(7, 7),
-		BackgroundColor3 = if live then accent else Palette.muted,
-		BorderSizePixel = 0,
-		LayoutOrder = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement(Text, {
-		value = label,
-		size = 12,
-		color = if live then Palette.cream else Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		layoutOrder = 1,
-		sizeConstraint = UDim2.new(0, math.max(78, #label * 8), 1, 0),
-	}))
-end
 local function OfferRow(_param)
 	local line = _param.line
 	local touch = _param.touch
@@ -400,7 +361,6 @@ local function OfferRow(_param)
 	}))
 end
 local function RelicPick(_param)
-	local uid = _param.uid
 	local name = _param.name
 	local picked = _param.picked
 	local reducedMotion = _param.reducedMotion
@@ -745,12 +705,9 @@ local function TradeView(_param)
 	local bothReady = _condition_3
 	local lockBanner = not unlocked
 	local actionH = if compactTrade then TapTarget * 3 + 24 else TapTarget + 8
-	local headerH = 36
-	local statusH = 40
 	local lockH = if lockBanner and session == nil then (if compactTrade then 92 else 72) else 0
 	local inviteH = if inviteLive and session == nil then (if compactTrade then 126 else 92) else 0
 	local outgoingH = if outgoingLive and session == nil and not inviteLive then (if compactTrade then 136 else 72) else 0
-	local noticeH = lockH + inviteH + outgoingH
 	local rosterRowH = if compactTrade then 96 else 66
 	local searchH = TapTarget
 	local relics = {}
@@ -1800,7 +1757,6 @@ local function TradeView(_param)
 				return row.UserId
 			end,
 			renderItem = function(_param_1)
-				local row = _param_1.item
 				local index = _param_1.index
 				return rosterCards[index + 1]
 			end,

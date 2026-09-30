@@ -26,7 +26,6 @@ local IconTile = _ui.IconTile
 local Meter = _ui.Meter
 local meterFill = _ui.meterFill
 local Panel = _ui.Panel
-local SCROLL_EDGE = _ui.SCROLL_EDGE
 local SectionLabel = _ui.SectionLabel
 local Stroke = _ui.Stroke
 local Text = _ui.Text

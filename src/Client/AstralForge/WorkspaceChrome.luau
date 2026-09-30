@@ -25,7 +25,6 @@ local Palette = _theme.Palette
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local ensureContrast = _theme.ensureContrast
-local lighten = _theme.lighten
 local surfaceGradient = _theme.surfaceGradient
 local strokeGradient = _theme.strokeGradient
 local TapTarget = _theme.TapTarget

@@ -1,6 +1,5 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.antilag).useAntilag
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.audio).Audio
 local MaterialBootSpinner = require(script.Parent.MaterialBootSpinner).MaterialBootSpinner

@@ -30,7 +30,6 @@ local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
 local Panel = _ui.Panel
 local SCROLL_EDGE = _ui.SCROLL_EDGE
-local ScrollPads = _ui.ScrollPads
 local SearchField = _ui.SearchField
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
@@ -115,62 +114,10 @@ local RARITY_FILTERS = { {
 local AUTO_RARITIES = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" }
 local HERO_H = 96
 local HERO_H_STACK = 124
-local ROW_H = 112
-local ROW_H_STACK = 132
 local ROW_GAP = 10
 local SCROLL_PAD = 24 + 16
 local TOOL_FIELD_DESK = 50
-local STATS_H = 36
 local BULK_DOCK_H = 58
-local function ChipRow(_param)
-	local options = _param.options
-	local value = _param.value
-	local onChange = _param.onChange
-	local accent = _param.accent
-	local reducedMotion = _param.reducedMotion
-	local chrome = chromeFor(useViewport())
-	local rowH = if chrome.mobile then TapTarget else 48
-	local _exp = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue_1 = table.create(#options)
-	local _callback_1 = function(option, index)
-		local active = option.id == value
-		return React.createElement("frame", {
-			key = option.id,
-			Size = UDim2.fromOffset(0, rowH),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = index,
-		}, React.createElement(Button, {
-			text = option.label,
-			onClick = function()
-				return onChange(option.id)
-			end,
-			sound = "filterPick",
-			color = if active then accent else Palette.panelSoft,
-			textColor = if active then nil else Palette.creamSoft,
-			size = UDim2.fromOffset(0, rowH),
-			hug = true,
-			reducedMotion = reducedMotion,
-			highlight = active,
-			outline = not active,
-		}))
-	end
-	for _k, _v in options do
-		_newValue_1[_k] = _callback_1(_v, _k - 1, options)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, if chrome.mobile then TapTarget else 52),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, _exp, _newValue_1)
-end
 local function InventoryTools(_param)
 	local search = _param.search
 	local setSearch = _param.setSearch

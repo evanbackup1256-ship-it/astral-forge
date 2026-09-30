@@ -23,10 +23,6 @@ local RunService = game:GetService("RunService")
 local function easeOutExpo(t)
 	return t == 1 and 1 or 1 - math.pow(2, -10 * t)
 end
-local function easeOutElastic(t)
-	if t == 0 or t == 1 then return t end
-	return math.pow(2, -10 * t) * math.sin((t * 10 - 0.75) * (2 * math.pi) / 3) + 1
-end
 local function easeOutBack(t)
 	local c1, c3 = 1.70158, 1.70158 + 1
 	return 1 + c3 * math.pow(t - 1, 3) + c1 * math.pow(t - 1, 2)
@@ -646,7 +642,6 @@ local function ForgeReel(_param)
 	-- reel cards with shimmer phase offsets
 	local cardElements = {}
 	for i, card in props.cards do
-		local isWinner = card.winner == true
 		local besideWinner = (props.cards[i] and props.cards[i].winner == true) or (props.cards[i + 2] and props.cards[i + 2].winner == true)
 		local detailed = not props.economyMode or i <= 4 or card.winner or besideWinner
 		cardElements[i] = React.createElement(ReelCard, {

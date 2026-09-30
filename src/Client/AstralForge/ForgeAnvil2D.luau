@@ -111,7 +111,6 @@ function ForgeAnvil2DView(_param)
 	local size = _param.size
 	local position = _param.position
 	local reducedMotion = _param.reducedMotion
-	local lowQuality = _param.lowQuality
 	local exiting = _param.exiting
 	if exiting == nil then
 		exiting = false

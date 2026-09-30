@@ -33,7 +33,6 @@ local surfaceGradient = _theme.surfaceGradient
 local TapTarget = _theme.TapTarget
 local _format = require(script.Parent.Parent.format)
 local asFlux = _format.asFlux
-local clockText = _format.clockText
 local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
 local Audio = require(script.Parent.Parent.audio).Audio
@@ -511,7 +510,6 @@ local function OverviewView(_param)
 	if _condition == nil then
 		_condition = 0
 	end
-	local vaultSeconds = _condition
 	local stellarLevel = state.Machines.StellarCore
 	if stellarLevel == nil then
 		stellarLevel = 0

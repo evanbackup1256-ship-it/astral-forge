@@ -182,9 +182,7 @@ local function PowerRow(_param)
 	-- Canonical softMotion antilag gate — LabPowerRow (computed, now applied).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local half = POWER_BTN / 2
 	local rowH = if stack then POWER_ROW_H_STACK else POWER_ROW_H
-	local plusX = POWER_BTN + ROW_RIGHT
 	local badgeX = POWER_BTN + 94 + ROW_RIGHT
 	local minusX = POWER_BTN * 2 + 100 + 8 + ROW_RIGHT
 	return React.createElement("frame", {

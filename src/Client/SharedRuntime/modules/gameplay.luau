@@ -212,7 +212,6 @@ local function weightedIndex(rewards, randomValue)
 	local low = 0
 	local high = #rewards - 1
 	local target = math.clamp(randomValue, 0, 0.999999) * total
-	local prefix = 0
 	while low < high do
 		local middle = math.floor((low + high) / 2)
 		local middlePrefix = 0

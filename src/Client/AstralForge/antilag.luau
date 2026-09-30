@@ -667,12 +667,6 @@ end
 -- Continuous fields (fxBudget/glowScale) only feed amplitude/scale bindings, and during a slow
 -- quality drift they changed every sample — re-rendering the entire game tree ~3 times a
 -- second for a cosmetic fade. They now update at most ~1Hz and only past a coarse threshold.
-local function discreteBudgetsChanged(left, right)
-	return left.tier ~= right.tier or left.freezeIcons ~= right.freezeIcons or left.allowAmbient ~= right.allowAmbient or left.skipEntrance ~= right.skipEntrance or left.allowConfetti ~= right.allowConfetti or left.maxStars ~= right.maxStars or left.maxPops ~= right.maxPops or math.abs(left.maxClocks - right.maxClocks) >= 3 or left.particleBudget ~= right.particleBudget or left.titleGlyphLimit ~= right.titleGlyphLimit
-end
-local function continuousBudgetsChanged(left, right)
-	return math.abs(left.fxBudget - right.fxBudget) >= 0.2 or math.abs(left.glowScale - right.glowScale) >= 0.25
-end
 local function scoreWindow(sample)
 	local targetFps = if IS_CONSTRAINED then 45 else 58
 	local fpsScore = math.clamp(sample.fps / targetFps, 0, 1.15)

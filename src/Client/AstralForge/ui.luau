@@ -1919,7 +1919,6 @@ function Button(_param)
 	end
 	local _binding = useButtonChrome(onClick, reducedMotion, effectivelyDisabled, resolvedSound, true, highlight, motion)
 	local active = _binding.active
-	local engaged = _binding.engaged
 	local hovered = _binding.hovered
 	local offsetY = _binding.offsetY
 	local hoverAmount = _binding.hoverAmount

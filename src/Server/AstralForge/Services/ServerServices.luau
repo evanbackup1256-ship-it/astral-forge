@@ -2004,7 +2004,6 @@ serviceFactories["GameService"] = function()
 		local result = self:_mutate(player, function(profile)
 			local rebirthConfig = GameConfig.Economy.Rebirth or {}
 			local bankVault = rebirthConfig.BankVaultIntoRun ~= false
-			local bankedVault = profile.Vault
 			local effectiveRun = if bankVault
 				then Economy.Add(profile.RunCash, profile.Vault)
 				else profile.RunCash

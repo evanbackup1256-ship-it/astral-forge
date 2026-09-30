@@ -567,7 +567,6 @@ local function MobileHeader(_param)
 	local state = _param.state
 	local page = _param.page
 	local accent = _param.accent
-	local width = _param.width
 	local topPad = _param.topPad
 	local barHeight = _param.barHeight
 	local edgePad = _param.edgePad

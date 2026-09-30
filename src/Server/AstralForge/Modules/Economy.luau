@@ -17,7 +17,6 @@ local OreMath = require(script.Parent:WaitForChild("OreMath"))
 
 local Economy = {}
 
-local MAX_ECONOMY_NUMBER = 1e308
 
 export type Persist = number | string
 

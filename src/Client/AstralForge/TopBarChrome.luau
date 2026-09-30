@@ -4,7 +4,6 @@ local _antilag = require(script.Parent.antilag)
 local useAntilag = _antilag.useAntilag
 local usePerformanceTelemetry = _antilag.usePerformanceTelemetry
 local _motion = require(script.Parent.motion)
-local useClock = _motion.useClock
 local useEntrance = _motion.useEntrance
 local useFlash = _motion.useFlash
 local useGlowStroke = _motion.useGlowStroke

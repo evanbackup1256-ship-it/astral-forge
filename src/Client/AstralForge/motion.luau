@@ -334,7 +334,6 @@ local function useMotionSettings()
 end
 local MOTION_SCALE_FLOOR = 0.32
 local MOTION_SCALE_CEIL = 1.6
-local MOTION_OFF_THRESHOLD = 0.08
 local TAU = math.pi * 2
 -- Realtime clocks (spinners, pulse needles, celebration timers) get a higher tick
 -- budget than decorative shimmer, but touch devices hard-cap near 24 so rapid
@@ -350,8 +349,6 @@ local continuousListenerCount = 0
 local realtimeClockCount = 0
 local decorativeClockCount = 0
 local driver
-local continuousRate = 48
-local continuousAccumulator = 0
 local LISTENER_SOFT_CAP = 32
 local warnedOverCap = false
 local freezeExternal = false
@@ -359,7 +356,6 @@ local freezeHitch = false
 local freezeNav = false
 local decorativeFrozen = false
 local clockBudget = 24
-local navFreezeGeneration = 0
 local flipperMotors = {}
 local flipperToken = {}
 local flipperCount = 0
@@ -368,9 +364,6 @@ local flipperCount = 0
 local pendingArrivals = {}
 local pendingArrivalCount = 0
 local ensureDriver
-local function isTouchPrimary()
-	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-end
 local function realtimeClockBudget()
 	if UserInputService.TouchEnabled then
 		return TOUCH_REALTIME_CLOCK_BUDGET
@@ -642,24 +635,12 @@ local function pumpArrivals()
 		pendingArrivalCount = 0
 	end
 end
-local function driverHasWork()
-	-- Decorative/continuous work does not keep the driver alive while frozen —
-	-- otherwise hitch freezes still paid for a RenderStepped no-op every frame.
-	if listenerCount > 0 or flipperCount > 0 or realtimeClockCount > 0 or pendingArrivalCount > 0 then
-		return true
-	end
-	if decorativeFrozen then
-		return false
-	end
-	return continuousListenerCount > 0 or decorativeClockCount > 0
-end
 function ensureDriver()
 	if driver ~= nil then
 		return nil
 	end
 	driver = RunService.RenderStepped:Connect(function(deltaTime)
 		local clamped = math.min(deltaTime, 0.05)
-		local ranRealtime = false
 		if flipperCount > 0 then
 			ranRealtime = true
 			for motor in flipperMotors do
@@ -728,29 +709,6 @@ local function subscribe(listener)
 		end
 		if listenerCount < 0 then
 			listenerCount = 0
-		end
-		stopDriverIfIdle()
-	end
-end
-local function subscribeContinuous(listener)
-	local _listener = listener
-	if not (continuousListeners[_listener] ~= nil) then
-		local _listener_1 = listener
-		continuousListeners[_listener_1] = true
-		continuousListenerCount += 1
-	end
-	ensureDriver()
-	local released = false
-	return function()
-		if released then
-			return nil
-		end
-		released = true
-		local _listener_1 = listener
-		continuousListeners[_listener_1] = nil
-		continuousListenerCount -= 1
-		if continuousListenerCount < 0 then
-			continuousListenerCount = 0
 		end
 		stopDriverIfIdle()
 	end

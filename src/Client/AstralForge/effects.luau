@@ -165,7 +165,6 @@ local STARS = { {
 } }
 local function StarField(_param)
 	local accent = _param.accent
-	local reducedMotion = _param.reducedMotion
 	local antilag = useAntilag()
 	local enabled = antilag.tier > 0 and antilag.maxStars > 0 and antilag.allowAmbient
 	local clock = useClock(enabled, if antilag.constrained then 0.7 else 1.1)

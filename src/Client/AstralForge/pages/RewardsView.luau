@@ -13,7 +13,6 @@ local Panel = _ui.Panel
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.pageScaffold).PageScaffold
 local _theme = require(script.Parent.Parent.theme)
-local Layout = _theme.Layout
 local Palette = _theme.Palette
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken

@@ -161,7 +161,6 @@ local function WorldsView(_param)
 	-- Canonical softMotion antilag gate — Worlds travel/unlock CTAs drop springs on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local quietMotion = reducedMotion or antilag.skipEntrance
 	-- Canonical softMotion antilag gate — WorldsBoard.
 	local boardReveal = useStagger(0, softMotion)
 	local travelReveal = useStagger(1, softMotion)

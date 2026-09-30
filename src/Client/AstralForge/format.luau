@@ -328,22 +328,6 @@ local function scaledCost(base, scale, level)
 	end
 	return fromLog10(exponent / LN10)
 end
-local function addFlux(left, right)
-	local a = log10Flux(left)
-	local b = log10Flux(right)
-	if a == -math.huge then
-		return right
-	end
-	if b == -math.huge then
-		return left
-	end
-	local high = math.max(a, b)
-	local low = math.min(a, b)
-	if high - low > 15 then
-		return fromLog10(high)
-	end
-	return fromLog10(high + math.log(1 + 10 ^ (low - high)) / LN10)
-end
 local function geometricSum(base, scale, level, count)
 	if count <= 0 then
 		return 0

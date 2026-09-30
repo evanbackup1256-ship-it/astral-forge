@@ -90,7 +90,6 @@ local function RebirthPanel(_param)
 	-- Canonical softMotion antilag gate — RebirthPanel (effectsPaused stays a separate decorative mute).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local quietMotion = reducedMotion or effectsPaused
 	local stack = chrome.contentStack
 	local canRebirth = gteFlux(state.PrestigeReward, 1)
 	local target = math.max(1, asFlux(state.NextPrestigeTarget))

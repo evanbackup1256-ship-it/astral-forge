@@ -374,7 +374,6 @@ local function UpgradeBoard(_param)
 	local rowH = PageBoardHeights.Machine(stack)
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
-	local rowStride = rowH + gap
 	local columnWidth = UDim2.new(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH)
 	local gridRows = math.ceil(math.max(1, #visible) / columns)
 	-- Machines come first so buy CTAs stay above the fold; AutoForge sits below the grid.

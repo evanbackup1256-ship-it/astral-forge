@@ -92,7 +92,6 @@ local function PageScaffold(_param)
 		end
 	end
 	-- ▲ ReadonlyArray.find ▲
-	local fillSection = _result
 	local fittedHeights = planFittedHeights(sections, available, gap, tailPad)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
