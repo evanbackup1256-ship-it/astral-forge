@@ -16,6 +16,12 @@ assert(type(profile.Stats) == "table", "Stats table")
 assert(ProfileBagMath.BumpStat(profile, "Taps", 3) == 3, "bump 3")
 assert(ProfileBagMath.BumpStat(profile, "Taps", nil) == 4, "bump default 1")
 assert(ProfileBagMath.BumpStat({ Stats = nil }, "Joins", 2) == 2, "nil Stats rebuild")
+-- Non-finite / MAX_DOUBLE deltas must not poison Stats into inf (Seal reject).
+assert(ProfileBagMath.BumpStat({ Stats = { PlayTime = 0 } }, "PlayTime", math.huge) == 0, "bump rejects +inf delta")
+assert(ProfileBagMath.BumpStat({ Stats = { PlayTime = 0 } }, "PlayTime", 0 / 0) == 0, "bump rejects NaN delta")
+local overflowBag = { Stats = { Taps = 1e308 } }
+assert(ProfileBagMath.BumpStat(overflowBag, "Taps", 1e308) == 1e308, "bump caps 1e308+1e308")
+assert(overflowBag.Stats.Taps == 1e308 and overflowBag.Stats.Taps == overflowBag.Stats.Taps, "bump result finite")
 
 local daily = ProfileBagMath.EnsureDaily({})
 assert(daily.LastClaimDay == -1 and daily.Streak == 0, "daily defaults")

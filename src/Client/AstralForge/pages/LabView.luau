@@ -30,7 +30,6 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local ORDER_HEIGHT = 168
-	reducedMotion = softMotion
 local ORDER_HEIGHT_STACK = 224
 local ORDER_GAP = Layout.panelGap
 local CHANNEL_IDS = { "Production", "Storage", "Tap" }
@@ -49,7 +48,9 @@ local function OrderRow(_param)
 	local ready = not state.Claimed and state.Progress >= state.Target
 	local fill = meterFill(state.Progress, state.Target, state.Claimed or ready)
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — LabOrderRow (computed, now applied).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local reveal = useStagger(order, reducedMotion)
 	local claimTrigger, setClaimTrigger = React.useState(0)
 	local claimFlash = useFlash(claimTrigger, reducedMotion, 0.4)
@@ -178,7 +179,9 @@ local function PowerRow(_param)
 	local y = _param.y
 	local stack = _param.stack
 	local antilag = useAntilag()
+	-- Canonical softMotion antilag gate — LabPowerRow (computed, now applied).
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local half = POWER_BTN / 2
 	local rowH = if stack then POWER_ROW_H_STACK else POWER_ROW_H
 	local plusX = POWER_BTN + ROW_RIGHT

@@ -1,5 +1,7 @@
 # Project place file
 /Astral Forge v2.rbxlx
+# Timestamped backups taken before a rebuild
+/*.rbxlx.bak-*
 
 # Roblox Studio lock files
 /*.rbxlx.lock
@@ -13,3 +15,6 @@ sourcemap.json
 /.rojo-validation.rbxlx
 /.argon-validation.rbxlx
 /.argon-ts-validation.rbxlx
+
+# Python bytecode from tools/assetgen
+__pycache__/

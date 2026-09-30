@@ -16,6 +16,8 @@ export type TapBonuses = {
 	-- Continuum tap scale is already a multiplier (not 1+x).
 	Continuum: any,
 	ForgePath: number,
+	-- Foundry ore upgrades (optional; absent means +0%).
+	Ore: number?,
 }
 
 -- Mirrors Economy.TapPower composition: max(1, production*0.15) then
@@ -33,6 +35,9 @@ function TapCritProjection.TapPower(omegaMath, production: any, overchargeLevel:
 	tap = omegaMath.Mul(tap, 1 + bonuses.Guild)
 	tap = omegaMath.Mul(tap, bonuses.Continuum)
 	tap = omegaMath.Mul(tap, 1 + bonuses.ForgePath)
+	-- Foundry ore upgrades. Optional so older callers (and tests) that predate
+	-- the Foundry still add nothing.
+	tap = omegaMath.Mul(tap, 1 + (bonuses.Ore or 0))
 	return tap
 end
 

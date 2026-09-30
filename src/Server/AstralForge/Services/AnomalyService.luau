@@ -287,7 +287,10 @@ return function(loadService: (string) -> any)
 			CommandXP = math.max(10, math.floor((35 + level * 6) * yield)),
 			Cores = level % 5 == 0 and math.max(1, math.floor(level / 5)) or nil,
 		}
-		profile.Anomaly.Fragments += fragments
+		profile.Anomaly.Fragments = math.max(0, math.floor(tonumber(profile.Anomaly.Fragments) or 0)) + fragments
+		if profile.Anomaly.Fragments ~= profile.Anomaly.Fragments or profile.Anomaly.Fragments == math.huge then
+			profile.Anomaly.Fragments = 1e308
+		end
 		local rewardText = ProgressionService.ApplyReward(profile, reward, Economy.SteadyProduction(profile))
 		local message = string.format("%s stabilized: %d fragments, %s.", anomaly.Name, fragments, rewardText)
 		if tiersGained > 0 then
@@ -441,7 +444,10 @@ return function(loadService: (string) -> any)
 			return false, "That job isn't finished yet."
 		end
 		profile.Anomaly.DirectiveClaims[definition.Id] = true
-		profile.Anomaly.Fragments += definition.Fragments
+		profile.Anomaly.Fragments = math.max(0, math.floor(tonumber(profile.Anomaly.Fragments) or 0)) + math.max(0, math.floor(tonumber(definition.Fragments) or 0))
+		if profile.Anomaly.Fragments ~= profile.Anomaly.Fragments or profile.Anomaly.Fragments == math.huge then
+			profile.Anomaly.Fragments = 1e308
+		end
 		bumpAnomalyStat(profile, "AnomalyDirectives")
 		local rewardText = ProgressionService.ApplyReward(profile, definition.Reward, Economy.SteadyProduction(profile))
 		return true,

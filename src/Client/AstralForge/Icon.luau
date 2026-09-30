@@ -3,6 +3,19 @@ local useAntilag = require(script.Parent.antilag).useAntilag
 local _motion = require(script.Parent.motion)
 local useMotionSettings = _motion.useMotionSettings
 local useRotation = _motion.useRotation
+local useExitPresence = _motion.useExitPresence
+-- Icons fade with whatever they sit in (a card entering, an overlay leaving),
+-- the same way text does, so a card never shows its icons before itself.
+local function fadeWithPresence(local_, presence)
+	if type(local_) == "number" then
+		return presence:map(function(shown)
+			return math.clamp(local_ + (1 - shown), 0, 1)
+		end)
+	end
+	return React.joinBindings({ local_, presence }):map(function(values)
+		return math.clamp(values[1] + (1 - values[2]), 0, 1)
+	end)
+end
 local Palette = require(script.Parent.theme).Palette
 local VECTOR_ICON_ATLAS = "rbxassetid://139083324249955"
 local GAME_ICON_ASSET = "rbxassetid://70683024193057"
@@ -81,6 +94,10 @@ local function VectorIconFace(_param)
 	if transparency == nil then
 		transparency = 0
 	end
+	local presence = useExitPresence()
+	local faded = React.useMemo(function()
+		return fadeWithPresence(transparency, presence)
+	end, { transparency, presence })
 	local index = VECTOR_ICON_INDEX[kind]
 	local column = index % VECTOR_ICON_COLUMNS
 	local row = math.floor(index / VECTOR_ICON_COLUMNS)
@@ -90,7 +107,7 @@ local function VectorIconFace(_param)
 		BorderSizePixel = 0,
 		Image = VECTOR_ICON_ATLAS,
 		ImageColor3 = color,
-		ImageTransparency = transparency,
+		ImageTransparency = faded,
 		ImageRectOffset = Vector2.new(column * VECTOR_ICON_CELL, row * VECTOR_ICON_CELL),
 		ImageRectSize = Vector2.new(VECTOR_ICON_CELL, VECTOR_ICON_CELL),
 		ScaleType = Enum.ScaleType.Stretch,

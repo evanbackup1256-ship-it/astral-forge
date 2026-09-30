@@ -14,6 +14,8 @@ return function(loadService: (string) -> any)
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
+	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
+	local OreMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OreMath"))
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
@@ -112,12 +114,23 @@ return function(loadService: (string) -> any)
 		profile.Zone = math.max(1, math.floor(nonNegative(profile.Zone)))
 		profile.CurrentZone = math.max(1, math.floor(nonNegative(profile.CurrentZone)))
 		for _, key in { "Cash", "Vault", "RunCash", "LifetimeCash" } do
-			local persisted = OmegaMath.Persist(profile[key])
-			if type(persisted) == "number" and persisted < 0 then
-				persisted = 0
-			end
-			profile[key] = persisted
+			-- OmegaMath.Max persists and floors at zero in one step. A plain
+			-- `type == "number" and < 0` guard misses negatives once the balance is
+			-- large enough to persist as a sign-prefixed string ("-5.0e50").
+			profile[key] = OmegaMath.Max(profile[key], 0)
 		end
+		-- Receipts is an append-only real-money purchase-dedup map. Bound it here so
+		-- a long-tenured / high-spending profile can't grow it past ProfileIntegrity's
+		-- traversal budget (which would break Seal, and with it every future save and
+		-- the next login). Runs before Seal on both the load and save paths, so an
+		-- already-bloated profile is repaired rather than rejected.
+		if type(profile.Receipts) == "table" then
+			ReceiptLedger.Prune(profile.Receipts)
+		end
+		-- Sanctuary ore: every known ore present, whole and non-negative; upgrade
+		-- levels known and within their caps.
+		profile.Ore = OreMath.SanitizeBalances(profile.Ore, GameConfig.Ore)
+		profile.OreUpgrades = OreMath.SanitizeLevels(profile.OreUpgrades, GameConfig.Ore)
 		-- Partial Domain/Continuum bags (Studio fixtures / mid-migrate) rebuild via
 		-- ProfileBagMath before clamp — same Ensures Admin/Progression use.
 		ProfileBagMath.EnsureDomain(profile)
@@ -216,9 +229,7 @@ return function(loadService: (string) -> any)
 			PerformanceBias = 0.5,
 			BackgroundDetail = 0.8,
 			ScrollSpeed = 0.65,
-			MusicCrossfade = 0.62,
 			SoundVariation = 0.7,
-			PageStingers = 1,
 			ReactorMotion = 0.8,
 			OfflineRewardEffects = 1,
 			HapticIntensity = 0.65,
@@ -365,7 +376,9 @@ return function(loadService: (string) -> any)
 			if type(stock) ~= "number" then
 				profile.Items.Shop.Stock[offerId] = nil
 			else
-				profile.Items.Shop.Stock[offerId] = math.max(0, math.floor(stock))
+				-- nonNegative rejects NaN/±inf; bare math.floor(math.huge) kept inf
+				-- and ProfileIntegrity.Seal rejected the whole profile.
+				profile.Items.Shop.Stock[offerId] = math.floor(nonNegative(stock))
 			end
 		end
 		for crateId in crateById do
@@ -640,6 +653,9 @@ return function(loadService: (string) -> any)
 		end
 		profile.Meta.Revision = math.max(0, math.floor(nonNegative(profile.Meta.Revision)))
 		ProfileIntegrity.EnsureEnvelope(profile)
+		-- Last pass: scrub any orphaned NaN/±inf leaves that field clamps missed so
+		-- Seal/cache-sync cannot spam "non-finite number" and block saves.
+		DataSanitizeMath.ScrubNonFinite(profile)
 		return profile
 	end
 

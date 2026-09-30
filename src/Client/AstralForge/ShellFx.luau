@@ -10,152 +10,33 @@ local Button = require(script.Parent.ui).Button
 local Palette = require(script.Parent.theme).Palette
 local darken = require(script.Parent.theme).darken
 local lighten = require(script.Parent.theme).lighten
+local Fx = require(script.Parent.vfxMath)
 
-local CONFETTI_PIECES = { {
-	x = -240,
-	y = 12,
-	size = 7,
-	phase = 0.2,
-	color = Palette.green,
-}, {
-	x = -208,
-	y = 42,
-	size = 5,
-	phase = 1.1,
-	color = Palette.cyan,
-}, {
-	x = -176,
-	y = 4,
-	size = 8,
-	phase = 2.0,
-	color = Palette.mango,
-}, {
-	x = -142,
-	y = 28,
-	size = 6,
-	phase = 2.8,
-	color = Palette.pink,
-}, {
-	x = -108,
-	y = 66,
-	size = 5,
-	phase = 3.6,
-	color = Palette.violet,
-}, {
-	x = -72,
-	y = 16,
-	size = 8,
-	phase = 4.5,
-	color = Palette.green,
-}, {
-	x = -34,
-	y = 52,
-	size = 6,
-	phase = 5.4,
-	color = Palette.cyan,
-}, {
-	x = 18,
-	y = 8,
-	size = 7,
-	phase = 6.1,
-	color = Palette.mango,
-}, {
-	x = 56,
-	y = 58,
-	size = 5,
-	phase = 0.7,
-	color = Palette.pink,
-}, {
-	x = 94,
-	y = 20,
-	size = 8,
-	phase = 1.8,
-	color = Palette.violet,
-}, {
-	x = 132,
-	y = 74,
-	size = 6,
-	phase = 2.9,
-	color = Palette.green,
-}, {
-	x = 168,
-	y = 24,
-	size = 5,
-	phase = 3.8,
-	color = Palette.cyan,
-}, {
-	x = 204,
-	y = 50,
-	size = 8,
-	phase = 4.8,
-	color = Palette.mango,
-}, {
-	x = 238,
-	y = 10,
-	size = 6,
-	phase = 5.7,
-	color = Palette.pink,
-}, {
-	x = -268,
-	y = 34,
-	size = 6,
-	phase = 0.9,
-	color = Palette.cyan,
-}, {
-	x = -224,
-	y = 72,
-	size = 8,
-	phase = 2.4,
-	color = Palette.violet,
-}, {
-	x = -158,
-	y = 18,
-	size = 5,
-	phase = 4.1,
-	color = Palette.green,
-}, {
-	x = -88,
-	y = 82,
-	size = 7,
-	phase = 5.9,
-	color = Palette.mango,
-}, {
-	x = -12,
-	y = 34,
-	size = 5,
-	phase = 1.5,
-	color = Palette.cream,
-}, {
-	x = 74,
-	y = 78,
-	size = 8,
-	phase = 3.2,
-	color = Palette.coral,
-}, {
-	x = 146,
-	y = 36,
-	size = 6,
-	phase = 4.9,
-	color = Palette.mint,
-}, {
-	x = 214,
-	y = 86,
-	size = 5,
-	phase = 0.4,
-	color = Palette.pink,
-}, {
-	x = 274,
-	y = 26,
-	size = 7,
-	phase = 2.1,
-	color = Palette.cyan,
-}, {
-	x = 112,
-	y = 8,
-	size = 6,
-	phase = 5.1,
-	color = Palette.cream,
-} }
+-- Confetti: paper pieces, generated once. Each is thrown from one of two
+-- cannons under the reward, slowed hard by the air, and left to flutter down.
+local CONFETTI_COLORS = { Palette.green, Palette.cyan, Palette.mango, Palette.pink, Palette.violet, Palette.cream }
+local CONFETTI_COUNT = 44
+local CONFETTI_PIECES = {}
+for index = 1, CONFETTI_COUNT do
+	local side = if index % 2 == 0 then -1 else 1
+	CONFETTI_PIECES[index] = {
+		side = side,
+		-- Up and a little inward from each cannon.
+		angle = -math.pi / 2 - side * math.rad(8 + Fx.hash(index, 1) * 34),
+		speed = 640 + Fx.hash(index, 2) * 560,
+		size = 5 + math.floor(Fx.hash(index, 3) * 4),
+		spin = 5 + Fx.hash(index, 4) * 9,
+		sway = 12 + Fx.hash(index, 5) * 24,
+		phase = Fx.hash(index, 6) * math.pi * 2,
+		ribbon = index % 3 == 0,
+		delay = (index % 6) * 0.018,
+		color = CONFETTI_COLORS[(index - 1) % #CONFETTI_COLORS + 1],
+	}
+end
+local CONFETTI_GRAVITY = 760
+local CONFETTI_DRAG = 3.2
+local CONFETTI_LIFE = 1.95
+
 local function TradeReturnPill(_param)
 	local stack = _param.stack
 	local bottomPad = _param.bottomPad
@@ -337,8 +218,10 @@ local function ConfettiBurst(_param)
 		return React.createElement("frame", {
 			key = `confetti-ring-{ring}`,
 			Size = clock:map(function(seconds)
-				local t = math.clamp((seconds - ring * 0.08) / 0.52, 0, 1)
-				return UDim2.fromOffset(24 + t * (170 + ring * 46), 24 + t * (170 + ring * 46))
+				-- Bursts out fast and slows, like the forge's shock rings.
+				local grow = Fx.ring(seconds - ring * 0.08, 0.6)
+				local d = 24 + grow * (190 + ring * 52)
+				return UDim2.fromOffset(d, d)
 			end),
 			Position = UDim2.fromScale(0.5, 0.56),
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -349,10 +232,13 @@ local function ConfettiBurst(_param)
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("uistroke", {
 			Color = if ring == 0 then Palette.mango else Palette.cyan,
-			Thickness = if ring == 0 then 3 else 2,
+			Thickness = clock:map(function(seconds)
+				local _, thin = Fx.ring(seconds - ring * 0.08, 0.6)
+				return 1 + thin * (if ring == 0 then 3.5 else 2.5)
+			end),
 			Transparency = clock:map(function(seconds)
-				local t = math.clamp((seconds - ring * 0.08) / 0.52, 0, 1)
-				return 0.14 + t * 0.86
+				local _, _, fade = Fx.ring(seconds - ring * 0.08, 0.6)
+				return 0.1 + fade * 0.9
 			end),
 		}))
 	end
@@ -363,43 +249,46 @@ local function ConfettiBurst(_param)
 	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#pieces)
 	local _callback_2 = function(piece, index)
-		local delay = (index % 5) * 0.035
-		local ribbon = index % 3 == 0
-		local progress = clock:map(function(seconds)
-			return math.clamp((seconds - delay) / 1.92, 0, 1)
-		end)
-		local size = progress:map(function(t)
-			local flip = 0.22 + math.abs(math.sin(t * math.pi * (3.5 + index % 3) + piece.phase)) * 0.78
-			return UDim2.fromOffset(math.max(2, piece.size * flip), piece.size * (if ribbon then 3.2 else 1.75))
-		end)
-		local position = progress:map(function(t)
-			local side = if index % 2 == 0 then -1 else 1
-			local startX = 0.5 + side * 0.1
-			local spread = piece.x / 590
-			local x = startX + spread * (0.18 + t * 0.92) + math.sin(t * 13 + piece.phase) * 0.018
-			local y = 0.58 - 1.62 * t + 2.06 * t * t + piece.y / 3200
-			return UDim2.fromScale(x, y)
-		end)
-		local fade = progress:map(function(t)
-			return if t <= 0 then 1 else math.clamp((t - 0.7) / 0.3, 0.04, 1)
-		end)
+		local origin = UDim2.fromScale(0.5 + piece.side * 0.12, 0.66)
+		local function age(seconds: number): number
+			return math.max(0, seconds - piece.delay)
+		end
+		-- How face-on the paper is as it tumbles (0 = edge-on, 1 = flat).
+		local function flip(t: number): number
+			return math.abs(math.cos(t * piece.spin + piece.phase))
+		end
 		return React.createElement("frame", {
 			key = index,
-			Size = size,
-			Position = position,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = progress:map(function(t)
-				return piece.phase * 31 + t * (if index % 2 == 0 then 760 else -680)
+			Size = clock:map(function(seconds)
+				local long = piece.size * (if piece.ribbon then 3 else 1.6)
+				return UDim2.fromOffset(math.max(1.5, piece.size * (0.18 + 0.82 * flip(age(seconds)))), long)
 			end),
-			BackgroundColor3 = piece.color,
-			BackgroundTransparency = fade,
+			Position = clock:map(function(seconds)
+				local t = age(seconds)
+				local dx, dy = Fx.ballistic(t, piece.angle, piece.speed, CONFETTI_GRAVITY, CONFETTI_DRAG)
+				-- Flutter grows as the paper slows and starts to fall.
+				local flutter = math.sin(t * 2.6 + piece.phase) * piece.sway * math.clamp(t / 0.6, 0, 1)
+				return origin + UDim2.fromOffset(dx + flutter, dy)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = clock:map(function(seconds)
+				local t = age(seconds)
+				return math.deg(piece.phase) + t * (if index % 2 == 0 then 210 else -190) + math.sin(t * 3 + piece.phase) * 18
+			end),
+			-- Paper catches the light when it turns face-on.
+			BackgroundColor3 = clock:map(function(seconds)
+				return piece.color:Lerp(lighten(piece.color, 0.4), flip(age(seconds)))
+			end),
+			BackgroundTransparency = clock:map(function(seconds)
+				if seconds < piece.delay then
+					return 1
+				end
+				return Fx.fade(age(seconds), CONFETTI_LIFE, 0.7)
+			end),
 			BorderSizePixel = 0,
 			ZIndex = 142 + index % 3,
 		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, if ribbon then 1 else 2),
-		}), React.createElement("uigradient", {
-			Color = ColorSequence.new(lighten(piece.color, 0.34), darken(piece.color, 0.18)),
-			Rotation = 90,
+			CornerRadius = UDim.new(0, if piece.ribbon then 1 else 2),
 		}))
 	end
 	for _k, _v in pieces do

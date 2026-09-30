@@ -377,21 +377,6 @@ local function Metric(_param)
 	}))
 end
 
-local LADDER_UNLOCKS = { "Research", "Mail", "Rewards", "Story", "Missions", "Worlds", "Shop", "Milestones", "Wheel", "StarGrid", "Rebirth", "Anomaly", "Crew", "Trade", "Command", "Lab", "Echoes", "Convergence", "Continuum" }
-
-local function ladderUnit(kind: string): string
-	if kind == "LifetimeCash" then
-		return "flux"
-	elseif kind == "MachineLevels" then
-		return "levels"
-	elseif kind == "Rebirths" then
-		return "rebirths"
-	elseif kind == "PlayTime" then
-		return "sec"
-	end
-	return ""
-end
-
 -- Listed machine rate from config. Matches the workshop card (BaseProduction), not multiplied output.
 local function listedFluxPerSec(machine): number
 	local base = if type(machine) == "table" then machine.BaseProduction else nil
@@ -410,53 +395,15 @@ local function firstRebirthStardust(config): number
 	return math.max(minimum, math.floor(math.sqrt(1) * scale))
 end
 
-local function totalMachineLevels(state): number
-	local total = 0
-	local machines = state.Machines
-	if type(machines) ~= "table" then
-		return 0
-	end
-	for _, level in machines do
-		if type(level) == "number" and level > 0 then
-			total += level
-		end
-	end
-	return total
-end
-
-local function unlockGateLine(state, config, id: string): string?
-	local unlocks = state.FeatureUnlocks
-	local row = if type(unlocks) == "table" then unlocks[id] else nil
-	local rules = if config ~= nil and type(config.Unlocks) == "table" then config.Unlocks else nil
-	local rule = if rules ~= nil then rules[id] else nil
-	local kind = if type(rule) == "table" and type(rule.Kind) == "string" then rule.Kind else nil
-	local name = if type(row) == "table" and type(row.Name) == "string" then row.Name elseif type(rule) == "table" and type(rule.Name) == "string" then rule.Name else id
-	local target = if type(row) == "table" and type(row.Target) == "number" then row.Target elseif type(rule) == "table" and type(rule.Target) == "number" then rule.Target else 0
-	if kind == "Always" or target <= 0 then
+-- The one progression goal that matters: the next Forge Level.
+-- "Level 6: Earn 1K flux in total · 420/1K".
+local function levelGoalLine(state): string?
+	local levelState = state.Level
+	local nextStep = if type(levelState) == "table" then levelState.Next else nil
+	if type(nextStep) ~= "table" or type(nextStep.Text) ~= "string" then
 		return nil
 	end
-	local progress
-	if type(row) == "table" and row.Progress ~= nil then
-		progress = asFlux(row.Progress)
-	elseif kind == "LifetimeCash" then
-		progress = asFlux(state.LifetimeCash)
-	elseif kind == "MachineLevels" then
-		progress = totalMachineLevels(state)
-	elseif kind == "Rebirths" then
-		progress = math.max(0, math.floor(tonumber(state.Rebirths) or 0))
-	elseif kind == "PlayTime" then
-		local stats = state.Stats
-		progress = math.max(0, math.floor(tonumber(stats and stats.PlayTime) or 0))
-	else
-		progress = 0
-	end
-	local unlocked = if type(row) == "table" then row.Unlocked == true else progress >= target
-	if unlocked or progress >= target then
-		return nil
-	end
-	local unit = ladderUnit(kind or "")
-	local suffix = if unit ~= "" then ` {unit}` else ""
-	return `Unlock {name} · {compactNumber(progress)}/{compactNumber(target)}{suffix}`
+	return `Level {nextStep.Level}: {nextStep.Text} · {compactNumber(nextStep.Progress)}/{compactNumber(nextStep.Target)}`
 end
 
 local function nextMachineGateLine(state, config): string?
@@ -521,16 +468,14 @@ local function progressLadder(state, config, limit: number): { string }
 			table.insert(lines, line)
 		end
 	end
-	for _, id in LADDER_UNLOCKS do
-		if #lines >= limit then
-			break
-		end
-		push(unlockGateLine(state, config, id))
-		if id == "Research" then
-			push(nextMachineGateLine(state, config))
-		elseif id == "Rebirth" then
-			push(rebirthPayoutLine(state, config))
-		end
+	-- The level goal first (the player's single "what next"), then the next
+	-- machine to aim for, then the rebirth payout once Rebirth is open.
+	push(levelGoalLine(state))
+	push(nextMachineGateLine(state, config))
+	local unlocks = state.FeatureUnlocks
+	local rebirthGate = if type(unlocks) == "table" then unlocks.Rebirth else nil
+	if type(rebirthGate) == "table" and rebirthGate.Unlocked == true then
+		push(rebirthPayoutLine(state, config))
 	end
 	return lines
 end

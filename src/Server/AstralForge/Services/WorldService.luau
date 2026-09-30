@@ -5,6 +5,15 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local SanctuaryLayout = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SanctuaryLayout"))
+local SanctuaryBuilder = require(script.Parent:WaitForChild("SanctuaryBuilder"))
+
+-- Seconds of movement grace a server teleport grants (CharacterIntegrity reads it).
+local TELEPORT_GRACE_SECONDS = 2
+-- Waystone travel: how close you must stand, and how often you can go.
+local WAYSTONE_REACH = 18
+local TRAVEL_COOLDOWN = 2
+local RECALL_COOLDOWN = 8
 
 return function()
 	local WorldService = {}
@@ -117,56 +126,156 @@ return function()
 		model.Name = "Sanctuary"
 		model.Parent = folder
 
-		-- One walk ribbon at Y=0, then a single step onto an irregular dais.
-		-- The south approach stays low: the overlook camera sits ~24 studs behind spawn and ~14 up.
-		topPart(model, "Part", "PathSouth", Vector3.new(12, 3.2, 20), Vector3.new(2.4, 0, 19), 8, PATH, Enum.Material.Slate, true)
-		topPart(model, "Part", "PathMid", Vector3.new(18, 3.2, 16), Vector3.new(-0.8, 0, 9), -6, PATH, Enum.Material.Slate, true)
-		topPart(model, "Part", "PathApron", Vector3.new(22, 3.2, 12), Vector3.new(0.6, 0, 2.2), 3, PATH, Enum.Material.Cobblestone, true)
-		topPart(model, "Part", "PathFlake", Vector3.new(7, 3.2, 6), Vector3.new(6.5, 0, 15), 18, PATH, Enum.Material.Slate, true)
+		-- Layout, south (spawn) to north (altar):
+		--   a broken causeway of floating slabs -> a wide ring terrace -> the
+		--   altar on a raised dais at the north end, ringed by standing stones.
+		-- The overlook camera sits ~24 studs behind spawn and ~14 up, so the
+		-- south approach stays low and nothing tall blocks the establishing shot.
 
-		topPart(model, "Part", "Dais", Vector3.new(22, 3.4, 16), Vector3.new(-0.6, 1.45, -4.6), -7, DECK, Enum.Material.Basalt, true)
-		topPart(model, "Part", "DaisShoulder", Vector3.new(13, 3.4, 11), Vector3.new(-8.4, 1.45, -1.2), 15, DECK, Enum.Material.Basalt, true)
-		topPart(model, "Part", "DaisNose", Vector3.new(10, 3.4, 9), Vector3.new(7.2, 1.45, -8.6), -16, DECK, Enum.Material.Slate, true)
+		------------------------------------------------------------------
+		-- Causeway: floating slabs with real gaps, so the walk in has rhythm.
+		------------------------------------------------------------------
+		topPart(model, "Part", "CausewayStart", Vector3.new(16, 3.2, 14), Vector3.new(0, 0, 30), 2, PATH, Enum.Material.Slate, true)
+		topPart(model, "Part", "CausewayA", Vector3.new(11, 2.8, 9), Vector3.new(-3.2, 0.25, 21), -7, PATH, Enum.Material.Slate, true)
+		topPart(model, "Part", "CausewayB", Vector3.new(10, 2.8, 8), Vector3.new(3.6, 0.55, 14.5), 9, PATH, Enum.Material.Cobblestone, true)
+		topPart(model, "Part", "CausewayC", Vector3.new(12, 2.8, 9), Vector3.new(-1.4, 0.85, 8), -4, PATH, Enum.Material.Slate, true)
+		-- Two drifting stones off the causeway: optional footing, and they give
+		-- the void beneath a sense of depth.
+		topPart(model, "Part", "DriftEast", Vector3.new(5, 1.8, 4.5), Vector3.new(11.5, -1.2, 18), 16, ROCK, Enum.Material.Rock, true)
+		topPart(model, "Part", "DriftWest", Vector3.new(4.4, 1.6, 4), Vector3.new(-11.8, -2.4, 12.5), -22, ROCK, Enum.Material.Rock, true)
 
-		-- West lip overlaps the shoulder, then cantilevers with nothing under the outer edge.
-		topPart(model, "Part", "HangLip", Vector3.new(12, 0.7, 14), Vector3.new(-16.2, 1.02, -1.6), 11, LIP, Enum.Material.Slate, true)
-		topPart(model, "Part", "LipRoot", Vector3.new(5, 3.2, 7), Vector3.new(-11.2, 0.15, -1.4), 11, DARK, Enum.Material.Basalt, true)
+		------------------------------------------------------------------
+		-- Terrace: the main ring the player actually walks on.
+		------------------------------------------------------------------
+		topPart(model, "Part", "Terrace", Vector3.new(34, 3.4, 30), Vector3.new(0, 1.2, -3), 0, DECK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "TerraceWest", Vector3.new(12, 3.4, 16), Vector3.new(-20, 1.2, -2), 6, DECK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "TerraceEast", Vector3.new(12, 3.4, 16), Vector3.new(20, 1.2, -4), -6, DECK, Enum.Material.Basalt, true)
+		-- Cantilevered overlooks: nothing under the outer edge, which is what
+		-- makes standing on them feel precarious.
+		topPart(model, "Part", "OverlookWest", Vector3.new(13, 0.8, 11), Vector3.new(-28.5, 0.9, 2), 12, LIP, Enum.Material.Slate, true)
+		topPart(model, "Part", "OverlookEast", Vector3.new(12, 0.8, 10), Vector3.new(28, 0.9, -9), -14, LIP, Enum.Material.Slate, true)
 
-		topPart(model, "Part", "Keel", Vector3.new(16, 9, 20), Vector3.new(0.4, -0.6, 5), -4, DARK, Enum.Material.Basalt, true)
-		topPart(model, "Part", "KeelWest", Vector3.new(10, 7, 12), Vector3.new(-6.5, -1.4, -2.5), 12, DARK, Enum.Material.Rock, true)
-		topPart(model, "Part", "KeelTail", Vector3.new(9, 6, 11), Vector3.new(2.8, -1.2, 17), 7, DARK, Enum.Material.Rock, true)
-		topPart(model, "Part", "KeelNose", Vector3.new(8, 5, 8), Vector3.new(5.5, -1.6, -7), -14, DARK, Enum.Material.Basalt, true)
+		-- Keel: the underside mass. Without this the terrace reads as a decal.
+		topPart(model, "Part", "Keel", Vector3.new(30, 14, 26), Vector3.new(0, -2.2, -3), 0, DARK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "KeelWest", Vector3.new(13, 10, 14), Vector3.new(-18, -3.6, -1), 8, DARK, Enum.Material.Rock, true)
+		topPart(model, "Part", "KeelEast", Vector3.new(13, 10, 14), Vector3.new(18, -3.8, -4), -8, DARK, Enum.Material.Rock, true)
+		topPart(model, "Part", "KeelTail", Vector3.new(14, 8, 16), Vector3.new(0, -4.2, 20), 3, DARK, Enum.Material.Rock, true)
+		topPart(model, "Part", "KeelSpike", Vector3.new(7, 16, 7), Vector3.new(-2, -9, -6), 18, DARK, Enum.Material.Basalt, false)
 
-		topPart(model, "Part", "EastLedge", Vector3.new(9, 2.6, 13), Vector3.new(13.4, 0.15, -0.4), 9, DECK, Enum.Material.Rock, true)
-		topPart(model, "Part", "RockEast", Vector3.new(5.4, 3.1, 4.4), Vector3.new(14.2, 3.25, -3.6), 22, ROCK, Enum.Material.Rock, true)
-		topPart(model, "Part", "RockEastLow", Vector3.new(3.6, 2.1, 3.2), Vector3.new(16.1, 2.25, 1.4), -28, ROCK, Enum.Material.Slate, true)
-		topPart(model, "WedgePart", "WedgeEast", Vector3.new(4.2, 2.2, 5.2), Vector3.new(11.4, 2.35, 2.2), -18, ROCK, Enum.Material.Rock, true)
-		topPart(model, "Part", "RockNorth", Vector3.new(5.6, 3.2, 4.6), Vector3.new(-3.4, 4.65, -12.4), -24, ROCK, Enum.Material.Rock, true)
-		topPart(model, "WedgePart", "WedgeNorth", Vector3.new(4.4, 2.4, 5), Vector3.new(2.2, 3.6, -12.8), 20, ROCK, Enum.Material.Slate, true)
-		topPart(model, "Part", "RockShoulder", Vector3.new(3.4, 2.2, 3.2), Vector3.new(-11.6, 3.55, 3.2), 36, ROCK, Enum.Material.Rock, true)
+		------------------------------------------------------------------
+		-- Dais and altar at the north end.
+		------------------------------------------------------------------
+		local daisTop = 4.2
+		topPart(model, "Part", "Dais", Vector3.new(20, 3, 16), Vector3.new(0, daisTop, -16), 0, DECK, Enum.Material.Basalt, true)
+		topPart(model, "Part", "DaisStep", Vector3.new(24, 1.5, 4), Vector3.new(0, 2.7, -7.5), 0, LIP, Enum.Material.Slate, true)
 
-		topPart(model, "Part", "PebbleA", Vector3.new(1.6, 0.7, 1.4), Vector3.new(8.4, 0.35, 12.6), 14, ROCK, Enum.Material.Rock, false)
-		topPart(model, "Part", "PebbleB", Vector3.new(1.3, 0.6, 1.2), Vector3.new(-6.2, 0.3, 13.4), -20, ROCK, Enum.Material.Rock, false)
-		topPart(model, "Part", "PebbleC", Vector3.new(1.5, 0.8, 1.3), Vector3.new(15.2, 0.55, 3.6), 8, ROCK, Enum.Material.Rock, false)
-		topPart(model, "Part", "PebbleD", Vector3.new(1.2, 0.5, 1.1), Vector3.new(-14.8, 1.28, 2.4), 16, LIP, Enum.Material.Rock, false)
+		-- Standing stones ringing the dais. Staggered heights and yaws so the
+		-- ring reads as carved rather than as a turntable of identical props.
+		-- { x, z, height, yaw, base }: base is the surface the stone stands on.
+		-- The dais spans x -10..10, z -24..-8; the flanking pair sit past its
+		-- edge, so they root on the terrace (and run taller to keep their tops).
+		local terraceTop = 1.2
+		local stoneRing = {
+			{ -8.5, -22.5, 7.5, 14, daisTop },
+			{ 0.5, -22.8, 9.5, -8, daisTop },
+			{ 9, -22, 8.2, 22, daisTop },
+			{ -11.5, -14, 6.4 + daisTop - terraceTop, -18, terraceTop },
+			{ 11.5, -13, 6.8 + daisTop - terraceTop, 9, terraceTop },
+		}
+		for index, stone in stoneRing do
+			local height = stone[3]
+			local base = stone[5]
+			topPart(
+				model,
+				"Part",
+				`Stone{index}`,
+				Vector3.new(2.6, height, 2.2),
+				Vector3.new(stone[1], base + height, stone[2]),
+				stone[4],
+				ROCK,
+				Enum.Material.Rock,
+				true
+			)
+			-- A lit band near the top of each stone, so the ring glows at night.
+			local band = topPart(
+				model,
+				"Part",
+				`StoneGlow{index}`,
+				Vector3.new(2.75, 0.35, 2.35),
+				Vector3.new(stone[1], base + height - 1.1, stone[2]),
+				stone[4],
+				CYAN,
+				Enum.Material.Neon,
+				false
+			)
+			band.Transparency = 0.25
+			band.CastShadow = false
+		end
 
-		local crack = topPart(model, "Part", "RiftCrack", Vector3.new(0.35, 0.16, 6.5), Vector3.new(0.3, 1.54, -2.2), -7, CYAN, Enum.Material.Neon, false)
-		crack.Transparency = 0.32
+		-- The rift crack running up the dais into the altar. It stops at the
+		-- dais's south edge (z = -8) so it never overhangs the lower step.
+		local crack = topPart(model, "Part", "RiftCrack", Vector3.new(0.45, 0.18, 9), Vector3.new(0, daisTop + 0.02, -12.5), 0, CYAN, Enum.Material.Neon, false)
+		crack.Transparency = 0.3
 		crack.CastShadow = false
 
-		-- One lamp: stone cup, a single flame, no pillar stack.
-		local daisTop = 1.45
-		uprightCylinder(model, "AltarPlinth", 5, 1.05, Vector3.new(0.5, daisTop + 0.52, -3.1), DECK, Enum.Material.Basalt, true)
-		uprightCylinder(model, "AltarCup", 3.2, 0.42, Vector3.new(0.5, daisTop + 1.26, -3.1), DARK, Enum.Material.Slate, true)
-		local flame = sanctuaryBall(model, "AltarFlame", 1.45, Vector3.new(0.5, daisTop + 1.95, -3.1), MINT, Enum.Material.Neon, false)
-		flame.Transparency = 0.22
+		uprightCylinder(model, "AltarPlinth", 6.5, 1.3, Vector3.new(0, daisTop + 0.65, -17), DECK, Enum.Material.Basalt, true)
+		uprightCylinder(model, "AltarCup", 4.2, 0.5, Vector3.new(0, daisTop + 1.55, -17), DARK, Enum.Material.Slate, true)
+		local flame = sanctuaryBall(model, "AltarFlame", 1.9, Vector3.new(0, daisTop + 2.5, -17), MINT, Enum.Material.Neon, false)
+		flame.Transparency = 0.18
 		flame.CastShadow = false
 		local flameLight = Instance.new("PointLight")
 		flameLight.Color = CYAN
-		flameLight.Brightness = 1.15
-		flameLight.Range = 22
+		flameLight.Brightness = 2.2
+		flameLight.Range = 42
 		flameLight.Shadows = false
 		flameLight.Parent = flame
+
+		-- Halo above the flame: reads from across the terrace and marks the altar
+		-- as the objective without needing a UI arrow.
+		local halo = topPart(model, "Part", "AltarHalo", Vector3.new(7.5, 0.22, 7.5), Vector3.new(0, daisTop + 5.4, -17), 0, CYAN, Enum.Material.Neon, false)
+		halo.Transparency = 0.62
+		halo.CastShadow = false
+
+		-- Lamps along the causeway so the walk in is lit and readable.
+		local lamps = { { -6.5, 24 }, { 6.5, 17 }, { -6, 9 }, { 13, -2 }, { -13, -4 } }
+		for index, lamp in lamps do
+			uprightCylinder(model, `LampPost{index}`, 0.7, 4.6, Vector3.new(lamp[1], 2.3, lamp[2]), DARK, Enum.Material.Metal, false)
+			local bulb = sanctuaryBall(model, `LampBulb{index}`, 1.1, Vector3.new(lamp[1], 4.9, lamp[2]), CYAN, Enum.Material.Neon, false)
+			bulb.Transparency = 0.24
+			bulb.CastShadow = false
+			local light = Instance.new("PointLight")
+			light.Color = CYAN
+			light.Brightness = 1.1
+			light.Range = 20
+			light.Shadows = false
+			light.Parent = bulb
+		end
+
+		-- Scatter: small rocks break up the flat deck silhouette.
+		-- { x, z, width, height, depth, surface }: surface is the top of the slab
+		-- underneath (terrace 1.2, CausewayA 0.25, CausewayB 0.55) so each rock
+		-- rests on the ground instead of hovering above it.
+		local scatter = {
+			{ 14.5, -1.5, 2.2, 1.1, 1.9, terraceTop },
+			{ -15.5, 1.5, 1.8, 0.9, 1.6, terraceTop },
+			{ 6, 13, 1.6, 0.8, 1.4, 0.55 },
+			{ -6, 19.5, 1.4, 0.7, 1.3, 0.25 },
+			{ 17, -10, 2.4, 1.2, 2.1, terraceTop },
+			{ -17.5, -9, 2, 1, 1.8, terraceTop },
+		}
+		for index, rock in scatter do
+			topPart(
+				model,
+				"Part",
+				`Scatter{index}`,
+				Vector3.new(rock[3], rock[4], rock[5]),
+				Vector3.new(rock[1], rock[6] + rock[4], rock[2]),
+				index * 37 % 90 - 45,
+				ROCK,
+				Enum.Material.Rock,
+				false
+			)
+		end
 
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "SanctuaryClose"
@@ -174,14 +283,15 @@ return function()
 		prompt.ObjectText = "Forge altar"
 		prompt.KeyboardKeyCode = Enum.KeyCode.E
 		prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
-		prompt.MaxActivationDistance = 14
+		prompt.MaxActivationDistance = 16
 		prompt.HoldDuration = 0
 		prompt.RequiresLineOfSight = false
 		prompt.Parent = flame
 
 		-- SpawnLocation so LoadCharacter does not drop the avatar at the origin.
-		-- The part name stays Spawn. No extra spire.
-		local spawn = sanctuaryPart(model, "SpawnLocation", "Spawn", Vector3.new(6, 1, 6), Vector3.new(0, 3.5, 7), 0, DECK, Enum.Material.SmoothPlastic, false)
+		-- The part name stays Spawn. It sits on the causeway's first slab, facing
+		-- the altar, so entering the rift always frames the walk north.
+		local spawn = sanctuaryPart(model, "SpawnLocation", "Spawn", Vector3.new(6, 1, 6), Vector3.new(0, 3.3, 30), 0, DECK, Enum.Material.SmoothPlastic, false)
 		spawn.Transparency = 1
 		spawn.CanQuery = false
 		spawn.CanTouch = false
@@ -191,7 +301,7 @@ return function()
 			spawn.AllowTeamChangeOnTouch = false
 			spawn.Enabled = true
 		end
-		local look = SANCTUARY_ORIGIN + Vector3.new(0.5, daisTop + 1.95, -3.1)
+		local look = SANCTUARY_ORIGIN + Vector3.new(0, daisTop + 2.5, -17)
 		spawn.CFrame = CFrame.lookAt(spawn.Position, look)
 
 		return spawn.CFrame, SANCTUARY_ORIGIN.Y
@@ -242,6 +352,12 @@ return function()
 		base.BottomSurface = Enum.SurfaceType.Smooth
 		base.Parent = folder
 		self._spawn, self._originY = buildSanctuary(folder)
+		-- The wider sanctuary: terrain islands, sky bridges, waystones, scenery.
+		local expanse = Instance.new("Folder")
+		expanse.Name = "SanctuaryWorld"
+		expanse.Parent = folder
+		self._expanse = expanse
+		SanctuaryBuilder.Build(expanse)
 		local sanctuaryModel = folder:FindFirstChild("Sanctuary")
 		local spawnPart = sanctuaryModel and sanctuaryModel:FindFirstChild("Spawn")
 		if spawnPart ~= nil and spawnPart:IsA("BasePart") then
@@ -300,8 +416,9 @@ return function()
 					end
 				else
 					self._brokenSince[player] = nil
-					if root.Position.Y < self._originY - 40 then
-						self:_placeCharacter(player)
+					-- Fell off the world: back to the nearest waystone, not the start.
+					if root.Position.Y < self._originY - SanctuaryLayout.KILL_DEPTH then
+						self:_recoverFall(player, root)
 					end
 				end
 			end
@@ -369,7 +486,7 @@ return function()
 			part.CanCollide = false
 			part.Size = Vector3.new(size, size, size)
 			part.CFrame = CFrame.new(basePos + offset)
-			part.Color = if type(machine.Color) == "Color3" then machine.Color else Color3.fromRGB(200, 200, 200)
+			part.Color = if typeof(machine.Color) == "Color3" then machine.Color else Color3.fromRGB(200, 200, 200)
 			part.Material = Enum.Material.Neon
 			part.Transparency = 0.15
 			part.Parent = container
@@ -842,6 +959,12 @@ return function()
 						player:RequestStreamAroundAsync(placed.Position, 5)
 					end)
 				end)
+				-- Streaming followed the spawn while the avatar loaded. The world is
+				-- far bigger than the deck now, so hand focus back to the character
+				-- or distant regions would never stream in as the player walks.
+				pcall(function()
+					player.ReplicationFocus = nil
+				end)
 				return true, placed, false
 			end
 			task.wait(0.05)
@@ -857,6 +980,128 @@ return function()
 		warn(string.format("[Sanctuary] enter failed — %s", why))
 		self:LeaveSanctuary(player)
 		return false, nil, false
+	end
+
+	function WorldService:IsInSanctuary(player: Player): boolean
+		return self._sanctuary[player] == true
+	end
+
+	-- The live HumanoidRootPart of a player standing in the sanctuary, or nil.
+	function WorldService:SanctuaryRoot(player: Player): BasePart?
+		if self._sanctuary[player] ~= true then
+			return nil
+		end
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root ~= nil and root:IsA("BasePart") then
+			return root
+		end
+		return nil
+	end
+
+	-- Everyone currently standing in the sanctuary with a live character.
+	function WorldService:SanctuaryPlayers(): { Player }
+		local list = {}
+		for player in self._sanctuary do
+			if player.Parent == Players and self:SanctuaryRoot(player) ~= nil then
+				table.insert(list, player)
+			end
+		end
+		return list
+	end
+
+	function WorldService:SanctuaryFolder(): Instance?
+		return self._expanse
+	end
+
+	-- A sanctuary-local point as a world position.
+	function WorldService:SanctuaryPoint(p): Vector3
+		return SANCTUARY_ORIGIN + Vector3.new(p.X, p.Y, p.Z)
+	end
+
+	-- Move a character on the server: grant a moment of movement grace first so
+	-- CharacterIntegrity doesn't read the jump as a teleport exploit, then pre-
+	-- stream the destination.
+	function WorldService:_teleport(player: Player, root: BasePart, target: CFrame)
+		local character = player.Character
+		if character ~= nil then
+			character:SetAttribute("AF_MovementGraceUntil", Workspace:GetServerTimeNow() + TELEPORT_GRACE_SECONDS)
+		end
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
+		if character ~= nil then
+			character:PivotTo(target)
+		else
+			root.CFrame = target
+		end
+		task.spawn(function()
+			pcall(function()
+				player:RequestStreamAroundAsync(target.Position, 3)
+			end)
+		end)
+	end
+
+	-- Where a traveller arrives at a waystone: beside it, facing into its region.
+	local function arrivalCFrame(stoneId: string): CFrame?
+		local stone = SanctuaryLayout.waystone(stoneId)
+		if stone == nil then
+			return nil
+		end
+		local region = SanctuaryLayout.region(stone.Region)
+		local at = SANCTUARY_ORIGIN + Vector3.new(stone.Position.X, stone.Position.Y, stone.Position.Z)
+		local toward = if region ~= nil
+			then SANCTUARY_ORIGIN + Vector3.new(region.Center.X, stone.Position.Y, region.Center.Z)
+			else at + Vector3.new(0, 0, -1)
+		local flat = Vector3.new(toward.X - at.X, 0, toward.Z - at.Z)
+		local dir = if flat.Magnitude > 0.5 then flat.Unit else Vector3.new(0, 0, -1)
+		local stand = at + dir * 6 + Vector3.new(0, 4, 0)
+		return CFrame.lookAt(stand, stand + dir)
+	end
+
+	-- A fall is close to straight down, so the waystone nearest the fall point
+	-- (on the ground plane) is the one nearest where the player stepped off.
+	function WorldService:_recoverFall(player: Player, root: BasePart)
+		local fell = root.Position - SANCTUARY_ORIGIN
+		local stone = SanctuaryLayout.nearestWaystone({ X = fell.X, Y = fell.Y, Z = fell.Z })
+		local target = arrivalCFrame(stone.Id)
+		if target == nil then
+			self:_placeCharacter(player)
+			return
+		end
+		self:_teleport(player, root, target)
+	end
+
+	-- Travel from a waystone to another, or `recall` to the Forge Heart from
+	-- anywhere. Validated here: the client only asks.
+	function WorldService:TravelWaystone(player: Player, targetId: any, recall: boolean): (boolean, string)
+		local root = self:SanctuaryRoot(player)
+		if root == nil then
+			return false, "Step into the sanctuary first."
+		end
+		self._travelAt = self._travelAt or {}
+		local now = os.clock()
+		local last = self._travelAt[player] or -math.huge
+		local cooldown = if recall then RECALL_COOLDOWN else TRAVEL_COOLDOWN
+		if now - last < cooldown then
+			return false, "The waystones are still settling."
+		end
+		local destination = if recall then "Heart" elseif type(targetId) == "string" then targetId else ""
+		local target = arrivalCFrame(destination)
+		if target == nil then
+			return false, "That waystone doesn't exist."
+		end
+		if not recall then
+			local here = root.Position - SANCTUARY_ORIGIN
+			local nearest = SanctuaryLayout.nearestWaystone({ X = here.X, Y = here.Y, Z = here.Z })
+			local offset = Vector3.new(nearest.Position.X - here.X, 0, nearest.Position.Z - here.Z)
+			if offset.Magnitude > WAYSTONE_REACH or math.abs(nearest.Position.Y - here.Y) > 14 then
+				return false, "Stand at a waystone to travel."
+			end
+		end
+		self._travelAt[player] = now
+		self:_teleport(player, root, target)
+		local stone = SanctuaryLayout.waystone(destination)
+		return true, if stone ~= nil then stone.Name else destination
 	end
 
 	function WorldService:LeaveSanctuary(player: Player)

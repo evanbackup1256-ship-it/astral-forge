@@ -2,42 +2,59 @@ local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
 local core = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@flamework"].core.out)
 local Reflect = core.Reflect
 local Controller = core.Controller
+local UserInputService = game:GetService("UserInputService")
 local ClientLog = require(script.Parent.log).ClientLog
 -- Type-only: erased at compile time, so this does NOT become a runtime require("./framework")
 -- and cannot participate in the circular require that framework/index.ts's "side effect"
 -- import of this file would otherwise create (framework/index.ts -> layoutGuard.ts -> back to
 -- framework/index.ts). Keep this a `import type` — switching it to a value import would
 -- reintroduce that cycle.
--- Layout guard for a UI-only game.
+-- Layout guard for a UI-only game, working in real time.
 -- React and the engine layout objects already place almost everything. This pass
 -- only repairs what they leave behind, and it refuses to fight them:
 --   * text that spills its box, and buttons clipped on a wild aspect ratio
+--   * text too small to read on a phone, raised when it still fits
 --   * CanvasGroup positions that land on a fractional pixel (that is what blurs them)
 --   * a scrolling canvas that is shorter than its content
--- It walks a small slice of the tree per tick, writes a property only when the
+-- It runs every frame on a small budget (layoutGuardPlan): anything newly mounted
+-- is checked the frame after the engine measures it, a background sweep revisits
+-- everything else about once a second, and a resize or rotation gets a burst so
+-- the whole screen settles almost at once. It writes a property only when the
 -- measured defect is still there, and gives up if a write does not stick. That
 -- keeps the screen from flickering and keeps AbsoluteSize reads off the hot path.
 local Geom = require(script.Parent.layoutGeom)
-local SCAN_INTERVAL_SECONDS = 2
+local Plan = require(script.Parent.layoutGuardPlan)
+local usesDesktopStructure = require(script.Parent.interaction).usesDesktopStructure
 local IGNORE_ATTRIBUTE = "LayoutGuardIgnore"
-local SLICE_BUDGET = 280
 local FIT_SLOP = 6
 local WILD_ASPECT_SLOP = 2
-local MAX_TRIES = 3
+local MAX_TRIES = Plan.MAX_TRIES
 local CANVAS_SHARP_EDGE = 512
 local stats = {
 	scans = 0,
+	freshChecked = 0,
+	sweepChecked = 0,
+	bursts = 0,
 	canvasDesyncFixed = 0,
 	scrollingReenabled = 0,
 	degenerateHidden = 0,
 	overlapDemoted = 0,
 	outOfBoxFixed = 0,
 	textFitFixed = 0,
+	textFloorRaised = 0,
+	textFloorReverted = 0,
 	canvasSharpFixed = 0,
 	gaveUp = 0,
 }
 local tryCount = setmetatable({}, { __mode = "k" })
 local abandoned = setmetatable({}, { __mode = "k" })
+-- Labels whose size was raised for touch legibility, awaiting a fit check:
+-- label -> the size React gave it.
+local pendingFloor = setmetatable({}, { __mode = "k" })
+local floorRejected = setmetatable({}, { __mode = "k" })
+-- The guard's own follow-up checks (a raised label to verify next frame).
+local followUp: ((Instance) -> ())? = nil
+local touchProfile = false
 local function isFiniteNumber(value)
 	return value == value and value ~= math.huge and value ~= -math.huge
 end
@@ -87,6 +104,38 @@ local function allowWrite(inst)
 	tryCount[inst] = tries + 1
 	return true
 end
+local function isTrackedClass(instance)
+	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame")
+end
+-- Phones and tablets: raise small text to a readable size, but only when it
+-- still fits its box. The raise is checked on the next frame and undone (for
+-- good) if the text no longer fits.
+local function applyTextFloor(label): boolean
+	local original = pendingFloor[label]
+	if original ~= nil then
+		pendingFloor[label] = nil
+		if not label.TextFits then
+			label.TextSize = original
+			floorRejected[label] = true
+			stats.textFloorReverted += 1
+		end
+		return true
+	end
+	if floorRejected[label] or not touchProfile or not label:IsA("TextLabel") and not label:IsA("TextButton") then
+		return false
+	end
+	local target = Plan.textFloor(touchProfile, label.TextSize, label.TextScaled)
+	if target == nil or not label.TextFits then
+		return false
+	end
+	pendingFloor[label] = label.TextSize
+	label.TextSize = target
+	stats.textFloorRaised += 1
+	if followUp ~= nil then
+		followUp(label)
+	end
+	return true
+end
 local function repairText(label)
 	if abandoned[label] or label:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
@@ -96,6 +145,9 @@ local function repairText(label)
 	end
 	local size = label.AbsoluteSize
 	if size.X < 8 or size.Y < 8 or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+		return nil
+	end
+	if applyTextFloor(label) then
 		return nil
 	end
 	if label.TextFits then
@@ -113,7 +165,7 @@ local function repairText(label)
 		if constraint == nil then
 			constraint = Instance.new("UITextSizeConstraint")
 			constraint.Name = "LayoutGuardTextFit"
-			constraint.MinTextSize = 8
+			constraint.MinTextSize = if touchProfile then 9 else 8
 			constraint.MaxTextSize = math.clamp(label.TextSize, 8, 42)
 			constraint.Parent = label
 		end
@@ -264,7 +316,7 @@ local function checkOverlappingHitboxes(root)
 	local byParent = {}
 	local list = if typeof(root) == "table" then root else root:GetDescendants()
 	for _, descendant in list do
-		if not descendant:IsA("GuiButton") then
+		if descendant.Parent == nil or not descendant:IsA("GuiButton") then
 			continue
 		end
 		if not descendant.Visible or not descendant.Active then
@@ -274,79 +326,86 @@ local function checkOverlappingHitboxes(root)
 			continue
 		end
 		local parent = descendant.Parent
-		if parent == nil then
-			continue
-		end
-		local list = byParent[parent]
-		if list then
-			table.insert(list, descendant)
+		local siblings = byParent[parent]
+		if siblings then
+			table.insert(siblings, descendant)
 		else
-			local _arg1 = { descendant }
-			byParent[parent] = _arg1
+			byParent[parent] = { descendant }
 		end
 	end
 	for _, siblings in byParent do
 		if #siblings < 2 then
 			continue
 		end
-		for i = 0, #siblings - 1 do
-			local a = siblings[i + 1]
-			if a:GetAttribute(IGNORE_ATTRIBUTE) == true then
-				continue
-			end
+		for i = 1, #siblings do
+			local a = siblings[i]
 			local rectA = rectOf(a)
 			local areaA = rectArea(rectA)
 			if areaA <= 0 then
 				continue
 			end
-			do
-				local j = i + 1
-				local _shouldIncrement = false
-				while true do
-					if _shouldIncrement then
-						j += 1
-					else
-						_shouldIncrement = true
-					end
-					if not (j < #siblings) then
-						break
-					end
-					local b = siblings[j + 1]
-					if b:GetAttribute(IGNORE_ATTRIBUTE) == true then
-						continue
-					end
-					if a.ZIndex ~= b.ZIndex then
-						continue
-					end
-					local rectB = rectOf(b)
-					local areaB = rectArea(rectB)
-					if areaB <= 0 then
-						continue
-					end
-					local overlap = overlapArea(rectA, rectB)
-					local smaller = math.min(areaA, areaB)
-					if smaller <= 0 or overlap / smaller < 0.85 then
-						continue
-					end
-					-- Same ZIndex, same parent, one almost entirely covers the other, and neither
-					-- opted out: this is the shape of a real accidental stack (e.g. a row's tap
-					-- target left full-width behind a narrower action button added later), not a
-					-- deliberate composed layer — those always differ in ZIndex in this codebase.
-					-- Fix by giving the later sibling (b, which draws on top and therefore already
-					-- wins ties) priority and nudging the occluded one behind it, restoring input
-					-- to whichever control the ZIndex ordering already implies should win.
-					-- React may write the prop ZIndex back; give up after MAX_TRIES instead of
-					-- climbing forever.
-					if not allowWrite(b) then
-						continue
-					end
-					b.ZIndex = a.ZIndex + 1
-					stats.overlapDemoted += 1
-					ClientLog:warnEvery(`layoutguard:overlap:{a:GetFullName()}`, 30, "LayoutGuard", `{a.Name} and {b.Name} share ZIndex {a.ZIndex} and overlap {string.format("%.0f", (overlap / smaller) * 100)}% — separated so input reaches the top one`)
+			for j = i + 1, #siblings do
+				local b = siblings[j]
+				if a.ZIndex ~= b.ZIndex then
+					continue
 				end
+				local rectB = rectOf(b)
+				local areaB = rectArea(rectB)
+				if areaB <= 0 then
+					continue
+				end
+				local overlap = overlapArea(rectA, rectB)
+				local smaller = math.min(areaA, areaB)
+				if smaller <= 0 or overlap / smaller < 0.85 then
+					continue
+				end
+				-- Same ZIndex, same parent, one almost entirely covers the other, and neither
+				-- opted out: this is the shape of a real accidental stack (e.g. a row's tap
+				-- target left full-width behind a narrower action button added later), not a
+				-- deliberate composed layer — those always differ in ZIndex in this codebase.
+				-- Fix by giving the later sibling (b, which draws on top and therefore already
+				-- wins ties) priority and nudging the occluded one behind it, restoring input
+				-- to whichever control the ZIndex ordering already implies should win.
+				-- React may write the prop ZIndex back; give up after MAX_TRIES instead of
+				-- climbing forever.
+				if not allowWrite(b) then
+					continue
+				end
+				b.ZIndex = a.ZIndex + 1
+				stats.overlapDemoted += 1
+				ClientLog:warnEvery(`layoutguard:overlap:{a:GetFullName()}`, 30, "LayoutGuard", `{a.Name} and {b.Name} share ZIndex {a.ZIndex} and overlap {string.format("%.0f", (overlap / smaller) * 100)}% — separated so input reaches the top one`)
 			end
 		end
 	end
+end
+-- One instance: hide non-finite geometry, then the class-specific repair.
+local function inspect(inst)
+	if inst.Parent == nil then
+		return nil
+	end
+	local size = inst.AbsoluteSize
+	local pos = inst.AbsolutePosition
+	local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
+	if broken and inst:IsA("GuiObject") and inst.Visible and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+		if allowWrite(inst) then
+			inst.Visible = false
+			stats.degenerateHidden += 1
+			ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
+		end
+		return nil
+	end
+	if inst:IsA("ScrollingFrame") then
+		repairScrollingFrame(inst)
+	elseif inst:IsA("CanvasGroup") then
+		repairCanvasGroup(inst)
+	elseif inst:IsA("GuiButton") then
+		repairButton(inst)
+	elseif inst:IsA("TextLabel") or inst:IsA("TextBox") then
+		repairText(inst)
+	end
+end
+local function readTouchProfile()
+	return UserInputService.TouchEnabled and not usesDesktopStructure()
 end
 -- A Flamework controller rather than a plain module: its "root" is the same singleton
 -- ScreenGui that UiRootComponent/DiagnosticsController already resolve via Components DI
@@ -368,26 +427,140 @@ do
 	function LayoutGuardController:constructor(components, runtime)
 		self.components = components
 		self.runtime = runtime
-		self.elapsed = 0
+		self.frame = 0
+		self.sinceSweep = 0
+		-- Fresh work: instances just mounted (or awaiting a follow-up check),
+		-- each with the frame it becomes ready on.
+		self.fresh = {}
+		self.freshReady = {}
+		self.freshSet = setmetatable({}, { __mode = "k" })
+		-- The background sweep.
 		self.queue = {}
 		self.cursor = 1
 		self.lastWidth = -1
 		self.lastHeight = -1
+		self.burstLeft = 0
 		self.armed = false
+		self.rootConnections = {}
+		self.pendingOverlap = false
 	end
 	function LayoutGuardController:onInit()
 		self.armed = true
+		touchProfile = readTouchProfile()
+		followUp = function(instance)
+			self:enqueue(instance, Plan.SETTLE_FRAMES + 1)
+		end
+		local refresh = function()
+			touchProfile = readTouchProfile()
+		end
+		UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(refresh)
+		UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
+	end
+	-- Queue one instance for a check `delay` frames from now.
+	function LayoutGuardController:enqueue(instance, delay)
+		if self.freshSet[instance] or not isTrackedClass(instance) then
+			return nil
+		end
+		if #self.fresh >= Plan.FRESH_CAP then
+			-- Too much at once (a whole page mounting): the sweep will get there.
+			return nil
+		end
+		self.freshSet[instance] = true
+		table.insert(self.fresh, instance)
+		table.insert(self.freshReady, self.frame + (delay or Plan.SETTLE_FRAMES))
+	end
+	function LayoutGuardController:markDirty(instance)
+		if instance ~= nil then
+			tryCount[instance] = nil
+			abandoned[instance] = nil
+			self:enqueue(instance, Plan.SETTLE_FRAMES)
+		end
+	end
+	function LayoutGuardController:bindRoot(root)
+		for _, connection in self.rootConnections do
+			connection:Disconnect()
+		end
+		table.clear(self.rootConnections)
+		if root == nil then
+			return nil
+		end
+		table.insert(self.rootConnections, root.DescendantAdded:Connect(function(instance)
+			self:markDirty(instance)
+		end))
+		table.insert(self.rootConnections, root.DescendantRemoving:Connect(function(instance)
+			tryCount[instance] = nil
+			abandoned[instance] = nil
+			pendingFloor[instance] = nil
+		end))
+		-- A resize is handled the frame it happens, not at the next scan.
+		table.insert(self.rootConnections, root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			self:checkResize(root)
+		end))
+		self.lastWidth = -1
+		self.lastHeight = -1
+		self:checkResize(root)
+	end
+	-- A new screen size (window resize, rotation, keyboard): forget old caps,
+	-- restart the sweep and spend a burst budget so everything settles quickly.
+	function LayoutGuardController:checkResize(root)
+		local size = root.AbsoluteSize
+		if not Plan.resized(self.lastWidth, self.lastHeight, size.X, size.Y) then
+			return false
+		end
+		local first = self.lastWidth < 0
+		self.lastWidth = size.X
+		self.lastHeight = size.Y
+		if not first then
+			table.clear(tryCount)
+			table.clear(abandoned)
+		end
+		self.queue = {}
+		self.cursor = 1
+		self.sinceSweep = Plan.MIN_SWEEP_SECONDS
+		self.pendingOverlap = false
+		self.burstLeft = Plan.BURST_FRAMES
+		stats.bursts += 1
+		return true
 	end
 	function LayoutGuardController:onStart()
 		self.components:onComponentAdded(function(component)
 			self.target = component
+			self:bindRoot(component.instance)
 			return self.target
 		end, "client/framework/init@UiRootComponent")
 		local _binding = self.components:getAllComponents("client/framework/init@UiRootComponent")
 		local existing = _binding[1]
 		if existing ~= nil then
 			self.target = existing
+			self:bindRoot(existing.instance)
 		end
+	end
+	-- Fresh work whose settle frame has come, oldest first, up to `budget`.
+	function LayoutGuardController:drainFresh(budget)
+		local fresh = self.fresh
+		local ready = self.freshReady
+		if #fresh == 0 or budget <= 0 then
+			return nil
+		end
+		local keptItems = {}
+		local keptReady = {}
+		local done = 0
+		for index = 1, #fresh do
+			local instance = fresh[index]
+			if done < budget and ready[index] <= self.frame then
+				done += 1
+				self.freshSet[instance] = nil
+				if instance.Parent ~= nil then
+					inspect(instance)
+					stats.freshChecked += 1
+				end
+			else
+				table.insert(keptItems, instance)
+				table.insert(keptReady, ready[index])
+			end
+		end
+		self.fresh = keptItems
+		self.freshReady = keptReady
 	end
 	function LayoutGuardController:onTick(_dt)
 		local _root = self.target
@@ -400,72 +573,53 @@ do
 			if primary ~= nil then
 				self.target = primary
 				root = primary.instance
+				self:bindRoot(root)
 			end
 		end
 		if root == nil then
 			return nil
 		end
-		local rootSize = root.AbsoluteSize
-		local firstSize = self.lastWidth < 0
-		local dw = if firstSize then 0 else math.abs(rootSize.X - self.lastWidth)
-		local dh = if firstSize then 0 else math.abs(rootSize.Y - self.lastHeight)
-		-- Sub-pixel viewport jitter must not wipe the 3-write cap or rescan.
-		local resized = firstSize or dw >= 8 or dh >= 8
-		if resized then
-			self.lastWidth = rootSize.X
-			self.lastHeight = rootSize.Y
-			if not firstSize then
-				table.clear(tryCount)
-				table.clear(abandoned)
-			end
-			self.queue = {}
-			self.cursor = 1
+		self.frame += 1
+		self.sinceSweep += _dt
+		self:checkResize(root)
+		local budget = Plan.budget(self.burstLeft, #self.fresh)
+		if self.burstLeft > 0 then
+			self.burstLeft -= 1
 		end
-		self.elapsed += _dt
-		if self.elapsed < SCAN_INTERVAL_SECONDS and not resized then
-			return nil
-		end
-		self.elapsed = 0
+		self:drainFresh(budget.fresh)
+		-- The background sweep. A finished sweep runs the hitbox pass over what it
+		-- saw (geometry repairs have settled by then), then waits out the minimum
+		-- interval before walking the tree again.
 		if self.cursor > #self.queue then
+			if self.pendingOverlap then
+				checkOverlappingHitboxes(self.queue)
+				self.pendingOverlap = false
+			end
+			if self.sinceSweep < Plan.MIN_SWEEP_SECONDS then
+				return nil
+			end
+			self.sinceSweep = 0
 			local queue = {}
 			for _, descendant in root:GetDescendants() do
-				if descendant:IsA("TextLabel") or descendant:IsA("TextBox") or descendant:IsA("GuiButton") or descendant:IsA("CanvasGroup") or descendant:IsA("ScrollingFrame") then
+				if isTrackedClass(descendant) then
 					table.insert(queue, descendant)
 				end
 			end
 			self.queue = queue
 			self.cursor = 1
+			self.pendingOverlap = true
 			stats.scans += 1
-			checkOverlappingHitboxes(self.queue)
 		end
-		local budget = SLICE_BUDGET
-		while budget > 0 and self.cursor <= #self.queue do
+		local sweepBudget = budget.sweep
+		while sweepBudget > 0 and self.cursor <= #self.queue do
 			local inst = self.queue[self.cursor]
 			self.cursor += 1
-			budget -= 1
-			if inst.Parent == nil then
+			sweepBudget -= 1
+			if inst.Parent == nil or self.freshSet[inst] then
 				continue
 			end
-			local size = inst.AbsoluteSize
-			local pos = inst.AbsolutePosition
-			local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
-			if broken and inst:IsA("GuiObject") and inst.Visible and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
-				if allowWrite(inst) then
-					inst.Visible = false
-					stats.degenerateHidden += 1
-					ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
-				end
-				continue
-			end
-			if inst:IsA("ScrollingFrame") then
-				repairScrollingFrame(inst)
-			elseif inst:IsA("CanvasGroup") then
-				repairCanvasGroup(inst)
-			elseif inst:IsA("GuiButton") then
-				repairButton(inst)
-			elseif inst:IsA("TextLabel") or inst:IsA("TextBox") then
-				repairText(inst)
-			end
+			inspect(inst)
+			stats.sweepChecked += 1
 		end
 	end
 	do

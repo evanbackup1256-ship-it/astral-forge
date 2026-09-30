@@ -37,7 +37,6 @@ local SettingsView = lazyView("SettingsView", "SettingsView")
 local ContinuumView = lazyView("ContinuumView", "ContinuumView")
 local ConvergenceView = lazyView("ConvergenceView", "ConvergenceView")
 local AdminView = lazyView("AdminView", "AdminView")
-local RebirthPanel = lazyView("RebirthPanel", "RebirthPanel")
 local EchoForgeView = lazyView("EchoForgeView", "EchoForgeView")
 local CinematicWheelView = lazyView("WheelView", "WheelView")
 local ForgePathView = lazyView("ForgePathView", "ForgePathView")
@@ -48,6 +47,7 @@ local OverviewView = lazyView("OverviewView", "OverviewView")
 local WorldsView = lazyView("WorldsView", "WorldsView")
 local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
+local FoundryView = lazyView("FoundryView", "FoundryView")
 
 local function PageContentInner(props)
 	local _binding = props
@@ -56,6 +56,13 @@ local function PageContentInner(props)
 	local config = _binding.config
 	local dispatch = _binding.dispatch
 	local reducedMotion = _binding.reducedMotion
+	if config == nil then
+		return React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		})
+	end
 	repeat
 		if page == "Overview" then
 			local _attributes = {
@@ -284,6 +291,13 @@ local function PageContentInner(props)
 			return React.createElement(AdminView, {
 				state = state,
 				config = config,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+			})
+		end
+		if page == "Foundry" then
+			return React.createElement(FoundryView, {
+				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 			})

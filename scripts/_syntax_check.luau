@@ -20,12 +20,37 @@ local files = {
 	"src/Client/AstralForge/ShellFx.luau",
 	"src/Client/AstralForge/AppShellChrome.luau",
 	"src/Client/AstralForge/sanctuaryChrome.luau",
+	"src/Client/AstralForge/curtainTransition.luau",
+	"src/Client/AstralForge/audio.luau",
+	"src/Client/AstralForge/audioVoicing.luau",
+	"src/Client/AstralForge/virtualizedList.luau",
+	"src/Client/AstralForge/musicDirector.luau",
+	"src/Client/AstralForge/soundtrack.luau",
+	"src/Client/AstralForge/levelRoadmap.luau",
+	"src/Shared/AstralForge/Shared/ForgeLevels.luau",
 	"src/Client/AstralForge/sanctuaryPresence.luau",
+	"src/Client/AstralForge/sanctuaryControls.luau",
+	"src/Client/AstralForge/sanctuarySignals.luau",
+	"src/Client/AstralForge/sanctuaryWorld.luau",
+	"src/Client/AstralForge/sanctuaryHud.luau",
+	"src/Client/AstralForge/sanctuaryHudPlan.luau",
+	"src/Shared/AstralForge/Shared/SanctuaryLayout.luau",
+	"src/Shared/AstralForge/Shared/SanctuaryConfig.luau",
+	"src/Shared/AstralForge/Shared/Vfx.luau",
+	"src/Shared/AstralForge/Shared/AssetKit.luau",
+	"src/Shared/AstralForge/Shared/AssetManifest.luau",
+	"src/Client/AstralForge/soundSheet.luau",
+	"src/Client/AstralForge/motion.luau",
+	"src/Client/AstralForge/motionTokens.luau",
+	"src/Client/AstralForge/vfxMath.luau",
+	"src/Client/AstralForge/play/floorFx.luau",
+	"src/Client/AstralForge/sanctuaryAmbience.luau",
 	"src/Client/AstralForge/ui.luau",
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/clientStore.luau",
 	"src/Client/AstralForge/layoutGuard.luau",
 	"src/Client/AstralForge/layoutGeom.luau",
+	"src/Client/AstralForge/layoutGuardPlan.luau",
 	-- Hot pages (keep in sync with scripts/verify_playability.luau HOT_PAGES)
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/OverviewView.luau",
@@ -35,6 +60,7 @@ local files = {
 	"src/Client/AstralForge/pages/AdminView.luau",
 	"src/Client/AstralForge/pages/GuildView.luau",
 	"src/Client/AstralForge/pages/ForgePathView.luau",
+	"src/Client/AstralForge/pages/FoundryView.luau",
 	"src/Client/AstralForge/pages/EchoForgeView.luau",
 	"src/Client/AstralForge/pages/LabView.luau",
 	"src/Client/AstralForge/pages/AnomalyView.luau",
@@ -135,6 +161,13 @@ local files = {
 	"src/Server/AstralForge/Services/AnomalyService.luau",
 	"src/Server/AstralForge/Services/GuildService.luau",
 	"src/Server/AstralForge/Services/ForgeEchoService.luau",
+	"src/Server/AstralForge/Modules/OreMath.luau",
+	"src/Server/AstralForge/Modules/RiftBossMath.luau",
+	"src/Server/AstralForge/Services/SanctuaryBuilder.luau",
+	"src/Server/AstralForge/Services/OreService.luau",
+	"src/Server/AstralForge/Services/RiftBossService.luau",
+	"src/Server/AstralForge/Services/SanctuaryFeatures.luau",
+	"src/Server/AstralForge/Services/WorldService.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",
 	"src/Client/AstralForge/tests/taskFilter.test.luau",
@@ -145,7 +178,13 @@ local files = {
 local bad = 0
 for _, f in files do
 	local ok, err = pcall(function()
-		return luau.load(fs.readFile(f))
+		local source = fs.readFile(f)
+		-- Studio compiles at O0 when the debugger is attached, where every local
+		-- counts toward Luau's 200-local limit; the default O1 folds some away.
+		-- An O0-only overflow shows up as a blank client in Studio ("Out of local
+		-- registers"), so compile at O0 explicitly as well.
+		luau.compile(source, { optimizationLevel = 0, debugLevel = 1 })
+		return luau.load(source)
 	end)
 	if not ok then
 		bad += 1

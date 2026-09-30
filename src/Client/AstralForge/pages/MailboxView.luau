@@ -385,7 +385,6 @@ local function MailboxView(_param)
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(if compactChrome then 108 else 132, TapTarget),
 		reducedMotion = softMotion,
-		reducedMotion = reducedMotion,
 		highlight = not mailboxSoft,
 	}) else React.createElement(Badge, {
 		value = if unreadCount > 0 then `{unreadCount} NEW` else "CAUGHT UP",

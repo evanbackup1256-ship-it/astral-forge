@@ -13,10 +13,36 @@ function ProfileBagMath.EnsureStats(profile: any): { [string]: any }
 	return profile.Stats
 end
 
+-- Finite non-negative add used by ore / boss / forge-path grant paths so a
+-- single polluted leaf cannot push ProfileIntegrity.Seal into "non-finite".
+function ProfileBagMath.AddFinite(current: any, amount: any, ceiling: number?): number
+	local cap = if type(ceiling) == "number" and ceiling == ceiling then ceiling else 1e308
+	local base = tonumber(current)
+	if type(base) ~= "number" or base ~= base or base == math.huge or base == -math.huge then
+		base = 0
+	end
+	base = math.max(0, base)
+	local delta = tonumber(amount)
+	if type(delta) ~= "number" or delta ~= delta or delta == math.huge or delta == -math.huge then
+		delta = 0
+	end
+	local nextValue = base + delta
+	if nextValue ~= nextValue or nextValue == math.huge or nextValue > cap then
+		nextValue = cap
+	end
+	return nextValue
+end
+
 function ProfileBagMath.BumpStat(profile: any, key: string, amount: number?): number
 	local stats = ProfileBagMath.EnsureStats(profile)
-	local delta = math.max(0, math.floor(tonumber(amount) or 1))
-	stats[key] = math.max(0, math.floor(tonumber(stats[key]) or 0)) + delta
+	-- Cap the delta: AsNumber/MAX_DOUBLE feeds used to make 1e308+1e308 → inf,
+	-- which ProfileIntegrity.Seal rejects and blocked every cache sync / save.
+	local rawDelta = tonumber(amount)
+	if type(rawDelta) ~= "number" or rawDelta ~= rawDelta or rawDelta == math.huge or rawDelta == -math.huge then
+		rawDelta = if amount == nil then 1 else 0
+	end
+	local delta = math.max(0, math.floor(math.min(rawDelta, 1e15)))
+	stats[key] = math.floor(ProfileBagMath.AddFinite(stats[key], delta))
 	return stats[key]
 end
 
@@ -212,18 +238,28 @@ function ProfileBagMath.EnsureAnomaly(profile: any): any
 			profile.Anomaly.Channel = ""
 		end
 	end
-	profile.Anomaly.Charge = math.max(0, tonumber(profile.Anomaly.Charge) or 0)
-	profile.Anomaly.Fragments = math.max(0, math.floor(tonumber(profile.Anomaly.Fragments) or 0))
-	profile.Anomaly.Stabilizations = math.max(0, math.floor(tonumber(profile.Anomaly.Stabilizations) or 0))
-	profile.Anomaly.Cycle = math.floor(tonumber(profile.Anomaly.Cycle) or -1)
-	profile.Anomaly.DirectiveCycle = math.floor(tonumber(profile.Anomaly.DirectiveCycle) or -1)
-	profile.Anomaly.LastActionAt = math.max(0, tonumber(profile.Anomaly.LastActionAt) or 0)
-	profile.Anomaly.PulseWindowStartedAt = math.max(0, tonumber(profile.Anomaly.PulseWindowStartedAt) or 0)
-	profile.Anomaly.Combo = math.max(0, math.floor(tonumber(profile.Anomaly.Combo) or 0))
-	profile.Anomaly.BestCombo = math.max(0, math.floor(tonumber(profile.Anomaly.BestCombo) or 0))
-	profile.Anomaly.CoreXP = math.max(0, math.floor(tonumber(profile.Anomaly.CoreXP) or 0))
-	profile.Anomaly.CoreTier = math.max(0, math.floor(tonumber(profile.Anomaly.CoreTier) or 0))
-	profile.Anomaly.SurgeEndsAt = math.max(0, tonumber(profile.Anomaly.SurgeEndsAt) or 0)
+	-- Scrub NaN/±inf on ensure — tonumber(inf) stays inf and used to poison Seal.
+	profile.Anomaly.Charge = ProfileBagMath.AddFinite(profile.Anomaly.Charge, 0)
+	profile.Anomaly.Fragments = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Fragments, 0))
+	profile.Anomaly.Stabilizations = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Stabilizations, 0))
+	local cycle = tonumber(profile.Anomaly.Cycle)
+	profile.Anomaly.Cycle = if type(cycle) == "number" and cycle == cycle and cycle ~= math.huge and cycle ~= -math.huge
+		then math.floor(cycle)
+		else -1
+	local directiveCycle = tonumber(profile.Anomaly.DirectiveCycle)
+	profile.Anomaly.DirectiveCycle = if type(directiveCycle) == "number"
+		and directiveCycle == directiveCycle
+		and directiveCycle ~= math.huge
+		and directiveCycle ~= -math.huge
+		then math.floor(directiveCycle)
+		else -1
+	profile.Anomaly.LastActionAt = ProfileBagMath.AddFinite(profile.Anomaly.LastActionAt, 0)
+	profile.Anomaly.PulseWindowStartedAt = ProfileBagMath.AddFinite(profile.Anomaly.PulseWindowStartedAt, 0)
+	profile.Anomaly.Combo = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Combo, 0))
+	profile.Anomaly.BestCombo = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.BestCombo, 0))
+	profile.Anomaly.CoreXP = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.CoreXP, 0))
+	profile.Anomaly.CoreTier = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.CoreTier, 0))
+	profile.Anomaly.SurgeEndsAt = ProfileBagMath.AddFinite(profile.Anomaly.SurgeEndsAt, 0)
 	return profile.Anomaly
 end
 

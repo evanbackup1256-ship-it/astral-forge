@@ -89,6 +89,7 @@ serviceFactories["GameService"] = function()
 	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
 	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
 	local OfflineProjection = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OfflineProjection"))
+	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
@@ -106,6 +107,7 @@ serviceFactories["GameService"] = function()
 	local PlayerAnalytics = loadService("PlayerAnalytics")
 	local PlayerBadges = loadService("PlayerBadges")
 	local ForgeEchoService = loadService("ForgeEchoService")
+	local SanctuaryFeatures = loadService("SanctuaryFeatures")
 	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 
@@ -700,6 +702,8 @@ serviceFactories["GameService"] = function()
 		self._guilds = GuildService.new()
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
+		-- Ore outcrops, the Foundry, the Rift Warden and waystone travel.
+		self._sanctuaryFeatures = SanctuaryFeatures.new(self)
 		self._heartbeat = nil
 		self._playerAddedConnection = nil
 		self._playerRemovingConnection = nil
@@ -1094,6 +1098,7 @@ serviceFactories["GameService"] = function()
 			itemShop[index] = state
 		end
 		local featureUnlocks = ProgressionGate.FeatureStates(profile)
+		local levelState = ProgressionGate.LevelState(profile)
 		if runtime then
 			local newlyUnlocked = {}
 			if runtime.FeatureUnlocks then
@@ -1103,7 +1108,31 @@ serviceFactories["GameService"] = function()
 					end
 				end
 			end
-			if #newlyUnlocked > 0 then
+			-- Only an increase within this session counts as a level-up; the first
+			-- snapshot just records where the player already is.
+			local leveledUp = runtime.ForgeLevel ~= nil and levelState.Level > runtime.ForgeLevel
+			runtime.ForgeLevel = levelState.Level
+			if leveledUp then
+				-- One message for the whole moment: the level reached and what it
+				-- opened, rather than a level toast plus a separate unlock toast.
+				local names = {}
+				for _, entry in newlyUnlocked do
+					table.insert(names, entry.State.Name)
+				end
+				table.sort(names)
+				local nextStep = levelState.Next
+				local body = if #names > 0
+					then "New: " .. table.concat(names, ", ") .. ". Find them in the Forge menu."
+					elseif nextStep ~= nil then "Next goal: " .. nextStep.Text .. "."
+					else "You've reached the top of the forge."
+				self:_toastPlayer(player, string.format("Level %d · %s", levelState.Level, levelState.Tier), body, "Special")
+				self._effect:FireClient(player, {
+					Type = "LevelUp",
+					Level = levelState.Level,
+					Tier = levelState.Tier,
+					Names = names,
+				})
+			elseif #newlyUnlocked > 0 then
 				local names = {}
 				for _, entry in newlyUnlocked do
 					table.insert(names, entry.State.Name)
@@ -1216,6 +1245,8 @@ serviceFactories["GameService"] = function()
 			Trade = if self._trades then self._trades:StatePublic(profile, player, now) else TradeDesk.LockedPublic(),
 			Convergence = self._convergence:State(player, profile),
 			FeatureUnlocks = featureUnlocks,
+			Level = levelState,
+			Ore = self._sanctuaryFeatures:OreState(profile),
 			Story = storyState,
 			Mailbox = StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
 			Admin = self._admin and self._admin:State(player) or { Access = false },
@@ -2241,12 +2272,12 @@ serviceFactories["GameService"] = function()
 		local rewardText = ""
 		local already = false
 		local updated = self._data:Update(player, function(profile)
-			profile.Receipts = profile.Receipts or {}
-			if profile.Receipts[purchaseKey] then
+			local recorded, alreadyProcessed = ReceiptLedger.Record(profile.Receipts, purchaseKey, os.time())
+			profile.Receipts = recorded
+			if alreadyProcessed then
 				already = true
 				return
 			end
-			profile.Receipts[purchaseKey] = true
 			rewardText = self:_grantDevProduct(profile, productDef)
 		end)
 		if not updated then
@@ -2659,9 +2690,7 @@ serviceFactories["GameService"] = function()
 			HoverSounds = true,
 			NotificationSounds = true,
 			PageMusic = true,
-			MusicCrossfade = true,
 			SoundVariation = true,
-			PageStingers = true,
 			ReactorMotion = true,
 			OfflineRewardEffects = true,
 			EffectsIntensity = true,
@@ -3665,8 +3694,19 @@ serviceFactories["GameService"] = function()
 			local domainOpen = featureId == "Domain" and profile and profile.Domain and (tonumber(profile.Domain.Rank) or 0) >= 1
 			if profile and not domainOpen and not ProgressionGate.IsFeatureUnlocked(profile, featureId) then
 				local rule = GameConfig.Unlocks[featureId]
+				local name = rule and rule.Name or featureId
+				if rule and rule.Kind == "Level" then
+					local levelDef = GameConfig.Levels[rule.Target]
+					return responseError(string.format(
+						"%s opens at Level %d (%s). You're Level %d.",
+						name,
+						rule.Target,
+						levelDef and levelDef.Tier or "",
+						ProgressionGate.Level(profile)
+					))
+				end
 				return responseError(
-					(rule and rule.Name or featureId)
+					name
 						.. " unlocks when you "
 						.. string.lower(rule and rule.Requirement or "progress further")
 						.. "."
@@ -3889,6 +3929,10 @@ serviceFactories["GameService"] = function()
 		elseif action == Protocol.Actions.LeaveSanctuary then
 			self._world:LeaveSanctuary(player)
 			return responseSuccess(nil)
+		end
+		local sanctuaryResult = self._sanctuaryFeatures:Handle(player, action, payload)
+		if sanctuaryResult ~= nil then
+			return sanctuaryResult
 		end
 		return responseError("Unknown forge command.")
 	end
@@ -4498,6 +4542,7 @@ serviceFactories["GameService"] = function()
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		self._matter:Start()
+		self._sanctuaryFeatures:Start()
 		self._world:SetInteractionHandler(function(player, action, payload)
 			if action == "Collect" then
 				self:_collect(player)
@@ -4611,6 +4656,7 @@ serviceFactories["GameService"] = function()
 				success = true
 				local entered, spawnCFrame, cancelled = self._world:EnterSanctuary(player)
 				if entered then
+					self._sanctuaryFeatures:OnEntered(player)
 					result = responseSuccess(nil, if typeof(spawnCFrame) == "CFrame" then { Spawn = spawnCFrame } else nil)
 				elseif cancelled then
 					-- The player closed, or a newer enter took over. Not a failure toast.
@@ -4693,6 +4739,7 @@ serviceFactories["GameService"] = function()
 		end)
 		self._playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
 			self:_onPlayerRemoving(player)
+			self._sanctuaryFeatures:Forget(player)
 			self:_queueSocialBoostRefresh()
 		end)
 		for _, player in Players:GetPlayers() do
@@ -4780,6 +4827,7 @@ serviceFactories["GameService"] = function()
 
 	function GameService:Shutdown()
 		self._running = false
+		self._sanctuaryFeatures:Stop()
 		self._joining = {}
 		self._socialBoostDirty = false
 		self._socialBoostScheduled = false
@@ -4833,6 +4881,11 @@ serviceFactories["GuildService"] = require(script.Parent:WaitForChild("GuildServ
 
 
 serviceFactories["LabService"] = require(script.Parent:WaitForChild("LabService"))
+-- SanctuaryFeatures returns its class table rather than a factory, so wrap it:
+-- loadService calls every registry entry.
+serviceFactories["SanctuaryFeatures"] = function()
+	return require(script.Parent:WaitForChild("SanctuaryFeatures"))
+end
 
 
 

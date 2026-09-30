@@ -3,6 +3,8 @@
 
 local ENDLESS_LEVEL_CAP = 9_000_000_000_000_000
 local LiveOpsConfig = require(script.Parent:WaitForChild("LiveOpsConfig"))
+local ForgeLevels = require(script.Parent:WaitForChild("ForgeLevels"))
+local SanctuaryConfig = require(script.Parent:WaitForChild("SanctuaryConfig"))
 
 -- Mirrors buildForgePathSteps()/FORGE_PATH_STEPS in src_ts/client/types.ts exactly (same
 -- step count, cost/reward/effect formulas) so the client's display and the server's granted
@@ -4039,113 +4041,55 @@ local GameConfig = {
 		{ Minutes = 720, Reward = { CashMinutes = 420, Stardust = 200, Cores = 6, Boost = "DomainSurge", FreeSpins = 2, CommandXP = 400 } },
 	},
 
+	-- Display names for every gated feature. WHEN each one opens is not set here:
+	-- every feature opens at a Forge Level (ForgeLevels.luau), and the Kind /
+	-- Target / Requirement each gate reads are filled in from that ladder at the
+	-- bottom of this file. Admin is the only rule written by hand -- it is
+	-- owner access, not progression.
 	Unlocks = {
-		Overview = { Name = "Overview", Kind = "Always", Target = 0, Requirement = "Available now" },
-		Workshop = { Name = "Workshop", Kind = "Always", Target = 0, Requirement = "Available now" },
-		Research = {
-			Name = "Research",
-			Kind = "LifetimeCash",
-			Target = 100,
-			Requirement = "Earn 100 total flux",
-		},
-		Worlds = {
-			Name = "Worlds",
-			Kind = "LifetimeCash",
-			Target = 2_500,
-			Requirement = "Earn 2.5K total flux",
-		},
-		Missions = {
-			Name = "Missions",
-			Kind = "LifetimeCash",
-			Target = 1_000,
-			Requirement = "Earn 1K total flux",
-		},
-		Milestones = {
-			Name = "Milestones",
-			Kind = "MachineLevels",
-			Target = 15,
-			Requirement = "Own 15 machine levels",
-		},
-		Wheel = { Name = "Prize draw", Kind = "PlayTime", Target = 120, Requirement = "Play for 2 minutes" },
-		Rewards = {
-			Name = "Rewards",
-			Kind = "LifetimeCash",
-			Target = 500,
-			Requirement = "Earn 500 total flux",
-		},
-		Story = { Name = "Story", Kind = "MachineLevels", Target = 5, Requirement = "Own 5 machine levels" },
-		Mail = { Name = "Mailbox", Kind = "LifetimeCash", Target = 250, Requirement = "Finish your first shift" },
-		Lab = { Name = "Workshop lab", Kind = "Rebirths", Target = 2, Requirement = "Complete 2 rebirths" },
-		Anomaly = {
-			Name = "Reactor",
-			Kind = "Rebirths",
-			Target = 1,
-			Requirement = "Complete your first rebirth",
-		},
-		Crew = { Name = "Crew", Kind = "Rebirths", Target = 1, Requirement = "Complete your first rebirth" },
-		Chat = { Name = "Chat", Kind = "Always", Target = 0, Requirement = "Available now" },
-		Guild = {
-			Name = "Guild Hall",
-			Kind = "LifetimeCash",
-			Target = 5_000,
-			Requirement = "Earn 5K total flux",
-		},
-		Credits = { Name = "Credits", Kind = "PlayTime", Target = 600, Requirement = "Play for 10 minutes" },
-		Shop = { Name = "Shop", Kind = "LifetimeCash", Target = 2_500, Requirement = "Earn 2.5K total flux" },
-		Inventory = { Name = "Inventory", Kind = "Always", Target = 0, Requirement = "Available now" },
-		Trade = {
-			Name = "Trade Floor",
-			Kind = "Rebirths",
-			Target = 1,
-			Requirement = "Complete your first rebirth",
-		},
-		Settings = { Name = "Settings", Kind = "Always", Target = 0, Requirement = "Available now" },
-		StarGrid = {
-			Name = "Star Grid",
-			Kind = "LifetimeCash",
-			Target = 5_000,
-			Requirement = "Earn 5K total flux",
-		},
-		Command = {
-			Name = "Command",
-			Kind = "Rebirths",
-			Target = 1,
-			Requirement = "Complete your first rebirth",
-		},
-		Echoes = {
-			Name = "Forge Echoes",
-			Kind = "Rebirths",
-			Target = 3,
-			Requirement = "Complete 3 rebirths",
-		},
-		Convergence = {
-			Name = "Forge Convergence",
-			Kind = "Rebirths",
-			Target = 3,
-			Requirement = "Complete 3 rebirths",
-		},
-		Leaderboards = { Name = "Leaderboards", Kind = "Always", Target = 0, Requirement = "Available now" },
-		Guild = { Name = "Guild", Kind = "Always", Target = 0, Requirement = "Available now" },
-		Continuum = {
-			Name = "Continuum",
-			Kind = "Rebirths",
-			Target = 5,
-			Requirement = "Complete 5 rebirths",
-		},
-		Rebirth = {
-			Name = "Rebirth",
-			Kind = "LifetimeCash",
-			Target = 75_000,
-			Requirement = "Earn 75K total flux",
-		},
-		Domain = {
-			Name = "Domain Expansion",
-			Kind = "Domain",
-			Target = 1,
-			Requirement = "Expand your domain once",
-		},
+		Overview = { Name = "Overview" },
+		Workshop = { Name = "Workshop" },
+		Chat = { Name = "Chat" },
+		Settings = { Name = "Settings" },
+		Research = { Name = "Research" },
+		Mail = { Name = "Mailbox" },
+		Wheel = { Name = "Prize draw" },
+		Inventory = { Name = "Inventory" },
+		Foundry = { Name = "Foundry" },
+		Rewards = { Name = "Rewards" },
+		Boosts = { Name = "Boosts" },
+		Story = { Name = "Story" },
+		ForgePath = { Name = "Forge Path" },
+		Missions = { Name = "Missions" },
+		Leaderboards = { Name = "Leaderboards" },
+		Guild = { Name = "Guild" },
+		Worlds = { Name = "Worlds" },
+		Shop = { Name = "Shop" },
+		StarGrid = { Name = "Star Grid" },
+		Credits = { Name = "Credits" },
+		Milestones = { Name = "Milestones" },
+		Rebirth = { Name = "Rebirth" },
+		Anomaly = { Name = "Reactor" },
+		Command = { Name = "Command" },
+		Crew = { Name = "Crew" },
+		Trade = { Name = "Trade Floor" },
+		Lab = { Name = "Workshop lab" },
+		Echoes = { Name = "Forge Echoes" },
+		Convergence = { Name = "Forge Convergence" },
+		Continuum = { Name = "Continuum" },
+		Domain = { Name = "Domain Expansion" },
 		Admin = { Name = "Admin", Kind = "Always", Target = 0, Requirement = "Owner access only" },
 	},
+
+	-- The progression ladder itself: numbered levels in named tiers, one goal
+	-- each (see ForgeLevels.luau). The client draws the level roadmap from this.
+	Levels = ForgeLevels.ladder(),
+	LevelTiers = ForgeLevels.tiers(),
+	LevelTierBlurbs = ForgeLevels.tierBlurbs(),
+
+	-- The sanctuary's ore outcrops and the Rift Warden (see SanctuaryConfig.luau).
+	Ore = SanctuaryConfig.Ore,
+	RiftBoss = SanctuaryConfig.RiftBoss,
 
 	LiveOps = {
 		ManifestVersion = LiveOpsConfig.ManifestVersion,
@@ -7290,6 +7234,20 @@ if generatedOk then
 	GameConfig.GridUpgrades = Generated.GridUpgrades
 	GameConfig.Operations.SeasonTiers = Generated.SeasonTiers
 	GameConfig.Anomalies.Milestones = Generated.Milestones
+end
+
+-- Forge Levels: every feature opens at a level of the one progression ladder.
+-- Each rule's Kind / Target / Requirement comes from ForgeLevels, so the level
+-- a feature is listed under on the roadmap is always the level that opens it.
+for featureId, level in ForgeLevels.unlockLevels() do
+	local rule = GameConfig.Unlocks[featureId]
+	if rule == nil then
+		rule = { Name = featureId }
+		GameConfig.Unlocks[featureId] = rule
+	end
+	rule.Kind = "Level"
+	rule.Target = level
+	rule.Requirement = ForgeLevels.requirementText(level)
 end
 
 return GameConfig

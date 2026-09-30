@@ -8,6 +8,9 @@ local EntranceMotionSuppressedContext = _motion.EntranceMotionSuppressedContext
 local useFlash = _motion.useFlash
 local useTokenEntrance = _motion.useTokenEntrance
 local useViewport = _motion.useViewport
+local ExitPresenceContext = _motion.ExitPresenceContext
+local useExitPresence = _motion.useExitPresence
+local composePresence = _motion.composePresence
 local _ui = require(script.Parent.ui)
 local Button = _ui.Button
 local resolvePressMotion = _ui.resolvePressMotion
@@ -32,6 +35,13 @@ local compactNumber = _format.compactNumber
 local AppHelpers = require(script.Parent.appNav).AppHelpers
 local LayoutSectionPlan = require(script.Parent.layoutSectionPlan)
 local VaultCollectEligibility = require(script.Parent.vaultCollectEligibility)
+local Audio = require(script.Parent.audio).Audio
+local _levelRoadmap = require(script.Parent.levelRoadmap)
+local tierAccent = _levelRoadmap.tierAccent
+local featureNames = _levelRoadmap.featureNames
+local readLevelState = _levelRoadmap.readLevelState
+local openRoadmap = _levelRoadmap.openRoadmap
+local progressFraction = _levelRoadmap.progressFraction
 
 local function VaultPill(_param)
 	local state = _param.state
@@ -141,67 +151,138 @@ local function VaultPill(_param)
 		CornerRadius = UDim.new(1, 0),
 	})))))
 end
+-- The level bar: the player's Forge Level, the one goal that levels them up,
+-- and what that level opens -- one calm line under every page title. Type
+-- carries the hierarchy (level and goal in cream, the rest muted); the tier
+-- colour only fills the progress hairline along the bottom. Tapping anywhere
+-- on it opens the full level roadmap.
 local function NextUnlockStrip(_param)
 	local state = _param.state
 	local reducedMotion = _param.reducedMotion
+	local onOpen = _param.onOpen
 	local antilag = useAntilag()
 	-- Canonical softMotion antilag gate — NextUnlockStrip motion drops on soft tiers.
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local goal = AppHelpers:nextUnlock(state)
-	local fill = if goal ~= nil then meterFill(goal.Progress, goal.Target) else 1
-	local accent = if goal ~= nil then Palette.cyan else Palette.mint
-	return React.createElement("frame", {
+	local viewport = useViewport()
+	local narrow = chromeFor(viewport).stack or viewport.width < 720
+	local level, tier, nextStep = readLevelState(state)
+	local accent = tierAccent(tier)
+	local fill = if nextStep ~= nil then progressFraction(nextStep) else 1
+	local hovered, setHovered = React.useState(false)
+	local levelW = if narrow then 58 else 64
+	local tierW = if narrow then 0 else 92
+	local goalLeft = 14 + levelW + (if narrow then 8 else tierW + 14)
+	local progressW = if narrow then 72 else 88
+	local nextNames = if nextStep ~= nil then featureNames(state, nextStep.Unlocks) else {}
+	local nextText = if nextStep == nil then ""
+		elseif #nextNames == 0 then `Next: Level {nextStep.Level}`
+		elseif #nextNames == 1 then `Opens {nextNames[1]}`
+		else `Opens {nextNames[1]} +{#nextNames - 1}`
+	local nextW = if narrow or nextText == "" then 0 else 150
+	return React.createElement("imagebutton", {
 		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundColor3 = Palette.night,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Active = onOpen ~= nil,
+		Selectable = onOpen ~= nil,
 		ClipsDescendants = true,
-	}, React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.7),
-		Rotation = 90,
+		Event = {
+			Activated = function()
+				if onOpen ~= nil then
+					Audio:play("open")
+					onOpen()
+				end
+			end,
+			MouseEnter = function()
+				setHovered(true)
+			end,
+			MouseLeave = function()
+				setHovered(false)
+			end,
+		},
+	}, React.createElement("frame", {
+		-- A barely-there lift on hover says "this opens something".
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = if hovered then 0.96 else 1,
+		BorderSizePixel = 0,
 	}), React.createElement(Text, {
-		value = if goal ~= nil then "NEXT UNLOCK" else "FORGE OPEN",
-		size = 9,
-		color = accent,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(12, 0),
-		sizeConstraint = UDim2.new(0, 96, 1, 0),
-	}), React.createElement(Text, {
-		value = if goal ~= nil then goal.Name else "Every feature unlocked",
+		value = `Level {level}`,
 		size = 13,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 11,
-		position = UDim2.fromOffset(112, 0),
-		sizeConstraint = UDim2.new(0.42, -112, 1, 0),
-	}), React.createElement(Text, {
-		value = if goal ~= nil then `{goal.Requirement} · {compactNumber(goal.Progress)}/{compactNumber(goal.Target)}` else "Keep pushing worlds and ranks.",
-		size = 11,
-		color = Palette.creamSoft,
-		fit = true,
 		minSize = 10,
-		position = UDim2.new(0.42, 8, 0, 0),
-		sizeConstraint = UDim2.new(0.58, -20, 1, 0),
+		position = UDim2.fromOffset(14, 0),
+		sizeConstraint = UDim2.new(0, levelW, 1, -3),
+	}), not narrow and React.createElement(Text, {
+		value = tier,
+		size = 12,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(14 + levelW + 4, 0),
+		sizeConstraint = UDim2.new(0, tierW, 1, -3),
+	}), not narrow and React.createElement("frame", {
+		-- Hairline between who you are and what's next.
+		Size = UDim2.fromOffset(1, 12),
+		Position = UDim2.new(0, goalLeft - 8, 0.5, -7),
+		BackgroundColor3 = Palette.lineSoft,
+		BorderSizePixel = 0,
+	}), React.createElement(Text, {
+		value = if nextStep ~= nil then nextStep.Text else "Every level reached",
+		size = 12,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(goalLeft, 0),
+		sizeConstraint = UDim2.new(1, -(goalLeft + progressW + nextW + 38), 1, -3),
+	}), nextStep ~= nil and React.createElement(Text, {
+		value = `{compactNumber(nextStep.Progress)} / {compactNumber(nextStep.Target)}`,
+		size = 12,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 9,
+		position = UDim2.new(1, -(progressW + nextW + 30), 0, 0),
+		sizeConstraint = UDim2.new(0, progressW, 1, -3),
+	}), nextW > 0 and React.createElement(Text, {
+		value = nextText,
+		size = 11,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 9,
+		position = UDim2.new(1, -(nextW + 26), 0, 0),
+		sizeConstraint = UDim2.new(0, nextW, 1, -3),
+	}), onOpen ~= nil and React.createElement(Text, {
+		value = "›",
+		size = 16,
+		color = if hovered then Palette.cream else Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Center,
+		fit = false,
+		position = UDim2.new(1, -22, 0, -1),
+		sizeConstraint = UDim2.fromOffset(14, 30),
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, -24, 0, 4),
-		Position = UDim2.new(0, 12, 1, -5),
+		-- Progress to the next level: a hairline across the whole bar.
+		Size = UDim2.new(1, 0, 0, 2),
+		Position = UDim2.new(0, 0, 1, -2),
 		BackgroundColor3 = Palette.line,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("frame", {
-		Size = UDim2.new(math.clamp(fill, 0.03, 1), 0, 1, 0),
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1),
 		BackgroundColor3 = accent,
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(accent, 0.28), accent),
-	}))))
+	})))
 end
+
 local function Workspace(_param)
 	local page = _param.page
 	local state = _param.state
@@ -227,6 +308,12 @@ local function Workspace(_param)
 	local accent = AppHelpers:pageAccent(page)
 	local entry = AppHelpers:pageEntry(page)
 	local enter = useTokenEntrance(page, reducedMotion, 0.2)
+	-- The whole page arrives as one piece: its text and buttons follow the
+	-- page's entrance (cards inside layer their own on top).
+	local shellPresence = useExitPresence()
+	local pagePresence = React.useMemo(function()
+		return composePresence(shellPresence, enter)
+	end, { shellPresence, enter })
 	local entranceLock, setEntranceLock = React.useState({
 		page = page,
 		suppress = false,
@@ -452,6 +539,7 @@ local function Workspace(_param)
 	}, React.createElement(NextUnlockStrip, {
 		state = state,
 		reducedMotion = reducedMotion,
+		onOpen = openRoadmap,
 	})), React.createElement("frame", {
 		Size = UDim2.new(1, -inset * 2, 1, -(headerHeight + unlockH + inset * 2)),
 		Position = contentPosition,
@@ -462,7 +550,9 @@ local function Workspace(_param)
 		ClipsDescendants = true,
 	}, React.createElement(EntranceMotionSuppressedContext.Provider, {
 		value = suppressEntrance,
-	}, children), React.createElement(ScrollEdgeFade, {
+	}, React.createElement(ExitPresenceContext.Provider, {
+		value = pagePresence,
+	}, children)), React.createElement(ScrollEdgeFade, {
 		color = Palette.ink,
 		height = if chrome.stack then 18 else 16,
 		zIndex = 200,

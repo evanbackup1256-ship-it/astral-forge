@@ -118,10 +118,10 @@ return function()
 		local persistKeys = { Cash = true, Vault = true, RunCash = true, LifetimeCash = true }
 		for _, key in ROOT_CURRENCIES do
 			if persistKeys[key] then
-				local persisted = Economy.Persist(profile[key])
-				if type(persisted) == "number" and persisted < 0 then
-					persisted = 0
-				end
+				-- Economy.Max persists and floors at zero across both the number and
+				-- string-encoded Omega domains; the old numeric-only guard let a
+				-- negative Omega-scale balance ("-5.0e50") through unrepaired.
+				local persisted = Economy.Max(profile[key], 0)
 				if persisted ~= profile[key] then
 					profile[key] = persisted
 					repairs += 1
@@ -288,10 +288,7 @@ return function()
 		end
 		if type(profile.Stats) == "table" then
 			if profile.Stats.Collected ~= nil then
-				local persisted = Economy.Persist(profile.Stats.Collected)
-				if type(persisted) == "number" and persisted < 0 then
-					persisted = 0
-				end
+				local persisted = Economy.Max(profile.Stats.Collected, 0)
 				if persisted ~= profile.Stats.Collected then
 					profile.Stats.Collected = persisted
 					repairs += 1

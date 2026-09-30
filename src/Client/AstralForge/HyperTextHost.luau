@@ -252,7 +252,7 @@ local function loadHyperTextModule()
 	local _condition = not ok or result == nil
 	if not _condition then
 		local _new = result.new
-		_condition = type(_new) == "function" ~= true
+		_condition = (type(_new) == "function") ~= true
 	end
 	if _condition then
 		ClientLog:warn("hypertext", `couldn't load HyperText: {tostring(result)}`)

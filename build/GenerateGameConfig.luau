@@ -103,6 +103,23 @@ function env.require(path: any)
 		end
 		return chunk()
 	end
+	-- Pure shared modules GameConfig requires (no Roblox APIs) load as-is.
+	local pureName = if type(path) == "string" then (path:match("(ForgeLevels)$") or path:match("(SanctuaryConfig)$")) else nil
+	if pureName then
+		local pureSource = fs.readFile("src/Shared/AstralForge/Shared/" .. pureName .. ".luau")
+		local okCompile, compiledOrErr = pcall(luau.compile, pureSource)
+		if not okCompile then
+			error("Failed to compile " .. pureName .. ": " .. tostring(compiledOrErr))
+		end
+		local chunk, loadErr = luau.load(compiledOrErr, {
+			debugName = pureName,
+			environment = env,
+		})
+		if not chunk then
+			error("Failed to load " .. pureName .. ": " .. tostring(loadErr))
+		end
+		return chunk()
+	end
 	error("Unsupported require: " .. tostring(path))
 end
 
@@ -143,7 +160,19 @@ do
 	assert(economy.StartingCash == 250 and economy.TutorialReward == 250, "starting cash drifted")
 	assert(economy.PrestigeRequirement == 750_000 and economy.BaseCapacity == 350, "prestige or capacity drifted")
 	assert(economy.BaseOfflineHours == 3 and economy.BaseOfflineEfficiency == 0.5, "offline economy drifted")
-	assert(GameConfig.Unlocks.Research.Target == 100 and GameConfig.Unlocks.Rebirth.Target == 75_000, "unlock targets drifted")
+	-- Features open at Forge Levels, so pin the pacing through the ladder:
+	-- Research still opens once 100 flux is earned, Rebirth once 75K is.
+	local function levelGoal(featureId: string)
+		local rule = GameConfig.Unlocks[featureId]
+		local level = if rule and rule.Kind == "Level" then GameConfig.Levels[rule.Target] else nil
+		return level and level.Goal
+	end
+	local researchGoal, rebirthGoal = levelGoal("Research"), levelGoal("Rebirth")
+	assert(
+		researchGoal and researchGoal.Kind == "LifetimeCash" and researchGoal.Target == 100
+			and rebirthGoal and rebirthGoal.Kind == "LifetimeCash" and rebirthGoal.Target == 75_000,
+		"unlock pacing drifted"
+	)
 
 	local previousCost = 0
 	local previousProduction = 0

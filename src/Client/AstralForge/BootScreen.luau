@@ -3,10 +3,13 @@ local useAntilag = require(script.Parent.antilag).useAntilag
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.audio).Audio
-local LoadingDots = require(script.Parent.LoadingDots).LoadingDots
+local MaterialBootSpinner = require(script.Parent.MaterialBootSpinner).MaterialBootSpinner
+local BootStageText = require(script.Parent.BootStageText).BootStageText
 local _theme = require(script.Parent.theme)
 local Palette = _theme.Palette
 local surfaceGradient = _theme.surfaceGradient
+-- Pure curves only (the boot screen loads before the React motion stack).
+local MotionTokens = require(script.Parent.motionTokens)
 local BOOT_MODULE_TIMEOUT = 9
 local MIN_BOOT_SECONDS = 3.2
 local BOOT_MOTION = {
@@ -105,6 +108,11 @@ local function BootScreen(_param)
 	local spinFade, setSpinFade = React.useBinding(0)
 	local veilFade, setVeilFade = React.useBinding(0)
 	local progressPulse, setProgressPulse = React.useBinding(0)
+	-- The bar glides toward the real progress instead of jumping between
+	-- loading stages.
+	local shownProgress, setShownProgress = React.useBinding(0)
+	local shownRef = React.useRef(0)
+	local targetProgress = React.useRef(0)
 	React.useEffect(function()
 		local alive = true
 		Audio:setScene("boot")
@@ -177,6 +185,8 @@ local function BootScreen(_param)
 	end, { exiting, ready })
 	React.useEffect(function()
 		local connection = RunService.RenderStepped:Connect(function(dt)
+			shownRef.current += (targetProgress.current - shownRef.current) * (1 - math.exp(-dt * 7))
+			setShownProgress(shownRef.current)
 			if not exiting then
 				local rate = if softMotion then 0.55 else 1
 				spinClock.current += dt * rate
@@ -190,8 +200,9 @@ local function BootScreen(_param)
 			local elapsed = exitClock.current
 			local spinSeconds = if softMotion then EXIT_SPIN_SECONDS * 0.55 else EXIT_SPIN_SECONDS
 			local veilSeconds = if softMotion then EXIT_VEIL_SECONDS * 0.55 else EXIT_VEIL_SECONDS
-			setSpinFade(clamp01(elapsed / spinSeconds))
-			setVeilFade(clamp01((elapsed - spinSeconds) / veilSeconds))
+			-- The spinner leaves by accelerating away; the veil lifts on a smooth S.
+			setSpinFade(MotionTokens.EASE.accelerate(clamp01(elapsed / spinSeconds)))
+			setVeilFade(MotionTokens.EASE.smoothInOut(clamp01((elapsed - spinSeconds) / veilSeconds)))
 		end)
 		return function()
 			return connection:Disconnect()
@@ -220,6 +231,7 @@ local function BootScreen(_param)
 	local status = statusFor(marks, ready, stalled, assetsLoaded, assetsTotal)
 	local progress = if ready then 1 else progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 	local progressPct = math.floor(progress * 100 + 0.5)
+	targetProgress.current = progress
 	local spinHide = spinFade:map(function(amount)
 		return amount
 	end)
@@ -278,9 +290,13 @@ local function BootScreen(_param)
 	}, React.createElement("uigradient", {
 		Color = surfaceGradient(Palette.void, 0.9),
 		Rotation = 112,
-	})), React.createElement("frame", {
+	})),
+	-- BUGFIX: hairline / spinner / title / stage / bar must be siblings of the root veil,
+	-- not children of the 160x1 hairline (Scale positions vs 1px parent = layout bomb).
+	-- Coordinate with audio/shimmer agents: keep MaterialBootSpinner + BootStageText requires.
+	React.createElement("frame", {
 		Size = UDim2.fromOffset(160, 1),
-		Position = UDim2.new(0.5, 0, 0.44, -18),
+		Position = UDim2.new(0.5, 0, 0.42, -48),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.cyan,
 		BackgroundTransparency = spinHide:map(function(amount)
@@ -292,10 +308,14 @@ local function BootScreen(_param)
 			return amount < 0.98
 		end),
 	}, React.createElement("uigradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(1, 1) }),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0.2),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
 	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(112, 26),
-		Position = UDim2.new(0.5, 0, 0.44, 0),
+		Size = UDim2.fromOffset(78, 78),
+		Position = UDim2.new(0.5, 0, 0.42, -8),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -303,15 +323,16 @@ local function BootScreen(_param)
 		Visible = spinFade:map(function(amount)
 			return amount < 0.98
 		end),
-	}, React.createElement(LoadingDots, {
+	}, React.createElement(MaterialBootSpinner, {
 		clock = clock,
+		progress = shownProgress,
 		leaving = spinHide,
 		ready = ready,
 		reducedMotion = reducedMotion,
-		compact = false,
+		size = 72,
 	})), React.createElement("textlabel", {
 		Size = UDim2.new(0, 320, 0, 24),
-		Position = UDim2.new(0.5, 0, 0.44, 28),
+		Position = UDim2.new(0.5, 0, 0.42, 48),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -327,31 +348,32 @@ local function BootScreen(_param)
 		Visible = spinFade:map(function(amount)
 			return amount < 0.98
 		end),
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(0, 320, 0, 18),
-		Position = UDim2.new(0.5, 0, 0.44, 52),
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(340, 20),
+		Position = UDim2.new(0.5, 0, 0.42, 74),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = status,
-		TextColor3 = Palette.muted,
-		TextTransparency = spinHide:map(function(amount)
-			return 0.12 + amount
-		end),
-		TextSize = 12,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		TextXAlignment = Enum.TextXAlignment.Center,
 		ZIndex = 4,
 		Visible = spinFade:map(function(amount)
 			return amount < 0.98
 		end),
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(220, 4),
-		Position = UDim2.new(0.5, 0, 0.44, 78),
+	}, React.createElement(BootStageText, {
+		text = status,
+		clock = clock,
+		leaving = spinHide,
+		reducedMotion = reducedMotion,
+		textSize = 12,
+		color = Palette.muted,
+		width = 340,
+		height = 20,
+	})), React.createElement("frame", {
+		Size = UDim2.fromOffset(200, 3),
+		Position = UDim2.new(0.5, 0, 0.42, 100),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Color3.fromRGB(36, 40, 48),
 		BackgroundTransparency = spinHide:map(function(amount)
-			return 0.2 + amount
+			return 0.28 + amount
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 4,
@@ -362,14 +384,21 @@ local function BootScreen(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("frame", {
-		Size = UDim2.new(math.clamp(progress, 0.04, 1), 0, 1, 0),
+		Size = shownProgress:map(function(shown)
+			return UDim2.new(math.clamp(shown, 0.04, 1), 0, 1, 0)
+		end),
 		BackgroundColor3 = Palette.mint,
 		BackgroundTransparency = React.joinBindings({ spinHide, progressPulse }):map(function(values)
-			return 0.12 + values[1] + (1 - progress) * 0.15 * values[2]
+			return 0.18 + values[1] + (1 - progress) * 0.12 * values[2]
 		end),
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.cyan),
+			ColorSequenceKeypoint.new(1, Palette.mint),
+		}),
 	}))), React.createElement("textlabel", {
 		Size = UDim2.new(0, 420, 0, 16),
 		Position = UDim2.new(0.5, 0, 1, -52),

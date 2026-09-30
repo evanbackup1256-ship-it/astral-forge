@@ -93,6 +93,9 @@ local GRANT_ACTIONS = {
 	["SetSetting"] = true,
 	["SyncShop"] = true,
 	["ToggleItemLock"] = true,
+	["BuyOreUpgrade"] = true,
+	["StrikeRiftBoss"] = true,
+	["TravelWaystone"] = true,
 }
 local gen = 0
 local nonce = ""

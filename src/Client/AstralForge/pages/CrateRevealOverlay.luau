@@ -259,7 +259,10 @@ local function CrateRevealExperience(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
 	reducedMotion = softMotion
-	local reelFrameRate = 60
+	-- Every display frame: capping the reel at 60 made it judder on 120/144 Hz
+	-- screens next to the rest of the interface. The cap only stops sub-frame
+	-- double updates now.
+	local reelFrameRate = 240
 	local rollIndex, setRollIndex = React.useState(0)
 	local phase, setPhase = React.useState("enter")
 	local offset, setOffset = React.useBinding(START_OFFSET)

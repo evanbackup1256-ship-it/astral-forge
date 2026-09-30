@@ -1026,6 +1026,7 @@ end
 local function WorkshopView(_param)
 	local state = _param.state
 	local config = _param.config
+	local machines = if config ~= nil and type(config.Machines) == "table" then config.Machines else {}
 	local dispatch = _param.dispatch
 	local buyAmount = _param.buyAmount
 	local setBuyAmount = _param.setBuyAmount
@@ -1038,14 +1039,14 @@ local function WorkshopView(_param)
 	end
 	local firstMachine = stellarLevel < 1
 	local chainLine = nil
-	if not firstMachine and config ~= nil and type(config.Machines) == "table" then
+	if not firstMachine then
 		local names = {}
-		for _, machine in config.Machines do
+		for _, machine in machines do
 			if type(machine) == "table" and type(machine.Id) == "string" then
 				names[machine.Id] = if type(machine.Name) == "string" then machine.Name else machine.Id
 			end
 		end
-		for _, machine in config.Machines do
+		for _, machine in machines do
 			if type(machine) ~= "table" or type(machine.PreviousId) ~= "string" then
 				continue
 			end
@@ -1102,8 +1103,8 @@ local function WorkshopView(_param)
 		end
 	end
 	local entries = React.useMemo(function()
-		return AppHelpers:buildUpgradeEntries(config.Machines, state.Machines, state)
-	end, { config.Machines, state.Machines, state.Zone, state.Rebirths })
+		return AppHelpers:buildUpgradeEntries(machines, state.Machines, state)
+	end, { machines, state.Machines, state.Zone, state.Rebirths })
 	local featureHeight = if chromeFor(viewport).landscape then 128 elseif chromeFor(viewport).stack then 188 else 168
 	return React.createElement(UpgradeBoard, {
 		title = if firstMachine then "Buy a machine" else "More hands. Less waiting.",
@@ -1139,7 +1140,7 @@ local function WorkshopView(_param)
 		featurePanelHeight = featureHeight,
 		featurePanel = React.createElement(AutoForgePanel, {
 			state = state,
-			machines = config.Machines,
+			machines = machines,
 			dispatch = dispatch,
 			reducedMotion = reducedMotion,
 			height = featureHeight,

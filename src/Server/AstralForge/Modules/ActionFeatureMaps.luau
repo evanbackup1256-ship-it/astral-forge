@@ -115,6 +115,7 @@ ActionFeatureMaps.FEATURE = {
 	DeleteMail = "Mail",
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
+	BuyOreUpgrade = "Foundry",
 }
 
 function ActionFeatureMaps.AnomalyCharge(action: string): number?

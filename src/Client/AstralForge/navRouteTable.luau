@@ -47,6 +47,7 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "Credits", label = "Credits", eyebrow = "About", icon = "Credits", accentKey = "violet" },
 	{ id = "Admin", label = "Admin", eyebrow = "Owner", icon = "Admin", accentKey = "coral" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
+	{ id = "Foundry", label = "Foundry", eyebrow = "Ore", icon = "Artifact", accentKey = "mango" },
 }
 
 -- PageRouter PageContentInner dispatch keys (Credits / Chat / Admin use special chrome).
@@ -79,6 +80,7 @@ local PAGE_ROUTES: { string } = {
 	"Settings",
 	"Admin",
 	"ForgePath",
+	"Foundry",
 }
 
 local function indexById(routes: { RouteDef }): { [string]: RouteDef }

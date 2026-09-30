@@ -165,7 +165,9 @@ local function ButtonNoticeBadge(_param)
 		Active = false,
 		ClipsDescendants = false,
 	}, React.createElement("frame", {
-		Key = "wash",
+		-- Not `Key`: React only reserves lowercase `key`, so a capital Key was
+		-- assigned as a Frame property and threw when the notice mounted.
+		Name = "NoticeWash",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = lighten(accent, 0.42),
 		BackgroundTransparency = notice.flash:map(function(amount)
@@ -180,7 +182,7 @@ local function ButtonNoticeBadge(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	})), React.createElement("frame", {
-		Key = "pill",
+		Name = "NoticePill",
 		Size = UDim2.fromOffset(pillWidth, pillHeight),
 		Position = pillPosition,
 		AnchorPoint = anchor,

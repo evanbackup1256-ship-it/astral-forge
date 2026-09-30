@@ -322,6 +322,11 @@ local function ChoiceCard(_param)
 	local index = _param.index
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	-- Canonical softMotion antilag gate — EchoChoiceCard. Its KEEP button read
+	-- `softMotion` without ever declaring it, so it always got nil.
+	local antilag = useAntilag()
+	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	reducedMotion = softMotion
 	local tier = quality(item)
 	local reveal = useStagger(index, reducedMotion, 0.06, 0.3)
 	return React.createElement(Panel, {

@@ -707,9 +707,9 @@ return function()
 			if earned >= softCap then
 				value = math.max(0, math.floor(value * (tonumber(config.SoftCapScale) or 0.35)))
 			end
-			profile.ForgePath.XPEarnedToday = earned + value
+			profile.ForgePath.XPEarnedToday = ProfileBagMath.AddFinite(earned, value)
 		end
-		profile.ForgePath.XP += value
+		profile.ForgePath.XP = ProfileBagMath.AddFinite(profile.ForgePath.XP, value)
 	end
 	ProgressionService.AwardForgePathXP = awardForgePathXP
 

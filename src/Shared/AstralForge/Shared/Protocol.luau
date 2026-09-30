@@ -117,6 +117,9 @@ local Protocol = {
 		TradeViewAway = "TradeViewAway",
 		EnterSanctuary = "EnterSanctuary",
 		LeaveSanctuary = "LeaveSanctuary",
+		BuyOreUpgrade = "BuyOreUpgrade",
+		StrikeRiftBoss = "StrikeRiftBoss",
+		TravelWaystone = "TravelWaystone",
 	},
 }
 

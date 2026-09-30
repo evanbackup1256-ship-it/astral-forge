@@ -77,6 +77,7 @@ local function CrashNotice(props)
 		Position = UDim2.new(0.5, 0, 0.5, 28),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = if pressed then Palette.panelSoft else Palette.cyan,
+		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "TRY AGAIN",
 		TextColor3 = Palette.ink,
