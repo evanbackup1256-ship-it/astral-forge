@@ -764,8 +764,8 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			local angle = self._random:NextNumber() * math.pi * 2
 			second = Vector3.new(first.X + math.cos(angle) * 16, first.Y, first.Z + math.sin(angle) * 16)
 		end
-		self:_slamAt(first, center.Y, now + telegraph)
-		self:_slamAt(second, center.Y, now + telegraph + 0.45)
+		self:_slamAt(first, center.Y, now + telegraph, nil, params.Element)
+		self:_slamAt(second, center.Y, now + telegraph + 0.45, nil, params.Element)
 	elseif attack.Kind == "Meteors" then
 		-- Fire from the sky across the whole arena: every other one lands on a fighter, the rest
 		-- anywhere, so standing still in a gap is not safe either.
@@ -782,7 +782,36 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			end
 			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
 		end
-	elseif attack.Kind == "Summon" then
+	elseif attack.Kind == "Cage" then
+		-- A ring of blows closes round a fighter; the ground inside the ring is safe, so the
+		-- answer is to stay put (or slip out between two of them before they land).
+		local aim = targets[1] or center
+		for spoke = 1, params.Count do
+			local angle = (spoke - 1) / params.Count * math.pi * 2 + self._random:NextNumber() * 0.4
+			local point = Vector3.new(aim.X + math.cos(angle) * params.Distance, aim.Y, aim.Z + math.sin(angle) * params.Distance)
+			self:_slamAt(point, center.Y, now + telegraph, config.SlamRadius * params.RadiusScale, params.Element)
+		end
+	elseif attack.Kind == "Fissure" then
+		-- A line of blows races out from the boss toward a fighter.
+		local aim = targets[1] or center
+		local direction = Vector3.new(aim.X - center.X, 0, aim.Z - center.Z)
+		direction = if direction.Magnitude > 1 then direction.Unit else Vector3.xAxis
+		for step = 1, params.Count do
+			local point = center + direction * (params.FirstDistance + (step - 1) * params.Gap)
+			self:_slamAt(point, center.Y, now + telegraph + (step - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
+		end
+	elseif attack.Kind == "Starburst" then
+		-- Blows bloom outward in rings of points: a few near the boss, then more further out.
+		local offset = self._random:NextNumber() * math.pi * 2
+		for ring = 1, params.Rings do
+			local points = params.Points * ring
+			for point = 1, points do
+				local angle = offset + (point - 1) / points * math.pi * 2 + ring * 0.25
+				local distance = params.FirstDistance + (ring - 1) * params.Gap
+				local spot = Vector3.new(center.X + math.cos(angle) * distance, center.Y, center.Z + math.sin(angle) * distance)
+				self:_slamAt(spot, center.Y, now + telegraph + (ring - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
+			end
+		end	elseif attack.Kind == "Summon" then
 		-- Wisps rise from the floor; cut them down before their fuse runs out.
 		table.insert(self._events, { Kind = "Summon", At = now + telegraph, Params = params, Center = center })
 		self:_broadcast({ Type = "RiftBossSummonCall", BossKind = config.Kind, Center = center, Element = params.Element, At = now + telegraph }, true)	elseif attack.Kind == "Rings" then
@@ -1796,9 +1825,9 @@ function Builder.BuildArena(parent: Instance, island: string?)
 	hub.Position = Vector3.new(0, 24, 0)
 	hub.Parent = seal
 	-- Pillars ringing the arena, each topped with light of the boss's colour.
-	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 else 8
-	local pillarColor = if kind == "Choir" then Color3.fromRGB(96, 150, 190) elseif kind == "Regent" then Color3.fromRGB(28, 22, 26) else Color3.fromRGB(40, 40, 54)
-	local pillarMaterial = if kind == "Choir" then Enum.Material.Glass elseif kind == "Regent" then Enum.Material.Basalt else Enum.Material.Basalt
+	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 elseif kind == "Seraph" then 5 elseif kind == "Rime" then 9 elseif kind == "Knight" then 4 else 8
+	local pillarColor = if kind == "Choir" then Color3.fromRGB(96, 150, 190) elseif kind == "Regent" then Color3.fromRGB(28, 22, 26) elseif kind == "Seraph" then Color3.fromRGB(70, 84, 120) elseif kind == "Rime" then Color3.fromRGB(170, 214, 240) elseif kind == "Knight" then Color3.fromRGB(22, 18, 34) else Color3.fromRGB(40, 40, 54)
+	local pillarMaterial = if kind == "Choir" or kind == "Rime" then Enum.Material.Glass elseif kind == "Seraph" then Enum.Material.Metal else Enum.Material.Basalt
 	for k = 1, count do
 		local angle = (k / count) * math.pi * 2 + math.pi / count
 		local at = center + Vector3.new(math.cos(angle) * arena.PillarRadius, 0, math.sin(angle) * arena.PillarRadius)
@@ -1810,13 +1839,17 @@ function Builder.BuildArena(parent: Instance, island: string?)
 			pillarSize = Vector3.new(pillarSize.X * 0.7, height, pillarSize.Z * 0.7)
 		elseif kind == "Regent" then
 			height += 4
+		elseif kind == "Seraph" then
+			height += 14
+		elseif kind == "Knight" then
+			height += 8
 		end
 		local column = shape(parent, "ArenaPillar", pillarSize, CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), pillarColor, pillarMaterial, true, function()
 			return part(parent, "Pillar", Vector3.new(if kind == "Choir" then 3 else 5, height, if kind == "Choir" then 3 else 5), CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), pillarColor, pillarMaterial)
 		end)
 		column.Name = "Pillar"
 		column.CastShadow = true
-		if kind == "Choir" then
+		if kind == "Choir" or kind == "Rime" then
 			column.Transparency = 0.25
 		end
 		local capAt = CFrame.new(at + Vector3.new(0, height + 2.5, 0))
@@ -1928,6 +1961,32 @@ local function regentIsle(parent: Instance, center: Vector3, radius: number, lan
 	boulders(parent, center, radius, landings, Color3.fromRGB(58, 40, 40), 523)
 end
 
+-- The three later boss islands share one dressing, tinted and arranged per boss: a stepped
+-- dais, a ring of standing stones lit in the boss's colour, drifting motes, and boulders.
+local function bossIsle(parent: Instance, center: Vector3, radius: number, landings: { number }, style: { Accent: Color3, Dark: Color3, Dais: Enum.Material, Air: string, Seed: number, Stones: number, Spikes: boolean })
+	for tier = 1, 3 do
+		local slab = disc(parent, "Dais", center, 12 - tier * 2.6, tier * 0.8, if tier == 3 then style.Accent else style.Dark, if tier == 3 then Enum.Material.Neon else style.Dais, true)
+		slab.Transparency = if tier == 3 then 0.5 else 0
+		slab.CastShadow = false
+	end
+	for k = 1, style.Stones do
+		local angle = (k / style.Stones) * math.pi * 2
+		if nearLanding(angle, landings) then
+			continue
+		end
+		local height = 9 + (k % 3) * 4
+		local base = center + Vector3.new(math.cos(angle) * radius * 0.78, 0, math.sin(angle) * radius * 0.78)
+		local stone = part(parent, "StandingStone", Vector3.new(3, height, 3), CFrame.new(base + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, math.rad(if style.Spikes then (k % 2) * 6 else 0)), style.Dark, style.Dais)
+		stone.CastShadow = true
+		local tip = part(parent, "StoneGlow", Vector3.new(1.3, 1.3, 1.3), CFrame.new(base + Vector3.new(0, height + 0.9, 0)), style.Accent, Enum.Material.Neon, false)
+		tip.Shape = Enum.PartType.Ball
+		tip.CastShadow = false
+		glow(tip, style.Accent, 1.6, 30)
+		tag(tip, "AF_Pulse", { Period = 1.8 + (k % 3) * 0.5 })
+	end
+	airborne(parent, "BossAir", center, radius, style.Air, { Color = style.Accent, Rate = 7 })
+	boulders(parent, center, radius, landings, style.Dark, style.Seed)
+end
 function Builder.BuildScenery(folder: Instance)
 	local scenery = Instance.new("Folder")
 	scenery.Name = "Scenery"
@@ -1961,8 +2020,14 @@ function Builder.BuildScenery(folder: Instance)
 		local landings = landingAngles(isle)
 		if isle.Id == "ChoirIsle" then
 			choirIsle(model, center, isle.Radius, landings)
-		else
+		elseif isle.Id == "RegentIsle" then
 			regentIsle(model, center, isle.Radius, landings)
+		elseif isle.Id == "StormIsle" then
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(96, 168, 255), Dark = Color3.fromRGB(58, 66, 92), Dais = Enum.Material.Slate, Air = "Spark", Seed = 611, Stones = 9, Spikes = true })
+		elseif isle.Id == "RimeIsle" then
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(150, 222, 255), Dark = Color3.fromRGB(150, 196, 226), Dais = Enum.Material.Ice, Air = "Motes", Seed = 613, Stones = 12, Spikes = true })
+		else
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(150, 100, 255), Dark = Color3.fromRGB(24, 20, 36), Dais = Enum.Material.Basalt, Air = "Rising", Seed = 617, Stones = 8, Spikes = false })
 		end
 		Builder.BuildArena(model, isle.Id)
 	end

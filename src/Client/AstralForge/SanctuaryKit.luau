@@ -58,6 +58,9 @@ local BED = {
 	Riftmaw = "amb_riftmaw",
 	ChoirIsle = "amb_hollows",
 	RegentIsle = "amb_ember",
+	StormIsle = "amb_spire",
+	RimeIsle = "amb_hollows",
+	GloamIsle = "amb_riftmaw",
 }
 local LEVEL = 0.55
 local BRIDGE_LEVEL = 0.3
@@ -1058,6 +1061,9 @@ local REGION_LINES = {
 	Riftmaw = "Where the Rift Warden wakes",
 	ChoirIsle = "Seven voices, one silence",
 	RegentIsle = "The last crown of Emberreach",
+	StormIsle = "Wings of the last tempest",
+	RimeIsle = "The glacier that remembers",
+	GloamIsle = "Sworn to the dark between stars",
 }
 
 local function rgb(triple): Color3
@@ -3928,8 +3934,8 @@ local function buildBoss(model: Model): Boss
 	local rig = buildRig(kind, anchor.Position)
 	-- Body proportions differ: the Choir is a small bright core in a large glass shell, the
 	-- Regent a heavy ember heart that nearly fills its shell.
-	local coreSize = if kind == "Choir" then Vector3.new(7, 7, 7) elseif kind == "Regent" then Vector3.new(10.5, 10.5, 10.5) else Vector3.new(9, 9, 9)
-	local shellSize = if kind == "Choir" then Vector3.new(13.5, 13.5, 13.5) elseif kind == "Regent" then Vector3.new(13, 13, 13) else Vector3.new(11.5, 11.5, 11.5)
+	local coreSize = if kind == "Choir" then Vector3.new(7, 7, 7) elseif kind == "Regent" then Vector3.new(10.5, 10.5, 10.5) elseif kind == "Seraph" then Vector3.new(6.5, 6.5, 6.5) elseif kind == "Rime" then Vector3.new(11.5, 11.5, 11.5) elseif kind == "Knight" then Vector3.new(7.5, 7.5, 7.5) else Vector3.new(9, 9, 9)
+	local shellSize = if kind == "Choir" then Vector3.new(13.5, 13.5, 13.5) elseif kind == "Regent" then Vector3.new(13, 13, 13) elseif kind == "Seraph" then Vector3.new(15, 15, 15) elseif kind == "Rime" then Vector3.new(16, 16, 16) elseif kind == "Knight" then Vector3.new(10.5, 10.5, 10.5) else Vector3.new(11.5, 11.5, 11.5)
 	-- Faceted crystal heart inside a glass shell.
 	local core = bossPart("WardenCore", "WardenCore", Enum.PartType.Ball, coreSize, pal.Primary, Enum.Material.Neon)
 	local shell = bossPart("WardenCore", "WardenShell", Enum.PartType.Ball, shellSize, pal.Hot, Enum.Material.Glass)
@@ -4767,7 +4773,7 @@ local function stepBoss(dt: number, t: number)
 	local collapse = if escaping then math.clamp((t - current.outroStarted) / 1.4, 0, 1) else 0
 	-- How each body idles: the Choir floats high and slow, the Regent sits heavy and steady.
 	local kind = current.kind
-	local bob = if kind == "Choir" then math.sin(t * 1.4) * 2.2 elseif kind == "Regent" then math.sin(t * 0.6) * 1.0 else math.sin(t * 0.9) * 1.4
+	local bob = if kind == "Choir" then math.sin(t * 1.4) * 2.2 elseif kind == "Regent" then math.sin(t * 0.6) * 1.0 elseif kind == "Seraph" then math.sin(t * 2.2) * 2.6 elseif kind == "Rime" then math.sin(t * 0.4) * 0.6 elseif kind == "Knight" then math.sin(t * 1.0) * 1.2 else math.sin(t * 0.9) * 1.4
 	local conducting = if current.conductUntil > now then 1 else 0
 	current.conduct += (conducting - current.conduct) * (1 - math.exp(-6 * dt))
 	local beam = current.beam
@@ -6120,7 +6126,24 @@ local MOODS: { [string]: Mood } = {
 		hazeColor = Color3.fromRGB(150, 56, 30), hazeDecay = Color3.fromRGB(72, 20, 10), density = 0.32, haze = 1.5,
 		bloom = 1.15, tint = Color3.fromRGB(255, 220, 196), saturation = 0.26, contrast = 0.16, rays = 0.04,
 	},
-}
+	-- The Tempest Aerie: steel-blue storm light, crackling haze, bright bloom.
+	StormIsle = {
+		ambient = Color3.fromRGB(84, 100, 146), outdoor = Color3.fromRGB(120, 146, 210), fog = Color3.fromRGB(10, 14, 34), exposure = 0.32,
+		hazeColor = Color3.fromRGB(70, 100, 170), hazeDecay = Color3.fromRGB(20, 30, 70), density = 0.24, haze = 1.0,
+		bloom = 1.2, tint = Color3.fromRGB(226, 236, 255), saturation = 0.14, contrast = 0.2, rays = 0.06,
+	},
+	-- The Frozen Reliquary: pale, very bright, nearly white haze.
+	RimeIsle = {
+		ambient = Color3.fromRGB(130, 160, 190), outdoor = Color3.fromRGB(180, 214, 244), fog = Color3.fromRGB(28, 44, 62), exposure = 0.5,
+		hazeColor = Color3.fromRGB(190, 224, 250), hazeDecay = Color3.fromRGB(70, 100, 130), density = 0.2, haze = 0.9,
+		bloom = 1.0, tint = Color3.fromRGB(232, 248, 255), saturation = 0.05, contrast = 0.1, rays = 0.16,
+	},
+	-- The Gloaming Keep: near-black violet, low light, a little magenta in the haze.
+	GloamIsle = {
+		ambient = Color3.fromRGB(62, 48, 92), outdoor = Color3.fromRGB(84, 62, 126), fog = Color3.fromRGB(10, 4, 20), exposure = 0.16,
+		hazeColor = Color3.fromRGB(86, 34, 110), hazeDecay = Color3.fromRGB(22, 8, 34), density = 0.34, haze = 1.5,
+		bloom = 1.05, tint = Color3.fromRGB(236, 214, 255), saturation = 0.2, contrast = 0.2, rays = 0.02,
+	},}
 local MOOD_TAU = 1.4 -- seconds for a region change to cover ~63% of the way
 local MOOD_SETTLE_SECONDS = 7 -- stop blending this long after the last change (5 tau)
 local moodNow: Mood = table.clone(MOODS.Bridge)

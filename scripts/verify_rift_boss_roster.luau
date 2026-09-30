@@ -19,7 +19,7 @@ local function check(condition: boolean, message: string)
 end
 
 local roster = SanctuaryConfig.RiftBosses
-check(#roster == 3, "expected 3 bosses, got " .. #roster)
+check(#roster == 6, "expected 6 bosses, got " .. #roster)
 check(roster[1] == SanctuaryConfig.RiftBoss, "the Warden must lead the roster")
 
 local kinds = {}
@@ -56,7 +56,7 @@ check(RiftBossMath.PhaseIndex(660, 1000, phases) == 2, "at the first threshold i
 check(RiftBossMath.PhaseIndex(330, 1000, phases) == 3, "at the second threshold is phase 3")
 check(RiftBossMath.PhaseIndex(0, 1000, phases) == 3, "empty stays phase 3")
 check(RiftBossMath.PhaseIndex(0, 0, phases) == 1, "no max health is phase 1")
-check(RiftBossMath.NextBoss(1, 3) == 2 and RiftBossMath.NextBoss(3, 3) == 1, "roster wraps")
+check(RiftBossMath.NextBoss(1, 6) == 2 and RiftBossMath.NextBoss(6, 6) == 1, "roster wraps")
 check(RiftBossMath.NextBoss(1, 0) == 1, "empty roster is safe")
 check(RiftBossMath.PhaseDelayScale(1, { 1, 0.8, 0.62 }) == 1, "delay scale phase 1")
 check(RiftBossMath.PhaseDelayScale(9, { 1, 0.8, 0.62 }) == 0.62, "delay scale holds the last entry")
@@ -140,7 +140,7 @@ for _, boss in roster do
 		end
 	end
 end
-check(#Layout.isles() == 2, "expected two boss islands")
+check(#Layout.isles() == 5, "expected five boss islands")
 for _, isle in Layout.isles() do
 	check(flat(isle.Center, { X = 0, Z = 0 }) + isle.Radius <= Layout.WORLD_RADIUS, isle.Id .. ": outside the world")
 	for _, region in Layout.regions() do
@@ -179,6 +179,9 @@ local REQUIRED = {
 	EchoSlam = { "Hits", "StepSeconds", "Growth", "TelegraphSeconds" },
 	Volley = { "Count", "StepSeconds", "Scatter", "RadiusScale", "TelegraphSeconds" },
 	Wall = { "Speed", "Half", "Range", "GapHalf", "TelegraphSeconds" },
+	Cage = { "Count", "Distance", "RadiusScale", "TelegraphSeconds", "Element" },
+	Fissure = { "Count", "FirstDistance", "Gap", "StepSeconds", "RadiusScale", "TelegraphSeconds", "Element" },
+	Starburst = { "Rings", "Points", "FirstDistance", "Gap", "StepSeconds", "RadiusScale", "TelegraphSeconds", "Element" },
 	Meteors = { "Count", "StepSeconds", "RadiusScale", "TelegraphSeconds", "Element" },
 	Summon = { "Count", "Health", "FuseSeconds", "Orbit", "OrbitSpeed", "BlastRadius", "TelegraphSeconds", "Element" },
 }
