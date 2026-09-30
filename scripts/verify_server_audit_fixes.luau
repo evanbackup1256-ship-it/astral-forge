@@ -7,6 +7,7 @@ local fs = require("./_memberfs")(require("@lune/fs"))
 
 local guildSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService")
 local worldSrc = fs.readFile("src/Server/AstralForge/Services/WorldServices.luau#WorldService")
+local oreSrc = fs.readFile("src/Server/AstralForge/Services/WorldServices.luau#OreService")
 
 local function has(src: string, needle: string, message: string)
 	assert(string.find(src, needle, 1, true), message)
@@ -38,6 +39,10 @@ has(guildSrc, 'if type(rawTag) ~= "string" then return false, "No guild has that
 
 -- WorldService clears the travel cooldown entry when a player leaves.
 has(worldSrc, "if self._travelAt then self._travelAt[player] = nil end", "WorldService must clear _travelAt on PlayerRemoving")
+
+-- OreService reserves the node cooldown before mutate() can yield (no double-mine race).
+has(oreSrc, "cooldowns[nodeId] = nextReady\n\tlocal result = self._host:mutate(player", "Mine must reserve the node cooldown before yielding")
+has(oreSrc, "cooldowns[nodeId] = readyAt\n\t\treturn", "a failed mine must restore the previous cooldown")
 
 -- CharacterIntegrity stays dormant: nothing here may flip CharacterAutoLoads.
 lacks(worldSrc, "CharacterAutoLoads = true", "CharacterAutoLoads must stay false")

@@ -251,6 +251,10 @@ function OreService:Mine(player: Player, nodeId: string)
 	end
 	local oreId = node.Site.Ore
 	local mined = 0
+	-- Reserve the node before mutate() can yield, so a second request that lands while this one
+	-- waits on the profile sees the cooldown instead of mining the same node twice.
+	local nextReady = now + GameConfig.Ore.RegrowSeconds
+	cooldowns[nodeId] = nextReady
 	local result = self._host:mutate(player, function(profile)
 		local bonus = Economy.OreEffect(profile, "OreYield")
 		mined = OreMath.Yield(GameConfig.Ore, oreId, bonus, function(low, high)
@@ -265,10 +269,9 @@ function OreService:Mine(player: Player, nodeId: string)
 		return ActionResponse.Success(nil)
 	end)
 	if type(result) ~= "table" or result.ok ~= true then
+		cooldowns[nodeId] = readyAt
 		return
 	end
-	local nextReady = now + GameConfig.Ore.RegrowSeconds
-	cooldowns[nodeId] = nextReady
 	self._host:effect(player, {
 		Type = "OreMined",
 		NodeId = nodeId,
