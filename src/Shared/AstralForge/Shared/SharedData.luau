@@ -1452,7 +1452,28 @@ SanctuaryConfig.RiftBoss = {
 	-- Params override what the attack reads; Slam/TwinSlam use the Slam* fields below.
 	Attacks = {
 		{ Kind = "Slam", Weight = 1 },
+		-- Four beams of the seal fan out from it, telegraphed as thin lines, then fire.
+		{ Kind = "Lances", Weight = 1, Params = { Count = 4, HalfWidth = 0.075, Range = 92, TelegraphSeconds = 1.8 } },
 		{ Kind = "TwinSlam", Weight = 0.8, MinPhase = 2 },
+		-- A well opens under a fighter and drags everyone toward it; the core then detonates.
+		{ Kind = "GravityWell", Weight = 0.9, MinPhase = 2, Params = { Radius = 30, Core = 15, PullSeconds = 3, Strength = 34, TelegraphSeconds = 0.8 } },
+		-- Phase 3: eight beams at once.
+		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 8, HalfWidth = 0.06, Range = 92, TelegraphSeconds = 1.7 } },
+	},
+	Dialogue = {
+		Forming = { "The seal is thinning." },
+		Awake = { "Who opens the Riftmaw?", "I have kept this door since before your stars had names.", "Turn back, or be unmade." },
+		Phase2 = { "You fight like the rift itself -- without end.", "Then I shall stop being gentle." },
+		Phase3 = { "ENOUGH. The door stays shut!" },
+		Defeat = { "The seal... was never mine to keep.", "Go on, then. See what waits behind it." },
+		Escape = { "The door closes. Remember what you could not finish." },
+		Hit = { "Stay down.", "Do not rise." },
+		Attack = {
+			Slam = { "Kneel.", "Fall." },
+			TwinSlam = { "Two fall as one." },
+			GravityWell = { "Come closer.", "The rift will have you." },
+			Lances = { "The seal's own edge -- cross it and be cut." },
+		},
 	},	-- Quiet time between appearances, and the first appearance after a server starts.
 	IntervalSeconds = 540,
 	FirstDelaySeconds = 150,
@@ -1533,8 +1554,28 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 		{ Kind = "Rings", Weight = 1, Params = { Count = 3, FirstRadius = 16, Gap = 20, Width = 5.5, StepSeconds = 0.6, TelegraphSeconds = 2 } },
 		-- Phase 2: a longer, tighter phrase.
 		{ Kind = "Rings", Weight = 1, MinPhase = 2, Params = { Count = 4, FirstRadius = 14, Gap = 15, Width = 5, StepSeconds = 0.5, TelegraphSeconds = 2 } },
-		-- Phase 3 adds the old slam on top of the rhythm.
+		-- Every voice but the safe ones sings at once: stand in a pocket of calm.
+		{ Kind = "Dissonance", Weight = 1, Params = { Zones = 3, ZoneRadius = 13, TelegraphSeconds = 2.8 } },
+		-- One note struck three times in the same place, each wider than the last.
+		{ Kind = "EchoSlam", Weight = 0.8, MinPhase = 2, Params = { Hits = 3, StepSeconds = 0.7, Growth = 1.22, TelegraphSeconds = 1.5 } },
+		-- Phase 3: fewer pockets, a shorter warning, and the old slam on top.
+		{ Kind = "Dissonance", Weight = 1, MinPhase = 3, Params = { Zones = 2, ZoneRadius = 11, TelegraphSeconds = 2.2 } },
 		{ Kind = "Slam", Weight = 0.7, MinPhase = 3 },
+	},
+	Dialogue = {
+		Forming = { "A note, held too long, begins to crack." },
+		Awake = { "Seven voices woke. One of them is singing for you.", "Listen. Between every note there is a place to stand.", "Find it -- or we shall sing you quiet." },
+		Phase2 = { "Louder. The hall has not heard a true chord in an age." },
+		Phase3 = { "All voices -- together -- NOW." },
+		Defeat = { "The hall... falls silent.", "It is so quiet. Thank you." },
+		Escape = { "The song goes on without you." },
+		Hit = { "Out of tune.", "Flat." },
+		Attack = {
+			Rings = { "Hear the rhythm.", "Step between the beats." },
+			Dissonance = { "Find the harmony.", "Only the still notes are safe." },
+			EchoSlam = { "Echo... echo... echo." },
+			Slam = { "A sour note." },
+		},
 	},
 })
 
@@ -1568,10 +1609,31 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 	SlamIntervalMax = 9,
 	Attacks = {
 		{ Kind = "Sweep", Weight = 1, Params = { Seconds = 5.2, Speed = 0.85, HalfWidth = 0.17, Range = 84, TelegraphSeconds = 1.6 } },
-		{ Kind = "Slam", Weight = 0.6 },
-		{ Kind = "TwinSlam", Weight = 0.7, MinPhase = 2 },
+		-- Fire rains on several fighters in quick succession.
+		{ Kind = "Volley", Weight = 1, Params = { Count = 4, StepSeconds = 0.32, Scatter = 7, RadiusScale = 0.72, TelegraphSeconds = 1.5 } },
+		{ Kind = "Slam", Weight = 0.5 },
+		{ Kind = "TwinSlam", Weight = 0.6, MinPhase = 2 },
+		-- A wall of flame crosses the arena with one gap to slip through.
+		{ Kind = "Wall", Weight = 0.9, MinPhase = 2, Params = { Speed = 24, Half = 3, Range = 84, GapHalf = 9, TelegraphSeconds = 2.2 } },
 		-- Phase 3: a faster beam, the other way round.
 		{ Kind = "Sweep", Weight = 1, MinPhase = 3, Params = { Seconds = 4.4, Speed = 1.25, HalfWidth = 0.2, Range = 84, TelegraphSeconds = 1.2 } },
+		{ Kind = "Volley", Weight = 1, MinPhase = 3, Params = { Count = 7, StepSeconds = 0.26, Scatter = 6, RadiusScale = 0.72, TelegraphSeconds = 1.3 } },
+	},
+	Dialogue = {
+		Forming = { "The embers remember their king." },
+		Awake = { "Kneel before the last crown of Emberreach.", "You trespass on my throne and expect mercy?", "Let the fire decide how long you last." },
+		Phase2 = { "You dare make me bleed? Fine. Bow to the flame." },
+		Phase3 = { "BURN. Burn it all -- the throne, the sky, you!" },
+		Defeat = { "A king... does not... fall to...", "The crown is yours. It was always heavy." },
+		Escape = { "I retreat to my embers. Not to you." },
+		Hit = { "Ash.", "Crawl." },
+		Attack = {
+			Sweep = { "Run in circles, little ember." },
+			Volley = { "Rain, fire!", "Every one of you is a target." },
+			Wall = { "The wall advances. Find the gap -- or burn." },
+			Slam = { "Crushed." },
+			TwinSlam = { "Two! Two at once!" },
+		},
 	},
 })
 

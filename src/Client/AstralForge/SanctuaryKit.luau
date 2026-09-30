@@ -866,6 +866,27 @@ function Controls.inCinematic(): boolean
 	return shot ~= nil
 end
 
+-- Drag the character toward a point on the ground plane (a gravity well). Called every
+-- frame while the pull lasts; `strength` is studs/s added per second, and the result is
+-- capped so sprinting away always wins slowly.
+function Controls.pull(toward: Vector3, strength: number, dt: number)
+	local _, _, root = character()
+	if root == nil then
+		return
+	end
+	local offset = Vector3.new(toward.X - root.Position.X, 0, toward.Z - root.Position.Z)
+	if offset.Magnitude < 1.5 then
+		return
+	end
+	local velocity = root.AssemblyLinearVelocity
+	local pulled = velocity + offset.Unit * strength * dt
+	local flat = Vector3.new(pulled.X, 0, pulled.Z)
+	if flat.Magnitude > 34 then
+		flat = flat.Unit * 34
+	end
+	root.AssemblyLinearVelocity = Vector3.new(flat.X, pulled.Y, flat.Z)
+end
+
 -- Knock the character away from a point (a slam's stagger).
 function Controls.knockback(from: Vector3, force: number)
 	local _, _, root = character()
@@ -2972,6 +2993,12 @@ Signals.SERVER_KINDS = table.freeze({
 	RiftBossRings = true,
 	RiftBossRingLand = true,
 	RiftBossSweep = true,
+	RiftBossAttack = true,
+	RiftBossLances = true,
+	RiftBossWell = true,
+	RiftBossDissonance = true,
+	RiftBossDissonanceLand = true,
+	RiftBossWall = true,
 	RiftBossStagger = true,
 	RiftBossDefeated = true,
 	RiftBossFell = true,
@@ -3494,6 +3521,8 @@ type Boss = {
 	-- The Regent's live beam, if any: { begin, endAt, start, speed }.
 	beam: any?,
 	spinPhase: number,
+	-- Length of the current wind-up, so every ability (not only slams) charges the body.
+	slamTotal: number,
 }
 
 local boss: Boss? = nil
@@ -3508,6 +3537,27 @@ local function bossCue(beat: string): string
 	local current = boss
 	local cues = if current ~= nil then current.config.Cues else nil
 	return if cues ~= nil and cues[beat] ~= nil then cues[beat] else "wardenSlam"
+end
+
+-- Every ability winds the body up (lift, flare, heat) until it lands.
+local function windUp(untilAt: number, seconds: number)
+	local current = boss
+	if current ~= nil then
+		current.slamUntil = untilAt
+		current.slamTotal = math.max(0.3, seconds)
+	end
+end
+
+-- While it forms, each piece of the body starts far off along its own heading and flies in.
+local scatterDirs: { [BasePart]: Vector3 } = setmetatable({}, { __mode = "k" }) :: any
+local function scatterOf(part: BasePart): Vector3
+	local dir = scatterDirs[part]
+	if dir == nil then
+		local v = Vector3.new(math.random() - 0.5, math.random() * 0.6 + 0.1, math.random() - 0.5)
+		dir = if v.Magnitude > 0.05 then v.Unit else Vector3.yAxis
+		scatterDirs[part] = dir
+	end
+	return dir :: Vector3
 end
 local function configFor(kind: string?): any
 	for _, candidate in SanctuaryConfig.RiftBosses do
@@ -3658,6 +3708,7 @@ local function buildBoss(model: Model): Boss
 		conductUntil = 0,
 		beam = nil,
 		spinPhase = 0,
+		slamTotal = 1.5,
 	}
 end
 local function destroyBoss()
@@ -3741,6 +3792,212 @@ local function setBossTransparency(current: Boss, visible: number)
 	applyPieceTransparency(current.shards, hide)
 end
 
+-- Effects library: the big set pieces the fights are built from. Everything here is
+-- client-only, made of neon parts that fade themselves out, and a handful of GUI layers.
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+-- A jagged bolt between two points: short neon blocks along a jittered path.
+local function lightning(from: Vector3, to: Vector3, color: Color3, seconds: number?, width: number?)
+	local life = seconds or 0.25
+	local thick = width or 0.7
+	local along = to - from
+	if along.Magnitude < 1 then
+		return
+	end
+	local perp = along:Cross(Vector3.yAxis)
+	perp = if perp.Magnitude < 0.01 then Vector3.xAxis else perp.Unit
+	local other = perp:Cross(along.Unit)
+	local steps = math.clamp(math.floor(along.Magnitude / 6), 3, 14)
+	local previous = from
+	for index = 1, steps do
+		local k = index / steps
+		local point = from:Lerp(to, k)
+		if index < steps then
+			local jitter = (1 - math.abs(k - 0.5) * 0.6) * (along.Magnitude / steps) * 0.5
+			point += perp * (math.random() - 0.5) * 2 * jitter + other * (math.random() - 0.5) * 2 * jitter
+		end
+		local length = (point - previous).Magnitude
+		if length > 0.05 then
+			local bolt = vfxPart("Bolt", nil, Vector3.new(thick, thick, length), color, Enum.Material.Neon)
+			bolt.CFrame = CFrame.lookAt((previous + point) / 2, point)
+			bolt.Transparency = 0.05
+			TweenService:Create(bolt, TweenInfo.new(life), { Transparency = 1 }):Play()
+			Debris:AddItem(bolt, life + 0.05)
+		end
+		previous = point
+	end
+end
+
+-- A column of light that flares and collapses to a thread.
+local function lightPillar(at: Vector3, color: Color3, height: number, radius: number, seconds: number)
+	local column = vfxPart("LightPillar", Enum.PartType.Cylinder, Vector3.new(height, radius * 2, radius * 2), color, Enum.Material.Neon)
+	column.CFrame = CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	column.Transparency = 0.2
+	TweenService:Create(column, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1, Size = Vector3.new(height, radius * 0.25, radius * 0.25) }):Play()
+	Debris:AddItem(column, seconds + 0.1)
+	Vfx.burst(at + Vector3.new(0, 1, 0), "Flash", 1, { Color = color, Size = NumberSequence.new(radius * 2, radius * 6) }, clientFolder)
+end
+
+-- Cracks racing out across the floor from a point, glowing and fading.
+local function groundCrack(center: Vector3, radius: number, color: Color3, seconds: number)
+	local spokes = 10
+	for index = 1, spokes do
+		local angle = (index / spokes) * TAU + math.random() * 0.3
+		local length = radius * (0.6 + math.random() * 0.5)
+		local strip = vfxPart("Crack", nil, Vector3.new(length, 0.2, 0.6 + math.random() * 0.8), color, Enum.Material.Neon)
+		strip.CFrame = CFrame.new(center + Vector3.new(math.cos(angle) * length / 2, 0.15, math.sin(angle) * length / 2)) * CFrame.Angles(0, -angle, 0)
+		strip.Transparency = 0.1
+		TweenService:Create(strip, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+		Debris:AddItem(strip, seconds + 0.05)
+	end
+end
+
+local flashGui: ScreenGui? = nil
+local flashFrame: Frame? = nil
+
+-- A wash of colour over the whole screen that fades out.
+local function screenFlash(color: Color3, strength: number, seconds: number)
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return
+	end
+	if flashGui == nil or flashGui.Parent == nil or flashFrame == nil then
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "SanctuaryFlash"
+		gui.IgnoreGuiInset = true
+		gui.ResetOnSpawn = false
+		gui.DisplayOrder = 45
+		local frame = Instance.new("Frame")
+		frame.Name = "Flash"
+		frame.Size = UDim2.fromScale(1, 1)
+		frame.BorderSizePixel = 0
+		frame.Active = false
+		frame.BackgroundTransparency = 1
+		frame.Parent = gui
+		gui.Parent = playerGui
+		flashGui, flashFrame = gui, frame
+	end
+	local frame = flashFrame :: Frame
+	frame.BackgroundColor3 = color
+	frame.BackgroundTransparency = 1 - math.clamp(strength, 0, 1)
+	TweenService:Create(frame, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+end
+
+-- Dialogue: a caption box low on the screen, the speaker's name in their colour, and the
+-- line typed out. One line at a time; a new line replaces the last.
+local speechGui: ScreenGui? = nil
+local speechBox: Frame? = nil
+local speechName: TextLabel? = nil
+local speechText: TextLabel? = nil
+local speechStroke: UIStroke? = nil
+local speechSeq = 0
+
+local function ensureSpeech(): boolean
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return false
+	end
+	if speechGui ~= nil and speechGui.Parent ~= nil then
+		return true
+	end
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "SanctuarySpeech"
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 42
+	local box = Instance.new("Frame")
+	box.Name = "Box"
+	box.AnchorPoint = Vector2.new(0.5, 1)
+	box.Position = UDim2.fromScale(0.5, 0.8)
+	box.Size = UDim2.new(0.6, 0, 0, 96)
+	box.BackgroundColor3 = Color3.fromRGB(8, 8, 18)
+	box.BackgroundTransparency = 0.25
+	box.BorderSizePixel = 0
+	box.Active = false
+	box.Visible = false
+	local limit = Instance.new("UISizeConstraint")
+	limit.MaxSize = Vector2.new(720, 120)
+	limit.MinSize = Vector2.new(240, 80)
+	limit.Parent = box
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = box
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.45
+	stroke.Parent = box
+	local name = Instance.new("TextLabel")
+	name.Name = "Speaker"
+	name.BackgroundTransparency = 1
+	name.Position = UDim2.new(0, 16, 0, 8)
+	name.Size = UDim2.new(1, -32, 0, 18)
+	name.Font = Enum.Font.GothamBold
+	name.TextSize = 14
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.Parent = box
+	local text = Instance.new("TextLabel")
+	text.Name = "Line"
+	text.BackgroundTransparency = 1
+	text.Position = UDim2.new(0, 16, 0, 30)
+	text.Size = UDim2.new(1, -32, 1, -38)
+	text.Font = Enum.Font.GothamMedium
+	text.TextSize = 19
+	text.TextColor3 = Color3.fromRGB(240, 240, 250)
+	text.TextWrapped = true
+	text.TextXAlignment = Enum.TextXAlignment.Left
+	text.TextYAlignment = Enum.TextYAlignment.Top
+	text.Parent = box
+	box.Parent = gui
+	gui.Parent = playerGui
+	speechGui, speechBox, speechName, speechText, speechStroke = gui, box, name, text, stroke
+	return true
+end
+
+local function say(speaker: string, line: string, color: Color3?)
+	if not ensureSpeech() then
+		return
+	end
+	local box, name, text, stroke = speechBox :: Frame, speechName :: TextLabel, speechText :: TextLabel, speechStroke :: UIStroke
+	speechSeq += 1
+	local seq = speechSeq
+	local accent = color or Color3.new(1, 1, 1)
+	name.Text = string.upper(speaker)
+	name.TextColor3 = accent
+	stroke.Color = accent
+	text.Text = line
+	text.MaxVisibleGraphemes = 0
+	box.BackgroundTransparency = 0.25
+	box.Visible = true
+	task.spawn(function()
+		local count = utf8.len(line) or #line
+		local each = math.clamp(1.1 / math.max(1, count), 0.012, 0.035)
+		for shown = 1, count do
+			if speechSeq ~= seq or text.Parent == nil then
+				return
+			end
+			text.MaxVisibleGraphemes = shown
+			task.wait(each)
+		end
+		text.MaxVisibleGraphemes = -1
+	end)
+	task.delay(1.8 + (utf8.len(line) or #line) * 0.05, function()
+		if speechSeq == seq and box.Parent ~= nil then
+			box.Visible = false
+		end
+	end)
+end
+
+local function clearFx()
+	speechSeq += 1
+	for _, gui in { speechGui, flashGui } do
+		if gui ~= nil then
+			gui:Destroy()
+		end
+	end
+	speechGui, speechBox, speechName, speechText, speechStroke = nil, nil, nil, nil, nil
+	flashGui, flashFrame = nil, nil
+end
 -- Cinematics: black bars slide in over the top and bottom of the screen while the camera
 -- (Controls.cinematic) is directed, and slide out just before it hands back.
 local TweenService = game:GetService("TweenService")
@@ -3791,6 +4048,7 @@ local function cinemaBars(seconds: number)
 end
 
 local function clearCinema()
+	clearFx()
 	cinemaSeq += 1
 	if cinemaGui ~= nil then
 		cinemaGui:Destroy()
@@ -3846,6 +4104,36 @@ local function sequence(current: Boss, steps: { { at: number, run: () -> () } })
 	end
 end
 
+-- Dialogue. Lines live in each boss's SanctuaryConfig entry; these play them at offsets, or
+-- as occasional quips that are rate limited so a fight is not a monologue.
+local function near(current: Boss): boolean
+	local root = localRoot()
+	return root ~= nil and (root.Position - current.anchor.Position).Magnitude < 300
+end
+
+local function speakLines(current: Boss, key: string, startAt: number, gap: number)
+	local lines = current.config.Dialogue[key]
+	if lines == nil then
+		return
+	end
+	for index, line in lines do
+		task.delay(startAt + (index - 1) * gap, function()
+			if boss == current and near(current) then
+				say(current.config.Name, line, pal.Hot)
+			end
+		end)
+	end
+end
+
+local lastQuip = 0
+local function quip(current: Boss, lines: { string }?, cooldown: number, chance: number)
+	if lines == nil or #lines == 0 or os.clock() - lastQuip < cooldown or math.random() > chance or not near(current) then
+		return
+	end
+	lastQuip = os.clock()
+	say(current.config.Name, lines[math.random(#lines)], pal.Hot)
+end
+
 -- Each boss wakes with its own cutscene. The letterbox and title card (the HUD banner) are
 -- shared; the camera work and what happens on the pillars are not.
 --   Warden  one slow orbit round the opening rift
@@ -3854,6 +4142,21 @@ end
 local function awakeScene(current: Boss)
 	local kind = current.kind
 	local tops = pillarTops(current)
+	-- The boss speaks over the scene, and every pillar arcs its light into the body as it wakes.
+	speakLines(current, "Awake", 0.6, 2.1)
+	for index, top in tops do
+		task.delay(0.2 * index, function()
+			if boss == current then
+				lightning(top, current.anchor.Position, pal.Hot, 0.45, 0.9)
+			end
+		end)
+	end
+	screenFlash(pal.Hot, 0.4, 0.8)
+	task.delay(0.5, function()
+		if boss == current then
+			lightPillar(current.anchor.Position - Vector3.new(0, 26, 0), pal.Hot, 90, 7, 1.4)
+		end
+	end)
 	if kind == "Choir" then
 		local steps = {}
 		for index, top in tops do
@@ -3891,6 +4194,17 @@ end
 
 local function defeatScene(current: Boss)
 	local kind = current.kind
+	speakLines(current, "Defeat", 0.9, 3.2)
+	-- The body comes apart in light: a great column, bolts to every pillar, a white-out.
+	screenFlash(Color3.new(1, 1, 1), 0.75, 1.6)
+	lightPillar(current.anchor.Position - Vector3.new(0, 26, 0), pal.Hot, 140, 12, 2.4)
+	for index, top in pillarTops(current) do
+		task.delay(0.15 * index, function()
+			if boss == current then
+				lightning(current.anchor.Position, top, pal.Hot, 0.5, 1.2)
+			end
+		end)
+	end
 	if kind == "Warden" then
 		playShot(current, { Seconds = 5, Sweep = 1.2, Distance = 64, Push = -0.15, Height = 10, Fov = 48 })
 		return
@@ -3959,6 +4273,7 @@ local function stepBoss(dt: number, t: number)
 		local at = current.anchor.Position
 		if phase == "Forming" then
 			Audio:play(bossCue("Forming"))
+			speakLines(current, "Forming", 0.4, 2)
 			setTethers(true, current.kind)
 			Vfx.burst(at, "Implode", 1, { Color = pal.Hot, Color2 = pal.Primary, Size = NumberSequence.new(40, 2) }, clientFolder)
 			Vfx.burst(at, "Shatter", 40, { Color = pal.Hot, Speed = NumberRange.new(4, 10), Acceleration = Vector3.new(0, 6, 0) }, clientFolder)
@@ -3991,6 +4306,7 @@ local function stepBoss(dt: number, t: number)
 			defeatScene(current)
 		elseif phase == "Escaped" then
 			Audio:play(bossCue("Escape"))
+			speakLines(current, "Escape", 0.4, 2.5)
 			Ambience.fight(nil)
 			current.outroStarted = t
 			setTethers(false)
@@ -4035,7 +4351,7 @@ local function stepBoss(dt: number, t: number)
 	local lift = 0
 	local charge = 0
 	if current.slamUntil > now then
-		local total = config.SlamTelegraphSeconds
+		local total = current.slamTotal
 		local k = math.clamp(1 - (current.slamUntil - now) / total, 0, 1)
 		lift = math.sin(k * math.pi * 0.5) * 5
 		charge = k
@@ -4094,6 +4410,8 @@ local function stepBoss(dt: number, t: number)
 	table.insert(parts, current.eye)
 	table.insert(frames, CFrame.new(hover + lookDir * 5.2 * coreScale))
 
+	-- Forming: the body is assembling out of the dark, pieces converging from afar.
+	local spread = if phase == "Forming" then (1 - current.visible) ^ 2 * 70 else 0
 	local outro = if phase == "Defeated" then t - current.outroStarted else 0
 	local function place(piece: Piece, frame: CFrame)
 		if piece.velocity ~= nil and outro > 0 then
@@ -4102,6 +4420,9 @@ local function stepBoss(dt: number, t: number)
 		end
 		if collapse > 0 then
 			frame = CFrame.new(frame.Position:Lerp(hover, collapse)) * frame.Rotation
+		end
+		if spread > 0.5 then
+			frame += scatterOf(piece.part) * spread
 		end
 		table.insert(parts, piece.part)
 		table.insert(frames, frame)
@@ -4121,18 +4442,18 @@ local function stepBoss(dt: number, t: number)
 		local jolt = current.flash * 0.9
 		if kind == "Choir" then
 			-- Six voices standing in a ring, rising and falling in a travelling wave.
-			local radius = 13.5 + jolt
+			local radius = 13.5 + jolt + charge * 2
 			local lift = math.sin(t * 2.1 - index * 1.05) * 3 + current.conduct * 5
 			local position = hover + Vector3.new(math.cos(angle) * radius, lift, math.sin(angle) * radius)
 			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
 		elseif kind == "Regent" then
 			-- A crown: the plates stand up round the top of the body like points.
-			local radius = 7 + jolt + math.sin(t * 1.8 + index) * 0.25
-			local lift = 8.5 + (index % 2) * 2 + math.sin(t * 2.4 + index) * 0.5
+			local radius = 7 + jolt + charge * 2.5 + math.sin(t * 1.8 + index) * 0.25
+			local lift = 8.5 + charge * 3 + (index % 2) * 2 + math.sin(t * 2.4 + index) * 0.5
 			local position = hover + Vector3.new(math.cos(angle) * radius, lift, math.sin(angle) * radius)
 			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
 		else
-			local radius = 9.5 + jolt + math.sin(t * 1.3 + index) * 0.4
+			local radius = 9.5 + jolt + charge * 3.5 + math.sin(t * 1.3 + index) * 0.4
 			local position = hover + Vector3.new(math.cos(angle) * radius, math.sin(t * 1.1 + index * 0.8) * 1.2, math.sin(angle) * radius)
 			place(plate, CFrame.lookAt(position, hover) * plate.tilt)
 		end
@@ -4152,7 +4473,7 @@ local function stepBoss(dt: number, t: number)
 			place(shard, CFrame.new(hover + offset) * CFrame.Angles(0, 0, side * (0.9 + k * 0.5 + flap)))
 		else
 			local sway = math.sin(t * 1.6 + index) * 0.12
-			local offset = Vector3.new(side * (8 + k * 5), 3 - k * 5, 4 + k * 2)
+			local offset = Vector3.new(side * (8 + k * 5), 3 - k * 5, 4 + k * 2) * (1 + charge * 0.25)
 			local position = hover + offset
 			place(shard, CFrame.new(position) * CFrame.Angles(0, 0, side * (0.5 + k * 0.4 + sway)))
 		end
@@ -4188,9 +4509,7 @@ local function onSlam(payload)
 	local center = worldPoint(payload.Center) + Vector3.new(0, 0.2, 0)
 	local radius = tonumber(payload.Radius) or 24
 	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 1.5)
-	if boss ~= nil then
-		boss.slamUntil = detonateAt
-	end
+	windUp(detonateAt, detonateAt - serverNow())
 	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
@@ -4220,6 +4539,13 @@ local function onSlamLand(payload)
 	local radius = tonumber(payload.Radius) or 24
 	Audio:play(bossCue("Land"))
 	burst(center + Vector3.new(0, 1, 0), pal.Hot, 40, 28)
+	-- A column of light where it lands, cracks across the floor, a bolt from the body.
+	lightPillar(center, pal.Hot, 46, math.max(2.5, radius * 0.22), 0.7)
+	groundCrack(center, radius, pal.Alert, 0.9)
+	if boss ~= nil then
+		boss.flash = 1
+		lightning(boss.core.Position, center, pal.Hot, 0.3, 0.9)
+	end
 	local kind = if boss ~= nil then boss.kind else "Warden"
 	if kind == "Regent" then
 		-- Embers thrown up by the blow.
@@ -4262,6 +4588,9 @@ local function onStagger(payload)
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Controls.knockback(center, 58)
 	Controls.shake(1.3)
+	if boss ~= nil then
+		quip(boss, boss.config.Dialogue.Hit, 8, 0.4)
+	end
 	local root = localRoot()
 	if root ~= nil then
 		Vfx.burst(root.Position, "Spark", 18, { Color = pal.Alert, Color2 = pal.Hot }, clientFolder)
@@ -4281,6 +4610,32 @@ local function onPhase(payload)
 	Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 100) }, clientFolder)
 	Controls.shake(0.9)
 	current.flash = 1
+	-- The roar: a white-hot flash, bolts to every pillar, and the boss speaks.
+	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
+	screenFlash(pal.Hot, 0.5, 0.9)
+	lightPillar(at - Vector3.new(0, 26, 0), pal.Hot, 80, 6, 1.2)
+	for index, top in pillarTops(current) do
+		task.delay(0.1 * index, function()
+			if boss == current then
+				lightning(current.anchor.Position, top, pal.Hot, 0.4, 1)
+			end
+		end)
+	end
+	task.delay(0.4, function()
+		if boss == current and near(current) then
+			local lines = current.config.Dialogue[if phaseNumber >= 3 then "Phase3" else "Phase2"]
+			if lines ~= nil then
+				say(current.config.Name, lines[1], pal.Hot)
+				if lines[2] ~= nil then
+					task.delay(2.4, function()
+						if boss == current then
+							say(current.config.Name, lines[2], pal.Hot)
+						end
+					end)
+				end
+			end
+		end
+	end)
 	playShot(current, { Seconds = 2.4, Sweep = -0.7, Distance = 52, Height = 12, Fov = 58 })
 end
 
@@ -4298,6 +4653,7 @@ local function onRings(payload)
 	local step = tonumber(payload.StepSeconds) or 0.6
 	local firstAt = tonumber(payload.DetonateAt) or (serverNow() + 2)
 	local started = serverNow()
+	windUp(firstAt, firstAt - started)
 	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("RingAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
@@ -4378,6 +4734,7 @@ local function onSweep(payload)
 	if boss ~= nil then
 		boss.beam = { begin = beginAt, endAt = endAt, start = startAngle, speed = speed }
 	end
+	windUp(beginAt, beginAt - serverNow())
 	Audio:play(bossCue("Charge"))
 	local segments = {}
 	for index = 1, BEAM_SEGMENTS do
@@ -4415,6 +4772,350 @@ local function onSweep(payload)
 		end
 	end)
 end
+-- A stepped wedge of neon from the boss out to `range`, drawn from the angle the server
+-- tests, so the danger on screen is the danger that hurts.
+local function newBeam(center: Vector3, halfWidth: number, range: number)
+	local segments = {}
+	for index = 1, BEAM_SEGMENTS do
+		local near = (index - 1) / BEAM_SEGMENTS * range
+		local far = index / BEAM_SEGMENTS * range
+		local part = vfxPart("Beam", nil, Vector3.new(far - near + 0.2, 0.3, 0.4), pal.Alert, Enum.Material.Neon)
+		part.Transparency = 1
+		table.insert(segments, { part = part, mid = (near + far) / 2, length = far - near + 0.2, width = 2 * far * math.tan(halfWidth) })
+	end
+	return {
+		place = function(angle: number, live: number, transparency: number)
+			local cosine, sine = math.cos(angle), math.sin(angle)
+			for _, segment in segments do
+				segment.part.Size = Vector3.new(segment.length, 0.3, math.max(0.4, segment.width * live))
+				segment.part.CFrame = CFrame.new(center + Vector3.new(cosine * segment.mid, 0, sine * segment.mid)) * CFrame.Angles(0, -angle, 0)
+				segment.part.Transparency = transparency
+			end
+		end,
+		destroy = function()
+			for _, segment in segments do
+				segment.part:Destroy()
+			end
+		end,
+	}
+end
+
+-- Every attack announces itself: the body flares and, now and then, the boss speaks.
+local function onAttack(payload)
+	local current = boss
+	if current == nil or type(payload) ~= "table" then
+		return
+	end
+	current.flash = math.max(current.flash, 0.7)
+	quip(current, current.config.Dialogue.Attack[tostring(payload.Attack)], 9, 0.7)
+end
+
+-- Lances (the Warden): thin aim lines from the body, then every beam fires at once.
+local function onLances(payload)
+	if type(payload) ~= "table" or type(payload.Angles) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center) + Vector3.new(0, 0.5, 0)
+	local halfWidth = math.clamp(tonumber(payload.HalfWidth) or 0.075, 0.02, 0.6)
+	local range = tonumber(payload.Range) or 90
+	local fireAt = tonumber(payload.FireAt) or (serverNow() + 1.5)
+	local started = serverNow()
+	windUp(fireAt, fireAt - started)
+	Audio:play(bossCue("Charge"))
+	local beams = {}
+	for _, angle in payload.Angles do
+		table.insert(beams, { angle = tonumber(angle) or 0, beam = newBeam(center, halfWidth, range) })
+	end
+	local fired = false
+	local connection: RBXScriptConnection? = nil
+	connection = RunService.RenderStepped:Connect(function()
+		local now = serverNow()
+		if now < fireAt then
+			local k = math.clamp((now - started) / math.max(0.2, fireAt - started), 0, 1)
+			for _, entry in beams do
+				entry.beam.place(entry.angle, 0.04 + 0.05 * k, 0.88 - 0.3 * k * math.abs(math.sin(now * (8 + k * 18))))
+			end
+			return
+		end
+		local since = now - fireAt
+		if not fired then
+			fired = true
+			Audio:play(bossCue("Land"))
+			Controls.shake(0.8)
+			screenFlash(pal.Hot, 0.25, 0.4)
+			local origin = if boss ~= nil then boss.core.Position else center + Vector3.new(0, 24, 0)
+			for _, entry in beams do
+				local tip = center + Vector3.new(math.cos(entry.angle) * range, 0, math.sin(entry.angle) * range)
+				lightning(origin, tip, pal.Hot, 0.35, 1.1)
+				Vfx.burst(tip, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(6, 22) }, clientFolder)
+			end
+		end
+		local fade = math.clamp(1 - since / 0.45, 0, 1)
+		for _, entry in beams do
+			entry.beam.place(entry.angle, math.min(1, 0.1 + since / 0.06), 1 - 0.75 * fade)
+		end
+		if since > 0.5 or not active then
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			for _, entry in beams do
+				entry.beam.destroy()
+			end
+		end
+	end)
+end
+
+-- Gravity well (the Warden): a vortex opens, the local player is dragged toward it while it
+-- lasts, and the server's core detonation (a slam landing) ends it.
+local function onWell(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center) + Vector3.new(0, 0.3, 0)
+	local radius = tonumber(payload.Radius) or 30
+	local core = tonumber(payload.Core) or 15
+	local strength = tonumber(payload.Strength) or 34
+	local pullFrom = tonumber(payload.PullFrom) or serverNow()
+	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 3)
+	local started = serverNow()
+	windUp(detonateAt, detonateAt - started)
+	Audio:play(bossCue("Charge"))
+	local anchor = vfxPart("WellAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
+	anchor.Transparency = 1
+	anchor.CFrame = CFrame.new(center)
+	Vfx.attach(anchor, "Swirl", { Color = pal.Primary, Color2 = pal.Alert, Size = NumberSequence.new(radius * 1.4, radius * 1.8) })
+	local heart = vfxPart("WellCore", Enum.PartType.Ball, Vector3.new(2, 2, 2), pal.Primary, Enum.Material.Neon)
+	heart.CFrame = CFrame.new(center + Vector3.new(0, 2, 0))
+	heart.Transparency = 0.15
+	local marker = ringAdornment(anchor, core, core - 0.8, pal.Alert, 0.3)
+	local rings = {}
+	for index = 1, 3 do
+		rings[index] = ringAdornment(anchor, radius, radius - 1, pal.Hot, 0.5)
+	end
+	local connection: RBXScriptConnection? = nil
+	connection = RunService.RenderStepped:Connect(function(dt)
+		local now = serverNow()
+		local k = math.clamp((now - started) / math.max(0.3, detonateAt - started), 0, 1)
+		heart.Size = Vector3.new(1, 1, 1) * (2 + core * 0.6 * k)
+		for index, ring in rings do
+			local phase = (now * 0.9 + index / 3) % 1
+			local r = math.max(1.5, radius * (1 - phase))
+			ring.Radius = r
+			ring.InnerRadius = math.max(0, r - 1.2)
+			ring.Transparency = 1 - 0.7 * phase
+		end
+		marker.Transparency = 0.45 - 0.25 * math.abs(math.sin(k * math.pi * 8))
+		if now >= pullFrom and now < detonateAt then
+			local root = localRoot()
+			if root ~= nil then
+				local flat = Vector3.new(root.Position.X - center.X, 0, root.Position.Z - center.Z).Magnitude
+				if flat < radius * 1.8 then
+					Controls.pull(center, strength, dt)
+				end
+			end
+			Controls.shake(0.15 + 0.25 * k)
+		end
+		if now >= detonateAt + 0.05 or not active then
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			heart:Destroy()
+			anchor:Destroy()
+		end
+	end)
+end
+
+-- Dissonance (the Choir): the whole floor is marked to hurt except a few bright pockets.
+local function onDissonance(payload)
+	if type(payload) ~= "table" or type(payload.Zones) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center) + Vector3.new(0, 0.2, 0)
+	local arenaRadius = tonumber(payload.ArenaRadius) or 74
+	local zoneRadius = tonumber(payload.ZoneRadius) or 13
+	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 2.5)
+	local started = serverNow()
+	windUp(detonateAt, detonateAt - started)
+	Audio:play(bossCue("Charge"))
+	local anchor = vfxPart("DissonanceAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
+	anchor.Transparency = 1
+	anchor.CFrame = CFrame.new(center)
+	local floorFill = ringAdornment(anchor, arenaRadius, 0, pal.Alert, 0.82)
+	local floorEdge = ringAdornment(anchor, arenaRadius, arenaRadius - 1.2, pal.Alert, 0.3)
+	local pockets = {}
+	for _, zone in payload.Zones do
+		local at = Vector3.new(tonumber(zone.X) or center.X, center.Y + 0.1, tonumber(zone.Z) or center.Z)
+		local spot = vfxPart("Pocket", nil, Vector3.new(0.2, 0.2, 0.2), pal.Hot, Enum.Material.SmoothPlastic)
+		spot.Transparency = 1
+		spot.CFrame = CFrame.new(at)
+		local fill = ringAdornment(spot, zoneRadius, 0, pal.Hot, 0.35)
+		fill.ZIndex = 3
+		local rim = ringAdornment(spot, zoneRadius, zoneRadius - 0.9, Color3.new(1, 1, 1), 0.1)
+		rim.ZIndex = 4
+		-- A column of light over each pocket so it can be found from across the hall.
+		local beacon = vfxPart("PocketLight", Enum.PartType.Cylinder, Vector3.new(30, zoneRadius * 0.5, zoneRadius * 0.5), pal.Hot, Enum.Material.Neon)
+		beacon.CFrame = CFrame.new(at + Vector3.new(0, 15, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		beacon.Transparency = 0.75
+		table.insert(pockets, { spot = spot, rim = rim, fill = fill, beacon = beacon })
+	end
+	local connection: RBXScriptConnection? = nil
+	connection = RunService.RenderStepped:Connect(function()
+		local now = serverNow()
+		local k = math.clamp((now - started) / math.max(0.3, detonateAt - started), 0, 1)
+		floorFill.Transparency = 0.82 - 0.22 * k - 0.1 * math.abs(math.sin(now * (4 + k * 20)))
+		floorEdge.Transparency = 0.35 - 0.25 * math.abs(math.sin(now * 6))
+		for _, pocket in pockets do
+			pocket.rim.Transparency = 0.1 + 0.25 * math.abs(math.sin(now * 5))
+			pocket.fill.Transparency = 0.4 - 0.15 * k
+			pocket.beacon.Transparency = 0.78 - 0.2 * math.abs(math.sin(now * 3))
+		end
+		if now >= detonateAt + 0.8 or not active then
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			for _, pocket in pockets do
+				pocket.beacon:Destroy()
+				pocket.spot:Destroy()
+			end
+			anchor:Destroy()
+		end
+	end)
+end
+
+local function onDissonanceLand(payload)
+	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
+	Audio:play(bossCue("Land"))
+	screenFlash(pal.Alert, 0.55, 0.7)
+	Controls.shake(1.1)
+	groundCrack(center, 70, pal.Alert, 1.2)
+	Vfx.burst(center + Vector3.new(0, 0.5, 0), "Shockwave", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 190) }, clientFolder)
+	Vfx.burst(center + Vector3.new(0, 2, 0), "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 60) }, clientFolder)
+	if boss ~= nil then
+		boss.flash = 1
+		lightning(boss.core.Position, center, pal.Hot, 0.4, 1.4)
+	end
+end
+
+-- Inferno wall (the Regent): a wall of flame crosses the arena with a marked gap.
+local function onWall(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center) + Vector3.new(0, 0.2, 0)
+	local angle = tonumber(payload.Angle) or 0
+	local speed = tonumber(payload.Speed) or 24
+	local half = tonumber(payload.Half) or 3
+	local range = tonumber(payload.Range) or 84
+	local gapCenter = tonumber(payload.GapCenter) or 0
+	local gapHalf = tonumber(payload.GapHalf) or 9
+	local beginAt = tonumber(payload.BeginAt) or (serverNow() + 2)
+	local endAt = tonumber(payload.EndAt) or (beginAt + range * 2 / speed)
+	windUp(beginAt, beginAt - serverNow())
+	Audio:play(bossCue("Charge"))
+	local slabs = {}
+	local function addSlab(from: number, to: number)
+		if to - from < 1 then
+			return
+		end
+		local part = vfxPart("FlameWall", nil, Vector3.new(half * 2, 9, to - from), pal.Alert, Enum.Material.Neon)
+		part.Transparency = 1
+		local flame = Instance.new("Fire")
+		flame.Color = pal.Primary
+		flame.SecondaryColor = pal.Hot
+		flame.Size = 14
+		flame.Heat = 16
+		flame.Enabled = false
+		flame.Parent = part
+		table.insert(slabs, { part = part, flame = flame, across = (from + to) / 2 })
+	end
+	addSlab(-range, gapCenter - gapHalf)
+	addSlab(gapCenter + gapHalf, range)
+	local posts = {}
+	for _, side in { -1, 1 } do
+		local post = vfxPart("GapPost", nil, Vector3.new(0.7, 14, 0.7), pal.Hot, Enum.Material.Neon)
+		post.Transparency = 0.2
+		table.insert(posts, { part = post, across = gapCenter + side * gapHalf })
+	end
+	local cosine, sine = math.cos(angle), math.sin(angle)
+	local connection: RBXScriptConnection? = nil
+	connection = RunService.RenderStepped:Connect(function()
+		local now = serverNow()
+		local along = -range + speed * math.clamp(now - beginAt, 0, endAt - beginAt)
+		local lit = now >= beginAt
+		local base = center + Vector3.new(cosine * along, 0, sine * along)
+		local rotation = CFrame.Angles(0, -angle, 0)
+		for _, slab in slabs do
+			local at = base + Vector3.new(-sine * slab.across, 4.5, cosine * slab.across)
+			slab.part.CFrame = CFrame.new(at) * rotation
+			slab.part.Transparency = if lit then 0.45 - 0.1 * math.sin(now * 14) else 0.9 - 0.15 * math.abs(math.sin(now * 9))
+			slab.flame.Enabled = lit
+		end
+		for _, post in posts do
+			post.part.CFrame = CFrame.new(base + Vector3.new(-sine * post.across, 7, cosine * post.across))
+			post.part.Transparency = 0.15 + 0.2 * math.abs(math.sin(now * 6))
+		end
+		if lit then
+			Controls.shake(0.12)
+		end
+		if now >= endAt + 0.3 or not active then
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			for _, slab in slabs do
+				slab.part:Destroy()
+			end
+			for _, post in posts do
+				post.part:Destroy()
+			end
+		end
+	end)
+end
+
+-- The player's own blows: a bright arc thrown toward the boss and the sword arm swinging.
+local function slashArc(root: BasePart, toward: Vector3, color: Color3)
+	local flat = Vector3.new(toward.X - root.Position.X, 0, toward.Z - root.Position.Z)
+	local forward = if flat.Magnitude > 0.1 then flat.Unit else root.CFrame.LookVector
+	local origin = root.Position + Vector3.new(0, 0.6, 0)
+	local facing = CFrame.lookAt(Vector3.zero, forward)
+	for index = 1, 7 do
+		local sweep = (index / 7 - 0.5) * math.pi * 0.95
+		local direction = (facing * CFrame.Angles(0, -sweep, 0)).LookVector
+		local at = origin + direction * 3.6 + Vector3.new(0, 1.6 - index * 0.08, 0)
+		local blade = vfxPart("Slash", nil, Vector3.new(0.35, 0.35, 2.4), color, Enum.Material.Neon)
+		blade.CFrame = CFrame.lookAt(at, at + direction:Cross(Vector3.yAxis))
+		blade.Transparency = 0.1
+		TweenService:Create(blade, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1, Size = Vector3.new(0.1, 0.1, 3.2) }):Play()
+		Debris:AddItem(blade, 0.3)
+	end
+end
+
+local swinging = false
+local function swingArm()
+	if swinging then
+		return
+	end
+	local character = Players.LocalPlayer.Character
+	local shoulder = character and character:FindFirstChild("RightShoulder", true)
+	if shoulder == nil or not shoulder:IsA("Motor6D") then
+		return
+	end
+	swinging = true
+	local base = shoulder.C0
+	local started = os.clock()
+	local connection: RBXScriptConnection? = nil
+	connection = RunService.RenderStepped:Connect(function()
+		local k = (os.clock() - started) / 0.22
+		if k >= 1 or shoulder.Parent == nil or not active then
+			shoulder.C0 = base
+			swinging = false
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			return
+		end
+		shoulder.C0 = base * CFrame.Angles(-math.sin(k * math.pi) * math.rad(110), 0, 0)
+	end)
+end
 -- The local player's strike landed (the HUD fires this with the result):
 -- sparks off the Warden, and a flash on a critical hit.
 local function onStrikeLanded(payload)
@@ -4423,6 +5124,11 @@ local function onStrikeLanded(payload)
 		return
 	end
 	local crit = type(payload) == "table" and payload.Crit == true
+	local striker = localRoot()
+	if striker ~= nil then
+		slashArc(striker, current.core.Position, if crit then Color3.fromRGB(255, 226, 150) else pal.Hot)
+		swingArm()
+	end
 	local root = localRoot()
 	local at = current.core.Position
 	if root ~= nil then
@@ -4572,6 +5278,12 @@ function World.start()
 	table.insert(unsubscribers, Signals.on("RiftBossRings", onRings))
 	table.insert(unsubscribers, Signals.on("RiftBossRingLand", onRingLand))
 	table.insert(unsubscribers, Signals.on("RiftBossSweep", onSweep))
+	table.insert(unsubscribers, Signals.on("RiftBossAttack", onAttack))
+	table.insert(unsubscribers, Signals.on("RiftBossLances", onLances))
+	table.insert(unsubscribers, Signals.on("RiftBossWell", onWell))
+	table.insert(unsubscribers, Signals.on("RiftBossDissonance", onDissonance))
+	table.insert(unsubscribers, Signals.on("RiftBossDissonanceLand", onDissonanceLand))
+	table.insert(unsubscribers, Signals.on("RiftBossWall", onWall))
 	table.insert(unsubscribers, Signals.on("WaystoneArrived", onArrived))
 	table.insert(unsubscribers, Signals.on("StrikeLanded", onStrikeLanded))
 

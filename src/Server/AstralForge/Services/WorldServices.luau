@@ -648,15 +648,16 @@ function RiftBossService:_targets(inArena: { [Player]: Vector3 }): { Vector3 }
 	return targets
 end
 
-function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number)
+function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number, radius: number?)
 	local config = self._config
 	local center = { X = aim.X, Y = floorY, Z = aim.Z }
-	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = config.SlamRadius })
+	local size = radius or config.SlamRadius
+	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = size })
 	self:_broadcast({
 		Type = "RiftBossSlam",
 		BossKind = config.Kind,
 		Center = center,
-		Radius = config.SlamRadius,
+		Radius = size,
 		DetonateAt = detonateAt,
 	}, true)
 end
@@ -667,6 +668,8 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 	local targets = self:_targets(inArena)
 	local params = attack.Params or {}
 	local telegraph = params.TelegraphSeconds or config.SlamTelegraphSeconds
+	-- Tell clients which move this is: the boss winds up and speaks accordingly.
+	self:_broadcast({ Type = "RiftBossAttack", BossKind = config.Kind, Attack = attack.Kind }, true)
 	if attack.Kind == "Slam" then
 		self:_slamAt(targets[1] or center, center.Y, now + telegraph)
 	elseif attack.Kind == "TwinSlam" then
@@ -700,6 +703,108 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			Width = params.Width,
 			StepSeconds = params.StepSeconds,
 			DetonateAt = first,
+		}, true)
+	elseif attack.Kind == "EchoSlam" then
+		-- The same spot struck again and again, each blow wider than the last.
+		local aim = targets[1] or center
+		for hit = 1, params.Hits do
+			self:_slamAt(aim, center.Y, now + telegraph + (hit - 1) * params.StepSeconds, config.SlamRadius * params.Growth ^ (hit - 1))
+		end
+	elseif attack.Kind == "Volley" then
+		-- A run of small slams, one fighter after another (the list wraps round if short).
+		for shot = 1, params.Count do
+			local target = targets[(shot - 1) % math.max(1, #targets) + 1] or center
+			local angle = self._random:NextNumber() * math.pi * 2
+			local spread = self._random:NextNumber() * params.Scatter
+			local aim = Vector3.new(target.X + math.cos(angle) * spread, target.Y, target.Z + math.sin(angle) * spread)
+			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale)
+		end
+	elseif attack.Kind == "Lances" then
+		local angles = RiftBossMath.LanceAngles(params.Count, self._random:NextNumber() * math.pi * 2)
+		local fireAt = now + telegraph
+		table.insert(self._events, {
+			Kind = "Lance",
+			At = fireAt,
+			Angles = angles,
+			HalfWidth = params.HalfWidth,
+			Range = params.Range,
+			Center = center,
+		})
+		self:_broadcast({
+			Type = "RiftBossLances",
+			BossKind = config.Kind,
+			Center = center,
+			Angles = angles,
+			HalfWidth = params.HalfWidth,
+			Range = params.Range,
+			FireAt = fireAt,
+		}, true)
+	elseif attack.Kind == "GravityWell" then
+		-- Opens under a fighter, drags everyone toward it, then the core detonates.
+		local aim = targets[1] or center
+		local at = { X = aim.X, Y = center.Y, Z = aim.Z }
+		local pullFrom = now + telegraph
+		local detonateAt = pullFrom + params.PullSeconds
+		table.insert(self._events, { Kind = "Well", At = detonateAt, Center = at, Core = params.Core })
+		self:_broadcast({
+			Type = "RiftBossWell",
+			BossKind = config.Kind,
+			Center = at,
+			Radius = params.Radius,
+			Core = params.Core,
+			Strength = params.Strength,
+			PullFrom = pullFrom,
+			DetonateAt = detonateAt,
+		}, true)
+	elseif attack.Kind == "Dissonance" then
+		-- The whole arena hurts except a few safe pockets.
+		local _, _, arenaRadius = self:_arena()
+		local relative = RiftBossMath.SafeZones(params.Zones, arenaRadius, params.ZoneRadius, self._random:NextNumber(), self._random:NextNumber())
+		local zones = {}
+		for _, zone in relative do
+			table.insert(zones, { X = center.X + zone.X, Z = center.Z + zone.Z })
+		end
+		local detonateAt = now + telegraph
+		table.insert(self._events, { Kind = "Dissonance", At = detonateAt, Center = center, Zones = zones, Radius = params.ZoneRadius })
+		self:_broadcast({
+			Type = "RiftBossDissonance",
+			BossKind = config.Kind,
+			Center = center,
+			ArenaRadius = arenaRadius,
+			Zones = zones,
+			ZoneRadius = params.ZoneRadius,
+			DetonateAt = detonateAt,
+		}, true)
+	elseif attack.Kind == "Wall" then
+		-- A wall of flame crosses the arena along a random heading with one gap in it.
+		local angle = self._random:NextNumber() * math.pi * 2
+		local gapCenter = (self._random:NextNumber() * 2 - 1) * params.Range * 0.55
+		local beginAt = now + telegraph
+		local endAt = beginAt + params.Range * 2 / params.Speed
+		table.insert(self._events, {
+			Kind = "Wall",
+			At = beginAt,
+			EndAt = endAt,
+			Center = center,
+			Angle = angle,
+			Speed = params.Speed,
+			Half = params.Half,
+			Range = params.Range,
+			GapCenter = gapCenter,
+			GapHalf = params.GapHalf,
+		})
+		self:_broadcast({
+			Type = "RiftBossWall",
+			BossKind = config.Kind,
+			Center = center,
+			Angle = angle,
+			Speed = params.Speed,
+			Half = params.Half,
+			Range = params.Range,
+			GapCenter = gapCenter,
+			GapHalf = params.GapHalf,
+			BeginAt = beginAt,
+			EndAt = endAt,
 		}, true)
 	elseif attack.Kind == "Sweep" then
 		local aim = targets[1] or center
@@ -762,6 +867,43 @@ function RiftBossService:_resolve(event, now: number, inArena: { [Player]: Vecto
 			Index = event.Index,
 		}, true)
 		return true
+	elseif event.Kind == "Lance" then
+		for _, player in RiftBossMath.LanceHits(event.Center.X, event.Center.Z, event.Angles, event.HalfWidth, event.Range, flatPositions(inArena)) do
+			self:_daze(player, now, event.Center)
+		end
+		return true
+	elseif event.Kind == "Well" then
+		for _, player in RiftBossMath.SlamHits(event.Center.X, event.Center.Z, event.Core, flatPositions(inArena)) do
+			self:_daze(player, now, event.Center)
+		end
+		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Core }, true)
+		return true
+	elseif event.Kind == "Dissonance" then
+		for _, player in RiftBossMath.OutsideZones(event.Zones, event.Radius, flatPositions(inArena)) do
+			self:_daze(player, now, event.Center)
+		end
+		self:_broadcast({ Type = "RiftBossDissonanceLand", BossKind = config.Kind, Center = event.Center }, true)
+		return true
+	elseif event.Kind == "Wall" then
+		-- Test the stretch the wall covered since the last look, so a slow step cannot skip a fighter.
+		local along = -event.Range + event.Speed * (math.min(now, event.EndAt) - event.At)
+		local previous = event.LastAlong or along
+		event.LastAlong = along
+		local hits = RiftBossMath.WallHits(
+			event.Center.X,
+			event.Center.Z,
+			event.Angle,
+			(along + previous) / 2,
+			event.Half + math.abs(along - previous) / 2,
+			event.GapCenter,
+			event.GapHalf,
+			event.Range,
+			flatPositions(inArena)
+		)
+		for _, player in hits do
+			self:_daze(player, now, event.Center)
+		end
+		return now >= event.EndAt
 	elseif event.Kind == "Sweep" then
 		local angle = RiftBossMath.SweepAngleAt(event.Start, event.Speed, math.min(now, event.EndAt) - event.At)
 		local hits = RiftBossMath.SweepHits(

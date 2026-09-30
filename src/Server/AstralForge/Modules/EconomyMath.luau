@@ -2504,6 +2504,95 @@ function RiftBossMath.SweepHits(centerX: number, centerZ: number, angle: number,
 	return hits
 end
 
+-- Abilities ----------------------------------------------------------------------
+
+-- Fighters who are NOT inside any safe circle (the Choir's Dissonance): the whole arena
+-- hurts except the pockets it leaves open. `zones` is a list of { X, Z }.
+function RiftBossMath.OutsideZones(zones: { { X: number, Z: number } }, radius: number, positions: { [any]: { X: number, Z: number } }): { any }
+	local hits = {}
+	for id, position in positions do
+		local safe = false
+		for _, zone in zones do
+			local dx, dz = position.X - zone.X, position.Z - zone.Z
+			if dx * dx + dz * dz <= radius * radius then
+				safe = true
+				break
+			end
+		end
+		if not safe then
+			table.insert(hits, id)
+		end
+	end
+	return hits
+end
+
+-- Safe circles for Dissonance, laid out round the arena from two uniform rolls so the
+-- server and the tests agree. They never overlap and never poke outside the arena.
+function RiftBossMath.SafeZones(count: number, arenaRadius: number, zoneRadius: number, rollA: number, rollB: number): { { X: number, Z: number } }
+	count = math.max(1, math.floor(count))
+	local zones = {}
+	-- Far enough out that neighbours are at least 4 studs apart, never further than the rim allows.
+	local needed = if count > 1 then (zoneRadius + 2) / math.sin(math.pi / count) else 0
+	local reach = math.min(math.max(arenaRadius * (0.35 + 0.25 * math.clamp(rollB, 0, 1)), needed), arenaRadius - zoneRadius - 2)
+	local start = math.clamp(rollA, 0, 1) * math.pi * 2
+	for k = 1, count do
+		local angle = start + (k - 1) * math.pi * 2 / count
+		table.insert(zones, { X = math.cos(angle) * reach, Z = math.sin(angle) * reach })
+	end
+	return zones
+end
+
+-- Fighters caught by a wall sweeping across the arena along `angle`: within half its
+-- thickness of `along` (its position on the axis), inside `range` either side of the axis,
+-- and not in the gap (centred `gapCenter` across the axis, `gapHalf` either side).
+function RiftBossMath.WallHits(
+	centerX: number,
+	centerZ: number,
+	angle: number,
+	along: number,
+	half: number,
+	gapCenter: number,
+	gapHalf: number,
+	range: number,
+	positions: { [any]: { X: number, Z: number } }
+): { any }
+	local hits = {}
+	local cosine, sine = math.cos(angle), math.sin(angle)
+	for id, position in positions do
+		local dx, dz = position.X - centerX, position.Z - centerZ
+		local axis = dx * cosine + dz * sine
+		local across = -dx * sine + dz * cosine
+		if math.abs(axis - along) <= half and math.abs(across) <= range and math.abs(across - gapCenter) > gapHalf then
+			table.insert(hits, id)
+		end
+	end
+	return hits
+end
+
+-- Fighters caught by any of several beams fired at once (the Warden's lances); each is
+-- listed once however many beams cover it.
+function RiftBossMath.LanceHits(centerX: number, centerZ: number, angles: { number }, halfWidth: number, range: number, positions: { [any]: { X: number, Z: number } }): { any }
+	local hits = {}
+	for id, position in positions do
+		for _, angle in angles do
+			if RiftBossMath.SweepCovers(position.X - centerX, position.Z - centerZ, angle, halfWidth, range) then
+				table.insert(hits, id)
+				break
+			end
+		end
+	end
+	return hits
+end
+
+-- Lance headings: `count` evenly spaced beams, the first at `first` radians.
+function RiftBossMath.LanceAngles(count: number, first: number): { number }
+	local angles = {}
+	count = math.max(1, math.floor(count))
+	for k = 1, count do
+		table.insert(angles, first + (k - 1) * math.pi * 2 / count)
+	end
+	return angles
+end
 -- Rewards on defeat. `damage[id]` is damage dealt, `strikes[id]` strike count.
 -- A fighter with fewer than MinStrikesForReward strikes gets nothing; the rest
 -- get Base + Share x (their damage / all counted damage), rounded.

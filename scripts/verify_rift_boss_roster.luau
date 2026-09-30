@@ -165,6 +165,95 @@ for _, bridge in Layout.isleBridges() do
 		check(math.abs(points[i + 1].Y - points[i].Y) / math.max(run, 0.1) < 0.4, bridge.Region .. ": bridge too steep")
 	end
 end
+-- Abilities: every attack kind is one the service starts, carries the params it reads, and
+-- the boss has something to say about it.
+local serviceSource = string.gsub(fs.readFile("src/Server/AstralForge/Services/WorldServices.luau"), "\r\n", "\n")
+local REQUIRED = {
+	Slam = {},
+	TwinSlam = {},
+	Rings = { "Count", "FirstRadius", "Gap", "Width", "StepSeconds", "TelegraphSeconds" },
+	Sweep = { "Seconds", "Speed", "HalfWidth", "Range", "TelegraphSeconds" },
+	Lances = { "Count", "HalfWidth", "Range", "TelegraphSeconds" },
+	GravityWell = { "Radius", "Core", "PullSeconds", "Strength", "TelegraphSeconds" },
+	Dissonance = { "Zones", "ZoneRadius", "TelegraphSeconds" },
+	EchoSlam = { "Hits", "StepSeconds", "Growth", "TelegraphSeconds" },
+	Volley = { "Count", "StepSeconds", "Scatter", "RadiusScale", "TelegraphSeconds" },
+	Wall = { "Speed", "Half", "Range", "GapHalf", "TelegraphSeconds" },
+}
+for _, boss in roster do
+	local label = boss.Name
+	local kinds = {}
+	for _, attack in boss.Attacks do
+		local needs = REQUIRED[attack.Kind]
+		check(needs ~= nil, label .. ": unknown attack " .. tostring(attack.Kind))
+		check(string.find(serviceSource, 'attack.Kind == "' .. attack.Kind .. '"', 1, true) ~= nil, label .. ": service never starts " .. attack.Kind)
+		for _, key in needs do
+			check(attack.Params ~= nil and attack.Params[key] ~= nil, label .. ": " .. attack.Kind .. " lacks " .. key)
+		end
+		kinds[attack.Kind] = true
+	end
+	local speech = boss.Dialogue
+	check(speech ~= nil, label .. ": no dialogue")
+	check(#speech.Awake >= 3, label .. ": the wake-up scene needs three lines")
+	for _, key in { "Forming", "Phase2", "Phase3", "Defeat", "Escape", "Hit" } do
+		check(type(speech[key]) == "table" and #speech[key] >= 1, label .. ": no " .. key .. " dialogue")
+	end
+	for kind in kinds do
+		check(speech.Attack[kind] ~= nil and #speech.Attack[kind] >= 1, label .. ": nothing to say when it uses " .. kind)
+	end
+	for kind in speech.Attack do
+		check(kinds[kind], label .. ": dialogue for an attack it does not have (" .. kind .. ")")
+	end
+	for key, list in speech do
+		if key ~= "Attack" then
+			for _, line in list do
+				check(type(line) == "string" and #line > 0 and #line <= 90, label .. ": bad " .. key .. " line")
+			end
+		end
+	end
+end
+
+-- Dissonance: safe pockets never overlap, never leave the arena, and the rest of the floor hurts.
+for count = 1, 4 do
+	for _, zoneRadius in { 11, 13 } do
+		for _, rollA in { 0, 0.37, 0.99 } do
+			for _, rollB in { 0, 0.5, 1 } do
+				local zones = RiftBossMath.SafeZones(count, 74, zoneRadius, rollA, rollB)
+				check(#zones == count, "SafeZones count")
+				for i, zone in zones do
+					check(math.sqrt(zone.X * zone.X + zone.Z * zone.Z) + zoneRadius <= 74, "a safe zone leaves the arena")
+					for j = i + 1, #zones do
+						local dx, dz = zone.X - zones[j].X, zone.Z - zones[j].Z
+						check(math.sqrt(dx * dx + dz * dz) >= zoneRadius * 2 + 3.9, "safe zones overlap")
+					end
+				end
+			end
+		end
+	end
+end
+local zones = { { X = 20, Z = 0 }, { X = -20, Z = 0 } }
+local crowd = { inZone = { X = 22, Z = 3 }, other = { X = -18, Z = -2 }, middle = { X = 0, Z = 0 }, far = { X = 0, Z = 60 } }
+local caught = set(RiftBossMath.OutsideZones(zones, 13, crowd))
+check(not caught.inZone and not caught.other, "fighters in a pocket are safe")
+check(caught.middle and caught.far, "fighters outside every pocket are hit")
+check(#RiftBossMath.OutsideZones({}, 13, crowd) == 4, "with no pockets everyone is hit")
+
+-- Wall: hits the band, spares the gap, and stops at its range
+local fighters = { inBand = { X = 10, Z = 30 }, inGap = { X = 10, Z = -5 }, behind = { X = -30, Z = 30 }, ahead = { X = 40, Z = 30 }, wide = { X = 10, Z = 200 } }
+local wall = set(RiftBossMath.WallHits(0, 0, 0, 10, 3, -5, 9, 84, fighters))
+check(wall.inBand, "the wall hits a fighter in its band")
+check(not wall.inGap, "the gap is safe")
+check(not wall.behind and not wall.ahead, "the wall misses fighters it has passed or not reached")
+check(not wall.wide, "the wall ends at its range")
+local turned = set(RiftBossMath.WallHits(0, 0, math.pi / 2, 30, 3, 0, 0, 84, { onLine = { X = 5, Z = 31 }, off = { X = 5, Z = 10 } }))
+check(turned.onLine and not turned.off, "a wall along another heading")
+
+-- Lances: any beam counts, once
+local lanceAngles = RiftBossMath.LanceAngles(4, 0)
+check(#lanceAngles == 4 and math.abs(lanceAngles[2] - math.pi / 2) < 1e-9, "four lances are a right angle apart")
+local lanceHit = RiftBossMath.LanceHits(0, 0, lanceAngles, 0.075, 92, { onBeam = { X = 40, Z = 0.5 }, onOther = { X = 0.5, Z = -40 }, between = { X = 30, Z = 30 }, far = { X = 120, Z = 0 } })
+check(#lanceHit == 2, "lances catch only fighters on a beam")
+check(#RiftBossMath.LanceHits(0, 0, { 0, 0.01 }, 0.2, 92, { double = { X = 40, Z = 1 } }) == 1, "a fighter under two beams is listed once")
 -- Beatable: one level-1 fighter, no crits, striking once a second, inside the active window
 for _, boss in roster do
 	local health = RiftBossMath.MaxHealth(1, boss)
