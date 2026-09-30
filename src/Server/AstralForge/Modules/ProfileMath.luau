@@ -735,7 +735,7 @@ local function formatFromLog10(log10: number): string
 	if log10 ~= log10 or log10 <= 0 then
 		return "0"
 	end
-	if log10 < 3 then
+	if log10 < 3 and 10 ^ log10 < 999.5 then
 		return string.format("%.0f", 10 ^ log10)
 	end
 	if log10 >= LAST_NAMED_LOG10 then
@@ -745,7 +745,11 @@ local function formatFromLog10(log10: number): string
 	end
 	local group = math.clamp(math.floor(log10 / 3), 1, #SUFFIXES)
 	local scaled = 10 ^ (log10 - group * 3)
-	if scaled >= 1000 and group < #SUFFIXES then
+	-- Three significant figures are shown, so a value that rounds up to a full thousand has to
+	-- move to the next suffix ("1M", never "1000K").
+	local shownPrecision = if scaled < 10 then 2 elseif scaled < 100 then 1 else 0
+	local rollsOver = (tonumber(string.format("%." .. tostring(shownPrecision) .. "f", scaled)) or 0) >= 1000
+	if (scaled >= 1000 or rollsOver) and group < #SUFFIXES then
 		group += 1
 		scaled /= 1000
 	end
@@ -786,8 +790,9 @@ function Format.Number(value: any, decimals: number?): string
 	if value == math.huge or value == -math.huge then
 		return formatFromLog10(OmegaMath.Log10(value))
 	end
-	if math.abs(value) >= 1000 then
-		return formatFromLog10(math.log(math.abs(value)) / math.log(10))
+	if math.abs(value) >= 999.5 then
+		local text = formatFromLog10(math.log10(math.abs(value)))
+		return if value < 0 then "-" .. text else text
 	end
 	local scaled, suffix = scaleForDisplay(value)
 	if suffix == "" then

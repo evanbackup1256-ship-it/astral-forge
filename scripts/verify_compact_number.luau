@@ -43,4 +43,46 @@ for exponent = 0, 90 do
 	end
 end
 
+-- Server-side Format.Number feeds toast and log text and had the same tier-boundary bug.
+local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
+local chainStub: any
+chainStub = setmetatable({}, {
+	__index = function(_, key)
+		if key == "WaitForChild" or key == "GetService" then
+			return function()
+				return chainStub
+			end
+		end
+		return chainStub
+	end,
+})
+local serverSource = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#Format")
+local serverFormat = luau.load(serverSource, {
+	chunkName = "serverFormat",
+	environment = {
+		game = chainStub,
+		require = function()
+			return OmegaMath
+		end,
+	},
+})() :: any
+local function expectServer(value: any, expected: string)
+	local actual = serverFormat.Number(value)
+	assert(actual == expected, `Format.Number({tostring(value)}) = {actual}, expected {expected}`)
+end
+expectServer(999, "999")
+expectServer(999.6, "1K")
+expectServer(1000, "1K")
+expectServer(999999, "1M")
+expectServer(1e6, "1M")
+expectServer(1e9, "1B")
+expectServer(1e15, "1Qa")
+expectServer(-1e6, "-1M")
+for exponent = 0, 90 do
+	for _, mantissa in { 1, 9.99, 99.9, 999, 999.999 } do
+		local text = serverFormat.Number(mantissa * 10 ^ exponent)
+		assert(not string.find(text, "^%-?1000"), `Format.Number({mantissa}e{exponent}) = {text}`)
+	end
+end
+
 print("verify_compact_number: ok")
