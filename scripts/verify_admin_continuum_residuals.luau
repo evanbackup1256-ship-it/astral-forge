@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
 local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 

@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local ZoneUnlock = require("../src/Shared/AstralForge/Shared/SharedData")("ZoneUnlock")
 local LabOrderMath = require("../src/Server/AstralForge/Modules/LabOrderMath")
 local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")

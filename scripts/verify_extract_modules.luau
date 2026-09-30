@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local UpgradeCostReason = require("../src/Server/AstralForge/Modules/EconomyMath")("UpgradeCostReason")
 local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
 local OfflineProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("OfflineProjection")

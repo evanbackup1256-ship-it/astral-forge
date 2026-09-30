@@ -5,7 +5,7 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local GuildMath = require("../src/Server/AstralForge/Modules/OpsMath")("GuildMath")
 
 local function near(actual: number, expected: number, label: string)

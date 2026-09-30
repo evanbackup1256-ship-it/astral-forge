@@ -4,9 +4,9 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local OmegaMath = require("../src/Shared/AstralForge/Shared/SharedData")("OmegaMath")
+local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
 local TradeExchange = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
-local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileMath")("ProfileVersionGuard")
+local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
 
 local gameConfig = {
 	Items = { InventoryLimit = 100 },
