@@ -269,6 +269,18 @@ local savedFov: number? = nil
 local sprintToggled = false
 local jumpQueued = false
 local shakeStrength = 0
+-- Collision: the lens is swept as a small sphere (a point ray lets the near plane clip
+-- through corners and thin walls). The distance it is allowed is smoothed: it pulls in
+-- almost at once when something closes in, and eases back out when the way clears, so
+-- the view never pops as an obstacle enters or leaves the line.
+local CAMERA_RADIUS = 0.55
+local MIN_CLEAR_ZOOM = 2.2
+local clearZoom = 18
+-- The character fades out as an obstacle drags the lens close, so it never fills the view.
+local FADE_NEAR, FADE_FAR = 2.2, 5.5
+local fadedModel: Model? = nil
+local fadedParts: { BasePart } = {}
+local fadeApplied = 0
 local keyboardLooking = false
 local gamepadMove = Vector2.zero
 local gamepadLook = Vector2.zero
@@ -296,6 +308,37 @@ local function character(): (Model?, Humanoid?, BasePart?)
 		root = nil
 	end
 	return model, humanoid, root :: BasePart?
+end
+
+-- LocalTransparencyModifier fades only our own view of the character. The part list is
+-- rebuilt when the character changes (respawn) and every part is restored on reset.
+local function setCharacterFade(model: Model?, amount: number)
+	if model ~= fadedModel then
+		for _, part in fadedParts do
+			if part.Parent ~= nil then
+				part.LocalTransparencyModifier = 0
+			end
+		end
+		table.clear(fadedParts)
+		fadedModel = model
+		fadeApplied = 0
+		if model ~= nil then
+			for _, descendant in model:GetDescendants() do
+				if descendant:IsA("BasePart") then
+					table.insert(fadedParts, descendant)
+				end
+			end
+		end
+	end
+	if model == nil or math.abs(amount - fadeApplied) < 0.03 then
+		return
+	end
+	fadeApplied = amount
+	for _, part in fadedParts do
+		if part.Parent ~= nil then
+			part.LocalTransparencyModifier = amount
+		end
+	end
 end
 
 local function setRunLabel()
@@ -623,6 +666,7 @@ function Controls.start(facing: Vector3?)
 	yaw = math.atan2(-look.X, -look.Z)
 	pitch = math.rad(-20)
 	zoom, targetZoom = 18, 18
+	clearZoom = 18
 	focus = nil
 	sprintToggled = false
 	jumpQueued = false
@@ -650,6 +694,7 @@ function Controls.stop()
 	end
 	savedFov = nil
 	fov = BASE_FOV
+	setCharacterFade(nil, 0)
 	keyboardLooking = false
 	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	local _, humanoid = character()
@@ -693,7 +738,7 @@ function Controls.step(dt: number)
 		return
 	end
 	local camera = Workspace.CurrentCamera
-	local _, humanoid, root = character()
+	local model, humanoid, root = character()
 	if camera == nil or humanoid == nil or root == nil then
 		return
 	end
@@ -730,12 +775,18 @@ function Controls.step(dt: number)
 	focus = current
 	zoom += (targetZoom - zoom) * (1 - math.exp(-10 * dt))
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
-	local desiredEye = current - rotation.LookVector * zoom
-	local params = cameraRayParams()
-	local offset = desiredEye - current
-	local hit = Workspace:Raycast(current, offset, params)
-	local eye = if hit ~= nil then hit.Position - offset.Unit * 0.8 else desiredEye
+	local look = rotation.LookVector
+	-- Sweep a sphere back along the view ray to see how far the lens may sit.
+	local hit = Workspace:Spherecast(current, CAMERA_RADIUS, -look * zoom, cameraRayParams())
+	local allowed = if hit ~= nil then math.clamp(hit.Distance, MIN_CLEAR_ZOOM, zoom) else zoom
+	if allowed < clearZoom then
+		clearZoom += (allowed - clearZoom) * (1 - math.exp(-45 * dt))
+	else
+		clearZoom += (allowed - clearZoom) * (1 - math.exp(-5 * dt))
+	end
+	local eye = current - look * clearZoom
 	local frame = CFrame.lookAt(eye, current)
+	setCharacterFade(model, math.clamp((FADE_FAR - clearZoom) / (FADE_FAR - FADE_NEAR), 0, 1))
 	if shakeStrength > 0.001 then
 		local t = os.clock() * 38
 		frame *= CFrame.Angles(math.sin(t) * shakeStrength * 0.02, math.cos(t * 1.3) * shakeStrength * 0.02, 0)
