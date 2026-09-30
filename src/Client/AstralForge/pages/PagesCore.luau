@@ -1644,7 +1644,7 @@ return {
 end
 
 -- ======================================================================
--- Module: RebirthPanel   (merged from RebirthPanel.luau, 371 lines)
+-- Module: RebirthPanel   (merged from RebirthPanel.luau, 387 lines)
 -- ======================================================================
 __defs["RebirthPanel"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -1704,20 +1704,35 @@ local function featuresOpeningOnNextRebirth(config, nextCount: number): string
 	return table.concat(names, ", ")
 end
 
+-- The nearest thing still locked behind a rebirth COUNT -- a machine or a zone --
+-- with how many rebirths away it is. Zones and machines open by count, not by how
+-- big a single payout is, so the panel says how close the next gate is.
 local function nextMachineRebirthNote(config, rebirths: number): string
-	local machines = if config ~= nil and type(config.Machines) == "table" then config.Machines else nil
-	if machines == nil then
-		return ""
-	end
-	for _, machine in machines do
-		if type(machine) == "table" then
-			local need = if type(machine.RequiredRebirths) == "number" then machine.RequiredRebirths else 0
-			if need > rebirths and type(machine.Name) == "string" then
-				return `{machine.Name} needs {need} rebirth{if need == 1 then "" else "s"}.`
+	local bestName = ""
+	local bestNeed = math.huge
+	local function consider(list)
+		if type(list) ~= "table" then
+			return
+		end
+		for _, entry in list do
+			if type(entry) == "table" and type(entry.Name) == "string" then
+				local need = if type(entry.RequiredRebirths) == "number" then entry.RequiredRebirths else 0
+				if need > rebirths and need < bestNeed then
+					bestNeed = need
+					bestName = entry.Name
+				end
 			end
 		end
 	end
-	return ""
+	if config ~= nil then
+		consider(config.Machines)
+		consider(config.Zones)
+	end
+	if bestName == "" then
+		return ""
+	end
+	local away = bestNeed - rebirths
+	return `Next gate: {bestName} at {bestNeed} rebirth{if bestNeed == 1 then "" else "s"} ({away} to go).`
 end
 
 local function RebirthPanel(_param)
@@ -1874,7 +1889,7 @@ local function RebirthPanel(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Turn this run into permanent cores.",
+		value = if confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
 		size = if stack then 19 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,

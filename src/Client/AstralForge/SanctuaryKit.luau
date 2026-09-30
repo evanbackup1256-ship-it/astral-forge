@@ -192,7 +192,7 @@ return Ambience
 end
 
 -- ======================================================================
--- Module: sanctuaryControls   (merged from sanctuaryControls.luau, 557 lines)
+-- Module: sanctuaryControls   (merged from sanctuaryControls.luau, 570 lines)
 -- ======================================================================
 __defs["sanctuaryControls"] = function()
 -- Movement and camera for walking the sanctuary.
@@ -214,6 +214,22 @@ __defs["sanctuaryControls"] = function()
 
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+
+-- One RaycastParams for the life of the module: its filter only changes when the
+-- character does. Building a fresh params object (and filter table) every frame
+-- allocated needlessly on the camera path.
+local cameraParams = RaycastParams.new()
+cameraParams.FilterType = Enum.RaycastFilterType.Exclude
+local cameraFilterCharacter: Model? = nil
+local function cameraRayParams(): RaycastParams
+	local character = Players.LocalPlayer.Character
+	if character ~= cameraFilterCharacter then
+		cameraFilterCharacter = character
+		cameraParams.FilterDescendantsInstances = if character ~= nil then { character } else {}
+	end
+	return cameraParams
+end
+
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -715,10 +731,7 @@ function Controls.step(dt: number)
 	zoom += (targetZoom - zoom) * (1 - math.exp(-10 * dt))
 	local rotation = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
 	local desiredEye = current - rotation.LookVector * zoom
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local model = Players.LocalPlayer.Character
-	params.FilterDescendantsInstances = if model ~= nil then { model } else {}
+	local params = cameraRayParams()
 	local offset = desiredEye - current
 	local hit = Workspace:Raycast(current, offset, params)
 	local eye = if hit ~= nil then hit.Position - offset.Unit * 0.8 else desiredEye
@@ -748,7 +761,7 @@ return Controls
 end
 
 -- ======================================================================
--- Module: sanctuaryHud   (merged from sanctuaryHud.luau, 1583 lines)
+-- Module: sanctuaryHud   (merged from sanctuaryHud.luau, 1606 lines)
 -- ======================================================================
 __defs["sanctuaryHud"] = function()
 -- The sanctuary HUD: everything on screen while the player walks the world.
@@ -906,6 +919,10 @@ local function readWarden(model: Model?): WardenInfo
 	}
 end
 
+local function sameWardenInfo(a: WardenInfo, b: WardenInfo): boolean
+	return a.phase == b.phase and a.endsAt == b.endsAt and a.health == b.health and a.maxHealth == b.maxHealth and a.name == b.name
+end
+
 -- The Warden's replicated state, kept current from its attributes.
 local function useWarden(): WardenInfo
 	local info, setInfo = React.useState(function()
@@ -915,6 +932,17 @@ local function useWarden(): WardenInfo
 		local alive = true
 		local model: Model? = nil
 		local connection: RBXScriptConnection? = nil
+		-- Only publish a change: while the Warden model is missing, attach() runs once a
+		-- second and a fresh table every time re-rendered the whole HUD forever.
+		local function publish()
+			local nextInfo = readWarden(model)
+			setInfo(function(current)
+				if sameWardenInfo(current, nextInfo) then
+					return current
+				end
+				return nextInfo
+			end)
+		end
 		local function attach()
 			if connection ~= nil then
 				connection:Disconnect()
@@ -923,10 +951,10 @@ local function useWarden(): WardenInfo
 			model = findWarden()
 			if model ~= nil then
 				connection = model.AttributeChanged:Connect(function()
-					setInfo(readWarden(model))
+					publish()
 				end)
 			end
-			setInfo(readWarden(model))
+			publish()
 		end
 		attach()
 		task.spawn(function()
@@ -2112,16 +2140,24 @@ local function SanctuaryHud(props)
 
 	-- Cooldown sweeps for strike and recall, driven while they matter.
 	React.useEffect(function()
+		-- Push only on change: at rest both values are constant, and pushing them every
+		-- frame for the whole session was a binding update per frame for nothing.
+		local pushedCooldown = -1
+		local pushedRecharge = -1
 		local connection = RunService.RenderStepped:Connect(function()
 			local now = os.clock()
 			local strikeLeft = math.max(0, STRIKE_COOLDOWN - (now - lastStrike.current))
 			local dazeLeft = math.max(0, dazedUntil - now)
-			if dazeLeft > 0 then
-				setCooldown(dazeLeft / BOSS.DazeSeconds)
-			else
-				setCooldown(strikeLeft / STRIKE_COOLDOWN)
+			local cooldown = if dazeLeft > 0 then dazeLeft / BOSS.DazeSeconds else strikeLeft / STRIKE_COOLDOWN
+			if cooldown ~= pushedCooldown then
+				pushedCooldown = cooldown
+				setCooldown(cooldown)
 			end
-			setRecharge(math.clamp(1 - (now - recallAt) / RECALL_COOLDOWN, 0, 1))
+			local recharge = math.clamp(1 - (now - recallAt) / RECALL_COOLDOWN, 0, 1)
+			if recharge ~= pushedRecharge then
+				pushedRecharge = recharge
+				setRecharge(recharge)
+			end
 			-- Held button or key: keep striking at the cooldown.
 			if holding.current and strikeRef.current ~= nil then
 				strikeRef.current()
@@ -2753,7 +2789,7 @@ return Signals
 end
 
 -- ======================================================================
--- Module: sanctuaryWorld   (merged from sanctuaryWorld.luau, 1119 lines)
+-- Module: sanctuaryWorld   (merged from sanctuaryWorld.luau, 1164 lines)
 -- ======================================================================
 __defs["sanctuaryWorld"] = function()
 -- The sanctuary, as the client sees it.
@@ -2943,9 +2979,15 @@ local function restoreAnimated()
 	table.clear(animated)
 end
 
+-- Reused every frame (cleared, not reallocated).
+local sceneryParts: { BasePart } = {}
+local sceneryFrames: { CFrame } = {}
+
 local function stepScenery(t: number, cameraPosition: Vector3)
-	local parts: { BasePart } = {}
-	local frames: { CFrame } = {}
+	local parts = sceneryParts
+	local frames = sceneryFrames
+	table.clear(parts)
+	table.clear(frames)
 	for part, entry in animated do
 		if part.Parent == nil then
 			animated[part] = nil
@@ -3357,8 +3399,44 @@ local function setTethers(on: boolean)
 	end
 end
 
+-- A piece's child parts never change after buildBoss, so list them once instead
+-- of calling GetChildren on every piece every frame.
+local pieceKids: { [BasePart]: { BasePart } } = setmetatable({}, { __mode = "k" }) :: any
+local function kidsOf(part: BasePart): { BasePart }
+	local kids = pieceKids[part]
+	if kids == nil then
+		kids = {}
+		for _, child in part:GetChildren() do
+			if child:IsA("BasePart") then
+				table.insert(kids :: { BasePart }, child)
+			end
+		end
+		pieceKids[part] = kids
+	end
+	return kids :: { BasePart }
+end
+
+local function applyPieceTransparency(list: { Piece }, hide: number)
+	for _, piece in list do
+		piece.part.Transparency = piece.transparency + (1 - piece.transparency) * hide
+		for _, child in kidsOf(piece.part) do
+			child.Transparency = hide
+		end
+	end
+end
+
+-- The last (boss, hide) pair written: fades hold at 0 or 1 for long stretches and
+-- rewriting every part's Transparency each frame for nothing is measurable.
+local appliedBoss: Boss? = nil
+local appliedHide = -1
+
 local function setBossTransparency(current: Boss, visible: number)
 	local hide = 1 - math.clamp(visible, 0, 1)
+	if appliedBoss == current and math.abs(appliedHide - hide) < 0.002 then
+		return
+	end
+	appliedBoss = current
+	appliedHide = hide
 	current.core.Transparency = hide
 	current.shell.Transparency = 0.6 + 0.4 * hide
 	current.eye.Transparency = hide
@@ -3366,22 +3444,21 @@ local function setBossTransparency(current: Boss, visible: number)
 	current.aura.Enabled = visible > 0.2
 	current.swirl.Enabled = visible > 0.3
 	current.glowHalo.Enabled = visible > 0.3
-	for _, list in { current.rings, current.plates, current.shards } do
-		for _, piece in list do
-			piece.part.Transparency = piece.transparency + (1 - piece.transparency) * hide
-			for _, child in piece.part:GetChildren() do
-				if child:IsA("BasePart") then
-					child.Transparency = hide
-				end
-			end
-		end
-	end
+	applyPieceTransparency(current.rings, hide)
+	applyPieceTransparency(current.plates, hide)
+	applyPieceTransparency(current.shards, hide)
 end
+
+-- After a failed frame the warden is torn down; rebuilding it on the very next
+-- frame would repeat a deterministic error 60 times a second.
+local bossRetryAt = 0
+local bossParts: { BasePart } = {}
+local bossFrames: { CFrame } = {}
 
 local function stepBoss(dt: number, t: number)
 	if boss == nil then
 		-- Build once the model kit has loaded (or is known to be absent).
-		if not kitSettled then
+		if not kitSettled or os.clock() < bossRetryAt then
 			return
 		end
 		local model = findWarden()
@@ -3497,8 +3574,13 @@ local function stepBoss(dt: number, t: number)
 	current.coreLight.Brightness = 3 + current.flash * 6 + chargePulse * 4
 	current.coreLight.Color = RIFT:Lerp(SLAM, chargePulse)
 
-	local parts: { BasePart } = { current.core, current.shell }
-	local frames: { CFrame } = { CFrame.new(hover), CFrame.new(hover) }
+	-- Reused every frame (cleared, not reallocated); BulkMoveTo needs exact-length arrays.
+	local parts = bossParts
+	local frames = bossFrames
+	table.clear(parts)
+	table.clear(frames)
+	parts[1], parts[2] = current.core, current.shell
+	frames[1], frames[2] = CFrame.new(hover), CFrame.new(hover)
 
 	-- The eye turns toward the local player.
 	local root = localRoot()
@@ -3518,11 +3600,9 @@ local function stepBoss(dt: number, t: number)
 		end
 		table.insert(parts, piece.part)
 		table.insert(frames, frame)
-		for _, child in piece.part:GetChildren() do
-			if child:IsA("BasePart") then
-				table.insert(parts, child)
-				table.insert(frames, frame * piece.childOffset)
-			end
+		for _, child in kidsOf(piece.part) do
+			table.insert(parts, child)
+			table.insert(frames, frame * piece.childOffset)
 		end
 	end
 
@@ -3814,6 +3894,7 @@ function World.start()
 		if not ok then
 			warn(`[sanctuary] warden visuals: {problem}`)
 			destroyBoss()
+			bossRetryAt = os.clock() + 5
 		end
 		stepRegion(dt)
 	end))
@@ -3865,7 +3946,7 @@ return World
 end
 
 -- ======================================================================
--- Module: sanctuaryPresence   (merged from sanctuaryPresence.luau, 603 lines)
+-- Module: sanctuaryPresence   (merged from sanctuaryPresence.luau, 614 lines)
 -- ======================================================================
 __defs["sanctuaryPresence"] = function()
 -- Walkable rift behind the shell. The idle UI stays on a scriptable camera.
@@ -3876,6 +3957,22 @@ __defs["sanctuaryPresence"] = function()
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
+
+-- One RaycastParams for the life of the module: its filter only changes when the
+-- character does. Building a fresh params object (and filter table) every frame
+-- allocated needlessly on the camera path.
+local cameraParams = RaycastParams.new()
+cameraParams.FilterType = Enum.RaycastFilterType.Exclude
+local cameraFilterCharacter: Model? = nil
+local function cameraRayParams(): RaycastParams
+	local character = Players.LocalPlayer.Character
+	if character ~= cameraFilterCharacter then
+		cameraFilterCharacter = character
+		cameraParams.FilterDescendantsInstances = if character ~= nil then { character } else {}
+	end
+	return cameraParams
+end
+
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -4166,12 +4263,7 @@ local function releaseCameraGuard()
 end
 
 local function clearCamera(eye: Vector3, focus: Vector3): CFrame
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local character = Players.LocalPlayer.Character
-	if character ~= nil then
-		params.FilterDescendantsInstances = { character }
-	end
+	local params = cameraRayParams()
 	local lifted = eye
 	for _ = 1, 4 do
 		local delta = lifted - focus

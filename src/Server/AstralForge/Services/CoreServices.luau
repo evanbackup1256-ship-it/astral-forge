@@ -28,7 +28,7 @@ local function __load(name: string): any
 end
 
 -- ======================================================================
--- Module: AnomalyService   (merged from AnomalyService.luau, 569 lines)
+-- Module: AnomalyService   (merged from AnomalyService.luau, 582 lines)
 -- ======================================================================
 __defs["AnomalyService"] = function()
 
@@ -405,13 +405,25 @@ return function(loadService: (string) -> any)
 		if type(rawLoadout) ~= "table" then
 			return false, "Invalid reactor loadout."
 		end
+		AnomalyService.Ensure(profile)
 		local slots = GameConfig.Anomalies.LoadoutSlots
-		if #rawLoadout > slots then
+		-- #rawLoadout ignores string keys, so {"Flux", a = "Reward", b = "Speed"} used to pass
+		-- the slot check while the loop below saved every entry. Count ALL keys and
+		-- require a plain 1..n array.
+		local count = 0
+		for key in rawLoadout do
+			count += 1
+			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
+				return false, "Invalid reactor loadout."
+			end
+		end
+		if count > slots then
 			return false, string.format("You can only slot %d channels at once.", slots)
 		end
 		local seen = {}
 		local resolved = {}
-		for _, channelId in rawLoadout do
+		for index = 1, count do
+			local channelId = rawLoadout[index]
 			if type(channelId) ~= "string" then
 				return false, "Invalid reactor loadout."
 			end
@@ -435,6 +447,7 @@ return function(loadService: (string) -> any)
 		if type(rawTier) ~= "number" then
 			return false, "Invalid anomaly milestone."
 		end
+		AnomalyService.Ensure(profile)
 		local tier = math.floor(rawTier)
 		local milestone = GameConfig.Anomalies.Milestones[tier]
 		if not milestone or profile.Anomaly.Stabilizations < milestone.Required then
@@ -1768,7 +1781,7 @@ end
 end
 
 -- ======================================================================
--- Module: ProgressionService   (merged from ProgressionService.luau, 890 lines)
+-- Module: ProgressionService   (merged from ProgressionService.luau, 894 lines)
 -- ======================================================================
 __defs["ProgressionService"] = function()
 
@@ -1981,7 +1994,9 @@ return function()
 
 		local production = Economy.Max(4, Economy.Production(profile))
 		local scale = 1 + (tonumber(profile.Rebirths) or 0) * 0.15
-		local earnTarget = math.floor(math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale))
+		-- AsNumber tops out at the double limit and the rebirth scale can push it to inf, which a
+		-- DataStore cannot serialize; cap just below it.
+		local earnTarget = math.floor(math.min(1e300, math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale)))
 		local tapTarget = math.floor((40 + (tonumber(profile.Rebirths) or 0) * 3) * scale)
 		local upgradeTarget = math.floor(3 + math.min(7, (tonumber(profile.Rebirths) or 0) / 2))
 		local rotation = (day + userId) % 3
@@ -2418,7 +2433,9 @@ return function()
 	end
 
 	function ProgressionService.ClaimCommanderReward(profile, rawLevel: any): (boolean, string)
-		if type(rawLevel) ~= "number" then
+		-- NaN fails every comparison below, and tostring(NaN) gives more than one spelling, so
+		-- a NaN level could claim a level-1 reward repeatedly under different keys.
+		if type(rawLevel) ~= "number" or rawLevel ~= rawLevel or math.abs(rawLevel) == math.huge then
 			return false, "Invalid commander level."
 		end
 		local level = math.floor(rawLevel)

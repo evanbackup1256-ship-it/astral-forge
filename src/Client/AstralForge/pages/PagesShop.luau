@@ -1240,7 +1240,7 @@ return {
 end
 
 -- ======================================================================
--- Module: WheelView   (merged from WheelView.luau, 1338 lines)
+-- Module: WheelView   (merged from WheelView.luau, 1349 lines)
 -- ======================================================================
 __defs["WheelView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -1283,15 +1283,22 @@ local Panel = _ui.Panel
 local Text = _ui.Text
 local IMPACT_RAYS = { 0, 60, 120, 180, 240, 300 }
 local RIM_NOTCHES = { 0, 45, 90, 135, 180, 225, 270, 315 }
-local function motionEase(phase, alpha)
-	local t = math.clamp(alpha, 0, 1)
-	if phase == "launch" then
-		return t * t
+-- One continuous motion, so the wheel never lurches between phases: it
+-- accelerates for WHEEL_LAUNCH_SECONDS, cruises at a constant speed until the
+-- server answers, then brakes on a cubic ease-out that STARTS at the cruise speed
+-- (initial speed = 3 * distance / duration, so duration = 3 * distance / speed).
+local WHEEL_OMEGA = 1440
+local WHEEL_OMEGA_LOW = 1080
+local WHEEL_LAUNCH_SECONDS = 0.65
+-- Cruise this long after launch even when the answer is already in, so the spin
+-- reads as a spin and not a snap.
+local WHEEL_MIN_CRUISE_SECONDS = 0.35
+local function sampleSpin(plan, elapsed)
+	local omega = plan.omega
+	if elapsed < WHEEL_LAUNCH_SECONDS then
+		return plan.base + omega * elapsed * elapsed / (2 * WHEEL_LAUNCH_SECONDS), omega * elapsed / WHEEL_LAUNCH_SECONDS
 	end
-	if phase == "coast" then
-		return t
-	end
-	return 1 - math.pow(1 - t, 4.6)
+	return plan.base + omega * WHEEL_LAUNCH_SECONDS / 2 + omega * (elapsed - WHEEL_LAUNCH_SECONDS), omega
 end
 local function positiveModulo(value, modulus)
 	return ((value % modulus) + modulus) % modulus
@@ -1326,32 +1333,19 @@ local function useWheelController(_param)
 	end)
 	local motor = React.useRef({
 		active = false,
-		phase = "launch",
-		startValue = 0,
-		targetValue = 0,
+		mode = "spin",
+		base = 0,
+		omega = WHEEL_OMEGA,
 		startedAt = 0,
-		duration = 1,
 		lastSegment = 0,
 		lastSoundAt = -math.huge,
 	})
+	local omegaRef = React.useRef(WHEEL_OMEGA)
+	omegaRef.current = if antilag.tier <= 1 then WHEEL_OMEGA_LOW else WHEEL_OMEGA
 	local spinning = phase == "launch" or phase == "coast" or phase == "brake"
 	local audioTicks = not reducedMotion and antilag.fxBudget > 0.22
 	local audioTicksRef = React.useRef(audioTicks)
 	audioTicksRef.current = audioTicks
-	local startPlan = React.useCallback(function(targetValue, duration, nextPhase, onComplete)
-		motor.current = {
-			active = true,
-			phase = nextPhase,
-			startValue = rotationValue.current,
-			targetValue = targetValue,
-			startedAt = os.clock(),
-			duration = math.max(0.05, duration),
-			lastSegment = math.floor(rotationValue.current / segment),
-			lastSoundAt = -math.huge,
-			onComplete = onComplete,
-		}
-		setPhase(nextPhase)
-	end, { segment })
 	local completeLanding = React.useCallback(function(result, finalRotation)
 		if not mounted.current or not busy.current then
 			return nil
@@ -1380,27 +1374,41 @@ local function useWheelController(_param)
 		if not mounted.current or not busy.current then
 			return nil
 		end
-		local current = rotationValue.current
 		local wanted = positiveModulo(360 - result.index * segment, 360)
 		if reducedMotion then
 			Audio:play("wheelBrake")
 			completeLanding(result, wanted)
 			return nil
 		end
+		-- Brake from wherever the wheel is, at the speed it is doing: the cubic
+		-- ease-out's opening speed is 3 * distance / duration, so choosing
+		-- duration = 3 * distance / speed makes the hand-over seamless.
+		local now = os.clock()
+		local plan = motor.current
+		local current, speed = sampleSpin(plan, now - plan.startedAt)
 		local delta = positiveModulo(wanted - positiveModulo(current, 360), 360)
-		local extra = if antilag.tier <= 1 then 720 else 1440
-		local target = current + extra + delta
+		local distance = (if antilag.tier <= 1 then 720 else 1080) + delta
+		motor.current = {
+			active = true,
+			mode = "brake",
+			base = current,
+			omega = plan.omega,
+			distance = distance,
+			duration = 3 * distance / math.max(speed, 240),
+			startedAt = now,
+			lastSegment = math.floor(current / segment),
+			lastSoundAt = plan.lastSoundAt,
+			result = result,
+		}
+		rotationValue.current = current
+		setPhase("brake")
 		Audio:play("wheelBrake")
-		startPlan(target, if antilag.tier <= 1 then 2.45 else 3.35, "brake", function()
-			return completeLanding(result, target)
-		end)
-	end, { antilag.tier, completeLanding, reducedMotion, segment, startPlan })
+	end, { antilag.tier, completeLanding, reducedMotion, segment })
 	beginBrakeRef.current = beginBrake
 	React.useEffect(function()
 		if not spinning then
 			return nil
 		end
-		local previousValue = rotationValue.current
 		local connection = RunService.RenderStepped:Connect(function(deltaTime)
 			if pointerKickValue.current > 0 then
 				pointerKickValue.current = math.max(0, pointerKickValue.current - deltaTime * 11.5)
@@ -1410,49 +1418,50 @@ local function useWheelController(_param)
 			if not plan.active then
 				return nil
 			end
-			local alpha = math.clamp((os.clock() - plan.startedAt) / plan.duration, 0, 1)
-			local value = plan.startValue + (plan.targetValue - plan.startValue) * motionEase(plan.phase, alpha)
+			local now = os.clock()
+			local elapsed = now - plan.startedAt
+			local braking = plan.mode == "brake"
+			local value, speed, progress
+			if braking then
+				progress = math.clamp(elapsed / plan.duration, 0, 1)
+				local remaining = 1 - progress
+				value = plan.base + plan.distance * (1 - remaining * remaining * remaining)
+				speed = 3 * plan.distance / plan.duration * remaining * remaining
+			else
+				progress = 0
+				value, speed = sampleSpin(plan, elapsed)
+			end
 			rotationValue.current = value
 			setRotation(value)
-			local degreesPerSecond = math.abs(value - previousValue) / math.max(deltaTime, 1 / 240)
-			previousValue = value
-			local energy = if plan.phase == "brake" then math.clamp(degreesPerSecond / 1150, 0, 1) else math.clamp(degreesPerSecond / 1700, 0, 1)
-			setSpinEnergy(energy)
+			setSpinEnergy(math.clamp(speed / plan.omega, 0, 1))
 			local currentSegment = math.floor(value / segment)
 			if currentSegment ~= plan.lastSegment then
 				plan.lastSegment = currentSegment
-				pointerKickValue.current = if plan.phase == "brake" and alpha > 0.66 then 1 else 0.58
+				pointerKickValue.current = if braking and progress > 0.66 then 1 else 0.58
 				setPointerKick(pointerKickValue.current)
-				local now = os.clock()
-				local minimumInterval = if plan.phase == "brake" then 0.045 + alpha * 0.115 else 0.052
-				if audioTicksRef.current and now - plan.lastSoundAt >= minimumInterval then
+				-- Fast spin ticks are a blur; only the slowing wheel earns clicks.
+				local interval = if braking then 0.06 + progress * 0.16 else 0.14
+				if audioTicksRef.current and now - plan.lastSoundAt >= interval then
 					plan.lastSoundAt = now
-					Audio:play(if plan.phase == "brake" and alpha > 0.65 then "wheelSlow" else "wheelTick", 0.92 + (1 - alpha) * 0.16)
+					Audio:play(if braking and progress > 0.65 then "wheelSlow" else "wheelTick", 0.92 + (1 - progress) * 0.16)
 				end
 			end
-			if alpha < 1 then
-				return nil
-			end
-			plan.active = false
-			local complete = plan.onComplete
-			plan.onComplete = nil
-			if complete ~= nil then
-				complete()
-				return nil
-			end
-			if plan.phase == "coast" then
+			if not braking then
 				local result = pendingResult.current
-				if result ~= nil then
+				if result ~= nil and elapsed >= WHEEL_LAUNCH_SECONDS + WHEEL_MIN_CRUISE_SECONDS then
 					beginBrakeRef.current(result)
-				else
-					startPlan(rotationValue.current + (if reducedMotion then 0 else 1080), if reducedMotion then 0.08 else 1.45, "coast")
 				end
+				return nil
+			end
+			if progress >= 1 then
+				plan.active = false
+				completeLanding(plan.result, plan.base + plan.distance)
 			end
 		end)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { reducedMotion, segment, setPointerKick, setRotation, setSpinEnergy, spinning, startPlan })
+	end, { completeLanding, segment, setPointerKick, setRotation, setSpinEnergy, spinning })
 	React.useEffect(function()
 		return function()
 			mounted.current = false
@@ -1488,15 +1497,16 @@ local function useWheelController(_param)
 			motor.current.active = false
 			setPhase("coast")
 		else
-			startPlan(rotationValue.current + (if antilag.tier <= 1 then 720 else 1080), 0.72, "launch", function()
-				launchFinished.current = true
-				local result = pendingResult.current
-				if result ~= nil then
-					beginBrakeRef.current(result)
-				else
-					startPlan(rotationValue.current + 1080, 1.45, "coast")
-				end
-			end)
+			motor.current = {
+				active = true,
+				mode = "spin",
+				base = rotationValue.current,
+				omega = omegaRef.current,
+				startedAt = os.clock(),
+				lastSegment = math.floor(rotationValue.current / segment),
+				lastSoundAt = -math.huge,
+			}
+			setPhase("launch")
 		end
 		if timeout.current ~= nil then
 			pcall(task.cancel, timeout.current)
@@ -1546,7 +1556,8 @@ local function useWheelController(_param)
 				message = response.message,
 			}
 			pendingResult.current = result
-			if launchFinished.current then
+			-- Reduced motion has no frame loop to pick the result up.
+			if reducedMotion then
 				beginBrakeRef.current(result)
 			end
 		end)

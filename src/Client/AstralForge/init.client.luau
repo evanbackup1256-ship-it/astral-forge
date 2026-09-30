@@ -614,8 +614,8 @@ local function configureUiOnlyWorkspace()
 	pcall(function()
 		lighting.GlobalShadows = false
 		lighting.Brightness = 1
-		lighting.Ambient = Color3.fromRGB(18, 20, 32)
-		lighting.OutdoorAmbient = Color3.fromRGB(18, 20, 32)
+		lighting.Ambient = Color3.fromRGB(26, 18, 30)
+		lighting.OutdoorAmbient = Color3.fromRGB(26, 18, 30)
 		lighting.EnvironmentDiffuseScale = 0
 		lighting.EnvironmentSpecularScale = 0
 		lighting.FogEnd = 1000000

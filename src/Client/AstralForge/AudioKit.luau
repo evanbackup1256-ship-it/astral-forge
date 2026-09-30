@@ -28,7 +28,7 @@ local function __load(name: string): any
 end
 
 -- ======================================================================
--- Module: audio   (merged from audio.luau, 3457 lines)
+-- Module: audio   (merged from audio.luau, 3489 lines)
 -- ======================================================================
 __defs["audio"] = function()
 local ContentProvider = game:GetService("ContentProvider")
@@ -1431,14 +1431,6 @@ local CUES = {
 		cooldown = 0.5,
 		stopAfter = 1.1,
 	},
-	sanctuaryRecall = {
-		asset = UI_CLICK,
-		volume = 0.34,
-		speed = 1,
-		variance = 0.006,
-		cooldown = 0.05,
-		stopAfter = 0.6,
-	},
 	regionEnter = {
 		asset = UI_CHIME,
 		volume = 0.22,
@@ -1631,6 +1623,14 @@ local CUES = {
 		cooldown = 0.05,
 		stopAfter = 0.16,
 	},
+	sanctuaryRecall = {
+		asset = UI_CLICK,
+		volume = 0.26,
+		speed = 1,
+		variance = 0.006,
+		cooldown = 0.2,
+		stopAfter = 0.7,
+	},
 	navHover = {
 		asset = UI_HOVER,
 		volume = 0.17,
@@ -1659,15 +1659,29 @@ local PRELOAD_BATCH_SIZE = 11
 local VOICE_CAP = 22
 local UI_OVERLAP_CAP = 2
 local TRIM_RELEASE_STEPS = 3
-local CUE_GAIN = 1.05
+local CUE_GAIN = 0.9
+-- Base level of a cue that exists only as a sound-sheet region.
+local SHEET_CUE_VOLUME = 0.22
 -- Per-cue trim for frequent UI feedback so hover/tick/scroll sit well under the music.
 local UI_TRIM = {
-	hover = 0.22, hoverTick = 0.22, tick = 0.35, scroll = 0.2, sliderStep = 0.3,
-	click = 0.5, tabSwitch = 0.4, amountChange = 0.35, inputFocus = 0.35, inputClear = 0.35,
-	page = 0.45, open = 0.5, close = 0.45, confirm = 0.5, toggleOn = 0.45, toggleOff = 0.4,
-	filterOpen = 0.4, filterPick = 0.4, settings = 0.45,
+	hover = 0.12, hoverTick = 0.12, tick = 0.2, scroll = 0.1, sliderStep = 0.16,
+	click = 0.3, tabSwitch = 0.24, amountChange = 0.2, inputFocus = 0.2, inputClear = 0.2,
+	page = 0.26, open = 0.3, close = 0.26, confirm = 0.3, toggleOn = 0.26, toggleOff = 0.24,
+	filterOpen = 0.24, filterPick = 0.24, settings = 0.26,
 }
-local UI_TRIM_DEFAULT = 0.5
+local UI_TRIM_DEFAULT = 0.3
+-- Constant feedback that only added noise: hovers, ticks, scrolling, slider and
+-- text-field chatter, filter/tab/list navigation. Deliberate actions (click,
+-- confirm, toggle on, open/close, purchases, rewards, errors) keep their sound.
+local SILENT_CUES = {
+	hover = true, hoverTick = true, navHover = true, sanctuaryHover = true, tick = true,
+	scroll = true, sliderStep = true, inputFocus = true, inputClear = true,
+	amountChange = true, filterOpen = true, filterPick = true, tabSwitch = true,
+	toggleOff = true, playerlistOpen = true, playerlistSelect = true,
+	playerlistClose = true, modalPop = true, noticeInfo = true, noticeClose = true,
+	chatReceive = true, settings = true, page = true, sanctuaryClick = true,
+	velocitySlide = true,
+}
 -- Every cue aliases one of three real assets, so a single pool absorbs the whole
 -- game's polyphony for that timbre. `IsPlaying` does not flip true on the same
 -- frame as :Play(), so a channel is also reserved for this long after starting;
@@ -2262,10 +2276,12 @@ do
 		if not uiGroup then
 			uiGroup = Instance.new("SoundGroup")
 			uiGroup.Name = "ForgeUI"
-			uiGroup.Volume = 0.3
 			uiGroup.Parent = masterGroup
 		end
 		self.uiGroup = uiGroup
+		-- Forced every start: a group saved in the place would otherwise keep its
+		-- old volume, and UI sounds sat far above the music.
+		uiGroup.Volume = 0.45
 
 		local ambientGroup = masterGroup:FindFirstChild("ForgeAmbient") :: SoundGroup
 		if not ambientGroup then
@@ -2303,11 +2319,11 @@ do
 		if not musicGroup then
 			musicGroup = Instance.new("SoundGroup")
 			musicGroup.Name = "ForgeMusic"
-			musicGroup.Volume = 0.75
+			musicGroup.Volume = 1
 			musicGroup.Parent = masterGroup
 		end
 		self.musicGroup = musicGroup
-		musicGroup.Volume = 0.75
+		musicGroup.Volume = 1
 
 		local musicEq = musicGroup:FindFirstChild("ForgeBed") :: EqualizerSoundEffect
 		if not musicEq then
@@ -2489,7 +2505,10 @@ do
 				if cue ~= nil then
 					-- Family gain and layer trim included, to match what playChannel /
 					-- playLayer set.
-					sound.Volume = CUES[cue].volume * CUE_GAIN * Voicing.voiceFor(cue).gain * (self.channelLayerGain[sound] or 1) * sfx * self:cueMix(cue)
+					-- Sheet-only cues have no CUES entry (see play()).
+					local spec = CUES[cue]
+					local base = if spec ~= nil then spec.volume else SHEET_CUE_VOLUME
+					sound.Volume = base * CUE_GAIN * Voicing.voiceFor(cue).gain * (self.channelLayerGain[sound] or 1) * sfx * self:cueMix(cue)
 				end
 			end
 		end
@@ -2869,6 +2888,9 @@ do
 		if speedMult == nil then
 			speedMult = 1
 		end
+		if SILENT_CUES[cue] then
+			return false
+		end
 		if not self:ensureStarted() then
 			return false
 		end
@@ -2887,7 +2909,7 @@ do
 			if start ~= nil then
 				spec = {
 					asset = UI_CLICK,
-					volume = 0.34,
+					volume = SHEET_CUE_VOLUME,
 					speed = 1,
 					variance = 0.006,
 					cooldown = 0.05,
@@ -3150,7 +3172,7 @@ do
 			self.channelLayerGain[channel] = layer.volume
 			local voice = Voicing.voiceFor(cue)
 			channel.SoundGroup = if UI_CUES[cue] then self.uiGroup else self.group
-			channel.Volume = CUES[cue].volume * CUE_GAIN * voice.gain * layer.volume * softSfx(self.sfxMix) * self:cueMix(cue)
+			channel.Volume = (if CUES[cue] ~= nil then CUES[cue].volume else SHEET_CUE_VOLUME) * CUE_GAIN * voice.gain * layer.volume * softSfx(self.sfxMix) * self:cueMix(cue)
 			channel.PlaybackSpeed = math.clamp(layer.pitch, 0.28, 2.1)
 			channel.Looped = false
 			paintCue(channel, cue)
@@ -3162,7 +3184,7 @@ do
 				return nil
 			end
 			self.claimedUntil[channel] = os.clock() + CHANNEL_CLAIM_SECONDS
-			self:scheduleRelease(channel, cue, CUES[cue], generation, token, channel.PlaybackSpeed)
+			self:scheduleRelease(channel, cue, CUES[cue] or { stopAfter = 0.6 }, generation, token, channel.PlaybackSpeed)
 			return nil
 		end)
 		return nil
@@ -3837,7 +3859,7 @@ return Voicing
 end
 
 -- ======================================================================
--- Module: soundSheet   (merged from soundSheet.luau, 272 lines)
+-- Module: soundSheet   (merged from soundSheet.luau, 273 lines)
 -- ======================================================================
 __defs["soundSheet"] = function()
 -- Which slice of the sound sheet each audio cue plays.
@@ -3955,6 +3977,7 @@ SoundSheet.VOICE = table.freeze({
 	curtainClose = "curtainClose",
 	sanctuaryHover = "sanctuaryHover",
 	sanctuaryClick = "sanctuaryClick",
+	sanctuaryRecall = "sanctuaryRecall",
 	navHover = "navHover",
 
 	-- Currency and rewards
@@ -4137,7 +4160,6 @@ SoundSheet.VOICE = table.freeze({
 	waystoneHollows = "waystoneHollows",
 	waystoneSpire = "waystoneSpire",
 	waystoneRiftmaw = "waystoneRiftmaw",
-	sanctuaryRecall = "sanctuaryRecall",
 	sanctuaryMenu = "sanctuaryMenu",
 	sanctuarySheetClose = "sanctuarySheetClose",
 	clickHover = "clickHover",
@@ -4287,10 +4309,10 @@ type Track = {
 -- with tools/assetgen/upload_soundtrack.py. New audio stays silent until
 -- Roblox moderation clears it; musicDirector skips a track that fails to load.
 local TRACKS: { Track } = {
-	{ name = "ForgePulse", asset = "rbxassetid://79059492969495", gain = 0.82, low = 2, mid = 0.5, high = -1.5 },
-	{ name = "SanctuaryDrift", asset = "rbxassetid://130740395926509", gain = 0.74, low = 0, mid = 0.8, high = 0.8 },
-	{ name = "AstralOrbit", asset = "rbxassetid://137908904057491", gain = 0.78, low = 0, mid = 1, high = 1 },
-	{ name = "BossSurge", asset = "rbxassetid://109017004194379", gain = 0.72, low = 1.5, mid = 0, high = -2 },
+	{ name = "ForgePulse", asset = "rbxassetid://85607718934391", gain = 0.9, low = 2, mid = 0.5, high = -1.5 },
+	{ name = "SanctuaryDrift", asset = "rbxassetid://98919050616365", gain = 1, low = 0, mid = 0.8, high = 0.8 },
+	{ name = "AstralOrbit", asset = "rbxassetid://84797482092417", gain = 0.95, low = 0, mid = 1, high = 1 },
+	{ name = "BossSurge", asset = "rbxassetid://76558769649423", gain = 0.85, low = 1.5, mid = 0, high = -2 },
 }
 
 local Soundtrack = {}
@@ -4299,9 +4321,9 @@ local Soundtrack = {}
 -- song, not a UI transition.
 Soundtrack.CROSSFADE_SECONDS = 4
 -- Level of the music Sounds before track gain, music volume and ducking.
-Soundtrack.BASE_VOLUME = 0.85
+Soundtrack.BASE_VOLUME = 1
 -- A track whose asset fails to load is skipped for this long, then retried.
-Soundtrack.RETRY_SECONDS = 120
+Soundtrack.RETRY_SECONDS = 25
 
 function Soundtrack.tracks(): { Track }
 	return TRACKS
@@ -4367,7 +4389,7 @@ return Soundtrack
 end
 
 -- ======================================================================
--- Module: musicDirector   (merged from musicDirector.luau, 357 lines)
+-- Module: musicDirector   (merged from musicDirector.luau, 359 lines)
 -- ======================================================================
 __defs["musicDirector"] = function()
 local SoundService = game:GetService("SoundService")
@@ -4388,7 +4410,9 @@ local DECK_NAMES = { "SoundtrackA", "SoundtrackB" }
 local POLL_SECONDS = 0.25
 local FADE_STEP_SECONDS = 0.05
 -- A track that has not loaded after this long is skipped (and retried later).
-local LOAD_DEADLINE_SECONDS = 8
+-- Generous: at boot the asset preloader is pulling thousands of assets over the
+-- same connection, and a 6 MB track routinely needs more than 8 seconds then.
+local LOAD_DEADLINE_SECONDS = 30
 
 local activeDirector = nil
 

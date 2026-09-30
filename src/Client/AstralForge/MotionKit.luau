@@ -652,7 +652,7 @@ return {
 end
 
 -- ======================================================================
--- Module: motion   (merged from motion.luau, 1569 lines)
+-- Module: motion   (merged from motion.luau, 1760 lines)
 -- ======================================================================
 __defs["motion"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -795,6 +795,8 @@ local function createFlipperMotor(initial, stiffness, damping)
 	local stepping = false
 	local destroyQueued = false
 	local suppressEmit = false
+	local scratch = {}
+	local reportedError = false
 	-- One goal object for the life of the motor. Spam retargets it instead of
 	-- allocating a Spring or Instant on every hover, press, or snap.
 	local springGoal = Spring.new(initial, {
@@ -807,18 +809,32 @@ local function createFlipperMotor(initial, stiffness, damping)
 		if finished or suppressEmit then
 			return nil
 		end
+		-- A nested emit (a callback that snaps this motor) must not share the
+		-- scratch list the outer loop is still reading.
+		local pending = if stepping then {} else scratch
+		local wasStepping = stepping
 		stepping = true
-		local pending = {}
+		local size = 0
 		for entry in callbacks do
-			table.insert(pending, entry)
+			size += 1
+			pending[size] = entry
 		end
-		for _, entry in pending do
+		for index = 1, size do
+			local entry = pending[index]
+			pending[index] = nil
 			if not entry.done and not destroyed then
-				entry.callback(value)
+				-- One throwing listener must not leave `stepping` stuck (which
+				-- would make destroy() queue forever and the motor step for the
+				-- rest of the session) or abort the whole frame's driver.
+				local ok, problem = pcall(entry.callback, value)
+				if not ok and not reportedError then
+					reportedError = true
+					warn(`[motion] listener error: {tostring(problem)}`)
+				end
 			end
 		end
-		stepping = false
-		if destroyQueued then
+		stepping = wasStepping
+		if destroyQueued and not stepping then
 			finishDestroy()
 		end
 	end
@@ -1021,6 +1037,27 @@ local flipperCount = 0
 local pendingArrivals = {}
 local pendingArrivalCount = 0
 local ensureDriver
+-- Frame-time smoothing for the lag governor (see the driver). Lag starts to bite
+-- below ~48 fps and is full at ~28 fps.
+local LAG_START_SECONDS = 1 / 48
+local LAG_FULL_SECONDS = 1 / 28
+local frameEma = 1 / 60
+local lagPressure = 0
+-- Reused per frame so the driver's snapshots allocate nothing.
+local flipperScratch = {}
+local listenerScratch = {}
+local continuousScratch = {}
+local function snapshotKeys(set, scratch)
+	local size = 0
+	for key in set do
+		size += 1
+		scratch[size] = key
+	end
+	return size
+end
+local function isTouchPrimary()
+	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+end
 local function realtimeClockBudget()
 	if UserInputService.TouchEnabled then
 		return TOUCH_REALTIME_CLOCK_BUDGET
@@ -1091,13 +1128,17 @@ end
 -- Phase still advances for every live slot even past the budget: only the
 -- React binding push is rate-limited. That keeps shimmer phase coherent when
 -- a slot rotates into the push window without scheduling N updates/frame.
-local tickRotation = 0
+-- One offset PER LIST: the realtime and decorative lists share this function, and
+-- a single shared offset let each list advance the other's start position, so
+-- the "fair" rotation could keep landing on the same slots and starve the rest.
+local tickRotations = setmetatable({}, { __mode = "k" })
 local clockTicking = 0
 local function tickClocks(list, deltaTime, budget)
 	local size = #list
 	local live = 0
 	local dead = 0
 	clockTicking += 1
+	local tickRotation = tickRotations[list] or 0
 	if size > 0 then
 		tickRotation = tickRotation % size
 	end
@@ -1133,6 +1174,7 @@ local function tickClocks(list, deltaTime, budget)
 	if size > 0 then
 		tickRotation = (tickRotation + math.max(1, budget)) % size
 	end
+	tickRotations[list] = tickRotation
 	clockTicking -= 1
 	if dead >= 6 and clockTicking == 0 then
 		compactClocks(list)
@@ -1293,11 +1335,28 @@ function ensureDriver()
 	end
 	driver = RunService.RenderStepped:Connect(function(deltaTime)
 		local clamped = math.min(deltaTime, 0.05)
+		-- Lag governor: a smoothed frame time drives `lagPressure` (0 = smooth,
+		-- 1 = badly lagging). Hitches are clamped so one long frame is not read as
+		-- sustained lag. Decorative clocks shrink their per-frame binding pushes
+		-- with it and recover on their own when frames get cheap again.
+		local sample = math.min(deltaTime, 0.1)
+		frameEma += (sample - frameEma) * math.min(1, sample * 2.5)
+		local pressureTarget = math.clamp((frameEma - LAG_START_SECONDS) / (LAG_FULL_SECONDS - LAG_START_SECONDS), 0, 1)
+		lagPressure += (pressureTarget - lagPressure) * math.min(1, sample * 1.5)
+		local ranRealtime = false
 		if flipperCount > 0 then
-			for motor in flipperMotors do
-				local token = flipperToken[motor]
-				if motor:step(clamped) then
-					disarmFlipper(motor, token)
+			ranRealtime = true
+			-- Walk a snapshot: a step may arm another motor, and adding keys to
+			-- the table being traversed is undefined in Lua.
+			local size = snapshotKeys(flipperMotors, flipperScratch)
+			for index = 1, size do
+				local motor = flipperScratch[index]
+				flipperScratch[index] = nil
+				if flipperMotors[motor] ~= nil then
+					local token = flipperToken[motor]
+					if motor:step(clamped) then
+						disarmFlipper(motor, token)
+					end
 				end
 			end
 		end
@@ -1305,18 +1364,29 @@ function ensureDriver()
 			tickClocks(realtimeClocks, clamped, realtimeClockBudget())
 		end
 		if listenerCount > 0 then
-			for active in listeners do
-				active(clamped)
+			ranRealtime = true
+			local size = snapshotKeys(listeners, listenerScratch)
+			for index = 1, size do
+				local active = listenerScratch[index]
+				listenerScratch[index] = nil
+				if listeners[active] ~= nil then
+					active(clamped)
+				end
 			end
 		end
 		-- Decorative pulses, glows, and ambient clocks advance on the same frame
 		-- as springs. Subsampling them made sweeps hitch and read as idle.
 		if decorativeClockCount > 0 then
-			tickClocks(decorativeClocks, clamped, clockBudget)
+			tickClocks(decorativeClocks, clamped, math.max(6, math.floor(clockBudget * (1 - 0.7 * lagPressure) + 0.5)))
 		end
 		if continuousListenerCount > 0 then
-			for active in continuousListeners do
-				active(clamped)
+			local size = snapshotKeys(continuousListeners, continuousScratch)
+			for index = 1, size do
+				local active = continuousScratch[index]
+				continuousScratch[index] = nil
+				if continuousListeners[active] ~= nil then
+					active(clamped)
+				end
 			end
 		end
 		-- After springs step, so an unmount during onStep can cancel a stagger
@@ -1333,15 +1403,18 @@ function stopDriverIfIdle()
 	end
 end
 local function subscribe(listener)
-	local _listener = listener
-	if not (listeners[_listener] ~= nil) then
-		local _listener_1 = listener
-		listeners[_listener_1] = true
+	-- Counted per listener: the same function subscribed twice keeps running
+	-- until BOTH release, and the total never drifts.
+	local held = listeners[listener]
+	if held == nil then
+		listeners[listener] = 1
 		listenerCount += 1
 		if listenerCount > LISTENER_SOFT_CAP and not warnedOverCap then
 			warnedOverCap = true
 			print(`[forge] {listenerCount} frame listeners (cap {LISTENER_SOFT_CAP})`)
 		end
+	else
+		listeners[listener] = held + 1
 	end
 	ensureDriver()
 	local released = false
@@ -1350,15 +1423,47 @@ local function subscribe(listener)
 			return nil
 		end
 		released = true
-		local _listener_1 = listener
-		listeners[_listener_1] = nil
-		listenerCount -= 1
+		local remaining = listeners[listener]
+		if remaining == nil then
+			return nil
+		end
+		if remaining > 1 then
+			listeners[listener] = remaining - 1
+			return nil
+		end
+		listeners[listener] = nil
+		listenerCount = math.max(0, listenerCount - 1)
 		if listenerCount <= LISTENER_SOFT_CAP then
 			warnedOverCap = false
 		end
-		if listenerCount < 0 then
-			listenerCount = 0
+		stopDriverIfIdle()
+	end
+end
+local function subscribeContinuous(listener)
+	local held = continuousListeners[listener]
+	if held == nil then
+		continuousListeners[listener] = 1
+		continuousListenerCount += 1
+	else
+		continuousListeners[listener] = held + 1
+	end
+	ensureDriver()
+	local released = false
+	return function()
+		if released then
+			return nil
 		end
+		released = true
+		local remaining = continuousListeners[listener]
+		if remaining == nil then
+			return nil
+		end
+		if remaining > 1 then
+			continuousListeners[listener] = remaining - 1
+			return nil
+		end
+		continuousListeners[listener] = nil
+		continuousListenerCount = math.max(0, continuousListenerCount - 1)
 		stopDriverIfIdle()
 	end
 end
@@ -1515,9 +1620,13 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 	local motionScale = _binding.motionScale
 	local scaleRef = React.useRef()
 	local mounted = React.useRef(false)
+	-- React detaches refs before passive cleanups run, so scaleRef.current is
+	-- already nil by the time we unmount; remember the instance we drove.
+	local drivenScale = React.useRef()
 	React.useEffect(function()
 		return function()
-			local scale = scaleRef.current
+			local scale = drivenScale.current
+			drivenScale.current = nil
 			if scale ~= nil then
 				spr.stop(scale)
 			end
@@ -1528,6 +1637,7 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 		if scale == nil then
 			return nil
 		end
+		drivenScale.current = scale
 		if not mounted.current then
 			mounted.current = true
 			scale.Scale = initial
@@ -1652,9 +1762,18 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 	local easingRef = React.useRef(easing)
 	local durationRef = React.useRef(duration)
 	local reducedRef = React.useRef(reducedMotion)
-	React.useEffect(function()
-		local stop = subscribe(function(deltaTime)
+	-- Subscribed to the frame driver only while a tween is running: an idle tween
+	-- used to cost a driver listener (and a callback per frame) for its whole life.
+	local stopRef = React.useRef(nil)
+	local tickRef = React.useRef(nil)
+	if tickRef.current == nil then
+		tickRef.current = function(deltaTime)
 			if not runningRef.current then
+				local release = stopRef.current
+				stopRef.current = nil
+				if release ~= nil then
+					release()
+				end
 				return nil
 			end
 			elapsedRef.current += deltaTime
@@ -1666,9 +1785,23 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 			setBindingRef.current(value)
 			if alpha >= 1 then
 				runningRef.current = false
+				local release = stopRef.current
+				stopRef.current = nil
+				if release ~= nil then
+					release()
+				end
 			end
-		end)
-		return stop
+		end
+	end
+	React.useEffect(function()
+		return function()
+			runningRef.current = false
+			local release = stopRef.current
+			stopRef.current = nil
+			if release ~= nil then
+				release()
+			end
+		end
 	end, {})
 	React.useEffect(function()
 		easingRef.current = easing
@@ -1685,6 +1818,9 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 		fromRef.current = from
 		elapsedRef.current = 0
 		runningRef.current = true
+		if stopRef.current == nil then
+			stopRef.current = subscribe(tickRef.current)
+		end
 	end, { duration, easing, goal, reducedMotion, setBinding })
 	return binding
 end
@@ -1716,18 +1852,33 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 	local amount, setAmount = React.useBinding(1)
 	local setAmountRef = React.useRef(setAmount)
 	setAmountRef.current = setAmount
-	React.useEffect(function()
-		local stop = subscribe(function()
+	-- Subscribed to the frame driver only from begin() until the exit finishes.
+	local stopRef = React.useRef(nil)
+	local tickRef = React.useRef(nil)
+	if tickRef.current == nil then
+		local function release()
+			local stop = stopRef.current
+			stopRef.current = nil
+			if stop ~= nil then
+				stop()
+			end
+		end
+		tickRef.current = function()
 			if pendingAfter.current then
 				pendingAfter.current = false
 				local callback = afterRef.current
 				afterRef.current = nil
+				-- Idle again unless the callback started another exit.
+				if not running.current then
+					release()
+				end
 				if callback ~= nil then
 					callback()
 				end
 				return nil
 			end
 			if not running.current then
+				release()
 				return nil
 			end
 			local span = spanRef.current
@@ -1743,15 +1894,22 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 			end
 			running.current = false
 			if finished.current then
+				release()
 				return nil
 			end
 			finished.current = true
 			pendingAfter.current = true
-		end)
+		end
+	end
+	React.useEffect(function()
 		return function()
 			running.current = false
 			pendingAfter.current = false
-			stop()
+			local stop = stopRef.current
+			stopRef.current = nil
+			if stop ~= nil then
+				stop()
+			end
 		end
 	end, {})
 	local begin = React.useCallback(function(after)
@@ -1764,6 +1922,9 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 		startedAt.current = os.clock()
 		spanRef.current = MotionTokens.exitSeconds(duration)
 		running.current = true
+		if stopRef.current == nil then
+			stopRef.current = subscribe(tickRef.current)
+		end
 	end, { duration, reducedMotion, setAmount })
 	React.useEffect(function()
 		if resetWhenActive ~= true then
@@ -2125,6 +2286,20 @@ local function useViewport()
 			return connection:Disconnect()
 		end
 	end, { host })
+	-- The fallback (no AutoScale host) used to read this once per size change, so an
+	-- on-screen keyboard opening never updated it.
+	local keyboardOpen, setKeyboardOpen = React.useState(UserInputService.OnScreenKeyboardVisible)
+	React.useEffect(function()
+		if host ~= nil then
+			return nil
+		end
+		local connection = UserInputService:GetPropertyChangedSignal("OnScreenKeyboardVisible"):Connect(function()
+			setKeyboardOpen(UserInputService.OnScreenKeyboardVisible)
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { host })
 	return React.useMemo(function()
 		if host ~= nil then
 			local _object = {
@@ -2161,13 +2336,13 @@ local function useViewport()
 			topInset = 0,
 			bottomInset = 0,
 			sideInset = 0,
-			keyboardOpen = UserInputService.OnScreenKeyboardVisible,
+			keyboardOpen = keyboardOpen,
 			desktop = usesDesktopStructure(size.X, size.Y),
 			compact = size.X < Breakpoints.compact,
 			tight = size.X < Breakpoints.tight,
 			short = size.Y < Breakpoints.short,
 		}
-	end, { host, size })
+	end, { host, size, keyboardOpen })
 end
 ensureDriver()
 return {
@@ -2184,6 +2359,9 @@ return {
 	isUiTransitioning = isUiTransitioning,
 	setClockBudget = setClockBudget,
 	getClockBudget = getClockBudget,
+	getLagPressure = function()
+		return lagPressure
+	end,
 	decorativeClockSlotsUsed = decorativeClockSlotsUsed,
 	useSpring = useSpring,
 	useFlipperSpring = useFlipperSpring,

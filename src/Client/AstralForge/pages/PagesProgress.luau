@@ -916,7 +916,7 @@ return {
 end
 
 -- ======================================================================
--- Module: ResearchView   (merged from ResearchView.luau, 449 lines)
+-- Module: ResearchView   (merged from ResearchView.luau, 450 lines)
 -- ======================================================================
 __defs["ResearchView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -1347,7 +1347,8 @@ local function ResearchView(_param)
 					gap = 0,
 					overscanRows = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 					itemKey = function(index)
-						return entries[index + 1].config.Id
+						local entry = entries[index + 1]
+						return if entry ~= nil then entry.config.Id else `node-{index}`
 					end,
 					renderItem = function(index)
 						return React.createElement(ResearchNode, {
@@ -2543,7 +2544,7 @@ return { FoundryView = FoundryView }
 end
 
 -- ======================================================================
--- Module: WorkshopView   (merged from WorkshopView.luau, 1151 lines)
+-- Module: WorkshopView   (merged from WorkshopView.luau, 1153 lines)
 -- ======================================================================
 __defs["WorkshopView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -3132,7 +3133,8 @@ local function UpgradeBoard(_param)
 			gap = gap,
 			overscanRows = if softMotion then 0 else (if stack then 2 else 3),
 			itemKey = function(index)
-				return visible[index + 1].config.Id
+				local entry = visible[index + 1]
+				return if entry ~= nil then entry.config.Id else `machine-{index}`
 			end,
 			renderItem = function(index)
 				local entry = visible[index + 1]

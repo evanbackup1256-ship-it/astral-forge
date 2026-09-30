@@ -28,7 +28,7 @@ local function __load(name: string): any
 end
 
 -- ======================================================================
--- Module: ui   (merged from ui.luau, 4301 lines)
+-- Module: ui   (merged from ui.luau, 4612 lines)
 -- ======================================================================
 __defs["ui"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -108,19 +108,22 @@ local function Stroke(_param)
 	if transparency == nil then
 		transparency = 0
 	end
-	local gradientColor
-	if typeof(color) == "Color3" then
-		gradientColor = strokeGradient(color)
-	elseif type(color) == "table" and type(color.map) == "function" then
-		gradientColor = color:map(function(value)
-			if typeof(value) ~= "Color3" then
-				return strokeGradient(Palette.lineSoft)
-			end
-			return strokeGradient(value)
-		end)
-	else
-		gradientColor = strokeGradient(Palette.lineSoft)
-	end
+	-- Memoized on `color`: a new ColorSequence (or, for an animated colour, a new
+	-- mapped binding = unsubscribe + resubscribe) on every render of every stroke
+	-- was pure churn.
+	local gradientColor = React.useMemo(function()
+		if typeof(color) == "Color3" then
+			return strokeGradient(color)
+		elseif type(color) == "table" and type(color.map) == "function" then
+			return color:map(function(value)
+				if typeof(value) ~= "Color3" then
+					return strokeGradient(Palette.lineSoft)
+				end
+				return strokeGradient(value)
+			end)
+		end
+		return strokeGradient(Palette.lineSoft)
+	end, { color })
 	return React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
@@ -302,6 +305,16 @@ local function withExitFade(localFade, presence)
 		return math.clamp(values[1] + (1 - values[2]), 0, 1)
 	end)
 end
+-- One Font object per Enum.Font instead of a new one per label per render.
+local fontFaceCache = {}
+local function fontFaceFor(font)
+	local face = fontFaceCache[font]
+	if face == nil then
+		face = Font.fromEnum(font)
+		fontFaceCache[font] = face
+	end
+	return face
+end
 local function Text(_param)
 	local value = _param.value
 	local size = _param.size
@@ -351,7 +364,11 @@ local function Text(_param)
 		boldText = 0
 	end
 	local presence = useExitPresence()
-	local faded = withExitFade(transparency, presence)
+	-- Memoized: a fresh mapped binding on every render means an unsubscribe and
+	-- resubscribe for every label on screen each time anything above re-renders.
+	local faded = React.useMemo(function()
+		return withExitFade(transparency, presence)
+	end, { transparency, presence })
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
 	local font = if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold or boldText >= 0.5 then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 	local painted = if surface ~= nil and typeof(color) == "Color3" then ensureContrast(surface, color) else color
@@ -376,7 +393,7 @@ local function Text(_param)
 		TextColor3 = painted,
 		TextSize = scaledSize,
 		TextTransparency = faded,
-		FontFace = Font.fromEnum(font),
+		FontFace = fontFaceFor(font),
 		TextXAlignment = align,
 		TextYAlignment = if wrap then Enum.TextYAlignment.Top else Enum.TextYAlignment.Center,
 		TextWrapped = wrap,
@@ -397,6 +414,7 @@ end
 -- guess. This measures what a wrapped string will ACTUALLY render at, at a given width, so a
 -- caller can size its row/card from the real content instead of a guess. Pass the same
 -- size/weight/wrap width the real <Text> will use so the measurement matches what's on screen.
+local WRAPPED_LINE_HEIGHT = 1.12
 local function measureWrappedTextHeight(text, width, size, weight)
 	if size == nil then
 		size = 16
@@ -404,12 +422,14 @@ local function measureWrappedTextHeight(text, width, size, weight)
 	if weight == nil then
 		weight = Enum.FontWeight.Medium
 	end
-	if text == "" or width <= 0 then
+	if type(text) ~= "string" or text == "" or type(width) ~= "number" or width <= 0 then
 		return 0
 	end
 	local font = fontForWeight(weight)
 	local bounds = TextService:GetTextSize(text, math.max(1, math.floor(size)), font, Vector2.new(math.max(1, math.floor(width)), 4000))
-	return math.ceil(bounds.Y)
+	-- GetTextSize ignores LineHeight, but wrapped labels render at 1.12 (see Text
+	-- and AutoHeightText), so the last line used to clip by ~12%.
+	return math.ceil(bounds.Y * WRAPPED_LINE_HEIGHT)
 end
 -- Drop-in for the common "label + a description that might run long" pattern: wraps, sizes itself
 -- to its own real rendered content height via AutomaticSize (not a fixed sizeConstraint Y that
@@ -464,23 +484,32 @@ local function AutoHeightText(_param)
 	end
 	local scaledSize = math.clamp(math.floor(size * textScale + 0.5), MIN_UI_TEXT_SIZE, 42)
 	local font = fontForWeight(if weight == Enum.FontWeight.Bold and boldText >= 0.5 then Enum.FontWeight.Bold else weight)
-	local measured = math.ceil(TextService:GetTextSize(value, scaledSize, font, Vector2.new(math.max(1, math.floor(width)), 4000)).Y)
+	local safeValue = if type(value) == "string" then value else ""
+	local safeWidth = if type(width) == "number" and width == width then width else 0
+	-- LineHeight 1.12 is applied by the label below but ignored by GetTextSize.
+	local measured = if safeValue == "" then 0 else math.ceil(TextService:GetTextSize(safeValue, scaledSize, font, Vector2.new(math.max(1, math.floor(safeWidth)), 4000)).Y * WRAPPED_LINE_HEIGHT)
 	local clamped = math.max(minHeight, if maxHeight ~= nil then math.min(maxHeight, measured) else measured)
 	local lastReported = React.useRef()
+	local lastReportedTo = React.useRef()
 	React.useEffect(function()
-		if onHeightChange == nil or lastReported.current == clamped then
+		if onHeightChange == nil then
+			return nil
+		end
+		-- A different receiver (same height) still has to be told once.
+		if lastReported.current == clamped and lastReportedTo.current == onHeightChange then
 			return nil
 		end
 		lastReported.current = clamped
+		lastReportedTo.current = onHeightChange
 		onHeightChange(clamped)
 	end, { clamped, onHeightChange })
 	return React.createElement("textlabel", {
-		Size = UDim2.new(0, width, 0, clamped),
+		Size = UDim2.new(0, safeWidth, 0, clamped),
 		Position = position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoLocalize = true,
-		Text = value,
+		Text = safeValue,
 		TextColor3 = color,
 		TextSize = scaledSize,
 		TextTransparency = transparency,
@@ -680,6 +709,10 @@ local function QuantityStepper(_param)
 	if layoutOrder == nil then
 		layoutOrder = 0
 	end
+	-- Non-numeric or NaN input threw here; a value above a shrunken max showed
+	-- "5 / 3" and could never step back down cleanly.
+	max = if type(max) == "number" and max == max then math.max(0, max) else 0
+	value = if type(value) == "number" and value == value then math.clamp(value, 0, max) else 0
 	local viewport = useViewport()
 	local stacked = viewport.width < 560 or viewport.height < 420
 	local step = if max >= 100000 then math.max(1, math.floor(max / 20)) elseif max >= 100 then math.max(1, math.floor(max / 10)) else 1
@@ -825,8 +858,12 @@ local function SweptRing(_param)
 	if sweepWidth == nil then
 		sweepWidth = 0.22
 	end
+	-- NumberSequence keypoints must be strictly ascending: a width of 1+ duplicated
+	-- the last time (an error) and a tiny one inverted the first pair.
+	sweepWidth = math.clamp(sweepWidth, 0.02, 0.9)
+	-- Half-degree steps: whole-degree snapping made large rings visibly choppy.
 	local gradientRotation = spin:map(function(degrees)
-		return math.floor(degrees)
+		return math.floor(degrees * 2) / 2
 	end)
 	local keypoints = { NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(math.max(0.001, sweepWidth * 0.5), 0.15), NumberSequenceKeypoint.new(sweepWidth, 1), NumberSequenceKeypoint.new(1, 1) }
 	return React.createElement("frame", {
@@ -916,6 +953,9 @@ end
 local function IconTile(_param)
 	local kind = _param.kind
 	local accent = _param.accent
+	if accent == nil then
+		accent = Palette.cyan
+	end
 	local size = _param.size
 	if size == nil then
 		size = 48
@@ -1003,6 +1043,10 @@ local function IconTile(_param)
 end
 local function Badge(_param)
 	local value = _param.value
+	-- A nil or numeric value threw at #value below.
+	if type(value) ~= "string" then
+		value = if value == nil then "" else tostring(value)
+	end
 	local accent = _param.accent
 	if accent == nil then
 		accent = Palette.cyan
@@ -1083,16 +1127,21 @@ local function CountBadge(_param)
 	end
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local scaleRef = useSprScale(1, effectsPaused, 0.68, 0.64, 13)
-	if count <= 0 then
+	-- NaN and fractions below 1 used to render "nan" / "0"; 100+ showed "99".
+	local whole = if type(count) == "number" and count == count then math.floor(count) else 0
+	if whole <= 0 then
 		return React.createElement("frame", {
 			Size = UDim2.fromOffset(0, 0),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 		})
 	end
-	local label = tostring(math.min(99, math.floor(count)))
-	local wide = count >= 10
+	local label = if whole > 99 then "99+" else tostring(whole)
+	local wide = whole >= 10
 	local size = if compact then (if wide then 16 else 14) else (if wide then 20 else 16)
+	if whole > 99 then
+		size += 4
+	end
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		Position = UDim2.new(1, if compact then -2 else -3, 0, if compact then 2 else 3),
@@ -1248,32 +1297,65 @@ local function Panel(_param)
 			return math.clamp(values[1] + values[2], 0, 1)
 		end)
 	end, { highlightOn, lift, revealFade })
-	local strokeColor = highlightOn:map(function(amount)
-		return if amount >= 0.45 then accentColor else Palette.lineSoft
-	end)
 	local surfaceTransparency = if revealFade ~= nil then revealFade else 0
 	local paintChrome = true
-	local liftPx = lift:map(function(amount)
-		return -math.round(amount)
-	end)
-	local revealY = activeReveal:map(function(amount)
-		return math.round((1 - math.clamp(amount, 0, 1)) * 10)
-	end)
-	local surfaceY = React.joinBindings({ liftPx, revealY }):map(function(values)
-		return values[1] + values[2]
-	end)
-	local hoverWashVisible = lift:map(function(amount)
-		return amount > 0.04
-	end)
-	local hoverWashAlpha = lift:map(function(amount)
-		return if amount < 0.04 then 1 else 1 - amount * 0.14
-	end)
-	local highlightWashVisible = highlightOn:map(function(amount)
-		return amount > 0.05
-	end)
-	local highlightWashAlpha = highlightOn:map(function(amount)
-		return if amount < 0.05 then 1 else 0.94 + (1 - amount) * 0.06
-	end)
+	-- Every derived binding in one memo, keyed on the springs that drive them.
+	-- Rebuilding ~15 mapped bindings per render meant ~15 unsubscribe/resubscribe
+	-- pairs per Panel every time a parent re-rendered.
+	local derived = React.useMemo(function()
+		local liftPx = lift:map(function(amount)
+			return -math.round(amount)
+		end)
+		local revealY = activeReveal:map(function(amount)
+			return math.round((1 - math.clamp(amount, 0, 1)) * 10)
+		end)
+		local surfaceY = React.joinBindings({ liftPx, revealY }):map(function(values)
+			return values[1] + values[2]
+		end)
+		return {
+			strokeColor = highlightOn:map(function(amount)
+				return if amount >= 0.45 then accentColor else Palette.lineSoft
+			end),
+			shadowPosition = surfaceY:map(function(y)
+				return UDim2.new(0, -4, 0, 7 + y)
+			end),
+			surfacePosition = surfaceY:map(function(y)
+				return UDim2.new(0, 0, 0, y)
+			end),
+			shadowTransparency = if revealFade ~= nil then revealFade:map(function(amount)
+				return math.clamp(Chrome.panelShadow + amount * (1 - Chrome.panelShadow), 0, 1)
+			end) else Chrome.panelShadow,
+			hairlineTransparency = if revealFade ~= nil then revealFade:map(function(amount)
+				return math.clamp(Chrome.accentHairline + amount * (1 - Chrome.accentHairline), 0, 1)
+			end) else Chrome.accentHairline,
+			hoverWashVisible = lift:map(function(amount)
+				return amount > 0.04
+			end),
+			hoverWashAlpha = lift:map(function(amount)
+				return if amount < 0.04 then 1 else 1 - amount * 0.14
+			end),
+			highlightWashVisible = highlightOn:map(function(amount)
+				return amount > 0.05
+			end),
+			highlightWashAlpha = highlightOn:map(function(amount)
+				return if amount < 0.05 then 1 else 0.94 + (1 - amount) * 0.06
+			end),
+			glowVisible = hoverGlow:map(function(amount)
+				return amount > 0.02
+			end),
+			glowThickness = hoverGlow:map(function(amount)
+				return 1 + amount * 1.8
+			end),
+			glowTransparency = hoverGlow:map(function(amount)
+				return 1 - amount * 0.78
+			end),
+		}
+	end, { lift, highlightOn, activeReveal, revealFade, accentColor, hoverGlow })
+	local strokeColor = derived.strokeColor
+	local hoverWashVisible = derived.hoverWashVisible
+	local hoverWashAlpha = derived.hoverWashAlpha
+	local highlightWashVisible = derived.highlightWashVisible
+	local highlightWashAlpha = derived.highlightWashAlpha
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
@@ -1298,22 +1380,16 @@ local function Panel(_param)
 		} else {},
 	}, paintChrome and React.createElement("frame", {
 		Size = UDim2.new(1, 8, 1, -1),
-		Position = surfaceY:map(function(y)
-			return UDim2.new(0, -4, 0, 7 + y)
-		end),
+		Position = derived.shadowPosition,
 		BackgroundColor3 = Palette.shadow,
-		BackgroundTransparency = if revealFade ~= nil then revealFade:map(function(amount)
-			return math.clamp(Chrome.panelShadow + amount * (1 - Chrome.panelShadow), 0, 1)
-		end) else Chrome.panelShadow,
+		BackgroundTransparency = derived.shadowTransparency,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius + 2),
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = if paintChrome then surfaceY:map(function(y)
-			return UDim2.new(0, 0, 0, y)
-		end) else UDim2.fromScale(0, 0),
+		Position = if paintChrome then derived.surfacePosition else UDim2.fromScale(0, 0),
 		BackgroundColor3 = background,
 		BackgroundTransparency = surfaceTransparency,
 		BorderSizePixel = 0,
@@ -1350,19 +1426,13 @@ local function Panel(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
-		Visible = hoverGlow:map(function(amount)
-			return amount > 0.02
-		end),
+		Visible = derived.glowVisible,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	}), React.createElement(Stroke, {
 		color = accentColor,
-		thickness = hoverGlow:map(function(amount)
-			return 1 + amount * 1.8
-		end),
-		transparency = hoverGlow:map(function(amount)
-			return 1 - amount * 0.78
-		end),
+		thickness = derived.glowThickness,
+		transparency = derived.glowTransparency,
 	})), interactive and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.cream,
@@ -1392,9 +1462,7 @@ local function Panel(_param)
 		Size = UDim2.fromOffset(math.max(44, radius * 5), 2),
 		Position = UDim2.fromOffset(radius + 2, 0),
 		BackgroundColor3 = accent,
-		BackgroundTransparency = if revealFade ~= nil then revealFade:map(function(amount)
-			return math.clamp(Chrome.accentHairline + amount * (1 - Chrome.accentHairline), 0, 1)
-		end) else Chrome.accentHairline,
+		BackgroundTransparency = derived.hairlineTransparency,
 		BorderSizePixel = 0,
 		ZIndex = zIndex + 1,
 	}, React.createElement("uicorner", {
@@ -1561,6 +1629,13 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local lastActivationAt = React.useRef(-math.huge)
 	local pressWasTouch = React.useRef(false)
 	local hoverStall = React.useRef(0)
+	-- The touch-release listener is connected at press time and outlives renders;
+	-- it must reach the CURRENT onClick/sound, not the ones from that render.
+	local onClickRef = React.useRef(onClick)
+	onClickRef.current = onClick
+	local soundRef = React.useRef(sound)
+	soundRef.current = sound
+	local activeTouchMove = React.useRef()
 	local active = not disabled
 	-- One motor for the life of the control. resolvePressMotion picks the scale
 	-- and tilt. Release springs back. softMotion does not snap it.
@@ -1592,6 +1667,29 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	-- Settings already zero shimmerScale when ButtonShimmers is off.
 	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not effectsPaused and (idleShimmer or hovered or gamepadFocused)
 	local shimmer = useClock(shimmerWanted, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
+	-- ButtonShimmer unmounts when `live` drops, which cut off the fade-out its
+	-- strength curve was designed to give (the glint popped off). Keep it mounted
+	-- briefly after hover ends -- only for buttons that were actually shimmering,
+	-- so idle buttons schedule nothing.
+	local shimmerLinger, setShimmerLinger = React.useState(false)
+	local wasShimmering = React.useRef(false)
+	React.useEffect(function()
+		if shimmerWanted then
+			wasShimmering.current = true
+			setShimmerLinger(true)
+			return nil
+		end
+		if not wasShimmering.current then
+			return nil
+		end
+		wasShimmering.current = false
+		local job = task.delay(0.35, function()
+			setShimmerLinger(false)
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { shimmerWanted })
 	local surfaceSize = pose:map(function()
 		return UDim2.fromScale(1, 1)
 	end)
@@ -1619,6 +1717,11 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 				_result:Disconnect()
 			end
 			activeTouchEnd.current = nil
+			local moved = activeTouchMove.current
+			if moved ~= nil then
+				moved:Disconnect()
+			end
+			activeTouchMove.current = nil
 			activeTouch.current = nil
 			touchOrigin.current = nil
 			setPressed(false)
@@ -1638,10 +1741,21 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 			_result:Disconnect()
 		end
 		activeTouchEnd.current = nil
+		local moved = activeTouchMove.current
+		if moved ~= nil then
+			moved:Disconnect()
+		end
+		activeTouchMove.current = nil
 		activeTouch.current = nil
 		touchOrigin.current = nil
 		pressWasTouch.current = false
 		setPressed(false)
+		-- events is {} while disabled, so MouseLeave/SelectionLost never arrive:
+		-- without this the button re-enables still "hovered" (hover pose and an
+		-- idle shimmer clock running) or with a stale gamepad focus ring.
+		hoveredRef.current = false
+		setHovered(false)
+		setGamepadFocused(false)
 	end, { disabled })
 	local markHover = function()
 		if disabled or hoveredRef.current then
@@ -1655,7 +1769,10 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 			return nil
 		end
 		hoverStall.current = now
-		Audio:play(hoverCueFor(sound))
+		-- `sound = false` means a silent button: no hover cue either.
+		if sound ~= false and not pressWasTouch.current then
+			Audio:play(hoverCueFor(sound))
+		end
 	end
 	local clearHover = function()
 		hoveredRef.current = false
@@ -1674,10 +1791,11 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 			return current + 1
 		end)
 		local pressEnergy = if touchChrome then 1.08 else 1.03
-		if sound ~= false then
-			Audio:play(sound, pressEnergy)
+		local currentSound = soundRef.current
+		if currentSound ~= false then
+			Audio:play(currentSound, pressEnergy)
 		end
-		onClick()
+		onClickRef.current()
 		InteractionFeedback.tap()
 	end
 	local finishTouch = function(input)
@@ -1690,6 +1808,11 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 			_result:Disconnect()
 		end
 		activeTouchEnd.current = nil
+		local moved = activeTouchMove.current
+		if moved ~= nil then
+			moved:Disconnect()
+		end
+		activeTouchMove.current = nil
 		activeTouch.current = nil
 		touchOrigin.current = nil
 		setPressed(false)
@@ -1730,6 +1853,30 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 						_result:Disconnect()
 					end
 					activeTouchEnd.current = UserInputService.InputEnded:Connect(finishTouch)
+					-- A finger that drags away (scrolling a list that starts under
+					-- a button) is no longer pressing: release the pressed pose now
+					-- instead of holding it down for the whole scroll.
+					local previousMove = activeTouchMove.current
+					if previousMove ~= nil then
+						previousMove:Disconnect()
+					end
+					activeTouchMove.current = UserInputService.InputChanged:Connect(function(changed)
+						if changed ~= activeTouch.current then
+							return nil
+						end
+						local origin = touchOrigin.current
+						if origin == nil then
+							return nil
+						end
+						if (Vector2.new(changed.Position.X, changed.Position.Y) - origin).Magnitude > 14 then
+							setPressed(false)
+							local moveConnection = activeTouchMove.current
+							activeTouchMove.current = nil
+							if moveConnection ~= nil then
+								moveConnection:Disconnect()
+							end
+						end
+					end)
 				end
 			end
 		end,
@@ -1759,7 +1906,7 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		pressAmount = pressAmount,
 		impact = impact,
 		shimmer = shimmer,
-		shimmerLive = shimmerWanted,
+		shimmerLive = shimmerWanted or shimmerLinger,
 		focusRing = focusRing,
 		surfaceSize = surfaceSize,
 		touchScale = touchScale,
@@ -1770,6 +1917,18 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		end,
 	}
 end
+-- Built once: these depend only on Palette constants and used to be rebuilt on
+-- every render of every shimmering button.
+local SHIMMER_SPECULAR_COLOR = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Palette.cream),
+	ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.28)),
+	ColorSequenceKeypoint.new(1, Palette.cream),
+})
+local SHIMMER_TRAIL_COLOR = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Palette.cream),
+	ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.14)),
+	ColorSequenceKeypoint.new(1, Palette.cream),
+})
 local function ButtonShimmer(_param)
 	local hoverAmount = _param.hoverAmount
 	local shimmer = _param.shimmer
@@ -1810,16 +1969,8 @@ local function ButtonShimmer(_param)
 	-- Soft cream→cyan specular. Masked shell fills its host without layout
 	-- participation (Active=false, AutomaticSize=None, ClipsDescendants).
 	-- Sweep is UIGradient.Offset only — no tip frames that inflate AutomaticSize.
-	local specularColor = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Palette.cream),
-		ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.28)),
-		ColorSequenceKeypoint.new(1, Palette.cream),
-	})
-	local trailColor = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Palette.cream),
-		ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.14)),
-		ColorSequenceKeypoint.new(1, Palette.cream),
-	})
+	local specularColor = SHIMMER_SPECULAR_COLOR
+	local trailColor = SHIMMER_TRAIL_COLOR
 	local strength = hoverAmount:map(function(amount)
 		return ShimmerMath.surfaceStrength(amount, idle, shimmerScale)
 	end)
@@ -1882,6 +2033,18 @@ local function ButtonShimmer(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, radius),
 	}), trailPass, core)
+end
+-- A transparency (a number or a binding) pushed toward 1 by an exit-fade binding
+-- (0 = shown, 1 = gone): result = base + (1 - base) * fade.
+local function fadedBy(base, fade)
+	if type(base) == "number" then
+		return fade:map(function(amount)
+			return base + (1 - base) * amount
+		end)
+	end
+	return React.joinBindings({ base, fade }):map(function(values)
+		return values[1] + (1 - values[1]) * values[2]
+	end)
 end
 local nextAssistId = 0
 function Button(_param)
@@ -1968,9 +2131,16 @@ function Button(_param)
 	-- horizontally and flash it red, so a rejected action reacts at the point of the tap
 	-- instead of only surfacing in a toast elsewhere on screen.
 	local shake = useFlash(shakeToken, reducedMotion, 0.42)
+	-- Play once per NEW token. Keyed on the effect deps alone, the error sound
+	-- replayed whenever reducedMotion flipped (antilag flips it often) and on
+	-- every mount of a button whose token was already above zero.
+	local lastShakeToken = React.useRef(shakeToken)
 	React.useEffect(function()
-		if shakeToken > 0 and not reducedMotion then
-			Audio:play("noticeError")
+		if shakeToken ~= lastShakeToken.current then
+			lastShakeToken.current = shakeToken
+			if shakeToken > 0 and not reducedMotion then
+				Audio:play("noticeError")
+			end
 		end
 	end, { reducedMotion, shakeToken })
 	local shakeOffsetX = shake:map(function(amount)
@@ -2045,12 +2215,33 @@ function Button(_param)
 	local iconOnly = text == "" and icon ~= nil
 	local hasIcon = icon ~= nil
 	local compactRipple = iconOnly or (size.X.Scale == 0 and size.X.Offset > 0 and size.X.Offset <= 56) or (size.Y.Scale == 0 and size.Y.Offset > 0 and size.Y.Offset <= 40)
-	local surfaceFade = presence:map(function(shown)
-		return math.clamp(1 - shown, 0, 1)
-	end)
-	local labelFade = React.joinBindings({ presence }):map(function(values)
-		return math.clamp(1 - values[1], 0, 1)
-	end)
+	-- Memoized on `presence`: these used to be rebuilt (a new binding, so an
+	-- unsubscribe + resubscribe) on every render of every button. labelFade was
+	-- the same value through a redundant joinBindings, so it aliases surfaceFade.
+	local surfaceFade = React.useMemo(function()
+		return presence:map(function(shown)
+			return math.clamp(1 - shown, 0, 1)
+		end)
+	end, { presence })
+	local labelFade = surfaceFade
+	-- The shadow slab and every stroke fade with the fill on exit; before, only
+	-- the fill and label did, leaving a ghost shadow/outline behind a fading button.
+	local shadowTransparency = React.useMemo(function()
+		return fadedBy(if effectivelyDisabled then 0.84 else Chrome.buttonShadow, surfaceFade)
+	end, { surfaceFade, effectivelyDisabled })
+	local outlineTransparency = React.useMemo(function()
+		return fadedBy(if outline then 0.14 elseif highlight and active then breatheStroke else 1, surfaceFade)
+	end, { surfaceFade, outline, highlight, active, breatheStroke })
+	local breatheRingTransparency = React.useMemo(function()
+		return fadedBy(breatheStroke:map(function(amount)
+			return math.clamp(0.55 + amount * 0.9, 0.55, 1)
+		end), surfaceFade)
+	end, { surfaceFade, breatheStroke })
+	local focusRingTransparency = React.useMemo(function()
+		return fadedBy(focusRing:map(function(amount)
+			return 1 - amount * 0.98
+		end), surfaceFade)
+	end, { surfaceFade, focusRing })
 	local iconAccent = React.joinBindings({
 		label = labelColor,
 		disabled = disabledAmount,
@@ -2098,7 +2289,7 @@ function Button(_param)
 			return UDim2.new(0, 0, 0, 5 - math.round(amount))
 		end),
 		BackgroundColor3 = Palette.shadow,
-		BackgroundTransparency = if effectivelyDisabled then 0.84 else Chrome.buttonShadow,
+		BackgroundTransparency = shadowTransparency,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
 	}, React.createElement("uicorner", {
@@ -2291,7 +2482,7 @@ function Button(_param)
 	}), React.createElement(Stroke, {
 		color = color,
 		thickness = 1,
-		transparency = if outline then 0.14 elseif highlight and active then breatheStroke else 1,
+		transparency = outlineTransparency,
 	})), highlight and active and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = offsetY:map(function(amount)
@@ -2307,9 +2498,7 @@ function Button(_param)
 	}), React.createElement(Stroke, {
 		color = lighten(color, 0.3),
 		thickness = 2,
-		transparency = breatheStroke:map(function(amount)
-			return math.clamp(0.55 + amount * 0.9, 0.55, 1)
-		end),
+		transparency = breatheRingTransparency,
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = offsetY:map(function(amount)
@@ -2324,9 +2513,7 @@ function Button(_param)
 	}), React.createElement(Stroke, {
 		color = Palette.cream,
 		thickness = 4,
-		transparency = focusRing:map(function(amount)
-			return 1 - amount * 0.98
-		end),
+		transparency = focusRingTransparency,
 	})))))
 end
 local METER_EMPTY_EPS = 1e-4
@@ -2359,6 +2546,9 @@ local function meterFill(progress, target, complete)
 end
 local function Meter(_param)
 	local value = _param.value
+	if value == nil then
+		value = 0 -- value:map below threw on nil
+	end
 	local color = _param.color
 	if color == nil then
 		color = Palette.cyan
@@ -2517,7 +2707,9 @@ local function Slider(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local engaged = focused or hovered or dragging
 	local engagement = useFlipperSpring(if engaged then 1 else 0, reducedMotion or effectsPaused, 460, 38)
-	local amount = math.clamp(value, 0, 1)
+	-- NaN through math.clamp stays NaN, and a NaN goal poisons the thumb spring
+	-- for the rest of the session; a nil value used to throw here.
+	local amount = if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 0
 	local thumb = useSpring(amount, reducedMotion or effectsPaused, 470, 44)
 	local sliderViewport = useViewport()
 	local trackInset = if (not sliderViewport.desktop and UserInputService.TouchEnabled) then 12 else 10
@@ -2528,6 +2720,14 @@ local function Slider(_param)
 	local dragOrigin = React.useRef()
 	local touchAdjusting = React.useRef(false)
 	local lastValue = React.useRef(amount)
+	local dragStartValue = React.useRef(amount)
+	-- Handlers are read through refs: the drag effect below must not be torn down
+	-- (which cancels the drag) just because a parent passed a fresh closure while
+	-- the thumb was moving.
+	local onChangeRef = React.useRef(onChange)
+	onChangeRef.current = onChange
+	local onCommitRef = React.useRef(onCommit)
+	onCommitRef.current = onCommit
 	React.useEffect(function()
 		if activeDrag.current == nil then
 			lastValue.current = amount
@@ -2541,13 +2741,19 @@ local function Slider(_param)
 		local width = math.max(1, button.AbsoluteSize.X - trackInset * 2)
 		local targetValue = math.clamp((x - button.AbsolutePosition.X - trackInset) / width, 0, 1)
 		local snapped = math.clamp(math.round(targetValue * 20) / 20, 0, 1)
-		if snapped ~= lastValue.current then
-			Audio:play("sliderStep")
-			InteractionFeedback.tick()
+		-- Mouse moves fire far more often than the 20 steps change: only a real
+		-- step change reaches the parent (and its re-render) or the speakers.
+		if snapped == lastValue.current then
+			return nil
 		end
+		Audio:play("sliderStep")
+		InteractionFeedback.tick()
 		lastValue.current = snapped
-		onChange(snapped)
-	end, { onChange, trackInset })
+		local change = onChangeRef.current
+		if change ~= nil then
+			change(snapped)
+		end
+	end, { trackInset })
 	React.useEffect(function()
 		local button = buttonRef.current
 		if not button then
@@ -2566,6 +2772,16 @@ local function Slider(_param)
 			dragEnd.current = nil
 		end
 		local cancelDrag = function()
+			-- onChange already moved the parent's draft; losing focus or unmounting
+			-- mid-drag must persist it too, or the UI shows a value that was never
+			-- saved (Alt-Tab while dragging a setting).
+			if activeDrag.current ~= nil and lastValue.current ~= dragStartValue.current then
+				local commit = onCommitRef.current
+				dragStartValue.current = lastValue.current
+				if commit ~= nil then
+					commit(lastValue.current)
+				end
+			end
 			setDragging(false)
 			activeDrag.current = nil
 			dragOrigin.current = nil
@@ -2581,6 +2797,7 @@ local function Slider(_param)
 			end
 			setDragging(true)
 			activeDrag.current = input
+			dragStartValue.current = lastValue.current
 			dragOrigin.current = Vector2.new(input.Position.X, input.Position.Y)
 			touchAdjusting.current = input.UserInputType ~= Enum.UserInputType.Touch
 			if input.UserInputType ~= Enum.UserInputType.Touch then
@@ -2636,7 +2853,8 @@ local function Slider(_param)
 				dragOrigin.current = nil
 				touchAdjusting.current = false
 				clearDragConnections()
-				local _result = onCommit
+				dragStartValue.current = lastValue.current
+				local _result = onCommitRef.current
 				if _result ~= nil then
 					_result(lastValue.current)
 				end
@@ -2650,18 +2868,25 @@ local function Slider(_param)
 			unsubscribeCancel()
 			cancelDrag()
 		end
-	end, { onCommit, updateFromX })
+	end, { updateFromX })
 	local adjust = React.useCallback(function(delta)
 		local adjusted = math.clamp(math.round((lastValue.current + delta) * 20) / 20, 0, 1)
+		-- Pressing toward an end that is already reached changes nothing.
+		if adjusted == lastValue.current then
+			return nil
+		end
 		lastValue.current = adjusted
-		onChange(adjusted)
-		local _result = onCommit
+		local change = onChangeRef.current
+		if change ~= nil then
+			change(adjusted)
+		end
+		local _result = onCommitRef.current
 		if _result ~= nil then
 			_result(adjusted)
 		end
 		Audio:play("sliderStep")
 		InteractionFeedback.tick()
-	end, { onChange, onCommit })
+	end, {})
 	local thumbDiameter = if (not sliderViewport.desktop and UserInputService.TouchEnabled) then 20 else 18
 	local thumbCenter = thumb:map(function(current)
 		return UDim2.new(current, trackInset - current * trackInset * 2, 0.5, 0)
@@ -2812,10 +3037,13 @@ local function AmountToggle(_param)
 	local focusedIndex, setFocusedIndex = React.useState(-1)
 	local hoveredIndex, setHoveredIndex = React.useState(-1)
 	local activeIndex = 0
+	-- A value that is in no option must not light up option 1: the pill hides instead.
+	local matched = false
 	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(amount, index)
 		if amount == value then
 			activeIndex = index
+			matched = true
 		end
 	end
 	for _k, _v in AMOUNT_OPTIONS do
@@ -2858,6 +3086,7 @@ local function AmountToggle(_param)
 			return lighten(accent, amount * 0.18)
 		end),
 		BorderSizePixel = 0,
+		Visible = matched,
 		ZIndex = 2,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 7),
@@ -3089,10 +3318,13 @@ local function SegmentedTabs(_param)
 	local columnCount = math.max(1, math.min(_condition, count))
 	local rowCount = math.max(1, math.ceil(count / columnCount))
 	local activeIndex = 0
+	-- A value that is in no option must not light up option 1: the pill hides instead.
+	local matched = false
 	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(option, index)
 		if option.id == value then
 			activeIndex = index
+			matched = true
 		end
 	end
 	for _k, _v in options do
@@ -3107,7 +3339,10 @@ local function SegmentedTabs(_param)
 	local columnTrail = useFlipperSpring(activeColumn, reducedMotion, 480, 46)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
-	local tabSweep = useClock(reducedMotion ~= true, SHIMMER_SWEEP_SPEED, 1, false)
+	-- Honors the paused-effects context like every other ambient clock; this one
+	-- kept ticking (and pushing a binding) while effects were paused.
+	local tabsEffectsPaused = React.useContext(UiEffectsPausedContext)
+	local tabSweep = useClock(reducedMotion ~= true and not tabsEffectsPaused, SHIMMER_SWEEP_SPEED, 1, false)
 	local _result = options[activeIndex + 1]
 	if _result ~= nil then
 		_result = _result.accent
@@ -3153,6 +3388,7 @@ local function SegmentedTabs(_param)
 			return lighten(selectedAccent, amount * 0.14)
 		end),
 		BorderSizePixel = 0,
+		Visible = matched,
 		ZIndex = zIndex + 1,
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
@@ -3382,8 +3618,39 @@ local function Dropdown(_param)
 	-- ▲ ReadonlyArray.forEach ▲
 	local buttonRef = React.useRef()
 	local listRef = React.useRef()
+	local scrollRef = React.useRef()
 	local overControl = React.useRef(false)
 	local overList = React.useRef(false)
+	-- Keep the list mounted while it animates closed. `open and createPortal`
+	-- unmounted it the instant `open` flipped, so the shrink/fade below never
+	-- played and the list simply popped out.
+	local shown, setShown = React.useState(open)
+	if open and not shown then
+		setShown(true)
+	end
+	React.useEffect(function()
+		if open then
+			return nil
+		end
+		-- Sticky hover flags: closing by clicking a row unmounts it without a
+		-- MouseLeave, and the next open would skip outside-click detection.
+		overList.current = false
+		overControl.current = false
+		local job = task.delay(if reducedMotion then 0 else 0.32, function()
+			setShown(false)
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { open, reducedMotion })
+	-- The window-level key handler below reads the freshest props through this
+	-- ref, so it connects once per open instead of on every hover (the pointer
+	-- changes on every MouseEnter) and every render with an inline options array.
+	local latest = React.useRef({ options = options, pointer = pointer, value = value, onChange = onChange })
+	latest.current = { options = options, pointer = pointer, value = value, onChange = onChange }
+	-- Gamepad A both activates the focused row (Activated) and reaches the window
+	-- handler; the second one used to fire onChange again.
+	local lastPickAt = React.useRef(-math.huge)
 	React.useEffect(function()
 		return function()
 			return releaseDropdownPortal()
@@ -3403,31 +3670,38 @@ local function Dropdown(_param)
 			-- commits it. This previously only worked by hovering with a mouse or tabbing focus
 			-- with a controller (SelectionGained) -- a keyboard-only player had no way to move
 			-- through the list at all once it was open.
+			local live = latest.current
 			if input.KeyCode == Enum.KeyCode.Up or input.KeyCode == Enum.KeyCode.DPadUp then
 				setPointer(function(current)
-					return if #options == 0 then -1 else (if current <= 0 then #options - 1 else current - 1)
+					local count = #live.options
+					return if count == 0 then -1 else (if current <= 0 then count - 1 else current - 1)
 				end)
-				Audio:play("hover")
 				return nil
 			end
 			if input.KeyCode == Enum.KeyCode.Down or input.KeyCode == Enum.KeyCode.DPadDown then
 				setPointer(function(current)
-					return if #options == 0 then -1 else (current + 1) % #options
+					local count = #live.options
+					return if count == 0 then -1 else (current + 1) % count
 				end)
-				Audio:play("hover")
 				return nil
 			end
 			if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonA then
-				local chosen = options[pointer + 1]
+				local chosen = live.options[live.pointer + 1]
 				if chosen == nil then
 					return nil
 				end
-				if chosen.id ~= value then
-					onChange(chosen.id)
+				local now = os.clock()
+				if now - lastPickAt.current < 0.2 then
+					-- Activated on the focused row already committed this press.
+					return nil
+				end
+				lastPickAt.current = now
+				if chosen.id ~= live.value then
+					live.onChange(chosen.id)
 				end
 				setOpen(false)
 				setPointer(-1)
-				Audio:play("filterPick", 0.96 + math.min(pointer, 5) * 0.025)
+				Audio:play("filterPick", 0.96 + math.min(live.pointer, 5) * 0.025)
 				InteractionFeedback.tap()
 				return nil
 			end
@@ -3454,7 +3728,7 @@ local function Dropdown(_param)
 		return function()
 			return connection:Disconnect()
 		end
-	end, { open, options, pointer, value, onChange })
+	end, { open })
 	local chevronRotation = amount:map(function(progress)
 		return 180 * math.clamp(progress, 0, 1)
 	end)
@@ -3476,6 +3750,27 @@ local function Dropdown(_param)
 	end)
 	local needsScroll = #options > visibleRows
 	local canvasHeight = #options * rowHeight + math.max(0, #options - 1) * listPad
+	-- Arrow-key / D-pad navigation must bring the highlighted row into view: with
+	-- more than a screenful of options Return used to commit a row the player
+	-- could not see.
+	React.useEffect(function()
+		if not open or not needsScroll or pointer < 0 then
+			return nil
+		end
+		local scroller = scrollRef.current
+		if scroller == nil then
+			return nil
+		end
+		local rowTop = pointer * (rowHeight + listPad)
+		local rowBottom = rowTop + rowHeight
+		local viewHeight = scroller.AbsoluteWindowSize.Y
+		local top = scroller.CanvasPosition.Y
+		if rowTop < top then
+			scroller.CanvasPosition = Vector2.new(0, rowTop)
+		elseif viewHeight > 0 and rowBottom > top + viewHeight then
+			scroller.CanvasPosition = Vector2.new(0, rowBottom - viewHeight)
+		end
+	end, { pointer, open, needsScroll })
 	local scrollBarThickness = amount:map(function(progress)
 		return if needsScroll and progress > 0.97 then 4 else 0
 	end)
@@ -3504,7 +3799,7 @@ local function Dropdown(_param)
 		local nextX = math.clamp(button.AbsolutePosition.X, safeLeft, math.max(safeLeft, screenW - safeLeft - nextWidth))
 		local triggerGap = 6
 		local desiredY = if nextOpenUp then button.AbsolutePosition.Y - triggerGap else button.AbsolutePosition.Y + button.AbsoluteSize.Y + triggerGap
-		local nextY = if nextOpenUp then math.clamp(desiredY, math.max(clipTop + nextHeight, 10), math.min(clipBottom, screenH - 10)) else math.clamp(desiredY, math.max(clipTop, 10), math.max(clipTop, math.min(clipBottom, screenH - 10) - nextHeight))
+		local nextY = if nextOpenUp then math.clamp(desiredY, math.max(clipTop + nextHeight, 10), math.max(math.max(clipTop + nextHeight, 10), math.min(clipBottom, screenH - 10))) else math.clamp(desiredY, math.max(clipTop, 10), math.max(clipTop, math.min(clipBottom, screenH - 10) - nextHeight))
 		setRowCap(fittingRows)
 		setOpenUp(nextOpenUp)
 		setPortalBounds({
@@ -3526,6 +3821,9 @@ local function Dropdown(_param)
 		end
 	end, { open, viewport.width, viewport.height, viewport.topInset, viewport.bottomInset, viewport.sideInset })
 	local chooseOption = function(option, index)
+		lastPickAt.current = os.clock()
+		overList.current = false
+		overControl.current = false
 		if option.id ~= value then
 			onChange(option.id)
 		end
@@ -3818,6 +4116,7 @@ local function Dropdown(_param)
 		end
 		-- ▲ ReadonlyArray.map ▲
 		_result = (React.createElement("scrollingframe", {
+			ref = scrollRef,
 			Size = UDim2.new(1, -listInset * 2, 0, innerH),
 			Position = UDim2.fromOffset(listInset, listInset),
 			CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
@@ -3974,7 +4273,7 @@ local function Dropdown(_param)
 		LayoutOrder = layoutOrder,
 		ZIndex = zIndex,
 		ClipsDescendants = false,
-	}, _exp, _exp_1, _exp_2, open and ReactRoblox.createPortal(React.createElement("frame", {
+	}, _exp, _exp_1, _exp_2, (open or shown) and ReactRoblox.createPortal(React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
@@ -4045,6 +4344,10 @@ local function SearchField(_param)
 	local chrome = chromeFor(searchViewport)
 	local reactModules = require(script.Parent.ReactHosts)("reactModules")
 	local draft, setDraft = React.useState(value)
+	-- The last text we told the parent about. Text changes we caused ourselves (the
+	-- clear button, an external value reset) fire Change.Text too and used to echo
+	-- a second onChange 80 ms later.
+	local lastEmitted = React.useRef(value)
 	local boxRef = React.useRef(nil)
 	local focused, setFocused = React.useState(false)
 	local clearHovered, setClearHovered = React.useState(false)
@@ -4057,6 +4360,7 @@ local function SearchField(_param)
 	})
 	reactModules.useUpdateEffect(function()
 		if value == "" or not focused then
+			lastEmitted.current = value
 			setDraft(value)
 		end
 	end, { value, focused })
@@ -4155,8 +4459,13 @@ local function SearchField(_param)
 		ZIndex = zIndex + 1,
 		Change = {
 			Text = function(instance)
-				setDraft(instance.Text)
-				return debouncedChange.run(instance.Text)
+				local text = instance.Text
+				setDraft(text)
+				if text == lastEmitted.current then
+					return nil
+				end
+				lastEmitted.current = text
+				return debouncedChange.run(text)
 			end,
 		},
 		Event = {
@@ -4193,6 +4502,7 @@ local function SearchField(_param)
 		Event = {
 			Activated = function()
 				debouncedChange.cancel()
+				lastEmitted.current = ""
 				setDraft("")
 				if onChange ~= nil then
 					onChange("")
@@ -4263,7 +4573,7 @@ local function LogoLockup(_param)
 		Size = UDim2.fromOffset(mark, mark),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = Color3.fromRGB(7, 17, 28),
+		BackgroundColor3 = Color3.fromRGB(14, 10, 17),
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
@@ -4276,7 +4586,7 @@ local function LogoLockup(_param)
 		Transparency = 0.18,
 	}), React.createElement("imagelabel", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.fromRGB(7, 17, 28),
+		BackgroundColor3 = Color3.fromRGB(14, 10, 17),
 		BorderSizePixel = 0,
 		Image = GAME_ICON_ASSET,
 		ScaleType = Enum.ScaleType.Fit,
@@ -4335,7 +4645,7 @@ return {
 end
 
 -- ======================================================================
--- Module: MainGame   (merged from MainGame.luau, 2209 lines)
+-- Module: MainGame   (merged from MainGame.luau, 2362 lines)
 -- ======================================================================
 __defs["MainGame"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -4403,6 +4713,11 @@ local friendlyActionResponse = ActionCopy.friendlyActionResponse
 local _AppShellChrome = __load("AppShellChrome")
 local Shell = _AppShellChrome.Shell
 local pausePassivePaints = _AppShellChrome.pausePassivePaints
+-- Cached on first use; requiring per effect event was a lookup on the tap path.
+local cachedSanctuarySignals = nil
+-- Shared, never-mutated defaults so an absent value does not allocate per render.
+local EMPTY_NOTICES = table.freeze({})
+local NOOP = function() end
 local function MainGame(_param)
 	local remotes = _param.remotes
 	local config = _param.config
@@ -4427,6 +4742,9 @@ local function MainGame(_param)
 	local requestTimeouts = React.useRef({})
 	local deferredJobs = React.useRef({})
 	React.useEffect(function()
+		-- Re-armed on every (re)mount: an effect re-run without a remount would
+		-- otherwise leave the flag false and silently drop every response.
+		appAlive.current = true
 		return function()
 			appAlive.current = false
 			for worker in requestWorkers.current do
@@ -4599,12 +4917,17 @@ local function MainGame(_param)
 	local inFlightTotal = React.useRef(0)
 	local requestSequence = React.useRef(0)
 	local sentAt = React.useRef({})
+	local sentAtCount = React.useRef(0)
 	local latestSnapshot = React.useRef(-1)
 	local latestRevision = React.useRef(-1)
 	local lastTradeEpoch = React.useRef(-1)
 	local lastSnapshotPaintAt = React.useRef(-math.huge)
 	local loggedFirstSnapshot = React.useRef(false)
 	local streakToastSent = React.useRef(false)
+	local lastAcceptedSnapshot = React.useRef(nil)
+	local pendingPassive = React.useRef(nil)
+	local passiveFlushJob = React.useRef(nil)
+	local acceptStateRef = React.useRef(nil)
 	local acceptState = React.useCallback(function(rawSnapshot)
 		local _rawSnapshot = rawSnapshot
 		if not (type(_rawSnapshot) == "table") then
@@ -4648,10 +4971,33 @@ local function MainGame(_param)
 			return true
 		end
 		if latestRevision.current >= 0 and not revisionChanged and not tradeHot and now - lastSnapshotPaintAt.current < passivePaintInterval then
+			-- Throttled, not discarded: if this is the last packet of a burst
+			-- nothing else will paint it, and the UI would sit on stale numbers.
+			-- Keep the newest and paint it once when the window opens.
+			pendingPassive.current = snapshot
+			if passiveFlushJob.current == nil and appAlive.current then
+				local job
+				job = task.delay(math.max(0.02, passivePaintInterval - (now - lastSnapshotPaintAt.current)), function()
+					passiveFlushJob.current = nil
+					deferredJobs.current[job] = nil
+					local pending = pendingPassive.current
+					pendingPassive.current = nil
+					local accept = acceptStateRef.current
+					if pending ~= nil and accept ~= nil and appAlive.current then
+						accept(pending)
+					end
+				end)
+				passiveFlushJob.current = job
+				deferredJobs.current[job] = true
+			end
 			return true
 		end
+		-- A paint is happening now, so any queued trailing snapshot is superseded
+		-- (it is older by definition: latestSnapshot only moves forward).
+		pendingPassive.current = nil
 		latestRevision.current = math.max(latestRevision.current, snapshot.Revision)
 		lastSnapshotPaintAt.current = now
+		lastAcceptedSnapshot.current = snapshot
 		dispatchStore(ClientActions.setSnapshot(snapshot))
 		if not loggedFirstSnapshot.current then
 			loggedFirstSnapshot.current = true
@@ -4659,6 +5005,7 @@ local function MainGame(_param)
 		end
 		return true
 	end, { dispatchStore })
+	acceptStateRef.current = acceptState
 	local dismissNotice = React.useCallback(function(id)
 		setNotices(function(current)
 			-- ▼ ReadonlyArray.filter ▼
@@ -4881,21 +5228,21 @@ local function MainGame(_param)
 		local id = popId.current + 1
 		popId.current = id
 		setPops(function(current)
-			local _array = {}
-			local _length = #_array
-			local _currentLength = #current
-			table.move(current, 1, _currentLength, _length + 1, _array)
-			_length += _currentLength
-			_array[_length + 1] = {
+			-- One clone, one append and a single trim: this runs on every tap.
+			local updated = table.clone(current)
+			updated[#updated + 1] = {
 				id = id,
 				text = text,
 				color = color,
 				critical = critical,
 				offset = math.random(-90, 90),
 			}
-			local updated = _array
-			while #updated > 12 do
-				table.remove(updated, 1)
+			local excess = #updated - 12
+			if excess > 0 then
+				table.move(updated, excess + 1, #updated, 1)
+				for index = #updated, #updated - excess + 1, -1 do
+					updated[index] = nil
+				end
 			end
 			return updated
 		end)
@@ -4906,23 +5253,17 @@ local function MainGame(_param)
 			_current[_job] = nil
 			if appAlive.current then
 				setPops(function(current)
-					local found = false
+					-- Single pass; hands back the same table if it already expired.
+					local kept = table.create(#current)
+					local removed = false
 					for _, pop in current do
 						if pop.id == id then
-							found = true
-							break
+							removed = true
+						else
+							kept[#kept + 1] = pop
 						end
 					end
-					if not found then
-						return current
-					end
-					local _newValue = {}
-					for _, pop in current do
-						if pop.id ~= id then
-							table.insert(_newValue, pop)
-						end
-					end
-					return _newValue
+					return if removed then kept else current
 				end)
 			end
 		end)
@@ -4988,6 +5329,16 @@ local function MainGame(_param)
 			end
 			local lowered = string.lower(_condition_5)
 			local expectedBusy = (action == "Overcharge" and (string.find(lowered, "cooling", 1, true)) ~= nil) or (string.find(lowered, "still working", 1, true)) ~= nil or (string.find(lowered, "slow down", 1, true)) ~= nil
+			-- A refused optimistic action left its predicted numbers on screen. Revert
+			-- to the last server-accepted snapshot unless the response carried a State
+			-- (already applied above). Routine busy/cooldown refusals are excluded: a
+			-- rapid tap streak would otherwise flicker back on every rejected tap.
+			if not expectedBusy and response.State == nil and NetworkPolicy.IsOptimistic(action) then
+				local accepted = lastAcceptedSnapshot.current
+				if accepted ~= nil and appAlive.current then
+					dispatchStore(ClientActions.setSnapshot(accepted))
+				end
+			end
 			if expectedBusy then
 				return nil
 			end
@@ -5404,7 +5755,7 @@ local function MainGame(_param)
 	if _result_7 ~= nil then
 		_result_7 = _result_7.Settings.ReducedMotion
 	end
-	local applyResponse = React.useCallback(_exp_1, { acceptState, addNotice, applyComboReadout, celebrate, dispatchStore, setVisit, _result_7 })
+	local applyResponse = React.useCallback(_exp_1, { acceptState, addNotice, applyComboReadout, celebrate, dispatchStore, setVisit })
 	local dispatch
 	dispatch = React.useCallback(function(action, payload, callback)
 		if payload == nil then
@@ -5423,19 +5774,26 @@ local function MainGame(_param)
 				})
 			end
 		end
+		-- A queued re-dispatch that fires after unmount would run InvokeServer and
+		-- re-create the worker/timeout entries cleanup already cleared.
+		if not appAlive.current then
+			return nil
+		end
 		local _action_1 = action
 		if GRANT_ACTIONS[_action_1] ~= nil then
 			if not isAuthed() then
 				local settled = false
 				whenAuthed(function()
-					if settled then
+					if settled or not appAlive.current then
 						return nil
 					end
 					settled = true
 					return dispatch(action, payload, callback)
 				end)
-				task.delay(4, function()
-					if settled then
+				local authJob
+				authJob = task.delay(4, function()
+					deferredJobs.current[authJob] = nil
+					if settled or not appAlive.current then
 						return nil
 					end
 					settled = true
@@ -5447,6 +5805,9 @@ local function MainGame(_param)
 				end)
 				return nil
 			end
+			-- Grant fields are written onto the payload; clone first so a caller that
+			-- reuses (or froze) its table neither errors nor leaks them into later calls.
+			value = table.clone(value)
 			attachGrantFields(value)
 		end
 		if not pipelined and busy.current[signature] ~= nil then
@@ -5474,40 +5835,32 @@ local function MainGame(_param)
 			reject("Slow down a sec.")
 			return nil
 		end
-		sentAt.current[signature] = now
-		-- ▼ ReadonlyMap.size ▼
-		local _size = 0
-		for _ in sentAt.current do
-			_size += 1
-		end
-		-- ▲ ReadonlyMap.size ▲
-		if _size > 256 then
-			for key, timestamp in sentAt.current do
-				if now - timestamp > 60 then
-					sentAt.current[key] = nil
-				end
+			-- Counted incrementally: this runs on every tap, and re-counting the
+			-- table (twice) each dispatch was pure overhead.
+			if previous == nil then
+				sentAtCount.current += 1
 			end
-		end
-		-- ▼ ReadonlyMap.size ▼
-		local _size_1 = 0
-		for _ in sentAt.current do
-			_size_1 += 1
-		end
-		-- ▲ ReadonlyMap.size ▲
-		if _size_1 > 384 then
-			for key in sentAt.current do
-				sentAt.current[key] = nil
-				-- ▼ ReadonlyMap.size ▼
-				local _size_2 = 0
-				for _ in sentAt.current do
-					_size_2 += 1
+			sentAt.current[signature] = now
+			if sentAtCount.current > 256 then
+				local remaining = 0
+				for key, timestamp in sentAt.current do
+					if now - timestamp > 60 then
+						sentAt.current[key] = nil
+					else
+						remaining += 1
+					end
 				end
-				-- ▲ ReadonlyMap.size ▲
-				if _size_2 <= 256 then
-					break
+				if remaining > 384 then
+					for key in sentAt.current do
+						sentAt.current[key] = nil
+						remaining -= 1
+						if remaining <= 256 then
+							break
+						end
+					end
 				end
+				sentAtCount.current = remaining
 			end
-		end
 		if NetworkPolicy.IsOptimistic(action) then
 			dispatchStore(ClientActions.applyOptimistic(action, value, config.Game.Version))
 		end
@@ -5559,18 +5912,19 @@ local function MainGame(_param)
 				busy.current[signature] = nil
 			end
 			requestTimedOut = true
-			if requestWorker ~= nil then
-				local _current_1 = requestWorkers.current
-				local _requestWorker = requestWorker
-				_current_1[_requestWorker] = nil
-				pcall(function()
-					return task.cancel(requestWorker)
-				end)
-				requestWorker = nil
-			end
+			-- The worker is deliberately NOT cancelled: the server may still answer, and
+			-- that answer carries the authoritative state (the action may well have run).
+			-- It finishes on its own and de-registers itself below.
 			releaseRequest()
 			if not appAlive.current or not ownsControl then
 				return nil
+			end
+			-- The answer was discarded, so any optimistic prediction is unconfirmed.
+			if NetworkPolicy.IsOptimistic(action) then
+				local accepted = lastAcceptedSnapshot.current
+				if accepted ~= nil then
+					dispatchStore(ClientActions.setSnapshot(accepted))
+				end
 			end
 			ClientLog:warnEvery(`timeout:{action}`, 8, "UI", `{action} timed out after {timeoutSeconds}s`)
 			addNotice("Connection hiccup", "That action timed out. You can try it again now.", "Info", false)
@@ -5604,6 +5958,18 @@ local function MainGame(_param)
 				return nil
 			end
 			if requestTimedOut then
+				-- A late answer: the user was already told it timed out and any optimistic
+				-- guess was rolled back, so do not call back or toast again -- but take the
+				-- server's real state (and grant fields), or a purchase that DID go through
+				-- would stay invisible until the next unrelated snapshot.
+				if ok and type(raw) == "table" then
+					if GRANT_ACTIONS[action] ~= nil then
+						adopt(raw)
+					end
+					if raw.State then
+						acceptState(raw.State)
+					end
+				end
 				return nil
 			end
 			local _condition_7 = not ok or not (type(raw) == "table")
@@ -5622,10 +5988,18 @@ local function MainGame(_param)
 		local _current_2 = requestWorkers.current
 		local _requestWorker = requestWorker
 		_current_2[_requestWorker] = true
-	end, { addNotice, applyResponse, config.Game.Version, dispatchStore, remotes })
+	end, { acceptState, addNotice, applyResponse, config.Game.Version, dispatchStore, remotes })
 	useClientIntegrityProbe(dispatch)
 	local _exp_2 = function()
-		if state == nil or streakToastSent.current then
+		if state == nil then
+			return nil
+		end
+		-- Re-arm once claimed, so the next claimable day toasts again this session.
+		if state.Daily.CanClaim ~= true then
+			streakToastSent.current = false
+			return nil
+		end
+		if streakToastSent.current then
 			return nil
 		end
 		if state.Daily.CanClaim == true and state.Daily.Streak >= 1 then
@@ -5740,7 +6114,12 @@ local function MainGame(_param)
 			local kind = tostring(_condition_5)
 			-- Sanctuary effects (ore, the Rift Warden, waystones) go to the bus the
 			-- world controller and the sanctuary HUD listen on.
-			local sanctuarySignals = require(script.Parent.SanctuaryKit)("sanctuarySignals")
+			-- Resolved once: this runs for every effect event, including per-tap ones.
+			local sanctuarySignals = cachedSanctuarySignals
+			if sanctuarySignals == nil then
+				sanctuarySignals = require(script.Parent.SanctuaryKit)("sanctuarySignals")
+				cachedSanctuarySignals = sanctuarySignals
+			end
 			if sanctuarySignals.handles(kind) then
 				sanctuarySignals.fire(kind, value)
 				return nil
@@ -5929,7 +6308,7 @@ local function MainGame(_param)
 			local attempt = 0
 			local lastConnectNotice = 0
 			while alive and latestSnapshot.current < 0 do
-				local bridgeReady = remotes.Bridge:GetAttribute("Ready") == true
+				local bridgeReady = remotes.Bridge ~= nil and remotes.Bridge:GetAttribute("Ready") == true
 				if bridgeReady then
 					markBoot("bridge")
 				end
@@ -5955,7 +6334,7 @@ local function MainGame(_param)
 				end
 				task.wait(math.min(0.2 + attempt * 0.08, 1.5))
 			end
-			if alive and remotes.Bridge:GetAttribute("Ready") == true then
+			if alive and remotes.Bridge ~= nil and remotes.Bridge:GetAttribute("Ready") == true then
 				markBoot("bridge")
 			end
 		end)
@@ -6216,6 +6595,40 @@ local function MainGame(_param)
 	-- usesDesktopStructure() directly with the real camera size at least matches the same
 	-- touch-aware logic AutoScale itself uses internally, instead of two different guesses
 	-- disagreeing about the same device.
+	-- The size is otherwise only read at render, so a rotation or window resize
+	-- kept the old touch/desktop decision until the next snapshot happened to
+	-- re-render (and forever while paused). Re-render when it actually changes.
+	local viewportTick, setViewportTick = React.useState(0)
+	React.useEffect(function()
+		local sizeConnection
+		local function attach()
+			if sizeConnection ~= nil then
+				sizeConnection:Disconnect()
+				sizeConnection = nil
+			end
+			local camera = WorkspaceService.CurrentCamera
+			if camera ~= nil then
+				sizeConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+					setViewportTick(function(current)
+						return current + 1
+					end)
+				end)
+			end
+		end
+		attach()
+		local cameraConnection = WorkspaceService:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+			attach()
+			setViewportTick(function(current)
+				return current + 1
+			end)
+		end)
+		return function()
+			cameraConnection:Disconnect()
+			if sizeConnection ~= nil then
+				sizeConnection:Disconnect()
+			end
+		end
+	end, {})
 	local _result_29 = WorkspaceService.CurrentCamera
 	if _result_29 ~= nil then
 		_result_29 = _result_29.ViewportSize
@@ -6388,6 +6801,12 @@ local function MainGame(_param)
 		_condition_7 = _condition_8 >= 0.5
 	end
 	local mobileToastsVisible = _condition_7
+	-- Stable identities for props that used to be rebuilt every render (and so
+	-- re-rendered Shell/ToastRail/AdminPrankOverlay on every snapshot).
+	local mobileLayoutCache = React.useRef(nil)
+	local clearAdminPrank = React.useCallback(function()
+		setAdminPrank(nil)
+	end, {})
 	local _condition_8 = state ~= nil and shellMounted
 	if _condition_8 then
 		local _attributes = {
@@ -6409,9 +6828,7 @@ local function MainGame(_param)
 		end
 		local _condition_9 = _result_39
 		if _condition_9 == nil then
-			_condition_9 = (function()
-				return nil
-			end)
+			_condition_9 = NOOP
 		end
 		_attributes.openDomain = _condition_9
 		local _result_40 = domainUi
@@ -6423,7 +6840,7 @@ local function MainGame(_param)
 		_attributes.setPurchasePresentationActive = setPurchasePresentationActive
 		local _exp_7 = React.createElement(Shell, _attributes)
 		local _attributes_1 = {
-			notices = if mobileToastsVisible and not toastsSuppressed then notices else {},
+			notices = if mobileToastsVisible and not toastsSuppressed then notices else EMPTY_NOTICES,
 			remove = dismissNotice,
 			setHovered = setNoticeHovered,
 			reducedMotion = state.Settings.ReducedMotion == true,
@@ -6472,7 +6889,14 @@ local function MainGame(_param)
 				_result_42 = _condition_14
 			end
 			_object[_left_3] = _result_42
-			_result_41 = _object
+			-- Same values -> same table, so ToastRail does not re-render on every snapshot.
+			local cachedLayout = mobileLayoutCache.current
+			if cachedLayout ~= nil and cachedLayout.x == _object.x and cachedLayout.y == _object.y and cachedLayout.scale == _object.scale and cachedLayout.opacity == _object.opacity then
+				_result_41 = cachedLayout
+			else
+				mobileLayoutCache.current = _object
+				_result_41 = _object
+			end
 		else
 			_result_41 = nil
 		end
@@ -6506,9 +6930,7 @@ local function MainGame(_param)
 			_result_40 = _result_40.Settings.ReducedMotion
 		end
 		_attributes_1.reducedMotion = _result_40 == true
-		_attributes_1.onClose = function()
-			return setAdminPrank(nil)
-		end
+		_attributes_1.onClose = clearAdminPrank
 		_condition_9 = React.createElement(AdminPrankOverlay, _attributes_1)
 	end
 	local _condition_10 = not externalBoot and bootVisible
@@ -20048,7 +20470,7 @@ return {
 end
 
 -- ======================================================================
--- Module: CrateRevealOverlay   (merged from pages/CrateRevealOverlay.luau, 732 lines)
+-- Module: CrateRevealOverlay   (merged from pages/CrateRevealOverlay.luau, 728 lines)
 -- ======================================================================
 __defs["CrateRevealOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -20349,21 +20771,17 @@ local function CrateRevealExperience(_param)
 	local motionScale = if reducedMotion then 0.55 else 1
 	local boatShow = useBoatTween(if present then 1 else 0, (if present then 0.3 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
 	local showSpring = useFlipperSpring(if present then 1 else 0, false, 720, 36)
-	local showBoat = useBoatTween(if present then 1 else 0, (if present then 0.28 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
 	local show = showSpring
 	local landHold = phase == "land" or phase == "done" or phase == "exit"
 	local claimHold = phase == "done" or phase == "exit"
 	local landPopSpring = useFlipperSpring(if landHold then 1 else 0, false, 640, 14)
-	local landPopBoat = useBoatTween(if landHold then 1 else 0, 0.22 * motionScale, false, easeOutCubic, 0)
 	local landPop = landPopSpring
 	local claimSlideSpring = useFlipperSpring(if claimHold then 1 else 0, false, 520, 24)
-	local claimSlideBoat = useBoatTween(if claimHold then 1 else 0, 0.2 * motionScale, false, easeOutCubic, 0)
 	local claimSlide = claimSlideSpring
 	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, false, 0.62 * motionScale)
 	-- Claim CTA flash — intentional polish without noisy springs on low tiers.
 	local claimFlash = useFlash(if phase == "done" then rollIndex + 11 else 0, false, 0.48 * motionScale)
 	local chargePulseSpring = useFlipperSpring(if phase == "charge" then 1 else 0, false, 360, 19)
-	local chargePulseBoat = useBoatTween(if phase == "charge" then 1 else 0, 0.18 * motionScale, false, easeOutCubic, 0)
 	local chargePulse = chargePulseSpring
 	local rolls = session.rolls
 	if type(rolls) ~= "table" then

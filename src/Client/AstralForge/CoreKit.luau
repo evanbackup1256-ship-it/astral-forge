@@ -28,13 +28,14 @@ local function __load(name: string): any
 end
 
 -- ======================================================================
--- Module: log   (merged from log.luau, 201 lines)
+-- Module: log   (merged from log.luau, 209 lines)
 -- ======================================================================
 __defs["log"] = function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local recent = {}
+local recentCount = 0
 local emitted = {}
 local bootMilliseconds = 0
 local bootOrigin = os.clock()
@@ -65,8 +66,15 @@ local function available(key, seconds)
 	if previous ~= nil and now - previous < seconds then
 		return false
 	end
-	local _key_1 = key
-	recent[_key_1] = now
+	-- Keys can embed instance paths, so the table would otherwise only ever grow.
+	if previous == nil then
+		recentCount += 1
+		if recentCount > 512 then
+			table.clear(recent)
+			recentCount = 1
+		end
+	end
+	recent[key] = now
 	return true
 end
 local function debugEnabled()
@@ -235,7 +243,7 @@ return {
 end
 
 -- ======================================================================
--- Module: theme   (merged from theme.luau, 321 lines)
+-- Module: theme   (merged from theme.luau, 323 lines)
 -- ======================================================================
 __defs["theme"] = function()
 local exports = {}
@@ -247,37 +255,39 @@ exports.isMobileLandscape = _mobileLayout.isMobileLandscape
 exports.moreDockHeight = _mobileLayout.moreDockHeight
 exports.planMobileLayout = _mobileLayout.planMobileLayout
 exports.scrollTail = _mobileLayout.scrollTail
--- Astral Forge brand chroma: cool voids with vivid forge accents so CTAs, tabs,
--- meters, and active chrome read clearly on PC without flattening into gray fog.
+-- Astral Forge "molten forge" chroma: warm charcoal-plum surfaces with brass and
+-- ember heat, cut by cool cyan/mint signal colours. The surfaces are warm so
+-- accents (CTAs, tabs, meters, active chrome) glow against them instead of
+-- sitting on a cold blue wash; semantic colours (success, danger) stay readable.
 local Palette = {
-	void = Color3.fromRGB(3, 5, 9),
-	ink = Color3.fromRGB(6, 8, 14),
-	night = Color3.fromRGB(9, 12, 20),
-	panel = Color3.fromRGB(14, 18, 28),
-	panelRaised = Color3.fromRGB(20, 26, 40),
-	panelSoft = Color3.fromRGB(36, 46, 68),
-	line = Color3.fromRGB(42, 54, 78),
-	lineSoft = Color3.fromRGB(92, 114, 148),
-	cream = Color3.fromRGB(248, 250, 255),
-	creamSoft = Color3.fromRGB(214, 224, 238),
-	muted = Color3.fromRGB(142, 160, 185),
-	cyan = Color3.fromRGB(64, 224, 255),
-	mint = Color3.fromRGB(80, 238, 180),
-	coral = Color3.fromRGB(255, 98, 118),
-	mango = Color3.fromRGB(255, 188, 56),
-	violet = Color3.fromRGB(164, 124, 255),
-	pink = Color3.fromRGB(245, 96, 184),
-	blue = Color3.fromRGB(82, 162, 255),
+	void = Color3.fromRGB(8, 6, 10),
+	ink = Color3.fromRGB(12, 9, 14),
+	night = Color3.fromRGB(19, 14, 20),
+	panel = Color3.fromRGB(27, 21, 29),
+	panelRaised = Color3.fromRGB(39, 31, 42),
+	panelSoft = Color3.fromRGB(62, 49, 66),
+	line = Color3.fromRGB(74, 58, 80),
+	lineSoft = Color3.fromRGB(132, 110, 142),
+	cream = Color3.fromRGB(252, 247, 240),
+	creamSoft = Color3.fromRGB(230, 220, 212),
+	muted = Color3.fromRGB(178, 160, 166),
+	cyan = Color3.fromRGB(70, 218, 242),
+	mint = Color3.fromRGB(86, 236, 178),
+	coral = Color3.fromRGB(255, 104, 112),
+	mango = Color3.fromRGB(255, 184, 52),
+	violet = Color3.fromRGB(178, 134, 255),
+	pink = Color3.fromRGB(250, 104, 178),
+	blue = Color3.fromRGB(96, 166, 255),
 	white = Color3.fromRGB(255, 255, 255),
-	green = Color3.fromRGB(94, 234, 168),
-	red = Color3.fromRGB(238, 74, 92),
+	green = Color3.fromRGB(98, 232, 164),
+	red = Color3.fromRGB(240, 78, 88),
 	shadow = Color3.fromRGB(0, 0, 0),
-	graphite = Color3.fromRGB(18, 23, 34),
-	steel = Color3.fromRGB(192, 218, 242),
-	steelBright = Color3.fromRGB(248, 250, 255),
-	brass = Color3.fromRGB(245, 182, 68),
-	brassDeep = Color3.fromRGB(128, 86, 28),
-	ember = Color3.fromRGB(240, 80, 96),
+	graphite = Color3.fromRGB(22, 17, 25),
+	steel = Color3.fromRGB(204, 214, 234),
+	steelBright = Color3.fromRGB(252, 247, 240),
+	brass = Color3.fromRGB(250, 190, 72),
+	brassDeep = Color3.fromRGB(140, 92, 30),
+	ember = Color3.fromRGB(244, 92, 84),
 }
 local ACCESSIBLE_BASE = {
 	void = Palette.void,
@@ -322,12 +332,12 @@ local function applyAccessibilityTheme(highContrast, colorblind)
 	end
 	if highContrast then
 		mutable.void = Color3.fromRGB(0, 0, 0)
-		mutable.ink = Color3.fromRGB(1, 2, 3)
-		mutable.night = Color3.fromRGB(5, 7, 9)
-		mutable.panel = Color3.fromRGB(8, 11, 14)
-		mutable.panelRaised = Color3.fromRGB(14, 18, 23)
-		mutable.panelSoft = Color3.fromRGB(24, 30, 38)
-		mutable.lineSoft = Color3.fromRGB(139, 153, 170)
+		mutable.ink = Color3.fromRGB(3, 2, 3)
+		mutable.night = Color3.fromRGB(8, 6, 8)
+		mutable.panel = Color3.fromRGB(13, 10, 14)
+		mutable.panelRaised = Color3.fromRGB(21, 16, 23)
+		mutable.panelSoft = Color3.fromRGB(36, 28, 40)
+		mutable.lineSoft = Color3.fromRGB(160, 142, 168)
 		mutable.cream = Color3.fromRGB(255, 255, 255)
 		mutable.creamSoft = Color3.fromRGB(235, 240, 246)
 		mutable.muted = Color3.fromRGB(190, 199, 210)
@@ -343,8 +353,8 @@ local Layout = {
 	controlGap = 14,
 	lineGap = 10,
 	cardPadding = 18,
-	cardRadius = 13,
-	buttonRadius = 9,
+	cardRadius = 16,
+	buttonRadius = 11,
 	topbarHeight = 74,
 	sidebarWidth = 268,
 	sidebarCollapsedWidth = 78,
@@ -363,10 +373,10 @@ local Layout = {
 }
 -- Shared chrome opacities — lower = more visible strokes/shadows/accents.
 local Chrome = {
-	panelShadow = 0.76,
-	panelStrokeIdle = 0.28,
-	panelStrokeHover = 0.06,
-	buttonShadow = 0.64,
+	panelShadow = 0.7,
+	panelStrokeIdle = 0.3,
+	panelStrokeHover = 0.05,
+	buttonShadow = 0.58,
 	railStrokeIdle = 0.42,
 	railStrokeActive = 0.08,
 	accentHairline = 0.02,
@@ -526,12 +536,12 @@ local function surfaceGradient(base, strength)
 	if strength == nil then
 		strength = 1
 	end
-	-- Layered night glass: a cool lift at the top edge, then a longer sink into the void.
+	-- Layered forge glass: a warm lift at the top edge, then a deeper sink into the dark.
 	return ColorSequence.new({
-		ColorSequenceKeypoint.new(0, lighten(base, 0.12 * strength)),
-		ColorSequenceKeypoint.new(0.14, lighten(base, 0.04 * strength)),
-		ColorSequenceKeypoint.new(0.58, base),
-		ColorSequenceKeypoint.new(1, darken(base, 0.2 * strength)),
+		ColorSequenceKeypoint.new(0, lighten(base, 0.15 * strength)),
+		ColorSequenceKeypoint.new(0.12, lighten(base, 0.05 * strength)),
+		ColorSequenceKeypoint.new(0.55, base),
+		ColorSequenceKeypoint.new(1, darken(base, 0.27 * strength)),
 	})
 end
 local function strokeGradient(color)
@@ -4222,7 +4232,7 @@ return {
 end
 
 -- ======================================================================
--- Module: navRouteTable   (merged from navRouteTable.luau, 136 lines)
+-- Module: navRouteTable   (merged from navRouteTable.luau, 137 lines)
 -- ======================================================================
 __defs["navRouteTable"] = function()
 -- Pure nav route tables (ids / labels / icons). Accent colors stay in appNav
@@ -4250,30 +4260,31 @@ local PRIMARY_ROUTES: { RouteDef } = {
 }
 
 local MORE_ROUTES: { RouteDef } = {
-	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
+	-- Grouped by what the player is doing: daily loops, progression, goals, social, meta.
 	{ id = "Missions", label = "Missions", eyebrow = "Jobs", icon = "Mission", accentKey = "cyan" },
 	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards", accentKey = "pink" },
+	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
 	{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost", accentKey = "pink" },
-	{ id = "StarGrid", label = "Star Grid", eyebrow = "Dust", icon = "StarGrid", accentKey = "mango" },
-	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
-	{ id = "Continuum", label = "Next Rank", eyebrow = "Plan", icon = "Continuum", accentKey = "pink" },
+	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
 	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
 	{ id = "Anomaly", label = "Shift Plan", eyebrow = "Do this", icon = "Reactor", accentKey = "pink" },
-	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
-	{ id = "Command", label = "Command", eyebrow = "Crew", icon = "Command", accentKey = "cyan" },
-	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
-	{ id = "Mail", label = "Mail", eyebrow = "Inbox", icon = "Mail", accentKey = "cyan" },
-	{ id = "Chat", label = "Chat", eyebrow = "Talk", icon = "Chat", accentKey = "mint" },
-	{ id = "Crew", label = "Crew", eyebrow = "Online", icon = "Crew", accentKey = "blue" },
-	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
-	{ id = "Convergence", label = "Converge", eyebrow = "Co-op", icon = "Domain", accentKey = "mango" },
-	{ id = "Guild", label = "Guild", eyebrow = "Hall", icon = "Crew", accentKey = "violet" },
-	{ id = "Leaderboards", label = "Ranks", eyebrow = "Top 25", icon = "Leaderboard", accentKey = "cyan" },
-	{ id = "Trade", label = "Trade", eyebrow = "Swap", icon = "Send", accentKey = "mint" },
-	{ id = "Credits", label = "Credits", eyebrow = "About", icon = "Credits", accentKey = "violet" },
-	{ id = "Admin", label = "Admin", eyebrow = "Owner", icon = "Admin", accentKey = "coral" },
+	{ id = "Continuum", label = "Next Rank", eyebrow = "Plan", icon = "Continuum", accentKey = "pink" },
+	{ id = "StarGrid", label = "Star Grid", eyebrow = "Dust", icon = "StarGrid", accentKey = "mango" },
+	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
 	{ id = "Foundry", label = "Foundry", eyebrow = "Ore", icon = "Artifact", accentKey = "mango" },
+	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
+	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
+	{ id = "Command", label = "Command", eyebrow = "Crew", icon = "Command", accentKey = "cyan" },
+	{ id = "Convergence", label = "Converge", eyebrow = "Co-op", icon = "Domain", accentKey = "mango" },
+	{ id = "Guild", label = "Guild", eyebrow = "Hall", icon = "Crew", accentKey = "violet" },
+	{ id = "Crew", label = "Crew", eyebrow = "Online", icon = "Crew", accentKey = "blue" },
+	{ id = "Chat", label = "Chat", eyebrow = "Talk", icon = "Chat", accentKey = "mint" },
+	{ id = "Mail", label = "Mail", eyebrow = "Inbox", icon = "Mail", accentKey = "cyan" },
+	{ id = "Trade", label = "Trade", eyebrow = "Swap", icon = "Send", accentKey = "mint" },
+	{ id = "Leaderboards", label = "Ranks", eyebrow = "Top 25", icon = "Leaderboard", accentKey = "cyan" },
+	{ id = "Credits", label = "Credits", eyebrow = "About", icon = "Credits", accentKey = "violet" },
+	{ id = "Admin", label = "Admin", eyebrow = "Owner", icon = "Admin", accentKey = "coral" },
 }
 
 -- PageRouter PageContentInner dispatch keys (Credits / Chat / Admin use special chrome).
