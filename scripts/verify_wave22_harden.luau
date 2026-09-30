@@ -4,11 +4,11 @@
 -- MailClaim/Inspect SOCKET/UPGRADE clips, Rebirth softMotion density.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local LabOrderMath = require("../src/Server/AstralForge/Modules/LabOrderMath")
-local AnomalyOpsMath = require("../src/Server/AstralForge/Modules/AnomalyOpsMath")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
+local AnomalyOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("AnomalyOpsMath")
+local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 
 assert(LabOrderMath.IsReady({ Id = "A", Progress = "9", Target = "10", Claimed = false }) == false, "string 9/10 not ready")
 assert(LabOrderMath.IsReady({ Id = "A", Progress = "10", Target = "10", Claimed = false }) == true, "string 10/10 ready")
@@ -32,15 +32,15 @@ assert(math.abs(ContinuumDomainMath.DomainProductionMultiplier(0, 2_000_000, 0, 
 assert(math.abs(ContinuumDomainMath.DomainRankBonus(4, 0.05, 0.1) - 0.3) < 1e-9, "rank bonus")
 
 local labMathSrc = fs.readFile("src/Server/AstralForge/Modules/LabOrderMath.luau")
-local anomalySrc = fs.readFile("src/Server/AstralForge/Modules/AnomalyOpsMath.luau")
-local continuumSrc = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local anomalySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#AnomalyOpsMath")
+local continuumSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
-local mailboxSrc = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
-local invSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
-local rebirthSrc = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
+local mailboxSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
+local invSrc = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
+local rebirthSrc = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
 
 assert(string.find(labMathSrc, "tonumber(state and state.Progress)", 1, true), "LabOrderMath Progress tonumber")
 assert(string.find(dataSrc, "nonNegative(tonumber(order.Progress)", 1, true), "DataService Progress coerce")

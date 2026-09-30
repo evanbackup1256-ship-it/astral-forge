@@ -2,9 +2,9 @@
 -- Wave27 offline residuals: InventoryMath direct calls, ContinuumDomain SnapshotDomainInts,
 -- Trade/Credits softMotion density, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local inv = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+local inv = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 assert(not string.find(inv, "local function relicRowHeight", 1, true), "Inventory relicRowHeight wrapper must be gone")
 assert(not string.find(inv, "local function rarityColor", 1, true), "Inventory rarityColor wrapper must be gone")
 assert(not string.find(inv, "local function offerStock", 1, true), "Inventory offerStock wrapper must be gone")
@@ -13,7 +13,7 @@ assert(string.find(inv, "InventoryMath.RarityColor", 1, true), "Inventory Rarity
 assert(string.find(inv, "InventoryMath.OfferStock", 1, true), "Inventory OfferStock direct")
 assert(string.find(inv, "InventoryMath.InspectSocketBlock", 1, true), "Inventory InspectSocketBlock direct")
 
-local continuum = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
+local continuum = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
 assert(string.find(continuum, "function ContinuumDomainMath.NonNegativeInt", 1, true), "NonNegativeInt missing")
 assert(string.find(continuum, "function ContinuumDomainMath.SnapshotDomainInts", 1, true), "SnapshotDomainInts missing")
 assert(not string.find(continuum, "GetService", 1, true), "ContinuumDomainMath must stay pure")
@@ -21,14 +21,14 @@ assert(not string.find(continuum, "GetService", 1, true), "ContinuumDomainMath m
 local ss = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(ss, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ss, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual")
 
-local trade = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+local trade = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 local tradeSoft = 0
 for _ in string.gmatch(trade, "softMotion") do
 	tradeSoft += 1
 end
 assert(tradeSoft >= 10, "Trade softMotion density, got " .. tostring(tradeSoft))
 
-local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
+local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
 local creditsSoft = 0
 for _ in string.gmatch(credits, "softMotion") do
 	creditsSoft += 1

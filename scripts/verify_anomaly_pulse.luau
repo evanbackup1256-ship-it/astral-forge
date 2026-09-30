@@ -3,9 +3,9 @@
 -- Mirrors verify_progression_lab style — require under Lune, assert behavior.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local AnomalyPulseScore = require("../src/Server/AstralForge/Modules/AnomalyPulseScore")
+local AnomalyPulseScore = require("../src/Server/AstralForge/Modules/OpsMath")("AnomalyPulseScore")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)
@@ -60,8 +60,8 @@ near(AnomalyPulseScore.ScoreMultiplier(10, true, 0.03, 0.75), 1.3 * 1.75, "combi
 near(AnomalyPulseScore.ScoreMultiplier(0, false, 0.03, 0.75), 1.0, "combined miss")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local serviceSrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
-local scoreSrc = fs.readFile("src/Server/AstralForge/Modules/AnomalyPulseScore.luau")
+local serviceSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService")
+local scoreSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#AnomalyPulseScore")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(serviceSrc, "AnomalyPulseScore.IsAccurate", 1, true), "AnomalyService must delegate IsAccurate")

@@ -3,9 +3,9 @@
 -- / host→guest AtomicUpdate orchestration).
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
+local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 
 local function freshSession()
 	return {
@@ -261,7 +261,7 @@ end
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
 do
-	local desk = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+	local desk = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 	assert(string.find(desk, "TradeSettle.TryBegin", 1, true), "TradeDesk must delegate TryBegin")
 	assert(string.find(desk, "TradeSettle.Fail", 1, true), "TradeDesk must delegate Fail")
 	assert(string.find(desk, "TradeSettle.CancelBlocked", 1, true), "TradeDesk Cancel must use CancelBlocked")
@@ -280,7 +280,7 @@ do
 	end
 	assert(revertCount >= 1, "host revert AtomicUpdate must remain in ConfirmTrade hooks")
 
-	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle")
 	assert(string.find(settleSrc, "function TradeSettle.RunHostGuest", 1, true), "RunHostGuest exported")
 	assert(string.find(settleSrc, "REASON_GUEST_LEFT", 1, true), "guest-left reason constant")
 	assert(string.find(settleSrc, "REASON_GUEST_APPLY", 1, true), "guest-apply reason constant")
@@ -294,8 +294,8 @@ do
 		assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 	end
 	for _, path in {
-		"src/Server/AstralForge/Modules/TradeSettle.luau",
-		"src/Server/AstralForge/Modules/TradeDesk.luau",
+		"src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle",
+		"src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk",
 	} do
 		local body = fs.readFile(path)
 		assert(not string.find(body, "vendor/", 1, true), path .. " must not reference vendor/")

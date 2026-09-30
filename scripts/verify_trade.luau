@@ -2,10 +2,10 @@
 -- Trade apply/revert roundtrip + settle-path / ConfirmTrade dual-tree source invariants.
 -- No Studio. Does not touch vendor/ or Packages/.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local TradeExchange = require("../src/Server/AstralForge/Modules/TradeExchange")
+local TradeExchange = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeExchange")
 local ProfileVersionGuard = require("../src/Server/AstralForge/Modules/ProfileVersionGuard")
 
 local gameConfig = {
@@ -153,7 +153,7 @@ end
 -- 3. Settle lock semantics (TradeSettle pure helpers)
 ------------------------------------------------------------------------
 do
-	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
+	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 	local session = {
 		Host = 1,
 		Guest = 2,
@@ -197,11 +197,11 @@ do
 		revertCount += 1
 	end
 	assert(revertCount >= 1, "host revert AtomicUpdate must remain in ConfirmTrade hooks")
-	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle")
 	assert(string.find(settleSrc, "RevertWithRetries", 1, true), "revert retries stay in TradeSettle")
 	assert(string.find(settleSrc, "function TradeSettle.RunHostGuest", 1, true), "RunHostGuest exported")
 
-	local desk = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+	local desk = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 	assert(string.find(desk, "function TradeDesk:TryBeginSettle", 1, true))
 	assert(string.find(desk, "function TradeDesk:FailSettle", 1, true))
 	assert(string.find(desk, "TradeSettle.TryBegin", 1, true), "desk must delegate settle begin")
@@ -210,7 +210,7 @@ do
 	assert(not string.find(desk, "vendor/", 1, true))
 	assert(not string.find(desk, "Packages/", 1, true))
 
-	local view = fs.readFile("src/Client/AstralForge/pages/TradeView.luau")
+	local view = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 	assert(string.find(view, "CONFIRM_TRADE_TREE:shared", 1, true), "shared ConfirmTrade tree marker")
 	assert(not string.find(view, "CONFIRM_TRADE_TREE:compact", 1, true), "compact Confirm tree must be collapsed into shared")
 	assert(not string.find(view, "CONFIRM_TRADE_TREE:desktop", 1, true), "desktop Confirm tree must be collapsed into shared")
@@ -267,22 +267,22 @@ end
 -- 6. Cancel refused while Settling (trade residual guard)
 ------------------------------------------------------------------------
 do
-	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
-	local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+	local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
+	local deskSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 	assert(string.find(deskSrc, "TradeSettle.CancelBlocked", 1, true), "Cancel must gate via TradeSettle")
 	assert(string.find(deskSrc, "RevertFailedReason", 1, true) or string.find(deskSrc, "TradeSettle.Fail", 1, true), "FailSettle permanent must stamp RevertFailedReason")
 	local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 	assert(string.find(services, "cancelErr", 1, true), "ConfirmTrade Cancel path must surface cancelErr")
 	assert(string.find(services, "outcome.log", 1, true), "permanent settle failure must ModuleLog outcome.log")
-	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
+	local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle")
 	assert(string.find(settleSrc, "FormatRevertFailedLog", 1, true), "TradeSettle must format RevertFailed logs")
 	assert(string.find(settleSrc, "admin note:", 1, true), "RevertFailed log must cite admin note")
 	assert(string.find(settleSrc, "Trade settle recovery", 1, true), "TradeSettle must cite Trade settle recovery")
-	local adminFields = fs.readFile("src/Client/AstralForge/adminFields.luau")
+	local adminFields = fs.readFile("src/Client/AstralForge/CoreKit.luau#adminFields")
 	assert(string.find(adminFields, "Trade settle recovery", 1, true), "admin reasons must include Trade settle recovery")
 	local adminService = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 	assert(string.find(adminService, "AdminGrantMath.AUDIT_ONLY_REASONS", 1, true), "Admin must use AdminGrantMath audit-only reasons")
-	local adminGrantSrc = fs.readFile("src/Server/AstralForge/Modules/AdminGrantMath.luau")
+	local adminGrantSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#AdminGrantMath")
 	assert(string.find(adminGrantSrc, '["Trade settle recovery"] = true', 1, true), "Trade settle recovery must be audit-only")
 	assert(string.find(adminService, "AdminGrantMath.PlayerFacingReason", 1, true), "Admin must delegate PlayerFacingReason")
 
@@ -306,9 +306,9 @@ end
 -- 7. SteadyProduction nil-safe Research + SessionGate txn _get
 ------------------------------------------------------------------------
 do
-	local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+	local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 	assert(string.find(economySrc, 'type(research) == "table"', 1, true), "SteadyProduction must nil-safe Research")
-	local gateSrc = fs.readFile("src/Server/AstralForge/Services/SessionGate.luau")
+	local gateSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#SessionGate")
 	local getCount = 0
 	for _ in string.gmatch(gateSrc, "self:_get%(player%)") do
 		getCount += 1

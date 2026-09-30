@@ -3,9 +3,9 @@
 -- ActiveBoostIcon/TopbarReleaseCountdown/TopBar), TradeReturnClaim FocusClaim,
 -- TopbarReleaseCountdown softMotion densify, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local chrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+local chrome = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 assert(string.find(chrome, "local function TopBar", 1, true), "TopBar missing")
 assert(string.find(chrome, "local function StatChip", 1, true), "StatChip missing")
 assert(string.find(chrome, "local function PerformanceStats", 1, true), "PerformanceStats missing")
@@ -24,13 +24,13 @@ do
 	assert(soft >= 10, "TopBarChrome softMotion density, got " .. tostring(soft))
 end
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
-assert(string.find(appShell, 'require(script.Parent.TopBarChrome)', 1, true), "AppShellChrome requires TopBarChrome")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
+assert(string.find(appShell, '("TopBarChrome")', 1, true), "AppShellChrome requires TopBarChrome")
 assert(string.find(appShell, "local TopBar = _TopBarChrome.TopBar", 1, true), "AppShellChrome binds TopBar")
-local nav = fs.readFile("src/Client/AstralForge/NavChrome.luau")
-assert(string.find(nav, "ActiveBoostIcon = require(script.Parent.TopBarChrome).ActiveBoostIcon", 1, true), "NavChrome binds ActiveBoostIcon")
-local shellFx = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+local nav = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
+assert(string.find(nav, "ActiveBoostIcon = __load(\"TopBarChrome\").ActiveBoostIcon", 1, true), "NavChrome binds ActiveBoostIcon")
+local shellFx = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shellFx, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim host")
 assert(string.find(shellFx, "GamepadNavigationService.FocusClaim", 1, true), "TradeReturn FocusClaim")
 assert(not string.find(main, "local function TopBar", 1, true), "TopBar must leave MainGame")

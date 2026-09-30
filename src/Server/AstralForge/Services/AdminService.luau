@@ -9,11 +9,11 @@ return function(loadService: (string) -> any)
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
-	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
-	local AdminGrantMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AdminGrantMath"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local AdminGrantMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("AdminGrantMath")
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
-	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("WheelMath"))
+	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
@@ -926,7 +926,7 @@ return function(loadService: (string) -> any)
 				profile.CurrentZone = 1
 			elseif command == "GrantEchoCharge" then
 				-- Charge-only / missing ForgeEchoes fixtures must Ensure before +=
-				-- (evidence: bare `if profile.ForgeEchoes then Charge +=` was a silent no-op).
+				-- (seen when bare `if profile.ForgeEchoes then Charge +=` was a silent no-op).
 				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
 				profile.ForgeEchoes = echoes
 				echoes.Charge += math.floor(amount)

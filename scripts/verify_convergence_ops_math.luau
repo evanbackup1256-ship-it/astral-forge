@@ -3,9 +3,9 @@
 -- phase/multiplier, tier claim readiness). HARD: DV<=21, PlatformBadges=0,
 -- no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ConvergenceOpsMath = require("../src/Server/AstralForge/Modules/ConvergenceOpsMath")
+local ConvergenceOpsMath = require("../src/Server/AstralForge/Modules/OpsMath")("ConvergenceOpsMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label)
@@ -102,7 +102,7 @@ assert(ConvergenceOpsMath.CanClaimTier(nil, 0, nil, 1) == true, "nil contributio
 -- Source wiring + HARD constraints
 ------------------------------------------------------------------------
 local serviceSrc = fs.readFile("src/Server/AstralForge/Services/ConvergenceService.luau")
-local mathSrc = fs.readFile("src/Server/AstralForge/Modules/ConvergenceOpsMath.luau")
+local mathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#ConvergenceOpsMath")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(serviceSrc, "ConvergenceOpsMath.EnsureEventProfile", 1, true), "Flush/Claim must EnsureEventProfile")

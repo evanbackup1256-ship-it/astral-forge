@@ -10,9 +10,9 @@ local Component = _components.Component
 local Controller = _core.Controller
 local Flamework = _core.Flamework
 local CollectionService = game:GetService("CollectionService")
-local currentAntilagInfo = require(script.Parent.antilag).currentAntilagInfo
-local getActiveClientStore = require(script.Parent.clientStore).getActiveClientStore
-local ClientLog = require(script.Parent.log).ClientLog
+local currentAntilagInfo = require(script.Parent.MotionKit)("antilag").currentAntilagInfo
+local getActiveClientStore = require(script.Parent.CoreKit)("clientStore").getActiveClientStore
+local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 -- Imported for its side effect: this registers LayoutGuardController with Flamework's
 -- reflection metadata before Flamework.ignite() runs below. LayoutGuardController only
 -- depends on UiRootComponent's *type* (for a Components<UiRootComponent> generic, resolved by

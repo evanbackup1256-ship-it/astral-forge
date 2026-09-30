@@ -5,15 +5,15 @@
 -- Complements wave21-harden (ProfileClamp / AdvanceQuestProgress) with different extracts.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/RemoteFirewallMath")
+local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
 local ForgeEchoMath = require("../src/Server/AstralForge/Modules/ForgeEchoMath")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
+local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
-local AdminGrantMath = require("../src/Server/AstralForge/Modules/AdminGrantMath")
-local UtcClockMath = require("../src/Server/AstralForge/Modules/UtcClockMath")
-local InventoryMath = require("../src/Client/AstralForge/inventoryMath")
+local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
+local UtcClockMath = require("../src/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
+local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
 
 ------------------------------------------------------------------------
 -- RemoteFirewallMath.Inspect
@@ -143,9 +143,9 @@ assert(can3 == false, "underfunded")
 local firewallSrc = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
-local invViewSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
+local invViewSrc = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(firewallSrc, "RemoteFirewallMath.Inspect", 1, true), "Firewall Inspect residual")

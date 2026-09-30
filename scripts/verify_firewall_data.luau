@@ -3,7 +3,7 @@
 -- Mirrors verify_settle_sanitize style: string markers + lightweight pure logic. No Studio.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local firewallSrc = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
@@ -17,14 +17,14 @@ assert(string.find(firewallSrc, "RemoteFirewallMath.ExtractUserId", 1, true), "R
 assert(string.find(firewallSrc, "Firewall.CoerceUserId = coerceUserId", 1, true), "CoerceUserId must be exported")
 assert(string.find(firewallSrc, "Firewall.ExtractUserId = extractUserId", 1, true), "ExtractUserId must be exported")
 assert(string.find(firewallSrc, "TargetUserId", 1, true), "extractUserId must read TargetUserId")
-assert(string.find(firewallSrc, "RemoteFirewallMath.MAX_SAFE_USER_ID", 1, true) or string.find(fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"), "MAX_SAFE_USER_ID", 1, true), "coerce must bound safe integer ids")
+assert(string.find(firewallSrc, "RemoteFirewallMath.MAX_SAFE_USER_ID", 1, true) or string.find(fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#RemoteFirewallMath"), "MAX_SAFE_USER_ID", 1, true), "coerce must bound safe integer ids")
 assert(string.find(firewallSrc, "QuarantineUntil", 1, true), "firewall must track quarantine")
 assert(string.find(firewallSrc, "function Firewall:Check", 1, true), "Firewall:Check must remain entry")
 assert(string.find(firewallSrc, "function Firewall:Forget", 1, true), "Firewall:Forget must clear player state")
 assert(string.find(firewallSrc, "CLIENT_SIGNAL_RULES", 1, true), "client integrity signal allowlist must stay")
 
 -- Pure coerce via extracted module (mirrors RemoteFirewall numeric path; no Instance).
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/RemoteFirewallMath")
+local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
 local coerceUserId = RemoteFirewallMath.CoerceUserId
 local extractUserId = RemoteFirewallMath.ExtractUserId
 assert(coerceUserId(42) == 42, "positive id ok")

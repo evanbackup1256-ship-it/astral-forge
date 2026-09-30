@@ -2,22 +2,22 @@
 -- Wave43 offline residuals: SnapshotEnvelopeMath peel from MainGame,
 -- Chat/Convergence/StarGrid densify, DENSE floor raises, DV21 Story/Mail.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local envelope = fs.readFile("src/Client/AstralForge/snapshotEnvelopeMath.luau")
+local envelope = fs.readFile("src/Client/AstralForge/CoreKit.luau#snapshotEnvelopeMath")
 assert(string.find(envelope, "function SnapshotEnvelopeMath.IsFiniteNumber", 1, true), "IsFiniteNumber missing")
 assert(string.find(envelope, "function SnapshotEnvelopeMath.IsPersist", 1, true), "IsPersist missing")
 assert(string.find(envelope, "function SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "IsValidEnvelope missing")
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, 'require(script.Parent.snapshotEnvelopeMath)', 1, true), "MainGame requires snapshotEnvelopeMath")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+assert(string.find(main, '("snapshotEnvelopeMath")', 1, true), "MainGame requires snapshotEnvelopeMath")
 assert(string.find(main, "SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "MainGame uses IsValidEnvelope")
 assert(not string.find(main, 'local numericKeys = { "Revision", "SnapshotId"', 1, true), "numericKeys must leave MainGame")
 assert(not string.find(main, "local isFiniteNumber = function", 1, true), "isFiniteNumber must leave MainGame")
 
-local chat = fs.readFile("src/Client/AstralForge/pages/ChatView.luau")
-local convergence = fs.readFile("src/Client/AstralForge/pages/ConvergenceView.luau")
-local star = fs.readFile("src/Client/AstralForge/pages/StarGridView.luau")
+local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
+local convergence = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView")
+local star = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
 assert(string.find(chat, "Canonical softMotion antilag gate — MessageRow", 1, true), "MessageRow softMotion")
 assert(string.find(chat, "Canonical softMotion antilag gate — ChatView", 1, true), "ChatView softMotion")
 assert(string.find(convergence, "Canonical softMotion antilag gate — ConvergenceView", 1, true), "Convergence softMotion")
@@ -47,16 +47,16 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/ChatView.luau"] = 12', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/ConvergenceView.luau"] = 12', 1, true), "Convergence DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/StarGridView.luau"] = 12', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 12', 1, true), "Chat DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = 12', 1, true), "Convergence DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12', 1, true), "StarGrid DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave43-offline-brief"', 1, true), "Story wave43")
 assert(string.find(config, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local SnapshotEnvelopeMath = require("../src/Client/AstralForge/snapshotEnvelopeMath")
+local SnapshotEnvelopeMath = require("../src/Client/AstralForge/CoreKit")("snapshotEnvelopeMath")
 assert(SnapshotEnvelopeMath.IsFiniteNumber(1) == true, "finite ok")
 assert(SnapshotEnvelopeMath.IsFiniteNumber(0 / 0) == false, "nan rejected")
 assert(SnapshotEnvelopeMath.IsFiniteNumber(math.huge) == false, "inf rejected")

@@ -3,11 +3,11 @@
 -- residual markers on DataService / ProgressionService / AdminService.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local AdminGrantMath = require("../src/Server/AstralForge/Modules/AdminGrantMath")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
+local AdminGrantMath = require("../src/Server/AstralForge/Modules/OpsMath")("AdminGrantMath")
+local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 
 ------------------------------------------------------------------------
 -- AdminGrantMath
@@ -87,8 +87,8 @@ end
 ------------------------------------------------------------------------
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(adminSrc, "AdminGrantMath.BoundedAmount", 1, true), "Admin must delegate BoundedAmount")
@@ -147,8 +147,8 @@ assert(string.find(dataSrc, "ProfileBagMath.EnsureItems", 1, true), "DataService
 assert(string.find(dataSrc, "ProfileBagMath.EnsureDomain", 1, true), "DataService EnsureDomain residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureContinuum", 1, true), "DataService EnsureContinuum residual")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual")
-assert(string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "AnomalyOpsMath.ChargeTarget", 1, true), "AnomalyService ChargeTarget residual")
-assert(string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "ProfileBagMath.EnsureAnomaly", 1, true), "AnomalyService EnsureAnomaly residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService"), "AnomalyOpsMath.ChargeTarget", 1, true), "AnomalyService ChargeTarget residual")
+assert(string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService"), "ProfileBagMath.EnsureAnomaly", 1, true), "AnomalyService EnsureAnomaly residual")
 assert(
 	string.find(fs.readFile("src/Server/AstralForge/Services/ConvergenceService.luau"), "ConvergenceOpsMath.EnsureEventProfile", 1, true),
 	"ConvergenceService EnsureEventProfile residual"
@@ -158,23 +158,23 @@ assert(
 	"ConvergenceService EnsureRewardBags residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.EnsureGoal", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService"), "GuildGoalMath.EnsureGoal", 1, true),
 	"GuildService EnsureGoal residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/GuildService.luau"), "GuildGoalMath.CanClaimGoal", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService"), "GuildGoalMath.CanClaimGoal", 1, true),
 	"GuildService CanClaimGoal residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau"), "AnomalyOpsMath.ApplyCoreXP", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService"), "AnomalyOpsMath.ApplyCoreXP", 1, true),
 	"AnomalyService ApplyCoreXP residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau"), "TradeOfferMath.CopyOffer", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk"), "TradeOfferMath.CopyOffer", 1, true),
 	"TradeDesk CopyOffer residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau"), "TradeOfferMath.EnsureLedger", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk"), "TradeOfferMath.EnsureLedger", 1, true),
 	"TradeDesk EnsureLedger residual"
 )
 
@@ -183,18 +183,18 @@ assert(
 	"ServerServices ProfileClamp residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau"), "ProgressionOpsMath.AdvanceQuestProgress", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService"), "ProgressionOpsMath.AdvanceQuestProgress", 1, true),
 	"Progression AdvanceQuestProgress residual"
 )
 assert(
-	string.find(fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau"), "ProgressionOpsMath.CanClaimQuest", 1, true),
+	string.find(fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService"), "ProgressionOpsMath.CanClaimQuest", 1, true),
 	"Progression CanClaimQuest residual"
 )
 
 assert(string.find(progressionSrc, "CommandMath.Ensure", 1, true), "Progression must Ensure Command")
 assert(string.find(progressionSrc, "ensureStats", 1, true), "Progression Stats residual")
 assert(string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress residual")
-local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionOpsMath")
 assert(string.find(progressionOpsSrc, "TotalRebirthsSpent", 1, true), "Progression achievement residual")
 assert(string.find(progressionSrc, "WheelMath.Ensure", 1, true), "Progression Wheel residual")
 assert(string.find(progressionSrc, "EnsureQuests", 1, true), "Progression EnsureQuests residual")

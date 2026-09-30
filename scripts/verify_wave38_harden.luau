@@ -2,9 +2,9 @@
 -- Wave38 offline residuals: AppShellChrome extract, Crew/Missions/Milestones/
 -- Leaderboards softMotion densify, playability DENSE floor raises, DV21 Story/Mail.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(appShell, "local function AppShell", 1, true), "AppShell missing")
 assert(string.find(appShell, "local function Shell", 1, true), "Shell missing")
 assert(string.find(appShell, "pausePassivePaints", 1, true), "pausePassivePaints export")
@@ -17,17 +17,17 @@ do
 	assert(soft >= 14, "AppShellChrome softMotion densify, got " .. tostring(soft))
 end
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-assert(string.find(main, "require(script.Parent.AppShellChrome)", 1, true), "MainGame requires AppShellChrome")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+assert(string.find(main, "(\"AppShellChrome\")", 1, true), "MainGame requires AppShellChrome")
 assert(string.find(main, "local Shell = _AppShellChrome.Shell", 1, true), "MainGame binds Shell")
 assert(string.find(main, "local pausePassivePaints = _AppShellChrome.pausePassivePaints", 1, true), "MainGame binds pausePassivePaints")
 assert(not string.find(main, "local function AppShell", 1, true), "AppShell must leave MainGame")
 assert(not string.find(main, "local TUTORIAL_STEPS", 1, true), "TUTORIAL_STEPS must leave MainGame")
 
-local crew = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
-local missions = fs.readFile("src/Client/AstralForge/pages/MissionsView.luau")
-local milestones = fs.readFile("src/Client/AstralForge/pages/MilestonesView.luau")
-local boards = fs.readFile("src/Client/AstralForge/pages/LeaderboardsView.luau")
+local crew = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
+local missions = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
+local milestones = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
+local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
 assert(string.find(crew, "Canonical softMotion antilag gate — CrewView", 1, true), "Crew softMotion")
 assert(string.find(missions, "Canonical softMotion antilag gate — MissionsView", 1, true), "Missions softMotion")
 assert(string.find(milestones, "Canonical softMotion antilag gate — MilestonesView", 1, true), "Milestones softMotion")
@@ -62,10 +62,10 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/CrewView.luau"] = 12', 1, true), "Crew DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/MissionsView.luau"] = 12', 1, true), "Missions DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/MilestonesView.luau"] = 12', 1, true), "Milestones DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/LeaderboardsView.luau"] = 12', 1, true), "Leaderboards DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#CrewView"] = 12', 1, true), "Crew DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MissionsView"] = 12', 1, true), "Missions DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MilestonesView"] = 12', 1, true), "Milestones DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView"] = 12', 1, true), "Leaderboards DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave38-offline-brief"', 1, true), "Story wave38")

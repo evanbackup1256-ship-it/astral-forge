@@ -11,11 +11,11 @@ serviceFactories["AdminService"] = function() return require(script.Parent:WaitF
 
 
 
-serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("AnomalyService"))(loadService) end
+serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("CoreServices"))("AnomalyService")(loadService) end
 
 
 
-serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("AtomicState"))
+serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
 
 
 
@@ -32,7 +32,7 @@ serviceFactories["DataService"] = function() return require(script.Parent:WaitFo
 
 
 -- DungeonService removed (Dungeons feature retired; route closed, no server support).
-serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("ForgeEchoService"))
+serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("CoreServices"))("ForgeEchoService")
 
 
 
@@ -54,46 +54,46 @@ serviceFactories["GameService"] = function()
 	local ServerStorage = game:GetService("ServerStorage")
 
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
-	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Economy"))
-	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("Format"))
+	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
+	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
-	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProgressionGate"))
-	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RebirthGate"))
-	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeDesk"))
-	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSettle"))
-	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CrateRoll"))
-	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ShopGrantEligibility"))
-	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandActionValidators"))
-	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SocialBoost"))
-	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemSalvage"))
-	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("VisitSnapshot"))
-	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("PublicPlayerRecord"))
-	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("SettingsSeal"))
-	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UnlimitedMoneySeal"))
-	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("StoryMailSnapshot"))
-	local VisitorList = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("VisitorList"))
-	local AutoSalvageSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("AutoSalvageSnapshot"))
-	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OverchargeCombo"))
-	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RankBracket"))
-	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionFeatureMaps"))
-	local ActionResponse = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ActionResponse"))
-	local GeneralBoardValue = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GeneralBoardValue"))
-	local TelemetryMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TelemetryMath"))
-	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("UtcClockMath"))
+	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
+	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
+	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
+	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
+	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("CrateRoll")
+	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ShopGrantEligibility")
+	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("CommandActionValidators")
+	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SocialBoost")
+	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemSalvage")
+	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitSnapshot")
+	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("PublicPlayerRecord")
+	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SettingsSeal")
+	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UnlimitedMoneySeal")
+	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("StoryMailSnapshot")
+	local VisitorList = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitorList")
+	local AutoSalvageSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("AutoSalvageSnapshot")
+	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OverchargeCombo")
+	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("RankBracket")
+	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ActionFeatureMaps")
+	local ActionResponse = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ActionResponse")
+	local GeneralBoardValue = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("GeneralBoardValue")
+	local TelemetryMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("TelemetryMath")
+	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UtcClockMath")
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
-	local ProfileClampMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileClampMath"))
+	local ProfileClampMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ProfileClampMath")
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
-	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ContinuumDomainMath"))
-	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ItemLoadoutMath"))
-	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildMath"))
-	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgePathClaim"))
-	local OfflineProjection = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OfflineProjection"))
+	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ContinuumDomainMath")
+	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemLoadoutMath")
+	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildMath")
+	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
+	local OfflineProjection = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OfflineProjection")
 	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
-	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
-	local ZoneUnlock = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("ZoneUnlock"))
+	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("MonetizationConfig")
+	local ZoneUnlock = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ZoneUnlock")
 
 	local ProgressionService = loadService("ProgressionService")
 	local AnomalyService = loadService("AnomalyService")
@@ -2004,7 +2004,6 @@ serviceFactories["GameService"] = function()
 		local result = self:_mutate(player, function(profile)
 			local rebirthConfig = GameConfig.Economy.Rebirth or {}
 			local bankVault = rebirthConfig.BankVaultIntoRun ~= false
-			local bankedVault = profile.Vault
 			local effectiveRun = if bankVault
 				then Economy.Add(profile.RunCash, profile.Vault)
 				else profile.RunCash
@@ -4348,7 +4347,7 @@ serviceFactories["GameService"] = function()
 			local anomalyDetails = nil
 
 			if self._data:IsBusy(player) then
-				-- Evidence: long AtomicUpdate busy windows let ProductionAccumulator grow without
+				-- Seen when long AtomicUpdate busy windows let ProductionAccumulator grow without
 				-- applying, then dump an oversized vault fill that can hit Capacity in one tick.
 				local maxCatchUp = GameConfig.Game.ProductionTick * 4
 				if runtime.ProductionAccumulator > maxCatchUp then
@@ -4876,15 +4875,15 @@ end
 
 
 
-serviceFactories["GuildService"] = require(script.Parent:WaitForChild("GuildService"))
+serviceFactories["GuildService"] = require(script.Parent:WaitForChild("CoreServices"))("GuildService")
 
 
 
-serviceFactories["LabService"] = require(script.Parent:WaitForChild("LabService"))
+serviceFactories["LabService"] = require(script.Parent:WaitForChild("CoreServices"))("LabService")
 -- SanctuaryFeatures returns its class table rather than a factory, so wrap it:
 -- loadService calls every registry entry.
 serviceFactories["SanctuaryFeatures"] = function()
-	return require(script.Parent:WaitForChild("SanctuaryFeatures"))
+	return require(script.Parent:WaitForChild("WorldServices"))("SanctuaryFeatures")
 end
 
 
@@ -4901,11 +4900,11 @@ serviceFactories["PlayerBadges"] = require(script.Parent:WaitForChild("PlayerBad
 
 
 
-serviceFactories["ProfileIntegrity"] = require(script.Parent:WaitForChild("ProfileIntegrity"))
+serviceFactories["ProfileIntegrity"] = require(script.Parent:WaitForChild("SecurityServices"))("ProfileIntegrity")
 
 
 
-serviceFactories["ProgressionService"] = require(script.Parent:WaitForChild("ProgressionService"))
+serviceFactories["ProgressionService"] = require(script.Parent:WaitForChild("CoreServices"))("ProgressionService")
 
 
 
@@ -4913,19 +4912,19 @@ serviceFactories["RemoteFirewall"] = function() return require(script.Parent:Wai
 
 
 
-serviceFactories["Security"] = require(script.Parent:WaitForChild("Security"))
+serviceFactories["Security"] = require(script.Parent:WaitForChild("SecurityServices"))("Security")
 
 
 
-serviceFactories["SessionGate"] = require(script.Parent:WaitForChild("SessionGate"))
+serviceFactories["SessionGate"] = require(script.Parent:WaitForChild("SecurityServices"))("SessionGate")
 
 
 
-serviceFactories["ServerTelemetry"] = require(script.Parent:WaitForChild("ServerTelemetry"))
+serviceFactories["ServerTelemetry"] = require(script.Parent:WaitForChild("SecurityServices"))("ServerTelemetry")
 
 
 
-serviceFactories["WorldService"] = require(script.Parent:WaitForChild("WorldService"))
+serviceFactories["WorldService"] = require(script.Parent:WaitForChild("WorldServices"))("WorldService")
 
 
 loadService = function(name: string): any

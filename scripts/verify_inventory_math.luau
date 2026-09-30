@@ -3,10 +3,10 @@
 -- search, auto-salvage signature) + ItemSalvage formula parity.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local InventoryMath = require("../src/Client/AstralForge/inventoryMath")
-local ItemSalvage = require("../src/Server/AstralForge/Modules/ItemSalvage")
+local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
+local ItemSalvage = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemSalvage")
 
 local config = {
 	Items = {
@@ -132,7 +132,7 @@ assert(
 ------------------------------------------------------------------------
 -- InventoryView wiring residual
 ------------------------------------------------------------------------
-local invSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
+local invSrc = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 assert(string.find(invSrc, "inventoryMath", 1, true), "InventoryView must require inventoryMath")
 assert(string.find(invSrc, "InventoryMath.FilterOwned", 1, true), "InventoryView FilterOwned residual")
 assert(string.find(invSrc, "InventoryMath.SortOwned", 1, true), "InventoryView SortOwned residual")
@@ -155,7 +155,7 @@ assert(badges, "PlatformBadges missing")
 for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 	assert(tonumber(value) == 0, "PlatformBadges." .. id .. " must be 0")
 end
-local mathSrc = fs.readFile("src/Client/AstralForge/inventoryMath.luau")
+local mathSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#inventoryMath")
 assert(string.find(mathSrc, "function InventoryMath.UpgradeState", 1, true), "InventoryMath.UpgradeState missing")
 for _, body in { mathSrc, invSrc } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")

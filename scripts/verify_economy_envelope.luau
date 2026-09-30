@@ -3,13 +3,13 @@
 -- ForgePathClaim.Effect / RebirthGate.NextPrestigeTarget wiring.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/ForgePathClaim")
-local RebirthGate = require("../src/Server/AstralForge/Modules/RebirthGate")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
+local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
+local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local RebirthGate = require("../src/Server/AstralForge/Modules/EconomyMath")("RebirthGate")
+local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 
 local function near(actual: number, expected: number, label: string)
 	assert(math.abs(actual - expected) < 1e-9, label .. " got " .. tostring(actual))
@@ -94,7 +94,7 @@ assert(OmegaMath.Gte(higher, nextTarget), "next prestige must not regress with r
 ------------------------------------------------------------------------
 -- Economy wiring residuals
 ------------------------------------------------------------------------
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 assert(string.find(economySrc, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate")
 assert(string.find(economySrc, "ForgePathClaim.Effect", 1, true), "Economy ForgePathEffect must delegate")
 assert(string.find(economySrc, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate")
@@ -125,10 +125,10 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 end
 for _, body in {
 	economySrc,
-	fs.readFile("src/Server/AstralForge/Modules/EconomyEnvelopeMath.luau"),
-	fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau"),
-	fs.readFile("src/Server/AstralForge/Modules/ForgePathClaim.luau"),
-	fs.readFile("src/Server/AstralForge/Modules/RebirthGate.luau"),
+	fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#EconomyEnvelopeMath"),
+	fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath"),
+	fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ForgePathClaim"),
+	fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#RebirthGate"),
 } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")

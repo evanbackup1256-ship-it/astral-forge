@@ -2,9 +2,9 @@
 -- Wave29 offline residuals: OverviewView extract from PageRouter, Collect/Overcharge
 -- FocusClaim, MainGame RailButton/Navigation softMotion, AdminConfirmRun clips, DV21 briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local overview = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+local overview = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 assert(string.find(overview, "local function OverviewView", 1, true), "OverviewView missing")
 assert(string.find(overview, "local function ReleaseCountdown", 1, true), "ReleaseCountdown must live with Overview")
 assert(string.find(overview, "createElement(PageScaffold", 1, true), "Overview PageScaffold")
@@ -41,12 +41,12 @@ assert(not string.find(router, "local function Metric", 1, true), "Metric must l
 assert(not string.find(router, "local function ReleaseCountdown", 1, true), "ReleaseCountdown must leave PageRouter")
 assert(not string.find(router, "LayoutSectionPlan.planOverview", 1, true), "planOverview must leave PageRouter")
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local navChrome = fs.readFile("src/Client/AstralForge/NavChrome.luau")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local navChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
 assert(string.find(navChrome, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion gate")
 assert(string.find(navChrome, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion gate")
 do
-	local shell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0
 	for _ in string.gmatch(shell, "softMotion") do
 		soft += 1
@@ -54,7 +54,7 @@ do
 	assert(soft >= 3, "AppShellChrome softMotion densify, got " .. tostring(soft))
 end
 
-local admin = fs.readFile("src/Client/AstralForge/pages/AdminView.luau")
+local admin = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
 do
 	local hostStart = string.find(admin, 'Name = "AdminConfirmRun"', 1, true)
 	assert(hostStart, "AdminConfirmRun missing")

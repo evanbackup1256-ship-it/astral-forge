@@ -8,7 +8,7 @@ return function(loadService: (string) -> any)
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
-	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("RemoteFirewallMath"))
+	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
 	local ServerTelemetry = loadService("ServerTelemetry")
 
 	type Rule = {

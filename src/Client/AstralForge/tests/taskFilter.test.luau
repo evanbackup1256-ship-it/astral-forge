@@ -1,7 +1,7 @@
 local _lunit = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].lunit)
 local Assert = _lunit.Assert
 local Test = _lunit.Test
-local _taskFilter = require(script.Parent.Parent.taskFilter)
+local _taskFilter = require(script.Parent.Parent.CoreKit)("taskFilter")
 local taskFilterCounts = _taskFilter.taskFilterCounts
 local taskMatchesFilter = _taskFilter.taskMatchesFilter
 local TaskFilterTests

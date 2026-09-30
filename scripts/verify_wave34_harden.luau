@@ -2,9 +2,9 @@
 -- Wave34 offline residuals: NavChrome extract (RailButton/MoreDock*/Navigation),
 -- RailNavClaim FocusClaim, MoreDock densify, AmbientLayer/VaultPill softMotion, DV21 briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local nav = fs.readFile("src/Client/AstralForge/NavChrome.luau")
+local nav = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
 assert(string.find(nav, "local function Navigation", 1, true), "Navigation missing")
 assert(string.find(nav, "local function RailButton", 1, true), "RailButton missing")
 assert(string.find(nav, "local function MoreDock", 1, true), "MoreDock missing")
@@ -31,13 +31,13 @@ do
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "RailNavClaim clips")
 end
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
-assert(string.find(appShell, 'require(script.Parent.NavChrome)', 1, true), "AppShellChrome requires NavChrome")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
+assert(string.find(appShell, '("NavChrome")', 1, true), "AppShellChrome requires NavChrome")
 assert(string.find(appShell, "local Navigation = _NavChrome.Navigation", 1, true), "AppShellChrome binds Navigation")
-local shellFx = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+local shellFx = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shellFx, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion")
-local workspaceChrome = fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau")
+local workspaceChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
 assert(string.find(workspaceChrome, "Canonical softMotion antilag gate — VaultPill", 1, true), "VaultPill softMotion")
 assert(not string.find(main, "local function Navigation", 1, true), "Navigation must leave MainGame")
 assert(not string.find(main, "local function RailButton", 1, true), "RailButton must leave MainGame")

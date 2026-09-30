@@ -5,7 +5,7 @@
 -- crashed on CommanderClaims. Same class as WheelMath FreeSpins-only bags.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local CommandMath = require("../src/Server/AstralForge/Modules/CommandMath")
 
@@ -45,7 +45,7 @@ assert(CommandMath.Rank(60) == "TIMELESS COMMANDER", "rank timeless")
 assert(CommandMath.Rank(nil) == "FORGE CADET", "nil rank → cadet")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local mathSrc = fs.readFile("src/Server/AstralForge/Modules/CommandMath.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

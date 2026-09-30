@@ -2,13 +2,13 @@
 -- Wave25 offline residuals: Leaderboards FocusClaim, CrateRevealStage softMotion,
 -- DV21 Story/Mail briefs, release-readiness past checks=30.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 -- CrateRevealStage uses props.reducedMotion as the left-hand of the canon gate.
 local STAGE_CANON = "local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
 
-local boards = fs.readFile("src/Client/AstralForge/pages/LeaderboardsView.luau")
+local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
 assert(string.find(boards, CANON, 1, true), "Leaderboards softMotion canon")
 assert(string.find(boards, 'Name = "LeaderboardConfirm"', 1, true), "LeaderboardConfirm host")
 assert(string.find(boards, 'Name = "LeaderboardConfirmFilters"', 1, true), "LeaderboardConfirmFilters")
@@ -20,7 +20,7 @@ do
 end
 assert(string.find(boards, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim")
 
-local stage = fs.readFile("src/Client/AstralForge/pages/CrateRevealStage.luau")
+local stage = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage")
 assert(string.find(stage, STAGE_CANON, 1, true), "CrateRevealStage softMotion canon")
 assert(string.find(stage, "reducedMotion = softMotion", 1, true) or string.find(stage, "local reducedMotion = softMotion", 1, true), "Stage folds softMotion")
 assert(string.find(stage, 'Name = "CrateClaim"', 1, true), "Stage CrateClaim host")

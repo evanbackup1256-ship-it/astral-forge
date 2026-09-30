@@ -2,9 +2,9 @@
 
 
 local ENDLESS_LEVEL_CAP = 9_000_000_000_000_000
-local LiveOpsConfig = require(script.Parent:WaitForChild("LiveOpsConfig"))
-local ForgeLevels = require(script.Parent:WaitForChild("ForgeLevels"))
-local SanctuaryConfig = require(script.Parent:WaitForChild("SanctuaryConfig"))
+local LiveOpsConfig = require(script.Parent:WaitForChild("SharedData"))("LiveOpsConfig")
+local ForgeLevels = require(script.Parent:WaitForChild("SharedData"))("ForgeLevels")
+local SanctuaryConfig = require(script.Parent:WaitForChild("SharedData"))("SanctuaryConfig")
 
 -- Mirrors buildForgePathSteps()/FORGE_PATH_STEPS in src_ts/client/types.ts exactly (same
 -- step count, cost/reward/effect formulas) so the client's display and the server's granted

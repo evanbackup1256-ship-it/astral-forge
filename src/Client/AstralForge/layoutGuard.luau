@@ -3,7 +3,7 @@ local core = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@
 local Reflect = core.Reflect
 local Controller = core.Controller
 local UserInputService = game:GetService("UserInputService")
-local ClientLog = require(script.Parent.log).ClientLog
+local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 -- Type-only: erased at compile time, so this does NOT become a runtime require("./framework")
 -- and cannot participate in the circular require that framework/index.ts's "side effect"
 -- import of this file would otherwise create (framework/index.ts -> layoutGuard.ts -> back to
@@ -22,9 +22,9 @@ local ClientLog = require(script.Parent.log).ClientLog
 -- the whole screen settles almost at once. It writes a property only when the
 -- measured defect is still there, and gives up if a write does not stick. That
 -- keeps the screen from flickering and keeps AbsoluteSize reads off the hot path.
-local Geom = require(script.Parent.layoutGeom)
-local Plan = require(script.Parent.layoutGuardPlan)
-local usesDesktopStructure = require(script.Parent.interaction).usesDesktopStructure
+local Geom = require(script.Parent.LayoutKit)("layoutGeom")
+local Plan = require(script.Parent.LayoutKit)("layoutGuardPlan")
+local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
 local IGNORE_ATTRIBUTE = "LayoutGuardIgnore"
 local FIT_SLOP = 6
 local WILD_ASPECT_SLOP = 2

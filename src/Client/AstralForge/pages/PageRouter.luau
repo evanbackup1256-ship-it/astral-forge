@@ -1,11 +1,45 @@
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 
+local PAGE_SUITES = {
+	AdminView = "PagesSystem",
+	AnomalyView = "PagesSystem",
+	BoostsView = "PagesProgress",
+	ChatView = "PagesSocial",
+	CommandView = "PagesSystem",
+	ContinuumView = "PagesProgress",
+	ConvergenceView = "PagesProgress",
+	CrateRevealStage = "PagesShop",
+	CrewView = "PagesSocial",
+	EchoForgeView = "PagesStory",
+	ForgePathView = "PagesProgress",
+	FoundryView = "PagesProgress",
+	GuildView = "PagesSocial",
+	InventoryView = "PagesStory",
+	LabView = "PagesProgress",
+	LeaderboardsView = "PagesSystem",
+	MailboxView = "PagesSocial",
+	MilestonesView = "PagesCore",
+	MissionsView = "PagesCore",
+	OverviewView = "PagesCore",
+	RebirthPanel = "PagesCore",
+	ResearchView = "PagesProgress",
+	RewardsView = "PagesCore",
+	SettingsView = "PagesSystem",
+	ShopView = "PagesShop",
+	StarGridView = "PagesProgress",
+	StoryView = "PagesStory",
+	TradeView = "PagesSocial",
+	WheelView = "PagesShop",
+	WorkshopView = "PagesProgress",
+	WorldsView = "PagesProgress",
+}
+
 local function lazyView(moduleName, exportName)
 	return React.lazy(function()
 		local thenable = {}
 		function thenable:andThen(resolve, reject)
 			local ok, component = pcall(function()
-				return require(script.Parent[moduleName])[exportName]
+				return require(script.Parent[PAGE_SUITES[moduleName]])(moduleName)[exportName]
 			end)
 			if ok and component ~= nil then
 				resolve({

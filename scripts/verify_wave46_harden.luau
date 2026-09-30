@@ -2,9 +2,9 @@
 -- Wave46 offline residuals: Domain/Continuum SnapshotPublic peels,
 -- Credits/Worlds/Rewards/Workshop densify, DENSE floor raises, DV21 Story/Mail.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local continuum = fs.readFile("src/Server/AstralForge/Modules/ContinuumDomainMath.luau")
+local continuum = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
 assert(string.find(continuum, "function ContinuumDomainMath.SnapshotDomainPublic", 1, true), "SnapshotDomainPublic missing")
 assert(string.find(continuum, "function ContinuumDomainMath.SnapshotContinuumPublic", 1, true), "SnapshotContinuumPublic missing")
 
@@ -14,10 +14,10 @@ assert(string.find(services, "ContinuumDomainMath.SnapshotContinuumPublic", 1, t
 assert(not string.find(services, "Domain = (function()", 1, true), "Domain IIFE must leave ServerServices")
 assert(not string.find(services, "NextMilestone = (math.floor(continuumRank", 1, true), "Continuum NextMilestone must leave ServerServices")
 
-local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
-local worlds = fs.readFile("src/Client/AstralForge/pages/WorldsView.luau")
-local rewards = fs.readFile("src/Client/AstralForge/pages/RewardsView.luau")
-local workshop = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
+local worlds = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorldsView")
+local rewards = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RewardsView")
+local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(credits, "Canonical softMotion antilag gate — CreditsRoles", 1, true), "CreditsRoles softMotion")
 assert(string.find(worlds, "Canonical softMotion antilag gate — WorldsBoard", 1, true), "WorldsBoard softMotion")
 assert(string.find(rewards, "Canonical softMotion antilag gate — RewardsTimed", 1, true), "RewardsTimed softMotion")
@@ -52,17 +52,17 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/CreditsView.luau"] = 12', 1, true), "Credits DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/WorldsView.luau"] = 12', 1, true), "Worlds DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/RewardsView.luau"] = 12', 1, true), "Rewards DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/WorkshopView.luau"] = 12', 1, true), "Workshop DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = 12', 1, true), "Credits DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorldsView"] = 12', 1, true), "Worlds DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RewardsView"] = 12', 1, true), "Rewards DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView"] = 12', 1, true), "Workshop DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave46-offline-brief"', 1, true), "Story wave46")
 assert(string.find(config, 'Id = "update-5-1-wave46-offline"', 1, true), "Mail wave46")
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
-local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/ContinuumDomainMath")
+local ContinuumDomainMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ContinuumDomainMath")
 do
 	local domain = ContinuumDomainMath.SnapshotDomainPublic({
 		domain = { Essence = 2, Nodes = { A = 1 }, SkillPoints = 3 },

@@ -14,18 +14,18 @@
 --
 -- HARD: pure math and string checks -- no Roblox instances, no vendor requires.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Soundtrack = require("../src/Client/AstralForge/soundtrack")
+local Soundtrack = require("../src/Client/AstralForge/AudioKit")("soundtrack")
 
 local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
 end
 
-local audioSource = readSource("src/Client/AstralForge/audio.luau")
-local directorSource = readSource("src/Client/AstralForge/musicDirector.luau")
-local settingsSource = readSource("src/Client/AstralForge/pages/SettingsView.luau")
-local mainSource = readSource("src/Client/AstralForge/MainGame.luau")
+local audioSource = readSource("src/Client/AstralForge/AudioKit.luau#audio")
+local directorSource = readSource("src/Client/AstralForge/AudioKit.luau#musicDirector")
+local settingsSource = readSource("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
+local mainSource = readSource("src/Client/AstralForge/UiCore.luau#MainGame")
 local templateSource = readSource("src/Server/AstralForge/DataTemplate.luau")
 local dataSource = readSource("src/Server/AstralForge/Services/DataService.luau")
 local servicesSource = readSource("src/Server/AstralForge/Services/ServerServices.luau")

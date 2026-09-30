@@ -2,9 +2,9 @@
 -- Wave28 offline residuals: CrewView extract from PageRouter, MainGame TopBar/MoreDock
 -- softMotion gates, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local crew = fs.readFile("src/Client/AstralForge/pages/CrewView.luau")
+local crew = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 assert(string.find(crew, "local function CrewView", 1, true), "CrewView missing")
 assert(string.find(crew, "createElement(FlatList", 1, true), "Crew FlatList")
 assert(string.find(crew, "FocusClaim", 1, true), "Crew FocusClaim")
@@ -26,13 +26,13 @@ assert(not string.find(router, "local function CrewView", 1, true), "inline Crew
 assert(not string.find(router, "local FlatList = require", 1, true), "PageRouter must drop FlatList import")
 assert(not string.find(router, 'GetService("Players")', 1, true), "PageRouter must drop Players import")
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
-local navChrome = fs.readFile("src/Client/AstralForge/NavChrome.luau")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local topBarChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
+local navChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
 assert(string.find(topBarChrome, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion gate")
 assert(string.find(navChrome, "Canonical softMotion antilag gate — MoreDock", 1, true), "MoreDock softMotion gate")
 do
-	local shell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0
 	for _ in string.gmatch(shell, "softMotion") do
 		soft += 1

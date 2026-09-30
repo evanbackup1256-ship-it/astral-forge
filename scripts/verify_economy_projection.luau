@@ -3,11 +3,11 @@
 -- Mirrors verify_extract_modules style — require under Lune, assert behavior.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local OmegaMath = require("../src/Shared/AstralForge/Shared/OmegaMath")
-local CapacityProjection = require("../src/Shared/AstralForge/Shared/CapacityProjection")
-local TapCritProjection = require("../src/Server/AstralForge/Modules/TapCritProjection")
+local CapacityProjection = require("../src/Shared/AstralForge/Shared/SharedData")("CapacityProjection")
+local TapCritProjection = require("../src/Server/AstralForge/Modules/EconomyMath")("TapCritProjection")
 
 -- --- TapCritProjection -------------------------------------------------------
 local function near(actual: number, expected: number, label: string)
@@ -145,9 +145,9 @@ near(CapacityProjection.CapacitySeconds(OmegaMath, 450, 10, OmegaMath.Lte), 45, 
 near(CapacityProjection.CapacitySeconds(OmegaMath, 500, 0, OmegaMath.Lte), 0, "idle steady → 0 seconds")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
-local tapSrc = fs.readFile("src/Server/AstralForge/Modules/TapCritProjection.luau")
-local capSrc = fs.readFile("src/Shared/AstralForge/Shared/CapacityProjection.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
+local tapSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#TapCritProjection")
+local capSrc = fs.readFile("src/Shared/AstralForge/Shared/SharedData.luau#CapacityProjection")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(economySrc, "TapCritProjection.TapPower", 1, true), "Economy must delegate TapPower")

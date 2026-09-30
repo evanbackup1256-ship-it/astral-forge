@@ -3,9 +3,9 @@
 -- Replaces inline coerce/extract/cooldown replicas in older residual gates.
 -- HARD: DataVersion <= 21, PlatformBadges 0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/RemoteFirewallMath")
+local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
 local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
 
 ------------------------------------------------------------------------
@@ -112,7 +112,7 @@ assert(string.find(dataSrc, "DataSanitizeMath.ClampLevelBag", 1, true), "DataSer
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual")
 assert(string.find(dataSrc, "ForgeEchoMath.Ensure", 1, true) or string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService ForgeEcho residual")
 
-assert(string.find(fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"), "function RemoteFirewallMath.Inspect", 1, true), "Inspect exported")
+assert(string.find(fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#RemoteFirewallMath"), "function RemoteFirewallMath.Inspect", 1, true), "Inspect exported")
 assert(string.find(fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau"), "function DataSanitizeMath.ClampLevelBag", 1, true), "ClampLevelBag exported")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
@@ -125,14 +125,14 @@ end
 for _, body in {
 	firewallSrc,
 	dataSrc,
-	fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"),
+	fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#RemoteFirewallMath"),
 	fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau"),
 } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")
 	assert(not string.find(body, "Packages/", 1, true), "must not reference Packages/")
 end
 assert(
-	not string.find(fs.readFile("src/Server/AstralForge/Modules/RemoteFirewallMath.luau"), "GetService", 1, true),
+	not string.find(fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#RemoteFirewallMath"), "GetService", 1, true),
 	"RemoteFirewallMath must stay pure"
 )
 assert(

@@ -7,15 +7,15 @@
 --   4) DataService sanitize omitted ForgePath while every other bag was hardened
 -- HARD: no vendor/Packages; string + pure logic only (no Roblox runtime).
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local adminSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
-local economySrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local economySrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
-local progressionSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
-local gateSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionGate.luau")
-local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/UpgradeCostReason.luau")
-local forgeClaimSrc = fs.readFile("src/Server/AstralForge/Modules/ForgePathClaim.luau")
+local progressionSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
+local gateSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionGate")
+local upgradeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#UpgradeCostReason")
+local forgeClaimSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ForgePathClaim")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 -- --- Admin dead fields -------------------------------------------------------
@@ -40,7 +40,7 @@ assert(
 	"Admin online list must project Economy.Capacity(profile) for FillVault vault/cap"
 )
 assert(
-	string.find(adminSrc, 'WaitForChild("Economy")', 1, true) ~= nil,
+	string.find(adminSrc, '("Economy")', 1, true) ~= nil,
 	"AdminService must require Economy module"
 )
 
@@ -67,8 +67,8 @@ assert(
 )
 
 -- Pure ForgePathClaim.Effect nil-guards (must stay aligned with Economy.luau).
-local ForgePathClaim = require("../src/Server/AstralForge/Modules/ForgePathClaim")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
+local ForgePathClaim = require("../src/Server/AstralForge/Modules/EconomyMath")("ForgePathClaim")
+local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
 local function forgePathEffect(profile: any, effectKind: string, steps: { any }): number
 	local forgePath = profile and profile.ForgePath
 	if forgePath == nil then
@@ -143,7 +143,7 @@ assert(
 	string.find(progressionSrc, "ProgressionOpsMath.AchievementProgress", 1, true) ~= nil,
 	"AchievementProgress must delegate ProgressionOpsMath"
 )
-local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/ProgressionOpsMath.luau")
+local progressionOpsSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionOpsMath")
 assert(
 	string.find(progressionOpsSrc, "TotalRebirthsSpent", 1, true) ~= nil,
 	"AchievementProgress Rebirths must include Domain.TotalRebirthsSpent"
@@ -208,7 +208,7 @@ assert(achievementRebirths({ Rebirths = nil, Domain = nil }) == 0, "nil rebirth 
 assert(achievementStabilizations({ Anomaly = { Stabilizations = 7 }, Stats = { AnomalyStabilizations = 0 } }) == 7, "prefer Anomaly bag")
 assert(achievementStabilizations({ Anomaly = nil, Stats = nil }) == 0, "nil anomaly/stats → 0")
 
-local labSrc = fs.readFile("src/Server/AstralForge/Services/LabService.luau")
+local labSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#LabService")
 assert(
 	string.find(labSrc, 'type(profile.Stats) ~= "table"', 1, true) ~= nil,
 	"LabService.ClaimOrder must nil-safe Stats before OrdersCompleted bump"
@@ -236,7 +236,7 @@ assert(
 	"Convergence must not silently drop boost rewards when the inventory key is absent"
 )
 
-local anomalySrc = fs.readFile("src/Server/AstralForge/Services/AnomalyService.luau")
+local anomalySrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService")
 assert(
 	string.find(anomalySrc, "bumpAnomalyStat", 1, true) ~= nil,
 	"AnomalyService must nil-safe Stats bumps via bumpAnomalyStat"

@@ -2,9 +2,9 @@
 -- Wave30 offline residuals: WorldsView + RewardsView extracts, Worlds FocusClaim/softMotion,
 -- MainGame StatChip softMotion, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local worlds = fs.readFile("src/Client/AstralForge/pages/WorldsView.luau")
+local worlds = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorldsView")
 assert(string.find(worlds, "local function WorldsView", 1, true), "WorldsView missing")
 assert(string.find(worlds, "local function WorldRow", 1, true), "WorldRow missing")
 assert(string.find(worlds, 'Name = "WorldsTravelClaim"', 1, true), "WorldsTravelClaim host")
@@ -28,7 +28,7 @@ do
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "WorldsTravelClaim clips")
 end
 
-local rewards = fs.readFile("src/Client/AstralForge/pages/RewardsView.luau")
+local rewards = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RewardsView")
 assert(string.find(rewards, "local function RewardsView", 1, true), "RewardsView missing")
 assert(string.find(rewards, "local function RewardChargeRail", 1, true), "RewardChargeRail missing")
 assert(string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true), "RewardsDailyClaimActions")
@@ -48,11 +48,11 @@ assert(not string.find(router, "local function WorldRow", 1, true), "WorldRow mu
 assert(not string.find(router, "local function RewardChargeRail", 1, true), "RewardChargeRail must leave PageRouter")
 assert(not string.find(router, "GamepadNavigationService", 1, true), "PageRouter must drop GamepadNavigationService")
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local topBarChrome = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local topBarChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 assert(string.find(topBarChrome, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion gate")
 do
-	local shell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
+	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0
 	for _ in string.gmatch(shell, "softMotion") do
 		soft += 1

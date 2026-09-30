@@ -2,9 +2,9 @@
 -- Wave26 offline residuals: Mailbox body FlatList, Items EnsureShop snapshot,
 -- Boosts softMotion density, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local mailbox = fs.readFile("src/Client/AstralForge/pages/MailboxView.luau")
+local mailbox = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
 assert(string.find(mailbox, "createElement(FlatList", 1, true), "Mailbox FlatList")
 assert(not string.find(mailbox, 'createElement("scrollingframe"', 1, true), "Mailbox no raw scrollingframe")
 assert(string.find(mailbox, 'Name = "MailClaimActions"', 1, true), "MailClaimActions")
@@ -38,7 +38,7 @@ do
 	assert(ensure ~= nil and ensure < inv, "EnsureItems must precede Inventory in publicPlayerRecord")
 end
 
-local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
+local boosts = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
 local soft = 0
 for _ in string.gmatch(boosts, "softMotion") do
 	soft += 1

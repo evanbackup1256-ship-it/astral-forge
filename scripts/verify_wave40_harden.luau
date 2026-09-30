@@ -2,13 +2,13 @@
 -- Wave40 offline residuals: VisitSnapshot peel, DomainExpansion/Purchase overlay
 -- softMotion gates, Boosts/Credits/Rebirth densify + DENSE floors, DV21 Story/Mail.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local visit = fs.readFile("src/Server/AstralForge/Modules/VisitSnapshot.luau")
+local visit = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#VisitSnapshot")
 assert(string.find(visit, "function VisitSnapshot.Build", 1, true), "VisitSnapshot.Build missing")
 assert(string.find(visit, "MachineKinds", 1, true), "VisitSnapshot MachineKinds")
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(server, 'WaitForChild("VisitSnapshot")', 1, true), "ServerServices requires VisitSnapshot")
+assert(string.find(server, '("VisitSnapshot")', 1, true), "ServerServices requires VisitSnapshot")
 assert(string.find(server, "VisitSnapshot.Build", 1, true), "ServerServices binds VisitSnapshot.Build")
 -- Inline visit machine loop must leave the monolith builder body.
 do
@@ -19,11 +19,11 @@ do
 	assert(not string.find(slice, "MachineKinds = machineCount", 1, true), "visit machine loop must leave ServerServices")
 end
 
-local domain = fs.readFile("src/Client/AstralForge/DomainExpansionOverlay.luau")
-local purchase = fs.readFile("src/Client/AstralForge/purchaseOverlay.luau")
-local boosts = fs.readFile("src/Client/AstralForge/pages/BoostsView.luau")
-local credits = fs.readFile("src/Client/AstralForge/pages/CreditsView.luau")
-local rebirth = fs.readFile("src/Client/AstralForge/pages/RebirthPanel.luau")
+local domain = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
+local purchase = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOverlay")
+local boosts = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
+local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
+local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
 assert(string.find(domain, "Canonical softMotion antilag gate — DomainExpansionOverlay", 1, true), "DomainExpansion softMotion")
 assert(string.find(purchase, "Canonical softMotion antilag gate — PurchaseOverlay", 1, true), "Purchase softMotion")
 assert(string.find(boosts, "Canonical softMotion antilag gate — BoostsView", 1, true), "Boosts softMotion")
@@ -70,9 +70,9 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/BoostsView.luau"] = 12', 1, true), "Boosts DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/CreditsView.luau"] = 12', 1, true), "Credits DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/RebirthPanel.luau"] = 12', 1, true), "Rebirth DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#BoostsView"] = 12', 1, true), "Boosts DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = 12', 1, true), "Credits DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = 12', 1, true), "Rebirth DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave40-offline-brief"', 1, true), "Story wave40")
@@ -80,7 +80,7 @@ assert(string.find(config, 'Id = "update-5-1-wave40-offline"', 1, true), "Mail w
 assert(string.find(config, "DataVersion = 21", 1, true), "DV21")
 
 -- Pure VisitSnapshot smoke (Economy stub).
-local VisitSnapshot = require("../src/Server/AstralForge/Modules/VisitSnapshot")
+local VisitSnapshot = require("../src/Server/AstralForge/Modules/ProfileMath")("VisitSnapshot")
 local EconomyStub = {
 	Production = function(_profile)
 		return 12

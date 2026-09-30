@@ -2,9 +2,9 @@
 -- Wave36 offline residuals: ShellFx extract (AmbientLayer/ConfettiBurst),
 -- Inventory/Guild/Anomaly softMotion densify, DV21 Story/Mail briefs.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local shell = fs.readFile("src/Client/AstralForge/ShellFx.luau")
+local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shell, "local function AmbientLayer", 1, true), "AmbientLayer missing")
 assert(string.find(shell, "local function ConfettiBurst", 1, true), "ConfettiBurst missing")
 assert(string.find(shell, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES missing")
@@ -18,17 +18,17 @@ do
 	assert(soft >= 6, "ShellFx softMotion density, got " .. tostring(soft))
 end
 
-local main = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local appShell = fs.readFile("src/Client/AstralForge/AppShellChrome.luau")
-assert(string.find(appShell, 'require(script.Parent.ShellFx)', 1, true), "AppShellChrome requires ShellFx")
+local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
+assert(string.find(appShell, '("ShellFx")', 1, true), "AppShellChrome requires ShellFx")
 assert(string.find(appShell, "local AmbientLayer = _ShellFx.AmbientLayer", 1, true), "AppShellChrome binds AmbientLayer")
 assert(not string.find(main, "local function AmbientLayer", 1, true), "AmbientLayer must leave MainGame")
 assert(not string.find(main, "local function ConfettiBurst", 1, true), "ConfettiBurst must leave MainGame")
 assert(not string.find(main, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES must leave MainGame")
 
-local inv = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
-local guild = fs.readFile("src/Client/AstralForge/pages/GuildView.luau")
-local anomaly = fs.readFile("src/Client/AstralForge/pages/AnomalyView.luau")
+local inv = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
+local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
+local anomaly = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
 assert(string.find(inv, "Canonical softMotion antilag gate — InventoryView", 1, true), "Inventory softMotion")
 assert(string.find(guild, "Canonical softMotion antilag gate — GuildView", 1, true), "Guild softMotion")
 assert(string.find(anomaly, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion")

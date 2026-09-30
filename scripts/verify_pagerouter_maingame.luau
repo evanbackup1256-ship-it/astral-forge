@@ -3,11 +3,11 @@
 -- Mirrors verify_extract_modules style — require under Lune, assert behavior.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local LayoutSectionPlan = require("../src/Client/AstralForge/layoutSectionPlan")
-local NavRouteTable = require("../src/Client/AstralForge/navRouteTable")
-local VaultCollectEligibility = require("../src/Client/AstralForge/vaultCollectEligibility")
+local LayoutSectionPlan = require("../src/Client/AstralForge/LayoutKit")("layoutSectionPlan")
+local NavRouteTable = require("../src/Client/AstralForge/CoreKit")("navRouteTable")
+local VaultCollectEligibility = require("../src/Client/AstralForge/CoreKit")("vaultCollectEligibility")
 
 -- --- VaultCollectEligibility -------------------------------------------------
 assert(VaultCollectEligibility.MIN_COLLECTABLE == 0.01, "min collectable threshold")
@@ -203,12 +203,12 @@ end
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-local overviewSrc = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
-local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local navSrc = fs.readFile("src/Client/AstralForge/appNav.luau")
-local planSrc = fs.readFile("src/Client/AstralForge/layoutSectionPlan.luau")
-local routeSrc = fs.readFile("src/Client/AstralForge/navRouteTable.luau")
-local vaultSrc = fs.readFile("src/Client/AstralForge/vaultCollectEligibility.luau")
+local overviewSrc = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
+local mainSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local navSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#appNav")
+local planSrc = fs.readFile("src/Client/AstralForge/LayoutKit.luau#layoutSectionPlan")
+local routeSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#navRouteTable")
+local vaultSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#vaultCollectEligibility")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(overviewSrc, "LayoutSectionPlan.planOverview", 1, true), "OverviewView must plan Overview via LayoutSectionPlan")
@@ -216,16 +216,16 @@ assert(string.find(overviewSrc, "VaultCollectEligibility.isEligible", 1, true), 
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView must use OpsClaims")
 assert(string.find(overviewSrc, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
 assert(string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView must use AnomalyReady")
-local workshopSrc = fs.readFile("src/Client/AstralForge/pages/WorkshopView.luau")
+local workshopSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView must use PageBoardHeights")
 assert(string.find(routerSrc, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter must lazy-load WorkshopView")
-local readySrc = fs.readFile("src/Client/AstralForge/pageReadyMath.luau")
+local readySrc = fs.readFile("src/Client/AstralForge/LayoutKit.luau#pageReadyMath")
 assert(not string.find(readySrc, "GetService", 1, true), "pageReadyMath must stay pure")
 assert(string.find(readySrc, "function PageReadyMath.AnomalyReady", 1, true), "AnomalyReady must exist")
-local boardSrc = fs.readFile("src/Client/AstralForge/pageBoardHeights.luau")
+local boardSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#pageBoardHeights")
 assert(not string.find(boardSrc, "GetService", 1, true), "pageBoardHeights must stay pure")
-assert(string.find(mainSrc, "LayoutSectionPlan.planWorkspace", 1, true) or string.find(fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau"), "LayoutSectionPlan.planWorkspace", 1, true), "WorkspaceChrome must plan Workspace via LayoutSectionPlan")
-assert(string.find(fs.readFile("src/Client/AstralForge/WorkspaceChrome.luau"), "VaultCollectEligibility.isEligible", 1, true), "WorkspaceChrome must use vault eligibility")
+assert(string.find(mainSrc, "LayoutSectionPlan.planWorkspace", 1, true) or string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"), "LayoutSectionPlan.planWorkspace", 1, true), "WorkspaceChrome must plan Workspace via LayoutSectionPlan")
+assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"), "VaultCollectEligibility.isEligible", 1, true), "WorkspaceChrome must use vault eligibility")
 assert(string.find(mainSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame must use NetworkPolicy")
 assert(string.find(navSrc, "navRouteTable", 1, true), "appNav must require navRouteTable")
 assert(string.find(navSrc, "NavRouteTable.PRIMARY_ROUTES", 1, true), "appNav must build PRIMARY from table")

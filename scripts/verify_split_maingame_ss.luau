@@ -4,17 +4,17 @@
 -- ActionResponse / GeneralBoardValue. Mirrors verify_serverservices_extract style.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local ActionCopy = require("../src/Client/AstralForge/actionCopy")
-local BoostIconKind = require("../src/Client/AstralForge/boostIconKind")
-local SocialBoost = require("../src/Server/AstralForge/Modules/SocialBoost")
-local ItemSalvage = require("../src/Server/AstralForge/Modules/ItemSalvage")
-local OverchargeCombo = require("../src/Server/AstralForge/Modules/OverchargeCombo")
-local RankBracket = require("../src/Server/AstralForge/Modules/RankBracket")
-local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ActionFeatureMaps")
-local ActionResponse = require("../src/Server/AstralForge/Modules/ActionResponse")
-local GeneralBoardValue = require("../src/Server/AstralForge/Modules/GeneralBoardValue")
+local ActionCopy = require("../src/Client/AstralForge/CoreKit")("actionCopy")
+local BoostIconKind = require("../src/Client/AstralForge/CoreKit")("boostIconKind")
+local SocialBoost = require("../src/Server/AstralForge/Modules/ProfileMath")("SocialBoost")
+local ItemSalvage = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemSalvage")
+local OverchargeCombo = require("../src/Server/AstralForge/Modules/EconomyMath")("OverchargeCombo")
+local RankBracket = require("../src/Server/AstralForge/Modules/ProfileMath")("RankBracket")
+local ActionFeatureMaps = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionFeatureMaps")
+local ActionResponse = require("../src/Server/AstralForge/Modules/ProfileMath")("ActionResponse")
+local GeneralBoardValue = require("../src/Server/AstralForge/Modules/ProfileMath")("GeneralBoardValue")
 
 -- --- ActionCopy ----------------------------------------------------------------
 assert(ActionCopy.friendlyPlayerMessage(nil) == nil, "nil message")
@@ -150,24 +150,24 @@ assert(GeneralBoardValue.Of({}, "Unknown", persist) == 0, "unknown board")
 
 -- --- Wiring + HARD gates -------------------------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local topBarChromeSrc = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+local mainSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local topBarChromeSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
-assert(string.find(mainSrc, 'require(script.Parent.actionCopy)', 1, true), "MainGame requires actionCopy")
-assert(string.find(topBarChromeSrc, 'require(script.Parent.boostIconKind)', 1, true), "TopBarChrome requires boostIconKind")
+assert(string.find(mainSrc, '("actionCopy")', 1, true), "MainGame requires actionCopy")
+assert(string.find(topBarChromeSrc, '("boostIconKind")', 1, true), "TopBarChrome requires boostIconKind")
 assert(string.find(mainSrc, "ActionCopy.friendlyPlayerMessage", 1, true), "MainGame wires friendlyPlayerMessage")
 assert(string.find(topBarChromeSrc, "BoostIconKind.of", 1, true), "TopBarChrome wires BoostIconKind")
 assert(not string.find(mainSrc, 'local PLAYER_COPY = {', 1, true), "inline PLAYER_COPY removed")
 assert(not string.find(mainSrc, "local FAILURE_TITLE_PREFIXES = {", 1, true), "inline FAILURE_TITLE_PREFIXES removed")
 
-assert(string.find(servicesSrc, 'WaitForChild("SocialBoost")', 1, true), "ServerServices requires SocialBoost")
-assert(string.find(servicesSrc, 'WaitForChild("ItemSalvage")', 1, true), "ServerServices requires ItemSalvage")
-assert(string.find(servicesSrc, 'WaitForChild("OverchargeCombo")', 1, true), "ServerServices requires OverchargeCombo")
-assert(string.find(servicesSrc, 'WaitForChild("RankBracket")', 1, true), "ServerServices requires RankBracket")
-assert(string.find(servicesSrc, 'WaitForChild("ActionFeatureMaps")', 1, true), "ServerServices requires ActionFeatureMaps")
-assert(string.find(servicesSrc, 'WaitForChild("ActionResponse")', 1, true), "ServerServices requires ActionResponse")
-assert(string.find(servicesSrc, 'WaitForChild("GeneralBoardValue")', 1, true), "ServerServices requires GeneralBoardValue")
+assert(string.find(servicesSrc, '("SocialBoost")', 1, true), "ServerServices requires SocialBoost")
+assert(string.find(servicesSrc, '("ItemSalvage")', 1, true), "ServerServices requires ItemSalvage")
+assert(string.find(servicesSrc, '("OverchargeCombo")', 1, true), "ServerServices requires OverchargeCombo")
+assert(string.find(servicesSrc, '("RankBracket")', 1, true), "ServerServices requires RankBracket")
+assert(string.find(servicesSrc, '("ActionFeatureMaps")', 1, true), "ServerServices requires ActionFeatureMaps")
+assert(string.find(servicesSrc, '("ActionResponse")', 1, true), "ServerServices requires ActionResponse")
+assert(string.find(servicesSrc, '("GeneralBoardValue")', 1, true), "ServerServices requires GeneralBoardValue")
 assert(string.find(servicesSrc, "SocialBoost.Apply", 1, true), "delegates SocialBoost.Apply")
 assert(string.find(servicesSrc, "ItemSalvage.Value", 1, true), "delegates ItemSalvage.Value")
 assert(string.find(servicesSrc, "OverchargeCombo.Multiplier", 1, true), "delegates OverchargeCombo")
@@ -187,15 +187,15 @@ for id, value in string.gmatch(badges, "([%w_]+)%s*=%s*(%d+)") do
 end
 
 local pureFiles = {
-	"src/Client/AstralForge/actionCopy.luau",
-	"src/Client/AstralForge/boostIconKind.luau",
-	"src/Server/AstralForge/Modules/SocialBoost.luau",
-	"src/Server/AstralForge/Modules/ItemSalvage.luau",
-	"src/Server/AstralForge/Modules/OverchargeCombo.luau",
-	"src/Server/AstralForge/Modules/RankBracket.luau",
-	"src/Server/AstralForge/Modules/ActionFeatureMaps.luau",
-	"src/Server/AstralForge/Modules/ActionResponse.luau",
-	"src/Server/AstralForge/Modules/GeneralBoardValue.luau",
+	"src/Client/AstralForge/CoreKit.luau#actionCopy",
+	"src/Client/AstralForge/CoreKit.luau#boostIconKind",
+	"src/Server/AstralForge/Modules/ProfileMath.luau#SocialBoost",
+	"src/Server/AstralForge/Modules/ProfileMath.luau#ItemSalvage",
+	"src/Server/AstralForge/Modules/EconomyMath.luau#OverchargeCombo",
+	"src/Server/AstralForge/Modules/ProfileMath.luau#RankBracket",
+	"src/Server/AstralForge/Modules/ProfileMath.luau#ActionFeatureMaps",
+	"src/Server/AstralForge/Modules/ProfileMath.luau#ActionResponse",
+	"src/Server/AstralForge/Modules/ProfileMath.luau#GeneralBoardValue",
 }
 for _, path in pureFiles do
 	local body = fs.readFile(path)

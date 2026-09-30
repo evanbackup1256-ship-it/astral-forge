@@ -6,8 +6,8 @@ return function()
 	local Players = game:GetService("Players")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-	local LiveOps = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("LiveOpsConfig"))
-	local ConvergenceOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ConvergenceOpsMath"))
+	local LiveOps = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LiveOpsConfig")
+	local ConvergenceOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("ConvergenceOpsMath")
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
 	local ConvergenceService = {}

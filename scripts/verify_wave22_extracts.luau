@@ -7,17 +7,17 @@
 -- Complements wave22-harden with different extracts.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/RemoteFirewallMath")
+local RemoteFirewallMath = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
 local DataSanitizeMath = require("../src/Server/AstralForge/Modules/DataSanitizeMath")
 local ForgeEchoMath = require("../src/Server/AstralForge/Modules/ForgeEchoMath")
-local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyEnvelopeMath")
-local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ItemLoadoutMath")
-local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/ProgressionOpsMath")
-local UtcClockMath = require("../src/Server/AstralForge/Modules/UtcClockMath")
-local InventoryMath = require("../src/Client/AstralForge/inventoryMath")
-local ReleaseClockMath = require("../src/Client/AstralForge/releaseClockMath")
+local EconomyEnvelopeMath = require("../src/Server/AstralForge/Modules/EconomyMath")("EconomyEnvelopeMath")
+local ItemLoadoutMath = require("../src/Server/AstralForge/Modules/ProfileMath")("ItemLoadoutMath")
+local ProgressionOpsMath = require("../src/Server/AstralForge/Modules/EconomyMath")("ProgressionOpsMath")
+local UtcClockMath = require("../src/Server/AstralForge/Modules/ProfileMath")("UtcClockMath")
+local InventoryMath = require("../src/Client/AstralForge/CoreKit")("inventoryMath")
+local ReleaseClockMath = require("../src/Client/AstralForge/CoreKit")("releaseClockMath")
 
 ------------------------------------------------------------------------
 -- RemoteFirewallMath.IsSessionOnlyPayload
@@ -174,12 +174,12 @@ assert(UtcClockMath.IsLive(100, 40) == false, "utc not live")
 ------------------------------------------------------------------------
 local firewallSrc = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
-local econSrc = fs.readFile("src/Server/AstralForge/Modules/Economy.luau")
+local econSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 local ssSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local progSrc = fs.readFile("src/Server/AstralForge/Services/ProgressionService.luau")
-local invSrc = fs.readFile("src/Client/AstralForge/pages/InventoryView.luau")
-local mainSrc = fs.readFile("src/Client/AstralForge/MainGame.luau")
-local topBarChromeSrc = fs.readFile("src/Client/AstralForge/TopBarChrome.luau")
+local progSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
+local invSrc = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
+local mainSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
+local topBarChromeSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local routerSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
@@ -193,7 +193,7 @@ assert(string.find(progSrc, "ProgressionOpsMath.ApplyCommandXP", 1, true), "Prog
 assert(string.find(invSrc, "InventoryMath.ChipRows", 1, true), "Inventory ChipRows residual")
 assert(string.find(invSrc, "InventoryMath.LoadoutEffectLines", 1, true), "Inventory LoadoutEffectLines residual")
 assert(string.find(topBarChromeSrc, "ReleaseClockMath.Remaining", 1, true), "TopBarChrome ReleaseClock residual")
-local overviewSrc = fs.readFile("src/Client/AstralForge/pages/OverviewView.luau")
+local overviewSrc = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 assert(string.find(overviewSrc, "ReleaseClockMath.Remaining", 1, true), "OverviewView ReleaseClock residual")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")
@@ -213,8 +213,8 @@ for _, body in {
 	invSrc,
 	mainSrc,
 	routerSrc,
-	fs.readFile("src/Server/AstralForge/Modules/ItemLoadoutMath.luau"),
-	fs.readFile("src/Client/AstralForge/releaseClockMath.luau"),
+	fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ItemLoadoutMath"),
+	fs.readFile("src/Client/AstralForge/CoreKit.luau#releaseClockMath"),
 	fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau"),
 } do
 	assert(not string.find(body, "vendor/", 1, true), "must not reference vendor/")

@@ -4,11 +4,11 @@
 -- verify_trade_settle behavioral tests with source-wiring + HARD constraints.
 -- HARD: DV<=21, PlatformBadges=0, no vendor/Packages.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local services = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSettle.luau")
-local desk = fs.readFile("src/Server/AstralForge/Modules/TradeDesk.luau")
+local settleSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle")
+local desk = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 local cfg = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
 assert(string.find(services, "TradeSettle.RunHostGuest", 1, true), "ConfirmTrade must call RunHostGuest")
@@ -47,7 +47,7 @@ for id, value in string.gmatch(badges, "(%w+)%s*=%s*(%d+)") do
 end
 
 for _, path in {
-	"src/Server/AstralForge/Modules/TradeSettle.luau",
+	"src/Server/AstralForge/Modules/TradeSuite.luau#TradeSettle",
 	"src/Server/AstralForge/Services/ServerServices.luau",
 } do
 	local body = fs.readFile(path)
@@ -56,7 +56,7 @@ for _, path in {
 end
 
 -- Behavioral smoke via require (no Studio).
-local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSettle")
+local TradeSettle = require("../src/Server/AstralForge/Modules/TradeSuite")("TradeSettle")
 local session = {
 	Id = "orch-1",
 	Host = 1,

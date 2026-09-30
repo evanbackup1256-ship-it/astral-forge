@@ -1,6 +1,6 @@
 local _lunit = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].lunit)
 local Assert = _lunit.Assert
-local ShimmerMath = require(script.Parent.Parent.shimmer)
+local ShimmerMath = require(script.Parent.Parent.MotionKit)("shimmer")
 
 local ShimmerTests
 do

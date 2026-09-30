@@ -17,9 +17,9 @@
 --
 -- HARD: pure math and string checks -- no Roblox instances, no vendor requires.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local Curtain = require("../src/Client/AstralForge/curtainTransition")
+local Curtain = require("../src/Client/AstralForge/SanctuaryKit")("curtainTransition")
 
 -- Normalise line endings: the sources are checked out with CRLF on Windows and
 -- the function-isolating patterns below anchor on "\n".
@@ -27,11 +27,11 @@ local function readSource(path: string): string
 	return (string.gsub(fs.readFile(path), "\r\n", "\n"))
 end
 
-local uiSource = readSource("src/Client/AstralForge/ui.luau")
-local chromeSource = readSource("src/Client/AstralForge/sanctuaryChrome.luau")
-local shellSource = readSource("src/Client/AstralForge/AppShellChrome.luau")
-local presenceSource = readSource("src/Client/AstralForge/sanctuaryPresence.luau")
-local worldSource = readSource("src/Server/AstralForge/Services/WorldService.luau")
+local uiSource = readSource("src/Client/AstralForge/UiCore.luau#ui")
+local chromeSource = readSource("src/Client/AstralForge/UiCore.luau#sanctuaryChrome")
+local shellSource = readSource("src/Client/AstralForge/UiCore.luau#AppShellChrome")
+local presenceSource = readSource("src/Client/AstralForge/SanctuaryKit.luau#sanctuaryPresence")
+local worldSource = readSource("src/Server/AstralForge/Services/WorldServices.luau#WorldService")
 
 ------------------------------------------------------------------------
 -- 1. LayoutGuardIgnore must never be a React prop

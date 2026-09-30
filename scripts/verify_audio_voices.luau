@@ -17,10 +17,10 @@
 --
 -- HARD: pure string/model checks only -- no Roblox instances, no vendor requires.
 
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
-local audioSource = fs.readFile("src/Client/AstralForge/audio.luau")
-local musicSource = fs.readFile("src/Client/AstralForge/musicDirector.luau")
+local audioSource = fs.readFile("src/Client/AstralForge/AudioKit.luau#audio")
+local musicSource = fs.readFile("src/Client/AstralForge/AudioKit.luau#musicDirector")
 
 ------------------------------------------------------------------------
 -- 0. Roblox attributes must never be passed as React props
@@ -34,11 +34,11 @@ local musicSource = fs.readFile("src/Client/AstralForge/musicDirector.luau")
 do
 	local ATTRIBUTE_NAMES = { "LayoutGuardIgnore", "LayoutGuardAllowDisabledScroll" }
 	local clientFiles = {
-		"src/Client/AstralForge/ui.luau",
-		"src/Client/AstralForge/virtualizedList.luau",
-		"src/Client/AstralForge/sanctuaryChrome.luau",
-		"src/Client/AstralForge/pageScaffold.luau",
-		"src/Client/AstralForge/scrolling.luau",
+		"src/Client/AstralForge/UiCore.luau#ui",
+		"src/Client/AstralForge/LayoutKit.luau#virtualizedList",
+		"src/Client/AstralForge/UiCore.luau#sanctuaryChrome",
+		"src/Client/AstralForge/LayoutKit.luau#pageScaffold",
+		"src/Client/AstralForge/LayoutKit.luau#scrolling",
 	}
 	for _, path in clientFiles do
 		if not fs.isFile(path) then
@@ -60,7 +60,7 @@ do
 	end
 	-- The virtualized list's embedded frame still has to opt out of the guard's
 	-- disabled-scroll repair, just through the ref rather than a prop.
-	local listSource = fs.readFile("src/Client/AstralForge/virtualizedList.luau")
+	local listSource = fs.readFile("src/Client/AstralForge/LayoutKit.luau#virtualizedList")
 	assert(
 		string.find(listSource, 'SetAttribute("LayoutGuardAllowDisabledScroll"', 1, true),
 		"the embedded list must still mark its disabled scroll as deliberate"
