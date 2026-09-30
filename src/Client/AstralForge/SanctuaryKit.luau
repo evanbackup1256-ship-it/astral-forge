@@ -3085,6 +3085,7 @@ local Layout = require(Shared:WaitForChild("SharedData"))("SanctuaryLayout")
 local SanctuaryConfig = require(Shared:WaitForChild("SharedData"))("SanctuaryConfig")
 local AssetKit = require(Shared:WaitForChild("SharedData"))("AssetKit")
 local Vfx = require(Shared:WaitForChild("SharedData"))("Vfx")
+local ProcAnim = require(Shared:WaitForChild("SharedData"))("ProcAnim")
 
 local World = {}
 
@@ -3523,6 +3524,9 @@ type Boss = {
 	spinPhase: number,
 	-- Length of the current wind-up, so every ability (not only slams) charges the body.
 	slamTotal: number,
+	-- The jointed rig (arms or chains) and what it is currently aiming at.
+	rig: any,
+	aim: any?,
 }
 
 local boss: Boss? = nil
@@ -3593,10 +3597,331 @@ local function bossPart(kitName: string, name: string, shape: Enum.PartType?, si
 	return vfxPart(name, shape, size, color, material)
 end
 
+-- Procedural rigs ------------------------------------------------------------------------
+-- The bosses are jointed: parts hung on Motor6Ds from an anchored root that turns to face
+-- the fight. Nothing here plays a stored animation. Each frame the code decides where the
+-- hands should be (or how the chains should hang) and solves the joints to match:
+--   arms    two-bone IK reaches for a target, smoothed by a spring so they have weight and
+--           overshoot; the claws curl on their own spring
+--   chains  each link bends toward a travelling wave plus the pose, on a spring that gets
+--           looser toward the tip, so the end trails and whips
+-- The Warden and the Regent have arms; the Choir has seven chains (its voices).
+type Claw = { motor: Motor6D, base: CFrame, side: number }
+type Limb = {
+	side: number,
+	shoulder: Motor6D,
+	elbow: Motor6D,
+	claws: { Claw },
+	l1: number,
+	l2: number,
+	offset: Vector3,
+	pos: Vector3,
+	vel: Vector3,
+	curl: number,
+	curlVel: number,
+}
+type Link = { motor: Motor6D, length: number, bend: number, bendVel: number, side: number, sideVel: number }
+type Chain = { angle: number, offset: Vector3, links: { Link }, pitch: number, pitchVel: number }
+type Rig = {
+	root: BasePart,
+	limbs: { Limb },
+	chains: { Chain },
+	parts: { { part: BasePart, base: number } },
+	yaw: number,
+	yawVel: number,
+}
+
+local function riggedPart(rig: Rig, name: string, shape: Enum.PartType?, size: Vector3, color: Color3, material: Enum.Material, transparency: number): Part
+	local p = vfxPart(name, shape, size, color, material)
+	p.Anchored = false
+	p.Massless = true
+	p.Transparency = transparency
+	table.insert(rig.parts, { part = p, base = transparency })
+	return p
+end
+
+local function joint(parent: BasePart, child: BasePart, c0: CFrame, c1: CFrame?): Motor6D
+	local motor = Instance.new("Motor6D")
+	motor.Part0 = parent
+	motor.Part1 = child
+	motor.C0 = c0
+	motor.C1 = c1 or CFrame.identity
+	motor.Parent = child
+	return motor
+end
+
+-- A limb part hangs along its own -Y; this turns that axis to point along `dir`.
+local function limbRotation(dir: Vector3): CFrame
+	local up = if math.abs(dir.Y) > 0.98 then Vector3.xAxis else Vector3.yAxis
+	return CFrame.lookAt(Vector3.zero, dir, up) * CFrame.Angles(math.pi / 2, 0, 0)
+end
+
+local function buildRig(kind: string, anchorPosition: Vector3): Rig
+	local root = vfxPart("RigRoot", nil, Vector3.new(1, 1, 1), pal.Primary, Enum.Material.SmoothPlastic)
+	root.Transparency = 1
+	root.CFrame = CFrame.new(anchorPosition)
+	local rig: Rig = { root = root, limbs = {}, chains = {}, parts = {}, yaw = 0, yawVel = 0 }
+	if kind == "Choir" then
+		-- Seven voices: a chain of glass beads hanging round the body, the last one bright.
+		local voices, links = 7, 7
+		for voice = 1, voices do
+			local angle = (voice / voices) * TAU
+			local offset = Vector3.new(math.cos(angle) * 3.5, -2, math.sin(angle) * 3.5)
+			local chain: Chain = { angle = angle, offset = offset, links = {}, pitch = 0.35, pitchVel = 0 }
+			local parent: BasePart = root
+			for index = 1, links do
+				local size = 2.6 * (1 - 0.09 * index)
+				local tip = index == links
+				local bead = riggedPart(rig, "Voice", Enum.PartType.Ball, Vector3.new(size, size, size), if tip then pal.Hot else pal.Primary, if index % 2 == 0 or tip then Enum.Material.Neon else Enum.Material.Glass, if index % 2 == 0 or tip then 0.1 else 0.35)
+				local length = 4.6 * (1 - 0.05 * index)
+				local c0 = if index == 1 then CFrame.new(offset) * CFrame.Angles(0, -angle, 0) else CFrame.new(0, -length, 0)
+				table.insert(chain.links, { motor = joint(parent, bead, c0), length = length, bend = 0, bendVel = 0, side = 0, sideVel = 0 })
+				parent = bead
+			end
+			table.insert(rig.chains, chain)
+		end
+		return rig
+	end
+	local regent = kind == "Regent"
+	local dark = if regent then Color3.fromRGB(28, 22, 26) else Color3.fromRGB(34, 32, 46)
+	local l1, l2 = if regent then 11 else 10, if regent then 11 else 10
+	local thick = if regent then 3.4 else 2.6
+	for _, side in { -1, 1 } do
+		local offset = Vector3.new(side * (if regent then 8 else 7), 1, 0)
+		local upper = riggedPart(rig, "ArmUpper", nil, Vector3.new(thick, l1, thick), dark, Enum.Material.Basalt, 0)
+		local shoulder = joint(rig.root, upper, CFrame.new(offset), CFrame.new(0, l1 / 2, 0))
+		local fore = riggedPart(rig, "ArmFore", nil, Vector3.new(thick * 0.85, l2, thick * 0.85), dark, Enum.Material.Basalt, 0)
+		local elbow = joint(upper, fore, CFrame.new(0, -l1 / 2, 0), CFrame.new(0, l2 / 2, 0))
+		-- Glowing joints at the shoulder and elbow.
+		local shoulderBall = riggedPart(rig, "ShoulderGlow", Enum.PartType.Ball, Vector3.new(thick * 1.5, thick * 1.5, thick * 1.5), pal.Primary, Enum.Material.Neon, 0.1)
+		joint(rig.root, shoulderBall, CFrame.new(offset))
+		local elbowBall = riggedPart(rig, "ElbowGlow", Enum.PartType.Ball, Vector3.new(thick * 1.3, thick * 1.3, thick * 1.3), pal.Primary, Enum.Material.Neon, 0.1)
+		joint(upper, elbowBall, CFrame.new(0, -l1 / 2, 0))
+		local hand = riggedPart(rig, "Hand", nil, Vector3.new(thick * 1.1, thick * 1.1, thick * 1.4), dark, Enum.Material.Basalt, 0)
+		joint(fore, hand, CFrame.new(0, -l2 / 2, 0), CFrame.new(0, thick * 0.55, 0))
+		local claws: { Claw } = {}
+		for slot = -1, 1 do
+			local claw = riggedPart(rig, "Claw", nil, Vector3.new(0.5, thick * 1.6, 0.5), pal.Hot, Enum.Material.Neon, 0.05)
+			local base = CFrame.new(slot * thick * 0.35, -thick * 0.5, -thick * 0.3)
+			table.insert(claws, { motor = joint(hand, claw, base, CFrame.new(0, thick * 0.8, 0)), base = base, side = slot })
+		end
+		table.insert(rig.limbs, {
+			side = side,
+			shoulder = shoulder,
+			elbow = elbow,
+			claws = claws,
+			l1 = l1,
+			l2 = l2,
+			offset = offset,
+			pos = anchorPosition + Vector3.new(side * 9, -8, -4),
+			vel = Vector3.zero,
+			curl = 0.25,
+			curlVel = 0,
+		})
+	end
+	return rig
+end
+
+local function destroyRig(rig: Rig)
+	for _, entry in rig.parts do
+		entry.part:Destroy()
+	end
+	rig.root:Destroy()
+end
+
+local function springVec(position: Vector3, velocity: Vector3, target: Vector3, stiffness: number, ratio: number, dt: number): (Vector3, Vector3)
+	local damping = ProcAnim.damping(stiffness, ratio)
+	local x, vx = ProcAnim.spring(position.X, velocity.X, target.X, stiffness, damping, dt)
+	local y, vy = ProcAnim.spring(position.Y, velocity.Y, target.Y, stiffness, damping, dt)
+	local z, vz = ProcAnim.spring(position.Z, velocity.Z, target.Z, stiffness, damping, dt)
+	return Vector3.new(x, y, z), Vector3.new(vx, vy, vz)
+end
+
+-- Reach a hand toward `target`: smooth the hand with a spring, solve the two bones, and
+-- write the joint rotations. Elbows bow out, up and back.
+local function solveLimb(rig: Rig, limb: Limb, target: Vector3, curlTarget: number, dt: number)
+	limb.pos, limb.vel = springVec(limb.pos, limb.vel, target, 120, 0.55, dt)
+	limb.curl, limb.curlVel = ProcAnim.spring(limb.curl, limb.curlVel, curlTarget, 90, ProcAnim.damping(90, 0.7), dt)
+	local rootFrame = rig.root.CFrame
+	local shoulderWorld = rootFrame:PointToWorldSpace(limb.offset)
+	local toTarget = limb.pos - shoulderWorld
+	local distance = toTarget.Magnitude
+	local direction = if distance > 0.01 then toTarget / distance else -rootFrame.UpVector
+	local shoulderAngle, _, reach = ProcAnim.twoBone(limb.l1, limb.l2, distance)
+	local pole = rootFrame:VectorToWorldSpace(Vector3.new(limb.side * 0.8, 0.7, 0.6))
+	local axis = direction:Cross(pole)
+	axis = if axis.Magnitude > 1e-3 then axis.Unit else rootFrame.RightVector
+	local upperDirection = CFrame.fromAxisAngle(axis, shoulderAngle):VectorToWorldSpace(direction)
+	local elbowWorld = shoulderWorld + upperDirection * limb.l1
+	local foreVector = shoulderWorld + direction * reach - elbowWorld
+	local foreDirection = if foreVector.Magnitude > 1e-3 then foreVector.Unit else direction
+	local upperRotation = limbRotation(upperDirection)
+	local foreRotation = limbRotation(foreDirection)
+	limb.shoulder.C0 = CFrame.new(limb.offset) * (rootFrame.Rotation:Inverse() * upperRotation)
+	limb.elbow.C0 = CFrame.new(0, -limb.l1 / 2, 0) * (upperRotation:Inverse() * foreRotation)
+	for _, claw in limb.claws do
+		claw.motor.C0 = claw.base * CFrame.Angles(limb.curl * 1.2, 0, claw.side * 0.25 * (1 - limb.curl))
+	end
+end
+
+-- One chain: its root pitches outward on a spring, every later link bends toward a wave
+-- (plus the pose's curl) on springs that loosen toward the tip.
+local function solveChain(chain: Chain, pitch: number, curl: number, amplitude: number, beat: number, t: number, dt: number)
+	chain.pitch, chain.pitchVel = ProcAnim.spring(chain.pitch, chain.pitchVel, pitch, 30, ProcAnim.damping(30, 0.5), dt)
+	local first = chain.links[1]
+	first.motor.C0 = CFrame.new(chain.offset) * CFrame.Angles(0, -chain.angle, 0) * CFrame.Angles(0, 0, chain.pitch)
+	local count = #chain.links
+	for index = 2, count do
+		local link = chain.links[index]
+		local stiffness = 70 - index * 7
+		local damping = ProcAnim.damping(stiffness, 0.45)
+		local bendTarget = curl * 0.35 + ProcAnim.wave(index, count, t + chain.angle, 1.6 + beat * 3.6, 0.7, amplitude, 0.9)
+		local sideTarget = ProcAnim.wave(index, count, t * 0.8 + chain.angle * 2, 1.2, 0.9, amplitude * 0.6, 0.8)
+		link.bend, link.bendVel = ProcAnim.spring(link.bend, link.bendVel, bendTarget, stiffness, damping, dt)
+		link.side, link.sideVel = ProcAnim.spring(link.side, link.sideVel, sideTarget, stiffness, damping, dt)
+		link.motor.C0 = CFrame.new(0, -link.length, 0) * CFrame.Angles(link.side, 0, link.bend)
+	end
+end
+
+local strikeCounter = 0
+-- What the body is doing right now, as the ability handlers tell it: style is one of slam,
+-- thrust, pull, sweep, floor or roar; `point` is where it is aimed (if anywhere); the style
+-- lasts until `untilAt` (the moment of impact) and a moment after.
+local function setAim(style: string, point: Vector3?, untilAt: number)
+	local current = boss
+	if current == nil then
+		return
+	end
+	strikeCounter += 1
+	current.aim = { style = style, point = point, untilAt = untilAt, striker = strikeCounter % 2 + 1 }
+end
+
+-- Where each hand should be. `charge` is the wind-up (0..1) toward the next impact.
+local function handTargets(current: Boss, rig: Rig, now: number, t: number, charge: number, phase: string, beamAngle: number?, out: { Vector3 }): number
+	local frame = rig.root.CFrame
+	local function at(x: number, y: number, z: number): Vector3
+		return frame:PointToWorldSpace(Vector3.new(x, y, z))
+	end
+	local curl = 0.25
+	local aim = current.aim
+	if aim ~= nil and now > aim.untilAt + 0.9 then
+		current.aim = nil
+		aim = nil
+	end
+	for index, limb in rig.limbs do
+		local s = limb.side
+		local sway = math.sin(t * 1.1 + index * 2) * 0.8
+		local target = at(s * 9, -8 + sway, -4)
+		if phase == "Dormant" or phase == "Forming" or phase == "Escaped" then
+			target = at(s * 3, -3 + sway, -4)
+			curl = 0.9
+		elseif phase == "Defeated" then
+			-- Limp: the arms drop and hang.
+			target = at(s * 6, -34, 2)
+			curl = 0
+		elseif aim ~= nil then
+			local style = aim.style
+			local since = math.clamp((now - aim.untilAt) / 0.45, 0, 1)
+			local blow = ProcAnim.strike(since)
+			if style == "slam" and aim.point ~= nil then
+				local striker = index == aim.striker
+				local raised = at(s * 6, 4 + 13 * (if striker then charge else charge * 0.7), -3 - 2 * charge)
+				if now < aim.untilAt then
+					target = raised
+					curl = 0.9
+				elseif striker then
+					target = raised:Lerp(aim.point + Vector3.new(0, 1, 0), blow)
+					curl = 0.15
+				else
+					target = at(s * 8, -6, -6)
+				end
+			elseif style == "thrust" then
+				local spread = at(s * 19, 3, -2)
+				if now < aim.untilAt then
+					target = spread
+					curl = 0
+				else
+					target = spread:Lerp(at(s * 6, 2, -19), blow)
+					curl = 0.2
+				end
+			elseif style == "pull" and aim.point ~= nil then
+				local drag = 0.5 + 0.5 * math.sin(now * 5 + index * math.pi)
+				target = aim.point:Lerp(at(s * 6, -2, -8), drag * 0.6) + Vector3.new(0, 6, 0)
+				curl = 0.3 + 0.7 * drag
+			elseif style == "sweep" and beamAngle ~= nil then
+				-- One arm points down the beam, the other braces.
+				if s > 0 then
+					target = rig.root.Position + Vector3.new(math.cos(beamAngle) * 19, 2, math.sin(beamAngle) * 19)
+					curl = 0
+				else
+					target = at(-10, 4, -2)
+					curl = 0.6
+				end
+			elseif style == "floor" then
+				local raised = at(s * 8, 12 * charge, -2)
+				if now < aim.untilAt then
+					target = raised
+					curl = 0.9
+				else
+					target = raised:Lerp(at(s * 10, -24, -6), blow)
+					curl = 0.1
+				end
+			elseif style == "roar" then
+				target = at(s * 15, 15 + math.sin(t * 6) * 1.5, 0)
+				curl = 0
+			end
+		elseif charge > 0 then
+			target = at(s * 8, -4 + 8 * charge, -4 - 2 * charge)
+			curl = 0.6
+		end
+		out[index] = target
+	end
+	return curl
+end
+
+local chainScratch = { 0.35, 0.1, 0.18, 0 }
+-- How the chains hang: pitch (0 hangs, ~2.2 raised), curl, sway amplitude and beat sync.
+local function chainPose(current: Boss, now: number, charge: number, phase: string): { number }
+	local pitch, curl, amplitude, beat = 0.35, 0.1, 0.18, 0
+	local aim = current.aim
+	if phase == "Defeated" then
+		pitch, curl, amplitude = 0, 0, 0.05
+	elseif phase == "Dormant" or phase == "Forming" or phase == "Escaped" then
+		pitch, curl, amplitude = -0.1, 0.8, 0.06
+	elseif current.conduct > 0.05 then
+		-- Conducting the rings: raised and beating in time.
+		pitch = 0.35 + 1.9 * current.conduct
+		curl = 0.6 * current.conduct
+		amplitude = 0.05
+		beat = current.conduct
+	elseif aim ~= nil and now < aim.untilAt + 0.9 then
+		if aim.style == "slam" then
+			if now < aim.untilAt then
+				pitch = 0.35 + 1.9 * charge
+				curl = 0.5 * charge
+			else
+				-- The lash: down hard from the top of the swing, past the mark and back.
+				local blow = ProcAnim.strike((now - aim.untilAt) / 0.5)
+				pitch = 2.25 * (1 - blow) - 0.25 * blow
+				amplitude = 0.3
+			end
+		elseif aim.style == "roar" then
+			pitch, amplitude, curl = 1.3, 0.32, 0.2
+		end
+	elseif charge > 0 then
+		pitch = 0.35 + 1.2 * charge
+		curl = 0.3 * charge
+	end
+	chainScratch[1], chainScratch[2], chainScratch[3], chainScratch[4] = pitch, curl, amplitude, beat
+	return chainScratch
+end
+
+local handScratch: { Vector3 } = {}
 local function buildBoss(model: Model): Boss
 	local anchor = model.PrimaryPart :: BasePart
 	local kind = tostring(model:GetAttribute("BossKind") or "Warden")
 	local config = configFor(kind)
+	local rig = buildRig(kind, anchor.Position)
 	-- Body proportions differ: the Choir is a small bright core in a large glass shell, the
 	-- Regent a heavy ember heart that nearly fills its shell.
 	local coreSize = if kind == "Choir" then Vector3.new(7, 7, 7) elseif kind == "Regent" then Vector3.new(10.5, 10.5, 10.5) else Vector3.new(9, 9, 9)
@@ -3709,6 +4034,8 @@ local function buildBoss(model: Model): Boss
 		beam = nil,
 		spinPhase = 0,
 		slamTotal = 1.5,
+		rig = rig,
+		aim = nil,
 	}
 end
 local function destroyBoss()
@@ -3725,6 +4052,7 @@ local function destroyBoss()
 			piece.part:Destroy()
 		end
 	end
+	destroyRig(current.rig)
 end
 
 -- Rift tethers (beams from the arena pillars to the seal, built by the
@@ -3790,6 +4118,9 @@ local function setBossTransparency(current: Boss, visible: number)
 	applyPieceTransparency(current.rings, hide)
 	applyPieceTransparency(current.plates, hide)
 	applyPieceTransparency(current.shards, hide)
+	for _, entry in current.rig.parts do
+		entry.part.Transparency = entry.base + (1 - entry.base) * hide
+	end
 end
 
 -- Effects library: the big set pieces the fights are built from. Everything here is
@@ -4410,6 +4741,39 @@ local function stepBoss(dt: number, t: number)
 	table.insert(parts, current.eye)
 	table.insert(frames, CFrame.new(hover + lookDir * 5.2 * coreScale))
 
+	-- The rig: the root turns to face the fight (the beam, what it is striking, else the local
+	-- player) on a spring, then the arms reach and the chains hang for the current pose.
+	local rig: Rig = current.rig
+	do
+		local aim = current.aim
+		local focusAngle: number? = nil
+		if beamAngle ~= nil then
+			focusAngle = beamAngle
+		elseif aim ~= nil and aim.point ~= nil and now < aim.untilAt + 0.9 then
+			focusAngle = math.atan2(aim.point.Z - hover.Z, aim.point.X - hover.X)
+		elseif root ~= nil then
+			focusAngle = math.atan2(root.Position.Z - hover.Z, root.Position.X - hover.X)
+		end
+		if focusAngle ~= nil then
+			local moved, velocity = ProcAnim.spring(0, rig.yawVel, ProcAnim.angleDelta(focusAngle, rig.yaw), 14, ProcAnim.damping(14, 0.6), dt)
+			rig.yaw += moved
+			rig.yawVel = velocity
+		end
+		rig.root.CFrame = CFrame.lookAt(hover, hover + Vector3.new(math.cos(rig.yaw), 0, math.sin(rig.yaw)))
+		if #rig.limbs > 0 then
+			local curl = handTargets(current, rig, now, t, charge, phase, beamAngle, handScratch)
+			for index, limb in rig.limbs do
+				solveLimb(rig, limb, handScratch[index], curl, dt)
+			end
+		end
+		if #rig.chains > 0 then
+			local pose = chainPose(current, now, charge, phase)
+			for _, chain in rig.chains do
+				solveChain(chain, pose[1], pose[2], pose[3], pose[4], t, dt)
+			end
+		end
+	end
+
 	-- Forming: the body is assembling out of the dark, pieces converging from afar.
 	local spread = if phase == "Forming" then (1 - current.visible) ^ 2 * 70 else 0
 	local outro = if phase == "Defeated" then t - current.outroStarted else 0
@@ -4510,6 +4874,7 @@ local function onSlam(payload)
 	local radius = tonumber(payload.Radius) or 24
 	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 1.5)
 	windUp(detonateAt, detonateAt - serverNow())
+	setAim("slam", center, detonateAt)
 	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
@@ -4610,6 +4975,7 @@ local function onPhase(payload)
 	Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 100) }, clientFolder)
 	Controls.shake(0.9)
 	current.flash = 1
+	setAim("roar", nil, serverNow() + 1.6)
 	-- The roar: a white-hot flash, bolts to every pillar, and the boss speaks.
 	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
 	screenFlash(pal.Hot, 0.5, 0.9)
@@ -4735,6 +5101,7 @@ local function onSweep(payload)
 		boss.beam = { begin = beginAt, endAt = endAt, start = startAngle, speed = speed }
 	end
 	windUp(beginAt, beginAt - serverNow())
+	setAim("sweep", nil, endAt)
 	Audio:play(bossCue("Charge"))
 	local segments = {}
 	for index = 1, BEAM_SEGMENTS do
@@ -4821,6 +5188,7 @@ local function onLances(payload)
 	local fireAt = tonumber(payload.FireAt) or (serverNow() + 1.5)
 	local started = serverNow()
 	windUp(fireAt, fireAt - started)
+	setAim("thrust", nil, fireAt)
 	Audio:play(bossCue("Charge"))
 	local beams = {}
 	for _, angle in payload.Angles do
@@ -4879,6 +5247,7 @@ local function onWell(payload)
 	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 3)
 	local started = serverNow()
 	windUp(detonateAt, detonateAt - started)
+	setAim("pull", center, detonateAt)
 	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("WellAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
@@ -4936,6 +5305,7 @@ local function onDissonance(payload)
 	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 2.5)
 	local started = serverNow()
 	windUp(detonateAt, detonateAt - started)
+	setAim("roar", nil, detonateAt)
 	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("DissonanceAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
@@ -5011,6 +5381,7 @@ local function onWall(payload)
 	local beginAt = tonumber(payload.BeginAt) or (serverNow() + 2)
 	local endAt = tonumber(payload.EndAt) or (beginAt + range * 2 / speed)
 	windUp(beginAt, beginAt - serverNow())
+	setAim("floor", nil, beginAt + 0.6)
 	Audio:play(bossCue("Charge"))
 	local slabs = {}
 	local function addSlab(from: number, to: number)

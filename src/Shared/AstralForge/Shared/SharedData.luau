@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (10): AssetKit, AssetManifest, Vfx, SanctuaryConfig, SanctuaryLayout, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (11): AssetKit, AssetManifest, Vfx, SanctuaryConfig, SanctuaryLayout, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock, ProcAnim.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -2782,6 +2782,82 @@ end
 return table.freeze(ZoneUnlock)
 end
 
+-- ======================================================================
+-- Module: ProcAnim   (procedural animation maths)
+-- ======================================================================
+__defs["ProcAnim"] = function()
+-- The numbers behind the bosses' procedural rigs: springs for weight and follow-through,
+-- two-bone IK for arms, waves for trailing chains, and a strike curve with anticipation.
+-- Plain numbers only (no Roblox types), so the rig code on the client and the Lune tests
+-- (scripts/verify_proc_anim.luau) use exactly the same functions.
+
+local ProcAnim = {}
+
+-- A damped spring pulled toward `target`. Substepped so a long frame (or a huge stiffness)
+-- never blows up. Returns the new position and velocity.
+function ProcAnim.spring(position: number, velocity: number, target: number, stiffness: number, damping: number, dt: number): (number, number)
+	-- Semi-implicit Euler is stable while h*sqrt(stiffness) and h*damping stay small, so the step
+	-- shrinks for stiff or heavily damped springs (capped so one call stays cheap).
+	local limit = math.min(1 / 120, 0.4 / math.sqrt(math.max(stiffness, 1e-6)), 0.8 / math.max(damping, 1e-6))
+	local steps = math.clamp(math.ceil(dt / limit), 1, 400)
+	local h = dt / steps
+	for _ = 1, steps do
+		velocity += (stiffness * (target - position) - damping * velocity) * h
+		position += velocity * h
+	end
+	return position, velocity
+end
+
+-- Damping that makes a spring of this stiffness critically damped (ratio 1), under (<1, it
+-- overshoots and rings) or over damped (>1, it creeps).
+function ProcAnim.damping(stiffness: number, ratio: number): number
+	return 2 * ratio * math.sqrt(stiffness)
+end
+
+-- Two-bone IK: bones of length l1 and l2 reaching a point `distance` away. The reach is
+-- clamped to what the bones can span. Returns the angle at the shoulder between the line to
+-- the target and the first bone, the interior angle at the elbow, and the reach used.
+function ProcAnim.twoBone(l1: number, l2: number, distance: number): (number, number, number)
+	local reach = math.clamp(distance, math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3)
+	local cosShoulder = (l1 * l1 + reach * reach - l2 * l2) / (2 * l1 * reach)
+	local cosElbow = (l1 * l1 + l2 * l2 - reach * reach) / (2 * l1 * l2)
+	return math.acos(math.clamp(cosShoulder, -1, 1)), math.acos(math.clamp(cosElbow, -1, 1)), reach
+end
+
+-- A wave travelling down a chain: segment `index` of `count` lags `lag` radians behind the
+-- last, and swings wider toward the tip by `taper` (0 = even).
+function ProcAnim.wave(index: number, count: number, t: number, frequency: number, lag: number, amplitude: number, taper: number): number
+	local k = (index - 1) / math.max(1, count - 1)
+	return amplitude * (1 + taper * k) * math.sin(t * frequency - index * lag)
+end
+
+-- A blow over k in [0, 1]: wind back a little, snap through to a touch past the target, then
+-- settle on it. 0 at the start, 1 at the end.
+function ProcAnim.strike(k: number): number
+	k = math.clamp(k, 0, 1)
+	if k < 0.25 then
+		return -0.22 * math.sin(k / 0.25 * math.pi / 2)
+	elseif k < 0.45 then
+		local u = (k - 0.25) / 0.2
+		return -0.22 + 1.32 * (u * u * (3 - 2 * u))
+	elseif k < 0.7 then
+		local u = (k - 0.45) / 0.25
+		return 1.1 - 0.1 * (u * u * (3 - 2 * u))
+	end
+	return 1
+end
+
+-- Shortest signed difference between two angles, in [-pi, pi].
+function ProcAnim.angleDelta(target: number, current: number): number
+	local delta = (target - current) % (2 * math.pi)
+	if delta > math.pi then
+		delta -= 2 * math.pi
+	end
+	return delta
+end
+
+return ProcAnim
+end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
