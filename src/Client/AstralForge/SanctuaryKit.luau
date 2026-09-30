@@ -56,6 +56,8 @@ local BED = {
 	Hollows = "amb_hollows",
 	Spire = "amb_spire",
 	Riftmaw = "amb_riftmaw",
+	ChoirIsle = "amb_hollows",
+	RegentIsle = "amb_ember",
 }
 local LEVEL = 0.55
 local BRIDGE_LEVEL = 0.3
@@ -65,6 +67,8 @@ type Voice = { sound: Sound, bed: string?, level: number, target: number }
 
 local voices: { Voice } = {}
 local current: Voice? = nil
+-- The fight layer: a boss's own bed, played over the region's and raised per phase.
+local fightVoice: Voice? = nil
 local stepper: RBXScriptConnection? = nil
 local unsubscribe: (() -> ())? = nil
 local active = false
@@ -128,6 +132,58 @@ local function onRegion(payload)
 	current = nextVoice
 end
 
+-- Start, retune or (with nil) fade out the fight layer. `profile` is a boss's Music entry:
+-- Bed names an ambience region, or Id an uploaded track to use instead; Pitch and Level set
+-- its voice and loudness; Effect dresses it. Each phase raises pitch and level a notch.
+function Ambience.fight(profile, phase: number?)
+	if not active then
+		return
+	end
+	if profile == nil then
+		if fightVoice ~= nil then
+			fightVoice.target = 0
+		end
+		return
+	end
+	local voice = fightVoice
+	if voice == nil then
+		voice = makeVoice()
+		voice.sound.Name = "SanctuaryFight"
+		fightVoice = voice
+	end
+	local step = math.max(0, (phase or 1) - 1)
+	local fresh = voice.bed ~= profile.Bed or not voice.sound.IsPlaying
+	if fresh then
+		if profile.Id ~= nil and profile.Id > 0 then
+			voice.sound.SoundId = `rbxassetid://{profile.Id}`
+			voice.sound.PlaybackRegionsEnabled = false
+			voice.sound.TimePosition = 0
+			voice.bed = profile.Bed
+			voice.sound:Play()
+		else
+			play(voice, profile.Bed)
+		end
+		for _, child in voice.sound:GetChildren() do
+			if child:IsA("SoundEffect") then
+				child:Destroy()
+			end
+		end
+		if profile.Effect == "Reverb" then
+			local reverb = Instance.new("ReverbSoundEffect")
+			reverb.DecayTime = 3.4
+			reverb.Density = 0.9
+			reverb.WetLevel = 4
+			reverb.Parent = voice.sound
+		elseif profile.Effect == "Distortion" then
+			local distortion = Instance.new("DistortionSoundEffect")
+			distortion.Level = 0.35
+			distortion.Parent = voice.sound
+		end
+	end
+	voice.sound.PlaybackSpeed = profile.Pitch * (1 + 0.07 * step)
+	voice.target = math.min(0.85, profile.Level + 0.08 * step)
+end
+
 function Ambience.start()
 	if active or Manifest.Ambience.Id <= 0 then
 		return
@@ -147,6 +203,18 @@ function Ambience.start()
 			voice.sound.Volume = voice.level * voice.level
 			if voice.level <= 0 and voice.target <= 0 and voice.sound.IsPlaying then
 				voice.sound:Stop()
+			end
+		end
+		local fight = fightVoice
+		if fight ~= nil then
+			if fight.level < fight.target then
+				fight.level = math.min(fight.target, fight.level + step)
+			elseif fight.level > fight.target then
+				fight.level = math.max(fight.target, fight.level - step)
+			end
+			fight.sound.Volume = fight.level * fight.level
+			if fight.level <= 0 and fight.target <= 0 and fight.sound.IsPlaying then
+				fight.sound:Stop()
 			end
 		end
 	end)
@@ -169,6 +237,10 @@ function Ambience.stop()
 	local leaving = voices
 	voices = {}
 	current = nil
+	if fightVoice ~= nil then
+		table.insert(leaving, fightVoice)
+		fightVoice = nil
+	end
 	task.spawn(function()
 		local started = os.clock()
 		local from = {}
@@ -963,6 +1035,8 @@ local REGION_LINES = {
 	Hollows = "Voidglass grows here",
 	Spire = "Starsteel grows here",
 	Riftmaw = "Where the Rift Warden wakes",
+	ChoirIsle = "Seven voices, one silence",
+	RegentIsle = "The last crown of Emberreach",
 }
 
 local function rgb(triple): Color3
@@ -1052,11 +1126,11 @@ local function findWarden(): Model?
 	return nil
 end
 
-type WardenInfo = { phase: string, endsAt: number, health: number, maxHealth: number, name: string }
+type WardenInfo = { phase: string, endsAt: number, health: number, maxHealth: number, name: string, island: string }
 
 local function readWarden(model: Model?): WardenInfo
 	if model == nil then
-		return { phase = "Unknown", endsAt = 0, health = 0, maxHealth = 1, name = BOSS.Name }
+		return { phase = "Unknown", endsAt = 0, health = 0, maxHealth = 1, name = BOSS.Name, island = "Riftmaw" }
 	end
 	return {
 		phase = tostring(model:GetAttribute("Phase") or "Dormant"),
@@ -1064,11 +1138,12 @@ local function readWarden(model: Model?): WardenInfo
 		health = tonumber(model:GetAttribute("Health")) or 0,
 		maxHealth = math.max(1, tonumber(model:GetAttribute("MaxHealth")) or 1),
 		name = tostring(model:GetAttribute("BossName") or BOSS.Name),
+		island = tostring(model:GetAttribute("BossIsland") or "Riftmaw"),
 	}
 end
 
 local function sameWardenInfo(a: WardenInfo, b: WardenInfo): boolean
-	return a.phase == b.phase and a.endsAt == b.endsAt and a.health == b.health and a.maxHealth == b.maxHealth and a.name == b.name
+	return a.phase == b.phase and a.endsAt == b.endsAt and a.health == b.health and a.maxHealth == b.maxHealth and a.name == b.name and a.island == b.island
 end
 
 -- The Warden's replicated state, kept current from its attributes.
@@ -1146,10 +1221,10 @@ local function useServerClock(rate: number): number
 end
 
 -- Is the local player close enough to the Warden to strike?
-local function useInArena(): boolean
+local function useInArena(island: string): boolean
 	local inArena, setInArena = React.useState(false)
 	React.useEffect(function()
-		local arena = Layout.arena()
+		local arena = Layout.arena(island)
 		local origin = Layout.ORIGIN
 		local center = Vector3.new(origin.X + arena.Center.X, 0, origin.Z + arena.Center.Z)
 		local reach = BOSS.StrikeRange - 3
@@ -1176,7 +1251,7 @@ local function useInArena(): boolean
 		return function()
 			connection:Disconnect()
 		end
-	end, {})
+	end, { island })
 	return inArena
 end
 
@@ -1549,7 +1624,7 @@ local function WardenBar(props)
 	local track = nil
 	if phase == "Active" then
 		title = string.upper(warden.name)
-		right = if props.inArena then clock(remaining) else `Riftmaw · {clock(remaining)}`
+		right = if props.inArena then clock(remaining) else `{(Layout.region(warden.island) or { Name = "Riftmaw" }).Name} · {clock(remaining)}`
 		track = e(HealthTrack, {
 			position = UDim2.new(0, left, 1, -left - 6),
 			size = UDim2.new(1, -left * 2, 0, 6),
@@ -2181,7 +2256,7 @@ local function SanctuaryHud(props)
 	local plan = props.plan
 	local reduced = props.reducedMotion == true
 	local warden = useWarden()
-	local inArena = useInArena()
+	local inArena = useInArena(warden.island)
 	local banner, setBanner = React.useState(nil :: BannerMessage?)
 	local bannerVisible, setBannerVisible = React.useState(false)
 	local bannerSeq = React.useRef(0)
@@ -3412,6 +3487,13 @@ type Boss = {
 	visible: number,
 	kind: string,
 	config: any,
+	extras: { Instance },
+	-- Conducting (Choir): eases to 1 while a ring attack is in flight.
+	conduct: number,
+	conductUntil: number,
+	-- The Regent's live beam, if any: { begin, endAt, start, speed }.
+	beam: any?,
+	spinPhase: number,
 }
 
 local boss: Boss? = nil
@@ -3419,6 +3501,14 @@ local boss: Boss? = nil
 -- The fight's colours and config for the boss on stage. Mutated in place (rather than
 -- swapped) so every handler below reads the current boss without being passed it.
 local pal = { Primary = RIFT, Hot = RIFT_HOT, Alert = SLAM }
+
+-- The audio cue this boss uses for a beat (Forming, Awake, Charge, Land, Phase, Defeat,
+-- Escape). Each boss names its own in SanctuaryConfig so the fights sound different.
+local function bossCue(beat: string): string
+	local current = boss
+	local cues = if current ~= nil then current.config.Cues else nil
+	return if cues ~= nil and cues[beat] ~= nil then cues[beat] else "wardenSlam"
+end
 local function configFor(kind: string?): any
 	for _, candidate in SanctuaryConfig.RiftBosses do
 		if candidate.Kind == kind then
@@ -3457,8 +3547,10 @@ local function buildBoss(model: Model): Boss
 	local anchor = model.PrimaryPart :: BasePart
 	local kind = tostring(model:GetAttribute("BossKind") or "Warden")
 	local config = configFor(kind)
-	local coreSize = Vector3.new(9, 9, 9)
-	local shellSize = Vector3.new(11.5, 11.5, 11.5)
+	-- Body proportions differ: the Choir is a small bright core in a large glass shell, the
+	-- Regent a heavy ember heart that nearly fills its shell.
+	local coreSize = if kind == "Choir" then Vector3.new(7, 7, 7) elseif kind == "Regent" then Vector3.new(10.5, 10.5, 10.5) else Vector3.new(9, 9, 9)
+	local shellSize = if kind == "Choir" then Vector3.new(13.5, 13.5, 13.5) elseif kind == "Regent" then Vector3.new(13, 13, 13) else Vector3.new(11.5, 11.5, 11.5)
 	-- Faceted crystal heart inside a glass shell.
 	local core = bossPart("WardenCore", "WardenCore", Enum.PartType.Ball, coreSize, pal.Primary, Enum.Material.Neon)
 	local shell = bossPart("WardenCore", "WardenShell", Enum.PartType.Ball, shellSize, pal.Hot, Enum.Material.Glass)
@@ -3474,6 +3566,20 @@ local function buildBoss(model: Model): Boss
 	local aura = Vfx.attach(core, "Motes", { Color = pal.Hot, Color2 = pal.Primary, Rate = 16, Speed = NumberRange.new(2, 5) })
 	local swirl = Vfx.attach(core, "Swirl", { Color = pal.Primary, Color2 = pal.Hot, Size = NumberSequence.new(20, 26) })
 	local glowHalo = Vfx.attach(core, "Halo", { Color = pal.Primary, Size = NumberSequence.new(24, 28) })
+	-- Each boss adds its own effects: the Choir sheds fine glass dust, the Regent burns.
+	local extras: { Instance } = {}
+	if kind == "Choir" then
+		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Hot, Color2 = pal.Primary, Rate = 26, Speed = NumberRange.new(1, 3), Size = NumberSequence.new(0.5, 0) }))
+	elseif kind == "Regent" then
+		table.insert(extras, Vfx.attach(core, "Rising", { Color = pal.Primary, Color2 = pal.Hot, Rate = 34, Speed = NumberRange.new(6, 14) }))
+		local flame = Instance.new("Fire")
+		flame.Color = pal.Primary
+		flame.SecondaryColor = pal.Hot
+		flame.Size = 22
+		flame.Heat = 16
+		flame.Parent = core
+		table.insert(extras, flame)
+	end
 
 	local rings: { Piece } = {}
 	local ringSpecs = {
@@ -3547,6 +3653,11 @@ local function buildBoss(model: Model): Boss
 		visible = 0,
 		kind = kind,
 		config = config,
+		extras = extras,
+		conduct = 0,
+		conductUntil = 0,
+		beam = nil,
+		spinPhase = 0,
 	}
 end
 local function destroyBoss()
@@ -3568,11 +3679,11 @@ end
 -- Rift tethers (beams from the arena pillars to the seal, built by the
 -- server) light up while the Warden is forming or fighting.
 local tethersOn = false
-local function setTethers(on: boolean)
+local function setTethers(on: boolean, kind: string?)
 	tethersOn = on
 	for _, beam in CollectionService:GetTagged("AF_RiftTether") do
 		if beam:IsA("Beam") then
-			beam.Enabled = on
+			beam.Enabled = on and (kind == nil or beam:GetAttribute("BossKind") == kind)
 		end
 	end
 end
@@ -3620,6 +3731,9 @@ local function setBossTransparency(current: Boss, visible: number)
 	current.eye.Transparency = hide
 	current.coreLight.Enabled = visible > 0.02
 	current.aura.Enabled = visible > 0.2
+	for _, extra in current.extras do
+		(extra :: any).Enabled = visible > 0.3
+	end
 	current.swirl.Enabled = visible > 0.3
 	current.glowHalo.Enabled = visible > 0.3
 	applyPieceTransparency(current.rings, hide)
@@ -3685,19 +3799,120 @@ local function clearCinema()
 end
 
 -- Direct the camera at the boss for a moment, if the local player is near enough to care.
-local function playShot(current: Boss, spec: { [string]: any }): boolean
+-- `bars` is how long the letterbox stays (defaults to the shot; 0 leaves it alone, for a
+-- shot that continues a scene already showing them). `spec.Lift` raises the focus above the
+-- boss's body (negative looks up at it from below).
+local function playShot(current: Boss, spec: { [string]: any }, bars: number?): boolean
 	local root = localRoot()
 	if root == nil or (root.Position - current.anchor.Position).Magnitude > 300 then
 		return false
 	end
+	local lift = tonumber(spec.Lift) or 0
 	spec.Focus = function()
-		return current.anchor.Position + Vector3.new(0, 4, 0)
+		return current.anchor.Position + Vector3.new(0, 4 + lift, 0)
 	end
 	if Controls.cinematic(spec) then
-		cinemaBars(spec.Seconds)
+		local barSeconds = if bars == nil then spec.Seconds else bars
+		if barSeconds > 0 then
+			cinemaBars(barSeconds)
+		end
 		return true
 	end
 	return false
+end
+
+-- Where the arena's pillar lights are, for scenes that play off them.
+local function pillarTops(current: Boss): { Vector3 }
+	local arena = Layout.arena(current.config.Island)
+	local kind = current.kind
+	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 else 8
+	local rise = if kind == "Choir" then 39 elseif kind == "Regent" then 33 else 29
+	local tops = {}
+	for k = 1, count do
+		local angle = (k / count) * TAU + math.pi / count
+		table.insert(tops, ORIGIN + Vector3.new(arena.Center.X + math.cos(angle) * arena.PillarRadius, arena.Center.Y + rise, arena.Center.Z + math.sin(angle) * arena.PillarRadius))
+	end
+	return tops
+end
+
+-- Run steps at offsets (seconds) while the same boss is still on stage.
+local function sequence(current: Boss, steps: { { at: number, run: () -> () } })
+	for _, step in steps do
+		task.delay(step.at, function()
+			if boss == current and current.model.Parent ~= nil then
+				step.run()
+			end
+		end)
+	end
+end
+
+-- Each boss wakes with its own cutscene. The letterbox and title card (the HUD banner) are
+-- shared; the camera work and what happens on the pillars are not.
+--   Warden  one slow orbit round the opening rift
+--   Choir   starts on the floor as the seven voices wake one by one, then rises to the boss
+--   Regent  looks up at the crown from below as the flames catch, then pulls back wide
+local function awakeScene(current: Boss)
+	local kind = current.kind
+	local tops = pillarTops(current)
+	if kind == "Choir" then
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.25 * index,
+				run = function()
+					Vfx.burst(top, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(4, 14) }, clientFolder)
+					Vfx.burst(top, "Shatter", 10, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(3, 9) }, clientFolder)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 2.7, Sweep = 0.9, Distance = 44, Height = 3, Lift = -2, Fov = 62, Lock = true }, 6.3) end })
+		table.insert(steps, { at = 2.7, run = function() playShot(current, { Seconds = 3.6, Sweep = 1.3, Distance = 66, Push = 0.3, Height = 28, Lift = 6, Fov = 46, Lock = true }, 0) end })
+		sequence(current, steps)
+	elseif kind == "Regent" then
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.4 * index,
+				run = function()
+					Vfx.burst(top, "Flash", 1, { Color = pal.Alert, Size = NumberSequence.new(6, 20) }, clientFolder)
+					Vfx.burst(top, "Shatter", 16, { Color = pal.Primary, Color2 = pal.Hot, Speed = NumberRange.new(6, 16), Acceleration = Vector3.new(0, 10, 0) }, clientFolder)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 3, Sweep = -0.7, Distance = 46, Height = -10, Lift = 4, Fov = 64, Lock = true }, 6.8) end })
+		table.insert(steps, { at = 3, run = function() playShot(current, { Seconds = 3.8, Sweep = -1.2, Distance = 84, Push = 0.15, Height = 24, Fov = 46, Lock = true }, 0) end })
+		sequence(current, steps)
+	else
+		playShot(current, { Seconds = 4.2, Sweep = 1.6, Distance = 58, Push = 0.28, Height = 15, Fov = 50, Lock = true })
+	end
+end
+
+local function defeatScene(current: Boss)
+	local kind = current.kind
+	if kind == "Warden" then
+		playShot(current, { Seconds = 5, Sweep = 1.2, Distance = 64, Push = -0.15, Height = 10, Fov = 48 })
+		return
+	end
+	-- The arena gives way pillar by pillar while the camera backs off.
+	local steps = {}
+	for index, top in pillarTops(current) do
+		table.insert(steps, {
+			at = 0.3 * index,
+			run = function()
+				Vfx.burst(top, "Shatter", 40, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(10, 24), Acceleration = Vector3.new(0, if kind == "Regent" then 12 else -8, 0) }, clientFolder)
+				Vfx.burst(top, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(6, 22) }, clientFolder)
+				Audio:play(bossCue("Phase"))
+			end,
+		})
+	end
+	if kind == "Choir" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = 1.5, Distance = 70, Push = -0.2, Height = 20, Fov = 50 }) end })
+	else
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = -1, Distance = 56, Push = -0.25, Height = 4, Lift = 4, Fov = 52 }) end })
+	end
+	sequence(current, steps)
 end
 
 -- After a failed frame the warden is torn down; rebuilding it on the very next
@@ -3718,7 +3933,10 @@ local function stepBoss(dt: number, t: number)
 		end
 		boss = buildBoss(model)
 		local joined = tostring(model:GetAttribute("Phase") or "Dormant")
-		setTethers(joined == "Forming" or joined == "Active")
+		setTethers(joined == "Forming" or joined == "Active", (boss :: Boss).kind)
+		if joined == "Active" then
+			Ambience.fight((boss :: Boss).config.Music, tonumber(model:GetAttribute("BossPhase")) or 1)
+		end
 	end
 	local current = boss :: Boss
 	if current.model.Parent == nil then
@@ -3740,19 +3958,21 @@ local function stepBoss(dt: number, t: number)
 	if phase ~= current.lastPhase then
 		local at = current.anchor.Position
 		if phase == "Forming" then
-			Audio:play("wardenForming")
-			setTethers(true)
+			Audio:play(bossCue("Forming"))
+			setTethers(true, current.kind)
 			Vfx.burst(at, "Implode", 1, { Color = pal.Hot, Color2 = pal.Primary, Size = NumberSequence.new(40, 2) }, clientFolder)
 			Vfx.burst(at, "Shatter", 40, { Color = pal.Hot, Speed = NumberRange.new(4, 10), Acceleration = Vector3.new(0, 6, 0) }, clientFolder)
 		elseif phase == "Active" then
-			Audio:play("wardenAwake")
+			Audio:play(bossCue("Awake"))
 			Controls.shake(0.5)
-			playShot(current, { Seconds = 4.2, Sweep = 1.6, Distance = 58, Push = 0.28, Height = 15, Fov = 50, Lock = true })
-			setTethers(true)
+			awakeScene(current)
+			setTethers(true, current.kind)
+			Ambience.fight(config.Music, 1)
 			Vfx.burst(at, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 34) }, clientFolder)
 			Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 90) }, clientFolder)
 		elseif phase == "Defeated" then
-			Audio:play("wardenDefeat")
+			Audio:play(bossCue("Defeat"))
+			Ambience.fight(nil)
 			current.outroStarted = t
 			setTethers(false)
 			Vfx.burst(at, "Flash", 2, { Color = Color3.new(1, 1, 1), Color2 = pal.Hot, Size = NumberSequence.new(12, 44) }, clientFolder)
@@ -3768,13 +3988,15 @@ local function stepBoss(dt: number, t: number)
 			if root ~= nil and (root.Position - current.anchor.Position).Magnitude < 160 then
 				Controls.shake(1)
 			end
-			playShot(current, { Seconds = 5, Sweep = 1.2, Distance = 64, Push = -0.15, Height = 10, Fov = 48 })
+			defeatScene(current)
 		elseif phase == "Escaped" then
-			Audio:play("wardenEscape")
+			Audio:play(bossCue("Escape"))
+			Ambience.fight(nil)
 			current.outroStarted = t
 			setTethers(false)
 			Vfx.burst(at, "Implode", 1, { Color = pal.Primary, Size = NumberSequence.new(30, 0.5) }, clientFolder)
 		elseif phase == "Dormant" then
+			Ambience.fight(nil)
 			setTethers(false)
 			for _, list in { current.rings, current.plates, current.shards } do
 				for _, piece in list do
@@ -3823,12 +4045,33 @@ local function stepBoss(dt: number, t: number)
 
 	local escaping = phase == "Escaped"
 	local collapse = if escaping then math.clamp((t - current.outroStarted) / 1.4, 0, 1) else 0
-	local hover = current.anchor.Position + Vector3.new(0, math.sin(t * 0.9) * 1.4 + current.slamLift, 0)
+	-- How each body idles: the Choir floats high and slow, the Regent sits heavy and steady.
+	local kind = current.kind
+	local bob = if kind == "Choir" then math.sin(t * 1.4) * 2.2 elseif kind == "Regent" then math.sin(t * 0.6) * 1.0 else math.sin(t * 0.9) * 1.4
+	local conducting = if current.conductUntil > now then 1 else 0
+	current.conduct += (conducting - current.conduct) * (1 - math.exp(-6 * dt))
+	local beam = current.beam
+	local beamAngle: number? = nil
+	if beam ~= nil then
+		if now > beam.endAt + 0.3 then
+			current.beam = nil
+		elseif now >= beam.begin - 0.6 then
+			beamAngle = beam.start + beam.speed * math.clamp(now - beam.begin, 0, beam.endAt - beam.begin)
+		end
+	end
+	-- The crown turns faster while the beam is out.
+	current.spinPhase += dt * (if beamAngle ~= nil then 1.6 else 0.35)
+	local hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
 	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
+	if kind == "Choir" then
+		coreScale *= 1 + 0.06 * math.sin(t * 3.2) + current.conduct * 0.1
+	elseif kind == "Regent" then
+		coreScale *= 1 + 0.04 * math.sin(t * 1.6) + (if beamAngle ~= nil then 0.08 else 0)
+	end
 	coreScale *= (1 - collapse * 0.95)
-	current.core.Size = Vector3.new(9, 9, 9) * coreScale
+	current.core.Size = current.coreSize * coreScale
 	current.core.Color = pal.Primary:Lerp(pal.Alert, chargePulse * 0.75):Lerp(Color3.new(1, 1, 1), current.flash * 0.7)
-	current.shell.Size = Vector3.new(11.5, 11.5, 11.5) * coreScale
+	current.shell.Size = current.shellSize * coreScale
 	current.coreLight.Brightness = 3 + current.flash * 6 + chargePulse * 4
 	current.coreLight.Color = pal.Primary:Lerp(pal.Alert, chargePulse)
 
@@ -3844,6 +4087,10 @@ local function stepBoss(dt: number, t: number)
 	local root = localRoot()
 	local lookDir = if root ~= nil then (root.Position - hover) else Vector3.new(0, 0, 1)
 	lookDir = if lookDir.Magnitude > 0.5 then lookDir.Unit else Vector3.new(0, 0, 1)
+	-- The Regent's eye follows its own beam round the arena.
+	if beamAngle ~= nil then
+		lookDir = Vector3.new(math.cos(beamAngle), 0, math.sin(beamAngle))
+	end
 	table.insert(parts, current.eye)
 	table.insert(frames, CFrame.new(hover + lookDir * 5.2 * coreScale))
 
@@ -3870,12 +4117,12 @@ local function stepBoss(dt: number, t: number)
 	end
 	local kind = current.kind
 	for index, plate in current.plates do
-		local angle = (index / #current.plates) * TAU + t * 0.35
+		local angle = (index / #current.plates) * TAU + current.spinPhase
 		local jolt = current.flash * 0.9
 		if kind == "Choir" then
 			-- Six voices standing in a ring, rising and falling in a travelling wave.
 			local radius = 13.5 + jolt
-			local lift = math.sin(t * 2.1 - index * 1.05) * 3
+			local lift = math.sin(t * 2.1 - index * 1.05) * 3 + current.conduct * 5
 			local position = hover + Vector3.new(math.cos(angle) * radius, lift, math.sin(angle) * radius)
 			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
 		elseif kind == "Regent" then
@@ -3900,7 +4147,7 @@ local function stepBoss(dt: number, t: number)
 			place(shard, CFrame.new(position) * CFrame.Angles(math.pi, angle, 0))
 		elseif kind == "Regent" then
 			-- Wings of embers, beating slowly.
-			local flap = math.sin(t * 1.4) * 0.22
+			local flap = math.sin(t * (if beamAngle ~= nil then 4 else 1.4)) * 0.22
 			local offset = Vector3.new(side * (9 + k * 7), 4 - k * 3, 2 + k * 3)
 			place(shard, CFrame.new(hover + offset) * CFrame.Angles(0, 0, side * (0.9 + k * 0.5 + flap)))
 		else
@@ -3944,7 +4191,7 @@ local function onSlam(payload)
 	if boss ~= nil then
 		boss.slamUntil = detonateAt
 	end
-	Audio:play("wardenSlamCharge")
+	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
@@ -3971,8 +4218,16 @@ local function onSlamLand(payload)
 	end
 	local center = worldPoint(payload.Center) + Vector3.new(0, 0.3, 0)
 	local radius = tonumber(payload.Radius) or 24
-	Audio:play("wardenSlam")
+	Audio:play(bossCue("Land"))
 	burst(center + Vector3.new(0, 1, 0), pal.Hot, 40, 28)
+	local kind = if boss ~= nil then boss.kind else "Warden"
+	if kind == "Regent" then
+		-- Embers thrown up by the blow.
+		Vfx.burst(center + Vector3.new(0, 1, 0), "Shatter", 34, { Color = pal.Primary, Color2 = pal.Hot, Speed = NumberRange.new(10, 26), Acceleration = Vector3.new(0, 14, 0) }, clientFolder)
+	elseif kind == "Choir" then
+		-- Glass shards scattering.
+		Vfx.burst(center + Vector3.new(0, 1, 0), "Shatter", 30, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(8, 20) }, clientFolder)
+	end
 	-- A textured shockwave across the floor, dust thrown up, and a flash.
 	Vfx.burst(center + Vector3.new(0, 0.4, 0), "Shockwave", 1, { Color = pal.Hot, Size = NumberSequence.new(4, radius * 2.6) }, clientFolder)
 	Vfx.burst(center, "Dust", 26, { Color = Color3.fromRGB(70, 62, 90) }, clientFolder)
@@ -4014,12 +4269,13 @@ local function onStagger(payload)
 end
 
 -- The boss changes phase: a pulse through the arena, a short directed shot, and the HUD banner.
-local function onPhase(_payload)
+local function onPhase(payload)
 	local current = boss
 	if current == nil then
 		return
 	end
-	Audio:play("wardenAwake")
+	Audio:play(bossCue("Phase"))
+	Ambience.fight(current.config.Music, if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2)
 	local at = current.anchor.Position
 	Vfx.burst(at, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 30) }, clientFolder)
 	Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 100) }, clientFolder)
@@ -4042,7 +4298,7 @@ local function onRings(payload)
 	local step = tonumber(payload.StepSeconds) or 0.6
 	local firstAt = tonumber(payload.DetonateAt) or (serverNow() + 2)
 	local started = serverNow()
-	Audio:play("wardenSlamCharge")
+	Audio:play(bossCue("Charge"))
 	local anchor = vfxPart("RingAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
@@ -4056,6 +4312,9 @@ local function onRings(payload)
 		})
 	end
 	local finish = firstAt + (count - 1) * step + 0.8
+	if boss ~= nil then
+		boss.conductUntil = finish - 0.4
+	end
 	local connection: RBXScriptConnection? = nil
 	connection = RunService.RenderStepped:Connect(function()
 		local now = serverNow()
@@ -4090,7 +4349,7 @@ local function onRingLand(payload)
 	local center = worldPoint(payload.Center) + Vector3.new(0, 0.4, 0)
 	local radius = tonumber(payload.Radius) or 16
 	local width = tonumber(payload.Width) or 5
-	Audio:play("wardenSlam")
+	Audio:play(bossCue("Land"))
 	Vfx.burst(center, "Shockwave", 1, { Color = pal.Hot, Size = NumberSequence.new(radius * 1.8, radius * 2.5 + 6) }, clientFolder)
 	local root = localRoot()
 	if root ~= nil then
@@ -4116,7 +4375,10 @@ local function onSweep(payload)
 	local range = tonumber(payload.Range) or 80
 	local beginAt = tonumber(payload.BeginAt) or (serverNow() + 1.5)
 	local endAt = tonumber(payload.EndAt) or (beginAt + 5)
-	Audio:play("wardenSlamCharge")
+	if boss ~= nil then
+		boss.beam = { begin = beginAt, endAt = endAt, start = startAngle, speed = speed }
+	end
+	Audio:play(bossCue("Charge"))
 	local segments = {}
 	for index = 1, BEAM_SEGMENTS do
 		local near = (index - 1) / BEAM_SEGMENTS * range
@@ -4541,6 +4803,18 @@ local MOODS: { [string]: Mood } = {
 		ambient = Color3.fromRGB(92, 70, 112), outdoor = Color3.fromRGB(114, 86, 140), fog = Color3.fromRGB(22, 6, 24), exposure = 0.2,
 		hazeColor = Color3.fromRGB(88, 30, 86), hazeDecay = Color3.fromRGB(32, 8, 32), density = 0.3, haze = 1.4,
 		bloom = 1.0, tint = Color3.fromRGB(255, 226, 250), saturation = 0.18, contrast = 0.15, rays = 0.02,
+	},
+	-- The Hall of the Hollow Choir: cold and glassy, bright haze like light through ice.
+	ChoirIsle = {
+		ambient = Color3.fromRGB(86, 122, 158), outdoor = Color3.fromRGB(120, 168, 214), fog = Color3.fromRGB(8, 26, 44), exposure = 0.36,
+		hazeColor = Color3.fromRGB(56, 140, 190), hazeDecay = Color3.fromRGB(14, 52, 84), density = 0.2, haze = 0.8,
+		bloom = 1.1, tint = Color3.fromRGB(214, 244, 255), saturation = 0.2, contrast = 0.14, rays = 0.12,
+	},
+	-- The Cinderthrone: low red light, thick smoky haze, heavy bloom off the flames.
+	RegentIsle = {
+		ambient = Color3.fromRGB(136, 78, 58), outdoor = Color3.fromRGB(176, 98, 70), fog = Color3.fromRGB(42, 12, 8), exposure = 0.3,
+		hazeColor = Color3.fromRGB(150, 56, 30), hazeDecay = Color3.fromRGB(72, 20, 10), density = 0.32, haze = 1.5,
+		bloom = 1.15, tint = Color3.fromRGB(255, 220, 196), saturation = 0.26, contrast = 0.16, rays = 0.04,
 	},
 }
 local MOOD_TAU = 1.4 -- seconds for a region change to cover ~63% of the way

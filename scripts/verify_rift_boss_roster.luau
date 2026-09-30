@@ -8,7 +8,9 @@
 --   5. Every boss can be beaten by one level-1 fighter before it escapes.
 
 local SanctuaryConfig = require("../src/Shared/AstralForge/Shared/SharedData")("SanctuaryConfig")
+local Layout = require("../src/Shared/AstralForge/Shared/SharedData")("SanctuaryLayout")
 local RiftBossMath = require("../src/Server/AstralForge/Modules/EconomyMath")("RiftBossMath")
+local fs = require("@lune/fs")
 
 local function check(condition: boolean, message: string)
 	if not condition then
@@ -108,6 +110,61 @@ local beam = set(RiftBossMath.SweepHits(0, 0, 0, 0.17, 84, {
 }))
 check(beam.ahead and not beam.behind and not beam.far, "sweep hits only fighters in the beam")
 
+-- Islands: every boss fights somewhere real, and the new ones sit clear of the map.
+local function flat(a, b)
+	local dx, dz = a.X - b.X, a.Z - b.Z
+	return math.sqrt(dx * dx + dz * dz)
+end
+local audioSource = string.gsub(fs.readFile("src/Client/AstralForge/AudioKit.luau"), "\r\n", "\n")
+local BEATS = { "Forming", "Awake", "Charge", "Land", "Phase", "Defeat", "Escape" }
+local islands = {}
+for _, boss in roster do
+	local label = boss.Name
+	local place = Layout.region(boss.Island)
+	check(place ~= nil, label .. ": island " .. tostring(boss.Island) .. " is not in the layout")
+	check(not islands[boss.Island], label .. ": shares an island")
+	islands[boss.Island] = true
+	check(type(boss.Approach) == "string" and #boss.Approach > 0, label .. ": no approach line")
+	for _, beat in BEATS do
+		local cue = boss.Cues[beat]
+		check(type(cue) == "string", label .. ": no " .. beat .. " cue")
+		check(string.find(audioSource, "\n\t" .. cue .. " = {", 1, true) ~= nil, label .. ": cue " .. cue .. " is not defined in AudioKit")
+	end
+	check(type(boss.Music.Bed) == "string" and boss.Music.Pitch > 0 and boss.Music.Level > 0 and boss.Music.Level <= 1, label .. ": bad music profile")
+	local arena = Layout.arena(boss.Island)
+	for _, attack in boss.Attacks do
+		local p = attack.Params
+		if attack.Kind == "Rings" then
+			local outermost = p.FirstRadius + (p.Count - 1) * p.Gap + p.Width / 2
+			check(outermost <= arena.Radius, label .. ": outer ring leaves the arena")
+		end
+	end
+end
+check(#Layout.isles() == 2, "expected two boss islands")
+for _, isle in Layout.isles() do
+	check(flat(isle.Center, { X = 0, Z = 0 }) + isle.Radius <= Layout.WORLD_RADIUS, isle.Id .. ": outside the world")
+	for _, region in Layout.regions() do
+		check(flat(isle.Center, region.Center) > isle.Radius + region.Radius + 20, isle.Id .. ": too close to " .. region.Id)
+	end
+	for _, other in Layout.isles() do
+		if other.Id ~= isle.Id then
+			check(flat(isle.Center, other.Center) > isle.Radius + other.Radius + 20, isle.Id .. ": too close to " .. other.Id)
+		end
+	end
+	check(Layout.regionAt(isle.Center).Id == isle.Id, isle.Id .. ": regionAt does not find it")
+end
+local maw = Layout.region("Riftmaw")
+for _, bridge in Layout.isleBridges() do
+	check(math.abs(flat(bridge.From, maw.Center) - (maw.Radius - 6)) < 0.5, bridge.Region .. ": bridge does not start on the Riftmaw rim")
+	local isle = Layout.region(bridge.Region)
+	check(math.abs(flat(bridge.To, isle.Center) - (isle.Radius - 4)) < 0.5, bridge.Region .. ": bridge does not land on the island rim")
+	local points = Layout.bridgePoints(bridge, 14)
+	for i = 1, #points - 1 do
+		local run = flat(points[i], points[i + 1])
+		check(run < 20, bridge.Region .. ": gap in the bridge")
+		check(math.abs(points[i + 1].Y - points[i].Y) / math.max(run, 0.1) < 0.4, bridge.Region .. ": bridge too steep")
+	end
+end
 -- Beatable: one level-1 fighter, no crits, striking once a second, inside the active window
 for _, boss in roster do
 	local health = RiftBossMath.MaxHealth(1, boss)

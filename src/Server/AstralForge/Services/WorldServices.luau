@@ -379,7 +379,7 @@ function RiftBossService.new(host)
 end
 
 function RiftBossService:_arena()
-	local arena = SanctuaryLayout.arena()
+	local arena = SanctuaryLayout.arena(self._config.Island)
 	return self._host.world:SanctuaryPoint(arena.Center), self._host.world:SanctuaryPoint(arena.Hover), arena.Radius
 end
 
@@ -424,6 +424,15 @@ function RiftBossService:Start()
 	end)
 end
 
+-- Put the boss's anchor over its own island's arena.
+function RiftBossService:_moveToArena()
+	local model = self._model
+	if model ~= nil and model.PrimaryPart ~= nil then
+		local _, hover = self:_arena()
+		model:PivotTo(CFrame.new(hover))
+	end
+end
+
 function RiftBossService:Stop()
 	self._running = false
 end
@@ -437,6 +446,7 @@ function RiftBossService:_publish()
 	local config = self._config
 	model:SetAttribute("BossName", config.Name)
 	model:SetAttribute("BossKind", config.Kind)
+	model:SetAttribute("BossIsland", config.Island)
 	model:SetAttribute("BossTitle", config.Title)
 	model:SetAttribute("BossPhase", self._phaseIndex)
 	model:SetAttribute("Phase", state.Phase)
@@ -492,6 +502,7 @@ function RiftBossService:_forced(now: number)
 		if candidate.Kind == kind then
 			self._bossIndex = index
 			self._config = candidate
+			self:_moveToArena()
 			table.clear(self._events)
 			self._attacking = false
 			self._state = { Phase = "Dormant", EndsAt = now, Health = 0, MaxHealth = 0 }
@@ -510,6 +521,7 @@ function RiftBossService:_step()
 		-- The roster rotates: the next appearance is the next boss in the list.
 		self._bossIndex = RiftBossMath.NextBoss(self._bossIndex, #self._roster)
 		self._config = self._roster[self._bossIndex]
+		self:_moveToArena()
 		table.clear(self._events)
 		self._attacking = false
 	elseif entered == "Forming" then
@@ -521,7 +533,7 @@ function RiftBossService:_step()
 		self._attacking = false
 		self:_announce(
 			`{self._config.Name} is forming`,
-			"It wakes in the Riftmaw in under a minute. Open the rift and head south to fight it.",
+			`It wakes in under a minute. {self._config.Approach}`,
 			false
 		)
 	elseif entered == "Active" then
@@ -884,6 +896,7 @@ local Shared = ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Share
 local Layout = require(Shared:WaitForChild("SharedData"))("SanctuaryLayout")
 local AssetKit = require(Shared:WaitForChild("SharedData"))("AssetKit")
 local Vfx = require(Shared:WaitForChild("SharedData"))("Vfx")
+local SanctuaryConfig = require(Shared:WaitForChild("SharedData"))("SanctuaryConfig")
 
 local Builder = {}
 
@@ -986,6 +999,19 @@ local function landingAngles(region: Layout.Region): { number }
 		end
 		return angles
 	end
+	if region.Id == "Riftmaw" then
+		-- The hub bridge, and one to each boss island.
+		local _, dx, dz = Layout.landing(region)
+		local angles = { math.atan2(dz, dx) }
+		for _, isle in Layout.isles() do
+			table.insert(angles, math.atan2(isle.Center.Z - region.Center.Z, isle.Center.X - region.Center.X))
+		end
+		return angles
+	end
+	if string.find(region.Id, "Isle$") ~= nil then
+		local _, dx, dz = Layout.isleLanding(region)
+		return { math.atan2(dz, dx) }
+	end
 	local _, dx, dz = Layout.landing(region)
 	return { math.atan2(dz, dx) }
 end
@@ -1078,6 +1104,24 @@ function Builder.BuildTerrain()
 			task.wait()
 		end
 	end
+	for index, isle in Layout.isles() do
+		local center = world(isle.Center)
+		local landings = landingAngles(isle)
+		island(terrain, center, isle.Radius, material(isle.Top), material(isle.Under), 4001 + index * 7919, landings)
+		if isle.Id == "RegentIsle" then
+			-- Lava seams between the dais and the rim, clear of the landing.
+			local rng = Random.new(77)
+			for _ = 1, 10 do
+				local angle = rng:NextNumber(0, math.pi * 2)
+				if nearLanding(angle, landings) then
+					continue
+				end
+				local reach = isle.Radius * rng:NextNumber(0.5, 0.7)
+				terrain:FillCylinder(CFrame.new(center + Vector3.new(math.cos(angle) * reach, -1, math.sin(angle) * reach)), 2, rng:NextNumber(4, 8), Enum.Material.CrackedLava)
+			end
+			task.wait()
+		end
+	end
 end
 
 -- Kit meshes and effects
@@ -1137,7 +1181,11 @@ function Builder.BuildBridges(folder: Instance)
 	local bridges = Instance.new("Folder")
 	bridges.Name = "Bridges"
 	bridges.Parent = folder
-	for _, bridge in Layout.bridges() do
+	local all = table.clone(Layout.bridges())
+	for _, bridge in Layout.isleBridges() do
+		table.insert(all, bridge)
+	end
+	for _, bridge in all do
 		local model = Instance.new("Model")
 		model.Name = `Bridge_{bridge.Region}`
 		model.Parent = bridges
@@ -1411,63 +1459,208 @@ local function spire(parent: Instance, center: Vector3, radius: number, landings
 	boulders(parent, center, radius, landings, Color3.fromRGB(128, 140, 164), 350)
 end
 
-function Builder.BuildArena(parent: Instance)
-	local arena = Layout.arena()
-	local center = world(arena.Center)
-	-- The rune ring on the arena floor.
-	local segments = 48
+local function triple(t: { number }): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+local function bossConfigFor(island: string): any
+	for _, boss in SanctuaryConfig.RiftBosses do
+		if boss.Island == island then
+			return boss
+		end
+	end
+	return SanctuaryConfig.RiftBoss
+end
+
+-- A ring of neon dashes lying on the floor.
+local function floorRing(parent: Instance, center: Vector3, radius: number, width: number, color: Color3, transparency: number)
+	local segments = math.max(24, math.floor(radius * 0.95))
 	for k = 1, segments do
 		local angle = (k / segments) * math.pi * 2
-		local at = center + Vector3.new(math.cos(angle) * (arena.Radius - 8), 0.08, math.sin(angle) * (arena.Radius - 8))
-		local rune = part(parent, "Rune", Vector3.new(0.5, 0.15, (arena.Radius - 8) * math.pi * 2 / segments * 0.7), CFrame.lookAt(at, center) * CFrame.Angles(0, math.rad(90), 0), RIFT, Enum.Material.Neon, false)
-		rune.Transparency = 0.3
-		rune.CastShadow = false
+		local at = center + Vector3.new(math.cos(angle) * radius, 0.08, math.sin(angle) * radius)
+		local dash = part(parent, "Rune", Vector3.new(width, 0.15, radius * math.pi * 2 / segments * 0.7), CFrame.lookAt(at, center) * CFrame.Angles(0, math.rad(90), 0), color, Enum.Material.Neon, false)
+		dash.Transparency = transparency
+		dash.CastShadow = false
 	end
-	local seal = part(parent, "Seal", Vector3.new(0.2, 26, 26), CFrame.new(center + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.rad(90)), RIFT, Enum.Material.Neon, false)
+end
+
+-- A flat round slab (Roblox cylinders lie along X, so it is turned upright).
+local function disc(parent: Instance, name: string, at: Vector3, radius: number, height: number, color: Color3, mat: Enum.Material, collide: boolean?): Part
+	local slab = part(parent, name, Vector3.new(height, radius * 2, radius * 2), CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.rad(90)), color, mat, collide)
+	slab.Shape = Enum.PartType.Cylinder
+	return slab
+end
+
+-- Each boss's arena is dressed in its own colours and shapes, but they share a skeleton:
+-- a floor pattern, a seal, and pillars whose rift tethers light while it fights.
+--   Warden  violet rune ring, basalt pillars
+--   Choir   the floor is engraved with the three rings its attack sends out, glass pillars
+--   Regent  eight spokes out from the seal (the beam's clock), obsidian spires with flame
+function Builder.BuildArena(parent: Instance, island: string?)
+	local boss = bossConfigFor(island or "Riftmaw")
+	local kind = boss.Kind
+	local accent, hot = triple(boss.Theme.Primary), triple(boss.Theme.Hot)
+	local arena = Layout.arena(island)
+	local center = world(arena.Center)
+	floorRing(parent, center, arena.Radius - 8, 0.5, accent, 0.3)
+	if kind == "Choir" then
+		for _, radius in { 16, 36, 56 } do
+			floorRing(parent, center, radius, 0.45, hot, 0.45)
+		end
+	elseif kind == "Regent" then
+		local length = arena.Radius - 18
+		for k = 1, 8 do
+			local angle = (k / 8) * math.pi * 2
+			local mid = 8 + length / 2
+			local spoke = part(parent, "Spoke", Vector3.new(length, 0.15, 0.5), CFrame.new(center + Vector3.new(math.cos(angle) * mid, 0.08, math.sin(angle) * mid)) * CFrame.Angles(0, -angle, 0), accent, Enum.Material.Neon, false)
+			spoke.Transparency = 0.45
+			spoke.CastShadow = false
+		end
+	end
+	local seal = part(parent, "Seal", Vector3.new(0.2, 26, 26), CFrame.new(center + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.rad(90)), accent, Enum.Material.Neon, false)
 	seal.Shape = Enum.PartType.Cylinder
 	seal.Transparency = 0.7
 	seal.CastShadow = false
-	tag(seal, "AF_Pulse", { Period = 3.6 })
+	tag(seal, "AF_Pulse", { Period = if kind == "Regent" then 2.4 else 3.6 })
 	-- A slow vortex over the seal, and where the rift tethers meet.
-	local eye = part(parent, "RiftEye", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, 0, math.rad(90)), RIFT, Enum.Material.SmoothPlastic, false)
+	local eye = part(parent, "RiftEye", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, 0, math.rad(90)), accent, Enum.Material.SmoothPlastic, false)
 	eye.Transparency = 1
-	Vfx.attach(eye, "Swirl", { Color = RIFT, Color2 = VOID_SOFT, Size = NumberSequence.new(22, 26) })
+	Vfx.attach(eye, "Swirl", { Color = accent, Color2 = hot, Size = NumberSequence.new(22, 26) })
 	local hub = Instance.new("Attachment")
 	hub.Name = "TetherHub"
 	hub.Position = Vector3.new(0, 24, 0)
 	hub.Parent = seal
-	-- Pillars ringing the arena, each topped with rift light.
-	for k = 1, 8 do
-		local angle = (k / 8) * math.pi * 2 + math.pi / 8
+	-- Pillars ringing the arena, each topped with light of the boss's colour.
+	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 else 8
+	local pillarColor = if kind == "Choir" then Color3.fromRGB(96, 150, 190) elseif kind == "Regent" then Color3.fromRGB(28, 22, 26) else Color3.fromRGB(40, 40, 54)
+	local pillarMaterial = if kind == "Choir" then Enum.Material.Glass elseif kind == "Regent" then Enum.Material.Basalt else Enum.Material.Basalt
+	for k = 1, count do
+		local angle = (k / count) * math.pi * 2 + math.pi / count
 		local at = center + Vector3.new(math.cos(angle) * arena.PillarRadius, 0, math.sin(angle) * arena.PillarRadius)
 		local pillarSize = AssetKit.sized("ArenaPillar", 1.05)
 		local useKit = AssetKit.has("ArenaPillar")
 		local height = if useKit then pillarSize.Y else 26
-		local column = shape(parent, "ArenaPillar", pillarSize, CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), Color3.fromRGB(40, 40, 54), Enum.Material.Basalt, true, function()
-			return part(parent, "Pillar", Vector3.new(5, 26, 5), CFrame.new(at + Vector3.new(0, 13, 0)) * CFrame.Angles(0, angle, 0), Color3.fromRGB(40, 40, 54), Enum.Material.Basalt)
+		if kind == "Choir" then
+			height += 10
+			pillarSize = Vector3.new(pillarSize.X * 0.7, height, pillarSize.Z * 0.7)
+		elseif kind == "Regent" then
+			height += 4
+		end
+		local column = shape(parent, "ArenaPillar", pillarSize, CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), pillarColor, pillarMaterial, true, function()
+			return part(parent, "Pillar", Vector3.new(if kind == "Choir" then 3 else 5, height, if kind == "Choir" then 3 else 5), CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), pillarColor, pillarMaterial)
 		end)
 		column.Name = "Pillar"
 		column.CastShadow = true
+		if kind == "Choir" then
+			column.Transparency = 0.25
+		end
 		local capAt = CFrame.new(at + Vector3.new(0, height + 2.5, 0))
-		local cap = shape(parent, "Star", Vector3.new(3.2, 3.2, 3.2), capAt, RIFT, Enum.Material.Neon, false, function()
-			return part(parent, "PillarLight", Vector3.new(3, 3, 3), capAt * CFrame.Angles(math.rad(45), 0, math.rad(45)), RIFT, Enum.Material.Neon, false)
+		local cap = shape(parent, "Star", Vector3.new(3.2, 3.2, 3.2), capAt, accent, Enum.Material.Neon, false, function()
+			return part(parent, "PillarLight", Vector3.new(3, 3, 3), capAt * CFrame.Angles(math.rad(45), 0, math.rad(45)), accent, Enum.Material.Neon, false)
 		end)
 		cap.Name = "PillarLight"
 		cap.Transparency = 0.1
 		cap.CastShadow = false
-		glow(cap, RIFT, 1.8, 34)
-		halo(cap, RIFT, 7)
-		tag(cap, "AF_Spin", { Speed = 30 })
-		tag(cap, "AF_Pulse", { Period = 2.8 })
-		-- Rift tethers from every pillar to the seal; the client lights them
-		-- while the Warden is forming or fighting.
+		glow(cap, accent, 1.8, 34)
+		halo(cap, accent, 7)
+		tag(cap, "AF_Spin", { Speed = if kind == "Regent" then 55 else 30 })
+		tag(cap, "AF_Pulse", { Period = if kind == "Choir" then 1.6 else 2.8 })
+		if kind == "Regent" then
+			local flame = Instance.new("Fire")
+			flame.Color = accent
+			flame.SecondaryColor = hot
+			flame.Size = 9
+			flame.Heat = 12
+			flame.Parent = cap
+		end
+		-- Rift tethers from every pillar to the seal; the client lights the ones that
+		-- belong to whichever boss is forming or fighting.
 		local from = Instance.new("Attachment")
 		from.Name = "Tether"
 		from.Parent = cap
-		local beam = Vfx.beam(from, hub, "Tether", { Color = RIFT, Color2 = VOID_SOFT })
+		local beam = Vfx.beam(from, hub, "Tether", { Color = accent, Color2 = hot })
 		beam.Enabled = false
-		tag(beam, "AF_RiftTether")
+		tag(beam, "AF_RiftTether", { BossKind = kind })
 	end
+end
+
+-- The Hall of the Hollow Choir: a conductor's podium under floating shards of singing glass.
+local function choirIsle(parent: Instance, center: Vector3, radius: number, landings: { number })
+	local cyan, white = Color3.fromRGB(86, 200, 255), Color3.fromRGB(214, 244, 255)
+	for tier = 1, 3 do
+		local slab = disc(parent, "Podium", center, 11 - tier * 2.4, tier * 0.9, if tier == 3 then white else Color3.fromRGB(70, 96, 132), if tier == 3 then Enum.Material.Neon else Enum.Material.Glass, true)
+		slab.Transparency = if tier == 3 then 0.35 else 0.15
+		slab.CastShadow = false
+	end
+	for k = 1, 16 do
+		local angle = (k / 16) * math.pi * 2 + k * 0.37
+		local reach = radius * (0.3 + (k % 5) * 0.11)
+		local lift = 10 + (k % 4) * 5
+		local shard = part(parent, "GlassShard", Vector3.new(1.6, 6 + (k % 3) * 2, 1.6), CFrame.new(center + Vector3.new(math.cos(angle) * reach, lift, math.sin(angle) * reach)) * CFrame.Angles(math.rad(20 * (k % 3)), angle, math.rad(45)), cyan, Enum.Material.Neon, false)
+		shard.Transparency = 0.35
+		shard.CastShadow = false
+		tag(shard, "AF_Bob", { Amplitude = 1 + (k % 3) * 0.6, Period = 3 + (k % 4) })
+		tag(shard, "AF_Spin", { Speed = 18 + k * 2 })
+		if k % 4 == 0 then
+			glow(shard, cyan, 1.2, 24)
+		end
+	end
+	for k = 1, 8 do
+		local angle = (k / 8) * math.pi * 2
+		lamp(parent, center + Vector3.new(math.cos(angle) * radius * 0.92, 0, math.sin(angle) * radius * 0.92))
+	end
+	airborne(parent, "ChoirAir", center, radius, "Motes", { Color = cyan, Rate = 7 })
+	boulders(parent, center, radius, landings, Color3.fromRGB(96, 118, 150), 511)
+end
+
+-- The Cinderthrone: braziers round a dais, and a throne of obsidian spires on the far side.
+local function regentIsle(parent: Instance, center: Vector3, radius: number, landings: { number })
+	local ember, flameHot = Color3.fromRGB(255, 132, 48), Color3.fromRGB(255, 226, 170)
+	local obsidian = Color3.fromRGB(26, 22, 26)
+	for tier = 1, 3 do
+		local slab = disc(parent, "Dais", center, 12 - tier * 2.6, tier * 0.8, if tier == 3 then ember else obsidian, if tier == 3 then Enum.Material.CrackedLava else Enum.Material.Basalt, true)
+		slab.CastShadow = false
+	end
+	-- Braziers, skipping the side the bridge arrives on.
+	for k = 1, 10 do
+		local angle = (k / 10) * math.pi * 2
+		if nearLanding(angle, landings) then
+			continue
+		end
+		local at = center + Vector3.new(math.cos(angle) * radius * 0.8, 0, math.sin(angle) * radius * 0.8)
+		local bowl = disc(parent, "BrazierBowl", at, 2.2, 3, obsidian, Enum.Material.Basalt, true)
+		local flame = Instance.new("Fire")
+		flame.Color = ember
+		flame.SecondaryColor = flameHot
+		flame.Size = 8
+		flame.Heat = 10
+		flame.Parent = bowl
+		glow(bowl, ember, 2, 38)
+		tag(bowl, "AF_Pulse", { Period = 1.9 + (k % 3) * 0.4 })
+	end
+	-- The throne: a fan of spires on the side opposite the landing, tallest in the middle.
+	local away = (landings[1] or 0) + math.pi
+	for k = -3, 3 do
+		local angle = away + k * 0.17
+		local height = 30 - math.abs(k) * 5
+		local base = center + Vector3.new(math.cos(angle) * radius * 0.86, 0, math.sin(angle) * radius * 0.86)
+		local spire = part(parent, "ThroneSpire", Vector3.new(3.4, height, 3.4), CFrame.new(base + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, math.rad(k * 3)), obsidian, Enum.Material.Basalt)
+		spire.CastShadow = true
+		local tip = part(parent, "ThroneGlow", Vector3.new(1.4, 1.4, 1.4), CFrame.new(base + Vector3.new(0, height + 0.8, 0)), ember, Enum.Material.Neon, false)
+		tip.Shape = Enum.PartType.Ball
+		tip.CastShadow = false
+		if math.abs(k) <= 1 then
+			local flame = Instance.new("Fire")
+			flame.Color = ember
+			flame.SecondaryColor = flameHot
+			flame.Size = 12
+			flame.Heat = 14
+			flame.Parent = tip
+		end
+		tag(tip, "AF_Pulse", { Period = 2.2 })
+	end
+	airborne(parent, "CinderAir", center, radius, "Rising", { Color = ember, Rate = 9, Speed = NumberRange.new(2, 5) })
+	boulders(parent, center, radius, landings, Color3.fromRGB(58, 40, 40), 523)
 end
 
 function Builder.BuildScenery(folder: Instance)
@@ -1493,6 +1686,20 @@ function Builder.BuildScenery(folder: Instance)
 		else
 			boulders(model, center, region.Radius, landings, Color3.fromRGB(70, 76, 92), 101)
 		end
+	end
+	for _, isle in Layout.isles() do
+		local center = world(isle.Center)
+		local model = Instance.new("Model")
+		model.Name = `Region_{isle.Id}`
+		model:SetAttribute("RegionId", isle.Id)
+		model.Parent = scenery
+		local landings = landingAngles(isle)
+		if isle.Id == "ChoirIsle" then
+			choirIsle(model, center, isle.Radius, landings)
+		else
+			regentIsle(model, center, isle.Radius, landings)
+		end
+		Builder.BuildArena(model, isle.Id)
 	end
 end
 

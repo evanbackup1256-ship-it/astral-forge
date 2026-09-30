@@ -1421,6 +1421,22 @@ SanctuaryConfig.RiftBoss = {
 	Name = "The Rift Warden",
 	Kind = "Warden",
 	Title = "Keeper of the Riftmaw",
+	-- Where it fights (a SanctuaryLayout id) and how players are told to find it.
+	Island = "Riftmaw",
+	Approach = "Open the rift and head south to fight it.",
+	-- Which audio cue plays for each beat. Every boss names its own so the fights sound
+	-- different; Music is the looping bed layered over the region's while it fights
+	-- (Bed is a sanctuary ambience region; set Id to an uploaded track to use that instead).
+	Cues = {
+		Forming = "wardenForming",
+		Awake = "wardenAwake",
+		Charge = "wardenSlamCharge",
+		Land = "wardenSlam",
+		Phase = "wardenAwake",
+		Defeat = "wardenDefeat",
+		Escape = "wardenEscape",
+	},
+	Music = { Bed = "amb_riftmaw", Id = 0, Pitch = 0.88, Level = 0.5 },
 	-- Colours the client dresses the boss, its telegraphs and its cinematic in.
 	Theme = {
 		Primary = { 128, 92, 255 },
@@ -1491,6 +1507,18 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 	Name = "The Hollow Choir",
 	Kind = "Choir",
 	Title = "Seven voices, one silence",
+	Island = "ChoirIsle",
+	Approach = "Cross the Riftmaw's western bridge to the Hall of the Hollow Choir.",
+	Cues = {
+		Forming = "echoCapture",
+		Awake = "discovery",
+		Charge = "echoTune",
+		Land = "oreCollect",
+		Phase = "successChime",
+		Defeat = "rebirthBloom",
+		Escape = "reactorStabilize",
+	},
+	Music = { Bed = "amb_hollows", Id = 0, Pitch = 1.3, Level = 0.46, Effect = "Reverb" },
 	Theme = {
 		Primary = { 86, 200, 255 },
 		Hot = { 214, 244, 255 },
@@ -1516,6 +1544,18 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 	Name = "The Cinder Regent",
 	Kind = "Regent",
 	Title = "The last crown of Emberreach",
+	Island = "RegentIsle",
+	Approach = "Cross the Riftmaw's eastern bridge to the Cinderthrone.",
+	Cues = {
+		Forming = "domainCharge",
+		Awake = "domainImpact",
+		Charge = "bootSlamCharge",
+		Land = "bootImpact",
+		Phase = "domainCrack",
+		Defeat = "prestige",
+		Escape = "bootAftershock",
+	},
+	Music = { Bed = "amb_ember", Id = 0, Pitch = 0.72, Level = 0.56, Effect = "Distortion" },
 	Theme = {
 		Primary = { 255, 132, 48 },
 		Hot = { 255, 226, 170 },
@@ -1594,7 +1634,7 @@ Layout.ORIGIN = table.freeze({ X = 1680, Y = 248, Z = -220 })
 Layout.HUB_RADIUS = 62
 Layout.HUB_TOP = -1.5
 -- Everything walkable lies within this horizontal radius of the origin.
-Layout.WORLD_RADIUS = 520
+Layout.WORLD_RADIUS = 560
 -- A character this far below the origin has fallen off the world.
 Layout.KILL_DEPTH = 230
 
@@ -1656,9 +1696,44 @@ for _, region in REGIONS do
 end
 table.freeze(REGIONS)
 
+-- Boss islands: one arena of their own for each boss after the Warden, off the Riftmaw's
+-- flanks and joined to it by a bridge. They are deliberately not in REGIONS: they have no
+-- ore, no hub bridge and no waystone (the Riftmaw's is the way in), so every rule that
+-- walks the five regions stays as it was.
+local ISLES: { Region } = {
+	{
+		Id = "ChoirIsle",
+		Name = "Hall of the Hollow Choir",
+		Center = { X = -300, Y = -14, Z = 330 },
+		Radius = 84,
+		Top = "Glacier",
+		Under = "Rock",
+		Ore = nil,
+		OreSites = 0,
+	},
+	{
+		Id = "RegentIsle",
+		Name = "The Cinderthrone",
+		Center = { X = 300, Y = 6, Z = 330 },
+		Radius = 84,
+		Top = "Basalt",
+		Under = "Rock",
+		Ore = nil,
+		OreSites = 0,
+	},
+}
+for _, isle in ISLES do
+	table.freeze(isle.Center)
+	table.freeze(isle)
+end
+table.freeze(ISLES)
+
 local BY_ID: { [string]: Region } = {}
 for _, region in REGIONS do
 	BY_ID[region.Id] = region
+end
+for _, isle in ISLES do
+	BY_ID[isle.Id] = isle
 end
 
 local function point(x: number, y: number, z: number): Point
@@ -1685,6 +1760,41 @@ end
 
 function Layout.region(id: string): Region?
 	return BY_ID[id]
+end
+
+function Layout.isles(): { Region }
+	return ISLES
+end
+
+-- Where an isle's bridge meets its plateau, and the direction it arrives from (pointing
+-- from the isle toward the Riftmaw).
+function Layout.isleLanding(isle: Region): (Point, number, number)
+	local maw = BY_ID.Riftmaw
+	local dx, dz = heading(isle.Center, maw.Center)
+	local rim = isle.Radius - 4
+	return point(isle.Center.X + dx * rim, isle.Center.Y, isle.Center.Z + dz * rim), dx, dz
+end
+
+-- The bridge from the Riftmaw's rim to each boss island.
+function Layout.isleBridges(): { Bridge }
+	local maw = BY_ID.Riftmaw
+	local result: { Bridge } = {}
+	for index, isle in ISLES do
+		local dx, dz = heading(maw.Center, isle.Center)
+		local from = point(maw.Center.X + dx * (maw.Radius - 6), maw.Center.Y, maw.Center.Z + dz * (maw.Radius - 6))
+		local to = Layout.isleLanding(isle)
+		local span = horizontal(from, to)
+		local side = if index % 2 == 0 then 1 else -1
+		local px, pz = -dz, dx
+		table.insert(result, {
+			Region = isle.Id,
+			From = from,
+			To = to,
+			Control = point((from.X + to.X) / 2 + px * span * 0.1 * side, (from.Y + to.Y) / 2, (from.Z + to.Z) / 2 + pz * span * 0.1 * side),
+			Width = 14,
+		})
+	end
+	return result
 end
 
 function Layout.distance(a: Point, b: Point): number
@@ -1815,8 +1925,8 @@ function Layout.oreSites(): { OreSite }
 end
 
 -- The Riftmaw arena: where the Rift Warden hovers and where strikes count.
-function Layout.arena(): { Center: Point, Radius: number, Hover: Point, PillarRadius: number }
-	local maw = BY_ID.Riftmaw
+function Layout.arena(id: string?): { Center: Point, Radius: number, Hover: Point, PillarRadius: number }
+	local maw = BY_ID[id or "Riftmaw"] or BY_ID.Riftmaw
 	return {
 		Center = maw.Center,
 		Radius = maw.Radius - 10,
@@ -1830,6 +1940,11 @@ function Layout.regionAt(p: Point): Region?
 	for _, region in REGIONS do
 		if horizontal(p, region.Center) <= region.Radius + 6 then
 			return region
+		end
+	end
+	for _, isle in ISLES do
+		if horizontal(p, isle.Center) <= isle.Radius + 6 then
+			return isle
 		end
 	end
 	return nil
