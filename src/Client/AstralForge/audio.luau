@@ -2019,7 +2019,7 @@ do
 		if not uiGroup then
 			uiGroup = Instance.new("SoundGroup")
 			uiGroup.Name = "ForgeUI"
-			uiGroup.Volume = 0.95
+			uiGroup.Volume = 0.45
 			uiGroup.Parent = masterGroup
 		end
 		self.uiGroup = uiGroup
@@ -2060,11 +2060,11 @@ do
 		if not musicGroup then
 			musicGroup = Instance.new("SoundGroup")
 			musicGroup.Name = "ForgeMusic"
-			musicGroup.Volume = 0.38
+			musicGroup.Volume = 0.75
 			musicGroup.Parent = masterGroup
 		end
 		self.musicGroup = musicGroup
-		musicGroup.Volume = 0.38
+		musicGroup.Volume = 0.75
 
 		local musicEq = musicGroup:FindFirstChild("ForgeBed") :: EqualizerSoundEffect
 		if not musicEq then
@@ -2199,7 +2199,7 @@ do
 		if not self.ready then
 			return nil
 		end
-		local clamped = math.clamp(depth, 0, 0.72)
+		local clamped = math.clamp(depth, 0, 0.4) -- keep the bed audible under stingers
 		if clamped <= 0.01 then
 			return nil
 		end
@@ -2234,8 +2234,9 @@ do
 		for _, pool in self.assetPools do
 			for _1, sound in pool do
 				local cue = self.channelCue[sound]
-				if cue ~= nil then
-					sound.Volume = CUES[cue].volume * CUE_GAIN * sfx * self:cueMix(cue)
+				local spec = if cue ~= nil then CUES[cue] else nil
+				if spec ~= nil then
+					sound.Volume = spec.volume * CUE_GAIN * sfx * self:cueMix(cue)
 				end
 			end
 		end
@@ -2501,6 +2502,10 @@ do
 			end
 			local channel = job.channel
 			local spec = job.spec
+			if spec == nil then
+				job.phase = "idle"
+				continue
+			end
 			local speed = math.max(0.05, job.speed)
 			if phase == "length" then
 				if channel.TimeLength > 0 then
@@ -2596,7 +2601,7 @@ do
 			return false
 		end
 		local spec = CUES[cue]
-		if spec.asset == "" then
+		if spec == nil or spec.asset == "" then
 			return false
 		end
 		local now = os.clock()

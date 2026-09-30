@@ -192,7 +192,7 @@ local THEMES = {
 	boot = GAME_BED,
 }
 local MUSIC_ASSET_MANIFEST = { GAME_BED.asset, ORBIT_BED.asset, FORGE_BED.asset, FALLBACK_BED, CORE_IDLE.asset }
-local BASE_VOLUME = 0.16
+local BASE_VOLUME = 0.5
 local FADE_STEP_SECONDS = 0.02
 local LOAD_DEADLINE_SECONDS = 8
 local function smoothstep(alpha)

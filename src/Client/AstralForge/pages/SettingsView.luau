@@ -469,7 +469,7 @@ local SETTINGS = { {
 	kind = "toggle",
 } }
 local NEW_DEFAULTS = {
-	UiVolume = 0.9,
+	UiVolume = 0.6,
 	GameplayVolume = 1,
 	RewardVolume = 1,
 	AmbientVolume = 0.75,

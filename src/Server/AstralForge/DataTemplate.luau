@@ -201,7 +201,7 @@ function DataTemplate.New()
 			SoundVolume = 0.75,
 			MusicVolume = 1,
 			SfxVolume = 1,
-			UiVolume = 0.9,
+			UiVolume = 0.6,
 			GameplayVolume = 1,
 			RewardVolume = 1,
 			AmbientVolume = 0.75,
