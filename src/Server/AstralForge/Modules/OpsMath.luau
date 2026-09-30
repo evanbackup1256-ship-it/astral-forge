@@ -158,7 +158,7 @@ end
 
 -- Mutates `guild` in place. Returns true when the goal was created, rotated, or
 -- when nested Claimed/Contributors bags were rebuilt — callers inside UpdateAsync
--- must persist those repairs (evidence: ClaimGoal early-return used to drop a
+-- must persist those repairs (seen when ClaimGoal early-return used to drop a
 -- rebuilt Claimed table when the goal was not yet Completed).
 function GuildGoalMath.EnsureGoal(guild: any, now: number, goalConfig: GoalConfig): boolean
 	if type(guild) ~= "table" then
@@ -432,7 +432,7 @@ function GuildMath.AddClamped(current: any, amount: number): number
 	return math.min(GuildMath.MAX_NUMBER, GuildMath.FiniteNonNegative(current) + amount)
 end
 
--- Fallback public hall bag when GetCachedPublic misses (wave47).
+-- Fallback public hall bag when GetCachedPublic misses.
 function GuildMath.EmptyHall(membership: any)
 	local tag = type(membership) == "table" and type(membership.Tag) == "string" and membership.Tag or ""
 	local guildId = type(membership) == "table" and membership.Id or ""

@@ -53,9 +53,7 @@ __defs["motionTokens"] = function()
 
 local Tokens = {}
 
-------------------------------------------------------------------------
 -- Springs
-------------------------------------------------------------------------
 
 type Feel = { frequency: number, dampingRatio: number }
 
@@ -136,9 +134,7 @@ function Tokens.step(x: number, v: number, goal: number, feel: Feel, dt: number)
 	return nx, nv
 end
 
-------------------------------------------------------------------------
 -- Curves
-------------------------------------------------------------------------
 
 -- A CSS-style cubic-bezier(x1, y1, x2, y2) timing function. Solved with
 -- Newton-Raphson and a bisection fallback, so it is exact enough for motion
@@ -203,9 +199,7 @@ Tokens.EASE = table.freeze({
 	end,
 })
 
-------------------------------------------------------------------------
 -- Durations
-------------------------------------------------------------------------
 
 Tokens.DURATION = table.freeze({
 	instant = 0.08,
@@ -221,9 +215,7 @@ function Tokens.exitSeconds(entrance: number): number
 	return math.clamp(entrance * 0.65, 0.1, 0.22)
 end
 
-------------------------------------------------------------------------
 -- Choreography
-------------------------------------------------------------------------
 
 -- Delay before the `index`-th item of a cascade starts (index 0 = first).
 -- The gaps widen gently and the whole cascade is capped, so a long list
@@ -239,9 +231,7 @@ end
 -- How far (px) a surface rises into place as it enters, by its size class.
 Tokens.RISE = table.freeze({ small = 6, standard = 10, large = 16 })
 
-------------------------------------------------------------------------
 -- Effect maths (sparks, rings, pops, confetti)
-------------------------------------------------------------------------
 
 -- Real effects move under forces: a spark is thrown, air drags it, gravity
 -- bends it down, and it stretches along its path when it's fast. Closed

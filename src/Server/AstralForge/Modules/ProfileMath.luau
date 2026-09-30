@@ -129,7 +129,7 @@ end
 -- Module: SettingsSeal   (merged from SettingsSeal.luau, 12 lines)
 -- ======================================================================
 __defs["SettingsSeal"] = function()
--- Pure settings seal helpers peeled from ServerServices (wave41).
+-- Pure settings seal helpers split out of ServerServices.
 
 local SettingsSeal = {}
 
@@ -146,7 +146,7 @@ end
 -- Module: UnlimitedMoneySeal   (merged from UnlimitedMoneySeal.luau, 14 lines)
 -- ======================================================================
 __defs["UnlimitedMoneySeal"] = function()
--- Pure unlimited-money seal peeled from ServerServices (wave44).
+-- Pure unlimited-money seal split out of ServerServices.
 
 local UnlimitedMoneySeal = {}
 
@@ -165,7 +165,7 @@ end
 -- Module: PublicPlayerRecord   (merged from PublicPlayerRecord.luau, 46 lines)
 -- ======================================================================
 __defs["PublicPlayerRecord"] = function()
--- Pure public player mirror record peeled from ServerServices (wave41).
+-- Pure public player mirror record split out of ServerServices.
 
 local PublicPlayerRecord = {}
 
@@ -216,7 +216,7 @@ end
 -- Module: AutoSalvageSnapshot   (merged from AutoSalvageSnapshot.luau, 30 lines)
 -- ======================================================================
 __defs["AutoSalvageSnapshot"] = function()
--- Pure AutoSalvage / AutoForge snapshot bags peeled from ServerServices (wave45).
+-- Pure AutoSalvage / AutoForge snapshot bags split out of ServerServices.
 
 local AutoSalvageSnapshot = {}
 
@@ -409,7 +409,7 @@ function ItemLoadoutMath.PlanEquipBest(
 	return nextEquipped, equippedCount, changed
 end
 
--- Aggregated item effect multipliers for client rails (wave49).
+-- Aggregated item effect multipliers for client rails.
 function ItemLoadoutMath.EffectsPublic(profile, Economy)
 	return {
 		Production = Economy.ItemEffect(profile, "Production"),
@@ -528,7 +528,7 @@ end
 -- Module: StoryMailSnapshot   (merged from StoryMailSnapshot.luau, 48 lines)
 -- ======================================================================
 __defs["StoryMailSnapshot"] = function()
--- Pure Story/Mail snapshot builders peeled from ServerServices (wave44).
+-- Pure Story/Mail snapshot builders split out of ServerServices.
 
 local StoryMailSnapshot = {}
 
@@ -566,7 +566,7 @@ function StoryMailSnapshot.BuildMailbox(profile, mailMessages, ProgressionGate)
 	return mailState, unreadMail
 end
 
--- Client Mailbox rail bag (wave49).
+-- Client Mailbox rail bag.
 function StoryMailSnapshot.MailboxPublic(messages, unread: number)
 	return {
 		Messages = messages,
@@ -581,7 +581,7 @@ end
 -- Module: VisitSnapshot   (merged from VisitSnapshot.luau, 53 lines)
 -- ======================================================================
 __defs["VisitSnapshot"] = function()
--- Pure visit snapshot builder peeled from ServerServices (wave40 / wave47 Resolve).
+-- Pure visit snapshot builder split out of ServerServices.
 
 local VisitSnapshot = {}
 
@@ -616,7 +616,7 @@ function VisitSnapshot.Build(player: Player, profile, Economy)
 	}
 end
 
--- Resolve visiting host into a Visit bag (wave47). `players` + `getProfile` injected.
+-- Resolve visiting host into a Visit bag. `players` + `getProfile` injected.
 function VisitSnapshot.Resolve(hostUserId: number?, players: { Player }, getProfile: (Player) -> any, Economy): any
 	if hostUserId == nil then
 		return nil
@@ -639,7 +639,7 @@ end
 -- Module: VisitorList   (merged from VisitorList.luau, 26 lines)
 -- ======================================================================
 __defs["VisitorList"] = function()
--- Pure visitor roster builder peeled from ServerServices (wave45).
+-- Pure visitor roster builder split out of ServerServices.
 
 local VisitorList = {}
 
@@ -1258,7 +1258,7 @@ function ShopGrantEligibility.EnsureShop(shop: any, offers: { OfferLike }, utcDa
 	return true
 end
 
--- Monetization catalog rail bag (wave49).
+-- Monetization catalog rail bag.
 function ShopGrantEligibility.CatalogPublic(ownedPasses: any, copyDictionary)
 	return {
 		OwnedPasses = copyDictionary(type(ownedPasses) == "table" and ownedPasses or {}),
@@ -1346,7 +1346,7 @@ function SocialBoost.PublicSnapshot(raw: any, maxBoostedFriends: number, copyDic
 	return copyDictionary(type(raw) == "table" and raw or SocialBoost.DefaultSnapshot(maxBoostedFriends))
 end
 
--- Creator-follow reward rail bag (wave48).
+-- Creator-follow reward rail bag.
 function SocialBoost.CreatorRewardsPublic(raw: any, creatorName: string): any
 	return {
 		CreatorFollowClaimed = type(raw) == "table" and raw.CreatorFollowClaimed == true,

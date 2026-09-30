@@ -1562,7 +1562,7 @@ end
 -- Module: noticeMath   (merged from noticeMath.luau, 39 lines)
 -- ======================================================================
 __defs["noticeMath"] = function()
--- Pure toast/notice helpers peeled from MainGame (wave42). No Roblox services.
+-- Pure toast/notice helpers split out of MainGame. No Roblox services.
 
 local NoticeMath = {}
 
@@ -2214,7 +2214,7 @@ end
 -- Module: snapshotEnvelopeMath   (merged from snapshotEnvelopeMath.luau, 61 lines)
 -- ======================================================================
 __defs["snapshotEnvelopeMath"] = function()
--- Pure snapshot envelope validators peeled from MainGame (wave43). No Roblox services.
+-- Pure snapshot envelope validators split out of MainGame. No Roblox services.
 
 local SnapshotEnvelopeMath = {}
 

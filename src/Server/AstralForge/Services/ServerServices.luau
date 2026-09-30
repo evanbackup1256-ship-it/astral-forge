@@ -4347,7 +4347,7 @@ serviceFactories["GameService"] = function()
 			local anomalyDetails = nil
 
 			if self._data:IsBusy(player) then
-				-- Evidence: long AtomicUpdate busy windows let ProductionAccumulator grow without
+				-- Seen when long AtomicUpdate busy windows let ProductionAccumulator grow without
 				-- applying, then dump an oversized vault fill that can hit Capacity in one tick.
 				local maxCatchUp = GameConfig.Game.ProductionTick * 4
 				if runtime.ProductionAccumulator > maxCatchUp then

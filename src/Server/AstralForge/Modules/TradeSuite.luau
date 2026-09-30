@@ -216,12 +216,12 @@ function TradeDesk:DailyPublic(profile, now: number)
 	}
 end
 
--- Locked / missing desk fallback for client rails (wave47).
+-- Locked / missing desk fallback for client rails.
 function TradeDesk.LockedPublic()
 	return { Unlocked = false, Epoch = 0 }
 end
 
--- Full Trade snapshot bag for client rails (wave47).
+-- Full Trade snapshot bag for client rails.
 function TradeDesk:StatePublic(profile, player: Player, now: number)
 	local ok, result = pcall(function()
 		return {

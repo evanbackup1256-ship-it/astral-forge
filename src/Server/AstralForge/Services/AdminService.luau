@@ -926,7 +926,7 @@ return function(loadService: (string) -> any)
 				profile.CurrentZone = 1
 			elseif command == "GrantEchoCharge" then
 				-- Charge-only / missing ForgeEchoes fixtures must Ensure before +=
-				-- (evidence: bare `if profile.ForgeEchoes then Charge +=` was a silent no-op).
+				-- (seen when bare `if profile.ForgeEchoes then Charge +=` was a silent no-op).
 				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
 				profile.ForgeEchoes = echoes
 				echoes.Charge += math.floor(amount)

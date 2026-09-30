@@ -290,9 +290,7 @@ local function setRunLabel()
 	end
 end
 
-------------------------------------------------------------------------
 -- Touch controls
-------------------------------------------------------------------------
 
 local function roundButton(parent: Instance, name: string, label: string, size: number): TextButton
 	local button = Instance.new("TextButton")
@@ -504,9 +502,7 @@ local function onTouchEnded(input: InputObject)
 	touch.pinchDistance = nil
 end
 
-------------------------------------------------------------------------
 -- Input
-------------------------------------------------------------------------
 
 local function bindInput()
 	track(UserInputService.InputBegan:Connect(function(input, processed)
@@ -598,9 +594,7 @@ local function keyboardMove(): Vector2
 	return Vector2.new(x, y)
 end
 
-------------------------------------------------------------------------
 -- Public
-------------------------------------------------------------------------
 
 -- Begin controlling the character, looking the way `facing` points.
 function Controls.start(facing: Vector3?)
@@ -849,9 +843,7 @@ local function preferGamepad(): boolean
 	return preferred == Enum.PreferredInput.Gamepad or preferred == Enum.PreferredInput.MicroGamepad
 end
 
-------------------------------------------------------------------------
 -- Hooks
-------------------------------------------------------------------------
 
 -- Eases a binding toward `target` over `seconds` on the shared standard curve, starting from
 -- `initial` on mount (default: already at the target). Instant when motion
@@ -1012,9 +1004,7 @@ local function useInArena(): boolean
 	return inArena
 end
 
-------------------------------------------------------------------------
 -- Small pieces
-------------------------------------------------------------------------
 
 local function Panel(props)
 	return e("frame", {
@@ -1125,9 +1115,7 @@ local function IconButton(props)
 	}), props.children)
 end
 
-------------------------------------------------------------------------
 -- Region banner
-------------------------------------------------------------------------
 
 type BannerMessage = { key: number, eyebrow: string, title: string, line: string, accent: Color3 }
 
@@ -1217,9 +1205,7 @@ local function Banner(props)
 	}))
 end
 
-------------------------------------------------------------------------
 -- Ore chips
-------------------------------------------------------------------------
 
 local function OreChip(props)
 	local bump = useEase(props.bumpKey % 2, 0.18, props.reducedMotion)
@@ -1326,9 +1312,7 @@ local function OreChips(props)
 	}, children)
 end
 
-------------------------------------------------------------------------
 -- The Warden bar
-------------------------------------------------------------------------
 
 local function HealthTrack(props)
 	-- The fill follows health quickly; a pale "chip" trails behind it so a
@@ -1445,9 +1429,7 @@ local function WardenBar(props)
 	}), track)
 end
 
-------------------------------------------------------------------------
 -- Strike and recall
-------------------------------------------------------------------------
 
 type Hit = { id: number, text: string, crit: boolean }
 
@@ -1663,9 +1645,7 @@ local function RecallButton(props)
 	}))
 end
 
-------------------------------------------------------------------------
 -- Sheets
-------------------------------------------------------------------------
 
 local function Sheet(props)
 	local plan = props.plan
@@ -1999,9 +1979,7 @@ local function WaystoneSheet(props)
 	}, rows)
 end
 
-------------------------------------------------------------------------
 -- Key hint (mouse and keyboard)
-------------------------------------------------------------------------
 
 local function KeyHint(props)
 	local plan = props.plan
@@ -2021,9 +1999,7 @@ local function KeyHint(props)
 	})
 end
 
-------------------------------------------------------------------------
 -- The HUD
-------------------------------------------------------------------------
 
 local function SanctuaryHud(props)
 	local plan = props.plan
@@ -2915,9 +2891,7 @@ local function vfxPart(name: string, shape: Enum.PartType?, size: Vector3, color
 	return p
 end
 
-------------------------------------------------------------------------
 -- Scenery animation
-------------------------------------------------------------------------
 
 local function entryFor(part: BasePart): AnimEntry
 	local entry = animated[part]
@@ -3006,9 +2980,7 @@ local function stepScenery(t: number, cameraPosition: Vector3)
 	end
 end
 
-------------------------------------------------------------------------
 -- Ore outcrops
-------------------------------------------------------------------------
 
 local function registerNode(model: Instance)
 	if not model:IsA("Model") or nodes[model] ~= nil then
@@ -3212,9 +3184,7 @@ local function onOreCooldowns(payload)
 	end
 end
 
-------------------------------------------------------------------------
 -- The Rift Warden
-------------------------------------------------------------------------
 
 type Piece = { part: BasePart, base: Vector3, spin: Vector3, velocity: Vector3?, tilt: CFrame, transparency: number, childOffset: CFrame }
 
@@ -3578,9 +3548,7 @@ local function stepBoss(dt: number, t: number)
 	Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
 end
 
-------------------------------------------------------------------------
 -- Slams
-------------------------------------------------------------------------
 
 local function ringAdornment(anchor: BasePart, radius: number, inner: number, color: Color3, transparency: number): CylinderHandleAdornment
 	local ring = Instance.new("CylinderHandleAdornment")
@@ -3703,9 +3671,7 @@ local function onStrikeLanded(payload)
 	end
 end
 
-------------------------------------------------------------------------
 -- Regions and waystones
-------------------------------------------------------------------------
 
 local function stepRegion(dt: number)
 	regionClock += dt
@@ -3763,9 +3729,7 @@ local function onArrived(payload)
 	Signals.fire("Arrived", payload)
 end
 
-------------------------------------------------------------------------
 -- Lifecycle
-------------------------------------------------------------------------
 
 function World.start()
 	if active then

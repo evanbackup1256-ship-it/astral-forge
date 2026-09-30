@@ -733,9 +733,7 @@ local function tag(instance: Instance, name: string, attributes: { [string]: any
 	end
 end
 
-------------------------------------------------------------------------
 -- Terrain
-------------------------------------------------------------------------
 
 -- Plateau thickness, and the depth of each underside layer.
 local PLATEAU_DEPTH = 12
@@ -855,9 +853,7 @@ function Builder.BuildTerrain()
 	end
 end
 
-------------------------------------------------------------------------
 -- Kit meshes and effects
-------------------------------------------------------------------------
 
 -- A kit mesh when the model kit is loaded (tools/assetgen), otherwise the
 -- part-built fallback. Either way the result is parented and returned.
@@ -892,9 +888,7 @@ local function halo(p: BasePart, color: Color3, size: number)
 	})
 end
 
-------------------------------------------------------------------------
 -- Bridges
-------------------------------------------------------------------------
 
 local function lamp(parent: Instance, base: Vector3)
 	local height = AssetKit.sized("Lantern", 1)
@@ -944,9 +938,7 @@ function Builder.BuildBridges(folder: Instance)
 	end
 end
 
-------------------------------------------------------------------------
 -- Waystones
-------------------------------------------------------------------------
 
 function Builder.BuildWaystones(folder: Instance)
 	local stones = Instance.new("Folder")
@@ -1011,9 +1003,7 @@ function Builder.BuildWaystones(folder: Instance)
 	end
 end
 
-------------------------------------------------------------------------
 -- Region scenery
-------------------------------------------------------------------------
 
 local ROCKS = { "RockA", "RockB", "RockC" }
 
@@ -1545,9 +1535,7 @@ return function()
 		-- The overlook camera sits ~24 studs behind spawn and ~14 up, so the
 		-- south approach stays low and nothing tall blocks the establishing shot.
 
-		------------------------------------------------------------------
 		-- Causeway: floating slabs with real gaps, so the walk in has rhythm.
-		------------------------------------------------------------------
 		topPart(model, "Part", "CausewayStart", Vector3.new(16, 3.2, 14), Vector3.new(0, 0, 30), 2, PATH, Enum.Material.Slate, true)
 		topPart(model, "Part", "CausewayA", Vector3.new(11, 2.8, 9), Vector3.new(-3.2, 0.25, 21), -7, PATH, Enum.Material.Slate, true)
 		topPart(model, "Part", "CausewayB", Vector3.new(10, 2.8, 8), Vector3.new(3.6, 0.55, 14.5), 9, PATH, Enum.Material.Cobblestone, true)
@@ -1557,9 +1545,7 @@ return function()
 		topPart(model, "Part", "DriftEast", Vector3.new(5, 1.8, 4.5), Vector3.new(11.5, -1.2, 18), 16, ROCK, Enum.Material.Rock, true)
 		topPart(model, "Part", "DriftWest", Vector3.new(4.4, 1.6, 4), Vector3.new(-11.8, -2.4, 12.5), -22, ROCK, Enum.Material.Rock, true)
 
-		------------------------------------------------------------------
 		-- Terrace: the main ring the player actually walks on.
-		------------------------------------------------------------------
 		topPart(model, "Part", "Terrace", Vector3.new(34, 3.4, 30), Vector3.new(0, 1.2, -3), 0, DECK, Enum.Material.Basalt, true)
 		topPart(model, "Part", "TerraceWest", Vector3.new(12, 3.4, 16), Vector3.new(-20, 1.2, -2), 6, DECK, Enum.Material.Basalt, true)
 		topPart(model, "Part", "TerraceEast", Vector3.new(12, 3.4, 16), Vector3.new(20, 1.2, -4), -6, DECK, Enum.Material.Basalt, true)
@@ -1575,9 +1561,7 @@ return function()
 		topPart(model, "Part", "KeelTail", Vector3.new(14, 8, 16), Vector3.new(0, -4.2, 20), 3, DARK, Enum.Material.Rock, true)
 		topPart(model, "Part", "KeelSpike", Vector3.new(7, 16, 7), Vector3.new(-2, -9, -6), 18, DARK, Enum.Material.Basalt, false)
 
-		------------------------------------------------------------------
 		-- Dais and altar at the north end.
-		------------------------------------------------------------------
 		local daisTop = 4.2
 		topPart(model, "Part", "Dais", Vector3.new(20, 3, 16), Vector3.new(0, daisTop, -16), 0, DECK, Enum.Material.Basalt, true)
 		topPart(model, "Part", "DaisStep", Vector3.new(24, 1.5, 4), Vector3.new(0, 2.7, -7.5), 0, LIP, Enum.Material.Slate, true)

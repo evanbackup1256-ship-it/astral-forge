@@ -1438,7 +1438,7 @@ return function()
 			rewardTypeId = nil
 			local now = os.time()
 			-- Persist Claimed/Contributors rebuilds even when the claim is denied
-			-- (evidence: TypeId-matched bags with nil Claimed used to rebuild then
+			-- (seen when TypeId-matched bags with nil Claimed used to rebuild then
 			-- return nil on "not finished", dropping the repair from UpdateAsync).
 			local repaired = ensureGoal(guild, now)
 			local goal = guild.Goal

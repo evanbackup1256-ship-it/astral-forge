@@ -1049,7 +1049,7 @@ function ForgePathClaim.Effect(claimedSteps: any, steps: any, effectKind: string
 	return total / 100
 end
 
--- Forge-path XP awarded when banking flux (wave48). Injected xpConfig from GameConfig.
+-- Forge-path XP awarded when banking flux. Injected xpConfig from GameConfig.
 function ForgePathClaim.XpFromBankedAmount(amountNumber: number, xpConfig: any): number
 	local scale = tonumber(xpConfig and xpConfig.LogScale) or 4
 	local minimum = tonumber(xpConfig and xpConfig.Minimum) or 1
@@ -1136,7 +1136,7 @@ function OfflineProjection.Project(
 	return reward, elapsed, weightedEfficiency / elapsed, capped
 end
 
--- Client Offline rail bag (wave48). Runtime fields optional when session cold.
+-- Client Offline rail bag. Runtime fields optional when session cold.
 function OfflineProjection.PublicSnapshot(args: {
 	runtime: any?,
 	production: any,
@@ -1534,7 +1534,7 @@ function ContinuumDomainMath.SnapshotDomainInts(domain: any): {
 	}
 end
 
--- Full Domain snapshot bag for client rails (wave46). Injects gate/economy helpers.
+-- Full Domain snapshot bag for client rails. Injects gate/economy helpers.
 function ContinuumDomainMath.SnapshotDomainPublic(args: {
 	domain: any,
 	rank: number,
@@ -1586,7 +1586,7 @@ function ContinuumDomainMath.SnapshotDomainPublic(args: {
 	}
 end
 
--- Full Continuum snapshot bag for client rails (wave46).
+-- Full Continuum snapshot bag for client rails.
 function ContinuumDomainMath.SnapshotContinuumPublic(args: {
 	rank: number,
 	totalFluxSpent: any,
@@ -1771,7 +1771,7 @@ function AnomalyOpsMath.RewardMultiplier(
 end
 
 -- Bank Core XP and advance every CoreTier the bag now qualifies for.
--- Evidence: string/non-number CoreXP in Studio fixtures made `(CoreXP or 0) + xp`
+-- Seen when string/non-number CoreXP in Studio fixtures made `(CoreXP or 0) + xp`
 -- concatenate instead of add; tonumber + multi-tier walk keeps Stabilize honest.
 -- Mutates anomaly in place; returns tiers gained.
 function AnomalyOpsMath.ApplyCoreXP(anomaly: any, xp: any, tierConfigs: any): number
@@ -2752,7 +2752,7 @@ function OverchargeCombo.Expired(elapsed: number, comboWindow: number): boolean
 	return elapsed > comboWindow
 end
 
--- Public Overcharge bag for client rails (wave47).
+-- Public Overcharge bag for client rails.
 function OverchargeCombo.PublicSnapshot(args: {
 	combo: number,
 	comboMultiplier: number,
