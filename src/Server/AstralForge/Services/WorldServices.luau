@@ -345,6 +345,8 @@ local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local SanctuaryLayout = require(Shared:WaitForChild("SharedData"))("SanctuaryLayout")
 local Modules = script.Parent.Parent:WaitForChild("Modules")
 local RiftBossMath = require(Modules:WaitForChild("EconomyMath"))("RiftBossMath")
+local BossSanctuaryConfig = require(Shared:WaitForChild("SharedData"))("SanctuaryConfig")
+local InsertService = game:GetService("InsertService")
 local OreMath = require(Modules:WaitForChild("OreMath"))
 local Economy = require(Modules:WaitForChild("EconomyMath"))("Economy")
 local ActionResponse = require(Modules:WaitForChild("ProfileMath"))("ActionResponse")
@@ -385,7 +387,52 @@ function RiftBossService:_arena()
 	return self._host.world:SanctuaryPoint(arena.Center), self._host.world:SanctuaryPoint(arena.Hover), arena.Radius
 end
 
+-- The bosses' VFX meshes (built in Blender, uploaded as one model): load it once and
+-- publish the pieces under their own names for every client to clone from.
+local VFX_MESHES = {
+	"W_RiftTear", "W_VoidClaw", "W_SealGlyph", "C_NoteRing", "C_TuningSpear", "C_ResonanceSpiral",
+	"R_FlameCrown", "R_EmberSpike", "R_FireSpiral", "S_FeatherBlade", "S_HaloSpikes", "S_BoltZig",
+	"I_CrystalCluster", "I_Snowflake", "I_SpikeFan", "K_Crescent", "K_SwordRain", "K_RuneRing",
+}
+
+function RiftBossService:_loadVfxKit()
+	local kit = BossSanctuaryConfig.BossVfxKit
+	if type(kit) ~= "table" or type(kit.Id) ~= "number" or kit.Id <= 0 or ReplicatedStorage:FindFirstChild("BossVfxKit") ~= nil then
+		return
+	end
+	local ok, result = pcall(function()
+		return InsertService:LoadAsset(kit.Id)
+	end)
+	if not ok or typeof(result) ~= "Instance" then
+		warn(`[RiftBoss] couldn't load the boss VFX kit {kit.Id}: {result}. The game owner must own the asset.`)
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "BossVfxKit"
+	for _, item in result:GetDescendants() do
+		if not item:IsA("MeshPart") then
+			continue
+		end
+		for _, name in VFX_MESHES do
+			if string.sub(item.Name, 1, #name) == name and folder:FindFirstChild(name) == nil then
+				local copy = item:Clone()
+				copy.Name = name
+				copy.Anchored = true
+				copy.CanCollide = false
+				copy.CanQuery = false
+				copy.CanTouch = false
+				copy.Parent = folder
+				break
+			end
+		end
+	end
+	folder.Parent = ReplicatedStorage
+	result:Destroy()
+end
 function RiftBossService:Start()
+	task.spawn(function()
+		self:_loadVfxKit()
+	end)
 	local folder = self._host.world:SanctuaryFolder()
 	if folder == nil then
 		warn("[RiftBoss] the sanctuary world was not built; the Warden will not appear")

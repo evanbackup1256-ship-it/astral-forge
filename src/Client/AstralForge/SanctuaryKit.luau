@@ -3539,6 +3539,7 @@ type Boss = {
 	aim: any?,
 	-- Textured mesh body (BOSS_MESHES), filled in a moment after the boss is built.
 	meshPieces: { Piece },
+	meshJoints: { [string]: any },
 }
 
 local boss: Boss? = nil
@@ -4084,6 +4085,7 @@ local function buildBoss(model: Model): Boss
 		rig = rig,
 		aim = nil,
 		meshPieces = {},
+		meshJoints = {},
 	}
 end
 local function destroyBoss()
@@ -4249,19 +4251,199 @@ local function loadMeshBody(current: Boss)
 	appliedHide = -1
 end
 
--- A mesh piece's idle and combat motion: wings beat, arms rise as it charges, the rest
--- breathes.
-local function meshPose(name: string, offset: Vector3, t: number, charge: number): CFrame
-	if name == "blades" then
-		return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.7) * 0.6 + charge * 2, 0)) * CFrame.Angles(0, 0, math.sin(t * 0.9) * 0.18)
+-- The mesh bodies are rigged: every piece belongs to a joint (torso root; head on a neck; arms,
+-- shoulders and gauntlets hanging from shoulder pivots; legs from the hip; wings from the
+-- inner edge; cloaks and coats trailing) and every joint is a spring-driven angle, so the
+-- body leans, winds up, strikes and recoils instead of sliding pieces about. What the body
+-- is doing comes from the same aim/phase/charge the arms and chains use: idle breathing,
+-- the slam raise and strike, a thrust, a pull, a sweep, a floor push, the roar, hit
+-- recoil, the folded-arm forming pose and the defeated collapse.
+local function meshRole(name: string): string
+	if name == "torso" then
+		return "torso"
+	elseif name == "head" then
+		return "head"
 	elseif string.find(name, "wing") ~= nil then
-		local side = if offset.X < 0 then -1 else 1
-		return CFrame.new(offset) * CFrame.Angles(0, 0, side * (math.sin(t * (2.4 + charge * 4)) * 0.16 + charge * 0.2))
-	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil then
-		return CFrame.new(offset + Vector3.new(0, charge * 4 + math.sin(t * 1.3 + offset.X) * 0.35, -charge * 1.5))
+		return "wing"
+	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil or string.find(name, "gauntlet") ~= nil then
+		return "arm"
+	elseif string.find(name, "leg") ~= nil or string.find(name, "hip") ~= nil then
+		return "leg"
+	elseif name == "blades" then
+		return "blades"
 	end
-	return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.1) * 0.2, 0))
+	return "cloth"
 end
+
+local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: number, now: number, charge: number, phase: string, lookDir: Vector3, beamAngle: number?, emit: (Piece, CFrame) -> ())
+	local pieces = current.meshPieces
+	local joints = current.meshJoints
+	local aim = current.aim
+	if aim ~= nil and now > aim.untilAt + 0.9 then
+		current.aim = nil
+		aim = nil
+	end
+	local style = if aim ~= nil then aim.style else "idle"
+	local blow = 0
+	if aim ~= nil then
+		blow = ProcAnim.strike(math.clamp((now - aim.untilAt) / 0.45, 0, 1))
+	end
+	local before = aim ~= nil and now < aim.untilAt
+	local limp = phase == "Defeated"
+	local folded = phase == "Dormant" or phase == "Forming" or phase == "Escaped"
+	local collapse = if limp then math.clamp((t - current.outroStarted) * 0.7, 0, 1) else 0
+
+	-- The torso: where everything else hangs from.
+	local torsoPiece: Piece? = nil
+	for _, piece in pieces do
+		if meshNames[piece.part] == "torso" then
+			torsoPiece = piece
+			break
+		end
+	end
+	local torsoOffset = if torsoPiece ~= nil then torsoPiece.base else Vector3.zero
+	local torsoPitch = math.sin(t * 0.9) * 0.025 - current.flash * 0.22
+	local torsoRoll = math.sin(t * 0.7) * 0.03
+	if style == "slam" then
+		torsoPitch += if before then -0.32 * charge else 0.45 * blow - 0.3 * (1 - blow) * (if aim ~= nil and now - aim.untilAt < 0.5 then 1 else 0)
+	elseif style == "thrust" then
+		torsoPitch += if before then -0.15 else 0.35 * blow
+	elseif style == "pull" then
+		torsoPitch += 0.18 + math.sin(now * 5) * 0.06
+	elseif style == "floor" then
+		torsoPitch += 0.3
+	elseif style == "roar" then
+		torsoPitch += -0.28
+	elseif style == "sweep" then
+		torsoRoll += 0.12
+	end
+	if limp then
+		torsoPitch += 0.65 * collapse
+		torsoRoll += 0.2 * collapse
+	end
+	local torsoJoint = joints.torso
+	if torsoJoint == nil then
+		torsoJoint = { p = 0, pv = 0, r = 0, rv = 0, y = 0, yv = 0 }
+		joints.torso = torsoJoint
+	end
+	torsoJoint.p, torsoJoint.pv = ProcAnim.spring(torsoJoint.p, torsoJoint.pv, torsoPitch, 70, ProcAnim.damping(70, 0.55), dt)
+	torsoJoint.r, torsoJoint.rv = ProcAnim.spring(torsoJoint.r, torsoJoint.rv, torsoRoll, 50, ProcAnim.damping(50, 0.6), dt)
+	local torsoFrame = bodyFrame * CFrame.new(torsoOffset) * CFrame.Angles(torsoJoint.p, 0, torsoJoint.r)
+
+	-- Where the head looks, in the body's own frame (the mesh faces +Z).
+	local meshLook = bodyFrame:VectorToObjectSpace(lookDir)
+	local lookYaw = math.clamp(math.atan2(meshLook.X, meshLook.Z), -0.9, 0.9)
+
+	for _, piece in pieces do
+		local name = meshNames[piece.part] or ""
+		local role = meshRole(name)
+		local offset = piece.base
+		local size = piece.part.Size
+		local side = if offset.X < 0 then -1 else 1
+		local joint = joints[name]
+		if joint == nil then
+			joint = { p = 0, pv = 0, r = 0, rv = 0, y = 0, yv = 0 }
+			joints[name] = joint
+		end
+		local pivot = offset
+		local pitch, roll, yaw = 0, 0, 0
+		local stiff = 90
+		if role == "torso" then
+			emit(piece, torsoFrame * CFrame.new(-torsoOffset) * CFrame.new(torsoOffset))
+			continue
+		elseif role == "head" then
+			pivot = offset - Vector3.new(0, size.Y * 0.4, 0)
+			yaw = if limp or folded then 0 else lookYaw
+			pitch = math.sin(t * 1.3) * 0.04 - (if style == "roar" then 0.5 else 0) + (if limp then 0.7 * collapse else 0) + (if style == "slam" and before then -0.25 * charge else 0)
+			roll = if limp then 0.3 * collapse else 0
+			stiff = 60
+		elseif role == "arm" then
+			pivot = offset + Vector3.new(0, size.Y * 0.4, 0)
+			local index = if side > 0 then 1 else 2
+			local weight = if string.find(name, "shoulder") ~= nil then 0.45 else 1
+			local rest = Vector3.new(-0.08 + math.sin(t * 1.1 + index * 2) * 0.07, 0.14 + math.sin(t * 0.8 + index) * 0.04, 0)
+			pitch, roll = rest.X, side * rest.Y
+			if folded then
+				pitch, roll = -0.75, -side * 0.25
+			elseif limp then
+				pitch, roll = 0.15 * collapse, side * 0.12
+			elseif style == "slam" and aim ~= nil then
+				local striker = index == aim.striker
+				if before then
+					pitch = if striker then -2.35 * charge else -0.7 * charge
+					roll = side * (if striker then 0.1 else 0.35)
+				elseif striker then
+					pitch = -2.35 + (2.35 + 0.35) * blow
+					roll = side * 0.1
+				else
+					pitch, roll = -0.3, side * 0.3
+				end
+			elseif style == "thrust" then
+				if before then
+					pitch, roll = -0.15, side * 1.15
+				else
+					pitch = -1.55 * blow - 0.15 * (1 - blow)
+					roll = side * (1.15 * (1 - blow) + 0.12 * blow)
+				end
+			elseif style == "pull" then
+				local drag = 0.5 + 0.5 * math.sin(now * 5 + index * math.pi)
+				pitch, roll = -1.0 - 0.5 * drag, side * (0.3 - 0.2 * drag)
+			elseif style == "sweep" then
+				if side > 0 then
+					pitch, roll = -1.55, side * 0.05
+				else
+					pitch, roll = -0.4, side * 0.5
+				end
+			elseif style == "floor" then
+				pitch, roll = 0.35 + math.sin(now * 8 + index) * 0.1, side * 0.35
+			elseif style == "roar" then
+				pitch, roll = -0.35, side * 1.3
+			end
+			pitch *= weight
+			roll *= weight
+			stiff = 100
+		elseif role == "leg" then
+			pivot = offset + Vector3.new(0, size.Y * 0.45, 0)
+			local swing = math.sin(t * 1.5 + (if side > 0 then 0 else math.pi)) * 0.12
+			pitch = swing + (if limp then 0.5 * collapse else 0) + (if style == "slam" and before then 0.15 * charge else 0)
+			roll = side * (0.04 + 0.05 * charge)
+			stiff = 55
+		elseif role == "wing" then
+			pivot = Vector3.new(offset.X - side * size.X * 0.45, offset.Y, offset.Z)
+			local flap = math.sin(t * (2.6 + charge * 4)) * 0.2 + 0.12
+			if style == "roar" then
+				flap = 0.7
+			elseif limp then
+				flap = -0.9 * collapse
+			elseif folded then
+				flap = -0.5
+			end
+			roll = side * (flap + charge * 0.3)
+			yaw = -side * (math.sin(t * 1.3) * 0.05 + (if folded then 0.4 else 0))
+			stiff = 40
+		elseif role == "blades" then
+			pivot = torsoOffset
+			yaw = t * 0.55
+			roll = math.sin(t * 0.9) * 0.1
+			pitch = charge * -0.2
+			stiff = 30
+		else
+			-- cloth: trails behind, swaying and lagging the body
+			pivot = offset + Vector3.new(0, size.Y * 0.4, 0)
+			pitch = 0.1 + math.sin(t * 1.4 + offset.Y) * 0.07 + (if style == "slam" and before then -0.12 * charge else 0.0)
+			roll = math.sin(t * 0.9) * 0.05
+			stiff = 22
+		end
+		joint.p, joint.pv = ProcAnim.spring(joint.p, joint.pv, pitch, stiff, ProcAnim.damping(stiff, 0.5), dt)
+		joint.r, joint.rv = ProcAnim.spring(joint.r, joint.rv, roll, stiff, ProcAnim.damping(stiff, 0.5), dt)
+		joint.y, joint.yv = ProcAnim.spring(joint.y, joint.yv, yaw, stiff * 0.7, ProcAnim.damping(stiff * 0.7, 0.6), dt)
+		local local0 = CFrame.new(offset - torsoOffset)
+		local pivotLocal = pivot - torsoOffset
+		local frame = torsoFrame * CFrame.new(pivotLocal) * CFrame.Angles(joint.p, joint.y, joint.r) * CFrame.new(-pivotLocal) * local0
+		emit(piece, frame)
+	end
+end
+
 -- Rift tethers (beams from the arena pillars to the seal, built by the
 -- server) light up while the Warden is forming or fighting.
 local tethersOn = false
@@ -4518,14 +4700,25 @@ local function elementBurst(element: any, center: Vector3, radius: number)
 		Vfx.burst(up, "Smoke", 18, { Color = Color3.fromRGB(25, 10, 50) }, clientFolder)
 	end
 end
--- Dialogue: a caption box low on the screen, the speaker's name in their colour, and the
--- line typed out. One line at a time; a new line replaces the last.
+-- Dialogue: a caption box low on the screen with the speaker's name in their colour and the
+-- line acted out glyph by glyph. Lines carry markup (see tools/assetgen/boss_dialogue.py):
+-- [shake] [wave] [glitch] [pulse] [hot] [big] [whisper] [slow] [/] and [beat]. When the line
+-- has a voice, each word appears at the moment it is spoken (SanctuaryConfig.BossVoiceTiming,
+-- driven by the sound's own TimePosition); otherwise it types out with pauses at the
+-- punctuation. One line at a time; a new line replaces the last.
+local TextService = game:GetService("TextService")
 local speechGui: ScreenGui? = nil
 local speechBox: Frame? = nil
 local speechName: TextLabel? = nil
-local speechText: TextLabel? = nil
+local speechText: Frame? = nil
 local speechStroke: UIStroke? = nil
 local speechSeq = 0
+
+local SPEECH_FONT = Enum.Font.GothamMedium
+local SPEECH_BOLD = Enum.Font.GothamBold
+local SPEECH_SIZE = 21
+local SPEECH_LINE = 30
+local GLITCH_CHARS = "#@%&01!?/\\<>*"
 
 local function ensureSpeech(): boolean
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -4551,7 +4744,7 @@ local function ensureSpeech(): boolean
 	box.Active = false
 	box.Visible = false
 	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(720, 120)
+	limit.MaxSize = Vector2.new(760, 260)
 	limit.MinSize = Vector2.new(240, 80)
 	limit.Parent = box
 	local corner = Instance.new("UICorner")
@@ -4570,89 +4763,363 @@ local function ensureSpeech(): boolean
 	name.TextSize = 14
 	name.TextXAlignment = Enum.TextXAlignment.Left
 	name.Parent = box
-	local text = Instance.new("TextLabel")
-	text.Name = "Line"
-	text.BackgroundTransparency = 1
-	text.Position = UDim2.new(0, 16, 0, 30)
-	text.Size = UDim2.new(1, -32, 1, -38)
-	text.Font = Enum.Font.GothamMedium
-	text.TextSize = 19
-	text.TextColor3 = Color3.fromRGB(240, 240, 250)
-	text.TextWrapped = true
-	text.TextXAlignment = Enum.TextXAlignment.Left
-	text.TextYAlignment = Enum.TextYAlignment.Top
-	text.Parent = box
+	local glyphs = Instance.new("Frame")
+	glyphs.Name = "Glyphs"
+	glyphs.BackgroundTransparency = 1
+	glyphs.Position = UDim2.new(0, 16, 0, 32)
+	glyphs.Size = UDim2.new(1, -32, 1, -40)
+	glyphs.Active = false
+	glyphs.Parent = box
 	box.Parent = gui
 	gui.Parent = playerGui
-	speechGui, speechBox, speechName, speechText, speechStroke = gui, box, name, text, stroke
+	speechGui, speechBox, speechName, speechText, speechStroke = gui, box, name, glyphs, stroke
 	return true
 end
 
 -- The boss's voice for a line, if one has been uploaded (tools/assetgen/upload_voice.py).
 -- One at a time: a new line cuts off the last, like the subtitle does.
 local voiceSound: Sound? = nil
-local function playVoice(line: string)
+
+local function stopVoice()
 	if voiceSound ~= nil then
 		voiceSound:Destroy()
 		voiceSound = nil
 	end
-	local voiceId = SanctuaryConfig.BossVoice and SanctuaryConfig.BossVoice[line]
-	if type(voiceId) ~= "number" or voiceId <= 0 or speechGui == nil then
-		return
+end
+
+-- How long a line takes to say: its voice's length, or an estimate from its length.
+local function lineSeconds(line: string): number
+	local timing = SanctuaryConfig.BossVoiceTiming and SanctuaryConfig.BossVoiceTiming[line]
+	if timing ~= nil and type(timing.d) == "number" then
+		return timing.d
 	end
-	local sound = Instance.new("Sound")
-	sound.Name = "BossVoice"
-	sound.SoundId = `rbxassetid://{voiceId}`
-	sound.Volume = 1.1
-	sound.RollOffMode = Enum.RollOffMode.InverseTapered
-	sound.Parent = speechGui
-	sound.Ended:Once(function()
-		if voiceSound == sound then
-			voiceSound = nil
+	local plain = string.gsub(line, "%[/?%w*%]", "")
+	return 0.9 + (utf8.len(plain) or #plain) * 0.06
+end
+
+type Spec = { char: string, fx: { [string]: boolean } }
+
+-- Marked-up text -> one spec per visible character, and the indexes a [beat] follows.
+local function parseSpeech(line: string): ({ Spec }, { [number]: boolean })
+	local specs: { Spec } = {}
+	local beats: { [number]: boolean } = {}
+	local active: { string } = {}
+	local function emit(chunk: string)
+		if chunk == "" then
+			return
 		end
-		sound:Destroy()
-	end)
-	voiceSound = sound
-	sound:Play()
+		local fx: { [string]: boolean } = {}
+		for _, name in active do
+			fx[name] = true
+		end
+		for _, code in utf8.codes(chunk) do
+			table.insert(specs, { char = utf8.char(code), fx = fx })
+		end
+	end
+	local position = 1
+	while true do
+		local from, to, slash, tag = string.find(line, "%[(/?)(%w*)%]", position)
+		if from == nil then
+			emit(string.sub(line, position))
+			break
+		end
+		emit(string.sub(line, position, from - 1))
+		position = to + 1
+		if tag == "beat" then
+			beats[#specs] = true
+		elseif slash == "/" then
+			table.remove(active)
+		elseif tag ~= "" then
+			table.insert(active, tag)
+		end
+	end
+	return specs, beats
+end
+
+local widthCache: { [string]: number } = {}
+local function glyphWidth(char: string, size: number, font: Enum.Font): number
+	local key = `{char}|{size}|{font.Value}`
+	local cached = widthCache[key]
+	if cached == nil then
+		if char == " " then
+			cached = TextService:GetTextSize("a a", size, font, Vector2.new(1e4, 1e4)).X - TextService:GetTextSize("aa", size, font, Vector2.new(1e4, 1e4)).X
+		else
+			cached = TextService:GetTextSize(char, size, font, Vector2.new(1e4, 1e4)).X
+		end
+		widthCache[key] = cached
+	end
+	return cached
 end
 
 local function say(speaker: string, line: string, color: Color3?)
 	if not ensureSpeech() then
 		return
 	end
-	playVoice(line)
-	local box, name, text, stroke = speechBox :: Frame, speechName :: TextLabel, speechText :: TextLabel, speechStroke :: UIStroke
+	local box, name, container, stroke = speechBox :: Frame, speechName :: TextLabel, speechText :: Frame, speechStroke :: UIStroke
 	speechSeq += 1
 	local seq = speechSeq
+	stopVoice()
 	local accent = color or Color3.new(1, 1, 1)
 	name.Text = string.upper(speaker)
 	name.TextColor3 = accent
 	stroke.Color = accent
-	text.Text = line
-	text.MaxVisibleGraphemes = 0
+	container:ClearAllChildren()
+
+	local specs, beats = parseSpeech(line)
+	local count = #specs
+
+	-- Words and their schedule. With a voice every word has a start time; otherwise glyphs
+	-- type out at a pace that suits their effect, pausing at punctuation and [beat].
+	local timing = SanctuaryConfig.BossVoiceTiming and SanctuaryConfig.BossVoiceTiming[line]
+	local voiceId = SanctuaryConfig.BossVoice and SanctuaryConfig.BossVoice[line]
+	local words: { { first: number, last: number } } = {}
+	local inWord = false
+	for index, spec in specs do
+		if spec.char:match("%s") then
+			inWord = false
+		elseif not inWord then
+			inWord = true
+			table.insert(words, { first = index, last = index })
+		else
+			words[#words].last = index
+		end
+	end
+	local times: { number } = table.create(count, 0)
+	local synced = false
+	if timing ~= nil and type(timing.w) == "table" and #timing.w == #words and #words > 0 then
+		synced = true
+		for wordIndex, word in words do
+			local start = timing.w[wordIndex]
+			local nextStart = timing.w[wordIndex + 1] or math.min(timing.d or start + 0.6, start + 0.7)
+			local span = math.max(0.12, nextStart - start) * 0.82
+			local length = word.last - word.first + 1
+			for index = word.first, word.last do
+				times[index] = start + span * (index - word.first) / length
+			end
+		end
+	else
+		local clock = 0.15
+		for index, spec in specs do
+			times[index] = clock
+			local fx = spec.fx
+			local pace = if fx.slow then 0.075 elseif fx.whisper then 0.05 elseif fx.shake or fx.big then 0.026 else 0.034
+			clock += pace
+			if spec.char:match("[,;:]") then
+				clock += 0.13
+			elseif spec.char:match("[%.!%?…]") then
+				clock += 0.28
+			end
+			if beats[index] then
+				clock += 0.4
+			end
+		end
+	end
+
+	-- Layout: wrap by words, each glyph its own label so effects can move it.
+	local maxWidth = math.max(200, (if box.AbsoluteSize.X > 0 then box.AbsoluteSize.X else 640) - 32)
+	local glyphList: { { label: TextLabel, x: number, y: number, at: number, fx: { [string]: boolean }, char: string, size: number, seed: number, base: Color3, w: number } } = {}
+	local penX, penY = 0, 0
+	local function place(spec: Spec, index: number)
+		local fx = spec.fx
+		local size = if fx.big then math.floor(SPEECH_SIZE * 1.35) elseif fx.whisper then SPEECH_SIZE - 3 else SPEECH_SIZE
+		local font = if fx.big or fx.shake or fx.hot then SPEECH_BOLD else SPEECH_FONT
+		local width = glyphWidth(spec.char, size, font)
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromOffset(math.ceil(width) + 2, size + 6)
+		label.Position = UDim2.fromOffset(penX, penY)
+		label.Font = font
+		label.TextSize = size
+		label.Text = spec.char
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextTransparency = 1
+		local base = if fx.hot or fx.pulse or fx.big then accent:Lerp(Color3.new(1, 1, 1), 0.25) else Color3.fromRGB(240, 240, 250)
+		label.TextColor3 = base
+		if fx.hot or fx.big or fx.glitch then
+			label.TextStrokeColor3 = accent
+			label.TextStrokeTransparency = 0.7
+		end
+		label.Parent = container
+		table.insert(glyphList, { label = label, x = penX, y = penY, at = times[index], fx = fx, char = spec.char, size = size, seed = math.random() * 100, base = base, w = width })
+		penX += width
+	end
+	local index = 1
+	while index <= count do
+		local spec = specs[index]
+		if spec.char:match("%s") then
+			place(spec, index)
+			index += 1
+		else
+			-- Measure the whole word to decide whether it fits on this row.
+			local stop = index
+			local length = 0
+			while stop <= count and not specs[stop].char:match("%s") do
+				local fx = specs[stop].fx
+				local size = if fx.big then math.floor(SPEECH_SIZE * 1.35) elseif fx.whisper then SPEECH_SIZE - 3 else SPEECH_SIZE
+				length += glyphWidth(specs[stop].char, size, if fx.big or fx.shake or fx.hot then SPEECH_BOLD else SPEECH_FONT)
+				stop += 1
+			end
+			if penX > 0 and penX + length > maxWidth then
+				penX = 0
+				penY += SPEECH_LINE
+			end
+			for cursor = index, stop - 1 do
+				place(specs[cursor], cursor)
+			end
+			index = stop
+		end
+	end
+	local rows = math.floor(penY / SPEECH_LINE) + 1
+	local height = 42 + rows * SPEECH_LINE
+	box.Size = UDim2.new(0.6, 0, 0, math.max(96, height))
 	box.BackgroundTransparency = 0.25
 	box.Visible = true
-	task.spawn(function()
-		local count = utf8.len(line) or #line
-		local each = math.clamp(1.1 / math.max(1, count), 0.012, 0.035)
-		for shown = 1, count do
-			if speechSeq ~= seq or text.Parent == nil then
+
+	-- A line with shouted words slams the box and flares the border.
+	local shouted = false
+	for _, spec in specs do
+		if spec.fx.shake or spec.fx.big then
+			shouted = true
+			break
+		end
+	end
+
+	local total = (times[count] or 0) + 0.5
+	if timing ~= nil and type(timing.d) == "number" then
+		total = math.max(total, timing.d)
+	end
+	local startedAt = os.clock()
+	local rest = box.Position
+	local lastBlip = 0
+	local connection: RBXScriptConnection? = nil
+
+	local function begin()
+		startedAt = os.clock()
+		connection = RunService.RenderStepped:Connect(function()
+			if speechSeq ~= seq or container.Parent == nil then
+				if connection ~= nil then
+					connection:Disconnect()
+				end
 				return
 			end
-			text.MaxVisibleGraphemes = shown
-			task.wait(each)
+			local now = os.clock()
+			local clock = now - startedAt
+			local voice = voiceSound
+			if synced and voice ~= nil and voice.IsPlaying then
+				clock = voice.TimePosition
+			end
+			for _, glyph in glyphList do
+				local age = clock - glyph.at
+				local label = glyph.label
+				if age < 0 then
+					continue
+				end
+				local fx = glyph.fx
+				local settle = math.clamp(age / 0.14, 0, 1)
+				local dx, dy = 0, (settle - 1) * 7
+				local transparency = 1 - settle
+				if fx.whisper then
+					transparency = math.max(transparency, 0.45)
+				end
+				if fx.shake then
+					dx += (math.noise(now * 31, glyph.seed) * 2) * 2.2
+					dy += (math.noise(glyph.seed, now * 29) * 2) * 2.2
+				end
+				if fx.wave then
+					dy += math.sin(now * 4.2 + glyph.x * 0.025) * 4
+				end
+				if fx.pulse then
+					transparency = math.max(transparency, 0.25 * (1 + math.sin(now * 5 + glyph.seed)) * 0.5 * settle)
+				end
+				if fx.big then
+					label.TextSize = math.floor(glyph.size * (1 + (1 - settle) * 0.7))
+				end
+				if fx.glitch then
+					if math.noise(now * 9, glyph.seed) > 0.25 and settle >= 1 then
+						local pick = math.random(#GLITCH_CHARS)
+						label.Text = string.sub(GLITCH_CHARS, pick, pick)
+						label.TextColor3 = if math.random() < 0.5 then Color3.fromRGB(80, 255, 240) else Color3.fromRGB(255, 70, 160)
+						dx += math.random(-2, 2)
+					else
+						label.Text = glyph.char
+						label.TextColor3 = glyph.base
+					end
+				end
+				label.Position = UDim2.fromOffset(glyph.x + dx, glyph.y + dy)
+				label.TextTransparency = transparency
+			end
+			-- A shouted line shakes the box as it lands.
+			if shouted and clock < 0.45 then
+				local power = (1 - clock / 0.45) * 5
+				box.Position = rest + UDim2.fromOffset(math.noise(now * 40, 1) * power * 2, math.noise(2, now * 40) * power * 2)
+				stroke.Transparency = 0.1 + clock
+			elseif shouted then
+				box.Position = rest
+				stroke.Transparency = 0.45
+			end
+			-- Without a voice, a soft tick under every few glyphs.
+			if voice == nil and not synced then
+				local shown = 0
+				for _, glyph in glyphList do
+					if clock >= glyph.at then
+						shown += 1
+					end
+				end
+				if shown > lastBlip and shown % 3 == 0 and now - lastBlip > 0.05 then
+					lastBlip = shown
+					Audio:play("tick")
+				end
+			end
+		end)
+	end
+
+	-- Fetch the voice first (when there is one) so the text and the sound start together.
+	task.spawn(function()
+		if type(voiceId) == "number" and voiceId > 0 and speechGui ~= nil then
+			local sound = Instance.new("Sound")
+			sound.Name = "BossVoice"
+			sound.SoundId = `rbxassetid://{voiceId}`
+			sound.Volume = 1.2
+			sound.Parent = speechGui
+			local deadline = os.clock() + 2.5
+			while not sound.IsLoaded and os.clock() < deadline and speechSeq == seq do
+				task.wait()
+			end
+			if speechSeq ~= seq then
+				sound:Destroy()
+				return
+			end
+			if sound.IsLoaded then
+				voiceSound = sound
+				sound.Ended:Once(function()
+					if voiceSound == sound then
+						voiceSound = nil
+					end
+					sound:Destroy()
+				end)
+				sound:Play()
+			else
+				sound:Destroy()
+				synced = false
+			end
+		else
+			synced = false
 		end
-		text.MaxVisibleGraphemes = -1
-	end)
-	task.delay(1.8 + (utf8.len(line) or #line) * 0.05, function()
-		if speechSeq == seq and box.Parent ~= nil then
-			box.Visible = false
+		if speechSeq ~= seq then
+			return
 		end
+		begin()
+		task.delay(total + 1.6, function()
+			if speechSeq == seq and box.Parent ~= nil then
+				box.Visible = false
+				box.Position = rest
+			end
+		end)
 	end)
 end
-
 local function clearFx()
 	speechSeq += 1
+	stopVoice()
 	for _, gui in { speechGui, flashGui } do
 		if gui ~= nil then
 			gui:Destroy()
@@ -4774,17 +5241,21 @@ local function near(current: Boss): boolean
 	return root ~= nil and (root.Position - current.anchor.Position).Magnitude < 300
 end
 
-local function speakLines(current: Boss, key: string, startAt: number, gap: number)
+-- Lines play one after another, each starting when the last has been said (its voice's length
+-- plus a breath), so a spoken line is never cut off by the next.
+local function speakLines(current: Boss, key: string, startAt: number, _gap: number)
 	local lines = current.config.Dialogue[key]
 	if lines == nil then
 		return
 	end
-	for index, line in lines do
-		task.delay(startAt + (index - 1) * gap, function()
+	local at = startAt
+	for _, line in lines do
+		task.delay(at, function()
 			if boss == current and near(current) then
 				say(current.config.Name, line, pal.Hot)
 			end
 		end)
+		at += lineSeconds(line) + 0.7
 	end
 end
 
@@ -5266,10 +5737,7 @@ local function stepBoss(dt: number, t: number)
 		end
 	end
 	if #current.meshPieces > 0 then
-		local bodyFrame = rig.root.CFrame * CFrame.Angles(0, math.pi, 0)
-		for _, piece in current.meshPieces do
-			place(piece, bodyFrame * meshPose(meshNames[piece.part] or "", piece.base, t, charge))
-		end
+		meshSkeleton(current, rig.root.CFrame * CFrame.Angles(0, math.pi, 0), t, dt, now, charge, phase, lookDir, beamAngle, place)
 	end
 	Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
 end
@@ -5295,6 +5763,221 @@ local function worldPoint(p: any): Vector3
 	return Vector3.new(tonumber(p and p.X) or 0, tonumber(p and p.Y) or 0, tonumber(p and p.Z) or 0)
 end
 
+-- Each boss's own VFX: meshes modelled in Blender (tools/assetgen/blender_bossvfx.py), published
+-- by the server as ReplicatedStorage.BossVfxKit, animated here. Nothing is shared between
+-- bosses: the Warden tears rifts and drops a seal glyph, the Choir rings out notes and falls
+-- tuning spears, the Regent erupts flame crowns and horns, the Seraph forks lightning with
+-- feather blades, the Rime grows crystal clusters and snowflakes, the Knight cuts crescents
+-- and rains swords. BossVfx.* return false when the kit is not loaded so the caller can fall
+-- back to plain particles.
+local BossVfx = { active = {}, connection = nil :: RBXScriptConnection? }
+
+function BossVfx.template(name: string): MeshPart?
+	local folder = ReplicatedStorage:FindFirstChild("BossVfxKit")
+	local item = if folder ~= nil then folder:FindFirstChild(name) else nil
+	return if item ~= nil and item:IsA("MeshPart") then item else nil
+end
+
+-- One animated mesh. `update(entry, k)` runs every frame with k from 0 to 1 over `life`; the
+-- default fades it out. entry.base is the size it was given; entry.cf where it was put.
+function BossVfx.spawn(name: string, cf: CFrame, size: number, color: Color3, life: number, update: ((any, number) -> ())?, material: Enum.Material?): MeshPart?
+	local template = BossVfx.template(name)
+	if template == nil or #BossVfx.active > 60 then
+		return nil
+	end
+	local part = template:Clone()
+	local native = template.Size
+	part.Size = native * (size / math.max(native.X, native.Y, native.Z, 0.01))
+	part.CFrame = cf
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Color = color
+	part.Material = material or Enum.Material.Neon
+	part.Transparency = 0.1
+	part.Parent = clientFolder
+	table.insert(BossVfx.active, { part = part, base = part.Size, cf = cf, born = os.clock(), life = math.max(0.05, life), update = update })
+	if BossVfx.connection == nil then
+		BossVfx.connection = RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			local list = BossVfx.active
+			for index = #list, 1, -1 do
+				local entry = list[index]
+				local k = (now - entry.born) / entry.life
+				if k >= 1 or entry.part.Parent == nil then
+					entry.part:Destroy()
+					table.remove(list, index)
+				elseif entry.update ~= nil then
+					entry.update(entry, k)
+				else
+					entry.part.Transparency = 0.1 + 0.9 * k * k
+				end
+			end
+			if #list == 0 and BossVfx.connection ~= nil then
+				BossVfx.connection:Disconnect()
+				BossVfx.connection = nil
+			end
+		end)
+	end
+	return part
+end
+
+local function floorAt(center: Vector3): Vector3
+	return Vector3.new(center.X, center.Y, center.Z)
+end
+
+-- Grow from a fraction of the size to full, easing out, then fade over the last part.
+local function growFade(from: number, spin: number, fadeFrom: number?)
+	return function(entry, k)
+		local ease = 1 - (1 - math.min(k * 1.6, 1)) ^ 3
+		entry.part.Size = entry.base * (from + (1 - from) * ease)
+		entry.part.CFrame = entry.cf * CFrame.Angles(0, spin * k, 0)
+		local start = fadeFrom or 0.35
+		entry.part.Transparency = 0.1 + 0.9 * math.clamp((k - start) / (1 - start), 0, 1)
+	end
+end
+
+-- The wind-up: something shaped like this boss's power builds where the blow will land.
+function BossVfx.cast(kind: string, center: Vector3, radius: number, seconds: number): boolean
+	if BossVfx.template("W_RiftTear") == nil then
+		return false
+	end
+	local c1, c2 = pal.Primary, pal.Hot
+	local floor = floorAt(center) + Vector3.new(0, 0.4, 0)
+	local life = math.max(0.3, seconds)
+	if kind == "Warden" then
+		BossVfx.spawn("W_SealGlyph", CFrame.new(floor), radius * 2.1, c1, life, function(entry, k)
+			entry.part.Size = entry.base * (0.4 + 0.6 * k)
+			entry.part.CFrame = entry.cf * CFrame.Angles(0, k * 5, 0)
+			entry.part.Transparency = 0.55 - 0.4 * k
+		end)
+	elseif kind == "Choir" then
+		BossVfx.spawn("C_ResonanceSpiral", CFrame.new(floor), radius * 2.2, c2, life, function(entry, k)
+			entry.part.Size = entry.base * (1.2 - 0.55 * k)
+			entry.part.CFrame = entry.cf * CFrame.Angles(0, -k * 9, 0)
+			entry.part.Transparency = 0.5 - 0.3 * k
+		end)
+	elseif kind == "Regent" then
+		BossVfx.spawn("R_FireSpiral", CFrame.new(floor + Vector3.new(0, radius * 0.5, 0)), radius * 1.3, c1, life, function(entry, k)
+			entry.part.Size = Vector3.new(entry.base.X, entry.base.Y * (0.2 + 0.8 * k), entry.base.Z) * (0.6 + 0.4 * k)
+			entry.part.CFrame = entry.cf * CFrame.Angles(0, k * 12, 0)
+			entry.part.Transparency = 0.45 - 0.3 * k
+		end)
+	elseif kind == "Seraph" then
+		for index = 1, 4 do
+			BossVfx.spawn("S_FeatherBlade", CFrame.new(floor + Vector3.new(0, 22, 0)), radius * 1.1, c2, life, function(entry, k)
+				local angle = index / 4 * math.pi * 2 + k * 7
+				local pull = 1 - 0.8 * k
+				local position = floor + Vector3.new(math.cos(angle) * radius * 0.9 * pull, 22 - 18 * k, math.sin(angle) * radius * 0.9 * pull)
+				entry.part.CFrame = CFrame.lookAt(position, floor) * CFrame.Angles(0, math.pi / 2, 0)
+				entry.part.Transparency = 0.5 - 0.35 * k
+			end)
+		end
+	elseif kind == "Rime" then
+		BossVfx.spawn("I_SpikeFan", CFrame.new(floor + Vector3.new(0, 3, 0)) * CFrame.Angles(math.pi / 2, 0, 0), radius * 1.5, c1, life, function(entry, k)
+			entry.part.Size = entry.base * (0.2 + 0.8 * math.min(1, k * 1.4))
+			entry.part.CFrame = entry.cf * CFrame.Angles(0, 0, k * 3)
+			entry.part.Transparency = 0.5 - 0.3 * k
+		end)
+	elseif kind == "Knight" then
+		for index = 1, 3 do
+			local offset = Vector3.new(math.cos(index * 2.1) * radius * 0.45, 0, math.sin(index * 2.1) * radius * 0.45)
+			BossVfx.spawn("K_SwordRain", CFrame.new(floor + offset + Vector3.new(0, 60, 0)) * CFrame.Angles(math.pi, 0, 0), 15, c2, life + 0.35, function(entry, k)
+				local fall = math.clamp((k * (life + 0.35) - (life - 0.55 + index * 0.1)) / 0.45, 0, 1)
+				entry.part.CFrame = CFrame.new(floor + offset + Vector3.new(0, 60 - 54 * fall * fall, 0)) * CFrame.Angles(math.pi, k * 2, 0)
+				entry.part.Transparency = if fall > 0 then 0.1 else 0.7
+			end, Enum.Material.Neon)
+		end
+	else
+		return false
+	end
+	return true
+end
+
+-- The blow lands.
+function BossVfx.land(kind: string, center: Vector3, radius: number): boolean
+	if BossVfx.template("W_RiftTear") == nil then
+		return false
+	end
+	local c1, c2, c3 = pal.Primary, pal.Hot, pal.Alert
+	local floor = floorAt(center) + Vector3.new(0, 0.5, 0)
+	if kind == "Warden" then
+		BossVfx.spawn("W_RiftTear", CFrame.new(floor), radius * 2.6, c1, 0.8, growFade(0.25, 1.6))
+		for index = 1, 3 do
+			local angle = index / 3 * math.pi * 2
+			BossVfx.spawn("W_VoidClaw", CFrame.new(floor + Vector3.new(0, radius * 0.4, 0)) * CFrame.Angles(0, angle, 0), radius * 1.1, c2, 0.9, function(entry, k)
+				local rise = math.min(1, k * 3)
+				entry.part.Size = Vector3.new(entry.base.X, entry.base.Y * (0.15 + 0.85 * rise), entry.base.Z)
+				entry.part.CFrame = entry.cf * CFrame.Angles(0, k * 2.2, 0)
+				entry.part.Transparency = 0.1 + 0.9 * math.clamp((k - 0.5) * 2, 0, 1)
+			end)
+		end
+		Vfx.burst(floor + Vector3.new(0, 2, 0), "Implode", 1, { Color = c1, Color2 = c2, Size = NumberSequence.new(radius * 1.2, 2) }, clientFolder)
+	elseif kind == "Choir" then
+		BossVfx.spawn("C_NoteRing", CFrame.new(floor), radius * 2.6, c2, 0.9, growFade(0.2, -1.2, 0.3))
+		for index = 1, 5 do
+			local angle = index / 5 * math.pi * 2 + math.random()
+			local spot = floor + Vector3.new(math.cos(angle) * radius * 0.55, 0, math.sin(angle) * radius * 0.55)
+			local delay = index * 0.05
+			BossVfx.spawn("C_TuningSpear", CFrame.new(spot + Vector3.new(0, 38, 0)) * CFrame.Angles(math.pi, 0, 0), 12, c1, 1.1, function(entry, k)
+				local fall = math.clamp((k * 1.1 - delay) / 0.16, 0, 1)
+				entry.part.CFrame = CFrame.new(spot + Vector3.new(0, 38 - 32 * fall, 0)) * CFrame.Angles(math.pi, angle, 0)
+				entry.part.Transparency = 0.1 + 0.9 * math.clamp((k - 0.55) / 0.45, 0, 1)
+			end)
+		end
+	elseif kind == "Regent" then
+		BossVfx.spawn("R_FlameCrown", CFrame.new(floor + Vector3.new(0, 2.5, 0)), radius * 2.2, c1, 0.85, function(entry, k)
+			entry.part.Size = entry.base * (0.3 + 0.7 * math.min(1, k * 2.2))
+			entry.part.CFrame = entry.cf * CFrame.Angles(0, k * 3, 0)
+			entry.part.Transparency = 0.1 + 0.9 * math.clamp((k - 0.4) / 0.6, 0, 1)
+		end)
+		for index = 1, 4 do
+			local angle = index / 4 * math.pi * 2 + math.random() * 0.5
+			local spot = floor + Vector3.new(math.cos(angle) * radius * 0.5, 0, math.sin(angle) * radius * 0.5)
+			BossVfx.spawn("R_EmberSpike", CFrame.new(spot + Vector3.new(0, radius * 0.35, 0)) * CFrame.Angles(0, -angle, math.rad(-18)), radius * 0.9, c3, 0.8, function(entry, k)
+				local rise = math.min(1, k * 4)
+				entry.part.Size = Vector3.new(entry.base.X, entry.base.Y * (0.1 + 0.9 * rise), entry.base.Z)
+				entry.part.Transparency = 0.1 + 0.9 * math.clamp((k - 0.45) / 0.55, 0, 1)
+			end)
+		end
+	elseif kind == "Seraph" then
+		BossVfx.spawn("S_BoltZig", CFrame.new(floor + Vector3.new(0, 30, 0)), 64, c2, 0.3, function(entry, k)
+			entry.part.Size = entry.base * Vector3.new(1.5 - k, 1, 1.5 - k)
+			entry.part.Transparency = 0.0 + math.clamp(k * 1.3 - 0.2, 0, 1)
+		end)
+		BossVfx.spawn("S_HaloSpikes", CFrame.new(floor), radius * 2.4, c1, 0.6, growFade(0.15, 4, 0.2))
+	elseif kind == "Rime" then
+		BossVfx.spawn("I_CrystalCluster", CFrame.new(floor + Vector3.new(0, radius * 0.45, 0)), radius * 1.1, c2, 1.5, function(entry, k)
+			local grow = 1 - (1 - math.min(1, k * 5)) ^ 2
+			entry.part.Size = Vector3.new(entry.base.X, entry.base.Y * grow, entry.base.Z)
+			entry.part.CFrame = CFrame.new(entry.cf.Position - Vector3.new(0, entry.base.Y * (1 - grow) * 0.5, 0)) * entry.cf.Rotation
+			entry.part.Transparency = 0.1 + 0.9 * math.clamp((k - 0.65) / 0.35, 0, 1)
+		end, Enum.Material.Glass)
+		BossVfx.spawn("I_Snowflake", CFrame.new(floor), radius * 2.6, c1, 1.0, growFade(0.2, 0.8, 0.4))
+	elseif kind == "Knight" then
+		local yaw = math.random() * math.pi
+		BossVfx.spawn("K_Crescent", CFrame.new(floor + Vector3.new(0, radius * 0.5, 0)) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(math.pi / 2, 0, math.rad(math.random(-20, 20))), radius * 2.6, c2, 0.35, function(entry, k)
+			entry.part.Size = entry.base * (0.5 + 0.9 * math.min(1, k * 3))
+			entry.part.Transparency = 0.0 + math.clamp(k * 1.2 - 0.1, 0, 1)
+		end)
+		BossVfx.spawn("K_RuneRing", CFrame.new(floor), radius * 2.4, c1, 0.9, growFade(0.5, -2, 0.3))
+	else
+		return false
+	end
+	return true
+end
+
+-- A flat ring of the boss's own shape, for summons, blasts and phase changes.
+function BossVfx.ring(kind: string, at: Vector3, size: number, color: Color3): boolean
+	local name = ({ Warden = "W_SealGlyph", Choir = "C_NoteRing", Regent = "R_FlameCrown", Seraph = "S_HaloSpikes", Rime = "I_Snowflake", Knight = "K_RuneRing" })[kind]
+	if name == nil or BossVfx.template(name) == nil then
+		return false
+	end
+	BossVfx.spawn(name, CFrame.new(at + Vector3.new(0, 0.6, 0)), size, color, 1.0, growFade(0.2, 2.5, 0.3))
+	return true
+end
 local function onSlam(payload)
 	if type(payload) ~= "table" then
 		return
@@ -5306,6 +5989,9 @@ local function onSlam(payload)
 	setAim("slam", center, detonateAt)
 	if not (type(payload.Element) == "string" and bossSfx("cast_" .. payload.Element, 0.7)) then
 		Audio:play(bossCue("Charge"))
+	end
+	if boss ~= nil then
+		BossVfx.cast(boss.kind, center, radius, detonateAt - serverNow())
 	end
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
@@ -5344,7 +6030,9 @@ local function onSlamLand(payload)
 		boss.flash = 1
 		lightning(boss.core.Position, center, pal.Hot, 0.3, 0.9)
 	end
-	elementBurst(payload.Element, center, radius)
+	if boss == nil or not BossVfx.land(boss.kind, center, radius) then
+		elementBurst(payload.Element, center, radius)
+	end
 	if radius >= 20 and (tonumber(payload.Radius) or 0) >= 20 then
 		local root = localRoot()
 		if root ~= nil and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(center.X, 0, center.Z)).Magnitude < radius + 20 then
@@ -5419,6 +6107,7 @@ local function onPhase(payload)
 	-- The roar: a white-hot flash, bolts to every pillar, and the boss speaks.
 	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
 	impactFrame(1)
+	BossVfx.ring(current.kind, at - Vector3.new(0, 24, 0), 100, pal.Hot)
 	screenFlash(pal.Hot, 0.5, 0.9)
 	lightPillar(at - Vector3.new(0, 26, 0), pal.Hot, 80, 6, 1.2)
 	for index, top in pillarTops(current) do
@@ -5428,21 +6117,7 @@ local function onPhase(payload)
 			end
 		end)
 	end
-	task.delay(0.4, function()
-		if boss == current and near(current) then
-			local lines = current.config.Dialogue[if phaseNumber >= 3 then "Phase3" else "Phase2"]
-			if lines ~= nil then
-				say(current.config.Name, lines[1], pal.Hot)
-				if lines[2] ~= nil then
-					task.delay(2.4, function()
-						if boss == current then
-							say(current.config.Name, lines[2], pal.Hot)
-						end
-					end)
-				end
-			end
-		end
-	end)
+	speakLines(current, if phaseNumber >= 3 then "Phase3" else "Phase2", 0.4, 0)
 	playShot(current, { Seconds = 2.4, Sweep = -0.7, Distance = 52, Height = 12, Fov = 58 })
 end
 
@@ -5864,7 +6539,9 @@ local function onSummonCall(payload)
 	setAim("roar", nil, at)
 	Audio:play(bossCue("Charge"))
 	local primary = elementColors(payload.Element)
-	Vfx.burst(center + Vector3.new(0, 2, 0), "Implode", 1, { Color = primary, Size = NumberSequence.new(40, 4) }, clientFolder)
+	if boss == nil or not BossVfx.ring(boss.kind, center, 60, primary) then
+		Vfx.burst(center + Vector3.new(0, 2, 0), "Implode", 1, { Color = primary, Size = NumberSequence.new(40, 4) }, clientFolder)
+	end
 	Controls.shake(0.5)
 end
 
@@ -5910,7 +6587,9 @@ local function onAddBlast(payload)
 	if not bossSfx("wisp_blast", 0.9) then
 		Audio:play(bossCue("Land"))
 	end
-	Vfx.burst(at, "Shockwave", 1, { Color = (elementColors(payload.Element)), Size = NumberSequence.new(2, radius * 2.4) }, clientFolder)
+	if boss == nil or not BossVfx.ring(boss.kind, at - Vector3.new(0, 4, 0), radius * 2.2, (elementColors(payload.Element))) then
+		Vfx.burst(at, "Shockwave", 1, { Color = (elementColors(payload.Element)), Size = NumberSequence.new(2, radius * 2.4) }, clientFolder)
+	end
 	elementBurst(payload.Element, Vector3.new(at.X, at.Y - 4, at.Z), radius)
 	local root = localRoot()
 	if root ~= nil and (root.Position - at).Magnitude < radius + 25 then

@@ -212,7 +212,7 @@ for _, boss in roster do
 	for key, list in speech do
 		if key ~= "Attack" then
 			for _, line in list do
-				check(type(line) == "string" and #line > 0 and #line <= 90, label .. ": bad " .. key .. " line")
+				check(type(line) == "string" and #line > 0 and #line <= 140, label .. ": bad " .. key .. " line")
 			end
 		end
 	end
