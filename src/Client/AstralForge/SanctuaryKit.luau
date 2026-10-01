@@ -3018,6 +3018,8 @@ Signals.SERVER_KINDS = table.freeze({
 	RiftBossDissonanceLand = true,
 	RiftBossWall = true,
 	RiftBossSummonCall = true,
+	RiftBossEnrage = true,
+	RiftBossBreak = true,
 	RiftBossAdds = true,
 	RiftBossAddBlast = true,
 	RiftBossAddDown = true,
@@ -7471,6 +7473,43 @@ local function onAddDown(payload)
 	Vfx.burst(at, "Spark", 26, { Color = primary, Color2 = secondary }, clientFolder)
 	Vfx.burst(at, "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 10) }, clientFolder)
 end
+-- The boss has had enough: a long fight against a healthy boss enrages it. A red wash, a roar,
+-- the lens kicked, and from here it attacks faster and chains more moves.
+local function onEnrage(_payload)
+	local current = boss
+	if current == nil then
+		return
+	end
+	impactFrame(1)
+	bossSfx("roar_" .. current.kind, 1.3)
+	Controls.shake(1.3)
+	Controls.punch(-8, 0.03)
+	ScreenFx.gradePulse(Color3.fromRGB(255, 90, 70), 0.3, 0.3, 2.4)
+	ScreenFx.vignette(Color3.fromRGB(255, 50, 30), 0.7, 2.6)
+	screenFlash(pal.Alert, 0.4, 0.8)
+	current.flash = 1
+	setAim("roar", nil, serverNow() + 1.8)
+	windUp(serverNow() + 1.8, 1.8)
+	speakLines(current, "Enrage", 0.2, 0)
+	BossVfx.layers(current.kind, current.anchor.Position - Vector3.new(0, 24, 0), 40, 1.6)
+end
+
+-- Heavy burst damage broke its poise: it reels, goes still for a moment and is vulnerable.
+local function onBreak(_payload)
+	local current = boss
+	if current == nil then
+		return
+	end
+	ScreenFx.hitstop(0.12)
+	ScreenFx.manga(Color3.new(1, 1, 1), 0.06)
+	bossSfx("impact", 1.0)
+	Controls.shake(0.9)
+	Controls.punch(10, 0)
+	screenFlash(pal.Hot, 0.35, 0.5)
+	current.flash = 1
+	Vfx.burst(current.anchor.Position, "Shatter", 50, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(16, 44) }, clientFolder)
+	speakLines(current, "Break", 0.4, 0)
+end
 local function onDissonanceLand(payload)
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Audio:play(bossCue("Land"))
@@ -7776,6 +7815,8 @@ function World.start()
 	table.insert(unsubscribers, Signals.on("RiftBossDissonanceLand", onDissonanceLand))
 	table.insert(unsubscribers, Signals.on("RiftBossWall", onWall))
 	table.insert(unsubscribers, Signals.on("RiftBossSummonCall", onSummonCall))
+	table.insert(unsubscribers, Signals.on("RiftBossEnrage", onEnrage))
+	table.insert(unsubscribers, Signals.on("RiftBossBreak", onBreak))
 	table.insert(unsubscribers, Signals.on("RiftBossAdds", onAdds))
 	table.insert(unsubscribers, Signals.on("RiftBossAddBlast", onAddBlast))
 	table.insert(unsubscribers, Signals.on("RiftBossAddDown", onAddDown))

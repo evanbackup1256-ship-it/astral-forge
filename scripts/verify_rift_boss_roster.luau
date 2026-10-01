@@ -266,4 +266,37 @@ for _, boss in roster do
 	check(health / damage <= boss.ActiveSeconds, (boss.Name or "boss") .. ": a lone level-1 fighter cannot win in time")
 end
 
+
+-- Behaviour: who it hunts, where it aims, when it enrages, when its poise breaks, what it chains.
+check(RiftBossMath.TargetScore(1, 8, 0) > RiftBossMath.TargetScore(0, 0, 0), "the biggest damage dealer who stands still is the favourite target")
+check(RiftBossMath.TargetScore(0, 0, 1) > RiftBossMath.TargetScore(0, 0, 0), "a roll breaks ties")
+local ranked = RiftBossMath.RankTargets({ { Id = "a", Score = 1 }, { Id = "b", Score = 3 }, { Id = "c", Score = 2 } })
+check(ranked[1] == "b" and ranked[2] == "c" and ranked[3] == "a", "targets rank by score")
+local lx, lz = RiftBossMath.LeadPosition(0, 0, 10, 0, 1, 6)
+check(math.abs(lx - 6) < 1e-6 and math.abs(lz) < 1e-6, "the lead is capped")
+local sx, sz = RiftBossMath.LeadPosition(5, 5, 0, 0, 2, 14)
+check(sx == 5 and sz == 5, "a stationary fighter is hit exactly where they stand")
+check(RiftBossMath.Enraged(70, 100, 0.8) and not RiftBossMath.Enraged(70, 100, 0.2) and not RiftBossMath.Enraged(30, 100, 0.9), "enrage needs a long fight against a healthy boss")
+check(RiftBossMath.PoiseBroken({ { At = 0, Damage = 40 }, { At = 1, Damage = 40 } }, 2, 4, 1000, 0.07), "burst damage breaks poise")
+check(not RiftBossMath.PoiseBroken({ { At = 0, Damage = 40 }, { At = 1, Damage = 40 } }, 6, 4, 1000, 0.07), "old damage does not")
+local combos = { { After = "A", Then = "B", Chance = 0.5, MinPhase = 2 } }
+check(RiftBossMath.ComboNext(combos, "A", 2, 0.1) == "B" and RiftBossMath.ComboNext(combos, "A", 1, 0.1) == nil and RiftBossMath.ComboNext(combos, "A", 2, 0.9) == nil, "combos need their phase and a roll")
+check(RiftBossMath.ComboNext(combos, "A", 2, 0.7, 1.5) == "B", "enrage boosts combo chances")
+check(RiftBossMath.DelayScaleForFighters(1) == 1 and RiftBossMath.DelayScaleForFighters(50) == 0.6, "busier arenas shorten the wait, within a floor")
+for _, boss in roster do
+	local label = boss.Name
+	check(boss.Combos ~= nil and #boss.Combos >= 3, label .. ": needs at least three combos")
+	for _, combo in boss.Combos do
+		local afterOk, thenOk = false, false
+		for _, attack in boss.Attacks do
+			afterOk = afterOk or attack.Kind == combo.After
+			thenOk = thenOk or (attack.Kind == combo.Then and (attack.MinPhase or 1) <= combo.MinPhase)
+		end
+		check(afterOk and thenOk, label .. ": combo " .. combo.After .. " -> " .. combo.Then .. " names an attack it does not have by phase " .. combo.MinPhase)
+	end
+	check(type(boss.Dialogue.Enrage) == "table" and type(boss.Dialogue.Break) == "table", label .. ": needs Enrage and Break lines")
+end
+for _, wanted in { "_queueCombo", "_enrage", "_track", "RiftBossBreak", "RiftBossEnrage", "LeadPosition", "RankTargets" } do
+	check(string.find(serviceSource, wanted, 1, true) ~= nil, "the boss service never uses " .. wanted)
+end
 print("[TEST] rift boss roster guards passed | " .. #roster .. " bosses")
