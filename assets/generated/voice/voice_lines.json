@@ -1,1537 +1,4 @@
 {
-  "Warden_01_9a7c27dd": {
-    "kind": "Warden",
-    "text": "[whisper]The seal... is [wave]thinning[/].[/]",
-    "words": [
-      0.0,
-      0.164,
-      0.866,
-      0.981
-    ],
-    "duration": 3.742
-  },
-  "Warden_02_9231a976": {
-    "kind": "Warden",
-    "text": "Something that was never meant to wake [glitch]is waking[/].",
-    "words": [
-      0.0,
-      0.433,
-      0.626,
-      0.77,
-      1.011,
-      1.252,
-      1.348,
-      1.54,
-      1.637
-    ],
-    "duration": 4.214
-  },
-  "Warden_03_7a29ba32": {
-    "kind": "Warden",
-    "text": "[slow]Who opens[/] [big]the Riftmaw?[/]",
-    "words": [
-      0.0,
-      0.214,
-      0.572,
-      0.786
-    ],
-    "duration": 3.618
-  },
-  "Warden_04_555273b6": {
-    "kind": "Warden",
-    "text": "I have kept this door [beat] since before your stars had [hot]names[/].",
-    "words": [
-      0.0,
-      0.057,
-      0.287,
-      0.516,
-      0.746,
-      1.395,
-      1.659,
-      1.977,
-      2.188,
-      2.452,
-      2.611
-    ],
-    "duration": 5.168
-  },
-  "Warden_05_b82e8ce2": {
-    "kind": "Warden",
-    "text": "[shake]Turn back.[/] [beat] Or be [glitch]unmade[/].",
-    "words": [
-      0.0,
-      0.279,
-      1.367,
-      1.534,
-      1.7
-    ],
-    "duration": 4.524
-  },
-  "Warden_06_82d0b201": {
-    "kind": "Warden",
-    "text": "You fight like the rift itself. [beat] [hot]Without end.[/]",
-    "words": [
-      0.0,
-      0.149,
-      0.397,
-      0.595,
-      0.743,
-      0.942,
-      2.029,
-      2.502
-    ],
-    "duration": 5.012
-  },
-  "Warden_07_9bbaefdd": {
-    "kind": "Warden",
-    "text": "Then I shall stop being [slow]gentle[/].",
-    "words": [
-      0.0,
-      0.292,
-      0.365,
-      0.729,
-      1.021,
-      1.385
-    ],
-    "duration": 4.135
-  },
-  "Warden_08_78f59a56": {
-    "kind": "Warden",
-    "text": "[big][shake]ENOUGH.[/][/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.612
-  },
-  "Warden_09_55914989": {
-    "kind": "Warden",
-    "text": "The door [hot]STAYS SHUT[/]. [beat] Even if I must close it [glitch]with you inside[/].",
-    "words": [
-      0.0,
-      0.158,
-      0.368,
-      0.631,
-      1.634,
-      1.869,
-      1.987,
-      2.045,
-      2.28,
-      2.574,
-      2.692,
-      2.927,
-      3.103
-    ],
-    "duration": 5.755
-  },
-  "Warden_10_9cfe5215": {
-    "kind": "Warden",
-    "text": "[whisper]The seal... was never [wave]mine[/] to keep.[/]",
-    "words": [
-      0.0,
-      0.195,
-      0.97,
-      1.137,
-      1.415,
-      1.637,
-      1.749
-    ],
-    "duration": 4.267
-  },
-  "Warden_11_388c73aa": {
-    "kind": "Warden",
-    "text": "[slow]Go on, then.[/] [beat] See what waits [hot]behind it[/].",
-    "words": [
-      0.0,
-      0.2,
-      0.639,
-      1.774,
-      1.97,
-      2.231,
-      2.557,
-      2.948
-    ],
-    "duration": 5.384
-  },
-  "Warden_12_b35642b3": {
-    "kind": "Warden",
-    "text": "The door closes. [beat] [wave]Remember what you could not finish.[/]",
-    "words": [
-      0.0,
-      0.202,
-      0.47,
-      1.68,
-      2.114,
-      2.331,
-      2.493,
-      2.764,
-      2.927
-    ],
-    "duration": 5.546
-  },
-  "Choir_01_9ec04e62": {
-    "kind": "Choir",
-    "text": "[wave]A note, held too long, begins to [hot]crack[/].[/]",
-    "words": [
-      0.0,
-      0.099,
-      0.732,
-      1.111,
-      1.396,
-      2.01,
-      2.557,
-      2.74
-    ],
-    "duration": 6.327
-  },
-  "Choir_02_205fba7c": {
-    "kind": "Choir",
-    "text": "[whisper]Listen...[/] the hall is [pulse]humming[/].",
-    "words": [
-      0.0,
-      1.005,
-      1.251,
-      1.578,
-      1.742
-    ],
-    "duration": 5.437
-  },
-  "Choir_03_9fccdaba": {
-    "kind": "Choir",
-    "text": "[wave]Seven voices woke.[/] [beat] One of them is singing [hot]for you[/].",
-    "words": [
-      0.0,
-      0.512,
-      1.125,
-      2.377,
-      2.603,
-      2.753,
-      3.054,
-      3.205,
-      3.731,
-      3.957
-    ],
-    "duration": 7.298
-  },
-  "Choir_04_e22678de": {
-    "kind": "Choir",
-    "text": "Listen. [beat] Between every note, there is a place to [hot]stand[/].",
-    "words": [
-      0.0,
-      1.413,
-      1.979,
-      2.384,
-      2.928,
-      3.324,
-      3.482,
-      3.561,
-      3.957,
-      4.115
-    ],
-    "duration": 7.63
-  },
-  "Choir_05_1bc30726": {
-    "kind": "Choir",
-    "text": "Find it. [beat] Or we shall sing you [shake]quiet[/].",
-    "words": [
-      0.0,
-      0.393,
-      1.427,
-      1.556,
-      1.685,
-      2.007,
-      2.264,
-      2.458
-    ],
-    "duration": 5.884
-  },
-  "Choir_06_c8c007ae": {
-    "kind": "Choir",
-    "text": "[big]Louder.[/] The hall has not heard a true [hot]chord[/] in an age.",
-    "words": [
-      0.0,
-      0.959,
-      1.198,
-      1.518,
-      1.758,
-      1.998,
-      2.398,
-      2.478,
-      2.798,
-      3.198,
-      3.358,
-      3.518
-    ],
-    "duration": 6.878
-  },
-  "Choir_07_0af4a426": {
-    "kind": "Choir",
-    "text": "[wave]More voices... more... [/][pulse]more[/].",
-    "words": [
-      0.0,
-      0.325,
-      1.377,
-      2.283
-    ],
-    "duration": 5.926
-  },
-  "Choir_08_f0c4d63d": {
-    "kind": "Choir",
-    "text": "[shake]All voices -- together --[/] [big]NOW.[/]",
-    "words": [
-      0.0,
-      0.187,
-      0.56,
-      0.685,
-      1.182,
-      1.307
-    ],
-    "duration": 4.596
-  },
-  "Choir_09_bdc99e46": {
-    "kind": "Choir",
-    "text": "[glitch]Let the whole hall shatter with us![/]",
-    "words": [
-      0.0,
-      0.234,
-      0.468,
-      0.858,
-      1.17,
-      1.716,
-      2.028
-    ],
-    "duration": 5.301
-  },
-  "Choir_10_c11d084d": {
-    "kind": "Choir",
-    "text": "[slow]The hall... falls [wave]silent[/].[/]",
-    "words": [
-      0.0,
-      0.345,
-      1.469,
-      2.212
-    ],
-    "duration": 6.292
-  },
-  "Choir_11_cadc97af": {
-    "kind": "Choir",
-    "text": "It is so [whisper]quiet[/]. [beat] [hot]Thank you.[/]",
-    "words": [
-      0.0,
-      0.217,
-      0.433,
-      0.65,
-      2.04,
-      2.376
-    ],
-    "duration": 5.684
-  },
-  "Choir_12_2bacab11": {
-    "kind": "Choir",
-    "text": "[wave]The song goes on without you.[/]",
-    "words": [
-      0.0,
-      0.226,
-      0.527,
-      0.828,
-      0.979,
-      1.506
-    ],
-    "duration": 4.847
-  },
-  "Regent_01_9b58c79c": {
-    "kind": "Regent",
-    "text": "The embers remember their [hot]king[/].",
-    "words": [
-      0.0,
-      0.149,
-      0.446,
-      0.842,
-      1.09
-    ],
-    "duration": 2.678
-  },
-  "Regent_02_6d70bda9": {
-    "kind": "Regent",
-    "text": "[wave]Heat rises... [/][shake]as it should.[/]",
-    "words": [
-      0.0,
-      0.339,
-      1.338,
-      1.482,
-      1.626
-    ],
-    "duration": 3.468
-  },
-  "Regent_03_9d81493e": {
-    "kind": "Regent",
-    "text": "[big]KNEEL[/] before the last crown of [hot]Emberreach[/].",
-    "words": [
-      0.0,
-      0.31,
-      0.682,
-      0.869,
-      1.117,
-      1.427,
-      1.551
-    ],
-    "duration": 3.573
-  },
-  "Regent_04_5828a183": {
-    "kind": "Regent",
-    "text": "You trespass on my throne [beat] and expect [slow]mercy?[/]",
-    "words": [
-      0.0,
-      0.201,
-      0.738,
-      0.872,
-      1.006,
-      1.828,
-      2.167,
-      2.844
-    ],
-    "duration": 4.88
-  },
-  "Regent_05_8b76a41c": {
-    "kind": "Regent",
-    "text": "Let the fire decide [beat] [shake]how long you last.[/]",
-    "words": [
-      0.0,
-      0.237,
-      0.475,
-      0.791,
-      1.685,
-      1.913,
-      2.216,
-      2.444
-    ],
-    "duration": 4.163
-  },
-  "Regent_06_5e827d9d": {
-    "kind": "Regent",
-    "text": "You [shake]dare[/] make me bleed? [beat] [hot]Fine.[/]",
-    "words": [
-      0.0,
-      0.196,
-      0.458,
-      0.719,
-      0.85,
-      2.002
-    ],
-    "duration": 3.807
-  },
-  "Regent_07_f07cf527": {
-    "kind": "Regent",
-    "text": "[slow]Bow to the flame.[/]",
-    "words": [
-      0.0,
-      0.258,
-      0.43,
-      0.688
-    ],
-    "duration": 2.545
-  },
-  "Regent_08_025c0c94": {
-    "kind": "Regent",
-    "text": "[big][shake]BURN.[/][/] Burn it all -- the throne, the sky, [hot]you[/]!",
-    "words": [
-      0.0,
-      0.924,
-      1.171,
-      1.295,
-      1.48,
-      1.604,
-      1.79,
-      2.362,
-      2.671,
-      3.222
-    ],
-    "duration": 5.12
-  },
-  "Regent_09_90a564c4": {
-    "kind": "Regent",
-    "text": "[glitch]If I fall, the world falls with me![/]",
-    "words": [
-      0.0,
-      0.235,
-      0.352,
-      1.078,
-      1.284,
-      1.627,
-      1.97,
-      2.244
-    ],
-    "duration": 3.79
-  },
-  "Regent_10_cb926ad7": {
-    "kind": "Regent",
-    "text": "A king... does not... [slow]fall[/] to...",
-    "words": [
-      0.0,
-      0.071,
-      0.889,
-      1.119,
-      1.783,
-      2.156
-    ],
-    "duration": 3.961
-  },
-  "Regent_11_8902ca43": {
-    "kind": "Regent",
-    "text": "[whisper]The crown is yours.[/] [beat] It was always [hot]heavy[/].",
-    "words": [
-      0.0,
-      0.254,
-      0.678,
-      0.847,
-      2.095,
-      2.203,
-      2.365,
-      2.69
-    ],
-    "duration": 4.354
-  },
-  "Regent_12_35080f35": {
-    "kind": "Regent",
-    "text": "I retreat to my [hot]embers[/]. [beat] Not to you.",
-    "words": [
-      0.0,
-      0.081,
-      0.648,
-      0.81,
-      0.972,
-      2.28,
-      2.581,
-      2.782
-    ],
-    "duration": 4.523
-  },
-  "Seraph_01_ec0c81d4": {
-    "kind": "Seraph",
-    "text": "The air tastes of [hot]iron[/]. [beat] Something is [pulse]gathering[/].",
-    "words": [
-      0.0,
-      0.253,
-      0.505,
-      1.01,
-      1.179,
-      2.34,
-      2.833,
-      2.943
-    ],
-    "duration": 5.031
-  },
-  "Seraph_02_4d3e67bb": {
-    "kind": "Seraph",
-    "text": "[whisper]Do you hear the wires of the sky?[/]",
-    "words": [
-      0.0,
-      0.148,
-      0.37,
-      0.667,
-      0.889,
-      1.259,
-      1.407,
-      1.629
-    ],
-    "duration": 3.485
-  },
-  "Seraph_03_ff1b1cac": {
-    "kind": "Seraph",
-    "text": "I am the storm that was [hot]promised[/].",
-    "words": [
-      0.0,
-      0.057,
-      0.172,
-      0.343,
-      0.629,
-      0.858,
-      1.029
-    ],
-    "duration": 3.084
-  },
-  "Seraph_04_3f144739": {
-    "kind": "Seraph",
-    "text": "Every wire of the sky [wave]answers me[/].",
-    "words": [
-      0.0,
-      0.368,
-      0.662,
-      0.809,
-      1.029,
-      1.25,
-      1.765
-    ],
-    "duration": 3.525
-  },
-  "Seraph_05_adf4fb5e": {
-    "kind": "Seraph",
-    "text": "[slow]Stand still.[/] [beat] It will be over before the [big]thunder[/].",
-    "words": [
-      0.0,
-      0.559,
-      1.97,
-      2.084,
-      2.311,
-      2.424,
-      2.651,
-      2.991,
-      3.161
-    ],
-    "duration": 5.155
-  },
-  "Seraph_06_00882c68": {
-    "kind": "Seraph",
-    "text": "You are [hot]quick[/]. [beat] Good. [beat] I am [shake]quicker[/].",
-    "words": [
-      0.0,
-      0.181,
-      0.362,
-      1.463,
-      2.609,
-      2.681,
-      2.825
-    ],
-    "duration": 4.942
-  },
-  "Seraph_07_151faa77": {
-    "kind": "Seraph",
-    "text": "[wave]The clouds are gathering their courage.[/]",
-    "words": [
-      0.0,
-      0.161,
-      0.483,
-      0.644,
-      1.127,
-      1.395
-    ],
-    "duration": 3.365
-  },
-  "Seraph_08_24bb91bf": {
-    "kind": "Seraph",
-    "text": "[big]THE WHOLE SKY --[/] [shake]COME DOWN![/]",
-    "words": [
-      0.0,
-      0.191,
-      0.508,
-      0.699,
-      0.826,
-      1.08
-    ],
-    "duration": 2.937
-  },
-  "Seraph_09_57dd0dfb": {
-    "kind": "Seraph",
-    "text": "[glitch]Let every cloud break at once![/]",
-    "words": [
-      0.0,
-      0.255,
-      0.68,
-      1.105,
-      1.53,
-      1.7
-    ],
-    "duration": 3.664
-  },
-  "Seraph_10_b55eba52": {
-    "kind": "Seraph",
-    "text": "The clouds... are [wave]parting[/].",
-    "words": [
-      0.0,
-      0.226,
-      1.225,
-      1.515
-    ],
-    "duration": 3.826
-  },
-  "Seraph_11_74c8efa4": {
-    "kind": "Seraph",
-    "text": "[slow]Let the quiet have the sky.[/]",
-    "words": [
-      0.0,
-      0.266,
-      0.531,
-      0.974,
-      1.328,
-      1.594
-    ],
-    "duration": 3.488
-  },
-  "Seraph_12_8b1a087b": {
-    "kind": "Seraph",
-    "text": "The storm moves on. [beat] [hot]So will its thunder.[/]",
-    "words": [
-      0.0,
-      0.197,
-      0.525,
-      0.853,
-      1.79,
-      1.925,
-      2.195,
-      2.398
-    ],
-    "duration": 4.478
-  },
-  "Rime_01_3af21162": {
-    "kind": "Rime",
-    "text": "[wave]Ice creaks.[/] [beat] Something very [slow]old[/] is turning over.",
-    "words": [
-      0.0,
-      0.24,
-      1.541,
-      2.161,
-      2.437,
-      2.643,
-      2.781,
-      3.263
-    ],
-    "duration": 7.248
-  },
-  "Rime_02_4cbb0cee": {
-    "kind": "Rime",
-    "text": "[whisper]Snow falls upward here.[/]",
-    "words": [
-      0.0,
-      0.273,
-      0.615,
-      1.026
-    ],
-    "duration": 5.007
-  },
-  "Rime_03_244faa1d": {
-    "kind": "Rime",
-    "text": "I have waited under the snow for [hot]ten thousand winters[/].",
-    "words": [
-      0.0,
-      0.058,
-      0.291,
-      0.64,
-      0.931,
-      1.106,
-      1.339,
-      1.514,
-      1.688,
-      2.154
-    ],
-    "duration": 6.26
-  },
-  "Rime_04_b25a995f": {
-    "kind": "Rime",
-    "text": "You are [wave]warm[/]. [beat] Warm things do not last here.",
-    "words": [
-      0.0,
-      0.193,
-      0.385,
-      1.446,
-      1.692,
-      2.061,
-      2.184,
-      2.368,
-      2.614
-    ],
-    "duration": 6.561
-  },
-  "Rime_05_3bfe5299": {
-    "kind": "Rime",
-    "text": "[slow]Sleep.[/] [beat] I will [hot]keep[/] you.",
-    "words": [
-      0.0,
-      1.437,
-      1.494,
-      1.722,
-      1.951
-    ],
-    "duration": 5.82
-  },
-  "Rime_06_aa3d6a72": {
-    "kind": "Rime",
-    "text": "The cold is [hot]patient[/]. [beat] [shake]I am not.[/]",
-    "words": [
-      0.0,
-      0.186,
-      0.435,
-      0.559,
-      1.797,
-      1.889,
-      2.075
-    ],
-    "duration": 6.087
-  },
-  "Rime_07_85513fdb": {
-    "kind": "Rime",
-    "text": "[wave]Frost on your breath... on your blade...[/]",
-    "words": [
-      0.0,
-      0.296,
-      0.414,
-      0.651,
-      1.504,
-      1.636,
-      1.9
-    ],
-    "duration": 6.069
-  },
-  "Rime_08_7a68a97b": {
-    "kind": "Rime",
-    "text": "[big]FREEZE.[/] [shake]FREEZE.[/] [glitch]EVERYTHING FREEZE.[/]",
-    "words": [
-      0.0,
-      0.738,
-      1.534,
-      2.155
-    ],
-    "duration": 6.23
-  },
-  "Rime_09_8660c9f9": {
-    "kind": "Rime",
-    "text": "[slow]Let the world forget the sun.[/]",
-    "words": [
-      0.0,
-      0.212,
-      0.424,
-      0.777,
-      1.201,
-      1.413
-    ],
-    "duration": 5.335
-  },
-  "Rime_10_1a4878ae": {
-    "kind": "Rime",
-    "text": "I am... [wave]cracking[/].",
-    "words": [
-      0.0,
-      0.053,
-      0.636
-    ],
-    "duration": 4.775
-  },
-  "Rime_11_a474173a": {
-    "kind": "Rime",
-    "text": "[whisper]Spring... was so far away.[/]",
-    "words": [
-      0.0,
-      0.97,
-      1.235,
-      1.412,
-      1.677
-    ],
-    "duration": 5.76
-  },
-  "Rime_12_edf162b6": {
-    "kind": "Rime",
-    "text": "I sink back into the ice. [beat] It will [hot]keep[/].",
-    "words": [
-      0.0,
-      0.075,
-      0.377,
-      0.679,
-      0.981,
-      1.207,
-      2.249,
-      2.372,
-      2.617
-    ],
-    "duration": 6.563
-  },
-  "Knight_01_03caf550": {
-    "kind": "Knight",
-    "text": "[wave]Armour assembles itself out of nothing.[/]",
-    "words": [
-      0.0,
-      0.418,
-      1.045,
-      1.463,
-      1.672,
-      1.811
-    ],
-    "duration": 3.508
-  },
-  "Knight_02_ee0cd925": {
-    "kind": "Knight",
-    "text": "[whisper]A blade, drawn from the dark.[/]",
-    "words": [
-      0.0,
-      0.138,
-      1.104,
-      1.479,
-      1.78,
-      2.005
-    ],
-    "duration": 3.521
-  },
-  "Knight_03_c1d23469": {
-    "kind": "Knight",
-    "text": "I swore an oath to the [hot]space between stars[/].",
-    "words": [
-      0.0,
-      0.078,
-      0.469,
-      0.625,
-      0.937,
-      1.093,
-      1.328,
-      1.718,
-      2.265
-    ],
-    "duration": 3.873
-  },
-  "Knight_04_d2d8c677": {
-    "kind": "Knight",
-    "text": "No crown. [beat] No name. [beat] [slow]Only the blade.[/]",
-    "words": [
-      0.0,
-      0.168,
-      1.413,
-      1.576,
-      2.722,
-      3.033,
-      3.266
-    ],
-    "duration": 4.872
-  },
-  "Knight_05_d52fdcc3": {
-    "kind": "Knight",
-    "text": "[big]Draw.[/] [beat] Let us see what you are [hot]made of[/].",
-    "words": [
-      0.0,
-      1.332,
-      1.508,
-      1.625,
-      1.8,
-      2.034,
-      2.21,
-      2.385,
-      2.619
-    ],
-    "duration": 3.935
-  },
-  "Knight_06_d7252344": {
-    "kind": "Knight",
-    "text": "You have earned my [hot]full attention[/].",
-    "words": [
-      0.0,
-      0.189,
-      0.44,
-      0.817,
-      0.943,
-      1.194
-    ],
-    "duration": 2.963
-  },
-  "Knight_07_bcf3f338": {
-    "kind": "Knight",
-    "text": "[whisper]Few ever did.[/]",
-    "words": [
-      0.0,
-      0.31,
-      0.724
-    ],
-    "duration": 2.278
-  },
-  "Knight_08_adbdd2bb": {
-    "kind": "Knight",
-    "text": "[shake]NO MORE HONOUR.[/] [beat] [big]ONLY THE DARK.[/]",
-    "words": [
-      0.0,
-      0.116,
-      0.348,
-      1.495,
-      1.827,
-      2.077
-    ],
-    "duration": 3.633
-  },
-  "Knight_09_2b297e89": {
-    "kind": "Knight",
-    "text": "[glitch]I will be nothing -- and nothing cannot be cut![/]",
-    "words": [
-      0.0,
-      0.053,
-      0.267,
-      0.374,
-      0.748,
-      0.855,
-      1.015,
-      1.389,
-      1.709,
-      1.816
-    ],
-    "duration": 3.17
-  },
-  "Knight_10_29d70917": {
-    "kind": "Knight",
-    "text": "A good... [slow]duel[/].",
-    "words": [
-      0.0,
-      0.061,
-      0.808
-    ],
-    "duration": 2.47
-  },
-  "Knight_11_b4c38497": {
-    "kind": "Knight",
-    "text": "The oath is ended. [beat] [hot]The dark is yours.[/]",
-    "words": [
-      0.0,
-      0.202,
-      0.471,
-      0.606,
-      1.75,
-      1.938,
-      2.189,
-      2.314
-    ],
-    "duration": 3.83
-  },
-  "Knight_12_d1be9a54": {
-    "kind": "Knight",
-    "text": "We will finish this [hot]another night[/].",
-    "words": [
-      0.0,
-      0.108,
-      0.324,
-      0.648,
-      0.864,
-      1.242
-    ],
-    "duration": 2.706
-  },
-  "Warden_13_59ded037": {
-    "kind": "Warden",
-    "text": "[shake]You are taking too long.[/] [beat] The door [hot]hungers[/].",
-    "words": [
-      0.0,
-      0.176,
-      0.352,
-      0.704,
-      0.879,
-      1.913,
-      2.086,
-      2.316
-    ],
-    "duration": 5.018
-  },
-  "Warden_14_6feccadf": {
-    "kind": "Warden",
-    "text": "[glitch]ENOUGH GAMES.[/]",
-    "words": [
-      0.0,
-      0.383
-    ],
-    "duration": 3.006
-  },
-  "Warden_15_7df263e4": {
-    "kind": "Warden",
-    "text": "[big]Impossible![/]",
-    "words": [
-      0.0
-    ],
-    "duration": 3.064
-  },
-  "Warden_16_32e5b00b": {
-    "kind": "Warden",
-    "text": "The seal... [shake]cracks[/]?",
-    "words": [
-      0.0,
-      0.153,
-      0.831
-    ],
-    "duration": 3.59
-  },
-  "Warden_17_8d377a7e": {
-    "kind": "Warden",
-    "text": "Stay [hot]down[/].",
-    "words": [
-      0.0,
-      0.289
-    ],
-    "duration": 2.89
-  },
-  "Warden_18_43944463": {
-    "kind": "Warden",
-    "text": "[shake]Do not rise.[/]",
-    "words": [
-      0.0,
-      0.17,
-      0.424
-    ],
-    "duration": 3.088
-  },
-  "Warden_19_6b1df7e5": {
-    "kind": "Warden",
-    "text": "Your light is [wave]small[/].",
-    "words": [
-      0.0,
-      0.249,
-      0.559,
-      0.684
-    ],
-    "duration": 3.297
-  },
-  "Warden_20_80c73dfe": {
-    "kind": "Warden",
-    "text": "Fall. [beat] [slow]Again.[/]",
-    "words": [
-      0.0,
-      1.146
-    ],
-    "duration": 4.141
-  },
-  "Warden_21_c73c48cf": {
-    "kind": "Warden",
-    "text": "[glitch]Pathetic.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.844
-  },
-  "Choir_13_069ec6d8": {
-    "kind": "Choir",
-    "text": "[wave]The hall grows [hot]impatient[/].[/]",
-    "words": [
-      0.0,
-      0.234,
-      0.546,
-      0.937
-    ],
-    "duration": 4.757
-  },
-  "Choir_14_96d36b11": {
-    "kind": "Choir",
-    "text": "[shake]FASTER. LOUDER.[/]",
-    "words": [
-      0.0,
-      0.947
-    ],
-    "duration": 4.834
-  },
-  "Choir_15_a0e5417c": {
-    "kind": "Choir",
-    "text": "[glitch]Out of... time...[/]",
-    "words": [
-      0.0,
-      0.267,
-      1.032
-    ],
-    "duration": 4.675
-  },
-  "Choir_16_0636deb5": {
-    "kind": "Choir",
-    "text": "[big]A false note![/]",
-    "words": [
-      0.0,
-      0.099,
-      0.592
-    ],
-    "duration": 4.125
-  },
-  "Choir_17_db2627c6": {
-    "kind": "Choir",
-    "text": "[glitch]Out of tune.[/]",
-    "words": [
-      0.0,
-      0.32,
-      0.534
-    ],
-    "duration": 4.108
-  },
-  "Choir_18_821f2cda": {
-    "kind": "Choir",
-    "text": "[hot]Flat.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 3.802
-  },
-  "Choir_19_d6e49afb": {
-    "kind": "Choir",
-    "text": "That one [wave]rang false[/].",
-    "words": [
-      0.0,
-      0.443,
-      0.775,
-      1.218
-    ],
-    "duration": 4.923
-  },
-  "Choir_20_9c28787a": {
-    "kind": "Choir",
-    "text": "[shake]Sour.[/] Sour!",
-    "words": [
-      0.0,
-      0.877
-    ],
-    "duration": 4.672
-  },
-  "Choir_21_b86ca752": {
-    "kind": "Choir",
-    "text": "Again, [slow]but listen this time[/].",
-    "words": [
-      0.0,
-      0.965,
-      1.265,
-      1.865,
-      2.265
-    ],
-    "duration": 5.805
-  },
-  "Regent_13_56ad58b7": {
-    "kind": "Regent",
-    "text": "[big]MY PATIENCE BURNS.[/]",
-    "words": [
-      0.0,
-      0.212,
-      1.061
-    ],
-    "duration": 3.038
-  },
-  "Regent_14_b455e513": {
-    "kind": "Regent",
-    "text": "[shake]The crown demands [hot]ash[/]![/]",
-    "words": [
-      0.0,
-      0.227,
-      0.606,
-      1.137
-    ],
-    "duration": 2.78
-  },
-  "Regent_15_d6819b07": {
-    "kind": "Regent",
-    "text": "[shake]You... [hot]DARE[/]?[/]",
-    "words": [
-      0.0,
-      0.851
-    ],
-    "duration": 2.838
-  },
-  "Regent_16_295c9452": {
-    "kind": "Regent",
-    "text": "[big]Insolent embers![/]",
-    "words": [
-      0.0,
-      0.552
-    ],
-    "duration": 2.375
-  },
-  "Regent_17_6d840e99": {
-    "kind": "Regent",
-    "text": "[hot]Ash.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.769
-  },
-  "Regent_18_2b0c45e0": {
-    "kind": "Regent",
-    "text": "[shake]Crawl.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.954
-  },
-  "Regent_19_512a86f3": {
-    "kind": "Regent",
-    "text": "You burn [slow]so brightly[/]. How briefly.",
-    "words": [
-      0.0,
-      0.294,
-      0.685,
-      0.881,
-      2.082,
-      2.319
-    ],
-    "duration": 4.293
-  },
-  "Regent_20_9e30ef8c": {
-    "kind": "Regent",
-    "text": "[big]INSOLENT.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.963
-  },
-  "Regent_21_c17f25d4": {
-    "kind": "Regent",
-    "text": "Is that all the [hot]fire[/] you carry?",
-    "words": [
-      0.0,
-      0.144,
-      0.431,
-      0.646,
-      0.861,
-      1.149,
-      1.364
-    ],
-    "duration": 3.155
-  },
-  "Seraph_13_20e39002": {
-    "kind": "Seraph",
-    "text": "[shake]The storm [hot]breaks[/] its leash![/]",
-    "words": [
-      0.0,
-      0.175,
-      0.466,
-      0.816,
-      0.991
-    ],
-    "duration": 2.881
-  },
-  "Seraph_14_ff015394": {
-    "kind": "Seraph",
-    "text": "[big]NO MORE WAITING.[/]",
-    "words": [
-      0.0,
-      0.151,
-      0.453
-    ],
-    "duration": 2.597
-  },
-  "Seraph_15_6810920b": {
-    "kind": "Seraph",
-    "text": "[glitch]Grounded...?[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.196
-  },
-  "Seraph_16_1a9ed696": {
-    "kind": "Seraph",
-    "text": "[shake]Impossible![/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.359
-  },
-  "Seraph_17_24895abb": {
-    "kind": "Seraph",
-    "text": "[hot]Too slow.[/]",
-    "words": [
-      0.0,
-      0.291
-    ],
-    "duration": 2.316
-  },
-  "Seraph_18_7c40450e": {
-    "kind": "Seraph",
-    "text": "[shake]Feel that?[/]",
-    "words": [
-      0.0,
-      0.239
-    ],
-    "duration": 2.098
-  },
-  "Seraph_19_331d67ca": {
-    "kind": "Seraph",
-    "text": "You are a spark. I am the [big]STORM[/].",
-    "words": [
-      0.0,
-      0.301,
-      0.602,
-      0.702,
-      1.624,
-      1.706,
-      1.87,
-      2.117
-    ],
-    "duration": 4.149
-  },
-  "Seraph_20_e91fe586": {
-    "kind": "Seraph",
-    "text": "[glitch]Static.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.155
-  },
-  "Seraph_21_1758d72c": {
-    "kind": "Seraph",
-    "text": "Flinch. [beat] [slow]Go on.[/]",
-    "words": [
-      0.0,
-      1.251,
-      1.608
-    ],
-    "duration": 3.683
-  },
-  "Rime_13_0d6557b8": {
-    "kind": "Rime",
-    "text": "[slow]The frost... [hot]hardens[/].[/]",
-    "words": [
-      0.0,
-      0.32,
-      1.492
-    ],
-    "duration": 6.119
-  },
-  "Rime_14_9fe632a1": {
-    "kind": "Rime",
-    "text": "[shake]WINTER WILL NOT WAIT.[/]",
-    "words": [
-      0.0,
-      0.372,
-      0.619,
-      0.805
-    ],
-    "duration": 4.755
-  },
-  "Rime_15_9193a978": {
-    "kind": "Rime",
-    "text": "[wave]A crack... in the ice...[/]",
-    "words": [
-      0.0,
-      0.08,
-      1.041,
-      1.257,
-      1.581
-    ],
-    "duration": 5.869
-  },
-  "Rime_16_fa878ea2": {
-    "kind": "Rime",
-    "text": "[big]No![/]",
-    "words": [
-      0.0
-    ],
-    "duration": 4.035
-  },
-  "Rime_17_e55eeb53": {
-    "kind": "Rime",
-    "text": "[hot]Brittle.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 4.012
-  },
-  "Rime_18_1ea0ef9c": {
-    "kind": "Rime",
-    "text": "[wave]Numb yet?[/]",
-    "words": [
-      0.0,
-      0.342
-    ],
-    "duration": 4.345
-  },
-  "Rime_19_f32a1103": {
-    "kind": "Rime",
-    "text": "Your heat is [slow]leaving you[/].",
-    "words": [
-      0.0,
-      0.241,
-      0.482,
-      0.602,
-      1.024
-    ],
-    "duration": 4.904
-  },
-  "Rime_20_e56c1096": {
-    "kind": "Rime",
-    "text": "[shake]Slower.[/] You are slowing.",
-    "words": [
-      0.0,
-      0.796,
-      0.971,
-      1.146
-    ],
-    "duration": 5.253
-  },
-  "Rime_21_183bb666": {
-    "kind": "Rime",
-    "text": "[whisper]So tired...[/]",
-    "words": [
-      0.0,
-      0.16
-    ],
-    "duration": 4.441
-  },
-  "Knight_13_19fec99d": {
-    "kind": "Knight",
-    "text": "[hot]No more games.[/]",
-    "words": [
-      0.0,
-      0.162,
-      0.486
-    ],
-    "duration": 2.112
-  },
-  "Knight_14_8e492111": {
-    "kind": "Knight",
-    "text": "[shake]I tire of this duel.[/]",
-    "words": [
-      0.0,
-      0.075,
-      0.374,
-      0.523,
-      0.822
-    ],
-    "duration": 2.336
-  },
-  "Knight_15_163bab48": {
-    "kind": "Knight",
-    "text": "[shake]A clean cut...[/]",
-    "words": [
-      0.0,
-      0.054,
-      0.325
-    ],
-    "duration": 1.79
-  },
-  "Knight_16_102b6867": {
-    "kind": "Knight",
-    "text": "[hot]Well struck.[/]",
-    "words": [
-      0.0,
-      0.224
-    ],
-    "duration": 1.755
-  },
-  "Knight_17_6efeca31": {
-    "kind": "Knight",
-    "text": "[hot]Unguarded.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.755
-  },
-  "Knight_18_5676d8a5": {
-    "kind": "Knight",
-    "text": "[slow]Again.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.624
-  },
-  "Knight_19_2d9a8497": {
-    "kind": "Knight",
-    "text": "[shake]Your stance is weak.[/]",
-    "words": [
-      0.0,
-      0.229,
-      0.574,
-      0.688
-    ],
-    "duration": 2.115
-  },
-  "Knight_20_c11cd990": {
-    "kind": "Knight",
-    "text": "Sloppy. [beat] [hot]Try harder.[/]",
-    "words": [
-      0.0,
-      1.286,
-      1.526
-    ],
-    "duration": 3.227
-  },
-  "Knight_21_7992fdce": {
-    "kind": "Knight",
-    "text": "[wave]Is that your best?[/]",
-    "words": [
-      0.0,
-      0.147,
-      0.441,
-      0.735
-    ],
-    "duration": 2.263
-  },
   "Astraeon_01_96394b16": {
     "kind": "Astraeon",
     "text": "[whisper]Something vast is... [wave]remembering itself[/].[/]",
@@ -1543,21 +10,6 @@
       2.208
     ],
     "duration": 4.304
-  },
-  "Astraeon_02_d5bcdd32": {
-    "kind": "Astraeon",
-    "text": "The air [pulse]hums[/] with an old, enormous light.",
-    "words": [
-      0.0,
-      0.195,
-      0.39,
-      0.65,
-      0.91,
-      1.04,
-      1.44,
-      2.011
-    ],
-    "duration": 4.079
   },
   "Astraeon_03_1dc9ec12": {
     "kind": "Astraeon",
@@ -1594,19 +46,6 @@
       4.852
     ],
     "duration": 7.487
-  },
-  "Astraeon_05_7f1c0418": {
-    "kind": "Astraeon",
-    "text": "[big]Come, small fires.[/] [beat] Burn with me.",
-    "words": [
-      0.0,
-      0.616,
-      1.08,
-      2.378,
-      2.644,
-      2.91
-    ],
-    "duration": 4.749
   },
   "Astraeon_06_dd1d40fc": {
     "kind": "Astraeon",
@@ -1670,19 +109,6 @@
     ],
     "duration": 3.858
   },
-  "Astraeon_10_a44a06a9": {
-    "kind": "Astraeon",
-    "text": "[whisper]I was never... meant to... [wave]shine[/]...[/]",
-    "words": [
-      0.0,
-      0.067,
-      0.267,
-      1.121,
-      1.458,
-      2.114
-    ],
-    "duration": 4.3
-  },
   "Astraeon_11_b84ef09c": {
     "kind": "Astraeon",
     "text": "[slow]Thank you. [beat] The dark is [hot]gentle[/].[/]",
@@ -1696,2096 +122,4869 @@
     ],
     "duration": 4.4
   },
-  "Astraeon_12_214782a7": {
-    "kind": "Astraeon",
-    "text": "The dark takes me back. [beat] [hot]For now.[/]",
+  "Warden_01_524ee146": {
+    "kind": "Warden",
+    "text": "[whisper]Four hundred winters... and the lock [wave]finally[/] gives.[/]",
     "words": [
       0.0,
-      0.183,
-      0.427,
-      0.732,
-      0.854,
-      1.899,
-      2.172
+      0.219,
+      0.602,
+      1.469,
+      1.642,
+      1.815,
+      2.045,
+      2.448
     ],
-    "duration": 4.175
+    "duration": 5.033
   },
-  "Astraeon_13_f8722c48": {
-    "kind": "Astraeon",
-    "text": "[big]ENOUGH LIGHT.[/] [beat] [shake]LET THERE BE ENDING.[/]",
+  "Warden_02_c6ff6dc7": {
+    "kind": "Warden",
+    "text": "The dark behind the door has [hot]heard you knocking[/].",
     "words": [
       0.0,
-      0.447,
-      1.634,
-      1.81,
-      2.104,
-      2.221
+      0.152,
+      0.356,
+      0.66,
+      0.813,
+      1.016,
+      1.168,
+      1.422,
+      1.575
     ],
     "duration": 4.272
   },
-  "Astraeon_14_24d2960d": {
-    "kind": "Astraeon",
-    "text": "[glitch]I will not fade for [hot]you[/].[/]",
+  "Warden_03_33571970": {
+    "kind": "Warden",
+    "text": "[slow]I am the Warden.[/] [beat] I was asked to hold one door. [beat] Just [hot]one[/].",
+    "words": [
+      0.0,
+      0.064,
+      0.192,
+      0.385,
+      1.573,
+      1.624,
+      1.777,
+      2.032,
+      2.134,
+      2.338,
+      2.491,
+      3.486,
+      3.753
+    ],
+    "duration": 6.26
+  },
+  "Warden_04_af855ee9": {
+    "kind": "Warden",
+    "text": "I will not hate you. [beat] Hatred is for those with [wave]time[/].",
+    "words": [
+      0.0,
+      0.06,
+      0.301,
+      0.482,
+      0.723,
+      1.704,
+      2.049,
+      2.164,
+      2.337,
+      2.625,
+      2.855
+    ],
+    "duration": 5.383
+  },
+  "Warden_05_0e0d8c62": {
+    "kind": "Warden",
+    "text": "Come. [beat] Let us do this [slow]properly[/].",
+    "words": [
+      0.0,
+      1.077,
+      1.282,
+      1.419,
+      1.556,
+      1.83
+    ],
+    "duration": 4.687
+  },
+  "Warden_06_19443207": {
+    "kind": "Warden",
+    "text": "You press the lock the way [hot]he[/] did, the last one who came.",
+    "words": [
+      0.0,
+      0.161,
+      0.43,
+      0.591,
+      0.806,
+      0.967,
+      1.129,
+      1.236,
+      1.591,
+      1.78,
+      2.031,
+      2.22,
+      2.409
+    ],
+    "duration": 4.963
+  },
+  "Warden_07_64319c5e": {
+    "kind": "Warden",
+    "text": "I buried him [beat] under [shake]that[/] floor. [beat] Mind your footing.",
     "words": [
       0.0,
       0.072,
-      0.361,
-      0.577,
-      0.865,
-      1.082
+      0.504,
+      1.14,
+      1.446,
+      1.692,
+      2.8,
+      2.951,
+      3.102
     ],
-    "duration": 3.01
+    "duration": 5.643
   },
-  "Astraeon_15_7cc8d2eb": {
-    "kind": "Astraeon",
-    "text": "[shake]A crack... in my [hot]crown[/]?[/]",
+  "Warden_08_569f0661": {
+    "kind": "Warden",
+    "text": "[big]Do you hear it?[/] [beat] The door is [hot]breathing[/].",
     "words": [
       0.0,
-      0.057,
-      0.831,
-      0.954,
-      1.076
+      0.083,
+      0.208,
+      0.374,
+      1.259,
+      1.4,
+      1.589,
+      1.683
     ],
-    "duration": 3.105
+    "duration": 4.393
   },
-  "Astraeon_16_5959bda8": {
-    "kind": "Astraeon",
-    "text": "[big]Impossible.[/] [beat] I am [hot]eternal[/].",
+  "Warden_09_87820aab": {
+    "kind": "Warden",
+    "text": "I [shake]cannot[/] let it open. [beat] Forgive me what I do [glitch]to prevent it[/].",
     "words": [
       0.0,
-      1.82,
-      1.933,
-      2.159
+      0.053,
+      0.368,
+      0.526,
+      0.631,
+      1.634,
+      1.991,
+      2.093,
+      2.297,
+      2.348,
+      2.45,
+      2.552,
+      2.909
     ],
-    "duration": 4.702
+    "duration": 5.302
   },
-  "Astraeon_17_db07dc8d": {
-    "kind": "Astraeon",
-    "text": "[hot]A spark.[/]",
+  "Warden_10_ef00d321": {
+    "kind": "Warden",
+    "text": "[whisper]At last... [beat] the watch is [wave]relieved[/].[/]",
     "words": [
       0.0,
-      0.083
+      0.168,
+      1.495,
+      1.66,
+      1.935,
+      2.046
     ],
-    "duration": 2.22
+    "duration": 4.781
   },
-  "Astraeon_18_41e782d4": {
-    "kind": "Astraeon",
-    "text": "[slow]You cannot dim what burns for ages.[/]",
+  "Warden_11_18f90008": {
+    "kind": "Warden",
+    "text": "[slow]Tell whoever comes after:[/] [beat] the door was never locked [hot]against us[/]. [beat] It was locked [hot]for us[/].",
     "words": [
       0.0,
-      0.232,
+      0.277,
+      0.76,
+      1.106,
+      2.141,
+      2.284,
+      2.474,
+      2.617,
+      2.854,
+      3.14,
+      3.473,
+      4.355,
+      4.47,
+      4.642,
+      4.986,
+      5.159
+    ],
+    "duration": 7.571
+  },
+  "Warden_12_f3f8de89": {
+    "kind": "Warden",
+    "text": "[whisper]Don't look back.[/]",
+    "words": [
+      0.0,
+      0.29,
+      0.522
+    ],
+    "duration": 3.053
+  },
+  "Warden_13_57ad25b6": {
+    "kind": "Warden",
+    "text": "[wave]The door is shut again.[/] [beat] I am, [slow]as ever[/], [hot]sorry[/].",
+    "words": [
+      0.0,
+      0.152,
+      0.355,
+      0.456,
+      0.659,
+      1.704,
+      1.817,
+      2.296,
+      2.539,
+      3.284
+    ],
+    "duration": 6.012
+  },
+  "Warden_14_6414ce9a": {
+    "kind": "Warden",
+    "text": "Rest. [beat] You will need it [beat] for the [glitch]next time[/].",
+    "words": [
+      0.0,
+      1.222,
+      1.396,
+      1.628,
+      1.86,
+      2.396,
+      2.575,
+      2.754,
+      2.992
+    ],
+    "duration": 5.53
+  },
+  "Warden_15_253210e0": {
+    "kind": "Warden",
+    "text": "[shake]You are stalling the dark.[/] [beat] Every minute [hot]costs the world[/].",
+    "words": [
+      0.0,
+      0.142,
+      0.285,
+      0.665,
+      0.807,
+      1.785,
+      2.094,
+      2.464,
+      2.773,
+      2.958
+    ],
+    "duration": 5.569
+  },
+  "Warden_16_ff095edd": {
+    "kind": "Warden",
+    "text": "[glitch]No more courtesy.[/]",
+    "words": [
+      0.0,
+      0.124,
+      0.372
+    ],
+    "duration": 3.169
+  },
+  "Warden_17_be5a1c8d": {
+    "kind": "Warden",
+    "text": "[big]THE OATH DEMANDS IT.[/]",
+    "words": [
+      0.0,
+      0.163,
+      0.38,
+      0.759
+    ],
+    "duration": 3.162
+  },
+  "Warden_18_deeadf0c": {
+    "kind": "Warden",
+    "text": "[big]Ah![/] [beat] The seal [shake]flinches[/].",
+    "words": [
+      0.0,
+      1.135,
+      1.307,
+      1.536
+    ],
+    "duration": 4.292
+  },
+  "Warden_19_ff18973c": {
+    "kind": "Warden",
+    "text": "You found the [hot]crack[/]. [beat] Clever.",
+    "words": [
+      0.0,
+      0.16,
+      0.426,
+      0.586,
+      1.646
+    ],
+    "duration": 4.396
+  },
+  "Warden_20_22a70783": {
+    "kind": "Warden",
+    "text": "[shake]Not yet, not yet--[/]",
+    "words": [
+      0.0,
+      0.239,
       0.697,
-      0.929,
-      1.238,
-      1.625,
-      1.857
+      0.871
     ],
-    "duration": 3.884
+    "duration": 3.122
   },
-  "Astraeon_19_6ee6ac06": {
-    "kind": "Astraeon",
-    "text": "[shake]Small. So small.[/]",
+  "Warden_21_8d377a7e": {
+    "kind": "Warden",
+    "text": "Stay [hot]down[/].",
     "words": [
       0.0,
-      0.819,
-      1.005
+      0.31
     ],
-    "duration": 3.202
+    "duration": 2.937
   },
-  "Astraeon_20_0fffc246": {
-    "kind": "Astraeon",
-    "text": "[wave]Do you hear the sky laughing?[/]",
+  "Warden_22_ae107738": {
+    "kind": "Warden",
+    "text": "That was [slow]not[/] a kindness.",
     "words": [
       0.0,
-      0.115,
-      0.288,
-      0.518,
-      0.691,
-      0.863
-    ],
-    "duration": 3.042
-  },
-  "Astraeon_21_0d6cc11f": {
-    "kind": "Astraeon",
-    "text": "[big]Again.[/] [beat] Try again.",
-    "words": [
-      0.0,
-      1.262,
-      1.468
-    ],
-    "duration": 3.52
-  },
-  "Astraeon_22_c3e70f62": {
-    "kind": "Astraeon",
-    "text": "[big]STARFALL.[/] [beat] [slow]Run.[/]",
-    "words": [
-      0.0,
-      1.367
-    ],
-    "duration": 3.576
-  },
-  "Astraeon_23_960a6978": {
-    "kind": "Astraeon",
-    "text": "[shake]Every star I ever lit -- falls.[/]",
-    "words": [
-      0.0,
-      0.344,
-      0.619,
-      0.687,
-      0.962,
-      1.168,
-      1.306
-    ],
-    "duration": 3.358
-  },
-  "Astraeon_24_f0c35d43": {
-    "kind": "Astraeon",
-    "text": "[big]SUPERNOVA.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.406
-  },
-  "Astraeon_25_7e294caf": {
-    "kind": "Astraeon",
-    "text": "[slow]Find the dark. [beat] Hide in the [hot]dark[/].[/]",
-    "words": [
-      0.0,
-      0.297,
-      0.519,
-      1.63,
-      1.989,
-      2.168,
-      2.436
-    ],
-    "duration": 4.524
-  },
-  "Astraeon_26_26394e78": {
-    "kind": "Astraeon",
-    "text": "[big]EVENT HORIZON.[/]",
-    "words": [
-      0.0,
-      0.362
-    ],
-    "duration": 2.58
-  },
-  "Astraeon_27_7193e18b": {
-    "kind": "Astraeon",
-    "text": "[wave]Nothing leaves. [beat] Not even light.[/]",
-    "words": [
-      0.0,
-      0.534,
-      1.808,
-      2.001,
-      2.258
-    ],
-    "duration": 4.284
-  },
-  "Astraeon_28_45729ce7": {
-    "kind": "Astraeon",
-    "text": "[big]ANNIHILATION.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.395
-  },
-  "Astraeon_29_9733e77a": {
-    "kind": "Astraeon",
-    "text": "[shake]One line of light. [beat] Let it find you.[/]",
-    "words": [
-      0.0,
-      0.174,
-      0.406,
-      0.522,
-      1.611,
-      1.822,
-      1.964,
-      2.246
-    ],
-    "duration": 4.168
-  },
-  "Astraeon_30_dcdc4019": {
-    "kind": "Astraeon",
-    "text": "[big][shake]LAST LIGHT.[/][/]",
-    "words": [
-      0.0,
-      0.297
-    ],
-    "duration": 2.383
-  },
-  "Astraeon_31_251c29ac": {
-    "kind": "Astraeon",
-    "text": "[glitch]If I end -- [beat] so does EVERYTHING.[/]",
-    "words": [
-      0.0,
-      0.128,
-      0.192,
-      0.383,
-      1.031,
-      1.144,
-      1.371
-    ],
-    "duration": 3.634
-  },
-  "Astraeon_32_8eef8059": {
-    "kind": "Astraeon",
-    "text": "[big]FALL.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.046
-  },
-  "Astraeon_33_9d3118b3": {
-    "kind": "Astraeon",
-    "text": "[shake]Beneath a star.[/]",
-    "words": [
-      0.0,
-      0.469,
-      0.536
-    ],
-    "duration": 2.511
-  },
-  "Astraeon_34_965ba4b4": {
-    "kind": "Astraeon",
-    "text": "[hot]Starfire[/], falling.",
-    "words": [
-      0.0,
-      0.919
-    ],
-    "duration": 3.038
-  },
-  "Astraeon_35_4d143351": {
-    "kind": "Astraeon",
-    "text": "[shake]Rain, little suns.[/]",
-    "words": [
-      0.0,
-      0.529,
-      0.992
-    ],
-    "duration": 3.017
-  },
-  "Astraeon_36_6b0cfd97": {
-    "kind": "Astraeon",
-    "text": "The ground [hot]splits[/] for light.",
-    "words": [
-      0.0,
-      0.19,
-      0.569,
-      0.948,
-      1.138
-    ],
-    "duration": 3.158
-  },
-  "Astraeon_37_106da0d1": {
-    "kind": "Astraeon",
-    "text": "[slow]Follow the crack to its end.[/]",
-    "words": [
-      0.0,
-      0.431,
-      0.647,
-      1.006,
-      1.15,
-      1.366
-    ],
-    "duration": 3.293
-  },
-  "Astraeon_38_b726f183": {
-    "kind": "Astraeon",
-    "text": "A [hot]cage[/] of dying suns.",
-    "words": [
-      0.0,
-      0.087,
-      0.437,
-      0.612,
-      1.049
-    ],
-    "duration": 3.126
-  },
-  "Astraeon_39_705edbaf": {
-    "kind": "Astraeon",
-    "text": "[glitch]No way out but through me.[/]",
-    "words": [
-      0.0,
-      0.128,
-      0.321,
-      0.513,
-      0.705,
-      1.154
-    ],
-    "duration": 2.987
-  },
-  "Astraeon_40_8ce3f588": {
-    "kind": "Astraeon",
-    "text": "[big]Bloom.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.267
-  },
-  "Astraeon_41_c5f1fd42": {
-    "kind": "Astraeon",
-    "text": "[wave]Every direction at once.[/]",
-    "words": [
-      0.0,
-      0.379,
-      1.061,
-      1.212
-    ],
-    "duration": 3.231
-  },
-  "Astraeon_42_92f7b17e": {
-    "kind": "Astraeon",
-    "text": "[wave]Ripples of a [hot]dying[/] sun.[/]",
-    "words": [
-      0.0,
-      0.508,
-      0.653,
-      0.725,
-      1.088
-    ],
-    "duration": 3.018
-  },
-  "Astraeon_43_e4532e7c": {
-    "kind": "Astraeon",
-    "text": "[slow]Mind the gaps. [beat] If you can.[/]",
-    "words": [
-      0.0,
-      0.375,
-      0.657,
-      1.866,
-      2.106,
-      2.466
-    ],
-    "duration": 4.586
-  },
-  "Astraeon_44_e52ffb09": {
-    "kind": "Astraeon",
-    "text": "Beams of [hot]old light[/].",
-    "words": [
-      0.0,
-      0.32,
-      0.449,
-      0.641
-    ],
-    "duration": 2.665
-  },
-  "Astraeon_45_15fdf944": {
-    "kind": "Astraeon",
-    "text": "[shake]Cut.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.942
-  },
-  "Astraeon_46_3b13ce54": {
-    "kind": "Astraeon",
-    "text": "[wave]Embers of my [hot]last[/] fire.[/]",
-    "words": [
-      0.0,
-      0.51,
+      0.272,
+      0.475,
       0.679,
-      0.849,
-      1.189
+      0.747
     ],
-    "duration": 3.254
+    "duration": 3.598
   },
-  "Astraeon_47_8e2e5cb0": {
-    "kind": "Astraeon",
-    "text": "Rise, [hot]little suns[/].",
+  "Warden_23_6d684a15": {
+    "kind": "Warden",
+    "text": "You bleed [hot]light[/]. [beat] I had forgotten.",
     "words": [
       0.0,
-      0.802,
-      1.232
+      0.169,
+      0.45,
+      1.528,
+      1.581,
+      1.743
     ],
-    "duration": 3.231
+    "duration": 4.522
   },
-  "Astraeon_48_9155031c": {
-    "kind": "Astraeon",
-    "text": "The sky is [hot]mine[/] to throw.",
+  "Warden_24_43944463": {
+    "kind": "Warden",
+    "text": "[shake]Do not rise.[/]",
     "words": [
       0.0,
-      0.226,
-      0.453,
-      0.604,
-      0.906,
-      1.057
+      0.165,
+      0.412
     ],
-    "duration": 3.149
+    "duration": 3.064
   },
-  "Astraeon_49_74e39917": {
-    "kind": "Astraeon",
-    "text": "[big]STARFALL.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.205
-  },
-  "Astraeon_50_e8fcdb5a": {
-    "kind": "Astraeon",
-    "text": "[slow]Everything falls toward the light.[/]",
+  "Warden_25_96947b49": {
+    "kind": "Warden",
+    "text": "The floor is [wave]patient[/].",
     "words": [
       0.0,
-      0.641,
-      0.961,
-      1.346,
-      1.538
+      0.176,
+      0.47,
+      0.587
     ],
-    "duration": 3.562
+    "duration": 3.297
   },
-  "Astraeon_51_3c3198fd": {
-    "kind": "Astraeon",
-    "text": "[wave]Come closer.[/]",
+  "Warden_26_a1f2774f": {
+    "kind": "Warden",
+    "text": "I have done this [slow]a thousand times[/].",
     "words": [
       0.0,
-      0.296
+      0.072,
+      0.362,
+      0.651,
+      0.941,
+      1.013,
+      1.592
     ],
-    "duration": 2.453
+    "duration": 4.266
   },
-  "Warden_22_ff2a80b8": {
+  "Warden_27_f7e62190": {
+    "kind": "Warden",
+    "text": "Smaller. [beat] [hot]Smaller[/].",
+    "words": [
+      0.0,
+      1.32
+    ],
+    "duration": 4.129
+  },
+  "Warden_28_80c73dfe": {
+    "kind": "Warden",
+    "text": "Fall. [beat] [slow]Again.[/]",
+    "words": [
+      0.0,
+      1.077
+    ],
+    "duration": 3.711
+  },
+  "Warden_29_416049b3": {
+    "kind": "Warden",
+    "text": "Your oath is [wave]thinner[/] than mine.",
+    "words": [
+      0.0,
+      0.202,
+      0.404,
+      0.505,
+      0.858,
+      1.06
+    ],
+    "duration": 3.552
+  },
+  "Warden_30_c34a6b02": {
+    "kind": "Warden",
+    "text": "[glitch]Stop making me do this.[/]",
+    "words": [
+      0.0,
+      0.266,
+      0.666,
+      0.799,
+      0.932
+    ],
+    "duration": 3.505
+  },
+  "Warden_31_c36a7ab8": {
+    "kind": "Warden",
+    "text": "[whisper]The door is listening.[/]",
+    "words": [
+      0.0,
+      0.145,
+      0.338,
+      0.434
+    ],
+    "duration": 3.157
+  },
+  "Warden_32_d596e5c2": {
+    "kind": "Warden",
+    "text": "[wave]Every key I buried is humming.[/]",
+    "words": [
+      0.0,
+      0.337,
+      0.539,
+      0.606,
+      1.01,
+      1.145
+    ],
+    "duration": 3.923
+  },
+  "Warden_33_2eb775bd": {
+    "kind": "Warden",
+    "text": "You hesitate. [beat] Good. [beat] [slow]Hesitation is wisdom.[/]",
+    "words": [
+      0.0,
+      0.189,
+      1.495,
+      2.618,
+      3.265,
+      3.395
+    ],
+    "duration": 6.088
+  },
+  "Warden_34_e8d130bb": {
+    "kind": "Warden",
+    "text": "[slow]Come.[/] [beat] I am only a [hot]door[/].",
+    "words": [
+      0.0,
+      1.193,
+      1.267,
+      1.415,
+      1.712,
+      1.786
+    ],
+    "duration": 4.396
+  },
+  "Warden_35_ff2a80b8": {
     "kind": "Warden",
     "text": "[big]VOID COLLAPSE.[/]",
     "words": [
       0.0,
-      0.286
+      0.264
     ],
-    "duration": 3.169
+    "duration": 3.099
   },
-  "Warden_23_ab1651e3": {
+  "Warden_36_ab1651e3": {
     "kind": "Warden",
     "text": "[slow]Everything folds [beat] toward nothing.[/]",
     "words": [
       0.0,
-      0.859,
-      1.709,
-      1.997
+      0.882,
+      1.744,
+      2.112
     ],
-    "duration": 4.622
+    "duration": 4.843
   },
-  "Warden_24_dd094e5c": {
+  "Warden_37_dd094e5c": {
     "kind": "Warden",
     "text": "[big]SPEARFALL.[/]",
     "words": [
       0.0
     ],
-    "duration": 3.122
+    "duration": 2.983
   },
-  "Warden_25_612b804a": {
+  "Warden_38_612b804a": {
     "kind": "Warden",
     "text": "[shake]A hundred lines of dark. [beat] Pick one.[/]",
     "words": [
       0.0,
-      0.052,
-      0.418,
-      0.679,
-      0.784,
-      1.785,
-      2.023
+      0.054,
+      0.432,
+      0.702,
+      0.81,
+      1.82,
+      2.069
     ],
-    "duration": 4.501
+    "duration": 4.559
   },
-  "Warden_26_e7742f22": {
+  "Warden_39_e7742f22": {
     "kind": "Warden",
     "text": "[big][shake]OBLIVION.[/][/]",
     "words": [
       0.0
     ],
-    "duration": 2.786
+    "duration": 2.89
   },
-  "Warden_27_9ca3b8a8": {
+  "Warden_40_9ca3b8a8": {
     "kind": "Warden",
     "text": "[glitch]Be [beat] un[beat]made.[/]",
     "words": [
       0.0,
-      0.687
+      0.815
     ],
-    "duration": 3.508
+    "duration": 3.6
   },
-  "Warden_28_b2394123": {
+  "Warden_41_b2394123": {
     "kind": "Warden",
     "text": "[big]KNEEL.[/]",
     "words": [
       0.0
     ],
-    "duration": 2.728
+    "duration": 2.646
   },
-  "Warden_29_6affe395": {
-    "kind": "Warden",
-    "text": "Fall.",
-    "words": [
-      0.0
-    ],
-    "duration": 2.6
-  },
-  "Warden_30_9cb47c5d": {
+  "Warden_42_9cb47c5d": {
     "kind": "Warden",
     "text": "The floor [hot]remembers[/] weight.",
     "words": [
       0.0,
-      0.134,
-      0.356,
-      0.757
+      0.131,
+      0.348,
+      0.74
     ],
-    "duration": 3.308
+    "duration": 3.285
   },
-  "Warden_31_b6cccf98": {
+  "Warden_43_ec718b3d": {
+    "kind": "Warden",
+    "text": "[slow]Down.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.786
+  },
+  "Warden_44_ec99f501": {
+    "kind": "Warden",
+    "text": "Forgive the [shake]noise[/].",
+    "words": [
+      0.0,
+      0.361,
+      0.515
+    ],
+    "duration": 3.064
+  },
+  "Warden_45_b6cccf98": {
     "kind": "Warden",
     "text": "Two fall as [hot]one[/].",
     "words": [
       0.0,
-      0.209,
-      0.488,
-      0.627
+      0.161,
+      0.375,
+      0.482
     ],
-    "duration": 3.146
+    "duration": 2.937
   },
-  "Warden_32_2426e93a": {
+  "Warden_46_2426e93a": {
     "kind": "Warden",
     "text": "[shake]Both of you.[/]",
     "words": [
       0.0,
-      0.278,
-      0.417
+      0.237,
+      0.355
     ],
-    "duration": 2.935
+    "duration": 2.832
   },
-  "Warden_33_383c9321": {
+  "Warden_47_7f5f02ed": {
+    "kind": "Warden",
+    "text": "A door has [hot]two leaves[/].",
+    "words": [
+      0.0,
+      0.068,
+      0.342,
+      0.547,
+      0.752
+    ],
+    "duration": 3.471
+  },
+  "Warden_48_383c9321": {
     "kind": "Warden",
     "text": "Come [slow]closer[/].",
     "words": [
       0.0,
-      0.355
+      0.3
     ],
-    "duration": 3.215
+    "duration": 3.064
   },
-  "Warden_34_66f9e934": {
+  "Warden_49_5ef430dc": {
+    "kind": "Warden",
+    "text": "[wave]Everything falls inward, eventually.[/]",
+    "words": [
+      0.0,
+      0.677,
+      1.016,
+      1.63
+    ],
+    "duration": 4.624
+  },
+  "Warden_50_66f9e934": {
     "kind": "Warden",
     "text": "The rift will [hot]have you[/].",
     "words": [
       0.0,
-      0.15,
-      0.351,
-      0.551,
-      0.752
+      0.123,
+      0.287,
+      0.45,
+      0.614
     ],
-    "duration": 3.192
+    "duration": 3.018
   },
-  "Warden_35_1ffbaef0": {
+  "Warden_51_a1e8145d": {
     "kind": "Warden",
-    "text": "[wave]Everything falls inward.[/]",
+    "text": "The edge of the seal. [beat] [hot]Cross it[/] and be cut.",
     "words": [
       0.0,
-      0.512,
-      0.768
+      0.179,
+      0.417,
+      0.536,
+      0.715,
+      1.753,
+      2.025,
+      2.134,
+      2.297,
+      2.406
     ],
-    "duration": 3.366
+    "duration": 4.864
   },
-  "Warden_36_6e9a10a7": {
-    "kind": "Warden",
-    "text": "The seal's own edge. [beat] Cross it and be [hot]cut[/].",
-    "words": [
-      0.0,
-      0.199,
-      0.596,
-      0.795,
-      1.866,
-      2.16,
-      2.278,
-      2.454,
-      2.571
-    ],
-    "duration": 5.047
-  },
-  "Warden_37_cbeb912c": {
+  "Warden_52_cbeb912c": {
     "kind": "Warden",
     "text": "[glitch]Lines of the door.[/]",
     "words": [
       0.0,
-      0.313,
-      0.439,
-      0.627
+      0.298,
+      0.417,
+      0.596
     ],
-    "duration": 3.18
+    "duration": 3.134
   },
-  "Warden_38_fcbd27ac": {
+  "Warden_53_e128c007": {
+    "kind": "Warden",
+    "text": "Mind the [hot]hinges[/].",
+    "words": [
+      0.0,
+      0.264,
+      0.463
+    ],
+    "duration": 3.165
+  },
+  "Warden_54_fcbd27ac": {
     "kind": "Warden",
     "text": "The door opens [hot]where you stand[/].",
     "words": [
       0.0,
-      0.135,
-      0.316,
-      0.541,
-      0.767,
-      0.902
+      0.165,
+      0.384,
+      0.659,
+      0.934,
+      1.098
     ],
-    "duration": 3.413
+    "duration": 3.668
   },
-  "Warden_39_0b9816a3": {
+  "Warden_55_0b9816a3": {
     "kind": "Warden",
     "text": "[shake]Fall through.[/]",
     "words": [
       0.0,
-      0.163
+      0.224
     ],
-    "duration": 2.728
+    "duration": 2.913
   },
-  "Warden_40_2df75374": {
+  "Warden_56_2df75374": {
     "kind": "Warden",
     "text": "[wave]Rifts, rifts, rifts.[/]",
     "words": [
       0.0,
-      0.523,
-      1.313
+      0.848,
+      1.464
     ],
-    "duration": 4.134
+    "duration": 4.366
   },
-  "Warden_41_6b86e401": {
+  "Warden_57_aab78a2a": {
+    "kind": "Warden",
+    "text": "[slow]Step wherever you like.[/] [beat] It opens there.",
+    "words": [
+      0.0,
+      0.244,
+      0.731,
+      0.914,
+      1.959,
+      2.079,
+      2.378
+    ],
+    "duration": 4.977
+  },
+  "Warden_58_6b86e401": {
     "kind": "Warden",
     "text": "Rise, [hot]keepers of the door[/].",
     "words": [
       0.0,
-      0.697,
-      1.046,
-      1.146,
-      1.295
+      0.79,
+      1.106,
+      1.196,
+      1.331
     ],
-    "duration": 3.784
+    "duration": 3.796
   },
-  "Warden_42_a2046357": {
+  "Warden_59_a2046357": {
     "kind": "Warden",
     "text": "Let the dark have [glitch]hands[/].",
     "words": [
       0.0,
-      0.165,
-      0.331,
-      0.551,
-      0.772
+      0.176,
+      0.352,
+      0.586,
+      0.821
     ],
-    "duration": 3.343
+    "duration": 3.413
   },
-  "Warden_43_6401e645": {
+  "Warden_60_6401e645": {
     "kind": "Warden",
     "text": "[whisper]Come, little shadows.[/]",
     "words": [
       0.0,
-      0.523,
-      0.886
+      0.535,
+      0.925
     ],
-    "duration": 3.611
+    "duration": 3.686
   },
-  "Warden_44_41afbf06": {
+  "Warden_61_41afbf06": {
     "kind": "Warden",
     "text": "The floor remembers the [hot]door[/].",
     "words": [
       0.0,
-      0.147,
-      0.393,
-      0.835,
-      0.983
+      0.149,
+      0.398,
+      0.845,
+      0.994
     ],
-    "duration": 3.468
+    "duration": 3.482
   },
-  "Warden_45_4972b457": {
+  "Warden_62_4972b457": {
     "kind": "Warden",
     "text": "[big]Split.[/]",
     "words": [
       0.0
     ],
-    "duration": 2.762
+    "duration": 2.809
   },
-  "Warden_46_e4a3c500": {
+  "Warden_63_e4a3c500": {
     "kind": "Warden",
     "text": "[slow]Follow the crack...[/]",
     "words": [
       0.0,
-      0.373,
-      0.559
+      0.418,
+      0.627
     ],
-    "duration": 3.297
+    "duration": 3.424
   },
-  "Warden_47_8010d085": {
+  "Warden_64_8010d085": {
     "kind": "Warden",
     "text": "Stay. [beat] The seal will [hot]close round you[/].",
     "words": [
       0.0,
-      1.425,
-      1.584,
-      1.796,
-      2.007,
-      2.272,
-      2.537
+      1.019,
+      1.166,
+      1.363,
+      1.56,
+      1.806,
+      2.052
     ],
-    "duration": 4.989
+    "duration": 4.489
   },
-  "Warden_48_40e7321f": {
+  "Warden_65_40e7321f": {
     "kind": "Warden",
     "text": "[wave]No way out but through me.[/]",
     "words": [
       0.0,
-      0.138,
-      0.346,
-      0.553,
-      0.76,
-      1.244
+      0.106,
+      0.265,
+      0.425,
+      0.584,
+      0.955
     ],
-    "duration": 3.691
+    "duration": 3.355
   },
-  "Choir_22_bf1cb22f": {
+  "Warden_66_f5377695": {
+    "kind": "Warden",
+    "text": "[slow]A cell is a kindness[/], compared to the door.",
+    "words": [
+      0.0,
+      0.087,
+      0.434,
+      0.607,
+      0.694,
+      1.614,
+      2.007,
+      2.105,
+      2.252
+    ],
+    "duration": 4.737
+  },
+  "Choir_01_dd214936": {
+    "kind": "Choir",
+    "text": "[whisper]La... [wave]la[/]... [beat] la--[/]",
+    "words": [
+      0.0,
+      0.947,
+      2.302
+    ],
+    "duration": 5.675
+  },
+  "Choir_02_7b16afb6": {
+    "kind": "Choir",
+    "text": "A hundred throats [hot]remember the same note[/].",
+    "words": [
+      0.0,
+      0.075,
+      0.597,
+      1.12,
+      1.717,
+      1.941,
+      2.239
+    ],
+    "duration": 5.652
+  },
+  "Choir_03_324dca48": {
+    "kind": "Choir",
+    "text": "[wave]We were a hundred voices.[/] [beat] The sea took [hot]ninety-nine[/].",
+    "words": [
+      0.0,
+      0.152,
+      0.455,
+      0.531,
+      1.062,
+      2.333,
+      2.566,
+      2.799,
+      3.109
+    ],
+    "duration": 7.08
+  },
+  "Choir_04_d4893e25": {
+    "kind": "Choir",
+    "text": "We kept the song. [beat] It is all that [slow]kept us[/].",
+    "words": [
+      0.0,
+      0.166,
+      0.497,
+      0.746,
+      1.9,
+      2.134,
+      2.368,
+      2.719,
+      3.186,
+      3.654
+    ],
+    "duration": 7.044
+  },
+  "Choir_05_7f3d8a00": {
+    "kind": "Choir",
+    "text": "Sing with us, little [hot]flame[/]. [beat] Or be [wave]the rest[/].",
+    "words": [
+      0.0,
+      0.422,
+      0.844,
+      1.301,
+      1.789,
+      3.016,
+      3.234,
+      3.453,
+      3.78
+    ],
+    "duration": 7.365
+  },
+  "Choir_06_a69402d0": {
+    "kind": "Choir",
+    "text": "[hot]Oh.[/] [beat] You can hold a [slow]rhythm[/].",
+    "words": [
+      0.0,
+      1.135,
+      1.401,
+      1.667,
+      2.022,
+      2.11
+    ],
+    "duration": 5.771
+  },
+  "Choir_07_9e807622": {
+    "kind": "Choir",
+    "text": "The second verse is [shake]louder[/]. [beat] The second verse [hot]hurts[/].",
+    "words": [
+      0.0,
+      0.214,
+      0.641,
+      0.996,
+      1.139,
+      2.377,
+      2.605,
+      3.061,
+      3.441
+    ],
+    "duration": 6.937
+  },
+  "Choir_08_169f95eb": {
+    "kind": "Choir",
+    "text": "[big]TUTTI.[/] [beat] All of us. [beat] [shake]ALL.[/]",
+    "words": [
+      0.0,
+      1.274,
+      1.627,
+      1.862,
+      2.954
+    ],
+    "duration": 6.533
+  },
+  "Choir_09_6abd03e5": {
+    "kind": "Choir",
+    "text": "[glitch]We remember what the water said.[/]",
+    "words": [
+      0.0,
+      0.125,
+      0.623,
+      0.873,
+      1.06,
+      1.371
+    ],
+    "duration": 4.723
+  },
+  "Choir_10_e708596d": {
+    "kind": "Choir",
+    "text": "[whisper]Quiet... [beat] so [wave]quiet[/]...[/]",
+    "words": [
+      0.0,
+      1.652,
+      1.901
+    ],
+    "duration": 5.934
+  },
+  "Choir_11_f0d26d01": {
+    "kind": "Choir",
+    "text": "[slow]Thank you for the last note.[/] [beat] We never could [hot]finish it[/].",
+    "words": [
+      0.0,
+      0.451,
+      0.721,
+      0.992,
+      1.262,
+      1.623,
+      2.813,
+      2.96,
+      3.328,
+      3.695,
+      4.136
+    ],
+    "duration": 7.397
+  },
+  "Choir_12_fe92df08": {
+    "kind": "Choir",
+    "text": "[wave]Hold it... [beat] hold it... [beat] let go.[/]",
+    "words": [
+      0.0,
+      0.456,
+      1.766,
+      2.091,
+      3.237,
+      3.667
+    ],
+    "duration": 7.136
+  },
+  "Choir_13_8426d582": {
+    "kind": "Choir",
+    "text": "[wave]We sink, we sink, we [slow]sing[/] beneath.[/]",
+    "words": [
+      0.0,
+      0.273,
+      1.094,
+      1.296,
+      1.942,
+      2.161,
+      2.599
+    ],
+    "duration": 6.515
+  },
+  "Choir_14_c43f811b": {
+    "kind": "Choir",
+    "text": "Hum it for us. [beat] [hot]Just once[/].",
+    "words": [
+      0.0,
+      0.278,
+      0.463,
+      0.741,
+      1.758,
+      2.233
+    ],
+    "duration": 5.866
+  },
+  "Choir_15_49e26914": {
+    "kind": "Choir",
+    "text": "[shake]You are OFF THE BEAT.[/]",
+    "words": [
+      0.0,
+      0.211,
+      0.422,
+      0.633,
+      0.844
+    ],
+    "duration": 4.235
+  },
+  "Choir_16_1c6c9e76": {
+    "kind": "Choir",
+    "text": "[glitch]Tempo. TEMPO. TEMPO.[/]",
+    "words": [
+      0.0,
+      1.051,
+      2.114
+    ],
+    "duration": 5.828
+  },
+  "Choir_17_26efc54f": {
+    "kind": "Choir",
+    "text": "[big]FORTISSIMO![/]",
+    "words": [
+      0.0
+    ],
+    "duration": 3.899
+  },
+  "Choir_18_20a8eb9c": {
+    "kind": "Choir",
+    "text": "[big]A wrong note![/]",
+    "words": [
+      0.0,
+      0.076,
+      0.455
+    ],
+    "duration": 3.875
+  },
+  "Choir_19_2210ada6": {
+    "kind": "Choir",
+    "text": "[shake]The chord... [beat] fractures![/]",
+    "words": [
+      0.0,
+      0.173,
+      1.375
+    ],
+    "duration": 5.379
+  },
+  "Choir_20_bc48887d": {
+    "kind": "Choir",
+    "text": "Who taught you to [hot]strike the rest[/]?",
+    "words": [
+      0.0,
+      0.203,
+      0.608,
+      0.811,
+      0.946,
+      1.352,
+      1.554
+    ],
+    "duration": 4.952
+  },
+  "Choir_21_9578a354": {
+    "kind": "Choir",
+    "text": "[wave]Flat.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 3.687
+  },
+  "Choir_22_43538fc5": {
+    "kind": "Choir",
+    "text": "That was [hot]sharp[/], little flame.",
+    "words": [
+      0.0,
+      0.275,
+      0.481,
+      1.034,
+      1.492
+    ],
+    "duration": 4.99
+  },
+  "Choir_23_8fab3d96": {
+    "kind": "Choir",
+    "text": "[slow]Again, from the top.[/]",
+    "words": [
+      0.0,
+      0.95,
+      1.305,
+      1.571
+    ],
+    "duration": 4.965
+  },
+  "Choir_24_abfad07c": {
+    "kind": "Choir",
+    "text": "Resolve. [beat] [hot]Resolve[/].",
+    "words": [
+      0.0,
+      1.622
+    ],
+    "duration": 5.339
+  },
+  "Choir_25_130b2f86": {
+    "kind": "Choir",
+    "text": "[shake]You are off-key.[/]",
+    "words": [
+      0.0,
+      0.187,
+      0.373
+    ],
+    "duration": 3.911
+  },
+  "Choir_26_c7806c86": {
+    "kind": "Choir",
+    "text": "We have heard that [slow]ending[/] before.",
+    "words": [
+      0.0,
+      0.157,
+      0.471,
+      0.864,
+      1.178,
+      1.65
+    ],
+    "duration": 5.24
+  },
+  "Choir_27_b4ed9091": {
+    "kind": "Choir",
+    "text": "[wave]Diminuendo...[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 4.294
+  },
+  "Choir_28_449678e1": {
+    "kind": "Choir",
+    "text": "Fall in [hot]time[/].",
+    "words": [
+      0.0,
+      0.456,
+      0.684
+    ],
+    "duration": 4.294
+  },
+  "Choir_29_223525ce": {
+    "kind": "Choir",
+    "text": "[glitch]Mi. Re. Do. [beat] Down.[/]",
+    "words": [
+      0.0,
+      1.121,
+      1.964,
+      3.203
+    ],
+    "duration": 6.846
+  },
+  "Choir_30_33f57146": {
+    "kind": "Choir",
+    "text": "[whisper]Sleep. Sleep. Sleep.[/]",
+    "words": [
+      0.0,
+      1.109,
+      2.207
+    ],
+    "duration": 5.829
+  },
+  "Choir_31_f407bbe5": {
+    "kind": "Choir",
+    "text": "[whisper]Do you hear it? [beat] Under the water?[/]",
+    "words": [
+      0.0,
+      0.151,
+      0.377,
+      0.679,
+      1.666,
+      2.03,
+      2.249
+    ],
+    "duration": 5.747
+  },
+  "Choir_32_dc40bd09": {
+    "kind": "Choir",
+    "text": "[wave]La... la... [beat] la.[/]",
+    "words": [
+      0.0,
+      1.121,
+      2.325
+    ],
+    "duration": 6.132
+  },
+  "Choir_33_593d35c1": {
+    "kind": "Choir",
+    "text": "We are [slow]so[/] glad you came.",
+    "words": [
+      0.0,
+      0.257,
+      0.642,
+      0.898,
+      1.412,
+      1.796
+    ],
+    "duration": 5.478
+  },
+  "Choir_34_76447ebf": {
+    "kind": "Choir",
+    "text": "[glitch]Ninety-nine. [beat] Ninety-nine. [beat] Ninety-nine.[/]",
+    "words": [
+      0.0,
+      1.75,
+      4.539
+    ],
+    "duration": 9.088
+  },
+  "Choir_35_bf1cb22f": {
     "kind": "Choir",
     "text": "[big]CRESCENDO.[/]",
     "words": [
       0.0
     ],
-    "duration": 3.829
+    "duration": 3.888
   },
-  "Choir_23_a3f73ab2": {
+  "Choir_36_a3f73ab2": {
     "kind": "Choir",
     "text": "[wave]Every voice at once -- [beat] [hot]LISTEN[/].[/]",
     "words": [
       0.0,
-      0.459,
-      0.918,
-      1.102,
-      1.469,
-      2.173
+      0.53,
+      1.06,
+      1.272,
+      1.696,
+      2.427
     ],
-    "duration": 5.828
+    "duration": 6.094
   },
-  "Choir_24_ceb2ca2a": {
+  "Choir_37_ceb2ca2a": {
     "kind": "Choir",
     "text": "[slow]This is your [hot]requiem[/].[/]",
     "words": [
       0.0,
-      0.377,
-      0.565,
-      0.941
+      0.418,
+      0.627,
+      1.045
     ],
-    "duration": 4.734
+    "duration": 4.921
   },
-  "Choir_25_47ccd630": {
+  "Choir_38_47ccd630": {
     "kind": "Choir",
     "text": "[whisper]Hold still for the last note.[/]",
     "words": [
       0.0,
-      0.368,
-      0.827,
-      1.103,
-      1.379,
-      1.746
+      0.353,
+      0.793,
+      1.058,
+      1.322,
+      1.675
     ],
-    "duration": 5.246
+    "duration": 5.156
   },
-  "Choir_26_fc1f5d3a": {
+  "Choir_39_fc1f5d3a": {
     "kind": "Choir",
     "text": "[big][shake]FINALE.[/][/]",
     "words": [
       0.0
     ],
-    "duration": 3.742
+    "duration": 3.644
   },
-  "Choir_27_c5e77750": {
+  "Choir_40_c5e77750": {
     "kind": "Choir",
     "text": "[glitch]The song ends when [beat] YOU do.[/]",
     "words": [
       0.0,
-      0.325,
-      0.759,
-      1.192,
-      2.045,
-      2.405
+      0.276,
+      0.645,
+      1.013,
+      1.802,
+      2.069
     ],
-    "duration": 5.805
+    "duration": 5.376
   },
-  "Choir_28_7318a690": {
+  "Choir_41_ab458183": {
     "kind": "Choir",
-    "text": "[hot]Hear[/] the rhythm.",
+    "text": "[wave]Ripples, ripples, ripples.[/]",
     "words": [
       0.0,
-      0.273,
-      0.478
+      1.034,
+      2.038
     ],
-    "duration": 3.996
+    "duration": 5.821
   },
-  "Choir_29_475c4b60": {
+  "Choir_42_2a0d3db3": {
     "kind": "Choir",
-    "text": "Step between the [pulse]beats[/].",
+    "text": "Hold the [hot]note[/]. [beat] Feel it widen.",
     "words": [
       0.0,
-      0.368,
-      1.012,
-      1.288
+      0.31,
+      0.543,
+      1.671,
+      2.076,
+      2.279
     ],
-    "duration": 4.88
+    "duration": 5.927
   },
-  "Choir_30_74b75a4d": {
+  "Choir_43_a5f54e02": {
     "kind": "Choir",
-    "text": "[wave]One... two... three...[/]",
+    "text": "[slow]The sea has rings too.[/]",
     "words": [
       0.0,
-      1.051,
-      2.033
+      0.372,
+      0.744,
+      1.116,
+      1.736
     ],
-    "duration": 5.886
+    "duration": 5.272
   },
-  "Choir_31_6b79d0d8": {
+  "Choir_44_569fa11c": {
     "kind": "Choir",
-    "text": "Find the [hot]harmony[/].",
+    "text": "[glitch]Wrong.[/] [beat] [hot]Wrong.[/] [beat] [shake]WRONG.[/]",
     "words": [
       0.0,
-      0.433,
-      0.759
+      1.385,
+      2.845
     ],
-    "duration": 4.665
+    "duration": 6.541
   },
-  "Choir_32_66340881": {
+  "Choir_45_5b29a1dd": {
     "kind": "Choir",
-    "text": "Only the [slow]still[/] notes are safe.",
+    "text": "Where it [hot]clashes[/], stand not.",
     "words": [
       0.0,
-      0.353,
-      0.618,
-      1.059,
-      1.5,
-      1.765
+      0.445,
+      0.623,
+      1.475,
+      1.978
     ],
-    "duration": 5.246
+    "duration": 5.421
   },
-  "Choir_33_0f08f4d5": {
+  "Choir_46_f9ed8729": {
     "kind": "Choir",
-    "text": "[glitch]All discord, all at once.[/]",
+    "text": "[wave]Hear the beating between two notes?[/]",
     "words": [
       0.0,
-      0.298,
-      1.231,
-      1.573,
-      1.8
+      0.346,
+      0.605,
+      1.21,
+      1.815,
+      2.075
     ],
-    "duration": 5.409
+    "duration": 5.653
   },
-  "Choir_34_91983290": {
+  "Choir_47_56bc12eb": {
     "kind": "Choir",
-    "text": "[wave]Echo... echo... [/][hot]echo[/].",
+    "text": "[wave]Echo... [beat] echo... [beat] [hot]echo[/].[/]",
     "words": [
       0.0,
-      1.121,
-      2.265
+      1.39,
+      2.92
     ],
-    "duration": 5.86
+    "duration": 6.659
   },
-  "Choir_35_140ba4d3": {
+  "Choir_48_abcfcd5e": {
     "kind": "Choir",
-    "text": "Struck [pulse]three times[/]. Hear it grow?",
+    "text": "The first blow is only the [slow]announcement[/].",
     "words": [
       0.0,
-      0.594,
-      1.089,
-      2.003,
-      2.35,
-      2.523
+      0.272,
+      0.724,
+      1.086,
+      1.268,
+      1.63,
+      1.901
     ],
-    "duration": 6.015
+    "duration": 6.118
   },
-  "Choir_36_42e7c510": {
+  "Choir_49_1d4d4f2b": {
     "kind": "Choir",
-    "text": "A [shake]sour[/] note.",
-    "words": [
-      0.0,
-      0.124,
-      0.621
-    ],
-    "duration": 4.282
-  },
-  "Choir_37_fcead72d": {
-    "kind": "Choir",
-    "text": "[big]Fortissimo.[/]",
+    "text": "[big]FORTE.[/]",
     "words": [
       0.0
     ],
-    "duration": 3.909
+    "duration": 3.655
   },
-  "Choir_38_a1175765": {
+  "Choir_50_bd4695bf": {
     "kind": "Choir",
-    "text": "[hot]Shatter.[/]",
+    "text": "A [hot]downbeat[/].",
+    "words": [
+      0.0,
+      0.11
+    ],
+    "duration": 4.143
+  },
+  "Choir_51_1ace029b": {
+    "kind": "Choir",
+    "text": "[wave]Staccato.[/]",
     "words": [
       0.0
     ],
-    "duration": 3.791
+    "duration": 4.001
   },
-  "Choir_39_0987b341": {
+  "Choir_52_8dbf67e2": {
     "kind": "Choir",
-    "text": "[wave]Glass rain.[/]",
+    "text": "A [hot]scale[/], falling.",
     "words": [
       0.0,
-      0.517
+      0.13,
+      1.052
     ],
-    "duration": 4.073
+    "duration": 4.638
   },
-  "Choir_40_f9d234ab": {
+  "Choir_53_fdd7f78f": {
     "kind": "Choir",
-    "text": "[glitch]Every note, a blade.[/]",
+    "text": "Quick, quick, [slow]slow[/].",
     "words": [
       0.0,
-      0.466,
-      1.072,
-      1.171
+      0.628,
+      1.313
     ],
-    "duration": 4.807
+    "duration": 5.41
   },
-  "Choir_41_2474f705": {
+  "Choir_54_9a1addeb": {
     "kind": "Choir",
-    "text": "A chord, in [hot]every direction[/].",
-    "words": [
-      0.0,
-      0.121,
-      0.99,
-      1.125,
-      1.461
-    ],
-    "duration": 5.174
-  },
-  "Choir_42_dae1eb75": {
-    "kind": "Choir",
-    "text": "[big]Bloom.[/]",
+    "text": "[big]Radiate.[/]",
     "words": [
       0.0
     ],
-    "duration": 3.573
+    "duration": 3.98
   },
-  "Choir_43_2ccf8dbf": {
+  "Choir_55_a64a69d6": {
     "kind": "Choir",
-    "text": "My echoes -- [hot]sing for me[/].",
+    "text": "[wave]Every voice, a [hot]ray[/].[/]",
     "words": [
       0.0,
-      0.163,
-      0.651,
-      0.813,
-      1.139,
-      1.383
+      0.48,
+      1.197,
+      1.343
     ],
-    "duration": 4.666
+    "duration": 4.968
   },
-  "Choir_44_9273f70b": {
+  "Choir_56_cce3212d": {
     "kind": "Choir",
-    "text": "[whisper]Cold little voices... wake.[/]",
+    "text": "Join us, [hot]lost ones[/].",
     "words": [
       0.0,
-      0.347,
-      0.868,
-      1.969
+      0.418,
+      0.871,
+      1.394
     ],
-    "duration": 5.694
+    "duration": 5.086
   },
-  "Choir_45_1e9e44fc": {
+  "Choir_57_09ffd575": {
     "kind": "Choir",
-    "text": "[wave]Join the chorus.[/]",
+    "text": "[whisper]Come up, come up.[/]",
     "words": [
       0.0,
-      0.438,
-      0.766
+      0.391,
+      0.825,
+      1.163
     ],
-    "duration": 4.573
+    "duration": 4.457
   },
-  "Regent_22_02ee25b8": {
+  "Choir_58_e994aa53": {
+    "kind": "Choir",
+    "text": "[wave]Sing the others awake.[/]",
+    "words": [
+      0.0,
+      0.285,
+      0.499,
+      0.927
+    ],
+    "duration": 4.394
+  },
+  "Regent_01_fbffe6e5": {
+    "kind": "Regent",
+    "text": "[big]LET THE ASH RISE.[/]",
+    "words": [
+      0.0,
+      0.316,
+      0.632,
+      0.948
+    ],
+    "duration": 2.814
+  },
+  "Regent_02_eedbd53d": {
+    "kind": "Regent",
+    "text": "[slow]A throne is[/] [hot]heating[/] beneath me.",
+    "words": [
+      0.0,
+      0.073,
+      0.508,
+      0.653,
+      1.161,
+      1.67
+    ],
+    "duration": 3.227
+  },
+  "Regent_03_ff172289": {
+    "kind": "Regent",
+    "text": "[big]BEHOLD THE REGENT[/] of nine burning cities!",
+    "words": [
+      0.0,
+      0.426,
+      0.639,
+      1.065,
+      1.207,
+      1.491,
+      1.988
+    ],
+    "duration": 3.825
+  },
+  "Regent_04_e0610c2b": {
+    "kind": "Regent",
+    "text": "I wore a crown of a thousand hearths. [beat] I wear them still, [hot]as ash[/].",
+    "words": [
+      0.0,
+      0.062,
+      0.31,
+      0.372,
+      0.681,
+      0.805,
+      0.867,
+      1.362,
+      2.598,
+      2.666,
+      2.938,
+      3.21,
+      3.759,
+      4.014
+    ],
+    "duration": 5.865
+  },
+  "Regent_05_26f03c88": {
+    "kind": "Regent",
+    "text": "Kneel, and I may scorch you [slow]gently[/]. [beat] Stand, and I will [shake]make an example[/].",
+    "words": [
+      0.0,
+      0.922,
+      1.171,
+      1.254,
+      1.503,
+      2.0,
+      2.249,
+      3.57,
+      4.251,
+      4.429,
+      4.489,
+      4.726,
+      4.964,
+      5.082
+    ],
+    "duration": 6.897
+  },
+  "Regent_06_4c738376": {
+    "kind": "Regent",
+    "text": "[shake]You DARE bleed on my floor?[/]",
+    "words": [
+      0.0,
+      0.237,
+      0.554,
+      0.95,
+      1.108,
+      1.267
+    ],
+    "duration": 3.101
+  },
+  "Regent_07_30b779eb": {
+    "kind": "Regent",
+    "text": "Very well. [beat] The [hot]coronation[/] begins.",
+    "words": [
+      0.0,
+      0.388,
+      1.613,
+      1.811,
+      2.473
+    ],
+    "duration": 4.276
+  },
+  "Regent_08_534f8165": {
+    "kind": "Regent",
+    "text": "[big][shake]I AM THE FIRE THAT FORGETS NOTHING![/][/]",
+    "words": [
+      0.0,
+      0.06,
+      0.179,
+      0.358,
+      0.596,
+      0.835,
+      1.252
+    ],
+    "duration": 3.069
+  },
+  "Regent_09_37121b5e": {
+    "kind": "Regent",
+    "text": "My court has [hot]fallen[/]. [beat] So the [glitch]hall burns with it[/].",
+    "words": [
+      0.0,
+      0.127,
+      0.446,
+      0.637,
+      1.822,
+      1.955,
+      2.154,
+      2.42,
+      2.752,
+      3.018
+    ],
+    "duration": 4.557
+  },
+  "Regent_10_6524902d": {
+    "kind": "Regent",
+    "text": "[slow]Cooled... [beat] by a [hot]peasant[/].[/]",
+    "words": [
+      0.0,
+      1.508,
+      1.7,
+      1.796
+    ],
+    "duration": 3.904
+  },
+  "Regent_11_5d5acd5c": {
+    "kind": "Regent",
+    "text": "[whisper]Remember me as... [beat] [wave]warm[/].[/]",
+    "words": [
+      0.0,
+      0.709,
+      0.887,
+      2.07
+    ],
+    "duration": 4.025
+  },
+  "Regent_12_70a15f1f": {
+    "kind": "Regent",
+    "text": "[slow]The throne is yours.[/] [beat] It was never [hot]comfortable[/].",
+    "words": [
+      0.0,
+      0.249,
+      0.748,
+      0.914,
+      2.152,
+      2.254,
+      2.406,
+      2.66
+    ],
+    "duration": 4.608
+  },
+  "Regent_13_d6eecd86": {
+    "kind": "Regent",
+    "text": "[big]A KING DOES NOT FLEE![/] [beat] [slow]He withdraws.[/]",
+    "words": [
+      0.0,
+      0.062,
+      0.31,
+      0.558,
+      0.744,
+      1.794,
+      2.026
+    ],
+    "duration": 4.522
+  },
+  "Regent_14_2e585d88": {
+    "kind": "Regent",
+    "text": "Polish your armour. [beat] I [hot]return[/].",
+    "words": [
+      0.0,
+      0.388,
+      0.646,
+      1.838,
+      1.952
+    ],
+    "duration": 4.084
+  },
+  "Regent_15_ab0b2b04": {
+    "kind": "Regent",
+    "text": "[big][shake]HOW DARE YOU STILL STAND?![/][/]",
+    "words": [
+      0.0,
+      0.187,
+      0.437,
+      0.625,
+      0.937
+    ],
+    "duration": 2.715
+  },
+  "Regent_16_b8d3801d": {
+    "kind": "Regent",
+    "text": "[shake]My patience is MOLTEN![/]",
+    "words": [
+      0.0,
+      0.147,
+      0.734,
+      0.881
+    ],
+    "duration": 2.735
+  },
+  "Regent_17_c8f627db": {
+    "kind": "Regent",
+    "text": "[glitch]BOW. BOW. BOW.[/]",
+    "words": [
+      0.0,
+      0.81,
+      1.594
+    ],
+    "duration": 3.398
+  },
+  "Regent_18_3cebb581": {
+    "kind": "Regent",
+    "text": "[big]IMPOSSIBLE![/] [beat] [shake]My CROWN![/]",
+    "words": [
+      0.0,
+      1.645,
+      1.828
+    ],
+    "duration": 3.716
+  },
+  "Regent_19_28f86b2d": {
+    "kind": "Regent",
+    "text": "The [hot]royal guard[/] cracks?!",
+    "words": [
+      0.0,
+      0.198,
+      0.529,
+      0.86
+    ],
+    "duration": 2.729
+  },
+  "Regent_20_cc7d6745": {
+    "kind": "Regent",
+    "text": "[shake]Guards! GUARDS![/]",
+    "words": [
+      0.0,
+      0.9
+    ],
+    "duration": 2.761
+  },
+  "Regent_21_8096e181": {
+    "kind": "Regent",
+    "text": "[big]KNEEL![/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.79
+  },
+  "Regent_22_7b49d3cb": {
+    "kind": "Regent",
+    "text": "That is [hot]treason[/].",
+    "words": [
+      0.0,
+      0.322,
+      0.483
+    ],
+    "duration": 2.466
+  },
+  "Regent_23_50fca5d0": {
+    "kind": "Regent",
+    "text": "I have burned [slow]kingdoms[/] for less.",
+    "words": [
+      0.0,
+      0.086,
+      0.428,
+      0.941,
+      1.625,
+      1.882
+    ],
+    "duration": 3.65
+  },
+  "Regent_24_3099f02e": {
+    "kind": "Regent",
+    "text": "[shake]Ash![/] [beat] [hot]All of you, ash![/]",
+    "words": [
+      0.0,
+      1.216,
+      1.461,
+      1.625,
+      2.092
+    ],
+    "duration": 3.877
+  },
+  "Regent_25_26a4bc67": {
+    "kind": "Regent",
+    "text": "A [slow]peasant's[/] blade.",
+    "words": [
+      0.0,
+      0.102,
+      1.024
+    ],
+    "duration": 2.979
+  },
+  "Regent_26_c8ee1c75": {
+    "kind": "Regent",
+    "text": "[wave]How quaint.[/]",
+    "words": [
+      0.0,
+      0.24
+    ],
+    "duration": 2.139
+  },
+  "Regent_27_a4629be9": {
+    "kind": "Regent",
+    "text": "You amuse the court.",
+    "words": [
+      0.0,
+      0.318,
+      0.847,
+      1.164
+    ],
+    "duration": 3.14
+  },
+  "Regent_28_53e325ea": {
+    "kind": "Regent",
+    "text": "[shake]DOWN![/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.898
+  },
+  "Regent_29_a4ff4fce": {
+    "kind": "Regent",
+    "text": "Is that all [hot]your people[/] could send?",
+    "words": [
+      0.0,
+      0.106,
+      0.317,
+      0.476,
+      0.687,
+      1.004,
+      1.268
+    ],
+    "duration": 2.893
+  },
+  "Regent_30_d6e1606a": {
+    "kind": "Regent",
+    "text": "[glitch]Burn. Burn. Burn.[/]",
+    "words": [
+      0.0,
+      0.819,
+      1.494
+    ],
+    "duration": 3.461
+  },
+  "Regent_31_eca4adfa": {
+    "kind": "Regent",
+    "text": "[slow]I am [hot]waiting[/], peasant.[/]",
+    "words": [
+      0.0,
+      0.096,
+      0.289,
+      1.199
+    ],
+    "duration": 3.118
+  },
+  "Regent_32_918faccc": {
+    "kind": "Regent",
+    "text": "The throne grows [shake]impatient[/].",
+    "words": [
+      0.0,
+      0.2,
+      0.6,
+      0.933
+    ],
+    "duration": 2.94
+  },
+  "Regent_33_6338be82": {
+    "kind": "Regent",
+    "text": "[wave]Does no one else dare approach the crown?[/]",
+    "words": [
+      0.0,
+      0.282,
+      0.424,
+      0.635,
+      0.918,
+      1.2,
+      1.765,
+      1.977
+    ],
+    "duration": 3.76
+  },
+  "Regent_34_3a2cf120": {
+    "kind": "Regent",
+    "text": "Present your [hot]grievance[/]. [beat] Or your [slow]neck[/].",
+    "words": [
+      0.0,
+      0.399,
+      0.626,
+      1.936,
+      2.168,
+      2.632
+    ],
+    "duration": 4.553
+  },
+  "Regent_35_02ee25b8": {
     "kind": "Regent",
     "text": "[big]ERUPTION.[/]",
     "words": [
       0.0
     ],
-    "duration": 2.116
+    "duration": 1.99
   },
-  "Regent_23_a25dbd20": {
+  "Regent_36_a25dbd20": {
     "kind": "Regent",
     "text": "[shake]The mountain remembers [hot]fire[/].[/]",
     "words": [
       0.0,
-      0.184,
-      0.674,
-      1.226
+      0.185,
+      0.679,
+      1.235
     ],
-    "duration": 2.873
+    "duration": 2.884
   },
-  "Regent_24_c04bb71e": {
+  "Regent_37_c04bb71e": {
     "kind": "Regent",
     "text": "[big]CATACLYSM.[/]",
     "words": [
       0.0
     ],
-    "duration": 2.153
+    "duration": 2.071
   },
-  "Regent_25_b30d6c9e": {
+  "Regent_38_b30d6c9e": {
     "kind": "Regent",
     "text": "[slow]The ground was only ever a [hot]lid[/].[/]",
     "words": [
       0.0,
-      0.319,
-      0.957,
-      1.276,
-      1.702,
-      2.127,
-      2.233
+      0.295,
+      0.886,
+      1.181,
+      1.575,
+      1.969,
+      2.068
     ],
-    "duration": 3.999
+    "duration": 3.801
   },
-  "Regent_26_93db981c": {
+  "Regent_39_93db981c": {
     "kind": "Regent",
     "text": "[big][shake]RAGNAROK.[/][/]",
     "words": [
       0.0
     ],
-    "duration": 2.089
+    "duration": 2.071
   },
-  "Regent_27_89427c43": {
+  "Regent_40_89427c43": {
     "kind": "Regent",
     "text": "[glitch]Burn. [beat] Burn. [beat] BURN.[/]",
     "words": [
       0.0,
-      1.17,
-      2.497
+      1.134,
+      2.478
     ],
-    "duration": 4.422
+    "duration": 4.255
   },
-  "Regent_28_4afbc496": {
+  "Regent_41_9a490cd7": {
     "kind": "Regent",
-    "text": "Run in circles, [hot]little ember[/].",
+    "text": "[big]THE ROYAL SCYTHE![/]",
     "words": [
       0.0,
-      0.273,
-      0.455,
-      1.324,
-      1.791
-    ],
-    "duration": 3.598
-  },
-  "Regent_29_8fb74d4b": {
-    "kind": "Regent",
-    "text": "[wave]The beam turns... and turns...[/]",
-    "words": [
-      0.0,
-      0.226,
-      0.528,
-      1.452,
-      1.68
-    ],
-    "duration": 3.628
-  },
-  "Regent_30_c029bbf8": {
-    "kind": "Regent",
-    "text": "[big]Rain, fire![/]",
-    "words": [
-      0.0,
-      0.767
+      0.269,
+      0.718
     ],
     "duration": 2.687
   },
-  "Regent_31_e496cc8f": {
+  "Regent_42_0fd6237b": {
     "kind": "Regent",
-    "text": "Every one of you is a [hot]target[/].",
+    "text": "[slow]Bow low,[/] and the blade [hot]passes[/].",
     "words": [
       0.0,
-      0.337,
-      0.539,
-      0.673,
-      0.875,
-      1.01,
-      1.077
+      0.311,
+      0.865,
+      1.086,
+      1.307,
+      1.676
     ],
-    "duration": 2.889
+    "duration": 3.532
   },
-  "Regent_32_e97e4aa1": {
+  "Regent_43_18ca0a1a": {
     "kind": "Regent",
-    "text": "[shake]Crushed.[/]",
+    "text": "A [hot]beam[/] of [shake]judgement[/]!",
+    "words": [
+      0.0,
+      0.061,
+      0.307,
+      0.43
+    ],
+    "duration": 2.385
+  },
+  "Regent_44_a2d26c78": {
+    "kind": "Regent",
+    "text": "[shake]Salute![/]",
     "words": [
       0.0
     ],
-    "duration": 1.862
+    "duration": 1.897
   },
-  "Regent_33_ad3e4e70": {
+  "Regent_45_d3891d26": {
     "kind": "Regent",
-    "text": "[big]Beneath my heel.[/]",
+    "text": "Fire! [beat] [hot]Fire![/]",
     "words": [
       0.0,
-      0.548,
-      0.704
+      1.399
     ],
-    "duration": 2.435
+    "duration": 3.385
   },
-  "Regent_34_affa0be4": {
+  "Regent_46_cd2dc085": {
     "kind": "Regent",
-    "text": "Two! [beat] [hot]Two at once![/]",
+    "text": "[big]A GUN SALUTE![/]",
     "words": [
       0.0,
-      1.03,
-      1.301,
-      1.482
+      0.079,
+      0.318
     ],
-    "duration": 3.274
+    "duration": 2.213
   },
-  "Regent_35_84c1d841": {
+  "Regent_47_d8119752": {
     "kind": "Regent",
-    "text": "[shake]Neither escapes.[/]",
-    "words": [
-      0.0,
-      0.514
-    ],
-    "duration": 2.442
-  },
-  "Regent_36_aac616f0": {
-    "kind": "Regent",
-    "text": "The wall advances. Find the [hot]gap[/] -- or [shake]burn[/].",
+    "text": "[big]THE KING'S FIST![/]",
     "words": [
       0.0,
       0.211,
-      0.491,
-      1.443,
-      1.702,
-      1.897,
-      2.091,
-      2.22,
-      2.35
+      0.634
     ],
-    "duration": 4.014
+    "duration": 2.327
   },
-  "Regent_37_d09930cb": {
+  "Regent_48_97529246": {
     "kind": "Regent",
-    "text": "[slow]Walk through fire, if you can.[/]",
+    "text": "[shake]TREMBLE.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.772
+  },
+  "Regent_49_ec36cd81": {
+    "kind": "Regent",
+    "text": "[big]Two hands, one [hot]law[/].[/]",
     "words": [
       0.0,
-      0.406,
-      1.117,
-      1.765,
-      2.039,
+      0.306,
+      1.057,
+      1.44
+    ],
+    "duration": 3.291
+  },
+  "Regent_50_28a7ac07": {
+    "kind": "Regent",
+    "text": "[shake]BOTH FISTS.[/]",
+    "words": [
+      0.0,
+      0.385
+    ],
+    "duration": 2.304
+  },
+  "Regent_51_02141307": {
+    "kind": "Regent",
+    "text": "[big]THE WALL OF FLAME![/]",
+    "words": [
+      0.0,
+      0.217,
+      0.507,
+      0.652
+    ],
+    "duration": 2.427
+  },
+  "Regent_52_e16aca81": {
+    "kind": "Regent",
+    "text": "[slow]Where do you think you are going?[/]",
+    "words": [
+      0.0,
+      0.32,
+      0.448,
+      0.641,
+      0.961,
+      1.153,
+      1.345
+    ],
+    "duration": 3.09
+  },
+  "Regent_53_8a1cf40b": {
+    "kind": "Regent",
+    "text": "[big]THE SKY KNEELS TO ME![/]",
+    "words": [
+      0.0,
+      0.211,
+      0.422,
+      0.844,
+      0.985
+    ],
+    "duration": 2.536
+  },
+  "Regent_54_ca71b25d": {
+    "kind": "Regent",
+    "text": "Rain, [hot]stars[/]. [beat] [shake]Rain.[/]",
+    "words": [
+      0.0,
+      0.779,
+      2.149
+    ],
+    "duration": 4.035
+  },
+  "Regent_55_cc8b469c": {
+    "kind": "Regent",
+    "text": "[glitch]Let heaven burn with my enemies.[/]",
+    "words": [
+      0.0,
+      0.201,
+      0.604,
+      0.872,
+      1.14,
+      1.274
+    ],
+    "duration": 3.151
+  },
+  "Regent_56_dd332e57": {
+    "kind": "Regent",
+    "text": "[big]My GUARDS![/]",
+    "words": [
+      0.0,
+      0.225
+    ],
+    "duration": 2.351
+  },
+  "Regent_57_b3dfcc0f": {
+    "kind": "Regent",
+    "text": "Rise, [hot]ember-legion[/]!",
+    "words": [
+      0.0,
+      1.01
+    ],
+    "duration": 3.163
+  },
+  "Regent_58_9d8e19c8": {
+    "kind": "Regent",
+    "text": "[slow]Attend your king.[/]",
+    "words": [
+      0.0,
+      0.381,
+      0.635
+    ],
+    "duration": 2.292
+  },
+  "Regent_59_2ce5202a": {
+    "kind": "Regent",
+    "text": "[big]THE EARTH PARTS FOR ME![/]",
+    "words": [
+      0.0,
+      0.216,
+      0.577,
+      0.937,
+      1.154
+    ],
+    "duration": 2.71
+  },
+  "Regent_60_08458ab8": {
+    "kind": "Regent",
+    "text": "[shake]Split![/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.675
+  },
+  "Regent_61_9d304b4d": {
+    "kind": "Regent",
+    "text": "A [hot]throne room[/], [slow]no exits[/].",
+    "words": [
+      0.0,
+      0.066,
+      0.465,
+      0.937,
+      1.213
+    ],
+    "duration": 3.38
+  },
+  "Regent_62_56cea4fa": {
+    "kind": "Regent",
+    "text": "[big]ATTEND THE KING.[/]",
+    "words": [
+      0.0,
+      0.494,
+      0.741
+    ],
+    "duration": 2.493
+  },
+  "Seraph_01_bfe5ab2d": {
+    "kind": "Seraph",
+    "text": "[whisper]The air [wave]clears[/]... [beat] to be [hot]read[/].[/]",
+    "words": [
+      0.0,
+      0.222,
+      0.443,
+      1.848,
+      2.033,
+      2.218
+    ],
+    "duration": 4.22
+  },
+  "Seraph_02_e73d977c": {
+    "kind": "Seraph",
+    "text": "A verdict is being [slow]assembled[/].",
+    "words": [
+      0.0,
+      0.067,
+      0.537,
+      0.671,
+      1.006
+    ],
+    "duration": 3.217
+  },
+  "Seraph_03_6f0e5e20": {
+    "kind": "Seraph",
+    "text": "[slow]I am the Seraph.[/] [beat] The sky keeps a [hot]ledger[/].",
+    "words": [
+      0.0,
+      0.106,
+      0.317,
+      0.634,
+      2.114,
+      2.323,
+      2.532,
+      2.881,
+      2.951
+    ],
+    "duration": 4.978
+  },
+  "Seraph_04_f053ba91": {
+    "kind": "Seraph",
+    "text": "Your name was entered at birth. [beat] The sentence was [hot]not[/] revealed.",
+    "words": [
+      0.0,
+      0.193,
+      0.386,
+      0.53,
+      0.868,
+      0.965,
+      1.994,
+      2.167,
+      2.628,
+      2.8,
+      2.973
+    ],
+    "duration": 5.032
+  },
+  "Seraph_05_2eee7f98": {
+    "kind": "Seraph",
+    "text": "I shall [slow]read it now[/]. [beat] [big]Aloud.[/]",
+    "words": [
+      0.0,
+      0.082,
+      0.492,
+      0.82,
+      0.983,
+      2.051
+    ],
+    "duration": 4.299
+  },
+  "Seraph_06_430b9b59": {
+    "kind": "Seraph",
+    "text": "[hot]Interesting.[/] [beat] The ledger [shake]shifts[/].",
+    "words": [
+      0.0,
+      1.564,
+      1.755,
+      2.137
+    ],
+    "duration": 4.123
+  },
+  "Seraph_07_9864473e": {
+    "kind": "Seraph",
+    "text": "The [slow]appeal[/] is denied. [beat] [wave]Continue.[/]",
+    "words": [
+      0.0,
+      0.279,
+      0.837,
+      1.023,
+      2.413
+    ],
+    "duration": 4.603
+  },
+  "Seraph_08_ba9957e8": {
+    "kind": "Seraph",
+    "text": "[big]THE COURT IS NOW IN SESSION.[/]",
+    "words": [
+      0.0,
+      0.198,
+      0.528,
+      0.66,
+      0.858,
+      0.99
+    ],
+    "duration": 3.057
+  },
+  "Seraph_09_6204a120": {
+    "kind": "Seraph",
+    "text": "[glitch]No more mercy. No more weather. [beat] Only [hot]verdict[/].[/]",
+    "words": [
+      0.0,
+      0.169,
+      0.506,
+      1.332,
+      1.46,
+      1.716,
+      2.967,
+      3.243
+    ],
+    "duration": 5.334
+  },
+  "Seraph_10_7c33b7e4": {
+    "kind": "Seraph",
+    "text": "[whisper]The ledger... [beat] [wave]blank[/].[/]",
+    "words": [
+      0.0,
+      0.167,
+      1.408
+    ],
+    "duration": 3.413
+  },
+  "Seraph_11_f11f3f74": {
+    "kind": "Seraph",
+    "text": "[slow]I judged you wrongly.[/] [beat] [hot]How novel[/].",
+    "words": [
+      0.0,
+      0.092,
+      0.641,
+      0.916,
+      2.389,
+      2.644
+    ],
+    "duration": 4.695
+  },
+  "Seraph_12_acb31865": {
+    "kind": "Seraph",
+    "text": "[wave]Let it rain... [beat] [hot]gently[/].[/]",
+    "words": [
+      0.0,
+      0.209,
+      0.348,
+      1.576
+    ],
+    "duration": 3.754
+  },
+  "Seraph_13_d53984b6": {
+    "kind": "Seraph",
+    "text": "[slow]The court is adjourned.[/] [beat] [hot]Not dismissed[/].",
+    "words": [
+      0.0,
+      0.21,
+      0.56,
+      0.699,
+      2.139,
+      2.372
+    ],
+    "duration": 4.689
+  },
+  "Seraph_14_564deb3b": {
+    "kind": "Seraph",
+    "text": "Await the [shake]next hearing[/].",
+    "words": [
+      0.0,
+      0.258,
+      0.412,
+      0.618
+    ],
+    "duration": 2.57
+  },
+  "Seraph_15_20b8948c": {
+    "kind": "Seraph",
+    "text": "[shake]DELAY IS CONTEMPT OF COURT.[/]",
+    "words": [
+      0.0,
+      0.32,
+      0.448,
+      0.961,
+      1.089
+    ],
+    "duration": 3.013
+  },
+  "Seraph_16_15b4e6f3": {
+    "kind": "Seraph",
+    "text": "[glitch]THE SENTENCE IS NOT NEGOTIABLE.[/]",
+    "words": [
+      0.0,
+      0.195,
+      0.714,
+      0.844,
+      1.039
+    ],
+    "duration": 3.293
+  },
+  "Seraph_17_a86f719f": {
+    "kind": "Seraph",
+    "text": "[big]ALL RISE.[/]",
+    "words": [
+      0.0,
+      0.295
+    ],
+    "duration": 2.326
+  },
+  "Seraph_18_5d5ceb5f": {
+    "kind": "Seraph",
+    "text": "[big]Objection![/] [beat] [shake]Sustained?![/]",
+    "words": [
+      0.0,
+      1.564
+    ],
+    "duration": 3.813
+  },
+  "Seraph_19_4f290cff": {
+    "kind": "Seraph",
+    "text": "Procedure... [beat] [hot]violated[/].",
+    "words": [
+      0.0,
+      1.483
+    ],
+    "duration": 3.824
+  },
+  "Seraph_20_5843415f": {
+    "kind": "Seraph",
+    "text": "[shake]The gavel breaks![/]",
+    "words": [
+      0.0,
+      0.225,
+      0.599
+    ],
+    "duration": 2.663
+  },
+  "Seraph_21_f75a4801": {
+    "kind": "Seraph",
+    "text": "[slow]Guilty.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.431
+  },
+  "Seraph_22_1e5dfa3e": {
+    "kind": "Seraph",
+    "text": "The record [hot]notes[/] it.",
+    "words": [
+      0.0,
+      0.224,
+      0.673,
+      1.047
+    ],
+    "duration": 2.812
+  },
+  "Seraph_23_ae4f5775": {
+    "kind": "Seraph",
+    "text": "[wave]Noted.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.109
+  },
+  "Seraph_24_ac6a1d2f": {
+    "kind": "Seraph",
+    "text": "One count.",
+    "words": [
+      0.0,
+      0.223
+    ],
+    "duration": 2.208
+  },
+  "Seraph_25_be3be05a": {
+    "kind": "Seraph",
+    "text": "[shake]Sustained.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.245
+  },
+  "Seraph_26_ebb282e0": {
+    "kind": "Seraph",
+    "text": "Your [hot]sentence[/] grows.",
+    "words": [
+      0.0,
+      0.341,
+      1.022
+    ],
+    "duration": 3.073
+  },
+  "Seraph_27_f7f735b1": {
+    "kind": "Seraph",
+    "text": "[slow]Overruled.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.78
+  },
+  "Seraph_28_08725d15": {
+    "kind": "Seraph",
+    "text": "The weather has [hot]opinions[/] about you.",
+    "words": [
+      0.0,
+      0.149,
+      0.495,
+      0.644,
+      1.04,
+      1.287
+    ],
+    "duration": 3.025
+  },
+  "Seraph_29_e2a08e46": {
+    "kind": "Seraph",
+    "text": "[glitch]Strike that from the record.[/] [beat] [shake]Strike YOU.[/]",
+    "words": [
+      0.0,
+      0.302,
+      0.503,
+      0.704,
+      0.855,
+      1.947,
       2.45
     ],
-    "duration": 4.337
+    "duration": 4.326
   },
-  "Regent_38_d3fe37d9": {
-    "kind": "Regent",
-    "text": "The sky is [hot]mine[/] to throw!",
+  "Seraph_30_6aaa8986": {
+    "kind": "Seraph",
+    "text": "[wave]You will be heard.[/] [beat] [slow]Briefly.[/]",
     "words": [
       0.0,
-      0.243,
-      0.487,
-      0.649,
-      0.974,
-      1.136
+      0.213,
+      0.497,
+      0.639,
+      1.804
     ],
-    "duration": 2.963
+    "duration": 4.296
   },
-  "Regent_39_8f9261bc": {
-    "kind": "Regent",
-    "text": "Let the heavens burn [slow]with me[/].",
+  "Seraph_31_2d13259d": {
+    "kind": "Seraph",
+    "text": "[slow]The court awaits the accused.[/]",
     "words": [
       0.0,
-      0.247,
-      0.494,
-      1.07,
-      1.399,
-      1.728
+      0.231,
+      0.615,
+      1.076,
+      1.307
     ],
-    "duration": 3.315
+    "duration": 3.461
   },
-  "Regent_40_fa072149": {
-    "kind": "Regent",
-    "text": "[big]FALL, STARS.[/]",
+  "Seraph_32_142cd698": {
+    "kind": "Seraph",
+    "text": "[wave]Thunder is only a verdict... [beat] [hot]clearing its throat[/].[/]",
     "words": [
       0.0,
-      0.636
+      0.62,
+      0.797,
+      1.152,
+      1.24,
+      2.866,
+      3.356,
+      3.54
     ],
-    "duration": 2.731
+    "duration": 5.509
   },
-  "Regent_41_2db01465": {
-    "kind": "Regent",
-    "text": "Rise, my [hot]cinders[/]!",
+  "Seraph_33_546bcf26": {
+    "kind": "Seraph",
+    "text": "[whisper]I have your name here somewhere.[/]",
     "words": [
       0.0,
-      0.934,
-      1.123
+      0.052,
+      0.262,
+      0.472,
+      0.682,
+      0.891
     ],
-    "duration": 3.216
+    "duration": 2.956
   },
-  "Regent_42_e3427ddc": {
-    "kind": "Regent",
-    "text": "Guard the [shake]throne[/]!",
+  "Seraph_34_1bfd26da": {
+    "kind": "Seraph",
+    "text": "[slow]Approach the bench.[/]",
     "words": [
       0.0,
-      0.271,
-      0.433
+      0.621,
+      0.854
     ],
-    "duration": 2.153
+    "duration": 2.859
   },
-  "Regent_43_3096aa32": {
-    "kind": "Regent",
-    "text": "[wave]Ember spirits, attend me.[/]",
-    "words": [
-      0.0,
-      0.434,
-      1.267,
-      1.662
-    ],
-    "duration": 3.199
-  },
-  "Regent_44_a43a7ff3": {
-    "kind": "Regent",
-    "text": "The earth [hot]splits[/] for its king.",
-    "words": [
-      0.0,
-      0.211,
-      0.562,
-      0.983,
-      1.194,
-      1.405
-    ],
-    "duration": 3.096
-  },
-  "Regent_45_64f8de77": {
-    "kind": "Regent",
-    "text": "[slow]A river of fire... for you.[/]",
-    "words": [
-      0.0,
-      0.093,
-      0.561,
-      0.748,
-      1.722,
-      1.981
-    ],
-    "duration": 3.667
-  },
-  "Regent_46_57289ca4": {
-    "kind": "Regent",
-    "text": "A crown of flame -- [hot]for you[/].",
-    "words": [
-      0.0,
-      0.075,
-      0.448,
-      0.597,
-      0.97,
-      1.12,
-      1.344
-    ],
-    "duration": 2.982
-  },
-  "Regent_47_4487769f": {
-    "kind": "Regent",
-    "text": "[shake]Kneel inside it.[/]",
-    "words": [
-      0.0,
-      0.365,
-      0.803
-    ],
-    "duration": 2.362
-  },
-  "Seraph_22_0eb5ec0f": {
+  "Seraph_35_0eb5ec0f": {
     "kind": "Seraph",
     "text": "[big]JUDGMENT.[/]",
     "words": [
       0.0
     ],
-    "duration": 2.231
+    "duration": 2.049
   },
-  "Seraph_23_1dadfb87": {
+  "Seraph_36_1dadfb87": {
     "kind": "Seraph",
     "text": "[wave]Stand in the light and be [hot]weighed[/].[/]",
     "words": [
       0.0,
-      0.323,
-      0.453,
-      0.647,
-      0.97,
-      1.164,
-      1.294
+      0.372,
+      0.52,
+      0.743,
+      1.115,
+      1.338,
+      1.486
     ],
-    "duration": 3.351
+    "duration": 3.621
   },
-  "Seraph_24_45769c63": {
+  "Seraph_37_45769c63": {
     "kind": "Seraph",
     "text": "[big]TEMPEST.[/]",
     "words": [
       0.0
     ],
-    "duration": 2.182
+    "duration": 2.167
   },
-  "Seraph_25_f3201abd": {
+  "Seraph_38_f3201abd": {
     "kind": "Seraph",
     "text": "[shake]Every cloud I own -- [beat] at once.[/]",
     "words": [
       0.0,
-      0.316,
-      0.631,
-      0.694,
-      0.884,
-      1.53,
-      1.736
+      0.396,
+      0.793,
+      0.872,
+      1.11,
+      1.789,
+      2.014
     ],
-    "duration": 3.79
+    "duration": 4.116
   },
-  "Seraph_26_c6724635": {
+  "Seraph_39_c6724635": {
     "kind": "Seraph",
     "text": "[big][shake]WRATH.[/][/]",
     "words": [
       0.0
     ],
-    "duration": 2.015
+    "duration": 2.039
   },
-  "Seraph_27_ca3c70bf": {
+  "Seraph_40_ca3c70bf": {
     "kind": "Seraph",
     "text": "[glitch]I am the storm that [beat] ENDS storms.[/]",
     "words": [
       0.0,
-      0.089,
-      0.266,
-      0.531,
-      0.974,
-      1.748,
-      2.058
+      0.066,
+      0.197,
+      0.394,
+      0.722,
+      1.405,
+      1.748
     ],
-    "duration": 4.142
+    "duration": 3.889
   },
-  "Seraph_28_e5175bd2": {
+  "Seraph_41_c5a66368": {
     "kind": "Seraph",
-    "text": "[hot]Lightning[/] finds you.",
+    "text": "[hot]Evidence![/] [beat] [shake]Submitted![/]",
     "words": [
       0.0,
-      0.633,
-      0.984
+      1.443
     ],
-    "duration": 2.805
+    "duration": 3.621
   },
-  "Seraph_29_b9cda822": {
+  "Seraph_42_a54f0f3f": {
     "kind": "Seraph",
-    "text": "[shake]Strike, strike, strike![/]",
+    "text": "[wave]Each bolt, a [slow]witness[/].[/]",
     "words": [
       0.0,
-      0.708,
-      1.672
+      0.459,
+      1.173,
+      1.296
     ],
-    "duration": 3.92
+    "duration": 3.818
   },
-  "Seraph_30_eb9c3bd9": {
+  "Seraph_43_24b0c9e7": {
     "kind": "Seraph",
-    "text": "[glitch]Fork and flash.[/]",
+    "text": "[shake]Strike, strike, strike.[/]",
     "words": [
       0.0,
+      0.735,
+      1.46
+    ],
+    "duration": 3.616
+  },
+  "Seraph_44_4271c2d9": {
+    "kind": "Seraph",
+    "text": "[slow]The [hot]line[/] of the law.[/]",
+    "words": [
+      0.0,
+      0.35,
+      0.816,
+      1.049,
+      1.399
+    ],
+    "duration": 3.406
+  },
+  "Seraph_45_dfddffe0": {
+    "kind": "Seraph",
+    "text": "[big]Cross it.[/] [beat] I [hot]dare[/] you.",
+    "words": [
+      0.0,
+      0.379,
+      1.347,
+      1.428,
+      1.751
+    ],
+    "duration": 3.614
+  },
+  "Seraph_46_56b9af6f": {
+    "kind": "Seraph",
+    "text": "[wave]Follow the lightning to its [hot]source[/].[/]",
+    "words": [
+      0.0,
+      0.34,
+      0.51,
+      1.021,
+      1.134,
+      1.305
+    ],
+    "duration": 3.242
+  },
+  "Seraph_47_32c81b06": {
+    "kind": "Seraph",
+    "text": "[slow]A path... [beat] [hot]to judgement[/].[/]",
+    "words": [
+      0.0,
+      0.115,
+      1.657,
+      1.829
+    ],
+    "duration": 4.227
+  },
+  "Seraph_48_ddcf5f50": {
+    "kind": "Seraph",
+    "text": "[shake]Run along the [hot]crack[/].[/]",
+    "words": [
+      0.0,
+      0.193,
+      0.514,
+      0.706
+    ],
+    "duration": 2.631
+  },
+  "Seraph_49_4623478f": {
+    "kind": "Seraph",
+    "text": "[big]THE VERDICT RADIATES.[/]",
+    "words": [
+      0.0,
+      0.198,
+      0.661
+    ],
+    "duration": 2.795
+  },
+  "Seraph_50_e0ba97d1": {
+    "kind": "Seraph",
+    "text": "[wave]From the centre outward.[/]",
+    "words": [
+      0.0,
+      0.244,
       0.427,
-      0.748
+      0.793
     ],
-    "duration": 2.928
+    "duration": 2.821
   },
-  "Seraph_31_2ae256e8": {
+  "Seraph_51_c66d9038": {
     "kind": "Seraph",
-    "text": "Arcs of the sky -- [big]cut![/]",
+    "text": "Attend, [hot]bailiffs[/].",
     "words": [
       0.0,
-      0.283,
-      0.424,
-      0.636,
-      0.848,
-      0.99
+      0.895
     ],
-    "duration": 2.812
+    "duration": 3.095
   },
-  "Seraph_32_25ca6ee4": {
+  "Seraph_52_6a2190d9": {
     "kind": "Seraph",
-    "text": "[hot]Rails of lightning.[/]",
+    "text": "[slow]Fetch the accused.[/]",
+    "words": [
+      0.0,
+      0.443,
+      0.708
+    ],
+    "duration": 2.956
+  },
+  "Seraph_53_1e0e9634": {
+    "kind": "Seraph",
+    "text": "[whisper]Come, little storms.[/]",
+    "words": [
+      0.0,
+      0.709,
+      1.122
+    ],
+    "duration": 3.145
+  },
+  "Seraph_54_c34ab139": {
+    "kind": "Seraph",
+    "text": "[big]THE HEAVENS SENTENCE YOU.[/]",
+    "words": [
+      0.0,
+      0.183,
+      0.611,
+      1.1
+    ],
+    "duration": 2.885
+  },
+  "Seraph_55_490072d4": {
+    "kind": "Seraph",
+    "text": "Hail. [beat] [hot]Hail[/]. [beat] [shake]HAIL.[/]",
+    "words": [
+      0.0,
+      1.216,
+      2.467
+    ],
+    "duration": 4.518
+  },
+  "Seraph_56_827c804b": {
+    "kind": "Seraph",
+    "text": "[glitch]Let the sky itself testify.[/]",
+    "words": [
+      0.0,
+      0.223,
+      0.445,
+      0.668,
+      1.113
+    ],
+    "duration": 3.247
+  },
+  "Seraph_57_a90dccee": {
+    "kind": "Seraph",
+    "text": "[slow]You are [hot]remanded[/].[/]",
+    "words": [
+      0.0,
+      0.177,
+      0.353
+    ],
+    "duration": 2.424
+  },
+  "Seraph_58_d92c116f": {
+    "kind": "Seraph",
+    "text": "[wave]The bars are made of [hot]weather[/].[/]",
+    "words": [
+      0.0,
+      0.184,
+      0.43,
+      0.615,
+      0.86,
+      0.983
+    ],
+    "duration": 3.015
+  },
+  "Rime_01_e6609b44": {
+    "kind": "Rime",
+    "text": "[whisper]Hush... [beat] [wave]hush[/]...[/]",
+    "words": [
+      0.0,
+      1.17
+    ],
+    "duration": 5.39
+  },
+  "Rime_02_ecd307ee": {
+    "kind": "Rime",
+    "text": "[slow]Something very old is [hot]turning over[/] in its sleep.[/]",
+    "words": [
+      0.0,
+      0.622,
+      0.898,
+      1.105,
+      1.243,
+      1.727,
+      2.003,
+      2.141,
+      2.349
+    ],
+    "duration": 6.403
+  },
+  "Rime_03_2b1555ce": {
+    "kind": "Rime",
+    "text": "[slow]Little warm thing.[/] [beat] You have [hot]come so far[/].",
+    "words": [
+      0.0,
+      0.37,
+      0.617,
+      1.727,
+      1.932,
+      2.205,
+      2.478,
+      2.615
+    ],
+    "duration": 6.528
+  },
+  "Rime_04_4852741f": {
+    "kind": "Rime",
+    "text": "I have held the [wave]winter[/] for ten thousand years. [beat] It is [slow]so heavy[/].",
+    "words": [
+      0.0,
+      0.066,
+      0.328,
+      0.591,
+      0.788,
+      1.182,
+      1.379,
+      1.577,
+      2.102,
+      3.236,
+      3.41,
+      3.584,
+      3.759
+    ],
+    "duration": 7.921
+  },
+  "Rime_05_a3e9c2d8": {
+    "kind": "Rime",
+    "text": "Lie down. [beat] [hot]I will take it from you[/].",
+    "words": [
+      0.0,
+      0.261,
+      1.437,
+      1.491,
+      1.709,
+      1.926,
+      2.035,
+      2.252
+    ],
+    "duration": 6.11
+  },
+  "Rime_06_7ee7102b": {
+    "kind": "Rime",
+    "text": "You are [hot]still warm[/]. [beat] How [slow]strange[/].",
+    "words": [
+      0.0,
+      0.167,
+      0.333,
+      0.611,
+      1.628,
+      1.916
+    ],
+    "duration": 6.325
+  },
+  "Rime_07_aa46fe87": {
+    "kind": "Rime",
+    "text": "Do not be [wave]afraid[/]. [beat] The cold is only [hot]a kind of quiet[/].",
+    "words": [
+      0.0,
+      0.148,
+      0.369,
+      0.517,
+      1.773,
+      2.032,
+      2.376,
+      2.549,
+      2.894,
+      2.98,
+      3.324,
+      3.497
+    ],
+    "duration": 7.654
+  },
+  "Rime_08_447e325f": {
+    "kind": "Rime",
+    "text": "[big]SLEEP.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 4.128
+  },
+  "Rime_09_5ee43f86": {
+    "kind": "Rime",
+    "text": "[whisper]I am not angry.[/] [beat] [slow]I am only [hot]so tired[/] of the [shake]noise[/].[/]",
+    "words": [
+      0.0,
+      0.086,
+      0.258,
+      0.517,
+      1.773,
+      1.871,
+      2.067,
+      2.459,
+      2.655,
+      3.145,
+      3.341,
+      3.635
+    ],
+    "duration": 7.863
+  },
+  "Rime_10_49610be5": {
+    "kind": "Rime",
+    "text": "[whisper]Oh... [beat] [wave]so that is what [hot]warmth[/] is.[/]",
+    "words": [
+      0.0,
+      1.163,
+      1.31,
+      1.602,
+      1.748,
+      2.041,
+      2.479
+    ],
+    "duration": 6.339
+  },
+  "Rime_11_819c2bac": {
+    "kind": "Rime",
+    "text": "[slow]I would have kept you [hot]safe[/].[/] [beat] [whisper]Forever.[/]",
+    "words": [
+      0.0,
+      0.066,
+      0.396,
+      0.661,
+      0.925,
+      1.123,
+      2.194
+    ],
+    "duration": 6.484
+  },
+  "Rime_12_df94459f": {
+    "kind": "Rime",
+    "text": "[wave]Thaw... [beat] [slow]gently.[/][/]",
+    "words": [
+      0.0,
+      1.228
+    ],
+    "duration": 5.553
+  },
+  "Rime_13_d181b98b": {
+    "kind": "Rime",
+    "text": "[slow]I will not follow.[/] [beat] [wave]Winter does not need to.[/]",
+    "words": [
+      0.0,
+      0.074,
+      0.37,
+      0.593,
+      1.851,
+      2.227,
+      2.478,
+      2.666,
+      2.917
+    ],
+    "duration": 6.745
+  },
+  "Rime_14_0bc0f723": {
+    "kind": "Rime",
+    "text": "[whisper]It is already in your [hot]bones[/].[/]",
+    "words": [
+      0.0,
+      0.137,
+      0.273,
+      0.751,
+      0.888,
+      1.161
+    ],
+    "duration": 5.211
+  },
+  "Rime_15_2f5779fb": {
+    "kind": "Rime",
+    "text": "[shake]STOP MOVING.[/]",
+    "words": [
+      0.0,
+      0.291
+    ],
+    "duration": 4.441
+  },
+  "Rime_16_6f50dd8b": {
+    "kind": "Rime",
+    "text": "[big]Be STILL.[/]",
+    "words": [
+      0.0,
+      0.16
+    ],
+    "duration": 4.279
+  },
+  "Rime_17_3f11ca69": {
+    "kind": "Rime",
+    "text": "[glitch]HUSH. HUSH. HUSH.[/]",
+    "words": [
+      0.0,
+      0.75,
+      1.569
+    ],
+    "duration": 5.685
+  },
+  "Rime_18_9d6678b3": {
+    "kind": "Rime",
+    "text": "[shake]Crack...[/] [beat] [slow]so [hot]loud[/].[/]",
+    "words": [
+      0.0,
+      1.124,
+      1.379
+    ],
+    "duration": 5.658
+  },
+  "Rime_19_d4058d28": {
+    "kind": "Rime",
+    "text": "[big]You have... [beat] woken it.[/]",
+    "words": [
+      0.0,
+      0.166,
+      1.292,
+      1.626
+    ],
+    "duration": 5.466
+  },
+  "Rime_20_810f8253": {
+    "kind": "Rime",
+    "text": "[shake]Cold... [beat] [hot]spilling[/]...[/]",
+    "words": [
+      0.0,
+      1.286
+    ],
+    "duration": 5.471
+  },
+  "Rime_21_12dce5f1": {
+    "kind": "Rime",
+    "text": "[whisper]Shh.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 4.279
+  },
+  "Rime_22_d8cf109b": {
+    "kind": "Rime",
+    "text": "[slow]Hold still.[/]",
+    "words": [
+      0.0,
+      0.339
+    ],
+    "duration": 4.488
+  },
+  "Rime_23_427ec743": {
+    "kind": "Rime",
+    "text": "[wave]It will not hurt for long.[/]",
+    "words": [
+      0.0,
+      0.125,
+      0.375,
+      0.562,
+      0.812,
+      1.0
+    ],
+    "duration": 4.952
+  },
+  "Rime_24_6a289ddf": {
+    "kind": "Rime",
+    "text": "So [hot]warm[/].",
+    "words": [
+      0.0,
+      0.189
+    ],
+    "duration": 4.302
+  },
+  "Rime_25_f0ff7fc6": {
+    "kind": "Rime",
+    "text": "[slow]Go to sleep.[/]",
+    "words": [
+      0.0,
+      0.195,
+      0.39
+    ],
+    "duration": 4.615
+  },
+  "Rime_26_a7099715": {
+    "kind": "Rime",
+    "text": "You [hot]shiver[/]. [beat] [wave]How sweet.[/]",
+    "words": [
+      0.0,
+      0.174,
+      1.32,
+      1.63
+    ],
+    "duration": 5.889
+  },
+  "Rime_27_373d33d8": {
+    "kind": "Rime",
+    "text": "[whisper]Easy... [beat] easy...[/]",
+    "words": [
+      0.0,
+      1.228
+    ],
+    "duration": 5.239
+  },
+  "Rime_28_2fdc3d56": {
+    "kind": "Rime",
+    "text": "[slow]Rest.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 4.348
+  },
+  "Rime_29_e5e5cd64": {
+    "kind": "Rime",
+    "text": "[wave]Snow remembers everyone.[/]",
+    "words": [
+      0.0,
+      0.268,
+      0.871
+    ],
+    "duration": 5.114
+  },
+  "Rime_30_fe837858": {
+    "kind": "Rime",
+    "text": "[glitch]Hush hush hush.[/]",
+    "words": [
+      0.0,
+      0.311,
+      0.622
+    ],
+    "duration": 4.65
+  },
+  "Rime_31_d8bd5348": {
+    "kind": "Rime",
+    "text": "[whisper]Snow is falling in a place you cannot see.[/]",
+    "words": [
+      0.0,
+      0.253,
+      0.379,
+      0.821,
+      0.947,
+      1.01,
+      1.326,
+      1.515,
+      1.894
+    ],
+    "duration": 5.787
+  },
+  "Rime_32_c339b4c7": {
+    "kind": "Rime",
+    "text": "[slow]I can hear your [hot]heartbeat[/].[/] [beat] [wave]It is so loud.[/]",
+    "words": [
+      0.0,
+      0.052,
+      0.209,
+      0.418,
+      0.627,
+      1.89,
+      2.043,
+      2.197,
+      2.35
+    ],
+    "duration": 6.374
+  },
+  "Rime_33_b4ec093d": {
+    "kind": "Rime",
+    "text": "[whisper]Come closer. [beat] I will not bite.[/] [beat] [glitch]I will not.[/]",
+    "words": [
+      0.0,
+      0.279,
+      1.506,
+      1.587,
+      1.908,
+      2.149,
+      3.291,
+      3.362,
+      3.646
+    ],
+    "duration": 7.569
+  },
+  "Rime_34_5b715de0": {
+    "kind": "Rime",
+    "text": "[wave]The cold has a [hot]lullaby[/].[/]",
     "words": [
       0.0,
       0.294,
-      0.411
+      0.686,
+      0.981,
+      1.079
     ],
-    "duration": 2.538
+    "duration": 5.503
   },
-  "Seraph_33_f6db2071": {
-    "kind": "Seraph",
-    "text": "Thunder [hot]runs[/] to you.",
-    "words": [
-      0.0,
-      0.367,
-      0.577,
-      0.682
-    ],
-    "duration": 2.432
-  },
-  "Seraph_34_a55f6076": {
-    "kind": "Seraph",
-    "text": "[slow]Follow the light to its end.[/]",
-    "words": [
-      0.0,
-      0.469,
-      0.703,
-      1.093,
-      1.249,
-      1.484
-    ],
-    "duration": 3.336
-  },
-  "Seraph_35_a92f9778": {
-    "kind": "Seraph",
-    "text": "[big]CRACK.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.958
-  },
-  "Seraph_36_38138a49": {
-    "kind": "Seraph",
-    "text": "[big]Burst, storm.[/]",
-    "words": [
-      0.0,
-      0.598
-    ],
-    "duration": 2.963
-  },
-  "Seraph_37_343b7081": {
-    "kind": "Seraph",
-    "text": "[wave]In all directions.[/]",
-    "words": [
-      0.0,
-      0.16,
-      0.399
-    ],
-    "duration": 2.817
-  },
-  "Seraph_38_c98e0dac": {
-    "kind": "Seraph",
-    "text": "Little sparks, [hot]take wing[/].",
-    "words": [
-      0.0,
-      0.377,
-      0.958,
-      1.263
-    ],
-    "duration": 3.184
-  },
-  "Seraph_39_6fb6fa5c": {
-    "kind": "Seraph",
-    "text": "[shake]Fly, my storm-children.[/]",
-    "words": [
-      0.0,
-      0.79,
-      0.972
-    ],
-    "duration": 3.874
-  },
-  "Seraph_40_ef0433e4": {
-    "kind": "Seraph",
-    "text": "[wave]Come, come, come.[/]",
-    "words": [
-      0.0,
-      0.674,
-      1.214
-    ],
-    "duration": 3.3
-  },
-  "Seraph_41_3c2d0531": {
-    "kind": "Seraph",
-    "text": "Let the sky fall in [hot]bolts[/].",
-    "words": [
-      0.0,
-      0.23,
-      0.46,
-      0.69,
-      0.997,
-      1.15
-    ],
-    "duration": 3.151
-  },
-  "Seraph_42_064ec6c3": {
-    "kind": "Seraph",
-    "text": "Every cloud is a [shake]hammer[/].",
-    "words": [
-      0.0,
-      0.334,
-      0.668,
-      0.802,
-      0.869
-    ],
-    "duration": 2.876
-  },
-  "Seraph_43_bc742233": {
-    "kind": "Seraph",
-    "text": "[big]RAIN.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.063
-  },
-  "Seraph_44_c6c4e795": {
-    "kind": "Seraph",
-    "text": "A cage of [hot]thunder[/].",
-    "words": [
-      0.0,
-      0.061,
-      0.303,
-      0.424
-    ],
-    "duration": 2.448
-  },
-  "Seraph_45_eea0216e": {
-    "kind": "Seraph",
-    "text": "[glitch]There is nowhere to run.[/]",
-    "words": [
-      0.0,
-      0.352,
-      0.493,
-      0.987,
-      1.128
-    ],
-    "duration": 2.95
-  },
-  "Rime_22_b012a9d0": {
+  "Rime_35_b012a9d0": {
     "kind": "Rime",
     "text": "[big]WHITEOUT.[/]",
     "words": [
       0.0
     ],
-    "duration": 4.313
+    "duration": 4.348
   },
-  "Rime_23_34cb799f": {
+  "Rime_36_34cb799f": {
     "kind": "Rime",
     "text": "[whisper]No sky. [beat] No ground. [beat] Only [hot]cold[/].[/]",
     "words": [
       0.0,
-      0.553,
-      2.4,
-      2.563,
-      3.872,
-      4.295
+      0.346,
+      1.777,
+      1.909,
+      3.109,
+      3.517
     ],
-    "duration": 8.464
+    "duration": 7.667
   },
-  "Rime_24_1991cfd1": {
+  "Rime_37_1991cfd1": {
     "kind": "Rime",
     "text": "[big]ABSOLUTE ZERO.[/]",
     "words": [
       0.0,
-      0.672
+      0.707
     ],
-    "duration": 4.731
+    "duration": 4.789
   },
-  "Rime_25_bd6513ac": {
+  "Rime_38_bd6513ac": {
     "kind": "Rime",
     "text": "[slow]Even motion [beat] stops.[/]",
     "words": [
       0.0,
-      0.381,
-      1.372
+      0.446,
+      1.535
     ],
-    "duration": 5.893
+    "duration": 6.08
   },
-  "Rime_26_39211f62": {
+  "Rime_39_39211f62": {
     "kind": "Rime",
     "text": "[big][shake]DEEP WINTER.[/][/]",
     "words": [
       0.0,
-      0.249
+      0.234
     ],
-    "duration": 4.325
+    "duration": 4.284
   },
-  "Rime_27_b07eb278": {
+  "Rime_40_b07eb278": {
     "kind": "Rime",
     "text": "[slow]Sleep. [beat] I will keep you [hot]forever[/].[/]",
     "words": [
       0.0,
-      1.32,
-      1.385,
-      1.643,
-      1.9,
-      2.094
+      1.274,
+      1.343,
+      1.617,
+      1.891,
+      2.096
     ],
-    "duration": 6.249
+    "duration": 6.284
   },
-  "Rime_28_fc4b88cc": {
+  "Rime_41_a0afa80e": {
     "kind": "Rime",
-    "text": "Be [slow]still[/]. Be [hot]kept[/].",
+    "text": "[whisper]There. [beat] [hot]Safe.[/][/]",
     "words": [
       0.0,
-      0.198,
-      1.112,
-      1.238
+      1.193
     ],
-    "duration": 5.193
+    "duration": 5.332
   },
-  "Rime_29_ba1b3f91": {
+  "Rime_42_a570d3a4": {
     "kind": "Rime",
-    "text": "[wave]Walls of winter.[/]",
+    "text": "[slow]The walls will [hot]hold you[/].[/]",
     "words": [
       0.0,
-      0.317,
-      0.443
+      0.181,
+      0.483,
+      0.724,
+      0.966
     ],
-    "duration": 4.527
+    "duration": 4.847
   },
-  "Rime_30_1ff3491b": {
+  "Rime_43_9256e181": {
     "kind": "Rime",
-    "text": "[big]CLOSE.[/]",
+    "text": "[wave]A cradle of ice.[/]",
+    "words": [
+      0.0,
+      0.098,
+      0.688,
+      0.884
+    ],
+    "duration": 4.918
+  },
+  "Rime_44_516ff1b0": {
+    "kind": "Rime",
+    "text": "[wave]Ripples in the [hot]frozen lake[/].[/]",
+    "words": [
+      0.0,
+      0.449,
+      0.577,
+      0.769,
+      1.154
+    ],
+    "duration": 5.114
+  },
+  "Rime_45_a476c0fe": {
+    "kind": "Rime",
+    "text": "[slow]Breathe out. [beat] [hot]Feel it spread.[/][/]",
+    "words": [
+      0.0,
+      0.665,
+      1.785,
+      2.096,
+      2.251
+    ],
+    "duration": 6.435
+  },
+  "Rime_46_f70e2d38": {
+    "kind": "Rime",
+    "text": "[whisper]Icicles, [hot]falling[/].[/]",
+    "words": [
+      0.0,
+      0.999
+    ],
+    "duration": 5.138
+  },
+  "Rime_47_fbcd87eb": {
+    "kind": "Rime",
+    "text": "[slow]Each one is a [hot]word[/] I could not say.[/]",
+    "words": [
+      0.0,
+      0.37,
+      0.647,
+      0.832,
+      0.924,
+      1.294,
+      1.387,
+      1.849,
+      2.126
+    ],
+    "duration": 6.136
+  },
+  "Rime_48_4cd40c33": {
+    "kind": "Rime",
+    "text": "[wave]Listen to the [hot]ice sing[/].[/]",
+    "words": [
+      0.0,
+      0.396,
+      0.528,
+      0.726,
+      0.924
+    ],
+    "duration": 4.894
+  },
+  "Rime_49_d624729f": {
+    "kind": "Rime",
+    "text": "[slow]It is not [shake]safe[/] there.[/]",
+    "words": [
+      0.0,
+      0.164,
+      0.328,
+      0.575,
+      0.903
+    ],
+    "duration": 5.036
+  },
+  "Rime_50_e1f6d7c3": {
+    "kind": "Rime",
+    "text": "[whisper]Frost, [hot]blooming[/].[/]",
+    "words": [
+      0.0,
+      0.848
+    ],
+    "duration": 5.022
+  },
+  "Rime_51_65b8a11e": {
+    "kind": "Rime",
+    "text": "[wave]Every flower, a little [hot]grave[/].[/]",
+    "words": [
+      0.0,
+      0.426,
+      1.162,
+      1.23,
+      1.643
+    ],
+    "duration": 5.696
+  },
+  "Rime_52_7ab193af": {
+    "kind": "Rime",
+    "text": "[whisper]Come, little [hot]snows[/].[/]",
+    "words": [
+      0.0,
+      0.546,
+      1.092
+    ],
+    "duration": 5.278
+  },
+  "Rime_53_417fd0e0": {
+    "kind": "Rime",
+    "text": "Wake, my [hot]children[/].",
+    "words": [
+      0.0,
+      0.674,
+      0.789
+    ],
+    "duration": 4.947
+  },
+  "Rime_54_52b822fd": {
+    "kind": "Rime",
+    "text": "[slow]Gather round the [wave]warm thing[/].[/]",
+    "words": [
+      0.0,
+      0.374,
+      0.686,
+      0.874,
+      1.123
+    ],
+    "duration": 5.138
+  },
+  "Rime_55_c906a686": {
+    "kind": "Rime",
+    "text": "[big]THE WINTER FALLS.[/]",
+    "words": [
+      0.0,
+      0.228,
+      0.683
+    ],
+    "duration": 4.778
+  },
+  "Rime_56_2a560bbc": {
+    "kind": "Rime",
+    "text": "[wave]Hail like [hot]tears[/].[/]",
+    "words": [
+      0.0,
+      0.285,
+      0.571
+    ],
+    "duration": 4.638
+  },
+  "Rime_57_0442e382": {
+    "kind": "Rime",
+    "text": "[slow]Everything must come down eventually.[/]",
+    "words": [
+      0.0,
+      0.646,
+      0.904,
+      1.162,
+      1.42
+    ],
+    "duration": 5.77
+  },
+  "Rime_58_ded8784a": {
+    "kind": "Rime",
+    "text": "[slow]Come to me.[/]",
+    "words": [
+      0.0,
+      0.243,
+      0.364
+    ],
+    "duration": 4.186
+  },
+  "Rime_59_c61f4e6e": {
+    "kind": "Rime",
+    "text": "[whisper]All things drift... [beat] [hot]toward the cold[/].[/]",
+    "words": [
+      0.0,
+      0.168,
+      0.504,
+      1.692,
+      2.065,
+      2.252
+    ],
+    "duration": 6.203
+  },
+  "Rime_60_799e393b": {
+    "kind": "Rime",
+    "text": "[wave]Do not struggle.[/]",
+    "words": [
+      0.0,
+      0.104,
+      0.261
+    ],
+    "duration": 4.371
+  },
+  "Knight_01_1217135d": {
+    "kind": "Knight",
+    "text": "[whisper]Steel... [beat] [wave]remembers[/] its hand.[/]",
+    "words": [
+      0.0,
+      1.251,
+      1.839,
+      2.036
+    ],
+    "duration": 3.502
+  },
+  "Knight_02_d426ba7e": {
+    "kind": "Knight",
+    "text": "[slow]A salute, [hot]unseen[/].[/]",
+    "words": [
+      0.0,
+      0.091,
+      0.871
+    ],
+    "duration": 2.778
+  },
+  "Knight_03_9660c1ff": {
+    "kind": "Knight",
+    "text": "[slow]An opponent.[/] [beat] [hot]At last.[/]",
+    "words": [
+      0.0,
+      0.169,
+      1.669,
+      1.868
+    ],
+    "duration": 3.505
+  },
+  "Knight_04_7dfbecbd": {
+    "kind": "Knight",
+    "text": "I am sworn to [hot]one last duel[/]. [beat] I would [slow]prefer[/] it be a good one.",
+    "words": [
+      0.0,
+      0.076,
+      0.228,
+      0.608,
+      0.76,
+      0.988,
+      1.292,
+      2.412,
+      2.53,
+      3.121,
+      3.831,
+      4.068,
+      4.304,
+      4.422,
+      4.895
+    ],
+    "duration": 6.509
+  },
+  "Knight_05_be66a38b": {
+    "kind": "Knight",
+    "text": "En garde. [beat] [wave]Do try not to disappoint.[/]",
+    "words": [
+      0.0,
+      0.169,
+      1.417,
+      1.583,
+      1.833,
+      2.082,
+      2.248
+    ],
+    "duration": 4.303
+  },
+  "Knight_06_3ec590b1": {
+    "kind": "Knight",
+    "text": "[hot]Good.[/] [beat] [slow]That was good.[/]",
+    "words": [
+      0.0,
+      1.216,
+      1.506,
+      1.724
+    ],
+    "duration": 3.227
+  },
+  "Knight_07_b4ec9c30": {
+    "kind": "Knight",
+    "text": "Let us see whether you can [shake]keep up[/].",
+    "words": [
+      0.0,
+      0.158,
+      0.263,
+      0.421,
+      0.79,
+      0.948,
+      1.106,
+      1.316
+    ],
+    "duration": 2.614
+  },
+  "Knight_08_2c2cdcce": {
+    "kind": "Knight",
+    "text": "[big]Now.[/] [beat] [slow]Now I am [hot]serious[/].[/]",
+    "words": [
+      0.0,
+      1.274,
+      1.622,
+      1.738,
+      1.971
+    ],
+    "duration": 4.039
+  },
+  "Knight_09_7280736d": {
+    "kind": "Knight",
+    "text": "My oath [shake]demands blood[/]. [beat] [glitch]Yours, or mine.[/]",
+    "words": [
+      0.0,
+      0.136,
+      0.409,
+      0.887,
+      2.037,
+      2.791,
+      3.007
+    ],
+    "duration": 4.686
+  },
+  "Knight_10_c29aebd0": {
+    "kind": "Knight",
+    "text": "[slow]Well... [beat] [hot]struck[/].[/]",
+    "words": [
+      0.0,
+      1.39
+    ],
+    "duration": 3.157
+  },
+  "Knight_11_34a609e8": {
+    "kind": "Knight",
+    "text": "[whisper]The duel is [wave]concluded[/].[/] [beat] [slow]I am [hot]released[/].[/]",
+    "words": [
+      0.0,
+      0.181,
+      0.423,
+      0.543,
+      1.887,
+      1.991,
+      2.2
+    ],
+    "duration": 4.281
+  },
+  "Knight_12_78f66e10": {
+    "kind": "Knight",
+    "text": "[slow]Take the blade.[/] [beat] [hot]It was always meant for a worthier hand.[/]",
+    "words": [
+      0.0,
+      0.297,
+      0.519,
+      1.704,
+      1.83,
+      2.019,
+      2.396,
+      2.711,
+      2.9,
+      2.963,
+      3.467
+    ],
+    "duration": 4.922
+  },
+  "Knight_13_288b5256": {
+    "kind": "Knight",
+    "text": "[slow]The duel is [hot]suspended[/].[/] [beat] I [wave]shall return[/] for [hot]satisfaction[/].",
+    "words": [
+      0.0,
+      0.33,
+      0.77,
+      0.99,
+      2.83,
+      2.891,
+      3.198,
+      3.566,
+      3.75
+    ],
+    "duration": 5.688
+  },
+  "Knight_14_9dbb02d8": {
+    "kind": "Knight",
+    "text": "[slow]Practise.[/]",
     "words": [
       0.0
     ],
-    "duration": 4.325
+    "duration": 1.988
   },
-  "Rime_31_e1bf0b2d": {
-    "kind": "Rime",
-    "text": "The frost spreads in [hot]rings[/].",
+  "Knight_15_41f81260": {
+    "kind": "Knight",
+    "text": "[shake]You are being [hot]tedious[/].[/]",
     "words": [
       0.0,
-      0.236,
-      0.629,
-      1.179,
-      1.336
+      0.234,
+      0.468,
+      0.858
     ],
-    "duration": 5.448
+    "duration": 2.623
   },
-  "Rime_32_19eb1772": {
-    "kind": "Rime",
-    "text": "[wave]Ripples of cold.[/]",
+  "Knight_16_aec9c158": {
+    "kind": "Knight",
+    "text": "[glitch]STOP BEING A COWARD.[/]",
     "words": [
       0.0,
-      0.511,
-      0.657
+      0.426,
+      0.959,
+      1.066
     ],
-    "duration": 4.662
+    "duration": 2.952
   },
-  "Rime_33_2e5951c5": {
-    "kind": "Rime",
-    "text": "[hot]Icicles.[/] One for each of you.",
-    "words": [
-      0.0,
-      1.226,
-      1.411,
-      1.597,
-      1.844,
-      1.968
-    ],
-    "duration": 5.855
-  },
-  "Rime_34_464b92dc": {
-    "kind": "Rime",
-    "text": "[shake]Needles of winter.[/]",
-    "words": [
-      0.0,
-      0.35,
-      0.451
-    ],
-    "duration": 4.441
-  },
-  "Rime_35_080d3cd2": {
-    "kind": "Rime",
-    "text": "Only the pockets of [hot]warmth[/] survive.",
-    "words": [
-      0.0,
-      0.238,
-      0.417,
-      0.834,
-      0.954,
-      1.311
-    ],
-    "duration": 5.428
-  },
-  "Rime_36_045aaec2": {
-    "kind": "Rime",
-    "text": "[slow]Find the last fire.[/]",
+  "Knight_17_10ec0894": {
+    "kind": "Knight",
+    "text": "[big]FINISH ME, OR BE FINISHED.[/]",
     "words": [
       0.0,
       0.356,
-      0.623,
-      0.979
+      0.674,
+      0.803,
+      0.931
     ],
-    "duration": 5.064
+    "duration": 2.65
   },
-  "Rime_37_a6a24a42": {
-    "kind": "Rime",
-    "text": "Frost, [hot]bloom[/].",
+  "Knight_18_8cccdc07": {
+    "kind": "Knight",
+    "text": "[big]A hit![/] [beat] [slow]Clean.[/]",
     "words": [
       0.0,
-      0.736
+      0.107,
+      1.274
     ],
-    "duration": 4.763
+    "duration": 2.867
   },
-  "Rime_38_f77bae02": {
-    "kind": "Rime",
-    "text": "[wave]A snowflake, grown huge.[/]",
+  "Knight_19_89077e9d": {
+    "kind": "Knight",
+    "text": "[shake]My guard...[/] [beat] [hot]opened[/].",
     "words": [
       0.0,
-      0.078,
-      0.999,
-      1.44
+      0.142,
+      1.448
     ],
-    "duration": 5.521
+    "duration": 3.077
   },
-  "Rime_39_92ee5086": {
-    "kind": "Rime",
-    "text": "My frozen children -- [hot]wake[/].",
+  "Knight_20_4323715e": {
+    "kind": "Knight",
+    "text": "[slow]I yield... [beat] [hot]a point[/].[/]",
     "words": [
       0.0,
-      0.123,
-      0.493,
-      0.985,
-      1.109
+      0.094,
+      1.588,
+      1.7
     ],
-    "duration": 5.056
+    "duration": 3.513
   },
-  "Rime_40_15c1ed9d": {
-    "kind": "Rime",
-    "text": "[whisper]Cold little guardians.[/]",
-    "words": [
-      0.0,
-      0.272,
-      0.68
-    ],
-    "duration": 5.0
-  },
-  "Rime_41_33a24ce2": {
-    "kind": "Rime",
-    "text": "[wave]Rise from the snow.[/]",
-    "words": [
-      0.0,
-      0.27,
-      0.54,
-      0.742
-    ],
-    "duration": 4.72
-  },
-  "Rime_42_fa6b9912": {
-    "kind": "Rime",
-    "text": "[big]Hail.[/]",
+  "Knight_21_c31834c1": {
+    "kind": "Knight",
+    "text": "[slow]Touché.[/]",
     "words": [
       0.0
     ],
-    "duration": 4.0
+    "duration": 1.709
   },
-  "Rime_43_4ef8845e": {
-    "kind": "Rime",
-    "text": "The sky is full of [shake]knives[/].",
+  "Knight_22_800125ed": {
+    "kind": "Knight",
+    "text": "[hot]Careless[/].",
+    "words": [
+      0.0
+    ],
+    "duration": 1.779
+  },
+  "Knight_23_ba382c7e": {
+    "kind": "Knight",
+    "text": "[wave]Too slow.[/]",
     "words": [
       0.0,
-      0.199,
-      0.398,
-      0.531,
-      0.796,
-      0.929
+      0.3
     ],
-    "duration": 5.033
+    "duration": 1.941
   },
-  "Rime_44_b9871f4f": {
-    "kind": "Rime",
-    "text": "[slow]It all comes down.[/]",
+  "Knight_24_80c4e86e": {
+    "kind": "Knight",
+    "text": "One. [beat] [hot]Two.[/]",
     "words": [
       0.0,
-      0.175,
-      0.439,
-      0.877
+      1.181
     ],
-    "duration": 4.956
+    "duration": 2.635
   },
-  "Rime_45_7c9e5f82": {
-    "kind": "Rime",
-    "text": "Come into the [hot]cold[/].",
+  "Knight_25_adf1e0e1": {
+    "kind": "Knight",
+    "text": "Your guard is [shake]open[/].",
     "words": [
       0.0,
-      0.229,
-      0.459,
-      0.631
+      0.284,
+      0.64,
+      0.782
     ],
-    "duration": 4.557
+    "duration": 2.278
   },
-  "Rime_46_c017c3d2": {
-    "kind": "Rime",
-    "text": "[wave]Everything drifts to winter.[/]",
+  "Knight_26_5676d8a5": {
+    "kind": "Knight",
+    "text": "[slow]Again.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.639
+  },
+  "Knight_27_0e9706b5": {
+    "kind": "Knight",
+    "text": "A [hot]fine[/] try.",
     "words": [
       0.0,
-      0.548,
-      0.877,
-      0.986
+      0.099,
+      0.497
     ],
-    "duration": 5.01
+    "duration": 2.034
   },
-  "Rime_47_ed584fbe": {
-    "kind": "Rime",
-    "text": "[slow]Settle... settle...[/]",
+  "Knight_28_37082fb3": {
+    "kind": "Knight",
+    "text": "[wave]Predictable.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.909
+  },
+  "Knight_29_eb3bd21f": {
+    "kind": "Knight",
+    "text": "You [slow]fence like a [hot]butcher[/].[/]",
     "words": [
       0.0,
-      0.761
+      0.231,
+      0.615,
+      0.922,
+      0.999
     ],
-    "duration": 4.877
+    "duration": 2.754
   },
-  "Knight_22_e8c5ae86": {
+  "Knight_30_7f3c5eed": {
+    "kind": "Knight",
+    "text": "[glitch]Sloppy.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.837
+  },
+  "Knight_31_7fff5884": {
+    "kind": "Knight",
+    "text": "[slow]I am [hot]ready[/] when you are.[/]",
+    "words": [
+      0.0,
+      0.085,
+      0.255,
+      0.681,
+      1.022,
+      1.277
+    ],
+    "duration": 2.758
+  },
+  "Knight_32_7fa88e8c": {
+    "kind": "Knight",
+    "text": "[wave]Do you know how long I have waited for a worthy [hot]opponent[/]?[/]",
+    "words": [
+      0.0,
+      0.107,
+      0.266,
+      0.479,
+      0.639,
+      0.852,
+      0.905,
+      1.118,
+      1.438,
+      1.598,
+      1.651,
+      1.97
+    ],
+    "duration": 3.61
+  },
+  "Knight_33_fe501ed9": {
+    "kind": "Knight",
+    "text": "[whisper]The oath weighs on me. [beat] [slow]Lend me your steel.[/][/]",
+    "words": [
+      0.0,
+      0.172,
+      0.402,
+      0.746,
+      0.861,
+      1.773,
+      2.02,
+      2.143,
+      2.39
+    ],
+    "duration": 3.9
+  },
+  "Knight_34_04133796": {
+    "kind": "Knight",
+    "text": "Come. [beat] [hot]Do not be shy.[/]",
+    "words": [
+      0.0,
+      1.077,
+      1.258,
+      1.531,
+      1.712
+    ],
+    "duration": 3.215
+  },
+  "Knight_35_e8c5ae86": {
     "kind": "Knight",
     "text": "[big]EN GARDE.[/]",
     "words": [
       0.0,
-      0.183
+      0.189
     ],
-    "duration": 1.871
+    "duration": 1.895
   },
-  "Knight_23_293bd457": {
+  "Knight_36_293bd457": {
     "kind": "Knight",
     "text": "[wave]Dance well. [beat] It is your last.[/]",
     "words": [
       0.0,
-      0.453,
-      1.646,
-      1.84,
-      2.035,
-      2.424
+      0.383,
+      1.506,
+      1.672,
+      1.838,
+      2.169
     ],
-    "duration": 4.051
+    "duration": 3.723
   },
-  "Knight_24_47d0be7f": {
+  "Knight_37_47d0be7f": {
     "kind": "Knight",
     "text": "[big]THE LAST CUT.[/]",
     "words": [
       0.0,
-      0.244,
-      0.569
+      0.212,
+      0.495
     ],
-    "duration": 2.034
+    "duration": 1.918
   },
-  "Knight_25_0fd208b3": {
+  "Knight_38_0fd208b3": {
     "kind": "Knight",
     "text": "[slow]I only ever need [hot]one[/].[/]",
     "words": [
       0.0,
-      0.135,
-      0.676,
-      1.217,
-      1.757
+      0.168,
+      0.842,
+      1.516,
+      2.189
     ],
-    "duration": 3.438
+    "duration": 4.003
   },
-  "Knight_26_9f0582b2": {
+  "Knight_39_9f0582b2": {
     "kind": "Knight",
     "text": "[big][shake]EXECUTION.[/][/]",
     "words": [
       0.0
     ],
-    "duration": 1.964
+    "duration": 1.929
   },
-  "Knight_27_c98f7802": {
+  "Knight_40_c98f7802": {
     "kind": "Knight",
     "text": "[glitch]The sentence is [beat] passed.[/]",
     "words": [
       0.0,
-      0.239,
-      0.877,
-      1.457
+      0.263,
+      0.963,
+      1.558
     ],
-    "duration": 3.057
+    "duration": 3.174
   },
-  "Knight_28_8b361ac8": {
+  "Knight_41_255a71ec": {
     "kind": "Knight",
-    "text": "[hot]One cut.[/]",
+    "text": "[slow]A [hot]line[/] of [shake]steel[/].[/]",
     "words": [
       0.0,
-      0.343
-    ],
-    "duration": 1.941
-  },
-  "Knight_29_971e3e0c": {
-    "kind": "Knight",
-    "text": "The blade [slow]reaches[/].",
-    "words": [
-      0.0,
-      0.246,
-      0.656
+      0.101,
+      0.505,
+      0.706
     ],
     "duration": 2.452
   },
-  "Knight_30_ff90f204": {
+  "Knight_42_19bbf81a": {
     "kind": "Knight",
-    "text": "[big]FOLLOW.[/]",
+    "text": "[wave]Follow it.[/]",
+    "words": [
+      0.0,
+      0.495
+    ],
+    "duration": 1.883
+  },
+  "Knight_43_20f4a73f": {
+    "kind": "Knight",
+    "text": "[big]Riposte.[/]",
     "words": [
       0.0
     ],
-    "duration": 1.604
+    "duration": 1.72
   },
-  "Knight_31_f86ac30a": {
+  "Knight_44_726e240f": {
     "kind": "Knight",
-    "text": "[hot]Twice.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 1.618
-  },
-  "Knight_32_9a89c016": {
-    "kind": "Knight",
-    "text": "[shake]Two strokes.[/]",
+    "text": "[slow]Two [hot]cuts[/].[/]",
     "words": [
       0.0,
-      0.216
+      0.318
     ],
-    "duration": 1.934
+    "duration": 1.987
   },
-  "Knight_33_0dd24f3f": {
+  "Knight_45_c34739ed": {
     "kind": "Knight",
-    "text": "[wave]Turn with me.[/]",
+    "text": "[big]Double strike.[/]",
     "words": [
       0.0,
-      0.245,
-      0.49
+      0.284
     ],
-    "duration": 1.813
+    "duration": 1.755
   },
-  "Knight_34_f1a042c1": {
+  "Knight_46_b7665a34": {
     "kind": "Knight",
-    "text": "[slow]The whole arc.[/]",
+    "text": "[big]A sweeping cut![/]",
     "words": [
       0.0,
-      0.299,
-      0.797
+      0.079,
+      0.713
     ],
-    "duration": 2.336
+    "duration": 2.169
   },
-  "Knight_35_10350131": {
+  "Knight_47_ce388426": {
     "kind": "Knight",
-    "text": "Shades, [hot]to arms[/].",
+    "text": "[slow]Duck.[/] [beat] [hot]Or do not.[/]",
     "words": [
       0.0,
-      0.651,
-      0.85
+      1.471,
+      1.692,
+      1.913
     ],
-    "duration": 2.487
+    "duration": 3.494
   },
-  "Knight_36_acd1e672": {
+  "Knight_48_36c8a21e": {
     "kind": "Knight",
-    "text": "[whisper]Shadows... attend.[/]",
+    "text": "[slow]Seconds![/] [beat] [hot]To me.[/]",
     "words": [
       0.0,
-      0.993
+      1.611,
+      1.738
     ],
-    "duration": 2.737
+    "duration": 3.069
   },
-  "Knight_37_a4d4c2b3": {
+  "Knight_49_87111c80": {
     "kind": "Knight",
-    "text": "[wave]Rise, my lost companions.[/]",
+    "text": "[wave]Gentlemen... [beat] [hot]join the duel.[/][/]",
     "words": [
       0.0,
-      0.779,
-      0.912,
-      1.18
+      1.297,
+      1.599,
+      1.826
     ],
-    "duration": 3.056
+    "duration": 3.343
   },
-  "Knight_38_5b9ce736": {
+  "Knight_50_177f2211": {
     "kind": "Knight",
-    "text": "No [hot]retreat[/].",
+    "text": "[slow]Fair is fair: [hot]a few more blades[/].[/]",
     "words": [
       0.0,
-      0.146
-    ],
-    "duration": 1.871
-  },
-  "Knight_39_5e9fa861": {
-    "kind": "Knight",
-    "text": "[slow]Enclosed.[/]",
-    "words": [
-      0.0
-    ],
-    "duration": 2.002
-  },
-  "Knight_40_8c1c07c7": {
-    "kind": "Knight",
-    "text": "[glitch]The circle closes.[/]",
-    "words": [
-      0.0,
-      0.202,
-      0.607
-    ],
-    "duration": 2.22
-  },
-  "Knight_41_3ee8420a": {
-    "kind": "Knight",
-    "text": "A wall of night -- find the [hot]gap[/].",
-    "words": [
-      0.0,
-      0.063,
-      0.313,
-      0.439,
-      0.752,
-      0.878,
-      1.128,
-      1.317
-    ],
-    "duration": 2.707
-  },
-  "Knight_42_d1762c59": {
-    "kind": "Knight",
-    "text": "[shake]Walk through the dark.[/]",
-    "words": [
-      0.0,
-      0.224,
-      0.617,
-      0.785
-    ],
-    "duration": 2.206
-  },
-  "Knight_43_2d5b9048": {
-    "kind": "Knight",
-    "text": "From the heart, [hot]outward[/].",
-    "words": [
-      0.0,
-      0.237,
       0.414,
-      0.909
+      0.621,
+      1.338,
+      1.434,
+      1.724,
+      2.109
     ],
-    "duration": 2.455
+    "duration": 3.924
   },
-  "Knight_44_53b18ba4": {
+  "Knight_51_dd60f0c3": {
     "kind": "Knight",
-    "text": "[big]Bloom, void.[/]",
+    "text": "[slow]Within the [hot]ring[/].[/]",
     "words": [
       0.0,
-      0.512
+      0.453,
+      0.679
     ],
-    "duration": 2.255
+    "duration": 2.196
   },
-  "Knight_45_1266534d": {
+  "Knight_52_d6b372cd": {
     "kind": "Knight",
-    "text": "[hot]Lines[/] of the void.",
+    "text": "[wave]A duel needs a proper [hot]ring[/].[/]",
     "words": [
       0.0,
-      0.379,
-      0.531,
-      0.759
+      0.078,
+      0.388,
+      0.776,
+      0.853,
+      1.319
+    ],
+    "duration": 2.847
+  },
+  "Knight_53_a649fac8": {
+    "kind": "Knight",
+    "text": "[big]The circle closes.[/]",
+    "words": [
+      0.0,
+      0.213,
+      0.64
     ],
     "duration": 2.278
   },
-  "Knight_46_181c1275": {
+  "Knight_54_53a7e203": {
     "kind": "Knight",
-    "text": "[glitch]Cut. Cut. Cut.[/]",
+    "text": "[slow]A [hot]barrier[/] of [shake]blades[/].[/]",
     "words": [
       0.0,
+      0.106,
+      0.85,
+      1.063
+    ],
+    "duration": 2.947
+  },
+  "Knight_55_982a9708": {
+    "kind": "Knight",
+    "text": "[big]PARRY THIS.[/]",
+    "words": [
+      0.0,
+      0.401
+    ],
+    "duration": 1.941
+  },
+  "Knight_56_73508821": {
+    "kind": "Knight",
+    "text": "[big]A thousand cuts.[/]",
+    "words": [
+      0.0,
+      0.107,
+      0.96
+    ],
+    "duration": 2.633
+  },
+  "Knight_57_286b572a": {
+    "kind": "Knight",
+    "text": "[slow]Every direction is [hot]a thrust[/].[/]",
+    "words": [
+      0.0,
+      0.375,
+      1.05,
+      1.2,
+      1.275
+    ],
+    "duration": 2.94
+  },
+  "Knight_58_ea9bfcfe": {
+    "kind": "Knight",
+    "text": "[slow]The [hot]thrust[/].[/]",
+    "words": [
+      0.0,
+      0.296
+    ],
+    "duration": 2.127
+  },
+  "Knight_59_10ff826e": {
+    "kind": "Knight",
+    "text": "[wave]A line... [beat] [hot]drawn[/].[/]",
+    "words": [
+      0.0,
+      0.07,
+      1.297
+    ],
+    "duration": 3.134
+  },
+  "Knight_60_fccea7da": {
+    "kind": "Knight",
+    "text": "[big]THE BLADES OF THE FALLEN![/]",
+    "words": [
+      0.0,
+      0.179,
+      0.537,
       0.657,
-      1.313
+      0.836
     ],
-    "duration": 2.883
+    "duration": 2.394
   },
-  "Knight_47_88dc1eee": {
+  "Knight_61_7820c55c": {
     "kind": "Knight",
-    "text": "The dark [hot]rains[/] down.",
+    "text": "[slow]Swords rain[/] on [hot]the unworthy[/].",
     "words": [
       0.0,
-      0.205,
-      0.478,
-      0.82
+      0.604,
+      1.006,
+      1.207,
+      1.509
     ],
-    "duration": 2.301
+    "duration": 3.555
   },
-  "Knight_48_6cdf9fd4": {
+  "Knight_62_4e702007": {
     "kind": "Knight",
-    "text": "[slow]Let it fall.[/]",
+    "text": "[glitch]Look up.[/]",
     "words": [
       0.0,
-      0.305,
-      0.508
+      0.299
     ],
-    "duration": 2.155
+    "duration": 1.662
   },
-  "Knight_49_dcdd12d1": {
-    "kind": "Knight",
-    "text": "[big]ALL OF IT.[/]",
+  "Astraeon_02_99e7420a": {
+    "kind": "Astraeon",
+    "text": "[slow]The air [hot]hums[/] with an old, enormous light.[/]",
     "words": [
       0.0,
-      0.266,
-      0.443
+      0.319,
+      0.637,
+      1.062,
+      1.487,
+      1.7,
+      2.265,
+      2.941
     ],
-    "duration": 1.848
+    "duration": 5.089
+  },
+  "Astraeon_05_fa5aca05": {
+    "kind": "Astraeon",
+    "text": "[big]Come, small fires.[/] [beat] [slow]Burn with me.[/]",
+    "words": [
+      0.0,
+      0.523,
+      1.06,
+      2.443,
+      2.78,
+      3.116
+    ],
+    "duration": 5.008
+  },
+  "Astraeon_10_d2275e78": {
+    "kind": "Astraeon",
+    "text": "[whisper]I was never... [beat] meant to... [beat] [wave]shine[/]...[/]",
+    "words": [
+      0.0,
+      0.074,
+      0.297,
+      1.63,
+      1.99,
+      3.09
+    ],
+    "duration": 5.319
+  },
+  "Astraeon_12_db395a5a": {
+    "kind": "Astraeon",
+    "text": "[wave]Look up tonight. [beat] [hot]One fewer[/].[/]",
+    "words": [
+      0.0,
+      0.259,
+      0.388,
+      1.646,
+      1.94
+    ],
+    "duration": 4.168
+  },
+  "Astraeon_13_7929a623": {
+    "kind": "Astraeon",
+    "text": "[slow]The dawn will [hot]not[/] come for me.[/]",
+    "words": [
+      0.0,
+      0.244,
+      0.569,
+      0.894,
+      1.138,
+      1.463,
+      1.707
+    ],
+    "duration": 3.59
+  },
+  "Astraeon_14_bc45d671": {
+    "kind": "Astraeon",
+    "text": "[wave]I fade... [beat] to [slow]return[/].[/]",
+    "words": [
+      0.0,
+      0.077,
+      1.358,
+      1.585
+    ],
+    "duration": 4.02
+  },
+  "Astraeon_15_956a2c9e": {
+    "kind": "Astraeon",
+    "text": "[shake]You are a [hot]spark[/]. [beat] Why will you [slow]not go out[/]?[/]",
+    "words": [
+      0.0,
+      0.241,
+      0.482,
+      0.563,
+      1.785,
+      2.04,
+      2.379,
+      2.634,
+      2.889,
+      3.059
+    ],
+    "duration": 5.059
+  },
+  "Astraeon_16_fa6faf40": {
+    "kind": "Astraeon",
+    "text": "[glitch]EVERYTHING I TOUCH BURNS.[/]",
+    "words": [
+      0.0,
+      0.66,
+      0.726,
+      1.055
+    ],
+    "duration": 3.091
+  },
+  "Astraeon_17_22216274": {
+    "kind": "Astraeon",
+    "text": "[big]I CANNOT. STOP. SHINING.[/]",
+    "words": [
+      0.0,
+      0.071,
+      0.886,
+      1.551
+    ],
+    "duration": 3.737
+  },
+  "Astraeon_18_04fd33ef": {
+    "kind": "Astraeon",
+    "text": "[big]My core![/] [beat] [shake]Cracks![/]",
+    "words": [
+      0.0,
+      0.263,
+      1.659
+    ],
+    "duration": 3.787
+  },
+  "Astraeon_19_02fb5070": {
+    "kind": "Astraeon",
+    "text": "[slow]So that is what [hot]pain[/] is.[/]",
+    "words": [
+      0.0,
+      0.214,
+      0.643,
+      0.858,
+      1.287,
+      1.715
+    ],
+    "duration": 3.677
+  },
+  "Astraeon_20_4dec514e": {
+    "kind": "Astraeon",
+    "text": "[shake]Light... [beat] leaking...[/]",
+    "words": [
+      0.0,
+      1.309
+    ],
+    "duration": 3.471
+  },
+  "Astraeon_21_3899c979": {
+    "kind": "Astraeon",
+    "text": "[slow]Dim.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.07
+  },
+  "Astraeon_22_d64fe164": {
+    "kind": "Astraeon",
+    "text": "[wave]A [hot]spark[/] against the sun.[/]",
+    "words": [
+      0.0,
+      0.061,
+      0.366,
+      0.792,
+      0.975
+    ],
+    "duration": 2.859
+  },
+  "Astraeon_23_c8cf5094": {
+    "kind": "Astraeon",
+    "text": "[shake]Gravity is [slow]patient[/].[/]",
+    "words": [
+      0.0,
+      0.884,
+      1.137
+    ],
+    "duration": 3.788
+  },
+  "Astraeon_24_ee2c42b9": {
+    "kind": "Astraeon",
+    "text": "[slow]Fall toward me.[/]",
+    "words": [
+      0.0,
+      0.347,
+      0.866
+    ],
+    "duration": 2.766
+  },
+  "Astraeon_25_708aceb7": {
+    "kind": "Astraeon",
+    "text": "I have [hot]watched empires[/] smaller than you.",
+    "words": [
+      0.0,
+      0.062,
+      0.309,
+      0.742,
+      1.174,
+      1.607,
+      1.854
+    ],
+    "duration": 3.741
+  },
+  "Astraeon_26_085dbd4a": {
+    "kind": "Astraeon",
+    "text": "[wave]Be a good fire.[/] [beat] [hot]Go out.[/]",
+    "words": [
+      0.0,
+      0.317,
+      0.476,
+      1.111,
+      2.644,
+      2.845
+    ],
+    "duration": 4.888
+  },
+  "Astraeon_27_08c428b6": {
+    "kind": "Astraeon",
+    "text": "[slow]I am so sorry.[/]",
+    "words": [
+      0.0,
+      0.146,
+      0.437,
+      0.728
+    ],
+    "duration": 3.242
+  },
+  "Astraeon_28_976a38c6": {
+    "kind": "Astraeon",
+    "text": "[glitch]Fall. [beat] Fall. [beat] Fall.[/]",
+    "words": [
+      0.0,
+      1.251,
+      2.467
+    ],
+    "duration": 4.513
+  },
+  "Astraeon_29_96019298": {
+    "kind": "Astraeon",
+    "text": "[whisper]It is almost over.[/]",
+    "words": [
+      0.0,
+      0.144,
+      0.288,
+      0.72
+    ],
+    "duration": 2.72
+  },
+  "Astraeon_30_fd595def": {
+    "kind": "Astraeon",
+    "text": "[big]Shine![/] [beat] [slow]For as long as you can.[/]",
+    "words": [
+      0.0,
+      1.262,
+      1.514,
+      1.682,
+      2.017,
+      2.185,
+      2.436
+    ],
+    "duration": 4.412
+  },
+  "Astraeon_31_7e79a7ef": {
+    "kind": "Astraeon",
+    "text": "[whisper]Every star you have ever wished upon... [beat] is [hot]me[/].[/]",
+    "words": [
+      0.0,
+      0.325,
+      0.586,
+      0.781,
+      1.041,
+      1.302,
+      1.692,
+      2.888,
+      3.134
+    ],
+    "duration": 5.143
+  },
+  "Astraeon_32_d8115c3b": {
+    "kind": "Astraeon",
+    "text": "[slow]Do you know [hot]how cold[/] the dark is?[/]",
+    "words": [
+      0.0,
+      0.118,
+      0.295,
+      0.531,
+      0.708,
+      0.944,
+      1.121,
+      1.357
+    ],
+    "duration": 3.194
+  },
+  "Astraeon_33_68d047ed": {
+    "kind": "Astraeon",
+    "text": "[wave]I miss the [hot]others[/].[/]",
+    "words": [
+      0.0,
+      0.09,
+      0.449,
+      0.718
+    ],
+    "duration": 2.986
+  },
+  "Astraeon_34_683d94df": {
+    "kind": "Astraeon",
+    "text": "[slow]Stay. [beat] [hot]Just a little longer.[/][/]",
+    "words": [
+      0.0,
+      1.483,
+      1.756,
+      1.825,
+      2.235
+    ],
+    "duration": 4.353
+  },
+  "Astraeon_35_c3e70f62": {
+    "kind": "Astraeon",
+    "text": "[big]STARFALL.[/] [beat] [slow]Run.[/]",
+    "words": [
+      0.0,
+      1.402
+    ],
+    "duration": 3.785
+  },
+  "Astraeon_36_960a6978": {
+    "kind": "Astraeon",
+    "text": "[shake]Every star I ever lit -- falls.[/]",
+    "words": [
+      0.0,
+      0.374,
+      0.673,
+      0.748,
+      1.047,
+      1.271,
+      1.421
+    ],
+    "duration": 3.509
+  },
+  "Astraeon_37_f0c35d43": {
+    "kind": "Astraeon",
+    "text": "[big]SUPERNOVA.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.29
+  },
+  "Astraeon_38_7e294caf": {
+    "kind": "Astraeon",
+    "text": "[slow]Find the dark. [beat] Hide in the [hot]dark[/].[/]",
+    "words": [
+      0.0,
+      0.333,
+      0.582,
+      1.738,
+      2.024,
+      2.166,
+      2.38
+    ],
+    "duration": 4.377
+  },
+  "Astraeon_39_26394e78": {
+    "kind": "Astraeon",
+    "text": "[big]EVENT HORIZON.[/]",
+    "words": [
+      0.0,
+      0.341
+    ],
+    "duration": 2.527
+  },
+  "Astraeon_40_7193e18b": {
+    "kind": "Astraeon",
+    "text": "[wave]Nothing leaves. [beat] Not even light.[/]",
+    "words": [
+      0.0,
+      0.488,
+      1.715,
+      1.904,
+      2.157
+    ],
+    "duration": 4.175
+  },
+  "Astraeon_41_45729ce7": {
+    "kind": "Astraeon",
+    "text": "[big]ANNIHILATION.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.348
+  },
+  "Astraeon_42_9733e77a": {
+    "kind": "Astraeon",
+    "text": "[shake]One line of light. [beat] Let it find you.[/]",
+    "words": [
+      0.0,
+      0.228,
+      0.531,
+      0.683,
+      1.878,
+      2.041,
+      2.15,
+      2.368
+    ],
+    "duration": 4.226
+  },
+  "Astraeon_43_dcdc4019": {
+    "kind": "Astraeon",
+    "text": "[big][shake]LAST LIGHT.[/][/]",
+    "words": [
+      0.0,
+      0.283
+    ],
+    "duration": 2.348
+  },
+  "Astraeon_44_251c29ac": {
+    "kind": "Astraeon",
+    "text": "[glitch]If I end -- [beat] so does EVERYTHING.[/]",
+    "words": [
+      0.0,
+      0.151,
+      0.226,
+      0.453,
+      1.124,
+      1.256,
+      1.521
+    ],
+    "duration": 3.89
+  },
+  "Astraeon_45_8eef8059": {
+    "kind": "Astraeon",
+    "text": "[big]FALL.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.07
+  },
+  "Astraeon_46_c487cc2b": {
+    "kind": "Astraeon",
+    "text": "[slow]A star lands.[/]",
+    "words": [
+      0.0,
+      0.145,
+      0.724
+    ],
+    "duration": 3.232
+  },
+  "Astraeon_47_2b587ca6": {
+    "kind": "Astraeon",
+    "text": "[wave]Sparks, [hot]falling[/].[/]",
+    "words": [
+      0.0,
+      0.895
+    ],
+    "duration": 3.115
+  },
+  "Astraeon_48_1f05503e": {
+    "kind": "Astraeon",
+    "text": "[slow]Make a wish.[/]",
+    "words": [
+      0.0,
+      0.358,
+      0.447
+    ],
+    "duration": 2.534
+  },
+  "Astraeon_49_d84af3a7": {
+    "kind": "Astraeon",
+    "text": "[slow]A [hot]crack[/] in the [wave]sky[/].[/]",
+    "words": [
+      0.0,
+      0.087,
+      0.525,
+      0.7,
+      0.962
+    ],
+    "duration": 2.952
+  },
+  "Astraeon_50_048be787": {
+    "kind": "Astraeon",
+    "text": "[big]The ground... [beat] [hot]opens[/].[/]",
+    "words": [
+      0.0,
+      0.151,
+      1.344
+    ],
+    "duration": 3.704
+  },
+  "Astraeon_51_eb93af8f": {
+    "kind": "Astraeon",
+    "text": "[slow]A [hot]constellation[/] closes.[/]",
+    "words": [
+      0.0,
+      0.09,
+      1.255
+    ],
+    "duration": 3.523
+  },
+  "Astraeon_52_ee67b71c": {
+    "kind": "Astraeon",
+    "text": "[wave]Do not step outside the stars.[/]",
+    "words": [
+      0.0,
+      0.163,
+      0.408,
+      0.735,
+      1.306,
+      1.551
+    ],
+    "duration": 3.681
+  },
+  "Astraeon_53_74636e54": {
+    "kind": "Astraeon",
+    "text": "[big]RADIATE.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.395
+  },
+  "Astraeon_54_eefbbe74": {
+    "kind": "Astraeon",
+    "text": "[wave]Every ray, a [hot]memory[/].[/]",
+    "words": [
+      0.0,
+      0.48,
+      1.004,
+      1.099
+    ],
+    "duration": 3.399
+  },
+  "Astraeon_55_4bd437dd": {
+    "kind": "Astraeon",
+    "text": "[wave]Orbits.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.279
+  },
+  "Astraeon_56_b58d7a23": {
+    "kind": "Astraeon",
+    "text": "[slow]Everything circles [hot]something[/].[/]",
+    "words": [
+      0.0,
+      0.731,
+      1.243
+    ],
+    "duration": 3.614
+  },
+  "Astraeon_57_6a3ddb80": {
+    "kind": "Astraeon",
+    "text": "[slow]A line of [hot]starlight[/].[/]",
+    "words": [
+      0.0,
+      0.085,
+      0.423,
+      0.593
+    ],
+    "duration": 3.08
+  },
+  "Astraeon_58_dbeba4e7": {
+    "kind": "Astraeon",
+    "text": "[big]Stand [shake]aside[/].[/]",
+    "words": [
+      0.0,
+      0.337
+    ],
+    "duration": 2.381
+  },
+  "Astraeon_59_67c21264": {
+    "kind": "Astraeon",
+    "text": "[wave]Come, my [hot]embers[/].[/]",
+    "words": [
+      0.0,
+      0.442,
+      0.617
+    ],
+    "duration": 2.871
+  },
+  "Astraeon_60_84d3a977": {
+    "kind": "Astraeon",
+    "text": "[slow]Little [hot]suns[/], [beat] attend.[/]",
+    "words": [
+      0.0,
+      0.601,
+      1.663
+    ],
+    "duration": 4.046
+  },
+  "Astraeon_61_f12a9a4f": {
+    "kind": "Astraeon",
+    "text": "[big]THE SKY FALLS![/]",
+    "words": [
+      0.0,
+      0.22,
+      0.441
+    ],
+    "duration": 2.522
+  },
+  "Astraeon_62_710d5554": {
+    "kind": "Astraeon",
+    "text": "[wave]Every wish [slow]must land[/] somewhere.[/]",
+    "words": [
+      0.0,
+      0.4,
+      0.72,
+      1.04,
+      1.36
+    ],
+    "duration": 3.799
+  },
+  "Astraeon_63_8d9ba42f": {
+    "kind": "Astraeon",
+    "text": "[slow]Everything falls toward the [hot]light[/].[/]",
+    "words": [
+      0.0,
+      0.681,
+      1.022,
+      1.43,
+      1.635
+    ],
+    "duration": 3.683
+  },
+  "Astraeon_64_3c3198fd": {
+    "kind": "Astraeon",
+    "text": "[wave]Come closer.[/]",
+    "words": [
+      0.0,
+      0.312
+    ],
+    "duration": 2.499
   }
 }

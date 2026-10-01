@@ -82,7 +82,7 @@ def boss_lines(text: str) -> dict[str, list[str]]:
             index += 1
         found = re.findall(r'"((?:[^"\\]|\\.)*)"', text[start : index - 1])
         if kind in PROFILES and found:
-            lines[kind] = list(dict.fromkeys(found))
+            lines[kind] = [line for line in dict.fromkeys(found) if "{name}" not in line]  # lines with a name are typed, not voiced
     return lines
 
 
