@@ -72,7 +72,7 @@ return function()
 		end
 	end
 
-	local function digestValue(state, value: any, depth: number, parentKey: string?)
+	local function digestValue(state, value: any, depth: number, parentKey: string?, path: string?)
 		state.Nodes += 1
 		if state.Nodes > MAX_NODES or depth > 18 then
 			error("profile exceeds integrity traversal budget")
@@ -81,7 +81,7 @@ return function()
 		if kind == "nil" then feed(state, "n;")
 		elseif kind == "boolean" then feed(state, value and "b1;" or "b0;")
 		elseif kind == "number" then
-			if not finite(value) then error("profile contains a non-finite number") end
+			if not finite(value) then error("profile contains a non-finite number at " .. (path or "?")) end
 			feed(state, "d" .. string.format("%.17g", value) .. ";")
 		elseif kind == "string" then
 			feed(state, "s" .. tostring(#value) .. ":" .. value .. ";")
@@ -91,8 +91,8 @@ return function()
 
 				local excluded = parentKey == "Meta" and (key == "Integrity" or key == "Transactions")
 				if not excluded then
-					digestValue(state, key, depth + 1, nil)
-					digestValue(state, value[key], depth + 1, type(key) == "string" and key or nil)
+					digestValue(state, key, depth + 1, nil, (path or "") .. "<key>")
+					digestValue(state, value[key], depth + 1, type(key) == "string" and key or nil, (path or "") .. "." .. tostring(key))
 				end
 			end
 			feed(state, "}")
