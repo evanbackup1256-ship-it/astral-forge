@@ -61,6 +61,7 @@ local BED = {
 	StormIsle = "amb_spire",
 	RimeIsle = "amb_hollows",
 	GloamIsle = "amb_riftmaw",
+	AstraIsle = "amb_heart",
 }
 local LEVEL = 0.55
 local BRIDGE_LEVEL = 0.3
@@ -1085,6 +1086,7 @@ local REGION_LINES = {
 	StormIsle = "Wings of the last tempest",
 	RimeIsle = "The glacier that remembers",
 	GloamIsle = "Sworn to the dark between stars",
+	AstraIsle = "What the sky forgot to finish",
 }
 
 local function rgb(triple): Color3
@@ -3028,6 +3030,7 @@ Signals.SERVER_KINDS = table.freeze({
 	RiftBossWall = true,
 	RiftBossSummonCall = true,
 	RiftBossEnrage = true,
+	RiftBossUltimate = true,
 	RiftBossBreak = true,
 	RiftBossAdds = true,
 	RiftBossAddBlast = true,
@@ -5317,6 +5320,16 @@ function ScreenFx.signature(kind: string, power: number)
 		ScreenFx.blurPulse(6 * power, 0.7)
 		ScreenFx.flash(Color3.fromRGB(200, 235, 255), 0.12 * power, 0.3)
 		Controls.punch(-5 * power, 0)
+	elseif kind == "Astraeon" then
+		-- A star going off: white-gold, then a ring of blue, hit-stop and a huge lens kick.
+		ScreenFx.hitstop(0.09 * power)
+		ScreenFx.strobe({ Color3.new(1, 1, 1), Color3.fromRGB(255, 226, 150), Color3.fromRGB(150, 190, 255) }, 0.06, 0.6 * power)
+		ScreenFx.manga(Color3.fromRGB(255, 214, 120), 0.09 * power + 0.03)
+		ScreenFx.vignette(Color3.fromRGB(255, 180, 70), 0.7 * power, 1.2)
+		ScreenFx.gradePulse(Color3.fromRGB(255, 232, 190), 0.3 * power, 0.3, 1.0)
+		ScreenFx.blurPulse(10 * power, 0.5)
+		Controls.shake(1.4 * power)
+		Controls.punch(-10 * power, 0.03)
 	elseif kind == "Knight" then
 		-- A cut: black frame, white slash lines at a hard angle, a flick of the lens.
 		ScreenFx.hitstop(0.06 * power)
@@ -5406,6 +5419,7 @@ local SPEECH_FONTS: { [string]: { Enum.Font } } = {
 	Seraph = { pickFont("Jura"), pickFont("Jura") },
 	Rime = { pickFont("JosefinSans"), pickFont("JosefinSans") },
 	Knight = { pickFont("Antique"), pickFont("Antique") },
+	Astraeon = { pickFont("Merriweather"), pickFont("Merriweather") },
 }local GLITCH_CHARS = "#@%&01!?/\\<>*"
 
 local function ensureSpeech(): boolean
@@ -6681,6 +6695,7 @@ local BOSS_SPRITES = {
 	Regent = { big = "flame_lick", small = "ember", gravity = 16, speed = { 10, 26 } },
 	Seraph = { big = "spark_streak", small = "feather", gravity = -6, speed = { 16, 40 } },
 	Rime = { big = "snowflake", small = "ice_shard", gravity = -14, speed = { 8, 22 } },
+	Astraeon = { big = "flame_lick", small = "spark_streak", gravity = 8, speed = { 14, 40 } },
 	Knight = { big = "slash", small = "shadow_wisp", gravity = 4, speed = { 10, 28 } },
 }
 
@@ -6805,6 +6820,14 @@ local BOSS_LAYERS: { [string]: { any } } = {
 		{ "Smoke", 14, { Color = Color3.fromRGB(190, 215, 240), Color2 = Color3.fromRGB(120, 170, 220), Speed = NumberRange.new(4, 14), Acceleration = Vector3.new(0, 1, 0), Size = NumberSequence.new(3, 8), Lifetime = NumberRange.new(1.8, 3.0), Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) }) }, 0.05, 1 },
 		{ "Motes", 80, { Color = Color3.new(1, 1, 1), Color2 = Color3.fromRGB(170, 220, 255), Speed = NumberRange.new(2, 12), Acceleration = Vector3.new(0, -5, 0), Lifetime = NumberRange.new(2.4, 4.4) }, 0.1, 10 },
 		{ "Shockwave", 1, { Color = Color3.fromRGB(190, 235, 255), Size = NumberSequence.new(3, 110) }, 0, 1 },
+	},
+	Astraeon = {
+		{ "Flash", 1, { Color = Color3.fromRGB(255, 244, 210), Size = NumberSequence.new(20, 130) }, 0, 4 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(255, 214, 120), Size = NumberSequence.new(4, 170) }, 0, 1 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(120, 170, 255), Size = NumberSequence.new(4, 220) }, 0.18, 1 },
+		{ "Embers", 120, { Color = Color3.fromRGB(255, 240, 190), Color2 = Color3.fromRGB(255, 160, 50), Speed = NumberRange.new(24, 70), Acceleration = Vector3.new(0, 20, 0), Lifetime = NumberRange.new(1.6, 3.4) }, 0.04, 2 },
+		{ "Spark", 90, { Color = Color3.fromRGB(190, 220, 255), Color2 = Color3.fromRGB(255, 240, 200), Speed = NumberRange.new(30, 80), Acceleration = Vector3.new(0, -14, 0) }, 0.08, 2 },
+		{ "Motes", 70, { Color = Color3.fromRGB(255, 246, 214), Color2 = Color3.fromRGB(255, 200, 100), Speed = NumberRange.new(6, 28), Lifetime = NumberRange.new(2, 4) }, 0.12, 6 },
 	},
 	Knight = {
 		{ "Smoke", 34, { Color = Color3.fromRGB(12, 6, 24), Color2 = Color3.fromRGB(80, 30, 150), Speed = NumberRange.new(8, 22), Acceleration = Vector3.new(0, 8, 0), Size = NumberSequence.new(4, 16) }, 0, 2 },
@@ -7508,6 +7531,41 @@ local function onEnrage(_payload)
 	BossVfx.layers(current.kind, current.anchor.Position - Vector3.new(0, 24, 0), 40, 1.6)
 end
 
+-- An ultimate: the boss stops everything, names the move and the whole screen holds its breath
+-- before the attack's own telegraph lands.
+local function onUltimate(payload)
+	local current = boss
+	if current == nil or type(payload) ~= "table" then
+		return
+	end
+	local seconds = tonumber(payload.Seconds) or 2
+	impactFrame(1)
+	bossSfx("roar_" .. current.kind, 1.5)
+	Controls.shake(1.6)
+	Controls.punch(-12, 0.04)
+	ScreenFx.hitstop(0.15)
+	ScreenFx.strobe({ Color3.new(1, 1, 1), pal.Hot, pal.Primary }, 0.06, 0.7)
+	ScreenFx.gradePulse(pal.Hot, 0.35, 0.3, math.max(seconds, 1.5))
+	ScreenFx.vignette(pal.Primary, 0.75, math.max(seconds, 1.5))
+	screenFlash(pal.Hot, 0.6, 0.9)
+	current.flash = 1
+	setAim("roar", nil, serverNow() + seconds)
+	windUp(serverNow() + seconds, seconds)
+	local lines = current.config.Dialogue.Ultimate
+	local spoken = lines ~= nil and lines[tostring(payload.Name)] or nil
+	if spoken ~= nil then
+		local at = 0.3
+		for _, line in spoken do
+			task.delay(at, function()
+				if boss == current and near(current) then
+					say(current.config.Name, line, pal.Hot)
+				end
+			end)
+			at += lineSeconds(line) + 0.5
+		end
+	end
+	BossVfx.layers(current.kind, current.anchor.Position - Vector3.new(0, 24, 0), 60, 2.2)
+end
 -- Heavy burst damage broke its poise: it reels, goes still for a moment and is vulnerable.
 local function onBreak(_payload)
 	local current = boss
@@ -7752,7 +7810,7 @@ end
 -- Studio only; nothing here touches the server or the real boss.
 local Showcase: any = { running = false, entries = {}, starting = false }
 
-local SHOWCASE_ORDER = { "Warden", "Choir", "Regent", "Seraph", "Rime", "Knight" }
+local SHOWCASE_ORDER = { "Warden", "Choir", "Regent", "Seraph", "Rime", "Knight", "Astraeon" }
 
 local function showcasePick(config: any): any
 	local total = 0
@@ -8010,6 +8068,7 @@ function World.start()
 	table.insert(unsubscribers, Signals.on("RiftBossWall", onWall))
 	table.insert(unsubscribers, Signals.on("RiftBossSummonCall", onSummonCall))
 	table.insert(unsubscribers, Signals.on("RiftBossEnrage", onEnrage))
+	table.insert(unsubscribers, Signals.on("RiftBossUltimate", onUltimate))
 	table.insert(unsubscribers, Signals.on("RiftBossBreak", onBreak))
 	table.insert(unsubscribers, Signals.on("RiftBossAdds", onAdds))
 	table.insert(unsubscribers, Signals.on("RiftBossAddBlast", onAddBlast))
@@ -8287,6 +8346,12 @@ local MOODS: { [string]: Mood } = {
 		ambient = Color3.fromRGB(96, 124, 160), outdoor = Color3.fromRGB(140, 180, 224), fog = Color3.fromRGB(20, 34, 54), exposure = 0.25,
 		hazeColor = Color3.fromRGB(150, 190, 230), hazeDecay = Color3.fromRGB(50, 80, 112), density = 0.18, haze = 0.55,
 		bloom = 0.65, tint = Color3.fromRGB(215, 238, 255), saturation = 0.12, contrast = 0.16, rays = 0.1,
+	},
+	-- The Starforge Dais: a warm gold dusk, bright haze, heavy bloom off the broken star.
+	AstraIsle = {
+		ambient = Color3.fromRGB(150, 120, 90), outdoor = Color3.fromRGB(200, 164, 110), fog = Color3.fromRGB(40, 24, 16), exposure = 0.3,
+		hazeColor = Color3.fromRGB(190, 130, 70), hazeDecay = Color3.fromRGB(80, 44, 24), density = 0.26, haze = 1.0,
+		bloom = 1.1, tint = Color3.fromRGB(255, 232, 196), saturation = 0.22, contrast = 0.16, rays = 0.1,
 	},
 	-- The Gloaming Keep: near-black violet, low light, a little magenta in the haze.
 	GloamIsle = {
