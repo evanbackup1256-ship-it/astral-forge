@@ -345,6 +345,7 @@ local sprintToggled = false
 local jumpQueued = false
 local shakeStrength = 0
 local punch = { fov = 0, roll = 0 }
+local shakeScale = 1
 -- Collision: the lens is swept as a small sphere (a point ray lets the near plane clip
 -- through corners and thin walls). The distance it is allowed is smoothed: it pulls in
 -- almost at once when something closes in, and eases back out when the way clears, so
@@ -818,11 +819,19 @@ end
 -- Kick the camera (boss slams, heavy landings).
 -- A hard kick on the lens: the view widens by fovKick degrees and rolls by roll radians, then settles.
 function Controls.punch(fovKick: number, roll: number)
+	fovKick *= shakeScale
+	roll *= shakeScale
 	punch.fov = math.max(punch.fov, fovKick)
 	punch.roll = if math.abs(roll) > math.abs(punch.roll) then roll else punch.roll
 end
 
+-- Scales every shake and lens kick (the Studio boss showcase turns them way down).
+function Controls.setShakeScale(scale: number)
+	shakeScale = scale
+end
+
 function Controls.shake(strength: number)
+	strength *= shakeScale
 	shakeStrength = math.max(shakeStrength, strength)
 end
 
@@ -5092,7 +5101,7 @@ end
 -- (white-out, then inverted black-and-white with radial speed lines), edge vignettes, blur
 -- pulses, colour-grade pulses, strobes, lens kicks and hit-stop. Each boss has its own
 -- signature (ScreenFx.signature) so no two feel alike.
-local ScreenFx: any = { gui = nil, lines = {}, edges = {}, hitstopUntil = 0, lastImpact = 0 }
+local ScreenFx: any = { gui = nil, lines = {}, edges = {}, hitstopUntil = 0, lastImpact = 0, muted = false }
 
 function ScreenFx.ensure()
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -5269,6 +5278,9 @@ end
 
 -- Each boss's own way of hitting the screen. `power` is 0..1.
 function ScreenFx.signature(kind: string, power: number)
+	if ScreenFx.muted then
+		return
+	end
 	power = math.clamp(power, 0.2, 1)
 	if kind == "Warden" then
 		-- The rift tears: inverted violet frame, light drains from the edges.
@@ -7732,6 +7744,186 @@ local function onArrived(payload)
 	Signals.fire("Arrived", payload)
 end
 
+-- Studio showcase: set workspace attribute BossShowcase = true and all six bosses appear at once in a
+-- ring round you, each one a full client-side body (rig, animation, effects) that picks real attacks
+-- from its own list and throws them at the NEXT boss in the ring, so you can watch them all fight.
+-- Studio only; nothing here touches the server or the real boss.
+local Showcase: any = { running = false, entries = {}, starting = false }
+
+local SHOWCASE_ORDER = { "Warden", "Choir", "Regent", "Seraph", "Rime", "Knight" }
+
+local function showcasePick(config: any): any
+	local total = 0
+	for _, attack in config.Attacks do
+		total += attack.Weight or 1
+	end
+	local roll = math.random() * total
+	for _, attack in config.Attacks do
+		roll -= attack.Weight or 1
+		if roll <= 0 then
+			return attack
+		end
+	end
+	return config.Attacks[1]
+end
+
+-- Throw one of `entry`'s attacks at `target` (a floor position): wind-ups now, landings later.
+local function showcaseAttack(entry: any, target: Vector3)
+	local config = entry.config
+	local attack = showcasePick(config)
+	local params = attack.Params or {}
+	local points: { Vector3 } = {}
+	local radius = config.SlamRadius * (params.RadiusScale or 1)
+	local step = 0.12
+	local kind = attack.Kind
+	local from = entry.floor
+	if kind == "Cage" then
+		for k = 1, 8 do
+			local a = k / 8 * math.pi * 2
+			table.insert(points, target + Vector3.new(math.cos(a) * 14, 0, math.sin(a) * 14))
+		end
+	elseif kind == "Fissure" then
+		local dir = Vector3.new(target.X - from.X, 0, target.Z - from.Z)
+		dir = if dir.Magnitude > 1 then dir.Unit else Vector3.xAxis
+		for k = 0, 5 do
+			table.insert(points, from + dir * (12 + k * 8))
+		end
+	elseif kind == "Starburst" then
+		for k = 1, 10 do
+			local a = k / 10 * math.pi * 2
+			table.insert(points, from + Vector3.new(math.cos(a) * 24, 0, math.sin(a) * 24))
+		end
+	elseif kind == "Meteors" or kind == "Volley" then
+		for _ = 1, 6 do
+			table.insert(points, target + Vector3.new((math.random() - 0.5) * 36, 0, (math.random() - 0.5) * 36))
+		end
+		radius *= 0.7
+	else
+		table.insert(points, target)
+		if kind == "TwinSlam" then
+			table.insert(points, target + Vector3.new(14, 0, -10))
+		end
+	end
+	local at = serverNow()
+	local element = params.Element
+	entry.busyUntil = at + 2.4 + #points * step
+	for index, point in points do
+		local detonate = at + 1.6 + (index - 1) * step
+		task.delay((index - 1) * step, function()
+			if not Showcase.running then
+				return
+			end
+			boss = entry.boss
+			configFor(entry.kind)
+			onSlam({ Center = { X = point.X, Y = point.Y, Z = point.Z }, Radius = radius, DetonateAt = detonate, Element = element })
+		end)
+		task.delay(1.6 + (index - 1) * step, function()
+			if not Showcase.running then
+				return
+			end
+			boss = entry.boss
+			configFor(entry.kind)
+			onSlamLand({ Center = { X = point.X, Y = point.Y, Z = point.Z }, Radius = radius, Element = element })
+			-- Anything standing in it is hit: the target boss recoils.
+			for _, other in Showcase.entries do
+				if other ~= entry and (Vector3.new(other.floor.X, 0, other.floor.Z) - Vector3.new(point.X, 0, point.Z)).Magnitude < radius + 6 then
+					other.boss.flash = 1
+				end
+			end
+		end)
+	end
+end
+
+function Showcase.step(dt: number, t: number)
+	local now = serverNow()
+	for index, entry in Showcase.entries do
+		boss = entry.boss
+		configFor(entry.kind)
+		local ok, problem = pcall(stepBoss :: (number, number) -> any, dt, t)
+		if not ok then
+			warn(`[showcase] {entry.kind}: {problem}`)
+		end
+		if now >= entry.nextAt and now >= entry.busyUntil then
+			local victim = Showcase.entries[index % #Showcase.entries + 1]
+			showcaseAttack(entry, victim.floor + Vector3.new((math.random() - 0.5) * 12, 0, (math.random() - 0.5) * 12))
+			entry.nextAt = now + 3.5 + math.random() * 3.5
+		end
+		if now >= entry.phaseAt then
+			entry.phaseAt = now + 18 + math.random() * 8
+			entry.phase = entry.phase % 3 + 1
+			boss = entry.boss
+			configFor(entry.kind)
+			onPhase({ Phase = entry.phase })
+		end
+	end
+end
+
+function Showcase.stop()
+	if not Showcase.running and not Showcase.starting then
+		return
+	end
+	Showcase.running = false
+	Showcase.starting = false
+	for _, entry in Showcase.entries do
+		boss = entry.boss
+		destroyBoss()
+		entry.model:Destroy()
+	end
+	table.clear(Showcase.entries)
+	boss = nil
+	ScreenFx.muted = false
+	Controls.setShakeScale(1)
+end
+
+function Showcase.start()
+	if Showcase.running or Showcase.starting or not RunService:IsStudio() or clientFolder == nil then
+		return
+	end
+	Showcase.starting = true
+	local root = localRoot()
+	local centre = if root ~= nil then root.Position else ORIGIN
+	local floorY = centre.Y - 3
+	ScreenFx.muted = true
+	Controls.setShakeScale(0.2)
+	destroyBoss()
+	local entries = {}
+	for index, kind in SHOWCASE_ORDER do
+		if not Showcase.starting then
+			return
+		end
+		local angle = (index - 1) / #SHOWCASE_ORDER * math.pi * 2
+		local floor = Vector3.new(centre.X + math.cos(angle) * 46, floorY, centre.Z + math.sin(angle) * 46)
+		local model = Instance.new("Model")
+		model.Name = `ShowcaseBoss_{kind}`
+		local anchor = Instance.new("Part")
+		anchor.Name = "Anchor"
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.one
+		anchor.CFrame = CFrame.new(floor + Vector3.new(0, 26, 0))
+		anchor.Parent = model
+		model.PrimaryPart = anchor
+		model:SetAttribute("BossKind", kind)
+		model:SetAttribute("Phase", "Active")
+		model:SetAttribute("BossPhase", 1)
+		model:SetAttribute("Health", 1000)
+		model:SetAttribute("MaxHealth", 1000)
+		model:SetAttribute("EndsAt", serverNow() + 99999)
+		model.Parent = clientFolder
+		local config = configFor(kind)
+		local built = buildBoss(model)
+		boss = built
+		loadMeshBody(built) -- yields while the meshes load
+		built.visible = 0
+		table.insert(entries, { kind = kind, boss = built, model = model, floor = floor, config = config, nextAt = serverNow() + 2 + index * 0.9, busyUntil = 0, phaseAt = serverNow() + 12 + index * 3, phase = 1 })
+	end
+	boss = nil
+	Showcase.entries = entries
+	Showcase.running = true
+	Showcase.starting = false
+end
 -- Lifecycle
 
 function World.start()
@@ -7829,7 +8021,12 @@ function World.start()
 		local cameraPosition = if camera ~= nil then camera.CFrame.Position else ORIGIN
 		stepScenery(t, cameraPosition)
 		stepNodes(dt, t)
-		local ok, problem = pcall(stepBoss :: (number, number) -> any, dt, t)
+		local ok, problem = true, nil
+		if Showcase.running then
+			Showcase.step(dt, t)
+		elseif not Showcase.starting then
+			ok, problem = pcall(stepBoss :: (number, number) -> any, dt, t)
+		end
 		if not ok then
 			warn(`[sanctuary] warden visuals: {problem}`)
 			destroyBoss()
@@ -7837,6 +8034,18 @@ function World.start()
 		end
 		stepRegion(dt)
 	end))
+	-- Studio only: workspace attribute BossShowcase = true brings out all six bosses at once.
+	if RunService:IsStudio() then
+		local function sync()
+			if Workspace:GetAttribute("BossShowcase") == true then
+				task.spawn(Showcase.start)
+			else
+				Showcase.stop()
+			end
+		end
+		track(Workspace:GetAttributeChangedSignal("BossShowcase"):Connect(sync))
+		sync()
+	end
 end
 
 function World.stop()
@@ -7852,6 +8061,7 @@ function World.stop()
 		unsubscribe()
 	end
 	table.clear(unsubscribers)
+	Showcase.stop()
 	destroyBoss()
 	clearCinema()
 	setTethers(false)
