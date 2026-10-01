@@ -8230,6 +8230,23 @@ function World.start()
 		end
 		track(Workspace:GetAttributeChangedSignal("BossShowcase"):Connect(sync))
 		sync()
+		-- The command bar runs on the client while playing, and a client attribute never reaches the
+		-- server, so hand these Studio-only commands over a remote the server listens on.
+		task.spawn(function()
+			local bridge = ReplicatedStorage:WaitForChild("BossStudioCommand", 30)
+			if bridge == nil or not bridge:IsA("RemoteEvent") then
+				return
+			end
+			for _, name in { "RiftBossForce", "RiftBossDemo" } do
+				track(Workspace:GetAttributeChangedSignal(name):Connect(function()
+					local value = Workspace:GetAttribute(name)
+					if type(value) == "string" then
+						Workspace:SetAttribute(name, nil)
+						bridge:FireServer(name, value)
+					end
+				end))
+			end
+		end)
 	end
 end
 
