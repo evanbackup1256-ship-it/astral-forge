@@ -184,7 +184,7 @@ function Ambience.fight(profile, phase: number?)
 			distortion.Parent = voice.sound
 		end
 	end
-	voice.sound.PlaybackSpeed = profile.Pitch * (1 + 0.07 * step)
+	voice.sound.PlaybackSpeed = profile.Pitch * (1 + (if profile.Id ~= nil and profile.Id > 0 then 0.025 else 0.07) * step)
 	voice.target = math.min(0.85, profile.Level + 0.08 * step)
 end
 
@@ -3551,6 +3551,7 @@ type Boss = {
 	walkPos: Vector3?,
 	gait: number,
 	walkBlend: number,
+	moveSpeed: number,
 	stepSign: number,
 	hoverPos: Vector3?,
 	floorPos: Vector3?,
@@ -4111,6 +4112,7 @@ local function buildBoss(model: Model): Boss
 		walkPos = nil,
 		gait = 0,
 		walkBlend = 0,
+		moveSpeed = 0,
 		stepSign = 1,
 		hoverPos = nil,
 		floorPos = nil,
@@ -4895,6 +4897,7 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 	local before = aim ~= nil and now < aim.untilAt
 	local clip: any = clips.idle
 	local clipTime = t
+	local gaiting = false
 	if phase == "Defeated" then
 		clip, clipTime = clips.death, t - current.outroStarted
 	elseif phase == "Dormant" or phase == "Forming" or phase == "Escaped" then
@@ -4908,6 +4911,11 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 		else
 			clipTime = now - (aim.untilAt - current.slamTotal)
 		end
+	elseif aim == nil and clips.walk ~= nil and current.walkBlend > 0.25 then
+		-- a real authored stride: the gait phase (distance walked) picks the frame, so the feet match the ground
+		gaiting = true
+		clip = if current.moveSpeed > 12 and clips.run ~= nil then clips.run else clips.walk
+		clipTime = current.gait / TAU * clip.length
 	end
 	local front = if body.flip then -1 else 1
 	local look = bodyFrame:VectorToObjectSpace(lookDir)
@@ -4933,7 +4941,7 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 			oy += hoy * flinch
 			oz += hoz * flinch
 		end
-		if current.walkBlend > 0.02 then
+		if current.walkBlend > 0.02 and not gaiting then
 			local phaseL = current.gait
 			local blendW = current.walkBlend
 			if name == "upperLegL" then
@@ -5350,7 +5358,18 @@ function ScreenFx.manga(color: Color3, hold: number, diagonal: number?)
 				bar.Rotation = diagonal + ((index % 8) - 4) * 1.5 + (if index % 2 == 0 then 0 else 180)
 			end
 		end
-		task.wait(hold)
+		task.wait(hold * 0.55)
+		-- flicker: the picture flips to its negative for a beat, then back
+		invert.Brightness = 0.6
+		invert.TintColor = color
+		ScreenFx.dim.BackgroundColor3 = Color3.new(1, 1, 1)
+		ScreenFx.dim.BackgroundTransparency = 0.55
+		task.wait(0.04)
+		ScreenFx.dim.BackgroundColor3 = Color3.new(0, 0, 0)
+		ScreenFx.dim.BackgroundTransparency = 0.15
+		invert.Brightness = 0.25
+		invert.TintColor = Color3.fromRGB(235, 235, 245)
+		task.wait(hold * 0.45)
 		invert.Brightness = -0.3
 		task.wait(0.05)
 		invert.Enabled = false
@@ -5361,6 +5380,42 @@ function ScreenFx.manga(color: Color3, hold: number, diagonal: number?)
 	end)
 end
 
+-- A ring that rushes outward from the middle of the screen (a shockwave seen from inside).
+function ScreenFx.ring(color: Color3, seconds: number)
+	if not ScreenFx.ensure() then
+		return
+	end
+	local ring = Instance.new("Frame")
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Position = UDim2.fromScale(0.5, 0.5)
+	ring.Size = UDim2.fromScale(0.05, 0.05 * 16 / 9)
+	ring.BackgroundTransparency = 1
+	ring.Active = false
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = ring
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.Thickness = 14
+	stroke.Parent = ring
+	ring.Parent = ScreenFx.gui
+	fadeTo(ring, { Size = UDim2.fromScale(2.4, 2.4 * 16 / 9) }, seconds, Enum.EasingStyle.Cubic)
+	fadeTo(stroke, { Thickness = 1, Transparency = 1 }, seconds)
+	task.delay(seconds + 0.05, function()
+		ring:Destroy()
+	end)
+end
+
+-- An ultimate lands as three impacts in a row, each with its own ring, so it reads as a hit and not a flash.
+function ScreenFx.big(kind: string, power: number)
+	for beat = 0, 2 do
+		task.delay(beat * 0.3, function()
+			ScreenFx.lastImpact = 0
+			ScreenFx.signature(kind, power * (1 - beat * 0.15))
+			ScreenFx.ring(if beat == 1 then Color3.new(1, 1, 1) else Color3.fromRGB(255, 220, 160), 0.7)
+		end)
+	end
+end
 -- Each boss's own way of hitting the screen. `power` is 0..1.
 function ScreenFx.signature(kind: string, power: number)
 	if ScreenFx.muted then
@@ -5466,6 +5521,67 @@ local function elementBurst(element: any, center: Vector3, radius: number)
 		Vfx.burst(up, "Motes", 34, { Color = Color3.fromRGB(190, 140, 255), Color2 = Color3.fromRGB(60, 20, 120) }, clientFolder)
 		Vfx.burst(up, "Smoke", 18, { Color = Color3.fromRGB(25, 10, 50) }, clientFolder)
 	end
+end
+-- A real explosion: a white flash, a fireball that blooms and burns off, a second billow in the deep colour,
+-- two shockwaves, flames, embers, debris on a ballistic arc, a rising smoke column and a blast of light.
+-- Throttled, because a meteor storm lands dozens of them.
+ScreenFx.budget = { count = 0, at = 0 }
+function ScreenFx.explosion(at: Vector3, radius: number, hot: Color3, deep: Color3)
+	local now = os.clock()
+	local budget = ScreenFx.budget
+	if now - budget.at > 1 then
+		budget.count, budget.at = 0, now
+	end
+	budget.count += 1
+	if budget.count > 7 then
+		return
+	end
+	local scale = math.clamp(radius / 20, 0.45, 3)
+	local up = at + Vector3.new(0, 1, 0)
+	local function ball(size: number, grow: number, colour: Color3, seconds: number, delay: number)
+		task.delay(delay, function()
+			local part = Instance.new("Part")
+			part.Shape = Enum.PartType.Ball
+			part.Material = Enum.Material.Neon
+			part.Color = colour
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CastShadow = false
+			part.Transparency = 0.05
+			part.Size = Vector3.one * size
+			part.Position = at + Vector3.new(0, grow * 0.18, 0)
+			part.Parent = clientFolder
+			TweenService:Create(part, TweenInfo.new(seconds, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = Vector3.one * grow, Transparency = 1 }):Play()
+			task.delay(seconds + 0.1, function()
+				part:Destroy()
+			end)
+		end)
+	end
+	ball(2, radius * 0.9 * math.max(scale, 1), Color3.new(1, 1, 1), 0.28, 0)
+	ball(3, radius * 1.5 * math.max(scale, 1), hot, 0.6, 0)
+	ball(3, radius * 1.9 * math.max(scale, 1), deep, 0.8, 0.12)
+	Vfx.burst(up, "Flash", 1, { Color = Color3.new(1, 1, 1), Size = NumberSequence.new(radius * 0.6, radius * 2.4) }, clientFolder)
+	Vfx.burst(at + Vector3.new(0, 0.4, 0), "Shockwave", 1, { Color = hot, Size = NumberSequence.new(radius * 0.4, radius * 3.6) }, clientFolder)
+	task.delay(0.12, function()
+		Vfx.burst(at + Vector3.new(0, 0.4, 0), "Shockwave", 1, { Color = deep, Size = NumberSequence.new(radius * 0.3, radius * 4.4) }, clientFolder)
+	end)
+	Vfx.burst(up, "Flame", math.floor(34 * scale), { Color = hot, Color2 = deep, Speed = NumberRange.new(12, 34), Acceleration = Vector3.new(0, 18, 0) }, clientFolder)
+	Vfx.burst(up, "Embers", math.floor(40 * scale), { Color = Color3.new(1, 1, 1), Color2 = hot, Speed = NumberRange.new(16, 46) }, clientFolder)
+	Vfx.burst(up, "Shatter", math.floor(26 * scale), { Color = hot, Color2 = deep, Speed = NumberRange.new(20, 52), Acceleration = Vector3.new(0, -48, 0) }, clientFolder)
+	Vfx.burst(up + Vector3.new(0, radius * 0.3, 0), "Smoke", math.floor(22 * scale), { Color = Color3.fromRGB(34, 28, 30), Speed = NumberRange.new(4, 14), Acceleration = Vector3.new(0, 10, 0) }, clientFolder)
+	lightPillar(at, hot, 56 * scale, math.max(2.5, radius * 0.28), 0.55)
+	local lamp = Instance.new("Part")
+	lamp.Anchored, lamp.CanCollide, lamp.CanQuery, lamp.Transparency, lamp.Size = true, false, false, 1, Vector3.one
+	lamp.Position = up + Vector3.new(0, radius * 0.3, 0)
+	lamp.Parent = clientFolder
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness, light.Shadows = hot, radius * 3.2, 9, false
+	light.Parent = lamp
+	TweenService:Create(light, TweenInfo.new(0.7, Enum.EasingStyle.Quad), { Brightness = 0 }):Play()
+	task.delay(0.8, function()
+		lamp:Destroy()
+	end)
 end
 -- Dialogue: a caption box low on the screen with the speaker's name in their colour and the
 -- line acted out glyph by glyph. Lines carry markup (see tools/assetgen/boss_dialogue.py):
@@ -6373,6 +6489,7 @@ local function stepBoss(dt: number, t: number)
 		local following = previous:Lerp(target, 1 - math.exp(-9 * dt))
 		local speed = Vector3.new(following.X - previous.X, 0, following.Z - previous.Z).Magnitude / math.max(dt, 1e-3)
 		current.walkPos = following
+		current.moveSpeed = speed
 		current.walkBlend += (math.clamp(speed / 5, 0, 1) - current.walkBlend) * (1 - math.exp(-7 * dt))
 		local hoverHeight = (Controls :: any).ground.hover[current.kind]
 		if hoverHeight == nil then
@@ -7058,6 +7175,7 @@ local function onSlamLand(payload)
 			impactFrame(0.8)
 		end
 	end
+	ScreenFx.explosion(center, radius, pal.Hot, pal.Alert)
 	local kind = if boss ~= nil then boss.kind else "Warden"
 	if kind == "Regent" then
 		-- Embers thrown up by the blow.
@@ -7663,7 +7781,8 @@ local function onUltimate(payload)
 		return
 	end
 	local seconds = tonumber(payload.Seconds) or 2
-	impactFrame(1)
+	bossSfx("impact", 1)
+	ScreenFx.big(current.kind, 1)
 	bossSfx("roar_" .. current.kind, 1.5)
 	Controls.shake(1.6)
 	Controls.punch(-12, 0.04)

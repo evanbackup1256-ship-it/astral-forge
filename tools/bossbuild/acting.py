@@ -134,7 +134,29 @@ def choir(name, pose, t):
     return pose
 
 
-# kind -> (speed multiplier, stepped fps or 0, modifier)
+def astraeon(name, pose, t):
+    w = TAU / 4.0
+    if name in ("idle", "forming"):            # a star's slow dignity: arms half-raised, as if holding the sky up
+        pose["armL"] = [-0.6 + math.sin(w * t) * 0.06, 0, 0.7 + math.sin(w * t + 1) * 0.05]
+        pose["armR"] = [-0.6 + math.sin(w * t + 2) * 0.06, 0, 0.7 + math.sin(w * t + 3) * 0.05]
+        pose["head"] = [-0.1, math.sin(w * 0.5 * t) * 0.12, 0]
+    elif name == "slam":                       # both hands gathered overhead, then brought down like a falling star
+        pose["armR"] = list(pose["armL"])
+        pose["armR"][2] = pose["armL"][2] + 0.1
+        add(pose, "torso", -0.12 if t < 1.1 else 0.1, 0, 0)
+    elif name == "roar":
+        for bone in ("armL", "armR"):
+            pose[bone] = [-1.2 * ease_out(t / 0.5), 0, 1.5]
+    elif name == "summon":
+        for bone in ("armL", "armR"):
+            add(pose, bone, 0, 0, 0.5 * ease_out(t / 0.6))
+    elif name == "pull":
+        for bone in ("armL", "armR"):
+            add(pose, bone, -0.3, 0, 0.4)
+    return pose
+
+
+# kind -> (speed multiplier, stepped fps or 0, modifier
 TEMPERAMENT = {
     "Knight": (1.0, 0, knight),
     "Seraph": (1.0, 0, seraph),
@@ -142,6 +164,7 @@ TEMPERAMENT = {
     "Rime": (1.5, 6, rime),
     "Warden": (1.0, 0, warden),
     "Choir": (1.0, 0, choir),
+    "Astraeon": (1.0, 0, astraeon),
 }
 
 
@@ -152,6 +175,8 @@ def clip_info(kind, name):
 
 
 def channels(kind, name, t):
+    if name in ("walk", "run"):                 # strides are authored per boss in clips.GAIT, not retimed
+        return CLIPS[name][3](t)
     speed, steps, mod = TEMPERAMENT[kind]
     base = CLIPS[name][3]
     tt = t / speed

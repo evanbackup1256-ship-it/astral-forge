@@ -51,9 +51,14 @@ def map_humanoid(c, arm_scale=0.85, elbow=-0.22, knee=0.55):
         pose[f"hand{n}"] = (p * 0.08, 0, 0)
     for chan, n in (("legL", "L"), ("legR", "R")):
         p, y, r = c[chan]
-        pose[f"upperLeg{n}"] = (p, y, r)
-        pose[f"lowerLeg{n}"] = (abs(p) * knee + 0.04, 0, 0)
-        pose[f"foot{n}"] = (-abs(p) * 0.3, 0, 0)
+        if y > 0:                              # gait clips: the yaw slot is the knee flex
+            pose[f"upperLeg{n}"] = (p, 0, r)
+            pose[f"lowerLeg{n}"] = (y, 0, 0)
+            pose[f"foot{n}"] = (-y * 0.35 + p * 0.15, 0, 0)
+        else:
+            pose[f"upperLeg{n}"] = (p, y, r)
+            pose[f"lowerLeg{n}"] = (abs(p) * knee + 0.04, 0, 0)
+            pose[f"foot{n}"] = (-abs(p) * 0.3, 0, 0)
     return pose
 
 

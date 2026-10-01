@@ -1936,7 +1936,7 @@ SanctuaryConfig.BossSfx = {
 
 -- Which body each boss wears: the generated textured models (default) or the procedural Blender bodies.
 -- Set to "blender" for every boss, or { Knight = "blender", ... } for some.
-SanctuaryConfig.BossBodyStyle = { Astraeon = "blender" }
+SanctuaryConfig.BossBodyStyle = "blender"
 
 -- Boss bodies built, rigged, textured and animated in Blender (tools/bossbuild): skeleton, piece placement and clips.
 -- BOSS-BODIES-BEGIN (moved to BossBodies.luau; see tools/bossbuild/export_bodies.py)
@@ -3768,6 +3768,18 @@ StormSeraph.WalkSpeed, StormSeraph.StandOff = 9, 24
 Rimeheart.WalkSpeed, Rimeheart.StandOff = 6, 20
 UmbralKnight.WalkSpeed, UmbralKnight.StandOff = 15, 14
 Astraeon.WalkSpeed, Astraeon.StandOff = 8, 32
+-- Each boss's own soundtrack: kind -> uploaded audio id (the fight layer plays it, Music.Id below).
+-- BOSS-MUSIC-BEGIN (rewritten by tools/assetgen/upload_boss_music.py)
+SanctuaryConfig.BossMusic = {
+}
+-- BOSS-MUSIC-END
+for _, boss in { SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight, Astraeon } do
+	local track = SanctuaryConfig.BossMusic[boss.Kind]
+	if track ~= nil and boss.Music ~= nil then
+		boss.Music.Id = track
+		boss.Music.Pitch = 1 -- the track is already in tune
+	end
+end
 SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight, Astraeon })
 
 return SanctuaryConfig
