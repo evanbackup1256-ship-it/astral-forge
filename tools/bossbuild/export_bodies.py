@@ -16,7 +16,7 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 FOLDER = os.path.join(ROOT, "assets", "generated", "bosses")
 MODULE = os.path.join(ROOT, "src", "Shared", "AstralForge", "Shared", "BossBodies.luau")
 BEGIN, END = "-- BOSS-BODIES-BEGIN", "-- BOSS-BODIES-END"
-SCALE = {"Knight": 6.6, "Warden": 6.6, "Choir": 6.6, "Regent": 6.0, "Seraph": 6.6, "Rime": 6.0}
+SCALE = {"Knight": 6.6, "Warden": 6.6, "Choir": 6.6, "Regent": 6.0, "Seraph": 6.6, "Rime": 6.0, "Astraeon": 7.0}
 
 
 def num(x):

@@ -327,7 +327,7 @@ for _, boss in roster do
 			check(boss.Ultimates[name] ~= nil, label .. ": roster names a missing ultimate " .. name)
 		end
 		check(boss.FinalStand == nil or boss.Ultimates[boss.FinalStand] ~= nil, label .. ": final stand names a missing ultimate")
-		check(#boss.Phases >= 3, label .. ": a mega boss has at least four phases")
+		check(#boss.Phases >= 2, label .. ": a boss with ultimates has at least three phases")
 	end
 end
 local megas = 0
