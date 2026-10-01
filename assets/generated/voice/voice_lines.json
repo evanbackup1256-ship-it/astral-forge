@@ -1,0 +1,558 @@
+{
+  "Knight_01": {
+    "kind": "Knight",
+    "text": "Armour assembles itself out of nothing."
+  },
+  "Knight_02": {
+    "kind": "Knight",
+    "text": "I swore an oath to the space between stars."
+  },
+  "Knight_03": {
+    "kind": "Knight",
+    "text": "No crown, no name -- only the blade."
+  },
+  "Knight_04": {
+    "kind": "Knight",
+    "text": "Draw. Let us see what you are made of."
+  },
+  "Knight_05": {
+    "kind": "Knight",
+    "text": "You have earned my full attention."
+  },
+  "Knight_06": {
+    "kind": "Knight",
+    "text": "NO MORE HONOUR. ONLY THE DARK."
+  },
+  "Knight_07": {
+    "kind": "Knight",
+    "text": "A good... duel."
+  },
+  "Knight_08": {
+    "kind": "Knight",
+    "text": "The oath is ended. The dark is yours."
+  },
+  "Knight_09": {
+    "kind": "Knight",
+    "text": "We will finish this another night."
+  },
+  "Knight_10": {
+    "kind": "Knight",
+    "text": "Unguarded."
+  },
+  "Knight_11": {
+    "kind": "Knight",
+    "text": "Again."
+  },
+  "Knight_12": {
+    "kind": "Knight",
+    "text": "One cut."
+  },
+  "Knight_13": {
+    "kind": "Knight",
+    "text": "The blade reaches."
+  },
+  "Knight_14": {
+    "kind": "Knight",
+    "text": "Twice."
+  },
+  "Knight_15": {
+    "kind": "Knight",
+    "text": "Turn with me."
+  },
+  "Knight_16": {
+    "kind": "Knight",
+    "text": "Shades, to arms."
+  },
+  "Knight_17": {
+    "kind": "Knight",
+    "text": "Shadows -- attend."
+  },
+  "Knight_18": {
+    "kind": "Knight",
+    "text": "No retreat."
+  },
+  "Knight_19": {
+    "kind": "Knight",
+    "text": "Enclosed."
+  },
+  "Knight_20": {
+    "kind": "Knight",
+    "text": "A wall of night -- find the gap."
+  },
+  "Knight_21": {
+    "kind": "Knight",
+    "text": "From the heart, outward."
+  },
+  "Knight_22": {
+    "kind": "Knight",
+    "text": "Lines of the void."
+  },
+  "Knight_23": {
+    "kind": "Knight",
+    "text": "The dark rains down."
+  },
+  "Warden_01": {
+    "kind": "Warden",
+    "text": "The seal is thinning."
+  },
+  "Warden_02": {
+    "kind": "Warden",
+    "text": "Who opens the Riftmaw?"
+  },
+  "Warden_03": {
+    "kind": "Warden",
+    "text": "I have kept this door since before your stars had names."
+  },
+  "Warden_04": {
+    "kind": "Warden",
+    "text": "Turn back, or be unmade."
+  },
+  "Warden_05": {
+    "kind": "Warden",
+    "text": "You fight like the rift itself -- without end."
+  },
+  "Warden_06": {
+    "kind": "Warden",
+    "text": "Then I shall stop being gentle."
+  },
+  "Warden_07": {
+    "kind": "Warden",
+    "text": "ENOUGH. The door stays shut!"
+  },
+  "Warden_08": {
+    "kind": "Warden",
+    "text": "The seal... was never mine to keep."
+  },
+  "Warden_09": {
+    "kind": "Warden",
+    "text": "Go on, then. See what waits behind it."
+  },
+  "Warden_10": {
+    "kind": "Warden",
+    "text": "The door closes. Remember what you could not finish."
+  },
+  "Warden_11": {
+    "kind": "Warden",
+    "text": "Stay down."
+  },
+  "Warden_12": {
+    "kind": "Warden",
+    "text": "Do not rise."
+  },
+  "Warden_13": {
+    "kind": "Warden",
+    "text": "Kneel."
+  },
+  "Warden_14": {
+    "kind": "Warden",
+    "text": "Fall."
+  },
+  "Warden_15": {
+    "kind": "Warden",
+    "text": "Two fall as one."
+  },
+  "Warden_16": {
+    "kind": "Warden",
+    "text": "Come closer."
+  },
+  "Warden_17": {
+    "kind": "Warden",
+    "text": "The rift will have you."
+  },
+  "Warden_18": {
+    "kind": "Warden",
+    "text": "The seal's own edge -- cross it and be cut."
+  },
+  "Warden_19": {
+    "kind": "Warden",
+    "text": "The door opens where you stand."
+  },
+  "Warden_20": {
+    "kind": "Warden",
+    "text": "Fall through."
+  },
+  "Warden_21": {
+    "kind": "Warden",
+    "text": "The floor remembers the door."
+  },
+  "Warden_22": {
+    "kind": "Warden",
+    "text": "Split."
+  },
+  "Warden_23": {
+    "kind": "Warden",
+    "text": "Stay. The seal will close round you."
+  },
+  "Warden_24": {
+    "kind": "Warden",
+    "text": "Rise, keepers of the door."
+  },
+  "Warden_25": {
+    "kind": "Warden",
+    "text": "Let the dark have hands."
+  },
+  "Choir_01": {
+    "kind": "Choir",
+    "text": "A note, held too long, begins to crack."
+  },
+  "Choir_02": {
+    "kind": "Choir",
+    "text": "Seven voices woke. One of them is singing for you."
+  },
+  "Choir_03": {
+    "kind": "Choir",
+    "text": "Listen. Between every note there is a place to stand."
+  },
+  "Choir_04": {
+    "kind": "Choir",
+    "text": "Find it -- or we shall sing you quiet."
+  },
+  "Choir_05": {
+    "kind": "Choir",
+    "text": "Louder. The hall has not heard a true chord in an age."
+  },
+  "Choir_06": {
+    "kind": "Choir",
+    "text": "All voices -- together -- NOW."
+  },
+  "Choir_07": {
+    "kind": "Choir",
+    "text": "The hall... falls silent."
+  },
+  "Choir_08": {
+    "kind": "Choir",
+    "text": "It is so quiet. Thank you."
+  },
+  "Choir_09": {
+    "kind": "Choir",
+    "text": "The song goes on without you."
+  },
+  "Choir_10": {
+    "kind": "Choir",
+    "text": "Out of tune."
+  },
+  "Choir_11": {
+    "kind": "Choir",
+    "text": "Flat."
+  },
+  "Choir_12": {
+    "kind": "Choir",
+    "text": "Hear the rhythm."
+  },
+  "Choir_13": {
+    "kind": "Choir",
+    "text": "Step between the beats."
+  },
+  "Choir_14": {
+    "kind": "Choir",
+    "text": "Find the harmony."
+  },
+  "Choir_15": {
+    "kind": "Choir",
+    "text": "Only the still notes are safe."
+  },
+  "Choir_16": {
+    "kind": "Choir",
+    "text": "Echo... echo... echo."
+  },
+  "Choir_17": {
+    "kind": "Choir",
+    "text": "A sour note."
+  },
+  "Choir_18": {
+    "kind": "Choir",
+    "text": "Shatter."
+  },
+  "Choir_19": {
+    "kind": "Choir",
+    "text": "Glass rain."
+  },
+  "Choir_20": {
+    "kind": "Choir",
+    "text": "A chord -- in every direction."
+  },
+  "Choir_21": {
+    "kind": "Choir",
+    "text": "My echoes -- sing for me."
+  },
+  "Choir_22": {
+    "kind": "Choir",
+    "text": "Cold little voices, wake."
+  },
+  "Regent_01": {
+    "kind": "Regent",
+    "text": "The embers remember their king."
+  },
+  "Regent_02": {
+    "kind": "Regent",
+    "text": "Kneel before the last crown of Emberreach."
+  },
+  "Regent_03": {
+    "kind": "Regent",
+    "text": "You trespass on my throne and expect mercy?"
+  },
+  "Regent_04": {
+    "kind": "Regent",
+    "text": "Let the fire decide how long you last."
+  },
+  "Regent_05": {
+    "kind": "Regent",
+    "text": "You dare make me bleed? Fine. Bow to the flame."
+  },
+  "Regent_06": {
+    "kind": "Regent",
+    "text": "BURN. Burn it all -- the throne, the sky, you!"
+  },
+  "Regent_07": {
+    "kind": "Regent",
+    "text": "A king... does not... fall to..."
+  },
+  "Regent_08": {
+    "kind": "Regent",
+    "text": "The crown is yours. It was always heavy."
+  },
+  "Regent_09": {
+    "kind": "Regent",
+    "text": "I retreat to my embers. Not to you."
+  },
+  "Regent_10": {
+    "kind": "Regent",
+    "text": "Ash."
+  },
+  "Regent_11": {
+    "kind": "Regent",
+    "text": "Crawl."
+  },
+  "Regent_12": {
+    "kind": "Regent",
+    "text": "Run in circles, little ember."
+  },
+  "Regent_13": {
+    "kind": "Regent",
+    "text": "Rain, fire!"
+  },
+  "Regent_14": {
+    "kind": "Regent",
+    "text": "Every one of you is a target."
+  },
+  "Regent_15": {
+    "kind": "Regent",
+    "text": "The wall advances. Find the gap -- or burn."
+  },
+  "Regent_16": {
+    "kind": "Regent",
+    "text": "Crushed."
+  },
+  "Regent_17": {
+    "kind": "Regent",
+    "text": "Two! Two at once!"
+  },
+  "Regent_18": {
+    "kind": "Regent",
+    "text": "The sky is mine to throw!"
+  },
+  "Regent_19": {
+    "kind": "Regent",
+    "text": "Let the heavens burn with me."
+  },
+  "Regent_20": {
+    "kind": "Regent",
+    "text": "The earth splits for its king."
+  },
+  "Regent_21": {
+    "kind": "Regent",
+    "text": "A crown of flame -- for you."
+  },
+  "Regent_22": {
+    "kind": "Regent",
+    "text": "Rise, my cinders!"
+  },
+  "Regent_23": {
+    "kind": "Regent",
+    "text": "Guard the throne!"
+  },
+  "Seraph_01": {
+    "kind": "Seraph",
+    "text": "The air tastes of iron. Something is gathering."
+  },
+  "Seraph_02": {
+    "kind": "Seraph",
+    "text": "I am the storm that was promised."
+  },
+  "Seraph_03": {
+    "kind": "Seraph",
+    "text": "Every wire of the sky answers me."
+  },
+  "Seraph_04": {
+    "kind": "Seraph",
+    "text": "Stand still. It will be over before the thunder."
+  },
+  "Seraph_05": {
+    "kind": "Seraph",
+    "text": "You are quick. Good. I am quicker."
+  },
+  "Seraph_06": {
+    "kind": "Seraph",
+    "text": "THE WHOLE SKY -- COME DOWN!"
+  },
+  "Seraph_07": {
+    "kind": "Seraph",
+    "text": "The clouds... are parting."
+  },
+  "Seraph_08": {
+    "kind": "Seraph",
+    "text": "Let the quiet have the sky."
+  },
+  "Seraph_09": {
+    "kind": "Seraph",
+    "text": "The storm moves on. So will its thunder."
+  },
+  "Seraph_10": {
+    "kind": "Seraph",
+    "text": "Too slow."
+  },
+  "Seraph_11": {
+    "kind": "Seraph",
+    "text": "Feel that?"
+  },
+  "Seraph_12": {
+    "kind": "Seraph",
+    "text": "Lightning finds you."
+  },
+  "Seraph_13": {
+    "kind": "Seraph",
+    "text": "Strike, strike, strike!"
+  },
+  "Seraph_14": {
+    "kind": "Seraph",
+    "text": "Arcs of the sky -- cut!"
+  },
+  "Seraph_15": {
+    "kind": "Seraph",
+    "text": "Thunder runs to you."
+  },
+  "Seraph_16": {
+    "kind": "Seraph",
+    "text": "Follow the light to its end."
+  },
+  "Seraph_17": {
+    "kind": "Seraph",
+    "text": "Burst, storm."
+  },
+  "Seraph_18": {
+    "kind": "Seraph",
+    "text": "All directions."
+  },
+  "Seraph_19": {
+    "kind": "Seraph",
+    "text": "Little sparks, take wing."
+  },
+  "Seraph_20": {
+    "kind": "Seraph",
+    "text": "Fly, my storm-children."
+  },
+  "Seraph_21": {
+    "kind": "Seraph",
+    "text": "Let the sky fall in bolts."
+  },
+  "Seraph_22": {
+    "kind": "Seraph",
+    "text": "Every cloud is a hammer."
+  },
+  "Seraph_23": {
+    "kind": "Seraph",
+    "text": "A cage of thunder."
+  },
+  "Rime_01": {
+    "kind": "Rime",
+    "text": "Ice creaks. Something very old is turning over."
+  },
+  "Rime_02": {
+    "kind": "Rime",
+    "text": "I have waited under the snow for ten thousand winters."
+  },
+  "Rime_03": {
+    "kind": "Rime",
+    "text": "You are warm. Warm things do not last here."
+  },
+  "Rime_04": {
+    "kind": "Rime",
+    "text": "Sleep. I will keep you."
+  },
+  "Rime_05": {
+    "kind": "Rime",
+    "text": "The cold is patient. I am not."
+  },
+  "Rime_06": {
+    "kind": "Rime",
+    "text": "FREEZE. FREEZE. EVERYTHING FREEZE."
+  },
+  "Rime_07": {
+    "kind": "Rime",
+    "text": "I am... cracking."
+  },
+  "Rime_08": {
+    "kind": "Rime",
+    "text": "Spring... was so far away."
+  },
+  "Rime_09": {
+    "kind": "Rime",
+    "text": "I sink back into the ice. It will keep."
+  },
+  "Rime_10": {
+    "kind": "Rime",
+    "text": "Brittle."
+  },
+  "Rime_11": {
+    "kind": "Rime",
+    "text": "Numb yet?"
+  },
+  "Rime_12": {
+    "kind": "Rime",
+    "text": "Be still. Be kept."
+  },
+  "Rime_13": {
+    "kind": "Rime",
+    "text": "Walls of winter."
+  },
+  "Rime_14": {
+    "kind": "Rime",
+    "text": "The frost spreads in rings."
+  },
+  "Rime_15": {
+    "kind": "Rime",
+    "text": "Icicles. One for each of you."
+  },
+  "Rime_16": {
+    "kind": "Rime",
+    "text": "Only the pockets of warmth survive."
+  },
+  "Rime_17": {
+    "kind": "Rime",
+    "text": "Frost, bloom."
+  },
+  "Rime_18": {
+    "kind": "Rime",
+    "text": "My frozen children -- wake."
+  },
+  "Rime_19": {
+    "kind": "Rime",
+    "text": "Cold little guardians."
+  },
+  "Rime_20": {
+    "kind": "Rime",
+    "text": "Hail."
+  },
+  "Rime_21": {
+    "kind": "Rime",
+    "text": "The sky is full of knives."
+  },
+  "Rime_22": {
+    "kind": "Rime",
+    "text": "Come into the cold."
+  },
+  "Rime_23": {
+    "kind": "Rime",
+    "text": "Everything drifts to winter."
+  }
+}

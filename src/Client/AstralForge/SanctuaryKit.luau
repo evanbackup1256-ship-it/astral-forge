@@ -58,6 +58,9 @@ local BED = {
 	Riftmaw = "amb_riftmaw",
 	ChoirIsle = "amb_hollows",
 	RegentIsle = "amb_ember",
+	StormIsle = "amb_spire",
+	RimeIsle = "amb_hollows",
+	GloamIsle = "amb_riftmaw",
 }
 local LEVEL = 0.55
 local BRIDGE_LEVEL = 0.3
@@ -1058,6 +1061,9 @@ local REGION_LINES = {
 	Riftmaw = "Where the Rift Warden wakes",
 	ChoirIsle = "Seven voices, one silence",
 	RegentIsle = "The last crown of Emberreach",
+	StormIsle = "Wings of the last tempest",
+	RimeIsle = "The glacier that remembers",
+	GloamIsle = "Sworn to the dark between stars",
 }
 
 local function rgb(triple): Color3
@@ -2999,6 +3005,10 @@ Signals.SERVER_KINDS = table.freeze({
 	RiftBossDissonance = true,
 	RiftBossDissonanceLand = true,
 	RiftBossWall = true,
+	RiftBossSummonCall = true,
+	RiftBossAdds = true,
+	RiftBossAddBlast = true,
+	RiftBossAddDown = true,
 	RiftBossStagger = true,
 	RiftBossDefeated = true,
 	RiftBossFell = true,
@@ -3527,6 +3537,8 @@ type Boss = {
 	-- The jointed rig (arms or chains) and what it is currently aiming at.
 	rig: any,
 	aim: any?,
+	-- Textured mesh body (BOSS_MESHES), filled in a moment after the boss is built.
+	meshPieces: { Piece },
 }
 
 local boss: Boss? = nil
@@ -3682,22 +3694,48 @@ local function buildRig(kind: string, anchorPosition: Vector3): Rig
 		end
 		return rig
 	end
+	if kind == "Seraph" then
+		-- Six long feathers of light trailing behind the body (three a side), each a chain of
+		-- blades that whips as it flies.
+		local feathers, links = 6, 6
+		for feather = 1, feathers do
+			local side = if feather % 2 == 0 then 1 else -1
+			local rank = (feather + 1) // 2
+			local angle = math.rad(90 + side * (28 + rank * 22))
+			local offset = Vector3.new(side * 3.5, 2 - rank * 1.4, 2.5)
+			local chain: Chain = { angle = angle, offset = offset, links = {}, pitch = 0.9, pitchVel = 0 }
+			local parent: BasePart = root
+			for index = 1, links do
+				local size = Vector3.new(0.9, 4.2 * (1 - 0.08 * index), 0.5)
+				local blade = riggedPart(rig, "Feather", nil, size, if index == links then pal.Alert else pal.Hot, Enum.Material.Neon, 0.15 + 0.05 * index)
+				local length = 4.4 * (1 - 0.05 * index)
+				local c0 = if index == 1 then CFrame.new(offset) * CFrame.Angles(0, -angle, 0) else CFrame.new(0, -length, 0)
+				table.insert(chain.links, { motor = joint(parent, blade, c0), length = length, bend = 0, bendVel = 0, side = 0, sideVel = 0 })
+				parent = blade
+			end
+			table.insert(rig.chains, chain)
+		end
+		return rig
+	end
 	local regent = kind == "Regent"
-	local dark = if regent then Color3.fromRGB(28, 22, 26) else Color3.fromRGB(34, 32, 46)
-	local l1, l2 = if regent then 11 else 10, if regent then 11 else 10
-	local thick = if regent then 3.4 else 2.6
+	local rime = kind == "Rime"
+	local knight = kind == "Knight"
+	local dark = if regent then Color3.fromRGB(28, 22, 26) elseif rime then Color3.fromRGB(150, 200, 232) elseif knight then Color3.fromRGB(18, 14, 28) else Color3.fromRGB(34, 32, 46)
+	local armMaterial = if rime then Enum.Material.Ice else Enum.Material.Basalt
+	local l1, l2 = if regent then 11 elseif rime then 9 elseif knight then 13 else 10, if regent then 11 elseif rime then 9 elseif knight then 13 else 10
+	local thick = if regent then 3.4 elseif rime then 4.6 elseif knight then 2 else 2.6
 	for _, side in { -1, 1 } do
-		local offset = Vector3.new(side * (if regent then 8 else 7), 1, 0)
-		local upper = riggedPart(rig, "ArmUpper", nil, Vector3.new(thick, l1, thick), dark, Enum.Material.Basalt, 0)
+		local offset = Vector3.new(side * (if regent then 8 elseif rime then 9 elseif knight then 6 else 7), 1, 0)
+		local upper = riggedPart(rig, "ArmUpper", nil, Vector3.new(thick, l1, thick), dark, armMaterial, 0)
 		local shoulder = joint(rig.root, upper, CFrame.new(offset), CFrame.new(0, l1 / 2, 0))
-		local fore = riggedPart(rig, "ArmFore", nil, Vector3.new(thick * 0.85, l2, thick * 0.85), dark, Enum.Material.Basalt, 0)
+		local fore = riggedPart(rig, "ArmFore", nil, Vector3.new(thick * 0.85, l2, thick * 0.85), dark, armMaterial, 0)
 		local elbow = joint(upper, fore, CFrame.new(0, -l1 / 2, 0), CFrame.new(0, l2 / 2, 0))
 		-- Glowing joints at the shoulder and elbow.
 		local shoulderBall = riggedPart(rig, "ShoulderGlow", Enum.PartType.Ball, Vector3.new(thick * 1.5, thick * 1.5, thick * 1.5), pal.Primary, Enum.Material.Neon, 0.1)
 		joint(rig.root, shoulderBall, CFrame.new(offset))
 		local elbowBall = riggedPart(rig, "ElbowGlow", Enum.PartType.Ball, Vector3.new(thick * 1.3, thick * 1.3, thick * 1.3), pal.Primary, Enum.Material.Neon, 0.1)
 		joint(upper, elbowBall, CFrame.new(0, -l1 / 2, 0))
-		local hand = riggedPart(rig, "Hand", nil, Vector3.new(thick * 1.1, thick * 1.1, thick * 1.4), dark, Enum.Material.Basalt, 0)
+		local hand = riggedPart(rig, "Hand", nil, Vector3.new(thick * 1.1, thick * 1.1, thick * 1.4), dark, armMaterial, 0)
 		joint(fore, hand, CFrame.new(0, -l2 / 2, 0), CFrame.new(0, thick * 0.55, 0))
 		local claws: { Claw } = {}
 		for slot = -1, 1 do
@@ -3924,8 +3962,8 @@ local function buildBoss(model: Model): Boss
 	local rig = buildRig(kind, anchor.Position)
 	-- Body proportions differ: the Choir is a small bright core in a large glass shell, the
 	-- Regent a heavy ember heart that nearly fills its shell.
-	local coreSize = if kind == "Choir" then Vector3.new(7, 7, 7) elseif kind == "Regent" then Vector3.new(10.5, 10.5, 10.5) else Vector3.new(9, 9, 9)
-	local shellSize = if kind == "Choir" then Vector3.new(13.5, 13.5, 13.5) elseif kind == "Regent" then Vector3.new(13, 13, 13) else Vector3.new(11.5, 11.5, 11.5)
+	local coreSize = if kind == "Choir" then Vector3.new(7, 7, 7) elseif kind == "Regent" then Vector3.new(10.5, 10.5, 10.5) elseif kind == "Seraph" then Vector3.new(6.5, 6.5, 6.5) elseif kind == "Rime" then Vector3.new(11.5, 11.5, 11.5) elseif kind == "Knight" then Vector3.new(7.5, 7.5, 7.5) else Vector3.new(9, 9, 9)
+	local shellSize = if kind == "Choir" then Vector3.new(13.5, 13.5, 13.5) elseif kind == "Regent" then Vector3.new(13, 13, 13) elseif kind == "Seraph" then Vector3.new(15, 15, 15) elseif kind == "Rime" then Vector3.new(16, 16, 16) elseif kind == "Knight" then Vector3.new(10.5, 10.5, 10.5) else Vector3.new(11.5, 11.5, 11.5)
 	-- Faceted crystal heart inside a glass shell.
 	local core = bossPart("WardenCore", "WardenCore", Enum.PartType.Ball, coreSize, pal.Primary, Enum.Material.Neon)
 	local shell = bossPart("WardenCore", "WardenShell", Enum.PartType.Ball, shellSize, pal.Hot, Enum.Material.Glass)
@@ -3945,6 +3983,15 @@ local function buildBoss(model: Model): Boss
 	local extras: { Instance } = {}
 	if kind == "Choir" then
 		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Hot, Color2 = pal.Primary, Rate = 26, Speed = NumberRange.new(1, 3), Size = NumberSequence.new(0.5, 0) }))
+	elseif kind == "Seraph" then
+		table.insert(extras, Vfx.attach(core, "Spark", { Color = pal.Hot, Color2 = pal.Alert, Rate = 40, Speed = NumberRange.new(8, 20) }))
+		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Alert, Color2 = pal.Primary, Rate = 20, Speed = NumberRange.new(3, 9) }))
+	elseif kind == "Rime" then
+		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Hot, Color2 = pal.Primary, Rate = 40, Speed = NumberRange.new(0.5, 2), Size = NumberSequence.new(0.7, 0), Acceleration = Vector3.new(0, -3, 0) }))
+		table.insert(extras, Vfx.attach(core, "Smoke", { Color = pal.Hot, Color2 = pal.Primary, Rate = 10, Speed = NumberRange.new(1, 3) }))
+	elseif kind == "Knight" then
+		table.insert(extras, Vfx.attach(core, "Smoke", { Color = Color3.fromRGB(20, 12, 34), Color2 = pal.Primary, Rate = 30, Speed = NumberRange.new(3, 8) }))
+		table.insert(extras, Vfx.attach(core, "Rising", { Color = pal.Primary, Color2 = pal.Alert, Rate = 14, Speed = NumberRange.new(4, 10) }))
 	elseif kind == "Regent" then
 		table.insert(extras, Vfx.attach(core, "Rising", { Color = pal.Primary, Color2 = pal.Hot, Rate = 34, Speed = NumberRange.new(6, 14) }))
 		local flame = Instance.new("Fire")
@@ -4036,6 +4083,7 @@ local function buildBoss(model: Model): Boss
 		slamTotal = 1.5,
 		rig = rig,
 		aim = nil,
+		meshPieces = {},
 	}
 end
 local function destroyBoss()
@@ -4053,8 +4101,167 @@ local function destroyBoss()
 		end
 	end
 	destroyRig(current.rig)
+	for _, piece in current.meshPieces do
+		piece.part:Destroy()
+	end
 end
 
+-- Textured mesh bodies. These meshes came out of the project's Studio place; each is a set of
+-- separate pieces (mesh id, texture id, size, and where it sits in the body, facing +Z).
+-- They are built with CreateMeshPartAsync a moment after the procedural body, then take
+-- over: the rig and the orbiting plates and shards go invisible and the pieces move with
+-- the body, fading in and out and collapsing with it. If any piece fails to load the
+-- procedural body simply stays.
+local BOSS_MESHES: { [string]: { scale: number, pieces: { { name: string, mesh: number, texture: number, size: { number }, offset: { number } } } } } = {
+	-- The Umbral Knight: dark armour, a flowing cape and a violet blade.
+	Knight = {
+		scale = 1.7,
+		pieces = {
+			{ name = "torso", mesh = 134979334609156, texture = 107624423922276, size = { 11.16, 12.23, 9.73 }, offset = { 0, 0.14, -1.13 } },
+			{ name = "head", mesh = 108672742292210, texture = 89672933301668, size = { 2.04, 1.97, 1.93 }, offset = { -0.02, 6.39, 1.78 } },
+			{ name = "armR", mesh = 74722952915321, texture = 128109402395172, size = { 3.14, 12.94, 6.49 }, offset = { -2.45, -0.57, 2.75 } },
+			{ name = "armL", mesh = 109396303061382, texture = 72255212626779, size = { 2.81, 6.71, 3.04 }, offset = { 2.45, 2.55, 1.03 } },
+			{ name = "legR", mesh = 116273698565743, texture = 137989787607405, size = { 3.10, 8.61, 3.28 }, offset = { -1.54, -3.07, 1.25 } },
+			{ name = "legL", mesh = 94903637057992, texture = 138539390234109, size = { 3.06, 8.48, 3.22 }, offset = { 1.54, -3.13, 1.22 } },
+		},
+	},
+	-- The Stormbound Seraph: an armoured celestial with a halo of wings.
+	Seraph = {
+		scale = 1.7,
+		pieces = {
+			{ name = "torso", mesh = 100521760005926, texture = 100749660662795, size = { 9.21, 16.23, 4.45 }, offset = { 0.03, -1.57, 0 } },
+			{ name = "head", mesh = 139608843744683, texture = 123508435634205, size = { 2.51, 2.96, 2.24 }, offset = { 0, 6.46, 0.27 } },
+			{ name = "wingR", mesh = 138759234050066, texture = 116306904900389, size = { 8.02, 7.94, 1.97 }, offset = { -5.99, 5.71, -0.34 } },
+			{ name = "wingL", mesh = 71579691028566, texture = 111985683730984, size = { 7.32, 7.96, 1.93 }, offset = { 6.34, 5.7, -0.32 } },
+			{ name = "armL", mesh = 123293600019140, texture = 140702947421997, size = { 2.51, 4.15, 2.63 }, offset = { 3.64, 0.37, -0.16 } },
+		},
+	},
+	-- The Cinder Regent: a molten colossus of cracked stone.
+	Regent = {
+		scale = 1.5,
+		pieces = {
+			{ name = "torso", mesh = 102011726729655, texture = 113101304445168, size = { 9.78, 12.68, 7.79 }, offset = { 0, 1.35, -0.03 } },
+			{ name = "head", mesh = 98322112889411, texture = 137886806588996, size = { 3.48, 5.66, 3.11 }, offset = { -0.01, 6.75, 1.34 } },
+			{ name = "shoulderR", mesh = 91827063079401, texture = 90886163604023, size = { 5.12, 8.96, 6.96 }, offset = { -5.54, 4.01, -0.61 } },
+			{ name = "shoulderL", mesh = 112422117706727, texture = 134376925480053, size = { 5.09, 6.39, 6.99 }, offset = { 5.53, 5.3, -0.61 } },
+			{ name = "elbowR", mesh = 72959115610461, texture = 77436687570601, size = { 4.64, 8.02, 5.58 }, offset = { -6.68, -1.92, 0.48 } },
+			{ name = "elbowL", mesh = 86035606458003, texture = 76202340023973, size = { 6.01, 13.11, 6.13 }, offset = { 5.99, 0.62, 0.2 } },
+			{ name = "hipR", mesh = 135137508900830, texture = 108918427098164, size = { 5.33, 9.53, 6.34 }, offset = { -2.4, -4.82, 0.93 } },
+			{ name = "hipL", mesh = 128843151899789, texture = 99617909761995, size = { 5.34, 9.52, 6.32 }, offset = { 2.38, -4.82, 0.95 } },
+		},
+	},
+	-- The Rift Warden: a hooded void sentinel with floating gauntlets.
+	Warden = {
+		scale = 1.6,
+		pieces = {
+			{ name = "torso", mesh = 125826280696440, texture = 95718034791203, size = { 10.79, 14.64, 6.01 }, offset = { 0, -0.94, 0.99 } },
+			{ name = "cloak", mesh = 135095326126887, texture = 126527433508905, size = { 10.45, 14.33, 7.32 }, offset = { -0.02, -0.07, -0.34 } },
+			{ name = "head", mesh = 119706419727129, texture = 76332509247076, size = { 3.21, 2.81, 3.49 }, offset = { 0.01, 6.62, 0.98 } },
+			{ name = "shoulderR", mesh = 133823500359459, texture = 93986139794625, size = { 3.37, 4.98, 4.15 }, offset = { -3.87, 5.77, 0.16 } },
+			{ name = "shoulderL", mesh = 112095180823581, texture = 139709653404039, size = { 3.40, 3.45, 4.16 }, offset = { 3.86, 4.99, 0.16 } },
+			{ name = "armR", mesh = 76822992423417, texture = 120476032503938, size = { 3.19, 5.83, 3.21 }, offset = { -4.94, -0.18, 0.53 } },
+			{ name = "armL", mesh = 112431769672319, texture = 120861820082393, size = { 3.21, 5.82, 3.19 }, offset = { 4.93, -0.17, 0.52 } },
+		},
+	},
+	-- The Hollow Choir: a slender glass conductor with a fan of tuning blades.
+	Choir = {
+		scale = 1.5,
+		pieces = {
+			{ name = "torso", mesh = 75473095063576, texture = 98522486456419, size = { 8.44, 12.07, 6.80 }, offset = { -0.45, -0.98, -0.6 } },
+			{ name = "coat", mesh = 105121873227571, texture = 71962082878156, size = { 6.34, 9.86, 4.88 }, offset = { -0.34, 0.13, -1.29 } },
+			{ name = "head", mesh = 71240595755647, texture = 104293644728054, size = { 1.91, 2.67, 1.97 }, offset = { -0.38, 5.54, -0.72 } },
+			{ name = "armR", mesh = 125955891419214, texture = 111854462687198, size = { 3.02, 4.00, 2.79 }, offset = { -3.23, 1.92, 0.34 } },
+			{ name = "armL", mesh = 77611842905171, texture = 87850795803755, size = { 2.56, 5.32, 2.71 }, offset = { 2.26, 2.61, 0.44 } },
+			{ name = "blades", mesh = 102781469904430, texture = 102386477694804, size = { 9.73, 6.36, 3.54 }, offset = { 0, 3.83, 2.23 } },
+		},
+	},
+	-- The Rimeheart: a glacier golem with a cyan heart.
+	Rime = {
+		scale = 1.5,
+		pieces = {
+			{ name = "torso", mesh = 84684314227271, texture = 123980572745487, size = { 7.80, 10.02, 6.17 }, offset = { 0.02, 0.64, -0.05 } },
+			{ name = "head", mesh = 109288991966096, texture = 93528841555483, size = { 4.54, 5.48, 3.32 }, offset = { -0.01, 6.76, 0.19 } },
+			{ name = "shoulderR", mesh = 116624735008626, texture = 84978868534051, size = { 3.95, 5.80, 4.88 }, offset = { -4.68, 4.68, -0.63 } },
+			{ name = "shoulderL", mesh = 128407624433455, texture = 88558807429303, size = { 3.95, 5.79, 4.88 }, offset = { 4.72, 4.67, -0.63 } },
+			{ name = "armR", mesh = 90402283245261, texture = 118736954654513, size = { 4.57, 12.02, 4.81 }, offset = { -5.14, 0.49, -0.49 } },
+			{ name = "armL", mesh = 102006909410061, texture = 78724646069411, size = { 4.67, 12.19, 4.98 }, offset = { 5.08, 0.57, -0.57 } },
+			{ name = "legR", mesh = 122305695411718, texture = 112782815878504, size = { 4.41, 9.41, 5.07 }, offset = { -2.33, -4.79, 0.59 } },
+			{ name = "legL", mesh = 133392551419641, texture = 90009068001365, size = { 4.40, 9.40, 5.10 }, offset = { 2.35, -4.80, 0.58 } },
+		},
+	},
+}
+
+local meshNames: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: any
+
+local function loadMeshBody(current: Boss)
+	local spec = BOSS_MESHES[current.kind]
+	if spec == nil then
+		return
+	end
+	local made: { Piece } = {}
+	local pending, failed = #spec.pieces, false
+	for _, entry in spec.pieces do
+		task.spawn(function()
+			local ok, meshPart = pcall(function()
+				return game:GetService("InsertService"):CreateMeshPartAsync(`rbxassetid://{entry.mesh}`, Enum.CollisionFidelity.Box, Enum.RenderFidelity.Automatic)
+			end)
+			if ok and meshPart ~= nil then
+				local mesh = meshPart :: MeshPart
+				mesh.Name = entry.name
+				mesh.TextureID = `rbxassetid://{entry.texture}`
+				mesh.Size = Vector3.new(entry.size[1], entry.size[2], entry.size[3]) * spec.scale
+				mesh.Anchored = true
+				mesh.CanCollide = false
+				mesh.CanQuery = false
+				mesh.CanTouch = false
+				mesh.Massless = true
+				mesh.CastShadow = true
+				mesh.Transparency = 1
+				mesh.Parent = clientFolder
+				meshNames[mesh] = entry.name
+				table.insert(made, { part = mesh, base = Vector3.new(entry.offset[1], entry.offset[2], entry.offset[3]) * spec.scale, spin = Vector3.zero, velocity = nil, tilt = CFrame.identity, transparency = 0, childOffset = CFrame.identity })
+			else
+				failed = true
+			end
+			pending -= 1
+		end)
+	end
+	while pending > 0 do
+		task.wait(0.1)
+	end
+	if failed or boss ~= current then
+		for _, piece in made do
+			piece.part:Destroy()
+		end
+		return
+	end
+	current.meshPieces = made
+	-- The mesh body replaces the procedural one: hide the rig, plates and shards for good.
+	for _, entry in current.rig.parts do
+		entry.base = 1
+	end
+	for _, list in { current.plates, current.shards } do
+		for _, piece in list do
+			piece.transparency = 1
+		end
+	end
+	current.shell.Transparency = 1
+	appliedHide = -1
+end
+
+-- A mesh piece's idle and combat motion: wings beat, arms rise as it charges, the rest
+-- breathes.
+local function meshPose(name: string, offset: Vector3, t: number, charge: number): CFrame
+	if name == "blades" then
+		return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.7) * 0.6 + charge * 2, 0)) * CFrame.Angles(0, 0, math.sin(t * 0.9) * 0.18)
+	elseif string.find(name, "wing") ~= nil then
+		local side = if offset.X < 0 then -1 else 1
+		return CFrame.new(offset) * CFrame.Angles(0, 0, side * (math.sin(t * (2.4 + charge * 4)) * 0.16 + charge * 0.2))
+	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil then
+		return CFrame.new(offset + Vector3.new(0, charge * 4 + math.sin(t * 1.3 + offset.X) * 0.35, -charge * 1.5))
+	end
+	return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.1) * 0.2, 0))
+end
 -- Rift tethers (beams from the arena pillars to the seal, built by the
 -- server) light up while the Warden is forming or fighting.
 local tethersOn = false
@@ -4118,6 +4325,7 @@ local function setBossTransparency(current: Boss, visible: number)
 	applyPieceTransparency(current.rings, hide)
 	applyPieceTransparency(current.plates, hide)
 	applyPieceTransparency(current.shards, hide)
+	applyPieceTransparency(current.meshPieces, hide)
 	for _, entry in current.rig.parts do
 		entry.part.Transparency = entry.base + (1 - entry.base) * hide
 	end
@@ -4215,6 +4423,101 @@ local function screenFlash(color: Color3, strength: number, seconds: number)
 	TweenService:Create(frame, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
 end
 
+-- Impact frame: the screen snaps to a hard white-out then a crushed black for a couple of
+-- frames, the way fighting games punctuate a huge hit. Cheap (one colour-correction effect)
+-- and rate limited so a volley of blows is not a strobe.
+-- A boss effect sound by name, when it has been uploaded (tools/assetgen/upload_boss_sfx.py).
+-- Returns whether it played so callers can fall back to the boss's own cue. Rate limited per
+-- name so a volley of meteors is a rolling rumble, not a wall of identical sounds.
+local sfxLast: { [string]: number } = {}
+local function bossSfx(name: string, volume: number?): boolean
+	local sfxId = SanctuaryConfig.BossSfx and SanctuaryConfig.BossSfx[name]
+	if type(sfxId) ~= "number" or sfxId <= 0 then
+		return false
+	end
+	local now = os.clock()
+	if now - (sfxLast[name] or -1) < 0.18 then
+		return true
+	end
+	sfxLast[name] = now
+	local sound = Instance.new("Sound")
+	sound.Name = "BossSfx"
+	sound.SoundId = `rbxassetid://{sfxId}`
+	sound.Volume = volume or 0.8
+	sound.PlaybackSpeed = 0.94 + math.random() * 0.12
+	sound.Parent = game:GetService("SoundService")
+	sound.Ended:Once(function()
+		sound:Destroy()
+	end)
+	sound:Play()
+	return true
+end
+
+local impactEffect: ColorCorrectionEffect? = nil
+local lastImpact = 0
+local function impactFrame(strength: number)
+	local now = os.clock()
+	if now - lastImpact < 0.6 then
+		return
+	end
+	lastImpact = now
+	bossSfx("impact", 0.9)
+	local lighting = game:GetService("Lighting")
+	local effect = impactEffect
+	if effect == nil or effect.Parent == nil then
+		effect = Instance.new("ColorCorrectionEffect")
+		effect.Name = "BossImpactFrame"
+		effect.Enabled = false
+		effect.Parent = lighting
+		impactEffect = effect
+	end
+	local fx = effect :: ColorCorrectionEffect
+	local power = math.clamp(strength, 0.3, 1)
+	task.spawn(function()
+		fx.Enabled = true
+		fx.Saturation, fx.Contrast, fx.Brightness = -1, 2.4 * power, 0.55 * power
+		task.wait(0.05)
+		fx.Brightness = -0.35 * power
+		task.wait(0.05)
+		fx.Saturation, fx.Contrast, fx.Brightness = -0.6, 0.8 * power, 0.12 * power
+		task.wait(0.06)
+		fx.Enabled = false
+	end)
+end
+
+-- What an element looks like when it lands: flames and embers, a storm's bolts, ice shards and
+-- a cold burst, or void matter collapsing inward. Layered on top of the boss's own effects.
+local function elementBurst(element: any, center: Vector3, radius: number)
+	if type(element) ~= "string" then
+		return
+	end
+	local up = center + Vector3.new(0, 1, 0)
+	if element == "Fire" then
+		Vfx.burst(up, "Flame", 40, { Color = Color3.fromRGB(255, 150, 50), Color2 = Color3.fromRGB(255, 70, 30), Speed = NumberRange.new(10, 26), Acceleration = Vector3.new(0, 22, 0) }, clientFolder)
+		Vfx.burst(up, "Embers", 36, { Color = Color3.fromRGB(255, 210, 120), Color2 = Color3.fromRGB(255, 90, 40) }, clientFolder)
+		Vfx.burst(up + Vector3.new(0, 3, 0), "Smoke", 16, { Color = Color3.fromRGB(40, 30, 30) }, clientFolder)
+		lightPillar(center, Color3.fromRGB(255, 140, 50), 52, math.max(2, radius * 0.3), 0.8)
+	elseif element == "Storm" then
+		local root = localRoot()
+		for _ = 1, 3 do
+			local offset = Vector3.new((math.random() - 0.5) * radius, 0, (math.random() - 0.5) * radius)
+			lightning(center + offset + Vector3.new(0, 80, 0), center + offset, Color3.fromRGB(190, 220, 255), 0.25, 1.1)
+		end
+		Vfx.burst(up, "Spark", 40, { Color = Color3.fromRGB(200, 230, 255), Color2 = Color3.fromRGB(120, 160, 255), Speed = NumberRange.new(14, 34) }, clientFolder)
+		if root ~= nil then
+			screenFlash(Color3.fromRGB(200, 225, 255), 0.25, 0.25)
+		end
+	elseif element == "Frost" then
+		Vfx.burst(up, "Shatter", 44, { Color = Color3.fromRGB(190, 240, 255), Color2 = Color3.fromRGB(110, 190, 255), Speed = NumberRange.new(10, 28), Acceleration = Vector3.new(0, -16, 0) }, clientFolder)
+		Vfx.burst(up, "Motes", 30, { Color = Color3.fromRGB(230, 250, 255), Color2 = Color3.fromRGB(140, 210, 255) }, clientFolder)
+		Vfx.burst(center + Vector3.new(0, 0.5, 0), "Shockwave", 1, { Color = Color3.fromRGB(170, 230, 255), Size = NumberSequence.new(3, radius * 3) }, clientFolder)
+		lightPillar(center, Color3.fromRGB(160, 225, 255), 40, math.max(2, radius * 0.25), 0.7)
+	elseif element == "Void" then
+		Vfx.burst(up + Vector3.new(0, 2, 0), "Implode", 1, { Color = Color3.fromRGB(150, 90, 255), Color2 = Color3.fromRGB(20, 0, 40), Size = NumberSequence.new(radius * 1.4, 2) }, clientFolder)
+		Vfx.burst(up, "Motes", 34, { Color = Color3.fromRGB(190, 140, 255), Color2 = Color3.fromRGB(60, 20, 120) }, clientFolder)
+		Vfx.burst(up, "Smoke", 18, { Color = Color3.fromRGB(25, 10, 50) }, clientFolder)
+	end
+end
 -- Dialogue: a caption box low on the screen, the speaker's name in their colour, and the
 -- line typed out. One line at a time; a new line replaces the last.
 local speechGui: ScreenGui? = nil
@@ -4285,10 +4588,39 @@ local function ensureSpeech(): boolean
 	return true
 end
 
+-- The boss's voice for a line, if one has been uploaded (tools/assetgen/upload_voice.py).
+-- One at a time: a new line cuts off the last, like the subtitle does.
+local voiceSound: Sound? = nil
+local function playVoice(line: string)
+	if voiceSound ~= nil then
+		voiceSound:Destroy()
+		voiceSound = nil
+	end
+	local voiceId = SanctuaryConfig.BossVoice and SanctuaryConfig.BossVoice[line]
+	if type(voiceId) ~= "number" or voiceId <= 0 or speechGui == nil then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.Name = "BossVoice"
+	sound.SoundId = `rbxassetid://{voiceId}`
+	sound.Volume = 1.1
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.Parent = speechGui
+	sound.Ended:Once(function()
+		if voiceSound == sound then
+			voiceSound = nil
+		end
+		sound:Destroy()
+	end)
+	voiceSound = sound
+	sound:Play()
+end
+
 local function say(speaker: string, line: string, color: Color3?)
 	if not ensureSpeech() then
 		return
 	end
+	playVoice(line)
 	local box, name, text, stroke = speechBox :: Frame, speechName :: TextLabel, speechText :: TextLabel, speechStroke :: UIStroke
 	speechSeq += 1
 	local seq = speechSeq
@@ -4518,12 +4850,63 @@ local function awakeScene(current: Boss)
 		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 3, Sweep = -0.7, Distance = 46, Height = -10, Lift = 4, Fov = 64, Lock = true }, 6.8) end })
 		table.insert(steps, { at = 3, run = function() playShot(current, { Seconds = 3.8, Sweep = -1.2, Distance = 84, Push = 0.15, Height = 24, Fov = 46, Lock = true }, 0) end })
 		sequence(current, steps)
+	elseif kind == "Seraph" then
+		-- Lightning forks down from the sky onto every pillar, then the camera whips round the wings.
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.2 * index,
+				run = function()
+					lightning(top + Vector3.new(0, 90, 0), top, pal.Hot, 0.3, 1.4)
+					Vfx.burst(top, "Spark", 30, { Color = pal.Hot, Color2 = pal.Alert, Speed = NumberRange.new(10, 26) }, clientFolder)
+					impactFrame(0.5)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 2.2, Sweep = 2.2, Distance = 34, Height = 2, Lift = -4, Fov = 74, Lock = true }, 5.6) end })
+		table.insert(steps, { at = 2.2, run = function() playShot(current, { Seconds = 3.4, Sweep = -1.4, Distance = 60, Push = 0.25, Height = 18, Fov = 48, Lock = true }, 0) end })
+		sequence(current, steps)
+	elseif kind == "Rime" then
+		-- Slow and heavy: the camera rises out of the ice as frost shatters off each pillar.
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.5 * index,
+				run = function()
+					Vfx.burst(top, "Shatter", 24, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(4, 12), Acceleration = Vector3.new(0, -10, 0) }, clientFolder)
+					Vfx.burst(top, "Motes", 20, { Color = pal.Hot, Color2 = pal.Primary }, clientFolder)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 3.6, Sweep = 0.3, Distance = 40, Height = -14, Lift = 2, Fov = 70, Lock = true }, 7.4) end })
+		table.insert(steps, { at = 3.6, run = function() playShot(current, { Seconds = 4, Sweep = 0.7, Distance = 88, Push = 0.1, Height = 22, Fov = 44, Lock = true }, 0) end })
+		sequence(current, steps)
+	elseif kind == "Knight" then
+		-- Close on the helm as the swords fan out behind it, then a long pull back.
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.35 * index,
+				run = function()
+					Vfx.burst(top, "Smoke", 18, { Color = Color3.fromRGB(24, 14, 40) }, clientFolder)
+					Vfx.burst(top, "Flash", 1, { Color = pal.Alert, Size = NumberSequence.new(4, 14) }, clientFolder)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 2.8, Sweep = 0.2, Distance = 22, Height = 1, Lift = 1, Fov = 52, Lock = true }, 6.4) end })
+		table.insert(steps, { at = 2.8, run = function() playShot(current, { Seconds = 3.6, Sweep = -0.6, Distance = 70, Push = 0.35, Height = 12, Fov = 46, Lock = true }, 0) end })
+		sequence(current, steps)
 	else
 		playShot(current, { Seconds = 4.2, Sweep = 1.6, Distance = 58, Push = 0.28, Height = 15, Fov = 50, Lock = true })
 	end
 end
 
 local function defeatScene(current: Boss)
+	impactFrame(1)
+	task.delay(0.9, impactFrame, 1)
 	local kind = current.kind
 	speakLines(current, "Defeat", 0.9, 3.2)
 	-- The body comes apart in light: a great column, bolts to every pillar, a white-out.
@@ -4554,6 +4937,12 @@ local function defeatScene(current: Boss)
 	end
 	if kind == "Choir" then
 		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = 1.5, Distance = 70, Push = -0.2, Height = 20, Fov = 50 }) end })
+	elseif kind == "Seraph" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5, Sweep = 2.4, Distance = 40, Push = 0.4, Height = 8, Fov = 62 }) end })
+	elseif kind == "Rime" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 6.5, Sweep = 0.5, Distance = 50, Push = 0.3, Height = -6, Lift = 8, Fov = 54 }) end })
+	elseif kind == "Knight" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 6, Sweep = -0.4, Distance = 26, Push = 0.15, Height = 2, Lift = 2, Fov = 46 }) end })
 	else
 		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = -1, Distance = 56, Push = -0.25, Height = 4, Lift = 4, Fov = 52 }) end })
 	end
@@ -4577,6 +4966,7 @@ local function stepBoss(dt: number, t: number)
 			return
 		end
 		boss = buildBoss(model)
+		task.spawn(loadMeshBody, boss :: Boss)
 		local joined = tostring(model:GetAttribute("Phase") or "Dormant")
 		setTethers(joined == "Forming" or joined == "Active", (boss :: Boss).kind)
 		if joined == "Active" then
@@ -4694,7 +5084,7 @@ local function stepBoss(dt: number, t: number)
 	local collapse = if escaping then math.clamp((t - current.outroStarted) / 1.4, 0, 1) else 0
 	-- How each body idles: the Choir floats high and slow, the Regent sits heavy and steady.
 	local kind = current.kind
-	local bob = if kind == "Choir" then math.sin(t * 1.4) * 2.2 elseif kind == "Regent" then math.sin(t * 0.6) * 1.0 else math.sin(t * 0.9) * 1.4
+	local bob = if kind == "Choir" then math.sin(t * 1.4) * 2.2 elseif kind == "Regent" then math.sin(t * 0.6) * 1.0 elseif kind == "Seraph" then math.sin(t * 2.2) * 2.6 elseif kind == "Rime" then math.sin(t * 0.4) * 0.6 elseif kind == "Knight" then math.sin(t * 1.0) * 1.2 else math.sin(t * 0.9) * 1.4
 	local conducting = if current.conductUntil > now then 1 else 0
 	current.conduct += (conducting - current.conduct) * (1 - math.exp(-6 * dt))
 	local beam = current.beam
@@ -4816,6 +5206,22 @@ local function stepBoss(dt: number, t: number)
 			local lift = 8.5 + charge * 3 + (index % 2) * 2 + math.sin(t * 2.4 + index) * 0.5
 			local position = hover + Vector3.new(math.cos(angle) * radius, lift, math.sin(angle) * radius)
 			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
+		elseif kind == "Seraph" then
+			-- A halo of six feathers standing above the head, spinning fast.
+			local radius = 6 + jolt + charge * 2
+			local position = hover + Vector3.new(math.cos(angle * 1 - t * 1.6) * radius, 10 + math.sin(t * 3 + index) * 0.6, math.sin(angle - t * 1.6) * radius)
+			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
+		elseif kind == "Rime" then
+			-- Slabs of ice planted in a ring round the body, leaning in, each rising as it charges.
+			local radius = 13 + jolt + math.sin(t * 0.8 + index) * 0.3
+			local lift = -5 + charge * 4 + (index % 2) * 2
+			local position = hover + Vector3.new(math.cos(angle * 0.5) * radius, lift, math.sin(angle * 0.5) * radius)
+			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y + 6, hover.Z)) * plate.tilt)
+		elseif kind == "Knight" then
+			-- Pieces of armour orbiting close, tilting with its breath.
+			local radius = 6.6 + jolt + charge * 1.5
+			local position = hover + Vector3.new(math.cos(angle * 1.5) * radius, math.sin(t * 1.4 + index * 1.2) * 2.2, math.sin(angle * 1.5) * radius)
+			place(plate, CFrame.lookAt(position, hover) * plate.tilt * CFrame.Angles(0, 0, math.sin(t + index) * 0.3))
 		else
 			local radius = 9.5 + jolt + charge * 3.5 + math.sin(t * 1.3 + index) * 0.4
 			local position = hover + Vector3.new(math.cos(angle) * radius, math.sin(t * 1.1 + index * 0.8) * 1.2, math.sin(angle) * radius)
@@ -4835,11 +5241,34 @@ local function stepBoss(dt: number, t: number)
 			local flap = math.sin(t * (if beamAngle ~= nil then 4 else 1.4)) * 0.22
 			local offset = Vector3.new(side * (9 + k * 7), 4 - k * 3, 2 + k * 3)
 			place(shard, CFrame.new(hover + offset) * CFrame.Angles(0, 0, side * (0.9 + k * 0.5 + flap)))
+		elseif kind == "Seraph" then
+			-- Great wings of lightning: fast, wide beats.
+			local flap = math.sin(t * (4.5 + charge * 4)) * 0.3
+			local offset = Vector3.new(side * (7 + k * 9), 5 - k * 4, 1.5 + k * 3)
+			place(shard, CFrame.new(hover + offset) * CFrame.Angles(0, 0, side * (1.0 + k * 0.5 + flap)))
+		elseif kind == "Rime" then
+			-- A crown of ice spikes, breathing slowly.
+			local angle = (index / #current.shards) * TAU
+			local height = 9 + (index % 3) * 2.2 + charge * 2
+			local position = hover + Vector3.new(math.cos(angle) * 5.5, height, math.sin(angle) * 5.5)
+			place(shard, CFrame.new(position) * CFrame.Angles(math.sin(angle) * 0.25, 0, -math.cos(angle) * 0.25))
+		elseif kind == "Knight" then
+			-- Eight swords fanned out behind it, points outward, turning slowly.
+			local angle = (index / #current.shards) * math.pi * 1.4 - math.pi * 0.7
+			local radius = 8 + charge * 2
+			local position = hover + Vector3.new(math.sin(angle) * radius, 2 + math.cos(angle) * 4, 6 + math.abs(math.sin(angle)) * 1.5)
+			place(shard, CFrame.new(position) * CFrame.Angles(0, 0, -angle + math.sin(t * 1.3 + index) * 0.05))
 		else
 			local sway = math.sin(t * 1.6 + index) * 0.12
 			local offset = Vector3.new(side * (8 + k * 5), 3 - k * 5, 4 + k * 2) * (1 + charge * 0.25)
 			local position = hover + offset
 			place(shard, CFrame.new(position) * CFrame.Angles(0, 0, side * (0.5 + k * 0.4 + sway)))
+		end
+	end
+	if #current.meshPieces > 0 then
+		local bodyFrame = rig.root.CFrame * CFrame.Angles(0, math.pi, 0)
+		for _, piece in current.meshPieces do
+			place(piece, bodyFrame * meshPose(meshNames[piece.part] or "", piece.base, t, charge))
 		end
 	end
 	Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
@@ -4875,7 +5304,9 @@ local function onSlam(payload)
 	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 1.5)
 	windUp(detonateAt, detonateAt - serverNow())
 	setAim("slam", center, detonateAt)
-	Audio:play(bossCue("Charge"))
+	if not (type(payload.Element) == "string" and bossSfx("cast_" .. payload.Element, 0.7)) then
+		Audio:play(bossCue("Charge"))
+	end
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
@@ -4902,7 +5333,9 @@ local function onSlamLand(payload)
 	end
 	local center = worldPoint(payload.Center) + Vector3.new(0, 0.3, 0)
 	local radius = tonumber(payload.Radius) or 24
-	Audio:play(bossCue("Land"))
+	if not (type(payload.Element) == "string" and bossSfx("hit_" .. payload.Element, 0.85)) then
+		Audio:play(bossCue("Land"))
+	end
 	burst(center + Vector3.new(0, 1, 0), pal.Hot, 40, 28)
 	-- A column of light where it lands, cracks across the floor, a bolt from the body.
 	lightPillar(center, pal.Hot, 46, math.max(2.5, radius * 0.22), 0.7)
@@ -4910,6 +5343,13 @@ local function onSlamLand(payload)
 	if boss ~= nil then
 		boss.flash = 1
 		lightning(boss.core.Position, center, pal.Hot, 0.3, 0.9)
+	end
+	elementBurst(payload.Element, center, radius)
+	if radius >= 20 and (tonumber(payload.Radius) or 0) >= 20 then
+		local root = localRoot()
+		if root ~= nil and (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(center.X, 0, center.Z)).Magnitude < radius + 20 then
+			impactFrame(0.8)
+		end
 	end
 	local kind = if boss ~= nil then boss.kind else "Warden"
 	if kind == "Regent" then
@@ -4978,6 +5418,7 @@ local function onPhase(payload)
 	setAim("roar", nil, serverNow() + 1.6)
 	-- The roar: a white-hot flash, bolts to every pillar, and the boss speaks.
 	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
+	impactFrame(1)
 	screenFlash(pal.Hot, 0.5, 0.9)
 	lightPillar(at - Vector3.new(0, 26, 0), pal.Hot, 80, 6, 1.2)
 	for index, top in pillarTops(current) do
@@ -5352,6 +5793,145 @@ local function onDissonance(payload)
 	end)
 end
 
+-- Summoned wisps (the boss's adds): small glowing spirits that circle the arena on the path
+-- the server described, cut down by the same Strike. They blow up at the fuse, so the ring of
+-- light around each one shrinks toward it -- a readable countdown.
+local wisps: { [number]: { part: Part, ring: any, anchor: Part, add: any, start: number, fuse: number, blast: number, element: string?, center: Vector3 } } = {}
+
+local function elementColors(element: any): (Color3, Color3)
+	if element == "Fire" then
+		return Color3.fromRGB(255, 150, 50), Color3.fromRGB(255, 70, 30)
+	elseif element == "Frost" then
+		return Color3.fromRGB(170, 235, 255), Color3.fromRGB(110, 180, 255)
+	elseif element == "Storm" then
+		return Color3.fromRGB(200, 225, 255), Color3.fromRGB(120, 160, 255)
+	elseif element == "Void" then
+		return Color3.fromRGB(180, 120, 255), Color3.fromRGB(60, 20, 120)
+	end
+	return pal.Hot, pal.Primary
+end
+
+local function removeWisp(id: number)
+	local wisp = wisps[id]
+	if wisp ~= nil then
+		wisps[id] = nil
+		wisp.part:Destroy()
+		wisp.anchor:Destroy()
+	end
+end
+
+local function wispPosition(wisp, t: number): Vector3
+	local add = wisp.add
+	local angle = add.Angle + add.Speed * (t - wisp.start)
+	return Vector3.new(wisp.center.X + math.cos(angle) * add.Orbit, wisp.center.Y + add.Height, wisp.center.Z + math.sin(angle) * add.Orbit)
+end
+
+local wispConnection: RBXScriptConnection? = nil
+local function ensureWispLoop()
+	if wispConnection ~= nil then
+		return
+	end
+	wispConnection = RunService.RenderStepped:Connect(function()
+		local now = serverNow()
+		local any = false
+		for id, wisp in wisps do
+			any = true
+			local at = wispPosition(wisp, math.min(now, wisp.fuse))
+			wisp.part.CFrame = CFrame.new(at)
+			wisp.anchor.CFrame = CFrame.new(at.X, wisp.center.Y + 0.3, at.Z)
+			local k = math.clamp((wisp.fuse - now) / math.max(0.5, wisp.fuse - wisp.start), 0, 1)
+			wisp.ring.Radius = math.max(0.5, wisp.blast * (1 - k * 0.6))
+			wisp.ring.InnerRadius = math.max(0, wisp.ring.Radius - 0.6)
+			wisp.part.Size = Vector3.new(1, 1, 1) * (2.4 + 1.4 * (1 - k) + 0.4 * math.sin(now * (6 + 14 * (1 - k))))
+			if not active or now > wisp.fuse + 1 then
+				removeWisp(id)
+			end
+		end
+		if not any and wispConnection ~= nil then
+			wispConnection:Disconnect()
+			wispConnection = nil
+		end
+	end)
+end
+
+local function onSummonCall(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center)
+	local at = tonumber(payload.At) or (serverNow() + 1.4)
+	windUp(at, at - serverNow())
+	setAim("roar", nil, at)
+	Audio:play(bossCue("Charge"))
+	local primary = elementColors(payload.Element)
+	Vfx.burst(center + Vector3.new(0, 2, 0), "Implode", 1, { Color = primary, Size = NumberSequence.new(40, 4) }, clientFolder)
+	Controls.shake(0.5)
+end
+
+local function onAdds(payload)
+	if type(payload) ~= "table" or type(payload.Adds) ~= "table" then
+		return
+	end
+	local center = worldPoint(payload.Center)
+	local blast = tonumber(payload.BlastRadius) or 10
+	local startAt = tonumber(payload.StartAt) or serverNow()
+	local fuseAt = tonumber(payload.FuseAt) or (startAt + 8)
+	local primary, secondary = elementColors(payload.Element)
+	for _, add in payload.Adds do
+		local id = tonumber(add.Id)
+		if id == nil then
+			continue
+		end
+		removeWisp(id)
+		local part = vfxPart("Wisp", Enum.PartType.Ball, Vector3.new(2.4, 2.4, 2.4), primary, Enum.Material.Neon)
+		part.Transparency = 0.1
+		local anchor = vfxPart("WispMark", nil, Vector3.new(0.2, 0.2, 0.2), secondary, Enum.Material.SmoothPlastic)
+		anchor.Transparency = 1
+		local ring = ringAdornment(anchor, blast, blast - 0.6, secondary, 0.45)
+		Vfx.attach(part, "Motes", { Color = primary, Color2 = secondary })
+		local record: any = { part = part, ring = ring, anchor = anchor, add = add, start = startAt, fuse = fuseAt, blast = blast, element = payload.Element, center = center }
+		wisps[id] = record
+		Vfx.burst(wispPosition(record, startAt), "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 9) }, clientFolder)
+	end
+	ensureWispLoop()
+	bossSfx("wisp_spawn", 0.8)
+end
+
+local function onAddBlast(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local id = tonumber(payload.Id)
+	if id ~= nil then
+		removeWisp(id)
+	end
+	local at = worldPoint(payload.At)
+	local radius = tonumber(payload.Radius) or 10
+	if not bossSfx("wisp_blast", 0.9) then
+		Audio:play(bossCue("Land"))
+	end
+	Vfx.burst(at, "Shockwave", 1, { Color = (elementColors(payload.Element)), Size = NumberSequence.new(2, radius * 2.4) }, clientFolder)
+	elementBurst(payload.Element, Vector3.new(at.X, at.Y - 4, at.Z), radius)
+	local root = localRoot()
+	if root ~= nil and (root.Position - at).Magnitude < radius + 25 then
+		Controls.shake(0.5)
+	end
+end
+
+local function onAddDown(payload)
+	if type(payload) ~= "table" then
+		return
+	end
+	local id = tonumber(payload.Id)
+	if id ~= nil then
+		removeWisp(id)
+	end
+	local at = worldPoint(payload.At)
+	local primary, secondary = elementColors(payload.Element)
+	bossSfx("wisp_down", 0.8)
+	Vfx.burst(at, "Spark", 26, { Color = primary, Color2 = secondary }, clientFolder)
+	Vfx.burst(at, "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 10) }, clientFolder)
+end
 local function onDissonanceLand(payload)
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Audio:play(bossCue("Land"))
@@ -5512,6 +6092,7 @@ local function onStrikeLanded(payload)
 	Vfx.burst(at, "Spark", if crit then 34 else 16, { Color = pal.Hot, Color2 = if crit then Color3.fromRGB(255, 214, 120) else pal.Primary }, clientFolder)
 	if crit then
 		Vfx.burst(at, "Flash", 1, { Color = Color3.fromRGB(255, 226, 150), Size = NumberSequence.new(3, 12) }, clientFolder)
+		impactFrame(0.45)
 	end
 end
 
@@ -5655,6 +6236,10 @@ function World.start()
 	table.insert(unsubscribers, Signals.on("RiftBossDissonance", onDissonance))
 	table.insert(unsubscribers, Signals.on("RiftBossDissonanceLand", onDissonanceLand))
 	table.insert(unsubscribers, Signals.on("RiftBossWall", onWall))
+	table.insert(unsubscribers, Signals.on("RiftBossSummonCall", onSummonCall))
+	table.insert(unsubscribers, Signals.on("RiftBossAdds", onAdds))
+	table.insert(unsubscribers, Signals.on("RiftBossAddBlast", onAddBlast))
+	table.insert(unsubscribers, Signals.on("RiftBossAddDown", onAddDown))
 	table.insert(unsubscribers, Signals.on("WaystoneArrived", onArrived))
 	table.insert(unsubscribers, Signals.on("StrikeLanded", onStrikeLanded))
 
@@ -5899,7 +6484,24 @@ local MOODS: { [string]: Mood } = {
 		hazeColor = Color3.fromRGB(150, 56, 30), hazeDecay = Color3.fromRGB(72, 20, 10), density = 0.32, haze = 1.5,
 		bloom = 1.15, tint = Color3.fromRGB(255, 220, 196), saturation = 0.26, contrast = 0.16, rays = 0.04,
 	},
-}
+	-- The Tempest Aerie: steel-blue storm light, crackling haze, bright bloom.
+	StormIsle = {
+		ambient = Color3.fromRGB(84, 100, 146), outdoor = Color3.fromRGB(120, 146, 210), fog = Color3.fromRGB(10, 14, 34), exposure = 0.32,
+		hazeColor = Color3.fromRGB(70, 100, 170), hazeDecay = Color3.fromRGB(20, 30, 70), density = 0.24, haze = 1.0,
+		bloom = 1.2, tint = Color3.fromRGB(226, 236, 255), saturation = 0.14, contrast = 0.2, rays = 0.06,
+	},
+	-- The Frozen Reliquary: pale, very bright, nearly white haze.
+	RimeIsle = {
+		ambient = Color3.fromRGB(130, 160, 190), outdoor = Color3.fromRGB(180, 214, 244), fog = Color3.fromRGB(28, 44, 62), exposure = 0.5,
+		hazeColor = Color3.fromRGB(190, 224, 250), hazeDecay = Color3.fromRGB(70, 100, 130), density = 0.2, haze = 0.9,
+		bloom = 1.0, tint = Color3.fromRGB(232, 248, 255), saturation = 0.05, contrast = 0.1, rays = 0.16,
+	},
+	-- The Gloaming Keep: near-black violet, low light, a little magenta in the haze.
+	GloamIsle = {
+		ambient = Color3.fromRGB(62, 48, 92), outdoor = Color3.fromRGB(84, 62, 126), fog = Color3.fromRGB(10, 4, 20), exposure = 0.16,
+		hazeColor = Color3.fromRGB(86, 34, 110), hazeDecay = Color3.fromRGB(22, 8, 34), density = 0.34, haze = 1.5,
+		bloom = 1.05, tint = Color3.fromRGB(236, 214, 255), saturation = 0.2, contrast = 0.2, rays = 0.02,
+	},}
 local MOOD_TAU = 1.4 -- seconds for a region change to cover ~63% of the way
 local MOOD_SETTLE_SECONDS = 7 -- stop blending this long after the last change (5 tau)
 local moodNow: Mood = table.clone(MOODS.Bridge)

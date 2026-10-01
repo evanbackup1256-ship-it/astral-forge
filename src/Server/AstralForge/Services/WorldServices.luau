@@ -369,6 +369,8 @@ function RiftBossService.new(host)
 	self._strikes = {}
 	self._lastStrike = {}
 	self._dazedUntil = {}
+	self._adds = {}
+	self._nextAddId = 1
 	self._phaseIndex = 1
 	self._nextAttackAt = math.huge
 	-- Attacks in flight. Each is { Kind, At, ... } and resolves when `now` passes At.
@@ -524,6 +526,7 @@ function RiftBossService:_step()
 		self._config = self._roster[self._bossIndex]
 		self:_moveToArena()
 		table.clear(self._events)
+		table.clear(self._adds)
 		self._attacking = false
 	elseif entered == "Forming" then
 		table.clear(self._damage)
@@ -550,13 +553,16 @@ function RiftBossService:_step()
 		}, true)
 	elseif entered == "Defeated" then
 		table.clear(self._events)
+		table.clear(self._adds)
 		self:_rewardFighters()
 	elseif entered == "Escaped" then
 		table.clear(self._events)
+		table.clear(self._adds)
 		self:_announce(`{self._config.Name} escaped`, "It slipped back into the rift. It will return.", true)
 	end
 	if state.Phase == "Active" then
 		self:_phases(now)
+		self:_stepAdds(now, inArena)
 		self:_attacks(now, inArena)
 	end
 	self:_publish()
@@ -649,18 +655,96 @@ function RiftBossService:_targets(inArena: { [Player]: Vector3 }): { Vector3 }
 	return targets
 end
 
-function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number, radius: number?)
+-- `element` (Fire, Storm, Frost, Void) only changes how clients dress the blow.
+function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number, radius: number?, element: string?)
 	local config = self._config
 	local center = { X = aim.X, Y = floorY, Z = aim.Z }
 	local size = radius or config.SlamRadius
-	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = size })
+	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = size, Element = element })
 	self:_broadcast({
 		Type = "RiftBossSlam",
 		BossKind = config.Kind,
 		Center = center,
 		Radius = size,
 		DetonateAt = detonateAt,
+		Element = element,
 	}, true)
+end
+
+-- Adds (the boss's summoned wisps) circle the arena on a path both sides can compute from the
+-- spawn message alone, so nothing streams. Where is add `add` at server time `t`?
+local function addPosition(add, t: number): Vector3
+	local angle = add.Angle + add.Speed * (t - add.StartAt)
+	return Vector3.new(add.Center.X + math.cos(angle) * add.Orbit, add.Center.Y + add.Height, add.Center.Z + math.sin(angle) * add.Orbit)
+end
+
+function RiftBossService:_summon(params, now: number, center: Vector3)
+	local config = self._config
+	local fuseAt = now + params.FuseSeconds
+	local spawned = {}
+	local base = self._random:NextNumber() * math.pi * 2
+	for index = 1, params.Count do
+		local add = {
+			Id = self._nextAddId,
+			Angle = base + (index - 1) / params.Count * math.pi * 2,
+			Speed = params.OrbitSpeed * (if index % 2 == 0 then -1 else 1),
+			Orbit = params.Orbit * (0.65 + 0.35 * ((index % 3) / 2)),
+			Height = 4 + (index % 2) * 3,
+			Center = center,
+			StartAt = now,
+			FuseAt = fuseAt,
+			Health = params.Health,
+			BlastRadius = params.BlastRadius,
+			Element = params.Element,
+		}
+		self._nextAddId += 1
+		table.insert(self._adds, add)
+		table.insert(spawned, { Id = add.Id, Angle = add.Angle, Speed = add.Speed, Orbit = add.Orbit, Height = add.Height })
+	end
+	self:_broadcast({
+		Type = "RiftBossAdds",
+		BossKind = config.Kind,
+		Center = center,
+		StartAt = now,
+		FuseAt = fuseAt,
+		Health = params.Health,
+		BlastRadius = params.BlastRadius,
+		Element = params.Element,
+		Adds = spawned,
+	}, true)
+end
+
+-- Adds that reach their fuse blow up where they are; anyone close is staggered.
+function RiftBossService:_stepAdds(now: number, inArena: { [Player]: Vector3 })
+	local adds = self._adds
+	local index = 1
+	while index <= #adds do
+		local add = adds[index]
+		if now >= add.FuseAt then
+			local at = addPosition(add, add.FuseAt)
+			for player, position in inArena do
+				if (Vector3.new(position.X - at.X, 0, position.Z - at.Z)).Magnitude <= add.BlastRadius then
+					self:_daze(player, now, add.Center)
+				end
+			end
+			self:_broadcast({ Type = "RiftBossAddBlast", BossKind = self._config.Kind, Id = add.Id, At = at, Radius = add.BlastRadius, Element = add.Element }, true)
+			table.remove(adds, index)
+		else
+			index += 1
+		end
+	end
+end
+
+-- The add nearest a fighter, if one is within reach of their blade.
+function RiftBossService:_addNear(position: Vector3, now: number)
+	local best, bestDistance = nil, 18
+	for _, add in self._adds do
+		local distance = (addPosition(add, now) - position).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = add, distance
+		end
+	end
+	return best
 end
 
 function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector3 })
@@ -672,7 +756,7 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 	-- Tell clients which move this is: the boss winds up and speaks accordingly.
 	self:_broadcast({ Type = "RiftBossAttack", BossKind = config.Kind, Attack = attack.Kind }, true)
 	if attack.Kind == "Slam" then
-		self:_slamAt(targets[1] or center, center.Y, now + telegraph)
+		self:_slamAt(targets[1] or center, center.Y, now + telegraph, nil, params.Element)
 	elseif attack.Kind == "TwinSlam" then
 		-- Two fighters marked at once; with only one present the second lands beside them.
 		local first = targets[1] or center
@@ -681,9 +765,57 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			local angle = self._random:NextNumber() * math.pi * 2
 			second = Vector3.new(first.X + math.cos(angle) * 16, first.Y, first.Z + math.sin(angle) * 16)
 		end
-		self:_slamAt(first, center.Y, now + telegraph)
-		self:_slamAt(second, center.Y, now + telegraph + 0.45)
-	elseif attack.Kind == "Rings" then
+		self:_slamAt(first, center.Y, now + telegraph, nil, params.Element)
+		self:_slamAt(second, center.Y, now + telegraph + 0.45, nil, params.Element)
+	elseif attack.Kind == "Meteors" then
+		-- Fire from the sky across the whole arena: every other one lands on a fighter, the rest
+		-- anywhere, so standing still in a gap is not safe either.
+		local _, _, arenaRadius = self:_arena()
+		for shot = 1, params.Count do
+			local aim
+			local target = targets[(shot - 1) % math.max(1, #targets) + 1]
+			if shot % 2 == 1 and target ~= nil then
+				aim = target
+			else
+				local angle = self._random:NextNumber() * math.pi * 2
+				local distance = math.sqrt(self._random:NextNumber()) * arenaRadius * 0.9
+				aim = Vector3.new(center.X + math.cos(angle) * distance, center.Y, center.Z + math.sin(angle) * distance)
+			end
+			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
+		end
+	elseif attack.Kind == "Cage" then
+		-- A ring of blows closes round a fighter; the ground inside the ring is safe, so the
+		-- answer is to stay put (or slip out between two of them before they land).
+		local aim = targets[1] or center
+		for spoke = 1, params.Count do
+			local angle = (spoke - 1) / params.Count * math.pi * 2 + self._random:NextNumber() * 0.4
+			local point = Vector3.new(aim.X + math.cos(angle) * params.Distance, aim.Y, aim.Z + math.sin(angle) * params.Distance)
+			self:_slamAt(point, center.Y, now + telegraph, config.SlamRadius * params.RadiusScale, params.Element)
+		end
+	elseif attack.Kind == "Fissure" then
+		-- A line of blows races out from the boss toward a fighter.
+		local aim = targets[1] or center
+		local direction = Vector3.new(aim.X - center.X, 0, aim.Z - center.Z)
+		direction = if direction.Magnitude > 1 then direction.Unit else Vector3.xAxis
+		for step = 1, params.Count do
+			local point = center + direction * (params.FirstDistance + (step - 1) * params.Gap)
+			self:_slamAt(point, center.Y, now + telegraph + (step - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
+		end
+	elseif attack.Kind == "Starburst" then
+		-- Blows bloom outward in rings of points: a few near the boss, then more further out.
+		local offset = self._random:NextNumber() * math.pi * 2
+		for ring = 1, params.Rings do
+			local points = params.Points * ring
+			for point = 1, points do
+				local angle = offset + (point - 1) / points * math.pi * 2 + ring * 0.25
+				local distance = params.FirstDistance + (ring - 1) * params.Gap
+				local spot = Vector3.new(center.X + math.cos(angle) * distance, center.Y, center.Z + math.sin(angle) * distance)
+				self:_slamAt(spot, center.Y, now + telegraph + (ring - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
+			end
+		end	elseif attack.Kind == "Summon" then
+		-- Wisps rise from the floor; cut them down before their fuse runs out.
+		table.insert(self._events, { Kind = "Summon", At = now + telegraph, Params = params, Center = center })
+		self:_broadcast({ Type = "RiftBossSummonCall", BossKind = config.Kind, Center = center, Element = params.Element, At = now + telegraph }, true)	elseif attack.Kind == "Rings" then
 		local first = now + telegraph
 		for ring = 1, params.Count do
 			table.insert(self._events, {
@@ -718,7 +850,7 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			local angle = self._random:NextNumber() * math.pi * 2
 			local spread = self._random:NextNumber() * params.Scatter
 			local aim = Vector3.new(target.X + math.cos(angle) * spread, target.Y, target.Z + math.sin(angle) * spread)
-			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale)
+			self:_slamAt(aim, center.Y, now + telegraph + (shot - 1) * params.StepSeconds, config.SlamRadius * params.RadiusScale, params.Element)
 		end
 	elseif attack.Kind == "Lances" then
 		local angles = RiftBossMath.LanceAngles(params.Count, self._random:NextNumber() * math.pi * 2)
@@ -851,7 +983,10 @@ function RiftBossService:_resolve(event, now: number, inArena: { [Player]: Vecto
 		for _, player in hits do
 			self:_daze(player, now, event.Center)
 		end
-		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius }, true)
+		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius, Element = event.Element }, true)
+		return true
+	elseif event.Kind == "Summon" then
+		self:_summon(event.Params, now, event.Center)
 		return true
 	elseif event.Kind == "Ring" then
 		local center = self:_arena()
@@ -952,6 +1087,23 @@ function RiftBossService:Strike(player: Player)
 	local level = self._host:level(profile)
 	local bonus = Economy.OreEffect(profile, "BossDamage")
 	local damage, crit = RiftBossMath.StrikeDamage(level, bonus, self._random:NextNumber(), config)
+	-- A wisp within reach of the blade takes the blow instead of the boss.
+	local add = self:_addNear(root.Position, now)
+	if add ~= nil then
+		add.Health -= damage
+		local down = add.Health <= 0
+		if down then
+			table.remove(self._adds, table.find(self._adds, add))
+			self:_broadcast({ Type = "RiftBossAddDown", BossKind = config.Kind, Id = add.Id, At = addPosition(add, now), Element = add.Element }, true)
+		end
+		return ActionResponse.Success(nil, {
+			Damage = damage,
+			Crit = crit,
+			Health = self._state.Health,
+			MaxHealth = self._state.MaxHealth,
+			Add = true,
+		})
+	end
 	self._state = RiftBossMath.Hit(self._state, damage)
 	local userId = player.UserId
 	self._damage[userId] = (self._damage[userId] or 0) + damage
@@ -1674,9 +1826,9 @@ function Builder.BuildArena(parent: Instance, island: string?)
 	hub.Position = Vector3.new(0, 24, 0)
 	hub.Parent = seal
 	-- Pillars ringing the arena, each topped with light of the boss's colour.
-	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 else 8
-	local pillarColor = if kind == "Choir" then Color3.fromRGB(96, 150, 190) elseif kind == "Regent" then Color3.fromRGB(28, 22, 26) else Color3.fromRGB(40, 40, 54)
-	local pillarMaterial = if kind == "Choir" then Enum.Material.Glass elseif kind == "Regent" then Enum.Material.Basalt else Enum.Material.Basalt
+	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 elseif kind == "Seraph" then 5 elseif kind == "Rime" then 9 elseif kind == "Knight" then 4 else 8
+	local pillarColor = if kind == "Choir" then Color3.fromRGB(96, 150, 190) elseif kind == "Regent" then Color3.fromRGB(28, 22, 26) elseif kind == "Seraph" then Color3.fromRGB(70, 84, 120) elseif kind == "Rime" then Color3.fromRGB(170, 214, 240) elseif kind == "Knight" then Color3.fromRGB(22, 18, 34) else Color3.fromRGB(40, 40, 54)
+	local pillarMaterial = if kind == "Choir" or kind == "Rime" then Enum.Material.Glass elseif kind == "Seraph" then Enum.Material.Metal else Enum.Material.Basalt
 	for k = 1, count do
 		local angle = (k / count) * math.pi * 2 + math.pi / count
 		local at = center + Vector3.new(math.cos(angle) * arena.PillarRadius, 0, math.sin(angle) * arena.PillarRadius)
@@ -1688,13 +1840,17 @@ function Builder.BuildArena(parent: Instance, island: string?)
 			pillarSize = Vector3.new(pillarSize.X * 0.7, height, pillarSize.Z * 0.7)
 		elseif kind == "Regent" then
 			height += 4
+		elseif kind == "Seraph" then
+			height += 14
+		elseif kind == "Knight" then
+			height += 8
 		end
 		local column = shape(parent, "ArenaPillar", pillarSize, CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), pillarColor, pillarMaterial, true, function()
 			return part(parent, "Pillar", Vector3.new(if kind == "Choir" then 3 else 5, height, if kind == "Choir" then 3 else 5), CFrame.new(at + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, 0), pillarColor, pillarMaterial)
 		end)
 		column.Name = "Pillar"
 		column.CastShadow = true
-		if kind == "Choir" then
+		if kind == "Choir" or kind == "Rime" then
 			column.Transparency = 0.25
 		end
 		local capAt = CFrame.new(at + Vector3.new(0, height + 2.5, 0))
@@ -1806,6 +1962,32 @@ local function regentIsle(parent: Instance, center: Vector3, radius: number, lan
 	boulders(parent, center, radius, landings, Color3.fromRGB(58, 40, 40), 523)
 end
 
+-- The three later boss islands share one dressing, tinted and arranged per boss: a stepped
+-- dais, a ring of standing stones lit in the boss's colour, drifting motes, and boulders.
+local function bossIsle(parent: Instance, center: Vector3, radius: number, landings: { number }, style: { Accent: Color3, Dark: Color3, Dais: Enum.Material, Air: string, Seed: number, Stones: number, Spikes: boolean })
+	for tier = 1, 3 do
+		local slab = disc(parent, "Dais", center, 12 - tier * 2.6, tier * 0.8, if tier == 3 then style.Accent else style.Dark, if tier == 3 then Enum.Material.Neon else style.Dais, true)
+		slab.Transparency = if tier == 3 then 0.5 else 0
+		slab.CastShadow = false
+	end
+	for k = 1, style.Stones do
+		local angle = (k / style.Stones) * math.pi * 2
+		if nearLanding(angle, landings) then
+			continue
+		end
+		local height = 9 + (k % 3) * 4
+		local base = center + Vector3.new(math.cos(angle) * radius * 0.78, 0, math.sin(angle) * radius * 0.78)
+		local stone = part(parent, "StandingStone", Vector3.new(3, height, 3), CFrame.new(base + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, angle, math.rad(if style.Spikes then (k % 2) * 6 else 0)), style.Dark, style.Dais)
+		stone.CastShadow = true
+		local tip = part(parent, "StoneGlow", Vector3.new(1.3, 1.3, 1.3), CFrame.new(base + Vector3.new(0, height + 0.9, 0)), style.Accent, Enum.Material.Neon, false)
+		tip.Shape = Enum.PartType.Ball
+		tip.CastShadow = false
+		glow(tip, style.Accent, 1.6, 30)
+		tag(tip, "AF_Pulse", { Period = 1.8 + (k % 3) * 0.5 })
+	end
+	airborne(parent, "BossAir", center, radius, style.Air, { Color = style.Accent, Rate = 7 })
+	boulders(parent, center, radius, landings, style.Dark, style.Seed)
+end
 function Builder.BuildScenery(folder: Instance)
 	local scenery = Instance.new("Folder")
 	scenery.Name = "Scenery"
@@ -1839,8 +2021,14 @@ function Builder.BuildScenery(folder: Instance)
 		local landings = landingAngles(isle)
 		if isle.Id == "ChoirIsle" then
 			choirIsle(model, center, isle.Radius, landings)
-		else
+		elseif isle.Id == "RegentIsle" then
 			regentIsle(model, center, isle.Radius, landings)
+		elseif isle.Id == "StormIsle" then
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(96, 168, 255), Dark = Color3.fromRGB(58, 66, 92), Dais = Enum.Material.Slate, Air = "Spark", Seed = 611, Stones = 9, Spikes = true })
+		elseif isle.Id == "RimeIsle" then
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(150, 222, 255), Dark = Color3.fromRGB(150, 196, 226), Dais = Enum.Material.Ice, Air = "Motes", Seed = 613, Stones = 12, Spikes = true })
+		else
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(150, 100, 255), Dark = Color3.fromRGB(24, 20, 36), Dais = Enum.Material.Basalt, Air = "Rising", Seed = 617, Stones = 8, Spikes = false })
 		end
 		Builder.BuildArena(model, isle.Id)
 	end

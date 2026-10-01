@@ -1457,6 +1457,13 @@ SanctuaryConfig.RiftBoss = {
 		{ Kind = "TwinSlam", Weight = 0.8, MinPhase = 2 },
 		-- A well opens under a fighter and drags everyone toward it; the core then detonates.
 		{ Kind = "GravityWell", Weight = 0.9, MinPhase = 2, Params = { Radius = 30, Core = 15, PullSeconds = 3, Strength = 34, TelegraphSeconds = 0.8 } },
+		-- Rifts tear open under the fighters one after another.
+		{ Kind = "Volley", Weight = 0.9, MinPhase = 2, Params = { Count = 5, StepSeconds = 0.4, Scatter = 8, RadiusScale = 0.6, TelegraphSeconds = 1.6, Element = "Void" } },
+		-- Void wisps circle the arena and blow up unless cut down.
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 70, FuseSeconds = 9, Orbit = 34, OrbitSpeed = 0.5, BlastRadius = 11, TelegraphSeconds = 1.4, Element = "Void" } },
+		-- Signature: a fault races out from the boss toward a fighter, then a cage of rifts closes.
+		{ Kind = "Fissure", Weight = 0.9, Params = { Count = 6, FirstDistance = 14, Gap = 11, StepSeconds = 0.14, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Void" } },
+		{ Kind = "Cage", Weight = 0.9, MinPhase = 3, Params = { Count = 7, Distance = 15, RadiusScale = 0.55, TelegraphSeconds = 2, Element = "Void" } },
 		-- Phase 3: eight beams at once.
 		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 8, HalfWidth = 0.06, Range = 92, TelegraphSeconds = 1.7 } },
 	},
@@ -1473,6 +1480,10 @@ SanctuaryConfig.RiftBoss = {
 			TwinSlam = { "Two fall as one." },
 			GravityWell = { "Come closer.", "The rift will have you." },
 			Lances = { "The seal's own edge -- cross it and be cut." },
+			Volley = { "The door opens where you stand.", "Fall through." },
+			Fissure = { "The floor remembers the door.", "Split." },
+			Cage = { "Stay. The seal will close round you." },
+			Summon = { "Rise, keepers of the door.", "Let the dark have hands." },
 		},
 	},	-- Quiet time between appearances, and the first appearance after a server starts.
 	IntervalSeconds = 540,
@@ -1558,6 +1569,12 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 		{ Kind = "Dissonance", Weight = 1, Params = { Zones = 3, ZoneRadius = 13, TelegraphSeconds = 2.8 } },
 		-- One note struck three times in the same place, each wider than the last.
 		{ Kind = "EchoSlam", Weight = 0.8, MinPhase = 2, Params = { Hits = 3, StepSeconds = 0.7, Growth = 1.22, TelegraphSeconds = 1.5 } },
+		-- Shards of ice fall in a run of small, fast blows.
+		{ Kind = "Volley", Weight = 0.9, Params = { Count = 5, StepSeconds = 0.3, Scatter = 6, RadiusScale = 0.6, TelegraphSeconds = 1.5, Element = "Frost" } },
+		-- Frozen echoes drift round the hall; shatter them before they ring.
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 60, FuseSeconds = 8, Orbit = 30, OrbitSpeed = 0.6, BlastRadius = 10, TelegraphSeconds = 1.4, Element = "Frost" } },
+		-- Signature: a chord of blows blooming outward from the conductor.
+		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 2, Points = 4, FirstDistance = 20, Gap = 22, StepSeconds = 0.5, RadiusScale = 0.5, TelegraphSeconds = 1.8, Element = "Frost" } },
 		-- Phase 3: fewer pockets, a shorter warning, and the old slam on top.
 		{ Kind = "Dissonance", Weight = 1, MinPhase = 3, Params = { Zones = 2, ZoneRadius = 11, TelegraphSeconds = 2.2 } },
 		{ Kind = "Slam", Weight = 0.7, MinPhase = 3 },
@@ -1575,6 +1592,9 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 			Dissonance = { "Find the harmony.", "Only the still notes are safe." },
 			EchoSlam = { "Echo... echo... echo." },
 			Slam = { "A sour note." },
+			Volley = { "Shatter.", "Glass rain." },
+			Starburst = { "A chord -- in every direction." },
+			Summon = { "My echoes -- sing for me.", "Cold little voices, wake." },
 		},
 	},
 })
@@ -1615,6 +1635,14 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 		{ Kind = "TwinSlam", Weight = 0.6, MinPhase = 2 },
 		-- A wall of flame crosses the arena with one gap to slip through.
 		{ Kind = "Wall", Weight = 0.9, MinPhase = 2, Params = { Speed = 24, Half = 3, Range = 84, GapHalf = 9, TelegraphSeconds = 2.2 } },
+		-- Signature: a river of lava splits the floor toward a fighter, and a ring of fire cages them.
+		{ Kind = "Fissure", Weight = 0.9, Params = { Count = 7, FirstDistance = 12, Gap = 10, StepSeconds = 0.12, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Fire" } },
+		{ Kind = "Cage", Weight = 0.8, MinPhase = 3, Params = { Count = 8, Distance = 16, RadiusScale = 0.55, TelegraphSeconds = 2, Element = "Fire" } },
+		-- Fire from the sky across the whole arena.
+		{ Kind = "Meteors", Weight = 1, MinPhase = 2, Params = { Count = 7, StepSeconds = 0.35, RadiusScale = 0.7, TelegraphSeconds = 1.9, Element = "Fire" } },
+		-- Ember spirits circle the throne and burst if left alone.
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 90, FuseSeconds = 9, Orbit = 36, OrbitSpeed = 0.55, BlastRadius = 12, TelegraphSeconds = 1.4, Element = "Fire" } },
+		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 11, StepSeconds = 0.28, RadiusScale = 0.7, TelegraphSeconds = 1.7, Element = "Fire" } },
 		-- Phase 3: a faster beam, the other way round.
 		{ Kind = "Sweep", Weight = 1, MinPhase = 3, Params = { Seconds = 4.4, Speed = 1.25, HalfWidth = 0.2, Range = 84, TelegraphSeconds = 1.2 } },
 		{ Kind = "Volley", Weight = 1, MinPhase = 3, Params = { Count = 7, StepSeconds = 0.26, Scatter = 6, RadiusScale = 0.72, TelegraphSeconds = 1.3 } },
@@ -1633,11 +1661,206 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 			Wall = { "The wall advances. Find the gap -- or burn." },
 			Slam = { "Crushed." },
 			TwinSlam = { "Two! Two at once!" },
+			Meteors = { "The sky is mine to throw!", "Let the heavens burn with me." },
+			Fissure = { "The earth splits for its king." },
+			Cage = { "A crown of flame -- for you." },
+			Summon = { "Rise, my cinders!", "Guard the throne!" },
 		},
 	},
 })
 
-SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent })
+-- The Stormbound Seraph (Tempest Aerie): a wing of lightning. Its fights are fast and loud:
+-- forked volleys, a fault of thunder down the floor, and the sky itself called down.
+local StormSeraph = bossFrom(SanctuaryConfig.RiftBoss, {
+	Name = "The Stormbound Seraph",
+	Kind = "Seraph",
+	Title = "Wings of the last tempest",
+	Island = "StormIsle",
+	Approach = "Take the Riftmaw's south-western bridge to the Tempest Aerie.",
+	Cues = {
+		Forming = "reactorStabilize",
+		Awake = "domainImpact",
+		Charge = "echoTune",
+		Land = "bootImpact",
+		Phase = "domainCrack",
+		Defeat = "rebirthBloom",
+		Escape = "wardenEscape",
+	},
+	Music = { Bed = "amb_spire", Id = 0, Pitch = 1.12, Level = 0.52, Effect = "Distortion" },
+	Theme = {
+		Primary = { 96, 168, 255 },
+		Hot = { 232, 244, 255 },
+		Alert = { 255, 232, 96 },
+	},
+	BaseHealth = 1100,
+	HealthPerFighter = 820,
+	SlamIntervalMin = 4.5,
+	SlamIntervalMax = 7.5,
+	PhaseDelayScale = { 1, 0.78, 0.58 },
+	Attacks = {
+		{ Kind = "Volley", Weight = 1, Params = { Count = 6, StepSeconds = 0.25, Scatter = 6, RadiusScale = 0.6, TelegraphSeconds = 1.4, Element = "Storm" } },
+		{ Kind = "Lances", Weight = 1, Params = { Count = 4, HalfWidth = 0.07, Range = 92, TelegraphSeconds = 1.7 } },
+		-- Signature: thunder runs down the floor toward a fighter in a line of blows.
+		{ Kind = "Fissure", Weight = 1, Params = { Count = 7, FirstDistance = 12, Gap = 9, StepSeconds = 0.1, RadiusScale = 0.5, TelegraphSeconds = 1.5, Element = "Storm" } },
+		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 2, Points = 4, FirstDistance = 18, Gap = 20, StepSeconds = 0.5, RadiusScale = 0.5, TelegraphSeconds = 1.7, Element = "Storm" } },
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 70, FuseSeconds = 8, Orbit = 32, OrbitSpeed = 0.9, BlastRadius = 10, TelegraphSeconds = 1.4, Element = "Storm" } },
+		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 10, StepSeconds = 0.26, RadiusScale = 0.6, TelegraphSeconds = 1.7, Element = "Storm" } },
+		{ Kind = "Cage", Weight = 0.9, MinPhase = 3, Params = { Count = 7, Distance = 14, RadiusScale = 0.5, TelegraphSeconds = 1.9, Element = "Storm" } },
+		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 8, HalfWidth = 0.055, Range = 92, TelegraphSeconds = 1.6 } },
+	},
+	Dialogue = {
+		Forming = { "The air tastes of iron. Something is gathering." },
+		Awake = { "I am the storm that was promised.", "Every wire of the sky answers me.", "Stand still. It will be over before the thunder." },
+		Phase2 = { "You are quick. Good. I am quicker." },
+		Phase3 = { "THE WHOLE SKY -- COME DOWN!" },
+		Defeat = { "The clouds... are parting.", "Let the quiet have the sky." },
+		Escape = { "The storm moves on. So will its thunder." },
+		Hit = { "Too slow.", "Feel that?" },
+		Attack = {
+			Volley = { "Lightning finds you.", "Strike, strike, strike!" },
+			Lances = { "Arcs of the sky -- cut!" },
+			Fissure = { "Thunder runs to you.", "Follow the light to its end." },
+			Starburst = { "Burst, storm.", "All directions." },
+			Summon = { "Little sparks, take wing.", "Fly, my storm-children." },
+			Meteors = { "Let the sky fall in bolts.", "Every cloud is a hammer." },
+			Cage = { "A cage of thunder." },
+		},
+	},
+})
+
+-- The Rimeheart (Frozen Reliquary): an ancient glacier that learned to hate. It cages, it
+-- freezes the floor in bands, and buries the arena in hail.
+local Rimeheart = bossFrom(SanctuaryConfig.RiftBoss, {
+	Name = "The Rimeheart",
+	Kind = "Rime",
+	Title = "The glacier that remembers",
+	Island = "RimeIsle",
+	Approach = "Take the Riftmaw's southern bridge to the Frozen Reliquary.",
+	Cues = {
+		Forming = "echoCapture",
+		Awake = "wardenAwake",
+		Charge = "wardenSlamCharge",
+		Land = "oreCollect",
+		Phase = "successChime",
+		Defeat = "rebirthBloom",
+		Escape = "reactorStabilize",
+	},
+	Music = { Bed = "amb_hollows", Id = 0, Pitch = 0.82, Level = 0.5, Effect = "Reverb" },
+	Theme = {
+		Primary = { 150, 222, 255 },
+		Hot = { 240, 252, 255 },
+		Alert = { 80, 170, 255 },
+	},
+	BaseHealth = 1350,
+	HealthPerFighter = 960,
+	ActiveSeconds = 170,
+	SlamIntervalMin = 6,
+	SlamIntervalMax = 9,
+	Attacks = {
+		-- Signature: ice closes round a fighter in a ring; only the heart of it is safe.
+		{ Kind = "Cage", Weight = 1.2, Params = { Count = 7, Distance = 15, RadiusScale = 0.55, TelegraphSeconds = 2, Element = "Frost" } },
+		{ Kind = "Rings", Weight = 1, Params = { Count = 3, FirstRadius = 14, Gap = 14, Width = 5, StepSeconds = 0.6, TelegraphSeconds = 2 } },
+		{ Kind = "Volley", Weight = 0.9, Params = { Count = 5, StepSeconds = 0.3, Scatter = 7, RadiusScale = 0.6, TelegraphSeconds = 1.5, Element = "Frost" } },
+		{ Kind = "Dissonance", Weight = 0.9, MinPhase = 2, Params = { Zones = 3, ZoneRadius = 12, TelegraphSeconds = 2.8 } },
+		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 2, Points = 4, FirstDistance = 16, Gap = 18, StepSeconds = 0.55, RadiusScale = 0.5, TelegraphSeconds = 1.8, Element = "Frost" } },
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 100, FuseSeconds = 9, Orbit = 30, OrbitSpeed = 0.45, BlastRadius = 12, TelegraphSeconds = 1.4, Element = "Frost" } },
+		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 9, StepSeconds = 0.3, RadiusScale = 0.65, TelegraphSeconds = 1.9, Element = "Frost" } },
+		{ Kind = "GravityWell", Weight = 0.8, MinPhase = 3, Params = { Radius = 28, Core = 14, PullSeconds = 3, Strength = 30, TelegraphSeconds = 0.8 } },
+	},
+	Dialogue = {
+		Forming = { "Ice creaks. Something very old is turning over." },
+		Awake = { "I have waited under the snow for ten thousand winters.", "You are warm. Warm things do not last here.", "Sleep. I will keep you." },
+		Phase2 = { "The cold is patient. I am not." },
+		Phase3 = { "FREEZE. FREEZE. EVERYTHING FREEZE." },
+		Defeat = { "I am... cracking.", "Spring... was so far away." },
+		Escape = { "I sink back into the ice. It will keep." },
+		Hit = { "Brittle.", "Numb yet?" },
+		Attack = {
+			Cage = { "Be still. Be kept.", "Walls of winter." },
+			Rings = { "The frost spreads in rings." },
+			Volley = { "Icicles. One for each of you." },
+			Dissonance = { "Only the pockets of warmth survive." },
+			Starburst = { "Frost, bloom." },
+			Summon = { "My frozen children -- wake.", "Cold little guardians." },
+			Meteors = { "Hail.", "The sky is full of knives." },
+			GravityWell = { "Come into the cold.", "Everything drifts to winter." },
+		},
+	},
+})
+
+-- The Umbral Knight (Gloaming Keep): a swordsman of pure shadow. Precise and fast: long
+-- cutting lines, a hunter's sweep, cages of void, and a wall that leaves a single gap.
+local UmbralKnight = bossFrom(SanctuaryConfig.RiftBoss, {
+	Name = "The Umbral Knight",
+	Kind = "Knight",
+	Title = "Sworn to the dark between stars",
+	Island = "GloamIsle",
+	Approach = "Take the Riftmaw's far southern bridge to the Gloaming Keep.",
+	Cues = {
+		Forming = "wardenForming",
+		Awake = "domainImpact",
+		Charge = "bootSlamCharge",
+		Land = "wardenSlam",
+		Phase = "wardenAwake",
+		Defeat = "prestige",
+		Escape = "wardenEscape",
+	},
+	Music = { Bed = "amb_riftmaw", Id = 0, Pitch = 0.66, Level = 0.56, Effect = "Distortion" },
+	Theme = {
+		Primary = { 122, 82, 196 },
+		Hot = { 196, 168, 255 },
+		Alert = { 255, 60, 140 },
+	},
+	BaseHealth = 1500,
+	HealthPerFighter = 1050,
+	ActiveSeconds = 175,
+	SlamIntervalMin = 4.5,
+	SlamIntervalMax = 7,
+	PhaseDelayScale = { 1, 0.75, 0.55 },
+	Attacks = {
+		-- Signature: a blade of void races from the knight to a fighter.
+		{ Kind = "Fissure", Weight = 1.2, Params = { Count = 7, FirstDistance = 12, Gap = 9, StepSeconds = 0.09, RadiusScale = 0.5, TelegraphSeconds = 1.4, Element = "Void" } },
+		{ Kind = "TwinSlam", Weight = 0.9, Params = { Element = "Void" } },
+		{ Kind = "Sweep", Weight = 1, Params = { Seconds = 4.8, Speed = 0.95, HalfWidth = 0.16, Range = 84, TelegraphSeconds = 1.5 } },
+		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 110, FuseSeconds = 8, Orbit = 30, OrbitSpeed = 0.75, BlastRadius = 11, TelegraphSeconds = 1.3, Element = "Void" } },
+		{ Kind = "Cage", Weight = 1, MinPhase = 2, Params = { Count = 8, Distance = 14, RadiusScale = 0.5, TelegraphSeconds = 1.9, Element = "Void" } },
+		{ Kind = "Wall", Weight = 0.9, MinPhase = 2, Params = { Speed = 26, Half = 3, Range = 70, GapHalf = 8, TelegraphSeconds = 2 } },
+		{ Kind = "Starburst", Weight = 0.9, MinPhase = 3, Params = { Rings = 2, Points = 5, FirstDistance = 16, Gap = 20, StepSeconds = 0.45, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Void" } },
+		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 6, HalfWidth = 0.06, Range = 92, TelegraphSeconds = 1.5 } },
+		{ Kind = "Meteors", Weight = 0.9, MinPhase = 3, Params = { Count = 9, StepSeconds = 0.3, RadiusScale = 0.6, TelegraphSeconds = 1.7, Element = "Void" } },
+	},
+	Dialogue = {
+		Forming = { "Armour assembles itself out of nothing." },
+		Awake = { "I swore an oath to the space between stars.", "No crown, no name -- only the blade.", "Draw. Let us see what you are made of." },
+		Phase2 = { "You have earned my full attention." },
+		Phase3 = { "NO MORE HONOUR. ONLY THE DARK." },
+		Defeat = { "A good... duel.", "The oath is ended. The dark is yours." },
+		Escape = { "We will finish this another night." },
+		Hit = { "Unguarded.", "Again." },
+		Attack = {
+			Fissure = { "One cut.", "The blade reaches." },
+			TwinSlam = { "Twice." },
+			Sweep = { "Turn with me." },
+			Summon = { "Shades, to arms.", "Shadows -- attend." },
+			Cage = { "No retreat.", "Enclosed." },
+			Wall = { "A wall of night -- find the gap." },
+			Starburst = { "From the heart, outward." },
+			Lances = { "Lines of the void." },
+			Meteors = { "The dark rains down." },
+		},
+	},
+})
+-- Boss effect sounds by name (cast_<Element>, hit_<Element>, wisp_*, impact) -> uploaded audio id.
+-- BOSS-SFX-BEGIN (rewritten by tools/assetgen/upload_boss_sfx.py)
+SanctuaryConfig.BossSfx = {}
+-- BOSS-SFX-END
+
+-- Spoken lines: subtitle text -> uploaded audio id, so each boss line is voiced as well as shown.
+-- BOSS-VOICE-BEGIN (rewritten by tools/assetgen/upload_voice.py)
+SanctuaryConfig.BossVoice = {}
+-- BOSS-VOICE-END
+
+SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight })
 
 return SanctuaryConfig
 end
@@ -1696,7 +1919,7 @@ Layout.ORIGIN = table.freeze({ X = 1680, Y = 248, Z = -220 })
 Layout.HUB_RADIUS = 62
 Layout.HUB_TOP = -1.5
 -- Everything walkable lies within this horizontal radius of the origin.
-Layout.WORLD_RADIUS = 560
+Layout.WORLD_RADIUS = 760
 -- A character this far below the origin has fallen off the world.
 Layout.KILL_DEPTH = 230
 
@@ -1783,9 +2006,38 @@ local ISLES: { Region } = {
 		Ore = nil,
 		OreSites = 0,
 	},
+	{
+		Id = "StormIsle",
+		Name = "The Tempest Aerie",
+		Center = { X = -160, Y = -4, Z = 575 },
+		Radius = 72,
+		Top = "Slate",
+		Under = "Rock",
+		Ore = nil,
+		OreSites = 0,
+	},
+	{
+		Id = "RimeIsle",
+		Name = "The Frozen Reliquary",
+		Center = { X = 160, Y = 0, Z = 575 },
+		Radius = 72,
+		Top = "Snow",
+		Under = "Glacier",
+		Ore = nil,
+		OreSites = 0,
+	},
+	{
+		Id = "GloamIsle",
+		Name = "The Gloaming Keep",
+		Center = { X = 0, Y = 10, Z = 660 },
+		Radius = 72,
+		Top = "Slate",
+		Under = "Basalt",
+		Ore = nil,
+		OreSites = 0,
+	},
 }
-for _, isle in ISLES do
-	table.freeze(isle.Center)
+for _, isle in ISLES do	table.freeze(isle.Center)
 	table.freeze(isle)
 end
 table.freeze(ISLES)
