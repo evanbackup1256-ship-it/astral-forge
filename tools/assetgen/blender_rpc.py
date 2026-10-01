@@ -11,7 +11,7 @@ import socket
 import sys
 
 
-def call(command: str, params: dict | None = None, port: int = 9876, timeout: float = 120.0) -> dict:
+def call(command: str, params: dict | None = None, port: int = 9876, timeout: float = 1800.0) -> dict:
     sock = socket.create_connection(("localhost", port), timeout=timeout)
     sock.sendall(json.dumps({"type": command, "params": params or {}}).encode("utf-8"))
     data = b""

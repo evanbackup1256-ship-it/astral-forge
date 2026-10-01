@@ -429,9 +429,44 @@ function RiftBossService:_loadVfxKit()
 	folder.Parent = ReplicatedStorage
 	result:Destroy()
 end
+-- The Blender-built boss bodies: one uploaded model per boss, its textured pieces published
+-- together under ReplicatedStorage.BossBodyKit (names like "Knight_hips").
+function RiftBossService:_loadBodyKit()
+	local kit = BossSanctuaryConfig.BossBodyKit
+	if type(kit) ~= "table" or next(kit) == nil or ReplicatedStorage:FindFirstChild("BossBodyKit") ~= nil then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "BossBodyKit"
+	for kind, id in kit do
+		if type(id) ~= "number" or id <= 0 then
+			continue
+		end
+		local ok, result = pcall(function()
+			return InsertService:LoadAsset(id)
+		end)
+		if not ok or typeof(result) ~= "Instance" then
+			warn(`[RiftBoss] couldn't load the {kind} body {id}: {result}. The game owner must own the asset.`)
+			continue
+		end
+		for _, item in result:GetDescendants() do
+			if item:IsA("MeshPart") and string.sub(item.Name, 1, #kind + 1) == kind .. "_" and folder:FindFirstChild(item.Name) == nil then
+				local copy = item:Clone()
+				copy.Anchored = true
+				copy.CanCollide = false
+				copy.CanQuery = false
+				copy.CanTouch = false
+				copy.Parent = folder
+			end
+		end
+		result:Destroy()
+	end
+	folder.Parent = ReplicatedStorage
+end
 function RiftBossService:Start()
 	task.spawn(function()
 		self:_loadVfxKit()
+		self:_loadBodyKit()
 	end)
 	local folder = self._host.world:SanctuaryFolder()
 	if folder == nil then
