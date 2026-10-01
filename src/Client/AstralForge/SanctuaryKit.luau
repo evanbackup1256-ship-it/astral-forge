@@ -4121,6 +4121,9 @@ local function destroyBoss()
 	for _, piece in current.meshPieces do
 		piece.part:Destroy()
 	end
+	if current.body ~= nil and current.body.model ~= nil then
+		current.body.model:Destroy()
+	end
 end
 
 -- Textured mesh bodies. These meshes came out of the project's Studio place; each is a set of
@@ -4293,7 +4296,7 @@ local function loadRiggedBody(current: Boss): boolean
 		return true
 	end
 	current.meshPieces = made
-	current.body = { flip = flip, order = data.order, heads = heads, parents = parents, clips = data.clips, smooth = {}, info = info }
+	current.body = { flip = flip, order = data.order, heads = heads, parents = parents, clips = data.clips, smooth = {}, shift = {}, info = info }
 	for _, entry in current.rig.parts do
 		entry.base = 1
 	end
@@ -4305,6 +4308,104 @@ local function loadRiggedBody(current: Boss): boolean
 	current.shell.Transparency = 1
 	appliedHide = -1
 	return true
+end
+-- Glowing details that make the generated models read as alive: eyes, a heart, a halo, lights,
+-- flames. They are bolted to a bone like any mesh piece and move with it. Offsets are in the
+-- model's rest space (BOSS_MESHES units); colours come from the boss's palette.
+-- { bone, offset, size, shape ("ball" | "light" | "fire" | "motes"), colour ("hot" | "primary" | "alert"), range }
+local BOSS_ACCESSORIES: { [string]: { any } } = {
+	Knight = {
+		{ "head", Vector3.new(-0.5, 6.55, 2.85), 0.55, "ball", "hot" },
+		{ "head", Vector3.new(0.5, 6.55, 2.85), 0.55, "ball", "hot" },
+		{ "armR", Vector3.new(-2.45, -3.0, 4.8), 1.0, "light", "alert", 26 },
+		{ "torso", Vector3.new(0, 1, 2), 1.0, "motes", "primary" },
+	},
+	Seraph = {
+		{ "head", Vector3.new(0, 9.3, 0.27), 3.4, "halo", "hot" },
+		{ "torso", Vector3.new(0, 2, 2), 1.0, "light", "hot", 34 },
+		{ "wingL", Vector3.new(6.3, 5.7, -0.3), 1.0, "motes", "hot" },
+		{ "wingR", Vector3.new(-6.0, 5.7, -0.3), 1.0, "motes", "hot" },
+	},
+	Regent = {
+		{ "head", Vector3.new(-0.9, 7.0, 2.7), 0.8, "ball", "hot" },
+		{ "head", Vector3.new(0.9, 7.0, 2.7), 0.8, "ball", "hot" },
+		{ "head", Vector3.new(0, 9.8, 1.3), 1.0, "fire", "primary" },
+		{ "torso", Vector3.new(0, 2.5, 4.0), 1.0, "light", "primary", 46 },
+		{ "torso", Vector3.new(0, 4, 0), 1.0, "motes", "alert" },
+	},
+	Warden = {
+		{ "head", Vector3.new(0.01, 6.6, 2.5), 0.7, "ball", "hot" },
+		{ "torso", Vector3.new(0, 1, 2), 1.0, "light", "primary", 40 },
+		{ "torso", Vector3.new(0, 2, 0), 1.0, "motes", "primary" },
+	},
+	Choir = {
+		{ "torso", Vector3.new(-0.45, 2.5, 3.0), 1.3, "ball", "hot" },
+		{ "torso", Vector3.new(-0.45, 2.5, 3.0), 1.0, "light", "hot", 36 },
+		{ "head", Vector3.new(-0.38, 7.6, -0.72), 2.2, "halo", "hot" },
+		{ "blades", Vector3.new(0, 3.8, 2.2), 1.0, "motes", "primary" },
+	},
+	Rime = {
+		{ "torso", Vector3.new(0, 2.0, 3.2), 1.6, "ball", "hot" },
+		{ "torso", Vector3.new(0, 2.0, 3.2), 1.0, "light", "hot", 34 },
+		{ "head", Vector3.new(-0.8, 6.9, 2.1), 0.55, "ball", "hot" },
+		{ "head", Vector3.new(0.8, 6.9, 2.1), 0.55, "ball", "hot" },
+		{ "torso", Vector3.new(0, 4, 0), 1.0, "motes", "hot" },
+	},
+}
+
+local function addAccessories(current: Boss, made: { Piece }, info: { [BasePart]: { bone: string, rest: Vector3 } }, unit: number, fx: { any })
+	local list = BOSS_ACCESSORIES[current.kind]
+	if list == nil then
+		return
+	end
+	local function colourOf(key: string): Color3
+		return if key == "primary" then pal.Primary elseif key == "alert" then pal.Alert else pal.Hot
+	end
+	for _, entry in list do
+		local bone, offset, size, shape, colourKey = entry[1], entry[2], entry[3], entry[4], entry[5]
+		local colour = colourOf(colourKey)
+		local function mount(part: BasePart, at: Vector3, transparency: number)
+			part.Anchored = true
+			part.CanCollide = false
+			part.Parent = clientFolder
+			info[part] = { bone = bone, rest = at * unit }
+			table.insert(made, { part = part, base = Vector3.zero, spin = Vector3.zero, velocity = nil, tilt = CFrame.identity, transparency = transparency, childOffset = CFrame.identity })
+		end
+		if shape == "ball" then
+			local part = vfxPart("BodyGlow", Enum.PartType.Ball, Vector3.one * size * unit, colour, Enum.Material.Neon)
+			mount(part, offset, 0.05)
+		elseif shape == "halo" then
+			-- a ring of small bright beads standing round the head
+			local beads = 18
+			for k = 1, beads do
+				local a = k / beads * math.pi * 2
+				local part = vfxPart("HaloBead", Enum.PartType.Ball, Vector3.one * 0.5 * unit, colour, Enum.Material.Neon)
+				mount(part, offset + Vector3.new(math.cos(a) * size, 0, math.sin(a) * size), 0.1)
+			end
+		else
+			local part = vfxPart("BodyAnchor", nil, Vector3.new(0.2, 0.2, 0.2), colour, Enum.Material.SmoothPlastic)
+			mount(part, offset, 1)
+			if shape == "light" then
+				local light = Instance.new("PointLight")
+				light.Color = colour
+				light.Range = entry[6] or 30
+				light.Brightness = 2.2
+				light.Shadows = false
+				light.Parent = part
+				table.insert(fx, light)
+			elseif shape == "fire" then
+				local fire = Instance.new("Fire")
+				fire.Color = colour
+				fire.SecondaryColor = pal.Hot
+				fire.Size = 10
+				fire.Heat = 14
+				fire.Parent = part
+				table.insert(fx, fire)
+			else
+				table.insert(fx, Vfx.attach(part, "Motes", { Color = colour, Color2 = pal.Hot, Rate = 14, Speed = NumberRange.new(2, 8), SpreadAngle = Vector2.new(180, 180), Lifetime = NumberRange.new(1.4, 2.8) }))
+			end
+		end
+	end
 end
 local function loadMeshBody(current: Boss)
 	if loadRiggedBody(current) then
@@ -4350,6 +4451,47 @@ local function loadMeshBody(current: Boss)
 			piece.part:Destroy()
 		end
 		return
+	end
+	-- A hand-authored Blender rig for this model (BossRigs): joints, hierarchy and animation. With
+	-- it the body is posed by forward kinematics and gets its glowing details and a rim outline;
+	-- without it the pieces are moved by the older flat skeleton.
+	local rigsModule = Shared:FindFirstChild("BossRigs")
+	local rigs: any = if rigsModule ~= nil and rigsModule:IsA("ModuleScript") then require(rigsModule) else nil
+	local rig: any = if rigs ~= nil then rigs[current.kind] else nil
+	if rig ~= nil then
+		local scale = spec.scale
+		local heads: { [string]: Vector3 } = {}
+		local parents: { [string]: string } = {}
+		for name, bone in rig.bones do
+			heads[name] = Vector3.new(bone.head[1], bone.head[2], bone.head[3]) * scale
+			if bone.parent ~= nil then
+				parents[name] = bone.parent
+			end
+		end
+		local info: { [BasePart]: { bone: string, rest: Vector3 } } = {}
+		for _, piece in made do
+			local name = meshNames[piece.part]
+			if name ~= nil and rig.bones[name] ~= nil then
+				info[piece.part] = { bone = name, rest = piece.base }
+			end
+		end
+		local fx: { any } = {}
+		addAccessories(current, made, info, scale, fx)
+		local bodyModel = Instance.new("Model")
+		bodyModel.Name = "BossBody"
+		bodyModel.Parent = clientFolder
+		for _, piece in made do
+			piece.part.Parent = bodyModel
+		end
+		local outline = Instance.new("Highlight")
+		outline.Name = "BossRim"
+		outline.Adornee = bodyModel
+		outline.FillTransparency = 1
+		outline.OutlineColor = pal.Hot
+		outline.OutlineTransparency = 0.45
+		outline.DepthMode = Enum.HighlightDepthMode.Occluded
+		outline.Parent = bodyModel
+		current.body = { flip = false, order = rig.order, heads = heads, parents = parents, clips = rig.clips, smooth = {}, shift = {}, info = info, unit = scale, model = bodyModel, fx = fx }
 	end
 	current.meshPieces = made
 	-- The mesh body replaces the procedural one: hide the rig, plates and shards for good.
@@ -4639,6 +4781,30 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 	end
 end
 
+-- Like sampleClip, but for clips with an offset as well as a rotation per bone and frame
+-- (`stride` = 6: pitch, yaw, roll, x, y, z). Older clips (3 numbers) return a zero offset.
+local function sampleRig(clip: any, bone: string, time: number): (number, number, number, number, number, number)
+	local data = clip.bones[bone]
+	if data == nil then
+		return 0, 0, 0, 0, 0, 0
+	end
+	local stride = clip.stride or 3
+	local frames = #data // stride
+	local at = if clip.loop then time % clip.length else math.clamp(time, 0, clip.length)
+	local position = at * clip.fps
+	local base = math.floor(position)
+	local k = position - base
+	local a = math.min(base, frames - 1) * stride
+	local b = math.min(base + 1, frames - 1) * stride
+	local function lerp(i: number): number
+		return data[a + i] + (data[b + i] - data[a + i]) * k
+	end
+	if stride >= 6 then
+		return lerp(1), lerp(2), lerp(3), lerp(4), lerp(5), lerp(6)
+	end
+	return lerp(1), lerp(2), lerp(3), 0, 0, 0
+end
+
 -- Poses a Blender-rigged body: pick the clip, sample every bone, smooth it, and run forward
 -- kinematics down the skeleton.
 local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: number, now: number, charge: number, phase: string, lookDir: Vector3, emit: (Piece, CFrame) -> ())
@@ -4675,17 +4841,21 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 	end
 	local flinch = current.flash
 	local blend = 1 - math.exp(-dt * 26)
+	local unit: number = body.unit or 1
 	local posed: { [string]: CFrame } = {}
 	for _, name in body.order do
-		local x, y, z = 0, 0, 0
+		local x, y, z, ox, oy, oz = 0, 0, 0, 0, 0, 0
 		if clip ~= nil then
-			x, y, z = sampleClip(clip, name, clipTime)
+			x, y, z, ox, oy, oz = sampleRig(clip, name, clipTime)
 		end
 		if flinch > 0.04 and clips.hit ~= nil then
-			local hx, hy, hz = sampleClip(clips.hit, name, 0)
+			local hx, hy, hz, hox, hoy, hoz = sampleRig(clips.hit, name, 0)
 			x += hx * flinch
 			y += hy * flinch
 			z += hz * flinch
+			ox += hox * flinch
+			oy += hoy * flinch
+			oz += hoz * flinch
 		end
 		if name == "head" then
 			y += lookYaw
@@ -4698,12 +4868,16 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 		local previous = body.smooth[name]
 		local value = if previous ~= nil then previous:Lerp(target, blend) else target
 		body.smooth[name] = value
+		local shift = Vector3.new(ox, oy, oz) * unit
+		local previousShift = body.shift[name]
+		shift = if previousShift ~= nil then previousShift:Lerp(shift, blend) else shift
+		body.shift[name] = shift
 		local rx, rz = value.X, value.Z
 		if body.flip then
 			rx, rz = -rx, -rz
 		end
 		local head: Vector3 = body.heads[name]
-		local step = CFrame.new(head) * CFrame.Angles(rx, value.Y, rz) * CFrame.new(-head)
+		local step = CFrame.new(head + shift) * CFrame.Angles(rx, value.Y, rz) * CFrame.new(-head)
 		local parent = body.parents[name]
 		posed[name] = if parent ~= nil then posed[parent] * step else step
 	end
@@ -4775,6 +4949,11 @@ local function setBossTransparency(current: Boss, visible: number)
 		(extra :: any).Enabled = visible > 0.3
 	end
 	current.swirl.Enabled = visible > 0.3 and not rigged
+	if current.body ~= nil and current.body.fx ~= nil then
+		for _, effect in current.body.fx do
+			effect.Enabled = visible > 0.3
+		end
+	end
 	current.glowHalo.Enabled = visible > 0.3 and not rigged
 	applyPieceTransparency(current.rings, if rigged then 1 else hide)
 	applyPieceTransparency(current.plates, hide)
