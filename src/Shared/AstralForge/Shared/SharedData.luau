@@ -1946,13 +1946,13 @@ SanctuaryConfig.BossBodies = false
 -- The uploaded body models, one per boss: kind -> model id.
 -- BOSS-BODYKIT-BEGIN (rewritten by tools/bossbuild/upload_bodies.py)
 SanctuaryConfig.BossBodyKit = {
-	Astraeon = 101383939899759,
-	Choir = 128966943239551,
-	Knight = 79529741206058,
-	Regent = 126822760222185,
-	Rime = 79017711263030,
-	Seraph = 99989330053898,
-	Warden = 116830667212689,
+	Astraeon = 122761215688798,
+	Choir = 120624360620684,
+	Knight = 115948050977375,
+	Regent = 136824896638647,
+	Rime = 100339874565327,
+	Seraph = 140728471169346,
+	Warden = 119016810651714,
 }
 -- BOSS-BODYKIT-END
 
@@ -3771,6 +3771,13 @@ Astraeon.WalkSpeed, Astraeon.StandOff = 8, 32
 -- Each boss's own soundtrack: kind -> uploaded audio id (the fight layer plays it, Music.Id below).
 -- BOSS-MUSIC-BEGIN (rewritten by tools/assetgen/upload_boss_music.py)
 SanctuaryConfig.BossMusic = {
+	Astraeon = 122693395660359,
+	Choir = 99711693083649,
+	Knight = 132821136179443,
+	Regent = 113802436441958,
+	Rime = 72121734420253,
+	Seraph = 120342418849966,
+	Warden = 138383890408892,
 }
 -- BOSS-MUSIC-END
 for _, boss in { SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight, Astraeon } do
