@@ -542,6 +542,17 @@ function RiftBossService:_loadBodyKit()
 	folder.Parent = ReplicatedStorage
 end
 function RiftBossService:Start()
+	if RunService:IsStudio() then
+		-- Studio only: lets the command bar (which runs on the client while playing) set RiftBossForce / RiftBossDemo.
+		local bridge = Instance.new("RemoteEvent")
+		bridge.Name = "BossStudioCommand"
+		bridge.Parent = ReplicatedStorage
+		bridge.OnServerEvent:Connect(function(_player, name, value)
+			if (name == "RiftBossForce" or name == "RiftBossDemo") and type(value) == "string" and #value < 40 then
+				Workspace:SetAttribute(name, value)
+			end
+		end)
+	end
 	task.spawn(function()
 		self:_loadVfxKit()
 		self:_loadBodyKit()
