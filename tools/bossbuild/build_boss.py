@@ -24,6 +24,7 @@ import acting
 import clips as clipmod
 import lib
 
+importlib.reload(acting)
 importlib.reload(clipmod)
 importlib.reload(lib)
 module_name = KIND.lower()

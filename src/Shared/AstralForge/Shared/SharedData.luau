@@ -1936,7 +1936,7 @@ SanctuaryConfig.BossSfx = {
 
 -- Which body each boss wears: the generated textured models (default) or the procedural Blender bodies.
 -- Set to "blender" for every boss, or { Knight = "blender", ... } for some.
-SanctuaryConfig.BossBodyStyle = { Astraeon = "blender" }
+SanctuaryConfig.BossBodyStyle = "blender"
 
 -- Boss bodies built, rigged, textured and animated in Blender (tools/bossbuild): skeleton, piece placement and clips.
 -- BOSS-BODIES-BEGIN (moved to BossBodies.luau; see tools/bossbuild/export_bodies.py)

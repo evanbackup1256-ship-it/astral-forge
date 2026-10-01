@@ -236,7 +236,7 @@ def make_objects(boss):
         objs[name] = obj
     return objs
 
-def detail_pass(objs, bevel=0.015, subdiv=0, noise=0.0, cap=19000):
+def detail_pass(objs, bevel=0.015, subdiv=0, noise=0.0, cap=19500):
     """Make the blocky construction read as sculpted: optional subdivision (more surface to work with),
     a noise displacement for rough stone and ice, a bevel so every edge catches light, smooth shading
     broken at hard angles, and a decimate if a piece goes over what Roblox accepts in one MeshPart."""
@@ -275,7 +275,7 @@ def detail_pass(objs, bevel=0.015, subdiv=0, noise=0.0, cap=19000):
                 bpy.ops.object.modifier_apply(modifier=m.name)
             except RuntimeError:
                 obj.modifiers.remove(m)
-        faces = len(obj.data.polygons)
+        faces = sum(len(poly.vertices) - 2 for poly in obj.data.polygons)   # triangles: Roblox's limit per MeshPart
         if faces > cap:
             m = obj.modifiers.new("DetailDecimate", "DECIMATE")
             m.ratio = cap / faces
