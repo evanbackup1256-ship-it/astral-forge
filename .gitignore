@@ -21,3 +21,4 @@ __pycache__/
 
 assets/generated/voice/*.wav
 assets/generated/bosssfx/*.wav
+assets/generated/piper/
