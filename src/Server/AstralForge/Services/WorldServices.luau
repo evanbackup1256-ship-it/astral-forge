@@ -605,10 +605,126 @@ function RiftBossService:_forced(now: number)
 	end
 end
 
+-- Studio only: workspace:SetAttribute("RiftBossDemo", "All") (or one boss kind) walks the boss(es) through every
+-- attack and every ultimate one at a time, a pause between, so each can be watched on its own. The move now
+-- playing is in workspace attribute RiftBossDemoNow and shown as a toast. Set it to "Stop" to end it.
+local DEMO_PAUSE_SECONDS = 5
+function RiftBossService:_demoMoves(config)
+	local moves = {}
+	for index, attack in config.Attacks do
+		local gate = if (attack.MinPhase or 1) > 1 then ` (phase {attack.MinPhase}+)` else ""
+		table.insert(moves, { Label = `move {index}: {attack.Kind}{gate}`, Attack = attack })
+	end
+	local names = {}
+	for name, def in config.Ultimates or {} do
+		if def.Chain == nil then
+			table.insert(names, name)
+		end
+	end
+	table.sort(names)
+	for _, name in names do
+		local def = config.Ultimates[name]
+		table.insert(moves, { Label = `ULTIMATE: {name}`, Attack = { Kind = def.Kind, Params = def.Params, Weight = 1, Ultimate = name } })
+	end
+	return moves
+end
+
+function RiftBossService:_demo(now: number, inArena: { [Player]: Vector3 })
+	if not RunService:IsStudio() then
+		return
+	end
+	local request = Workspace:GetAttribute("RiftBossDemo")
+	if type(request) == "string" then
+		Workspace:SetAttribute("RiftBossDemo", nil)
+		if request == "Stop" then
+			self._demoRun = nil
+			Workspace:SetAttribute("RiftBossDemoNow", nil)
+			self._state = { Phase = "Dormant", EndsAt = now, Health = 0, MaxHealth = 0 }
+			return
+		end
+		local queue = {}
+		for _, candidate in self._roster do
+			if request == "All" or candidate.Kind == request then
+				table.insert(queue, candidate)
+			end
+		end
+		if #queue == 0 then
+			return
+		end
+		self._demoRun = { Queue = queue, Boss = 0, Moves = {}, Move = 0, IdleSince = nil, Started = false }
+	end
+	local run = self._demoRun
+	if run == nil then
+		return
+	end
+	-- hold the fight open and the boss healthy; only the scripted moves are played
+	self._nextAttackAt = math.huge
+	self._nextUltimateAt = math.huge
+	self._activeAt = now
+	table.clear(self._comboQueue)
+	local state = self._state
+	if state.Phase == "Active" and state.MaxHealth > 0 then
+		self._state = { Phase = "Active", EndsAt = now + 3600, Health = state.MaxHealth, MaxHealth = state.MaxHealth }
+		self._phaseIndex = 3
+	end
+	if run.Boss == 0 or (run.Move >= #run.Moves and run.Started and #self._events == 0 and not self._attacking and #self._adds == 0 and now - (run.IdleSince or now) >= DEMO_PAUSE_SECONDS) then
+		run.Boss += 1
+		if run.Boss > #run.Queue then
+			self._demoRun = nil
+			Workspace:SetAttribute("RiftBossDemoNow", "demo finished")
+			self:_announce("Boss demo finished", "Every move of every boss has been shown.", false)
+			self._state = { Phase = "Dormant", EndsAt = now, Health = 0, MaxHealth = 0 }
+			return
+		end
+		local config = run.Queue[run.Boss]
+		for index, candidate in self._roster do
+			if candidate == config then
+				self._bossIndex = index
+			end
+		end
+		self._config = config
+		self:_moveToArena()
+		table.clear(self._events)
+		table.clear(self._adds)
+		self._attacking = false
+		self._state = { Phase = "Dormant", EndsAt = now, Health = 0, MaxHealth = 0 }
+		run.Moves = self:_demoMoves(config)
+		run.Move = 0
+		run.IdleSince = nil
+		run.Started = false
+		Workspace:SetAttribute("RiftBossDemoNow", `{config.Name}: waking`)
+		return
+	end
+	if state.Phase ~= "Active" then
+		return
+	end
+	run.Started = true
+	if #self._events > 0 or self._attacking or #self._adds > 0 then
+		run.IdleSince = nil
+		return
+	end
+	if run.IdleSince == nil then
+		run.IdleSince = now
+		return
+	end
+	if now - run.IdleSince < DEMO_PAUSE_SECONDS or run.Move >= #run.Moves then
+		return
+	end
+	run.Move += 1
+	local move = run.Moves[run.Move]
+	local config = self._config
+	local label = `{config.Name} - {move.Label} ({run.Move}/{#run.Moves})`
+	Workspace:SetAttribute("RiftBossDemoNow", label)
+	self:_announce(config.Name, move.Label, false)
+	run.IdleSince = nil
+	self._attacking = true
+	self:_begin(move.Attack, now, inArena)
+end
 function RiftBossService:_step()
 	local now = Workspace:GetServerTimeNow()
 	self:_forced(now)
 	local present, inArena = self:_fighters()
+	self:_demo(now, inArena)
 	local state, entered = RiftBossMath.Step(self._state, now, #present, self._config)
 	self._state = state
 	if entered == "Dormant" then
