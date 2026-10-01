@@ -49,6 +49,7 @@ PROFILES = {
     "Regent": dict(speaker=594, pitch=0.88, sub=0.4, up=0.0, chorus=1, ring=(0, 0), drive=3.0, reverb=(0.9, 0.25), low=0.3, air=0.0),
     "Seraph": dict(speaker=207, pitch=1.04, sub=0.0, up=0.12, chorus=2, ring=(120, 0.28), drive=1.8, reverb=(1.1, 0.3), low=0.0, air=0.025),
     "Rime": dict(speaker=342, pitch=0.93, sub=0.2, up=0.0, chorus=3, ring=(0, 0), drive=1.0, reverb=(3.2, 0.5), low=0.45, air=0.06),
+    "Astraeon": dict(speaker=90, pitch=0.82, sub=0.35, up=0.15, chorus=3, ring=(30, 0.12), drive=1.6, reverb=(1.2, 0.35), low=0.25, air=0.3),
     "Knight": dict(speaker=90, pitch=0.9, sub=0.28, up=0.0, chorus=1, ring=(42, 0.2), drive=2.0, reverb=(0.7, 0.22), low=0.2, air=0.0),
 }
 

@@ -381,6 +381,8 @@ function RiftBossService.new(host)
 	self._burst = {}
 	self._breakUntil = 0
 	self._breakCooldownUntil = 0
+	self._nextUltimateAt = math.huge
+	self._finalStandDone = false
 	self._phaseIndex = 1
 	self._nextAttackAt = math.huge
 	-- Attacks in flight. Each is { Kind, At, ... } and resolves when `now` passes At.
@@ -639,6 +641,8 @@ function RiftBossService:_step()
 		table.clear(self._burst)
 		self._breakUntil = 0
 		self._breakCooldownUntil = 0
+		self._finalStandDone = false
+		self._nextUltimateAt = now + (self._config.UltimateEvery or math.huge)
 		self._nextAttackAt = now + self:_attackDelay(now)
 		table.clear(self._events)
 		self:_broadcast({
@@ -660,6 +664,7 @@ function RiftBossService:_step()
 		self:_phases(now)
 		self:_track(now, inArena)
 		self:_enrage(now)
+		self:_ultimates(now)
 		self:_stepAdds(now, inArena)
 		self:_attacks(now, inArena)
 	end
@@ -707,6 +712,49 @@ function RiftBossService:_enrage(now: number)
 	end
 end
 
+-- ULTIMATES (mega bosses). A boss's Ultimates table names set pieces built from the ordinary attack
+-- kinds with heavier parameters. They are queued, never rolled: at phase changes (PhaseUltimates), every
+-- UltimateEvery seconds from phase 3, and once as a last stand (FinalStand) when it is nearly beaten.
+function RiftBossService:_queueUltimate(name: string, front: boolean?)
+	local def = self._config.Ultimates and self._config.Ultimates[name]
+	if def == nil then
+		return
+	end
+	if def.Chain ~= nil then
+		for index, link in def.Chain do
+			self:_queueUltimate(link, front and index == 1)
+		end
+		return
+	end
+	local attack = { Kind = def.Kind, Params = def.Params, Weight = 1, Ultimate = name }
+	if front then
+		table.insert(self._comboQueue, 1, attack)
+	else
+		table.insert(self._comboQueue, attack)
+	end
+end
+
+function RiftBossService:_ultimates(now: number)
+	local config = self._config
+	if config.Ultimates == nil then
+		return
+	end
+	local state = self._state
+	local fraction = if state.MaxHealth > 0 then state.Health / state.MaxHealth else 1
+	if config.FinalStand ~= nil and not self._finalStandDone and fraction < 0.1 then
+		self._finalStandDone = true
+		table.clear(self._comboQueue)
+		self:_queueUltimate(config.FinalStand)
+		return
+	end
+	if self._phaseIndex >= 3 and now >= self._nextUltimateAt and #self._comboQueue == 0 and #self._events == 0 and not self._attacking then
+		local roster = config.UltimateRoster or {}
+		if #roster > 0 then
+			self:_queueUltimate(roster[self._random:NextInteger(1, #roster)])
+		end
+		self._nextUltimateAt = now + (config.UltimateEvery or 40) * (if self._enraged then 0.7 else 1)
+	end
+end
 -- After an attack is chosen it may queue its follow-up from the boss's combo table.
 function RiftBossService:_queueCombo(attack)
 	local config = self._config
@@ -738,6 +786,11 @@ function RiftBossService:_phases(now: number)
 			table.insert(self._comboQueue, 1, candidate)
 			break
 		end
+	end
+	-- A mega boss answers each phase with an ultimate (before the reinforcements).
+	local phaseUltimate = config.PhaseUltimates and config.PhaseUltimates[phase]
+	if phaseUltimate ~= nil then
+		self:_queueUltimate(phaseUltimate, true)
 	end
 	self:_broadcast({ Type = "RiftBossPhase", Kind = config.Kind, Name = config.Name, Phase = phase, Breather = PHASE_BREATHER_SECONDS }, true)
 end
@@ -930,6 +983,9 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 	local targets = self:_targets(inArena, telegraph * 0.45)
 	-- Tell clients which move this is: the boss winds up and speaks accordingly.
 	self:_broadcast({ Type = "RiftBossAttack", BossKind = config.Kind, Attack = attack.Kind }, true)
+	if attack.Ultimate ~= nil then
+		self:_broadcast({ Type = "RiftBossUltimate", BossKind = config.Kind, Name = attack.Ultimate, Seconds = telegraph }, true)
+	end
 	if attack.Kind == "Slam" then
 		self:_slamAt(targets[1] or center, center.Y, now + telegraph, nil, params.Element)
 	elseif attack.Kind == "TwinSlam" then
@@ -2020,7 +2076,7 @@ function Builder.BuildArena(parent: Instance, island: string?)
 	hub.Position = Vector3.new(0, 24, 0)
 	hub.Parent = seal
 	-- Pillars ringing the arena, each topped with light of the boss's colour.
-	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 elseif kind == "Seraph" then 5 elseif kind == "Rime" then 9 elseif kind == "Knight" then 4 else 8
+	local count = if kind == "Choir" then 7 elseif kind == "Regent" then 6 elseif kind == "Seraph" then 5 elseif kind == "Rime" then 9 elseif kind == "Knight" then 4 elseif kind == "Astraeon" then 12 else 8
 	local pillarColor = if kind == "Choir" then Color3.fromRGB(96, 150, 190) elseif kind == "Regent" then Color3.fromRGB(28, 22, 26) elseif kind == "Seraph" then Color3.fromRGB(70, 84, 120) elseif kind == "Rime" then Color3.fromRGB(170, 214, 240) elseif kind == "Knight" then Color3.fromRGB(22, 18, 34) else Color3.fromRGB(40, 40, 54)
 	local pillarMaterial = if kind == "Choir" or kind == "Rime" then Enum.Material.Glass elseif kind == "Seraph" then Enum.Material.Metal else Enum.Material.Basalt
 	for k = 1, count do
@@ -2221,6 +2277,8 @@ function Builder.BuildScenery(folder: Instance)
 			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(96, 168, 255), Dark = Color3.fromRGB(58, 66, 92), Dais = Enum.Material.Slate, Air = "Spark", Seed = 611, Stones = 9, Spikes = true })
 		elseif isle.Id == "RimeIsle" then
 			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(150, 222, 255), Dark = Color3.fromRGB(150, 196, 226), Dais = Enum.Material.Ice, Air = "Motes", Seed = 613, Stones = 12, Spikes = true })
+		elseif isle.Id == "AstraIsle" then
+			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(255, 214, 120), Dark = Color3.fromRGB(190, 176, 150), Dais = Enum.Material.Marble, Air = "Embers", Seed = 619, Stones = 14, Spikes = true })
 		else
 			bossIsle(model, center, isle.Radius, landings, { Accent = Color3.fromRGB(150, 100, 255), Dark = Color3.fromRGB(24, 20, 36), Dais = Enum.Material.Basalt, Air = "Rising", Seed = 617, Stones = 8, Spikes = false })
 		end

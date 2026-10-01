@@ -19,7 +19,7 @@ local function check(condition: boolean, message: string)
 end
 
 local roster = SanctuaryConfig.RiftBosses
-check(#roster == 6, "expected 6 bosses, got " .. #roster)
+check(#roster == 7, "expected 7 bosses, got " .. #roster)
 check(roster[1] == SanctuaryConfig.RiftBoss, "the Warden must lead the roster")
 
 local kinds = {}
@@ -56,7 +56,7 @@ check(RiftBossMath.PhaseIndex(660, 1000, phases) == 2, "at the first threshold i
 check(RiftBossMath.PhaseIndex(330, 1000, phases) == 3, "at the second threshold is phase 3")
 check(RiftBossMath.PhaseIndex(0, 1000, phases) == 3, "empty stays phase 3")
 check(RiftBossMath.PhaseIndex(0, 0, phases) == 1, "no max health is phase 1")
-check(RiftBossMath.NextBoss(1, 6) == 2 and RiftBossMath.NextBoss(6, 6) == 1, "roster wraps")
+check(RiftBossMath.NextBoss(1, 7) == 2 and RiftBossMath.NextBoss(7, 7) == 1, "roster wraps")
 check(RiftBossMath.NextBoss(1, 0) == 1, "empty roster is safe")
 check(RiftBossMath.PhaseDelayScale(1, { 1, 0.8, 0.62 }) == 1, "delay scale phase 1")
 check(RiftBossMath.PhaseDelayScale(9, { 1, 0.8, 0.62 }) == 0.62, "delay scale holds the last entry")
@@ -140,7 +140,7 @@ for _, boss in roster do
 		end
 	end
 end
-check(#Layout.isles() == 5, "expected five boss islands")
+check(#Layout.isles() == 6, "expected six boss islands")
 for _, isle in Layout.isles() do
 	check(flat(isle.Center, { X = 0, Z = 0 }) + isle.Radius <= Layout.WORLD_RADIUS, isle.Id .. ": outside the world")
 	for _, region in Layout.regions() do
@@ -210,7 +210,7 @@ for _, boss in roster do
 		check(kinds[kind], label .. ": dialogue for an attack it does not have (" .. kind .. ")")
 	end
 	for key, list in speech do
-		if key ~= "Attack" then
+		if key ~= "Attack" and key ~= "Ultimate" then
 			for _, line in list do
 				check(type(line) == "string" and #line > 0 and #line <= 140, label .. ": bad " .. key .. " line")
 			end
@@ -297,6 +297,47 @@ for _, boss in roster do
 	check(type(boss.Dialogue.Enrage) == "table" and type(boss.Dialogue.Break) == "table", label .. ": needs Enrage and Break lines")
 end
 for _, wanted in { "_queueCombo", "_enrage", "_track", "RiftBossBreak", "RiftBossEnrage", "LeadPosition", "RankTargets" } do
+	check(string.find(serviceSource, wanted, 1, true) ~= nil, "the boss service never uses " .. wanted)
+end
+
+-- Ultimates: built only from attack kinds the service starts, with every parameter it reads, announced
+-- and spoken about; phases and chains point at real ultimates.
+for _, boss in roster do
+	if boss.Ultimates ~= nil then
+		local label = boss.Name
+		for name, def in boss.Ultimates do
+			if def.Chain ~= nil then
+				for _, link in def.Chain do
+					check(boss.Ultimates[link] ~= nil and link ~= name, label .. ": ultimate " .. name .. " chains to a missing ultimate " .. link)
+				end
+			else
+				local needs = REQUIRED[def.Kind]
+				check(needs ~= nil, label .. ": ultimate " .. name .. " uses an unknown attack " .. tostring(def.Kind))
+				check(string.find(serviceSource, 'attack.Kind == "' .. def.Kind .. '"', 1, true) ~= nil, label .. ": service never starts " .. def.Kind)
+				for _, key in needs do
+					check(def.Params ~= nil and def.Params[key] ~= nil, label .. ": ultimate " .. name .. " lacks " .. key)
+				end
+			end
+			check(type(boss.Dialogue.Ultimate) == "table" and type(boss.Dialogue.Ultimate[name]) == "table" and #boss.Dialogue.Ultimate[name] >= 1, label .. ": nothing to say for ultimate " .. name)
+		end
+		for phase, name in boss.PhaseUltimates or {} do
+			check(boss.Ultimates[name] ~= nil and phase >= 2 and phase <= #boss.Phases + 1, label .. ": phase " .. tostring(phase) .. " ultimate is missing")
+		end
+		for _, name in boss.UltimateRoster or {} do
+			check(boss.Ultimates[name] ~= nil, label .. ": roster names a missing ultimate " .. name)
+		end
+		check(boss.FinalStand == nil or boss.Ultimates[boss.FinalStand] ~= nil, label .. ": final stand names a missing ultimate")
+		check(#boss.Phases >= 3, label .. ": a mega boss has at least four phases")
+	end
+end
+local megas = 0
+for _, boss in roster do
+	if boss.Ultimates ~= nil then
+		megas += 1
+	end
+end
+check(megas >= 1, "the roster has a mega boss")
+for _, wanted in { "_queueUltimate", "_ultimates", "RiftBossUltimate" } do
 	check(string.find(serviceSource, wanted, 1, true) ~= nil, "the boss service never uses " .. wanted)
 end
 print("[TEST] rift boss roster guards passed | " .. #roster .. " bosses")

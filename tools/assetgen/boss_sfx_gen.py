@@ -348,6 +348,9 @@ SOUNDS = {
 for _kind in ("Warden", "Choir", "Regent", "Seraph", "Rime", "Knight"):
     for _beat in ("roar", "charge", "boom", "death"):
         SOUNDS[f"{_beat}_{_kind}"] = globals()[f"{_beat}_{_kind}"]
+# Astraeon, the mega boss, shares the Regent's furnace sounds until it gets its own.
+for _beat in ("roar", "charge", "boom", "death"):
+    SOUNDS[f"{_beat}_Astraeon"] = globals()[f"{_beat}_Regent"]
 
 def main():
     os.makedirs(OUT, exist_ok=True)

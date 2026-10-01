@@ -284,7 +284,58 @@ DIALOGUE = {
             "Meteors": ["The dark [hot]rains[/] down.", "[slow]Let it fall.[/]", "[big]ALL OF IT.[/]"],
         },
     },
-}
+    "Astraeon": {
+        "Forming": [
+            "[whisper]Something vast is... [wave]remembering itself[/].[/]",
+            "The air [pulse]hums[/] with an old, enormous light.",
+        ],
+        "Awake": [
+            "[slow]A star[/] [beat] remembers what it was.",
+            "I was the light that taught your sky to [hot]shine[/]. [beat] Now I am only its [shake]ending[/].",
+            "[big]Come, small fires.[/] [beat] Burn with me.",
+        ],
+        "Phase2": [
+            "You are brighter than I [hot]expected[/].",
+            "Then let me show you [slow]what light does[/] when it is [shake]angry[/].",
+        ],
+        "Phase3": [
+            "[big]THE SKY FALLS[/] [beat] when I do.",
+            "[glitch]Every star I ever lit -- I take them BACK.[/]",
+        ],
+        "Defeat": [
+            "[whisper]I was never... meant to... [wave]shine[/]...[/]",
+            "[slow]Thank you. [beat] The dark is [hot]gentle[/].[/]",
+        ],
+        "Escape": ["The dark takes me back. [beat] [hot]For now.[/]"],
+        "Enrage": ["[big]ENOUGH LIGHT.[/] [beat] [shake]LET THERE BE ENDING.[/]", "[glitch]I will not fade for [hot]you[/].[/]"],
+        "Break": ["[shake]A crack... in my [hot]crown[/]?[/]", "[big]Impossible.[/] [beat] I am [hot]eternal[/]."],
+        "Hit": [
+            "[hot]A spark.[/]",
+            "[slow]You cannot dim what burns for ages.[/]",
+            "[shake]Small. So small.[/]",
+            "[wave]Do you hear the sky laughing?[/]",
+            "[big]Again.[/] [beat] Try again.",
+        ],
+        "Attack": {
+            "Slam": ["[big]FALL.[/]", "[shake]Beneath a star.[/]"],
+            "Volley": ["[hot]Starfire[/], falling.", "[shake]Rain, little suns.[/]"],
+            "Fissure": ["The ground [hot]splits[/] for light.", "[slow]Follow the crack to its end.[/]"],
+            "Cage": ["A [hot]cage[/] of dying suns.", "[glitch]No way out but through me.[/]"],
+            "Starburst": ["[big]Bloom.[/]", "[wave]Every direction at once.[/]"],
+            "Rings": ["[wave]Ripples of a [hot]dying[/] sun.[/]", "[slow]Mind the gaps. [beat] If you can.[/]"],
+            "Lances": ["Beams of [hot]old light[/].", "[shake]Cut.[/]"],
+            "Summon": ["[wave]Embers of my [hot]last[/] fire.[/]", "Rise, [hot]little suns[/]."],
+            "Meteors": ["The sky is [hot]mine[/] to throw.", "[big]STARFALL.[/]"],
+            "GravityWell": ["[slow]Everything falls toward the light.[/]", "[wave]Come closer.[/]"],
+        },
+        "Ultimate": {
+            "Starfall": ["[big]STARFALL.[/] [beat] [slow]Run.[/]", "[shake]Every star I ever lit -- falls.[/]"],
+            "Supernova": ["[big]SUPERNOVA.[/]", "[slow]Find the dark. [beat] Hide in the [hot]dark[/].[/]"],
+            "EventHorizon": ["[big]EVENT HORIZON.[/]", "[wave]Nothing leaves. [beat] Not even light.[/]"],
+            "AnnihilationBeam": ["[big]ANNIHILATION.[/]", "[shake]One line of light. [beat] Let it find you.[/]"],
+            "LastLight": ["[big][shake]LAST LIGHT.[/][/]", "[glitch]If I end -- [beat] so does EVERYTHING.[/]"],
+        },
+    },}
 
 
 def lua_string(text: str) -> str:
@@ -300,6 +351,11 @@ def render(kind: str) -> str:
     out = ["Dialogue = {"]
     for key in ("Forming", "Awake", "Phase2", "Phase3", "Defeat", "Escape", "Enrage", "Break", "Hit"):
         out.append(f"\t\t{key} = {lua_list(script[key], '')},")
+    if "Ultimate" in script:
+        out.append("\t\tUltimate = {")
+        for name, lines in script["Ultimate"].items():
+            out.append(f"\t\t\t{name} = {lua_list(lines, '')},")
+        out.append("\t\t},")
     out.append("\t\tAttack = {")
     for attack, lines in script["Attack"].items():
         out.append(f"\t\t\t{attack} = {lua_list(lines, '')},")

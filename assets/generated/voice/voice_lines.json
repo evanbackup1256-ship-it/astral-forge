@@ -2803,5 +2803,614 @@
       0.363
     ],
     "duration": 1.72
+  },
+  "Astraeon_01_96394b16": {
+    "kind": "Astraeon",
+    "text": "[whisper]Something vast is... [wave]remembering itself[/].[/]",
+    "words": [
+      0.0,
+      0.586,
+      0.846,
+      1.491,
+      2.208
+    ],
+    "duration": 4.304
+  },
+  "Astraeon_02_d5bcdd32": {
+    "kind": "Astraeon",
+    "text": "The air [pulse]hums[/] with an old, enormous light.",
+    "words": [
+      0.0,
+      0.195,
+      0.39,
+      0.65,
+      0.91,
+      1.04,
+      1.44,
+      2.011
+    ],
+    "duration": 4.079
+  },
+  "Astraeon_03_1dc9ec12": {
+    "kind": "Astraeon",
+    "text": "[slow]A star[/] [beat] remembers what it was.",
+    "words": [
+      0.0,
+      0.142,
+      1.128,
+      1.683,
+      1.929,
+      2.052
+    ],
+    "duration": 3.939
+  },
+  "Astraeon_04_ea6d0b63": {
+    "kind": "Astraeon",
+    "text": "I was the light that taught your sky to [hot]shine[/]. [beat] Now I am only its [shake]ending[/].",
+    "words": [
+      0.0,
+      0.061,
+      0.245,
+      0.428,
+      0.734,
+      0.979,
+      1.346,
+      1.591,
+      1.774,
+      1.897,
+      3.004,
+      3.43,
+      3.573,
+      3.857,
+      4.425,
+      4.852
+    ],
+    "duration": 7.487
+  },
+  "Astraeon_05_7f1c0418": {
+    "kind": "Astraeon",
+    "text": "[big]Come, small fires.[/] [beat] Burn with me.",
+    "words": [
+      0.0,
+      0.616,
+      1.08,
+      2.378,
+      2.644,
+      2.91
+    ],
+    "duration": 4.749
+  },
+  "Astraeon_06_dd1d40fc": {
+    "kind": "Astraeon",
+    "text": "You are brighter than I [hot]expected[/].",
+    "words": [
+      0.0,
+      0.179,
+      0.358,
+      0.836,
+      1.075,
+      1.134
+    ],
+    "duration": 3.312
+  },
+  "Astraeon_07_111cf659": {
+    "kind": "Astraeon",
+    "text": "Then let me show you [slow]what light does[/] when it is [shake]angry[/].",
+    "words": [
+      0.0,
+      0.302,
+      0.529,
+      0.68,
+      0.983,
+      1.21,
+      1.512,
+      1.89,
+      2.192,
+      2.495,
+      2.646,
+      2.797
+    ],
+    "duration": 4.891
+  },
+  "Astraeon_08_85b9705c": {
+    "kind": "Astraeon",
+    "text": "[big]THE SKY FALLS[/] [beat] when I do.",
+    "words": [
+      0.0,
+      0.326,
+      0.652,
+      1.616,
+      1.958,
+      2.044
+    ],
+    "duration": 3.941
+  },
+  "Astraeon_09_8ea9beaa": {
+    "kind": "Astraeon",
+    "text": "[glitch]Every star I ever lit -- I take them BACK.[/]",
+    "words": [
+      0.0,
+      0.336,
+      0.605,
+      0.672,
+      0.941,
+      1.142,
+      1.277,
+      1.344,
+      1.613,
+      1.882
+    ],
+    "duration": 3.858
+  },
+  "Astraeon_10_a44a06a9": {
+    "kind": "Astraeon",
+    "text": "[whisper]I was never... meant to... [wave]shine[/]...[/]",
+    "words": [
+      0.0,
+      0.067,
+      0.267,
+      1.121,
+      1.458,
+      2.114
+    ],
+    "duration": 4.3
+  },
+  "Astraeon_11_b84ef09c": {
+    "kind": "Astraeon",
+    "text": "[slow]Thank you. [beat] The dark is [hot]gentle[/].[/]",
+    "words": [
+      0.0,
+      0.368,
+      1.402,
+      1.656,
+      1.996,
+      2.166
+    ],
+    "duration": 4.4
+  },
+  "Astraeon_12_214782a7": {
+    "kind": "Astraeon",
+    "text": "The dark takes me back. [beat] [hot]For now.[/]",
+    "words": [
+      0.0,
+      0.183,
+      0.427,
+      0.732,
+      0.854,
+      1.899,
+      2.172
+    ],
+    "duration": 4.175
+  },
+  "Astraeon_13_f8722c48": {
+    "kind": "Astraeon",
+    "text": "[big]ENOUGH LIGHT.[/] [beat] [shake]LET THERE BE ENDING.[/]",
+    "words": [
+      0.0,
+      0.447,
+      1.634,
+      1.81,
+      2.104,
+      2.221
+    ],
+    "duration": 4.272
+  },
+  "Astraeon_14_24d2960d": {
+    "kind": "Astraeon",
+    "text": "[glitch]I will not fade for [hot]you[/].[/]",
+    "words": [
+      0.0,
+      0.072,
+      0.361,
+      0.577,
+      0.865,
+      1.082
+    ],
+    "duration": 3.01
+  },
+  "Astraeon_15_7cc8d2eb": {
+    "kind": "Astraeon",
+    "text": "[shake]A crack... in my [hot]crown[/]?[/]",
+    "words": [
+      0.0,
+      0.057,
+      0.831,
+      0.954,
+      1.076
+    ],
+    "duration": 3.105
+  },
+  "Astraeon_16_5959bda8": {
+    "kind": "Astraeon",
+    "text": "[big]Impossible.[/] [beat] I am [hot]eternal[/].",
+    "words": [
+      0.0,
+      1.82,
+      1.933,
+      2.159
+    ],
+    "duration": 4.702
+  },
+  "Astraeon_17_db07dc8d": {
+    "kind": "Astraeon",
+    "text": "[hot]A spark.[/]",
+    "words": [
+      0.0,
+      0.083
+    ],
+    "duration": 2.22
+  },
+  "Astraeon_18_41e782d4": {
+    "kind": "Astraeon",
+    "text": "[slow]You cannot dim what burns for ages.[/]",
+    "words": [
+      0.0,
+      0.232,
+      0.697,
+      0.929,
+      1.238,
+      1.625,
+      1.857
+    ],
+    "duration": 3.884
+  },
+  "Astraeon_19_6ee6ac06": {
+    "kind": "Astraeon",
+    "text": "[shake]Small. So small.[/]",
+    "words": [
+      0.0,
+      0.819,
+      1.005
+    ],
+    "duration": 3.202
+  },
+  "Astraeon_20_0fffc246": {
+    "kind": "Astraeon",
+    "text": "[wave]Do you hear the sky laughing?[/]",
+    "words": [
+      0.0,
+      0.115,
+      0.288,
+      0.518,
+      0.691,
+      0.863
+    ],
+    "duration": 3.042
+  },
+  "Astraeon_21_0d6cc11f": {
+    "kind": "Astraeon",
+    "text": "[big]Again.[/] [beat] Try again.",
+    "words": [
+      0.0,
+      1.262,
+      1.468
+    ],
+    "duration": 3.52
+  },
+  "Astraeon_22_c3e70f62": {
+    "kind": "Astraeon",
+    "text": "[big]STARFALL.[/] [beat] [slow]Run.[/]",
+    "words": [
+      0.0,
+      1.367
+    ],
+    "duration": 3.576
+  },
+  "Astraeon_23_960a6978": {
+    "kind": "Astraeon",
+    "text": "[shake]Every star I ever lit -- falls.[/]",
+    "words": [
+      0.0,
+      0.344,
+      0.619,
+      0.687,
+      0.962,
+      1.168,
+      1.306
+    ],
+    "duration": 3.358
+  },
+  "Astraeon_24_f0c35d43": {
+    "kind": "Astraeon",
+    "text": "[big]SUPERNOVA.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.406
+  },
+  "Astraeon_25_7e294caf": {
+    "kind": "Astraeon",
+    "text": "[slow]Find the dark. [beat] Hide in the [hot]dark[/].[/]",
+    "words": [
+      0.0,
+      0.297,
+      0.519,
+      1.63,
+      1.989,
+      2.168,
+      2.436
+    ],
+    "duration": 4.524
+  },
+  "Astraeon_26_26394e78": {
+    "kind": "Astraeon",
+    "text": "[big]EVENT HORIZON.[/]",
+    "words": [
+      0.0,
+      0.362
+    ],
+    "duration": 2.58
+  },
+  "Astraeon_27_7193e18b": {
+    "kind": "Astraeon",
+    "text": "[wave]Nothing leaves. [beat] Not even light.[/]",
+    "words": [
+      0.0,
+      0.534,
+      1.808,
+      2.001,
+      2.258
+    ],
+    "duration": 4.284
+  },
+  "Astraeon_28_45729ce7": {
+    "kind": "Astraeon",
+    "text": "[big]ANNIHILATION.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.395
+  },
+  "Astraeon_29_9733e77a": {
+    "kind": "Astraeon",
+    "text": "[shake]One line of light. [beat] Let it find you.[/]",
+    "words": [
+      0.0,
+      0.174,
+      0.406,
+      0.522,
+      1.611,
+      1.822,
+      1.964,
+      2.246
+    ],
+    "duration": 4.168
+  },
+  "Astraeon_30_dcdc4019": {
+    "kind": "Astraeon",
+    "text": "[big][shake]LAST LIGHT.[/][/]",
+    "words": [
+      0.0,
+      0.297
+    ],
+    "duration": 2.383
+  },
+  "Astraeon_31_251c29ac": {
+    "kind": "Astraeon",
+    "text": "[glitch]If I end -- [beat] so does EVERYTHING.[/]",
+    "words": [
+      0.0,
+      0.128,
+      0.192,
+      0.383,
+      1.031,
+      1.144,
+      1.371
+    ],
+    "duration": 3.634
+  },
+  "Astraeon_32_8eef8059": {
+    "kind": "Astraeon",
+    "text": "[big]FALL.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.046
+  },
+  "Astraeon_33_9d3118b3": {
+    "kind": "Astraeon",
+    "text": "[shake]Beneath a star.[/]",
+    "words": [
+      0.0,
+      0.469,
+      0.536
+    ],
+    "duration": 2.511
+  },
+  "Astraeon_34_965ba4b4": {
+    "kind": "Astraeon",
+    "text": "[hot]Starfire[/], falling.",
+    "words": [
+      0.0,
+      0.919
+    ],
+    "duration": 3.038
+  },
+  "Astraeon_35_4d143351": {
+    "kind": "Astraeon",
+    "text": "[shake]Rain, little suns.[/]",
+    "words": [
+      0.0,
+      0.529,
+      0.992
+    ],
+    "duration": 3.017
+  },
+  "Astraeon_36_6b0cfd97": {
+    "kind": "Astraeon",
+    "text": "The ground [hot]splits[/] for light.",
+    "words": [
+      0.0,
+      0.19,
+      0.569,
+      0.948,
+      1.138
+    ],
+    "duration": 3.158
+  },
+  "Astraeon_37_106da0d1": {
+    "kind": "Astraeon",
+    "text": "[slow]Follow the crack to its end.[/]",
+    "words": [
+      0.0,
+      0.431,
+      0.647,
+      1.006,
+      1.15,
+      1.366
+    ],
+    "duration": 3.293
+  },
+  "Astraeon_38_b726f183": {
+    "kind": "Astraeon",
+    "text": "A [hot]cage[/] of dying suns.",
+    "words": [
+      0.0,
+      0.087,
+      0.437,
+      0.612,
+      1.049
+    ],
+    "duration": 3.126
+  },
+  "Astraeon_39_705edbaf": {
+    "kind": "Astraeon",
+    "text": "[glitch]No way out but through me.[/]",
+    "words": [
+      0.0,
+      0.128,
+      0.321,
+      0.513,
+      0.705,
+      1.154
+    ],
+    "duration": 2.987
+  },
+  "Astraeon_40_8ce3f588": {
+    "kind": "Astraeon",
+    "text": "[big]Bloom.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.267
+  },
+  "Astraeon_41_c5f1fd42": {
+    "kind": "Astraeon",
+    "text": "[wave]Every direction at once.[/]",
+    "words": [
+      0.0,
+      0.379,
+      1.061,
+      1.212
+    ],
+    "duration": 3.231
+  },
+  "Astraeon_42_92f7b17e": {
+    "kind": "Astraeon",
+    "text": "[wave]Ripples of a [hot]dying[/] sun.[/]",
+    "words": [
+      0.0,
+      0.508,
+      0.653,
+      0.725,
+      1.088
+    ],
+    "duration": 3.018
+  },
+  "Astraeon_43_e4532e7c": {
+    "kind": "Astraeon",
+    "text": "[slow]Mind the gaps. [beat] If you can.[/]",
+    "words": [
+      0.0,
+      0.375,
+      0.657,
+      1.866,
+      2.106,
+      2.466
+    ],
+    "duration": 4.586
+  },
+  "Astraeon_44_e52ffb09": {
+    "kind": "Astraeon",
+    "text": "Beams of [hot]old light[/].",
+    "words": [
+      0.0,
+      0.32,
+      0.449,
+      0.641
+    ],
+    "duration": 2.665
+  },
+  "Astraeon_45_15fdf944": {
+    "kind": "Astraeon",
+    "text": "[shake]Cut.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 1.942
+  },
+  "Astraeon_46_3b13ce54": {
+    "kind": "Astraeon",
+    "text": "[wave]Embers of my [hot]last[/] fire.[/]",
+    "words": [
+      0.0,
+      0.51,
+      0.679,
+      0.849,
+      1.189
+    ],
+    "duration": 3.254
+  },
+  "Astraeon_47_8e2e5cb0": {
+    "kind": "Astraeon",
+    "text": "Rise, [hot]little suns[/].",
+    "words": [
+      0.0,
+      0.802,
+      1.232
+    ],
+    "duration": 3.231
+  },
+  "Astraeon_48_9155031c": {
+    "kind": "Astraeon",
+    "text": "The sky is [hot]mine[/] to throw.",
+    "words": [
+      0.0,
+      0.226,
+      0.453,
+      0.604,
+      0.906,
+      1.057
+    ],
+    "duration": 3.149
+  },
+  "Astraeon_49_74e39917": {
+    "kind": "Astraeon",
+    "text": "[big]STARFALL.[/]",
+    "words": [
+      0.0
+    ],
+    "duration": 2.205
+  },
+  "Astraeon_50_e8fcdb5a": {
+    "kind": "Astraeon",
+    "text": "[slow]Everything falls toward the light.[/]",
+    "words": [
+      0.0,
+      0.641,
+      0.961,
+      1.346,
+      1.538
+    ],
+    "duration": 3.562
+  },
+  "Astraeon_51_3c3198fd": {
+    "kind": "Astraeon",
+    "text": "[wave]Come closer.[/]",
+    "words": [
+      0.0,
+      0.296
+    ],
+    "duration": 2.453
   }
 }
