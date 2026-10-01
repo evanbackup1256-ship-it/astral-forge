@@ -344,6 +344,7 @@ local savedFov: number? = nil
 local sprintToggled = false
 local jumpQueued = false
 local shakeStrength = 0
+local punch = { fov = 0, roll = 0 }
 -- Collision: the lens is swept as a small sphere (a point ray lets the near plane clip
 -- through corners and thin walls). The distance it is allowed is smoothed: it pulls in
 -- almost at once when something closes in, and eases back out when the way clears, so
@@ -815,6 +816,12 @@ function Controls.setEnabled(value: boolean)
 end
 
 -- Kick the camera (boss slams, heavy landings).
+-- A hard kick on the lens: the view widens by fovKick degrees and rolls by roll radians, then settles.
+function Controls.punch(fovKick: number, roll: number)
+	punch.fov = math.max(punch.fov, fovKick)
+	punch.roll = if math.abs(roll) > math.abs(punch.roll) then roll else punch.roll
+end
+
 function Controls.shake(strength: number)
 	shakeStrength = math.max(shakeStrength, strength)
 end
@@ -985,6 +992,10 @@ function Controls.step(dt: number)
 		frame *= CFrame.Angles(math.sin(t) * shakeStrength * 0.02, math.cos(t * 1.3) * shakeStrength * 0.02, 0)
 		shakeStrength *= math.exp(-6 * dt)
 	end
+	if math.abs(punch.roll) > 0.0005 then
+		frame *= CFrame.Angles(0, 0, punch.roll)
+		punch.roll *= math.exp(-7 * dt)
+	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CameraSubject = nil
 	camera.CFrame = frame
@@ -993,7 +1004,8 @@ function Controls.step(dt: number)
 		savedFov = camera.FieldOfView
 	end
 	fov += ((if sprinting then SPRINT_FOV else BASE_FOV) - fov) * (1 - math.exp(-6 * dt))
-	camera.FieldOfView = fov + (shotFov - fov) * shotWeight * shotWeight * (3 - 2 * shotWeight)
+	camera.FieldOfView = fov + (shotFov - fov) * shotWeight * shotWeight * (3 - 2 * shotWeight) + punch.fov
+	punch.fov *= math.exp(-5 * dt)
 end
 
 -- The camera's flat forward, for anything that aims relative to the view.
@@ -4204,7 +4216,14 @@ local meshNames: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: 
 -- out of Blender. Every piece belongs to one bone; posing is forward kinematics, each bone
 -- rotating about its own head inside its parent's motion.
 local function loadRiggedBody(current: Boss): boolean
-	local bodies = SanctuaryConfig.BossBodies
+	-- The textured generated models (BOSS_MESHES, moved by the Blender clips) are the default look;
+	-- the procedural Blender bodies are used for a boss only when SanctuaryConfig.BossBodyStyle says so.
+	local style = SanctuaryConfig.BossBodyStyle
+	if style == nil or (style ~= "blender" and (type(style) ~= "table" or style[current.kind] ~= "blender")) then
+		return false
+	end
+	local bodiesModule = Shared:FindFirstChild("BossBodies")
+	local bodies: any = if bodiesModule ~= nil and bodiesModule:IsA("ModuleScript") then require(bodiesModule) else nil
 	local data: any = if bodies ~= nil then bodies[current.kind] else nil
 	if data == nil then
 		return false
@@ -4408,7 +4427,9 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 	-- Which authored clip is playing, and how far into it. Wind-up clips (slam, thrust) are
 	-- scrubbed by the charge up to their strike frame, then run on in real time; one-shot
 	-- clips run from the start of the move; loops run on the clock.
-	local clips: any = SanctuaryConfig.BossClips
+	-- Each boss plays its own take on the clips (Knight fences, Choir conducts, Rime lumbers...).
+	local allClips: any = SanctuaryConfig.BossClips
+	local clips: any = if allClips ~= nil then (allClips[current.kind] or allClips.default) else nil
 	local clip: any = nil
 	local clipTime = 0
 	if clips ~= nil and clips.idle ~= nil then
@@ -4743,17 +4764,19 @@ local function setBossTransparency(current: Boss, visible: number)
 	end
 	appliedBoss = current
 	appliedHide = hide
-	current.core.Transparency = hide
-	current.shell.Transparency = 0.6 + 0.4 * hide
-	current.eye.Transparency = hide
+	-- A Blender-rigged body is the boss; the glowing core, eye and rings of the plain body are not drawn.
+	local rigged = current.body ~= nil
+	current.core.Transparency = if rigged then 1 else hide
+	current.shell.Transparency = if rigged then 1 else 0.6 + 0.4 * hide
+	current.eye.Transparency = if rigged then 1 else hide
 	current.coreLight.Enabled = visible > 0.02
 	current.aura.Enabled = visible > 0.2
 	for _, extra in current.extras do
 		(extra :: any).Enabled = visible > 0.3
 	end
-	current.swirl.Enabled = visible > 0.3
-	current.glowHalo.Enabled = visible > 0.3
-	applyPieceTransparency(current.rings, hide)
+	current.swirl.Enabled = visible > 0.3 and not rigged
+	current.glowHalo.Enabled = visible > 0.3 and not rigged
+	applyPieceTransparency(current.rings, if rigged then 1 else hide)
 	applyPieceTransparency(current.plates, hide)
 	applyPieceTransparency(current.shards, hide)
 	applyPieceTransparency(current.meshPieces, hide)
@@ -4884,38 +4907,245 @@ local function bossSfx(name: string, volume: number?): boolean
 	return true
 end
 
-local impactEffect: ColorCorrectionEffect? = nil
-local lastImpact = 0
-local function impactFrame(strength: number)
-	local now = os.clock()
-	if now - lastImpact < 0.6 then
+-- Screen effects. Everything a hit does to the player's screen lives here: manga impact frames
+-- (white-out, then inverted black-and-white with radial speed lines), edge vignettes, blur
+-- pulses, colour-grade pulses, strobes, lens kicks and hit-stop. Each boss has its own
+-- signature (ScreenFx.signature) so no two feel alike.
+local ScreenFx: any = { gui = nil, lines = {}, edges = {}, hitstopUntil = 0, lastImpact = 0 }
+
+function ScreenFx.ensure()
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return false
+	end
+	if ScreenFx.gui ~= nil and ScreenFx.gui.Parent ~= nil then
+		return true
+	end
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "BossScreenFx"
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 60
+	local dim = Instance.new("Frame")
+	dim.Name = "Dim"
+	dim.Size = UDim2.fromScale(1, 1)
+	dim.BorderSizePixel = 0
+	dim.BackgroundColor3 = Color3.new(0, 0, 0)
+	dim.BackgroundTransparency = 1
+	dim.Active = false
+	dim.Parent = gui
+	-- Speed lines: thin bars from the centre outward, clear near the middle, solid at the edge.
+	local lines = {}
+	local random = Random.new(11)
+	for index = 1, 64 do
+		local bar = Instance.new("Frame")
+		bar.Name = "Line"
+		bar.AnchorPoint = Vector2.new(0, 0.5)
+		bar.Position = UDim2.fromScale(0.5, 0.5)
+		bar.Size = UDim2.fromOffset(random:NextInteger(1100, 1700), random:NextInteger(2, 16))
+		bar.Rotation = (index / 64) * 360 + random:NextNumber(-2, 2)
+		bar.BorderSizePixel = 0
+		bar.BackgroundColor3 = Color3.new(1, 1, 1)
+		bar.BackgroundTransparency = 1
+		bar.Active = false
+		local gradient = Instance.new("UIGradient")
+		gradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(random:NextNumber(0.25, 0.5), 1), NumberSequenceKeypoint.new(random:NextNumber(0.55, 0.8), 0.2), NumberSequenceKeypoint.new(1, 0) })
+		gradient.Parent = bar
+		bar.Parent = gui
+		table.insert(lines, bar)
+	end
+	-- Edge vignettes (a gradient on each side, clear toward the middle).
+	local edges = {}
+	for _, spec in { { UDim2.fromScale(0, 0), UDim2.fromScale(0.28, 1), 0 }, { UDim2.fromScale(0.72, 0), UDim2.fromScale(0.28, 1), 180 }, { UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.34), 90 }, { UDim2.fromScale(0, 0.66), UDim2.fromScale(1, 0.34), 270 } } do
+		local edge = Instance.new("Frame")
+		edge.Name = "Edge"
+		edge.Position, edge.Size = spec[1], spec[2]
+		edge.BorderSizePixel = 0
+		edge.BackgroundColor3 = Color3.new(1, 1, 1)
+		edge.BackgroundTransparency = 1
+		edge.Active = false
+		local gradient = Instance.new("UIGradient")
+		gradient.Rotation = spec[3]
+		gradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+		gradient.Parent = edge
+		edge.Parent = gui
+		table.insert(edges, edge)
+	end
+	gui.Parent = playerGui
+	ScreenFx.gui, ScreenFx.dim, ScreenFx.lines, ScreenFx.edges = gui, dim, lines, edges
+	local lighting = game:GetService("Lighting")
+	local blur = Instance.new("BlurEffect")
+	blur.Name = "BossBlur"
+	blur.Size = 0
+	blur.Parent = lighting
+	local grade = Instance.new("ColorCorrectionEffect")
+	grade.Name = "BossGrade"
+	grade.Enabled = false
+	grade.Parent = lighting
+	local invert = Instance.new("ColorCorrectionEffect")
+	invert.Name = "BossImpactFrame"
+	invert.Enabled = false
+	invert.Parent = lighting
+	ScreenFx.blur, ScreenFx.grade, ScreenFx.invert = blur, grade, invert
+	return true
+end
+
+local function fadeTo(instance: Instance, props: { [string]: any }, seconds: number, style: Enum.EasingStyle?)
+	TweenService:Create(instance, TweenInfo.new(seconds, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+end
+
+function ScreenFx.vignette(color: Color3, strength: number, seconds: number)
+	if not ScreenFx.ensure() then
 		return
 	end
-	lastImpact = now
-	bossSfx("impact", 0.9)
-	local lighting = game:GetService("Lighting")
-	local effect = impactEffect
-	if effect == nil or effect.Parent == nil then
-		effect = Instance.new("ColorCorrectionEffect")
-		effect.Name = "BossImpactFrame"
-		effect.Enabled = false
-		effect.Parent = lighting
-		impactEffect = effect
+	for _, edge in ScreenFx.edges do
+		edge.BackgroundColor3 = color
+		edge.BackgroundTransparency = 1 - math.clamp(strength, 0, 1)
+		fadeTo(edge, { BackgroundTransparency = 1 }, seconds)
 	end
-	local fx = effect :: ColorCorrectionEffect
-	local power = math.clamp(strength, 0.3, 1)
-	task.spawn(function()
-		fx.Enabled = true
-		fx.Saturation, fx.Contrast, fx.Brightness = -1, 2.4 * power, 0.55 * power
-		task.wait(0.05)
-		fx.Brightness = -0.35 * power
-		task.wait(0.05)
-		fx.Saturation, fx.Contrast, fx.Brightness = -0.6, 0.8 * power, 0.12 * power
-		task.wait(0.06)
-		fx.Enabled = false
+end
+
+function ScreenFx.blurPulse(size: number, seconds: number)
+	if not ScreenFx.ensure() then
+		return
+	end
+	ScreenFx.blur.Size = size
+	fadeTo(ScreenFx.blur, { Size = 0 }, seconds)
+end
+
+function ScreenFx.gradePulse(tint: Color3, saturation: number, contrast: number, seconds: number)
+	if not ScreenFx.ensure() then
+		return
+	end
+	local grade = ScreenFx.grade
+	grade.Enabled = true
+	grade.TintColor, grade.Saturation, grade.Contrast = tint, saturation, contrast
+	fadeTo(grade, { TintColor = Color3.new(1, 1, 1), Saturation = 0, Contrast = 0 }, seconds)
+	task.delay(seconds + 0.05, function()
+		if grade.Parent ~= nil then
+			grade.Enabled = false
+		end
 	end)
 end
 
+function ScreenFx.flash(color: Color3, strength: number, seconds: number)
+	if not ScreenFx.ensure() then
+		return
+	end
+	ScreenFx.dim.BackgroundColor3 = color
+	ScreenFx.dim.BackgroundTransparency = 1 - math.clamp(strength, 0, 1)
+	fadeTo(ScreenFx.dim, { BackgroundTransparency = 1 }, seconds)
+end
+
+function ScreenFx.strobe(colors: { Color3 }, gap: number, strength: number)
+	for index, color in colors do
+		task.delay((index - 1) * gap, function()
+			ScreenFx.flash(color, strength, gap * 1.6)
+		end)
+	end
+end
+
+function ScreenFx.hitstop(seconds: number)
+	ScreenFx.hitstopUntil = math.max(ScreenFx.hitstopUntil, os.clock() + seconds)
+end
+
+-- The manga impact frame: one white frame, then black with an inverted, desaturated, crushed
+-- picture and speed lines in `color`, held a beat, then it lets go. `diagonal` rotates the lines
+-- into a slash.
+function ScreenFx.manga(color: Color3, hold: number, diagonal: number?)
+	if not ScreenFx.ensure() then
+		return
+	end
+	local invert = ScreenFx.invert
+	for _, bar in ScreenFx.lines do
+		bar.BackgroundColor3 = color
+	end
+	task.spawn(function()
+		ScreenFx.dim.BackgroundColor3 = Color3.new(1, 1, 1)
+		ScreenFx.dim.BackgroundTransparency = 0
+		task.wait(0.045)
+		ScreenFx.dim.BackgroundColor3 = Color3.new(0, 0, 0)
+		ScreenFx.dim.BackgroundTransparency = 0.15
+		invert.Enabled = true
+		invert.Saturation, invert.Contrast, invert.Brightness = -1, 3, 0.25
+		invert.TintColor = Color3.fromRGB(235, 235, 245)
+		for index, bar in ScreenFx.lines do
+			bar.BackgroundTransparency = 0
+			if diagonal ~= nil then
+				bar.Rotation = diagonal + ((index % 8) - 4) * 1.5 + (if index % 2 == 0 then 0 else 180)
+			end
+		end
+		task.wait(hold)
+		invert.Brightness = -0.3
+		task.wait(0.05)
+		invert.Enabled = false
+		for _, bar in ScreenFx.lines do
+			fadeTo(bar, { BackgroundTransparency = 1 }, 0.18)
+		end
+		fadeTo(ScreenFx.dim, { BackgroundTransparency = 1 }, 0.2)
+	end)
+end
+
+-- Each boss's own way of hitting the screen. `power` is 0..1.
+function ScreenFx.signature(kind: string, power: number)
+	power = math.clamp(power, 0.2, 1)
+	if kind == "Warden" then
+		-- The rift tears: inverted violet frame, light drains from the edges.
+		ScreenFx.manga(Color3.fromRGB(190, 120, 255), 0.09 * power + 0.04)
+		ScreenFx.vignette(Color3.fromRGB(70, 20, 140), 0.85 * power, 0.9)
+		ScreenFx.gradePulse(Color3.fromRGB(200, 170, 255), -0.5 * power, 0.25, 0.8)
+		ScreenFx.blurPulse(12 * power, 0.35)
+		Controls.punch(-9 * power, 0.04)
+	elseif kind == "Choir" then
+		-- A struck note: three bright pulses that ring outward, glass-white.
+		ScreenFx.strobe({ Color3.fromRGB(230, 250, 255), Color3.fromRGB(150, 230, 255), Color3.fromRGB(240, 255, 255) }, 0.07, 0.55 * power)
+		ScreenFx.vignette(Color3.fromRGB(110, 220, 255), 0.6 * power, 0.7)
+		ScreenFx.blurPulse(8 * power, 0.5)
+		Controls.punch(7 * power, 0)
+	elseif kind == "Regent" then
+		-- A crown of fire coming down: hit-stop, heat haze, deep orange edges, heavy shake.
+		ScreenFx.hitstop(0.1 * power)
+		ScreenFx.manga(Color3.fromRGB(255, 150, 40), 0.1 * power + 0.03)
+		ScreenFx.vignette(Color3.fromRGB(255, 80, 20), 0.9 * power, 1.1)
+		ScreenFx.gradePulse(Color3.fromRGB(255, 190, 140), 0.25 * power, 0.2, 1.0)
+		ScreenFx.blurPulse(16 * power, 0.6)
+		Controls.shake(1.6 * power)
+		Controls.punch(-8 * power, 0.02)
+	elseif kind == "Seraph" then
+		-- Lightning: alternating white and blue strobes, a hard lens kick.
+		ScreenFx.strobe({ Color3.new(1, 1, 1), Color3.fromRGB(120, 170, 255), Color3.new(1, 1, 1), Color3.fromRGB(255, 240, 150) }, 0.05, 0.7 * power)
+		ScreenFx.vignette(Color3.fromRGB(90, 140, 255), 0.55 * power, 0.5)
+		ScreenFx.gradePulse(Color3.fromRGB(210, 225, 255), 0.1, 0.45 * power, 0.5)
+		Controls.punch(12 * power, -0.05)
+	elseif kind == "Rime" then
+		-- Winter closing in: frost on the screen's edge, the colour draining to blue.
+		ScreenFx.vignette(Color3.fromRGB(190, 235, 255), 0.95 * power, 1.6)
+		ScreenFx.gradePulse(Color3.fromRGB(170, 215, 255), -0.45 * power, 0.12, 1.5)
+		ScreenFx.blurPulse(10 * power, 0.9)
+		ScreenFx.flash(Color3.fromRGB(220, 245, 255), 0.35 * power, 0.35)
+		Controls.punch(-5 * power, 0)
+	elseif kind == "Knight" then
+		-- A cut: black frame, white slash lines at a hard angle, a flick of the lens.
+		ScreenFx.hitstop(0.06 * power)
+		ScreenFx.manga(Color3.new(1, 1, 1), 0.08 * power + 0.03, 28)
+		ScreenFx.vignette(Color3.new(0, 0, 0), 0.9 * power, 0.7)
+		ScreenFx.gradePulse(Color3.fromRGB(235, 215, 255), -0.8 * power, 0.5, 0.6)
+		Controls.punch(6 * power, 0.07)
+	else
+		ScreenFx.manga(Color3.new(1, 1, 1), 0.08)
+	end
+end
+
+-- Kept as the one call sites use. `strength` 0..1; the boss on stage chooses the style.
+local function impactFrame(strength: number)
+	local now = os.clock()
+	if now - ScreenFx.lastImpact < 0.6 then
+		return
+	end
+	ScreenFx.lastImpact = now
+	bossSfx("impact", 0.9)
+	ScreenFx.signature(if boss ~= nil then boss.kind else "", strength)
+end
 -- What an element looks like when it lands: flames and embers, a storm's bolts, ice shards and
 -- a cold burst, or void matter collapsing inward. Layered on top of the boss's own effects.
 local function elementBurst(element: any, center: Vector3, radius: number)
@@ -4967,7 +5197,23 @@ local SPEECH_FONT = Enum.Font.GothamMedium
 local SPEECH_BOLD = Enum.Font.GothamBold
 local SPEECH_SIZE = 21
 local SPEECH_LINE = 30
-local GLITCH_CHARS = "#@%&01!?/\\<>*"
+-- Every boss speaks in its own type: gothic for the Warden, an engraved serif for the Choir,
+-- a heavy condensed face for the Regent, a hard techno face for the Seraph, a cold humanist one
+-- for the Rimeheart, an antique hand for the Knight.
+local function pickFont(name: string): Enum.Font
+	local ok, value = pcall(function()
+		return (Enum.Font :: any)[name]
+	end)
+	return if ok and value ~= nil then value else Enum.Font.GothamMedium
+end
+local SPEECH_FONTS: { [string]: { Enum.Font } } = {
+	Warden = { pickFont("GrenzeGotisch"), pickFont("GrenzeGotisch") },
+	Choir = { pickFont("Fondamento"), pickFont("Fondamento") },
+	Regent = { pickFont("Oswald"), pickFont("Oswald") },
+	Seraph = { pickFont("Jura"), pickFont("Jura") },
+	Rime = { pickFont("JosefinSans"), pickFont("JosefinSans") },
+	Knight = { pickFont("Antique"), pickFont("Antique") },
+}local GLITCH_CHARS = "#@%&01!?/\\<>*"
 
 local function ensureSpeech(): boolean
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -5109,6 +5355,11 @@ local function say(speaker: string, line: string, color: Color3?)
 	local seq = speechSeq
 	stopVoice()
 	local accent = color or Color3.new(1, 1, 1)
+	local fonts = SPEECH_FONTS[if boss ~= nil then boss.kind else ""]
+	local fontRegular = if fonts ~= nil then fonts[1] else SPEECH_FONT
+	local fontBold = if fonts ~= nil then fonts[2] else SPEECH_BOLD
+	box.BackgroundColor3 = Color3.fromRGB(8, 8, 18):Lerp(accent, 0.16)
+	name.Font = fontBold
 	name.Text = string.upper(speaker)
 	name.TextColor3 = accent
 	stroke.Color = accent
@@ -5171,7 +5422,7 @@ local function say(speaker: string, line: string, color: Color3?)
 	local function place(spec: Spec, index: number)
 		local fx = spec.fx
 		local size = if fx.big then math.floor(SPEECH_SIZE * 1.35) elseif fx.whisper then SPEECH_SIZE - 3 else SPEECH_SIZE
-		local font = if fx.big or fx.shake or fx.hot then SPEECH_BOLD else SPEECH_FONT
+		local font = if fx.big or fx.shake or fx.hot then fontBold else fontRegular
 		local width = glyphWidth(spec.char, size, font)
 		local label = Instance.new("TextLabel")
 		label.BackgroundTransparency = 1
@@ -5205,7 +5456,7 @@ local function say(speaker: string, line: string, color: Color3?)
 			while stop <= count and not specs[stop].char:match("%s") do
 				local fx = specs[stop].fx
 				local size = if fx.big then math.floor(SPEECH_SIZE * 1.35) elseif fx.whisper then SPEECH_SIZE - 3 else SPEECH_SIZE
-				length += glyphWidth(specs[stop].char, size, if fx.big or fx.shake or fx.hot then SPEECH_BOLD else SPEECH_FONT)
+				length += glyphWidth(specs[stop].char, size, if fx.big or fx.shake or fx.hot then fontBold else fontRegular)
 				stop += 1
 			end
 			if penX > 0 and penX + length > maxWidth then
@@ -5694,6 +5945,9 @@ local function stepBoss(dt: number, t: number)
 		end
 	end
 	local current = boss :: Boss
+	if os.clock() < ScreenFx.hitstopUntil then
+		dt *= 0.04
+	end
 	if current.model.Parent == nil then
 		destroyBoss()
 		return
@@ -5720,6 +5974,7 @@ local function stepBoss(dt: number, t: number)
 			Vfx.burst(at, "Shatter", 40, { Color = pal.Hot, Speed = NumberRange.new(4, 10), Acceleration = Vector3.new(0, 6, 0) }, clientFolder)
 		elseif phase == "Active" then
 			Audio:play(bossCue("Awake"))
+			bossSfx("roar_" .. current.kind, 1.1)
 			Controls.shake(0.5)
 			awakeScene(current)
 			setTethers(true, current.kind)
@@ -5728,6 +5983,7 @@ local function stepBoss(dt: number, t: number)
 			Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 90) }, clientFolder)
 		elseif phase == "Defeated" then
 			Audio:play(bossCue("Defeat"))
+			bossSfx("death_" .. current.kind, 1.1)
 			Ambience.fight(nil)
 			current.outroStarted = t
 			setTethers(false)
@@ -5829,7 +6085,7 @@ local function stepBoss(dt: number, t: number)
 	current.core.Size = current.coreSize * coreScale
 	current.core.Color = pal.Primary:Lerp(pal.Alert, chargePulse * 0.75):Lerp(Color3.new(1, 1, 1), current.flash * 0.7)
 	current.shell.Size = current.shellSize * coreScale
-	current.coreLight.Brightness = 3 + current.flash * 6 + chargePulse * 4
+	current.coreLight.Brightness = (3 + current.flash * 6 + chargePulse * 4) * (if current.body ~= nil then 0.3 else 1)
 	current.coreLight.Color = pal.Primary:Lerp(pal.Alert, chargePulse)
 
 	-- Reused every frame (cleared, not reallocated); BulkMoveTo needs exact-length arrays.
@@ -6305,6 +6561,80 @@ function BossVfx.stream(kind: string, parent: BasePart)
 		LightEmission = 1,
 	})
 end
+-- A flash of light that fades: what makes a landing light up the whole arena.
+function BossVfx.lightFlash(at: Vector3, color: Color3, range: number, seconds: number)
+	local holder = vfxPart("FlashLight", nil, Vector3.new(0.2, 0.2, 0.2), color, Enum.Material.SmoothPlastic)
+	holder.Transparency = 1
+	holder.CFrame = CFrame.new(at)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = range
+	light.Brightness = 8
+	light.Shadows = false
+	light.Parent = holder
+	fadeTo(light, { Brightness = 0, Range = range * 0.4 }, seconds)
+	Debris:AddItem(holder, seconds + 0.2)
+end
+
+-- Layered particle bursts per boss: several emitters stacked (columns, sprays, rings, mist) with
+-- their own textures, colours, speeds and gravity so no two bosses land alike. Each recipe line is
+-- { preset, count, overrides, delay, height }.
+local BOSS_LAYERS: { [string]: { any } } = {
+	Warden = {
+		{ "Smoke", 26, { Color = Color3.fromRGB(40, 12, 70), Color2 = Color3.fromRGB(110, 50, 190), Speed = NumberRange.new(6, 16), Acceleration = Vector3.new(0, 10, 0), Size = NumberSequence.new(4, 14) }, 0, 2 },
+		{ "Implode", 1, { Color = Color3.fromRGB(170, 100, 255), Color2 = Color3.fromRGB(20, 0, 40), Size = NumberSequence.new(34, 2) }, 0, 4 },
+		{ "Shatter", 44, { Color = Color3.fromRGB(190, 130, 255), Color2 = Color3.fromRGB(70, 20, 140), Speed = NumberRange.new(12, 34), Acceleration = Vector3.new(0, -14, 0) }, 0.05, 3 },
+		{ "Motes", 50, { Color = Color3.fromRGB(220, 170, 255), Color2 = Color3.fromRGB(110, 50, 200), Speed = NumberRange.new(5, 20), Acceleration = Vector3.new(0, 6, 0), Lifetime = NumberRange.new(1.4, 2.6) }, 0.15, 3 },
+		{ "Swirl", 1, { Color = Color3.fromRGB(150, 80, 255), Color2 = Color3.fromRGB(30, 8, 60), Size = NumberSequence.new(10, 44) }, 0.1, 1 },
+	},
+	Choir = {
+		{ "Shatter", 56, { Color = Color3.fromRGB(190, 245, 255), Color2 = Color3.fromRGB(90, 200, 255), Speed = NumberRange.new(14, 40), Acceleration = Vector3.new(0, -22, 0) }, 0, 3 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(180, 245, 255), Size = NumberSequence.new(3, 90) }, 0, 1 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(110, 220, 255), Size = NumberSequence.new(3, 120) }, 0.14, 1 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(240, 255, 255), Size = NumberSequence.new(3, 150) }, 0.28, 1 },
+		{ "Motes", 70, { Color = Color3.fromRGB(230, 252, 255), Color2 = Color3.fromRGB(120, 215, 255), Speed = NumberRange.new(3, 14), Acceleration = Vector3.new(0, 3, 0), Lifetime = NumberRange.new(1.8, 3.2) }, 0.1, 5 },
+	},
+	Regent = {
+		{ "Flame", 70, { Color = Color3.fromRGB(255, 180, 60), Color2 = Color3.fromRGB(255, 60, 20), Speed = NumberRange.new(12, 34), Acceleration = Vector3.new(0, 26, 0), Size = NumberSequence.new(6, 16) }, 0, 1 },
+		{ "Embers", 90, { Color = Color3.fromRGB(255, 220, 140), Color2 = Color3.fromRGB(255, 80, 30), Speed = NumberRange.new(16, 52), Acceleration = Vector3.new(0, 18, 0), Lifetime = NumberRange.new(1.4, 3.0) }, 0.05, 2 },
+		{ "BlastSmoke", 24, { Color = Color3.fromRGB(30, 22, 22), Color2 = Color3.fromRGB(90, 40, 20), Speed = NumberRange.new(8, 24), Acceleration = Vector3.new(0, 14, 0), Size = NumberSequence.new(6, 22) }, 0.08, 3 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(255, 140, 50), Size = NumberSequence.new(4, 130) }, 0, 1 },
+		{ "Flash", 1, { Color = Color3.fromRGB(255, 190, 90), Size = NumberSequence.new(10, 60) }, 0, 3 },
+	},
+	Seraph = {
+		{ "Spark", 110, { Color = Color3.fromRGB(240, 250, 255), Color2 = Color3.fromRGB(110, 170, 255), Speed = NumberRange.new(22, 70), Acceleration = Vector3.new(0, -10, 0), Lifetime = NumberRange.new(0.5, 1.3) }, 0, 2 },
+		{ "Flash", 1, { Color = Color3.new(1, 1, 1), Size = NumberSequence.new(18, 90) }, 0, 4 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(190, 215, 255), Size = NumberSequence.new(3, 120) }, 0.03, 1 },
+		{ "Motes", 40, { Color = Color3.fromRGB(255, 245, 190), Color2 = Color3.fromRGB(170, 210, 255), Speed = NumberRange.new(10, 36), Lifetime = NumberRange.new(0.8, 1.8) }, 0.12, 4 },
+	},
+	Rime = {
+		{ "Shatter", 64, { Color = Color3.fromRGB(215, 245, 255), Color2 = Color3.fromRGB(130, 200, 255), Speed = NumberRange.new(10, 36), Acceleration = Vector3.new(0, -26, 0) }, 0, 3 },
+		{ "Smoke", 34, { Color = Color3.fromRGB(235, 248, 255), Color2 = Color3.fromRGB(160, 205, 240), Speed = NumberRange.new(4, 14), Acceleration = Vector3.new(0, 1, 0), Size = NumberSequence.new(6, 20), Lifetime = NumberRange.new(2.5, 4.5) }, 0.05, 1 },
+		{ "Motes", 80, { Color = Color3.new(1, 1, 1), Color2 = Color3.fromRGB(170, 220, 255), Speed = NumberRange.new(2, 12), Acceleration = Vector3.new(0, -5, 0), Lifetime = NumberRange.new(2.4, 4.4) }, 0.1, 10 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(190, 235, 255), Size = NumberSequence.new(3, 110) }, 0, 1 },
+	},
+	Knight = {
+		{ "Smoke", 34, { Color = Color3.fromRGB(12, 6, 24), Color2 = Color3.fromRGB(80, 30, 150), Speed = NumberRange.new(8, 22), Acceleration = Vector3.new(0, 8, 0), Size = NumberSequence.new(4, 16) }, 0, 2 },
+		{ "Spark", 56, { Color = Color3.fromRGB(255, 120, 200), Color2 = Color3.fromRGB(150, 70, 255), Speed = NumberRange.new(18, 56), Acceleration = Vector3.new(0, -16, 0) }, 0.02, 2 },
+		{ "Rising", 36, { Color = Color3.fromRGB(150, 80, 255), Color2 = Color3.fromRGB(255, 70, 160), Speed = NumberRange.new(8, 20) }, 0.08, 1 },
+		{ "Shockwave", 1, { Color = Color3.fromRGB(90, 40, 170), Size = NumberSequence.new(3, 100) }, 0, 1 },
+	},
+}
+
+function BossVfx.layers(kind: string, center: Vector3, radius: number, scale: number?)
+	local recipe = BOSS_LAYERS[kind]
+	if recipe == nil then
+		return
+	end
+	local power = scale or 1
+	for _, line in recipe do
+		local preset, count, overrides, delay, height = line[1], line[2], line[3], line[4], line[5]
+		task.delay(delay, function()
+			Vfx.burst(center + Vector3.new(0, height, 0), preset, math.max(1, math.floor(count * power)), overrides, clientFolder)
+		end)
+	end
+	BossVfx.lightFlash(center + Vector3.new(0, 6, 0), pal.Hot, math.clamp(radius * 3, 40, 120), 0.55)
+end
 -- A flat ring of the boss's own shape, for summons, blasts and phase changes.
 function BossVfx.ring(kind: string, at: Vector3, size: number, color: Color3): boolean
 	local name = ({ Warden = "W_SealGlyph", Choir = "C_NoteRing", Regent = "R_FlameCrown", Seraph = "S_HaloSpikes", Rime = "I_Snowflake", Knight = "K_RuneRing" })[kind]
@@ -6325,6 +6655,9 @@ local function onSlam(payload)
 	setAim("slam", center, detonateAt)
 	if not (type(payload.Element) == "string" and bossSfx("cast_" .. payload.Element, 0.7)) then
 		Audio:play(bossCue("Charge"))
+	end
+	if boss ~= nil and radius >= 20 then
+		bossSfx("charge_" .. boss.kind, 0.85)
 	end
 	if boss ~= nil then
 		BossVfx.cast(boss.kind, center, radius, detonateAt - serverNow())
@@ -6361,6 +6694,9 @@ local function onSlamLand(payload)
 	if not (type(payload.Element) == "string" and bossSfx("hit_" .. payload.Element, 0.85)) then
 		Audio:play(bossCue("Land"))
 	end
+	if boss ~= nil then
+		bossSfx("boom_" .. boss.kind, if radius >= 20 then 1.0 else 0.55)
+	end
 	burst(center + Vector3.new(0, 1, 0), pal.Hot, 40, 28)
 	-- A column of light where it lands, cracks across the floor, a bolt from the body.
 	lightPillar(center, pal.Hot, 46, math.max(2.5, radius * 0.22), 0.7)
@@ -6374,6 +6710,7 @@ local function onSlamLand(payload)
 	end
 	if boss ~= nil then
 		BossVfx.puff(boss.kind, center, radius)
+		BossVfx.layers(boss.kind, center, radius, if radius >= 20 then 1 else 0.45)
 	end
 	if radius >= 20 and (tonumber(payload.Radius) or 0) >= 20 then
 		local root = localRoot()
@@ -6439,6 +6776,7 @@ local function onPhase(payload)
 		return
 	end
 	Audio:play(bossCue("Phase"))
+	bossSfx("roar_" .. current.kind, 1.1)
 	Ambience.fight(current.config.Music, if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2)
 	local at = current.anchor.Position
 	Vfx.burst(at, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 30) }, clientFolder)
@@ -6450,6 +6788,7 @@ local function onPhase(payload)
 	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
 	impactFrame(1)
 	BossVfx.ring(current.kind, at - Vector3.new(0, 24, 0), 100, pal.Hot)
+	BossVfx.layers(current.kind, at - Vector3.new(0, 24, 0), 40, 2)
 	screenFlash(pal.Hot, 0.5, 0.9)
 	lightPillar(at - Vector3.new(0, 26, 0), pal.Hot, 80, 6, 1.2)
 	for index, top in pillarTops(current) do
