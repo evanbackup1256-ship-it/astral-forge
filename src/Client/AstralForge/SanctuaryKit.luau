@@ -4150,6 +4150,45 @@ local BOSS_MESHES: { [string]: { scale: number, pieces: { { name: string, mesh: 
 			{ name = "hipL", mesh = 128843151899789, texture = 99617909761995, size = { 5.34, 9.52, 6.32 }, offset = { 2.38, -4.82, 0.95 } },
 		},
 	},
+	-- The Rift Warden: a hooded void sentinel with floating gauntlets.
+	Warden = {
+		scale = 1.6,
+		pieces = {
+			{ name = "torso", mesh = 125826280696440, texture = 95718034791203, size = { 10.79, 14.64, 6.01 }, offset = { 0, -0.94, 0.99 } },
+			{ name = "cloak", mesh = 135095326126887, texture = 126527433508905, size = { 10.45, 14.33, 7.32 }, offset = { -0.02, -0.07, -0.34 } },
+			{ name = "head", mesh = 119706419727129, texture = 76332509247076, size = { 3.21, 2.81, 3.49 }, offset = { 0.01, 6.62, 0.98 } },
+			{ name = "shoulderR", mesh = 133823500359459, texture = 93986139794625, size = { 3.37, 4.98, 4.15 }, offset = { -3.87, 5.77, 0.16 } },
+			{ name = "shoulderL", mesh = 112095180823581, texture = 139709653404039, size = { 3.40, 3.45, 4.16 }, offset = { 3.86, 4.99, 0.16 } },
+			{ name = "armR", mesh = 76822992423417, texture = 120476032503938, size = { 3.19, 5.83, 3.21 }, offset = { -4.94, -0.18, 0.53 } },
+			{ name = "armL", mesh = 112431769672319, texture = 120861820082393, size = { 3.21, 5.82, 3.19 }, offset = { 4.93, -0.17, 0.52 } },
+		},
+	},
+	-- The Hollow Choir: a slender glass conductor with a fan of tuning blades.
+	Choir = {
+		scale = 1.5,
+		pieces = {
+			{ name = "torso", mesh = 75473095063576, texture = 98522486456419, size = { 8.44, 12.07, 6.80 }, offset = { -0.45, -0.98, -0.6 } },
+			{ name = "coat", mesh = 105121873227571, texture = 71962082878156, size = { 6.34, 9.86, 4.88 }, offset = { -0.34, 0.13, -1.29 } },
+			{ name = "head", mesh = 71240595755647, texture = 104293644728054, size = { 1.91, 2.67, 1.97 }, offset = { -0.38, 5.54, -0.72 } },
+			{ name = "armR", mesh = 125955891419214, texture = 111854462687198, size = { 3.02, 4.00, 2.79 }, offset = { -3.23, 1.92, 0.34 } },
+			{ name = "armL", mesh = 77611842905171, texture = 87850795803755, size = { 2.56, 5.32, 2.71 }, offset = { 2.26, 2.61, 0.44 } },
+			{ name = "blades", mesh = 102781469904430, texture = 102386477694804, size = { 9.73, 6.36, 3.54 }, offset = { 0, 3.83, 2.23 } },
+		},
+	},
+	-- The Rimeheart: a glacier golem with a cyan heart.
+	Rime = {
+		scale = 1.5,
+		pieces = {
+			{ name = "torso", mesh = 84684314227271, texture = 123980572745487, size = { 7.80, 10.02, 6.17 }, offset = { 0.02, 0.64, -0.05 } },
+			{ name = "head", mesh = 109288991966096, texture = 93528841555483, size = { 4.54, 5.48, 3.32 }, offset = { -0.01, 6.76, 0.19 } },
+			{ name = "shoulderR", mesh = 116624735008626, texture = 84978868534051, size = { 3.95, 5.80, 4.88 }, offset = { -4.68, 4.68, -0.63 } },
+			{ name = "shoulderL", mesh = 128407624433455, texture = 88558807429303, size = { 3.95, 5.79, 4.88 }, offset = { 4.72, 4.67, -0.63 } },
+			{ name = "armR", mesh = 90402283245261, texture = 118736954654513, size = { 4.57, 12.02, 4.81 }, offset = { -5.14, 0.49, -0.49 } },
+			{ name = "armL", mesh = 102006909410061, texture = 78724646069411, size = { 4.67, 12.19, 4.98 }, offset = { 5.08, 0.57, -0.57 } },
+			{ name = "legR", mesh = 122305695411718, texture = 112782815878504, size = { 4.41, 9.41, 5.07 }, offset = { -2.33, -4.79, 0.59 } },
+			{ name = "legL", mesh = 133392551419641, texture = 90009068001365, size = { 4.40, 9.40, 5.10 }, offset = { 2.35, -4.80, 0.58 } },
+		},
+	},
 }
 
 local meshNames: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: any
@@ -4213,7 +4252,9 @@ end
 -- A mesh piece's idle and combat motion: wings beat, arms rise as it charges, the rest
 -- breathes.
 local function meshPose(name: string, offset: Vector3, t: number, charge: number): CFrame
-	if string.find(name, "wing") ~= nil then
+	if name == "blades" then
+		return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.7) * 0.6 + charge * 2, 0)) * CFrame.Angles(0, 0, math.sin(t * 0.9) * 0.18)
+	elseif string.find(name, "wing") ~= nil then
 		local side = if offset.X < 0 then -1 else 1
 		return CFrame.new(offset) * CFrame.Angles(0, 0, side * (math.sin(t * (2.4 + charge * 4)) * 0.16 + charge * 0.2))
 	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil then
