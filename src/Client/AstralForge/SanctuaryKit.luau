@@ -4275,6 +4275,23 @@ local function meshRole(name: string): string
 	return "cloth"
 end
 
+-- One bone of a Blender-authored clip (SanctuaryConfig.BossClips: pitch, yaw, roll per frame at
+-- the clip's fps, linear between frames, wrapping when the clip loops).
+local function sampleClip(clip: any, bone: string, time: number): (number, number, number)
+	local data = clip.bones[bone]
+	if data == nil then
+		return 0, 0, 0
+	end
+	local frames = #data // 3
+	local at = if clip.loop then time % clip.length else math.clamp(time, 0, clip.length)
+	local position = at * clip.fps
+	local base = math.floor(position)
+	local k = position - base
+	local a = math.min(base, frames - 1) * 3
+	local b = math.min(base + 1, frames - 1) * 3
+	return data[a + 1] + (data[b + 1] - data[a + 1]) * k, data[a + 2] + (data[b + 2] - data[a + 2]) * k, data[a + 3] + (data[b + 3] - data[a + 3]) * k
+end
+
 local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: number, now: number, charge: number, phase: string, lookDir: Vector3, beamAngle: number?, emit: (Piece, CFrame) -> ())
 	local pieces = current.meshPieces
 	local joints = current.meshJoints
@@ -4293,6 +4310,42 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 	local folded = phase == "Dormant" or phase == "Forming" or phase == "Escaped"
 	local collapse = if limp then math.clamp((t - current.outroStarted) * 0.7, 0, 1) else 0
 
+	-- Which authored clip is playing, and how far into it. Wind-up clips (slam, thrust) are
+	-- scrubbed by the charge up to their strike frame, then run on in real time; one-shot
+	-- clips run from the start of the move; loops run on the clock.
+	local clips: any = SanctuaryConfig.BossClips
+	local clip: any = nil
+	local clipTime = 0
+	if clips ~= nil and clips.idle ~= nil then
+		if limp then
+			clip, clipTime = clips.death, t - current.outroStarted
+		elseif folded then
+			clip, clipTime = clips.forming, t
+		elseif aim ~= nil and clips[style] ~= nil then
+			clip = clips[style]
+			if clip.hit > 0 then
+				clipTime = if before then charge * clip.hit else clip.hit + (now - aim.untilAt)
+			elseif clip.loop then
+				clipTime = t
+			else
+				clipTime = now - (aim.untilAt - current.slamTotal)
+			end
+		else
+			clip, clipTime = clips.idle, t
+		end
+	end
+	local mirrorLR = clip ~= nil and clip == (clips :: any).slam and aim ~= nil and aim.striker == 2
+	local flinch = if clips ~= nil and clips.hit ~= nil then current.flash else 0
+	local function clipPose(bone: string): (number, number, number)
+		local p, y, r = sampleClip(clip, bone, clipTime)
+		if flinch > 0.04 then
+			local hp, hy, hr = sampleClip((clips :: any).hit, bone, 0)
+			p += hp * flinch
+			y += hy * flinch
+			r += hr * flinch
+		end
+		return p, y, r
+	end
 	-- The torso: where everything else hangs from.
 	local torsoPiece: Piece? = nil
 	for _, piece in pieces do
@@ -4320,6 +4373,10 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 	if limp then
 		torsoPitch += 0.65 * collapse
 		torsoRoll += 0.2 * collapse
+	end
+	if clip ~= nil then
+		local cp, _, cr = clipPose("torso")
+		torsoPitch, torsoRoll = cp - current.flash * 0.22, cr
 	end
 	local torsoJoint = joints.torso
 	if torsoJoint == nil then
@@ -4433,6 +4490,28 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 			pitch = 0.1 + math.sin(t * 1.4 + offset.Y) * 0.07 + (if style == "slam" and before then -0.12 * charge else 0.0)
 			roll = math.sin(t * 0.9) * 0.05
 			stiff = 22
+		end
+		if clip ~= nil and role ~= "torso" then
+			local weight = if string.find(name, "shoulder") ~= nil then 0.45 else 1
+			if role == "head" then
+				local cp, cy, cr = clipPose("head")
+				pitch, yaw, roll = cp, (if limp or folded then 0 else lookYaw) + cy, cr
+			elseif role == "wing" then
+				local cp, cy, cr = clipPose(if side > 0 then "wingL" else "wingR")
+				pitch, yaw, roll = cp, -side * cy, side * cr
+			elseif role == "blades" then
+				local cp, cy, cr = clipPose("blades")
+				pitch, yaw, roll = cp, t * 0.55 + cy, cr
+			elseif role == "cloth" then
+				pitch, yaw, roll = clipPose("cloth")
+			elseif role == "arm" then
+				local left = (side > 0) ~= mirrorLR
+				local cp, cy, cr = clipPose(if left then "armL" else "armR")
+				pitch, yaw, roll = cp * weight, cy * weight, side * cr * weight
+			elseif role == "leg" then
+				local cp, cy, cr = clipPose(if side > 0 then "legL" else "legR")
+				pitch, yaw, roll = cp, cy, side * cr
+			end
 		end
 		joint.p, joint.pv = ProcAnim.spring(joint.p, joint.pv, pitch, stiff, ProcAnim.damping(stiff, 0.5), dt)
 		joint.r, joint.rv = ProcAnim.spring(joint.r, joint.rv, roll, stiff, ProcAnim.damping(stiff, 0.5), dt)
@@ -5969,6 +6048,89 @@ function BossVfx.land(kind: string, center: Vector3, radius: number): boolean
 	return true
 end
 
+-- Each boss's own particle sprites, rendered in Blender (tools/assetgen/blender_bosstex.py):
+-- a large slow sprite that hangs where a blow lands, and a spray of small ones. `lit` is the
+-- sprite id when it has been uploaded, nil before then (nothing is drawn, the mesh and
+-- particle effects above carry on).
+local BOSS_SPRITES = {
+	Warden = { big = "rune_glyph", small = "void_wisp", gravity = 2, speed = { 6, 18 } },
+	Choir = { big = "ripple", small = "note", gravity = -3, speed = { 8, 20 } },
+	Regent = { big = "flame_lick", small = "ember", gravity = 16, speed = { 10, 26 } },
+	Seraph = { big = "spark_streak", small = "feather", gravity = -6, speed = { 16, 40 } },
+	Rime = { big = "snowflake", small = "ice_shard", gravity = -14, speed = { 8, 22 } },
+	Knight = { big = "slash", small = "shadow_wisp", gravity = 4, speed = { 10, 28 } },
+}
+
+local function spriteId(name: string): string?
+	local sprites = SanctuaryConfig.BossTex
+	local id = if sprites ~= nil then sprites[name] else nil
+	return if type(id) == "number" and id > 0 then `rbxassetid://{id}` else nil
+end
+
+function BossVfx.puff(kind: string, at: Vector3, radius: number)
+	local set = BOSS_SPRITES[kind]
+	if set == nil then
+		return
+	end
+	local big, small = spriteId(set.big), spriteId(set.small)
+	if big ~= nil then
+		Vfx.burst(at + Vector3.new(0, 1.5, 0), "Motes", 2, {
+			Texture = big,
+			Color = pal.Hot,
+			Color2 = pal.Primary,
+			Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, radius * 0.5), NumberSequenceKeypoint.new(1, radius * 1.2) }),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.6, 0.35), NumberSequenceKeypoint.new(1, 1) }),
+			Lifetime = NumberRange.new(0.7, 1.0),
+			Speed = NumberRange.new(0, 1),
+			SpreadAngle = Vector2.new(0, 0),
+			Acceleration = Vector3.zero,
+			RotSpeed = NumberRange.new(-50, 50),
+			Rotation = NumberRange.new(0, 360),
+			LightEmission = 1,
+			Orientation = Enum.ParticleOrientation.FacingCamera,
+		}, clientFolder)
+	end
+	if small ~= nil then
+		Vfx.burst(at + Vector3.new(0, 2, 0), "Motes", 26, {
+			Texture = small,
+			Color = pal.Hot,
+			Color2 = pal.Alert,
+			Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3.4), NumberSequenceKeypoint.new(1, 0.4) }),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.7, 0.3), NumberSequenceKeypoint.new(1, 1) }),
+			Lifetime = NumberRange.new(1.0, 1.8),
+			Speed = NumberRange.new(set.speed[1], set.speed[2]),
+			SpreadAngle = Vector2.new(180, 180),
+			Acceleration = Vector3.new(0, set.gravity, 0),
+			RotSpeed = NumberRange.new(-120, 120),
+			Rotation = NumberRange.new(0, 360),
+			LightEmission = 1,
+		}, clientFolder)
+	end
+end
+
+-- A steady stream of the boss's small sprite while it charges.
+function BossVfx.stream(kind: string, parent: BasePart)
+	local set = BOSS_SPRITES[kind]
+	local small = if set ~= nil then spriteId(set.small) else nil
+	if set == nil or small == nil then
+		return
+	end
+	Vfx.attach(parent, "Motes", {
+		Texture = small,
+		Color = pal.Hot,
+		Color2 = pal.Primary,
+		Rate = 24,
+		Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.6), NumberSequenceKeypoint.new(1, 0.3) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) }),
+		Lifetime = NumberRange.new(0.8, 1.4),
+		Speed = NumberRange.new(4, 12),
+		SpreadAngle = Vector2.new(60, 60),
+		Acceleration = Vector3.new(0, math.abs(set.gravity) * 0.7 + 2, 0),
+		RotSpeed = NumberRange.new(-90, 90),
+		Rotation = NumberRange.new(0, 360),
+		LightEmission = 1,
+	})
+end
 -- A flat ring of the boss's own shape, for summons, blasts and phase changes.
 function BossVfx.ring(kind: string, at: Vector3, size: number, color: Color3): boolean
 	local name = ({ Warden = "W_SealGlyph", Choir = "C_NoteRing", Regent = "R_FlameCrown", Seraph = "S_HaloSpikes", Rime = "I_Snowflake", Knight = "K_RuneRing" })[kind]
@@ -5996,6 +6158,9 @@ local function onSlam(payload)
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
+	if boss ~= nil then
+		BossVfx.stream(boss.kind, anchor)
+	end
 	local fill = ringAdornment(anchor, 0.1, 0, pal.Alert, 0.85)
 	local edge = ringAdornment(anchor, radius, radius - 0.9, pal.Alert, 0.35)
 	local started = serverNow()
@@ -6032,6 +6197,9 @@ local function onSlamLand(payload)
 	end
 	if boss == nil or not BossVfx.land(boss.kind, center, radius) then
 		elementBurst(payload.Element, center, radius)
+	end
+	if boss ~= nil then
+		BossVfx.puff(boss.kind, center, radius)
 	end
 	if radius >= 20 and (tonumber(payload.Radius) or 0) >= 20 then
 		local root = localRoot()
@@ -6536,7 +6704,7 @@ local function onSummonCall(payload)
 	local center = worldPoint(payload.Center)
 	local at = tonumber(payload.At) or (serverNow() + 1.4)
 	windUp(at, at - serverNow())
-	setAim("roar", nil, at)
+	setAim("summon", nil, at)
 	Audio:play(bossCue("Charge"))
 	local primary = elementColors(payload.Element)
 	if boss == nil or not BossVfx.ring(boss.kind, center, 60, primary) then
