@@ -226,7 +226,164 @@ CLIPS = {
 }
 
 
-# --- Blender: the armature, the actions -----------------------------------------------------------
+# --- per-boss acting ------------------------------------------------------------------------------
+# Each boss plays the shared clips through its own temperament: speed, amplitude, a stepped
+# (stop-motion) feel, and extra moves layered on (a lunge, a conducting hand, a hover...).
+
+def add(pose, bone, p=0.0, y=0.0, r=0.0):
+    cur = pose[bone]
+    pose[bone] = [cur[0] + p, cur[1] + y, cur[2] + r]
+
+
+def knight_mod(name, pose, t, length):
+    w = TAU / 2.4
+    if name == "idle":                         # a guarded fencer's stance, weight shifting
+        pose["armL"] = [-0.55 + math.sin(w * t) * 0.05, 0, 0.35]
+        pose["armR"] = [-0.8 + math.sin(w * t + 1) * 0.06, 0, 0.1]
+        add(pose, "torso", 0.04, math.sin(w * 0.5 * t) * 0.12, 0)
+        pose["legL"] = [-0.18, 0, 0.12]
+        pose["legR"] = [0.12, 0, 0.1]
+    elif name == "slam":                       # two-handed overhead chop with a lunge
+        u = ease_in_out(t / 1.1)
+        pose["armR"] = [pose["armL"][0], 0, 0.12]
+        if t >= 1.1:
+            v = ease_out((t - 1.1) / 0.25)
+            pose["legL"] = [-0.55 * v, 0, 0.1]
+            pose["legR"] = [0.35 * v, 0, 0.1]
+        else:
+            pose["legL"] = [0.1 * u, 0, 0.05]
+    elif name == "thrust":                     # fencing lunge, off hand thrown back
+        if t >= 0.9:
+            v = ease_out((t - 0.9) / 0.18)
+            pose["legL"] = [-0.8 * v, 0, 0.12]
+            pose["legR"] = [0.45 * v, 0, 0.1]
+            pose["armL"] = [0.5 * v, 0, 0.5 * v]
+        add(pose, "torso", 0.0, 0.0, 0.0)
+    elif name == "sweep":                      # slashing arcs: torso whips side to side
+        add(pose, "torso", 0, math.sin(TAU * t / 2.0) * 0.9, 0)
+        add(pose, "head", 0, -math.sin(TAU * t / 2.0) * 0.4, 0)
+    elif name == "roar":
+        pose["armR"] = [-1.9 * ease_out(t / 0.4), 0, 0.2]                  # sword salute
+    return pose
+
+
+def seraph_mod(name, pose, t, length):
+    w = TAU / 1.6
+    if name in ("idle", "forming"):            # hovering: slow bob, legs trailing, wings beating wide
+        for bone in ("legL", "legR"):
+            pose[bone] = [0.35 + math.sin(w * 0.5 * t) * 0.05, 0, 0.06]
+        for bone in ("wingL", "wingR"):
+            pose[bone] = [0, 0, 0.25 + math.sin(w * t) * 0.32]
+        add(pose, "torso", 0.05, 0, 0)
+        for bone in ("armL", "armR"):
+            pose[bone] = [-0.2, 0, 0.5]
+    elif name == "slam":                       # wings sweep down with the blow
+        u = ease_in_out(t / 1.1)
+        for bone in ("wingL", "wingR"):
+            pose[bone] = [0, 0, 0.9 * u if t < 1.1 else lerp(0.9, -0.7, ease_out((t - 1.1) / 0.2))]
+    elif name == "roar":
+        for bone in ("wingL", "wingR"):
+            pose[bone] = [0, 0, 1.0 * ease_out(t / 0.4) + math.sin(TAU * 4 * t) * 0.06]
+    elif name == "summon":
+        for bone in ("wingL", "wingR"):
+            pose[bone] = [0, 0, 0.7 + math.sin(TAU * 2 * t) * 0.15]
+    return pose
+
+
+def regent_mod(name, pose, t, length):
+    w = TAU / 3.4
+    if name == "idle":                         # heavy breathing, arms hanging wide like a gorilla
+        add(pose, "torso", math.sin(w * t) * 0.03, 0, 0)
+        for bone in ("armL", "armR"):
+            pose[bone] = [0.1 + math.sin(w * t) * 0.04, 0, 0.45]
+        for bone in ("legL", "legR"):
+            pose[bone] = [0, 0, 0.12]
+    elif name == "slam":                       # both fists overhead then a ground-shaking pound
+        pose["armR"] = list(pose["armL"])
+        pose["armR"][2] = pose["armL"][2] + 0.1
+        add(pose, "torso", -0.1 if t < 1.1 else 0.15, 0, 0)
+    elif name == "pull":
+        for bone in ("armL", "armR"):
+            add(pose, bone, 0.2, 0, 0.2)
+    elif name == "death":                      # sinks to its knees then topples forward
+        k = ease_in_out(t / 1.6)
+        for bone in ("legL", "legR"):
+            pose[bone] = [-0.8 * k, 0, 0.1]
+    return pose
+
+
+def rime_mod(name, pose, t, length):
+    if name in ("idle", "forming"):            # barely moving; ice settles with tiny shudders
+        w = TAU / 4.5
+        for bone in ("armL", "armR"):
+            pose[bone] = [0.05 + math.sin(w * t) * 0.02, 0, 0.3]
+        add(pose, "torso", 0, 0, math.sin(w * 2 * t) * 0.01)
+    elif name == "slam":
+        add(pose, "torso", -0.05 if t < 1.1 else 0.1, 0, 0)
+    return pose
+
+
+def warden_mod(name, pose, t, length):
+    w = TAU / 3.6
+    if name in ("idle", "forming"):            # hands float up as if holding something unseen
+        pose["armL"] = [-0.7 + math.sin(w * t) * 0.12, 0, 0.55 + math.sin(w * t + 1) * 0.1]
+        pose["armR"] = [-0.7 + math.sin(w * t + 2) * 0.12, 0, 0.55 + math.sin(w * t + 3) * 0.1]
+        pose["head"] = [-0.1 + math.sin(w * 1.3 * t) * 0.05, math.sin(w * 0.5 * t) * 0.15, 0]
+        for bone in ("legL", "legR"):
+            pose[bone] = [0, 0, 0.02]
+    elif name == "slam":
+        add(pose, "head", -0.15 if t < 1.1 else 0.2, 0, 0)
+    elif name == "summon":
+        for bone in ("armL", "armR"):
+            add(pose, bone, 0, 0, 0.4 * ease_out(t / 0.6))
+    return pose
+
+
+def choir_mod(name, pose, t, length):
+    w = TAU / 2.0
+    if name in ("idle", "forming", "pull", "sweep", "floor"):   # always conducting
+        beat = TAU * t / 2.0
+        pose["armR"] = [-1.1 + math.sin(beat) * 0.55, math.sin(beat * 2) * 0.3, 0.25 + math.cos(beat) * 0.35]
+        pose["armL"] = [-0.6 + math.sin(beat + math.pi) * 0.35, 0, 0.55 + math.sin(beat * 2) * 0.2]
+        pose["head"] = [0.05, math.sin(beat * 0.5) * 0.2, math.sin(beat) * 0.05]
+        add(pose, "torso", 0, math.sin(beat * 0.5) * 0.12, 0)
+    elif name == "slam":                       # the downbeat
+        pose["armR"] = [pose["armL"][0], 0, 0.2]
+    elif name == "roar":
+        for bone in ("armL", "armR"):
+            pose[bone] = [-1.7 * ease_out(t / 0.4), 0, 0.9]
+    return pose
+
+
+# kind -> (speed multiplier, stepped fps or 0, modifier)
+VARIANTS = {
+    "default": (1.0, 0, None),
+    "Knight": (1.0, 0, knight_mod),
+    "Seraph": (1.0, 0, seraph_mod),
+    "Regent": (1.3, 0, regent_mod),
+    "Rime": (1.5, 6, rime_mod),
+    "Warden": (1.0, 0, warden_mod),
+    "Choir": (1.0, 0, choir_mod),
+}
+
+
+def variant_pose(kind, name):
+    speed, steps, mod = VARIANTS[kind]
+    length, hit, loop, base = CLIPS[name]
+
+    def pose(t):
+        tt = t / speed
+        if steps:
+            tt = math.floor(tt * steps) / steps
+        p = base(tt)
+        if mod is not None:
+            p = mod(name, p, tt, length)
+        return p
+
+    return pose
+
+
+# --- Blender: the armature, the actions --------------------------------------------------------------
 
 def build_armature():
     for obj in list(bpy.data.objects):
@@ -263,43 +420,41 @@ def build_armature():
     return rig
 
 
-def key_actions(rig):
+def key_and_sample(rig):
+    """Key every boss's version of every clip on the armature and read it back out."""
     for action in list(bpy.data.actions):
         if action.name.startswith("boss_"):
             bpy.data.actions.remove(action)
     rig.animation_data_create()
-    for name, (length, _hit, _loop, pose) in CLIPS.items():
-        action = bpy.data.actions.new(f"boss_{name}")
-        rig.animation_data.action = action
-        frames = int(round(length * FPS)) + 1
-        for frame in range(frames):
-            values = pose(frame / FPS)
-            for bone in BONES:
-                pb = rig.pose.bones[bone]
-                pb.rotation_euler = tuple(values[bone])
-                pb.keyframe_insert("rotation_euler", frame=frame + 1)
-        action.use_fake_user = True
-    return rig
-
-
-def sample_actions(rig):
-    """Read every action back out of Blender (what the game will play)."""
     scene = bpy.context.scene
-    out = {}
-    for name, (length, hit, loop, _pose) in CLIPS.items():
-        action = bpy.data.actions[f"boss_{name}"]
-        rig.animation_data.action = action
-        frames = int(round(length * FPS)) + 1
-        tracks = {bone: [] for bone in BONES}
-        for frame in range(frames):
-            scene.frame_set(frame + 1)
-            for bone in BONES:
-                e = rig.pose.bones[bone].rotation_euler
-                tracks[bone].extend([round(e.x, 2), round(e.y, 2), round(e.z, 2)])
-        out[name] = {"fps": FPS, "length": length, "hit": hit, "loop": loop, "bones": tracks}
+    result = {}
+    for kind in VARIANTS:
+        result[kind] = {}
+        speed = VARIANTS[kind][0]
+        for name, (length, hit, loop, _base) in CLIPS.items():
+            pose_fn = variant_pose(kind, name)
+            real_length = round(length * speed, 2)
+            hit_time = round(hit * speed, 2)
+            action = bpy.data.actions.new(f"boss_{kind}_{name}")
+            action.use_fake_user = True
+            rig.animation_data.action = action
+            frames = int(round(real_length * FPS)) + 1
+            for frame in range(frames):
+                values = pose_fn(frame / FPS)
+                for bone in BONES:
+                    pb = rig.pose.bones[bone]
+                    pb.rotation_euler = tuple(values[bone])
+                    pb.keyframe_insert("rotation_euler", frame=frame + 1)
+            tracks = {bone: [] for bone in BONES}
+            for frame in range(frames):
+                scene.frame_set(frame + 1)
+                for bone in BONES:
+                    e = rig.pose.bones[bone].rotation_euler
+                    tracks[bone].extend([round(e.x, 2), round(e.y, 2), round(e.z, 2)])
+            sparse = {b: v for b, v in tracks.items() if any(abs(x) > 0.004 for x in v)}
+            result[kind][name] = {"fps": FPS, "length": real_length, "hit": hit_time, "loop": loop, "bones": sparse}
     scene.frame_set(1)
-    rig.animation_data.action = bpy.data.actions["boss_idle"]
-    return out
+    return result
 
 
 def lua_number(x):
@@ -307,16 +462,19 @@ def lua_number(x):
     return text if text not in ("", "-0") else "0"
 
 
-def write_block(clips):
+def write_block(all_clips):
     with open(DATA, "r", encoding="utf-8", newline="") as handle:
         source = handle.read()
     newline = "\r\n" if "\r\n" in source else "\n"
     lines = [BEGIN + " (rewritten by tools/assetgen/blender_bossrig.py)", "SanctuaryConfig.BossClips = {"]
-    for name, clip in clips.items():
-        lines.append(f"\t{name} = {{ fps = {clip['fps']}, length = {lua_number(clip['length'])}, hit = {lua_number(clip['hit'])}, loop = {'true' if clip['loop'] else 'false'}, bones = {{")
-        for bone, values in clip["bones"].items():
-            lines.append(f"\t\t{bone} = {{ " + ", ".join(lua_number(v) for v in values) + " },")
-        lines.append("\t} },")
+    for kind, clips in all_clips.items():
+        lines.append(f"\t{kind} = {{")
+        for name, clip in clips.items():
+            lines.append(f"\t\t{name} = {{ fps = {clip['fps']}, length = {lua_number(clip['length'])}, hit = {lua_number(clip['hit'])}, loop = {'true' if clip['loop'] else 'false'}, bones = {{")
+            for bone, values in clip["bones"].items():
+                lines.append(f"\t\t\t{bone} = {{ " + ", ".join(lua_number(v) for v in values) + " },")
+            lines.append("\t\t} },")
+        lines.append("\t},")
     lines += ["}", END]
     body = newline.join(lines)
     pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.S)
@@ -328,14 +486,13 @@ def write_block(clips):
 
 def main():
     rig = build_armature()
-    key_actions(rig)
-    clips = sample_actions(rig)
+    all_clips = key_and_sample(rig)
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, "clips.json"), "w", encoding="utf-8") as handle:
-        json.dump(clips, handle)
-    write_block(clips)
-    total = sum(len(v) for clip in clips.values() for v in clip["bones"].values())
-    print(f"{len(clips)} clips, {total} numbers -> SharedData.luau")
+        json.dump(all_clips, handle)
+    write_block(all_clips)
+    total = sum(len(v) for clips in all_clips.values() for clip in clips.values() for v in clip["bones"].values())
+    print(f"{len(all_clips)} boss variants x {len(CLIPS)} clips, {total} numbers -> SharedData.luau")
 
 
 main()

@@ -168,12 +168,186 @@ def impact():
     return norm(np.tanh((thump * 1.4 + click * 0.8) * 1.5))
 
 
+def band(x, lo, hi):
+    spectrum = np.fft.rfft(x)
+    freqs = np.fft.rfftfreq(len(x), 1 / RATE)
+    mask = np.exp(-(((freqs - (lo + hi) / 2) / ((hi - lo) / 2 + 1e-6)) ** 4))
+    return np.fft.irfft(spectrum * mask, len(x))
+
+
+def chord(freqs, seconds, vibrato=5.0, depth=0.004, detune=0.003):
+    t = t_axis(seconds)
+    out = np.zeros(len(t))
+    for index, f in enumerate(freqs):
+        for d in (-detune, 0, detune):
+            phase = rng.random() * 6.28
+            out += np.sin(2 * np.pi * f * (1 + d) * t + depth * np.sin(2 * np.pi * vibrato * t + index) * f * 0.05 + phase)
+    return out
+
+
+# --- per-boss packs: roar (awake / phase), charge (wind-up), boom (a blow lands), death ----------
+
+def roar_Warden():
+    n = int(2.6 * RATE)
+    t = t_axis(2.6)
+    growl = band(noise(2.6), 70, 420) * (np.sin(2 * np.pi * 7 * t) * 0.35 + 0.65)
+    sub = sweep(2.6, 48, 30) * 0.9
+    tear = highpass(noise(2.6), 3000) * (rng.random(n) > 0.9993) * 6
+    env = np.minimum(1, np.linspace(0, 1, n) * 6) * decay(n, 1.8)
+    return norm(reverb(np.tanh((growl * 1.4 + sub) * env * 1.8) + tear * 0.3, 1.8, 0.4))
+
+
+def charge_Warden():
+    n = int(2.0 * RATE)
+    swell_env = swell(n, 1.7)
+    return norm(reverb(sweep(2.0, 90, 38) * swell_env + band(noise(2.0), 200, 900) * swell_env * 0.5 + highpass(noise(2.0), 4000) * (rng.random(n) > 0.9994) * 3, 1.4, 0.3))
+
+
+def boom_Warden():
+    n = int(2.2 * RATE)
+    return norm(reverb(np.tanh(sweep(2.2, 130, 28) * decay(n, 4) * 3) + band(noise(2.2), 80, 600) * decay(n, 6) * 0.7, 1.6, 0.4))
+
+
+def death_Warden():
+    n = int(4.0 * RATE)
+    t = t_axis(4.0)
+    voice = band(noise(4.0), 60, 300) * (0.6 + 0.4 * np.sin(2 * np.pi * 4 * t)) * decay(n, 2.2)
+    return norm(reverb(np.tanh((voice * 2 + sweep(4.0, 80, 22) * decay(n, 1.6)) * 1.6), 2.4, 0.5))
+
+
+def roar_Choir():
+    n = int(3.0 * RATE)
+    notes = chord([261.6, 329.6, 392.0, 523.3, 659.3], 3.0, 5.5, 0.01)
+    return norm(reverb(notes * np.minimum(1, np.linspace(0, 1, n) * 4) * decay(n, 1.2) + highpass(noise(3.0), 6000) * decay(n, 4) * 0.08, 2.6, 0.5))
+
+
+def charge_Choir():
+    n = int(2.2 * RATE)
+    return norm(reverb(chord([392.0, 493.9, 587.3, 784.0], 2.2, 6.0, 0.012) * swell(n, 1.5), 2.0, 0.45))
+
+
+def boom_Choir():
+    n = int(2.0 * RATE)
+    t = t_axis(2.0)
+    return norm(reverb((np.sin(2 * np.pi * 523.3 * t) + np.sin(2 * np.pi * 784.0 * t) * 0.7 + np.sin(2 * np.pi * 1318.5 * t) * 0.4) * decay(n, 5) + sweep(2.0, 200, 50) * decay(n, 8) * 0.6, 2.0, 0.5))
+
+
+def death_Choir():
+    n = int(4.5 * RATE)
+    return norm(reverb(chord([261.6, 311.1, 392.0, 466.2], 4.5, 4.5, 0.02) * decay(n, 1.4), 3.4, 0.6))
+
+
+def roar_Regent():
+    n = int(2.8 * RATE)
+    t = t_axis(2.8)
+    rumble = band(noise(2.8), 50, 350) * (0.55 + 0.45 * np.sin(2 * np.pi * 9 * t))
+    fire = highpass(noise(2.8), 800) * decay(n, 1.5) * 0.35
+    return norm(np.tanh((rumble * 2.2 + sweep(2.8, 70, 40) * 0.8 + fire) * np.minimum(1, np.linspace(0, 1, n) * 5) * 2.2))
+
+
+def charge_Regent():
+    n = int(2.0 * RATE)
+    crackle = (rng.random(n) > 0.9985).astype(float) * rng.standard_normal(n) * 2
+    return norm(lowpass(noise(2.0), 600) * swell(n, 1.4) + highpass(crackle, 1500) * swell(n, 1.0) * 0.6 + sweep(2.0, 40, 120) * swell(n, 1.6) * 0.7)
+
+
+def boom_Regent():
+    n = int(2.4 * RATE)
+    return norm(reverb(np.tanh(sweep(2.4, 110, 24) * decay(n, 3.5) * 3.2) + lowpass(noise(2.4), 2200) * decay(n, 4.5) * 0.9, 1.4, 0.35))
+
+
+def death_Regent():
+    n = int(4.2 * RATE)
+    return norm(reverb(np.tanh(sweep(4.2, 90, 20) * decay(n, 1.4) * 2.5) + lowpass(noise(4.2), 900) * decay(n, 2.2) * 0.8, 2.2, 0.45))
+
+
+def roar_Seraph():
+    n = int(2.4 * RATE)
+    thunder = lowpass(noise(2.4), 220) * decay(n, 2.0) * 1.4
+    crack = highpass(noise(2.4), 1800) * decay(n, 30)
+    shimmer = chord([1046.5, 1318.5, 1568.0], 2.4, 7.0, 0.01) * decay(n, 1.6) * 0.18
+    return norm(reverb(np.tanh(thunder * 2 + crack * 1.2) + shimmer, 1.6, 0.4))
+
+
+def charge_Seraph():
+    n = int(1.8 * RATE)
+    t = t_axis(1.8)
+    return norm(sweep(1.8, 300, 2600) * swell(n, 2.0) * 0.5 + np.sign(np.sin(2 * np.pi * 50 * t)) * 0.25 * swell(n, 1.4) + highpass(noise(1.8), 3500) * swell(n, 3.0) * 0.3)
+
+
+def boom_Seraph():
+    n = int(2.2 * RATE)
+    return norm(reverb(highpass(noise(2.2), 1500) * decay(n, 35) * 1.3 + lowpass(noise(2.2), 180) * decay(n, 3) * 1.5, 1.8, 0.4))
+
+
+def death_Seraph():
+    n = int(4.0 * RATE)
+    return norm(reverb(chord([523.3, 659.3, 784.0, 1046.5], 4.0, 5.0, 0.014) * decay(n, 1.2) * 0.7 + lowpass(noise(4.0), 200) * decay(n, 2.5) * 0.6, 3.0, 0.55))
+
+
+def roar_Rime():
+    n = int(3.0 * RATE)
+    t = t_axis(3.0)
+    creak = band(noise(3.0), 250, 700) * (0.4 + 0.6 * np.abs(np.sin(2 * np.pi * 3.2 * t)))
+    wind = band(noise(3.0), 400, 1800) * decay(n, 1.4) * 0.5
+    return norm(reverb(np.tanh((creak * 2.2 + sweep(3.0, 60, 36) * 0.7) * np.minimum(1, np.linspace(0, 1, n) * 4)) + wind, 2.4, 0.5))
+
+
+def charge_Rime():
+    n = int(2.2 * RATE)
+    return norm(reverb(band(noise(2.2), 1500, 6000) * swell(n, 1.6) * 0.5 + chord([1396.9, 1760.0, 2093.0], 2.2, 3.0, 0.004) * swell(n, 1.4) * 0.25, 1.8, 0.45))
+
+
+def boom_Rime():
+    n = int(2.2 * RATE)
+    t = t_axis(2.2)
+    shards = np.zeros(n)
+    for _ in range(40):
+        s = int(rng.random() * 0.35 * RATE)
+        f = 1800 + rng.random() * 6000
+        shards[s:] += np.sin(2 * np.pi * f * t[: n - s]) * decay(n - s, 10 + rng.random() * 14) * (0.1 + rng.random() * 0.2)
+    return norm(reverb(sweep(2.2, 100, 30) * decay(n, 5) * 0.8 + shards + highpass(noise(2.2), 4500) * decay(n, 25) * 0.5, 1.6, 0.4))
+
+
+def death_Rime():
+    n = int(4.2 * RATE)
+    return norm(reverb(band(noise(4.2), 200, 900) * (0.5 + 0.5 * np.abs(np.sin(2 * np.pi * 2 * t_axis(4.2)))) * decay(n, 1.6) * 1.4 + sweep(4.2, 120, 28) * decay(n, 1.8), 3.0, 0.55))
+
+
+def roar_Knight():
+    n = int(2.2 * RATE)
+    t = t_axis(2.2)
+    clang = (np.sin(2 * np.pi * 523 * t) + 0.6 * np.sin(2 * np.pi * 1187 * t) + 0.4 * np.sin(2 * np.pi * 2210 * t)) * decay(n, 6)
+    whisper = band(noise(2.2), 800, 3500) * (0.5 + 0.5 * np.sin(2 * np.pi * 6 * t)) * decay(n, 2.2) * 0.4
+    return norm(reverb(clang * 0.7 + whisper + sweep(2.2, 90, 45) * decay(n, 3) * 0.7, 1.2, 0.35))
+
+
+def charge_Knight():
+    n = int(1.8 * RATE)
+    return norm(reverb(highpass(noise(1.8), 2500) * swell(n, 2.5) * 0.45 + sweep(1.8, 400, 1800) * swell(n, 2.2) * 0.3 + band(noise(1.8), 600, 2500) * swell(n, 1.6) * 0.3, 0.8, 0.3))
+
+
+def boom_Knight():
+    n = int(1.8 * RATE)
+    t = t_axis(1.8)
+    steel = (np.sin(2 * np.pi * 880 * t) + 0.7 * np.sin(2 * np.pi * 1760 * t * 1.01) + 0.5 * np.sin(2 * np.pi * 3320 * t)) * decay(n, 9)
+    return norm(reverb(steel * 0.6 + highpass(noise(1.8), 3000) * decay(n, 50) + sweep(1.8, 140, 36) * decay(n, 6) * 0.9, 1.0, 0.3))
+
+
+def death_Knight():
+    n = int(3.6 * RATE)
+    t = t_axis(3.6)
+    return norm(reverb((np.sin(2 * np.pi * 440 * t) + 0.6 * np.sin(2 * np.pi * 988 * t)) * decay(n, 2.2) * 0.5 + band(noise(3.6), 500, 2500) * decay(n, 2.5) * 0.4 + sweep(3.6, 100, 30) * decay(n, 2.0), 2.4, 0.5))
+
+
 SOUNDS = {
     "cast_Fire": cast_fire, "cast_Storm": cast_storm, "cast_Frost": cast_frost, "cast_Void": cast_void,
     "hit_Fire": hit_fire, "hit_Storm": hit_storm, "hit_Frost": hit_frost, "hit_Void": hit_void,
     "wisp_spawn": wisp_spawn, "wisp_blast": wisp_blast, "wisp_down": wisp_down, "impact": impact,
 }
-
+for _kind in ("Warden", "Choir", "Regent", "Seraph", "Rime", "Knight"):
+    for _beat in ("roar", "charge", "boom", "death"):
+        SOUNDS[f"{_beat}_{_kind}"] = globals()[f"{_beat}_{_kind}"]
 
 def main():
     os.makedirs(OUT, exist_ok=True)
