@@ -505,7 +505,8 @@ function RiftBossService:_forced(now: number)
 			self:_moveToArena()
 			table.clear(self._events)
 			self._attacking = false
-			self._state = { Phase = "Dormant", EndsAt = now, Health = 0, MaxHealth = 0 }
+			-- Straight to Forming with its timer already up: the next step wakes it, no wait.
+			self._state = { Phase = "Forming", EndsAt = now, Health = 0, MaxHealth = 0 }
 			return
 		end
 	end
