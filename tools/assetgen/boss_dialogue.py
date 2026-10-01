@@ -58,6 +58,11 @@ DIALOGUE = {
             "Fall. [beat] [slow]Again.[/]",
             "[glitch]Pathetic.[/]",
         ],
+        "Ultimate": {
+            "VoidCollapse": ["[big]VOID COLLAPSE.[/]", "[slow]Everything folds [beat] toward nothing.[/]"],
+            "Spearfall": ["[big]SPEARFALL.[/]", "[shake]A hundred lines of dark. [beat] Pick one.[/]"],
+            "Oblivion": ["[big][shake]OBLIVION.[/][/]", "[glitch]Be [beat] un[beat]made.[/]"],
+        },
         "Attack": {
             "Slam": ["[big]KNEEL.[/]", "Fall.", "The floor [hot]remembers[/] weight."],
             "TwinSlam": ["Two fall as [hot]one[/].", "[shake]Both of you.[/]"],
@@ -101,6 +106,11 @@ DIALOGUE = {
             "[shake]Sour.[/] Sour!",
             "Again, [slow]but listen this time[/].",
         ],
+        "Ultimate": {
+            "Crescendo": ["[big]CRESCENDO.[/]", "[wave]Every voice at once -- [beat] [hot]LISTEN[/].[/]"],
+            "Requiem": ["[slow]This is your [hot]requiem[/].[/]", "[whisper]Hold still for the last note.[/]"],
+            "Finale": ["[big][shake]FINALE.[/][/]", "[glitch]The song ends when [beat] YOU do.[/]"],
+        },
         "Attack": {
             "Rings": ["[hot]Hear[/] the rhythm.", "Step between the [pulse]beats[/].", "[wave]One... two... three...[/]"],
             "Dissonance": ["Find the [hot]harmony[/].", "Only the [slow]still[/] notes are safe.", "[glitch]All discord, all at once.[/]"],
@@ -143,6 +153,11 @@ DIALOGUE = {
             "[big]INSOLENT.[/]",
             "Is that all the [hot]fire[/] you carry?",
         ],
+        "Ultimate": {
+            "Eruption": ["[big]ERUPTION.[/]", "[shake]The mountain remembers [hot]fire[/].[/]"],
+            "Cataclysm": ["[big]CATACLYSM.[/]", "[slow]The ground was only ever a [hot]lid[/].[/]"],
+            "Ragnarok": ["[big][shake]RAGNAROK.[/][/]", "[glitch]Burn. [beat] Burn. [beat] BURN.[/]"],
+        },
         "Attack": {
             "Sweep": ["Run in circles, [hot]little ember[/].", "[wave]The beam turns... and turns...[/]"],
             "Volley": ["[big]Rain, fire![/]", "Every one of you is a [hot]target[/]."],
@@ -187,6 +202,11 @@ DIALOGUE = {
             "[glitch]Static.[/]",
             "Flinch. [beat] [slow]Go on.[/]",
         ],
+        "Ultimate": {
+            "Judgment": ["[big]JUDGMENT.[/]", "[wave]Stand in the light and be [hot]weighed[/].[/]"],
+            "Tempest": ["[big]TEMPEST.[/]", "[shake]Every cloud I own -- [beat] at once.[/]"],
+            "Wrath": ["[big][shake]WRATH.[/][/]", "[glitch]I am the storm that [beat] ENDS storms.[/]"],
+        },
         "Attack": {
             "Volley": ["[hot]Lightning[/] finds you.", "[shake]Strike, strike, strike![/]", "[glitch]Fork and flash.[/]"],
             "Lances": ["Arcs of the sky -- [big]cut![/]", "[hot]Rails of lightning.[/]"],
@@ -229,6 +249,11 @@ DIALOGUE = {
             "[shake]Slower.[/] You are slowing.",
             "[whisper]So tired...[/]",
         ],
+        "Ultimate": {
+            "Whiteout": ["[big]WHITEOUT.[/]", "[whisper]No sky. [beat] No ground. [beat] Only [hot]cold[/].[/]"],
+            "AbsoluteZero": ["[big]ABSOLUTE ZERO.[/]", "[slow]Even motion [beat] stops.[/]"],
+            "DeepWinter": ["[big][shake]DEEP WINTER.[/][/]", "[slow]Sleep. [beat] I will keep you [hot]forever[/].[/]"],
+        },
         "Attack": {
             "Cage": ["Be [slow]still[/]. Be [hot]kept[/].", "[wave]Walls of winter.[/]", "[big]CLOSE.[/]"],
             "Rings": ["The frost spreads in [hot]rings[/].", "[wave]Ripples of cold.[/]"],
@@ -272,6 +297,11 @@ DIALOGUE = {
             "Sloppy. [beat] [hot]Try harder.[/]",
             "[wave]Is that your best?[/]",
         ],
+        "Ultimate": {
+            "Duel": ["[big]EN GARDE.[/]", "[wave]Dance well. [beat] It is your last.[/]"],
+            "LastCut": ["[big]THE LAST CUT.[/]", "[slow]I only ever need [hot]one[/].[/]"],
+            "Execution": ["[big][shake]EXECUTION.[/][/]", "[glitch]The sentence is [beat] passed.[/]"],
+        },
         "Attack": {
             "Fissure": ["[hot]One cut.[/]", "The blade [slow]reaches[/].", "[big]FOLLOW.[/]"],
             "TwinSlam": ["[hot]Twice.[/]", "[shake]Two strokes.[/]"],
