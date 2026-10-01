@@ -368,6 +368,14 @@ DIALOGUE = {
     },}
 
 
+try:
+    from boss_script import SCRIPT
+except ImportError:
+    SCRIPT = {}
+for _kind, _over in SCRIPT.items():
+    DIALOGUE.setdefault(_kind, {}).update(_over)
+
+
 def lua_string(text: str) -> str:
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -381,6 +389,9 @@ def render(kind: str) -> str:
     out = ["Dialogue = {"]
     for key in ("Forming", "Awake", "Phase2", "Phase3", "Defeat", "Escape", "Enrage", "Break", "Hit"):
         out.append(f"\t\t{key} = {lua_list(script[key], '')},")
+    for key in ("Stagger", "Idle"):
+        if key in script:
+            out.append(f"\t\t{key} = {lua_list(script[key], '')},")
     if "Ultimate" in script:
         out.append("\t\tUltimate = {")
         for name, lines in script["Ultimate"].items():

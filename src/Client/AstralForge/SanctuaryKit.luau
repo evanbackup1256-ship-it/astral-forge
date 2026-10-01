@@ -6157,7 +6157,7 @@ local function speakLines(current: Boss, key: string, startAt: number, _gap: num
 	for _, line in lines do
 		task.delay(at, function()
 			if boss == current and near(current) then
-				say(current.config.Name, line, pal.Hot)
+				say(current.config.Name, (string.gsub(line, "{name}", Players.LocalPlayer.DisplayName)), pal.Hot)
 			end
 		end)
 		at += lineSeconds(line) + 0.7
@@ -6170,7 +6170,7 @@ local function quip(current: Boss, lines: { string }?, cooldown: number, chance:
 		return
 	end
 	lastQuip = os.clock()
-	say(current.config.Name, lines[math.random(#lines)], pal.Hot)
+	say(current.config.Name, (string.gsub(lines[math.random(#lines)], "{name}", Players.LocalPlayer.DisplayName)), pal.Hot)
 end
 
 -- Each boss wakes with its own cutscene. The letterbox and title card (the HUD banner) are
@@ -6523,7 +6523,11 @@ local function stepBoss(dt: number, t: number)
 	else
 		hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
 	end
-	current.hoverPos = hover	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
+	current.hoverPos = hover
+	if phase == "Active" and current.aim == nil and current.config.Dialogue.Idle ~= nil then
+		quip(current, current.config.Dialogue.Idle, 24, 0.004) -- it talks when it has nothing to hit
+	end
+	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
 	if kind == "Choir" then
 		coreScale *= 1 + 0.06 * math.sin(t * 3.2) + current.conduct * 0.1
 	elseif kind == "Regent" then
@@ -7215,6 +7219,9 @@ local function onSlamLand(payload)
 end
 
 local function onStagger(payload)
+	if boss ~= nil and boss.config.Dialogue.Stagger ~= nil then
+		quip(boss, boss.config.Dialogue.Stagger, 14, 0.7)
+	end
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Controls.knockback(center, 58)
 	Controls.shake(1.3)
