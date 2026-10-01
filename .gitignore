@@ -20,3 +20,4 @@ sourcemap.json
 __pycache__/
 
 assets/generated/voice/*.wav
+assets/generated/bosssfx/*.wav

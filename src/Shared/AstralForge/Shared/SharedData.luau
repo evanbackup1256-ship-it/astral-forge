@@ -1850,6 +1850,11 @@ local UmbralKnight = bossFrom(SanctuaryConfig.RiftBoss, {
 		},
 	},
 })
+-- Boss effect sounds by name (cast_<Element>, hit_<Element>, wisp_*, impact) -> uploaded audio id.
+-- BOSS-SFX-BEGIN (rewritten by tools/assetgen/upload_boss_sfx.py)
+SanctuaryConfig.BossSfx = {}
+-- BOSS-SFX-END
+
 -- Spoken lines: subtitle text -> uploaded audio id, so each boss line is voiced as well as shown.
 -- BOSS-VOICE-BEGIN (rewritten by tools/assetgen/upload_voice.py)
 SanctuaryConfig.BossVoice = {}

@@ -4263,6 +4263,33 @@ end
 -- Impact frame: the screen snaps to a hard white-out then a crushed black for a couple of
 -- frames, the way fighting games punctuate a huge hit. Cheap (one colour-correction effect)
 -- and rate limited so a volley of blows is not a strobe.
+-- A boss effect sound by name, when it has been uploaded (tools/assetgen/upload_boss_sfx.py).
+-- Returns whether it played so callers can fall back to the boss's own cue. Rate limited per
+-- name so a volley of meteors is a rolling rumble, not a wall of identical sounds.
+local sfxLast: { [string]: number } = {}
+local function bossSfx(name: string, volume: number?): boolean
+	local sfxId = SanctuaryConfig.BossSfx and SanctuaryConfig.BossSfx[name]
+	if type(sfxId) ~= "number" or sfxId <= 0 then
+		return false
+	end
+	local now = os.clock()
+	if now - (sfxLast[name] or -1) < 0.18 then
+		return true
+	end
+	sfxLast[name] = now
+	local sound = Instance.new("Sound")
+	sound.Name = "BossSfx"
+	sound.SoundId = `rbxassetid://{sfxId}`
+	sound.Volume = volume or 0.8
+	sound.PlaybackSpeed = 0.94 + math.random() * 0.12
+	sound.Parent = game:GetService("SoundService")
+	sound.Ended:Once(function()
+		sound:Destroy()
+	end)
+	sound:Play()
+	return true
+end
+
 local impactEffect: ColorCorrectionEffect? = nil
 local lastImpact = 0
 local function impactFrame(strength: number)
@@ -4271,6 +4298,7 @@ local function impactFrame(strength: number)
 		return
 	end
 	lastImpact = now
+	bossSfx("impact", 0.9)
 	local lighting = game:GetService("Lighting")
 	local effect = impactEffect
 	if effect == nil or effect.Parent == nil then
@@ -5106,7 +5134,9 @@ local function onSlam(payload)
 	local detonateAt = tonumber(payload.DetonateAt) or (serverNow() + 1.5)
 	windUp(detonateAt, detonateAt - serverNow())
 	setAim("slam", center, detonateAt)
-	Audio:play(bossCue("Charge"))
+	if not (type(payload.Element) == "string" and bossSfx("cast_" .. payload.Element, 0.7)) then
+		Audio:play(bossCue("Charge"))
+	end
 	local anchor = vfxPart("SlamAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
@@ -5133,7 +5163,9 @@ local function onSlamLand(payload)
 	end
 	local center = worldPoint(payload.Center) + Vector3.new(0, 0.3, 0)
 	local radius = tonumber(payload.Radius) or 24
-	Audio:play(bossCue("Land"))
+	if not (type(payload.Element) == "string" and bossSfx("hit_" .. payload.Element, 0.85)) then
+		Audio:play(bossCue("Land"))
+	end
 	burst(center + Vector3.new(0, 1, 0), pal.Hot, 40, 28)
 	-- A column of light where it lands, cracks across the floor, a bolt from the body.
 	lightPillar(center, pal.Hot, 46, math.max(2.5, radius * 0.22), 0.7)
@@ -5692,6 +5724,7 @@ local function onAdds(payload)
 		Vfx.burst(wispPosition(record, startAt), "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 9) }, clientFolder)
 	end
 	ensureWispLoop()
+	bossSfx("wisp_spawn", 0.8)
 end
 
 local function onAddBlast(payload)
@@ -5704,7 +5737,9 @@ local function onAddBlast(payload)
 	end
 	local at = worldPoint(payload.At)
 	local radius = tonumber(payload.Radius) or 10
-	Audio:play(bossCue("Land"))
+	if not bossSfx("wisp_blast", 0.9) then
+		Audio:play(bossCue("Land"))
+	end
 	Vfx.burst(at, "Shockwave", 1, { Color = (elementColors(payload.Element)), Size = NumberSequence.new(2, radius * 2.4) }, clientFolder)
 	elementBurst(payload.Element, Vector3.new(at.X, at.Y - 4, at.Z), radius)
 	local root = localRoot()
@@ -5723,6 +5758,7 @@ local function onAddDown(payload)
 	end
 	local at = worldPoint(payload.At)
 	local primary, secondary = elementColors(payload.Element)
+	bossSfx("wisp_down", 0.8)
 	Vfx.burst(at, "Spark", 26, { Color = primary, Color2 = secondary }, clientFolder)
 	Vfx.burst(at, "Flash", 1, { Color = primary, Size = NumberSequence.new(2, 10) }, clientFolder)
 end

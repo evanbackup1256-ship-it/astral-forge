@@ -1,0 +1,14 @@
+[
+  "cast_Fire",
+  "cast_Frost",
+  "cast_Storm",
+  "cast_Void",
+  "hit_Fire",
+  "hit_Frost",
+  "hit_Storm",
+  "hit_Void",
+  "impact",
+  "wisp_blast",
+  "wisp_down",
+  "wisp_spawn"
+]
