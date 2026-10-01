@@ -6776,7 +6776,7 @@ local BOSS_LAYERS: { [string]: { any } } = {
 	Regent = {
 		{ "Flame", 70, { Color = Color3.fromRGB(255, 180, 60), Color2 = Color3.fromRGB(255, 60, 20), Speed = NumberRange.new(12, 34), Acceleration = Vector3.new(0, 26, 0), Size = NumberSequence.new(6, 16) }, 0, 1 },
 		{ "Embers", 90, { Color = Color3.fromRGB(255, 220, 140), Color2 = Color3.fromRGB(255, 80, 30), Speed = NumberRange.new(16, 52), Acceleration = Vector3.new(0, 18, 0), Lifetime = NumberRange.new(1.4, 3.0) }, 0.05, 2 },
-		{ "BlastSmoke", 24, { Color = Color3.fromRGB(30, 22, 22), Color2 = Color3.fromRGB(90, 40, 20), Speed = NumberRange.new(8, 24), Acceleration = Vector3.new(0, 14, 0), Size = NumberSequence.new(6, 22) }, 0.08, 3 },
+		{ "Smoke", 24, { Color = Color3.fromRGB(30, 22, 22), Color2 = Color3.fromRGB(90, 40, 20), Speed = NumberRange.new(8, 24), Acceleration = Vector3.new(0, 14, 0), Size = NumberSequence.new(6, 22) }, 0.08, 3 },
 		{ "Shockwave", 1, { Color = Color3.fromRGB(255, 140, 50), Size = NumberSequence.new(4, 130) }, 0, 1 },
 		{ "Flash", 1, { Color = Color3.fromRGB(255, 190, 90), Size = NumberSequence.new(10, 60) }, 0, 3 },
 	},
