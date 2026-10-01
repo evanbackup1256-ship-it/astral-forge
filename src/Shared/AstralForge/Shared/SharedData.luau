@@ -3760,6 +3760,14 @@ UmbralKnight.PhaseUltimates = { [3] = "Duel" }
 UmbralKnight.UltimateRoster = { "Duel", "LastCut" }
 UmbralKnight.UltimateEvery = 40
 UmbralKnight.FinalStand = "Execution"
+-- How each boss walks (studs per second) and how close it likes to stand to whoever it is fighting.
+SanctuaryConfig.RiftBoss.WalkSpeed, SanctuaryConfig.RiftBoss.StandOff = 10, 24
+HollowChoir.WalkSpeed, HollowChoir.StandOff = 7, 26
+CinderRegent.WalkSpeed, CinderRegent.StandOff = 7, 20
+StormSeraph.WalkSpeed, StormSeraph.StandOff = 9, 24
+Rimeheart.WalkSpeed, Rimeheart.StandOff = 6, 20
+UmbralKnight.WalkSpeed, UmbralKnight.StandOff = 15, 14
+Astraeon.WalkSpeed, Astraeon.StandOff = 8, 32
 SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight, Astraeon })
 
 return SanctuaryConfig
