@@ -3540,6 +3540,8 @@ type Boss = {
 	-- Textured mesh body (BOSS_MESHES), filled in a moment after the boss is built.
 	meshPieces: { Piece },
 	meshJoints: { [string]: any },
+	-- A Blender-rigged body (BossBodies): skeleton, rest placement, clips; nil for the older bodies.
+	body: any?,
 }
 
 local boss: Boss? = nil
@@ -4086,6 +4088,7 @@ local function buildBoss(model: Model): Boss
 		aim = nil,
 		meshPieces = {},
 		meshJoints = {},
+		body = nil,
 	}
 end
 local function destroyBoss()
@@ -4195,7 +4198,99 @@ local BOSS_MESHES: { [string]: { scale: number, pieces: { { name: string, mesh: 
 
 local meshNames: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: any
 
+-- Bodies modelled, rigged, textured and animated in Blender (tools/bossbuild). The server publishes
+-- each boss's textured pieces as ReplicatedStorage.BossBodyKit; SanctuaryConfig.BossBodies holds
+-- the skeleton (bone heads and parents), where each piece sits, and the animation clips sampled
+-- out of Blender. Every piece belongs to one bone; posing is forward kinematics, each bone
+-- rotating about its own head inside its parent's motion.
+local function loadRiggedBody(current: Boss): boolean
+	local bodies = SanctuaryConfig.BossBodies
+	local data: any = if bodies ~= nil then bodies[current.kind] else nil
+	if data == nil then
+		return false
+	end
+	local folder = ReplicatedStorage:FindFirstChild("BossBodyKit") or ReplicatedStorage:WaitForChild("BossBodyKit", 8)
+	if folder == nil then
+		return false
+	end
+	local refTemplate = folder:FindFirstChild(`{current.kind}_{data.ref}`)
+	if refTemplate == nil or not refTemplate:IsA("MeshPart") then
+		return false
+	end
+	-- Where the importer put the model's origin, and whether it kept our axes or turned the
+	-- model half way round (pieces are compared against where Blender says they are).
+	local origin = refTemplate.Position
+	local errKeep, errTurn = 0, 0
+	local sumOffset, sumCentre = 0, 0
+	local templates: { [string]: MeshPart } = {}
+	for name, piece in data.pieces do
+		local template = folder:FindFirstChild(`{current.kind}_{name}`)
+		if template == nil or not template:IsA("MeshPart") then
+			return false
+		end
+		templates[name] = template
+		local offset = template.Position - origin
+		local c = piece.center
+		sumOffset += offset.Magnitude
+		sumCentre += Vector3.new(c[1], c[2], c[3]).Magnitude
+		errKeep += (offset - Vector3.new(c[1], c[2], c[3])).Magnitude
+		errTurn += (offset - Vector3.new(-c[1], c[2], -c[3])).Magnitude
+	end
+	local flip = errTurn < errKeep
+	local scale: number = data.scale
+	-- the importer's units per metre; sizes and offsets come back in its units, so convert them
+	local importerScale = if sumCentre > 1e-3 and sumOffset > 1e-3 then sumOffset / sumCentre else 1
+	local unit = scale / importerScale
+	local heads: { [string]: Vector3 } = {}
+	local parents: { [string]: string } = {}
+	for name, bone in data.bones do
+		local h = bone.head
+		heads[name] = (if flip then Vector3.new(-h[1], h[2], -h[3]) else Vector3.new(h[1], h[2], h[3])) * scale
+		if bone.parent ~= nil then
+			parents[name] = bone.parent
+		end
+	end
+	local made: { Piece } = {}
+	local info: { [BasePart]: { bone: string, rest: Vector3 } } = {}
+	for name, piece in data.pieces do
+		local template = templates[name]
+		local part = template:Clone()
+		part.Size = template.Size * unit
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Massless = true
+		part.CastShadow = true
+		part.Transparency = 1
+		part.Parent = clientFolder
+		info[part] = { bone = piece.bone, rest = (template.Position - origin) * unit }
+		table.insert(made, { part = part, base = Vector3.zero, spin = Vector3.zero, velocity = nil, tilt = CFrame.identity, transparency = 0, childOffset = CFrame.identity })
+	end
+	if boss ~= current then
+		for _, piece in made do
+			piece.part:Destroy()
+		end
+		return true
+	end
+	current.meshPieces = made
+	current.body = { flip = flip, order = data.order, heads = heads, parents = parents, clips = data.clips, smooth = {}, info = info }
+	for _, entry in current.rig.parts do
+		entry.base = 1
+	end
+	for _, list in { current.plates, current.shards } do
+		for _, piece in list do
+			piece.transparency = 1
+		end
+	end
+	current.shell.Transparency = 1
+	appliedHide = -1
+	return true
+end
 local function loadMeshBody(current: Boss)
+	if loadRiggedBody(current) then
+		return
+	end
 	local spec = BOSS_MESHES[current.kind]
 	if spec == nil then
 		return
@@ -4523,6 +4618,81 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 	end
 end
 
+-- Poses a Blender-rigged body: pick the clip, sample every bone, smooth it, and run forward
+-- kinematics down the skeleton.
+local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: number, now: number, charge: number, phase: string, lookDir: Vector3, emit: (Piece, CFrame) -> ())
+	local body: any = current.body
+	local clips: any = body.clips
+	local aim = current.aim
+	if aim ~= nil and now > aim.untilAt + 0.9 then
+		current.aim = nil
+		aim = nil
+	end
+	local style = if aim ~= nil then aim.style else "idle"
+	local before = aim ~= nil and now < aim.untilAt
+	local clip: any = clips.idle
+	local clipTime = t
+	if phase == "Defeated" then
+		clip, clipTime = clips.death, t - current.outroStarted
+	elseif phase == "Dormant" or phase == "Forming" or phase == "Escaped" then
+		clip, clipTime = clips.forming, t
+	elseif aim ~= nil and clips[style] ~= nil then
+		clip = clips[style]
+		if clip.hit > 0 then
+			clipTime = if before then charge * clip.hit else clip.hit + (now - aim.untilAt)
+		elseif clip.loop then
+			clipTime = t
+		else
+			clipTime = now - (aim.untilAt - current.slamTotal)
+		end
+	end
+	local front = if body.flip then -1 else 1
+	local look = bodyFrame:VectorToObjectSpace(lookDir)
+	local lookYaw = math.clamp(math.atan2(look.X * front, look.Z * front), -0.9, 0.9)
+	if phase == "Defeated" or phase == "Dormant" or phase == "Forming" or phase == "Escaped" then
+		lookYaw = 0
+	end
+	local flinch = current.flash
+	local blend = 1 - math.exp(-dt * 26)
+	local posed: { [string]: CFrame } = {}
+	for _, name in body.order do
+		local x, y, z = 0, 0, 0
+		if clip ~= nil then
+			x, y, z = sampleClip(clip, name, clipTime)
+		end
+		if flinch > 0.04 and clips.hit ~= nil then
+			local hx, hy, hz = sampleClip(clips.hit, name, 0)
+			x += hx * flinch
+			y += hy * flinch
+			z += hz * flinch
+		end
+		if name == "head" then
+			y += lookYaw
+		elseif name == "blades" then
+			y += t * 0.55
+		elseif name == "halo" then
+			y += t * 0.8
+		end
+		local target = Vector3.new(x, y, z)
+		local previous = body.smooth[name]
+		local value = if previous ~= nil then previous:Lerp(target, blend) else target
+		body.smooth[name] = value
+		local rx, rz = value.X, value.Z
+		if body.flip then
+			rx, rz = -rx, -rz
+		end
+		local head: Vector3 = body.heads[name]
+		local step = CFrame.new(head) * CFrame.Angles(rx, value.Y, rz) * CFrame.new(-head)
+		local parent = body.parents[name]
+		posed[name] = if parent ~= nil then posed[parent] * step else step
+	end
+	for _, piece in current.meshPieces do
+		local item = body.info[piece.part]
+		if item ~= nil then
+			emit(piece, bodyFrame * posed[item.bone] * CFrame.new(item.rest))
+		end
+	end
+end
 -- Rift tethers (beams from the arena pillars to the seal, built by the
 -- server) light up while the Warden is forming or fighting.
 local tethersOn = false
@@ -5816,7 +5986,11 @@ local function stepBoss(dt: number, t: number)
 		end
 	end
 	if #current.meshPieces > 0 then
-		meshSkeleton(current, rig.root.CFrame * CFrame.Angles(0, math.pi, 0), t, dt, now, charge, phase, lookDir, beamAngle, place)
+		if current.body ~= nil then
+			riggedSkeleton(current, if current.body.flip then rig.root.CFrame else rig.root.CFrame * CFrame.Angles(0, math.pi, 0), t, dt, now, charge, phase, lookDir, place)
+		else
+			meshSkeleton(current, rig.root.CFrame * CFrame.Angles(0, math.pi, 0), t, dt, now, charge, phase, lookDir, beamAngle, place)
+		end
 	end
 	Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
 end

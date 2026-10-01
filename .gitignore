@@ -22,3 +22,5 @@ __pycache__/
 assets/generated/voice/*.wav
 assets/generated/bosssfx/*.wav
 assets/generated/piper/
+assets/generated/bosses/*_atlas.png
+assets/generated/bosses/*_prev_*.png
