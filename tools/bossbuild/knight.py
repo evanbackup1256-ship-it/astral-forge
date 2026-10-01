@@ -155,19 +155,8 @@ def build():
 
 def map_pose(c):
     """Map the shared channels onto the knight's bones."""
-    pose = {}
-    pose["spine"] = tuple(c["torso"])
-    pose["head"] = tuple(c["head"])
-    for chan, n in (("armL", "L"), ("armR", "R")):
-        p, y, r = c[chan]
-        pose[f"upperArm{n}"] = (p * 0.85, y * 0.85, r * 0.85)
-        pose[f"lowerArm{n}"] = (-0.22 + min(0.0, p) * 0.4 + max(0.0, p) * 0.1, 0, 0)
-        pose[f"hand{n}"] = (p * 0.08, 0, 0)
-    for chan, n in (("legL", "L"), ("legR", "R")):
-        p, y, r = c[chan]
-        pose[f"upperLeg{n}"] = (p, y, r)
-        pose[f"lowerLeg{n}"] = (abs(p) * 0.55 + 0.04, 0, 0)
-        pose[f"foot{n}"] = (-abs(p) * 0.3, 0, 0)
+    import humanoid
+    pose = humanoid.map_humanoid(c, arm_scale=0.85, elbow=-0.22, knee=0.55)
     cp, cy, cr = c["cloth"]
     pose["cape1"] = (cp, cy, cr)
     pose["cape2"] = (cp * 0.9 + 0.05, cy, cr * 0.9)

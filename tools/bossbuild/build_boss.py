@@ -20,6 +20,7 @@ ROOT = r"C:\Users\evanm\OneDrive\Desktop\Astral Forge v2\.claude\worktrees\zealo
 sys.path.insert(0, os.path.join(ROOT, "tools", "bossbuild"))
 KIND = os.environ.get("BOSS", "") or globals().get("KIND_OVERRIDE", "Knight")
 
+import acting
 import clips as clipmod
 import lib
 
@@ -29,6 +30,21 @@ module_name = KIND.lower()
 module = importlib.import_module(module_name)
 importlib.reload(module)
 
+# Per-boss surface detail (lib.detail_pass) and walk cycle (clips.GAIT).
+DETAIL = {
+    "Knight": dict(bevel=0.02), "Warden": dict(bevel=0.02, subdiv=1, noise=0.02), "Choir": dict(bevel=0.012),
+    "Regent": dict(bevel=0.03, subdiv=1, noise=0.05), "Seraph": dict(bevel=0.015), "Rime": dict(bevel=0.03, subdiv=1, noise=0.06),
+    "Astraeon": dict(bevel=0.02, subdiv=1, noise=0.02),
+}
+GAITS = {
+    "Knight": dict(length=0.8, stride=0.7, knee=0.9, arm=0.25, lean=0.12, twist=0.15, sway=0.04),
+    "Warden": dict(length=1.4, stride=0.45, knee=0.5, arm=0.18, lean=0.05, twist=0.08, sway=0.03),
+    "Choir": dict(length=1.2, stride=0.5, knee=0.6, arm=0.35, lean=0.03, twist=0.2, sway=0.05),
+    "Regent": dict(length=1.6, stride=0.6, knee=0.7, arm=0.3, lean=0.08, twist=0.12, sway=0.1),
+    "Seraph": dict(length=1.2, stride=0.3, knee=0.3, arm=0.15, lean=0.04, twist=0.05, sway=0.02),
+    "Rime": dict(length=2.0, stride=0.45, knee=0.4, arm=0.2, lean=0.06, twist=0.06, sway=0.08),
+    "Astraeon": dict(length=1.5, stride=0.4, knee=0.4, arm=0.15, lean=0.04, twist=0.06, sway=0.03),
+}
 FPS_KEYS = 12
 FPS_TIMELINE = 24
 STEP = FPS_TIMELINE // FPS_KEYS
@@ -39,6 +55,8 @@ def main():
     lib.clear_boss(KIND)
     boss = module.build()
     objs = lib.make_objects(boss)
+    lib.detail_pass(objs, **DETAIL.get(KIND, {}))
+    clipmod.GAIT.update(GAITS.get(KIND, {}))
     rig = lib.make_armature(boss)
     materials = [lib.procedural_material(f"{KIND}_{name}", module.MATERIALS[name]) for name in module.ORDER]
     lib.assign_materials(objs, materials)
@@ -63,14 +81,21 @@ def main():
         action = bpy.data.actions.new(f"{KIND}_{name}")
         action.use_fake_user = True
         rig.animation_data.action = action
-        keys = int(round(length * FPS_KEYS)) + 1
+        fps, step = FPS_KEYS, STEP
+        if name in ("walk", "run"):          # a stride loops exactly, and is keyed finely
+            length = clipmod.GAIT["length"] / (1.0 if name == "walk" else 1.8)
+            fps, step = 24, 1
+        else:                                # every boss plays the shared clips in its own temperament
+            length, hit, loop = acting.clip_info(KIND, name)
+            pose_fn = lambda t, name=name: acting.channels(KIND, name, t)
+        keys = int(round(length * fps)) + 1
         for k in range(keys):
-            channels = pose_fn(k / FPS_KEYS)
+            channels = pose_fn(k / fps)
             lib.apply_pose(boss, rig, module.map_pose(channels))
-            lib.key_pose(boss, rig, 1 + k * STEP)
-        tracks = lib.sample_clip(boss, rig, action, length, FPS_KEYS)
+            lib.key_pose(boss, rig, 1 + k * step)
+        tracks = lib.sample_clip(boss, rig, action, length, fps)
         sparse = {bone: values for bone, values in tracks.items() if any(abs(v) > 0.004 for v in values)}
-        clips_out[name] = {"fps": FPS_KEYS, "length": length, "hit": hit, "loop": loop, "bones": sparse}
+        clips_out[name] = {"fps": fps, "length": round(length, 3), "hit": hit, "loop": loop, "bones": sparse}
     bpy.ops.object.mode_set(mode="OBJECT")
     # leave the rig on its idle action, in rest pose, for whoever opens the file
     rig.animation_data.action = bpy.data.actions[f"{KIND}_idle"]

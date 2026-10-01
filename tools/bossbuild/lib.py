@@ -236,6 +236,57 @@ def make_objects(boss):
         objs[name] = obj
     return objs
 
+def detail_pass(objs, bevel=0.015, subdiv=0, noise=0.0, cap=19000):
+    """Make the blocky construction read as sculpted: optional subdivision (more surface to work with),
+    a noise displacement for rough stone and ice, a bevel so every edge catches light, smooth shading
+    broken at hard angles, and a decimate if a piece goes over what Roblox accepts in one MeshPart."""
+    tex = None
+    if noise > 0:
+        tex = bpy.data.textures.get("BossNoise") or bpy.data.textures.new("BossNoise", "CLOUDS")
+        tex.noise_scale = 0.35
+        tex.noise_depth = 2
+    for obj in objs.values():
+        for o in bpy.context.selected_objects:
+            o.select_set(False)
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        stack = []
+        if subdiv:
+            m = obj.modifiers.new("DetailSub", "SUBSURF")
+            m.subdivision_type = "SIMPLE"
+            m.levels = subdiv
+            m.render_levels = subdiv
+            stack.append(m)
+        if noise > 0 and tex is not None:
+            m = obj.modifiers.new("DetailNoise", "DISPLACE")
+            m.texture = tex
+            m.strength = noise
+            m.mid_level = 0.5
+            stack.append(m)
+        if bevel > 0:
+            m = obj.modifiers.new("DetailBevel", "BEVEL")
+            m.width = bevel
+            m.segments = 2
+            m.limit_method = "ANGLE"
+            m.angle_limit = math.radians(35)
+            stack.append(m)
+        for m in stack:
+            try:
+                bpy.ops.object.modifier_apply(modifier=m.name)
+            except RuntimeError:
+                obj.modifiers.remove(m)
+        faces = len(obj.data.polygons)
+        if faces > cap:
+            m = obj.modifiers.new("DetailDecimate", "DECIMATE")
+            m.ratio = cap / faces
+            try:
+                bpy.ops.object.modifier_apply(modifier=m.name)
+            except RuntimeError:
+                obj.modifiers.remove(m)
+        try:
+            bpy.ops.object.shade_smooth_by_angle(angle=math.radians(42))
+        except Exception:
+            bpy.ops.object.shade_smooth()
 
 def make_armature(boss):
     arm_data = bpy.data.armatures.new(f"{boss.kind}Rig")

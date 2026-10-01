@@ -182,6 +182,44 @@ def death_pose(t):
     return pose
 
 
+# How each boss walks: seconds per full stride (both legs), leg swing, knee flex, arm swing, forward lean,
+# torso twist and side-to-side weight shift (radians). build_boss.py sets GAIT for the boss being built.
+GAIT = dict(length=1.2, stride=0.55, knee=0.7, arm=0.28, lean=0.08, twist=0.1, sway=0.04)
+
+
+def _gait_pose(t, scale):
+    """A real walk/run cycle at phase t / length: legs swing in opposition and the knee folds as each
+    leg comes forward; arms counter-swing; the torso twists against the hips and rocks side to side;
+    the head stays level; cloth trails a beat behind. `scale` > 1 turns it into a run."""
+    g = GAIT
+    length = g["length"] / (1.0 if scale == 1 else 1.8)
+    phase = TAU * (t / length)
+    s, c = math.sin(phase), math.cos(phase)
+    pose = zero()
+    stride = g["stride"] * (1.0 if scale == 1 else 1.35)
+    knee = g["knee"] * (1.0 if scale == 1 else 1.4)
+    arm = g["arm"] * (1.0 if scale == 1 else 1.7)
+    lean = g["lean"] + (0.0 if scale == 1 else 0.2)
+    # legs: pitch is the swing; the yaw slot carries the knee flex (the skeleton mapping reads it that way)
+    pose["legL"] = [stride * s, max(1e-3, max(0.0, -c) * knee + 0.06), 0.04]
+    pose["legR"] = [-stride * s, max(1e-3, max(0.0, c) * knee + 0.06), 0.04]
+    pose["armL"] = [-arm * s - (0.0 if scale == 1 else 0.5), 0, 0.14]
+    pose["armR"] = [arm * s - (0.0 if scale == 1 else 0.5), 0, 0.14]
+    pose["torso"] = [lean + 0.02 * math.sin(2 * phase), g["twist"] * s, g["sway"] * s]
+    pose["head"] = [-lean * 0.6, -g["twist"] * 0.6 * s, -g["sway"] * 0.6 * s]
+    for bone in ("wingL", "wingR"):
+        pose[bone] = [0, 0, 0.15 + 0.12 * math.sin(phase - 0.8)]
+    pose["cloth"] = [0.12 + 0.1 * math.sin(phase - 1.1) + (0.0 if scale == 1 else 0.25), 0, 0.04 * s]
+    pose["blades"] = [0, 0, 0.08 * s]
+    return pose
+
+
+def walk_pose(t):
+    return _gait_pose(t, 1)
+
+
+def run_pose(t):
+    return _gait_pose(t, 2)
 # name -> (length seconds, strike moment or 0, loops, pose function)
 CLIPS = {
     "idle": (3.0, 0.0, True, idle_pose),
@@ -193,6 +231,8 @@ CLIPS = {
     "floor": (1.0, 0.0, True, floor_pose),
     "roar": (1.8, 0.0, False, roar_pose),
     "summon": (2.0, 0.0, False, summon_pose),
+    "walk": (1.2, 0.0, True, walk_pose),
+    "run": (0.67, 0.0, True, run_pose),
     "hit": (0.5, 0.0, False, hit_pose),
     "death": (2.4, 0.0, False, death_pose),
 }
