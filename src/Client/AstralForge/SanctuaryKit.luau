@@ -3537,6 +3537,8 @@ type Boss = {
 	-- The jointed rig (arms or chains) and what it is currently aiming at.
 	rig: any,
 	aim: any?,
+	-- Textured mesh body (BOSS_MESHES), filled in a moment after the boss is built.
+	meshPieces: { Piece },
 }
 
 local boss: Boss? = nil
@@ -4081,6 +4083,7 @@ local function buildBoss(model: Model): Boss
 		slamTotal = 1.5,
 		rig = rig,
 		aim = nil,
+		meshPieces = {},
 	}
 end
 local function destroyBoss()
@@ -4098,8 +4101,126 @@ local function destroyBoss()
 		end
 	end
 	destroyRig(current.rig)
+	for _, piece in current.meshPieces do
+		piece.part:Destroy()
+	end
 end
 
+-- Textured mesh bodies. These meshes came out of the project's Studio place; each is a set of
+-- separate pieces (mesh id, texture id, size, and where it sits in the body, facing +Z).
+-- They are built with CreateMeshPartAsync a moment after the procedural body, then take
+-- over: the rig and the orbiting plates and shards go invisible and the pieces move with
+-- the body, fading in and out and collapsing with it. If any piece fails to load the
+-- procedural body simply stays.
+local BOSS_MESHES: { [string]: { scale: number, pieces: { { name: string, mesh: number, texture: number, size: { number }, offset: { number } } } } } = {
+	-- The Umbral Knight: dark armour, a flowing cape and a violet blade.
+	Knight = {
+		scale = 1.7,
+		pieces = {
+			{ name = "torso", mesh = 134979334609156, texture = 107624423922276, size = { 11.16, 12.23, 9.73 }, offset = { 0, 0.14, -1.13 } },
+			{ name = "head", mesh = 108672742292210, texture = 89672933301668, size = { 2.04, 1.97, 1.93 }, offset = { -0.02, 6.39, 1.78 } },
+			{ name = "armR", mesh = 74722952915321, texture = 128109402395172, size = { 3.14, 12.94, 6.49 }, offset = { -2.45, -0.57, 2.75 } },
+			{ name = "armL", mesh = 109396303061382, texture = 72255212626779, size = { 2.81, 6.71, 3.04 }, offset = { 2.45, 2.55, 1.03 } },
+			{ name = "legR", mesh = 116273698565743, texture = 137989787607405, size = { 3.10, 8.61, 3.28 }, offset = { -1.54, -3.07, 1.25 } },
+			{ name = "legL", mesh = 94903637057992, texture = 138539390234109, size = { 3.06, 8.48, 3.22 }, offset = { 1.54, -3.13, 1.22 } },
+		},
+	},
+	-- The Stormbound Seraph: an armoured celestial with a halo of wings.
+	Seraph = {
+		scale = 1.7,
+		pieces = {
+			{ name = "torso", mesh = 100521760005926, texture = 100749660662795, size = { 9.21, 16.23, 4.45 }, offset = { 0.03, -1.57, 0 } },
+			{ name = "head", mesh = 139608843744683, texture = 123508435634205, size = { 2.51, 2.96, 2.24 }, offset = { 0, 6.46, 0.27 } },
+			{ name = "wingR", mesh = 138759234050066, texture = 116306904900389, size = { 8.02, 7.94, 1.97 }, offset = { -5.99, 5.71, -0.34 } },
+			{ name = "wingL", mesh = 71579691028566, texture = 111985683730984, size = { 7.32, 7.96, 1.93 }, offset = { 6.34, 5.7, -0.32 } },
+			{ name = "armL", mesh = 123293600019140, texture = 140702947421997, size = { 2.51, 4.15, 2.63 }, offset = { 3.64, 0.37, -0.16 } },
+		},
+	},
+	-- The Cinder Regent: a molten colossus of cracked stone.
+	Regent = {
+		scale = 1.5,
+		pieces = {
+			{ name = "torso", mesh = 102011726729655, texture = 113101304445168, size = { 9.78, 12.68, 7.79 }, offset = { 0, 1.35, -0.03 } },
+			{ name = "head", mesh = 98322112889411, texture = 137886806588996, size = { 3.48, 5.66, 3.11 }, offset = { -0.01, 6.75, 1.34 } },
+			{ name = "shoulderR", mesh = 91827063079401, texture = 90886163604023, size = { 5.12, 8.96, 6.96 }, offset = { -5.54, 4.01, -0.61 } },
+			{ name = "shoulderL", mesh = 112422117706727, texture = 134376925480053, size = { 5.09, 6.39, 6.99 }, offset = { 5.53, 5.3, -0.61 } },
+			{ name = "elbowR", mesh = 72959115610461, texture = 77436687570601, size = { 4.64, 8.02, 5.58 }, offset = { -6.68, -1.92, 0.48 } },
+			{ name = "elbowL", mesh = 86035606458003, texture = 76202340023973, size = { 6.01, 13.11, 6.13 }, offset = { 5.99, 0.62, 0.2 } },
+			{ name = "hipR", mesh = 135137508900830, texture = 108918427098164, size = { 5.33, 9.53, 6.34 }, offset = { -2.4, -4.82, 0.93 } },
+			{ name = "hipL", mesh = 128843151899789, texture = 99617909761995, size = { 5.34, 9.52, 6.32 }, offset = { 2.38, -4.82, 0.95 } },
+		},
+	},
+}
+
+local meshNames: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: any
+
+local function loadMeshBody(current: Boss)
+	local spec = BOSS_MESHES[current.kind]
+	if spec == nil then
+		return
+	end
+	local made: { Piece } = {}
+	local pending, failed = #spec.pieces, false
+	for _, entry in spec.pieces do
+		task.spawn(function()
+			local ok, meshPart = pcall(function()
+				return game:GetService("InsertService"):CreateMeshPartAsync(`rbxassetid://{entry.mesh}`, Enum.CollisionFidelity.Box, Enum.RenderFidelity.Automatic)
+			end)
+			if ok and meshPart ~= nil then
+				local mesh = meshPart :: MeshPart
+				mesh.Name = entry.name
+				mesh.TextureID = `rbxassetid://{entry.texture}`
+				mesh.Size = Vector3.new(entry.size[1], entry.size[2], entry.size[3]) * spec.scale
+				mesh.Anchored = true
+				mesh.CanCollide = false
+				mesh.CanQuery = false
+				mesh.CanTouch = false
+				mesh.Massless = true
+				mesh.CastShadow = true
+				mesh.Transparency = 1
+				mesh.Parent = clientFolder
+				meshNames[mesh] = entry.name
+				table.insert(made, { part = mesh, base = Vector3.new(entry.offset[1], entry.offset[2], entry.offset[3]) * spec.scale, spin = Vector3.zero, velocity = nil, tilt = CFrame.identity, transparency = 0, childOffset = CFrame.identity })
+			else
+				failed = true
+			end
+			pending -= 1
+		end)
+	end
+	while pending > 0 do
+		task.wait(0.1)
+	end
+	if failed or boss ~= current then
+		for _, piece in made do
+			piece.part:Destroy()
+		end
+		return
+	end
+	current.meshPieces = made
+	-- The mesh body replaces the procedural one: hide the rig, plates and shards for good.
+	for _, entry in current.rig.parts do
+		entry.base = 1
+	end
+	for _, list in { current.plates, current.shards } do
+		for _, piece in list do
+			piece.transparency = 1
+		end
+	end
+	current.shell.Transparency = 1
+	appliedHide = -1
+end
+
+-- A mesh piece's idle and combat motion: wings beat, arms rise as it charges, the rest
+-- breathes.
+local function meshPose(name: string, offset: Vector3, t: number, charge: number): CFrame
+	if string.find(name, "wing") ~= nil then
+		local side = if offset.X < 0 then -1 else 1
+		return CFrame.new(offset) * CFrame.Angles(0, 0, side * (math.sin(t * (2.4 + charge * 4)) * 0.16 + charge * 0.2))
+	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil then
+		return CFrame.new(offset + Vector3.new(0, charge * 4 + math.sin(t * 1.3 + offset.X) * 0.35, -charge * 1.5))
+	end
+	return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.1) * 0.2, 0))
+end
 -- Rift tethers (beams from the arena pillars to the seal, built by the
 -- server) light up while the Warden is forming or fighting.
 local tethersOn = false
@@ -4163,6 +4284,7 @@ local function setBossTransparency(current: Boss, visible: number)
 	applyPieceTransparency(current.rings, hide)
 	applyPieceTransparency(current.plates, hide)
 	applyPieceTransparency(current.shards, hide)
+	applyPieceTransparency(current.meshPieces, hide)
 	for _, entry in current.rig.parts do
 		entry.part.Transparency = entry.base + (1 - entry.base) * hide
 	end
@@ -4803,6 +4925,7 @@ local function stepBoss(dt: number, t: number)
 			return
 		end
 		boss = buildBoss(model)
+		task.spawn(loadMeshBody, boss :: Boss)
 		local joined = tostring(model:GetAttribute("Phase") or "Dormant")
 		setTethers(joined == "Forming" or joined == "Active", (boss :: Boss).kind)
 		if joined == "Active" then
@@ -5099,6 +5222,12 @@ local function stepBoss(dt: number, t: number)
 			local offset = Vector3.new(side * (8 + k * 5), 3 - k * 5, 4 + k * 2) * (1 + charge * 0.25)
 			local position = hover + offset
 			place(shard, CFrame.new(position) * CFrame.Angles(0, 0, side * (0.5 + k * 0.4 + sway)))
+		end
+	end
+	if #current.meshPieces > 0 then
+		local bodyFrame = rig.root.CFrame * CFrame.Angles(0, math.pi, 0)
+		for _, piece in current.meshPieces do
+			place(piece, bodyFrame * meshPose(meshNames[piece.part] or "", piece.base, t, charge))
 		end
 	end
 	Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
