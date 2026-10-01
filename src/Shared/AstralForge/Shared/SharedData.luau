@@ -3491,7 +3491,14 @@ SanctuaryConfig.BossBodies = {
 
 -- The uploaded body models, one per boss: kind -> model id.
 -- BOSS-BODYKIT-BEGIN (rewritten by tools/bossbuild/upload_bodies.py)
-SanctuaryConfig.BossBodyKit = {}
+SanctuaryConfig.BossBodyKit = {
+	Choir = 128966943239551,
+	Knight = 79529741206058,
+	Regent = 126822760222185,
+	Rime = 79017711263030,
+	Seraph = 99989330053898,
+	Warden = 116830667212689,
+}
 -- BOSS-BODYKIT-END
 
 -- The bosses' body animation, authored in Blender (tools/assetgen/blender_bossrig.py): per clip, per bone, pitch/yaw/roll at 15 fps.
@@ -3652,7 +3659,7 @@ SanctuaryConfig.BossTex = {
 
 -- The bosses' signature VFX meshes, modelled in Blender (tools/assetgen/blender_bossvfx.py).
 -- BOSS-VFXKIT-BEGIN (rewritten by tools/assetgen/upload_boss_vfx.py)
-SanctuaryConfig.BossVfxKit = { Id = 79062175442420 }
+SanctuaryConfig.BossVfxKit = { Id = 71613840883017 }
 -- BOSS-VFXKIT-END
 
 -- When each word of a spoken line begins (seconds into its audio), so the text types in time with it.
