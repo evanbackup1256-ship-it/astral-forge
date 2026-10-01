@@ -6992,7 +6992,9 @@ local function onPhase(payload)
 		end)
 	end
 	speakLines(current, if phaseNumber >= 3 then "Phase3" else "Phase2", 0.4, 0)
-	playShot(current, { Seconds = 2.4, Sweep = -0.7, Distance = 52, Height = 12, Fov = 58 })
+	if not ScreenFx.muted then
+		playShot(current, { Seconds = 2.4, Sweep = -0.7, Distance = 52, Height = 12, Fov = 58 })
+	end
 end
 
 -- Shockwave rings (the Choir): every ring is drawn at once so the rhythm can be read, then
@@ -7892,7 +7894,7 @@ function Showcase.start()
 			return
 		end
 		local angle = (index - 1) / #SHOWCASE_ORDER * math.pi * 2
-		local floor = Vector3.new(centre.X + math.cos(angle) * 46, floorY, centre.Z + math.sin(angle) * 46)
+		local floor = Vector3.new(centre.X + math.cos(angle) * 62, floorY, centre.Z + math.sin(angle) * 62)
 		local model = Instance.new("Model")
 		model.Name = `ShowcaseBoss_{kind}`
 		local anchor = Instance.new("Part")
