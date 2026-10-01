@@ -520,9 +520,16 @@ function RiftBossService:_loadBodyKit()
 		if type(id) ~= "number" or id <= 0 then
 			continue
 		end
-		local ok, result = pcall(function()
-			return InsertService:LoadAsset(id)
-		end)
+		local ok, result = false, nil :: any
+		for attempt = 1, 4 do -- Roblox answers 502 now and then; try again
+			ok, result = pcall(function()
+				return InsertService:LoadAsset(id)
+			end)
+			if ok and typeof(result) == "Instance" then
+				break
+			end
+			task.wait(2 * attempt)
+		end
 		if not ok or typeof(result) ~= "Instance" then
 			warn(`[RiftBoss] couldn't load the {kind} body {id}: {result}. The game owner must own the asset.`)
 			continue
