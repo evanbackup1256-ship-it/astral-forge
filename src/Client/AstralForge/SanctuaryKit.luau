@@ -3539,6 +3539,7 @@ type Boss = {
 	aim: any?,
 	-- Textured mesh body (BOSS_MESHES), filled in a moment after the boss is built.
 	meshPieces: { Piece },
+	meshJoints: { [string]: any },
 }
 
 local boss: Boss? = nil
@@ -4084,6 +4085,7 @@ local function buildBoss(model: Model): Boss
 		rig = rig,
 		aim = nil,
 		meshPieces = {},
+		meshJoints = {},
 	}
 end
 local function destroyBoss()
@@ -4249,19 +4251,199 @@ local function loadMeshBody(current: Boss)
 	appliedHide = -1
 end
 
--- A mesh piece's idle and combat motion: wings beat, arms rise as it charges, the rest
--- breathes.
-local function meshPose(name: string, offset: Vector3, t: number, charge: number): CFrame
-	if name == "blades" then
-		return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.7) * 0.6 + charge * 2, 0)) * CFrame.Angles(0, 0, math.sin(t * 0.9) * 0.18)
+-- The mesh bodies are rigged: every piece belongs to a joint (torso root; head on a neck; arms,
+-- shoulders and gauntlets hanging from shoulder pivots; legs from the hip; wings from the
+-- inner edge; cloaks and coats trailing) and every joint is a spring-driven angle, so the
+-- body leans, winds up, strikes and recoils instead of sliding pieces about. What the body
+-- is doing comes from the same aim/phase/charge the arms and chains use: idle breathing,
+-- the slam raise and strike, a thrust, a pull, a sweep, a floor push, the roar, hit
+-- recoil, the folded-arm forming pose and the defeated collapse.
+local function meshRole(name: string): string
+	if name == "torso" then
+		return "torso"
+	elseif name == "head" then
+		return "head"
 	elseif string.find(name, "wing") ~= nil then
-		local side = if offset.X < 0 then -1 else 1
-		return CFrame.new(offset) * CFrame.Angles(0, 0, side * (math.sin(t * (2.4 + charge * 4)) * 0.16 + charge * 0.2))
-	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil then
-		return CFrame.new(offset + Vector3.new(0, charge * 4 + math.sin(t * 1.3 + offset.X) * 0.35, -charge * 1.5))
+		return "wing"
+	elseif string.find(name, "arm") ~= nil or string.find(name, "shoulder") ~= nil or string.find(name, "elbow") ~= nil or string.find(name, "gauntlet") ~= nil then
+		return "arm"
+	elseif string.find(name, "leg") ~= nil or string.find(name, "hip") ~= nil then
+		return "leg"
+	elseif name == "blades" then
+		return "blades"
 	end
-	return CFrame.new(offset + Vector3.new(0, math.sin(t * 1.1) * 0.2, 0))
+	return "cloth"
 end
+
+local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: number, now: number, charge: number, phase: string, lookDir: Vector3, beamAngle: number?, emit: (Piece, CFrame) -> ())
+	local pieces = current.meshPieces
+	local joints = current.meshJoints
+	local aim = current.aim
+	if aim ~= nil and now > aim.untilAt + 0.9 then
+		current.aim = nil
+		aim = nil
+	end
+	local style = if aim ~= nil then aim.style else "idle"
+	local blow = 0
+	if aim ~= nil then
+		blow = ProcAnim.strike(math.clamp((now - aim.untilAt) / 0.45, 0, 1))
+	end
+	local before = aim ~= nil and now < aim.untilAt
+	local limp = phase == "Defeated"
+	local folded = phase == "Dormant" or phase == "Forming" or phase == "Escaped"
+	local collapse = if limp then math.clamp((t - current.outroStarted) * 0.7, 0, 1) else 0
+
+	-- The torso: where everything else hangs from.
+	local torsoPiece: Piece? = nil
+	for _, piece in pieces do
+		if meshNames[piece.part] == "torso" then
+			torsoPiece = piece
+			break
+		end
+	end
+	local torsoOffset = if torsoPiece ~= nil then torsoPiece.base else Vector3.zero
+	local torsoPitch = math.sin(t * 0.9) * 0.025 - current.flash * 0.22
+	local torsoRoll = math.sin(t * 0.7) * 0.03
+	if style == "slam" then
+		torsoPitch += if before then -0.32 * charge else 0.45 * blow - 0.3 * (1 - blow) * (if aim ~= nil and now - aim.untilAt < 0.5 then 1 else 0)
+	elseif style == "thrust" then
+		torsoPitch += if before then -0.15 else 0.35 * blow
+	elseif style == "pull" then
+		torsoPitch += 0.18 + math.sin(now * 5) * 0.06
+	elseif style == "floor" then
+		torsoPitch += 0.3
+	elseif style == "roar" then
+		torsoPitch += -0.28
+	elseif style == "sweep" then
+		torsoRoll += 0.12
+	end
+	if limp then
+		torsoPitch += 0.65 * collapse
+		torsoRoll += 0.2 * collapse
+	end
+	local torsoJoint = joints.torso
+	if torsoJoint == nil then
+		torsoJoint = { p = 0, pv = 0, r = 0, rv = 0, y = 0, yv = 0 }
+		joints.torso = torsoJoint
+	end
+	torsoJoint.p, torsoJoint.pv = ProcAnim.spring(torsoJoint.p, torsoJoint.pv, torsoPitch, 70, ProcAnim.damping(70, 0.55), dt)
+	torsoJoint.r, torsoJoint.rv = ProcAnim.spring(torsoJoint.r, torsoJoint.rv, torsoRoll, 50, ProcAnim.damping(50, 0.6), dt)
+	local torsoFrame = bodyFrame * CFrame.new(torsoOffset) * CFrame.Angles(torsoJoint.p, 0, torsoJoint.r)
+
+	-- Where the head looks, in the body's own frame (the mesh faces +Z).
+	local meshLook = bodyFrame:VectorToObjectSpace(lookDir)
+	local lookYaw = math.clamp(math.atan2(meshLook.X, meshLook.Z), -0.9, 0.9)
+
+	for _, piece in pieces do
+		local name = meshNames[piece.part] or ""
+		local role = meshRole(name)
+		local offset = piece.base
+		local size = piece.part.Size
+		local side = if offset.X < 0 then -1 else 1
+		local joint = joints[name]
+		if joint == nil then
+			joint = { p = 0, pv = 0, r = 0, rv = 0, y = 0, yv = 0 }
+			joints[name] = joint
+		end
+		local pivot = offset
+		local pitch, roll, yaw = 0, 0, 0
+		local stiff = 90
+		if role == "torso" then
+			emit(piece, torsoFrame * CFrame.new(-torsoOffset) * CFrame.new(torsoOffset))
+			continue
+		elseif role == "head" then
+			pivot = offset - Vector3.new(0, size.Y * 0.4, 0)
+			yaw = if limp or folded then 0 else lookYaw
+			pitch = math.sin(t * 1.3) * 0.04 - (if style == "roar" then 0.5 else 0) + (if limp then 0.7 * collapse else 0) + (if style == "slam" and before then -0.25 * charge else 0)
+			roll = if limp then 0.3 * collapse else 0
+			stiff = 60
+		elseif role == "arm" then
+			pivot = offset + Vector3.new(0, size.Y * 0.4, 0)
+			local index = if side > 0 then 1 else 2
+			local weight = if string.find(name, "shoulder") ~= nil then 0.45 else 1
+			local rest = Vector3.new(-0.08 + math.sin(t * 1.1 + index * 2) * 0.07, 0.14 + math.sin(t * 0.8 + index) * 0.04, 0)
+			pitch, roll = rest.X, side * rest.Y
+			if folded then
+				pitch, roll = -0.75, -side * 0.25
+			elseif limp then
+				pitch, roll = 0.15 * collapse, side * 0.12
+			elseif style == "slam" and aim ~= nil then
+				local striker = index == aim.striker
+				if before then
+					pitch = if striker then -2.35 * charge else -0.7 * charge
+					roll = side * (if striker then 0.1 else 0.35)
+				elseif striker then
+					pitch = -2.35 + (2.35 + 0.35) * blow
+					roll = side * 0.1
+				else
+					pitch, roll = -0.3, side * 0.3
+				end
+			elseif style == "thrust" then
+				if before then
+					pitch, roll = -0.15, side * 1.15
+				else
+					pitch = -1.55 * blow - 0.15 * (1 - blow)
+					roll = side * (1.15 * (1 - blow) + 0.12 * blow)
+				end
+			elseif style == "pull" then
+				local drag = 0.5 + 0.5 * math.sin(now * 5 + index * math.pi)
+				pitch, roll = -1.0 - 0.5 * drag, side * (0.3 - 0.2 * drag)
+			elseif style == "sweep" then
+				if side > 0 then
+					pitch, roll = -1.55, side * 0.05
+				else
+					pitch, roll = -0.4, side * 0.5
+				end
+			elseif style == "floor" then
+				pitch, roll = 0.35 + math.sin(now * 8 + index) * 0.1, side * 0.35
+			elseif style == "roar" then
+				pitch, roll = -0.35, side * 1.3
+			end
+			pitch *= weight
+			roll *= weight
+			stiff = 100
+		elseif role == "leg" then
+			pivot = offset + Vector3.new(0, size.Y * 0.45, 0)
+			local swing = math.sin(t * 1.5 + (if side > 0 then 0 else math.pi)) * 0.12
+			pitch = swing + (if limp then 0.5 * collapse else 0) + (if style == "slam" and before then 0.15 * charge else 0)
+			roll = side * (0.04 + 0.05 * charge)
+			stiff = 55
+		elseif role == "wing" then
+			pivot = Vector3.new(offset.X - side * size.X * 0.45, offset.Y, offset.Z)
+			local flap = math.sin(t * (2.6 + charge * 4)) * 0.2 + 0.12
+			if style == "roar" then
+				flap = 0.7
+			elseif limp then
+				flap = -0.9 * collapse
+			elseif folded then
+				flap = -0.5
+			end
+			roll = side * (flap + charge * 0.3)
+			yaw = -side * (math.sin(t * 1.3) * 0.05 + (if folded then 0.4 else 0))
+			stiff = 40
+		elseif role == "blades" then
+			pivot = torsoOffset
+			yaw = t * 0.55
+			roll = math.sin(t * 0.9) * 0.1
+			pitch = charge * -0.2
+			stiff = 30
+		else
+			-- cloth: trails behind, swaying and lagging the body
+			pivot = offset + Vector3.new(0, size.Y * 0.4, 0)
+			pitch = 0.1 + math.sin(t * 1.4 + offset.Y) * 0.07 + (if style == "slam" and before then -0.12 * charge else 0.0)
+			roll = math.sin(t * 0.9) * 0.05
+			stiff = 22
+		end
+		joint.p, joint.pv = ProcAnim.spring(joint.p, joint.pv, pitch, stiff, ProcAnim.damping(stiff, 0.5), dt)
+		joint.r, joint.rv = ProcAnim.spring(joint.r, joint.rv, roll, stiff, ProcAnim.damping(stiff, 0.5), dt)
+		joint.y, joint.yv = ProcAnim.spring(joint.y, joint.yv, yaw, stiff * 0.7, ProcAnim.damping(stiff * 0.7, 0.6), dt)
+		local local0 = CFrame.new(offset - torsoOffset)
+		local pivotLocal = pivot - torsoOffset
+		local frame = torsoFrame * CFrame.new(pivotLocal) * CFrame.Angles(joint.p, joint.y, joint.r) * CFrame.new(-pivotLocal) * local0
+		emit(piece, frame)
+	end
+end
+
 -- Rift tethers (beams from the arena pillars to the seal, built by the
 -- server) light up while the Warden is forming or fighting.
 local tethersOn = false
@@ -5555,10 +5737,7 @@ local function stepBoss(dt: number, t: number)
 		end
 	end
 	if #current.meshPieces > 0 then
-		local bodyFrame = rig.root.CFrame * CFrame.Angles(0, math.pi, 0)
-		for _, piece in current.meshPieces do
-			place(piece, bodyFrame * meshPose(meshNames[piece.part] or "", piece.base, t, charge))
-		end
+		meshSkeleton(current, rig.root.CFrame * CFrame.Angles(0, math.pi, 0), t, dt, now, charge, phase, lookDir, beamAngle, place)
 	end
 	Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
 end
