@@ -3547,6 +3547,13 @@ type Boss = {
 	lastPhase: string,
 	outroStarted: number,
 	slamLift: number,
+	footDrop: number,
+	walkPos: Vector3?,
+	gait: number,
+	walkBlend: number,
+	stepSign: number,
+	hoverPos: Vector3?,
+	floorPos: Vector3?,
 	slamUntil: number,
 	visible: number,
 	kind: string,
@@ -4100,6 +4107,13 @@ local function buildBoss(model: Model): Boss
 		lastPhase = tostring(model:GetAttribute("Phase") or "Dormant"),
 		outroStarted = 0,
 		slamLift = 0,
+		footDrop = 0,
+		walkPos = nil,
+		gait = 0,
+		walkBlend = 0,
+		stepSign = 1,
+		hoverPos = nil,
+		floorPos = nil,
 		slamUntil = 0,
 		visible = 0,
 		kind = kind,
@@ -4232,6 +4246,36 @@ local meshNames: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: 
 -- the skeleton (bone heads and parents), where each piece sits, and the animation clips sampled
 -- out of Blender. Every piece belongs to one bone; posing is forward kinematics, each bone
 -- rotating about its own head inside its parent's motion.
+-- How far the body's origin is above the soles of its feet (the lowest leg or foot piece in rest
+-- pose, else the lowest piece), so the feet can stand on the real floor. `restOf` is the piece's
+-- centre relative to the origin.
+-- (The main chunk is at Luau's 200-local limit, so these live on Controls.ground rather than as locals.)
+;(Controls :: any).ground = { hover = { Seraph = 7 } :: { [string]: number } }
+;(Controls :: any).ground.footDrop = function(made: { Piece }, restOf: (Piece) -> Vector3): number
+	local lowest, lowestLeg = math.huge, math.huge
+	for _, piece in made do
+		local bottom = restOf(piece).Y - piece.part.Size.Y / 2
+		lowest = math.min(lowest, bottom)
+		local name = string.lower(piece.part.Name)
+		if string.find(name, "leg") ~= nil or string.find(name, "foot") ~= nil then
+			lowestLeg = math.min(lowestLeg, bottom)
+		end
+	end
+	local floor = if lowestLeg < math.huge then lowestLeg else lowest
+	return if floor < math.huge then math.max(0, -floor) else 0
+end
+
+-- (Controls :: any).ground.hover: bosses that hover rather than stand (studs above the floor); every other mesh body walks.
+
+-- Where a boss's body is, and the floor under it. Effects use these rather than the server anchor,
+-- which is only a marker for where the boss is standing.
+;(Controls :: any).ground.center = function(current: Boss): Vector3
+	return current.hoverPos or current.anchor.Position
+end
+;(Controls :: any).ground.floor = function(current: Boss): Vector3
+	return current.floorPos or ((Controls :: any).ground.floor(current))
+end
+
 local function loadRiggedBody(current: Boss): boolean
 	-- The textured generated models (BOSS_MESHES, moved by the Blender clips) are the default look;
 	-- the procedural Blender bodies are used for a boss only when SanctuaryConfig.BossBodyStyle says so.
@@ -4310,6 +4354,10 @@ local function loadRiggedBody(current: Boss): boolean
 		return true
 	end
 	current.meshPieces = made
+	current.footDrop = (Controls :: any).ground.footDrop(made, function(piece)
+		local item = info[piece.part]
+		return if item ~= nil then item.rest else Vector3.zero
+	end)
 	current.body = { flip = flip, order = data.order, heads = heads, parents = parents, clips = data.clips, smooth = {}, shift = {}, info = info }
 	for _, entry in current.rig.parts do
 		entry.base = 1
@@ -4508,6 +4556,10 @@ local function loadMeshBody(current: Boss)
 		current.body = { flip = false, order = rig.order, heads = heads, parents = parents, clips = rig.clips, smooth = {}, shift = {}, info = info, unit = scale, model = bodyModel, fx = fx }
 	end
 	current.meshPieces = made
+	current.footDrop = (Controls :: any).ground.footDrop(made, function(piece)
+		local item = if current.body ~= nil then current.body.info[piece.part] else nil
+		return if item ~= nil then item.rest else piece.base
+	end)
 	-- The mesh body replaces the procedural one: hide the rig, plates and shards for good.
 	for _, entry in current.rig.parts do
 		entry.base = 1
@@ -4650,6 +4702,8 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 		local cp, _, cr = clipPose("torso")
 		torsoPitch, torsoRoll = cp - current.flash * 0.22, cr
 	end
+	torsoPitch += 0.1 * current.walkBlend
+	torsoRoll += math.sin(current.gait) * 0.05 * current.walkBlend
 	local torsoJoint = joints.torso
 	if torsoJoint == nil then
 		torsoJoint = { p = 0, pv = 0, r = 0, rv = 0, y = 0, yv = 0 }
@@ -4785,6 +4839,14 @@ local function meshSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: num
 				pitch, yaw, roll = cp, cy, side * cr
 			end
 		end
+		if current.walkBlend > 0.02 then
+			local phase = current.gait + (if side > 0 then 0 else math.pi)
+			if role == "leg" then
+				pitch += math.sin(phase) * 0.62 * current.walkBlend
+			elseif role == "arm" and aim == nil then
+				pitch += -math.sin(phase) * 0.32 * current.walkBlend
+			end
+		end
 		joint.p, joint.pv = ProcAnim.spring(joint.p, joint.pv, pitch, stiff, ProcAnim.damping(stiff, 0.5), dt)
 		joint.r, joint.rv = ProcAnim.spring(joint.r, joint.rv, roll, stiff, ProcAnim.damping(stiff, 0.5), dt)
 		joint.y, joint.yv = ProcAnim.spring(joint.y, joint.yv, yaw, stiff * 0.7, ProcAnim.damping(stiff * 0.7, 0.6), dt)
@@ -4870,6 +4932,26 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 			ox += hox * flinch
 			oy += hoy * flinch
 			oz += hoz * flinch
+		end
+		if current.walkBlend > 0.02 then
+			local phaseL = current.gait
+			local blendW = current.walkBlend
+			if name == "upperLegL" then
+				x += math.sin(phaseL) * 0.62 * blendW
+			elseif name == "upperLegR" then
+				x += math.sin(phaseL + math.pi) * 0.62 * blendW
+			elseif name == "lowerLegL" then
+				x += math.max(0, math.cos(phaseL)) * 0.55 * blendW
+			elseif name == "lowerLegR" then
+				x += math.max(0, math.cos(phaseL + math.pi)) * 0.55 * blendW
+			elseif aim == nil and name == "upperArmL" then
+				x += -math.sin(phaseL) * 0.32 * blendW
+			elseif aim == nil and name == "upperArmR" then
+				x += -math.sin(phaseL + math.pi) * 0.32 * blendW
+			elseif name == "spine" then
+				x += 0.1 * blendW
+				z += math.sin(phaseL) * 0.05 * blendW
+			end
 		end
 		if name == "head" then
 			y += lookYaw
@@ -5904,7 +5986,7 @@ local function playShot(current: Boss, spec: { [string]: any }, bars: number?): 
 	end
 	local lift = tonumber(spec.Lift) or 0
 	spec.Focus = function()
-		return current.anchor.Position + Vector3.new(0, 4 + lift, 0)
+		return (Controls :: any).ground.center(current) + Vector3.new(0, 4 + lift, 0)
 	end
 	if Controls.cinematic(spec) then
 		local barSeconds = if bars == nil then spec.Seconds else bars
@@ -5988,14 +6070,14 @@ local function awakeScene(current: Boss)
 	for index, top in tops do
 		task.delay(0.2 * index, function()
 			if boss == current then
-				lightning(top, current.anchor.Position, pal.Hot, 0.45, 0.9)
+				lightning(top, (Controls :: any).ground.center(current), pal.Hot, 0.45, 0.9)
 			end
 		end)
 	end
 	screenFlash(pal.Hot, 0.4, 0.8)
 	task.delay(0.5, function()
 		if boss == current then
-			lightPillar(current.anchor.Position - Vector3.new(0, 26, 0), pal.Hot, 90, 7, 1.4)
+			lightPillar((Controls :: any).ground.floor(current), pal.Hot, 90, 7, 1.4)
 		end
 	end)
 	if kind == "Choir" then
@@ -6089,11 +6171,11 @@ local function defeatScene(current: Boss)
 	speakLines(current, "Defeat", 0.9, 3.2)
 	-- The body comes apart in light: a great column, bolts to every pillar, a white-out.
 	screenFlash(Color3.new(1, 1, 1), 0.75, 1.6)
-	lightPillar(current.anchor.Position - Vector3.new(0, 26, 0), pal.Hot, 140, 12, 2.4)
+	lightPillar((Controls :: any).ground.floor(current), pal.Hot, 140, 12, 2.4)
 	for index, top in pillarTops(current) do
 		task.delay(0.15 * index, function()
 			if boss == current then
-				lightning(current.anchor.Position, top, pal.Hot, 0.5, 1.2)
+				lightning((Controls :: any).ground.center(current), top, pal.Hot, 0.5, 1.2)
 			end
 		end)
 	end
@@ -6172,7 +6254,7 @@ local function stepBoss(dt: number, t: number)
 
 	-- Phase changes: sounds and one-off moments.
 	if phase ~= current.lastPhase then
-		local at = current.anchor.Position
+		local at = (Controls :: any).ground.center(current)
 		if phase == "Forming" then
 			Audio:play(bossCue("Forming"))
 			speakLines(current, "Forming", 0.4, 2)
@@ -6281,8 +6363,50 @@ local function stepBoss(dt: number, t: number)
 	end
 	-- The crown turns faster while the beam is out.
 	current.spinPhase += dt * (if beamAngle ~= nil then 1.6 else 0.35)
-	local hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
-	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
+	local hover: Vector3
+	local standing = #current.meshPieces > 0
+	if standing then
+		-- Walks on the floor: the anchor is only where the server says the boss stands, so follow it
+		-- smoothly, put the soles on the real floor, and run the gait from how fast it is moving.
+		local target = current.anchor.Position
+		local previous = current.walkPos or target
+		local following = previous:Lerp(target, 1 - math.exp(-9 * dt))
+		local speed = Vector3.new(following.X - previous.X, 0, following.Z - previous.Z).Magnitude / math.max(dt, 1e-3)
+		current.walkPos = following
+		current.walkBlend += (math.clamp(speed / 5, 0, 1) - current.walkBlend) * (1 - math.exp(-7 * dt))
+		local hoverHeight = (Controls :: any).ground.hover[current.kind]
+		if hoverHeight == nil then
+			current.gait += speed * dt * math.pi / math.max(current.footDrop * 0.75, 2.5)
+		end
+		local parent = current.anchor.Parent
+		local floorY = if parent ~= nil then parent:GetAttribute("BossFloorY") else nil
+		if type(floorY) ~= "number" then
+			floorY = target.Y - 26
+		end
+		local stepBob = if hoverHeight == nil then math.abs(math.cos(current.gait)) * current.footDrop * 0.05 * current.walkBlend else math.sin(t * 1.6) * 0.8
+		local breathe = math.sin(t * 0.9) * current.footDrop * 0.012
+		hover = Vector3.new(following.X, floorY + current.footDrop + (hoverHeight or 0) + stepBob + breathe + current.slamLift * 0.12, following.Z)
+		current.floorPos = Vector3.new(following.X, floorY, following.Z)
+		-- A foot comes down: dust, and the ground feels it.
+		if hoverHeight == nil and current.walkBlend > 0.4 then
+			local sign = if math.sin(current.gait) >= 0 then 1 else -1
+			if sign ~= current.stepSign then
+				current.stepSign = sign
+				local side = if sign > 0 then 1 else -1
+				local yaw = current.rig.yaw
+				local reach = current.footDrop * 0.2 * side
+				local foot = current.floorPos + Vector3.new(math.cos(yaw + math.pi / 2) * reach, 0.3, math.sin(yaw + math.pi / 2) * reach)
+				Vfx.burst(foot, "Dust", 6 + math.floor(current.footDrop), { Color = Color3.fromRGB(120, 110, 100) }, clientFolder)
+				if near(current) then
+					Controls.shake(math.clamp(current.footDrop * 0.012, 0.05, 0.25))
+					bossSfx("impact", math.clamp(current.footDrop * 0.02, 0.1, 0.3))
+				end
+			end
+		end
+	else
+		hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
+	end
+	current.hoverPos = hover	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
 	if kind == "Choir" then
 		coreScale *= 1 + 0.06 * math.sin(t * 3.2) + current.conduct * 0.1
 	elseif kind == "Regent" then
@@ -6994,7 +7118,7 @@ local function onPhase(payload)
 	Audio:play(bossCue("Phase"))
 	bossSfx("roar_" .. current.kind, 1.1)
 	Ambience.fight(current.config.Music, if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2)
-	local at = current.anchor.Position
+	local at = (Controls :: any).ground.center(current)
 	Vfx.burst(at, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 30) }, clientFolder)
 	Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 100) }, clientFolder)
 	Controls.shake(0.9)
@@ -7010,7 +7134,7 @@ local function onPhase(payload)
 	for index, top in pillarTops(current) do
 		task.delay(0.1 * index, function()
 			if boss == current then
-				lightning(current.anchor.Position, top, pal.Hot, 0.4, 1)
+				lightning((Controls :: any).ground.center(current), top, pal.Hot, 0.4, 1)
 			end
 		end)
 	end
@@ -7528,7 +7652,7 @@ local function onEnrage(_payload)
 	setAim("roar", nil, serverNow() + 1.8)
 	windUp(serverNow() + 1.8, 1.8)
 	speakLines(current, "Enrage", 0.2, 0)
-	BossVfx.layers(current.kind, current.anchor.Position - Vector3.new(0, 24, 0), 40, 1.6)
+	BossVfx.layers(current.kind, (Controls :: any).ground.floor(current), 40, 1.6)
 end
 
 -- An ultimate: the boss stops everything, names the move and the whole screen holds its breath
@@ -7564,7 +7688,7 @@ local function onUltimate(payload)
 			at += lineSeconds(line) + 0.5
 		end
 	end
-	BossVfx.layers(current.kind, current.anchor.Position - Vector3.new(0, 24, 0), 60, 2.2)
+	BossVfx.layers(current.kind, (Controls :: any).ground.floor(current), 60, 2.2)
 end
 -- Heavy burst damage broke its poise: it reels, goes still for a moment and is vulnerable.
 local function onBreak(_payload)
@@ -7579,7 +7703,7 @@ local function onBreak(_payload)
 	Controls.punch(10, 0)
 	screenFlash(pal.Hot, 0.35, 0.5)
 	current.flash = 1
-	Vfx.burst(current.anchor.Position, "Shatter", 50, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(16, 44) }, clientFolder)
+	Vfx.burst((Controls :: any).ground.center(current), "Shatter", 50, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(16, 44) }, clientFolder)
 	speakLines(current, "Break", 0.4, 0)
 end
 local function onDissonanceLand(payload)

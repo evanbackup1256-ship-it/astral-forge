@@ -392,6 +392,74 @@ function RiftBossService.new(host)
 	return self
 end
 
+-- Where the boss stands: the arena's floor plus however far it has walked. Attacks start from here.
+function RiftBossService:_bossFloor(): Vector3
+	local center = self:_arena()
+	local walk = self._walk or Vector3.zero
+	return Vector3.new(center.X + walk.X, center.Y, center.Z + walk.Z)
+end
+
+-- Bosses walk. WalkSpeed (studs/s) and StandOff (how close it likes to get) come from the boss's config;
+-- a boss with no WalkSpeed stays put. It plants its feet while an attack is going on, then closes on
+-- whoever it wants next; with nobody to chase it paces the arena.
+function RiftBossService:_walkStep(now: number, dt: number, inArena: { [Player]: Vector3 })
+	local config = self._config
+	local speed = config.WalkSpeed or 0
+	local walk = self._walk or Vector3.zero
+	local moving = 0
+	if speed > 0 and self._state.Phase == "Active" and not self._attacking and #self._events == 0 and now >= self._breakUntil then
+		local center, _, radius = self:_arena()
+		local limit = radius * 0.6
+		local goal: Vector3? = nil
+		local standOff = config.StandOff or 22
+		local targets = self:_targets(inArena, 0.4)
+		local floor = Vector3.new(center.X + walk.X, 0, center.Z + walk.Z)
+		if targets[1] ~= nil then
+			local toward = Vector3.new(targets[1].X - floor.X, 0, targets[1].Z - floor.Z)
+			local distance = toward.Magnitude
+			if distance > standOff + 3 then
+				goal = floor + toward.Unit * math.min(distance - standOff, speed * 1.5)
+			elseif distance < standOff * 0.55 and distance > 0.5 then
+				goal = floor - toward.Unit * speed * 0.8
+				speed *= 0.6
+			end
+		else
+			-- nobody to chase: pace round the arena
+			if self._patrolAt == nil or now >= self._patrolAt then
+				local angle = self._random:NextNumber() * math.pi * 2
+				self._patrol = Vector3.new(math.cos(angle), 0, math.sin(angle)) * limit * (0.4 + 0.6 * self._random:NextNumber())
+				self._patrolAt = now + 6 + self._random:NextNumber() * 4
+			end
+			local patrol: Vector3 = self._patrol
+			local toward = Vector3.new(center.X + patrol.X - floor.X, 0, center.Z + patrol.Z - floor.Z)
+			if toward.Magnitude > 3 then
+				goal = floor + toward.Unit * speed
+				speed *= 0.7
+			end
+		end
+		if goal ~= nil then
+			local step = Vector3.new(goal.X - floor.X, 0, goal.Z - floor.Z)
+			local reach = speed * dt
+			if step.Magnitude > reach then
+				step = step.Unit * reach
+			end
+			local nextWalk = walk + step
+			if nextWalk.Magnitude > limit then
+				nextWalk = nextWalk.Unit * limit
+			end
+			moving = (nextWalk - walk).Magnitude / math.max(dt, 1e-3)
+			walk = nextWalk
+		end
+	end
+	self._walk = walk
+	local model = self._model
+	if model ~= nil then
+		local center, hover = self:_arena()
+		model:PivotTo(CFrame.new(hover.X + walk.X, hover.Y, hover.Z + walk.Z))
+		model:SetAttribute("BossSpeed", moving)
+		model:SetAttribute("BossFloorY", center.Y)
+	end
+end
 function RiftBossService:_arena()
 	local arena = SanctuaryLayout.arena(self._config.Island)
 	return self._host.world:SanctuaryPoint(arena.Center), self._host.world:SanctuaryPoint(arena.Hover), arena.Radius
@@ -524,7 +592,11 @@ function RiftBossService:_moveToArena()
 	if model ~= nil and model.PrimaryPart ~= nil then
 		local _, hover = self:_arena()
 		model:PivotTo(CFrame.new(hover))
+		model:SetAttribute("BossSpeed", 0)
+		model:SetAttribute("BossFloorY", self:_arena().Y)
 	end
+	self._walk = Vector3.zero
+	self._patrolAt = nil
 end
 
 function RiftBossService:Stop()
@@ -781,6 +853,7 @@ function RiftBossService:_step()
 		self:_enrage(now)
 		self:_ultimates(now)
 		self:_stepAdds(now, inArena)
+		self:_walkStep(now, STEP_SECONDS, inArena)
 		self:_attacks(now, inArena)
 	end
 	self:_publish()
@@ -1092,7 +1165,7 @@ end
 
 function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector3 })
 	local config = self._config
-	local center = self:_arena()
+	local center = self:_bossFloor()
 	local params = attack.Params or {}
 	local telegraph = params.TelegraphSeconds or config.SlamTelegraphSeconds
 	local targets = self:_targets(inArena, telegraph * 0.45)
@@ -1335,7 +1408,7 @@ function RiftBossService:_resolve(event, now: number, inArena: { [Player]: Vecto
 		self:_summon(event.Params, now, event.Center)
 		return true
 	elseif event.Kind == "Ring" then
-		local center = self:_arena()
+		local center = self:_bossFloor()
 		local hits = RiftBossMath.RingHits(center.X, center.Z, event.Radius, event.Width, flatPositions(inArena))
 		for _, player in hits do
 			self:_daze(player, now, center)
@@ -1413,7 +1486,7 @@ function RiftBossService:Strike(player: Player)
 	if root == nil then
 		return ActionResponse.Error("Step into the sanctuary first.")
 	end
-	local center = self:_arena()
+	local center = self:_bossFloor()
 	local offset = Vector3.new(root.Position.X - center.X, 0, root.Position.Z - center.Z)
 	if offset.Magnitude > config.StrikeRange then
 		return ActionResponse.Error(`Get closer to {config.Name}.`)
