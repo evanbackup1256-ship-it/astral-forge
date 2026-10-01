@@ -2453,6 +2453,80 @@ function RiftBossMath.PickAttack(attacks: { any }, phase: number, roll: number):
 	return last
 end
 
+-- ---- Boss behaviour (all pure; RiftBossService feeds them live numbers) ----
+
+-- How much the boss wants to hit a fighter: it hunts whoever is hurting it most, punishes anyone
+-- standing still, and keeps a little chance in it so no one is ever safe or doomed.
+--   damageShare 0..1 (their part of all damage so far), idleSeconds (time without moving
+--   more than a few studs), roll 0..1.
+function RiftBossMath.TargetScore(damageShare: number, idleSeconds: number, roll: number): number
+	return 1 + 1.8 * math.clamp(damageShare, 0, 1) + 0.22 * math.min(math.max(idleSeconds, 0), 8) + 0.9 * math.clamp(roll, 0, 1)
+end
+
+-- Fighters ordered by score, highest first. `entries` is { { Id = any, Score = number } }.
+function RiftBossMath.RankTargets(entries: { any }): { any }
+	local ranked = table.clone(entries)
+	table.sort(ranked, function(a, b)
+		if a.Score ~= b.Score then
+			return a.Score > b.Score
+		end
+		return tostring(a.Id) < tostring(b.Id)
+	end)
+	local ids = {}
+	for _, entry in ranked do
+		table.insert(ids, entry.Id)
+	end
+	return ids
+end
+
+-- Where a fighter will be `seconds` from now if they keep moving (so a telegraph lands where
+-- they are going, not where they were). The lead is capped so a sprint cannot be outguessed
+-- forever and a stationary fighter is hit exactly where they stand.
+function RiftBossMath.LeadPosition(x: number, z: number, vx: number, vz: number, seconds: number, maxLead: number): (number, number)
+	local dx, dz = vx * seconds, vz * seconds
+	local length = math.sqrt(dx * dx + dz * dz)
+	if length > maxLead and length > 0 then
+		dx, dz = dx / length * maxLead, dz / length * maxLead
+	end
+	return x + dx, z + dz
+end
+
+-- A fight that drags on while the boss is still healthy enrages: faster, chained attacks.
+function RiftBossMath.Enraged(elapsed: number, activeSeconds: number, healthFraction: number): boolean
+	return activeSeconds > 0 and elapsed >= activeSeconds * 0.65 and healthFraction > 0.4
+end
+
+-- Burst damage inside a short window breaks the boss's poise. `hits` is { { At, Damage } }.
+function RiftBossMath.PoiseBroken(hits: { any }, now: number, windowSeconds: number, maxHealth: number, fraction: number): boolean
+	local total = 0
+	for _, hit in hits do
+		if now - hit.At <= windowSeconds then
+			total += hit.Damage
+		end
+	end
+	return maxHealth > 0 and total >= maxHealth * fraction
+end
+
+-- A follow-up attack for `lastKind`, if the boss has one for this phase. Combos are
+-- { { After, Then, Chance, MinPhase } }; `boost` raises every chance (enrage).
+function RiftBossMath.ComboNext(combos: { any }?, lastKind: string, phase: number, roll: number, boost: number?): string?
+	if combos == nil then
+		return nil
+	end
+	for _, combo in combos do
+		if combo.After == lastKind and (combo.MinPhase or 1) <= phase then
+			if roll < math.min(1, (combo.Chance or 0.3) * (boost or 1)) then
+				return combo.Then
+			end
+		end
+	end
+	return nil
+end
+
+-- A busier arena gets less quiet time between attacks (never below 60% of the wait).
+function RiftBossMath.DelayScaleForFighters(fighters: number): number
+	return math.clamp(1 - 0.06 * (math.max(1, fighters) - 1), 0.6, 1)
+end
 -- A shockwave ring: catches fighters whose distance to the centre is within half `width`
 -- of `radius`. The ground inside and outside the band is safe.
 function RiftBossMath.RingHits(centerX: number, centerZ: number, radius: number, width: number, positions: { [any]: { X: number, Z: number } }): { any }

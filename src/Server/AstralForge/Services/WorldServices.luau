@@ -373,6 +373,14 @@ function RiftBossService.new(host)
 	self._dazedUntil = {}
 	self._adds = {}
 	self._nextAddId = 1
+	-- Behaviour: who stands still (anchor, since), a queued combo, enrage, and recent burst damage.
+	self._idle = {}
+	self._comboQueue = {}
+	self._enraged = false
+	self._activeAt = 0
+	self._burst = {}
+	self._breakUntil = 0
+	self._breakCooldownUntil = 0
 	self._phaseIndex = 1
 	self._nextAttackAt = math.huge
 	-- Attacks in flight. Each is { Kind, At, ... } and resolves when `now` passes At.
@@ -625,6 +633,12 @@ function RiftBossService:_step()
 	elseif entered == "Active" then
 		self._phaseIndex = 1
 		self._attacking = false
+		self._enraged = false
+		self._activeAt = now
+		table.clear(self._comboQueue)
+		table.clear(self._burst)
+		self._breakUntil = 0
+		self._breakCooldownUntil = 0
 		self._nextAttackAt = now + self:_attackDelay(now)
 		table.clear(self._events)
 		self:_broadcast({
@@ -644,6 +658,8 @@ function RiftBossService:_step()
 	end
 	if state.Phase == "Active" then
 		self:_phases(now)
+		self:_track(now, inArena)
+		self:_enrage(now)
 		self:_stepAdds(now, inArena)
 		self:_attacks(now, inArena)
 	end
@@ -653,8 +669,57 @@ end
 -- Seconds to wait before the next attack, shortened as the fight goes on.
 function RiftBossService:_attackDelay(_now: number): number
 	local config = self._config
+	local fighters = #self._host.world:SanctuaryPlayers()
 	return RiftBossMath.SlamDelay(self._random:NextNumber(), config)
 		* RiftBossMath.PhaseDelayScale(self._phaseIndex, config.PhaseDelayScale)
+		* RiftBossMath.DelayScaleForFighters(fighters)
+		* (if self._enraged then 0.62 else 1)
+end
+
+-- Who has stood still, and for how long: a fighter who has not moved more than a few studs for a
+-- while becomes a favourite target, so camping in one spot is not a strategy.
+function RiftBossService:_track(now: number, inArena: { [Player]: Vector3 })
+	for player, position in inArena do
+		local entry = self._idle[player]
+		if entry == nil or (Vector3.new(position.X - entry.X, 0, position.Z - entry.Z)).Magnitude > 6 then
+			self._idle[player] = { X = position.X, Z = position.Z, Since = now }
+		end
+	end
+	for player in self._idle do
+		if inArena[player] == nil then
+			self._idle[player] = nil
+		end
+	end
+end
+
+-- A fight that drags on while the boss is still healthy enrages it once: a short warning, then
+-- shorter waits and more chained attacks until it falls.
+function RiftBossService:_enrage(now: number)
+	if self._enraged then
+		return
+	end
+	local state = self._state
+	local fraction = if state.MaxHealth > 0 then state.Health / state.MaxHealth else 0
+	if RiftBossMath.Enraged(now - self._activeAt, self._config.ActiveSeconds, fraction) then
+		self._enraged = true
+		self._nextAttackAt = math.max(self._nextAttackAt, now + 2)
+		self:_broadcast({ Type = "RiftBossEnrage", Kind = self._config.Kind, Name = self._config.Name }, true)
+	end
+end
+
+-- After an attack is chosen it may queue its follow-up from the boss's combo table.
+function RiftBossService:_queueCombo(attack)
+	local config = self._config
+	local follow = RiftBossMath.ComboNext(config.Combos, attack.Kind, self._phaseIndex, self._random:NextNumber(), if self._enraged then 1.5 else 1)
+	if follow == nil then
+		return
+	end
+	for _, candidate in config.Attacks do
+		if candidate.Kind == follow and (candidate.MinPhase or 1) <= self._phaseIndex then
+			table.insert(self._comboQueue, candidate)
+			return
+		end
+	end
 end
 
 -- Crossing a health threshold announces the next phase and gives everyone a breather
@@ -667,6 +732,13 @@ function RiftBossService:_phases(now: number)
 	end
 	self._phaseIndex = phase
 	self._nextAttackAt = math.max(self._nextAttackAt, now + PHASE_BREATHER_SECONDS)
+	-- Each new phase calls reinforcements: right after the breather it summons, if it can.
+	for _, candidate in config.Attacks do
+		if candidate.Kind == "Summon" and (candidate.MinPhase or 1) <= phase then
+			table.insert(self._comboQueue, 1, candidate)
+			break
+		end
+	end
 	self:_broadcast({ Type = "RiftBossPhase", Kind = config.Kind, Name = config.Name, Phase = phase, Breather = PHASE_BREATHER_SECONDS }, true)
 end
 
@@ -709,13 +781,22 @@ function RiftBossService:_attacks(now: number, inArena: { [Player]: Vector3 })
 	end
 	if self._attacking then
 		self._attacking = false
-		self._nextAttackAt = now + self:_attackDelay(now)
+		-- A chained follow-up comes almost at once; otherwise the usual breather.
+		self._nextAttackAt = now + (if #self._comboQueue > 0 then 0.55 else self:_attackDelay(now))
 		return
 	end
-	if now < self._nextAttackAt then
+	if now < self._nextAttackAt or now < self._breakUntil then
 		return
 	end
-	local attack = RiftBossMath.PickAttack(self._config.Attacks, self._phaseIndex, self._random:NextNumber())
+	local attack
+	if #self._comboQueue > 0 then
+		attack = table.remove(self._comboQueue, 1)
+	else
+		attack = RiftBossMath.PickAttack(self._config.Attacks, self._phaseIndex, self._random:NextNumber())
+		if attack ~= nil then
+			self:_queueCombo(attack)
+		end
+	end
 	if attack == nil then
 		self._nextAttackAt = now + self:_attackDelay(now)
 		return
@@ -724,20 +805,32 @@ function RiftBossService:_attacks(now: number, inArena: { [Player]: Vector3 })
 	self:_begin(attack, now, inArena)
 end
 
--- Fighters to aim at, in a stable random order.
-function RiftBossService:_targets(inArena: { [Player]: Vector3 }): { Vector3 }
-	local targets = {}
-	for _, position in inArena do
-		table.insert(targets, position)
+-- Fighters to aim at, most wanted first: whoever has done the most damage, anyone standing still,
+-- and a little chance. Positions are led by the fighter's own velocity so a telegraph lands
+-- where they are heading (`lead` seconds ahead), not where they were.
+function RiftBossService:_targets(inArena: { [Player]: Vector3 }, lead: number?): { Vector3 }
+	local now = Workspace:GetServerTimeNow()
+	local total = 0
+	for _, amount in self._damage do
+		total += amount
 	end
-	for i = #targets, 2, -1 do
-		local j = self._random:NextInteger(1, i)
-		targets[i], targets[j] = targets[j], targets[i]
+	local entries = {}
+	for player, position in inArena do
+		local share = if total > 0 then (self._damage[player.UserId] or 0) / total else 0
+		local idle = self._idle[player]
+		local score = RiftBossMath.TargetScore(share, if idle ~= nil then now - idle.Since else 0, self._random:NextNumber())
+		table.insert(entries, { Id = player, Score = score })
+	end
+	local targets = {}
+	for _, player in RiftBossMath.RankTargets(entries) do
+		local position = inArena[player]
+		local root = self._host.world:SanctuaryRoot(player)
+		local velocity = if root ~= nil then root.AssemblyLinearVelocity else Vector3.zero
+		local x, z = RiftBossMath.LeadPosition(position.X, position.Z, velocity.X, velocity.Z, lead or 0, 14)
+		table.insert(targets, Vector3.new(x, position.Y, z))
 	end
 	return targets
 end
-
--- `element` (Fire, Storm, Frost, Void) only changes how clients dress the blow.
 function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: number, radius: number?, element: string?)
 	local config = self._config
 	local center = { X = aim.X, Y = floorY, Z = aim.Z }
@@ -832,9 +925,9 @@ end
 function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector3 })
 	local config = self._config
 	local center = self:_arena()
-	local targets = self:_targets(inArena)
 	local params = attack.Params or {}
 	local telegraph = params.TelegraphSeconds or config.SlamTelegraphSeconds
+	local targets = self:_targets(inArena, telegraph * 0.45)
 	-- Tell clients which move this is: the boss winds up and speaks accordingly.
 	self:_broadcast({ Type = "RiftBossAttack", BossKind = config.Kind, Attack = attack.Kind }, true)
 	if attack.Kind == "Slam" then
@@ -1169,6 +1262,10 @@ function RiftBossService:Strike(player: Player)
 	local level = self._host:level(profile)
 	local bonus = Economy.OreEffect(profile, "BossDamage")
 	local damage, crit = RiftBossMath.StrikeDamage(level, bonus, self._random:NextNumber(), config)
+	-- While its poise is broken the boss takes half again as much.
+	if now < self._breakUntil then
+		damage = math.floor(damage * 1.5 + 0.5)
+	end
 	-- A wisp within reach of the blade takes the blow instead of the boss.
 	local add = self:_addNear(root.Position, now)
 	if add ~= nil then
@@ -1187,6 +1284,20 @@ function RiftBossService:Strike(player: Player)
 		})
 	end
 	self._state = RiftBossMath.Hit(self._state, damage)
+	-- Heavy burst damage inside a few seconds breaks its poise: it reels, its attacks stop for a
+	-- moment and it is vulnerable (coordinated fighters are rewarded; it cannot be spammed).
+	table.insert(self._burst, { At = now, Damage = damage })
+	while #self._burst > 0 and now - self._burst[1].At > 4 do
+		table.remove(self._burst, 1)
+	end
+	if now >= self._breakCooldownUntil and RiftBossMath.PoiseBroken(self._burst, now, 4, self._state.MaxHealth, 0.07) then
+		self._breakUntil = now + 2.4
+		self._breakCooldownUntil = now + 14
+		self._nextAttackAt = math.max(self._nextAttackAt, now + 2.6)
+		table.clear(self._comboQueue)
+		table.clear(self._burst)
+		self:_broadcast({ Type = "RiftBossBreak", Kind = config.Kind, Name = config.Name, Seconds = 2.4 }, true)
+	end
 	local userId = player.UserId
 	self._damage[userId] = (self._damage[userId] or 0) + damage
 	self._strikes[userId] = (self._strikes[userId] or 0) + 1
@@ -1239,6 +1350,7 @@ end
 function RiftBossService:Forget(player: Player)
 	self._lastStrike[player] = nil
 	self._dazedUntil[player] = nil
+	self._idle[player] = nil
 end
 
 return RiftBossService

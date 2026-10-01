@@ -49,6 +49,8 @@ DIALOGUE = {
         "Escape": [
             "The door closes. [beat] [wave]Remember what you could not finish.[/]",
         ],
+        "Enrage": ["[shake]You are taking too long.[/] [beat] The door [hot]hungers[/].", "[glitch]ENOUGH GAMES.[/]"],
+        "Break": ["[big]Impossible![/]", "The seal... [shake]cracks[/]?"],
         "Hit": [
             "Stay [hot]down[/].",
             "[shake]Do not rise.[/]",
@@ -90,6 +92,8 @@ DIALOGUE = {
             "It is so [whisper]quiet[/]. [beat] [hot]Thank you.[/]",
         ],
         "Escape": ["[wave]The song goes on without you.[/]"],
+        "Enrage": ["[wave]The hall grows [hot]impatient[/].[/]", "[shake]FASTER. LOUDER.[/]"],
+        "Break": ["[glitch]Out of... time...[/]", "[big]A false note![/]"],
         "Hit": [
             "[glitch]Out of tune.[/]",
             "[hot]Flat.[/]",
@@ -130,6 +134,8 @@ DIALOGUE = {
             "[whisper]The crown is yours.[/] [beat] It was always [hot]heavy[/].",
         ],
         "Escape": ["I retreat to my [hot]embers[/]. [beat] Not to you."],
+        "Enrage": ["[big]MY PATIENCE BURNS.[/]", "[shake]The crown demands [hot]ash[/]![/]"],
+        "Break": ["[shake]You... [hot]DARE[/]?[/]", "[big]Insolent embers![/]"],
         "Hit": [
             "[hot]Ash.[/]",
             "[shake]Crawl.[/]",
@@ -172,6 +178,8 @@ DIALOGUE = {
             "[slow]Let the quiet have the sky.[/]",
         ],
         "Escape": ["The storm moves on. [beat] [hot]So will its thunder.[/]"],
+        "Enrage": ["[shake]The storm [hot]breaks[/] its leash![/]", "[big]NO MORE WAITING.[/]"],
+        "Break": ["[glitch]Grounded...?[/]", "[shake]Impossible![/]"],
         "Hit": [
             "[hot]Too slow.[/]",
             "[shake]Feel that?[/]",
@@ -212,6 +220,8 @@ DIALOGUE = {
             "[whisper]Spring... was so far away.[/]",
         ],
         "Escape": ["I sink back into the ice. [beat] It will [hot]keep[/]."],
+        "Enrage": ["[slow]The frost... [hot]hardens[/].[/]", "[shake]WINTER WILL NOT WAIT.[/]"],
+        "Break": ["[wave]A crack... in the ice...[/]", "[big]No![/]"],
         "Hit": [
             "[hot]Brittle.[/]",
             "[wave]Numb yet?[/]",
@@ -253,6 +263,8 @@ DIALOGUE = {
             "The oath is ended. [beat] [hot]The dark is yours.[/]",
         ],
         "Escape": ["We will finish this [hot]another night[/]."],
+        "Enrage": ["[hot]No more games.[/]", "[shake]I tire of this duel.[/]"],
+        "Break": ["[shake]A clean cut...[/]", "[hot]Well struck.[/]"],
         "Hit": [
             "[hot]Unguarded.[/]",
             "[slow]Again.[/]",
@@ -286,7 +298,7 @@ def lua_list(lines: list[str], indent: str) -> str:
 def render(kind: str) -> str:
     script = DIALOGUE[kind]
     out = ["Dialogue = {"]
-    for key in ("Forming", "Awake", "Phase2", "Phase3", "Defeat", "Escape", "Hit"):
+    for key in ("Forming", "Awake", "Phase2", "Phase3", "Defeat", "Escape", "Enrage", "Break", "Hit"):
         out.append(f"\t\t{key} = {lua_list(script[key], '')},")
     out.append("\t\tAttack = {")
     for attack, lines in script["Attack"].items():
