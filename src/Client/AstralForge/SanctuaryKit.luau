@@ -4389,7 +4389,7 @@ local function addAccessories(current: Boss, made: { Piece }, info: { [BasePart]
 				local light = Instance.new("PointLight")
 				light.Color = colour
 				light.Range = entry[6] or 30
-				light.Brightness = 2.2
+				light.Brightness = 0.8
 				light.Shadows = false
 				light.Parent = part
 				table.insert(fx, light)
@@ -5277,8 +5277,8 @@ function ScreenFx.signature(kind: string, power: number)
 		Controls.punch(-9 * power, 0.04)
 	elseif kind == "Choir" then
 		-- A struck note: three bright pulses that ring outward, glass-white.
-		ScreenFx.strobe({ Color3.fromRGB(230, 250, 255), Color3.fromRGB(150, 230, 255), Color3.fromRGB(240, 255, 255) }, 0.07, 0.55 * power)
-		ScreenFx.vignette(Color3.fromRGB(110, 220, 255), 0.6 * power, 0.7)
+		ScreenFx.strobe({ Color3.fromRGB(200, 240, 255), Color3.fromRGB(120, 215, 255), Color3.fromRGB(210, 245, 255) }, 0.07, 0.3 * power)
+		ScreenFx.vignette(Color3.fromRGB(90, 200, 245), 0.45 * power, 0.7)
 		ScreenFx.blurPulse(8 * power, 0.5)
 		Controls.punch(7 * power, 0)
 	elseif kind == "Regent" then
@@ -5298,10 +5298,10 @@ function ScreenFx.signature(kind: string, power: number)
 		Controls.punch(12 * power, -0.05)
 	elseif kind == "Rime" then
 		-- Winter closing in: frost on the screen's edge, the colour draining to blue.
-		ScreenFx.vignette(Color3.fromRGB(190, 235, 255), 0.95 * power, 1.6)
-		ScreenFx.gradePulse(Color3.fromRGB(170, 215, 255), -0.45 * power, 0.12, 1.5)
-		ScreenFx.blurPulse(10 * power, 0.9)
-		ScreenFx.flash(Color3.fromRGB(220, 245, 255), 0.35 * power, 0.35)
+		ScreenFx.vignette(Color3.fromRGB(150, 205, 245), 0.5 * power, 1.2)
+		ScreenFx.gradePulse(Color3.fromRGB(170, 215, 255), -0.35 * power, 0.1, 1.2)
+		ScreenFx.blurPulse(6 * power, 0.7)
+		ScreenFx.flash(Color3.fromRGB(200, 235, 255), 0.12 * power, 0.3)
 		Controls.punch(-5 * power, 0)
 	elseif kind == "Knight" then
 		-- A cut: black frame, white slash lines at a hard angle, a flick of the lens.
@@ -5538,7 +5538,7 @@ local function say(speaker: string, line: string, color: Color3?)
 	local fontRegular = if fonts ~= nil then fonts[1] else SPEECH_FONT
 	local fontBold = if fonts ~= nil then fonts[2] else SPEECH_BOLD
 	box.BackgroundColor3 = Color3.fromRGB(8, 8, 18):Lerp(accent, 0.16)
-	name.Font = fontBold
+	name.Font = Enum.Font.GothamBold
 	name.Text = string.upper(speaker)
 	name.TextColor3 = accent
 	stroke.Color = accent
@@ -6748,7 +6748,7 @@ function BossVfx.lightFlash(at: Vector3, color: Color3, range: number, seconds: 
 	local light = Instance.new("PointLight")
 	light.Color = color
 	light.Range = range
-	light.Brightness = 8
+	light.Brightness = 3.5
 	light.Shadows = false
 	light.Parent = holder
 	fadeTo(light, { Brightness = 0, Range = range * 0.4 }, seconds)
@@ -6788,7 +6788,7 @@ local BOSS_LAYERS: { [string]: { any } } = {
 	},
 	Rime = {
 		{ "Shatter", 64, { Color = Color3.fromRGB(215, 245, 255), Color2 = Color3.fromRGB(130, 200, 255), Speed = NumberRange.new(10, 36), Acceleration = Vector3.new(0, -26, 0) }, 0, 3 },
-		{ "Smoke", 34, { Color = Color3.fromRGB(235, 248, 255), Color2 = Color3.fromRGB(160, 205, 240), Speed = NumberRange.new(4, 14), Acceleration = Vector3.new(0, 1, 0), Size = NumberSequence.new(6, 20), Lifetime = NumberRange.new(2.5, 4.5) }, 0.05, 1 },
+		{ "Smoke", 14, { Color = Color3.fromRGB(190, 215, 240), Color2 = Color3.fromRGB(120, 170, 220), Speed = NumberRange.new(4, 14), Acceleration = Vector3.new(0, 1, 0), Size = NumberSequence.new(3, 8), Lifetime = NumberRange.new(1.8, 3.0), Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) }) }, 0.05, 1 },
 		{ "Motes", 80, { Color = Color3.new(1, 1, 1), Color2 = Color3.fromRGB(170, 220, 255), Speed = NumberRange.new(2, 12), Acceleration = Vector3.new(0, -5, 0), Lifetime = NumberRange.new(2.4, 4.4) }, 0.1, 10 },
 		{ "Shockwave", 1, { Color = Color3.fromRGB(190, 235, 255), Size = NumberSequence.new(3, 110) }, 0, 1 },
 	},
@@ -6805,7 +6805,7 @@ function BossVfx.layers(kind: string, center: Vector3, radius: number, scale: nu
 	if recipe == nil then
 		return
 	end
-	local power = scale or 1
+	local power = (scale or 1) * 0.6
 	for _, line in recipe do
 		local preset, count, overrides, delay, height = line[1], line[2], line[3], line[4], line[5]
 		task.delay(delay, function()
@@ -8031,9 +8031,9 @@ local MOODS: { [string]: Mood } = {
 	},
 	-- The Frozen Reliquary: pale, very bright, nearly white haze.
 	RimeIsle = {
-		ambient = Color3.fromRGB(130, 160, 190), outdoor = Color3.fromRGB(180, 214, 244), fog = Color3.fromRGB(28, 44, 62), exposure = 0.5,
-		hazeColor = Color3.fromRGB(190, 224, 250), hazeDecay = Color3.fromRGB(70, 100, 130), density = 0.2, haze = 0.9,
-		bloom = 1.0, tint = Color3.fromRGB(232, 248, 255), saturation = 0.05, contrast = 0.1, rays = 0.16,
+		ambient = Color3.fromRGB(96, 124, 160), outdoor = Color3.fromRGB(140, 180, 224), fog = Color3.fromRGB(20, 34, 54), exposure = 0.25,
+		hazeColor = Color3.fromRGB(150, 190, 230), hazeDecay = Color3.fromRGB(50, 80, 112), density = 0.18, haze = 0.55,
+		bloom = 0.65, tint = Color3.fromRGB(215, 238, 255), saturation = 0.12, contrast = 0.16, rays = 0.1,
 	},
 	-- The Gloaming Keep: near-black violet, low light, a little magenta in the haze.
 	GloamIsle = {
