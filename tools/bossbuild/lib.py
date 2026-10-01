@@ -324,7 +324,7 @@ def procedural_material(name, spec):
             bsdf.inputs["Emission Strength"].default_value = spec["veins_glow"]
     nt.links.new(color_out, bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = spec.get("rough", 0.6)
-    bsdf.inputs["Metallic"].default_value = spec.get("metal", 0.0)
+    bsdf.inputs["Metallic"].default_value = 0.0  # albedo-only bake: metallic would turn the diffuse pass black
     if spec.get("emit"):
         r, g, b, s = spec["emit"]
         bsdf.inputs["Emission Color"].default_value = (r, g, b, 1)
@@ -346,6 +346,9 @@ def join_for_atlas(boss, objs):
         dup = obj.copy()
         dup.data = obj.data.copy()
         dup.modifiers.clear()
+        dup.hide_render = False
+        dup.hide_viewport = False
+        dup.hide_set(False)
         bpy.context.collection.objects.link(dup)
         # remember which piece each face came from
         attr = dup.data.attributes.new("piece_id", "INT", "FACE")
@@ -408,7 +411,7 @@ def bake_atlas(boss, atlas, passes=("DIFFUSE", "EMIT", "AO")):
     diffuse = results.get("DIFFUSE", np.zeros_like(sample))
     ao = results.get("AO", np.ones_like(sample))
     emit = results.get("EMIT", np.zeros_like(sample))
-    combined = np.clip(diffuse * (0.35 + 0.65 * ao) + emit, 0, 1)
+    combined = np.clip(diffuse * (0.65 + 0.35 * ao) * 1.3 + emit, 0, 1)  # Roblox lights textures down, so bake bright
     # Roblox shows mesh textures at most 1024 across: bake big, hand over the 2x2-averaged copy
     half = size // 2
     combined = combined.reshape(half, 2, half, 2, 3).mean(axis=(1, 3))

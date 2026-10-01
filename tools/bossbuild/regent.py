@@ -10,9 +10,9 @@ from lib import V, Boss, box, ellipsoid, frustum, plate, ribbon_strip, sweep
 KIND = "Regent"
 BASALT, IRON, LAVA, SPIKE, ASH = 0, 1, 2, 3, 4
 MATERIALS = {
-    "basalt": dict(base=((0.02, 0.018, 0.02), (0.11, 0.095, 0.1)), rough=0.8, metal=0.1, noise_scale=7.0, scale=4.0, veins=(1.0, 0.32, 0.04), vein_width=0.05, voro_scale=2.4, veins_glow=2.4),
+    "basalt": dict(base=((0.02, 0.018, 0.02), (0.11, 0.095, 0.1)), rough=0.8, metal=0.1, noise_scale=7.0, scale=4.0, veins=(0.85, 0.2, 0.02), vein_width=0.045, voro_scale=2.4, veins_glow=0.45),
     "iron": dict(base=((0.04, 0.035, 0.04), (0.2, 0.17, 0.17)), rough=0.5, metal=0.85, noise_scale=10.0),
-    "lava": dict(base=(1.0, 0.4, 0.06), rough=0.5, emit=(1.0, 0.38, 0.05, 1.2), noise_scale=5.0, veins=(1.0, 0.8, 0.2), vein_width=0.12, voro_scale=3.0),
+    "lava": dict(base=(0.9, 0.28, 0.03), rough=0.5, emit=(1.0, 0.28, 0.03, 0.9), noise_scale=5.0, veins=(1.0, 0.45, 0.08), vein_width=0.1, voro_scale=3.0),
     "spike": dict(base=((0.05, 0.03, 0.03), (0.35, 0.12, 0.05)), rough=0.4, metal=0.7, noise_scale=8.0, emit=(1.0, 0.3, 0.05, 0.5)),
     "ash": dict(base=((0.03, 0.025, 0.025), (0.12, 0.1, 0.1)), rough=0.95, noise_scale=16.0),
 }
