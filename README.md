@@ -270,3 +270,12 @@ Every boss line is spoken. `python tools/assetgen/voice_gen.py` voices each line
 
 `python tools/assetgen/boss_sfx_gen.py` synthesizes the element casts/hits, wisp and impact-frame sounds from maths (no samples); `python tools/assetgen/upload_boss_sfx.py` uploads them and rewrites the BOSS-SFX block in SharedData.luau. Until then the bosses use their existing cues.
 
+
+## Credits
+
+Boss voices are synthesized with Piper using the LibriTTS-R voice model (https://www.openslr.org/141/, CC BY 4.0, Y. Koizumi et al.).
+
+## Boss VFX meshes
+
+`blender -b --python tools/assetgen/blender_bossvfx.py` builds 18 signature meshes (three per boss) into assets/generated/BossVfxKit.glb; `python tools/assetgen/upload_boss_vfx.py` uploads it and wires the id into SharedData.luau. The server loads it at boot and the client animates each piece.
+
