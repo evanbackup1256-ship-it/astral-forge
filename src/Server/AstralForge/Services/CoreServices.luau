@@ -1888,7 +1888,12 @@ return function()
 	end
 
 	local function currentWeeklyValue(profile, kind: string): number
-		return ProgressionOpsMath.WeeklyValue(profile, kind)
+		-- Lifetime stats can overflow to inf; a non-finite baseline poisons the whole profile save.
+		local value = ProgressionOpsMath.WeeklyValue(profile, kind)
+		if type(value) ~= "number" or value ~= value then
+			return 0
+		end
+		return math.clamp(value, -1e308, 1e308)
 	end
 
 	local function commanderReward(level: number)
@@ -2161,7 +2166,8 @@ return function()
 
 			local changed = false
 			for _, directive in GameConfig.Operations.WeeklyDirectives do
-				if command.Weekly.Baseline[directive.Kind] == nil then
+				local existing = command.Weekly.Baseline[directive.Kind]
+				if existing == nil or existing ~= existing or existing == math.huge or existing == -math.huge then
 					command.Weekly.Baseline[directive.Kind] = currentWeeklyValue(profile, directive.Kind)
 					changed = true
 				end
