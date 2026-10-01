@@ -3692,22 +3692,48 @@ local function buildRig(kind: string, anchorPosition: Vector3): Rig
 		end
 		return rig
 	end
+	if kind == "Seraph" then
+		-- Six long feathers of light trailing behind the body (three a side), each a chain of
+		-- blades that whips as it flies.
+		local feathers, links = 6, 6
+		for feather = 1, feathers do
+			local side = if feather % 2 == 0 then 1 else -1
+			local rank = (feather + 1) // 2
+			local angle = math.rad(90 + side * (28 + rank * 22))
+			local offset = Vector3.new(side * 3.5, 2 - rank * 1.4, 2.5)
+			local chain: Chain = { angle = angle, offset = offset, links = {}, pitch = 0.9, pitchVel = 0 }
+			local parent: BasePart = root
+			for index = 1, links do
+				local size = Vector3.new(0.9, 4.2 * (1 - 0.08 * index), 0.5)
+				local blade = riggedPart(rig, "Feather", nil, size, if index == links then pal.Alert else pal.Hot, Enum.Material.Neon, 0.15 + 0.05 * index)
+				local length = 4.4 * (1 - 0.05 * index)
+				local c0 = if index == 1 then CFrame.new(offset) * CFrame.Angles(0, -angle, 0) else CFrame.new(0, -length, 0)
+				table.insert(chain.links, { motor = joint(parent, blade, c0), length = length, bend = 0, bendVel = 0, side = 0, sideVel = 0 })
+				parent = blade
+			end
+			table.insert(rig.chains, chain)
+		end
+		return rig
+	end
 	local regent = kind == "Regent"
-	local dark = if regent then Color3.fromRGB(28, 22, 26) else Color3.fromRGB(34, 32, 46)
-	local l1, l2 = if regent then 11 else 10, if regent then 11 else 10
-	local thick = if regent then 3.4 else 2.6
+	local rime = kind == "Rime"
+	local knight = kind == "Knight"
+	local dark = if regent then Color3.fromRGB(28, 22, 26) elseif rime then Color3.fromRGB(150, 200, 232) elseif knight then Color3.fromRGB(18, 14, 28) else Color3.fromRGB(34, 32, 46)
+	local armMaterial = if rime then Enum.Material.Ice else Enum.Material.Basalt
+	local l1, l2 = if regent then 11 elseif rime then 9 elseif knight then 13 else 10, if regent then 11 elseif rime then 9 elseif knight then 13 else 10
+	local thick = if regent then 3.4 elseif rime then 4.6 elseif knight then 2 else 2.6
 	for _, side in { -1, 1 } do
-		local offset = Vector3.new(side * (if regent then 8 else 7), 1, 0)
-		local upper = riggedPart(rig, "ArmUpper", nil, Vector3.new(thick, l1, thick), dark, Enum.Material.Basalt, 0)
+		local offset = Vector3.new(side * (if regent then 8 elseif rime then 9 elseif knight then 6 else 7), 1, 0)
+		local upper = riggedPart(rig, "ArmUpper", nil, Vector3.new(thick, l1, thick), dark, armMaterial, 0)
 		local shoulder = joint(rig.root, upper, CFrame.new(offset), CFrame.new(0, l1 / 2, 0))
-		local fore = riggedPart(rig, "ArmFore", nil, Vector3.new(thick * 0.85, l2, thick * 0.85), dark, Enum.Material.Basalt, 0)
+		local fore = riggedPart(rig, "ArmFore", nil, Vector3.new(thick * 0.85, l2, thick * 0.85), dark, armMaterial, 0)
 		local elbow = joint(upper, fore, CFrame.new(0, -l1 / 2, 0), CFrame.new(0, l2 / 2, 0))
 		-- Glowing joints at the shoulder and elbow.
 		local shoulderBall = riggedPart(rig, "ShoulderGlow", Enum.PartType.Ball, Vector3.new(thick * 1.5, thick * 1.5, thick * 1.5), pal.Primary, Enum.Material.Neon, 0.1)
 		joint(rig.root, shoulderBall, CFrame.new(offset))
 		local elbowBall = riggedPart(rig, "ElbowGlow", Enum.PartType.Ball, Vector3.new(thick * 1.3, thick * 1.3, thick * 1.3), pal.Primary, Enum.Material.Neon, 0.1)
 		joint(upper, elbowBall, CFrame.new(0, -l1 / 2, 0))
-		local hand = riggedPart(rig, "Hand", nil, Vector3.new(thick * 1.1, thick * 1.1, thick * 1.4), dark, Enum.Material.Basalt, 0)
+		local hand = riggedPart(rig, "Hand", nil, Vector3.new(thick * 1.1, thick * 1.1, thick * 1.4), dark, armMaterial, 0)
 		joint(fore, hand, CFrame.new(0, -l2 / 2, 0), CFrame.new(0, thick * 0.55, 0))
 		local claws: { Claw } = {}
 		for slot = -1, 1 do
@@ -3955,6 +3981,15 @@ local function buildBoss(model: Model): Boss
 	local extras: { Instance } = {}
 	if kind == "Choir" then
 		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Hot, Color2 = pal.Primary, Rate = 26, Speed = NumberRange.new(1, 3), Size = NumberSequence.new(0.5, 0) }))
+	elseif kind == "Seraph" then
+		table.insert(extras, Vfx.attach(core, "Spark", { Color = pal.Hot, Color2 = pal.Alert, Rate = 40, Speed = NumberRange.new(8, 20) }))
+		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Alert, Color2 = pal.Primary, Rate = 20, Speed = NumberRange.new(3, 9) }))
+	elseif kind == "Rime" then
+		table.insert(extras, Vfx.attach(core, "Motes", { Color = pal.Hot, Color2 = pal.Primary, Rate = 40, Speed = NumberRange.new(0.5, 2), Size = NumberSequence.new(0.7, 0), Acceleration = Vector3.new(0, -3, 0) }))
+		table.insert(extras, Vfx.attach(core, "Smoke", { Color = pal.Hot, Color2 = pal.Primary, Rate = 10, Speed = NumberRange.new(1, 3) }))
+	elseif kind == "Knight" then
+		table.insert(extras, Vfx.attach(core, "Smoke", { Color = Color3.fromRGB(20, 12, 34), Color2 = pal.Primary, Rate = 30, Speed = NumberRange.new(3, 8) }))
+		table.insert(extras, Vfx.attach(core, "Rising", { Color = pal.Primary, Color2 = pal.Alert, Rate = 14, Speed = NumberRange.new(4, 10) }))
 	elseif kind == "Regent" then
 		table.insert(extras, Vfx.attach(core, "Rising", { Color = pal.Primary, Color2 = pal.Hot, Rate = 34, Speed = NumberRange.new(6, 14) }))
 		local flame = Instance.new("Fire")
@@ -4362,10 +4397,39 @@ local function ensureSpeech(): boolean
 	return true
 end
 
+-- The boss's voice for a line, if one has been uploaded (tools/assetgen/upload_voice.py).
+-- One at a time: a new line cuts off the last, like the subtitle does.
+local voiceSound: Sound? = nil
+local function playVoice(line: string)
+	if voiceSound ~= nil then
+		voiceSound:Destroy()
+		voiceSound = nil
+	end
+	local voiceId = SanctuaryConfig.BossVoice and SanctuaryConfig.BossVoice[line]
+	if type(voiceId) ~= "number" or voiceId <= 0 or speechGui == nil then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.Name = "BossVoice"
+	sound.SoundId = `rbxassetid://{voiceId}`
+	sound.Volume = 1.1
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.Parent = speechGui
+	sound.Ended:Once(function()
+		if voiceSound == sound then
+			voiceSound = nil
+		end
+		sound:Destroy()
+	end)
+	voiceSound = sound
+	sound:Play()
+end
+
 local function say(speaker: string, line: string, color: Color3?)
 	if not ensureSpeech() then
 		return
 	end
+	playVoice(line)
 	local box, name, text, stroke = speechBox :: Frame, speechName :: TextLabel, speechText :: TextLabel, speechStroke :: UIStroke
 	speechSeq += 1
 	local seq = speechSeq
@@ -4595,6 +4659,55 @@ local function awakeScene(current: Boss)
 		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 3, Sweep = -0.7, Distance = 46, Height = -10, Lift = 4, Fov = 64, Lock = true }, 6.8) end })
 		table.insert(steps, { at = 3, run = function() playShot(current, { Seconds = 3.8, Sweep = -1.2, Distance = 84, Push = 0.15, Height = 24, Fov = 46, Lock = true }, 0) end })
 		sequence(current, steps)
+	elseif kind == "Seraph" then
+		-- Lightning forks down from the sky onto every pillar, then the camera whips round the wings.
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.2 * index,
+				run = function()
+					lightning(top + Vector3.new(0, 90, 0), top, pal.Hot, 0.3, 1.4)
+					Vfx.burst(top, "Spark", 30, { Color = pal.Hot, Color2 = pal.Alert, Speed = NumberRange.new(10, 26) }, clientFolder)
+					impactFrame(0.5)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 2.2, Sweep = 2.2, Distance = 34, Height = 2, Lift = -4, Fov = 74, Lock = true }, 5.6) end })
+		table.insert(steps, { at = 2.2, run = function() playShot(current, { Seconds = 3.4, Sweep = -1.4, Distance = 60, Push = 0.25, Height = 18, Fov = 48, Lock = true }, 0) end })
+		sequence(current, steps)
+	elseif kind == "Rime" then
+		-- Slow and heavy: the camera rises out of the ice as frost shatters off each pillar.
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.5 * index,
+				run = function()
+					Vfx.burst(top, "Shatter", 24, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(4, 12), Acceleration = Vector3.new(0, -10, 0) }, clientFolder)
+					Vfx.burst(top, "Motes", 20, { Color = pal.Hot, Color2 = pal.Primary }, clientFolder)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 3.6, Sweep = 0.3, Distance = 40, Height = -14, Lift = 2, Fov = 70, Lock = true }, 7.4) end })
+		table.insert(steps, { at = 3.6, run = function() playShot(current, { Seconds = 4, Sweep = 0.7, Distance = 88, Push = 0.1, Height = 22, Fov = 44, Lock = true }, 0) end })
+		sequence(current, steps)
+	elseif kind == "Knight" then
+		-- Close on the helm as the swords fan out behind it, then a long pull back.
+		local steps = {}
+		for index, top in tops do
+			table.insert(steps, {
+				at = 0.35 * index,
+				run = function()
+					Vfx.burst(top, "Smoke", 18, { Color = Color3.fromRGB(24, 14, 40) }, clientFolder)
+					Vfx.burst(top, "Flash", 1, { Color = pal.Alert, Size = NumberSequence.new(4, 14) }, clientFolder)
+					Audio:play(bossCue("Phase"))
+				end,
+			})
+		end
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 2.8, Sweep = 0.2, Distance = 22, Height = 1, Lift = 1, Fov = 52, Lock = true }, 6.4) end })
+		table.insert(steps, { at = 2.8, run = function() playShot(current, { Seconds = 3.6, Sweep = -0.6, Distance = 70, Push = 0.35, Height = 12, Fov = 46, Lock = true }, 0) end })
+		sequence(current, steps)
 	else
 		playShot(current, { Seconds = 4.2, Sweep = 1.6, Distance = 58, Push = 0.28, Height = 15, Fov = 50, Lock = true })
 	end
@@ -4633,6 +4746,12 @@ local function defeatScene(current: Boss)
 	end
 	if kind == "Choir" then
 		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = 1.5, Distance = 70, Push = -0.2, Height = 20, Fov = 50 }) end })
+	elseif kind == "Seraph" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5, Sweep = 2.4, Distance = 40, Push = 0.4, Height = 8, Fov = 62 }) end })
+	elseif kind == "Rime" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 6.5, Sweep = 0.5, Distance = 50, Push = 0.3, Height = -6, Lift = 8, Fov = 54 }) end })
+	elseif kind == "Knight" then
+		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 6, Sweep = -0.4, Distance = 26, Push = 0.15, Height = 2, Lift = 2, Fov = 46 }) end })
 	else
 		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = -1, Distance = 56, Push = -0.25, Height = 4, Lift = 4, Fov = 52 }) end })
 	end
@@ -4895,6 +5014,22 @@ local function stepBoss(dt: number, t: number)
 			local lift = 8.5 + charge * 3 + (index % 2) * 2 + math.sin(t * 2.4 + index) * 0.5
 			local position = hover + Vector3.new(math.cos(angle) * radius, lift, math.sin(angle) * radius)
 			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
+		elseif kind == "Seraph" then
+			-- A halo of six feathers standing above the head, spinning fast.
+			local radius = 6 + jolt + charge * 2
+			local position = hover + Vector3.new(math.cos(angle * 1 - t * 1.6) * radius, 10 + math.sin(t * 3 + index) * 0.6, math.sin(angle - t * 1.6) * radius)
+			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y, hover.Z)) * plate.tilt)
+		elseif kind == "Rime" then
+			-- Slabs of ice planted in a ring round the body, leaning in, each rising as it charges.
+			local radius = 13 + jolt + math.sin(t * 0.8 + index) * 0.3
+			local lift = -5 + charge * 4 + (index % 2) * 2
+			local position = hover + Vector3.new(math.cos(angle * 0.5) * radius, lift, math.sin(angle * 0.5) * radius)
+			place(plate, CFrame.lookAt(position, Vector3.new(hover.X, position.Y + 6, hover.Z)) * plate.tilt)
+		elseif kind == "Knight" then
+			-- Pieces of armour orbiting close, tilting with its breath.
+			local radius = 6.6 + jolt + charge * 1.5
+			local position = hover + Vector3.new(math.cos(angle * 1.5) * radius, math.sin(t * 1.4 + index * 1.2) * 2.2, math.sin(angle * 1.5) * radius)
+			place(plate, CFrame.lookAt(position, hover) * plate.tilt * CFrame.Angles(0, 0, math.sin(t + index) * 0.3))
 		else
 			local radius = 9.5 + jolt + charge * 3.5 + math.sin(t * 1.3 + index) * 0.4
 			local position = hover + Vector3.new(math.cos(angle) * radius, math.sin(t * 1.1 + index * 0.8) * 1.2, math.sin(angle) * radius)
@@ -4914,6 +5049,23 @@ local function stepBoss(dt: number, t: number)
 			local flap = math.sin(t * (if beamAngle ~= nil then 4 else 1.4)) * 0.22
 			local offset = Vector3.new(side * (9 + k * 7), 4 - k * 3, 2 + k * 3)
 			place(shard, CFrame.new(hover + offset) * CFrame.Angles(0, 0, side * (0.9 + k * 0.5 + flap)))
+		elseif kind == "Seraph" then
+			-- Great wings of lightning: fast, wide beats.
+			local flap = math.sin(t * (4.5 + charge * 4)) * 0.3
+			local offset = Vector3.new(side * (7 + k * 9), 5 - k * 4, 1.5 + k * 3)
+			place(shard, CFrame.new(hover + offset) * CFrame.Angles(0, 0, side * (1.0 + k * 0.5 + flap)))
+		elseif kind == "Rime" then
+			-- A crown of ice spikes, breathing slowly.
+			local angle = (index / #current.shards) * TAU
+			local height = 9 + (index % 3) * 2.2 + charge * 2
+			local position = hover + Vector3.new(math.cos(angle) * 5.5, height, math.sin(angle) * 5.5)
+			place(shard, CFrame.new(position) * CFrame.Angles(math.sin(angle) * 0.25, 0, -math.cos(angle) * 0.25))
+		elseif kind == "Knight" then
+			-- Eight swords fanned out behind it, points outward, turning slowly.
+			local angle = (index / #current.shards) * math.pi * 1.4 - math.pi * 0.7
+			local radius = 8 + charge * 2
+			local position = hover + Vector3.new(math.sin(angle) * radius, 2 + math.cos(angle) * 4, 6 + math.abs(math.sin(angle)) * 1.5)
+			place(shard, CFrame.new(position) * CFrame.Angles(0, 0, -angle + math.sin(t * 1.3 + index) * 0.05))
 		else
 			local sway = math.sin(t * 1.6 + index) * 0.12
 			local offset = Vector3.new(side * (8 + k * 5), 3 - k * 5, 4 + k * 2) * (1 + charge * 0.25)

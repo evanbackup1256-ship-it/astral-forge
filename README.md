@@ -261,3 +261,7 @@ machines are gated by rebirth COUNT, so a player who rebirths often reaches zone
 in about 2 hours while one who waits for big payouts does not reach zone 5 in two
 weeks. The rebirth screen therefore names the next count-gate and says to rebirth
 often. Do not bump `DataVersion` for balance changes: tune `GameConfig` numbers.
+## Boss voices
+
+Every boss line is spoken. `python tools/assetgen/voice_gen.py` voices each line with the machine's own Windows TTS and turns it monstrous (pitch, chorus, ring-mod, distortion, reverb per boss); `python tools/assetgen/upload_voice.py` uploads them with your Open Cloud key and rewrites the BOSS-VOICE block in SharedData.luau. Lines Roblox rejects stay silent; subtitles always show.
+

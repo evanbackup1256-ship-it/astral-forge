@@ -18,3 +18,5 @@ sourcemap.json
 
 # Python bytecode from tools/assetgen
 __pycache__/
+
+assets/generated/voice/*.wav

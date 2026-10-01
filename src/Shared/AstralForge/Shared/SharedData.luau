@@ -1850,6 +1850,11 @@ local UmbralKnight = bossFrom(SanctuaryConfig.RiftBoss, {
 		},
 	},
 })
+-- Spoken lines: subtitle text -> uploaded audio id, so each boss line is voiced as well as shown.
+-- BOSS-VOICE-BEGIN (rewritten by tools/assetgen/upload_voice.py)
+SanctuaryConfig.BossVoice = {}
+-- BOSS-VOICE-END
+
 SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight })
 
 return SanctuaryConfig
