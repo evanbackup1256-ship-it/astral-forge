@@ -317,7 +317,7 @@ end
 function CasinoMath.Ensure(bag: any): any
 	local source = if type(bag) == "table" then bag else {}
 	local function persist(value: any): number | string
-		if type(value) == "string" and #value <= 40 then
+		if type(value) == "string" and #value <= 40 and (value == "inf" or (string.match(value, "^[%d%.eE%+]+$") ~= nil and tonumber(value) ~= nil)) then
 			return value
 		end
 		local n = tonumber(value)

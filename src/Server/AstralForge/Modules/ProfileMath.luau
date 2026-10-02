@@ -978,6 +978,7 @@ ActionFeatureMaps.FEATURE = {
 	ClaimConvergenceReward = "Convergence",
 	BuyOreUpgrade = "Foundry",
 	CasinoPlay = "Casino",
+	BazaarPlay = "Bazaar",
 }
 
 function ActionFeatureMaps.AnomalyCharge(action: string): number?
@@ -1061,6 +1062,7 @@ CommandActionValidators.READ_ONLY = {
 CommandActionValidators.HIGH_VALUE_GRANT = {
 	SpinWheel = true,
 	CasinoPlay = true,
+	BazaarPlay = true,
 	OpenItemCrate = true,
 	CollectVault = true,
 	Rebirth = true,

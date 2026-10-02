@@ -10,6 +10,7 @@ local PAGE_SUITES = {
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
 	CasinoView = "PagesCasino",
+	BazaarView = "PagesBazaar",
 	CrewView = "PagesSocial",
 	EchoForgeView = "PagesStory",
 	ForgePathView = "PagesProgress",
@@ -84,6 +85,7 @@ local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
 local FoundryView = lazyView("FoundryView", "FoundryView")
 local CasinoView = lazyView("CasinoView", "CasinoView")
+local BazaarView = lazyView("BazaarView", "BazaarView")
 
 local function PageContentInner(props)
 	local _binding = props
@@ -215,6 +217,14 @@ local function PageContentInner(props)
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 				onLand = props.onWheelLand,
+			})
+		end
+		if page == "Bazaar" then
+			return React.createElement(BazaarView, {
+				state = state,
+				config = config,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
 			})
 		end
 		if page == "Casino" then

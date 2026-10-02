@@ -141,6 +141,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.TravelWaystone] = { Cost = 1, Cooldown = 1 },
 		-- Casino rounds are one tap each; the cooldown keeps a held button from becoming a macro.
 		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
+		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
 	}
 
 	local EXEMPT_ACTIONS: { [string]: boolean } = {
@@ -472,6 +473,23 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Free ~= nil and type(payload.Free) ~= "boolean" then
 				return false, "invalid casino card"
+			end
+		elseif action == Protocol.Actions.BazaarPlay then
+			local game = payload.Game
+			if not stringField(payload, "Game", 4, 12) or (game ~= "Bank" and game ~= "Market" and game ~= "Lottery" and game ~= "Contracts") then
+				return false, "invalid bazaar counter"
+			end
+			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
+				return false, "invalid bazaar move"
+			end
+			if payload.Tier ~= nil and not numberField(payload, "Tier", 1, 4, true) then
+				return false, "invalid bazaar amount"
+			end
+			if payload.Term ~= nil and not stringField(payload, "Term", 2, 4) then
+				return false, "invalid bank term"
+			end
+			if payload.Pick ~= nil and not stringField(payload, "Pick", 2, 24) then
+				return false, "invalid bazaar pick"
 			end
 		elseif action == Protocol.Actions.BuyOreUpgrade then			if not stringField(payload, "Id", 1, 48) then
 				return false, "invalid foundry payload"

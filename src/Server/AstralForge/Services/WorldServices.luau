@@ -412,10 +412,27 @@ function RiftBossService:_walkStep(now: number, dt: number, inArena: { [Player]:
 		local limit = radius * 0.6
 		local goal: Vector3? = nil
 		local standOff = config.StandOff or 22
-		local targets = self:_targets(inArena, 0.4)
+		-- Stay on one fighter for a few seconds; re-picking every tick (the ranking has a random term) made
+		-- the boss swing between two fighters instead of walking to either.
+		local chosen = self._walkTarget
+		if chosen == nil or now >= (self._walkRepickAt or 0) or inArena[chosen] == nil then
+			chosen = nil
+			local targets = self:_targets(inArena, 0.4)
+			if targets[1] ~= nil then
+				local best = math.huge
+				for player, position in inArena do
+					local gap = (position - targets[1]).Magnitude
+					if gap < best then
+						best, chosen = gap, player
+					end
+				end
+			end
+			self._walkTarget, self._walkRepickAt = chosen, now + 4
+		end
+		local goalPoint: Vector3? = if chosen ~= nil then inArena[chosen] else nil
 		local floor = Vector3.new(center.X + walk.X, 0, center.Z + walk.Z)
-		if targets[1] ~= nil then
-			local toward = Vector3.new(targets[1].X - floor.X, 0, targets[1].Z - floor.Z)
+		if goalPoint ~= nil then
+			local toward = Vector3.new(goalPoint.X - floor.X, 0, goalPoint.Z - floor.Z)
 			local distance = toward.Magnitude
 			if distance > standOff + 3 then
 				goal = floor + toward.Unit * math.min(distance - standOff, speed * 1.5)

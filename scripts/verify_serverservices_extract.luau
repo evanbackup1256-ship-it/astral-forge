@@ -159,7 +159,7 @@ local highValueCount = 0
 for _ in CommandActionValidators.HIGH_VALUE_GRANT do
 	highValueCount += 1
 end
-assert(highValueCount == 8, "eight high-value grants (the casino joins the wheel and crates)")
+assert(highValueCount == 9, "nine high-value grants (the casino and the bazaar join the wheel and crates)")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")

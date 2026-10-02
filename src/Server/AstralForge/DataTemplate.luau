@@ -83,6 +83,14 @@ function DataTemplate.New()
 			Streak = 0,
 			LastClaimDay = -1,
 		},
+		-- The Astral Bazaar: bank, black market, lottery prize and contracts (BazaarMath.Ensure rebuilds the bag).
+		Bazaar = {
+			Bank = { Balance = 0, Accrued = 0, Since = 0, Term = { Id = "", Principal = 0, EndsAt = 0 } },
+			Market = { Bucket = -1, Bought = {} },
+			Lottery = { PendingPrize = 0 },
+			Contracts = { Day = -1, Baseline = {}, Claimed = {} },
+			Counters = { Rounds = 0, Wins = 0, Deals = 0, Deposits = 0, Tickets = 0, Interest = 0 },
+		},
 		-- The Astral Casino (CasinoMath.Ensure rebuilds anything missing or mistyped).
 		Casino = {
 			Played = 0,

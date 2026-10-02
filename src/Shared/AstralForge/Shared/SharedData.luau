@@ -4574,7 +4574,7 @@ local LADDER: { LevelDef } = {
 		Level = 10,
 		Tier = "Journeyman",
 		Goal = { Kind = "LifetimeCash", Target = 75_000, Text = "Earn 75K flux in total" },
-		Unlocks = { "Rebirth" },
+		Unlocks = { "Rebirth", "Bazaar" },
 	},
 	{
 		Level = 11,

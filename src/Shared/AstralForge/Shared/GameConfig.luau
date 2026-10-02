@@ -4057,6 +4057,7 @@ local GameConfig = {
 		Inventory = { Name = "Inventory" },
 		Foundry = { Name = "Foundry" },
 		Casino = { Name = "Astral Casino" },
+		Bazaar = { Name = "Astral Bazaar" },
 		Rewards = { Name = "Rewards" },
 		Boosts = { Name = "Boosts" },
 		Story = { Name = "Story" },

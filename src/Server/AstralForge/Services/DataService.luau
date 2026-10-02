@@ -8,6 +8,7 @@ return function(loadService: (string) -> any)
 
 	local DataTemplate = require(script.Parent.Parent:WaitForChild("DataTemplate"))
 local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
+local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
@@ -348,6 +349,7 @@ local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Settings.UIEffects = profile.Settings.EffectsIntensity > 0.001
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
 		profile.Casino = CasinoMath.Ensure(profile.Casino)
+		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
 		-- ApplyReward FreeSpins may seed Wheel={FreeSpins=0} without LastSpinAt/Spins —
 		-- sanitize must not throw after claim transactions on Studio fixtures.
 		if type(profile.Wheel) ~= "table" then
