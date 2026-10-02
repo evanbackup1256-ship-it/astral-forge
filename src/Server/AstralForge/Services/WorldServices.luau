@@ -566,6 +566,38 @@ function RiftBossService:_loadBodyKit()
 	folder.Parent = ReplicatedStorage
 end
 function RiftBossService:Start()
+	-- Live servers too: an admin (ServerConfig.AdminUserIds) types /boss <kind|all|stop> in chat; the client sends it here.
+	local admin = Instance.new("RemoteEvent")
+	admin.Name = "BossAdminCommand"
+	admin.Parent = ReplicatedStorage
+	admin.OnServerEvent:Connect(function(player, text)
+		local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
+		local allowed = ServerConfig.AdminUserIds[player.UserId] ~= nil
+			or (RunService:IsStudio() and ServerConfig.AllowStudioAdmins == true)
+		if not allowed or type(text) ~= "string" or #text > 40 then
+			return
+		end
+		local word = string.lower(text)
+		if word == "stop" then
+			self._chain = nil
+			self:_announce("Boss chain stopped", "The rotation resumes as normal.", false)
+			return
+		end
+		if word == "all" then
+			self._chain = { Index = 1 }
+			self._adminForce = self._roster[1].Kind
+			self:_announce("Every boss, one after another", "Starting with " .. self._roster[1].Name .. ".", false)
+			return
+		end
+		for _, candidate in self._roster do
+			if string.lower(candidate.Kind) == word or string.lower(candidate.Name) == word then
+				self._chain = nil
+				self._adminForce = candidate.Kind
+				self:_announce(`{candidate.Name} summoned`, "It answers an admin's call.", false)
+				return
+			end
+		end
+	end)
 	if RunService:IsStudio() then
 		-- Studio only: lets the command bar (which runs on the client while playing) set RiftBossForce / RiftBossDemo.
 		local bridge = Instance.new("RemoteEvent")
@@ -691,14 +723,18 @@ end
 -- summons that boss now, skipping the wait, so a fight can be seen without sitting through
 -- the 9-minute rotation. Ignored on live servers.
 function RiftBossService:_forced(now: number)
-	if not RunService:IsStudio() then
-		return
+	local kind = self._adminForce
+	self._adminForce = nil
+	if kind == nil then
+		if not RunService:IsStudio() then
+			return
+		end
+		kind = Workspace:GetAttribute("RiftBossForce")
+		if type(kind) ~= "string" then
+			return
+		end
+		Workspace:SetAttribute("RiftBossForce", nil)
 	end
-	local kind = Workspace:GetAttribute("RiftBossForce")
-	if type(kind) ~= "string" then
-		return
-	end
-	Workspace:SetAttribute("RiftBossForce", nil)
 	for index, candidate in self._roster do
 		if candidate.Kind == kind then
 			self._bossIndex = index
@@ -828,6 +864,22 @@ function RiftBossService:_demo(now: number, inArena: { [Player]: Vector3 })
 	self._attacking = true
 	self:_begin(move.Attack, now, inArena)
 end
+-- /boss all: when one boss ends, the next in the roster is summoned at once, until the last one.
+function RiftBossService:_chainNext()
+	local chain = self._chain
+	if chain == nil then
+		return
+	end
+	chain.Index += 1
+	local nextBoss = self._roster[chain.Index]
+	if nextBoss == nil then
+		self._chain = nil
+		self:_announce("That was every boss", "The rotation resumes as normal.", false)
+		return
+	end
+	self._adminForce = nextBoss.Kind
+end
+
 function RiftBossService:_step()
 	local now = Workspace:GetServerTimeNow()
 	self:_forced(now)
@@ -878,10 +930,12 @@ function RiftBossService:_step()
 		table.clear(self._events)
 		table.clear(self._adds)
 		self:_rewardFighters()
+		self:_chainNext()
 	elseif entered == "Escaped" then
 		table.clear(self._events)
 		table.clear(self._adds)
 		self:_announce(`{self._config.Name} escaped`, "It slipped back into the rift. It will return.", true)
+		self:_chainNext()
 	end
 	if state.Phase == "Active" then
 		self:_phases(now)
