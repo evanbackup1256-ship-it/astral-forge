@@ -1752,8 +1752,17 @@ local function CasinoView(props)
 	})
 end
 
+-- The animated parts are exported too, so each can be driven on its own (tests, and a future minigame hub).
 return {
 	CasinoView = CasinoView,
+	SlotMachine = SlotMachine,
+	Coin = Coin,
+	Card = Card,
+	Wheel = Wheel,
+	ScratchCell = ScratchCell,
+	Confetti = Confetti,
+	PayoutBanner = PayoutBanner,
+	Ticker = Ticker,
 }
 end
 
