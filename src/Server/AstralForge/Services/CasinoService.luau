@@ -373,6 +373,10 @@ return function(loadService: (string) -> any)
 		local bucket = CasinoMath.ExchangeBucket(now)
 		local mood = CasinoMath.ExchangeMood(bucket)
 		local today = day(now)
+		local history = {}
+		for back = 23, 0, -1 do
+			table.insert(history, CasinoMath.ExchangeMood(bucket - back)) -- the last four hours of the ticker
+		end
 		local bought = if casino.Exchange.Day == today then casino.Exchange.Bought else 0
 		local highChance, highStep = CasinoMath.HighLowOdds(round.Card, "High")
 		local lowChance, lowStep = CasinoMath.HighLowOdds(round.Card, "Low")
@@ -417,6 +421,7 @@ return function(loadService: (string) -> any)
 			Scratch = { FreeReady = casino.Scratch.FreeDay ~= today, Symbols = CasinoMath.SCRATCH_SYMBOLS, Rtp = SCRATCH_RTP },
 			Exchange = {
 				Mood = mood,
+				History = history,
 				Price = Economy.Persist(exchangePrice(profile, mood)),
 				Cap = CasinoMath.EXCHANGE_DAILY_CAP,
 				Bought = bought,
