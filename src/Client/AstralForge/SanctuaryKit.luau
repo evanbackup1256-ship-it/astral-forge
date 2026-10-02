@@ -4275,7 +4275,7 @@ end
 	return current.hoverPos or current.anchor.Position
 end
 ;(Controls :: any).ground.floor = function(current: Boss): Vector3
-	return current.floorPos or ((Controls :: any).ground.floor(current))
+	return current.floorPos or current.anchor.Position
 end
 
 local function loadRiggedBody(current: Boss): boolean
@@ -6354,11 +6354,13 @@ local function stepBoss(dt: number, t: number)
 		dt *= 0.04
 	end
 	if current.model.Parent == nil then
+		ScreenFx.arena.hide()
 		destroyBoss()
 		return
 	end
 	-- A different boss takes the stage each cycle: rebuild the body in its colours.
 	if tostring(current.model:GetAttribute("BossKind") or "Warden") ~= current.kind then
+		ScreenFx.arena.hide()
 		destroyBoss()
 		return
 	end
@@ -6372,6 +6374,7 @@ local function stepBoss(dt: number, t: number)
 	if phase ~= current.lastPhase then
 		local at = (Controls :: any).ground.center(current)
 		if phase == "Forming" then
+			ScreenFx.arena.show(current, 0.3)
 			Audio:play(bossCue("Forming"))
 			speakLines(current, "Forming", 0.4, 2)
 			setTethers(true, current.kind)
@@ -6382,11 +6385,13 @@ local function stepBoss(dt: number, t: number)
 			bossSfx("roar_" .. current.kind, 1.1)
 			Controls.shake(0.5)
 			awakeScene(current)
+			ScreenFx.arena.show(current, 1)
 			setTethers(true, current.kind)
 			Ambience.fight(config.Music, 1)
 			Vfx.burst(at, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 34) }, clientFolder)
 			Vfx.burst(at - Vector3.new(0, 24, 0), "Shockwave", 1, { Color = pal.Primary, Size = NumberSequence.new(4, 90) }, clientFolder)
 		elseif phase == "Defeated" then
+			ScreenFx.arena.hide()
 			Audio:play(bossCue("Defeat"))
 			bossSfx("death_" .. current.kind, 1.1)
 			Ambience.fight(nil)
@@ -6407,6 +6412,7 @@ local function stepBoss(dt: number, t: number)
 			end
 			defeatScene(current)
 		elseif phase == "Escaped" then
+			ScreenFx.arena.hide()
 			Audio:play(bossCue("Escape"))
 			speakLines(current, "Escape", 0.4, 2.5)
 			Ambience.fight(nil)
@@ -6414,6 +6420,7 @@ local function stepBoss(dt: number, t: number)
 			setTethers(false)
 			Vfx.burst(at, "Implode", 1, { Color = pal.Primary, Size = NumberSequence.new(30, 0.5) }, clientFolder)
 		elseif phase == "Dormant" then
+			ScreenFx.arena.hide()
 			Ambience.fight(nil)
 			setTethers(false)
 			for _, list in { current.rings, current.plates, current.shards } do
@@ -6722,6 +6729,213 @@ end
 
 local function worldPoint(p: any): Vector3
 	return Vector3.new(tonumber(p and p.X) or 0, tonumber(p and p.Y) or 0, tonumber(p and p.Z) or 0)
+end
+
+-- The arena as a place. While a boss forms and fights, its island gets a ring of runes on the floor
+-- (two rings of ticks turning against each other, three glowing rings), and a wall of energy at the
+-- edge that rises as the fight starts, ripples, throws sparks, runs hotter with each phase, flares
+-- white at a phase change and burns red when the boss enrages. It sets nothing solid: no collision,
+-- no camera blocking. (Kept on ScreenFx because the main chunk is at Luau's 200-local limit.)
+ScreenFx.arena = {
+	model = nil :: Model?,
+	island = nil :: string?,
+	panels = {} :: { { part: Part, angle: number, row: number, width: number } },
+	rings = {} :: { CylinderHandleAdornment },
+	spinA = nil :: Model?,
+	spinB = nil :: Model?,
+	hub = nil :: Part?,
+	level = 0,
+	goal = 0,
+	phase = 1,
+	flare = 0,
+	enraged = false,
+	color = Color3.new(1, 1, 1),
+	center = Vector3.zero,
+	radius = 70,
+	height = 38,
+	turn = 0,
+	sparkAt = 0,
+	connection = nil :: RBXScriptConnection?,
+	reduced = false,
+}
+
+function ScreenFx.arena.clear()
+	local self = ScreenFx.arena
+	if self.connection ~= nil then
+		self.connection:Disconnect()
+		self.connection = nil
+	end
+	if self.model ~= nil then
+		self.model:Destroy()
+		self.model = nil
+	end
+	self.island = nil
+	table.clear(self.panels)
+	table.clear(self.rings)
+	self.spinA, self.spinB, self.hub = nil, nil, nil
+	self.level, self.goal, self.flare, self.enraged = 0, 0, 0, false
+end
+
+local function arenaPiece(parent: Instance, size: Vector3, cf: CFrame, color: Color3, transparency: number): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Transparency = transparency
+	p.Parent = parent
+	return p
+end
+
+function ScreenFx.arena.step(dt: number)
+	local self = ScreenFx.arena
+	local now = os.clock()
+	self.level += (self.goal - self.level) * (1 - math.exp(-dt / 0.45))
+	if self.goal == 0 and self.level < 0.01 then
+		self.clear()
+		return
+	end
+	self.flare = math.max(0, self.flare - dt * 1.5)
+	local want = if self.enraged then pal.Alert elseif self.phase >= 3 then pal.Alert elseif self.phase == 2 then pal.Hot else pal.Primary
+	self.color = self.color:Lerp(want, 1 - math.exp(-dt / 0.6))
+	local shown = self.color:Lerp(Color3.new(1, 1, 1), math.clamp(self.flare, 0, 1) * 0.8)
+	local level = self.level
+	local half = self.height / 2 * level
+	local floorY = self.center.Y
+	for _, panel in self.panels do
+		local wave = 0.5 + 0.5 * math.sin(panel.angle * 5 + now * 1.8 + panel.row)
+		local part = panel.part
+		part.Size = Vector3.new(panel.width, math.max(0.05, half), 0.5)
+		part.Position = Vector3.new(part.Position.X, floorY + (panel.row - 0.5) * half + half * 0.5, part.Position.Z)
+		part.Color = shown
+		local base = if panel.row == 1 then 0.8 else 0.9
+		part.Transparency = math.clamp(1 - level * (1 - base + wave * 0.07 + self.flare * 0.5), 0.2, 1)
+	end
+	local speed = 0.12 + 0.06 * self.phase + (if self.enraged then 0.25 else 0)
+	self.turn += dt * speed
+	if self.spinA ~= nil and self.hub ~= nil then
+		self.spinA:PivotTo(CFrame.new(self.hub.Position) * CFrame.Angles(0, self.turn, 0))
+	end
+	if self.spinB ~= nil and self.hub ~= nil then
+		self.spinB:PivotTo(CFrame.new(self.hub.Position) * CFrame.Angles(0, -self.turn * 1.4, 0))
+	end
+	for _, group in { self.spinA, self.spinB } do
+		if group ~= nil then
+			for _, tick in group:GetChildren() do
+				if tick.Name == "Tick" then
+					tick.Color = shown
+					tick.Transparency = 1 - level * (0.75 + 0.2 * math.sin(now * 3 + tick.Position.X))
+				end
+			end
+		end
+	end
+	for index, ring in self.rings do
+		ring.Color3 = shown
+		ring.Transparency = 1 - level * (0.7 - 0.1 * index + 0.2 * self.flare)
+	end
+	if not self.reduced and now >= self.sparkAt and level > 0.6 then
+		self.sparkAt = now + 0.2
+		local angle = math.random() * math.tau
+		local at = self.center + Vector3.new(math.cos(angle) * self.radius, 1 + math.random() * 6, math.sin(angle) * self.radius)
+		Vfx.burst(at, "Spark", 3, { Color = shown, Color2 = Color3.new(1, 1, 1) }, clientFolder)
+	end
+end
+
+-- Show (or raise) the arena for a boss that is forming (goal 0.3) or fighting (goal 1).
+function ScreenFx.arena.show(current: any, goal: number)
+	local self = ScreenFx.arena
+	local island = current.model:GetAttribute("BossIsland")
+	local islandId = if type(island) == "string" then island else "Riftmaw"
+	if self.model ~= nil and self.island ~= islandId then
+		self.clear()
+	end
+	self.goal = goal
+	if self.model ~= nil then
+		return
+	end
+	local arena = Layout.arena(islandId)
+	local floorY = current.model:GetAttribute("BossFloorY")
+	local base = ORIGIN + Vector3.new(arena.Center.X, 0, arena.Center.Z)
+	self.center = Vector3.new(base.X, if type(floorY) == "number" then floorY else ORIGIN.Y + arena.Center.Y, base.Z)
+	self.radius = arena.Radius
+	self.island = islandId
+	self.color = pal.Primary
+	self.phase = 1
+	local ok, quality = pcall(function()
+		return UserSettings():GetService("UserGameSettings").SavedQualityLevel.Value
+	end)
+	local low = ok and quality > 0 and quality <= 3
+	self.reduced = low
+	local model = Instance.new("Model")
+	model.Name = "AF_BossArena"
+	model.Parent = clientFolder or Workspace
+	self.model = model
+	local c, radius = self.center, self.radius
+	local hub = arenaPiece(model, Vector3.new(0.4, 0.2, 0.4), CFrame.new(c), pal.Primary, 1)
+	hub.Name = "Hub"
+	self.hub = hub
+	-- The wall: two stacked rows of panels round the edge, facing in.
+	local count = if low then 24 else 48
+	for i = 1, count do
+		local angle = (i / count) * math.tau
+		local at = c + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local width = math.tau * radius / count + 0.5
+		for row = 1, if low then 1 else 2 do
+			local part = arenaPiece(model, Vector3.new(width, 0.05, 0.5), CFrame.lookAt(at, Vector3.new(c.X, at.Y, c.Z)), pal.Primary, 1)
+			part.Name = "Wall"
+			table.insert(self.panels, { part = part, angle = angle, row = row, width = width })
+		end
+	end
+	-- Runes on the floor: two rings of ticks that turn against each other.
+	local function ringOfTicks(name: string, number: number, reach: number, size: Vector3): Model
+		local group = Instance.new("Model")
+		group.Name = name
+		for i = 1, number do
+			local angle = (i / number) * math.tau
+			local at = c + Vector3.new(math.cos(angle) * reach, 0.35, math.sin(angle) * reach)
+			arenaPiece(group, size, CFrame.lookAt(at, c + Vector3.new(0, 0.35, 0)), pal.Primary, 1).Name = "Tick"
+		end
+		hub:Clone().Parent = group
+		group.Parent = model
+		return group
+	end
+	self.spinA = ringOfTicks("TicksA", 36, radius * 0.86, Vector3.new(0.7, 0.2, 3.6))
+	self.spinB = ringOfTicks("TicksB", 24, radius * 0.58, Vector3.new(0.5, 0.2, 2.4))
+	for _, group in { self.spinA, self.spinB } do
+		local copy = group:FindFirstChild("Hub")
+		if copy ~= nil then
+			group.PrimaryPart = copy :: BasePart
+		end
+	end
+	local anchor = arenaPiece(model, Vector3.new(0.2, 0.2, 0.2), CFrame.new(c + Vector3.new(0, 0.3, 0)), pal.Primary, 1)
+	anchor.Name = "RingAnchor"
+	for _, spec in { { 1.0, 1.4 }, { 0.72, 0.6 }, { 0.46, 0.5 } } do
+		local ring = ringAdornment(anchor, radius * spec[1], radius * spec[1] - spec[2], pal.Primary, 1)
+		table.insert(self.rings, ring)
+	end
+	self.connection = RunService.Heartbeat:Connect(ScreenFx.arena.step)
+end
+
+function ScreenFx.arena.hide()
+	ScreenFx.arena.goal = 0
+	if ScreenFx.arena.model == nil then
+		ScreenFx.arena.clear()
+	end
+end
+
+function ScreenFx.arena.setPhase(n: number)
+	ScreenFx.arena.phase = n
+	ScreenFx.arena.flare = 1
+end
+
+function ScreenFx.arena.enrage()
+	ScreenFx.arena.enraged = true
+	ScreenFx.arena.flare = 1
 end
 
 -- Each boss's own VFX: meshes modelled in Blender (tools/assetgen/blender_bossvfx.py), published
@@ -7251,6 +7465,7 @@ local function onPhase(payload)
 	setAim("roar", nil, serverNow() + 1.6)
 	-- The roar: a white-hot flash, bolts to every pillar, and the boss speaks.
 	local phaseNumber = if type(payload) == "table" then tonumber(payload.Phase) or 2 else 2
+	ScreenFx.arena.setPhase(phaseNumber)
 	impactFrame(1)
 	BossVfx.ring(current.kind, at - Vector3.new(0, 24, 0), 100, pal.Hot)
 	BossVfx.layers(current.kind, at - Vector3.new(0, 24, 0), 40, 2)
@@ -7766,6 +7981,7 @@ local function onEnrage(_payload)
 	if current == nil then
 		return
 	end
+	ScreenFx.arena.enrage()
 	impactFrame(1)
 	bossSfx("roar_" .. current.kind, 1.3)
 	Controls.shake(1.3)
@@ -8456,6 +8672,7 @@ function World.stop()
 		return
 	end
 	active = false
+	ScreenFx.arena.clear()
 	for _, connection in connections do
 		connection:Disconnect()
 	end
