@@ -6345,6 +6345,11 @@ local function stepBoss(dt: number, t: number)
 		task.spawn(loadMeshBody, boss :: Boss)
 		local joined = tostring(model:GetAttribute("Phase") or "Dormant")
 		setTethers(joined == "Forming" or joined == "Active", (boss :: Boss).kind)
+		-- Joining mid-fight skips the phase-change hooks below, so raise the arena here.
+		if joined == "Forming" or joined == "Active" then
+			ScreenFx.arena.show(boss, if joined == "Active" then 1 else 0.3)
+			ScreenFx.arena.setPhase(tonumber((boss :: Boss).model:GetAttribute("BossPhase")) or 1)
+		end
 		if joined == "Active" then
 			Ambience.fight((boss :: Boss).config.Music, tonumber(model:GetAttribute("BossPhase")) or 1)
 		end
