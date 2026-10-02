@@ -1674,7 +1674,7 @@ local function CasinoView(props)
 	end
 
 	local bodies = { Slots = slotsBody, Flip = flipBody, HighLow = highLowBody, Roulette = rouletteBody, Scratch = scratchBody, Exchange = exchangeBody, Club = clubBody }
-	local heights = { Slots = 428, Flip = 396, HighLow = 424, Roulette = 556, Scratch = 450, Exchange = 408, Club = 120 + #casino.Club.Ranks * 44 + 80 }
+	local heights = { Slots = 486, Flip = 424, HighLow = 380, Roulette = 560, Scratch = 420, Exchange = 386, Club = 120 + #casino.Club.Ranks * 44 + 80 }
 	local panelHeight = heights[tab] or 420
 	local stats = casino.Stats
 
