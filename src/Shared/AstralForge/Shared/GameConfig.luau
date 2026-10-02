@@ -4056,6 +4056,7 @@ local GameConfig = {
 		Wheel = { Name = "Prize draw" },
 		Inventory = { Name = "Inventory" },
 		Foundry = { Name = "Foundry" },
+		Casino = { Name = "Astral Casino" },
 		Rewards = { Name = "Rewards" },
 		Boosts = { Name = "Boosts" },
 		Story = { Name = "Story" },
