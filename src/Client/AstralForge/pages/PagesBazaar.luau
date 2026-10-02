@@ -404,7 +404,7 @@ local function BazaarView(props)
 	end
 
 	local bodies = { Bank = bankBody, Market = marketBody, Lottery = lotteryBody, Contracts = contractsBody }
-	local heights = { Bank = 548, Market = 458, Lottery = 440, Contracts = 340 }
+	local heights = { Bank = 548, Market = 458, Lottery = 440, Contracts = 366 }
 
 	return React.createElement(PageScaffold, {
 		gap = 8,
