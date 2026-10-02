@@ -391,20 +391,151 @@ local function Gem(props)
 	})
 end
 
+-- ----- 3D in viewports -----------------------------------------------------------------------------------
+-- Real geometry, lit and in perspective, drawn by ViewportFrames: reels are drums that turn, the coin is a
+-- minted disc that tumbles, the card is a slab that flips, the wheel is a bowl with a ball in it. Each scene is
+-- built once from primitives and hands back the few setters its animation drives every frame.
+
+local BLOCK, BALL, CYL = Enum.PartType.Block, Enum.PartType.Ball, Enum.PartType.Cylinder
+local NEON, METAL, PLASTIC = Enum.Material.Neon, Enum.Material.Metal, Enum.Material.SmoothPlastic
+
+local function solid(parent, shape, size, color, material, cframe)
+	local part = Instance.new("Part")
+	part.Shape = shape
+	part.Size = size
+	part.Color = color
+	part.Material = material or PLASTIC
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.CFrame = cframe
+	part.Parent = parent
+	return part
+end
+
+local function newModel(viewport)
+	local model = Instance.new("Model")
+	model.WorldPivot = CFrame.new()
+	model.Parent = viewport
+	return model
+end
+
+-- A reel symbol as a small solid facing -Z (towards the camera), centred on `at`, scaled by `scale`.
+local function addSymbol(parent, id, at, scale)
+	local color = SYMBOL_COLORS[id] or Palette.cream
+	local function put(shape, size, paint, material, offset, rotation)
+		return solid(parent, shape, size * scale, paint, material, at * CFrame.new(offset * scale) * (rotation or CFrame.identity))
+	end
+	if id == "Ember" or id == "Spark" then
+		put(BALL, Vector3.one * 0.95, color, PLASTIC, Vector3.zero)
+		put(BALL, Vector3.one * 0.55, Color3.fromRGB(255, 214, 120), NEON, Vector3.new(0, 0, -0.12))
+		for i = 1, 3 do
+			put(BLOCK, Vector3.new(0.16, 0.42, 0.16), Color3.fromRGB(255, 160, 70), NEON, Vector3.new((i - 2) * 0.26, 0.5, 0), CFrame.Angles(0, 0, (i - 2) * -0.35))
+		end
+	elseif id == "Dust" then
+		local spots = { Vector3.new(0, 0, 0), Vector3.new(0.34, 0.2, 0.05), Vector3.new(-0.32, 0.24, 0), Vector3.new(0.2, -0.3, -0.05), Vector3.new(-0.22, -0.28, 0.05), Vector3.new(0, 0.42, -0.05) }
+		for i, offset in spots do
+			put(BALL, Vector3.one * (0.34 - 0.03 * (i % 3)), color, if i % 2 == 0 then NEON else PLASTIC, offset)
+		end
+	elseif id == "Core" then
+		put(BLOCK, Vector3.one * 0.78, color, PLASTIC, Vector3.zero, CFrame.Angles(0.6, 0.78, 0))
+		put(BLOCK, Vector3.one * 0.46, Color3.new(1, 1, 1), NEON, Vector3.zero, CFrame.Angles(0.6, 0.78, 0))
+	elseif id == "Comet" then
+		put(BALL, Vector3.one * 0.7, color, PLASTIC, Vector3.new(-0.2, -0.15, 0))
+		put(BALL, Vector3.one * 0.5, color, NEON, Vector3.new(0.12, 0.18, 0))
+		put(BALL, Vector3.one * 0.34, color, NEON, Vector3.new(0.36, 0.4, 0))
+		put(BALL, Vector3.one * 0.2, color, NEON, Vector3.new(0.54, 0.58, 0))
+	elseif id == "Star" then
+		for i = 0, 2 do
+			put(BLOCK, Vector3.new(1.3, 0.24, 0.24), color, NEON, Vector3.zero, CFrame.Angles(0, 0, i * math.pi / 3))
+		end
+		put(BALL, Vector3.one * 0.5, Palette.cream, NEON, Vector3.zero)
+	elseif id == "Nova" then
+		put(BALL, Vector3.one * 0.8, color, NEON, Vector3.zero)
+		for i = 0, 7 do
+			local a = i / 8 * math.tau
+			put(BALL, Vector3.one * 0.2, Palette.cream, NEON, Vector3.new(math.cos(a) * 0.62, math.sin(a) * 0.62, 0))
+		end
+	end
+end
+
+-- A ViewportFrame that builds its scene once. `build(viewport, camera)` returns the scene's setters, which are
+-- handed to `onScene` so the owning component can drive them from its own frame loop.
+local function View3D(props)
+	local scene = React.useRef(nil)
+	return React.createElement("viewportframe", {
+		Size = props.size or UDim2.fromScale(1, 1),
+		Position = props.position,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Ambient = props.ambient or Color3.fromRGB(150, 140, 165),
+		LightColor = props.lightColor or Color3.fromRGB(255, 244, 224),
+		LightDirection = props.lightDirection or Vector3.new(-0.5, -0.8, 1),
+		ZIndex = props.zIndex,
+		LayoutOrder = props.order or 0,
+		ref = function(viewport)
+			if viewport ~= nil and scene.current == nil then
+				local camera = Instance.new("Camera")
+				camera.Parent = viewport
+				viewport.CurrentCamera = camera
+				scene.current = props.build(viewport, camera)
+				if props.onScene then
+					props.onScene(scene.current)
+				end
+			end
+		end,
+	})
+end
+
+-- A reel: a dark drum with the strip's symbols standing round it. set(pos) turns it so cell `pos` faces the camera.
+local function buildDrum(index)
+	return function(viewport, camera)
+		local model = newModel(viewport)
+		local radius = 1.7
+		solid(model, CYL, Vector3.new(1.3, radius * 2 - 0.12, radius * 2 - 0.12), Color3.fromRGB(34, 26, 40), METAL, CFrame.new())
+		for _, x in { -0.62, 0.62 } do
+			solid(model, CYL, Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02), Palette.brass, METAL, CFrame.new(x, 0, 0))
+		end
+		for k = 0, CYCLE - 1 do
+			addSymbol(model, STRIPS[index][k + 1], CFrame.Angles(k / CYCLE * math.tau, 0, 0) * CFrame.new(0, 0, -(radius + 0.02)), 0.62)
+		end
+		camera.FieldOfView = 24
+		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -6.4), Vector3.zero)
+		return {
+			set = function(pos)
+				model:PivotTo(CFrame.Angles(-pos / CYCLE * math.tau, 0, 0))
+			end,
+		}
+	end
+end
+
 -- ----- the slot machine ---------------------------------------------------------------------------------
 
--- Three reels. phase "spin": whirr until told to stop. phase "stop": each reel decelerates, one after the
+-- Three 3D reels. phase "spin": whirr until told to stop. phase "stop": each reel decelerates, one after the
 -- other, onto `target[i]` with a little overshoot, calling onReel(i) as it lands and onSettled() when all have.
 local function SlotMachine(props)
 	local cellH = props.cellH or 52
 	local reels = React.useRef(nil)
-	local strips = React.useRef({})
+	local drums = React.useRef({})
 	local blurs = React.useRef({})
 	local band = React.useRef(nil)
 	if reels.current == nil then
 		reels.current = {}
 		for index = 1, 3 do
 			reels.current[index] = { pos = (index - 1) * 5, vel = 0, mode = "idle", start = 0, goal = 0, stopAt = 0, t0 = 0, dur = 1 }
+		end
+	end
+
+	local function paint()
+		for index = 1, 3 do
+			local drum = drums.current[index]
+			if drum ~= nil then
+				drum.set(reels.current[index].pos)
+			end
 		end
 	end
 
@@ -426,6 +557,7 @@ local function SlotMachine(props)
 					reel.pos = indexFor(STRIPS[index], props.target[index], math.floor(reel.pos))
 				end
 			end
+			paint()
 		end
 	end, { props.phase, props.target })
 
@@ -450,6 +582,7 @@ local function SlotMachine(props)
 					reel.pos = indexFor(STRIPS[index], reel.target, math.floor(reel.pos))
 					reel.mode, reel.vel = "idle", 0
 				end
+				paint()
 				if props.onSettled then
 					props.onSettled()
 				end
@@ -488,9 +621,9 @@ local function SlotMachine(props)
 					end
 				end
 			end
-			local strip = strips.current[index]
-			if strip ~= nil and strip.Parent ~= nil then
-				strip.Position = UDim2.fromOffset(0, -(((reel.pos - 1) % CYCLE) * cellH))
+			local drum = drums.current[index]
+			if drum ~= nil then
+				drum.set(reel.pos)
 			end
 			local blur = blurs.current[index]
 			if blur ~= nil and blur.Parent ~= nil then
@@ -505,15 +638,6 @@ local function SlotMachine(props)
 
 	local windows = {}
 	for index = 1, 3 do
-		local cells = {}
-		for k = 0, CYCLE * REPS - 1 do
-			cells["c" .. k] = React.createElement("frame", {
-				Size = UDim2.new(1, 0, 0, cellH),
-				Position = UDim2.fromOffset(0, k * cellH),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, React.createElement(Gem, { id = STRIPS[index][(k % CYCLE) + 1], size = cellH }))
-		end
 		windows["w" .. index] = React.createElement("frame", {
 			Size = UDim2.new(0.31, 0, 0, cellH * 3),
 			BackgroundColor3 = Palette.ink,
@@ -523,14 +647,13 @@ local function SlotMachine(props)
 		}, {
 			Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
 			Stroke = React.createElement("uistroke", { Color = Palette.mango, Thickness = 2, Transparency = 0.35 }),
-			Strip = React.createElement("frame", {
-				Size = UDim2.new(1, 0, 0, cellH * CYCLE * REPS),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ref = function(instance)
-					strips.current[index] = instance
+			Scene = React.createElement(View3D, {
+				build = buildDrum(index),
+				onScene = function(scene)
+					drums.current[index] = scene
+					scene.set(reels.current[index].pos)
 				end,
-			}, cells),
+			}),
 			Shade = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Palette.ink, BackgroundTransparency = 0.5, BorderSizePixel = 0, ZIndex = 4 }, {
 				Fade = React.createElement("uigradient", {
 					Rotation = 90,
@@ -694,11 +817,46 @@ end
 
 -- ----- the coin --------------------------------------------------------------------------------------------
 
+-- A minted gold disc: a raised H on one face, a T on the other, a rim, and a shadow that shrinks as it rises.
+-- set(angle, lift) flips it about its horizontal axis (angle 0 = heads towards the camera) and raises it.
+local function buildCoin(viewport, camera)
+	local model = newModel(viewport)
+	local face = CFrame.Angles(0, math.pi / 2, 0) -- a cylinder lies along X; this turns it to look at the camera
+	solid(model, CYL, Vector3.new(0.34, 2.2, 2.2), Palette.brassDeep, METAL, face)
+	local body = solid(model, CYL, Vector3.new(0.3, 2.1, 2.1), Palette.mango, METAL, face)
+	body.Reflectance = 0.25
+	solid(model, CYL, Vector3.new(0.36, 1.7, 1.7), Color3.fromRGB(255, 226, 140), METAL, face)
+	local ink = Palette.brassDeep
+	-- H on the front (-Z)
+	solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(-0.32, 0, -0.2))
+	solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0.32, 0, -0.2))
+	solid(model, BLOCK, Vector3.new(0.6, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, 0, -0.2))
+	-- T on the back (+Z), drawn upside down so it reads upright after the flip
+	solid(model, BLOCK, Vector3.new(0.85, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, -0.38, 0.2))
+	solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0, 0.02, 0.2))
+	local shadow = solid(viewport, CYL, Vector3.new(0.04, 1.8, 1.8), Color3.new(0, 0, 0), PLASTIC, CFrame.new(0, -1.5, 0) * CFrame.Angles(0, 0, math.pi / 2))
+	shadow.Transparency = 0.55
+	camera.FieldOfView = 30
+	camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, -6.6), Vector3.new(0, 0.1, 0))
+	return {
+		set = function(angle, lift)
+			model:PivotTo(CFrame.new(0, lift, 0) * CFrame.Angles(angle, 0, 0))
+			local spread = 1.8 * (1 - math.clamp(lift / 3, 0, 0.5))
+			shadow.Size = Vector3.new(0.04, spread, spread)
+			shadow.Transparency = 0.55 + math.clamp(lift / 3, 0, 0.35)
+		end,
+	}
+end
+
 -- A coin that tumbles. `phase` "spin" tumbles until told to land; "land" settles on `heads` with a bounce.
 local function Coin(props)
-	local coin = React.useRef(nil)
-	local face = React.useRef(nil)
+	local scene = React.useRef(nil)
 	local motion = React.useRef({ angle = 0, speed = 0, mode = "rest", t0 = 0, from = 0, to = 0 })
+	local function paint(lift)
+		if scene.current ~= nil then
+			scene.current.set(motion.current.angle, lift or 0)
+		end
+	end
 	React.useEffect(function()
 		local m = motion.current
 		if props.phase == "spin" then
@@ -711,6 +869,7 @@ local function Coin(props)
 			m.from, m.to, m.t0, m.mode = m.angle, turns * math.pi, os.clock(), "land"
 			if props.reducedMotion then
 				m.angle, m.mode = m.to, "rest"
+				paint(0)
 				if props.onLanded then
 					props.onLanded()
 				end
@@ -722,11 +881,11 @@ local function Coin(props)
 		local lift = 0
 		if m.mode == "spin" then
 			m.angle += m.speed * dt
-			lift = 18 + 14 * math.sin(now * 5)
+			lift = 0.5 + 0.3 * math.sin(now * 5)
 		elseif m.mode == "land" then
 			local k = (now - m.t0) / 1.15
 			m.angle = m.from + (m.to - m.from) * outCubic(k)
-			lift = 70 * math.sin(math.pi * math.clamp(k, 0, 1)) * (1 - 0.3 * k)
+			lift = 1.6 * math.sin(math.pi * math.clamp(k, 0, 1)) * (1 - 0.3 * k)
 			if k >= 1 then
 				m.angle, m.mode = m.to, "rest"
 				if props.onLanded then
@@ -734,82 +893,84 @@ local function Coin(props)
 				end
 			end
 		end
-		local c = coin.current
-		if c ~= nil and c.Parent ~= nil then
-			local s = math.abs(math.cos(m.angle))
-			c.Size = UDim2.fromOffset(math.max(6, 96 * s), 96)
-			c.Position = UDim2.new(0.5, 0, 1, -56 - lift)
-		end
-		local f = face.current
-		if f ~= nil and f.Parent ~= nil then
-			f.Text = if math.cos(m.angle) >= 0 then "H" else "T"
-		end
+		paint(lift)
 	end, not props.reducedMotion)
 	return React.createElement("frame", { Size = UDim2.new(1, 0, 0, 150), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = props.order or 0 }, {
-		Shadow = React.createElement("frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(80, 10), BackgroundColor3 = Palette.shadow, BackgroundTransparency = 0.6, BorderSizePixel = 0 }, { Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0.5, 0) }) }),
-		Coin = React.createElement("frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 0, 1, -56),
-			Size = UDim2.fromOffset(96, 96),
-			BackgroundColor3 = Palette.mango,
-			BorderSizePixel = 0,
-			ref = coin,
-		}, {
-			Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0.5, 0) }),
-			Fill = gradient(Color3.fromRGB(255, 232, 150), Color3.fromRGB(214, 140, 30), 120),
-			Rim = React.createElement("uistroke", { Color = Palette.brassDeep, Thickness = 5 }),
-			Face = React.createElement("textlabel", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Text = "H",
-				TextColor3 = Palette.brassDeep,
-				Font = Enum.Font.BuilderSansExtraBold,
-				TextSize = 46,
-				ref = face,
-			}),
+		Scene = React.createElement(View3D, {
+			build = buildCoin,
+			onScene = function(s)
+				scene.current = s
+				paint(0)
+			end,
 		}),
 	})
 end
 
 -- ----- playing cards ---------------------------------------------------------------------------------------
 
--- A card that turns over when `flip` changes (back, then face with the new rank).
+-- A card slab: cream on the front, a patterned back. set(rotY, lift) turns it about its vertical axis.
+local function buildCard(color)
+	return function(viewport, camera)
+		local model = newModel(viewport)
+		solid(model, BLOCK, Vector3.new(2, 2.8, 0.07), Palette.cream, PLASTIC, CFrame.new(0, 0, -0.04))
+		solid(model, BLOCK, Vector3.new(2, 2.8, 0.07), color, PLASTIC, CFrame.new(0, 0, 0.04))
+		for _, corner in { Vector3.new(-0.78, 1.15, 0), Vector3.new(0.78, -1.15, 0) } do
+			solid(model, BALL, Vector3.one * 0.26, color, PLASTIC, CFrame.new(corner + Vector3.new(0, 0, -0.1)))
+		end
+		solid(model, BLOCK, Vector3.new(1.4, 2.2, 0.02), Palette.brass, METAL, CFrame.new(0, 0, 0.095))
+		solid(model, BLOCK, Vector3.new(1.0, 1.8, 0.02), color, PLASTIC, CFrame.new(0, 0, 0.11))
+		camera.FieldOfView = 28
+		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -6.2), Vector3.zero)
+		return {
+			set = function(rotY, lift)
+				model:PivotTo(CFrame.new(0, lift, 0) * CFrame.Angles(math.sin(rotY) * 0.08, rotY, 0))
+			end,
+		}
+	end
+end
+
+-- A card that flips when `flip` changes: a full turn in which the rank changes while its back is towards you.
 local function Card(props)
-	local card = React.useRef(nil)
+	local scene = React.useRef(nil)
 	local rankLabel = React.useRef(nil)
 	local anim = React.useRef({ t0 = -10, shown = props.rank })
 	local last = React.useRef(props.flip)
+	local build = React.useMemo(function()
+		return buildCard(props.color or Palette.violet)
+	end, { props.color })
 	React.useEffect(function()
 		if props.flip ~= last.current then
 			last.current = props.flip
 			anim.current.t0 = os.clock()
 			if props.reducedMotion then
 				anim.current.shown = props.rank
+				local label = rankLabel.current
+				if label ~= nil and label.Parent ~= nil then
+					label.Text = if props.rank then cardName(props.rank) else "?"
+				end
 			end
 		end
 	end, { props.flip })
 	useRender(function(_, now)
-		local k = (now - anim.current.t0) / 0.55
-		local c = card.current
-		if c == nil or c.Parent == nil then
-			return
-		end
-		local scale = 1
+		local k = (now - anim.current.t0) / 0.7
+		local rotY, lift = 0, 0
 		if k >= 0 and k < 1 then
-			scale = math.abs(math.cos(k * math.pi))
+			rotY = k * math.tau
+			lift = 0.35 * math.sin(k * math.pi)
 			if k > 0.5 then
 				anim.current.shown = props.rank
 			end
-			c.Rotation = math.sin(k * math.pi) * -5
 		else
 			anim.current.shown = props.rank
-			c.Rotation = 0
 		end
-		c.Size = UDim2.fromOffset(math.max(4, props.width * scale), props.height)
+		if scene.current ~= nil then
+			scene.current.set(rotY, lift)
+		end
 		local label = rankLabel.current
 		if label ~= nil and label.Parent ~= nil then
 			label.Text = if anim.current.shown then cardName(anim.current.shown) else "?"
-			label.Visible = not (k >= 0 and k < 0.5)
+			label.Visible = math.cos(rotY) > 0.2
+			label.TextTransparency = 1 - math.clamp((math.cos(rotY) - 0.2) / 0.8, 0, 1)
 		end
 	end, not props.reducedMotion)
 	return React.createElement("frame", {
@@ -818,42 +979,71 @@ local function Card(props)
 		BorderSizePixel = 0,
 		LayoutOrder = props.order or 0,
 	}, {
-		Card = React.createElement("frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(props.width, props.height),
-			BackgroundColor3 = Palette.cream,
-			BorderSizePixel = 0,
-			ref = card,
-		}, {
-			Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
-			Edge = React.createElement("uistroke", { Color = props.color or Palette.violet, Thickness = 3 }),
-			Fill = gradient(Color3.new(1, 1, 1), Color3.fromRGB(226, 216, 236), 90),
-			Rank = React.createElement("textlabel", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Text = if props.rank then cardName(props.rank) else "?",
-				TextColor3 = props.color or Palette.violet,
-				Font = Enum.Font.BuilderSansExtraBold,
-				TextSize = math.floor(props.height * 0.5),
-				ref = rankLabel,
-			}),
+		Scene = React.createElement(View3D, {
+			build = build,
+			onScene = function(s)
+				scene.current = s
+				s.set(0, 0)
+			end,
+		}),
+		Rank = React.createElement("textlabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = if props.rank then cardName(props.rank) else "?",
+			TextColor3 = props.color or Palette.violet,
+			Font = Enum.Font.BuilderSansExtraBold,
+			TextSize = math.floor(props.height * 0.42),
+			ZIndex = 3,
+			ref = rankLabel,
 		}),
 	})
 end
 
 -- ----- the roulette wheel -------------------------------------------------------------------------------------
 
--- Pockets round a rim that turns slowly; the ball rattles round the other way and settles into the winning
--- pocket. phase "spin": the ball circles; "land": it decelerates into pocket `number` and calls onLanded.
+-- A bowl seen from above and in front: a brass-rimmed base, a ring of 37 coloured pockets that turns, a hub, and
+-- a ball. set(turn, ballAngle, ballRadius) turns the pockets and places the ball (radius as a share of the bowl,
+-- 0.43 at the rim down to 0.34 in a pocket).
+local function buildWheel(viewport, camera)
+	local rim = newModel(viewport)
+	local scale = 4.85
+	local flat = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder lies along X; this stands it on its end
+	solid(viewport, CYL, Vector3.new(0.34, 5.7, 5.7), Palette.brassDeep, METAL, CFrame.new(0, -0.12, 0) * flat)
+	solid(viewport, CYL, Vector3.new(0.3, 5.3, 5.3), Palette.night, PLASTIC, CFrame.new(0, 0, 0) * flat)
+	solid(viewport, CYL, Vector3.new(0.12, 4.5, 4.5), Color3.fromRGB(58, 44, 64), METAL, CFrame.new(0, 0.12, 0) * flat)
+	for index, number in WHEEL do
+		local a = (index - 1) / #WHEEL * math.tau
+		local color = if number == 0 then Palette.mint elseif RED[number] then Palette.coral else Palette.graphite
+		solid(rim, BLOCK, Vector3.new(0.34, 0.14, 0.62), color, PLASTIC, CFrame.Angles(0, -a, 0) * CFrame.new(0, 0.22, -0.34 * scale))
+	end
+	solid(rim, CYL, Vector3.new(0.4, 1.7, 1.7), Palette.brassDeep, METAL, CFrame.new(0, 0.28, 0) * flat)
+	solid(rim, CYL, Vector3.new(0.6, 0.7, 0.7), Palette.brass, METAL, CFrame.new(0, 0.4, 0) * flat)
+	local ball = solid(viewport, BALL, Vector3.one * 0.3, Color3.new(1, 1, 1), NEON, CFrame.new(0, 0.5, -2))
+	camera.FieldOfView = 38
+	camera.CFrame = CFrame.lookAt(Vector3.new(0, 6.4, -5.2), Vector3.new(0, 0, 0.2))
+	return {
+		set = function(turn, ballAngle, ballRadius)
+			rim:PivotTo(CFrame.Angles(0, -turn, 0))
+			ball.Position = Vector3.new(math.sin(ballAngle) * ballRadius * scale, 0.5, -math.cos(ballAngle) * ballRadius * scale)
+		end,
+	}
+end
+
+-- The pockets turn slowly; the ball rattles round the other way and settles into the winning pocket.
+-- phase "spin": the ball circles; "land": it decelerates into pocket `number` and calls onLanded.
 local function Wheel(props)
 	local diameter = props.size or 190
-	local rim = React.useRef(nil)
-	local ball = React.useRef(nil)
+	local scene = React.useRef(nil)
 	local motion = React.useRef({ turn = 0, mode = "rest", t0 = 0, rel = 0, pocket = 0 })
 	local pocketAngle = {}
 	for index, number in WHEEL do
 		pocketAngle[number] = (index - 1) / #WHEEL * math.pi * 2
+	end
+	local function paint(angle, radius)
+		if scene.current ~= nil then
+			local m = motion.current
+			scene.current.set(m.turn, angle + (if m.mode == "rest" or m.mode == "land" then m.turn else 0), radius)
+		end
 	end
 	React.useEffect(function()
 		local m = motion.current
@@ -863,6 +1053,7 @@ local function Wheel(props)
 			m.mode, m.t0, m.pocket = "land", os.clock(), pocketAngle[props.number]
 			if props.reducedMotion then
 				m.mode, m.rel = "rest", m.pocket
+				paint(m.rel, 0.34)
 				if props.onLanded then
 					props.onLanded()
 				end
@@ -872,18 +1063,13 @@ local function Wheel(props)
 	useRender(function(dt, now)
 		local m = motion.current
 		m.turn += dt * (if m.mode == "orbit" or m.mode == "land" then 0.9 else 0.25)
-		local r = rim.current
-		if r ~= nil and r.Parent ~= nil then
-			r.Rotation = math.deg(m.turn)
-		end
 		local radius, angle = 0.34, m.rel
 		if m.mode == "orbit" then
 			angle = -(now - m.t0) * 9
 			radius = 0.43
 		elseif m.mode == "land" then
 			local k = (now - m.t0) / 3.0
-			local eased = outCubic(k)
-			angle = m.pocket - (1 - eased) * math.pi * 2 * 7
+			angle = m.pocket - (1 - outCubic(k)) * math.pi * 2 * 7
 			radius = 0.43 - 0.09 * outBounce(math.clamp((k - 0.7) / 0.3, 0, 1))
 			if k >= 1 then
 				m.rel, m.mode = m.pocket, "rest"
@@ -893,62 +1079,55 @@ local function Wheel(props)
 				end
 			end
 		end
-		local b = ball.current
-		if b ~= nil and b.Parent ~= nil then
-			-- the ball rides in the wheel's own frame, so it turns with the rim once it has dropped
-			local world = angle + (if m.mode == "rest" or m.mode == "land" then m.turn else 0)
-			b.Position = UDim2.fromScale(0.5 + math.sin(world) * radius, 0.5 - math.cos(world) * radius)
-		end
+		paint(angle, radius)
 	end, not props.reducedMotion)
-	local pockets = {}
-	for index, number in WHEEL do
-		local angle = (index - 1) / #WHEEL * 360
-		local color = if number == 0 then Palette.mint elseif RED[number] then Palette.coral else Palette.graphite
-		pockets["p" .. index] = React.createElement("frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5 + math.sin(math.rad(angle)) * 0.34, 0.5 - math.cos(math.rad(angle)) * 0.34),
-			Size = UDim2.fromOffset(diameter * 0.075, diameter * 0.14),
-			Rotation = angle,
-			BackgroundColor3 = color,
-			BorderSizePixel = 0,
-		}, { Stroke = React.createElement("uistroke", { Color = Palette.brass, Thickness = 1, Transparency = 0.2 }) })
-	end
-	return React.createElement("frame", { Size = UDim2.fromOffset(diameter, diameter), BackgroundColor3 = Palette.night, BorderSizePixel = 0, LayoutOrder = props.order or 0 }, {
-		Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0.5, 0) }),
-		Trim = React.createElement("uistroke", { Color = Palette.brass, Thickness = 5 }),
-		Rim = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ref = rim }, pockets),
-		Hub = React.createElement("frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.3, 0.3), BackgroundColor3 = Palette.brassDeep, BorderSizePixel = 0 }, {
-			Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0.5, 0) }),
-			Ring = React.createElement("uistroke", { Color = Palette.brass, Thickness = 3 }),
-			Fill = gradient(Palette.brass, Palette.brassDeep, 90),
+	return React.createElement("frame", { Size = UDim2.fromOffset(diameter, diameter), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = props.order or 0 }, {
+		Scene = React.createElement(View3D, {
+			build = buildWheel,
+			ambient = Color3.fromRGB(170, 160, 180),
+			onScene = function(s)
+				scene.current = s
+				paint(motion.current.rel, 0.34)
+			end,
 		}),
-		Ball = React.createElement("frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.07),
-			Size = UDim2.fromOffset(diameter * 0.06, diameter * 0.06),
-			BackgroundColor3 = Color3.new(1, 1, 1),
-			BorderSizePixel = 0,
-			ZIndex = 6,
-			ref = ball,
-		}, { Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0.5, 0) }) }),
 	})
 end
 
 -- ----- one scratch cell ----------------------------------------------------------------------------------------
 
--- A cell under a silver cover that peels away, with a gem that pops and a spray of sparkles, `delay`
--- seconds after `token` changes.
+-- A turning 3D gem for one scratch symbol; set(rotY, pop) spins it and scales it (pop 0.5..1.1).
+local function buildGem(id)
+	return function(viewport, camera)
+		local model = newModel(viewport)
+		addSymbol(model, id, CFrame.new(), 1.5)
+		camera.FieldOfView = 34
+		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -4.2), Vector3.zero)
+		return {
+			set = function(rotY, pop)
+				model:PivotTo(CFrame.Angles(0.25, rotY, 0))
+				model:ScaleTo(pop)
+			end,
+		}
+	end
+end
+
+-- A cell under a silver cover that peels away, with a 3D gem that pops and spins and a spray of sparkles,
+-- `delay` seconds after `token` changes.
 local SPARKLE_COLORS = { Palette.mango, Palette.cyan, Palette.pink, Palette.mint, Palette.cream }
 local SPARKLES = 8
 
 local function ScratchCell(props)
 	local cover = React.useRef(nil)
-	local gemFrame = React.useRef(nil)
+	local gem = React.useRef(nil)
 	local pieces = React.useRef({})
 	local sparks = React.useRef({})
 	local born = React.useRef(-100)
 	local fired = React.useRef(true)
 	local last = React.useRef(props.token)
+	local id = props.symbol
+	local build = React.useMemo(function()
+		return if id then buildGem(id) else nil
+	end, { id })
 	React.useEffect(function()
 		if props.token ~= last.current then
 			last.current = props.token
@@ -974,7 +1153,6 @@ local function ScratchCell(props)
 			return
 		end
 		local k = (now - born.current - props.delay) / 0.5
-		local g = gemFrame.current
 		if props.symbol == nil then
 			c.Visible = true
 			c.Size = UDim2.fromScale(1, 1)
@@ -995,10 +1173,10 @@ local function ScratchCell(props)
 			c.Size = UDim2.fromScale(1 - peel * 0.9, 1 - peel * 0.1)
 			c.Position = UDim2.fromScale(-peel * 0.5, -peel * 0.2)
 			c.BackgroundTransparency = math.clamp(k, 0, 1) * 0.7
-			if g ~= nil and g.Parent ~= nil then
-				local scale = 0.5 + 0.6 * outBack(math.clamp((k - 0.3) / 0.4, 0, 1))
-				g.Size = UDim2.fromScale(scale, scale)
-			end
+		end
+		if gem.current ~= nil then
+			local pop = 0.5 + 0.6 * outBack(math.clamp((k - 0.3) / 0.4, 0, 1))
+			gem.current.set(now * 1.6, math.max(0.05, pop))
 		end
 		for i = 1, SPARKLES do
 			local p = sparks.current[i]
@@ -1024,7 +1202,6 @@ local function ScratchCell(props)
 			end
 		end
 	end, not props.reducedMotion)
-	local id = props.symbol
 	local color = if id then (SYMBOL_COLORS[id] or Palette.cream) else Palette.muted
 	local sparkleEls = {}
 	for i = 1, SPARKLES do
@@ -1048,14 +1225,13 @@ local function ScratchCell(props)
 	}, {
 		Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
 		Stroke = React.createElement("uistroke", { Color = if props.glow then Palette.mango else color, Thickness = if props.glow then 3 else 2, Transparency = 0.2 }),
-		GemWrap = if id then React.createElement("frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ref = gemFrame,
-		}, { Gem = React.createElement(Gem, { id = id, size = 50 }) }) else nil,
+		["Gem" .. tostring(id)] = if id then React.createElement(View3D, {
+			build = build,
+			onScene = function(s)
+				gem.current = s
+				s.set(0, 1)
+			end,
+		}) else nil,
 		Sparkles = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 7 }, sparkleEls),
 		Cover = React.createElement("frame", {
 			Size = UDim2.fromScale(if props.reducedMotion and id then 0 else 1, 1),
@@ -1071,6 +1247,7 @@ local function ScratchCell(props)
 		}),
 	})
 end
+
 -- ----- the exchange ticker -----------------------------------------------------------------------------------
 
 -- The last four hours of the market as bars that grow in, with a line at par.
