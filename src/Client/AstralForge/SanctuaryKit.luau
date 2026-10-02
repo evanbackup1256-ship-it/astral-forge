@@ -8356,9 +8356,9 @@ function World.start()
 		end
 		track(Workspace:GetAttributeChangedSignal("BossShowcase"):Connect(sync))
 		sync()
-		-- The command bar runs on the client while playing, and a client attribute never reaches the
-		-- server, so hand these Studio-only commands over a remote the server listens on.
-		-- Real game: an admin types /boss <kind|all|stop> in chat; the server checks the admin list.
+	end
+	-- Real game: the owner gets a Bosses panel; the server checks the admin list on every command.
+	do
 		task.spawn(function()
 			local admin = ReplicatedStorage:WaitForChild("BossAdminCommand", 30)
 			if admin == nil or not admin:IsA("RemoteEvent") then
@@ -8429,6 +8429,10 @@ function World.start()
 				admin:FireServer("stop")
 			end)
 		end)
+	end
+	if RunService:IsStudio() then
+		-- The command bar runs on the client while playing, and a client attribute never reaches the
+		-- server, so hand these Studio-only commands over a remote the server listens on.
 		task.spawn(function()
 			local bridge = ReplicatedStorage:WaitForChild("BossStudioCommand", 30)
 			if bridge == nil or not bridge:IsA("RemoteEvent") then
