@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	SanctuaryKit: merged module suite.
-	Members (8): sanctuaryAmbience, sanctuaryControls, sanctuaryHud, sanctuaryHudPlan, sanctuarySignals, sanctuaryWorld, sanctuaryPresence, curtainTransition.
+	Members (9): sanctuaryAmbience, sanctuaryControls, sanctuaryHud, sanctuaryHudPlan, sanctuarySignals, sanctuaryWorld, sanctuaryAtmos, sanctuaryPresence, curtainTransition.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -8499,6 +8499,331 @@ return World
 end
 
 -- ======================================================================
+-- Module: sanctuaryAtmos   (ambient particles, aurora and depth of field per region)
+-- ======================================================================
+__defs["sanctuaryAtmos"] = function()
+-- What the air in each region is made of. A volume of particles follows the camera (motes of light,
+-- rising embers, falling snow, drifting smoke, storm sparks) and each region sets how much of each,
+-- in what colour; crossing into a region eases the rates and colours over a couple of seconds. Three
+-- aurora ribbons hang at the horizon, tinted per region. A faint far-focus blur gives depth.
+-- Everything is created on start and destroyed on stop; low graphics quality gets fewer particles
+-- and no aurora or blur.
+
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local Signals = __load("sanctuarySignals")
+
+local Atmos = {}
+
+local TEX_SPARK = "rbxasset://textures/particles/sparkles_main.dds"
+local TEX_SMOKE = "rbxasset://textures/particles/smoke_main.dds"
+local DOF_NAME = "AF_SanctuaryDepth"
+
+local function rgb(r: number, g: number, b: number): Color3
+	return Color3.fromRGB(r, g, b)
+end
+
+local FAMILIES = { "motes", "embers", "snow", "wisps", "sparks" }
+
+-- rate = particles per second for each family; colours are for motes, embers/snow/sparks, smoke;
+-- aurora is 0..1 strength with its two ribbon colours.
+local REGIONS = {
+	Bridge = { rates = { motes = 6, wisps = 0.5 }, mote = rgb(170, 160, 255), accent = rgb(200, 200, 255), wisp = rgb(70, 58, 130), aurora = 0.7, auroraA = rgb(90, 255, 190), auroraB = rgb(150, 90, 255) },
+	Heart = { rates = { motes = 10, embers = 2, wisps = 0.5 }, mote = rgb(190, 170, 255), accent = rgb(255, 214, 140), wisp = rgb(84, 62, 140), aurora = 0.8, auroraA = rgb(120, 130, 255), auroraB = rgb(255, 120, 220) },
+	Emberreach = { rates = { motes = 3, embers = 28, wisps = 1.4 }, mote = rgb(255, 150, 90), accent = rgb(255, 130, 50), wisp = rgb(110, 40, 26), aurora = 0.0, auroraA = rgb(255, 120, 60), auroraB = rgb(255, 60, 40) },
+	Hollows = { rates = { motes = 12, snow = 4, wisps = 0.8 }, mote = rgb(120, 220, 255), accent = rgb(190, 240, 255), wisp = rgb(40, 100, 140), aurora = 0.9, auroraA = rgb(80, 255, 230), auroraB = rgb(60, 140, 255) },
+	Spire = { rates = { motes = 6, wisps = 1.8 }, mote = rgb(220, 220, 255), accent = rgb(255, 255, 255), wisp = rgb(176, 176, 214), aurora = 0.55, auroraA = rgb(170, 200, 255), auroraB = rgb(220, 160, 255) },
+	Riftmaw = { rates = { motes = 8, wisps = 2.2 }, mote = rgb(255, 110, 230), accent = rgb(200, 90, 255), wisp = rgb(96, 28, 92), aurora = 0.35, auroraA = rgb(200, 60, 220), auroraB = rgb(120, 30, 160) },
+	ChoirIsle = { rates = { motes = 8, snow = 10, wisps = 0.7 }, mote = rgb(150, 230, 255), accent = rgb(210, 245, 255), wisp = rgb(60, 130, 180), aurora = 0.95, auroraA = rgb(90, 240, 255), auroraB = rgb(150, 200, 255) },
+	RegentIsle = { rates = { motes = 2, embers = 36, wisps = 2 }, mote = rgb(255, 120, 70), accent = rgb(255, 110, 40), wisp = rgb(140, 50, 28), aurora = 0.0, auroraA = rgb(255, 100, 40), auroraB = rgb(255, 40, 30) },
+	StormIsle = { rates = { motes = 4, sparks = 5, wisps = 1.8 }, mote = rgb(150, 180, 255), accent = rgb(210, 235, 255), wisp = rgb(60, 80, 130), aurora = 0.3, auroraA = rgb(120, 170, 255), auroraB = rgb(190, 130, 255) },
+	RimeIsle = { rates = { motes = 6, snow = 30, wisps = 1 }, mote = rgb(210, 240, 255), accent = rgb(240, 250, 255), wisp = rgb(150, 190, 230), aurora = 0.85, auroraA = rgb(150, 255, 255), auroraB = rgb(190, 200, 255) },
+	AstraIsle = { rates = { motes = 16, embers = 8, wisps = 0.9 }, mote = rgb(255, 214, 130), accent = rgb(255, 190, 90), wisp = rgb(160, 104, 56), aurora = 0.7, auroraA = rgb(255, 210, 120), auroraB = rgb(255, 130, 180) },
+	GloamIsle = { rates = { motes = 10, wisps = 2.4 }, mote = rgb(190, 110, 255), accent = rgb(170, 90, 240), wisp = rgb(70, 26, 96), aurora = 0.25, auroraA = rgb(150, 70, 220), auroraB = rgb(90, 40, 170) },
+}
+
+local function fade(peak: number, edge: number?)
+	local e = edge or 1
+	return NumberSequence.new({
+		NumberSequenceKeypoint.new(0, e),
+		NumberSequenceKeypoint.new(0.2, peak),
+		NumberSequenceKeypoint.new(0.8, peak),
+		NumberSequenceKeypoint.new(1, e),
+	})
+end
+
+local function swell(low: number, high: number)
+	return NumberSequence.new({
+		NumberSequenceKeypoint.new(0, low),
+		NumberSequenceKeypoint.new(0.25, high),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+end
+
+-- Each family's look. `color` names which of the region's colours it takes.
+local SPECS = {
+	motes = { texture = TEX_SPARK, color = "mote", life = NumberRange.new(7, 12), speed = NumberRange.new(0.5, 2.5), size = swell(0.2, 1.0), transparency = fade(0.35), accel = Vector3.new(0, 0.35, 0), drag = 0.4, light = 1 },
+	embers = { texture = TEX_SPARK, color = "accent", life = NumberRange.new(4, 7), speed = NumberRange.new(3, 9), size = swell(0.3, 0.7), transparency = fade(0.1), accel = Vector3.new(0, 6, 0), drag = 0.6, light = 1 },
+	snow = { texture = TEX_SPARK, color = "accent", life = NumberRange.new(9, 13), speed = NumberRange.new(1, 3), size = swell(0.3, 0.6), transparency = fade(0.2), accel = Vector3.new(1.2, -3.5, 0.6), drag = 0.2, light = 0.6 },
+	wisps = { texture = TEX_SMOKE, color = "wisp", life = NumberRange.new(14, 20), speed = NumberRange.new(1, 3), size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 16), NumberSequenceKeypoint.new(1, 42) }), transparency = fade(0.86, 1), accel = Vector3.new(0.4, 0.1, 0), drag = 0.1, light = 0.25 },
+	sparks = { texture = TEX_SPARK, color = "accent", life = NumberRange.new(0.5, 1.1), speed = NumberRange.new(30, 70), size = swell(1.4, 1.6), transparency = fade(0), accel = Vector3.zero, drag = 3, light = 1 },
+}
+
+type Blend = { [string]: any }
+
+local active = false
+local volume: Part? = nil
+local emitters: { [string]: ParticleEmitter } = {}
+local ribbons: { { part: Part, beam: Beam, a0: Attachment, a1: Attachment, base: number, lift: number } } = {}
+local dof: DepthOfFieldEffect? = nil
+local savedShadow: number? = nil
+local follow: RBXScriptConnection? = nil
+local regionSub: (() -> ())? = nil
+local quality = 1 -- 1 full, 0.4 reduced
+local auroraOn = true
+
+-- The blend the world is easing toward and the one it shows now.
+local now: Blend = { rates = {}, colors = {}, aurora = 0, auroraA = Color3.new(), auroraB = Color3.new() }
+local target: Blend = now
+local settleUntil = 0
+local TAU = 1.6
+local SETTLE = 8
+
+local function lowQuality(): boolean
+	local ok, level = pcall(function()
+		return UserSettings():GetService("UserGameSettings").SavedQualityLevel.Value
+	end)
+	return ok and level > 0 and level <= 3
+end
+
+local function colorsFor(region): { [string]: Color3 }
+	return { mote = region.mote, accent = region.accent, wisp = region.wisp }
+end
+
+local function targetFor(id: string): Blend
+	local region = REGIONS[id] or REGIONS.Bridge
+	local rates = {}
+	for _, family in FAMILIES do
+		rates[family] = region.rates[family] or 0
+	end
+	return { rates = rates, colors = colorsFor(region), aurora = region.aurora, auroraA = region.auroraA, auroraB = region.auroraB }
+end
+
+local function paint()
+	for family, emitter in emitters do
+		local rate = now.rates[family] * quality
+		emitter.Enabled = rate > 0.05
+		emitter.Rate = rate
+		emitter.Color = ColorSequence.new(now.colors[SPECS[family].color])
+	end
+	for index, ribbon in ribbons do
+		local strength = if auroraOn then now.aurora else 0
+		ribbon.beam.Enabled = strength > 0.02
+		local peak = 1 - strength * (0.62 - 0.1 * index)
+		ribbon.beam.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.25, peak),
+			NumberSequenceKeypoint.new(0.75, math.min(1, peak + 0.12)),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		ribbon.beam.Color = ColorSequence.new(now.auroraA:Lerp(now.auroraB, (index - 1) * 0.35), now.auroraB:Lerp(now.auroraA, (index - 1) * 0.25))
+	end
+end
+
+local function blend(alpha: number)
+	for _, family in FAMILIES do
+		now.rates[family] += (target.rates[family] - now.rates[family]) * alpha
+	end
+	for key, color in now.colors do
+		now.colors[key] = color:Lerp(target.colors[key], alpha)
+	end
+	now.aurora += (target.aurora - now.aurora) * alpha
+	now.auroraA = now.auroraA:Lerp(target.auroraA, alpha)
+	now.auroraB = now.auroraB:Lerp(target.auroraB, alpha)
+end
+
+local function build(camera: Camera)
+	local box = Instance.new("Part")
+	box.Name = "AF_SanctuaryAir"
+	box.Anchored = true
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CastShadow = false
+	box.Transparency = 1
+	box.Size = Vector3.new(220, 110, 220)
+	box.CFrame = CFrame.new(camera.CFrame.Position)
+	box.Parent = camera
+	volume = box
+	for _, family in FAMILIES do
+		local spec = SPECS[family]
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Name = family
+		emitter.Texture = spec.texture
+		emitter.Lifetime = spec.life
+		emitter.Speed = spec.speed
+		emitter.Size = spec.size
+		emitter.Transparency = spec.transparency
+		emitter.Acceleration = spec.accel
+		emitter.Drag = spec.drag
+		emitter.LightEmission = spec.light
+		emitter.LightInfluence = 0
+		emitter.Rotation = NumberRange.new(0, 360)
+		emitter.RotSpeed = NumberRange.new(-25, 25)
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.LockedToPart = false
+		emitter.Shape = Enum.ParticleEmitterShape.Box
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		emitter.Rate = 0
+		emitter.Enabled = false
+		emitter.Parent = box
+		emitters[family] = emitter
+	end
+	for index = 1, 3 do
+		local part = Instance.new("Part")
+		part.Name = "AF_SanctuaryAurora"
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Transparency = 1
+		part.Size = Vector3.one
+		part.CFrame = CFrame.new(camera.CFrame.Position)
+		part.Parent = camera
+		local a0 = Instance.new("Attachment")
+		a0.Parent = part
+		local a1 = Instance.new("Attachment")
+		a1.Parent = part
+		local beam = Instance.new("Beam")
+		beam.Attachment0 = a0
+		beam.Attachment1 = a1
+		beam.FaceCamera = true
+		beam.Segments = 28
+		beam.Width0 = 70 + index * 30
+		beam.Width1 = 90 + index * 30
+		beam.CurveSize0 = 150
+		beam.CurveSize1 = -150
+		beam.LightEmission = 1
+		beam.LightInfluence = 0
+		beam.Texture = ""
+		beam.Enabled = false
+		beam.Parent = part
+		table.insert(ribbons, { part = part, beam = beam, a0 = a0, a1 = a1, base = (index - 2) * 1.15 + 0.4, lift = 300 + index * 55 })
+	end
+end
+
+local function animate(t: number, origin: Vector3)
+	for index, ribbon in ribbons do
+		ribbon.part.CFrame = CFrame.new(origin)
+		local sway = math.sin(t * 0.06 + index * 2.1)
+		local angle = ribbon.base + sway * 0.18
+		local centre = Vector3.new(math.sin(angle) * 700, ribbon.lift + math.sin(t * 0.09 + index) * 40, math.cos(angle) * 700)
+		local along = Vector3.new(math.cos(angle), 0, -math.sin(angle)) * (330 + 40 * math.sin(t * 0.05 + index))
+		ribbon.a0.Position = centre - along
+		ribbon.a1.Position = centre + along + Vector3.new(0, 30 * math.sin(t * 0.11 + index * 1.7), 0)
+	end
+end
+
+function Atmos.start()
+	if active then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	if camera == nil then
+		return
+	end
+	active = true
+	local low = lowQuality()
+	quality = if low then 0.4 else 1
+	auroraOn = not low
+	build(camera)
+	if not low then
+		local blur = Instance.new("DepthOfFieldEffect")
+		blur.Name = DOF_NAME
+		blur.FarIntensity = 0.12
+		blur.NearIntensity = 0
+		blur.FocusDistance = 130
+		blur.InFocusRadius = 100
+		blur.Parent = Lighting
+		dof = blur
+	end
+	pcall(function()
+		savedShadow = Lighting.ShadowSoftness
+		Lighting.ShadowSoftness = 0.18
+	end)
+	target = targetFor("Bridge")
+	now = { rates = table.clone(target.rates), colors = table.clone(target.colors), aurora = target.aurora, auroraA = target.auroraA, auroraB = target.auroraB }
+	paint()
+	regionSub = Signals.on("RegionChanged", function(payload)
+		local id = if type(payload) == "table" then payload.Id else nil
+		target = targetFor(if type(id) == "string" then id else "Bridge")
+		settleUntil = os.clock() + SETTLE
+	end)
+	local accumulator = 0
+	follow = RunService.Heartbeat:Connect(function(dt)
+		local cam = Workspace.CurrentCamera
+		if cam == nil or volume == nil then
+			return
+		end
+		local origin = cam.CFrame.Position
+		volume.CFrame = CFrame.new(origin + Vector3.new(0, 10, 0))
+		accumulator += dt
+		if accumulator >= 0.05 then
+			accumulator = 0
+			local clock = os.clock()
+			if clock < settleUntil then
+				blend(1 - math.exp(-0.05 / TAU))
+				paint()
+			end
+			if auroraOn then
+				animate(clock, origin)
+			end
+		end
+	end)
+end
+
+function Atmos.stop()
+	if not active then
+		return
+	end
+	active = false
+	if follow ~= nil then
+		follow:Disconnect()
+		follow = nil
+	end
+	if regionSub ~= nil then
+		regionSub()
+		regionSub = nil
+	end
+	if volume ~= nil then
+		volume:Destroy()
+		volume = nil
+	end
+	for _, ribbon in ribbons do
+		ribbon.part:Destroy()
+	end
+	table.clear(ribbons)
+	table.clear(emitters)
+	if dof ~= nil then
+		dof:Destroy()
+		dof = nil
+	end
+	if savedShadow ~= nil then
+		local restore = savedShadow
+		savedShadow = nil
+		pcall(function()
+			Lighting.ShadowSoftness = restore
+		end)
+	end
+end
+
+return Atmos
+end
+
+-- ======================================================================
 -- Module: sanctuaryPresence   (merged from sanctuaryPresence.luau, 614 lines)
 -- ======================================================================
 __defs["sanctuaryPresence"] = function()
@@ -8535,6 +8860,7 @@ local Workspace = game:GetService("Workspace")
 local Controls = __load("sanctuaryControls")
 local Curtain = __load("curtainTransition")
 local World = __load("sanctuaryWorld")
+local Atmos = __load("sanctuaryAtmos")
 local Signals = __load("sanctuarySignals")
 local SanctuaryLayout = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SanctuaryLayout")
 
@@ -8894,10 +9220,12 @@ local function applySanctuaryLighting()	if not lightingHeld then
 		rays.Parent = Lighting
 	end
 	startMood()
+	Atmos.start()
 end
 
 local function restoreLighting()
 	stopMood()
+	Atmos.stop()
 	-- Post effects, the haze and the sky go whether or not the base lighting
 	-- was held, so a failed entry never leaves any of them behind.
 	for _, name in EFFECT_NAMES do
