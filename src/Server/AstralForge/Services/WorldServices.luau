@@ -1757,6 +1757,16 @@ local MATERIAL_COLORS = {
 	[Enum.Material.Limestone] = Color3.fromRGB(172, 188, 216),
 	[Enum.Material.Asphalt] = Color3.fromRGB(74, 70, 98),
 	[Enum.Material.CrackedLava] = Color3.fromRGB(255, 120, 60),
+	-- Accent materials for the patches that break up each island's surface (see dress).
+	[Enum.Material.Cobblestone] = Color3.fromRGB(122, 118, 144),
+	[Enum.Material.Granite] = Color3.fromRGB(110, 102, 124),
+	[Enum.Material.Ice] = Color3.fromRGB(176, 218, 255),
+	[Enum.Material.Salt] = Color3.fromRGB(226, 224, 242),
+	[Enum.Material.Marble] = Color3.fromRGB(214, 208, 228),
+	[Enum.Material.Sandstone] = Color3.fromRGB(204, 176, 142),
+	[Enum.Material.Snow] = Color3.fromRGB(232, 240, 252),
+	[Enum.Material.Mud] = Color3.fromRGB(78, 60, 82),
+	[Enum.Material.Ground] = Color3.fromRGB(96, 82, 92),
 }
 
 local function world(p: Layout.Point): Vector3
@@ -1900,6 +1910,93 @@ local function island(terrain: Terrain, center: Vector3, radius: number, top: En
 	task.wait()
 end
 
+-- Second materials for each island's surface, so a plateau is not one flat colour.
+local ACCENTS = {
+	Heart = { "Cobblestone", "Granite" },
+	Emberreach = { "Granite", "Asphalt", "Cobblestone" },
+	Hollows = { "Ice", "Salt", "Slate" },
+	Spire = { "Marble", "Snow", "Salt" },
+	Riftmaw = { "Slate", "Granite", "Mud" },
+	ChoirIsle = { "Ice", "Salt", "Marble" },
+	RegentIsle = { "Granite", "Asphalt", "Cobblestone" },
+	StormIsle = { "Cobblestone", "Granite", "Ice" },
+	RimeIsle = { "Ice", "Glacier", "Salt" },
+	AstraIsle = { "Sandstone", "Limestone", "Salt" },
+	GloamIsle = { "Mud", "Asphalt", "Basalt" },
+}
+
+-- Dresses one island after island() has cut its rough shape, all of it clear of the walkway: surface
+-- patches flush with the plateau, stalactites and ragged outcrops on the underside (all far below the
+-- surface), a second ring of low rim bumps, and on the open regions gentle swells near the rim. The boss
+-- islands keep their arenas flat; patches stay out of their middle and swells are skipped.
+local function dress(terrain: Terrain, regionId: string, center: Vector3, radius: number, under: Enum.Material, seed: number, landings: { number })
+	local rng = Random.new(seed + 17)
+	local isle = string.find(regionId, "Isle$") ~= nil
+	local accents = ACCENTS[regionId]
+	if accents ~= nil then
+		for _ = 1, 15 do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			if nearLanding(angle, landings) then
+				continue
+			end
+			local reach = radius * rng:NextNumber(if isle then 0.5 else 0.3, 0.9)
+			local mat = material(accents[rng:NextInteger(1, #accents)])
+			local base = center + Vector3.new(math.cos(angle) * reach, -1, math.sin(angle) * reach)
+			-- A cluster of overlapping discs reads as one irregular patch.
+			for _ = 1, rng:NextInteger(2, 4) do
+				local offset = Vector3.new(rng:NextNumber(-5, 5), 0, rng:NextNumber(-5, 5))
+				terrain:FillCylinder(CFrame.new(base + offset), 2, rng:NextNumber(3.5, 9), mat)
+			end
+		end
+		task.wait()
+	end
+	-- Stalactites: a chain of shrinking balls hanging from the underside.
+	for _ = 1, 12 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local reach = radius * rng:NextNumber(0.15, 0.82)
+		local r = rng:NextNumber(3.5, 7)
+		local y = -PLATEAU_DEPTH - 6
+		local x, z = math.cos(angle) * reach, math.sin(angle) * reach
+		for _ = 1, 5 do
+			terrain:FillBall(center + Vector3.new(x, y, z), r, under)
+			y -= r * 1.3
+			r *= 0.76
+		end
+	end
+	-- Ragged outcrops jutting from the cliff, well under the surface.
+	for _ = 1, 14 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local rock = rng:NextNumber(5, 11)
+		local reach = radius * rng:NextNumber(0.86, 0.98)
+		local y = -PLATEAU_DEPTH - rng:NextNumber(0, 40)
+		terrain:FillBall(center + Vector3.new(math.cos(angle) * reach, y, math.sin(angle) * reach), rock, under)
+	end
+	task.wait()
+	-- A second, smaller ring of bumps on the rim (never over a bridge landing, never above 1.2 studs).
+	for k = 1, 22 do
+		local angle = (k / 22) * math.pi * 2 + rng:NextNumber(-0.12, 0.12)
+		if nearLanding(angle, landings) then
+			continue
+		end
+		local rock = rng:NextNumber(2.6, 4.4)
+		local reach = radius * rng:NextNumber(0.9, 0.97)
+		terrain:FillBall(center + Vector3.new(math.cos(angle) * reach, -rock + rng:NextNumber(0.3, 1.2), math.sin(angle) * reach), rock, under)
+	end
+	if not isle then
+		-- Gentle swells in the outer band: broad domes standing under a stud proud.
+		for _ = 1, 7 do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			if nearLanding(angle, landings) then
+				continue
+			end
+			local dome = rng:NextNumber(11, 17)
+			local reach = radius * rng:NextNumber(0.78, 0.86)
+			terrain:FillBall(center + Vector3.new(math.cos(angle) * reach, -dome + rng:NextNumber(0.5, 0.9), math.sin(angle) * reach), dome, material(ACCENTS[regionId] and ACCENTS[regionId][1] or "Rock"))
+		end
+	end
+	task.wait()
+end
+
 function Builder.BuildTerrain()
 	local terrain = Workspace.Terrain
 	for mat, color in MATERIAL_COLORS do
@@ -1912,6 +2009,7 @@ function Builder.BuildTerrain()
 		local top = material(region.Top)
 		local under = material(region.Under)
 		island(terrain, center, region.Radius, top, under, index * 7919, landingAngles(region))
+		dress(terrain, region.Id, center, region.Radius, under, index * 7919, landingAngles(region))
 		if region.Id == "Emberreach" then
 			-- Molten seams: lava patches flush with the plateau, clear of the
 			-- ore rings and the landing.
@@ -1941,6 +2039,7 @@ function Builder.BuildTerrain()
 		local center = world(isle.Center)
 		local landings = landingAngles(isle)
 		island(terrain, center, isle.Radius, material(isle.Top), material(isle.Under), 4001 + index * 7919, landings)
+		dress(terrain, isle.Id, center, isle.Radius, material(isle.Under), 4001 + index * 7919, landings)
 		if isle.Id == "RegentIsle" then
 			-- Lava seams between the dais and the rim, clear of the landing.
 			local rng = Random.new(77)
