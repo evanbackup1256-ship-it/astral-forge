@@ -121,6 +121,7 @@ local Protocol = {
 		StrikeRiftBoss = "StrikeRiftBoss",
 		TravelWaystone = "TravelWaystone",
 		CasinoPlay = "CasinoPlay",
+		BazaarPlay = "BazaarPlay",
 	},
 }
 

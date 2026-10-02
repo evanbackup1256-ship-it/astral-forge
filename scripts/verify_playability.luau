@@ -61,6 +61,7 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#FoundryView",
 	"src/Client/AstralForge/pages/PagesCasino.luau#CasinoView",
+	"src/Client/AstralForge/pages/PagesBazaar.luau#BazaarView",
 }
 
 -- Playability scaffolding + hot pages must stay free of vendor/Packages coupling.

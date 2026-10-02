@@ -1836,6 +1836,11 @@ return {
 	Confetti = Confetti,
 	PayoutBanner = PayoutBanner,
 	Ticker = Ticker,
+	-- shared by the Bazaar page so both hubs look and sound alike
+	Kit = {
+		Stack = Stack, Line = Line, Row = Row, Buttons = Buttons, Tile = Tile, Marquee = Marquee, Confetti = Confetti, ShineBar = ShineBar,
+		sfx = sfx, useRender = useRender, outCubic = outCubic, outBack = outBack, gradient = gradient,
+	},
 }
 end
 
