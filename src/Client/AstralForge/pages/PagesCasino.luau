@@ -1362,7 +1362,9 @@ end
 local function CasinoView(props)
 	local state = props.state
 	local dispatch = props.dispatch
-	local reducedMotion = props.reducedMotion
+	-- The shell folds its frame-rate governor into the reducedMotion it hands pages, which switched this whole page off on a
+	-- busy machine. The casino is spectacle, so it follows only the player's own Reduced Motion setting.
+	local reducedMotion = state.Settings ~= nil and state.Settings.ReducedMotion == true
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local reveal = useStagger(0, reducedMotion)
