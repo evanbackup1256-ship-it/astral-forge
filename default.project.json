@@ -71,7 +71,7 @@
               "$path": "vendor/@rbxts/ui-labs/src"
             },
             "services": {
-              "$path": "node_modules/@rbxts/services"
+              "$path": "vendor/@rbxts/services.luau"
             },
             "signal": {
               "$path": "vendor/@rbxts/signal.luau"
