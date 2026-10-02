@@ -8364,12 +8364,70 @@ function World.start()
 			if admin == nil or not admin:IsA("RemoteEvent") then
 				return
 			end
-			track(game:GetService("TextChatService").SendingMessage:Connect(function(message)
-				local word = string.match(message.Text, "^/boss%s+(%a+)%s*$")
-				if word ~= nil then
-					admin:FireServer(word)
-				end
+			local me = game:GetService("Players").LocalPlayer
+			local old = me:WaitForChild("PlayerGui"):FindFirstChild("BossAdminPanel")
+			if old ~= nil then
+				old:Destroy()
+			end
+			local gui = Instance.new("ScreenGui")
+			gui.Name = "BossAdminPanel"
+			gui.ResetOnSpawn = false
+			gui.DisplayOrder = 50
+			gui.Enabled = me:GetAttribute("BossAdmin") == true
+			gui.Parent = me:WaitForChild("PlayerGui")
+			track(me:GetAttributeChangedSignal("BossAdmin"):Connect(function()
+				gui.Enabled = me:GetAttribute("BossAdmin") == true
 			end))
+			local function button(parent: Instance, text: string, order: number, onClick: () -> ())
+				local b = Instance.new("TextButton")
+				b.Size = UDim2.new(1, 0, 0, 30)
+				b.LayoutOrder = order
+				b.BackgroundColor3 = Color3.fromRGB(40, 34, 64)
+				b.TextColor3 = Color3.fromRGB(255, 236, 190)
+				b.Font = Enum.Font.GothamBold
+				b.TextSize = 14
+				b.Text = text
+				b.AutoButtonColor = true
+				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				b.Activated:Connect(onClick)
+				b.Parent = parent
+				return b
+			end
+			local list = Instance.new("Frame")
+			list.Size = UDim2.fromOffset(150, 0)
+			list.AutomaticSize = Enum.AutomaticSize.Y
+			list.Position = UDim2.new(0, 12, 0.5, 20)
+			list.BackgroundTransparency = 1
+			list.Visible = false
+			list.Parent = gui
+			local layout = Instance.new("UIListLayout")
+			layout.Padding = UDim.new(0, 4)
+			layout.SortOrder = Enum.SortOrder.LayoutOrder
+			layout.Parent = list
+			local toggle = Instance.new("TextButton")
+			toggle.Size = UDim2.fromOffset(150, 32)
+			toggle.Position = UDim2.new(0, 12, 0.5, -16)
+			toggle.BackgroundColor3 = Color3.fromRGB(120, 40, 60)
+			toggle.TextColor3 = Color3.new(1, 1, 1)
+			toggle.Font = Enum.Font.GothamBold
+			toggle.TextSize = 14
+			toggle.Text = "Bosses"
+			Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 8)
+			toggle.Activated:Connect(function()
+				list.Visible = not list.Visible
+			end)
+			toggle.Parent = gui
+			button(list, "EVERY BOSS (chain)", 0, function()
+				admin:FireServer("all")
+			end)
+			for index, name in { "Warden", "Choir", "Regent", "Seraph", "Rime", "Knight", "Astraeon" } do
+				button(list, name, index, function()
+					admin:FireServer(string.lower(name))
+				end)
+			end
+			button(list, "Stop chain", 20, function()
+				admin:FireServer("stop")
+			end)
 		end)
 		task.spawn(function()
 			local bridge = ReplicatedStorage:WaitForChild("BossStudioCommand", 30)

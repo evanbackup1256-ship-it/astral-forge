@@ -598,6 +598,17 @@ function RiftBossService:Start()
 			end
 		end
 	end)
+	-- Tell the client who may see the boss panel (the server still re-checks on every command).
+	local function mark(player: Player)
+		local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
+		if ServerConfig.AdminUserIds[player.UserId] ~= nil or (RunService:IsStudio() and ServerConfig.AllowStudioAdmins == true) then
+			player:SetAttribute("BossAdmin", true)
+		end
+	end
+	Players.PlayerAdded:Connect(mark)
+	for _, player in Players:GetPlayers() do
+		mark(player)
+	end
 	if RunService:IsStudio() then
 		-- Studio only: lets the command bar (which runs on the client while playing) set RiftBossForce / RiftBossDemo.
 		local bridge = Instance.new("RemoteEvent")
