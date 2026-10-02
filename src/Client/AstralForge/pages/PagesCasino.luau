@@ -936,9 +936,16 @@ end
 
 -- ----- one scratch cell ----------------------------------------------------------------------------------------
 
--- A cell under a silver cover that wipes away `delay` seconds after `token` changes.
+-- A cell under a silver cover that peels away, with a gem that pops and a spray of sparkles, `delay`
+-- seconds after `token` changes.
+local SPARKLE_COLORS = { Palette.mango, Palette.cyan, Palette.pink, Palette.mint, Palette.cream }
+local SPARKLES = 8
+
 local function ScratchCell(props)
 	local cover = React.useRef(nil)
+	local gemFrame = React.useRef(nil)
+	local pieces = React.useRef({})
+	local sparks = React.useRef({})
 	local born = React.useRef(-100)
 	local fired = React.useRef(true)
 	local last = React.useRef(props.token)
@@ -947,17 +954,32 @@ local function ScratchCell(props)
 			last.current = props.token
 			born.current = os.clock()
 			fired.current = false
+			for i = 1, SPARKLES do
+				sparks.current[i] = {
+					x = 0.3 + math.random() * 0.4,
+					y = 0.3 + math.random() * 0.4,
+					vx = (math.random() - 0.5) * 0.8,
+					vy = -(0.3 + math.random() * 0.5),
+					life = 0.6 + math.random() * 0.3,
+					age = 0,
+					wait = i * 0.03,
+					size = 4 + math.random() * 4,
+				}
+			end
 		end
 	end, { props.token })
-	useRender(function(_, now)
+	useRender(function(dt, now)
 		local c = cover.current
 		if c == nil or c.Parent == nil then
 			return
 		end
-		local k = (now - born.current - props.delay) / 0.4
+		local k = (now - born.current - props.delay) / 0.5
+		local g = gemFrame.current
 		if props.symbol == nil then
 			c.Visible = true
 			c.Size = UDim2.fromScale(1, 1)
+			c.Position = UDim2.fromScale(0, 0)
+			c.Rotation = 0
 			c.BackgroundTransparency = 0
 		elseif k >= 0 then
 			if not fired.current then
@@ -966,13 +988,57 @@ local function ScratchCell(props)
 					props.onReveal()
 				end
 			end
+			-- the foil peels: it turns, slides up and away, and thins out
+			local peel = outCubic(k)
 			c.Visible = k < 1
-			c.Size = UDim2.fromScale(1 - outCubic(k), 1)
-			c.BackgroundTransparency = math.clamp(k, 0, 1) * 0.6
+			c.Rotation = -15 * peel
+			c.Size = UDim2.fromScale(1 - peel * 0.9, 1 - peel * 0.1)
+			c.Position = UDim2.fromScale(-peel * 0.5, -peel * 0.2)
+			c.BackgroundTransparency = math.clamp(k, 0, 1) * 0.7
+			if g ~= nil and g.Parent ~= nil then
+				local scale = 0.5 + 0.6 * outBack(math.clamp((k - 0.3) / 0.4, 0, 1))
+				g.Size = UDim2.fromScale(scale, scale)
+			end
+		end
+		for i = 1, SPARKLES do
+			local p = sparks.current[i]
+			local piece = pieces.current[i]
+			if piece ~= nil and piece.Parent ~= nil then
+				if p == nil or k < 0 then
+					piece.Visible = false
+				elseif p.wait > 0 then
+					p.wait -= dt
+					piece.Visible = false
+				elseif p.age >= p.life then
+					piece.Visible = false
+				else
+					p.age += dt
+					p.vy += 1.5 * dt
+					p.x += p.vx * dt
+					p.y += p.vy * dt
+					piece.Visible = true
+					piece.Position = UDim2.fromScale(p.x, p.y)
+					piece.Size = UDim2.fromOffset(p.size, p.size)
+					piece.BackgroundTransparency = math.clamp((p.age - (p.life - 0.2)) / 0.2, 0, 1)
+				end
+			end
 		end
 	end, not props.reducedMotion)
 	local id = props.symbol
 	local color = if id then (SYMBOL_COLORS[id] or Palette.cream) else Palette.muted
+	local sparkleEls = {}
+	for i = 1, SPARKLES do
+		sparkleEls["sp" .. i] = React.createElement("frame", {
+			Size = UDim2.fromOffset(4, 4),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = SPARKLE_COLORS[(i % #SPARKLE_COLORS) + 1],
+			BorderSizePixel = 0,
+			ZIndex = 7,
+			ref = function(instance)
+				pieces.current[i] = instance
+			end,
+		}, { Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0.5, 0) }) })
+	end
 	return React.createElement("frame", {
 		Size = props.size or UDim2.new(0.31, 0, 1, 0),
 		BackgroundColor3 = Palette.panelSoft,
@@ -982,7 +1048,15 @@ local function ScratchCell(props)
 	}, {
 		Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
 		Stroke = React.createElement("uistroke", { Color = if props.glow then Palette.mango else color, Thickness = if props.glow then 3 else 2, Transparency = 0.2 }),
-		Gem = if id then React.createElement(Gem, { id = id, size = 50 }) else nil,
+		GemWrap = if id then React.createElement("frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ref = gemFrame,
+		}, { Gem = React.createElement(Gem, { id = id, size = 50 }) }) else nil,
+		Sparkles = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 7 }, sparkleEls),
 		Cover = React.createElement("frame", {
 			Size = UDim2.fromScale(if props.reducedMotion and id then 0 else 1, 1),
 			BackgroundColor3 = Palette.steel,
@@ -997,7 +1071,6 @@ local function ScratchCell(props)
 		}),
 	})
 end
-
 -- ----- the exchange ticker -----------------------------------------------------------------------------------
 
 -- The last four hours of the market as bars that grow in, with a line at par.
