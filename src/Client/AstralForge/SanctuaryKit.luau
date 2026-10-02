@@ -8358,6 +8358,19 @@ function World.start()
 		sync()
 		-- The command bar runs on the client while playing, and a client attribute never reaches the
 		-- server, so hand these Studio-only commands over a remote the server listens on.
+		-- Real game: an admin types /boss <kind|all|stop> in chat; the server checks the admin list.
+		task.spawn(function()
+			local admin = ReplicatedStorage:WaitForChild("BossAdminCommand", 30)
+			if admin == nil or not admin:IsA("RemoteEvent") then
+				return
+			end
+			track(game:GetService("TextChatService").SendingMessage:Connect(function(message)
+				local word = string.match(message.Text, "^/boss%s+(%a+)%s*$")
+				if word ~= nil then
+					admin:FireServer(word)
+				end
+			end))
+		end)
 		task.spawn(function()
 			local bridge = ReplicatedStorage:WaitForChild("BossStudioCommand", 30)
 			if bridge == nil or not bridge:IsA("RemoteEvent") then
