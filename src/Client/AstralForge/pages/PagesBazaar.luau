@@ -183,7 +183,8 @@ end
 local function BazaarView(props)
 	local state = props.state
 	local dispatch = props.dispatch
-	local reducedMotion = props.reducedMotion
+	-- Only the player's own Reduced Motion setting turns the Bazaar's effects off, not the shell's frame-rate governor.
+	local reducedMotion = state.Settings ~= nil and state.Settings.ReducedMotion == true
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local reveal = useStagger(0, reducedMotion)
