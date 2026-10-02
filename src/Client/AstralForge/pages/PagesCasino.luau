@@ -233,7 +233,7 @@ local function CasinoView(props)
 	local reveal = useStagger(0, reducedMotion)
 	local casino = state.Casino
 
-	local tab, setTab = React.useState("Slots")
+	local tab, setTab = React.useState(props.initialTab or "Slots")
 	local tier, setTier = React.useState(2)
 	local busy, setBusy = React.useState(false)
 	local shake, setShake = React.useState(0)

@@ -4149,6 +4149,9 @@ SoundSheet.VOICE = table.freeze({
 	navHoverForgePath = "navHoverForgePath",
 	navOpenFoundry = "navOpenFoundry",
 	navHoverFoundry = "navHoverFoundry",
+	-- The Casino shares the Wheel's cues until it gets its own.
+	navOpenCasino = "navOpenWheel",
+	navHoverCasino = "navHoverWheel",
 	oreMineEmberite = "oreMineEmberite",
 	oreCollectEmberite = "oreCollectEmberite",
 	oreMineVoidglass = "oreMineVoidglass",
