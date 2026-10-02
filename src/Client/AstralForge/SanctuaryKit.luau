@@ -6776,7 +6776,7 @@ function ScreenFx.arena.clear()
 	self.level, self.goal, self.flare, self.enraged = 0, 0, 0, false
 end
 
-local function arenaPiece(parent: Instance, size: Vector3, cf: CFrame, color: Color3, transparency: number): Part
+function ScreenFx.arena.piece(parent: Instance, size: Vector3, cf: CFrame, color: Color3, transparency: number): Part
 	local p = Instance.new("Part")
 	p.Anchored = true
 	p.CanCollide = false
@@ -6876,7 +6876,7 @@ function ScreenFx.arena.show(current: any, goal: number)
 	model.Parent = clientFolder or Workspace
 	self.model = model
 	local c, radius = self.center, self.radius
-	local hub = arenaPiece(model, Vector3.new(0.4, 0.2, 0.4), CFrame.new(c), pal.Primary, 1)
+	local hub = ScreenFx.arena.piece(model, Vector3.new(0.4, 0.2, 0.4), CFrame.new(c), pal.Primary, 1)
 	hub.Name = "Hub"
 	self.hub = hub
 	-- The wall: two stacked rows of panels round the edge, facing in.
@@ -6886,7 +6886,7 @@ function ScreenFx.arena.show(current: any, goal: number)
 		local at = c + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 		local width = math.tau * radius / count + 0.5
 		for row = 1, if low then 1 else 2 do
-			local part = arenaPiece(model, Vector3.new(width, 0.05, 0.5), CFrame.lookAt(at, Vector3.new(c.X, at.Y, c.Z)), pal.Primary, 1)
+			local part = ScreenFx.arena.piece(model, Vector3.new(width, 0.05, 0.5), CFrame.lookAt(at, Vector3.new(c.X, at.Y, c.Z)), pal.Primary, 1)
 			part.Name = "Wall"
 			table.insert(self.panels, { part = part, angle = angle, row = row, width = width })
 		end
@@ -6898,7 +6898,7 @@ function ScreenFx.arena.show(current: any, goal: number)
 		for i = 1, number do
 			local angle = (i / number) * math.tau
 			local at = c + Vector3.new(math.cos(angle) * reach, 0.35, math.sin(angle) * reach)
-			arenaPiece(group, size, CFrame.lookAt(at, c + Vector3.new(0, 0.35, 0)), pal.Primary, 1).Name = "Tick"
+			ScreenFx.arena.piece(group, size, CFrame.lookAt(at, c + Vector3.new(0, 0.35, 0)), pal.Primary, 1).Name = "Tick"
 		end
 		hub:Clone().Parent = group
 		group.Parent = model
@@ -6912,7 +6912,7 @@ function ScreenFx.arena.show(current: any, goal: number)
 			group.PrimaryPart = copy :: BasePart
 		end
 	end
-	local anchor = arenaPiece(model, Vector3.new(0.2, 0.2, 0.2), CFrame.new(c + Vector3.new(0, 0.3, 0)), pal.Primary, 1)
+	local anchor = ScreenFx.arena.piece(model, Vector3.new(0.2, 0.2, 0.2), CFrame.new(c + Vector3.new(0, 0.3, 0)), pal.Primary, 1)
 	anchor.Name = "RingAnchor"
 	for _, spec in { { 1.0, 1.4 }, { 0.72, 0.6 }, { 0.46, 0.5 } } do
 		local ring = ringAdornment(anchor, radius * spec[1], radius * spec[1] - spec[2], pal.Primary, 1)
