@@ -15,6 +15,10 @@ serviceFactories["AnomalyService"] = function() return require(script.Parent:Wai
 
 
 
+serviceFactories["CasinoService"] = function() return require(script.Parent:WaitForChild("CasinoService"))(loadService) end
+
+
+
 serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
 
 
@@ -107,6 +111,7 @@ serviceFactories["GameService"] = function()
 	local PlayerAnalytics = loadService("PlayerAnalytics")
 	local PlayerBadges = loadService("PlayerBadges")
 	local ForgeEchoService = loadService("ForgeEchoService")
+	local CasinoService = loadService("CasinoService")
 	local SanctuaryFeatures = loadService("SanctuaryFeatures")
 	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
@@ -395,7 +400,7 @@ serviceFactories["GameService"] = function()
 	local PRESENCE_PAGES = {
 		Overview = true, Workshop = true, Inventory = true, Research = true, StarGrid = true,
 		Echoes = true, Continuum = true, Lab = true, Anomaly = true, Worlds = true,
-		Missions = true, Wheel = true, Rewards = true, Command = true, Story = true, Mail = true,
+		Missions = true, Wheel = true, Casino = true, Rewards = true, Command = true, Story = true, Mail = true,
 		Chat = true, Crew = true, Milestones = true, Convergence = true, Leaderboards = true,
 		Trade = true, Credits = true, Admin = true, Settings = true, Shop = true,
 	}
@@ -1220,6 +1225,7 @@ serviceFactories["GameService"] = function()
 			Achievements = ProgressionService.AchievementStates(profile),
 			Daily = ProgressionService.DailyState(profile),
 			Wheel = ProgressionService.WheelState(profile),
+			Casino = CasinoService.State(profile, os.time()),
 			Command = ProgressionService.CommandState(profile),
 			ForgePath = ProgressionService.ForgePathState(profile),
 			TimedRewards = ProgressionService.TimedRewardState(profile),
@@ -2106,6 +2112,17 @@ serviceFactories["GameService"] = function()
 			return ok and responseSuccess(message) or responseError(message)
 		end)
 		return result
+	end
+
+	-- One tap in the Astral Casino: the stake, the roll and the payout all happen here, on the server.
+	function GameService:_casinoPlay(player: Player, payload: any)
+		return self:_mutate(player, function(profile)
+			local ok, message, extra = CasinoService.Play(profile, self._random, payload, os.time())
+			if not ok then
+				return responseError(message)
+			end
+			return responseSuccess(message, { Result = extra })
+		end)
 	end
 
 	function GameService:_spinWheel(player: Player)
@@ -3827,6 +3844,8 @@ serviceFactories["GameService"] = function()
 			return self:_claimTimedReward(player, payload and payload.Index)
 		elseif action == Protocol.Actions.SpinWheel then
 			return self:_spinWheel(player)
+		elseif action == Protocol.Actions.CasinoPlay then
+			return self:_casinoPlay(player, payload)
 		elseif action == Protocol.Actions.LaunchExpedition then
 			return self:_launchExpedition(player, payload and payload.Id)
 		elseif action == Protocol.Actions.ClaimExpedition then

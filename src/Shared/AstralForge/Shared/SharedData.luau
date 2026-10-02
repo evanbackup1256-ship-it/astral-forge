@@ -4568,7 +4568,7 @@ local LADDER: { LevelDef } = {
 		Level = 9,
 		Tier = "Journeyman",
 		Goal = { Kind = "MachinesBought", Target = 15, Text = "Buy 15 machine levels" },
-		Unlocks = { "Milestones" },
+		Unlocks = { "Milestones", "Casino" },
 	},
 	{
 		Level = 10,

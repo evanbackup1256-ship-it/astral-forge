@@ -977,6 +977,7 @@ ActionFeatureMaps.FEATURE = {
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
 	BuyOreUpgrade = "Foundry",
+	CasinoPlay = "Casino",
 }
 
 function ActionFeatureMaps.AnomalyCharge(action: string): number?
@@ -1059,6 +1060,7 @@ CommandActionValidators.READ_ONLY = {
 -- just a matching gen — highest-value actions get the extra check.
 CommandActionValidators.HIGH_VALUE_GRANT = {
 	SpinWheel = true,
+	CasinoPlay = true,
 	OpenItemCrate = true,
 	CollectVault = true,
 	Rebirth = true,

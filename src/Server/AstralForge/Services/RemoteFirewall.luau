@@ -139,6 +139,8 @@ return function(loadService: (string) -> any)
 		-- A Warden fight is several strikes a second: cheap, lightly spaced.
 		[Protocol.Actions.StrikeRiftBoss] = { Cost = 0.2, Cooldown = 0.2 },
 		[Protocol.Actions.TravelWaystone] = { Cost = 1, Cooldown = 1 },
+		-- Casino rounds are one tap each; the cooldown keeps a held button from becoming a macro.
+		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
 	}
 
 	local EXEMPT_ACTIONS: { [string]: boolean } = {
@@ -448,8 +450,30 @@ return function(loadService: (string) -> any)
 			if not numberField(payload, "Step", 1, 10_000, true) then
 				return false, "invalid forge path payload"
 			end
-		elseif action == Protocol.Actions.BuyOreUpgrade then
-			if not stringField(payload, "Id", 1, 48) then
+		elseif action == Protocol.Actions.CasinoPlay then
+			local game = payload.Game
+			if not stringField(payload, "Game", 3, 12) or (game ~= "Slots" and game ~= "Flip" and game ~= "HighLow" and game ~= "Roulette" and game ~= "Scratch" and game ~= "Exchange" and game ~= "Club") then
+				return false, "invalid casino game"
+			end
+			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
+				return false, "invalid casino move"
+			end
+			if payload.Tier ~= nil and not numberField(payload, "Tier", 1, 5, true) then
+				return false, "invalid casino stake"
+			end
+			if payload.Pick ~= nil and not stringField(payload, "Pick", 1, 8) then
+				return false, "invalid casino pick"
+			end
+			if payload.Count ~= nil and not numberField(payload, "Count", 1, 20, true) then
+				return false, "invalid casino amount"
+			end
+			if payload.Rank ~= nil and not numberField(payload, "Rank", 2, 12, true) then
+				return false, "invalid casino rank"
+			end
+			if payload.Free ~= nil and type(payload.Free) ~= "boolean" then
+				return false, "invalid casino card"
+			end
+		elseif action == Protocol.Actions.BuyOreUpgrade then			if not stringField(payload, "Id", 1, 48) then
 				return false, "invalid foundry payload"
 			end
 		elseif action == Protocol.Actions.TravelWaystone then

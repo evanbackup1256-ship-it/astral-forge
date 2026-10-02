@@ -120,6 +120,7 @@ local Protocol = {
 		BuyOreUpgrade = "BuyOreUpgrade",
 		StrikeRiftBoss = "StrikeRiftBoss",
 		TravelWaystone = "TravelWaystone",
+		CasinoPlay = "CasinoPlay",
 	},
 }
 

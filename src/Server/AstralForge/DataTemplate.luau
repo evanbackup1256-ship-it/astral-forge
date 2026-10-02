@@ -83,6 +83,19 @@ function DataTemplate.New()
 			Streak = 0,
 			LastClaimDay = -1,
 		},
+		-- The Astral Casino (CasinoMath.Ensure rebuilds anything missing or mistyped).
+		Casino = {
+			Played = 0,
+			Won = 0,
+			Streak = 0,
+			BestStreak = 0,
+			BiggestWin = 0,
+			Flip = { Active = false, Streak = 0, Stake = 0, Tier = 1, Base = 0 },
+			HighLow = { Active = false, Card = 1, Streak = 0, Multiplier = 1, Stake = 0, Tier = 1, Base = 0 },
+			Scratch = { FreeDay = -1 },
+			Exchange = { Day = -1, Bought = 0 },
+			Club = { XP = 0, Claims = {} },
+		},
 		Wheel = {
 			LastSpinAt = 0,
 			Spins = 0,

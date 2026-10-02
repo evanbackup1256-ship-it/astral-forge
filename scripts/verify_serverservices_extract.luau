@@ -151,6 +151,7 @@ assert(CommandActionValidators.IsReadOnly("GetState") == true, "GetState read-on
 assert(CommandActionValidators.IsReadOnly("CollectVault") == false, "CollectVault mutates")
 assert(CommandActionValidators.RequiresHighValueNonce("OpenItemCrate") == true, "crate high-value")
 assert(CommandActionValidators.RequiresHighValueNonce("BuyMachine") == false, "buy not high-value")
+assert(CommandActionValidators.RequiresHighValueNonce("CasinoPlay") == true, "casino rounds are high-value")
 assert(CommandActionValidators.IsDeferredSnapshot("Overcharge") == true, "overcharge deferred")
 assert(CommandActionValidators.IsDeferredSnapshot("CollectVault") == false, "collect not deferred")
 
@@ -158,7 +159,7 @@ local highValueCount = 0
 for _ in CommandActionValidators.HIGH_VALUE_GRANT do
 	highValueCount += 1
 end
-assert(highValueCount == 7, "seven high-value grants")
+assert(highValueCount == 8, "eight high-value grants (the casino joins the wheel and crates)")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")

@@ -24,6 +24,7 @@ local files = {
 	"src/Client/AstralForge/pages/PageRouter.luau",
 	"src/Client/AstralForge/pages/PagesCore.luau",
 	"src/Client/AstralForge/pages/PagesProgress.luau",
+	"src/Client/AstralForge/pages/PagesCasino.luau",
 	"src/Client/AstralForge/pages/PagesSystem.luau",
 	"src/Client/AstralForge/pages/PagesSocial.luau",
 	"src/Client/AstralForge/pages/PagesStory.luau",
