@@ -133,19 +133,49 @@ local function outBounce(x)
 	return 7.5625 * x * x + 0.984375
 end
 
--- Runs `callback(dt, now)` every rendered frame while `enabled`; always calls the latest closure.
-local function useRender(callback, enabled)
+-- One RenderStepped connection serves every animated piece on the page (there used to be one each), and a piece
+-- can ask for a lower rate (`hz`) when it does not need every frame. `callback(dt, now)` gets the time since that
+-- piece's own last call.
+local frameLoop = { connection = nil :: RBXScriptConnection?, entries = {} :: { [any]: boolean }, count = 0, scratch = {} :: { any } }
+
+local function runFrame(dt: number)
+	local now = os.clock()
+	local list = frameLoop.scratch
+	table.clear(list)
+	for entry in frameLoop.entries do
+		table.insert(list, entry)
+	end
+	for _, entry in list do
+		if frameLoop.entries[entry] and (entry.interval == 0 or now - entry.last >= entry.interval) then
+			local step = if entry.last == 0 then dt else math.min(now - entry.last, 0.1)
+			entry.last = now
+			entry.callback.current(step, now)
+		end
+	end
+end
+
+-- Runs `callback(dt, now)` every rendered frame (or `hz` times a second) while `enabled`; always calls the latest closure.
+local function useRender(callback, enabled, hz)
 	local latest = React.useRef(callback)
 	latest.current = callback
 	React.useEffect(function()
 		if enabled == false then
 			return nil
 		end
-		local connection = RunService.RenderStepped:Connect(function(dt)
-			latest.current(dt, os.clock())
-		end)
+		local entry = { callback = latest, interval = if hz then 1 / hz else 0, last = 0 }
+		frameLoop.entries[entry] = true
+		frameLoop.count += 1
+		if frameLoop.connection == nil then
+			frameLoop.connection = RunService.RenderStepped:Connect(runFrame)
+		end
 		return function()
-			connection:Disconnect()
+			frameLoop.entries[entry] = nil
+			frameLoop.count -= 1
+			if frameLoop.count <= 0 and frameLoop.connection ~= nil then
+				frameLoop.connection:Disconnect()
+				frameLoop.connection = nil
+				frameLoop.count = 0
+			end
 		end
 	end, { enabled })
 end
@@ -306,7 +336,7 @@ end
 
 -- A string of bulbs that chase; `mode` "win" flashes them fast and gold.
 local function Marquee(props)
-	local count = props.count or 22
+	local count = props.count or 16
 	local refs = React.useRef({})
 	local bulbs = {}
 	for index = 1, count do
@@ -337,7 +367,7 @@ local function Marquee(props)
 				bulb.BackgroundTransparency = 0.78 - 0.78 * wave
 			end
 		end
-	end, not props.reducedMotion)
+	end, not props.reducedMotion, 20)
 	return React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 10),
 		BackgroundTransparency = 1,
@@ -491,28 +521,39 @@ local function View3D(props)
 	})
 end
 
--- A reel: a dark drum with the strip's symbols standing round it. set(pos) turns it so cell `pos` faces the camera.
+-- A reel: a dark drum with the strip's symbols standing round it. The drum never moves: set(pos) swings the camera
+-- (and the light with it) round the drum's axis so cell `pos` faces the lens. That is one camera move per frame
+-- where turning the drum meant re-posing about ninety parts, and it only redraws when the position changes.
 local function buildDrum(index)
 	return function(viewport, camera)
 		local model = newModel(viewport)
 		local radius = 1.7
-		solid(model, CYL, Vector3.new(1.3, radius * 2 - 0.12, radius * 2 - 0.12), Color3.fromRGB(34, 26, 40), METAL, CFrame.new())
+		solid(model, CYL, Vector3.new(1.3, radius * 2 - 0.12, radius * 2 - 0.12), Color3.fromRGB(34, 26, 40), PLASTIC, CFrame.new())
 		for _, x in { -0.62, 0.62 } do
-			solid(model, CYL, Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02), Palette.brass, METAL, CFrame.new(x, 0, 0))
+			solid(model, CYL, Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02), Palette.brass, PLASTIC, CFrame.new(x, 0, 0))
 		end
 		for k = 0, CYCLE - 1 do
 			addSymbol(model, STRIPS[index][k + 1], CFrame.Angles(k / CYCLE * math.tau, 0, 0) * CFrame.new(0, 0, -(radius + 0.02)), 0.62)
 		end
+		local baseLight = Vector3.new(-0.5, -0.8, 1)
+		local home = CFrame.lookAt(Vector3.new(0, 0, -6.4), Vector3.zero)
+		local lastAngle = math.huge
 		camera.FieldOfView = 24
-		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -6.4), Vector3.zero)
+		camera.CFrame = home
 		return {
 			set = function(pos)
-				model:PivotTo(CFrame.Angles(-pos / CYCLE * math.tau, 0, 0))
+				local angle = pos / CYCLE * math.tau
+				if math.abs(angle - lastAngle) < 1e-4 then
+					return
+				end
+				lastAngle = angle
+				local swing = CFrame.Angles(angle, 0, 0)
+				camera.CFrame = swing * home
+				viewport.LightDirection = swing:VectorToWorldSpace(baseLight)
 			end,
 		}
 	end
 end
-
 -- ----- the slot machine ---------------------------------------------------------------------------------
 
 -- Three 3D reels. phase "spin": whirr until told to stop. phase "stop": each reel decelerates, one after the
@@ -716,6 +757,7 @@ end
 -- Gold coins thrown up from the bottom and falling back; trigger it by bumping `token`.
 local function Confetti(props)
 	local count = 46
+	local running = React.useRef(false)
 	local refs = React.useRef({})
 	local sim = React.useRef({})
 	local last = React.useRef(props.token)
@@ -725,6 +767,7 @@ local function Confetti(props)
 		end
 		last.current = props.token
 		local power = props.power or 1
+		running.current = true
 		for index = 1, count do
 			local p = sim.current[index] or {}
 			p.x = 0.5 + (math.random() - 0.5) * 0.3
@@ -738,6 +781,10 @@ local function Confetti(props)
 		end
 	end, { props.token })
 	useRender(function(dt)
+		if not running.current then
+			return
+		end
+		local alive = false
 		for index = 1, count do
 			local p = sim.current[index]
 			local piece = refs.current[index]
@@ -746,6 +793,7 @@ local function Confetti(props)
 					piece.Visible = false
 				else
 					p.age += dt
+					alive = true
 					p.vy += 1.9 * dt
 					p.x += p.vx * dt
 					p.y += p.vy * dt
@@ -756,6 +804,7 @@ local function Confetti(props)
 				end
 			end
 		end
+		running.current = alive
 	end, not props.reducedMotion)
 	local pieces = {}
 	local colors = { Palette.mango, Palette.brass, Palette.cream, Palette.coral, Palette.cyan }
@@ -787,6 +836,12 @@ local function PayoutBanner(props)
 		local age = now - born.current
 		local frame = label.current
 		if frame == nil or frame.Parent == nil then
+			return
+		end
+		if props.token == 0 or age > 3.8 then
+			if frame.Visible then
+				frame.Visible = false
+			end
 			return
 		end
 		local life = if props.kind == "jackpot" then 3.2 else 2.0
@@ -838,8 +893,13 @@ local function buildCoin(viewport, camera)
 	shadow.Transparency = 0.55
 	camera.FieldOfView = 30
 	camera.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, -6.6), Vector3.new(0, 0.1, 0))
+	local lastAngle, lastLift = math.huge, math.huge
 	return {
 		set = function(angle, lift)
+			if math.abs(angle - lastAngle) < 1e-3 and math.abs(lift - lastLift) < 1e-3 then
+				return
+			end
+			lastAngle, lastLift = angle, lift
 			model:PivotTo(CFrame.new(0, lift, 0) * CFrame.Angles(angle, 0, 0))
 			local spread = 1.8 * (1 - math.clamp(lift / 3, 0, 0.5))
 			shadow.Size = Vector3.new(0.04, spread, spread)
@@ -921,8 +981,13 @@ local function buildCard(color)
 		solid(model, BLOCK, Vector3.new(1.0, 1.8, 0.02), color, PLASTIC, CFrame.new(0, 0, 0.11))
 		camera.FieldOfView = 28
 		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -6.2), Vector3.zero)
+		local lastRot, lastLift = math.huge, math.huge
 		return {
 			set = function(rotY, lift)
+				if math.abs(rotY - lastRot) < 1e-3 and math.abs(lift - lastLift) < 1e-3 then
+					return
+				end
+				lastRot, lastLift = rotY, lift
 				model:PivotTo(CFrame.new(0, lift, 0) * CFrame.Angles(math.sin(rotY) * 0.08, rotY, 0))
 			end,
 		}
@@ -1001,34 +1066,44 @@ end
 
 -- ----- the roulette wheel -------------------------------------------------------------------------------------
 
--- A bowl seen from above and in front: a brass-rimmed base, a ring of 37 coloured pockets that turns, a hub, and
--- a ball. set(turn, ballAngle, ballRadius) turns the pockets and places the ball (radius as a share of the bowl,
--- 0.43 at the rim down to 0.34 in a pocket).
+-- A bowl seen from above and in front: a brass-rimmed base, a ring of 37 coloured pockets, a hub, and a ball.
+-- The pockets never move; set(turn, ballAngle, ballRadius) swings the camera (and the light) round the bowl by
+-- `turn`, which looks exactly like the wheel turning, and places the ball in the bowl's own frame (radius as a
+-- share of the bowl, 0.43 at the rim down to 0.34 in a pocket).
 local function buildWheel(viewport, camera)
-	local rim = newModel(viewport)
 	local scale = 4.85
 	local flat = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder lies along X; this stands it on its end
-	solid(viewport, CYL, Vector3.new(0.34, 5.7, 5.7), Palette.brassDeep, METAL, CFrame.new(0, -0.12, 0) * flat)
+	solid(viewport, CYL, Vector3.new(0.34, 5.7, 5.7), Palette.brassDeep, PLASTIC, CFrame.new(0, -0.12, 0) * flat)
 	solid(viewport, CYL, Vector3.new(0.3, 5.3, 5.3), Palette.night, PLASTIC, CFrame.new(0, 0, 0) * flat)
-	solid(viewport, CYL, Vector3.new(0.12, 4.5, 4.5), Color3.fromRGB(58, 44, 64), METAL, CFrame.new(0, 0.12, 0) * flat)
+	solid(viewport, CYL, Vector3.new(0.12, 4.5, 4.5), Color3.fromRGB(58, 44, 64), PLASTIC, CFrame.new(0, 0.12, 0) * flat)
 	for index, number in WHEEL do
 		local a = (index - 1) / #WHEEL * math.tau
 		local color = if number == 0 then Palette.mint elseif RED[number] then Palette.coral else Palette.graphite
-		solid(rim, BLOCK, Vector3.new(0.34, 0.14, 0.62), color, PLASTIC, CFrame.Angles(0, -a, 0) * CFrame.new(0, 0.22, -0.34 * scale))
+		solid(viewport, BLOCK, Vector3.new(0.34, 0.14, 0.62), color, PLASTIC, CFrame.Angles(0, -a, 0) * CFrame.new(0, 0.22, -0.34 * scale))
 	end
-	solid(rim, CYL, Vector3.new(0.4, 1.7, 1.7), Palette.brassDeep, METAL, CFrame.new(0, 0.28, 0) * flat)
-	solid(rim, CYL, Vector3.new(0.6, 0.7, 0.7), Palette.brass, METAL, CFrame.new(0, 0.4, 0) * flat)
+	solid(viewport, CYL, Vector3.new(0.4, 1.7, 1.7), Palette.brassDeep, PLASTIC, CFrame.new(0, 0.28, 0) * flat)
+	solid(viewport, CYL, Vector3.new(0.6, 0.7, 0.7), Palette.brass, PLASTIC, CFrame.new(0, 0.4, 0) * flat)
 	local ball = solid(viewport, BALL, Vector3.one * 0.3, Color3.new(1, 1, 1), NEON, CFrame.new(0, 0.5, -2))
+	local baseLight = Vector3.new(-0.5, -0.8, 1)
+	local home = CFrame.lookAt(Vector3.new(0, 6.4, -5.2), Vector3.new(0, 0, 0.2))
+	local lastTurn, lastAngle, lastRadius = math.huge, math.huge, math.huge
 	camera.FieldOfView = 38
-	camera.CFrame = CFrame.lookAt(Vector3.new(0, 6.4, -5.2), Vector3.new(0, 0, 0.2))
+	camera.CFrame = home
 	return {
 		set = function(turn, ballAngle, ballRadius)
-			rim:PivotTo(CFrame.Angles(0, -turn, 0))
-			ball.Position = Vector3.new(math.sin(ballAngle) * ballRadius * scale, 0.5, -math.cos(ballAngle) * ballRadius * scale)
+			if math.abs(turn - lastTurn) > 1e-3 then
+				lastTurn = turn
+				local swing = CFrame.Angles(0, turn, 0)
+				camera.CFrame = swing * home
+				viewport.LightDirection = swing:VectorToWorldSpace(baseLight)
+			end
+			if math.abs(ballAngle - lastAngle) > 1e-3 or math.abs(ballRadius - lastRadius) > 1e-4 then
+				lastAngle, lastRadius = ballAngle, ballRadius
+				ball.Position = Vector3.new(math.sin(ballAngle) * ballRadius * scale, 0.5, -math.cos(ballAngle) * ballRadius * scale)
+			end
 		end,
 	}
 end
-
 -- The pockets turn slowly; the ball rattles round the other way and settles into the winning pocket.
 -- phase "spin": the ball circles; "land": it decelerates into pocket `number` and calls onLanded.
 local function Wheel(props)
@@ -1042,7 +1117,7 @@ local function Wheel(props)
 	local function paint(angle, radius)
 		if scene.current ~= nil then
 			local m = motion.current
-			scene.current.set(m.turn, angle + (if m.mode == "rest" or m.mode == "land" then m.turn else 0), radius)
+			scene.current.set(m.turn, angle - (if m.mode == "orbit" then m.turn else 0), radius)
 		end
 	end
 	React.useEffect(function()
@@ -1060,8 +1135,16 @@ local function Wheel(props)
 			end
 		end
 	end, { props.phase, props.token })
+	local drift = React.useRef(0)
 	useRender(function(dt, now)
 		local m = motion.current
+		if m.mode == "rest" then
+			drift.current += dt
+			if drift.current < 1 / 24 then
+				return
+			end
+			dt, drift.current = drift.current, 0
+		end
 		m.turn += dt * (if m.mode == "orbit" or m.mode == "land" then 0.9 else 0.25)
 		local radius, angle = 0.34, m.rel
 		if m.mode == "orbit" then
@@ -1102,10 +1185,14 @@ local function buildGem(id)
 		addSymbol(model, id, CFrame.new(), 1.5)
 		camera.FieldOfView = 34
 		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -4.2), Vector3.zero)
+		local lastPop = 1
 		return {
 			set = function(rotY, pop)
 				model:PivotTo(CFrame.Angles(0.25, rotY, 0))
-				model:ScaleTo(pop)
+				if math.abs(pop - lastPop) > 0.01 then
+					lastPop = pop
+						model:ScaleTo(pop)
+				end
 			end,
 		}
 	end
@@ -1201,7 +1288,7 @@ local function ScratchCell(props)
 				end
 			end
 		end
-	end, not props.reducedMotion)
+	end, not props.reducedMotion, 30)
 	local color = if id then (SYMBOL_COLORS[id] or Palette.cream) else Palette.muted
 	local sparkleEls = {}
 	for i = 1, SPARKLES do
