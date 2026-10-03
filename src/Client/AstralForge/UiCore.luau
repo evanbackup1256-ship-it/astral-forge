@@ -6138,9 +6138,12 @@ local function MainGame(_param)
 			elseif kind == "LevelUp" and not purchasePresentationActive.current then
 				-- A new Forge Level: the server toast names the level and what it
 				-- opened; this is the felt part of the moment.
-				Audio:play("achievementClaim")
+				__load("levelMoments").pushLevelMoment(value)
 				InteractionFeedback.reward()
 				celebrate()
+			elseif kind == "LevelReward" then
+				-- Rewards for the level(s) just reached: the celebration card shows them.
+				__load("levelMoments").pushLevelMoment(value)
 			elseif kind == "AnomalyPulse" then
 				Audio:play("reactor")
 			elseif kind == "AnomalyReady" then
@@ -7014,6 +7017,7 @@ local Audio = require(script.Parent.AudioKit)("audio").Audio
 local _onboarding = __load("onboarding")
 local ReleaseNotesModal = _onboarding.ReleaseNotesModal
 local TutorialOverlay = _onboarding.TutorialOverlay
+local LevelMomentHost = __load("levelMoments").LevelMomentHost
 local _clientStore = require(script.Parent.CoreKit)("clientStore")
 local ClientActions = _clientStore.ClientActions
 local useClientDispatch = _clientStore.useClientDispatch
@@ -8330,6 +8334,8 @@ local function AppShell(_param)
 		state = state,
 		config = config,
 		reducedMotion = reducedMotion,
+	}), React.createElement(LevelMomentHost, {
+		state = state,
 	}), _condition_24, not bootChromeVisible and React.createElement(MobilePreviewGate, {
 		ack = state.Settings.MobilePreviewAck,
 		reducedMotion = reducedMotion,
@@ -11211,6 +11217,14 @@ local function NextUnlockStrip(_param)
 		elseif #nextNames == 1 then `Opens {nextNames[1]}`
 		else `Opens {nextNames[1]} +{#nextNames - 1}`
 	local nextW = if narrow or nextText == "" then 0 else 150
+	-- Time to the next level at the current output, for goals earned over time.
+	local LevelRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
+	local rate = tonumber(state.Production) or 0
+	local eta = if nextStep ~= nil then LevelRewards.eta(nextStep.Kind, nextStep.Target - nextStep.Progress, rate) else nil
+	local etaText = LevelRewards.etaText(eta)
+	if etaText ~= "" then
+		progressW += 44
+	end
 	return React.createElement("imagebutton", {
 		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundColor3 = Palette.night,
@@ -11274,7 +11288,7 @@ local function NextUnlockStrip(_param)
 		position = UDim2.fromOffset(goalLeft, 0),
 		sizeConstraint = UDim2.new(1, -(goalLeft + progressW + nextW + 38), 1, -3),
 	}), nextStep ~= nil and React.createElement(Text, {
-		value = `{compactNumber(nextStep.Progress)} / {compactNumber(nextStep.Target)}`,
+		value = `{compactNumber(nextStep.Progress)} / {compactNumber(nextStep.Target)}` .. (if etaText ~= "" then `  ·  ~{etaText}` else ""),
 		size = 12,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -11310,6 +11324,13 @@ local function NextUnlockStrip(_param)
 	}, React.createElement("frame", {
 		Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1),
 		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+	}), nextStep ~= nil and React.createElement("frame", {
+		-- The halfway checkpoint pays out here.
+		Size = UDim2.fromOffset(2, 6),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		AnchorPoint = Vector2.new(0.5, 1),
+		BackgroundColor3 = if fill >= 0.5 then accent else Palette.lineSoft,
 		BorderSizePixel = 0,
 	})))
 end
@@ -12410,6 +12431,12 @@ local function LevelRow(_param)
 	local rightW = _param.rightW
 	local goalText = if def.Goal ~= nil and type(def.Goal.Text) == "string" then def.Goal.Text else "Where every forge starts"
 	local detail = if _param.opens ~= "" then `Level {def.Level} · Opens {_param.opens}` else `Level {def.Level}`
+	-- What reaching the level pays (levels already passed have paid).
+	if def.Level > 1 and status ~= "done" and not here then
+		local LevelRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
+		local reward = LevelRewards.forLevel(def.Level, def.Tier)
+		detail ..= string.format(" · +%d stardust, Surge ×%.2f", reward.Stardust, reward.SurgeMultiplier)
+	end
 	local rightText = if here then "Current" elseif isNext and nextStep ~= nil then progressText(nextStep) else ""
 	return React.createElement("frame", {
 		Size = UDim2.new(1, -UNIT * 2, 0, ROW_H),
@@ -19994,6 +20021,342 @@ return {
 	ToastRail = ToastRail,
 	NOTICE_LIFETIME = NOTICE_LIFETIME,
 	NOTICE_EXIT_SECONDS = NOTICE_EXIT_SECONDS,
+}
+end
+
+-- ======================================================================
+-- Module: levelMoments
+-- ======================================================================
+__defs["levelMoments"] = function()
+-- The felt side of Forge Level rewards: a celebration card when a level pays out
+-- (level, tier, every reward, what opened) and a live chip while a Forge Surge runs.
+-- MainGame pushes moments from the server's LevelReward / LevelUp effects; the host
+-- in the shell draws them.
+local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local Workspace = game:GetService("Workspace")
+local Audio = require(script.Parent.AudioKit)("audio").Audio
+local Icon = require(script.Parent.ArtKit)("Icon").Icon
+local _motion = require(script.Parent.MotionKit)("motion")
+local useClock = _motion.useClock
+local useFlipperSpring = _motion.useFlipperSpring
+local useViewport = _motion.useViewport
+local useWallClock = _motion.useWallClock
+local _theme = require(script.Parent.CoreKit)("theme")
+local Palette = _theme.Palette
+local chromeFor = _theme.chromeFor
+local darken = _theme.darken
+local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
+local Text = __load("ui").Text
+
+local CARD_SECONDS = 6.5
+
+-- Moments queue here; the host listens.
+local listeners = {}
+local pendingNames = {}
+local function pushLevelMoment(effect)
+	if type(effect) ~= "table" then
+		return
+	end
+	if effect.Type == "LevelUp" then
+		-- The unlock names arrive on their own effect; hold them for the reward card.
+		pendingNames = if type(effect.Names) == "table" then effect.Names else {}
+		return
+	end
+	if effect.Type ~= "LevelReward" then
+		return
+	end
+	local moment = table.clone(effect)
+	moment.Names = pendingNames
+	moment.At = os.clock()
+	pendingNames = {}
+	for listener in listeners do
+		listener(moment)
+	end
+end
+
+local function clockText(seconds)
+	local total = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", total // 60, total % 60)
+end
+
+local function RewardRow(_param)
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 34),
+		LayoutOrder = _param.order,
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 452,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 9),
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(26, 26),
+		Position = UDim2.new(0, 5, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = darken(_param.color, 0.55),
+		BorderSizePixel = 0,
+		ZIndex = 453,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 7),
+	}), React.createElement(Icon, {
+		kind = _param.icon,
+		color = Palette.cream,
+		accent = _param.color,
+		size = 26,
+	})), React.createElement(Text, {
+		value = _param.text,
+		size = 14,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(40, 0),
+		sizeConstraint = UDim2.new(1, -48, 1, 0),
+		zIndex = 453,
+	}))
+end
+
+local function LevelCard(_param)
+	local moment = _param.moment
+	local onClose = _param.onClose
+	local viewport = useViewport()
+	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 520, 30, 0)
+	local spin = useClock(true, 0.35, math.pi * 2)
+	local rows = {}
+	rows.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	local count = 0
+	local function add(key, icon, color, text)
+		count += 1
+		rows[key] = React.createElement(RewardRow, { order = count, icon = icon, color = color, text = text })
+	end
+	if (moment.Flux or 0) > 0 then
+		add("flux", "Flux", Palette.mango, `+{compactNumber(moment.Flux)} flux`)
+	end
+	if (moment.Stardust or 0) > 0 then
+		add("dust", "Dust", Palette.cyan, `+{compactNumber(moment.Stardust)} stardust`)
+	end
+	if (moment.SurgeMultiplier or 1) > 1 then
+		local seconds = math.max(0, (moment.SurgeEndsAt or 0) - Workspace:GetServerTimeNow())
+		add("surge", "Boost", Palette.pink, string.format("Forge Surge ×%.2f for %s", moment.SurgeMultiplier, clockText(seconds)))
+	end
+	add("mastery", "Forge", Palette.mint, string.format("+%d%% production, for good", math.floor(((moment.Level or 1) - 1) * 2 + 0.5)))
+	if type(moment.Names) == "table" and #moment.Names > 0 then
+		add("opens", "Lock", Palette.violet, "Opened: " .. table.concat(moment.Names, ", "))
+	end
+	local width = math.min(380, viewport.width - 28)
+	local height = 128 + count * 40
+	local levels = moment.Levels or {}
+	local title = if #levels > 1 then `Levels {levels[1]}–{levels[#levels]}` else `Level {moment.Level}`
+	return React.createElement("textbutton", {
+		-- The whole card dismisses on click.
+		Size = UDim2.fromOffset(width, height),
+		Position = show:map(function(amount)
+			return UDim2.new(0.5, 0, 0.42, math.round((1 - amount) * 30))
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.panelRaised,
+		BackgroundTransparency = show:map(function(amount)
+			return 1 - math.clamp(amount, 0, 1)
+		end),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 450,
+		Event = {
+			Activated = onClose,
+		},
+	}, React.createElement("uiscale", {
+		Scale = show:map(function(amount)
+			return 0.85 + amount * 0.15
+		end),
+	}), React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 18),
+	}), React.createElement("uistroke", {
+		Color = Palette.brass,
+		Thickness = 2,
+		Transparency = show:map(function(amount)
+			return 1 - amount * 0.8
+		end),
+	}), React.createElement("frame", {
+		-- Slow rays behind the title.
+		Size = UDim2.fromOffset(220, 220),
+		Position = UDim2.new(0.5, 0, 0, 40),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = spin:map(function(angle)
+			return math.deg(angle)
+		end),
+		BackgroundTransparency = 1,
+		ZIndex = 450,
+	}, (function()
+		local rays = {}
+		for index = 1, 8 do
+			rays["ray" .. index] = React.createElement("frame", {
+				Size = UDim2.fromOffset(10, 110),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 1),
+				Rotation = index * 45,
+				BackgroundColor3 = Palette.mango,
+				BackgroundTransparency = show:map(function(amount)
+					return 1 - amount * 0.12
+				end),
+				BorderSizePixel = 0,
+				ZIndex = 450,
+			}, React.createElement("uigradient", {
+				Rotation = 90,
+				Transparency = NumberSequence.new(1, 0.4),
+			}))
+		end
+		return React.createElement(React.Fragment, nil, rays)
+	end)()), React.createElement(Text, {
+		value = "LEVEL UP",
+		size = 12,
+		color = Palette.brass,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.fromOffset(0, 16),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+		zIndex = 452,
+	}), React.createElement(Text, {
+		value = title,
+		size = 30,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		fit = true,
+		minSize = 18,
+		position = UDim2.fromOffset(0, 34),
+		sizeConstraint = UDim2.new(1, 0, 0, 36),
+		zIndex = 452,
+	}), React.createElement(Text, {
+		value = string.upper(moment.Tier or ""),
+		size = 12,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.fromOffset(0, 72),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+		zIndex = 452,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -28, 0, count * 40),
+		Position = UDim2.fromOffset(14, 98),
+		BackgroundTransparency = 1,
+		ZIndex = 451,
+	}, rows), React.createElement(Text, {
+		value = "Tap to continue",
+		size = 11,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 0, 1, -24),
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
+		zIndex = 452,
+	}))
+end
+
+-- The running Forge Surge, with its countdown.
+local function SurgeChip(_param)
+	local surge = _param.surge
+	local now = useWallClock(true)
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local top = viewport.topInset + (if chrome.stack then 96 else 64)
+	local pulse = useClock(true, 2.4, math.pi * 2)
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(168, 30),
+		Position = UDim2.new(1, -14, 0, top),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundColor3 = darken(Palette.pink, 0.62),
+		BorderSizePixel = 0,
+		Visible = now:map(function(value)
+			return surge.EndsAt > value
+		end),
+		ZIndex = 240,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = Palette.pink,
+		Thickness = 1.5,
+		Transparency = pulse:map(function(angle)
+			return 0.25 + (math.sin(angle) + 1) * 0.2
+		end),
+	}), React.createElement(Icon, {
+		kind = "Boost",
+		color = Palette.cream,
+		accent = Palette.pink,
+		size = 20,
+		position = UDim2.new(0, 8, 0.5, -10),
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, -38, 1, 0),
+		Position = UDim2.fromOffset(32, 0),
+		BackgroundTransparency = 1,
+		Text = now:map(function(value)
+			return string.format("SURGE ×%.2f  %s", surge.Multiplier, clockText(surge.EndsAt - value))
+		end),
+		TextColor3 = Palette.cream,
+		TextSize = 13,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 241,
+	}))
+end
+
+local function LevelMomentHost(_param)
+	local state = _param.state
+	local queue, setQueue = React.useState({})
+	local leaving, setLeaving = React.useState(false)
+	React.useEffect(function()
+		local listener = function(moment)
+			Audio:play("achievementClaim")
+			setQueue(function(current)
+				local nextQueue = table.clone(current)
+				table.insert(nextQueue, moment)
+				return nextQueue
+			end)
+		end
+		listeners[listener] = true
+		return function()
+			listeners[listener] = nil
+		end
+	end, {})
+	local current = queue[1]
+	local close = React.useCallback(function()
+		setLeaving(true)
+		task.delay(0.25, function()
+			setLeaving(false)
+			setQueue(function(list)
+				local nextQueue = table.clone(list)
+				table.remove(nextQueue, 1)
+				return nextQueue
+			end)
+		end)
+	end, {})
+	React.useEffect(function()
+		if current == nil then
+			return nil
+		end
+		local job = task.delay(CARD_SECONDS, close)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { current })
+	local level = state and state.Level
+	local progression = level and level.Progression
+	local surge = progression and progression.Surge
+	return React.createElement(React.Fragment, nil, surge ~= nil and (surge.EndsAt or 0) > 0 and React.createElement(SurgeChip, {
+		surge = surge,
+	}), current ~= nil and React.createElement(LevelCard, {
+		key = tostring(current.At),
+		moment = current,
+		leaving = leaving,
+		onClose = close,
+	}))
+end
+
+return {
+	pushLevelMoment = pushLevelMoment,
+	LevelMomentHost = LevelMomentHost,
 }
 end
 

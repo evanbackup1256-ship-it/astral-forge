@@ -4055,7 +4055,6 @@ local GameConfig = {
 		Mail = { Name = "Mailbox" },
 		Wheel = { Name = "Prize draw" },
 		Inventory = { Name = "Inventory" },
-		Foundry = { Name = "Foundry" },
 		Casino = { Name = "Astral Casino" },
 		Bazaar = { Name = "Astral Bazaar" },
 		Rewards = { Name = "Rewards" },

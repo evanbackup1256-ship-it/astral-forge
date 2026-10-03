@@ -66,6 +66,9 @@ serviceFactories["GameService"] = function()
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
+	local SharedDataSuite = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+	local LevelRewards = SharedDataSuite("LevelRewards")
+	local ForgeLevels = SharedDataSuite("ForgeLevels")
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
@@ -1082,6 +1085,81 @@ serviceFactories["GameService"] = function()
 		return OverchargeCombo.Multiplier(combo, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS)
 	end
 
+	-- Pays every Forge Level reached since the last payout (flux worth some seconds of
+	-- current production, stardust and a Forge Surge), and the halfway checkpoint toward
+	-- the next level. Runs with each snapshot, so rewards land the moment a goal is met.
+	-- Returns the public progression block for the snapshot.
+	function GameService:_settleProgression(player: Player, profile, levelState, production)
+		local progression = profile.Progression
+		if type(progression) ~= "table" then
+			progression = { RewardedLevel = -1, HalfwayPaidFor = -1, Surge = { Multiplier = 1, EndsAt = 0 } }
+			profile.Progression = progression
+		end
+		local now = os.time()
+		local firstLook = (tonumber(progression.RewardedLevel) or -1) < 0
+		local owed, settled = LevelRewards.owed(tonumber(progression.RewardedLevel) or -1, levelState.Level)
+		progression.RewardedLevel = settled
+		if firstLook then
+			progression.HalfwayPaidFor = levelState.Level
+		end
+		local function fluxFor(seconds, floor)
+			local amount = Economy.Mul(production, seconds)
+			if Economy.AsNumber(amount) < floor then
+				amount = floor
+			end
+			return amount
+		end
+		if #owed > 0 then
+			local fluxTotal = 0
+			local stardustTotal = 0
+			local surge = progression.Surge
+			for _, reached in owed do
+				local def = ForgeLevels.get(reached)
+				local reward = LevelRewards.forLevel(reached, def and def.Tier)
+				local flux = fluxFor(reward.FluxSeconds, reward.MinFlux)
+				profile.Cash = Economy.Add(profile.Cash, flux)
+				fluxTotal = Economy.Add(fluxTotal, flux)
+				profile.Stardust += reward.Stardust
+				stardustTotal += reward.Stardust
+				surge = LevelRewards.mergeSurge(surge, now, reward.SurgeMultiplier, reward.SurgeSeconds)
+			end
+			progression.Surge = surge
+			progression.HalfwayPaidFor = math.max(tonumber(progression.HalfwayPaidFor) or -1, levelState.Level)
+			self._effect:FireClient(player, {
+				Type = "LevelReward",
+				Level = levelState.Level,
+				Tier = levelState.Tier,
+				Levels = owed,
+				Flux = Economy.AsNumber(fluxTotal),
+				Stardust = stardustTotal,
+				SurgeMultiplier = surge.Multiplier,
+				SurgeEndsAt = surge.EndsAt,
+			})
+		end
+		local nextStep = levelState.Next
+		if nextStep ~= nil and LevelRewards.halfwayDue(tonumber(progression.HalfwayPaidFor) or -1, nextStep.Level, nextStep.Progress, nextStep.Target) then
+			local checkpoint = LevelRewards.halfway(nextStep.Level)
+			local flux = fluxFor(checkpoint.FluxSeconds, checkpoint.MinFlux)
+			profile.Cash = Economy.Add(profile.Cash, flux)
+			progression.HalfwayPaidFor = nextStep.Level
+			self:_toastPlayer(player, string.format("Halfway to Level %d", nextStep.Level), string.format("+%s flux. Keep going!", Format.Number(flux)), "Success")
+			self._effect:FireClient(player, { Type = "LevelHalfway", Level = nextStep.Level, Flux = Economy.AsNumber(flux) })
+		end
+		local nextReward = nil
+		if nextStep ~= nil then
+			nextReward = LevelRewards.forLevel(nextStep.Level, nextStep.Tier)
+		end
+		return {
+			Mastery = LevelRewards.mastery(settled),
+			Surge = {
+				Multiplier = LevelRewards.surgeMultiplier(progression.Surge, now),
+				EndsAt = if LevelRewards.surgeMultiplier(progression.Surge, now) > 1 then progression.Surge.EndsAt else 0,
+			},
+			HalfwayPaidFor = progression.HalfwayPaidFor,
+			NextReward = nextReward,
+		}
+	end
+
 	function GameService:_snapshot(player: Player)
 		local profile = self._data:Get(player)
 		if not profile then
@@ -1176,6 +1254,8 @@ serviceFactories["GameService"] = function()
 			end
 			runtime.FeatureUnlocks = current
 		end
+		-- After the level-up announcement, so the client pairs the unlocked names with the rewards.
+		levelState.Progression = self:_settleProgression(player, profile, levelState, production)
 		local storyState = StoryMailSnapshot.BuildStory(profile, GameConfig.Story, ProgressionGate)
 		local mailState, unreadMail = StoryMailSnapshot.BuildMailbox(profile, GameConfig.Mail, ProgressionGate)
 		local guildMembership = profile.Guild

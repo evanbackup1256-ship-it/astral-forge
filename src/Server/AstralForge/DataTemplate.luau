@@ -304,6 +304,16 @@ function DataTemplate.New()
 			HighContrast = 0,
 			ColorblindMode = 0,
 		},
+		-- Forge Level rewards. -1 = not set up yet: the first load records the
+		-- current level without paying out the levels already reached.
+		Progression = {
+			RewardedLevel = -1,
+			HalfwayPaidFor = -1,
+			Surge = {
+				Multiplier = 1,
+				EndsAt = 0,
+			},
+		},
 		Flags = {
 			TutorialDone = false,
 			TutorialStep = 1,

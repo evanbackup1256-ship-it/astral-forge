@@ -36,6 +36,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 local CapacityProjection = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("CapacityProjection")
+local LevelRewards = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 local OfflineProjection = __load("OfflineProjection")
 local TapCritProjection = __load("TapCritProjection")
 local UpgradeCostReason = __load("UpgradeCostReason")
@@ -466,6 +467,12 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	multiplier = OmegaMath.Mul(multiplier, Economy.MasteryMultiplier(profile))
 	multiplier = OmegaMath.Mul(multiplier, Economy.AnomalySurgeMultiplier(profile, now))
 	multiplier = OmegaMath.Mul(multiplier, select(1, Economy.ContinuumEffects(profile)))
+	-- Forge Level mastery (permanent) and the Forge Surge from recent level-ups (timed).
+	local progression = profile.Progression
+	if type(progression) == "table" then
+		multiplier = OmegaMath.Mul(multiplier, 1 + LevelRewards.mastery(tonumber(progression.RewardedLevel) or 0))
+		multiplier = OmegaMath.Mul(multiplier, LevelRewards.surgeMultiplier(progression.Surge, now or os.time()))
+	end
 	local activeBoost = profile.ActiveBoost
 	if activeBoost and activeBoost.EndsAt > (now or os.time()) then
 		local boost = GameConfig.Boosts[activeBoost.Id]

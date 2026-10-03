@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (11): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (12): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -986,7 +986,7 @@ local LADDER: { LevelDef } = {
 		Level = 3,
 		Tier = "Beginner",
 		Goal = { Kind = "LifetimeCash", Target = 250, Text = "Earn 250 flux in total" },
-		Unlocks = { "Mail", "Wheel", "Inventory", "Foundry" },
+		Unlocks = { "Mail", "Wheel", "Inventory" },
 	},
 	{
 		Level = 4,
@@ -1910,6 +1910,135 @@ function TutorialScript.progress(index: number, count: number, met: boolean): nu
 end
 
 return TutorialScript
+end
+
+-- ======================================================================
+-- Module: LevelRewards
+-- ======================================================================
+__defs["LevelRewards"] = function()
+-- What reaching a Forge Level pays, the moment it happens.
+--
+--   * Level-up: flux worth some seconds of your current production (so it
+--     matters at every stage of the game), stardust, and a Forge Surge: a
+--     timed production buff that stacks up to a cap.
+--   * Halfway: crossing 50% of the way to your next level pays a smaller
+--     flux bonus, so long goals keep paying out along the way.
+--   * Mastery: every level reached adds a small permanent production bonus.
+--
+-- Pure numbers: the server grants these, the client previews them, and
+-- scripts/verify_level_rewards.luau checks them.
+
+local LevelRewards = {}
+
+local TIER_INDEX = { Beginner = 1, Apprentice = 2, Journeyman = 3, Expert = 4, Master = 5, Legend = 6 }
+
+LevelRewards.MASTERY_PER_LEVEL = 0.02 -- +2% production per level past 1
+LevelRewards.SURGE_CAP_SECONDS = 1800 -- a surge never runs more than 30 minutes ahead
+LevelRewards.SURGE_MAX_MULTIPLIER = 1.6
+LevelRewards.HALFWAY_SHARE = 0.5
+
+type Reward = {
+	FluxSeconds: number,
+	MinFlux: number,
+	Stardust: number,
+	SurgeMultiplier: number,
+	SurgeSeconds: number,
+}
+
+-- The reward for reaching `level` (in `tier`).
+function LevelRewards.forLevel(level: number, tier: string?): Reward
+	local tierIndex = TIER_INDEX[tier or ""] or 1
+	level = math.max(1, math.floor(level))
+	return {
+		FluxSeconds = 90 + level * 30,
+		MinFlux = 60 * level,
+		Stardust = level * 4 + tierIndex * 8,
+		SurgeMultiplier = math.min(LevelRewards.SURGE_MAX_MULTIPLIER, 1.2 + tierIndex * 0.05),
+		SurgeSeconds = math.min(900, 240 + level * 30),
+	}
+end
+
+-- The checkpoint paid halfway to `nextLevel`.
+function LevelRewards.halfway(nextLevel: number): { FluxSeconds: number, MinFlux: number }
+	nextLevel = math.max(2, math.floor(nextLevel))
+	return { FluxSeconds = 30 + nextLevel * 10, MinFlux = 25 * nextLevel }
+end
+
+-- Permanent production bonus (a fraction) at `level`.
+function LevelRewards.mastery(level: number): number
+	return math.max(0, math.floor(level) - 1) * LevelRewards.MASTERY_PER_LEVEL
+end
+
+-- Folds a new surge into the current one: the stronger multiplier wins, and
+-- the time adds on, capped SURGE_CAP_SECONDS ahead of now.
+function LevelRewards.mergeSurge(current, now: number, multiplier: number, seconds: number)
+	local active = type(current) == "table" and type(current.EndsAt) == "number" and current.EndsAt > now
+	local baseEnd = if active then current.EndsAt else now
+	local baseMultiplier = if active and type(current.Multiplier) == "number" then current.Multiplier else 1
+	return {
+		Multiplier = math.min(LevelRewards.SURGE_MAX_MULTIPLIER, math.max(baseMultiplier, multiplier)),
+		EndsAt = math.min(now + LevelRewards.SURGE_CAP_SECONDS, baseEnd + math.max(0, seconds)),
+	}
+end
+
+-- The production multiplier a surge gives right now (1 when it has ended).
+function LevelRewards.surgeMultiplier(surge, now: number): number
+	if type(surge) ~= "table" or type(surge.EndsAt) ~= "number" or surge.EndsAt <= now then
+		return 1
+	end
+	local multiplier = tonumber(surge.Multiplier) or 1
+	return math.clamp(multiplier, 1, LevelRewards.SURGE_MAX_MULTIPLIER)
+end
+
+-- Which levels in (rewarded, level] still owe their reward. A save that has
+-- never been rewarded (rewarded < 0) is caught up silently: veterans keep
+-- their level without a flood of back-pay.
+function LevelRewards.owed(rewarded: number, level: number): ({ number }, number)
+	if type(rewarded) ~= "number" or rewarded < 0 then
+		return {}, level
+	end
+	local owed = {}
+	for value = math.floor(rewarded) + 1, math.floor(level) do
+		table.insert(owed, value)
+	end
+	return owed, math.max(math.floor(rewarded), math.floor(level))
+end
+
+-- Whether the halfway checkpoint toward `nextLevel` should pay now.
+function LevelRewards.halfwayDue(paidFor: number, nextLevel: number?, progress: number, target: number): boolean
+	if nextLevel == nil or target <= 0 or type(paidFor) ~= "number" or paidFor < 0 then
+		return false
+	end
+	return paidFor < nextLevel and progress / target >= LevelRewards.HALFWAY_SHARE
+end
+
+-- Seconds until `remaining` is covered at `ratePerSecond`, or nil when that
+-- can't be estimated (no rate, or a goal that isn't earned over time).
+function LevelRewards.eta(kind: string, remaining: number, ratePerSecond: number): number?
+	if kind ~= "LifetimeCash" or ratePerSecond <= 0 or remaining <= 0 then
+		return nil
+	end
+	return remaining / ratePerSecond
+end
+
+-- "45s", "12m", "3h 5m", "2d".
+function LevelRewards.etaText(seconds: number?): string
+	if seconds == nil or seconds ~= seconds then
+		return ""
+	end
+	local total = math.max(0, math.floor(seconds))
+	if total < 60 then
+		return `{math.max(1, total)}s`
+	elseif total < 3600 then
+		return `{total // 60}m`
+	elseif total < 86400 then
+		local minutes = (total % 3600) // 60
+		return if minutes > 0 then `{total // 3600}h {minutes}m` else `{total // 3600}h`
+	end
+	return `{total // 86400}d`
+end
+
+return table.freeze(LevelRewards)
 end
 
 -- ======================================================================
