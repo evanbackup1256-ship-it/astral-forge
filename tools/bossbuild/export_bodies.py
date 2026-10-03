@@ -41,6 +41,14 @@ def body_block(kind, rig):
     for name, piece in rig["rest"]["pieces"].items():
         lines.append(f"\t\t\t{name} = {{ bone = \"{piece['bone']}\", center = {vec(piece['center'])} }},")
     lines.append("\t\t},")
+    chains = rig['rest'].get('physics', {}).get('chains', [])
+    if chains:
+        lines.append("\t\tphysics = { chains = {")
+        for chain in chains:
+            settings = ", ".join(f"{key} = {num(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else str(value).lower()}" for key, value in chain.get('Settings', {}).items())
+            bones = ", ".join(f'"{b}"' for b in chain['Bones'])
+            lines.append(f"\t\t\t{{ Kind = \"{chain['Kind']}\", Group = \"{chain['Group']}\", Column = {chain['Column']}, Bones = {{ {bones} }}, Settings = {{ {settings} }} }},")
+        lines.append("\t\t} },")
     lines.append("\t\tclips = {")
     for name, clip in rig["clips"].items():
         lines.append(f"\t\t\t{name} = {{ fps = {clip['fps']}, length = {num(clip['length'])}, hit = {num(clip['hit'])}, loop = {'true' if clip['loop'] else 'false'}, bones = {{")

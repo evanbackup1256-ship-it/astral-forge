@@ -194,6 +194,7 @@ class Boss:
         self.bones = {}      # name -> dict(parent, head, tail)
         self.order = []
         self.pieces = {}     # name -> dict(bone, bm)
+        self.physics = []    # simulated chains: dict(Kind, Bones, Group, Column, Settings)
 
     def bone(self, name, parent, head, tail):
         self.bones[name] = {"parent": parent, "head": Vector(head), "tail": Vector(tail)}
@@ -203,6 +204,14 @@ class Boss:
         bm = bmesh.new()
         self.pieces[name] = {"bone": bone, "bm": bm}
         return bm
+
+    def chain(self, kind, bones, group=None, column=0, **settings):
+        """Declare a run of bones the game simulates (kind: cloth | wing | heavy). Bones of one group, in
+        adjacent columns, are cross-linked so a multi-column cape moves as one sheet. settings override
+        the kind's defaults (Gravity, Drag, Pull, Wind, Collide)."""
+        for name in bones:
+            assert name in self.bones, f"{self.kind}: physics chain names unknown bone {name}"
+        self.physics.append({"Kind": kind, "Bones": list(bones), "Group": group or re.sub(r"\d+$", "", bones[0]), "Column": column, "Settings": settings})
 
 
 # --------------------------------------------------------------------------------------------
@@ -594,7 +603,7 @@ def rest_data(boss, objs):
     def conv(v):
         r = C @ Vector(v)
         return [round(r.x, 3), round(r.y, 3), round(r.z, 3)]
-    data = {"ref": next(iter(objs)), "bones": {}, "pieces": {}}
+    data = {"ref": next(iter(objs)), "bones": {}, "pieces": {}, "physics": {"chains": boss.physics}}
     for name in boss.order:
         info = boss.bones[name]
         data["bones"][name] = {"parent": info["parent"], "head": conv(info["head"] - ref)}
