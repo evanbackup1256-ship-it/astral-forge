@@ -2320,6 +2320,7 @@ type BossConfig = {
 	OutroSeconds: number,
 	BaseHealth: number,
 	HealthPerFighter: number,
+	CrowdHealth: number?,
 	BaseDamage: number,
 	DamagePerLevel: number,
 	CritChance: number,
@@ -2336,7 +2337,11 @@ end
 
 -- Health scales with the fighters present when it wakes, never below one.
 function RiftBossMath.MaxHealth(fighters: number, config: BossConfig): number
-	return config.BaseHealth + config.HealthPerFighter * math.max(1, math.floor(fighters))
+	-- The first fighter's share is HealthPerFighter; each fighter after that adds CrowdHealth (default: the same).
+	-- A crowd hits many times harder than one fighter, so a larger per-head figure keeps a full arena from
+	-- finishing the boss in seconds while a lone fighter's fight is unchanged.
+	local extra = math.max(0, math.floor(fighters) - 1)
+	return config.BaseHealth + config.HealthPerFighter + (config.CrowdHealth or config.HealthPerFighter) * extra
 end
 
 -- One strike. `critRoll` is uniform in [0, 1).
