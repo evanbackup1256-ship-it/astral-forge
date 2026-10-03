@@ -5,6 +5,21 @@ Argon-synced project for Astral Forge 5.1.0. Argon reads the existing
 version: live saves currently use `GameConfig.Game.DataVersion = 21`. Do not bump
 that value or delete the `DataService` legacy transfer without save fixtures.
 
+## Versions
+
+| What | Version |
+|------|---------|
+| Game (GameConfig.Game.Version, package.json) | 5.1.0 |
+| Save schema (GameConfig.Game.DataVersion) | 21 (do not bump without save fixtures) |
+| Lune (tests) | 0.10.5 |
+| Argon (Studio sync) | 2.0.29 |
+| Node / npm packages | Node 24; roblox-ts 3, TypeScript 7, React 17 (types only; runtime packages are vendored in endor/) |
+| Blender (boss bodies) | 5.2, headless |
+| Python (asset tools) | 3.14 |
+| Vendored Spr | MIT, endor/licenses/spr.txt |
+
+The verification suite is 90 scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
+Last updated 2026-10-03.
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
 
