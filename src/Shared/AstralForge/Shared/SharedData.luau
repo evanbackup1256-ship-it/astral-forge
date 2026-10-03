@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (10): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (11): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -1655,6 +1655,261 @@ function PlayerlistModel.details(text: string?): string
 end
 
 return table.freeze(PlayerlistModel)
+end
+
+-- ======================================================================
+-- Module: TutorialScript
+-- ======================================================================
+__defs["TutorialScript"] = function()
+-- The guided tutorial: every step, what it highlights, what finishes it, and
+-- where Bolt (the guide pet) floats and points. Pure, so Lune tests run it.
+--
+-- Step fields:
+--   say        Bolt's line in the speech bubble
+--   title/body the step card
+--   goal       one-line task shown with a checkbox
+--   target     Name of the GuiObject to spotlight (first visible match wins)
+--   page       nav page kept visible for this step (locked pages unlock for it)
+--   startPage  page the step opens on; nil keeps the player where they are
+--   watch      what finishes it: "continue", "collect", "buy", "amount",
+--              "page:<Id>" or "finish"
+--   auto       move on by itself once the goal is met
+--   cta        optional shortcut button: "collect" | "workshop" | "research"
+
+local TutorialScript = {}
+
+TutorialScript.PET_NAME = "Bolt"
+
+TutorialScript.STEPS = table.freeze({
+	{
+		id = "hello",
+		title = "Welcome to Astral Forge",
+		say = "Hi, I'm Bolt! I'll show you around the forge. Click me any time for a hint.",
+		body = "This guide points at exactly what to click. You can go back, skip or replay it from Settings.",
+		goal = "Say hi to Bolt",
+		startPage = "Overview",
+		page = "Overview",
+		watch = "continue",
+	},
+	{
+		id = "vault",
+		title = "This is your vault",
+		say = "Machines pour Flux into this vault, even while you're away.",
+		body = "Stored Flux isn't money yet. Collect it to turn it into cash you can spend.",
+		goal = "Find the vault",
+		target = "OverviewVaultClaimActions",
+		startPage = "Overview",
+		page = "Overview",
+		watch = "continue",
+	},
+	{
+		id = "collect",
+		title = "Collect your Flux",
+		say = "Click the glowing Collect button!",
+		body = "A full vault stops filling, so collect often.",
+		goal = "Collect the vault",
+		target = "OverviewVaultClaimActions",
+		page = "Overview",
+		watch = "collect",
+		auto = true,
+		cta = "collect",
+		ctaLabel = "Collect stored Flux",
+		controls = "Keyboard: E  ·  Xbox: Y",
+	},
+	{
+		id = "toWorkshop",
+		title = "Machines live in the Workshop",
+		say = "Now click Workshop. That's where you buy machines.",
+		body = "Every page is in the menu. Workshop is the one you'll use most.",
+		goal = "Open the Workshop",
+		target = "Nav_Workshop",
+		page = "Workshop",
+		watch = "page:Workshop",
+		auto = true,
+		cta = "workshop",
+		ctaLabel = "Open Workshop",
+	},
+	{
+		id = "buy",
+		title = "Buy your first machine",
+		say = "Buy a machine here. More machines, more Flux every second!",
+		body = "Each level adds Flux per second. Grey means you need more cash: collect the vault first.",
+		goal = "Buy a machine",
+		target = "WorkshopBuyClaim",
+		startPage = "Workshop",
+		page = "Workshop",
+		watch = "buy",
+		auto = true,
+	},
+	{
+		id = "amount",
+		title = "Buy many levels at once",
+		say = "Tap x5 or Max to buy lots of levels in one click.",
+		body = "x1 buys one level, x5 buys five, Max buys everything you can afford.",
+		goal = "Pick x5 or Max",
+		target = "AmountToggleTarget",
+		page = "Workshop",
+		watch = "amount",
+		auto = true,
+		controls = "Xbox: LT / RT",
+	},
+	{
+		id = "level",
+		title = "Your forge level",
+		say = "This bar is your level. Each new level opens another part of the forge.",
+		body = "Click the bar any time to see every level and what it unlocks.",
+		goal = "Look at the level bar",
+		target = "LevelBarTarget",
+		page = "Workshop",
+		watch = "continue",
+	},
+	{
+		id = "toResearch",
+		title = "Research lasts forever",
+		say = "Click Research. Its bonuses stay even after you rebirth.",
+		body = "Research opens properly at level 2, but you can take a look now.",
+		goal = "Open Research",
+		target = "Nav_Research",
+		page = "Research",
+		watch = "page:Research",
+		auto = true,
+		cta = "research",
+		ctaLabel = "Open Research",
+	},
+	{
+		id = "research",
+		title = "Buy the lit bonuses",
+		say = "When a bonus lights up, you can afford it. Buy them in order.",
+		body = "Research is the best long-term use of your cash.",
+		goal = "Read the research page",
+		target = "ResearchBuyClaimActions",
+		page = "Research",
+		watch = "continue",
+	},
+	{
+		id = "menu",
+		title = "Everything is in the menu",
+		say = "Pages are grouped into sections. Click a section's name to open or close it.",
+		body = "Home, Daily, Progress, Games & Deals, Social and System. New pages appear as you level up.",
+		goal = "Look over the menu",
+		target = "RailNavClaim",
+		page = "Research",
+		watch = "continue",
+	},
+	{
+		id = "rebirth",
+		title = "Rebirth makes every run faster",
+		say = "Later on, Rebirth trades your machines for Cores. Your research stays!",
+		body = "The Overview shows how many Cores a rebirth pays before you confirm.",
+		goal = "Learn about rebirth",
+		target = "Nav_Overview",
+		startPage = "Overview",
+		page = "Overview",
+		watch = "continue",
+	},
+	{
+		id = "finish",
+		title = "You're ready",
+		say = "That's the tour! Replay me from Settings, then Guide. Now go build something huge!",
+		body = "Collect, buy machines, research, rebirth. Finishing pays a small Flux bonus.",
+		goal = "Finish the guide",
+		target = "Nav_Settings",
+		page = "Overview",
+		watch = "finish",
+	},
+})
+
+-- Lines Bolt says when clicked, by mood.
+TutorialScript.QUIPS = table.freeze({
+	idle = { "Need a hint? Follow my finger!", "The glowing box is the thing to click.", "Beep boop. That tickles!", "I run on Flux. Mostly." },
+	done = { "Nice! On to the next bit.", "You're a natural!", "Woo! Keep going!" },
+})
+
+local function num(value: any, fallback: number): number
+	if type(value) == "number" and value == value then
+		return value
+	end
+	return fallback
+end
+
+-- Whether `step`'s goal is met. `live` carries page, ownedMachines, buyAmount;
+-- `collected` is true once the vault was emptied during this step.
+function TutorialScript.goalMet(step, live, collected: boolean?): boolean
+	if step == nil then
+		return false
+	end
+	local watch = step.watch
+	live = if type(live) == "table" then live else {}
+	if watch == "continue" or watch == "finish" then
+		return true
+	elseif watch == "collect" then
+		return collected == true
+	elseif watch == "buy" then
+		return num(live.ownedMachines, 0) > 0
+	elseif watch == "amount" then
+		return num(live.buyAmount, 1) ~= 1
+	elseif type(watch) == "string" and string.sub(watch, 1, 5) == "page:" then
+		return live.page == string.sub(watch, 6)
+	end
+	return false
+end
+
+-- Steps that need the player to do something (they show "Do it to continue"
+-- instead of a Continue button until the goal is met).
+function TutorialScript.needsAction(step): boolean
+	return step ~= nil and step.watch ~= "continue" and step.watch ~= "finish"
+end
+
+-- Where Bolt floats for a target rect, all in the overlay's own pixels.
+-- Bolt sits beside the target on whichever side has room (right, left, below,
+-- above), clamped inside the screen, and points at the target's nearest edge.
+-- Returns the pet centre, the pointing angle (degrees, 0 = right), and the
+-- side used. With no target Bolt sits above the step card, pointing at it.
+function TutorialScript.petPose(rect, screenW: number, screenH: number, petSize: number, dock)
+	local margin = 14
+	local half = petSize / 2
+	local function clampPoint(x, y)
+		return math.clamp(x, half + 6, math.max(half + 6, screenW - half - 6)), math.clamp(y, half + 6, math.max(half + 6, screenH - half - 6))
+	end
+	if rect == nil then
+		local dockTop = if dock ~= nil then dock.y else screenH * 0.7
+		local dockX = if dock ~= nil then dock.x + dock.w - half - 10 else screenW / 2
+		local x, y = clampPoint(dockX, dockTop - half - 10)
+		return x, y, 90, "dock"
+	end
+	local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+	local roomRight = screenW - (rect.x + rect.w)
+	local roomLeft = rect.x
+	local roomBelow = screenH - (rect.y + rect.h)
+	local side, x, y
+	if roomRight >= petSize + margin * 2 then
+		side, x, y = "right", rect.x + rect.w + margin + half, cy
+	elseif roomLeft >= petSize + margin * 2 then
+		side, x, y = "left", rect.x - margin - half, cy
+	elseif roomBelow >= petSize + margin * 2 then
+		side, x, y = "below", cx, rect.y + rect.h + margin + half
+	else
+		side, x, y = "above", cx, rect.y - margin - half
+	end
+	x, y = clampPoint(x, y)
+	-- Point at the closest point of the target rect.
+	local px = math.clamp(x, rect.x, rect.x + rect.w)
+	local py = math.clamp(y, rect.y, rect.y + rect.h)
+	local angle = math.deg(math.atan2(py - y, px - x))
+	if px == x and py == y then
+		angle = 90
+	end
+	return x, y, angle, side
+end
+
+-- Progress through the guide, 0..1, counting the current step as half done
+-- until its goal is met.
+function TutorialScript.progress(index: number, count: number, met: boolean): number
+	local total = math.max(1, count)
+	return math.clamp((index - (if met then 0 else 0.5)) / total, 0, 1)
+end
+
+return TutorialScript
 end
 
 -- ======================================================================
