@@ -44,6 +44,7 @@ local compactNumber = _format.compactNumber
 local clockText = _format.clockText
 local formatReward = _format.formatReward
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
+local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
@@ -367,7 +368,7 @@ local function Marquee(props)
 				bulb.BackgroundTransparency = 0.78 - 0.78 * wave
 			end
 		end
-	end, not props.reducedMotion, 20)
+	end, not props.reducedMotion)
 	return React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 10),
 		BackgroundTransparency = 1,
@@ -524,6 +525,9 @@ end
 -- A reel: a dark drum with the strip's symbols standing round it. The drum never moves: set(pos) swings the camera
 -- (and the light with it) round the drum's axis so cell `pos` faces the lens. That is one camera move per frame
 -- where turning the drum meant re-posing about ninety parts, and it only redraws when the position changes.
+-- Only the cells near the window are kept in the viewport (each cell is its own model, parented in or out as it
+-- comes round), so a spinning reel draws about a third of the parts it used to.
+local VISIBLE_CELLS = 3
 local function buildDrum(index)
 	return function(viewport, camera)
 		local model = newModel(viewport)
@@ -532,14 +536,34 @@ local function buildDrum(index)
 		for _, x in { -0.62, 0.62 } do
 			solid(model, CYL, Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02), Palette.brass, PLASTIC, CFrame.new(x, 0, 0))
 		end
+		local cells = {}
 		for k = 0, CYCLE - 1 do
-			addSymbol(model, STRIPS[index][k + 1], CFrame.Angles(k / CYCLE * math.tau, 0, 0) * CFrame.new(0, 0, -(radius + 0.02)), 0.62)
+			local cell = Instance.new("Model")
+			addSymbol(cell, STRIPS[index][k + 1], CFrame.Angles(k / CYCLE * math.tau, 0, 0) * CFrame.new(0, 0, -(radius + 0.02)), 0.62)
+			cells[k] = cell
+		end
+		local front = nil
+		local function showAround(pos)
+			local nextFront = math.round(pos) % CYCLE
+			if nextFront == front then
+				return
+			end
+			front = nextFront
+			for k, cell in cells do
+				local gap = math.abs(k - nextFront)
+				gap = math.min(gap, CYCLE - gap)
+				local parent = if gap <= VISIBLE_CELLS then model else nil
+				if cell.Parent ~= parent then
+					cell.Parent = parent
+				end
+			end
 		end
 		local baseLight = Vector3.new(-0.5, -0.8, 1)
 		local home = CFrame.lookAt(Vector3.new(0, 0, -6.4), Vector3.zero)
 		local lastAngle = math.huge
 		camera.FieldOfView = 24
 		camera.CFrame = home
+		showAround(0)
 		return {
 			set = function(pos)
 				local angle = pos / CYCLE * math.tau
@@ -547,12 +571,31 @@ local function buildDrum(index)
 					return
 				end
 				lastAngle = angle
+				showAround(pos)
 				local swing = CFrame.Angles(angle, 0, 0)
 				camera.CFrame = swing * home
 				viewport.LightDirection = swing:VectorToWorldSpace(baseLight)
 			end,
 		}
 	end
+end
+
+-- A soft glass sheen laid over a viewport: brighter at the top, clear below the middle.
+local function GlassSheen(props)
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 0.82,
+		BorderSizePixel = 0,
+		ZIndex = props.zIndex or 6,
+		Active = false,
+	}, {
+		Corner = React.createElement("uicorner", { CornerRadius = props.radius or UDim.new(0, 10) }),
+		Fade = React.createElement("uigradient", {
+			Rotation = 90,
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.22, 0.85), NumberSequenceKeypoint.new(0.5, 1), NumberSequenceKeypoint.new(1, 1) }),
+		}),
+	})
 end
 -- ----- the slot machine ---------------------------------------------------------------------------------
 
@@ -668,7 +711,7 @@ local function SlotMachine(props)
 			end
 			local blur = blurs.current[index]
 			if blur ~= nil and blur.Parent ~= nil then
-				blur.BackgroundTransparency = 1 - math.clamp(reel.vel / 26, 0, 1) * 0.5
+				blur.BackgroundTransparency = 1 - math.clamp(reel.vel / 26, 0, 1) * 0.28
 			end
 		end
 		local glow = band.current
@@ -701,9 +744,10 @@ local function SlotMachine(props)
 					Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 1), NumberSequenceKeypoint.new(0.7, 1), NumberSequenceKeypoint.new(1, 0) }),
 				}),
 			}),
+			Sheen = React.createElement(GlassSheen, { zIndex = 6 }),
 			Blur = React.createElement("frame", {
 				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Color3.new(1, 1, 1),
+				BackgroundColor3 = Palette.cream,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				ZIndex = 5,
@@ -846,6 +890,10 @@ local function PayoutBanner(props)
 		end
 		local life = if props.kind == "jackpot" then 3.2 else 2.0
 		frame.Visible = age < life and props.token > 0
+		-- Win amounts count up as the banner pops; losses show at once.
+		if props.amount ~= nil and props.kind ~= "lose" then
+			frame.Text = (props.prefix or "+") .. compactNumber(props.amount * outCubic(age / 0.6))
+		end
 		if scale.current ~= nil then
 			scale.current.Scale = if age < 0.45 then 0.3 + 0.9 * outBack(age / 0.45) elseif props.kind == "jackpot" then 1.2 + 0.08 * math.sin(now * 9) else 1.2 - 0.2 * math.clamp((age - 0.45) / 0.8, 0, 1)
 		end
@@ -1135,16 +1183,9 @@ local function Wheel(props)
 			end
 		end
 	end, { props.phase, props.token })
-	local drift = React.useRef(0)
+	-- Every frame, resting or not: the slow idle turn used to tick at 24Hz and read as a stutter.
 	useRender(function(dt, now)
 		local m = motion.current
-		if m.mode == "rest" then
-			drift.current += dt
-			if drift.current < 1 / 24 then
-				return
-			end
-			dt, drift.current = drift.current, 0
-		end
 		m.turn += dt * (if m.mode == "orbit" or m.mode == "land" then 0.9 else 0.25)
 		local radius, angle = 0.34, m.rel
 		if m.mode == "orbit" then
@@ -1165,6 +1206,7 @@ local function Wheel(props)
 		paint(angle, radius)
 	end, not props.reducedMotion)
 	return React.createElement("frame", { Size = UDim2.fromOffset(diameter, diameter), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = props.order or 0 }, {
+		Sheen = React.createElement(GlassSheen, { zIndex = 3, radius = UDim.new(0.5, 0) }),
 		Scene = React.createElement(View3D, {
 			build = buildWheel,
 			ambient = Color3.fromRGB(170, 160, 180),
@@ -1288,7 +1330,7 @@ local function ScratchCell(props)
 				end
 			end
 		end
-	end, not props.reducedMotion, 30)
+	end, not props.reducedMotion)
 	local color = if id then (SYMBOL_COLORS[id] or Palette.cream) else Palette.muted
 	local sparkleEls = {}
 	for i = 1, SPARKLES do
@@ -1436,6 +1478,26 @@ local function ShineBar(props)
 	})
 end
 
+-- The game panel's content slides and settles in when you switch games. Keyed by tab, so it remounts.
+local function TabSwap(props)
+	local arrive = useFlipperSpring(1, false, 620, 40, 0)
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = arrive:map(function(amount)
+			return UDim2.fromOffset(math.round((1 - math.clamp(amount, 0, 1)) * 18 * (props.direction or 1)), 0)
+		end),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, {
+		Scale = React.createElement("uiscale", {
+			Scale = arrive:map(function(amount)
+				return 0.97 + math.clamp(amount, 0, 1) * 0.03
+			end),
+		}),
+		Body = props.children,
+	})
+end
+
 local function stakeLine(state, tier)
 	local stake = state.Casino.Stakes[tier]
 	if stake == nil then
@@ -1457,6 +1519,14 @@ local function CasinoView(props)
 	local casino = state.Casino
 
 	local tab, setTab = React.useState(props.initialTab or "Slots")
+	-- Which way the new game slides in: from the right when moving forward through the tabs.
+	local tabIndexRef = React.useRef({ index = 1, direction = 1 })
+	for index, entry in TABS do
+		if entry.id == tab and index ~= tabIndexRef.current.index then
+			tabIndexRef.current = { index = index, direction = if index > tabIndexRef.current.index then 1 else -1 }
+		end
+	end
+	local tabDirection = tabIndexRef.current.direction
 	local tier, setTier = React.useState(2)
 	local busy, setBusy = React.useState(false)
 	local note, setNote = React.useState({ text = "Pick a game and a stake. The house keeps a few percent, and you can walk away any time.", good = nil })
@@ -1512,7 +1582,7 @@ local function CasinoView(props)
 				sfx("casino_cash", 0.6)
 			end
 			setFx({ token = fx.token + 1, power = if kind == "jackpot" then 2.2 elseif kind == "big" then 1.5 else 1 })
-			setBanner({ token = banner.token + 1, text = `+{compactNumber(result.Payout)}`, kind = kind })
+			setBanner({ token = banner.token + 1, text = `+{compactNumber(result.Payout)}`, amount = result.Payout, kind = kind })
 			setMode("win")
 			task.delay(if kind == "jackpot" then 3 else 1.6, function()
 				if mounted.current then
@@ -2081,9 +2151,9 @@ local function CasinoView(props)
 						background = Palette.panelRaised,
 						padding = Layout.cardPadding,
 						reducedMotion = reducedMotion,
-					}, React.createElement(Stack, { gap = 8, children = bodies[tab]() })),
+					}, React.createElement(TabSwap, { key = tab, direction = tabDirection }, React.createElement(Stack, { gap = 8, children = bodies[tab]() }))),
 					Coins = React.createElement(Confetti, { token = fx.token, power = fx.power, reducedMotion = reducedMotion }),
-					Banner = React.createElement(PayoutBanner, { token = banner.token, text = banner.text, kind = banner.kind, reducedMotion = reducedMotion }),
+					Banner = React.createElement(PayoutBanner, { token = banner.token, text = banner.text, amount = banner.amount, kind = banner.kind, reducedMotion = reducedMotion }),
 				}),
 			},
 		},
