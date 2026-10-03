@@ -2101,48 +2101,35 @@ local function useClock(enabled, speed, period, realtime)
 	end, { live, period, realtime, setBinding, scaledSpeed })
 	return binding
 end
-local function useWallClock(enabled)
-	if enabled == nil then
-		enabled = true
-	end
-	-- Prefer Roblox-synced server time so surge/overdrive/cycle countdowns match the
-	-- deadlines the server stamps (and the anomaly pulse needle).
-	local Workspace = game:GetService("Workspace")
-	local function syncedNow()
-		local ok, value = pcall(function()
-			return Workspace:GetServerTimeNow()
-		end)
-		if ok and type(value) == "number" then
-			return value
-		end
-		return os.time()
-	end
-	local binding, setBinding = React.useBinding(syncedNow())
-	local enabledRef = React.useRef(enabled)
-	enabledRef.current = enabled
-	local setBindingRef = React.useRef(setBinding)
-	setBindingRef.current = setBinding
+-- One wall clock for the whole UI (Roblox-synced server time, so countdowns match the deadlines the
+-- server stamps). The motion driver pushes it every frame, so bars that drain against it move smoothly;
+-- it used to tick five times a second and every countdown bar visibly stepped. Labels that map it to text
+-- only change when their string does.
+local function syncedNow()
+	local value = workspace:GetServerTimeNow()
+	return if type(value) == "number" and value == value then value else os.time()
+end
+local sharedWall, setSharedWall = React.createBinding(syncedNow())
+local wallUsers = 0
+local wallRelease = nil
+local function useWallClock(_enabled)
 	React.useEffect(function()
-		setBindingRef.current(syncedNow())
-	end, { enabled })
-	React.useEffect(function()
-		local alive = true
-		local worker = task.spawn(function()
-			while alive do
-				task.wait(0.2)
-				if alive and enabledRef.current then
-					setBindingRef.current(syncedNow())
-				end
-			end
-		end)
-		return function()
-			alive = false
-			pcall(function()
-				task.cancel(worker)
+		wallUsers += 1
+		if wallRelease == nil then
+			setSharedWall(syncedNow())
+			wallRelease = subscribeContinuous(function()
+				setSharedWall(syncedNow())
 			end)
 		end
+		return function()
+			wallUsers = math.max(0, wallUsers - 1)
+			if wallUsers == 0 and wallRelease ~= nil then
+				wallRelease()
+				wallRelease = nil
+			end
+		end
 	end, {})
-	return binding
+	return sharedWall
 end
 local function useRotation(enabled, degreesPerSecond)
 	return useClock(enabled, degreesPerSecond, 360, true)
@@ -3148,8 +3135,16 @@ local function AntilagProvider(_param)
 		local lastLoggedTier = infoRef.current.tier
 		-- Quality can cross a tier boundary every sample while a settings slider
 		-- or a resize hitch is in progress. Hold the published tier until the new
-		-- one has stayed put for a short beat so the shell does not flip every frame.
-		local TIER_DEBOUNCE_SECONDS = 0.4
+		-- one has stayed put for a beat: every tier change re-renders the whole tree,
+		-- which is itself a hitch, so flipping fast fed the very lag it reacted to.
+		local TIER_DEBOUNCE_SECONDS = 1.5
+		-- Motion never switches off: desktop holds tier 2 and constrained devices tier 1,
+		-- where every glow, hover sheen and loop still runs (just with fewer particles).
+		local QUALITY_FLOOR = if IS_CONSTRAINED then 0.22 else 0.46
+		-- Bad windows in a row before quality steps down; a step is at most one tier.
+		local SUSTAINED_BAD_SAMPLES = 3
+		local MAX_DROP = 0.24
+		local badSamples = 0
 		local pendingTier = lastLoggedTier
 		local pendingTierSince = os.clock()
 		local lastRiseAt = 0
@@ -3174,19 +3169,15 @@ local function AntilagProvider(_param)
 			if warming then
 				target = math.max(target, quality)
 			end
-			local spiked = not warming and (sample.hitchScore >= 0.12 or sample.p99FrameTimeMs >= 42)
+			-- Isolated hitches (a page mounting, an asset streaming in) are not lag: they no longer
+			-- lower quality. Only frame rate that stays low for several windows does, one tier at a time.
 			local collapsed = not warming and (sample.fps < 40 or sample.p95FrameTimeMs >= 32)
-			if spiked or collapsed then
+			if collapsed then
+				badSamples += 1
 				hitchStrikes += 1
-				hitchHoldUntil = now + (if collapsed then 1.8 else 0.6)
-				if collapsed and hitchStrikes >= 2 then
-					target = math.min(target, 0.16)
-					holdUntil = now + 2.6
-				elseif hitchStrikes >= 2 then
-					target = math.min(target, math.max(0.22, quality - 0.22))
-					holdUntil = now + 1.4
-				end
+				hitchHoldUntil = now + 1.8
 			else
+				badSamples = 0
 				hitchStrikes = math.max(0, hitchStrikes - 1)
 				if now >= hitchHoldUntil and sample.hitchScore < 0.05 and sample.fps >= 50 then
 					hitchHoldUntil = now
@@ -3195,25 +3186,23 @@ local function AntilagProvider(_param)
 			if sample.fps < 50 and not warming then
 				target = math.min(target, 0.22 + (sample.fps / 50) * 0.4)
 			end
-			if slope < -0.03 and not warming then
-				target = math.max(0.1, target - 0.12)
-			end
 			if warming then
 				target = math.max(target, quality)
 			end
 			local falling = target < quality - 0.02
 			local rising = target > quality + 0.05
-			if falling then
-				local alpha = if collapsed then 0.72 else 0.4
-				quality += (target - quality) * alpha
+			if falling and badSamples >= SUSTAINED_BAD_SAMPLES and now - lastDropAt >= 2 then
+				quality = math.max(target, quality - MAX_DROP)
 				lastDropAt = now
+				holdUntil = now + 3
+				badSamples = 0
 			elseif rising and now >= holdUntil and now - lastDropAt >= 2.2 and now - lastRiseAt >= 1.1 then
 				quality += (target - quality) * 0.08
 				lastRiseAt = now
-			else
+			elseif not falling then
 				quality += (target - quality) * 0.02
 			end
-			quality = math.clamp(quality, 0.08, touchCeil)
+			quality = math.clamp(quality, QUALITY_FLOOR, touchCeil)
 			local pressure = math.clamp(1 - raw + scene + prefer, 0, 1)
 			local scored = infoFromQuality(quality, sample.fps, pressure, sample.hitchScore)
 			local published = infoRef.current

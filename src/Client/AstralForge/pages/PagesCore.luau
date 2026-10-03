@@ -597,11 +597,13 @@ local function OverviewView(_param)
 				if not alive then
 					break
 				end
-				setOverchargeLeft(left)
+				-- The label shows tenths, so re-render once per tenth (the meter springs between them);
+				-- 20 renders a second of the whole Overview page during repeated taps read as lag.
+				setOverchargeLeft(math.ceil(left * 10) / 10)
 				if left <= 0 then
 					break
 				end
-				task.wait(0.05)
+				task.wait(math.max(0.016, left - (math.ceil(left * 10) - 1) / 10))
 			end
 		end)
 		return function()

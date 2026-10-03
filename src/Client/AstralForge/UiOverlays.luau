@@ -4545,11 +4545,12 @@ local function MobileQuickBar(_param)
 				if not alive then
 					break
 				end
-				setTapLeft(left)
+				-- One render per displayed tenth instead of twenty a second.
+				setTapLeft(math.ceil(left * 10) / 10)
 				if not alive or left <= 0 then
 					break
 				end
-				task.wait(0.05)
+				task.wait(math.max(0.016, left - (math.ceil(left * 10) - 1) / 10))
 			end
 		end)
 		return function()
