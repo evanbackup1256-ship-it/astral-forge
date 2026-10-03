@@ -422,10 +422,59 @@ local function revealFocusedControl(keyboardTopY)
 		ancestor = ancestor.Parent
 	end
 end
+-- Resize signals arrive from two places (the safe host's AbsoluteSize and the camera's
+-- ViewportSize), often several per frame while a window is dragged. Each one used to re-render
+-- the whole UI. They now fold into one update per frame, at most RESIZE_HZ while the size keeps
+-- moving, with a trailing update so the final size is always exact.
+local RESIZE_HZ = 30
+local function useCoalescedScreen(initial)
+	local screen, setScreenNow = React.useState(initial)
+	local state = React.useRef(nil)
+	if state.current == nil then
+		state.current = { pending = nil, applied = screen, lastAt = 0, job = nil, alive = true }
+	end
+	React.useEffect(function()
+		local current = state.current
+		current.alive = true
+		return function()
+			current.alive = false
+			if current.job ~= nil then
+				pcall(task.cancel, current.job)
+				current.job = nil
+			end
+		end
+	end, {})
+	local request = React.useCallback(function(size)
+		local current = state.current
+		local rounded = Vector2.new(math.round(size.X), math.round(size.Y))
+		if rounded.X <= 0 or rounded.Y <= 0 then
+			return
+		end
+		current.pending = rounded
+		if current.job ~= nil then
+			return
+		end
+		local wait = math.max(0, 1 / RESIZE_HZ - (os.clock() - current.lastAt))
+		current.job = task.delay(wait, function()
+			current.job = nil
+			if not current.alive or current.pending == nil then
+				return
+			end
+			local nextSize = current.pending
+			current.pending = nil
+			current.lastAt = os.clock()
+			if nextSize ~= current.applied then
+				current.applied = nextSize
+				setScreenNow(nextSize)
+			end
+		end)
+	end, {})
+	return screen, request
+end
 local function AutoScale(_param)
 	local children = _param.children
 	local safeHostRef = React.useRef(nil)
-	local screen, setScreen = React.useState(function()
+	local screen, setScreen = useCoalescedScreen(function()
 		local rect = GuiService:GetInsetArea(Enum.ScreenInsets.CoreUISafeInsets)
 		return rect.Max - rect.Min
 	end)

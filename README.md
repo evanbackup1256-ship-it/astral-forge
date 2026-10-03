@@ -200,3 +200,15 @@ The walkable sanctuary, its ore outcrops, waystones and rift bosses were removed
 Foundry upgrades players already bought are kept: `SharedData#OreConfig` (exposed as `GameConfig.Ore`) still
 sanitizes them on load and `Economy.OreEffect` still applies the upgrades, so no save migration was needed and
 `DataVersion` stays 21. The old code is in git history.
+
+## Configs you can edit
+
+| What | Where |
+|------|-------|
+| Credits: categories (Owner, Developers, Moderators, Testers, ...), people, card style, avatars, tabs, search, motion | `SharedData#CreditsConfig` (`src/Shared/AstralForge/Shared/SharedData.luau`) |
+| Guided tour: steps, Bolt's lines, what each step highlights and waits for | `SharedData#TutorialScript` |
+| Report reasons (client) | `SharedData#PlayerlistModel.REASONS`; the server list is `ProfileMath#ReportLedger.REASONS` and must match (`scripts/verify_playerlist.luau` checks) |
+| Left rail sections | `CoreKit#navRouteTable` `NAV_GROUPS` |
+
+The tutorial finds what to highlight by GuiObject `Name` (for example `WorkshopBuyClaim`, `Nav_Research`).
+`scripts/verify_tutorial.luau` fails if a step points at a name the UI no longer sets.

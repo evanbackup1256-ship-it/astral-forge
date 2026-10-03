@@ -810,6 +810,53 @@ function Plan.textFloor(touch: boolean, textSize: number, scaled: boolean): numb
 	return Plan.TOUCH_TEXT_FLOOR
 end
 
+-- A label that doesn't fit gets wrapped before it gets shrunk, when its box has
+-- room for at least two lines: shrinking a sentence to 8px reads far worse than
+-- breaking it across lines.
+Plan.WRAP_LINE_FACTOR = 2.1
+function Plan.shouldWrap(textSize: number, boxHeight: number, wrapped: boolean, scaled: boolean): boolean
+	if wrapped or scaled or textSize <= 0 then
+		return false
+	end
+	return boxHeight >= textSize * Plan.WRAP_LINE_FACTOR
+end
+
+-- Two labels in the same row collide when their glyphs overlap sideways by at
+-- least this share of the narrower one, and share most of their height.
+Plan.LABEL_COLLIDE_SHARE = 0.12
+Plan.LABEL_ROW_SHARE = 0.5
+function Plan.labelsCollide(a, b): boolean
+	local width = math.min(a.x1 - a.x0, b.x1 - b.x0)
+	local height = math.min(a.y1 - a.y0, b.y1 - b.y0)
+	if width <= 0 or height <= 0 then
+		return false
+	end
+	local sideways = math.max(0, math.min(a.x1, b.x1) - math.max(a.x0, b.x0))
+	local shared = math.max(0, math.min(a.y1, b.y1) - math.max(a.y0, b.y0))
+	return sideways / width >= Plan.LABEL_COLLIDE_SHARE and shared / height >= Plan.LABEL_ROW_SHARE
+end
+
+-- How far to move a floating panel so it sits inside the screen with `margin`
+-- to spare. A panel bigger than the screen keeps its top-left edge in view.
+Plan.SCREEN_MARGIN = 6
+function Plan.nudgeIntoView(x0: number, y0: number, x1: number, y1: number, screenW: number, screenH: number): (number, number)
+	local margin = Plan.SCREEN_MARGIN
+	local dx, dy = 0, 0
+	if x1 > screenW - margin then
+		dx = (screenW - margin) - x1
+	end
+	if x0 + dx < margin then
+		dx = margin - x0
+	end
+	if y1 > screenH - margin then
+		dy = (screenH - margin) - y1
+	end
+	if y0 + dy < margin then
+		dy = margin - y0
+	end
+	return dx, dy
+end
+
 -- Frames for one full sweep of `count` instances at the steady budget.
 function Plan.sweepFrames(count: number): number
 	return math.max(1, math.ceil(math.max(0, count) / Plan.SWEEP_PER_FRAME))

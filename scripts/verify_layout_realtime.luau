@@ -70,12 +70,35 @@ assert(Plan.textFloor(true, 4, false) == nil, "glyph-sized decoration is left al
 assert(Plan.TOUCH_TEXT_FLOOR >= 11, "the touch floor must be readable")
 
 ------------------------------------------------------------------------
+-- 4b. Wrap, label collisions, off-screen panels
+------------------------------------------------------------------------
+assert(Plan.shouldWrap(14, 40, false, false), "a two-line box wraps")
+assert(not Plan.shouldWrap(14, 20, false, false), "a one-line box does not")
+assert(not Plan.shouldWrap(14, 40, true, false) and not Plan.shouldWrap(14, 40, false, true), "already wrapped or scaled: leave it")
+local a1 = { x0 = 0, y0 = 0, x1 = 100, y1 = 20 }
+assert(Plan.labelsCollide(a1, { x0 = 80, y0 = 2, x1 = 160, y1 = 22 }), "overlapping row labels collide")
+assert(not Plan.labelsCollide(a1, { x0 = 104, y0 = 0, x1 = 160, y1 = 20 }), "side by side is fine")
+assert(not Plan.labelsCollide(a1, { x0 = 50, y0 = 30, x1 = 150, y1 = 50 }), "different rows are fine")
+local dx, dy = Plan.nudgeIntoView(900, 500, 1100, 700, 1000, 600)
+assert(dx == -106 and dy == -106, "a panel hanging off the bottom-right moves back in")
+dx, dy = Plan.nudgeIntoView(-20, 10, 80, 60, 1000, 600)
+assert(dx == 26 and dy == 0, "off the left edge moves right")
+dx, dy = Plan.nudgeIntoView(0, 0, 2000, 100, 1000, 600)
+assert(dx == 6, "wider than the screen keeps its left edge in view")
+
+------------------------------------------------------------------------
 -- 5. Wiring
 ------------------------------------------------------------------------
 local guard = readSource("src/Client/AstralForge/layoutGuard.luau")
 assert(string.find(guard, "(\"layoutGuardPlan\")", 1, true), "the guard schedules from layoutGuardPlan")
 assert(string.find(guard, "Plan.budget(self.burstLeft, #self.fresh)", 1, true), "every frame spends the planned budget")
-assert(string.find(guard, "root.DescendantAdded:Connect", 1, true), "new elements enter the fresh queue")
+assert(string.find(guard, "layer.DescendantAdded:Connect", 1, true), "new elements enter the fresh queue")
+assert(string.find(guard, "playerGui.ChildAdded:Connect(consider)", 1, true), "portaled layers (dropdowns, sheets, toasts) are watched too")
+assert(string.find(guard, "Plan.shouldWrap(label.TextSize, size.Y, label.TextWrapped, label.TextScaled)", 1, true), "text wraps before it shrinks")
+assert(string.find(guard, "Plan.labelsCollide(leftText, rightText)", 1, true), "labels that run into each other are untangled")
+assert(string.find(guard, "repairFloatingPanel(inst)", 1, true), "floating panels are pulled back on screen")
+local autoScale = readSource("src/Client/AstralForge/MotionKit.luau#autoScale")
+assert(string.find(autoScale, "useCoalescedScreen(function()", 1, true), "resize signals fold into one update per frame")
 assert(string.find(guard, 'root:GetPropertyChangedSignal("AbsoluteSize")', 1, true), "a resize is handled the frame it happens")
 assert(string.find(guard, "applyTextFloor(label)", 1, true), "text goes through the touch floor")
 assert(string.find(guard, "if not label.TextFits then\n\t\t\tlabel.TextSize = original", 1, true), "a raised label that stops fitting is put back")

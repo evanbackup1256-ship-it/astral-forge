@@ -46,6 +46,9 @@ local stats = {
 	canvasSharpFixed = 0,
 	textClearedOfButton = 0,
 	textUnderButtonSeen = 0,
+	textWrapped = 0,
+	labelsUntangled = 0,
+	pulledIntoView = 0,
 	gaveUp = 0,
 }
 -- How often repairs are rolled up into one log line (seconds). Individual repairs are
@@ -116,8 +119,13 @@ local function allowWrite(inst)
 	tryCount[inst] = tries + 1
 	return true
 end
+-- A panel parented straight to a ScreenGui layer (portaled popovers, sheets) is
+-- checked for spilling off the screen.
+local function isFloatingPanel(instance)
+	return instance:IsA("Frame") and instance.Parent ~= nil and instance.Parent:IsA("LayerCollector")
+end
 local function isTrackedClass(instance)
-	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame")
+	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame") or isFloatingPanel(instance)
 end
 -- Phones and tablets: raise small text to a readable size, but only when it
 -- still fits its box. The raise is checked on the next frame and undone (for
@@ -167,6 +175,15 @@ local function repairText(label)
 		return nil
 	end
 	if not allowWrite(label) then
+		return nil
+	end
+	-- Room for two lines: wrap first, and only shrink if that still doesn't fit.
+	if Plan.shouldWrap(label.TextSize, size.Y, label.TextWrapped, label.TextScaled) then
+		label.TextWrapped = true
+		stats.textWrapped += 1
+		if followUp ~= nil then
+			followUp(label)
+		end
 		return nil
 	end
 	local wrote = false
@@ -234,6 +251,38 @@ local function repairButton(button)
 	button.Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + dw, button.Size.Y.Scale, button.Size.Y.Offset + dh)
 	button.Position = UDim2.new(button.Position.X.Scale, button.Position.X.Offset + shift.x, button.Position.Y.Scale, button.Position.Y.Offset + shift.y)
 	stats.outOfBoxFixed += 1
+end
+-- A floating panel that hangs off the edge of its layer is moved back in.
+local function repairFloatingPanel(panel)
+	if abandoned[panel] or panel:GetAttribute(IGNORE_ATTRIBUTE) == true or not panel.Visible then
+		return nil
+	end
+	local layer = panel.Parent
+	if layer == nil or not layer:IsA("LayerCollector") then
+		return nil
+	end
+	local screen = layer.AbsoluteSize
+	local pos = panel.AbsolutePosition
+	local size = panel.AbsoluteSize
+	local layerPos = layer.AbsolutePosition
+	if not isFiniteNumber(pos.X) or not isFiniteNumber(size.X) or size.X < 8 or size.Y < 8 then
+		return nil
+	end
+	-- Full-screen hosts are layout roots, not floating panels.
+	if size.X >= screen.X - 2 and size.Y >= screen.Y - 2 then
+		return nil
+	end
+	local x0, y0 = pos.X - layerPos.X, pos.Y - layerPos.Y
+	local dx, dy = Plan.nudgeIntoView(x0, y0, x0 + size.X, y0 + size.Y, screen.X, screen.Y)
+	if math.abs(dx) < 1 and math.abs(dy) < 1 then
+		tryCount[panel] = nil
+		return nil
+	end
+	if not allowWrite(panel) then
+		return nil
+	end
+	panel.Position = UDim2.new(panel.Position.X.Scale, panel.Position.X.Offset + dx, panel.Position.Y.Scale, panel.Position.Y.Offset + dy)
+	stats.pulledIntoView += 1
 end
 local function repairCanvasGroup(group)
 	if abandoned[group] or group:GetAttribute(IGNORE_ATTRIBUTE) == true or engineOwns(group) then
@@ -490,6 +539,31 @@ local function checkTextUnderButtons(list)
 	end
 	for parent, labels in textPassLabels do
 		local buttons = textPassButtons[parent]
+		-- Labels laid over each other in a row: the left one is narrowed to end before
+		-- the right one's glyphs start.
+		if #labels > 1 and not parent:FindFirstChildWhichIsA("UIGridStyleLayout") then
+			for i = 1, #labels do
+				local left = labels[i]
+				if left.AbsoluteSize.X < 8 then
+					continue
+				end
+				local leftText = textRectOf(left)
+				for j = 1, #labels do
+					local right = labels[j]
+					if right == left or right.AbsoluteSize.X < 8 then
+						continue
+					end
+					local rightText = textRectOf(right)
+					if rightText.x0 > leftText.x0 + 4 and Plan.labelsCollide(leftText, rightText) then
+						if clearTextOfButton(left, right, rightText) then
+							stats.labelsUntangled += 1
+							ClientLog:warnEvery(`layoutguard:labels:{left:GetFullName()}`, 60, "LayoutGuard", `{left.Name} ran into {right.Name}; narrowed to clear it`)
+						end
+						break
+					end
+				end
+			end
+		end
 		if buttons == nil then
 			continue
 		end
@@ -504,7 +578,7 @@ local function checkTextUnderButtons(list)
 			if textWidth <= 0 or textHeight <= 0 then
 				continue
 			end
-			for _, button in buttons do
+			for _, button in buttons or {} do
 				if button.ZIndex < label.ZIndex then
 					continue
 				end
@@ -543,6 +617,8 @@ local function inspect(inst)
 	end
 	if inst:IsA("ScrollingFrame") then
 		repairScrollingFrame(inst)
+	elseif isFloatingPanel(inst) then
+		repairFloatingPanel(inst)
 	elseif inst:IsA("CanvasGroup") then
 		repairCanvasGroup(inst)
 	elseif inst:IsA("GuiButton") then
@@ -600,6 +676,7 @@ do
 		self.burstLeft = 0
 		self.armed = false
 		self.rootConnections = {}
+		self.watchedLayers = {}
 		self.pendingOverlap = false
 	end
 	function LayoutGuardController:onInit()
@@ -656,6 +733,26 @@ do
 			self:enqueue(instance, Plan.SETTLE_FRAMES)
 		end
 	end
+	-- Track one layer's descendants and keep the set current from its add/remove events.
+	function LayoutGuardController:watchLayer(layer)
+		if self.watchedLayers[layer] then
+			return nil
+		end
+		self.watchedLayers[layer] = true
+		for _, descendant in layer:GetDescendants() do
+			self:track(descendant)
+		end
+		table.insert(self.rootConnections, layer.DescendantAdded:Connect(function(instance)
+			self:track(instance)
+			self:markDirty(instance)
+		end))
+		table.insert(self.rootConnections, layer.DescendantRemoving:Connect(function(instance)
+			self:untrack(instance)
+			tryCount[instance] = nil
+			abandoned[instance] = nil
+			pendingFloor[instance] = nil
+		end))
+	end
 	function LayoutGuardController:bindRoot(root)
 		for _, connection in self.rootConnections do
 			connection:Disconnect()
@@ -664,22 +761,31 @@ do
 		-- Start the tracked set over for the new root: one walk now, then only deltas.
 		table.clear(self.tracked)
 		table.clear(self.trackedIndex)
+		self.watchedLayers = {}
 		if root == nil then
 			return nil
 		end
-		for _, descendant in root:GetDescendants() do
-			self:track(descendant)
+		self:watchLayer(root)
+		-- Every other game layer too: dropdowns, sheets and toasts are portaled into
+		-- their own ScreenGuis and used to go unchecked.
+		local playerGui = root:FindFirstAncestorOfClass("PlayerGui")
+		if playerGui ~= nil then
+			local function consider(layer)
+				if layer:IsA("LayerCollector") and layer ~= root and layer:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+					self:watchLayer(layer)
+				end
+			end
+			for _, layer in playerGui:GetChildren() do
+				consider(layer)
+			end
+			table.insert(self.rootConnections, playerGui.ChildAdded:Connect(consider))
+			table.insert(self.rootConnections, playerGui.ChildRemoved:Connect(function(layer)
+				self.watchedLayers[layer] = nil
+				for _, descendant in layer:GetDescendants() do
+					self:untrack(descendant)
+				end
+			end))
 		end
-		table.insert(self.rootConnections, root.DescendantAdded:Connect(function(instance)
-			self:track(instance)
-			self:markDirty(instance)
-		end))
-		table.insert(self.rootConnections, root.DescendantRemoving:Connect(function(instance)
-			self:untrack(instance)
-			tryCount[instance] = nil
-			abandoned[instance] = nil
-			pendingFloor[instance] = nil
-		end))
 		-- A resize is handled the frame it happens, not at the next scan.
 		table.insert(self.rootConnections, root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 			self:checkResize(root)
@@ -847,7 +953,7 @@ do
 			return nil
 		end
 		self.lastReportAt = now
-		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton
+		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.pulledIntoView
 		if total == self.reportedTotal then
 			return nil
 		end
@@ -857,6 +963,9 @@ do
 			tracked = #self.tracked,
 			textFit = stats.textFitFixed,
 			textOffButton = stats.textClearedOfButton,
+			wrapped = stats.textWrapped,
+			labels = stats.labelsUntangled,
+			intoView = stats.pulledIntoView,
 			overlap = stats.overlapDemoted,
 			outOfBox = stats.outOfBoxFixed,
 			gaveUp = stats.gaveUp,
