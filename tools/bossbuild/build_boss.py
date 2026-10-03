@@ -47,6 +47,7 @@ GAITS = {
     "Astraeon": dict(length=1.5, stride=0.4, knee=0.4, arm=0.15, lean=0.04, twist=0.06, sway=0.03),
 }
 FAST = os.environ.get("FAST", "") == "1"      # no bake, no clips, no export: just model, pose and render previews
+CLIPS_ONLY = os.environ.get("CLIPS_ONLY", "") == "1"   # no bake, no GLB: re-sample the clips and rewrite the rig JSON (about a minute)
 VIEWS = tuple(v for v in os.environ.get("VIEWS", "front,side,back,three").split(",") if v)
 FPS_KEYS = 12
 FPS_TIMELINE = 24
@@ -66,7 +67,7 @@ def main():
     rig = lib.make_armature(boss)
     materials = [lib.procedural_material(f"{KIND}_{name}", module.MATERIALS[name]) for name in module.ORDER]
     lib.assign_materials(objs, materials)
-    if not FAST:
+    if not FAST and not CLIPS_ONLY:
         atlas = lib.join_for_atlas(boss, objs)
         lib.unwrap(atlas)
         final, atlas_path = lib.bake_atlas(boss, atlas)
@@ -117,6 +118,11 @@ def main():
     rig.animation_data.action = bpy.data.actions[f"{KIND}_idle"]
     scene.frame_set(1)
 
+    if CLIPS_ONLY:
+        with open(os.path.join(lib.OUT, f"{KIND}_rig.json"), "w", encoding="utf-8") as handle:
+            json.dump({"rest": rest, "clips": clips_out, "order": boss.order}, handle)
+        print(f"{KIND}: clips re-sampled, rig json rewritten")
+        return
     bpy.context.view_layer.update()
     lib.render_preview(KIND, objs, views=VIEWS, textured=True)
     path = lib.export_glb(boss, objs)

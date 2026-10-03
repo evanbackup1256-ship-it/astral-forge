@@ -29,9 +29,27 @@ collision and never blocks the camera. It is a table on `ScreenFx` because the w
 * Terrain: `island` cuts the rough shape; `dress` adds surface patches, stalactites, outcrops, rim bumps and swells.
 * Rules live in `RiftBossMath` (pure; `EconomyMath.luau`). Boss data lives in `SharedData.luau` (`SanctuaryConfig`).
 
+## Boss bodies: modelling, rigging, physics
+
+Bodies are made in Blender by `tools/bossbuild`: one script per boss (`knight.py` ...) built from `kit.py`
+(simulated multi-column capes, closed-ring skirts, feathered wings with a stiff arm and a fan of two-bone
+feathers) and `humanoid.py` (the shared skeleton and channel mapping). `clips.py` / `acting.py` author
+the clips (anticipation, overshoot, damped settle, loops that close exactly; strike times fixed by the boss
+config). `lib.apply_pose` solves every bone's local transform exactly (do not set `pb.matrix` bone by bone:
+children read a stale parent). `build_boss.py` bakes the textures, samples the clips and exports a GLB plus
+rig data; `FAST=1` renders no-bake previews in about 45 s (`CLIP=slam:1.05` poses any clip frame) and
+`build_all_headless.ps1` builds all seven headless at low priority. `export_bodies.py` writes one
+`BossBody_<Kind>.luau` per boss (a single module would pass Roblox's script size limit).
+
+At runtime `BossPhysics` (verlet in world space: gravity, wind, drag, a soft pull toward the clip pose, segment
+and cross-column constraints, body capsules; chains simulated parent-first so feathers ride a lagging wing) turns
+the rig's declared chains into motion, and Spr (`Shared/Spr`, MIT, `vendor/licenses/spr.txt`) gives accessory
+bones (halo, rings, sword) a damped lag. `tools/playtest/physics_check.luau` checks the solver numerically;
+`scripts/verify_boss_rigs.luau` checks the exported rigs on every verification run.
+
 ## Guards (`scripts/`)
 
-`verify_rift_boss_roster.luau` checks every boss: shape, cues, dialogue, attack params, fairness (telegraphs,
+`verify_rift_boss_roster.luau` checks every boss: shape, cues, attack params, fairness (telegraphs,
 patterns that fit the arena) and balance (a lone fighter's health is unchanged; 5/20/60 level-1 fighters take
 30-90% of the active window). `verify_sanctuary_world.luau` checks the world, the bus and the solo/small-group
 time to kill. `verify_register_headroom.luau` keeps every long function 8 locals under Luau's limit.
