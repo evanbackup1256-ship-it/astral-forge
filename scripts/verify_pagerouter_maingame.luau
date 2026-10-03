@@ -196,6 +196,20 @@ for _, id in ids do
 	assert(seen[id] == nil, "duplicate nav id " .. id)
 	seen[id] = true
 end
+-- Rail groups: every nav route sits in exactly one group, so grouping hides nothing.
+local grouped = {}
+for _, group in NavRouteTable.NAV_GROUPS do
+	assert(type(group.key) == "string" and group.label ~= "", "group needs a key and label")
+	for _, id in group.routes do
+		assert(seen[id], "group " .. group.key .. " lists unknown route " .. id)
+		assert(grouped[id] == nil, id .. " is in two rail groups")
+		grouped[id] = group.key
+		assert(NavRouteTable.groupOf(id) == group.key, "groupOf " .. id)
+	end
+end
+for _, id in ids do
+	assert(grouped[id] ~= nil, id .. " is in no rail group")
+end
 -- Every page route except nothing — Chat/Admin are both nav + page.
 for _, pageId in NavRouteTable.PAGE_ROUTES do
 	assert(NavRouteTable.isNavRoute(pageId), "page route " .. pageId .. " must appear in nav tables")

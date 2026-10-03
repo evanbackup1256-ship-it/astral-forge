@@ -4369,6 +4369,28 @@ local PAGE_ROUTES: { string } = {
 	"ForgePath",
 }
 
+-- Sections of the desktop rail. Every nav route sits in exactly one group, so
+-- grouping hides nothing: a closed group still shows its badge total.
+type NavGroup = { key: string, label: string, routes: { string } }
+
+local NAV_GROUPS: { NavGroup } = {
+	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop" } },
+	{ key = "Daily", label = "Daily", routes = { "Missions", "Rewards", "Boosts", "Milestones", "Wheel" } },
+	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "Anomaly", "Continuum", "StarGrid", "Echoes", "ForgePath", "Story" } },
+	{ key = "Games", label = "Games & Deals", routes = { "Casino", "Bazaar" } },
+	{ key = "Social", label = "Social", routes = { "Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards" } },
+	{ key = "System", label = "System", routes = { "Settings", "Credits", "Admin" } },
+}
+
+local GROUP_OF: { [string]: string } = {}
+for _, group in NAV_GROUPS do
+	for _, id in group.routes do
+		GROUP_OF[id] = group.key
+	end
+	table.freeze(group.routes)
+	table.freeze(group)
+end
+
 local function indexById(routes: { RouteDef }): { [string]: RouteDef }
 	local map = {}
 	for _, route in routes do
@@ -4395,6 +4417,12 @@ end
 NavRouteTable.PRIMARY_ROUTES = table.freeze(PRIMARY_ROUTES)
 NavRouteTable.MORE_ROUTES = table.freeze(MORE_ROUTES)
 NavRouteTable.PAGE_ROUTES = table.freeze(PAGE_ROUTES)
+NavRouteTable.NAV_GROUPS = table.freeze(NAV_GROUPS)
+
+-- The rail group a page lives in (nil for pages that are not nav routes).
+function NavRouteTable.groupOf(pageId: string): string?
+	return GROUP_OF[pageId]
+end
 
 function NavRouteTable.find(pageId: string): RouteDef?
 	return ALL_BY_ID[pageId]
@@ -4918,6 +4946,8 @@ return {
 	PRIMARY_NAV = PRIMARY_NAV,
 	MORE_NAV = MORE_NAV,
 	NAV = NAV,
+	NAV_GROUPS = NavRouteTable.NAV_GROUPS,
+	navGroupOf = NavRouteTable.groupOf,
 	AppHelpers = AppHelpers,
 }
 end

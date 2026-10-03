@@ -9643,6 +9643,8 @@ local _appNav = require(script.Parent.CoreKit)("appNav")
 local AppHelpers = _appNav.AppHelpers
 local MORE_NAV = _appNav.MORE_NAV
 local PRIMARY_NAV = _appNav.PRIMARY_NAV
+local NAV_GROUPS = _appNav.NAV_GROUPS
+local navGroupOf = _appNav.navGroupOf
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local InteractionFeedback = require(script.Parent.CoreKit)("interaction").InteractionFeedback
 local ActiveBoostIcon = __load("TopBarChrome").ActiveBoostIcon
@@ -10614,6 +10616,263 @@ local function MoreDock(_param)
 		end,
 	}))
 end
+-- Rail sections. Open/closed state outlives remounts (drawer close, resize) for the session.
+local railGroupMemory = {}
+local NAV_BODY_PAD = 3
+local function NavChevron(_param)
+	local openAmount = _param.openAmount
+	local color = _param.color
+	local bar = function(offset, rotation)
+		return React.createElement("frame", {
+			Size = UDim2.fromOffset(7, 2),
+			Position = UDim2.new(0.5, offset, 0.5, 0),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = rotation,
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))
+	end
+	-- A "v" that points right when closed and turns down as the group opens.
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(12, 12),
+		Position = _param.position,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = openAmount:map(function(amount)
+			return -90 + math.clamp(amount, 0, 1) * 90
+		end),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, bar(-2, 45), bar(2, -45))
+end
+local function NavGroup(_param)
+	local entries = _param.entries
+	local headerless = _param.headerless == true
+	local open = headerless or _param.open == true
+	local collapsed = _param.collapsed
+	local rowHeight = _param.rowHeight
+	local gap = _param.gap
+	local headerHeight = if headerless then 0 else _param.headerHeight
+	local page = _param.page
+	local setPage = _param.setPage
+	local state = _param.state
+	local chatUnread = _param.chatUnread
+	local reducedMotion = _param.reducedMotion
+	local stride = rowHeight + gap
+	local bodyH = math.max(0, #entries * stride - gap) + NAV_BODY_PAD * 2
+	local openAmount = useFlipperSpring(if open then 1 else 0, reducedMotion, 560, 46)
+	local hovered, setHovered = React.useState(false)
+	local hover = useFlipperSpring(if hovered then 1 else 0, reducedMotion, 900, 44)
+	local activeIndex = nil
+	local badgeTotal = 0
+	for index, entry in entries do
+		if entry.id == page then
+			activeIndex = index
+		end
+		badgeTotal += AppHelpers:navBadge(entry, state, chatUnread)
+	end
+	local heldSelection = React.useRef(0)
+	if activeIndex ~= nil then
+		heldSelection.current = (activeIndex - 1) * stride
+	end
+	-- A liquid pill: the leading edge chases the new row on a fast spring while
+	-- the trailing edge follows on a slower one, so it stretches toward where
+	-- you clicked and gathers itself as it lands.
+	local selectionLead = useFlipperSpring(heldSelection.current, reducedMotion, 720, 48)
+	local selectionTrail = useFlipperSpring(heldSelection.current, reducedMotion, 300, 46)
+	local selectionSpan = React.joinBindings({ selectionLead, selectionTrail })
+	local hasActive = activeIndex ~= nil
+	local selectionAccent = if hasActive then AppHelpers:pageAccent(page) else Palette.muted
+	local labelColor = hover:map(function(amount)
+		local base = if hasActive then lighten(selectionAccent, 0.2) else Palette.muted
+		return base:Lerp(Palette.cream, math.clamp(amount, 0, 1) * 0.7)
+	end)
+	local rows = {}
+	rows.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, gap),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	rows.pad = React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, NAV_BODY_PAD),
+		PaddingBottom = UDim.new(0, NAV_BODY_PAD),
+	})
+	for index, entry in entries do
+		rows[entry.id] = React.createElement(RailButton, {
+			entry = entry,
+			active = page == entry.id,
+			collapsed = collapsed,
+			onClick = function()
+				return setPage(entry.id)
+			end,
+			layoutOrder = index,
+			reducedMotion = reducedMotion,
+			rowHeight = rowHeight,
+			bodySize = _param.bodySize,
+			badge = AppHelpers:navBadge(entry, state, chatUnread),
+		})
+	end
+	local header = nil
+	if not headerless then
+		local toggle = function()
+			_param.onToggle()
+			Audio:play(if open then "close" else "open")
+			InteractionFeedback.tap()
+		end
+		local headerChildren = {}
+		if collapsed then
+			-- Icon-only rail: a short rule with the chevron under it.
+			headerChildren.rule = React.createElement("frame", {
+				Size = UDim2.new(0.5, 0, 0, 2),
+				Position = UDim2.new(0.5, 0, 0, 4),
+				AnchorPoint = Vector2.new(0.5, 0),
+				BackgroundColor3 = selectionAccent,
+				BackgroundTransparency = if hasActive then 0.2 else 0.55,
+				BorderSizePixel = 0,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(1, 0),
+			}))
+			headerChildren.chevron = React.createElement(NavChevron, {
+				openAmount = openAmount,
+				color = Palette.muted,
+				position = UDim2.new(0.5, 0, 1, -5),
+			})
+		else
+			headerChildren.label = React.createElement(Text, {
+				value = string.upper(_param.label),
+				size = 11,
+				color = labelColor,
+				weight = Enum.FontWeight.Heavy,
+				fit = false,
+				position = UDim2.fromOffset(26, 0),
+				sizeConstraint = UDim2.new(1, -70, 1, 0),
+			})
+			headerChildren.chevron = React.createElement(NavChevron, {
+				openAmount = openAmount,
+				color = if hasActive then selectionAccent else Palette.muted,
+				position = UDim2.new(0, 12, 0.5, 0),
+			})
+			headerChildren.count = React.createElement(Text, {
+				value = tostring(#entries),
+				size = 10,
+				color = Palette.muted,
+				weight = Enum.FontWeight.Bold,
+				align = Enum.TextXAlignment.Right,
+				fit = false,
+				position = UDim2.new(1, -40, 0, 0),
+				sizeConstraint = UDim2.new(0, 32, 1, 0),
+			})
+			headerChildren.rule = React.createElement("frame", {
+				Size = UDim2.new(1, -16, 0, 1),
+				Position = UDim2.new(0, 8, 1, -1),
+				BackgroundColor3 = Palette.lineSoft,
+				BackgroundTransparency = hover:map(function(amount)
+					return 0.72 - math.clamp(amount, 0, 1) * 0.3
+				end),
+				BorderSizePixel = 0,
+			})
+		end
+		-- A closed group still tells you something inside wants attention.
+		if not open and badgeTotal > 0 then
+			headerChildren.badge = React.createElement(CountBadge, {
+				count = badgeTotal,
+				zIndex = 12,
+				compact = true,
+			})
+		end
+		header = React.createElement("textbutton", {
+			Size = UDim2.new(1, 0, 0, headerHeight),
+			BackgroundColor3 = Palette.panelSoft,
+			BackgroundTransparency = hover:map(function(amount)
+				return 1 - math.clamp(amount, 0, 1) * 0.55
+			end),
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			Selectable = true,
+			ZIndex = 3,
+			Event = {
+				Activated = toggle,
+				MouseEnter = function()
+					setHovered(true)
+				end,
+				MouseLeave = function()
+					setHovered(false)
+				end,
+				SelectionGained = function()
+					setHovered(true)
+				end,
+				SelectionLost = function()
+					setHovered(false)
+				end,
+			},
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 8),
+		}), headerChildren)
+	end
+	local pill = hasActive and React.createElement("frame", {
+		Size = selectionSpan:map(function(values)
+			local stretch = math.abs(values[1] - values[2])
+			return UDim2.new(1, -4, 0, math.max(8, rowHeight - 4) + math.round(stretch))
+		end),
+		Position = selectionSpan:map(function(values)
+			return UDim2.fromOffset(2, NAV_BODY_PAD + math.round(math.min(values[1], values[2])) + 2)
+		end),
+		BackgroundColor3 = Palette.panelSoft,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 10),
+	}), React.createElement("uigradient", {
+		Color = surfaceGradient(Palette.panelSoft, 0.9),
+		Rotation = 90,
+	}), React.createElement("uistroke", {
+		Color = selectionAccent,
+		Thickness = 1,
+		Transparency = 0.38,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = strokeGradient(selectionAccent),
+	})), React.createElement("frame", {
+		Size = UDim2.new(0, 3, 1, -14),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = selectionAccent,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 2),
+	})))
+	return React.createElement("frame", {
+		Size = openAmount:map(function(amount)
+			return UDim2.new(1, 0, 0, headerHeight + math.round(bodyH * math.clamp(amount, 0, 1)))
+		end),
+		LayoutOrder = _param.layoutOrder,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, header, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, bodyH),
+		Position = openAmount:map(function(amount)
+			-- Rows ease down a few pixels as the group opens instead of just being uncovered.
+			return UDim2.fromOffset(0, headerHeight - math.round((1 - math.clamp(amount, 0, 1)) * 8))
+		end),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		-- Hidden rows must not take gamepad selection.
+		Visible = openAmount:map(function(amount)
+			return amount > 0.01
+		end),
+	}, pill, React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 2,
+	}, rows)))
+end
 local function Navigation(_param)
 	local page = _param.page
 	local setPage = _param.setPage
@@ -10668,163 +10927,100 @@ local function Navigation(_param)
 	local rowHeight = if collapsed then chrome.railCollapsedRow else chrome.railRow
 	local primaryEntries = if fromMore then {} else AppHelpers:filterNav(PRIMARY_NAV, state, tutorialPage)
 	local secondaryEntries = if fromMore then AppHelpers:filterNav(MORE_NAV, state, tutorialPage) elseif includeSecondary then AppHelpers:filterNav(MORE_NAV, state, tutorialPage) else {}
-	local showSecondarySection = includeSecondary and not fromMore and #secondaryEntries > 0 and not collapsed
-	local sectionH = if showSecondarySection then 22 else 0
-	local railCount = if fromMore then #secondaryEntries else (#primaryEntries + #secondaryEntries)
-	local canvasHeight = math.max(1, railCount) * (rowHeight + chrome.railGap) - chrome.railGap + Layout.stackGap * 2 + sectionH
 	local headerHeight = 12
 	local showBoost = activeBoost ~= nil and not chrome.mobile and page ~= "Rewards" and wallClock ~= nil and openBoosts ~= nil
 	local boostHeight = if showBoost then (if collapsed then 62 else 64) else 0
 	local boostReserve = if showBoost then boostHeight + SHELL_CHROME.railGutter * 2 else 0
 	local railScrollRef = React.useRef(nil)
-	local railCropRef = React.useRef(0)
-	local railCrop, setRailCrop = React.useState(0)
-	local primaryCount = #primaryEntries
-	local railChromeTop = headerHeight + SHELL_CHROME.railGutter + boostReserve
+	local grouped = includeSecondary and not fromMore
+	local groupHeaderH = if collapsed then 18 else 30
+	local activeGroup = navGroupOf(page)
+	local groupOpen, setGroupOpen = React.useState(function()
+		return table.clone(railGroupMemory)
+	end)
+	local function isGroupOpen(id)
+		local remembered = groupOpen[id]
+		if remembered ~= nil then
+			return remembered
+		end
+		return id == "Home" or id == activeGroup
+	end
+	-- Opening a page opens its group, and that choice sticks after you leave it.
 	React.useEffect(function()
-		local scroll = railScrollRef.current
-		if scroll == nil then
+		if activeGroup == nil or groupOpen[activeGroup] == true then
 			return nil
 		end
-		local host = scroll.Parent
-		if host == nil or not host:IsA("GuiObject") then
-			return nil
-		end
-		local function fit()
-			if collapsed or not showSecondarySection then
-				if railCropRef.current ~= 0 then
-					railCropRef.current = 0
-					setRailCrop(0)
-				end
-				return nil
-			end
-			local stride = rowHeight + chrome.railGap
-			local secondaryTop = primaryCount * stride + sectionH + chrome.railGap
-			-- Measure the rail, not the scroller. Cropping the scroller used to
-			-- change its AbsoluteSize and schedule another crop.
-			local windowH = host.AbsoluteSize.Y - railChromeTop
-			local sliver = windowH - secondaryTop
-			local next = if sliver > 2 and sliver < rowHeight - 2 then math.floor(sliver) else 0
-			if next ~= railCropRef.current then
-				railCropRef.current = next
-				setRailCrop(next)
-			end
-		end
-		fit()
-		local conn = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
-		return function()
-			conn:Disconnect()
-		end
-	end, { chrome.railGap, collapsed, primaryCount, railChromeTop, rowHeight, sectionH, showSecondarySection })
-	local stride = rowHeight + chrome.railGap
-	local selectionTop = 0
-	local selectionVisible = false
-	local function locateSelection(entries, top)
-		local y = top
-		for _, entry in entries do
-			if page == entry.id then
-				selectionTop = y
-				selectionVisible = true
-			end
-			y += stride
-		end
-		return y
+		railGroupMemory[activeGroup] = true
+		setGroupOpen(table.clone(railGroupMemory))
+	end, { activeGroup })
+	local toggleGroup = function(id)
+		railGroupMemory[id] = not isGroupOpen(id)
+		setGroupOpen(table.clone(railGroupMemory))
 	end
-	local scanY = 0
-	if fromMore then
-		locateSelection(secondaryEntries, 0)
-	else
-		scanY = locateSelection(primaryEntries, 0)
-		if showSecondarySection then
-			scanY += sectionH + chrome.railGap
-		end
-		if includeSecondary then
-			locateSelection(secondaryEntries, scanY)
-		end
-	end
-	local heldSelection = React.useRef(0)
-	if selectionVisible then
-		heldSelection.current = selectionTop
-	end
-	-- A liquid pill: its leading edge chases the new row on a fast spring while
-	-- the trailing edge follows on a slower one, so it stretches toward where
-	-- you clicked and gathers itself as it lands.
-	local selectionLead = useFlipperSpring(heldSelection.current, reducedMotion, 720, 48)
-	local selectionTrail = useFlipperSpring(heldSelection.current, reducedMotion, 300, 46)
-	local selectionSpan = React.joinBindings({ selectionLead, selectionTrail })
-	local selectionAccent = AppHelpers:pageAccent(page)
-	local _exp = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	})
-	local _exp_1 = React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.5),
-		Rotation = 90,
-	})
-	local _exp_2 = React.createElement("uistroke", {
-		Color = Palette.lineSoft,
-		Thickness = 1,
-		Transparency = 0.55,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-	}, React.createElement("uigradient", {
-		Rotation = 90,
-		Color = strokeGradient(Palette.lineSoft),
-	}))
-	local _exp_3 = nil
-	local _exp_4 = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		Padding = UDim.new(0, chrome.railGap),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	})
 	local railChildren = {}
-	local appendRail = function(entries, orderBase)
-		local _callback = function(entry, index)
-			table.insert(railChildren, React.createElement(RailButton, {
-				key = entry.id,
-				entry = entry,
-				active = page == entry.id,
-				collapsed = collapsed,
-				onClick = function()
-					return setPage(entry.id)
-				end,
-				layoutOrder = orderBase + index,
-				reducedMotion = reducedMotion,
-				rowHeight = rowHeight,
-				bodySize = chrome.bodyText,
-				badge = AppHelpers:navBadge(entry, state, chatUnread),
-			}))
+	local groupOrder = 0
+	local function addGroup(id, label, entries, headerless)
+		if #entries == 0 then
+			return nil
 		end
-		for _k, _v in entries do
-			_callback(_v, _k - 1, entries)
-		end
-		return orderBase + #entries
+		groupOrder += 1
+		railChildren[id] = React.createElement(NavGroup, {
+			label = label,
+			entries = entries,
+			headerless = headerless,
+			open = isGroupOpen(id),
+			onToggle = function()
+				toggleGroup(id)
+			end,
+			page = page,
+			setPage = setPage,
+			collapsed = collapsed,
+			rowHeight = rowHeight,
+			gap = chrome.railGap,
+			headerHeight = groupHeaderH,
+			bodySize = chrome.bodyText,
+			state = state,
+			chatUnread = chatUnread,
+			reducedMotion = reducedMotion,
+			layoutOrder = groupOrder,
+		})
 	end
-	local layoutCursor = 0
-	if fromMore then
-		appendRail(secondaryEntries, 0)
+	if grouped then
+		local byId = {}
+		for _, list in { primaryEntries, secondaryEntries } do
+			for _, entry in list do
+				byId[entry.id] = entry
+			end
+		end
+		local placed = {}
+		for _, group in NAV_GROUPS do
+			local entries = {}
+			for _, id in group.routes do
+				local entry = byId[id]
+				if entry ~= nil and not placed[id] then
+					placed[id] = true
+					table.insert(entries, entry)
+				end
+			end
+			addGroup(group.key, group.label, entries, false)
+		end
+		-- Anything a future route adds without a group still shows up.
+		local loose = {}
+		for _, list in { primaryEntries, secondaryEntries } do
+			for _, entry in list do
+				if not placed[entry.id] then
+					placed[entry.id] = true
+					table.insert(loose, entry)
+				end
+			end
+		end
+		addGroup("More", "More", loose, false)
 	else
-		layoutCursor = appendRail(primaryEntries, 0)
-		if showSecondarySection then
-			table.insert(railChildren, React.createElement("frame", {
-				key = "nav-more-section",
-				Size = UDim2.new(1, 0, 0, sectionH),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				LayoutOrder = layoutCursor,
-			}, React.createElement(Text, {
-				value = "MORE",
-				size = 9,
-				color = Palette.muted,
-				weight = Enum.FontWeight.Heavy,
-				fit = false,
-				position = UDim2.fromOffset(8, 4),
-				sizeConstraint = UDim2.new(1, -12, 1, -4),
-			})))
-			layoutCursor += 1
+		local flat = table.clone(primaryEntries)
+		for _, entry in secondaryEntries do
+			table.insert(flat, entry)
 		end
-		if includeSecondary then
-			appendRail(secondaryEntries, layoutCursor)
-		end
+		addGroup("All", "", flat, true)
 	end
 	return React.createElement("frame", {
 		Name = "RailNavClaim",
@@ -10837,12 +11033,27 @@ local function Navigation(_param)
 		ZIndex = 10,
 		-- FocusClaim rail nav must not clip CTA overshoot.
 		ClipsDescendants = false,
-	}, _exp, _exp_1, _exp_2, _exp_3, React.createElement("scrollingframe", {
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 10),
+	}), React.createElement("uigradient", {
+		Color = surfaceGradient(Palette.night, 0.5),
+		Rotation = 90,
+	}), React.createElement("uistroke", {
+		Color = Palette.lineSoft,
+		Thickness = 1,
+		Transparency = 0.55,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		LineJoinMode = Enum.LineJoinMode.Round,
+	}, React.createElement("uigradient", {
+		Rotation = 90,
+		Color = strokeGradient(Palette.lineSoft),
+	})), React.createElement("scrollingframe", {
 		ref = railScrollRef,
-		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve + railCrop)),
+		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve)),
 		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, headerHeight),
-		CanvasSize = UDim2.new(0, 0, 0, canvasHeight),
-		AutomaticCanvasSize = Enum.AutomaticSize.None,
+		CanvasSize = UDim2.new(),
+		-- Groups animate their own height, so the canvas follows them.
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 3,
@@ -10854,50 +11065,13 @@ local function Navigation(_param)
 		ClipsDescendants = true,
 		Active = true,
 		Selectable = false,
-	}, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, canvasHeight),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, selectionVisible and React.createElement("frame", {
-		Size = selectionSpan:map(function(values)
-			local stretch = math.abs(values[1] - values[2])
-			return UDim2.new(1, -4, 0, math.max(8, rowHeight - 4) + math.round(stretch))
-		end),
-		Position = selectionSpan:map(function(values)
-			return UDim2.fromOffset(2, math.round(math.min(values[1], values[2])) + 2)
-		end),
-		BackgroundColor3 = Palette.panelSoft,
-		BackgroundTransparency = 0.2,
-		BorderSizePixel = 0,
-		ZIndex = 1,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panelSoft, 0.9),
-		Rotation = 90,
-	}), React.createElement("uistroke", {
-		Color = selectionAccent,
-		Thickness = 1,
-		Transparency = 0.38,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-	}, React.createElement("uigradient", {
-		Rotation = 90,
-		Color = strokeGradient(selectionAccent),
-	})), React.createElement("frame", {
-		Size = UDim2.new(0, 3, 1, -14),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = selectionAccent,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 2),
-	}))), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 2,
-	}, _exp_4, railChildren))), showBoost and React.createElement("frame", {
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, if collapsed then 4 else 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement("uipadding", {
+		PaddingBottom = UDim.new(0, Layout.stackGap),
+	}), railChildren), showBoost and React.createElement("frame", {
 		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2), 0, boostHeight),
 		Position = UDim2.new(0, SHELL_CHROME.railGutter, 1, -(boostHeight + SHELL_CHROME.railGutter)),
 		BackgroundTransparency = 1,
