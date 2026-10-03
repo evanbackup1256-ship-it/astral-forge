@@ -107,9 +107,7 @@ end
 -- Fires a brief flourish only on the false->true edge (node just became buyable or was just
 -- maxed out), so idle nodes never carry a flash subscription.
 local function useNodeUnlockPop(unlocked, reducedMotion)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StarGridView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local wasUnlocked = React.useRef(unlocked)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()
@@ -153,9 +151,7 @@ local function BranchHeader(_param)
 	local stack = _param.stack
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BranchHeader.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(staggerIndex, reducedMotion)
 	local rowH = if stack then BRANCH_H_STACK else BRANCH_H
 	return React.createElement(Panel, {
@@ -241,9 +237,7 @@ local function NodeRow(_param)
 	local stack = _param.stack
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StarGridNode.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(staggerIndex, reducedMotion)
 	local rowH = if stack then NODE_H_STACK else NODE_H
 	local _condition = upgrade.PreviousId == nil
@@ -396,8 +390,7 @@ local function StarGridViewComponent(_param)
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StarGridView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local buyAllHostRef = React.useRef(nil)
 	local branches = config.GridBranches or {}
@@ -989,9 +982,7 @@ local ResearchNode = React.memo(function(props)
 	local _binding = props
 	local entry = _binding.entry
 	local reducedMotion = _binding.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ResearchNode.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local index = _binding.index
 	local onBuy = _binding.onBuy
 	local stack = _binding.stack
@@ -1128,8 +1119,7 @@ local function ResearchView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ResearchView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
@@ -1424,9 +1414,7 @@ local function OrderRow(_param)
 	local stack = _param.stack
 	local ready = not state.Claimed and state.Progress >= state.Target
 	local fill = meterFill(state.Progress, state.Target, state.Claimed or ready)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LabOrderRow (computed, now applied).
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local reveal = useStagger(order, reducedMotion)
 	local claimTrigger, setClaimTrigger = React.useState(0)
@@ -1555,9 +1543,7 @@ local function PowerRow(_param)
 	local reducedMotion = _param.reducedMotion
 	local y = _param.y
 	local stack = _param.stack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LabPowerRow (computed, now applied).
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local rowH = if stack then POWER_ROW_H_STACK else POWER_ROW_H
 	local badgeX = POWER_BTN + 94 + ROW_RIGHT
@@ -1688,15 +1674,11 @@ local function LabView(_param)
 	local stack = chrome.contentStack
 	local lab = state.Lab
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LabView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local now = useWallClock(true)
 	local headerReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — LabOrders.
 	local ordersReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — LabClaim.
 	local claimReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — LabBoard.
 	local boardReveal = useStagger(3, softMotion)
 	local labSoft = reducedMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
 	local labClaimHostRef = React.useRef(nil)
@@ -2096,7 +2078,6 @@ end
 __defs["WorkshopView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useClock = _motion.useClock
@@ -2146,12 +2127,10 @@ local function MachineRow(_param)
 	if lockShort == nil then
 		lockShort = ""
 	end
-	local antilag = useAntilag()
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	-- Canonical softMotion antilag gate — MachineRow buy springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local rowH = PageBoardHeights.Machine(stack)
 	local price = bulkCost(machine.BaseCost, machine.CostScale, level, buyAmount, machine.MaxLevel, cash)
@@ -2159,7 +2138,7 @@ local function MachineRow(_param)
 	local ready = unlocked and gteFlux(cash, price) and not maxed
 	local accent = machine.Accent or machine.Color
 	local running = level > 0
-	local flow = useClock(running and not softMotion and antilag.allowAmbient and antilag.tier >= 2, 0.55, 1)
+	local flow = useClock(running, 0.55, 1)
 	local buyLabel = if not unlocked then (if lockShort ~= "" then lockShort else "Locked") elseif maxed then "Maxed" elseif ready then (if level < 1 then "Buy this" else "Buy level") else `Need {compactNumber(price)} Flux`
 	local _condition = machine.BaseProduction
 	if _condition == nil then
@@ -2321,11 +2300,8 @@ local function UpgradeBoard(_param)
 	end
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — VirtualGrid overscan / Buy CTAs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — WorkshopBoard.
 	local workshopHostReveal = useStagger(4, softMotion)
 	local workshopBuyHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on BUY ALL (FocusClaim prefers Claim/Buy-named hosts).
@@ -2767,9 +2743,7 @@ local function AutoForgePanel(_param)
 	local reducedMotion = _param.reducedMotion
 	local height = _param.height
 	local viewport = useViewport()
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AutoForge controls drop springs on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chromeFor(viewport).stack
 	local _condition = state.AutoForge
@@ -3335,10 +3309,7 @@ end
 local function ForgePathRow(_param)
 	local step, claimed, unlockedForClaim, affordable, xp = _param.step, _param.claimed, _param.unlockedForClaim, _param.affordable, _param.xp
 	local onClaim, reducedMotion, index, stack = _param.onClaim, _param.reducedMotion, _param.index, _param.stack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ForgePathRow.
-	-- Canonical softMotion antilag gate — ForgePathView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(index, reducedMotion, 0.015, 0.12)
 	local ready = not claimed and unlockedForClaim and affordable
 	local locked = not claimed and not unlockedForClaim
@@ -3368,9 +3339,7 @@ end
 local function SpotlightPanel(_param)
 	local step, xp, ready, complete, guide = _param.step, _param.xp, _param.ready, _param.complete, _param.guide
 	local onClaim, reducedMotion, stack = _param.onClaim, _param.reducedMotion, _param.stack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — SpotlightPanel.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local claimHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on CLAIM NOW when ready.
 	React.useEffect(function()
@@ -3420,7 +3389,7 @@ local function ForgePathViewComponent(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local forgePath = state.ForgePath or EMPTY_FORGE_PATH
 	local guide = pageGuide(config)
@@ -3539,7 +3508,6 @@ __defs["ContinuumView"] = function()
 -- is missing, and what the rank already gives you.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local compactNumber = _format.compactNumber
@@ -3614,9 +3582,7 @@ local function ContinuumView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ContinuumView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local continuum = state.Continuum or EMPTY_CONTINUUM
@@ -3826,7 +3792,6 @@ local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useEntrance = _motion.useEntrance
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local useWallClock = _motion.useWallClock
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
@@ -3849,20 +3814,15 @@ local function ConvergenceView(_param)
 	local event = state.Convergence
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ConvergenceView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local now = useWallClock(event ~= nil)
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
 	local revealTiers = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — ConvergenceTier.
 	local revealClaim = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — ConvergenceHero.
 	local revealHero = useStagger(3, softMotion)
-	-- Canonical softMotion antilag gate — ConvergenceFill.
 	local revealFill = useStagger(4, softMotion)
 	local convergenceSoft = softMotion or revealHero == nil or revealFill == nil
 	if event == nil then
@@ -4151,9 +4111,7 @@ local function ActiveBoostHero(_param)
 	local endsAt = _param.endsAt
 	local now = _param.now
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BoostsView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = _param.stack
 	local remaining = now:map(function(timestamp)
@@ -4290,9 +4248,7 @@ local function BoostCard(_param)
 	local canActivate = _param.canActivate
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BoostsView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local index = _param.index
 	local stack = _param.stack
@@ -4419,7 +4375,7 @@ local function BoostsView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
 	local activateHostRef = React.useRef(nil)
@@ -4741,8 +4697,7 @@ local function WorldRow(_param)
 	local coresOk = _param.coresOk
 	local rebirthOk = _param.rebirthOk
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — WorldRow entrance drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local skipMotion = softMotion or layoutOrder > 4 or antilag.skipEntrance
 	local reveal = useStagger(math.min(layoutOrder, 4), skipMotion, 0.02, 0.14)
@@ -4861,11 +4816,8 @@ local function WorldsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — Worlds travel/unlock CTAs drop springs on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — WorldsBoard.
 	local boardReveal = useStagger(0, softMotion)
 	local travelReveal = useStagger(1, softMotion)
 	local headerReveal = boardReveal

@@ -135,7 +135,7 @@ local SETTINGS = { {
 }, {
 	id = "MotionIntensity",
 	label = "Animation amount",
-	description = "How much menus bounce and slide. Zero is still.",
+	description = "How lively menus feel. Low settings stay smooth: gentler, slower, no bounce.",
 	accent = Palette.violet,
 	section = "motion",
 }, {
@@ -850,17 +850,12 @@ local function SettingsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — SettingsView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
-	-- Canonical softMotion antilag gate — SettingsAudio.
 	local audioReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — SettingsMotion.
 	local motionReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — SettingsVisual.
 	local visualReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — SettingsNav.
 	local navReveal = useStagger(3, softMotion)
 	local settingsSoft = softMotion or audioReveal == nil or motionReveal == nil or visualReveal == nil or navReveal == nil
 	-- isTouchDevice() (called with no viewport args) re-derives its own desktop/mobile guess from
@@ -1422,7 +1417,6 @@ local easeOutCubic = _motion.easeOutCubic
 local useBoatTween = _motion.useBoatTween
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
 local Layout = _theme.Layout
 local chromeFor = _theme.chromeFor
@@ -1692,17 +1686,11 @@ local function CommandView(_param)
 	local onSectionChange = _param.onSectionChange
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — fold into reducedMotion so TabPane boat tweens,
 	-- meters, and claim CTAs all snap when tier<=1 or ambient is off (parity with Shop/Trade).
-	-- Canonical softMotion antilag gate — CommandView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — CommandOverview.
 	local overviewReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — CommandExpeditions.
 	local expeditionsReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — CommandOps.
 	local opsReveal = useStagger(2, softMotion)
 	local commandSoft = softMotion or overviewReveal == nil or expeditionsReveal == nil or opsReveal == nil
 	local claimHostRef = React.useRef(nil)
@@ -3291,8 +3279,7 @@ local function AdminView(_param)
 	local admin = state.Admin
 
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AdminView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 
 	local targetId, setTargetId = React.useState((admin and admin.SelfUserId) or (admin and admin.Online and admin.Online[1] and admin.Online[1].UserId) or 0)
@@ -3311,7 +3298,6 @@ local function AdminView(_param)
 	local mountedRef = React.useRef(true)
 	local executeAttempt = React.useRef(0)
 	local enter = useEntrance(softMotion)
-	-- Canonical softMotion antilag gate — AdminTools.
 	local toolsReveal = useStagger(0, softMotion)
 
 	React.useEffect(function()
@@ -4204,8 +4190,7 @@ local function ShiftPlan(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AnomalyView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local claimRef = React.useRef(nil)
 	React.useEffect(function()
@@ -5268,15 +5253,11 @@ local function LeaderboardsView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LeaderboardsView
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
-	-- Canonical softMotion antilag gate — LeaderboardsBoard.
 	local boardReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — LeaderboardsScope.
 	local scopeReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — LeaderboardsRows.
 	local rowsReveal = useStagger(2, softMotion)
 	local boardHostRef = React.useRef(nil)
 	local selected, setSelected = React.useState("Flux")

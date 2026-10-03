@@ -29,8 +29,8 @@ assert(not string.find(router, 'GetService("Players")', 1, true), "PageRouter mu
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local navChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
-assert(string.find(topBarChrome, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion gate")
-assert(string.find(navChrome, "Canonical softMotion antilag gate — MoreDock", 1, true), "MoreDock softMotion gate")
+assert(string.find(topBarChrome, "local softMotion = ", 1, true), "TopBar softMotion gate")
+assert(string.find(navChrome, "local softMotion = ", 1, true), "MoreDock softMotion gate")
 do
 	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0

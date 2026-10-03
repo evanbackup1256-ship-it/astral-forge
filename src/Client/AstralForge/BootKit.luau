@@ -32,7 +32,6 @@ end
 -- ======================================================================
 __defs["BootScreen"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local MaterialBootSpinner = __load("MaterialBootSpinner").MaterialBootSpinner
@@ -113,9 +112,7 @@ local function BootScreen(_param)
 	local marks = _param.marks
 	local ready = _param.ready
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BootScreen.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local startedAt = _param.startedAt
 	local assetsLoaded = _param.assetsLoaded

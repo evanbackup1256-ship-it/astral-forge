@@ -387,21 +387,16 @@ local SOFT_MOTION_FILES = {
 for _, path in SOFT_MOTION_FILES do
 	local src = fs.readFile(path)
 	assert(string.find(src, "softMotion", 1, true), path .. " must define/use softMotion")
-	assert(string.find(src, "antilag", 1, true), path .. " softMotion must consult antilag")
-	-- Canonical gate: softMotion combines reduced/quiet motion with tier or allowAmbient.
 	assert(
 		string.find(src, "local softMotion =", 1, true),
 		path .. " must declare local softMotion ="
 	)
-	-- Footgun: every softMotion assignment must reference antilag (tier and/or allowAmbient).
+	-- The frame-rate governor never switches motion off: softMotion follows only
+	-- an explicit reducedMotion prop, never antilag tier or allowAmbient.
 	for softLine in string.gmatch(src, "local softMotion = ([^\n]+)") do
 		assert(
-			string.find(softLine, "antilag", 1, true),
-			path .. " softMotion must reference antilag on the assignment line: " .. softLine
-		)
-		assert(
-			string.find(softLine, "allowAmbient", 1, true) or string.find(softLine, "tier", 1, true),
-			path .. " softMotion must gate on antilag.allowAmbient or antilag.tier: " .. softLine
+			not string.find(softLine, "antilag", 1, true),
+			path .. " softMotion must not gate on antilag: " .. softLine
 		)
 	end
 end
@@ -414,7 +409,7 @@ end
 -- Chat/Command/Lab/Shop/Wheel/StarGrid/Story/Echo/ForgePath must stay DENSE≥6
 -- (wave softmotion-ungated-layout).
 do
-	local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+	local CANON = "local softMotion = reducedMotion"
 	local DENSE = {
 		["src/Client/AstralForge/pages/PagesSocial.luau#TradeView"] = 12,
 		["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = 12,
@@ -436,7 +431,7 @@ do
 		["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = 12,
 		["src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#InventoryView"] = 12,
-		["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 12,
+		["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 11,
 		["src/Client/AstralForge/pages/PagesSystem.luau#CommandView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#LabView"] = 12,
 		["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = 12,
@@ -444,7 +439,7 @@ do
 		["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = 12,
-		["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = 12,
+		["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = 9,
 		["src/Client/AstralForge/pages/PagesCore.luau#OverviewView"] = 12,
 		["src/Client/AstralForge/UiCore.luau#FeedbackOverlay"] = 12,
 	}
@@ -557,7 +552,7 @@ end
 		"UpgradeBoard VirtualGrid must softMotion-gate overscanRows"
 	)
 	assert(
-		string.find(upgradeSoft, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+		string.find(upgradeSoft, "local softMotion = reducedMotion", 1, true),
 		"UpgradeBoard must declare canonical softMotion"
 	)
 	-- Wave21: Command titles VirtualGrid overscan softMotion-gated (catalogs already gated).
@@ -667,9 +662,9 @@ do
 	assert(string.find(rewards, "GamepadNavigationService.FocusClaim", 1, true), "Rewards Daily/Timed CLAIM must FocusClaim when ready")
 	assert(string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewards Daily Claim host must be named RewardsDailyClaimActions")
 	assert(string.find(rewards, 'Name = "RewardsTimedClaimActions"', 1, true), "Rewards Timed CLAIM host must be named RewardsTimedClaimActions")
-	assert(string.find(rewards, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "RewardsView must softMotion via antilag")
+	assert(string.find(rewards, "local softMotion = reducedMotion", 1, true), "RewardsView must softMotion via antilag")
 	local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
-	assert(string.find(workshop, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "UpgradeBoard/Workshop must softMotion via antilag")
+	assert(string.find(workshop, "local softMotion = reducedMotion", 1, true), "UpgradeBoard/Workshop must softMotion via antilag")
 	assert(string.find(workshop, 'Name = "WorkshopBuyClaim"', 1, true), "WorkshopBuyClaim host must stay named")
 	assert(string.find(workshop, "GamepadNavigationService.FocusClaim", 1, true), "Workshop must FocusClaim BUY ALL")
 
@@ -679,7 +674,7 @@ do
 	local settings = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
 	assert(string.find(settings, "GamepadNavigationService.FocusClaim", 1, true), "Settings GUIDE/UPDATES must FocusClaim")
 	assert(string.find(settings, 'Name = "SettingsClaimActions"', 1, true), "Settings GUIDE/UPDATES host must be named SettingsClaimActions")
-	assert(string.find(settings, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "SettingsView must softMotion via antilag")
+	assert(string.find(settings, "local softMotion = reducedMotion", 1, true), "SettingsView must softMotion via antilag")
 	assert(string.find(settings, "overscan = if softMotion then 0", 1, true), "Settings FlatList must softMotion-gate overscan")
 
 	local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
@@ -833,7 +828,7 @@ do
 	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards
 	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken) and Chat/Command/StarGrid/ForgePath
 	-- (wave softmotion-ungated-layout).
-	local CANON_SOFT = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+	local CANON_SOFT = "local softMotion = reducedMotion"
 	for _, path in {
 		"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
 		"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",

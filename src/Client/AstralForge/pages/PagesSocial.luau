@@ -421,21 +421,16 @@ local function TradeView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate (same line as Shop/Command): fold into reducedMotion
 	-- so every decorative Button/Meter/Panel on the desk snaps under tier/ambient pressure.
-	-- Canonical softMotion antilag gate — TradeView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(reducedMotion)
 	local reveal = useStagger(0, softMotion)
 	local boardReveal = useStagger(1, reducedMotion)
 	local inviteReveal = useStagger(2, reducedMotion)
 	local confirmReveal = useStagger(3, reducedMotion)
-	-- Canonical softMotion antilag gate — TradeBoard.
 	local deskReveal = useStagger(4, reducedMotion)
-	-- Canonical softMotion antilag gate — TradeDesk.
 	local dailyReveal = useStagger(5, reducedMotion)
-	-- Canonical softMotion antilag gate — TradeDaily.
 	local softInvite = softMotion or inviteReveal ~= nil
 	local softConfirm = softMotion or confirmReveal ~= nil
 	local tradeSoft = softMotion or deskReveal == nil or dailyReveal == nil
@@ -1874,9 +1869,7 @@ local function CrewRow(_param)
 	local onVisit = _param.onVisit
 	local onNudge = _param.onNudge
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — CrewRow.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local layoutOrder = _param.layoutOrder
 	local stack = _param.stack
@@ -2059,9 +2052,7 @@ local function VisitPanel(_param)
 	local visit = _param.visit
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — VisitPanel.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local layoutOrder = _param.layoutOrder
 	local stack = _param.stack
@@ -2215,8 +2206,7 @@ local function CrewView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — CrewView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local players, setPlayers = React.useState({})
 	local mountedRef = React.useRef(true)
 	local visitAttemptRef = React.useRef(0)
@@ -3408,17 +3398,13 @@ local function GuildView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — GuildView entrance/list drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — GuildBank.
 	local bankReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — GuildMembers.
 	local membersReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — GuildGoal.
 	local goalReveal = useStagger(3, softMotion)
 	local busy, setBusy = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
@@ -4043,9 +4029,7 @@ local function MailRow(_param)
 	local reducedMotion = _param.reducedMotion
 	local layoutOrder = _param.layoutOrder
 	local onChoose = _param.onChoose
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MailRow.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local reveal = useStagger(layoutOrder, softMotion)
 	return React.createElement("imagebutton", {
@@ -4155,8 +4139,7 @@ local function MailboxView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MailboxView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local mobileRoute = chrome.mobile
@@ -4166,11 +4149,8 @@ local function MailboxView(_param)
 	local cardH = if stack then LIST_CARD_MOBILE else LIST_CARD
 	local footerH = if stack then FOOTER_HEIGHT_MOBILE else FOOTER_HEIGHT
 	local rowStride = cardH + LIST_GAP
-	-- Canonical softMotion antilag gate — MailboxList.
 	local listReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — MailboxDetail.
 	local detailSoftReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — MailboxFooter.
 	local footerReveal = useStagger(2, softMotion)
 	local mailboxSoft = softMotion or listReveal == nil or detailSoftReveal == nil or footerReveal == nil
 	local _result = state.Mailbox
@@ -4879,12 +4859,10 @@ local function MessageRow(_param)
 	local bodySize = _param.bodySize
 	local animate = _param.animate
 	local rowHeight = _param.rowHeight
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MessageRow.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local enter = useMessageEntrance(animate, reducedMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)
-	local pulse = usePulse(not message.system and not reducedMotion and antilag.tier >= 2, 2.4 + math.abs(message.userId % 5) * 0.14)
+	local pulse = usePulse(not message.system, 2.4 + math.abs(message.userId % 5) * 0.14)
 	local fade = enter:map(function(amount)
 		return 1 - amount
 	end)
@@ -5085,8 +5063,7 @@ local function ChatView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ChatView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local bodySize = if chrome.mobile then 16 else 15
 	local rowHeight = if chrome.mobile then 144 else ROW_HEIGHT
@@ -5104,11 +5081,8 @@ local function ChatView(_param)
 	local sendAttempt = React.useRef(0)
 	local chatClaimHostRef = React.useRef(nil)
 	local headerReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — ChatBanner.
 	local bannerReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — ChatComposer.
 	local composerReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — ChatStatus.
 	local statusReveal = useStagger(3, softMotion)
 	React.useEffect(function()
 		return function()

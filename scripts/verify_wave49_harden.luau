@@ -31,31 +31,31 @@ local inventory = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#Inve
 local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
 local settings = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
 local trade = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
-assert(string.find(credits, "Canonical softMotion antilag gate — CreditsThanks", 1, true), "CreditsThanks softMotion")
-assert(string.find(inventory, "Canonical softMotion antilag gate — InventoryTabs", 1, true), "InventoryTabs softMotion")
-assert(string.find(rebirth, "Canonical softMotion antilag gate — RebirthHero", 1, true), "RebirthHero softMotion")
-assert(string.find(settings, "Canonical softMotion antilag gate — SettingsAudio", 1, true), "SettingsAudio softMotion")
-assert(string.find(trade, "Canonical softMotion antilag gate — TradeBoard", 1, true), "TradeBoard softMotion")
+assert(string.find(credits, "local softMotion = ", 1, true), "CreditsThanks softMotion")
+assert(string.find(inventory, "local softMotion = ", 1, true), "InventoryTabs softMotion")
+assert(string.find(rebirth, "local softMotion = ", 1, true), "RebirthHero softMotion")
+assert(string.find(settings, "local softMotion = ", 1, true), "SettingsAudio softMotion")
+assert(string.find(trade, "local softMotion = ", 1, true), "TradeBoard softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(credits, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 18, "Credits softMotion densify, got " .. tostring(soft))
+	assert(soft >= 16, "Credits softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(inventory, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 20, "Inventory softMotion densify, got " .. tostring(soft))
+	assert(soft >= 16, "Inventory softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(rebirth, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 20, "Rebirth softMotion densify, got " .. tostring(soft))
+	assert(soft >= 16, "Rebirth softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -69,7 +69,7 @@ do
 	for _ in string.gmatch(trade, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 20, "Trade softMotion densify, got " .. tostring(soft))
+	assert(soft >= 15, "Trade softMotion densify, got " .. tostring(soft))
 end
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

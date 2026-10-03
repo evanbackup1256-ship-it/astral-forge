@@ -4,9 +4,9 @@
 
 local fs = require("./_memberfs")(require("@lune/fs"))
 
-local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+local CANON = "local softMotion = reducedMotion"
 -- CrateRevealStage uses props.reducedMotion as the left-hand of the canon gate.
-local STAGE_CANON = "local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+local STAGE_CANON = "local softMotion = props.reducedMotion == true"
 
 local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
 assert(string.find(boards, CANON, 1, true), "Leaderboards softMotion canon")

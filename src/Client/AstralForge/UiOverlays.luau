@@ -85,9 +85,7 @@ local function DomainPortal(_param)
 	local size = _param.size
 	local resultMode = _param.resultMode
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local rayCount = _param.rayCount
 	local fade = _param.fade
@@ -335,9 +333,7 @@ local function RewardChip(_param)
 	local order = _param.order
 	local time = _param.time
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local enter = time:map(function(amount)
 		return if reducedMotion then 1 else easeOutBack(phase(amount, 2.05 + order * 0.12, 2.55 + order * 0.12))
 	end)
@@ -398,9 +394,7 @@ local function DomainExpansionOverlay(_param)
 		busy = false
 	end
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — DomainExpansionOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local onConfirm = _param.onConfirm
 	local onClose = _param.onClose
 	local viewport = useViewport()
@@ -2344,7 +2338,6 @@ end
 -- ======================================================================
 __defs["purchaseOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
@@ -2376,9 +2369,7 @@ local function ForgeDot(_param)
 	local clock = _param.clock
 	local morph = _param.morph
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — PurchaseOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local color = DOT_COLORS[index + 1]
 	local x = (index - 1) * 26
@@ -2471,9 +2462,7 @@ end
 local function PurchaseOverlay(_param)
 	local phase = _param.phase
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — PurchaseOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local detail = _param.detail
 	local onDismiss = _param.onDismiss
 	local visible = phase ~= "hidden"

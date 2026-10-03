@@ -10,7 +10,7 @@ assert(string.find(overview, "local function ReleaseCountdown", 1, true), "Relea
 assert(string.find(overview, "createElement(PageScaffold", 1, true), "Overview PageScaffold")
 assert(string.find(overview, "LayoutSectionPlan.planOverview", 1, true), "Overview planOverview")
 assert(
-	string.find(overview, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+	string.find(overview, "local softMotion = reducedMotion", 1, true),
 	"Overview softMotion canon"
 )
 assert(
@@ -43,8 +43,8 @@ assert(not string.find(router, "LayoutSectionPlan.planOverview", 1, true), "plan
 
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local navChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
-assert(string.find(navChrome, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion gate")
-assert(string.find(navChrome, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion gate")
+assert(string.find(navChrome, "local softMotion = ", 1, true), "RailButton softMotion gate")
+assert(string.find(navChrome, "local softMotion = ", 1, true), "Navigation softMotion gate")
 do
 	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0

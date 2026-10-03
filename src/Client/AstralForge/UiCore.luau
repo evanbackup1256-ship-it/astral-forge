@@ -4879,11 +4879,8 @@ local function MainGame(_param)
 	end, {})
 	local bootReady = Boot.bootChecklistReady(bootMarks)
 	local bootFill = Boot.bootProgress(bootMarks)
-	local _result_2 = state
-	if _result_2 ~= nil then
-		_result_2 = _result_2.Settings.ReducedMotion
-	end
-	local bootReducedMotion = _result_2 == true
+	-- Reduced Motion softens motion through MotionSettingsContext; nothing is switched off.
+	local bootReducedMotion = false
 	React.useEffect(function()
 		local assetShare = if assetProgress.total > 0 then math.clamp(assetProgress.loaded / assetProgress.total, 0, 1) elseif bootMarks.assets then 1 else 0
 		local moduleShare = if moduleProgress.total > 0 then math.clamp(moduleProgress.loaded / moduleProgress.total, 0, 1) elseif bootMarks.modules then 1 else 0
@@ -5750,10 +5747,6 @@ local function MainGame(_param)
 			addNotice("Done", response.message, "Info")
 		end
 	end
-	local _result_7 = state
-	if _result_7 ~= nil then
-		_result_7 = _result_7.Settings.ReducedMotion
-	end
 	local applyResponse = React.useCallback(_exp_1, { acceptState, addNotice, applyComboReadout, celebrate, dispatchStore, setVisit })
 	local dispatch
 	dispatch = React.useCallback(function(action, payload, callback)
@@ -6566,6 +6559,7 @@ local function MainGame(_param)
 		_condition_4 = 1
 	end
 	local motionIntensity = _condition_4
+	local softFeel = state ~= nil and state.Settings.ReducedMotion == true
 	local _result_28 = state
 	if _result_28 ~= nil then
 		_result_28 = _result_28.Settings.ViewportSpeed
@@ -6654,6 +6648,7 @@ local function MainGame(_param)
 			motionScale = motionIntensity,
 			viewportScale = viewportSpeed,
 			textScale = textScale,
+			soft = softFeel,
 		}
 		local _left = "shimmerScale"
 		local _result_31 = state
@@ -6773,7 +6768,7 @@ local function MainGame(_param)
 	if _result_38 ~= nil then
 		_result_38 = _result_38.Settings.ShimmerIntensity
 	end
-	local motionSettings = React.useMemo(_exp_6, { motionIntensity, _result_31, _result_32, _result_33, _result_34, _result_35, _result_36, _result_37, _result_38, textScale, viewportSpeed })
+	local motionSettings = React.useMemo(_exp_6, { motionIntensity, softFeel, _result_31, _result_32, _result_33, _result_34, _result_35, _result_36, _result_37, _result_38, textScale, viewportSpeed })
 	local touchUi = isTouchUiHere
 	local _condition_7 = not touchUi
 	if not _condition_7 then
@@ -6830,7 +6825,7 @@ local function MainGame(_param)
 			notices = if mobileToastsVisible and not toastsSuppressed then notices else EMPTY_NOTICES,
 			remove = dismissNotice,
 			setHovered = setNoticeHovered,
-			reducedMotion = state.Settings.ReducedMotion == true,
+			reducedMotion = false,
 			density = toastDensityRef.current,
 		}
 		local _result_41
@@ -6901,22 +6896,14 @@ local function MainGame(_param)
 	local _attributes = {
 		prank = adminPrank,
 	}
-	local _result_39 = state
-	if _result_39 ~= nil then
-		_result_39 = _result_39.Settings.ReducedMotion
-	end
-	_attributes.reducedMotion = _result_39 == true
+	_attributes.reducedMotion = false
 	local _exp_7 = React.createElement(HudPrankStage, _attributes, domainContent)
 	local _condition_9 = adminPrank ~= nil
 	if _condition_9 then
 		local _attributes_1 = {
 			prank = adminPrank,
 		}
-		local _result_40 = state
-		if _result_40 ~= nil then
-			_result_40 = _result_40.Settings.ReducedMotion
-		end
-		_attributes_1.reducedMotion = _result_40 == true
+		_attributes_1.reducedMotion = false
 		_attributes_1.onClose = clearAdminPrank
 		_condition_9 = React.createElement(AdminPrankOverlay, _attributes_1)
 	end
@@ -6928,11 +6915,7 @@ local function MainGame(_param)
 			progress = bootFill,
 			version = config.Game.Version,
 		}
-		local _result_40 = state
-		if _result_40 ~= nil then
-			_result_40 = _result_40.Settings.ReducedMotion
-		end
-		_attributes_1.reducedMotion = _result_40 == true
+		_attributes_1.reducedMotion = false
 		_attributes_1.startedAt = bootStartedAt
 		_attributes_1.assetsLoaded = assetProgress.loaded
 		_attributes_1.assetsTotal = assetProgress.total
@@ -6991,7 +6974,6 @@ local useAntilag = _antilag.useAntilag
 local _motion = require(script.Parent.MotionKit)("motion")
 local beginUiTransition = _motion.beginUiTransition
 local setClockBudget = _motion.setClockBudget
-local setDecorativeMotionFrozen = _motion.setDecorativeMotionFrozen
 local useFlipperSpring = _motion.useFlipperSpring
 local useDynamicLayoutNumber = require(script.Parent.MotionKit)("dynamicLayout").useDynamicLayoutNumber
 local useViewport = _motion.useViewport
@@ -7160,10 +7142,8 @@ local function AppShell(_param)
 	local cinematicOpen = crateReveal ~= nil or domainOverlayActive
 	React.useEffect(function()
 		pausePassivePaints.current = cinematicOpen
-		setDecorativeMotionFrozen(cinematicOpen)
 		return function()
 			pausePassivePaints.current = false
-			setDecorativeMotionFrozen(false)
 		end
 	end, { cinematicOpen })
 	React.useEffect(function()
@@ -7285,11 +7265,10 @@ local function AppShell(_param)
 	local quickActionsVisible = _binding.quickActionsVisible
 	local quickBottomOffset = _binding.quickBottomOffset
 	local bottomPad = _binding.bottomPad
-	local reducedMotion = state.Settings.ReducedMotion == true
-	local antilagShell = useAntilag()
-	-- Canonical softMotion antilag gate — AppShell chrome springs drop on soft tiers.
-	local softMotion = reducedMotion or antilagShell.tier <= 1 or not antilagShell.allowAmbient
-	reducedMotion = softMotion
+	-- Pages always get full motion. The Reduced Motion setting reaches the
+	-- hooks as MotionSettingsContext.soft, which softens the feel instead.
+	local reducedMotion = false
+	local softMotion = false
 	local shellTopLive = useDynamicLayoutNumber(shellTop, softMotion)
 	local topbarLive = useDynamicLayoutNumber(topbarHeight, softMotion)
 	React.useEffect(function()
@@ -7907,8 +7886,7 @@ local function AppShell(_param)
 	end, { arcadeBusy, cinematicOpen, heavyPage })
 	React.useEffect(function()
 		setClockBudget(pageAntilag.maxClocks)
-		setDecorativeMotionFrozen(pageAntilag.tier <= 0 or pageAntilag.hitchScore >= 0.2 or pageAntilag.quality < 0.14)
-	end, { pageAntilag.hitchScore, pageAntilag.maxClocks, pageAntilag.quality, pageAntilag.tier })
+	end, { pageAntilag.maxClocks })
 	local _exp_2 = React.createElement("uigradient", {
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Palette.void), ColorSequenceKeypoint.new(0.5, Palette.graphite), ColorSequenceKeypoint.new(1, Palette.void) }),
 		Rotation = 112,
@@ -8452,7 +8430,6 @@ __defs["TopBarChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _antilag = require(script.Parent.MotionKit)("antilag")
-local useAntilag = _antilag.useAntilag
 local usePerformanceTelemetry = _antilag.usePerformanceTelemetry
 local _motion = require(script.Parent.MotionKit)("motion")
 local useEntrance = _motion.useEntrance
@@ -8537,9 +8514,7 @@ local function StatChip(_param)
 	if animateValue == nil then
 		animateValue = true
 	end
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StatChip flash/springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local gains, setGains = React.useState(0)
 	local previous = React.useRef(value)
@@ -8780,9 +8755,7 @@ local function ActiveBoostIcon(_param)
 	if compact == nil then
 		compact = false
 	end
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ActiveBoostIcon springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local remaining = now:map(function(timestamp)
 		return clockText(math.max(0, endsAt - timestamp))
@@ -9010,9 +8983,7 @@ local function TopbarReleaseCountdown(_param)
 	if reducedMotion == nil then
 		reducedMotion = false
 	end
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — TopbarReleaseCountdown pulses drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local Workspace = game:GetService("Workspace")
 	local function syncedNow()
@@ -9244,9 +9215,7 @@ local function TopBar(_param)
 	local visit = _param.visit
 	local openPlayerlist = _param.openPlayerlist
 	local openFeedback = _param.openFeedback
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — TopBar chips/pills drop springs on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local accent = AppHelpers:pageAccent(page)
 	local shortRow = barHeight <= 54 and width < 980
@@ -9647,7 +9616,6 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
 local UserInputService = game:GetService("UserInputService")
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.MotionKit)("motion")
 local useFlipperSpring = _motion.useFlipperSpring
@@ -9701,9 +9669,7 @@ local function RailButton(_param)
 	local rowHeight = _param.rowHeight
 	local bodySize = _param.bodySize
 	local viewport = useViewport()
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — RailButton springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local touchChrome = viewport.compact or viewport.tight
 	local disabled = entry.disabled == true
@@ -9936,9 +9902,7 @@ local function MoreDockButton(_param)
 	local layoutOrder = _param.layoutOrder
 	local fill = _param.fill
 	local disabled = entry.disabled == true
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MoreDockButton springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true, false, resolvePressMotion(if fill then "row" else {
 		text = entry.label,
@@ -10162,9 +10126,7 @@ local function MoreDockPopover(_param)
 	local anchor = _param.anchor
 	local onClose = _param.onClose
 	local viewport = useViewport()
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MoreDockPopover motion drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local portalLayer = React.useState(acquireDropdownPortal)
 	React.useEffect(function()
@@ -10298,9 +10260,7 @@ function MoreCell(_param)
 	end
 	local layoutOrder = _param.layoutOrder
 	local disabled = entry.disabled == true
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MoreCell springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true, false, resolvePressMotion({
 		text = entry.label,
@@ -10382,9 +10342,7 @@ function MoreCell(_param)
 	}))))
 end
 local function MoreDock(_param)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MoreDock motion drops on soft tiers.
-	local softMotion = (_param.reducedMotion or false) or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = _param.reducedMotion == true
 	local page = _param.page
 	local setPage = _param.setPage
 	local reducedMotion = _param.reducedMotion
@@ -10682,9 +10640,7 @@ local function Navigation(_param)
 	local wallClock = _param.wallClock
 	local openBoosts = _param.openBoosts
 	local viewport = useViewport()
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — Navigation rail motion drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local railNavHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on sidebar rail (FocusClaim prefers Claim-named hosts).
@@ -10973,7 +10929,6 @@ __defs["WorkspaceChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.MotionKit)("motion")
 local EntranceMotionSuppressedContext = _motion.EntranceMotionSuppressedContext
@@ -11032,9 +10987,7 @@ local function VaultPill(_param)
 	-- motor cost between updates.
 	local gains, setGains = React.useState(0)
 	local previousVault = React.useRef(state.Vault)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — VaultPill flash drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	React.useEffect(function()
 		if asFlux(state.Vault) > asFlux(previousVault.current) then
 			setGains(function(current)
@@ -11131,9 +11084,7 @@ local function NextUnlockStrip(_param)
 	local state = _param.state
 	local reducedMotion = _param.reducedMotion
 	local onOpen = _param.onOpen
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — NextUnlockStrip motion drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local viewport = useViewport()
 	local narrow = chromeFor(viewport).stack or viewport.width < 720
@@ -11262,9 +11213,7 @@ local function Workspace(_param)
 	local children = _param.children
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — Workspace entrance drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local keyboardCompact = viewport.keyboardOpen
 	local _condition = chrome.stack
@@ -11585,9 +11534,7 @@ local function TradeReturnPill(_param)
 	local bottomPad = _param.bottomPad
 	local reducedMotion = _param.reducedMotion
 	local onReturn = _param.onReturn
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — TradeReturnPill springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local pulse = usePulse(true, 1.35)
@@ -11650,8 +11597,7 @@ local function AmbientLayer(_param)
 		intensity = 1
 	end
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AmbientLayer clocks drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local strength = math.clamp(intensity, 0, 1)
 	local enabled = not reducedMotion and antilag.allowAmbient and strength > 0.02
 	local slow = useClock(enabled, 0.17)
@@ -11696,8 +11642,7 @@ local function ConfettiBurst(_param)
 		intensity = 1
 	end
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ConfettiBurst skips particle clocks on soft tiers.
-	local softMotion = antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = false
 	local confettiLive = antilag.allowConfetti == true
 	local clock = useClock(confettiLive, if softMotion then 1.4 else 1, 1000, true)
 	local confettiSpan = if softMotion then 1.35 else 2.15
@@ -12168,7 +12113,6 @@ local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local _motion = require(script.Parent.MotionKit)("motion")
 local composePresence = _motion.composePresence
 local ScaleFromCenter = _motion.ScaleFromCenter
@@ -12410,9 +12354,7 @@ local function LevelRoadmap(_param)
 	local config = _param.config
 	local onClose = _param.onClose
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LevelRoadmap.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -13888,7 +13830,6 @@ end
 -- ======================================================================
 __defs["FeedbackOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -13915,9 +13856,7 @@ local CATEGORIES = { "Bug", "Suggestion", "Balance", "Other" }
 local function FeedbackOverlay(_param)
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — FeedbackOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local onClose = _param.onClose
 	local notify = _param.notify
@@ -15444,7 +15383,6 @@ end
 __defs["OfflineRewardsOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local _format = require(script.Parent.CoreKit)("format")
@@ -15476,9 +15414,7 @@ local function StatTile(_param)
 	local color = _param.color
 	local index = _param.index
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — OfflineRewardsOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(index, reducedMotion, 0.07, 0.22)
 	return React.createElement("frame", {
 		Size = UDim2.new(0.25, -6, 1, 0),
@@ -15517,9 +15453,7 @@ local function OfflineRewardsOverlay(_param)
 	local efficiency = _param.efficiency
 	local capped = _param.capped
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — OfflineRewardsOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local effectsEnabled = _param.effectsEnabled
 	local production = _param.production
@@ -17941,7 +17875,6 @@ end
 -- ======================================================================
 __defs["AdminPrankOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local UserInputService = game:GetService("UserInputService")
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.MotionKit)("motion")
@@ -17970,9 +17903,7 @@ local function PrankCard(_param)
 	local accent = _param.accent
 	local height = _param.height
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AdminPrankOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local onClose = _param.onClose
 	local viewport = useViewport()
@@ -18085,9 +18016,7 @@ end
 local function AdminPrankOverlay(_param)
 	local prank = _param.prank
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AdminPrankOverlay.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local onClose = _param.onClose
 	local kind = prank.kind
 	local viewport = useViewport()
@@ -19146,7 +19075,6 @@ local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
-local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
 local _motion = require(script.Parent.MotionKit)("motion")
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
@@ -19201,18 +19129,13 @@ local function CreditsOverlay(_param)
 	local version = _param.version
 	local reducedMotion = _param.reducedMotion
 	local onClose = _param.onClose
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — CreditsView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local headerReveal = useStagger(0, softMotion)
 	local rolesReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — CreditsRoles.
 	local thanksReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — CreditsThanks.
 	local closingReveal = useStagger(3, softMotion)
-	-- Canonical softMotion antilag gate — CreditsClose.
 	local brandReveal = useStagger(4, softMotion)
 	local _binding = useExitTransition(softMotion)
 	local exit = _binding[1]
@@ -19936,7 +19859,7 @@ local function CrateRevealExperience(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	-- Every display frame: capping the reel at 60 made it judder on 120/144 Hz
 	-- screens next to the rest of the interface. The cap only stops sub-frame

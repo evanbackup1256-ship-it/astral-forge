@@ -199,7 +199,7 @@ local function DomainApp(props)
 		return React.createElement(React.Fragment, nil, children, state.Domain ~= nil and overlay ~= nil and overlay.mode == "tree" and React.createElement(DomainSkillTree, {
 			domain = state.Domain,
 			dispatch = dispatch,
-			reducedMotion = state.Settings.ReducedMotion == true,
+			reducedMotion = false,
 			onClose = function()
 				return dispatchStore(ClientActions.setDomainOverlay(nil))
 			end,
@@ -211,7 +211,7 @@ local function DomainApp(props)
 			currentCores = state.Cores,
 			result = if overlay.mode == "result" then overlay.result else nil,
 			busy = busy,
-			reducedMotion = state.Settings.ReducedMotion == true,
+			reducedMotion = false,
 			onConfirm = confirm,
 			onClose = function()
 				if busy then

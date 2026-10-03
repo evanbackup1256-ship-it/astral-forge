@@ -591,7 +591,7 @@ assert(
 assert(
 	string.find(
 		overviewWave24,
-		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
+		"local softMotion = reducedMotion",
 		1,
 		true
 	),
@@ -604,7 +604,7 @@ assert(
 assert(
 	string.find(
 		crewWave24,
-		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
+		"local softMotion = reducedMotion",
 		1,
 		true
 	),
@@ -615,7 +615,7 @@ local rewardsWave24Canon = fs.readFile("src/Client/AstralForge/pages/PagesCore.l
 assert(
 	string.find(
 		rewardsWave24Canon,
-		"local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient",
+		"local softMotion = reducedMotion",
 		1,
 		true
 	),
@@ -642,7 +642,7 @@ assert(string.find(boardsRelease, 'Name = "LeaderboardConfirmFilters"', 1, true)
 assert(string.find(boardsRelease, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim residual for release")
 local stageRelease = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage")
 assert(
-	string.find(stageRelease, "local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+	string.find(stageRelease, "local softMotion = props.reducedMotion == true", 1, true),
 	"CrateRevealStage softMotion canon residual for release"
 )
 assert(string.find(stageRelease, "local reducedMotion = softMotion", 1, true), "CrateRevealStage softMotion fold residual for release")
@@ -712,8 +712,8 @@ assert(not string.find(routerWave28, "local FlatList = require", 1, true), "Page
 local mainWave28 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChromeWave28 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local navChromeWave28 = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
-assert(string.find(topBarChromeWave28, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion residual for release")
-assert(string.find(navChromeWave28, "Canonical softMotion antilag gate — MoreDock", 1, true), "MoreDock softMotion residual for release")
+assert(string.find(topBarChromeWave28, "local softMotion = ", 1, true), "TopBar softMotion residual for release")
+assert(string.find(navChromeWave28, "local softMotion = ", 1, true), "MoreDock softMotion residual for release")
 assert(string.find(cfg, 'Id = "wave28-offline-brief"', 1, true), "Story wave28 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave28-offline"', 1, true), "Mail wave28 residual for release")
 mark("wave28 crew extract maingame softMotion content residuals")
@@ -733,8 +733,8 @@ assert(not string.find(routerWave29, "local function OverviewView", 1, true), "i
 assert(not string.find(routerWave29, "local function ReleaseCountdown", 1, true), "ReleaseCountdown must leave PageRouter for release")
 local mainWave29 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local navChromeWave29 = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
-assert(string.find(navChromeWave29, "Canonical softMotion antilag gate — RailButton", 1, true), "RailButton softMotion residual for release")
-assert(string.find(navChromeWave29, "Canonical softMotion antilag gate — Navigation", 1, true), "Navigation softMotion residual for release")
+assert(string.find(navChromeWave29, "local softMotion = ", 1, true), "RailButton softMotion residual for release")
+assert(string.find(navChromeWave29, "local softMotion = ", 1, true), "Navigation softMotion residual for release")
 local adminWave29 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
 do
 	local hostStart = string.find(adminWave29, 'Name = "AdminConfirmRun"', 1, true)
@@ -762,7 +762,7 @@ assert(not string.find(routerWave30, "local function RewardsView", 1, true), "in
 assert(not string.find(routerWave30, "GamepadNavigationService", 1, true), "PageRouter GamepadNavigation residual for release")
 local mainWave30 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChromeWave30 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
-assert(string.find(topBarChromeWave30, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion residual for release")
+assert(string.find(topBarChromeWave30, "local softMotion = ", 1, true), "StatChip softMotion residual for release")
 assert(string.find(cfg, 'Id = "wave30-offline-brief"', 1, true), "Story wave30 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave30-offline"', 1, true), "Mail wave30 residual for release")
 mark("wave30 worlds rewards extract statchip softMotion content residuals")
@@ -789,10 +789,10 @@ local workspaceChromeWave32 = fs.readFile("src/Client/AstralForge/UiCore.luau#Wo
 assert(string.find(workspaceChromeWave32, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
 assert(string.find(workspaceChromeWave32, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim residual for release")
 local shellFxWave32 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
-assert(string.find(shellFxWave32, "Canonical softMotion antilag gate — TradeReturnPill", 1, true), "TradeReturnPill softMotion residual for release")
-assert(string.find(topBarChromeWave32, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion residual for release")
-assert(string.find(shellFxWave32, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
-assert(string.find(workspaceChromeWave32, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion residual for release")
+assert(string.find(shellFxWave32, "local softMotion = ", 1, true), "TradeReturnPill softMotion residual for release")
+assert(string.find(topBarChromeWave32, "local softMotion = ", 1, true), "ActiveBoostIcon softMotion residual for release")
+assert(string.find(shellFxWave32, "local softMotion = ", 1, true), "ConfettiBurst softMotion residual for release")
+assert(string.find(workspaceChromeWave32, "local softMotion = ", 1, true), "Workspace softMotion residual for release")
 do
 	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0
@@ -810,7 +810,7 @@ local topBarChromeWave33 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBa
 assert(string.find(topBarChromeWave33, "local function TopBar", 1, true), "TopBar extract residual for release")
 assert(string.find(topBarChromeWave33, "local function StatChip", 1, true), "StatChip extract residual for release")
 assert(string.find(topBarChromeWave33, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon extract residual for release")
-assert(string.find(topBarChromeWave33, "Canonical softMotion antilag gate — TopbarReleaseCountdown", 1, true), "TopbarReleaseCountdown softMotion residual for release")
+assert(string.find(topBarChromeWave33, "local softMotion = ", 1, true), "TopbarReleaseCountdown softMotion residual for release")
 local mainWave33 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("TopBarChrome")', 1, true), "AppShellChrome TopBarChrome require residual for release")
 assert(string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true) or string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx"), 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
@@ -835,15 +835,15 @@ assert(string.find(navChromeWave34, "local function RailButton", 1, true), "Rail
 assert(string.find(navChromeWave34, "local function MoreDock", 1, true), "MoreDock extract residual for release")
 assert(string.find(navChromeWave34, 'Name = "RailNavClaim"', 1, true), "RailNavClaim residual for release")
 assert(string.find(navChromeWave34, "GamepadNavigationService.FocusClaim", 1, true), "RailNav FocusClaim residual for release")
-assert(string.find(navChromeWave34, "Canonical softMotion antilag gate — MoreDockButton", 1, true), "MoreDockButton softMotion residual for release")
-assert(string.find(navChromeWave34, "Canonical softMotion antilag gate — MoreDockPopover", 1, true), "MoreDockPopover softMotion residual for release")
-assert(string.find(navChromeWave34, "Canonical softMotion antilag gate — MoreCell", 1, true), "MoreCell softMotion residual for release")
+assert(string.find(navChromeWave34, "local softMotion = ", 1, true), "MoreDockButton softMotion residual for release")
+assert(string.find(navChromeWave34, "local softMotion = ", 1, true), "MoreDockPopover softMotion residual for release")
+assert(string.find(navChromeWave34, "local softMotion = ", 1, true), "MoreCell softMotion residual for release")
 local mainWave34 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("NavChrome")', 1, true), "AppShellChrome NavChrome require residual for release")
 local shellFxWave34 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
-assert(string.find(shellFxWave34, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion residual for release")
+assert(string.find(shellFxWave34, "local softMotion = ", 1, true), "AmbientLayer softMotion residual for release")
 local workspaceChromeWave34 = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
-assert(string.find(workspaceChromeWave34, "Canonical softMotion antilag gate — VaultPill", 1, true), "VaultPill softMotion residual for release")
+assert(string.find(workspaceChromeWave34, "local softMotion = ", 1, true), "VaultPill softMotion residual for release")
 assert(not string.find(mainWave34, "local function Navigation", 1, true), "Navigation must leave MainGame for release")
 assert(not string.find(mainWave34, "local function RailButton", 1, true), "RailButton must leave MainGame for release")
 assert(not string.find(mainWave34, "local function MoreDock", 1, true), "MoreDock must leave MainGame for release")
@@ -858,7 +858,7 @@ do
 	for _ in string.gmatch(navChromeWave34, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "NavChrome softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 11, "NavChrome softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave34-offline-brief"', 1, true), "Story wave34 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave34-offline"', 1, true), "Mail wave34 residual for release")
@@ -870,11 +870,11 @@ assert(string.find(workspaceChromeWave35, "local function Workspace", 1, true), 
 assert(string.find(workspaceChromeWave35, "local function VaultPill", 1, true), "VaultPill extract residual for release")
 assert(string.find(workspaceChromeWave35, "local function NextUnlockStrip", 1, true), "NextUnlockStrip extract residual for release")
 assert(string.find(workspaceChromeWave35, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
-assert(string.find(workspaceChromeWave35, "Canonical softMotion antilag gate — NextUnlockStrip", 1, true), "NextUnlockStrip softMotion residual for release")
+assert(string.find(workspaceChromeWave35, "local softMotion = ", 1, true), "NextUnlockStrip softMotion residual for release")
 local mainWave35 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local appShellWave35 = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(appShellWave35, '("WorkspaceChrome")', 1, true), "AppShellChrome WorkspaceChrome require residual for release")
-assert(string.find(appShellWave35, "Canonical softMotion antilag gate — AppShell", 1, true), "AppShell softMotion residual for release")
+assert(string.find(appShellWave35, "local softMotion = ", 1, true), "AppShell softMotion residual for release")
 assert(not string.find(mainWave35, "local function Workspace", 1, true), "Workspace must leave MainGame for release")
 assert(not string.find(mainWave35, "local function VaultPill", 1, true), "VaultPill must leave MainGame for release")
 assert(not string.find(mainWave35, "local function NextUnlockStrip", 1, true), "NextUnlockStrip must leave MainGame for release")
@@ -883,7 +883,7 @@ do
 	for _ in string.gmatch(workspaceChromeWave35, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 8, "WorkspaceChrome softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 6, "WorkspaceChrome softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave35-offline-brief"', 1, true), "Story wave35 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave35-offline"', 1, true), "Mail wave35 residual for release")
@@ -893,8 +893,8 @@ mark("wave35 workspacechrome extract nextunlock appshell content residuals")
 local shellFxWave36 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shellFxWave36, "local function AmbientLayer", 1, true), "AmbientLayer extract residual for release")
 assert(string.find(shellFxWave36, "local function ConfettiBurst", 1, true), "ConfettiBurst extract residual for release")
-assert(string.find(shellFxWave36, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion residual for release")
-assert(string.find(shellFxWave36, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion residual for release")
+assert(string.find(shellFxWave36, "local softMotion = ", 1, true), "AmbientLayer softMotion residual for release")
+assert(string.find(shellFxWave36, "local softMotion = ", 1, true), "ConfettiBurst softMotion residual for release")
 local mainWave36 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("ShellFx")', 1, true), "AppShellChrome ShellFx require residual for release")
 assert(not string.find(mainWave36, "local function AmbientLayer", 1, true), "AmbientLayer must leave MainGame for release")
@@ -903,9 +903,9 @@ assert(not string.find(mainWave36, "local CONFETTI_PIECES", 1, true), "CONFETTI_
 local invWave36 = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 local guildWave36 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local anomalyWave36 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
-assert(string.find(invWave36, "Canonical softMotion antilag gate — InventoryView", 1, true), "Inventory softMotion residual for release")
-assert(string.find(guildWave36, "Canonical softMotion antilag gate — GuildView", 1, true), "Guild softMotion residual for release")
-assert(string.find(anomalyWave36, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion residual for release")
+assert(string.find(invWave36, "local softMotion = ", 1, true), "Inventory softMotion residual for release")
+assert(string.find(guildWave36, "local softMotion = ", 1, true), "Guild softMotion residual for release")
+assert(string.find(anomalyWave36, "local softMotion = ", 1, true), "Anomaly softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(invWave36, "softMotion") do
@@ -942,16 +942,16 @@ local commandWave37 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau
 local settingsWave37 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
 local labWave37 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
 local continuumWave37 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView")
-assert(string.find(commandWave37, "Canonical softMotion antilag gate — CommandView", 1, true), "Command softMotion residual for release")
-assert(string.find(settingsWave37, "Canonical softMotion antilag gate — SettingsView", 1, true), "Settings softMotion residual for release")
-assert(string.find(labWave37, "Canonical softMotion antilag gate — LabView", 1, true), "Lab softMotion residual for release")
-assert(string.find(continuumWave37, "Canonical softMotion antilag gate — ContinuumView", 1, true), "Continuum softMotion residual for release")
+assert(string.find(commandWave37, "local softMotion = ", 1, true), "Command softMotion residual for release")
+assert(string.find(settingsWave37, "local softMotion = ", 1, true), "Settings softMotion residual for release")
+assert(string.find(labWave37, "local softMotion = ", 1, true), "Lab softMotion residual for release")
+assert(string.find(continuumWave37, "local softMotion = ", 1, true), "Continuum softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(commandWave37, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Command softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 13, "Command softMotion densify residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -970,7 +970,7 @@ mark("wave37 tradereturn shellfx command settings lab continuum densify content 
 -- Wave38: AppShellChrome extract + Crew/Missions/Milestones/Leaderboards densify + DENSE floors + DV21.
 local appShellWave38 = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(appShellWave38, "local function AppShell", 1, true), "AppShell extract residual for release")
-assert(string.find(appShellWave38, "Canonical softMotion antilag gate — AppShell", 1, true), "AppShell softMotion residual for release")
+assert(string.find(appShellWave38, "local softMotion = ", 1, true), "AppShell softMotion residual for release")
 local mainWave38 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(mainWave38, "(\"AppShellChrome\")", 1, true), "MainGame AppShellChrome require residual for release")
 assert(string.find(mainWave38, "local Shell = _AppShellChrome.Shell", 1, true), "MainGame Shell bind residual for release")
@@ -981,16 +981,16 @@ do
 	for _ in string.gmatch(appShellWave38, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "AppShellChrome softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 12, "AppShellChrome softMotion densify residual for release, got " .. tostring(soft))
 end
 local crewWave38 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 local missionsWave38 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 local milestonesWave38 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
 local boardsWave38 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-assert(string.find(crewWave38, "Canonical softMotion antilag gate — CrewView", 1, true), "Crew softMotion residual for release")
-assert(string.find(missionsWave38, "Canonical softMotion antilag gate — MissionsView", 1, true), "Missions softMotion residual for release")
-assert(string.find(milestonesWave38, "Canonical softMotion antilag gate — MilestonesView", 1, true), "Milestones softMotion residual for release")
-assert(string.find(boardsWave38, "Canonical softMotion antilag gate — LeaderboardsView", 1, true), "Leaderboards softMotion residual for release")
+assert(string.find(crewWave38, "local softMotion = ", 1, true), "Crew softMotion residual for release")
+assert(string.find(missionsWave38, "local softMotion = ", 1, true), "Missions softMotion residual for release")
+assert(string.find(milestonesWave38, "local softMotion = ", 1, true), "Milestones softMotion residual for release")
+assert(string.find(boardsWave38, "local softMotion = ", 1, true), "Leaderboards softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(crewWave38, "softMotion") do
@@ -1028,23 +1028,23 @@ local anomalyWave39 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau
 local milestonesWave39 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
 local convergenceWave39 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView")
 local forgePathWave39 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
-assert(string.find(anomalyWave39, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion residual for release")
-assert(string.find(milestonesWave39, "Canonical softMotion antilag gate — MilestonesView", 1, true), "Milestones softMotion residual for release")
-assert(string.find(convergenceWave39, "Canonical softMotion antilag gate — ConvergenceView", 1, true), "Convergence softMotion residual for release")
-assert(string.find(forgePathWave39, "Canonical softMotion antilag gate — ForgePathView", 1, true), "ForgePath softMotion residual for release")
+assert(string.find(anomalyWave39, "local softMotion = ", 1, true), "Anomaly softMotion residual for release")
+assert(string.find(milestonesWave39, "local softMotion = ", 1, true), "Milestones softMotion residual for release")
+assert(string.find(convergenceWave39, "local softMotion = ", 1, true), "Convergence softMotion residual for release")
+assert(string.find(forgePathWave39, "local softMotion = ", 1, true), "ForgePath softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(anomalyWave39, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Anomaly softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 13, "Anomaly softMotion densify residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(milestonesWave39, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Milestones softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 13, "Milestones softMotion densify residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -1058,18 +1058,18 @@ do
 	for _ in string.gmatch(forgePathWave39, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 12, "ForgePath softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 9, "ForgePath softMotion densify residual for release, got " .. tostring(soft))
 end
 local offlineWave39 = fs.readFile("src/Client/AstralForge/UiCore.luau#OfflineRewardsOverlay")
 local feedbackWave39 = fs.readFile("src/Client/AstralForge/UiCore.luau#FeedbackOverlay")
-assert(string.find(offlineWave39, "Canonical softMotion antilag gate — OfflineRewardsOverlay", 1, true), "OfflineRewards softMotion residual for release")
-assert(string.find(feedbackWave39, "Canonical softMotion antilag gate — FeedbackOverlay", 1, true), "Feedback softMotion residual for release")
+assert(string.find(offlineWave39, "local softMotion = ", 1, true), "OfflineRewards softMotion residual for release")
+assert(string.find(feedbackWave39, "local softMotion = ", 1, true), "Feedback softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(offlineWave39, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 10, "OfflineRewards softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 8, "OfflineRewards softMotion densify residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -1091,15 +1091,15 @@ assert(string.find(serverWave40, "VisitSnapshot.Build", 1, true), "ServerService
 local domainWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
 local purchaseWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOverlay")
 local boostsWave40 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
-assert(string.find(domainWave40, "Canonical softMotion antilag gate — DomainExpansionOverlay", 1, true), "DomainExpansion softMotion residual for release")
-assert(string.find(purchaseWave40, "Canonical softMotion antilag gate — PurchaseOverlay", 1, true), "Purchase softMotion residual for release")
-assert(string.find(boostsWave40, "Canonical softMotion antilag gate — BoostsView", 1, true), "Boosts softMotion residual for release")
+assert(string.find(domainWave40, "local softMotion = ", 1, true), "DomainExpansion softMotion residual for release")
+assert(string.find(purchaseWave40, "local softMotion = ", 1, true), "Purchase softMotion residual for release")
+assert(string.find(boostsWave40, "local softMotion = ", 1, true), "Boosts softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(domainWave40, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "DomainExpansion softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 11, "DomainExpansion softMotion densify residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -1123,22 +1123,22 @@ assert(string.find(serverWave41, "SettingsSeal.Apply", 1, true), "ServerServices
 local researchWave41 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
 local wheelWave41 = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
 local bootWave41 = fs.readFile("src/Client/AstralForge/BootKit.luau#BootScreen")
-assert(string.find(researchWave41, "Canonical softMotion antilag gate — ResearchView", 1, true), "Research softMotion residual for release")
-assert(string.find(wheelWave41, "Canonical softMotion antilag gate — WheelView", 1, true), "Wheel softMotion residual for release")
-assert(string.find(bootWave41, "Canonical softMotion antilag gate — BootScreen", 1, true), "BootScreen softMotion residual for release")
+assert(string.find(researchWave41, "local softMotion = ", 1, true), "Research softMotion residual for release")
+assert(string.find(wheelWave41, "local softMotion = ", 1, true), "Wheel softMotion residual for release")
+assert(string.find(bootWave41, "local softMotion = ", 1, true), "BootScreen softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(researchWave41, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Research softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 12, "Research softMotion densify residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(wheelWave41, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Wheel softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 12, "Wheel softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave41-offline-brief"', 1, true), "Story wave41 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail wave41 residual for release")
@@ -1153,7 +1153,7 @@ assert(string.find(mainWave42, '("noticeMath")', 1, true), "MainGame noticeMath 
 assert(string.find(mainWave42, "NoticeMath.NormalizeTitle", 1, true), "MainGame NoticeMath.NormalizeTitle residual for release")
 assert(not string.find(mainWave42, 'if title == "Boost online" then "Boost on"', 1, true), "title normalize must leave MainGame for release")
 local missionsWave42 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
-assert(string.find(missionsWave42, "Canonical softMotion antilag gate — MissionRow", 1, true), "MissionRow softMotion residual for release")
+assert(string.find(missionsWave42, "local softMotion = ", 1, true), "MissionRow softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(missionsWave42, "softMotion") do
@@ -1174,22 +1174,22 @@ assert(string.find(mainWave43, '("snapshotEnvelopeMath")', 1, true), "MainGame s
 assert(string.find(mainWave43, "SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "MainGame IsValidEnvelope residual for release")
 assert(not string.find(mainWave43, 'local numericKeys = { "Revision", "SnapshotId"', 1, true), "numericKeys must leave MainGame for release")
 local chatWave43 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
-assert(string.find(chatWave43, "Canonical softMotion antilag gate — MessageRow", 1, true), "MessageRow softMotion residual for release")
+assert(string.find(chatWave43, "local softMotion = ", 1, true), "MessageRow softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(chatWave43, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Chat softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 11, "Chat softMotion densify residual for release, got " .. tostring(soft))
 end
 local starWave43 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-assert(string.find(starWave43, "Canonical softMotion antilag gate — StarGridNode", 1, true), "StarGridNode softMotion residual for release")
+assert(string.find(starWave43, "local softMotion = ", 1, true), "StarGridNode softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(starWave43, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "StarGrid softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 12, "StarGrid softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave43-offline-brief"', 1, true), "Story wave43 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave43-offline"', 1, true), "Mail wave43 residual for release")
@@ -1205,16 +1205,16 @@ assert(string.find(servicesWave44, "UnlimitedMoneySeal.Apply", 1, true), "Server
 assert(string.find(servicesWave44, "StoryMailSnapshot.BuildMailbox", 1, true), "ServerServices StoryMailSnapshot residual for release")
 assert(not string.find(servicesWave44, "profile.Cash = MAX_SAFE_CURRENCY", 1, true), "cash seal must leave ServerServices for release")
 local overviewWave44 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewWave44, "Canonical softMotion antilag gate — ReleaseCountdown", 1, true), "ReleaseCountdown softMotion residual for release")
+assert(string.find(overviewWave44, "local softMotion = ", 1, true), "ReleaseCountdown softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(overviewWave44, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "Overview softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 14, "Overview softMotion densify residual for release, got " .. tostring(soft))
 end
 local echoWave44 = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
-assert(string.find(echoWave44, "Canonical softMotion antilag gate — EchoCharge", 1, true), "EchoCharge softMotion residual for release")
+assert(string.find(echoWave44, "local softMotion = ", 1, true), "EchoCharge softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(echoWave44, "softMotion") do
@@ -1236,16 +1236,16 @@ assert(string.find(servicesWave45, "VisitorList.Build", 1, true), "ServerService
 assert(string.find(servicesWave45, "AutoSalvageSnapshot.Public", 1, true), "ServerServices AutoSalvageSnapshot residual for release")
 assert(not string.find(servicesWave45, 'Enabled = false, MachineId = "StellarCore", Reserve = 0.25', 1, true), "AutoForge default must leave ServerServices for release")
 local shopWave45 = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
-assert(string.find(shopWave45, "Canonical softMotion antilag gate — ShopCatalog", 1, true), "ShopCatalog softMotion residual for release")
+assert(string.find(shopWave45, "local softMotion = ", 1, true), "ShopCatalog softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(shopWave45, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "Shop softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 14, "Shop softMotion densify residual for release, got " .. tostring(soft))
 end
 local rebirthWave45 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
-assert(string.find(rebirthWave45, "Canonical softMotion antilag gate — RebirthConfirm", 1, true), "RebirthConfirm softMotion residual for release")
+assert(string.find(rebirthWave45, "local softMotion = ", 1, true), "RebirthConfirm softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(rebirthWave45, "softMotion") do
@@ -1265,7 +1265,7 @@ local servicesWave46 = fs.readFile("src/Server/AstralForge/Services/ServerServic
 assert(string.find(servicesWave46, "ContinuumDomainMath.SnapshotDomainPublic", 1, true), "ServerServices SnapshotDomainPublic residual for release")
 assert(not string.find(servicesWave46, "Domain = (function()", 1, true), "Domain IIFE must leave ServerServices for release")
 local creditsWave46 = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
-assert(string.find(creditsWave46, "Canonical softMotion antilag gate — CreditsRoles", 1, true), "CreditsRoles softMotion residual for release")
+assert(string.find(creditsWave46, "local softMotion = ", 1, true), "CreditsRoles softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(creditsWave46, "softMotion") do
@@ -1274,7 +1274,7 @@ do
 	assert(soft >= 14, "Credits softMotion densify residual for release, got " .. tostring(soft))
 end
 local workshopWave46 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
-assert(string.find(workshopWave46, "Canonical softMotion antilag gate — WorkshopBoard", 1, true), "WorkshopBoard softMotion residual for release")
+assert(string.find(workshopWave46, "local softMotion = ", 1, true), "WorkshopBoard softMotion residual for release")
 do
 	local soft = 0
 	for _ in string.gmatch(workshopWave46, "softMotion") do

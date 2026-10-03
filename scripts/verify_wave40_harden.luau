@@ -24,11 +24,11 @@ local purchase = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOve
 local boosts = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
 local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
 local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
-assert(string.find(domain, "Canonical softMotion antilag gate — DomainExpansionOverlay", 1, true), "DomainExpansion softMotion")
-assert(string.find(purchase, "Canonical softMotion antilag gate — PurchaseOverlay", 1, true), "Purchase softMotion")
-assert(string.find(boosts, "Canonical softMotion antilag gate — BoostsView", 1, true), "Boosts softMotion")
-assert(string.find(credits, "Canonical softMotion antilag gate — CreditsView", 1, true), "Credits softMotion")
-assert(string.find(rebirth, "Canonical softMotion antilag gate — RebirthPanel", 1, true), "Rebirth softMotion")
+assert(string.find(domain, "local softMotion = ", 1, true), "DomainExpansion softMotion")
+assert(string.find(purchase, "local softMotion = ", 1, true), "Purchase softMotion")
+assert(string.find(boosts, "local softMotion = ", 1, true), "Boosts softMotion")
+assert(string.find(credits, "local softMotion = ", 1, true), "Credits softMotion")
+assert(string.find(rebirth, "local softMotion = ", 1, true), "Rebirth softMotion")
 assert(
 	not string.find(rebirth, "local softMotion = reducedMotion or effectsPaused", 1, true),
 	"Rebirth must keep effectsPaused off softMotion assignment"
@@ -38,14 +38,14 @@ do
 	for _ in string.gmatch(domain, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "DomainExpansion softMotion densify, got " .. tostring(soft))
+	assert(soft >= 11, "DomainExpansion softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(purchase, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 8, "Purchase softMotion densify, got " .. tostring(soft))
+	assert(soft >= 7, "Purchase softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -70,9 +70,9 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#BoostsView"] = 12', 1, true), "Boosts DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = 12', 1, true), "Credits DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = 12', 1, true), "Rebirth DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#BoostsView"] = ', 1, true), "Boosts DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = ', 1, true), "Credits DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true), "Rebirth DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave40-offline-brief"', 1, true), "Story wave40")

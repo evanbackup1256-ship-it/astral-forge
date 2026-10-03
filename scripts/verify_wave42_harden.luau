@@ -19,9 +19,9 @@ assert(not string.find(main, 'if title == "Boost online" then "Boost on"', 1, tr
 
 local missions = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 local worlds = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorldsView")
-assert(string.find(missions, "Canonical softMotion antilag gate — MissionsView", 1, true), "Missions softMotion")
-assert(string.find(missions, "Canonical softMotion antilag gate — MissionRow", 1, true), "MissionRow softMotion")
-assert(string.find(worlds, "Canonical softMotion antilag gate — Worlds", 1, true), "Worlds softMotion")
+assert(string.find(missions, "local softMotion = ", 1, true), "Missions softMotion")
+assert(string.find(missions, "local softMotion = ", 1, true), "MissionRow softMotion")
+assert(string.find(worlds, "local softMotion = ", 1, true), "Worlds softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(missions, "softMotion") do
@@ -38,12 +38,12 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MissionsView"] = 12', 1, true), "Missions DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorldsView"] = 12', 1, true), "Worlds DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = 12', 1, true), "Rebirth DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 12', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12', 1, true), "StarGrid DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = 12', 1, true), "Convergence DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MissionsView"] = ', 1, true), "Missions DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorldsView"] = ', 1, true), "Worlds DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true), "Rebirth DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = ', 1, true), "Chat DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = ', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = ', 1, true), "Convergence DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave42-offline-brief"', 1, true), "Story wave42")

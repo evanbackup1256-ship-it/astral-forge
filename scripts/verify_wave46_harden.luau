@@ -18,10 +18,10 @@ local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
 local worlds = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorldsView")
 local rewards = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RewardsView")
 local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
-assert(string.find(credits, "Canonical softMotion antilag gate — CreditsRoles", 1, true), "CreditsRoles softMotion")
-assert(string.find(worlds, "Canonical softMotion antilag gate — WorldsBoard", 1, true), "WorldsBoard softMotion")
-assert(string.find(rewards, "Canonical softMotion antilag gate — RewardsTimed", 1, true), "RewardsTimed softMotion")
-assert(string.find(workshop, "Canonical softMotion antilag gate — WorkshopBoard", 1, true), "WorkshopBoard softMotion")
+assert(string.find(credits, "local softMotion = ", 1, true), "CreditsRoles softMotion")
+assert(string.find(worlds, "local softMotion = ", 1, true), "WorldsBoard softMotion")
+assert(string.find(rewards, "local softMotion = ", 1, true), "RewardsTimed softMotion")
+assert(string.find(workshop, "local softMotion = ", 1, true), "WorkshopBoard softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(credits, "softMotion") do
@@ -52,10 +52,10 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = 12', 1, true), "Credits DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorldsView"] = 12', 1, true), "Worlds DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RewardsView"] = 12', 1, true), "Rewards DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView"] = 12', 1, true), "Workshop DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = ', 1, true), "Credits DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorldsView"] = ', 1, true), "Worlds DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RewardsView"] = ', 1, true), "Rewards DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView"] = ', 1, true), "Workshop DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave46-offline-brief"', 1, true), "Story wave46")
