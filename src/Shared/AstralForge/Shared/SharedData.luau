@@ -1475,7 +1475,7 @@ SanctuaryConfig.RiftBoss = {
 	-- How long it stays before slipping back into the rift.
 	ActiveSeconds = 150,
 	-- How long the defeat / escape moment plays before it goes quiet.
-	OutroSeconds = 6,
+	OutroSeconds = 10,
 	-- Health: a base plus a share per fighter in the sanctuary when it wakes.
 	BaseHealth = 900,
 	HealthPerFighter = 700,
@@ -2858,10 +2858,12 @@ local Astraeon = bossFrom(SanctuaryConfig.RiftBoss, {
 		Supernova = { Kind = "Dissonance", Params = { Zones = 2, ZoneRadius = 11, TelegraphSeconds = 6.5 } },
 		EventHorizon = { Kind = "GravityWell", Params = { Radius = 66, Core = 26, PullSeconds = 5, Strength = 50, TelegraphSeconds = 1.8 } },
 		AnnihilationBeam = { Kind = "Lances", Params = { Count = 14, HalfWidth = 0.05, Range = 120, TelegraphSeconds = 3.4 } },
-		LastLight = { Chain = { "Starfall", "Supernova" } },
+		-- A black hole the size of the arena: it drags everyone in for six seconds, then the core goes off.
+		Singularity = { Kind = "GravityWell", Params = { Radius = 84, Core = 30, PullSeconds = 6, Strength = 56, TelegraphSeconds = 2.2 } },
+		LastLight = { Chain = { "Starfall", "Singularity", "Supernova" } },
 	},
 	PhaseUltimates = { [2] = "Starfall", [3] = "Supernova", [4] = "EventHorizon" },
-	UltimateRoster = { "Starfall", "Supernova", "AnnihilationBeam", "EventHorizon" },
+	UltimateRoster = { "Starfall", "Supernova", "AnnihilationBeam", "EventHorizon", "Singularity" },
 	UltimateEvery = 36,
 	FinalStand = "LastLight",
 
