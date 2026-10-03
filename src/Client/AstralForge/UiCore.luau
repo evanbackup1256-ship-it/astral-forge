@@ -17219,6 +17219,7 @@ local lighten = _theme.lighten
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local TapTarget = _theme.TapTarget
 local _ui = __load("ui")
+local AutoHeightText = _ui.AutoHeightText
 local Badge = _ui.Badge
 local Button = _ui.Button
 local Meter = _ui.Meter
@@ -17228,8 +17229,10 @@ local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
 -- ----- the guided tutorial -------------------------------------------------------------------------
 -- A spotlight cuts a hole in a light dim around the thing to click, and Bolt, a little forge spark,
--- floats beside it and points. Bolt blinks, bobs on a spring, flaps sprite-stepped wings, talks with a
--- stepped mouth, watches the mouse, leans away from it when it gets close, and does a spin when clicked.
+-- floats beside it and points. Every part of Bolt moves continuously from one RenderStepped loop:
+-- spring flight, jelly squash, breathing, flapping wings, smooth blinks and talking, eyes on the mouse.
+-- It leans away from a crowding cursor, hops at a fast swipe, spins (and gets dizzy) when clicked,
+-- floats hearts when petted, dozes off when left alone and leaves a trail when it zips across.
 -- The dim never blocks input: everything on screen stays clickable.
 local SharedDataSuite = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 local TutorialScript = SharedDataSuite("TutorialScript")
@@ -17240,16 +17243,38 @@ local RunService = game:GetService("RunService")
 local PET_SIZE = 56
 local TYPE_RATE = 46 -- characters per second
 local AUTO_ADVANCE_SECONDS = 1.1
--- Four wing poses stepped like sprite frames at 12fps.
-local WING_FRAMES = {
-	{ rot = -28, len = 0.62 },
-	{ rot = -10, len = 0.8 },
-	{ rot = 12, len = 0.66 },
-	{ rot = -6, len = 0.5 },
-}
--- Mouth heights while talking, stepped at 10fps.
-local TALK_FRAMES = { 3, 6, 2, 5, 7, 3 }
-local SPARKS = 10
+local SPARKS = 12
+local HEARTS = 5
+local TRAIL = 9
+local ZZZ = 3
+-- Seconds without the mouse moving before Bolt dozes off.
+local SLEEP_AFTER = 14
+-- Exponential approach: the same feel at 30, 60 or 240 fps.
+local function approach(current, goal, rate, dt)
+	return current + (goal - current) * (1 - math.exp(-rate * dt))
+end
+local function blankFrame(width, height)
+	return {
+		spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
+		pet = {
+			x = width * 0.5, y = height * 0.6, tilt = 0, sx = 1, sy = 1, lookX = 0, lookY = 0, pupil = 7, blink = 0,
+			point = 90, reach = 0, poke = 0, wingA = 0, wingL = 0.7, mouth = 3, mouthW = 11, happy = 0, glow = 0,
+			tipX = 0, tipY = 0, shadow = 1, sleep = 0,
+		},
+		chars = 0,
+		sparks = {},
+		hearts = {},
+		trail = {},
+		zzz = 0,
+		dockY = height - 260,
+		dockTop = false,
+		bubbleX = 8,
+		bubbleY = 0,
+		bubbleAbove = true,
+		bubbleScale = 1,
+		t = 0,
+	}
+end
 
 -- Finds the named GuiObject that is actually on screen. FindFirstChild(name, true) is the fast path; when
 -- that copy is hidden, the slower scan looks for a visible one.
@@ -17407,55 +17432,89 @@ local function TutorialOverlay(_param)
 		end
 	end, {})
 
-	-- Layout of the step card.
+	-- The step card: a fixed width, and as tall as its content (nothing is placed at a hard-coded y).
 	local sideInset = math.max(10, viewport.sideInset)
 	local phone = viewport.width < 720 or viewport.height < 560
 	local dockW = math.min(if phone then viewport.width - sideInset * 2 else 520, viewport.width - sideInset * 2)
+	local innerW = dockW - 28
 	local hasCta = ctaLabel ~= nil and onCta ~= nil and needsAction and not met
-	local dockH = 176 + (if copy.controls ~= nil then 16 else 0) + (if hasCta then 44 else 0)
+	local layoutRef = React.useRef({})
+	layoutRef.current = { dockW = dockW, top = viewport.topInset, bottom = viewport.bottomInset }
 
 	-- Everything that moves every frame lives in one binding, written by one RenderStepped loop.
 	local rootRef = React.useRef(nil)
 	local probeRef = React.useRef(nil)
 	local dockRef = React.useRef(nil)
-	local frame, setFrame = React.useBinding({
-		spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
-		pet = { x = -100, y = -100, tilt = 0, sx = 1, sy = 1, lookX = 0, lookY = 0, blink = 0, point = 90, reach = 0, poke = 0, wing = 1, mouth = 3, happy = 0, spin = 0, bob = 0, tipX = 0, tipY = 0 },
-		chars = 0,
-		sparks = {},
-		t = 0,
-	})
+	local frame, setFrame = React.useBinding(blankFrame(viewport.width, viewport.height))
 	local petState = React.useRef(nil)
 	if petState.current == nil then
+		local sparks, hearts, trail = {}, {}, {}
+		for i = 1, SPARKS do
+			sparks[i] = { x = 0, y = 0, vx = 0, vy = 0, age = 1, life = 1 }
+		end
+		for i = 1, HEARTS do
+			hearts[i] = { x = 0, y = 0, vx = 0, vy = 0, age = 1, life = 1 }
+		end
+		for i = 1, TRAIL do
+			trail[i] = { x = -100, y = -100, age = 1, life = 1 }
+		end
 		petState.current = {
 			x = viewport.width * 0.5, y = viewport.height * 0.6, vx = 0, vy = 0,
 			spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
 			target = nil, targetName = nil, lastSearch = 0,
 			nextBlink = 1.5, blinkAt = -10, doubleBlink = false,
 			chars = 0, lastTick = 0,
-			mouse = Vector2.new(-1000, -1000), mouseMovedAt = -10, nearPet = false,
-			spinAt = -10, hopAt = -10, celebrateAt = -10,
+			mouse = Vector2.new(-1000, -1000), mouseMovedAt = 0, nearPet = false,
+			spinAt = -10, celebrateAt = -10, hopAt = -10, clickTimes = {}, dizzyUntil = -10,
+			rub = 0, lastHeart = -10, lastPetQuip = -10, sleeping = false,
 			tipX = 0, tipY = 0, tipVX = 0, tipVY = 0,
-			sparks = {},
-			quip = nil, quipUntil = 0,
+			wingPhase = 0, flapRate = 10, mouthH = 3, mouthW = 11, happy = 0, glow = 0, pupil = 7,
+			lookX = 0, lookY = 0, reach = 0, sleep = 0, tilt = 0, squash = 0, squashV = 0,
+			sparks = sparks, sparkNext = 1, hearts = hearts, heartNext = 1, trail = trail, trailNext = 1, trailAt = 0,
+			dockY = nil, bubblePopAt = 0,
 			t = 0,
 		}
 	end
 	local quip, setQuip = React.useState(nil)
+	local quipToken = React.useRef(0)
+	local sayQuip = React.useCallback(function(pool)
+		if type(pool) ~= "table" or #pool == 0 then
+			return
+		end
+		quipToken.current += 1
+		local token = quipToken.current
+		setQuip(pool[math.random(1, #pool)])
+		task.delay(2.8, function()
+			if quipToken.current == token then
+				setQuip(nil)
+			end
+		end)
+	end, {})
 	local say = quip or copy.say or copy.body
 	React.useEffect(function()
 		local st = petState.current
 		st.chars = 0
+		st.bubblePopAt = st.t
 	end, { say })
+	-- A burst of sparks from Bolt: a celebration ring, or a smaller puff on a click.
+	local burst = React.useCallback(function(amount, speedMin, speedMax)
+		local st = petState.current
+		for _ = 1, amount do
+			local spark = st.sparks[st.sparkNext]
+			st.sparkNext = st.sparkNext % SPARKS + 1
+			local angle = math.random() * math.pi * 2
+			local speed = speedMin + math.random() * (speedMax - speedMin)
+			spark.x, spark.y = 0, 0
+			spark.vx, spark.vy = math.cos(angle) * speed, math.sin(angle) * speed - 40
+			spark.age, spark.life = 0, 0.6 + math.random() * 0.35
+		end
+	end, {})
 	React.useEffect(function()
 		if met and needsAction then
-			petState.current.celebrateAt = petState.current.t
-			local sparks = petState.current.sparks
-			for i = 1, SPARKS do
-				local angle = (i / SPARKS) * math.pi * 2 + math.random() * 0.4
-				local speed = 90 + math.random() * 70
-				sparks[i] = { x = 0, y = 0, vx = math.cos(angle) * speed, vy = math.sin(angle) * speed - 40, age = 0, life = 0.7 + math.random() * 0.3 }
-			end
+			local st = petState.current
+			st.celebrateAt = st.t
+			st.squashV += 5
+			burst(SPARKS, 90, 170)
 		end
 	end, { met, needsAction, step })
 
@@ -17474,7 +17533,9 @@ local function TutorialOverlay(_param)
 			local origin = root.AbsolutePosition
 			local screenW = root.AbsoluteSize.X / k
 			local screenH = root.AbsoluteSize.Y / k
-			local amp = if soft then 0.5 else 1
+			-- Reduced motion keeps every movement but softens how far things travel.
+			local amp = if soft then 0.65 else 1
+			local layout = layoutRef.current
 
 			-- Find the target now and then; read its rect every frame.
 			if st.targetName ~= copy.target then
@@ -17493,9 +17554,9 @@ local function TutorialOverlay(_param)
 				local s = st.target.AbsoluteSize / k
 				rect = { x = p.X - pad, y = p.Y - pad, w = s.X + pad * 2, h = s.Y + pad * 2 }
 			end
-			-- Spotlight eases towards the target (exponential approach: smooth at any frame rate).
+			-- Spotlight eases towards the target.
 			local spot = st.spot
-			local ease = 1 - math.exp(-dt * 12)
+			local ease = 1 - math.exp(-dt * 11)
 			if rect ~= nil then
 				if spot.a < 0.02 then
 					spot.x, spot.y, spot.w, spot.h = rect.x - 30, rect.y - 30, rect.w + 60, rect.h + 60
@@ -17508,76 +17569,66 @@ local function TutorialOverlay(_param)
 			else
 				spot.a += (0 - spot.a) * ease
 			end
+			local lit = if spot.a > 0.3 then rect else nil
+
+			-- The card: on the side that keeps the target in view, gliding there when it changes sides.
+			local dock = dockRef.current
+			local cardH = if dock ~= nil and dock.AbsoluteSize.Y > 1 then dock.AbsoluteSize.Y / k else 220
+			local goalDockY, dockSide = TutorialScript.dockPlacement(lit, screenH, cardH, layout.top / k, layout.bottom / k)
+			st.dockY = if st.dockY == nil then goalDockY else approach(st.dockY, goalDockY, 10, dt)
+			local dockRect = { x = (screenW - layout.dockW) / 2, y = st.dockY, w = layout.dockW, h = cardH }
 
 			-- Mouse, in overlay pixels.
 			local mouseScreen = UserInputService:GetMouseLocation()
 			local screenGui = root:FindFirstAncestorOfClass("ScreenGui")
 			local inset = if screenGui ~= nil and screenGui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
 			local mouse = (mouseScreen - inset - origin) / k
-			if (mouse - st.mouse).Magnitude > 2 then
-				local speed = (mouse - st.mouse).Magnitude / math.max(dt, 1e-3)
+			local moved = (mouse - st.mouse).Magnitude
+			local mouseDistance = (Vector2.new(st.x, st.y) - mouse).Magnitude
+			local hovering = mouseDistance < PET_SIZE * 0.6
+			if moved > 2 then
+				local speed = moved / math.max(dt, 1e-3)
 				st.mouse = mouse
+				if st.sleeping then
+					-- Startled awake.
+					st.sleeping = false
+					st.vy -= 200
+					st.squashV -= 5
+					Audio:play("modalPop")
+					sayQuip(TutorialScript.QUIPS.wake)
+				end
 				st.mouseMovedAt = t
 				-- A fast swipe right past Bolt makes it hop.
-				if speed > 2400 and (mouse - Vector2.new(st.x, st.y)).Magnitude < 90 and t - st.hopAt > 0.8 then
+				if speed > 2400 and mouseDistance < 90 and t - st.hopAt > 0.8 then
 					st.hopAt = t
 					st.vy -= 260
+					st.squashV -= 4
 					Audio:play("hoverTick")
 				end
+				-- Rubbing the cursor over Bolt: happy, and hearts float up.
+				if hovering then
+					st.rub += moved
+				end
 			end
-
-			-- Where Bolt wants to be, and the spring that takes it there.
-			local dock = dockRef.current
-			local dockRect = nil
-			if dock ~= nil then
-				local dp = (dock.AbsolutePosition - origin) / k
-				dockRect = { x = dp.X, y = dp.Y, w = dock.AbsoluteSize.X / k }
+			st.rub *= math.exp(-dt * 1.4)
+			if st.rub > 240 and t - st.lastHeart > 0.32 then
+				st.lastHeart = t
+				st.rub = 110
+				local heart = st.hearts[st.heartNext]
+				st.heartNext = st.heartNext % HEARTS + 1
+				heart.x, heart.y = (math.random() - 0.5) * 24, -PET_SIZE * 0.35
+				heart.vx, heart.vy = (math.random() - 0.5) * 30, -70 - math.random() * 30
+				heart.age, heart.life = 0, 1.1
+				st.happy = 1
+				Audio:play("hoverTick")
+				if t - st.lastPetQuip > 5 then
+					st.lastPetQuip = t
+					sayQuip(TutorialScript.QUIPS.pet)
+				end
 			end
-			local goalX, goalY, pointAngle = TutorialScript.petPose(if spot.a > 0.3 then rect else nil, screenW, screenH, PET_SIZE, dockRect)
-			local toMouse = Vector2.new(st.x, st.y) - mouse
-			local mouseDistance = toMouse.Magnitude
-			if mouseDistance < 140 and mouseDistance > 1 then
-				-- Leans away from a cursor that crowds it.
-				local push = (1 - mouseDistance / 140) * 26 * amp
-				goalX += toMouse.Unit.X * push
-				goalY += toMouse.Unit.Y * push
-			end
-			local stiffness, damping = 70, 9
-			st.vx += ((goalX - st.x) * stiffness - st.vx * damping) * dt
-			st.vy += ((goalY - st.y) * stiffness - st.vy * damping) * dt
-			st.x += st.vx * dt
-			st.y += st.vy * dt
-			local bob = math.sin(t * 2.3) * 5 * amp + math.sin(t * 3.7) * 1.5 * amp
-
-			-- Antenna tip lags behind the body (secondary motion).
-			st.tipVX += ((-st.vx * 0.02 - st.tipX) * 120 - st.tipVX * 10) * dt
-			st.tipVY += ((-st.vy * 0.02 - st.tipY) * 120 - st.tipVY * 10) * dt
-			st.tipX += st.tipVX * dt
-			st.tipY += st.tipVY * dt
-
-			-- Blinks: every 2-5 seconds, sometimes twice.
-			if t >= st.nextBlink then
-				st.blinkAt = t
-				st.doubleBlink = math.random() < 0.22
-				st.nextBlink = t + 2 + math.random() * 3
-			end
-			local since = t - st.blinkAt
-			local blink = 0
-			if since < 0.14 then
-				blink = math.sin(since / 0.14 * math.pi)
-			elseif st.doubleBlink and since > 0.2 and since < 0.34 then
-				blink = math.sin((since - 0.2) / 0.14 * math.pi)
-			end
-
-			-- Eyes follow the mouse when it moved lately, otherwise the target.
-			local lookAt = if t - st.mouseMovedAt < 1.6 then mouse elseif rect ~= nil then Vector2.new(rect.x + rect.w / 2, rect.y + rect.h / 2) else Vector2.new(st.x, st.y + 40)
-			local look = lookAt - Vector2.new(st.x, st.y + bob)
-			local lookUnit = if look.Magnitude > 1 then look.Unit * math.min(1, look.Magnitude / 60) else Vector2.zero
-
-			-- Hover: Bolt squishes happily the first moment the cursor lands on it.
-			local hovering = mouseDistance < PET_SIZE * 0.55
 			if hovering and not st.nearPet then
 				Audio:play("hoverTick")
+				st.squashV += 2.5
 			end
 			st.nearPet = hovering
 
@@ -17592,64 +17643,224 @@ local function TutorialOverlay(_param)
 				end
 			end
 			local talking = st.chars < total
+			if not talking and not st.sleeping and t - st.mouseMovedAt > SLEEP_AFTER and t - st.celebrateAt > 3 then
+				st.sleeping = true
+			end
+			st.sleep = approach(st.sleep, if st.sleeping then 1 else 0, if st.sleeping then 1.6 else 9, dt)
+			local dizzy = t < st.dizzyUntil
 
-			-- Celebration sparks.
+			-- Where Bolt wants to be, and the spring that takes it there (sub-stepped so it is
+			-- equally smooth on a slow frame).
+			local goalX, goalY, pointAngle = TutorialScript.petPose(lit, screenW, screenH, PET_SIZE, dockRect)
+			if mouseDistance < 140 and mouseDistance > 1 and not st.sleeping then
+				-- Leans away from a cursor that crowds it.
+				local away = (Vector2.new(st.x, st.y) - mouse).Unit
+				local push = (1 - mouseDistance / 140) * 22 * amp
+				goalX += away.X * push
+				goalY += away.Y * push
+			end
+			goalY += st.sleep * 10
+			local steps = math.max(1, math.ceil(dt / (1 / 120)))
+			local h = dt / steps
+			for _ = 1, steps do
+				st.vx += ((goalX - st.x) * 55 - st.vx * 11.5) * h
+				st.vy += ((goalY - st.y) * 55 - st.vy * 11.5) * h
+				st.x += st.vx * h
+				st.y += st.vy * h
+				-- Jelly squash: a stiff, lightly damped spring.
+				st.squashV += (-st.squash * 380 - st.squashV * 13) * h
+				st.squash += st.squashV * h
+				-- Antenna tip lags behind the body (secondary motion).
+				st.tipVX += ((-st.vx * 0.02 - st.tipX) * 120 - st.tipVX * 10) * h
+				st.tipVY += ((-st.vy * 0.02 - st.tipY) * 120 - st.tipVY * 10) * h
+				st.tipX += st.tipVX * h
+				st.tipY += st.tipVY * h
+			end
+			local speed = math.sqrt(st.vx * st.vx + st.vy * st.vy)
+			local breathe = 1 - st.sleep * 0.6
+			local bob = (math.sin(t * 2.3) * 5 + math.sin(t * 3.7) * 1.5) * amp * breathe
+
+			-- Wings: a continuous flap that speeds up in flight and slows to a lazy beat asleep.
+			local flapGoal = (9 + math.clamp(speed / 110, 0, 9) + (if t - st.celebrateAt < 1.2 then 6 else 0)) * (1 - st.sleep * 0.7)
+			st.flapRate = approach(st.flapRate, flapGoal, 4, dt)
+			st.wingPhase += dt * st.flapRate
+			local wingA = math.sin(st.wingPhase) * 30 * amp
+			local wingL = 0.7 + math.sin(st.wingPhase + 0.9) * 0.12
+
+			-- Blinks every 2-5 seconds (sometimes twice); asleep, the eyes are nearly shut.
+			if t >= st.nextBlink then
+				st.blinkAt = t
+				st.doubleBlink = math.random() < 0.22
+				st.nextBlink = t + 2 + math.random() * 3
+			end
+			local since = t - st.blinkAt
+			local blink = 0
+			if since < 0.16 then
+				blink = math.sin(since / 0.16 * math.pi)
+			elseif st.doubleBlink and since > 0.22 and since < 0.38 then
+				blink = math.sin((since - 0.22) / 0.16 * math.pi)
+			end
+			blink = math.max(blink, st.sleep * 0.88)
+
+			-- Eyes follow the mouse when it moved lately, otherwise the target; dizzy eyes go round.
+			local lookAt = if t - st.mouseMovedAt < 1.6 then mouse elseif rect ~= nil then Vector2.new(rect.x + rect.w / 2, rect.y + rect.h / 2) else Vector2.new(st.x, st.y + 40)
+			local look = lookAt - Vector2.new(st.x, st.y + bob)
+			local lookUnit = if look.Magnitude > 1 then look.Unit * math.min(1, look.Magnitude / 60) else Vector2.zero
+			local lookGoalX = if dizzy then math.cos(t * 9) * 3 else lookUnit.X * 3.2
+			local lookGoalY = if dizzy then math.sin(t * 9) * 3 else lookUnit.Y * 3.2
+			st.lookX = approach(st.lookX, lookGoalX, if dizzy then 40 else 16, dt)
+			st.lookY = approach(st.lookY, lookGoalY, if dizzy then 40 else 16, dt)
+			st.pupil = approach(st.pupil, if hovering then 8.5 elseif dizzy then 5.5 else 7, 12, dt)
+
+			-- Mood and mouth.
+			local celebrate = t - st.celebrateAt
+			local happyGoal = if hovering or celebrate < 1.6 or met or st.rub > 60 then 1 else 0
+			st.happy = approach(st.happy, happyGoal, 6, dt)
+			st.glow = approach(st.glow, if hovering then 1 else 0, 10, dt)
+			local mouthGoal = if talking then 3.5 + 3.2 * (0.5 + 0.5 * math.sin(t * 17)) * (0.6 + 0.4 * math.sin(t * 5.3))
+				elseif st.sleeping then 3
+				elseif dizzy then 4
+				elseif st.happy > 0.5 then 6
+				else 3
+			st.mouthH = approach(st.mouthH, mouthGoal, 22, dt)
+			st.mouthW = approach(st.mouthW, if st.happy > 0.5 and not talking then 16 elseif st.sleeping then 6 else 11, 14, dt)
+
+			-- Celebration and click sparks, hearts and the motion trail (fixed pools).
 			local sparkOut = {}
 			for i, spark in st.sparks do
 				if spark.age < spark.life then
 					spark.age += dt
 					spark.vy += 260 * dt
+					spark.vx *= math.exp(-dt * 1.2)
 					spark.x += spark.vx * dt
 					spark.y += spark.vy * dt
 					sparkOut[i] = { x = spark.x, y = spark.y, a = spark.age / spark.life }
 				end
 			end
+			local heartOut = {}
+			for i, heart in st.hearts do
+				if heart.age < heart.life then
+					heart.age += dt
+					heart.x += (heart.vx + math.sin(heart.age * 9 + i) * 24) * dt
+					heart.y += heart.vy * dt
+					heartOut[i] = { x = heart.x, y = heart.y, a = heart.age / heart.life }
+				end
+			end
+			if speed > 240 and t - st.trailAt > 0.035 then
+				st.trailAt = t
+				local mote = st.trail[st.trailNext]
+				st.trailNext = st.trailNext % TRAIL + 1
+				mote.x, mote.y, mote.age, mote.life = st.x, st.y + bob, 0, 0.42
+			end
+			local trailOut = {}
+			for i, mote in st.trail do
+				if mote.age < mote.life then
+					mote.age += dt
+					trailOut[i] = { x = mote.x, y = mote.y, a = mote.age / mote.life }
+				end
+			end
 
+			-- Tilt with speed (or a dizzy wobble), plus the click spin on top.
 			local spinAge = t - st.spinAt
-			local spin = if spinAge < 0.55 then 360 * (1 - (1 - spinAge / 0.55) ^ 3) else 0
-			local celebrate = t - st.celebrateAt
+			local spin = 0
+			if spinAge < 0.6 then
+				local s = spinAge / 0.6
+				spin = 360 * (1 + 2.2 * (s - 1) ^ 3 + 1.2 * (s - 1) ^ 2)
+			end
+			local tiltGoal = math.clamp(st.vx * 0.05, -18, 18) * amp + (if dizzy then math.sin(t * 7) * 14 * amp else 0) + st.sleep * 12
+			st.tilt = approach(st.tilt, tiltGoal, 12, dt)
 			local hop = if celebrate < 0.5 then math.sin(celebrate / 0.5 * math.pi) * 18 * amp else 0
-			local squash = if hovering then 0.06 * math.sin(t * 16) * amp else 0
-			local stretch = math.clamp(math.abs(st.vy) / 900, 0, 0.12) * amp
+			local stretch = math.clamp(math.abs(st.vy) / 900, 0, 0.1) * amp
+			local squash = st.squash * amp
+			local breath = math.sin(t * 2.1) * 0.02 * breathe
+
+			-- Reaching arm.
+			st.reach = approach(st.reach, if lit ~= nil and not st.sleeping then 1 else 0, 9, dt)
+
+			-- The speech bubble: above Bolt unless that hits the card or the top edge, then below.
+			local bubbleW = math.min(250, screenW - 16)
+			local bubbleH = 64
+			local petY = st.y + bob - hop
+			local aboveY = petY - PET_SIZE / 2 - 12 - bubbleH
+			local belowY = petY + PET_SIZE / 2 + 12
+			local function hitsCard(y)
+				return y < dockRect.y + dockRect.h and y + bubbleH > dockRect.y
+			end
+			local above = aboveY > 8 and not hitsCard(aboveY)
+			if not above and (belowY + bubbleH > screenH - 8 or hitsCard(belowY)) and aboveY > 8 then
+				above = true
+			end
+			local popAge = t - st.bubblePopAt
+			local bubbleScale = if popAge < 0.35 then 1 + 2.4 * ((popAge / 0.35) - 1) ^ 3 + 1.4 * ((popAge / 0.35) - 1) ^ 2 else 1
+
 			setFrame({
 				spot = { x = spot.x, y = spot.y, w = spot.w, h = spot.h, a = spot.a },
 				pet = {
 					x = st.x,
-					y = st.y + bob - hop,
-					tilt = math.clamp(st.vx * 0.05, -18, 18) * amp + spin,
-					sx = 1 + squash - stretch * 0.5,
-					sy = 1 - squash + stretch,
-					lookX = lookUnit.X * 3.2,
-					lookY = lookUnit.Y * 3.2,
+					y = petY,
+					tilt = st.tilt + spin,
+					sx = 1 + squash - stretch * 0.5 - breath * 0.5,
+					sy = 1 - squash + stretch + breath,
+					lookX = st.lookX,
+					lookY = st.lookY,
+					pupil = st.pupil,
 					blink = blink,
 					point = pointAngle,
-					reach = if spot.a > 0.3 then 1 else 0,
+					reach = st.reach,
 					poke = (math.sin(t * 6) + 1) * 0.5,
-					wing = math.floor(t * 12) % #WING_FRAMES + 1,
-					mouth = if talking then TALK_FRAMES[math.floor(t * 10) % #TALK_FRAMES + 1] elseif hovering or celebrate < 1.2 then 7 else 3,
-					happy = if hovering or celebrate < 1.5 or met then 1 else 0,
+					wingA = wingA,
+					wingL = wingL,
+					mouth = st.mouthH,
+					mouthW = st.mouthW,
+					happy = st.happy,
+					glow = st.glow,
 					tipX = st.tipX,
 					tipY = st.tipY,
+					shadow = 1 - (bob + hop) * 0.012,
+					sleep = st.sleep,
 				},
 				chars = math.floor(st.chars),
 				sparks = sparkOut,
+				hearts = heartOut,
+				trail = trailOut,
+				zzz = st.sleep,
+				dockY = st.dockY,
+				dockTop = dockSide == "top",
+				bubbleX = math.clamp(st.x - bubbleW / 2, 8, math.max(8, screenW - bubbleW - 8)),
+				bubbleY = if above then petY - PET_SIZE / 2 - 12 else belowY,
+				bubbleAbove = above,
+				bubbleScale = math.max(0.01, bubbleScale),
 				t = t,
 			})
 		end)
 		return function()
 			connection:Disconnect()
 		end
-	end, { copy, say, met, soft })
+	end, { copy, say, met, soft, sayQuip })
 
 	local onPetClick = function()
 		local st = petState.current
-		st.spinAt = st.t
+		local now = st.t
+		table.insert(st.clickTimes, now)
+		while #st.clickTimes > 0 and now - st.clickTimes[1] > 1.2 do
+			table.remove(st.clickTimes, 1)
+		end
+		st.squashV += 6
+		st.sleeping = false
+		st.mouseMovedAt = now
+		burst(5, 60, 110)
+		if #st.clickTimes >= 3 then
+			-- Spun too many times: dizzy.
+			st.clickTimes = {}
+			st.dizzyUntil = now + 1.8
+			st.spinAt = now
+			Audio:play("locked")
+			sayQuip(TutorialScript.QUIPS.dizzy)
+			return
+		end
+		st.spinAt = now
 		Audio:play("modalPop")
-		local pool = if met then TutorialScript.QUIPS.done else TutorialScript.QUIPS.idle
-		setQuip(pool[math.random(1, #pool)])
-		task.delay(2.6, function()
-			setQuip(nil)
-		end)
+		sayQuip(if met then TutorialScript.QUIPS.done else TutorialScript.QUIPS.idle)
 	end
 
 	-- ---- spotlight: four dim panels around a hole, and a glowing ring in it
@@ -17689,11 +17900,11 @@ local function TutorialOverlay(_param)
 	end), React.createElement("frame", {
 		key = "ring",
 		Size = frame:map(function(f)
-			local grow = 3 + math.sin(f.t * 4) * 3
+			local grow = 3 + math.sin(f.t * 3.2) * 3
 			return UDim2.fromOffset(f.spot.w + grow * 2, f.spot.h + grow * 2)
 		end),
 		Position = frame:map(function(f)
-			local grow = 3 + math.sin(f.t * 4) * 3
+			local grow = 3 + math.sin(f.t * 3.2) * 3
 			return UDim2.fromOffset(f.spot.x - grow, f.spot.y - grow)
 		end),
 		BackgroundTransparency = 1,
@@ -17708,7 +17919,7 @@ local function TutorialOverlay(_param)
 		Color = Palette.mango,
 		Thickness = 2.5,
 		Transparency = frame:map(function(f)
-			return 1 - math.clamp(f.spot.a, 0, 1) * (0.55 + 0.45 * (math.sin(f.t * 4) + 1) * 0.5)
+			return 1 - math.clamp(f.spot.a, 0, 1) * (0.55 + 0.45 * (math.sin(f.t * 3.2) + 1) * 0.5)
 		end),
 	}, React.createElement("uigradient", {
 		Color = ColorSequence.new(Palette.mango, Palette.cream),
@@ -17722,75 +17933,174 @@ local function TutorialOverlay(_param)
 	local function wing(side)
 		return React.createElement("frame", {
 			Size = frame:map(function(f)
-				local pose = WING_FRAMES[f.pet.wing]
-				return UDim2.fromOffset(16, math.round(PET_SIZE * 0.5 * pose.len))
+				return UDim2.fromOffset(16, PET_SIZE * 0.5 * f.pet.wingL)
 			end),
 			Position = UDim2.new(0.5, side * (PET_SIZE * 0.42), 0.5, -4),
 			AnchorPoint = Vector2.new(0.5, 1),
 			Rotation = frame:map(function(f)
-				return side * (40 + WING_FRAMES[f.pet.wing].rot)
+				return side * (40 + f.pet.wingA)
 			end),
 			BackgroundColor3 = lighten(petColor, 0.45),
 			BackgroundTransparency = 0.25,
 			BorderSizePixel = 0,
-			ZIndex = 390,
+			ZIndex = 409,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
+		}), React.createElement("uigradient", {
+			Color = ColorSequence.new(Palette.white, lighten(petColor, 0.3)),
+			Transparency = NumberSequence.new(0.1, 0.45),
+			Rotation = 90,
 		}))
 	end
 	local function eye(side)
 		return React.createElement("frame", {
 			Size = frame:map(function(f)
-				return UDim2.fromOffset(12, math.max(1, math.round(15 * (1 - f.pet.blink))))
+				-- Blinks close it; a happy face squints it into a smile.
+				local open = (1 - f.pet.blink) * (1 - f.pet.happy * 0.3)
+				return UDim2.fromOffset(12, math.max(1.5, 15 * open))
 			end),
 			Position = UDim2.new(0.5, side * 10, 0.5, -5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = Palette.white,
 			BorderSizePixel = 0,
 			ClipsDescendants = true,
-			ZIndex = 393,
+			ZIndex = 414,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("frame", {
-			Size = UDim2.fromOffset(7, 7),
+			Size = frame:map(function(f)
+				return UDim2.fromOffset(f.pet.pupil, f.pet.pupil)
+			end),
 			Position = frame:map(function(f)
 				return UDim2.new(0.5, f.pet.lookX, 0.5, f.pet.lookY)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = Palette.ink,
 			BorderSizePixel = 0,
-			ZIndex = 394,
+			ZIndex = 415,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("frame", {
-			Size = UDim2.fromOffset(2, 2),
-			Position = UDim2.fromOffset(4, 1),
+			Size = UDim2.fromOffset(2.5, 2.5),
+			Position = UDim2.new(0.62, 0, 0.18, 0),
 			BackgroundColor3 = Palette.white,
 			BorderSizePixel = 0,
-			ZIndex = 395,
-		})))
+			ZIndex = 416,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))))
 	end
-	local sparkEls = {}
-	for i = 1, SPARKS do
-		sparkEls["s" .. i] = React.createElement("frame", {
-			Size = UDim2.fromOffset(6, 6),
+	local function poolLabels(prefix, n, getList, build)
+		local out = {}
+		for i = 1, n do
+			out[prefix .. i] = build(i, function(f)
+				return getList(f)[i]
+			end)
+		end
+		return out
+	end
+	local sparkEls = poolLabels("s", SPARKS, function(f)
+		return f.sparks
+	end, function(i, get)
+		return React.createElement("frame", {
+			Size = frame:map(function(f)
+				local spark = get(f)
+				local size = if spark == nil then 0 else 7 * (1 - spark.a * 0.6)
+				return UDim2.fromOffset(size, size)
+			end),
 			Position = frame:map(function(f)
-				local spark = f.sparks[i]
-				if spark == nil then
-					return UDim2.fromOffset(-50, -50)
-				end
-				return UDim2.new(0.5, spark.x, 0.5, spark.y)
+				local spark = get(f)
+				return if spark == nil then UDim2.fromOffset(-50, -50) else UDim2.new(0.5, spark.x, 0.5, spark.y)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Rotation = 45,
-			BackgroundColor3 = if i % 2 == 0 then Palette.mango else Palette.cream,
+			BackgroundColor3 = if i % 3 == 0 then Palette.mango elseif i % 3 == 1 then Palette.cream else Palette.cyan,
 			BackgroundTransparency = frame:map(function(f)
-				local spark = f.sparks[i]
-				return if spark == nil then 1 else spark.a
+				local spark = get(f)
+				return if spark == nil then 1 else spark.a ^ 1.6
 			end),
 			BorderSizePixel = 0,
-			ZIndex = 397,
+			ZIndex = 418,
 		})
+	end)
+	local heartEls = poolLabels("h", HEARTS, function(f)
+		return f.hearts
+	end, function(_i, get)
+		return React.createElement("textlabel", {
+			Size = UDim2.fromOffset(18, 18),
+			Position = frame:map(function(f)
+				local heart = get(f)
+				return if heart == nil then UDim2.fromOffset(-50, -50) else UDim2.new(0.5, heart.x, 0.5, heart.y)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Text = "♥",
+			TextColor3 = Palette.pink,
+			TextSize = frame:map(function(f)
+				local heart = get(f)
+				return if heart == nil then 1 else 12 + 8 * math.min(1, heart.a * 4)
+			end),
+			TextTransparency = frame:map(function(f)
+				local heart = get(f)
+				return if heart == nil then 1 else heart.a ^ 2
+			end),
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+			ZIndex = 418,
+		})
+	end)
+	local zzzEls = {}
+	for i = 1, ZZZ do
+		zzzEls["z" .. i] = React.createElement("textlabel", {
+			Size = UDim2.fromOffset(16, 16),
+			Position = frame:map(function(f)
+				local phase = (f.t * 0.45 + i / ZZZ) % 1
+				return UDim2.new(0.5, PET_SIZE * 0.32 + phase * 18 + math.sin(phase * 6 + i) * 4, 0.5, -PET_SIZE * 0.42 - phase * 34)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Text = "z",
+			TextColor3 = Palette.creamSoft,
+			TextSize = frame:map(function(f)
+				local phase = (f.t * 0.45 + i / ZZZ) % 1
+				return 10 + phase * 8
+			end),
+			TextTransparency = frame:map(function(f)
+				local phase = (f.t * 0.45 + i / ZZZ) % 1
+				return 1 - f.zzz * math.sin(phase * math.pi)
+			end),
+			FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+			ZIndex = 418,
+		})
+	end
+	local effectEls = {}
+	for _, pool in { sparkEls, heartEls, zzzEls } do
+		for key, element in pool do
+			effectEls[key] = element
+		end
+	end
+	local trailEls = {}
+	for i = 1, TRAIL do
+		trailEls["t" .. i] = React.createElement("frame", {
+			Size = frame:map(function(f)
+				local mote = f.trail[i]
+				local size = if mote == nil then 0 else PET_SIZE * 0.42 * (1 - mote.a)
+				return UDim2.fromOffset(size, size)
+			end),
+			Position = frame:map(function(f)
+				local mote = f.trail[i]
+				return if mote == nil then UDim2.fromOffset(-100, -100) else UDim2.fromOffset(mote.x, mote.y)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = lighten(petColor, 0.3),
+			BackgroundTransparency = frame:map(function(f)
+				local mote = f.trail[i]
+				return if mote == nil then 1 else 0.55 + mote.a * 0.45
+			end),
+			BorderSizePixel = 0,
+			ZIndex = 403,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))
 	end
 	local pet = React.createElement("frame", {
 		Size = UDim2.fromOffset(PET_SIZE, PET_SIZE),
@@ -17799,11 +18109,42 @@ local function TutorialOverlay(_param)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		ZIndex = 389,
+		ZIndex = 405,
 	}, React.createElement("frame", {
-		-- Pointing arm, drawn from the body's centre towards the target.
+		-- A soft glow on whatever Bolt hovers over; smaller and fainter as it bobs up.
 		Size = frame:map(function(f)
-			return UDim2.fromOffset(PET_SIZE * 0.5 + 16 + f.pet.poke * 8, 7)
+			return UDim2.fromOffset(PET_SIZE * 0.85 * f.pet.shadow, PET_SIZE * 0.22 * f.pet.shadow)
+		end),
+		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.68),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = petColor,
+		BackgroundTransparency = frame:map(function(f)
+			return math.clamp(0.82 - (f.pet.shadow - 1) * 1.5, 0.7, 0.95)
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 406,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement("frame", {
+		-- Aura: breathes slowly, brightens when the cursor is on Bolt.
+		Size = frame:map(function(f)
+			local grow = PET_SIZE * (1.22 + 0.05 * math.sin(f.t * 3) + 0.12 * f.pet.glow)
+			return UDim2.fromOffset(grow * f.pet.sx, grow * f.pet.sy)
+		end),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = petColor,
+		BackgroundTransparency = frame:map(function(f)
+			return 0.86 - 0.06 * math.sin(f.t * 3) - 0.1 * f.pet.glow
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 407,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0.5, 0),
+	})), React.createElement("frame", {
+		-- Pointing arm, drawn from the body's centre towards the target; it extends as it reaches.
+		Size = frame:map(function(f)
+			return UDim2.fromOffset((PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach, 7)
 		end),
 		Position = UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0, 0.5),
@@ -17812,16 +18153,16 @@ local function TutorialOverlay(_param)
 		end),
 		BackgroundTransparency = 1,
 		Visible = frame:map(function(f)
-			return f.pet.reach > 0.5
+			return f.pet.reach > 0.03
 		end),
-		ZIndex = 391,
+		ZIndex = 410,
 	}, React.createElement("frame", {
 		Size = UDim2.new(1, -8, 0, 6),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = lighten(petColor, 0.2),
 		BorderSizePixel = 0,
-		ZIndex = 391,
+		ZIndex = 410,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
@@ -17831,31 +18172,36 @@ local function TutorialOverlay(_param)
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundColor3 = Palette.cream,
 		BorderSizePixel = 0,
-		ZIndex = 392,
+		ZIndex = 411,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
 		Color = Palette.mango,
 		Thickness = 2,
-		Transparency = 0.2,
+		Transparency = frame:map(function(f)
+			return 0.15 + 0.35 * (1 - f.pet.poke)
+		end),
 	}))), wing(-1), wing(1), React.createElement("frame", {
 		-- Antenna, its tip trailing the body's motion.
 		Size = UDim2.fromOffset(3, 14),
 		Position = UDim2.new(0.5, 0, 0, 2),
 		AnchorPoint = Vector2.new(0.5, 1),
 		Rotation = frame:map(function(f)
-			return math.clamp(f.pet.tipX * 6, -30, 30)
+			return math.clamp(f.pet.tipX * 6, -30, 30) + f.pet.sleep * 25
 		end),
 		BackgroundColor3 = lighten(petColor, 0.3),
 		BorderSizePixel = 0,
-		ZIndex = 391,
+		ZIndex = 410,
 	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(9, 9),
+		Size = frame:map(function(f)
+			local size = 9 + 1.5 * math.sin(f.t * 5)
+			return UDim2.fromOffset(size, size)
+		end),
 		Position = UDim2.new(0.5, 0, 0, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.mango,
 		BorderSizePixel = 0,
-		ZIndex = 392,
+		ZIndex = 411,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
@@ -17865,7 +18211,7 @@ local function TutorialOverlay(_param)
 			return 0.2 + (math.sin(f.t * 5) + 1) * 0.3
 		end),
 	}))), React.createElement("textbutton", {
-		-- The body: squash and stretch, tilt with speed, spin when clicked.
+		-- The body: jelly squash, breathing, tilt with speed, spin when clicked.
 		Size = frame:map(function(f)
 			return UDim2.fromOffset(PET_SIZE * f.pet.sx, PET_SIZE * f.pet.sy)
 		end),
@@ -17878,7 +18224,7 @@ local function TutorialOverlay(_param)
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		ZIndex = 392,
+		ZIndex = 412,
 		Event = {
 			Activated = onPetClick,
 		},
@@ -17889,19 +18235,34 @@ local function TutorialOverlay(_param)
 		Rotation = 115,
 	}), React.createElement("uistroke", {
 		Color = Palette.cream,
-		Thickness = 2,
-		Transparency = 0.25,
-	}), eye(-1), eye(1), React.createElement("frame", {
-		-- Mouth: stepped heights while talking, a wide smile when happy.
+		Thickness = frame:map(function(f)
+			return 2 + f.pet.glow
+		end),
+		Transparency = frame:map(function(f)
+			return 0.3 - 0.2 * f.pet.glow
+		end),
+	}), React.createElement("frame", {
+		-- A highlight on the top of the head.
+		Size = UDim2.fromOffset(16, 6),
+		Position = UDim2.new(0.5, -9, 0, 7),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Rotation = -14,
+		BackgroundColor3 = Palette.white,
+		BackgroundTransparency = 0.55,
+		BorderSizePixel = 0,
+		ZIndex = 413,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), eye(-1), eye(1), React.createElement("frame", {
+		-- Mouth: moves smoothly while talking, widens into a smile when happy.
 		Size = frame:map(function(f)
-			local width = if f.pet.happy > 0.5 then 16 else 11
-			return UDim2.fromOffset(width, f.pet.mouth)
+			return UDim2.fromOffset(f.pet.mouthW, f.pet.mouth)
 		end),
 		Position = UDim2.new(0.5, 0, 0.5, 10),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.ink,
 		BorderSizePixel = 0,
-		ZIndex = 393,
+		ZIndex = 414,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
@@ -17910,10 +18271,10 @@ local function TutorialOverlay(_param)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.pink,
 		BackgroundTransparency = frame:map(function(f)
-			return 1 - f.pet.happy * 0.55
+			return 1 - f.pet.happy * 0.6
 		end),
 		BorderSizePixel = 0,
-		ZIndex = 393,
+		ZIndex = 414,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
@@ -17922,36 +18283,42 @@ local function TutorialOverlay(_param)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.pink,
 		BackgroundTransparency = frame:map(function(f)
-			return 1 - f.pet.happy * 0.55
+			return 1 - f.pet.happy * 0.6
 		end),
 		BorderSizePixel = 0,
-		ZIndex = 393,
+		ZIndex = 414,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		ZIndex = 396,
-	}, sparkEls))
+		ZIndex = 417,
+	}, effectEls))
 
-	-- ---- speech bubble, beside Bolt, typing its line
+	-- ---- speech bubble, beside Bolt, typing its line; it pops in on each new line
 	local bubbleW = math.min(250, viewport.width - 24)
 	local bubble = React.createElement("frame", {
 		Size = UDim2.fromOffset(bubbleW, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Position = frame:map(function(f)
-			local x = math.clamp(f.pet.x - bubbleW / 2, 8, math.max(8, viewport.width - bubbleW - 8))
-			local above = f.pet.y > 120
-			return UDim2.fromOffset(x, if above then f.pet.y - PET_SIZE / 2 - 12 else f.pet.y + PET_SIZE / 2 + 12)
+			return UDim2.fromOffset(f.bubbleX, f.bubbleY)
 		end),
 		AnchorPoint = frame:map(function(f)
-			return Vector2.new(0, if f.pet.y > 120 then 1 else 0)
+			return Vector2.new(0, if f.bubbleAbove then 1 else 0)
 		end),
 		BackgroundColor3 = Palette.cream,
 		BorderSizePixel = 0,
-		ZIndex = 398,
-	}, React.createElement("uicorner", {
+		ZIndex = 420,
+	}, React.createElement("uiscale", {
+		Scale = frame:map(function(f)
+			return f.bubbleScale
+		end),
+	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uistroke", {
+		Color = Palette.mango,
+		Thickness = 1.5,
+		Transparency = 0.45,
 	}), React.createElement("uipadding", {
 		PaddingTop = UDim.new(0, 8),
 		PaddingBottom = UDim.new(0, 8),
@@ -17970,11 +18337,10 @@ local function TutorialOverlay(_param)
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-		ZIndex = 399,
+		ZIndex = 421,
 	}))
 
-	-- ---- step card
-	local progress = TutorialScript.progress(step, count, met)
+	-- ---- step card: header, progress dots, title, body, goal, keys, actions, top to bottom
 	local dots = {}
 	dots.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
@@ -17986,7 +18352,7 @@ local function TutorialOverlay(_param)
 		dots["d" .. n] = React.createElement("textbutton", {
 			Size = UDim2.new(1 / count, -4, 0, if n == step then 8 else 5),
 			LayoutOrder = n,
-			BackgroundColor3 = if n < step then Palette.mint elseif n == step then Palette.mango else Palette.lineSoft,
+			BackgroundColor3 = if n < step or (n == step and met and needsAction) then Palette.mint elseif n == step then Palette.mango else Palette.lineSoft,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
@@ -18002,25 +18368,52 @@ local function TutorialOverlay(_param)
 			CornerRadius = UDim.new(1, 0),
 		}))
 	end
-	local primaryText = if step >= count then "FINISH" elseif not needsAction or met then (if met and needsAction then "NICE! CONTINUE" else "CONTINUE") else "DO IT TO CONTINUE"
-	local dockTopSide = false
-	do
-		-- Keep the card off the spotlight: if the target sits low, the card moves to the top.
-		local st = petState.current
-		local target = st and st.spot
-		if target ~= nil and target.a > 0.3 and target.y + target.h > viewport.height - dockH - 40 then
-			dockTopSide = true
-		end
+	-- One primary action: Continue once the step is done; the shortcut while it isn't (if the
+	-- step has one); otherwise a quiet "do it to continue" that nudges Bolt to repeat the hint.
+	local primary
+	if met or not needsAction then
+		primary = {
+			text = if step >= count then "FINISH" elseif met and needsAction then "NICE! CONTINUE" else "CONTINUE",
+			icon = if step >= count then "Check" else nil,
+			color = Palette.mint,
+			textColor = Palette.ink,
+			highlight = true,
+			onClick = requestNext,
+		}
+	elseif hasCta then
+		primary = {
+			text = string.upper(ctaLabel),
+			icon = "Play",
+			color = Palette.mango,
+			textColor = Palette.ink,
+			highlight = true,
+			onClick = onCta,
+		}
+	else
+		primary = {
+			text = "DO IT TO CONTINUE",
+			icon = nil,
+			color = Palette.panelSoft,
+			textColor = Palette.muted,
+			highlight = false,
+			onClick = function()
+				local st = petState.current
+				st.spinAt = st.t
+				st.squashV += 5
+				st.chars = 0
+				Audio:play("locked")
+			end,
+		}
 	end
+	local goalDone = met and needsAction
 	local dock = React.createElement("frame", {
 		ref = dockRef,
-		Size = UDim2.fromOffset(dockW, dockH),
-		Position = reveal:map(function(amount)
-			local slide = math.round((1 - math.clamp(amount, 0, 1)) * 24)
-			if dockTopSide then
-				return UDim2.new(0.5, 0, 0, math.max(12, viewport.topInset + 8) - slide)
-			end
-			return UDim2.new(0.5, 0, 1, -(math.max(12, viewport.bottomInset) + dockH) + slide)
+		Size = UDim2.fromOffset(dockW, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Position = React.joinBindings({ frame, reveal }):map(function(values)
+			local f = values[1]
+			local slide = (1 - math.clamp(values[2], 0, 1)) * 24
+			return UDim2.new(0.5, 0, 0, f.dockY + (if f.dockTop then -slide else slide))
 		end),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundColor3 = Palette.panelRaised,
@@ -18035,21 +18428,30 @@ local function TutorialOverlay(_param)
 		Transparency = 0.35,
 	}), React.createElement("uipadding", {
 		PaddingTop = UDim.new(0, 12),
-		PaddingBottom = UDim.new(0, 12),
+		PaddingBottom = UDim.new(0, 14),
 		PaddingLeft = UDim.new(0, 14),
 		PaddingRight = UDim.new(0, 14),
-	}), React.createElement(Text, {
+	}), React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 16),
+		LayoutOrder = 1,
+		BackgroundTransparency = 1,
+		ZIndex = 402,
+	}, React.createElement(Text, {
 		value = `STEP {step} OF {count}  ·  {string.upper(TutorialScript.PET_NAME)}'S TOUR`,
 		size = 10,
 		color = Palette.mango,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 8,
-		sizeConstraint = UDim2.new(1, -90, 0, 14),
+		sizeConstraint = UDim2.new(1, -96, 1, 0),
 		zIndex = 402,
 	}), React.createElement("textbutton", {
-		Size = UDim2.fromOffset(84, 18),
-		Position = UDim2.new(1, -84, 0, -2),
+		Size = UDim2.new(0, 90, 1, 0),
+		Position = UDim2.new(1, -90, 0, 0),
 		BackgroundTransparency = 1,
 		Text = "SKIP GUIDE",
 		TextColor3 = Palette.muted,
@@ -18060,9 +18462,9 @@ local function TutorialOverlay(_param)
 		Event = {
 			Activated = requestSkip,
 		},
-	}), React.createElement("frame", {
+	})), React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, 8),
-		Position = UDim2.fromOffset(0, 18),
+		LayoutOrder = 2,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
 	}, dots), React.createElement(Text, {
@@ -18072,37 +18474,35 @@ local function TutorialOverlay(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 12,
-		position = UDim2.fromOffset(0, 32),
 		sizeConstraint = UDim2.new(1, 0, 0, 24),
+		layoutOrder = 3,
 		zIndex = 402,
-	}), React.createElement(Text, {
+	}), React.createElement(AutoHeightText, {
 		value = copy.body,
+		width = innerW,
 		size = 12,
 		color = Palette.creamSoft,
-		wrap = true,
-		fit = false,
-		position = UDim2.fromOffset(0, 58),
-		sizeConstraint = UDim2.new(1, 0, 0, 34),
+		layoutOrder = 4,
 		zIndex = 402,
 	}), React.createElement("frame", {
 		-- Goal with a checkbox that ticks when it's done.
 		Size = UDim2.new(1, 0, 0, 22),
-		Position = UDim2.fromOffset(0, 96),
+		LayoutOrder = 5,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(18, 18),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = if met and needsAction then Palette.mint else Palette.panel,
+		BackgroundColor3 = if goalDone then Palette.mint else Palette.panel,
 		BorderSizePixel = 0,
 		ZIndex = 403,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 5),
 	}), React.createElement("uistroke", {
-		Color = if met and needsAction then Palette.mint else Palette.lineSoft,
+		Color = if goalDone then Palette.mint else Palette.lineSoft,
 		Transparency = 0.2,
-	}), met and needsAction and React.createElement(Icon, {
+	}), goalDone and React.createElement(Icon, {
 		kind = "Check",
 		color = Palette.ink,
 		accent = Palette.ink,
@@ -18110,40 +18510,25 @@ local function TutorialOverlay(_param)
 	})), React.createElement(Text, {
 		value = string.upper(copy.goal or ""),
 		size = 11,
-		color = if met and needsAction then Palette.mint else Palette.cream,
+		color = if goalDone then Palette.mint else Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 9,
-		position = UDim2.fromOffset(26, 3),
-		sizeConstraint = UDim2.new(1, -26, 0, 16),
+		position = UDim2.fromOffset(28, 0),
+		sizeConstraint = UDim2.new(1, -28, 1, 0),
 		zIndex = 403,
 	})), copy.controls ~= nil and React.createElement(Text, {
 		value = copy.controls,
 		size = 10,
 		color = Palette.muted,
 		fit = true,
-		minSize = 8,
-		position = UDim2.fromOffset(0, 120),
+		minSize = 9,
 		sizeConstraint = UDim2.new(1, 0, 0, 14),
+		layoutOrder = 6,
 		zIndex = 402,
-	}), hasCta and React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 38),
-		Position = UDim2.new(0, 0, 1, -82),
-		BackgroundTransparency = 1,
-		ZIndex = 402,
-	}, React.createElement(Button, {
-		text = string.upper(ctaLabel),
-		icon = "Play",
-		onClick = onCta,
-		color = Palette.mango,
-		textColor = Palette.ink,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		highlight = true,
-		zIndex = 403,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 38),
-		Position = UDim2.new(0, 0, 1, -38),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 40),
+		LayoutOrder = 7,
 		BackgroundTransparency = 1,
 		ZIndex = 402,
 	}, React.createElement("uilistlayout", {
@@ -18170,34 +18555,17 @@ local function TutorialOverlay(_param)
 		LayoutOrder = 2,
 		BackgroundTransparency = 1,
 	}, React.createElement(Button, {
-		text = primaryText,
-		icon = if step >= count then "Check" else nil,
-		onClick = function()
-			if met or not needsAction then
-				requestNext()
-			else
-				-- Not done yet: Bolt wiggles and repeats the hint instead.
-				petState.current.spinAt = petState.current.t
-				petState.current.chars = 0
-				Audio:play("locked")
-			end
-		end,
-		color = if met or not needsAction then Palette.mint else Palette.panelSoft,
-		textColor = if met or not needsAction then Palette.ink else Palette.muted,
+		text = primary.text,
+		icon = primary.icon,
+		onClick = primary.onClick,
+		color = primary.color,
+		textColor = primary.textColor,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		disabled = exiting,
-		highlight = met or not needsAction,
+		highlight = primary.highlight,
 		zIndex = 403,
-	}))), React.createElement("frame", {
-		-- Overall progress along the bottom edge.
-		Size = UDim2.new(progress, 0, 0, 3),
-		Position = UDim2.new(0, -14, 1, 12),
-		AnchorPoint = Vector2.new(0, 1),
-		BackgroundColor3 = Palette.mango,
-		BorderSizePixel = 0,
-		ZIndex = 403,
-	}))
+	}))))
 
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
@@ -18216,7 +18584,13 @@ local function TutorialOverlay(_param)
 		BackgroundTransparency = 1,
 		Visible = true,
 		Active = false,
-	}), spotlight, pet, bubble, dock))
+	}), spotlight, React.createElement("frame", {
+		-- Bolt's motion trail, behind the card and Bolt.
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Active = false,
+		ZIndex = 403,
+	}, trailEls), dock, pet, bubble))
 end
 local VERSION_ROW_H = 48
 local HIGHLIGHT_ROW_H = 46

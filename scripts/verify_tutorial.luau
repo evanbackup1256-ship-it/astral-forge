@@ -92,14 +92,33 @@ x, y = Script.petPose({ x = -500, y = -500, w = 10, h = 10 }, 400, 300, 56)
 assert(x >= 28 and y >= 28 and x <= 372 and y <= 272, "Bolt stays on screen")
 local _, _, dockAngle, dockSide = Script.petPose(nil, 800, 600, 56, { x = 100, y = 400, w = 500 })
 assert(dockSide == "dock" and dockAngle == 90, "no target: Bolt waits by the card")
+local _, topY, topAngle = Script.petPose(nil, 800, 600, 56, { x = 100, y = 20, w = 500, h = 180 })
+assert(topY > 200 and topAngle == -90, "card at the top: Bolt waits under it, pointing up")
+-- Never on the card: the screenshot case, a wide target on the right with the card beside it on the left.
+local cardRect = { x = 250, y = 40, w = 520, h = 300 }
+local px, py, _, pside = Script.petPose({ x = 700, y = 270, w = 890, h = 160 }, 1640, 730, 56, cardRect)
+local onCard = px + 28 > cardRect.x - 8 and px - 28 < cardRect.x + cardRect.w + 8 and py + 28 > cardRect.y - 8 and py - 28 < cardRect.y + cardRect.h + 8
+assert(not onCard, "Bolt must not sit on the card (side " .. tostring(pside) .. ")")
+
+-- The card: bottom by default, top only when the bottom would cover the target
+local y, where = Script.dockPlacement({ x = 700, y = 270, w = 890, h = 160 }, 730, 230, 0, 0)
+assert(where == "bottom" and y + 230 <= 730 - 12 + 0.01, "target in the upper half: the card stays at the bottom")
+y, where = Script.dockPlacement({ x = 100, y = 600, w = 300, h = 60 }, 730, 230, 0, 0)
+assert(where == "top" and y < 100, "target at the bottom: the card moves to the top")
+y, where = Script.dockPlacement(nil, 730, 230, 0, 30)
+assert(where == "bottom" and math.abs(y - (730 - 30 - 230)) < 0.01, "no target: bottom, above the safe inset")
 
 -- Wiring
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(shell, '("TutorialScript").STEPS', 1, true), "the shell uses the script")
 assert(string.find(shell, "tutorial.startPage == nil", 1, true), "only startPage steps navigate")
 local overlay = fs.readFile("src/Client/AstralForge/UiCore.luau#onboarding")
-for _, needle in { "local function findTarget", "WING_FRAMES", "TALK_FRAMES", "blink", "GetMouseLocation", "onPetClick", "MaxVisibleGraphemes" } do
+for _, needle in { "local function findTarget", "wingPhase", "blink", "GetMouseLocation", "onPetClick", "MaxVisibleGraphemes", "dizzyUntil", "st.rub", "SLEEP_AFTER", "TutorialScript.dockPlacement", "AutomaticSize = Enum.AutomaticSize.Y" } do
 	assert(string.find(overlay, needle, 1, true), "tutorial overlay has " .. needle)
 end
+-- The card lays itself out top to bottom; nothing in it may sit at a hard-coded y again.
+local overlayFn = string.match(overlay, "local function TutorialOverlay%(_param%)(.-)\nlocal VERSION_ROW_H") or ""
+assert(not string.find(overlayFn, "dockH", 1, true), "the step card sizes itself from its content")
+assert(not string.find(overlayFn, "math.floor(t * 12)", 1, true), "wings flap continuously, not in stepped frames")
 
 print("verify_tutorial: ok")

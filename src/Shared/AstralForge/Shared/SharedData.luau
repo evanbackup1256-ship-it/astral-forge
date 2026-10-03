@@ -1820,10 +1820,13 @@ TutorialScript.STEPS = table.freeze({
 	},
 })
 
--- Lines Bolt says when clicked, by mood.
+-- Lines Bolt says when clicked, petted, spun dizzy or woken up, by mood.
 TutorialScript.QUIPS = table.freeze({
 	idle = { "Need a hint? Follow my finger!", "The glowing box is the thing to click.", "Beep boop. That tickles!", "I run on Flux. Mostly." },
 	done = { "Nice! On to the next bit.", "You're a natural!", "Woo! Keep going!" },
+	dizzy = { "Whoa... the forge is spinning!", "Okay, okay, no more spins!", "Everything is sparkly now." },
+	pet = { "Hehe, that's nice!", "Bzzzt! Happy sparks!", "You're my favourite forger." },
+	wake = { "Huh? I'm awake! Totally awake.", "Zzz... oh! Where were we?" },
 })
 
 local function num(value: any, fallback: number): number
@@ -1863,33 +1866,60 @@ end
 
 -- Where Bolt floats for a target rect, all in the overlay's own pixels.
 -- Bolt sits beside the target on whichever side has room (right, left, below,
--- above), clamped inside the screen, and points at the target's nearest edge.
+-- above), clamped inside the screen, never on top of the step card (`dock`,
+-- { x, y, w, h }), and points at the target's nearest edge.
 -- Returns the pet centre, the pointing angle (degrees, 0 = right), and the
--- side used. With no target Bolt sits above the step card, pointing at it.
+-- side used. With no target Bolt sits beside the step card, on its open side.
 function TutorialScript.petPose(rect, screenW: number, screenH: number, petSize: number, dock)
 	local margin = 14
 	local half = petSize / 2
 	local function clampPoint(x, y)
 		return math.clamp(x, half + 6, math.max(half + 6, screenW - half - 6)), math.clamp(y, half + 6, math.max(half + 6, screenH - half - 6))
 	end
+	local dockH = if dock ~= nil then num(dock.h, 0) else 0
+	local function onDock(x, y): boolean
+		if dock == nil or dockH <= 0 then
+			return false
+		end
+		local pad = 8
+		return x + half > dock.x - pad and x - half < dock.x + dock.w + pad and y + half > dock.y - pad and y - half < dock.y + dockH + pad
+	end
 	if rect == nil then
 		local dockTop = if dock ~= nil then dock.y else screenH * 0.7
 		local dockX = if dock ~= nil then dock.x + dock.w - half - 10 else screenW / 2
-		local x, y = clampPoint(dockX, dockTop - half - 10)
-		return x, y, 90, "dock"
+		-- A card on the top half has Bolt waiting under it; on the bottom half, above it.
+		local below = dock ~= nil and dockH > 0 and dockTop + dockH / 2 < screenH / 2
+		local x, y = clampPoint(dockX, if below then dockTop + dockH + half + 10 else dockTop - half - 10)
+		return x, y, if below then -90 else 90, "dock"
 	end
 	local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
-	local roomRight = screenW - (rect.x + rect.w)
-	local roomLeft = rect.x
-	local roomBelow = screenH - (rect.y + rect.h)
+	local room = petSize + margin * 2
+	local candidates: { { any } } = {
+		{ "right", screenW - (rect.x + rect.w) >= room, rect.x + rect.w + margin + half, cy },
+		{ "left", rect.x >= room, rect.x - margin - half, cy },
+		{ "below", screenH - (rect.y + rect.h) >= room, cx, rect.y + rect.h + margin + half },
+		{ "above", rect.y >= room, cx, rect.y - margin - half },
+	}
 	local side, x, y
-	if roomRight >= petSize + margin * 2 then
-		side, x, y = "right", rect.x + rect.w + margin + half, cy
-	elseif roomLeft >= petSize + margin * 2 then
-		side, x, y = "left", rect.x - margin - half, cy
-	elseif roomBelow >= petSize + margin * 2 then
-		side, x, y = "below", cx, rect.y + rect.h + margin + half
-	else
+	-- First side with room that keeps Bolt off the card; then any side with room; then above.
+	for _, candidate in candidates do
+		if candidate[2] then
+			local px, py = clampPoint(candidate[3], candidate[4])
+			if not onDock(px, py) then
+				side, x, y = candidate[1], px, py
+				break
+			end
+		end
+	end
+	if side == nil then
+		for _, candidate in candidates do
+			if candidate[2] then
+				side, x, y = candidate[1], candidate[3], candidate[4]
+				break
+			end
+		end
+	end
+	if side == nil then
 		side, x, y = "above", cx, rect.y - margin - half
 	end
 	x, y = clampPoint(x, y)
@@ -1901,6 +1931,26 @@ function TutorialScript.petPose(rect, screenW: number, screenH: number, petSize:
 		angle = 90
 	end
 	return x, y, angle, side
+end
+
+-- Where the step card goes, in overlay pixels: the top of the card (y) and "top" or "bottom".
+-- The bottom edge is the default; the card moves to the top only when it would cover the
+-- spotlit target there and covers it less at the top.
+function TutorialScript.dockPlacement(rect, screenH: number, cardH: number, topInset: number, bottomInset: number)
+	local gap = 12
+	local bottomY = screenH - math.max(gap, bottomInset) - cardH
+	local topY = math.max(gap, topInset + 8)
+	if rect == nil then
+		return bottomY, "bottom"
+	end
+	local function overlap(y: number): number
+		return math.max(0, math.min(y + cardH + gap, rect.y + rect.h) - math.max(y - gap, rect.y))
+	end
+	local atBottom = overlap(bottomY)
+	if atBottom > 0 and overlap(topY) < atBottom then
+		return topY, "top"
+	end
+	return bottomY, "bottom"
 end
 
 -- Progress through the guide, 0..1, counting the current step as half done
