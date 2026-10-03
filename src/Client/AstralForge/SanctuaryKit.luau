@@ -5981,6 +5981,183 @@ function ScreenFx.explosion(at: Vector3, radius: number, hot: Color3, deep: Colo
 		lamp:Destroy()
 	end)
 end
+
+-- An eon-scale blast: a whiteout, nested fireball shells, four shockwave rings racing across the floor, a
+-- mushroom of stem and cap, forks of lightning from the sky, cracks, aftershocks and a lamp that lights the
+-- whole arena. `grand` is the supernova / death size.
+function ScreenFx.eon(at: Vector3, radius: number, grand: boolean)
+	local size = radius * (if grand then 1.7 else 1)
+	local floor = at + Vector3.new(0, 0.5, 0)
+	local function sweep(thing: Part, goal: { [string]: any }, seconds: number, style: Enum.EasingStyle?)
+		TweenService:Create(thing, TweenInfo.new(seconds, style or Enum.EasingStyle.Quart, Enum.EasingDirection.Out), goal):Play()
+		Debris:AddItem(thing, seconds + 0.1)
+	end
+	screenFlash(Color3.new(1, 1, 1), 1, if grand then 3.2 else 1.6)
+	impactFrame(1)
+	ScreenFx.hitstop(if grand then 0.28 else 0.18)
+	ScreenFx.strobe({ Color3.new(1, 1, 1), pal.Hot, pal.Alert }, 0.05, 0.85)
+	ScreenFx.gradePulse(pal.Hot, 0.5, 0.45, if grand then 4.5 else 3)
+	Controls.shake(if grand then 3 else 2)
+	Controls.punch(-18, 0.05)
+	-- Nested shells of fire: white, hot, deep.
+	for index, spec in ({ { 1, Color3.new(1, 1, 1), 0.45 }, { 1.7, pal.Hot, 0.9 }, { 2.5, pal.Alert, 1.5 } } :: { { any } }) do
+		local ball = vfxPart("EonShell", Enum.PartType.Ball, Vector3.one * 3, spec[2], Enum.Material.Neon)
+		ball.Transparency = 0.05
+		ball.Position = at + Vector3.new(0, size * 0.4, 0)
+		task.delay(0.08 * (index - 1), function()
+			sweep(ball, { Size = Vector3.one * size * spec[1] * 1.7, Transparency = 1 }, spec[3] + 0.4)
+		end)
+	end
+	-- Shock rings racing across the floor.
+	for index, delay in { 0, 0.2, 0.45, 0.8 } do
+		task.delay(delay, function()
+			local ring = vfxPart("EonRing", Enum.PartType.Cylinder, Vector3.new(0.8, 4, 4), if index % 2 == 1 then Color3.new(1, 1, 1) else pal.Hot, Enum.Material.Neon)
+			ring.CFrame = CFrame.new(floor) * CFrame.Angles(0, 0, math.rad(90))
+			ring.Transparency = 0.1
+			sweep(ring, { Size = Vector3.new(0.8 + index, size * (4 + index), size * (4 + index)), Transparency = 1 }, 1.3 + index * 0.25)
+			Vfx.burst(floor, "Shockwave", 1, { Color = pal.Hot, Size = NumberSequence.new(size * 0.4, size * (3.5 + index)) }, clientFolder)
+		end)
+	end
+	-- The mushroom: a stem that climbs, a cap that blooms on top of it.
+	local stem = vfxPart("EonStem", Enum.PartType.Cylinder, Vector3.new(4, size * 0.3, size * 0.3), pal.Hot, Enum.Material.Neon)
+	stem.CFrame = CFrame.new(floor + Vector3.new(0, 2, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	stem.Transparency = 0.2
+	sweep(stem, { Size = Vector3.new(size * 2.4, size * 0.7, size * 0.7), CFrame = CFrame.new(floor + Vector3.new(0, size * 1.2, 0)) * CFrame.Angles(0, 0, math.rad(90)), Transparency = 1 }, 2.2)
+	local cap = vfxPart("EonCap", Enum.PartType.Ball, Vector3.one * 4, pal.Alert, Enum.Material.Neon)
+	cap.Transparency = 0.2
+	cap.Position = floor + Vector3.new(0, size * 0.6, 0)
+	sweep(cap, { Size = Vector3.new(size * 2.4, size * 1.2, size * 2.4), Position = floor + Vector3.new(0, size * 2.4, 0), Transparency = 1 }, 2.6)
+	lightPillar(at, Color3.new(1, 1, 1), 240, size * 0.4, if grand then 2.4 else 1.4)
+	groundCrack(at, size * 2.4, pal.Hot, 2.4)
+	groundCrack(at, size * 1.6, Color3.new(1, 1, 1), 1.6)
+	-- Forks from the sky and what the blast throws up.
+	for index = 1, if grand then 14 else 8 do
+		task.delay(index * 0.06, function()
+			local angle, reach = math.random() * TAU, size * (0.3 + math.random() * 1.1)
+			lightning(at + Vector3.new((math.random() - 0.5) * size, 170, (math.random() - 0.5) * size), at + Vector3.new(math.cos(angle) * reach, 0, math.sin(angle) * reach), pal.Hot, 0.4, 1.6)
+		end)
+	end
+	Vfx.burst(floor, "Shatter", math.floor(130 * (size / 30)), { Color = pal.Hot, Color2 = pal.Alert, Speed = NumberRange.new(30, 90), Acceleration = Vector3.new(0, -40, 0) }, clientFolder)
+	Vfx.burst(floor, "Flame", math.floor(70 * (size / 30)), { Color = pal.Hot, Color2 = pal.Alert, Speed = NumberRange.new(20, 60), Acceleration = Vector3.new(0, 24, 0) }, clientFolder)
+	Vfx.burst(floor, "Embers", math.floor(90 * (size / 30)), { Color = Color3.new(1, 1, 1), Color2 = pal.Hot, Speed = NumberRange.new(24, 80) }, clientFolder)
+	Vfx.burst(floor + Vector3.new(0, size * 0.4, 0), "Smoke", math.floor(40 * (size / 30)), { Color = Color3.fromRGB(30, 24, 30), Speed = NumberRange.new(6, 22), Acceleration = Vector3.new(0, 14, 0) }, clientFolder)
+	Vfx.burst(floor, "Dust", 60, { Color = Color3.fromRGB(70, 62, 90) }, clientFolder)
+	-- Aftershocks, and a lamp that lights the arena.
+	for index = 1, if grand then 6 else 3 do
+		task.delay(0.35 * index, function()
+			local angle, reach = math.random() * TAU, size * (0.2 + math.random() * 0.9)
+			ScreenFx.explosion(at + Vector3.new(math.cos(angle) * reach, 0, math.sin(angle) * reach), size * 0.5, pal.Hot, pal.Alert)
+			Controls.shake(0.8)
+		end)
+	end
+	local lamp = vfxPart("EonLamp", nil, Vector3.one, pal.Hot, Enum.Material.SmoothPlastic)
+	lamp.Transparency = 1
+	lamp.Position = at + Vector3.new(0, size * 0.6, 0)
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness, light.Shadows = pal.Hot, math.min(60, size * 5), 16, false
+	light.Parent = lamp
+	TweenService:Create(light, TweenInfo.new(if grand then 3 else 1.6, Enum.EasingStyle.Quad), { Brightness = 0 }):Play()
+	Debris:AddItem(lamp, 3.2)
+end
+
+-- A black hole: a lightless core, three tilted accretion discs, a lensing halo, and wreckage spiralling in.
+-- `step(k, now)` runs once a frame (k is 0 to 1 over the pull); `destroy()` removes it.
+function ScreenFx.hole(at: Vector3, radius: number, core: number)
+	local centre = at + Vector3.new(0, core * 0.5 + 3, 0)
+	local parts: { Part } = {}
+	local function make(shape: Enum.PartType, size: Vector3, colour: Color3, material: Enum.Material, transparency: number): Part
+		local part = vfxPart("Blackhole", shape, size, colour, material)
+		part.Transparency = transparency
+		table.insert(parts, part)
+		return part
+	end
+	local eye = make(Enum.PartType.Ball, Vector3.one * 2, Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, 0)
+	local halo = make(Enum.PartType.Ball, Vector3.one * 2, pal.Hot, Enum.Material.Neon, 0.72)
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness, light.Shadows = pal.Hot, math.min(60, radius * 0.8), 3, false
+	light.Parent = halo
+	local discs = {}
+	for index = 1, 3 do
+		discs[index] = make(Enum.PartType.Cylinder, Vector3.new(0.35, 2, 2), if index == 1 then Color3.new(1, 1, 1) elseif index == 2 then pal.Hot else pal.Alert, Enum.Material.Neon, 0.2 + index * 0.14)
+	end
+	local debris = {}
+	for index = 1, math.clamp(math.floor(radius * 0.4), 18, 40) do
+		debris[index] = {
+			part = make(Enum.PartType.Block, Vector3.one * (0.8 + math.random() * 2.4), Color3.fromRGB(40, 34, 52), Enum.Material.Slate, 0),
+			angle = math.random() * TAU,
+			along = math.random(),
+			lift = (math.random() - 0.5) * 0.25,
+			rate = 0.7 + math.random() * 0.8,
+			tumble = Vector3.new(math.random(), math.random(), math.random()) * 3,
+		}
+	end
+	local hole: any = {}
+	function hole.step(k: number, now: number)
+		local eyeSize = (2 + core * 0.55 * (0.35 + 0.65 * k)) * (1 + 0.04 * math.sin(now * 17))
+		eye.Size, eye.CFrame = Vector3.one * eyeSize, CFrame.new(centre)
+		halo.Size, halo.CFrame = Vector3.one * eyeSize * (1.18 + 0.05 * math.sin(now * 9)), CFrame.new(centre)
+		light.Brightness = 3 + 6 * k
+		for index, disc in discs do
+			local span = eyeSize * (1.9 + index * 0.75)
+			disc.Size = Vector3.new(0.3 + 0.2 * index, span, span)
+			disc.CFrame = CFrame.new(centre) * CFrame.Angles(0, now * (1.6 - index * 0.4), 0) * CFrame.Angles(math.rad(14 + index * 11), 0, math.rad(index * 7)) * CFrame.Angles(0, 0, math.rad(90))
+		end
+		for _, piece in debris do
+			-- Each fragment drifts inward and loops back to the rim, quickening as it falls.
+			local along = (piece.along - now * 0.07 * piece.rate - k * 0.35) % 1
+			local r = math.max(eyeSize * 0.9, along * radius * 0.95)
+			local a = piece.angle + now * piece.rate * (1.2 + 7 / math.max(1, r * 0.2))
+			piece.part.CFrame = CFrame.new(centre + Vector3.new(math.cos(a) * r, piece.lift * r + math.sin(now * 2 + piece.angle), math.sin(a) * r)) * CFrame.Angles(now * piece.tumble.X, now * piece.tumble.Y, now * piece.tumble.Z)
+			piece.part.Transparency = if r < eyeSize * 1.2 then 1 else 0
+		end
+	end
+	function hole.destroy()
+		for _, part in parts do
+			part:Destroy()
+		end
+	end
+	hole.centre = centre
+	return hole
+end
+
+-- The star that comes before a supernova: it swells and brightens as the countdown runs, ringed by two
+-- shells that shiver, and it arcs lightning to the pillars.
+function ScreenFx.star(at: Vector3, seconds: number)
+	local centre = at + Vector3.new(0, 44, 0)
+	local parts: { Part } = {}
+	local function make(size: number, colour: Color3, transparency: number): Part
+		local part = vfxPart("NovaStar", Enum.PartType.Ball, Vector3.one * size, colour, Enum.Material.Neon)
+		part.Transparency = transparency
+		part.Position = centre
+		table.insert(parts, part)
+		return part
+	end
+	local coreBall, shell, outer = make(4, Color3.new(1, 1, 1), 0), make(6, pal.Hot, 0.55), make(8, pal.Alert, 0.8)
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness, light.Shadows = pal.Hot, 60, 2, false
+	light.Parent = coreBall
+	local star: any = {}
+	function star.step(k: number, now: number)
+		local grow = 4 + 46 * k * k
+		coreBall.Size = Vector3.one * grow * (1 + 0.03 * math.sin(now * 30 * (0.3 + k)))
+		shell.Size = Vector3.one * grow * (1.35 + 0.08 * math.sin(now * 11))
+		outer.Size = Vector3.one * grow * (1.9 + 0.2 * math.sin(now * 7 + 1))
+		outer.Transparency = 0.85 - 0.25 * k
+		coreBall.Color = pal.Hot:Lerp(Color3.new(1, 1, 1), k)
+		light.Brightness = 2 + 12 * k
+		if math.random() < 0.05 + 0.3 * k then
+			local angle = math.random() * TAU
+			lightning(centre, at + Vector3.new(math.cos(angle) * 70, 0, math.sin(angle) * 70), pal.Hot, 0.25, 0.8 + 1.4 * k)
+		end
+	end
+	function star.destroy()
+		for _, part in parts do
+			part:Destroy()
+		end
+	end
+	star.centre = centre
+	return star
+end
 local function clearFx()
 	if flashGui ~= nil then
 		flashGui:Destroy()
@@ -6099,6 +6276,62 @@ local function near(current: Boss): boolean
 	return root ~= nil and (root.Position - current.anchor.Position).Magnitude < 300
 end
 
+-- The summoning rite while a boss is forming: bolts arc from the pillars into the rift, motes and light
+-- converge on it, and the rite quickens and the ground starts to shake as the body gathers.
+function ScreenFx.formRite(current: Boss, dt: number)
+	local state: any = current
+	local progress = math.clamp(current.visible, 0, 1)
+	state.riteClock = (state.riteClock or 0) + dt * (0.5 + progress * 3)
+	if state.riteClock < 1 then
+		return
+	end
+	state.riteClock -= 1
+	local centre = (Controls :: any).ground.center(current)
+	local floor = (Controls :: any).ground.floor(current)
+	local tops = pillarTops(current)
+	local top = tops[math.random(#tops)]
+	lightning(top, centre, pal.Hot, 0.35, 0.5 + progress * 1.2)
+	Vfx.burst(top, "Motes", 8, { Color = pal.Hot, Color2 = pal.Primary }, clientFolder)
+	Vfx.burst(floor + Vector3.new(0, 2, 0), "Implode", 1, { Color = pal.Hot, Color2 = pal.Primary, Size = NumberSequence.new(14 + progress * 40, 1) }, clientFolder)
+	if progress > 0.35 then
+		Controls.shake(0.1 + progress * 0.35)
+	end
+	if progress > 0.6 and math.random() < progress then
+		local angle = math.random() * TAU
+		lightPillar(floor + Vector3.new(math.cos(angle) * 36, 0, math.sin(angle) * 36), pal.Hot, 70, 2, 0.7)
+		groundCrack(floor, 20 + progress * 40, pal.Hot, 1.2)
+	end
+end
+
+-- The birth: a seam of light tears open in the air, the sky answers with bolts, everything is pulled into
+-- the tear, a heartbeat of black, and the boss bursts out in an eon-scale blast.
+function ScreenFx.birth(current: Boss)
+	local mega = current.kind == "Astraeon"
+	local centre = (Controls :: any).ground.center(current)
+	local floor = (Controls :: any).ground.floor(current)
+	local seam = vfxPart("BirthSeam", nil, Vector3.new(0.4, 6, 0.4), Color3.new(1, 1, 1), Enum.Material.Neon)
+	seam.CFrame = CFrame.new(centre)
+	TweenService:Create(seam, TweenInfo.new(1.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Size = Vector3.new(if mega then 7 else 4, if mega then 120 else 70, 0.4) }):Play()
+	Debris:AddItem(seam, 1.5)
+	Vfx.burst(centre, "Implode", 1, { Color = pal.Hot, Color2 = pal.Alert, Size = NumberSequence.new(if mega then 160 else 90, 2) }, clientFolder)
+	for index = 1, if mega then 10 else 6 do
+		task.delay(0.12 * index, function()
+			local angle = math.random() * TAU
+			lightning(centre + Vector3.new(0, 150, 0), floor + Vector3.new(math.cos(angle) * 30, 0, math.sin(angle) * 30), pal.Hot, 0.35, 1.2)
+			Controls.shake(0.4 + index * 0.06)
+		end)
+	end
+	task.delay(1.15, function()
+		screenFlash(Color3.new(0, 0, 0), 0.9, 0.3)
+	end)
+	task.delay(1.35, function()
+		if boss == current then
+			bossSfx("boom_" .. current.kind, 1.5)
+			ScreenFx.eon(floor, if mega then 38 else 22, mega)
+		end
+	end)
+end
+
 -- Each boss wakes with its own cutscene. The letterbox and title card (the HUD banner) are
 -- shared; the camera work and what happens on the pillars are not.
 --   Warden  one slow orbit round the opening rift
@@ -6115,7 +6348,7 @@ local function awakeScene(current: Boss)
 			end
 		end)
 	end
-	screenFlash(pal.Hot, 0.4, 0.8)
+	ScreenFx.birth(current)
 	task.delay(0.5, function()
 		if boss == current then
 			lightPillar((Controls :: any).ground.floor(current), pal.Hot, 90, 7, 1.4)
@@ -6206,45 +6439,92 @@ local function awakeScene(current: Boss)
 end
 
 local function defeatScene(current: Boss)
-	impactFrame(1)
-	task.delay(0.9, impactFrame, 1)
 	local kind = current.kind
-	-- The body comes apart in light: a great column, bolts to every pillar, a white-out.
-	screenFlash(Color3.new(1, 1, 1), 0.75, 1.6)
-	lightPillar((Controls :: any).ground.floor(current), pal.Hot, 140, 12, 2.4)
-	for index, top in pillarTops(current) do
-		task.delay(0.15 * index, function()
-			if boss == current then
-				lightning((Controls :: any).ground.center(current), top, pal.Hot, 0.5, 1.2)
+	local mega = kind == "Astraeon"
+	local tops = pillarTops(current)
+	local steps = {}
+	local function at(seconds: number, run: () -> ())
+		table.insert(steps, { at = seconds, run = run })
+	end
+	local function body(): Vector3
+		return (Controls :: any).ground.center(current)
+	end
+	-- 0 - 3.7 s, the overload. The body shudders, cracks of light break out of it, small explosions walk
+	-- over it, and the camera creeps in while the shaking builds and the bolts to the pillars multiply.
+	impactFrame(1)
+	screenFlash(Color3.new(1, 1, 1), 0.6, 1.2)
+	at(0, function()
+		playShot(current, { Seconds = 3.7, Sweep = 0.9, Distance = if mega then 80 else 46, Push = 0.5, Height = 8, Lift = 3, Fov = 56, Lock = true }, 0)
+		ScreenFx.gradePulse(pal.Hot, 0.3, 0.3, 3.6)
+		ScreenFx.vignette(pal.Alert, 0.8, 3.6)
+	end)
+	local bursts = if mega then 30 else 20
+	for index = 1, bursts do
+		local when = 0.2 + 3.3 * (index / bursts) ^ 0.75
+		at(when, function()
+			local k = when / 3.7
+			local spot = body() + Vector3.new((math.random() - 0.5) * 16, (math.random() - 0.3) * 14, (math.random() - 0.5) * 16)
+			ScreenFx.explosion(spot, 5 + 8 * k + (if mega then 5 else 0), pal.Hot, pal.Alert)
+			lightning(body(), tops[math.random(#tops)], pal.Hot, 0.3, 0.5 + 1.2 * k)
+			current.flash = 1
+			Controls.shake(0.4 + 1.1 * k)
+			if index % 4 == 0 then
+				bossSfx("impact", 0.7 + 0.4 * k)
+				ScreenFx.hitstop(0.05)
 			end
 		end)
 	end
-	if kind == "Warden" then
-		playShot(current, { Seconds = 5, Sweep = 1.2, Distance = 64, Push = -0.15, Height = 10, Fov = 48 })
-		return
+	for index = 1, 4 do
+		at(0.5 + index * 0.8, function()
+			Vfx.burst(body() + Vector3.new(0, 1, 0), "Implode", 1, { Color = pal.Hot, Color2 = pal.Alert, Size = NumberSequence.new(30 + index * 10, 2) }, clientFolder)
+			groundCrack((Controls :: any).ground.floor(current), 16 + index * 12, pal.Hot, 1)
+		end)
 	end
-	-- The arena gives way pillar by pillar while the camera backs off.
-	local steps = {}
-	for index, top in pillarTops(current) do
-		table.insert(steps, {
-			at = 0.3 * index,
-			run = function()
-				Vfx.burst(top, "Shatter", 40, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(10, 24), Acceleration = Vector3.new(0, if kind == "Regent" then 12 else -8, 0) }, clientFolder)
-				Vfx.burst(top, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(6, 22) }, clientFolder)
-				Audio:play(bossCue("Phase"))
-			end,
-		})
+	-- 3.7 s, the collapse: a held breath. The picture drops to black for a heartbeat and everything is sucked in.
+	at(3.45, function()
+		bossSfx("roar_" .. kind, 1.6)
+		Vfx.burst(body(), "Implode", 1, { Color = Color3.new(1, 1, 1), Size = NumberSequence.new(90, 1) }, clientFolder)
+	end)
+	at(3.7, function()
+		screenFlash(Color3.new(0, 0, 0), 0.95, 0.35)
+		ScreenFx.hitstop(0.35)
+		Controls.punch(14, 0)
+	end)
+	-- 4.05 s, the detonation: the eon blast at the body, the arena giving way pillar by pillar around it.
+	at(4.05, function()
+		bossSfx("boom_" .. kind, 1.8)
+		bossSfx("death_" .. kind, 1.2)
+		playShot(current, { Seconds = 5.6, Sweep = -1.3, Distance = if mega then 150 else 100, Push = -0.35, Height = 30, Lift = 14, Fov = 48 }, 0)
+		ScreenFx.eon(body(), if mega then 54 else 38, true)
+		ScreenFx.eon(body() + Vector3.new(0, 18, 0), 24, false)
+		for _, list in { current.rings, current.plates, current.shards } do
+			for _, piece in list do
+				local away = Vector3.new(math.random() - 0.5, math.random() * 0.8, math.random() - 0.5)
+				piece.velocity = (if away.Magnitude > 0.05 then away.Unit else Vector3.yAxis) * (45 + math.random() * 60)
+			end
+		end
+	end)
+	for index, top in tops do
+		at(4.2 + 0.18 * index, function()
+			Vfx.burst(top, "Shatter", 50, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(14, 34), Acceleration = Vector3.new(0, if kind == "Regent" then 12 else -14, 0) }, clientFolder)
+			Vfx.burst(top, "Flash", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 34) }, clientFolder)
+			lightning(body() + Vector3.new(0, 10, 0), top, Color3.new(1, 1, 1), 0.5, 1.6)
+			lightPillar(Vector3.new(top.X, top.Y - 29, top.Z), pal.Hot, 90, 3, 0.8)
+			Audio:play(bossCue("Phase"))
+		end)
 	end
-	if kind == "Choir" then
-		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = 1.5, Distance = 70, Push = -0.2, Height = 20, Fov = 50 }) end })
-	elseif kind == "Seraph" then
-		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5, Sweep = 2.4, Distance = 40, Push = 0.4, Height = 8, Fov = 62 }) end })
-	elseif kind == "Rime" then
-		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 6.5, Sweep = 0.5, Distance = 50, Push = 0.3, Height = -6, Lift = 8, Fov = 54 }) end })
-	elseif kind == "Knight" then
-		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 6, Sweep = -0.4, Distance = 26, Push = 0.15, Height = 2, Lift = 2, Fov = 46 }) end })
-	else
-		table.insert(steps, { at = 0, run = function() playShot(current, { Seconds = 5.5, Sweep = -1, Distance = 56, Push = -0.25, Height = 4, Lift = 4, Fov = 52 }) end })
+	-- 6 s onwards, the afterglow: a last wave rolls out, light drifts up out of the crater, and the arena settles.
+	at(6.2, function()
+		Vfx.burst((Controls :: any).ground.floor(current), "Shockwave", 1, { Color = pal.Hot, Size = NumberSequence.new(10, 260) }, clientFolder)
+		Audio:play(bossCue("Defeat"))
+		Controls.shake(0.9)
+	end)
+	for index = 1, 6 do
+		at(6.4 + index * 0.45, function()
+			local angle = math.random() * TAU
+			local spot = (Controls :: any).ground.floor(current) + Vector3.new(math.cos(angle) * 20, 0, math.sin(angle) * 20)
+			Vfx.burst(spot, "Motes", 18, { Color = Color3.new(1, 1, 1), Color2 = pal.Hot, Speed = NumberRange.new(4, 12), Acceleration = Vector3.new(0, 8, 0) }, clientFolder)
+		end)
 	end
 	sequence(current, steps)
 end
@@ -6372,10 +6652,16 @@ local function stepBoss(dt: number, t: number)
 		visible = math.clamp(1 - (endsAt - now) / config.FormingSeconds, 0, 1)
 	elseif phase == "Active" then
 		visible = 1
-	elseif phase == "Defeated" or phase == "Escaped" then
+	elseif phase == "Defeated" then
+		-- It holds together through the overload and is gone in the instant of the blast.
+		visible = if t - current.outroStarted < 4.05 then 1 else 0
+	elseif phase == "Escaped" then
 		visible = math.clamp(1 - (t - current.outroStarted) / 2.2, 0, 1)
 	end
 	current.visible += (visible - current.visible) * (1 - math.exp(-8 * dt))
+	if phase == "Forming" and near(current) then
+		ScreenFx.formRite(current, dt)
+	end
 	if current.visible < 0.005 and visible == 0 then
 		setBossTransparency(current, 0)
 		return
@@ -7661,9 +7947,16 @@ local function onWell(payload)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
 	Vfx.attach(anchor, "Swirl", { Color = pal.Primary, Color2 = pal.Alert, Size = NumberSequence.new(radius * 1.4, radius * 1.8) })
-	local heart = vfxPart("WellCore", Enum.PartType.Ball, Vector3.new(2, 2, 2), pal.Primary, Enum.Material.Neon)
-	heart.CFrame = CFrame.new(center + Vector3.new(0, 2, 0))
-	heart.Transparency = 0.15
+	-- A black hole opens over the spot: tearing in, then drinking the arena for the whole pull.
+	local grand = radius >= 50
+	local hole = ScreenFx.hole(center, radius, core)
+	hole.step(0, started)
+	Vfx.burst(hole.centre, "Implode", 1, { Color = pal.Hot, Color2 = pal.Alert, Size = NumberSequence.new(core * 3, 1) }, clientFolder)
+	Vfx.burst(hole.centre, "Shockwave", 1, { Color = pal.Alert, Size = NumberSequence.new(4, radius * 2) }, clientFolder)
+	bossSfx("impact", 0.8)
+	if grand then
+		ScreenFx.gradePulse(Color3.new(0.1, 0.05, 0.2), 0.3, 0.4, math.max(1.5, detonateAt - started))
+	end
 	local marker = ringAdornment(anchor, core, core - 0.8, pal.Alert, 0.3)
 	local rings = {}
 	for index = 1, 3 do
@@ -7673,7 +7966,7 @@ local function onWell(payload)
 	connection = RunService.RenderStepped:Connect(function(dt)
 		local now = serverNow()
 		local k = math.clamp((now - started) / math.max(0.3, detonateAt - started), 0, 1)
-		heart.Size = Vector3.new(1, 1, 1) * (2 + core * 0.6 * k)
+		hole.step(k, now)
 		for index, ring in rings do
 			local phase = (now * 0.9 + index / 3) % 1
 			local r = math.max(1.5, radius * (1 - phase))
@@ -7696,7 +7989,13 @@ local function onWell(payload)
 			if connection ~= nil then
 				connection:Disconnect()
 			end
-			heart:Destroy()
+			-- The core lets go: the hole folds in on itself and the whole thing goes off.
+			if active and now >= detonateAt then
+				Vfx.burst(hole.centre, "Implode", 1, { Color = Color3.new(1, 1, 1), Size = NumberSequence.new(core * 2, 1) }, clientFolder)
+				ScreenFx.eon(center, core, grand)
+				bossSfx("boom_" .. (if boss ~= nil then boss.kind else "Warden"), 1.5)
+			end
+			hole.destroy()
 			anchor:Destroy()
 		end
 	end)
@@ -7718,6 +8017,14 @@ local function onDissonance(payload)
 	local anchor = vfxPart("DissonanceAnchor", nil, Vector3.new(0.2, 0.2, 0.2), pal.Alert, Enum.Material.SmoothPlastic)
 	anchor.Transparency = 1
 	anchor.CFrame = CFrame.new(center)
+	-- A long countdown is a supernova: a star swells over the arena and the safe pockets are all that survives.
+	local nova: any = nil
+	if detonateAt - started >= 4 then
+		nova = ScreenFx.star(center, detonateAt - started)
+		ScreenFx.novaPending = true
+		ScreenFx.gradePulse(pal.Hot, 0.35, 0.3, detonateAt - started)
+		bossSfx("roar_" .. (if boss ~= nil then boss.kind else "Warden"), 1.2)
+	end
 	local floorFill = ringAdornment(anchor, arenaRadius, 0, pal.Alert, 0.82)
 	local floorEdge = ringAdornment(anchor, arenaRadius, arenaRadius - 1.2, pal.Alert, 0.3)
 	local pockets = {}
@@ -7740,6 +8047,10 @@ local function onDissonance(payload)
 	connection = RunService.RenderStepped:Connect(function()
 		local now = serverNow()
 		local k = math.clamp((now - started) / math.max(0.3, detonateAt - started), 0, 1)
+		if nova ~= nil then
+			nova.step(k, now)
+			Controls.shake(0.1 + 0.5 * k * k)
+		end
 		floorFill.Transparency = 0.82 - 0.22 * k - 0.1 * math.abs(math.sin(now * (4 + k * 20)))
 		floorEdge.Transparency = 0.35 - 0.25 * math.abs(math.sin(now * 6))
 		for _, pocket in pockets do
@@ -7754,6 +8065,9 @@ local function onDissonance(payload)
 			for _, pocket in pockets do
 				pocket.beacon:Destroy()
 				pocket.spot:Destroy()
+			end
+			if nova ~= nil then
+				nova.destroy()
 			end
 			anchor:Destroy()
 		end
@@ -7973,6 +8287,15 @@ local function onDissonanceLand(payload)
 	if boss ~= nil then
 		boss.flash = 1
 		lightning(boss.core.Position, center, pal.Hot, 0.4, 1.4)
+	end
+	-- The supernova itself: everything outside the pockets is erased in a wall of light.
+	if ScreenFx.novaPending then
+		ScreenFx.novaPending = false
+		bossSfx("boom_" .. (if boss ~= nil then boss.kind else "Warden"), 1.8)
+		ScreenFx.eon(center, 46, true)
+		task.delay(0.6, function()
+			ScreenFx.eon(center + Vector3.new(0, 0, 0), 30, false)
+		end)
 	end
 end
 
