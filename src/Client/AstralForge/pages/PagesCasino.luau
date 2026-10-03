@@ -458,9 +458,10 @@ end
 -- ----- the Blender kit ------------------------------------------------------------------------------------
 -- tools/casinobuild models every piece (bevelled, smooth, its lighting baked into a texture) and the server
 -- publishes them under ReplicatedStorage.CasinoKit. Until that lands, the builders below fall back to the
--- part-built shapes. As imported, a piece's face looks along +Z; KIT_YAW turns it towards the viewport
--- cameras, which look down +Z from the -Z side.
-local KIT_YAW = math.pi
+-- part-built shapes. Roblox's importer turns a glTF round (its +Z forward becomes Roblox -Z), so a piece's
+-- face (Blender -Y) already looks along -Z, at the viewport cameras: KIT_YAW stays 0. Checked on the
+-- uploaded kit: the comet's head lands on +X and the coin's relief star on the -Z face.
+local KIT_YAW = 0
 local KIT_FACE = CFrame.Angles(0, KIT_YAW, 0)
 local SYMBOL_PIECE = { Ember = "Ember", Spark = "Ember", Dust = "Dust", Core = "Core", Comet = "Comet", Star = "Star", Nova = "Nova" }
 local kitListeners = {}
@@ -1223,8 +1224,8 @@ end
 local function buildWheel(viewport, camera)
 	local scale = 4.85
 	-- The kit's turned wheel (wooden bowl, sloped ball track, 37 coloured pockets between brass frets, a turret)
-	-- and an ivory ball, or parts. The wheel's pocket 0 sits on its +Y in Blender, which imports to -Z, where
-	-- the pocket angles below start, so it takes the opposite turn to the camera-facing pieces.
+	-- and an ivory ball, or parts. The wheel's pocket 0 sits on its +Y in Blender, which imports to +Z, so a
+	-- half turn puts it on -Z, where the pocket angles below start (the turn also keeps them clockwise).
 	local bowl, bowlScale = kitPiece("Wheel", 5.76)
 	local ball = kitPiece("Ball", 0.3)
 	if bowl ~= nil and ball ~= nil then

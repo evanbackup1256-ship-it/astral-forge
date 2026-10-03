@@ -33,7 +33,9 @@ os.makedirs(PREVIEWS, exist_ok=True)
 FAST = os.environ.get("FAST") == "1"
 ONLY = {p.strip() for p in os.environ.get("PIECES", "").split(",") if p.strip()}
 TEX = 1024
-SAMPLES = 64
+SAMPLES = 32  # with the denoiser; plenty for a bake that is shown at a few hundred pixels
+# Reel symbols are drawn 60-120 px tall: half-size textures are sharper than the screen can show.
+SMALL = {"Ember", "Dust", "Core", "Comet", "Star", "Nova", "Ball"}
 TAU = math.tau
 
 
@@ -104,10 +106,10 @@ def reset():
     nt.links.new(sep2.outputs["Z"], maprange.inputs["Value"])
     nt.links.new(maprange.outputs["Result"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], bg.inputs["Color"])
-    bg.inputs["Strength"].default_value = 1.0
+    bg.inputs["Strength"].default_value = 0.7
     nt.links.new(bg.outputs["Background"], out.inputs["Surface"])
     # Key, fill and rim area lights (they show up as soft highlights on the metal).
-    for name, loc, energy, size in (("Key", (-3.5, -4.0, 5.0), 900, 3.0), ("Fill", (4.5, -2.5, 1.5), 260, 4.0), ("Rim", (1.0, 5.0, 3.5), 520, 2.0)):
+    for name, loc, energy, size in (("Key", (-3.5, -4.0, 5.0), 520, 3.0), ("Fill", (4.5, -2.5, 1.5), 140, 4.0), ("Rim", (1.0, 5.0, 3.5), 300, 2.0)):
         light = bpy.data.lights.new(name, "AREA")
         light.energy = energy
         light.size = size
@@ -141,7 +143,7 @@ def mixer(nt, blend="MIX"):
 
 
 def material(name, base, metal=0.0, rough=0.4, emit=None, emit_strength=0.0, noise=0.0, noise_scale=18.0,
-             base2=None, gradient_z=None, veins=None, vein_scale=6.0, fresnel_glow=None, coat=0.0):
+             base2=None, gradient_z=None, veins=None, vein_scale=6.0, vein_glow=1.0, fresnel_glow=None, coat=0.0):
     """A Principled material: base colour (optionally a noise or height blend to base2), metal, roughness,
     emission, glowing voronoi veins, and a fresnel rim glow."""
     mat = bpy.data.materials.new(name)
@@ -206,10 +208,11 @@ def material(name, base, metal=0.0, rough=0.4, emit=None, emit_strength=0.0, noi
         vramp = nt.nodes.new("ShaderNodeValToRGB")
         vramp.color_ramp.elements[0].position = 0.0
         vramp.color_ramp.elements[0].color = (*veins, 1)
-        vramp.color_ramp.elements[1].position = 0.055
+        vramp.color_ramp.elements[1].position = 0.035
         vramp.color_ramp.elements[1].color = (0, 0, 0, 1)
         nt.links.new(vor.outputs["Distance"], vramp.inputs["Fac"])
-        glow_terms.append(("veins", vramp.outputs["Color"], 6.0))
+        # Emission adds straight onto the baked colour: keep it low or it clips to white.
+        glow_terms.append(("veins", vramp.outputs["Color"], vein_glow))
     if fresnel_glow is not None:
         fres = nt.nodes.new("ShaderNodeLayerWeight")
         fres.inputs["Blend"].default_value = 0.35
@@ -217,7 +220,7 @@ def material(name, base, metal=0.0, rough=0.4, emit=None, emit_strength=0.0, noi
         a.default_value = (0, 0, 0, 1)
         b.default_value = (*fresnel_glow, 1)
         nt.links.new(fres.outputs["Facing"], fac)
-        glow_terms.append(("fresnel", result, 2.5))
+        glow_terms.append(("fresnel", result, 0.6))
     if glow_terms:
         total = None
         for kind, value, strength in glow_terms:
@@ -293,6 +296,23 @@ def lathe(bm, profile, segments, mat=0, smooth=True, angle=TAU, cap=True):
                 pass
     tag(faces, mat, smooth)
     return faces, rings
+
+
+def orient(faces, mode="outup"):
+    """Point the faces of a lathed surface the right way: mostly-flat faces up ("outup") or down ("down"),
+    walls away from the axis. A lathe's winding depends on its profile's direction, so it is fixed here."""
+    for f in faces:
+        f.normal_update()
+        n = f.normal
+        c = f.calc_center_median()
+        if abs(n.z) >= 0.35:
+            want_up = mode != "down"
+            if (n.z > 0) != want_up:
+                f.normal_flip()
+        else:
+            radial = Vector((c.x, c.y, 0))
+            if radial.length > 1e-4 and n.dot(radial) < 0:
+                f.normal_flip()
 
 
 def transform(bm, verts, matrix):
@@ -436,7 +456,7 @@ def at(x, y, z):
 def piece_ember():
     body = material("EmberBody", CORAL, base2=MANGO, gradient_z=(-0.4, 0.55), rough=0.22, coat=0.6,
                     fresnel_glow=srgb(255, 150, 90))
-    heart = material("EmberHeart", CREAM, emit=srgb(255, 214, 120), emit_strength=3.0, rough=0.3)
+    heart = material("EmberHeart", srgb(255, 210, 110), emit=srgb(255, 196, 70), emit_strength=0.55, rough=0.3)
     bm = bmesh.new()
     # A flame lathed from a teardrop profile, then flattened, curled and twisted.
     profile = []
@@ -512,7 +532,7 @@ def piece_dust():
 
 def piece_core():
     gem = material("CoreGem", MINT, base2=srgb(30, 150, 110), noise_scale=3, rough=0.16, coat=0.7,
-                   veins=srgb(200, 255, 230), vein_scale=5)
+                   veins=srgb(150, 255, 210), vein_scale=5, vein_glow=0.45)
     ring = material("CoreRing", BRASS, base2=BRASS_DEEP, noise_scale=30, metal=1.0, rough=0.28, noise=0.08)
     bm = bmesh.new()
     # A brilliant-cut gem with its table facing the camera (-Y): table, crown, girdle and pavilion.
@@ -550,9 +570,9 @@ def piece_core():
 
 def piece_comet():
     rock = material("CometHead", srgb(96, 80, 126), base2=srgb(52, 42, 70), noise_scale=7, rough=0.7,
-                    veins=srgb(210, 170, 255), vein_scale=7)
+                    veins=srgb(190, 140, 255), vein_scale=7, vein_glow=0.6)
     tail = material("CometTail", VIOLET, base2=PINK, gradient_z=(0.0, 0.7), rough=0.3,
-                    emit=srgb(200, 160, 255), emit_strength=1.4)
+                    emit=srgb(170, 120, 255), emit_strength=0.22)
     bm = bmesh.new()
     head = ico(0.27, 3, mat=0)
     for v in head.verts:
@@ -614,7 +634,7 @@ def piece_star():
 
 def piece_nova():
     orb = material("NovaOrb", PINK, base2=srgb(255, 200, 236), noise_scale=5, rough=0.2, coat=0.6,
-                   emit=srgb(255, 120, 200), emit_strength=0.6, veins=srgb(255, 230, 245), vein_scale=4)
+                   emit=srgb(255, 120, 200), emit_strength=0.12, veins=srgb(255, 170, 220), vein_scale=4, vein_glow=0.4)
     ring = material("NovaRing", CREAM, base2=srgb(255, 214, 160), noise_scale=24, metal=1.0, rough=0.2)
     bm = bmesh.new()
     sphere = uvsphere(0.31, 48, 24, mat=0)
@@ -729,6 +749,7 @@ def piece_coin():
     for i in range(10):
         star.faces.new((rim[i], rim[(i + 1) % 10], apex))
         star.faces.new((rim[(i + 1) % 10], rim[i], floor))
+    bmesh.ops.recalc_face_normals(star, faces=star.faces)
     tag(star.faces, 1, False)
     add_mesh_from(bm, star, at(0, -0.11, 0.42))
     letter_h = text_mesh("H", 0.62, 0.045, bevel=0.008)
@@ -850,9 +871,9 @@ def piece_wheel():
     bm = bmesh.new()
     # The bowl, turned: wooden rim, brass lip, sloping ball track down to the pocket ring.
     profile = [(2.86, -0.14), (2.88, 0.06), (2.84, 0.2), (2.74, 0.26), (2.62, 0.22), (2.5, 0.16), (2.3, 0.12), (2.12, 0.1), (2.02, 0.08)]
-    lathe(bm, profile[:5], 96, mat=0)
-    lathe(bm, profile[4:], 96, mat=2)
-    lathe(bm, [(2.88, -0.14), (2.0, -0.16), (0.0, -0.16)], 48, mat=0)
+    orient(lathe(bm, profile[:5], 96, mat=0)[0])
+    orient(lathe(bm, profile[4:], 96, mat=2)[0])
+    orient(lathe(bm, [(2.88, -0.14), (2.0, -0.16), (0.0, -0.16)], 48, mat=0)[0], "down")
     rim_band = torus(2.78, 0.035, 96, 8, mat=1)
     add_mesh_from(bm, rim_band, at(0, 0, 0.255))
     # pocket floors, coloured by number, between brass frets
@@ -868,6 +889,9 @@ def piece_wheel():
         f = bm.faces.new(quad)
         f.material_index = mat
         f.smooth = False
+        f.normal_update()
+        if f.normal.z < 0:
+            f.normal_flip()
         # fret on the leading edge of every pocket
         fret = bmesh.new()
         bmesh.ops.create_cube(fret, size=1)
@@ -875,10 +899,9 @@ def piece_wheel():
         tag(fret.faces, 1, False)
         mid = (inner + outer) / 2
         add_mesh_from(bm, fret, Matrix.Rotation(-a0, 4, "Z") @ at(0, mid, 0.09))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     # pocket ring walls and the inner cone
-    lathe(bm, [(1.3, 0.04), (1.28, 0.16), (1.2, 0.2), (0.9, 0.34), (0.55, 0.42)], 72, mat=0)
-    lathe(bm, [(0.55, 0.42), (0.42, 0.44), (0.3, 0.6), (0.18, 0.66), (0.12, 0.86), (0.06, 0.92), (0.0005, 0.93)], 48, mat=1)
+    orient(lathe(bm, [(1.3, 0.04), (1.28, 0.16), (1.2, 0.2), (0.9, 0.34), (0.55, 0.42)], 72, mat=0)[0])
+    orient(lathe(bm, [(0.55, 0.42), (0.42, 0.44), (0.3, 0.6), (0.18, 0.66), (0.12, 0.86), (0.06, 0.92), (0.0005, 0.93)], 48, mat=1)[0])
     for i in range(4):
         arm = bmesh.new()
         bmesh.ops.create_cube(arm, size=1)
@@ -928,7 +951,7 @@ def unwrap(obj):
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def bake(obj, name):
+def bake(obj, name, size=TEX):
     """Bake the lit look (COMBINED under the studio dome and lights) into one texture, then swap the
     object's materials for a single material that shows it."""
     scene = bpy.context.scene
@@ -936,8 +959,12 @@ def bake(obj, name):
     scene.cycles.device = "CPU"
     scene.cycles.samples = SAMPLES
     scene.cycles.use_denoising = True
+    scene.cycles.max_bounces = 4
+    scene.cycles.diffuse_bounces = 2
+    scene.cycles.glossy_bounces = 2
+    scene.cycles.transmission_bounces = 2
     scene.render.bake.margin = 8
-    image = bpy.data.images.new(f"{name}_tex", TEX, TEX, alpha=False)
+    image = bpy.data.images.new(f"{name}_tex", size, size, alpha=False)
     for mat in obj.data.materials:
         nt = mat.node_tree
         target = nt.nodes.new("ShaderNodeTexImage")
@@ -948,10 +975,10 @@ def bake(obj, name):
         o.select_set(False)
     obj.select_set(True)
     bpy.ops.object.bake(type="COMBINED", use_clear=True)
-    # Roblox lights the texture again in its viewport, so lift the bake a little and keep the darks rich.
-    px = np.array(image.pixels[:], dtype=np.float32).reshape(TEX, TEX, 4)
+    # Roblox lights the texture again in its viewport: keep highlights off white and the colour saturated.
+    px = np.array(image.pixels[:], dtype=np.float32).reshape(size, size, 4)
     rgb = px[..., :3]
-    rgb = np.clip(rgb * 1.18, 0, 1) ** 0.94
+    rgb = np.clip(rgb * 1.12, 0, 0.97)
     px[..., :3] = rgb
     image.pixels = px.flatten().tolist()
     path = os.path.join(OUT, f"{name}.png")
@@ -988,9 +1015,10 @@ def preview(obj, name, textured):
     scene.render.engine = "BLENDER_WORKBENCH"
     scene.render.resolution_x = scene.render.resolution_y = 640
     shading = scene.display.shading
-    shading.light = "STUDIO"
+    # Baked pieces are previewed flat (the bake already holds the lighting, as in a viewport); raw ones in studio light.
+    shading.light = "FLAT" if textured else "STUDIO"
     shading.color_type = "TEXTURE" if textured else "MATERIAL"
-    shading.show_cavity = True
+    shading.show_cavity = not textured
     shading.show_specular_highlight = True
     cam_data = bpy.data.cameras.new(f"{name}_cam")
     cam_data.lens = 70
@@ -1047,7 +1075,7 @@ def main():
     for name, obj in built:
         if not FAST:
             unwrap(obj)
-            bake(obj, f"Casino_{name}")
+            bake(obj, f"Casino_{name}", TEX // 2 if name in SMALL else TEX)
             print(f"[casino] baked {name}", flush=True)
         preview(obj, name, textured=not FAST)
     if not FAST and not ONLY:
