@@ -76,6 +76,7 @@ serviceFactories["GameService"] = function()
 	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemSalvage")
 	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitSnapshot")
 	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("PublicPlayerRecord")
+	local ReportLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ReportLedger")
 	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SettingsSeal")
 	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UnlimitedMoneySeal")
 	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("StoryMailSnapshot")
@@ -794,22 +795,14 @@ serviceFactories["GameService"] = function()
 		return responseSuccess("Thanks for the feedback!")
 	end
 
-	local REPORT_REASONS = {
-		Exploiting = true,
-		Harassment = true,
-		Trolling = true,
-		Spam = true,
-		Inappropriate = true,
-		Other = true,
-	}
+	local reportLedger = ReportLedger.new()
+	Players.PlayerRemoving:Connect(function(leaving)
+		reportLedger:forgetReporter(leaving.UserId)
+	end)
 
 	function GameService:_reportPlayer(player: Player, payload: any)
-		local endpoint = ServerStorage:GetAttribute(ServerConfig.ReportWebhookAttribute)
-		if type(endpoint) ~= "string" or not string.match(endpoint, "^https://") then
-			return responseError("Reporting isn't set up yet. Please try again later.")
-		end
 		local reason = payload and payload.Reason
-		if type(reason) ~= "string" or not REPORT_REASONS[reason] then
+		if not ReportLedger.isReason(reason) then
 			return responseError("Pick a reason before sending the report.")
 		end
 		local extracted = if RemoteFirewall.ExtractUserId then RemoteFirewall.ExtractUserId(payload and payload.UserId) else (payload and payload.UserId)
@@ -824,11 +817,28 @@ serviceFactories["GameService"] = function()
 		if not target then
 			return responseError("That player is no longer in this server.")
 		end
+		local now = os.time()
+		local allowed, refusal = reportLedger:canReport(player.UserId, targetUserId, now)
+		if not allowed then
+			return responseError(refusal)
+		end
 		local rawDetails = payload and payload.Details
 		local details = ""
 		if type(rawDetails) == "string" and #rawDetails > 0 then
 			local filteredOk, filtered = self._security.Filter:Apply(player, rawDetails, player.UserId, 400)
 			details = (filteredOk and type(filtered) == "string") and filtered or ""
+		end
+		local reportCount, reporterCount = reportLedger:record(player.UserId, targetUserId, reason, now)
+		local endpoint = ServerStorage:GetAttribute(ServerConfig.ReportWebhookAttribute)
+		if type(endpoint) ~= "string" or not string.match(endpoint, "^https://") then
+			-- No webhook configured: keep the report in the server log so it isn't lost.
+			ModuleLog.Every(
+				string.format("report:%d", targetUserId),
+				5,
+				"Report",
+				string.format("%s reported %s (%d) for %s; %d reports from %d players this hour", player.Name, target.Name, targetUserId, reason, reportCount, reporterCount)
+			)
+			return responseSuccess("Report received. Thanks for helping keep the server clean.", { Reported = targetUserId })
 		end
 		local reporterProfile = self._data:Get(player)
 		local targetProfile = self._data:Get(target)
@@ -845,6 +855,8 @@ serviceFactories["GameService"] = function()
 						{ name = "Reported by", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = true },
 						{ name = "Target progress", value = string.format("World %d · %d rebirths", targetProfile and targetProfile.Zone or 1, targetProfile and targetProfile.Rebirths or 0), inline = true },
 						{ name = "Reporter progress", value = string.format("World %d · %d rebirths", reporterProfile and reporterProfile.Zone or 1, reporterProfile and reporterProfile.Rebirths or 0), inline = true },
+						{ name = "This hour", value = string.format("%d reports from %d players", reportCount, reporterCount), inline = true },
+						{ name = "Target account", value = string.format("%d days old", target.AccountAge), inline = true },
 						{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
 					},
 					footer = { text = "Astral Forge " .. tostring(GameConfig.Game.Version) },
@@ -865,7 +877,7 @@ serviceFactories["GameService"] = function()
 				ModuleLog.Every("report-webhook", 30, "Report", "A player report could not be delivered")
 			end
 		end)
-		return responseSuccess("Report sent. Thanks for helping keep the server clean.")
+		return responseSuccess("Report sent. Thanks for helping keep the server clean.", { Reported = targetUserId })
 	end
 
 	local function itemSalvageValue(instance, definition): number

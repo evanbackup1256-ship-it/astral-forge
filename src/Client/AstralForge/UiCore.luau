@@ -15976,157 +15976,731 @@ end
 -- Module: PlayerlistOverlay   (merged from PlayerlistOverlay.luau, 1059 lines)
 -- ======================================================================
 __defs["PlayerlistOverlay"] = function()
+-- Player list: everyone in the server in one scroll. Tap a row to open it in
+-- place (stats, relics, actions); search, sort and a friends filter sit
+-- above. Reports open a sheet with reason descriptions, optional details and
+-- "also block", then confirm in place.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SocialService = game:GetService("SocialService")
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _motion = require(script.Parent.MotionKit)("motion")
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
 local useExitTransition = _motion.useExitTransition
+local useFlipperSpring = _motion.useFlipperSpring
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.CoreKit)("theme")
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
+local lighten = _theme.lighten
 local Palette = _theme.Palette
 local TapTarget = _theme.TapTarget
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
 local _ui = __load("ui")
 local Button = _ui.Button
 local OverlayPresence = _ui.OverlayPresence
+local SearchField = _ui.SearchField
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
-local Core = StarterGui
+
+local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+local Model = SharedData("PlayerlistModel")
+
 local TEST_BOT_USER_ID = 771133001
-local REPORT_REASONS = { "Exploiting", "Harassment", "Trolling", "Spam", "Inappropriate", "Other" }
-local function sanitizeRows(raw)
-	local rows = {}
-	for _, entry in raw do
-		local _userId = entry.UserId
-		local userId = if type(_userId) == "number" then math.floor(entry.UserId) else tonumber(tostring(entry.UserId))
-		if userId == nil or userId == 0 or userId ~= userId then
-			continue
-		end
-		if userId == TEST_BOT_USER_ID then
-			continue
-		end
-		local _object = table.clone(entry)
-		setmetatable(_object, nil)
-		_object.UserId = userId
-		table.insert(rows, _object)
-	end
-	return rows
-end
-local function AvatarThumbnail(_param)
-	local userId = _param.userId
-	local accent = _param.accent
-	local size = _param.size
-	local position = _param.position
-	local zIndex = _param.zIndex
+local ROW_H = 60
+local ROW_GAP = 6
+local FRIEND_TTL = 120
+local REPORT_COOLDOWN = 600
+
+-- Session caches: friendship lookups are slow web calls, and a report stays
+-- marked for its cooldown even if the list is closed and reopened.
+local friendCache = {}
+local reportedAt = {}
+
+local function StatCell(_param)
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(size, size),
-		Position = position,
-		BackgroundColor3 = darken(accent, 0.64),
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = zIndex,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = accent,
-		Thickness = 1.5,
-		Transparency = 0.2,
-	}), React.createElement("imagelabel", {
-		Size = UDim2.new(1, -4, 1, -4),
-		Position = UDim2.fromOffset(2, 2),
+		Size = UDim2.fromScale(1, 1),
+		LayoutOrder = _param.order,
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-		Image = `rbxthumb://type=AvatarHeadShot&id={math.floor(userId)}&w=150&h=150`,
-		ScaleType = Enum.ScaleType.Crop,
-		ZIndex = zIndex + 1,
+		ZIndex = 625,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))
-end
-local function PlayerRow(_param)
-	local player = _param.player
-	local selected = _param.selected
-	local onSelect = _param.onSelect
-	local layoutOrder = _param.layoutOrder
-	local reducedMotion = _param.reducedMotion
-	local awayStamp = _param.awayStamp
-	local accent = if player.IsLocal then Palette.mint else Palette.cyan
-	local peer = Players:GetPlayerByUserId(player.UserId)
-	local _result
-	if player.IsLocal or awayStamp < 0 then
-		_result = false
-	else
-		local _result_1 = peer
-		if _result_1 ~= nil then
-			_result_1 = _result_1:GetAttribute("AF_Away")
-		end
-		_result = _result_1 == true
-	end
-	local away = _result
-	local subtitle = if player.IsLocal then "YOUR PROFILE" elseif away then "AFK" else `WORLD {compactNumber(player.CurrentZone)}  •  {compactNumber(player.Rebirths)} REBIRTHS`
-	return React.createElement("frame", {
-		Size = UDim2.new(1, -2, 0, 58),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = layoutOrder,
-		ZIndex = 620,
-	}, React.createElement(Button, {
-		text = "",
-		onClick = onSelect,
-		color = if selected then darken(accent, 0.64) else Palette.panel,
-		textColor = Palette.cream,
-		outline = not selected,
-		highlight = selected,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		zIndex = 620,
-	}, React.createElement(AvatarThumbnail, {
-		userId = player.UserId,
-		accent = accent,
-		size = 38,
-		position = UDim2.fromOffset(10, 10),
-		zIndex = 623,
+		CornerRadius = UDim.new(0, 8),
 	}), React.createElement(Text, {
-		value = if away then `{player.DisplayName}  ·  AFK` else player.DisplayName,
-		size = 15,
-		color = Palette.cream,
+		value = _param.label,
+		size = 9,
+		color = Palette.muted,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 12,
-		position = UDim2.fromOffset(58, 7),
-		sizeConstraint = UDim2.new(1, -118, 0, 21),
-		zIndex = 623,
+		minSize = 8,
+		position = UDim2.fromOffset(8, 4),
+		sizeConstraint = UDim2.new(1, -12, 0, 13),
+		zIndex = 626,
 	}), React.createElement(Text, {
-		value = subtitle,
-		size = 10,
-		color = if away then Palette.mango else accent,
-		weight = Enum.FontWeight.Bold,
+		value = _param.value,
+		size = 13,
+		color = _param.color or Palette.cream,
+		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 9,
-		position = UDim2.fromOffset(58, 31),
-		sizeConstraint = UDim2.new(1, -118, 0, 17),
-		zIndex = 623,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(8, 8),
-		Position = UDim2.new(1, -22, 0.5, -4),
-		BackgroundColor3 = Palette.mint,
+		position = UDim2.fromOffset(8, 17),
+		sizeConstraint = UDim2.new(1, -12, 0, 18),
+		zIndex = 626,
+	}))
+end
+
+local function Avatar(_param)
+	local size = _param.size
+	local accent = _param.accent
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(size, size),
+		Position = _param.position,
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = darken(accent, 0.64),
 		BorderSizePixel = 0,
 		ZIndex = 624,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
-		Color = Palette.white,
-		Thickness = 1,
-		Transparency = 0.58,
-	}))))
+		Color = accent,
+		Thickness = 1.5,
+		Transparency = 0.25,
+	}), React.createElement("imagelabel", {
+		Size = UDim2.new(1, -4, 1, -4),
+		Position = UDim2.fromOffset(2, 2),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		Image = `rbxthumb://type=AvatarHeadShot&id={_param.userId}&w=150&h=150`,
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 625,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement("frame", {
+		-- Presence dot: green online, amber away.
+		Size = UDim2.fromOffset(11, 11),
+		Position = UDim2.new(1, -1, 1, -1),
+		AnchorPoint = Vector2.new(1, 1),
+		BackgroundColor3 = if _param.away then Palette.mango else Palette.mint,
+		BorderSizePixel = 0,
+		ZIndex = 627,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = Palette.ink,
+		Thickness = 2,
+	})))
 end
+
+local function ActionButton(_param)
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		LayoutOrder = _param.order,
+		BackgroundTransparency = 1,
+		ZIndex = 626,
+	}, React.createElement(Button, {
+		text = _param.text,
+		icon = _param.icon,
+		onClick = _param.onClick,
+		color = _param.color,
+		textColor = _param.textColor or Palette.ink,
+		outline = _param.outline,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = _param.reducedMotion,
+		disabled = _param.disabled,
+		zIndex = 626,
+	}))
+end
+
+local function detailsHeight(row, width)
+	if row.IsLocal then
+		return 8 + 2 * 40 + 6 + 8
+	end
+	local actionRows = if width < 360 then 2 else 1
+	return 8 + 2 * 40 + 6 + 22 + actionRows * 38 + (actionRows - 1) * 6 + 10
+end
+
+local function PlayerRow(_param)
+	local row = _param.row
+	local expanded = _param.expanded
+	local width = _param.width
+	local reducedMotion = _param.reducedMotion
+	local friend = _param.friend
+	local blocked = _param.blocked
+	local away = _param.away
+	local reported = _param.reported
+	local accent = if row.IsLocal then Palette.mint elseif friend then Palette.mango else Palette.cyan
+	local openAmount = useFlipperSpring(if expanded then 1 else 0, reducedMotion, 560, 44)
+	local hovered, setHovered = React.useState(false)
+	local hover = useFlipperSpring(if hovered or expanded then 1 else 0, reducedMotion, 900, 44)
+	local detailsH = detailsHeight(row, width)
+	local tags = {}
+	if row.IsLocal then
+		table.insert(tags, "YOU")
+	end
+	if friend then
+		table.insert(tags, "FRIEND")
+	end
+	if away then
+		table.insert(tags, "AFK")
+	end
+	if blocked then
+		table.insert(tags, "BLOCKED")
+	end
+	local subtitle = `WORLD {compactNumber(row.CurrentZone)}  ·  {compactNumber(row.Rebirths)} REBIRTHS`
+	local actions = nil
+	if not row.IsLocal then
+		local actionRows = if width < 360 then 2 else 1
+		local perRow = if actionRows == 2 then 2 else 4
+		actions = React.createElement("frame", {
+			Size = UDim2.new(1, -16, 0, actionRows * 38 + (actionRows - 1) * 6),
+			Position = UDim2.fromOffset(8, 8 + 2 * 40 + 6 + 22),
+			BackgroundTransparency = 1,
+			ZIndex = 625,
+		}, React.createElement("uigridlayout", {
+			CellSize = UDim2.new(1 / perRow, -6 * (perRow - 1) / perRow, 0, 38),
+			CellPadding = UDim2.fromOffset(6, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}), React.createElement(ActionButton, {
+			order = 1,
+			text = if friend then "UNFRIEND" else "ADD FRIEND",
+			icon = "Crew",
+			color = Palette.blue,
+			onClick = _param.onFriend,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
+			order = 2,
+			text = "TRADE",
+			icon = "Send",
+			color = Palette.mint,
+			onClick = _param.onTrade,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
+			order = 3,
+			text = if blocked then "UNBLOCK" else "BLOCK",
+			icon = "Close",
+			color = Palette.panelSoft,
+			textColor = Palette.creamSoft,
+			outline = true,
+			onClick = _param.onBlock,
+			reducedMotion = reducedMotion,
+		}), React.createElement(ActionButton, {
+			order = 4,
+			text = if reported then "REPORTED" else "REPORT",
+			icon = "Admin",
+			color = Palette.coral,
+			disabled = reported,
+			onClick = _param.onReport,
+			reducedMotion = reducedMotion,
+		}))
+	end
+	local relics = if #row.EquippedItems > 0 then table.concat(row.EquippedItems, " · ") else "No relics equipped"
+	return React.createElement("frame", {
+		Size = openAmount:map(function(amount)
+			return UDim2.new(1, 0, 0, ROW_H + math.round(detailsH * math.clamp(amount, 0, 1)))
+		end),
+		LayoutOrder = _param.order,
+		BackgroundColor3 = hover:map(function(amount)
+			return Palette.panel:Lerp(darken(accent, 0.7), math.clamp(amount, 0, 1) * 0.8)
+		end),
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 620,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uistroke", {
+		Color = accent,
+		Thickness = 1,
+		Transparency = hover:map(function(amount)
+			return 0.8 - math.clamp(amount, 0, 1) * 0.45
+		end),
+	}), React.createElement("textbutton", {
+		Size = UDim2.new(1, 0, 0, ROW_H),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		ZIndex = 621,
+		Event = {
+			Activated = _param.onToggle,
+			MouseEnter = function()
+				setHovered(true)
+			end,
+			MouseLeave = function()
+				setHovered(false)
+			end,
+			SelectionGained = function()
+				setHovered(true)
+			end,
+			SelectionLost = function()
+				setHovered(false)
+			end,
+		},
+	}, React.createElement(Avatar, {
+		userId = row.UserId,
+		accent = accent,
+		size = 40,
+		away = away,
+		position = UDim2.new(0, 10, 0.5, 0),
+	}), React.createElement(Text, {
+		value = row.DisplayName,
+		size = 15,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 11,
+		position = UDim2.fromOffset(60, 9),
+		sizeConstraint = UDim2.new(1, -150, 0, 20),
+		zIndex = 623,
+	}), React.createElement(Text, {
+		value = if #tags > 0 then table.concat(tags, " · ") .. "  ·  " .. subtitle else subtitle,
+		size = 10,
+		color = if away then Palette.mango else accent,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 8,
+		position = UDim2.fromOffset(60, 32),
+		sizeConstraint = UDim2.new(1, -150, 0, 16),
+		zIndex = 623,
+	}), React.createElement(Text, {
+		value = `{compactNumber(row.Production)}/s`,
+		size = 13,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 9,
+		position = UDim2.new(1, -110, 0, 12),
+		sizeConstraint = UDim2.fromOffset(78, 18),
+		zIndex = 623,
+	}), React.createElement(Text, {
+		value = "OUTPUT",
+		size = 9,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Right,
+		fit = false,
+		position = UDim2.new(1, -110, 0, 31),
+		sizeConstraint = UDim2.fromOffset(78, 14),
+		zIndex = 623,
+	}), React.createElement("frame", {
+		-- Chevron
+		Size = UDim2.fromOffset(12, 12),
+		Position = UDim2.new(1, -18, 0.5, 0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = openAmount:map(function(amount)
+			return math.clamp(amount, 0, 1) * 180
+		end),
+		BackgroundTransparency = 1,
+		ZIndex = 623,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(7, 2),
+		Position = UDim2.new(0.5, -2, 0.5, 0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = 45,
+		BackgroundColor3 = Palette.muted,
+		BorderSizePixel = 0,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(7, 2),
+		Position = UDim2.new(0.5, 2, 0.5, 0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = -45,
+		BackgroundColor3 = Palette.muted,
+		BorderSizePixel = 0,
+	}))), React.createElement("frame", {
+		-- Details, revealed as the row opens.
+		Size = UDim2.new(1, 0, 0, detailsH),
+		Position = UDim2.fromOffset(0, ROW_H),
+		BackgroundTransparency = 1,
+		Visible = openAmount:map(function(amount)
+			return amount > 0.01
+		end),
+		ZIndex = 624,
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, -16, 0, 2 * 40 + 6),
+		Position = UDim2.fromOffset(8, 8),
+		BackgroundTransparency = 1,
+		ZIndex = 624,
+	}, React.createElement("uigridlayout", {
+		CellSize = UDim2.new(1 / 3, -4, 0, 40),
+		CellPadding = UDim2.fromOffset(6, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(StatCell, {
+		order = 1,
+		label = "WORLD",
+		value = `{compactNumber(row.CurrentZone)} / {compactNumber(row.Zone)}`,
+	}), React.createElement(StatCell, {
+		order = 2,
+		label = "REBIRTHS",
+		value = compactNumber(row.Rebirths),
+	}), React.createElement(StatCell, {
+		order = 3,
+		label = "OUTPUT",
+		value = `{compactNumber(row.Production)}/s`,
+		color = Palette.mint,
+	}), React.createElement(StatCell, {
+		order = 4,
+		label = "LIFETIME",
+		value = compactNumber(row.LifetimeCash),
+	}), React.createElement(StatCell, {
+		order = 5,
+		label = "RELICS",
+		value = compactNumber(row.ItemCount),
+		color = Palette.violet,
+	}), React.createElement(StatCell, {
+		order = 6,
+		label = "PLAYED",
+		value = Model.playTime(row.PlayTime),
+	})), not row.IsLocal and React.createElement(Text, {
+		value = `{relics}  ·  ACCOUNT {Model.accountAge(row.AccountAge)}{if row.Premium then "  ·  PREMIUM" else ""}`,
+		size = 10,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 8,
+		position = UDim2.fromOffset(10, 8 + 2 * 40 + 8),
+		sizeConstraint = UDim2.new(1, -20, 0, 16),
+		zIndex = 625,
+	}), actions))
+end
+
+local function ReportSheet(_param)
+	local target = _param.target
+	local reducedMotion = _param.reducedMotion
+	local reason, setReason = React.useState(nil)
+	local details, setDetails = React.useState("")
+	local alsoBlock, setAlsoBlock = React.useState(false)
+	local phase, setPhase = React.useState("form") -- form | sending | sent
+	local errorText, setErrorText = React.useState(nil)
+	local enter = useFlipperSpring(1, reducedMotion, 620, 42, 0)
+	local alive = React.useRef(true)
+	React.useEffect(function()
+		return function()
+			alive.current = false
+		end
+	end, {})
+	local send = function()
+		if reason == nil or phase ~= "form" then
+			return nil
+		end
+		setPhase("sending")
+		setErrorText(nil)
+		Audio:play("dangerPress")
+		_param.dispatch("ReportPlayer", {
+			UserId = target.UserId,
+			userId = target.UserId,
+			Reason = reason,
+			Details = Model.details(details),
+		}, function(response)
+			if not alive.current then
+				return nil
+			end
+			if not response.ok then
+				setPhase("form")
+				setErrorText(response.error or "Couldn't send the report. Try again in a moment.")
+				return nil
+			end
+			reportedAt[target.UserId] = os.clock()
+			setPhase("sent")
+			Audio:play("collect")
+			if alsoBlock then
+				_param.onBlock()
+			end
+		end)
+	end
+	local reasonCells = {}
+	reasonCells.layout = React.createElement("uigridlayout", {
+		CellSize = UDim2.new(0.5, -4, 0, 48),
+		CellPadding = UDim2.fromOffset(8, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	for order, entry in Model.REASONS do
+		local picked = reason == entry.id
+		reasonCells[entry.id] = React.createElement("textbutton", {
+			LayoutOrder = order,
+			BackgroundColor3 = if picked then darken(Palette.coral, 0.45) else Palette.panel,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			ZIndex = 704,
+			Event = {
+				Activated = function()
+					setReason(entry.id)
+					Audio:play("tabSwitch")
+				end,
+			},
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 10),
+		}), React.createElement("uistroke", {
+			Color = if picked then Palette.coral else Palette.lineSoft,
+			Thickness = if picked then 1.5 else 1,
+			Transparency = if picked then 0.1 else 0.6,
+		}), React.createElement(Text, {
+			value = string.upper(entry.label),
+			size = 11,
+			color = if picked then Palette.cream else Palette.creamSoft,
+			weight = Enum.FontWeight.Heavy,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(10, 5),
+			sizeConstraint = UDim2.new(1, -16, 0, 16),
+			zIndex = 705,
+		}), React.createElement(Text, {
+			value = entry.detail,
+			size = 10,
+			color = Palette.muted,
+			wrap = true,
+			fit = false,
+			position = UDim2.fromOffset(10, 21),
+			sizeConstraint = UDim2.new(1, -16, 0, 24),
+			zIndex = 705,
+		}))
+	end
+	local width = _param.width
+	local reasonRows = math.ceil(#Model.REASONS / 2)
+	local formH = 40 + reasonRows * 56 + 8 + 70 + 34 + 46 + (if errorText then 18 else 0)
+	local body
+	if phase == "sent" then
+		body = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = 703,
+		}, React.createElement("frame", {
+			Size = UDim2.fromOffset(56, 56),
+			Position = UDim2.new(0.5, 0, 0, 30),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = darken(Palette.mint, 0.5),
+			BorderSizePixel = 0,
+			ZIndex = 704,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}), React.createElement(Icon, {
+			kind = "Check",
+			color = Palette.cream,
+			accent = Palette.mint,
+			size = 56,
+		})), React.createElement(Text, {
+			value = "REPORT SENT",
+			size = 16,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Heavy,
+			align = Enum.TextXAlignment.Center,
+			position = UDim2.fromOffset(0, 98),
+			sizeConstraint = UDim2.new(1, 0, 0, 22),
+			zIndex = 704,
+		}), React.createElement(Text, {
+			value = if alsoBlock then `Thanks. You also blocked {target.DisplayName}.` else "Thanks for helping keep the server friendly.",
+			size = 12,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			wrap = true,
+			position = UDim2.fromOffset(10, 124),
+			sizeConstraint = UDim2.new(1, -20, 0, 34),
+			zIndex = 704,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, -20, 0, 40),
+			Position = UDim2.new(0, 10, 1, -50),
+			BackgroundTransparency = 1,
+			ZIndex = 704,
+		}, React.createElement(Button, {
+			text = "DONE",
+			icon = "Check",
+			onClick = _param.onClose,
+			color = Palette.mint,
+			textColor = Palette.ink,
+			size = UDim2.fromScale(1, 1),
+			reducedMotion = reducedMotion,
+			zIndex = 705,
+		})))
+	else
+		body = React.createElement(React.Fragment, nil, React.createElement(Text, {
+			value = `REPORT {string.upper(target.DisplayName)}`,
+			size = 15,
+			color = Palette.coral,
+			weight = Enum.FontWeight.Heavy,
+			fit = true,
+			minSize = 11,
+			position = UDim2.fromOffset(14, 10),
+			sizeConstraint = UDim2.new(1, -28, 0, 20),
+			zIndex = 704,
+		}), React.createElement(Text, {
+			value = "What happened?",
+			size = 11,
+			color = Palette.muted,
+			position = UDim2.fromOffset(14, 28),
+			sizeConstraint = UDim2.new(1, -28, 0, 14),
+			zIndex = 704,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, -28, 0, reasonRows * 56),
+			Position = UDim2.fromOffset(14, 48),
+			BackgroundTransparency = 1,
+			ZIndex = 703,
+		}, reasonCells), React.createElement("frame", {
+			-- Details box with a live character count.
+			Size = UDim2.new(1, -28, 0, 62),
+			Position = UDim2.fromOffset(14, 48 + reasonRows * 56 + 4),
+			BackgroundColor3 = Palette.panel,
+			BorderSizePixel = 0,
+			ZIndex = 704,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 10),
+		}), React.createElement("uistroke", {
+			Color = Palette.lineSoft,
+			Transparency = 0.5,
+		}), React.createElement("textbox", {
+			Size = UDim2.new(1, -16, 1, -18),
+			Position = UDim2.fromOffset(8, 4),
+			BackgroundTransparency = 1,
+			Text = details,
+			PlaceholderText = "Details (optional): what did they do, and when?",
+			PlaceholderColor3 = Palette.muted,
+			TextColor3 = Palette.cream,
+			TextSize = 12,
+			FontFace = Font.fromEnum(Enum.Font.BuilderSans),
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			ClearTextOnFocus = false,
+			MultiLine = true,
+			ZIndex = 705,
+			Change = {
+				Text = function(box)
+					local value = box.Text
+					if #value > Model.DETAILS_MAX then
+						value = string.sub(value, 1, Model.DETAILS_MAX)
+						box.Text = value
+					end
+					setDetails(value)
+				end,
+			},
+		}), React.createElement(Text, {
+			value = `{#details} / {Model.DETAILS_MAX}`,
+			size = 9,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Right,
+			position = UDim2.new(0, 8, 1, -14),
+			sizeConstraint = UDim2.new(1, -16, 0, 12),
+			zIndex = 705,
+		})), React.createElement("textbutton", {
+			-- "Also block" toggle.
+			Size = UDim2.new(1, -28, 0, 28),
+			Position = UDim2.fromOffset(14, 48 + reasonRows * 56 + 72),
+			BackgroundTransparency = 1,
+			Text = "",
+			ZIndex = 704,
+			Event = {
+				Activated = function()
+					setAlsoBlock(not alsoBlock)
+					Audio:play(if alsoBlock then "toggleOff" else "toggleOn")
+				end,
+			},
+		}, React.createElement("frame", {
+			Size = UDim2.fromOffset(20, 20),
+			Position = UDim2.new(0, 0, 0.5, 0),
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = if alsoBlock then Palette.coral else Palette.panel,
+			BorderSizePixel = 0,
+			ZIndex = 705,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 6),
+		}), React.createElement("uistroke", {
+			Color = Palette.coral,
+			Transparency = 0.3,
+		}), alsoBlock and React.createElement(Icon, {
+			kind = "Check",
+			color = Palette.ink,
+			accent = Palette.ink,
+			size = 20,
+		})), React.createElement(Text, {
+			value = `Also block {target.DisplayName}`,
+			size = 12,
+			color = Palette.creamSoft,
+			weight = Enum.FontWeight.Bold,
+			position = UDim2.fromOffset(30, 6),
+			sizeConstraint = UDim2.new(1, -30, 0, 16),
+			zIndex = 705,
+		})), errorText ~= nil and React.createElement(Text, {
+			value = errorText,
+			size = 11,
+			color = Palette.coral,
+			weight = Enum.FontWeight.Bold,
+			fit = true,
+			minSize = 9,
+			position = UDim2.new(0, 14, 1, -70),
+			sizeConstraint = UDim2.new(1, -28, 0, 16),
+			zIndex = 704,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, -28, 0, 40),
+			Position = UDim2.new(0, 14, 1, -50),
+			BackgroundTransparency = 1,
+			ZIndex = 704,
+		}, React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}), React.createElement("frame", {
+			Size = UDim2.new(0.4, -4, 1, 0),
+			LayoutOrder = 1,
+			BackgroundTransparency = 1,
+		}, React.createElement(Button, {
+			text = "CANCEL",
+			onClick = _param.onClose,
+			color = Palette.panelSoft,
+			textColor = Palette.creamSoft,
+			outline = true,
+			size = UDim2.fromScale(1, 1),
+			reducedMotion = reducedMotion,
+			disabled = phase == "sending",
+			zIndex = 705,
+		})), React.createElement("frame", {
+			Size = UDim2.new(0.6, -4, 1, 0),
+			LayoutOrder = 2,
+			BackgroundTransparency = 1,
+		}, React.createElement(Button, {
+			text = if phase == "sending" then "SENDING..." elseif reason == nil then "PICK A REASON" else "SEND REPORT",
+			icon = "Admin",
+			onClick = send,
+			color = Palette.coral,
+			textColor = Palette.ink,
+			size = UDim2.fromScale(1, 1),
+			reducedMotion = reducedMotion,
+			disabled = reason == nil or phase == "sending",
+			highlight = reason ~= nil,
+			zIndex = 705,
+		}))))
+	end
+	local sheetH = if phase == "sent" then 230 else formH
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = enter:map(function(amount)
+			return 1 - math.clamp(amount, 0, 1) * 0.5
+		end),
+		BorderSizePixel = 0,
+		Active = true,
+		ZIndex = 700,
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(width, math.min(sheetH, _param.maxHeight)),
+		Position = enter:map(function(amount)
+			return UDim2.new(0.5, 0, 0.5, math.round((1 - math.clamp(amount, 0, 1)) * 24))
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.panelRaised,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 702,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 14),
+	}), React.createElement("uistroke", {
+		Color = Palette.coral,
+		Thickness = 1.25,
+		Transparency = 0.35,
+	}), body))
+end
+
 local function PlayerlistOverlay(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -16135,155 +16709,89 @@ local function PlayerlistOverlay(_param)
 	local notify = _param.notify
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local localSummary = React.useMemo(function()
-		return {
-			UserId = Players.LocalPlayer.UserId,
-			Name = Players.LocalPlayer.Name,
-			DisplayName = Players.LocalPlayer.DisplayName,
+	local localPlayer = Players.LocalPlayer
+	local localRow = React.useMemo(function()
+		return Model.clean({ {
+			UserId = localPlayer.UserId,
+			Name = localPlayer.Name,
+			DisplayName = localPlayer.DisplayName,
 			CurrentZone = state.CurrentZone,
+			Zone = state.Zone,
 			Rebirths = state.Rebirths,
-			Production = 0,
-			LifetimeCash = 0,
 			IsLocal = true,
-		}
-	end, { state.CurrentZone, state.Rebirths })
-	local localSummaryRef = React.useRef(localSummary)
-	localSummaryRef.current = localSummary
+		} })[1]
+	end, { state.CurrentZone, state.Zone, state.Rebirths })
 	local rows, setRows = React.useState(function()
-		return { localSummary }
+		return { localRow }
 	end)
-	local selectedId, setSelectedId = React.useState(Players.LocalPlayer.UserId)
+	local expandedId, setExpandedId = React.useState(nil)
+	local sortId, setSortId = React.useState("Production")
+	local query, setQuery = React.useState("")
+	local friendsOnly, setFriendsOnly = React.useState(false)
 	local friends, setFriends = React.useState({})
 	local blocked, setBlocked = React.useState({})
-	local inventoryOpen, setInventoryOpen = React.useState(false)
-	local reportOpen, setReportOpen = React.useState(false)
-	local reportReason, setReportReason = React.useState("Exploiting")
-	local reportBusy, setReportBusy = React.useState(false)
+	local reportTarget, setReportTarget = React.useState(nil)
 	local inviteBusy, setInviteBusy = React.useState(false)
+	local awayTick, setAwayTick = React.useState(0)
 	local alive = React.useRef(true)
 	local _binding = useExitTransition(reducedMotion)
 	local exitAmount = _binding[1]
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
 	local enter = useEntrance(reducedMotion)
-	local awayTick, setAwayTick = React.useState(0)
 	React.useEffect(function()
-		local pulse = task.spawn(function()
+		alive.current = true
+		Audio:play("playerlistOpen")
+		local ticker = task.spawn(function()
 			while true do
-				task.wait(1)
+				task.wait(2)
 				setAwayTick(function(current)
 					return current + 1
 				end)
 			end
 		end)
 		return function()
-			return task.cancel(pulse)
-		end
-	end, {})
-	React.useEffect(function()
-		Audio:play("playerlistOpen")
-	end, {})
-	React.useEffect(function()
-		alive.current = true
-		return function()
 			alive.current = false
+			task.cancel(ticker)
 		end
 	end, {})
+
 	local refresh = React.useCallback(function()
-		return dispatch("GetPlayers", {}, function(response)
+		dispatch("GetPlayers", {}, function(response)
 			if not alive.current or not response.ok then
 				return nil
 			end
-			local cleaned = sanitizeRows(response.Players or {})
-			local nextRows = if #cleaned > 0 then cleaned else { localSummaryRef.current }
-			setRows(nextRows)
-			setSelectedId(function(current)
-				-- ▼ ReadonlyArray.some ▼
-				local _result = false
-				local _callback = function(row)
-					return row.UserId == current
-				end
-				for _k, _v in nextRows do
-					if _callback(_v, _k - 1, nextRows) then
-						_result = true
-						break
-					end
-				end
-				-- ▲ ReadonlyArray.some ▲
-				return if _result then current else nextRows[1].UserId
-			end)
+			local cleaned = Model.clean(response.Players or {}, TEST_BOT_USER_ID)
+			setRows(if #cleaned > 0 then cleaned else { localRow })
 		end)
-	end, { dispatch })
-	local applyLocalRoster = React.useCallback(function()
-		local selfRow = localSummaryRef.current
-		local nextRows = {}
-		table.insert(nextRows, selfRow)
-		for _, player in Players:GetPlayers() do
-			if player.UserId == selfRow.UserId then
-				continue
-			end
-			local _arg0 = {
-				UserId = player.UserId,
-				Name = player.Name,
-				DisplayName = player.DisplayName,
-				CurrentZone = 1,
-				Rebirths = 0,
-				Production = 0,
-				IsLocal = false,
-			}
-			table.insert(nextRows, _arg0)
-		end
+	end, { dispatch, localRow })
+	-- Joins and leaves show up at once from the local roster; the server
+	-- refresh fills in their stats a moment later.
+	local applyRoster = React.useCallback(function()
 		setRows(function(current)
-			local byId = {}
+			local known = {}
 			for _, row in current do
-				local _userId = row.UserId
-				byId[_userId] = row
+				known[row.UserId] = row
 			end
-			-- ▼ ReadonlyArray.map ▼
-			local _newValue = table.create(#nextRows)
-			local _callback = function(row)
-				local _userId = row.UserId
-				local known = byId[_userId]
-				local _result
-				if known ~= nil and not row.IsLocal then
-					local _object = table.clone(known)
-					setmetatable(_object, nil)
-					_object.Name = row.Name
-					_object.DisplayName = row.DisplayName
-					_result = _object
-				else
-					_result = row
-				end
-				return _result
-			end
-			for _k, _v in nextRows do
-				_newValue[_k] = _callback(_v, _k - 1, nextRows)
-			end
-			-- ▲ ReadonlyArray.map ▲
-			return _newValue
-		end)
-		setSelectedId(function(current)
-			-- ▼ ReadonlyArray.some ▼
-			local _result = false
-			local _callback = function(row)
-				return row.UserId == current
-			end
-			for _k, _v in nextRows do
-				if _callback(_v, _k - 1, nextRows) then
-					_result = true
-					break
+			local nextRows = { localRow }
+			for _, player in Players:GetPlayers() do
+				if player.UserId ~= localRow.UserId and player.UserId ~= TEST_BOT_USER_ID then
+					table.insert(nextRows, known[player.UserId] or Model.clean({ {
+						UserId = player.UserId,
+						Name = player.Name,
+						DisplayName = player.DisplayName,
+					} })[1])
 				end
 			end
-			-- ▲ ReadonlyArray.some ▲
-			return if _result then current else nextRows[1].UserId
+			return nextRows
 		end)
-	end, {})
+	end, { localRow })
 	React.useEffect(function()
 		refresh()
-		applyLocalRoster()
+		applyRoster()
 		local debounce
-		local requestRefresh = function()
-			applyLocalRoster()
+		local onRoster = function()
+			applyRoster()
 			if debounce ~= nil then
 				task.cancel(debounce)
 			end
@@ -16294,8 +16802,8 @@ local function PlayerlistOverlay(_param)
 				end
 			end)
 		end
-		local joined = Players.PlayerAdded:Connect(requestRefresh)
-		local left = Players.PlayerRemoving:Connect(requestRefresh)
+		local joined = Players.PlayerAdded:Connect(onRoster)
+		local left = Players.PlayerRemoving:Connect(onRoster)
 		local pulse = task.spawn(function()
 			while alive.current do
 				task.wait(10)
@@ -16312,122 +16820,63 @@ local function PlayerlistOverlay(_param)
 			end
 			task.cancel(pulse)
 		end
-	end, { applyLocalRoster, refresh })
-	-- ▼ ReadonlyArray.find ▼
-	local _callback = function(row)
-		return row.UserId == selectedId
-	end
-	local _result
-	for _i, _v in rows do
-		if _callback(_v, _i - 1, rows) == true then
-			_result = _v
-			break
-		end
-	end
-	-- ▲ ReadonlyArray.find ▲
-	local _condition = _result
-	if _condition == nil then
-		_condition = rows[1]
-	end
-	local selected = _condition
-	local _exp = function()
-		local _result_1 = selected
-		if _result_1 ~= nil then
-			_result_1 = _result_1.IsLocal
-		end
-		if _result_1 then
-			setInventoryOpen(false)
-		end
-	end
-	local _result_1 = selected
-	if _result_1 ~= nil then
-		_result_1 = _result_1.IsLocal
-	end
-	React.useEffect(_exp, { _result_1 })
-	local syncSocial = React.useCallback(function(userId)
-		if userId == nil or userId == Players.LocalPlayer.UserId then
-			return nil
-		end
-		local job = task.spawn(function()
+	end, { applyRoster, refresh })
+
+	-- Friendship for every row, cached for the session; blocked ids from Roblox.
+	local syncSocial = React.useCallback(function()
+		task.spawn(function()
+			local now = os.clock()
 			local nextFriends = {}
-			local friendOk, isFriend = pcall(function()
-				return (Players.LocalPlayer):IsFriendsWithAsync(userId)
-			end)
-			if friendOk and isFriend == true then
-				local _userId = userId
-				nextFriends[_userId] = true
+			for _, player in Players:GetPlayers() do
+				local userId = player.UserId
+				if userId == localPlayer.UserId then
+					continue
+				end
+				local cached = friendCache[userId]
+				if cached == nil or now - cached.at > FRIEND_TTL then
+					local ok, isFriend = pcall(function()
+						return localPlayer:IsFriendsWithAsync(userId)
+					end)
+					cached = { at = now, value = ok and isFriend == true }
+					friendCache[userId] = cached
+				end
+				if cached.value then
+					nextFriends[userId] = true
+				end
 			end
 			local nextBlocked = {}
-			local blockOk, raw = pcall(function()
-				return Core:GetCore("GetBlockedUserIds")
+			local ok, raw = pcall(function()
+				return StarterGui:GetCore("GetBlockedUserIds")
 			end)
-			if blockOk and type(raw) == "table" then
+			if ok and type(raw) == "table" then
 				for _, value in raw do
 					if type(value) == "number" then
-						local _arg0 = math.floor(value)
-						nextBlocked[_arg0] = true
+						nextBlocked[math.floor(value)] = true
 					end
 				end
 			end
-			if not alive.current then
-				return nil
+			if alive.current then
+				setFriends(nextFriends)
+				setBlocked(nextBlocked)
 			end
-			setFriends(nextFriends)
-			setBlocked(nextBlocked)
 		end)
-		return function()
-			return task.cancel(job)
-		end
 	end, {})
-	local _exp_1 = function()
-		if selected == nil or selected.IsLocal then
-			return nil
-		end
-		local cancel = syncSocial(selected.UserId)
-		local function replaceSocial()
-			if cancel ~= nil then
-				pcall(cancel)
-			end
-			cancel = syncSocial(selected.UserId)
-		end
-		local pulse = task.spawn(function()
-			while alive.current do
-				task.wait(4)
-				if not alive.current then
-					break
-				end
-				replaceSocial()
-			end
-		end)
+	React.useEffect(function()
+		syncSocial()
 		local friendship
 		pcall(function()
-			local localPlayer = Players.LocalPlayer
-			friendship = localPlayer.FriendStatusChanged:Connect(function()
-				if alive.current then
-					replaceSocial()
-				end
+			friendship = localPlayer.FriendStatusChanged:Connect(function(other)
+				friendCache[other.UserId] = nil
+				syncSocial()
 			end)
 		end)
 		return function()
-			if cancel ~= nil then
-				pcall(cancel)
-			end
-			pcall(task.cancel, pulse)
-			local _result_3 = friendship
-			if _result_3 ~= nil then
-				_result_3:Disconnect()
+			if friendship ~= nil then
+				friendship:Disconnect()
 			end
 		end
-	end
-	local _result_2 = selected
-	if _result_2 ~= nil then
-		_result_2 = _result_2.IsLocal
-	end
-	local _result_3 = selected
-	if _result_3 ~= nil then
-		_result_3 = _result_3.UserId
-	end
-	React.useEffect(_exp_1, { _result_2, _result_3, syncSocial })
+	end, { #rows, syncSocial })
+
 	local close = React.useCallback(function()
 		if exiting then
 			return nil
@@ -16435,58 +16884,47 @@ local function PlayerlistOverlay(_param)
 		Audio:play("playerlistClose")
 		beginExit(onClose)
 	end, { beginExit, exiting, onClose })
-	local prompt = function(kind)
-		if selected == nil or selected.IsLocal then
-			return nil
+	React.useEffect(function()
+		local connection = UserInputService.InputBegan:Connect(function(input, processed)
+			if input.KeyCode == Enum.KeyCode.ButtonB or (input.KeyCode == Enum.KeyCode.Escape and not processed) then
+				if reportTarget ~= nil then
+					setReportTarget(nil)
+				else
+					close()
+				end
+			end
+		end)
+		return function()
+			connection:Disconnect()
 		end
-		local player = Players:GetPlayerByUserId(selected.UserId)
+	end, { close, reportTarget })
+
+	local function peerOf(row)
+		local player = Players:GetPlayerByUserId(row.UserId)
 		if player == nil then
 			notify("Player left", "That player is no longer in this server.")
+		end
+		return player
+	end
+	local function promptCore(key, row)
+		local player = peerOf(row)
+		if player == nil then
 			return nil
 		end
-		local _result_4
-		if kind == "friend" then
-			local _userId = selected.UserId
-			_result_4 = (if friends[_userId] ~= nil then "PromptUnfriend" else "PromptSendFriendRequest")
-		else
-			local _userId = selected.UserId
-			_result_4 = (if blocked[_userId] ~= nil then "PromptUnblockPlayer" else "PromptBlockPlayer")
-		end
-		local key = _result_4
 		local ok = pcall(function()
-			return Core:SetCore(key, player)
+			StarterGui:SetCore(key, player)
 		end)
 		if not ok then
 			notify("Roblox menu unavailable", "Wait a moment, then try again.")
-		else
-			Audio:play("playerlistAction")
-		end
-	end
-	local submitReport = function()
-		if selected == nil or selected.IsLocal or reportBusy then
 			return nil
 		end
-		setReportBusy(true)
-		Audio:play("dangerPress")
-		dispatch("ReportPlayer", {
-			UserId = selected.UserId,
-			userId = selected.UserId,
-			Reason = reportReason,
-		}, function(response)
-			if not alive.current then
-				return nil
+		Audio:play("playerlistAction")
+		-- The Roblox prompt resolves on its own; pick up the result shortly after.
+		task.delay(2, function()
+			friendCache[row.UserId] = nil
+			if alive.current then
+				syncSocial()
 			end
-			setReportBusy(false)
-			if not response.ok then
-				local _condition_1 = response.error
-				if _condition_1 == nil then
-					_condition_1 = "Please try again in a moment."
-				end
-				notify("Couldn't send report", _condition_1)
-				return nil
-			end
-			setReportOpen(false)
-			notify("Report sent", "Thanks for helping keep the server clean.")
 		end)
 	end
 	local invite = function()
@@ -16495,76 +16933,162 @@ local function PlayerlistOverlay(_param)
 		end
 		setInviteBusy(true)
 		Audio:play("invite")
-		local checkDone = false
-		local worker
-		worker = task.defer(function()
+		task.spawn(function()
 			local canCheck, canInvite = pcall(function()
-				return SocialService:CanSendGameInviteAsync(Players.LocalPlayer)
+				return SocialService:CanSendGameInviteAsync(localPlayer)
 			end)
-			checkDone = true
+			local opened = canCheck and canInvite == true and pcall(function()
+				SocialService:PromptGameInvite(localPlayer)
+			end)
 			if not alive.current then
-				return nil
-			end
-			local opened = false
-			if canCheck and canInvite == true then
-				opened = pcall(function()
-					return SocialService:PromptGameInvite(Players.LocalPlayer)
-				end)
-			end
-			if not alive.current then
-				return nil
+				return
 			end
 			setInviteBusy(false)
 			if not opened then
 				notify("Invites unavailable", "Roblox could not open the invite panel on this device.")
 			end
 		end)
-		task.delay(8, function()
-			if checkDone or not alive.current then
-				return nil
-			end
-			pcall(task.cancel, worker)
-			setInviteBusy(false)
-			notify("Invites unavailable", "Roblox could not open the invite panel on this device.")
-		end)
 	end
+
 	local padFocus = useGamepadAutofocus(true)
-	local social = state.SocialBoost or {
-		FriendCount = 0,
-		FriendLimit = 5,
-		FriendBonus = 0,
-		Premium = false,
-		PremiumBonus = 0,
-		Multiplier = 1,
-	}
+	local social = state.SocialBoost or { FriendCount = 0, FriendLimit = 5, FriendBonus = 0, Premium = false, PremiumBonus = 0 }
 	local side = math.max(chrome.sideSafe, viewport.sideInset, 8) + 6
 	local top = math.max(viewport.topInset, 36) + 8
 	local bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 8
-	local availableHeight = math.max(210, viewport.height - top - bottom)
-	local compactWidth = viewport.width < 620
-	local shortSurface = availableHeight < 380
-	local width = math.max(286, math.min(if compactWidth then viewport.width - side * 2 else 440, viewport.width - side * 2))
-	local headerH = 64
-	local boostH = if shortSurface then 54 else 68
-	local actionH = if selected ~= nil and not selected.IsLocal then (if reportOpen then (if shortSurface then 168 else 188) elseif inventoryOpen then (if shortSurface then 100 else 126) else 62) else 0
-	local desiredListH = math.clamp(#rows * 64, 62, if shortSurface then 144 else 316)
-	local desiredHeight = headerH + boostH + desiredListH + actionH + 30
-	local height = math.min(availableHeight, desiredHeight)
-	local listTop = headerH + boostH + 16
-	local listH = math.max(54, height - listTop - actionH - 12)
-	-- On a short surface the action panel (report form / inventory) cannot share the column
-	-- with the player list — the old math parked it at `height - actionH - 8`, which landed it
-	-- ON TOP of the list and the friend-boost strip, and its passive background let taps fall
-	-- straight through to hidden rows underneath. When it genuinely doesn't fit below the list,
-	-- take over the panel body instead and hide the list until the player backs out.
-	local actionCovered = shortSurface and actionH > 0 and listTop + listH + 8 + actionH > height + 1
-	local actionTop = if actionCovered then headerH + 8 else height - actionH - 8
-	local showAmount = composePresence(enter, exitAmount)
-	local panelPosition = showAmount:map(function(amount)
-		return UDim2.new(1, -(side - math.round((1 - amount) * 18)), 0, top)
+	local width = math.max(286, math.min(460, viewport.width - side * 2))
+	local height = math.max(260, math.min(680, viewport.height - top - bottom))
+	local innerW = width - 20
+	local showSearch = #rows >= Model.SEARCH_MIN_ROWS
+	local headerH = 58
+	local boostH = 52
+	local controlsTop = headerH + boostH + 14
+	local controlsH = 30 + (if showSearch then 30 + 8 else 0)
+	local listTop = controlsTop + controlsH + 8
+	local listH = math.max(80, height - listTop - 10)
+
+	local visible = Model.view(rows, sortId, query, friendsOnly, friends)
+	local listChildren = {}
+	listChildren.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, ROW_GAP),
+	})
+	listChildren.pad = React.createElement("uipadding", {
+		PaddingRight = UDim.new(0, 6),
+		PaddingBottom = UDim.new(0, 6),
+	})
+	local _ = awayTick
+	for order, row in visible do
+		local peer = if row.IsLocal then nil else Players:GetPlayerByUserId(row.UserId)
+		local cooledAt = reportedAt[row.UserId]
+		listChildren[tostring(row.UserId)] = React.createElement(PlayerRow, {
+			row = row,
+			order = order,
+			width = innerW,
+			expanded = expandedId == row.UserId,
+			friend = friends[row.UserId] == true,
+			blocked = blocked[row.UserId] == true,
+			away = peer ~= nil and peer:GetAttribute("AF_Away") == true,
+			reported = cooledAt ~= nil and os.clock() - cooledAt < REPORT_COOLDOWN,
+			reducedMotion = reducedMotion,
+			onToggle = function()
+				Audio:play("playerlistSelect")
+				setExpandedId(if expandedId == row.UserId then nil else row.UserId)
+			end,
+			onFriend = function()
+				promptCore(if friends[row.UserId] then "PromptUnfriend" else "PromptSendFriendRequest", row)
+			end,
+			onBlock = function()
+				promptCore(if blocked[row.UserId] then "PromptUnblockPlayer" else "PromptBlockPlayer", row)
+			end,
+			onTrade = function()
+				if peerOf(row) == nil then
+					return nil
+				end
+				Audio:play("playerlistAction")
+				dispatch("InviteTrade", { UserId = row.UserId })
+			end,
+			onReport = function()
+				Audio:play("dangerPress")
+				setReportTarget(row)
+			end,
+		})
+	end
+	if #visible <= 1 and (query ~= "" or friendsOnly) then
+		listChildren.empty = React.createElement(Text, {
+			value = if friendsOnly then "No friends in this server right now." else `Nobody matches "{query}".`,
+			size = 12,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.new(1, 0, 0, 36),
+			zIndex = 620,
+		})
+	end
+
+	local chips = {}
+	chips.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	})
+	local function chip(key, order, label, active, accent, onClick)
+		chips[key] = React.createElement("textbutton", {
+			Size = UDim2.fromOffset(math.max(56, #label * 7 + 22), 28),
+			LayoutOrder = order,
+			BackgroundColor3 = if active then darken(accent, 0.5) else Palette.panel,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			ZIndex = 616,
+			Event = {
+				Activated = function()
+					Audio:play("tabSwitch")
+					onClick()
+				end,
+			},
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}), React.createElement("uistroke", {
+			Color = accent,
+			Transparency = if active then 0.15 else 0.7,
+		}), React.createElement(Text, {
+			value = string.upper(label),
+			size = 10,
+			color = if active then Palette.cream else Palette.creamSoft,
+			weight = Enum.FontWeight.Heavy,
+			align = Enum.TextXAlignment.Center,
+			fit = true,
+			minSize = 8,
+			position = UDim2.fromOffset(6, 0),
+			sizeConstraint = UDim2.new(1, -12, 1, 0),
+			zIndex = 617,
+		}))
+	end
+	for order, sort in Model.SORTS do
+		chip("sort" .. sort.id, order, sort.label, sortId == sort.id, Palette.cyan, function()
+			setSortId(sort.id)
+		end)
+	end
+	chip("friends", #Model.SORTS + 1, "Friends", friendsOnly, Palette.mango, function()
+		setFriendsOnly(not friendsOnly)
 	end)
+
+	local showAmount = composePresence(enter, exitAmount)
 	local friendProgress = math.clamp(social.FriendCount / math.max(1, social.FriendLimit), 0, 1)
-	local _exp_2 = React.createElement("imagebutton", {
+	return React.createElement(OverlayPresence, {
+		amount = showAmount,
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = true,
+		ZIndex = 600,
+		Visible = showAmount:map(function(amount)
+			return amount > 0.003
+		end),
+	}, React.createElement("textbutton", {
+		-- Dimmed backdrop; tapping it closes the list.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = showAmount:map(function(amount)
@@ -16572,119 +17096,105 @@ local function PlayerlistOverlay(_param)
 		end),
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Active = true,
+		Text = "",
 		Selectable = false,
 		ZIndex = 600,
-	})
-	local _exp_3 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	})
-	local _exp_4 = React.createElement("uistroke", {
+		Event = {
+			Activated = close,
+		},
+	}), React.createElement("frame", {
+		ref = padFocus,
+		Size = UDim2.fromOffset(width, height),
+		Position = showAmount:map(function(amount)
+			return UDim2.new(1, -(side - math.round((1 - amount) * 24)), 0, top)
+		end),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+		Active = true,
+		ClipsDescendants = true,
+		ZIndex = 610,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 14),
+	}), React.createElement("uistroke", {
 		Color = Palette.cyan,
 		Thickness = 1.25,
-		Transparency = showAmount:map(function(amount)
-			return 1 - amount * 0.76
-		end),
-	})
-	local _exp_5 = React.createElement("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = true,
-		Selectable = false,
-		ZIndex = 610,
-	})
-	local _exp_6 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, headerH),
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ZIndex = 611,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(4, 30),
-		Position = UDim2.fromOffset(0, 17),
-		BackgroundColor3 = Palette.cyan,
-		BorderSizePixel = 0,
-		ZIndex = 612,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement(Icon, {
-		kind = "Pilot",
+		Transparency = 0.55,
+	}), React.createElement(Icon, {
+		kind = "Crew",
 		color = Palette.cream,
 		accent = Palette.cyan,
 		size = 30,
-		spin = false,
-		position = UDim2.fromOffset(14, 17),
+		position = UDim2.fromOffset(14, 14),
 	}), React.createElement(Text, {
-		value = "PLAYERLIST",
+		value = "PLAYERS",
 		size = 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(54, 8),
+		position = UDim2.fromOffset(54, 9),
 		sizeConstraint = UDim2.new(1, -112, 0, 24),
 		zIndex = 613,
 	}), React.createElement(Text, {
-		value = `{#rows} ONLINE  •  PLAY TOGETHER FOR A PRODUCTION BOOST`,
+		value = `{#rows} IN THIS SERVER`,
 		size = 10,
 		color = Palette.cyan,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
 		minSize = 9,
-		position = UDim2.fromOffset(54, 34),
-		sizeConstraint = UDim2.new(1, -112, 0, 17),
+		position = UDim2.fromOffset(54, 33),
+		sizeConstraint = UDim2.new(1, -112, 0, 16),
 		zIndex = 613,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(TapTarget, TapTarget),
-		Position = UDim2.new(1, -(TapTarget + 7), 0, 8),
+		Position = UDim2.new(1, -(TapTarget + 8), 0, 7),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		ZIndex = 614,
 	}, React.createElement(Button, {
 		text = "",
 		icon = "Close",
 		onClick = close,
-		color = Palette.ink,
-		textColor = Palette.coral,
+		color = Palette.panel,
+		textColor = Palette.cream,
+		outline = true,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 		disabled = exiting,
 		zIndex = 614,
-	})))
-	local _exp_7 = React.createElement("frame", {
+	})), React.createElement("frame", {
+		-- Friend boost and invite.
 		Size = UDim2.new(1, -20, 0, boostH),
-		Position = UDim2.fromOffset(10, headerH + 8),
+		Position = UDim2.fromOffset(10, headerH + 6),
 		BackgroundColor3 = Palette.panelRaised,
 		BorderSizePixel = 0,
 		ZIndex = 612,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 9),
+		CornerRadius = UDim.new(0, 10),
 	}), React.createElement("uistroke", {
 		Color = Palette.mint,
-		Thickness = 1,
-		Transparency = 0.5,
+		Transparency = 0.55,
 	}), React.createElement(Text, {
-		value = `FRIEND BOOST  {social.FriendCount}/{social.FriendLimit}  •  +{math.floor(social.FriendBonus * 100 + 0.5)}%`,
+		value = `FRIEND BOOST  {social.FriendCount}/{social.FriendLimit}  ·  +{math.floor(social.FriendBonus * 100 + 0.5)}%`,
 		size = 11,
 		color = Palette.mint,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 9,
-		position = UDim2.fromOffset(10, if shortSurface then 5 else 8),
-		sizeConstraint = UDim2.new(0.58, -14, 0, 18),
+		minSize = 8,
+		position = UDim2.fromOffset(10, 8),
+		sizeConstraint = UDim2.new(0.6, -14, 0, 16),
 		zIndex = 613,
-	}), not shortSurface and React.createElement(Text, {
-		value = if social.Premium then `PREMIUM +{math.floor(social.PremiumBonus * 100 + 0.5)}%` else "PREMIUM BONUS OFF",
+	}), React.createElement(Text, {
+		value = if social.Premium then `PREMIUM +{math.floor(social.PremiumBonus * 100 + 0.5)}%` else "Play with friends for more output",
 		size = 10,
 		color = if social.Premium then Palette.mango else Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
-		minSize = 9,
-		position = UDim2.fromOffset(10, 30),
-		sizeConstraint = UDim2.new(0.58, -14, 0, 16),
+		minSize = 8,
+		position = UDim2.fromOffset(10, 25),
+		sizeConstraint = UDim2.new(0.6, -14, 0, 14),
 		zIndex = 613,
-	}), not shortSurface and React.createElement("frame", {
-		Size = UDim2.new(0.54, -18, 0, 4),
-		Position = UDim2.fromOffset(10, 51),
+	}), React.createElement("frame", {
+		Size = UDim2.new(0.6, -20, 0, 3),
+		Position = UDim2.fromOffset(10, 43),
 		BackgroundColor3 = Palette.lineSoft,
 		BorderSizePixel = 0,
 		ZIndex = 613,
@@ -16697,13 +17207,12 @@ local function PlayerlistOverlay(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("frame", {
-		Size = UDim2.new(0.4, -7, 0, if shortSurface then 36 else 42),
-		Position = UDim2.new(0.6, -1, 0.5, if shortSurface then -18 else -21),
+		Size = UDim2.new(0.4, -8, 0, 36),
+		Position = UDim2.new(0.6, 0, 0.5, -18),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		ZIndex = 614,
 	}, React.createElement(Button, {
-		text = if inviteBusy then "OPENING" else "INVITE FRIENDS",
+		text = if inviteBusy then "OPENING" else "INVITE",
 		icon = "Crew",
 		onClick = invite,
 		color = Palette.mint,
@@ -16713,324 +17222,55 @@ local function PlayerlistOverlay(_param)
 		disabled = inviteBusy,
 		highlight = true,
 		zIndex = 614,
-	})))
-	local _exp_8 = React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 6),
-	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#rows)
-	local _callback_1 = function(row, index)
-		local _attributes = {
-			key = row.UserId,
-			player = row,
-		}
-		local _exp_9 = row.UserId
-		local _result_4 = selected
-		if _result_4 ~= nil then
-			_result_4 = _result_4.UserId
-		end
-		_attributes.selected = _exp_9 == _result_4
-		_attributes.onSelect = function()
-			setSelectedId(row.UserId)
-			setInventoryOpen(false)
-			setReportOpen(false)
-			Audio:play("playerlistSelect")
-		end
-		_attributes.layoutOrder = index
-		_attributes.reducedMotion = reducedMotion
-		_attributes.awayStamp = awayTick
-		return React.createElement(PlayerRow, _attributes)
-	end
-	for _k, _v in rows do
-		_newValue[_k] = _callback_1(_v, _k - 1, rows)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	local _exp_9 = React.createElement("scrollingframe", {
-		Size = UDim2.new(1, -20, 0, listH),
-		Position = UDim2.fromOffset(10, listTop),
-		CanvasSize = UDim2.new(0, 0, 0, #rows * 64),
+	}))), showSearch and React.createElement(SearchField, {
+		value = query,
+		onChange = setQuery,
+		accent = Palette.cyan,
+		placeholder = "Find a player",
+		position = UDim2.fromOffset(10, controlsTop),
+		size = UDim2.fromOffset(innerW, 30),
+		reducedMotion = reducedMotion,
+		zIndex = 616,
+	}), React.createElement("scrollingframe", {
+		-- Sort and filter chips scroll sideways on narrow panels.
+		Size = UDim2.fromOffset(innerW, 30),
+		Position = UDim2.fromOffset(10, controlsTop + (if showSearch then 38 else 0)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Visible = not actionCovered,
+		ScrollBarThickness = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		CanvasSize = UDim2.new(),
+		ZIndex = 615,
+	}, chips), React.createElement("scrollingframe", {
+		Size = UDim2.fromOffset(innerW, listH),
+		Position = UDim2.fromOffset(10, listTop),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		-- Rows open and close with a spring, so the canvas follows them.
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = Palette.cyan,
-		ScrollBarImageTransparency = 0.32,
+		ScrollBarImageTransparency = 0.3,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
 		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
 		ZIndex = 619,
-	}, _exp_8, _newValue)
-	local _condition_1 = selected ~= nil and not selected.IsLocal and actionH > 0
-	if _condition_1 then
-		local _exp_10 = React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 9),
-		})
-		local _exp_11 = React.createElement("uistroke", {
-			Color = Palette.cyan,
-			Thickness = 1,
-			Transparency = 0.56,
-		})
-		local _result_4
-		if reportOpen then
-			local _exp_12 = React.createElement(Text, {
-				value = `REPORT {string.upper(selected.DisplayName)}`,
-				size = 12,
-				color = Palette.coral,
-				weight = Enum.FontWeight.Heavy,
-				fit = true,
-				minSize = 9,
-				position = UDim2.fromOffset(10, 7),
-				sizeConstraint = UDim2.new(1, -20, 0, 18),
-				zIndex = 632,
-			})
-			local _exp_13 = React.createElement("uigridlayout", {
-				CellSize = if shortSurface then UDim2.new(1 / 3, -4, 0, 28) else UDim2.new(0.5, -3, 0, 30),
-				CellPadding = UDim2.new(0, 6, 0, 6),
-				FillDirection = Enum.FillDirection.Horizontal,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-			})
-			-- ▼ ReadonlyArray.map ▼
-			local _newValue_1 = table.create(#REPORT_REASONS)
-			local _callback_2 = function(reason)
-				return React.createElement(Button, {
-					key = reason,
-					text = string.upper(reason),
-					onClick = function()
-						setReportReason(reason)
-						Audio:play("tabSwitch")
-					end,
-					color = if reportReason == reason then Palette.coral else Palette.panelSoft,
-					textColor = if reportReason == reason then Palette.ink else Palette.creamSoft,
-					outline = reportReason ~= reason,
-					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
-					zIndex = 633,
-				})
-			end
-			for _k, _v in REPORT_REASONS do
-				_newValue_1[_k] = _callback_2(_v, _k - 1, REPORT_REASONS)
-			end
-			-- ▲ ReadonlyArray.map ▲
-			_result_4 = React.createElement(React.Fragment, nil, _exp_12, React.createElement("frame", {
-				Size = UDim2.new(1, -16, 0, if shortSurface then 62 else 108),
-				Position = UDim2.fromOffset(8, 26),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ZIndex = 632,
-			}, _exp_13, _newValue_1), React.createElement("frame", {
-				Size = UDim2.new(1, -16, 0, 36),
-				Position = UDim2.new(0, 8, 1, -42),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ZIndex = 633,
-			}, React.createElement("frame", {
-				Size = UDim2.new(0.4, -4, 1, 0),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, React.createElement(Button, {
-				text = "BACK",
-				icon = "Back",
-				onClick = function()
-					Audio:play("playerlistSelect")
-					setReportOpen(false)
-				end,
-				color = Palette.panelSoft,
-				textColor = Palette.creamSoft,
-				outline = true,
-				size = UDim2.fromScale(1, 1),
-				reducedMotion = reducedMotion,
-				disabled = reportBusy,
-				zIndex = 633,
-			})), React.createElement("frame", {
-				Size = UDim2.new(0.6, -4, 1, 0),
-				Position = UDim2.new(0.4, 4, 0, 0),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, React.createElement(Button, {
-				text = if reportBusy then "SENDING..." else "SEND REPORT",
-				icon = "Admin",
-				onClick = submitReport,
-				color = Palette.coral,
-				textColor = Palette.ink,
-				size = UDim2.fromScale(1, 1),
-				reducedMotion = reducedMotion,
-				disabled = reportBusy,
-				highlight = true,
-				zIndex = 633,
-			}))))
-		else
-			local _result_5
-			if inventoryOpen then
-				_result_5 = React.createElement(React.Fragment, nil, React.createElement(Text, {
-					value = `{selected.DisplayName}'S RELICS`,
-					size = 12,
-					color = Palette.violet,
-					weight = Enum.FontWeight.Heavy,
-					fit = true,
-					minSize = 9,
-					position = UDim2.fromOffset(10, 7),
-					sizeConstraint = UDim2.new(1, -82, 0, 18),
-					zIndex = 632,
-				}), React.createElement(Text, {
-					value = if #(selected.EquippedItems or {}) > 0 then table.concat((selected.EquippedItems or {}), ", ") else "No relics equipped.",
-					size = 10,
-					color = Palette.creamSoft,
-					wrap = true,
-					position = UDim2.fromOffset(10, 28),
-					sizeConstraint = UDim2.new(1, -20, 0, if shortSurface then 30 else 46),
-					zIndex = 632,
-				}), React.createElement("frame", {
-					Size = UDim2.new(1, -16, 0, 36),
-					Position = UDim2.new(0, 8, 1, -42),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ZIndex = 633,
-				}, React.createElement(Button, {
-					text = "BACK TO PLAYER",
-					icon = "Back",
-					onClick = function()
-						Audio:play("playerlistSelect")
-						setInventoryOpen(false)
-					end,
-					color = Palette.panelSoft,
-					textColor = Palette.creamSoft,
-					outline = true,
-					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
-					zIndex = 633,
-				})))
-			else
-				local _exp_12 = React.createElement(Text, {
-					value = `@{selected.Name}  •  WORLD {compactNumber(selected.CurrentZone)}  •  {compactNumber(selected.Rebirths)} REBIRTHS`,
-					size = 10,
-					color = Palette.cyan,
-					weight = Enum.FontWeight.Bold,
-					fit = true,
-					minSize = 9,
-					position = UDim2.fromOffset(10, 5),
-					sizeConstraint = UDim2.new(1, -46, 0, 16),
-					zIndex = 632,
-				})
-				local _exp_13 = React.createElement("frame", {
-					Size = UDim2.fromOffset(28, 20),
-					Position = UDim2.new(1, -36, 0, 4),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ZIndex = 634,
-				}, React.createElement(Button, {
-					text = "",
-					icon = "Admin",
-					onClick = function()
-						Audio:play("dangerPress")
-						setReportOpen(true)
-					end,
-					color = Palette.panelSoft,
-					textColor = Palette.coral,
-					outline = true,
-					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
-					zIndex = 634,
-				}))
-				local _attributes = {}
-				local _userId = selected.UserId
-				_attributes.text = if friends[_userId] ~= nil then "UNFRIEND" else "ADD FRIEND"
-				_attributes.icon = "Crew"
-				_attributes.onClick = function()
-					return prompt("friend")
-				end
-				_attributes.color = Palette.blue
-				_attributes.textColor = Palette.ink
-				_attributes.size = UDim2.fromScale(1, 1)
-				_attributes.reducedMotion = reducedMotion
-				_attributes.zIndex = 633
-				local _exp_14 = React.createElement("frame", {
-					Size = UDim2.new(1 / 3, -7, 0, 36),
-					Position = UDim2.fromOffset(8, 22),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ZIndex = 633,
-				}, React.createElement(Button, _attributes))
-				local _attributes_1 = {}
-				local _userId_1 = selected.UserId
-				_attributes_1.text = if blocked[_userId_1] ~= nil then "UNBLOCK" else "BLOCK"
-				_attributes_1.icon = "Close"
-				_attributes_1.onClick = function()
-					return prompt("block")
-				end
-				_attributes_1.color = Palette.coral
-				_attributes_1.textColor = Palette.ink
-				_attributes_1.size = UDim2.fromScale(1, 1)
-				_attributes_1.reducedMotion = reducedMotion
-				_attributes_1.zIndex = 633
-				_result_5 = React.createElement(React.Fragment, nil, _exp_12, _exp_13, _exp_14, React.createElement("frame", {
-					Size = UDim2.new(1 / 3, -7, 0, 36),
-					Position = UDim2.new(1 / 3, 4, 0, 22),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ZIndex = 633,
-				}, React.createElement(Button, _attributes_1)), React.createElement("frame", {
-					Size = UDim2.new(1 / 3, -7, 0, 36),
-					Position = UDim2.new(2 / 3, 3, 0, 22),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ZIndex = 633,
-				}, React.createElement(Button, {
-					text = "RELICS",
-					icon = "Inventory",
-					onClick = function()
-						Audio:play("playerlistAction")
-						setInventoryOpen(true)
-					end,
-					color = Palette.violet,
-					textColor = Palette.cream,
-					size = UDim2.fromScale(1, 1),
-					reducedMotion = reducedMotion,
-					zIndex = 633,
-				})))
-			end
-			_result_4 = _result_5
-		end
-		_condition_1 = React.createElement("frame", {
-			Size = UDim2.new(1, -20, 0, if actionCovered then math.max(actionH, height - headerH - 16) else actionH),
-			Position = UDim2.fromOffset(10, actionTop),
-			BackgroundColor3 = Palette.panelRaised,
-			BorderSizePixel = 0,
-			ClipsDescendants = true,
-			ZIndex = 630,
-		}, _exp_10, _exp_11, _result_4)
-	end
-	return React.createElement(OverlayPresence, {
-		amount = showAmount,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Active = true,
-		ZIndex = 600,
-		Visible = showAmount:map(function(amount)
-			return amount > 0.003
-		end),
-	}, _exp_2, React.createElement("frame", {
-		ref = padFocus,
-		Size = UDim2.fromOffset(width, height),
-		Position = panelPosition,
-		AnchorPoint = Vector2.new(1, 0),
-		BackgroundColor3 = Palette.ink,
-		BackgroundTransparency = showAmount:map(function(amount)
-			return 1 - amount
-		end),
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 610,
-		Visible = showAmount:map(function(amount)
-			return amount > 0.005
-		end),
-	}, _exp_3, _exp_4, _exp_5, _exp_6, _exp_7, _exp_9, _condition_1)))
+	}, listChildren), reportTarget ~= nil and React.createElement(ReportSheet, {
+		target = reportTarget,
+		dispatch = dispatch,
+		reducedMotion = reducedMotion,
+		width = math.min(innerW, 420),
+		maxHeight = height - 20,
+		onBlock = function()
+			promptCore("PromptBlockPlayer", reportTarget)
+		end,
+		onClose = function()
+			setReportTarget(nil)
+		end,
+	}))))
 end
 return {
 	PlayerlistOverlay = PlayerlistOverlay,

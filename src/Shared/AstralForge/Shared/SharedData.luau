@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (9): AssetManifest, OreConfig, CreditsConfig, CreditsModel, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (10): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -1501,6 +1501,160 @@ function CreditsModel.showSearch(model): boolean
 end
 
 return table.freeze(CreditsModel)
+end
+
+-- ======================================================================
+-- Module: PlayerlistModel
+-- ======================================================================
+__defs["PlayerlistModel"] = function()
+-- Pure helpers behind the player list: report reasons, row cleanup, sorting,
+-- search and filters. No Roblox services, so scripts/verify_playerlist.luau
+-- runs it. The server's ReportLedger.REASONS must list the same ids.
+
+local PlayerlistModel = {}
+
+PlayerlistModel.REASONS = table.freeze({
+	{ id = "Exploiting", label = "Exploiting", detail = "Cheats, scripts or abusing glitches." },
+	{ id = "Scamming", label = "Scamming", detail = "Tricked someone in a trade or promised something fake." },
+	{ id = "Harassment", label = "Harassment", detail = "Targeting, bullying or threatening someone." },
+	{ id = "Trolling", label = "Trolling", detail = "Ruining the game for others on purpose." },
+	{ id = "Spam", label = "Spam", detail = "Flooding chat or invites." },
+	{ id = "Inappropriate", label = "Inappropriate", detail = "Offensive name, avatar or messages." },
+	{ id = "Other", label = "Other", detail = "Something else. Add details below." },
+})
+
+PlayerlistModel.SORTS = table.freeze({
+	{ id = "Production", label = "Output" },
+	{ id = "Rebirths", label = "Rebirths" },
+	{ id = "Name", label = "Name" },
+})
+
+PlayerlistModel.DETAILS_MAX = 400
+PlayerlistModel.SEARCH_MIN_ROWS = 6
+
+local function num(value: any): number
+	if type(value) == "number" and value == value then
+		return value
+	end
+	return 0
+end
+
+-- Rows from the server, cleaned: bad or duplicate user ids drop, numbers that
+-- came through as junk read as 0, names fall back to the user id.
+function PlayerlistModel.clean(raw: any, skipUserId: number?)
+	local rows = {}
+	local seen = {}
+	if type(raw) ~= "table" then
+		return rows
+	end
+	for _, entry in raw do
+		if type(entry) ~= "table" then
+			continue
+		end
+		local userId = tonumber(entry.UserId)
+		if userId == nil or userId ~= userId or userId <= 0 then
+			continue
+		end
+		userId = math.floor(userId)
+		if seen[userId] or userId == skipUserId then
+			continue
+		end
+		seen[userId] = true
+		local name = if type(entry.Name) == "string" and entry.Name ~= "" then entry.Name else tostring(userId)
+		table.insert(rows, {
+			UserId = userId,
+			Name = name,
+			DisplayName = if type(entry.DisplayName) == "string" and entry.DisplayName ~= "" then entry.DisplayName else name,
+			IsLocal = entry.IsLocal == true,
+			CurrentZone = math.max(1, num(entry.CurrentZone)),
+			Zone = math.max(1, num(entry.Zone)),
+			Rebirths = num(entry.Rebirths),
+			Production = num(entry.Production),
+			LifetimeCash = num(entry.LifetimeCash),
+			ItemCount = num(entry.ItemCount),
+			DomainRank = num(entry.DomainRank),
+			PlayTime = num(entry.PlayTime),
+			AccountAge = num(entry.AccountAge),
+			Premium = entry.Premium == true,
+			EquippedItems = if type(entry.EquippedItems) == "table" then entry.EquippedItems else {},
+			CurrentPage = if type(entry.CurrentPage) == "string" then entry.CurrentPage else "",
+		})
+	end
+	return rows
+end
+
+-- Sorted, searched and filtered rows. The local player always stays first.
+function PlayerlistModel.view(rows, sortId: string, query: string?, friendsOnly: boolean?, friends: { [number]: boolean }?)
+	local needle = string.lower((string.gsub(query or "", "^%s*(.-)%s*$", "%1")))
+	local out = {}
+	for _, row in rows do
+		if not row.IsLocal then
+			if friendsOnly and not (friends and friends[row.UserId]) then
+				continue
+			end
+			if needle ~= "" and not string.find(string.lower(row.DisplayName), needle, 1, true) and not string.find(string.lower(row.Name), needle, 1, true) then
+				continue
+			end
+		end
+		table.insert(out, row)
+	end
+	table.sort(out, function(left, right)
+		if left.IsLocal ~= right.IsLocal then
+			return left.IsLocal
+		end
+		if sortId == "Name" then
+			local a, b = string.lower(left.DisplayName), string.lower(right.DisplayName)
+			if a ~= b then
+				return a < b
+			end
+		elseif sortId == "Rebirths" then
+			if left.Rebirths ~= right.Rebirths then
+				return left.Rebirths > right.Rebirths
+			end
+		elseif left.Production ~= right.Production then
+			return left.Production > right.Production
+		end
+		return left.UserId < right.UserId
+	end)
+	return out
+end
+
+-- Seconds of play as "3h 12m" / "12m" / "<1m".
+function PlayerlistModel.playTime(seconds: number): string
+	local total = math.max(0, math.floor(num(seconds)))
+	local hours = total // 3600
+	local minutes = (total % 3600) // 60
+	if hours > 0 then
+		return string.format("%dh %dm", hours, minutes)
+	end
+	if minutes > 0 then
+		return string.format("%dm", minutes)
+	end
+	return "<1m"
+end
+
+-- Account age in days as a short label.
+function PlayerlistModel.accountAge(days: number): string
+	local value = math.max(0, math.floor(num(days)))
+	if value >= 365 then
+		return string.format("%dy", value // 365)
+	end
+	if value >= 30 then
+		return string.format("%dmo", value // 30)
+	end
+	return string.format("%dd", value)
+end
+
+-- Report details trimmed to what the server accepts.
+function PlayerlistModel.details(text: string?): string
+	local trimmed = (string.gsub(text or "", "^%s*(.-)%s*$", "%1"))
+	if #trimmed > PlayerlistModel.DETAILS_MAX then
+		trimmed = string.sub(trimmed, 1, PlayerlistModel.DETAILS_MAX)
+	end
+	return trimmed
+end
+
+return table.freeze(PlayerlistModel)
 end
 
 -- ======================================================================
