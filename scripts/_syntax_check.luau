@@ -44,6 +44,9 @@ local files = {
 	"src/Server/AstralForge/Services/CoreServices.luau",
 	"src/Server/AstralForge/Modules/OreMath.luau",
 	"src/Server/AstralForge/Services/WorldServices.luau",
+	"src/Server/AstralForge/init.server.luau",
+	"src/Server/AstralForge/CasinoKitLoader.luau",
+	"src/Shared/AstralForge/Shared/CasinoKit.luau",
 	-- Client unit test modules: parse-only (runners need Studio + lunit)
 	"src/Client/AstralForge/tests/format.test.luau",
 	"src/Client/AstralForge/tests/taskFilter.test.luau",

@@ -455,8 +455,71 @@ local function newModel(viewport)
 	return model
 end
 
--- A reel symbol as a small solid facing -Z (towards the camera), centred on `at`, scaled by `scale`.
+-- ----- the Blender kit ------------------------------------------------------------------------------------
+-- tools/casinobuild models every piece (bevelled, smooth, its lighting baked into a texture) and the server
+-- publishes them under ReplicatedStorage.CasinoKit. Until that lands, the builders below fall back to the
+-- part-built shapes. As imported, a piece's face looks along +Z; KIT_YAW turns it towards the viewport
+-- cameras, which look down +Z from the -Z side.
+local KIT_YAW = math.pi
+local KIT_FACE = CFrame.Angles(0, KIT_YAW, 0)
+local SYMBOL_PIECE = { Ember = "Ember", Spark = "Ember", Dust = "Dust", Core = "Core", Comet = "Comet", Star = "Star", Nova = "Nova" }
+local kitListeners = {}
+local kitWatch = nil
+local function kitFolder()
+	local folder = ReplicatedStorage:FindFirstChild("CasinoKit")
+	return if folder ~= nil and folder:IsA("Folder") then folder else nil
+end
+-- A copy of kit piece `name`, scaled so its largest side is `fit` studs, or nil while the kit is missing.
+local function kitPiece(name, fit)
+	local folder = kitFolder()
+	local source = folder and folder:FindFirstChild("Casino_" .. name)
+	if source == nil or not source:IsA("MeshPart") then
+		return nil
+	end
+	local part = source:Clone()
+	local size = part.Size
+	local largest = math.max(size.X, size.Y, size.Z)
+	if fit ~= nil and largest > 1e-3 then
+		part.Size = size * (fit / largest)
+	end
+	return part, (if fit ~= nil and largest > 1e-3 then fit / largest else 1)
+end
+-- True once the kit is published; components re-key their viewports on it so scenes rebuild with the meshes.
+local function useKitReady()
+	local ready, setReady = React.useState(kitFolder() ~= nil)
+	React.useEffect(function()
+		if ready then
+			return nil
+		end
+		local listener = function()
+			setReady(true)
+		end
+		kitListeners[listener] = true
+		if kitWatch == nil then
+			kitWatch = ReplicatedStorage.ChildAdded:Connect(function(child)
+				if child.Name == "CasinoKit" then
+					for each in kitListeners do
+						task.defer(each)
+					end
+				end
+			end)
+		end
+		return function()
+			kitListeners[listener] = nil
+		end
+	end, { ready })
+	return ready
+end
+
+-- A reel symbol facing -Z (towards the camera), centred on `at`, scaled by `scale`: the kit's mesh when
+-- it is loaded, otherwise a small solid built from parts.
 local function addSymbol(parent, id, at, scale)
+	local mesh = kitPiece(SYMBOL_PIECE[id] or "Star", 1.02 * scale)
+	if mesh ~= nil then
+		mesh.CFrame = at * KIT_FACE
+		mesh.Parent = parent
+		return
+	end
 	local color = SYMBOL_COLORS[id] or Palette.cream
 	local function put(shape, size, paint, material, offset, rotation)
 		return solid(parent, shape, size * scale, paint, material, at * CFrame.new(offset * scale) * (rotation or CFrame.identity))
@@ -498,25 +561,42 @@ end
 -- handed to `onScene` so the owning component can drive them from its own frame loop.
 local function View3D(props)
 	local scene = React.useRef(nil)
+	local host = React.useRef(nil)
+	local builtWithKit = React.useRef(false)
+	local kitReady = useKitReady()
+	local function build(viewport)
+		viewport:ClearAllChildren()
+		local camera = Instance.new("Camera")
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		builtWithKit.current = kitFolder() ~= nil
+		scene.current = props.build(viewport, camera)
+		if props.onScene then
+			props.onScene(scene.current)
+		end
+	end
+	-- The kit landed after this scene was built from parts: build it again with the meshes.
+	React.useEffect(function()
+		local viewport = host.current
+		if kitReady and viewport ~= nil and scene.current ~= nil and not builtWithKit.current then
+			build(viewport)
+		end
+	end, { kitReady })
+	-- Baked meshes carry their own shading, so they get a brighter, flatter fill than the part-built shapes.
 	return React.createElement("viewportframe", {
 		Size = props.size or UDim2.fromScale(1, 1),
 		Position = props.position,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Ambient = props.ambient or Color3.fromRGB(150, 140, 165),
-		LightColor = props.lightColor or Color3.fromRGB(255, 244, 224),
+		Ambient = props.ambient or (if kitReady then Color3.fromRGB(196, 190, 204) else Color3.fromRGB(150, 140, 165)),
+		LightColor = props.lightColor or (if kitReady then Color3.fromRGB(196, 188, 176) else Color3.fromRGB(255, 244, 224)),
 		LightDirection = props.lightDirection or Vector3.new(-0.5, -0.8, 1),
 		ZIndex = props.zIndex,
 		LayoutOrder = props.order or 0,
 		ref = function(viewport)
+			host.current = viewport
 			if viewport ~= nil and scene.current == nil then
-				local camera = Instance.new("Camera")
-				camera.Parent = viewport
-				viewport.CurrentCamera = camera
-				scene.current = props.build(viewport, camera)
-				if props.onScene then
-					props.onScene(scene.current)
-				end
+				build(viewport)
 			end
 		end,
 	})
@@ -532,9 +612,16 @@ local function buildDrum(index)
 	return function(viewport, camera)
 		local model = newModel(viewport)
 		local radius = 1.7
-		solid(model, CYL, Vector3.new(1.3, radius * 2 - 0.12, radius * 2 - 0.12), Color3.fromRGB(34, 26, 40), PLASTIC, CFrame.new())
-		for _, x in { -0.62, 0.62 } do
-			solid(model, CYL, Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02), Palette.brass, PLASTIC, CFrame.new(x, 0, 0))
+		-- The kit's lacquered drum (grooves between the cells, studded brass rims), or parts.
+		local drum = kitPiece("Drum", (radius + 0.06) * 2)
+		if drum ~= nil then
+			drum.CFrame = KIT_FACE
+			drum.Parent = model
+		else
+			solid(model, CYL, Vector3.new(1.3, radius * 2 - 0.12, radius * 2 - 0.12), Color3.fromRGB(34, 26, 40), PLASTIC, CFrame.new())
+			for _, x in { -0.62, 0.62 } do
+				solid(model, CYL, Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02), Palette.brass, PLASTIC, CFrame.new(x, 0, 0))
+			end
 		end
 		local cells = {}
 		for k = 0, CYCLE - 1 do
@@ -924,19 +1011,26 @@ end
 -- set(angle, lift) flips it about its horizontal axis (angle 0 = heads towards the camera) and raises it.
 local function buildCoin(viewport, camera)
 	local model = newModel(viewport)
-	local face = CFrame.Angles(0, math.pi / 2, 0) -- a cylinder lies along X; this turns it to look at the camera
-	solid(model, CYL, Vector3.new(0.34, 2.2, 2.2), Palette.brassDeep, METAL, face)
-	local body = solid(model, CYL, Vector3.new(0.3, 2.1, 2.1), Palette.mango, METAL, face)
-	body.Reflectance = 0.25
-	solid(model, CYL, Vector3.new(0.36, 1.7, 1.7), Color3.fromRGB(255, 226, 140), METAL, face)
-	local ink = Palette.brassDeep
-	-- H on the front (-Z)
-	solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(-0.32, 0, -0.2))
-	solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0.32, 0, -0.2))
-	solid(model, BLOCK, Vector3.new(0.6, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, 0, -0.2))
-	-- T on the back (+Z), drawn upside down so it reads upright after the flip
-	solid(model, BLOCK, Vector3.new(0.85, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, -0.38, 0.2))
-	solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0, 0.02, 0.2))
+	-- The kit's minted coin (reeded edge, beaded rims, a star and H on heads, a laurel and T on tails), or parts.
+	local minted = kitPiece("Coin", 2.2)
+	if minted ~= nil then
+		minted.CFrame = KIT_FACE
+		minted.Parent = model
+	else
+		local face = CFrame.Angles(0, math.pi / 2, 0) -- a cylinder lies along X; this turns it to look at the camera
+		solid(model, CYL, Vector3.new(0.34, 2.2, 2.2), Palette.brassDeep, METAL, face)
+		local body = solid(model, CYL, Vector3.new(0.3, 2.1, 2.1), Palette.mango, METAL, face)
+		body.Reflectance = 0.25
+		solid(model, CYL, Vector3.new(0.36, 1.7, 1.7), Color3.fromRGB(255, 226, 140), METAL, face)
+		local ink = Palette.brassDeep
+		-- H on the front (-Z)
+		solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(-0.32, 0, -0.2))
+		solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0.32, 0, -0.2))
+		solid(model, BLOCK, Vector3.new(0.6, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, 0, -0.2))
+		-- T on the back (+Z), drawn upside down so it reads upright after the flip
+		solid(model, BLOCK, Vector3.new(0.85, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, -0.38, 0.2))
+		solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0, 0.02, 0.2))
+	end
 	local shadow = solid(viewport, CYL, Vector3.new(0.04, 1.8, 1.8), Color3.new(0, 0, 0), PLASTIC, CFrame.new(0, -1.5, 0) * CFrame.Angles(0, 0, math.pi / 2))
 	shadow.Transparency = 0.55
 	camera.FieldOfView = 30
@@ -1020,13 +1114,21 @@ end
 local function buildCard(color)
 	return function(viewport, camera)
 		local model = newModel(viewport)
-		solid(model, BLOCK, Vector3.new(2, 2.8, 0.07), Palette.cream, PLASTIC, CFrame.new(0, 0, -0.04))
-		solid(model, BLOCK, Vector3.new(2, 2.8, 0.07), color, PLASTIC, CFrame.new(0, 0, 0.04))
-		for _, corner in { Vector3.new(-0.78, 1.15, 0), Vector3.new(0.78, -1.15, 0) } do
-			solid(model, BALL, Vector3.one * 0.26, color, PLASTIC, CFrame.new(corner + Vector3.new(0, 0, -0.1)))
+		-- The kit's card (bevelled, rounded corners, a gold-framed face with pips, a brass lattice on the
+		-- violet back), or parts.
+		local slab = kitPiece("Card", 2.8)
+		if slab ~= nil then
+			slab.CFrame = KIT_FACE
+			slab.Parent = model
+		else
+			solid(model, BLOCK, Vector3.new(2, 2.8, 0.07), Palette.cream, PLASTIC, CFrame.new(0, 0, -0.04))
+			solid(model, BLOCK, Vector3.new(2, 2.8, 0.07), color, PLASTIC, CFrame.new(0, 0, 0.04))
+			for _, corner in { Vector3.new(-0.78, 1.15, 0), Vector3.new(0.78, -1.15, 0) } do
+				solid(model, BALL, Vector3.one * 0.26, color, PLASTIC, CFrame.new(corner + Vector3.new(0, 0, -0.1)))
+			end
+			solid(model, BLOCK, Vector3.new(1.4, 2.2, 0.02), Palette.brass, METAL, CFrame.new(0, 0, 0.095))
+			solid(model, BLOCK, Vector3.new(1.0, 1.8, 0.02), color, PLASTIC, CFrame.new(0, 0, 0.11))
 		end
-		solid(model, BLOCK, Vector3.new(1.4, 2.2, 0.02), Palette.brass, METAL, CFrame.new(0, 0, 0.095))
-		solid(model, BLOCK, Vector3.new(1.0, 1.8, 0.02), color, PLASTIC, CFrame.new(0, 0, 0.11))
 		camera.FieldOfView = 28
 		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -6.2), Vector3.zero)
 		local lastRot, lastLift = math.huge, math.huge
@@ -1120,18 +1222,37 @@ end
 -- share of the bowl, 0.43 at the rim down to 0.34 in a pocket).
 local function buildWheel(viewport, camera)
 	local scale = 4.85
-	local flat = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder lies along X; this stands it on its end
-	solid(viewport, CYL, Vector3.new(0.34, 5.7, 5.7), Palette.brassDeep, PLASTIC, CFrame.new(0, -0.12, 0) * flat)
-	solid(viewport, CYL, Vector3.new(0.3, 5.3, 5.3), Palette.night, PLASTIC, CFrame.new(0, 0, 0) * flat)
-	solid(viewport, CYL, Vector3.new(0.12, 4.5, 4.5), Color3.fromRGB(58, 44, 64), PLASTIC, CFrame.new(0, 0.12, 0) * flat)
-	for index, number in WHEEL do
-		local a = (index - 1) / #WHEEL * math.tau
-		local color = if number == 0 then Palette.mint elseif RED[number] then Palette.coral else Palette.graphite
-		solid(viewport, BLOCK, Vector3.new(0.34, 0.14, 0.62), color, PLASTIC, CFrame.Angles(0, -a, 0) * CFrame.new(0, 0.22, -0.34 * scale))
+	-- The kit's turned wheel (wooden bowl, sloped ball track, 37 coloured pockets between brass frets, a turret)
+	-- and an ivory ball, or parts. The wheel's pocket 0 sits on its +Y in Blender, which imports to -Z, where
+	-- the pocket angles below start, so it takes the opposite turn to the camera-facing pieces.
+	local bowl, bowlScale = kitPiece("Wheel", 5.76)
+	local ball = kitPiece("Ball", 0.3)
+	if bowl ~= nil and ball ~= nil then
+		-- Blender z 0 (the pocket floor) sits at y 0.25; the mesh is centred on its bounds (z -0.16 .. 0.93).
+		bowl.CFrame = CFrame.new(0, 0.25 + 0.385 * bowlScale, 0) * CFrame.Angles(0, KIT_YAW + math.pi, 0)
+		bowl.Parent = viewport
+		ball.CFrame = CFrame.new(0, 0.5, -2)
+		ball.Parent = viewport
+	else
+		if bowl ~= nil then
+			bowl:Destroy()
+		end
+		if ball ~= nil then
+			ball:Destroy()
+		end
+		local flat = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder lies along X; this stands it on its end
+		solid(viewport, CYL, Vector3.new(0.34, 5.7, 5.7), Palette.brassDeep, PLASTIC, CFrame.new(0, -0.12, 0) * flat)
+		solid(viewport, CYL, Vector3.new(0.3, 5.3, 5.3), Palette.night, PLASTIC, CFrame.new(0, 0, 0) * flat)
+		solid(viewport, CYL, Vector3.new(0.12, 4.5, 4.5), Color3.fromRGB(58, 44, 64), PLASTIC, CFrame.new(0, 0.12, 0) * flat)
+		for index, number in WHEEL do
+			local a = (index - 1) / #WHEEL * math.tau
+			local color = if number == 0 then Palette.mint elseif RED[number] then Palette.coral else Palette.graphite
+			solid(viewport, BLOCK, Vector3.new(0.34, 0.14, 0.62), color, PLASTIC, CFrame.Angles(0, -a, 0) * CFrame.new(0, 0.22, -0.34 * scale))
+		end
+		solid(viewport, CYL, Vector3.new(0.4, 1.7, 1.7), Palette.brassDeep, PLASTIC, CFrame.new(0, 0.28, 0) * flat)
+		solid(viewport, CYL, Vector3.new(0.6, 0.7, 0.7), Palette.brass, PLASTIC, CFrame.new(0, 0.4, 0) * flat)
+		ball = solid(viewport, BALL, Vector3.one * 0.3, Color3.new(1, 1, 1), NEON, CFrame.new(0, 0.5, -2))
 	end
-	solid(viewport, CYL, Vector3.new(0.4, 1.7, 1.7), Palette.brassDeep, PLASTIC, CFrame.new(0, 0.28, 0) * flat)
-	solid(viewport, CYL, Vector3.new(0.6, 0.7, 0.7), Palette.brass, PLASTIC, CFrame.new(0, 0.4, 0) * flat)
-	local ball = solid(viewport, BALL, Vector3.one * 0.3, Color3.new(1, 1, 1), NEON, CFrame.new(0, 0.5, -2))
 	local baseLight = Vector3.new(-0.5, -0.8, 1)
 	local home = CFrame.lookAt(Vector3.new(0, 6.4, -5.2), Vector3.new(0, 0, 0.2))
 	local lastTurn, lastAngle, lastRadius = math.huge, math.huge, math.huge
@@ -1209,7 +1330,6 @@ local function Wheel(props)
 		Sheen = React.createElement(GlassSheen, { zIndex = 3, radius = UDim.new(0.5, 0) }),
 		Scene = React.createElement(View3D, {
 			build = buildWheel,
-			ambient = Color3.fromRGB(170, 160, 180),
 			onScene = function(s)
 				scene.current = s
 				paint(motion.current.rel, 0.34)
