@@ -42,6 +42,7 @@ def chain(boss, prefix, parent, top, bottom, count, y=0.0, dy=0.06):
 
 def map_humanoid(c, arm_scale=0.85, elbow=-0.22, knee=0.55):
     pose = {}
+    pose["hips"] = tuple(c["hips"])
     pose["spine"] = tuple(c["torso"])
     pose["head"] = tuple(c["head"])
     for chan, n in (("armL", "L"), ("armR", "R")):

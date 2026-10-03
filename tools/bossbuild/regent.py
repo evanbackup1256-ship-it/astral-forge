@@ -5,18 +5,20 @@ of fire down the back. Broad and heavy: about 3 m tall, facing -Y."""
 import math
 
 import humanoid
+import kit
 from lib import V, Boss, box, ellipsoid, frustum, plate, ribbon_strip, sweep
 
 KIND = "Regent"
-BASALT, IRON, LAVA, SPIKE, ASH = 0, 1, 2, 3, 4
+BASALT, IRON, LAVA, SPIKE, ASH, BANNER = 0, 1, 2, 3, 4, 5
 MATERIALS = {
     "basalt": dict(base=((0.02, 0.018, 0.02), (0.11, 0.095, 0.1)), rough=0.8, metal=0.1, noise_scale=7.0, scale=4.0, veins=(0.85, 0.2, 0.02), vein_width=0.045, voro_scale=2.4, veins_glow=0.45),
     "iron": dict(base=((0.04, 0.035, 0.04), (0.2, 0.17, 0.17)), rough=0.5, metal=0.85, noise_scale=10.0),
     "lava": dict(base=(0.9, 0.28, 0.03), rough=0.5, emit=(1.0, 0.28, 0.03, 0.9), noise_scale=5.0, veins=(1.0, 0.45, 0.08), vein_width=0.1, voro_scale=3.0),
     "spike": dict(base=((0.05, 0.03, 0.03), (0.35, 0.12, 0.05)), rough=0.4, metal=0.7, noise_scale=8.0, emit=(1.0, 0.3, 0.05, 0.5)),
     "ash": dict(base=((0.03, 0.025, 0.025), (0.12, 0.1, 0.1)), rough=0.95, noise_scale=16.0),
+    "banner": dict(base=((0.05, 0.015, 0.012), (0.22, 0.06, 0.03)), rough=0.95, noise_scale=14.0, scale=8.0, veins=(0.9, 0.25, 0.03), vein_width=0.02, voro_scale=6.0, veins_glow=0.25),
 }
-ORDER = ["basalt", "iron", "lava", "spike", "ash"]
+ORDER = ["basalt", "iron", "lava", "spike", "ash", "banner"]
 
 
 def fist(bm, c, s, size):
@@ -30,6 +32,9 @@ def build():
     boss = Boss(KIND, ORDER)
     humanoid.skeleton(boss, hip_z=1.1, chest_z=2.0, neck_z=2.38, head_top=2.9, shoulder_x=1.1, shoulder_z=2.1, elbow_z=1.28, wrist_z=0.62, hand_z=0.22, hip_x=0.42, knee_z=0.62, ankle_z=0.14, foot_len=0.5)
     boss.bone("vents", "spine", V(0, 0.4, 2.0), V(0, 0.5, 2.7))
+    # a scorched war cloak down the back and a banner-tabard in front, both simulated
+    kit.cape(boss, "cloak", "spine", top_z=2.15, bottom_z=0.25, half_top=0.75, half_bottom=1.15, y_top=0.55, y_bottom=0.72, columns=5, segments=3, mat=BANNER, edge_mat=LAVA, bow=0.08, tatter=1.0, seed=6, thickness=0.04, kind="heavy")
+    kit.cape(boss, "banner", "hips", top_z=1.2, bottom_z=0.12, half_top=0.32, half_bottom=0.5, y_top=-0.5, y_bottom=-0.64, columns=3, segments=3, mat=BANNER, edge_mat=LAVA, bow=0.04, tatter=0.8, seed=7, thickness=0.035, kind="heavy")
 
     bm = boss.piece("hips", "hips")
     box(bm, V(0, 0, 1.15), (1.5, 0.8, 0.34), BASALT, bevel=0.06)
@@ -101,4 +106,9 @@ def build():
 def map_pose(c):
     pose = humanoid.map_humanoid(c, arm_scale=0.85, elbow=-0.15, knee=0.4)
     pose["vents"] = (c["cloth"][0] * 0.5, 0, c["cloth"][2] * 0.5)
+    cp, cy, cr = c["cloth"]
+    for col in range(5):
+        pose[f"cloak{kit.LETTERS[col]}1"] = (cp * 0.7, cy, cr * 0.7)
+    for col in range(3):
+        pose[f"banner{kit.LETTERS[col]}1"] = (-cp * 0.3, cy, cr * 0.3)
     return pose

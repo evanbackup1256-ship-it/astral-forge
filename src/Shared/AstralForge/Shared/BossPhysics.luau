@@ -251,8 +251,13 @@ function BossPhysics.new(body: any, spr: any, seed: number?): State?
 		table.sort(group, function(a, b)
 			return a.Column < b.Column
 		end)
-		for index = 1, #group - 1 do
-			local a, b = group[index], group[index + 1]
+		-- a ring (a skirt or robe) also links its last column back to its first
+		local pairs_ = #group - 1
+		if #group > 2 and group[1].Settings.Ring == true then
+			pairs_ = #group
+		end
+		for index = 1, pairs_ do
+			local a, b = group[index], group[index % #group + 1]
 			local rest = {}
 			for particle = 2, math.min(#a.Heads, #b.Heads) do
 				rest[particle] = (a.Heads[particle] - b.Heads[particle]).Magnitude

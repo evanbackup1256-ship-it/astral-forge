@@ -6328,9 +6328,17 @@ local function stepBoss(dt: number, t: number)
 				Vfx.burst(foot, "Dust", 6 + math.floor(current.footDrop), { Color = Color3.fromRGB(120, 110, 100) }, clientFolder)
 				if near(current) then
 					Controls.shake(math.clamp(current.footDrop * 0.012, 0.05, 0.25))
-					bossSfx("impact", math.clamp(current.footDrop * 0.02, 0.1, 0.3))
+					-- each boss has its own footfall (stone, ice, glass, steel); the old thud stands in until it loads
+					local weight = math.clamp(current.footDrop * 0.03, 0.25, 0.7)
+					if not bossSfx("step_" .. current.kind, weight) then
+						bossSfx("impact", math.clamp(current.footDrop * 0.02, 0.1, 0.3))
+					end
 				end
 			end
+		elseif hoverHeight ~= nil and phase ~= "Dormant" and t >= (current.wingAt or 0) and near(current) then
+			-- a hovering boss beats its wings about once a second
+			current.wingAt = t + 1.0 + math.random() * 0.15
+			bossSfx("wing_beat", 0.5)
 		end
 	else
 		hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
@@ -7448,6 +7456,11 @@ local function onAttack(payload)
 		return
 	end
 	current.flash = math.max(current.flash, 0.7)
+	-- the body moves: cloth whips, and the knight's plates ring
+	bossSfx("cloth_whoosh", 0.3)
+	if current.kind == "Knight" then
+		bossSfx("armor_clank", 0.35)
+	end
 end
 
 -- Lances (the Warden): thin aim lines from the body, then every beam fires at once.

@@ -60,9 +60,30 @@ def body_block(kind, rig):
     return lines
 
 
+LOADER = '''--!nocheck
+-- The Blender-built boss bodies: skeleton, piece placement, physics chains and animation clips.
+-- Written by tools/bossbuild/export_bodies.py. Each boss is its own module (BossBody_<Kind>) because a
+-- single module would pass Roblox's script size limit; this loads them on first use, so
+-- `BossBodies[kind]` works as it always did. SanctuaryKit requires it when a boss is set to wear its
+-- Blender body (SanctuaryConfig.BossBodyStyle).
+
+local loaded = {}
+
+return setmetatable({}, {
+	__index = function(_, kind)
+		if loaded[kind] == nil then
+			local module = script.Parent:FindFirstChild("BossBody_" .. tostring(kind))
+			loaded[kind] = if module ~= nil and module:IsA("ModuleScript") then require(module) else false
+		end
+		return loaded[kind] or nil
+	end,
+})
+'''
+
+
 def main():
     kinds = []
-    out = ["--!nocheck", "-- The Blender-built boss bodies: skeleton, piece placement and animation clips.", "-- Written by tools/bossbuild/export_bodies.py. Data only; SanctuaryKit requires it when a boss", "-- is set to wear its Blender body (SanctuaryConfig.BossBodyStyle).", "", "local BossBodies = {"]
+    folder = os.path.dirname(MODULE)
     for path in sorted(os.listdir(FOLDER)):
         match = re.fullmatch(r"(\w+)_rig\.json", path)
         if not match:
@@ -70,12 +91,17 @@ def main():
         kind = match.group(1)
         with open(os.path.join(FOLDER, path), "r", encoding="utf-8") as handle:
             rig = json.load(handle)
-        out.extend(body_block(kind, rig))
+        block = body_block(kind, rig)
+        inner = [line[1:] if line.startswith("\t") else line for line in block[1:-1]]
+        text = "\n".join(["--!nocheck", f"-- The Blender-built {kind} body (written by tools/bossbuild/export_bodies.py). Data only.", "", "return {"] + inner + ["}", ""])
+        target = os.path.join(folder, f"BossBody_{kind}.luau")
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        print(f"  {kind}: {len(text) / 1024:.0f} KB")
         kinds.append(kind)
-    out += ["}", "", "return BossBodies", ""]
     with open(MODULE, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n".join(out))
-    print("bodies written:", ", ".join(kinds), "->", MODULE)
+        handle.write(LOADER)
+    print("bodies written:", ", ".join(kinds), "->", folder)
 
 
 if __name__ == "__main__":
