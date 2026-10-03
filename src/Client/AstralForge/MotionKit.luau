@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	MotionKit: merged module suite.
-	Members (8): motionTokens, vfxMath, autoScale, motion, antilag, dynamicLayout, flexbox, shimmer.
+	Members (9): motionTokens, vfxMath, autoScale, motion, antilag, dynamicLayout, flexbox, shimmer, pageTransition.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -3720,35 +3720,44 @@ __defs["shimmer"] = function()
 -- Sweep motion belongs on UIGradient.Offset (clipped overlays), never on
 -- oversized Offset-sized tip frames under AutomaticSize.
 
-local DEFAULT_TRAVEL = 2.2
-local TRAIL_LAG = 0.08
+local DEFAULT_TRAVEL = 2.4
+local TRAIL_LAG = 0.035
 -- Trail only on high shimmer settings — dual-pass is the main hover cost.
 local TRAIL_MIN_SCALE = 0.85
+-- Share of each period spent crossing; the rest the band waits off-surface, so
+-- the wrap from the far edge back to the start is never on screen and passes
+-- read as deliberate strokes instead of a conveyor belt.
+local SWEEP_SHARE = 0.6
+-- How much of the crossing is eased (0 = linear, 1 = full smoothstep). Partial
+-- easing glides in and out without lingering at the edges.
+local SWEEP_EASE = 0.55
 
--- Razor specular: narrow bright core, transparent flanks.
--- Transparency 0 = opaque. Peak stays low so the glint actually reads.
-local GLINT = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.4, 1),
-	NumberSequenceKeypoint.new(0.46, 0.62),
-	NumberSequenceKeypoint.new(0.5, 0.1),
-	NumberSequenceKeypoint.new(0.54, 0.62),
-	NumberSequenceKeypoint.new(0.7, 1),
-	NumberSequenceKeypoint.new(1, 1),
-})
+-- A soft specular band: bell-shaped falloff sampled from a raised cosine. No
+-- hard shoulders, so it reads as light, not a stripe.
+-- Transparency 0 = opaque.
+local function bell(halfWidth, peak, samples)
+	local points = { NumberSequenceKeypoint.new(0, 1) }
+	local low = 0.5 - halfWidth
+	table.insert(points, NumberSequenceKeypoint.new(low, 1))
+	for i = 1, samples - 1 do
+		local u = i / samples -- 0..1 across the band
+		local x = low + u * halfWidth * 2
+		-- Raised cosine: zero slope at both edges and a rounded peak.
+		local lit = (1 - math.cos(u * math.pi * 2)) * 0.5
+		table.insert(points, NumberSequenceKeypoint.new(x, 1 - (1 - peak) * lit))
+	end
+	table.insert(points, NumberSequenceKeypoint.new(0.5 + halfWidth, 1))
+	table.insert(points, NumberSequenceKeypoint.new(1, 1))
+	return NumberSequence.new(points)
+end
 
--- Soft lagging wash behind the core (optional dual-pass).
-local TRAIL = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.34, 1),
-	NumberSequenceKeypoint.new(0.48, 0.92),
-	NumberSequenceKeypoint.new(0.56, 0.72),
-	NumberSequenceKeypoint.new(0.7, 0.96),
-	NumberSequenceKeypoint.new(1, 1),
-})
+local GLINT = bell(0.17, 0.08, 12)
 
-local SWEEP_SPEED = 0.62
-local ROTATION = 16
+-- Broad soft bloom around the core (optional second pass).
+local TRAIL = bell(0.3, 0.7, 12)
+
+local SWEEP_SPEED = 0.42
+local ROTATION = 20
 
 local function clamp01(value)
 	if type(value) ~= "number" or value ~= value then
@@ -3761,6 +3770,21 @@ local function clamp01(value)
 		return 1
 	end
 	return value
+end
+
+-- Where the band is along its crossing (0 = waiting before, 1 = done/waiting after).
+local function sweepProgress(phase)
+	local t = phase
+	if type(t) ~= "number" or t ~= t then
+		t = 0
+	end
+	t = t % 1
+	if t < 0 then
+		t += 1
+	end
+	local u = math.min(t / SWEEP_SHARE, 1)
+	local smooth = u * u * (3 - 2 * u)
+	return u + (smooth - u) * SWEEP_EASE
 end
 
 local function offset(phase, travel, lag)
@@ -3777,11 +3801,7 @@ local function offset(phase, travel, lag)
 	if type(lag) == "number" and lag == lag then
 		t -= lag
 	end
-	t = t % 1
-	if t < 0 then
-		t += 1
-	end
-	return Vector2.new(t * travel - travel * 0.5, 0)
+	return Vector2.new(sweepProgress(t) * travel - travel * 0.5, 0)
 end
 
 local function sweepSpeed(shimmerScale)
@@ -3792,8 +3812,8 @@ end
 -- Peak opacity of the wash layer (0..~0.5). Must stay visible on hover.
 local function surfaceStrength(hoverAmount, idle, shimmerScale)
 	local scale = clamp01(if type(shimmerScale) == "number" then shimmerScale else 1)
-	local hoverStrength = clamp01(hoverAmount) * 0.42
-	local idleStrength = if idle then 0.14 else 0
+	local hoverStrength = clamp01(hoverAmount) * 0.4
+	local idleStrength = if idle then 0.12 else 0
 	return math.clamp(math.max(hoverStrength, idleStrength) * scale, 0, 0.5)
 end
 
@@ -3829,6 +3849,10 @@ return {
 	DEFAULT_TRAVEL = DEFAULT_TRAVEL,
 	TRAIL_LAG = TRAIL_LAG,
 	TRAIL_MIN_SCALE = TRAIL_MIN_SCALE,
+	SWEEP_SHARE = SWEEP_SHARE,
+	SWEEP_EASE = SWEEP_EASE,
+	bell = bell,
+	sweepProgress = sweepProgress,
 	offset = offset,
 	sweepSpeed = sweepSpeed,
 	surfaceStrength = surfaceStrength,
@@ -3836,6 +3860,89 @@ return {
 	shouldShow = shouldShow,
 	wantTrail = wantTrail,
 	clamp01 = clamp01,
+}
+end
+
+-- ======================================================================
+-- Module: pageTransition   (page-change motion math)
+-- ======================================================================
+__defs["pageTransition"] = function()
+-- Pure math for the workspace page change. The page entrance is one spring
+-- (0 -> 1); everything here maps that single value so the slide, the veil and
+-- the text fade all land together on the same frame.
+
+-- How far the new page travels in (px). Phones slide along the tab bar, so a
+-- little further; Reduced Motion keeps the motion but shortens it.
+local SLIDE_DESKTOP = 18
+local SLIDE_PHONE = 28
+local SOFT_SCALE = 0.45
+-- Peak opacity of the ink veil the instant the page swaps.
+local VEIL_PEAK = 0.62
+-- Veil dissolves faster than the slide finishes: the content is readable early
+-- while the last pixels of travel ease out underneath.
+local VEIL_POWER = 2.2
+
+local function clamp01(value)
+	if type(value) ~= "number" or value ~= value then
+		return 1
+	end
+	return math.clamp(value, 0, 1)
+end
+
+local function indexOf(order, id)
+	if order == nil or id == nil then
+		return nil
+	end
+	for index, entry in order do
+		if entry == id then
+			return index
+		end
+	end
+	return nil
+end
+
+-- +1: the new page comes in from below/right (it sits after the old one in the
+-- nav), -1: from above/left. Unknown pages arrive forward.
+local function direction(fromPage, toPage, order)
+	local from = indexOf(order, fromPage)
+	local to = indexOf(order, toPage)
+	if from == nil or to == nil or from == to then
+		return 1
+	end
+	return if to > from then 1 else -1
+end
+
+local function distance(phone, soft)
+	local base = if phone then SLIDE_PHONE else SLIDE_DESKTOP
+	return if soft then math.floor(base * SOFT_SCALE + 0.5) else base
+end
+
+-- Pixel offset of the content at entrance `amount`. Rounded so text never sits
+-- on half pixels (which shimmers as it moves).
+local function offset(amount, dir, axis, travel)
+	local t = clamp01(amount)
+	local remaining = (1 - t) * (if dir == -1 then -1 else 1) * (travel or SLIDE_DESKTOP)
+	local px = math.round(remaining)
+	if axis == "x" then
+		return px, 0
+	end
+	return 0, px
+end
+
+local function veilTransparency(amount)
+	local t = clamp01(amount)
+	return 1 - VEIL_PEAK * (1 - t) ^ VEIL_POWER
+end
+
+return {
+	SLIDE_DESKTOP = SLIDE_DESKTOP,
+	SLIDE_PHONE = SLIDE_PHONE,
+	SOFT_SCALE = SOFT_SCALE,
+	VEIL_PEAK = VEIL_PEAK,
+	direction = direction,
+	distance = distance,
+	offset = offset,
+	veilTransparency = veilTransparency,
 }
 end
 

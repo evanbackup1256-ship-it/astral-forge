@@ -589,7 +589,7 @@ local function ShimmerText(_param)
 	local font = if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 	local glintColor = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, color),
-		ColorSequenceKeypoint.new(0.5, color:Lerp(Palette.cyan, 0.22)),
+		ColorSequenceKeypoint.new(0.5, color:Lerp(Palette.white, 0.7)),
 		ColorSequenceKeypoint.new(1, color),
 	})
 	local _exp = React.createElement(Text, {
@@ -636,7 +636,7 @@ local function ShimmerText(_param)
 			Offset = phase:map(function(amount)
 				return shimmerOffset(amount, 2.05)
 			end),
-			Rotation = 14,
+			Rotation = ShimmerMath.ROTATION,
 		}))
 	end
 	return React.createElement("frame", {
@@ -1444,7 +1444,7 @@ local function Panel(_param)
 		CornerRadius = UDim.new(0, radius),
 	}), shimmer and not interactionMotion and React.createElement("uigradient", {
 		Color = ColorSequence.new(Palette.cream),
-		Rotation = 14,
+		Rotation = ShimmerMath.ROTATION,
 		Transparency = SHIMMER_GLINT,
 		Offset = whiteSweep:map(function(phase)
 			return shimmerOffset(phase, 2.25)
@@ -1919,14 +1919,18 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 end
 -- Built once: these depend only on Palette constants and used to be rebuilt on
 -- every render of every shimmering button.
+-- White-hot core cooling to warm cream at the band's edges: reads as light
+-- glancing off the surface rather than a tinted stripe.
 local SHIMMER_SPECULAR_COLOR = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Palette.cream),
-	ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.28)),
+	ColorSequenceKeypoint.new(0.42, Palette.cream:Lerp(Palette.white, 0.6)),
+	ColorSequenceKeypoint.new(0.5, Palette.white),
+	ColorSequenceKeypoint.new(0.58, Palette.cream:Lerp(Palette.white, 0.6)),
 	ColorSequenceKeypoint.new(1, Palette.cream),
 })
 local SHIMMER_TRAIL_COLOR = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Palette.cream),
-	ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.14)),
+	ColorSequenceKeypoint.new(0.5, Palette.cream:Lerp(Palette.cyan, 0.1)),
 	ColorSequenceKeypoint.new(1, Palette.cream),
 })
 local function ButtonShimmer(_param)
@@ -3420,6 +3424,7 @@ local function SegmentedTabs(_param)
 		ZIndex = 2,
 	}, React.createElement("uigradient", {
 		Color = ColorSequence.new(Palette.cream),
+		Rotation = ShimmerMath.ROTATION,
 		Transparency = SHIMMER_GLINT,
 		Offset = tabSweep:map(function(phase)
 			return shimmerOffset(phase, 2.2)
@@ -11049,6 +11054,40 @@ local _motion = require(script.Parent.MotionKit)("motion")
 local EntranceMotionSuppressedContext = _motion.EntranceMotionSuppressedContext
 local useFlash = _motion.useFlash
 local useTokenEntrance = _motion.useTokenEntrance
+local PageTransition = require(script.Parent.MotionKit)("pageTransition")
+local NavRouteTable = require(script.Parent.CoreKit)("navRouteTable")
+-- Nav order the page slide follows: the rail's sections on PC; on phones the
+-- tab bar first, then the Menu sections.
+local PAGE_ORDER = {}
+local function pageOrderFor(phone)
+	local key = if phone then "phone" else "rail"
+	local cached = PAGE_ORDER[key]
+	if cached ~= nil then
+		return cached
+	end
+	local order, seen = {}, {}
+	local function add(id)
+		if not seen[id] then
+			seen[id] = true
+			table.insert(order, id)
+		end
+	end
+	if phone then
+		for _, id in NavRouteTable.MOBILE_TAB_PRIORITY do
+			add(id)
+		end
+	end
+	for _, group in NavRouteTable.NAV_GROUPS do
+		for _, id in group.routes do
+			add(id)
+		end
+	end
+	for _, id in NavRouteTable.allNavIds() do
+		add(id)
+	end
+	PAGE_ORDER[key] = order
+	return order
+end
 local useViewport = _motion.useViewport
 local ExitPresenceContext = _motion.ExitPresenceContext
 local useExitPresence = _motion.useExitPresence
@@ -11358,6 +11397,15 @@ local function Workspace(_param)
 	local accent = AppHelpers:pageAccent(page)
 	local entry = AppHelpers:pageEntry(page)
 	local enter = useTokenEntrance(page, reducedMotion, 0.2)
+	-- Which way the new page arrives: from where its nav button sits relative
+	-- to the last one (down/up the PC rail, right/left along the phone tab bar).
+	local pageTrack = React.useRef(nil)
+	if pageTrack.current == nil then
+		pageTrack.current = { page = page, direction = 1 }
+	elseif pageTrack.current.page ~= page then
+		pageTrack.current = { page = page, direction = PageTransition.direction(pageTrack.current.page, page, pageOrderFor(chrome.stack)) }
+	end
+	local pageDirection = pageTrack.current.direction
 	-- The whole page arrives as one piece: its text and buttons follow the
 	-- page's entrance (cards inside layer their own on top).
 	local shellPresence = useExitPresence()
@@ -11433,10 +11481,17 @@ local function Workspace(_param)
 			pcall(task.cancel, selectJob)
 		end
 	end, { ready, page })
+	local slideAxis = if chrome.stack then "x" else "y"
+	local slideDistance = PageTransition.distance(chrome.stack, softMotion)
 	local contentPosition = enter:map(function(amount)
-		local t = math.clamp(amount, 0, 1)
-		local lift = math.round((1 - t) * 12)
-		return UDim2.new(0, inset, 0, headerHeight + unlockH + inset + lift)
+		local dx, dy = PageTransition.offset(amount, pageDirection, slideAxis, slideDistance)
+		return UDim2.new(0, inset + dx, 0, headerHeight + unlockH + inset + dy)
+	end)
+	-- The swap itself is instant, so an ink veil over the content dissolves as
+	-- the page settles: the old page appears to cross-fade into the new one.
+	local veilTransparency = enter:map(PageTransition.veilTransparency)
+	local veilVisible = enter:map(function(amount)
+		return PageTransition.veilTransparency(amount) < 0.995
 	end)
 	local revealFade = enter:map(function(amount)
 		return 1 - math.clamp(amount, 0, 1)
@@ -11604,7 +11659,17 @@ local function Workspace(_param)
 		value = suppressEntrance,
 	}, React.createElement(ExitPresenceContext.Provider, {
 		value = pagePresence,
-	}, children)), React.createElement(ScrollEdgeFade, {
+	}, children)), React.createElement("frame", {
+		Name = "PageVeil",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.ink,
+		BackgroundTransparency = veilTransparency,
+		BorderSizePixel = 0,
+		Active = false,
+		Selectable = false,
+		Visible = veilVisible,
+		ZIndex = 190,
+	}), React.createElement(ScrollEdgeFade, {
 		color = Palette.ink,
 		height = if chrome.stack then 18 else 16,
 		zIndex = 200,
