@@ -628,14 +628,33 @@ export type hyperTextClassContent = {
 }
 export type hyperTextClassMethods = {
 	UpdateDefaultMarkups : typeof(
+		--[[
+			Merges the given markups dict into the object's default markups. To delete a default markup or attribute, set its value to <code>HyperText.DELETE</code>.
 
+			markups: markups
+			The dict, obtained from calling <code>.newMarkups().</code>
+		]]
 		function(
 			self : hyperTextClassObject,
 			markups : markups
 		) end
 	),
 	Render : typeof(
+		--[[
+			Renders the given text inside the object's container and applies the object's default markups & attributes to it. Stops any previous render and clears its text.
 
+			text: string
+			The text (including its markups) that is going to be rendered.
+			
+			yield: boolean?
+		    Indicates whether the render should yield the calling thread.
+			
+			wrapped: boolean?
+			Indicates whether the rendered content should wrap inside the object's container. Defaults to true.
+
+			constructOnly: boolean?
+			Indicates whether this render should only be constructed internally, not rendered. This parameter is meant to be used with <code>:GetConstructionSize()</code> to get the expected size of a render without actually rendering anything.
+		]]
 		function(
 			self : hyperTextClassObject,
 			text : string,
@@ -645,45 +664,62 @@ export type hyperTextClassMethods = {
 		) end
 	),
 	CompleteRender : typeof(
-
+		--[[
+			Skips all remaining render intervals immediately. If uncached text bounds are still being calculated asynchronously, this method may return before the render finishes.
+		]]
 		function(
 			self : hyperTextClassObject
 		) end
 	),
 	PauseRender : typeof(
-
+		--[[
+			Pauses a render.
+		]]
 		function(
 			self : hyperTextClassObject
 		) end
 	),
 	ResumeRender : typeof(
-
+		--[[
+			Resumes a paused render.
+		]]
 		function(
 			self : hyperTextClassObject,
 			_ignoreIntervalMarkupYield : boolean?
 		) end
 	),
 	Clear : typeof(
-
+		--[[
+			Stops a render and clears any rendered content. Yields the calling thread until all clearing markups have completed.
+			
+			instant: boolean?
+			Ignores the clearing markups and clears the text instantly.
+		]]
 		function(
 			self : hyperTextClassObject,
 			instant : boolean?
 		) end
 	),
 	GetConstructionSize : typeof(
-
+		--[[
+			Returns the final width and height of the last render.
+		]]
 		function(
 			self : hyperTextClassObject
 		) : Vector2? return nil :: any end
 	),
 	GetPlainText : typeof(
-
+		--[[
+			Returns the text used in the last render with all markup tags removed.
+		]]
 		function(
 			self : hyperTextClassObject
 		) : string? return nil :: any end
 	),
 	Destroy : typeof(
-
+		--[[
+			Stops a render, clears any rendered content, and destroys owned instances.
+		]]
 		function(
 			self : hyperTextClassObject
 		) end
@@ -847,6 +883,7 @@ export type flipbookAttrsConverts = createAttrConverters<flipbookAttrs>
 export type imgAttrsConverters = createAttrConverters<imgAttrs>
 type inherit<T> = T | "inherit"
 export type markups = {
+	-- self closing tag markups
 	wait : {
 		value : number,
 		attributes : {},
@@ -868,6 +905,7 @@ export type markups = {
 		valueAttributes : {},
 	},
 	
+	-- paired tags markups
 	color : {
 		value : Color3,
 		attributes : {},
@@ -1025,6 +1063,7 @@ export type markups = {
 		valueAttributes : {},
 	},
 	
+	-- untagged markups
 	horizontalAlignment : {
 		value : Enum.HorizontalAlignment,
 		attributes : {},

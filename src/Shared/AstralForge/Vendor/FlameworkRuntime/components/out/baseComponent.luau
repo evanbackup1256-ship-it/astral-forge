@@ -1,10 +1,25 @@
+-- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local Signal = TS.import(script, TS.getModule(script, "@rbxts", "signal"))
-
+--[[
+	*
+	 * @hidden @internal
+	 
+]]
 local SYMBOL_ATTRIBUTE_HANDLERS = {}
-
+--[[
+	*
+	 * @hidden @deprecated
+	 
+]]
 local SYMBOL_ATTRIBUTE_SETTER = {}
-
+--[[
+	*
+	 * This is the base component class which handles instance guards, attribute guards and cleanup.
+	 *
+	 * You should not construct this class manually, and all components must extend this class.
+	 
+]]
 local BaseComponent
 do
 	BaseComponent = setmetatable({}, {

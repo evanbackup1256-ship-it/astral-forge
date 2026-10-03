@@ -1,3 +1,4 @@
+-- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local _core = TS.import(script, TS.getModule(script, "@flamework", "core").out)
 local Controller = _core.Controller
@@ -25,7 +26,11 @@ local isConstructor = _utility.isConstructor
 local safeCall = _utility.safeCall
 local Maid = TS.import(script, TS.getModule(script, "@rbxts", "maid").Maid)
 local Signal = TS.import(script, TS.getModule(script, "@rbxts", "signal"))
-
+--[[
+	*
+	 * This enum dictates how component instance guards interact with StreamingEnabled.
+	 
+]]
 local ComponentStreamingMode
 do
 	local _inverse = {}
@@ -42,9 +47,20 @@ do
 	_inverse[2] = "Default"
 end
 local DEFAULT_ANCESTOR_BLACKLIST = { ServerStorage, ReplicatedStorage, StarterPack, StarterGui, StarterPlayer }
-
+--[[
+	*
+	 * Register a class as a Component.
+	 *
+	 * @metadata flamework:implements flamework:parameters injectable intrinsic-component-decorator
+	 
+]]
 local Component = Modding.createMetaDecorator("Class")
-
+--[[
+	*
+	 * This class is responsible for loading and managing
+	 * all components in the game.
+	 
+]]
 local Components
 do
 	Components = setmetatable({}, {
@@ -127,6 +143,7 @@ do
 					end
 					local _isWhitelisted = ancestorWhitelist
 					if _isWhitelisted ~= nil then
+						-- ▼ ReadonlyArray.some ▼
 						local _result = false
 						local _callback = function(ancestor)
 							return instance:IsDescendantOf(ancestor)
@@ -137,12 +154,14 @@ do
 								break
 							end
 						end
+						-- ▲ ReadonlyArray.some ▲
 						_isWhitelisted = _result
 					end
 					local isWhitelisted = _isWhitelisted
 					if isWhitelisted == false then
 						return nil
 					end
+					-- ▼ ReadonlyArray.some ▼
 					local _result = false
 					local _callback = function(ancestor)
 						return instance:IsDescendantOf(ancestor)
@@ -153,6 +172,7 @@ do
 							break
 						end
 					end
+					-- ▲ ReadonlyArray.some ▲
 					local isBlacklisted = _result
 					if isBlacklisted and isWhitelisted == nil then
 						return nil
@@ -345,10 +365,12 @@ do
 		local componentWaiters = _componentWaiters_1
 		if componentWaiters then
 			instanceWaiters[ctor] = nil
+			-- ▼ ReadonlyMap.size ▼
 			local _size = 0
 			for _ in instanceWaiters do
 				_size += 1
 			end
+			-- ▲ ReadonlyMap.size ▲
 			if _size == 0 then
 				local _componentWaiters_2 = self.componentWaiters
 				local _instance_1 = instance
@@ -409,27 +431,33 @@ do
 		instances[_value] = nil
 		local _value_1 = value
 		inheritedLookup[_value_1] = nil
+		-- ▼ ReadonlySet.size ▼
 		local _size = 0
 		for _ in inheritedLookup do
 			_size += 1
 		end
+		-- ▲ ReadonlySet.size ▲
 		if _size == 0 then
 			local _reverseComponentsMapping_1 = self.reverseComponentsMapping
 			local _id_2 = id
 			_reverseComponentsMapping_1[_id_2] = nil
 		end
+		-- ▼ ReadonlySet.size ▼
 		local _size_1 = 0
 		for _ in instances do
 			_size_1 += 1
 		end
+		-- ▲ ReadonlySet.size ▲
 		if _size_1 == 0 then
 			local _id_2 = id
 			inheritedComponents[_id_2] = nil
 		end
+		-- ▼ ReadonlyMap.size ▼
 		local _size_2 = 0
 		for _ in inheritedComponents do
 			_size_2 += 1
 		end
+		-- ▲ ReadonlyMap.size ▲
 		if _size_2 == 0 then
 			local _activeInheritedComponents_1 = self.activeInheritedComponents
 			local _instance_1 = instance
@@ -497,6 +525,7 @@ do
 		if activeComponents then
 			local activeComponent = activeComponents[component]
 			if activeComponent then
+				-- The component is still being constructed.
 				if self.componentConstructing[activeComponent] ~= nil then
 					return nil
 				end
@@ -568,6 +597,7 @@ do
 		end
 		local existingComponent = activeComponents[component]
 		if existingComponent ~= nil then
+			-- The component has already been added, but is still being constructed.
 			if self.componentConstructing[existingComponent] ~= nil then
 				error("component is cyclic, attempted to construct component while it is already being constructed.")
 			end
@@ -617,10 +647,12 @@ do
 		for _, id in componentInfo.polymorphicIds do
 			self:removeIdMapping(instance, existingComponent, id)
 		end
+		-- ▼ ReadonlyMap.size ▼
 		local _size = 0
 		for _ in activeComponents do
 			_size += 1
 		end
+		-- ▲ ReadonlyMap.size ▲
 		if _size == 0 then
 			local _activeComponents_1 = self.activeComponents
 			local _instance_1 = instance
@@ -679,17 +711,21 @@ do
 				local _componentWaiters_1 = componentWaiters
 				local _resolve = resolve
 				_componentWaiters_1[_resolve] = nil
+				-- ▼ ReadonlySet.size ▼
 				local _size = 0
 				for _1 in componentWaiters do
 					_size += 1
 				end
+				-- ▲ ReadonlySet.size ▲
 				if _size == 0 then
 					instanceWaiters[component] = nil
 				end
+				-- ▼ ReadonlyMap.size ▼
 				local _size_1 = 0
 				for _1 in instanceWaiters do
 					_size_1 += 1
 				end
+				-- ▲ ReadonlyMap.size ▲
 				if _size_1 == 0 then
 					local _componentWaiters_2 = self.componentWaiters
 					local _instance_1 = instance
@@ -728,10 +764,12 @@ do
 		return signal:Connect(callback)
 	end
 	do
+		-- (Flamework) Components metadata
 		Reflect.defineMetadata(Components, "identifier", "$c:components@Components")
 		Reflect.defineMetadata(Components, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart" })
 	end
 end
+-- (Flamework) Components decorators
 Reflect.decorate(Components, "$:flamework@Controller", Controller, { {
 	loadOrder = 0,
 } })

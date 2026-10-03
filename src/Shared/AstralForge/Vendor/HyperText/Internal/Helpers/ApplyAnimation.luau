@@ -188,9 +188,12 @@ return function(
 
 				if onClear or not attrs.loop or attrs.dur ~= 0 then
 					local x = (time_ / (
+						--attrs.loop
+						--	and attrs.dur
+						--	or 1 / valueAttrs.wiggle.freq
 						1 / valueAttrs.wiggle.freq
 						) * math.pi * 2)
-						+ (math.pi * 2 * valueAttrs.wiggle.offset * index)
+						+ (math.pi * 2 * valueAttrs.wiggle.offset * index) -- offset between characters
 
 					local wiggle = valueAttrs.wiggle
 					local fade = not onClear and attrs.loop
@@ -227,6 +230,7 @@ return function(
 							* wiggle.amp
 							* printerData.character.AbsoluteSize.Y
 						
+						-- TODO: this might not rotate correctly when ui scales up
 						printerData.rotation += math.deg(math.atan2(slopeY, printerData.constructionDataRowEntry.width))
 					end
 				end

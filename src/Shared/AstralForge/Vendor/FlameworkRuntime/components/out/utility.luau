@@ -1,3 +1,4 @@
+-- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local _core = TS.import(script, TS.getModule(script, "@flamework", "core").out)
 local Modding = _core.Modding

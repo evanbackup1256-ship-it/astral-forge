@@ -2,6 +2,7 @@
 
 local types = {}
 
+-- used for validating at runtime
 types.runtime = {
 	animations = {
 		SlideFromTop = true,

@@ -24,6 +24,7 @@ util.updateProperties = function(
 ) : types.properties
 	local previous : {[string] : any} = {}
 
+	-- converting to indexable
 	base = base :: {[string] : any}
 	new = new :: {[string] : any}
 
@@ -36,6 +37,7 @@ util.updateProperties = function(
 end
 
 local MAX_RETRIES = 5
+-- caching result from GetTextBoundsAsync to avoid possible failures
 local textBoundsCache : {
 	[any] : {
 		[number] : {

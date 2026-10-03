@@ -1,3 +1,4 @@
+-- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local CollectionService = TS.import(script, TS.getModule(script, "@rbxts", "services")).CollectionService
 local ATOMIC_MODES = {
