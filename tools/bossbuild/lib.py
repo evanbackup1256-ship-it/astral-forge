@@ -383,6 +383,10 @@ def procedural_material(name, spec):
             nt.links.new(vein_ramp.outputs["Color"], bsdf.inputs["Emission Color"])
             bsdf.inputs["Emission Strength"].default_value = spec["veins_glow"]
     nt.links.new(color_out, bsdf.inputs["Base Color"])
+    # what the viewport / fast previews show (the bake replaces it with the real texture)
+    swatch = spec["base"][1] if isinstance(spec["base"][0], (tuple, list)) else spec["base"]
+    glow = spec.get("emit")
+    mat.diffuse_color = ((*glow[:3], 1) if glow else (*[min(1.0, c * 1.1) for c in swatch], 1))
     bsdf.inputs["Roughness"].default_value = spec.get("rough", 0.6)
     bsdf.inputs["Metallic"].default_value = 0.0  # albedo-only bake: metallic would turn the diffuse pass black
     if spec.get("emit"):
@@ -553,10 +557,22 @@ def apply_pose(boss, rig, pose):
         local = Matrix.Translation(head) @ rot_matrix(p, y, r, side).to_4x4() @ Matrix.Translation(-head)
         parent = info["parent"]
         absolute[name] = (absolute[parent] @ local) if parent else local
+    # Each bone's local transform is solved from the desired armature-space matrices of itself and its parent.
+    # (Assigning pb.matrix bone by bone reads the parent's *stale* pose matrix until the dependency graph
+    # refreshes, which scrambles every child; this does not depend on evaluation order.)
     for name in boss.order:
         pb = arm.pose.bones[name]
         rest = arm.data.bones[name].matrix_local
-        pb.matrix = absolute[name] @ rest
+        wanted = absolute[name] @ rest
+        parent = boss.bones[name]["parent"]
+        if parent:
+            parent_rest = arm.data.bones[parent].matrix_local
+            parent_wanted = absolute[parent] @ parent_rest
+            local_rest = parent_rest.inverted() @ rest
+            local_pose = parent_wanted.inverted() @ wanted
+            pb.matrix_basis = local_rest.inverted() @ local_pose
+        else:
+            pb.matrix_basis = rest.inverted() @ wanted
 
 
 def key_pose(boss, rig, frame):
@@ -637,3 +653,61 @@ def export_glb(boss, objs, path=None):
     path = path or os.path.join(OUT, f"{boss.kind}.glb")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=False, export_materials="EXPORT", export_image_format="AUTO", export_yup=True)
     return path
+
+
+# --------------------------------------------------------------------------------------------
+# Preview renders (Workbench: needs no GPU, so it works in a headless run)
+# --------------------------------------------------------------------------------------------
+
+def render_preview(kind, objs, views=("front", "side", "back", "three"), size=(900, 1100), tag="", textured=False):
+    """Render the posed pieces from a few angles into assets/generated/bosses/previews/."""
+    scene = bpy.context.scene
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    lo = Vector((1e9, 1e9, 1e9))
+    hi = Vector((-1e9, -1e9, -1e9))
+    for obj in objs.values():
+        ev = obj.evaluated_get(depsgraph)
+        mesh = ev.to_mesh()
+        for v in mesh.vertices:
+            p = ev.matrix_world @ v.co
+            lo = Vector((min(lo.x, p.x), min(lo.y, p.y), min(lo.z, p.z)))
+            hi = Vector((max(hi.x, p.x), max(hi.y, p.y), max(hi.z, p.z)))
+        ev.to_mesh_clear()
+    centre = (lo + hi) / 2
+    extent = max(hi.x - lo.x, hi.z - lo.z, (hi.y - lo.y)) * 1.12
+    scene.render.engine = "BLENDER_WORKBENCH"
+    scene.render.resolution_x, scene.render.resolution_y = size
+    scene.render.film_transparent = False
+    shading = scene.display.shading
+    shading.light = "STUDIO"
+    shading.color_type = "TEXTURE" if textured else "MATERIAL"
+    shading.show_cavity = True
+    shading.cavity_type = "BOTH"
+    shading.show_shadows = False
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("PreviewWorld")
+    scene.world.color = (0.30, 0.31, 0.38)
+    cam_data = bpy.data.cameras.get("PreviewCam") or bpy.data.cameras.new("PreviewCam")
+    cam_data.type = "ORTHO"
+    cam_data.ortho_scale = extent * (size[1] / size[0] if size[1] > size[0] else 1.0)
+    cam_data.clip_end = 200
+    cam = bpy.data.objects.get("PreviewCam") or bpy.data.objects.new("PreviewCam", cam_data)
+    if cam.name not in scene.collection.objects:
+        scene.collection.objects.link(cam)
+    scene.camera = cam
+    out_dir = os.path.join(OUT, "previews")
+    os.makedirs(out_dir, exist_ok=True)
+    spots = {
+        "front": Vector((0, -1, 0.05)), "side": Vector((1, 0, 0.05)), "back": Vector((0, 1, 0.05)),
+        "three": Vector((0.7, -0.7, 0.25)), "back34": Vector((-0.7, 0.7, 0.25)),
+    }
+    paths = []
+    for view in views:
+        direction = spots[view].normalized()
+        cam.location = centre + direction * 60
+        cam.rotation_euler = (centre - cam.location).to_track_quat("-Z", "Y").to_euler()
+        path = os.path.join(out_dir, f"{kind}{tag}_{view}.png")
+        scene.render.filepath = path
+        bpy.ops.render.render(write_still=True)
+        paths.append(path)
+    return paths

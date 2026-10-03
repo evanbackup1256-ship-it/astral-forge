@@ -32,6 +32,16 @@ local files = {
 	"src/Client/AstralForge/pages/PagesShop.luau",
 	-- Shared catalog (parse only — no require)
 	"src/Shared/AstralForge/Shared/GameConfig.luau",
+	"src/Shared/AstralForge/Shared/BossPhysics.luau",
+	"src/Shared/AstralForge/Shared/Spr.luau",
+	"src/Shared/AstralForge/Shared/BossBodies.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Astraeon.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Choir.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Knight.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Regent.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Rime.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Seraph.luau",
+	"src/Shared/AstralForge/Shared/BossBody_Warden.luau",
 	-- Server trade desk (offer validation / exchange)
 	"src/Server/AstralForge/Modules/TradeSuite.luau",
 	"src/Server/AstralForge/Modules/EconomyMath.luau",

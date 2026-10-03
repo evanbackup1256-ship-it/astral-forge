@@ -340,11 +340,102 @@ def death_Knight():
     return norm(reverb((np.sin(2 * np.pi * 440 * t) + 0.6 * np.sin(2 * np.pi * 988 * t)) * decay(n, 2.2) * 0.5 + band(noise(3.6), 500, 2500) * decay(n, 2.5) * 0.4 + sweep(3.6, 100, 30) * decay(n, 2.0), 2.4, 0.5))
 
 
+# --- the body: footsteps per boss, wing beats and cloth ---------------------------------------------
+
+def burst(seconds, lo, hi, rise=0.06, fall=8.0):
+    """Band-limited noise with a quick rise and an exponential fall: a puff of air, a scrape, a rustle."""
+    n = int(seconds * RATE)
+    env = np.minimum(1, np.linspace(0, 1, n) / max(1e-4, rise)) * decay(n, fall)
+    return band(noise(seconds), lo, hi) * env
+
+
+def step_Warden():
+    n = int(0.55 * RATE)
+    thud = sweep(0.55, 95, 38) * decay(n, 9)
+    robe = burst(0.55, 250, 1400, 0.03, 10) * 0.35
+    return norm(reverb(np.tanh(thud * 2.0) + robe, 0.7, 0.25))
+
+
+def step_Choir():
+    n = int(0.45 * RATE)
+    t = t_axis(0.45)
+    tick = (np.sin(2 * np.pi * 2349 * t) + 0.6 * np.sin(2 * np.pi * 3136 * t) + 0.4 * np.sin(2 * np.pi * 4699 * t)) * decay(n, 26)
+    click = highpass(noise(0.45), 5000) * decay(n, 70) * 0.5
+    return norm(reverb(tick * 0.6 + click, 0.9, 0.3))
+
+
+def step_Regent():
+    n = int(0.7 * RATE)
+    thud = sweep(0.7, 72, 26) * decay(n, 7)
+    grit = burst(0.7, 90, 900, 0.02, 9) * 0.6
+    pops = (rng.random(n) > 0.9993).astype(float) * rng.standard_normal(n) * 2.5
+    return norm(reverb(np.tanh(thud * 2.6) + grit + highpass(pops, 1200) * decay(n, 6) * 0.5, 0.9, 0.3))
+
+
+def step_Seraph():
+    # a hovering boss "steps" with a soft thrum of air under its wings
+    return norm(burst(0.5, 120, 700, 0.1, 6) * 0.8 + sweep(0.5, 180, 90) * decay(int(0.5 * RATE), 7) * 0.3)
+
+
+def step_Rime():
+    n = int(0.65 * RATE)
+    crunch = np.zeros(n)
+    for _ in range(14):
+        start = int(rng.random() * 0.12 * RATE)
+        grain = band(noise(0.08), 1500, 7000) * decay(int(0.08 * RATE), 40)
+        crunch[start:start + len(grain)] += grain * (0.4 + rng.random() * 0.6)
+    thud = sweep(0.65, 80, 30) * decay(n, 8)
+    return norm(reverb(np.tanh(thud * 1.8) + crunch * 0.7, 0.8, 0.25))
+
+
+def step_Knight():
+    n = int(0.5 * RATE)
+    t = t_axis(0.5)
+    clank = (np.sin(2 * np.pi * 712 * t) + 0.7 * np.sin(2 * np.pi * 1523 * t * 1.01) + 0.5 * np.sin(2 * np.pi * 2891 * t)) * decay(n, 16)
+    thud = sweep(0.5, 130, 55) * decay(n, 12)
+    scrape = burst(0.5, 2200, 7000, 0.01, 30) * 0.4
+    return norm(reverb(clank * 0.35 + thud * 1.1 + scrape, 0.6, 0.2))
+
+
+def step_Astraeon():
+    n = int(0.85 * RATE)
+    thrum = sweep(0.85, 62, 24) * decay(n, 5)
+    shimmer = chord([523.3, 784.0, 1046.5], 0.85, 4.0, 0.006) * decay(n, 6) * 0.12
+    return norm(reverb(np.tanh(thrum * 2.4) + shimmer, 1.6, 0.4))
+
+
+def wing_beat():
+    """One slow downstroke: air rushing under a wide wing, a flutter of feathers at the top."""
+    n = int(0.9 * RATE)
+    t = t_axis(0.9)
+    sweep_env = np.exp(-((t - 0.28) / 0.17) ** 2)
+    air = band(noise(0.9), 120, 900) * sweep_env
+    flutter = band(noise(0.9), 2000, 7000) * np.exp(-((t - 0.1) / 0.06) ** 2) * (0.5 + 0.5 * np.sin(2 * np.pi * 38 * t)) * 0.4
+    low = np.sin(2 * np.pi * 70 * t) * sweep_env * 0.25
+    return norm(reverb(air * 1.4 + flutter + low, 0.5, 0.18))
+
+
+def cloth_whoosh():
+    n = int(0.55 * RATE)
+    t = t_axis(0.55)
+    env = np.exp(-((t - 0.22) / 0.13) ** 2)
+    return norm(band(noise(0.55), 500, 3200) * env + highpass(noise(0.55), 4000) * env * 0.12)
+
+
+def armor_clank():
+    n = int(0.6 * RATE)
+    t = t_axis(0.6)
+    plates = (np.sin(2 * np.pi * 905 * t) + 0.8 * np.sin(2 * np.pi * 2210 * t * 1.02) + 0.5 * np.sin(2 * np.pi * 3777 * t)) * decay(n, 13)
+    return norm(reverb(plates * 0.7 + highpass(noise(0.6), 2500) * decay(n, 55) * 0.7, 0.5, 0.2))
+
 SOUNDS = {
     "cast_Fire": cast_fire, "cast_Storm": cast_storm, "cast_Frost": cast_frost, "cast_Void": cast_void,
     "hit_Fire": hit_fire, "hit_Storm": hit_storm, "hit_Frost": hit_frost, "hit_Void": hit_void,
     "wisp_spawn": wisp_spawn, "wisp_blast": wisp_blast, "wisp_down": wisp_down, "impact": impact,
+    "wing_beat": wing_beat, "cloth_whoosh": cloth_whoosh, "armor_clank": armor_clank,
 }
+for _kind in ("Warden", "Choir", "Regent", "Seraph", "Rime", "Knight", "Astraeon"):
+    SOUNDS[f"step_{_kind}"] = globals()[f"step_{_kind}"]
 for _kind in ("Warden", "Choir", "Regent", "Seraph", "Rime", "Knight"):
     for _beat in ("roar", "charge", "boom", "death"):
         SOUNDS[f"{_beat}_{_kind}"] = globals()[f"{_beat}_{_kind}"]
@@ -352,10 +443,27 @@ for _kind in ("Warden", "Choir", "Regent", "Seraph", "Rime", "Knight"):
 for _beat in ("roar", "charge", "boom", "death"):
     SOUNDS[f"{_beat}_Astraeon"] = globals()[f"{_beat}_Regent"]
 
+# Short effects are cut to a length that suits them (a reverb tail would make a footstep a smear).
+MAX_SECONDS = {"step_": 0.7, "step_Astraeon": 1.0, "wing_beat": 1.0, "cloth_whoosh": 0.6, "armor_clank": 0.8}
+
+
+def limit_for(name):
+    if name in MAX_SECONDS:
+        return MAX_SECONDS[name]
+    for prefix, seconds in MAX_SECONDS.items():
+        if prefix.endswith("_") and name.startswith(prefix):
+            return seconds
+    return None
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, make in SOUNDS.items():
-        data = fade_out(norm(make()))
+        data = norm(make())
+        cap = limit_for(name)
+        if cap is not None:
+            data = data[: int(cap * RATE)]
+        data = fade_out(data)
         with wave.open(os.path.join(OUT, name + ".wav"), "wb") as handle:
             handle.setnchannels(1)
             handle.setsampwidth(2)

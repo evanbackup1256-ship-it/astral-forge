@@ -6,6 +6,7 @@ facing -Y."""
 import math
 
 import humanoid
+import kit
 from lib import V, Boss, box, ellipsoid, frustum, plate, ribbon_strip, sweep
 
 KIND = "Astraeon"
@@ -41,7 +42,8 @@ def blade_crown(bm, centre, count, inner, height, mat):
 def build():
     boss = Boss(KIND, ORDER)
     humanoid.skeleton(boss, hip_z=1.9, chest_z=3.0, neck_z=3.45, head_top=4.2, shoulder_x=1.25, shoulder_z=3.25, elbow_z=2.4, wrist_z=1.65, hand_z=1.25, hip_x=0.3, knee_z=1.05, ankle_z=0.2, foot_len=0.3)
-    cape = humanoid.chain(boss, "cape", "spine", V(0, 0.4, 3.2), V(0, 0.75, 0.5), CAPE, y=0.35, dy=0.04)
+    # a cape of woven light: seven simulated columns, five bones deep
+    kit.cape(boss, "cape", "spine", top_z=3.2, bottom_z=0.5, half_top=0.9, half_bottom=2.1, y_top=0.35, y_bottom=0.6, columns=7, segments=5, mat=VOID, edge_mat=STAR, bow=0.1, tatter=0.5, seed=9, thickness=0.02, Pull=0.04)
     boss.bone("halo", "spine", V(0, 0.3, 3.8), V(0, 0.3, 4.4))
     boss.bone("ringA", "hips", V(0, 0, 2.6), V(0, 0, 3.0))
     boss.bone("ringB", "hips", V(0, 0, 2.2), V(0, 0, 2.6))
@@ -107,19 +109,6 @@ def build():
         bm = boss.piece(f"foot{n}", f"foot{n}")
         sweep(bm, [V(0.32 * s, 0, 0.25), V(0.32 * s, -0.1, 0.1), V(0.32 * s, -0.3, 0.05)], [0.07, 0.05, 0.008], 6, GOLD)
 
-    for i, name in enumerate(cape):                                                     # a cape of woven light, in segments
-        bm = boss.piece(name, name)
-        z0 = 3.2 - 2.7 * i / CAPE
-        z1 = 3.2 - 2.7 * (i + 1) / CAPE
-        w0 = 0.9 + 0.35 * i
-        w1 = 0.9 + 0.35 * (i + 1)
-        y0 = 0.35 + 0.04 * i
-        y1 = 0.35 + 0.04 * (i + 1)
-        left = [V(-w0, y0, z0), V(-(w0 + w1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), V(-w1, y1, z1)]
-        right = [V(w0, y0, z0), V(0.0 + (w0 + w1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), V(w1, y1, z1)]
-        ribbon_strip(bm, left, right, 0.02, VOID)
-        sweep(bm, [V(-w1, y1, z1), V(w1, y1, z1)], [0.03, 0.03], 5, STAR)
-
     bm = boss.piece("ringA", "ringA")
     ring(bm, V(0, 0, 2.8), 1.9, math.radians(70), 64, 0.07, GOLD)
     for k in range(6):
@@ -133,7 +122,8 @@ def build():
 
 def map_pose(c):
     pose = humanoid.map_humanoid(c, arm_scale=0.85, elbow=-0.2, knee=0.2)
-    humanoid.map_chain(pose, c, "cape", CAPE, "cloth", 0.88)
+    for col in range(7):                                         # the first bone of each column; physics does the rest
+        pose[f"cape{kit.LETTERS[col]}1"] = (c["cloth"][0] * 0.9, c["cloth"][1], c["cloth"][2] * 0.9)
     t = c["torso"]
     pose["halo"] = (0, c["head"][1] * 0.5, c["cloth"][2] * 0.4)
     pose["ringA"] = (0.25 * c["torso"][0], c["torso"][1] * 2 + c["cloth"][1], 0.3 + c["cloth"][2])

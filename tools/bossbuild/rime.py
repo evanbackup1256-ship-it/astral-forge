@@ -6,18 +6,20 @@ facing -Y."""
 import math
 
 import humanoid
+import kit
 from lib import V, Boss, box, ellipsoid, frustum, plate, ribbon_strip, sweep
 
 KIND = "Rime"
-ICE, ROCK, GLOW, CRYSTAL, FROST = 0, 1, 2, 3, 4
+ICE, ROCK, GLOW, CRYSTAL, FROST, MANTLE = 0, 1, 2, 3, 4, 5
 MATERIALS = {
     "ice": dict(base=((0.35, 0.58, 0.78), (0.85, 0.95, 1.0)), rough=0.15, metal=0.15, noise_scale=4.0, scale=3.5, veins=(0.9, 0.97, 1.0), vein_width=0.04, voro_scale=2.8, veins_glow=0.5),
     "rock": dict(base=((0.03, 0.04, 0.07), (0.14, 0.17, 0.24)), rough=0.85, noise_scale=9.0, scale=5.0, veins=(0.2, 0.55, 0.9), vein_width=0.02, voro_scale=3.0, veins_glow=0.4),
     "glow": dict(base=(0.5, 0.9, 1.0), rough=0.3, emit=(0.3, 0.8, 1.0, 1.5), noise_scale=5.0),
     "crystal": dict(base=((0.4, 0.75, 0.95), (0.85, 1.0, 1.0)), rough=0.08, metal=0.1, noise_scale=6.0, emit=(0.25, 0.6, 0.9, 0.5)),
     "frost": dict(base=((0.75, 0.85, 0.92), (1.0, 1.0, 1.0)), rough=0.9, noise_scale=22.0, scale=14.0),
+    "mantle": dict(base=((0.5, 0.66, 0.8), (0.93, 0.97, 1.0)), rough=0.95, noise_scale=26.0, scale=16.0, veins=(0.8, 0.95, 1.0), vein_width=0.02, voro_scale=7.0, veins_glow=0.15),
 }
-ORDER = ["ice", "rock", "glow", "crystal", "frost"]
+ORDER = ["ice", "rock", "glow", "crystal", "frost", "mantle"]
 
 
 def cluster(bm, base, spread, height, count=5, r=0.1, mat=CRYSTAL, tilt=0.35, seed=0):
@@ -32,6 +34,8 @@ def build():
     boss = Boss(KIND, ORDER)
     humanoid.skeleton(boss, hip_z=1.2, chest_z=2.15, neck_z=2.5, head_top=3.0, shoulder_x=1.0, shoulder_z=2.2, elbow_z=1.4, wrist_z=0.72, hand_z=0.34, hip_x=0.4, knee_z=0.7, ankle_z=0.14, foot_len=0.5)
     boss.bone("back", "spine", V(0, 0.38, 2.1), V(0, 0.5, 3.0))
+    # a heavy frozen mantle of hoar-frost down the back, five simulated columns
+    kit.cape(boss, "mantle", "spine", top_z=2.25, bottom_z=0.3, half_top=0.8, half_bottom=1.2, y_top=0.5, y_bottom=0.7, columns=5, segments=3, mat=MANTLE, edge_mat=CRYSTAL, bow=0.09, tatter=1.0, seed=8, thickness=0.05, kind="heavy")
 
     bm = boss.piece("hips", "hips")
     box(bm, V(0, 0, 1.25), (1.35, 0.78, 0.32), ROCK, bevel=0.06)
@@ -104,4 +108,6 @@ def build():
 def map_pose(c):
     pose = humanoid.map_humanoid(c, arm_scale=0.85, elbow=-0.15, knee=0.4)
     pose["back"] = (c["cloth"][0] * 0.4, 0, c["cloth"][2] * 0.4)
+    for col in range(5):
+        pose[f"mantle{kit.LETTERS[col]}1"] = (c["cloth"][0] * 0.6, c["cloth"][1], c["cloth"][2] * 0.6)
     return pose

@@ -1751,6 +1751,8 @@ local UmbralKnight = bossFrom(SanctuaryConfig.RiftBoss, {
 -- Boss effect sounds by name (cast_<Element>, hit_<Element>, wisp_*, impact) -> uploaded audio id.
 -- BOSS-SFX-BEGIN (rewritten by tools/assetgen/upload_boss_sfx.py)
 SanctuaryConfig.BossSfx = {
+	["armor_clank"] = 75410196239815,
+	["boom_Astraeon"] = 86443241088243,
 	["boom_Choir"] = 121783253529764,
 	["boom_Knight"] = 114051540535398,
 	["boom_Regent"] = 118488607818523,
@@ -1761,12 +1763,15 @@ SanctuaryConfig.BossSfx = {
 	["cast_Frost"] = 72187971131986,
 	["cast_Storm"] = 92138127701089,
 	["cast_Void"] = 106692366896440,
+	["charge_Astraeon"] = 138812639576899,
 	["charge_Choir"] = 74209989827837,
 	["charge_Knight"] = 126591884216749,
 	["charge_Regent"] = 135026014097678,
 	["charge_Rime"] = 76730337330543,
 	["charge_Seraph"] = 121722729622622,
 	["charge_Warden"] = 97049983205219,
+	["cloth_whoosh"] = 107896766944931,
+	["death_Astraeon"] = 124818493091840,
 	["death_Choir"] = 140614894530556,
 	["death_Knight"] = 128773631016939,
 	["death_Regent"] = 97559340390980,
@@ -1778,12 +1783,21 @@ SanctuaryConfig.BossSfx = {
 	["hit_Storm"] = 116862191440594,
 	["hit_Void"] = 116315495398978,
 	["impact"] = 88257269102737,
+	["roar_Astraeon"] = 93199165787938,
 	["roar_Choir"] = 112477213188430,
 	["roar_Knight"] = 78411532764396,
 	["roar_Regent"] = 71888323612526,
 	["roar_Rime"] = 72438654390546,
 	["roar_Seraph"] = 83421337144991,
 	["roar_Warden"] = 83056913167769,
+	["step_Astraeon"] = 95199208477377,
+	["step_Choir"] = 93618602773961,
+	["step_Knight"] = 79337324769467,
+	["step_Regent"] = 84673589896879,
+	["step_Rime"] = 110427816931011,
+	["step_Seraph"] = 122665304312558,
+	["step_Warden"] = 131117341067610,
+	["wing_beat"] = 138506887464861,
 	["wisp_blast"] = 140620443596331,
 	["wisp_down"] = 80813482090323,
 	["wisp_spawn"] = 76279580661681,
@@ -1802,13 +1816,13 @@ SanctuaryConfig.BossBodies = false
 -- The uploaded body models, one per boss: kind -> model id.
 -- BOSS-BODYKIT-BEGIN (rewritten by tools/bossbuild/upload_bodies.py)
 SanctuaryConfig.BossBodyKit = {
-	Astraeon = 122761215688798,
-	Choir = 120624360620684,
-	Knight = 115948050977375,
-	Regent = 136824896638647,
-	Rime = 100339874565327,
-	Seraph = 140728471169346,
-	Warden = 119016810651714,
+	Astraeon = 130149420787015,
+	Choir = 80226286580187,
+	Knight = 80597675859468,
+	Regent = 104686406794631,
+	Rime = 85984839083025,
+	Seraph = 100357521359703,
+	Warden = 98182115252813,
 }
 -- BOSS-BODYKIT-END
 

@@ -46,6 +46,9 @@ GAITS = {
     "Rime": dict(length=2.0, stride=0.45, knee=0.4, arm=0.2, lean=0.06, twist=0.06, sway=0.08),
     "Astraeon": dict(length=1.5, stride=0.4, knee=0.4, arm=0.15, lean=0.04, twist=0.06, sway=0.03),
 }
+FAST = os.environ.get("FAST", "") == "1"      # no bake, no clips, no export: just model, pose and render previews
+CLIPS_ONLY = os.environ.get("CLIPS_ONLY", "") == "1"   # no bake, no GLB: re-sample the clips and rewrite the rig JSON (about a minute)
+VIEWS = tuple(v for v in os.environ.get("VIEWS", "front,side,back,three").split(",") if v)
 FPS_KEYS = 12
 FPS_TIMELINE = 24
 STEP = FPS_TIMELINE // FPS_KEYS
@@ -53,6 +56,9 @@ STEP = FPS_TIMELINE // FPS_KEYS
 
 def main():
     scene = bpy.context.scene
+    for stray in ("Cube", "Light"):
+        if stray in bpy.data.objects:
+            bpy.data.objects.remove(bpy.data.objects[stray], do_unlink=True)
     lib.clear_boss(KIND)
     boss = module.build()
     objs = lib.make_objects(boss)
@@ -61,11 +67,12 @@ def main():
     rig = lib.make_armature(boss)
     materials = [lib.procedural_material(f"{KIND}_{name}", module.MATERIALS[name]) for name in module.ORDER]
     lib.assign_materials(objs, materials)
-    atlas = lib.join_for_atlas(boss, objs)
-    lib.unwrap(atlas)
-    final, atlas_path = lib.bake_atlas(boss, atlas)
-    lib.split_atlas(boss, atlas, objs, final)
-    bpy.data.objects.remove(atlas, do_unlink=True)
+    if not FAST and not CLIPS_ONLY:
+        atlas = lib.join_for_atlas(boss, objs)
+        lib.unwrap(atlas)
+        final, atlas_path = lib.bake_atlas(boss, atlas)
+        lib.split_atlas(boss, atlas, objs, final)
+        bpy.data.objects.remove(atlas, do_unlink=True)
     rest = lib.rest_data(boss, objs)
 
     # ---- animation: one action per clip, keyed at 12 fps on the pose bones ----
@@ -74,6 +81,15 @@ def main():
     bpy.ops.object.mode_set(mode="POSE")
     for pb in rig.pose.bones:
         pb.rotation_mode = "QUATERNION"
+    if FAST:
+        if os.environ.get("POSE", "idle") != "rest":
+            clip_name, _, clip_time = os.environ.get("CLIP", "idle:0").partition(":")
+            lib.apply_pose(boss, rig, module.map_pose(acting.channels(KIND, clip_name, float(clip_time or 0))))
+        bpy.context.view_layer.update()
+        bpy.ops.object.mode_set(mode="OBJECT")
+        paths = lib.render_preview(KIND, objs, views=VIEWS, tag="_fast" + os.environ.get("TAG", ""))
+        print(f"{KIND}: {len(objs)} pieces, {len(boss.order)} bones, {len(boss.physics)} physics chains (fast preview) -> {paths}")
+        return
     clips_out = {}
     for name, (length, hit, loop, pose_fn) in clipmod.CLIPS.items():
         action = bpy.data.actions.get(f"{KIND}_{name}")
@@ -102,6 +118,13 @@ def main():
     rig.animation_data.action = bpy.data.actions[f"{KIND}_idle"]
     scene.frame_set(1)
 
+    if CLIPS_ONLY:
+        with open(os.path.join(lib.OUT, f"{KIND}_rig.json"), "w", encoding="utf-8") as handle:
+            json.dump({"rest": rest, "clips": clips_out, "order": boss.order}, handle)
+        print(f"{KIND}: clips re-sampled, rig json rewritten")
+        return
+    bpy.context.view_layer.update()
+    lib.render_preview(KIND, objs, views=VIEWS, textured=True)
     path = lib.export_glb(boss, objs)
     with open(os.path.join(lib.OUT, f"{KIND}_rig.json"), "w", encoding="utf-8") as handle:
         json.dump({"rest": rest, "clips": clips_out, "order": boss.order}, handle)

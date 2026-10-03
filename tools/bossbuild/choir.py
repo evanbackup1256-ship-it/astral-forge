@@ -6,6 +6,7 @@ out behind. About 3.4 m tall, facing -Y."""
 import math
 
 import humanoid
+import kit
 from lib import V, Boss, box, ellipsoid, frustum, plate, ribbon_strip, sweep
 
 KIND = "Choir"
@@ -27,7 +28,9 @@ def crystal_spike(bm, base, tip, r, mat=CRYSTAL):
 def build():
     boss = Boss(KIND, ORDER)
     humanoid.skeleton(boss, hip_z=1.5, chest_z=2.45, neck_z=2.8, head_top=3.3, shoulder_x=0.62, shoulder_z=2.68, elbow_z=1.98, wrist_z=1.3, hand_z=0.98, hip_x=0.2, knee_z=0.86, ankle_z=0.14)
-    coat = humanoid.chain(boss, "coat", "hips", V(0, 0.05, 1.6), V(0, 0.05, 0.12), 3, y=0.04, dy=0.05)
+    # a split coat of glass: four simulated panels behind, three in front
+    kit.cape(boss, "coatB", "hips", top_z=1.6, bottom_z=0.06, half_top=0.34, half_bottom=0.62, y_top=0.1, y_bottom=0.3, columns=4, segments=3, mat=COAT, edge_mat=CORE, bow=0.05, tatter=0.7, seed=3, thickness=0.02, Pull=0.06)
+    kit.cape(boss, "coatF", "hips", top_z=1.6, bottom_z=0.06, half_top=0.3, half_bottom=0.5, y_top=-0.22, y_bottom=-0.34, columns=3, segments=3, mat=COAT, edge_mat=CORE, bow=0.03, tatter=0.5, seed=4, thickness=0.02, Pull=0.06)
     boss.bone("blades", "spine", V(0, 0.32, 2.7), V(0, 0.32, 3.4))
 
     bm = boss.piece("hips", "hips")
@@ -89,22 +92,6 @@ def build():
         box(bm, V(0.22 * s, -0.08, 0.06), (0.14, 0.3, 0.09), GLASS, bevel=0.02)
         crystal_spike(bm, V(0.22 * s, -0.2, 0.06), V(0.22 * s, -0.5, 0.03), 0.045, GLASS)
 
-    cheights = [(1.6, 1.1), (1.1, 0.6), (0.6, 0.06)]                           # split glass coat: front and back panels
-    for index in range(3):
-        bm = boss.piece(f"coat{index + 1}", f"coat{index + 1}")
-        z0, z1 = cheights[index]
-        w0, w1 = 0.34 + 0.06 * index, 0.44 + 0.09 * index
-        for side_y, flare in ((-0.22, -0.12), (0.26, 0.12)):
-            for half in (-1, 1):
-                a0, a1 = (0.04 if half > 0 else -w1), (w1 if half > 0 else -0.04)
-                left = [V(a0 * w0 / w1, side_y, z0), V(a0, side_y + flare * 0.3, (z0 + z1) / 2), V(a0 * 1.05, side_y + flare * 0.6, z1)]
-                right = [V(a1 * w0 / w1, side_y, z0), V(a1, side_y + flare * 0.3, (z0 + z1) / 2), V(a1 * 1.05, side_y + flare * 0.6, z1 + (0.1 if index == 2 else 0))]
-                ribbon_strip(bm, left, right, 0.025, COAT)
-        if index == 2:
-            for k in range(6):
-                a = (k - 2.5) * 0.2
-                crystal_spike(bm, V(a, 0.3, 0.14), V(a * 1.1, 0.34, -0.1), 0.035)
-
     bm = boss.piece("blades", "blades")                                         # seven tuning-fork blades, fanned
     for k in range(7):
         a = (k - 3) / 3 * 1.0
@@ -120,7 +107,11 @@ def build():
 
 def map_pose(c):
     pose = humanoid.map_humanoid(c, arm_scale=0.9, elbow=-0.3)
-    humanoid.map_chain(pose, c, "coat", 3, "cloth", 0.85)
+    cp, cy, cr = c["cloth"]
+    for col in range(4):                                         # the first bone of each column; physics does the rest
+        pose[f"coatB{kit.LETTERS[col]}1"] = (cp * 0.9, cy, cr * 0.9)
+    for col in range(3):
+        pose[f"coatF{kit.LETTERS[col]}1"] = (-cp * 0.4, cy, cr * 0.4)
     bp, by, br = c["blades"]
     pose["blades"] = (bp, by, br)
     return pose

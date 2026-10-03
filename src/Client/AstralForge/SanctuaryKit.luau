@@ -4537,6 +4537,113 @@ end
 	return current.floorPos or current.anchor.Position
 end
 
+-- Effects mounted on a Blender-rigged body's own pieces, so they ride the bones (and the cloth and wing
+-- physics) instead of floating at a fixed offset:
+--   trail   a ribbon that follows the tip of a piece: the far end of its longest axis. Wing feathers, cape
+--           hems, the Knight's blade and the fists draw glowing arcs when they swing.
+--   light   a soft point light      motes   drifting sparks      fire   flames (Regent's back vents)
+-- { shape, piece, colour ("hot" | "primary" | "alert"), trail lifetime | light range }
+local TRAIL_TIME = 0.5
+;(Controls :: any).ground.fx = {
+	Knight = {
+		{ "trail", "capeA3", "primary", 0.6 }, { "trail", "capeC3", "primary", 0.7 }, { "trail", "capeE3", "primary", 0.6 },
+		{ "trail", "sword", "hot", 0.45 }, { "trail", "handL", "primary", 0.35 }, { "trail", "handR", "primary", 0.35 },
+		{ "light", "head", "hot", 14 }, { "motes", "spine", "primary" },
+	},
+	Seraph = {
+		{ "trail", "wingLG10b", "hot", 0.7 }, { "trail", "wingLF11b", "hot", 0.8 }, { "trail", "wingLF8b", "primary", 0.7 },
+		{ "trail", "wingRG10b", "hot", 0.7 }, { "trail", "wingRF11b", "hot", 0.8 }, { "trail", "wingRF8b", "primary", 0.7 },
+		{ "light", "spine", "hot", 34 }, { "motes", "wingL3", "hot" }, { "motes", "wingR3", "hot" },
+	},
+	Warden = {
+		{ "trail", "cloakA3", "primary", 0.7 }, { "trail", "cloakC3", "primary", 0.8 }, { "trail", "cloakE3", "primary", 0.7 },
+		{ "trail", "handL", "hot", 0.4 }, { "trail", "handR", "hot", 0.4 },
+		{ "light", "head", "hot", 16 }, { "light", "spine", "primary", 40 }, { "motes", "spine", "primary" },
+	},
+	Choir = {
+		{ "trail", "coatBA3", "hot", 0.6 }, { "trail", "coatBD3", "hot", 0.6 }, { "trail", "handR", "hot", 0.6 },
+		{ "light", "spine", "hot", 36 }, { "motes", "blades", "primary" },
+	},
+	Regent = {
+		{ "trail", "handL", "alert", 0.45 }, { "trail", "handR", "alert", 0.45 },
+		{ "trail", "cloakA3", "primary", 0.6 }, { "trail", "cloakC3", "primary", 0.7 }, { "trail", "cloakE3", "primary", 0.6 },
+		{ "fire", "vents", "primary" }, { "light", "spine", "primary", 46 }, { "motes", "spine", "alert" },
+	},
+	Rime = {
+		{ "trail", "handL", "hot", 0.5 }, { "trail", "handR", "hot", 0.5 },
+		{ "trail", "mantleA3", "hot", 0.7 }, { "trail", "mantleC3", "hot", 0.8 }, { "trail", "mantleE3", "hot", 0.7 },
+		{ "light", "spine", "hot", 34 }, { "motes", "spine", "hot" },
+	},
+	Astraeon = {
+		{ "trail", "capeA5", "hot", 0.9 }, { "trail", "capeD5", "hot", 1.0 }, { "trail", "capeG5", "hot", 0.9 },
+		{ "trail", "ringA", "primary", 0.8 }, { "trail", "ringB", "hot", 0.8 },
+		{ "light", "spine", "hot", 60 }, { "motes", "halo", "primary" },
+	},
+}
+;(Controls :: any).ground.mountFx = function(current: Boss, parts: { [string]: { part: BasePart, rest: Vector3 } }, fx: { any })
+	local list = (Controls :: any).ground.fx[current.kind]
+	if list == nil then
+		return
+	end
+	for _, entry in list do
+		local shape, name, key = entry[1], entry[2], entry[3]
+		local found = parts[name]
+		if found == nil then
+			continue
+		end
+		local part = found.part
+		local tint = if key == "primary" then pal.Primary elseif key == "alert" then pal.Alert else pal.Hot
+		if shape == "trail" then
+			-- the tip is the far end of the piece's longest axis, away from the body's centre
+			local size = part.Size
+			local axes = { Vector3.xAxis * size.X / 2, Vector3.yAxis * size.Y / 2, Vector3.zAxis * size.Z / 2 }
+			local order = { 1, 2, 3 }
+			table.sort(order, function(a, b)
+				return axes[a].Magnitude > axes[b].Magnitude
+			end)
+			local along = axes[order[1]]
+			if along:Dot(found.rest) < 0 then
+				along = -along
+			end
+			local across = axes[order[2]] * 0.5
+			local first, second = Instance.new("Attachment"), Instance.new("Attachment")
+			first.Position = along + across
+			second.Position = along - across
+			first.Parent, second.Parent = part, part
+			local trail = Instance.new("Trail")
+			trail.Attachment0, trail.Attachment1 = first, second
+			trail.Color = ColorSequence.new(tint, pal.Hot)
+			trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(0.6, 0.75), NumberSequenceKeypoint.new(1, 1) })
+			trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1) })
+			trail.Lifetime = entry[4] or TRAIL_TIME
+			trail.MinLength = 0.25
+			trail.LightEmission = 1
+			trail.LightInfluence = 0
+			trail.FaceCamera = true
+			trail.Parent = part
+			table.insert(fx, trail)
+		elseif shape == "light" then
+			local light = Instance.new("PointLight")
+			light.Color = tint
+			light.Range = entry[4] or 30
+			light.Brightness = 0.8
+			light.Shadows = false
+			light.Parent = part
+			table.insert(fx, light)
+		elseif shape == "fire" then
+			local fire = Instance.new("Fire")
+			fire.Color = tint
+			fire.SecondaryColor = pal.Hot
+			fire.Size = 9
+			fire.Heat = 12
+			fire.Parent = part
+			table.insert(fx, fire)
+		else
+			table.insert(fx, Vfx.attach(part, "Motes", { Color = tint, Color2 = pal.Hot, Rate = 10, Speed = NumberRange.new(2, 8), SpreadAngle = Vector2.new(180, 180), Lifetime = NumberRange.new(1.4, 2.8) }))
+		end
+	end
+end
+
 local function loadRiggedBody(current: Boss): boolean
 	-- The textured generated models (BOSS_MESHES, moved by the Blender clips) are the default look;
 	-- the procedural Blender bodies are used for a boss only when SanctuaryConfig.BossBodyStyle says so.
@@ -4593,6 +4700,7 @@ local function loadRiggedBody(current: Boss): boolean
 	end
 	local made: { Piece } = {}
 	local info: { [BasePart]: { bone: string, rest: Vector3 } } = {}
+	local byName: { [string]: { part: BasePart, rest: Vector3 } } = {}
 	for name, piece in data.pieces do
 		local template = templates[name]
 		local part = template:Clone()
@@ -4606,7 +4714,8 @@ local function loadRiggedBody(current: Boss): boolean
 		part.Transparency = 1
 		part.Parent = clientFolder
 		info[part] = { bone = piece.bone, rest = (template.Position - origin) * unit }
-		table.insert(made, { part = part, base = Vector3.zero, spin = Vector3.zero, velocity = nil, tilt = CFrame.identity, transparency = 0, childOffset = CFrame.identity })
+		byName[name] = { part = part, rest = info[part].rest }
+		table.insert(made,{ part = part, base = Vector3.zero, spin = Vector3.zero, velocity = nil, tilt = CFrame.identity, transparency = 0, childOffset = CFrame.identity })
 	end
 	if boss ~= current then
 		for _, piece in made do
@@ -4627,6 +4736,13 @@ local function loadRiggedBody(current: Boss): boolean
 		local state = module.new({ order = data.order, parents = parents, heads = heads, scale = scale, physics = data.physics }, spr, #current.kind)
 		return if state ~= nil then { module = module, state = state } else nil
 	end)
+	-- Trails, lights and sparks ride the pieces (fx are switched on and off with the boss's visibility).
+	local fx: { any } = {}
+	;(current.body :: any).fx = fx
+	local mounted, why = pcall((Controls :: any).ground.mountFx, current, byName, fx)
+	if not mounted then
+		warn(`[sanctuary] boss effects: {why}`)
+	end
 	if okPhysics and physics ~= nil then
 		(current.body :: any).physics = physics
 	elseif not okPhysics then
@@ -5259,7 +5375,13 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 	-- Cloth and wings: simulated on top of the clip pose (inertia, gravity, wind, body collision).
 	local physics = body.physics
 	if physics ~= nil then
-		physics.module.step(physics.state, dt, bodyFrame, posed, now)
+		-- A boss nobody is near is not worth simulating: hold the cloth at its pose and restart it on approach.
+		local watcher = localRoot()
+		if watcher ~= nil and (watcher.Position - bodyFrame.Position).Magnitude > 420 then
+			physics.module.reset(physics.state)
+		else
+			physics.module.step(physics.state, dt, bodyFrame, posed, now)
+		end
 	end
 	for _, piece in current.meshPieces do
 		local item = body.info[piece.part]
@@ -6328,9 +6450,17 @@ local function stepBoss(dt: number, t: number)
 				Vfx.burst(foot, "Dust", 6 + math.floor(current.footDrop), { Color = Color3.fromRGB(120, 110, 100) }, clientFolder)
 				if near(current) then
 					Controls.shake(math.clamp(current.footDrop * 0.012, 0.05, 0.25))
-					bossSfx("impact", math.clamp(current.footDrop * 0.02, 0.1, 0.3))
+					-- each boss has its own footfall (stone, ice, glass, steel); the old thud stands in until it loads
+					local weight = math.clamp(current.footDrop * 0.03, 0.25, 0.7)
+					if not bossSfx("step_" .. current.kind, weight) then
+						bossSfx("impact", math.clamp(current.footDrop * 0.02, 0.1, 0.3))
+					end
 				end
 			end
+		elseif hoverHeight ~= nil and phase ~= "Dormant" and t >= (current.wingAt or 0) and near(current) then
+			-- a hovering boss beats its wings about once a second
+			current.wingAt = t + 1.0 + math.random() * 0.15
+			bossSfx("wing_beat", 0.5)
 		end
 	else
 		hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
@@ -7448,6 +7578,11 @@ local function onAttack(payload)
 		return
 	end
 	current.flash = math.max(current.flash, 0.7)
+	-- the body moves: cloth whips, and the knight's plates ring
+	bossSfx("cloth_whoosh", 0.3)
+	if current.kind == "Knight" then
+		bossSfx("armor_clank", 0.35)
+	end
 end
 
 -- Lances (the Warden): thin aim lines from the body, then every beam fires at once.

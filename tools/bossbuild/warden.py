@@ -5,6 +5,7 @@ ringed by floating rune shards. About 3.4 m tall, facing -Y."""
 import math
 
 import humanoid
+import kit
 from lib import V, Boss, box, ellipsoid, frustum, plate, ribbon_strip, sweep
 
 KIND = "Warden"
@@ -27,8 +28,9 @@ def claw(bm, base, s, spread, length=0.55):
 def build():
     boss = Boss(KIND, ORDER)
     d = humanoid.skeleton(boss, hip_z=1.5, chest_z=2.4, neck_z=2.75, head_top=3.3, shoulder_x=0.85, shoulder_z=2.65, elbow_z=1.95, wrist_z=1.25, hand_z=0.95, hip_x=0.28, knee_z=0.85, ankle_z=0.16)
-    robe = humanoid.chain(boss, "robe", "hips", V(0, 0, 1.55), V(0, 0, 0.1), 3, y=-0.02, dy=0.04)
-    cloak = humanoid.chain(boss, "cloak", "spine", V(0, 0.3, 2.7), V(0, 0.3, 0.2), 3, y=0.3, dy=0.07)
+    # a robe (a ring of eight simulated columns round the legs) and a cloak (five columns down the back)
+    kit.skirt(boss, "robe", "hips", top_z=1.55, bottom_z=0.06, r_top=0.52, r_bottom=0.92, columns=8, segments=3, mat=CLOTH, edge_mat=GLOW, tatter=0.9, seed=4)
+    kit.cape(boss, "cloak", "spine", top_z=2.7, bottom_z=0.2, half_top=0.62, half_bottom=0.95, y_top=0.3, y_bottom=0.55, columns=5, segments=3, mat=CLOTH, edge_mat=GLOW, bow=0.07, tatter=0.9, seed=5)
 
     # ---- hips: pelvis plates, rift seal buckle, belt chains ----
     bm = boss.piece("hips", "hips")
@@ -58,9 +60,9 @@ def build():
     bm = boss.piece("head", "head")
     ellipsoid(bm, V(0, 0.02, 3.0), (0.42, 0.46, 0.5), CLOTH, 16)
     sweep(bm, [V(0, 0.1, 3.3), V(0, 0.32, 3.55), V(0, 0.62, 3.5)], [0.2, 0.14, 0.02], 8, CLOTH)                 # hood peak
-    ellipsoid(bm, V(0, -0.2, 2.98), (0.27, 0.22, 0.34), SHARD, 12)                                          # shadowed face
-    ellipsoid(bm, V(0, -0.34, 3.02), (0.07, 0.03, 0.05), GLOW, 10)                                           # the eye
-    ellipsoid(bm, V(0, -0.32, 3.02), (0.13, 0.03, 0.1), GLOW, 10)
+    ellipsoid(bm, V(0, -0.3, 2.98), (0.27, 0.2, 0.33), SHARD, 14)                                           # shadowed face, standing proud of the hood
+    ellipsoid(bm, V(0, -0.49, 3.03), (0.08, 0.035, 0.055), GLOW, 10)                                         # the eye
+    ellipsoid(bm, V(0, -0.47, 3.03), (0.15, 0.03, 0.11), GLOW, 10)
     for k in range(9):                                                                                       # broken halo behind the head
         a = (k / 9) * math.tau + 0.2
         if 0.5 < (a % math.tau) < 1.1:
@@ -104,37 +106,14 @@ def build():
         box(bm, V(0.3 * s, -0.1, 0.07), (0.2, 0.4, 0.12), OBSIDIAN, bevel=0.025)
         sweep(bm, [V(0.3 * s, -0.28, 0.07), V(0.3 * s, -0.42, 0.05), V(0.3 * s, -0.55, 0.02)], [0.07, 0.045, 0.01], 6, SHARD, squash=0.6)
 
-    # ---- robe (hips) and cloak (back): ragged tongues ----
-    heights = [(1.55, 1.05), (1.05, 0.55), (0.55, 0.04)]
-    for index in range(3):
-        bm = boss.piece(f"robe{index + 1}", f"robe{index + 1}")
-        z0, z1 = heights[index]
-        r0, r1 = 0.55 + 0.1 * index, 0.7 + 0.1 * index
-        count = 7 if index == 2 else 5
-        for c in range(count):
-            a0, a1 = c / count * math.tau, (c + 1) / count * math.tau
-            drop = (0.0, 0.1, 0.22, 0.05, 0.16, 0.08, 0.2)[c % 7] if index == 2 else 0.0
-            left = [V(math.sin(a0) * r0, -math.cos(a0) * r0 * 0.7, z0), V(math.sin(a0) * (r0 + r1) / 2, -math.cos(a0) * (r0 + r1) / 2 * 0.7, (z0 + z1) / 2), V(math.sin(a0) * r1, -math.cos(a0) * r1 * 0.7, z1 + drop * 0.3)]
-            right = [V(math.sin(a1) * r0, -math.cos(a1) * r0 * 0.7, z0), V(math.sin(a1) * (r0 + r1) / 2, -math.cos(a1) * (r0 + r1) / 2 * 0.7, (z0 + z1) / 2), V(math.sin(a1) * r1, -math.cos(a1) * r1 * 0.7, z1 + drop * 0.3 - (0.06 if c % 2 else 0))]
-            ribbon_strip(bm, left, right, 0.03, CLOTH)
-    cheights = [(2.7, 1.95), (1.95, 1.2), (1.2, 0.2)]
-    for index in range(3):
-        bm = boss.piece(f"cloak{index + 1}", f"cloak{index + 1}")
-        z0, z1 = cheights[index]
-        y0 = 0.3 + 0.07 * index
-        w0, w1 = 0.62 + 0.08 * index, 0.7 + 0.1 * index
-        count = 5 if index == 2 else 1
-        for c in range(count):
-            a, b = -w1 + c * 2 * w1 / count, -w1 + (c + 1) * 2 * w1 / count
-            drop = (0.0, 0.14, 0.3, 0.06, 0.2)[c] if index == 2 else 0.0
-            left = [V(a * w0 / w1, y0, z0), V(a, y0 + 0.03, (z0 + z1) / 2), V(a * 0.95, y0 + 0.07, z1 + drop * 0.3)]
-            right = [V(b * w0 / w1, y0, z0), V(b, y0 + 0.03, (z0 + z1) / 2), V(b * 0.95, y0 + 0.07, z1 + drop * 0.3 - (0.07 if c % 2 else 0.0))]
-            ribbon_strip(bm, left, right, 0.03, CLOTH)
     return boss
 
 
 def map_pose(c):
     pose = humanoid.map_humanoid(c, arm_scale=0.9, elbow=-0.3)
-    humanoid.map_chain(pose, c, "robe", 3, "cloth", 0.85)
-    humanoid.map_chain(pose, c, "cloak", 3, "cloth", 0.88)
+    cp, cy, cr = c["cloth"]
+    for col in range(8):                                         # the first bone of each column; physics does the rest
+        pose[f"robe{kit.LETTERS[col]}1"] = (cp * 0.5, cy, cr * 0.5)
+    for col in range(5):
+        pose[f"cloak{kit.LETTERS[col]}1"] = (cp * 0.9, cy, cr * 0.9)
     return pose
