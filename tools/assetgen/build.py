@@ -54,24 +54,54 @@ SFX_GAP = 0.15  # the one-shot sheet: short gaps keep it under Open Cloud's 20 M
 SFX_RATE = 32000  # and so does writing it at 32 kHz (the cues have nothing above 16 kHz worth keeping)
 
 
-def resample(buf, rate):
-    """Band-limited resample (FFT truncation) from SR to `rate`."""
+def resample(buf, rate, regions=None):
+    """Band-limited resample (FFT truncation) from SR to `rate`. With `regions`, everything between
+    them is set back to exact silence (the band limit rings a little into the gaps)."""
     import numpy as np
 
     x = np.asarray(buf, dtype=np.float64)
     n_out = int(round(len(x) * rate / SR))
     spectrum = np.fft.rfft(x)
     y = np.fft.irfft(spectrum[: n_out // 2 + 1], n_out) * (n_out / len(x))
+    if regions:
+        keep = np.zeros(n_out, dtype=bool)
+        for start, length in regions.values():
+            a = max(0, int(start * rate))
+            b = min(n_out, int((start + length) * rate))
+            keep[a:b] = True
+        y[~keep] = 0.0
     return np.clip(y, -1.0, 1.0).tolist()
 
 
-def pack(render, names, gap=GAP):
+def settle(buf):
+    """Strip DC (a 30 Hz high-pass) and fade the last 3 ms so a voice starts and ends at rest."""
+    import numpy as np
+
+    x = np.asarray(buf, dtype=np.float64)
+    if len(x) == 0:
+        return buf
+    a = math.exp(-2 * math.pi * 30 / SR)
+    y = np.empty_like(x)
+    prev_x = prev_y = 0.0
+    for i, v in enumerate(x):
+        prev_y = a * (prev_y + v - prev_x)
+        prev_x = v
+        y[i] = prev_y
+    tail = min(len(y), int(0.003 * SR))
+    if tail > 0:
+        y[-tail:] *= np.linspace(1.0, 0.0, tail)
+    return y.tolist()
+
+
+def pack(render, names, gap=GAP, clean=False):
     sheet = zeros(gap)
     regions = {}
     levels = {}
     for name in names:
         started = time.time()
         buf = render(name)
+        if clean:
+            buf = settle(buf)
         start = len(sheet) / SR
         mix(sheet, buf, start)
         sheet.extend(zeros(gap))
@@ -185,8 +215,8 @@ def main():
             print(f"kept sheet {ids['SoundSheetPrevious']} as the fallback; the next upload replaces it")
     if only in (None, "sfx"):
         print("sound sheet:")
-        sheet, regions, levels = pack(sfx.render, list(sfx.VOICES), SFX_GAP)
-        write_wav(os.path.join(OUT, "AstralForgeSFX.wav"), resample(sheet, SFX_RATE), SFX_RATE)
+        sheet, regions, levels = pack(sfx.render, list(sfx.VOICES), SFX_GAP, clean=True)
+        write_wav(os.path.join(OUT, "AstralForgeSFX.wav"), resample(sheet, SFX_RATE, regions), SFX_RATE)
         build["sfx"] = {"length": round(len(sheet) / SR, 3), "regions": regions, "loudness": levels}
 
     if only in (None, "ambience"):

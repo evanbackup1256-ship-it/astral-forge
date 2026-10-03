@@ -147,12 +147,13 @@ gameService = timedBuild("gameplay construction", function() return GameService.
 }) end)
 
 if RunService:IsStudio() then
-	(shared :: any).AstralForgeStudio = {
-		snapshot = function(player: Player?)
-			local target = player or Players:GetPlayers()[1]
-			return if target ~= nil then gameService:_snapshot(target) else nil
-		end,
-	}
+	local snapshotHook = Instance.new("BindableFunction")
+	snapshotHook.Name = "AstralForgeStudioSnapshot"
+	snapshotHook.OnInvoke = function(player: Player?)
+		local target = player or Players:GetPlayers()[1]
+		return if target ~= nil then gameService:_snapshot(target) else nil
+	end
+	snapshotHook.Parent = game:GetService("ServerStorage")
 end
 
 local runtimeClosed = false

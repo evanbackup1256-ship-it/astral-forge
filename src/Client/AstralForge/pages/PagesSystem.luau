@@ -66,11 +66,13 @@ local function Switch(_param)
 	local accent = _param.accent
 	local softMotion = _param.softMotion
 	local knob = useFlipperSpring(if on then 1 else 0, softMotion, 640, 34)
+	local anchor = _param.anchorPoint or Vector2.zero
+	local trackX = if anchor.X >= 0.5 then 1 else 0
 	return React.createElement("textbutton", {
-		Size = UDim2.fromOffset(50, 28),
+		Size = UDim2.fromOffset(60, TapTarget),
 		Position = _param.position,
-		AnchorPoint = _param.anchorPoint,
-		BackgroundColor3 = if on then accent else Palette.graphite,
+		AnchorPoint = anchor,
+		BackgroundTransparency = 1,
 		AutoButtonColor = false,
 		BorderSizePixel = 0,
 		Text = "",
@@ -81,6 +83,12 @@ local function Switch(_param)
 				_param.onToggle()
 			end,
 		},
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(50, 28),
+		Position = UDim2.fromScale(trackX, 0.5),
+		AnchorPoint = Vector2.new(trackX, 0.5),
+		BackgroundColor3 = if on then accent else Palette.graphite,
+		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
@@ -97,7 +105,7 @@ local function Switch(_param)
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	})))
+	}))))
 end
 
 local function Choice(_param)
@@ -171,7 +179,7 @@ local function SettingRow(_param)
 			on = draft >= 0.5,
 			accent = accent,
 			softMotion = softMotion,
-			position = if stack then UDim2.new(0, 0, 1, -34) else UDim2.new(1, 0, 0.5, 0),
+			position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 2)) else UDim2.new(1, 0, 0.5, 0),
 			anchorPoint = if stack then Vector2.new(0, 0) else Vector2.new(1, 0.5),
 			onToggle = function()
 				commit(if draft >= 0.5 then 0 else 1)
@@ -182,8 +190,8 @@ local function SettingRow(_param)
 			choices = entry.choices,
 			value = draft,
 			accent = accent,
-			size = if stack then UDim2.new(1, 0, 0, 34) else UDim2.fromOffset(controlW, 34),
-			position = if stack then UDim2.new(0, 0, 1, -38) else UDim2.new(1, 0, 0.5, 0),
+			size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(controlW, 34),
+			position = if stack then UDim2.new(0, 0, 1, -44) else UDim2.new(1, 0, 0.5, 0),
 			anchorPoint = if stack then Vector2.new(0, 0) else Vector2.new(1, 0.5),
 			onPick = commit,
 		})
@@ -515,7 +523,7 @@ local function SettingsView(_param)
 			active = not searching and entry.id == activeSection,
 			count = counts[entry.id] or 0,
 			compact = stack,
-			size = UDim2.fromOffset(chipW, if stack then 38 else 42),
+			size = UDim2.fromOffset(chipW, if stack then TapTarget else 42),
 			layoutOrder = index,
 			softMotion = softMotion,
 			onPick = function(id)
@@ -525,7 +533,7 @@ local function SettingsView(_param)
 		})
 	end
 	local navRows = if stack then math.ceil(#sections / 3) else #sections
-	local navH = if stack then navRows * 44 + 12 else #sections * 48 + 16
+	local navH = if stack then navRows * (TapTarget + 6) + 12 else #sections * 48 + 16
 
 	local listChildren = {
 		layout = React.createElement("uilistlayout", {

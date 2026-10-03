@@ -30,9 +30,9 @@ Start a playtest, then in the **server** command bar:
 
 ```lua
 local kit = require(game.ServerStorage.AstralForgeStories.StoryKit)
-print("return " .. kit.serialize(shared.AstralForgeStudio.snapshot()))
+print("return " .. kit.serialize(game.ServerStorage.AstralForgeStudioSnapshot:Invoke()))
 ```
 
-(`shared.AstralForgeStudio` only exists in Studio.)
+(`AstralForgeStudioSnapshot` is only created in Studio.)
 
 Save the printed table as `src/Stories/StorySnapshot.luau` (`return <table>`).
