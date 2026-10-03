@@ -19244,15 +19244,22 @@ end
 -- Module: CreditsView   (merged from pages/CreditsView.luau, 530 lines)
 -- ======================================================================
 __defs["CreditsView"] = function()
+-- Credits: people grouped by category (owner, developers, moderators,
+-- testers, ...), all driven by SharedData#CreditsConfig. One scroll area for
+-- the whole list, a tab chip per category, optional search, and cards that
+-- cascade in and lift on hover.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
+local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _motion = require(script.Parent.MotionKit)("motion")
 local composePresence = _motion.composePresence
 local useEntrance = _motion.useEntrance
 local useExitTransition = _motion.useExitTransition
+local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.CoreKit)("theme")
@@ -19262,65 +19269,424 @@ local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local lighten = _theme.lighten
 local _ui = __load("ui")
-local Badge = _ui.Badge
 local Button = _ui.Button
 local OverlayPresence = _ui.OverlayPresence
 local Panel = _ui.Panel
+local SearchField = _ui.SearchField
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
-local PageScaffold = require(script.Parent.LayoutKit)("pageScaffold").PageScaffold
-local DEV_USERNAME = "usingINales"
-local DEV_USER_ID = 10916707683
-local function DevAvatarThumbnail(_param)
+
+local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+local CreditsModel = SharedData("CreditsModel")
+local MODEL = CreditsModel.normalize(SharedData("CreditsConfig"))
+
+local GRID_GAP = 10
+local SECTION_GAP = 18
+local SECTION_HEADER_H = 46
+local EMPTY_ROW_H = 40
+local TAB_H = 34
+local MAX_STAGGER_INDEX = 14
+
+local function tone(key, fallback)
+	local color = Palette[key]
+	if typeof(color) == "Color3" then
+		return color
+	end
+	return fallback
+end
+
+-- Live display names for members with a UserId, fetched once per session.
+local liveNames = {}
+local liveNamesRequested = false
+local function useLiveNames()
+	local version, setVersion = React.useState(0)
+	React.useEffect(function()
+		if not MODEL.FetchNames or liveNamesRequested then
+			return nil
+		end
+		liveNamesRequested = true
+		local ids, seen = {}, {}
+		for _, category in MODEL.Categories do
+			for _, member in category.Members do
+				if member.UserId ~= nil and not seen[member.UserId] then
+					seen[member.UserId] = true
+					table.insert(ids, member.UserId)
+				end
+			end
+		end
+		if #ids == 0 then
+			return nil
+		end
+		local alive = true
+		task.spawn(function()
+			local ok, infos = pcall(function()
+				return game:GetService("UserService"):GetUserInfosByUserIdsAsync(ids)
+			end)
+			if not ok or type(infos) ~= "table" then
+				return
+			end
+			for _, info in infos do
+				if type(info) == "table" and info.Id ~= nil then
+					liveNames[info.Id] = { display = info.DisplayName, username = info.Username }
+				end
+			end
+			if alive then
+				setVersion(function(current)
+					return current + 1
+				end)
+			end
+		end)
+		return function()
+			alive = false
+		end
+	end, {})
+	return version
+end
+
+local function Avatar(_param)
+	local member = _param.member
 	local size = _param.size
-	return React.createElement("imagelabel", {
-		Size = size,
-		BackgroundColor3 = darken(Palette.violet, 0.62),
-		BackgroundTransparency = 0.08,
+	local accent = _param.accent
+	local radius = if MODEL.AvatarShape == "Circle" then UDim.new(1, 0) else UDim.new(0, math.floor(size * 0.22))
+	if member.UserId ~= nil then
+		return React.createElement("imagelabel", {
+			Size = UDim2.fromOffset(size, size),
+			Position = _param.position,
+			AnchorPoint = _param.anchor,
+			BackgroundColor3 = darken(accent, 0.6),
+			BorderSizePixel = 0,
+			Image = `rbxthumb://type=AvatarHeadShot&id={member.UserId}&w=150&h=150`,
+			ScaleType = Enum.ScaleType.Crop,
+			ZIndex = 325,
+		}, React.createElement("uicorner", {
+			CornerRadius = radius,
+		}), React.createElement("uistroke", {
+			Color = accent,
+			Thickness = 1.5,
+			Transparency = 0.35,
+		}))
+	end
+	-- No Roblox account: the first letter on the category color.
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(size, size),
+		Position = _param.position,
+		AnchorPoint = _param.anchor,
+		BackgroundColor3 = darken(accent, 0.45),
 		BorderSizePixel = 0,
-		Image = `rbxthumb://type=AvatarBust&id={DEV_USER_ID}&w=420&h=420`,
-		ScaleType = Enum.ScaleType.Crop,
-		ZIndex = 330,
+		ZIndex = 325,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
+		CornerRadius = radius,
 	}), React.createElement("uistroke", {
-		Color = Palette.violet,
+		Color = accent,
 		Thickness = 1.5,
-		Transparency = 0.28,
+		Transparency = 0.35,
+	}), React.createElement("textlabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = string.upper(string.sub(member.DisplayName, 1, 1)),
+		TextColor3 = Palette.cream,
+		TextSize = math.floor(size * 0.46),
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 326,
 	}))
 end
-local ROLES = { {
-	label = "Design",
-	detail = "Loops, screens, and Bay Seven tone",
-}, {
-	label = "Code",
-	detail = "Client, server, and economy",
-}, {
-	label = "World",
-	detail = "Story, missions, and docks",
-} }
+
+local function MemberCard(_param)
+	local member = _param.member
+	local accent = _param.accent
+	local reducedMotion = _param.reducedMotion
+	local live = if member.UserId ~= nil then liveNames[member.UserId] else nil
+	local displayName = if live ~= nil and type(live.display) == "string" and live.display ~= "" then live.display else member.DisplayName
+	local username = if live ~= nil and type(live.username) == "string" then live.username else member.Name
+	local hovered, setHovered = React.useState(false)
+	local lift = useFlipperSpring(if hovered and MODEL.CardHoverLift then 1 else 0, reducedMotion, 620, 40)
+	local arrive = useStagger(math.min(_param.index, MAX_STAGGER_INDEX), reducedMotion or not MODEL.EntranceStagger, MODEL.StaggerStep)
+	local compact = MODEL.CardStyle == "Compact"
+	local avatarSize = if compact then math.min(MODEL.AvatarSize, 48) else MODEL.AvatarSize
+	local textX = if MODEL.ShowAvatars then avatarSize + 24 else 14
+	local lines = {}
+	local y = if compact then 0 else 12
+	local function line(key, value, size, color, weight, height, wrap)
+		lines[key] = React.createElement(Text, {
+			value = value,
+			size = size,
+			color = color,
+			weight = weight,
+			wrap = wrap,
+			fit = not wrap,
+			minSize = if wrap then nil else math.max(9, size - 3),
+			position = UDim2.fromOffset(textX, y),
+			sizeConstraint = UDim2.new(1, -(textX + 12), 0, height),
+			zIndex = 326,
+		})
+		y += height
+	end
+	if compact then
+		-- One row: name, then role on the right.
+		lines.name = React.createElement(Text, {
+			value = displayName,
+			size = 14,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Heavy,
+			fit = true,
+			minSize = 10,
+			position = UDim2.new(0, textX, 0.5, -9),
+			sizeConstraint = UDim2.new(0.55, -textX, 0, 18),
+			zIndex = 326,
+		})
+		if MODEL.ShowRoles and member.Role ~= "" then
+			lines.role = React.createElement(Text, {
+				value = string.upper(member.Role),
+				size = 11,
+				color = accent,
+				weight = Enum.FontWeight.Heavy,
+				align = Enum.TextXAlignment.Right,
+				fit = true,
+				minSize = 9,
+				position = UDim2.new(0.55, 0, 0.5, -8),
+				sizeConstraint = UDim2.new(0.45, -12, 0, 16),
+				zIndex = 326,
+			})
+		end
+	else
+		line("name", displayName, 15, Palette.cream, Enum.FontWeight.Heavy, 22, false)
+		if MODEL.ShowUsernames and member.UserId ~= nil and username ~= displayName then
+			line("username", "@" .. username, 11, Palette.muted, Enum.FontWeight.Bold, 16, false)
+		end
+		if MODEL.ShowRoles and member.Role ~= "" then
+			line("role", string.upper(member.Role), 11, accent, Enum.FontWeight.Heavy, 18, false)
+		end
+		if MODEL.ShowNotes and member.Note ~= "" then
+			line("note", member.Note, 12, Palette.creamSoft, Enum.FontWeight.Medium, 34, true)
+		end
+	end
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		LayoutOrder = _param.index,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 323,
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = React.joinBindings({ lift, arrive }):map(function(values)
+			return UDim2.fromOffset(0, math.round(-values[1] * 3 + (1 - math.clamp(values[2], 0, 1)) * 12))
+		end),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		ZIndex = 324,
+		Active = true,
+		Event = {
+			MouseEnter = function()
+				setHovered(true)
+			end,
+			MouseLeave = function()
+				setHovered(false)
+			end,
+		},
+	}, React.createElement("uiscale", {
+		Scale = arrive:map(function(amount)
+			return 0.94 + math.clamp(amount, 0, 1) * 0.06
+		end),
+	}), React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uigradient", {
+		Color = ColorSequence.new(Palette.panelRaised, Palette.panel),
+		Rotation = 90,
+	}), React.createElement("uistroke", {
+		Color = accent,
+		Thickness = 1,
+		Transparency = lift:map(function(amount)
+			return 0.78 - math.clamp(amount, 0, 1) * 0.45
+		end),
+	}), MODEL.ShowAvatars and React.createElement(Avatar, {
+		member = member,
+		size = avatarSize,
+		accent = accent,
+		position = if compact then UDim2.new(0, 10, 0.5, 0) else UDim2.fromOffset(12, 12),
+		anchor = if compact then Vector2.new(0, 0.5) else Vector2.zero,
+	}), lines))
+end
+
+local function CategorySection(_param)
+	local entry = _param.entry
+	local category = entry.category
+	local members = entry.members
+	local accent = tone(category.Accent, Palette.violet)
+	local columns = _param.columns
+	local cardH = _param.cardH
+	local width = _param.width
+	local cellW = math.floor((width - GRID_GAP * (columns - 1)) / columns)
+	local rows = math.ceil(#members / columns)
+	local cards = {}
+	cards.layout = React.createElement("uigridlayout", {
+		CellSize = UDim2.fromOffset(cellW, cardH),
+		CellPadding = UDim2.fromOffset(GRID_GAP, GRID_GAP),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		FillDirectionMaxCells = columns,
+	})
+	for index, member in members do
+		cards[category.Id .. ":" .. member.Name .. ":" .. index] = React.createElement(MemberCard, {
+			member = member,
+			accent = accent,
+			index = _param.firstIndex + index - 1,
+			reducedMotion = _param.reducedMotion,
+		})
+	end
+	local count = if MODEL.ShowCategoryCounts and #members > 0 then ` · {#members}` else ""
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, _param.height),
+		LayoutOrder = _param.layoutOrder,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 322,
+	}, React.createElement("frame", {
+		-- Header: accent bar, icon, label and count, description.
+		Size = UDim2.new(1, 0, 0, SECTION_HEADER_H - 8),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 323,
+	}, React.createElement("frame", {
+		Size = UDim2.new(0, 4, 1, -6),
+		Position = UDim2.fromOffset(0, 3),
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+		ZIndex = 323,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement("frame", {
+		Size = UDim2.fromOffset(30, 30),
+		Position = UDim2.new(0, 12, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = darken(accent, 0.62),
+		BorderSizePixel = 0,
+		ZIndex = 323,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 8),
+	}), React.createElement(Icon, {
+		kind = category.Icon,
+		color = Palette.cream,
+		accent = lighten(accent, 0.2),
+		size = 30,
+	})), React.createElement(Text, {
+		value = string.upper(category.Label) .. count,
+		size = 14,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(52, if category.Description ~= "" then 1 else 9),
+		sizeConstraint = UDim2.new(1, -60, 0, 20),
+		zIndex = 323,
+	}), category.Description ~= "" and React.createElement(Text, {
+		value = category.Description,
+		size = 11,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Medium,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(52, 21),
+		sizeConstraint = UDim2.new(1, -60, 0, 16),
+		zIndex = 323,
+	})), if #members == 0
+		then React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, EMPTY_ROW_H),
+			Position = UDim2.fromOffset(0, SECTION_HEADER_H),
+			BackgroundColor3 = Palette.panel,
+			BackgroundTransparency = 0.4,
+			BorderSizePixel = 0,
+			ZIndex = 323,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 10),
+		}), React.createElement("uistroke", {
+			Color = Palette.lineSoft,
+			Thickness = 1,
+			Transparency = 0.6,
+		}), React.createElement(Text, {
+			value = category.EmptyText,
+			size = 12,
+			color = Palette.muted,
+			weight = Enum.FontWeight.Medium,
+			align = Enum.TextXAlignment.Center,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(10, 0),
+			sizeConstraint = UDim2.new(1, -20, 1, 0),
+			zIndex = 324,
+		}))
+		else React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, rows * (cardH + GRID_GAP) - GRID_GAP),
+			Position = UDim2.fromOffset(0, SECTION_HEADER_H),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 323,
+		}, cards))
+end
+
+local function TabChip(_param)
+	local tab = _param.tab
+	local active = _param.active
+	local accent = tone(tab.accent, tone(MODEL.Accent, Palette.violet))
+	local hovered, setHovered = React.useState(false)
+	local selected = useFlipperSpring(if active then 1 elseif hovered then 0.35 else 0, _param.reducedMotion, 700, 42)
+	local label = if MODEL.ShowCategoryCounts then `{tab.label}  {tab.count}` else tab.label
+	local width = math.max(64, #label * 8 + 28)
+	return React.createElement("textbutton", {
+		Size = UDim2.fromOffset(width, TAB_H),
+		LayoutOrder = _param.order,
+		BackgroundColor3 = selected:map(function(amount)
+			return Palette.panel:Lerp(darken(accent, 0.5), math.clamp(amount, 0, 1))
+		end),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 324,
+		Event = {
+			Activated = function()
+				_param.onPick(tab.id)
+			end,
+			MouseEnter = function()
+				setHovered(true)
+			end,
+			MouseLeave = function()
+				setHovered(false)
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = accent,
+		Thickness = 1,
+		Transparency = selected:map(function(amount)
+			return 0.7 - math.clamp(amount, 0, 1) * 0.5
+		end),
+	}), React.createElement(Text, {
+		value = string.upper(label),
+		size = 11,
+		color = if active then Palette.cream else Palette.creamSoft,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(8, 0),
+		sizeConstraint = UDim2.new(1, -16, 1, 0),
+		zIndex = 325,
+	}))
+end
+
 local function CreditsOverlay(_param)
 	local version = _param.version
 	local reducedMotion = _param.reducedMotion
 	local onClose = _param.onClose
 	local softMotion = reducedMotion
-	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
-	local headerReveal = useStagger(0, softMotion)
-	local rolesReveal = useStagger(1, softMotion)
-	local thanksReveal = useStagger(2, softMotion)
-	local closingReveal = useStagger(3, softMotion)
-	local brandReveal = useStagger(4, softMotion)
 	local _binding = useExitTransition(softMotion)
 	local exit = _binding[1]
 	local exiting = _binding[2]
 	local beginExit = _binding[3]
 	local reveal = composePresence(enter, exit)
-	-- Prefer reducedMotion stagger when antilag already wants quiet decoration.
-	local panelReveal = if softMotion then headerReveal else reveal
-	local listReveal = if softMotion then rolesReveal else reveal
-	local thanksSoft = softMotion or thanksReveal == nil or closingReveal == nil or brandReveal == nil
-	local rolesSoft = softMotion or listReveal == nil
+	local tab, setTab = React.useState(MODEL.DefaultCategory)
+	local query, setQuery = React.useState("")
+	useLiveNames()
 	local requestClose = React.useCallback(function()
 		if exiting then
 			return nil
@@ -19328,6 +19694,14 @@ local function CreditsOverlay(_param)
 		Audio:play("close")
 		beginExit(onClose)
 	end, { beginExit, exiting, onClose })
+	local pickTab = function(id)
+		if id == tab then
+			return nil
+		end
+		Audio:play("tabSwitch")
+		setTab(id)
+	end
+
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
@@ -19335,26 +19709,44 @@ local function CreditsOverlay(_param)
 	local safeSide = math.max(8, viewport.sideInset, chrome.sideSafe)
 	local safeTop = math.max(8, viewport.topInset)
 	local safeBottom = math.max(8, viewport.bottomInset, chrome.bottomSafe)
-	local availableWidth = math.max(220, viewport.width - safeSide * 2 - 12)
-	local width = math.min(if stack then 600 else 620, availableWidth)
-	local desired = if stack then 520 else 460
-	local availableHeight = math.max(220, viewport.height - safeTop - safeBottom - 12)
-	local height = math.min(desired, availableHeight)
+	local width = math.min(940, math.max(260, viewport.width - safeSide * 2 - 12))
+	local height = math.min(680, math.max(260, viewport.height - safeTop - safeBottom - 12))
 	local centerY = safeTop + math.max(0, (viewport.height - safeTop - safeBottom) / 2)
-	local avatarSize = if stack then math.min(160, math.floor(width - pad * 2 - 8)) else 188
 	local closeSize = math.max(TapTarget - 4, 44)
-	local stackBodyTop = 70
-	local stackBodyReserve = closeSize + 16
-	local stackBodyH = math.max(120, height - pad * 2 - stackBodyTop - stackBodyReserve)
-	local rolesListH = 132
-	local avatarBlockH = avatarSize + 8 + 28 + 8 + 28 + 8 + 48
-	local attributionH = 20
+	local innerW = width - pad * 2
+
+	local tabs = CreditsModel.tabs(MODEL)
+	local showTabs = MODEL.CategoryTabs and #tabs > 2
+	local showSearch = CreditsModel.showSearch(MODEL)
+	-- Search sits beside the tabs on wide panels and gets its own row on narrow ones.
+	local searchBeside = showSearch and showTabs and innerW >= 620
+	local headerH = if MODEL.Tagline ~= "" then 72 else 58
+	local controlsH = (if showTabs or showSearch then TAB_H + 12 else 0) + (if showSearch and showTabs and not searchBeside then TAB_H + 8 else 0)
+	local bodyTop = headerH + controlsH
+	local bodyH = math.max(80, height - pad * 2 - bodyTop)
+
+	local scrollBar = 4
+	local contentW = innerW - scrollBar - 8
+	local columns = CreditsModel.columns(MODEL, contentW, GRID_GAP)
+	local cardH = CreditsModel.cardHeight(MODEL)
+	local visible = CreditsModel.visible(MODEL, tab, query)
+
 	React.useEffect(function()
 		ClientLog:debug("nav", "credits opened")
 		return function()
 			return ClientLog:debug("nav", "credits closed")
 		end
 	end, {})
+	React.useEffect(function()
+		local connection = UserInputService.InputBegan:Connect(function(input, processed)
+			if input.KeyCode == Enum.KeyCode.ButtonB or (input.KeyCode == Enum.KeyCode.Escape and not processed) then
+				requestClose()
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { requestClose })
 	local padFocus = useGamepadAutofocus(true)
 	local overlayHostRef = React.useRef(nil)
 	React.useEffect(function()
@@ -19381,323 +19773,105 @@ local function CreditsOverlay(_param)
 			pcall(task.cancel, job)
 		end
 	end, {})
-	local _exp = React.createElement("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
+
+	-- The list: one scroll area, sections laid out with explicit heights.
+	local sections = {}
+	local cursor = 0
+	local cardIndex = 1
+	for order, entry in visible do
+		local rows = math.ceil(#entry.members / columns)
+		local sectionH = SECTION_HEADER_H + (if #entry.members == 0 then EMPTY_ROW_H else rows * (cardH + GRID_GAP) - GRID_GAP)
+		sections[entry.category.Id] = React.createElement(CategorySection, {
+			entry = entry,
+			columns = columns,
+			cardH = cardH,
+			width = contentW,
+			height = sectionH,
+			firstIndex = cardIndex,
+			layoutOrder = order,
+			reducedMotion = softMotion,
+		})
+		cardIndex += #entry.members
+		cursor += sectionH + SECTION_GAP
+	end
+	if #visible == 0 then
+		sections.none = React.createElement(Text, {
+			value = if query ~= "" then `Nobody matches "{query}".` else MODEL.DefaultEmptyText,
+			size = 13,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			fit = false,
+			sizeConstraint = UDim2.new(1, 0, 0, 40),
+			zIndex = 323,
+		})
+		cursor += 40 + SECTION_GAP
+	end
+	local smallPrint = table.clone(MODEL.Acknowledgements)
+	if MODEL.Footer ~= "" then
+		table.insert(smallPrint, MODEL.Footer)
+	end
+	local footerH = #smallPrint * 16 + 8 + closeSize
+	sections.footer = React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, footerH),
+		LayoutOrder = #visible + 1,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = true,
-		Selectable = false,
-		ZIndex = 319,
-	})
-	local _exp_1 = React.createElement("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = true,
-		Selectable = false,
-		ZIndex = 320,
-	})
-	local _exp_2 = React.createElement(Text, {
-		value = "CREDITS",
-		size = 10,
-		color = Palette.violet,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		sizeConstraint = UDim2.new(1, -(closeSize + 12), 0, 16),
-		zIndex = 322,
-	})
-	local _exp_3 = React.createElement(Text, {
-		value = "ASTRAL FORGE",
-		size = if stack then 20 else 26,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.new(1, -(closeSize + 12), 0, 32),
-		zIndex = 322,
-	})
-	local _exp_4 = React.createElement(Text, {
-		value = `VERSION {version}`,
+		ZIndex = 322,
+	}, React.createElement(Text, {
+		value = table.concat(smallPrint, "\n"),
 		size = 10,
 		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
+		wrap = true,
 		fit = false,
-		position = UDim2.fromOffset(0, 52),
-		sizeConstraint = UDim2.new(1, -(closeSize + 12), 0, 14),
-		zIndex = 322,
-	})
-	local _exp_5 = React.createElement(Button, {
-		text = "",
+		sizeConstraint = UDim2.new(1, 0, 0, #smallPrint * 16),
+		zIndex = 323,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(0, closeSize),
+		AutomaticSize = Enum.AutomaticSize.X,
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 323,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement(Button, {
+		text = "CLOSE",
 		icon = "Close",
 		onClick = requestClose,
-		color = Palette.panelSoft,
-		textColor = Palette.cream,
-		outline = true,
-		size = UDim2.fromOffset(closeSize, closeSize),
-		position = UDim2.new(1, -closeSize, 0, 0),
-		reducedMotion = rolesSoft,
+		color = tone(MODEL.Accent, Palette.violet),
+		textColor = Palette.ink,
+		size = UDim2.fromOffset(0, closeSize),
+		hug = true,
+		reducedMotion = softMotion,
 		disabled = exiting,
-		zIndex = 323,
-	})
-	local _result
-	if stack then
-		local avatarBlock = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 322,
-		}, React.createElement("frame", {
-			Size = UDim2.fromOffset(avatarSize, avatarSize),
-			Position = UDim2.fromOffset(math.floor((width - pad * 2 - avatarSize) / 2), 0),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 322,
-		}, React.createElement(DevAvatarThumbnail, {
-			size = UDim2.fromScale(1, 1),
-		})), React.createElement(Badge, {
-			value = "SOLO DEV",
-			accent = Palette.violet,
-			filled = true,
-			size = UDim2.fromOffset(110, 28),
-			position = UDim2.fromOffset(math.floor((width - pad * 2 - 110) / 2), avatarSize + 8),
-			zIndex = 322,
-		}), React.createElement("textlabel", {
-			Size = UDim2.new(1, 0, 0, 28),
-			Position = UDim2.fromOffset(0, avatarSize + 40),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Text = DEV_USERNAME,
-			TextColor3 = Palette.cream,
-			TextSize = 18,
-			FontFace = Font.fromEnum(Enum.Font.Code),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			TextTruncate = Enum.TextTruncate.None,
-			ZIndex = 322,
-		}), React.createElement(Text, {
-			value = "Thanks for playing. Built solo — machines, worlds, and stories included.",
-			size = 12,
-			color = Palette.creamSoft,
-			wrap = true,
-			position = UDim2.fromOffset(0, avatarSize + 72),
-			sizeConstraint = UDim2.new(1, 0, 0, 48),
-			zIndex = 322,
-		}))
-		local _exp_10 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
+		zIndex = 324,
+	})))
+	cursor += footerH
+
+	local tabChips = {}
+	if showTabs then
+		tabChips.layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
 			Padding = UDim.new(0, 6),
 			SortOrder = Enum.SortOrder.LayoutOrder,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
 		})
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue = table.create(#ROLES)
-		local _callback = function(role, index)
-			return React.createElement("frame", {
-				key = role.label,
-				Size = UDim2.new(1, 0, 0, 38),
-				LayoutOrder = index,
-				BackgroundColor3 = Palette.panel,
-				BorderSizePixel = 0,
-				ZIndex = 322,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 8),
-			}), React.createElement(Text, {
-				value = role.label,
-				size = 11,
-				color = Palette.violet,
-				weight = Enum.FontWeight.Heavy,
-				fit = false,
-				position = UDim2.fromOffset(10, 4),
-				sizeConstraint = UDim2.new(1, -20, 0, 14),
-				zIndex = 323,
-			}), React.createElement(Text, {
-				value = role.detail,
-				size = 11,
-				color = Palette.creamSoft,
-				wrap = true,
-				fit = false,
-				position = UDim2.fromOffset(10, 18),
-				sizeConstraint = UDim2.new(1, -20, 0, 16),
-				zIndex = 323,
-			}))
+		for order, entry in tabs do
+			tabChips[entry.id] = React.createElement(TabChip, {
+				tab = entry,
+				active = entry.id == tab,
+				order = order,
+				onPick = pickTab,
+				reducedMotion = softMotion,
+			})
 		end
-		for _k, _v in ROLES do
-			_newValue[_k] = _callback(_v, _k - 1, ROLES)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		local rolesBlock = React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 322,
-		}, _exp_10, _newValue)
-		local attribution = React.createElement(Text, {
-			value = "Interface icons by Flaticon / Freepik Company",
-			size = 9,
-			color = Palette.muted,
-			fit = false,
-			sizeConstraint = UDim2.new(1, 0, 0, 16),
-			zIndex = 322,
-		})
-		_result = React.createElement(PageScaffold, {
-			size = UDim2.new(1, 0, 0, stackBodyH),
-			position = UDim2.fromOffset(0, stackBodyTop),
-			gap = 8,
-			tailPad = 4,
-			scrollBarColor = Palette.violet,
-			scrollBarThickness = 3,
-			zIndex = 322,
-			sections = {
-				{
-					id = "avatar",
-					height = avatarBlockH,
-					element = avatarBlock,
-				},
-				{
-					id = "roles",
-					height = rolesListH,
-					element = rolesBlock,
-				},
-				{
-					id = "attribution",
-					height = attributionH,
-					element = attribution,
-				},
-			},
-		})
-	else
-		local _exp_6 = React.createElement("frame", {
-			Size = UDim2.fromOffset(avatarSize, avatarSize),
-			Position = UDim2.fromOffset(0, 78),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 322,
-		}, React.createElement(DevAvatarThumbnail, {
-			size = UDim2.fromScale(1, 1),
-		}))
-		local _exp_7 = React.createElement(Badge, {
-			value = "SOLO DEV",
-			accent = Palette.violet,
-			filled = true,
-			size = UDim2.fromOffset(110, 28),
-			position = UDim2.fromOffset(avatarSize + 20, 78),
-			zIndex = 322,
-		})
-		local _exp_8 = React.createElement("textlabel", {
-			Size = UDim2.new(1, -(avatarSize + 28), 0, 34),
-			Position = UDim2.fromOffset(avatarSize + 20, 110),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Text = DEV_USERNAME,
-			TextColor3 = Palette.cream,
-			TextSize = 26,
-			FontFace = Font.fromEnum(Enum.Font.Code),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			TextTruncate = Enum.TextTruncate.None,
-			ZIndex = 322,
-		})
-		local _exp_9 = React.createElement(Text, {
-			value = "Built solo · code · UI · game design",
-			size = 13,
-			color = Palette.creamSoft,
-			weight = Enum.FontWeight.Bold,
-			wrap = true,
-			fit = false,
-			position = UDim2.fromOffset(avatarSize + 20, 148),
-			sizeConstraint = UDim2.new(1, -(avatarSize + 28), 0, 36),
-			zIndex = 322,
-		})
-		local _exp_10 = React.createElement(Text, {
-			value = "One person built the forge you're running. Thanks for playing.",
-			size = 13,
-			color = Palette.muted,
-			wrap = true,
-			position = UDim2.fromOffset(avatarSize + 20, 188),
-			sizeConstraint = UDim2.new(1, -(avatarSize + 28), 0, 44),
-			zIndex = 322,
-		})
-		local _exp_11 = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 10),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		})
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue = table.create(#ROLES)
-		local _callback = function(role, index)
-			return React.createElement("frame", {
-				key = role.label,
-				Size = UDim2.new(1 / 3, -8, 0, 112),
-				LayoutOrder = index,
-				BackgroundColor3 = Palette.panel,
-				BorderSizePixel = 0,
-				ZIndex = 322,
-				ClipsDescendants = false,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 12),
-			}), React.createElement("uistroke", {
-				Color = lighten(Palette.violet, 0.1),
-				Thickness = 1,
-				Transparency = 0.55,
-			}), React.createElement(Text, {
-				value = string.upper(role.label),
-				size = 10,
-				color = Palette.violet,
-				weight = Enum.FontWeight.Heavy,
-				fit = false,
-				position = UDim2.fromOffset(12, 14),
-				sizeConstraint = UDim2.new(1, -24, 0, 16),
-				zIndex = 323,
-			}), React.createElement(Text, {
-				value = role.detail,
-				size = 12,
-				color = Palette.creamSoft,
-				wrap = true,
-				fit = false,
-				position = UDim2.fromOffset(12, 36),
-				sizeConstraint = UDim2.new(1, -24, 0, 60),
-				zIndex = 323,
-			}))
-		end
-		for _k, _v in ROLES do
-			_newValue[_k] = _callback(_v, _k - 1, ROLES)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		local desktopBody = React.createElement(React.Fragment, nil, _exp_6, _exp_7, _exp_8, _exp_9, _exp_10, React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 112),
-			Position = UDim2.fromOffset(0, 78 + avatarSize + 16),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 322,
-		}, _exp_11, _newValue), React.createElement(Text, {
-			value = "Interface icons by Flaticon / Freepik Company",
-			size = 9,
-			color = Palette.muted,
-			fit = false,
-			position = UDim2.fromOffset(0, 400),
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-			zIndex = 322,
-		}))
-		-- Desktop fits without nested scroll; still mount PageScaffold so HOT_PAGES stays honest.
-		_result = React.createElement(PageScaffold, {
-			size = UDim2.fromScale(1, 1),
-			gap = 0,
-			tailPad = 0,
-			scrollBarThickness = 0,
-			scrollBarColor = Palette.violet,
-			zIndex = 322,
-			sections = {
-				{
-					id = "desktop",
-					fill = true,
-					minHeight = 420,
-					height = 420,
-					element = desktopBody,
-				},
-			},
-		})
 	end
+	local searchW = if searchBeside then 220 else innerW
+	local tabsW = if searchBeside then innerW - searchW - 10 else innerW
+	local accent = tone(MODEL.Accent, Palette.violet)
+
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
 	}, React.createElement("frame", {
@@ -19716,7 +19890,18 @@ local function CreditsOverlay(_param)
 		Visible = reveal:map(function(amount)
 			return amount > 0.003
 		end),
-	}, _exp, React.createElement("frame", {
+	}, React.createElement("textbutton", {
+		-- Clicking the dimmed backdrop closes.
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		Selectable = false,
+		ZIndex = 319,
+		Event = {
+			Activated = requestClose,
+		},
+	}), React.createElement("frame", {
 		ref = padFocus,
 		Size = UDim2.fromOffset(width, height),
 		Position = reveal:map(function(amount)
@@ -19725,46 +19910,109 @@ local function CreditsOverlay(_param)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		Active = true,
 		ZIndex = 320,
-		Visible = reveal:map(function(amount)
-			return amount > 0.002
-		end),
-	}, _exp_1, React.createElement(Panel, {
+	}, React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = Palette.violet,
+		accent = accent,
 		background = Palette.panelRaised,
 		padding = pad,
 		zIndex = 321,
 		clips = false,
-		reveal = panelReveal,
+		reveal = reveal,
 		reducedMotion = softMotion,
-		highlight = not softMotion and not thanksSoft,
-	}, _exp_2, _exp_3, _exp_4, _exp_5, _result, stack and React.createElement("frame", {
-		Size = UDim2.fromOffset(0, closeSize),
-		AutomaticSize = Enum.AutomaticSize.X,
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, 0, 1, -2),
-		BackgroundTransparency = 1,
-		ZIndex = 323,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = Enum.HorizontalAlignment.Right,
-		Padding = UDim.new(0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
+		highlight = true,
+	}, React.createElement(Text, {
+		value = MODEL.Eyebrow,
+		size = 10,
+		color = accent,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		sizeConstraint = UDim2.new(1, -(closeSize + 12), 0, 16),
+		zIndex = 322,
+	}), React.createElement(Text, {
+		value = MODEL.Title,
+		size = if stack then 22 else 28,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 16,
+		position = UDim2.fromOffset(0, 16),
+		sizeConstraint = UDim2.new(1, -(closeSize + 12), 0, 32),
+		zIndex = 322,
+	}), React.createElement(Text, {
+		value = table.concat({
+			if MODEL.ShowVersion and version ~= nil then `VERSION {version}` else "",
+			MODEL.Tagline,
+		}, if MODEL.ShowVersion and version ~= nil and MODEL.Tagline ~= "" then "  ·  " else ""),
+		size = 11,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(0, 50),
+		sizeConstraint = UDim2.new(1, -(closeSize + 12), 0, 16),
+		zIndex = 322,
 	}), React.createElement(Button, {
-		text = "CLOSE",
+		text = "",
 		icon = "Close",
 		onClick = requestClose,
-		color = Palette.violet,
-		textColor = Palette.ink,
-		size = UDim2.fromOffset(0, closeSize),
-		hug = true,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromOffset(closeSize, closeSize),
+		position = UDim2.new(1, -closeSize, 0, 0),
 		reducedMotion = softMotion,
 		disabled = exiting,
+		zIndex = 323,
+	}), showTabs and React.createElement("scrollingframe", {
+		-- The chips scroll sideways only; the list below owns vertical scrolling.
+		Size = UDim2.fromOffset(tabsW, TAB_H + 4),
+		Position = UDim2.fromOffset(0, headerH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		CanvasSize = UDim2.new(),
+		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+		ZIndex = 323,
+	}, tabChips), showSearch and React.createElement(SearchField, {
+		value = query,
+		onChange = setQuery,
+		accent = accent,
+		placeholder = "Search names or roles",
+		position = UDim2.fromOffset(if searchBeside then innerW - searchW else 0, headerH + (if showTabs and not searchBeside then TAB_H + 8 else 0)),
+		size = UDim2.fromOffset(searchW, TAB_H),
+		reducedMotion = softMotion,
 		zIndex = 324,
-	}))))))
+	}), React.createElement("scrollingframe", {
+		Size = UDim2.fromOffset(innerW, bodyH),
+		Position = UDim2.fromOffset(0, bodyTop),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromOffset(0, cursor + 6),
+		ScrollBarThickness = scrollBar,
+		ScrollBarImageColor3 = accent,
+		ScrollBarImageTransparency = 0.3,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+		ClipsDescendants = true,
+		ZIndex = 322,
+	}, React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, SECTION_GAP),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}), React.createElement("uipadding", {
+		PaddingTop = UDim.new(0, 6),
+		PaddingRight = UDim.new(0, 8),
+	}), React.createElement(React.Fragment, {
+		-- Remount on tab change so the cascade replays for the new list.
+		key = tab,
+	}, sections))))))
 end
+
 return {
 	CreditsOverlay = CreditsOverlay,
 }

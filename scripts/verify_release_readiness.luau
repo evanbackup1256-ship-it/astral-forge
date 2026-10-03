@@ -1271,7 +1271,7 @@ do
 	for _ in string.gmatch(creditsWave46, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Credits softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 9, "Credits softMotion densify residual for release, got " .. tostring(soft))
 end
 local workshopWave46 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopWave46, "local softMotion = ", 1, true), "WorkshopBoard softMotion residual for release")

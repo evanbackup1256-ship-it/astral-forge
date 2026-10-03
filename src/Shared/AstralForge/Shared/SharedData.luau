@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (7): AssetManifest, OreConfig, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (9): AssetManifest, OreConfig, CreditsConfig, CreditsModel, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -1193,6 +1193,314 @@ function ForgeLevels.snapshot(progressOf: (string) -> number): Snapshot
 end
 
 return table.freeze(ForgeLevels)
+end
+
+-- ======================================================================
+-- Module: CreditsConfig
+-- ======================================================================
+__defs["CreditsConfig"] = function()
+-- Everything the Credits screen shows, and how it shows it.
+--
+-- Add people under Categories[].Members. A member needs a Name; UserId adds
+-- their Roblox avatar (and, with FetchNames, their live display name).
+-- Colors are Palette keys: green, mint, cyan, blue, violet, pink, coral,
+-- mango, cream, muted. Icons are Icon kinds (Admin, Forge, Crew, Guide,
+-- Check, Credits, Story, Gift, ...).
+
+local CreditsConfig = {
+	-- Header
+	Title = "ASTRAL FORGE",
+	Eyebrow = "CREDITS",
+	Tagline = "The people who built, run and test the forge.",
+	ShowVersion = true,
+	Accent = "violet",
+
+	-- Navigation inside the screen
+	CategoryTabs = true, -- a chip per category, plus "All"
+	DefaultCategory = "All", -- "All" or a category Id
+	ShowCategoryCounts = true,
+	SearchBar = true, -- filter by name or role
+	SearchMinMembers = 6, -- the search bar only shows once this many people are listed
+
+	-- People cards
+	CardStyle = "Card", -- "Card" (avatar, name, role, note) or "Compact" (one row)
+	ShowAvatars = true,
+	AvatarShape = "Rounded", -- "Rounded" or "Circle"
+	AvatarSize = 64, -- 40-96
+	ShowUsernames = true, -- @username under the display name
+	ShowRoles = true,
+	ShowNotes = true,
+	FetchNames = true, -- look up current display names for members with a UserId
+	MaxColumns = 3, -- cards per row on wide screens (1-4)
+	CardMinWidth = 220, -- cards never get narrower than this
+	CardHoverLift = true,
+
+	-- Categories
+	HideEmptyCategories = false, -- false shows EmptyText instead
+	DefaultEmptyText = "To be announced.",
+
+	-- Motion
+	EntranceStagger = true, -- cards cascade in when the screen opens
+	StaggerStep = 0.035, -- seconds between cards (0-0.1)
+
+	Categories = {
+		{
+			Id = "Owner",
+			Label = "Owner",
+			Description = "Runs the forge.",
+			Accent = "mango",
+			Icon = "Admin",
+			Members = {
+				{ Name = "usingINales", UserId = 10916707683, Role = "Founder", Note = "Design, code, worlds and story." },
+			},
+		},
+		{
+			Id = "Developers",
+			Label = "Developers",
+			Description = "Build the game.",
+			Accent = "cyan",
+			Icon = "Forge",
+			Members = {
+				{ Name = "usingINales", UserId = 10916707683, Role = "Lead developer", Note = "Client, server and economy." },
+			},
+		},
+		{
+			Id = "Moderators",
+			Label = "Moderators",
+			Description = "Keep servers friendly.",
+			Accent = "mint",
+			Icon = "Check",
+			Members = {},
+		},
+		{
+			Id = "Testers",
+			Label = "Testers",
+			Description = "Break things before you do.",
+			Accent = "pink",
+			Icon = "Guide",
+			Members = {},
+		},
+		{
+			Id = "Thanks",
+			Label = "Special Thanks",
+			Description = "",
+			Accent = "violet",
+			Icon = "Gift",
+			Members = {
+				{ Name = "You", Role = "Player", Note = "Thanks for playing." },
+			},
+		},
+	},
+
+	-- Small print under the list
+	Acknowledgements = {
+		"Interface icons by Flaticon / Freepik Company",
+	},
+	Footer = "Thanks for playing.",
+}
+
+return CreditsConfig
+end
+
+-- ======================================================================
+-- Module: CreditsModel
+-- ======================================================================
+__defs["CreditsModel"] = function()
+-- Pure helpers behind the Credits screen: clean up CreditsConfig (defaults,
+-- clamps, bad entries dropped), filter it by tab and search, and lay out the
+-- card grid. No Roblox services, so scripts/verify_credits.luau runs it.
+
+local CreditsModel = {}
+
+local CARD_STYLES = { Card = true, Compact = true }
+local AVATAR_SHAPES = { Rounded = true, Circle = true }
+
+local function text(value: any, fallback: string): string
+	if type(value) == "string" then
+		return value
+	end
+	return fallback
+end
+
+local function flag(value: any, fallback: boolean): boolean
+	if type(value) == "boolean" then
+		return value
+	end
+	return fallback
+end
+
+local function number(value: any, fallback: number, low: number, high: number): number
+	if type(value) ~= "number" or value ~= value then
+		return fallback
+	end
+	return math.clamp(value, low, high)
+end
+
+-- A clean copy of the config. Missing fields get defaults, numbers are
+-- clamped, members without a name and categories without an id are dropped,
+-- and duplicate category ids keep the first one.
+function CreditsModel.normalize(raw: any)
+	local config = if type(raw) == "table" then raw else {}
+	local model = {
+		Title = text(config.Title, "ASTRAL FORGE"),
+		Eyebrow = text(config.Eyebrow, "CREDITS"),
+		Tagline = text(config.Tagline, ""),
+		ShowVersion = flag(config.ShowVersion, true),
+		Accent = text(config.Accent, "violet"),
+		CategoryTabs = flag(config.CategoryTabs, true),
+		DefaultCategory = text(config.DefaultCategory, "All"),
+		ShowCategoryCounts = flag(config.ShowCategoryCounts, true),
+		SearchBar = flag(config.SearchBar, true),
+		SearchMinMembers = math.floor(number(config.SearchMinMembers, 6, 0, 1000)),
+		CardStyle = if CARD_STYLES[config.CardStyle] then config.CardStyle else "Card",
+		ShowAvatars = flag(config.ShowAvatars, true),
+		AvatarShape = if AVATAR_SHAPES[config.AvatarShape] then config.AvatarShape else "Rounded",
+		AvatarSize = math.floor(number(config.AvatarSize, 64, 40, 96)),
+		ShowUsernames = flag(config.ShowUsernames, true),
+		ShowRoles = flag(config.ShowRoles, true),
+		ShowNotes = flag(config.ShowNotes, true),
+		FetchNames = flag(config.FetchNames, true),
+		MaxColumns = math.floor(number(config.MaxColumns, 3, 1, 4)),
+		CardMinWidth = math.floor(number(config.CardMinWidth, 220, 140, 480)),
+		CardHoverLift = flag(config.CardHoverLift, true),
+		HideEmptyCategories = flag(config.HideEmptyCategories, false),
+		DefaultEmptyText = text(config.DefaultEmptyText, "To be announced."),
+		EntranceStagger = flag(config.EntranceStagger, true),
+		StaggerStep = number(config.StaggerStep, 0.035, 0, 0.1),
+		Acknowledgements = {},
+		Footer = text(config.Footer, ""),
+		Categories = {},
+	}
+	if type(config.Acknowledgements) == "table" then
+		for _, line in config.Acknowledgements do
+			if type(line) == "string" and line ~= "" then
+				table.insert(model.Acknowledgements, line)
+			end
+		end
+	end
+	local seen = {}
+	if type(config.Categories) == "table" then
+		for _, category in config.Categories do
+			if type(category) ~= "table" or type(category.Id) ~= "string" or category.Id == "" or category.Id == "All" or seen[category.Id] then
+				continue
+			end
+			seen[category.Id] = true
+			local members = {}
+			if type(category.Members) == "table" then
+				for _, member in category.Members do
+					if type(member) ~= "table" or type(member.Name) ~= "string" or member.Name == "" then
+						continue
+					end
+					local userId = if type(member.UserId) == "number" and member.UserId > 0 then math.floor(member.UserId) else nil
+					table.insert(members, {
+						Name = member.Name,
+						DisplayName = text(member.DisplayName, member.Name),
+						UserId = userId,
+						Role = text(member.Role, ""),
+						Note = text(member.Note, ""),
+					})
+				end
+			end
+			table.insert(model.Categories, {
+				Id = category.Id,
+				Label = text(category.Label, category.Id),
+				Description = text(category.Description, ""),
+				Accent = text(category.Accent, model.Accent),
+				Icon = text(category.Icon, "Credits"),
+				EmptyText = text(category.EmptyText, model.DefaultEmptyText),
+				Members = members,
+			})
+		end
+	end
+	if model.DefaultCategory ~= "All" and not seen[model.DefaultCategory] then
+		model.DefaultCategory = "All"
+	end
+	return model
+end
+
+-- Everyone listed, counting a person once per category they appear in.
+function CreditsModel.memberCount(model): number
+	local total = 0
+	for _, category in model.Categories do
+		total += #category.Members
+	end
+	return total
+end
+
+local function matches(member, needle: string): boolean
+	if needle == "" then
+		return true
+	end
+	for _, field in { member.Name, member.DisplayName, member.Role, member.Note } do
+		if string.find(string.lower(field), needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- The categories to draw for a tab and search text. Each entry carries its
+-- filtered members; empty categories are kept only when the config shows them
+-- and no search is narrowing the list.
+function CreditsModel.visible(model, tab: string, query: string?)
+	local needle = string.lower((string.gsub(query or "", "^%s*(.-)%s*$", "%1")))
+	local out = {}
+	for _, category in model.Categories do
+		if tab ~= "All" and category.Id ~= tab then
+			continue
+		end
+		local members = {}
+		for _, member in category.Members do
+			if matches(member, needle) then
+				table.insert(members, member)
+			end
+		end
+		if #members == 0 and (needle ~= "" or model.HideEmptyCategories) then
+			continue
+		end
+		table.insert(out, { category = category, members = members })
+	end
+	return out
+end
+
+-- The tab strip: "All" first, then each category that would show anything.
+function CreditsModel.tabs(model)
+	local tabs = { { id = "All", label = "All", count = CreditsModel.memberCount(model) } }
+	for _, category in model.Categories do
+		if #category.Members == 0 and model.HideEmptyCategories then
+			continue
+		end
+		table.insert(tabs, { id = category.Id, label = category.Label, count = #category.Members, accent = category.Accent })
+	end
+	return tabs
+end
+
+-- Cards per row for a content width: as many as fit at CardMinWidth, capped
+-- by MaxColumns. Compact rows are always one column.
+function CreditsModel.columns(model, width: number, gap: number): number
+	if model.CardStyle == "Compact" then
+		return 1
+	end
+	local fit = math.floor((width + gap) / (model.CardMinWidth + gap))
+	return math.clamp(fit, 1, model.MaxColumns)
+end
+
+-- Height of one card for the current style and options.
+function CreditsModel.cardHeight(model): number
+	if model.CardStyle == "Compact" then
+		return math.max(44, if model.ShowAvatars then math.min(model.AvatarSize, 48) + 12 else 44)
+	end
+	local textBlock = 22 + (if model.ShowUsernames then 16 else 0) + (if model.ShowRoles then 18 else 0) + (if model.ShowNotes then 34 else 0)
+	local avatar = if model.ShowAvatars then model.AvatarSize else 0
+	return math.max(avatar, textBlock) + 24
+end
+
+-- Whether the search bar is worth showing.
+function CreditsModel.showSearch(model): boolean
+	return model.SearchBar and CreditsModel.memberCount(model) >= model.SearchMinMembers
+end
+
+return table.freeze(CreditsModel)
 end
 
 -- ======================================================================

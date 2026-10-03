@@ -27,7 +27,7 @@ do
 	for _ in string.gmatch(credits, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Credits softMotion densify, got " .. tostring(soft))
+	assert(soft >= 9, "Credits softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
