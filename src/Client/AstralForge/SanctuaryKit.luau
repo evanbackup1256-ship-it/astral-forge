@@ -7000,7 +7000,7 @@ ScreenFx.arena = {
 	color = Color3.new(1, 1, 1),
 	center = Vector3.zero,
 	radius = 70,
-	height = 38,
+	height = 30,
 	turn = 0,
 	sparkAt = 0,
 	connection = nil :: RBXScriptConnection?,
@@ -7061,8 +7061,8 @@ function ScreenFx.arena.step(dt: number)
 		part.Size = Vector3.new(panel.width, math.max(0.05, half), 0.5)
 		part.Position = Vector3.new(part.Position.X, floorY + (panel.row - 0.5) * half + half * 0.5, part.Position.Z)
 		part.Color = shown
-		local base = if panel.row == 1 then 0.8 else 0.9
-		part.Transparency = math.clamp(1 - level * (1 - base + wave * 0.07 + self.flare * 0.5), 0.2, 1)
+		local base = if panel.row == 1 then 0.9 else 0.95
+		part.Transparency = math.clamp(1 - level * (1 - base + wave * 0.05 + self.flare * 0.4), 0.35, 1)
 	end
 	local speed = 0.12 + 0.06 * self.phase + (if self.enraged then 0.25 else 0)
 	self.turn += dt * speed
