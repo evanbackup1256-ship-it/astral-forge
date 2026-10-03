@@ -1176,13 +1176,15 @@ local function findWarden(): Model?
 	return nil
 end
 
-type WardenInfo = { phase: string, endsAt: number, health: number, maxHealth: number, name: string, island: string }
+type WardenInfo = { phase: string, endsAt: number, health: number, maxHealth: number, name: string, island: string, kind: string, bossPhase: number }
 
 local function readWarden(model: Model?): WardenInfo
 	if model == nil then
-		return { phase = "Unknown", endsAt = 0, health = 0, maxHealth = 1, name = BOSS.Name, island = "Riftmaw" }
+		return { phase = "Unknown", endsAt = 0, health = 0, maxHealth = 1, name = BOSS.Name, island = "Riftmaw", kind = "Warden", bossPhase = 1 }
 	end
 	return {
+		kind = tostring(model:GetAttribute("BossKind") or "Warden"),
+		bossPhase = tonumber(model:GetAttribute("BossPhase")) or 1,
 		phase = tostring(model:GetAttribute("Phase") or "Dormant"),
 		endsAt = tonumber(model:GetAttribute("EndsAt")) or 0,
 		health = tonumber(model:GetAttribute("Health")) or 0,
@@ -1193,7 +1195,27 @@ local function readWarden(model: Model?): WardenInfo
 end
 
 local function sameWardenInfo(a: WardenInfo, b: WardenInfo): boolean
-	return a.phase == b.phase and a.endsAt == b.endsAt and a.health == b.health and a.maxHealth == b.maxHealth and a.name == b.name and a.island == b.island
+	return a.phase == b.phase and a.endsAt == b.endsAt and a.health == b.health and a.maxHealth == b.maxHealth and a.name == b.name and a.island == b.island and a.kind == b.kind and a.bossPhase == b.bossPhase
+end
+
+-- One boss's config (colours, phase thresholds) by kind; the first boss when the kind is unknown.
+local function bossConfigOf(kind: string): any
+	for _, config in SanctuaryConfig.RiftBosses do
+		if config.Kind == kind then
+			return config
+		end
+	end
+	return SanctuaryConfig.RiftBoss
+end
+
+local function accentOf(kind: any): Color3
+	local theme = bossConfigOf(tostring(kind or "Warden")).Theme
+	return if theme ~= nil then rgb(theme.Primary) else RIFT
+end
+
+-- "AnnihilationBeam" -> "ANNIHILATION BEAM"
+local function spaced(name: string): string
+	return string.upper((string.gsub(name, "(%l)(%u)", "%1 %2")))
 end
 
 -- The Warden's replicated state, kept current from its attributes.
@@ -1488,6 +1510,33 @@ local function Banner(props)
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 51,
+	}), e("frame", {
+		-- A small gem at each end of the hairline, drawn out with it.
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = amount:map(function(value)
+			return UDim2.new(0.5, -math.floor(r.w * 0.18 * value) - 8, 0, plan.text.label + titleSize + 16)
+		end),
+		Size = UDim2.fromOffset(6, 6),
+		Rotation = 45,
+		BackgroundColor3 = current.accent,
+		BackgroundTransparency = amount:map(function(value)
+			return 1 - value
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 51,
+	}), e("frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = amount:map(function(value)
+			return UDim2.new(0.5, math.floor(r.w * 0.18 * value) + 8, 0, plan.text.label + titleSize + 16)
+		end),
+		Size = UDim2.fromOffset(6, 6),
+		Rotation = 45,
+		BackgroundColor3 = current.accent,
+		BackgroundTransparency = amount:map(function(value)
+			return 1 - value
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 51,
 	}), current.line ~= "" and e("textlabel", {
 		Position = UDim2.fromOffset(0, plan.text.label + titleSize + 22),
 		Size = UDim2.new(1, 0, 0, plan.text.body + 6),
@@ -1621,6 +1670,35 @@ local function HealthTrack(props)
 	local fraction = math.clamp(props.health / math.max(1, props.maxHealth), 0, 1)
 	local fill = useEase(fraction, 0.25, props.reducedMotion)
 	local chip = useEase(fraction, 1.1, props.reducedMotion)
+	-- Below a quarter of its health the bar breathes red-hot, so the finish reads from across the screen.
+	local low = props.pulse == true and fraction < 0.25 and not props.reducedMotion
+	local beat, setBeat = React.useBinding(0)
+	React.useEffect(function()
+		if not low then
+			setBeat(0)
+			return nil
+		end
+		local connection = RunService.Heartbeat:Connect(function()
+			setBeat(0.5 + 0.5 * math.sin(os.clock() * 7))
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { low })
+	local notches = {}
+	if props.notches ~= nil then
+		for index, at in props.notches do
+			notches[`notch{index}`] = e("frame", {
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.fromScale(at, 0),
+				Size = UDim2.new(0, 2, 1, 0),
+				BackgroundColor3 = Palette.white,
+				BackgroundTransparency = 0.35,
+				BorderSizePixel = 0,
+				ZIndex = 55,
+			})
+		end
+	end
 	return e("frame", {
 		Position = props.position,
 		Size = props.size,
@@ -1635,7 +1713,7 @@ local function HealthTrack(props)
 		Size = chip:map(function(value)
 			return UDim2.fromScale(math.clamp(value, 0, 1), 1)
 		end),
-		BackgroundColor3 = RIFT_SOFT,
+		BackgroundColor3 = props.soft or RIFT_SOFT,
 		BackgroundTransparency = 0.35,
 		BorderSizePixel = 0,
 		ZIndex = 52,
@@ -1645,15 +1723,17 @@ local function HealthTrack(props)
 		Size = fill:map(function(value)
 			return UDim2.fromScale(math.clamp(value, 0, 1), 1)
 		end),
-		BackgroundColor3 = props.color or RIFT,
+		BackgroundColor3 = if low then beat:map(function(value)
+			return (props.color or RIFT):Lerp(Color3.fromRGB(255, 70, 60), value)
+		end) else (props.color or RIFT),
 		BorderSizePixel = 0,
 		ZIndex = 53,
 	}, e("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), e("uigradient", {
-		Color = ColorSequence.new(RIFT_SOFT, props.color or RIFT),
+		Color = ColorSequence.new(props.soft or RIFT_SOFT, props.color or RIFT),
 		Rotation = 90,
-	})))
+	})), notches)
 end
 
 local function WardenBar(props)
@@ -1672,14 +1752,25 @@ local function WardenBar(props)
 	local title: string
 	local right: string
 	local track = nil
+	-- Each boss bar wears that boss's own colours; the phase thresholds are notched into the track.
+	local config = bossConfigOf(warden.kind)
+	local theme = config.Theme
+	local accent = if theme ~= nil then rgb(theme.Primary) else RIFT
+	local soft = if theme ~= nil then rgb(theme.Hot) else RIFT_SOFT
 	if phase == "Active" then
-		title = string.upper(warden.name)
-		right = if props.inArena then clock(remaining) else `{(Layout.region(warden.island) or { Name = "Riftmaw" }).Name} · {clock(remaining)}`
+		local total = (config.Phases ~= nil and #config.Phases or 0) + 1
+		local percent = math.floor(math.clamp(warden.health / math.max(1, warden.maxHealth), 0, 1) * 100 + 0.5)
+		title = if total > 1 then `{string.upper(warden.name)} · PHASE {math.min(total, warden.bossPhase)}/{total}` else string.upper(warden.name)
+		right = if props.inArena then `{percent}%  {clock(remaining)}` else `{(Layout.region(warden.island) or { Name = "Riftmaw" }).Name} · {clock(remaining)}`
 		track = e(HealthTrack, {
-			position = UDim2.new(0, left, 1, -left - 6),
-			size = UDim2.new(1, -left * 2, 0, 6),
+			position = UDim2.new(0, left, 1, -left - 8),
+			size = UDim2.new(1, -left * 2, 0, 8),
 			health = warden.health,
 			maxHealth = warden.maxHealth,
+			color = accent,
+			soft = soft,
+			notches = config.Phases,
+			pulse = true,
 			reducedMotion = props.reducedMotion,
 		})
 	elseif phase == "Forming" then
@@ -1691,7 +1782,8 @@ local function WardenBar(props)
 			size = UDim2.new(1, -left * 2, 0, 3),
 			health = progress,
 			maxHealth = 1,
-			color = RIFT_SOFT,
+			color = soft,
+			soft = accent,
 			reducedMotion = props.reducedMotion,
 		})
 	elseif phase == "Defeated" then
@@ -1709,15 +1801,15 @@ local function WardenBar(props)
 		position = position,
 		size = size,
 		radius = 10,
-		strokeColor = if lively then RIFT else Palette.white,
-		strokeTransparency = if lively then 0.5 else 0.86,
+		strokeColor = if lively then accent else Palette.white,
+		strokeTransparency = if lively then 0.35 else 0.86,
 	}, e(Label, {
 		position = UDim2.fromOffset(left, if track ~= nil then math.floor(r.h * 0.14) else 0),
 		size = UDim2.new(0.62, -left, 0, if track ~= nil then labelSize + 8 else r.h),
 		text = title,
 		textSize = labelSize,
 		font = FONT_BOLD,
-		color = if lively then RIFT_SOFT else Palette.creamSoft,
+		color = if lively then soft else Palette.creamSoft,
 	}), e(Label, {
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.new(1, -left, 0, if track ~= nil then math.floor(r.h * 0.14) else 0),
@@ -1736,27 +1828,175 @@ type Hit = { id: number, text: string, crit: boolean }
 
 local function HitNumber(props)
 	local rise = useEase(1, 0.8, false, 0)
+	-- A number pops in oversized, settles, then drifts up and away; a crit pops harder, in gold with a hot edge.
+	local pop = rise:map(function(value)
+		if value < 0.16 then
+			return 0.55 + (value / 0.16) * (if props.crit then 1.05 else 0.7)
+		end
+		local settle = math.clamp((value - 0.16) / 0.3, 0, 1)
+		return (if props.crit then 1.6 else 1.25) - settle * (if props.crit then 0.5 else 0.25)
+	end)
 	return e("textlabel", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = rise:map(function(value)
-			return UDim2.new(0.5, props.offset, 0, -6 - math.floor(value * 46))
+			return UDim2.new(0.5, props.offset + math.floor(value * props.offset * 0.5), 0, -6 - math.floor(value * (if props.crit then 62 else 46)))
 		end),
-		Size = UDim2.fromOffset(140, 28),
+		Size = UDim2.fromOffset(160, 32),
 		BackgroundTransparency = 1,
 		Text = props.text,
 		TextColor3 = if props.crit then Palette.mango else Palette.cream,
 		TextTransparency = rise:map(function(value)
 			return math.clamp((value - 0.55) / 0.45, 0, 1)
 		end),
-		TextStrokeColor3 = Palette.void,
+		TextStrokeColor3 = if props.crit then Color3.fromRGB(255, 96, 40) else Palette.void,
 		TextStrokeTransparency = rise:map(function(value)
-			return 0.35 + 0.65 * math.clamp((value - 0.55) / 0.45, 0, 1)
+			return (if props.crit then 0.1 else 0.35) + 0.9 * math.clamp((value - 0.55) / 0.45, 0, 1)
 		end),
-		TextSize = if props.crit then 22 else 17,
+		TextSize = if props.crit then 24 else 17,
 		FontFace = FONT_HEAVY,
 		AutoLocalize = false,
 		ZIndex = 56,
-	})
+	}, e("uiscale", { Scale = pop }))
+end
+
+-- The warning for an ultimate: the move's name across the screen with a bar that drains to the moment
+-- it lands. It listens for the boss's own signal, so the HUD carries no state for it.
+local function UltimateAlert(props)
+	local message, setMessage = React.useState(nil :: { key: number, name: string, accent: Color3, soft: Color3, seconds: number }?)
+	local sequence = React.useRef(0)
+	local drain, setDrain = React.useBinding(1)
+	React.useEffect(function()
+		return Signals.on("RiftBossUltimate", function(payload)
+			if type(payload) ~= "table" then
+				return
+			end
+			local config = bossConfigOf(tostring(payload.BossKind or "Warden"))
+			local theme = config.Theme
+			local seconds = math.max(0.8, tonumber(payload.Seconds) or 2)
+			sequence.current += 1
+			local key = sequence.current
+			setMessage({
+				key = key,
+				name = spaced(tostring(payload.Name or "Ultimate")),
+				accent = if theme ~= nil then rgb(theme.Alert) else RIFT,
+				soft = if theme ~= nil then rgb(theme.Hot) else RIFT_SOFT,
+				seconds = seconds,
+			})
+			local started = os.clock()
+			local connection: RBXScriptConnection? = nil
+			connection = RunService.RenderStepped:Connect(function()
+				local k = math.clamp((os.clock() - started) / seconds, 0, 1)
+				setDrain(1 - k)
+				if (k >= 1 or sequence.current ~= key) and connection ~= nil then
+					connection:Disconnect()
+				end
+			end)
+			task.delay(seconds + 0.5, function()
+				if sequence.current == key then
+					setMessage(nil)
+				end
+			end)
+		end)
+	end, {})
+	local shown = message ~= nil
+	local amount = useEase(if shown then 1 else 0, if shown then 0.3 else 0.5, props.reducedMotion)
+	local last = React.useRef(message)
+	if message ~= nil then
+		last.current = message
+	end
+	local current = last.current
+	if current == nil then
+		return nil
+	end
+	local titleSize = math.clamp(props.plan.text.title + 10, 28, 44)
+	return e("frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.24, 0),
+		Size = UDim2.new(0.86, 0, 0, titleSize + 54),
+		BackgroundTransparency = 1,
+		Active = false,
+		ZIndex = 58,
+	}, e("uisizeconstraint", { MaxSize = Vector2.new(620, 400) }), e("frame", {
+		-- A band of shade behind the words so they read over any scene.
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = amount:map(function(value)
+			return UDim2.fromScale(value, 0.9)
+		end),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = amount:map(function(value)
+			return 1 - value * 0.62
+		end),
+		BorderSizePixel = 0,
+		ZIndex = 58,
+	}, e("uigradient", {
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.25, 0),
+			NumberSequenceKeypoint.new(0.75, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	})), e("frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0, 0),
+		Size = amount:map(function(value)
+			return UDim2.new(value, 0, 0, 2)
+		end),
+		BackgroundColor3 = current.accent,
+		BorderSizePixel = 0,
+		ZIndex = 59,
+	}), e("frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		Size = amount:map(function(value)
+			return UDim2.new(value, 0, 0, 2)
+		end),
+		BackgroundColor3 = current.accent,
+		BorderSizePixel = 0,
+		ZIndex = 59,
+	}), e("textlabel", {
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.new(1, 0, 0, 16),
+		BackgroundTransparency = 1,
+		Text = "ULTIMATE",
+		TextColor3 = current.accent,
+		TextTransparency = amount:map(function(value)
+			return 1 - value
+		end),
+		TextSize = 13,
+		FontFace = FONT_BOLD,
+		AutoLocalize = false,
+		ZIndex = 60,
+	}), e("textlabel", {
+		Position = UDim2.fromOffset(0, 20),
+		Size = UDim2.new(1, 0, 0, titleSize + 8),
+		BackgroundTransparency = 1,
+		Text = current.name,
+		TextColor3 = current.soft,
+		TextTransparency = amount:map(function(value)
+			return 1 - value
+		end),
+		TextStrokeColor3 = current.accent,
+		TextStrokeTransparency = amount:map(function(value)
+			return 1 - value * 0.6
+		end),
+		TextSize = titleSize,
+		FontFace = FONT_HEAVY,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		AutoLocalize = false,
+		ZIndex = 60,
+	}), e("frame", {
+		-- The countdown: drains from both ends toward the middle as the move gathers.
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -8),
+		Size = drain:map(function(value)
+			return UDim2.new(0.8 * value, 0, 0, 4)
+		end),
+		BackgroundColor3 = current.soft,
+		BackgroundTransparency = 0.1,
+		BorderSizePixel = 0,
+		ZIndex = 60,
+	}, e("uicorner", { CornerRadius = UDim.new(1, 0) })))
 end
 
 local function StrikeButton(props)
@@ -2502,7 +2742,7 @@ local function SanctuaryHud(props)
 			end),
 			Signals.on("RiftBossAwake", function(payload)
 				local info = if type(payload) == "table" then payload else {}
-				showBanner("The rift opens", `{info.Name or BOSS.Name} has woken`, tostring(info.Title or "Strike it in the Riftmaw"), RIFT, 3.4)
+				showBanner("The rift opens", `{info.Name or BOSS.Name} has woken`, tostring(info.Title or "Strike it in the Riftmaw"), accentOf(info.Kind), 3.4)
 			end),
 			Signals.on("RiftBossPhase", function(payload)
 				local info = if type(payload) == "table" then payload else {}
@@ -2579,6 +2819,9 @@ local function SanctuaryHud(props)
 		plan = plan,
 		warden = warden,
 		inArena = inArena,
+		reducedMotion = reduced,
+	}), e(UltimateAlert, {
+		plan = plan,
 		reducedMotion = reduced,
 	}), plan.menuButton ~= nil and e(IconButton, {
 		rect = plan.menuButton,
