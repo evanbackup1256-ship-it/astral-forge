@@ -136,6 +136,8 @@ local function BootScreen(_param)
 	local clock, setClock = React.useBinding(0)
 	local spinFade, setSpinFade = React.useBinding(0)
 	local veilFade, setVeilFade = React.useBinding(0)
+	-- How far the veil has lifted (0 = covering the screen, 1 = gone): drives the backdrop, embers and glow.
+	local veilHide = veilFade
 	local progressPulse, setProgressPulse = React.useBinding(0)
 	-- The bar glides toward the real progress instead of jumping between
 	-- loading stages.
