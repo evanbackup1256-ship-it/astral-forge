@@ -59,89 +59,8 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 7076ee4
-# Game integrate tip (must be ancestor): 5e55aab2c0dd28a3151353483da923fcc41605ec
-git merge-base --is-ancestor 5e55aab HEAD; if ($LASTEXITCODE -eq 0) { echo integrate OK }
-
-# Confirm color / trade / inventory / playability / closeout landed:
-git merge-base --is-ancestor d3b0d55 HEAD; if ($LASTEXITCODE -eq 0) { echo color-pc OK }
-git merge-base --is-ancestor 9bcb0c5 HEAD; if ($LASTEXITCODE -eq 0) { echo trade OK }
-git merge-base --is-ancestor 9c30593 HEAD; if ($LASTEXITCODE -eq 0) { echo inventory OK }
-git merge-base --is-ancestor a08ddef HEAD; if ($LASTEXITCODE -eq 0) { echo playability OK }
-git merge-base --is-ancestor 4146904 HEAD; if ($LASTEXITCODE -eq 0) { echo pagescaffold-remaining OK }
-git merge-base --is-ancestor 6297d4f HEAD; if ($LASTEXITCODE -eq 0) { echo goal-closeout OK }
-git merge-base --is-ancestor 3a900b4 HEAD; if ($LASTEXITCODE -eq 0) { echo playability-residuals OK }
-git merge-base --is-ancestor 38d3052 HEAD; if ($LASTEXITCODE -eq 0) { echo allowlist-polish OK }
-git merge-base --is-ancestor dd10c4b HEAD; if ($LASTEXITCODE -eq 0) { echo studio-edge-harden OK }
-git merge-base --is-ancestor ef4134f HEAD; if ($LASTEXITCODE -eq 0) { echo trade-gamepad-release OK }
-git merge-base --is-ancestor cbd4cf0 HEAD; if ($LASTEXITCODE -eq 0) { echo content-gates-polish OK }
-git merge-base --is-ancestor 9973c1c HEAD; if ($LASTEXITCODE -eq 0) { echo bug-polish OK }
-git merge-base --is-ancestor f8240e4 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-economy-more OK }
-git merge-base --is-ancestor d08a852 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-progression-lab OK }
-git merge-base --is-ancestor 227f8a5 HEAD; if ($LASTEXITCODE -eq 0) { echo cta-clip-polish OK }
-git merge-base --is-ancestor 88369d7 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-anomaly OK }
-git merge-base --is-ancestor e693912 HEAD; if ($LASTEXITCODE -eq 0) { echo content-bug-wave OK }
-git merge-base --is-ancestor a97b5a8 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-guild-bugs OK }
-git merge-base --is-ancestor f100cf5 HEAD; if ($LASTEXITCODE -eq 0) { echo settle-virt-release OK }
-git merge-base --is-ancestor a318638 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-pagerouter-maingame OK }
-git merge-base --is-ancestor e304f15 HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave7 OK }
-git merge-base --is-ancestor 897d932 HEAD; if ($LASTEXITCODE -eq 0) { echo bug-studio-checklist OK }
-git merge-base --is-ancestor 3cf76a0 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-serverservices OK }
-git merge-base --is-ancestor 49f1d8e HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave8 OK }
-git merge-base --is-ancestor 2a7d9a6 HEAD; if ($LASTEXITCODE -eq 0) { echo inv-crates-admin-scaffold OK }
-git merge-base --is-ancestor 78e593d HEAD; if ($LASTEXITCODE -eq 0) { echo settle-gates-more OK }
-git merge-base --is-ancestor eec599c HEAD; if ($LASTEXITCODE -eq 0) { echo echo-research-virt OK }
-git merge-base --is-ancestor 15c0aba HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave9 OK }
-git merge-base --is-ancestor d059e83 HEAD; if ($LASTEXITCODE -eq 0) { echo wave10-harden OK }
-git merge-base --is-ancestor 8308a2f HEAD; if ($LASTEXITCODE -eq 0) { echo split-maingame-ss OK }
-git merge-base --is-ancestor 2321f3d HEAD; if ($LASTEXITCODE -eq 0) { echo bug-content-wave11 OK }
-git merge-base --is-ancestor 8cc1e7f HEAD; if ($LASTEXITCODE -eq 0) { echo wave12-harden OK }
-git merge-base --is-ancestor 98bf1c3 HEAD; if ($LASTEXITCODE -eq 0) { echo chat-credits-softmotion OK }
-git merge-base --is-ancestor 38fdd2d HEAD; if ($LASTEXITCODE -eq 0) { echo wave13-harden OK }
-git merge-base --is-ancestor 45849b3 HEAD; if ($LASTEXITCODE -eq 0) { echo softmotion-thin OK }
-git merge-base --is-ancestor 6385be9 HEAD; if ($LASTEXITCODE -eq 0) { echo wave14-harden OK }
-git merge-base --is-ancestor d740cac HEAD; if ($LASTEXITCODE -eq 0) { echo softmotion-admin OK }
-git merge-base --is-ancestor ca2bb29 HEAD; if ($LASTEXITCODE -eq 0) { echo wave15-harden OK }
-git merge-base --is-ancestor d942e37 HEAD; if ($LASTEXITCODE -eq 0) { echo wave16-harden OK }
-git merge-base --is-ancestor 2f66f7e HEAD; if ($LASTEXITCODE -eq 0) { echo wave17-harden OK }
-git merge-base --is-ancestor e5f361c HEAD; if ($LASTEXITCODE -eq 0) { echo softmotion-ungated OK }
-git merge-base --is-ancestor 0ce4e32 HEAD; if ($LASTEXITCODE -eq 0) { echo wave18-harden OK }
-git merge-base --is-ancestor b829dc9 HEAD; if ($LASTEXITCODE -eq 0) { echo economy-inv-readme OK }
-git merge-base --is-ancestor 3b108bb HEAD; if ($LASTEXITCODE -eq 0) { echo wave19-harden OK }
-git merge-base --is-ancestor 504833d HEAD; if ($LASTEXITCODE -eq 0) { echo dataservice-admin-extract OK }
-git merge-base --is-ancestor 975abca HEAD; if ($LASTEXITCODE -eq 0) { echo wave20-harden OK }
-git merge-base --is-ancestor 978eaa5 HEAD; if ($LASTEXITCODE -eq 0) { echo split-monoliths-wave20 OK }
-git merge-base --is-ancestor b46f905 HEAD; if ($LASTEXITCODE -eq 0) { echo wave21-harden OK }
-git merge-base --is-ancestor 38d3197 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-checks-wave21 OK }
-git merge-base --is-ancestor 9003943 HEAD; if ($LASTEXITCODE -eq 0) { echo wave22-harden OK }
-git merge-base --is-ancestor 505f565 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-checks-wave22 OK }
-git merge-base --is-ancestor 6af2030 HEAD; if ($LASTEXITCODE -eq 0) { echo extract-checks-wave22-tip OK }
-git merge-base --is-ancestor 0e6d84a HEAD; if ($LASTEXITCODE -eq 0) { echo wave24-offline OK }
-git merge-base --is-ancestor 315720b HEAD; if ($LASTEXITCODE -eq 0) { echo wave25-offline OK }
-git merge-base --is-ancestor 68c71bf HEAD; if ($LASTEXITCODE -eq 0) { echo wave26-offline OK }
-git merge-base --is-ancestor 78ba94a HEAD; if ($LASTEXITCODE -eq 0) { echo wave27-offline OK }
-git merge-base --is-ancestor 75bbeec HEAD; if ($LASTEXITCODE -eq 0) { echo wave28-offline OK }
-git merge-base --is-ancestor 268ba8a HEAD; if ($LASTEXITCODE -eq 0) { echo wave29-offline OK }
-git merge-base --is-ancestor 05b12ae HEAD; if ($LASTEXITCODE -eq 0) { echo wave30-offline OK }
-git merge-base --is-ancestor fd27fbe HEAD; if ($LASTEXITCODE -eq 0) { echo wave31-offline OK }
-git merge-base --is-ancestor 7af98e6 HEAD; if ($LASTEXITCODE -eq 0) { echo wave32-offline OK }
-git merge-base --is-ancestor 09a20cb HEAD; if ($LASTEXITCODE -eq 0) { echo wave33-offline OK }
-git merge-base --is-ancestor 97ee141 HEAD; if ($LASTEXITCODE -eq 0) { echo wave34-offline OK }
-git merge-base --is-ancestor e62b190 HEAD; if ($LASTEXITCODE -eq 0) { echo wave35-offline OK }
-git merge-base --is-ancestor 54c492e HEAD; if ($LASTEXITCODE -eq 0) { echo wave36-offline OK }
-git merge-base --is-ancestor 8da6fe5 HEAD; if ($LASTEXITCODE -eq 0) { echo wave37-offline OK }
-git merge-base --is-ancestor cfc57a1 HEAD; if ($LASTEXITCODE -eq 0) { echo wave38-offline OK }
-git merge-base --is-ancestor c2f0b4a HEAD; if ($LASTEXITCODE -eq 0) { echo wave39-offline OK }
-git merge-base --is-ancestor aab618d HEAD; if ($LASTEXITCODE -eq 0) { echo wave40-offline OK }
-git merge-base --is-ancestor 1388e6b HEAD; if ($LASTEXITCODE -eq 0) { echo wave41-offline OK }
-git merge-base --is-ancestor 850050c HEAD; if ($LASTEXITCODE -eq 0) { echo wave42-offline OK }
-git merge-base --is-ancestor 3bfec57 HEAD; if ($LASTEXITCODE -eq 0) { echo wave43-offline OK }
-git merge-base --is-ancestor 74ca32b HEAD; if ($LASTEXITCODE -eq 0) { echo wave44-offline OK }
-git merge-base --is-ancestor e31d2a0 HEAD; if ($LASTEXITCODE -eq 0) { echo wave45-offline OK }
-git merge-base --is-ancestor 6727f99 HEAD; if ($LASTEXITCODE -eq 0) { echo wave46-offline OK }
-git merge-base --is-ancestor dfa9609 HEAD; if ($LASTEXITCODE -eq 0) { echo wave47-offline OK }
-git merge-base --is-ancestor 70e1b7d HEAD; if ($LASTEXITCODE -eq 0) { echo wave48-offline OK }
-git merge-base --is-ancestor dd1a3fe HEAD; if ($LASTEXITCODE -eq 0) { echo wave49-offline OK }
+# Studio sees whatever is on disk, so confirm you are on the tip you expect:
+git log --oneline -5
 
 # Stop any old Argon session, then:
 argon serve default.project.json
@@ -152,6 +71,8 @@ Default branch is `master` on `origin` only — do not stay on feature branches 
 `cursor/client-page-features-4e51` if you want the integrate tip.
 
 ## Checks
+
+The full suite (every module's syntax, the boss roster and rig guards, the register limits) is `lune run scripts/verify_project.luau`; commit only on exit code 0.
 
 Install [Lune](https://lune-org.github.io/docs/) for the pure layout tests, then run:
 
@@ -186,7 +107,6 @@ git fetch origin
 git checkout master
 git pull origin master
 git rev-parse HEAD
-# Expect at or after: 7076ee4
 argon serve default.project.json
 ```
 
@@ -261,21 +181,25 @@ machines are gated by rebirth COUNT, so a player who rebirths often reaches zone
 in about 2 hours while one who waits for big payouts does not reach zone 5 in two
 weeks. The rebirth screen therefore names the next count-gate and says to rebirth
 often. Do not bump `DataVersion` for balance changes: tune `GameConfig` numbers.
-## Boss voices
+## The sanctuary and its bosses
 
-Every boss line is spoken. `python tools/assetgen/voice_gen.py` voices each line with the machine's own Windows TTS and turns it monstrous (pitch, chorus, ring-mod, distortion, reverb per boss); `python tools/assetgen/upload_voice.py` uploads them with your Open Cloud key and rewrites the BOSS-VOICE block in SharedData.luau. Lines Roblox rejects stay silent; subtitles always show.
+The sanctuary is a walkable world (`src/Client/AstralForge/SanctuaryKit.luau`) with seven rift bosses on a
+rotation: Warden, Choir, Regent, Seraph, Rime, Knight and the mega boss Astraeon. Fights are built for crowds
+(health scales with fighters) and every attack is telegraphed. Admins (`ServerConfig.AdminUserIds`) get a
+"Bosses" button to summon one boss, all of them in a chain, or stop the fight.
 
+- **Bodies**: modelled, rigged and animated in Blender by `tools/bossbuild` (headless, `build_all_headless.ps1`),
+  exported as one `BossBody_<Kind>.luau` per boss and uploaded with `tools/bossbuild/upload_bodies.py`.
+  Capes, skirts, wings and feathers are simulated at runtime by `Shared/BossPhysics` plus the vendored `Shared/Spr`
+  (MIT, see `vendor/licenses/spr.txt`).
+- **Spectacle**: black-hole gravity wells (every `GravityWell`, plus Astraeon's `Singularity` ultimate), a real
+  supernova (a long `Dissonance` countdown), eon-scale blasts (`ScreenFx.eon`), a summoning rite while forming, a
+  torn-sky spawn-in and a ten-second overload-and-detonation death.
+- **Sound**: `python tools/assetgen/boss_sfx_gen.py` synthesizes the effect, footstep, wing, cloth and armour
+  sounds from maths; `python tools/assetgen/upload_boss_sfx.py` uploads them and rewrites the BOSS-SFX block in
+  `SharedData.luau`. Meshes for the signature VFX come from `tools/assetgen/blender_bossvfx.py` and
+  `upload_boss_vfx.py`. There is no dialogue or voice system.
+- **Guards**: `lune run scripts/verify_project.luau` runs everything, including the roster fairness and balance
+  checks, the rig checks and the register-headroom check. `tools/playtest/` holds the Studio playtest harness.
 
-## Boss effect sounds
-
-`python tools/assetgen/boss_sfx_gen.py` synthesizes the element casts/hits, wisp and impact-frame sounds from maths (no samples); `python tools/assetgen/upload_boss_sfx.py` uploads them and rewrites the BOSS-SFX block in SharedData.luau. Until then the bosses use their existing cues.
-
-
-## Credits
-
-Boss voices are synthesized with Piper using the LibriTTS-R voice model (https://www.openslr.org/141/, CC BY 4.0, Y. Koizumi et al.).
-
-## Boss VFX meshes
-
-`blender -b --python tools/assetgen/blender_bossvfx.py` builds 18 signature meshes (three per boss) into assets/generated/BossVfxKit.glb; `python tools/assetgen/upload_boss_vfx.py` uploads it and wires the id into SharedData.luau. The server loads it at boot and the client animates each piece.
-
+How it all fits together is in [docs/sanctuary.md](docs/sanctuary.md).
