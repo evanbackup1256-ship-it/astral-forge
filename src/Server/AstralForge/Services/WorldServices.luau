@@ -893,6 +893,20 @@ end
 
 function RiftBossService:_step()
 	local now = Workspace:GetServerTimeNow()
+	-- Studio only (playtests): workspace:SetAttribute("StudioEnterSanctuary", userId) puts that player in the
+	-- sanctuary exactly as the real enter does, so the boss sees them and sends them its effects.
+	if RunService:IsStudio() then
+		local enterId = Workspace:GetAttribute("StudioEnterSanctuary")
+		if enterId ~= nil then
+			Workspace:SetAttribute("StudioEnterSanctuary", nil)
+			local who = Players:GetPlayerByUserId(tonumber(enterId) or 0)
+			if who ~= nil then
+				task.spawn(function()
+					self._host.world:EnterSanctuary(who)
+				end)
+			end
+		end
+	end
 	self:_forced(now)
 	local present, inArena = self:_fighters()
 	self:_demo(now, inArena)
