@@ -143,12 +143,18 @@ local function collectMountedContent(seen, target, deepWorld)
 		table.insert(target, instance)
 	end
 end
+local harvestVisits = 0
 local function harvestContentIds(value, seen, target, depth)
 	if depth == nil then
 		depth = 0
 	end
 	if depth > 8 or value == nil then
 		return nil
+	end
+	-- The generated tables are large; give the frame back now and then.
+	harvestVisits += 1
+	if harvestVisits % 4000 == 0 then
+		RunService.Heartbeat:Wait()
 	end
 	local _value = value
 	if type(_value) == "string" then
@@ -168,12 +174,6 @@ local function harvestContentIds(value, seen, target, depth)
 		harvestContentIds(child, seen, target, depth + 1)
 	end
 end
-local HEAVY_GENERATED_KEYS = {
-	Machines = true,
-	Research = true,
-	Zones = true,
-	GridUpgrades = true,
-}
 local function collectConfigContent(seen, target)
 	local _shared = ReplicatedStorage:FindFirstChild("AstralForge")
 	if _shared ~= nil then
@@ -194,24 +194,10 @@ local function collectConfigContent(seen, target)
 	if not ok then
 		return nil
 	end
-	for key, value in pairs(config) do
-		if not HEAVY_GENERATED_KEYS[key] then
-			harvestContentIds(value, seen, target)
-		end
-	end
-	if config.Operations then
-		for key, value in pairs(config.Operations) do
-			if key ~= "SeasonTiers" then
-				harvestContentIds(value, seen, target)
-			end
-		end
-	end
-	if config.Anomalies then
-		for key, value in pairs(config.Anomalies) do
-			if key ~= "Milestones" then
-				harvestContentIds(value, seen, target)
-			end
-		end
+	-- Every config table, generated ones included: the loading screen should leave
+	-- nothing to stream in once the game opens.
+	for _, value in pairs(config) do
+		harvestContentIds(value, seen, target)
 	end
 end
 local function sampleFrameRate(seconds)
@@ -487,25 +473,51 @@ local function warmClientModules(onProgress)
 	if onProgress ~= nil then
 		onProgress(0, math.max(total, 1))
 	end
+	-- Requiring a merged suite only builds its loader; each member compiles on
+	-- first use, which is what made the first open of a page hitch. Every
+	-- suite member is queued here and warmed under the same frame budget.
+	local members = {}
+	local function queueMembers(suite)
+		local ok, names = pcall(function()
+			return suite.__members
+		end)
+		if not ok or type(names) ~= "table" then
+			return nil
+		end
+		for _, name in names do
+			table.insert(members, { suite = suite, name = name })
+		end
+		total += #names
+	end
 	local index = 1
-	while index <= total do
+	local memberIndex = 1
+	while index <= #modules or memberIndex <= #members do
 		local sliceStarted = os.clock()
-		while index <= total and os.clock() - sliceStarted < MODULE_FRAME_BUDGET do
+		while index <= #modules and os.clock() - sliceStarted < MODULE_FRAME_BUDGET do
 			local moduleScript = modules[index]
 			index += 1
 			if moduleScript.Parent ~= nil and not skipWarmModule(moduleScript) then
-				pcall(require, moduleScript)
+				local ok, exports = pcall(require, moduleScript)
+				if ok and type(exports) == "table" then
+					queueMembers(exports)
+				end
 			end
 			loaded += 1
 		end
+		while index > #modules and memberIndex <= #members and os.clock() - sliceStarted < MODULE_FRAME_BUDGET do
+			local entry = members[memberIndex]
+			memberIndex += 1
+			pcall(entry.suite, entry.name)
+			loaded += 1
+		end
 		local now = os.clock()
-		if onProgress ~= nil and (index > total or now - lastReport >= 0.12) then
+		if onProgress ~= nil and (loaded >= total or now - lastReport >= 0.12) then
 			lastReport = now
 			onProgress(loaded, total)
 		end
 		RunService.Heartbeat:Wait()
 	end
-	ClientLog:once("module-warm-ready", "modules", `{loaded} modules warm in client, vendor, and packages`)
+	ClientLog:once("module-warm-ready", "modules", `{#modules} modules and {#members} suite members warm`)
 	return loaded, total
 end
 return {
@@ -1140,11 +1152,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })
