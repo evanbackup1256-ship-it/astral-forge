@@ -4624,7 +4624,7 @@ local function loadRiggedBody(current: Boss): boolean
 	local okPhysics, physics = pcall(function()
 		local module = require(Shared:WaitForChild("BossPhysics"))
 		local spr = require(Shared:WaitForChild("Spr"))
-		local state = module.new({ order = data.order, parents = parents, heads = heads, scale = scale }, spr, #current.kind)
+		local state = module.new({ order = data.order, parents = parents, heads = heads, scale = scale, physics = data.physics }, spr, #current.kind)
 		return if state ~= nil then { module = module, state = state } else nil
 	end)
 	if okPhysics and physics ~= nil then
