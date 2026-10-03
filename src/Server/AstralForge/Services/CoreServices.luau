@@ -1,13 +1,4 @@
 --!strict
---[=[
-	CoreServices: merged module suite.
-	Members (6): ServerEventService, AnomalyService, ForgeEchoService, GuildService, LabService, ProgressionService.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: AnomalyService   (merged from AnomalyService.luau, 582 lines)
--- ======================================================================
 __defs["AnomalyService"] = function()
 
 return function(loadService: (string) -> any)
@@ -45,25 +33,14 @@ return function(loadService: (string) -> any)
 
 	local AnomalyService = {}
 
-	-- Pulse timing must use Workspace:GetServerTimeNow (sub-second, Roblox-synced), not
-	-- os.time() (1s resolution). A 1.6s sweep with a ~0.35s sweet zone cannot be judged
-	-- fairly from whole-second stamps, and the client needle already predicts from
-	-- GetServerTimeNow — mixing clocks made "perfect" taps miss on the server.
 	local function pulseNow(): number
 		return Workspace:GetServerTimeNow()
 	end
 
-	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — pulse /
-	-- stabilize / protocol / directive ledgers must not throw before the Anomaly bag updates.
 	local function bumpAnomalyStat(profile, key: string)
 		ProfileBagMath.BumpStat(profile, key, 1)
 	end
 
-	-- Overdrive: a server-wide (not per-player) shared meter. Deliberately module-level state
-	-- rather than anything persisted -- Luau modules are singletons per server, so this is
-	-- naturally scoped to "this server instance," resets cleanly on restart, and needs no
-	-- datastore surface or save-conflict handling for what's meant to be a bonus layer on top
-	-- of core per-player progression, not part of it.
 	local overdrive: { Charge: number, BonusEndsAt: number } = {
 		Charge = 0,
 		BonusEndsAt = 0,
@@ -73,9 +50,6 @@ return function(loadService: (string) -> any)
 		return overdrive.BonusEndsAt > now
 	end
 
-	-- Adds a contribution to the shared meter and returns true exactly once, the instant the
-	-- meter crosses its target, so the caller can fire a one-time "Overdrive!" broadcast
-	-- instead of every player's next state poll silently noticing it's already full.
 	local function contributeOverdrive(amount: number, now: number): boolean
 		if overdriveActive(now) then
 			return false
@@ -92,7 +66,6 @@ return function(loadService: (string) -> any)
 	end
 
 	function AnomalyService.OverdriveState(now: number?)
-		-- Same GetServerTimeNow clock as pulse / client useWallClock countdowns.
 		local timestamp = now or pulseNow()
 		return {
 			Charge = overdrive.Charge,
@@ -168,8 +141,6 @@ return function(loadService: (string) -> any)
 		)
 	end
 
-	-- Fragments-only / nil Anomaly bags (Admin grants, Studio fixtures) must rebuild
-	-- Discoveries/Directives/Protocols before Pulse/Stabilize/Signal index them.
 	function AnomalyService.Ensure(profile): boolean
 		local anomaly = ProfileBagMath.EnsureAnomaly(profile)
 		local cycle = currentCycle()
@@ -206,11 +177,6 @@ return function(loadService: (string) -> any)
 		end
 	end
 
-	-- Chain (a bonus for pulsing frequently) used to stack on top of Combo (a bonus for pulsing
-	-- accurately) here -- both rewarded the same repeated-Pulse action, so a player mashing
-	-- Pulse accurately watched two numbers climb for the same clicks with no clear read on which
-	-- one mattered. Combo already covers "keep pulsing well"; Progress now applies only the
-	-- protocol/anomaly-type multipliers, and the caller (Pulse) folds its own comboBonus in.
 	function AnomalyService.Progress(profile, baseAmount: number): (number, boolean)
 		AnomalyService.Ensure(profile)
 		local _, anomaly = currentCycle()
@@ -225,13 +191,6 @@ return function(loadService: (string) -> any)
 		return amount, not wasReady and profile.Anomaly.Charge >= target
 	end
 
-	-- Server-authoritative timing-window accuracy via AnomalyPulseScore. PulseWindowStartedAt
-	-- anchors a sweep of length PulseWindowSeconds; the "sweet zone" is the tail fraction of
-	-- that sweep, matching what the client's needle visually approaches. Computed entirely from
-	-- the server's own clock and the server's own record of when the current window began -- the
-	-- client never reports a timing/accuracy value that gets trusted, so there is no new spoofing
-	-- surface. A pulse always starts the next window regardless of accuracy, so players are never
-	-- stuck unable to pulse while waiting out a window they didn't want.
 	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
 		AnomalyService.Ensure(profile)
 		local now = pulseNow()
@@ -257,8 +216,6 @@ return function(loadService: (string) -> any)
 		)
 		local accuracyBonus = AnomalyPulseScore.AccuracyBonus(accurate, GameConfig.Anomalies.PulseAccurateBonus)
 
-		-- Overdrive / Progress share the pulse clock so BonusEndsAt / LastActionAt match
-		-- client GetServerTimeNow countdowns (no os.time dual-clock drift).
 		local pulsePower = 1 + protocolEffect(profile, "PulsePower")
 		local overdriveMultiplier = AnomalyService.OverdriveMultiplier(now)
 		local amount, becameReady = AnomalyService.Progress(
@@ -285,10 +242,6 @@ return function(loadService: (string) -> any)
 			}
 	end
 
-	-- Applies pending Core XP, advancing CoreTier as many times as it now qualifies for (banking
-	-- a big XP gain can cross more than one tier at once). Returns the number of tiers gained,
-	-- so the caller can surface a "Core Tier up!" moment distinct from a routine stabilization.
-	-- AnomalyOpsMath.ApplyCoreXP tonumber-safes CoreXP (string fixtures used to concatenate).
 	local function applyCoreXP(profile, xp: number): number
 		return AnomalyOpsMath.ApplyCoreXP(profile.Anomaly, xp, GameConfig.Anomalies.CoreTiers)
 	end
@@ -396,20 +349,12 @@ return function(loadService: (string) -> any)
 			}
 	end
 
-	-- Overdrive Core: replaces the old single-Channel selection with a loadout of up to
-	-- LoadoutSlots channels active at once, each contributing its own EffectAmount (summed in
-	-- Economy.AnomalyEffect). Rejects unknown channel IDs and duplicate entries rather than
-	-- silently deduping/dropping them, so a malformed payload fails cleanly instead of quietly
-	-- saving a loadout the player didn't actually pick.
 	function AnomalyService.SetLoadout(profile, rawLoadout: any): (boolean, string, any?)
 		if type(rawLoadout) ~= "table" then
 			return false, "Invalid reactor loadout."
 		end
 		AnomalyService.Ensure(profile)
 		local slots = GameConfig.Anomalies.LoadoutSlots
-		-- #rawLoadout ignores string keys, so {"Flux", a = "Reward", b = "Speed"} used to pass
-		-- the slot check while the loop below saved every entry. Count ALL keys and
-		-- require a plain 1..n array.
 		local count = 0
 		for key in rawLoadout do
 			count += 1
@@ -596,7 +541,6 @@ return function(loadService: (string) -> any)
 			ClaimableDirectives = claimableDirectives,
 			ChargeMultiplier = anomaly.ChargeMultiplier * (1 + protocolEffect(profile, "ChargeGain")),
 			RewardMultiplier = rewardMultiplier(profile, anomaly),
-			-- Overdrive Core additions.
 			PulseWindowStartedAt = profile.Anomaly.PulseWindowStartedAt or 0,
 			PulseWindowSeconds = GameConfig.Anomalies.PulseWindowSeconds,
 			PulseWindowSweetZone = GameConfig.Anomalies.PulseWindowSweetZone,
@@ -614,9 +558,6 @@ return function(loadService: (string) -> any)
 end
 end
 
--- ======================================================================
--- Module: ServerEventService
--- ======================================================================
 __defs["ServerEventService"] = function()
 
 return function()
@@ -624,13 +565,9 @@ return function()
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
 
-	-- Runs this server's event cycle (SharedData#ServerEvents): advances the phase
-	-- every second, keeps Community Forge points, and tells GameService when to
-	-- announce, broadcast or pay out. GameService owns profiles and remotes.
 	local ServerEventService = {}
 	ServerEventService.__index = ServerEventService
 
-	-- hooks: { announce(phase, def), broadcast(), payout(ranking, def), random() }
 	function ServerEventService.new(hooks)
 		local self = setmetatable({}, ServerEventService)
 		self._hooks = hooks
@@ -651,7 +588,6 @@ return function()
 		return state and state.Id and ServerEvents.EVENTS[state.Id] or nil
 	end
 
-	-- Called from the game heartbeat.
 	function ServerEventService:Step(dt: number)
 		self._accumulator += dt
 		if self._accumulator < 1 then
@@ -665,7 +601,6 @@ return function()
 			self._state = nextState
 			self:_enter(previous, nextState)
 		end
-		-- Progress pushes are throttled to one a second.
 		if self._broadcastDue and os.clock() - self._lastBroadcast >= 1 then
 			self._broadcastDue = false
 			self._lastBroadcast = os.clock()
@@ -683,7 +618,6 @@ return function()
 			self._goal = ServerEvents.communityGoal(#Players:GetPlayers())
 		end
 		if state.Phase == "Results" and state.Id == "CommunityForge" and not self._completed then
-			-- Time ran out first: nobody is paid, but the board stays up for the results.
 			self._completed = false
 		end
 		if def ~= nil and (state.Phase == "Warning" or state.Phase == "Live" or state.Phase == "Results") then
@@ -698,8 +632,6 @@ return function()
 		return ServerEvents.productionMultiplier(self._state)
 	end
 
-	-- A vault collect: Community Forge points and Stardust Rain drops. Returns the
-	-- stardust to grant (0 if none).
 	function ServerEventService:OnCollect(player: Player, collected: number, perSecond: number): number
 		local state = self._state
 		if state == nil or state.Phase ~= "Live" then
@@ -725,7 +657,6 @@ return function()
 		return 0
 	end
 
-	-- Starts an event now (Studio and admin testing).
 	function ServerEventService:Start(id: string)
 		if ServerEvents.EVENTS[id] == nil then
 			return false
@@ -736,7 +667,6 @@ return function()
 		return true
 	end
 
-	-- What a player's client shows.
 	function ServerEventService:State(player: Player?)
 		local state = self._state
 		local now = os.time()
@@ -770,9 +700,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: ForgeEchoService   (merged from ForgeEchoService.luau, 239 lines)
--- ======================================================================
 __defs["ForgeEchoService"] = function()
 
 return function()
@@ -793,7 +720,6 @@ return function()
 	local patternAffinity = ForgeEchoMath.PATTERN_AFFINITY
 
 	local function ensure(profile)
-		-- Charge-only / Draft-less Studio fixtures must rebuild before Record/Capture.
 		profile.ForgeEchoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
 		return profile.ForgeEchoes
 	end
@@ -820,9 +746,6 @@ return function()
 	end
 
 	function ForgeEchoService.Record(profile, patternId: string, weight: number): boolean
-		-- Same gate as the Echoes page. This used to compare this run's rebirths,
-		-- so echoes stopped charging after a domain expansion reset them to 0
-		-- while the page itself stayed open.
 		if not ProgressionGate.IsFeatureUnlocked(profile, "Echoes") then return false end
 		if not patternAffinity[patternId] then return false end
 		local echoes = ensure(profile)
@@ -1014,9 +937,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: GuildService   (merged from GuildService.luau, 700 lines)
--- ======================================================================
 __defs["GuildService"] = function()
 
 return function()
@@ -1051,8 +971,6 @@ return function()
 		return string.upper(tag:gsub("%s+", ""))
 	end
 
-	-- Tiered upgrades via GuildMath: named Tiers then endless BaseCost/CostScale /
-	-- EffectPerLevel tail so pre-tier guild documents keep the same costs and bonuses.
 	local function upgradeCost(definition, level: number): number
 		return GuildMath.UpgradeCost(definition, level)
 	end
@@ -1061,12 +979,6 @@ return function()
 		return GuildMath.UpgradeEffect(definition, level)
 	end
 
-	--#region Guild Goal
-	-- A guild's rotating co-op objective. Stored on the guild document as `Goal`.
-	-- Guild documents that predate this field get one lazily via EnsureGoal
-	-- (GuildGoalMath) — an old guild simply rolls its first goal the next time
-	-- it is touched. Claimed/Contributors rebuilds must persist (EnsureGoal
-	-- returns true) so ClaimGoal deny paths no longer drop repaired bags.
 	local function goalTypeById(typeId: string)
 		return GuildGoalMath.GoalTypeById(GameConfig.Guild.Goal.Types, typeId)
 	end
@@ -1078,10 +990,7 @@ return function()
 	local function advanceGoal(guild, userKey: string, metric: string, amount: number, now: number)
 		GuildGoalMath.AdvanceGoal(guild, userKey, metric, amount, now, GameConfig.Guild.Goal)
 	end
-	--#endregion
 
-	-- Bonus keys are owned by GuildMath so new categories stay a config-only change
-	-- (every key must still be one Economy already reads).
 	local function emptyBonuses()
 		return GuildMath.EmptyBonuses()
 	end
@@ -1124,7 +1033,6 @@ return function()
 		return worker
 	end
 
-
 	function GuildService:_queueWarmRead(id: string)
 		if not self._running then return end
 		if self._cache[id] or self._studio[id] or self._warmQueued[id] then return end
@@ -1160,7 +1068,6 @@ return function()
 		end
 	end
 
-
 	function GuildService:_queueLeaderboard(id: string, activity: number)
 		if not self._running then return end
 		self._leaderboardPending[id] = LeaderboardCodec.Encode(activity)
@@ -1176,8 +1083,6 @@ return function()
 						self._leaderboard:SetAsync(id, encoded)
 					end)
 					if not wrote then
-						-- Keep the score queued. Dropping it here made a throttled write
-						-- disappear until some later activity change happened to retry it.
 						if self._leaderboardPending[id] == nil then
 							self._leaderboardPending[id] = encoded
 						end
@@ -1367,8 +1272,6 @@ return function()
 		end
 		local doc = self:_findByTag(rawTag)
 		if not doc then return false, "No guild has that tag." end
-		-- UpdateAsync transform returning nil is a generic denial; track fullness so the
-		-- player sees "full" instead of "Guild request was denied."
 		local blockedFull = false
 		local ok, message, updated = self:_update(doc.Id, function(guild)
 			blockedFull = false
@@ -1429,16 +1332,9 @@ return function()
 		return true, "Left the guild.", { Id = "", Name = "", Tag = "", Level = 0, XP = 0, Activity = 0, BankCash = 0, BankDust = 0, Members = {}, Upgrades = {}, CreatedAt = 0, OwnerUserId = 0 }
 	end
 
-	-- Leave() refuses to let the last member walk away (there is no invite system, only
-	-- join-by-tag, so without this a solo founder had no way out of their own guild once no
-	-- one else had joined). Disband permanently deletes the guild document and frees its tag
-	-- for reuse; only the Leader can call it, and only once they are the only member left, so a
-	-- leader can never nuke a guild other players are still invested in without emptying it
-	-- via Kick/Leave first.
 	function GuildService:Disband(player, profile)
 		local guildId = profile.Guild and profile.Guild.Id or ""
 		if guildId == "" then return false, "You are not in a guild." end
-		-- Re-read from the store (not the 60s cache) so a member who joined a moment ago blocks the delete.
 		self._cache[guildId] = nil
 		self._cacheExpiry[guildId] = nil
 		local guild = self:_read(guildId)
@@ -1456,8 +1352,6 @@ return function()
 			return false, "Guild records are unavailable. Try again shortly."
 		end
 		if removedDoc then
-			-- UpdateAsync returning nil cancels the write, so the reservation must be removed
-			-- explicitly, and only if it still points at this guild (re-read fresh first).
 			local released, releaseErr = pcall(function()
 				if self._store:GetAsync("tag:" .. tag) == guildId then
 					self._store:RemoveAsync("tag:" .. tag)
@@ -1514,7 +1408,6 @@ return function()
 			return false, "Contribute flux or dust."
 		end
 		if currency == "Cash" then
-			-- Cash can be an OmegaMath string at high exponents — never use raw `<` / `-=`.
 			if OmegaMath.Lt(profile.Cash, amount) then
 				return false, "You do not have enough currency."
 			end
@@ -1592,10 +1485,6 @@ return function()
 		return ok, ok and "Guild upgrade installed." or (message or "Could not buy that upgrade."), updated
 	end
 
-	-- Marks this member as having claimed the completed goal and reports back which reward
-	-- table the caller should apply. The reward itself is looked up from GameConfig by the
-	-- caller, never taken from the client, and the Claimed flag is set inside the UpdateAsync
-	-- transform so a double-claim cannot slip through a retry or a second server.
 	function GuildService:ClaimGoal(player, profile)
 		local guildId = profile.Guild and profile.Guild.Id or ""
 		if guildId == "" then return false, "Join a guild first." end
@@ -1606,9 +1495,6 @@ return function()
 			failure = nil
 			rewardTypeId = nil
 			local now = os.time()
-			-- Persist Claimed/Contributors rebuilds even when the claim is denied
-			-- (seen when TypeId-matched bags with nil Claimed used to rebuild then
-			-- return nil on "not finished", dropping the repair from UpdateAsync).
 			local repaired = ensureGoal(guild, now)
 			local goal = guild.Goal
 			local canClaim, claimError = GuildGoalMath.CanClaimGoal(
@@ -1626,7 +1512,6 @@ return function()
 			return guild
 		end)
 		if not ok then return false, failure or message or "Could not claim the guild goal." end
-		-- Deny path may still persist Claimed/Contributors repairs (ok=true, failure set).
 		if failure then return false, failure, updated end
 		local definition = rewardTypeId and goalTypeById(rewardTypeId) or nil
 		if not definition then return false, "That guild goal is no longer available." end
@@ -1637,12 +1522,9 @@ return function()
 		if guildId == "" then return nil end
 		local doc = self:_read(guildId)
 		if not doc then return nil end
-		-- Normalizes the returned copy only. Legacy guilds therefore render a live goal
-		-- immediately; it is persisted the next time the document is actually written.
 		ensureGoal(doc, os.time())
 		return doc
 	end
-
 
 	function GuildService:GetCachedPublic(guildId: string)
 		if guildId == "" then return nil end
@@ -1692,7 +1574,6 @@ return function()
 		return bonusesFromDocument(self:GetCachedPublic(guildId))
 	end
 
-
 	function GuildService:ReconcileMembership(profile, userId: number): boolean
 		local membership = profile.Guild
 		local guildId = membership and membership.Id or ""
@@ -1719,9 +1600,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: LabService   (merged from LabService.luau, 212 lines)
--- ======================================================================
 __defs["LabService"] = function()
 
 return function()
@@ -1766,8 +1644,6 @@ return function()
 	local function orderTarget(profile, order): number
 		local bankFluxTarget = nil
 		if order.Kind == "BankFlux" then
-			-- Size bank targets from SteadyProduction so Flux Surge / ActiveBoost / Anomaly Surge
-			-- cannot inflate lab targets mid-shift the way they must not inflate vault capacity.
 			local steady = Economy.SteadyProduction(profile)
 			bankFluxTarget = Economy.AsNumber(Economy.Mul(steady, order.ProductionSeconds))
 		end
@@ -1847,7 +1723,6 @@ return function()
 		end
 		local ok, message, reward = LabOrderMath.TryClaim(orders, orderById, orderId)
 		if ok then
-			-- Partial / mid-sanitize fixtures may lack Stats; don't throw on claim.
 			if type(profile.Stats) ~= "table" then
 				profile.Stats = { OrdersCompleted = 0 }
 			end
@@ -1879,7 +1754,6 @@ return function()
 			return false, "That rail is already empty."
 		end
 		lab.Routing[channelId] = current + delta
-		-- Partial Stats bags (same class as ClaimOrder) must not crash power routing.
 		if type(profile.Stats) ~= "table" then
 			profile.Stats = { PowerMoves = 0 }
 		end
@@ -1936,9 +1810,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: ProgressionService   (merged from ProgressionService.luau, 894 lines)
--- ======================================================================
 __defs["ProgressionService"] = function()
 
 return function()
@@ -1989,8 +1860,6 @@ return function()
 		return profile.Command
 	end
 
-	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — weekly /
-	-- expedition / season / signal-shop claim paths must not throw before rewards apply.
 	local function ensureStats(profile)
 		return ProfileBagMath.EnsureStats(profile)
 	end
@@ -1999,8 +1868,6 @@ return function()
 		return ProfileBagMath.BumpStat(profile, key, amount)
 	end
 
-	-- WeeklyRelics (and similar) grant Keys tables — ApplyReward must not throw when
-	-- Items / Items.Keys are absent on Studio fixtures before the Claimed flag sticks.
 	local function ensureItemKeys(profile)
 		return ProfileBagMath.EnsureItemKeys(profile)
 	end
@@ -2009,20 +1876,14 @@ return function()
 		return ProfileBagMath.EnsureDaily(profile)
 	end
 
-	-- Studio fixtures / mid-migrate bags may omit Quests entirely — EnsureQuests /
-	-- Progress / ClaimQuest must not throw before the day roll can seed Items.
 	local function ensureQuests(profile)
 		return ProfileBagMath.EnsureQuests(profile)
 	end
 
-	-- ApplyReward FreeSpins may leave TimedRewards untouched while Studio fixtures
-	-- omit the bag — EnsureTimedRewards / ClaimTimedReward must nil-safe first.
 	local function ensureTimedRewardsBag(profile)
 		return ProfileBagMath.EnsureTimedRewards(profile)
 	end
 
-	-- ApplyReward FreeSpins seeds Wheel={FreeSpins=N} without LastSpinAt/Spins —
-	-- WheelState / SpinWheel must rebuild before cooldown arithmetic.
 	local function ensureWheel(profile)
 		profile.Wheel = WheelMath.Ensure(profile.Wheel)
 		return profile.Wheel
@@ -2044,7 +1905,6 @@ return function()
 	end
 
 	local function currentWeeklyValue(profile, kind: string): number
-		-- Lifetime stats can overflow to inf; a non-finite baseline poisons the whole profile save.
 		local value = ProgressionOpsMath.WeeklyValue(profile, kind)
 		if type(value) ~= "number" or value ~= value then
 			return 0
@@ -2083,7 +1943,6 @@ return function()
 			table.insert(parts, Format.Number(generated) .. " flux")
 		end
 		if reward.Stardust and reward.Stardust > 0 then
-			-- Partial Profiles (Studio fixtures) may omit numeric Stardust/Cores.
 			profile.Stardust = (tonumber(profile.Stardust) or 0) + reward.Stardust
 			table.insert(parts, Format.Number(reward.Stardust) .. " stardust")
 		end
@@ -2129,8 +1988,6 @@ return function()
 		end
 		if reward.FreeSpins and reward.FreeSpins > 0 then
 			local wheel = ensureWheel(profile)
-			-- Belt-and-suspenders: Ensure already tonumber-safes, but keep grant
-			-- path robust if a caller bypasses Ensure with a string FreeSpins bag.
 			wheel.FreeSpins = (tonumber(wheel.FreeSpins) or 0) + math.floor(reward.FreeSpins)
 			table.insert(parts, Format.Number(reward.FreeSpins) .. " free spin" .. (reward.FreeSpins == 1 and "" or "s"))
 		end
@@ -2155,8 +2012,6 @@ return function()
 
 		local production = Economy.Max(4, Economy.Production(profile))
 		local scale = 1 + (tonumber(profile.Rebirths) or 0) * 0.15
-		-- AsNumber tops out at the double limit and the rebirth scale can push it to inf, which a
-		-- DataStore cannot serialize; cap just below it.
 		local earnTarget = math.floor(math.min(1e300, math.max(2_000, Economy.AsNumber(Economy.Mul(production, 8 * 60)) * scale)))
 		local tapTarget = math.floor((40 + (tonumber(profile.Rebirths) or 0) * 3) * scale)
 		local upgradeTarget = math.floor(3 + math.min(7, (tonumber(profile.Rebirths) or 0) / 2))
@@ -2202,8 +2057,6 @@ return function()
 
 	function ProgressionService.Progress(profile, kind: string, amount: number)
 		local questsBag = ensureQuests(profile)
-		-- Progress/Target may arrive as numeric strings from Studio fixtures —
-		-- AdvanceQuestProgress tonumber-safes before summing.
 		ProgressionOpsMath.AdvanceQuestProgress(questsBag.Items, kind, amount)
 	end
 
@@ -2228,7 +2081,6 @@ return function()
 
 	function ProgressionService.AchievementStates(profile)
 		local states = {}
-		-- Partial Profiles (Studio fixtures) may omit Achievements — UI projection must not throw.
 		local claimed = type(profile.Achievements) == "table" and profile.Achievements or {}
 		for _, achievement in GameConfig.Achievements do
 			table.insert(states, {
@@ -2297,7 +2149,6 @@ return function()
 		if daily.LastClaimDay == day - 1 then
 			daily.Streak += 1
 		elseif daily.LastClaimDay < day - 1 and daily.Streak > 0 then
-			-- Partial Command bags must not throw before streak shield consume / ApplyReward.
 			local command = ensureCommand(profile)
 			local shields = math.max(0, math.floor(tonumber(command.StreakShields) or 0))
 			if shields > 0 then
@@ -2595,8 +2446,6 @@ return function()
 	end
 
 	function ProgressionService.ClaimCommanderReward(profile, rawLevel: any): (boolean, string)
-		-- NaN fails every comparison below, and tostring(NaN) gives more than one spelling, so
-		-- a NaN level could claim a level-1 reward repeatedly under different keys.
 		if type(rawLevel) ~= "number" or rawLevel ~= rawLevel or math.abs(rawLevel) == math.huge then
 			return false, "Invalid commander level."
 		end
@@ -2631,13 +2480,6 @@ return function()
 		return true, ProgressionService.ApplyReward(profile, tier.Reward, Economy.Production(profile))
 	end
 
-	-- "Forge Path" (src_ts/client/pages/ForgePathView.tsx): the single meta-progression track
-	-- that replaced the old three-way split between Progression Tree (skill grid), Prestige
-	-- (tier multipliers), and Season Pass (battle-pass chests). XP trickles in passively from
-	-- normal play (see the CollectVault handler, which is the sole XP source) and each of the
-	-- 80 steps (GameConfig.ForgePath.Steps) is claimed as one action that grants both a
-	-- permanent stat bonus (Economy.ForgePathEffect reads ClaimedSteps the same way the old
-	-- tree read UnlockedNodes) and a one-time reward chest together.
 	local function ensureForgePath(profile)
 		profile.ForgePath = ForgePathClaim.Ensure(profile.ForgePath)
 	end
@@ -2841,9 +2683,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -2855,7 +2694,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

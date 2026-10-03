@@ -31,7 +31,6 @@ return function(loadService: (string) -> any)
 	function PlayerAnalytics:PlayerJoined(player: Player, profile)
 		self._joinedAt[player] = os.clock()
 		emit("session", function()
-			-- Partial Stats bags (Studio fixtures) must not throw before session analytics fire.
 			local joins = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.Joins) or 0))
 			AnalyticsService:LogCustomEvent(player, "AF_SessionStart", joins, {
 				world = tostring(profile.CurrentZone),
@@ -69,10 +68,6 @@ return function(loadService: (string) -> any)
 		end
 		if action == "SetTutorialStep" or action == "CompleteTutorial" then
 			emit("onboarding", function()
-				-- Must match TUTORIAL_STEPS.size() in src_ts/client/MainGame.tsx. Previously
-				-- clamped to 10 here, which reported every step from 11-15 (and "complete") as
-				-- funnel step 10 -- collapsing the back half of the tutorial into a single
-				-- indistinguishable bucket in analytics.
 				local step = action == "CompleteTutorial" and 16 or math.clamp(profile.Flags.TutorialStep, 1, 15)
 				AnalyticsService:LogOnboardingFunnelStepEvent(player, step, action == "CompleteTutorial" and "First Shift complete" or "First Shift")
 			end)

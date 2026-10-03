@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	ArtKit: merged module suite.
-	Members (4): Icon, ForgeRig2D, SpriteClip2, ForgeAnvil2D.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: Icon   (merged from Icon.luau, 497 lines)
--- ======================================================================
 __defs["Icon"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
@@ -37,8 +25,6 @@ local _motion = require(script.Parent.MotionKit)("motion")
 local useMotionSettings = _motion.useMotionSettings
 local useRotation = _motion.useRotation
 local useExitPresence = _motion.useExitPresence
--- Icons fade with whatever they sit in (a card entering, an overlay leaving),
--- the same way text does, so a card never shows its icons before itself.
 local function fadeWithPresence(local_, presence)
 	if type(local_) == "number" then
 		return presence:map(function(shown)
@@ -530,9 +516,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ForgeRig2D   (merged from ForgeRig2D.luau, 534 lines)
--- ======================================================================
 __defs["ForgeRig2D"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
@@ -973,7 +956,6 @@ local function ForgeRig2D(_param)
 	local _condition = not reducedMotion and not lowQuality
 	if _condition then
 		local _exp_4 = (if finaleActive then { 0, 1, 2, 3 } else { 0, 1 })
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_4)
 		local _callback = function(index)
 			local lag = 0.024 + index * 0.028
@@ -1023,7 +1005,6 @@ local function ForgeRig2D(_param)
 		for _k, _v in _exp_4 do
 			_newValue[_k] = _callback(_v, _k - 1, _exp_4)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition = _newValue
 	end
 	return React.createElement("frame", {
@@ -1070,20 +1051,15 @@ return {
 }
 end
 
--- ======================================================================
--- Module: SpriteClip2   (merged from SpriteClip2.luau, 327 lines)
--- ======================================================================
 __defs["SpriteClip2"] = function()
 local RunService = game:GetService("RunService")
 local scheduled = {}
 local schedulerConnection
 local function stopSchedulerIfIdle()
-	-- ▼ ReadonlyMap.size ▼
 	local _size = 0
 	for _ in scheduled do
 		_size += 1
 	end
-	-- ▲ ReadonlyMap.size ▲
 	local _condition = _size > 0
 	if not _condition then
 		_condition = schedulerConnection == nil
@@ -1104,7 +1080,6 @@ local function ensureScheduler()
 		return nil
 	end
 	schedulerConnection = RunService.RenderStepped:Connect(function(deltaTime)
-		-- ▼ ReadonlyMap.forEach ▼
 		local _callback = function(carried, sprite)
 			if not sprite.isPlaying then
 				local _sprite = sprite
@@ -1152,7 +1127,6 @@ local function ensureScheduler()
 		for _k, _v in scheduled do
 			_callback(_v, _k, scheduled)
 		end
-		-- ▲ ReadonlyMap.forEach ▲
 		stopSchedulerIfIdle()
 	end)
 end
@@ -1379,14 +1353,12 @@ do
 		self.adornee = nil
 		self.blendAdornee = nil
 		local _exp = self.signals
-		-- ▼ ReadonlyMap.forEach ▼
 		local _callback = function(bindable)
 			return bindable:Destroy()
 		end
 		for _k, _v in _exp do
 			_callback(_v, _k, _exp)
 		end
-		-- ▲ ReadonlyMap.forEach ▲
 		table.clear(self.signals)
 		self.destroyed = true
 	end
@@ -1403,9 +1375,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ForgeAnvil2D   (merged from ForgeAnvil2D.luau, 426 lines)
--- ======================================================================
 __defs["ForgeAnvil2D"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local SpriteClip2 = __load("SpriteClip2").SpriteClip2
@@ -1732,7 +1701,6 @@ function ForgeAnvil2DView(_param)
 		local _condition_1 = not reducedMotion
 		if _condition_1 then
 			local _exp_5 = { 2, 1, 0 }
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue = table.create(#_exp_5)
 			local _callback = function(index)
 				local lag = 0.017 + index * 0.016
@@ -1769,7 +1737,6 @@ function ForgeAnvil2DView(_param)
 			for _k, _v in _exp_5 do
 				_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			_condition_1 = _newValue
 		end
 		_condition = React.createElement(React.Fragment, nil, _exp_4, _condition_1, React.createElement("imagelabel", {
@@ -1835,9 +1802,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1849,7 +1813,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

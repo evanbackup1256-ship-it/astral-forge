@@ -1,196 +1,5 @@
 --!strict
 
---[[
-
-	Lop's RichText Module
-
-	Written by @lopjoss
-
-]]
-
-
---[[
-
-	Paired markup tags (e.g. <font=...></font>) must have its tags wrap around the text of
-	which you want it to apply its styling to.
-
-	There are also self-enclosed markup tags (e.g. <br=2>), which you can just use loosely.
-
-	Currently does not support the use of "<" outside of a tag.
-
-	Demonstration of use:
-	
-		Today I crashed into a <effect=Stinky>garbage truck</effect>.
-		<br=1><wait=2><anim=Wiggle>The driver was not happy.</anim>
-
-	Supported markup tags:
-	
-		<anim=SlideFromTop></anim>
-			
-			The animation that plays when rendering text.
-			Available animations: SlideFromTop, SlideFromBottom, Transparent, BounceFromTop, BounceFromBottom, Wiggle, None
-
-		<animduration=2></animduration>
-		
-			The duration of the text animation.
-
-		<animloop=true></animloop>
-		
-			Indicates whether the text animation should loop or not.
-			
-		<color=255,255,255></color> | <color=red></color>
-		
-			The color of the rendered text in r,g,b format. 
-			Can make use of shortcuts, like red, green, blue, etc. instead of this format.
-			Check the config module to see all those shortcuts.
-
-		<font=rbxasset://fonts/families/Arial.json></font> | <font=rbxassetid://12187377099></font>
-		
-			The font used for the rendered text.
-			This might add a slight delay when rendering due to it having to download a new font, so pre-rendering 
-			the text before that is recommended (that is if you're sure the font hasn't been dowloaded already).
-			Find fonts in the Creator Store or here: https://create.roblox.com/docs/reference/engine/datatypes/Font
-
-		<italic=true></italic>
-		
-			Indicates whether the rendered text should be italic or not.
-			
-		<weight=Bold></weight>
-		
-			The font weight of the rendered text.
-			All available font weights found at:
-			https://create.roblox.com/docs/reference/engine/enums/FontWeight?utm_source=studio&utm_content=autocomplete
-
-		<transparency=.25></transparency>
-		
-			The transparency of the rendered text.
-			
-		<size=16></size>
-		
-			The size of the rendered text in offset. Clamped between 0 and 100.
-			Unaffected by any UIScale applied to the container.
-			In case the container changes in absolute size, the size of the rendered
-			text and the remaining text will be scaled proportionally.
-			
-		<effect=Shiny></effect>
-		
-			Visual effect applied to the rendered text.
-			Available effects: Shiny, Shake, Rainbow, Stinky, None
-			
-		<typewriterinterval=.05></typewriterinterval>
-		
-			The interval in seconds between each rendered character.
-			
-		<typewritersoundid=1234567890></typewritersoundid>
-		
-			The asset ID of the sound that will be played when actively rendering text.
-			Set the value to / to remove this.
-			
-		<wait=5>
-		
-			Pauses rendering for the specified time in seconds. Calling :PauseRender() will pause this wait, which
-			will then resume when calling :ResumeRender().
-			Does not require a closing tag.
-
-		<br=2>
-		
-			Adds a line break for the specified amount.
-			Does not require a closing tag.
-	
-	API:
-	
-		.new(container, properties)
-	
-			Creates and returns a new RichText object.
-
-			container: GuiObject
-			The GuiObject that will contain any rendered text. When it gets destroyed,
-			the object will be automatically destroyed too.
-
-			properties: properties?
-			A dict which overrides the object's default properties with any properties it contains.
-			Obtained from calling .newProperties().
-		
-		.newProperties()
-		
-			Returns an empty dict typed as properties.
-		
-		:UpdateProperties(properties)
-		
-			Overrides the object's properties with any properties from the given dict.
-	
-			properties: properties
-			The dict, obtained from calling .newProperties().
-		
-		:Render(text, yield, wrapped, preRender)
-
-			Renders the given text inside the object's container and applies the object's
-			properties to it. Stops any previous render and clears its text.
-
-			text: string
-			The text (including its markup) that is going to be rendered.
-	
-			yield: boolean?
-    		Indicates whether the render should yield the calling thread.
-	
-			wrapped: boolean?
-			Indicates whether the rendered text should wrap inside the object's container.
-			Defaults to true.
-    
-			preRender: boolean?
-    		Indicates whether this call should be performed as a pre-render.
-    		Pre-renders are instant (except when having to download any fonts or fetch text bounds) and don't
-    		display anything visually.
-			Can be used to get the rendered text's dimensions before the actual render.
-			Or to download any new fonts in advance which would prevent possible delays during the
-			actual render.
-    
-        :CompleteRender()
-    	
-    		Immediately completes rendering. (excluding pre-renders)
-			
-		:PauseRender()
-		
-			Pauses rendering. (excluding pre-renders)
-			
-		:ResumeRender()
-		
-			Resumes paused rendering.
-			
-		:GetRenderedDimensions()
-		
-			Returns the absolute size of all rendered text, including whitespace.
-
-    	:Clear()
-    	
-    		Stops any rendering and clears any rendered text.
-    		
-    	:Destroy()
-    	
-    		Stops any rendering, clears any rendered text, and destroys the object.
-    		
-    	.onRenderEnded
-    	
-    		A BindableEvent that will fire when a render has completed or been cleared.
-    		
-    	.empty
-    	
-    		A boolean that indicates whether the object's container holds no visibly rendered text,
-    		so excluding pre-rendered text.
-    		
-    	.rendering
-    	
-    		A boolean that indicates whether the object has an active render going, including pre-renders,
-    		despite it possibly being paused.
-    	
-	TODO:
-	- add image markup
-	- :ChangeContainer method
-	- change parser to recognize whole words with markup inside as one
-	- add attributes to tags
-	- mark, strikethrough, underline, and stroke markups
-]]
-
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
@@ -360,16 +169,6 @@ export type classType = typeof(
 	)
 )
 
---[[
-	Creates and returns a new RichText object.
-
-	<strong>container</strong>: GuiObject
-	The GuiObject that will contain any rendered text. When it gets destroyed, the object will be automatically destroyed too.
-
-	<strong>properties</strong>: properties?
-	A dict which overrides the object's default properties with any properties it contains.
-	Obtained from calling <code>.newProperties()</code>.
-]]
 RichText.new = function(
 	container : GuiObject,
 	properties : types.properties?
@@ -405,19 +204,10 @@ RichText.new = function(
 	return self
 end
 
---[[
-	Returns an empty dict typed as properties.
-]]
 RichText.newProperties = function()
 	return {} :: types.properties
 end
 
---[[
-	Overrides the object's properties with any properties from the given dict.
-	
-	<strong>properties</strong>: properties?
-	The dict, obtained from calling <code>.newProperties()</code>.
-]]
 function RichText:UpdateProperties(properties : types.properties)
 	local self : classType = self
 	
@@ -432,23 +222,6 @@ function RichText:UpdateProperties(properties : types.properties)
 	end
 end
 
---[[
-    Renders the given text inside the object's container and applies the object's properties to it. Stops any previous render and clears its text.
-
-	<strong>text</strong>: string
-	The text (including its markup) that is going to be rendered.
-	
-	<strong>yield</strong>: boolean?
-    Indicates whether the render should yield the calling thread.
-	
-	<strong>wrapped</strong>: boolean?
-	Indicates whether the rendered text should wrap inside the object's container. Defaults to true.
-    
-	<strong>preRender</strong>: boolean?
-    Indicates whether this call should be performed as a pre-render.
-    Pre-renders are instant (except when having to download any fonts or fetch text bounds) and don't display anything visually.
-	Can be used to get the rendered text's dimensions before the actual render. Or to download any new fonts in advance which would prevent possible delays during the actual render.
-]]
 function RichText:Render(
 	text : string,
 	yield : boolean?,
@@ -488,7 +261,6 @@ function RichText:Render(
 			self:_CreateNewRow()
 			self:_Parse()
 			
-			-- localizing event in case render gets called rapidly
 			local clearedEvent = Instance.new("BindableEvent")
 			
 			self._clearedEvent = clearedEvent
@@ -522,9 +294,6 @@ function RichText:Render(
 	end
 end
 
---[[
-	Immediately completes rendering. (excluding pre-renders)
-]]
 function RichText:CompleteRender()
 	local self : classType = self
 
@@ -535,9 +304,6 @@ function RichText:CompleteRender()
 	end
 end
 
---[[
-	Pauses rendering. (excluding pre-renders)
-]]
 function RichText:PauseRender()
 	local self : classType = self
 
@@ -549,9 +315,6 @@ function RichText:PauseRender()
 	end
 end
 
---[[
-	Resumes paused rendering.
-]]
 function RichText:ResumeRender()
 	local self : classType = self
 
@@ -567,9 +330,6 @@ function RichText:ResumeRender()
 	end
 end
 
---[[
-	Returns the absolute size of all rendered text, including whitespace.
-]]
 function RichText:GetRenderedDimensions() : Vector2
 	local self : classType = self
 	
@@ -592,16 +352,11 @@ function RichText:GetRenderedDimensions() : Vector2
 	)
 end
 
---[[
-    Stops any rendering and clears any rendered text.
-]]
 function RichText:Clear()
 	local self : classType = self
 
 	if not self.empty or self._preRender then		
 		if self.rendering then
-			-- Render sets `rendering` before the thread, folder, and cleared
-			-- event exist. A throw in between used to crash Clear and hide that error.
 			if self._executionThread then
 				coroutine.close(self._executionThread)
 			end
@@ -626,9 +381,6 @@ function RichText:Clear()
 	end
 end
 
---[[
-	Stops any rendering, clears any rendered text, and destroys the object.
-]]
 function RichText:Destroy()
 	local self : classType = self
 	
@@ -686,10 +438,6 @@ function RichText:_PrintString(str : string)
 	local isWhitespace = string.match(str, "%s")
 	local row : Frame = self._currentRow
 	
-	-- calculating the width of the word
-	-- in case it does not fit, should wrap, and isn't whitespace it starts a new row,
-	-- and when occupying more than config.MAX_WORD_WIDTH_FRACTION of the current row
-	-- it'll split the word before that
 	local wordWidth = 0
 	for i = 1, string.len(str) do
 		local size = self:_GetProportionalSize()
@@ -720,7 +468,7 @@ function RichText:_PrintString(str : string)
 				
 				self:_CreateNewRow()
 				row = self._currentRow
-			else -- should not print whitespace at the start of a new row
+			else
 				self:_CreateNewRow()
 				
 				return
@@ -880,7 +628,6 @@ function RichText:_Parse()
 		local char = string.sub(str, i, i)
 
 		if char ~= "<" and not string.match(char, "%s") then
-			-- captures string from i to a whitespace or "<" 
 			local _, word, endPos = string.match(str, "()([^<%s]+)()", i)
 			
 			if word then
@@ -1158,11 +905,11 @@ function RichText:_AnimateCharacter(container : GuiObject, char : TextLabel)
 				local elapsed = time_ - last
 				local yOffset = math.sin(
 					(time_ / (loop and duration or (1/config.ANIMATIONS.WIGGLE_OSC_FACTOR)) * math.pi * 2)
-					+ (math.pi * 2 * config.ANIMATIONS.WIGGLE_OFFSET_FACTOR * index) -- offset between characters
+					+ (math.pi * 2 * config.ANIMATIONS.WIGGLE_OFFSET_FACTOR * index)
 				) 
-					* (loop and 1 or (1 - (elapsed / duration))) -- fades out if not looping
+					* (loop and 1 or (1 - (elapsed / duration)))
 					* config.ANIMATIONS.WIGGLE_BASE_AMPLITUDE
-					* (containerSize.Y / config.REFERENCE_SIZE) -- scaling proportionally with size
+					* (containerSize.Y / config.REFERENCE_SIZE)
 				
 				container.Position = defaultPos + UDim2.fromScale(0, yOffset/parentSize.Y)
 
@@ -1240,7 +987,7 @@ function RichText:_ApplyEffectToCharacter(container : GuiObject, char : TextLabe
 			or self._renderProperties.Effect == "Stinky" then
 
 			local effect : string = self._renderProperties.Effect
-			local rate : number -- per second
+			local rate : number
 			local chance : number
 
 			if effect == "Shiny" then
@@ -1251,7 +998,6 @@ function RichText:_ApplyEffectToCharacter(container : GuiObject, char : TextLabe
 				chance = config.EFFECTS.STINKY_CHANCE
 			end
 			
-			-- desyncing characters printed roughly at the same time
 			local interval = 1 / rate
 			local last = os.clock() - math.random() * interval
 			

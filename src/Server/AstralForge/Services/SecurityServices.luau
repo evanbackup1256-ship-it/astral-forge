@@ -1,13 +1,4 @@
 --!strict
---[=[
-	SecurityServices: merged module suite.
-	Members (5): ProfileIntegrity, Security, SessionGate, ServerTelemetry, AtomicState.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,13 +18,9 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: ProfileIntegrity   (merged from ProfileIntegrity.luau, 213 lines)
--- ======================================================================
 __defs["ProfileIntegrity"] = function()
 
 return function()
-
 
 	local ProfileIntegrity = {}
 
@@ -245,9 +232,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: Security   (merged from Security.luau, 345 lines)
--- ======================================================================
 __defs["Security"] = function()
 
 return function()
@@ -256,7 +240,6 @@ return function()
 	local TextService = game:GetService("TextService")
 	local HttpService = game:GetService("HttpService")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 
 	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 
@@ -401,7 +384,6 @@ return function()
 		player:SetAttribute("AF_HoneyTrips", self.Trips[player])
 		return true
 	end
-
 
 	function Honey:Forget(player: Player): ()
 		self.Trips[player] = nil
@@ -590,14 +572,10 @@ return function()
 		table.clear(self.Heuristic.State)
 	end
 
-
 	return Security
 end
 end
 
--- ======================================================================
--- Module: SessionGate   (merged from SessionGate.luau, 252 lines)
--- ======================================================================
 __defs["SessionGate"] = function()
 
 return function()
@@ -661,9 +639,6 @@ return function()
 		return created
 	end
 
-	-- Called on the player's first request. Returns the values the client needs to start
-	-- beating: current gen and nonce. The hello nonce is one-shot -- the first successful
-	-- beat rotates past it so a dumped hello response goes stale within one beat interval.
 	function SessionGate:Hello(player: Player): (number, string)
 		local session = self:_get(player)
 		return session.gen, session.nonce
@@ -677,18 +652,12 @@ return function()
 		session.beatsSinceRotate = 0
 	end
 
-	-- gen/id/n as sent by src_ts/client/session.ts. Returns ok, and on success the gen/nonce
-	-- the client should adopt (unchanged if no rotation happened this beat).
 	function SessionGate:Beat(player: Player, gen: any, id: any, n: any): (boolean, string?, number?, string?)
 		if RunService:IsStudio() then
 			local session = self:_get(player)
 			session.auth = true
 			return true, nil, session.gen, session.nonce
 		end
-		-- Every rejection still returns the live gen/nonce so a client that missed a
-		-- rotation response can resync on its next beat instead of beating a stale gen
-		-- forever. Peek() already exposes these on any rejected request, so this leaks
-		-- nothing an attacker couldn't already read.
 		local session = self:_get(player)
 		local now = os.clock()
 		if type(gen) ~= "number" or type(id) ~= "number" or type(n) ~= "string" then
@@ -718,8 +687,6 @@ return function()
 			session.auth = false
 		end
 
-		-- Hello issues a one-shot nonce: the first successful beat must rotate past it so a
-		-- dumped hello response is stale within one beat. Later rotations keep the cadence.
 		if session.prevNonce == nil or session.beatsSinceRotate >= ROTATE_EVERY_BEATS or now - session.lastRotate >= ROTATE_EVERY_SEC then
 			rotate(session)
 		end
@@ -730,15 +697,8 @@ return function()
 		return session.auth, nil, session.gen, session.nonce
 	end
 
-	-- Grants call this before mutating. Requires auth and a matching gen; requireNonce additionally
-	-- requires a matching live nonce for the caller's high-value actions. Idle players past
-	-- UNAUTH_AFTER read as unauthenticated even if a Beat has not explicitly failed -- a dropped
-	-- connection or backgrounded mobile app should not keep granting on a stale session.
 	function SessionGate:CheckGrant(player: Player, gen: any, n: any, requireNonce: boolean): (boolean, string?)
 		if RunService:IsStudio() then
-			-- Studio skips gen/nonce auth, but still allocate the session bag so Peek and
-			-- txn helpers stay coherent after grants that never said Hello (TxnClaim/_get
-			-- alone used to be the only Studio allocator — Peek then returned nil,nil).
 			local session = self:_get(player)
 			session.auth = true
 			session.lastBeat = os.clock()
@@ -752,8 +712,6 @@ return function()
 		if not session.auth or now - session.lastBeat > UNAUTH_AFTER then
 			return false, "unauth"
 		end
-		-- Match Beat(): in-flight grants that left before a rotation still pass for GRACE_SEC
-		-- with the previous gen/nonce, so mid-flight taps are not dropped as gen mismatches.
 		local inGrace = session.prevNonce ~= nil and now - session.lastRotate < GRACE_SEC
 		local genOk = type(gen) == "number" and (gen == session.gen or (inGrace and gen == session.gen - 1))
 		if not genOk then
@@ -772,9 +730,6 @@ return function()
 	local TXN_PENDING = { __txn = "pending" }
 
 	function SessionGate:TxnLookup(player: Player, txnId: string): (boolean, any)
-		-- Studio CheckGrant short-circuits without Hello, so txn helpers must create the
-		-- session bag via _get — otherwise Claim returns "new", Store no-ops, and retries
-		-- never short-circuit as "done"/"busy".
 		local session = self:_get(player)
 		local stored = session.txns[txnId]
 		if stored == nil or stored == TXN_PENDING then
@@ -818,10 +773,6 @@ return function()
 	end
 
 	function SessionGate:TxnRelease(player: Player, txnId: string)
-		-- Share _get with Claim/Store so Studio grants that never Hello'd still release
-		-- against the same txn bag (previously Release no-op'd when _sessions was empty
-		-- even after Claim allocated via _get on a different code path — impossible now,
-		-- but keep one allocator for the whole txn surface).
 		local session = self:_get(player)
 		if session.txns[txnId] == TXN_PENDING then
 			session.txns[txnId] = nil
@@ -834,8 +785,6 @@ return function()
 		end
 	end
 
-	-- Read-only peek at the live gen/nonce, used to resync a client whose grant request
-	-- was rejected (or accepted) with a gen that had already rotated server-side.
 	function SessionGate:Peek(player: Player): (number?, string?)
 		local session = self._sessions[player]
 		if not session then
@@ -852,9 +801,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: ServerTelemetry   (merged from ServerTelemetry.luau, 156 lines)
--- ======================================================================
 __defs["ServerTelemetry"] = function()
 
 return function()
@@ -1013,9 +959,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Module: AtomicState   (merged from AtomicState.luau, 88 lines)
--- ======================================================================
 __defs["AtomicState"] = function()
 
 return function()
@@ -1106,9 +1049,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1120,7 +1060,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

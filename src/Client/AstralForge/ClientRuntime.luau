@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	ClientRuntime: merged module suite.
-	Members (3): assetPreloader, clientIntegrity, chat.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: assetPreloader   (merged from assetPreloader.luau, 481 lines)
--- ======================================================================
 __defs["assetPreloader"] = function()
 local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
@@ -151,7 +139,6 @@ local function harvestContentIds(value, seen, target, depth)
 	if depth > 8 or value == nil then
 		return nil
 	end
-	-- The generated tables are large; give the frame back now and then.
 	harvestVisits += 1
 	if harvestVisits % 4000 == 0 then
 		RunService.Heartbeat:Wait()
@@ -194,8 +181,6 @@ local function collectConfigContent(seen, target)
 	if not ok then
 		return nil
 	end
-	-- Every config table, generated ones included: the loading screen should leave
-	-- nothing to stream in once the game opens.
 	for _, value in pairs(config) do
 		harvestContentIds(value, seen, target)
 	end
@@ -233,8 +218,6 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		collectStaticContent(seenContentIds, queue)
 		collectConfigContent(seenContentIds, queue)
 		collectMountedContent(seenInstances, queue, true)
-		-- Atlas tint/size variants and sprite frames share the same underlying asset ID.
-		-- Preloading thousands of temporary UI instances bought no network coverage.
 		local warmupTotal = 0
 		local _result = onProgress
 		if _result ~= nil then
@@ -317,8 +300,6 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 		while not cancelled and shellReady ~= nil and not shellReady() and os.clock() - startedAt < PRELOAD_FAIL_OPEN_SECONDS do
 			RunService.Heartbeat:Wait()
 		end
-		-- Stay on the loading screen until the stability sweeps finish. The game
-		-- then opens with those assets already resident instead of hitching in.
 		local stableSweeps = 0
 		do
 			local sweep = 0
@@ -355,12 +336,10 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 				end
 				local _condition = round < FAILURE_RETRY_ROUNDS
 				if _condition then
-					-- ▼ ReadonlySet.size ▼
 					local _size = 0
 					for _ in failedContentIds do
 						_size += 1
 					end
-					-- ▲ ReadonlySet.size ▲
 					_condition = _size > 0
 					if _condition then
 						_condition = not cancelled
@@ -370,7 +349,6 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 					break
 				end
 				local retry = {}
-				-- ▼ ReadonlySet.forEach ▼
 				local _callback = function(contentId)
 					local _contentId = contentId
 					table.insert(retry, _contentId)
@@ -379,7 +357,6 @@ local function preloadMountedGame(onComplete, onProgress, shellReady)
 				for _v in failedContentIds do
 					_callback(_v, _v, failedContentIds)
 				end
-				-- ▲ ReadonlySet.forEach ▲
 				failedContentIds = {}
 				drain(retry)
 			end
@@ -443,9 +420,6 @@ local function skipWarmModule(moduleScript)
 		return true
 	end
 	local fullName = moduleScript:GetFullName()
-	-- Compiled roblox-ts packages read their runtime from _G[script]. A raw require
-	-- leaves that nil, prints "attempt to index nil with 'import'", and caches the
-	-- module as failed for the rest of the session.
 	if string.find(fullName, "FlameworkRuntime", 1, true) ~= nil then
 		return true
 	end
@@ -473,9 +447,6 @@ local function warmClientModules(onProgress)
 	if onProgress ~= nil then
 		onProgress(0, math.max(total, 1))
 	end
-	-- Requiring a merged suite only builds its loader; each member compiles on
-	-- first use, which is what made the first open of a page hitch. Every
-	-- suite member is queued here and warmed under the same frame budget.
 	local members = {}
 	local function queueMembers(suite)
 		local ok, names = pcall(function()
@@ -526,9 +497,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: clientIntegrity   (merged from clientIntegrity.luau, 286 lines)
--- ======================================================================
 __defs["clientIntegrity"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -549,8 +517,6 @@ local activeWorker = nil
 local activeProbeModule = nil
 local owners = 0
 local function disconnectProbe()
-	-- Nil the globals before disconnecting so a stop that re-enters start
-	-- keeps the replacement heartbeat and probe instance.
 	local connection = liveHeartbeat
 	local probe = liveProbe
 	liveHeartbeat = nil
@@ -663,8 +629,6 @@ local function sampleRetention(sessionGeneration)
 		end
 	end)
 	if not heartbeatOk or sessionGeneration ~= generation or not running then
-		-- Release only this sample's heartbeat. A newer start may already
-		-- own liveHeartbeat, and disconnectProbe() would drop that one too.
 		if sessionGeneration == generation and liveHeartbeat ~= nil then
 			local connection = liveHeartbeat
 			liveHeartbeat = nil
@@ -724,8 +688,6 @@ local function halt(expectedGeneration)
 			task.cancel(worker)
 		end)
 	end
-	-- A re-entrant start during disconnect installs a new module. Stopping
-	-- the shared probe then would kill that new session.
 	if probeModule ~= nil and activeProbeModule == nil then
 		pcall(function()
 			probeModule:Stop()
@@ -745,8 +707,6 @@ end
 local function start(dispatch)
 	dispatchSlot = dispatch
 	if running then
-		-- One live session. A second start only shares that session; its stop
-		-- must not halt a later session that reused this generation slot.
 		owners += 1
 		local seen = generation
 		return function()
@@ -818,9 +778,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: chat   (merged from chat.luau, 325 lines)
--- ======================================================================
 __defs["chat"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
@@ -961,7 +918,6 @@ local function useGameChat(active, enabled)
 			_object.titleFx = title.titleFx
 			local record = _object
 			setMessages(function(current)
-				-- ▼ ReadonlyArray.find ▼
 				local _callback = function(entry)
 					return entry.id == record.id
 				end
@@ -972,7 +928,6 @@ local function useGameChat(active, enabled)
 						break
 					end
 				end
-				-- ▲ ReadonlyArray.find ▲
 				if _result_3 ~= nil then
 					return current
 				end
@@ -1149,9 +1104,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1163,7 +1115,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

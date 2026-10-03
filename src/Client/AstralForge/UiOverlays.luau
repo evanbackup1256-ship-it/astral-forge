@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	UiOverlays: merged module suite.
-	Members (5): DomainExpansionOverlay, DomainSkillTree, purchaseOverlay, MobileControls, floorFx.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: DomainExpansionOverlay   (merged from DomainExpansionOverlay.luau, 1175 lines)
--- ======================================================================
 __defs["DomainExpansionOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
@@ -119,7 +107,6 @@ local function DomainPortal(_param)
 		reducedMotion = reducedMotion,
 		zIndex = 712,
 	})
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue = {}
 	local _callback = function(index)
 		return index < rayCount
@@ -131,8 +118,6 @@ local function DomainPortal(_param)
 			_newValue[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#_newValue)
 	local _callback_1 = function(index)
 		local angle = index * (360 / rayCount)
@@ -163,9 +148,7 @@ local function DomainPortal(_param)
 	for _k, _v in _newValue do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, _newValue)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_1 = { 0, 1, 2 }
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_2 = table.create(#_exp_1)
 	local _callback_2 = function(ring)
 		return React.createElement("frame", {
@@ -195,8 +178,6 @@ local function DomainPortal(_param)
 	for _k, _v in _exp_1 do
 		_newValue_2[_k] = _callback_2(_v, _k - 1, _exp_1)
 	end
-	-- ▲ ReadonlyArray.map ▲
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_3 = {}
 	local _callback_3 = function(index)
 		return index < math.min(rayCount, 10)
@@ -208,8 +189,6 @@ local function DomainPortal(_param)
 			_newValue_3[_length_1] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_4 = table.create(#_newValue_3)
 	local _callback_4 = function(index)
 		return React.createElement("frame", {
@@ -238,7 +217,6 @@ local function DomainPortal(_param)
 	for _k, _v in _newValue_3 do
 		_newValue_4[_k] = _callback_4(_v, _k - 1, _newValue_3)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_2 = React.createElement("frame", {
 		Size = UDim2.new(0.59, 0, 0.59, 0),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -286,7 +264,6 @@ local function DomainPortal(_param)
 		Rotation = -8,
 		ZIndex = 724,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_5 = table.create(#CRACKS)
 	local _callback_5 = function(index)
 		local angle = index * 45 + (index % 2) * 13
@@ -309,7 +286,6 @@ local function DomainPortal(_param)
 	for _k, _v in CRACKS do
 		_newValue_5[_k] = _callback_5(_v, _k - 1, CRACKS)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = portalSize,
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -430,8 +406,6 @@ local function DomainExpansionOverlay(_param)
 			end
 		end)
 		return function()
-			-- A defer that already ran is a dead thread. task.cancel throws on it
-			-- and would skip later effect cleanups for this overlay.
 			alive = false
 			pcall(task.cancel, token)
 		end
@@ -483,8 +457,6 @@ local function DomainExpansionOverlay(_param)
 			end
 		end)
 		return function()
-			-- Timers that already fired are dead threads. task.cancel throws on those
-			-- and would leave the later cues still scheduled after the overlay is gone.
 			alive = false
 			pcall(task.cancel, crack)
 			pcall(task.cancel, impact)
@@ -622,7 +594,6 @@ local function DomainExpansionOverlay(_param)
 	}))
 	local _condition_1 = resultMode
 	if _condition_1 then
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback = function(index)
 			return index < (if antilag.tier <= 1 then 6 else 12)
@@ -634,8 +605,6 @@ local function DomainExpansionOverlay(_param)
 				_newValue[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_1 = table.create(#_newValue)
 		local _callback_1 = function(index)
 			local angle = index * 31 + 11
@@ -665,7 +634,6 @@ local function DomainExpansionOverlay(_param)
 		for _k, _v in _newValue do
 			_newValue_1[_k] = _callback_1(_v, _k - 1, _newValue)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_1 = _newValue_1
 	end
 	local _result_1
@@ -909,7 +877,6 @@ local function DomainExpansionOverlay(_param)
 			_object_2[_left_2] = `+{_condition_6}`
 			_object_2.color = Palette.mango
 			local _exp_7 = { _object, _object_1, _exp_6, _object_2 }
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue = table.create(#_exp_7)
 			local _callback = function(reward, index)
 				return React.createElement("frame", {
@@ -953,7 +920,6 @@ local function DomainExpansionOverlay(_param)
 			for _k, _v in _exp_7 do
 				_newValue[_k] = _callback(_v, _k - 1, _exp_7)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			_condition_3 = React.createElement("frame", {
 				Size = UDim2.new(1, -30, 0, if shortLandscape then 50 else 88),
 				Position = UDim2.new(0.5, 0, if shortLandscape then 0.58 else 0.67, 4),
@@ -1202,9 +1168,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: DomainSkillTree   (merged from DomainSkillTree.luau, 1125 lines)
--- ======================================================================
 __defs["DomainSkillTree"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -1455,7 +1418,6 @@ local VEINS = { {
 	to = "ApexLattice",
 } }
 local function nodeById(id)
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(node)
 		return node.id == id
 	end
@@ -1466,7 +1428,6 @@ local function nodeById(id)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _condition = _result
 	if _condition == nil then
 		_condition = NODES[1]
@@ -1547,7 +1508,6 @@ local function BranchVein(_param)
 	for step = 1, steps do
 		marks[step] = step / (steps + 1)
 	end
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#marks)
 	local _callback = function(alpha)
 		return React.createElement("frame", {
@@ -1566,7 +1526,6 @@ local function BranchVein(_param)
 	for _k, _v in marks do
 		_newValue[_k] = _callback(_v, _k - 1, marks)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -1851,7 +1810,6 @@ local function DomainSkillTree(_param)
 		_condition = 0
 	end
 	local points = _condition
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(node)
 		return node.id == selectedId
 	end
@@ -1862,7 +1820,6 @@ local function DomainSkillTree(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _condition_1 = _result
 	if _condition_1 == nil then
 		_condition_1 = NODES[1]
@@ -1872,7 +1829,6 @@ local function DomainSkillTree(_param)
 	local _condition_2 = selected ~= nil
 	if _condition_2 then
 		local _exp = selected.requires
-		-- ▼ ReadonlyArray.every ▼
 		local _result_1 = true
 		local _callback_1 = function(id)
 			return nodeOwned(id)
@@ -1883,12 +1839,10 @@ local function DomainSkillTree(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.every ▲
 		_condition_2 = _result_1
 	end
 	local prereqs = _condition_2
 	local canBuy = selected ~= nil and not owned and prereqs and points >= selected.cost and not busy
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result_1 = 0
 	local _callback_1 = function(total, node)
 		return total + (if nodeOwned(node.id) then 1 else 0)
@@ -1896,7 +1850,6 @@ local function DomainSkillTree(_param)
 	for _i = 1, #NODES do
 		_result_1 = _callback_1(_result_1, NODES[_i], _i - 1, NODES)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local boundCount = _result_1
 	React.useEffect(function()
 		Audio:play("domainCrack")
@@ -2107,7 +2060,6 @@ local function DomainSkillTree(_param)
 	end
 	_attributes.accent = _condition_3
 	local _exp_6 = React.createElement(LatticeField, _attributes)
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#VEINS)
 	local _callback_2 = function(vein)
 		local from = nodeById(vein.from)
@@ -2136,15 +2088,12 @@ local function DomainSkillTree(_param)
 	for _k, _v in VEINS do
 		_newValue[_k] = _callback_2(_v, _k - 1, VEINS)
 	end
-	-- ▲ ReadonlyArray.map ▲
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#NODES)
 	local _callback_3 = function(node, index)
 		local isOwned = nodeOwned(node.id)
 		local _condition_4 = not isOwned
 		if _condition_4 then
 			local _exp_7 = node.requires
-			-- ▼ ReadonlyArray.every ▼
 			local _result_3 = true
 			local _callback_4 = function(id)
 				return nodeOwned(id)
@@ -2155,7 +2104,6 @@ local function DomainSkillTree(_param)
 					break
 				end
 			end
-			-- ▲ ReadonlyArray.every ▲
 			_condition_4 = _result_3
 			if _condition_4 then
 				_condition_4 = points >= node.cost
@@ -2182,7 +2130,6 @@ local function DomainSkillTree(_param)
 	for _k, _v in NODES do
 		_newValue_1[_k] = _callback_3(_v, _k - 1, NODES)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_7 = React.createElement("frame", {
 		Size = UDim2.new(1, -16, 1, -(headerH + footerH + treeGap * 2 + 10)),
 		Position = UDim2.fromOffset(8, headerH + treeGap + 6),
@@ -2333,9 +2280,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: purchaseOverlay   (merged from purchaseOverlay.luau, 500 lines)
--- ======================================================================
 __defs["purchaseOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -2597,8 +2541,6 @@ local function PurchaseOverlay(_param)
 		return math.min(values[1], values[2], values[3])
 	end)
 	local cardTravel = 22
-	-- Center in the host. Viewport offsets push the card down-right when the
-	-- host is the page, not the full screen.
 	local cardPosition = presence:map(function(amount)
 		return UDim2.new(0.5, 0, 0.5, math.floor((1 - amount) * cardTravel))
 	end)
@@ -2686,7 +2628,6 @@ local function PurchaseOverlay(_param)
 		Transparency = 0.5,
 	})
 	local _exp_9 = { 0, 1, 2 }
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#_exp_9)
 	local _callback = function(index)
 		return React.createElement(ForgeDot, {
@@ -2700,7 +2641,6 @@ local function PurchaseOverlay(_param)
 	for _k, _v in _exp_9 do
 		_newValue[_k] = _callback(_v, _k - 1, _exp_9)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local content = React.createElement(OverlayPresence, {
 		amount = presence,
 	}, React.createElement("frame", {
@@ -2834,9 +2774,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: MobileControls   (merged from MobileControls.luau, 1835 lines)
--- ======================================================================
 __defs["MobileControls"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
@@ -2916,9 +2853,6 @@ local function ensureDragging()
 		if _result ~= nil then
 			_result(resolvedPosition)
 		end
-		-- Tick only when the snapped cell actually changes, not every frame —
-		-- a per-pixel sound during drag would just be noise, but a tick each
-		-- time the element locks to a new grid cell gives real tactile feedback.
 		if cellX ~= dragLastCell.X or cellY ~= dragLastCell.Y then
 			dragLastCell = Vector2.new(cellX, cellY)
 			Audio:play("sliderStep", 1.1)
@@ -3310,7 +3244,6 @@ local function MobileControls(_param)
 			return capStack(current, positionsRef.current)
 		end)
 		setHistory(function(current)
-			-- ▼ ReadonlyArray.filter ▼
 			local _newValue = {}
 			local _callback = function(_, index)
 				return index < #current - 1
@@ -3322,7 +3255,6 @@ local function MobileControls(_param)
 					_newValue[_length] = _v
 				end
 			end
-			-- ▲ ReadonlyArray.filter ▲
 			return _newValue
 		end)
 		applyPositions(prior)
@@ -3340,7 +3272,6 @@ local function MobileControls(_param)
 			return capStack(current, positionsRef.current)
 		end)
 		setRedo(function(current)
-			-- ▼ ReadonlyArray.filter ▼
 			local _newValue = {}
 			local _callback = function(_, index)
 				return index < #current - 1
@@ -3352,7 +3283,6 @@ local function MobileControls(_param)
 					_newValue[_length] = _v
 				end
 			end
-			-- ▲ ReadonlyArray.filter ▲
 			return _newValue
 		end)
 		applyPositions(upcoming)
@@ -3371,7 +3301,6 @@ local function MobileControls(_param)
 		if id == nil or locked[id] == true then
 			return nil
 		end
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(entry)
 			return entry.id == id
 		end
@@ -3382,7 +3311,6 @@ local function MobileControls(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local slot = _result
 		if slot == nil then
 			return nil
@@ -3409,7 +3337,6 @@ local function MobileControls(_param)
 		if id == nil or locked[id] == true then
 			return nil
 		end
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(entry)
 			return entry.id == id
 		end
@@ -3420,7 +3347,6 @@ local function MobileControls(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local slot = _result
 		if slot == nil then
 			return nil
@@ -3754,7 +3680,6 @@ local function MobileControls(_param)
 	local topToolbarBottom = editorToolbarY + TapTarget * 2 + 16 + 8
 	local bottomBarY = math.max(topToolbarBottom, viewport.height - viewport.bottomInset - (TapTarget * 2 + 16))
 	local gridMarks = if showThirds then { 1 / 3, 0.5, 2 / 3 } else { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 }
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)
 		local _exp = entry.id
 		local _condition = selectedId
@@ -3774,13 +3699,11 @@ local function MobileControls(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local selectedSlot = _result
 	local selectedPos = if selectedSlot ~= nil then (positions[selectedSlot.id] or slotPixels(selectedSlot, viewport.width, viewport.height)) else nil
 	local selectedLocked = selectedSlot ~= nil and locked[selectedSlot.id] == true
 	local _condition = editing
 	if _condition then
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#gridMarks)
 		local _callback_1 = function(x)
 			return React.createElement("frame", {
@@ -3797,12 +3720,10 @@ local function MobileControls(_param)
 		for _k, _v in gridMarks do
 			_newValue[_k] = _callback_1(_v, _k - 1, gridMarks)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition = _newValue
 	end
 	local _condition_1 = editing
 	if _condition_1 then
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#gridMarks)
 		local _callback_1 = function(y)
 			return React.createElement("frame", {
@@ -3819,12 +3740,10 @@ local function MobileControls(_param)
 		for _k, _v in gridMarks do
 			_newValue[_k] = _callback_1(_v, _k - 1, gridMarks)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_1 = _newValue
 	end
 	local _condition_2 = editing
 	if _condition_2 then
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#slots)
 		local _callback_1 = function(slot)
 			local _condition_3 = slot.width
@@ -3925,7 +3844,6 @@ local function MobileControls(_param)
 		for _k, _v in slots do
 			_newValue[_k] = _callback_1(_v, _k - 1, slots)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_2 = _newValue
 	end
 	local _condition_3 = editing
@@ -4545,7 +4463,6 @@ local function MobileQuickBar(_param)
 				if not alive then
 					break
 				end
-				-- One render per displayed tenth instead of twenty a second.
 				setTapLeft(math.ceil(left * 10) / 10)
 				if not alive or left <= 0 then
 					break
@@ -4555,8 +4472,6 @@ local function MobileQuickBar(_param)
 		end)
 		return function()
 			alive = false
-			-- The countdown thread has already returned once the timer hits zero.
-			-- task.cancel throws on that dead thread and would skip later cleanup.
 			pcall(task.cancel, worker)
 		end
 	end, { tapReadyAt })
@@ -4676,9 +4591,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: floorFx   (merged from play/floorFx.luau, 493 lines)
--- ======================================================================
 __defs["floorFx"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
@@ -4696,8 +4608,6 @@ local Text = require(script.Parent.UiCore)("ui").Text
 local function clamp01(value)
 	return math.clamp(value, 0, 1)
 end
--- A strike's shock: a hot core flash, then rings that burst out fast, slow,
--- thin as they spread and fade late -- the shape of a real impact.
 local SHOCK_LIFE = 0.55
 local function ShockRing(_param)
 	local trigger = _param.trigger
@@ -4747,7 +4657,6 @@ local function ShockRing(_param)
 		ZIndex = 80,
 		Active = false,
 	}, React.createElement("frame", {
-		-- The core flash: swells and is gone in a blink.
 		Size = clock:map(function(seconds)
 			local d = size * (0.16 + 0.42 * Motion.EASE.decelerate(clamp01(seconds / 0.2)))
 			return UDim2.fromOffset(d, d)
@@ -4797,9 +4706,6 @@ local function SparkBurst(_param)
 		ClipsDescendants = false,
 	}, children)
 end
--- One spark off the anvil: thrown up and out, slowed by the air, pulled down
--- by gravity, white-hot at birth and cooling to its colour, stretched into a
--- streak along its path while it's fast.
 local SPARK_LIFE = 0.72
 local SPARK_GRAVITY = 980
 local SPARK_DRAG = 2.6
@@ -4841,7 +4747,6 @@ function Spark(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		-- Bright head, fading tail (the frame's +X points along the motion).
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.85), NumberSequenceKeypoint.new(0.6, 0.15), NumberSequenceKeypoint.new(1, 0) }),
 	}))
 end
@@ -4875,9 +4780,6 @@ local function ClickPops(_param)
 		ClipsDescendants = false,
 	}, children)
 end
--- A number stamped out of the strike: it pops past full size and settles,
--- floats up decelerating, drifts a little, and fades out as it slows. A
--- critical hit is bigger, flashes white first and lands with a small tilt.
 local POP_LIFE = 0.8
 function ClickPop(_param)
 	local pop = _param.pop
@@ -4933,7 +4835,6 @@ local function ComboBanner(_param)
 	local perfect = _param.perfect
 	local reducedMotion = _param.reducedMotion
 	local pulse = useClock(not reducedMotion and combo > 1, 1.05)
-	-- Every new link in the streak kicks the banner, then it settles.
 	local bump = useFlash(combo, reducedMotion, 0.3)
 	local accent = if perfect then Palette.mango elseif heat > 0.82 then Palette.coral else Palette.brass
 	if combo <= 1 then
@@ -5018,7 +4919,6 @@ local function FluxRiver(_param)
 	local reducedMotion = _param.reducedMotion
 	local accent = _param.accent
 	local clock = useClock(not reducedMotion, 0.55)
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#stations)
 	local _callback = function(station, index)
 		return if station.live then React.createElement("frame", {
@@ -5045,7 +4945,6 @@ local function FluxRiver(_param)
 	for _k, _v in stations do
 		_newValue[_k] = _callback(_v, _k - 1, stations)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -5175,9 +5074,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -5189,7 +5085,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

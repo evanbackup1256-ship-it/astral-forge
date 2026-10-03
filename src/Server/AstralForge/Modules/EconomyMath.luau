@@ -1,13 +1,4 @@
 --!strict
---[=[
-	EconomyMath: merged module suite.
-	Members (14): Economy, EconomyEnvelopeMath, ForgePathClaim, OfflineProjection, RebirthGate, TapCritProjection, UpgradeCostReason, ContinuumDomainMath, AnomalyOpsMath, ProgressionGate, ProgressionOpsMath, WheelMath, CrateRoll, OverchargeCombo.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: Economy   (merged from Economy.luau, 668 lines)
--- ======================================================================
 __defs["Economy"] = function()
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -49,7 +37,6 @@ local AnomalyOpsMath = __load("AnomalyOpsMath")
 local OreMath = require(script.Parent:WaitForChild("OreMath"))
 
 local Economy = {}
-
 
 type Persist = number | string
 
@@ -220,10 +207,6 @@ function Economy.ItemEffect(
 	slotFilter: string?,
 	targetFilter: string?
 ): number
-	-- ApplyReward Keys / partial Studio fixtures may leave Items without Equipped
-	-- or Inventory tables — production projections must not throw.
-	-- Nil-safe Machines/Research: mid-sanitize / partial fixtures must not throw
-	-- when Equipped still points at a slot bag that reconcile has not finished.
 	return EconomyEnvelopeMath.ItemEffect(
 		profile.Items,
 		profile.Machines,
@@ -235,7 +218,6 @@ function Economy.ItemEffect(
 	)
 end
 
--- The relic Codex: completed rarities add a permanent production bonus.
 function Economy.CodexBonus(profile: ProfileLike): number
 	local items = (profile :: any).Items
 	return EconomyEnvelopeMath.CodexBonus(
@@ -250,7 +232,6 @@ function Economy.ArtifactEffect(profile: ProfileLike, effectKind: string): numbe
 	if not command or command.EquippedArtifact == "" then
 		return 0
 	end
-	-- Partial Command bags (ensureCommand Signals path) may omit Artifacts.
 	if type(command.Artifacts) ~= "table" then
 		return 0
 	end
@@ -377,7 +358,6 @@ function Economy.RawProduction(profile: ProfileLike): Persist
 	return total
 end
 
-
 function Economy.PassBonuses(profile: ProfileLike): (number, number)
 	local owned = profile.OwnedPasses
 	if type(owned) ~= "table" then
@@ -387,17 +367,11 @@ function Economy.PassBonuses(profile: ProfileLike): (number, number)
 	return MonetizationConfig.PassBonuses(owned)
 end
 
--- Sums EffectAmount (a whole-number percentage, e.g. 2 = "+2%") across every claimed
--- Forge Path step whose EffectKind matches, returning a 0..N fraction ready to use the
--- same way GridEffect/EchoEffect/ArtifactEffect/ItemEffect already are: `1 + result`.
 function Economy.ForgePathEffect(profile: ProfileLike?, effectKind: string): number
 	local forgePath = profile and profile.ForgePath
 	if forgePath == nil then
 		return 0
 	end
-	-- ClaimedSteps may be missing on partial ForgePath bags (corrupt save / mid
-	-- ensure). ProgressionGate already guards this; PermanentMultiplier must too
-	-- or a single missing table throws the whole production tick.
 	return ForgePathClaim.Effect(forgePath.ClaimedSteps, GameConfig.ForgePath.Steps, effectKind)
 end
 
@@ -423,9 +397,6 @@ function Economy.PermanentMultiplier(profile: ProfileLike): Persist
 	))
 end
 
-
--- Bonus from the Foundry's ore upgrades (0.12 = +12%): Production, Capacity,
--- Tap, BossDamage or OreYield.
 function Economy.OreEffect(profile: ProfileLike, effectKind: string): number
 	return OreMath.Effect((profile :: any).OreUpgrades, effectKind, GameConfig.Ore)
 end
@@ -478,7 +449,6 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	multiplier = OmegaMath.Mul(multiplier, Economy.MasteryMultiplier(profile))
 	multiplier = OmegaMath.Mul(multiplier, Economy.AnomalySurgeMultiplier(profile, now))
 	multiplier = OmegaMath.Mul(multiplier, select(1, Economy.ContinuumEffects(profile)))
-	-- Forge Level mastery (permanent) and the Forge Surge from recent level-ups (timed).
 	local progression = profile.Progression
 	if type(progression) == "table" then
 		multiplier = OmegaMath.Mul(multiplier, 1 + LevelRewards.mastery(tonumber(progression.RewardedLevel) or 0))
@@ -494,12 +464,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	return OmegaMath.Mul(Economy.RawProduction(profile), multiplier)
 end
 
--- Permanent/steady production only: excludes ActiveBoost.Multiplier and Anomaly Surge.
--- Flux Surge / Convergence are applied by callers on top of Production — never feed those
--- into Capacity. When temporary multipliers end, vault clamps and overflow deletes.
 function Economy.SteadyProduction(profile: ProfileLike, now: number?): Persist
-	-- Nil-safe Research: migration edges and partial fixtures can hit SteadyProduction
-	-- (lab bank targets, vault capacity) before sanitize finishes Research bags.
 	local research = profile.Research
 	local efficiencyLevel = (type(research) == "table" and research.Efficiency) or 0
 	local zone = Economy.GetZone(profile.CurrentZone) or GameConfig.Zones[1]
@@ -571,7 +536,6 @@ function Economy.Capacity(profile: ProfileLike, now: number?, _production: any):
 	)
 end
 
-
 function Economy.CapacitySeconds(profile: ProfileLike, now: number?, _production: any): number
 	local output = Economy.SteadyProduction(profile, now)
 	return CapacityProjection.CapacitySeconds(OmegaMath, Economy.Capacity(profile, now), output, Economy.Lte)
@@ -586,8 +550,6 @@ local function researchLevel(profile: ProfileLike, key: string): number
 end
 
 function Economy.TapPower(profile: ProfileLike, now: number?): Persist
-	-- Same nil-safe Research path as SteadyProduction: partial fixtures / mid-sanitize
-	-- profiles must not throw on Overcharge reads during Overcharge / tap grants.
 	return TapCritProjection.TapPower(OmegaMath, Economy.Production(profile, now), researchLevel(profile, "Overcharge"), {
 		Grid = Economy.GridEffect(profile, "GridTap"),
 		Echo = Economy.EchoEffect(profile, "Tap"),
@@ -662,7 +624,6 @@ function Economy.OfflineEfficiency(profile: ProfileLike, now: number?): number
 	)
 end
 
-
 function Economy.OfflineEarnings(
 	profile: ProfileLike,
 	startedAt: number,
@@ -718,18 +679,10 @@ end
 return table.freeze(Economy)
 end
 
--- ======================================================================
--- Module: EconomyEnvelopeMath   (merged from EconomyEnvelopeMath.luau, 266 lines)
--- ======================================================================
 __defs["EconomyEnvelopeMath"] = function()
--- Pure economy envelope helpers: bag level sums, auto-collect / offline hours /
--- offline efficiency caps, mastery + domain-tree bonuses. No Roblox services —
--- Economy and Lune verify scripts share this so RunQuick-adjacent envelopes stay
--- offline-testable. Effect totals (grid/echo/…) are injected by the caller.
 
 local EconomyEnvelopeMath = {}
 
--- Sums numeric values in a bag (Machines / Research). Non-tables → 0.
 function EconomyEnvelopeMath.SumNumericLevels(bag: any): number
 	if type(bag) ~= "table" then
 		return 0
@@ -743,7 +696,6 @@ function EconomyEnvelopeMath.SumNumericLevels(bag: any): number
 	return total
 end
 
--- Soft-capped auto-collect rate. Parts are already fractional addends.
 function EconomyEnvelopeMath.AutoCollectRate(
 	automationLevel: number,
 	grid: number,
@@ -767,7 +719,6 @@ function EconomyEnvelopeMath.AutoCollectRate(
 	)
 end
 
--- Offline hours soft-capped at `cap` (default 24).
 function EconomyEnvelopeMath.OfflineHours(
 	baseHours: number,
 	researchOffline: number,
@@ -783,7 +734,6 @@ function EconomyEnvelopeMath.OfflineHours(
 	)
 end
 
--- Offline efficiency soft-capped at 1. Continuum offline addend is already a fraction.
 function EconomyEnvelopeMath.OfflineEfficiency(
 	baseEfficiency: number,
 	researchOffline: number,
@@ -814,7 +764,6 @@ function EconomyEnvelopeMath.OfflineEfficiency(
 	)
 end
 
--- Machine mastery → production multiplier. Soft-caps at +50%.
 function EconomyEnvelopeMath.MasteryMultiplier(machineMastery: any): number
 	if type(machineMastery) ~= "table" then
 		return 1
@@ -828,8 +777,6 @@ function EconomyEnvelopeMath.MasteryMultiplier(machineMastery: any): number
 	return 1 + math.min(0.5, points * 0.002)
 end
 
--- Domain tree node bonuses for a field (Production / Capacity / …).
--- `nodes` is profile.Domain.Nodes; `tree` is GameConfig.Domain.Tree.
 function EconomyEnvelopeMath.DomainTreeBonus(nodes: any, tree: any, field: string): number
 	if type(nodes) ~= "table" or type(tree) ~= "table" then
 		return 0
@@ -846,7 +793,6 @@ function EconomyEnvelopeMath.DomainTreeBonus(nodes: any, tree: any, field: strin
 	return total
 end
 
--- Lab power channel bonus: routing cells × EffectPerCell. Missing channel → 0.
 function EconomyEnvelopeMath.LabPowerEffect(routing: any, channelId: any, channel: any): number
 	if type(routing) ~= "table" or type(channel) ~= "table" or type(channelId) ~= "string" then
 		return 0
@@ -856,8 +802,6 @@ function EconomyEnvelopeMath.LabPowerEffect(routing: any, channelId: any, channe
 	return math.max(0, cells) * perCell
 end
 
--- Relic / item effect at level: BaseEffect * (1 + LevelGrowth * max(0, level-1)).
--- Matches InventoryMath.EffectAtLevel — keep formulas in lockstep via verify.
 function EconomyEnvelopeMath.EffectAtLevel(definition: any, level: any): number
 	if type(definition) ~= "table" then
 		return 0
@@ -868,7 +812,6 @@ function EconomyEnvelopeMath.EffectAtLevel(definition: any, level: any): number
 	return base * (1 + growth * math.max(0, safeLevel - 1))
 end
 
--- Artifact effect: EffectPerLevel * owned.Level when kinds match.
 function EconomyEnvelopeMath.ArtifactLevelEffect(artifact: any, owned: any, effectKind: any): number
 	if type(artifact) ~= "table" or type(owned) ~= "table" then
 		return 0
@@ -881,7 +824,6 @@ function EconomyEnvelopeMath.ArtifactLevelEffect(artifact: any, owned: any, effe
 	return perLevel * math.max(0, level)
 end
 
--- Grid upgrade bag → effect total for `effectKind`. `gridById` maps id → upgrade.
 function EconomyEnvelopeMath.GridEffect(levels: any, gridById: any, effectKind: any): number
 	if type(levels) ~= "table" or type(gridById) ~= "table" then
 		return 0
@@ -899,10 +841,6 @@ function EconomyEnvelopeMath.GridEffect(levels: any, gridById: any, effectKind: 
 	return total
 end
 
-
--- Permanent production multiplier parts (cores ^ exp, domain rank/essence, rebirths).
--- Domain-tree / ForgePath / Insight addends are injected so Economy stays the
--- catalog owner while the arithmetic stays Lune-testable.
 function EconomyEnvelopeMath.PermanentMultiplier(
 	cores: any,
 	coreMultiplier: any,
@@ -939,8 +877,6 @@ function EconomyEnvelopeMath.PermanentMultiplier(
 	return (1 + coreBonus + safeRebirths * rebirthScale) * domainMultiplier
 end
 
--- Sum equipped relic effects for `effectKind`. `getDefinition(id)` resolves catalogs;
--- Machines/Research owned levels gate socket eligibility. Partial Items bags → 0.
 function EconomyEnvelopeMath.ItemEffect(
 	items: any,
 	machines: any,
@@ -986,8 +922,6 @@ function EconomyEnvelopeMath.ItemEffect(
 	return total
 end
 
--- Relic stars: each star adds STAR_BONUS of the relic's effect (5 stars = x2.25).
--- Matches SharedData#RelicSystem.starMultiplier and GameConfig.Items.StarBonus (verify parity).
 EconomyEnvelopeMath.STAR_BONUS = 0.25
 EconomyEnvelopeMath.MAX_STARS = 5
 function EconomyEnvelopeMath.StarMultiplier(stars: any): number
@@ -998,7 +932,6 @@ function EconomyEnvelopeMath.StarMultiplier(stars: any): number
 	return 1 + EconomyEnvelopeMath.STAR_BONUS * math.clamp(math.floor(count), 0, EconomyEnvelopeMath.MAX_STARS)
 end
 
--- The Codex: every rarity whose relics have all been discovered adds its bonus to production.
 function EconomyEnvelopeMath.CodexBonus(discovered: any, definitions: any, bonuses: any): number
 	if type(discovered) ~= "table" or type(definitions) ~= "table" or type(bonuses) ~= "table" then
 		return 0
@@ -1023,13 +956,7 @@ end
 return table.freeze(EconomyEnvelopeMath)
 end
 
--- ======================================================================
--- Module: ForgePathClaim   (merged from ForgePathClaim.luau, 84 lines)
--- ======================================================================
 __defs["ForgePathClaim"] = function()
--- Pure forge-path claim gate + XP consume. No Roblox services — ProgressionService
--- and Lune verify scripts share this so step ordering / XP math can be tested
--- without Studio. Reward application stays in ProgressionService.ApplyReward.
 
 local ForgePathClaim = {}
 
@@ -1056,8 +983,6 @@ function ForgePathClaim.Ensure(forgePath): ForgePathBag
 	return forgePath
 end
 
--- Mutates forgePath on success (deducts XP, marks ClaimedSteps).
--- Returns ok, errOrNil, stepOrNil — step is returned so callers can ApplyReward.
 function ForgePathClaim.TryClaim(forgePath, rawStep: any, steps: { StepLike }): (boolean, string?, StepLike?)
 	ForgePathClaim.Ensure(forgePath)
 	if type(rawStep) ~= "number" then
@@ -1083,9 +1008,6 @@ function ForgePathClaim.TryClaim(forgePath, rawStep: any, steps: { StepLike }): 
 	return true, nil, step
 end
 
--- Sums EffectAmount (whole-number percent, e.g. 2 = "+2%") across claimed steps
--- whose EffectKind matches, returning a 0..N fraction for `1 + result` multipliers.
--- Partial ClaimedSteps / missing steps must not throw (corrupt save / mid-ensure).
 function ForgePathClaim.Effect(claimedSteps: any, steps: any, effectKind: string): number
 	if type(claimedSteps) ~= "table" or type(steps) ~= "table" then
 		return 0
@@ -1101,7 +1023,6 @@ function ForgePathClaim.Effect(claimedSteps: any, steps: any, effectKind: string
 	return total / 100
 end
 
--- Forge-path XP awarded when banking flux. Injected xpConfig from GameConfig.
 function ForgePathClaim.XpFromBankedAmount(amountNumber: number, xpConfig: any): number
 	local scale = tonumber(xpConfig and xpConfig.LogScale) or 4
 	local minimum = tonumber(xpConfig and xpConfig.Minimum) or 1
@@ -1112,13 +1033,7 @@ end
 return table.freeze(ForgePathClaim)
 end
 
--- ======================================================================
--- Module: OfflineProjection   (merged from OfflineProjection.luau, 106 lines)
--- ======================================================================
 __defs["OfflineProjection"] = function()
--- Pure offline earnings segment projection. No Roblox services — Economy and
--- Lune verify scripts share this so elapsed/cap/boundary math can be tested
--- without Studio. Production/efficiency sampling stays injected by the caller.
 
 local OfflineProjection = {}
 
@@ -1127,9 +1042,6 @@ type SampleResult = {
 	Efficiency: number,
 }
 
--- sampleAt(midpointSeconds) -> SampleResult
--- add(left, right) / mul(left, right) match Economy.Add / Economy.Mul
--- persist(value) matches Economy bounded Persist (optional; identity if nil)
 function OfflineProjection.Project(
 	startedAt: number,
 	endedAt: number,
@@ -1188,7 +1100,6 @@ function OfflineProjection.Project(
 	return reward, elapsed, weightedEfficiency / elapsed, capped
 end
 
--- Client Offline rail bag. Runtime fields optional when session cold.
 function OfflineProjection.PublicSnapshot(args: {
 	runtime: any?,
 	production: any,
@@ -1223,17 +1134,10 @@ end
 return table.freeze(OfflineProjection)
 end
 
--- ======================================================================
--- Module: RebirthGate   (merged from RebirthGate.luau, 61 lines)
--- ======================================================================
 __defs["RebirthGate"] = function()
--- Pure rebirth eligibility / requirement / prestige-reward math. No Roblox
--- services — Economy, ServerServices, and Lune verify scripts share this so
--- rebirth gates can be tested without Studio. Profile mutation stays with callers.
 
 local RebirthGate = {}
 
--- True when the player has enough rebirths for a gate (upgrade / zone / domain).
 function RebirthGate.MeetsRequired(rebirths: number, required: number?): boolean
 	local have = math.max(0, math.floor(tonumber(rebirths) or 0))
 	local need = math.max(0, math.floor(tonumber(required) or 0))
@@ -1245,8 +1149,6 @@ function RebirthGate.RequirementMessage(required: number): string
 	return string.format("Requires %d rebirths.", need)
 end
 
--- Prestige core reward from run flux. Mirrors Economy.PrestigeReward exactly:
--- below requirement → 0; otherwise max(1, floor((run/req)^exponent)).
 function RebirthGate.PrestigeReward(
 	omegaMath,
 	runCash: any,
@@ -1261,12 +1163,10 @@ function RebirthGate.PrestigeReward(
 	return omegaMath.Max(1, omegaMath.Floor(omegaMath.Pow(ratio, exponent)))
 end
 
--- Rebirth action is allowed when prestige reward is at least 1 core.
 function RebirthGate.CanRebirth(prestigeReward: any, gte: (any, any) -> boolean): boolean
 	return gte(prestigeReward, 1)
 end
 
--- Stardust granted on a successful rebirth (sqrt of cores * scale, floored).
 function RebirthGate.StardustReward(coreReward: number, scale: number, minimum: number): number
 	local reward = math.max(0, tonumber(coreReward) or 0)
 	local stardustScale = tonumber(scale) or 5
@@ -1274,8 +1174,6 @@ function RebirthGate.StardustReward(coreReward: number, scale: number, minimum: 
 	return math.max(stardustMinimum, math.floor(math.sqrt(reward) * stardustScale))
 end
 
--- Run-cash target for the next prestige core after currentReward.
--- Mirrors Economy.NextPrestigeTarget: floor(req * (max(1, reward+1))^(1/exp)).
 function RebirthGate.NextPrestigeTarget(
 	omegaMath: any,
 	currentReward: any,
@@ -1289,13 +1187,7 @@ end
 return table.freeze(RebirthGate)
 end
 
--- ======================================================================
--- Module: TapCritProjection   (merged from TapCritProjection.luau, 79 lines)
--- ======================================================================
 __defs["TapCritProjection"] = function()
--- Pure tap power + critical chance/multiplier projection. No Roblox services —
--- Economy and Lune verify scripts share this so tap/crit math can be tested
--- without Studio. Effect totals (grid/echo/artifact/…) are injected by the caller.
 
 local TapCritProjection = {}
 
@@ -1307,16 +1199,11 @@ type TapBonuses = {
 	Anomaly: number,
 	Lab: number,
 	Guild: number,
-	-- Continuum tap scale is already a multiplier (not 1+x).
 	Continuum: any,
 	ForgePath: number,
-	-- Foundry ore upgrades (optional; absent means +0%).
 	Ore: number?,
 }
 
--- Mirrors Economy.TapPower composition: max(1, production*0.15) then
--- Overcharge / effect / continuum / forge-path multipliers. Balance constants
--- (0.15 base share, 0.35 per Overcharge level) stay here intentionally.
 function TapCritProjection.TapPower(omegaMath, production: any, overchargeLevel: number, bonuses: TapBonuses): any
 	local tap = omegaMath.Max(1, omegaMath.Mul(production, 0.15))
 	tap = omegaMath.Mul(tap, 1 + overchargeLevel * 0.35)
@@ -1329,13 +1216,10 @@ function TapCritProjection.TapPower(omegaMath, production: any, overchargeLevel:
 	tap = omegaMath.Mul(tap, 1 + bonuses.Guild)
 	tap = omegaMath.Mul(tap, bonuses.Continuum)
 	tap = omegaMath.Mul(tap, 1 + bonuses.ForgePath)
-	-- Foundry ore upgrades. Optional so older callers (and tests) that predate
-	-- the Foundry still add nothing.
 	tap = omegaMath.Mul(tap, 1 + (bonuses.Ore or 0))
 	return tap
 end
 
--- Soft-capped critical chance. researchCritical is Research.Critical level.
 function TapCritProjection.CriticalChance(
 	researchCritical: number,
 	grid: number,
@@ -1358,7 +1242,6 @@ function TapCritProjection.CriticalChance(
 	)
 end
 
--- Critical payout multiplier. Impact research + forge-path CriticalMultiplier.
 function TapCritProjection.CriticalMultiplier(
 	researchCritical: number,
 	researchImpact: number,
@@ -1373,13 +1256,7 @@ end
 return table.freeze(TapCritProjection)
 end
 
--- ======================================================================
--- Module: UpgradeCostReason   (merged from UpgradeCostReason.luau, 80 lines)
--- ======================================================================
 __defs["UpgradeCostReason"] = function()
--- Pure upgrade lock-reason + geometric cost helpers. No Roblox services —
--- ProgressionGate / Economy and Lune verify scripts share this so buy-gate
--- and cost math can be tested without Studio.
 
 local UpgradeCostReason = {}
 
@@ -1424,8 +1301,6 @@ function UpgradeCostReason.AffordableLevels(
 	return omegaMath.AffordableCount(def.BaseCost, def.CostScale, currentLevel, currency, maximum)
 end
 
--- zoneNameForIndex(requiredZone) -> string?
--- previousNameForId(previousId) -> string?
 function UpgradeCostReason.Evaluate(
 	profile,
 	upgrade: UpgradeLike,
@@ -1458,14 +1333,7 @@ end
 return table.freeze(UpgradeCostReason)
 end
 
--- ======================================================================
--- Module: ContinuumDomainMath   (merged from ContinuumDomainMath.luau, 211 lines)
--- ======================================================================
 __defs["ContinuumDomainMath"] = function()
--- Pure Continuum cost + Domain requirement/reward envelopes. No Roblox
--- services — Economy and Lune verify_runquick_pure share this so endless
--- economy soak subsets can run offline. Profile mutation stays with callers;
--- omegaMath + config knobs are injected.
 
 local ContinuumDomainMath = {}
 
@@ -1529,8 +1397,6 @@ function ContinuumDomainMath.DomainRewards(config: DomainConfig, rank: number): 
 	return essence, stardust
 end
 
--- Rank → production/capacity/tap multipliers + offline efficiency addend.
--- Mirrors Economy.ContinuumEffects; milestones multiply production only.
 function ContinuumDomainMath.ContinuumEffects(
 	omegaMath: any,
 	config: ContinuumEffectsConfig,
@@ -1547,7 +1413,6 @@ function ContinuumDomainMath.ContinuumEffects(
 	return production, capacity, tap, offline
 end
 
-
 function ContinuumDomainMath.DomainProductionMultiplier(rank: any, essence: any, productionPerRank: any, productionPerEssence: any, essenceCap: any, domainTreeBonus: any): number
 	local safeRank = math.max(0, math.floor(tonumber(rank) or 0))
 	local safeEssence = math.max(0, tonumber(essence) or 0)
@@ -1563,12 +1428,10 @@ function ContinuumDomainMath.DomainRankBonus(rank: any, perRank: any, domainTree
 	return safeRank * (tonumber(perRank) or 0) + (tonumber(domainTreeBonus) or 0)
 end
 
--- Non-negative integer coerce for Domain/Continuum snapshot bags (string fixtures).
 function ContinuumDomainMath.NonNegativeInt(value: any): number
 	return math.max(0, math.floor(tonumber(value) or 0))
 end
 
--- Snapshot Domain bag fields that must stay numeric for client UI rails.
 function ContinuumDomainMath.SnapshotDomainInts(domain: any): {
 	Essence: number,
 	LastExpandedAt: number,
@@ -1586,7 +1449,6 @@ function ContinuumDomainMath.SnapshotDomainInts(domain: any): {
 	}
 end
 
--- Full Domain snapshot bag for client rails. Injects gate/economy helpers.
 function ContinuumDomainMath.SnapshotDomainPublic(args: {
 	domain: any,
 	rank: number,
@@ -1638,7 +1500,6 @@ function ContinuumDomainMath.SnapshotDomainPublic(args: {
 	}
 end
 
--- Full Continuum snapshot bag for client rails.
 function ContinuumDomainMath.SnapshotContinuumPublic(args: {
 	rank: number,
 	totalFluxSpent: any,
@@ -1674,16 +1535,7 @@ end
 return table.freeze(ContinuumDomainMath)
 end
 
--- ======================================================================
--- Module: AnomalyOpsMath   (merged from AnomalyOpsMath.luau, 269 lines)
--- ======================================================================
 __defs["AnomalyOpsMath"] = function()
--- Pure anomaly protocol / charge-target / directive / core-XP helpers. No Roblox
--- services — AnomalyService and Lune verify scripts share FindProtocol /
--- ProtocolEffect / ChargeTarget / SelectDirectives / ProtocolCost /
--- RewardMultiplier / ApplyCoreXP / NextCoreTier so reactor math stays testable
--- without Studio. Clocks and profile mutation stay with the caller; balance
--- tables are injected (GameConfig values).
 
 local AnomalyOpsMath = {}
 
@@ -1706,7 +1558,6 @@ type CoreTierLike = {
 	MaximumTargetBonus: number?,
 }
 
--- Locate a protocol definition by Id. Partial / empty lists return nil.
 function AnomalyOpsMath.FindProtocol(list: any, protocolId: any): any?
 	if type(list) ~= "table" or type(protocolId) ~= "string" then
 		return nil
@@ -1719,8 +1570,6 @@ function AnomalyOpsMath.FindProtocol(list: any, protocolId: any): any?
 	return nil
 end
 
--- Sum EffectPerLevel * owned level for protocols matching effectKind.
--- Missing Protocols bag or nil levels → 0 (Studio fixtures / mid-migrate).
 function AnomalyOpsMath.ProtocolEffect(protocolsBag: any, protocolDefs: any, effectKind: string): number
 	if type(protocolDefs) ~= "table" or type(effectKind) ~= "string" then
 		return 0
@@ -1739,7 +1588,6 @@ function AnomalyOpsMath.ProtocolEffect(protocolsBag: any, protocolDefs: any, eff
 	return total
 end
 
--- Highest MaximumTargetBonus among CoreTiers with Tier <= currentTier.
 function AnomalyOpsMath.CoreTierMaximumBonus(coreTier: any, tierConfigs: any): number
 	local tier = math.max(0, math.floor(tonumber(coreTier) or 0))
 	if type(tierConfigs) ~= "table" then
@@ -1757,7 +1605,6 @@ function AnomalyOpsMath.CoreTierMaximumBonus(coreTier: any, tierConfigs: any): n
 	return bonus
 end
 
--- Charge target before stabilize: clamp base + stab*perStab to max+tierBonus.
 function AnomalyOpsMath.ChargeTarget(
 	baseTarget: number,
 	targetPerStabilization: number,
@@ -1772,7 +1619,6 @@ function AnomalyOpsMath.ChargeTarget(
 	return math.min(maxCap, base + stabs * per)
 end
 
--- Upgrade cost for the next protocol level (current level → level+1).
 function AnomalyOpsMath.ProtocolCost(protocol: ProtocolLike, level: any): number
 	local safeLevel = math.max(0, math.floor(tonumber(level) or 0))
 	local base = math.max(0, tonumber(protocol and protocol.BaseCost) or 0)
@@ -1780,7 +1626,6 @@ function AnomalyOpsMath.ProtocolCost(protocol: ProtocolLike, level: any): number
 	return math.max(1, math.floor(base * scale ^ safeLevel + 0.5))
 end
 
--- Pick DirectiveSlots definitions for a cycle with difficulty-scaled targets.
 function AnomalyOpsMath.SelectDirectives(cycle: any, definitions: any, slots: any): { any }
 	local selected = {}
 	if type(definitions) ~= "table" then
@@ -1810,7 +1655,6 @@ function AnomalyOpsMath.SelectDirectives(cycle: any, definitions: any, slots: an
 	return selected
 end
 
--- Stabilize yield multiplier: anomaly.RewardMultiplier * (1+protocolReward) * channel.
 function AnomalyOpsMath.RewardMultiplier(
 	anomalyRewardMultiplier: any,
 	protocolRewardEffect: number,
@@ -1822,10 +1666,6 @@ function AnomalyOpsMath.RewardMultiplier(
 	return base * protocol * channel
 end
 
--- Bank Core XP and advance every CoreTier the bag now qualifies for.
--- Seen when string/non-number CoreXP in Studio fixtures made `(CoreXP or 0) + xp`
--- concatenate instead of add; tonumber + multi-tier walk keeps Stabilize honest.
--- Mutates anomaly in place; returns tiers gained.
 function AnomalyOpsMath.ApplyCoreXP(anomaly: any, xp: any, tierConfigs: any): number
 	if type(anomaly) ~= "table" then
 		return 0
@@ -1853,7 +1693,6 @@ function AnomalyOpsMath.ApplyCoreXP(anomaly: any, xp: any, tierConfigs: any): nu
 	return gained
 end
 
--- First CoreTiers entry with Tier > currentTier (State progress rail).
 function AnomalyOpsMath.NextCoreTier(coreTier: any, tierConfigs: any): any?
 	local tier = math.max(0, math.floor(tonumber(coreTier) or 0))
 	if type(tierConfigs) ~= "table" then
@@ -1869,7 +1708,6 @@ function AnomalyOpsMath.NextCoreTier(coreTier: any, tierConfigs: any): any?
 	end
 	return nil
 end
-
 
 function AnomalyOpsMath.LoadoutEffect(loadout: any, channels: any, effectKind: string): number
 	if type(loadout) ~= "table" or type(channels) ~= "table" or type(effectKind) ~= "string" then
@@ -1948,9 +1786,6 @@ end
 return table.freeze(AnomalyOpsMath)
 end
 
--- ======================================================================
--- Module: ProgressionGate   (merged from ProgressionGate.luau, 122 lines)
--- ======================================================================
 __defs["ProgressionGate"] = function()
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1970,9 +1805,6 @@ function ProgressionGate.Progress(profile, kind: string): number
 	elseif kind == "LifetimeCash" then
 		return Economy.AsNumber(profile.LifetimeCash)
 	elseif kind == "MachinesBought" then
-		-- Lifetime machine levels bought, which (unlike MachineLevels) survives
-		-- rebirth. A profile older than the counter can read low, so it never
-		-- counts for less than the machine levels owned right now.
 		local stats = profile.Stats
 		local bought = math.max(0, math.floor(tonumber(stats and stats.MachinesBought) or 0))
 		return math.max(bought, Economy.TotalMachineLevels(profile))
@@ -2022,16 +1854,12 @@ function ProgressionGate.Meets(profile, requirement): boolean
 	return ProgressionGate.Progress(profile, requirement.Kind) >= requirement.Target
 end
 
--- The player's Forge Level: the highest level of the ladder whose goal they
--- meet (ForgeLevels). Level goals never use the "Level" kind, so this cannot
--- recurse.
 function ProgressionGate.Level(profile): number
 	return ForgeLevels.levelFor(function(kind: string): number
 		return ProgressionGate.Progress(profile, kind)
 	end)
 end
 
--- Level, tier and the next goal with its progress, for the state snapshot.
 function ProgressionGate.LevelState(profile)
 	return ForgeLevels.snapshot(function(kind: string): number
 		return ProgressionGate.Progress(profile, kind)
@@ -2045,7 +1873,6 @@ end
 
 function ProgressionGate.FeatureStates(profile)
 	local result = {}
-	-- Nearly every rule is level-gated: work the level out once, not per rule.
 	local level = ProgressionGate.Level(profile)
 	for id, rule in GameConfig.Unlocks do
 		local progress = if rule.Kind == "Level" then level else ProgressionGate.Progress(profile, rule.Kind)
@@ -2055,7 +1882,6 @@ function ProgressionGate.FeatureStates(profile)
 			Target = rule.Target,
 			Requirement = rule.Requirement,
 			Name = rule.Name,
-			-- The level that opens this feature (nil for Admin's owner rule).
 			Level = if rule.Kind == "Level" then rule.Target else nil,
 		}
 	end
@@ -2075,16 +1901,7 @@ end
 return table.freeze(ProgressionGate)
 end
 
--- ======================================================================
--- Module: ProgressionOpsMath   (merged from ProgressionOpsMath.luau, 260 lines)
--- ======================================================================
 __defs["ProgressionOpsMath"] = function()
--- Pure Progression ops helpers. No Roblox services — ProgressionService and
--- Lune verify scripts share WeeklyValue / CommanderReward / TitleUnlocked /
--- FindById / AchievementProgress / AdvanceQuestProgress / CanClaimQuest so
--- weekly directives, commander gifts, title gates, milestone progress, and
--- daily mission Progress/Target tonumber stay testable without Studio.
--- Command Ensure and Economy.Gte / AsNumber stay with the caller (injected).
 
 local ProgressionOpsMath = {}
 
@@ -2106,8 +1923,6 @@ type TitleLike = {
 	Target: number?,
 }
 
--- Weekly directive progress sources. Partial Stats/Command bags (Studio fixtures
--- / mid-migrate) must return 0 instead of throwing on nil indexing.
 function ProgressionOpsMath.WeeklyValue(profile: any, kind: string): number
 	local stats = type(profile) == "table" and profile.Stats or nil
 	if kind == "Upgrades" then
@@ -2123,7 +1938,6 @@ function ProgressionOpsMath.WeeklyValue(profile: any, kind: string): number
 	return math.max(0, math.floor(tonumber(stats[kind]) or 0))
 end
 
--- Commander gift table by milestone level. ClaimCommanderReward applies this bag.
 function ProgressionOpsMath.CommanderReward(level: any): { [string]: number }
 	local safe = math.max(1, math.floor(tonumber(level) or 1))
 	if safe % 10 == 0 then
@@ -2146,8 +1960,6 @@ function ProgressionOpsMath.FindById(list: any, id: string): any?
 	return nil
 end
 
--- Title unlock gate. `command` must already be Ensure'd; `lifetimeGte` injects
--- Economy.Gte (or a pure substitute) so this module stays Lune-safe.
 function ProgressionOpsMath.TitleUnlocked(
 	profile: any,
 	title: TitleLike,
@@ -2186,9 +1998,6 @@ function ProgressionOpsMath.TitleUnlocked(
 	return false
 end
 
--- Achievement Kind → current progress. `lifetimeAsNumber` injects Economy.AsNumber
--- (or a pure Omega substitute) for LifetimeCash; Machine/Research levels use
--- EconomyEnvelopeMath.SumNumericLevels so partial bags stay Lune-safe.
 function ProgressionOpsMath.AchievementProgress(profile: any, kind: string, lifetimeAsNumber: ((any) -> number)?): number
 	if type(profile) ~= "table" or type(kind) ~= "string" then
 		return 0
@@ -2204,8 +2013,6 @@ function ProgressionOpsMath.AchievementProgress(profile: any, kind: string, life
 	elseif kind == "ResearchLevels" then
 		return sumNumericLevels(profile.Research)
 	elseif kind == "Rebirths" then
-		-- Match ProgressionGate: Domain expand zeroes current Rebirths but keeps
-		-- TotalRebirthsSpent — achievements must not regress after expansion.
 		local current = math.max(0, math.floor(tonumber(profile.Rebirths) or 0))
 		local spent = 0
 		if type(profile.Domain) == "table" then
@@ -2221,8 +2028,6 @@ function ProgressionOpsMath.AchievementProgress(profile: any, kind: string, life
 		local stats = profile.Stats
 		return math.max(0, math.floor(tonumber(stats and stats.AnomalyPulses) or 0))
 	elseif kind == "AnomalyStabilizations" then
-		-- Prefer Anomaly bag (source of truth + Admin GrantAnomalyStabilizations);
-		-- Stats can lag when admin grants only bump Anomaly.Stabilizations.
 		local anomaly = profile.Anomaly
 		local fromAnomaly = tonumber(anomaly and anomaly.Stabilizations)
 		if fromAnomaly ~= nil then
@@ -2249,7 +2054,6 @@ function ProgressionOpsMath.AchievementProgress(profile: any, kind: string, life
 	elseif kind == "LabOrders" then
 		return math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.OrdersCompleted) or 0))
 	elseif kind == "Expeditions" then
-		-- Prefer Command bag (ClaimExpedition source of truth); Stats can lag on partial fixtures.
 		local command = profile.Command
 		local fromCommand = tonumber(command and command.ExpeditionsCompleted)
 		if fromCommand ~= nil then
@@ -2273,9 +2077,6 @@ function ProgressionOpsMath.AchievementProgress(profile: any, kind: string, life
 	return 0
 end
 
--- Advance matching quest Progress. Studio fixtures / mid-migrate bags may store
--- Progress/Target as numeric strings — bare `progress + amount` concatenates.
--- BuyAny matches BuyMachine / BuyResearch the same way ProgressionService.Progress does.
 function ProgressionOpsMath.AdvanceQuestProgress(items: any, kind: any, amount: any): number
 	if type(items) ~= "table" or type(kind) ~= "string" then
 		return 0
@@ -2302,8 +2103,6 @@ function ProgressionOpsMath.AdvanceQuestProgress(items: any, kind: any, amount: 
 	return updated
 end
 
--- Claim gate for a single quest bag. Returns ok, reason. Numeric-string Progress
--- / Target must not lexicographically compare (e.g. "9" < "10" is false).
 function ProgressionOpsMath.CanClaimQuest(quest: any): (boolean, string)
 	if type(quest) ~= "table" then
 		return false, "Mission not found."
@@ -2319,14 +2118,12 @@ function ProgressionOpsMath.CanClaimQuest(quest: any): (boolean, string)
 	return true, ""
 end
 
--- Scale raw command XP by a Domain-tree CommandXP bonus (fraction). Always ≥ 0.
 function ProgressionOpsMath.ScaledCommandXP(amount: any, domainBonus: any): number
 	local value = math.max(0, math.floor(tonumber(amount) or 0))
 	local bonus = tonumber(domainBonus) or 0
 	return math.floor(value * (1 + bonus))
 end
 
--- Apply ScaledCommandXP onto an Ensure'd Command bag (XP + SeasonXP). Returns granted.
 function ProgressionOpsMath.ApplyCommandXP(command: any, amount: any, domainBonus: any): number
 	if type(command) ~= "table" then
 		return 0
@@ -2340,14 +2137,7 @@ end
 return table.freeze(ProgressionOpsMath)
 end
 
--- ======================================================================
--- Module: WheelMath   (merged from WheelMath.luau, 134 lines)
--- ======================================================================
 __defs["WheelMath"] = function()
--- Pure fortune-wheel bag ensure / readiness snapshot / pity pool helpers.
--- No Roblox services — ProgressionService and Lune verify scripts share this so
--- FreeSpins-only bags and pity floors can be tested without Studio. Random rolls
--- and ApplyReward mutation stay with the caller; reward tables are injected.
 
 local WheelMath = {}
 
@@ -2373,8 +2163,6 @@ type PoolEntry = {
 	Weight: number,
 }
 
--- ApplyReward FreeSpins may seed Wheel={FreeSpins=N} without LastSpinAt/Spins/
--- PityMisses — WheelState / SpinWheel must rebuild before arithmetic.
 function WheelMath.Ensure(wheel: any): WheelBag
 	if type(wheel) ~= "table" then
 		return {
@@ -2395,7 +2183,6 @@ function WheelMath.RarityRank(rarity: any): number
 	return WheelMath.RARITY_RANK[string.upper(tostring(rarity or ""))] or 1
 end
 
--- Readiness snapshot for client WheelState. Mutates nothing; callers Ensure first.
 function WheelMath.Snapshot(
 	now: number,
 	wheel: WheelBag,
@@ -2427,8 +2214,6 @@ function WheelMath.Snapshot(
 	}
 end
 
--- Pity-filtered weight pool. When forcePity empties the pool, callers fall back
--- to the unfiltered rewards table (mirrors former SpinWheel behavior).
 function WheelMath.BuildPool(
 	rewards: { any },
 	forcePity: boolean,
@@ -2451,7 +2236,6 @@ function WheelMath.FullPool(rewards: { any }): ({ PoolEntry }, number)
 	return WheelMath.BuildPool(rewards, false, 1)
 end
 
--- Weighted pick. `roll` is in [0, totalWeight]; empty pool → nil.
 function WheelMath.PickEntry(pool: { PoolEntry }, totalWeight: number, roll: number): PoolEntry?
 	if #pool == 0 or totalWeight <= 0 then
 		return nil
@@ -2468,7 +2252,6 @@ function WheelMath.PickEntry(pool: { PoolEntry }, totalWeight: number, roll: num
 	return selected
 end
 
--- After a spin: clear pity on floor+ hit, else increment.
 function WheelMath.NextPityMisses(pityMisses: any, selectedRank: number, floorRank: number): number
 	if selectedRank >= floorRank then
 		return 0
@@ -2479,14 +2262,7 @@ end
 return table.freeze(WheelMath)
 end
 
--- ======================================================================
--- Module: CrateRoll   (merged from CrateRoll.luau, 151 lines)
--- ======================================================================
 __defs["CrateRoll"] = function()
--- Pure crate pity / weighted rarity / drop selection. No Roblox services —
--- ServerServices and Lune verify scripts share this so open-count gates and
--- pity rolls can be tested without Studio. RNG and inventory mutation stay
--- with the caller; rarity tables and definitions are injected.
 
 local CrateRoll = {}
 
@@ -2502,7 +2278,6 @@ type RarityData = {
 	Rank: number,
 }
 
--- Pity floor: once pity+1 reaches PityAfter, only rarities at/above pityRank roll.
 function CrateRoll.MinimumRank(pity: number, pityAfter: number, pityRank: number): number
 	local safePity = math.max(0, math.floor(tonumber(pity) or 0))
 	local after = math.max(0, math.floor(tonumber(pityAfter) or 0))
@@ -2525,7 +2300,6 @@ function CrateRoll.TotalWeight(
 	return total
 end
 
--- Walk rarity order subtracting weights; returns selected rarity name.
 function CrateRoll.SelectRarity(
 	roll: number,
 	weights: { [string]: number },
@@ -2551,7 +2325,6 @@ function CrateRoll.SelectRarity(
 	return selected
 end
 
--- Collect definitions matching rarity, then pick by 1-based index.
 function CrateRoll.Candidates(definitions: { any }, selectedRarity: string): { any }
 	local candidates = {}
 	for _, definition in definitions do
@@ -2570,7 +2343,6 @@ function CrateRoll.PickCandidate(candidates: { any }, index: number): any?
 	return candidates[safeIndex]
 end
 
--- Full roll: returns definition, rarity, pityHit. nextNumber/nextInteger inject RNG.
 function CrateRoll.Roll(
 	crate: CrateLike,
 	pity: number,
@@ -2601,7 +2373,6 @@ function CrateRoll.Roll(
 	return selected, selectedRarity, pityHit
 end
 
--- Open count: only 1 or 5. Non-number → 1. Other numbers → nil + error.
 function CrateRoll.NormalizeOpenCount(rawCount: any): (number?, string?)
 	local count = if type(rawCount) == "number" then math.clamp(math.floor(rawCount), 1, 5) else 1
 	if count ~= 1 and count ~= 5 then
@@ -2610,7 +2381,6 @@ function CrateRoll.NormalizeOpenCount(rawCount: any): (number?, string?)
 	return count, nil
 end
 
--- True when every positive-weight rarity is marked for auto-salvage and KeepNew is off.
 function CrateRoll.GuaranteedRecycle(
 	weights: { [string]: number },
 	autoEnabled: boolean,
@@ -2635,13 +2405,7 @@ end
 return table.freeze(CrateRoll)
 end
 
--- ======================================================================
--- Module: OverchargeCombo   (merged from OverchargeCombo.luau, 43 lines)
--- ======================================================================
 __defs["OverchargeCombo"] = function()
--- Pure overcharge tap-combo window / multiplier. No Roblox services —
--- ServerServices and Lune verify scripts share this so combo math stays
--- testable without Studio. Config knobs are injected by the caller.
 
 local OverchargeCombo = {}
 
@@ -2653,17 +2417,14 @@ function OverchargeCombo.Multiplier(combo: number, comboMax: number, bonusPerSta
 	return 1 + math.min(comboMax, math.max(0, combo)) * bonusPerStack
 end
 
--- Advance combo after a successful tap within the window.
 function OverchargeCombo.NextCombo(previousCombo: number, comboMax: number): number
 	return math.min(comboMax, math.max(0, math.floor(previousCombo)) + 1)
 end
 
--- True when the gap since last tap exceeds the combo window (combo resets).
 function OverchargeCombo.Expired(elapsed: number, comboWindow: number): boolean
 	return elapsed > comboWindow
 end
 
--- Public Overcharge bag for client rails.
 function OverchargeCombo.PublicSnapshot(args: {
 	combo: number,
 	comboMultiplier: number,
@@ -2683,9 +2444,6 @@ end
 return table.freeze(OverchargeCombo)
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -2697,7 +2455,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

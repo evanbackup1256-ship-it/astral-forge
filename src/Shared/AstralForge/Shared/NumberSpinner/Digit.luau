@@ -1,8 +1,6 @@
 local TweenService = game:GetService("TweenService")
 
-
 local Digit = {}
-
 
 local function rollTweenInfo(duration: number): TweenInfo
 	return TweenInfo.new(math.max(0.08, duration), Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -152,15 +150,11 @@ function Digit.new(Spinner, LayoutOrder, Value)
 				previous:Destroy()
 			end
 
-
 			if digit.Duration <= 0.12 then
 				Canvas.Position = UDim2.new(0, 0, -target, 0)
 				return
 			end
 
-
-			-- Unchanged digit: stay put. A slow Duration used to offset and tween
-			-- the same glyph, which read as a fake spin.
 			if from == target then
 				Canvas.Position = UDim2.new(0, 0, -target, 0)
 				return

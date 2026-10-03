@@ -46,13 +46,8 @@ return {
 	AllowStudioFollowVerification = true,
 	FollowReward = { CashMinutes = 12, Stardust = 35, Signals = 10 },
 
-	-- The Discord bot writes pending kick/ban/unban requests into the
-	-- DiscordModQueueStoreName DataStore via Roblox Open Cloud (it never talks
-	-- to a live server directly). One server per universe polls this queue on
-	-- an interval and drains it; see AdminService:_pollDiscordQueue.
 	DiscordModQueuePollSeconds = 20,
 	DiscordModQueuePrefix = "DiscordMod_",
-
 
 	Codes = {
 		RELEASE = {
@@ -80,7 +75,6 @@ return {
 			Reward = { Cash = 20_000, Stardust = 30, Signals = 12 },
 		},
 	},
-
 
 	Gamepasses = {
 		DoubleProduction = 0,

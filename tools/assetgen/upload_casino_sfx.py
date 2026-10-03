@@ -28,7 +28,7 @@ BEGIN, END = "-- BOSS-SFX-BEGIN", "-- BOSS-SFX-END"
 
 def write_block(ids: dict) -> None:
     entries = [f"\t{name} = {int(asset)}," for name, asset in sorted(ids.items()) if asset]
-    text = "\n".join(["--!strict", "-- Uploaded casino sound effects: name -> audio id. Rewritten by tools/assetgen/upload_casino_sfx.py; a missing", "-- name just plays nothing.", "return table.freeze({"] + entries + ["})", ""])
+    text = "\n".join(["--!strict", "return table.freeze({"] + entries + ["})", ""])
     with open(DATA, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(text)
 

@@ -211,10 +211,8 @@ do
 	assert(not string.find(desk, "Packages/", 1, true))
 
 	local view = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
-	assert(string.find(view, "CONFIRM_TRADE_TREE:shared", 1, true), "shared ConfirmTrade tree marker")
 	assert(not string.find(view, "CONFIRM_TRADE_TREE:compact", 1, true), "compact Confirm tree must be collapsed into shared")
 	assert(not string.find(view, "CONFIRM_TRADE_TREE:desktop", 1, true), "desktop Confirm tree must be collapsed into shared")
-	assert(string.find(view, "CONFIRM_TRADE_PANEL", 1, true), "shared Confirm panel marker")
 	assert(string.find(view, "buildConfirmActions", 1, true), "shared Confirm panel builder")
 	assert(string.find(view, "onConfirmClick", 1, true), "shared confirm handler")
 	local confirmRuns = 0
@@ -246,11 +244,6 @@ do
 	assert(string.find(view, "GamepadNavigationService.EndOverlayFocus", 1, true), "session actions must EndOverlayFocus on exit")
 	assert(not string.find(view, 'createElement("scrollingframe"', 1, true), "TradeView must have zero raw scrollingframes")
 	assert(string.find(view, "FlatList", 1, true), "Trade roster must FlatList long catalogs")
-	-- Shared pin+PageScaffold tree: orientation differs; handlers + pin stay identical.
-	assert(
-		string.find(view, "Shared action handlers for CONFIRM_TRADE_TREE", 1, true),
-		"TradeView must document shared handlers across Confirm trees"
-	)
 	assert(
 		string.find(view, 'Position = UDim2.new(0, 0, 1, -actionH)', 1, true),
 		"Ready/Confirm must pin to bottom on shared session chrome"

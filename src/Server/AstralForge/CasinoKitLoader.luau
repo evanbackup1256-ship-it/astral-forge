@@ -1,7 +1,4 @@
 --!strict
--- Publishes the casino's 3D kit for clients: loads the uploaded model (Shared/CasinoKit) with
--- InsertService and puts its MeshParts, anchored and inert, in ReplicatedStorage.CasinoKit.
--- The game owner must own the asset. Until it loads, the casino draws its part-built shapes.
 
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,7 +18,7 @@ function CasinoKitLoader.load()
 		return
 	end
 	local ok, result = false, nil :: any
-	for attempt = 1, 4 do -- Roblox answers 502 now and then; try again
+	for attempt = 1, 4 do
 		ok, result = pcall(function()
 			return InsertService:LoadAsset(id)
 		end)

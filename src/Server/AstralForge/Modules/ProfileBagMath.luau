@@ -1,8 +1,4 @@
 --!strict
--- Pure profile-bag ensure helpers. No Roblox services — ProgressionService,
--- ServerServices, AdminService, and Lune verify scripts share this so partial
--- Studio fixtures / mid-migrate bags (Stats/Daily/Quests/Items/Boosts/Domain/
--- Anomaly/Continuum/Flags) rebuild before claim/grant paths index nested fields.
 
 local ProfileBagMath = {}
 
@@ -13,8 +9,6 @@ function ProfileBagMath.EnsureStats(profile: any): { [string]: any }
 	return profile.Stats
 end
 
--- Finite non-negative add used by ore / boss / forge-path grant paths so a
--- single polluted leaf cannot push ProfileIntegrity.Seal into "non-finite".
 function ProfileBagMath.AddFinite(current: any, amount: any, ceiling: number?): number
 	local cap = if type(ceiling) == "number" and ceiling == ceiling then ceiling else 1e308
 	local base = tonumber(current)
@@ -35,8 +29,6 @@ end
 
 function ProfileBagMath.BumpStat(profile: any, key: string, amount: number?): number
 	local stats = ProfileBagMath.EnsureStats(profile)
-	-- Cap the delta: AsNumber/MAX_DOUBLE feeds used to make 1e308+1e308 → inf,
-	-- which ProfileIntegrity.Seal rejects and blocked every cache sync / save.
 	local rawDelta = tonumber(amount)
 	if type(rawDelta) ~= "number" or rawDelta ~= rawDelta or rawDelta == math.huge or rawDelta == -math.huge then
 		rawDelta = if amount == nil then 1 else 0
@@ -82,8 +74,6 @@ function ProfileBagMath.EnsureItemKeys(profile: any): { [string]: number }
 	return profile.Items.Keys
 end
 
--- Minimal Items rebuild for Admin grant/drain/relic + market buy/crate paths on
--- Keys-only bags. Shop must exist before ShopGrantEligibility.EnsureShop indexes it.
 function ProfileBagMath.EnsureItems(profile: any): any
 	if type(profile.Items) ~= "table" then
 		profile.Items = {
@@ -130,7 +120,6 @@ function ProfileBagMath.EnsureItems(profile: any): any
 	return profile.Items
 end
 
--- AutoSalvage nest on Keys-only / Essence-only Items bags (crate open paths).
 function ProfileBagMath.EnsureAutoSalvage(profile: any): any
 	local items = ProfileBagMath.EnsureItems(profile)
 	if type(items.AutoSalvage) ~= "table" then
@@ -144,7 +133,6 @@ function ProfileBagMath.EnsureAutoSalvage(profile: any): any
 	return items.AutoSalvage
 end
 
--- The Daily Shop bag; a new UTC day clears what was bought.
 function ProfileBagMath.EnsureDailyShop(profile: any, day: number?, owned: any?): { Day: number, Bought: { [string]: number }, Owned: { [string]: boolean } }
 	if type(profile.DailyShop) ~= "table" then
 		profile.DailyShop = { Day = -1, Bought = {} }
@@ -167,8 +155,6 @@ function ProfileBagMath.EnsureDailyShop(profile: any, day: number?, owned: any?)
 		shop.Bought = {}
 		shop.Owned = nil
 	end
-	-- The skins owned when the day's shop was first touched. The roll leaves these out, so buying a
-	-- skin (here or under Skins) mid-day never reshuffles the day's offers.
 	if type(shop.Owned) ~= "table" then
 		shop.Owned = {}
 		if type(owned) == "table" then
@@ -188,7 +174,6 @@ function ProfileBagMath.EnsureDailyShop(profile: any, day: number?, owned: any?)
 	return shop
 end
 
--- Cosmetics: owned crate skins (known ids only, Classic always) and the equipped one.
 function ProfileBagMath.EnsureCosmetics(profile: any, knownSkin: ((string) -> boolean)?): { CrateSkins: { [string]: boolean }, CrateSkin: string }
 	if type(profile.Cosmetics) ~= "table" then
 		profile.Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" }
@@ -254,9 +239,6 @@ function ProfileBagMath.EnsureDomain(profile: any): any
 	return profile.Domain
 end
 
--- AnomalyService Pulse/Stabilize/Signal index nested bags (Protocols /
--- Discoveries / DirectiveProgress / MilestoneClaims). Fragments-only fixtures
--- from Admin grants must rebuild before those paths run.
 function ProfileBagMath.EnsureAnomaly(profile: any): any
 	if type(profile.Anomaly) ~= "table" then
 		profile.Anomaly = {
@@ -303,7 +285,6 @@ function ProfileBagMath.EnsureAnomaly(profile: any): any
 			profile.Anomaly.Channel = ""
 		end
 	end
-	-- Scrub NaN/±inf on ensure — tonumber(inf) stays inf and used to poison Seal.
 	profile.Anomaly.Charge = ProfileBagMath.AddFinite(profile.Anomaly.Charge, 0)
 	profile.Anomaly.Fragments = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Fragments, 0))
 	profile.Anomaly.Stabilizations = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Stabilizations, 0))

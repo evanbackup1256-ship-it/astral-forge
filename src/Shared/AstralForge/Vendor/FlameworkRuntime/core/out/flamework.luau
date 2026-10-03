@@ -1,4 +1,3 @@
--- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local _services = TS.import(script, TS.getModule(script, "@rbxts", "services"))
 local Players = _services.Players
@@ -11,13 +10,11 @@ local ArtificialDependency, Flamework
 local Flamework = {}
 do
 	local _container = Flamework
-	-- RuntimeLib, which is required to import packages
 	local tsImpl = _G[script]
 	local isProfiling = Metadata.isProfiling()
 	local hasFlameworkIgnited = false
 	local isPreloading = false
 	local inactiveThread
-	--* @hidden 
 	local function resolveDependency(id)
 		if isPreloading then
 			local source, line = debug.info(2, "sl")
@@ -34,7 +31,6 @@ do
 		return Modding.resolveDependency(ArtificialDependency, id, 0, {})
 	end
 	_container.resolveDependency = resolveDependency
-	--* @hidden 
 	local logIfVerbose
 	local function _addPaths(paths)
 		local preloadPaths = {}
@@ -82,15 +78,12 @@ do
 		end
 	end
 	_container._addPaths = _addPaths
-	--* @hidden 
 	local function _addPathsGlob(arg)
 		return _addPaths(Metadata.getGlob(arg) or {})
 	end
 	_container._addPathsGlob = _addPathsGlob
-	--* @hidden 
 	local function _implements(object, id)
 		local _exp = Reflect.getMetadatas(object, "flamework:implements")
-		-- ▼ ReadonlyArray.some ▼
 		local _result = false
 		local _callback = function(impl)
 			local _impl = impl
@@ -103,7 +96,6 @@ do
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.some ▲
 		return _result
 	end
 	_container._implements = _implements
@@ -123,9 +115,7 @@ do
 		end
 		return _condition
 	end
-	-- This returns a Map rather than an Array because table.sort is unstable and will not preserve element order.
 	local function topologicalSort(objects)
-		-- This implementation ignores circular dependency trees.
 		local currentSize = 0
 		local sorted = {}
 		local visited = {}
@@ -164,7 +154,6 @@ do
 				inactiveThread = nil
 			end
 			func()
-			-- If there's a different idle thread, we should end the current thread.
 			if inactiveThread ~= nil then
 				break
 			end
@@ -175,7 +164,6 @@ do
 	local function profileYielding(func, identifier)
 		if isProfiling then
 			return function()
-				-- `profilebegin` will end when this thread dies or yields.
 				debug.profilebegin(identifier)
 				debug.setmemorycategory(identifier)
 				func()
@@ -192,26 +180,12 @@ do
 			task.spawn(reusableThread, func)
 		end
 	end
-	--[[
-		*
-		     * Explicitly include an optional class in the startup cycle.
-		     
-	]]
+
 	local function includeOptionalClass(ctor)
 		Reflect.defineMetadata(ctor, "flamework:optional", false)
 	end
 	_container.includeOptionalClass = includeOptionalClass
-	--[[
-		*
-		     * Initialize Flamework.
-		     *
-		     * This will start up the lifecycle events on all currently registered
-		     * classes.
-		     *
-		     * You should preload all necessary directories before calling this
-		     * as newly registered classes will not run their lifecycle events.
-		     
-	]]
+
 	local function ignite()
 		if hasFlameworkIgnited then
 			error("Flamework.ignite() should only be called once")
@@ -240,7 +214,6 @@ do
 			local _arg0 = { dependency, loadOrder }
 			table.insert(dependencies, _arg0)
 		end
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#dependencies)
 		local _callback = function(_param)
 			local obj = _param[1]
@@ -249,7 +222,6 @@ do
 		for _k, _v in dependencies do
 			_newValue[_k] = _callback(_v, _k - 1, dependencies)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local sortedDependencies = topologicalSort(_newValue)
 		local start = {}
 		local init = {}
@@ -290,26 +262,20 @@ do
 		end, "$:flamework@OnRender")
 		Modding.onListenerRemoved(function(object)
 			local _object = object
-			-- ▼ Map.delete ▼
 			local _valueExisted = tick[_object] ~= nil
 			tick[_object] = nil
-			-- ▲ Map.delete ▲
 			return _valueExisted
 		end, "$:flamework@OnTick")
 		Modding.onListenerRemoved(function(object)
 			local _object = object
-			-- ▼ Map.delete ▼
 			local _valueExisted = physics[_object] ~= nil
 			physics[_object] = nil
-			-- ▲ Map.delete ▲
 			return _valueExisted
 		end, "$:flamework@OnPhysics")
 		Modding.onListenerRemoved(function(object)
 			local _object = object
-			-- ▼ Map.delete ▼
 			local _valueExisted = render[_object] ~= nil
 			render[_object] = nil
-			-- ▲ Map.delete ▲
 			return _valueExisted
 		end, "$:flamework@OnRender")
 		for _, _binding in dependencies do
@@ -372,71 +338,13 @@ do
 		end
 	end
 	_container.ignite = ignite
-	--[[
-		*
-		     * Preload the specified paths by requiring all ModuleScript descendants.
-		     *
-		     * @metadata macro intrinsic-arg-shift {@link _addPaths intrinsic-flamework-rewrite}
-		     
-	]]
-	--[[
-		*
-		     * Preload the specified paths by requiring all ModuleScript descendants.
-		     *
-		     * This function supports globs allowing you to match files or directories based on patterns,
-		     * but it should be noted that this can generate really large lists of paths and it is recommended to capture as few matches as possible.
-		     *
-		     * @metadata macro intrinsic-arg-shift {@link _addPathsGlob intrinsic-flamework-rewrite}
-		     
-	]]
-	--[[
-		*
-		     * Retrieve the identifier for the specified type.
-		     *
-		     * @metadata macro {@link id intrinsic-inline}
-		     
-	]]
-	--[[
-		*
-		     * Check if the constructor implements the specified interface.
-		     *
-		     * @metadata macro {@link _implements intrinsic-flamework-rewrite}
-		     
-	]]
-	--[[
-		*
-		     * Check if object implements the specified interface.
-		     *
-		     * @metadata macro {@link _implements intrinsic-flamework-rewrite}
-		     
-	]]
-	--[[
-		*
-		     * Hash a function using the method used internally by Flamework.
-		     * If a context is provided, then Flamework will create a new hash
-		     * if the specified string does not have one in that context.
-		     * @param str The string to hash
-		     * @param context A scope for the hash
-		     * @metadata macro {@link meta intrinsic-inline}
-		     
-	]]
-	--[[
-		*
-		     * Creates a type guard from any arbitrary type.
-		     *
-		     * @metadata macro
-		     
-	]]
+
 	local function createGuard(meta)
 		return meta
 	end
 	_container.createGuard = createGuard
 end
---[[
-	*
-	 * An internal class used for resolving the Dependency<T> macro.
-	 
-]]
+
 do
 	ArtificialDependency = setmetatable({}, {
 		__tostring = function()
@@ -453,24 +361,7 @@ do
 end
 Reflect.defineMetadata(ArtificialDependency, "identifier", "$:flamework@ArtificialDependency")
 Reflect.defineMetadata(ArtificialDependency, "flamework:isArtificial", true)
---[[
-	*
-	 * This function resolves a dependency and can be called outside of the usual dependency injection lifecycle.
-	 *
-	 * This function can make it harder to stub, test or modify your code so it is recommended to use this macro minimally.
-	 * It is recommended that you pass dependencies to code that needs it from a singleton, component, etc.
-	 *
-	 * @metadata macro {@link Flamework.resolveDependency intrinsic-flamework-rewrite}
-	 
-]]
---[[
-	*
-	 * Register a class as a Service.
-	 *
-	 * @server
-	 * @metadata flamework:implements flamework:parameters injectable
-	 
-]]
+
 local Service = Modding.createDecorator("Class", function(descriptor, _param)
 	local cfg = _param[1]
 	if RunService:IsServer() then
@@ -483,14 +374,7 @@ local Service = Modding.createDecorator("Class", function(descriptor, _param)
 		Reflect.defineMetadata(_exp, "flamework:loadOrder", _result)
 	end
 end)
---[[
-	*
-	 * Register a class as a Controller.
-	 *
-	 * @client
-	 * @metadata flamework:implements flamework:parameters injectable
-	 
-]]
+
 local Controller = Modding.createDecorator("Class", function(descriptor, _param)
 	local cfg = _param[1]
 	if RunService:IsClient() then
@@ -503,13 +387,7 @@ local Controller = Modding.createDecorator("Class", function(descriptor, _param)
 		Reflect.defineMetadata(_exp, "flamework:loadOrder", _result)
 	end
 end)
---[[
-	*
-	 * Marks a singleton as optional.
-	 *
-	 * This singleton will only be included if it is depended on or is explicitly included with `Flamework.includeOptionalClass`.
-	 
-]]
+
 local Optional = Modding.createDecorator("Class", function(descriptor)
 	if not Reflect.getMetadata(descriptor.object, "flamework:singleton") then
 		warn("'Optional' decorator was applied to a non-singleton.", descriptor.object)
@@ -517,36 +395,7 @@ local Optional = Modding.createDecorator("Class", function(descriptor)
 	end
 	Reflect.defineMetadata(descriptor.object, `flamework:optional`, true)
 end)
---[[
-	*
-	 * Hook into the OnInit lifecycle event.
-	 
-]]
---[[
-	*
-	 * Hook into the OnStart lifecycle event.
-	 
-]]
---[[
-	*
-	 * Hook into the OnTick lifecycle event.
-	 * Equivalent to: RunService.Heartbeat
-	 
-]]
---[[
-	*
-	 * Hook into the OnPhysics lifecycle event.
-	 * Equivalent to: RunService.Stepped
-	 
-]]
---[[
-	*
-	 * Hook into the OnRender lifecycle event.
-	 * Equivalent to: RunService.RenderStepped
-	 *
-	 * @client
-	 
-]]
+
 return {
 	Flamework = Flamework,
 	Service = Service,

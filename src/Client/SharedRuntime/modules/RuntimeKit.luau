@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	RuntimeKit: merged module suite.
-	Members (6): deepFreeze, gameplay, network, pool, reentrancy, scheduler.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,11 +18,7 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: deepFreeze   (merged from deepFreeze.luau, 27 lines)
--- ======================================================================
 __defs["deepFreeze"] = function()
--- Compiled with roblox-ts v3.0.0
 local function freezeRecursive(value, visited)
 	local _value = value
 	if not (type(_value) == "table") then
@@ -60,14 +47,9 @@ return {
 }
 end
 
--- ======================================================================
--- Module: gameplay   (merged from gameplay.luau, 620 lines)
--- ======================================================================
 __defs["gameplay"] = function()
--- Compiled with roblox-ts v3.0.0
 local economyScheduler = __load("scheduler").economyScheduler
 local deepFreeze = __load("deepFreeze").deepFreeze
---* Immutable nested prestige evaluator; committing a layer always returns a new level vector. 
 local MultiTierPrestigeEngine
 do
 	MultiTierPrestigeEngine = setmetatable({}, {
@@ -132,7 +114,6 @@ do
 		return table.freeze(updatedLevels)
 	end
 end
---* Priority-sorted macro scheduler; the scheduler owns asynchronous execution boundaries. 
 local AutomationScriptingMatrix
 do
 	AutomationScriptingMatrix = setmetatable({}, {
@@ -161,10 +142,8 @@ do
 		return function()
 			local _tasks_1 = self.tasks
 			local _id_1 = task.id
-			-- ▼ Map.delete ▼
 			local _valueExisted = _tasks_1[_id_1] ~= nil
 			_tasks_1[_id_1] = nil
-			-- ▲ Map.delete ▲
 			return _valueExisted
 		end
 	end
@@ -196,7 +175,6 @@ do
 		})
 	end
 end
---* Bounded offline simulator that never loops once per elapsed second. 
 local OfflineCatchUpProcessor
 do
 	OfflineCatchUpProcessor = setmetatable({}, {
@@ -230,7 +208,6 @@ do
 		return state
 	end
 end
---* O(1) claimed/completed checks backed by a 32-bit milestone mask. 
 local DynamicQuestMilestoneMatrix
 do
 	DynamicQuestMilestoneMatrix = setmetatable({}, {
@@ -304,7 +281,6 @@ local function weightedIndex(rewards, randomValue)
 	end
 	return low
 end
---* Deterministic weighted wheel selection plus a render-only deceleration plan. 
 local ProceduralSpinWheelMatrix
 do
 	ProceduralSpinWheelMatrix = setmetatable({}, {
@@ -404,7 +380,6 @@ do
 			now = os.time()
 		end
 		local _exp = self.windows
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(entry)
 			return now >= entry.startsAt and now < entry.endsAt
 		end
@@ -415,7 +390,6 @@ do
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		return _result
 	end
 end
@@ -477,7 +451,6 @@ do
 		consumer(output)
 	end
 end
---* Client telemetry counterpart; it only reports velocity anomalies, never mutates economy state. 
 local HeuristicAntiCheatGuard
 do
 	HeuristicAntiCheatGuard = setmetatable({}, {
@@ -563,7 +536,6 @@ do
 		return _condition
 	end
 end
---* Fixed-size circular diagnostics stream for the isolated test dashboard. 
 local StructuredLoggingSystem
 do
 	StructuredLoggingSystem = setmetatable({}, {
@@ -686,11 +658,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: network   (merged from network.luau, 126 lines)
--- ======================================================================
 __defs["network"] = function()
--- Compiled with roblox-ts v3.0.0
 local TELEMETRY_VERSION = 1
 local TELEMETRY_BYTES = 30
 local ECONOMY_PACKET_VERSION = 1
@@ -759,7 +727,6 @@ local function decodeTelemetry(payload)
 		stardust = buffer.readf32(payload, 26),
 	}
 end
---* Compact economy mirror: two bitfields/IDs followed by f64 currency lanes. 
 local function encodeEconomy(record)
 	local packed = buffer.create(ECONOMY_PACKET_BYTES)
 	buffer.writeu8(packed, 0, ECONOMY_PACKET_VERSION)
@@ -787,14 +754,12 @@ local function decodeEconomy(payload)
 		capacity = buffer.readf64(payload, 40),
 	}
 end
---* Immutable-name facade used by profile/social replication code. 
 local BinaryStateBitpacker = table.freeze({
 	encodeTelemetry = encodeTelemetry,
 	decodeTelemetry = decodeTelemetry,
 	encodeEconomy = encodeEconomy,
 	decodeEconomy = decodeEconomy,
 })
---* O(1) relationship flag operations shared by server mirrors and chat gates. 
 local BitfieldRelationshipMatrix = table.freeze({
 	flags = SocialFlags,
 	has = hasFlag,
@@ -818,12 +783,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: pool   (merged from pool.luau, 90 lines)
--- ======================================================================
 __defs["pool"] = function()
--- Compiled with roblox-ts v3.0.0
---* Fixed-capacity object recycler. Luau cannot pin memory, so this is the allocation-free equivalent. 
 local MemoryPinnedTableAllocator
 do
 	MemoryPinnedTableAllocator = setmetatable({}, {
@@ -861,11 +821,9 @@ do
 	end
 	function MemoryPinnedTableAllocator:acquire()
 		local _exp = self.free
-		-- ▼ Array.pop ▼
 		local _length = #_exp
 		local _result = _exp[_length]
 		_exp[_length] = nil
-		-- ▲ Array.pop ▲
 		local value = _result
 		if value ~= nil then
 			self.leased[value] = true
@@ -875,10 +833,8 @@ do
 	function MemoryPinnedTableAllocator:release(value)
 		local _leased = self.leased
 		local _value = value
-		-- ▼ Set.delete ▼
 		local _valueExisted = _leased[_value] ~= nil
 		_leased[_value] = nil
-		-- ▲ Set.delete ▲
 		if not _valueExisted then
 			return false
 		end
@@ -900,12 +856,10 @@ do
 		return #self.free
 	end
 	function MemoryPinnedTableAllocator:active()
-		-- ▼ ReadonlySet.size ▼
 		local _size = 0
 		for _ in self.leased do
 			_size += 1
 		end
-		-- ▲ ReadonlySet.size ▲
 		return _size
 	end
 end
@@ -914,12 +868,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: reentrancy   (merged from reentrancy.luau, 51 lines)
--- ======================================================================
 __defs["reentrancy"] = function()
--- Compiled with roblox-ts v3.0.0
---* Per-Actor named lock. Cross-Actor state remains message-owned as required by Parallel Luau. 
 local ParallelTaskReentrancyLock
 do
 	ParallelTaskReentrancyLock = setmetatable({}, {
@@ -971,13 +920,8 @@ return {
 }
 end
 
--- ======================================================================
--- Module: scheduler   (merged from scheduler.luau, 92 lines)
--- ======================================================================
 __defs["scheduler"] = function()
--- Compiled with roblox-ts v3.0.0
 local ParallelTaskReentrancyLock = __load("reentrancy").ParallelTaskReentrancyLock
---* Bounded pure-compute queue. It enters Parallel Luau only when hosted by an Actor. 
 local AsynchronousActorScheduler
 do
 	AsynchronousActorScheduler = setmetatable({}, {
@@ -1069,9 +1013,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1083,7 +1024,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

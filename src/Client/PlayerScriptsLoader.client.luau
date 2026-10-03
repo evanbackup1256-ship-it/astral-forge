@@ -1,6 +1,4 @@
 --!strict
--- Replaces Roblox's default PlayerScriptsLoader so PlayerModule never starts.
--- This game is UI-only: no character camera, popper raycasts, or movement controls.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")

@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesBazaar: the Astral Bazaar page suite.
-	Members (1): BazaarView.
-
-	A bank (savings with interest, term deposits), a black market with hourly stock, a server lottery and
-	daily merchant contracts. Everything is decided by BazaarService on the server; this page sends one
-	BazaarPlay action per tap and performs what comes back, using the casino's building blocks (PagesCasino.Kit)
-	and its sounds, so the two hubs look and sound like one place.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: BazaarView
--- ======================================================================
 __defs["BazaarView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
@@ -71,7 +59,6 @@ local function percent(rate)
 	return string.format("%d%%", math.floor(rate * 100 + 0.5))
 end
 
--- Wall-clock seconds that tick once a second, so countdowns stay live between server pushes.
 local function useClock()
 	local now, setNow = React.useState(os.time())
 	React.useEffect(function()
@@ -91,7 +78,6 @@ local function useClock()
 	return now
 end
 
--- A deal on the black market: the discount badge, what it gives, the price and the stock left in pips.
 local function DealCard(props)
 	local offer = props.offer
 	local soldOut = offer.Left <= 0
@@ -134,7 +120,6 @@ local function DealCard(props)
 	})
 end
 
--- One merchant contract: what to do, how far along, and a claim button once done.
 local function ContractRow(props)
 	local contract = props.contract
 	local text, color, disabled = "CLAIM", Palette.cyan, not contract.Claimable or props.busy
@@ -165,7 +150,6 @@ local function ContractRow(props)
 	})
 end
 
--- A row of mini tickets that light up for each one you hold.
 local function TicketStrip(props)
 	local kids = { Layout = React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 3), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }) }
 	for index = 1, props.max do
@@ -183,7 +167,6 @@ end
 local function BazaarView(props)
 	local state = props.state
 	local dispatch = props.dispatch
-	-- Always animated; the Reduced Motion setting softens the feel through MotionSettingsContext.
 	local reducedMotion = false
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -270,7 +253,6 @@ local function BazaarView(props)
 		return React.createElement(Buttons, { items = items, height = 38, order = order, reducedMotion = reducedMotion })
 	end
 
-	-- ------------------------------------------------------------------ bank
 	local function bankBody()
 		local bank = bazaar.Bank
 		local open = bank.Term.Id ~= ""
@@ -322,7 +304,6 @@ local function BazaarView(props)
 		return children
 	end
 
-	-- ------------------------------------------------------------------ black market
 	local function marketBody()
 		local market = bazaar.Market
 		local children = {
@@ -344,7 +325,6 @@ local function BazaarView(props)
 		return children
 	end
 
-	-- ------------------------------------------------------------------ lottery
 	local function lotteryBody()
 		local lottery = bazaar.Lottery
 		local last = lottery.Last
@@ -383,7 +363,6 @@ local function BazaarView(props)
 		return children
 	end
 
-	-- ------------------------------------------------------------------ contracts
 	local function contractsBody()
 		local children = {
 			React.createElement(Line, { value = "MERCHANT CONTRACTS", size = 11, color = Palette.cyan, weight = Enum.FontWeight.Heavy, height = 16, order = 1 }),
@@ -484,9 +463,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -498,7 +474,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

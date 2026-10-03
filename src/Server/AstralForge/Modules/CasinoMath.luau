@@ -1,15 +1,9 @@
 --!strict
--- The Astral Casino's rules as pure functions: no Roblox services, no profile, no money. Every roll takes
--- an injected `rand: () -> number` in [0, 1) so the odds can be enumerated and tested without Studio, and
--- every game states its return-to-player (RTP): the share of what is staked that comes back on average.
--- CasinoService owns the profile, the stake and the payout; this module only says what happened.
 
 local CasinoMath = {}
 
--- A stake is a share of the player's own flux, so it means the same thing at 1K and at 1e200.
 CasinoMath.STAKES = table.freeze({ 0.005, 0.02, 0.05, 0.15, 0.40 })
 CasinoMath.STAKE_NAMES = table.freeze({ "Pocket", "Low", "Mid", "High", "All-in" })
--- A round never pays more than this many times the flux the player had when it began.
 CasinoMath.PROFIT_CAP = 4
 
 type Rand = () -> number
@@ -29,7 +23,6 @@ local function pickWeighted(items: { any }, rand: Rand): any
 	return items[#items]
 end
 
--- ---------------------------------------------------------------------------------------- Starlight Slots
 CasinoMath.SLOT_SYMBOLS = table.freeze({
 	table.freeze({ Id = "Ember", Weight = 30, Pay3 = 8, Pair = 0.6 }),
 	table.freeze({ Id = "Dust", Weight = 25, Pay3 = 12, Pair = 0.3 }),
@@ -44,8 +37,6 @@ for _, symbol in CasinoMath.SLOT_SYMBOLS do
 	slotById[symbol.Id] = symbol
 end
 
--- Multiplier (of the stake) for three reels. Three alike pays that symbol's Pay3; two alike (any two of the
--- three) pays that symbol's Pair, usually little or nothing.
 function CasinoMath.SlotsPay(a: string, b: string, c: string): (number, string)
 	if a == b and b == c then
 		return slotById[a].Pay3, "Triple"
@@ -72,7 +63,6 @@ function CasinoMath.SlotsSpin(rand: Rand): ({ string }, number, string)
 	return reels, multiplier, kind
 end
 
--- Exact RTP by enumerating every reel combination.
 function CasinoMath.SlotsRtp(): number
 	local total = 0
 	for _, s in CasinoMath.SLOT_SYMBOLS do
@@ -90,9 +80,8 @@ function CasinoMath.SlotsRtp(): number
 	return rtp
 end
 
--- ---------------------------------------------------------------------------------------- Coin flip ladder
 CasinoMath.FLIP_WIN_CHANCE = 0.495
-CasinoMath.FLIP_STEP = 1.92 -- 0.495 * 1.92 = 0.9504: a 4.96% edge on every flip
+CasinoMath.FLIP_STEP = 1.92
 CasinoMath.FLIP_MAX_STREAK = 12
 CasinoMath.FLIP_MAX_MULT = 500
 
@@ -107,9 +96,8 @@ function CasinoMath.FlipRoll(rand: Rand): boolean
 	return rand() < CasinoMath.FLIP_WIN_CHANCE
 end
 
--- ---------------------------------------------------------------------------------------- High-low ladder
 CasinoMath.HL_RANKS = 13
-CasinoMath.HL_RETURN = 0.96 -- each guess pays 0.96 / its own probability
+CasinoMath.HL_RETURN = 0.96
 CasinoMath.HL_MAX_STREAK = 12
 CasinoMath.HL_MAX_MULT = 150
 
@@ -117,8 +105,6 @@ function CasinoMath.HighLowDraw(rand: Rand): number
 	return math.min(CasinoMath.HL_RANKS, math.floor(rand() * CasinoMath.HL_RANKS) + 1)
 end
 
--- The chance and the per-step multiplier for guessing "High" or "Low" against `card`. A tie loses, so the
--- ends of the ladder offer only one side.
 function CasinoMath.HighLowOdds(card: number, guess: string): (number, number)
 	local n = CasinoMath.HL_RANKS
 	local chance = if guess == "High" then (n - card) / n elseif guess == "Low" then (card - 1) / n else 0
@@ -135,7 +121,6 @@ function CasinoMath.HighLowWins(card: number, nextCard: number, guess: string): 
 	return nextCard < card
 end
 
--- ---------------------------------------------------------------------------------------- Astral roulette
 CasinoMath.RED = table.freeze({
 	[1] = true, [3] = true, [5] = true, [7] = true, [9] = true, [12] = true, [14] = true, [16] = true, [18] = true,
 	[19] = true, [21] = true, [23] = true, [25] = true, [27] = true, [30] = true, [32] = true, [34] = true, [36] = true,
@@ -152,8 +137,6 @@ function CasinoMath.RouletteColor(number: number): string
 	return if CasinoMath.RED[number] then "Red" else "Black"
 end
 
--- Multiplier (of the stake, stake included) for a bet that wins on `number`, or 0. Outside bets pay 2x or 3x, a
--- straight-up number pays 36x; with one green zero the house keeps 2.7%.
 function CasinoMath.RoulettePay(pick: string, number: number): number
 	if pick == "Red" or pick == "Black" then
 		return if number ~= 0 and CasinoMath.RouletteColor(number) == pick then 2 else 0
@@ -197,7 +180,6 @@ function CasinoMath.RoulettePickValid(pick: any): boolean
 	return straight ~= nil and tonumber(straight) ~= nil and (tonumber(straight) :: number) <= 36
 end
 
--- ---------------------------------------------------------------------------------------- Scratch cards
 CasinoMath.SCRATCH_CELLS = 6
 CasinoMath.SCRATCH_SYMBOLS = table.freeze({
 	table.freeze({ Id = "Spark", Weight = 40, Pay = 0.5 }),
@@ -208,7 +190,6 @@ CasinoMath.SCRATCH_SYMBOLS = table.freeze({
 	table.freeze({ Id = "Nova", Weight = 1, Pay = 250 }),
 })
 
--- Three or more of one symbol wins that symbol's prize; the best matching symbol pays.
 function CasinoMath.ScratchPay(cells: { string }): (number, string?)
 	local counts: { [string]: number } = {}
 	for _, id in cells do
@@ -232,7 +213,6 @@ function CasinoMath.ScratchCard(rand: Rand): ({ string }, number, string?)
 	return cells, multiplier, symbol
 end
 
--- Exact RTP over all 6^6 cell combinations.
 function CasinoMath.ScratchRtp(): number
 	local total = 0
 	for _, s in CasinoMath.SCRATCH_SYMBOLS do
@@ -256,18 +236,15 @@ function CasinoMath.ScratchRtp(): number
 	return rtp
 end
 
--- ---------------------------------------------------------------------------------------- Stardust exchange
 CasinoMath.EXCHANGE_BUCKET_SECONDS = 600
 CasinoMath.EXCHANGE_DAILY_CAP = 20
-CasinoMath.EXCHANGE_BASE_SECONDS = 1800 -- one Stardust costs this many seconds of production, at par
+CasinoMath.EXCHANGE_BASE_SECONDS = 1800
 
 local function hash01(n: number): number
 	local x = math.sin(n * 12.9898 + 78.233) * 43758.5453
 	return x - math.floor(x)
 end
 
--- The market's mood for a ten-minute window: a price multiplier between 0.65 and 1.45, smoothed with the
--- window before it so the ticker drifts instead of jumping.
 function CasinoMath.ExchangeMood(bucket: number): number
 	local blend = hash01(bucket) * 0.6 + hash01(bucket - 1) * 0.4
 	return 0.65 + 0.8 * blend
@@ -277,7 +254,6 @@ function CasinoMath.ExchangeBucket(now: number): number
 	return math.floor(now / CasinoMath.EXCHANGE_BUCKET_SECONDS)
 end
 
--- ---------------------------------------------------------------------------------------- High Roller Club
 CasinoMath.CLUB_RANKS = table.freeze({
 	table.freeze({ Name = "Newcomer", XP = 0, Reward = nil }),
 	table.freeze({ Name = "Regular", XP = 40, Reward = table.freeze({ FreeSpins = 1 }) }),
@@ -288,7 +264,6 @@ CasinoMath.CLUB_RANKS = table.freeze({
 	table.freeze({ Name = "Casino Royale", XP = 6000, Reward = table.freeze({ Stardust = 250, Cores = 10, FreeSpins = 5 }) }),
 })
 
--- Club XP for one round: a little for any, more for a bigger stake.
 function CasinoMath.ClubXp(stakeTier: number): number
 	return 1 + math.clamp(math.floor(stakeTier), 1, 5)
 end
@@ -303,7 +278,6 @@ function CasinoMath.ClubRank(xp: number): number
 	return rank
 end
 
--- ---------------------------------------------------------------------------------------- the saved bag
 local function count(value: any, ceiling: number?): number
 	local n = tonumber(value)
 	if n == nil or n ~= n or n == math.huge or n == -math.huge then
@@ -312,8 +286,6 @@ local function count(value: any, ceiling: number?): number
 	return math.clamp(math.floor(n), 0, ceiling or 1e9)
 end
 
--- Rebuild the casino bag from whatever was saved: any field missing, mistyped or non-finite falls back to
--- its default. Stakes held in an open round are stored as the money type the game uses (number or string).
 function CasinoMath.Ensure(bag: any): any
 	local source = if type(bag) == "table" then bag else {}
 	local function persist(value: any): number | string
@@ -343,7 +315,7 @@ function CasinoMath.Ensure(bag: any): any
 	return {
 		Played = count(source.Played),
 		Won = count(source.Won),
-		Streak = count(source.Streak, 1000), -- current winning streak across rounds
+		Streak = count(source.Streak, 1000),
 		BestStreak = count(source.BestStreak, 1000),
 		BiggestWin = persist(source.BiggestWin),
 		Flip = {
@@ -351,7 +323,7 @@ function CasinoMath.Ensure(bag: any): any
 			Streak = count(flip.Streak, CasinoMath.FLIP_MAX_STREAK),
 			Stake = persist(flip.Stake),
 			Tier = math.clamp(count(flip.Tier), 1, 5),
-			Base = persist(flip.Base), -- the player's flux when the round began (for the payout cap)
+			Base = persist(flip.Base),
 		},
 		HighLow = {
 			Active = highLow.Active == true,

@@ -153,7 +153,6 @@ return function(loadService: (string) -> any)
 			if candidate.Id == definitionId then definition = candidate break end
 		end
 		if not definition then return false end
-		-- Partial Items bags (Studio fixtures / Keys-only ensure) must not crash GrantRelic.
 		local items = ProfileBagMath.EnsureItems(profile)
 		local count = 0
 		for _ in items.Inventory do count += 1 end
@@ -164,7 +163,6 @@ return function(loadService: (string) -> any)
 		if instance == nil then return false end
 		items.NextId = nextId
 		items.Inventory[uid] = instance
-		-- Partial Stats bags (Studio fixtures) must not crash GrantRelic before the item sticks.
 		ProfileBagMath.BumpStat(profile, "ItemsFound", 1)
 		return true
 	end
@@ -237,13 +235,6 @@ return function(loadService: (string) -> any)
 		return self
 	end
 
-	-- Drains kick/ban/unban requests the Discord bot queued via Roblox Open
-	-- Cloud (see discord-bot/src/commands/game/*.ts). Each queued action is its
-	-- own DataStore key ("DiscordMod_<id>") under the DiscordModQueue prefix so
-	-- the bot's write (Open Cloud SetAsync-equivalent) never races the game's
-	-- read+delete — no shared list, no compare-and-swap needed. Any server can
-	-- win the race to claim a given key since RemoveAsync only succeeds once;
-	-- _discordSeenIds is just a same-process fast path, not the source of truth.
 	function AdminService:_pollDiscordQueue()
 		local pages
 		local listOk, listErr = pcall(function()
@@ -282,16 +273,11 @@ return function(loadService: (string) -> any)
 			entry = self._discordQueueStore:GetAsync(key)
 		end)
 		if not getOk then
-			-- Seen was set by the poller before this call. Leaving it set made a
-			-- transient GetAsync failure skip the kick/ban until this server restarted.
 			self._discordSeenIds[key] = nil
 			ModuleLog.Every("discord-queue-get:" .. key, 60, "Admin", "Discord mod queue read failed: " .. tostring(getErr))
 			return
 		end
 		if type(entry) ~= "table" then return end
-		-- RemoveAsync first so a crash mid-execution can't replay the action
-		-- forever; worst case a transient failure loses one queued action
-		-- rather than double-kicking/banning someone.
 		local removed, removeErr = pcall(function()
 			self._discordQueueStore:RemoveAsync(key)
 		end)
@@ -491,13 +477,6 @@ return function(loadService: (string) -> any)
 						end
 					end
 				end
-				-- Production/Capacity are EncodeState projections, not persisted profile
-				-- fields — reading profile.Production left Admin RATE stuck at 0/s.
-				-- Capacity is what FillVault writes to; surface it so operators can see
-				-- vault/cap instead of guessing after a fill.
-				-- Zone is the unlock watermark (SetZone / achievements / Discord); CurrentZone
-				-- is only the visit location — publishing CurrentZone as Zone made WORLD lag
-				-- behind unlocks whenever a player stood in an earlier world.
 				table.insert(online, {
 					UserId = player.UserId,
 					Name = player.Name,
@@ -739,12 +718,10 @@ return function(loadService: (string) -> any)
 			elseif command == "GrantStardust" then profile.Stardust += amount
 			elseif command == "GrantRebirths" then profile.Rebirths += math.floor(amount)
 			elseif command == "GrantDomainEssence" then
-				-- Partial Domain bags (Studio fixtures) must not crash GrantDomainEssence.
 				ProfileBagMath.EnsureDomain(profile).Essence += math.floor(amount)
 			elseif command == "GrantAnomalyFragments" then
 				ProfileBagMath.EnsureAnomaly(profile).Fragments += math.floor(amount)
 			elseif command == "GrantSignals" then
-				-- ApplyReward Signals-only bags omit Crew/Artifacts — grant must Ensure first.
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.Signals += math.floor(amount)
 			elseif command == "GrantCommandXP" then
@@ -757,7 +734,6 @@ return function(loadService: (string) -> any)
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.StreakShields += math.floor(amount)
 			elseif command == "GrantItemEssence" then
-				-- Keys-only Items bags omit Essence — rebuild before +=.
 				ProfileBagMath.EnsureItems(profile).Essence += math.floor(amount)
 			elseif command == "GrantContinuumRanks" then
 				local continuum = ProfileBagMath.EnsureContinuum(profile)
@@ -765,9 +741,6 @@ return function(loadService: (string) -> any)
 			elseif command == "GrantAnomalyCharge" then
 				ProfileBagMath.EnsureAnomaly(profile).Charge += math.floor(amount)
 			elseif command == "GrantAnomalyStabilizations" then
-				-- Keep Stats in lockstep with Anomaly.Stabilizations — AchievementProgress /
-				-- weekly AnomalyStabilizations directives read Stats when the bag is absent,
-				-- and AnomalyService.Stabilize always bumps both.
 				local n = math.floor(amount)
 				ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
 				ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
@@ -826,7 +799,6 @@ return function(loadService: (string) -> any)
 				for _, research in GameConfig.Research do profile.Research[research.Id] = research.MaxLevel end
 				for _, upgrade in GameConfig.GridUpgrades do profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel end
 			elseif command == "ResetTutorial" then
-				-- Flags-only / missing Flags fixtures must not crash ResetTutorial.
 				local flags = ProfileBagMath.EnsureFlags(profile)
 				flags.TutorialDone = false
 				flags.TutorialStep = 1
@@ -850,8 +822,6 @@ return function(loadService: (string) -> any)
 				profile.Cash = profile.Vault
 				profile.Vault = parked
 			elseif command == "FillVault" then
-				-- Capacity is computed (Economy.Capacity), never stored on the profile.
-				-- profile.Capacity was always nil, so FillVault was a silent no-op.
 				profile.Vault = Economy.Capacity(profile)
 			elseif command == "DrainKeys" then
 				local keys = ProfileBagMath.EnsureItemKeys(profile)
@@ -925,14 +895,10 @@ return function(loadService: (string) -> any)
 				profile.Zone = 1
 				profile.CurrentZone = 1
 			elseif command == "GrantEchoCharge" then
-				-- Charge-only / missing ForgeEchoes fixtures must Ensure before +=
-				-- (seen when bare `if profile.ForgeEchoes then Charge +=` was a silent no-op).
 				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
 				profile.ForgeEchoes = echoes
 				echoes.Charge += math.floor(amount)
 			elseif command == "MaxCrew" then
-				-- Signals-only Command bags omit Crew — Ensure before MaxCrew (evidence:
-				-- prior `if profile.Command and profile.Command.Crew` skipped empty bags).
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				for roleId in profile.Command.Crew do
 					profile.Command.Crew[roleId] = 10
@@ -990,8 +956,6 @@ return function(loadService: (string) -> any)
 		}
 	end
 
-	-- Wraps the Execute defined above to record the actor's last command. Assigned
-	-- rather than re-declared so it reads as a deliberate wrapper, not a duplicate.
 	local rawExecute = AdminService.Execute
 	AdminService.Execute = function(self, actor: Player, payload: any)
 		local result = rawExecute(self, actor, payload)

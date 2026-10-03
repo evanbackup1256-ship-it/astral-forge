@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesSocial: merged module suite.
-	Members (5): TradeView, CrewView, GuildView, MailboxView, ChatView.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: TradeView   (merged from TradeView.luau, 1797 lines)
--- ======================================================================
 __defs["TradeView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
@@ -421,7 +409,6 @@ local function TradeView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- so every decorative Button/Meter/Panel on the desk snaps under tier/ambient pressure.
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(reducedMotion)
@@ -688,7 +675,6 @@ local function TradeView(_param)
 		end
 		return matches
 	end)()
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(row)
 		return row.UserId == selected
 	end
@@ -699,10 +685,8 @@ local function TradeView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _condition_2 = _result_9
 	if _condition_2 == nil then
-		-- ▼ ReadonlyArray.find ▼
 		local _callback_1 = function(row)
 			return row.UserId == selected
 		end
@@ -713,7 +697,6 @@ local function TradeView(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		_condition_2 = _result_10
 	end
 	local selectedRow = _condition_2
@@ -852,7 +835,6 @@ local function TradeView(_param)
 				return queueOffer(_object)
 			end
 			local _exp_7 = React.createElement(QuantityStepper, _attributes_1)
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue = table.create(#BOOSTS)
 			local _callback_1 = function(id)
 				local _result_12 = daily
@@ -864,7 +846,6 @@ local function TradeView(_param)
 					_condition_7 = 3
 				end
 				local perTradeBoostCap = _condition_7
-				-- ▼ ReadonlyArray.reduce ▼
 				local _result_13 = 0
 				local _callback_2 = function(sum, other)
 					local _exp_8 = sum
@@ -883,7 +864,6 @@ local function TradeView(_param)
 				for _i = 1, #BOOSTS do
 					_result_13 = _callback_2(_result_13, BOOSTS[_i], _i - 1, BOOSTS)
 				end
-				-- ▲ ReadonlyArray.reduce ▲
 				local otherBoostsUsed = _result_13
 				local remainingBudget = math.max(0, perTradeBoostCap - otherBoostsUsed)
 				local _attributes_2 = {
@@ -925,8 +905,6 @@ local function TradeView(_param)
 			for _k, _v in BOOSTS do
 				_newValue[_k] = _callback_1(_v, _k - 1, BOOSTS)
 			end
-			-- ▲ ReadonlyArray.map ▲
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue_1 = table.create(#KEYS)
 			local _callback_2 = function(id)
 				local _attributes_2 = {
@@ -976,7 +954,6 @@ local function TradeView(_param)
 			for _k, _v in KEYS do
 				_newValue_1[_k] = _callback_2(_v, _k - 1, KEYS)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			local _exp_8 = React.createElement(SectionLabel, {
 				value = "Relics",
 			})
@@ -987,7 +964,6 @@ local function TradeView(_param)
 				wrap = true,
 				sizeConstraint = UDim2.new(1, 0, 0, 36),
 			})
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue_2 = table.create(#relics)
 			local _callback_3 = function(relic)
 				local _itemIds = draft.ItemIds
@@ -1038,12 +1014,10 @@ local function TradeView(_param)
 			for _k, _v in relics do
 				_newValue_2[_k] = _callback_3(_v, _k - 1, relics)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			_condition_4 = React.createElement(React.Fragment, nil, _exp_3, _exp_4, _exp_5, _exp_6, _exp_7, _newValue, _newValue_1, _exp_8, _exp_9, _newValue_2)
 		end
 		local _condition_5 = not editor
 		if _condition_5 then
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue = table.create(#lines)
 			local _callback_1 = function(line)
 				return React.createElement(OfferRow, {
@@ -1055,7 +1029,6 @@ local function TradeView(_param)
 			for _k, _v in lines do
 				_newValue[_k] = _callback_1(_v, _k - 1, lines)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			_condition_5 = _newValue
 		end
 		return React.createElement(React.Fragment, nil, _exp_2, _condition_4, _condition_5, not editor and #lines == 0 and React.createElement(Text, {
@@ -1124,8 +1097,6 @@ local function TradeView(_param)
 			position = UDim2.new(1, -108, 0, 8),
 			size = UDim2.fromOffset(108, 28),
 		}))
-		-- Always flow-size the pane: PageScaffold / parent FlatList owns scroll so TradeView
-		-- stays free of raw scrollingframe literals (playability allowlist → 0).
 		if flow == false then
 			flow = true
 		end
@@ -1153,9 +1124,6 @@ local function TradeView(_param)
 			Padding = UDim.new(0, 8),
 		}), header, offerBody(editor, lines))
 	end
-	-- daily.Limit has shown up empty in the wild despite the type claiming it's
-	-- always a number — falling back to the client's own config mirror keeps
-	-- this line readable even if a future server response omits it again.
 	local _result_10 = daily
 	if _result_10 ~= nil then
 		_result_10 = _result_10.Limit
@@ -1170,8 +1138,6 @@ local function TradeView(_param)
 	end
 	local dailyLimit = _condition_4
 	local dailyLabel = if daily ~= nil and dailyLimit ~= nil then `{daily.Completed} / {dailyLimit} trades today` else "Daily limits on every side"
-	-- Shared action handlers for CONFIRM_TRADE_TREE:shared (compact+desktop) via one Confirm panel builder.
-	-- Orientation differs (vertical stack vs horizontal flex); predicates + handlers stay identical.
 	local function onReadyClick()
 		if tableEmpty and not youReadyLocal then
 			return nil
@@ -1190,8 +1156,6 @@ local function TradeView(_param)
 	end
 	local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)
 	local confirmDisabled = busy ~= "" or not bothReady
-	-- Gamepad: session Ready/Confirm/Cancel act like a modal focus zone while a trade is live.
-	-- BeginOverlayFocus clears prior Selection; FocusClaim prefers Confirm (TradeConfirm) when live.
 	React.useEffect(function()
 		if session == nil then
 			GamepadNavigationService.EndOverlayFocus()
@@ -1220,7 +1184,6 @@ local function TradeView(_param)
 			pcall(task.cancel, selectJob)
 		end
 	end, { session ~= nil, bothReady, youReadyLocal, tableEmpty, busy, readyDisabled, confirmDisabled })
-	-- CONFIRM_TRADE_PANEL: shared Ready/Confirm/Cancel — call sites tag :compact / :desktop.
 	local function buildConfirmActions(orientation)
 		if session == nil then
 			return nil
@@ -1295,7 +1258,6 @@ local function TradeView(_param)
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				-- FocusClaim Ready/Confirm/Cancel must not clip CTA overshoot.
 				ClipsDescendants = false,
 			}, React.createElement("uilistlayout", {
 				FillDirection = Enum.FillDirection.Vertical,
@@ -1309,7 +1271,6 @@ local function TradeView(_param)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			-- FocusClaim Ready/Confirm/Cancel must not clip CTA overshoot.
 			ClipsDescendants = false,
 		}, React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
@@ -1319,7 +1280,6 @@ local function TradeView(_param)
 			HorizontalFlex = Enum.UIFlexAlignment.Fill,
 		}), readySlot, confirmSlot, cancelSlot)
 	end
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#visibleRows)
 	local _callback_1 = function(row, index)
 		local active = row.UserId == selected
@@ -1402,12 +1362,8 @@ local function TradeView(_param)
 	for _k, _v in visibleRows do
 		_newValue[_k] = _callback_1(_v, _k - 1, visibleRows)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local rosterCards = _newValue
 	if session ~= nil then
-		-- CONFIRM_TRADE_TREE:shared — one pin+PageScaffold tree for compact and desktop.
-		-- Offer panes are flow-sized; fill section content-floor lets PageScaffold scroll long offers
-		-- so Ready/Confirm stay pinned without a second raw scrollingframe.
 		local pinnedActions = buildConfirmActions(if compactTrade then "vertical" else "horizontal")
 		local stepRow = if phone then TapTarget + 10 else 48
 		local lineRow = if phone then 64 else 58
@@ -1513,7 +1469,6 @@ local function TradeView(_param)
 		}, pinnedActions))
 	end
 	do
-		-- Invite/roster board (compact+desktop): PageScaffold owns scroll; FlatList virtualizes long rosters.
 		local _exp_4 = React.createElement(Text, {
 			value = dailyLabel,
 			size = 14,
@@ -1735,7 +1690,6 @@ local function TradeView(_param)
 				LayoutOrder = 7,
 			}, React.createElement(Button, _attributes))
 		end
-		-- Fill-safe invite board: pin INVITE CTA; roster/notices fill+scroll via PageScaffold.
 		local rosterStride = rosterRowH + (if chrome.landscape then 8 else Layout.stackGap)
 		local rosterFloor = if #visibleRows == 0 then 140 else #visibleRows * rosterStride
 		local sections = {
@@ -1825,9 +1779,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CrewView   (merged from CrewView.luau, 704 lines)
--- ======================================================================
 __defs["CrewView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
@@ -2121,7 +2072,6 @@ local function VisitPanel(_param)
 		value = visit.Stardust,
 		color = Palette.cyan,
 	} }
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#_exp_4)
 	local _callback = function(stat, index)
 		return React.createElement("frame", {
@@ -2153,7 +2103,6 @@ local function VisitPanel(_param)
 	for _k, _v in _exp_4 do
 		_newValue[_k] = _callback(_v, _k - 1, _exp_4)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, PageBoardHeights.Visit(stack)),
 		accent = Palette.blue,
@@ -2269,7 +2218,6 @@ local function CrewView(_param)
 			end)
 		end
 	end, { refresh })
-	-- Gamepad: park Selection on VISIT (FocusClaim prefers Confirm-named hosts).
 	local crewFocusReady = #players > 0
 	React.useEffect(function()
 		if not crewFocusReady or not UserInputService.GamepadEnabled then
@@ -2444,7 +2392,6 @@ local function CrewView(_param)
 			element = emptyPanel,
 		})
 	end
-	-- Long crew rosters virtualize inside FlatList; short lists keep per-row PageScaffold sections.
 	local virtRoster = #players >= 8
 	if virtRoster then
 		local rosterCards = table.create(#players)
@@ -2530,9 +2477,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: GuildView   (merged from GuildView.luau, 1444 lines)
--- ======================================================================
 __defs["GuildView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
@@ -2580,7 +2524,6 @@ local UPGRADE_ACCENTS = {
 	AutomationBoost = Palette.mint,
 	TapBoost = Palette.violet,
 }
---* Mirrors GuildMath.UpgradeEffect: cumulative named tiers, then an endless flat tail. 
 local function effectAtLevel(config, level)
 	local safe = math.max(0, math.floor(level))
 	if safe <= 0 then
@@ -2614,7 +2557,6 @@ local function effectAtLevel(config, level)
 	end
 	return total
 end
---* Mirrors GuildMath.UpgradeCost: `level` is current, the purchase priced is level + 1. 
 local function costAtLevel(config, level)
 	local tiers = config.Tiers
 	local nextIndex = level + 1
@@ -2645,7 +2587,6 @@ local function buildUpgradeRows(config, guild)
 			table.insert(ids, id)
 		end
 	end
-	-- Any upgrade the server knows about but that is missing from UpgradeOrder still renders.
 	for id in pairs(guildConfig.Upgrades) do
 		if not (table.find(ids, id) ~= nil) then
 			table.insert(ids, id)
@@ -2779,7 +2720,6 @@ local function GuildGoalCard(_param)
 	local surface = darken(accent, 0.9)
 	local height = if stack then 234 else 196
 	local claimHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on CLAIM REWARD when the shared goal is ready for this member.
 	React.useEffect(function()
 		if not canClaim or not UserInputService.GamepadEnabled then
 			return nil
@@ -2798,7 +2738,6 @@ local function GuildGoalCard(_param)
 			pcall(task.cancel, selectJob)
 		end
 	end, { canClaim, goal.TypeId, goal.Completed })
-	-- The highlight breathing pulse fires only while the reward is actually claimable.
 	local _exp = React.createElement(Text, {
 		value = if goal.Completed then "GUILD GOAL • COMPLETE" else "GUILD GOAL",
 		size = 10,
@@ -2939,7 +2878,6 @@ local function UpgradeCard(_param)
 	local layoutOrder = _param.layoutOrder
 	local currencyLabel = if row.config.Currency == "Cash" then "flux" else "dust"
 	local bank = if row.config.Currency == "Cash" then guild.BankCash else guild.BankDust
-	-- Progress toward affording the next tier, so the bar always means "how close are we".
 	local fill = if row.maxed then 1 else math.clamp(bank / math.max(1, row.cost), 0, 1)
 	local actionable = canBuy and row.affordable and not row.maxed
 	local height = if stack then 180 else 140
@@ -3058,13 +2996,6 @@ local function MemberRow(_param)
 	end
 	local userId = _condition
 	local manageable = canManage and not isLeader
-	-- Non-stack rows used to put PROMOTE/KICK vertically centered on the row (y 18-58 on a
-	-- 76px row) while the banked/goal text sits at y 36-66 — those two ranges overlap, so the
-	-- buttons drew on top of the text. Manageable rows now get extra height and the buttons
-	-- pinned to the bottom instead of vertically centered, the same pattern the stack layout
-	-- already used correctly.
-	-- Keep in sync with GuildView's canvas memberHeight — short desktop rows used to clip
-	-- promote/kick controls when the canvas reserved only 76px for a 108px manageable row.
 	local height = if stack then 122 elseif manageable then 112 else 84
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, height),
@@ -3413,14 +3344,9 @@ local function GuildView(_param)
 	local guild = state.Guild
 	local localPlayer = Players.LocalPlayer
 	local localKey = if localPlayer ~= nil then tostring(localPlayer.UserId) else ""
-	-- The guild document is only pushed with state; ask for a fresh copy on mount so the
-	-- bank, goal, and member contributions are current when the page opens.
 	React.useEffect(function()
 		dispatch("GetGuild", {})
 	end, { dispatch })
-	-- Wraps dispatch so every guild mutation disables its button until the server replies,
-	-- which stops double-submits on slow connections. A failure also bumps shakeToken so
-	-- whichever button triggered it can shake/flash instead of failing silently on-screen.
 	local send = React.useCallback(function(action, payload, callback)
 		setBusy(true)
 		dispatch(action, payload, function(response)
@@ -3976,9 +3902,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: MailboxView   (merged from MailboxView.luau, 808 lines)
--- ======================================================================
 __defs["MailboxView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -4012,11 +3935,6 @@ local LIST_GAP = 10
 local DETAIL_HEADER = 96
 local FOOTER_HEIGHT = 84
 local FOOTER_HEIGHT_MOBILE = 168
--- Was a crude character-count bucket (<=80 chars -> 38px, <=160 -> 58px, else 80px) that ignored
--- actual rendered width, font size, and real wrap points -- silently too short for a paragraph
--- full of long words that wrap early, or wasteful for one that happens to wrap late. Now measures
--- the real wrapped height at the paragraph's actual on-screen width via TextService, matching the
--- exact size/weight the <Text> below it renders with.
 local function paragraphHeight(value, width, size)
 	return math.max(20, measureWrappedTextHeight(value, width, size, Enum.FontWeight.Regular) + 4)
 end
@@ -4188,7 +4106,6 @@ local function MailboxView(_param)
 		_condition_1 = 0
 	end
 	local unreadCount = _condition_1
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result_2 = 0
 	local _callback = function(count, item)
 		return count + (if item.Claimed then 0 else 1)
@@ -4196,7 +4113,6 @@ local function MailboxView(_param)
 	for _i = 1, #messages do
 		_result_2 = _callback(_result_2, messages[_i], _i - 1, messages)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local claimableCount = _result_2
 	local _result_3 = messages[1]
 	if _result_3 ~= nil then
@@ -4208,7 +4124,6 @@ local function MailboxView(_param)
 	end
 	local firstId = _condition_2
 	local selectedId, setSelectedId = React.useState(if mobileRoute then "" else firstId)
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_1 = function(item)
 		return item.Id == selectedId
 	end
@@ -4219,11 +4134,9 @@ local function MailboxView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local explicitSelection = _result_4
 	local selectedState = explicitSelection or (if mobileRoute then nil else messages[1])
 	local _exp = config.Mail
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_2 = function(item)
 		local _exp_1 = item.Id
 		local _result_5 = selectedState
@@ -4239,11 +4152,7 @@ local function MailboxView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local message = _result_5
-	-- Matches detailPane's own Size formula below exactly (mobileRoute/stack: full width;
-	-- otherwise 0.66 scale minus the 7px gap) so the measured height reflects the real width the
-	-- paragraph actually wraps at, then subtracts the Text element's own -8 offset inset.
 	local detailPaneWidth = if mobileRoute or stack then viewport.width else viewport.width * 0.66 - 7
 	local paragraphWidth = math.max(40, detailPaneWidth - 8)
 	local bodyTextSize = if stack then 16 else 15
@@ -4254,9 +4163,6 @@ local function MailboxView(_param)
 	local claimed = _result_7 == true
 	local inboxEmpty = #inboxRows == 0
 	local showMobileDetail = mobileRoute and explicitSelection ~= nil
-	-- Mobile swaps the whole list<->detail pane on tap instead of showing both side by side; a
-	-- flat Visible toggle snapped between them with no transition at all. Slide+fade both panes
-	-- off one spring keyed on the same boolean so they cross-fade instead of popping.
 	local detailReveal = useFlipperSpring(if showMobileDetail then 1 else 0, softMotion, 720, 40)
 	local _exp_1 = function()
 		if not explicitSelection or explicitSelection.Read then
@@ -4275,7 +4181,6 @@ local function MailboxView(_param)
 		_result_9 = _result_9.Read
 	end
 	React.useEffect(_exp_1, { _result_8, _result_9 })
-	-- Gamepad: pinned CLAIM/ARCHIVE footer must be Selection-reachable (FocusClaim prefers claim).
 	React.useEffect(function()
 		if message == nil or not UserInputService.GamepadEnabled then
 			return nil
@@ -4440,10 +4345,7 @@ local function MailboxView(_param)
 			})),
 		})
 	end
-	-- Stack: reserve enough detail height so CLAIM/ARCHIVE stay above the fold.
-	-- Desktop keeps the side-by-side split chrome (do not shrink PC panes).
 	local stackListH = if stack and not mobileRoute then math.clamp(listHeaderH + cardH + 28, math.floor(viewport.height * 0.28), math.floor(viewport.height * 0.38)) else 0
-	-- Single scroller per pane: header + FlatList (no outer PageScaffold) to avoid double-scroll.
 	local listPane = React.createElement("frame", {
 		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0, stackListH) else UDim2.new(0.34, -7, 1, 0),
 		Position = listPanePosition,
@@ -4557,7 +4459,6 @@ local function MailboxView(_param)
 				Height = height,
 			}
 		end
-		-- Pin header + CLAIM/ARCHIVE footer; message body virtualizes via FlatList (no raw scrollingframe).
 		_condition_5 = React.createElement(React.Fragment, nil, _exp_8, React.createElement(FlatList, {
 			key = message.Id,
 			data = bodyRows,
@@ -4609,7 +4510,6 @@ local function MailboxView(_param)
 			Position = UDim2.new(0, 0, 1, -footerH),
 			BackgroundColor3 = Palette.panel,
 			BorderSizePixel = 0,
-			-- CLAIM/ARCHIVE must stay unclipped (claimSlide overshoot on short phones).
 			ClipsDescendants = false,
 			ZIndex = 6,
 		}, React.createElement("uicorner", {
@@ -4784,9 +4684,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ChatView   (merged from ChatView.luau, 726 lines)
--- ======================================================================
 __defs["ChatView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -5093,7 +4990,6 @@ local function ChatView(_param)
 	local listFrame = React.useRef(nil)
 	local count = #chat.messages
 	local stackH = math.max(0, count) * rowHeight
-	-- Stick short logs to the bottom of the fill viewport via FlatList headerHeight.
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local renderedIds = {}
 	do
@@ -5114,15 +5010,10 @@ local function ChatView(_param)
 			index += 1
 		end
 	end
-	-- chat.messages is capped at MAX_MESSAGES and evicts from the front, but this Set only
-	-- ever grew — over a long session it silently accumulated one entry per message ever
-	-- seen. Drop anything no longer in the live list so it stays bounded to the same size.
-	-- ▼ ReadonlySet.size ▼
 	local _size = 0
 	for _ in enteredIds.current do
 		_size += 1
 	end
-	-- ▲ ReadonlySet.size ▲
 	if _size > count + 8 then
 		local live = {}
 		for _, message in chat.messages do
@@ -5220,7 +5111,6 @@ local function ChatView(_param)
 		end)
 	end
 	local canSend = chat.connected and (string.gsub(draft, "%s", "")) ~= ""
-	-- Gamepad: park Selection on SEND (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -5314,11 +5204,8 @@ local function ChatView(_param)
 		position = UDim2.new(1, -(STATUS_RESERVE - 4), 0.5, -13),
 		size = UDim2.fromOffset(STATUS_RESERVE - 16, 26),
 	}))
-	-- Prefer composerReveal when reducedMotion already quieted chrome.
 	local composerSoft = reducedMotion or composerReveal == nil
 	local _chatSoftKeep = if composerSoft then bannerReveal else statusReveal
-	-- Message list FlatLists under PageScaffold fill; status/banner/SEND stay fixed sections
-	-- so stick-to-bottom chat chrome never buries SEND. No page-local scrollingframe.
 	local messagesElement = React.createElement(FlatList, {
 		data = chat.messages,
 		itemHeight = rowHeight,
@@ -5510,9 +5397,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -5524,7 +5408,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

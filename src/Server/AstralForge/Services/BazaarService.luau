@@ -1,7 +1,4 @@
 --!strict
--- The Astral Bazaar: a bank that pays interest on part of your income, a black market with hourly stock, a
--- server-wide lottery and daily merchant contracts. Rules live in BazaarMath; this service owns the profile
--- (stakes, payouts, the saved bag) and, for the lottery, one small piece of per-server memory.
 
 return function(loadService: (string) -> any)
 	local Players = game:GetService("Players")
@@ -17,7 +14,6 @@ return function(loadService: (string) -> any)
 	local WITHDRAW_SHARES = { 0.25, 0.5, 1 }
 	local TICKET_BATCH = { 1, 5, 20 }
 
-	-- The lottery is one shared pot per server; tickets only count while their buyer is still here.
 	local lottery = { Bucket = -1, Tickets = {} :: { [number]: number }, Pot = 0 :: any, Last = nil :: any, Pending = {} :: { [number]: any } }
 
 	local function day(now: number): number
@@ -41,7 +37,6 @@ return function(loadService: (string) -> any)
 		bazaar.Counters[counter] = math.min(1e9, bazaar.Counters[counter] + (amount or 1))
 	end
 
-	-- Seconds of the player's own production are what everything here is priced and capped in.
 	local function production(profile): any
 		return Economy.SteadyProduction(profile)
 	end
@@ -50,7 +45,6 @@ return function(loadService: (string) -> any)
 		return Economy.Max(1000, Economy.Mul(production(profile), BazaarMath.BANK.CapSeconds))
 	end
 
-	-- Bring the bank's accrued interest up to `now`.
 	local function accrue(profile, bazaar, now: number)
 		local bank = bazaar.Bank
 		if bank.Since <= 0 then
@@ -74,7 +68,6 @@ return function(loadService: (string) -> any)
 			for _, name in BazaarMath.COUNTERS do
 				contracts.Baseline[name] = 0
 			end
-			-- casino rounds and wins are measured from the casino's own tally
 			local casino = profile.Casino
 			contracts.Baseline.Rounds = if type(casino) == "table" then math.floor(tonumber(casino.Played) or 0) else 0
 			contracts.Baseline.Wins = if type(casino) == "table" then math.floor(tonumber(casino.Won) or 0) else 0
@@ -95,13 +88,10 @@ return function(loadService: (string) -> any)
 		return bazaar.Counters[counter]
 	end
 
-	-- ------------------------------------------------------------------------------------------ lottery
 	local function present(userId: number): boolean
 		return Players:GetPlayerByUserId(userId) ~= nil
 	end
 
-	-- Draw any finished rounds: the winner (among players still here) gets the pot less the house's tenth;
-	-- with nobody to win, the pot rolls on.
 	local function lotteryTick(now: number, random: Random?)
 		local bucket = BazaarMath.LotteryBucket(now)
 		if lottery.Bucket < 0 then
@@ -138,7 +128,6 @@ return function(loadService: (string) -> any)
 		return lottery.Tickets[userId] or 0
 	end
 
-	-- ------------------------------------------------------------------------------------------ actions
 	local function bankAct(profile, bazaar, payload, now: number): (boolean, string, any?)
 		local bank = bazaar.Bank
 		accrue(profile, bazaar, now)
@@ -299,8 +288,6 @@ return function(loadService: (string) -> any)
 		return true, `{contract.Name}: {message}`, { Game = "Contracts", Pick = contract.Id }
 	end
 
-	-- ------------------------------------------------------------------------------------------ entry points
-	-- Called before any casino round or bazaar move, so today's contract baseline is taken before today's play.
 	function BazaarService.Roll(profile, now: number, userId: number)
 		contractsFor(profile, ensure(profile), now, userId)
 	end
@@ -326,7 +313,6 @@ return function(loadService: (string) -> any)
 	function BazaarService.State(profile, now: number, userId: number): any
 		local bazaar = ensure(profile)
 		lotteryTick(now, nil)
-		-- show interest as it stands without committing it to the save
 		local ghost = { Since = bazaar.Bank.Since, Balance = bazaar.Bank.Balance, Accrued = bazaar.Bank.Accrued }
 		if ghost.Since > 0 and Economy.Gt(ghost.Balance, 0) then
 			local hours = BazaarMath.AccrualHours(now - ghost.Since)

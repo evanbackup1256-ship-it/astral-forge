@@ -28,8 +28,11 @@ return function(realFs)
 			error(`{suitePath}: no merged member named {member}`, 0)
 		end
 		local bodyStart = start + #header
-		local banner = string.find(source, "\n-- ======", bodyStart, true)
-		local bodyEnd = banner and (banner - 1) or #source
+		-- a member runs to the next member's header, or to the suite's entry point after the last one
+		local nextDef = string.find(source, "\n__defs[\"", bodyStart, true)
+		local entry = string.find(source, "\nlocal __members = {}", bodyStart, true)
+		local stop = math.min(nextDef or math.huge, entry or math.huge)
+		local bodyEnd = if stop == math.huge then #source else stop - 1
 		local slice = string.sub(source, bodyStart, bodyEnd)
 		-- drop the closure's trailing `end` (and any blank lines after it)
 		slice = string.gsub(slice, "\nend%s*$", "\n")

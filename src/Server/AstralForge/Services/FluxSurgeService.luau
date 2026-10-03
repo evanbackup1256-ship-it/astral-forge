@@ -54,7 +54,6 @@ return function()
 			Multiplier = if active then config.Multiplier else 1,
 			DurationSeconds = config.Duration,
 			IntervalSeconds = config.Interval,
-			-- Capacity never reads this multiplier — SteadyProduction only.
 			AffectsCapacity = false,
 		}
 	end
@@ -92,7 +91,6 @@ return function()
 		end
 	end
 
-	-- Cold / missing service fallback for client rails.
 	function FluxSurgeService.IdleState()
 		return {
 			Active = false,

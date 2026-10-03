@@ -1,13 +1,4 @@
 --!strict
---[=[
-	WorldServices: merged module suite.
-	Members (1): WorldService.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,14 +18,10 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: WorldService   (merged from WorldService.luau, 1137 lines)
--- ======================================================================
 __defs["WorldService"] = function()
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-
 
 return function()
 	local WorldService = {}
@@ -459,9 +446,6 @@ return function()
 end
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -473,7 +457,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

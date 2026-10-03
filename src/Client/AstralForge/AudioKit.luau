@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	AudioKit: merged module suite.
-	Members (5): audio, audioVoicing, soundSheet, soundtrack, musicDirector.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: audio   (merged from audio.luau, 3489 lines)
--- ======================================================================
 __defs["audio"] = function()
 local ContentProvider = game:GetService("ContentProvider")
 local SoundService = game:GetService("SoundService")
@@ -39,8 +27,6 @@ local MusicDirector = __load("musicDirector").MusicDirector
 local MUSIC_DECK_NAMES = __load("musicDirector").DECK_NAMES
 local Voicing = __load("audioVoicing")
 local SoundSheet = __load("soundSheet")
--- Voices on the sound sheet (tools/assetgen). One file, many regions, so it
--- gets a larger pool than any single legacy asset.
 local SHEET_CHANNELS = 14
 local UI_HOVER = "rbxassetid://10066931761"
 local UI_CLICK = "rbxassetid://10066921516"
@@ -1340,7 +1326,6 @@ local CUES = {
 		cooldown = 0.35,
 		stopAfter = 0.82,
 	},
-	-- Sanctuary: ore outcrops.
 	oreMine = {
 		asset = SFX_IMPACT,
 		volume = 0.34,
@@ -1357,7 +1342,6 @@ local CUES = {
 		cooldown = 0.12,
 		stopAfter = 0.7,
 	},
-	-- Sanctuary: the Rift Warden.
 	wardenForming = {
 		asset = SFX_RAMP,
 		volume = 0.36,
@@ -1422,7 +1406,6 @@ local CUES = {
 		cooldown = 2,
 		stopAfter = 1.3,
 	},
-	-- Sanctuary: travel and regions.
 	waystoneTravel = {
 		asset = SFX_TRAVEL,
 		volume = 0.34,
@@ -1660,9 +1643,7 @@ local VOICE_CAP = 22
 local UI_OVERLAP_CAP = 2
 local TRIM_RELEASE_STEPS = 3
 local CUE_GAIN = 0.9
--- Base level of a cue that exists only as a sound-sheet region.
 local SHEET_CUE_VOLUME = 0.22
--- Per-cue trim for frequent UI feedback so hover/tick/scroll sit well under the music.
 local UI_TRIM = {
 	hover = 0.12, hoverTick = 0.12, tick = 0.2, scroll = 0.1, sliderStep = 0.16,
 	click = 0.3, tabSwitch = 0.24, amountChange = 0.2, inputFocus = 0.2, inputClear = 0.2,
@@ -1670,9 +1651,6 @@ local UI_TRIM = {
 	filterOpen = 0.24, filterPick = 0.24, settings = 0.26,
 }
 local UI_TRIM_DEFAULT = 0.3
--- Constant feedback that only added noise: hovers, ticks, scrolling, slider and
--- text-field chatter, filter/tab/list navigation. Deliberate actions (click,
--- confirm, toggle on, open/close, purchases, rewards, errors) keep their sound.
 local SILENT_CUES = {
 	hover = true, hoverTick = true, navHover = true, sanctuaryHover = true, tick = true,
 	scroll = true, sliderStep = true, inputFocus = true, inputClear = true,
@@ -1682,25 +1660,13 @@ local SILENT_CUES = {
 	chatReceive = true, settings = true, page = true, sanctuaryClick = true,
 	velocitySlide = true,
 }
--- Every cue aliases one of three real assets, so a single pool absorbs the whole
--- game's polyphony for that timbre. `IsPlaying` does not flip true on the same
--- frame as :Play(), so a channel is also reserved for this long after starting;
--- without it two cues in one frame both see the channel idle and the second
--- restarts the first, which is the doubled-attack "stacking" players hear.
 local CHANNEL_CLAIM_SECONDS = 0.05
--- Same-cue coalesce window. Two systems answering one event, or several notice
--- cards mounting from one server update, fire the same cue phase-aligned; that
--- is a flam and a volume spike, not polyphony. Deliberate layering opts out via
--- bypassCooldown. Kept under a frame at 30fps so distinct taps still all sound.
 local DUPLICATE_CUE_SECONDS = 0.035
 local BUTTON_PITCH_CUES = {
 	click = true,
 	hover = true,
 	confirm = true,
 }
--- The three real source files, by role. Voicing layers name one of these so the
--- stacked copy is drawn from a DIFFERENT file than the cue's own -- that
--- contrast is what makes the pair read as one richer sound.
 local LAYER_SOURCES = {
 	hover = UI_HOVER,
 	click = UI_CLICK,
@@ -1710,10 +1676,6 @@ local BOOTSTRAP_ASSETS = AUDIO_ASSET_MANIFEST
 local function residentChannelCount(asset)
 	return if asset == UI_CLICK or asset == UI_TICK or asset == UI_CONFIRM or asset == UI_HOVER or asset == UI_NOTIFY then 8 else 4
 end
--- Every page change sounds the same. Pages used to each open with their own
--- "sting" (a reward chime for Rewards, a chat ping for Chat, a coin for Shop),
--- which mislabelled the moment -- opening Chat is not a message arriving -- and
--- stacked a second, different sound on top of the nav button's own.
 local NAVIGATION_CUE = "tabSwitch"
 local MUSIC_DUCK_CUES = {
 	reward = 0.38, unlock = 0.34, discovery = 0.36, prestige = 0.52,
@@ -1726,7 +1688,6 @@ local MUSIC_DUCK_CUES = {
 local function labelContains(label, ...)
 	local needles = { ... }
 	local upper = string.upper(label)
-	-- ▼ ReadonlyArray.some ▼
 	local _result = false
 	local _callback = function(needle)
 		return (string.find(upper, needle, 1, true)) ~= nil
@@ -1737,13 +1698,11 @@ local function labelContains(label, ...)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.some ▲
 	return _result
 end
 local function labelEquals(label, ...)
 	local values = { ... }
 	local upper = string.upper(label)
-	-- ▼ ReadonlyArray.some ▼
 	local _result = false
 	local _callback = function(value)
 		return upper == value
@@ -1754,7 +1713,6 @@ local function labelEquals(label, ...)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.some ▲
 	return _result
 end
 local function buttonAudioCue(label, icon)
@@ -1964,8 +1922,6 @@ local function buttonAudioCue(label, icon)
 	end
 	return "click"
 end
--- Pointer voice that belongs to a press, when that voice is on the sheet.
--- Generic click stays on the shared hover; everything else gets its own.
 local function hoverCueFor(pressCue)
 	if type(pressCue) ~= "string" or pressCue == "" or pressCue == "hover" or pressCue == "click" then
 		return "hover"
@@ -1988,11 +1944,6 @@ local function softSfx(linear)
 	local t = math.clamp(linear, 0, 1)
 	return math.clamp(t * 1.05 + t * t * 0.12, 0, 1.15)
 end
--- Voicing: every cue belongs to a family (forge, arcane, currency, denial...)
--- and each family carries a full voice -- EQ curve, reverb space, drive, pitch
--- and decay. Three source files can only sound like three things without this;
--- with it, the same click reads as a hammer, a coin or a rift depending on the
--- family it is voiced through. See audioVoicing.luau for the design rationale.
 local function paintCue(channel, cue)
 	local voice = Voicing.voiceFor(cue)
 
@@ -2006,9 +1957,6 @@ local function paintCue(channel, cue)
 	color.MidGain = Voicing.clampGain(voice.mid)
 	color.LowGain = Voicing.clampGain(voice.low)
 
-	-- Reverb is what places a cue in a space. Close UI stays dry; rift and
-	-- ceremony sit in a big room. Reused per channel rather than recreated, and
-	-- fully disabled when dry so a tight click keeps no tail from a previous cue.
 	local space = channel:FindFirstChild("CueSpace")
 	if voice.reverbWet > 0.001 then
 		if space == nil then
@@ -2024,7 +1972,6 @@ local function paintCue(channel, cue)
 		space.Enabled = false
 	end
 
-	-- A little drive gives metal its grain and makes a refusal feel blocked.
 	local grit = channel:FindFirstChild("CueDrive")
 	if voice.drive > 0.001 then
 		if grit == nil then
@@ -2056,11 +2003,7 @@ do
 		self.channelGeneration = {}
 		self.channelCue = {}
 		self.busyUntil = {}
-		-- Same-frame reservation; see CHANNEL_CLAIM_SECONDS.
 		self.claimedUntil = {}
-		-- Layer trim (Voicing layer.volume) for channels currently voicing a
-		-- layer; nil for a cue's own hit. Every volume recompute multiplies it in,
-		-- or a quiet layer jumps to full cue volume on a slider move or release.
 		self.channelLayerGain = {}
 		self.channelCursor = {}
 		self.releaseWorkers = {}
@@ -2075,7 +2018,6 @@ do
 		self.ambientMix = 0.75
 		self.hoverSounds = true
 		self.notificationSounds = true
-		-- The "Background music" setting (persisted under its old key, PageMusic).
 		self.musicEnabled = true
 		self.soundVariation = 0.7
 		self.ready = false
@@ -2141,7 +2083,6 @@ do
 			end
 			appendChannel(_result)
 		end
-		-- The sound sheet is one file behind most cues, so it loads first.
 		if self.sheetPool ~= nil then
 			appendChannel(self.sheetPool[1])
 		end
@@ -2239,10 +2180,6 @@ do
 		if self.ready then
 			return nil
 		end
-		-- Sounds live on SoundService, so a second mixer (script reload, or a
-		-- start that replaced musicDirector without disposing it) keeps the
-		-- previous soundtrack audible. Drop those leftovers before building a new
-		-- set (ViewMusicA/B are the per-view decks from before the soundtrack).
 		for _, child in SoundService:GetChildren() do
 			if child:IsA("Sound") and (table.find(MUSIC_DECK_NAMES, child.Name) ~= nil or child.Name == "ViewMusicA" or child.Name == "ViewMusicB" or string.sub(child.Name, 1, 4) == "Sfx_") then
 				child:Destroy()
@@ -2279,8 +2216,6 @@ do
 			uiGroup.Parent = masterGroup
 		end
 		self.uiGroup = uiGroup
-		-- Forced every start: a group saved in the place would otherwise keep its
-		-- old volume, and UI sounds sat far above the music.
 		uiGroup.Volume = 0.45
 
 		local ambientGroup = masterGroup:FindFirstChild("ForgeAmbient") :: SoundGroup
@@ -2331,8 +2266,6 @@ do
 			musicEq.Name = "ForgeBed"
 			musicEq.Parent = musicGroup
 		end
-		-- Light global shelf over the whole soundtrack; each track's own TrackTone
-		-- EQ only evens it out against the others.
 		musicEq.LowGain = 0.8
 		musicEq.MidGain = -0.5
 		musicEq.HighGain = -1.8
@@ -2356,8 +2289,6 @@ do
 			end
 			self.assetPools[asset] = pool
 		end
-		-- The designed sound sheet, once uploaded: every mapped cue plays its own
-		-- slice of it (see soundSheet.luau) instead of a re-voiced legacy click.
 		if SoundSheet.enabled() then
 			local sheetAsset = SoundSheet.assetId()
 			local sheetPool = {}
@@ -2369,13 +2300,8 @@ do
 			self.assetPools[sheetAsset] = sheetPool
 			self.sheetPool = sheetPool
 		end
-		-- One soundtrack for the whole game; page changes never touch it.
 		local musicDirector = MusicDirector.new(musicGroup)
 		self.musicDirector = musicDirector
-		-- Settings load before the mixer starts, so masterLinear / musicEnabled /
-		-- musicDuck can already differ from the director's constructor defaults.
-		-- Push the whole live state through once the director exists, and before
-		-- it starts, so a muted or music-off player never hears a blip.
 		self:syncMusicState()
 		musicDirector:start()
 		local preload = self:preloadChannels()
@@ -2448,7 +2374,6 @@ do
 		if director == nil then
 			return nil
 		end
-		-- Sliders are linear but loudness is not: a 0.3 slider should still be clearly audible.
 		local mix = math.sqrt(math.clamp(self.musicMix, 0, 1))
 		director:setMix(mix)
 		director:setDuck(self.musicDuck)
@@ -2467,7 +2392,7 @@ do
 		if not self.ready then
 			return nil
 		end
-		local clamped = math.clamp(depth, 0, 0.4) -- keep the bed audible under stingers
+		local clamped = math.clamp(depth, 0, 0.4)
 		if clamped <= 0.01 then
 			return nil
 		end
@@ -2503,9 +2428,6 @@ do
 			for _1, sound in pool do
 				local cue = self.channelCue[sound]
 				if cue ~= nil then
-					-- Family gain and layer trim included, to match what playChannel /
-					-- playLayer set.
-					-- Sheet-only cues have no CUES entry (see play()).
 					local spec = CUES[cue]
 					local base = if spec ~= nil then spec.volume else SHEET_CUE_VOLUME
 					sound.Volume = base * CUE_GAIN * Voicing.voiceFor(cue).gain * (self.channelLayerGain[sound] or 1) * sfx * self:cueMix(cue)
@@ -2545,8 +2467,6 @@ do
 			_condition_5 = 1
 		end
 		self.notificationSounds = _condition_5 >= 0.5
-		-- "Background music" on/off. Saved under PageMusic, its name from when
-		-- each page had its own music, so existing players keep their choice.
 		local _condition_6 = settings.PageMusic
 		if _condition_6 == nil then
 			_condition_6 = 1
@@ -2580,9 +2500,6 @@ do
 		end
 		self:syncMusicState()
 	end
-	-- Record the open page. The music ignores it; navigation just gets its one
-	-- consistent cue. Nav controls capture an audio intent before navigating,
-	-- so this cue claims it and the control's own fallback does not double up.
 	function Mixer:setView(page, playCue)
 		if playCue == nil then
 			playCue = true
@@ -2600,8 +2517,6 @@ do
 		end
 	end
 	function Mixer:roundRobin(pool, asset)
-		-- Advance first, then read the advanced cursor: same full rotation as
-		-- before, written so the stored cursor and the returned index agree.
 		local cursor = self.channelCursor[asset]
 		if cursor == nil then
 			cursor = 0
@@ -2610,8 +2525,6 @@ do
 		self.channelCursor[asset] = cursor
 		return pool[cursor + 1]
 	end
-	-- Steal the channel whose sound is furthest through its own playback, so the
-	-- voice closest to finishing is the one cut rather than a fresh transient.
 	function Mixer:oldestInPool(pool)
 		local oldest = nil
 		local oldestProgress = -1
@@ -2679,9 +2592,6 @@ do
 		local now = os.clock()
 		local uiCue = UI_CUES[cue] == true
 		if uiCue then
-			-- Drain down to the cap rather than silencing a single voice, so a
-			-- burst that lands several cues in one frame cannot leave the UI
-			-- layer permanently above UI_OVERLAP_CAP.
 			local guard = 0
 			while self:countPlayingUi() >= UI_OVERLAP_CAP and guard < UI_OVERLAP_CAP * 2 do
 				if self:silenceOldestUi() == nil then
@@ -2703,10 +2613,6 @@ do
 				return sound
 			end
 		end
-		-- Resident channels are created once at start. Spam steals one of those
-		-- instead of Instance.new, including when every voice is busy. Prefer the
-		-- voice furthest through playback; fall back to round-robin only when every
-		-- channel is still inside its same-frame claim.
 		local oldest = self:oldestInPool(pool)
 		if oldest ~= nil then
 			return oldest
@@ -2799,9 +2705,6 @@ do
 			if phase == "length" then
 				if channel.TimeLength > 0 then
 					local natural = channel.TimeLength / speed
-					-- The family's decay stretches or shortens the cue's own
-					-- stopAfter, so arcane cues ring out and chrome stays clipped
-					-- without retuning every entry in the cue table.
 					local familyDecay = Voicing.voiceFor(job.cue).decay
 					local trimmed = if spec.stopAfter ~= nil then math.max(0.08, spec.stopAfter * familyDecay / speed) else nil
 					local seconds = if trimmed ~= nil then math.min(trimmed, natural) else natural
@@ -2820,9 +2723,6 @@ do
 					if not channel.IsPlaying then
 						job.phase = "idle"
 					else
-						-- Must match the volume playChannel / playLayer set, family
-						-- gain and layer trim included, or the release fade starts
-						-- with a jump.
 						job.fullVolume = spec.volume * CUE_GAIN * Voicing.voiceFor(job.cue).gain * (self.channelLayerGain[channel] or 1) * softSfx(self.sfxMix) * self:cueMix(job.cue)
 						job.fadeStep = 0
 						job.phase = "fade"
@@ -2901,9 +2801,6 @@ do
 			return false
 		end
 		local spec = CUES[cue]
-		-- Cues added on the sheet after the hand-written table still play.
-		-- They only exist as a PlaybackRegion, so the legacy asset is unused
-		-- once the sheet has loaded.
 		if spec == nil then
 			local start = SoundSheet.region(cue)
 			if start ~= nil then
@@ -2917,8 +2814,6 @@ do
 				}
 			end
 		end
-		-- Unknown cue names (typos, stale callers) used to nil-index here and
-		-- abort the whole play path; keep the mixer alive and stay silent.
 		if spec == nil or spec.asset == "" then
 			if spec == nil then
 				ClientLog:warnEvery(`audio-missing-{cue}`, 30, "Audio", `unknown cue "{cue}"`)
@@ -2926,12 +2821,6 @@ do
 			return false
 		end
 		local now = os.clock()
-		-- The per-cue cooldown only throttles high-frequency, purely-decorative cues (hover
-		-- scrubbing across a list) where back-to-back retriggers would sound like a buzz rather
-		-- than distinct feedback. Every other cue is a direct response to a discrete player
-		-- action (a click, a claim, a purchase) -- dropping it silently on a fast player or a
-		-- burst of distinct buttons is a missing tap, not noise control, so those always play and
-		-- lean on the channel pool below for polyphony instead of a time gate.
 		local _lastPlayed = self.lastPlayed
 		local _cue = cue
 		local _condition = _lastPlayed[_cue]
@@ -2961,22 +2850,12 @@ do
 				end
 			end
 		end
-		-- The cap used to apply to "hover" alone, which let every other cue stack
-		-- without limit -- the loudest form of the pile-up. Decorative cues are
-		-- dropped at the cap; a cue that answers a discrete player action still
-		-- plays (it steals a voice below) so a tap is never silently swallowed.
 		if liveVoices >= VOICE_CAP and not bypassCooldown then
 			local decorative = cue == "hover" or cue == "hoverTick" or cue == "scroll" or cue == "tick" or cue == "wheelTick" or cue == "crateTick" or cue == "sliderStep" or cue == "filterPick" or cue == "amountChange" or cue == "cardDraw" or cue == "bootClang" or cue == "bootTension" or string.sub(cue, 1, 8) == "navHover" or string.sub(cue, -5) == "Hover"
 			if decorative then
 				return false
 			end
 		end
-		-- Coalesce identical cues fired in the same instant. Several notice cards
-		-- mounting from one server update each play their tone cue, and a claim
-		-- handler plus the notice it raises answer the same event -- one asset,
-		-- several voices, phase-aligned. That reads as a flam and a volume spike,
-		-- not as polyphony. Deliberate layering (playCelebration) passes
-		-- bypassCooldown and is exempt, as are distinct cues.
 		if not bypassCooldown and now - previous < DUPLICATE_CUE_SECONDS then
 			return false
 		end
@@ -2999,15 +2878,10 @@ do
 		local _channelCue = self.channelCue
 		local _cue_1 = cue
 		_channelCue[channel] = _cue_1
-		-- This channel may last have voiced a layer; the cue's own hit is untrimmed.
 		self.channelLayerGain[channel] = nil
 		local voice = Voicing.voiceFor(cue)
 		local pitchSpread = if BUTTON_PITCH_CUES[cue] then math.random(95, 105) / 100 else 1
 		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * spec.variance * self.soundVariation else 0
-		-- The family's pitch is the main reason one source file can read as a
-		-- hammer, a coin or a rift. The floor drops to 0.28 so the arcane and
-		-- ceremony families can actually sit an octave down; the old 0.5 clamp
-		-- quietly flattened every deep cue back toward the click it came from.
 		local speed = math.clamp(spec.speed * voice.pitch * math.clamp(speedMult, 0.82, 1.28) * pitchSpread + variance, 0.28, 2.1)
 		local ambientCue = cue == "reactor" or cue == "reactorReady" or cue == "reactorPulse" or cue == "reactorChannel" or cue == "reactorStabilize" or cue == "autoForge"
 		channel.SoundGroup = if UI_CUES[cue] then self.uiGroup elseif ambientCue then self.ambientGroup else self.group
@@ -3031,10 +2905,6 @@ do
 			ClientLog:warnEvery(`audio-play-{cue}`, 20, "Audio", `{cue} could not start`)
 			return false
 		end
-		-- Reserve the channel immediately. busyUntil is only filled in later by the
-		-- release pump (it needs TimeLength, which is 0 until the asset loads), so
-		-- without this a cue fired in the same frame sees IsPlaying still false and
-		-- restarts this very sound on top of itself.
 		self.claimedUntil[channel] = now + CHANNEL_CLAIM_SECONDS
 		local _lastPlayed_1 = self.lastPlayed
 		local _cue_2 = cue
@@ -3047,9 +2917,6 @@ do
 		end
 		return true
 	end
-	-- The sheet is used only once it has actually loaded. A fresh upload waits
-	-- on moderation (and a rejected one never loads); until then every cue
-	-- keeps its original sound instead of going silent.
 	function Mixer:sheetLoaded()
 		if self.sheetReady then
 			return true
@@ -3061,10 +2928,6 @@ do
 		end
 		return self.sheetReady == true
 	end
-	-- A designed voice from the sound sheet: play just its region. The sound
-	-- already carries its own space and character, so the family voicing
-	-- (pitch shifts, drive, rooms) that made three clicks sound like forty
-	-- things is skipped; only a touch of pitch variety stays.
 	function Mixer:playSheet(cue, spec, start, length, speedMult, now, token)
 		local pool = self.sheetPool
 		local channel = nil
@@ -3087,7 +2950,6 @@ do
 		self.channelGeneration[channel] = generation
 		self.channelCue[channel] = cue
 		local level = SoundSheet.gain(cue)
-		-- Stored as the layer trim so a slider move recomputes the same volume.
 		self.channelLayerGain[channel] = level
 		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * math.min(spec.variance, 0.03) * self.soundVariation else 0
 		local spread = if BUTTON_PITCH_CUES[cue] then math.random(97, 103) / 100 else 1
@@ -3122,11 +2984,6 @@ do
 		end
 		return true
 	end
-	-- A handful of cues stack a second, quieter copy of a DIFFERENT source file
-	-- a few milliseconds late: a deep body under a rift impact, a bright shimmer
-	-- over a reward. Close enough together it reads as one richer sound rather
-	-- than two, which is how three files cover a game this size. Deliberately
-	-- rare -- layering everything would just double the voice count.
 	function Mixer:playLayer(cue, token)
 		local layer = Voicing.layerFor(cue)
 		if layer == nil then
@@ -3141,7 +2998,6 @@ do
 			return nil
 		end
 		task.delay(layer.delay, function()
-			-- A stopSfx or dispose between the hit and the layer must silence it.
 			if self.disposed or token ~= self.sfxToken then
 				return nil
 			end
@@ -3157,8 +3013,6 @@ do
 					break
 				end
 			end
-			-- No free voice: the layer is a garnish, so drop it rather than
-			-- stealing a channel from a cue the player actually triggered.
 			if channel == nil then
 				return nil
 			end
@@ -3220,7 +3074,6 @@ do
 			local cue = cues[i + 1]
 			local pitchLift = 1 + i * 0.045
 			if i == 0 then
-				-- Deliberate layering: exempt from the same-cue coalesce window.
 				firedFirst = self:playChannel(cue, true, pitchLift)
 			else
 				table.insert(self.celebrationQueue, {
@@ -3392,12 +3245,6 @@ local function hookGuiClicks(root)
 			if not isActivationInput(input) then
 				return nil
 			end
-			-- No hasRecentIntent pre-check here -- it used to void this button's own marker
-			-- whenever ANY sound had played anywhere in the last 25ms, which during fast/rapid
-			-- clicking across different buttons voided the fallback for a button that never
-			-- actually got its own sound. playIfUnclaimed below already does the correct,
-			-- precise check (does the marker captured for THIS press still match the live
-			-- intentSerial) at commit time, so pre-guessing here was redundant and wrong.
 			local now = os.clock()
 			pressMarker = if now - inputStartedAt <= 0.15 then inputMarker else Audio:captureIntent()
 			pressedAt = now
@@ -3520,67 +3367,27 @@ return {
 }
 end
 
--- ======================================================================
--- Module: audioVoicing   (merged from audioVoicing.luau, 333 lines)
--- ======================================================================
 __defs["audioVoicing"] = function()
--- Cue voicing for Astral Forge.
---
--- The whole game speaks through three sound files: a short hover blip, a click,
--- and a confirm chime. Every one of the ~176 cues aliases one of those, so
--- "purchase" and "menu click" were literally the same audio at slightly
--- different pitches. That is why the mix read as flat and repetitive.
---
--- This module gives each cue a FAMILY -- a role in the game's sound world -- and
--- each family a full voice: an EQ curve, a reverb space, optional drive, a pitch
--- offset and a decay length. Roblox applies those per Sound instance, so one
--- source file can be voiced as a dull thud, a glassy chime or a distant sweep.
--- That is where the variety comes from when new assets are not an option.
---
--- The forge fiction drives the choices. Metal and heat are low-mid and dry;
--- arcane/rift events are high, wide and reverberant; UI chrome is quiet, tight
--- and close so it never competes with the thing the player actually did.
---
--- Pure data + math: no Roblox instances are created here, so the whole voicing
--- table can be unit tested. audio.luau applies the numbers this returns.
 
 type Voice = {
-	-- EqualizerSoundEffect gains, in dB. Valid range is -80..10.
 	high: number,
 	mid: number,
 	low: number,
-	-- ReverbSoundEffect. decay is seconds; wet 0..1 mixes the space in. A dry
-	-- cue (wet 0) skips the effect entirely so close UI stays tight.
 	reverbDecay: number,
 	reverbWet: number,
-	-- DistortionSoundEffect 0..1. Used sparingly -- a little adds weight and
-	-- grit to forge impacts, a lot turns any source into noise.
 	drive: number,
-	-- Multiplied onto the cue's own PlaybackSpeed. This is the single biggest
-	-- lever for making one file read as a different object.
 	pitch: number,
-	-- Multiplied onto the cue's stopAfter, so a family can ring out or be cut
-	-- short without retuning every cue in it.
 	decay: number,
-	-- Trim in dB-ish linear terms, to balance families against each other.
 	gain: number,
 }
 
--- Layering is the other half of making three files sound like many. A cue with
--- a layer plays a second, quieter, pitch-shifted copy of a different source,
--- which reads as one richer sound rather than two sounds.
 type Layer = {
-	-- Which of the three source roles to stack underneath: "hover", "click" or
-	-- "confirm". Picking a different role from the cue's own is the point.
 	source: string,
 	pitch: number,
 	volume: number,
-	-- Seconds after the main hit. A few ms reads as body; too much is an echo.
 	delay: number,
 }
 
--- Declared with its shape up front: voiceFor calls familyOf, and an inferred
--- empty-table literal would not yet carry that member.
 local Voicing = {} :: {
 	familyOf: (string) -> string,
 	voiceFor: (string) -> Voice,
@@ -3591,102 +3398,72 @@ local Voicing = {} :: {
 	layers: () -> { [string]: Layer },
 }
 
--- The families. Ordered roughly from most-frequent/quietest to rarest/loudest,
--- which is also the order they should sit in the mix.
 local FAMILIES: { [string]: Voice } = {
-	-- Pointer chrome. Barely there: high and thin, bone dry, short. It must
-	-- survive being fired many times a second without building into a buzz.
 	chrome = {
 		high = 9, mid = -10, low = -24,
 		reverbDecay = 0, reverbWet = 0,
 		drive = 0, pitch = 1.34, decay = 0.55, gain = 0.72,
 	},
-	-- Committed UI: a click, a tab, a toggle. Present and mid-forward so it
-	-- reads as a real press, still dry and close.
 	interface = {
 		high = 2, mid = 6, low = -6,
 		reverbDecay = 0.4, reverbWet = 0.06,
 		drive = 0, pitch = 1, decay = 1, gain = 1,
 	},
-	-- Panels and pages moving. Air and motion, a little space, no bottom end
-	-- so it stays out of the way of gameplay sounds.
 	motion = {
 		high = 7, mid = -8, low = -12,
 		reverbDecay = 1.1, reverbWet = 0.18,
 		drive = 0, pitch = 0.94, decay = 1.35, gain = 0.88,
 	},
-	-- The forge itself: hammer, salvage, install. Low-mid weight plus a touch
-	-- of drive so metal has grain. This is the game's signature texture.
 	forge = {
 		high = -6, mid = 4, low = 9,
 		reverbDecay = 0.9, reverbWet = 0.14,
 		drive = 0.22, pitch = 0.74, decay = 1.5, gain = 1.12,
 	},
-	-- Currency and value. Bright, glassy, quick -- coins and cut gems, not bells.
 	currency = {
 		high = 10, mid = 2, low = -14,
 		reverbDecay = 0.8, reverbWet = 0.12,
 		drive = 0, pitch = 1.46, decay = 0.9, gain = 1,
 	},
-	-- Rewards and unlocks. Full-range and open, the "yes" of the game.
 	reward = {
 		high = 8, mid = 5, low = -2,
 		reverbDecay = 1.8, reverbWet = 0.26,
 		drive = 0, pitch = 1.08, decay = 1.7, gain = 1.16,
 	},
-	-- Rift / domain / prestige. The biggest, widest, most reverberant voice,
-	-- pitched down so it feels larger than anything else in the game.
 	arcane = {
 		high = 5, mid = -2, low = 6,
 		reverbDecay = 3.2, reverbWet = 0.42,
 		drive = 0.08, pitch = 0.66, decay = 2.2, gain = 1.2,
 	},
-	-- Reactor / anomaly ambience. Mid-scooped hum that sits under everything.
 	reactor = {
 		high = -4, mid = -6, low = 7,
 		reverbDecay = 2.4, reverbWet = 0.3,
 		drive = 0.12, pitch = 0.82, decay = 1.8, gain = 0.82,
 	},
-	-- Refusal. Dark and close with drive, so it reads as a blocked action
-	-- rather than as a quieter version of success.
 	denial = {
 		high = -26, mid = -6, low = 8,
 		reverbDecay = 0.3, reverbWet = 0.04,
 		drive = 0.34, pitch = 0.58, decay = 1.2, gain = 1,
 	},
-	-- Warnings that are not refusals. Cuts through without being harsh.
 	alert = {
 		high = -10, mid = 6, low = 4,
 		reverbDecay = 0.6, reverbWet = 0.1,
 		drive = 0.14, pitch = 0.88, decay = 1.25, gain = 1.06,
 	},
-	-- Notices sliding in. Soft, airy, unobtrusive -- they interrupt, so they
-	-- must not also be loud.
 	notice = {
 		high = 6, mid = 0, low = -8,
 		reverbDecay = 1.3, reverbWet = 0.2,
 		drive = 0, pitch = 1.12, decay = 1.1, gain = 0.9,
 	},
-	-- Boot / shutdown ceremony. Cinematic, but the forge's own ceremony: heavy
-	-- and struck rather than otherworldly. Deliberately more driven and less
-	-- reverberant than `arcane`, or the two read as the same event -- rift magic
-	-- is wide and washed, the anvil is close and hit hard.
 	ceremony = {
 		high = 4, mid = 2, low = 10,
 		reverbDecay = 2.2, reverbWet = 0.28,
 		drive = 0.14, pitch = 0.62, decay = 2.4, gain = 1.14,
 	},
-	-- Spin / crate / gacha tension. Tight and mechanical, minimal tail so a
-	-- fast tick sequence stays crisp.
 	mechanism = {
 		high = 8, mid = -4, low = -10,
 		reverbDecay = 0.35, reverbWet = 0.05,
 		drive = 0.06, pitch = 1.22, decay = 0.6, gain = 0.86,
 	},
-	-- Social: chat, crew, guild. Warm and human, mid-forward, close. Deliberately
-	-- the nearest neighbour to `interface` -- a chat ping should read as a warmer
-	-- cousin of a click, not as a different world -- but lifted in pitch and
-	-- softened in level so it never gets mistaken for the player's own press.
 	social = {
 		high = 5, mid = 8, low = -6,
 		reverbDecay = 0.7, reverbWet = 0.11,
@@ -3694,8 +3471,6 @@ local FAMILIES: { [string]: Voice } = {
 	},
 }
 
--- Cue -> family. Anything unlisted falls back to "interface", which is the
--- safest neutral voice.
 local CUE_FAMILY: { [string]: string } = {}
 
 local function assign(family: string, cues: { string })
@@ -3808,40 +3583,29 @@ function Voicing.cueFamilies(): { [string]: string }
 	return CUE_FAMILY
 end
 
--- EqualizerSoundEffect accepts -80..10. Clamp rather than trusting the table,
--- so a future edit cannot silently push a gain out of range and get ignored.
 function Voicing.clampGain(value: number): number
 	return math.clamp(value, -80, 10)
 end
 
--- Only the moments that deserve weight get a layer -- layering everything just
--- doubles the voice count for no added richness.
 local LAYERS: { [string]: Layer } = {
-	-- Rift events get a deep body under the transient.
 	domainImpact = { source = "click", pitch = 0.42, volume = 0.5, delay = 0.012 },
 	domainCharge = { source = "confirm", pitch = 0.5, volume = 0.42, delay = 0.03 },
 	domainReward = { source = "confirm", pitch = 1.5, volume = 0.34, delay = 0.05 },
 	prestige = { source = "click", pitch = 0.46, volume = 0.46, delay = 0.015 },
 	rebirthBloom = { source = "confirm", pitch = 1.42, volume = 0.38, delay = 0.045 },
-	-- Big rewards get a bright shimmer on top.
 	reward = { source = "hover", pitch = 1.62, volume = 0.3, delay = 0.04 },
 	achievementClaim = { source = "hover", pitch = 1.55, volume = 0.3, delay = 0.045 },
 	seasonClaim = { source = "hover", pitch = 1.48, volume = 0.32, delay = 0.05 },
 	crateRare = { source = "hover", pitch = 1.7, volume = 0.34, delay = 0.035 },
 	zoneUnlock = { source = "confirm", pitch = 1.34, volume = 0.3, delay = 0.05 },
-	-- Forge work gets a low thud beneath the grain.
 	salvageCrunch = { source = "click", pitch = 0.5, volume = 0.4, delay = 0.01 },
 	adminExecute = { source = "click", pitch = 0.44, volume = 0.38, delay = 0.012 },
-	-- Money should sound like more than one coin.
 	purchaseResult = { source = "hover", pitch = 1.66, volume = 0.26, delay = 0.03 },
 	vaultDeposit = { source = "hover", pitch = 1.58, volume = 0.26, delay = 0.028 },
-	-- Denial lands twice: the block, then the drop.
 	error = { source = "click", pitch = 0.4, volume = 0.36, delay = 0.02 },
 	requestTimeout = { source = "click", pitch = 0.38, volume = 0.34, delay = 0.025 },
-	-- Ceremony beats.
 	bootFinaleBang = { source = "click", pitch = 0.4, volume = 0.5, delay = 0.014 },
 	bootImpact = { source = "click", pitch = 0.48, volume = 0.44, delay = 0.012 },
-	-- The Warden's big beats get the same weight as the rift's.
 	wardenSlam = { source = "click", pitch = 0.4, volume = 0.5, delay = 0.012 },
 	wardenDefeat = { source = "confirm", pitch = 1.46, volume = 0.36, delay = 0.05 },
 	wardenCrit = { source = "hover", pitch = 1.6, volume = 0.28, delay = 0.03 },
@@ -3858,20 +3622,7 @@ end
 return Voicing
 end
 
--- ======================================================================
--- Module: soundSheet   (merged from soundSheet.luau, 273 lines)
--- ======================================================================
 __defs["soundSheet"] = function()
--- Which slice of the sound sheet each audio cue plays.
---
--- tools/assetgen renders every sound the game makes into one file (Roblox
--- caps audio uploads per month, so one file carries all of them), and the
--- mixer plays a cue as a PlaybackRegion of it. AssetManifest has the regions
--- and each voice's loudness; this module maps each cue onto its own designed
--- voice (near 1:1 — share only when intentional).
---
--- Until the sheet is uploaded (Manifest.SoundSheet.Id == 0) nothing here is
--- used and the mixer keeps its original sounds.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -3879,13 +3630,9 @@ local Manifest = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForCh
 
 local SoundSheet = {}
 
--- Every voice is levelled to this loudness (dB RMS while sounding) before the
--- cue's own volume applies, so a soft chime and a hard hit read as intended.
 local TARGET_LOUDNESS = -20
 
--- cue -> voice. Voice keys match cue names and sheet regions from sfx.py.
 SoundSheet.VOICE = table.freeze({
-	-- Interface chrome
 	hover = "hover",
 	hoverTick = "hoverTick",
 	click = "click",
@@ -3980,7 +3727,6 @@ SoundSheet.VOICE = table.freeze({
 	sanctuaryRecall = "sanctuaryRecall",
 	navHover = "navHover",
 
-	-- Currency and rewards
 	purchase = "purchase",
 	reward = "reward",
 	collect = "collect",
@@ -4019,7 +3765,6 @@ SoundSheet.VOICE = table.freeze({
 	domainReward = "domainReward",
 	puzzleClear = "puzzleClear",
 
-	-- Forge, machines, spectacle
 	salvage = "salvage",
 	salvageCrunch = "salvageCrunch",
 	echoDismantle = "echoDismantle",
@@ -4052,7 +3797,6 @@ SoundSheet.VOICE = table.freeze({
 	cardEnergy = "cardEnergy",
 	cardPower = "cardPower",
 
-	-- Boot sequence
 	boot = "boot",
 	bootStart = "bootStart",
 	bootIgnite = "bootIgnite",
@@ -4075,7 +3819,6 @@ SoundSheet.VOICE = table.freeze({
 	bootGravity = "bootGravity",
 	bootAftershock = "bootAftershock",
 
-	-- Sanctuary
 	oreMine = "oreMine",
 	oreCollect = "oreCollect",
 	wardenForming = "wardenForming",
@@ -4088,7 +3831,6 @@ SoundSheet.VOICE = table.freeze({
 	wardenEscape = "wardenEscape",
 	waystoneTravel = "waystoneTravel",
 	regionEnter = "regionEnter",
-	-- Voices packed under their own name (hover/press/nav variants and sanctuary beds)
 	navOpenOverview = "navOpenOverview",
 	navHoverOverview = "navHoverOverview",
 	navOpenWorkshop = "navOpenWorkshop",
@@ -4149,7 +3891,6 @@ SoundSheet.VOICE = table.freeze({
 	navHoverForgePath = "navHoverForgePath",
 	navOpenFoundry = "navOpenFoundry",
 	navHoverFoundry = "navHoverFoundry",
-	-- The Casino shares the Wheel's cues until it gets its own.
 	navOpenCasino = "navOpenWheel",
 	navHoverCasino = "navHoverWheel",
 	navOpenBazaar = "navOpenWheel",
@@ -4242,13 +3983,11 @@ function SoundSheet.assetId(): string
 	return `rbxassetid://{Manifest.SoundSheet.Id}`
 end
 
--- The { start, length } slice for a cue, or nil (not mapped / not uploaded).
 local function voiceName(cue: string): string?
 	local mapped = SoundSheet.VOICE[cue]
 	if mapped ~= nil then
 		return mapped
 	end
-	-- Newer cues are packed under their own name and are not all listed above.
 	if Manifest.SoundSheet.Regions[cue] ~= nil then
 		return cue
 	end
@@ -4267,7 +4006,6 @@ function SoundSheet.region(cue: string): (number?, number?)
 	return region[1], region[2]
 end
 
--- Level-matching gain for a cue's voice, clamped so nothing jumps wildly.
 function SoundSheet.gain(cue: string): number
 	local voice = voiceName(cue)
 	local level = if voice ~= nil then Manifest.SoundSheet.Loudness[voice] else nil
@@ -4280,39 +4018,17 @@ end
 return SoundSheet
 end
 
--- ======================================================================
--- Module: soundtrack   (merged from soundtrack.luau, 108 lines)
--- ======================================================================
 __defs["soundtrack"] = function()
--- The game's soundtrack.
---
--- One playlist for the whole game (pages never pick music). Tracks play in
--- order start-to-finish with a long equal-power crossfade at each hand-over.
---
--- Beds are themed as a dark-cyber forge cycle:
---   ForgePulse      — idle foundry pulse (tense synth meters)
---   SanctuaryDrift  — voidglass tension under the walkable world
---   AstralOrbit     — cooler astral drift between peaks
---   BossSurge       — frenetic intensity for the Warden / spectacle peaks
---
--- Pure data + math: no Roblox instances. Sequenced by musicDirector.luau;
--- unit-tested under Lune (scripts/verify_soundtrack.luau).
 
 type Track = {
 	name: string,
 	asset: string,
-	-- Loudness trim so every track sits at the same level.
 	gain: number,
-	-- Gentle mastering EQ in dB (equalizerSoundEffect accepts -80..10). These
-	-- only even the tracks out against each other; they do not recolour them.
 	low: number,
 	mid: number,
 	high: number,
 }
 
--- Original beds rendered by tools/assetgen/soundtrack_gen.py and uploaded
--- with tools/assetgen/upload_soundtrack.py. New audio stays silent until
--- Roblox moderation clears it; musicDirector skips a track that fails to load.
 local TRACKS: { Track } = {
 	{ name = "ForgePulse", asset = "rbxassetid://85607718934391", gain = 0.9, low = 2, mid = 0.5, high = -1.5 },
 	{ name = "SanctuaryDrift", asset = "rbxassetid://98919050616365", gain = 1, low = 0, mid = 0.8, high = 0.8 },
@@ -4322,12 +4038,8 @@ local TRACKS: { Track } = {
 
 local Soundtrack = {}
 
--- Seconds two tracks overlap at a hand-over. Long, because this is a change of
--- song, not a UI transition.
 Soundtrack.CROSSFADE_SECONDS = 4
--- Level of the music Sounds before track gain, music volume and ducking.
 Soundtrack.BASE_VOLUME = 1
--- A track whose asset fails to load is skipped for this long, then retried.
 Soundtrack.RETRY_SECONDS = 25
 
 function Soundtrack.tracks(): { Track }
@@ -4338,14 +4050,10 @@ function Soundtrack.count(): number
 	return #TRACKS
 end
 
--- 1-based and wrapping, so callers can step past the end freely.
 function Soundtrack.track(index: number): Track
 	return TRACKS[((index - 1) % #TRACKS) + 1]
 end
 
--- The track to play after `current`, skipping any that failed to load within
--- the last RETRY_SECONDS. Nil when nothing else is playable, in which case the
--- current track simply keeps looping.
 function Soundtrack.nextIndex(current: number, failedAt: { [number]: number }, now: number): number?
 	local count = #TRACKS
 	for step = 1, count - 1 do
@@ -4358,9 +4066,6 @@ function Soundtrack.nextIndex(current: number, failedAt: { [number]: number }, n
 	return nil
 end
 
--- True once the playing track is within one crossfade of its end, in real
--- seconds (PlaybackSpeed stretches or shrinks the time that is left). A track
--- too short to hold a whole crossfade is left to loop.
 function Soundtrack.shouldAdvance(timeLength: number, timePosition: number, playbackSpeed: number): boolean
 	if timeLength <= Soundtrack.CROSSFADE_SECONDS * 2 then
 		return false
@@ -4369,19 +4074,15 @@ function Soundtrack.shouldAdvance(timeLength: number, timePosition: number, play
 	return remaining <= Soundtrack.CROSSFADE_SECONDS
 end
 
--- Equal-power crossfade gains (outgoing, incoming), so the hand-over does not
--- dip in loudness halfway through.
 function Soundtrack.fadeGains(alpha: number): (number, number)
 	local t = math.clamp(alpha, 0, 1)
 	return math.cos(t * math.pi * 0.5), math.sin(t * math.pi * 0.5)
 end
 
--- Sound.Volume for a track at the given music mix and duck.
 function Soundtrack.volume(track: Track, mix: number, duck: number): number
 	return Soundtrack.BASE_VOLUME * track.gain * math.clamp(mix, 0, 1) * math.clamp(duck, 0, 1)
 end
 
--- Every asset the soundtrack plays, for the preloader.
 function Soundtrack.manifest(): { string }
 	local assets = {}
 	for _, track in TRACKS do
@@ -4393,30 +4094,15 @@ end
 return Soundtrack
 end
 
--- ======================================================================
--- Module: musicDirector   (merged from musicDirector.luau, 359 lines)
--- ======================================================================
 __defs["musicDirector"] = function()
 local SoundService = game:GetService("SoundService")
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local Soundtrack = __load("soundtrack")
 
--- Plays the game's one soundtrack (see soundtrack.luau) on two decks. The
--- active deck plays the current track; the spare deck loads the next track in
--- the background, so a hand-over never waits on a download. Nothing here knows
--- which page is open -- pages have no say in the music.
---
--- One worker thread owns sequencing (hand-over point, crossfade, load
--- failures). The mix setters only touch volume and pause/resume, so there is a
--- single writer for which track plays where.
 local MUSIC_ASSET_MANIFEST = Soundtrack.manifest()
 local DECK_NAMES = { "SoundtrackA", "SoundtrackB" }
--- How often the worker checks the playing track for its hand-over point.
 local POLL_SECONDS = 0.25
 local FADE_STEP_SECONDS = 0.05
--- A track that has not loaded after this long is skipped (and retried later).
--- Generous: at boot the asset preloader is pulling thousands of assets over the
--- same connection, and a 6 MB track routinely needs more than 8 seconds then.
 local LOAD_DEADLINE_SECONDS = 30
 
 local activeDirector = nil
@@ -4424,8 +4110,6 @@ local activeDirector = nil
 local function makeDeck(name, group)
 	local sound = Instance.new("Sound")
 	sound.Name = name
-	-- Looped as a safety net: if a hand-over point is ever missed, the track
-	-- repeats instead of going silent, and DidLoop triggers the hand-over.
 	sound.Looped = true
 	sound.Volume = 0
 	sound.SoundGroup = group
@@ -4498,8 +4182,6 @@ do
 		deck.equalizer.MidGain = track.mid
 		deck.equalizer.HighGain = track.high
 	end
-	-- Push the current mix onto the decks. During a hand-over the two decks
-	-- share an equal-power crossfade; otherwise only the active deck sounds.
 	function MusicDirector:applyVolumes()
 		local activeDeck = self.decks[self.active]
 		local spareDeck = self.decks[self:spare()]
@@ -4519,10 +4201,6 @@ do
 		end
 		return nil
 	end
-	-- Bring playback in line with the live state: sounding when audible, paused
-	-- (keeping its place) when muted, hidden or switched off. Resume() rather
-	-- than Play(): Play() restarts from the last script-set TimePosition, which
-	-- would send a paused track back to its start.
 	function MusicDirector:refresh()
 		if self.disposed or not self.started then
 			return nil
@@ -4559,8 +4237,6 @@ do
 		self:loadDeck(self.active, self.trackIndex)
 		for index, deck in self.decks do
 			table.insert(self.connections, deck.sound.DidLoop:Connect(function()
-				-- The hand-over point was missed (a long hitch, or a track too
-				-- short to crossfade): move on at the loop instead.
 				if index == self.active and not self.fading then
 					self.loopedOver = true
 				end
@@ -4573,12 +4249,8 @@ do
 				if self.disposed then
 					break
 				end
-				-- One bad poll must not kill the worker, or the soundtrack would
-				-- stop advancing for the rest of the session.
 				local ok, problem = pcall(self.step, self)
 				if not ok and not self.disposed then
-					-- A failure mid-crossfade would otherwise leave `fading` set and
-					-- block every later poll; drop back to the active deck.
 					self.fading = false
 					self.fadeAlpha = 0
 					pcall(self.refresh, self)
@@ -4593,19 +4265,16 @@ do
 		local name = Soundtrack.track(trackIndex).name
 		ClientLog:warnEvery(`music-load-{name}`, 30, "Audio", `{name} did not load; skipping it for now`)
 	end
-	-- The playing track never arrived: move straight on rather than sit silent.
 	function MusicDirector:skipActive()
 		self:markFailed(self.trackIndex)
 		local nextIndex = Soundtrack.nextIndex(self.trackIndex, self.failedAt, os.clock())
 		if nextIndex ~= nil then
 			self.trackIndex = nextIndex
 		end
-		-- With nothing else playable this retries the same track from scratch.
 		self:loadDeck(self.active, self.trackIndex)
 		self:refresh()
 		return nil
 	end
-	-- Load the next track into the spare deck well before it is needed.
 	function MusicDirector:prepareSpare()
 		local nextIndex = Soundtrack.nextIndex(self.trackIndex, self.failedAt, os.clock())
 		if nextIndex == nil then
@@ -4618,7 +4287,6 @@ do
 			return nil
 		end
 		if not spare.sound.IsLoaded and os.clock() - spare.loadStarted >= LOAD_DEADLINE_SECONDS then
-			-- The next track never arrived; mark it so the one after is lined up.
 			self:markFailed(nextIndex)
 			spare.trackIndex = nil
 		end
@@ -4647,15 +4315,11 @@ do
 		end
 		return nil
 	end
-	-- Crossfade from the playing track into the one waiting on the spare deck.
-	-- Runs on the worker thread; the mix setters keep adjusting volume meanwhile.
 	function MusicDirector:handOver()
 		local spareIndex = self:spare()
 		local spare = self.decks[spareIndex]
 		local nextIndex = spare.trackIndex
 		if nextIndex == nil or not spare.sound.IsLoaded then
-			-- Still downloading: the current track plays on, and the hand-over
-			-- happens on a later poll once the next one has arrived.
 			return nil
 		end
 		self.fading = true
@@ -4668,8 +4332,6 @@ do
 			if self.disposed then
 				return nil
 			end
-			-- Only audible time counts, so muting mid-fade freezes the fade
-			-- rather than finishing it silently.
 			if self:isLive() then
 				elapsed += dt
 			end
@@ -4758,9 +4420,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -4772,7 +4431,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	BootKit: merged module suite.
-	Members (4): BootScreen, BootStageText, LoadingDots, SoftShutdownScreen.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: BootScreen   (merged from BootScreen.luau, 445 lines)
--- ======================================================================
 __defs["BootScreen"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
@@ -39,7 +27,6 @@ local EMBER_COUNT = 9
 local BootStageText = __load("BootStageText").BootStageText
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
--- Pure curves only (the boot screen loads before the React motion stack).
 local MotionTokens = require(script.Parent.MotionKit)("motionTokens")
 local BOOT_MODULE_TIMEOUT = 9
 local MIN_BOOT_SECONDS = 3.2
@@ -52,7 +39,6 @@ local EXIT_SPIN_SECONDS = 0.22
 local EXIT_VEIL_SECONDS = 0.32
 local STALL_SECONDS = 45
 local SYSTEMS = { "bridge", "remotes", "state", "assets", "modules", "fonts", "audio", "shell", "mail", "research", "forge", "trade", "boosts", "settings", "mobile" }
--- What the player reads while it loads: a few plain steps, not one label per internal system.
 local STAGE_LABELS = { "Connecting", "Connecting", "Connecting", "Loading art", "Loading art", "Loading art", "Loading sounds", "Building the menus", "Opening your save", "Opening your save", "Opening your save", "Opening your save", "Opening your save", "Opening your save", "Almost there", "Ready" }
 local LOADING_TIPS = {
 	"Research stays with you when you rebirth.",
@@ -149,11 +135,8 @@ local function BootScreen(_param)
 	local clock, setClock = React.useBinding(0)
 	local spinFade, setSpinFade = React.useBinding(0)
 	local veilFade, setVeilFade = React.useBinding(0)
-	-- How far the veil has lifted (0 = covering the screen, 1 = gone): drives the backdrop, embers and glow.
 	local veilHide = veilFade
 	local progressPulse, setProgressPulse = React.useBinding(0)
-	-- The bar glides toward the real progress instead of jumping between
-	-- loading stages.
 	local shownProgress, setShownProgress = React.useBinding(0)
 	local shownRef = React.useRef(0)
 	local targetProgress = React.useRef(0)
@@ -176,7 +159,6 @@ local function BootScreen(_param)
 		end
 	end, {})
 	React.useEffect(function()
-		-- The medallion is the first thing on screen: fetch it before anything else.
 		task.spawn(function()
 			pcall(function()
 				game:GetService("ContentProvider"):PreloadAsync({ GAME_ICON_ASSET })
@@ -239,7 +221,6 @@ local function BootScreen(_param)
 		local connection = RunService.RenderStepped:Connect(function(dt)
 			shownRef.current += (targetProgress.current - shownRef.current) * (1 - math.exp(-dt * 7))
 			setShownProgress(shownRef.current)
-			-- The spinner keeps turning while it fades out; stopping it read as a freeze.
 			local rate = if softMotion then 0.55 else 1
 			spinClock.current += dt * rate
 			setClock(spinClock.current)
@@ -251,7 +232,6 @@ local function BootScreen(_param)
 			local elapsed = exitClock.current
 			local spinSeconds = if softMotion then EXIT_SPIN_SECONDS * 0.55 else EXIT_SPIN_SECONDS
 			local veilSeconds = if softMotion then EXIT_VEIL_SECONDS * 0.55 else EXIT_VEIL_SECONDS
-			-- The spinner leaves by accelerating away; the veil lifts on a smooth S.
 			setSpinFade(MotionTokens.EASE.accelerate(clamp01(elapsed / spinSeconds)))
 			setVeilFade(MotionTokens.EASE.smoothInOut(clamp01((elapsed - spinSeconds) / veilSeconds)))
 		end)
@@ -295,8 +275,6 @@ local function BootScreen(_param)
 		end)
 	end
 
-	-- Embers rising off the forge glow. Each one's path is fixed by its index, so
-	-- the field looks random without any per-frame randomness.
 	local embers = {}
 	for index = 1, EMBER_COUNT do
 		local seed = math.abs(math.sin(index * 12.9898) * 43758.5453) % 1
@@ -314,7 +292,6 @@ local function BootScreen(_param)
 			BackgroundColor3 = if index % 2 == 0 then Palette.mango else Palette.ember,
 			BackgroundTransparency = React.joinBindings({ clock, veilHide }):map(function(values)
 				local rise = (values[1] * speed + seed) % 1
-				-- Faint as they leave the glow, gone a third of the way up.
 				return math.clamp(0.45 + rise * 1.2 + values[2], 0, 1)
 			end),
 			BorderSizePixel = 0,
@@ -336,7 +313,6 @@ local function BootScreen(_param)
 			return amount < 0.995
 		end),
 	}, React.createElement("frame", {
-		-- The forge glow: warm light coming up from below the screen.
 		Size = UDim2.fromScale(1.4, 0.7),
 		Position = UDim2.fromScale(0.5, 1.12),
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -361,7 +337,6 @@ local function BootScreen(_param)
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 	}, embers), React.createElement("frame", {
-		-- Medallion: the game icon in a brass ring, like the in-game logo, breathing slowly.
 		Size = UDim2.fromOffset(112, 112),
 		Position = UDim2.new(0.5, 0, 0.4, -40),
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -377,7 +352,6 @@ local function BootScreen(_param)
 	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
-		-- A plain brass ring, lit from the top like the logo's own frame.
 		Color = Palette.brass,
 		Thickness = 3,
 		Transparency = fadeFrom(0.05),
@@ -396,7 +370,6 @@ local function BootScreen(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("textlabel", {
-		-- Wordmark: ASTRAL in cream, FORGE in brass.
 		Size = UDim2.new(0.9, 0, 0, 40),
 		Position = UDim2.new(0.5, 0, 0.4, 34),
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -417,7 +390,6 @@ local function BootScreen(_param)
 		Thickness = 2,
 		Transparency = fadeFrom(0.3),
 	})), React.createElement("frame", {
-		-- The bar: a cold steel track that fills with molten metal.
 		Size = UDim2.new(0.72, 0, 0, barH),
 		Position = UDim2.new(0.5, 0, 0.4, 92),
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -445,7 +417,6 @@ local function BootScreen(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uigradient", {
-		-- Cooling to deep red behind, white-hot at the tip.
 		Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Palette.ember),
 			ColorSequenceKeypoint.new(0.7, Palette.mango),
@@ -482,7 +453,6 @@ local function BootScreen(_param)
 		ZIndex = 6,
 		Visible = showing,
 	}), React.createElement("textlabel", {
-		-- One quiet line along the bottom: a tip, or a note if loading is slow.
 		Size = UDim2.new(0.9, 0, 0, 18),
 		Position = UDim2.new(0.5, 0, 1, -40),
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -518,12 +488,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: BootStageText   (merged from BootStageText.luau, 159 lines)
--- ======================================================================
 __defs["BootStageText"] = function()
--- Boot status text that rolls like NumberSpinner: each glyph rides a vertical reel
--- when the status string changes. Clipped host, fixed height, no AbsoluteSize bombs.
 
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local _theme = require(script.Parent.CoreKit)("theme")
@@ -581,7 +546,6 @@ local function BootStageText(props: Props)
 			return
 		end
 		rollingRef.current = true
-		-- Capture clock at change via a one-shot join; use os.clock as fallback anchor.
 		rollStartRef.current = os.clock()
 	end, { text, reducedMotion } :: { any })
 
@@ -682,9 +646,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: LoadingDots   (merged from LoadingDots.luau, 96 lines)
--- ======================================================================
 __defs["LoadingDots"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Palette = require(script.Parent.CoreKit)("theme").Palette
@@ -716,7 +677,6 @@ local function LoadingDots(_param)
 	local restY = height * 0.55
 	local idleLeave = React.useBinding(0)
 	local exitBinding = leaving or idleLeave
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#DOTS)
 	local _callback = function(index)
 		local x = center + (index - 1.5) * gap
@@ -769,7 +729,6 @@ local function LoadingDots(_param)
 	for _k, _v in DOTS do
 		_newValue[_k] = _callback(_v, _k - 1, DOTS)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(width, height),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -784,9 +743,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: SoftShutdownScreen   (merged from SoftShutdownScreen.luau, 180 lines)
--- ======================================================================
 __defs["SoftShutdownScreen"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
@@ -970,9 +926,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -984,7 +937,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

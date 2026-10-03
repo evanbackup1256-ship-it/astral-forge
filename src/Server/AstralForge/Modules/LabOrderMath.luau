@@ -1,7 +1,4 @@
 --!strict
--- Pure lab-order progress / claim / target / cell math. No Roblox services —
--- LabService and Lune verify scripts share this so order readiness and claim
--- gates can be tested without Studio. Reward application stays with the caller.
 
 local LabOrderMath = {}
 
@@ -29,8 +26,6 @@ export type LabBag = {
 
 LabOrderMath.CHANNEL_ORDER = { "Production", "Storage", "Tap" }
 
--- Studio fixtures / mid-migrate bags may omit Lab entirely, or leave Orders /
--- Routing nil — LabService.Ensure / DataService sanitize must rebuild first.
 function LabOrderMath.Ensure(lab: any, baseCells: number?): LabBag
 	local cells = math.max(3, math.floor(tonumber(baseCells) or 12))
 	local per = math.max(1, math.floor(cells / 3))
@@ -51,7 +46,6 @@ function LabOrderMath.Ensure(lab: any, baseCells: number?): LabBag
 	return lab :: LabBag
 end
 
--- Clamp routing to the power-cell budget; returns whether any channel changed.
 function LabOrderMath.NormalizeRouting(
 	routing: { [string]: number },
 	channelOrder: { string },
@@ -91,7 +85,6 @@ function LabOrderMath.NormalizeRouting(
 	return changed
 end
 
--- Power-cell budget from rebirths. Mirrors LabService.totalCells / DataService.
 function LabOrderMath.TotalCells(
 	rebirths: number,
 	baseCells: number,
@@ -107,8 +100,6 @@ function LabOrderMath.TotalCells(
 	)
 end
 
--- BankFlux callers pass bankFluxTarget = floor(AsNumber(Mul(steady, ProductionSeconds))).
--- Non-BankFlux ignores bankFluxTarget and uses BaseTarget + rebirths * PerRebirth.
 function LabOrderMath.OrderTarget(order: OrderDefinition, rebirths: number, bankFluxTarget: number?): number
 	if order.Kind == "BankFlux" then
 		return math.max(order.BaseTarget, math.floor(tonumber(bankFluxTarget) or 0))
@@ -117,9 +108,6 @@ function LabOrderMath.OrderTarget(order: OrderDefinition, rebirths: number, bank
 	return math.max(1, math.floor(order.BaseTarget + math.max(0, rebirths) * per))
 end
 
--- Studio fixtures / mid-migrate bags may store Progress/Target as numeric strings.
--- Bare `progress + gain` concatenates; `"9" < "10"` is false and `"9" >= "10"` is
--- true lexicographically — incomplete orders looked ready and skipped ApplyProgress.
 local function progressPair(state: any): (number, number)
 	local progress = math.max(0, math.floor(tonumber(state and state.Progress) or 0))
 	local target = math.max(0, math.floor(tonumber(state and state.Target) or 0))
@@ -151,8 +139,6 @@ function LabOrderMath.ApplyProgress(
 	amount: number
 ): boolean
 	local gain = math.max(0, math.floor(tonumber(amount) or 0))
-	-- AsNumber(MAX_DOUBLE) / inf must not push Progress to non-finite; orders
-	-- clamp to Target anyway, but a non-finite gain trips ProfileIntegrity.
 	if gain ~= gain or gain == math.huge or gain == -math.huge then
 		return false
 	end

@@ -1,13 +1,4 @@
 --!strict
---[=[
-	OpsMath: merged module suite.
-	Members (6): GuildGoalMath, GuildMath, AdminGrantMath, AnomalyPulseScore, ConvergenceOpsMath, RemoteFirewallMath.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,15 +18,7 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: GuildGoalMath   (merged from GuildGoalMath.luau, 249 lines)
--- ======================================================================
 __defs["GuildGoalMath"] = function()
--- Pure guild co-op goal roll / ensure / advance / claim-readiness helpers. No
--- Roblox services — GuildService and Lune verify scripts share this so rotating
--- goals stay testable without Studio. Datastore writes and reward application
--- stay with the caller; Goal config is injected. Mirrors GuildMath finite /
--- GoalTarget / AddClamped so this module stays require-free under Lune.
 
 local GuildGoalMath = {}
 
@@ -106,8 +89,6 @@ function GuildGoalMath.MemberCount(guild: any): number
 	return count
 end
 
--- Deterministic rotation so every server that touches this guild picks the same
--- next goal rather than racing on math.random.
 function GuildGoalMath.RollGoal(guild: any, now: number, goalConfig: GoalConfig): GoalState
 	local types = goalConfig.Types
 	local previous = type(guild) == "table" and type(guild.Goal) == "table" and guild.Goal.TypeId or nil
@@ -156,10 +137,6 @@ function GuildGoalMath.RollGoal(guild: any, now: number, goalConfig: GoalConfig)
 	}
 end
 
--- Mutates `guild` in place. Returns true when the goal was created, rotated, or
--- when nested Claimed/Contributors bags were rebuilt — callers inside UpdateAsync
--- must persist those repairs (seen when ClaimGoal early-return used to drop a
--- rebuilt Claimed table when the goal was not yet Completed).
 function GuildGoalMath.EnsureGoal(guild: any, now: number, goalConfig: GoalConfig): boolean
 	if type(guild) ~= "table" then
 		return false
@@ -172,8 +149,6 @@ function GuildGoalMath.EnsureGoal(guild: any, now: number, goalConfig: GoalConfi
 		return true
 	end
 	local changed = false
-	-- tonumber so Studio fixtures with string Target/Progress coerce (same class
-	-- as ConvergenceOpsMath Contribution coercion) instead of collapsing to 0.
 	local nextTarget = math.max(1, finiteNonNegative(tonumber(goal.Target)))
 	local nextProgress = finiteNonNegative(tonumber(goal.Progress))
 	local nextEndsAt = finiteNonNegative(tonumber(goal.EndsAt))
@@ -199,8 +174,6 @@ function GuildGoalMath.EnsureGoal(guild: any, now: number, goalConfig: GoalConfi
 		goal.CompletedAt = nextCompletedAt
 		changed = true
 	end
-	-- Mid-migrate / Studio fixtures may keep TypeId-matched goals with nil Claimed
-	-- or Contributors — ClaimGoal indexes Claimed[userKey] and Contributors[userKey].
 	if type(goal.Contributors) ~= "table" then
 		goal.Contributors = {}
 		changed = true
@@ -209,8 +182,6 @@ function GuildGoalMath.EnsureGoal(guild: any, now: number, goalConfig: GoalConfi
 		goal.Claimed = {}
 		changed = true
 	end
-	-- An expired window rotates. A completed goal stays put until its window ends
-	-- so members who were offline still get a chance to claim.
 	if safeNow >= goal.EndsAt then
 		guild.Goal = GuildGoalMath.RollGoal(guild, safeNow, goalConfig)
 		return true
@@ -218,8 +189,6 @@ function GuildGoalMath.EnsureGoal(guild: any, now: number, goalConfig: GoalConfi
 	return changed
 end
 
--- Records progress toward the live goal from a member action. `metric` must match
--- the goal type's Metric or the action simply does not count.
 function GuildGoalMath.AdvanceGoal(
 	guild: any,
 	userKey: string,
@@ -249,7 +218,6 @@ function GuildGoalMath.AdvanceGoal(
 	end
 end
 
--- Claim readiness shared by ClaimGoal. Returns ok + optional reason.
 function GuildGoalMath.CanClaimGoal(
 	goal: any,
 	userKey: string,
@@ -281,15 +249,7 @@ end
 return table.freeze(GuildGoalMath)
 end
 
--- ======================================================================
--- Module: GuildMath   (merged from GuildMath.luau, 181 lines)
--- ======================================================================
 __defs["GuildMath"] = function()
--- Pure guild upgrade cost/effect, bonus aggregation, contribution amount
--- normalization, goal target sizing, and bank afford checks. No Roblox
--- services — GuildService and Lune verify scripts share this so hall math
--- can be tested without Studio. Datastore / membership / Omega cash mutation
--- stay with the caller; definitions are injected.
 
 local GuildMath = {}
 
@@ -313,7 +273,6 @@ function GuildMath.FiniteNonNegative(value: any): number
 	return math.clamp(value, 0, GuildMath.MAX_NUMBER)
 end
 
--- Tier unlocked by buying level `level` (1-indexed named tiers).
 function GuildMath.UpgradeTier(definition: UpgradeDefinition, level: number): any
 	local tiers = definition.Tiers
 	if type(tiers) ~= "table" then
@@ -325,7 +284,6 @@ function GuildMath.UpgradeTier(definition: UpgradeDefinition, level: number): an
 	return tiers[level]
 end
 
--- `level` is the current level; the purchase being priced is level + 1.
 function GuildMath.UpgradeCost(definition: UpgradeDefinition, level: number): number
 	local tier = GuildMath.UpgradeTier(definition, level + 1)
 	if tier and type(tier.Cost) == "number" then
@@ -334,7 +292,6 @@ function GuildMath.UpgradeCost(definition: UpgradeDefinition, level: number): nu
 	return math.floor(definition.BaseCost * definition.CostScale ^ math.max(0, level) + 0.5)
 end
 
--- Cumulative named-tier effects, then endless EffectPerLevel tail.
 function GuildMath.UpgradeEffect(definition: UpgradeDefinition, level: number): number
 	local safeLevel = math.max(0, math.floor(level))
 	if safeLevel <= 0 then
@@ -364,7 +321,6 @@ function GuildMath.EmptyBonuses(): { [string]: number }
 	return result
 end
 
--- Sum upgrade effects into bonus keys, soft-capped at 1.0 per key.
 function GuildMath.BonusesFromUpgrades(
 	upgrades: { [string]: any }?,
 	upgradeDefs: { [string]: UpgradeDefinition }
@@ -385,7 +341,6 @@ function GuildMath.BonusesFromUpgrades(
 	return result
 end
 
--- Co-op goal target scales with roster size beyond the founder.
 function GuildMath.GoalTarget(baseTarget: number, targetPerMember: number, members: number): number
 	return math.max(
 		1,
@@ -393,7 +348,6 @@ function GuildMath.GoalTarget(baseTarget: number, targetPerMember: number, membe
 	)
 end
 
--- Contribution amount gate shared by ContributeBank. Returns floor(amount) or nil + reason.
 function GuildMath.NormalizeContributionAmount(amount: any): (number?, string?)
 	if type(amount) ~= "number" or amount ~= amount or amount == math.huge or amount == -math.huge or amount < 1 or amount > GuildMath.MAX_NUMBER then
 		return nil, "Pick a positive contribution amount."
@@ -401,7 +355,6 @@ function GuildMath.NormalizeContributionAmount(amount: any): (number?, string?)
 	return math.floor(amount), nil
 end
 
--- Bank affordability: Cash uses injected OmegaMath.Gte/not Lt; Dust is numeric.
 function GuildMath.CanAffordBank(omegaMath: any, currency: string, bank: any, cost: number): boolean
 	if currency == "Cash" then
 		return not omegaMath.Lt(bank or 0, cost)
@@ -409,7 +362,6 @@ function GuildMath.CanAffordBank(omegaMath: any, currency: string, bank: any, co
 	return (tonumber(bank) or 0) >= cost
 end
 
--- Credit bank for a contribution. Cash goes through OmegaMath.Add; Dust clamps.
 function GuildMath.CreditBank(omegaMath: any, currency: string, bank: any, amount: number): any
 	if currency == "Cash" then
 		return omegaMath.Add(bank or 0, amount)
@@ -417,7 +369,6 @@ function GuildMath.CreditBank(omegaMath: any, currency: string, bank: any, amoun
 	return math.min(GuildMath.MAX_NUMBER, GuildMath.FiniteNonNegative(bank) + amount)
 end
 
--- Debit bank for an upgrade purchase. Returns nextBank or nil when unaffordable.
 function GuildMath.DebitBank(omegaMath: any, currency: string, bank: any, cost: number): any?
 	if not GuildMath.CanAffordBank(omegaMath, currency, bank, cost) then
 		return nil
@@ -432,7 +383,6 @@ function GuildMath.AddClamped(current: any, amount: number): number
 	return math.min(GuildMath.MAX_NUMBER, GuildMath.FiniteNonNegative(current) + amount)
 end
 
--- Fallback public hall bag when GetCachedPublic misses.
 function GuildMath.EmptyHall(membership: any)
 	local tag = type(membership) == "table" and type(membership.Tag) == "string" and membership.Tag or ""
 	local guildId = type(membership) == "table" and membership.Id or ""
@@ -452,7 +402,6 @@ function GuildMath.EmptyHall(membership: any)
 	}
 end
 
--- Snapshot Guild bag for client rails: nil when not joined, cached public, or empty hall.
 function GuildMath.SnapshotPublic(membership: any, publicGuild: any): any
 	local guildId = type(membership) == "table" and membership.Id or ""
 	if guildId == "" then
@@ -467,14 +416,7 @@ end
 return table.freeze(GuildMath)
 end
 
--- ======================================================================
--- Module: AdminGrantMath   (merged from AdminGrantMath.luau, 112 lines)
--- ======================================================================
 __defs["AdminGrantMath"] = function()
--- Pure admin grant/moderation input sanitizers. No Roblox services —
--- AdminService and Lune verify scripts share this so amount/text/danger
--- coercion can be tested without Studio. Player lookup and datastore stay
--- with the caller; maxGrant is injected.
 
 local AdminGrantMath = {}
 
@@ -484,8 +426,6 @@ function AdminGrantMath.Finite(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
--- Coerce payload Amount (number or numeric string) into a positive clamped grant.
--- Returns nil when the value is missing/non-finite/non-positive after fallback.
 function AdminGrantMath.BoundedAmount(raw: any, fallback: number?, maxGrant: number?): number?
 	local ceiling = tonumber(maxGrant) or AdminGrantMath.DEFAULT_MAX_GRANT
 	local value = if type(raw) == "string" then tonumber(raw) else raw
@@ -498,7 +438,6 @@ function AdminGrantMath.BoundedAmount(raw: any, fallback: number?, maxGrant: num
 	return math.clamp(value :: number, 1, ceiling)
 end
 
--- Strip control chars, trim, and hard-cap length for Command/Nonce/Reason/Option.
 function AdminGrantMath.CleanText(raw: any, maximum: number): string
 	if type(raw) ~= "string" then
 		return ""
@@ -510,7 +449,6 @@ function AdminGrantMath.CleanText(raw: any, maximum: number): string
 	return string.sub(value, 1, cap)
 end
 
--- Danger tier for admin UI arming: explicit Danger wins; else category map.
 function AdminGrantMath.CommandDanger(definition: { [string]: any }?): string
 	if type(definition) ~= "table" then
 		return "quick"
@@ -525,7 +463,6 @@ function AdminGrantMath.CommandDanger(definition: { [string]: any }?): string
 	return "quick"
 end
 
--- Audit-only reason strings that must not surface to the kicked player.
 AdminGrantMath.AUDIT_ONLY_REASONS = table.freeze({
 	["Owner gameplay administration"] = true,
 	["Balance correction"] = true,
@@ -537,7 +474,6 @@ AdminGrantMath.AUDIT_ONLY_REASONS = table.freeze({
 	["Trade settle recovery"] = true,
 })
 
--- Player-facing kick/ban copy. Audit-only reasons fall back to command defaults.
 function AdminGrantMath.PlayerFacingReason(command: any, reason: any, auditOnly: { [string]: boolean }?): string
 	local safeReason = if type(reason) == "string" then reason else ""
 	local blocked = auditOnly or AdminGrantMath.AUDIT_ONLY_REASONS
@@ -553,9 +489,6 @@ function AdminGrantMath.PlayerFacingReason(command: any, reason: any, auditOnly:
 	return "You were kicked from this Astral Forge server by an administrator."
 end
 
-
--- Allocate the next unused relic uid from Items.NextId. Returns uid + bumped NextId.
--- Inventory collision loops stay pure so GrantRelic can be Lune-tested.
 function AdminGrantMath.NextRelicUid(inventory: any, nextId: any): (string?, number)
 	local bag = if type(inventory) == "table" then inventory else {}
 	local cursor = math.max(1, math.floor(tonumber(nextId) or 1))
@@ -569,7 +502,6 @@ function AdminGrantMath.NextRelicUid(inventory: any, nextId: any): (string?, num
 	return nil, cursor
 end
 
--- Fresh relic instance for GrantRelic. AcquiredAt is injected (os.time in production).
 function AdminGrantMath.BuildRelicInstance(definitionId: any, acquiredAt: any): { [string]: any }?
 	if type(definitionId) ~= "string" or definitionId == "" then
 		return nil
@@ -584,33 +516,19 @@ end
 return table.freeze(AdminGrantMath)
 end
 
--- ======================================================================
--- Module: AnomalyPulseScore   (merged from AnomalyPulseScore.luau, 76 lines)
--- ======================================================================
 __defs["AnomalyPulseScore"] = function()
--- Pure anomaly pulse-window / sweet-zone / combo scoring. No Roblox services —
--- AnomalyService and Lune verify scripts share this so timing accuracy and
--- combo multipliers can be tested without Studio. Clocks and profile mutation
--- stay with the caller; balance constants are injected (GameConfig values).
 
 local AnomalyPulseScore = {}
 
--- Elapsed seconds within the current sweep (mod period). Callers that already
--- validated startedAt may use this directly; IsAccurate re-validates.
 function AnomalyPulseScore.Elapsed(now: number, startedAt: number, period: number): number
 	return (now - startedAt) % period
 end
 
--- Fraction through the current window in [0, 1). Matches the client needle's
--- elapsed/period prediction (client also clamps period to >= 0.1 for display).
 function AnomalyPulseScore.Fraction(now: number, startedAt: number, period: number): number
 	local safePeriod = math.max(0.1, period)
 	return AnomalyPulseScore.Elapsed(now, startedAt, safePeriod) / safePeriod
 end
 
--- True when `now` lands in the trailing sweet-zone fraction of the sweep that
--- began at startedAt. Non-number / non-positive startedAt → miss (no window yet).
--- Mirrors the former AnomalyService.pulseAccuracy local exactly.
 function AnomalyPulseScore.IsAccurate(
 	now: number,
 	startedAt: any,
@@ -625,7 +543,6 @@ function AnomalyPulseScore.IsAccurate(
 	return elapsed >= period - sweetZone
 end
 
--- Combo after one pulse. Miss resets to 0; hit increments, capped at comboMax.
 function AnomalyPulseScore.NextCombo(currentCombo: number?, accurate: boolean, comboMax: number): number
 	if not accurate then
 		return 0
@@ -637,13 +554,10 @@ function AnomalyPulseScore.NextBestCombo(bestCombo: number?, combo: number): num
 	return math.max(bestCombo or 0, combo)
 end
 
--- Multiplier from combo stacks: 1 + min(1, combo * bonusPerStack). Soft-caps
--- at 2x regardless of how high the combo climbs.
 function AnomalyPulseScore.ComboBonus(combo: number, bonusPerStack: number): number
 	return 1 + math.min(1, combo * bonusPerStack)
 end
 
--- Multiplier from a sweet-zone hit: 1 + accurateBonus when accurate, else 1.
 function AnomalyPulseScore.AccuracyBonus(accurate: boolean, accurateBonus: number): number
 	if accurate then
 		return 1 + accurateBonus
@@ -651,7 +565,6 @@ function AnomalyPulseScore.AccuracyBonus(accurate: boolean, accurateBonus: numbe
 	return 1
 end
 
--- Combined score multiplier applied to pulse charge gain (combo × accuracy).
 function AnomalyPulseScore.ScoreMultiplier(
 	combo: number,
 	accurate: boolean,
@@ -665,15 +578,7 @@ end
 return table.freeze(AnomalyPulseScore)
 end
 
--- ======================================================================
--- Module: ConvergenceOpsMath   (merged from ConvergenceOpsMath.luau, 129 lines)
--- ======================================================================
 __defs["ConvergenceOpsMath"] = function()
--- Pure convergence event-profile / phase / multiplier helpers. No Roblox
--- services — ConvergenceService and Lune verify scripts share this so partial
--- LiveOps fixtures (EventId-matched bags missing Contribution/Claimed) rebuild
--- before Flush/Claim index nested fields. Reward cash mutation stays with the
--- caller (OmegaMath + profile bags).
 
 local ConvergenceOpsMath = {}
 
@@ -689,8 +594,6 @@ type GlobalPhase = {
 	ProductionMultiplier: number,
 }
 
--- Mutating ensure for Flush/Claim paths. Mid-cycle bags that already share
--- EventId but omit Contribution (nil) used to throw on `Contribution += amount`.
 function ConvergenceOpsMath.EnsureEventProfile(profile: any, eventId: string): EventProfile
 	if type(profile.LiveOps) ~= "table" then
 		profile.LiveOps = {}
@@ -708,7 +611,6 @@ function ConvergenceOpsMath.EnsureEventProfile(profile: any, eventId: string): E
 	return current :: EventProfile
 end
 
--- Read-only snapshot for State() — never mutates profile.LiveOps.
 function ConvergenceOpsMath.ReadEventProfile(profile: any, eventId: string): EventProfile
 	local liveOps = type(profile) == "table" and type(profile.LiveOps) == "table" and profile.LiveOps or nil
 	local current = liveOps and liveOps.Convergence or nil
@@ -722,8 +624,6 @@ function ConvergenceOpsMath.ReadEventProfile(profile: any, eventId: string): Eve
 	}
 end
 
--- Rebuild Stats / Command / BoostInventory nests before Claim applies a tier
--- reward — same class of partial-fixture footgun as Anomaly/Echo Ensures.
 function ConvergenceOpsMath.EnsureRewardBags(profile: any)
 	if type(profile.Stats) ~= "table" then
 		profile.Stats = {}
@@ -736,7 +636,6 @@ function ConvergenceOpsMath.EnsureRewardBags(profile: any)
 	end
 end
 
--- Highest unlocked global phase multiplier (1 when below first target).
 function ConvergenceOpsMath.ProductionMultiplier(total: number, phases: { GlobalPhase }): number
 	local multiplier = 1
 	local safeTotal = math.max(0, tonumber(total) or 0)
@@ -755,7 +654,6 @@ function ConvergenceOpsMath.ProductionMultiplier(total: number, phases: { Global
 	return multiplier
 end
 
--- Phase index/name + next Target for the progress rail.
 function ConvergenceOpsMath.PhaseState(
 	total: number,
 	phases: { GlobalPhase }
@@ -784,7 +682,6 @@ function ConvergenceOpsMath.PhaseState(
 	return phaseIndex, phaseName, nextTarget
 end
 
--- Personal tier claim readiness (Contribution vs Required + Claimed flag).
 function ConvergenceOpsMath.CanClaimTier(
 	contribution: number,
 	required: number,
@@ -799,15 +696,7 @@ end
 return table.freeze(ConvergenceOpsMath)
 end
 
--- ======================================================================
--- Module: RemoteFirewallMath   (merged from RemoteFirewallMath.luau, 256 lines)
--- ======================================================================
 __defs["RemoteFirewallMath"] = function()
--- Pure RemoteFirewall payload helpers: user-id coerce/extract, cooldown keys,
--- and field validators. No Roblox services — RemoteFirewall and Lune verify
--- scripts share this so payload gates stay testable without Studio.
--- Instance→Player.UserId unwrap stays with the caller (inject already-raw ids).
--- Studio negative-id allowance is injected via `studio` (RunService:IsStudio).
 
 local RemoteFirewallMath = {}
 
@@ -843,8 +732,6 @@ function RemoteFirewallMath.SafeNumber(value: any): boolean
 		and math.abs(value) <= RemoteFirewallMath.MAX_SAFE_USER_ID
 end
 
--- Coerce payload UserId (number or numeric string) into a non-zero safe integer.
--- `studio == true` allows negative Studio test ids; live rejects rounded < 1.
 function RemoteFirewallMath.CoerceUserId(raw: any, studio: boolean?): number?
 	local value = raw
 	if type(value) == "string" then
@@ -873,8 +760,6 @@ function RemoteFirewallMath.CoerceUserId(raw: any, studio: boolean?): number?
 	return rounded
 end
 
--- Pull a raw user-id candidate from a scalar or common payload keys.
--- Does not coerce — pair with CoerceUserId.
 function RemoteFirewallMath.ExtractUserId(payload: any): any
 	if payload == nil then
 		return nil
@@ -959,16 +844,12 @@ function RemoteFirewallMath.NumberField(
 		and value <= maximum
 end
 
-
 RemoteFirewallMath.INSPECT_MAX_DEPTH = 3
 RemoteFirewallMath.INSPECT_MAX_ENTRIES = 32
 RemoteFirewallMath.INSPECT_MAX_STRING = 600
 RemoteFirewallMath.INSPECT_MAX_KEY_LEN = 64
 RemoteFirewallMath.INSPECT_MAX_INDEX = 10000
 
--- Recursive remote-payload shape gate. Pure `type` (not Roblox typeof) so Lune
--- can exercise nesting/cycle/budget rejects without Studio. Instance payloads
--- are rejected as unsupported — RemoteFirewall unwraps Player before inspect.
 function RemoteFirewallMath.Inspect(
 	value: any,
 	depth: number?,
@@ -1034,7 +915,6 @@ function RemoteFirewallMath.Inspect(
 	return true
 end
 
--- Session/auth envelope keys that may ride with NO_PAYLOAD actions (Gen/N/Auth/Txn).
 RemoteFirewallMath.SESSION_KEYS = table.freeze({
 	Gen = true,
 	N = true,
@@ -1043,7 +923,6 @@ RemoteFirewallMath.SESSION_KEYS = table.freeze({
 	TxnId = true,
 })
 
--- True when every key is a session/auth field. Used by NO_PAYLOAD action gates.
 function RemoteFirewallMath.IsSessionOnlyPayload(payload: any, sessionKeys: { [string]: boolean }?): boolean
 	if type(payload) ~= "table" then
 		return false
@@ -1060,9 +939,6 @@ end
 return table.freeze(RemoteFirewallMath)
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1074,7 +950,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

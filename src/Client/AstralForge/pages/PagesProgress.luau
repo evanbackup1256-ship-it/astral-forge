@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesProgress: merged module suite.
-	Members (9): StarGridView, ResearchView, LabView, WorkshopView, ForgePathView, ContinuumView, ConvergenceView, BoostsView, WorldsView.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: StarGridView   (merged from StarGridView.luau, 882 lines)
--- ======================================================================
 __defs["StarGridView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -75,8 +63,6 @@ local SCROLL_BAR = 4
 local BADGE_W = 118
 local BADGE_H = 30
 local NEAR_COMPLETE_THRESHOLD = 0.85
--- Only nodes that are close to their next level cap or just changed state pay for a live
--- pulse subscription; the other ~110 nodes on screen render this as a static, disabled frame.
 local function NodeProgressGlow(_param)
 	local near = _param.near
 	local maxed = _param.maxed
@@ -104,8 +90,6 @@ local function NodeProgressGlow(_param)
 		end) else 0.5,
 	}))
 end
--- Fires a brief flourish only on the false->true edge (node just became buyable or was just
--- maxed out), so idle nodes never carry a flash subscription.
 local function useNodeUnlockPop(unlocked, reducedMotion)
 	local softMotion = reducedMotion
 	local wasUnlocked = React.useRef(unlocked)
@@ -433,7 +417,6 @@ local function StarGridViewComponent(_param)
 		return _condition
 	end)
 	React.useEffect(function()
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(branch)
 			return branch.Id == activeBranch
 		end
@@ -444,7 +427,6 @@ local function StarGridViewComponent(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		if _result ~= nil then
 			return nil
 		end
@@ -531,7 +513,6 @@ local function StarGridViewComponent(_param)
 		local canLess = shown > GRID_CHUNK
 		bodyIntrinsic += branchH + Layout.panelGap
 		if branch.Id == activeBranch then
-			-- Long node boards virtualize inside a fixed viewport so PageScaffold stays scrollable.
 			if shown >= VIRT_NODE_MIN then
 				bodyIntrinsic += math.min(shown, 6) * nodeStride
 			else
@@ -599,7 +580,6 @@ local function StarGridViewComponent(_param)
 		size = if stack then UDim2.new(0.62, -6, 0, TapTarget) else UDim2.fromOffset(268, if touchLayout then TapTarget else 42),
 		reducedMotion = softMotion,
 	}), React.createElement("frame", {
-		-- FocusClaim prefers Buy-named hosts for Star Grid bulk purchase.
 		Name = "StarGridBuyClaimActions",
 		Size = if stack then UDim2.new(0.38, -6, 0, TapTarget) else UDim2.fromOffset(268, 36),
 		Position = if stack then UDim2.new(0.62, 6, 0, 124) else UDim2.new(1, -280, 0, 72),
@@ -652,7 +632,6 @@ local function StarGridViewComponent(_param)
 		disabled = not canBuyAll,
 		highlight = canBuyAll,
 	})))
-	-- Gamepad: park Selection on BUY ALL for Controller Emulator FocusClaim path.
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -676,7 +655,6 @@ local function StarGridViewComponent(_param)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Padding = UDim.new(0, Layout.panelGap),
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#branches)
 	local _callback = function(branch)
 		local nodes = nodesByBranch[branch.Id] or {}
@@ -702,7 +680,6 @@ local function StarGridViewComponent(_param)
 		stagger += 1
 		local _result
 		if active then
-			-- ▼ ReadonlyArray.filter ▼
 			local _newValue_1 = {}
 			local _callback_1 = function(_, index)
 				return index >= start and index < start + shown
@@ -714,7 +691,6 @@ local function StarGridViewComponent(_param)
 					_newValue_1[_length] = _v
 				end
 			end
-			-- ▲ ReadonlyArray.filter ▲
 			_result = _newValue_1
 		else
 			_result = {}
@@ -803,12 +779,10 @@ local function StarGridViewComponent(_param)
 					end,
 				}))
 			else
-				-- ▼ ReadonlyArray.map ▼
 				local _newValue_1 = table.create(#slice)
 				for _k, _v in slice do
 					_newValue_1[_k] = renderNode(_v, _k - 1)
 				end
-				-- ▲ ReadonlyArray.map ▲
 				_condition = _newValue_1
 			end
 		end
@@ -853,7 +827,6 @@ local function StarGridViewComponent(_param)
 	for _k, _v in branches do
 		_newValue[_k] = _callback(_v, _k - 1, branches)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local bodyPane = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -908,9 +881,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ResearchView   (merged from ResearchView.luau, 450 lines)
--- ======================================================================
 __defs["ResearchView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -942,15 +912,6 @@ local bulkCost = _format.bulkCost
 local amountPayload = _format.amountPayload
 local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
 local VirtualGrid = require(script.Parent.Parent.LayoutKit)("scrolling").VirtualGrid
--- Icon + name/desc + effect line + level meter + buy button all need to fit inside the
--- padded content area (row height minus 2x the Panel's 14px padding). Desktop puts the buy
--- button/badge in its own 130px-wide right column (position 1,-140), leaving the name/desc/
--- effect/meter text a `1, -200` reservation that's still comfortably wide on any real desktop
--- window. Mobile has no such column -- name text used to keep that identical -200 reservation
--- completely unconditionally, which left as little as ~24px of actual width for the node's name
--- on a 320px phone (56px icon offset + 200px reservation already exceeds a 320px screen once
--- panel padding is subtracted). Mobile now gets a taller row with the buy control moved to a
--- full-width bar under the text instead of squeezed into the same fixed right column.
 local NODE_ROW_HEIGHT = 150
 local NODE_ROW_HEIGHT_STACK = 190
 local CONNECTOR_HEIGHT = 22
@@ -991,18 +952,12 @@ local ResearchNode = React.memo(function(props)
 	local reveal = useStagger(math.min(index, 6), reducedMotion, 0.02, 0.14)
 	local accent = entry.config.Accent or entry.config.Color
 	local maxed = entry.maxed
-	-- entry.affordable only means the node is unlocked and not maxed. Price must follow the
-	-- amount toggle, or BUY stays live (and shows a 1-level cost) when the click spends more.
 	local price = bulkCost(entry.config.BaseCost, entry.config.CostScale, entry.level, buyAmount, entry.config.MaxLevel, cash)
 	local ready = entry.unlocked and not maxed and gteFlux(cash, price)
 	local levelFrac = math.clamp(entry.level / math.max(1, entry.config.MaxLevel), 0, 1)
 	local buyLabel = if not entry.unlocked then "LOCKED" elseif maxed then "MAXED" elseif ready then `BUY {compactNumber(price)}` else `NEED {compactNumber(price)}`
 	local rowH = if stack then NODE_ROW_HEIGHT_STACK else NODE_ROW_HEIGHT
 	local textReserve = if stack then 0 else -200
-	-- Every row reserves CONNECTOR_HEIGHT at its top so the row stride stays uniform for
-	-- VirtualGrid (which requires a fixed cellHeight) — row 0 just leaves that reserved
-	-- space empty instead of omitting it, since a shorter first row would desync the
-	-- virtualizer's row-index math from actual pixel offsets.
 	return React.createElement("frame", {
 		Size = UDim2.new(1, -4, 0, rowH + CONNECTOR_HEIGHT),
 		BackgroundTransparency = 1,
@@ -1128,7 +1083,6 @@ local function ResearchView(_param)
 	local entries = React.useMemo(function()
 		return AppHelpers:buildUpgradeEntries(config.Research, state.Research, state)
 	end, { config.Research, state.Research, state.Zone, state.Rebirths })
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result = 0
 	local _callback = function(sum, entry)
 		return sum + (if entry.unlocked then 1 else 0)
@@ -1136,9 +1090,7 @@ local function ResearchView(_param)
 	for _i = 1, #entries do
 		_result = _callback(_result, entries[_i], _i - 1, entries)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local unlockedCount = _result
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result_1 = 0
 	local _callback_1 = function(sum, entry)
 		return sum + (if entry.maxed then 1 else 0)
@@ -1146,9 +1098,7 @@ local function ResearchView(_param)
 	for _i = 1, #entries do
 		_result_1 = _callback_1(_result_1, entries[_i], _i - 1, entries)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local maxedCount = _result_1
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_2 = function(entry)
 		return entry.unlocked and not entry.maxed
 	end
@@ -1159,7 +1109,6 @@ local function ResearchView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local nextEntry = _result_2
 	local onBuy = React.useCallback(function(id)
 		return dispatch("BuyResearch", {
@@ -1168,7 +1117,6 @@ local function ResearchView(_param)
 		})
 	end, { dispatch, buyAmount })
 	local onBuyAll = function()
-		-- ▼ ReadonlyArray.forEach ▼
 		local _callback_3 = function(entry)
 			if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
 				dispatch("BuyResearch", {
@@ -1180,11 +1128,7 @@ local function ResearchView(_param)
 		for _k, _v in entries do
 			_callback_3(_v, _k - 1, entries)
 		end
-		-- ▲ ReadonlyArray.forEach ▲
 	end
-	-- Gamepad: park Selection on BUY ALL when any research line is affordable.
-	-- nextEntry is only the first unlocked node, which can be too expensive while a later
-	-- unlocked node is still buyable. Match the click handler, which walks every line.
 	local canBuyAll = false
 	for _, entry in entries do
 		if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
@@ -1211,10 +1155,6 @@ local function ResearchView(_param)
 		end
 	end, { canBuyAll, buyAmount, unlockedCount })
 	local listGap = if stack then chrome.panelGap else Layout.panelGap
-	-- Stack mode header padding is 14, and the AmountToggle row sits at y=132 with height
-	-- TapTarget(48), ending at 180 — needs 180 + 28 = 208. Non-stack ends its content at
-	-- y=88 (56 label offset + 32 line height) with padding 16, needing 88 + 32 = 120; the
-	-- side controls (BUY ALL button ends at 56+32=88) fit the same bound.
 	local headerH = if stack then 208 else 128
 	local researchGate = state.FeatureUnlocks
 	if researchGate ~= nil then
@@ -1281,7 +1221,6 @@ local function ResearchView(_param)
 					size = UDim2.fromOffset(240, 32),
 						reducedMotion = softMotion,
 				}), React.createElement("frame", {
-					-- FocusClaim prefers Buy-named hosts for research bulk purchase.
 					Name = "ResearchBuyClaimActions",
 					Size = UDim2.fromOffset(240, 32),
 					Position = UDim2.new(1, -240, 0, 56),
@@ -1361,9 +1300,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: LabView   (merged from LabView.luau, 713 lines)
--- ======================================================================
 __defs["LabView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -1716,7 +1652,6 @@ local function LabView(_param)
 			end
 		end
 	end
-	-- Gamepad: park Selection on CLAIM ALL when orders are ready.
 	React.useEffect(function()
 		if readyOrders <= 0 or not UserInputService.GamepadEnabled then
 			return nil
@@ -1775,7 +1710,6 @@ local function LabView(_param)
 		})
 		local _attributes = {}
 		local _exp_6 = lab.Orders
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback = function(order)
 			return order.Claimed
@@ -1787,7 +1721,6 @@ local function LabView(_param)
 				_newValue[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		_attributes.value = `{#_newValue} / {#lab.Orders} PAID`
 		_attributes.accent = Palette.mint
 		_attributes.filled = true
@@ -1840,7 +1773,6 @@ local function LabView(_param)
 		})
 		local _attributes = {}
 		local _exp_7 = lab.Orders
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback = function(order)
 			return order.Claimed
@@ -1852,7 +1784,6 @@ local function LabView(_param)
 				_newValue[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		_attributes.value = `{#_newValue} / {#lab.Orders} PAID`
 		_attributes.accent = Palette.mint
 		_attributes.filled = true
@@ -1897,7 +1828,6 @@ local function LabView(_param)
 		color = Palette.mint,
 	})
 	local _exp_5 = lab.Orders
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#_exp_5)
 	local _callback = function(orderState, index)
 		local _id = orderState.Id
@@ -1915,7 +1845,6 @@ local function LabView(_param)
 	for _k, _v in _exp_5 do
 		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local orderStride = orderH + ORDER_GAP
 	local virtOrders = #lab.Orders >= 6
 	local ordersBlock = if #lab.Orders == 0 then React.createElement(EmptyState, {
@@ -1992,7 +1921,6 @@ local function LabView(_param)
 		position = UDim2.new(1, -(94 + ROW_RIGHT), 0, 3),
 		size = UDim2.fromOffset(94, 26),
 	}))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#CHANNEL_IDS)
 	local _callback_1 = function(id, index)
 		local channel = config.Lab.Power.Channels[id]
@@ -2025,7 +1953,6 @@ local function LabView(_param)
 	for _k, _v in CHANNEL_IDS do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, CHANNEL_IDS)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(PageScaffold, {
 		gap = ORDER_GAP,
 		tailPad = scrollTail(stack, chrome.bottomSafe, SCROLL_PAD),
@@ -2044,7 +1971,6 @@ local function LabView(_param)
 			},
 			{
 				id = "orders",
-				-- Long order boards virtualize in a fixed viewport so Power Board stays reachable below.
 				height = if virtOrders then math.min(orderBlock, orderStride * 4) else orderBlock,
 				element = ordersBlock,
 			},
@@ -2072,9 +1998,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: WorkshopView   (merged from WorkshopView.luau, 1153 lines)
--- ======================================================================
 __defs["WorkshopView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -2162,14 +2085,6 @@ local function MachineRow(_param)
 		_result = _result_1
 	end
 	local rateLine = _result
-	-- Non-stack cards used to reserve a fixed 210px for the text block and float a fixed
-	-- 150px-wide button 158px from the right edge, sized for a full-width single-column row.
-	-- A multi-column grid (this same component, used at 1/2 or 1/3 the row width once the
-	-- viewport is wide enough) squeezes the card well under that fixed budget, so the text
-	-- block and button no longer fit side by side and started overlapping. Below this width
-	-- threshold, stack the button under the text instead of beside it, the same pattern the
-	-- stack layout already uses correctly, rather than assuming there's always ≥360px to work
-	-- with.
 	local cardWidth = if width ~= nil then width.X.Offset + (width.X.Scale * viewport.width) else viewport.width
 	local buttonBesideText = not stack and cardWidth >= 360
 	local absolute = y ~= nil or x ~= nil
@@ -2304,7 +2219,6 @@ local function UpgradeBoard(_param)
 	reducedMotion = softMotion
 	local workshopHostReveal = useStagger(4, softMotion)
 	local workshopBuyHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on BUY ALL (FocusClaim prefers Claim/Buy-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -2334,7 +2248,6 @@ local function UpgradeBoard(_param)
 	local canBuy = function(entry)
 		return entry.unlocked and not entry.maxed and gteFlux(cash, entry.price)
 	end
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result = 0
 	local _callback = function(total, entry)
 		return total + (if canBuy(entry) then 1 else 0)
@@ -2342,9 +2255,7 @@ local function UpgradeBoard(_param)
 	for _i = 1, #entries do
 		_result = _callback(_result, entries[_i], _i - 1, entries)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local affordableCount = _result
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result_1 = 0
 	local _callback_1 = function(total, entry)
 		return total + (if entry.level > 0 then 1 else 0)
@@ -2352,10 +2263,8 @@ local function UpgradeBoard(_param)
 	for _i = 1, #entries do
 		_result_1 = _callback_1(_result_1, entries[_i], _i - 1, entries)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local ownedCount = _result_1
 	local near = AppHelpers:trimFarLockedUpgrades(entries)
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result_2 = 0
 	local _callback_2 = function(total, entry)
 		return total + (if not entry.unlocked then 1 else 0)
@@ -2363,7 +2272,6 @@ local function UpgradeBoard(_param)
 	for _i = 1, #near do
 		_result_2 = _callback_2(_result_2, near[_i], _i - 1, near)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local nextCount = _result_2
 	local filterOptions = { {
 		id = "All",
@@ -2385,7 +2293,6 @@ local function UpgradeBoard(_param)
 	local needle = string.lower(query)
 	local pool = if needle ~= "" then entries else near
 	local visible = {}
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback_3 = function(entry)
 		if filter == "Affordable" and not canBuy(entry) then
 			return nil
@@ -2409,7 +2316,6 @@ local function UpgradeBoard(_param)
 	for _k, _v in pool do
 		_callback_3(_v, _k - 1, pool)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	table.sort(visible, function(left, right)
 		if sort == "Cheapest" then
 			return compareFlux(left.price, right.price) < 0
@@ -2437,20 +2343,14 @@ local function UpgradeBoard(_param)
 	local filterW = 176
 	local controlGap = 12
 	local controlsWrap = not stack and viewport.width < 900
-	-- Portrait: title + Buy All + search/filters. Landscape: Buy All only.
-	-- Keep machines above the fold — every 20px of header is a lost buy CTA.
 	local stackControlsY = if chrome.landscape then 40 else 56
-	-- Header must clear the search row. A short section lets those controls
-	-- paint on top of the first machine cards.
 	local headerHeight = if chrome.landscape and stack then 136 elseif stack then 268 else (if controlsWrap then 232 else 188)
 	local rowH = PageBoardHeights.Machine(stack)
 	local gap = if stack then chrome.panelGap else Layout.panelGap
 	local columns = if stack then 1 elseif viewport.width >= 2200 then 4 elseif viewport.width >= 1400 then 3 elseif viewport.width >= 900 then 2 else 1
 	local columnWidth = UDim2.new(1 / columns, -(gap * (columns - 1)) / columns, 0, rowH)
 	local gridRows = math.ceil(math.max(1, #visible) / columns)
-	-- Machines come first so buy CTAs stay above the fold; AutoForge sits below the grid.
 	local machinesBlock = if #visible == 0 then 150 else (gridRows * rowH + math.max(0, gridRows - 1) * gap)
-	-- Extra mobile scroll tail so the floating vault/tap cluster never covers the last Buy button.
 	local machineScrollTail = if stack then scrollTail(stack, chrome.bottomSafe, if chrome.landscape then 52 else 80) else scrollTail(stack, chrome.bottomSafe, 28)
 	local scrollRef = React.useRef()
 	local controlH = TapTarget
@@ -2703,7 +2603,6 @@ local function UpgradeBoard(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim BUY ALL / machine Buy must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
@@ -2766,7 +2665,6 @@ local function AutoForgePanel(_param)
 		_condition = _object
 	end
 	local queue = _condition
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(machine)
 		return machine.Id == queue.MachineId
 	end
@@ -2777,7 +2675,6 @@ local function AutoForgePanel(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _condition_1 = _result
 	if _condition_1 == nil then
 		_condition_1 = machines[1]
@@ -2799,7 +2696,6 @@ local function AutoForgePanel(_param)
 			}
 			table.insert(options, _arg0)
 		end
-		-- ▼ ReadonlyArray.find ▼
 		local _callback_1 = function(machine)
 			return machine.Id == queue.MachineId
 		end
@@ -2810,7 +2706,6 @@ local function AutoForgePanel(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local current = _result_1
 		if current ~= nil then
 			push(current)
@@ -3193,7 +3088,6 @@ local function WorkshopView(_param)
 			})
 		end,
 		onBuyAll = function()
-			-- ▼ ReadonlyArray.forEach ▼
 			local _callback = function(entry)
 				if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
 					dispatch("BuyMachine", {
@@ -3205,7 +3099,6 @@ local function WorkshopView(_param)
 			for _k, _v in entries do
 				_callback(_v, _k - 1, entries)
 			end
-			-- ▲ ReadonlyArray.forEach ▲
 		end,
 		featurePanelHeight = featureHeight,
 		featurePanel = React.createElement(AutoForgePanel, {
@@ -3222,9 +3115,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ForgePathView   (merged from ForgePathView.luau, 275 lines)
--- ======================================================================
 __defs["ForgePathView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -3341,7 +3231,6 @@ local function SpotlightPanel(_param)
 	local onClaim, reducedMotion, stack = _param.onClaim, _param.reducedMotion, _param.stack
 	local softMotion = reducedMotion
 	local claimHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on CLAIM NOW when ready.
 	React.useEffect(function()
 		if not ready or complete or step == nil or not UserInputService.GamepadEnabled then
 			return nil
@@ -3498,14 +3387,7 @@ end)
 return { ForgePathView = ForgePathView }
 end
 
--- ======================================================================
--- Module: ContinuumView   (merged from ContinuumView.luau, 277 lines)
--- ======================================================================
 __defs["ContinuumView"] = function()
--- Next Rank
--- One permanent purchase. Spend flux and stardust to raise a rank that
--- survives rebirth. The page says whether you can afford it, which resource
--- is missing, and what the rank already gives you.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
@@ -3778,9 +3660,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ConvergenceView   (merged from ConvergenceView.luau, 273 lines)
--- ======================================================================
 __defs["ConvergenceView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -3859,7 +3738,6 @@ local function ConvergenceView(_param)
 			break
 		end
 	end
-	-- Gamepad: park Selection on the first claimable personal tier CTA.
 	React.useEffect(function()
 		if firstClaimTier == nil or not UserInputService.GamepadEnabled then
 			return nil
@@ -3939,7 +3817,6 @@ local function ConvergenceView(_param)
 		position = UDim2.new(0, 0, 1, -18),
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#tiers)
 	local _callback = function(tier, index)
 		local progress = math.clamp(event.PersonalContribution / math.max(1, tier.Required), 0, 1)
@@ -4007,7 +3884,6 @@ local function ConvergenceView(_param)
 	for _k, _v in tiers do
 		_newValue[_k] = _callback(_v, _k - 1, tiers)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local sections = {
 		{
 			id = "hero",
@@ -4051,9 +3927,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: BoostsView   (merged from BoostsView.luau, 601 lines)
--- ======================================================================
 __defs["BoostsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -4260,19 +4133,8 @@ local function BoostCard(_param)
 	local column = index % columns
 	local row = math.floor(index / columns)
 	local cellW = 1 / columns
-	-- Each card is (1/columns) of the row width minus its share of the total
-	-- gap, and its left edge sits at (column/columns) plus the gap already
-	-- "used up" by columns before it — column * CARD_GAP * (columns-1)/columns
-	-- would double-count the per-card gap reservation, so it's just column *
-	-- CARD_GAP / columns here, matching the width formula's own gap split.
 	local position = UDim2.new(cellW * column, CARD_GAP * column / columns, 0, row * (cardH + CARD_GAP))
 	local size = UDim2.new(cellW, -(CARD_GAP * (columns - 1) / columns), 0, cardH)
-	-- Name/description/effect/owned used to sit at hand-placed fixed y-offsets sized for a
-	-- single-line description — a real description that wraps to two lines (most of them do,
-	-- e.g. "4x production for 5 minutes. All heat, no patience.") pushed past its allotted box
-	-- and visually collided with the fixed-offset lines below it and the bottom-pinned Activate
-	-- button. A uilistlayout lets each line's actual rendered height push the next one down
-	-- instead of assuming a height that doesn't match the real text.
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
@@ -4342,7 +4204,6 @@ local function BoostCard(_param)
 		layoutOrder = 3,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	})), React.createElement("frame", {
-		-- FocusClaim prefers Claim-named hosts; Activate is the claim CTA on boost cards.
 		Name = "BoostClaimActions",
 		Size = UDim2.new(1, 0, 0, TapTarget),
 		Position = UDim2.new(0, 0, 1, -TapTarget),
@@ -4433,7 +4294,6 @@ local function BoostsView(_param)
 			firstReadyId = boost.Id
 		end
 	end
-	-- Gamepad: park Selection on the first Activate CTA that can fire.
 	React.useEffect(function()
 		if firstReadyId == nil or not UserInputService.GamepadEnabled then
 			return nil
@@ -4554,7 +4414,6 @@ local function BoostsView(_param)
 			end
 			return React.createElement(BoostCard, _attributes)
 		end
-		-- Flatten inventory into row chunks so FlatList virtualizes long boost catalogs.
 		if #boosts >= VIRT_BOOST_MIN then
 			local offerRows = {}
 			local index = 1
@@ -4568,7 +4427,6 @@ local function BoostsView(_param)
 					if boost == nil then
 						break
 					end
-					-- Column-local index so BoostCard parks at y=0 within the row.
 					table.insert(row.cells, { boost = boost, index = col, globalIndex = index - 1 })
 					index += 1
 				end
@@ -4590,7 +4448,6 @@ local function BoostsView(_param)
 					local row = _param_1.item
 					local cells = {}
 					for cellIndex, cell in row.cells do
-						-- Reveal stagger still follows global catalog order.
 						cells[cellIndex] = boostCardFor(cell.boost, cell.index)
 					end
 					return React.createElement("frame", {
@@ -4601,12 +4458,10 @@ local function BoostsView(_param)
 				end,
 			})
 		else
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue = table.create(#boosts)
 			for _k, _v in boosts do
 				_newValue[_k] = boostCardFor(_v, _k - 1)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			gridElement = React.createElement("frame", {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
@@ -4654,9 +4509,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: WorldsView   (merged from WorldsView.luau, 446 lines)
--- ======================================================================
 __defs["WorldsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -4822,7 +4674,6 @@ local function WorldsView(_param)
 	local travelReveal = useStagger(1, softMotion)
 	local headerReveal = boardReveal
 	local worldsHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on FIND CURRENT / travel strip (FocusClaim prefers Confirm-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -5086,7 +4937,6 @@ local function WorldsView(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim FIND CURRENT / travel must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement(PageScaffold, {
 		hostRef = scrollRef,
@@ -5102,9 +4952,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -5116,7 +4963,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

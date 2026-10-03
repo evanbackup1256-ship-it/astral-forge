@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesCore: merged module suite.
-	Members (5): OverviewView, RebirthPanel, RewardsView, MilestonesView, MissionsView.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: OverviewView   (merged from OverviewView.luau, 1611 lines)
--- ======================================================================
 __defs["OverviewView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -129,7 +117,6 @@ local function ReleaseCountdown(_param)
 			wasLive.current = false
 		end
 	end, { live, reducedMotion })
-	-- The live release wash and orbit stay on for the whole countdown.
 	local animateLive = live
 	local pulse = usePulse(animateLive, 2.15)
 	local flash = useFlash(slam, reducedMotion, 1.2)
@@ -202,7 +189,6 @@ local function ReleaseCountdown(_param)
 		local _condition = not reducedMotion
 		if _condition then
 			local _exp_4 = { 0, 1, 2, 3, 4, 5, 6, 7 }
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue = table.create(#_exp_4)
 			local _callback = function(index)
 				return React.createElement("frame", {
@@ -229,7 +215,6 @@ local function ReleaseCountdown(_param)
 			for _k, _v in _exp_4 do
 				_newValue[_k] = _callback(_v, _k - 1, _exp_4)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			_condition = _newValue
 		end
 		_result = React.createElement("frame", {
@@ -275,7 +260,6 @@ local function ReleaseCountdown(_param)
 			reducedMotion = reducedMotion,
 		})))
 	else
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#values)
 		local _callback = function(entry, index)
 			return React.createElement("frame", {
@@ -327,7 +311,6 @@ local function ReleaseCountdown(_param)
 		for _k, _v in values do
 			_newValue[_k] = _callback(_v, _k - 1, values)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_result = _newValue
 	end
 	return React.createElement(Panel, {
@@ -348,7 +331,6 @@ local function ReleaseCountdown(_param)
 		ZIndex = 3,
 	}, _result))
 end
-
 
 local function Metric(_param)
 	local label = _param.label
@@ -407,7 +389,6 @@ local function Metric(_param)
 	}))
 end
 
--- Listed machine rate from config. Matches the workshop card (BaseProduction), not multiplied output.
 local function listedFluxPerSec(machine): number
 	local base = if type(machine) == "table" then machine.BaseProduction else nil
 	if type(base) ~= "number" or base <= 0 then
@@ -416,7 +397,6 @@ local function listedFluxPerSec(machine): number
 	return base
 end
 
--- First core is paid when run flux hits the prestige bar (ratio 1). Stardust follows the rebirth bag.
 local function firstRebirthStardust(config): number
 	local economy = if config ~= nil and type(config.Economy) == "table" then config.Economy else nil
 	local bag = if economy ~= nil and type(economy.Rebirth) == "table" then economy.Rebirth else nil
@@ -425,8 +405,6 @@ local function firstRebirthStardust(config): number
 	return math.max(minimum, math.floor(math.sqrt(1) * scale))
 end
 
--- The one progression goal that matters: the next Forge Level.
--- "Level 6: Earn 1K flux in total · 420/1K".
 local function levelGoalLine(state): string?
 	local levelState = state.Level
 	local nextStep = if type(levelState) == "table" then levelState.Next else nil
@@ -498,8 +476,6 @@ local function progressLadder(state, config, limit: number): { string }
 			table.insert(lines, line)
 		end
 	end
-	-- The level goal first (the player's single "what next"), then the next
-	-- machine to aim for, then the rebirth payout once Rebirth is open.
 	push(levelGoalLine(state))
 	push(nextMachineGateLine(state, config))
 	local unlocks = state.FeatureUnlocks
@@ -523,7 +499,6 @@ local function OverviewView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- so decorative Overview stagger can mute without folding pause into reducedMotion.
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local quietMotion = softMotion or effectsPaused or antilag.skipEntrance
@@ -597,8 +572,6 @@ local function OverviewView(_param)
 				if not alive then
 					break
 				end
-				-- The label shows tenths, so re-render once per tenth (the meter springs between them);
-				-- 20 renders a second of the whole Overview page during repeated taps read as lag.
 				setOverchargeLeft(math.ceil(left * 10) / 10)
 				if left <= 0 then
 					break
@@ -608,8 +581,6 @@ local function OverviewView(_param)
 		end)
 		return function()
 			alive = false
-			-- The worker exits on its own when the cooldown hits zero. Cancelling a
-			-- finished thread throws, which used to fire on the next Overcharge.
 			pcall(function()
 				task.cancel(worker)
 			end)
@@ -629,7 +600,6 @@ local function OverviewView(_param)
 	end
 	local overchargeLabel = if overchargeLeft > 0.02 then `WAIT {string.format("%.1f", overchargeLeft)}s` else "OVERCHARGE"
 	local vaultClaimHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on COLLECT/OVERCHARGE (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -657,11 +627,8 @@ local function OverviewView(_param)
 	local primaryColor = if primaryIsBuy then Palette.coral else Palette.green
 	local primaryHighlight = if primaryIsBuy then true elseif canCollect then (firstRun or vaultFill >= 0.85) else false
 	local comebackLine = `Earns for {offlineHours}h while you're away. Then collect.`
-	-- Wide PC: vault hero sits beside the metrics column instead of stacking full-width bands.
 	local wideOverview = not stack and viewport.width >= 1180
 	local ultraOverview = not stack and viewport.width >= 1680
-	-- Portrait stacks CTAs under the vault readout; landscape puts them side-by-side so both
-	-- stay above the fold on ~320–390px-tall screens. Desktop keeps the right-rail CTA column.
 	local countdownInPage = type(releaseAt) == "number" and releaseAt > (function()
 		local ok, value = pcall(function()
 			return game:GetService("Workspace"):GetServerTimeNow()
@@ -844,7 +811,6 @@ local function OverviewView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
-		-- FocusClaim COLLECT/OVERCHARGE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
 		FillDirection = if landscapePhone and showOvercharge then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
@@ -907,7 +873,6 @@ local function OverviewView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
-		-- FocusClaim COLLECT/OVERCHARGE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
@@ -1642,9 +1607,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: RebirthPanel   (merged from RebirthPanel.luau, 387 lines)
--- ======================================================================
 __defs["RebirthPanel"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -1702,9 +1664,6 @@ local function featuresOpeningOnNextRebirth(config, nextCount: number): string
 	return table.concat(names, ", ")
 end
 
--- The nearest thing still locked behind a rebirth COUNT -- a machine or a zone --
--- with how many rebirths away it is. Zones and machines open by count, not by how
--- big a single payout is, so the panel says how close the next gate is.
 local function nextMachineRebirthNote(config, rebirths: number): string
 	local bestName = ""
 	local bestNeed = math.huge
@@ -1785,7 +1744,6 @@ local function RebirthPanel(_param)
 	local meterReveal = useStagger(2, softMotion)
 	local rewardReveal = useStagger(3, softMotion)
 	local rebirthSoft = reducedMotion or meterReveal == nil or rewardReveal == nil
-	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
 			return nil
@@ -2027,9 +1985,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: RewardsView   (merged from RewardsView.luau, 475 lines)
--- ======================================================================
 __defs["RewardsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -2154,7 +2109,6 @@ local function TimedRewardQueue(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 8),
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#pending)
 		local _callback = function(entry, index)
 			local ready = played >= entry.Seconds
@@ -2208,7 +2162,6 @@ local function TimedRewardQueue(_param)
 		for _k, _v in pending do
 			_newValue[_k] = _callback(_v, _k - 1, pending)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition = React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, 52),
 			Position = UDim2.fromOffset(0, 24),
@@ -2237,7 +2190,6 @@ local function RewardsView(_param)
 	reducedMotion = softMotion
 	local dailyReady = state.Daily.CanClaim == true
 	local timedEntries = state.TimedRewards.Rewards or {}
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)
 		return not entry.Claimed
 	end
@@ -2248,7 +2200,6 @@ local function RewardsView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local nextTimed = _result
 	local _condition = state.TimedRewards.PlaySeconds
 	if _condition == nil then
@@ -2265,7 +2216,6 @@ local function RewardsView(_param)
 	local rewardCardH = if stack then 172 else 110
 	local rewardsTail = scrollTail(stack, chrome.bottomSafe, 48)
 	local rewardsClaimHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on Daily Claim or Timed CLAIM (FocusClaim prefers Claim-named hosts).
 	local rewardsClaimReady = dailyReady or timedReady
 	React.useEffect(function()
 		if not rewardsClaimReady or not UserInputService.GamepadEnabled then
@@ -2443,7 +2393,6 @@ local function RewardsView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		-- Prefer Daily Claim when both ready; otherwise park on Timed CLAIM.
 		ref = if timedReady and not dailyReady then rewardsClaimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if timedReady then "CLAIM" else "CHARGING",
@@ -2502,9 +2451,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: MilestonesView   (merged from MilestonesView.luau, 468 lines)
--- ======================================================================
 __defs["MilestonesView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -2741,7 +2687,6 @@ local function MilestonesView(_param)
 	local list = state.Achievements or {}
 	local filter, setFilter = React.useState("All")
 	local counts = taskFilterCounts(list)
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#TASK_FILTERS)
 	local _callback = function(option)
 		local _object = table.clone(option)
@@ -2752,9 +2697,7 @@ local function MilestonesView(_param)
 	for _k, _v in TASK_FILTERS do
 		_newValue[_k] = _callback(_v, _k - 1, TASK_FILTERS)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local options = _newValue
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_1 = {}
 	local _callback_1 = function(achievement)
 		return taskMatchesFilter(achievement, filter)
@@ -2766,7 +2709,6 @@ local function MilestonesView(_param)
 			_newValue_1[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local visible = _newValue_1
 	local sourceOrder = {}
 	for index, achievement in visible do
@@ -2796,7 +2738,6 @@ local function MilestonesView(_param)
 			break
 		end
 	end
-	-- Gamepad: park Selection on the first ready CLAIM CTA in the filtered list.
 	React.useEffect(function()
 		if firstReadyId == nil or not UserInputService.GamepadEnabled then
 			return nil
@@ -2971,9 +2912,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: MissionsView   (merged from MissionsView.luau, 478 lines)
--- ======================================================================
 __defs["MissionsView"] = function()
 local exports = {}
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
@@ -3215,7 +3153,6 @@ local function MissionsView(_param)
 	local filter, setFilter = React.useState("All")
 	local counts = taskFilterCounts(quests)
 	local missionClaimHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on CLAIM ALL when ready.
 	React.useEffect(function()
 		if counts.Ready <= 0 or not UserInputService.GamepadEnabled then
 			return nil
@@ -3236,7 +3173,6 @@ local function MissionsView(_param)
 	end, { counts.Ready, filter })
 	local guide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Missions else nil
 	local claimAllReady = function()
-		-- Partial Quests bags / incomplete entries must not throw Progress>=Target compares.
 		if type(quests) ~= "table" then
 			return
 		end
@@ -3250,7 +3186,6 @@ local function MissionsView(_param)
 			end
 		end
 	end
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#TASK_FILTERS)
 	local _callback = function(option)
 		local _object = table.clone(option)
@@ -3261,9 +3196,7 @@ local function MissionsView(_param)
 	for _k, _v in TASK_FILTERS do
 		_newValue[_k] = _callback(_v, _k - 1, TASK_FILTERS)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local options = _newValue
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_1 = {}
 	local _callback_1 = function(quest)
 		return taskMatchesFilter(quest, filter)
@@ -3275,7 +3208,6 @@ local function MissionsView(_param)
 			_newValue_1[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local visible = _newValue_1
 	local headerHeight = if stack then (if chrome.landscape then 188 else 204) else 168
 	local rowStride = (if stack then 220 else 148) + 16
@@ -3450,9 +3382,6 @@ exports.TASK_FILTERS = TASK_FILTERS
 return exports
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -3464,7 +3393,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

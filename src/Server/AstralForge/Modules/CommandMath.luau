@@ -1,8 +1,4 @@
 --!strict
--- Pure command bag ensure / commander level / rank helpers. No Roblox services —
--- ProgressionService, DataService, and Lune verify scripts share this so
--- Signals-only bags seeded by ApplyReward can be rebuilt and tested without Studio.
--- Season rotation, reward mutation, and Random stay with the caller; seasonId is injected.
 
 local CommandMath = {}
 
@@ -28,9 +24,6 @@ export type CommandBag = {
 local DEFAULT_CREW = { Pilot = 1, Engineer = 1, Navigator = 1 }
 local DEFAULT_SEASON = "DEEP_SPACE_01"
 
--- ApplyReward Signals / CommandXP / StreakShield may seed Command={Signals=N}
--- (or XP/SeasonXP only) without Crew/Artifacts/Weekly/Shop — sanitize and
--- CommandState must rebuild before iterating nested bags.
 function CommandMath.Ensure(command: any, seasonId: string?): CommandBag
 	local season = if type(seasonId) == "string" and seasonId ~= "" then seasonId else DEFAULT_SEASON
 	if type(command) ~= "table" then

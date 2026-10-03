@@ -1,13 +1,4 @@
 --!strict
---[=[
-	DocumentKit: merged module suite.
-	Members (5): SessionDocument, SessionDocumentStore, DocumentCommon, OpenDocument, UnlockedDocumentStore.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,11 +18,7 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: SessionDocument   (merged from SessionDocument.luau, 109 lines)
--- ======================================================================
 __defs["SessionDocument"] = function()
-
 
 local DocumentCommon = __load("DocumentCommon")
 
@@ -141,11 +128,7 @@ end
 return SessionDocument
 end
 
--- ======================================================================
--- Module: SessionDocumentStore   (merged from SessionDocumentStore.luau, 37 lines)
--- ======================================================================
 __defs["SessionDocumentStore"] = function()
-
 
 local DocumentCommon = __load("DocumentCommon")
 local SessionDocument = __load("SessionDocument")
@@ -183,11 +166,7 @@ end
 return SessionDocumentStore
 end
 
--- ======================================================================
--- Module: DocumentCommon   (merged from DocumentCommon.luau, 125 lines)
--- ======================================================================
 __defs["DocumentCommon"] = function()
-
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -199,12 +178,10 @@ local function requireDocumentService()
 		return (require :: any)(sibling)
 	end
 
-
 	sibling = script.Parent:WaitForChild("DocumentService", 5)
 	if sibling then
 		return (require :: any)(sibling)
 	end
-
 
 	local candidates: { Instance? } = {}
 	local node: Instance? = script
@@ -290,7 +267,6 @@ type StoreProps = {
 	bindToClose: boolean?,
 }
 
-
 function DocumentCommon.baseStoreProps(props: StoreProps, lockSessions: boolean)
 	return {
 		dataStore = props.dataStore,
@@ -313,11 +289,7 @@ end
 return DocumentCommon
 end
 
--- ======================================================================
--- Module: OpenDocument   (merged from OpenDocument.luau, 109 lines)
--- ======================================================================
 __defs["OpenDocument"] = function()
-
 
 local DocumentCommon = __load("DocumentCommon")
 
@@ -427,11 +399,7 @@ end
 return OpenDocument
 end
 
--- ======================================================================
--- Module: UnlockedDocumentStore   (merged from UnlockedDocumentStore.luau, 37 lines)
--- ======================================================================
 __defs["UnlockedDocumentStore"] = function()
-
 
 local DocumentCommon = __load("DocumentCommon")
 local OpenDocument = __load("OpenDocument")
@@ -469,9 +437,6 @@ end
 return UnlockedDocumentStore
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -483,7 +448,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

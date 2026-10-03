@@ -1,12 +1,7 @@
 --!strict
--- The Astral Bazaar's rules as pure functions: the bank's interest, the black market's hourly stock, the
--- lottery's odds and the merchant contracts. No Roblox services, no profile, no money: BazaarService owns those.
 
 local BazaarMath = {}
 
--- ---------------------------------------------------------------------------------------------- bank
--- Savings earn SAVINGS_RATE per hour on up to CAP_SECONDS of the player's own production, for at most
--- MAX_ACCRUAL_HOURS since they last looked, so the bank is a bonus on income and never a way to snowball.
 BazaarMath.BANK = table.freeze({
 	SavingsRate = 0.03,
 	CapSeconds = 7200,
@@ -27,17 +22,13 @@ function BazaarMath.TermById(id: any): any
 	return nil
 end
 
--- Hours of interest owed for `elapsed` seconds, capped.
 function BazaarMath.AccrualHours(elapsed: number): number
 	return math.clamp(elapsed / 3600, 0, BazaarMath.BANK.MaxAccrualHours)
 end
 
--- ---------------------------------------------------------------------------------------------- black market
 BazaarMath.MARKET_SECONDS = 3600
 BazaarMath.MARKET_OFFERS = 4
 
--- Each deal is a reward the game already knows how to grant, priced in seconds of the player's production at
--- full price; the market sells it for between 20% and 45% off, and only a few per hour.
 BazaarMath.CATALOG = table.freeze({
 	table.freeze({ Id = "overdrive", Name = "Overdrive Cell", Reward = table.freeze({ Boost = "Overdrive" }), Seconds = 2400 }),
 	table.freeze({ Id = "vaultsurge", Name = "Vault Surge Cell", Reward = table.freeze({ Boost = "VaultSurge" }), Seconds = 2400 }),
@@ -62,13 +53,11 @@ function BazaarMath.MarketBucket(now: number): number
 	return math.floor(now / BazaarMath.MARKET_SECONDS)
 end
 
--- The hour's deals: the same four for every player, chosen by the hour. Each has a discount and a stock.
 function BazaarMath.Offers(bucket: number): { any }
 	local pool = {}
 	for index in BazaarMath.CATALOG do
 		table.insert(pool, index)
 	end
-	-- a seeded shuffle, so the stock changes every hour but is the same for everyone in it
 	for i = #pool, 2, -1 do
 		local j = math.floor(hash01(bucket * 31 + i) * i) + 1
 		pool[i], pool[j] = pool[j], pool[i]
@@ -97,12 +86,10 @@ function BazaarMath.OfferById(bucket: number, id: any): any
 	return nil
 end
 
--- ---------------------------------------------------------------------------------------------- lottery
 BazaarMath.LOTTERY_SECONDS = 300
-BazaarMath.LOTTERY_RAKE = 0.1 -- the house keeps a tenth of the pot
-BazaarMath.LOTTERY_MAX_TICKETS = 20 -- per player per draw
+BazaarMath.LOTTERY_RAKE = 0.1
+BazaarMath.LOTTERY_MAX_TICKETS = 20
 
--- A ticket costs a fixed share of the buyer's own flux, so it means the same at any size.
 BazaarMath.LOTTERY_TICKET_SHARE = 0.01
 
 function BazaarMath.LotteryDraw(tickets: { [number]: number }, roll: number): number?
@@ -132,9 +119,6 @@ function BazaarMath.LotteryBucket(now: number): number
 	return math.floor(now / BazaarMath.LOTTERY_SECONDS)
 end
 
--- ---------------------------------------------------------------------------------------------- contracts
--- Daily jobs measured in things the player does in the Bazaar and the Casino. Each template names a counter in
--- the saved bag; progress is the counter minus where it stood when the contract was drawn today.
 BazaarMath.CONTRACTS = table.freeze({
 	table.freeze({ Id = "rounds", Name = "Regular", Text = "Play casino rounds", Counter = "Rounds", Target = 10, Reward = table.freeze({ CashMinutes = 8, Stardust = 6 }) }),
 	table.freeze({ Id = "wins", Name = "Hot Hand", Text = "Win casino rounds", Counter = "Wins", Target = 4, Reward = table.freeze({ CashMinutes = 10, FreeSpins = 1 }) }),
@@ -146,7 +130,6 @@ BazaarMath.CONTRACTS = table.freeze({
 BazaarMath.CONTRACTS_PER_DAY = 3
 BazaarMath.COUNTERS = table.freeze({ "Rounds", "Wins", "Deals", "Deposits", "Tickets", "Interest" })
 
--- Which three contracts are on offer today for this player (stable for the day).
 function BazaarMath.ContractsFor(day: number, userId: number): { any }
 	local pool = {}
 	for index in BazaarMath.CONTRACTS do
@@ -172,7 +155,6 @@ function BazaarMath.ContractById(id: any): any
 	return nil
 end
 
--- ---------------------------------------------------------------------------------------------- the saved bag
 local function count(value: any, ceiling: number?): number
 	local n = tonumber(value)
 	if n == nil or n ~= n or n == math.huge or n == -math.huge then

@@ -118,9 +118,6 @@ return function()
 		local persistKeys = { Cash = true, Vault = true, RunCash = true, LifetimeCash = true }
 		for _, key in ROOT_CURRENCIES do
 			if persistKeys[key] then
-				-- Economy.Max persists and floors at zero across both the number and
-				-- string-encoded Omega domains; the old numeric-only guard let a
-				-- negative Omega-scale balance ("-5.0e50") through unrepaired.
 				local persisted = Economy.Max(profile[key], 0)
 				if persisted ~= profile[key] then
 					profile[key] = persisted
@@ -217,11 +214,6 @@ return function()
 			profile.Anomaly = { Charge = 0, Fragments = 0, Stabilizations = 0, Chain = 0, BestChain = 0 }
 			repairs += 1
 		else
-			-- Highest possible target ceiling across all CoreTiers, not just the base
-			-- MaximumTarget -- a legitimate high-CoreTier player's Charge can exceed the base
-			-- ceiling by design (see GameConfig.Anomalies.CoreTiers[].MaximumTargetBonus), so
-			-- clamping against the un-bonused ceiling here would repeatedly "repair" (clamp
-			-- down) a real player's correctly-earned charge every anti-cheat pass.
 			local maxTargetBonus = 0
 			for _, tierConfig in GameConfig.Anomalies.CoreTiers do
 				maxTargetBonus = math.max(maxTargetBonus, tierConfig.MaximumTargetBonus)
@@ -344,11 +336,6 @@ return function()
 			end
 		end
 
-		-- Cash velocity: observation only, never a correction. Load / Production / AutoForge /
-		-- Maintenance apply server-authoritative lump sums (offline payout, vault auto-collect)
-		-- that dwarf production*elapsed, and Studio test grants do the same. Logging those as
-		-- "cash jump" spam is a false positive. Only telemetry live games after a baseline,
-		-- and never touch the profile.
 		local skipVelocity = not state.BaselineReady
 			or RunService:IsStudio()
 			or action == "Load"
@@ -390,12 +377,6 @@ return function()
 		return repairs == 0
 	end
 
-	-- Call after any server-computed lump-sum grant that is not itself paced by the player's
-	-- current production rate (offline earnings being the main one -- a player away for hours
-	-- can legitimately return to a Cash jump the velocity check's production-rate*elapsed
-	-- ceiling was never meant to evaluate, since that formula only covers earning while online
-	-- and active). Re-seeds the velocity baseline to the post-grant balance so the next Observe
-	-- measures real gameplay activity from here, not the grant itself.
 	function AntiCheat:SyncBaseline(player: Player, profile): ()
 		if type(profile) ~= "table" then
 			return

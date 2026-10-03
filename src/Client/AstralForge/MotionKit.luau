@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	MotionKit: merged module suite.
-	Members (9): motionTokens, vfxMath, autoScale, motion, antilag, dynamicLayout, flexbox, shimmer, pageTransition.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,48 +18,17 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: motionTokens   (merged from motionTokens.luau, 296 lines)
--- ======================================================================
 __defs["motionTokens"] = function()
--- One motion language for the whole game.
---
--- Every spring, tween, entrance, exit and stagger resolves its feel here, so
--- a button press, a card sliding in, a page change and a reward ceremony all
--- move with the same physics and the same curves -- they read as one system
--- instead of four spring libraries tuned one component at a time.
---
--- Principles:
---   * No wobble. Interface springs settle with a damping ratio of 0.76-1.0:
---     fluid deceleration, at most a hair of overshoot. Bounce is a deliberate
---     choice (the `bouncy` preset), never an accident of a low damping value.
---   * Speed follows size. Small things (hover, press) are quick; big things
---     (pages, overlays, ceremonies) take longer so the eye can follow them.
---   * Enter decelerates, exit accelerates. Things arrive and settle; they
---     leave by picking up speed. Exits are shorter than entrances.
---   * Cascades ease. Staggered items open with a short gap that widens, and
---     the whole cascade stays under a quarter second so a list never crawls.
---
--- Pure math, no Roblox services -- scripts/verify_motion.luau checks it.
 
 local Tokens = {}
 
--- Springs
-
 type Feel = { frequency: number, dampingRatio: number }
 
--- Frequencies (Hz) the interface is allowed to use. Below the floor a spring
--- drifts; above the ceiling it snaps and the motion can't be seen.
 Tokens.FREQUENCY_MIN = 1.35
 Tokens.FREQUENCY_MAX = 8.5
--- Damping the interface is allowed to use (see "No wobble").
 Tokens.DAMPING_MIN = 0.76
 Tokens.DAMPING_MAX = 1.0
 
--- The codebase describes springs as (stiffness, damping) pairs tuned over
--- time. This maps any pair onto the shared feel: the relative speed each
--- caller chose is kept, while damping is lifted into the no-wobble band
--- (damping 28 and below -> 0.76, 36 -> 0.82, 44 -> 0.91, 52+ -> critical).
 function Tokens.feel(stiffness: number, damping: number): Feel
 	local frequency = math.clamp(stiffness / 130, Tokens.FREQUENCY_MIN, Tokens.FREQUENCY_MAX)
 	local raw = damping / 52
@@ -76,34 +36,23 @@ function Tokens.feel(stiffness: number, damping: number): Feel
 	return { frequency = frequency, dampingRatio = ratio }
 end
 
--- Named springs for new code. (stiffness, damping) pairs so they drop into
--- every existing hook.
 Tokens.SPRING = table.freeze({
-	-- Hover, press, toggles: immediate but never jittery.
 	snap = table.freeze({ stiffness = 1000, damping = 44 }),
-	-- Most interface movement: panels, tabs, indicators, reveals.
 	smooth = table.freeze({ stiffness = 620, damping = 48 }),
-	-- Large surfaces: pages, sheets, overlays.
 	gentle = table.freeze({ stiffness = 420, damping = 52 }),
-	-- Numbers and meters catching up to a new value.
 	settle = table.freeze({ stiffness = 360, damping = 52 }),
-	-- Celebrations only: a visible, pleasant overshoot.
 	bouncy = table.freeze({ stiffness = 560, damping = 22 }),
 })
 
--- The explicit bouncy preset keeps its bounce; everything else is lifted.
 function Tokens.bouncyFeel(): Feel
 	return { frequency = Tokens.SPRING.bouncy.stiffness / 130, dampingRatio = 0.58 }
 end
 
--- Settling time (to within 2%) of a spring, in seconds. Used by tests and by
--- anything that needs to wait for a spring to land.
 function Tokens.settleSeconds(feel: Feel): number
 	local omega = feel.frequency * math.pi * 2
 	return 4 / (math.max(0.1, feel.dampingRatio) * omega)
 end
 
--- Peak overshoot (fraction of the travel) of a spring released from rest.
 function Tokens.overshoot(feel: Feel): number
 	local z = feel.dampingRatio
 	if z >= 1 then
@@ -112,10 +61,6 @@ function Tokens.overshoot(feel: Feel): number
 	return math.exp(-z * math.pi / math.sqrt(1 - z * z))
 end
 
--- Advance a spring exactly by `dt` seconds (the closed-form damped
--- oscillator, as Flipper uses). For hand-driven motion -- drags that spring
--- back, cameras -- so it is smooth and stable at any frame rate, where a
--- per-frame Euler step drifts and can jitter on uneven frames.
 function Tokens.step(x: number, v: number, goal: number, feel: Feel, dt: number): (number, number)
 	local z = feel.dampingRatio
 	local w = feel.frequency * math.pi * 2
@@ -134,11 +79,6 @@ function Tokens.step(x: number, v: number, goal: number, feel: Feel, dt: number)
 	return nx, nv
 end
 
--- Curves
-
--- A CSS-style cubic-bezier(x1, y1, x2, y2) timing function. Solved with
--- Newton-Raphson and a bisection fallback, so it is exact enough for motion
--- at any frame rate.
 function Tokens.bezier(x1: number, y1: number, x2: number, y2: number): (number) -> number
 	local function sample(a1: number, a2: number, t: number): number
 		local u = 1 - t
@@ -167,7 +107,6 @@ function Tokens.bezier(x1: number, y1: number, x2: number, y2: number): (number)
 			end
 			t -= err / d
 		end
-		-- Bisection for the rare flat spots Newton can't cross.
 		local lo, hi = 0, 1
 		t = x
 		for _ = 1, 24 do
@@ -186,8 +125,6 @@ function Tokens.bezier(x1: number, y1: number, x2: number, y2: number): (number)
 	end
 end
 
--- The curve set. "Emphasized" curves are for arrivals that matter (pages,
--- overlays, rewards); "standard" for everyday movement.
 Tokens.EASE = table.freeze({
 	standard = Tokens.bezier(0.2, 0, 0, 1),
 	decelerate = Tokens.bezier(0.05, 0.7, 0.1, 1),
@@ -199,8 +136,6 @@ Tokens.EASE = table.freeze({
 	end,
 })
 
--- Durations
-
 Tokens.DURATION = table.freeze({
 	instant = 0.08,
 	quick = 0.14,
@@ -210,16 +145,10 @@ Tokens.DURATION = table.freeze({
 	ceremony = 0.9,
 })
 
--- Exits are shorter than entrances and never drag.
 function Tokens.exitSeconds(entrance: number): number
 	return math.clamp(entrance * 0.65, 0.1, 0.22)
 end
 
--- Choreography
-
--- Delay before the `index`-th item of a cascade starts (index 0 = first).
--- The gaps widen gently and the whole cascade is capped, so a long list
--- arrives as one motion rather than a slow march.
 Tokens.STAGGER_STEP = 0.028
 Tokens.STAGGER_CAP = 0.24
 function Tokens.stagger(index: number, step: number?): number
@@ -228,26 +157,15 @@ function Tokens.stagger(index: number, step: number?): number
 	return math.min(Tokens.STAGGER_CAP, s * (i ^ 1.12))
 end
 
--- How far (px) a surface rises into place as it enters, by its size class.
 Tokens.RISE = table.freeze({ small = 6, standard = 10, large = 16 })
 
--- Effect maths (sparks, rings, pops, confetti)
-
--- Real effects move under forces: a spark is thrown, air drags it, gravity
--- bends it down, and it stretches along its path when it's fast. Closed
--- form, so every frame lands on the exact point in time at any frame rate.
 local Fx = {}
 
--- Position (px, screen space: +y is down) of a particle thrown at `angle`
--- (radians, 0 = right, -pi/2 = up) with `speed` px/s, after `t` seconds, under
--- linear drag `k` (1/s) and gravity `g` (px/s^2).
 function Fx.ballistic(t: number, angle: number, speed: number, g: number, k: number): (number, number)
 	local vx0, vy0 = math.cos(angle) * speed, math.sin(angle) * speed
 	if k < 1e-4 then
 		return vx0 * t, vy0 * t + 0.5 * g * t * t
 	end
-	-- dv/dt = g - k v  =>  v(t) = g/k + (v0 - g/k) e^(-kt): the particle
-	-- relaxes toward terminal velocity g/k (falling, +y).
 	local decay = 1 - math.exp(-k * t)
 	local x = vx0 / k * decay
 	local terminal = g / k
@@ -255,7 +173,6 @@ function Fx.ballistic(t: number, angle: number, speed: number, g: number, k: num
 	return x, y
 end
 
--- Velocity (px/s) at time `t` for the same throw.
 function Fx.velocity(t: number, angle: number, speed: number, g: number, k: number): (number, number)
 	local vx0, vy0 = math.cos(angle) * speed, math.sin(angle) * speed
 	if k < 1e-4 then
@@ -266,13 +183,10 @@ function Fx.velocity(t: number, angle: number, speed: number, g: number, k: numb
 	return vx0 * e, terminal + (vy0 - terminal) * e
 end
 
--- How much a streak stretches along its motion at `speed` px/s (1 = round).
 function Fx.stretch(speed: number): number
 	return 1 + math.clamp(speed / 260, 0, 2.2)
 end
 
--- A particle's fade over its life: holds, then accelerates out.
--- Returns transparency (0 = solid, 1 = gone).
 function Fx.fade(t: number, life: number, hold: number?): number
 	local start = life * (hold or 0.35)
 	if t <= start then
@@ -281,13 +195,10 @@ function Fx.fade(t: number, life: number, hold: number?): number
 	return Tokens.EASE.accelerate(math.clamp((t - start) / math.max(1e-3, life - start), 0, 1))
 end
 
--- How white-hot a particle is (1 at birth, cooling to 0 by `cool` seconds).
 function Fx.heat(t: number, cool: number): number
 	return 1 - Tokens.EASE.decelerate(math.clamp(t / math.max(1e-3, cool), 0, 1))
 end
 
--- A shock ring: bursts out fast and slows (grow 0..1), thinning as it goes,
--- and fades out late.
 function Fx.ring(t: number, life: number): (number, number, number)
 	local x = math.clamp(t / math.max(1e-3, life), 0, 1)
 	local grow = Tokens.EASE.decelerate(x)
@@ -296,18 +207,14 @@ function Fx.ring(t: number, life: number): (number, number, number)
 	return grow, thickness, transparency
 end
 
--- A pop's entrance scale: overshoots once and settles, like a stamped number.
 function Fx.popScale(t: number, rise: number, amount: number): number
 	local x = math.clamp(t / math.max(1e-3, rise), 0, 1)
-	-- easeOutBack with a soft overshoot.
 	local c1 = 1.4
 	local c3 = c1 + 1
 	local back = 1 + c3 * (x - 1) ^ 3 + c1 * (x - 1) ^ 2
 	return 1 - amount + amount * back
 end
 
--- Deterministic pseudo-random in [0, 1) from an integer id, so a particle's
--- path is stable across re-renders.
 function Fx.hash(id: number, salt: number?): number
 	local v = math.sin((id + (salt or 0) * 101.37) * 12.9898) * 43758.5453
 	return v - math.floor(v)
@@ -318,18 +225,10 @@ Tokens.fx = Fx
 return Tokens
 end
 
--- ======================================================================
--- Module: vfxMath   (merged from vfxMath.luau, 4 lines)
--- ======================================================================
 __defs["vfxMath"] = function()
--- The interface effect maths lives in motionTokens (Tokens.fx) so there is one
--- motion module; this name is kept for the effects that read it.
 return __load("motionTokens").fx
 end
 
--- ======================================================================
--- Module: autoScale   (merged from autoScale.luau, 318 lines)
--- ======================================================================
 __defs["autoScale"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local GuiService = game:GetService("GuiService")
@@ -359,37 +258,22 @@ local function useViewportScale()
 	return _condition
 end
 local function readSafeInsets()
-	-- AutoScale is mounted inside a CoreUISafeInsets ScreenGui. Roblox has already
-	-- applied notch, topbar, home-indicator, and rounded-corner insets to this frame.
-	-- Applying GetGuiInset again shifted controls away from the actual safe center.
 	return { top = 0, bottom = 0, left = 0, right = 0 }
 end
--- How much of the screen the software keyboard leaves usable, as an absolute Y coordinate.
 local function keyboardTop(screenHeight, screenOriginY)
 	if not UserInputService.TouchEnabled or not UserInputService.OnScreenKeyboardVisible then
 		return screenHeight
 	end
 	local position = UserInputService.OnScreenKeyboardPosition
 	local size = UserInputService.OnScreenKeyboardSize
-	-- Roblox reports the keyboard through two properties that disagree across platforms: some
-	-- report a valid Position with a zero Size, others the reverse, and a keyboard that has not
-	-- finished animating in reports a Position at the very bottom of the screen. Prefer whichever
-	-- pair produces a plausible top edge, and fall back to a conservative half-screen reservation
-	-- rather than pretending the keyboard covers nothing.
 	local fromPosition = if position.Y > screenOriginY then position.Y - screenOriginY else math.huge
 	local fromSize = if size.Y > 0 then screenHeight - size.Y else math.huge
 	local reportedTop = math.min(fromPosition, fromSize)
 	if reportedTop >= screenHeight or reportedTop == math.huge then
 		reportedTop = screenHeight * 0.55
 	end
-	-- Never shrink the usable area below a third of the screen — a bogus report should degrade
-	-- into a cramped layout, not a zero-height one that collapses every panel.
 	return math.clamp(reportedTop, screenHeight * 0.34, screenHeight)
 end
--- Scrolls whatever the player is typing into back above the software keyboard. Walks *every*
--- scrolling ancestor rather than stopping at the first: a field inside a horizontal carousel that
--- sits inside a vertical page needs the outer page to move, and the innermost frame — which cannot
--- scroll on Y at all — used to swallow the reveal and leave the field hidden under the keyboard.
 local function revealFocusedControl(keyboardTopY)
 	local focused = UserInputService:GetFocusedTextBox()
 	if focused == nil then
@@ -403,8 +287,6 @@ local function revealFocusedControl(keyboardTopY)
 				local current = scroll.CanvasPosition
 				local localTop = focused.AbsolutePosition.Y - scroll.AbsolutePosition.Y + current.Y
 				local localBottom = localTop + focused.AbsoluteSize.Y
-				-- Clip the visible window at the keyboard's top edge when the frame extends under
-				-- it, so a field is scrolled to somewhere the player can actually see.
 				local rawWindow = math.max(1, scroll.AbsoluteWindowSize.Y)
 				local occluded = if keyboardTopY ~= nil then math.max(0, scroll.AbsolutePosition.Y + rawWindow - keyboardTopY) else 0
 				local windowHeight = math.max(64, rawWindow - occluded)
@@ -422,10 +304,6 @@ local function revealFocusedControl(keyboardTopY)
 		ancestor = ancestor.Parent
 	end
 end
--- Resize signals arrive from two places (the safe host's AbsoluteSize and the camera's
--- ViewportSize), often several per frame while a window is dragged. Each one used to re-render
--- the whole UI. They now fold into one update per frame, at most RESIZE_HZ while the size keeps
--- moving, with a trailing update so the final size is always exact.
 local RESIZE_HZ = 30
 local function useCoalescedScreen(initial)
 	local screen, setScreenNow = React.useState(initial)
@@ -496,11 +374,6 @@ local function AutoScale(_param)
 	React.useEffect(function()
 		local sizeConnection
 		local alive = true
-		-- An orientation flip changes ViewportSize first and only publishes the rotated safe area
-		-- a frame or two later, so the inset read that rides along with the resize returns the
-		-- *previous* orientation's notch. Re-read on a short trailing schedule as well, otherwise
-		-- a portrait->landscape flip leaves the notch padding on the wrong edge until something
-		-- else happens to touch the insets.
 		local pending = {}
 		local resettle = function()
 			for _1, item in pending do
@@ -581,14 +454,12 @@ local function AutoScale(_param)
 		local connections = { UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(sync), UserInputService:GetPropertyChangedSignal("KeyboardEnabled"):Connect(sync), UserInputService:GetPropertyChangedSignal("MouseEnabled"):Connect(sync), UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(sync), UserInputService:GetPropertyChangedSignal("GamepadEnabled"):Connect(sync), UserInputService:GetPropertyChangedSignal("OnScreenKeyboardVisible"):Connect(sync), UserInputService:GetPropertyChangedSignal("OnScreenKeyboardPosition"):Connect(sync), UserInputService:GetPropertyChangedSignal("OnScreenKeyboardSize"):Connect(sync) }
 		return function()
 			alive = false
-			-- ▼ ReadonlyArray.forEach ▼
 			local _callback = function(connection)
 				return connection:Disconnect()
 			end
 			for _k, _v in connections do
 				_callback(_v, _k - 1, connections)
 			end
-			-- ▲ ReadonlyArray.forEach ▲
 		end
 	end, {})
 	local screenWidth = math.max(1, screen.X)
@@ -603,12 +474,6 @@ local function AutoScale(_param)
 	local hostWidth = math.round(math.min(Layout.maxShellWidth, math.max(1, screenWidth - tvSafe.left - tvSafe.right)))
 	local hostHeight = math.round(math.max(1, usableScreenHeight - tvSafe.top - tvSafe.bottom))
 	local layoutWidth = math.max(1, math.floor(hostWidth / chromeScale))
-	-- This used to be floored at 240px so panels could never collapse to nothing, but the host
-	-- frame is sized in raw offsets: whenever the software keyboard left less than 240px, the
-	-- frame was taller than the visible area and the bottom of the UI sat underneath the keyboard
-	-- where it could not be reached or scrolled to. Track the real usable height instead — the
-	-- keyboard reader already refuses to report less than a third of the screen, so this cannot
-	-- degenerate, and `short` (below) now flips so the layout switches to its compact chrome.
 	local layoutHeight = math.max(1, math.floor(hostHeight / chromeScale))
 	local desktop = usesDesktopStructure(screenWidth, screenHeight)
 	local preferred = UserInputService.PreferredInput
@@ -617,16 +482,10 @@ local function AutoScale(_param)
 	local tenFoot = desktop and screenWidth >= 1280 and screenHeight >= 720 and (preferredPad or consoleLike or (UserInputService.GamepadEnabled and GuiService.ViewportDisplaySize == Enum.DisplaySize.Large))
 	local scale = computeViewportScale(layoutWidth, layoutHeight)
 	local scaledInset = math.max(0, math.ceil(insets.top / chromeScale))
-	-- While the keyboard is up the layout already stops above it, so the home-indicator inset is
-	-- off-screen entirely. Still reserving it stacked a phantom gap on top of the keyboard and
-	-- squeezed the very rows the player was trying to type into.
 	local bottomInset = if keyboardOpen then 0 else math.max(0, math.ceil(insets.bottom / chromeScale))
 	local sideInset = math.max(0, math.ceil(math.max(insets.left, insets.right) / chromeScale))
 	local compact = layoutWidth < Breakpoints.compact
 	local tight = layoutWidth < Breakpoints.tight
-	-- `compact` and `tight` are measured against the *layout* box, so `short` has to be too —
-	-- measuring it against the raw screen meant a phone with the keyboard up (or a letterboxed
-	-- host frame) kept its tall-screen chrome while only a sliver of height was actually usable.
 	local short = math.min(layoutHeight, screenHeight) < Breakpoints.short
 	local info = React.useMemo(function()
 		return {
@@ -650,12 +509,7 @@ local function AutoScale(_param)
 		if not keyboardOpen then
 			return nil
 		end
-		-- The keyboard animates in, and on some platforms it also resizes underneath us (predictive
-		-- text bar, orientation flip, language switch). A single deferred reveal caught only the
-		-- first frame of that, so re-check a few times across the animation and again whenever the
-		-- reported keyboard geometry changes — `usableScreenHeight` in the deps covers the latter.
 		local _exp = { 0.05, 0.16, 0.34 }
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp)
 		local _callback = function(delay)
 			return task.delay(delay, function()
@@ -665,7 +519,6 @@ local function AutoScale(_param)
 		for _k, _v in _exp do
 			_newValue[_k] = _callback(_v, _k - 1, _exp)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local attempts = _newValue
 		return function()
 			for _1, attempt in attempts do
@@ -700,9 +553,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: motion   (merged from motion.luau, 1760 lines)
--- ======================================================================
 __defs["motion"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
@@ -719,7 +569,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local ViewportScaleContext = __load("autoScale").ViewportScaleContext
--- One motion language: every spring and curve below resolves its feel here.
 local MotionTokens = __load("motionTokens")
 local Breakpoints = require(script.Parent.CoreKit)("theme").Breakpoints
 local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
@@ -728,9 +577,6 @@ local function cubicPoint(alpha, p0, p1, p2, p3)
 	local point = BezierCurve:cubicBezier(math.clamp(alpha, 0, 1), p0, p1, p2, p3)
 	return Vector2.new(point.X, point.Y)
 end
--- The classic easing names now resolve to the shared curves (motionTokens),
--- so every hand-timed animation in the game moves on the same arcs as the
--- springs. Inputs are clamped: nothing extrapolates past its end state.
 local easeOutCubic = function(value)
 	return MotionTokens.EASE.standard(math.clamp(value, 0, 1))
 end
@@ -741,7 +587,6 @@ local easeOutQuart = function(value)
 	return MotionTokens.EASE.decelerate(math.clamp(value, 0, 1))
 end
 local easeOutBack = function(value)
-	-- A single, soft overshoot (about 6%) rather than a lurch.
 	local overshoot = 1.35
 	local shifted = math.clamp(value, 0, 1) - 1
 	return 1 + (overshoot + 1) * shifted * shifted * shifted + overshoot * shifted * shifted
@@ -759,9 +604,6 @@ local function useCursorProximity(elementRef, maxRadius)
 	if maxRadius == nil then
 		maxRadius = 160
 	end
-	-- Always call hooks (Rules of Hooks). Touch-primary devices short-circuit the
-	-- effect body so we never attach a RenderStepped listener for a cursor that
-	-- does not exist, but the hook order stays identical across platforms.
 	local touchOnly = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 	local proximity, setProximity = React.useState(0)
 	local lastProximity = React.useRef(0)
@@ -775,7 +617,6 @@ local function useCursorProximity(elementRef, maxRadius)
 		end
 		local active = true
 		local frame = 0
-		-- Sample every 3rd frame — proximity drives soft glow, not gameplay.
 		local stride = 3
 		local conn = RunService.RenderStepped:Connect(function()
 			if not active or not elementRef.current then
@@ -833,8 +674,6 @@ local function createFlipperMotor(initial, stiffness, damping)
 		damping = 22
 	end
 	local raw = SingleMotor.new(initial, false)
-	-- The shared feel: each caller keeps its relative speed, and damping is
-	-- lifted into the no-wobble band (see motionTokens).
 	local feel = MotionTokens.feel(stiffness, damping)
 	local frequency = feel.frequency
 	local dampingRatio = feel.dampingRatio
@@ -846,8 +685,6 @@ local function createFlipperMotor(initial, stiffness, damping)
 	local suppressEmit = false
 	local scratch = {}
 	local reportedError = false
-	-- One goal object for the life of the motor. Spam retargets it instead of
-	-- allocating a Spring or Instant on every hover, press, or snap.
 	local springGoal = Spring.new(initial, {
 		frequency = frequency,
 		dampingRatio = dampingRatio,
@@ -858,8 +695,6 @@ local function createFlipperMotor(initial, stiffness, damping)
 		if finished or suppressEmit then
 			return nil
 		end
-		-- A nested emit (a callback that snaps this motor) must not share the
-		-- scratch list the outer loop is still reading.
 		local pending = if stepping then {} else scratch
 		local wasStepping = stepping
 		stepping = true
@@ -872,9 +707,6 @@ local function createFlipperMotor(initial, stiffness, damping)
 			local entry = pending[index]
 			pending[index] = nil
 			if not entry.done and not destroyed then
-				-- One throwing listener must not leave `stepping` stuck (which
-				-- would make destroy() queue forever and the motor step for the
-				-- rest of the session) or abort the whole frame's driver.
 				local ok, problem = pcall(entry.callback, value)
 				if not ok and not reportedError then
 					reportedError = true
@@ -935,10 +767,6 @@ local function createFlipperMotor(initial, stiffness, damping)
 			if destroyed then
 				return nil
 			end
-			-- Snap without notifying listeners until the Instant has disarmed.
-			-- A hover that lands inside the callback can setGoal afterwards and
-			-- re-arm this same motor; disarming after that callback used to
-			-- drop the new spring on the floor.
 			instantGoal._targetValue = position
 			suppressEmit = true
 			raw:setGoal(instantGoal)
@@ -1057,9 +885,6 @@ local function useMotionSettings()
 end
 local MOTION_SCALE_FLOOR = 0.32
 local MOTION_SCALE_CEIL = 1.6
--- The Reduced Motion setting softens how motion feels instead of switching it
--- off: everything still moves, but springs land without overshoot and a touch
--- slower, loops run slower, and pulses and flashes swing less.
 local SOFT_STIFFNESS = 0.82
 local SOFT_DAMPING = 56
 local SOFT_CLOCK_SPEED = 0.6
@@ -1094,18 +919,13 @@ local clockBudget = 24
 local flipperMotors = {}
 local flipperToken = {}
 local flipperCount = 0
--- One deadline per stagger motor. A second trigger overwrites this entry
--- instead of scheduling another task.delay.
 local pendingArrivals = {}
 local pendingArrivalCount = 0
 local ensureDriver
--- Frame-time smoothing for the lag governor (see the driver). Lag starts to bite
--- below ~48 fps and is full at ~28 fps.
 local LAG_START_SECONDS = 1 / 48
 local LAG_FULL_SECONDS = 1 / 28
 local frameEma = 1 / 60
 local lagPressure = 0
--- Reused per frame so the driver's snapshots allocate nothing.
 local flipperScratch = {}
 local listenerScratch = {}
 local continuousScratch = {}
@@ -1118,8 +938,6 @@ local function snapshotKeys(set, scratch)
 	return size
 end
 function armFlipper(motor)
-	-- Bump even when the motor is already stepping. A setGoal inside onStep
-	-- must outlive the complete=true return that would otherwise disarm it.
 	flipperToken[motor] = (flipperToken[motor] or 0) + 1
 	if flipperMotors[motor] ~= nil then
 		return nil
@@ -1171,8 +989,6 @@ local function tickClocks(list, deltaTime)
 		local advanced = (slot.phase + deltaTime * slot.speed) % slot.period
 		slot.phase = advanced
 		live += 1
-		-- Every live clock pushes every frame. Rationing pushes left the slots
-		-- outside the window still for frames at a time, which read as stutter.
 		slot.push(advanced)
 	end
 	clockTicking -= 1
@@ -1231,8 +1047,6 @@ local function dropClock(slot, realtime)
 	else
 		decorativeClockCount = math.max(0, decorativeClockCount - 1)
 	end
-	-- Stay in the list while the driver is walking it. A hover in that same
-	-- frame sets alive again on this slot instead of inserting a second copy.
 	if clockTicking == 0 then
 		removeClockSlot(if realtime then realtimeClocks else decorativeClocks, slot)
 		slot.listed = false
@@ -1246,23 +1060,15 @@ end
 local function setContinuousMotionRate(_rate)
 end
 local function setDecorativeMotionFrozen(_frozen)
-	-- Kept for callers. Ambient motion never parks: overlays and cinematics
-	-- used to freeze every loop behind them, and some never thawed.
 end
 local function setHitchMotionFrozen(_frozen)
-	-- A one-frame hitch must not park springs, clocks, or the driver. The flag
-	-- stays available for callers; it does not freeze playback.
 end
 local function beginUiTransition(_seconds)
-	-- Page changes keep their clocks and springs running. Freezing here left
-	-- ambient motion idle until the thaw, and sometimes it never resumed.
 end
 local function isUiTransitioning()
 	return freezeNav
 end
 local function setClockBudget(budget)
-	-- Antilag still reports maxClocks, but decorative shimmers share one pool —
-	-- never starve below 20 or the rotating push window freezes most sweeps.
 	local requested = if type(budget) == "number" and budget == budget then budget else 24
 	clockBudget = math.clamp(math.floor(requested + 0.5), 20, 48)
 end
@@ -1332,10 +1138,6 @@ function ensureDriver()
 	end
 	driver = RunService.RenderStepped:Connect(function(deltaTime)
 		local clamped = math.min(deltaTime, 0.05)
-		-- Lag governor: a smoothed frame time drives `lagPressure` (0 = smooth,
-		-- 1 = badly lagging). Hitches are clamped so one long frame is not read as
-		-- sustained lag. Decorative clocks shrink their per-frame binding pushes
-		-- with it and recover on their own when frames get cheap again.
 		local sample = math.min(deltaTime, 0.1)
 		frameEma += (sample - frameEma) * math.min(1, sample * 2.5)
 		local pressureTarget = math.clamp((frameEma - LAG_START_SECONDS) / (LAG_FULL_SECONDS - LAG_START_SECONDS), 0, 1)
@@ -1343,8 +1145,6 @@ function ensureDriver()
 		local ranRealtime = false
 		if flipperCount > 0 then
 			ranRealtime = true
-			-- Walk a snapshot: a step may arm another motor, and adding keys to
-			-- the table being traversed is undefined in Lua.
 			local size = snapshotKeys(flipperMotors, flipperScratch)
 			for index = 1, size do
 				local motor = flipperScratch[index]
@@ -1371,8 +1171,6 @@ function ensureDriver()
 				end
 			end
 		end
-		-- Decorative pulses, glows, and ambient clocks advance on the same frame
-		-- as springs. Subsampling them made sweeps hitch and read as idle.
 		if decorativeClockCount > 0 then
 			tickClocks(decorativeClocks, clamped)
 		end
@@ -1386,22 +1184,15 @@ function ensureDriver()
 				end
 			end
 		end
-		-- After springs step, so an unmount during onStep can cancel a stagger
-		-- before its deadline fires setGoal on a destroyed motor.
 		pumpArrivals()
 	end)
 end
 function stopDriverIfIdle()
-	-- Stay connected for the whole session. Disconnecting when the last spring
-	-- settled left the next clock or layout change with no driver until something
-	-- else re-armed it, so motion read as idle.
 	if driver == nil then
 		ensureDriver()
 	end
 end
 local function subscribe(listener)
-	-- Counted per listener: the same function subscribed twice keeps running
-	-- until BOTH release, and the total never drifts.
 	local held = listeners[listener]
 	if held == nil then
 		listeners[listener] = 1
@@ -1478,8 +1269,6 @@ local function useSpring(goal, reducedMotion, stiffness, damping, initial)
 	local motionScale = _binding.motionScale
 	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
 	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
-	-- Same feel as every Flipper spring, so ripple-driven sliders and tabs move
-	-- like the rest of the interface.
 	local feel = MotionTokens.feel(effectiveStiffness, damping)
 	local binding, ripple = useRippleSpring(initial, {
 		start = true,
@@ -1487,8 +1276,6 @@ local function useSpring(goal, reducedMotion, stiffness, damping, initial)
 		dampingRatio = feel.dampingRatio,
 	})
 	React.useEffect(function()
-		-- Always spring. reducedMotion used to snap the motor to its goal, so a
-		-- tier flip made the pose vanish and then replay.
 		ripple:setGoal(goal, {
 			frequency = feel.frequency,
 			dampingRatio = feel.dampingRatio,
@@ -1594,7 +1381,6 @@ local function useOtterSpring(goal, reducedMotion, initial, dampingRatio, freque
 			end)
 		end
 		motor:setGoal(otter.spring(goal, {
-			-- Explicit pops keep their chosen bounce, but never a wobble.
 			dampingRatio = math.clamp(dampingRatio, 0.6, 1.25),
 			frequency = math.max(0.5, frequency * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)),
 			restingVelocityLimit = 0.001,
@@ -1621,8 +1407,6 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 	dampingRatio, frequency = softRatio(dampingRatio, frequency, _binding.soft == true)
 	local scaleRef = React.useRef()
 	local mounted = React.useRef(false)
-	-- React detaches refs before passive cleanups run, so scaleRef.current is
-	-- already nil by the time we unmount; remember the instance we drove.
 	local drivenScale = React.useRef()
 	React.useEffect(function()
 		return function()
@@ -1651,11 +1435,7 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 	end, { dampingRatio, frequency, goal, initial, motionScale })
 	return scaleRef
 end
---[[
-	* UIScale ignores AnchorPoint and grows from the parent's top-left. Put the
-	 *  scaled visuals inside a Size(1,1) Position(0.5,0.5) AnchorPoint(0.5,0.5)
-	 *  host so entrance/exit zooms from the middle instead of a corner. 
-]]
+
 local function ScaleFromCenter(_param)
 	local scale = _param.scale
 	local scaleRef = _param.scaleRef
@@ -1749,7 +1529,6 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 		reducedMotion = false
 	end
 	if easing == nil then
-		-- The standard curve: quick to respond, long gentle settle.
 		easing = MotionTokens.EASE.standard
 	end
 	local start = if initial == nil then goal else initial
@@ -1764,8 +1543,6 @@ local function useBoatTween(goal, duration, reducedMotion, easing, initial)
 	local easingRef = React.useRef(easing)
 	local durationRef = React.useRef(duration)
 	local reducedRef = React.useRef(reducedMotion)
-	-- Subscribed to the frame driver only while a tween is running: an idle tween
-	-- used to cost a driver listener (and a callback per frame) for its whole life.
 	local stopRef = React.useRef(nil)
 	local tickRef = React.useRef(nil)
 	if tickRef.current == nil then
@@ -1854,7 +1631,6 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 	local amount, setAmount = React.useBinding(1)
 	local setAmountRef = React.useRef(setAmount)
 	setAmountRef.current = setAmount
-	-- Subscribed to the frame driver only from begin() until the exit finishes.
 	local stopRef = React.useRef(nil)
 	local tickRef = React.useRef(nil)
 	if tickRef.current == nil then
@@ -1870,7 +1646,6 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 				pendingAfter.current = false
 				local callback = afterRef.current
 				afterRef.current = nil
-				-- Idle again unless the callback started another exit.
 				if not running.current then
 					release()
 				end
@@ -1888,7 +1663,6 @@ local function useExitTransition(reducedMotion, duration, resetWhenActive)
 				span = 0.01
 			end
 			local alpha = math.clamp((os.clock() - startedAt.current) / span, 0, 1)
-			-- Exits pick up speed as they go (they never linger half-faded).
 			local shown = if alpha >= 1 then 0 else 1 - MotionTokens.EASE.accelerate(alpha)
 			setAmountRef.current(shown)
 			if alpha < 1 then
@@ -1956,9 +1730,6 @@ local function useTokenEntrance(token, reducedMotion, duration)
 	local skipRef = React.useRef(skip)
 	skipRef.current = skip
 	local motor = React.useRef()
-	-- Page swaps always spring in. The softMotion flag must not snap this motor to rest.
-	-- The gentle spring: a large surface arrives with one smooth deceleration
-	-- (about a fifth of a second, no overshoot) instead of a snap.
 	local stiffness = MotionTokens.SPRING.gentle.stiffness
 	local damping = MotionTokens.SPRING.gentle.damping
 	if motor.current == nil then
@@ -2040,8 +1811,6 @@ local function useStagger(index, reducedMotion, step, duration)
 		active:setPosition(0)
 		setBinding(0)
 		active:configure(MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
-		-- The shared cascade: gaps widen gently and the whole run stays under a
-		-- quarter second, so long lists arrive as one motion.
 		scheduleArrival(active, MotionTokens.stagger(index, step))
 		return function()
 			cancelArrival(active)
@@ -2061,8 +1830,6 @@ local function useClock(enabled, speed, period, realtime)
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
-	-- Scale clock advance by motion settings so reduced/low-motion players get
-	-- quieter ambient loops without every caller needing a second gate.
 	local scaledSpeed = speed * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL) * (if _binding.soft == true and not realtime then SOFT_CLOCK_SPEED else 1)
 	local live = enabled and speed > 0
 	local binding, setBinding = React.useBinding(0)
@@ -2101,10 +1868,6 @@ local function useClock(enabled, speed, period, realtime)
 	end, { live, period, realtime, setBinding, scaledSpeed })
 	return binding
 end
--- One wall clock for the whole UI (Roblox-synced server time, so countdowns match the deadlines the
--- server stamps). The motion driver pushes it every frame, so bars that drain against it move smoothly;
--- it used to tick five times a second and every countdown bar visibly stepped. Labels that map it to text
--- only change when their string does.
 local function syncedNow()
 	local value = workspace:GetServerTimeNow()
 	return if type(value) == "number" and value == value then value else os.time()
@@ -2180,7 +1943,6 @@ local function useFlash(trigger, reducedMotion, duration)
 		if not triggerChanged then
 			return nil
 		end
-		-- Button-scale flashes finish fast. Ceremonial slams (duration >= 0.75) keep their span.
 		local span = if duration >= 0.75 then duration else math.min(duration, 0.22)
 		local stiffness = math.clamp(math.floor(180 / math.max(0.08, span)), 320, 1400)
 		active:configure(stiffness, 52)
@@ -2211,8 +1973,6 @@ local function usePulse(enabled, speed)
 	end, { clock, depth })
 end
 local function useGlowStroke(active, reducedMotion, rest, near, far, speed)
-	-- Quieter defaults: slower breath, narrower transparency swing — keeps idle
-	-- presence without the noisy neon strobe that stacked glows used to create.
 	if near == nil then
 		near = 0.2
 	end
@@ -2286,8 +2046,6 @@ local function useViewport()
 			return connection:Disconnect()
 		end
 	end, { host })
-	-- The fallback (no AutoScale host) used to read this once per size change, so an
-	-- on-screen keyboard opening never updated it.
 	local keyboardOpen, setKeyboardOpen = React.useState(UserInputService.OnScreenKeyboardVisible)
 	React.useEffect(function()
 		if host ~= nil then
@@ -2397,9 +2155,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: antilag   (merged from antilag.luau, 870 lines)
--- ======================================================================
 __defs["antilag"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
@@ -2411,9 +2166,6 @@ local recordPerformanceTelemetry = _log.recordPerformanceTelemetry
 local _motion = __load("motion")
 local setClockBudget = _motion.setClockBudget
 local setContinuousMotionRate = _motion.setContinuousMotionRate
--- Touch-primary phones/tablets and gamepad-primary consoles share a tighter
--- budget profile. Declared above startTelemetry — calling it from a local that
--- is defined later used to crash with `attempt to call a nil value`.
 local function constrainedDevice()
 	if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
 		return true
@@ -2458,8 +2210,6 @@ local latencyProbeWorkers = {}
 local latencyTimeoutWorkers = {}
 local latencyGeneration = 0
 local lastRoundTripProbeAt = -math.huge
--- Constrained devices sample less often: sorting ~20 frames ~2Hz instead of 3Hz
--- cuts percentile work ~33% with no perceptible quality lag on touch/console.
 local FRAME_RING = if IS_CONSTRAINED then 48 else 72
 local SAMPLE_SECONDS = if IS_CONSTRAINED then 0.48 else 0.32
 local frames = table.create(FRAME_RING)
@@ -2583,12 +2333,10 @@ end
 local function startLatencyWorker()
 	local _condition = latencyWorker ~= nil or latencyRemote == nil
 	if not _condition then
-		-- ▼ ReadonlySet.size ▼
 		local _size = 0
 		for _ in telemetryListeners do
 			_size += 1
 		end
-		-- ▲ ReadonlySet.size ▲
 		_condition = _size == 0
 	end
 	if _condition then
@@ -2604,12 +2352,10 @@ local function startLatencyWorker()
 		while true do
 			local _condition_1 = generation == latencyGeneration
 			if _condition_1 then
-				-- ▼ ReadonlySet.size ▼
 				local _size = 0
 				for _ in telemetryListeners do
 					_size += 1
 				end
-				-- ▲ ReadonlySet.size ▲
 				_condition_1 = _size > 0
 				if _condition_1 then
 					_condition_1 = latencyRemote ~= nil
@@ -2717,7 +2463,6 @@ local function medianAbsoluteDeviation(values, center)
 	if #values == 0 or center == nil then
 		return nil
 	end
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#values)
 	local _callback = function(value)
 		return math.abs(value - center)
@@ -2725,13 +2470,9 @@ local function medianAbsoluteDeviation(values, center)
 	for _k, _v in values do
 		_newValue[_k] = _callback(_v, _k - 1, values)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local deviations = _newValue
 	return median(deviations)
 end
--- Sorts only the first `count` slots in place — the tail of the ring holds the 1/60
--- placeholder values and must stay out of the percentile reads. With ~20 samples per window
--- this is a couple hundred comparisons at 3Hz, not worth a fancier partial sort.
 local function sortScratch(count)
 	do
 		local index = 1
@@ -2773,15 +2514,11 @@ local function sweepRuntimeGuards()
 	while #pingHistory > 7 do
 		table.remove(pingHistory, 1)
 	end
-	-- Trim overflow workers directly off the sets instead of copying them into throw-away
-	-- arrays every sweep — this guard runs forever and the copies were pure garbage.
 	local trimWorkers = function(workers)
-		-- ▼ ReadonlySet.size ▼
 		local _size = 0
 		for _ in workers do
 			_size += 1
 		end
-		-- ▲ ReadonlySet.size ▲
 		if _size <= 6 then
 			return nil
 		end
@@ -2817,14 +2554,10 @@ local function startTelemetry()
 		return nil
 	end
 	local elapsed = 0
-	-- Capture once: PreferredInput can change mid-session but re-querying every
-	-- frame is pure waste. Budgets close over sampleSeconds / hitch thresholds.
 	local tight = constrainedDevice()
 	local sampleSeconds = if tight then 0.48 else SAMPLE_SECONDS
 	local jankThreshold = if tight then 1 / 30 else 1 / 36
 	local hitchThreshold = if tight then 0.04 else 0.032
-	-- Heartbeat is enough for telemetry on constrained devices — frees
-	-- RenderStepped for UI/motion work.
 	local signal = if tight then RunService.Heartbeat else RunService.RenderStepped
 	telemetryConnection = signal:Connect(function(deltaTime)
 		local clamped = math.clamp(deltaTime, 0.001, 0.12)
@@ -2912,12 +2645,10 @@ local function startTelemetry()
 	end)
 end
 local function stopTelemetryIfIdle()
-	-- ▼ ReadonlySet.size ▼
 	local _size = 0
 	for _ in telemetryListeners do
 		_size += 1
 	end
-	-- ▲ ReadonlySet.size ▲
 	local _condition = _size > 0
 	if not _condition then
 		_condition = telemetryConnection == nil
@@ -2938,12 +2669,10 @@ local function subscribeTelemetry(listener)
 		local _listener_1 = listener
 		telemetryListeners[_listener_1] = nil
 		stopTelemetryIfIdle()
-		-- ▼ ReadonlySet.size ▼
 		local _size = 0
 		for _ in telemetryListeners do
 			_size += 1
 		end
-		-- ▲ ReadonlySet.size ▲
 		if _size == 0 then
 			stopLatencyWorker()
 		end
@@ -2959,8 +2688,6 @@ end
 local function infoFromQuality(quality, fps, pressure, hitchScore)
 	local q = math.clamp(quality, 0, 1)
 	local tight = IS_CONSTRAINED
-	-- Constrained ceilings sit below desktop so particle/glow/clock systems never
-	-- schedule at desktop densities on thermal-limited hardware.
 	local qEff = if tight then math.min(q, 0.78) else q
 	local tier = if qEff < 0.2 then 0 elseif qEff < 0.44 then 1 elseif qEff < 0.7 then 2 else 3
 	local fxBudget = math.clamp(0.05 + qEff * (if tight then 0.28 else 0.34) + qEff * qEff * (if tight then 0.12 else 0.18), 0.05, if tight then 0.52 else 0.7)
@@ -2977,8 +2704,6 @@ local function infoFromQuality(quality, fps, pressure, hitchScore)
 		titleGlyphLimit = if tight then 12 else 18,
 		renderRate = renderRate,
 		glowScale = math.clamp(0.08 + qEff * (if tight then 0.52 else 0.72), 0.08, if tight then 0.62 else 0.86),
-		-- Ambient motion always runs. Low tiers thin out particles and glow
-		-- instead of stopping loops.
 		allowAmbient = true,
 		allowConfetti = qEff >= (if tight then 0.42 else 0.34),
 		skipEntrance = false,
@@ -3019,8 +2744,6 @@ local function sceneLoad(scene)
 	return 0
 end
 local function applyMotionRate(info)
-	-- Constrained devices never force decorative clocks above ~36Hz even at
-	-- tier 2+ — the continuous accumulator already batches work.
 	local floor = if IS_CONSTRAINED then 18 else 24
 	local boost = if IS_CONSTRAINED then 32 else 40
 	local rate = if info.tier >= 2 then math.max(info.renderRate, boost) else math.max(floor, info.renderRate)
@@ -3050,9 +2773,6 @@ local function seedAntilagFromBoot(fps)
 	local measured = math.clamp(fps, 8, 120)
 	bootSeededFps = measured
 	local raw = math.clamp((measured - 16) / 44, 0.12, 1)
-	-- Boot samples run while the shell is still mounting, so they read low.
-	-- A modest floor keeps the first second off tier 0. Steady telemetry
-	-- still pulls quality down when the device is actually slow.
 	local motionFloor = if IS_CONSTRAINED then 0.4 else 0.48
 	local seeded = math.max(raw, motionFloor)
 	bootSeededQuality = if IS_CONSTRAINED then math.min(seeded, 0.74) else seeded
@@ -3067,11 +2787,6 @@ local function clampAntilagTier(info, maxTier)
 	end
 	return infoFromQuality(math.min(info.quality, tierCeiling(maxTier)), info.fps, info.pressure, info.hitchScore)
 end
--- Two tiers of "did the budgets actually change" gates. Discrete fields (tier, budgets that
--- mount/unmount or re-configure visual systems) must push through React context immediately.
--- Continuous fields (fxBudget/glowScale) only feed amplitude/scale bindings, and during a slow
--- quality drift they changed every sample — re-rendering the entire game tree ~3 times a
--- second for a cosmetic fade. They now update at most ~1Hz and only past a coarse threshold.
 local function scoreWindow(sample)
 	local targetFps = if IS_CONSTRAINED then 45 else 58
 	local fpsScore = math.clamp(sample.fps / targetFps, 0, 1.15)
@@ -3134,15 +2849,8 @@ local function AntilagProvider(_param)
 	React.useEffect(function()
 		local quality = startingQuality
 		local lastLoggedTier = infoRef.current.tier
-		-- Quality can cross a tier boundary every sample while a settings slider
-		-- or a resize hitch is in progress. Hold the published tier until the new
-		-- one has stayed put for a beat: every tier change re-renders the whole tree,
-		-- which is itself a hitch, so flipping fast fed the very lag it reacted to.
 		local TIER_DEBOUNCE_SECONDS = 1.5
-		-- Motion never switches off: desktop holds tier 2 and constrained devices tier 1,
-		-- where every glow, hover sheen and loop still runs (just with fewer particles).
 		local QUALITY_FLOOR = if IS_CONSTRAINED then 0.22 else 0.46
-		-- Bad windows in a row before quality steps down; a step is at most one tier.
 		local SUSTAINED_BAD_SAMPLES = 3
 		local MAX_DROP = 0.24
 		local badSamples = 0
@@ -3165,13 +2873,10 @@ local function AntilagProvider(_param)
 			local touchCeil = if IS_CONSTRAINED then 0.82 else 1
 			local target = math.clamp(raw - scene - prefer, 0.08, touchCeil)
 			local now = os.clock()
-			-- Boot frames are fat while the shell mounts. Don't park springs on that.
 			local warming = now - evaluateStartedAt < 1
 			if warming then
 				target = math.max(target, quality)
 			end
-			-- Isolated hitches (a page mounting, an asset streaming in) are not lag: they no longer
-			-- lower quality. Only frame rate that stays low for several windows does, one tier at a time.
 			local collapsed = not warming and (sample.fps < 40 or sample.p95FrameTimeMs >= 32)
 			if collapsed then
 				badSamples += 1
@@ -3208,8 +2913,6 @@ local function AntilagProvider(_param)
 			local scored = infoFromQuality(quality, sample.fps, pressure, sample.hitchScore)
 			local published = infoRef.current
 			if scored.tier == published.tier then
-				-- Same tier must not push React. Resize and settings spam re-enter
-				-- evaluate every sample; the live snapshot stays until the tier changes.
 				pendingTier = published.tier
 				pendingTierSince = now
 				applyMotionRate(scored)
@@ -3220,8 +2923,6 @@ local function AntilagProvider(_param)
 				pendingTierSince = now
 			end
 			if now - pendingTierSince < TIER_DEBOUNCE_SECONDS then
-				-- Hold the previous snapshot entirely. Publishing scored.tier rewritten
-				-- back to the old tier would still ship the new allowAmbient / allowConfetti.
 				return nil
 			end
 			applyMotionRate(scored)
@@ -3251,11 +2952,6 @@ local function AntilagProvider(_param)
 	}, children)
 end
 latestAntilagInfo = DEFAULT_INFO
--- A module-level mirror of AntilagProvider's current info, for the handful of call sites
--- outside the React tree that want a read-only snapshot (Studio/debug attributes via
--- UiRootComponent) without having to be a descendant of AntilagContext.Provider — the
--- provider is a true singleton in this app, so "the latest value it computed" is
--- unambiguous. Never write to this from outside AntilagProvider.
 local function currentAntilagInfo()
 	return latestAntilagInfo
 end
@@ -3277,13 +2973,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: dynamicLayout   (merged from dynamicLayout.luau, 19 lines)
--- ======================================================================
 __defs["dynamicLayout"] = function()
--- Dynamic layout motion.
--- Chrome and page sections share one spring and always ease. Nothing in this
--- path snaps or waits for a reduced-motion gate.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useFlipperSpring = __load("motion").useFlipperSpring
 
@@ -3301,9 +2991,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: flexbox   (merged from flexbox.luau, 395 lines)
--- ======================================================================
 __defs["flexbox"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local _interaction = require(script.Parent.CoreKit)("interaction")
@@ -3665,7 +3352,6 @@ local function FlexGrid(_param)
 		HorizontalAlignment = Enum.HorizontalAlignment.Left,
 		VerticalAlignment = Enum.VerticalAlignment.Top,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#nodes)
 	local _callback = function(child, index)
 		return React.createElement("frame", {
@@ -3680,7 +3366,6 @@ local function FlexGrid(_param)
 	for _k, _v in nodes do
 		_newValue[_k] = _callback(_v, _k - 1, nodes)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = size,
 		BackgroundTransparency = 1,
@@ -3702,37 +3387,21 @@ return {
 }
 end
 
--- ======================================================================
--- Module: shimmer   (merged from shimmer.luau, 121 lines)
--- ======================================================================
 __defs["shimmer"] = function()
--- Layout-safe shimmer math. Pure functions only — no React, no GuiObjects.
--- Sweep motion belongs on UIGradient.Offset (clipped overlays), never on
--- oversized Offset-sized tip frames under AutomaticSize.
 
 local DEFAULT_TRAVEL = 2.4
 local TRAIL_LAG = 0.035
--- Trail only on high shimmer settings — dual-pass is the main hover cost.
 local TRAIL_MIN_SCALE = 0.85
--- Share of each period spent crossing; the rest the band waits off-surface, so
--- the wrap from the far edge back to the start is never on screen and passes
--- read as deliberate strokes instead of a conveyor belt.
 local SWEEP_SHARE = 0.6
--- How much of the crossing is eased (0 = linear, 1 = full smoothstep). Partial
--- easing glides in and out without lingering at the edges.
 local SWEEP_EASE = 0.55
 
--- A soft specular band: bell-shaped falloff sampled from a raised cosine. No
--- hard shoulders, so it reads as light, not a stripe.
--- Transparency 0 = opaque.
 local function bell(halfWidth, peak, samples)
 	local points = { NumberSequenceKeypoint.new(0, 1) }
 	local low = 0.5 - halfWidth
 	table.insert(points, NumberSequenceKeypoint.new(low, 1))
 	for i = 1, samples - 1 do
-		local u = i / samples -- 0..1 across the band
+		local u = i / samples
 		local x = low + u * halfWidth * 2
-		-- Raised cosine: zero slope at both edges and a rounded peak.
 		local lit = (1 - math.cos(u * math.pi * 2)) * 0.5
 		table.insert(points, NumberSequenceKeypoint.new(x, 1 - (1 - peak) * lit))
 	end
@@ -3743,7 +3412,6 @@ end
 
 local GLINT = bell(0.17, 0.08, 12)
 
--- Broad soft bloom around the core (optional second pass).
 local TRAIL = bell(0.3, 0.7, 12)
 
 local SWEEP_SPEED = 0.42
@@ -3762,7 +3430,6 @@ local function clamp01(value)
 	return value
 end
 
--- Where the band is along its crossing (0 = waiting before, 1 = done/waiting after).
 local function sweepProgress(phase)
 	local t = phase
 	if type(t) ~= "number" or t ~= t then
@@ -3799,7 +3466,6 @@ local function sweepSpeed(shimmerScale)
 	return SWEEP_SPEED * math.clamp(0.55 + scale * 0.45, 0.55, 1)
 end
 
--- Peak opacity of the wash layer (0..~0.5). Must stay visible on hover.
 local function surfaceStrength(hoverAmount, idle, shimmerScale)
 	local scale = clamp01(if type(shimmerScale) == "number" then shimmerScale else 1)
 	local hoverStrength = clamp01(hoverAmount) * 0.4
@@ -3853,23 +3519,12 @@ return {
 }
 end
 
--- ======================================================================
--- Module: pageTransition   (page-change motion math)
--- ======================================================================
 __defs["pageTransition"] = function()
--- Pure math for the workspace page change. The page entrance is one spring
--- (0 -> 1); everything here maps that single value so the slide, the veil and
--- the text fade all land together on the same frame.
 
--- How far the new page travels in (px). Phones slide along the tab bar, so a
--- little further; Reduced Motion keeps the motion but shortens it.
 local SLIDE_DESKTOP = 18
 local SLIDE_PHONE = 28
 local SOFT_SCALE = 0.45
--- Peak opacity of the ink veil the instant the page swaps.
 local VEIL_PEAK = 0.62
--- Veil dissolves faster than the slide finishes: the content is readable early
--- while the last pixels of travel ease out underneath.
 local VEIL_POWER = 2.2
 
 local function clamp01(value)
@@ -3891,8 +3546,6 @@ local function indexOf(order, id)
 	return nil
 end
 
--- +1: the new page comes in from below/right (it sits after the old one in the
--- nav), -1: from above/left. Unknown pages arrive forward.
 local function direction(fromPage, toPage, order)
 	local from = indexOf(order, fromPage)
 	local to = indexOf(order, toPage)
@@ -3907,8 +3560,6 @@ local function distance(phone, soft)
 	return if soft then math.floor(base * SOFT_SCALE + 0.5) else base
 end
 
--- Pixel offset of the content at entrance `amount`. Rounded so text never sits
--- on half pixels (which shimmers as it moves).
 local function offset(amount, dir, axis, travel)
 	local t = clamp01(amount)
 	local remaining = (1 - t) * (if dir == -1 then -1 else 1) * (travel or SLIDE_DESKTOP)
@@ -3936,9 +3587,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -3950,7 +3598,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

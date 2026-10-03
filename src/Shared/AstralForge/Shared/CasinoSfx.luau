@@ -1,6 +1,4 @@
 --!strict
--- Uploaded casino sound effects: name -> audio id. Rewritten by tools/assetgen/upload_casino_sfx.py; a missing
--- name just plays nothing.
 return table.freeze({
 	casino_ball_drop = 133160951623250,
 	casino_ball_roll = 85756498956643,

@@ -1,9 +1,4 @@
 --!strict
---[=[
-	[LOG] Astral Forge Server Severity Telemetry Engine
-	Strict severity tagging: [INFO], [WARN], [ERROR], [FATAL], [NETWORK]
-	Format: {seconds}  {level}  {scope}  {message}  key=value ...
-]=]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerTelemetry = require(script.Parent:WaitForChild("Services"):WaitForChild("ServerServices")).ServerTelemetry
@@ -14,10 +9,6 @@ local emitted: { [string]: boolean } = {}
 
 export type Severity = "INFO" | "WARN" | "ERROR" | "FATAL" | "NETWORK"
 
--- One line per event, same shape on client and server:
---   "  12.480  info   boot        runtime started  elapsed=31ms"
--- seconds since this script context started, a fixed-width level, a lowercase scope
--- column, the message, then key=value pairs (sorted; *Ms keys print as durations).
 local LEVEL_COLUMN: { [string]: string } = { INFO = "info ", WARN = "warn ", ERROR = "error", FATAL = "fatal", NETWORK = "net  " }
 local SCOPE_COLUMN_WIDTH = 12
 local startedAt = os.clock()

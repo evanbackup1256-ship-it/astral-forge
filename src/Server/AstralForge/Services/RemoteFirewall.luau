@@ -64,7 +64,6 @@ return function(loadService: (string) -> any)
 
 	local DEFAULT_RULE: Rule = { Cost = 1, Cooldown = 0.06 }
 
-
 	local COOLDOWN_KEY_FIELDS = RemoteFirewallMath.COOLDOWN_KEY_FIELDS
 
 	local function cooldownKey(action: string, payload: any): string
@@ -133,7 +132,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.ConfirmTrade] = { Cost = 1.1, Cooldown = 0.22 },
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
-		-- Casino rounds are one tap each; the cooldown keeps a held button from becoming a macro.
 		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
 		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
@@ -224,9 +222,6 @@ return function(loadService: (string) -> any)
 		return RemoteFirewallMath.StringField(payload, key, minimum, maximum)
 	end
 
-	-- Bounds the array itself (max entry count) and every entry's own length, rejecting anything
-	-- malformed outright rather than truncating/coercing it -- a mismatched size here is a sign
-	-- of a hand-crafted payload, not a legitimate client miscount.
 	local function stringArrayField(payload: { [any]: any }, key: string, maxEntries: number, entryMinLen: number, entryMaxLen: number): boolean
 		return RemoteFirewallMath.StringArrayField(payload, key, maxEntries, entryMinLen, entryMaxLen)
 	end
@@ -277,9 +272,6 @@ return function(loadService: (string) -> any)
 		if not ok then
 			return false, reason
 		end
-		-- Grant actions attach live session fields (Gen/N). Those are auth, not an
-		-- action payload — rejecting them trapped players in the changelog overlay
-		-- (DismissRelease) and would also break CollectVault/Overcharge/Rebirth.
 		if NO_PAYLOAD_ACTIONS[action] then
 			if not RemoteFirewallMath.IsSessionOnlyPayload(payload) then
 				return false, "this action does not accept a payload"
@@ -536,12 +528,6 @@ return function(loadService: (string) -> any)
 				return false, "invalid upgrade payload"
 			end
 		elseif action == Protocol.Actions.SetTutorialStep then
-			-- Must match TUTORIAL_STEPS.size() in src_ts/client/MainGame.tsx and the clamp in
-			-- GameService:_setTutorialStep. This was previously capped at 10, silently rejecting
-			-- every SetTutorialStep request past step 10 as "invalid guide payload" -- the
-			-- client's local step display would still advance (client-only React state), but the
-			-- server never received or saved it, so a page refresh / rejoin snapped the player
-			-- back to step 10, making the tutorial appear permanently stuck there.
 			if not numberField(payload, "Step", 1, 15, true) then
 				return false, "invalid guide payload"
 			end
@@ -565,8 +551,6 @@ return function(loadService: (string) -> any)
 			if payload.Page ~= nil and not stringField(payload, "Page", 1, 32) then
 				return false, "invalid presence payload"
 			end
-			-- Gen omitted entirely is the hello case (client hasn't been issued a nonce yet).
-			-- Once Gen is present the beat fields must all be present and well-formed together.
 			if payload.Gen ~= nil then
 				if
 					not numberField(payload, "Gen", 1, 1e12, true)
@@ -710,7 +694,6 @@ return function(loadService: (string) -> any)
 		return true
 	end
 
-
 	local function processFirewallViolation(
 		player: Player,
 		actionType: any,
@@ -757,7 +740,6 @@ return function(loadService: (string) -> any)
 		)
 		return true, nil
 	end
-
 
 	local function enforceConfirmedBan(player: Player, proof: ConfirmedProof): (boolean, string?)
 		if
@@ -863,12 +845,6 @@ return function(loadService: (string) -> any)
 				string.format("%s · %s rejected — %s (score %.1f)", player.Name, tostring(actionLabel), reason, state.Strikes)
 			)
 		end
-		-- Raised from 14: a legitimate fast player spam-tapping through several different
-		-- buttons in a row can genuinely drain the token bucket faster than it refills for a
-		-- few seconds without doing anything wrong, and each of those hits severity 0.5 (see
-		-- "token budget" below) -- 14 was reachable by real play, not just a dumped remote.
-		-- Unknown-action and invalid-payload strikes (severity 1-2, only ever hit by a
-		-- malformed/malicious request) still dominate this total quickly for an actual attack.
 		if state.Strikes >= 24 and player.Parent == Players then
 			player:Kick("Astral Forge rejected suspicious remote traffic.")
 		end

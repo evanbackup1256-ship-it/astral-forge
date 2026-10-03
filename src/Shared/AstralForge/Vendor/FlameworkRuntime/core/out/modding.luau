@@ -1,4 +1,3 @@
--- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local Signal = TS.import(script, TS.getModule(script, "@rbxts", "signal"))
 local Reflect = TS.import(script, script.Parent, "reflect").Reflect
@@ -17,24 +16,14 @@ do
 	local dependencyResolution = {}
 	local resolvedSingletons = {}
 	local loadingList = {}
-	--[[
-		*
-		     * Retrieves an object from its identifier.
-		     *
-		     * The reverse (getting an identifier from an object) can be achieved using the Reflect API directly.
-		     
-	]]
+
 	local function getObjectFromId(id)
 		local _idToObj = Reflect.idToObj
 		local _id = id
 		return _idToObj[_id]
 	end
 	_container.getObjectFromId = getObjectFromId
-	--[[
-		*
-		     * Registers a listener for lifecycle events.
-		     
-	]]
+
 	local function addListener(object)
 		local listener = {
 			eventIds = {},
@@ -94,11 +83,7 @@ do
 		listenerAdded:Fire(object)
 	end
 	_container.addListener = addListener
-	--[[
-		*
-		     * Removes a listener for lifecycle events and decorators.
-		     
-	]]
+
 	local function removeListener(object)
 		local _object = object
 		local listener = listeners[_object]
@@ -120,39 +105,7 @@ do
 		listenerRemoved:Fire(object)
 	end
 	_container.removeListener = removeListener
-	--[[
-		*
-		     * Registers a listener added event.
-		     * Fires whenever any listener is added.
-		     *
-		     * Fires for all existing listeners.
-		     
-	]]
-	--[[
-		*
-		     * Registers a listener added event.
-		     * Fires whenever a listener has a decorator with the specified ID.
-		     *
-		     * Fires for all existing listeners.
-		     *
-		     * @metadata macro
-		     
-	]]
-	--[[
-		*
-		     * Registers a listener added event.
-		     * Fires whenever a listener has a lifecycle event with the specified ID.
-		     *
-		     * Fires for all existing listeners.
-		     *
-		     * @metadata macro
-		     
-	]]
-	--[[
-		*
-		     * Registers a listener added event.
-		     
-	]]
+
 	local function onListenerAdded(func, id)
 		if id ~= nil then
 			local _id = id
@@ -184,36 +137,7 @@ do
 		end
 	end
 	_container.onListenerAdded = onListenerAdded
-	--[[
-		*
-		     * Registers a listener removed event.
-		     *
-		     * Fires whenever any listener is removed.
-		     
-	]]
-	--[[
-		*
-		     * Registers a listener removed event.
-		     *
-		     * Fires whenever a listener has a decorator with the specified ID.
-		     *
-		     * @metadata macro
-		     
-	]]
-	--[[
-		*
-		     * Registers a listener removed event.
-		     *
-		     * Fires whenever a listener has a lifecycle event with the specified ID.
-		     *
-		     * @metadata macro
-		     
-	]]
-	--[[
-		*
-		     * Registers a listener removed event.
-		     
-	]]
+
 	local function onListenerRemoved(func, id)
 		if id ~= nil then
 			local _id = id
@@ -230,26 +154,7 @@ do
 		end
 	end
 	_container.onListenerRemoved = onListenerRemoved
-	--[[
-		*
-		     * Registers a class decorator.
-		     
-	]]
-	--[[
-		*
-		     * Registers a method decorator.
-		     
-	]]
-	--[[
-		*
-		     * Registers a property decorator.
-		     
-	]]
-	--[[
-		*
-		     * Registers a decorator.
-		     
-	]]
+
 	local defineDecoratorMetadata
 	local function createDecorator(_kind, func)
 		return {
@@ -260,26 +165,7 @@ do
 		}
 	end
 	_container.createDecorator = createDecorator
-	--[[
-		*
-		     * Registers a metadata class decorator.
-		     
-	]]
-	--[[
-		*
-		     * Registers a metadata method decorator.
-		     
-	]]
-	--[[
-		*
-		     * Registers a metadata property decorator.
-		     
-	]]
-	--[[
-		*
-		     * Registers a metadata decorator.
-		     
-	]]
+
 	local function createMetaDecorator(_kind)
 		return {
 			func = function(descriptor, config)
@@ -288,13 +174,7 @@ do
 		}
 	end
 	_container.createMetaDecorator = createMetaDecorator
-	--[[
-		*
-		     * Retrieves registered decorators.
-		     *
-		     * @metadata macro
-		     
-	]]
+
 	local function getDecorators(id)
 		local _arg0 = id ~= nil
 		assert(_arg0)
@@ -304,7 +184,6 @@ do
 		if not decorators then
 			return {}
 		end
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#decorators)
 		local _callback = function(object)
 			local decoratorConfig = Reflect.getOwnMetadata(object, `flamework:decorators.{id}`)
@@ -318,17 +197,10 @@ do
 		for _k, _v in decorators do
 			_newValue[_k] = _callback(_v, _k - 1, decorators)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		return _newValue
 	end
 	_container.getDecorators = getDecorators
-	--[[
-		*
-		     * Creates a map of every property using the specified decorator.
-		     *
-		     * @metadata macro
-		     
-	]]
+
 	local getDecorator
 	local function getPropertyDecorators(obj, id)
 		local decorators = {}
@@ -343,13 +215,7 @@ do
 		return decorators
 	end
 	_container.getPropertyDecorators = getPropertyDecorators
-	--[[
-		*
-		     * Retrieves a decorator from an object or its properties.
-		     *
-		     * @metadata macro
-		     
-	]]
+
 	function getDecorator(object, property, id)
 		local decorator = Reflect.getMetadata(object, `flamework:decorators.{id}`, property)
 		if not decorator then
@@ -358,11 +224,7 @@ do
 		return decorator
 	end
 	_container.getDecorator = getDecorator
-	--[[
-		*
-		     * Retrieves a singleton or instantiates one if it does not exist.
-		     
-	]]
+
 	local createDependency
 	local function resolveSingleton(ctor)
 		local _ctor = ctor
@@ -372,18 +234,14 @@ do
 		end
 		local _ctor_1 = ctor
 		if table.find(loadingList, _ctor_1) ~= nil then
-			-- ▼ ReadonlyArray.join ▼
 			local _result = table.create(#loadingList)
 			for _k, _v in loadingList do
 				_result[_k] = tostring(_v)
 			end
-			-- ▲ ReadonlyArray.join ▲
 			error(`Circular dependency detected {table.concat(_result, " <=> ")} <=> {ctor}`)
 		end
 		local _ctor_2 = ctor
 		table.insert(loadingList, _ctor_2)
-		-- Flamework can resolve singletons at any arbitrary point,
-		-- so we should fetch custom dependency resolution (added via decorator) through the Reflect api.
 		local opts = Reflect.getOwnMetadata(ctor, "flamework:dependency_resolution")
 		local dependency = createDependency(ctor, opts)
 		local _ctor_3 = ctor
@@ -393,21 +251,11 @@ do
 		return dependency
 	end
 	_container.resolveSingleton = resolveSingleton
-	--* @internal Used for bootstrapping 
 	local function getSingletons()
 		return resolvedSingletons
 	end
 	_container.getSingletons = getSingletons
-	--[[
-		*
-		     * Modifies dependency resolution for a specific ID.
-		     *
-		     * If a function is passed, it will be called, passing the target constructor, every time that ID needs to be resolved.
-		     * Otherwise, the passed object is returned directly.
-		     *
-		     * @metadata macro
-		     
-	]]
+
 	local function registerDependency(dependency, id)
 		local _arg0 = id ~= nil
 		assert(_arg0)
@@ -424,11 +272,7 @@ do
 		end
 	end
 	_container.registerDependency = registerDependency
-	--[[
-		*
-		     * Instantiates this class using dependency injection.
-		     
-	]]
+
 	local createDeferredDependency
 	function createDependency(ctor, options)
 		if options == nil then
@@ -441,11 +285,7 @@ do
 		return obj
 	end
 	_container.createDependency = createDependency
-	--[[
-		*
-		     * Creates an object for this class and returns a deferred constructor.
-		     
-	]]
+
 	local resolveDependency
 	function createDeferredDependency(ctor, options)
 		if options == nil then
@@ -466,12 +306,7 @@ do
 		end }
 	end
 	_container.createDeferredDependency = createDeferredDependency
-	--[[
-		*
-		     * Dependency resolution logic.
-		     * @internal
-		     
-	]]
+
 	function resolveDependency(ctor, dependencyId, index, options)
 		if options.handle ~= nil then
 			local dependency = options.handle(dependencyId, index)
@@ -509,86 +344,14 @@ do
 		error(`Could not find constructor for {dependencyId} while constructing {ctor}`)
 	end
 	_container.resolveDependency = resolveDependency
-	--[[
-		*
-		     * This function is able to utilize Flamework's user macros to generate and inspect types.
-		     * This function supports all values natively supported by Flamework's user macros.
-		     *
-		     * For example, if you want to retrieve the properties of an instance, you could write code like this:
-		     * ```ts
-		     * // Returns an array of all keys part of the union.
-		     * const basePartKeys = Modding.inspect<InstancePropertyNames<BasePart>[]>();
-		     * ```
-		     *
-		     * @metadata macro
-		     
-	]]
+
 	local function inspect(value)
 		local _value = value
 		assert(_value)
 		return value
 	end
 	_container.inspect = inspect
-	--[[
-		*
-		     * This API allows you to use more complex queries, inspect types, generate arbitrary objects based on types, etc.
-		     *
-		     * @experimental This API is considered experimental and may change.
-		     
-	]]
-	--[[
-		*
-		     * Hashes a string literal type (such as an event name) under Flamework's {@link Many `Many`} API.
-		     *
-		     * The second type argument, `C`, is for providing a context to the hashing which will generate new hashes
-		     * for strings which already have a hash under another context.
-		     *
-		     * @experimental This API is considered experimental and may change.
-		     
-	]]
-	--[[
-		*
-		     * This is equivalent to {@link Hash `Hash`} except it will only hash strings when `obfuscation` is turned on.
-		     *
-		     * @experimental This API is considered experimental and may change.
-		     
-	]]
-	--[[
-		*
-		     * Retrieves the labels from this tuple under Flamework's {@link Many `Many`} API.
-		     *
-		     * This can also be used to extract parameter names via `Parameters<T>`
-		     *
-		     * @experimental This API is considered experimental and may change.
-		     
-	]]
-	--[[
-		*
-		     * Retrieves metadata about the specified type using Flamework's user macros.
-		     
-	]]
-	--[[
-		*
-		     * Retrieves multiple types of metadata from Flamework's user macros.
-		     
-	]]
-	--[[
-		*
-		     * Retrieves metadata about the callsite using Flamework's user macros.
-		     
-	]]
-	--[[
-		*
-		     * Retrieves multiple types of metadata about the callsite using Flamework's user macros.
-		     
-	]]
-	--[[
-		*
-		     * An internal type for intrinsic user macro metadata.
-		     *
-		     * @hidden
-		     
-	]]
+
 	function defineDecoratorMetadata(descriptor, config)
 		local propertyKey = if descriptor.isStatic then `static:{descriptor.property}` else descriptor.property
 		Reflect.defineMetadata(descriptor.object, `flamework:decorators.{descriptor.id}`, {

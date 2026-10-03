@@ -1,8 +1,4 @@
 --!strict
--- Pure forge-echo inventory / slot / effect / pattern helpers. No Roblox
--- services — ForgeEchoService and Lune verify scripts share this so vault math
--- can be tested without Studio. Profile mutation and Random draft picks stay
--- with the caller; Config / trait tables are injected.
 
 local ForgeEchoMath = {}
 
@@ -26,9 +22,6 @@ export type ForgeEchoesBag = {
 	Equipped: { [string]: string },
 }
 
--- Studio fixtures / mid-migrate bags may omit ForgeEchoes entirely, or leave
--- Pattern/Draft/Inventory/Equipped nil — Admin GrantEchoCharge and
--- ForgeEchoService paths must rebuild before indexing Charge / Draft.Choices.
 function ForgeEchoMath.Ensure(echoes: any): ForgeEchoesBag
 	if type(echoes) ~= "table" then
 		return {
@@ -67,7 +60,6 @@ function ForgeEchoMath.InventoryCount(inventory: any): number
 	return count
 end
 
--- Captures unlock slots by SlotCaptureRequirements index; clamped to [1, maxSlots].
 function ForgeEchoMath.UnlockedSlots(
 	captures: any,
 	slotCaptureRequirements: { number },
@@ -106,7 +98,6 @@ function ForgeEchoMath.UpgradeCost(
 	return math.max(1, math.floor(upgradeBaseDust * (upgradeScale ^ (safeLevel - 1)) + 0.5))
 end
 
--- Returns dominant pattern id and its affinity label. Empty / missing Pattern → Collect.
 function ForgeEchoMath.DominantPattern(
 	pattern: any,
 	patternAffinity: { [string]: string }?
@@ -125,9 +116,6 @@ function ForgeEchoMath.DominantPattern(
 	return best, affinity[best] or "Industry"
 end
 
-
--- Sum equipped echo effects for `effectKind`. Traits may be a list or Id→trait map.
--- Harmony bonus applies when every equipped slot shares a distinct affinity.
 function ForgeEchoMath.EquippedEffect(
 	echoes: any,
 	effectKind: any,
@@ -187,8 +175,6 @@ export type SanitizeEchoConfig = {
 	MaxSlots: number?,
 }
 
--- Persist clamp for ForgeEchoes after Ensure. `traitById` maps TraitId → trait;
--- `nonNegative` is injected so DataService can pass its persist ceiling.
 function ForgeEchoMath.Sanitize(
 	echoes: any,
 	traitById: any,

@@ -12,7 +12,6 @@ function DataTemplate.New()
 		Vault = 0,
 		Cores = 0,
 		Stardust = 0,
-		-- Ore mined in the sanctuary, and the Foundry upgrades bought with it.
 		Ore = {
 			Emberite = 0,
 			Voidglass = 0,
@@ -83,7 +82,6 @@ function DataTemplate.New()
 			Streak = 0,
 			LastClaimDay = -1,
 		},
-		-- The Astral Bazaar: bank, black market, lottery prize and contracts (BazaarMath.Ensure rebuilds the bag).
 		Bazaar = {
 			Bank = { Balance = 0, Accrued = 0, Since = 0, Term = { Id = "", Principal = 0, EndsAt = 0 } },
 			Market = { Bucket = -1, Bought = {} },
@@ -91,7 +89,6 @@ function DataTemplate.New()
 			Contracts = { Day = -1, Baseline = {}, Claimed = {} },
 			Counters = { Rounds = 0, Wins = 0, Deals = 0, Deposits = 0, Tickets = 0, Interest = 0 },
 		},
-		-- The Astral Casino (CasinoMath.Ensure rebuilds anything missing or mistyped).
 		Casino = {
 			Played = 0,
 			Won = 0,
@@ -184,12 +181,6 @@ function DataTemplate.New()
 			DirectiveCycle = -1,
 			DirectiveProgress = {},
 			DirectiveClaims = {},
-			-- Overdrive Core additions. PulseWindowStartedAt anchors the server-authoritative
-			-- timing-window sweep for skill-based pulses (the client only ever renders a
-			-- prediction of this same math -- the server never trusts a client-reported
-			-- accuracy value). Loadout holds up to 3 owned channel/protocol IDs a player has
-			-- actively slotted; CoreTier/CoreXP is the new prestige ladder built on top of
-			-- stabilizations, independent of (and additive with) the existing Milestones.
 			PulseWindowStartedAt = 0,
 			Combo = 0,
 			BestCombo = 0,
@@ -221,9 +212,7 @@ function DataTemplate.New()
 			Convergence = { EventId = "", Contribution = 0, Claimed = {} },
 		},
 
-		-- The Shop's Daily Shop: the UTC day last seen and how many of each slot were bought that day.
 		DailyShop = { Day = -1, Bought = {} },
-		-- Cosmetics: owned crate skins and the one the crate wears.
 		Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" },
 
 		Settings = {
@@ -309,8 +298,6 @@ function DataTemplate.New()
 			HighContrast = 0,
 			ColorblindMode = 0,
 		},
-		-- Forge Level rewards. -1 = not set up yet: the first load records the
-		-- current level without paying out the levels already reached.
 		Progression = {
 			RewardedLevel = -1,
 			HalfwayPaidFor = -1,

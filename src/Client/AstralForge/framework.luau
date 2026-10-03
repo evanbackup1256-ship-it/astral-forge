@@ -13,17 +13,8 @@ local CollectionService = game:GetService("CollectionService")
 local currentAntilagInfo = require(script.Parent.MotionKit)("antilag").currentAntilagInfo
 local getActiveClientStore = require(script.Parent.CoreKit)("clientStore").getActiveClientStore
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
--- Imported for its side effect: this registers LayoutGuardController with Flamework's
--- reflection metadata before Flamework.ignite() runs below. LayoutGuardController only
--- depends on UiRootComponent's *type* (for a Components<UiRootComponent> generic, resolved by
--- Flamework's decorator metadata, not a runtime value read from this module), so this import
--- does not create a real circular runtime dependency between the two files.
 require(script.Parent.layoutGuard)
 local UI_ROOT_TAG = "AstralForgeUiRoot"
--- A typed attribute schema for the root ScreenGui, shared by every component/controller that
--- reads or writes one of these — Flamework's BaseComponent<A> makes `this.attributes.X = value`
--- (and `onAttributeChanged("X", ...)`) type-checked against this shape instead of the raw
--- stringly-typed `SetAttribute`/`GetAttribute` calls this module used everywhere before.
 local UiRootComponent
 do
 	local super = BaseComponent
@@ -96,12 +87,10 @@ do
 		end
 	end
 	do
-		-- (Flamework) UiRootComponent metadata
 		Reflect.defineMetadata(UiRootComponent, "identifier", "client/framework/init@UiRootComponent")
 		Reflect.defineMetadata(UiRootComponent, "flamework:implements", { "$:flamework@OnStart" })
 	end
 end
--- (Flamework) UiRootComponent decorators
 Reflect.decorate(UiRootComponent, "$c:components@Component", Component, { {
 	tag = UI_ROOT_TAG,
 	warningTimeout = 0,
@@ -181,10 +170,8 @@ do
 				announced[_root_1] = true
 				root.Destroying:Once(function()
 					local _root_2 = root
-					-- ▼ Set.delete ▼
 					local _valueExisted = announced[_root_2] ~= nil
 					announced[_root_2] = nil
-					-- ▲ Set.delete ▲
 					return _valueExisted
 				end)
 				ClientLog:once("framework-ready", "framework", `{root.Name} ready`)
@@ -212,23 +199,15 @@ do
 		end
 	end
 	do
-		-- (Flamework) UiRuntimeController metadata
 		Reflect.defineMetadata(UiRuntimeController, "identifier", "client/framework/init@UiRuntimeController")
 		Reflect.defineMetadata(UiRuntimeController, "flamework:parameters", { "$c:components@Components" })
 		Reflect.defineMetadata(UiRuntimeController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart" })
 	end
 end
--- (Flamework) UiRuntimeController decorators
 Reflect.decorate(UiRuntimeController, "$:flamework@Controller", Controller, { {
 	loadOrder = -100,
 } })
 local DIAGNOSTIC_INTERVAL_SECONDS = 1
--- Mirrors live client performance state onto the same root ScreenGui's attributes,
--- alongside the route/snapshot attributes UiRootComponent already sets — so a Studio
--- session (or a remote admin tool reading player instance attributes) can see the current
--- antilag tier/quality/fps without needing a print statement or a debugger attached.
--- Runs after UiRuntimeController (default loadOrder 0) so at least one UiRootComponent has
--- usually already registered by the time this starts polling for one.
 local DiagnosticsController
 do
 	DiagnosticsController = setmetatable({}, {
@@ -303,13 +282,11 @@ do
 		end
 	end
 	do
-		-- (Flamework) DiagnosticsController metadata
 		Reflect.defineMetadata(DiagnosticsController, "identifier", "client/framework/init@DiagnosticsController")
 		Reflect.defineMetadata(DiagnosticsController, "flamework:parameters", { "$c:components@Components", "client/framework/init@UiRuntimeController" })
 		Reflect.defineMetadata(DiagnosticsController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" })
 	end
 end
--- (Flamework) DiagnosticsController decorators
 Reflect.decorate(DiagnosticsController, "$:flamework@Controller", Controller, { {
 	loadOrder = 10,
 } })
@@ -397,7 +374,6 @@ local function initializeClientFramework(root)
 		CollectionService:AddTag(root, UI_ROOT_TAG)
 	end
 	if not initialized then
-		-- Set before ignite so a yielding or failed start cannot enter ignite twice.
 		initialized = true
 		local ok, reason = pcall(function()
 			Flamework.ignite()

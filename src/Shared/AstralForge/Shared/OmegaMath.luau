@@ -13,11 +13,7 @@ local function isFinite(n: any): boolean
 	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
 end
 
--- Ordinary numbers below this stay exact. Routing them through log10 and back turned 36 into
--- 35.99999999999998, which then floored to 35 and failed exact affordability checks.
 local NATIVE_LIMIT = 1e15
--- Cancellation noise between plain doubles is a few units in the last place (~1e-16 relative),
--- so anything below this is treated as exactly zero while real differences survive.
 local CANCEL_EPSILON = 5e-15
 
 local function plain(value: any): boolean
@@ -251,12 +247,6 @@ function OmegaMath.Pow(left: any, right: any): Persist
 	if a.s < 0 then
 		a = { z = false, s = 1, e = a.e }
 	end
-	-- Exponents are stored as log10. Rebuilding n as 10^log10(n) is exact for
-	-- small integers and drifts by whole units past ~2^48. That drift is then
-	-- multiplied by log10(base), so 1.72^9e15 was off by about 10^7. Keep the
-	-- historic round-trip while the induced log10 error stays under 1e-8
-	-- (levels the economy actually floors), and multiply by the original
-	-- finite exponent once the round-trip stops being that exponent.
 	local exponent: number
 	local roundTrip = b.s < 0 and -(10 ^ b.e) or (10 ^ b.e)
 	local useDirect = type(right) == "number" and isFinite(right)

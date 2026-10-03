@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	ReactHosts: merged module suite.
-	Members (8): reactModules, vendorHost, reactHost, HyperTextHost, RichTextHost, NumberSpinnerHost, egooeHost, AnimatedTitle.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: reactModules   (merged from reactModules.luau, 206 lines)
--- ======================================================================
 __defs["reactModules"] = function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -112,10 +100,6 @@ local function callable(callback)
 		end
 		return nil
 	end
-	-- Debounce fallback: callers use `.run(...)` and `.flush()` as well as calling
-	-- the object. `run` fires immediately (no debounce available), and `flush`
-	-- has nothing pending, so it must NOT invoke the callback with no arguments
-	-- (that used to wipe the parent's filter text on focus loss and unmount).
 	return setmetatable({
 		run = invoke,
 		flush = function() end,
@@ -239,9 +223,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: vendorHost   (merged from vendorHost.luau, 210 lines)
--- ======================================================================
 __defs["vendorHost"] = function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -455,9 +436,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: reactHost   (merged from reactHost.luau, 199 lines)
--- ======================================================================
 __defs["reactHost"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local reactModules = __load("reactModules")
@@ -600,8 +578,6 @@ local PageFrame = React.memo(React.forwardRef(function(props, ref)
 			seenPage.current = ""
 		end
 	end, { page })
-	-- notePage's debounce keeps one timer. A throttled Heartbeat (maxWait) overwrites
-	-- that timer without disconnecting it, so rapid page switches leaked connections.
 	React.useEffect(function()
 		if page == "" then
 			return nil
@@ -660,9 +636,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: HyperTextHost   (merged from HyperTextHost.luau, 450 lines)
--- ======================================================================
 __defs["HyperTextHost"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -671,13 +644,6 @@ local _theme = require(script.Parent.CoreKit)("theme")
 local darken = _theme.darken
 local lighten = _theme.lighten
 local Palette = _theme.Palette
--- Bridges the vendor HyperText Luau module (ReplicatedStorage.AstralForge.Vendor.HyperText) into
--- React-Lua for player titles. HyperText renders real per-character Instances driven by its own
--- markup tags (<anim=wiggle>, <shake>, <rainbow>, <emitImg>, ...), giving actual positional motion
--- and particle effects instead of the color/stroke-only tricks the previous title renderer used.
--- Follows the same load-with-retry-and-fallback pattern as RichTextHost.tsx/NumberSpinnerHost.tsx:
--- the module is fetched once, cached, and any load failure degrades to a plain static textlabel
--- instead of leaving a title blank.
 local TITLE_FX_KINDS = { "wave", "fire", "ice", "glitch", "galaxy", "rainbow", "glow", "neon", "sparkle", "shake", "pulse", "gradient-shift", "holographic", "void", "plasma", "chrome", "ember", "frost", "aurora", "matrix", "static", "bounce-in", "blur-resolve", "shimmer", "toxic", "solar", "ocean", "candy", "voltage", "prism", "phantom" }
 local _set = {}
 for _, _v in TITLE_FX_KINDS do
@@ -691,8 +657,6 @@ local function parseFx(fx)
 	local key = string.lower(fx)
 	return if FX_SET[key] ~= nil then key else nil
 end
--- One accent per kind, used for the reduced-motion/failed-load fallback text and anywhere else
--- in the UI that just needs "the color for this title" (badges, plates) without a live render.
 local FX_ACCENT = {
 	wave = Palette.cyan,
 	fire = Palette.mango,
@@ -741,18 +705,7 @@ local function safeText(value)
 	cleaned = (string.gsub(cleaned, ">", ")"))
 	return cleaned
 end
--- Per-character reveal stagger applied uniformly on top of every kind below. `interval` is the
--- one HyperText primitive none of the 30 kinds touch internally, so wrapping it around the whole
--- body can never collide with (shadow/override) a kind's own <anim>/<trans> stack — those tags
--- override same-type ancestors when nested, so anything kind-specific has to stay the innermost
--- layer of its own type. The result: titles no longer pop in as a static block and then loop —
--- each character cascades in on its own beat and is already animating (color/shake/particles/
--- gradient, whatever the kind does) from the instant it appears.
 local REVEAL_STAGGER = 0.045
--- Each kind is a unique combination of HyperText motion (wiggle / bounce / slide / grow /
--- shake), color treatment (solid, gradient, rainbow, stroke, shadow, mark), and overlay
--- (shiny, fog, decode, transparency tween). Shared "recolor of the same wiggle" setups are
--- banned — NumberRange attrs must be min,max (so rising sparks use velY=-1.2,-.6 not -.6,-1.2).
 local function buildKindMarkup(kind, body)
 	local accent = FX_ACCENT[kind]
 	repeat
@@ -856,7 +809,6 @@ local function buildMarkup(kind, text, preview)
 	local body = safeText(text)
 	if preview then
 		local accent = FX_ACCENT[kind] or Palette.cream
-		-- Visible motion without per-card particle emitters. Full kinds stay on the equipped title.
 		return `<interval={REVEAL_STAGGER}><anim=wiggle freq=.7 amp=.22 offset=.1 rot=true loop=true><gradient=true colors={colorTag(accent)};{colorTag(Palette.cream)};{colorTag(accent)} individual=false moveDir=right moveSpeed=.42>{body}</gradient></anim></interval>`
 	end
 	return `<interval={REVEAL_STAGGER}>{buildKindMarkup(kind, body)}</interval>`
@@ -1043,7 +995,6 @@ local function AnimatedTitle(_param)
 			end
 			destroy()
 		end
-		-- eslint-disable-next-line react-hooks/exhaustive-deps
 	end, { live, kind, text, size, align, preview, destroy })
 	local showFallback = not live or not mounted
 	return React.createElement("frame", {
@@ -1116,29 +1067,11 @@ return {
 }
 end
 
--- ======================================================================
--- Module: RichTextHost   (merged from RichTextHost.luau, 252 lines)
--- ======================================================================
 __defs["RichTextHost"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local Palette = require(script.Parent.CoreKit)("theme").Palette
--- Bridges the vendor RichText Luau module (ReplicatedStorage.AstralForge.Vendor.RichText) --
--- an imperative class that builds real per-character Instances with typewriter timing, <wait>/
--- <br> markup, and Shiny/Stinky particle effects -- into a React-Lua component. Deliberately kept
--- separate from AnimatedTitle.tsx's 31-effect player-title system: that system's per-glyph color/
--- motion math has no equivalent here (RichText only knows Shake/Rainbow/Shiny/Stinky/None), and
--- swapping it out would mean losing 25+ existing effects for a much smaller vocabulary. This host
--- is for what RichText is actually good at and AnimatedTitle doesn't do at all: scripted narrative
--- text with a real typewriter reveal and inline pacing (Story chapters, Mail bodies, tutorial
--- copy) -- see StoryView.tsx/MailboxView.tsx for the call sites.
---
--- Follows the same load-with-retry-and-fallback pattern as NumberSpinnerHost.tsx: the module is
--- fetched once, cached, and any failure to load (missing replication, wrong instance type, a
--- require() error) degrades to a plain static text label instead of leaving the page blank --
--- this text is often the only content on the page (a story chapter, a mail body), so a silent
--- blank render on a load hiccup would be a much worse failure than briefly-unanimated text.
 local cachedModule
 local loadFailed = false
 local pendingWarned = false
@@ -1200,9 +1133,6 @@ local function loadRichTextModule()
 	pendingWarned = false
 	return cachedModule
 end
--- Plain-text width/height is measured the same way AutoHeightText in ui.tsx does, so the reserved
--- space for the scripted version matches what the fallback would have needed -- switching between
--- them (e.g. reducedMotion toggling mid-session) doesn't jump the layout.
 local function ScriptedText(_param)
 	local text = _param.text
 	local width = _param.width
@@ -1328,14 +1258,12 @@ local function ScriptedText(_param)
 		local mountJob = task.defer(tryMount)
 		return function()
 			cancelled = true
-			-- A finished defer cannot be cancelled; task.cancel throws and would skip destroy().
 			pcall(task.cancel, mountJob)
 			if retryJob ~= nil then
 				pcall(task.cancel, retryJob)
 			end
 			destroy()
 		end
-		-- eslint-disable-next-line react-hooks/exhaustive-deps
 	end, { renderKey, reducedMotion, text, destroy })
 	local showFallback = reducedMotion or not live or text == ""
 	return React.createElement("frame", {
@@ -1374,9 +1302,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: NumberSpinnerHost   (merged from NumberSpinnerHost.luau, 829 lines)
--- ======================================================================
 __defs["NumberSpinnerHost"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1537,8 +1462,6 @@ local function formatRawLabel(value, prefix, extraSuffix, spacedSuffix)
 	return `{prefix}{if amount < 0 then "-" else ""}{body}{display.suffix}`
 end
 local function applyChrome(spinner, opts)
-	-- Duration and Decimals both call Spinner:Update, which reassigns every digit.
-	-- Skip them when they already match so a value push is not a second roll.
 	if spinner.Duration ~= opts.duration then
 		spinner.Duration = opts.duration
 	end
@@ -1599,14 +1522,11 @@ local function rollDurationForJump(base, fromRaw, toRaw, fromBand, toBand, motio
 	if mantJump >= 8 then
 		return 0.24 * scale
 	end
-	-- Digit.luau fake-spins an unchanged digit when Duration is at least 0.34.
-	-- That module is shared, not client-owned, so small rolls stay under the snap cutoff.
 	return math.clamp(base * 0.62 * scale, 0.26, 0.33)
 end
 local VELOCITY_TICK_HZ = 5
 local VELOCITY_TICK_DT = 1 / VELOCITY_TICK_HZ
 
--- One thread for every velocity-driven spinner on screen.
 local velocitySteps = {}
 local velocityStepCount = 0
 local velocityWorker = nil
@@ -1618,7 +1538,6 @@ local function registerVelocityStep(step)
 			while velocityStepCount > 0 do
 				task.wait(VELOCITY_TICK_DT)
 				for step in velocitySteps do
-					-- One spinner erroring must not stop the others (or the ticker).
 					pcall(step)
 				end
 			end
@@ -1815,9 +1734,6 @@ local function NumberSpinnerHost(_param)
 		local prevMantissa = lastMantissaRef.current
 		local bandChanged = lastBandRef.current ~= display.band
 		lastRawRef.current = raw
-		-- Duration/Decimals/Value all call Spinner:Update, which reassigns every digit.
-		-- An unchanged mantissa still rolls when Duration is >= 0.34, so identical
-		-- production ticks must not touch those props.
 		if prevMantissa == mantissa and not bandChanged then
 			local quiet = quietChromeRef.current
 			if quiet.size ~= style.size then
@@ -2012,8 +1928,6 @@ local function NumberSpinnerHost(_param)
 		end
 		local displayRaw = _condition
 		local previousAt = os.clock()
-		-- One step per spinner, run by the shared ticker below (was one task.spawn loop
-		-- per spinner: N spinners meant N threads waking 5x a second).
 		local function step()
 			do
 				if not alive then
@@ -2209,9 +2123,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: egooeHost   (merged from egooeHost.luau, 172 lines)
--- ======================================================================
 __defs["egooeHost"] = function()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2387,15 +2298,8 @@ return {
 }
 end
 
--- ======================================================================
--- Module: AnimatedTitle   (merged from AnimatedTitle.luau, 13 lines)
--- ======================================================================
 __defs["AnimatedTitle"] = function()
 local exports = {}
--- Player titles now render through the HyperText vendor module (real per-character motion,
--- gradients, and particle effects) instead of the old color/stroke-only glyph tricks -- see
--- HyperTextHost.tsx for the renderer and per-kind markup. Kept as a re-export so ChatView.tsx and
--- CommandView.tsx don't need to change their import path.
 local _HyperTextHost = __load("HyperTextHost")
 exports.AnimatedTitle = _HyperTextHost.AnimatedTitle
 exports.AnimatedTitlePreview = _HyperTextHost.AnimatedTitlePreview
@@ -2406,9 +2310,6 @@ exports.TITLE_FX_KINDS = _HyperTextHost.TITLE_FX_KINDS
 return exports
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -2420,7 +2321,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

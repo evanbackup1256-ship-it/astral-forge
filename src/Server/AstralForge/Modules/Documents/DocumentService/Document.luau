@@ -1,6 +1,5 @@
 --!strict
 
-
 local Types = require(script.Parent:FindFirstChild("Types"))
 local SaveUtil = require(script.Parent:FindFirstChild("SaveUtil"))
 local deepFreeze = require(script.Parent:FindFirstChild("DeepFreeze"))
@@ -8,7 +7,6 @@ local Signal = require(script.Parent:FindFirstChild("Signal"))
 
 local SESSION_EXPIRE_TIME = 600
 local AUTOSAVE_INTERVAL = 150
-
 
 local Document = {}
 Document.__index = Document
@@ -69,9 +67,7 @@ export type Transform<T> = Types.Transform<T>
 
 type Result<T, E> = Types.Result<T, E>
 
-
 type OpenResult<T> = Result<T, RobloxAPIError | BackwardsCompatibilityError | CheckError | SessionLockedError>
-
 
 type WriteResult<T> = Result<T, RobloxAPIError | SessionLockedError | SchemaError>
 
@@ -101,7 +97,6 @@ local function runHooks(hooks: { () -> () })
 		hook()
 	end
 end
-
 
 local function getLastCompatibleVersion<T>(migrations: Migrations): number
 	for version = #migrations, 1, -1 do
@@ -149,8 +144,6 @@ local function checkKeyData(value: any): KeyData<any>?
 		return
 	end
 
-
-
 	if value.documentServiceSchemaVersion ~= INTERNAL_SCHEMA_VERSION then
 		warn("documentServiceSchemaVersion mutated")
 		return
@@ -183,8 +176,6 @@ local function checkKeyData(value: any): KeyData<any>?
 
 	return value :: KeyData<any>
 end
-
-
 
 function Document.new<T>(props: {
 	key: string,
@@ -241,11 +232,9 @@ function Document.new<T>(props: {
 	return self
 end
 
-
 function Document.Open<T>(self: Document<T>): OpenResult<T>
 	assert(not self._open, `{self} already open`)
 	assert(not self._isClosing, `{self} is closing, cannot open`)
-
 
 	local lockedByOther: boolean
 	local incompatibleVersion: boolean
@@ -269,7 +258,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 
 		if getValue then
 			keyData = checkKeyData(getValue)
-
 
 			if keyData then
 				dataToMigrate = keyData.data
@@ -302,7 +290,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 
 		local migratedData = migrateResult
 
-
 		if keyData then
 
 			if #self._migrations < keyData.lastCompatibleVersion then
@@ -329,7 +316,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 
 			return
 		end
-
 
 		local data = migratedData :: T
 
@@ -380,7 +366,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 		}
 	end
 
-
 	if lockedByOther then
 		failResult = {
 			success = false,
@@ -388,14 +373,12 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 		}
 	end
 
-
 	if failedCheck then
 		failResult = {
 			success = false,
 			reason = "CheckError",
 		}
 	end
-
 
 	if incompatibleVersion then
 		failResult = {
@@ -412,9 +395,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 		return failResult
 	end
 
-	-- These throws happen after the before-open hook incremented the store's
-	-- opening count. Skipping the fail hook left that count stuck, so
-	-- CloseAllDocuments waited forever.
 	if transformInvalid then
 		runHooks(self._failHooks.Open)
 		error(
@@ -434,9 +414,7 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 
 	self._open = true
 
-
 	self._shouldSteal = false
-
 
 	self._autoSaveThread = task.defer(function()
 		while self._lockSessions and self._open do
@@ -461,7 +439,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 
 	return result
 end
-
 
 function Document.OpenAndUpdate<T>(self: Document<T>, transform: Transform<T>): OpenResult<T>
 	assert(not self._open, `{self} already open`)
@@ -488,7 +465,6 @@ function Document.OpenAndUpdate<T>(self: Document<T>, transform: Transform<T>): 
 	end
 end
 
-
 function Document.Steal<T>(self: Document<T>)
 	assert(not self._isClosing, "Document is closing")
 	assert(self._lockSessions, "Stealing locks is only applicable to session-locked Documents")
@@ -496,31 +472,25 @@ function Document.Steal<T>(self: Document<T>)
 	self._shouldSteal = true
 end
 
-
 function Document.GetOpenedSignal<T>(self: Document<T>): Signal.Signal<OpenResult<T>>
 	return self._actionSignals.Open
 end
-
 
 function Document.GetClosedSignal<T>(self: Document<T>): Signal.Signal<WriteResult<T?>>
 	return self._actionSignals.Close
 end
 
-
 function Document.GetUpdatedSignal<T>(self: Document<T>): Signal.Signal<WriteResult<T>>
 	return self._actionSignals.Update
 end
-
 
 function Document.GetReadSignal<T>(self: Document<T>): Signal.Signal<ReadResult<T>>
 	return self._actionSignals.Read
 end
 
-
 function Document.GetCacheChangedSignal<T>(self: Document<T>): Signal.Signal<T>
 	return self._actionSignals.Cache
 end
-
 
 function Document.IsOpenAvailable<T>(self: Document<T>): Result<boolean, RobloxAPIError>
 	assert(not self._isClosing, "Document is closing")
@@ -550,7 +520,6 @@ function Document.IsOpenAvailable<T>(self: Document<T>): Result<boolean, RobloxA
 
 	local keyData = checkKeyData(getValue)
 
-
 	if not keyData then
 		return {
 			success = true,
@@ -567,17 +536,14 @@ function Document.IsOpenAvailable<T>(self: Document<T>): Result<boolean, RobloxA
 	}
 end
 
-
 function Document.IsOpen<T>(self: Document<T>): boolean
 	return self._open
 end
-
 
 function Document.Close<T>(self: Document<T>): WriteResult<T?>
 	assert(self._open, "Document not open")
 
 	runHooks(self._preHooks.Close)
-
 
 	self._isClosing = true
 
@@ -588,8 +554,6 @@ function Document.Close<T>(self: Document<T>): WriteResult<T?>
 			return self:Save()
 		end)
 		if not saveOk then
-			-- Save() throws on a non-storable cache. Leaving _isClosing set made
-			-- shutdown wait forever, and the caller's retry loop never ran.
 			self._isClosing = false
 			saveResult = {
 				success = false,
@@ -600,7 +564,6 @@ function Document.Close<T>(self: Document<T>): WriteResult<T?>
 			return saveResult
 		end
 		saveResult = saveOutcome
-
 
 		if not saveResult.success then
 			self._isClosing = false
@@ -625,7 +588,6 @@ function Document.Close<T>(self: Document<T>): WriteResult<T?>
 		success = true,
 	}
 
-
 	if self._lockSessions then
 		result = saveResult
 	end
@@ -635,11 +597,9 @@ function Document.Close<T>(self: Document<T>): WriteResult<T?>
 	return result
 end
 
-
 function Document.IsClosing<T>(self: Document<T>): boolean
 	return self._isClosing
 end
-
 
 function Document.SetCache<T>(self: Document<T>, newCache: T): T
 	assert(self._open, "Document not open")
@@ -652,14 +612,12 @@ function Document.SetCache<T>(self: Document<T>, newCache: T): T
 	return self._cache
 end
 
-
 function Document.GetCache<T>(self: Document<T>): T
 	assert(self._open, "Document not open")
 	assert(self._lockSessions, "Cache is only supported for session locked data")
 
 	return self._cache
 end
-
 
 function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteResult<T>
 	assert(self._open, "Document not open")
@@ -671,7 +629,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 	local notStorable: boolean
 	local schemaError: boolean
 	local notStorableErr: string
-
 
 	if self._lockSessions then
 
@@ -695,7 +652,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 
 			return
 		end
-
 
 		local locked = isLocked(keyData)
 		local lockedByUs = locked and (keyData.sessionLockId == self._sessionId)
@@ -745,7 +701,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 		}
 	end, self._dataStore, self._key)
 
-
 	if transformInvalid then
 		error("Invalid transform function - must return a table that passes the check function.")
 	end
@@ -785,7 +740,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 		return failResult
 	end
 
-
 	local updatedData: T = (updatedKeyData :: KeyData<T>).data
 
 	runHooks(self._postHooks.Update)
@@ -800,7 +754,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 	return result
 end
 
-
 function Document.Save<T>(self: Document<T>): WriteResult<T>
 	assert(self._open, "Document not open")
 	assert(self._lockSessions, "Must be session locked to access cache")
@@ -809,7 +762,6 @@ function Document.Save<T>(self: Document<T>): WriteResult<T>
 		return cache
 	end)
 end
-
 
 function Document.Erase<T>(self: Document<T>): Result<nil, RobloxAPIError>
 	assert(not self._open, "Cannot erase an open document")
@@ -827,7 +779,6 @@ function Document.Erase<T>(self: Document<T>): Result<nil, RobloxAPIError>
 		success = true,
 	}
 end
-
 
 function Document.Read<T>(self: Document<T>): ReadResult<T>
 	runHooks(self._preHooks.Read)
@@ -916,7 +867,6 @@ local function cleanupHook(hooks: { () -> () }, hook: () -> ())
 	table.remove(hooks, index)
 end
 
-
 function Document.HookBefore<T, S...>(self: Document<T>, event: HookEvent, hook: () -> ()): () -> ()
 	local hooks = self._preHooks[event]
 	table.insert(hooks, hook)
@@ -925,7 +875,6 @@ function Document.HookBefore<T, S...>(self: Document<T>, event: HookEvent, hook:
 		cleanupHook(hooks, hook)
 	end
 end
-
 
 function Document.HookAfter<T>(self: Document<T>, event: HookEvent, hook: () -> ()): () -> ()
 	local hooks = self._postHooks[event]
@@ -936,7 +885,6 @@ function Document.HookAfter<T>(self: Document<T>, event: HookEvent, hook: () -> 
 	end
 end
 
-
 function Document.HookFail<T>(self: Document<T>, event: HookEvent, hook: () -> ()): () -> ()
 	local hooks = self._failHooks[event]
 	table.insert(hooks, hook)
@@ -945,7 +893,6 @@ function Document.HookFail<T>(self: Document<T>, event: HookEvent, hook: () -> (
 		cleanupHook(hooks, hook)
 	end
 end
-
 
 function Document.OnceBefore<T, S...>(self: Document<T>, event: HookEvent, hook: () -> ())
 	local cleanup
@@ -956,7 +903,6 @@ function Document.OnceBefore<T, S...>(self: Document<T>, event: HookEvent, hook:
 	end)
 end
 
-
 function Document.OnceAfter<T>(self: Document<T>, event: HookEvent, hook: () -> ())
 	local cleanup
 
@@ -965,7 +911,6 @@ function Document.OnceAfter<T>(self: Document<T>, event: HookEvent, hook: () -> 
 		hook()
 	end)
 end
-
 
 function Document.OnceFail<T>(self: Document<T>, event: HookEvent, hook: () -> ())
 	local cleanup
@@ -976,11 +921,9 @@ function Document.OnceFail<T>(self: Document<T>, event: HookEvent, hook: () -> (
 	end)
 end
 
-
 function Document.__tostring<T>(self: Document<T>)
 	return `Document: {self._key}`
 end
-
 
 function Document.isDocument(instance: any): boolean
 	return getmetatable(instance).__index == Document

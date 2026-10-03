@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	LayoutKit: merged module suite.
-	Members (8): layoutGeom, layoutGuardPlan, layoutSectionPlan, pageScaffold, pageScaffoldPlan, pageReadyMath, scrolling, virtualizedList.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,12 +18,7 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: layoutGeom   (merged from layoutGeom.luau, 703 lines)
--- ======================================================================
 __defs["layoutGeom"] = function()
--- Layout geometry. Pure numbers: vectors, rectangles, rotated boxes, UDim
--- evaluation, anchors, and a spatial hash. No Roblox instances.
 
 local Geom = {}
 
@@ -313,7 +299,6 @@ function Geom.coverage(inner: Rect, outer: Rect): number
 	return Geom.overlapArea(inner, outer) / area
 end
 
--- How far `inner` sticks out of `outer` on each side. Positive means outside.
 function Geom.overflow(inner: Rect, outer: Rect): Insets
 	return {
 		l = math.max(0, outer.x0 - inner.x0),
@@ -366,8 +351,6 @@ function Geom.splitUDim(pixels: number, axis: number, preferScale: boolean): UDi
 	return { scale = scale, offset = 0 }
 end
 
--- Move a top-left rect so it sits inside `box`, shrinking if it is larger.
--- Anchor is the point that should stay put when the size changes (0..1).
 function Geom.fitRect(rect: Rect, box: Rect, anchorX: number, anchorY: number, minW: number, minH: number): Rect
 	local boxW = Geom.rectWidth(box)
 	local boxH = Geom.rectHeight(box)
@@ -384,8 +367,6 @@ function Geom.fitRect(rect: Rect, box: Rect, anchorX: number, anchorY: number, m
 	return Geom.rectFromPosSize(x, y, w, h)
 end
 
--- Minimum translation that pushes `mover` out of `blocker`.
--- The vector is applied to mover. Nil when they do not overlap.
 function Geom.separation(mover: Rect, blocker: Rect): Vec2?
 	local iw = Geom.overlapWidth(mover, blocker)
 	local ih = Geom.overlapHeight(mover, blocker)
@@ -450,8 +431,6 @@ local function edgeAxes(points: { Vec2 }): { Vec2 }
 	return axes
 end
 
--- Separating-axis overlap for two convex polygons. Returns the minimum
--- translation that pushes `a` out of `b`, or nil if they are disjoint.
 function Geom.satMTV(aPoints: { Vec2 }, bPoints: { Vec2 }): Vec2?
 	local axes = edgeAxes(aPoints)
 	for _, axis in edgeAxes(bPoints) do
@@ -555,7 +534,6 @@ function Geom.spatialQuery(hash: SpatialHash, r: Rect): { number }
 	return hits
 end
 
--- Sweep-and-prune on X, then test Y. Returns unique pairs (i < j).
 function Geom.sweepPairs(rects: { Rect }): { { number } }
 	local order = table.create(#rects)
 	for index = 1, #rects do
@@ -586,8 +564,6 @@ function Geom.sweepPairs(rects: { Rect }): { { number } }
 	return pairs
 end
 
--- Reading-order key: top band first, then left to right. Band height is the
--- median item height so a tall card does not pull an entire column together.
 function Geom.readingOrder(rects: { Rect }, band: number): { number }
 	local order = table.create(#rects)
 	for index = 1, #rects do
@@ -631,9 +607,6 @@ function Geom.rowBands(rects: { Rect }, slack: number): { { number } }
 	return rows
 end
 
--- Spread items in a row so gaps are at least `gap`, keeping the row's left
--- edge. Returns new x positions keyed by index. Items that do not fit are
--- compressed down toward minW.
 function Geom.packRow(rects: { Rect }, indexes: { number }, gap: number, minW: number, rightLimit: number): { [number]: number }
 	local placed: { [number]: number } = {}
 	if #indexes == 0 then
@@ -677,8 +650,6 @@ function Geom.packColumn(rects: { Rect }, indexes: { number }, gap: number, minH
 	return placed
 end
 
--- Binary search a uniform scale so `text` of design size fits in the box.
--- `measure(size) -> width, height` is supplied by the caller (live text or a stub).
 function Geom.fitTextScale(boxW: number, boxH: number, design: number, minSize: number, maxSize: number, measure: (number) -> (number, number)): number
 	local lo = math.max(1, minSize)
 	local hi = math.max(lo, math.min(maxSize, design))
@@ -702,8 +673,6 @@ function Geom.fitTextScale(boxW: number, boxH: number, design: number, minSize: 
 	return best
 end
 
--- Gauss-Seidel step: move `value` toward `target` but never more than `limit`
--- and never in a way that increases a recorded residual.
 function Geom.projectScalar(value: number, target: number, limit: number, residual: number): (number, number)
 	local delta = Geom.clamp(target - value, -limit, limit)
 	local nextValue = value + delta
@@ -723,8 +692,6 @@ function Geom.topLeftToAnchor(anchorX: number, anchorY: number, x: number, y: nu
 	return { x = x + w * anchorX, y = y + h * anchorY }
 end
 
--- Convert an absolute top-left delta into a Position offset delta, compensating
--- for the way Roblox shifts the top-left when Size changes around AnchorPoint.
 function Geom.offsetDelta(anchorX: number, anchorY: number, dx: number, dy: number, dw: number, dh: number): Vec2
 	return {
 		x = dx + anchorX * dw,
@@ -735,62 +702,32 @@ end
 return Geom
 end
 
--- ======================================================================
--- Module: layoutGuardPlan   (merged from layoutGuardPlan.luau, 83 lines)
--- ======================================================================
 __defs["layoutGuardPlan"] = function()
--- Scheduling and thresholds for the layout guard (layoutGuard.luau).
---
--- The guard used to wake every two seconds and repair a slice of the tree, so
--- a label that overflowed after a page opened or a phone rotated could sit
--- broken for seconds. It now works every frame on a small budget:
---
---   * fresh work first -- anything just mounted or just repaired and awaiting
---     a check -- one frame after it appears, once the engine has measured it;
---   * a continuous background sweep over everything else, so a label whose
---     text grew is caught within about a second;
---   * a burst after a resize or rotation: a large budget for a dozen frames,
---     so the whole screen settles almost at once.
---
--- Pure numbers only, so scripts/verify_layout_realtime.luau can hold it to
--- its promises under Lune.
 
 local Plan = {}
 
--- Per-frame budgets (instances inspected).
 Plan.FRESH_PER_FRAME = 96
 Plan.SWEEP_PER_FRAME = 48
 Plan.BURST_PER_FRAME = 320
--- Frames of burst after a resize or rotation.
 Plan.BURST_FRAMES = 12
--- A new instance waits this many frames so its AbsoluteSize is real.
 Plan.SETTLE_FRAMES = 1
--- The sweep never restarts more often than this (a restart walks the tree).
 Plan.MIN_SWEEP_SECONDS = 0.75
--- More fresh work than this and the rest rides the sweep instead.
 Plan.FRESH_CAP = 4000
--- A repair that doesn't stick after this many tries is abandoned.
 Plan.MAX_TRIES = 3
--- A resize smaller than this (either axis) is jitter, not a new layout.
 Plan.RESIZE_SLOP = 8
--- On touch screens text below this size is raised when it still fits.
 Plan.TOUCH_TEXT_FLOOR = 11
--- Text this small is decorative (glyph badges, tick marks); leave it alone.
 Plan.TEXT_FLOOR_MIN_SOURCE = 7
 
 type Budget = { fresh: number, sweep: number }
 
--- How much to inspect this frame.
 function Plan.budget(burstFramesLeft: number, freshWaiting: number): Budget
 	if burstFramesLeft > 0 then
-		-- Everything gets the burst budget; fresh work goes first within it.
 		local fresh = math.min(freshWaiting, Plan.BURST_PER_FRAME)
 		return { fresh = fresh, sweep = Plan.BURST_PER_FRAME - fresh }
 	end
 	return { fresh = math.min(freshWaiting, Plan.FRESH_PER_FRAME), sweep = Plan.SWEEP_PER_FRAME }
 end
 
--- Did the screen change enough to call for a fresh layout pass?
 function Plan.resized(lastWidth: number, lastHeight: number, width: number, height: number): boolean
 	if lastWidth < 0 or lastHeight < 0 then
 		return true
@@ -799,7 +736,6 @@ function Plan.resized(lastWidth: number, lastHeight: number, width: number, heig
 	return rotated or math.abs(width - lastWidth) >= Plan.RESIZE_SLOP or math.abs(height - lastHeight) >= Plan.RESIZE_SLOP
 end
 
--- The size to raise a touch-screen label to, or nil to leave it.
 function Plan.textFloor(touch: boolean, textSize: number, scaled: boolean): number?
 	if not touch or scaled then
 		return nil
@@ -810,9 +746,6 @@ function Plan.textFloor(touch: boolean, textSize: number, scaled: boolean): numb
 	return Plan.TOUCH_TEXT_FLOOR
 end
 
--- A label that doesn't fit gets wrapped before it gets shrunk, when its box has
--- room for at least two lines: shrinking a sentence to 8px reads far worse than
--- breaking it across lines.
 Plan.WRAP_LINE_FACTOR = 2.1
 function Plan.shouldWrap(textSize: number, boxHeight: number, wrapped: boolean, scaled: boolean): boolean
 	if wrapped or scaled or textSize <= 0 then
@@ -821,8 +754,6 @@ function Plan.shouldWrap(textSize: number, boxHeight: number, wrapped: boolean, 
 	return boxHeight >= textSize * Plan.WRAP_LINE_FACTOR
 end
 
--- Two labels in the same row collide when their glyphs overlap sideways by at
--- least this share of the narrower one, and share most of their height.
 Plan.LABEL_COLLIDE_SHARE = 0.12
 Plan.LABEL_ROW_SHARE = 0.5
 function Plan.labelsCollide(a, b): boolean
@@ -836,8 +767,6 @@ function Plan.labelsCollide(a, b): boolean
 	return sideways / width >= Plan.LABEL_COLLIDE_SHARE and shared / height >= Plan.LABEL_ROW_SHARE
 end
 
--- How far to move a floating panel so it sits inside the screen with `margin`
--- to spare. A panel bigger than the screen keeps its top-left edge in view.
 Plan.SCREEN_MARGIN = 6
 function Plan.nudgeIntoView(x0: number, y0: number, x1: number, y1: number, screenW: number, screenH: number): (number, number)
 	local margin = Plan.SCREEN_MARGIN
@@ -857,12 +786,10 @@ function Plan.nudgeIntoView(x0: number, y0: number, x1: number, y1: number, scre
 	return dx, dy
 end
 
--- Frames for one full sweep of `count` instances at the steady budget.
 function Plan.sweepFrames(count: number): number
 	return math.max(1, math.ceil(math.max(0, count) / Plan.SWEEP_PER_FRAME))
 end
 
--- Seconds before a changed label is caught, worst case, at `fps`.
 function Plan.worstCatchSeconds(count: number, fps: number): number
 	return math.max(Plan.MIN_SWEEP_SECONDS, Plan.sweepFrames(count) / math.max(1, fps))
 end
@@ -870,14 +797,7 @@ end
 return table.freeze(Plan)
 end
 
--- ======================================================================
--- Module: layoutSectionPlan   (merged from layoutSectionPlan.luau, 189 lines)
--- ======================================================================
 __defs["layoutSectionPlan"] = function()
--- Pure layout section planners for Overview bands and Workspace chrome.
--- No Roblox / React — PageRouter / MainGame and Lune verify scripts share
--- these so section heights stay testable without Studio. Behavior mirrors
--- the prior inline math; callers inject chrome/theme constants.
 
 local LayoutSectionPlan = {}
 
@@ -958,7 +878,6 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 		then (if landscapePhone then 132 else 168)
 		elseif short then 168
 		else (if ultraOverview then 160 else 148)
-	-- Ops Pulse: phone uses a 2×2 claim grid so Collect stays above the fold.
 	local opsH = if landscapePhone then 156 elseif stack then 196 else (if short or ultraOverview then 176 else 172)
 	local metricCardH = if stack
 		then (if landscapePhone then 72 else 92)
@@ -968,16 +887,12 @@ function LayoutSectionPlan.planOverview(flags: OverviewFlags): OverviewPlan
 	local countdownH = if countdownInPage
 		then (if stack then (if landscapePhone then 128 else 168) else (if ultraOverview then 152 else 140))
 		else 0
-	-- topBandH collapses hero+metrics into one row on wide PC; remaining sections still stack.
 	local sectionGap = if stack
 		then chromePanelGap
 		elseif short then 10
 		elseif ultraOverview then 18
 		elseif wideOverview then 16
 		else layoutPanelGap
-	-- Short PC windows only have a few hundred pixels under the chrome. Pack the
-	-- hero and the next-goal card into that budget so the fold lands on a gap
-	-- instead of slicing a panel in half.
 	local fitHeight = tonumber(flags.fitHeight)
 	if short and wideOverview and fitHeight ~= nil and fitHeight > 0 then
 		sectionGap = 8
@@ -1036,10 +951,6 @@ function LayoutSectionPlan.planWorkspace(flags: WorkspaceFlags): WorkspacePlan
 	local tapTarget = tonumber(flags.tapTarget) or 48
 	local showNextGoal = flags.showNextGoal == true
 
-	-- Phone stack uses MobileHeader for page chrome, so chrome.workspaceHeaderH is 0 and the
-	-- Workspace title/collect strip must stay collapsed — otherwise we double-tax vertical
-	-- space and first-screen CTAs fall below the fold. Keyboard-open with a zero plan header
-	-- stays collapsed (MobileHeader + tab bar are already hidden in that mode).
 	local headerHeight: number
 	if keyboardCompact then
 		headerHeight = if landscape or workspaceHeaderH <= 0 then 0 else tapTarget
@@ -1049,7 +960,6 @@ function LayoutSectionPlan.planWorkspace(flags: WorkspaceFlags): WorkspacePlan
 		headerHeight = if workspaceHeaderH > 0 then workspaceHeaderH else layoutWorkspaceHeaderHeight
 	end
 
-	-- Next-goal strip: skip on landscape and whenever the workspace header itself is gone.
 	local unlockH = 0
 	if not keyboardCompact and not landscape and headerHeight > 0 and showNextGoal then
 		unlockH = 32
@@ -1064,9 +974,6 @@ end
 return table.freeze(LayoutSectionPlan)
 end
 
--- ======================================================================
--- Module: pageScaffold   (merged from pageScaffold.luau, 154 lines)
--- ======================================================================
 __defs["pageScaffold"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Palette = require(script.Parent.CoreKit)("theme").Palette
@@ -1084,22 +991,6 @@ local function SpringSection(props)
 		ClipsDescendants = false,
 	}, props.element)
 end
--- PageScaffold — the one vertical-stack layout primitive pages should use instead of hand-
--- computed absolute bands. Every "mobile layout bug" class this project has hit (negative
--- heights from `Size = 1, -(a + b + c)`, action bars landing on top of lists, content that
--- can never be scrolled to) came from pages positioning fixed-height sections against the
--- viewport themselves. This component removes the entire class:
---
---   - Sections are declared as `fixed` (intrinsic pixel height) or `fill` (takes whatever
---     space is left over, never less than `minHeight`, and never less than an optional
---     intrinsic `height` content floor used by hostRef VirtualGrid lists).
---   - The scaffold measures its own rendered height, so it works identically in a page, an
---     overlay, or a drawer — no caller passes viewport math in.
---   - If the sections' minimum total exceeds the available space, the whole thing becomes a
---     scrolling flow. Content is always reachable; nothing ever goes negative or overlaps.
---
--- Usage mirrors how the desktop pages were already built (list of sections), so the same
--- structure now renders correctly at 1440x900 and at 568x320 with zero per-device math.
 local function PageScaffold(_param)
 	local sections = _param.sections
 	local gap = _param.gap
@@ -1128,8 +1019,6 @@ local function PageScaffold(_param)
 	if zIndex == nil then
 		zIndex = 1
 	end
-	-- Optional hostRef lets VirtualGrid / focus callers bind the same ScrollingFrame
-	-- PageScaffold owns (Command-style lists) without a second outer scroll.
 	local internalRef = React.useRef()
 	local hostRef = _param.hostRef
 	if hostRef == nil then
@@ -1153,7 +1042,6 @@ local function PageScaffold(_param)
 			return connection:Disconnect()
 		end
 	end, {})
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(section)
 		return section.fill == true
 	end
@@ -1164,10 +1052,6 @@ local function PageScaffold(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
-	-- When the sections can't all fit (short phones, landscape), the page itself has to scroll.
-	-- A list in the fill section then joins that scroll instead of nesting a second scroller:
-	-- it reports its full content height here, and the fill section grows to hold it.
 	local overflowing = planOverflow(sections, available, gap, tailPad)
 	local fillContent, setFillContent = React.useState(0)
 	local reportFill = React.useCallback(function(height)
@@ -1210,7 +1094,6 @@ local function PageScaffold(_param)
 		PaddingTop = UDim.new(0, inset),
 		PaddingBottom = UDim.new(0, inset),
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#sections)
 	local _callback_2 = function(section, index)
 		local _attributes = {
@@ -1233,7 +1116,6 @@ local function PageScaffold(_param)
 	for _k, _v in sections do
 		_newValue[_k] = _callback_2(_v, _k - 1, sections)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("scrollingframe", {
 		ref = hostRef,
 		Size = size,
@@ -1265,11 +1147,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: pageScaffoldPlan   (merged from pageScaffoldPlan.luau, 86 lines)
--- ======================================================================
 __defs["pageScaffoldPlan"] = function()
--- Pure PageScaffold fill planner for offline CI (no React / Roblox runtime).
 
 local function planFillHeight(sections: { any }, availableHeight: number, gap: number?, tailPad: number?): number
 	local resolvedGap = if gap == nil then 10 else gap
@@ -1295,9 +1173,6 @@ local function planFillHeight(sections: { any }, availableHeight: number, gap: n
 	if minHeight == nil then
 		minHeight = 120
 	end
-	-- Optional intrinsic `height` on a fill section is a content floor: VirtualGrid /
-	-- hostRef lists need the section tall enough for every row, while still expanding
-	-- into leftover viewport when the list is shorter than the pane.
 	local contentFloor = fillSection.height
 	if contentFloor == nil then
 		contentFloor = 0
@@ -1305,8 +1180,6 @@ local function planFillHeight(sections: { any }, availableHeight: number, gap: n
 	return math.max(minHeight, contentFloor, availableHeight - fixedTotal - gapsTotal - resolvedTail)
 end
 
--- When only a short sliver of the next card would show, grow the last section that
--- fully fits so the fold lands on a gap. A large remainder stays scrollable content.
 local function planFittedHeights(sections: { any }, availableHeight: number, gap: number?, tailPad: number?): { number }
 	local resolvedGap = if gap == nil then 10 else gap
 	local fillHeight = planFillHeight(sections, availableHeight, gap, tailPad)
@@ -1342,17 +1215,12 @@ local function planFittedHeights(sections: { any }, availableHeight: number, gap
 	if nextHeight == nil then
 		nextHeight = 0
 	end
-	-- 96 covers the layout test's 81px peek. Hundreds of leftover pixels are the
-	-- next card, and folding them into the previous section leaves an empty panel.
 	if extra > 0 and extra <= 96 and extra < nextHeight then
 		heights[lastFit] += extra
 	end
 	return heights
 end
 
--- True when the sections' minimum total (fixed heights, gaps, tail, and the fill section's
--- minHeight) doesn't fit, i.e. the scaffold itself has to scroll. It deliberately ignores how
--- tall a list in the fill section wants to be, so a list joining the page scroll can't flip it.
 local function planOverflow(sections: { any }, availableHeight: number, gap: number?, tailPad: number?): boolean
 	if availableHeight <= 0 then
 		return false
@@ -1379,13 +1247,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: pageReadyMath   (merged from pageReadyMath.luau, 148 lines)
--- ======================================================================
 __defs["pageReadyMath"] = function()
--- Pure PageRouter readiness / crew-snapshot helpers. No Roblox services —
--- Overview badges, Forge Path CTA readiness, and Crew roster equality can be
--- asserted under Lune without Studio. Partial quest/lab/forge bags must not throw.
 
 local PageReadyMath = {}
 
@@ -1492,7 +1354,6 @@ function PageReadyMath.SameCrewSnapshot(left: any, right: any): boolean
 	return true
 end
 
--- Overview ops strip: anomaly pulse ready or any unclaimed met directive.
 function PageReadyMath.AnomalyReady(anomaly: any): boolean
 	if type(anomaly) ~= "table" then
 		return false
@@ -1516,7 +1377,6 @@ function PageReadyMath.AnomalyReady(anomaly: any): boolean
 	return false
 end
 
--- Sum of ready mission/lab/path/anomaly claim badges on Overview ops rail.
 function PageReadyMath.OpsClaims(missionsReady: any, labReady: any, pathReady: any, anomalyReady: any): number
 	local total = math.max(0, math.floor(tonumber(missionsReady) or 0))
 		+ math.max(0, math.floor(tonumber(labReady) or 0))
@@ -1532,9 +1392,6 @@ end
 return table.freeze(PageReadyMath)
 end
 
--- ======================================================================
--- Module: scrolling   (merged from scrolling.luau, 810 lines)
--- ======================================================================
 __defs["scrolling"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local LayoutUtil = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].layoututil.src)
@@ -1556,13 +1413,8 @@ local gamepadAxis = Vector2.zero
 local lastScrollSound = -math.huge
 local motionDriver
 local globalConnections = {}
--- Touch/console: coast on Heartbeat at half rate so RenderStepped stays free
--- for layout/input. Desktop keeps RenderStepped for snappier mouse-wheel feel.
 local CONSTRAINED_SCROLL = (UserInputService.TouchEnabled and not UserInputService.MouseEnabled)
 	or (UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled)
--- Called on every CanvasPosition change (per frame during a fling) and every
--- impulse. It used to start a fresh task.delay each time; now it only moves a
--- deadline, and one watcher runs for the whole scroll.
 local titleFxHoldUntil = 0
 local function holdTitleFx()
 	titleFxHoldUntil = os.clock() + 0.16
@@ -1641,10 +1493,6 @@ local function frameUnderPointer(pointer)
 	end
 	return nil
 end
--- GetGuiObjectsAtPosition wants coordinates in the same space GetMouseLocation reports, i.e. with
--- the topbar inset already subtracted. Raw InputObject.Position includes that inset, so hit tests
--- fed straight from an input event landed one topbar-height too low and picked the wrong frame
--- (or nothing at all) near the top of the screen.
 local function frameUnderInput(position)
 	local ok, topLeft = pcall(function()
 		return GuiService:GetGuiInset()
@@ -1652,9 +1500,6 @@ local function frameUnderInput(position)
 	local inset = if ok and topLeft ~= nil and typeof(topLeft) == "Vector2" then topLeft else Vector2.zero
 	return frameUnderPointer(Vector2.new(position.X - inset.X, position.Y - inset.Y))
 end
--- Width of the band along each screen edge that the OS reserves for its own back/home gestures.
--- A touch that starts inside it belongs to the system, so the game must not also fling a list —
--- otherwise an edge-swipe-back both leaves the page and scrolls whatever was under the thumb.
 local EDGE_GESTURE_BAND = 22
 local function inSystemGestureZone(position)
 	if not UserInputService.TouchEnabled then
@@ -1671,8 +1516,6 @@ local function inSystemGestureZone(position)
 	if position.X <= EDGE_GESTURE_BAND or position.X >= viewport.X - EDGE_GESTURE_BAND then
 		return true
 	end
-	-- The bottom band is the home-indicator swipe area, which every gesture-navigation phone
-	-- reserves for itself.
 	return position.Y >= viewport.Y - EDGE_GESTURE_BAND
 end
 local function bounds(frame)
@@ -1682,7 +1525,6 @@ local function clampFor(frame, value)
 	local maximum = bounds(frame)
 	return Vector2.new(math.clamp(value.X, 0, maximum.X), math.clamp(value.Y, 0, maximum.Y))
 end
--- Whether `delta` would still move `frame` (measured from where its current fling is heading).
 local function canScrollToward(frame, delta)
 	local maximum = bounds(frame)
 	local motion = motions[frame]
@@ -1729,7 +1571,6 @@ function ensureMotionDriver()
 	local frameSkip = 0
 	local signal = if CONSTRAINED_SCROLL then RunService.Heartbeat else RunService.RenderStepped
 	motionDriver = signal:Connect(function(deltaTime)
-		-- Constrained: advance coast every other heartbeat (~30Hz).
 		if CONSTRAINED_SCROLL then
 			frameSkip += 1
 			if frameSkip % 2 == 1 and gamepadAxis.Magnitude <= 0.16 then
@@ -1876,8 +1717,6 @@ local function bindLayoutUtil(frame)
 			resizeConnection = connection
 		end
 	end
-	-- Mounting N rows fires ChildAdded N times in one frame; one deferred apply
-	-- covers all of them (each apply re-finds the layout and reconnects resize).
 	local applyScheduled = false
 	local function scheduleApply()
 		if applyScheduled then
@@ -1937,20 +1776,13 @@ local function installScrollPerformance()
 		if input.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return nil
 		end
-		-- Nothing is coasting, so there is nothing to stop — skip the rest entirely. This is the
-		-- common case for every tap on a phone and GetGuiObjectsAtPosition is not cheap.
 		if motionCount <= 0 then
 			return nil
 		end
 		local position = Vector2.new(input.Position.X, input.Position.Y)
-		-- A touch that starts on a system gesture edge is the OS's, not ours. Leave every list
-		-- exactly as it is so an edge-swipe-back does not also drag the page underneath it.
 		if input.UserInputType == Enum.UserInputType.Touch and inSystemGestureZone(position) then
 			return nil
 		end
-		-- Stop the fling the finger actually landed on, not every fling in the game. Clearing the
-		-- whole map meant a tap on one panel froze an unrelated list mid-scroll, and two nested
-		-- surfaces (a horizontal carousel inside a vertical page) cancelled each other constantly.
 		local frame = frameUnderInput(position)
 		if frame ~= nil and motions[frame] ~= nil then
 			motions[frame] = nil
@@ -1974,9 +1806,6 @@ local function installScrollPerformance()
 				end
 				local travel = 78 + scrollPreference * 110
 				local shift = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
-				-- Nested scrollers: the wheel goes to the innermost frame that can still move that way.
-				-- A list that is too short to scroll, or already at its end, hands the wheel to the page
-				-- around it instead of swallowing it.
 				local frame = innermost
 				while frame ~= nil do
 					local horizontal = frame.ScrollingDirection == Enum.ScrollingDirection.X or (shift and frame.ScrollingDirection == Enum.ScrollingDirection.XY)
@@ -2168,18 +1997,7 @@ local function AutoGrid(_param)
 		SortOrder = sortOrder,
 	})
 end
---[[
-	*
-	 * Virtualizes a fixed-row-height grid (1..N columns) inside an existing ScrollingFrame:
-	 * only mounts item instances whose row overlaps the visible viewport (+ overscanRows of
-	 * slack on each side), instead of building every row's full subtree up front. Newly
-	 * revealed rows mount one row-batch per heartbeat rather than all at once, so a big scroll
-	 * jump (drag-to-bottom, PageDown) doesn't spike a single frame with dozens of instance
-	 * creations. Positions itself absolutely (Position prop on the host frame) so it composes
-	 * inside a page that lays out sections with a uilistlayout — the host's own Size still
-	 * participates in that layout normally.
-	 
-]]
+
 local function VirtualGrid(_param)
 	local scrollRef = _param.scrollRef
 	local count = _param.count
@@ -2188,8 +2006,6 @@ local function VirtualGrid(_param)
 	local gap = _param.gap
 	local overscanRows = _param.overscanRows
 	if overscanRows == nil or overscanRows < 1 then
-		-- One extra row stays mounted so a card that is half on screen is not
-		-- unmounted and clipped while the page is still scrolling.
 		overscanRows = 1
 	end
 	local layoutOrder = _param.layoutOrder
@@ -2254,9 +2070,6 @@ local function VirtualGrid(_param)
 		end
 	end, { cellHeight, columns, count, gap, overscanRows, rows, scrollRef, stride })
 	local visible = {}
-	-- The window state lags the list by a frame: when the list shrinks (a filter
-	-- change, an item consumed) it can still point past the new end, and callers'
-	-- itemKey/renderItem index into the shrunken list and throw.
 	local windowLast = math.min(window.last, count - 1)
 	if windowLast >= window.first then
 		do
@@ -2294,16 +2107,9 @@ local function VirtualGrid(_param)
 		ClipsDescendants = false,
 	}, visible)
 end
--- The page scroll context: PageScaffold hands it to the element in its fill section so a list
--- there can tell when the page itself has to scroll (its sections don't fit the viewport). In
--- that case the list stops scrolling on its own and lets the page be the only scroller.
 local PageScrollContext = React.createContext(nil)
--- `hostRef` (optional): when set, the list does not scroll itself. Its rows are windowed against
--- the host ScrollingFrame instead, by where the list sits inside the host's visible area.
 local function useVirtualWindow(count, stride, topOffset, overscan, hostRef)
 	if overscan == nil then
-		-- Constrained devices mount fewer offscreen rows; one row of slack is enough
-		-- and cuts React mounts during fast flings roughly in half vs overscan=2.
 		overscan = if CONSTRAINED_SCROLL then 1 else 2
 	end
 	overscan = math.max(1, overscan)
@@ -2338,7 +2144,6 @@ local function useVirtualWindow(count, stride, topOffset, overscan, hostRef)
 			end
 			local top, height
 			if host ~= nil and host.Parent ~= nil then
-				-- How far the list's own top has scrolled above the host's visible top.
 				top = host.AbsolutePosition.Y - scrolling.AbsolutePosition.Y
 				height = math.max(1, host.AbsoluteWindowSize.Y)
 			else
@@ -2358,7 +2163,6 @@ local function useVirtualWindow(count, stride, topOffset, overscan, hostRef)
 			latest.current = range
 			setWindow(range)
 		end
-		-- Coalesce CanvasPosition storms from flings into one defer per frame.
 		local schedule = function()
 			if scheduled then
 				return nil
@@ -2398,9 +2202,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: virtualizedList   (merged from virtualizedList.luau, 198 lines)
--- ======================================================================
 __defs["virtualizedList"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useVirtualWindow = __load("scrolling").useVirtualWindow
@@ -2428,7 +2229,6 @@ local function useVirtualizedList(count, itemHeight, headerHeight, overscan)
 	if headerHeight == nil then
 		headerHeight = 0
 	end
-	-- nil overscan lets useVirtualWindow pick the constrained-aware default.
 	return useVirtualWindow(count, itemHeight, headerHeight, overscan)
 end
 local function resolveKey(item, index, extractor)
@@ -2476,19 +2276,13 @@ local function VirtualizedList(props)
 		_condition_1 = 0
 	end
 	local footerHeight = math.max(0, _condition_1)
-	-- Pass nil through so scrolling.useVirtualWindow can apply the constrained
-	-- overscan=1 default instead of forcing desktop overscan=2 on phones.
 	local overscan = props.overscan
 	local count = #data
-	-- Inside a page that has to scroll, a list in the page's fill section joins the page's scroll
-	-- (one scroller) instead of nesting a second one. `embedded = false` opts out.
 	local scrollHost = React.useContext(PageScrollContext)
 	local autoEmbed = scrollHost ~= nil and scrollHost.overflowing == true and props.embedded ~= false
 	local embedded = props.embedded == true or autoEmbed
 	local hostRef = if embedded and scrollHost ~= nil then scrollHost.hostRef else nil
 	local window = useVirtualWindow(count, itemHeight, headerHeight, overscan, hostRef)
-	-- Embedded with a known host: still windowed (against the page's scroll). Embedded without
-	-- one (an explicit embedded list outside a fill section): every row is mounted.
 	local windowed = not embedded or hostRef ~= nil
 	local rangeFirst = if windowed then window.first else 0
 	local rangeLast = if windowed then window.last else count - 1
@@ -2496,11 +2290,6 @@ local function VirtualizedList(props)
 	local bindRef = function(frame)
 		ownedRef.current = frame
 		window.frame.current = frame
-		-- LayoutGuardAllowDisabledScroll is an attribute, not a property. Passing
-		-- it in the props table makes the renderer assign a real member and throw
-		-- at mount, so it has to be set here. It tells the layout guard that this
-		-- frame's ScrollingEnabled = false is deliberate (the page scaffold owns
-		-- the scroll) rather than a defect to repair.
 		if frame ~= nil then
 			frame:SetAttribute("LayoutGuardAllowDisabledScroll", embedded)
 		end
@@ -2550,8 +2339,6 @@ local function VirtualizedList(props)
 	end
 	local emptyCanvas = _exp_1 + _condition_4
 	local reportedHeight = if count > 0 then canvasH else emptyCanvas
-	-- The section has to hold whatever sits above the list (a card header) and the gap the list
-	-- originally left below itself, not just the rows.
 	local trailing = 0
 	local declaredSize = props.Size
 	if typeof(declaredSize) == "UDim2" and declaredSize.Y.Scale >= 0.999 then
@@ -2612,8 +2399,6 @@ local function VirtualizedList(props)
 	_attributes.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 	_attributes.Active = not embedded
 	if embedded then
-		-- The page scaffold is the only scroller. An inner ScrollingFrame steals
-		-- the wheel and fights that parent.
 		_attributes.ScrollingEnabled = false
 		_attributes.ScrollBarThickness = 0
 		_attributes.ClipsDescendants = false
@@ -2648,9 +2433,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -2662,7 +2444,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

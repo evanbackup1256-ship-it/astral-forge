@@ -1,19 +1,10 @@
 --!strict
 
-
 local ENDLESS_LEVEL_CAP = 9_000_000_000_000_000
 local LiveOpsConfig = require(script.Parent:WaitForChild("SharedData"))("LiveOpsConfig")
 local ForgeLevels = require(script.Parent:WaitForChild("SharedData"))("ForgeLevels")
 local OreConfig = require(script.Parent:WaitForChild("SharedData"))("OreConfig")
 
--- Mirrors buildForgePathSteps()/FORGE_PATH_STEPS in src_ts/client/types.ts exactly (same
--- step count, cost/reward/effect formulas) so the client's display and the server's granted
--- rewards never drift apart. Single linear track: each step grants one permanent stat bonus
--- (EffectKind/EffectAmount, applied the same way the old skill tree's nodes were) AND one
--- reward chest (Reward), claimed together in one action — replaces the old three-way split
--- between Progression Tree (skills), Prestige (tier multipliers), and Season Pass (chests).
--- 96-step linear track. Keep in lockstep with buildForgePathSteps() in
--- src/Client/AstralForge/types.luau so client preview and server grants never drift.
 local FORGE_PATH_STEP_COUNT = 96
 type ForgePathEffectSlot = { Kind: string, Base: number }
 local FORGE_PATH_EFFECT_CYCLE: { ForgePathEffectSlot } = {
@@ -115,8 +106,6 @@ local GameConfig = {
 			Subtitle = "Forge Path 96, lab headroom, story and mail polish.",
 			TargetUnix = 1_788_195_600,
 		},
-		-- Save schema, independent of the displayed game version. Bump only with
-		-- a fixture-tested migration; DataService is the sole migration path.
 		DataVersion = 21,
 		LiveOpsManifestVersion = LiveOpsConfig.ManifestVersion,
 		AutosaveSeconds = 60,
@@ -127,7 +116,6 @@ local GameConfig = {
 	},
 
 	Lab = {
-		-- Surface more of the authored order pool each day (16 defs).
 		OrderCount = 8,
 		Orders = {
 			{
@@ -890,12 +878,6 @@ local GameConfig = {
 		ComboBonusPerStack = 0.045,
 	},
 
-	-- Generated 96-step table. See buildForgePathSteps() above. Replaces the old Progression
-	-- Tree + Prestige + Season Pass split with one linear track: each step grants a permanent
-	-- stat bonus and a reward chest together, claimed in one action, funded by ForgePath XP
-	-- (a passive trickle off lifetime flux — see Economy.ForgePathXP).
-	-- CLIENT RULE: ForgePathView must read GameConfig.ForgePath.Steps (decorate with display
-	-- metadata only). Do not keep a separate client step generator — it will go stale.
 	ForgePath = {
 		Steps = FORGE_PATH_STEPS,
 		StepCount = FORGE_PATH_STEP_COUNT,
@@ -911,11 +893,6 @@ local GameConfig = {
 	Guild = {
 		CreateCost = 5_000,
 		MaxMembers = 20,
-		-- Each upgrade runs through named tiers. Level N (1-indexed) unlocks Tiers[N]; the
-		-- effect is cumulative across every tier reached, so the client can show "next tier"
-		-- progress instead of one flat per-level number. EffectPerLevel is kept as the
-		-- endless-tail value applied to any level past the last named tier, and it also keeps
-		-- pre-tier guild documents producing the exact same bonus they had before.
 		UpgradeOrder = { "ProductionBoost", "VaultBoost", "OfflineBoost", "AutomationBoost", "TapBoost" },
 		Upgrades = {
 			ProductionBoost = {
@@ -1004,8 +981,6 @@ local GameConfig = {
 				},
 			},
 		},
-		-- Rotating co-op objective. One goal is live per guild at a time; it rotates when the
-		-- window closes or when the current goal is completed and claimed by everyone.
 		Goal = {
 			DurationSeconds = 3 * 86_400,
 			MinContributionForReward = 1,
@@ -1236,7 +1211,6 @@ local GameConfig = {
 				Color = Color3.fromRGB(201, 100, 255),
 			},
 		},
-		-- Rotate most of the 7 authored directives each cycle.
 		DirectiveSlots = 6,
 		Directives = {
 			{
@@ -1319,27 +1293,14 @@ local GameConfig = {
 		},
 		Milestones = {},
 
-		-- Overdrive Core additions.
-		-- LoadoutSlots: Channels used to be a single always-on selection; now up to this many
-		-- can be slotted simultaneously, each still applying its own EffectAmount, so a build
-		-- is a real tradeoff between which 3 (of however many are unlocked) to run at once.
 		LoadoutSlots = 3,
 
-		-- PulseWindowSeconds: the period of the server-authoritative timing sweep. The client
-		-- renders a needle predicting this exact same math from PulseWindowStartedAt -- the
-		-- server independently recomputes accuracy from its own clock on every PulseAnomaly
-		-- call rather than trusting anything the client reports, so there is no new
-		-- accuracy-spoofing surface. PulseWindowSweetZone is the fraction of the period
-		-- (centered on the window's end) that counts as an accurate hit.
 		PulseWindowSeconds = 1.6,
 		PulseWindowSweetZone = 0.22,
 		PulseAccurateBonus = 0.75,
 		PulseComboBonusPerStack = 0.03,
 		PulseComboMax = 20,
 
-		-- CoreTiers: a prestige ladder layered on top of Stabilizations, independent of (and
-		-- additive with) Milestones. Each tier raises MaximumTarget and grants a small
-		-- permanent passive production bonus; XP is earned from every stabilization.
 		CoreXPPerStabilization = 8,
 		CoreTiers = {
 			{ Tier = 1, RequiredXP = 40, MaximumTargetBonus = 400, PassiveProduction = 0.02, Unlocks = "VoltCascade" },
@@ -1359,11 +1320,6 @@ local GameConfig = {
 			{ Tier = 15, RequiredXP = 52_000, MaximumTargetBonus = 68_000, PassiveProduction = 0.14 },
 		},
 
-		-- Overdrive: a server-wide (not per-player) shared meter. Every player's Pulse and
-		-- Stabilize calls add to one shared bar; filling it grants every player on the server a
-		-- timed production bonus. Purely in-memory (module-level state in AnomalyService,
-		-- reset on server restart) -- it's a bonus layer, not core progression, so there's no
-		-- datastore surface or save-conflict risk for it.
 		OverdriveTarget = 600,
 		OverdrivePulseContribution = 1,
 		OverdriveStabilizeContribution = 14,
@@ -1390,9 +1346,6 @@ local GameConfig = {
 		CoreExponent = 0.82,
 		RebirthMultiplier = 0.14,
 		TutorialReward = 250,
-		-- Vault capacity MUST size from SteadyProduction (permanent multipliers only).
-		-- Temporary production boosts / Flux Surge / Anomaly Surge never inflate capacity —
-		-- when they end, Economy.Min(capacity, vault) deletes the overflow.
 		ForgePathXP = {
 			LogScale = 4,
 			Minimum = 1,
@@ -1408,8 +1361,6 @@ local GameConfig = {
 		},
 	},
 
-	-- Server-wide timed production event. Module-level state in FluxSurgeService.
-	-- Multiplier applies to tick production only — never to Capacity.
 	FluxSurge = {
 		IntervalSeconds = 20 * 60,
 		DurationSeconds = 60,
@@ -3635,15 +3586,11 @@ local GameConfig = {
 			Epic = { Rank = 4, Color = Color3.fromRGB(167, 105, 255) },
 			Legendary = { Rank = 5, Color = Color3.fromRGB(255, 179, 64) },
 			Mythic = { Rank = 6, Color = Color3.fromRGB(255, 88, 156) },
-			-- Above Mythic: a fraction of a percent from the best crates, near-impossible from the rest.
 			Celestial = { Rank = 7, Color = Color3.fromRGB(120, 240, 255), Prismatic = true },
 			Astral = { Rank = 8, Color = Color3.fromRGB(255, 236, 170), Prismatic = true },
 		},
-		-- Relic stars: fusing a duplicate into a relic adds a star (and the duplicate's own stars);
-		-- each star adds StarBonus of the relic's effect.
 		MaxStars = 5,
 		StarBonus = 0.25,
-		-- The Codex: discovering every relic of a rarity adds this to production, for good.
 		CodexBonus = { Common = 0.01, Uncommon = 0.01, Rare = 0.015, Epic = 0.02, Legendary = 0.03, Mythic = 0.04, Celestial = 0.06, Astral = 0.1 },
 		Definitions = {
 			{
@@ -3902,7 +3849,6 @@ local GameConfig = {
 				MaxLevel = ENDLESS_LEVEL_CAP,
 				EssenceBase = 78,
 			},
-			-- Celestial
 			{
 				Id = "HaloOfFirstForge",
 				Name = "Halo of the First Forge",
@@ -3954,7 +3900,6 @@ local GameConfig = {
 				MaxLevel = ENDLESS_LEVEL_CAP,
 				EssenceBase = 320,
 			},
-			-- Astral
 			{
 				Id = "HeartOfAstraeon",
 				Name = "Heart of Astraeon",
@@ -4011,7 +3956,6 @@ local GameConfig = {
 			{ Id = "EssenceSip", Name = "Essence Sip", Description = "Twenty-five essence for light upgrades.", Currency = "Cash", Price = 45_000, Kind = "Essence", Amount = 25, StockMax = 4, DailyRefresh = false, DailyRestock = 2, Color = Color3.fromRGB(255, 210, 130) },
 		},
 	},
-
 
 	ForgeEchoes = {
 		ChargeTarget = 100,
@@ -4127,11 +4071,6 @@ local GameConfig = {
 		{ Minutes = 720, Reward = { CashMinutes = 420, Stardust = 200, Cores = 6, Boost = "DomainSurge", FreeSpins = 2, CommandXP = 400 } },
 	},
 
-	-- Display names for every gated feature. WHEN each one opens is not set here:
-	-- every feature opens at a Forge Level (ForgeLevels.luau), and the Kind /
-	-- Target / Requirement each gate reads are filled in from that ladder at the
-	-- bottom of this file. Admin is the only rule written by hand -- it is
-	-- owner access, not progression.
 	Unlocks = {
 		Overview = { Name = "Overview" },
 		Workshop = { Name = "Workshop" },
@@ -4168,13 +4107,10 @@ local GameConfig = {
 		Admin = { Name = "Admin", Kind = "Always", Target = 0, Requirement = "Owner access only" },
 	},
 
-	-- The progression ladder itself: numbered levels in named tiers, one goal
-	-- each (see ForgeLevels.luau). The client draws the level roadmap from this.
 	Levels = ForgeLevels.ladder(),
 	LevelTiers = ForgeLevels.tiers(),
 	LevelTierBlurbs = ForgeLevels.tierBlurbs(),
 
-	-- Ore balances and Foundry upgrades earned before the sanctuary was retired (see OreConfig).
 	Ore = OreConfig.Ore,
 
 	LiveOps = {
@@ -4192,7 +4128,6 @@ local GameConfig = {
 		Convergence = 0,
 	},
 
-	-- Append-only client copy for page empty states / secondary CTAs.
 	ClientPageGuides = {
 		Overview = { OpsTitle = "Ops pulse", OpsBody = "Claims waiting across Missions, Lab, Forge Path, and Anomaly.", EmptyClaims = "Nothing ready to claim — keep forging." },
 		Workshop = { RecommendTitle = "Best buy right now", EmptyAfford = "Bank the vault, then come back for the next machine." },
@@ -5547,8 +5482,6 @@ local GameConfig = {
 			Color = Color3.fromRGB(0, 230, 185),
 		},
 
-
-
 	},
 
 	Mail = {
@@ -5845,7 +5778,6 @@ local GameConfig = {
 			Color = Color3.fromRGB(30, 215, 170),
 		},
 
-
 		{
 			Id = "update-5-1-wave30-offline",
 			Subject = "Dock note — wave thirty offline",
@@ -5861,7 +5793,6 @@ local GameConfig = {
 			Attachment = { CashMinutes = 82, Stardust = 98, Signals = 42 },
 			Color = Color3.fromRGB(35, 220, 175),
 		},
-
 
 		{
 			Id = "update-5-1-wave29-offline",
@@ -5879,7 +5810,6 @@ local GameConfig = {
 			Color = Color3.fromRGB(40, 225, 180),
 		},
 
-
 		{
 			Id = "update-5-1-wave28-offline",
 			Subject = "Dock note — wave twenty eight offline",
@@ -5895,7 +5825,6 @@ local GameConfig = {
 			Attachment = { CashMinutes = 78, Stardust = 94, Signals = 40 },
 			Color = Color3.fromRGB(45, 230, 185),
 		},
-
 
 		{
 			Id = "update-5-1-wave27-offline",
@@ -5913,7 +5842,6 @@ local GameConfig = {
 			Color = Color3.fromRGB(50, 235, 190),
 		},
 
-
 		{
 			Id = "update-5-1-wave26-offline",
 			Subject = "Dock note — wave twenty six offline",
@@ -5929,7 +5857,6 @@ local GameConfig = {
 			Attachment = { CashMinutes = 74, Stardust = 90, Signals = 38 },
 			Color = Color3.fromRGB(55, 240, 195),
 		},
-
 
 		{
 			Id = "update-5-1-wave25-offline",
@@ -5962,7 +5889,6 @@ local GameConfig = {
 			Attachment = { CashMinutes = 70, Stardust = 86, Signals = 36 },
 			Color = Color3.fromRGB(65, 250, 205),
 		},
-
 
 		{
 			Id = "update-5-1-wave22-extract",
@@ -6753,7 +6679,6 @@ local GameConfig = {
 	GridUpgrades = {},
 }
 
-
 local worldPrefixes = {
 	"Ember",
 	"Aether",
@@ -6950,10 +6875,6 @@ local function generateMilestones()
 	return milestones
 end
 
--- Worlds resolve on demand (ResolveZone) and the world list only mounts a window,
--- so the playable map can grow by 100x. Serialized ladders below are 10x: a literal
--- 100x of Machines/Research/GridUpgrades is tens of megabytes in GameConfigGenerated,
--- and Command mastery / Research chain canvases are as tall as the full list.
 GameConfig.MaxZone = 500_000
 GameConfig.MaxGeneratedExpeditions = 4_000
 GameConfig.MaxGeneratedMachines = 2_800
@@ -6989,10 +6910,6 @@ local function generatedHue(seed: number, sat: number, val: number): Color3
 	return Color3.fromHSV(((seed * 47) % 360) / 360, sat, val)
 end
 
--- coefficient * ratio^exponent, saturated at 1e300.
--- Evaluated as exp(ln(coefficient) + exponent * ln(ratio)) so a tail like
--- 1.18^4000 cannot overflow to inf before the cap is applied. For exponents
--- that still fit in a double this matches base * ratio^n within a few ulps.
 local HORIZON_CAP = 1e300
 local HORIZON_CAP_LN = math.log(HORIZON_CAP)
 
@@ -7011,8 +6928,6 @@ local function cappedRatio(coefficient: number, ratio: number, exponent: number)
 	return value
 end
 
--- Indices 1..90 / 1..80 keep the original horizon curve. Past those caps the old
--- formula flattened; the tail keeps climbing without hitting the double ceiling.
 local function horizonBaseCost(index: number): number
 	local early = cappedRatio(300_000_000, 1.55, math.min(index, 90))
 	if index <= 90 then
@@ -7135,12 +7050,9 @@ local ZONE_FEATURES = {
 }
 local ZONE_LAYOUTS = { "Dock", "Crystal", "Foundry", "Rift", "Horizon" }
 
--- 1.22^tier matches every world that still fit in a double. Past tier 3400 that curve
--- overflows, so the tail keeps climbing with a smaller factor through MaxZone.
 local ZONE_FAST_TIER = 3400
 local ZONE_TAIL_RATE = 1.000055
 
--- ln(1+x) without cancellation when x is a small tail rate (1.000055 - 1).
 local function ln1p(x: number): number
 	local p = 1 + x
 	if p == 1 then
@@ -7157,8 +7069,6 @@ local function zoneMultiplier(tier: number): number
 	if tail > 0 then
 		ln += tail * ln1p(ZONE_TAIL_RATE - 1)
 	end
-	-- Same saturation as the old `value >= 1e308 → 1e300` guard, decided in
-	-- log space so 1.22^3400 * 1.000055^tail cannot spill to inf first.
 	if ln ~= ln or ln >= math.log(1e308) then
 		return 1e300
 	end
@@ -7269,8 +7179,6 @@ local function generateExpeditions()
 	return expeditions
 end
 
--- Lazy-load the heavy generated tables so require(GameConfig) returns immediately.
--- The tables are only materialized on first access (iteration, length, or missing key).
 local function attachLazyLoader(target, generator)
 	local generated = false
 	local function ensureGenerated()
@@ -7308,8 +7216,6 @@ attachLazyLoader(GameConfig.Operations.SeasonTiers, generateSeasonTiers)
 attachLazyLoader(GameConfig.Anomalies.Milestones, generateMilestones)
 attachLazyLoader(GameConfig.Operations.Expeditions, generateExpeditions)
 
--- At build time the heavy generated tables are precomputed into GameConfigGenerated.
--- When that module is present, load it so the game never pays the generation cost at runtime.
 local generatedOk, Generated = pcall(function()
 	return require(script.Parent:WaitForChild("GameConfigGenerated"))
 end)
@@ -7322,9 +7228,6 @@ if generatedOk then
 	GameConfig.Anomalies.Milestones = Generated.Milestones
 end
 
--- Forge Levels: every feature opens at a level of the one progression ladder.
--- Each rule's Kind / Target / Requirement comes from ForgeLevels, so the level
--- a feature is listed under on the roadmap is always the level that opens it.
 for featureId, level in ForgeLevels.unlockLevels() do
 	local rule = GameConfig.Unlocks[featureId]
 	if rule == nil then

@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesSystem: merged module suite.
-	Members (5): SettingsView, CommandView, AdminView, AnomalyView, LeaderboardsView.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,14 +18,7 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: SettingsView
--- ======================================================================
 __defs["SettingsView"] = function()
--- The Settings page, drawn from SharedData#SettingsSchema: a sidebar of sections (chips on phones), one
--- tidy list per section with a switch, a slider or a few named choices on each row, search across every
--- setting, graphics presets, a reset per section, and advanced knobs folded away until asked for.
--- Every row lives in the page's own scroll (PageScaffold): no list scrolls inside another.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -77,7 +61,6 @@ for _, section in Schema.SECTIONS do
 	SECTION_BY_ID[section.id] = section
 end
 
--- An on/off switch: a pill with a knob that springs across.
 local function Switch(_param)
 	local on = _param.on
 	local accent = _param.accent
@@ -117,7 +100,6 @@ local function Switch(_param)
 	})))
 end
 
--- A row of named options; the picked one is filled with the section colour.
 local function Choice(_param)
 	local choices = _param.choices
 	local value = _param.value
@@ -166,7 +148,6 @@ local function Choice(_param)
 	}, cells)
 end
 
--- One setting: its name and a one-line note on the left, its control on the right (under it on phones).
 local function SettingRow(_param)
 	local entry = _param.entry
 	local saved = _param.value
@@ -250,7 +231,6 @@ local function SettingRow(_param)
 		position = UDim2.fromOffset(0, if stack then 29 else 32),
 		sizeConstraint = UDim2.new(1, -textRight, 0, 16),
 	}), control, React.createElement("frame", {
-		-- hairline under each row
 		Size = UDim2.new(1, 0, 0, 1),
 		Position = UDim2.new(0, 0, 1, 0),
 		BackgroundColor3 = Palette.lineSoft,
@@ -259,7 +239,6 @@ local function SettingRow(_param)
 	}))
 end
 
--- A section in the sidebar (desktop) or a chip (phones).
 local function SectionButton(_param)
 	local section = _param.section
 	local active = _param.active
@@ -294,7 +273,6 @@ local function SectionButton(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
 	}), React.createElement("frame", {
-		-- the active marker
 		Size = glow:map(function(amount)
 			return UDim2.fromOffset(3, math.round(18 * math.clamp(amount, 0, 1)))
 		end),
@@ -336,7 +314,6 @@ local function SettingsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	-- Touch layout: trust the viewport AutoScale already measured (Studio's emulator always has a mouse).
 	local touch = not viewport.desktop and UserInputService.TouchEnabled
 	local mobileHudAvailable = touch and chrome.stack
 	local settings = state.Settings or {}
@@ -360,7 +337,6 @@ local function SettingsView(_param)
 	local section = SECTION_BY_ID[activeSection]
 	local accent = accentOf(section)
 
-	-- Gamepad: park Selection on the tour / patch notes buttons.
 	local settingsClaimHostRef = React.useRef(nil)
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
@@ -380,7 +356,6 @@ local function SettingsView(_param)
 		end
 	end, { activeSection })
 
-	-- What the list shows: search results from every section, or this section (advanced folded away).
 	local needle = string.lower(query)
 	local searching = needle ~= ""
 	local rows = {}
@@ -415,7 +390,6 @@ local function SettingsView(_param)
 		dispatch("SetSetting", { Values = Schema.sectionDefaults(activeSection), Label = `{section.label} settings reset.` })
 	end
 
-	-- The phone HUD editor (dragging the quick buttons, the menu and the alerts round the screen).
 	local quickScale = Schema.value(settings, "MobileQuickScale")
 	local dockScale = Schema.value(settings, "MobileDockScale")
 	local toastScale = Schema.value(settings, "MobileToastScale")
@@ -457,7 +431,6 @@ local function SettingsView(_param)
 		return slots
 	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, settings.MobileDockX, settings.MobileDockY, settings.MobileQuickX, settings.MobileQuickY, settings.MobileToastX, settings.MobileToastY, toastHeight, toastWidth, viewport.height })
 
-	-- ---- header: title, tour / patch notes, search
 	local headerH = if stack then 158 else 112
 	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
@@ -520,7 +493,6 @@ local function SettingsView(_param)
 		reducedMotion = softMotion,
 	}))
 
-	-- ---- section switcher
 	local navButtons = {
 		layout = React.createElement("uilistlayout", {
 			FillDirection = if stack then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
@@ -548,7 +520,6 @@ local function SettingsView(_param)
 	local navRows = if stack then math.ceil(#sections / 3) else #sections
 	local navH = if stack then navRows * 44 + 12 else #sections * 48 + 16
 
-	-- ---- the list
 	local listChildren = {
 		layout = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Vertical,
@@ -568,7 +539,6 @@ local function SettingsView(_param)
 		}, element)
 		listH += height
 	end
-	-- Section title (or search summary) with the reset button.
 	add("title", React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = if searching then `{#rows} result{if #rows == 1 then "" else "s"} for "{query}"` else section.label,
 		size = 18,
@@ -775,9 +745,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CommandView   (merged from CommandView.luau, 1586 lines)
--- ======================================================================
 __defs["CommandView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -836,7 +803,6 @@ local TAB_SHORT = {
 	Artifacts = "Relics",
 	Season = "Rank",
 }
--- ▼ ReadonlyArray.map ▼
 local _newValue = table.create(#TABS)
 local _callback = function(id)
 	return {
@@ -847,9 +813,7 @@ end
 for _k, _v in TABS do
 	_newValue[_k] = _callback(_v, _k - 1, TABS)
 end
--- ▲ ReadonlyArray.map ▲
 local TAB_OPTIONS = _newValue
--- ▼ ReadonlyArray.map ▼
 local _newValue_1 = table.create(#TABS)
 local _callback_1 = function(id)
 	return {
@@ -860,7 +824,6 @@ end
 for _k, _v in TABS do
 	_newValue_1[_k] = _callback_1(_v, _k - 1, TABS)
 end
--- ▲ ReadonlyArray.map ▲
 local TAB_OPTIONS_SHORT = _newValue_1
 local TAB_TIPS = {
 	Overview = "Commander rank, crew, weekly jobs, titles, and the signal shop.",
@@ -1068,7 +1031,6 @@ local function CommandView(_param)
 	local onSectionChange = _param.onSectionChange
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	-- meters, and claim CTAs all snap when tier<=1 or ambient is off (parity with Shop/Trade).
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local overviewReveal = useStagger(0, softMotion)
@@ -1177,7 +1139,6 @@ local function CommandView(_param)
 			end
 		end
 	end
-	-- Gamepad: park Selection on the highest-priority Command claim CTA for the active tab.
 	local commandClaimReady = (tab == "Overview" and (nextClaim ~= nil or firstReadyWeeklyId ~= nil))
 		or (tab == "Expeditions" and expeditionReady)
 		or (tab == "Season" and firstReadySeasonTier ~= nil)
@@ -1200,7 +1161,6 @@ local function CommandView(_param)
 		end
 	end, { tab, nextClaim, firstReadyWeeklyId, expeditionReady, firstReadySeasonTier, commandClaimReady })
 	local _exp = ops.Expeditions
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_2 = function(item)
 		return item.Id == activeId
 	end
@@ -1211,10 +1171,8 @@ local function CommandView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local activeConfig = _result_3
 	local _exp_1 = ops.Artifacts
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_2 = {}
 	local _callback_3 = function(artifact)
 		return command.Artifacts[artifact.Id] ~= nil
@@ -1226,10 +1184,8 @@ local function CommandView(_param)
 			_newValue_2[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local ownedArtifacts = #_newValue_2
 	local _exp_2 = ops.SeasonTiers
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_4 = function(tier)
 		return command.SeasonClaims[tostring(tier.Tier)] ~= true
 	end
@@ -1240,7 +1196,6 @@ local function CommandView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local nextTier = _result_4
 	local seasonFill = if nextTier then meterFill(command.SeasonXP, math.max(1, nextTier.RequiredXP)) else 1
 	local seasonStatus = if nextTier then if command.SeasonXP >= nextTier.RequiredXP then `Gift {nextTier.Tier} is ready` else `{compactNumber(nextTier.RequiredXP - command.SeasonXP)} XP to gift {nextTier.Tier}` else "All season gifts claimed"
@@ -1412,7 +1367,6 @@ local function CommandView(_param)
 			position = UDim2.fromOffset(0, if stack then 100 else 112),
 			sizeConstraint = UDim2.new(1, 0, 0, 18),
 		}), React.createElement("frame", {
-			-- FocusClaim prefers Claim-named hosts; commander rank gift is the Overview primary CTA.
 			Name = "CommandClaimActions",
 			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 46),
 			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0, 16),
@@ -1459,7 +1413,6 @@ local function CommandView(_param)
 			rowGap = gridGap,
 			columnGap = gridGap,
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_3 = table.create(#CREW_ROLES)
 		local _callback_5 = function(roleId, index)
 			local role = ops.Crew[roleId]
@@ -1519,7 +1472,6 @@ local function CommandView(_param)
 		for _k, _v in CREW_ROLES do
 			_newValue_3[_k] = _callback_5(_v, _k - 1, CREW_ROLES)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local _exp_11 = React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, crewH),
 			accent = Palette.mango,
@@ -1542,7 +1494,6 @@ local function CommandView(_param)
 			fit = false,
 			sizeConstraint = UDim2.new(1, 0, 0, 24),
 		})
-		-- VirtualGrid long Weekly catalogs so Overview never map-mounts every directive.
 		local _exp_13 = React.createElement(VirtualGrid, {
 			scrollRef = scrollRef,
 			count = #command.Weekly,
@@ -1609,7 +1560,6 @@ local function CommandView(_param)
 					position = UDim2.fromOffset(12, if stack then 78 else 76),
 					size = UDim2.new(1, if stack then -24 else -156, 0, 7),
 				}), if stack then React.createElement("frame", {
-					-- FocusClaim prefers Claim-named hosts; weekly CLAIM is the Overview job CTA.
 					Name = "CommandClaimActions",
 					Size = UDim2.new(1, -24, 0, TapTarget),
 					Position = UDim2.new(0, 12, 1, -(TapTarget + 8)),
@@ -1947,7 +1897,6 @@ local function CommandView(_param)
 			position = UDim2.fromOffset(0, 80),
 			size = UDim2.new(1, if stack then 0 else -230, 0, 8),
 		}), React.createElement("frame", {
-			-- FocusClaim prefers Claim-named hosts; COLLECT is the expedition claim CTA.
 			Name = "CommandClaimActions",
 			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(210, 48),
 			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 8)) else UDim2.new(1, -210, 0.5, -24),
@@ -2325,8 +2274,6 @@ local function CommandView(_param)
 			}))))
 		end,
 	})))
-	-- Fill body expands into leftover viewport when the tab is short; intrinsic height
-	-- (content floor) keeps hostRef VirtualGrid rows reachable when the list is long.
 	local bodyIntrinsic = if useFillList then tabHeroH + listContent + Layout.panelGap else tabContent
 	return React.createElement(PageScaffold, {
 		hostRef = scrollRef,
@@ -2360,9 +2307,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: AdminView   (merged from AdminView.luau, 943 lines)
--- ======================================================================
 __defs["AdminView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local HttpService = game:GetService("HttpService")
@@ -2391,11 +2335,6 @@ local Text = _ui.Text
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 
--- Admin is the one page that is deliberately desktop-only: a fixed three-column
--- console instead of the stacked/reflow layout every other page uses. On small
--- windows the columns get narrow but never reflow — the owner tooling stays
--- predictable instead of rearranging under the cursor. PageScaffold owns the
--- outer Y scroll; FlatList owns the long player/command catalogs.
 local GAP = 14
 local HEADER_H = 92
 local PLAYERS_W = 280
@@ -2457,7 +2396,6 @@ local function SectionTitle(_param)
 	})
 end
 
--- Stat tile for the target inspect grid.
 local function StatCell(_param)
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -2823,8 +2761,6 @@ local function AdminView(_param)
 	local runLabel = if busy then "APPLYING…" elseif needsArm and not armed then "ARM" else "RUN"
 	local runColor = if busy then Palette.panelSoft elseif needsArm and armed then Palette.coral elseif needsArm then Palette.mango else Palette.mint
 
-	-- Fixed geometry. The page area is always treated as a desktop console:
-	-- header on top, three columns below, no reflow.
 	local FIELD_H = 50
 	local EXEC_TITLE = 40
 	local EXEC_BUTTON = 46
@@ -2836,7 +2772,6 @@ local function AdminView(_param)
 	local STAT_GAP = 8
 	local inspectH = INSPECT_TITLE + STAT_H * 2 + STAT_GAP + 26
 
-	-- Header bar.
 	local header = React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, HEADER_H),
 		accent = Palette.coral,
@@ -2896,7 +2831,6 @@ local function AdminView(_param)
 			reducedMotion = softMotion,
 	}))
 
-	-- Column 1: players.
 	local playerSection = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.cyan,
@@ -2956,7 +2890,6 @@ local function AdminView(_param)
 		})
 	end)())
 
-	-- Column 2: commands.
 	local commandSection = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.violet,
@@ -3031,7 +2964,6 @@ local function AdminView(_param)
 		end,
 	})))
 
-	-- Column 3 top: target inspect.
 	local inspectSection = React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, inspectH),
 		accent = Palette.mint,
@@ -3069,9 +3001,7 @@ local function AdminView(_param)
 		React.createElement(StatCell, { label = "DUST", value = selectedPlayer and compactNumber(selectedPlayer.Stardust or 0) or "--", accent = Palette.steel }),
 		React.createElement(StatCell, { label = "KEYS", value = selectedPlayer and compactNumber(selectedPlayer.Keys or 0) or "--", accent = Palette.violet })))
 
-	-- Column 3 middle: execute dock.
 	local executeActionsHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on ARM/RUN (FocusClaim prefers Confirm-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -3173,7 +3103,6 @@ local function AdminView(_param)
 		Position = UDim2.fromOffset(0, EXEC_TITLE + fieldSlots * FIELD_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim ARM/RUN must not clip CTA overshoot.
 		ClipsDescendants = false,
 		ref = executeActionsHostRef,
 	}, React.createElement("frame", {
@@ -3181,7 +3110,6 @@ local function AdminView(_param)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim ARM/RUN must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = runLabel,
@@ -3206,7 +3134,6 @@ local function AdminView(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, EXEC_NOTE - 4),
 	}))
 
-	-- Column 3 bottom: recent audit feed fills whatever is left.
 	local recentSection = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.steel,
@@ -3243,9 +3170,6 @@ local function AdminView(_param)
 		return rows
 	end)()))
 
-	-- Fixed three-column console: PLAYERS | COMMANDS | TARGET+EXECUTE+RECENT.
-	-- PageScaffold owns outer Y scroll when the viewport is shorter than the console
-	-- body; UISizeConstraint keeps the owner console at CONSOLE_W so columns never reflow.
 	local BODY_H = inspectH + GAP + executeH + GAP + RECENT_MIN
 	local consoleBody = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -3307,14 +3231,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: AnomalyView   (merged from AnomalyView.luau, 572 lines)
--- ======================================================================
 __defs["AnomalyView"] = function()
--- Shift Plan
--- One card tells you the single best action for progress. Under it, the same
--- reactor actions stay available in plain language: pulse, bank, one boost,
--- permanent upgrades, and today's jobs.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
@@ -3884,9 +3801,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: LeaderboardsView   (merged from LeaderboardsView.luau, 1276 lines)
--- ======================================================================
 __defs["LeaderboardsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
@@ -3972,7 +3886,6 @@ local BOARDS = { {
 } }
 local _array = {}
 local _length = #_array
--- ▼ ReadonlyArray.map ▼
 local _newValue = table.create(#BOARDS)
 local _callback = function(board)
 	return {
@@ -3985,7 +3898,6 @@ end
 for _k, _v in BOARDS do
 	_newValue[_k] = _callback(_v, _k - 1, BOARDS)
 end
--- ▲ ReadonlyArray.map ▲
 local _Length = #_newValue
 table.move(_newValue, 1, _Length, _length + 1, _array)
 _length += _Length
@@ -4000,7 +3912,6 @@ local ROW_H = 54
 local ROW_GAP = 6
 local AUTO_REFRESH_SECONDS = 15
 local function metaFor(id)
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_1 = function(board)
 		return board.id == id
 	end
@@ -4011,7 +3922,6 @@ local function metaFor(id)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _condition = _result
 	if _condition == nil then
 		_condition = BOARDS[1]
@@ -4132,7 +4042,6 @@ local function serverEntries(players, id)
 	table.sort(_array_1, function(left, right)
 		return serverValueFor(left, id) > serverValueFor(right, id)
 	end)
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#_array_1)
 	local _callback_1 = function(summary)
 		return {
@@ -4145,7 +4054,6 @@ local function serverEntries(players, id)
 	for _k, _v in _array_1 do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, _array_1)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return _newValue_1
 end
 local function medalColor(rank, accent)
@@ -4281,13 +4189,6 @@ local function RankRow(_param)
 	local surface = if isLocal then darken(Palette.green, 0.88) else Palette.panel
 	local nameColor = ensureContrast(surface, Palette.cream)
 	local valueColor = ensureContrast(surface, accent)
-	-- Rank + avatar + value columns used to reserve a combined 296px (40 rank / 86 name-start /
-	-- 248 name-end-gap / 160 value) regardless of viewport -- fine on a 1280px desktop row, but on
-	-- a 320-360px phone that left the name column at a negative or near-zero width (86 to
-	-- width-248 is already negative below 334px), so the player's actual name could render fully
-	-- clipped to nothing. Mobile keeps the same one-line row with narrower rank/avatar/value
-	-- columns so the name gets real room instead of none. Rows are stacked by UIListLayout —
-	-- no absolute Y — so scaffold section height stays honest on short phones.
 	local rankW = if stack then 26 else 40
 	local avatarSize = if stack then 28 else 34
 	local avatarX = if stack then rankW + 4 else 44
@@ -4341,7 +4242,6 @@ end
 local GUILD_ROW_H = 52
 local GUILD_ROWS_SHOWN = 5
 local GUILD_ACCENT = Palette.violet
---* Featured guild board: your hall's standing plus the top halls, above the personal boards. 
 local function GuildSpotlight(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -4386,7 +4286,6 @@ local function GuildSpotlight(_param)
 		_condition = ""
 	end
 	local myGuildId = _condition
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_1 = {}
 	local _callback_1 = function(entry)
 		return entry.Activity > 0
@@ -4398,11 +4297,9 @@ local function GuildSpotlight(_param)
 			_newValue_1[_length_1] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local ranked = _newValue_1
 	local _result_1
 	if myGuildId ~= "" then
-		-- ▼ ReadonlyArray.findIndex ▼
 		local _callback_2 = function(entry)
 			return entry.Id == myGuildId
 		end
@@ -4413,14 +4310,12 @@ local function GuildSpotlight(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.findIndex ▲
 		_result_1 = _result_2
 	else
 		_result_1 = -1
 	end
 	local myIndex = _result_1
 	local myRank = if myIndex >= 0 then myIndex + 1 else nil
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_2 = {}
 	local _callback_2 = function(_, index)
 		return index < GUILD_ROWS_SHOWN
@@ -4432,7 +4327,6 @@ local function GuildSpotlight(_param)
 			_newValue_2[_length_2] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local shown = _newValue_2
 	local heroSurface = darken(GUILD_ACCENT, 0.9)
 	local heroTitle = ensureContrast(heroSurface, Palette.cream)
@@ -4551,17 +4445,12 @@ local function GuildSpotlight(_param)
 			sizeConstraint = UDim2.fromScale(1, 1),
 		}))
 	else
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_3 = table.create(#shown)
 		local _callback_3 = function(entry, index)
 			local isMine = entry.Id == myGuildId
 			local rank = index + 1
 			local rowAccent = if isMine then Palette.green else medalColor(rank, GUILD_ACCENT)
 			local surface = if isMine then darken(Palette.green, 0.88) else Palette.panel
-			-- Same fixed-column bug as RankRow above: 112 (tag badge end) to width-280 (value
-			-- column start) went negative on anything narrower than ~392px, clipping the guild
-			-- name to nothing on every phone. Mobile gets a narrower rank/tag/value budget so
-			-- the name column stays real width instead of negative.
 			local gRankW = if stack then 22 else 40
 			local gTagX = if stack then gRankW + 4 else 44
 			local gTagW = if stack then 46 else 60
@@ -4616,7 +4505,6 @@ local function GuildSpotlight(_param)
 		for _k, _v in shown do
 			_newValue_3[_k] = _callback_3(_v, _k - 1, shown)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_result_2 = _newValue_3
 	end
 	return React.createElement("frame", {
@@ -4644,7 +4532,6 @@ local function LeaderboardsView(_param)
 	local boardHostRef = React.useRef(nil)
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
-	-- Gamepad: park Selection on board filter tabs (FocusClaim prefers Confirm-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -4756,7 +4643,6 @@ local function LeaderboardsView(_param)
 	if guildBoard then
 		_result = {}
 	else
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue_1 = {}
 		local _callback_1 = function(entry)
 			return scoreCounts(selected, entry.Value)
@@ -4768,21 +4654,15 @@ local function LeaderboardsView(_param)
 				_newValue_1[_length_1] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		_result = _newValue_1
 	end
 	local ranked = _result
 	local heroH = if stack then 148 else 148
-	-- Narrow stack wraps RANK_TABS into two rows so the selection carrier never clips inside
-	-- an X-scroller; desktop keeps a 4-column grid. PageScaffold owns vertical body scroll.
 	local filterColumns = 4
 	local filterRows = math.ceil(#RANK_TABS / filterColumns)
 	local filterGap = 7
 	local filtersH = filterRows * TapTarget + (filterRows - 1) * filterGap + 8
 	local scopeH = if guildBoard then 0 else TapTarget * 0.72 + 10
-	-- Phone stacks the podium as three short cards (no 1/3-width squeeze / clip); desktop keeps
-	-- the classic three-across band. Section heights are intrinsic — UIListLayout owns vertical
-	-- flow so RankRow / PodiumCard never need absolute Y under the scaffold.
 	local podiumCardH = if stack then 118 else 152
 	local podiumGap = if stack then 8 else 8
 	local podiumBandH = if stack then podiumCardH * 3 + podiumGap * 2 else podiumCardH
@@ -4801,7 +4681,6 @@ local function LeaderboardsView(_param)
 	local ranksSectionH = if hasEntries then ranksLabelH + ranksListH else emptyOrLoadingH
 	local leaderTail = scrollTail(stack, chrome.bottomSafe, 56)
 	local own = if guildBoard then 0 else ownValue(state, selected)
-	-- ▼ ReadonlyArray.findIndex ▼
 	local _callback_1 = function(entry)
 		return entry.UserId == localId
 	end
@@ -4812,7 +4691,6 @@ local function LeaderboardsView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.findIndex ▲
 	local localRankIndex = _result_1
 	local localRank = if localRankIndex >= 0 then localRankIndex + 1 else nil
 	local heroSurface = darken(meta.accent, 0.9)
@@ -5162,9 +5040,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -5176,7 +5051,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

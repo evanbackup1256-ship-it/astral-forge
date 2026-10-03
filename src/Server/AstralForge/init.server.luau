@@ -190,7 +190,6 @@ end
 
 remoteFolder:SetAttribute("Ready", true)
 remoteFolder:SetAttribute("ReadyAt", workspace:GetServerTimeNow())
--- The casino's 3D kit loads in the background; the casino draws part-built shapes until it lands.
 task.spawn(function()
 	local ok, problem = pcall(require(script:WaitForChild("CasinoKitLoader")).load)
 	if not ok then

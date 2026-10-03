@@ -1,8 +1,4 @@
 --!strict
--- Pure DataService sanitize primitives: deepCopy / reconcile / nonNegative.
--- No Roblox services — DataService and Lune verify scripts share this so bag
--- merge + finite clamps stay testable without Studio. Catalog clamps and
--- ProfileBagMath Ensures stay with the caller.
 
 local DataSanitizeMath = {}
 
@@ -19,8 +15,6 @@ function DataSanitizeMath.DeepCopy(value: any): any
 	return copy
 end
 
--- Fills missing / wrong-typed keys from `template` into `target` in place.
--- Number template + string current is left alone (legacy Omega string persist).
 function DataSanitizeMath.Reconcile(target: any, template: any): any
 	if type(target) ~= "table" or type(template) ~= "table" then
 		return target
@@ -32,7 +26,6 @@ function DataSanitizeMath.Reconcile(target: any, template: any): any
 		elseif currentValue == nil then
 			target[key] = DataSanitizeMath.DeepCopy(defaultValue)
 		elseif type(defaultValue) == "number" and type(currentValue) == "string" then
-			-- keep Omega persist string
 		elseif type(defaultValue) ~= type(currentValue) then
 			target[key] = DataSanitizeMath.DeepCopy(defaultValue)
 		end
@@ -40,7 +33,6 @@ function DataSanitizeMath.Reconcile(target: any, template: any): any
 	return target
 end
 
--- Finite non-negative clamp for persisted scalars. Non-finite → 0.
 function DataSanitizeMath.NonNegative(value: any, ceiling: number?): number
 	local cap = if type(ceiling) == "number" then ceiling else DataSanitizeMath.MAX_PERSISTED_NUMBER
 	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
@@ -49,10 +41,6 @@ function DataSanitizeMath.NonNegative(value: any, ceiling: number?): number
 	return math.clamp(value, 0, cap)
 end
 
--- Deep in-place scrub: NaN / ±inf → 0 so ProfileIntegrity.Seal cannot reject the
--- whole profile over one orphaned non-finite leaf (cache sync / save prep).
--- Caps traversal like ProfileIntegrity to avoid runaway tables. `budget` is a
--- shared {nodes=n} so sibling branches share the same visit ceiling.
 function DataSanitizeMath.ScrubNonFinite(value: any, depth: number?, budget: { nodes: number }?): any
 	local d = depth or 0
 	local counter = budget or { nodes = 0 }
@@ -81,10 +69,6 @@ function DataSanitizeMath.ScrubNonFinite(value: any, depth: number?, budget: { n
 	return value
 end
 
-
--- Clamp a Machines/Research/Grid level bag against a catalog `byId` map.
--- Unknown ids and zero levels are dropped. `nonNegative` is injected so
--- DataService can pass DataSanitizeMath.NonNegative with its persist ceiling.
 function DataSanitizeMath.ClampLevelBag(
 	bag: any,
 	byId: any,
@@ -111,8 +95,6 @@ function DataSanitizeMath.ClampLevelBag(
 	return bag
 end
 
--- Clamp AutoForge bag against a machine catalog. Missing bag → defaults.
--- `nonNegative` is injected so DataService can pass its persist ceiling.
 function DataSanitizeMath.ClampAutoForge(
 	autoForge: any,
 	machineById: any,

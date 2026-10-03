@@ -1,21 +1,15 @@
 local TweenService = game:GetService("TweenService")
 
--- Soft collapse when a digit is removed (width → 0). Create/update uses fixed width — no async bounds races.
 local COLLAPSE_TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
 
 local Digit = {}
 
--- Quart Out: crisp odometer settle without Back overshoot.
--- Roblox enum is Quart — Quartic is invalid and crashes Digit.new.
 local function rollTweenInfo(duration: number): TweenInfo
 	return TweenInfo.new(math.max(0.08, duration), Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 end
 
 local function digitSize(textSize: number): (number, number)
-	-- Pad taller than TextSize so GothamBlack glyphs aren't clipped into a dark fringe.
-	-- (ClipsDescendants + flush height made adjacent-strip edges look like a black shadow.)
 	local h = math.max(14, math.floor(textSize + 4))
-	-- Slightly roomier than condensed metrics so columns don't shear into neighbors.
 	local w = math.max(6, math.floor(textSize * 0.7 + 0.5))
 	return w, h
 end
@@ -60,8 +54,6 @@ function Digit.new(Spinner, LayoutOrder, Value)
 		n.TextYAlignment = Enum.TextYAlignment.Center
 		n.TextXAlignment = Enum.TextXAlignment.Center
 		n.TextScaled = false
-		-- TextStroke is NOT clipped by ClipsDescendants — any visible stroke paints a
-		-- black ghost of adjacent odometer digits offset from the current glyph.
 		n.TextStrokeTransparency = 1
 		n.TextStrokeColor3 = Color3.new(0, 0, 0)
 		n.Size = UDim2.new(1, 0, 0.1, 0)
@@ -162,14 +154,11 @@ function Digit.new(Spinner, LayoutOrder, Value)
 				activeTween = nil
 			end
 
-			-- Near-zero duration: snap (high-rate production ticks / huge catch-up).
 			if digit.Duration <= 0.12 then
 				Canvas.Position = UDim2.new(0, 0, -target, 0)
 				return
 			end
 
-			-- Same-digit force-roll only on deliberate slow rolls (buys / vault).
-			-- Continuous FLUX catch-up used to spin every unchanged digit and looked broken.
 			if from == target then
 				if digit.Duration < 0.34 then
 					Canvas.Position = UDim2.new(0, 0, -target, 0)

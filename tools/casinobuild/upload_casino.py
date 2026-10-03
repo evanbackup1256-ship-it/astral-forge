@@ -23,25 +23,16 @@ FOLDER = os.path.join(ROOT, "assets", "generated", "casino")
 GLB = os.path.join(FOLDER, "CasinoKit.glb")
 SAVED = os.path.join(FOLDER, "kit_id.json")
 MODULE = os.path.join(ROOT, "src", "Shared", "AstralForge", "Shared", "CasinoKit.luau")
-BEGIN, END = "-- CASINO-KIT-BEGIN", "-- CASINO-KIT-END"
+ID_LINE = re.compile(r"(\bId\s*=\s*)\d+")
 
 
 def write_module(asset_id):
     with open(MODULE, "r", encoding="utf-8", newline="") as handle:
         source = handle.read()
-    newline = "\r\n" if "\r\n" in source else "\n"
-    body = newline.join([
-        BEGIN + " (rewritten by tools/casinobuild/upload_casino.py)",
-        "return table.freeze({",
-        f"\tId = {int(asset_id)},",
-        "})",
-        END,
-    ])
-    pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.S)
-    if not pattern.search(source):
-        sys.exit("CASINO-KIT block missing from CasinoKit.luau")
+    if not ID_LINE.search(source):
+        sys.exit("No `Id = <number>` field in CasinoKit.luau")
     with open(MODULE, "w", encoding="utf-8", newline="") as handle:
-        handle.write(pattern.sub(lambda _: body, source, count=1))
+        handle.write(ID_LINE.sub(lambda match: match.group(1) + str(int(asset_id)), source, count=1))
 
 
 def main():

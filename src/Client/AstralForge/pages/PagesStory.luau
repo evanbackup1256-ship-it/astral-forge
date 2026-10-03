@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesStory: merged module suite.
-	Members (3): StoryView, EchoForgeView, InventoryView.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: StoryView   (merged from StoryView.luau, 1219 lines)
--- ======================================================================
 __defs["StoryView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -368,7 +356,6 @@ local function StoryBeat(_param)
 		return function()
 			alive = false
 			if revealWorker ~= nil then
-				-- The typewriter exits when the line is fully shown. Cancel then throws.
 				pcall(function()
 					task.cancel(revealWorker)
 				end)
@@ -402,11 +389,8 @@ local function StoryBeat(_param)
 	local tipAccent = if tuned then Palette.green else color
 	local bodyGap = if stack then 16 else Layout.panelGap
 	local bodyPadR = if stack then 4 else Layout.stackGap
-	-- Content floor so PageScaffold grows the fill section when copy wraps long;
-	-- Continue/Back stay pinned below the scaffold so short phones never bury CTAs.
 	local viewport = useViewport()
 	local storyActionsHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on pinned Continue/Claim (FocusClaim prefers continue/claim tags).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -426,7 +410,6 @@ local function StoryBeat(_param)
 		end
 	end, { index, tuned, claimed, actionText })
 	local measureWidth = math.max(160, math.floor((viewport.width or 390) * (if stack then 0.92 else 0.55)) - bodyPadR - 12)
-	-- GetTextSize ignores TextLabel LineHeight — scale measured lines so the floor covers wrap.
 	local textH = math.max(64, math.ceil(measureWrappedTextHeight(text, measureWidth, bodySize, Enum.FontWeight.Medium) * lineHeight) + 8)
 	local estimatedBodyH = textH + (if final then 56 + bodyGap else 0) + (if stack then 24 else 16) + 12
 	local headerElement = if stack then React.createElement("frame", {
@@ -669,8 +652,6 @@ local function StoryBeat(_param)
 			element = tipElement,
 		})
 	end
-	-- Pin Continue/Back under the scaffold: long wrapped beats scroll in the body fill,
-	-- but CTAs stay reachable on short phones without chasing the content floor.
 	local actionsGap = 8
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -695,7 +676,6 @@ local function StoryBeat(_param)
 		Position = UDim2.new(0, 0, 1, -actionsH),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim Continue/Back/Claim must not clip CTA overshoot.
 		ClipsDescendants = false,
 		ZIndex = 6,
 	}, actionsElement))
@@ -703,7 +683,6 @@ end
 
 local function chapterConfig(config, id)
 	local _exp = config.Story
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)
 		return entry.Id == id
 	end
@@ -714,7 +693,6 @@ local function chapterConfig(config, id)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	return _result
 end
 local function pickDefaultChapter(chapters)
@@ -756,7 +734,6 @@ local function StoryView(_param)
 	React.useEffect(function()
 		local _condition = selectedId == nil
 		if not _condition then
-			-- ▼ ReadonlyArray.find ▼
 			local _callback = function(chapter)
 				return chapter.Id == selectedId
 			end
@@ -767,7 +744,6 @@ local function StoryView(_param)
 					break
 				end
 			end
-			-- ▲ ReadonlyArray.find ▲
 			_condition = not _result
 		end
 		if _condition then
@@ -782,7 +758,6 @@ local function StoryView(_param)
 		end
 		ClientLog:debug("story", `{selectedId} beat {beat + 1}`)
 	end, { beat, selectedId, started })
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(chapter)
 		return chapter.Id == selectedId
 	end
@@ -793,7 +768,6 @@ local function StoryView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local status = _result
 	local story = if status then chapterConfig(config, status.Id) else nil
 	local antilag = useAntilag()
@@ -846,8 +820,6 @@ local function StoryView(_param)
 		setBeat(math.max(0, beat - 1))
 	end
 	local readingMobile = stack and started
-	-- On a landscape phone the 68px archive mark costs more than half the entire page height;
-	-- drop it there and give the chapter selector the full frame (same call as reading mode).
 	local markH = if readingMobile then 0 else (if stack then (if chrome.landscape then 0 else 68) else 76)
 	local railGap = 14
 	local railShare = 0.26
@@ -876,7 +848,6 @@ local function StoryView(_param)
 	local _condition = not reducedMotion
 	if _condition then
 		local _exp_2 = { 0, 1, 2 }
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_2)
 		local _callback_1 = function(index)
 			return React.createElement("frame", {
@@ -901,7 +872,6 @@ local function StoryView(_param)
 		for _k, _v in _exp_2 do
 			_newValue[_k] = _callback_1(_v, _k - 1, _exp_2)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition = _newValue
 	end
 	local _condition_1 = not readingMobile and markH > 0
@@ -1075,7 +1045,6 @@ local function StoryView(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 8),
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#chapters)
 		local _callback_1 = function(chapter, index)
 			local entry = chapterConfig(config, chapter.Id)
@@ -1096,7 +1065,6 @@ local function StoryView(_param)
 		for _k, _v in chapters do
 			_newValue[_k] = _callback_1(_v, _k - 1, chapters)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_object[_left] = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -1248,9 +1216,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: EchoForgeView   (merged from EchoForgeView.luau, 1099 lines)
--- ======================================================================
 __defs["EchoForgeView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
@@ -1290,7 +1255,6 @@ local SweptRing = _ui.SweptRing
 local Text = _ui.Text
 local SECTION_LABEL_H = 30
 local INVENTORY_CARD_H = 196
--- FlatList the vault once it would otherwise mount a long AutoGrid (InventoryLimit ~18).
 local VIRT_INVENTORY_MIN = 6
 local VIRT_INVENTORY_VISIBLE_ROWS = 4
 local EMPTY_ECHOES = {
@@ -1574,7 +1538,6 @@ local function ChoiceCard(_param)
 	local index = _param.index
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	-- `softMotion` without ever declaring it, so it always got nil.
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local tier = quality(item)
@@ -1738,7 +1701,6 @@ local function InventoryCard(_param)
 	local index = _param.index
 	local linkHostRef = _param.linkHostRef
 	local _exp = echoes.Equipped
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(slot)
 		local _result = slot.Echo
 		if _result ~= nil then
@@ -1753,14 +1715,12 @@ local function InventoryCard(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _current = _result
 	if _current ~= nil then
 		_current = _current.Slot
 	end
 	local current = _current
 	local _exp_1 = echoes.Equipped
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_1 = function(slot)
 		return slot.Unlocked and slot.Echo == nil
 	end
@@ -1771,7 +1731,6 @@ local function InventoryCard(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _open = _result_1
 	if _open ~= nil then
 		_open = _open.Slot
@@ -1800,7 +1759,6 @@ local function InventoryCard(_param)
 		interactive = true,
 		reducedMotion = reducedMotion,
 		reveal = reveal,
-		-- LINK/UPGRADE/BREAK sit on the panel floor — clipping them was a short-phone CTA footgun.
 		clips = false,
 	}, React.createElement(Icon, {
 		kind = effectIcon(item.EffectKind),
@@ -1841,7 +1799,6 @@ local function InventoryCard(_param)
 		position = UDim2.fromOffset(0, 82),
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement("frame", {
-		-- FocusClaim prefers Claim-named hosts; LINK is the primary inventory CTA.
 		Name = "EchoClaimActions",
 		Size = UDim2.new(0.48, -4, 0, TapTarget),
 		Position = UDim2.new(0, 0, 1, -TapTarget),
@@ -1929,8 +1886,6 @@ local function EchoForgeView(_param)
 			break
 		end
 	end
-	-- Gamepad: park Selection on the first actionable LINK SLOT CTA.
-	-- FlatList may mount the host a frame after layout — retry until the Claim host exists.
 	React.useEffect(function()
 		if firstLinkUid == nil or not UserInputService.GamepadEnabled then
 			return nil
@@ -2084,7 +2039,6 @@ local function EchoForgeView(_param)
 	}
 	if choiceRows > 0 then
 		local _exp_5 = echoes.Choices
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_5)
 		local _callback = function(item, index)
 			return React.createElement(ChoiceCard, {
@@ -2098,7 +2052,6 @@ local function EchoForgeView(_param)
 		for _k, _v in _exp_5 do
 			_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		table.insert(sections, {
 			id = "choices",
 			height = choiceSectionH,
@@ -2122,7 +2075,6 @@ local function EchoForgeView(_param)
 		})
 	end
 	local _exp_5 = echoes.Equipped
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#_exp_5)
 	local _callback = function(slot)
 		return React.createElement(SlotCard, {
@@ -2134,7 +2086,6 @@ local function EchoForgeView(_param)
 	for _k, _v in _exp_5 do
 		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	table.insert(sections, {
 		id = "slots",
 		height = slotSectionH,
@@ -2157,7 +2108,6 @@ local function EchoForgeView(_param)
 		}), _newValue)),
 	})
 	local _exp_9 = ({ "Collect", "Surge", "Build", "Explore" })
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#_exp_9)
 	local _callback_1 = function(id, index)
 		return React.createElement(PatternCell, {
@@ -2173,7 +2123,6 @@ local function EchoForgeView(_param)
 	for _k, _v in _exp_9 do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, _exp_9)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	table.insert(sections, {
 		id = "pattern",
 		height = patternSectionH,
@@ -2214,7 +2163,6 @@ local function EchoForgeView(_param)
 			})
 		end
 		if virtInventory then
-			-- Flatten vault into row chunks so FlatList virtualizes long catalogs (InventoryLimit ~18).
 			local offerRows = {}
 			local index = 1
 			while index <= #echoes.Inventory do
@@ -2270,12 +2218,10 @@ local function EchoForgeView(_param)
 				end,
 			})
 		else
-			-- ▼ ReadonlyArray.map ▼
 			local _newValue_2 = table.create(#echoes.Inventory)
 			for _k, _v in echoes.Inventory do
 				_newValue_2[_k] = makeCard(_v, _k - 1)
 			end
-			-- ▲ ReadonlyArray.map ▲
 			inventoryBody = _newValue_2
 		end
 	else
@@ -2344,9 +2290,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: InventoryView   (merged from InventoryView.luau, 2610 lines)
--- ======================================================================
 __defs["InventoryView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -2385,13 +2328,8 @@ local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local ShimmerText = _ui.ShimmerText
 local Text = _ui.Text
--- Relic bay virtualizes through FlatList so InventoryLimit (~100) rows never all mount at once.
--- Panel entrance springs are still skipped via a shared static reveal binding — virtualization cuts
--- the mount count, the binding keeps any visible row from spinning up a per-instance flipper.
--- Inspect stays in its own PageScaffold section so row height stays fixed for the window.
 local RELIC_ROW_SHOWN = React.createBinding(1)
 local TABS = { "Relics", "Crates", "Market", "Loadout" }
--- ▼ ReadonlyArray.map ▼
 local _newValue = table.create(#TABS)
 local _callback = function(id)
 	return {
@@ -2402,7 +2340,6 @@ end
 for _k, _v in TABS do
 	_newValue[_k] = _callback(_v, _k - 1, TABS)
 end
--- ▲ ReadonlyArray.map ▲
 local TAB_OPTIONS = _newValue
 local FILTERS = { {
 	id = "All",
@@ -2694,8 +2631,6 @@ local function BulkDock(_param)
 	local salvageSelected = _param.salvageSelected
 	local bulkBusy = _param.bulkBusy
 	local reducedMotion = _param.reducedMotion
-	-- Sized by the parent PageScaffold section — do not absolute-anchor to the viewport
-	-- bottom (that class of layout collapses the list height on short screens).
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panelRaised,
@@ -2796,14 +2731,12 @@ local function AutoSalvageSheet(_param)
 			updated[_entry] = true
 		end
 		local packed = {}
-		-- ▼ ReadonlyMap.forEach ▼
 		local _callback_1 = function(value, key)
 			packed[key] = value
 		end
 		for _k, _v in updated do
 			_callback_1(_v, _k, updated)
 		end
-		-- ▲ ReadonlyMap.forEach ▲
 		local _object = table.clone(rules)
 		setmetatable(_object, nil)
 		_object.Rarities = packed
@@ -2927,7 +2860,6 @@ local function AutoSalvageSheet(_param)
 			disabled = autoBusy or not rules.Enabled,
 			highlight = rules.Enabled,
 		}))
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_1 = table.create(#AUTO_RARITIES)
 		local _callback_1 = function(entry, index)
 			local active = rules.Rarities[entry] == true
@@ -2953,7 +2885,6 @@ local function AutoSalvageSheet(_param)
 		for _k, _v in AUTO_RARITIES do
 			_newValue_1[_k] = _callback_1(_v, _k - 1, AUTO_RARITIES)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_result = React.createElement(React.Fragment, nil, _exp_5, React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, if stack then rarityH * 2 + 8 else rarityH),
 			BackgroundTransparency = 1,
@@ -3161,7 +3092,6 @@ local function DetailPanel(_param)
 			if item.equippedOn ~= nil then
 				return item.equippedOn
 			end
-			-- ▼ ReadonlyArray.some ▼
 			local _result_1 = false
 			local _callback_1 = function(candidate)
 				return candidate.id == current
@@ -3172,7 +3102,6 @@ local function DetailPanel(_param)
 					break
 				end
 			end
-			-- ▲ ReadonlyArray.some ▲
 			if _result_1 then
 				return current
 			end
@@ -3198,7 +3127,6 @@ local function DetailPanel(_param)
 	local actionsH = InventoryMath.InspectActionsHeight(stack)
 	local detailH = InventoryMath.InspectPanelHeight(socketBlock, stack)
 	local actionSize = if stack then UDim2.new(0.5, -5, 0, ACTION_BTN) else UDim2.new(0.25, -7, 0, ACTION_BTN)
-	-- Gamepad: park Selection on SOCKET/UPGRADE when inspect mounts (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -3321,7 +3249,6 @@ local function DetailPanel(_param)
 	})
 	local _condition_2 = not equipped and #targets > 0
 	if _condition_2 then
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_1 = table.create(#targets)
 		local _callback_1 = function(entry, index)
 			local active = entry.id == target
@@ -3369,7 +3296,6 @@ local function DetailPanel(_param)
 		for _k, _v in targets do
 			_newValue_1[_k] = _callback_1(_v, _k - 1, targets)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_2 = React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, chipRows * chipStep),
 			BackgroundTransparency = 1,
@@ -3383,7 +3309,6 @@ local function DetailPanel(_param)
 		background = Palette.panelRaised,
 		padding = INSPECT_PAD,
 		layoutOrder = layoutOrder,
-		-- SOCKET/UPGRADE/PROTECT/SALVAGE sit on the panel floor — clipping them was a short-phone CTA footgun.
 		clips = false,
 		zIndex = 20,
 	}, React.createElement("frame", {
@@ -3411,7 +3336,6 @@ local function DetailPanel(_param)
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectUpgradeClaim",
@@ -3419,7 +3343,6 @@ local function DetailPanel(_param)
 		Position = UDim2.new(0.5, 5, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectProtect",
@@ -3439,7 +3362,6 @@ local function DetailPanel(_param)
 		Position = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, socketBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectUpgradeClaim",
@@ -3447,7 +3369,6 @@ local function DetailPanel(_param)
 		Position = UDim2.new(0.25, 2, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- FocusClaim SOCKET/UPGRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, upgradeBtn(UDim2.fromScale(1, 1), nil)), React.createElement("frame", {
 		Name = "InspectProtect",
@@ -3898,7 +3819,6 @@ local function LoadoutBoard(_param)
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#lines)
 	local _callback_1 = function(line, index)
 		local col = index % cols
@@ -3937,7 +3857,6 @@ local function LoadoutBoard(_param)
 	for _k, _v in lines do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, lines)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_1 = React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, gridH),
 		Position = UDim2.fromOffset(0, 22),
@@ -3961,7 +3880,6 @@ local function LoadoutBoard(_param)
 		position = UDim2.fromOffset(0, 48 + gridH),
 		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_2 = table.create(#equipped)
 	local _callback_2 = function(entry, index)
 		return React.createElement("frame", {
@@ -3986,7 +3904,6 @@ local function LoadoutBoard(_param)
 	for _k, _v in equipped do
 		_newValue_2[_k] = _callback_2(_v, _k - 1, equipped)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, 40 + gridH + 22 + listH),
 		accent = Palette.violet,
@@ -4011,7 +3928,6 @@ local function InventoryView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Inventory mounts tab springs + hero shimmer together; snap when antilag already cut ambient.
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
@@ -4064,7 +3980,6 @@ local function InventoryView(_param)
 	local filtered = React.useMemo(function()
 		return InventoryMath.SortOwned(InventoryMath.SearchOwned(InventoryMath.FilterOwned(owned, filter), search, rarity), config, sort)
 	end, { config.Items, filter, owned, rarity, search, sort })
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_1 = function(entry)
 		return entry.uid == selectedUid
 	end
@@ -4075,7 +3990,6 @@ local function InventoryView(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local _condition = _result_2
 	if _condition == nil then
 		_condition = filtered[1]
@@ -4115,11 +4029,6 @@ local function InventoryView(_param)
 		elseif top + block > pos + view - 8 then
 			frame.CanvasPosition = Vector2.new(0, math.max(0, top + block - view + 8))
 		end
-		-- Deliberately narrow: `config`/`state.Machines`/`state.Research`/`filtered` are
-		-- recreated on every store tick (machine production, essence, etc.), and keying
-		-- off them here re-fires this effect continuously, yanking the user's scroll
-		-- position while they're mid-scroll. Only the inputs that can actually change
-		-- the selected row's position belong in this list.
 	end
 	local _exp_3 = #filtered
 	local _result_3 = selected
@@ -4134,7 +4043,6 @@ local function InventoryView(_param)
 			present[_uid] = true
 		end
 		setBulkSelected(function(current)
-			-- ▼ ReadonlyArray.filter ▼
 			local _newValue_1 = {}
 			local _callback_2 = function(uid)
 				local _uid = uid
@@ -4147,7 +4055,6 @@ local function InventoryView(_param)
 					_newValue_1[_length] = _v
 				end
 			end
-			-- ▲ ReadonlyArray.filter ▲
 			return _newValue_1
 		end)
 	end
@@ -4242,7 +4149,6 @@ local function InventoryView(_param)
 		return if remaining > 0 then `Restock in {InventoryMath.RestockClock(remaining)}` else "Restocking…"
 	end)
 	local selectedForBulk = React.useMemo(function()
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue_1 = {}
 		local _callback_2 = function(item)
 			local _uid = item.uid
@@ -4259,11 +4165,9 @@ local function InventoryView(_param)
 				_newValue_1[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		return _newValue_1
 	end, { bulkSelected, owned })
 	local selectableVisible = React.useMemo(function()
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue_1 = {}
 		local _callback_2 = function(item)
 			return item.equippedOn == nil and item.instance.Locked ~= true
@@ -4275,7 +4179,6 @@ local function InventoryView(_param)
 				_newValue_1[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		return _newValue_1
 	end, { filtered })
 	local selectionEssence = 0
@@ -4327,7 +4230,6 @@ local function InventoryView(_param)
 			local _uid = item.uid
 			local index = (table.find(_current, _uid) or 0) - 1
 			if index >= 0 then
-				-- ▼ ReadonlyArray.filter ▼
 				local _newValue_1 = {}
 				local _callback_2 = function(uid)
 					return uid ~= item.uid
@@ -4339,7 +4241,6 @@ local function InventoryView(_param)
 						_newValue_1[_length] = _v
 					end
 				end
-				-- ▲ ReadonlyArray.filter ▲
 				return _newValue_1
 			end
 			if #current >= 25 then
@@ -4355,7 +4256,6 @@ local function InventoryView(_param)
 		end)
 	end
 	local selectVisible = function()
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue_1 = {}
 		local _callback_2 = function(_, index)
 			return index < 25
@@ -4367,8 +4267,6 @@ local function InventoryView(_param)
 				_newValue_1[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_2 = table.create(#_newValue_1)
 		local _callback_3 = function(item)
 			return item.uid
@@ -4376,7 +4274,6 @@ local function InventoryView(_param)
 		for _k, _v in _newValue_1 do
 			_newValue_2[_k] = _callback_3(_v, _k - 1, _newValue_1)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		setBulkSelected(_newValue_2)
 		Audio:play("filterPick")
 	end
@@ -4425,7 +4322,6 @@ local function InventoryView(_param)
 		setBulkBusy(true)
 		local _object = {}
 		local _left = "Uids"
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_1 = table.create(#selectedForBulk)
 		local _callback_2 = function(item)
 			return item.uid
@@ -4433,7 +4329,6 @@ local function InventoryView(_param)
 		for _k, _v in selectedForBulk do
 			_newValue_1[_k] = _callback_2(_v, _k - 1, selectedForBulk)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_object[_left] = _newValue_1
 		dispatch("BulkSalvageItems", _object, function(response)
 			if not mountedRef.current then
@@ -4776,8 +4671,6 @@ local function InventoryView(_param)
 			end,
 		}))
 	end
-	-- Crates / Market / Loadout: PageScaffold so desktop pageGap vs ROW_GAP cannot clip lists
-	-- the way the old absolute canvasHeight + nested pane math did.
 	local sections = {
 		{
 			id = "hero",
@@ -4791,7 +4684,6 @@ local function InventoryView(_param)
 		},
 	}
 	if tab == "Crates" then
-		-- Virtualize crate channels the same way Market virtualizes dock offers.
 		local crateCardH = if stack then 248 else 160
 		local crateStride = crateCardH + pageGap
 		local crateLabelH = 28
@@ -4921,7 +4813,6 @@ local function InventoryView(_param)
 		local tileH = if stack then 58 else 54
 		local tileGap = 8
 		local gridH = math.ceil(6 / cols) * (tileH + tileGap)
-		-- Must match LoadoutBoard panel: 40 + gridH + 22 + listH
 		local loadoutH = 40 + gridH + 22 + 28 + math.max(1, equippedCount) * 32
 		table.insert(sections, {
 			id = "loadout-label",
@@ -4962,9 +4853,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -4976,7 +4864,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

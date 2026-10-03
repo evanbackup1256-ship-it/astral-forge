@@ -1,9 +1,4 @@
 --!strict
--- Pure ore math: balances, upgrade costs and effects, mining yield.
---
--- No Roblox services -- OreService, Economy and the Lune tests
--- (scripts/verify_sanctuary_world.luau) share it. Config comes in as an
--- argument (SanctuaryConfig.Ore) so tests can pass the real table.
 
 local OreMath = {}
 
@@ -29,8 +24,6 @@ local function whole(value: any): number
 	return math.max(0, math.floor(n))
 end
 
--- Normalise a saved balance bag: every known ore present, whole and >= 0,
--- unknown keys dropped. Returns a fresh table.
 function OreMath.SanitizeBalances(raw: any, config: OreConfig): { [string]: number }
 	local clean = {}
 	local source = if type(raw) == "table" then raw else {}
@@ -40,7 +33,6 @@ function OreMath.SanitizeBalances(raw: any, config: OreConfig): { [string]: numb
 	return clean
 end
 
--- Normalise saved upgrade levels: known ids only, clamped to 0..MaxLevel.
 function OreMath.SanitizeLevels(raw: any, config: OreConfig): { [string]: number }
 	local clean = {}
 	local source = if type(raw) == "table" then raw else {}
@@ -65,7 +57,6 @@ function OreMath.Upgrade(config: OreConfig, id: any)
 	return nil
 end
 
--- Ore cost of buying the next level when `level` levels are owned.
 function OreMath.Cost(upgrade, level: number): { [string]: number }
 	local cost = {}
 	local factor = upgrade.Scale ^ math.max(0, level)
@@ -84,7 +75,6 @@ function OreMath.CanAfford(balances: { [string]: number }, cost: { [string]: num
 	return true
 end
 
--- Total bonus from ore upgrades for one effect kind (0.12 = +12%).
 function OreMath.Effect(levels: any, effect: string, config: OreConfig): number
 	if type(levels) ~= "table" then
 		return 0
@@ -99,8 +89,6 @@ function OreMath.Effect(levels: any, effect: string, config: OreConfig): number
 	return total
 end
 
--- Ore from one outcrop: a roll in the type's range, raised by OreYield.
--- `roll(min, max)` is injected (Random:NextInteger on the server).
 function OreMath.Yield(config: OreConfig, oreId: string, yieldBonus: number, roll: (number, number) -> number): number
 	for _, ore in config.Types do
 		if ore.Id == oreId then
@@ -111,7 +99,6 @@ function OreMath.Yield(config: OreConfig, oreId: string, yieldBonus: number, rol
 	return 0
 end
 
--- Buy one level. Mutates `balances` and `levels` only on success.
 function OreMath.Purchase(config: OreConfig, balances: { [string]: number }, levels: { [string]: number }, id: any): (boolean, string)
 	local upgrade = OreMath.Upgrade(config, id)
 	if upgrade == nil then
@@ -132,8 +119,6 @@ function OreMath.Purchase(config: OreConfig, balances: { [string]: number }, lev
 	return true, `{upgrade.Name} is now level {owned + 1}.`
 end
 
--- What the client needs to draw the Foundry: balances and every upgrade with
--- its level, next cost and current bonus.
 function OreMath.PublicState(rawBalances: any, rawLevels: any, config: OreConfig)
 	local balances = OreMath.SanitizeBalances(rawBalances, config)
 	local levels = OreMath.SanitizeLevels(rawLevels, config)

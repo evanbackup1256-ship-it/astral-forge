@@ -1,10 +1,4 @@
 --!strict
--- The Astral Casino. Every game is a rule in CasinoMath; this service owns the profile: it takes the stake,
--- rolls on the server with the server's Random, pays out, keeps open rounds (coin-flip and high-low ladders)
--- in the save so a player who leaves mid-round finds them as they were, and feeds the High Roller Club.
---
--- Stakes are a share of the player's own flux, a round never pays more than PROFIT_CAP times what they had,
--- and nothing here touches lifetime flux (gambling is not production).
 
 return function(loadService: (string) -> any)
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,7 +10,6 @@ return function(loadService: (string) -> any)
 	local CasinoService = {}
 
 	local DAY = 86400
-	-- the odds never change, so work them out once
 	local SLOTS_RTP = CasinoMath.SlotsRtp()
 	local SCRATCH_RTP = CasinoMath.ScratchRtp()
 
@@ -29,7 +22,6 @@ return function(loadService: (string) -> any)
 		return profile.Casino
 	end
 
-	-- What one stake of `tier` costs right now: a share of flux, never less than 1.
 	local function stakeAmount(profile, tier: number): any
 		local share = Economy.Floor(Economy.Mul(profile.Cash, CasinoMath.STAKES[tier]))
 		return Economy.Max(1, share)
@@ -43,7 +35,6 @@ return function(loadService: (string) -> any)
 		return tier
 	end
 
-	-- A payout never exceeds PROFIT_CAP times the flux the round began with, plus the stake itself.
 	local function capped(base: any, stake: any, payout: any): any
 		local ceiling = Economy.Add(Economy.Mul(base, CasinoMath.PROFIT_CAP), stake)
 		if Economy.Gt(payout, ceiling) then
@@ -87,7 +78,6 @@ return function(loadService: (string) -> any)
 		return extra
 	end
 
-	-- ------------------------------------------------------------------------------------------ the games
 	local function playSlots(profile, random: Random, payload): (boolean, string, any?)
 		local tier = tierOf(payload)
 		if tier == nil then
@@ -165,7 +155,6 @@ return function(loadService: (string) -> any)
 		if multiplier > 0 then
 			pay(profile, payout)
 		end
-		-- a free card cannot lose anything, so it only counts as a win when it pays
 		recordRound(casino, tier, multiplier >= 1 or (free and multiplier > 0), payout)
 		local message = if symbol ~= nil then `Three {symbol}! x{multiplier}` else "Nothing matched."
 		return true, message, result("Scratch", multiplier > 0, if free then 0 else stake, payout, { Cells = cells, Multiplier = multiplier, Symbol = symbol, Free = free })
@@ -286,7 +275,6 @@ return function(loadService: (string) -> any)
 		return true, `{nextCard}: wrong. The stake is gone.`, result("HighLow", false, stake, 0, { Card = nextCard, Previous = previous, Lost = true })
 	end
 
-	-- ------------------------------------------------------------------------------------------ exchange
 	local function exchangePrice(profile, mood: number): any
 		local seconds = CasinoMath.EXCHANGE_BASE_SECONDS * mood
 		local price = Economy.Floor(Economy.Mul(Economy.SteadyProduction(profile), seconds))
@@ -319,7 +307,6 @@ return function(loadService: (string) -> any)
 		return true, `Bought {amount} Stardust.`, { Game = "Exchange", Bought = amount, Cost = Economy.Persist(cost) }
 	end
 
-	-- ------------------------------------------------------------------------------------------ club
 	local function claimRank(profile, payload): (boolean, string, any?)
 		local casino = ensure(profile)
 		local rank = tonumber(payload and payload.Rank)
@@ -338,7 +325,6 @@ return function(loadService: (string) -> any)
 		return true, `{entry.Name}: {message}`, { Game = "Club", Rank = rank }
 	end
 
-	-- ------------------------------------------------------------------------------------------ entry points
 	function CasinoService.Play(profile, random: Random, payload: any, now: number): (boolean, string, any?)
 		if type(payload) ~= "table" or type(payload.Game) ~= "string" then
 			return false, "Pick a game.", nil
@@ -362,7 +348,6 @@ return function(loadService: (string) -> any)
 		return false, "Unknown game.", nil
 	end
 
-	-- What the client draws. Money values are the game's own number-or-string type.
 	function CasinoService.State(profile, now: number): any
 		local casino = ensure(profile)
 		local stakes = {}
@@ -375,7 +360,7 @@ return function(loadService: (string) -> any)
 		local today = day(now)
 		local history = {}
 		for back = 23, 0, -1 do
-			table.insert(history, CasinoMath.ExchangeMood(bucket - back)) -- the last four hours of the ticker
+			table.insert(history, CasinoMath.ExchangeMood(bucket - back))
 		end
 		local bought = if casino.Exchange.Day == today then casino.Exchange.Bought else 0
 		local highChance, highStep = CasinoMath.HighLowOdds(round.Card, "High")
@@ -427,7 +412,7 @@ return function(loadService: (string) -> any)
 				Bought = bought,
 				Left = CasinoMath.EXCHANGE_DAILY_CAP - bought,
 				NextAt = (bucket + 1) * CasinoMath.EXCHANGE_BUCKET_SECONDS,
-				Trend = CasinoMath.ExchangeMood(bucket + 1) - mood, -- where the next window is heading, for the ticker
+				Trend = CasinoMath.ExchangeMood(bucket + 1) - mood,
 			},
 			Club = { XP = casino.Club.XP, Rank = rank, RankName = CasinoMath.CLUB_RANKS[rank].Name, NextXP = if nextRank ~= nil then nextRank.XP else nil, Ranks = ranks },
 		}

@@ -305,7 +305,6 @@ local function PageContentInner(props)
 			})
 		end
 		if page == "Shop" then
-			-- The storefront: Daily, Crates, Skins and Codex, with ShopView (Robux) as its Premium section.
 			return React.createElement(StoreFront, {
 				state = state,
 				config = config,

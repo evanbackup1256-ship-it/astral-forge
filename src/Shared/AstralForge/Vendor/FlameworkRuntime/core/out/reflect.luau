@@ -1,23 +1,15 @@
--- Compiled with roblox-ts v3.0.0
 local TS = _G[script]
 local isConstructor = TS.import(script, script.Parent, "utility").isConstructor
---[[
-	*
-	 * Reflection/metadata API
-	 
-]]
+
 local Reflect = {}
 do
 	local _container = Reflect
-	--* object -> property -> key -> value 
 	local metadata = setmetatable({}, {
 		__mode = "k",
 	})
 	local objToId = {}
-	--* @internal 
 	local decorators = {}
 	_container.decorators = decorators
-	--* @internal 
 	local idToObj = {}
 	_container.idToObj = idToObj
 	local NO_PROP_MARKER = {}
@@ -59,13 +51,8 @@ do
 			return rawget(metatable, "__index")
 		end
 	end
-	--[[
-		*
-		     * Apply metadata onto this object.
-		     
-	]]
+
 	local function defineMetadata(obj, key, value, property)
-		-- 'identifier' is a special, unique ID across all metadata classes.
 		if key == "identifier" then
 			local _value = value
 			local _arg0 = type(_value) == "string"
@@ -89,11 +76,7 @@ do
 		metadata[_key] = _value
 	end
 	_container.defineMetadata = defineMetadata
-	--[[
-		*
-		     * Apply metadata in batch onto this object.
-		     
-	]]
+
 	local function defineMetadataBatch(obj, list, property)
 		local metadata = getObjMetadata(obj, property, true)
 		for key, value in pairs(list) do
@@ -101,11 +84,7 @@ do
 		end
 	end
 	_container.defineMetadataBatch = defineMetadataBatch
-	--[[
-		*
-		     * Delete metadata from this object.
-		     
-	]]
+
 	local function deleteMetadata(obj, key, property)
 		local metadata = getObjMetadata(obj, property)
 		local _result = metadata
@@ -115,12 +94,7 @@ do
 		end
 	end
 	_container.deleteMetadata = deleteMetadata
-	--[[
-		*
-		     * Get metadata from this object.
-		     * Type parameter is an assertion.
-		     
-	]]
+
 	local function getOwnMetadata(obj, key, property)
 		local metadata = getObjMetadata(obj, property)
 		local _result = metadata
@@ -131,11 +105,7 @@ do
 		return _result
 	end
 	_container.getOwnMetadata = getOwnMetadata
-	--[[
-		*
-		     * Check if this object has the specified metadata key.
-		     
-	]]
+
 	local function hasOwnMetadata(obj, key, property)
 		local metadata = getObjMetadata(obj, property)
 		local _result = metadata
@@ -150,17 +120,12 @@ do
 		return _condition
 	end
 	_container.hasOwnMetadata = hasOwnMetadata
-	--[[
-		*
-		     * Retrieve all metadata keys for this object.
-		     
-	]]
+
 	local function getOwnMetadataKeys(obj, property)
 		local metadata = getObjMetadata(obj, property)
 		local keys = {}
 		local _result = metadata
 		if _result ~= nil then
-			-- ▼ ReadonlyMap.forEach ▼
 			local _callback = function(_, key)
 				local _key = key
 				table.insert(keys, _key)
@@ -169,16 +134,11 @@ do
 			for _k, _v in _result do
 				_callback(_v, _k, _result)
 			end
-			-- ▲ ReadonlyMap.forEach ▲
 		end
 		return keys
 	end
 	_container.getOwnMetadataKeys = getOwnMetadataKeys
-	--[[
-		*
-		     * Retrieves all properties (that contain metadata) on this object.
-		     
-	]]
+
 	local function getOwnProperties(obj)
 		local _obj = obj
 		local properties = metadata[_obj]
@@ -194,12 +154,7 @@ do
 		return keys
 	end
 	_container.getOwnProperties = getOwnProperties
-	--[[
-		*
-		     * Retrieve all values for the specified key from the object and its parents.
-		     * Type parameter is an assertion.
-		     
-	]]
+
 	local function getMetadatas(obj, key, property)
 		local values = {}
 		local value = getOwnMetadata(obj, key, property)
@@ -209,7 +164,6 @@ do
 		local parent = getParentConstructor(obj)
 		if parent then
 			local _exp = getMetadatas(parent, key, property)
-			-- ▼ ReadonlyArray.forEach ▼
 			local _callback = function(value)
 				local _value = value
 				table.insert(values, _value)
@@ -218,17 +172,11 @@ do
 			for _k, _v in _exp do
 				_callback(_v, _k - 1, _exp)
 			end
-			-- ▲ ReadonlyArray.forEach ▲
 		end
 		return values
 	end
 	_container.getMetadatas = getMetadatas
-	--[[
-		*
-		     * Get metadata from this object or its parents.
-		     * Type parameter is an assertion.
-		     
-	]]
+
 	local function getMetadata(obj, key, property)
 		local value = getOwnMetadata(obj, key, property)
 		if value ~= nil then
@@ -240,11 +188,7 @@ do
 		end
 	end
 	_container.getMetadata = getMetadata
-	--[[
-		*
-		     * Check if this object or any of its parents has the specified metadata key.
-		     
-	]]
+
 	local function hasMetadata(obj, key, property)
 		local value = hasOwnMetadata(obj, key, property)
 		if value then
@@ -257,11 +201,7 @@ do
 		return false
 	end
 	_container.hasMetadata = hasMetadata
-	--[[
-		*
-		     * Retrieve all metadata keys for this object and its parents.
-		     
-	]]
+
 	local function getMetadataKeys(obj, property)
 		local _set = {}
 		for _, _v in getOwnMetadataKeys(obj, property) do
@@ -271,7 +211,6 @@ do
 		local parent = getParentConstructor(obj)
 		if parent then
 			local _exp = getMetadataKeys(parent, property)
-			-- ▼ ReadonlyArray.forEach ▼
 			local _callback = function(key)
 				local _key = key
 				keys[_key] = true
@@ -280,7 +219,6 @@ do
 			for _k, _v in _exp do
 				_callback(_v, _k - 1, _exp)
 			end
-			-- ▲ ReadonlyArray.forEach ▲
 		end
 		local _array = {}
 		local _length = #_array
@@ -291,11 +229,7 @@ do
 		return _array
 	end
 	_container.getMetadataKeys = getMetadataKeys
-	--[[
-		*
-		     * Retrieves all properties (that contain metadata) on this object and its parents.
-		     
-	]]
+
 	local function getProperties(obj)
 		local _set = {}
 		for _, _v in getOwnProperties(obj) do
@@ -305,7 +239,6 @@ do
 		local parent = getParentConstructor(obj)
 		if parent then
 			local _exp = getProperties(parent)
-			-- ▼ ReadonlyArray.forEach ▼
 			local _callback = function(key)
 				local _key = key
 				keys[_key] = true
@@ -314,7 +247,6 @@ do
 			for _k, _v in _exp do
 				_callback(_v, _k - 1, _exp)
 			end
-			-- ▲ ReadonlyArray.forEach ▲
 		end
 		local _array = {}
 		local _length = #_array
@@ -325,7 +257,6 @@ do
 		return _array
 	end
 	_container.getProperties = getProperties
-	--* @hidden 
 	local function decorate(object, id, rawDecoration, args, property, isStatic)
 		if isStatic == nil then
 			isStatic = false
@@ -354,7 +285,6 @@ do
 		decoration.func(descriptor, args)
 	end
 	_container.decorate = decorate
-	--* @hidden Internal use, do not use 
 	local function resetObject(object)
 		local _object = object
 		local id = objToId[_object]

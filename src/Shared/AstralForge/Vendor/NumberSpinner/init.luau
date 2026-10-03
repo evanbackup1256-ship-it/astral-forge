@@ -26,11 +26,8 @@ local DUMMY_FRAME = Instance.new("Frame")
 local DUMMY_LABEL = Instance.new("TextLabel")
 DUMMY_LABEL.TextSize = 16
 DUMMY_LABEL.TextColor3 = Color3.fromRGB(255, 255, 255)
--- GothamBlack — same family as Astral Forge chrome. SourceSans fails to load in Studio ("Temp read failed").
 DUMMY_LABEL.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
 
--- Doubles stay exact for integers up to 2^53 (~9e15). Above that we still render a rounded string.
--- Cap past septillion so sextillion+ catch-up stays readable without scientific notation.
 local MAX_ABS = 1e24
 
 local function clampNumber(value: number): number
@@ -46,7 +43,6 @@ local function clampNumber(value: number): number
 	return math.clamp(value, -MAX_ABS, MAX_ABS)
 end
 
--- Build a plain digit string without scientific notation (%.0f / %d break past ~1e14–1e15).
 local function wholeDigitString(absValue: number): string
 	local n = math.floor(absValue + 0.5)
 	if n < 0 then
@@ -55,7 +51,6 @@ local function wholeDigitString(absValue: number): string
 	if n < 1e15 then
 		return string.format("%.0f", n)
 	end
-	-- Chunk into 9-digit groups so each piece stays %.0f-safe.
 	local parts = table.create(4)
 	while n >= 1 do
 		local chunk = math.floor(n % 1e9 + 0.5)
@@ -84,7 +79,6 @@ end
 
 local function newSpinner()
 	local Spinner = {
-		-- Props
 		Value = 0,
 		Duration = 0.78,
 		Decimals = 2,
@@ -92,14 +86,12 @@ local function newSpinner()
 		Suffix = "",
 		Commas = false,
 
-		-- Internal
 		Digits = {
 			Whole = table.create(3),
 			Decimal = table.create(2),
 		},
 		CommaLabels = table.create(2),
 
-		-- UIs (populated later)
 		Frame = nil,
 		Layout = nil,
 		PrefixLabel = nil,
@@ -251,7 +243,6 @@ local function newSpinner()
 		end
 
 		if Spinner.Commas then
-			-- Place commas from the RIGHT (…XX,XXX,XXX) — left-step layout broke past 6 digits.
 			local commaIndex = 0
 			for fromRight = 3, numWhole - 1, 3 do
 				local afterDigit = numWhole - fromRight
@@ -279,7 +270,6 @@ local function newSpinner()
 					Spinner.CommaLabels[commaIndex] = CommaLabel
 				end
 
-				-- Between digit `afterDigit` (order i*2-900) and the next digit.
 				CommaLabel.LayoutOrder = afterDigit * 2 - 899
 				CommaLabel.Visible = true
 			end
@@ -341,7 +331,6 @@ function NumberSpinner.new()
 
 	local Frame = Instance.new("Frame")
 	Frame.BackgroundTransparency = 1
-	-- Must stay true — Host used to clear this for autoWidth and digit rolls spilled everywhere.
 	Frame.ClipsDescendants = true
 	Frame.Size = UDim2.new(0, 200, 0, 50)
 	Frame.Position = UDim2.new(0, 0, 0, 0)
@@ -428,8 +417,6 @@ function NumberSpinner.fromGuiObject(GuiObject)
 		Spinner.TextSize = GuiObject.TextSize
 		Spinner.TextColor3 = GuiObject.TextColor3
 		Spinner.TextTransparency = GuiObject.TextTransparency
-		-- Never inherit TextStroke — stroke paints outside ClipsDescendants and reads as a
-		-- misaligned black duplicate of every digit (especially under UIScale).
 		Spinner.TextStrokeColor3 = Color3.new(0, 0, 0)
 		Spinner.TextStrokeTransparency = 1
 

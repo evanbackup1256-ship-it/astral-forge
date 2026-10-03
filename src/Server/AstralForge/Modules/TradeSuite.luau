@@ -1,13 +1,4 @@
 --!strict
---[=[
-	TradeSuite: merged module suite.
-	Members (4): TradeDesk, TradeExchange, TradeOfferMath, TradeSettle.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: TradeDesk   (merged from TradeDesk.luau, 584 lines)
--- ======================================================================
 __defs["TradeDesk"] = function()
 
 local Players = game:GetService("Players")
@@ -216,12 +204,10 @@ function TradeDesk:DailyPublic(profile, now: number)
 	}
 end
 
--- Locked / missing desk fallback for client rails.
 function TradeDesk.LockedPublic()
 	return { Unlocked = false, Epoch = 0 }
 end
 
--- Full Trade snapshot bag for client rails.
 function TradeDesk:StatePublic(profile, player: Player, now: number)
 	local ok, result = pcall(function()
 		return {
@@ -520,8 +506,6 @@ function TradeDesk:Confirm(player: Player, now: number): (boolean, string?, any)
 	return true, nil, session
 end
 
--- Single-flight settle gate: both Confirm handlers can race once Confirmed[host]
--- and Confirmed[guest] flip true; only one caller may own the host→guest apply pair.
 function TradeDesk:TryBeginSettle(session): boolean
 	return TradeSettle.TryBegin(session)
 end
@@ -536,8 +520,6 @@ function TradeDesk:Cancel(player: Player): (any, number?, string?)
 		self._invites[player.UserId] = nil
 		return nil, nil, nil
 	end
-	-- Refuse cancel while settle owns the table. Closing mid-apply leaves residual
-	-- host→guest mutations and lets partners open a new desk before ConfirmTrade finishes.
 	local blocked, blockReason = TradeSettle.CancelBlocked(session)
 	if blocked then
 		return session, nil, blockReason
@@ -616,13 +598,7 @@ end
 return TradeDesk
 end
 
--- ======================================================================
--- Module: TradeExchange   (merged from TradeExchange.luau, 221 lines)
--- ======================================================================
 __defs["TradeExchange"] = function()
--- Pure apply/revert for peer trades. No Roblox services — TradeDesk and Lune
--- verify scripts share this so host→guest settle can be tested without Studio.
--- Cross-player atomicity still lives in ServerServices (two AtomicUpdates + revert).
 
 local TradeExchange = {}
 
@@ -725,8 +701,6 @@ function TradeExchange.SnapshotOfferItems(offer, profile)
 	return payloads
 end
 
--- Apply one side of a planned exchange. `omegaMath` must expose Add/Sub/Gt.
--- `gameConfig` must expose Items.InventoryLimit. Returns an error string or nil.
 function TradeExchange.ApplyExchange(gameConfig, omegaMath, profile, give, take, giveItems, takeItems, now: number, validateOffer): string?
 	ensureLedger(profile, now)
 	ensureTradeBags(profile)
@@ -789,8 +763,6 @@ function TradeExchange.ApplyExchange(gameConfig, omegaMath, profile, give, take,
 	return nil
 end
 
--- Inverse of ApplyExchange. Restores giveItems into inventory. Always mutates;
--- callers must check AtomicUpdate success when wrapping this.
 function TradeExchange.RevertExchange(omegaMath, profile, give, take, giveItems, takeItems, now: number)
 	ensureLedger(profile, now)
 	ensureTradeBags(profile)
@@ -842,16 +814,7 @@ end
 return table.freeze(TradeExchange)
 end
 
--- ======================================================================
--- Module: TradeOfferMath   (merged from TradeOfferMath.luau, 202 lines)
--- ======================================================================
 __defs["TradeOfferMath"] = function()
--- Pure trade-offer shaping + daily ledger helpers. No Roblox services —
--- TradeDesk and Lune verify scripts share EmptyOffer / CopyOffer / OfferEmpty /
--- BoostTotal / KeyTotal / EnsureLedger / ItemEquipped / CountInventory so
--- offer validation stays testable without Studio. StampItems (name lookup)
--- and datastore session writes stay with the caller; currency / boost / key
--- id lists are injected from TradeExchange.
 
 local TradeOfferMath = {}
 
@@ -893,7 +856,6 @@ function TradeOfferMath.EmptyOffer(boostIds: { string }, keyIds: { string }): Of
 	}
 end
 
--- Coerce a raw client offer into a finite, de-duped bag. Nil / non-table → empty.
 function TradeOfferMath.CopyOffer(
 	offer: any,
 	currencies: { string },
@@ -992,7 +954,6 @@ function TradeOfferMath.KeyTotal(offer: any, keyIds: { string }): number
 	return total
 end
 
--- Reset daily Sent/Completed when the UTC day rolls; rebuild nil Trade bags.
 function TradeOfferMath.EnsureLedger(profile: any, now: number)
 	if type(profile) ~= "table" then
 		return
@@ -1049,15 +1010,7 @@ end
 return table.freeze(TradeOfferMath)
 end
 
--- ======================================================================
--- Module: TradeSettle   (merged from TradeSettle.luau, 198 lines)
--- ======================================================================
 __defs["TradeSettle"] = function()
--- Pure settle lock / fail / cancel residual / revert-retry / host→guest orchestration
--- helpers for peer trades. No Roblox services — TradeDesk, ServerServices, and Lune
--- verify scripts share this so host→guest AtomicUpdate races and RevertFailed recovery
--- can be tested without Studio. Callers inject apply/revert/presence hooks; ApplyExchange
--- / RevertExchange / DataService.AtomicUpdate stay with the caller.
 
 local TradeSettle = {}
 
@@ -1071,8 +1024,6 @@ TradeSettle.KIND_HOST_FAILED = "host-failed"
 TradeSettle.KIND_GUEST_LEFT = "guest-left"
 TradeSettle.KIND_GUEST_FAILED = "guest-failed"
 
--- Single-flight settle gate: both Confirm handlers can race once Confirmed[host]
--- and Confirmed[guest] flip true; only one caller may own the host→guest apply pair.
 function TradeSettle.TryBegin(session): boolean
 	if not session then
 		return false
@@ -1098,8 +1049,6 @@ function TradeSettle.Fail(session, permanent: boolean?, reason: string?)
 	session.ConfirmEndsAt = 0
 	if permanent then
 		session.Status = "RevertFailed"
-		-- Ops note: host→guest residual may remain until Cancel clears the desk.
-		-- Admins should treat follow-up as "Trade settle recovery" / bug recovery.
 		session.RevertFailedAt = os.time()
 		session.RevertFailedReason = if type(reason) == "string" and reason ~= ""
 			then reason
@@ -1111,8 +1060,6 @@ function TradeSettle.Fail(session, permanent: boolean?, reason: string?)
 	end
 end
 
--- Cancel must refuse while settle owns the table. RevertFailed desks stay cancellable
--- so partners can clear residual host→guest mutations.
 function TradeSettle.CancelBlocked(session): (boolean, string?)
 	if not session then
 		return false, nil
@@ -1123,8 +1070,6 @@ function TradeSettle.CancelBlocked(session): (boolean, string?)
 	return false, nil
 end
 
--- Run `tryOnce` up to `attempts` times. `tryOnce` returns true when the revert
--- AtomicUpdate committed. Used for host rollback after guest leave / apply fail.
 function TradeSettle.RevertWithRetries(attempts: number?, tryOnce: () -> boolean): boolean
 	local limit = math.max(1, math.floor(tonumber(attempts) or TradeSettle.REVERT_ATTEMPTS))
 	for _ = 1, limit do
@@ -1163,7 +1108,6 @@ function TradeSettle.FormatRevertFailedLog(sessionId: any, hostId: number, guest
 	)
 end
 
--- AtomicUpdate result shape used by ConfirmTrade host/guest commits.
 function TradeSettle.IsCommitOk(committed: boolean?, result: any): boolean
 	return committed == true and type(result) == "table" and result.ok == true
 end
@@ -1175,12 +1119,6 @@ function TradeSettle.CommitError(result: any): string?
 	return nil
 end
 
--- Host→guest settle orchestration after TryBegin + Plan succeed.
--- hooks.applyHost / hooks.applyGuest → (committed, result) matching AtomicUpdate.
--- hooks.guestPresent → true when guest profile is still readable after host commit.
--- hooks.revertHostOnce → true when one host revert AtomicUpdate committed.
--- Returns a plain outcome table so ServerServices can toast / ModuleLog / respond
--- without owning the control flow of apply → re-read → apply → revert retries.
 function TradeSettle.RunHostGuest(session, hooks: any): any
 	assert(type(hooks) == "table", "RunHostGuest requires hooks")
 	assert(type(hooks.applyHost) == "function", "hooks.applyHost required")
@@ -1252,9 +1190,6 @@ end
 return table.freeze(TradeSettle)
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1266,7 +1201,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

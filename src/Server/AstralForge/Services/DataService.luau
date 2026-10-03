@@ -2,7 +2,6 @@
 
 return function(loadService: (string) -> any)
 
-
 	local DataStoreService = game:GetService("DataStoreService")
 	local RunService = game:GetService("RunService")
 
@@ -33,7 +32,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 
 	local DataService = {}
 	DataService.__index = DataService
-
 
 	local CACHE_SYNC_INTERVAL = 1.5
 
@@ -117,25 +115,13 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Zone = math.max(1, math.floor(nonNegative(profile.Zone)))
 		profile.CurrentZone = math.max(1, math.floor(nonNegative(profile.CurrentZone)))
 		for _, key in { "Cash", "Vault", "RunCash", "LifetimeCash" } do
-			-- OmegaMath.Max persists and floors at zero in one step. A plain
-			-- `type == "number" and < 0` guard misses negatives once the balance is
-			-- large enough to persist as a sign-prefixed string ("-5.0e50").
 			profile[key] = OmegaMath.Max(profile[key], 0)
 		end
-		-- Receipts is an append-only real-money purchase-dedup map. Bound it here so
-		-- a long-tenured / high-spending profile can't grow it past ProfileIntegrity's
-		-- traversal budget (which would break Seal, and with it every future save and
-		-- the next login). Runs before Seal on both the load and save paths, so an
-		-- already-bloated profile is repaired rather than rejected.
 		if type(profile.Receipts) == "table" then
 			ReceiptLedger.Prune(profile.Receipts)
 		end
-		-- Sanctuary ore: every known ore present, whole and non-negative; upgrade
-		-- levels known and within their caps.
 		profile.Ore = OreMath.SanitizeBalances(profile.Ore, GameConfig.Ore)
 		profile.OreUpgrades = OreMath.SanitizeLevels(profile.OreUpgrades, GameConfig.Ore)
-		-- Partial Domain/Continuum bags (Studio fixtures / mid-migrate) rebuild via
-		-- ProfileBagMath before clamp — same Ensures Admin/Progression use.
 		ProfileBagMath.EnsureDomain(profile)
 		profile.Domain.SkillPoints = math.floor(nonNegative(profile.Domain.SkillPoints))
 		profile.Domain.Rank = math.floor(nonNegative(profile.Domain.Rank))
@@ -167,8 +153,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			end
 			profile.Infinite = nil
 		end
-		-- Dungeons and Minigames were removed features; scrub any leftover fields from old
-		-- saves so orphaned data doesn't silently persist forever in future writes.
 		if profile.Dungeons ~= nil then profile.Dungeons = nil end
 		if profile.Minigames ~= nil then profile.Minigames = nil end
 
@@ -178,8 +162,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			0,
 			GameConfig.Continuum.MaxRank
 		)
-		-- Charge-only / Draft-less Studio fixtures share ForgeEchoMath.Sanitize with
-		-- Admin GrantEchoCharge and ForgeEchoService before clamp/persist.
 		profile.ForgeEchoes = ForgeEchoMath.Sanitize(profile.ForgeEchoes, echoTraitById, {
 			ChargeTarget = GameConfig.ForgeEchoes.ChargeTarget,
 			MaxLevel = GameConfig.ForgeEchoes.MaxLevel,
@@ -197,8 +179,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		)
 		DataSanitizeMath.ClampLevelBag(profile.Research, researchById, nonNegative)
 		DataSanitizeMath.ClampLevelBag(profile.GridUpgrades, gridById, nonNegative)
-		-- ApplyReward may seed Signals/XP-only Command bags — rebuild nested Crew/
-		-- Artifacts/Weekly/Shop before sanitize iterates them.
 		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 		profile.Command.XP = math.floor(nonNegative(profile.Command.XP))
 		profile.Command.Signals = math.floor(nonNegative(profile.Command.Signals))
@@ -208,11 +188,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		if profile.Flags.InfiniteMoney == true then profile.Flags.UnlimitedMoney = true end
 		profile.Flags.InfiniteMoney = nil
 		profile.Flags.UnlimitedMoney = profile.Flags.UnlimitedMoney == true
-		-- Must match TUTORIAL_STEPS.size() in src_ts/client/MainGame.tsx, the clamp in
-		-- GameService:_setTutorialStep, and the firewall's SetTutorialStep validator. This was
-		-- previously capped at 10 here too, which re-clobbered a correctly saved step > 10 back
-		-- down to 10 on every subsequent profile load/save -- the exact same "stuck at step 10"
-		-- symptom the other two fixes were meant to resolve.
 		profile.Flags.TutorialStep = math.clamp(math.floor(nonNegative(profile.Flags.TutorialStep)), 1, 15)
 		if profile.Flags.TutorialDone == true then
 			profile.Flags.TutorialRewardClaimed = true
@@ -302,7 +277,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.SocialBoost.Premium = profile.SocialBoost.Premium == true
 		profile.SocialBoost.PremiumBonus = profile.SocialBoost.Premium and GameConfig.Social.PremiumProductionBonus or 0
 		profile.SocialBoost.Multiplier = 1 + profile.SocialBoost.FriendBonus + profile.SocialBoost.PremiumBonus
-		-- Boost inventory / active boost residuals: partial profiles crash ActivateBoost + trade apply.
 		if type(profile.BoostInventory) ~= "table" then
 			profile.BoostInventory = {}
 		end
@@ -351,8 +325,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
 		profile.Casino = CasinoMath.Ensure(profile.Casino)
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
-		-- ApplyReward FreeSpins may seed Wheel={FreeSpins=0} without LastSpinAt/Spins —
-		-- sanitize must not throw after claim transactions on Studio fixtures.
 		if type(profile.Wheel) ~= "table" then
 			profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
 		end
@@ -360,8 +332,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Wheel.Spins = math.floor(nonNegative(profile.Wheel.Spins))
 		profile.Wheel.PityMisses = math.floor(nonNegative(profile.Wheel.PityMisses))
 		profile.Wheel.FreeSpins = math.floor(nonNegative(profile.Wheel.FreeSpins))
-		-- ApplyReward Keys may seed Items={Keys={}} without Shop/Inventory/Equipped/Pity —
-		-- post-claim sanitize must rebuild the bag (same class of footgun as ForgePath).
 		ProfileBagMath.EnsureItems(profile)
 		profile.Items.NextId = math.max(1, math.floor(nonNegative(profile.Items.NextId)))
 		profile.Items.Essence = math.floor(nonNegative(profile.Items.Essence))
@@ -381,8 +351,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			if type(stock) ~= "number" then
 				profile.Items.Shop.Stock[offerId] = nil
 			else
-				-- nonNegative rejects NaN/±inf; bare math.floor(math.huge) kept inf
-				-- and ProfileIntegrity.Seal rejected the whole profile.
 				profile.Items.Shop.Stock[offerId] = math.floor(nonNegative(stock))
 			end
 		end
@@ -400,7 +368,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				profile.Items.Pity[crateId] = nil
 			end
 		end
-		-- The Shop's daily purchases and cosmetics (crate skins): rebuilt, unknown skins dropped.
 		local cosmetics = ProfileBagMath.EnsureCosmetics(profile, function(id)
 			return ShopCatalog.skin(id) ~= nil
 		end)
@@ -433,7 +400,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				instance.Level = math.clamp(math.floor(nonNegative(instance.Level)), 1, definition.MaxLevel)
 				instance.AcquiredAt = math.floor(nonNegative(instance.AcquiredAt))
 				instance.Locked = instance.Locked == true
-				-- Relic stars (fused duplicates): absent on older relics, whole and capped otherwise.
 				local stars = math.clamp(math.floor(nonNegative(instance.Stars)), 0, GameConfig.Items.MaxStars or 5)
 				instance.Stars = if stars > 0 then stars else nil
 			end
@@ -462,8 +428,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				equippedItems[uid] = true
 			end
 		end
-		-- ApplyReward Fragments may seed Anomaly={Fragments=0} without Protocols /
-		-- Discoveries / MilestoneClaims — sanitize must not throw iterating nil maps.
 		ProfileBagMath.EnsureAnomaly(profile)
 		if type(profile.Anomaly.Discoveries) ~= "table" then
 			profile.Anomaly.Discoveries = {}
@@ -489,10 +453,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		if not GameConfig.Anomalies.Channels[profile.Anomaly.Channel] then
 			profile.Anomaly.Channel = "Flux"
 		end
-		-- Overdrive Core: Loadout replaces the old single Channel selection. A returning player
-		-- whose save predates this system has an empty Loadout (backfilled by DataTemplate's
-		-- reconcile pass) but a valid legacy Channel -- seed Loadout from it once so their
-		-- existing selection keeps working instead of silently going blank.
 		if type(profile.Anomaly.Loadout) ~= "table" then
 			profile.Anomaly.Loadout = {}
 		end
@@ -511,7 +471,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			end
 			profile.Anomaly.Loadout = sanitizedLoadout
 		end
-		-- Keep fractional seconds: the pulse window is ~1.6s with a sub-second sweet zone.
 		profile.Anomaly.PulseWindowStartedAt = nonNegative(profile.Anomaly.PulseWindowStartedAt or 0)
 		profile.Anomaly.Combo = math.floor(nonNegative(profile.Anomaly.Combo or 0))
 		profile.Anomaly.BestCombo = math.floor(nonNegative(profile.Anomaly.BestCombo or 0))
@@ -543,8 +502,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				profile.Anomaly.DirectiveClaims[directiveId] = nil
 			end
 		end
-		-- Quests / TimedRewards rely on reconcile on load but have no prior sanitize pass —
-		-- Studio fixtures and mid-migrate bags must not crash EnsureQuests / EnsureTimedRewards.
 		if type(profile.Quests) ~= "table" then
 			profile.Quests = { Day = -1, Items = {} }
 		end
@@ -560,8 +517,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		profile.TimedRewards.Day = math.floor(nonNegative(profile.TimedRewards.Day))
 		profile.TimedRewards.PlaySeconds = math.floor(nonNegative(profile.TimedRewards.PlaySeconds))
-		-- ForgePath was the only major progression bag without a sanitize pass. Partial
-		-- bags (XP without ClaimedSteps) crashed Economy.ForgePathEffect / claim paths.
 		if type(profile.ForgePath) ~= "table" then
 			profile.ForgePath = { ClaimedSteps = {}, XP = 0, XPDay = -1, XPEarnedToday = 0 }
 		end
@@ -583,7 +538,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			then
 				profile.ForgePath.ClaimedSteps[key] = nil
 			elseif type(key) == "number" then
-				-- Persist string keys so ClaimForgePathStep tostring lookups stay consistent.
 				profile.ForgePath.ClaimedSteps[key] = nil
 				profile.ForgePath.ClaimedSteps[tostring(stepIndex)] = true
 			end
@@ -591,8 +545,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.ForgePath.XP = math.floor(nonNegative(profile.ForgePath.XP))
 		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay) or -1
 		profile.ForgePath.XPEarnedToday = math.floor(nonNegative(profile.ForgePath.XPEarnedToday))
-		-- Studio fixtures / mid-migrate bags may omit Lab entirely, or leave Orders /
-		-- Routing nil — sanitize must rebuild before iterating (same class as ForgePath).
 		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
 		profile.Lab.Day = type(profile.Lab.Day) == "number" and math.max(-1, math.floor(profile.Lab.Day)) or -1
 		for index, order in profile.Lab.Orders do
@@ -666,8 +618,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		profile.Meta.Revision = math.max(0, math.floor(nonNegative(profile.Meta.Revision)))
 		ProfileIntegrity.EnsureEnvelope(profile)
-		-- Last pass: scrub any orphaned NaN/±inf leaves that field clamps missed so
-		-- Seal/cache-sync cannot spam "non-finite number" and block saves.
 		DataSanitizeMath.ScrubNonFinite(profile)
 		return profile
 	end
@@ -683,7 +633,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		local dataStore = DataStoreService:GetDataStore(ServerConfig.DataStoreName)
 		local defaultProfile = DataTemplate.New()
 
-
 		self._playerStore = SessionDocumentStore.new({
 			dataStore = dataStore :: any,
 			check = DocumentCommon.permissiveTableCheck,
@@ -697,7 +646,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			},
 			bindToClose = false,
 		})
-
 
 		self._sharedStore = UnlockedDocumentStore.new({
 			dataStore = DataStoreService:GetDataStore(ServerConfig.SharedDataStoreName) :: any,
@@ -735,9 +683,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		self._releasing = {}
 		self._closing = false
 		self._autosaveThread = nil
-		-- Optional hook the owning service can set post-construction: (player, reason) -> ().
-		-- Fired when a routine (non-release) save exhausts its retries, so something can warn the
-		-- still-connected player instead of the failure only ever showing up in server logs.
 		self.OnSaveFailed = nil
 		return self
 	end
@@ -846,8 +791,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 					end
 				end
 			end)
-			-- Always drop the busy flag. A throw above used to leave the player
-			-- stuck so later score updates never started another writer.
 			self._leaderboardPushBusy[userId] = nil
 			self._leaderboardWorkers[userId] = nil
 			if not workerOk then
@@ -892,9 +835,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			return false, "Your save could not be opened safely. Please rejoin in a moment."
 		end
 
-		-- When the caller has decided the lock holder is stale (dead server, orphaned
-		-- Studio session), Steal lets this Open bypass the other session's lock. The
-		-- displaced session's next save fails closed instead of corrupting data.
 		if stealLock == true then
 			local stole, stealErr = pcall(function()
 				document:Steal()
@@ -906,8 +846,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 
 		local openCallOk, openResult = pcall(document.Open, document)
 		if not openCallOk then
-			-- Open can throw after the session lock is written and _open is set
-			-- (post-hook). Leaving it open keeps autosave refreshing that lock.
 			pcall(function()
 				if document:IsOpen() then
 					document:Close()
@@ -1198,8 +1136,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				saved = true
 				break
 			end
-			-- A throw used to abort the remaining attempts and, on release,
-			-- could leave the session lock held.
 			local callOk, result = pcall(function()
 				if releaseSession then
 					return document:Close()
@@ -1229,9 +1165,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			end
 		end
 
-		-- Only warn for a routine mid-session save -- a release-save failure means the player is
-		-- already gone (nothing to show them), and that path already has its own retry-in-the-
-		-- background handling at the call site in ServerServices.
 		if not saved and not releaseSession and self.OnSaveFailed then
 			pcall(self.OnSaveFailed, player, lastReason)
 		end

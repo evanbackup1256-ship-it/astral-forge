@@ -6,52 +6,28 @@ local serviceLoaded: { [string]: boolean } = {}
 local serviceLoading: { [string]: boolean } = {}
 local loadService: (string) -> any
 
-
 serviceFactories["AdminService"] = function() return require(script.Parent:WaitForChild("AdminService"))(loadService) end
-
-
 
 serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("CoreServices"))("AnomalyService")(loadService) end
 
-
-
 serviceFactories["CasinoService"] = function() return require(script.Parent:WaitForChild("CasinoService"))(loadService) end
-
-
 
 serviceFactories["BazaarService"] = function() return require(script.Parent:WaitForChild("BazaarService"))(loadService) end
 
-
-
 serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
-
-
 
 serviceFactories["CharacterIntegrity"] = function() return require(script.Parent:WaitForChild("CharacterIntegrity"))(loadService) end
 
-
-
 serviceFactories["ConvergenceService"] = require(script.Parent:WaitForChild("ConvergenceService"))
-
-
 
 serviceFactories["DataService"] = function() return require(script.Parent:WaitForChild("DataService"))(loadService) end
 
-
-
--- DungeonService removed (Dungeons feature retired; route closed, no server support).
 serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("CoreServices"))("ForgeEchoService")
-
-
 
 serviceFactories["FluxSurgeService"] = require(script.Parent:WaitForChild("FluxSurgeService"))
 serviceFactories["ServerEventService"] = require(script.Parent:WaitForChild("CoreServices"))("ServerEventService")
 
-
-
 serviceFactories["GameAntiCheat"] = require(script.Parent:WaitForChild("GameAntiCheat"))
-
-
 
 serviceFactories["GameService"] = function()
 	local Players = game:GetService("Players")
@@ -186,9 +162,6 @@ serviceFactories["GameService"] = function()
 	local anomalySignalByAction = ActionFeatureMaps.ANOMALY_SIGNAL
 	local featureByAction = ActionFeatureMaps.FEATURE
 
-
-	-- Deferred snapshot / high-value grant tables live in CommandActionValidators.
-
 	local function enforceUnlimitedMoney(profile)
 		UnlimitedMoneySeal.Apply(profile, MAX_SAFE_CURRENCY, Economy)
 	end
@@ -236,8 +209,6 @@ serviceFactories["GameService"] = function()
 		return ShopGrantEligibility.EnsureShop(items.Shop, GameConfig.Items.ShopOffers, utcDay())
 	end
 
-	-- Partial Profiles (Studio fixtures / mid-migrate) may omit Stats — collect / tap /
-	-- crate / continuum / production ledgers must not throw before the mutation commits.
 	local function ensureStats(profile)
 		return ProfileBagMath.EnsureStats(profile)
 	end
@@ -273,7 +244,6 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function publicPlayerRecord(player: Player, profile, viewer: Player, presence)
-		-- Keys-only Items bags (mid-migrate / partial fixtures) must not throw on Inventory.
 		return PublicPlayerRecord.Build(player, profile, viewer, presence, {
 			EnsureItems = ProfileBagMath.EnsureItems,
 			itemById = itemById,
@@ -415,9 +385,6 @@ serviceFactories["GameService"] = function()
 		Trade = true, Credits = true, Admin = true, Settings = true, Shop = true,
 	}
 
-	-- ReportPresence doubles as the session beat: a page ping and a gen/nonce heartbeat share
-	-- one low-cost, low-cooldown remote instead of running two near-identical periodic requests.
-	-- No Gen field means the client hasn't said hello yet -- issue one instead of checking a beat.
 	function GameService:_reportPresence(player: Player, payload: any)
 		local page = payload and payload.Page
 		if type(page) == "string" and PRESENCE_PAGES[page] then
@@ -542,9 +509,6 @@ serviceFactories["GameService"] = function()
 				return responseError(err)
 			end
 			if session and session.Confirmed[session.Host] and session.Confirmed[session.Guest] then
-				-- Cross-player settle cannot be one AtomicUpdate; harden with a
-				-- single-flight settle lock + checked host revert (with retries)
-				-- if the guest apply fails after host already committed.
 				if not self._trades:TryBeginSettle(session) then
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseSuccess("Trade is settling.")
@@ -564,8 +528,6 @@ serviceFactories["GameService"] = function()
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseError(planErr or "That trade could not be settled.")
 				end
-				-- Host→guest AtomicUpdate pair lives in TradeSettle.RunHostGuest so
-				-- apply → guest re-read → guest apply → host revert retries are Lune-testable.
 				local outcome = TradeSettle.RunHostGuest(session, {
 					applyHost = function()
 						return self._data:AtomicUpdate(host, function(profile)
@@ -583,7 +545,6 @@ serviceFactories["GameService"] = function()
 							return { ok = true }
 						end, true, "trade-host")
 					end,
-					-- Re-read guest after host commit so inventory/currency races surface after Plan.
 					guestPresent = function()
 						return self._data:Get(guest) ~= nil
 					end,
@@ -756,9 +717,6 @@ serviceFactories["GameService"] = function()
 		self._backgroundWorkers = {}
 		self._saveFailedToastAt = {}
 		dataService.OnSaveFailed = function(player: Player, reason: string)
-			-- DataStores hiccup in bursts (a whole outage, not one call), and autosave retries
-			-- every interval regardless -- without a cooldown this would toast the same player
-			-- once per autosave tick for as long as the outage lasts.
 			local lastToastAt = self._saveFailedToastAt[player] or 0
 			if os.clock() - lastToastAt < 120 then return end
 			self._saveFailedToastAt[player] = os.clock()
@@ -852,7 +810,6 @@ serviceFactories["GameService"] = function()
 		local reportCount, reporterCount = reportLedger:record(player.UserId, targetUserId, reason, now)
 		local endpoint = ServerStorage:GetAttribute(ServerConfig.ReportWebhookAttribute)
 		if type(endpoint) ~= "string" or not string.match(endpoint, "^https://") then
-			-- No webhook configured: keep the report in the server log so it isn't lost.
 			ModuleLog.Every(
 				string.format("report:%d", targetUserId),
 				5,
@@ -908,10 +865,8 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function ensureAutoSalvage(profile)
-		-- Keys-only Items bags omit AutoSalvage — crate open must rebuild before indexing.
 		return ProfileBagMath.EnsureAutoSalvage(profile)
 	end
-
 
 	function GameService:_spawnWorker(callback)
 		if not self._running then return nil end
@@ -1103,11 +1058,6 @@ serviceFactories["GameService"] = function()
 		return OverchargeCombo.Multiplier(combo, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS)
 	end
 
-	-- Pays every Forge Level reached since the last payout (flux worth some seconds of
-	-- current production, stardust and a Forge Surge), and the halfway checkpoint toward
-	-- the next level. Runs with each snapshot, so rewards land the moment a goal is met.
-	-- Returns the public progression block for the snapshot.
-	-- Server event announcements, to everyone online.
 	function GameService:_announceServerEvent(phase: string, def)
 		local title, body, tone
 		if phase == "Warning" then
@@ -1124,8 +1074,6 @@ serviceFactories["GameService"] = function()
 		end
 	end
 
-	-- Community Forge finished: every contributor gets flux worth some seconds of
-	-- their own output and stardust, with a bonus for the top three.
 	function GameService:_payCommunityForge(ranking, def)
 		for rank, entry in ranking do
 			local player = Players:GetPlayerByUserId(entry.UserId)
@@ -1242,7 +1190,6 @@ serviceFactories["GameService"] = function()
 			runtime.SnapshotId = (runtime.SnapshotId or 0) + 1
 		end
 		local itemShop = {}
-		-- Ensure Shop bag before RemainingStock indexes Stock[offer.Id] (Keys-only Items path).
 		ensureItemShop(profile)
 		for index, offer in GameConfig.Items.ShopOffers do
 			local state = copyDictionary(offer)
@@ -1265,13 +1212,9 @@ serviceFactories["GameService"] = function()
 					end
 				end
 			end
-			-- Only an increase within this session counts as a level-up; the first
-			-- snapshot just records where the player already is.
 			local leveledUp = runtime.ForgeLevel ~= nil and levelState.Level > runtime.ForgeLevel
 			runtime.ForgeLevel = levelState.Level
 			if leveledUp then
-				-- One message for the whole moment: the level reached and what it
-				-- opened, rather than a level toast plus a separate unlock toast.
 				local names = {}
 				for _, entry in newlyUnlocked do
 					table.insert(names, entry.State.Name)
@@ -1314,7 +1257,6 @@ serviceFactories["GameService"] = function()
 			end
 			runtime.FeatureUnlocks = current
 		end
-		-- After the level-up announcement, so the client pairs the unlocked names with the rewards.
 		levelState.Progression = self:_settleProgression(player, profile, levelState, production)
 		local storyState = StoryMailSnapshot.BuildStory(profile, GameConfig.Story, ProgressionGate)
 		local mailState, unreadMail = StoryMailSnapshot.BuildMailbox(profile, GameConfig.Mail, ProgressionGate)
@@ -1398,7 +1340,6 @@ serviceFactories["GameService"] = function()
 				Discovered = copyDictionary(profile.Items.Discovered or {}),
 				CodexBonus = Economy.CodexBonus(profile),
 			},
-			-- The Shop: today's purchases (the client rolls the offers itself) and owned crate skins.
 			DailyShop = {
 				Day = type(profile.DailyShop) == "table" and profile.DailyShop.Day or -1,
 				Bought = copyDictionary(type(profile.DailyShop) == "table" and profile.DailyShop.Bought or {}),
@@ -1544,9 +1485,6 @@ serviceFactories["GameService"] = function()
 				Combo = details.Combo,
 				PulseWindowStartedAt = details.PulseWindowStartedAt,
 			})
-			-- Overdrive is server-wide, not per-player -- fire an immediate broadcast to every
-			-- connected client the instant it triggers, rather than waiting for each player's
-			-- next routine state poll to notice the meter is already full.
 			if details.OverdriveTriggered then
 				self._effect:FireAllClients({ Type = "OverdriveTriggered", Overdrive = AnomalyService.OverdriveState() })
 			end
@@ -1759,7 +1697,6 @@ serviceFactories["GameService"] = function()
 				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP)
 			)
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
-			-- Server events: Community Forge points, Stardust Rain drops.
 			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
 			if rainDust > 0 then
 				profile.Stardust += rainDust
@@ -1907,7 +1844,6 @@ serviceFactories["GameService"] = function()
 		return result
 	end
 
-
 	function GameService:_queueStatePush(player: Player)
 		if self._queuedStatePushes[player] then return end
 		self._queuedStatePushes[player] = task.defer(function()
@@ -1935,7 +1871,6 @@ serviceFactories["GameService"] = function()
 			return responseSuccess(string.format("Auto-Forge %s — %s targeted with %d%% held in reserve.", state, machine.Name, math.floor(reserve * 100 + 0.5)))
 		end)
 	end
-
 
 	function GameService:_tickAutoForge(player: Player)
 		local live = self._data:Get(player)
@@ -2287,7 +2222,6 @@ serviceFactories["GameService"] = function()
 		return result
 	end
 
-	-- One tap in the Astral Casino: the stake, the roll and the payout all happen here, on the server.
 	function GameService:_casinoPlay(player: Player, payload: any)
 		return self:_mutate(player, function(profile)
 			BazaarService.Roll(profile, os.time(), player.UserId)
@@ -2299,7 +2233,6 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
-	-- One tap in the Astral Bazaar (bank, black market, lottery, contracts).
 	function GameService:_bazaarPlay(player: Player, payload: any)
 		return self:_mutate(player, function(profile)
 			local now = os.time()
@@ -2590,7 +2523,6 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_createItem(profile, definitionId: string): string?
-		-- Keys-only Items bags omit Inventory/NextId — market/crate grants must Ensure first.
 		local items = ProfileBagMath.EnsureItems(profile)
 		if not itemById[definitionId] or inventoryCount(profile) >= GameConfig.Items.InventoryLimit then
 			return nil
@@ -2632,7 +2564,6 @@ serviceFactories["GameService"] = function()
 		end
 		local offer = itemOfferById[offerId]
 		local result = self:_mutate(player, function(profile)
-			-- Keys-only / Shop-missing Items bags crash EnsureShop / Keys / Essence indexes.
 			local items = ProfileBagMath.EnsureItems(profile)
 			ensureItemShop(profile)
 			local stockMax = offerStockMax(offer)
@@ -2673,9 +2604,6 @@ serviceFactories["GameService"] = function()
 		return result
 	end
 
-	-- ---- The Shop: Daily Shop, crate skins, relic fusion ---------------------------------------------
-	-- The day's offers are rolled from SharedData#ShopCatalog with the player's id and the UTC day, the
-	-- same roll the client shows, so a buy names only a slot and everything else is checked here.
 	local function shopShared()
 		local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 		return SharedData("ShopCatalog"), SharedData("RelicSystem")
@@ -2755,7 +2683,6 @@ serviceFactories["GameService"] = function()
 				if not uid then
 					return responseError("Your relic inventory is full.")
 				end
-				-- Shaped like a crate roll so the client plays the same reveal.
 				detail.Rolls = { { Uid = uid, DefinitionId = definition.Id, Rarity = definition.Rarity, New = not wasOwned, Pity = false, AutoSalvaged = false, Essence = 0 } }
 			else
 				return responseError("That offer is misconfigured.")
@@ -2783,7 +2710,6 @@ serviceFactories["GameService"] = function()
 			if cosmetics.CrateSkins[skin.Id] == true then
 				return responseError("You already own that skin.")
 			end
-			-- Pin today's Daily Shop to the skins owned before this one, so its offers stay put.
 			ProfileBagMath.EnsureDailyShop(profile, ShopCatalog.day(os.time()), cosmetics.CrateSkins)
 			local denied = spendShopCurrency(profile, skin.Price.Currency, skin.Price.Amount)
 			if denied then
@@ -2814,7 +2740,6 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
-	-- Fuse two copies of a relic: the stronger (socketed) copy keeps a star more, the spare is consumed.
 	function GameService:_fuseRelics(player: Player, definitionId: any)
 		if type(definitionId) ~= "string" or not itemById[definitionId] then
 			return responseError("That relic doesn't exist.")
@@ -2854,7 +2779,6 @@ serviceFactories["GameService"] = function()
 		end
 		local crate = crateById[crateId]
 		local result = self:_mutate(player, function(profile)
-			-- Keys-only Items bags omit Keys/Pity/Discovered — crate open must Ensure first.
 			local items = ProfileBagMath.EnsureItems(profile)
 			if (items.Keys[crateId] or 0) < count then
 				return responseError(
@@ -3053,8 +2977,6 @@ serviceFactories["GameService"] = function()
 		if type(payload) ~= "table" then
 			return responseError("Invalid setting request.")
 		end
-		-- Which keys exist, and what values they take (switch 0/1, a named choice, or 0..1), come from
-		-- SettingsSchema, the same table the Settings page is drawn from.
 		local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
 		local sliderKeys = setmetatable({}, {
 			__index = function(_, key)
@@ -3451,9 +3373,6 @@ serviceFactories["GameService"] = function()
 		if socialRewards and socialRewards.CreatorFollowClaimed == true then
 			return responseSuccess("You already claimed this reward.")
 		end
-		-- Follow is a one-time courtesy grant, not a live Roblox-follow gate. HTTP checks
-		-- (and Studio shortcuts) used to fail this for missing endpoints, and a generic
-		-- payload reject was toasting it as an expedition. Always grant if unclaimed.
 		local result = self:_mutate(player, function(current)
 			current.SocialRewards = current.SocialRewards or { CreatorFollowClaimed = false }
 			if current.SocialRewards.CreatorFollowClaimed == true then
@@ -3512,7 +3431,6 @@ serviceFactories["GameService"] = function()
 		if type(rawStep) ~= "number" then
 			return responseError("Invalid tutorial step.")
 		end
-		-- Must match TUTORIAL_STEPS.size() in src_ts/client/MainGame.tsx.
 		local step = math.clamp(math.floor(rawStep), 1, 15)
 		return self:_mutate(player, function(profile)
 			if profile.Flags.TutorialDone then
@@ -3801,7 +3719,6 @@ serviceFactories["GameService"] = function()
 				local reward
 				ok, message, guild, reward = self._guilds:ClaimGoal(player, profile)
 				if ok and reward then
-					-- The reward table comes from GameConfig via GuildService, never the payload.
 					local rewardText = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
 					if rewardText ~= "" then
 						message = "Guild goal complete! " .. rewardText
@@ -3980,7 +3897,6 @@ serviceFactories["GameService"] = function()
 		self:_announceRankClimbs(id, rows)
 		return responseSuccess(nil, { Leaderboard = entries, LeaderboardId = id })
 	end
-
 
 	function GameService:_handleAction(player: Player, action: any, payload: any)
 		if not CommandActionValidators.IsValidAction(action) then
@@ -4383,8 +4299,6 @@ serviceFactories["GameService"] = function()
 		local previousCharacterConnection = self._characterConnections[player]
 		if previousCharacterConnection then previousCharacterConnection:Disconnect() end
 		self._characterConnections[player] = player.CharacterAdded:Connect(function(character)
-			-- The default Animate script's face "mood" animation is a Roblox asset this
-			-- experience is not permitted to load; it only produces console errors.
 			task.defer(function()
 				local animate = character:WaitForChild("Animate", 3)
 				local mood = animate and animate:FindFirstChild("mood")
@@ -4445,11 +4359,6 @@ serviceFactories["GameService"] = function()
 			if self._runtime[player] then
 				break
 			end
-			-- After ~90s of a foreign session lock the holder is either dead (crash,
-			-- orphaned Studio session) or the player is double-logged — either way the
-			-- newest session wins, same as ProfileService's ForceLoad. The displaced
-			-- session's saves fail closed; ours take over. Steal() just re-arms a flag
-			-- on the cached document, so passing it every retry is safe.
 			local stealLock = lockSince ~= nil and os.clock() - lockSince > 90
 			local ok, problem = pcall(self._onPlayerAdded, self, player, stealLock)
 			if self._runtime[player] then
@@ -4471,10 +4380,6 @@ serviceFactories["GameService"] = function()
 				if lockSince == nil then
 					lockSince = os.clock()
 				end
-				-- Save locks live up to SESSION_EXPIRE_TIME (600s) past the holder's last
-				-- refresh — a crashed server or a still-running Studio session can hold one
-				-- far longer than a fixed attempt cap. Keep retrying while the lock can
-				-- still expire instead of leaving the player on a permanently dead client.
 				if os.clock() - lockNoticeAt > 25 then
 					lockNoticeAt = os.clock()
 					self:_toastPlayer(
@@ -4499,11 +4404,6 @@ serviceFactories["GameService"] = function()
 			end
 			lockSince = nil
 			if attempts >= 10 then
-				-- Non-lock failures (datastore outage, integrity rejection) get one fast
-				-- burst, then degrade to a slow retry instead of leaving the player on a
-				-- permanently dead client. A real outage lasts minutes; a 25s cadence is
-				-- negligible for DataStore budget and a corrupt profile keeps failing
-				-- harmlessly until it can be fixed server-side.
 				if attempts == 10 then
 					ModuleLog.Error("Player", string.format("%s join retries degraded to slow retry after %d attempts — %s", player.Name, attempts, tostring(problem)), { UserId = player.UserId })
 					self:_toastPlayer(
@@ -4642,7 +4542,6 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
-
 	function GameService:_processPlayerTick(player: Player, runtime)
 		if runtime.MaintenanceAccumulator >= PROFILE_MAINTENANCE_INTERVAL and not self._data:IsBusy(player) then
 			runtime.MaintenanceAccumulator %= PROFILE_MAINTENANCE_INTERVAL
@@ -4673,8 +4572,6 @@ serviceFactories["GameService"] = function()
 			local anomalyDetails = nil
 
 			if self._data:IsBusy(player) then
-				-- Seen when long AtomicUpdate busy windows let ProductionAccumulator grow without
-				-- applying, then dump an oversized vault fill that can hit Capacity in one tick.
 				local maxCatchUp = GameConfig.Game.ProductionTick * 4
 				if runtime.ProductionAccumulator > maxCatchUp then
 					runtime.ProductionAccumulator = maxCatchUp
@@ -4767,7 +4664,6 @@ serviceFactories["GameService"] = function()
 			end
 		end
 	end
-
 
 	function GameService:_tickPlayer(player: Player, runtime, deltaTime: number)
 		if player.Parent ~= Players then
@@ -4948,9 +4844,6 @@ serviceFactories["GameService"] = function()
 						string.format("u=%d drop %s %s", player.UserId, tostring(action), tostring(grantReason))
 					)
 					local liveGen, liveNonce = self._session:Peek(player)
-					-- "unauth" means the server session is no longer authenticated -- tell the
-					-- client explicitly so it drops to its fast re-auth cadence and queues
-					-- clicks instead of firing (and failing) until the next scheduled beat.
 					return {
 						ok = false,
 						error = "Your session needs to refresh. One moment.",
@@ -5179,54 +5072,29 @@ serviceFactories["GameService"] = function()
 	return GameService
 end
 
-
-
 serviceFactories["GuildService"] = require(script.Parent:WaitForChild("CoreServices"))("GuildService")
-
-
 
 serviceFactories["LabService"] = require(script.Parent:WaitForChild("CoreServices"))("LabService")
 
-
-
 serviceFactories["MatterRuntime"] = require(script.Parent:WaitForChild("MatterRuntime"))
-
-
 
 serviceFactories["PlayerAnalytics"] = function() return require(script.Parent:WaitForChild("PlayerAnalytics"))(loadService) end
 
-
-
 serviceFactories["PlayerBadges"] = require(script.Parent:WaitForChild("PlayerBadges"))
-
-
 
 serviceFactories["ProfileIntegrity"] = require(script.Parent:WaitForChild("SecurityServices"))("ProfileIntegrity")
 
-
-
 serviceFactories["ProgressionService"] = require(script.Parent:WaitForChild("CoreServices"))("ProgressionService")
-
-
 
 serviceFactories["RemoteFirewall"] = function() return require(script.Parent:WaitForChild("RemoteFirewall"))(loadService) end
 
-
-
 serviceFactories["Security"] = require(script.Parent:WaitForChild("SecurityServices"))("Security")
-
-
 
 serviceFactories["SessionGate"] = require(script.Parent:WaitForChild("SecurityServices"))("SessionGate")
 
-
-
 serviceFactories["ServerTelemetry"] = require(script.Parent:WaitForChild("SecurityServices"))("ServerTelemetry")
 
-
-
 serviceFactories["WorldService"] = require(script.Parent:WaitForChild("WorldServices"))("WorldService")
-
 
 loadService = function(name: string): any
 	if serviceLoaded[name] then

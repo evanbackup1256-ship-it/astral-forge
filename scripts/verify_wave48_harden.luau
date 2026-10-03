@@ -41,7 +41,7 @@ do
 	for _ in string.gmatch(echo, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "EchoForge softMotion densify, got " .. tostring(soft))
+	assert(soft >= 15, "EchoForge softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0

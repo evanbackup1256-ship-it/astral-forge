@@ -4,7 +4,6 @@ local types = require(script.Parent:WaitForChild("Types"))
 
 local config = {}
 
--- color shortcuts used for color values of markups or attributes
 config.COLOR_SHORTCUTS = {}
 config.COLOR_SHORTCUTS.white        = Color3.fromRGB(255, 255, 255)
 config.COLOR_SHORTCUTS.black        = Color3.fromRGB(0, 0, 0)
@@ -36,20 +35,14 @@ config.COLOR_SHORTCUTS.gray         = Color3.fromRGB(150, 150, 150)
 config.COLOR_SHORTCUTS.darkgray     = Color3.fromRGB(80, 80, 80)
 config.COLOR_SHORTCUTS.lightgray    = Color3.fromRGB(220, 220, 220)
 
--- the value of which you must set applicable markups or attributes to in order to delete it
 config.DELETE_MARKUP_VALUE_SYNTAX = "/"
 
--- min possible interval between typewriter sounds
 config.MIN_TYPEWRITER_SFX_INTERVAL = .065
 
--- fraction of the width of the container
--- any word wider than this value which doesn't fit on the current row will be split instead of being fully moved to a new row
 config.MAX_WORD_WIDTH_FRACTION = .3
 
--- the max amount of characters of a render's text displayed for debugging when overflowing
 config.DEBUG_OVERFLOW_MAX_TEXT_LENGTH = 40
 
--- default markup and attribute values for all objects (must include every markup and attribute)
 local DEFAULT_MARKUPS : types.markups = {
 	color = {
 		value = Color3.new(1, 1, 1),
@@ -387,34 +380,23 @@ local DEFAULT_MARKUPS : types.markups = {
 }
 config.DEFAULT_MARKUPS = DEFAULT_MARKUPS
 
--- shiny markup image id
 config.SHINY_IMG_ID = 115010102642915
 
--- fog markup image id
 config.FOG_IMG_ID = 122434532
 
--- the order in which markups are applied from top to bottom, the ones left out are applied first
--- don't change this unless you know what you're doing
 local PRINT_PRIORITY : {types.markup} = {
-	-- needs the character's text transparency to be finalized
 	"stroke",
 	
-	-- overwrites the character's text color
 	"gradient",
 	
-	-- needs the character's text to be finalized
 	"decode",
 	
-	-- needs the stroke to be created or not
 	"strokeGradient",
 	
-	-- needs everything about the character to be finalized and needs the final character container
 	"shadow",
 	
-	-- needs anything that reads the character's text transparency to go before
 	"anim",
 	
-	-- need the final character container for the applyTransform attribute
 	"emitImg",
 	"fog",
 	"shiny",

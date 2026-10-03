@@ -1,13 +1,4 @@
 --!strict
---[=[
-	ProfileMath: merged module suite.
-	Members (21): ProfileClampMath, SettingsSeal, UnlimitedMoneySeal, PublicPlayerRecord, ReportLedger, AutoSalvageSnapshot, ItemLoadoutMath, ItemSalvage, GeneralBoardValue, UtcClockMath, StoryMailSnapshot, VisitSnapshot, VisitorList, RankBracket, Format, ActionFeatureMaps, ActionResponse, CommandActionValidators, ShopGrantEligibility, SocialBoost, TelemetryMath.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,14 +18,7 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: ProfileClampMath   (merged from ProfileClampMath.luau, 93 lines)
--- ======================================================================
 __defs["ProfileClampMath"] = function()
--- Pure progression-currency clamp helpers. No Roblox services — ServerServices
--- and Lune verify scripts share ClampProgressionNumbers so post-mutate currency
--- / Stats / Continuum sanitizers stay testable without Studio. Economy.Persist
--- is injected so Omega Persist stays with the caller.
 
 local ProfileClampMath = {}
 
@@ -52,10 +36,6 @@ local function clampScalar(raw: any, ceiling: number): number
 	return 0
 end
 
--- A persisted currency value is a plain number below ~1e15 and a sign-prefixed
--- scientific-notation string ("-5.000000000000e50") above it. The old guard only
--- tested `type == "number" and < 0`, so a negative Omega-scale balance slipped
--- through the clamp unchanged. Detect negativity in both domains.
 local function isNegativePersist(persisted: any): boolean
 	if type(persisted) == "number" then
 		return persisted < 0
@@ -66,9 +46,6 @@ local function isNegativePersist(persisted: any): boolean
 	return false
 end
 
--- Clamp Cash/Vault/RunCash/LifetimeCash via Persist, Cores/Stardust/Rebirths via
--- tonumber, and Stats / Continuum spend bags. Partial profiles (Studio fixtures)
--- must not throw when Stats or Continuum are missing.
 function ProfileClampMath.ClampProgressionNumbers(
 	profile: any,
 	persist: ((any) -> any)?,
@@ -125,11 +102,7 @@ end
 return table.freeze(ProfileClampMath)
 end
 
--- ======================================================================
--- Module: SettingsSeal   (merged from SettingsSeal.luau, 12 lines)
--- ======================================================================
 __defs["SettingsSeal"] = function()
--- Pure settings seal helpers split out of ServerServices.
 
 local SettingsSeal = {}
 
@@ -142,11 +115,7 @@ end
 return SettingsSeal
 end
 
--- ======================================================================
--- Module: UnlimitedMoneySeal   (merged from UnlimitedMoneySeal.luau, 14 lines)
--- ======================================================================
 __defs["UnlimitedMoneySeal"] = function()
--- Pure unlimited-money seal split out of ServerServices.
 
 local UnlimitedMoneySeal = {}
 
@@ -161,11 +130,7 @@ end
 return UnlimitedMoneySeal
 end
 
--- ======================================================================
--- Module: PublicPlayerRecord   (merged from PublicPlayerRecord.luau, 46 lines)
--- ======================================================================
 __defs["PublicPlayerRecord"] = function()
--- Pure public player mirror record split out of ServerServices.
 
 local PublicPlayerRecord = {}
 
@@ -207,7 +172,6 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 		CurrentPage = liveEntry and liveEntry.Page or "Overview",
 		PresenceAge = liveEntry and math.max(0, os.time() - liveEntry.UpdatedAt) or -1,
 		AccountAge = player.AccountAge,
-		-- Enum is nil under Lune, where tests build records from plain tables.
 		Premium = Enum ~= nil and player.MembershipType == Enum.MembershipType.Premium,
 	}
 end
@@ -215,28 +179,20 @@ end
 return PublicPlayerRecord
 end
 
--- ======================================================================
--- Module: ReportLedger
--- ======================================================================
 __defs["ReportLedger"] = function()
--- Player reports for one server: who reported whom and when. Stops repeat
--- reports of the same player, caps how many reports one player can send,
--- and tallies reports per target so moderators see a pattern, not one line.
--- Pure: the caller passes `now`, so Lune tests drive it directly.
 
 local ReportLedger = {}
 ReportLedger.__index = ReportLedger
 
--- The reasons a report can carry, in the order the client shows them.
 ReportLedger.REASONS = table.freeze({ "Exploiting", "Scamming", "Harassment", "Trolling", "Spam", "Inappropriate", "Other" })
 local REASON_SET = {}
 for _, reason in ReportLedger.REASONS do
 	REASON_SET[reason] = true
 end
 
-ReportLedger.REPEAT_SECONDS = 600 -- the same reporter and target, once per 10 minutes
-ReportLedger.WINDOW_SECONDS = 3600 -- rate limit and tally window
-ReportLedger.MAX_PER_WINDOW = 6 -- reports one player may send per window
+ReportLedger.REPEAT_SECONDS = 600
+ReportLedger.WINDOW_SECONDS = 3600
+ReportLedger.MAX_PER_WINDOW = 6
 
 function ReportLedger.isReason(reason: any): boolean
 	return type(reason) == "string" and REASON_SET[reason] == true
@@ -244,9 +200,7 @@ end
 
 function ReportLedger.new()
 	return setmetatable({
-		-- [reporterId] = { { target, at } ... }
 		_sent = {},
-		-- [targetId] = { { reporter, reason, at } ... }
 		_against = {},
 	}, ReportLedger)
 end
@@ -264,8 +218,6 @@ local function prune(list, now: number, window: number)
 	end
 end
 
--- Whether `reporter` may report `target` now. Returns ok, and a player-facing
--- reason when not.
 function ReportLedger:canReport(reporter: number, target: number, now: number): (boolean, string?)
 	local sent = self._sent[reporter]
 	if sent == nil then
@@ -284,8 +236,6 @@ function ReportLedger:canReport(reporter: number, target: number, now: number): 
 	return true, nil
 end
 
--- Records a report that passed canReport. Returns the target's tally for the
--- window: total reports and distinct reporters, this one included.
 function ReportLedger:record(reporter: number, target: number, reason: string, now: number): (number, number)
 	local sent = self._sent[reporter]
 	if sent == nil then
@@ -319,8 +269,6 @@ function ReportLedger:tally(target: number, now: number): (number, number)
 	return #against, distinct
 end
 
--- Players who left take their outgoing history with them; reports against
--- them stay until the window ends so a rejoin doesn't reset the tally.
 function ReportLedger:forgetReporter(reporter: number)
 	self._sent[reporter] = nil
 end
@@ -328,11 +276,7 @@ end
 return ReportLedger
 end
 
--- ======================================================================
--- Module: AutoSalvageSnapshot   (merged from AutoSalvageSnapshot.luau, 30 lines)
--- ======================================================================
 __defs["AutoSalvageSnapshot"] = function()
--- Pure AutoSalvage / AutoForge snapshot bags split out of ServerServices.
 
 local AutoSalvageSnapshot = {}
 
@@ -363,17 +307,10 @@ end
 return AutoSalvageSnapshot
 end
 
--- ======================================================================
--- Module: ItemLoadoutMath   (merged from ItemLoadoutMath.luau, 172 lines)
--- ======================================================================
 __defs["ItemLoadoutMath"] = function()
--- Pure EquipBest loadout planner. No Roblox services — ServerServices and Lune
--- verify scripts share BuildTargets / PlanEquipBest so socket greedy assignment
--- stays testable without Studio. Catalog ownership gates stay with the caller.
 
 local ItemLoadoutMath = {}
 
--- True when a relic definition can occupy `target` (Slot + optional Targets list).
 function ItemLoadoutMath.IsCompatible(definition: any, target: any): boolean
 	if type(definition) ~= "table" or type(target) ~= "table" then
 		return false
@@ -393,7 +330,6 @@ function ItemLoadoutMath.IsCompatible(definition: any, target: any): boolean
 	return false
 end
 
--- Effect power used to rank EquipBest candidates (matches EffectAtLevel formula).
 function ItemLoadoutMath.CandidatePower(definition: any, level: any): number
 	if type(definition) ~= "table" then
 		return 0
@@ -404,7 +340,6 @@ function ItemLoadoutMath.CandidatePower(definition: any, level: any): number
 	return base * (1 + growth * math.max(0, safeLevel - 1))
 end
 
--- Open sockets from owned Machines/Research (≥1). Catalog lists are id→def or arrays.
 function ItemLoadoutMath.BuildTargets(machinesCatalog: any, researchCatalog: any, machineLevels: any, researchLevels: any): { any }
 	local targets = {}
 	local machines = if type(machineLevels) == "table" then machineLevels else {}
@@ -449,8 +384,6 @@ local function rarityRank(rarities: any, rarity: any): number
 	return tonumber(entry) or 0
 end
 
--- Greedy best-fit: scarcest sockets first, strongest compatible relic wins.
--- Returns nextEquipped map, equippedCount, changed vs currentEquipped.
 function ItemLoadoutMath.PlanEquipBest(
 	targets: any,
 	candidates: any,
@@ -525,7 +458,6 @@ function ItemLoadoutMath.PlanEquipBest(
 	return nextEquipped, equippedCount, changed
 end
 
--- Aggregated item effect multipliers for client rails.
 function ItemLoadoutMath.EffectsPublic(profile, Economy)
 	return {
 		Production = Economy.ItemEffect(profile, "Production"),
@@ -540,17 +472,10 @@ end
 return table.freeze(ItemLoadoutMath)
 end
 
--- ======================================================================
--- Module: ItemSalvage   (merged from ItemSalvage.luau, 15 lines)
--- ======================================================================
 __defs["ItemSalvage"] = function()
--- Pure item-salvage essence formula. No Roblox services — ServerServices and
--- Lune verify scripts share this so salvage payouts stay testable without
--- Studio. Rarity lookup stays with the caller; pass Rank.
 
 local ItemSalvage = {}
 
--- Matches prior inline: rank^2 * 8 + max(0, level-1) * rank * 3
 function ItemSalvage.Value(level: any, rarityRank: any): number
 	local rank = if type(rarityRank) == "number" then rarityRank else 1
 	local safeLevel = if type(level) == "number" then level else 1
@@ -560,14 +485,7 @@ end
 return table.freeze(ItemSalvage)
 end
 
--- ======================================================================
--- Module: GeneralBoardValue   (merged from GeneralBoardValue.luau, 34 lines)
--- ======================================================================
 __defs["GeneralBoardValue"] = function()
--- Pure general leaderboard board-value projection. No Roblox services —
--- ServerServices and Lune verify scripts share this so Flux/Rebirths/PlayTime/
--- Dust/Cores/Domain/Worlds scoring stays testable without Studio. Persist for
--- LifetimeCash is injected (Economy.Persist under Studio).
 
 local GeneralBoardValue = {}
 
@@ -599,14 +517,7 @@ end
 return table.freeze(GeneralBoardValue)
 end
 
--- ======================================================================
--- Module: UtcClockMath   (merged from UtcClockMath.luau, 36 lines)
--- ======================================================================
 __defs["UtcClockMath"] = function()
--- Pure UTC day / week / midnight helpers for shop restock clocks and
--- Progression daily/weekly rolls. No Roblox services — ServerServices /
--- ProgressionService and Lune verify scripts share this so day boundaries stay
--- testable without Studio. Pass `now` (unix seconds) for deterministic checks.
 
 local UtcClockMath = {}
 
@@ -627,12 +538,10 @@ function UtcClockMath.NextMidnight(now: any): number
 	return (UtcClockMath.Day(now) + 1) * UtcClockMath.DAY_SECONDS
 end
 
--- Seconds remaining until `deadline` (unix). Never negative.
 function UtcClockMath.Remaining(deadline: any, now: any): number
 	return math.max(0, (tonumber(deadline) or 0) - (tonumber(now) or 0))
 end
 
--- True when the deadline has elapsed (remaining == 0).
 function UtcClockMath.IsLive(deadline: any, now: any): boolean
 	return UtcClockMath.Remaining(deadline, now) <= 0
 end
@@ -640,11 +549,7 @@ end
 return table.freeze(UtcClockMath)
 end
 
--- ======================================================================
--- Module: StoryMailSnapshot   (merged from StoryMailSnapshot.luau, 48 lines)
--- ======================================================================
 __defs["StoryMailSnapshot"] = function()
--- Pure Story/Mail snapshot builders split out of ServerServices.
 
 local StoryMailSnapshot = {}
 
@@ -682,7 +587,6 @@ function StoryMailSnapshot.BuildMailbox(profile, mailMessages, ProgressionGate)
 	return mailState, unreadMail
 end
 
--- Client Mailbox rail bag.
 function StoryMailSnapshot.MailboxPublic(messages, unread: number)
 	return {
 		Messages = messages,
@@ -693,11 +597,7 @@ end
 return StoryMailSnapshot
 end
 
--- ======================================================================
--- Module: VisitSnapshot   (merged from VisitSnapshot.luau, 53 lines)
--- ======================================================================
 __defs["VisitSnapshot"] = function()
--- Pure visit snapshot builder split out of ServerServices.
 
 local VisitSnapshot = {}
 
@@ -732,7 +632,6 @@ function VisitSnapshot.Build(player: Player, profile, Economy)
 	}
 end
 
--- Resolve visiting host into a Visit bag. `players` + `getProfile` injected.
 function VisitSnapshot.Resolve(hostUserId: number?, players: { Player }, getProfile: (Player) -> any, Economy): any
 	if hostUserId == nil then
 		return nil
@@ -751,11 +650,7 @@ end
 return VisitSnapshot
 end
 
--- ======================================================================
--- Module: VisitorList   (merged from VisitorList.luau, 26 lines)
--- ======================================================================
 __defs["VisitorList"] = function()
--- Pure visitor roster builder split out of ServerServices.
 
 local VisitorList = {}
 
@@ -782,13 +677,7 @@ end
 return VisitorList
 end
 
--- ======================================================================
--- Module: RankBracket   (merged from RankBracket.luau, 34 lines)
--- ======================================================================
 __defs["RankBracket"] = function()
--- Pure leaderboard climb brackets for rank-ping toasts. No Roblox services —
--- ServerServices and Lune verify scripts share this so bracket crossings stay
--- testable without Studio. Bracket list / unranked sentinel are injected.
 
 local RankBracket = {}
 
@@ -806,7 +695,6 @@ function RankBracket.Of(rank: number, brackets: { number }?, unranked: number?):
 	return fallback
 end
 
--- Climb toast fires when seeded, rank improved, and bracket tightened.
 function RankBracket.ShouldAnnounce(previousRank: number, nextRank: number, brackets: { number }?, unranked: number?): boolean
 	local fallback = if unranked ~= nil then unranked else RankBracket.UNRANKED
 	local seeded = previousRank > 0
@@ -821,9 +709,6 @@ end
 return table.freeze(RankBracket)
 end
 
--- ======================================================================
--- Module: Format   (merged from Format.luau, 141 lines)
--- ======================================================================
 __defs["Format"] = function()
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -861,8 +746,6 @@ local function formatFromLog10(log10: number): string
 	end
 	local group = math.clamp(math.floor(log10 / 3), 1, #SUFFIXES)
 	local scaled = 10 ^ (log10 - group * 3)
-	-- Three significant figures are shown, so a value that rounds up to a full thousand has to
-	-- move to the next suffix ("1M", never "1000K").
 	local shownPrecision = if scaled < 10 then 2 elseif scaled < 100 then 1 else 0
 	local rollsOver = (tonumber(string.format("%." .. tostring(shownPrecision) .. "f", scaled)) or 0) >= 1000
 	if (scaled >= 1000 or rollsOver) and group < #SUFFIXES then
@@ -972,13 +855,7 @@ end
 return table.freeze(Format)
 end
 
--- ======================================================================
--- Module: ActionFeatureMaps   (merged from ActionFeatureMaps.luau, 133 lines)
--- ======================================================================
 __defs["ActionFeatureMaps"] = function()
--- Pure action → feature / anomaly charge / signal maps for GameService.
--- No Roblox services — ServerServices and Lune verify scripts share this so
--- routing tables stay testable without Studio. Keys match Protocol.Actions.
 
 local ActionFeatureMaps = {}
 
@@ -1115,13 +992,7 @@ end
 return table.freeze(ActionFeatureMaps)
 end
 
--- ======================================================================
--- Module: ActionResponse   (merged from ActionResponse.luau, 19 lines)
--- ======================================================================
 __defs["ActionResponse"] = function()
--- Pure GameService action response builders. No Roblox services —
--- ServerServices and Lune verify scripts share this so ok/error envelopes
--- stay testable without Studio. Preserves prior mutation of `extra` tables.
 
 local ActionResponse = {}
 
@@ -1139,18 +1010,10 @@ end
 return table.freeze(ActionResponse)
 end
 
--- ======================================================================
--- Module: CommandActionValidators   (merged from CommandActionValidators.luau, 86 lines)
--- ======================================================================
 __defs["CommandActionValidators"] = function()
--- Pure command-action classifiers for the GameService request gate. No Roblox
--- services — ServerServices and Lune verify scripts share this so read-only /
--- high-value-grant / deferred-snapshot sets stay testable without Studio.
--- Action names match Protocol.Actions string values.
 
 local CommandActionValidators = {}
 
--- Read-only actions skip session CheckGrant (no gen/nonce burn).
 CommandActionValidators.READ_ONLY = {
 	GetState = true,
 	MeasureLatency = true,
@@ -1174,8 +1037,6 @@ CommandActionValidators.READ_ONLY = {
 	ReplayTutorial = true,
 }
 
--- Grants that also require the request to carry the session's live nonce, not
--- just a matching gen — highest-value actions get the extra check.
 CommandActionValidators.HIGH_VALUE_GRANT = {
 	SpinWheel = true,
 	CasinoPlay = true,
@@ -1188,7 +1049,6 @@ CommandActionValidators.HIGH_VALUE_GRANT = {
 	AdminExecute = true,
 }
 
--- Successful mutations that defer the immediate state snapshot push.
 CommandActionValidators.DEFERRED_SNAPSHOT = {
 	Overcharge = true,
 	PulseAnomaly = true,
@@ -1227,14 +1087,7 @@ end
 return table.freeze(CommandActionValidators)
 end
 
--- ======================================================================
--- Module: ShopGrantEligibility   (merged from ShopGrantEligibility.luau, 160 lines)
--- ======================================================================
 __defs["ShopGrantEligibility"] = function()
--- Pure item-shop stock / buy / studio-grant eligibility. No Roblox services —
--- ServerServices and Lune verify scripts share this so offer stock refresh and
--- purchase gates can be tested without Studio. Profile currency mutation and
--- Marketplace receipts stay with the caller; offer lists and clocks are injected.
 
 local ShopGrantEligibility = {}
 
@@ -1263,8 +1116,6 @@ function ShopGrantEligibility.StockMax(offer: OfferLike): number
 	return 1
 end
 
--- Keys-only / missing Inventory bags (Studio fixtures) must count as empty —
--- callers that pass profile.Items.Inventory without Ensure must not throw.
 function ShopGrantEligibility.InventoryCount(inventory: any): number
 	if type(inventory) ~= "table" then
 		return 0
@@ -1284,17 +1135,14 @@ function ShopGrantEligibility.RemainingStock(stockValue: any, stockMax: number):
 	return math.clamp(math.floor(remaining), 0, stockMax)
 end
 
--- Studio-only grant surface (money / wheel / product keys). Callers keep error copy.
 function ShopGrantEligibility.StudioGrantAllowed(isStudio: boolean): boolean
 	return isStudio == true
 end
 
--- Clamp free-wheel studio grant size (matches GrantStudioWheelSpins).
 function ShopGrantEligibility.ClampWheelGrant(amount: any): number
 	return math.clamp(math.floor(tonumber(amount) or 100), 1, 500)
 end
 
--- Buy-offer gate without mutating profile. formatShortage builds the currency message.
 function ShopGrantEligibility.EvaluateBuy(
 	offer: OfferLike,
 	remaining: number,
@@ -1324,9 +1172,6 @@ function ShopGrantEligibility.EvaluateBuy(
 	return true, nil
 end
 
--- Ensure Stock/Purchased tables exist, clamp values, and daily-refresh when day rolls.
--- Mutates `shop` in place. Returns whether anything changed.
--- Nil shop (Items without Shop nest) is a no-op — callers must ProfileBagMath.EnsureItems first.
 function ShopGrantEligibility.EnsureShop(shop: any, offers: { OfferLike }, utcDay: number): boolean
 	if type(shop) ~= "table" then
 		return false
@@ -1381,7 +1226,6 @@ function ShopGrantEligibility.EnsureShop(shop: any, offers: { OfferLike }, utcDa
 	return true
 end
 
--- Monetization catalog rail bag.
 function ShopGrantEligibility.CatalogPublic(ownedPasses: any, copyDictionary)
 	return {
 		OwnedPasses = copyDictionary(type(ownedPasses) == "table" and ownedPasses or {}),
@@ -1392,13 +1236,7 @@ end
 return table.freeze(ShopGrantEligibility)
 end
 
--- ======================================================================
--- Module: SocialBoost   (merged from SocialBoost.luau, 83 lines)
--- ======================================================================
 __defs["SocialBoost"] = function()
--- Pure social production-boost math. No Roblox services — ServerServices and
--- Lune verify scripts share this so friend/premium multipliers stay testable
--- without Studio. Profile mutation stays with Apply; config knobs are injected.
 
 local SocialBoost = {}
 
@@ -1446,7 +1284,6 @@ function SocialBoost.Changed(previous: any, nextState: SocialBoostState): boolea
 		or previous.Multiplier ~= nextState.Multiplier
 end
 
--- Mutates profile.SocialBoost; returns whether the bag changed.
 function SocialBoost.Apply(profile: any, friendCount: number, premium: boolean, config: SocialConfig): boolean
 	local nextState = SocialBoost.Compute(friendCount, premium, config)
 	local changed = SocialBoost.Changed(profile.SocialBoost, nextState)
@@ -1469,7 +1306,6 @@ function SocialBoost.PublicSnapshot(raw: any, maxBoostedFriends: number, copyDic
 	return copyDictionary(type(raw) == "table" and raw or SocialBoost.DefaultSnapshot(maxBoostedFriends))
 end
 
--- Creator-follow reward rail bag.
 function SocialBoost.CreatorRewardsPublic(raw: any, creatorName: string): any
 	return {
 		CreatorFollowClaimed = type(raw) == "table" and raw.CreatorFollowClaimed == true,
@@ -1480,13 +1316,7 @@ end
 return table.freeze(SocialBoost)
 end
 
--- ======================================================================
--- Module: TelemetryMath   (merged from TelemetryMath.luau, 67 lines)
--- ======================================================================
 __defs["TelemetryMath"] = function()
--- Pure ServerServices telemetry pack helpers. No Roblox services — GameService
--- and Lune verify scripts share this so float32 clamp + packed snapshots stay
--- testable without Studio. Settings flags are caller-provided booleans.
 
 local TelemetryMath = {}
 
@@ -1495,7 +1325,6 @@ TelemetryMath.BYTES = 30
 TelemetryMath.FLOAT_MIN = -3.4e38
 TelemetryMath.FLOAT_MAX = 3.4e38
 
--- Clamp any numeric-ish value into a finite float32 envelope. Non-finite → 0.
 function TelemetryMath.Number(value: any, asNumber: ((any) -> number)?): number
 	local numeric = if type(asNumber) == "function" then asNumber(value) else tonumber(value)
 	if type(numeric) ~= "number" or numeric ~= numeric or numeric == math.huge or numeric == -math.huge then
@@ -1552,9 +1381,6 @@ end
 return table.freeze(TelemetryMath)
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -1566,7 +1392,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

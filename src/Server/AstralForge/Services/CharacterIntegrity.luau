@@ -202,7 +202,6 @@ return function(loadService: (string) -> any)
 		local elapsed = now - state.LastAt
 		state.LastAt = now
 
-		-- Anti-Void & Floor Fall-Through Recovery Guard
 		if root.Position.Y < -60 then
 			correctMotion(player, state, root, now)
 			return

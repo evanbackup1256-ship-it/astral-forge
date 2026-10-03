@@ -4,24 +4,6 @@ local Reflect = core.Reflect
 local Controller = core.Controller
 local UserInputService = game:GetService("UserInputService")
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
--- Type-only: erased at compile time, so this does NOT become a runtime require("./framework")
--- and cannot participate in the circular require that framework/index.ts's "side effect"
--- import of this file would otherwise create (framework/index.ts -> layoutGuard.ts -> back to
--- framework/index.ts). Keep this a `import type` — switching it to a value import would
--- reintroduce that cycle.
--- Layout guard for a UI-only game, working in real time.
--- React and the engine layout objects already place almost everything. This pass
--- only repairs what they leave behind, and it refuses to fight them:
---   * text that spills its box, and buttons clipped on a wild aspect ratio
---   * text too small to read on a phone, raised when it still fits
---   * CanvasGroup positions that land on a fractional pixel (that is what blurs them)
---   * a scrolling canvas that is shorter than its content
--- It runs every frame on a small budget (layoutGuardPlan): anything newly mounted
--- is checked the frame after the engine measures it, a background sweep revisits
--- everything else about once a second, and a resize or rotation gets a burst so
--- the whole screen settles almost at once. It writes a property only when the
--- measured defect is still there, and gives up if a write does not stick. That
--- keeps the screen from flickering and keeps AbsoluteSize reads off the hot path.
 local Geom = require(script.Parent.LayoutKit)("layoutGeom")
 local Plan = require(script.Parent.LayoutKit)("layoutGuardPlan")
 local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
@@ -51,23 +33,15 @@ local stats = {
 	pulledIntoView = 0,
 	gaveUp = 0,
 }
--- How often repairs are rolled up into one log line (seconds). Individual repairs are
--- counted in `stats`; only a window that actually repaired something is reported.
 local REPORT_EVERY = 60
--- A button counts as covering text once it hides this share of the text's real
--- (TextBounds) WIDTH while overlapping at least TEXT_COVER_HEIGHT of its height.
 local TEXT_COVER_SHARE = 0.08
 local TEXT_COVER_HEIGHT = 0.3
--- Never shrink a label below this many pixels to clear a button.
 local MIN_LABEL_WIDTH = 40
 local LABEL_GAP = 6
 local tryCount = setmetatable({}, { __mode = "k" })
 local abandoned = setmetatable({}, { __mode = "k" })
--- Labels whose size was raised for touch legibility, awaiting a fit check:
--- label -> the size React gave it.
 local pendingFloor = setmetatable({}, { __mode = "k" })
 local floorRejected = setmetatable({}, { __mode = "k" })
--- The guard's own follow-up checks (a raised label to verify next frame).
 local followUp: ((Instance) -> ())? = nil
 local touchProfile = false
 local function isFiniteNumber(value)
@@ -119,17 +93,12 @@ local function allowWrite(inst)
 	tryCount[inst] = tries + 1
 	return true
 end
--- A panel parented straight to a ScreenGui layer (portaled popovers, sheets) is
--- checked for spilling off the screen.
 local function isFloatingPanel(instance)
 	return instance:IsA("Frame") and instance.Parent ~= nil and instance.Parent:IsA("LayerCollector")
 end
 local function isTrackedClass(instance)
 	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame") or isFloatingPanel(instance)
 end
--- Phones and tablets: raise small text to a readable size, but only when it
--- still fits its box. The raise is checked on the next frame and undone (for
--- good) if the text no longer fits.
 local function applyTextFloor(label): boolean
 	local original = pendingFloor[label]
 	if original ~= nil then
@@ -177,7 +146,6 @@ local function repairText(label)
 	if not allowWrite(label) then
 		return nil
 	end
-	-- Room for two lines: wrap first, and only shrink if that still doesn't fit.
 	if Plan.shouldWrap(label.TextSize, size.Y, label.TextWrapped, label.TextScaled) then
 		label.TextWrapped = true
 		stats.textWrapped += 1
@@ -252,7 +220,6 @@ local function repairButton(button)
 	button.Position = UDim2.new(button.Position.X.Scale, button.Position.X.Offset + shift.x, button.Position.Y.Scale, button.Position.Y.Offset + shift.y)
 	stats.outOfBoxFixed += 1
 end
--- A floating panel that hangs off the edge of its layer is moved back in.
 local function repairFloatingPanel(panel)
 	if abandoned[panel] or panel:GetAttribute(IGNORE_ATTRIBUTE) == true or not panel.Visible then
 		return nil
@@ -268,7 +235,6 @@ local function repairFloatingPanel(panel)
 	if not isFiniteNumber(pos.X) or not isFiniteNumber(size.X) or size.X < 8 or size.Y < 8 then
 		return nil
 	end
-	-- Full-screen hosts are layout roots, not floating panels.
 	if size.X >= screen.X - 2 and size.Y >= screen.Y - 2 then
 		return nil
 	end
@@ -293,7 +259,6 @@ local function repairCanvasGroup(group)
 	if not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y) or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
 		return nil
 	end
-	-- Larger than the sharp raster: resizing it would fight the layout that sized it.
 	if math.max(size.X, size.Y) > CANVAS_SHARP_EDGE then
 		return nil
 	end
@@ -309,9 +274,6 @@ local function repairCanvasGroup(group)
 	group.Position = UDim2.new(group.Position.X.Scale, group.Position.X.Offset + dx, group.Position.Y.Scale, group.Position.Y.Offset + dy)
 	stats.canvasSharpFixed += 1
 end
--- AutomaticCanvasSize covers most cases, but any ScrollingFrame that computes CanvasSize
--- manually can drift short of its content. Grow only; never shrink a canvas that is
--- intentionally taller for bottom padding. One frame per visit, not a full-tree walk.
 local function repairScrollingFrame(descendant)
 	if descendant:GetAttribute(IGNORE_ATTRIBUTE) == true then
 		return nil
@@ -366,13 +328,6 @@ local function repairScrollingFrame(descendant)
 	stats.canvasDesyncFixed += 1
 	ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize ({currentCanvas}px) was shorter than its content ({string.format("%.0f", maxBottom)}px) — resynced`)
 end
--- Roblox already ignores hits on a GuiObject with Visible=false or Active=false, and
--- InputBegan doesn't fire on descendants covered by a higher-ZIndex sibling that also has
--- Active=true — that native occlusion is exactly what we're checking hasn't gone wrong here.
--- This only flags a *same-parent* pair since ZIndex comparisons across different parents
--- aren't meaningful, and only pairs at the same ZIndex (a deliberately layered higher-ZIndex
--- control on top of a lower one, like a close button over a card, is the normal, correct
--- pattern this app uses everywhere and must not be touched).
 local function checkOverlappingHitboxes(root)
 	local byParent = {}
 	local list = if typeof(root) == "table" then root else root:GetDescendants()
@@ -420,15 +375,6 @@ local function checkOverlappingHitboxes(root)
 				if smaller <= 0 or overlap / smaller < 0.85 then
 					continue
 				end
-				-- Same ZIndex, same parent, one almost entirely covers the other, and neither
-				-- opted out: this is the shape of a real accidental stack (e.g. a row's tap
-				-- target left full-width behind a narrower action button added later), not a
-				-- deliberate composed layer — those always differ in ZIndex in this codebase.
-				-- Fix by giving the later sibling (b, which draws on top and therefore already
-				-- wins ties) priority and nudging the occluded one behind it, restoring input
-				-- to whichever control the ZIndex ordering already implies should win.
-				-- React may write the prop ZIndex back; give up after MAX_TRIES instead of
-				-- climbing forever.
 				if not allowWrite(b) then
 					continue
 				end
@@ -439,9 +385,6 @@ local function checkOverlappingHitboxes(root)
 		end
 	end
 end
--- Does this button actually paint over what is behind it? Most buttons in this UI are
--- transparent hit areas with painted frames inside them; those cover nothing. Only a
--- button with its own visible fill, image or label can hide a sibling's text.
 local function paintsOver(button)
 	if button:IsA("TextButton") then
 		return button.BackgroundTransparency < 0.6 or button.Text ~= ""
@@ -451,8 +394,6 @@ local function paintsOver(button)
 	end
 	return false
 end
--- Where the glyphs really are inside a label (TextBounds placed by the alignment),
--- which is usually much smaller than the label's box.
 local function textRectOf(label)
 	local pos = label.AbsolutePosition
 	local size = label.AbsoluteSize
@@ -473,11 +414,6 @@ local function textRectOf(label)
 	end
 	return { x0 = x0, y0 = y0, x1 = x0 + w, y1 = y0 + h }
 end
--- A label's text is partly hidden by a painted sibling button. The common shape is a
--- row: a full-width label with an action button laid over its right (or left) end. The
--- label is narrowed so its text ends before the button, on the side the button
--- intrudes from, keeping its anchored edge fixed. Anything the engine lays out, anything
--- centered, and anything that would end up too narrow is left alone (and only counted).
 local function clearTextOfButton(label, button, buttonRect)
 	if label:GetAttribute(IGNORE_ATTRIBUTE) == true or engineOwns(label) then
 		return false
@@ -507,9 +443,6 @@ local function clearTextOfButton(label, button, buttonRect)
 	stats.textClearedOfButton += 1
 	return true
 end
--- Sibling pass over the tracked set: for every visible label with text, find a painted
--- button under the same parent that sits at or above it and covers a meaningful share of
--- the glyphs. `byParent` is reused between runs (cleared, not rebuilt).
 local textPassLabels = {}
 local textPassButtons = {}
 local function checkTextUnderButtons(list)
@@ -539,8 +472,6 @@ local function checkTextUnderButtons(list)
 	end
 	for parent, labels in textPassLabels do
 		local buttons = textPassButtons[parent]
-		-- Labels laid over each other in a row: the left one is narrowed to end before
-		-- the right one's glyphs start.
 		if #labels > 1 and not parent:FindFirstChildWhichIsA("UIGridStyleLayout") then
 			for i = 1, #labels do
 				local left = labels[i]
@@ -583,8 +514,6 @@ local function checkTextUnderButtons(list)
 					continue
 				end
 				local buttonRect = rectOf(button)
-				-- Measured on each axis, not as an area share: tall (wrapped or scaled)
-				-- text would otherwise hide a real slice of its width and still score low.
 				local hidden = math.max(0, math.min(textRect.x1, buttonRect.x1) - math.max(textRect.x0, buttonRect.x0))
 				local shared = math.max(0, math.min(textRect.y1, buttonRect.y1) - math.max(textRect.y0, buttonRect.y0))
 				if hidden / textWidth < TEXT_COVER_SHARE or shared / textHeight < TEXT_COVER_HEIGHT then
@@ -599,7 +528,6 @@ local function checkTextUnderButtons(list)
 		end
 	end
 end
--- One instance: hide non-finite geometry, then the class-specific repair.
 local function inspect(inst)
 	if inst.Parent == nil then
 		return nil
@@ -630,11 +558,6 @@ end
 local function readTouchProfile()
 	return UserInputService.TouchEnabled and not usesDesktopStructure()
 end
--- A Flamework controller rather than a plain module: its "root" is the same singleton
--- ScreenGui that UiRootComponent/DiagnosticsController already resolve via Components DI
--- (see framework/index.ts), so unlike most systems in this app it has no runtime constructor
--- argument Flamework's zero-arg controller instantiation would need to work around — it can
--- just ask Components for the current UiRootComponent the same way DiagnosticsController does.
 local LayoutGuardController
 do
 	LayoutGuardController = setmetatable({}, {
@@ -652,23 +575,15 @@ do
 		self.runtime = runtime
 		self.frame = 0
 		self.sinceSweep = 0
-		-- Fresh work: instances just mounted (or awaiting a follow-up check),
-		-- each with the frame it becomes ready on.
 		self.fresh = {}
 		self.freshReady = {}
 		self.freshSet = setmetatable({}, { __mode = "k" })
-		-- Second buffer for drainFresh: entries are compacted into it and the two swap, so
-		-- draining allocates nothing even when work is being queued while it runs.
 		self.freshScratch = {}
 		self.freshReadyScratch = {}
-		-- The tracked set: every text, button, canvas and scrolling instance under the
-		-- root, kept current from DescendantAdded/Removing instead of being rebuilt by a
-		-- full-tree walk. `trackedIndex` makes removal O(1) (swap with the last entry).
 		self.tracked = {}
 		self.trackedIndex = setmetatable({}, { __mode = "k" })
 		self.lastReportAt = os.clock()
 		self.reportedTotal = 0
-		-- The background sweep: a round-robin cursor over `tracked`.
 		self.queue = self.tracked
 		self.cursor = 1
 		self.lastWidth = -1
@@ -691,13 +606,11 @@ do
 		UserInputService:GetPropertyChangedSignal("TouchEnabled"):Connect(refresh)
 		UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
 	end
-	-- Queue one instance for a check `delay` frames from now.
 	function LayoutGuardController:enqueue(instance, delay)
 		if self.freshSet[instance] or not isTrackedClass(instance) then
 			return nil
 		end
 		if #self.fresh >= Plan.FRESH_CAP then
-			-- Too much at once (a whole page mounting): the sweep will get there.
 			return nil
 		end
 		self.freshSet[instance] = true
@@ -733,7 +646,6 @@ do
 			self:enqueue(instance, Plan.SETTLE_FRAMES)
 		end
 	end
-	-- Track one layer's descendants and keep the set current from its add/remove events.
 	function LayoutGuardController:watchLayer(layer)
 		if self.watchedLayers[layer] then
 			return nil
@@ -758,7 +670,6 @@ do
 			connection:Disconnect()
 		end
 		table.clear(self.rootConnections)
-		-- Start the tracked set over for the new root: one walk now, then only deltas.
 		table.clear(self.tracked)
 		table.clear(self.trackedIndex)
 		self.watchedLayers = {}
@@ -766,8 +677,6 @@ do
 			return nil
 		end
 		self:watchLayer(root)
-		-- Every other game layer too: dropdowns, sheets and toasts are portaled into
-		-- their own ScreenGuis and used to go unchecked.
 		local playerGui = root:FindFirstAncestorOfClass("PlayerGui")
 		if playerGui ~= nil then
 			local function consider(layer)
@@ -786,7 +695,6 @@ do
 				end
 			end))
 		end
-		-- A resize is handled the frame it happens, not at the next scan.
 		table.insert(self.rootConnections, root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 			self:checkResize(root)
 		end))
@@ -794,8 +702,6 @@ do
 		self.lastHeight = -1
 		self:checkResize(root)
 	end
-	-- A new screen size (window resize, rotation, keyboard): forget old caps,
-	-- restart the sweep and spend a burst budget so everything settles quickly.
 	function LayoutGuardController:checkResize(root)
 		local size = root.AbsoluteSize
 		if not Plan.resized(self.lastWidth, self.lastHeight, size.X, size.Y) then
@@ -808,8 +714,6 @@ do
 			table.clear(tryCount)
 			table.clear(abandoned)
 		end
-		-- Restart the round-robin from the top; the tracked set itself stays (it is kept
-		-- current by the add/remove events, a resize does not change what exists).
 		self.cursor = 1
 		self.sinceSweep = Plan.MIN_SWEEP_SECONDS
 		self.pendingOverlap = false
@@ -830,15 +734,12 @@ do
 			self:bindRoot(existing.instance)
 		end
 	end
-	-- Fresh work whose settle frame has come, oldest first, up to `budget`.
 	function LayoutGuardController:drainFresh(budget)
 		local fresh = self.fresh
 		local ready = self.freshReady
 		if #fresh == 0 or budget <= 0 then
 			return nil
 		end
-		-- Nothing due yet (the common frame while a batch is still settling): skip the
-		-- two table allocations below.
 		local anyDue = false
 		for index = 1, #fresh do
 			if ready[index] <= self.frame then
@@ -849,9 +750,6 @@ do
 		if not anyDue then
 			return nil
 		end
-		-- Compact into the reusable second buffer and swap. inspect() can queue follow-ups
-		-- (enqueue appends to `fresh` while we iterate), so remember how many entries we
-		-- started with and carry over anything appended past that point afterwards.
 		local keptItems = self.freshScratch
 		local keptReady = self.freshReadyScratch
 		table.clear(keptItems)
@@ -906,19 +804,11 @@ do
 			self.burstLeft -= 1
 		end
 		self:drainFresh(budget.fresh)
-		-- The background sweep. A finished sweep runs the hitbox pass over what it
-		-- saw (geometry repairs have settled by then), then waits out the minimum
-		-- interval before walking the tree again.
-		-- The sweep walks `tracked` with a round-robin cursor: no tree walk, no new table.
-		-- (A removal swaps the last entry into the freed slot, so an entry can occasionally
-		-- be skipped for one pass; the next pass picks it up.)
 		local tracked = self.tracked
 		if self.cursor > #tracked then
 			if self.pendingOverlap then
-				-- self.queue IS the tracked set (aliased in the constructor).
 				checkOverlappingHitboxes(self.queue)
 				checkTextUnderButtons(self.queue)
-				-- Do not keep parents alive between passes.
 				table.clear(textPassLabels)
 				table.clear(textPassButtons)
 				self.pendingOverlap = false
@@ -945,8 +835,6 @@ do
 		end
 		self:report()
 	end
-	-- One rolled-up line per window that actually repaired something (instead of a
-	-- warning per repair). Totals are the sum of every repair counter in `stats`.
 	function LayoutGuardController:report()
 		local now = os.clock()
 		if now - self.lastReportAt < REPORT_EVERY then
@@ -972,13 +860,11 @@ do
 		})
 	end
 	do
-		-- (Flamework) LayoutGuardController metadata
 		Reflect.defineMetadata(LayoutGuardController, "identifier", "client/layoutGuard@LayoutGuardController")
 		Reflect.defineMetadata(LayoutGuardController, "flamework:parameters", { "$c:components@Components", "client/framework/init@UiRuntimeController" })
 		Reflect.defineMetadata(LayoutGuardController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" })
 	end
 end
--- (Flamework) LayoutGuardController decorators
 Reflect.decorate(LayoutGuardController, "$:flamework@Controller", Controller, { {
 	loadOrder = 10,
 } })

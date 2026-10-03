@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	UiCore: merged module suite.
-	Members (25): ui, MainGame, AppShellChrome, TopBarChrome, NavChrome, WorkspaceChrome, ShellFx, effects, levelRoadmap, CelebrationBurst, ComboBadge, FeedbackOverlay, MobileShell, OfflineRewardsOverlay, PlayerlistOverlay, onboarding, AdminPrankOverlay, notifications, levelMoments, serverEventsUi, CreditsView, crateModel, prismFx, CrateRevealOverlay, CrateRevealStageSimple.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: ui   (merged from ui.luau, 4612 lines)
--- ======================================================================
 __defs["ui"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
@@ -108,9 +96,6 @@ local function Stroke(_param)
 	if transparency == nil then
 		transparency = 0
 	end
-	-- Memoized on `color`: a new ColorSequence (or, for an animated colour, a new
-	-- mapped binding = unsubscribe + resubscribe) on every render of every stroke
-	-- was pure churn.
 	local gradientColor = React.useMemo(function()
 		if typeof(color) == "Color3" then
 			return strokeGradient(color)
@@ -159,24 +144,16 @@ local function buttonContentWidth(label, hasIcon)
 	local textW = measureButtonLabel(label)
 	return if hasIcon then 10 + 22 + 8 + textW + 10 else 10 + textW + 10
 end
--- Layout guard turns overflow into TextScaled. Button labels stay one line and
--- ellipsize; combining that with TextScaled makes the word shrink and clip.
 local function pinButtonLabel(instance)
 	if instance ~= nil then
 		instance:SetAttribute("LayoutGuardIgnore", true)
 	end
 end
--- LayoutGuardIgnore is an attribute, not a property: passing it as a React prop
--- makes the renderer try to assign a real member and throw. Deliberately stacked
--- elements (a segmented control's overlapping hit targets) opt out through this
--- ref so the guard's overlap pass leaves them alone.
 local function pinLayoutGuardIgnore(instance)
 	if instance ~= nil then
 		instance:SetAttribute("LayoutGuardIgnore", true)
 	end
 end
--- Soft specular glint + sweep speed live in shimmer.luau (pure helpers).
--- Never animate oversized tip frames under AutomaticSize — Offset only.
 local SHIMMER_GLINT = ShimmerMath.GLINT
 local SHIMMER_TRAIL = ShimmerMath.TRAIL
 local SHIMMER_SWEEP_SPEED = ShimmerMath.SWEEP_SPEED
@@ -199,12 +176,10 @@ local function subscribeInputCancellation(listener)
 	return function()
 		local _listener_1 = listener
 		inputCancelListeners[_listener_1] = nil
-		-- ▼ ReadonlySet.size ▼
 		local _size = 0
 		for _ in inputCancelListeners do
 			_size += 1
 		end
-		-- ▲ ReadonlySet.size ▲
 		if _size > 0 then
 			return nil
 		end
@@ -305,7 +280,6 @@ local function withExitFade(localFade, presence)
 		return math.clamp(values[1] + (1 - values[2]), 0, 1)
 	end)
 end
--- One Font object per Enum.Font instead of a new one per label per render.
 local fontFaceCache = {}
 local function fontFaceFor(font)
 	local face = fontFaceCache[font]
@@ -364,8 +338,6 @@ local function Text(_param)
 		boldText = 0
 	end
 	local presence = useExitPresence()
-	-- Memoized: a fresh mapped binding on every render means an unsubscribe and
-	-- resubscribe for every label on screen each time anything above re-renders.
 	local faded = React.useMemo(function()
 		return withExitFade(transparency, presence)
 	end, { transparency, presence })
@@ -407,13 +379,6 @@ end
 local function fontForWeight(weight)
 	return if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 end
--- Real fix for the class of bug found repeatedly across pages this session: a row/card hardcodes
--- one fixed height (e.g. "150px, that fits two lines of description") that was tuned against one
--- example string and silently truncates or overlaps neighboring content the moment a longer
--- string (a longer relic name, a longer season reward line, a translated string) doesn't fit that
--- guess. This measures what a wrapped string will ACTUALLY render at, at a given width, so a
--- caller can size its row/card from the real content instead of a guess. Pass the same
--- size/weight/wrap width the real <Text> will use so the measurement matches what's on screen.
 local WRAPPED_LINE_HEIGHT = 1.12
 local function measureWrappedTextHeight(text, width, size, weight)
 	if size == nil then
@@ -427,17 +392,8 @@ local function measureWrappedTextHeight(text, width, size, weight)
 	end
 	local font = fontForWeight(weight)
 	local bounds = TextService:GetTextSize(text, math.max(1, math.floor(size)), font, Vector2.new(math.max(1, math.floor(width)), 4000))
-	-- GetTextSize ignores LineHeight, but wrapped labels render at 1.12 (see Text
-	-- and AutoHeightText), so the last line used to clip by ~12%.
 	return math.ceil(bounds.Y * WRAPPED_LINE_HEIGHT)
 end
--- Drop-in for the common "label + a description that might run long" pattern: wraps, sizes itself
--- to its own real rendered content height via AutomaticSize (not a fixed sizeConstraint Y that
--- can silently be too short), and reports that real height back to the caller through
--- `onHeightChange` so a manually-height-computing row/card (VirtualGrid rows, canvas-height sums
--- -- the pattern used everywhere in this codebase) can size itself from real content instead of a
--- tuned-against-one-example constant. Width still comes from the caller (`sizeConstraint`'s X, or
--- `width`) since horizontal space is normally the fixed/known axis; only height grows.
 local function AutoHeightText(_param)
 	local value = _param.value
 	local width = _param.width
@@ -486,7 +442,6 @@ local function AutoHeightText(_param)
 	local font = fontForWeight(if weight == Enum.FontWeight.Bold and boldText >= 0.5 then Enum.FontWeight.Bold else weight)
 	local safeValue = if type(value) == "string" then value else ""
 	local safeWidth = if type(width) == "number" and width == width then width else 0
-	-- LineHeight 1.12 is applied by the label below but ignored by GetTextSize.
 	local measured = if safeValue == "" then 0 else math.ceil(TextService:GetTextSize(safeValue, scaledSize, font, Vector2.new(math.max(1, math.floor(safeWidth)), 4000)).Y * WRAPPED_LINE_HEIGHT)
 	local clamped = math.max(minHeight, if maxHeight ~= nil then math.min(maxHeight, measured) else measured)
 	local lastReported = React.useRef()
@@ -495,7 +450,6 @@ local function AutoHeightText(_param)
 		if onHeightChange == nil then
 			return nil
 		end
-		-- A different receiver (same height) still has to be told once.
 		if lastReported.current == clamped and lastReportedTo.current == onHeightChange then
 			return nil
 		end
@@ -611,8 +565,6 @@ local function ShimmerText(_param)
 			MinTextSize = minText,
 			MaxTextSize = scaledSize,
 		})
-		-- Overlay matches host via Scale inside a clipped shell; motion is
-		-- UIGradient.Offset only — never an oversized tip child.
 		_condition = React.createElement("textlabel", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -709,8 +661,6 @@ local function QuantityStepper(_param)
 	if layoutOrder == nil then
 		layoutOrder = 0
 	end
-	-- Non-numeric or NaN input threw here; a value above a shrunken max showed
-	-- "5 / 3" and could never step back down cleanly.
 	max = if type(max) == "number" and max == max then math.max(0, max) else 0
 	value = if type(value) == "number" and value == value then math.clamp(value, 0, max) else 0
 	local viewport = useViewport()
@@ -842,13 +792,6 @@ local function ScrollEdgeFade(_param)
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.45, 0.9), NumberSequenceKeypoint.new(1, 0.68) }),
 	})))
 end
--- A ring drawn as a stroke whose transparency sweeps around it via a rotating uigradient,
--- instead of a couple of small dots orbiting a plain circle outline. `spin` should be a
--- continuous per-frame rotation binding (e.g. from useRotation) — the gradient rotation tracks
--- it exactly, so the "light" always flows smoothly around the ring regardless of speed. This
--- reads as flowing energy rather than a sparse handful of dots swinging around a ring, which is
--- what made ring-and-orbit visuals (EchoLoom, ContinuumCore) look choppy even when their
--- underlying rotation was already frame-accurate.
 local function SweptRing(_param)
 	local scale = _param.scale
 	local color = _param.color
@@ -858,10 +801,7 @@ local function SweptRing(_param)
 	if sweepWidth == nil then
 		sweepWidth = 0.22
 	end
-	-- NumberSequence keypoints must be strictly ascending: a width of 1+ duplicated
-	-- the last time (an error) and a tiny one inverted the first pair.
 	sweepWidth = math.clamp(sweepWidth, 0.02, 0.9)
-	-- Half-degree steps: whole-degree snapping made large rings visibly choppy.
 	local gradientRotation = spin:map(function(degrees)
 		return math.floor(degrees * 2) / 2
 	end)
@@ -1043,7 +983,6 @@ local function IconTile(_param)
 end
 local function Badge(_param)
 	local value = _param.value
-	-- A nil or numeric value threw at #value below.
 	if type(value) ~= "string" then
 		value = if value == nil then "" else tostring(value)
 	end
@@ -1127,7 +1066,6 @@ local function CountBadge(_param)
 	end
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local scaleRef = useSprScale(1, effectsPaused, 0.68, 0.64, 13)
-	-- NaN and fractions below 1 used to render "nan" / "0"; 100+ showed "99".
 	local whole = if type(count) == "number" and count == count then math.floor(count) else 0
 	if whole <= 0 then
 		return React.createElement("frame", {
@@ -1144,7 +1082,6 @@ local function CountBadge(_param)
 	end
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
-		-- Corner of the parent by default; callers with their own row layout place it inline.
 		Position = _param.position or UDim2.new(1, if compact then -2 else -3, 0, if compact then 2 else 3),
 		AnchorPoint = _param.anchorPoint or Vector2.new(1, 0),
 		BackgroundTransparency = 1,
@@ -1202,7 +1139,6 @@ local function Panel(_param)
 	if padding == nil then
 		padding = 14
 	elseif padding > 16 then
-		-- Callers still pass 18–22 from Layout.cardPadding. Cap so cards share one inset.
 		padding = 16
 	end
 	local zIndex = _param.zIndex
@@ -1258,10 +1194,6 @@ local function Panel(_param)
 	local entranceMotion = interactionMotion or panelEntranceScale <= 0.02 or reveal ~= nil
 	local automaticReveal = useEntrance(entranceMotion)
 	local activeReveal = reveal or automaticReveal
-	-- The card's content materializes with the card: every Text and Button
-	-- inside reads this presence, so labels fade in with the surface instead of
-	-- popping in fully opaque over a still-fading background. Nested panels and
-	-- overlays compose (the least-present one wins).
 	local parentPresence = useExitPresence()
 	local contentPresence = React.useMemo(function()
 		return composePresence(parentPresence, activeReveal)
@@ -1276,8 +1208,6 @@ local function Panel(_param)
 	local highlightOn = useOptionalFlipperSpring(if highlight and not effectsPaused then 1 else 0, highlight, interactionMotion, 420, 36)
 	local shimmerWanted = shimmer and interactive and shimmerScale > 0.02 and not effectsPaused
 	local whiteSweep = useClock(shimmerWanted and hovered, SHIMMER_SWEEP_SPEED, 1, false)
-	-- Clear hover glow on interactive cards with an accent color — separate from the subtle
-	-- stroke-brighten below, gated on ambient FX the same way the shimmer sweep above is.
 	local glowWanted = interactive and accent ~= nil and not interactionMotion
 	local hoverGlow = useOptionalFlipperSpring(if glowWanted and hovered then 1 else 0, interactive and hoverArmed, interactionMotion, 460, 38)
 	local revealFade = React.useMemo(function()
@@ -1300,9 +1230,6 @@ local function Panel(_param)
 	end, { highlightOn, lift, revealFade })
 	local surfaceTransparency = if revealFade ~= nil then revealFade else 0
 	local paintChrome = true
-	-- Every derived binding in one memo, keyed on the springs that drive them.
-	-- Rebuilding ~15 mapped bindings per render meant ~15 unsubscribe/resubscribe
-	-- pairs per Panel every time a parent re-rendered.
 	local derived = React.useMemo(function()
 		local liftPx = lift:map(function(amount)
 			return -math.round(amount)
@@ -1540,8 +1467,6 @@ local function pressAspect(size)
 	end
 	return nil, xScale >= 0.9
 end
--- One press policy for every shared button. Icon and square controls may tilt
--- about a degree. Text, wide bars, list rows, and primary actions only scale.
 local function resolvePressMotion(spec)
 	if type(spec) == "string" then
 		spec = {
@@ -1613,9 +1538,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	end
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local softMotion = reducedMotion or effectsPaused
-	-- Interactive chrome must stay springy under antilag softMotion. Pages fold
-	-- allowAmbient into reducedMotion, which was snapping every hover/press and
-	-- reading as lag. motionScale already slows springs; only effectsPaused snaps.
 	local springSoft = effectsPaused
 	local touchChrome = viewport.compact or viewport.tight
 	local hovered, setHovered = React.useState(false)
@@ -1630,19 +1552,13 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local lastActivationAt = React.useRef(-math.huge)
 	local pressWasTouch = React.useRef(false)
 	local hoverStall = React.useRef(0)
-	-- The touch-release listener is connected at press time and outlives renders;
-	-- it must reach the CURRENT onClick/sound, not the ones from that render.
 	local onClickRef = React.useRef(onClick)
 	onClickRef.current = onClick
 	local soundRef = React.useRef(sound)
 	soundRef.current = sound
 	local activeTouchMove = React.useRef()
 	local active = not disabled
-	-- One motor for the life of the control. resolvePressMotion picks the scale
-	-- and tilt. Release springs back. softMotion does not snap it.
 	local poseGoal = if disabled then 0 elseif pressed then -1 elseif hovered then 1 else 0
-	-- Asymmetric: the press goes in almost at once (a finger expects that),
-	-- and the release eases back out, so a click reads as struck, not toggled.
 	local pose = useOptionalFlipperSpring(poseGoal, true, springSoft, if pressed then 1500 else 900, if pressed then 52 else 44)
 	local hoverAmount = pose:map(function(value)
 		return math.clamp(value, 0, 1)
@@ -1657,21 +1573,9 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		return -value * 1.1
 	end)
 	local focusRing = useOptionalFlipperSpring(if gamepadFocused and active then 1 else 0, true, springSoft, 760, 32)
-	-- Impact flash is keyed off popTrigger so every successful activate gets a
-	-- one-shot white wash — previously useFlash(0) never fired.
-	-- Repeat activates reset this same motor. Scale and tilt stay on the pose spring.
 	local impact = useFlash(popTrigger, softMotion, if touchChrome then 0.2 else 0.26)
-	-- Phase-locked hover+idle: one DECORATIVE clock (not realtime — realtime
-	-- budget is for spinners/needles; putting shimmers there starved UI and
-	-- made motion feel laggy). Do NOT gate on softMotion/antilag reducedMotion:
-	-- pages fold antilag into reducedMotion and that was killing every shimmer.
-	-- Settings already zero shimmerScale when ButtonShimmers is off.
 	local shimmerWanted = allowShimmer and shimmerScale > 0.02 and active and not effectsPaused and (idleShimmer or hovered or gamepadFocused)
 	local shimmer = useClock(shimmerWanted, ShimmerMath.sweepSpeed(shimmerScale), 1, false)
-	-- ButtonShimmer unmounts when `live` drops, which cut off the fade-out its
-	-- strength curve was designed to give (the glint popped off). Keep it mounted
-	-- briefly after hover ends -- only for buttons that were actually shimmering,
-	-- so idle buttons schedule nothing.
 	local shimmerLinger, setShimmerLinger = React.useState(false)
 	local wasShimmering = React.useRef(false)
 	React.useEffect(function()
@@ -1698,8 +1602,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 	local hoverGain = pressMotion.hover
 	local pressDrop = pressMotion.press
 	local tiltDegrees = pressMotion.tilt
-	-- Pose sets the resting scale; each activation adds a small outward kick
-	-- that rides the impact flash and settles with it.
 	local touchScale = React.joinBindings({ pose, impact }):map(function(values)
 		local value = values[1]
 		local kick = math.clamp(values[2], 0, 1) * 0.035
@@ -1751,9 +1653,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		touchOrigin.current = nil
 		pressWasTouch.current = false
 		setPressed(false)
-		-- events is {} while disabled, so MouseLeave/SelectionLost never arrive:
-		-- without this the button re-enables still "hovered" (hover pose and an
-		-- idle shimmer clock running) or with a stale gamepad focus ring.
 		hoveredRef.current = false
 		setHovered(false)
 		setGamepadFocused(false)
@@ -1770,7 +1669,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 			return nil
 		end
 		hoverStall.current = now
-		-- `sound = false` means a silent button: no hover cue either.
 		if sound ~= false and not pressWasTouch.current then
 			Audio:play(hoverCueFor(sound))
 		end
@@ -1854,9 +1752,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 						_result:Disconnect()
 					end
 					activeTouchEnd.current = UserInputService.InputEnded:Connect(finishTouch)
-					-- A finger that drags away (scrolling a list that starts under
-					-- a button) is no longer pressing: release the pressed pose now
-					-- instead of holding it down for the whole scroll.
 					local previousMove = activeTouchMove.current
 					if previousMove ~= nil then
 						previousMove:Disconnect()
@@ -1918,10 +1813,6 @@ local function useButtonChrome(onClick, reducedMotion, disabled, sound, allowShi
 		end,
 	}
 end
--- Built once: these depend only on Palette constants and used to be rebuilt on
--- every render of every shimmering button.
--- White-hot core cooling to warm cream at the band's edges: reads as light
--- glancing off the surface rather than a tinted stripe.
 local SHIMMER_SPECULAR_COLOR = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Palette.cream),
 	ColorSequenceKeypoint.new(0.42, Palette.cream:Lerp(Palette.white, 0.6)),
@@ -1949,15 +1840,11 @@ local function ButtonShimmer(_param)
 	if idle == nil then
 		idle = false
 	end
-	-- Optional; defaults true so existing call sites stay valid. useButtonChrome
-	-- passes shimmerLive so softMotion/antilag unmounts instead of freezing a streak.
 	local live = _param.live
 	if live == nil then
 		live = true
 	end
 	local trail = _param.trail
-	-- Default trail off — dual-pass is costly when many buttons hover at once.
-	-- Highlight/selected call sites can pass trail = true.
 	if trail == nil then
 		trail = idle == true
 	end
@@ -1971,9 +1858,6 @@ local function ButtonShimmer(_param)
 		return nil
 	end
 	local useTrail = ShimmerMath.wantTrail(shimmerScale, trail)
-	-- Soft cream→cyan specular. Masked shell fills its host without layout
-	-- participation (Active=false, AutomaticSize=None, ClipsDescendants).
-	-- Sweep is UIGradient.Offset only — no tip frames that inflate AutomaticSize.
 	local specularColor = SHIMMER_SPECULAR_COLOR
 	local trailColor = SHIMMER_TRAIL_COLOR
 	local strength = hoverAmount:map(function(amount)
@@ -2039,8 +1923,6 @@ local function ButtonShimmer(_param)
 		CornerRadius = UDim.new(0, radius),
 	}), trailPass, core)
 end
--- A transparency (a number or a binding) pushed toward 1 by an exit-fade binding
--- (0 = shown, 1 = gone): result = base + (1 - base) * fade.
 local function fadedBy(base, fade)
 	if type(base) == "number" then
 		return fade:map(function(amount)
@@ -2063,7 +1945,6 @@ function Button(_param)
 	local color = _param.color
 	local textColor = _param.textColor
 	if color == nil then
-		-- Uncolored actions were filling with cream, which reads as a white slab.
 		color = Palette.panelSoft
 		if textColor == nil then
 			textColor = Palette.cream
@@ -2132,13 +2013,7 @@ function Button(_param)
 	local events = _binding.events
 	local spinnerTurn = useRotation(loading, 260)
 	local labelHiddenByLoading = useFlipperSpring(if loading then 1 else 0, reducedMotion, 520, 40)
-	-- Error shake: bump `shakeToken` from the caller's failure handler to jitter the button
-	-- horizontally and flash it red, so a rejected action reacts at the point of the tap
-	-- instead of only surfacing in a toast elsewhere on screen.
 	local shake = useFlash(shakeToken, reducedMotion, 0.42)
-	-- Play once per NEW token. Keyed on the effect deps alone, the error sound
-	-- replayed whenever reducedMotion flipped (antilag flips it often) and on
-	-- every mount of a button whose token was already above zero.
 	local lastShakeToken = React.useRef(shakeToken)
 	React.useEffect(function()
 		if shakeToken ~= lastShakeToken.current then
@@ -2162,8 +2037,6 @@ function Button(_param)
 		_condition = not disabled
 	end
 	local canSelect = _condition
-	-- "You should tap this" idle breathing glow for claim/collect-style highlight buttons —
-	-- only while the action is actually available, gated on ambient FX like other decorative motion.
 	local breatheWanted = highlight and active
 	local breatheStroke = useGlowStroke(breatheWanted, reducedMotion or effectsPaused, 0.32, 0.22, 0.46, 1.15)
 	local buttonRef = React.useRef()
@@ -2192,9 +2065,6 @@ function Button(_param)
 		return function() TouchGestureService.UnregisterTouchTarget(id) end
 	end, { effectivelyDisabled, zIndex })
 	local baseFill = if effectivelyDisabled then Palette.panelSoft elseif outline then Palette.panel else color
-	-- Affordability/cooldown gating flips `disabled` a lot; cross-fade the fill and label
-	-- colors across that flip instead of snapping, so it reads as a state change rather than a glitch.
-	-- Loading uses the same cross-fade so a pending request dims the button exactly like disabled does.
 	local disabledAmount = useFlipperSpring(if effectivelyDisabled then 1 else 0, reducedMotion or effectsPaused, 520, 40)
 	local enabledFill = hoverAmount:map(function(amount)
 		local t = math.clamp(amount, 0, 1)
@@ -2220,17 +2090,12 @@ function Button(_param)
 	local iconOnly = text == "" and icon ~= nil
 	local hasIcon = icon ~= nil
 	local compactRipple = iconOnly or (size.X.Scale == 0 and size.X.Offset > 0 and size.X.Offset <= 56) or (size.Y.Scale == 0 and size.Y.Offset > 0 and size.Y.Offset <= 40)
-	-- Memoized on `presence`: these used to be rebuilt (a new binding, so an
-	-- unsubscribe + resubscribe) on every render of every button. labelFade was
-	-- the same value through a redundant joinBindings, so it aliases surfaceFade.
 	local surfaceFade = React.useMemo(function()
 		return presence:map(function(shown)
 			return math.clamp(1 - shown, 0, 1)
 		end)
 	end, { presence })
 	local labelFade = surfaceFade
-	-- The shadow slab and every stroke fade with the fill on exit; before, only
-	-- the fill and label did, leaving a ghost shadow/outline behind a fading button.
 	local shadowTransparency = React.useMemo(function()
 		return fadedBy(if effectivelyDisabled then 0.84 else Chrome.buttonShadow, surfaceFade)
 	end, { surfaceFade, effectivelyDisabled })
@@ -2311,9 +2176,7 @@ function Button(_param)
 		ClipsDescendants = true,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
-	}), -- Sheen gradient lives only on the fill shell. UIStroke always mounts on
-	-- separate transparent siblings below so a leftover paint gradient can never
-	-- recolor the outline / focus ring.
+	}),
 	not outline and not effectivelyDisabled and React.createElement("uigradient", {
 		Color = surfaceGradient(baseFill, 0.95),
 		Rotation = 90,
@@ -2552,7 +2415,7 @@ end
 local function Meter(_param)
 	local value = _param.value
 	if value == nil then
-		value = 0 -- value:map below threw on nil
+		value = 0
 	end
 	local color = _param.color
 	if color == nil then
@@ -2591,9 +2454,6 @@ local function Meter(_param)
 		_condition = 0
 	end
 	local eased = useOptionalFlipperSpring(_condition, animateLiteral, lowMotion, 420, 38)
-	-- The lead races to a new value; the fill eases after it. On a gain the
-	-- bright lead segment shows energy flowing in; on a loss it reads as the
-	-- chip that trails away.
 	local lead = useOptionalFlipperSpring(_condition, animateLiteral, lowMotion, 1500, 52)
 	local fill = if empty then UDim2.new(0, 0, 1, 0) elseif literal ~= nil and not animateLiteral then UDim2.new(literal, 0, 1, 0) else (if literal ~= nil then eased else value):map(function(amount)
 		local _amount = amount
@@ -2617,7 +2477,6 @@ local function Meter(_param)
 	local _exp_1 = React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})
-	-- How far the lead is ahead of the fill (0 at rest): lights the head.
 	local rushing = if animateLiteral then React.joinBindings({ lead, eased }):map(function(values)
 		return math.clamp(math.abs(values[1] - values[2]) * 6, 0, 1)
 	end) else nil
@@ -2646,7 +2505,6 @@ local function Meter(_param)
 	}), React.createElement("uigradient", {
 		Color = ColorSequence.new(lighten(color, 0.32), color),
 	}), React.createElement("frame", {
-		-- The head: a point of light at the fill's edge that flares while filling.
 		Size = if rushing ~= nil then rushing:map(function(amount)
 			local d = 3 + amount * 5
 			return UDim2.fromOffset(d, d)
@@ -2712,8 +2570,6 @@ local function Slider(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local engaged = focused or hovered or dragging
 	local engagement = useFlipperSpring(if engaged then 1 else 0, reducedMotion or effectsPaused, 460, 38)
-	-- NaN through math.clamp stays NaN, and a NaN goal poisons the thumb spring
-	-- for the rest of the session; a nil value used to throw here.
 	local amount = if type(value) == "number" and value == value then math.clamp(value, 0, 1) else 0
 	local thumb = useSpring(amount, reducedMotion or effectsPaused, 470, 44)
 	local sliderViewport = useViewport()
@@ -2726,9 +2582,6 @@ local function Slider(_param)
 	local touchAdjusting = React.useRef(false)
 	local lastValue = React.useRef(amount)
 	local dragStartValue = React.useRef(amount)
-	-- Handlers are read through refs: the drag effect below must not be torn down
-	-- (which cancels the drag) just because a parent passed a fresh closure while
-	-- the thumb was moving.
 	local onChangeRef = React.useRef(onChange)
 	onChangeRef.current = onChange
 	local onCommitRef = React.useRef(onCommit)
@@ -2746,8 +2599,6 @@ local function Slider(_param)
 		local width = math.max(1, button.AbsoluteSize.X - trackInset * 2)
 		local targetValue = math.clamp((x - button.AbsolutePosition.X - trackInset) / width, 0, 1)
 		local snapped = math.clamp(math.round(targetValue * 20) / 20, 0, 1)
-		-- Mouse moves fire far more often than the 20 steps change: only a real
-		-- step change reaches the parent (and its re-render) or the speakers.
 		if snapped == lastValue.current then
 			return nil
 		end
@@ -2777,9 +2628,6 @@ local function Slider(_param)
 			dragEnd.current = nil
 		end
 		local cancelDrag = function()
-			-- onChange already moved the parent's draft; losing focus or unmounting
-			-- mid-drag must persist it too, or the UI shows a value that was never
-			-- saved (Alt-Tab while dragging a setting).
 			if activeDrag.current ~= nil and lastValue.current ~= dragStartValue.current then
 				local commit = onCommitRef.current
 				dragStartValue.current = lastValue.current
@@ -2876,7 +2724,6 @@ local function Slider(_param)
 	end, { updateFromX })
 	local adjust = React.useCallback(function(delta)
 		local adjusted = math.clamp(math.round((lastValue.current + delta) * 20) / 20, 0, 1)
-		-- Pressing toward an end that is already reached changes nothing.
 		if adjusted == lastValue.current then
 			return nil
 		end
@@ -3042,9 +2889,7 @@ local function AmountToggle(_param)
 	local focusedIndex, setFocusedIndex = React.useState(-1)
 	local hoveredIndex, setHoveredIndex = React.useState(-1)
 	local activeIndex = 0
-	-- A value that is in no option must not light up option 1: the pill hides instead.
 	local matched = false
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(amount, index)
 		if amount == value then
 			activeIndex = index
@@ -3054,7 +2899,6 @@ local function AmountToggle(_param)
 	for _k, _v in AMOUNT_OPTIONS do
 		_callback(_v, _k - 1, AMOUNT_OPTIONS)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	local slide = useSpring(activeIndex, reducedMotion, 620, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.34)
 	local hoverSlide = useSpring(math.max(hoveredIndex, 0), reducedMotion, 700, 42)
@@ -3099,7 +2943,6 @@ local function AmountToggle(_param)
 		Color = ColorSequence.new(lighten(accent, 0.24), accent),
 		Rotation = 90,
 	}))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#AMOUNT_OPTIONS)
 	local _callback_1 = function(amount, index)
 		return React.createElement("imagebutton", {
@@ -3171,7 +3014,6 @@ local function AmountToggle(_param)
 	for _k, _v in AMOUNT_OPTIONS do
 		_newValue[_k] = _callback_1(_v, _k - 1, AMOUNT_OPTIONS)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Name = "AmountToggleTarget",
 		Size = size,
@@ -3324,9 +3166,7 @@ local function SegmentedTabs(_param)
 	local columnCount = math.max(1, math.min(_condition, count))
 	local rowCount = math.max(1, math.ceil(count / columnCount))
 	local activeIndex = 0
-	-- A value that is in no option must not light up option 1: the pill hides instead.
 	local matched = false
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(option, index)
 		if option.id == value then
 			activeIndex = index
@@ -3336,17 +3176,12 @@ local function SegmentedTabs(_param)
 	for _k, _v in options do
 		_callback(_v, _k - 1, options)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	local activeColumn = activeIndex % columnCount
 	local activeRow = math.floor(activeIndex / columnCount)
-	-- A liquid carrier: the leading edge reaches the new tab first and the
-	-- trailing edge follows, so the pill stretches across and gathers in.
 	local columnSlide = useFlipperSpring(activeColumn, reducedMotion, 1100, 48)
 	local columnTrail = useFlipperSpring(activeColumn, reducedMotion, 480, 46)
 	local rowSlide = useFlipperSpring(activeRow, reducedMotion, 880, 34)
 	local selectionFlash = useFlash(activeIndex + 1, reducedMotion, 0.22)
-	-- Honors the paused-effects context like every other ambient clock; this one
-	-- kept ticking (and pushing a binding) while effects were paused.
 	local tabsEffectsPaused = React.useContext(UiEffectsPausedContext)
 	local tabSweep = useClock(reducedMotion ~= true and not tabsEffectsPaused, SHIMMER_SWEEP_SPEED, 1, false)
 	local _result = options[activeIndex + 1]
@@ -3440,7 +3275,6 @@ local function SegmentedTabs(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#options)
 	local _callback_1 = function(option, index)
 		return React.createElement(SegmentedTabHit, {
@@ -3459,7 +3293,6 @@ local function SegmentedTabs(_param)
 	for _k, _v in options do
 		_newValue[_k] = _callback_1(_v, _k - 1, options)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = size,
 		Position = position,
@@ -3511,7 +3344,6 @@ local function EmptyState(_param)
 	local resolvedSize = size or (if compact then UDim2.new(1, 0, 0, 112) else UDim2.new(1, 0, 0, 150))
 	local titleH = resolvedTitle + 4
 	local bodyH = math.max(resolvedBody * 2 + 6, 28)
-	-- Quiet copy on the page, same voice as Divider. A second Panel here read as a card inside a card.
 	return React.createElement("frame", {
 		Size = resolvedSize,
 		BackgroundTransparency = 1,
@@ -3613,7 +3445,6 @@ local function Dropdown(_param)
 	local triggerAmount = useFlipperSpring(if open or hovered or focused then 1 else 0, reducedMotion, 680, 40)
 	local corner = 12
 	local selected = options[1]
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(option)
 		if option.id == value then
 			selected = option
@@ -3622,15 +3453,11 @@ local function Dropdown(_param)
 	for _k, _v in options do
 		_callback(_v, _k - 1, options)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	local buttonRef = React.useRef()
 	local listRef = React.useRef()
 	local scrollRef = React.useRef()
 	local overControl = React.useRef(false)
 	local overList = React.useRef(false)
-	-- Keep the list mounted while it animates closed. `open and createPortal`
-	-- unmounted it the instant `open` flipped, so the shrink/fade below never
-	-- played and the list simply popped out.
 	local shown, setShown = React.useState(open)
 	if open and not shown then
 		setShown(true)
@@ -3639,8 +3466,6 @@ local function Dropdown(_param)
 		if open then
 			return nil
 		end
-		-- Sticky hover flags: closing by clicking a row unmounts it without a
-		-- MouseLeave, and the next open would skip outside-click detection.
 		overList.current = false
 		overControl.current = false
 		local job = task.delay(if reducedMotion then 0 else 0.32, function()
@@ -3650,13 +3475,8 @@ local function Dropdown(_param)
 			pcall(task.cancel, job)
 		end
 	end, { open, reducedMotion })
-	-- The window-level key handler below reads the freshest props through this
-	-- ref, so it connects once per open instead of on every hover (the pointer
-	-- changes on every MouseEnter) and every render with an inline options array.
 	local latest = React.useRef({ options = options, pointer = pointer, value = value, onChange = onChange })
 	latest.current = { options = options, pointer = pointer, value = value, onChange = onChange }
-	-- Gamepad A both activates the focused row (Activated) and reaches the window
-	-- handler; the second one used to fire onChange again.
 	local lastPickAt = React.useRef(-math.huge)
 	React.useEffect(function()
 		return function()
@@ -3673,10 +3493,6 @@ local function Dropdown(_param)
 				Audio:play("close")
 				return nil
 			end
-			-- Real keyboard nav for an open list: Up/Down (or DPad) moves the pointer, Return/A
-			-- commits it. This previously only worked by hovering with a mouse or tabbing focus
-			-- with a controller (SelectionGained) -- a keyboard-only player had no way to move
-			-- through the list at all once it was open.
 			local live = latest.current
 			if input.KeyCode == Enum.KeyCode.Up or input.KeyCode == Enum.KeyCode.DPadUp then
 				setPointer(function(current)
@@ -3699,7 +3515,6 @@ local function Dropdown(_param)
 				end
 				local now = os.clock()
 				if now - lastPickAt.current < 0.2 then
-					-- Activated on the focused row already committed this press.
 					return nil
 				end
 				lastPickAt.current = now
@@ -3749,17 +3564,11 @@ local function Dropdown(_param)
 		local offset = math.round((1 - math.clamp(progress, 0, 1)) * 5) * (if openUp then -1 else 1)
 		return UDim2.fromOffset(portalBounds.x, portalBounds.y + offset)
 	end)
-	-- Soft accent glow ring behind the trigger, matching the web dropdown's focus box-shadow --
-	-- the height-driven list reveal below already covers the web version's scaleY entrance, since
-	-- Roblox has no cheap non-distorting equivalent of a CSS transform squash on real text rows.
 	local glowTransparency = triggerAmount:map(function(progress)
 		return 1 - math.clamp(progress, 0, 1) * 0.85
 	end)
 	local needsScroll = #options > visibleRows
 	local canvasHeight = #options * rowHeight + math.max(0, #options - 1) * listPad
-	-- Arrow-key / D-pad navigation must bring the highlighted row into view: with
-	-- more than a screenful of options Return used to commit a row the player
-	-- could not see.
 	React.useEffect(function()
 		if not open or not needsScroll or pointer < 0 then
 			return nil
@@ -3881,7 +3690,6 @@ local function Dropdown(_param)
 				local willOpen = not open
 				if willOpen then
 					chooseListDirection()
-					-- ▼ ReadonlyArray.findIndex ▼
 					local _callback_1 = function(option)
 						return option.id == value
 					end
@@ -3892,7 +3700,6 @@ local function Dropdown(_param)
 							break
 						end
 					end
-					-- ▲ ReadonlyArray.findIndex ▲
 					setPointer(_result)
 				end
 				setOpen(willOpen)
@@ -4008,7 +3815,6 @@ local function Dropdown(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, listPad),
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#options)
 		local _callback_1 = function(option, index)
 			local active = option.id == value
@@ -4121,7 +3927,6 @@ local function Dropdown(_param)
 		for _k, _v in options do
 			_newValue[_k] = _callback_1(_v, _k - 1, options)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_result = (React.createElement("scrollingframe", {
 			ref = scrollRef,
 			Size = UDim2.new(1, -listInset * 2, 0, innerH),
@@ -4150,7 +3955,6 @@ local function Dropdown(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, listPad),
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#options)
 		local _callback_1 = function(option, index)
 			local active = option.id == value
@@ -4263,7 +4067,6 @@ local function Dropdown(_param)
 		for _k, _v in options do
 			_newValue[_k] = _callback_1(_v, _k - 1, options)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_result = (React.createElement("frame", {
 			Size = UDim2.new(1, -listInset * 2, 0, innerH),
 			Position = UDim2.fromOffset(listInset, listInset),
@@ -4351,9 +4154,6 @@ local function SearchField(_param)
 	local chrome = chromeFor(searchViewport)
 	local reactModules = require(script.Parent.ReactHosts)("reactModules")
 	local draft, setDraft = React.useState(value)
-	-- The last text we told the parent about. Text changes we caused ourselves (the
-	-- clear button, an external value reset) fire Change.Text too and used to echo
-	-- a second onChange 80 ms later.
 	local lastEmitted = React.useRef(value)
 	local boxRef = React.useRef(nil)
 	local focused, setFocused = React.useState(false)
@@ -4387,10 +4187,6 @@ local function SearchField(_param)
 	})
 	local focus = useFlipperSpring(if focused then 1 else 0, reducedMotion, 720, 40)
 	local clearHover = useFlipperSpring(if clearHovered then 1 else 0, reducedMotion, 680, 42)
-	-- The clear button used to mount/unmount on `value !== ""` with no transition -- a hard pop
-	-- in and out, and the textbox's width snapped to match in the same frame. Both now ride one
-	-- spring keyed off that same boolean, so the button scales/fades in and the textbox's width
-	-- eases over to make room for it (and back) instead of jumping.
 	local hasQuery = draft ~= ""
 	local clearReveal = useFlipperSpring(if hasQuery then 1 else 0, reducedMotion, 760, 40, if hasQuery then 1 else 0)
 	local clearSize = if chrome.stack or (not searchViewport.desktop and UserInputService.TouchEnabled) then math.max(40, math.min(TapTarget, if size.Y.Offset > 0 then size.Y.Offset else TapTarget)) else 32
@@ -4651,9 +4447,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: MainGame   (merged from MainGame.luau, 2362 lines)
--- ======================================================================
 __defs["MainGame"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
@@ -4711,8 +4504,6 @@ local useClientSelector = _clientStore.useClientSelector
 local preloadMountedGame = require(script.Parent.ClientRuntime)("assetPreloader").preloadMountedGame
 local warmClientModules = require(script.Parent.ClientRuntime)("assetPreloader").warmClientModules
 local useClientIntegrityProbe = require(script.Parent.ClientRuntime)("clientIntegrity").useClientIntegrityProbe
--- Action toast copy (friendlyPlayerMessage / failureTitle / failureBody /
--- friendlyActionResponse) lives in actionCopy — Lune-tested, behavior unchanged.
 local friendlyPlayerMessage = ActionCopy.friendlyPlayerMessage
 local failureTitle = ActionCopy.failureTitle
 local failureBody = ActionCopy.failureBody
@@ -4720,8 +4511,6 @@ local friendlyActionResponse = ActionCopy.friendlyActionResponse
 local _AppShellChrome = __load("AppShellChrome")
 local Shell = _AppShellChrome.Shell
 local pausePassivePaints = _AppShellChrome.pausePassivePaints
--- Cached on first use; requiring per effect event was a lookup on the tap path.
--- Shared, never-mutated defaults so an absent value does not allocate per render.
 local EMPTY_NOTICES = table.freeze({})
 local NOOP = function() end
 local function MainGame(_param)
@@ -4736,8 +4525,6 @@ local function MainGame(_param)
 	if externalAntilag == nil then
 		externalAntilag = false
 	end
-	-- Dead cleanup hook from an earlier font-preloading implementation. No-op until the
-	-- surrounding boot effect is rewritten, so React unmount doesn't call nil.
 	local destroyFontSamples = function()
 		return nil
 	end
@@ -4748,8 +4535,6 @@ local function MainGame(_param)
 	local requestTimeouts = React.useRef({})
 	local deferredJobs = React.useRef({})
 	React.useEffect(function()
-		-- Re-armed on every (re)mount: an effect re-run without a remount would
-		-- otherwise leave the flag false and silently drop every response.
 		appAlive.current = true
 		return function()
 			appAlive.current = false
@@ -4813,9 +4598,6 @@ local function MainGame(_param)
 		return dispatchStore(ClientActions.setVisit(visitNext))
 	end, { dispatchStore })
 	local notices, setNotices = React.useState({})
-	-- Radix's toast pattern pauses auto-dismiss while the pointer is over a toast — the
-	-- dismiss timer below is scheduled once per notice, so this tracks which ones are
-	-- currently hovered and the timer re-checks it instead of dismissing outright.
 	local hoveredNotices = React.useRef({})
 	local noticeTimers = React.useRef({})
 	local noticesLive = React.useRef({})
@@ -4886,7 +4668,6 @@ local function MainGame(_param)
 	end, {})
 	local bootReady = Boot.bootChecklistReady(bootMarks)
 	local bootFill = Boot.bootProgress(bootMarks)
-	-- Reduced Motion softens motion through MotionSettingsContext; nothing is switched off.
 	local bootReducedMotion = false
 	React.useEffect(function()
 		local assetShare = if assetProgress.total > 0 then math.clamp(assetProgress.loaded / assetProgress.total, 0, 1) elseif bootMarks.assets then 1 else 0
@@ -4974,9 +4755,6 @@ local function MainGame(_param)
 			return true
 		end
 		if latestRevision.current >= 0 and not revisionChanged and not tradeHot and now - lastSnapshotPaintAt.current < passivePaintInterval then
-			-- Throttled, not discarded: if this is the last packet of a burst
-			-- nothing else will paint it, and the UI would sit on stale numbers.
-			-- Keep the newest and paint it once when the window opens.
 			pendingPassive.current = snapshot
 			if passiveFlushJob.current == nil and appAlive.current then
 				local job
@@ -4995,8 +4773,6 @@ local function MainGame(_param)
 			end
 			return true
 		end
-		-- A paint is happening now, so any queued trailing snapshot is superseded
-		-- (it is older by definition: latestSnapshot only moves forward).
 		pendingPassive.current = nil
 		latestRevision.current = math.max(latestRevision.current, snapshot.Revision)
 		lastSnapshotPaintAt.current = now
@@ -5011,7 +4787,6 @@ local function MainGame(_param)
 	acceptStateRef.current = acceptState
 	local dismissNotice = React.useCallback(function(id)
 		setNotices(function(current)
-			-- ▼ ReadonlyArray.filter ▼
 			local _newValue = {}
 			local _callback = function(notice)
 				return notice.id ~= id
@@ -5023,7 +4798,6 @@ local function MainGame(_param)
 					_newValue[_length] = _v
 				end
 			end
-			-- ▲ ReadonlyArray.filter ▲
 			return _newValue
 		end)
 	end, {})
@@ -5088,7 +4862,6 @@ local function MainGame(_param)
 		local lifetime = NoticeMath.Lifetime(notificationDurationRef.current)
 		local maxNotices = NoticeMath.MaxNotices(toastDensityRef.current)
 		local _exp_1 = noticesLive.current
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(notice)
 			return notice.leaving ~= true and notice.title == normalizedTitle and notice.body == body
 		end
@@ -5099,7 +4872,6 @@ local function MainGame(_param)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local matching = _result_7
 		local dismissId = if matching ~= nil then matching.id else noticeId.current + 1
 		if matching == nil then
@@ -5118,7 +4890,6 @@ local function MainGame(_param)
 			local _length = #_array
 			table.move(current, 1, #current, _length + 1, _array)
 			local updated = _array
-			-- ▼ ReadonlyArray.findIndex ▼
 			local _callback_1 = function(notice)
 				return notice.id == dismissId and notice.leaving ~= true
 			end
@@ -5129,7 +4900,6 @@ local function MainGame(_param)
 					break
 				end
 			end
-			-- ▲ ReadonlyArray.findIndex ▲
 			local index = _result_8
 			if index >= 0 then
 				local existing = updated[index + 1]
@@ -5159,7 +4929,6 @@ local function MainGame(_param)
 				table.insert(updated, _arg0)
 			end
 			while #updated > maxNotices do
-				-- ▼ ReadonlyArray.find ▼
 				local _callback_2 = function(notice)
 					return notice.leaving ~= true and notice.id ~= dismissId
 				end
@@ -5170,7 +4939,6 @@ local function MainGame(_param)
 						break
 					end
 				end
-				-- ▲ ReadonlyArray.find ▲
 				local _condition_5 = _result_9
 				if _condition_5 == nil then
 					_condition_5 = updated[1]
@@ -5231,7 +4999,6 @@ local function MainGame(_param)
 		local id = popId.current + 1
 		popId.current = id
 		setPops(function(current)
-			-- One clone, one append and a single trim: this runs on every tap.
 			local updated = table.clone(current)
 			updated[#updated + 1] = {
 				id = id,
@@ -5256,7 +5023,6 @@ local function MainGame(_param)
 			_current[_job] = nil
 			if appAlive.current then
 				setPops(function(current)
-					-- Single pass; hands back the same table if it already expired.
 					local kept = table.create(#current)
 					local removed = false
 					for _, pop in current do
@@ -5274,9 +5040,6 @@ local function MainGame(_param)
 		local _job = job
 		_current[_job] = true
 	end, {})
-	-- Cosmetic-only combo mirror: `combo`/`comboMultiplier` here are never computed
-	-- client-side, only copied from whichever server payload just arrived (per-tap
-	-- effect/RemoteFunction data, or the decay-aware snapshot as a resync fallback).
 	local applyComboReadout = React.useCallback(function(combo, comboMultiplier, comboMax, comboWindow)
 		if combo <= 0 then
 			return nil
@@ -5332,10 +5095,6 @@ local function MainGame(_param)
 			end
 			local lowered = string.lower(_condition_5)
 			local expectedBusy = (action == "Overcharge" and (string.find(lowered, "cooling", 1, true)) ~= nil) or (string.find(lowered, "still working", 1, true)) ~= nil or (string.find(lowered, "slow down", 1, true)) ~= nil
-			-- A refused optimistic action left its predicted numbers on screen. Revert
-			-- to the last server-accepted snapshot unless the response carried a State
-			-- (already applied above). Routine busy/cooldown refusals are excluded: a
-			-- rapid tap streak would otherwise flicker back on every rejected tap.
 			if not expectedBusy and response.State == nil and NetworkPolicy.IsOptimistic(action) then
 				local accepted = lastAcceptedSnapshot.current
 				if accepted ~= nil and appAlive.current then
@@ -5345,10 +5104,6 @@ local function MainGame(_param)
 			if expectedBusy then
 				return nil
 			end
-			-- Log the server's raw error, not the player-friendly rewrite -- friendlyActionResponse
-			-- already overwrote response.error above, so logging that instead of rawError meant
-			-- the dev console showed the SAME friendly copy the player saw in the toast, with no
-			-- way to tell what the server actually rejected without cross-referencing server logs.
 			local _exp_2 = action
 			local _condition_6 = rawError
 			if _condition_6 == nil then
@@ -5403,7 +5158,6 @@ local function MainGame(_param)
 				_condition_4 = _result_8 ~= nil
 				if _condition_4 then
 					local _exp_2 = response.State.ForgePath.ClaimedSteps
-					-- ▼ ReadonlyArray.reduce ▼
 					local _result_9 = 0
 					local _callback = function(max, step)
 						return math.max(max, step)
@@ -5411,7 +5165,6 @@ local function MainGame(_param)
 					for _i = 1, #_exp_2 do
 						_result_9 = _callback(_result_9, _exp_2[_i], _i - 1, _exp_2)
 					end
-					-- ▲ ReadonlyArray.reduce ▲
 					_condition_4 = _result_9 % 5 == 0
 				end
 			end
@@ -5773,8 +5526,6 @@ local function MainGame(_param)
 				})
 			end
 		end
-		-- A queued re-dispatch that fires after unmount would run InvokeServer and
-		-- re-create the worker/timeout entries cleanup already cleared.
 		if not appAlive.current then
 			return nil
 		end
@@ -5804,8 +5555,6 @@ local function MainGame(_param)
 				end)
 				return nil
 			end
-			-- Grant fields are written onto the payload; clone first so a caller that
-			-- reuses (or froze) its table neither errors nor leaks them into later calls.
 			value = table.clone(value)
 			attachGrantFields(value)
 		end
@@ -5834,8 +5583,6 @@ local function MainGame(_param)
 			reject("Slow down a sec.")
 			return nil
 		end
-			-- Counted incrementally: this runs on every tap, and re-counting the
-			-- table (twice) each dispatch was pure overhead.
 			if previous == nil then
 				sentAtCount.current += 1
 			end
@@ -5911,14 +5658,10 @@ local function MainGame(_param)
 				busy.current[signature] = nil
 			end
 			requestTimedOut = true
-			-- The worker is deliberately NOT cancelled: the server may still answer, and
-			-- that answer carries the authoritative state (the action may well have run).
-			-- It finishes on its own and de-registers itself below.
 			releaseRequest()
 			if not appAlive.current or not ownsControl then
 				return nil
 			end
-			-- The answer was discarded, so any optimistic prediction is unconfirmed.
 			if NetworkPolicy.IsOptimistic(action) then
 				local accepted = lastAcceptedSnapshot.current
 				if accepted ~= nil then
@@ -5957,10 +5700,6 @@ local function MainGame(_param)
 				return nil
 			end
 			if requestTimedOut then
-				-- A late answer: the user was already told it timed out and any optimistic
-				-- guess was rolled back, so do not call back or toast again -- but take the
-				-- server's real state (and grant fields), or a purchase that DID go through
-				-- would stay invisible until the next unrelated snapshot.
 				if ok and type(raw) == "table" then
 					if GRANT_ACTIONS[action] ~= nil then
 						adopt(raw)
@@ -5993,7 +5732,6 @@ local function MainGame(_param)
 		if state == nil then
 			return nil
 		end
-		-- Re-arm once claimed, so the next claimable day toasts again this session.
 		if state.Daily.CanClaim ~= true then
 			streakToastSent.current = false
 			return nil
@@ -6006,9 +5744,6 @@ local function MainGame(_param)
 			local day = state.Daily.Streak
 			addNotice("Daily streak", if day > 1 then `Day {day} is ready — claim it in Rewards.` else "Today’s daily is ready in Rewards.", "Special")
 		end
-		-- `state` is recreated on every tick (production, cash, etc.); keying off it
-		-- here would re-run this effect continuously for no benefit since the actual
-		-- trigger is the daily-streak flag, which changes far less often.
 	end
 	local _result_8 = state
 	if _result_8 ~= nil then
@@ -6019,11 +5754,6 @@ local function MainGame(_param)
 		_result_9 = _result_9.Daily.Streak
 	end
 	React.useEffect(_exp_2, { addNotice, _result_8, _result_9 })
-	-- Resync-only fallback: the state snapshot's `Overcharge` block already has the
-	-- server's window-decay applied at read time, so on first sight of a live combo
-	-- (e.g. right after a reconnect, before any fresh per-tap data has arrived) it's
-	-- safe to adopt directly. Per-tap effect/RemoteFunction data always wins once it
-	-- starts arriving, since it is strictly fresher than a coalesced snapshot.
 	local _exp_3 = function()
 		local _snapshotCombo = state
 		if _snapshotCombo ~= nil then
@@ -6142,15 +5872,12 @@ local function MainGame(_param)
 				InteractionFeedback.reward()
 				celebrate()
 			elseif kind == "LevelUp" and not purchasePresentationActive.current then
-				-- A new Forge Level: the server toast names the level and what it
-				-- opened; this is the felt part of the moment.
 				__load("levelMoments").pushLevelMoment(value)
 				InteractionFeedback.reward()
 				celebrate()
 			elseif kind == "ServerEvent" then
 				__load("serverEventsUi").pushServerEvent(value)
 			elseif kind == "LevelReward" then
-				-- Rewards for the level(s) just reached: the celebration card shows them.
 				__load("levelMoments").pushLevelMoment(value)
 			elseif kind == "AnomalyPulse" then
 				Audio:play("reactor")
@@ -6317,9 +6044,6 @@ local function MainGame(_param)
 					end
 				end
 				attempt += 1
-				-- The boot screen force-exits at 20s in production even without state, so a
-				-- save that is still loading (session lock, datastore retry) renders as a
-				-- dead UI unless we say something. Surface it once, then keep polling.
 				if alive and attempt >= 20 and os.clock() - lastConnectNotice > 30 then
 					lastConnectNotice = os.clock()
 					addNotice("Still connecting", "Your save is taking longer than usual to load — if Astral Forge is open on another device or Studio session, close it.", "Info", false)
@@ -6363,9 +6087,6 @@ local function MainGame(_param)
 				end
 				connection = nil
 				markBoot("shell")
-				-- Every page reads directly off the single state/config payload that
-				-- gated stateLoaded above — there's no separate per-page async fetch,
-				-- so once the shell itself is up, every page's data is already there.
 				markBoot("mail")
 				markBoot("research")
 				markBoot("forge")
@@ -6581,16 +6302,6 @@ local function MainGame(_param)
 		_condition_5 = 1
 	end
 	local viewportSpeed = _condition_5
-	-- This runs above <AutoScale> (it builds the shellContent AutoScale then wraps), so there is
-	-- no scaled ViewportScaleContext available yet here — useViewport() at this exact point would
-	-- only ever hit its own raw-camera fallback (desktop: KeyboardEnabled || MouseEnabled, with no
-	-- touch or screen-size check at all, always true in Roblox Studio's device emulator). Calling
-	-- usesDesktopStructure() directly with the real camera size at least matches the same
-	-- touch-aware logic AutoScale itself uses internally, instead of two different guesses
-	-- disagreeing about the same device.
-	-- The size is otherwise only read at render, so a rotation or window resize
-	-- kept the old touch/desktop decision until the next snapshot happened to
-	-- re-render (and forever while paused). Re-render when it actually changes.
 	local viewportTick, setViewportTick = React.useState(0)
 	React.useEffect(function()
 		local sizeConnection
@@ -6795,8 +6506,6 @@ local function MainGame(_param)
 		_condition_7 = _condition_8 >= 0.5
 	end
 	local mobileToastsVisible = _condition_7
-	-- Stable identities for props that used to be rebuilt every render (and so
-	-- re-rendered Shell/ToastRail/AdminPrankOverlay on every snapshot).
 	local mobileLayoutCache = React.useRef(nil)
 	local clearAdminPrank = React.useCallback(function()
 		setAdminPrank(nil)
@@ -6883,7 +6592,6 @@ local function MainGame(_param)
 				_result_42 = _condition_14
 			end
 			_object[_left_3] = _result_42
-			-- Same values -> same table, so ToastRail does not re-render on every snapshot.
 			local cachedLayout = mobileLayoutCache.current
 			if cachedLayout ~= nil and cachedLayout.x == _object.x and cachedLayout.y == _object.y and cachedLayout.scale == _object.scale and cachedLayout.opacity == _object.opacity then
 				_result_41 = cachedLayout
@@ -6898,12 +6606,6 @@ local function MainGame(_param)
 		_condition_8 = React.createElement(React.Fragment, nil, _exp_7, React.createElement(ToastRail, _attributes_1))
 	end
 	local shellContent = _condition_8
-	-- The domain overlays must render inside the same AutoScale layout frame as the shell.
-	-- AutoScale is what publishes ViewportScaleContext, and it insets/centres its child frame
-	-- (maxShellWidth clamp + safe-area insets). Rendering the overlays as siblings *outside* it
-	-- left them parented to the raw full-screen frame while useViewport() fell back to raw camera
-	-- pixels — so every centre-relative offset they computed was measured against a different
-	-- coordinate space than the one they were actually laid out in.
 	local domainContent = if state ~= nil and shellMounted then React.createElement(AutoScale, nil, if domainUi ~= nil then domainUi.render(state, dispatch, shellContent) else shellContent) else shellContent
 	local _attributes = {
 		prank = adminPrank,
@@ -6953,9 +6655,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: AppShellChrome   (merged from AppShellChrome.luau, 1553 lines)
--- ======================================================================
 __defs["AppShellChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local reactModules = require(script.Parent.ReactHosts)("reactModules")
@@ -7040,16 +6739,12 @@ local readLevelState = __load("levelRoadmap").readLevelState
 local pausePassivePaints = {
 	current = false,
 }
--- The guided tour's steps (copy, targets, goals) live in SharedData#TutorialScript.
 local TUTORIAL_STEPS = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("TutorialScript").STEPS
 local SHELL_CHROME = {
 	railGutter = 18,
 	topbarControl = 48,
 	topbarControlGap = 12,
 }
--- Props for the offline-earnings overlay. Built out here rather than inline:
--- AppShell sits near Luau's 200-local limit, and Studio compiles at O0 when
--- the debugger is on, where each of these temporaries would count against it.
 local function offlineRewardsProps(state, reducedMotion, dispatch, dismiss)
 	local offline = if type(state.Offline) == "table" then state.Offline else {}
 	local effects = state.Settings.OfflineRewardEffects
@@ -7147,8 +6842,6 @@ local function AppShell(_param)
 		local uiDensity = _condition
 		local densityScale = 0.82 + uiDensity * 0.36
 		local edgePad = math.max(8, chrome.sideSafe, math.floor(chrome.pagePadding * densityScale))
-		-- The ScreenGui itself is CoreUISafeInsets; do not reserve the device/topbar
-		-- cutout a second time inside the shell.
 		local topPad = if chrome.stack then 6 else Layout.topbarClearance
 		local _condition_1 = viewport.keyboardOpen and chrome.mobile
 		if _condition_1 then
@@ -7176,8 +6869,6 @@ local function AppShell(_param)
 			_result = _result_1
 		end
 		local topbarHeight = _result
-		-- Desktop secondary destinations live in the sidebar (includeSecondary). The old
-		-- horizontal MoreDock row above the workspace was wasted chrome on PC/ultrawide.
 		local moreAtBottom = chrome.stack
 		local tabBarH = if keyboardShellCompact then 0 else chrome.tabBarH
 		local shellTop = topPad + topbarHeight + chrome.panelGap
@@ -7188,8 +6879,6 @@ local function AppShell(_param)
 			_condition_2 = 1
 		end
 		local mobileQuickEnabled = _condition_2 >= 0.5
-		-- Overview already exposes Collect/Overcharge in its hero; keep the floating cluster
-		-- on Workshop only so it does not cover Overview first-screen CTAs.
 		local quickActionsVisible = mobileQuickEnabled and moreAtBottom and page == "Workshop" and not viewport.keyboardOpen and not arcadeBusy and crateReveal == nil and not railOpen
 		local quickBottomOffset = tabBarH + 12
 		local bottomPad = if keyboardShellCompact then 4 elseif moreAtBottom then (if quickActionsVisible then tabBarH + 76 + chrome.panelGap else tabBarH + chrome.panelGap) else math.max(8, math.floor(edgePad * 0.6))
@@ -7217,8 +6906,6 @@ local function AppShell(_param)
 	local quickActionsVisible = _binding.quickActionsVisible
 	local quickBottomOffset = _binding.quickBottomOffset
 	local bottomPad = _binding.bottomPad
-	-- Pages always get full motion. The Reduced Motion setting reaches the
-	-- hooks as MotionSettingsContext.soft, which softens the feel instead.
 	local reducedMotion = false
 	local softMotion = false
 	local shellTopLive = useDynamicLayoutNumber(shellTop, softMotion)
@@ -7277,10 +6964,6 @@ local function AppShell(_param)
 	local activeBoost = _result_2
 	local wallClock = useWallClock(activeBoost ~= nil)
 	local hideAmount = useFlipperSpring(if hidden then 1 else 0, softMotion, 620, 42)
-	-- The v2 mobile shell (chrome.stack) never uses the drawer/rail system at all — it has its
-	-- own fixed bottom tab bar (MobileTabBar) instead. The drawer/rail below only still applies
-	-- to the non-stack "touch + compact" case (e.g. a touch tablet in a window too wide to
-	-- count as `stack`), which keeps its own slide-out drawer.
 	local mobileShell = chrome.stack
 	local drawerWidth = math.min(Layout.sidebarWidth, math.max(248, viewport.width - edgePad * 2 - 36))
 	local railTarget = if railOpen then (if drawerNav then drawerWidth else (if viewport.compact then Layout.sidebarCollapsedWidth else Layout.sidebarWidth)) else 0
@@ -7414,8 +7097,6 @@ local function AppShell(_param)
 			if _condition_6 == nil then
 				_condition_6 = "Not unlocked yet."
 			end
-			-- Every feature opens at a Forge Level: say which one, and the single
-			-- goal that gets the player closer.
 			local levelNeeded = if lock ~= nil and type(lock.Level) == "number" then lock.Level else nil
 			if levelNeeded ~= nil then
 				local currentLevel, _tier, nextStep = readLevelState(state)
@@ -7463,7 +7144,6 @@ local function AppShell(_param)
 		return celebrate()
 	end, { celebrate })
 	React.useEffect(function()
-		-- Only steps with a startPage move the player; "click Workshop" steps wait for the click.
 		if state.Flags.TutorialDone or tutorial == nil or tutorial.startPage == nil then
 			return nil
 		end
@@ -7701,7 +7381,6 @@ local function AppShell(_param)
 			if #rail == 0 then
 				return Enum.ContextActionResult.Pass
 			end
-			-- ▼ ReadonlyArray.findIndex ▼
 			local _callback = function(entry)
 				return entry.id == page
 			end
@@ -7712,7 +7391,6 @@ local function AppShell(_param)
 					break
 				end
 			end
-			-- ▲ ReadonlyArray.findIndex ▲
 			local index = math.max(0, _result_9)
 			if input.KeyCode == Enum.KeyCode.ButtonL1 then
 				navigateRef.current(rail[(index - 1 + #rail) % #rail + 1].id)
@@ -7769,7 +7447,6 @@ local function AppShell(_param)
 	local renderEffectsScale = effectsScale * _condition_8 * rootAntilag.fxBudget
 	local _result_9
 	if #pops > rootAntilag.maxPops then
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback = function(_, index)
 			return index >= #pops - rootAntilag.maxPops
@@ -7781,7 +7458,6 @@ local function AppShell(_param)
 				_newValue[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		_result_9 = _newValue
 	else
 		_result_9 = pops
@@ -7953,7 +7629,6 @@ local function AppShell(_param)
 		end
 		_condition_17 = React.createElement(TopBar, _attributes)
 	end
-	-- Desktop MoreDock removed: secondary nav is in the sidebar via includeSecondary.
 	local _condition_18 = false
 	local _exp_5 = React.createElement(React.Fragment, nil, _condition_10, _condition_12, _condition_14, _condition_16, _exp_4, _condition_17, _condition_18)
 	local _exp_6 = React.createElement("frame", {
@@ -8236,7 +7911,6 @@ local function AppShell(_param)
 	local _condition_23 = gamepadActive and not hidden and not tutorialOpen
 	if _condition_23 then
 		local _exp_15 = require(script.Parent.CoreKit)("GamepadNavigationService").GetHintLabels()
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_15)
 		local _callback = function(hint, index)
 			return React.createElement(FlexItem, {
@@ -8258,7 +7932,6 @@ local function AppShell(_param)
 		for _k, _v in _exp_15 do
 			_newValue[_k] = _callback(_v, _k - 1, _exp_15)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_23 = React.createElement("frame", {
 			Size = UDim2.new(1, -edgePad * 2, 0, 36),
 			Position = UDim2.new(0, edgePad, 1, -(bottomPad + 36)),
@@ -8370,9 +8043,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: TopBarChrome   (merged from TopBarChrome.luau, 1209 lines)
--- ======================================================================
 __defs["TopBarChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
@@ -8482,9 +8152,6 @@ local function StatChip(_param)
 	local chipH = if tall then TapTarget else 54
 	local iconSize = if tall then 32 else 28
 	local valueSize = if tall then 16 else 16
-	-- CHIP_TIPS kept for hover copy elsewhere; never parent tip UI under an
-	-- AutomaticSize chip — Scale-width hairlines + tip AABB blew chips to ~1.3k px
-	-- and shoved CORES/DUST/FPS off the left of the topbar.
 	local _ = CHIP_TIPS[label]
 	local valueMaxW = if tall then 84 else 96
 	local chipInnerW = iconSize + 6 + valueMaxW + (if tall then 22 else 20)
@@ -8625,8 +8292,6 @@ local function StatChip(_param)
 		PaddingBottom = UDim.new(0, 1),
 	}), chip)
 end
--- The server event as a top-bar card: same look as the stat chips, the event's colour and icon,
--- and a countdown that ticks every second. Clicking it opens the event details.
 local function ServerEventChip(_param)
 	local events = __load("serverEventsUi")
 	local event = events.useServerEvent(_param.state.ServerEvent)
@@ -8637,7 +8302,6 @@ local function ServerEventChip(_param)
 		local alive = true
 		task.spawn(function()
 			while alive do
-				-- Wake on the next whole second so the countdown never skips or stutters.
 				local t = workspace:GetServerTimeNow()
 				task.wait(1 - (t % 1) + 0.02)
 				if alive then
@@ -9145,7 +8809,6 @@ local function TopbarReleaseCountdown(_param)
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#values)
 	local _callback = function(entry, index)
 		return React.createElement("frame", {
@@ -9189,7 +8852,6 @@ local function TopbarReleaseCountdown(_param)
 	for _k, _v in values do
 		_newValue[_k] = _callback(_v, _k - 1, values)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.ink,
@@ -9249,7 +8911,6 @@ local function TopBar(_param)
 		accent = Palette.mango,
 	} else nil
 	local allChips = {}
-	-- The server event sits first, so on a narrow bar it gives way before the currencies.
 	if state.ServerEvent ~= nil then
 		table.insert(allChips, { label = "EVENT", event = true })
 	end
@@ -9279,8 +8940,6 @@ local function TopBar(_param)
 	}
 	table.insert(allChips, _arg0)
 	local visitPillWidth = if visitPill ~= nil then (if tight then 124 else 156) else 0
-	-- Launch countdown is not shown on desktop or mobile. Width stays 0 so the chip
-	-- is not mounted and the bar does not reserve a gap for it.
 	local countdownW = 0
 	local _condition_1 = state.Settings.ShowFps
 	if _condition_1 == nil then
@@ -9306,7 +8965,6 @@ local function TopBar(_param)
 	local spare = if stacked then width - edgePad * 2 - 24 - performanceW - performanceGap else width - edgePad * 2 - (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - (if pageTitleW > 0 then pageTitleW + 10 else 0) - controlsW - 12 - (if visitPillWidth > 0 then visitPillWidth + 6 else 0) - performanceW - performanceGap - (if countdownW > 0 then countdownW + 10 else 0)
 	local fitCount = if stacked then math.clamp(math.floor((spare + 6) / (chipWidthEstimate + 6)), 1, math.min(2, #allChips)) else math.clamp(math.floor((spare + 6) / (chipWidthEstimate + 6)), 0, #allChips)
 	local chips = {}
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(chip, index)
 		if index >= #allChips - fitCount then
 			local _chip = chip
@@ -9316,7 +8974,6 @@ local function TopBar(_param)
 	for _k, _v in allChips do
 		_callback(_v, _k - 1, allChips)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	local controlsRight = edgePad + 4
 	local hasRightCluster = not stacked and (#chips > 0 or visitPill ~= nil or performanceW > 0)
 	local row1H = if stacked then 62 else barHeight
@@ -9441,7 +9098,6 @@ local function TopBar(_param)
 			size = UDim2.fromScale(1, 1),
 			reducedMotion = reducedMotion,
 		}))
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#chips)
 		local _callback_1 = function(chip, index)
 			if chip.event then
@@ -9472,7 +9128,6 @@ local function TopBar(_param)
 		for _k, _v in chips do
 			_newValue[_k] = _callback_1(_v, _k - 1, chips)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_3 = React.createElement("frame", {
 			Size = UDim2.fromOffset(0, chipRowH + 4),
 			AutomaticSize = Enum.AutomaticSize.X,
@@ -9493,7 +9148,6 @@ local function TopBar(_param)
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 			Padding = UDim.new(0, 10),
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#chips)
 		local _callback_1 = function(chip, index)
 			if chip.event then
@@ -9526,7 +9180,6 @@ local function TopBar(_param)
 		for _k, _v in chips do
 			_newValue[_k] = _callback_1(_v, _k - 1, chips)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition_4 = React.createElement("frame", {
 			Size = UDim2.new(1, -(24 + (if performanceW > 0 then performanceW + performanceGap else 0)), 0, TapTarget + 6),
 			Position = UDim2.fromOffset(12, row1H + 2),
@@ -9636,9 +9289,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: NavChrome   (merged from NavChrome.luau, 1321 lines)
--- ======================================================================
 __defs["NavChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReactRoblox = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["react-roblox"])
@@ -9783,7 +9433,6 @@ local function RailButton(_param)
 		end)
 	end, {})
 	return React.createElement("frame", {
-		-- The guide finds nav buttons by this name.
 		Name = "Nav_" .. entry.id,
 		Size = UDim2.new(1, 0, 0, rowHeight),
 		LayoutOrder = layoutOrder,
@@ -9949,13 +9598,6 @@ local function MoreDockButton(_param)
 	local fillColor = chrome.hoverAmount:map(function(amount)
 		return if disabled then Palette.panelRaised else Palette.panel:Lerp(Palette.panelSoft, math.clamp(amount, 0, 1) * 0.6)
 	end)
-	-- On the desktop row, idle buttons carry no card surface at all -- with 20+ of these in one
-	-- strip, giving every one its own border/fill turned the dock into a wall of identical boxes.
-	-- Only the active page or whatever the pointer is currently over gets a card; everything else
-	-- sits flat on the dock's own background, so the row reads as one toolbar with a highlight
-	-- instead of a row of tiles. The mobile "More" sheet (fill=true) is a small deliberate grid,
-	-- not a crowded strip, so it keeps a visible card on every cell -- that's what makes each
-	-- touch target legible there.
 	local cardTransparency = React.joinBindings({
 		selection = selection,
 		hover = chrome.hoverAmount,
@@ -9991,9 +9633,6 @@ local function MoreDockButton(_param)
 	local iconFill = selection:map(function(raw)
 		return if disabled then Palette.panelSoft else Palette.panelRaised:Lerp(darken(entry.accent, 0.64), math.clamp(raw, 0, 1))
 	end)
-	-- Idle rows on the desktop strip keep a mostly-transparent icon tile so 20+ buttons in one row
-	-- don't read as a wall of solid squares; hovering or being the active page fills the tile back
-	-- in, which is what actually needs to draw the eye. The mobile grid keeps its icon tile solid.
 	local iconFillTransparency = React.joinBindings({
 		selection = selection,
 		hover = chrome.hoverAmount,
@@ -10140,12 +9779,6 @@ local function MoreDockButton(_param)
 		ZIndex = 56,
 	}))
 end
--- Desktop equivalent of the mobile MoreSheet: a small grid popover anchored below the dock,
--- opened from a "MORE" trigger instead of always occupying screen width. Rendered through the
--- shared dropdown portal (a top-level ScreenGui) rather than nested under the dock's own frame,
--- since the dock's ancestor shell clips descendants to its own small strip -- anything drawn
--- inside that tree past the dock's bounds would be invisible. Closes on picking a page, Escape,
--- or clicking anywhere outside the panel.
 local MoreCell
 local function MoreDockPopover(_param)
 	local entries = _param.entries
@@ -10237,7 +9870,6 @@ local function MoreDockPopover(_param)
 		HorizontalAlignment = Enum.HorizontalAlignment.Left,
 		VerticalAlignment = Enum.VerticalAlignment.Top,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#visible)
 	local _callback = function(entry, index)
 		return React.createElement(MoreCell, {
@@ -10256,7 +9888,6 @@ local function MoreDockPopover(_param)
 	for _k, _v in visible do
 		_newValue[_k] = _callback(_v, _k - 1, visible)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(React.Fragment, nil, ReactRoblox.createPortal(React.createElement("frame", {
 		ref = panelRef,
 		Size = UDim2.fromOffset(panelW, panelH),
@@ -10397,9 +10028,6 @@ local function MoreDock(_param)
 	local more = AppHelpers:filterNav(entries, state, tutorialPage)
 	local gridGap = 3 + math.floor(math.clamp(spacing, 0, 1) * 5)
 	local height = moreDockHeight(stack, #more, cols, cellH, gridGap)
-	-- These hooks back the desktop-only MORE popover, but must still run unconditionally on
-	-- every render (including the mobile `stack` branch below) -- React requires the same
-	-- hooks in the same order on every call, regardless of which branch's JSX gets returned.
 	local moreMenuOpen, setMoreMenuOpen = React.useState(false)
 	local moreTriggerRef = React.useRef()
 	local popoverAnchor, setPopoverAnchor = React.useState()
@@ -10423,7 +10051,6 @@ local function MoreDock(_param)
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 			VerticalAlignment = Enum.VerticalAlignment.Top,
 		})
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#more)
 		local _callback = function(entry, index)
 			return React.createElement(MoreDockButton, {
@@ -10442,7 +10069,6 @@ local function MoreDock(_param)
 		for _k, _v in more do
 			_newValue[_k] = _callback(_v, _k - 1, more)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		return React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, height),
 			BackgroundColor3 = Palette.night,
@@ -10459,15 +10085,11 @@ local function MoreDock(_param)
 			ZIndex = 56,
 		}, _exp_2, _newValue))
 	end
-	-- Only as many entries as comfortably fit get a permanent slot on the bar; the rest live
-	-- behind a "MORE" trigger opened on demand (MoreDockPopover), same idea as the mobile tab
-	-- bar's overflow sheet. One slot is reserved for the trigger whenever there's overflow.
 	local visibleCount = math.clamp(math.floor((viewport.width - 32) / (MORE_BTN_W + 4)), 1, 7)
 	local needsMore = #more > visibleCount
 	local primaryCount = if needsMore then math.max(1, visibleCount - 1) else visibleCount
 	local primary = {}
 	local overflow = {}
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(entry, index)
 		if index < primaryCount then
 			local _entry = entry
@@ -10481,11 +10103,6 @@ local function MoreDock(_param)
 	for _k, _v in more do
 		_callback(_v, _k - 1, more)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
-	-- Keep the active page visible on the bar even if it would otherwise land in overflow --
-	-- swap it in for the last primary slot (and move the displaced entry into overflow) so the
-	-- current page is never hidden behind the MORE trigger.
-	-- ▼ ReadonlyArray.find ▼
 	local _callback_1 = function(entry)
 		return entry.id == page
 	end
@@ -10496,12 +10113,10 @@ local function MoreDock(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local activeInOverflow = _result
 	if activeInOverflow ~= nil and #primary > 0 then
 		local displaced = primary[#primary]
 		primary[#primary] = activeInOverflow
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback_2 = function(entry)
 			return entry.id ~= activeInOverflow.id
@@ -10513,13 +10128,11 @@ local function MoreDock(_param)
 				_newValue[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		overflow = _newValue
 		if displaced ~= nil then
 			table.insert(overflow, 1, displaced)
 		end
 	end
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result_1 = 0
 	local _callback_2 = function(sum, entry)
 		return sum + AppHelpers:navBadge(entry, state, chatUnread)
@@ -10527,7 +10140,6 @@ local function MoreDock(_param)
 	for _i = 1, #overflow do
 		_result_1 = _callback_2(_result_1, overflow[_i], _i - 1, overflow)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local overflowBadgeTotal = _result_1
 	local moreTriggerActive = moreMenuOpen or activeInOverflow ~= nil
 	local toggleMoreMenu = function()
@@ -10564,7 +10176,6 @@ local function MoreDock(_param)
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Padding = UDim.new(0, 4),
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#primary)
 	local _callback_3 = function(entry, index)
 		return React.createElement(MoreDockButton, {
@@ -10582,7 +10193,6 @@ local function MoreDock(_param)
 	for _k, _v in primary do
 		_newValue[_k] = _callback_3(_v, _k - 1, primary)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, height),
 		BackgroundColor3 = Palette.night,
@@ -10646,7 +10256,6 @@ local function MoreDock(_param)
 		end,
 	}))
 end
--- Rail sections. Open/closed state outlives remounts (drawer close, resize) for the session.
 local railGroupMemory = {}
 local NAV_BODY_PAD = 3
 local function NavChevron(_param)
@@ -10664,7 +10273,6 @@ local function NavChevron(_param)
 			CornerRadius = UDim.new(1, 0),
 		}))
 	end
-	-- A "v" that points right when closed and turns down as the group opens.
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(12, 12),
 		Position = _param.position,
@@ -10706,9 +10314,6 @@ local function NavGroup(_param)
 	if activeIndex ~= nil then
 		heldSelection.current = (activeIndex - 1) * stride
 	end
-	-- A liquid pill: the leading edge chases the new row on a fast spring while
-	-- the trailing edge follows on a slower one, so it stretches toward where
-	-- you clicked and gathers itself as it lands.
 	local selectionLead = useFlipperSpring(heldSelection.current, reducedMotion, 720, 48)
 	local selectionTrail = useFlipperSpring(heldSelection.current, reducedMotion, 300, 46)
 	local selectionSpan = React.joinBindings({ selectionLead, selectionTrail })
@@ -10751,13 +10356,10 @@ local function NavGroup(_param)
 			InteractionFeedback.tap()
 		end
 		local headerChildren = {}
-		-- A closed group still tells you something inside wants attention. On the full rail the
-		-- badge sits inline at the right edge and the route count steps left of it, so they never overlap.
 		local showBadge = not open and badgeTotal > 0
 		local badgeW = if badgeTotal > 99 then 20 elseif badgeTotal >= 10 then 16 else 14
 		local countShift = if showBadge and not collapsed then badgeW + 6 else 0
 		if collapsed then
-			-- Icon-only rail: a short rule with the chevron under it.
 			headerChildren.rule = React.createElement("frame", {
 				Size = UDim2.new(0.5, 0, 0, 2),
 				Position = UDim2.new(0.5, 0, 0, 4),
@@ -10893,12 +10495,10 @@ local function NavGroup(_param)
 	}, header, React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, bodyH),
 		Position = openAmount:map(function(amount)
-			-- Rows ease down a few pixels as the group opens instead of just being uncovered.
 			return UDim2.fromOffset(0, headerHeight - math.round((1 - math.clamp(amount, 0, 1)) * 8))
 		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		-- Hidden rows must not take gamepad selection.
 		Visible = openAmount:map(function(amount)
 			return amount > 0.01
 		end),
@@ -10938,7 +10538,6 @@ local function Navigation(_param)
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local railNavHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on sidebar rail (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -10981,7 +10580,6 @@ local function Navigation(_param)
 		end
 		return id == "Home" or id == activeGroup
 	end
-	-- Opening a page opens its group, and that choice sticks after you leave it.
 	React.useEffect(function()
 		if activeGroup == nil or groupOpen[activeGroup] == true then
 			return nil
@@ -11040,7 +10638,6 @@ local function Navigation(_param)
 			end
 			addGroup(group.key, group.label, entries, false)
 		end
-		-- Anything a future route adds without a group still shows up.
 		local loose = {}
 		for _, list in { primaryEntries, secondaryEntries } do
 			for _, entry in list do
@@ -11067,7 +10664,6 @@ local function Navigation(_param)
 		BackgroundColor3 = Palette.night,
 		BorderSizePixel = 0,
 		ZIndex = 10,
-		-- FocusClaim rail nav must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 10),
@@ -11088,7 +10684,6 @@ local function Navigation(_param)
 		Size = UDim2.new(1, -(SHELL_CHROME.railGutter * 2 + 4), 1, -(headerHeight + SHELL_CHROME.railGutter + boostReserve)),
 		Position = UDim2.fromOffset(SHELL_CHROME.railGutter, headerHeight),
 		CanvasSize = UDim2.new(),
-		-- Groups animate their own height, so the canvas follows them.
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -11132,9 +10727,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: WorkspaceChrome   (merged from WorkspaceChrome.luau, 565 lines)
--- ======================================================================
 __defs["WorkspaceChrome"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -11146,8 +10738,6 @@ local useFlash = _motion.useFlash
 local useTokenEntrance = _motion.useTokenEntrance
 local PageTransition = require(script.Parent.MotionKit)("pageTransition")
 local NavRouteTable = require(script.Parent.CoreKit)("navRouteTable")
--- Nav order the page slide follows: the rail's sections on PC; on phones the
--- tab bar first, then the Menu sections.
 local PAGE_ORDER = {}
 local function pageOrderFor(phone)
 	local key = if phone then "phone" else "rail"
@@ -11225,10 +10815,6 @@ local function VaultPill(_param)
 	local ready = VaultCollectEligibility.isEligible(asFlux(state.Vault))
 	local full = VaultCollectEligibility.isFull(fill)
 	local bar = if full then Palette.mango else accent
-	-- This number updates on every production tick for the whole session, so it can't afford a
-	-- continuously-running tween -- instead, a brief flash on genuine gains via useFlash (a
-	-- short spring that settles and goes idle) gives it a felt reaction without any per-tick
-	-- motor cost between updates.
 	local gains, setGains = React.useState(0)
 	local previousVault = React.useRef(state.Vault)
 	local softMotion = reducedMotion
@@ -11319,11 +10905,6 @@ local function VaultPill(_param)
 		CornerRadius = UDim.new(1, 0),
 	})))))
 end
--- The level bar: the player's Forge Level, the one goal that levels them up,
--- and what that level opens -- one calm line under every page title. Type
--- carries the hierarchy (level and goal in cream, the rest muted); the tier
--- colour only fills the progress hairline along the bottom. Tapping anywhere
--- on it opens the full level roadmap.
 local function NextUnlockStrip(_param)
 	local state = _param.state
 	local reducedMotion = _param.reducedMotion
@@ -11346,7 +10927,6 @@ local function NextUnlockStrip(_param)
 		elseif #nextNames == 1 then `Opens {nextNames[1]}`
 		else `Opens {nextNames[1]} +{#nextNames - 1}`
 	local nextW = if narrow or nextText == "" then 0 else 150
-	-- Time to the next level at the current output, for goals earned over time.
 	local LevelRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 	local rate = tonumber(state.Production) or 0
 	local eta = if nextStep ~= nil then LevelRewards.eta(nextStep.Kind, nextStep.Target - nextStep.Progress, rate) else nil
@@ -11378,7 +10958,6 @@ local function NextUnlockStrip(_param)
 			end,
 		},
 	}, React.createElement("frame", {
-		-- A barely-there lift on hover says "this opens something".
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.cream,
 		BackgroundTransparency = if hovered then 0.96 else 1,
@@ -11402,7 +10981,6 @@ local function NextUnlockStrip(_param)
 		position = UDim2.fromOffset(14 + levelW + 4, 0),
 		sizeConstraint = UDim2.new(0, tierW, 1, -3),
 	}), not narrow and React.createElement("frame", {
-		-- Hairline between who you are and what's next.
 		Size = UDim2.fromOffset(1, 12),
 		Position = UDim2.new(0, goalLeft - 8, 0.5, -7),
 		BackgroundColor3 = Palette.lineSoft,
@@ -11445,7 +11023,6 @@ local function NextUnlockStrip(_param)
 		position = UDim2.new(1, -22, 0, -1),
 		sizeConstraint = UDim2.fromOffset(14, 30),
 	}), React.createElement("frame", {
-		-- Progress to the next level: a hairline across the whole bar.
 		Size = UDim2.new(1, 0, 0, 2),
 		Position = UDim2.new(0, 0, 1, -2),
 		BackgroundColor3 = Palette.line,
@@ -11455,7 +11032,6 @@ local function NextUnlockStrip(_param)
 		BackgroundColor3 = accent,
 		BorderSizePixel = 0,
 	}), nextStep ~= nil and React.createElement("frame", {
-		-- The halfway checkpoint pays out here.
 		Size = UDim2.fromOffset(2, 6),
 		Position = UDim2.new(0.5, 0, 1, 0),
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -11487,8 +11063,6 @@ local function Workspace(_param)
 	local accent = AppHelpers:pageAccent(page)
 	local entry = AppHelpers:pageEntry(page)
 	local enter = useTokenEntrance(page, reducedMotion, 0.2)
-	-- Which way the new page arrives: from where its nav button sits relative
-	-- to the last one (down/up the PC rail, right/left along the phone tab bar).
 	local pageTrack = React.useRef(nil)
 	if pageTrack.current == nil then
 		pageTrack.current = { page = page, direction = 1 }
@@ -11496,8 +11070,6 @@ local function Workspace(_param)
 		pageTrack.current = { page = page, direction = PageTransition.direction(pageTrack.current.page, page, pageOrderFor(chrome.stack)) }
 	end
 	local pageDirection = pageTrack.current.direction
-	-- The whole page arrives as one piece: its text and buttons follow the
-	-- page's entrance (cards inside layer their own on top).
 	local shellPresence = useExitPresence()
 	local pagePresence = React.useMemo(function()
 		return composePresence(shellPresence, enter)
@@ -11550,7 +11122,6 @@ local function Workspace(_param)
 	local vaultBtn = if chrome.stack then TapTarget else 44
 	local ready = VaultCollectEligibility.isEligible(asFlux(state.Vault))
 	local vaultCollectHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on Workspace COLLECT (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -11577,8 +11148,6 @@ local function Workspace(_param)
 		local dx, dy = PageTransition.offset(amount, pageDirection, slideAxis, slideDistance)
 		return UDim2.new(0, inset + dx, 0, headerHeight + unlockH + inset + dy)
 	end)
-	-- The swap itself is instant, so an ink veil over the content dissolves as
-	-- the page settles: the old page appears to cross-fade into the new one.
 	local veilTransparency = enter:map(PageTransition.veilTransparency)
 	local veilVisible = enter:map(function(amount)
 		return PageTransition.veilTransparency(amount) < 0.995
@@ -11591,9 +11160,6 @@ local function Workspace(_param)
 		return (1 - t) * 0.4
 	end)
 	local titleLeft = if keyboardCompact then 54 elseif chrome.stack then 66 else 84
-	-- Desktop reserves room for the right-side VaultPill (248px wide, anchored at -316): the
-	-- title block must stop before it. -392 used to run 8px into the pill; -344 keeps a 6px
-	-- clearance on every desktop width.
 	local titleReserve = if keyboardCompact then -(titleLeft + vaultBtn + 18) else (if chrome.stack then -(vaultBtn + 18) elseif chrome.tight then -(vaultBtn + 28) else -344) - (titleLeft - (if chrome.stack then 14 else 22))
 	local denseHeader = not keyboardCompact and not chrome.landscape and not chrome.stack and headerHeight < 74
 	local titleBlockH = if keyboardCompact then 32 elseif chrome.landscape then 28 elseif chrome.stack then 36 elseif denseHeader then 44 else 72
@@ -11705,7 +11271,6 @@ local function Workspace(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 22,
-		-- FocusClaim COLLECT must not clip CTA overshoot.
 		ClipsDescendants = false,
 	}, React.createElement(Button, {
 		text = "",
@@ -11726,7 +11291,6 @@ local function Workspace(_param)
 		highlight = asFlux(state.Vault) >= asFlux(state.Capacity) * VaultCollectEligibility.NEAR_FULL,
 		zIndex = 22,
 	}))), unlockH > 0 and React.createElement("frame", {
-		-- The guide points at this.
 		Name = "LevelBarTarget",
 		Size = UDim2.new(1, 0, 0, unlockH),
 		Position = UDim2.fromOffset(0, headerHeight),
@@ -11773,9 +11337,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ShellFx   (merged from ShellFx.luau, 311 lines)
--- ======================================================================
 __defs["ShellFx"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -11791,8 +11352,6 @@ local darken = require(script.Parent.CoreKit)("theme").darken
 local lighten = require(script.Parent.CoreKit)("theme").lighten
 local Fx = require(script.Parent.MotionKit)("vfxMath")
 
--- Confetti: paper pieces, generated once. Each is thrown from one of two
--- cannons under the reward, slowed hard by the air, and left to flutter down.
 local CONFETTI_COLORS = { Palette.green, Palette.cyan, Palette.mango, Palette.pink, Palette.violet, Palette.cream }
 local CONFETTI_COUNT = 44
 local CONFETTI_PIECES = {}
@@ -11800,7 +11359,6 @@ for index = 1, CONFETTI_COUNT do
 	local side = if index % 2 == 0 then -1 else 1
 	CONFETTI_PIECES[index] = {
 		side = side,
-		-- Up and a little inward from each cannon.
 		angle = -math.pi / 2 - side * math.rad(8 + Fx.hash(index, 1) * 34),
 		speed = 640 + Fx.hash(index, 2) * 560,
 		size = 5 + math.floor(Fx.hash(index, 3) * 4),
@@ -11828,7 +11386,6 @@ local function TradeReturnPill(_param)
 	local width = if stack then 176 else 198
 	local height = if stack then 48 else 46
 	local tradeReturnHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on BACK TO TRADE (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -11851,7 +11408,6 @@ local function TradeReturnPill(_param)
 		Name = "TradeReturnClaim",
 		ref = tradeReturnHostRef,
 		Size = UDim2.fromOffset(width, height),
-		-- FocusClaim BACK TO TRADE must not clip CTA overshoot.
 		ClipsDescendants = false,
 		Position = enter:map(function(amount)
 			return UDim2.new(0.5, 0, 1, -(bottomPad + (if stack then 10 else 16) - math.round((1 - amount) * 22)))
@@ -11975,7 +11531,6 @@ local function ConfettiBurst(_param)
 		})
 	end
 	local pieces = {}
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(piece, index)
 		if index < activeCount then
 			local _piece = piece
@@ -11985,15 +11540,12 @@ local function ConfettiBurst(_param)
 	for _k, _v in CONFETTI_PIECES do
 		_callback(_v, _k - 1, CONFETTI_PIECES)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	local _exp = { 0, 1 }
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#_exp)
 	local _callback_1 = function(ring)
 		return React.createElement("frame", {
 			key = `confetti-ring-{ring}`,
 			Size = clock:map(function(seconds)
-				-- Bursts out fast and slows, like the forge's shock rings.
 				local grow = Fx.ring(seconds - ring * 0.08, 0.6)
 				local d = 24 + grow * (190 + ring * 52)
 				return UDim2.fromOffset(d, d)
@@ -12020,15 +11572,12 @@ local function ConfettiBurst(_param)
 	for _k, _v in _exp do
 		_newValue[_k] = _callback_1(_v, _k - 1, _exp)
 	end
-	-- ▲ ReadonlyArray.map ▲
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#pieces)
 	local _callback_2 = function(piece, index)
 		local origin = UDim2.fromScale(0.5 + piece.side * 0.12, 0.66)
 		local function age(seconds: number): number
 			return math.max(0, seconds - piece.delay)
 		end
-		-- How face-on the paper is as it tumbles (0 = edge-on, 1 = flat).
 		local function flip(t: number): number
 			return math.abs(math.cos(t * piece.spin + piece.phase))
 		end
@@ -12041,7 +11590,6 @@ local function ConfettiBurst(_param)
 			Position = clock:map(function(seconds)
 				local t = age(seconds)
 				local dx, dy = Fx.ballistic(t, piece.angle, piece.speed, CONFETTI_GRAVITY, CONFETTI_DRAG)
-				-- Flutter grows as the paper slows and starts to fall.
 				local flutter = math.sin(t * 2.6 + piece.phase) * piece.sway * math.clamp(t / 0.6, 0, 1)
 				return origin + UDim2.fromOffset(dx + flutter, dy)
 			end),
@@ -12050,7 +11598,6 @@ local function ConfettiBurst(_param)
 				local t = age(seconds)
 				return math.deg(piece.phase) + t * (if index % 2 == 0 then 210 else -190) + math.sin(t * 3 + piece.phase) * 18
 			end),
-			-- Paper catches the light when it turns face-on.
 			BackgroundColor3 = clock:map(function(seconds)
 				return piece.color:Lerp(lighten(piece.color, 0.4), flip(age(seconds)))
 			end),
@@ -12069,7 +11616,6 @@ local function ConfettiBurst(_param)
 	for _k, _v in pieces do
 		_newValue_1[_k] = _callback_2(_v, _k - 1, pieces)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -12086,9 +11632,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: effects   (merged from effects.luau, 299 lines)
--- ======================================================================
 __defs["effects"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
@@ -12155,7 +11698,6 @@ local function EffectLayer(_param)
 	local max = math.max(1, math.min(antilag.maxPops, math.floor(12 * antilag.fxBudget)))
 	local _result
 	if #pops > max then
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback = function(_, index)
 			return index >= #pops - max
@@ -12167,13 +11709,11 @@ local function EffectLayer(_param)
 				_newValue[_length] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		_result = _newValue
 	else
 		_result = pops
 	end
 	local visible = _result
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#visible)
 	local _callback = function(pop)
 		return React.createElement(Pop, {
@@ -12184,7 +11724,6 @@ local function EffectLayer(_param)
 	for _k, _v in visible do
 		_newValue[_k] = _callback(_v, _k - 1, visible)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -12273,8 +11812,6 @@ local function StarField(_param)
 		})
 	end
 	local glow = antilag.glowScale
-	-- Only iterate the live prefix — building #STARS nil slots every render was
-	-- free work on every antilag context push.
 	local children = table.create(count)
 	for index = 0, count - 1 do
 		local star = STARS[index + 1]
@@ -12391,9 +11928,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: levelRoadmap   (merged from levelRoadmap.luau, 643 lines)
--- ======================================================================
 __defs["levelRoadmap"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ContextActionService = game:GetService("ContextActionService")
@@ -12417,27 +11951,12 @@ local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
 
--- The Forge Level roadmap: the whole progression ladder on one screen, laid
--- out as a timeline. A rail runs down the left edge and fills up to the
--- player's level; each level is one quiet row -- its goal, and what it opens.
---
--- Visual rules (kept deliberately plain):
---   * Type does the work: goal text is the primary line, everything else is
---     secondary and muted. No pills, badges, icons, glows or outlines.
---   * The tier colour appears in exactly three places: the tier name, the
---     player's own node on the rail, and progress fills.
---   * One spacing unit (4px) and one left edge for all text.
---
--- The ladder comes from ForgeLevels (shared, via config.Levels); the player's
--- level and next-goal progress come from the server snapshot (state.Level).
-
 local UNIT = 4
 local ROW_H = 54
 local TIER_H = 44
 local RAIL_X = 14
 local TEXT_X = 40
 
--- The ladder warms as it climbs.
 local TIER_ACCENT_KEYS = {
 	Beginner = "mint",
 	Apprentice = "cyan",
@@ -12452,7 +11971,6 @@ local function tierAccent(tier)
 	return if key ~= nil then Palette[key] else Palette.cyan
 end
 
--- Display names for feature ids, from the live unlock states.
 local function featureNames(state, ids)
 	local names = {}
 	if type(ids) ~= "table" then
@@ -12466,7 +11984,6 @@ local function featureNames(state, ids)
 	return names
 end
 
--- "Missions, Leaderboards and Guild".
 local function joinNames(names)
 	local count = #names
 	if count == 0 then
@@ -12477,7 +11994,6 @@ local function joinNames(names)
 	return table.concat(names, ", ", 1, count - 1) .. " and " .. names[count]
 end
 
--- The player's level state, tolerant of a snapshot from before levels existed.
 local function readLevelState(state)
 	local levelState = if state ~= nil then state.Level else nil
 	if type(levelState) ~= "table" then
@@ -12500,8 +12016,6 @@ local function progressFraction(nextStep)
 	return math.clamp((tonumber(nextStep.Progress) or 0) / math.max(1, tonumber(nextStep.Target) or 1), 0, 1)
 end
 
--- A thin progress track: a hairline of the line colour with the filled part in
--- the tier colour. Used in the header and on the next level's row.
 local function Track(props)
 	return React.createElement("frame", {
 		Size = props.size,
@@ -12551,7 +12065,6 @@ local function TierHeading(_param)
 	}))
 end
 
--- The node where a row meets the rail.
 local function RailNode(_param)
 	local status = _param.status
 	local accent = _param.accent
@@ -12586,7 +12099,6 @@ local function LevelRow(_param)
 	local rightW = _param.rightW
 	local goalText = if def.Goal ~= nil and type(def.Goal.Text) == "string" then def.Goal.Text else "Where every forge starts"
 	local detail = if _param.opens ~= "" then `Level {def.Level} · Opens {_param.opens}` else `Level {def.Level}`
-	-- What reaching the level pays (levels already passed have paid).
 	if def.Level > 1 and status ~= "done" and not here then
 		local LevelRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LevelRewards")
 		local reward = LevelRewards.forLevel(def.Level, def.Tier)
@@ -12724,7 +12236,6 @@ local function LevelRoadmap(_param)
 	local listH = math.max(60, height - pad * 2 - listTop)
 	local rightW = if compact then 64 else 88
 
-	-- Lay the ladder out top to bottom, a heading at the start of each tier.
 	local rows = {}
 	local y = 0
 	local focusY = 0
@@ -12767,7 +12278,6 @@ local function LevelRoadmap(_param)
 	end
 	local canvasH = y + UNIT * 2
 	local railTop = firstNodeY or 0
-	-- The rail: the whole ladder in the line colour, filled to the player's node.
 	rows.Rail = React.createElement("frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.fromOffset(RAIL_X, railTop),
@@ -12785,7 +12295,6 @@ local function LevelRoadmap(_param)
 		ZIndex = 477,
 	})
 
-	-- Open scrolled to the player's own level, with a little of what's behind.
 	local listRef = React.useRef(nil)
 	React.useEffect(function()
 		local list = listRef.current
@@ -12818,7 +12327,6 @@ local function LevelRoadmap(_param)
 			return amount > 0.003
 		end),
 	}, React.createElement("imagebutton", {
-		-- Scrim: tapping outside the card closes the roadmap.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = motion:map(function(amount)
@@ -12956,7 +12464,6 @@ local function LevelRoadmap(_param)
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 		zIndex = 474,
 	}), React.createElement("frame", {
-		-- Hairline between the header and the ladder.
 		Size = UDim2.new(1, 0, 0, 1),
 		Position = UDim2.fromOffset(0, headerH),
 		BackgroundColor3 = Palette.lineSoft,
@@ -12983,11 +12490,6 @@ local function LevelRoadmap(_param)
 	}, rows))))))
 end
 
--- Open state lives here rather than in the app shell. The shell's main
--- component sits near Luau's 200-local limit (Studio compiles at O0 when the
--- debugger is on, where every local counts), and the level bar that opens the
--- roadmap lives deep inside the workspace. A tiny store both sides can reach
--- keeps the shell at zero new locals and avoids threading a prop through.
 local openListeners: { [(boolean) -> ()]: boolean } = {}
 local roadmapOpen = false
 
@@ -13005,7 +12507,6 @@ local function openRoadmap()
 	setRoadmapOpen(true)
 end
 
--- Mounted once by the app shell; renders the roadmap while it is open.
 local function LevelRoadmapHost(_param)
 	local open, setOpen = React.useState(roadmapOpen)
 	React.useEffect(function()
@@ -13043,9 +12544,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CelebrationBurst   (merged from CelebrationBurst.luau, 767 lines)
--- ======================================================================
 __defs["CelebrationBurst"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
@@ -13186,8 +12684,6 @@ local function noise(seed, index, salt)
 	local raw = math.sin(seed * 0.019 + (index + 1) * 12.9898 + salt * 78.233) * 43758.5453
 	return raw - math.floor(raw)
 end
--- Bursts use the shared decelerate curve: a sharp launch that settles long,
--- the same arrival the rest of the interface uses.
 local function easeOutCubic(value)
 	return MotionTokens.EASE.decelerate(math.clamp(value, 0, 1))
 end
@@ -13307,7 +12803,6 @@ local function ForgeParticle(_param)
 	local detailed = _param.detailed
 	local motion = time:map(function(seconds)
 		local progress = math.clamp((seconds - particle.delay) / math.max(0.2, duration - 0.2 - particle.delay), 0, 1)
-		-- Arrive decelerating, leave accelerating (never a linear fade).
 		local arrival = MotionTokens.EASE.decelerate(math.clamp(progress / 0.07, 0, 1))
 		local departure = MotionTokens.EASE.accelerate(math.clamp((progress - 0.68) / 0.32, 0, 1))
 		local visibility = arrival * (1 - departure)
@@ -13688,7 +13183,6 @@ local function CelebrationBurst(_param)
 	local desired = math.floor(MAX_PARTICLES * math.clamp(intensity, 0.12, 1) * math.max(0.4, antilag.fxBudget))
 	local budgetCap = if minimal then 0 else math.max(if constrained then 2 else 4, antilag.particleBudget)
 	local activeCount = math.clamp(math.min(desired, budgetCap, mobileCap), 0, MAX_PARTICLES)
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue = {}
 	local _callback = function(_, index)
 		return index < activeCount
@@ -13700,17 +13194,13 @@ local function CelebrationBurst(_param)
 			_newValue[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local particles = _newValue
-	-- Skip per-particle glow frames on constrained/low quality — each glow is an
-	-- extra GuiObject + transparency binding for every spark.
 	local detailed = not minimal and not constrained and antilag.quality >= 0.72 and antilag.glowScale >= 0.45 and activeCount <= 10
 	local impact = time:map(function(seconds)
 		return easeOutBack(math.clamp(seconds / 0.28, 0, 1))
 	end)
 	local rayCount = if minimal then 0 elseif constrained then (if antilag.quality >= 0.55 then 2 else 0) elseif antilag.quality >= 0.62 then 4 elseif antilag.quality >= 0.28 then 2 else 0
 	local rays = if rayCount == 4 then { 0, 90, 180, 270 } elseif rayCount == 2 then { 0, 180 } else {}
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#rays)
 	local _callback_1 = function(angle, index)
 		return React.createElement("frame", {
@@ -13734,9 +13224,7 @@ local function CelebrationBurst(_param)
 	for _k, _v in rays do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, rays)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp = { 0, 1 }
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_2 = {}
 	local _callback_2 = function(ring)
 		return not minimal or ring == 0
@@ -13748,8 +13236,6 @@ local function CelebrationBurst(_param)
 			_newValue_2[_length_1] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_3 = table.create(#_newValue_2)
 	local _callback_3 = function(ring)
 		return React.createElement("frame", {
@@ -13777,7 +13263,6 @@ local function CelebrationBurst(_param)
 	for _k, _v in _newValue_2 do
 		_newValue_3[_k] = _callback_3(_v, _k - 1, _newValue_2)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_1 = React.createElement(RewardReceipt, {
 		style = style,
 		time = time,
@@ -13785,7 +13270,6 @@ local function CelebrationBurst(_param)
 		reducedMotion = reducedMotion,
 		compact = viewport.compact or viewport.tight,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_4 = table.create(#particles)
 	local _callback_4 = function(particle, index)
 		return React.createElement(ForgeParticle, {
@@ -13801,7 +13285,6 @@ local function CelebrationBurst(_param)
 	for _k, _v in particles do
 		_newValue_4[_k] = _callback_4(_v, _k - 1, particles)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -13816,9 +13299,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: ComboBadge   (merged from ComboBadge.luau, 296 lines)
--- ======================================================================
 __defs["ComboBadge"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useAntilag = require(script.Parent.MotionKit)("antilag").useAntilag
@@ -13838,27 +13318,13 @@ local lighten = _theme.lighten
 local _ui = __load("ui")
 local Stroke = _ui.Stroke
 local Text = _ui.Text
---[[
-	*
-	 * Cosmetic-only combo readout for the Overcharge tap loop. The server is the sole
-	 * authority on `Combo` / `ComboMultiplier` — this component only ever mirrors values
-	 * it is handed (per-tap effect/RemoteFunction data, or the decay-aware state snapshot
-	 * as a resync fallback) and layers a client-side countdown purely to decide when to
-	 * fade the badge out if the player stops tapping before the next server update arrives.
-	 
-]]
--- Continuous cyan -> pink -> coral -> mango ramp instead of comboAccent's old hard steps, so the
--- badge's color visibly eases as the streak climbs instead of jumping between four fixed colors.
+
 local HEAT_STOPS = { Palette.cyan, Palette.pink, Palette.coral, Palette.mango }
 local function heatColor(ratio)
 	local t = math.clamp(ratio, 0, 1) * (#HEAT_STOPS - 1)
 	local index = math.min(#HEAT_STOPS - 2, math.floor(t))
 	return HEAT_STOPS[index + 1]:Lerp(HEAT_STOPS[index + 2], t - index)
 end
--- Thin decay-countdown ring around the icon: a real read of how long the streak has left before
--- it expires, not just decoration. Reuses the same startedAt-anchored useClock sweep technique as
--- the reactor's PulseWindowNeedle (motion.ts's useClock always loops, so a "one countdown, not a
--- repeating sweep" ring is built by driving Visible off the remaining-time fraction directly).
 local function DecayRing(_param)
 	local accent = _param.accent
 	local updatedAt = _param.updatedAt
@@ -13884,10 +13350,6 @@ local function DecayRing(_param)
 		LineJoinMode = Enum.LineJoinMode.Round,
 	}, React.createElement("uigradient", {
 		Transparency = remaining:map(function(fraction)
-			-- NumberSequence throws if keypoints aren't strictly increasing in time. Clamping
-			-- each bound independently (the original approach) let the second keypoint land
-			-- past the third once `fraction` got close enough to 1 -- clamp them jointly
-			-- instead so the ordering holds for every possible fraction, including 0 and 1.
 			local edge = math.clamp(fraction, 0.001, 0.998)
 			return NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(edge, 0.05), NumberSequenceKeypoint.new(edge + 0.001, 1), NumberSequenceKeypoint.new(1, 1) })
 		end),
@@ -13954,9 +13416,6 @@ local function ComboBadge(_param)
 			setEverVisible(true)
 		end
 	end, { visible })
-	-- Punches the icon and stat text on every combo increment (not just on show/hide), so each
-	-- successful tap reads as a distinct beat instead of the badge only ever animating in once
-	-- and then sitting static while the number underneath silently climbs.
 	local tapPunch, setTapPunch = React.useState(0)
 	local lastCombo = React.useRef(0)
 	React.useEffect(function()
@@ -13970,7 +13429,6 @@ local function ComboBadge(_param)
 	local punch = useFlash(tapPunch, reducedMotion, 0.28)
 	local presence = useOptionalFlipperSpring(if visible then 1 else 0, everVisible, reducedMotion, 580, 32)
 	local intensitySpring = useOptionalFlipperSpring(ratio, visible, reducedMotion, 380, 28)
-	-- Maxed glow breathes slowly; punch carries the beat hierarchy.
 	local glow = useGlowStroke(maxed and visible and antilag.allowAmbient, reducedMotion, 0.42, 0.22, 0.5, if maxed then 1.6 else 1.2)
 	local maxPulse = usePulse(maxed and visible and not reducedMotion, 1.7)
 	local scale = React.useMemo(function()
@@ -14118,9 +13576,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: FeedbackOverlay   (merged from FeedbackOverlay.luau, 417 lines)
--- ======================================================================
 __defs["FeedbackOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local GamepadNavigationService = require(script.Parent.CoreKit)("GamepadNavigationService")
@@ -14387,7 +13842,6 @@ local function FeedbackOverlay(_param)
 	local _condition = not sent and not keyboardCompact
 	if _condition then
 		local _attributes = {}
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#CATEGORIES)
 		local _callback = function(choice)
 			return {
@@ -14399,7 +13853,6 @@ local function FeedbackOverlay(_param)
 		for _k, _v in CATEGORIES do
 			_newValue[_k] = _callback(_v, _k - 1, CATEGORIES)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_attributes.options = _newValue
 		_attributes.value = category
 		_attributes.onChange = function(id)
@@ -14538,24 +13991,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: MobileShell   (merged from MobileShell.luau, 908 lines)
--- ======================================================================
 __defs["MobileShell"] = function()
--- Mobile shell (v3), written from scratch for phones and small tablets.
---
---   * Tab bar: the pages players use most, each a full-height touch target with a
---     highlight pill. The last slot is Menu; when the current page isn't on the bar,
---     that slot shows the current page instead, so you always see where you are.
---   * Menu sheet: every page, grouped into the same six sections as the PC rail, with
---     search and badges. Any page is two taps away. Swipe the handle down or tap
---     outside to close.
---   * Header: page title, the currencies that fit (never overlapping the title), a
---     players button, and the level pill with its progress along the bottom edge.
---   * Quick actions: Bank, and Overcharge you can hold to keep tapping.
---
--- Sizes come from the mobile layout plan (chromeFor): the bar never resizes or
--- animates its height, and every control is at least TapTarget tall.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
 local _motion = require(script.Parent.MotionKit)("motion")
@@ -14641,7 +14077,6 @@ local function TabButton(_param)
 			return 1 - math.clamp(amount, 0, 1) * 0.06
 		end),
 	}), React.createElement("frame", {
-		-- Highlight pill behind the icon.
 		Size = selection:map(function(amount)
 			local t = math.clamp(amount, 0, 1)
 			return UDim2.fromOffset(math.round(28 + 22 * t), 28)
@@ -14905,7 +14340,6 @@ local function MenuSheet(_param)
 		end),
 		ZIndex = 505,
 	}, React.createElement("textbutton", {
-		-- Scrim: tap outside to close.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = amount:map(function(value)
@@ -14935,7 +14369,6 @@ local function MenuSheet(_param)
 		Color = Palette.line,
 		Transparency = 0.3,
 	}), React.createElement("frame", {
-		-- Drag handle: pull down to close.
 		Size = UDim2.new(1, 0, 0, 30),
 		BackgroundTransparency = 1,
 		Active = true,
@@ -15037,7 +14470,6 @@ local function MobileTabBar(_param)
 	for _, entry in tabs do
 		onBar[entry.id] = true
 	end
-	-- Badges of everything behind Menu, summed onto it.
 	local menuBadge = 0
 	for _, entry in available do
 		if not onBar[entry.id] then
@@ -15170,7 +14602,6 @@ local function MobileHeader(_param)
 	local chipW = if short then 62 else 70
 	local playersW = barHeight - 8
 	local iconSize = if short then 24 else 30
-	-- Currencies by priority; only as many as fit beside a readable title.
 	local wanted = { { key = "flux", value = state.Cash, accent = Palette.cyan } }
 	if AppHelpers:featureUnlocked(state, "StarGrid") then
 		table.insert(wanted, { key = "dust", value = state.Stardust, accent = Palette.mango })
@@ -15201,7 +14632,6 @@ local function MobileHeader(_param)
 	end
 	local chipsW = fit * chipW + math.max(0, fit - 1) * 6
 	local visitors = if type(state.Visitors) == "table" then #state.Visitors else 0
-	-- Level progress along the bottom edge; the pill opens the roadmap.
 	local roadmap = __load("levelRoadmap")
 	local level, _tier, nextStep = roadmap.readLevelState(state)
 	local fill = if nextStep ~= nil then roadmap.progressFraction(nextStep) else 1
@@ -15239,7 +14669,6 @@ local function MobileHeader(_param)
 		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
 		ZIndex = 21,
 	}), not short and React.createElement("textbutton", {
-		-- Level pill.
 		Size = UDim2.fromOffset(64, 16),
 		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
 		BackgroundColor3 = darken(accent, 0.55),
@@ -15265,7 +14694,6 @@ local function MobileHeader(_param)
 		BackgroundTransparency = 1,
 		ZIndex = 21,
 	}, chips), React.createElement("imagebutton", {
-		-- Players.
 		Name = "MobilePlayersButton",
 		Size = UDim2.fromOffset(playersW, playersW),
 		Position = UDim2.new(1, -4, 0.5, 0),
@@ -15312,7 +14740,6 @@ local function MobileHeader(_param)
 	})))
 end
 
--- Bank and Overcharge above the tab bar. Overcharge repeats while held.
 local function MobileQuickActions(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
@@ -15348,7 +14775,6 @@ local function MobileQuickActions(_param)
 		if not holding then
 			return nil
 		end
-		-- A finger can lift outside the button; stop the repeat on any release.
 		local released = UserInputService.InputEnded:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
 				setHolding(false)
@@ -15385,7 +14811,6 @@ local function MobileQuickActions(_param)
 		Thickness = if vaultFill > 0.8 then 2 else 1,
 		Transparency = 0.35,
 	}), React.createElement("frame", {
-		-- Vault fill along the top edge.
 		Size = UDim2.new(1, -20, 0, 3),
 		Position = UDim2.fromOffset(10, 3),
 		BackgroundColor3 = Palette.line,
@@ -15427,7 +14852,6 @@ local function MobileQuickActions(_param)
 		disabled = not vaultReady,
 		highlight = vaultReady and vaultFill > 0.5,
 	})), React.createElement("imagebutton", {
-		-- Overcharge: tap, or hold to keep tapping.
 		Name = "MobileOvercharge",
 		Size = UDim2.new(0.42, -3, 1, 0),
 		LayoutOrder = 2,
@@ -15473,9 +14897,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: OfflineRewardsOverlay   (merged from OfflineRewardsOverlay.luau, 420 lines)
--- ======================================================================
 __defs["OfflineRewardsOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -15614,10 +15035,6 @@ local function OfflineRewardsOverlay(_param)
 	end
 	local vaultAmount = asFlux(_condition_2)
 	local canBankVault = vaultAmount >= 0.01
-	-- A haul big enough to matter (roughly an hour or more at the player's own rate) gets a
-	-- stronger glow around the reward panel -- coming back to a small trickle and a huge bank
-	-- both said "ALREADY IN YOUR CASH" identically before, with nothing to make a genuinely big
-	-- welcome-back moment read as more exciting than a routine five-minute check-in.
 	local rewardAmount = asFlux(reward)
 	local bigHaul = rate > 0 and rewardAmount >= rate * 3600
 	local rewardGlow = useGlowStroke(bigHaul, softMotion, 0.35, 0.15, 0.62, 1.6)
@@ -15768,7 +15185,6 @@ local function OfflineRewardsOverlay(_param)
 		autoWidth = true,
 		zIndex = 466,
 	}))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#rows)
 	local _callback = function(row, index)
 		return React.createElement(StatTile, {
@@ -15783,7 +15199,6 @@ local function OfflineRewardsOverlay(_param)
 	for _k, _v in rows do
 		_newValue[_k] = _callback(_v, _k - 1, rows)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_10 = React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, if stack then 78 else 70),
 		Position = UDim2.fromOffset(0, if stack then 162 else 172),
@@ -15894,14 +15309,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: PlayerlistOverlay   (merged from PlayerlistOverlay.luau, 1059 lines)
--- ======================================================================
 __defs["PlayerlistOverlay"] = function()
--- Player list: everyone in the server in one scroll. Tap a row to open it in
--- place (stats, relics, actions); search, sort and a friends filter sit
--- above. Reports open a sheet with reason descriptions, optional details and
--- "also block", then confirm in place.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15939,8 +15347,6 @@ local ROW_GAP = 6
 local FRIEND_TTL = 120
 local REPORT_COOLDOWN = 600
 
--- Session caches: friendship lookups are slow web calls, and a report stays
--- marked for its cooldown even if the list is closed and reopened.
 local friendCache = {}
 local reportedAt = {}
 
@@ -16003,7 +15409,6 @@ local function Avatar(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
-		-- Presence dot: green online, amber away.
 		Size = UDim2.fromOffset(11, 11),
 		Position = UDim2.new(1, -1, 1, -1),
 		AnchorPoint = Vector2.new(1, 1),
@@ -16209,7 +15614,6 @@ local function PlayerRow(_param)
 		sizeConstraint = UDim2.fromOffset(78, 14),
 		zIndex = 623,
 	}), React.createElement("frame", {
-		-- Chevron
 		Size = UDim2.fromOffset(12, 12),
 		Position = UDim2.new(1, -18, 0.5, 0),
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -16233,7 +15637,6 @@ local function PlayerRow(_param)
 		BackgroundColor3 = Palette.muted,
 		BorderSizePixel = 0,
 	}))), React.createElement("frame", {
-		-- Details, revealed as the row opens.
 		Size = UDim2.new(1, 0, 0, detailsH),
 		Position = UDim2.fromOffset(0, ROW_H),
 		BackgroundTransparency = 1,
@@ -16295,7 +15698,7 @@ local function ReportSheet(_param)
 	local reason, setReason = React.useState(nil)
 	local details, setDetails = React.useState("")
 	local alsoBlock, setAlsoBlock = React.useState(false)
-	local phase, setPhase = React.useState("form") -- form | sending | sent
+	local phase, setPhase = React.useState("form")
 	local errorText, setErrorText = React.useState(nil)
 	local enter = useFlipperSpring(1, reducedMotion, 620, 42, 0)
 	local alive = React.useRef(true)
@@ -16461,7 +15864,6 @@ local function ReportSheet(_param)
 			BackgroundTransparency = 1,
 			ZIndex = 703,
 		}, reasonCells), React.createElement("frame", {
-			-- Details box with a live character count.
 			Size = UDim2.new(1, -28, 0, 62),
 			Position = UDim2.fromOffset(14, 48 + reasonRows * 56 + 4),
 			BackgroundColor3 = Palette.panel,
@@ -16507,7 +15909,6 @@ local function ReportSheet(_param)
 			sizeConstraint = UDim2.new(1, -16, 0, 12),
 			zIndex = 705,
 		})), React.createElement("textbutton", {
-			-- "Also block" toggle.
 			Size = UDim2.new(1, -28, 0, 28),
 			Position = UDim2.fromOffset(14, 48 + reasonRows * 56 + 72),
 			BackgroundTransparency = 1,
@@ -16687,8 +16088,6 @@ local function PlayerlistOverlay(_param)
 			setRows(if #cleaned > 0 then cleaned else { localRow })
 		end)
 	end, { dispatch, localRow })
-	-- Joins and leaves show up at once from the local roster; the server
-	-- refresh fills in their stats a moment later.
 	local applyRoster = React.useCallback(function()
 		setRows(function(current)
 			local known = {}
@@ -16744,7 +16143,6 @@ local function PlayerlistOverlay(_param)
 		end
 	end, { applyRoster, refresh })
 
-	-- Friendship for every row, cached for the session; blocked ids from Roblox.
 	local syncSocial = React.useCallback(function()
 		task.spawn(function()
 			local now = os.clock()
@@ -16841,7 +16239,6 @@ local function PlayerlistOverlay(_param)
 			return nil
 		end
 		Audio:play("playerlistAction")
-		-- The Roblox prompt resolves on its own; pick up the result shortly after.
 		task.delay(2, function()
 			friendCache[row.UserId] = nil
 			if alive.current then
@@ -17010,7 +16407,6 @@ local function PlayerlistOverlay(_param)
 			return amount > 0.003
 		end),
 	}, React.createElement("textbutton", {
-		-- Dimmed backdrop; tapping it closes the list.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = showAmount:map(function(amount)
@@ -17083,7 +16479,6 @@ local function PlayerlistOverlay(_param)
 		disabled = exiting,
 		zIndex = 614,
 	})), React.createElement("frame", {
-		-- Friend boost and invite.
 		Size = UDim2.new(1, -20, 0, boostH),
 		Position = UDim2.fromOffset(10, headerH + 6),
 		BackgroundColor3 = Palette.panelRaised,
@@ -17154,7 +16549,6 @@ local function PlayerlistOverlay(_param)
 		reducedMotion = reducedMotion,
 		zIndex = 616,
 	}), React.createElement("scrollingframe", {
-		-- Sort and filter chips scroll sideways on narrow panels.
 		Size = UDim2.fromOffset(innerW, 30),
 		Position = UDim2.fromOffset(10, controlsTop + (if showSearch then 38 else 0)),
 		BackgroundTransparency = 1,
@@ -17170,7 +16564,6 @@ local function PlayerlistOverlay(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
-		-- Rows open and close with a spring, so the canvas follows them.
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 3,
 		ScrollBarImageColor3 = Palette.cyan,
@@ -17199,9 +16592,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: onboarding   (merged from onboarding.luau, 1001 lines)
--- ======================================================================
 __defs["onboarding"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ContextActionService = game:GetService("ContextActionService")
@@ -17228,13 +16618,6 @@ local OverlayPresence = _ui.OverlayPresence
 local Panel = _ui.Panel
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
--- ----- the guided tutorial -------------------------------------------------------------------------
--- A spotlight cuts a hole in a light dim around the thing to click, and Bolt, a little forge spark,
--- floats beside it and points. Every part of Bolt moves continuously from one RenderStepped loop:
--- spring flight, jelly squash, breathing, flapping wings, smooth blinks and talking, eyes on the mouse.
--- It leans away from a crowding cursor, hops at a fast swipe, spins (and gets dizzy) when clicked,
--- floats hearts when petted, dozes off when left alone and leaves a trail when it zips across.
--- The dim never blocks input: everything on screen stays clickable.
 local SharedDataSuite = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 local TutorialScript = SharedDataSuite("TutorialScript")
 local GuiService = game:GetService("GuiService")
@@ -17242,15 +16625,13 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local PET_SIZE = 56
-local TYPE_RATE = 46 -- characters per second
+local TYPE_RATE = 46
 local AUTO_ADVANCE_SECONDS = 1.1
 local SPARKS = 12
 local HEARTS = 5
 local TRAIL = 9
 local ZZZ = 3
--- Seconds without the mouse moving before Bolt dozes off.
 local SLEEP_AFTER = 14
--- Exponential approach: the same feel at 30, 60 or 240 fps.
 local function approach(current, goal, rate, dt)
 	return current + (goal - current) * (1 - math.exp(-rate * dt))
 end
@@ -17277,8 +16658,6 @@ local function blankFrame(width, height)
 	}
 end
 
--- Finds the named GuiObject that is actually on screen. FindFirstChild(name, true) is the fast path; when
--- that copy is hidden, the slower scan looks for a visible one.
 local function shown(instance)
 	if instance == nil or instance.Parent == nil or not instance:IsA("GuiObject") then
 		return false
@@ -17300,7 +16679,6 @@ local function shown(instance)
 end
 local function findTarget(name)
 	if type(name) == "table" then
-		-- Several candidates (PC first, phone fallback): the first one on screen.
 		for _, candidate in name do
 			local found = findTarget(candidate)
 			if found ~= nil then
@@ -17343,7 +16721,6 @@ local function TutorialOverlay(_param)
 	local soft = React.useContext(_motion.MotionSettingsContext).soft == true
 	local live = if type(_param.live) == "table" then _param.live else {}
 
-	-- Goal tracking: the vault counts as collected once it drops during this step.
 	local vaultNow = if type(live.vaultFlux) == "number" then live.vaultFlux else 0
 	local collected, setCollected = React.useState(false)
 	local vaultMark = React.useRef(vaultNow)
@@ -17381,7 +16758,6 @@ local function TutorialOverlay(_param)
 		end
 	end, { beginExit, exiting, onSkip })
 
-	-- Sounds for the step changing and the goal landing.
 	React.useEffect(function()
 		Audio:play(if step == 1 then "modalOpen" else "tutorialStep")
 	end, { step })
@@ -17390,7 +16766,6 @@ local function TutorialOverlay(_param)
 			Audio:play("successChime")
 		end
 	end, { met, needsAction, step })
-	-- Action steps move on by themselves once done.
 	React.useEffect(function()
 		if not (met and needsAction and copy.auto) then
 			return nil
@@ -17403,7 +16778,6 @@ local function TutorialOverlay(_param)
 		end
 	end, { met, needsAction, step, requestNext })
 
-	-- Gamepad: A continues (or runs the shortcut), B goes back.
 	local stateRef = React.useRef({})
 	stateRef.current = { step = step, exiting = exiting, met = met, needsAction = needsAction, onBack = onBack, onCta = onCta, requestNext = requestNext }
 	React.useEffect(function()
@@ -17433,7 +16807,6 @@ local function TutorialOverlay(_param)
 		end
 	end, {})
 
-	-- The step card: a fixed width, and as tall as its content (nothing is placed at a hard-coded y).
 	local sideInset = math.max(10, viewport.sideInset)
 	local phone = viewport.width < 720 or viewport.height < 560
 	local dockW = math.min(if phone then viewport.width - sideInset * 2 else 520, viewport.width - sideInset * 2)
@@ -17442,7 +16815,6 @@ local function TutorialOverlay(_param)
 	local layoutRef = React.useRef({})
 	layoutRef.current = { dockW = dockW, top = viewport.topInset, bottom = viewport.bottomInset }
 
-	-- Everything that moves every frame lives in one binding, written by one RenderStepped loop.
 	local rootRef = React.useRef(nil)
 	local probeRef = React.useRef(nil)
 	local dockRef = React.useRef(nil)
@@ -17497,7 +16869,6 @@ local function TutorialOverlay(_param)
 		st.chars = 0
 		st.bubblePopAt = st.t
 	end, { say })
-	-- A burst of sparks from Bolt: a celebration ring, or a smaller puff on a click.
 	local burst = React.useCallback(function(amount, speedMin, speedMax)
 		local st = petState.current
 		for _ = 1, amount do
@@ -17534,11 +16905,9 @@ local function TutorialOverlay(_param)
 			local origin = root.AbsolutePosition
 			local screenW = root.AbsoluteSize.X / k
 			local screenH = root.AbsoluteSize.Y / k
-			-- Reduced motion keeps every movement but softens how far things travel.
 			local amp = if soft then 0.65 else 1
 			local layout = layoutRef.current
 
-			-- Find the target now and then; read its rect every frame.
 			if st.targetName ~= copy.target then
 				st.targetName = copy.target
 				st.target = nil
@@ -17555,7 +16924,6 @@ local function TutorialOverlay(_param)
 				local s = st.target.AbsoluteSize / k
 				rect = { x = p.X - pad, y = p.Y - pad, w = s.X + pad * 2, h = s.Y + pad * 2 }
 			end
-			-- Spotlight eases towards the target.
 			local spot = st.spot
 			local ease = 1 - math.exp(-dt * 11)
 			if rect ~= nil then
@@ -17572,14 +16940,12 @@ local function TutorialOverlay(_param)
 			end
 			local lit = if spot.a > 0.3 then rect else nil
 
-			-- The card: on the side that keeps the target in view, gliding there when it changes sides.
 			local dock = dockRef.current
 			local cardH = if dock ~= nil and dock.AbsoluteSize.Y > 1 then dock.AbsoluteSize.Y / k else 220
 			local goalDockY, dockSide = TutorialScript.dockPlacement(lit, screenH, cardH, layout.top / k, layout.bottom / k)
 			st.dockY = if st.dockY == nil then goalDockY else approach(st.dockY, goalDockY, 10, dt)
 			local dockRect = { x = (screenW - layout.dockW) / 2, y = st.dockY, w = layout.dockW, h = cardH }
 
-			-- Mouse, in overlay pixels.
 			local mouseScreen = UserInputService:GetMouseLocation()
 			local screenGui = root:FindFirstAncestorOfClass("ScreenGui")
 			local inset = if screenGui ~= nil and screenGui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
@@ -17591,7 +16957,6 @@ local function TutorialOverlay(_param)
 				local speed = moved / math.max(dt, 1e-3)
 				st.mouse = mouse
 				if st.sleeping then
-					-- Startled awake.
 					st.sleeping = false
 					st.vy -= 200
 					st.squashV -= 5
@@ -17599,14 +16964,12 @@ local function TutorialOverlay(_param)
 					sayQuip(TutorialScript.QUIPS.wake)
 				end
 				st.mouseMovedAt = t
-				-- A fast swipe right past Bolt makes it hop.
 				if speed > 2400 and mouseDistance < 90 and t - st.hopAt > 0.8 then
 					st.hopAt = t
 					st.vy -= 260
 					st.squashV -= 4
 					Audio:play("hoverTick")
 				end
-				-- Rubbing the cursor over Bolt: happy, and hearts float up.
 				if hovering then
 					st.rub += moved
 				end
@@ -17633,7 +16996,6 @@ local function TutorialOverlay(_param)
 			end
 			st.nearPet = hovering
 
-			-- Typewriter for the speech bubble, with a soft blip every few letters.
 			local total = utf8.len(say) or #say
 			if st.chars < total then
 				local before = math.floor(st.chars)
@@ -17650,11 +17012,8 @@ local function TutorialOverlay(_param)
 			st.sleep = approach(st.sleep, if st.sleeping then 1 else 0, if st.sleeping then 1.6 else 9, dt)
 			local dizzy = t < st.dizzyUntil
 
-			-- Where Bolt wants to be, and the spring that takes it there (sub-stepped so it is
-			-- equally smooth on a slow frame).
 			local goalX, goalY, pointAngle = TutorialScript.petPose(lit, screenW, screenH, PET_SIZE, dockRect)
 			if mouseDistance < 140 and mouseDistance > 1 and not st.sleeping then
-				-- Leans away from a cursor that crowds it.
 				local away = (Vector2.new(st.x, st.y) - mouse).Unit
 				local push = (1 - mouseDistance / 140) * 22 * amp
 				goalX += away.X * push
@@ -17668,10 +17027,8 @@ local function TutorialOverlay(_param)
 				st.vy += ((goalY - st.y) * 55 - st.vy * 11.5) * h
 				st.x += st.vx * h
 				st.y += st.vy * h
-				-- Jelly squash: a stiff, lightly damped spring.
 				st.squashV += (-st.squash * 380 - st.squashV * 13) * h
 				st.squash += st.squashV * h
-				-- Antenna tip lags behind the body (secondary motion).
 				st.tipVX += ((-st.vx * 0.02 - st.tipX) * 120 - st.tipVX * 10) * h
 				st.tipVY += ((-st.vy * 0.02 - st.tipY) * 120 - st.tipVY * 10) * h
 				st.tipX += st.tipVX * h
@@ -17681,14 +17038,12 @@ local function TutorialOverlay(_param)
 			local breathe = 1 - st.sleep * 0.6
 			local bob = (math.sin(t * 2.3) * 5 + math.sin(t * 3.7) * 1.5) * amp * breathe
 
-			-- Wings: a continuous flap that speeds up in flight and slows to a lazy beat asleep.
 			local flapGoal = (9 + math.clamp(speed / 110, 0, 9) + (if t - st.celebrateAt < 1.2 then 6 else 0)) * (1 - st.sleep * 0.7)
 			st.flapRate = approach(st.flapRate, flapGoal, 4, dt)
 			st.wingPhase += dt * st.flapRate
 			local wingA = math.sin(st.wingPhase) * 30 * amp
 			local wingL = 0.7 + math.sin(st.wingPhase + 0.9) * 0.12
 
-			-- Blinks every 2-5 seconds (sometimes twice); asleep, the eyes are nearly shut.
 			if t >= st.nextBlink then
 				st.blinkAt = t
 				st.doubleBlink = math.random() < 0.22
@@ -17703,7 +17058,6 @@ local function TutorialOverlay(_param)
 			end
 			blink = math.max(blink, st.sleep * 0.88)
 
-			-- Eyes follow the mouse when it moved lately, otherwise the target; dizzy eyes go round.
 			local lookAt = if t - st.mouseMovedAt < 1.6 then mouse elseif rect ~= nil then Vector2.new(rect.x + rect.w / 2, rect.y + rect.h / 2) else Vector2.new(st.x, st.y + 40)
 			local look = lookAt - Vector2.new(st.x, st.y + bob)
 			local lookUnit = if look.Magnitude > 1 then look.Unit * math.min(1, look.Magnitude / 60) else Vector2.zero
@@ -17713,7 +17067,6 @@ local function TutorialOverlay(_param)
 			st.lookY = approach(st.lookY, lookGoalY, if dizzy then 40 else 16, dt)
 			st.pupil = approach(st.pupil, if hovering then 8.5 elseif dizzy then 5.5 else 7, 12, dt)
 
-			-- Mood and mouth.
 			local celebrate = t - st.celebrateAt
 			local happyGoal = if hovering or celebrate < 1.6 or met or st.rub > 60 then 1 else 0
 			st.happy = approach(st.happy, happyGoal, 6, dt)
@@ -17726,7 +17079,6 @@ local function TutorialOverlay(_param)
 			st.mouthH = approach(st.mouthH, mouthGoal, 22, dt)
 			st.mouthW = approach(st.mouthW, if st.happy > 0.5 and not talking then 16 elseif st.sleeping then 6 else 11, 14, dt)
 
-			-- Celebration and click sparks, hearts and the motion trail (fixed pools).
 			local sparkOut = {}
 			for i, spark in st.sparks do
 				if spark.age < spark.life then
@@ -17761,7 +17113,6 @@ local function TutorialOverlay(_param)
 				end
 			end
 
-			-- Tilt with speed (or a dizzy wobble), plus the click spin on top.
 			local spinAge = t - st.spinAt
 			local spin = 0
 			if spinAge < 0.6 then
@@ -17775,10 +17126,8 @@ local function TutorialOverlay(_param)
 			local squash = st.squash * amp
 			local breath = math.sin(t * 2.1) * 0.02 * breathe
 
-			-- Reaching arm.
 			st.reach = approach(st.reach, if lit ~= nil and not st.sleeping then 1 else 0, 9, dt)
 
-			-- The speech bubble: above Bolt unless that hits the card or the top edge, then below.
 			local bubbleW = math.min(250, screenW - 16)
 			local bubbleH = 64
 			local petY = st.y + bob - hop
@@ -17851,7 +17200,6 @@ local function TutorialOverlay(_param)
 		st.mouseMovedAt = now
 		burst(5, 60, 110)
 		if #st.clickTimes >= 3 then
-			-- Spun too many times: dizzy.
 			st.clickTimes = {}
 			st.dizzyUntil = now + 1.8
 			st.spinAt = now
@@ -17864,7 +17212,6 @@ local function TutorialOverlay(_param)
 		sayQuip(if met then TutorialScript.QUIPS.done else TutorialScript.QUIPS.idle)
 	end
 
-	-- ---- spotlight: four dim panels around a hole, and a glowing ring in it
 	local dimColor = Palette.void
 	local dimAlpha = 0.55
 	local function dim(key, sizeFn, posFn)
@@ -17929,10 +17276,6 @@ local function TutorialOverlay(_param)
 		end),
 	}))))
 
-	-- ---- Bolt
-	-- Bolt is a spark off the forge: a flat mango body with a hard cel-shade to ember underneath, a dark
-	-- outline round everything, a flame tuft on its head and two little flame fins. No gradients that
-	-- glow, no aura: it reads as drawn, in the same palette as the loading screen and the logo.
 	local petColor = Palette.mango
 	local petShade = Palette.ember
 	local petLine = Color3.fromRGB(74, 36, 18)
@@ -17944,7 +17287,6 @@ local function TutorialOverlay(_param)
 		})
 	end
 	local function wing(side)
-		-- A flame fin: a teardrop that flaps from the shoulder.
 		return React.createElement("frame", {
 			Size = frame:map(function(f)
 				return UDim2.fromOffset(12, PET_SIZE * 0.42 * f.pet.wingL)
@@ -17962,7 +17304,6 @@ local function TutorialOverlay(_param)
 		}), outline(2))
 	end
 	local function eye(side)
-		-- A small ink pill that slides a little towards what Bolt looks at; blinks shut, squints when happy.
 		return React.createElement("frame", {
 			Size = frame:map(function(f)
 				local open = (1 - f.pet.blink) * (1 - f.pet.happy * 0.35)
@@ -18098,7 +17439,6 @@ local function TutorialOverlay(_param)
 				return if mote == nil then UDim2.fromOffset(-100, -100) else UDim2.fromOffset(mote.x, mote.y + PET_SIZE * 0.2)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			-- Embers shed as Bolt flies: small, warm, falling behind.
 			BackgroundColor3 = if i % 2 == 0 then petColor else petShade,
 			BackgroundTransparency = frame:map(function(f)
 				local mote = f.trail[i]
@@ -18119,7 +17459,6 @@ local function TutorialOverlay(_param)
 		BackgroundTransparency = 1,
 		ZIndex = 405,
 	}, React.createElement("frame", {
-		-- A plain shadow under Bolt: smaller and lighter as it bobs up.
 		Size = frame:map(function(f)
 			return UDim2.fromOffset(PET_SIZE * 0.7 * f.pet.shadow, PET_SIZE * 0.16 * f.pet.shadow)
 		end),
@@ -18134,7 +17473,6 @@ local function TutorialOverlay(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
-		-- Pointing arm, drawn from the body's centre towards the target; it extends as it reaches.
 		Size = frame:map(function(f)
 			return UDim2.fromOffset((PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach, 7)
 		end),
@@ -18158,7 +17496,6 @@ local function TutorialOverlay(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), outline(1.5)), React.createElement("frame", {
-		-- The hand: a round fist at the tip that pokes at the target.
 		Size = UDim2.fromOffset(11, 11),
 		Position = UDim2.new(1, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -18168,7 +17505,6 @@ local function TutorialOverlay(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), outline(2))), wing(-1), wing(1), React.createElement("frame", {
-		-- The flame tuft: three tongues of flame that flicker out of step and lean with Bolt's motion.
 		Size = UDim2.fromOffset(24, 22),
 		Position = UDim2.new(0.5, 0, 0, 6),
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -18198,7 +17534,6 @@ local function TutorialOverlay(_param)
 		end
 		return tongues
 	end)()), React.createElement("textbutton", {
-		-- The body: jelly squash, breathing, tilt with speed, spin when clicked.
 		Size = frame:map(function(f)
 			return UDim2.fromOffset(PET_SIZE * f.pet.sx, PET_SIZE * f.pet.sy)
 		end),
@@ -18218,7 +17553,6 @@ local function TutorialOverlay(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0.48, 0),
 	}), React.createElement("uigradient", {
-		-- Cel shading: a hard step from the lit top to the ember underside, no soft glow.
 		Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Palette.white),
 			ColorSequenceKeypoint.new(0.64, Palette.white),
@@ -18233,7 +17567,6 @@ local function TutorialOverlay(_param)
 		end),
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 	}), React.createElement("frame", {
-		-- A small hard highlight on the top of the head.
 		Size = UDim2.fromOffset(9, 5),
 		Position = UDim2.new(0.5, -11, 0, 7),
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -18245,7 +17578,6 @@ local function TutorialOverlay(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), eye(-1), eye(1), React.createElement("frame", {
-		-- Mouth: moves smoothly while talking, widens into a smile when happy.
 		Size = frame:map(function(f)
 			return UDim2.fromOffset(f.pet.mouthW, f.pet.mouth)
 		end),
@@ -18286,7 +17618,6 @@ local function TutorialOverlay(_param)
 		ZIndex = 417,
 	}, effectEls))
 
-	-- ---- speech bubble, beside Bolt, typing its line; it pops in on each new line
 	local bubbleW = math.min(250, viewport.width - 24)
 	local bubble = React.createElement("frame", {
 		Size = UDim2.fromOffset(bubbleW, 0),
@@ -18331,7 +17662,6 @@ local function TutorialOverlay(_param)
 		ZIndex = 421,
 	}))
 
-	-- ---- step card: header, progress dots, title, body, goal, keys, actions, top to bottom
 	local dots = {}
 	dots.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
@@ -18359,8 +17689,6 @@ local function TutorialOverlay(_param)
 			CornerRadius = UDim.new(1, 0),
 		}))
 	end
-	-- One primary action: Continue once the step is done; the shortcut while it isn't (if the
-	-- step has one); otherwise a quiet "do it to continue" that nudges Bolt to repeat the hint.
 	local primary
 	if met or not needsAction then
 		primary = {
@@ -18476,7 +17804,6 @@ local function TutorialOverlay(_param)
 		layoutOrder = 4,
 		zIndex = 402,
 	}), React.createElement("frame", {
-		-- Goal with a checkbox that ticks when it's done.
 		Size = UDim2.new(1, 0, 0, 22),
 		LayoutOrder = 5,
 		BackgroundTransparency = 1,
@@ -18569,14 +17896,12 @@ local function TutorialOverlay(_param)
 		Active = false,
 		ZIndex = 379,
 	}, React.createElement("frame", {
-		-- Measures the UI scale so target rects convert to this overlay's pixels.
 		ref = probeRef,
 		Size = UDim2.fromOffset(100, 100),
 		BackgroundTransparency = 1,
 		Visible = true,
 		Active = false,
 	}), spotlight, React.createElement("frame", {
-		-- Bolt's motion trail, behind the card and Bolt.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Active = false,
@@ -18732,7 +18057,6 @@ local function VersionCard(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		})
 		local _exp_7 = entry.Highlights
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_7)
 		local _callback = function(line, lineIndex)
 			return React.createElement(Text, {
@@ -18750,7 +18074,6 @@ local function VersionCard(_param)
 		for _k, _v in _exp_7 do
 			_newValue[_k] = _callback(_v, _k - 1, _exp_7)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition = React.createElement("frame", {
 			Size = UDim2.new(1, -30, 0, #entry.Highlights * HIGHLIGHT_ROW_H),
 			Position = UDim2.fromOffset(20, VERSION_ROW_H),
@@ -18860,7 +18183,6 @@ local function ReleaseNotesModal(_param)
 			local _entryVersion = entryVersion
 			local _result
 			if (table.find(_current, _entryVersion) or 0) - 1 >= 0 then
-				-- ▼ ReadonlyArray.filter ▼
 				local _newValue = {}
 				local _callback = function(id)
 					return id ~= entryVersion
@@ -18872,7 +18194,6 @@ local function ReleaseNotesModal(_param)
 						_newValue[_length] = _v
 					end
 				end
-				-- ▲ ReadonlyArray.filter ▲
 				_result = _newValue
 			else
 				local _array = {}
@@ -18886,7 +18207,6 @@ local function ReleaseNotesModal(_param)
 			return _result
 		end)
 	end, {})
-	-- ▼ ReadonlyArray.reduce ▼
 	local _result = 0
 	local _callback = function(total, entry)
 		local _exp = total
@@ -18897,7 +18217,6 @@ local function ReleaseNotesModal(_param)
 	for _i = 1, #effectiveHistory do
 		_result = _callback(_result, effectiveHistory[_i], _i - 1, effectiveHistory)
 	end
-	-- ▲ ReadonlyArray.reduce ▲
 	local canvasH = _result + math.max(0, #effectiveHistory - 1) * 8
 	local padFocus = useGamepadAutofocus(true)
 
@@ -19018,7 +18337,6 @@ local function ReleaseNotesModal(_param)
 		Padding = UDim.new(0, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#effectiveHistory)
 	local _callback_1 = function(entry, index)
 		local _attributes = {
@@ -19038,7 +18356,6 @@ local function ReleaseNotesModal(_param)
 	for _k, _v in effectiveHistory do
 		_newValue[_k] = _callback_1(_v, _k - 1, effectiveHistory)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
 	}, React.createElement("frame", {
@@ -19153,9 +18470,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: AdminPrankOverlay   (merged from AdminPrankOverlay.luau, 468 lines)
--- ======================================================================
 __defs["AdminPrankOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -19622,9 +18936,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: notifications   (merged from notifications.luau, 721 lines)
--- ======================================================================
 __defs["notifications"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
@@ -19656,7 +18967,6 @@ local Text = _ui.Text
 local NOTICE_LIFETIME = 4.2
 local NOTICE_EXIT_SECONDS = 0.24
 local SWIPE_DISMISS_PX = 56
--- A dragged card springs home: about a third of a second, no wobble.
 local SWIPE_RETURN_FEEL = { frequency = 3.3, dampingRatio = 0.86 }
 local function toneColor(tone)
 	if tone == "Success" then
@@ -19810,7 +19120,6 @@ local function NoticeCard(props)
 			if state.mode ~= "return" or leavingRef.current then
 				return nil
 			end
-			-- Exact spring step: the card eases home the same at any frame rate.
 			state.x, state.v = MotionTokens.step(state.x, state.v, 0, SWIPE_RETURN_FEEL, dt)
 			if math.abs(state.x) < 0.4 and math.abs(state.v) < 6 then
 				state.x = 0
@@ -19970,7 +19279,6 @@ local function NoticeCard(props)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
 	}), React.createElement("uigradient", {
-		-- A faint wash of the tone across the left of the card.
 		Color = ColorSequence.new(surface:Lerp(color, 0.1), surface),
 		Rotation = 0,
 	}), React.createElement("uistroke", {
@@ -19982,7 +19290,6 @@ local function NoticeCard(props)
 			return 0.7 - values[2] * 0.3 + values[1] * 0.3
 		end),
 	}), React.createElement("frame", {
-		-- Icon tile in the tone's colour.
 		Size = UDim2.fromOffset(iconSize, iconSize),
 		Position = UDim2.new(0, 14, 0.5, -1),
 		AnchorPoint = Vector2.new(0, 0.5),
@@ -20020,7 +19327,6 @@ local function NoticeCard(props)
 		sizeConstraint = UDim2.new(1, -(iconSize + 26 + dismiss + 14 + (if count > 1 then 34 else 0)), 0, if hasBody then 20 else cardH - 4),
 		zIndex = 105,
 	}), hasBody and React.createElement("textlabel", {
-		-- Up to two lines of body text.
 		Size = UDim2.new(1, -(iconSize + 26 + dismiss + 14), 0, cardH - 40),
 		Position = UDim2.fromOffset(iconSize + 26, 32),
 		BackgroundTransparency = 1,
@@ -20055,7 +19361,6 @@ local function NoticeCard(props)
 		sizeConstraint = UDim2.fromScale(1, 1),
 		zIndex = 107,
 	})), React.createElement("frame", {
-		-- Time left, draining along the bottom edge.
 		Size = UDim2.new(1, -28, 0, 3),
 		Position = UDim2.new(0, 14, 1, -6),
 		BackgroundColor3 = Palette.line,
@@ -20079,7 +19384,6 @@ local function NoticeCard(props)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("imagebutton", {
-		-- Round dismiss button.
 		Size = UDim2.fromOffset(dismiss, dismiss),
 		Position = UDim2.new(1, -10, 0.5, -1),
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -20230,7 +19534,6 @@ local function ToastRail(_param)
 	local maxY = math.max(minY, (height - bottomReserve - railHeight - 8) / height)
 	local customX = if mobileLayout ~= nil then math.clamp(mobileLayout.x, minX, maxX) else 0.5
 	local customY = if mobileLayout ~= nil then math.clamp(mobileLayout.y, minY, maxY) else minY
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue = {}
 	local _callback = function(notice)
 		return notice.leaving ~= true
@@ -20242,11 +19545,9 @@ local function ToastRail(_param)
 			_newValue[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local live = _newValue
 	local _result
 	if #live > maxVisible then
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue_1 = {}
 		local _callback_1 = function(_, i)
 			return i >= #live - maxVisible
@@ -20258,7 +19559,6 @@ local function ToastRail(_param)
 				_newValue_1[_length_1] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
 		_result = _newValue_1
 	else
 		_result = live
@@ -20266,7 +19566,6 @@ local function ToastRail(_param)
 	local visible = _result
 	local _exp = function()
 		local entries = {}
-		-- ▼ ReadonlyArray.forEach ▼
 		local _callback_1 = function(notice)
 			local _exp_1 = tostring(notice.id)
 			local _attributes = {
@@ -20292,7 +19591,6 @@ local function ToastRail(_param)
 		for _k, _v in visible do
 			_callback_1(_v, _k - 1, visible)
 		end
-		-- ▲ ReadonlyArray.forEach ▲
 		return entries
 	end
 	local _result_1 = mobileLayout
@@ -20302,9 +19600,6 @@ local function ToastRail(_param)
 	local rendered = React.useMemo(_exp, { _result_1, plan.mobile, reducedMotion, remove, setHovered, stack, visible })
 	local hiddenCount = math.max(0, #live - maxVisible)
 	local useCustom = mobileLayout ~= nil
-	-- Desktop notices sit at the bottom of the nav column so they don't cover
-	-- the page's right-hand stats or the goal badge.
-	-- Phones: just under the header, clear of Bank/Tap and the status slot above the tab bar.
 	local defaultPosition = if stack
 		then UDim2.new(0.5, 0, 0, topInset)
 		else UDim2.new(0, Layout.sidebarWidth + 16, 1, -(plan.bottomSafe + 16))
@@ -20356,14 +19651,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: levelMoments
--- ======================================================================
 __defs["levelMoments"] = function()
--- The felt side of Forge Level rewards: a celebration card when a level pays out
--- (level, tier, every reward, what opened) and a live chip while a Forge Surge runs.
--- MainGame pushes moments from the server's LevelReward / LevelUp effects; the host
--- in the shell draws them.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Workspace = game:GetService("Workspace")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
@@ -20382,7 +19670,6 @@ local Text = __load("ui").Text
 
 local CARD_SECONDS = 6.5
 
--- Moments queue here; the host listens.
 local listeners = {}
 local pendingNames = {}
 local function pushLevelMoment(effect)
@@ -20390,7 +19677,6 @@ local function pushLevelMoment(effect)
 		return
 	end
 	if effect.Type == "LevelUp" then
-		-- The unlock names arrive on their own effect; hold them for the reward card.
 		pendingNames = if type(effect.Names) == "table" then effect.Names else {}
 		return
 	end
@@ -20483,7 +19769,6 @@ local function LevelCard(_param)
 	local levels = moment.Levels or {}
 	local title = if #levels > 1 then `Levels {levels[1]}–{levels[#levels]}` else `Level {moment.Level}`
 	return React.createElement("textbutton", {
-		-- The whole card dismisses on click.
 		Size = UDim2.fromOffset(width, height),
 		Position = show:map(function(amount)
 			return UDim2.new(0.5, 0, 0.42, math.round((1 - amount) * 30))
@@ -20513,7 +19798,6 @@ local function LevelCard(_param)
 			return 1 - amount * 0.8
 		end),
 	}), React.createElement("frame", {
-		-- Slow rays behind the title.
 		Size = UDim2.fromOffset(220, 220),
 		Position = UDim2.new(0.5, 0, 0, 40),
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -20587,7 +19871,6 @@ local function LevelCard(_param)
 	}))
 end
 
--- The running Forge Surge, with its countdown.
 local function SurgeChip(_param)
 	local surge = _param.surge
 	local now = useWallClock(true)
@@ -20595,7 +19878,6 @@ local function SurgeChip(_param)
 	local chrome = chromeFor(viewport)
 	local top = viewport.topInset + 64
 	local pulse = useClock(true, 2.4, math.pi * 2)
-	-- Phones: second row of the status slot, above the event banner, left of Bank/Tap.
 	local stack = chrome.stack
 	local edge = math.max(chrome.sideSafe, 10)
 	return React.createElement("frame", {
@@ -20695,13 +19977,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: serverEventsUi
--- ======================================================================
 __defs["serverEventsUi"] = function()
--- Server events on screen: a banner at the top (countdown, live timer, the shared
--- goal), a splash when an event goes live, and a panel with the full details.
--- The state comes from the snapshot and from live ServerEvent pushes.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
@@ -20721,7 +19997,6 @@ local Button = _ui.Button
 local Text = _ui.Text
 local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
 
--- Live pushes land here and win over the snapshot until a newer snapshot arrives.
 local latest = nil
 local listeners = {}
 local function pushServerEvent(effect)
@@ -20744,14 +20019,12 @@ local function useServerEvent(fromSnapshot)
 			listeners[listener] = nil
 		end
 	end, {})
-	-- Prefer whichever is about the later phase boundary.
 	if live ~= nil and (fromSnapshot == nil or (live.PhaseEndsAt or 0) >= (fromSnapshot.PhaseEndsAt or 0)) then
 		return live
 	end
 	return fromSnapshot
 end
 
--- The top bar's event card opens the panel the host owns.
 local panelOpeners = {}
 local function openServerEventPanel()
 	for opener in panelOpeners do
@@ -20872,7 +20145,6 @@ local function EventPanel(_param)
 		end
 	end
 	return React.createElement("textbutton", {
-		-- Backdrop: tap outside to close.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = show:map(function(amount)
@@ -20958,7 +20230,6 @@ local function EventPanel(_param)
 	}, rows)))
 end
 
--- The splash when an event goes live: big name across the middle for a moment.
 local function LiveSplash(_param)
 	local def = _param.def
 	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 420, 26, 0)
@@ -21083,15 +20354,11 @@ local function ServerEventHost(_param)
 	local accent = accentOf(def)
 	local stack = chrome.stack
 	local edge = math.max(chrome.sideSafe, 10)
-	-- Phones: the status slot above the tab bar, beside Bank/Tap, so nothing covers
-	-- the header or the toasts. The quiet "next event" pill only shows on larger screens.
 	local width = if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3)
 		elseif active then math.min(320, viewport.width - 120)
 		else 170
 	local height = if active then (if event.Goal ~= nil then 50 else 40) else 28
 	local top = viewport.topInset + 62
-	-- With the desktop top bar up, the event lives there as a card beside the stats (ServerEventChip);
-	-- only the splash and the details panel are drawn here.
 	if (stack and not active) or _param.inTopBar == true then
 		return React.createElement(React.Fragment, nil, splash ~= nil and React.createElement(LiveSplash, {
 			def = splash,
@@ -21187,14 +20454,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CreditsView   (merged from pages/CreditsView.luau, 530 lines)
--- ======================================================================
 __defs["CreditsView"] = function()
--- Credits: people grouped by category (owner, developers, moderators,
--- testers, ...), all driven by SharedData#CreditsConfig. One scroll area for
--- the whole list, a tab chip per category, optional search, and cards that
--- cascade in and lift on hover.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -21242,7 +20502,6 @@ local function tone(key, fallback)
 	return fallback
 end
 
--- Live display names for members with a UserId, fetched once per session.
 local liveNames = {}
 local liveNamesRequested = false
 local function useLiveNames()
@@ -21313,7 +20572,6 @@ local function Avatar(_param)
 			Transparency = 0.35,
 		}))
 	end
-	-- No Roblox account: the first letter on the category color.
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
 		Position = _param.position,
@@ -21369,7 +20627,6 @@ local function MemberCard(_param)
 		y += height
 	end
 	if compact then
-		-- One row: name, then role on the right.
 		lines.name = React.createElement(Text, {
 			value = displayName,
 			size = 14,
@@ -21487,7 +20744,6 @@ local function CategorySection(_param)
 		BorderSizePixel = 0,
 		ZIndex = 322,
 	}, React.createElement("frame", {
-		-- Header: accent bar, icon, label and count, description.
 		Size = UDim2.new(1, 0, 0, SECTION_HEADER_H - 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -21665,7 +20921,6 @@ local function CreditsOverlay(_param)
 	local tabs = CreditsModel.tabs(MODEL)
 	local showTabs = MODEL.CategoryTabs and #tabs > 2
 	local showSearch = CreditsModel.showSearch(MODEL)
-	-- Search sits beside the tabs on wide panels and gets its own row on narrow ones.
 	local searchBeside = showSearch and showTabs and innerW >= 620
 	local headerH = if MODEL.Tagline ~= "" then 72 else 58
 	local controlsH = (if showTabs or showSearch then TAB_H + 12 else 0) + (if showSearch and showTabs and not searchBeside then TAB_H + 8 else 0)
@@ -21721,7 +20976,6 @@ local function CreditsOverlay(_param)
 		end
 	end, {})
 
-	-- The list: one scroll area, sections laid out with explicit heights.
 	local sections = {}
 	local cursor = 0
 	local cardIndex = 1
@@ -21822,7 +21076,6 @@ local function CreditsOverlay(_param)
 	return React.createElement(OverlayPresence, {
 		amount = reveal,
 	}, React.createElement("frame", {
-		-- FocusClaim prefers Claim-named hosts; CLOSE is the primary Credits CTA.
 		Name = "CreditsClaimActions",
 		ref = overlayHostRef,
 		Size = UDim2.fromScale(1, 1),
@@ -21838,7 +21091,6 @@ local function CreditsOverlay(_param)
 			return amount > 0.003
 		end),
 	}, React.createElement("textbutton", {
-		-- Clicking the dimmed backdrop closes.
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Text = "",
@@ -21913,7 +21165,6 @@ local function CreditsOverlay(_param)
 		disabled = exiting,
 		zIndex = 323,
 	}), showTabs and React.createElement("scrollingframe", {
-		-- The chips scroll sideways only; the list below owns vertical scrolling.
 		Size = UDim2.fromOffset(tabsW, TAB_H + 4),
 		Position = UDim2.fromOffset(0, headerH),
 		BackgroundTransparency = 1,
@@ -21955,7 +21206,6 @@ local function CreditsOverlay(_param)
 		PaddingTop = UDim.new(0, 6),
 		PaddingRight = UDim.new(0, 8),
 	}), React.createElement(React.Fragment, {
-		-- Remount on tab change so the cascade replays for the new list.
 		key = tab,
 	}, sections))))))
 end
@@ -21965,13 +21215,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: crateModel
--- ======================================================================
--- A crate skin in 3D: the Blender kit's Crate_<Skin>_Body and _Lid (tools/casinobuild), stood on the
--- floor with the lid hinged along its back edge, or a part-built stand-in until the kit loads. One
--- continuous-frame listener per mounted crate turns the camera and swings the lid; `live = false`
--- draws a single still frame (lists of many crates).
 __defs["crateModel"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22033,7 +21276,6 @@ local function inert(part)
 	return part
 end
 
--- The crate's parts, posed closed. Returns the scene: lid, its rest pose and hinge, the inner glow.
 local function buildCrate(model, skinId)
 	local skin = skinOf(skinId)
 	local folder = kitFolder()
@@ -22062,7 +21304,6 @@ local function buildCrate(model, skinId)
 	local lidRest = CFrame.new(0, bodyH + lid.Size.Y / 2 - 0.01, 0)
 	lid.CFrame = lidRest
 	lid.Parent = model
-	-- What spills out when the lid lifts: a neon core sat just inside the rim.
 	local glow = inert(Instance.new("Part"))
 	glow.Shape = Enum.PartType.Ball
 	glow.Size = Vector3.one * 0.7
@@ -22096,8 +21337,6 @@ local function pose(scene, camera, state, props)
 	camera.CFrame = CFrame.lookAt(eye, focus) * CFrame.Angles(0, 0, rattle)
 end
 
--- props: skin, size, position, anchorPoint, zIndex, layoutOrder, open (0..1), shake (0..1),
--- spin (turntable), yaw (resting angle), zoom, live (animate; default true), ambient.
 local function CrateModel(props)
 	local host = React.useRef(nil)
 	local propsRef = React.useRef(props)
@@ -22137,7 +21376,6 @@ local function CrateModel(props)
 			local base = now.yaw or -0.5
 			state.yaw = if now.spin then base + state.t * 0.55 else base + math.sin(state.t * 0.7) * 0.22
 			local target = math.clamp(tonumber(now.open) or 0, 0, 1)
-			-- The lid flies open fast and settles shut slowly.
 			local rate = if target > state.open then 9 else 4
 			state.open += (target - state.open) * (1 - math.exp(-dt * rate))
 			state.shake = math.clamp(tonumber(now.shake) or 0, 0, 1)
@@ -22175,13 +21413,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: prismFx
--- ======================================================================
--- The look of the two rarities above Mythic. Celestial runs cyan, white and gold; Astral runs the whole
--- spectrum. PrismAura lays a turning prismatic rim, slow light rays and twinkling sparks over whatever it
--- is placed in. Every motion repeats on one 40 s clock (90°/s rim, 9°/s rays, sparks on whole harmonics),
--- so the loop never jumps when the clock wraps.
 __defs["prismFx"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useClock = require(script.Parent.MotionKit)("motion").useClock
@@ -22208,7 +21439,6 @@ local CORE = {
 	Celestial = Color3.fromRGB(190, 248, 255),
 	Astral = Color3.fromRGB(255, 200, 240),
 }
--- Spark spots as fractions of the box, and their harmonic (a whole number of twinkles per period).
 local SPARKS = {
 	{ 0.08, 0.18, 7 }, { 0.92, 0.12, 9 }, { 0.2, 0.86, 8 }, { 0.82, 0.8, 11 }, { 0.5, 0.06, 10 },
 	{ 0.04, 0.55, 12 }, { 0.96, 0.5, 13 }, { 0.36, 0.94, 9 }, { 0.66, 0.92, 7 }, { 0.62, 0.1, 14 },
@@ -22218,8 +21448,6 @@ local function isAscended(rarity)
 	return rarity == "Celestial" or rarity == "Astral"
 end
 
--- props: rarity, intensity (0..1, number or binding), rays (bool), sparks (bool), corner (px), zIndex,
--- thickness. Fills its parent.
 local function PrismAura(props)
 	local rarity = if props.rarity == "Astral" then "Astral" else "Celestial"
 	local clock = useClock(true, 1, PERIOD, false)
@@ -22331,9 +21559,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CrateRevealOverlay   (merged from pages/CrateRevealOverlay.luau, 728 lines)
--- ======================================================================
 __defs["CrateRevealOverlay"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local ContextActionService = game:GetService("ContextActionService")
@@ -22412,7 +21637,6 @@ local function buildStrip(config, session, roll, rollIndex)
 	if _condition == nil then
 		_condition = {}
 	end
-	-- ▼ ReadonlyArray.find ▼
 	local _callback = function(entry)
 		return entry.Id == session.crateId
 	end
@@ -22423,7 +21647,6 @@ local function buildStrip(config, session, roll, rollIndex)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.find ▲
 	local crate = _result_1
 	local _result_2 = crate
 	if _result_2 ~= nil then
@@ -22596,9 +21819,6 @@ local function CrateRevealExperience(_param)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Every display frame: capping the reel at 60 made it judder on 120/144 Hz
-	-- screens next to the rest of the interface. The cap only stops sub-frame
-	-- double updates now.
 	local reelFrameRate = 240
 	local rollIndex, setRollIndex = React.useState(0)
 	local phase, setPhase = React.useState("enter")
@@ -22629,7 +21849,6 @@ local function CrateRevealExperience(_param)
 		end
 	end, {})
 	local present = live
-	-- Soft boat tweens on antilag tiers avoid Flipper spring chatter during claim/earn moments.
 	local motionScale = if reducedMotion then 0.55 else 1
 	local boatShow = useBoatTween(if present then 1 else 0, (if present then 0.3 else EXIT_SETTLE) * motionScale, false, easeOutCubic, 0)
 	local showSpring = useFlipperSpring(if present then 1 else 0, false, 720, 36)
@@ -22641,7 +21860,6 @@ local function CrateRevealExperience(_param)
 	local claimSlideSpring = useFlipperSpring(if claimHold then 1 else 0, false, 520, 24)
 	local claimSlide = claimSlideSpring
 	local landFlash = useFlash(if phase == "land" then rollIndex + 1 else 0, false, 0.62 * motionScale)
-	-- Claim CTA flash — intentional polish without noisy springs on low tiers.
 	local claimFlash = useFlash(if phase == "done" then rollIndex + 11 else 0, false, 0.48 * motionScale)
 	local chargePulseSpring = useFlipperSpring(if phase == "charge" then 1 else 0, false, 360, 19)
 	local chargePulse = chargePulseSpring
@@ -22684,7 +21902,6 @@ local function CrateRevealExperience(_param)
 		end
 		Audio:play("crateCharge")
 		local alive = true
-		-- Long enough for the crate to rattle on its stand before the lid flies.
 		local job = task.delay(if reducedMotion then 0.32 else 0.7, function()
 			if alive then
 				setPhase("spin")
@@ -22816,7 +22033,6 @@ local function CrateRevealExperience(_param)
 		local alive = true
 		local landed = rolls[rollIndex + 1]
 		local ascended = landed ~= nil and (landed.Rarity == "Celestial" or landed.Rarity == "Astral")
-		-- An ascended drop holds the stage long enough to be seen before a batch rolls on.
 		local hold = if ascended then 1.6 elseif rollIndex >= #rolls - 1 then 0.72 else 0.62
 		local job = task.delay(hold, function()
 			if not alive then
@@ -22905,7 +22121,6 @@ local function CrateRevealExperience(_param)
 	local resultTag = _result
 	local resultDetail = if safeRoll.AutoSalvaged == true then "Relic Recycler converted this drop into essence." elseif safeRoll.Pity == true then "Pity protection delivered this rarity." elseif safeRoll.New == true then "Added to your relic inventory." else "Added to your inventory."
 	local _exp = rolls
-	-- ▼ ReadonlyArray.every ▼
 	local _result_1 = true
 	local _callback = function(roll)
 		return roll.AutoSalvaged == true
@@ -22916,7 +22131,6 @@ local function CrateRevealExperience(_param)
 			break
 		end
 	end
-	-- ▲ ReadonlyArray.every ▲
 	local claimText = if _result_1 then "BANK ESSENCE" elseif count == 1 then "CLAIM RELIC" else `CLAIM {count} DROPS`
 	local visualShow = React.joinBindings({ show, boatShow, exitAmount }):map(function(values)
 		return math.clamp(math.min(values[1], values[2], values[3]), 0, 1)
@@ -23002,7 +22216,6 @@ local function EmptyCrateReveal(_param)
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = 0.02,
 		BorderSizePixel = 0,
-		-- FocusClaim CLAIM CTA must not clip overshoot (Stage/StageSimple already false).
 		ClipsDescendants = false,
 		Active = true,
 		ZIndex = 400,
@@ -23075,9 +22288,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CrateRevealStageSimple   (merged from pages/CrateRevealStageSimple.luau, 392 lines)
--- ======================================================================
 __defs["CrateRevealStageSimple"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -23107,7 +22317,6 @@ local function ReelCard(props)
 		BorderSizePixel = 0,
 		ZIndex = 433,
 	},
-		-- Celestial and Astral cards shimmer even as they fly past; the winner gets the full aura.
 		isAscended(card.rarity) and h(PrismAura, {
 			rarity = card.rarity,
 			intensity = if landedWinner then 1 else 0.55,
@@ -23181,7 +22390,6 @@ end
 
 local function CrateRevealStage(props)
 	local panelRef = React.useRef(nil)
-	-- README checklist: claim/skip must be D-pad/A reachable via Selection.
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -23233,7 +22441,6 @@ local function CrateRevealStage(props)
 	end
 	local crateSize = headerHeight - 4
 	local nameX = padding + crateSize + 10
-	-- The equipped crate rattles on the reel, then its lid flies open and the reel slides in under it.
 	local introOpen = props.phase == "spin" or landed
 	local intro = props.rollIndex == 0 and props.phase ~= "exit" and props.phase ~= "done" and props.phase ~= "land"
 	local introFade = props.spinProgress:map(function(value)
@@ -23264,7 +22471,6 @@ local function CrateRevealStage(props)
 		ZIndex = 430,
 	},
 		h("uicorner", { CornerRadius = UDim.new(0, 12) }),
-		-- A quiet center lane guides the eye without covering the winning card.
 		h("frame", {
 			Size = UDim2.fromOffset(props.cardWidth * cardScale + 16, trackHeight),
 			Position = UDim2.fromScale(0.5, 0),
@@ -23285,7 +22491,6 @@ local function CrateRevealStage(props)
 			BorderSizePixel = 0,
 			ZIndex = 432,
 		}, table.unpack(cards)),
-		-- Short ticks indicate the winning position without crossing the cards.
 		h("frame", {
 			Size = props.tickEnergy:map(function(value)
 				return UDim2.fromOffset(3 + math.round(value * 2), 10 + math.round(value * 3))
@@ -23554,9 +22759,6 @@ end
 return { CrateRevealStage = CrateRevealStage }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -23568,7 +22770,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

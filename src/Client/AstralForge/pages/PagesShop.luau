@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	PagesShop: merged module suite.
-	Members (4): ShopView, StoreFront, WheelView, CrateRevealStage.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: ShopView   (merged from ShopView.luau, 1206 lines)
--- ======================================================================
 __defs["ShopView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -139,7 +127,6 @@ local TAB_LABELS = {
 	Supplies = "Packs",
 	Codes = "Codes",
 }
--- ▼ ReadonlyArray.map ▼
 local _newValue = table.create(#SHOP_TABS)
 local _callback = function(id)
 	return {
@@ -150,7 +137,6 @@ end
 for _k, _v in SHOP_TABS do
 	_newValue[_k] = _callback(_v, _k - 1, SHOP_TABS)
 end
--- ▲ ReadonlyArray.map ▲
 local SHOP_TAB_OPTIONS = _newValue
 local function accentOf(rgb)
 	local _condition = rgb[1]
@@ -757,7 +743,6 @@ local function ShopView(_param)
 	end
 	local products = monetization.DevProducts
 	local passes = monetization.GamePasses
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_1 = {}
 	local _callback_1 = function(_, index)
 		return index < 2
@@ -769,9 +754,7 @@ local function ShopView(_param)
 			_newValue_1[_length] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local featuredProducts = _newValue_1
-	-- ▼ ReadonlyArray.filter ▼
 	local _newValue_2 = {}
 	local _callback_2 = function(pass, index)
 		return index < 1 or pass.Key == "AutoSalvage"
@@ -783,7 +766,6 @@ local function ShopView(_param)
 			_newValue_2[_length_1] = _v
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
 	local featuredPasses = _newValue_2
 	local listCount = if tab == "Codes" then 1 elseif tab == "Featured" then #featuredProducts + #featuredPasses elseif tab == "Passes" then #passes else #products
 	local packCols = useShopColumns()
@@ -799,7 +781,6 @@ local function ShopView(_param)
 	local codeReady = (string.gsub(code, "%s", "")) ~= ""
 	local redeemDisabled = busy or not codeReady or purchasePhase == "pending"
 	local shopHostRef = React.useRef(nil)
-	-- Flatten pass/product offers into row chunks so FlatList virtualizes long Supplies/Passes catalogs.
 	local offerRows = {}
 	if tab ~= "Codes" then
 		local passList = if tab == "Featured" then featuredPasses elseif tab == "Passes" then passes else {}
@@ -1026,7 +1007,6 @@ local function ShopView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		-- FocusClaim prefers Claim-named hosts; park Selection on CLAIM CODE when Codes tab is live.
 		ref = if tab == "Codes" then shopHostRef else nil,
 	}, React.createElement(Button, {
 		text = if busy then "CHECKING…" else "CLAIM CODE",
@@ -1237,16 +1217,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: StoreFront
--- ======================================================================
--- The Shop page. Five sections under one switcher:
---   Daily    six offers rolled for this player and UTC day (SharedData#ShopCatalog, the same roll the
---            server checks a buy against), the first at a discount, plus the way into the Black Market;
---   Crates   the equipped crate skin in 3D, every crate's odds down to Celestial and Astral, open 1 or 5;
---   Skins    every crate skin, to preview, buy and equip;
---   Codex    every relic, found or not, the bonus for finishing a rarity, and duplicate fusion;
---   Premium  ShopView, the Robux shop.
 __defs["StoreFront"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Players = game:GetService("Players")
@@ -1341,7 +1311,6 @@ local function rowsHeight(count, columns, cell)
 	return rows * cell + (rows - 1) * GAP
 end
 
--- A fixed-height grid: `cells` is a keyed table of elements, laid out `columns` wide.
 local function Grid(props)
 	local children = table.clone(props.cells)
 	children.Layout = h("uigridlayout", {
@@ -1357,7 +1326,6 @@ local function Grid(props)
 	}, children)
 end
 
--- Stardust and Cores, right-aligned.
 local function Wallet(props)
 	local state = props.state or {}
 	local chips = {
@@ -1406,7 +1374,6 @@ local function Wallet(props)
 	}, chips)
 end
 
--- The banner at the top of every section.
 local function Hero(props)
 	local stack = props.stack
 	local textW = if stack then -56 else -300
@@ -1455,10 +1422,6 @@ end
 local function heroHeight(stack)
 	return if stack then 124 else 92
 end
-
--- ---------------------------------------------------------------------------------------------------
--- Daily
--- ---------------------------------------------------------------------------------------------------
 
 local function offerDetail(offer, config)
 	if offer.Kind == "Key" then
@@ -1609,7 +1572,6 @@ local function useDay()
 	local day, setDay = React.useState(function()
 		return ShopCatalog.day(workspace:GetServerTimeNow())
 	end)
-	-- Roll over at 00:00 UTC while the page is open.
 	React.useEffect(function()
 		local job = task.delay(ShopCatalog.secondsLeft(workspace:GetServerTimeNow()) + 1, function()
 			setDay(ShopCatalog.day(workspace:GetServerTimeNow()))
@@ -1772,10 +1734,6 @@ local function DailySection(props)
 		},
 	})
 end
-
--- ---------------------------------------------------------------------------------------------------
--- Crates
--- ---------------------------------------------------------------------------------------------------
 
 local function OddsRow(props)
 	local row = props.row
@@ -2090,10 +2048,6 @@ local function CratesSection(props)
 	})
 end
 
--- ---------------------------------------------------------------------------------------------------
--- Skins
--- ---------------------------------------------------------------------------------------------------
-
 local function skinStatus(skin, cosmetics)
 	local owned = cosmetics.CrateSkins and cosmetics.CrateSkins[skin.Id] == true or skin.Default == true
 	local equipped = (cosmetics.CrateSkin or ShopCatalog.DEFAULT_SKIN) == skin.Id
@@ -2356,10 +2310,6 @@ local function SkinsSection(props)
 	})
 end
 
--- ---------------------------------------------------------------------------------------------------
--- Codex
--- ---------------------------------------------------------------------------------------------------
-
 local function CodexProgress(props)
 	local config = props.config
 	local progress = props.progress
@@ -2567,7 +2517,6 @@ local function CodexSection(props)
 			reducedMotion = props.reducedMotion,
 		}),
 	})
-	-- Rarest first, so the Astral and Celestial rows lead the page.
 	for index = #RelicSystem.ORDER, 1, -1 do
 		local rarity = RelicSystem.ORDER[index]
 		local cells = {}
@@ -2622,10 +2571,6 @@ local function CodexSection(props)
 		sections = sections,
 	})
 end
-
--- ---------------------------------------------------------------------------------------------------
--- The page
--- ---------------------------------------------------------------------------------------------------
 
 local function StoreFront(props)
 	local viewport = useViewport()
@@ -2703,9 +2648,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: WheelView   (merged from WheelView.luau, 1349 lines)
--- ======================================================================
 __defs["WheelView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -2747,15 +2689,9 @@ local Panel = _ui.Panel
 local Text = _ui.Text
 local IMPACT_RAYS = { 0, 60, 120, 180, 240, 300 }
 local RIM_NOTCHES = { 0, 45, 90, 135, 180, 225, 270, 315 }
--- One continuous motion, so the wheel never lurches between phases: it
--- accelerates for WHEEL_LAUNCH_SECONDS, cruises at a constant speed until the
--- server answers, then brakes on a cubic ease-out that STARTS at the cruise speed
--- (initial speed = 3 * distance / duration, so duration = 3 * distance / speed).
 local WHEEL_OMEGA = 1440
 local WHEEL_OMEGA_LOW = 1080
 local WHEEL_LAUNCH_SECONDS = 0.65
--- Cruise this long after launch even when the answer is already in, so the spin
--- reads as a spin and not a snap.
 local WHEEL_MIN_CRUISE_SECONDS = 0.35
 local function sampleSpin(plan, elapsed)
 	local omega = plan.omega
@@ -2844,9 +2780,6 @@ local function useWheelController(_param)
 			completeLanding(result, wanted)
 			return nil
 		end
-		-- Brake from wherever the wheel is, at the speed it is doing: the cubic
-		-- ease-out's opening speed is 3 * distance / duration, so choosing
-		-- duration = 3 * distance / speed makes the hand-over seamless.
 		local now = os.clock()
 		local plan = motor.current
 		local current, speed = sampleSpin(plan, now - plan.startedAt)
@@ -2903,7 +2836,6 @@ local function useWheelController(_param)
 				plan.lastSegment = currentSegment
 				pointerKickValue.current = if braking and progress > 0.66 then 1 else 0.58
 				setPointerKick(pointerKickValue.current)
-				-- Fast spin ticks are a blur; only the slowing wheel earns clicks.
 				local interval = if braking then 0.06 + progress * 0.16 else 0.14
 				if audioTicksRef.current and now - plan.lastSoundAt >= interval then
 					plan.lastSoundAt = now
@@ -3020,7 +2952,6 @@ local function useWheelController(_param)
 				message = response.message,
 			}
 			pendingResult.current = result
-			-- Reduced motion has no frame loop to pick the result up.
 			if reducedMotion then
 				beginBrakeRef.current(result)
 			end
@@ -3072,7 +3003,6 @@ local function WheelBurst(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#rings)
 	local _callback = function(ring)
 		return React.createElement("frame", {
@@ -3101,10 +3031,8 @@ local function WheelBurst(_param)
 	for _k, _v in rings do
 		_newValue[_k] = _callback(_v, _k - 1, rings)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _condition = not launch and budget >= 0.62
 	if _condition then
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_1 = table.create(#IMPACT_RAYS)
 		local _callback_1 = function(angle, index)
 			return React.createElement("frame", {
@@ -3127,7 +3055,6 @@ local function WheelBurst(_param)
 		for _k, _v in IMPACT_RAYS do
 			_newValue_1[_k] = _callback_1(_v, _k - 1, IMPACT_RAYS)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_condition = _newValue_1
 	end
 	return React.createElement("frame", {
@@ -3151,7 +3078,6 @@ local function PrizeWheelMachine(_param)
 		containedEffects = false
 	end
 	local antilag = useAntilag()
-	-- Decorative springs soft-gate under low antilag; spin gameplay keeps reducedMotion only.
 	local softMotion = reducedMotion
 	local count = math.max(1, #rewards)
 	local segment = 360 / count
@@ -3272,7 +3198,6 @@ local function PrizeWheelMachine(_param)
 		Thickness = 2,
 		Transparency = 0.46,
 	})
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue = table.create(#RIM_NOTCHES)
 	local _callback = function(angle)
 		return React.createElement("frame", {
@@ -3297,7 +3222,6 @@ local function PrizeWheelMachine(_param)
 	for _k, _v in RIM_NOTCHES do
 		_newValue[_k] = _callback(_v, _k - 1, RIM_NOTCHES)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	local _exp_7 = React.createElement("frame", {
 		Size = UDim2.new(1, -14, 1, -14),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -3332,7 +3256,6 @@ local function PrizeWheelMachine(_param)
 		Thickness = 1,
 		Transparency = 0.66,
 	}))
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_1 = table.create(#rewards)
 	local _callback_1 = function(reward, index)
 		return React.createElement("frame", {
@@ -3358,8 +3281,6 @@ local function PrizeWheelMachine(_param)
 	for _k, _v in rewards do
 		_newValue_1[_k] = _callback_1(_v, _k - 1, rewards)
 	end
-	-- ▲ ReadonlyArray.map ▲
-	-- ▼ ReadonlyArray.map ▼
 	local _newValue_2 = table.create(#rewards)
 	local _callback_2 = function(reward, index)
 		local won = controller.winner == index
@@ -3422,7 +3343,6 @@ local function PrizeWheelMachine(_param)
 	for _k, _v in rewards do
 		_newValue_2[_k] = _callback_2(_v, _k - 1, rewards)
 	end
-	-- ▲ ReadonlyArray.map ▲
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(diameter, diameter),
 		BackgroundTransparency = 1,
@@ -3875,7 +3795,6 @@ local function WheelView(props)
 	reducedMotion = softMotion
 	local spinClaimHostRef = React.useRef(nil)
 	local controller = useWheelController(props)
-	-- Gamepad: park Selection on SPIN CTA.
 	React.useEffect(function()
 		if state.Wheel.CanSpin ~= true or controller.spinning or not UserInputService.GamepadEnabled then
 			return nil
@@ -4053,9 +3972,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: CrateRevealStage   (merged from CrateRevealStage.luau, 1254 lines)
--- ======================================================================
 __defs["CrateRevealStage"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
@@ -4078,7 +3994,6 @@ local Text = _ui.Text
 
 local RunService = game:GetService("RunService")
 
--- ─── easing helpers ────────────────────────────────────────────────────────────
 local function easeOutExpo(t)
 	return t == 1 and 1 or 1 - math.pow(2, -10 * t)
 end
@@ -4087,14 +4002,12 @@ local function easeOutBack(t)
 	return 1 + c3 * math.pow(t - 1, 3) + c1 * math.pow(t - 1, 2)
 end
 
--- shimmer clock shared across cards (increments each frame, wraps at 1)
 local shimmerClock = React.createContext(0)
 
 local function useShimmerClock()
 	return React.useContext(shimmerClock)
 end
 
--- ShimmerProvider: one RunService loop feeds all card shimmer animations
 local function ShimmerProvider(props)
 	local clock, setClock = React.useBinding(0)
 	React.useEffect(function()
@@ -4106,7 +4019,6 @@ local function ShimmerProvider(props)
 	return React.createElement(shimmerClock.Provider, { value = clock }, props.children)
 end
 
--- ─── Layout resolver (unchanged logic, same API) ────────────────────────────────
 local function resolveLayout(props)
 	local edge = if props.portrait then 10 else 18
 	local leftEdge = edge + props.sideSafe
@@ -4198,7 +4110,6 @@ local function resolveLayout(props)
 	}
 end
 
--- ─── ForgeBackdrop ─────────────────────────────────────────────────────────────
 local function ForgeBackdrop(_param)
 	local props = _param.props
 	local layout = _param.layout
@@ -4210,7 +4121,6 @@ local function ForgeBackdrop(_param)
 		layout.stagePosition.Y.Scale, layout.stagePosition.Y.Offset + (0.5 - layout.stageAnchor.Y) * layout.stageSize.Y.Offset
 	)
 
-	-- rotating energy ring (spins during "spin" phase, holds at land)
 	local ringRotation, setRingRotation = React.useBinding(0)
 	local ringConn = React.useRef(nil)
 	React.useEffect(function()
@@ -4224,7 +4134,6 @@ local function ForgeBackdrop(_param)
 
 	local gridLines = {}
 	if props.allowAmbient then
-		-- horizontal grid lines
 		for index = 0, 4 do
 			gridLines[`h{index}`] = React.createElement("frame", {
 				key = `forge-grid-h-{index}`,
@@ -4236,7 +4145,6 @@ local function ForgeBackdrop(_param)
 				BorderSizePixel = 0,
 			})
 		end
-		-- vertical grid lines
 		for index = 0, 6 do
 			gridLines[`v{index}`] = React.createElement("frame", {
 				key = `forge-grid-v-{index}`,
@@ -4257,7 +4165,6 @@ local function ForgeBackdrop(_param)
 		ZIndex = 405,
 		Active = false,
 	},
-		-- top divider line
 		React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, 1),
 			Position = UDim2.fromScale(0, 0.18),
@@ -4265,7 +4172,6 @@ local function ForgeBackdrop(_param)
 			BackgroundTransparency = 0.78,
 			BorderSizePixel = 0,
 		}),
-		-- bottom divider line
 		React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, 1),
 			Position = UDim2.fromScale(0, 0.82),
@@ -4273,7 +4179,6 @@ local function ForgeBackdrop(_param)
 			BackgroundTransparency = 0.84,
 			BorderSizePixel = 0,
 		}),
-		-- ambient grid
 		props.allowAmbient and React.createElement(React.Fragment, nil, table.unpack(
 			(function()
 				local items = {}
@@ -4281,7 +4186,6 @@ local function ForgeBackdrop(_param)
 				return items
 			end)()
 		)),
-		-- rotating accent energy ring
 		props.allowAmbient and React.createElement("frame", {
 			Size = props.landFlash:map(function(f)
 				local base = if contained then 72 else 130
@@ -4302,7 +4206,6 @@ local function ForgeBackdrop(_param)
 		}), React.createElement("uicorner", {
 			CornerRadius = UDim.new(0, 6),
 		})),
-		-- burst diamond
 		React.createElement("frame", {
 			Size = props.landFlash:map(function(amount)
 				return UDim2.fromOffset(burstBase + amount * burstTravel, burstBase + amount * burstTravel)
@@ -4325,7 +4228,6 @@ local function ForgeBackdrop(_param)
 				return 1 - amount * (if contained then 0.32 else 0.46)
 			end),
 		})),
-		-- spin speed bar
 		React.createElement("frame", {
 			Size = UDim2.new(if contained then 0.58 else 0.82, 0, 0, 2),
 			Position = center,
@@ -4340,7 +4242,6 @@ local function ForgeBackdrop(_param)
 	)
 end
 
--- ─── RevealHeader ──────────────────────────────────────────────────────────────
 local function RevealHeader(_param)
 	local props = _param.props
 	local layout = _param.layout
@@ -4350,7 +4251,6 @@ local function RevealHeader(_param)
 		elseif props.phase == "done" or props.phase == "exit" then "READY"
 		else "OPENING"
 
-	-- animated status dot
 	local dotPulse, setDotPulse = React.useBinding(0)
 	React.useEffect(function()
 		local conn = RunService.RenderStepped:Connect(function(dt)
@@ -4375,7 +4275,6 @@ local function RevealHeader(_param)
 		BorderSizePixel = 0,
 		ZIndex = 420,
 	},
-		-- category label
 		not simplifiedHeader and React.createElement(Text, {
 			value = "RELIC CRATE",
 			size = 9,
@@ -4385,7 +4284,6 @@ local function RevealHeader(_param)
 			sizeConstraint = UDim2.new(1, if props.shortLandscape then -128 else 0, 0, 14),
 			zIndex = 421,
 		}),
-		-- crate name
 		React.createElement(Text, {
 			value = props.crateName,
 			size = if props.shortLandscape then 21 elseif props.portrait then 23 else 27,
@@ -4398,7 +4296,6 @@ local function RevealHeader(_param)
 			sizeConstraint = UDim2.new(1, if props.shortLandscape and not simplifiedHeader then -128 else 0, 0, if props.shortLandscape then 28 else 34),
 			zIndex = 421,
 		}),
-		-- status line with animated dot
 		React.createElement("frame", {
 			Size = if simplifiedHeader then UDim2.new(1, 0, 0, 15) elseif props.shortLandscape then UDim2.fromOffset(128, 36) else UDim2.new(1, 0, 0, 14),
 			Position = if simplifiedHeader then UDim2.fromOffset(0, 27) elseif props.shortLandscape then UDim2.new(1, -128, 0, 6) else UDim2.fromOffset(0, 53),
@@ -4406,7 +4303,6 @@ local function RevealHeader(_param)
 			BorderSizePixel = 0,
 			ZIndex = 421,
 		},
-			-- animated dot
 			React.createElement("frame", {
 				Size = UDim2.fromOffset(6, 6),
 				Position = UDim2.new(if props.shortLandscape and not simplifiedHeader then 0 else 0.5, -48, 0.5, 0),
@@ -4430,7 +4326,6 @@ local function RevealHeader(_param)
 				zIndex = 421,
 			})
 		),
-		-- progress bar (non-compact, non-landscape)
 		not props.shortLandscape and not layout.compactHeight and React.createElement("frame", {
 			Size = UDim2.fromOffset(math.min(190, props.rollCount * 22), 4),
 			Position = UDim2.new(0.5, 0, 1, -2),
@@ -4449,7 +4344,6 @@ local function RevealHeader(_param)
 	)
 end
 
--- ─── ReelCard ──────────────────────────────────────────────────────────────────
 local function ReelCard(_param)
 	local card = _param.card
 	local x = _param.x
@@ -4460,7 +4354,7 @@ local function ReelCard(_param)
 	local fitScale = _param.fitScale
 	local reducedMotion = _param.reducedMotion
 	local winnerScale = _param.winnerScale
-	local shimmerPhase = _param.shimmerPhase or 0  -- 0..1 offset per card
+	local shimmerPhase = _param.shimmerPhase or 0
 
 	local clock = useShimmerClock()
 	local scale = if emphasize then winnerScale:map(function(amount)
@@ -4468,15 +4362,12 @@ local function ReelCard(_param)
 	end) else 0.94 * fitScale
 	local cardZ = if emphasize then 433 else 431
 
-	-- shimmer strip position driven by global clock + per-card phase offset
 	local shimmerX = React.joinBindings({ clock }):map(function(vals)
 		local t = (vals[1] + shimmerPhase) % 1
-		-- only show shimmer for a short burst window
 		local sweep = if t < 0.22 then easeOutExpo(t / 0.22) else if t < 0.35 then 1 - (t - 0.22) / 0.13 else -0.15
 		return UDim2.new(sweep, -28, 0, 0)
 	end)
 
-	-- winner glow halo: glowing outline ring that breathes
 	local haloGlow
 	if emphasize and not reducedMotion then
 		haloGlow = React.createElement("frame", {
@@ -4504,7 +4395,6 @@ local function ReelCard(_param)
 		BorderSizePixel = 0,
 		ZIndex = cardZ,
 	},
-		-- outer halo glow (winner only)
 		haloGlow,
 		React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
@@ -4514,7 +4404,6 @@ local function ReelCard(_param)
 			BorderSizePixel = 0,
 			ZIndex = cardZ,
 		}, React.createElement("uiscale", { Scale = scale }),
-			-- drop shadow
 			React.createElement("frame", {
 				Size = UDim2.new(1, -8, 1, -10),
 				Position = UDim2.fromOffset(4, 6),
@@ -4523,7 +4412,6 @@ local function ReelCard(_param)
 				BorderSizePixel = 0,
 				ZIndex = cardZ,
 			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) })),
-			-- card body
 			React.createElement("frame", {
 				Size = UDim2.new(1, -4, 1, -4),
 				BackgroundColor3 = Palette.panelRaised,
@@ -4540,7 +4428,6 @@ local function ReelCard(_param)
 					Color = ColorSequence.new(lighten(Palette.panelRaised, 0.05), darken(Palette.panelRaised, 0.18)),
 					Rotation = 90,
 				}),
-				-- rarity color cap strip
 				React.createElement("frame", {
 					Size = UDim2.new(1, -18, 0, 3),
 					Position = UDim2.fromOffset(9, 8),
@@ -4549,7 +4436,6 @@ local function ReelCard(_param)
 					BorderSizePixel = 0,
 					ZIndex = cardZ + 2,
 				}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
-				-- shimmer sweep (over card body, clipped)
 				not reducedMotion and React.createElement("frame", {
 					Size = UDim2.fromOffset(28, height),
 					Position = shimmerX,
@@ -4572,7 +4458,6 @@ local function ReelCard(_param)
 						NumberSequenceKeypoint.new(1, 1),
 					}),
 				})),
-				-- content
 				if detailed then React.createElement(React.Fragment, nil,
 					React.createElement(IconTile, {
 						kind = itemIconKind(card.definitionId),
@@ -4648,7 +4533,6 @@ local function ReelCard(_param)
 						ZIndex = cardZ + 3,
 					}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
 				),
-				-- winner tag badge
 				card.tag ~= nil and emphasize and React.createElement(Badge, {
 					value = card.tag,
 					accent = if card.tag == "NEW" then Palette.mint else card.accent,
@@ -4662,7 +4546,6 @@ local function ReelCard(_param)
 	)
 end
 
--- ─── ForgeReel ─────────────────────────────────────────────────────────────────
 local function ForgeReel(_param)
 	local props = _param.props
 	local layout = _param.layout
@@ -4679,7 +4562,6 @@ local function ForgeReel(_param)
 		return UDim2.new(math.clamp(amount, 0, 1), 0, 1, 0)
 	end)
 
-	-- afterimage speed bars (visible when spinning fast)
 	local speedBars = {}
 	if props.allowAmbient then
 		for index = 0, 5 do
@@ -4698,7 +4580,6 @@ local function ForgeReel(_param)
 		end
 	end
 
-	-- reel cards with shimmer phase offsets
 	local cardElements = {}
 	for i, card in props.cards do
 		local besideWinner = (props.cards[i] and props.cards[i].winner == true) or (props.cards[i + 2] and props.cards[i + 2].winner == true)
@@ -4727,7 +4608,6 @@ local function ForgeReel(_param)
 		ZIndex = 425,
 		ClipsDescendants = false,
 	},
-		-- outer shadow
 		React.createElement("frame", {
 			Size = UDim2.new(1, 6, 1, 8),
 			Position = UDim2.fromOffset(-3, 7),
@@ -4736,7 +4616,6 @@ local function ForgeReel(_param)
 			BorderSizePixel = 0,
 			ZIndex = 424,
 		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 18) })),
-		-- main stage frame
 		React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Palette.panel,
@@ -4753,7 +4632,6 @@ local function ForgeReel(_param)
 				Color = ColorSequence.new(lighten(Palette.panel, 0.045), darken(Palette.panel, 0.16)),
 				Rotation = 90,
 			}),
-			-- YOUR ROLL header strip
 			React.createElement("frame", {
 				Size = UDim2.new(1, -24, 0, 30),
 				Position = UDim2.fromOffset(12, 8),
@@ -4782,7 +4660,6 @@ local function ForgeReel(_param)
 					zIndex = 427,
 				})
 			),
-			-- reel track
 			React.createElement("frame", {
 				Size = UDim2.fromOffset(layout.reelWidth, layout.reelHeight),
 				Position = UDim2.new(0.5, 0, 1, -10),
@@ -4799,7 +4676,6 @@ local function ForgeReel(_param)
 					Thickness = 1,
 					Transparency = 0.35,
 				}),
-				-- center guide line
 				React.createElement("frame", {
 					Size = UDim2.new(1, -16, 0, 4),
 					Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -4809,9 +4685,7 @@ local function ForgeReel(_param)
 					BorderSizePixel = 0,
 					ZIndex = 428,
 				}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
-				-- speed afterimage bars
 				table.unpack(speedBars),
-				-- card strip
 				React.createElement(ShimmerProvider, {},
 					React.createElement("frame", {
 						Size = UDim2.fromOffset(#props.cards * props.stride, props.cardHeight),
@@ -4823,7 +4697,6 @@ local function ForgeReel(_param)
 						ZIndex = 429,
 					}, table.unpack(cardElements))
 				),
-				-- left edge fade vignette
 				React.createElement("frame", {
 					Size = UDim2.new(0, math.min(54, layout.reelWidth * 0.16), 1, 0),
 					BackgroundColor3 = Palette.void,
@@ -4833,7 +4706,6 @@ local function ForgeReel(_param)
 				}, React.createElement("uigradient", {
 					Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
 				})),
-				-- right edge fade vignette
 				React.createElement("frame", {
 					Size = UDim2.new(0, math.min(54, layout.reelWidth * 0.16), 1, 0),
 					Position = UDim2.fromScale(1, 0),
@@ -4845,7 +4717,6 @@ local function ForgeReel(_param)
 				}, React.createElement("uigradient", {
 					Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }),
 				})),
-				-- selection highlight bracket
 				React.createElement("frame", {
 					Size = UDim2.fromOffset(props.cardWidth + 12, props.cardHeight + 8),
 					Position = UDim2.fromScale(0.5, 0.5),
@@ -4865,7 +4736,6 @@ local function ForgeReel(_param)
 						Transparency = if landed then 0.04 else 0.18,
 					})
 				),
-				-- center tick needle
 				React.createElement("frame", {
 					Size = UDim2.new(0, 2, 1, -12),
 					Position = UDim2.fromScale(0.5, 0.5),
@@ -4878,7 +4748,6 @@ local function ForgeReel(_param)
 					ZIndex = 440,
 				})
 			),
-			-- skip caret pill
 			React.createElement("frame", {
 				Size = UDim2.fromOffset(68, 12),
 				Position = pressOffset:map(function(value)
@@ -4902,7 +4771,6 @@ local function ForgeReel(_param)
 					ZIndex = 446,
 				}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 3) }))
 			),
-			-- spin progress bar
 			React.createElement("frame", {
 				Size = UDim2.new(1, -24, 0, 3),
 				Position = UDim2.new(0.5, 0, 1, -5),
@@ -4922,7 +4790,6 @@ local function ForgeReel(_param)
 	)
 end
 
--- ─── LandingBurst ──────────────────────────────────────────────────────────────
 local function LandingBurst(_param)
 	local props = _param.props
 	local layout = _param.layout
@@ -4934,7 +4801,6 @@ local function LandingBurst(_param)
 		layout.stagePosition.Y.Scale, layout.stagePosition.Y.Offset + (0.5 - layout.stageAnchor.Y) * layout.stageSize.Y.Offset
 	)
 
-	-- spark particles
 	local sparks = {}
 	if not props.reducedMotion and props.allowAmbient then
 		for index = 0, 12 do
@@ -4967,7 +4833,6 @@ local function LandingBurst(_param)
 		end
 	end
 
-	-- vertical column beams (shooting upward on land)
 	local beams = {}
 	if not props.reducedMotion and props.allowAmbient then
 		for i = 0, 2 do
@@ -4996,7 +4861,6 @@ local function LandingBurst(_param)
 		end
 	end
 
-	-- shockwave ring
 	local shockRing = not props.reducedMotion and React.createElement("frame", {
 		Size = props.landFlash:map(function(f)
 			local s = easeOutExpo(f) * 160
@@ -5025,7 +4889,6 @@ local function LandingBurst(_param)
 		table.unpack(sparks),
 		table.unpack(beams),
 		shockRing,
-		-- horizontal flash bar
 		React.createElement("frame", {
 			Size = props.landFlash:map(function(amount)
 				return UDim2.fromOffset(150 + amount * 460, 3 + amount * 3)
@@ -5050,13 +4913,10 @@ local function LandingBurst(_param)
 	)
 end
 
--- ─── ResultPanel ───────────────────────────────────────────────────────────────
 local function ResultPanel(_param)
 	local props = _param.props
 	local layout = _param.layout
 	local visible = props.phase == "land" or props.phase == "done" or props.phase == "exit"
-	-- Hooks stay above the visibility return. This panel is not the live overlay,
-	-- but mounting it across phases used to skip useBinding/useEffect.
 	local accentLineWidth, setAccentLineWidth = React.useBinding(0)
 	React.useEffect(function()
 		if not visible then
@@ -5094,7 +4954,6 @@ local function ResultPanel(_param)
 		clips = false,
 		zIndex = 450,
 	},
-		-- rarity • roll counter
 		React.createElement(Text, {
 			value = `{string.upper(props.winnerRarity)}  •  ROLL {props.rollIndex + 1}/{props.rollCount}`,
 			size = 9,
@@ -5105,7 +4964,6 @@ local function ResultPanel(_param)
 			sizeConstraint = UDim2.new(1, if props.shortLandscape then 0 else -118, 0, 14),
 			zIndex = 452,
 		}),
-		-- item name
 		React.createElement(Text, {
 			value = props.winnerName,
 			size = if props.shortLandscape then 16 else 19,
@@ -5117,7 +4975,6 @@ local function ResultPanel(_param)
 			sizeConstraint = UDim2.new(1, if props.shortLandscape then 0 else -118, 0, 26),
 			zIndex = 452,
 		}),
-		-- animated accent underline
 		React.createElement("frame", {
 			Size = accentLineWidth:map(function(t)
 				return UDim2.new(t * (if props.shortLandscape then 0.55 else 0.42), 0, 0, 2)
@@ -5128,7 +4985,6 @@ local function ResultPanel(_param)
 			BorderSizePixel = 0,
 			ZIndex = 453,
 		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
-		-- detail text
 		React.createElement(Text, {
 			value = props.resultDetail,
 			size = 9,
@@ -5140,7 +4996,6 @@ local function ResultPanel(_param)
 			sizeConstraint = UDim2.new(1, if props.shortLandscape then 0 else -118, 0, if props.shortLandscape then 32 else 24),
 			zIndex = 452,
 		}),
-		-- result tag badge
 		React.createElement(Badge, {
 			value = props.resultTag,
 			accent = if props.resultTag == "NEW FIND" then Palette.mint else props.winnerAccent,
@@ -5152,7 +5007,6 @@ local function ResultPanel(_param)
 	))
 end
 
--- ─── CrateRevealStage (root) ───────────────────────────────────────────────────
 local function CrateRevealStage(props)
 	local layout = resolveLayout(props)
 	local antilag = useAntilag()
@@ -5190,7 +5044,6 @@ local function CrateRevealStage(props)
 	end)
 	local showingClaim = props.phase == "done" or props.phase == "exit"
 
-	-- Fold reducedMotion into downstream props without mutating the caller table.
 	local stageProps = table.clone(props)
 	stageProps.reducedMotion = reducedMotion
 	stageProps.allowAmbient = allowAmbient
@@ -5202,7 +5055,6 @@ local function CrateRevealStage(props)
 		Active = true,
 		ZIndex = 400,
 	},
-		-- full-screen tap-to-interact backdrop
 		React.createElement("imagebutton", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Palette.void,
@@ -5224,7 +5076,6 @@ local function CrateRevealStage(props)
 				end,
 			},
 		}),
-		-- accent gradient wash overlay
 		React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = darken(props.sessionAccent, 0.6),
@@ -5235,7 +5086,6 @@ local function CrateRevealStage(props)
 			Color = ColorSequence.new(darken(props.sessionAccent, 0.78), Palette.void),
 			Rotation = 90,
 		})),
-		-- main content (scaled from center on enter/exit)
 		React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -5254,7 +5104,6 @@ local function CrateRevealStage(props)
 			React.createElement(ForgeReel, { props = stageProps, layout = layout }),
 			React.createElement(LandingBurst, { props = stageProps, layout = layout }),
 			React.createElement(ResultPanel, { props = stageProps, layout = layout }),
-			-- SKIP button (during spin)
 			props.phase == "spin" and React.createElement("frame", {
 				ref = actionHostRef,
 				Name = "CrateSkip",
@@ -5275,7 +5124,6 @@ local function CrateRevealStage(props)
 				reducedMotion = reducedMotion,
 				selectable = true,
 			})),
-			-- CLAIM button (after land)
 			showingClaim and React.createElement("frame", {
 				ref = actionHostRef,
 				Name = "CrateClaim",
@@ -5312,9 +5160,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -5326,7 +5171,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

@@ -9,7 +9,6 @@ local TextChatService = game:GetService("TextChatService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local MainGame = require(script.UiCore)("MainGame").MainGame
--- Studio drops a script that spends its whole execution budget in one require chain.
 task.wait()
 local _antilag = require(script.MotionKit)("antilag")
 local AntilagProvider = _antilag.AntilagProvider
@@ -83,10 +82,6 @@ local function disconnectBootConnections()
 	end
 end
 local stopInputPlatform = configureInputPlatform()
--- Fired once at boot so AutoLocalize'd text (see ui.tsx's Text/TextInput components) doesn't
--- stall its first translation lookup on the player's own request -- GetTranslatorForPlayerAsync
--- is a network round trip, and warming it here means it's already resolved by the time any
--- localized string actually renders.
 task.spawn(function()
 	pcall(function()
 		return LocalizationService:GetTranslatorForPlayerAsync(Players.LocalPlayer)

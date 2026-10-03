@@ -1,15 +1,4 @@
 --!nonstrict
---[=[
-	PagesCasino: the Astral Casino page suite.
-	Members (1): CasinoView.
-
-	Same shape as the other page suites: `require(<this module>)("CasinoView")` (or index it) returns that
-	member's exports, evaluated lazily once. Every roll, stake and payout happens on the server
-	(CasinoService); this page picks a stake, sends one CasinoPlay action and performs what comes back:
-	spinning reels that decelerate onto the answer, a coin that tumbles, cards that turn over, a roulette
-	ball that rattles into its pocket, scratch cells that wipe clear, coin showers and payout banners, and
-	custom sound effects (Shared/CasinoSfx) on every beat.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -29,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: CasinoView
--- ======================================================================
 __defs["CasinoView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local RunService = game:GetService("RunService")
@@ -79,7 +65,6 @@ local SYMBOL_COLORS = {
 	Spark = Palette.mango,
 }
 local SYMBOL_GLYPH = { Ember = "E", Dust = "D", Core = "C", Comet = "K", Star = "S", Nova = "N", Spark = "*" }
--- Each reel's strip: 18 cells, the rarer symbols appearing less often, shuffled differently per reel.
 local STRIPS = {
 	{ "Ember", "Dust", "Core", "Ember", "Comet", "Dust", "Ember", "Star", "Core", "Dust", "Ember", "Nova", "Core", "Ember", "Dust", "Comet", "Ember", "Dust" },
 	{ "Dust", "Ember", "Comet", "Dust", "Core", "Ember", "Dust", "Ember", "Nova", "Core", "Ember", "Dust", "Star", "Ember", "Core", "Dust", "Comet", "Ember" },
@@ -88,7 +73,6 @@ local STRIPS = {
 local CYCLE = 18
 local REPS = 2
 local CARD_NAMES = { [1] = "A", [11] = "J", [12] = "Q", [13] = "K" }
--- A European roulette wheel, clockwise from the zero.
 local WHEEL = { 0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26 }
 local RED = { [1] = true, [3] = true, [5] = true, [7] = true, [9] = true, [12] = true, [14] = true, [16] = true, [18] = true, [19] = true, [21] = true, [23] = true, [25] = true, [27] = true, [30] = true, [32] = true, [34] = true, [36] = true }
 
@@ -106,8 +90,6 @@ local function times(multiplier)
 	end
 	return string.format("x%.2f", multiplier)
 end
-
--- ----- easing and a frame loop -------------------------------------------------------------------
 
 local function outCubic(x)
 	return 1 - (1 - math.clamp(x, 0, 1)) ^ 3
@@ -134,9 +116,6 @@ local function outBounce(x)
 	return 7.5625 * x * x + 0.984375
 end
 
--- One RenderStepped connection serves every animated piece on the page (there used to be one each), and a piece
--- can ask for a lower rate (`hz`) when it does not need every frame. `callback(dt, now)` gets the time since that
--- piece's own last call.
 local frameLoop = { connection = nil :: RBXScriptConnection?, entries = {} :: { [any]: boolean }, count = 0, scratch = {} :: { any } }
 
 local function runFrame(dt: number)
@@ -155,7 +134,6 @@ local function runFrame(dt: number)
 	end
 end
 
--- Runs `callback(dt, now)` every rendered frame (or `hz` times a second) while `enabled`; always calls the latest closure.
 local function useRender(callback, enabled, hz)
 	local latest = React.useRef(callback)
 	latest.current = callback
@@ -180,8 +158,6 @@ local function useRender(callback, enabled, hz)
 		end
 	end, { enabled })
 end
-
--- ----- sound ---------------------------------------------------------------------------------------------
 
 local sfxGroup = nil
 local function groupOf()
@@ -220,7 +196,6 @@ local function sfx(name, volume, speed)
 	sound:Play()
 end
 
--- A looping sound; returns the function that stops it.
 local function loopSfx(name, volume, speed)
 	local sound = makeSound(name, volume, speed, true)
 	if sound == nil then
@@ -232,8 +207,6 @@ local function loopSfx(name, volume, speed)
 		sound:Destroy()
 	end
 end
-
--- ----- small building blocks ---------------------------------------------------------------------------
 
 local function Stack(props)
 	local kids = {
@@ -286,7 +259,6 @@ local function Row(props)
 	}, list)
 end
 
--- n equal buttons across a row.
 local function Buttons(props)
 	local count = #props.items
 	local gap = props.gap or 6
@@ -307,7 +279,6 @@ local function Buttons(props)
 	return React.createElement(Row, { height = props.height or 46, gap = gap, order = props.order, children = children })
 end
 
--- A rounded tile with one big word.
 local function Tile(props)
 	return React.createElement("frame", {
 		Size = props.size or UDim2.new(0.31, 0, 1, 0),
@@ -333,9 +304,6 @@ local function gradient(top, bottom, rotation)
 	return React.createElement("uigradient", { Color = ColorSequence.new(top, bottom), Rotation = rotation or 90 })
 end
 
--- ----- marquee lights ----------------------------------------------------------------------------------
-
--- A string of bulbs that chase; `mode` "win" flashes them fast and gold.
 local function Marquee(props)
 	local count = props.count or 16
 	local refs = React.useRef({})
@@ -377,8 +345,6 @@ local function Marquee(props)
 		LayoutOrder = props.order or 0,
 	}, bulbs)
 end
-
--- ----- a symbol gem -------------------------------------------------------------------------------------
 
 local function Gem(props)
 	local color = SYMBOL_COLORS[props.id] or Palette.cream
@@ -422,11 +388,6 @@ local function Gem(props)
 	})
 end
 
--- ----- 3D in viewports -----------------------------------------------------------------------------------
--- Real geometry, lit and in perspective, drawn by ViewportFrames: reels are drums that turn, the coin is a
--- minted disc that tumbles, the card is a slab that flips, the wheel is a bowl with a ball in it. Each scene is
--- built once from primitives and hands back the few setters its animation drives every frame.
-
 local BLOCK, BALL, CYL = Enum.PartType.Block, Enum.PartType.Ball, Enum.PartType.Cylinder
 local NEON, METAL, PLASTIC = Enum.Material.Neon, Enum.Material.Metal, Enum.Material.SmoothPlastic
 
@@ -455,12 +416,6 @@ local function newModel(viewport)
 	return model
 end
 
--- ----- the Blender kit ------------------------------------------------------------------------------------
--- tools/casinobuild models every piece (bevelled, smooth, its lighting baked into a texture) and the server
--- publishes them under ReplicatedStorage.CasinoKit. Until that lands, the builders below fall back to the
--- part-built shapes. Roblox's importer turns a glTF round (its +Z forward becomes Roblox -Z), so a piece's
--- face (Blender -Y) already looks along -Z, at the viewport cameras: KIT_YAW stays 0. Checked on the
--- uploaded kit: the comet's head lands on +X and the coin's relief star on the -Z face.
 local KIT_YAW = 0
 local KIT_FACE = CFrame.Angles(0, KIT_YAW, 0)
 local SYMBOL_PIECE = { Ember = "Ember", Spark = "Ember", Dust = "Dust", Core = "Core", Comet = "Comet", Star = "Star", Nova = "Nova" }
@@ -470,7 +425,6 @@ local function kitFolder()
 	local folder = ReplicatedStorage:FindFirstChild("CasinoKit")
 	return if folder ~= nil and folder:IsA("Folder") then folder else nil
 end
--- A copy of kit piece `name`, scaled so its largest side is `fit` studs, or nil while the kit is missing.
 local function kitPiece(name, fit)
 	local folder = kitFolder()
 	local source = folder and folder:FindFirstChild("Casino_" .. name)
@@ -485,7 +439,6 @@ local function kitPiece(name, fit)
 	end
 	return part, (if fit ~= nil and largest > 1e-3 then fit / largest else 1)
 end
--- True once the kit is published; components re-key their viewports on it so scenes rebuild with the meshes.
 local function useKitReady()
 	local ready, setReady = React.useState(kitFolder() ~= nil)
 	React.useEffect(function()
@@ -512,8 +465,6 @@ local function useKitReady()
 	return ready
 end
 
--- A reel symbol facing -Z (towards the camera), centred on `at`, scaled by `scale`: the kit's mesh when
--- it is loaded, otherwise a small solid built from parts.
 local function addSymbol(parent, id, at, scale)
 	local mesh = kitPiece(SYMBOL_PIECE[id] or "Star", 1.02 * scale)
 	if mesh ~= nil then
@@ -558,8 +509,6 @@ local function addSymbol(parent, id, at, scale)
 	end
 end
 
--- A ViewportFrame that builds its scene once. `build(viewport, camera)` returns the scene's setters, which are
--- handed to `onScene` so the owning component can drive them from its own frame loop.
 local function View3D(props)
 	local scene = React.useRef(nil)
 	local host = React.useRef(nil)
@@ -576,14 +525,12 @@ local function View3D(props)
 			props.onScene(scene.current)
 		end
 	end
-	-- The kit landed after this scene was built from parts: build it again with the meshes.
 	React.useEffect(function()
 		local viewport = host.current
 		if kitReady and viewport ~= nil and scene.current ~= nil and not builtWithKit.current then
 			build(viewport)
 		end
 	end, { kitReady })
-	-- Baked meshes carry their own shading, so they get a brighter, flatter fill than the part-built shapes.
 	return React.createElement("viewportframe", {
 		Size = props.size or UDim2.fromScale(1, 1),
 		Position = props.position,
@@ -603,17 +550,11 @@ local function View3D(props)
 	})
 end
 
--- A reel: a dark drum with the strip's symbols standing round it. The drum never moves: set(pos) swings the camera
--- (and the light with it) round the drum's axis so cell `pos` faces the lens. That is one camera move per frame
--- where turning the drum meant re-posing about ninety parts, and it only redraws when the position changes.
--- Only the cells near the window are kept in the viewport (each cell is its own model, parented in or out as it
--- comes round), so a spinning reel draws about a third of the parts it used to.
 local VISIBLE_CELLS = 3
 local function buildDrum(index)
 	return function(viewport, camera)
 		local model = newModel(viewport)
 		local radius = 1.7
-		-- The kit's lacquered drum (grooves between the cells, studded brass rims), or parts.
 		local drum = kitPiece("Drum", (radius + 0.06) * 2)
 		if drum ~= nil then
 			drum.CFrame = KIT_FACE
@@ -668,7 +609,6 @@ local function buildDrum(index)
 	end
 end
 
--- A soft glass sheen laid over a viewport: brighter at the top, clear below the middle.
 local function GlassSheen(props)
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -685,10 +625,7 @@ local function GlassSheen(props)
 		}),
 	})
 end
--- ----- the slot machine ---------------------------------------------------------------------------------
 
--- Three 3D reels. phase "spin": whirr until told to stop. phase "stop": each reel decelerates, one after the
--- other, onto `target[i]` with a little overshoot, calling onReel(i) as it lands and onSettled() when all have.
 local function SlotMachine(props)
 	local cellH = props.cellH or 52
 	local reels = React.useRef(nil)
@@ -720,7 +657,6 @@ local function SlotMachine(props)
 		return from
 	end
 
-	-- Idle reels show the last answer (or the opening line-up).
 	React.useEffect(function()
 		if props.phase == "idle" then
 			for index = 1, 3 do
@@ -884,9 +820,6 @@ local function SlotMachine(props)
 	})
 end
 
--- ----- coin shower ---------------------------------------------------------------------------------------
-
--- Gold coins thrown up from the bottom and falling back; trigger it by bumping `token`.
 local function Confetti(props)
 	local count = 46
 	local running = React.useRef(false)
@@ -954,9 +887,6 @@ local function Confetti(props)
 	return React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 20, Active = false }, pieces)
 end
 
--- ----- payout banner ------------------------------------------------------------------------------------
-
--- "+12.3K" that pops in, hangs and fades. kind: "win" | "big" | "jackpot" | "lose".
 local function PayoutBanner(props)
 	local label = React.useRef(nil)
 	local scale = React.useRef(nil)
@@ -978,7 +908,6 @@ local function PayoutBanner(props)
 		end
 		local life = if props.kind == "jackpot" then 3.2 else 2.0
 		frame.Visible = age < life and props.token > 0
-		-- Win amounts count up as the banner pops; losses show at once.
 		if props.amount ~= nil and props.kind ~= "lose" then
 			frame.Text = (props.prefix or "+") .. compactNumber(props.amount * outCubic(age / 0.6))
 		end
@@ -1006,29 +935,22 @@ local function PayoutBanner(props)
 	})
 end
 
--- ----- the coin --------------------------------------------------------------------------------------------
-
--- A minted gold disc: a raised H on one face, a T on the other, a rim, and a shadow that shrinks as it rises.
--- set(angle, lift) flips it about its horizontal axis (angle 0 = heads towards the camera) and raises it.
 local function buildCoin(viewport, camera)
 	local model = newModel(viewport)
-	-- The kit's minted coin (reeded edge, beaded rims, a star and H on heads, a laurel and T on tails), or parts.
 	local minted = kitPiece("Coin", 2.2)
 	if minted ~= nil then
 		minted.CFrame = KIT_FACE
 		minted.Parent = model
 	else
-		local face = CFrame.Angles(0, math.pi / 2, 0) -- a cylinder lies along X; this turns it to look at the camera
+		local face = CFrame.Angles(0, math.pi / 2, 0)
 		solid(model, CYL, Vector3.new(0.34, 2.2, 2.2), Palette.brassDeep, METAL, face)
 		local body = solid(model, CYL, Vector3.new(0.3, 2.1, 2.1), Palette.mango, METAL, face)
 		body.Reflectance = 0.25
 		solid(model, CYL, Vector3.new(0.36, 1.7, 1.7), Color3.fromRGB(255, 226, 140), METAL, face)
 		local ink = Palette.brassDeep
-		-- H on the front (-Z)
 		solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(-0.32, 0, -0.2))
 		solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0.32, 0, -0.2))
 		solid(model, BLOCK, Vector3.new(0.6, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, 0, -0.2))
-		-- T on the back (+Z), drawn upside down so it reads upright after the flip
 		solid(model, BLOCK, Vector3.new(0.85, 0.18, 0.07), ink, PLASTIC, CFrame.new(0, -0.38, 0.2))
 		solid(model, BLOCK, Vector3.new(0.18, 0.95, 0.07), ink, PLASTIC, CFrame.new(0, 0.02, 0.2))
 	end
@@ -1051,7 +973,6 @@ local function buildCoin(viewport, camera)
 	}
 end
 
--- A coin that tumbles. `phase` "spin" tumbles until told to land; "land" settles on `heads` with a bounce.
 local function Coin(props)
 	local scene = React.useRef(nil)
 	local motion = React.useRef({ angle = 0, speed = 0, mode = "rest", t0 = 0, from = 0, to = 0 })
@@ -1109,14 +1030,9 @@ local function Coin(props)
 	})
 end
 
--- ----- playing cards ---------------------------------------------------------------------------------------
-
--- A card slab: cream on the front, a patterned back. set(rotY, lift) turns it about its vertical axis.
 local function buildCard(color)
 	return function(viewport, camera)
 		local model = newModel(viewport)
-		-- The kit's card (bevelled, rounded corners, a gold-framed face with pips, a brass lattice on the
-		-- violet back), or parts.
 		local slab = kitPiece("Card", 2.8)
 		if slab ~= nil then
 			slab.CFrame = KIT_FACE
@@ -1145,7 +1061,6 @@ local function buildCard(color)
 	end
 end
 
--- A card that flips when `flip` changes: a full turn in which the rank changes while its back is towards you.
 local function Card(props)
 	local scene = React.useRef(nil)
 	local rankLabel = React.useRef(nil)
@@ -1215,21 +1130,11 @@ local function Card(props)
 	})
 end
 
--- ----- the roulette wheel -------------------------------------------------------------------------------------
-
--- A bowl seen from above and in front: a brass-rimmed base, a ring of 37 coloured pockets, a hub, and a ball.
--- The pockets never move; set(turn, ballAngle, ballRadius) swings the camera (and the light) round the bowl by
--- `turn`, which looks exactly like the wheel turning, and places the ball in the bowl's own frame (radius as a
--- share of the bowl, 0.43 at the rim down to 0.34 in a pocket).
 local function buildWheel(viewport, camera)
 	local scale = 4.85
-	-- The kit's turned wheel (wooden bowl, sloped ball track, 37 coloured pockets between brass frets, a turret)
-	-- and an ivory ball, or parts. The wheel's pocket 0 sits on its +Y in Blender, which imports to +Z, so a
-	-- half turn puts it on -Z, where the pocket angles below start (the turn also keeps them clockwise).
 	local bowl, bowlScale = kitPiece("Wheel", 5.76)
 	local ball = kitPiece("Ball", 0.3)
 	if bowl ~= nil and ball ~= nil then
-		-- Blender z 0 (the pocket floor) sits at y 0.25; the mesh is centred on its bounds (z -0.16 .. 0.93).
 		bowl.CFrame = CFrame.new(0, 0.25 + 0.385 * bowlScale, 0) * CFrame.Angles(0, KIT_YAW + math.pi, 0)
 		bowl.Parent = viewport
 		ball.CFrame = CFrame.new(0, 0.5, -2)
@@ -1241,7 +1146,7 @@ local function buildWheel(viewport, camera)
 		if ball ~= nil then
 			ball:Destroy()
 		end
-		local flat = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder lies along X; this stands it on its end
+		local flat = CFrame.Angles(0, 0, math.pi / 2)
 		solid(viewport, CYL, Vector3.new(0.34, 5.7, 5.7), Palette.brassDeep, PLASTIC, CFrame.new(0, -0.12, 0) * flat)
 		solid(viewport, CYL, Vector3.new(0.3, 5.3, 5.3), Palette.night, PLASTIC, CFrame.new(0, 0, 0) * flat)
 		solid(viewport, CYL, Vector3.new(0.12, 4.5, 4.5), Color3.fromRGB(58, 44, 64), PLASTIC, CFrame.new(0, 0.12, 0) * flat)
@@ -1274,8 +1179,6 @@ local function buildWheel(viewport, camera)
 		end,
 	}
 end
--- The pockets turn slowly; the ball rattles round the other way and settles into the winning pocket.
--- phase "spin": the ball circles; "land": it decelerates into pocket `number` and calls onLanded.
 local function Wheel(props)
 	local diameter = props.size or 190
 	local scene = React.useRef(nil)
@@ -1305,7 +1208,6 @@ local function Wheel(props)
 			end
 		end
 	end, { props.phase, props.token })
-	-- Every frame, resting or not: the slow idle turn used to tick at 24Hz and read as a stutter.
 	useRender(function(dt, now)
 		local m = motion.current
 		m.turn += dt * (if m.mode == "orbit" or m.mode == "land" then 0.9 else 0.25)
@@ -1339,9 +1241,6 @@ local function Wheel(props)
 	})
 end
 
--- ----- one scratch cell ----------------------------------------------------------------------------------------
-
--- A turning 3D gem for one scratch symbol; set(rotY, pop) spins it and scales it (pop 0.5..1.1).
 local function buildGem(id)
 	return function(viewport, camera)
 		local model = newModel(viewport)
@@ -1361,8 +1260,6 @@ local function buildGem(id)
 	end
 end
 
--- A cell under a silver cover that peels away, with a 3D gem that pops and spins and a spray of sparkles,
--- `delay` seconds after `token` changes.
 local SPARKLE_COLORS = { Palette.mango, Palette.cyan, Palette.pink, Palette.mint, Palette.cream }
 local SPARKLES = 8
 
@@ -1416,7 +1313,6 @@ local function ScratchCell(props)
 					props.onReveal()
 				end
 			end
-			-- the foil peels: it turns, slides up and away, and thins out
 			local peel = outCubic(k)
 			c.Visible = k < 1
 			c.Rotation = -15 * peel
@@ -1498,9 +1394,6 @@ local function ScratchCell(props)
 	})
 end
 
--- ----- the exchange ticker -----------------------------------------------------------------------------------
-
--- The last four hours of the market as bars that grow in, with a line at par.
 local function Ticker(props)
 	local bars = React.useRef({})
 	local born = React.useRef(os.clock())
@@ -1541,8 +1434,6 @@ local function Ticker(props)
 	})
 end
 
--- ----- one rank in the club ladder -----------------------------------------------------------------------------
-
 local function ClubRankRow(props)
 	local rank = props.rank
 	local reward = if rank.Reward then formatReward(rank.Reward) else "Welcome"
@@ -1572,7 +1463,6 @@ local function ClubRankRow(props)
 	} })
 end
 
--- A progress bar whose fill eases to its value and carries a moving shine.
 local function ShineBar(props)
 	local fill = React.useRef(nil)
 	local shine = React.useRef(nil)
@@ -1599,7 +1489,6 @@ local function ShineBar(props)
 	})
 end
 
--- The game panel's content slides and settles in when you switch games. Keyed by tab, so it remounts.
 local function TabSwap(props)
 	local arrive = useFlipperSpring(1, false, 620, 40, 0)
 	return React.createElement("frame", {
@@ -1627,12 +1516,9 @@ local function stakeLine(state, tier)
 	return `Stake: {compactNumber(stake.Amount)} flux ({stake.Share * 100}% of yours)`
 end
 
--- ----- the page ------------------------------------------------------------------------------------------------------
-
 local function CasinoView(props)
 	local state = props.state
 	local dispatch = props.dispatch
-	-- Always animated; the Reduced Motion setting softens the feel through MotionSettingsContext.
 	local reducedMotion = false
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -1640,7 +1526,6 @@ local function CasinoView(props)
 	local casino = state.Casino
 
 	local tab, setTab = React.useState(props.initialTab or "Slots")
-	-- Which way the new game slides in: from the right when moving forward through the tabs.
 	local tabIndexRef = React.useRef({ index = 1, direction = 1 })
 	for index, entry in TABS do
 		if entry.id == tab and index ~= tabIndexRef.current.index then
@@ -1654,7 +1539,6 @@ local function CasinoView(props)
 	local last, setLast = React.useState({})
 	local pick, setPick = React.useState("Red")
 	local straight, setStraight = React.useState(17)
-	-- one animation state per game
 	local slot, setSlot = React.useState({ phase = "idle", target = { "Ember", "Dust", "Core" }, token = 0 })
 	local coin, setCoin = React.useState({ phase = "rest", heads = true, token = 0 })
 	local card, setCard = React.useState({ rank = nil, flip = 0 })
@@ -1680,7 +1564,6 @@ local function CasinoView(props)
 		end
 	end, {})
 
-	-- The animation is finished: show the outcome, throw coins, play the right fanfare.
 	local function conclude(response)
 		if not mounted.current then
 			return
@@ -1730,7 +1613,6 @@ local function CasinoView(props)
 		Audio:play("error")
 	end
 
-	-- One tap, one server round; `onResponse(response)` runs the game's own animation, which ends in conclude().
 	local function play(payload, onResponse)
 		if busy or casino == nil then
 			return
@@ -1801,7 +1683,6 @@ local function CasinoView(props)
 		return React.createElement(Buttons, { items = items, height = 40, order = order, reducedMotion = reducedMotion })
 	end
 
-	-- ------------------------------------------------------------------ slots
 	local function slotsBody()
 		local pays = {}
 		for _, symbol in casino.Slots.Symbols do
@@ -1856,7 +1737,6 @@ local function CasinoView(props)
 		}
 	end
 
-	-- ------------------------------------------------------------------ coin flip
 	local function flipBody()
 		local flip = casino.Flip
 		local function toss(payload)
@@ -1926,7 +1806,6 @@ local function CasinoView(props)
 		}
 	end
 
-	-- ------------------------------------------------------------------ high-low
 	local function highLowBody()
 		local round = casino.HighLow
 		local items = {}
@@ -2000,7 +1879,6 @@ local function CasinoView(props)
 		}
 	end
 
-	-- ------------------------------------------------------------------ roulette
 	local function rouletteBody()
 		local function option(label, id)
 			return {
@@ -2072,7 +1950,6 @@ local function CasinoView(props)
 		}
 	end
 
-	-- ------------------------------------------------------------------ scratch cards
 	local function scratchBody()
 		local free = casino.Scratch.FreeReady
 		local cells = scratch.cells
@@ -2132,7 +2009,6 @@ local function CasinoView(props)
 		}
 	end
 
-	-- ------------------------------------------------------------------ exchange
 	local function exchangeBody()
 		local market = casino.Exchange
 		local delta = math.floor((market.Mood - 1) * 100 + 0.5)
@@ -2167,7 +2043,6 @@ local function CasinoView(props)
 		}
 	end
 
-	-- ------------------------------------------------------------------ club
 	local function clubBody()
 		local club = casino.Club
 		local stats = casino.Stats
@@ -2281,7 +2156,6 @@ local function CasinoView(props)
 	})
 end
 
--- The animated parts are exported too, so each can be driven on its own (tests, and a future minigame hub).
 return {
 	CasinoView = CasinoView,
 	SlotMachine = SlotMachine,
@@ -2292,7 +2166,6 @@ return {
 	Confetti = Confetti,
 	PayoutBanner = PayoutBanner,
 	Ticker = Ticker,
-	-- shared by the Bazaar page so both hubs look and sound alike
 	Kit = {
 		Stack = Stack, Line = Line, Row = Row, Buttons = Buttons, Tile = Tile, Marquee = Marquee, Confetti = Confetti, ShineBar = ShineBar,
 		sfx = sfx, useRender = useRender, outCubic = outCubic, outBack = outBack, gradient = gradient,
@@ -2300,9 +2173,6 @@ return {
 }
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -2314,7 +2184,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

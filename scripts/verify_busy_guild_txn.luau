@@ -19,10 +19,6 @@ assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataServic
 assert(string.find(dataSrc, "atom:IsBusy()", 1, true), "IsBusy must consult atom busy state")
 assert(string.find(servicesSrc, "self._data:IsBusy(player)", 1, true), "production tick must consult IsBusy")
 assert(
-	string.find(servicesSrc, "long AtomicUpdate busy windows let ProductionAccumulator", 1, true),
-	"busy-window evidence comment must stay"
-)
-assert(
 	string.find(servicesSrc, "maxCatchUp = GameConfig.Game.ProductionTick * 4", 1, true),
 	"busy window must cap ProductionAccumulator catch-up"
 )

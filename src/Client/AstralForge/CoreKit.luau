@@ -1,13 +1,4 @@
 --!nonstrict
---[=[
-	CoreKit: merged module suite.
-	Members (25): log, theme, mobileLayout, format, session, types, noticeMath, deadlines, boostIconKind, releaseClockMath, vaultCollectEligibility, inputPlatform, networkPolicy, actionCopy, pageBoardHeights, taskFilter, snapshotEnvelopeMath, inventoryMath, adminFields, clientStore, interaction, navRouteTable, appNav, GamepadNavigationService, TouchGestureService.
-
-	Each member keeps its original source inside its own closure (so every member
-	still has its own local-register budget) and is evaluated lazily, exactly once,
-	on first access.  Use `require(<this module>)("<Member>")` (or index the returned
-	table with the member name) to get a member's exports.
-]=]
 
 local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
@@ -27,9 +18,6 @@ local function __load(name: string): any
 	return value
 end
 
--- ======================================================================
--- Module: log   (merged from log.luau, 209 lines)
--- ======================================================================
 __defs["log"] = function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -39,10 +27,6 @@ local recentCount = 0
 local emitted = {}
 local bootMilliseconds = 0
 local bootOrigin = os.clock()
--- One line per event, same shape on client and server:
---   "  12.480  info   boot        runtime started  elapsed=31ms"
--- seconds since this script context started, a fixed-width level, a lowercase scope
--- column, the message, then key=value pairs (sorted; *Ms keys print as durations).
 local LEVEL_COLUMN = { INFO = "info ", WARN = "warn ", ERROR = "error", FATAL = "fatal", NETWORK = "net  " }
 local SCOPE_COLUMN_WIDTH = 12
 local startedAt = os.clock()
@@ -112,7 +96,6 @@ local function available(key, seconds)
 	if previous ~= nil and now - previous < seconds then
 		return false
 	end
-	-- Keys can embed instance paths, so the table would otherwise only ever grow.
 	if previous == nil then
 		recentCount += 1
 		if recentCount > 512 then
@@ -288,9 +271,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: theme   (merged from theme.luau, 323 lines)
--- ======================================================================
 __defs["theme"] = function()
 local exports = {}
 local planMobileLayout = __load("mobileLayout").planMobileLayout
@@ -301,10 +281,6 @@ exports.isMobileLandscape = _mobileLayout.isMobileLandscape
 exports.moreDockHeight = _mobileLayout.moreDockHeight
 exports.planMobileLayout = _mobileLayout.planMobileLayout
 exports.scrollTail = _mobileLayout.scrollTail
--- Astral Forge "molten forge" chroma: warm charcoal-plum surfaces with brass and
--- ember heat, cut by cool cyan/mint signal colours. The surfaces are warm so
--- accents (CTAs, tabs, meters, active chrome) glow against them instead of
--- sitting on a cold blue wash; semantic colours (success, danger) stay readable.
 local Palette = {
 	void = Color3.fromRGB(8, 6, 10),
 	ink = Color3.fromRGB(12, 9, 14),
@@ -390,7 +366,6 @@ local function applyAccessibilityTheme(highContrast, colorblind)
 	end
 end
 local Layout = {
-	-- Desktop breathing room: denser "too clean" chrome made sections hard to scan.
 	pagePadding = 18,
 	topbarClearance = 6,
 	minTopInset = 36,
@@ -408,7 +383,6 @@ local Layout = {
 	contentMinWidth = 620,
 	contentInset = 18,
 	workspaceHeaderHeight = 86,
-	-- Soft cap for readable page columns on ultrawide; shell still spans the monitor.
 	contentMaxWidth = 1680,
 	maxShellWidth = 3440,
 	referenceWidth = 1920,
@@ -417,7 +391,6 @@ local Layout = {
 	maxScale = 1,
 	chromeScale = 1,
 }
--- Shared chrome opacities — lower = more visible strokes/shadows/accents.
 local Chrome = {
 	panelShadow = 0.7,
 	panelStrokeIdle = 0.3,
@@ -582,7 +555,6 @@ local function surfaceGradient(base, strength)
 	if strength == nil then
 		strength = 1
 	end
-	-- Layered forge glass: a warm lift at the top edge, then a deeper sink into the dark.
 	return ColorSequence.new({
 		ColorSequenceKeypoint.new(0, lighten(base, 0.15 * strength)),
 		ColorSequenceKeypoint.new(0.12, lighten(base, 0.05 * strength)),
@@ -591,7 +563,6 @@ local function surfaceGradient(base, strength)
 	})
 end
 local function strokeGradient(color)
-	-- Directional edge: the top of a stroke reads brighter than the bottom.
 	return ColorSequence.new({
 		ColorSequenceKeypoint.new(0, lighten(color, 0.58)),
 		ColorSequenceKeypoint.new(0.42, color),
@@ -617,28 +588,9 @@ exports.TapTarget = TapTarget
 return exports
 end
 
--- ======================================================================
--- Module: mobileLayout   (merged from mobileLayout.luau, 230 lines)
--- ======================================================================
 __defs["mobileLayout"] = function()
--- Mobile layout engine (v2). Ground-up rewrite of the mobile sizing/breakpoint math.
---
--- The old system computed a single sprawling "plan" object shared by a rail-collapse-into-
--- drawer navigation pattern, a floating draggable quick bar, and a floating draggable "more"
--- dock, with every dimension keyed off `stack`/`landscape`/`tablet` flags threaded through
--- dozens of call sites. This version targets a single, fixed navigation pattern for touch/
--- narrow devices instead: a bottom tab bar. That eliminates the entire class of "nav container
--- mid-animation gets the wrong size" bugs the old drawer had, because nothing about the tab
--- bar's size ever animates — it's a constant height computed once from the viewport.
---
--- Three tiers only, chosen from raw viewport geometry:
---   - "bar"      phone/narrow portrait or short-landscape: bottom tab bar, compact header
---   - "tablet"   wide enough for a comfortable side rail but still touch-first
---   - "desktop"  full sidebar shell; short windows use a denser top bar and workspace header
 local TAP_TARGET = 48
 local MORE_COUNT = 10
--- Modern phones in landscape are often ≥900px wide, so do not gate on compact/tight
--- (those flags key off width and wrongly force landscape phones into portrait tablet chrome).
 local function isMobileLandscape(width, height, _compact, _tight)
 	return width > height and height < 700
 end
@@ -684,8 +636,6 @@ local function scrollTail(stack, bottomSafe, base)
 	if not stack then
 		return base
 	end
-	-- Extra clearance past bottomSafe so last-row CTAs clear the tab bar, home
-	-- indicator, and Workshop floating quick-action cluster without dead zones.
 	return base + math.max(bottomSafe, 12) + 28
 end
 local planCache = nil
@@ -760,43 +710,22 @@ local function planMobileLayout(input)
 	local portrait = stack and not landscape
 	local phone = stack
 	local tablet = phone and width >= 700 and not landscape
-	-- Header shrinks in landscape (vertical room is scarce) and grows slightly on tablets
-	-- (more breathing room, still touch-first). Short desktop windows (Studio, laptops)
-	-- use a denser top bar so page content is not pushed under the fold.
 	local shortDesktop = desktop and (short or orientationHeight < 740)
 	local topbarRows = if not phone then (if shortDesktop then 56 else 74) elseif landscape then 34 elseif tablet then 52 else 46
 	local bottomSafe = if landscape then math.max(10, bottomInset) elseif phone then math.max(bottomInset, 6) else math.max(8, bottomInset)
-	-- Tablet and desktop tiers still honour a reported side inset (a notched
-	-- tablet in landscape, a TV overscan margin); it is zero when the ScreenGui
-	-- has already consumed the safe area.
 	local sideSafe = if landscape then math.max(sideInset, 16) elseif phone then math.max(sideInset, 12) else math.max(0, sideInset)
-	-- Phone keeps touch-first insets; desktop gets breathing room so sections separate clearly.
 	local panelGap = if landscape then 8 elseif phone then 12 elseif shortDesktop then 10 else 14
 	local pagePadding = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18
 	local contentInset = if landscape then 8 elseif phone then (if tablet then 16 else 12) elseif shortDesktop or compact then 14 else 18
-	-- MobileShell already renders MobileHeader with the page title/chips. A second Workspace
-	-- header on phone duplicates chrome and eats the content budget — keep it at 0 whenever
-	-- the bottom-tab phone shell is active. Desktop keeps a readable workspace header.
 	local workspaceHeaderH = if phone then 0 elseif shortDesktop then 62 else 86
-	-- Bottom tab bar: fixed-height strip. Core height is always ≥ TAP_TARGET so each tab
-	-- remains thumbable; landscape stays at the floor, tablet gets a little more room.
-	-- Height never animates, so it cannot render mid-transition.
 	local tabBarCore = if landscape then TAP_TARGET elseif tablet then 56 else 52
 	local tabBarH = if phone then tabBarCore + bottomSafe else 0
-	-- How many destinations fit across the bar before a "More" tab is needed to hold the rest.
-	-- A tab needs roughly 64px of comfortable tap width; reserve one slot for "More" whenever
-	-- there's more content than fits.
 	local tabBarSlots = if phone then math.max(3, math.min(6, math.floor((width - sideSafe * 2) / 64))) else 0
-	-- "More" sheet grid (opened from the tab bar's overflow tab) reuses the old dock-height
-	-- math since it's still a grid of buttons, just presented as a bottom sheet instead of a
-	-- floating draggable dock.
 	local moreCols = if landscape then 5 else 4
 	local moreCellH = if landscape then 50 elseif tablet then 58 else 54
 	local moreDockH = if phone then moreDockHeight(true, 8, moreCols, moreCellH, if landscape then 6 else 8) else 0
 	local quickBarH = 0
 	local chromeReserve = topbarRows + (if phone then tabBarH + panelGap else 20) + workspaceHeaderH
-	-- A hard 208px floor overflowed short landscape screens: chrome + content
-	-- could exceed the actual safe height before the page even mounted.
 	local contentBudget = math.max(1, height - chromeReserve - 4)
 	planKey.width = width
 	planKey.height = height
@@ -820,7 +749,6 @@ local function planMobileLayout(input)
 		cardPadding = if landscape then 12 elseif phone then (if tablet then 16 else 14) elseif shortDesktop then 14 else 18,
 		panelGap = panelGap,
 		controlGap = if landscape then 8 elseif phone then 10 else 14,
-		-- Desktop sidebar rows are taller so labels stay readable; phone stays thumb-sized.
 		railRow = if landscape then 52 elseif phone then 60 elseif shortDesktop or compact then 52 else 64,
 		railCollapsedRow = if landscape then 48 elseif phone then 54 elseif shortDesktop or compact then 48 else 56,
 		railGap = if phone then 8 elseif compact then 10 else 12,
@@ -853,9 +781,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: format   (merged from format.luau, 400 lines)
--- ======================================================================
 __defs["format"] = function()
 local LN10 = math.log(10)
 local compactNumber
@@ -938,8 +863,6 @@ local function suffixForGroup(group)
 	return NUMBER_SUFFIXES[index + 1]
 end
 local LAST_NAMED_LOG10 = #NUMBER_SUFFIXES * 3
--- Three significant figures are shown, so 999.996 prints as "1000". Values that round up to a
--- full thousand must move to the next suffix instead ("1.00M", never "1000K").
 local function roundsToThousand(absolute)
 	local decimals = if absolute >= 100 then 0 elseif absolute >= 10 then 1 else 2
 	return (tonumber(string.format("%." .. decimals .. "f", absolute)) or 0) >= 1000
@@ -1275,18 +1198,12 @@ return {
 }
 end
 
--- ======================================================================
--- Module: session   (merged from session.luau, 287 lines)
--- ======================================================================
 __defs["session"] = function()
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local ClientLog = __load("log").ClientLog
 local BEAT_INTERVAL_MIN = 8
 local BEAT_INTERVAL_MAX = 12
--- Actions that mutate player-owned state and require an authenticated session (matching gen)
--- before the server will run them. Kept as its own set instead of leaning on the server's
--- internal read/write split so a hole here is visible in review rather than inherited silently.
 local GRANT_ACTIONS = {
 	["CollectVault"] = true,
 	["Overcharge"] = true,
@@ -1427,9 +1344,6 @@ end
 local function makeTxnId()
 	return string.sub(HttpService:GenerateGUID(false), 1, 40)
 end
--- Grant payloads attach these two fields so the server's SessionGate can verify the request
--- carries the live gen (and, for high-value actions, the live nonce) instead of trusting the
--- action name alone.
 local function attachGrantFields(payload)
 	payload.Gen = gen
 	payload.N = nonce
@@ -1464,7 +1378,6 @@ local function startSession(remotes)
 			return nil
 		end
 		if presenceInFlight >= MAX_PRESENCE_IN_FLIGHT then
-			-- A previous InvokeServer is still hung. Keep the beat loop moving so the next pass can retry.
 			return "retry"
 		end
 		lastPresenceAt = now
@@ -1538,8 +1451,6 @@ local function startSession(remotes)
 			outcome = beatOnce(true)
 		end
 		while not stopped do
-			-- A timed-out or rejected beat retries on the short interval. A hung
-			-- InvokeServer must not sit on this thread, or auth never recovers.
 			local retrySoon = outcome == "retry" or not auth
 			local interval = if retrySoon then 2 else BEAT_INTERVAL_MIN + math.random() * (BEAT_INTERVAL_MAX - BEAT_INTERVAL_MIN)
 			task.wait(interval)
@@ -1571,15 +1482,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: types   (merged from types.luau, 56 lines)
--- ======================================================================
 __defs["types"] = function()
--- ============================================================
--- FORGE PATH — DISPLAY METADATA ONLY
--- ============================================================
--- Authoritative step list lives in Shared GameConfig.ForgePath.Steps.
--- This module only maps EffectKind → icons/colors/labels for the client UI.
 
 local FORGE_PATH_EFFECT_DISPLAY = {
 	Production = { label = "Output", unit = "%", noun = "production", icon = "Forge", color = Color3.fromRGB(242, 96, 112) },
@@ -1633,11 +1536,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: noticeMath   (merged from noticeMath.luau, 39 lines)
--- ======================================================================
 __defs["noticeMath"] = function()
--- Pure toast/notice helpers split out of MainGame. No Roblox services.
 
 local NoticeMath = {}
 
@@ -1677,9 +1576,6 @@ end
 return table.freeze(NoticeMath)
 end
 
--- ======================================================================
--- Module: deadlines   (merged from deadlines.luau, 37 lines)
--- ======================================================================
 __defs["deadlines"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Workspace = game:GetService("Workspace")
@@ -1720,13 +1616,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: boostIconKind   (merged from boostIconKind.luau, 21 lines)
--- ======================================================================
 __defs["boostIconKind"] = function()
--- Pure boost-id → icon-kind mapping for ActiveBoost chrome. No Roblox
--- services — MainGame and Lune verify scripts share this so icon routing
--- stays testable without Studio.
 
 local BoostIconKind = {}
 
@@ -1746,22 +1636,14 @@ end
 return table.freeze(BoostIconKind)
 end
 
--- ======================================================================
--- Module: releaseClockMath   (merged from releaseClockMath.luau, 18 lines)
--- ======================================================================
 __defs["releaseClockMath"] = function()
--- Pure release-countdown helpers for MainGame / PageRouter topbar + Overview.
--- No Roblox services — remaining/live gates stay Lune-testable. Server time
--- injection stays with the caller (Workspace:GetServerTimeNow / os.time).
 
 local ReleaseClockMath = {}
 
--- Seconds remaining until `deadline` (unix). Never negative.
 function ReleaseClockMath.Remaining(deadline: any, now: any): number
 	return math.max(0, (tonumber(deadline) or 0) - (tonumber(now) or 0))
 end
 
--- True when the deadline has elapsed (remaining == 0).
 function ReleaseClockMath.IsLive(deadline: any, now: any): boolean
 	return ReleaseClockMath.Remaining(deadline, now) <= 0
 end
@@ -1769,21 +1651,12 @@ end
 return table.freeze(ReleaseClockMath)
 end
 
--- ======================================================================
--- Module: vaultCollectEligibility   (merged from vaultCollectEligibility.luau, 30 lines)
--- ======================================================================
 __defs["vaultCollectEligibility"] = function()
--- Pure vault-collect eligibility thresholds shared by Overview, VaultPill,
--- and Workspace. No Roblox services — Lune verify scripts exercise these
--- without Studio. Callers pass already-normalized flux numbers (asFlux).
 
 local VaultCollectEligibility = {}
 
--- Minimum vault flux before Collect is enabled (matches prior inline 0.01).
 VaultCollectEligibility.MIN_COLLECTABLE = 0.01
--- Fill ratio that highlights the collect CTA as urgent.
 VaultCollectEligibility.NEAR_FULL = 0.85
--- Fill ratio treated as a full / wasting-production vault.
 VaultCollectEligibility.FULL = 0.99
 
 function VaultCollectEligibility.isEligible(vaultFlux: number): boolean
@@ -1804,9 +1677,6 @@ end
 return table.freeze(VaultCollectEligibility)
 end
 
--- ======================================================================
--- Module: inputPlatform   (merged from inputPlatform.luau, 31 lines)
--- ======================================================================
 __defs["inputPlatform"] = function()
 local importTsModule = require(game.ReplicatedStorage.rbxts_include.TSImport)
 local _3a = importTsModule(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"]["3a"])
@@ -1841,13 +1711,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: networkPolicy   (merged from networkPolicy.luau, 170 lines)
--- ======================================================================
 __defs["networkPolicy"] = function()
--- Pure MainGame remote dispatch policy: cooldowns, timeouts, pipeline /
--- optimistic allowlists. No Roblox services — MainGame and Lune verify scripts
--- share this so client request gating stays testable without Studio.
 
 local NetworkPolicy = {}
 
@@ -2008,7 +1872,6 @@ function NetworkPolicy.RequestLimit(pipelined: boolean?): number
 	return if pipelined then NetworkPolicy.PIPELINE_REQUEST_LIMIT else NetworkPolicy.SERIAL_REQUEST_LIMIT
 end
 
--- True when `now - previous` is still inside the cooldown window.
 function NetworkPolicy.IsCoolingDown(now: any, previous: any, cooldown: any): boolean
 	local clock = tonumber(now)
 	local last = tonumber(previous)
@@ -2022,13 +1885,7 @@ end
 return table.freeze(NetworkPolicy)
 end
 
--- ======================================================================
--- Module: actionCopy   (merged from actionCopy.luau, 185 lines)
--- ======================================================================
 __defs["actionCopy"] = function()
--- Pure player-facing action copy helpers. No Roblox services — MainGame and
--- Lune verify scripts share this so failure titles / friendly rewrites stay
--- testable without Studio. Toast/UI wiring stays with the caller.
 
 local ActionCopy = {}
 
@@ -2084,7 +1941,6 @@ ActionCopy.INTERNAL_PAYLOAD_COPY = {
 	["that didn't go through. try again"] = true,
 }
 
--- Prefix → toast title for failed actions (first match wins).
 ActionCopy.FAILURE_TITLE_PREFIXES = {
 	{ "Claim", "Couldn't claim" },
 	{ "Buy", "Couldn't buy" },
@@ -2216,13 +2072,7 @@ end
 return table.freeze(ActionCopy)
 end
 
--- ======================================================================
--- Module: pageBoardHeights   (merged from pageBoardHeights.luau, 27 lines)
--- ======================================================================
 __defs["pageBoardHeights"] = function()
--- Pure PageRouter board row heights (machine / world / visit). No Roblox
--- services — PageRouter and Lune verify scripts share this so VirtualGrid
--- budgets stay testable without Studio.
 
 local PageBoardHeights = {}
 
@@ -2248,9 +2098,6 @@ end
 return table.freeze(PageBoardHeights)
 end
 
--- ======================================================================
--- Module: taskFilter   (merged from taskFilter.luau, 41 lines)
--- ======================================================================
 __defs["taskFilter"] = function()
 local function taskMatchesFilter(task, filter)
 	if filter == "Ready" then
@@ -2268,7 +2115,6 @@ local function taskFilterCounts(tasks)
 	local ready = 0
 	local active = 0
 	local done = 0
-	-- ▼ ReadonlyArray.forEach ▼
 	local _callback = function(task)
 		if task.Claimed then
 			done += 1
@@ -2281,7 +2127,6 @@ local function taskFilterCounts(tasks)
 	for _k, _v in tasks do
 		_callback(_v, _k - 1, tasks)
 	end
-	-- ▲ ReadonlyArray.forEach ▲
 	return {
 		All = #tasks,
 		Ready = ready,
@@ -2295,11 +2140,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: snapshotEnvelopeMath   (merged from snapshotEnvelopeMath.luau, 61 lines)
--- ======================================================================
 __defs["snapshotEnvelopeMath"] = function()
--- Pure snapshot envelope validators split out of MainGame. No Roblox services.
 
 local SnapshotEnvelopeMath = {}
 
@@ -2361,14 +2202,7 @@ end
 return table.freeze(SnapshotEnvelopeMath)
 end
 
--- ======================================================================
--- Module: inventoryMath   (merged from inventoryMath.luau, 397 lines)
--- ======================================================================
 __defs["inventoryMath"] = function()
--- Pure inventory relic helpers: effect/upgrade/salvage math, socket labels,
--- filter/sort/search, auto-salvage signatures. No Roblox services — InventoryView
--- and Lune verify scripts share this so bag tooling stays testable without Studio.
--- Salvage Value matches Server ItemSalvage.Value (rank^2*8 + max(0,level-1)*rank*3).
 
 local InventoryMath = {}
 
@@ -2389,7 +2223,6 @@ function InventoryMath.RarityRank(config: any, rarity: any): number
 	return if type(rank) == "number" then rank else 0
 end
 
--- Matches EconomyEnvelopeMath.StarMultiplier: each fusion star adds a quarter of the effect, up to five.
 function InventoryMath.StarMultiplier(stars: any): number
 	local n = tonumber(stars)
 	if type(n) ~= "number" or n ~= n then
@@ -2405,12 +2238,9 @@ function InventoryMath.EffectAtLevel(definition: any, level: any, stars: any?): 
 	local base = tonumber(definition.BaseEffect) or 0
 	local growth = tonumber(definition.LevelGrowth) or 0
 	local safeLevel = if type(level) == "number" then level else 1
-	-- Keep formula identical to EconomyEnvelopeMath.EffectAtLevel (verify parity).
 	return base * (1 + growth * math.max(0, safeLevel - 1)) * InventoryMath.StarMultiplier(stars)
 end
 
--- Color3 (or fallback) for a rarity entry. Fallback is caller-supplied so this
--- stays free of theme / Roblox Color3 defaults under Lune.
 function InventoryMath.RarityColor(config: any, rarity: any, fallback: any): any
 	local items = type(config) == "table" and config.Items or nil
 	local rarities = type(items) == "table" and items.Rarities or nil
@@ -2439,7 +2269,6 @@ function InventoryMath.UpgradeCost(definition: any, level: any): number
 	return math.floor(base * 1.55 ^ math.max(0, safeLevel - 1))
 end
 
--- Matches ItemSalvage.Value — keep formulas in lockstep via verify_inventory_math.
 function InventoryMath.SalvageValue(level: any, rarityRank: any): number
 	local rank = if type(rarityRank) == "number" then rarityRank else 1
 	local safeLevel = if type(level) == "number" then level else 1
@@ -2582,7 +2411,6 @@ function InventoryMath.AutoSalvageSignature(rules: any, rarities: { string }?): 
 	return `{if bag.Enabled then 1 else 0}:{if bag.KeepNew then 1 else 0}:{table.concat(active, ",")}`
 end
 
--- Build owned-item rows from Items.Inventory + Definitions (+ Equipped map).
 function InventoryMath.CollectOwned(state: any, config: any): { any }
 	local items = type(state) == "table" and state.Items or nil
 	local definitions = type(config) == "table" and config.Items and config.Items.Definitions or nil
@@ -2626,7 +2454,6 @@ function InventoryMath.CollectOwned(state: any, config: any): { any }
 	return owned
 end
 
--- Socket targets for a relic definition given owned Machines/Research levels.
 function InventoryMath.SocketTargets(state: any, config: any, definition: any): { any }
 	local out = {}
 	if type(definition) ~= "table" or type(config) ~= "table" or type(state) ~= "table" then
@@ -2726,8 +2553,6 @@ function InventoryMath.InspectPanelHeight(socketBlock: any, stack: boolean?): nu
 		+ InventoryMath.INSPECT_FOOTER_H
 end
 
-
--- Detail-panel upgrade affordability. Returns canUpgrade, maxed.
 function InventoryMath.UpgradeState(level: any, maxLevel: any, essence: any, cost: any): (boolean, boolean)
 	local safeLevel = math.max(0, math.floor(tonumber(level) or 0))
 	local safeMax = math.max(0, math.floor(tonumber(maxLevel) or 0))
@@ -2736,7 +2561,6 @@ function InventoryMath.UpgradeState(level: any, maxLevel: any, essence: any, cos
 	return canUpgrade, maxed
 end
 
--- Chip grid row count for socket target lists (stack → 2 cols, desk → 3).
 function InventoryMath.ChipRows(targetCount: any, stack: boolean?): number
 	local targets = math.max(0, math.floor(tonumber(targetCount) or 0))
 	if targets <= 0 then
@@ -2755,7 +2579,6 @@ InventoryMath.LOADOUT_EFFECT_KEYS = table.freeze({
 	{ id = "Offline", label = "Offline" },
 })
 
--- Loadout board effect strip values from Items.Effects (nil-safe → 0).
 function InventoryMath.LoadoutEffectLines(effects: any): { { id: string, label: string, value: number } }
 	local bag = if type(effects) == "table" then effects else {}
 	local lines = {}
@@ -2772,9 +2595,6 @@ end
 return table.freeze(InventoryMath)
 end
 
--- ======================================================================
--- Module: adminFields   (merged from adminFields.luau, 511 lines)
--- ======================================================================
 __defs["adminFields"] = function()
 local ADMIN_REASONS = { {
 	id = "Owner gameplay administration",
@@ -3289,9 +3109,6 @@ return {
 }
 end
 
--- ======================================================================
--- Module: clientStore   (merged from clientStore.luau, 746 lines)
--- ======================================================================
 __defs["clientStore"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local Rodux = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].rodux)
@@ -3454,7 +3271,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		setmetatable(_object, nil)
 		local _left = "Story"
 		local _exp = session.Story
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp)
 		local _callback = function(chapter)
 			local _result
@@ -3471,7 +3287,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		for _k, _v in _exp do
 			_newValue[_k] = _callback(_v, _k - 1, _exp)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_object[_left] = _newValue
 		return _object
 	end
@@ -3486,7 +3301,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 	if _condition_3 then
 		local newlyRead = false
 		local _exp = session.Mailbox.Messages
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp)
 		local _callback = function(message)
 			if message.Id ~= payload.Id or message.Read then
@@ -3501,7 +3315,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		for _k, _v in _exp do
 			_newValue[_k] = _callback(_v, _k - 1, _exp)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local messages = _newValue
 		local _object = table.clone(session)
 		setmetatable(_object, nil)
@@ -3590,7 +3403,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 	if _condition_7 then
 		local changed = false
 		local _exp = session.Anomaly.Directives
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp)
 		local _callback = function(directive)
 			if directive.Id ~= payload.Id or directive.Claimed or directive.Progress < directive.Target then
@@ -3605,7 +3417,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		for _k, _v in _exp do
 			_newValue[_k] = _callback(_v, _k - 1, _exp)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local directives = _newValue
 		local _result
 		if changed then
@@ -3631,7 +3442,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		local anomaly = session.Anomaly
 		local changed = false
 		local _exp = anomaly.Milestones
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp)
 		local _callback = function(milestone)
 			if milestone.Tier ~= payload.Tier or milestone.Claimed or anomaly.Stabilizations < milestone.Required then
@@ -3646,7 +3456,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		for _k, _v in _exp do
 			_newValue[_k] = _callback(_v, _k - 1, _exp)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local milestones = _newValue
 		local _result
 		if changed then
@@ -3690,7 +3499,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 	end
 	if _condition_10 then
 		local _exp = session.Command.Titles
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(title)
 			return title.Id == payload.Id
 		end
@@ -3701,7 +3509,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local selected = _result
 		if selected == nil or not selected.Unlocked or selected.Equipped then
 			return session
@@ -3713,7 +3520,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		setmetatable(_object_1, nil)
 		local _left_1 = "Titles"
 		local _exp_1 = session.Command.Titles
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#_exp_1)
 		local _callback_1 = function(title)
 			local _object_2 = table.clone(title)
@@ -3724,7 +3530,6 @@ local function optimisticSession(session, action, payload, gameVersion)
 		for _k, _v in _exp_1 do
 			_newValue[_k] = _callback_1(_v, _k - 1, _exp_1)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		_object_1[_left_1] = _newValue
 		_object[_left] = _object_1
 		return _object
@@ -3756,8 +3561,6 @@ local function clientReducer(state, action)
 			if state.session == nil then
 				return state
 			end
-			-- Reject stale patches that carry an older Revision/SnapshotId than the live
-			-- session (e.g. LeaveGuild cleanup arriving after a newer pushState snapshot).
 			local patch = action.patch
 			if type(patch) == "table" then
 				local patchRevision = tonumber(patch.Revision)
@@ -4041,26 +3844,13 @@ return {
 }
 end
 
--- ======================================================================
--- Module: interaction   (merged from interaction.luau, 252 lines)
--- ======================================================================
 __defs["interaction"] = function()
 local HapticService = game:GetService("HapticService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local hapticIntensity = 1
 local motorGenerations = {}
--- HapticService only ever addresses gamepads. GetLastInputType returns Touch on a phone and
--- Keyboard/MouseButton1 on a desktop, and none of those are vibration targets — so routing
--- feedback through "whatever was last pressed" meant every haptic call died in a pcall, including
--- for players holding a controller on mobile. Resolve an actually-connected gamepad instead.
 local GAMEPAD_INPUTS = { Enum.UserInputType.Gamepad1, Enum.UserInputType.Gamepad2, Enum.UserInputType.Gamepad3, Enum.UserInputType.Gamepad4 }
--- IsVibrationSupported is a round trip per call and the answer only changes when a controller is
--- plugged in or out, so cache it and drop the cache on those events.
--- Cache the actual usable motor set, not a single boolean. A controller's dual-motor rumble
--- (the classic Xbox-style Small/Large pair) doesn't guarantee both motors report supported on
--- every platform — hard-requiring one specific motor risks silently disabling haptics on
--- hardware that can vibrate through the other one. Drive whichever motors are actually there.
 local RUMBLE_MOTORS = { Enum.VibrationMotor.Small, Enum.VibrationMotor.Large }
 local vibrationSupport = {}
 local function isGamepadInput(input)
@@ -4079,10 +3869,8 @@ local function watchGamepads()
 	gamepadWatchInstalled = true
 	UserInputService.GamepadConnected:Connect(function(pad)
 		local _pad = pad
-		-- ▼ Map.delete ▼
 		local _valueExisted = vibrationSupport[_pad] ~= nil
 		vibrationSupport[_pad] = nil
-		-- ▲ Map.delete ▲
 		return _valueExisted
 	end)
 	UserInputService.GamepadDisconnected:Connect(function(pad)
@@ -4123,16 +3911,11 @@ end
 local function supportsVibration(input)
 	return #motorsFor(input) > 0
 end
--- The gamepad that should receive feedback: the one the player last actually used when that is a
--- gamepad, otherwise the first connected pad that can vibrate. Undefined means "no haptics here",
--- which is the normal answer on a bare touchscreen.
 local function hapticTarget()
 	local last = UserInputService:GetLastInputType()
 	if isGamepadInput(last) then
 		return if supportsVibration(last) then last else nil
 	end
-	-- Only pay for the connected-gamepad scan when a pad is actually attached — on a plain phone
-	-- or a mouse-and-keyboard desktop this short-circuits before any service round trip.
 	if not UserInputService.GamepadEnabled then
 		return nil
 	end
@@ -4228,7 +4011,6 @@ local function usesDesktopStructure(width, height)
 	local screenWidth = if width ~= nil then width else viewport.X
 	local screenHeight = if height ~= nil then height else viewport.Y
 
-	-- Strict physical screen boundary: anything under 840px wide or 500px tall cannot fit a desktop sidebar
 	local result = false
 	if screenWidth >= 840 and screenHeight >= 500 then
 		if not touch then
@@ -4248,17 +4030,14 @@ local function usesDesktopStructure(width, height)
 		end
 	end
 
-	-- Hysteresis: avoid flipping the entire UI when the window hovers near the boundary.
 	if lastDesktopResult ~= nil and result ~= lastDesktopResult then
 		if lastDesktopResult then
-			-- currently desktop -> mobile; require a bigger drop to switch
 			if screenWidth < 780 or screenHeight < 470 then
 				lastDesktopResult = false
 			else
 				return lastDesktopResult
 			end
 		else
-			-- currently mobile -> desktop; require a clear jump to switch
 			if screenWidth >= 840 and screenHeight >= 500 then
 				lastDesktopResult = true
 			else
@@ -4299,14 +4078,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: navRouteTable   (merged from navRouteTable.luau, 137 lines)
--- ======================================================================
 __defs["navRouteTable"] = function()
--- Pure nav route tables (ids / labels / icons). Accent colors stay in appNav
--- so this module has no theme / Color3 dependency and can be required under
--- Lune. PRIMARY + MORE match the shell rail; PAGE_ROUTES are the PageRouter
--- dispatch keys (Credits is nav-only / special chrome).
 
 local NavRouteTable = {}
 
@@ -4328,7 +4100,6 @@ local PRIMARY_ROUTES: { RouteDef } = {
 }
 
 local MORE_ROUTES: { RouteDef } = {
-	-- Grouped by what the player is doing: daily loops, progression, goals, social, meta.
 	{ id = "Missions", label = "Missions", eyebrow = "Jobs", icon = "Mission", accentKey = "cyan" },
 	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards", accentKey = "pink" },
 	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
@@ -4356,7 +4127,6 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "Admin", label = "Admin", eyebrow = "Owner", icon = "Admin", accentKey = "coral" },
 }
 
--- PageRouter PageContentInner dispatch keys (Credits / Chat / Admin use special chrome).
 local PAGE_ROUTES: { string } = {
 	"Overview",
 	"Workshop",
@@ -4390,8 +4160,6 @@ local PAGE_ROUTES: { string } = {
 	"ForgePath",
 }
 
--- Sections of the desktop rail. Every nav route sits in exactly one group, so
--- grouping hides nothing: a closed group still shows its badge total.
 type NavGroup = { key: string, label: string, routes: { string } }
 
 local NAV_GROUPS: { NavGroup } = {
@@ -4440,18 +4208,12 @@ NavRouteTable.MORE_ROUTES = table.freeze(MORE_ROUTES)
 NavRouteTable.PAGE_ROUTES = table.freeze(PAGE_ROUTES)
 NavRouteTable.NAV_GROUPS = table.freeze(NAV_GROUPS)
 
--- The rail group a page lives in (nil for pages that are not nav routes).
 function NavRouteTable.groupOf(pageId: string): string?
 	return GROUP_OF[pageId]
 end
 
--- Phone tab bar: the pages players use most, in this order, as many as fit
--- before the Menu tab (which holds everything else).
 NavRouteTable.MOBILE_TAB_PRIORITY = table.freeze({ "Overview", "Workshop", "Research", "Shop", "Inventory", "Missions", "Rewards" })
 
--- Which ids sit on a tab bar with `slots` tabs (Menu included), given the pages
--- the player can open. Returns the ids in order and whether the current page
--- lives behind Menu (Menu then shows that page so you always see where you are).
 function NavRouteTable.mobileTabs(available: { [string]: boolean }, slots: number, page: string?): ({ string }, boolean)
 	local tabs = {}
 	local room = math.max(1, math.floor(slots) - 1)
@@ -4498,11 +4260,7 @@ end
 return table.freeze(NavRouteTable)
 end
 
--- ======================================================================
--- Module: appNav   (merged from appNav.luau, 495 lines)
--- ======================================================================
 __defs["appNav"] = function()
--- appNav.ts
 local scaledCost = __load("format").scaledCost
 local gteFlux = __load("format").gteFlux
 local Palette = __load("theme").Palette
@@ -4549,7 +4307,6 @@ AppHelpers = {
 	end,
 	actionSignature = function(self, action, value)
 		local fields = { "Id", "Key", "Index", "Code", "Channel", "Target", "Uid", "ChoiceId", "Slot", "Tier", "Level", "Role", "UserId", "MachineId" }
-		-- ▼ ReadonlyArray.filter ▼
 		local _newValue = {}
 		local _callback = function(f)
 			return value[f] ~= nil
@@ -4561,8 +4318,6 @@ AppHelpers = {
 				_newValue[_length_1] = _v
 			end
 		end
-		-- ▲ ReadonlyArray.filter ▲
-		-- ▼ ReadonlyArray.map ▼
 		local _newValue_1 = table.create(#_newValue)
 		local _callback_1 = function(f)
 			return `{f}={tostring(value[f])}`
@@ -4570,12 +4325,10 @@ AppHelpers = {
 		for _k, _v in _newValue do
 			_newValue_1[_k] = _callback_1(_v, _k - 1, _newValue)
 		end
-		-- ▲ ReadonlyArray.map ▲
 		local parts = _newValue_1
 		return `{action}:{table.concat(parts, "|")}`
 	end,
 	pageAccent = function(self, page)
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(e)
 			return e.id == page
 		end
@@ -4586,12 +4339,10 @@ AppHelpers = {
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local entry = _result
 		return if entry then entry.accent else Palette.green
 	end,
 	pageEntry = function(self, page)
-		-- ▼ ReadonlyArray.find ▼
 		local _callback = function(e)
 			return e.id == page
 		end
@@ -4602,7 +4353,6 @@ AppHelpers = {
 				break
 			end
 		end
-		-- ▲ ReadonlyArray.find ▲
 		local _condition = _result
 		if not _condition then
 			_condition = NAV[1]
@@ -5000,14 +4750,7 @@ return {
 }
 end
 
--- ======================================================================
--- Module: GamepadNavigationService   (merged from input/GamepadNavigationService.luau, 276 lines)
--- ======================================================================
 __defs["GamepadNavigationService"] = function()
--- Controller navigation and TV-safe layout support. Console compliance still
--- requires Studio/physical-device validation.
--- Ten-foot shells already own the side nav; this service only wires focus,
--- shortcuts, and shared hint copy for overlays / bottom chrome.
 
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
@@ -5048,7 +4791,6 @@ local TUTORIAL_HINTS = {
 	{ id = "back", label = "B back" },
 }
 
--- README checklist: crate reveal claim must be D-pad/A reachable.
 local CRATE_HINTS = {
 	{ id = "confirm", label = "A claim / skip" },
 	{ id = "back", label = "B claim / skip" },
@@ -5121,9 +4863,6 @@ function GamepadNavigationService.ClearSelection()
 	end)
 end
 
--- Claim / skip / ready / confirm / buy path for overlays and session CTAs: enable Gui
--- navigation and park Selection on the highest-priority valid GuiButton under `root`.
--- Priority prefers commit actions (claim/confirm/buy) over staging (ready) or dismiss.
 function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
 	if not UserInputService.GamepadEnabled then
 		return nil
@@ -5179,7 +4918,6 @@ function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
 	return target
 end
 
--- Begin a modal overlay focus session (crate reveal, empty reveal). Call EndOverlayFocus on exit.
 function GamepadNavigationService.BeginOverlayFocus()
 	if overlayFocusDepth == 0 then
 		overlayPreviousSelection = GuiService.SelectedObject
@@ -5281,19 +5019,7 @@ function GamepadNavigationService.IsConsole(): boolean return isConsoleMode end
 return GamepadNavigationService
 end
 
--- ======================================================================
--- Module: TouchGestureService   (merged from input/TouchGestureService.luau, 472 lines)
--- ======================================================================
 __defs["TouchGestureService"] = function()
---[=[
-	[INPUT] Astral Forge Engine v5.0+ Touch & Gesture Engine
-	Omni-platform touch architecture featuring:
-	- Multi-touch pointer lifecycle management
-	- Pinch-to-zoom & two-finger twist detection
-	- Velocity-based directional swipe & flick analysis
-	- Dynamic Virtual Thumbstick (anchors dynamically under thumb)
-	- "Fat-Finger" forgiveness with distance-to-center hit resolution
-]=]
 
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -5330,20 +5056,19 @@ type ThumbstickData = {
 	origin: Vector2,
 	current: Vector2,
 	direction: Vector2,
-	magnitude: number, -- 0 to 1
+	magnitude: number,
 	active: boolean,
 }
 
 local TouchGestureService = {}
 TouchGestureService.__index = TouchGestureService
 
--- Configuration constants
-local MIN_SWIPE_DISTANCE = 40 -- Minimum pixels for swipe
-local FLICK_VELOCITY_THRESHOLD = 800 -- Pixels/sec
+local MIN_SWIPE_DISTANCE = 40
+local FLICK_VELOCITY_THRESHOLD = 800
 local PINCH_MIN_TOUCH_DIST = 16
 local THUMBSTICK_RADIUS = 64
 local THUMBSTICK_DEADZONE = 0.12
-local FAT_FINGER_EXPANSION_PX = 14 -- Hitbox padding beyond visual border
+local FAT_FINGER_EXPANSION_PX = 14
 local TAP_MAX_DURATION = 0.35
 local TAP_MAX_TRAVEL = 12
 
@@ -5358,7 +5083,6 @@ local listeners: { [GestureEvent]: { (any) -> () } } = {
 	ThumbstickMove = {},
 }
 
--- Dynamic Virtual Thumbstick state
 local thumbstickState: ThumbstickData = {
 	origin = Vector2.zero,
 	current = Vector2.zero,
@@ -5368,7 +5092,6 @@ local thumbstickState: ThumbstickData = {
 }
 local thumbstickTouch: InputObject? = nil
 
--- Registered Fat-Finger Hitbox Targets
 type HitTarget = {
 	id: string,
 	gui: GuiObject,
@@ -5395,8 +5118,6 @@ local function isVisible(gui: GuiObject): boolean
 end
 
 local function toGuiPosition(rawPosition: Vector2): Vector2
-	-- InputObject.Position includes the GUI inset; PlayerGui hit tests and
-	-- GuiObject.AbsolutePosition use the inset-adjusted coordinate space.
 	local ok, topLeft = pcall(function() return GuiService:GetGuiInset() end)
 	return if ok and typeof(topLeft) == "Vector2" then rawPosition - topLeft else rawPosition
 end
@@ -5430,9 +5151,6 @@ local function isOnInteractiveGui(position: Vector2): boolean
 	return false
 end
 
---[=[
-	Helper: Emit gesture events to registered listeners
-]=]
 local function emit(event: GestureEvent, payload: any)
 	local list = listeners[event]
 	if list then
@@ -5442,13 +5160,7 @@ local function emit(event: GestureEvent, payload: any)
 	end
 end
 
---[=[
-	Evaluates registered UI elements using distance-weighted "Fat-Finger" expansion.
-	Returns true if a target was successfully engaged.
-]=]
 function TouchGestureService.ResolveFatFingerHit(screenPosition: Vector2): boolean
-	-- Native GuiButton.Activated owns touches within a visible button. Assistance only
-	-- handles the extra margin; otherwise a tap can purchase or claim twice.
 	if isOnInteractiveGui(screenPosition) then
 		return false
 	end
@@ -5464,17 +5176,15 @@ function TouchGestureService.ResolveFatFingerHit(screenPosition: Vector2): boole
 		local absSize = target.gui.AbsoluteSize
 		local expansion = target.customExpansion or FAT_FINGER_EXPANSION_PX
 
-		-- Calculate expanded AABB
 		local minX = absPos.X - expansion
 		local maxX = absPos.X + absSize.X + expansion
 		local minY = absPos.Y - expansion
 		local maxY = absPos.Y + absSize.Y + expansion
 
 		if screenPosition.X >= minX and screenPosition.X <= maxX and screenPosition.Y >= minY and screenPosition.Y <= maxY then
-			-- Calculate Euclidean distance to element center
 			local center = absPos + (absSize * 0.5)
 			local dist = (screenPosition - center).Magnitude
-			local score = dist - (target.priority * 20) -- Higher priority shifts score favorable
+			local score = dist - (target.priority * 20)
 
 			if score < bestScore then
 				bestScore = score
@@ -5490,9 +5200,6 @@ function TouchGestureService.ResolveFatFingerHit(screenPosition: Vector2): boole
 	return false
 end
 
---[=[
-	Register a UI element for fat-finger touch assist.
-]=]
 function TouchGestureService.RegisterTouchTarget(id: string, gui: GuiObject, callback: () -> (), priority: number?, customExpansion: number?)
 	for idx, t in registeredTargets do
 		if t.id == id then
@@ -5540,9 +5247,6 @@ function TouchGestureService.IsNearRegisteredTarget(position: Vector2): boolean
 	return false
 end
 
---[=[
-	Calculates pinch metrics across two active touch points.
-]=]
 local function evaluatePinch(p1: TouchPointer, p2: TouchPointer)
 	local curDist = (p1.currentPos - p2.currentPos).Magnitude
 	local prevDist = (p1.previousPos - p2.previousPos).Magnitude
@@ -5568,16 +5272,12 @@ local function evaluatePinch(p1: TouchPointer, p2: TouchPointer)
 	emit("Pinch", pinchPayload)
 end
 
---[=[
-	Initializes input listeners for the multi-touch lifecycle.
-]=]
 function TouchGestureService.Init()
 	if initialized or not UserInputService.TouchEnabled then
 		return
 	end
 	initialized = true
 
-	-- InputBegan
 	local beganConnection = UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 		if input.UserInputType ~= Enum.UserInputType.Touch then
 			return
@@ -5599,9 +5299,6 @@ function TouchGestureService.Init()
 		}
 		activeTouches[input] = pointer
 
-		-- Dynamic Virtual Thumbstick initialization:
-		-- If touch originates in bottom-left quadrant (X < 45% screen width, Y > 50% screen height)
-		-- and thumbstick is currently idle, anchor the joystick center dynamically right here!
 		local cam = workspace.CurrentCamera
 		local vSize = if cam then cam.ViewportSize else Vector2.new(1000, 800)
 		if not pointer.isConsumed and not TouchGestureService.IsNearRegisteredTarget(toGuiPosition(pos)) and not thumbstickState.active and pos.X < (vSize.X * 0.45) and pos.Y > (vSize.Y * 0.50) then
@@ -5616,7 +5313,6 @@ function TouchGestureService.Init()
 	end)
 	table.insert(inputConnections, beganConnection)
 
-	-- InputChanged
 	local changedConnection = UserInputService.InputChanged:Connect(function(input: InputObject, _gameProcessed: boolean)
 		if input.UserInputType ~= Enum.UserInputType.Touch then
 			return
@@ -5636,14 +5332,12 @@ function TouchGestureService.Init()
 		pointer.currentPos = newPos
 		pointer.lastUpdateTime = now
 
-		-- Dynamic Virtual Thumbstick tracking
 		if input == thumbstickTouch and thumbstickState.active then
 			local delta = newPos - thumbstickState.origin
 			local rawMag = delta.Magnitude
 			local clampedDist = math.min(rawMag, THUMBSTICK_RADIUS)
 			local unitDir = if rawMag > 0.001 then (delta / rawMag) else Vector2.zero
 
-			-- Apply deadzone filter
 			local normalized = clampedDist / THUMBSTICK_RADIUS
 			local filteredMag = 0
 			if normalized > THUMBSTICK_DEADZONE then
@@ -5656,7 +5350,6 @@ function TouchGestureService.Init()
 			emit("ThumbstickMove", thumbstickState)
 		end
 
-		-- Multi-touch gesture processing: Two-finger pinch
 		local touches = {}
 		for touchInput, ptr in activeTouches do
 			if not ptr.isConsumed and touchInput ~= thumbstickTouch then
@@ -5669,7 +5362,6 @@ function TouchGestureService.Init()
 	end)
 	table.insert(inputConnections, changedConnection)
 
-	-- InputEnded
 	local endedConnection = UserInputService.InputEnded:Connect(function(input: InputObject, _gameProcessed: boolean)
 		if input.UserInputType ~= Enum.UserInputType.Touch then
 			return
@@ -5684,7 +5376,6 @@ function TouchGestureService.Init()
 		local duration = now - pointer.startTime
 		local travel = (pointer.currentPos - pointer.startPos).Magnitude
 
-		-- Thumbstick release
 		local wasThumbstick = input == thumbstickTouch
 		if wasThumbstick then
 			thumbstickTouch = nil
@@ -5694,13 +5385,11 @@ function TouchGestureService.Init()
 			emit("ThumbstickMove", thumbstickState)
 		end
 
-		-- Tap / Fat-finger assistance
 		if not pointer.isConsumed and not wasThumbstick and duration <= TAP_MAX_DURATION and travel <= TAP_MAX_TRAVEL then
 			local handled = TouchGestureService.ResolveFatFingerHit(toGuiPosition(pointer.currentPos))
 			if not handled then
 				emit("Tap", pointer.currentPos)
 			end
-		-- Swipe analysis
 		elseif not pointer.isConsumed and not wasThumbstick and travel >= MIN_SWIPE_DISTANCE then
 			local dir = (pointer.currentPos - pointer.startPos).Unit
 			local speed = pointer.velocity.Magnitude
@@ -5734,9 +5423,6 @@ function TouchGestureService.Stop()
 	initialized = false
 end
 
---[=[
-	Subscribes to gesture events.
-]=]
 function TouchGestureService.On(event: GestureEvent, callback: (any) -> ()): () -> ()
 	local list = listeners[event]
 	if list then
@@ -5758,9 +5444,6 @@ end
 return TouchGestureService
 end
 
--- ======================================================================
--- Suite entry point
--- ======================================================================
 local __members = {}
 for name in __defs do
 	table.insert(__members, name)
@@ -5772,7 +5455,6 @@ return setmetatable({}, {
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
-		-- The boot loader reads the member list to warm every member up front.
 		if name == "__members" then
 			return __members
 		end

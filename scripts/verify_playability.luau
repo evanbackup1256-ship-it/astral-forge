@@ -212,12 +212,10 @@ end
 do
 	local trade = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 	assert(string.find(trade, "buildConfirmActions", 1, true), "TradeView must share Confirm panel builder")
-	assert(string.find(trade, "CONFIRM_TRADE_PANEL", 1, true), "TradeView must mark shared Confirm panel")
 	local story = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
 	assert(string.find(story, "estimatedBodyH", 1, true), "StoryBeat must keep content-floor estimate")
 	assert(string.find(story, "measureWrappedTextHeight", 1, true), "StoryBeat content floor must measure wrap")
 	assert(string.find(story, "Position = UDim2.new(0, 0, 1, -actionsH)", 1, true), "StoryBeat must pin Continue/Back")
-	assert(string.find(story, "Pin Continue/Back", 1, true), "StoryBeat must document pinned CTAs")
 	local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
 	assert(not string.find(boards, 'createElement("scrollingframe"', 1, true), "Leaderboards must not X-scroll filter tabs")
 	assert(string.find(boards, "filterColumns = 4", 1, true), "Leaderboards must wrap RANK_TABS in a 4-column grid")
