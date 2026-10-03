@@ -2632,7 +2632,7 @@ local function StoreFront(props)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local softMotion = props.reducedMotion
-	local section, setSection = React.useState("Daily")
+	local section, setSection = React.useState(props.initialSection or "Daily")
 	local reveal = useStagger(0, softMotion)
 	local tabH = if stack then TapTarget else 44
 	local shared = {
