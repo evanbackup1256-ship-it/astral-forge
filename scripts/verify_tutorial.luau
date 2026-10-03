@@ -22,6 +22,9 @@ local uiSource = table.concat({
 	fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau"),
 }, "\n")
 local function targetExists(name: string): boolean
+	if name == "Nav_Menu" then
+		return string.find(uiSource, 'id = "Menu"', 1, true) ~= nil
+	end
 	if string.sub(name, 1, 4) == "Nav_" then
 		return NavRouteTable.isNavRoute(string.sub(name, 5)) and string.find(uiSource, 'Name = "Nav_" .. entry.id', 1, true) ~= nil
 	end
@@ -38,7 +41,10 @@ for index, step in steps do
 	end
 	assert(#step.say <= 140, label .. ": Bolt's line should fit the bubble")
 	if step.target ~= nil then
-		assert(targetExists(step.target), label .. ": nothing in the UI is named " .. step.target)
+		local names = if type(step.target) == "table" then step.target else { step.target }
+		for _, name in names do
+			assert(targetExists(name), label .. ": nothing in the UI is named " .. name)
+		end
 	end
 	if step.page ~= nil then
 		assert(NavRouteTable.isNavRoute(step.page), label .. ": unknown page " .. step.page)

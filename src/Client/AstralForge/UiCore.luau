@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	UiCore: merged module suite.
-	Members (22): ui, MainGame, AppShellChrome, TopBarChrome, NavChrome, WorkspaceChrome, ShellFx, effects, levelRoadmap, CelebrationBurst, ComboBadge, FeedbackOverlay, MobilePreviewGate, MobileShell, OfflineRewardsOverlay, PlayerlistOverlay, onboarding, AdminPrankOverlay, notifications, CreditsView, CrateRevealOverlay, CrateRevealStageSimple.
+	Members (23): ui, MainGame, AppShellChrome, TopBarChrome, NavChrome, WorkspaceChrome, ShellFx, effects, levelRoadmap, CelebrationBurst, ComboBadge, FeedbackOverlay, MobileShell, OfflineRewardsOverlay, PlayerlistOverlay, onboarding, AdminPrankOverlay, notifications, levelMoments, serverEventsUi, CreditsView, CrateRevealOverlay, CrateRevealStageSimple.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -7026,7 +7026,6 @@ local ClientActions = _clientStore.ClientActions
 local useClientDispatch = _clientStore.useClientDispatch
 local useClientSelector = _clientStore.useClientSelector
 local PlayerlistOverlay = __load("PlayerlistOverlay").PlayerlistOverlay
-local MobilePreviewGate = __load("MobilePreviewGate").MobilePreviewGate
 local OfflineRewardsOverlay = __load("OfflineRewardsOverlay").OfflineRewardsOverlay
 local FeedbackOverlay = __load("FeedbackOverlay").FeedbackOverlay
 local LevelRoadmapHost = __load("levelRoadmap").LevelRoadmapHost
@@ -8341,11 +8340,7 @@ local function AppShell(_param)
 		state = state,
 	}), React.createElement(ServerEventHost, {
 		state = state,
-	}), _condition_24, not bootChromeVisible and React.createElement(MobilePreviewGate, {
-		ack = state.Settings.MobilePreviewAck,
-		reducedMotion = reducedMotion,
-		dispatch = dispatch,
-	})), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
+	}), _condition_24), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
 		session = crateReveal,
 		config = config,
 		reducedMotion = reducedMotion,
@@ -14389,271 +14384,25 @@ return {
 end
 
 -- ======================================================================
--- Module: MobilePreviewGate   (merged from MobilePreviewGate.luau, 237 lines)
--- ======================================================================
-__defs["MobilePreviewGate"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local UserInputService = game:GetService("UserInputService")
-local Audio = require(script.Parent.AudioKit)("audio").Audio
-local _motion = require(script.Parent.MotionKit)("motion")
-local composePresence = _motion.composePresence
-local useEntrance = _motion.useEntrance
-local useExitTransition = _motion.useExitTransition
-local useViewport = _motion.useViewport
-local _theme = require(script.Parent.CoreKit)("theme")
-local chromeFor = _theme.chromeFor
-local darken = _theme.darken
-local Palette = _theme.Palette
-local TapTarget = _theme.TapTarget
-local _ui = __load("ui")
-local Button = _ui.Button
-local OverlayPresence = _ui.OverlayPresence
-local Text = _ui.Text
-local MOBILE_PREVIEW_ACK = 1
-local DISCLAIMER = "Phone and tablet are still a preview. Some pages overlap, clip, or miss buttons — especially in short landscape.\n\nThis is not the finished mobile game. Trade, inventory, shop, and the top bar can still crash into each other. Some taps are too small. The keyboard and home bar are best-effort. Mid-range Androids may hitch on crates and celebrations.\n\nBugs are expected. Your save is still on the server. Hit Feedback if something blocks you. Desktop is the supported way to play."
-local function MobilePreviewGate(_param)
-	local ack = _param.ack
-	local reducedMotion = _param.reducedMotion
-	local dispatch = _param.dispatch
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local touchDevice = not viewport.desktop and UserInputService.TouchEnabled
-	local checked, setChecked = React.useState(false)
-	local dismissed, setDismissed = React.useState(false)
-	local enter = useEntrance(reducedMotion)
-	local _binding = useExitTransition(reducedMotion)
-	local leave = _binding[1]
-	local closing = _binding[2]
-	local beginExit = _binding[3]
-	local motion = composePresence(enter, leave)
-	local short = viewport.height < 500
-	local side = math.max(16, chrome.sideSafe + 12)
-	local top = math.max(18, viewport.topInset + 12)
-	local bottom = math.max(18, chrome.bottomSafe + 12)
-	local boxWidth = math.min(viewport.width - side * 2, 720)
-	local boxHeight = math.min(viewport.height - top - bottom, if short then viewport.height - top - bottom else 620)
-	local fade = motion:map(function(amount)
-		return 1 - math.clamp(amount, 0, 1)
-	end)
-	local scrim = motion:map(function(amount)
-		return math.clamp(1 - amount * 0.94, 0.06, 1)
-	end)
-	local lift = motion:map(function(amount)
-		return UDim2.new(0.5, 0, 0.5, math.round((1 - math.clamp(amount, 0, 1)) * 18))
-	end)
-	local close = function()
-		if not checked or closing then
-			return nil
-		end
-		Audio:play("confirm")
-		dispatch("SetSetting", {
-			Key = "MobilePreviewAck",
-			Value = MOBILE_PREVIEW_ACK,
-		})
-		beginExit(function()
-			return setDismissed(true)
-		end)
-	end
-	local _condition = not touchDevice or dismissed
-	if not _condition then
-		local _condition_1 = ack
-		if _condition_1 == nil then
-			_condition_1 = 0
-		end
-		_condition = _condition_1 >= MOBILE_PREVIEW_ACK
-	end
-	if _condition then
-		return React.createElement(React.Fragment)
-	end
-	local toggle = function()
-		Audio:play("tick")
-		setChecked(function(current)
-			return not current
-		end)
-	end
-	return React.createElement(OverlayPresence, {
-		amount = motion,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = scrim,
-		BorderSizePixel = 0,
-		Active = true,
-		ZIndex = 900,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(boxWidth, boxHeight),
-		Position = lift,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.night,
-		BorderSizePixel = 0,
-		ZIndex = 901,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 16),
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = Palette.mango,
-		Thickness = 2,
-		Transparency = 0.18,
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(Palette.night, Palette.ink),
-		Rotation = 90,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(92, 3),
-		Position = UDim2.fromOffset(22, 0),
-		BackgroundColor3 = Palette.mango,
-		BorderSizePixel = 0,
-		ZIndex = 902,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement(Text, {
-		value = "MOBILE PREVIEW",
-		size = 12,
-		color = Palette.mango,
-		weight = Enum.FontWeight.Heavy,
-		position = UDim2.fromOffset(22, 16),
-		sizeConstraint = UDim2.new(1, -44, 0, 16),
-		transparency = fade,
-		zIndex = 902,
-	}), React.createElement(Text, {
-		value = "Mobile is in development",
-		size = if short then 22 else 28,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		wrap = true,
-		position = UDim2.fromOffset(22, 36),
-		sizeConstraint = UDim2.new(1, -44, 0, if short then 36 else 40),
-		transparency = fade,
-		zIndex = 902,
-	}), React.createElement(Text, {
-		value = "Expect bugs. This is not the finished phone game.",
-		size = 14,
-		color = Palette.creamSoft,
-		wrap = true,
-		position = UDim2.fromOffset(22, if short then 74 else 82),
-		sizeConstraint = UDim2.new(1, -44, 0, 36),
-		transparency = fade,
-		zIndex = 902,
-	}), React.createElement("scrollingframe", {
-		Size = UDim2.new(1, -44, 1, if short then -196 else -214),
-		Position = UDim2.fromOffset(22, if short then 114 else 126),
-		BackgroundColor3 = Palette.ink,
-		BackgroundTransparency = 0.15,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 5,
-		ScrollBarImageColor3 = Palette.mango,
-		ScrollBarImageTransparency = 0.28,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
-		ClipsDescendants = true,
-		Active = true,
-		Selectable = false,
-		ZIndex = 902,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement("uipadding", {
-		PaddingTop = UDim.new(0, 12),
-		PaddingBottom = UDim.new(0, 16),
-		PaddingLeft = UDim.new(0, 12),
-		PaddingRight = UDim.new(0, 12),
-	}), React.createElement(Text, {
-		value = DISCLAIMER,
-		size = 13,
-		color = Palette.creamSoft,
-		wrap = true,
-		sizeConstraint = UDim2.new(1, 0, 0, 420),
-		zIndex = 903,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, -44, 0, TapTarget),
-		Position = UDim2.new(0, 22, 1, -(TapTarget * 2 + 20)),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 902,
-	}, React.createElement(Button, {
-		text = "",
-		onClick = toggle,
-		color = if checked then darken(Palette.mango, 0.55) else Palette.panelSoft,
-		textColor = Palette.cream,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		zIndex = 903,
-		outline = not checked,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(22, 22),
-		Position = UDim2.fromOffset(12, 13),
-		BackgroundColor3 = if checked then Palette.mango else Palette.ink,
-		BorderSizePixel = 0,
-		ZIndex = 904,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 5),
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = if checked then Palette.mango else Palette.lineSoft,
-		Thickness = 1,
-	}), checked and React.createElement(Text, {
-		value = "✓",
-		size = 16,
-		color = Palette.ink,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		sizeConstraint = UDim2.fromScale(1, 1),
-		zIndex = 905,
-	})), React.createElement(Text, {
-		value = "I understand mobile is unfinished and I may hit bugs.",
-		size = 13,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Bold,
-		wrap = true,
-		position = UDim2.fromOffset(44, 4),
-		sizeConstraint = UDim2.new(1, -56, 1, -8),
-		zIndex = 904,
-	}))), React.createElement(Button, {
-		text = "CONTINUE",
-		onClick = close,
-		color = if checked then Palette.mango else Palette.panelSoft,
-		textColor = if checked then Palette.ink else Palette.muted,
-		size = UDim2.new(1, -44, 0, TapTarget),
-		position = UDim2.new(0, 22, 1, -(TapTarget + 12)),
-		disabled = not checked or closing,
-		reducedMotion = reducedMotion,
-		highlight = checked,
-		zIndex = 903,
-	}))))
-end
-return {
-	MobilePreviewGate = MobilePreviewGate,
-	MOBILE_PREVIEW_ACK = MOBILE_PREVIEW_ACK,
-}
-end
-
--- ======================================================================
 -- Module: MobileShell   (merged from MobileShell.luau, 908 lines)
 -- ======================================================================
 __defs["MobileShell"] = function()
--- Mobile shell (v2) — a ground-up rewrite of the touch/narrow-viewport navigation chrome.
+-- Mobile shell (v3), written from scratch for phones and small tablets.
 --
--- The previous mobile pattern reused the desktop rail as a slide-out drawer, sharing one
--- animated spring (`railWidth`) between "desktop sidebar collapse" (a real width change) and
--- "mobile drawer open/close" (should have been a slide). Any interruption mid-animation left
--- the drawer visibly stuck at a partial size — a bug that survived three separate fix attempts
--- aimed at the symptom instead of the shape of the problem.
+--   * Tab bar: the pages players use most, each a full-height touch target with a
+--     highlight pill. The last slot is Menu; when the current page isn't on the bar,
+--     that slot shows the current page instead, so you always see where you are.
+--   * Menu sheet: every page, grouped into the same six sections as the PC rail, with
+--     search and badges. Any page is two taps away. Swipe the handle down or tap
+--     outside to close.
+--   * Header: page title, the currencies that fit (never overlapping the title), a
+--     players button, and the level pill with its progress along the bottom edge.
+--   * Quick actions: Bank, and Overcharge you can hold to keep tapping.
 --
--- This shell removes the shared-animation hazard entirely by using a different navigation
--- pattern for touch/narrow viewports: a fixed-height bottom tab bar. Nothing about a tab bar's
--- container ever needs to resize or reposition — it is exactly Layout.tabBarH tall, anchored to
--- the bottom safe area, for the lifetime of the mobile session. Only icon/label emphasis
--- animates (a purely decorative tween on already-mounted, already-correctly-sized elements),
--- so there is no failure mode where the bar itself can render at a wrong size.
---
--- Overflow destinations (anything past the tab bar's `tabBarSlots`) live in a "More" sheet: a
--- bottom sheet that slides up from off-screen and is fully hidden (Visible=false) when closed,
--- so it never occupies layout space it could get stuck holding onto.
+-- Sizes come from the mobile layout plan (chromeFor): the bar never resizes or
+-- animates its height, and every control is at least TapTarget tall.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UserInputService = game:GetService("UserInputService")
 local _motion = require(script.Parent.MotionKit)("motion")
 local useEntrance = _motion.useEntrance
 local useFlipperSpring = _motion.useFlipperSpring
@@ -14662,348 +14411,444 @@ local _appNav = require(script.Parent.CoreKit)("appNav")
 local AppHelpers = _appNav.AppHelpers
 local MORE_NAV = _appNav.MORE_NAV
 local PRIMARY_NAV = _appNav.PRIMARY_NAV
+local NAV_GROUPS = _appNav.NAV_GROUPS
 local _theme = require(script.Parent.CoreKit)("theme")
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
 local Palette = _theme.Palette
-local surfaceGradient = _theme.surfaceGradient
 local TapTarget = _theme.TapTarget
 local _ui = __load("ui")
 local Button = _ui.Button
-local ButtonShimmer = _ui.ButtonShimmer
 local CountBadge = _ui.CountBadge
 local IconTile = _ui.IconTile
+local SearchField = _ui.SearchField
 local Text = _ui.Text
-local useButtonChrome = _ui.useButtonChrome
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local Audio = require(script.Parent.AudioKit)("audio").Audio
+local InteractionFeedback = require(script.Parent.CoreKit)("interaction").InteractionFeedback
 local _format = require(script.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
+
+local SHEET_SWIPE_CLOSE = 90
+local OVERCHARGE_REPEAT = 0.11
+
+local function allNav(state, tutorialPage)
+	local list = {}
+	for _, entry in PRIMARY_NAV do
+		table.insert(list, entry)
+	end
+	for _, entry in MORE_NAV do
+		table.insert(list, entry)
+	end
+	return AppHelpers:filterNav(list, state, tutorialPage)
+end
+
 local function TabButton(_param)
 	local entry = _param.entry
 	local active = _param.active
 	local onClick = _param.onClick
+	local badge = _param.badge or 0
 	local reducedMotion = _param.reducedMotion
-	local badge = _param.badge
-	if badge == nil then
-		badge = 0
-	end
-	local layoutOrder = _param.layoutOrder
-	local disabled = entry.disabled == true
-	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true)
-	local selection = useFlipperSpring(if active and not disabled then 1 else 0, reducedMotion, 520, 34)
-	local iconSize = 22
-	local iconColor = selection:map(function(raw)
-		return if disabled then Palette.muted else Palette.creamSoft:Lerp(entry.accent, math.clamp(raw, 0, 1))
-	end)
-	local labelColor = selection:map(function(raw)
-		return if disabled then Palette.muted else Palette.muted:Lerp(Palette.cream, math.clamp(raw, 0, 1))
-	end)
-	local liftY = selection:map(function(raw)
-		return -math.round(math.clamp(raw, 0, 1) * 2)
-	end)
-	local indicatorSize = selection:map(function(raw)
-		return UDim2.fromOffset(20 * math.clamp(raw, 0, 1), 2)
-	end)
-	local indicatorTransparency = selection:map(function(raw)
-		return 1 - math.clamp(raw, 0, 1) * 0.72
-	end)
-	-- Packed to fit a TAP_TARGET (48px) tab core: icon + label must clear inside the bar
-	-- before bottomSafe, especially on landscape phones.
-	local iconTop = 3
-	local labelTop = 26
-	return React.createElement("frame", {
+	local accent = entry.accent or Palette.cyan
+	local pressed, setPressed = React.useState(false)
+	local selection = useFlipperSpring(if active then 1 else 0, reducedMotion, 620, 38)
+	local press = useFlipperSpring(if pressed then 1 else 0, reducedMotion, 1100, 44)
+	local compactLabel = _param.compact == true
+	return React.createElement("imagebutton", {
 		Name = "Nav_" .. entry.id,
-		Size = UDim2.fromScale(1, 1),
+		Size = _param.size,
+		LayoutOrder = _param.order,
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = layoutOrder,
-		ClipsDescendants = false,
-		ZIndex = 40,
-	}, React.createElement("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		AutoButtonColor = false,
-		Active = not disabled,
-		Selectable = not disabled,
+		Selectable = true,
 		ZIndex = 41,
-		Event = chrome.events,
-	}, React.createElement("frame", {
-		Size = chrome.surfaceSize,
-		Position = chrome.offsetY:map(function(amount)
-			return UDim2.new(0.5, 0, 0.5, math.round(amount))
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uiscale", {
-		Scale = chrome.touchScale,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(iconSize, iconSize),
-		Position = liftY:map(function(lift)
-			return UDim2.new(0.5, 0, 0, iconTop + lift)
-		end),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 42,
-	}, React.createElement(Icon, {
-		kind = entry.icon,
-		color = iconColor,
-		accent = if disabled then Palette.lineSoft else entry.accent,
-		size = iconSize,
-		spin = false,
-		reducedMotion = reducedMotion,
-	}), badge > 0 and React.createElement(CountBadge, {
-		count = badge,
-		zIndex = 44,
-		compact = true,
-	})), React.createElement(Text, {
-		value = entry.label,
-		size = 10,
-		color = labelColor,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 8,
-		position = UDim2.new(0, 0, 0, labelTop),
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-		zIndex = 42,
-	}), React.createElement("frame", {
-		Size = indicatorSize,
-		Position = UDim2.new(0.5, 0, 0, 0),
-		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = entry.accent,
-		BackgroundTransparency = indicatorTransparency,
-		BorderSizePixel = 0,
-		ZIndex = 42,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))))
-end
-local MoreCell
-local function MoreSheet(_param)
-	local open = _param.open
-	local entries = _param.entries
-	local page = _param.page
-	local setPage = _param.setPage
-	local reducedMotion = _param.reducedMotion
-	local state = _param.state
-	local chatUnread = _param.chatUnread
-	local tutorialPage = _param.tutorialPage
-	local bottomSafe = _param.bottomSafe
-	local onClose = _param.onClose
-	local viewportHeight = _param.viewportHeight
-	local visible = AppHelpers:filterNav(entries, state, tutorialPage)
-	local cols = math.max(1, math.min(_param.moreCols or 4, #visible))
-	local cellH = _param.moreCellH or 72
-	local rows = math.max(1, math.ceil(#visible / cols))
-	local rawSheetH = rows * (cellH + 8) + bottomSafe + 64
-	local maxSheetH = if viewportHeight and viewportHeight > 0 then math.floor(viewportHeight * 0.8) else rawSheetH
-	local sheetH = math.min(rawSheetH, maxSheetH)
-	local gridH = math.min(rows * (cellH + 8), maxSheetH - bottomSafe - 64)
-	local needsScroll = rawSheetH > maxSheetH
-	local reveal = useFlipperSpring(if open then 1 else 0, reducedMotion, 780, 44)
-	local _exp = React.createElement("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = reveal:map(function(amount)
-			return 1 - math.clamp(amount, 0, 1) * 0.6
-		end),
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Selectable = false,
-		Active = true,
-		ZIndex = 200,
 		Event = {
 			Activated = function()
-				Audio:play("close")
-				onClose()
+				Audio:play("tabSwitch")
+				InteractionFeedback.tap()
+				onClick()
+			end,
+			InputBegan = function(_, input)
+				if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+					setPressed(true)
+				end
+			end,
+			InputEnded = function()
+				setPressed(false)
+			end,
+			MouseLeave = function()
+				setPressed(false)
 			end,
 		},
-	})
-	local _exp_1 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 22),
-	})
-	local _exp_2 = React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = Palette.lineSoft,
-		Thickness = 1,
-		Transparency = 0.76,
-	})
-	local _exp_3 = React.createElement("frame", {
-		Size = UDim2.fromOffset(36, 3),
-		Position = UDim2.new(0.5, 0, 0, 10),
+	}, React.createElement("uiscale", {
+		Scale = press:map(function(amount)
+			return 1 - math.clamp(amount, 0, 1) * 0.06
+		end),
+	}), React.createElement("frame", {
+		-- Highlight pill behind the icon.
+		Size = selection:map(function(amount)
+			local t = math.clamp(amount, 0, 1)
+			return UDim2.fromOffset(math.round(28 + 22 * t), 28)
+		end),
+		Position = UDim2.new(0.5, 0, 0, if compactLabel then 3 else 5),
 		AnchorPoint = Vector2.new(0.5, 0),
-		BackgroundColor3 = Palette.lineSoft,
-		BackgroundTransparency = 0.45,
+		BackgroundColor3 = darken(accent, 0.5),
+		BackgroundTransparency = selection:map(function(amount)
+			return 1 - math.clamp(amount, 0, 1) * 0.85
+		end),
 		BorderSizePixel = 0,
-		ZIndex = 202,
+		ZIndex = 42,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	}))
-	local _exp_4 = React.createElement(Text, {
-		value = "MORE",
-		size = 11,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Heavy,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 20),
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-		zIndex = 202,
-	})
-	local _exp_5 = React.createElement("uigridlayout", {
-		CellSize = UDim2.new(1 / cols, -8, 0, cellH),
-		CellPadding = UDim2.new(0, 8, 0, 8),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		FillDirection = Enum.FillDirection.Horizontal,
-		FillDirectionMaxCells = cols,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = Enum.VerticalAlignment.Top,
-	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#visible)
-	local _callback = function(entry, index)
-		return React.createElement(MoreCell, {
-			key = entry.id,
-			entry = entry,
-			active = page == entry.id,
-			onClick = function()
-				setPage(entry.id)
-				onClose()
-			end,
-			reducedMotion = reducedMotion,
-			badge = AppHelpers:navBadge(entry, state, chatUnread),
-			layoutOrder = index,
-		})
-	end
-	for _k, _v in visible do
-		_newValue[_k] = _callback(_v, _k - 1, visible)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 200,
-		Visible = open,
-	}, _exp, React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, sheetH),
-		AnchorPoint = Vector2.new(0, 1),
-		Position = reveal:map(function(amount)
-			return UDim2.new(0, 0, 1, math.round((1 - math.clamp(amount, 0, 1)) * sheetH))
-		end),
-		BackgroundColor3 = Palette.night,
-		BorderSizePixel = 0,
-		ZIndex = 201,
-		ClipsDescendants = true,
-	}, _exp_1, _exp_2, _exp_3, _exp_4, React.createElement(if needsScroll then "scrollingframe" else "frame", (function()
-		local props = {
-			Size = UDim2.new(1, -16, 0, math.max(1, gridH)),
-			Position = UDim2.fromOffset(8, 44),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 202,
-		}
-		if needsScroll then
-			props.ScrollBarThickness = 6
-			props.ScrollingEnabled = true
-			props.CanvasSize = UDim2.new(0, 0, 0, rows * (cellH + 8))
-			props.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		end
-		return props
-	end)(), _exp_5, _newValue)))
-end
-function MoreCell(_param)
-	local entry = _param.entry
-	local active = _param.active
-	local onClick = _param.onClick
-	local reducedMotion = _param.reducedMotion
-	local badge = _param.badge
-	if badge == nil then
-		badge = 0
-	end
-	local layoutOrder = _param.layoutOrder
-	local disabled = entry.disabled == true
-	local chrome = useButtonChrome(onClick, reducedMotion, disabled, "tabSwitch", true)
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = layoutOrder,
-		ZIndex = 203,
-	}, React.createElement("imagebutton", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = not disabled,
-		Selectable = not disabled,
-		ZIndex = 204,
-		Event = chrome.events,
-	}, React.createElement("frame", {
-		Size = chrome.surfaceSize,
-		Position = chrome.offsetY:map(function(amount)
-			return UDim2.new(0.5, 0, 0.5, math.round(amount))
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = if active then darken(entry.accent, 0.74) else Palette.panelRaised,
-		BackgroundTransparency = if active then 0.02 else 0.12,
-		BorderSizePixel = 0,
-		ZIndex = 205,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = if active then entry.accent else Palette.lineSoft,
-		Thickness = 1,
-		Transparency = if active then 0.48 else 0.8,
-	}), React.createElement(ButtonShimmer, {
-		hoverAmount = chrome.hoverAmount,
-		shimmer = chrome.shimmer,
-		live = chrome.shimmerLive,
-		zIndex = 205,
-		radius = 14,
-	}), React.createElement("frame", {
+	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(24, 24),
-		Position = UDim2.new(0.5, 0, 0, 10),
+		Position = UDim2.new(0.5, 0, 0, if compactLabel then 5 else 7),
 		AnchorPoint = Vector2.new(0.5, 0),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 206,
+		ZIndex = 43,
 	}, React.createElement(Icon, {
 		kind = entry.icon,
-		color = if disabled then Palette.muted else Palette.creamSoft,
-		accent = if disabled then Palette.lineSoft else entry.accent,
+		color = if active then Palette.cream else Palette.creamSoft,
+		accent = if active then accent else Palette.muted,
 		size = 24,
 		spin = false,
 		reducedMotion = reducedMotion,
 	}), badge > 0 and React.createElement(CountBadge, {
 		count = badge,
-		zIndex = 207,
+		zIndex = 46,
 		compact = true,
-	})), React.createElement(Text, {
-		value = entry.label,
-		size = 10,
-		color = if disabled then Palette.muted else Palette.creamSoft,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Center,
-		fit = true,
-		minSize = 8,
-		position = UDim2.new(0, 2, 1, -18),
-		sizeConstraint = UDim2.new(1, -4, 0, 16),
-		zIndex = 206,
-	}))))
+	})), React.createElement("textlabel", {
+		Size = UDim2.new(1, -4, 0, 14),
+		Position = UDim2.new(0.5, 0, 0, if compactLabel then 32 else 36),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Text = entry.label,
+		TextColor3 = if active then Palette.cream else Palette.muted,
+		TextSize = 11,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold),
+		ZIndex = 43,
+	}))
 end
--- The fixed-height bottom tab bar. Size is a pure function of the viewport (via
--- chrome.tabBarH / chrome.tabBarSlots computed in mobileLayout.ts) — it is set once per
--- viewport change and never animates, so there is no "stuck mid-resize" failure mode.
+
+local function MenuCell(_param)
+	local entry = _param.entry
+	local active = _param.active
+	local badge = _param.badge or 0
+	local accent = entry.accent or Palette.cyan
+	return React.createElement("textbutton", {
+		Name = "Menu_" .. entry.id,
+		LayoutOrder = _param.order,
+		BackgroundColor3 = if active then darken(accent, 0.6) else Palette.panel,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 512,
+		Event = {
+			Activated = function()
+				Audio:play("tabSwitch")
+				InteractionFeedback.tap()
+				_param.onPick(entry.id)
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 14),
+	}), React.createElement("uistroke", {
+		Color = if active then accent else Palette.line,
+		Thickness = if active then 1.5 else 1,
+		Transparency = if active then 0.15 else 0.55,
+	}), React.createElement(IconTile, {
+		kind = entry.icon,
+		accent = accent,
+		size = 34,
+		radius = 10,
+		position = UDim2.new(0.5, -17, 0, 10),
+		spin = false,
+		zIndex = 513,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, -8, 0, 16),
+		Position = UDim2.new(0.5, 0, 0, 48),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Text = entry.label,
+		TextColor3 = Palette.cream,
+		TextSize = 13,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 513,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, -8, 0, 12),
+		Position = UDim2.new(0.5, 0, 0, 64),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundTransparency = 1,
+		Text = entry.eyebrow or "",
+		TextColor3 = Palette.muted,
+		TextSize = 10,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Medium),
+		ZIndex = 513,
+	}), badge > 0 and React.createElement(CountBadge, {
+		count = badge,
+		zIndex = 515,
+	}))
+end
+
+local function MenuSheet(_param)
+	local open = _param.open
+	local page = _param.page
+	local state = _param.state
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local reducedMotion = _param.reducedMotion
+	local query, setQuery = React.useState("")
+	local amount = useFlipperSpring(if open then 1 else 0, reducedMotion, 620, 42)
+	local drag, setDrag = React.useBinding(0)
+	local dragState = React.useRef({ active = false, startY = 0, value = 0 })
+	React.useEffect(function()
+		if not open then
+			setQuery("")
+		end
+		dragState.current.value = 0
+		setDrag(0)
+	end, { open })
+	React.useEffect(function()
+		if not open then
+			return nil
+		end
+		local moved = UserInputService.InputChanged:Connect(function(input)
+			local current = dragState.current
+			if not current.active then
+				return
+			end
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+				current.value = math.max(0, input.Position.Y - current.startY)
+				setDrag(current.value)
+			end
+		end)
+		local ended = UserInputService.InputEnded:Connect(function(input)
+			local current = dragState.current
+			if not current.active then
+				return
+			end
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				current.active = false
+				if current.value > SHEET_SWIPE_CLOSE then
+					_param.onClose()
+				else
+					current.value = 0
+					setDrag(0)
+				end
+			end
+		end)
+		local back = UserInputService.InputBegan:Connect(function(input, processed)
+			if input.KeyCode == Enum.KeyCode.ButtonB or (input.KeyCode == Enum.KeyCode.Escape and not processed) then
+				_param.onClose()
+			end
+		end)
+		return function()
+			moved:Disconnect()
+			ended:Disconnect()
+			back:Disconnect()
+		end
+	end, { open })
+
+	local visible = allNav(state, _param.tutorialPage)
+	local byId = {}
+	for _, entry in visible do
+		byId[entry.id] = entry
+	end
+	local needle = string.lower((string.gsub(query, "^%s*(.-)%s*$", "%1")))
+	local cols = if chrome.landscape then 6 elseif viewport.width >= 560 then 5 else 4
+	local sideGap = math.max(chrome.sideSafe, 12)
+	local sheetW = viewport.width - sideGap * 2
+	local cellGap = 8
+	local cellW = math.floor((sheetW - 24 - cellGap * (cols - 1)) / cols)
+	local cellH = 82
+	local sections = {}
+	sections.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 14),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	sections.pad = React.createElement("uipadding", {
+		PaddingBottom = UDim.new(0, 12),
+	})
+	local placed = {}
+	local function addSection(key, label, ids, order)
+		local entries = {}
+		for _, id in ids do
+			local entry = byId[id]
+			if entry ~= nil and not placed[id] then
+				local matches = needle == "" or string.find(string.lower(entry.label), needle, 1, true) ~= nil or string.find(string.lower(entry.eyebrow or ""), needle, 1, true) ~= nil
+				if matches then
+					placed[id] = true
+					table.insert(entries, entry)
+				end
+			end
+		end
+		if #entries == 0 then
+			return
+		end
+		local rows = math.ceil(#entries / cols)
+		local cells = {}
+		cells.grid = React.createElement("uigridlayout", {
+			CellSize = UDim2.fromOffset(cellW, cellH),
+			CellPadding = UDim2.fromOffset(cellGap, cellGap),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		})
+		for index, entry in entries do
+			cells[entry.id] = React.createElement(MenuCell, {
+				entry = entry,
+				order = index,
+				active = entry.id == page,
+				badge = AppHelpers:navBadge(entry, state, _param.chatUnread),
+				onPick = function(id)
+					_param.setPage(id)
+					_param.onClose()
+				end,
+			})
+		end
+		sections[key] = React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, 22 + rows * (cellH + cellGap) - cellGap),
+			LayoutOrder = order,
+			BackgroundTransparency = 1,
+			ZIndex = 511,
+		}, React.createElement(Text, {
+			value = string.upper(label),
+			size = 11,
+			color = Palette.muted,
+			weight = Enum.FontWeight.Heavy,
+			sizeConstraint = UDim2.new(1, 0, 0, 16),
+			zIndex = 512,
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, 0, 1, -22),
+			Position = UDim2.fromOffset(0, 22),
+			BackgroundTransparency = 1,
+			ZIndex = 511,
+		}, cells))
+	end
+	for order, group in NAV_GROUPS do
+		addSection(group.key, group.label, group.routes, order)
+	end
+	local loose = {}
+	for _, entry in visible do
+		if not placed[entry.id] then
+			table.insert(loose, entry.id)
+		end
+	end
+	addSection("More", "More", loose, #NAV_GROUPS + 1)
+
+	local topGap = math.max(viewport.topInset + 24, 40)
+	local sheetH = viewport.height - topGap
+	local searchH = if chrome.landscape then 0 else 40
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Visible = amount:map(function(value)
+			return value > 0.01
+		end),
+		ZIndex = 505,
+	}, React.createElement("textbutton", {
+		-- Scrim: tap outside to close.
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = amount:map(function(value)
+			return 1 - math.clamp(value, 0, 1) * 0.55
+		end),
+		AutoButtonColor = false,
+		Text = "",
+		Selectable = false,
+		ZIndex = 506,
+		Event = {
+			Activated = _param.onClose,
+		},
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -sideGap * 2, 0, sheetH),
+		Position = React.joinBindings({ amount, drag }):map(function(values)
+			local hidden = (1 - math.clamp(values[1], 0, 1)) * (sheetH + 20)
+			return UDim2.new(0.5, 0, 1, math.round(hidden + values[2]))
+		end),
+		AnchorPoint = Vector2.new(0.5, 1),
+		BackgroundColor3 = Palette.night,
+		BorderSizePixel = 0,
+		Active = true,
+		ZIndex = 508,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 22),
+	}), React.createElement("uistroke", {
+		Color = Palette.line,
+		Transparency = 0.3,
+	}), React.createElement("frame", {
+		-- Drag handle: pull down to close.
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundTransparency = 1,
+		Active = true,
+		ZIndex = 509,
+		Event = {
+			InputBegan = function(_, input)
+				if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+					dragState.current.active = true
+					dragState.current.startY = input.Position.Y
+				end
+			end,
+		},
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(44, 5),
+		Position = UDim2.new(0.5, 0, 0, 10),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = Palette.lineSoft,
+		BorderSizePixel = 0,
+		ZIndex = 510,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}))), React.createElement(Text, {
+		value = "All pages",
+		size = 18,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(16, 28),
+		sizeConstraint = UDim2.new(1, -80, 0, 24),
+		zIndex = 510,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(TapTarget, TapTarget),
+		Position = UDim2.new(1, -(TapTarget + 8), 0, 18),
+		BackgroundTransparency = 1,
+		ZIndex = 510,
+	}, React.createElement(Button, {
+		text = "",
+		icon = "Close",
+		onClick = _param.onClose,
+		color = Palette.panel,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+		zIndex = 511,
+	})), searchH > 0 and React.createElement(SearchField, {
+		value = query,
+		onChange = setQuery,
+		accent = Palette.cyan,
+		placeholder = "Find a page",
+		position = UDim2.fromOffset(12, 68),
+		size = UDim2.new(1, -24, 0, searchH),
+		reducedMotion = reducedMotion,
+		zIndex = 511,
+	}), React.createElement("scrollingframe", {
+		Size = UDim2.new(1, -24, 1, -(76 + searchH + _param.bottomSafe)),
+		Position = UDim2.fromOffset(12, 72 + searchH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Palette.lineSoft,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ElasticBehavior = Enum.ElasticBehavior.WhenScrollable,
+		ZIndex = 510,
+	}, sections)))
+end
+
 local function MobileTabBar(_param)
 	local page = _param.page
 	local setPage = _param.setPage
@@ -15013,194 +14858,147 @@ local function MobileTabBar(_param)
 	local reducedMotion = _param.reducedMotion
 	local height = _param.height
 	local bottomSafe = _param.bottomSafe
-	local visible = _param.visible
-	if visible == nil then
-		visible = true
-	end
+	local visible = if _param.visible == nil then true else _param.visible
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local enter = useEntrance(reducedMotion)
-	local moreOpen, setMoreOpen = React.useState(false)
-	local _array = {}
-	local _length = #_array
-	local _pRIMARY_NAVLength = #PRIMARY_NAV
-	table.move(PRIMARY_NAV, 1, _pRIMARY_NAVLength, _length + 1, _array)
-	_length += _pRIMARY_NAVLength
-	table.move(MORE_NAV, 1, #MORE_NAV, _length + 1, _array)
-	local allVisible = AppHelpers:filterNav(_array, state, tutorialPage)
-	local slots = math.max(3, chrome.tabBarSlots)
-	-- Reserve one slot for "More" whenever there's overflow; otherwise every visible entry
-	-- fits directly on the bar.
-	local needsMore = #allVisible > slots
-	local primaryCount = if needsMore then slots - 1 else slots
-	local primary = {}
-	local overflow = {}
-	-- ▼ ReadonlyArray.forEach ▼
-	local _callback = function(entry, index)
-		if index < primaryCount then
-			local _entry = entry
-			table.insert(primary, _entry)
-		else
-			local _overflow = overflow
-			local _entry = entry
-			table.insert(_overflow, _entry)
+	local menuOpen, setMenuOpen = React.useState(false)
+	local available = allNav(state, tutorialPage)
+	local byId = {}
+	for _, entry in available do
+		byId[entry.id] = entry
+	end
+	local slots = math.clamp(chrome.tabBarSlots, 4, 6)
+	local availableIds = {}
+	for id in byId do
+		availableIds[id] = true
+	end
+	local tabIds = require(script.Parent.CoreKit)("navRouteTable").mobileTabs(availableIds, slots, page)
+	local tabs = {}
+	for _, id in tabIds do
+		table.insert(tabs, byId[id])
+	end
+	local onBar = {}
+	for _, entry in tabs do
+		onBar[entry.id] = true
+	end
+	-- Badges of everything behind Menu, summed onto it.
+	local menuBadge = 0
+	for _, entry in available do
+		if not onBar[entry.id] then
+			menuBadge += AppHelpers:navBadge(entry, state, chatUnread)
 		end
 	end
-	for _k, _v in allVisible do
-		_callback(_v, _k - 1, allVisible)
-	end
-	-- ▲ ReadonlyArray.forEach ▲
-	-- If the current page is buried in overflow, still show it in the bar in place of the
-	-- last primary slot so the active tab is never invisible to the player. The swap has to
-	-- move the displaced primary entry into the More sheet AND take the active entry out of
-	-- it — leaving the active entry in `overflow` rendered it twice (tab bar + More sheet,
-	-- duplicate React keys) while the displaced entry vanished from the sheet entirely.
-	-- ▼ ReadonlyArray.find ▼
-	local _callback_1 = function(entry)
-		return entry.id == page
-	end
-	local _result
-	for _i, _v in overflow do
-		if _callback_1(_v, _i - 1, overflow) == true then
-			_result = _v
-			break
-		end
-	end
-	-- ▲ ReadonlyArray.find ▲
-	local activeInOverflow = _result
-	if activeInOverflow ~= nil and #primary > 0 then
-		local displaced = primary[#primary]
-		primary[#primary] = activeInOverflow
-		-- ▼ ReadonlyArray.filter ▼
-		local _newValue = {}
-		local _callback_2 = function(entry)
-			return entry.id ~= activeInOverflow.id
-		end
-		local _length_1 = 0
-		for _k, _v in overflow do
-			if _callback_2(_v, _k - 1, overflow) == true then
-				_length_1 += 1
-				_newValue[_length_1] = _v
-			end
-		end
-		-- ▲ ReadonlyArray.filter ▲
-		overflow = _newValue
-		if displaced ~= nil then
-			table.insert(overflow, 1, displaced)
-		end
-	end
-	-- ▼ ReadonlyArray.reduce ▼
-	local _result_1 = 0
-	local _callback_2 = function(sum, entry)
-		return sum + AppHelpers:navBadge(entry, state, chatUnread)
-	end
-	for _i = 1, #overflow do
-		_result_1 = _callback_2(_result_1, overflow[_i], _i - 1, overflow)
-	end
-	-- ▲ ReadonlyArray.reduce ▲
-	local overflowBadgeTotal = _result_1
-	local moreActive = activeInOverflow ~= nil or moreOpen
-	local _exp = React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.night, 0.36),
-		Rotation = 90,
-	})
-	local _exp_1 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, 1),
-		BackgroundColor3 = Palette.lineSoft,
-		BackgroundTransparency = 0.72,
-		BorderSizePixel = 0,
-		ZIndex = 41,
-	})
-	local _exp_2 = React.createElement("uilistlayout", {
+	local current = byId[page]
+	local menuShowsPage = current ~= nil and not onBar[page]
+	local menuEntry = if menuShowsPage
+		then { id = "Menu", label = current.label, icon = current.icon, accent = current.accent }
+		else { id = "Menu", label = "Menu", icon = "Menu", accent = Palette.cyan }
+	local compact = chrome.landscape
+	local items = {}
+	items.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 	})
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#primary)
-	local _callback_3 = function(entry, index)
-		return React.createElement("frame", {
-			key = entry.id,
-			Size = UDim2.new(1 / slots, 0, 1, 0),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = index,
-		}, React.createElement(TabButton, {
+	local tabSize = UDim2.new(1 / (#tabs + 1), 0, 1, 0)
+	for index, entry in tabs do
+		items[entry.id] = React.createElement(TabButton, {
 			entry = entry,
+			order = index,
+			size = tabSize,
 			active = page == entry.id,
-			onClick = function()
-				return setPage(entry.id)
-			end,
-			reducedMotion = reducedMotion,
 			badge = AppHelpers:navBadge(entry, state, chatUnread),
-			layoutOrder = index,
-		}))
+			compact = compact,
+			reducedMotion = reducedMotion,
+			onClick = function()
+				setMenuOpen(false)
+				setPage(entry.id)
+			end,
+		})
 	end
-	for _k, _v in primary do
-		_newValue[_k] = _callback_3(_v, _k - 1, primary)
-	end
-	-- ▲ ReadonlyArray.map ▲
+	items.menu = React.createElement(TabButton, {
+		entry = menuEntry,
+		order = #tabs + 1,
+		size = tabSize,
+		active = menuShowsPage or menuOpen,
+		badge = menuBadge,
+		compact = compact,
+		reducedMotion = reducedMotion,
+		onClick = function()
+			setMenuOpen(not menuOpen)
+		end,
+	})
 	return React.createElement(React.Fragment, nil, React.createElement("frame", {
+		Name = "MobileTabBar",
 		Size = UDim2.new(1, 0, 0, height),
-		Position = enter:map(function(amount)
-			return UDim2.new(0, 0, 1, math.round((1 - math.clamp(amount, 0, 1)) * (height * 0.6)))
+		Position = enter:map(function(value)
+			return UDim2.new(0, 0, 1, math.round((1 - math.clamp(value, 0, 1)) * height))
 		end),
 		AnchorPoint = Vector2.new(0, 1),
 		BackgroundColor3 = Palette.night,
 		BorderSizePixel = 0,
-		ZIndex = 40,
-		ClipsDescendants = false,
+		Active = true,
 		Visible = visible,
-	}, _exp, _exp_1, React.createElement("frame", {
-		Size = UDim2.new(1, -8, 0, height - bottomSafe),
-		Position = UDim2.fromOffset(4, 0),
-		BackgroundTransparency = 1,
+		ZIndex = 40,
+	}, React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = Palette.line,
 		BorderSizePixel = 0,
 		ZIndex = 41,
-	}, _exp_2, _newValue, needsMore and React.createElement("frame", {
-		key = "more",
-		Size = UDim2.new(1 / slots, 0, 1, 0),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, -(chrome.sideSafe * 2), 0, height - bottomSafe),
+		Position = UDim2.fromOffset(chrome.sideSafe, 0),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = primaryCount,
-	}, React.createElement(TabButton, {
-		entry = {
-			id = "Overview",
-			label = "More",
-			eyebrow = "",
-			icon = "Menu",
-			accent = Palette.muted,
-		},
-		active = moreActive,
-		onClick = function()
-			return setMoreOpen(true)
-		end,
-		reducedMotion = reducedMotion,
-		badge = overflowBadgeTotal,
-		layoutOrder = primaryCount,
-	})))), React.createElement(MoreSheet, {
-		open = moreOpen,
-		entries = overflow,
+		ZIndex = 41,
+	}, items)), React.createElement(MenuSheet, {
+		open = menuOpen,
 		page = page,
 		setPage = setPage,
-		reducedMotion = reducedMotion,
 		state = state,
 		chatUnread = chatUnread,
 		tutorialPage = tutorialPage,
 		bottomSafe = bottomSafe,
+		reducedMotion = reducedMotion,
 		onClose = function()
-			return setMoreOpen(false)
+			setMenuOpen(false)
 		end,
-		viewportHeight = _param.viewportHeight,
-		moreCols = _param.moreCols,
-		moreCellH = _param.moreCellH,
 	}))
 end
--- Compact mobile header: logo mark, resource chips, and a vault-collect button. Replaces the
--- old TopBar's mobile branch — same information, laid out for a fixed-height single row
--- instead of the old desktop bar's row-stacking logic.
-local MiniChip
+
+local function Chip(_param)
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(_param.width, _param.height),
+		LayoutOrder = _param.order,
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		ZIndex = 22,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 9),
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(6, 6),
+		Position = UDim2.new(0, 7, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = _param.accent,
+		BorderSizePixel = 0,
+		ZIndex = 23,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement("textlabel", {
+		Size = UDim2.new(1, -20, 1, 0),
+		Position = UDim2.fromOffset(16, 0),
+		BackgroundTransparency = 1,
+		Text = compactNumber(_param.value),
+		TextColor3 = Palette.cream,
+		TextScaled = true,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 23,
+	}, React.createElement("uitextsizeconstraint", {
+		MaxTextSize = 13,
+		MinTextSize = 9,
+	})))
+end
+
 local function MobileHeader(_param)
 	local state = _param.state
 	local page = _param.page
@@ -15209,284 +15007,260 @@ local function MobileHeader(_param)
 	local barHeight = _param.barHeight
 	local edgePad = _param.edgePad
 	local reducedMotion = _param.reducedMotion
-	local openPlayerlist = _param.openPlayerlist
+	local viewport = useViewport()
 	local entry = AppHelpers:pageEntry(page)
-	local vaultReady = asFlux(state.Vault) >= 0.01
-	local showDust = AppHelpers:featureUnlocked(state, "StarGrid")
-	local showCores = AppHelpers:featureUnlocked(state, "Rebirth")
-	local _result = state.Visitors
-	if _result ~= nil then
-		_result = #_result
+	local short = barHeight <= 40
+	local width = viewport.width - edgePad * 2
+	local chipH = if short then 24 else 30
+	local chipW = if short then 62 else 70
+	local playersW = barHeight - 8
+	local iconSize = if short then 24 else 30
+	-- Currencies by priority; only as many as fit beside a readable title.
+	local wanted = { { key = "flux", value = state.Cash, accent = Palette.cyan } }
+	if AppHelpers:featureUnlocked(state, "StarGrid") then
+		table.insert(wanted, { key = "dust", value = state.Stardust, accent = Palette.mango })
 	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = 0
+	if AppHelpers:featureUnlocked(state, "Rebirth") then
+		table.insert(wanted, { key = "cores", value = state.Cores, accent = Palette.violet })
 	end
-	local visitorsHere = _condition
-	-- Reserve the right side purely for however wide the chip cluster actually needs (not a
-	-- guessed percentage), and let the player-list button fill whatever's left. Guessed
-	-- percentages on both sides is exactly what let them overlap in the middle on narrow
-	-- phones once real (long) numbers pushed the chip row wider than assumed.
-	local chipCount = (if showCores then 1 else 0) + (if showDust then 1 else 0) + 1
-	local chipW = if barHeight <= 40 then 56 else 64
-	local chipReserve = chipCount * chipW + (chipCount - 1) * 6 + 12
-	local titleSize = if barHeight <= 40 then 13 else 15
-	local iconSize = if barHeight <= 40 then 26 else 30
+	local titleMin = 110
+	local room = width - (10 + iconSize + 8 + titleMin) - playersW - 12
+	local fit = math.clamp(math.floor((room + 6) / (chipW + 6)), 0, #wanted)
+	local chips = {}
+	chips.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	for index = 1, fit do
+		local item = wanted[index]
+		chips[item.key] = React.createElement(Chip, {
+			order = index,
+			value = item.value,
+			accent = item.accent,
+			width = chipW,
+			height = chipH,
+		})
+	end
+	local chipsW = fit * chipW + math.max(0, fit - 1) * 6
+	local visitors = if type(state.Visitors) == "table" then #state.Visitors else 0
+	-- Level progress along the bottom edge; the pill opens the roadmap.
+	local roadmap = __load("levelRoadmap")
+	local level, _tier, nextStep = roadmap.readLevelState(state)
+	local fill = if nextStep ~= nil then roadmap.progressFraction(nextStep) else 1
 	return React.createElement("frame", {
+		Name = "MobileHeader",
 		Size = UDim2.new(1, -edgePad * 2, 0, barHeight),
 		Position = UDim2.fromOffset(edgePad, topPad),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-		ZIndex = 20,
 		ClipsDescendants = true,
+		ZIndex = 20,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(0, 14),
-	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel, 0.4),
-		Rotation = 90,
 	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = Palette.lineSoft,
-		Thickness = 1,
-		Transparency = 0.72,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(40, 1),
-		Position = UDim2.fromOffset(14, 0),
-		BackgroundColor3 = accent,
-		BackgroundTransparency = 0.42,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("imagebutton", {
-		Size = UDim2.new(1, -chipReserve, 1, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Active = true,
-		Selectable = false,
-		ZIndex = 4,
-		Event = {
-			Activated = function()
-				Audio:play("playerlistOpen")
-				openPlayerlist()
-			end,
-			MouseEnter = function()
-				return Audio:play("hover")
-			end,
-		},
-	}, React.createElement(IconTile, {
+		Color = Palette.line,
+		Transparency = 0.4,
+	}), React.createElement(IconTile, {
 		kind = entry.icon,
 		accent = accent,
 		size = iconSize,
-		radius = 10,
-		position = UDim2.fromOffset(10, math.floor((barHeight - iconSize) / 2)),
+		radius = 9,
+		position = UDim2.fromOffset(8, math.floor((barHeight - iconSize) / 2)),
 		spin = false,
 		reducedMotion = reducedMotion,
-		zIndex = 4,
-	}), React.createElement(Text, {
-		value = entry.label,
-		size = titleSize,
+		zIndex = 21,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, -(8 + iconSize + 8 + chipsW + playersW + 22), 0, if short then barHeight else 20),
+		Position = UDim2.fromOffset(8 + iconSize + 8, if short then 0 else 4),
+		BackgroundTransparency = 1,
+		Text = entry.label,
+		TextColor3 = Palette.cream,
+		TextSize = if short then 14 else 16,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 21,
+	}), not short and React.createElement("textbutton", {
+		-- Level pill.
+		Size = UDim2.fromOffset(64, 16),
+		Position = UDim2.fromOffset(8 + iconSize + 8, 24),
+		BackgroundColor3 = darken(accent, 0.55),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = `LV {level}`,
+		TextColor3 = Palette.cream,
+		TextSize = 10,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 22,
+		Event = {
+			Activated = function()
+				Audio:play("open")
+				roadmap.openRoadmap()
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement("frame", {
+		Size = UDim2.fromOffset(chipsW, chipH),
+		Position = UDim2.new(1, -(playersW + 12), 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 21,
+	}, chips), React.createElement("imagebutton", {
+		-- Players.
+		Name = "MobilePlayersButton",
+		Size = UDim2.fromOffset(playersW, playersW),
+		Position = UDim2.new(1, -4, 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0.5),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		ZIndex = 22,
+		Event = {
+			Activated = function()
+				Audio:play("playerlistOpen")
+				_param.openPlayerlist()
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 11),
+	}), React.createElement(Icon, {
+		kind = "Crew",
 		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(10 + iconSize + 8, math.floor(barHeight / 2) - 10),
-		sizeConstraint = UDim2.new(1, -(10 + iconSize + 16), 0, 20),
-		zIndex = 4,
-	}), visitorsHere > 0 and React.createElement("frame", {
-		Size = UDim2.fromOffset(8, 8),
-		Position = UDim2.fromOffset(10 + iconSize - 2, math.floor((barHeight - iconSize) / 2) - 2),
+		accent = Palette.cyan,
+		size = math.floor(playersW * 0.62),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+	}), visitors > 0 and React.createElement("frame", {
+		Size = UDim2.fromOffset(9, 9),
+		Position = UDim2.new(1, -3, 0, 3),
+		AnchorPoint = Vector2.new(1, 0),
 		BackgroundColor3 = Palette.mango,
 		BorderSizePixel = 0,
-		ZIndex = 5,
+		ZIndex = 23,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("frame", {
-		Size = UDim2.fromOffset(0, math.min(TapTarget - 10, barHeight - 8)),
-		AutomaticSize = Enum.AutomaticSize.X,
-		Position = UDim2.new(1, -8, 0.5, 0),
-		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundTransparency = 1,
+		Size = UDim2.new(1, -24, 0, 2),
+		Position = UDim2.new(0, 12, 1, -2),
+		BackgroundColor3 = Palette.line,
 		BorderSizePixel = 0,
-		ZIndex = 4,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Right,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, 6),
-	}), showCores and React.createElement(MiniChip, {
-		label = "CORES",
-		value = state.Cores,
-		accent = Palette.violet,
-		layoutOrder = 1,
-		width = chipW,
-	}), showDust and React.createElement(MiniChip, {
-		label = "DUST",
-		value = state.Stardust,
-		accent = Palette.mango,
-		layoutOrder = 2,
-		width = chipW,
-	}), React.createElement(MiniChip, {
-		label = "FLUX",
-		value = state.Cash,
-		accent = if vaultReady then Palette.cyan else Palette.muted,
-		layoutOrder = 3,
-		width = chipW,
+		ZIndex = 21,
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1),
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+		ZIndex = 22,
 	})))
 end
-function MiniChip(_param)
-	local value = _param.value
-	local accent = _param.accent
-	local layoutOrder = _param.layoutOrder
-	local width = _param.width
-	if width == nil then
-		width = 64
-	end
-	return React.createElement("frame", {
-		Size = UDim2.fromOffset(width, 30),
-		BackgroundColor3 = Palette.panelSoft,
-		BorderSizePixel = 0,
-		LayoutOrder = layoutOrder,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
-	}), React.createElement("uipadding", {
-		PaddingLeft = UDim.new(0, 6),
-		PaddingRight = UDim.new(0, 6),
-	}), React.createElement(Text, {
-		value = `{compactNumber(value)}`,
-		size = 12,
-		color = accent,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 9,
-		align = Enum.TextXAlignment.Center,
-		position = UDim2.fromOffset(0, 0),
-		sizeConstraint = UDim2.new(0, 0, 1, 0),
-		zIndex = 2,
-	}))
-end
--- Floating vault/overcharge quick-action cluster anchored above the tab bar. Fixed position
--- (bottom-right, above the bar) — no drag/reposition in v2, since the tab bar already claims
--- the thumb-reachable bottom strip and a second freely-floating control invites exactly the
--- kind of overlap bugs the old floating quick bar produced.
+
+-- Bank and Overcharge above the tab bar. Overcharge repeats while held.
 local function MobileQuickActions(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
 	local bottomOffset = _param.bottomOffset
 	local edgePad = _param.edgePad
-	local vaultFill = if asFlux(state.Capacity) > 0 then math.clamp(asFlux(state.Vault) / asFlux(state.Capacity), 0, 1) else 0
+	local viewport = useViewport()
+	local capacity = asFlux(state.Capacity)
+	local vaultFill = if capacity > 0 then math.clamp(asFlux(state.Vault) / capacity, 0, 1) else 0
 	local vaultReady = asFlux(state.Vault) >= 1
 	local fillSpring = useFlipperSpring(vaultFill, reducedMotion, 280, 28)
 	local enter = useEntrance(reducedMotion)
-	local tapReadyAt, setTapReadyAt = React.useState(0)
-	local tapLeft, setTapLeft = React.useState(0)
+	local holding, setHolding = React.useState(false)
+	local holdPulse = useFlipperSpring(if holding then 1 else 0, reducedMotion, 900, 40)
 	React.useEffect(function()
-		if tapReadyAt <= 0 then
-			setTapLeft(0)
+		if not holding then
 			return nil
 		end
 		local alive = true
 		local worker = task.spawn(function()
 			while alive do
-				local left = math.max(0, tapReadyAt - os.clock())
-				setTapLeft(left)
-				if left <= 0 then
-					break
-				end
-				task.wait(0.05)
+				dispatch("Overcharge")
+				InteractionFeedback.tap()
+				task.wait(OVERCHARGE_REPEAT)
 			end
 		end)
 		return function()
 			alive = false
-			task.cancel(worker)
+			pcall(task.cancel, worker)
 		end
-	end, { tapReadyAt })
-	local tap = function()
-		if os.clock() < tapReadyAt then
+	end, { holding })
+	React.useEffect(function()
+		if not holding then
 			return nil
 		end
-		setTapReadyAt(os.clock() + 0.06)
-		setTapLeft(0.06)
-		dispatch("Overcharge")
-	end
+		-- A finger can lift outside the button; stop the repeat on any release.
+		local released = UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+				setHolding(false)
+			end
+		end)
+		return function()
+			released:Disconnect()
+		end
+	end, { holding })
 	local bank = function()
 		if not vaultReady then
 			Audio:play("locked")
 			return nil
 		end
+		InteractionFeedback.reward()
 		dispatch("CollectVault")
 	end
-	local width = 190
-	local height = 56
-	-- AnchorPoint (1, 1): Position's Y is measured to this frame's OWN bottom edge, so
-	-- `bottomOffset` (the tab bar's total height + a gap) places the cluster's bottom edge
-	-- exactly that far above the screen bottom — i.e. directly above the tab bar, never
-	-- overlapping it. Without an explicit anchor this defaults to the top-left corner, which
-	-- silently made the same offset math place the cluster's TOP that far up and let its
-	-- bottom (anchor + height) sink down past the tab bar's own top edge.
+	local width = math.min(220, math.floor(viewport.width * 0.6))
+	local height = TapTarget + 14
 	return React.createElement("frame", {
+		Name = "MobileQuickActions",
 		Size = UDim2.fromOffset(width, height),
 		AnchorPoint = Vector2.new(1, 1),
-		Position = enter:map(function(amount)
-			return UDim2.new(1, -edgePad, 1, -bottomOffset + math.round((1 - amount) * 14))
+		Position = enter:map(function(value)
+			return UDim2.new(1, -edgePad, 1, -bottomOffset + math.round((1 - value) * 14))
 		end),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 38,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-		ZIndex = 39,
-		ClipsDescendants = true,
+		ZIndex = 38,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	}), React.createElement("uigradient", {
-		Color = surfaceGradient(Palette.panel),
-		Rotation = 90,
+		CornerRadius = UDim.new(0, 16),
 	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = if vaultFill > 0.8 then Palette.green else Palette.lineSoft,
+		Color = if vaultFill > 0.8 then Palette.green else Palette.line,
 		Thickness = if vaultFill > 0.8 then 2 else 1,
-		Transparency = 0.45,
+		Transparency = 0.35,
 	}), React.createElement("frame", {
-		Size = UDim2.new(1, -14, 0, 3),
-		Position = UDim2.fromOffset(7, 1),
+		-- Vault fill along the top edge.
+		Size = UDim2.new(1, -20, 0, 3),
+		Position = UDim2.fromOffset(10, 3),
 		BackgroundColor3 = Palette.line,
 		BorderSizePixel = 0,
-		ZIndex = 40,
-		ClipsDescendants = true,
+		ZIndex = 39,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("frame", {
-		Size = fillSpring:map(function(amount)
-			return UDim2.new(math.clamp(amount, 0.02, 1), 0, 1, 0)
+		Size = fillSpring:map(function(value)
+			return UDim2.new(math.clamp(value, 0.02, 1), 0, 1, 0)
 		end),
 		BackgroundColor3 = if vaultFill > 0.92 then Palette.mango else Palette.green,
 		BorderSizePixel = 0,
+		ZIndex = 40,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("frame", {
-		Size = UDim2.new(1, -14, 0, TapTarget),
-		Position = UDim2.fromOffset(7, height - TapTarget - 4),
+		Size = UDim2.new(1, -12, 0, TapTarget),
+		Position = UDim2.fromOffset(6, 9),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 41,
+		ZIndex = 40,
 	}, React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		Padding = UDim.new(0, 6),
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		VerticalAlignment = Enum.VerticalAlignment.Center,
 	}), React.createElement("frame", {
+		Name = "OverviewVaultClaimActions",
 		Size = UDim2.new(0.58, -3, 1, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		LayoutOrder = 1,
+		BackgroundTransparency = 1,
 	}, React.createElement(Button, {
 		text = if vaultReady then `BANK {compactNumber(state.Vault)}` else "EMPTY",
 		icon = "Flux",
@@ -15497,23 +15271,46 @@ local function MobileQuickActions(_param)
 		reducedMotion = reducedMotion,
 		disabled = not vaultReady,
 		highlight = vaultReady and vaultFill > 0.5,
-	})), React.createElement("frame", {
+	})), React.createElement("imagebutton", {
+		-- Overcharge: tap, or hold to keep tapping.
+		Name = "MobileOvercharge",
 		Size = UDim2.new(0.42, -3, 1, 0),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		LayoutOrder = 2,
-	}, React.createElement(Button, {
-		text = if tapLeft > 0.02 then string.format("%.1fs", tapLeft) else "TAP",
-		icon = "Forge",
-		onClick = tap,
-		color = if tapLeft > 0.02 then Palette.panelSoft else Palette.cyan,
-		textColor = if tapLeft > 0.02 then Palette.muted else Palette.ink,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = reducedMotion,
-		disabled = tapLeft > 0.02,
-		highlight = tapLeft <= 0.02,
-	})))))
+		BackgroundColor3 = Palette.cyan,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		ZIndex = 41,
+		Event = {
+			InputBegan = function(_, input)
+				if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+					setHolding(true)
+				end
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 12),
+	}), React.createElement("uiscale", {
+		Scale = holdPulse:map(function(value)
+			return 1 - math.clamp(value, 0, 1) * 0.06
+		end),
+	}), React.createElement(Icon, {
+		kind = "Forge",
+		color = Palette.ink,
+		accent = Palette.ink,
+		size = 20,
+		position = UDim2.new(0, 8, 0.5, -10),
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, -34, 1, 0),
+		Position = UDim2.fromOffset(30, 0),
+		BackgroundTransparency = 1,
+		Text = if holding then "HOLD" else "TAP",
+		TextColor3 = Palette.ink,
+		TextSize = 14,
+		FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy),
+		ZIndex = 42,
+	}))))
 end
+
 return {
 	MobileTabBar = MobileTabBar,
 	MobileHeader = MobileHeader,
@@ -17322,6 +17119,16 @@ local function shown(instance)
 	return false
 end
 local function findTarget(name)
+	if type(name) == "table" then
+		-- Several candidates (PC first, phone fallback): the first one on screen.
+		for _, candidate in name do
+			local found = findTarget(candidate)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
 	if name == nil then
 		return nil
 	end
@@ -19978,10 +19785,11 @@ local function ToastRail(_param)
 	local useCustom = mobileLayout ~= nil
 	-- Desktop notices sit at the bottom of the nav column so they don't cover
 	-- the page's right-hand stats or the goal badge.
+	-- Phones: just under the header, clear of Bank/Tap and the status slot above the tab bar.
 	local defaultPosition = if stack
-		then UDim2.new(0.5, 0, 1, -(plan.tabBarH + plan.bottomSafe + 14))
+		then UDim2.new(0.5, 0, 0, topInset)
 		else UDim2.new(0, Layout.sidebarWidth + 16, 1, -(plan.bottomSafe + 16))
-	local defaultAnchor = if stack then Vector2.new(0.5, 1) else Vector2.new(0, 1)
+	local defaultAnchor = if stack then Vector2.new(0.5, 0) else Vector2.new(0, 1)
 	return React.createElement("frame", {
 		Size = UDim2.new(0, railW, 0, railHeight),
 		Position = if useCustom then UDim2.fromScale(customX, customY) else defaultPosition,
@@ -20015,7 +19823,7 @@ local function ToastRail(_param)
 	})), React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		VerticalAlignment = if stack and not useCustom then Enum.VerticalAlignment.Top else Enum.VerticalAlignment.Bottom,
 		Padding = UDim.new(0, 0),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(LifetimeHost, {
@@ -20266,12 +20074,15 @@ local function SurgeChip(_param)
 	local now = useWallClock(true)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local top = viewport.topInset + (if chrome.stack then 96 else 64)
+	local top = viewport.topInset + 64
 	local pulse = useClock(true, 2.4, math.pi * 2)
+	-- Phones: second row of the status slot, above the event banner, left of Bank/Tap.
+	local stack = chrome.stack
+	local edge = math.max(chrome.sideSafe, 10)
 	return React.createElement("frame", {
-		Size = UDim2.fromOffset(168, 30),
-		Position = UDim2.new(1, -14, 0, top),
-		AnchorPoint = Vector2.new(1, 0),
+		Size = UDim2.fromOffset(if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3) else 168, 30),
+		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8 + 54)) else UDim2.new(1, -14, 0, top),
+		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(1, 0),
 		BackgroundColor3 = darken(Palette.pink, 0.62),
 		BorderSizePixel = 0,
 		Visible = now:map(function(value)
@@ -20733,13 +20544,30 @@ local function ServerEventHost(_param)
 	local def = ServerEvents.EVENTS[event.Id or ""]
 	local active = def ~= nil and event.Phase ~= "Rest"
 	local accent = accentOf(def)
-	local width = if active then math.min(320, viewport.width - 120) else 170
+	local stack = chrome.stack
+	local edge = math.max(chrome.sideSafe, 10)
+	-- Phones: the status slot above the tab bar, beside Bank/Tap, so nothing covers
+	-- the header or the toasts. The quiet "next event" pill only shows on larger screens.
+	local width = if stack then math.max(120, viewport.width - math.min(220, math.floor(viewport.width * 0.6)) - edge * 3)
+		elseif active then math.min(320, viewport.width - 120)
+		else 170
 	local height = if active then (if event.Goal ~= nil then 50 else 40) else 28
-	local top = viewport.topInset + (if chrome.stack then 96 else 62)
+	local top = viewport.topInset + 62
+	if stack and not active then
+		return React.createElement(React.Fragment, nil, splash ~= nil and React.createElement(LiveSplash, {
+			def = splash,
+			leaving = splashLeaving,
+		}), panelOpen and React.createElement(EventPanel, {
+			event = event,
+			onClose = function()
+				setPanelOpen(false)
+			end,
+		}))
+	end
 	local banner = React.createElement("textbutton", {
 		Size = UDim2.fromOffset(width, height),
-		Position = UDim2.new(0.5, 0, 0, top),
-		AnchorPoint = Vector2.new(0.5, 0),
+		Position = if stack then UDim2.new(0, edge, 1, -(chrome.tabBarH + 8)) else UDim2.new(0.5, 0, 0, top),
+		AnchorPoint = if stack then Vector2.new(0, 1) else Vector2.new(0.5, 0),
 		BackgroundColor3 = if active then darken(accent, 0.62) else Palette.night,
 		BackgroundTransparency = if active then 0.04 else 0.25,
 		BorderSizePixel = 0,

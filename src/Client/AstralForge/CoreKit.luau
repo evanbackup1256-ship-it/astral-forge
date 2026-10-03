@@ -4424,6 +4424,33 @@ function NavRouteTable.groupOf(pageId: string): string?
 	return GROUP_OF[pageId]
 end
 
+-- Phone tab bar: the pages players use most, in this order, as many as fit
+-- before the Menu tab (which holds everything else).
+NavRouteTable.MOBILE_TAB_PRIORITY = table.freeze({ "Overview", "Workshop", "Research", "Shop", "Inventory", "Missions", "Rewards" })
+
+-- Which ids sit on a tab bar with `slots` tabs (Menu included), given the pages
+-- the player can open. Returns the ids in order and whether the current page
+-- lives behind Menu (Menu then shows that page so you always see where you are).
+function NavRouteTable.mobileTabs(available: { [string]: boolean }, slots: number, page: string?): ({ string }, boolean)
+	local tabs = {}
+	local room = math.max(1, math.floor(slots) - 1)
+	for _, id in NavRouteTable.MOBILE_TAB_PRIORITY do
+		if #tabs >= room then
+			break
+		end
+		if available[id] then
+			table.insert(tabs, id)
+		end
+	end
+	local onBar = false
+	for _, id in tabs do
+		if id == page then
+			onBar = true
+		end
+	end
+	return tabs, page ~= nil and available[page] == true and not onBar
+end
+
 function NavRouteTable.find(pageId: string): RouteDef?
 	return ALL_BY_ID[pageId]
 end

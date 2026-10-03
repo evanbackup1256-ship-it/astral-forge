@@ -1668,7 +1668,8 @@ __defs["TutorialScript"] = function()
 --   say        Bolt's line in the speech bubble
 --   title/body the step card
 --   goal       one-line task shown with a checkbox
---   target     Name of the GuiObject to spotlight (first visible match wins)
+--   target     Name of the GuiObject to spotlight, or a list of names tried in
+--              order (the first one on screen wins: PC rail first, phone fallback after)
 --   page       nav page kept visible for this step (locked pages unlock for it)
 --   startPage  page the step opens on; nil keeps the player where they are
 --   watch      what finishes it: "continue", "collect", "buy", "amount",
@@ -1759,7 +1760,7 @@ TutorialScript.STEPS = table.freeze({
 		say = "This bar is your level. Each new level opens another part of the forge.",
 		body = "Click the bar any time to see every level and what it unlocks.",
 		goal = "Look at the level bar",
-		target = "LevelBarTarget",
+		target = { "LevelBarTarget", "MobileHeader" },
 		page = "Workshop",
 		watch = "continue",
 	},
@@ -1789,10 +1790,10 @@ TutorialScript.STEPS = table.freeze({
 	{
 		id = "menu",
 		title = "Everything is in the menu",
-		say = "Pages are grouped into sections. Click a section's name to open or close it.",
+		say = "Every page is in the menu, grouped into sections. On a phone, it's the Menu tab.",
 		body = "Home, Daily, Progress, Games & Deals, Social and System. New pages appear as you level up.",
 		goal = "Look over the menu",
-		target = "RailNavClaim",
+		target = { "RailNavClaim", "Nav_Menu" },
 		page = "Research",
 		watch = "continue",
 	},
@@ -1802,7 +1803,7 @@ TutorialScript.STEPS = table.freeze({
 		say = "Later on, Rebirth trades your machines for Cores. Your research stays!",
 		body = "The Overview shows how many Cores a rebirth pays before you confirm.",
 		goal = "Learn about rebirth",
-		target = "Nav_Overview",
+		target = { "Nav_Overview", "Nav_Menu" },
 		startPage = "Overview",
 		page = "Overview",
 		watch = "continue",
@@ -1813,7 +1814,7 @@ TutorialScript.STEPS = table.freeze({
 		say = "That's the tour! Replay me from Settings, then Guide. Now go build something huge!",
 		body = "Collect, buy machines, research, rebirth. Finishing pays a small Flux bonus.",
 		goal = "Finish the guide",
-		target = "Nav_Settings",
+		target = { "Nav_Settings", "Nav_Menu" },
 		page = "Overview",
 		watch = "finish",
 	},
