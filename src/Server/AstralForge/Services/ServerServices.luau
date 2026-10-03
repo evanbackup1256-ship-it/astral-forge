@@ -1395,6 +1395,17 @@ serviceFactories["GameService"] = function()
 				ShopRefreshAt = nextUtcMidnight(),
 				AutoSalvage = AutoSalvageSnapshot.Public(profile.Items.AutoSalvage, copyDictionary),
 				Effects = ItemLoadoutMath.EffectsPublic(profile, Economy),
+				Discovered = copyDictionary(profile.Items.Discovered or {}),
+				CodexBonus = Economy.CodexBonus(profile),
+			},
+			-- The Shop: today's purchases (the client rolls the offers itself) and owned crate skins.
+			DailyShop = {
+				Day = type(profile.DailyShop) == "table" and profile.DailyShop.Day or -1,
+				Bought = copyDictionary(type(profile.DailyShop) == "table" and profile.DailyShop.Bought or {}),
+			},
+			Cosmetics = {
+				CrateSkins = copyDictionary(type(profile.Cosmetics) == "table" and profile.Cosmetics.CrateSkins or { Classic = true }),
+				CrateSkin = type(profile.Cosmetics) == "table" and profile.Cosmetics.CrateSkin or "Classic",
 			},
 			Anomaly = AnomalyService.State(profile),
 			Lab = LabService.State(profile),
@@ -2659,6 +2670,175 @@ serviceFactories["GameService"] = function()
 			return responseSuccess(offer.Name .. " bought.", { ItemUid = itemUid, Stock = nextStock })
 		end)
 		return result
+	end
+
+	-- ---- The Shop: Daily Shop, crate skins, relic fusion ---------------------------------------------
+	-- The day's offers are rolled from SharedData#ShopCatalog with the player's id and the UTC day, the
+	-- same roll the client shows, so a buy names only a slot and everything else is checked here.
+	local function shopShared()
+		local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+		return SharedData("ShopCatalog"), SharedData("RelicSystem")
+	end
+
+	local function spendShopCurrency(profile, currency: string, price: number): string?
+		if currency ~= "Stardust" and currency ~= "Cores" then
+			return "That offer can't be bought with " .. tostring(currency) .. "."
+		end
+		local have = tonumber(profile[currency]) or 0
+		if have < price then
+			return string.format("You need %s more %s.", Format.Number(price - have), string.lower(currency))
+		end
+		profile[currency] = have - price
+		return nil
+	end
+
+	function GameService:_buyDailyOffer(player: Player, slot: any)
+		if type(slot) ~= "number" or slot ~= slot then
+			return responseError("That daily offer does not exist.")
+		end
+		local ShopCatalog = shopShared()
+		local now = os.time()
+		local day = ShopCatalog.day(now)
+		return self:_mutate(player, function(profile)
+			local shop = ProfileBagMath.EnsureDailyShop(profile, day)
+			local cosmetics = ProfileBagMath.EnsureCosmetics(profile, function(id)
+				return ShopCatalog.skin(id) ~= nil
+			end)
+			local offers = ShopCatalog.roll(player.UserId, day, cosmetics.CrateSkins)
+			local offer = offers[math.floor(slot)]
+			if offer == nil then
+				return responseError("That daily offer does not exist.")
+			end
+			if ShopCatalog.remaining(offer, shop.Bought) <= 0 then
+				return responseError("You've bought all of that one today.")
+			end
+			if offer.Kind == "Skin" and cosmetics.CrateSkins[offer.SkinId] == true then
+				return responseError("You already own that skin.")
+			end
+			if offer.Kind == "Cache" and inventoryCount(profile) >= GameConfig.Items.InventoryLimit then
+				return responseError("Your relic inventory is full.")
+			end
+			local denied = spendShopCurrency(profile, offer.Currency, offer.Price)
+			if denied then
+				return responseError(denied)
+			end
+			local items = ProfileBagMath.EnsureItems(profile)
+			local detail = { Slot = offer.Slot, Kind = offer.Kind }
+			if offer.Kind == "Key" then
+				items.Keys[offer.CrateId] = (items.Keys[offer.CrateId] or 0) + offer.Amount
+			elseif offer.Kind == "Essence" then
+				items.Essence += offer.Amount
+			elseif offer.Kind == "Boost" then
+				local inventory = ensureBoostInventory(profile)
+				inventory[offer.BoostId] = math.floor(tonumber(inventory[offer.BoostId]) or 0) + offer.Amount
+			elseif offer.Kind == "Flux" then
+				local generated = Economy.Max(500, Economy.Mul(Economy.SteadyProduction(profile), 60 * offer.Minutes))
+				profile.Cash = Economy.Add(profile.Cash, generated)
+				profile.RunCash = Economy.Add(profile.RunCash, generated)
+				profile.LifetimeCash = Economy.Add(profile.LifetimeCash, generated)
+			elseif offer.Kind == "Skin" then
+				cosmetics.CrateSkins[offer.SkinId] = true
+			elseif offer.Kind == "Cache" then
+				local candidates = {}
+				for _, definition in GameConfig.Items.Definitions do
+					if definition.Rarity == offer.Rarity then
+						table.insert(candidates, definition)
+					end
+				end
+				if #candidates == 0 then
+					return responseError("That cache is empty.")
+				end
+				local definition = candidates[self._random:NextInteger(1, #candidates)]
+				local wasOwned = type(items.Discovered) == "table" and items.Discovered[definition.Id] == true
+				local uid = self:_createItem(profile, definition.Id)
+				if not uid then
+					return responseError("Your relic inventory is full.")
+				end
+				-- Shaped like a crate roll so the client plays the same reveal.
+				detail.Rolls = { { Uid = uid, DefinitionId = definition.Id, Rarity = definition.Rarity, New = not wasOwned, Pity = false, AutoSalvaged = false, Essence = 0 } }
+			else
+				return responseError("That offer is misconfigured.")
+			end
+			local key = tostring(offer.Slot)
+			shop.Bought[key] = (shop.Bought[key] or 0) + 1
+			bumpStat(profile, "ShopPurchases", 1)
+			return responseSuccess(offer.Name .. " bought.", detail)
+		end)
+	end
+
+	function GameService:_buyCrateSkin(player: Player, id: any)
+		local ShopCatalog = shopShared()
+		local skin = ShopCatalog.skin(id)
+		if skin == nil or skin.Price == nil then
+			return responseError("That skin isn't for sale.")
+		end
+		if skin.DailyOnly then
+			return responseError("That skin only appears in the Daily Shop.")
+		end
+		return self:_mutate(player, function(profile)
+			local cosmetics = ProfileBagMath.EnsureCosmetics(profile, function(skinId)
+				return ShopCatalog.skin(skinId) ~= nil
+			end)
+			if cosmetics.CrateSkins[skin.Id] == true then
+				return responseError("You already own that skin.")
+			end
+			local denied = spendShopCurrency(profile, skin.Price.Currency, skin.Price.Amount)
+			if denied then
+				return responseError(denied)
+			end
+			cosmetics.CrateSkins[skin.Id] = true
+			cosmetics.CrateSkin = skin.Id
+			bumpStat(profile, "ShopPurchases", 1)
+			return responseSuccess(skin.Name .. " unlocked and equipped.", { Skin = skin.Id })
+		end)
+	end
+
+	function GameService:_equipCrateSkin(player: Player, id: any)
+		local ShopCatalog = shopShared()
+		local skin = ShopCatalog.skin(id)
+		if skin == nil then
+			return responseError("That skin doesn't exist.")
+		end
+		return self:_mutate(player, function(profile)
+			local cosmetics = ProfileBagMath.EnsureCosmetics(profile, function(skinId)
+				return ShopCatalog.skin(skinId) ~= nil
+			end)
+			if cosmetics.CrateSkins[skin.Id] ~= true then
+				return responseError("You don't own that skin yet.")
+			end
+			cosmetics.CrateSkin = skin.Id
+			return responseSuccess(skin.Name .. " equipped.", { Skin = skin.Id })
+		end)
+	end
+
+	-- Fuse two copies of a relic: the stronger (socketed) copy keeps a star more, the spare is consumed.
+	function GameService:_fuseRelics(player: Player, definitionId: any)
+		if type(definitionId) ~= "string" or not itemById[definitionId] then
+			return responseError("That relic doesn't exist.")
+		end
+		local _, RelicSystem = shopShared()
+		local definition = itemById[definitionId]
+		return self:_mutate(player, function(profile)
+			local items = ProfileBagMath.EnsureItems(profile)
+			local maxStars = GameConfig.Items.MaxStars or 5
+			local targetUid, fodderUid, reason = RelicSystem.fusionPair(items.Inventory, items.Equipped, definitionId, maxStars)
+			if targetUid == nil or fodderUid == nil then
+				return responseError(reason or "Those relics can't be fused.")
+			end
+			local target = items.Inventory[targetUid]
+			local fodder = items.Inventory[fodderUid]
+			local stars, level = RelicSystem.fuse(target, fodder, maxStars)
+			target.Stars = stars
+			target.Level = math.min(level, definition.MaxLevel)
+			items.Inventory[fodderUid] = nil
+			bumpStat(profile, "RelicsFused", 1)
+			return responseSuccess(string.format("%s fused to %d star%s.", definition.Name, stars, if stars == 1 then "" else "s"), {
+				Uid = targetUid,
+				Stars = stars,
+				DefinitionId = definitionId,
+				Rarity = definition.Rarity,
+			})
+		end)
 	end
 
 	function GameService:_openItemCrate(player: Player, crateId: any, rawCount: any)
@@ -3992,6 +4172,14 @@ serviceFactories["GameService"] = function()
 			return self:_studioGrantProduct(player, payload and payload.Id)
 		elseif action == Protocol.Actions.ActivateBoost then
 			return self:_activateBoost(player, payload and payload.Id)
+		elseif action == Protocol.Actions.BuyDailyOffer then
+			return self:_buyDailyOffer(player, payload and payload.Slot)
+		elseif action == Protocol.Actions.BuyCrateSkin then
+			return self:_buyCrateSkin(player, payload and payload.Id)
+		elseif action == Protocol.Actions.EquipCrateSkin then
+			return self:_equipCrateSkin(player, payload and payload.Id)
+		elseif action == Protocol.Actions.FuseRelics then
+			return self:_fuseRelics(player, payload and payload.Id)
 		elseif action == Protocol.Actions.BuyItemOffer then
 			return self:_buyItemOffer(player, payload and payload.Id)
 		elseif action == Protocol.Actions.OpenItemCrate then

@@ -136,6 +136,10 @@ return function(loadService: (string) -> any)
 		-- Casino rounds are one tap each; the cooldown keeps a held button from becoming a macro.
 		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
+		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
+		[Protocol.Actions.BuyCrateSkin] = { Cost = 1, Cooldown = 0.5 },
+		[Protocol.Actions.EquipCrateSkin] = { Cost = 0.5, Cooldown = 0.25 },
+		[Protocol.Actions.FuseRelics] = { Cost = 1, Cooldown = 0.35 },
 	}
 
 	local EXEMPT_ACTIONS: { [string]: boolean } = {
@@ -467,6 +471,18 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Free ~= nil and type(payload.Free) ~= "boolean" then
 				return false, "invalid casino card"
+			end
+		elseif action == Protocol.Actions.BuyDailyOffer then
+			if not numberField(payload, "Slot", 1, 12, true) then
+				return false, "invalid daily offer"
+			end
+		elseif action == Protocol.Actions.BuyCrateSkin or action == Protocol.Actions.EquipCrateSkin then
+			if not stringField(payload, "Id", 2, 32) then
+				return false, "invalid crate skin"
+			end
+		elseif action == Protocol.Actions.FuseRelics then
+			if not stringField(payload, "Id", 2, 64) then
+				return false, "invalid relic"
 			end
 		elseif action == Protocol.Actions.BazaarPlay then
 			local game = payload.Game

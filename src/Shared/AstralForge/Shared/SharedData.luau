@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (14): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ServerEvents, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock, SettingsSchema.
+	Members (16): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ServerEvents, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock, SettingsSchema, RelicSystem, ShopCatalog.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -2926,6 +2926,326 @@ function Schema.matchingPreset(settings: any): string?
 end
 
 return table.freeze(Schema)
+end
+
+-- ======================================================================
+-- Module: RelicSystem
+-- ======================================================================
+__defs["RelicSystem"] = function()
+-- Relic stars and the Codex, pure so the server, the client and the tests share one set of rules.
+-- Config (GameConfig.Items) is passed in: GameConfig itself requires SharedData.
+--   Stars: fusing a duplicate into a relic adds one star plus the duplicate's own stars, up to MaxStars.
+--          Each star adds StarBonus of the relic's effect (the economy multiplies by starMultiplier).
+--   Codex: every relic of a rarity discovered adds that rarity's CodexBonus to production.
+
+local RelicSystem = {}
+
+RelicSystem.ORDER = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Celestial", "Astral" }
+
+local function stars(instance: any): number
+	local n = if type(instance) == "table" then tonumber(instance.Stars) else nil
+	if type(n) ~= "number" or n ~= n then
+		return 0
+	end
+	return math.max(0, math.floor(n))
+end
+RelicSystem.stars = stars
+
+function RelicSystem.starMultiplier(items: any, count: any): number
+	local maxStars = (type(items) == "table" and items.MaxStars) or 5
+	local bonus = (type(items) == "table" and items.StarBonus) or 0.25
+	local n = tonumber(count)
+	if type(n) ~= "number" or n ~= n then
+		return 1
+	end
+	return 1 + bonus * math.clamp(math.floor(n), 0, maxStars)
+end
+
+local function level(instance: any): number
+	return if type(instance) == "table" and type(instance.Level) == "number" then instance.Level else 1
+end
+
+-- Which copy keeps the result and which is consumed, when fusing duplicates of `definitionId`.
+-- The kept copy is the one socketed, else the strongest; the consumed one is the weakest copy that is
+-- neither socketed nor locked. Returns target uid, fodder uid, or nil and a player-facing reason.
+function RelicSystem.fusionPair(inventory: any, equipped: any, definitionId: string, maxStars: number?): (string?, string?, string?)
+	if type(inventory) ~= "table" then
+		return nil, nil, "You have no relics."
+	end
+	local cap = maxStars or 5
+	local socketed = {}
+	if type(equipped) == "table" then
+		for _, uid in equipped do
+			socketed[uid] = true
+		end
+	end
+	local copies = {}
+	for uid, instance in inventory do
+		if type(instance) == "table" and instance.DefinitionId == definitionId then
+			table.insert(copies, uid)
+		end
+	end
+	if #copies < 2 then
+		return nil, nil, "You need two copies of this relic to fuse them."
+	end
+	-- Strongest first: socketed, then stars, then level, then uid for a stable order.
+	table.sort(copies, function(a, b)
+		local ia, ib = inventory[a], inventory[b]
+		if (socketed[a] == true) ~= (socketed[b] == true) then
+			return socketed[a] == true
+		end
+		if stars(ia) ~= stars(ib) then
+			return stars(ia) > stars(ib)
+		end
+		if level(ia) ~= level(ib) then
+			return level(ia) > level(ib)
+		end
+		return a < b
+	end)
+	local target = copies[1]
+	if stars(inventory[target]) >= cap then
+		return nil, nil, "That relic already has every star."
+	end
+	for index = #copies, 2, -1 do
+		local uid = copies[index]
+		local instance = inventory[uid]
+		if not socketed[uid] and instance.Locked ~= true then
+			return target, uid, nil
+		end
+	end
+	return nil, nil, "Every spare copy is socketed or locked."
+end
+
+-- The fused relic's new stars and level (the better of the two levels is kept).
+function RelicSystem.fuse(target: any, fodder: any, maxStars: number?): (number, number)
+	local cap = maxStars or 5
+	local nextStars = math.min(cap, stars(target) + 1 + stars(fodder))
+	return nextStars, math.max(level(target), level(fodder))
+end
+
+-- Codex progress: per rarity { found, total }, and the production bonus from completed rarities.
+function RelicSystem.codex(discovered: any, items: any): ({ [string]: { found: number, total: number } }, number)
+	local definitions = if type(items) == "table" then items.Definitions else nil
+	local bonuses = if type(items) == "table" then items.CodexBonus else nil
+	local progress = {}
+	for _, rarity in RelicSystem.ORDER do
+		progress[rarity] = { found = 0, total = 0 }
+	end
+	if type(definitions) ~= "table" then
+		return progress, 0
+	end
+	for _, definition in definitions do
+		local row = progress[definition.Rarity]
+		if row == nil then
+			row = { found = 0, total = 0 }
+			progress[definition.Rarity] = row
+		end
+		row.total += 1
+		if type(discovered) == "table" and discovered[definition.Id] == true then
+			row.found += 1
+		end
+	end
+	local bonus = 0
+	for rarity, row in progress do
+		if row.total > 0 and row.found == row.total and type(bonuses) == "table" then
+			bonus += tonumber(bonuses[rarity]) or 0
+		end
+	end
+	return progress, bonus
+end
+
+-- Chance (0..1) of each rarity from a crate's weights, highest rarity last.
+function RelicSystem.odds(weights: any): { { rarity: string, chance: number } }
+	local total = 0
+	for _, weight in (if type(weights) == "table" then weights else {}) do
+		total += math.max(0, tonumber(weight) or 0)
+	end
+	local list = {}
+	for _, rarity in RelicSystem.ORDER do
+		local weight = if type(weights) == "table" then tonumber(weights[rarity]) or 0 else 0
+		if weight > 0 and total > 0 then
+			table.insert(list, { rarity = rarity, chance = weight / total })
+		end
+	end
+	return list
+end
+
+-- "1 in 2,400" style text for tiny chances, a percentage otherwise.
+function RelicSystem.chanceText(chance: number): string
+	if chance <= 0 then
+		return "-"
+	end
+	if chance < 0.001 then
+		local oneIn = math.floor(1 / chance + 0.5)
+		local text = tostring(oneIn)
+		local formatted = string.reverse((string.gsub(string.reverse(text), "(%d%d%d)", "%1,")))
+		return "1 in " .. string.gsub(formatted, "^,", "")
+	end
+	if chance < 0.01 then
+		return string.format("%.2f%%", chance * 100)
+	end
+	return string.format("%.1f%%", chance * 100)
+end
+
+return table.freeze(RelicSystem)
+end
+
+-- ======================================================================
+-- Module: ShopCatalog
+-- ======================================================================
+__defs["ShopCatalog"] = function()
+-- The new Shop's catalog: crate skins and the Daily Shop.
+--   Crate skins are cosmetic: the crate you open (in the Shop and in the reveal) wears the equipped skin.
+--   The Daily Shop shows each player SLOTS offers that change at 00:00 UTC, rolled from the pool by a
+--   seeded hash of (userId, day) so the server and the client agree without sending the list. Slot 1 is
+--   the Deal of the Day at DEAL_DISCOUNT off. The server validates every buy against the same roll.
+
+local ShopCatalog = {}
+
+ShopCatalog.SLOTS = 6
+ShopCatalog.DEAL_DISCOUNT = 0.35
+ShopCatalog.DAY_SECONDS = 86400
+
+-- Tier is a cosmetic grade for colour and ordering only.
+ShopCatalog.SKINS = table.freeze({
+	{ Id = "Classic", Name = "Forge Iron", Tier = "Common", Blurb = "Riveted iron, warm from the forge.", Accent = { 255, 184, 52 }, Glow = { 255, 140, 60 }, Vfx = "embers", Default = true },
+	{ Id = "Crystal", Name = "Crystal Prism", Tier = "Rare", Blurb = "Cut quartz panels that split the light.", Accent = { 120, 220, 255 }, Glow = { 200, 245, 255 }, Vfx = "shards", Price = { Currency = "Stardust", Amount = 400 } },
+	{ Id = "Frost", Name = "Frost Rune", Tier = "Rare", Blurb = "A rune-locked chest that breathes cold.", Accent = { 170, 225, 255 }, Glow = { 230, 250, 255 }, Vfx = "frost", Price = { Currency = "Stardust", Amount = 450 } },
+	{ Id = "Molten", Name = "Molten Core", Tier = "Epic", Blurb = "Cracked basalt over a river of fire.", Accent = { 255, 110, 60 }, Glow = { 255, 190, 90 }, Vfx = "magma", Price = { Currency = "Stardust", Amount = 900 } },
+	{ Id = "Nebula", Name = "Nebula Glass", Tier = "Epic", Blurb = "Smoked glass with a small galaxy inside.", Accent = { 178, 134, 255 }, Glow = { 250, 140, 220 }, Vfx = "nebula", Price = { Currency = "Cores", Amount = 12 } },
+	{ Id = "Void", Name = "Void Reliquary", Tier = "Legendary", Blurb = "Black stone. The lid opens inward.", Accent = { 130, 90, 220 }, Glow = { 190, 120, 255 }, Vfx = "void", Price = { Currency = "Cores", Amount = 30 } },
+	{ Id = "Gilded", Name = "Gilded Starlight", Tier = "Legendary", Blurb = "Gold leaf and a lid of falling stars.", Accent = { 255, 214, 120 }, Glow = { 255, 246, 214 }, Vfx = "stars", Price = { Currency = "Cores", Amount = 40 } },
+	{ Id = "Celestial", Name = "Celestial Ark", Tier = "Mythic", Blurb = "Only ever seen in the Daily Shop.", Accent = { 120, 240, 255 }, Glow = { 255, 236, 170 }, Vfx = "prism", Price = { Currency = "Cores", Amount = 90 }, DailyOnly = true },
+})
+
+local skinById = {}
+for _, skin in ShopCatalog.SKINS do
+	skinById[skin.Id] = skin
+end
+function ShopCatalog.skin(id: any): any
+	return if type(id) == "string" then skinById[id] else nil
+end
+ShopCatalog.DEFAULT_SKIN = "Classic"
+
+-- Kind: Key (CrateId) | Essence | Boost (BoostId) | Cache (a guaranteed relic of Rarity) | Skin (SkinId) |
+-- Flux (Minutes of current production). Currency: Stardust | Cores | Cash. Stock: how many a player may buy.
+ShopCatalog.POOL = table.freeze({
+	{ Id = "ForgeKeys", Name = "3 Forge Keys", Kind = "Key", CrateId = "ForgeCrate", Amount = 3, Currency = "Stardust", Price = 20, Stock = 2, Weight = 10 },
+	{ Id = "CrystalKeys", Name = "2 Crystal Keys", Kind = "Key", CrateId = "CrystalCrate", Amount = 2, Currency = "Stardust", Price = 60, Stock = 2, Weight = 8 },
+	{ Id = "NebulaKey", Name = "Nebula Key", Kind = "Key", CrateId = "NebulaCrate", Amount = 1, Currency = "Stardust", Price = 62, Stock = 2, Weight = 7 },
+	{ Id = "OrbitKeys", Name = "2 Orbit Keys", Kind = "Key", CrateId = "OrbitCrate", Amount = 2, Currency = "Stardust", Price = 95, Stock = 1, Weight = 6 },
+	{ Id = "AetherKey", Name = "Aether Key", Kind = "Key", CrateId = "AetherCrate", Amount = 1, Currency = "Stardust", Price = 52, Stock = 2, Weight = 6 },
+	{ Id = "HorizonKey", Name = "Horizon Key", Kind = "Key", CrateId = "HorizonCrate", Amount = 1, Currency = "Stardust", Price = 80, Stock = 1, Weight = 5 },
+	{ Id = "SingularityKey", Name = "Singularity Key", Kind = "Key", CrateId = "SingularityCrate", Amount = 1, Currency = "Cores", Price = 3, Stock = 1, Weight = 3 },
+	{ Id = "EchoKey", Name = "Echo Key", Kind = "Key", CrateId = "EchoCrate", Amount = 1, Currency = "Cores", Price = 4, Stock = 1, Weight = 3 },
+	{ Id = "DriftKey", Name = "Drift Key", Kind = "Key", CrateId = "DriftCrate", Amount = 1, Currency = "Cores", Price = 3, Stock = 1, Weight = 3 },
+	{ Id = "EssenceJar", Name = "Essence Jar", Kind = "Essence", Amount = 150, Currency = "Stardust", Price = 40, Stock = 3, Weight = 8 },
+	{ Id = "EssenceCask", Name = "Essence Cask", Kind = "Essence", Amount = 600, Currency = "Cores", Price = 3, Stock = 1, Weight = 4 },
+	{ Id = "FluxHour", Name = "An Hour of Flux", Kind = "Flux", Minutes = 60, Currency = "Stardust", Price = 30, Stock = 2, Weight = 7 },
+	{ Id = "FluxDay", Name = "A Shift of Flux", Kind = "Flux", Minutes = 480, Currency = "Cores", Price = 4, Stock = 1, Weight = 3 },
+	{ Id = "Overdrive", Name = "Overdrive Boost", Kind = "Boost", BoostId = "Overdrive", Amount = 1, Currency = "Stardust", Price = 45, Stock = 2, Weight = 5 },
+	{ Id = "Hyperdrive", Name = "Hyperdrive Boost", Kind = "Boost", BoostId = "Hyperdrive", Amount = 1, Currency = "Stardust", Price = 70, Stock = 1, Weight = 4 },
+	{ Id = "SteadyBurn", Name = "Steady Burn Boost", Kind = "Boost", BoostId = "SteadyBurn", Amount = 1, Currency = "Stardust", Price = 55, Stock = 1, Weight = 4 },
+	{ Id = "DomainSurge", Name = "Domain Surge Boost", Kind = "Boost", BoostId = "DomainSurge", Amount = 1, Currency = "Cores", Price = 5, Stock = 1, Weight = 2 },
+	{ Id = "EpicCache", Name = "Epic Relic Cache", Kind = "Cache", Rarity = "Epic", Currency = "Stardust", Price = 180, Stock = 1, Weight = 4 },
+	{ Id = "LegendaryCache", Name = "Legendary Relic Cache", Kind = "Cache", Rarity = "Legendary", Currency = "Cores", Price = 8, Stock = 1, Weight = 2 },
+	{ Id = "MythicCache", Name = "Mythic Relic Cache", Kind = "Cache", Rarity = "Mythic", Currency = "Cores", Price = 25, Stock = 1, Weight = 0.6 },
+	{ Id = "SkinCrystal", Kind = "Skin", SkinId = "Crystal", Stock = 1, Weight = 1.2 },
+	{ Id = "SkinFrost", Kind = "Skin", SkinId = "Frost", Stock = 1, Weight = 1.2 },
+	{ Id = "SkinMolten", Kind = "Skin", SkinId = "Molten", Stock = 1, Weight = 0.9 },
+	{ Id = "SkinNebula", Kind = "Skin", SkinId = "Nebula", Stock = 1, Weight = 0.9 },
+	{ Id = "SkinVoid", Kind = "Skin", SkinId = "Void", Stock = 1, Weight = 0.5 },
+	{ Id = "SkinGilded", Kind = "Skin", SkinId = "Gilded", Stock = 1, Weight = 0.5 },
+	{ Id = "SkinCelestial", Kind = "Skin", SkinId = "Celestial", Stock = 1, Weight = 0.25 },
+})
+
+-- A small seeded generator (xorshift32): the same numbers in Roblox, on the client and under Lune.
+local function generator(seed: number)
+	local state = math.floor(seed) % 4294967296
+	if state == 0 then
+		state = 2463534242
+	end
+	return function(): number
+		state = bit32.bxor(state, bit32.lshift(state, 13))
+		state = bit32.bxor(state, bit32.rshift(state, 17))
+		state = bit32.bxor(state, bit32.lshift(state, 5))
+		return state / 4294967296
+	end
+end
+
+function ShopCatalog.day(now: number): number
+	return math.floor(now / ShopCatalog.DAY_SECONDS)
+end
+
+function ShopCatalog.secondsLeft(now: number): number
+	return ShopCatalog.DAY_SECONDS - (now % ShopCatalog.DAY_SECONDS)
+end
+
+-- The price an offer is listed at (a skin offer uses the skin's price), before the deal discount.
+local function basePrice(entry: any): (string, number)
+	if entry.Kind == "Skin" then
+		local skin = skinById[entry.SkinId]
+		return skin.Price.Currency, skin.Price.Amount
+	end
+	return entry.Currency, entry.Price
+end
+
+-- The day's offers for a player: SLOTS distinct entries, weighted, skins the player owns left out,
+-- slot 1 discounted as the Deal of the Day. Each offer: { Slot, Id, Name, Kind, Currency, Price,
+-- Stock, Deal, and the entry's own fields }.
+function ShopCatalog.roll(userId: number, day: number, ownedSkins: any?): { any }
+	-- Kept well inside a double's exact integers so every Luau computes the same seed.
+	local random = generator(((math.abs(math.floor(userId)) % 1000003) * 7919 + math.floor(day) * 104729) % 4294967296)
+	for _ = 1, 4 do
+		random()
+	end
+	local remaining = {}
+	for _, entry in ShopCatalog.POOL do
+		local owned = entry.Kind == "Skin" and type(ownedSkins) == "table" and ownedSkins[entry.SkinId] == true
+		if not owned then
+			table.insert(remaining, entry)
+		end
+	end
+	local offers = {}
+	while #offers < ShopCatalog.SLOTS and #remaining > 0 do
+		local total = 0
+		for _, entry in remaining do
+			total += entry.Weight
+		end
+		local pick = random() * total
+		local chosen = #remaining
+		for index, entry in remaining do
+			pick -= entry.Weight
+			if pick <= 0 then
+				chosen = index
+				break
+			end
+		end
+		local entry = table.remove(remaining, chosen)
+		local slot = #offers + 1
+		local currency, price = basePrice(entry)
+		local deal = slot == 1
+		if deal then
+			price = math.max(1, math.floor(price * (1 - ShopCatalog.DEAL_DISCOUNT) + 0.5))
+		end
+		local offer = table.clone(entry)
+		offer.Slot = slot
+		offer.Currency = currency
+		offer.Price = price
+		offer.Deal = deal
+		offer.Name = entry.Name or (entry.Kind == "Skin" and (skinById[entry.SkinId].Name .. " Skin")) or entry.Id
+		table.insert(offers, offer)
+	end
+	return offers
+end
+
+-- How many of slot `slot` the player may still buy today.
+function ShopCatalog.remaining(offer: any, bought: any): number
+	local used = if type(bought) == "table" then tonumber(bought[tostring(offer.Slot)]) or 0 else 0
+	return math.max(0, (offer.Stock or 1) - math.max(0, math.floor(used)))
+end
+
+return table.freeze(ShopCatalog)
 end
 
 -- ======================================================================

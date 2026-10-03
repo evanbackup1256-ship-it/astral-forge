@@ -221,6 +221,11 @@ function DataTemplate.New()
 			Convergence = { EventId = "", Contribution = 0, Claimed = {} },
 		},
 
+		-- The Shop's Daily Shop: the UTC day last seen and how many of each slot were bought that day.
+		DailyShop = { Day = -1, Bought = {} },
+		-- Cosmetics: owned crate skins and the one the crate wears.
+		Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" },
+
 		Settings = {
 			ReducedMotion = false,
 			UIEffects = true,

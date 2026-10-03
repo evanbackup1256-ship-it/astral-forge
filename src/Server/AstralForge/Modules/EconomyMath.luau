@@ -235,6 +235,16 @@ function Economy.ItemEffect(
 	)
 end
 
+-- The relic Codex: completed rarities add a permanent production bonus.
+function Economy.CodexBonus(profile: ProfileLike): number
+	local items = (profile :: any).Items
+	return EconomyEnvelopeMath.CodexBonus(
+		type(items) == "table" and items.Discovered or nil,
+		GameConfig.Items.Definitions,
+		GameConfig.Items.CodexBonus
+	)
+end
+
 function Economy.ArtifactEffect(profile: ProfileLike, effectKind: string): number
 	local command = profile.Command
 	if not command or command.EquippedArtifact == "" then
@@ -458,6 +468,7 @@ function Economy.Production(profile: ProfileLike, now: number?): Persist
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.EchoEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ArtifactEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.ItemEffect(profile, "Production", "Research"))
+	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.CodexBonus(profile))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.AnomalyEffect(profile, "Production", now))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.LabPowerEffect(profile, "Production"))
 	multiplier = OmegaMath.Mul(multiplier, 1 + Economy.OreEffect(profile, "Production"))
@@ -969,10 +980,44 @@ function EconomyEnvelopeMath.ItemEffect(
 			and (not slotFilter or slot == slotFilter)
 			and (not targetFilter or target == targetFilter)
 		then
-			total += EconomyEnvelopeMath.EffectAtLevel(definition, instance.Level)
+			total += EconomyEnvelopeMath.EffectAtLevel(definition, instance.Level) * EconomyEnvelopeMath.StarMultiplier(instance.Stars)
 		end
 	end
 	return total
+end
+
+-- Relic stars: each star adds STAR_BONUS of the relic's effect (5 stars = x2.25).
+-- Matches SharedData#RelicSystem.starMultiplier and GameConfig.Items.StarBonus (verify parity).
+EconomyEnvelopeMath.STAR_BONUS = 0.25
+EconomyEnvelopeMath.MAX_STARS = 5
+function EconomyEnvelopeMath.StarMultiplier(stars: any): number
+	local count = tonumber(stars)
+	if type(count) ~= "number" or count ~= count then
+		return 1
+	end
+	return 1 + EconomyEnvelopeMath.STAR_BONUS * math.clamp(math.floor(count), 0, EconomyEnvelopeMath.MAX_STARS)
+end
+
+-- The Codex: every rarity whose relics have all been discovered adds its bonus to production.
+function EconomyEnvelopeMath.CodexBonus(discovered: any, definitions: any, bonuses: any): number
+	if type(discovered) ~= "table" or type(definitions) ~= "table" or type(bonuses) ~= "table" then
+		return 0
+	end
+	local total, found = {}, {}
+	for _, definition in definitions do
+		local rarity = definition.Rarity
+		total[rarity] = (total[rarity] or 0) + 1
+		if discovered[definition.Id] == true then
+			found[rarity] = (found[rarity] or 0) + 1
+		end
+	end
+	local bonus = 0
+	for rarity, count in total do
+		if count > 0 and found[rarity] == count then
+			bonus += tonumber(bonuses[rarity]) or 0
+		end
+	end
+	return bonus
 end
 
 return table.freeze(EconomyEnvelopeMath)
@@ -2445,7 +2490,7 @@ __defs["CrateRoll"] = function()
 
 local CrateRoll = {}
 
-CrateRoll.RARITY_ORDER = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" }
+CrateRoll.RARITY_ORDER = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Celestial", "Astral" }
 
 type CrateLike = {
 	PityRarity: string,

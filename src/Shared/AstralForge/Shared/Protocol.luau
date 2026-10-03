@@ -117,6 +117,10 @@ local Protocol = {
 		TradeViewAway = "TradeViewAway",
 		CasinoPlay = "CasinoPlay",
 		BazaarPlay = "BazaarPlay",
+		BuyDailyOffer = "BuyDailyOffer",
+		BuyCrateSkin = "BuyCrateSkin",
+		EquipCrateSkin = "EquipCrateSkin",
+		FuseRelics = "FuseRelics",
 	},
 }
 

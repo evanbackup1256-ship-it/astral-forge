@@ -144,6 +144,52 @@ function ProfileBagMath.EnsureAutoSalvage(profile: any): any
 	return items.AutoSalvage
 end
 
+-- The Daily Shop bag; a new UTC day clears what was bought.
+function ProfileBagMath.EnsureDailyShop(profile: any, day: number?): { Day: number, Bought: { [string]: number } }
+	if type(profile.DailyShop) ~= "table" then
+		profile.DailyShop = { Day = -1, Bought = {} }
+	end
+	local shop = profile.DailyShop
+	shop.Day = math.floor(tonumber(shop.Day) or -1)
+	if type(shop.Bought) ~= "table" then
+		shop.Bought = {}
+	end
+	for slot, count in shop.Bought do
+		local n = tonumber(count)
+		if type(slot) ~= "string" or type(n) ~= "number" or n ~= n or n < 0 or n > 1000 then
+			shop.Bought[slot] = nil
+		else
+			shop.Bought[slot] = math.floor(n)
+		end
+	end
+	if day ~= nil and shop.Day ~= day then
+		shop.Day = day
+		shop.Bought = {}
+	end
+	return shop
+end
+
+-- Cosmetics: owned crate skins (known ids only, Classic always) and the equipped one.
+function ProfileBagMath.EnsureCosmetics(profile: any, knownSkin: ((string) -> boolean)?): { CrateSkins: { [string]: boolean }, CrateSkin: string }
+	if type(profile.Cosmetics) ~= "table" then
+		profile.Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" }
+	end
+	local cosmetics = profile.Cosmetics
+	if type(cosmetics.CrateSkins) ~= "table" then
+		cosmetics.CrateSkins = {}
+	end
+	for id, owned in cosmetics.CrateSkins do
+		if type(id) ~= "string" or owned ~= true or (knownSkin ~= nil and not knownSkin(id)) then
+			cosmetics.CrateSkins[id] = nil
+		end
+	end
+	cosmetics.CrateSkins.Classic = true
+	if type(cosmetics.CrateSkin) ~= "string" or cosmetics.CrateSkins[cosmetics.CrateSkin] ~= true then
+		cosmetics.CrateSkin = "Classic"
+	end
+	return cosmetics
+end
+
 function ProfileBagMath.EnsureActiveBoost(profile: any): { Id: string, EndsAt: number }
 	if type(profile.ActiveBoost) ~= "table" then
 		profile.ActiveBoost = { Id = "", EndsAt = 0 }

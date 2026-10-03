@@ -21,6 +21,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
 	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+	local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
 	local AtomicState = loadService("AtomicState")
 	local ProfileIntegrity = loadService("ProfileIntegrity")
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -399,6 +400,11 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				profile.Items.Pity[crateId] = nil
 			end
 		end
+		-- The Shop's daily purchases and cosmetics (crate skins): rebuilt, unknown skins dropped.
+		ProfileBagMath.EnsureDailyShop(profile)
+		ProfileBagMath.EnsureCosmetics(profile, function(id)
+			return ShopCatalog.skin(id) ~= nil
+		end)
 		ProfileBagMath.EnsureAutoSalvage(profile)
 		profile.Items.AutoSalvage.Enabled = profile.Items.AutoSalvage.Enabled == true
 		profile.Items.AutoSalvage.KeepNew = profile.Items.AutoSalvage.KeepNew ~= false
@@ -427,6 +433,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				instance.Level = math.clamp(math.floor(nonNegative(instance.Level)), 1, definition.MaxLevel)
 				instance.AcquiredAt = math.floor(nonNegative(instance.AcquiredAt))
 				instance.Locked = instance.Locked == true
+				-- Relic stars (fused duplicates): absent on older relics, whole and capped otherwise.
+				local stars = math.clamp(math.floor(nonNegative(instance.Stars)), 0, GameConfig.Items.MaxStars or 5)
+				instance.Stars = if stars > 0 then stars else nil
 			end
 		end
 		local equippedItems = {}
