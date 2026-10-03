@@ -1362,6 +1362,7 @@ end
 local function EchoLoom(_param)
 	local size = _param.size
 	local active = _param.active
+	local reducedMotion = _param.reducedMotion
 	local animate = true
 	local outer = useRotation(animate, 26)
 	local inner = useRotation(animate, -38)
