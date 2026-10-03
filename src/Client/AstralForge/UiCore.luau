@@ -19345,12 +19345,12 @@ local function toneIcon(tone)
 	end
 	return "Wave"
 end
-local CARD_HEIGHT = 46
-local CARD_HEIGHT_MOBILE = 48
-local CARD_GAP = 6
-local CARD_GAP_MOBILE = 6
-local RAIL_WIDTH = 268
-local RAIL_WIDTH_MOBILE = 236
+local CARD_HEIGHT = 74
+local CARD_HEIGHT_MOBILE = 68
+local CARD_GAP = 8
+local CARD_GAP_MOBILE = 8
+local RAIL_WIDTH = 360
+local RAIL_WIDTH_MOBILE = 340
 local MAX_VISIBLE = 3
 local MAX_VISIBLE_MOBILE = 2
 local function densityVisibleCap(density, stack)
@@ -19373,10 +19373,10 @@ local function NoticeCard(props)
 	local color = toneColor(notice.tone)
 	local cardH = if props.compact then CARD_HEIGHT_MOBILE else CARD_HEIGHT
 	local cardGap = if props.compact then CARD_GAP_MOBILE else CARD_GAP
-	local titleSize = if props.compact then 11 else 12
-	local bodySize = if props.compact then 10 else 11
-	local dismiss = if props.touch then 28 else 20
-	local iconSize = 20
+	local titleSize = if props.compact then 14 else 15
+	local bodySize = if props.compact then 12 else 13
+	local dismiss = if props.touch then 34 else 28
+	local iconSize = if props.compact then 34 else 38
 	local hasBody = #notice.body > 0 and notice.body ~= notice.title
 	local swipeX, setSwipeX = React.useBinding(0)
 	local drag = React.useRef({
@@ -19610,80 +19610,79 @@ local function NoticeCard(props)
 			end,
 		},
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
+		CornerRadius = UDim.new(0, 14),
+	}), React.createElement("uigradient", {
+		-- A faint wash of the tone across the left of the card.
+		Color = ColorSequence.new(surface:Lerp(color, 0.1), surface),
+		Rotation = 0,
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
-		Color = Palette.lineSoft,
+		Color = color,
 		Thickness = 1,
-		Transparency = fade:map(function(amount)
-			return 0.62 + amount * 0.38
+		Transparency = React.joinBindings({ fade, hover }):map(function(values)
+			return 0.7 - values[2] * 0.3 + values[1] * 0.3
 		end),
 	}), React.createElement("frame", {
-		Size = UDim2.new(0, 3, 1, -10),
-		Position = UDim2.fromOffset(5, 5),
-		BackgroundColor3 = color,
-		BackgroundTransparency = fade:map(function(amount)
-			return 0.18 + amount
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 102,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
+		-- Icon tile in the tone's colour.
 		Size = UDim2.fromOffset(iconSize, iconSize),
-		Position = UDim2.fromOffset(14, math.floor((cardH - iconSize) / 2)),
+		Position = UDim2.new(0, 14, 0.5, -1),
+		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = color,
 		BackgroundTransparency = fade:map(function(amount)
-			return 0.82 + amount * 0.18
+			return 0.8 + amount * 0.2
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 103,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 7),
+		CornerRadius = UDim.new(0, 11),
+	}), React.createElement("uistroke", {
+		Color = color,
+		Thickness = 1,
+		Transparency = fade:map(function(amount)
+			return 0.55 + amount * 0.45
+		end),
 	}), React.createElement(Icon, {
 		kind = toneIcon(notice.tone),
 		color = color,
 		accent = color,
-		size = iconSize,
+		size = math.floor(iconSize * 0.62),
 		spin = false,
 		reducedMotion = props.reducedMotion,
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 	})), React.createElement(Text, {
-		value = string.upper(notice.title),
+		value = notice.title,
 		size = titleSize,
 		color = titleColor,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(40, if hasBody then 6 else 0),
-		sizeConstraint = UDim2.new(1, -(dismiss + 50), 0, if hasBody then 16 else cardH),
+		minSize = 11,
+		position = UDim2.fromOffset(iconSize + 26, if hasBody then 11 else 0),
+		sizeConstraint = UDim2.new(1, -(iconSize + 26 + dismiss + 14 + (if count > 1 then 34 else 0)), 0, if hasBody then 20 else cardH - 4),
 		zIndex = 105,
 	}), hasBody and React.createElement("textlabel", {
-		Size = UDim2.new(1, -(dismiss + 50), 0, 16),
-		Position = UDim2.fromOffset(40, 22),
+		-- Up to two lines of body text.
+		Size = UDim2.new(1, -(iconSize + 26 + dismiss + 14), 0, cardH - 40),
+		Position = UDim2.fromOffset(iconSize + 26, 32),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Text = notice.body,
 		TextColor3 = bodyColor,
 		TextTransparency = fade:map(function(amount)
-			return 0.12 + amount
+			return 0.1 + amount
 		end),
 		TextSize = bodySize,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		TextScaled = false,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 105,
-	}, React.createElement("uitextsizeconstraint", {
-		MinTextSize = 9,
-		MaxTextSize = bodySize,
-	})), count > 1 and React.createElement("frame", {
-		Size = UDim2.fromOffset(24, 16),
-		Position = UDim2.new(1, -(dismiss + 30), 0, 6),
+	}), count > 1 and React.createElement("frame", {
+		Size = UDim2.fromOffset(30, 20),
+		Position = UDim2.new(1, -(dismiss + 40), 0, 11),
 		BackgroundColor3 = color,
 		BorderSizePixel = 0,
 		ZIndex = 106,
@@ -19691,18 +19690,19 @@ local function NoticeCard(props)
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement(Text, {
 		value = `×{count}`,
-		size = 9,
+		size = 11,
 		color = Palette.ink,
 		weight = Enum.FontWeight.Heavy,
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.fromScale(1, 1),
 		zIndex = 107,
 	})), React.createElement("frame", {
-		Size = UDim2.new(1, -12, 0, 2),
-		Position = UDim2.new(0, 6, 1, -5),
+		-- Time left, draining along the bottom edge.
+		Size = UDim2.new(1, -28, 0, 3),
+		Position = UDim2.new(0, 14, 1, -6),
 		BackgroundColor3 = Palette.line,
 		BackgroundTransparency = fade:map(function(amount)
-			return 0.55 + amount * 0.45
+			return 0.6 + amount * 0.4
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 103,
@@ -19715,16 +19715,20 @@ local function NoticeCard(props)
 		end),
 		BackgroundColor3 = color,
 		BackgroundTransparency = fade:map(function(amount)
-			return 0.08 + amount
+			return 0.15 + amount
 		end),
 		BorderSizePixel = 0,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))), React.createElement("imagebutton", {
+		-- Round dismiss button.
 		Size = UDim2.fromOffset(dismiss, dismiss),
-		Position = UDim2.new(1, if props.touch then -4 else -6, 0.5, 0),
+		Position = UDim2.new(1, -10, 0.5, -1),
 		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundTransparency = 1,
+		BackgroundColor3 = Palette.panel,
+		BackgroundTransparency = hover:map(function(amount)
+			return 1 - amount * 0.6
+		end),
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Active = not leaving,
@@ -19741,14 +19745,16 @@ local function NoticeCard(props)
 				end
 			end,
 		},
-	}, React.createElement("textlabel", {
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("textlabel", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Text = "×",
 		TextColor3 = if hovered then color else mutedX,
 		TextTransparency = fade,
-		TextSize = if props.touch then 16 else 14,
+		TextSize = if props.touch then 22 else 20,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextYAlignment = Enum.TextYAlignment.Center,
