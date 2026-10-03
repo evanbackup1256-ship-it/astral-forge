@@ -4407,6 +4407,9 @@ local function destroyBoss()
 	for _, piece in current.meshPieces do
 		piece.part:Destroy()
 	end
+	if current.body ~= nil and current.body.physics ~= nil then
+		current.body.physics.module.destroy(current.body.physics.state)
+	end
 	if current.body ~= nil and current.body.model ~= nil then
 		current.body.model:Destroy()
 	end
@@ -4617,6 +4620,18 @@ local function loadRiggedBody(current: Boss): boolean
 		return if item ~= nil then item.rest else Vector3.zero
 	end)
 	current.body = { flip = flip, order = data.order, heads = heads, parents = parents, clips = data.clips, smooth = {}, shift = {}, info = info }
+	-- Capes, cloaks, coats and wings are simulated, not just animated (Shared/BossPhysics, springs by Shared/Spr).
+	local okPhysics, physics = pcall(function()
+		local module = require(Shared:WaitForChild("BossPhysics"))
+		local spr = require(Shared:WaitForChild("Spr"))
+		local state = module.new({ order = data.order, parents = parents, heads = heads, scale = scale }, spr, #current.kind)
+		return if state ~= nil then { module = module, state = state } else nil
+	end)
+	if okPhysics and physics ~= nil then
+		(current.body :: any).physics = physics
+	elseif not okPhysics then
+		warn(`[sanctuary] boss physics: {physics}`)
+	end
 	for _, entry in current.rig.parts do
 		entry.base = 1
 	end
@@ -5240,6 +5255,11 @@ local function riggedSkeleton(current: Boss, bodyFrame: CFrame, t: number, dt: n
 		local step = CFrame.new(head + shift) * CFrame.Angles(rx, value.Y, rz) * CFrame.new(-head)
 		local parent = body.parents[name]
 		posed[name] = if parent ~= nil then posed[parent] * step else step
+	end
+	-- Cloth and wings: simulated on top of the clip pose (inertia, gravity, wind, body collision).
+	local physics = body.physics
+	if physics ~= nil then
+		physics.module.step(physics.state, dt, bodyFrame, posed, now)
 	end
 	for _, piece in current.meshPieces do
 		local item = body.info[piece.part]
