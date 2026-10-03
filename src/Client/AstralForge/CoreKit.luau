@@ -2389,7 +2389,16 @@ function InventoryMath.RarityRank(config: any, rarity: any): number
 	return if type(rank) == "number" then rank else 0
 end
 
-function InventoryMath.EffectAtLevel(definition: any, level: any): number
+-- Matches EconomyEnvelopeMath.StarMultiplier: each fusion star adds a quarter of the effect, up to five.
+function InventoryMath.StarMultiplier(stars: any): number
+	local n = tonumber(stars)
+	if type(n) ~= "number" or n ~= n then
+		return 1
+	end
+	return 1 + 0.25 * math.clamp(math.floor(n), 0, 5)
+end
+
+function InventoryMath.EffectAtLevel(definition: any, level: any, stars: any?): number
 	if type(definition) ~= "table" then
 		return 0
 	end
@@ -2397,7 +2406,7 @@ function InventoryMath.EffectAtLevel(definition: any, level: any): number
 	local growth = tonumber(definition.LevelGrowth) or 0
 	local safeLevel = if type(level) == "number" then level else 1
 	-- Keep formula identical to EconomyEnvelopeMath.EffectAtLevel (verify parity).
-	return base * (1 + growth * math.max(0, safeLevel - 1))
+	return base * (1 + growth * math.max(0, safeLevel - 1)) * InventoryMath.StarMultiplier(stars)
 end
 
 -- Color3 (or fallback) for a rarity entry. Fallback is caller-supplied so this
@@ -2413,8 +2422,8 @@ function InventoryMath.RarityColor(config: any, rarity: any, fallback: any): any
 	return fallback
 end
 
-function InventoryMath.EffectLabel(definition: any, level: any): string
-	local pct = math.floor(InventoryMath.EffectAtLevel(definition, level) * 1000 + 0.5) / 10
+function InventoryMath.EffectLabel(definition: any, level: any, stars: any?): string
+	local pct = math.floor(InventoryMath.EffectAtLevel(definition, level, stars) * 1000 + 0.5) / 10
 	local kind = if type(definition) == "table" and type(definition.EffectKind) == "string"
 		then definition.EffectKind
 		else "Effect"
@@ -2540,8 +2549,8 @@ function InventoryMath.SortOwned(list: any, config: any, sort: any): { any }
 			return tostring(a.uid or "") > tostring(b.uid or "")
 		end
 		if sort == "Power" then
-			local pa = InventoryMath.EffectAtLevel(aDef, aInst.Level)
-			local pb = InventoryMath.EffectAtLevel(bDef, bInst.Level)
+			local pa = InventoryMath.EffectAtLevel(aDef, aInst.Level, aInst.Stars)
+			local pb = InventoryMath.EffectAtLevel(bDef, bInst.Level, bInst.Stars)
 			if pa ~= pb then
 				return pa > pb
 			end

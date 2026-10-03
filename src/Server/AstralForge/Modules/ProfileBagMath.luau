@@ -145,7 +145,7 @@ function ProfileBagMath.EnsureAutoSalvage(profile: any): any
 end
 
 -- The Daily Shop bag; a new UTC day clears what was bought.
-function ProfileBagMath.EnsureDailyShop(profile: any, day: number?): { Day: number, Bought: { [string]: number } }
+function ProfileBagMath.EnsureDailyShop(profile: any, day: number?, owned: any?): { Day: number, Bought: { [string]: number }, Owned: { [string]: boolean } }
 	if type(profile.DailyShop) ~= "table" then
 		profile.DailyShop = { Day = -1, Bought = {} }
 	end
@@ -165,6 +165,25 @@ function ProfileBagMath.EnsureDailyShop(profile: any, day: number?): { Day: numb
 	if day ~= nil and shop.Day ~= day then
 		shop.Day = day
 		shop.Bought = {}
+		shop.Owned = nil
+	end
+	-- The skins owned when the day's shop was first touched. The roll leaves these out, so buying a
+	-- skin (here or under Skins) mid-day never reshuffles the day's offers.
+	if type(shop.Owned) ~= "table" then
+		shop.Owned = {}
+		if type(owned) == "table" then
+			for id, has in owned do
+				if type(id) == "string" and has == true then
+					shop.Owned[id] = true
+				end
+			end
+		end
+	else
+		for id, has in shop.Owned do
+			if type(id) ~= "string" or has ~= true then
+				shop.Owned[id] = nil
+			end
+		end
 	end
 	return shop
 end

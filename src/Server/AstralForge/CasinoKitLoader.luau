@@ -37,7 +37,8 @@ function CasinoKitLoader.load()
 	local folder = Instance.new("Folder")
 	folder.Name = "CasinoKit"
 	for _, item in result:GetDescendants() do
-		if item:IsA("MeshPart") and string.sub(item.Name, 1, 7) == "Casino_" and folder:FindFirstChild(item.Name) == nil then
+		local kitPart = string.sub(item.Name, 1, 7) == "Casino_" or string.sub(item.Name, 1, 6) == "Crate_"
+		if item:IsA("MeshPart") and kitPart and folder:FindFirstChild(item.Name) == nil then
 			local copy = item:Clone()
 			copy.Anchored = true
 			copy.CanCollide = false

@@ -2460,6 +2460,12 @@ local RARITY_FILTERS = { {
 }, {
 	id = "Mythic",
 	label = "Mythic",
+}, {
+	id = "Celestial",
+	label = "Celestial",
+}, {
+	id = "Astral",
+	label = "Astral",
 } }
 local AUTO_RARITIES = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic" }
 local HERO_H = 96
@@ -3045,7 +3051,7 @@ local function RelicRow(_param)
 		position = UDim2.fromOffset(58, 0),
 		sizeConstraint = UDim2.new(1, textW, 0, 22),
 	}), React.createElement(Text, {
-		value = `{item.definition.Description}  ·  {InventoryMath.EffectLabel(item.definition, item.instance.Level)}`,
+		value = `{item.definition.Description}  ·  {InventoryMath.EffectLabel(item.definition, item.instance.Level, item.instance.Stars)}`,
 		size = 11,
 		color = accent,
 		wrap = false,
@@ -3079,9 +3085,9 @@ local function RelicRow(_param)
 		filled = true,
 		size = if stack then UDim2.fromOffset(78, 20) else UDim2.fromOffset(84, 20),
 	}), React.createElement(Badge, {
-		value = `LV {item.instance.Level}`,
+		value = if (tonumber(item.instance.Stars) or 0) > 0 then `LV {item.instance.Level} {string.rep("★", math.min(5, item.instance.Stars))}` else `LV {item.instance.Level}`,
 		accent = Palette.mango,
-		size = if stack then UDim2.fromOffset(56, 20) else UDim2.fromOffset(84, 20),
+		size = if stack then UDim2.fromOffset(if (tonumber(item.instance.Stars) or 0) > 0 then 92 else 56, 20) else UDim2.fromOffset(84, 20),
 	}), not stack and React.createElement(Badge, {
 		value = `#{string.sub(item.uid, -4)}`,
 		accent = Palette.lineSoft,

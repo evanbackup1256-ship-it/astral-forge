@@ -27,6 +27,7 @@ local PAGE_SUITES = {
 	RewardsView = "PagesCore",
 	SettingsView = "PagesSystem",
 	ShopView = "PagesShop",
+	StoreFront = "PagesShop",
 	StarGridView = "PagesProgress",
 	StoryView = "PagesStory",
 	TradeView = "PagesSocial",
@@ -63,7 +64,7 @@ local StarGridView = lazyView("StarGridView", "StarGridView")
 local CommandView = lazyView("CommandView", "CommandView")
 local MailboxView = lazyView("MailboxView", "MailboxView")
 local ChatView = lazyView("ChatView", "ChatView")
-local ShopView = lazyView("ShopView", "ShopView")
+local StoreFront = lazyView("StoreFront", "StoreFront")
 local InventoryView = lazyView("InventoryView", "InventoryView")
 local GuildView = lazyView("GuildView", "GuildView")
 local LeaderboardsView = lazyView("LeaderboardsView", "LeaderboardsView")
@@ -304,11 +305,16 @@ local function PageContentInner(props)
 			})
 		end
 		if page == "Shop" then
-			return React.createElement(ShopView, {
+			-- The storefront: Daily, Crates, Skins and Codex, with ShopView (Robux) as its Premium section.
+			return React.createElement(StoreFront, {
 				state = state,
+				config = config,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 				onPurchasePresentationChange = props.setPurchasePresentationActive,
+				crateRevealActive = props.crateRevealActive,
+				onCrateReveal = props.setCrateReveal,
+				navigate = props.navigate,
 			})
 		end
 		if page == "Inventory" then

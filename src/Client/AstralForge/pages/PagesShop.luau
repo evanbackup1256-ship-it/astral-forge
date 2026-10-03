@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	PagesShop: merged module suite.
-	Members (3): ShopView, WheelView, CrateRevealStage.
+	Members (4): ShopView, StoreFront, WheelView, CrateRevealStage.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -1234,6 +1234,1472 @@ local function ShopView(_param)
 end
 return {
 	ShopView = ShopView,
+}
+end
+
+-- ======================================================================
+-- Module: StoreFront
+-- ======================================================================
+-- The Shop page. Five sections under one switcher:
+--   Daily    six offers rolled for this player and UTC day (SharedData#ShopCatalog, the same roll the
+--            server checks a buy against), the first at a discount, plus the way into the Black Market;
+--   Crates   the equipped crate skin in 3D, every crate's odds down to Celestial and Astral, open 1 or 5;
+--   Skins    every crate skin, to preview, buy and equip;
+--   Codex    every relic, found or not, the bonus for finishing a rarity, and duplicate fusion;
+--   Premium  ShopView, the Robux shop.
+__defs["StoreFront"] = function()
+local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local _motion = require(script.Parent.Parent.MotionKit)("motion")
+local useViewport = _motion.useViewport
+local useStagger = _motion.useStagger
+local useWallClock = _motion.useWallClock
+local _theme = require(script.Parent.Parent.CoreKit)("theme")
+local Palette = _theme.Palette
+local TapTarget = _theme.TapTarget
+local chromeFor = _theme.chromeFor
+local darken = _theme.darken
+local scrollTail = _theme.scrollTail
+local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
+local _ui = require(script.Parent.Parent.UiCore)("ui")
+local Badge = _ui.Badge
+local Button = _ui.Button
+local IconTile = _ui.IconTile
+local Meter = _ui.Meter
+local Panel = _ui.Panel
+local SegmentedTabs = _ui.SegmentedTabs
+local Text = _ui.Text
+local _crate = require(script.Parent.Parent.UiCore)("crateModel")
+local CrateModel = _crate.CrateModel
+local skinAccent = _crate.skinAccent
+local _prism = require(script.Parent.Parent.UiCore)("prismFx")
+local PrismAura = _prism.PrismAura
+local isAscended = _prism.isAscended
+local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
+local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
+local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+local ShopCatalog = SharedData("ShopCatalog")
+local RelicSystem = SharedData("RelicSystem")
+
+local h = React.createElement
+local GAP = 10
+local SECTIONS = {
+	{ id = "Daily", label = "Daily" },
+	{ id = "Crates", label = "Crates" },
+	{ id = "Skins", label = "Skins" },
+	{ id = "Codex", label = "Codex" },
+	{ id = "Premium", label = "Premium" },
+}
+local CURRENCY_ICON = { Stardust = "Dust", Cores = "Core" }
+local KIND_ICON = { Key = "Crate", Essence = "Artifact", Flux = "Flux", Boost = "Boost", Cache = "Gift", Skin = "Crate" }
+local TIER_COLOR = {
+	Common = Color3.fromRGB(200, 196, 188),
+	Rare = Color3.fromRGB(110, 190, 255),
+	Epic = Color3.fromRGB(190, 120, 255),
+	Legendary = Color3.fromRGB(255, 190, 70),
+	Mythic = Color3.fromRGB(255, 110, 150),
+}
+
+local function commas(value)
+	local text = tostring(math.floor(math.max(0, tonumber(value) or 0)))
+	local spaced = string.reverse((string.gsub(string.reverse(text), "(%d%d%d)", "%1,")))
+	return (string.gsub(spaced, "^,", ""))
+end
+
+local function currencyColor(currency)
+	return if currency == "Cores" then Palette.cyan else Palette.violet
+end
+
+local function rarityColor(config, rarity)
+	local rarities = config and config.Items and config.Items.Rarities
+	local entry = rarities and rarities[rarity]
+	return if entry ~= nil and entry.Color ~= nil then entry.Color else Palette.cream
+end
+
+local function crateById(config, id)
+	for _, crate in (config and config.Items and config.Items.Crates) or {} do
+		if crate.Id == id then
+			return crate
+		end
+	end
+	return nil
+end
+
+local function clockText(seconds)
+	local left = math.max(0, math.floor(seconds))
+	local hours = left // 3600
+	local minutes = (left % 3600) // 60
+	if hours > 0 then
+		return `{hours}h {minutes}m`
+	end
+	return `{minutes}m {left % 60}s`
+end
+
+local function rowsHeight(count, columns, cell)
+	local rows = math.max(1, math.ceil(count / math.max(1, columns)))
+	return rows * cell + (rows - 1) * GAP
+end
+
+-- A fixed-height grid: `cells` is a keyed table of elements, laid out `columns` wide.
+local function Grid(props)
+	local children = table.clone(props.cells)
+	children.Layout = h("uigridlayout", {
+		CellSize = UDim2.new(1 / props.columns, -math.ceil(GAP * (props.columns - 1) / props.columns), 0, props.cell),
+		CellPadding = UDim2.fromOffset(GAP, GAP),
+		FillDirectionMaxCells = props.columns,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, props.height),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, children)
+end
+
+-- Stardust and Cores, right-aligned.
+local function Wallet(props)
+	local state = props.state or {}
+	local chips = {
+		Layout = h("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = if props.left then Enum.HorizontalAlignment.Left else Enum.HorizontalAlignment.Right,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, currency in { "Stardust", "Cores" } do
+		chips[currency] = h("frame", {
+			Size = UDim2.fromOffset(112, 30),
+			BackgroundColor3 = Palette.panelSoft,
+			BackgroundTransparency = 0.15,
+			BorderSizePixel = 0,
+			LayoutOrder = index,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+			Color = currencyColor(currency),
+			Transparency = 0.55,
+			Thickness = 1,
+		}), h(Icon, {
+			kind = CURRENCY_ICON[currency],
+			color = Palette.cream,
+			accent = currencyColor(currency),
+			size = 20,
+			position = UDim2.fromOffset(6, 5),
+			spin = false,
+		}), h(Text, {
+			value = commas(state[currency]),
+			size = 13,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Bold,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(32, 6),
+			sizeConstraint = UDim2.new(1, -40, 0, 18),
+		}))
+	end
+	return h("frame", {
+		Size = props.size,
+		Position = props.position,
+		AnchorPoint = props.anchorPoint,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, chips)
+end
+
+-- The banner at the top of every section.
+local function Hero(props)
+	local stack = props.stack
+	local textW = if stack then -56 else -300
+	return h(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = props.accent,
+		background = Palette.panelRaised,
+		padding = 14,
+		reveal = props.reveal,
+		highlight = true,
+		reducedMotion = props.reducedMotion,
+		clips = false,
+	}, h(IconTile, {
+		kind = props.icon,
+		accent = props.accent,
+		size = 44,
+		radius = 12,
+		position = UDim2.fromOffset(0, 2),
+		glow = true,
+		reducedMotion = props.reducedMotion,
+	}), h(Text, {
+		value = props.title,
+		size = if stack then 18 else 22,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 13,
+		position = UDim2.fromOffset(56, 0),
+		sizeConstraint = UDim2.new(1, textW, 0, 28),
+	}), h(Text, {
+		value = props.body,
+		size = 12,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(56, 30),
+		sizeConstraint = UDim2.new(1, textW, 0, 34),
+	}), h(Wallet, {
+		state = props.state,
+		left = stack,
+		size = if stack then UDim2.new(1, 0, 0, 30) else UDim2.fromOffset(240, 30),
+		position = if stack then UDim2.new(0, 0, 1, -30) else UDim2.fromScale(1, 0),
+		anchorPoint = if stack then nil else Vector2.new(1, 0),
+	}), props.extra)
+end
+
+local function heroHeight(stack)
+	return if stack then 124 else 92
+end
+
+-- ---------------------------------------------------------------------------------------------------
+-- Daily
+-- ---------------------------------------------------------------------------------------------------
+
+local function offerDetail(offer, config)
+	if offer.Kind == "Key" then
+		local crate = crateById(config, offer.CrateId)
+		return `{offer.Amount} key{if offer.Amount == 1 then "" else "s"} for the {if crate then crate.Name else offer.CrateId}. Open them under Crates.`
+	elseif offer.Kind == "Essence" then
+		return `+{commas(offer.Amount)} relic essence, for levelling relics.`
+	elseif offer.Kind == "Flux" then
+		local span = if offer.Minutes >= 60 then `{offer.Minutes // 60} hour{if offer.Minutes >= 120 then "s" else ""}` else `{offer.Minutes} minutes`
+		return `{span} of your current flux output, paid at once.`
+	elseif offer.Kind == "Boost" then
+		return `{offer.Amount} charge of {offer.BoostId}. Fire it from Boosts.`
+	elseif offer.Kind == "Cache" then
+		return `One {offer.Rarity} relic, guaranteed, revealed on the spot.`
+	elseif offer.Kind == "Skin" then
+		local skin = ShopCatalog.skin(offer.SkinId)
+		return `Crate skin. {if skin then skin.Blurb else ""}`
+	end
+	return ""
+end
+
+local function offerAccent(offer, config)
+	if offer.Kind == "Skin" then
+		return skinAccent(offer.SkinId)
+	elseif offer.Kind == "Cache" then
+		return rarityColor(config, offer.Rarity)
+	elseif offer.Kind == "Key" then
+		local crate = crateById(config, offer.CrateId)
+		return if crate ~= nil and typeof(crate.Color) == "Color3" then crate.Color else Palette.cyan
+	end
+	return if offer.Deal then Palette.mango else Palette.cyan
+end
+
+local function OfferCard(props)
+	local offer = props.offer
+	local accent = offerAccent(offer, props.config)
+	local reveal = useStagger(props.index, props.reducedMotion, 0.04, 0.26)
+	local left = props.left
+	local soldOut = left <= 0
+	local have = tonumber(props.state[offer.Currency]) or 0
+	local short = math.max(0, offer.Price - have)
+	local canBuy = not soldOut and short == 0 and not props.busy
+	local fullPrice = if offer.Deal then math.floor(offer.Price / (1 - ShopCatalog.DEAL_DISCOUNT) + 0.5) else nil
+	local cta = if soldOut then "SOLD OUT" elseif short > 0 then `NEED {commas(short)}` elseif props.pending then "BUYING…" else "BUY"
+	return h(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = accent,
+		background = Palette.panelRaised,
+		padding = 12,
+		reveal = reveal,
+		interactive = canBuy,
+		highlight = offer.Deal,
+		reducedMotion = props.reducedMotion,
+		clips = false,
+		layoutOrder = props.index,
+	}, h("frame", {
+		Size = UDim2.fromOffset(62, 62),
+		BackgroundColor3 = darken(accent, 0.4),
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
+		Color = accent,
+		Thickness = 1.5,
+		Transparency = 0.3,
+	}), if offer.Kind == "Skin" then h(CrateModel, {
+		skin = offer.SkinId,
+		live = offer.Deal and not props.reducedMotion,
+		spin = true,
+		zoom = 0.95,
+	}) else h(Icon, {
+		kind = KIND_ICON[offer.Kind] or "Shop",
+		color = Palette.cream,
+		accent = accent,
+		size = 38,
+		position = UDim2.fromOffset(12, 12),
+		spin = false,
+		reducedMotion = props.reducedMotion,
+	})), h(Text, {
+		value = offer.Name,
+		size = 15,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 11,
+		position = UDim2.fromOffset(74, 0),
+		sizeConstraint = UDim2.new(1, -74 - (if offer.Deal then 76 else 0), 0, 22),
+	}), h(Text, {
+		value = offerDetail(offer, props.config),
+		size = 12,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(74, 24),
+		sizeConstraint = UDim2.new(1, -74, 0, 44),
+	}), offer.Deal and h(Badge, {
+		value = `DEAL -{math.floor(ShopCatalog.DEAL_DISCOUNT * 100)}%`,
+		accent = Palette.mango,
+		filled = true,
+		size = UDim2.fromOffset(72, 20),
+		position = UDim2.new(1, -72, 0, 0),
+	}), h(Text, {
+		value = if soldOut then "Bought out today" else `{left} left today`,
+		size = 11,
+		color = if soldOut then Palette.muted else accent,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(0, 74),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), h(Icon, {
+		kind = CURRENCY_ICON[offer.Currency] or "Dust",
+		color = Palette.cream,
+		accent = currencyColor(offer.Currency),
+		size = 22,
+		position = UDim2.new(0, 0, 1, if fullPrice ~= nil then -38 else -31),
+		spin = false,
+	}), h(Text, {
+		value = commas(offer.Price),
+		size = 18,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.new(0, 28, 1, if fullPrice ~= nil then -40 else -32),
+		sizeConstraint = UDim2.fromOffset(80, 24),
+	}), fullPrice ~= nil and h(Text, {
+		value = `was {commas(fullPrice)}`,
+		size = 11,
+		color = Palette.muted,
+		position = UDim2.new(0, 28, 1, -15),
+		sizeConstraint = UDim2.fromOffset(80, 14),
+	}), h("frame", {
+		Name = "DailyBuy",
+		Size = UDim2.fromOffset(124, 40),
+		Position = UDim2.new(1, -124, 1, -40),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h(Button, {
+		text = cta,
+		icon = if soldOut then "Check" elseif short > 0 then "Lock" else "Shop",
+		onClick = props.onBuy,
+		color = if canBuy then accent else Palette.panelSoft,
+		textColor = if canBuy then Palette.ink else Palette.creamSoft,
+		size = UDim2.fromScale(1, 1),
+		disabled = not canBuy,
+		reducedMotion = props.reducedMotion,
+		highlight = canBuy,
+		selectable = canBuy,
+	})))
+end
+
+local function useDay()
+	local day, setDay = React.useState(function()
+		return ShopCatalog.day(workspace:GetServerTimeNow())
+	end)
+	-- Roll over at 00:00 UTC while the page is open.
+	React.useEffect(function()
+		local job = task.delay(ShopCatalog.secondsLeft(workspace:GetServerTimeNow()) + 1, function()
+			setDay(ShopCatalog.day(workspace:GetServerTimeNow()))
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { day })
+	return day
+end
+
+local function DailySection(props)
+	local state = props.state
+	local config = props.config
+	local stack = props.stack
+	local day = useDay()
+	local wall = useWallClock(true)
+	local pendingSlot, setPendingSlot = React.useState(nil)
+	local mounted = React.useRef(true)
+	React.useEffect(function()
+		mounted.current = true
+		return function()
+			mounted.current = false
+		end
+	end, {})
+	local daily = state.DailyShop or {}
+	local current = daily.Day == day
+	local owned = if current and type(daily.Owned) == "table" then daily.Owned else (state.Cosmetics and state.Cosmetics.CrateSkins) or {}
+	local bought = if current then daily.Bought or {} else {}
+	local offers = ShopCatalog.roll(Players.LocalPlayer.UserId, day, owned)
+	local columns = if stack then 1 elseif props.width >= 1000 then 3 else 2
+	local cellH = 178
+	local buy = function(offer)
+		if pendingSlot ~= nil then
+			return
+		end
+		setPendingSlot(offer.Slot)
+		props.dispatch("BuyDailyOffer", { Slot = offer.Slot }, function(response)
+			if not mounted.current then
+				return
+			end
+			setPendingSlot(nil)
+			if response.ok and type(response.Rolls) == "table" and #response.Rolls > 0 and props.onCrateReveal ~= nil then
+				local roll = response.Rolls[1]
+				props.onCrateReveal({
+					crateId = "ForgeCrate",
+					crateName = offer.Name,
+					accent = rarityColor(config, roll.Rarity),
+					rolls = response.Rolls,
+				})
+			elseif response.ok then
+				Audio:play("purchase")
+			end
+		end)
+	end
+	local cells = {}
+	for index, offer in offers do
+		cells[`Offer{offer.Slot}`] = h(OfferCard, {
+			key = `{day}-{offer.Id}`,
+			offer = offer,
+			index = index,
+			config = config,
+			state = state,
+			left = ShopCatalog.remaining(offer, bought),
+			busy = pendingSlot ~= nil,
+			pending = pendingSlot == offer.Slot,
+			reducedMotion = props.reducedMotion,
+			onBuy = function()
+				buy(offer)
+			end,
+		})
+	end
+	local gridH = rowsHeight(#offers, columns, cellH)
+	local resetText = wall:map(function(now)
+		return `New offers in {clockText(ShopCatalog.secondsLeft(now))}`
+	end)
+	local marketH = if stack then 132 else 96
+	return React.createElement(PageScaffold, {
+		gap = GAP,
+		tailPad = props.tailPad,
+		scrollBarColor = Palette.mango,
+		sections = {
+			{
+				id = "hero",
+				height = heroHeight(stack),
+				element = h(Hero, {
+					title = "Daily Shop",
+					body = "Six offers picked for you each day. The first is the Deal of the Day.",
+					accent = Palette.mango,
+					icon = "Calendar",
+					state = state,
+					stack = stack,
+					reveal = props.reveal,
+					reducedMotion = props.reducedMotion,
+				}),
+			},
+			{
+				id = "clock",
+				height = 22,
+				element = h(Text, {
+					value = resetText,
+					size = 13,
+					color = Palette.mango,
+					weight = Enum.FontWeight.Bold,
+					sizeConstraint = UDim2.new(1, 0, 0, 20),
+				}),
+			},
+			{
+				id = "offers",
+				height = gridH,
+				element = h(Grid, { columns = columns, cell = cellH, height = gridH, cells = cells }),
+			},
+			{
+				id = "market",
+				height = marketH,
+				element = h(Panel, {
+					size = UDim2.fromScale(1, 1),
+					accent = Palette.coral,
+					background = Palette.panel,
+					padding = 14,
+					reducedMotion = props.reducedMotion,
+					clips = false,
+				}, h(Icon, {
+					kind = "Jackpot",
+					color = Palette.cream,
+					accent = Palette.coral,
+					size = 38,
+					position = UDim2.fromOffset(0, 4),
+					spin = false,
+				}), h(Text, {
+					value = "The Black Market",
+					size = 16,
+					color = Palette.cream,
+					weight = Enum.FontWeight.Heavy,
+					position = UDim2.fromOffset(50, 0),
+					sizeConstraint = UDim2.new(1, if stack then -50 else -220, 0, 22),
+				}), h(Text, {
+					value = "Rare relics and odd stock from the Bazaar, restocked through the day.",
+					size = 12,
+					color = Palette.creamSoft,
+					wrap = true,
+					position = UDim2.fromOffset(50, 24),
+					sizeConstraint = UDim2.new(1, if stack then -50 else -220, 0, 36),
+				}), h(Button, {
+					text = "VISIT MARKET",
+					icon = "Visit",
+					onClick = function()
+						if props.navigate then
+							props.navigate("Bazaar")
+						end
+					end,
+					color = Palette.coral,
+					textColor = Palette.ink,
+					size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(190, 44),
+					position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -190, 0.5, -22),
+					reducedMotion = props.reducedMotion,
+					highlight = true,
+				})),
+			},
+		},
+	})
+end
+
+-- ---------------------------------------------------------------------------------------------------
+-- Crates
+-- ---------------------------------------------------------------------------------------------------
+
+local function OddsRow(props)
+	local row = props.row
+	local color = rarityColor(props.config, row.rarity)
+	return h("frame", {
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundColor3 = color,
+		BackgroundTransparency = if isAscended(row.rarity) then 0.86 else 1,
+		BorderSizePixel = 0,
+		LayoutOrder = props.order,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), isAscended(row.rarity) and h(PrismAura, {
+		rarity = row.rarity,
+		intensity = 0.8,
+		rays = false,
+		sparks = false,
+		thickness = 1.5,
+		corner = 6,
+	}), h("frame", {
+		Size = UDim2.fromOffset(8, 8),
+		Position = UDim2.new(0, 6, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Rotation = 45,
+		BackgroundColor3 = color,
+		BorderSizePixel = 0,
+	}), h(Text, {
+		value = row.rarity,
+		size = 12,
+		color = if isAscended(row.rarity) then Palette.cream else color,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(22, 2),
+		sizeConstraint = UDim2.new(0.6, -22, 0, 16),
+	}), h(Text, {
+		value = RelicSystem.chanceText(row.chance),
+		size = 12,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.new(0.4, 0, 0, 2),
+		sizeConstraint = UDim2.new(0.6, -8, 0, 16),
+	}))
+end
+
+local function CrateStage(props)
+	local crate = props.crate
+	local config = props.config
+	local stack = props.stack
+	local keys = props.keys
+	local odds = RelicSystem.odds(crate.Weights)
+	local accent = if typeof(crate.Color) == "Color3" then crate.Color else Palette.violet
+	local oddsRows = {
+		Layout = h("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			Padding = UDim.new(0, 2),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index = #odds, 1, -1 do
+		local row = odds[index]
+		oddsRows[row.rarity] = h(OddsRow, { row = row, config = config, order = #odds - index })
+	end
+	local modelH = if stack then 190 else 280
+	local infoX = if stack then 0 else 300
+	local infoY = if stack then modelH + 6 else 0
+	local pity = (props.pity or 0)
+	local pityLine = if crate.PityAfter and crate.PityRarity then `Pity: a {crate.PityRarity} or better within {math.max(1, crate.PityAfter - pity)} opens.` else ""
+	local openButton = function(count, order)
+		local can = keys >= count and not props.busy
+		return h(Button, {
+			text = if keys >= count then `OPEN {count}` else `NEED {count - keys} KEY{if count - keys == 1 then "" else "S"}`,
+			icon = if keys >= count then "Crate" else "Lock",
+			onClick = function()
+				props.onOpen(count)
+			end,
+			color = if can then accent else Palette.panelSoft,
+			textColor = if can then Palette.ink else Palette.creamSoft,
+			size = UDim2.new(0.5, -4, 1, 0),
+			position = UDim2.fromScale(if order == 1 then 0 else 0.5, 0),
+			disabled = not can,
+			reducedMotion = props.reducedMotion,
+			highlight = can,
+			selectable = can,
+		})
+	end
+	return h(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = accent,
+		background = Palette.panelRaised,
+		padding = 14,
+		reveal = props.reveal,
+		reducedMotion = props.reducedMotion,
+		clips = false,
+	}, h("frame", {
+		Size = if stack then UDim2.new(1, 0, 0, modelH) else UDim2.fromOffset(286, modelH),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = 0.25,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uigradient", {
+		Color = ColorSequence.new(darken(accent, 0.55), Palette.void),
+		Rotation = 90,
+	}), h(CrateModel, {
+		skin = props.skin,
+		spin = true,
+		open = if props.busy then 0.35 else 0,
+		shake = if props.busy then 1 else 0,
+		live = not props.reducedMotion,
+		zoom = 0.85,
+	}), h(Badge, {
+		value = `{keys} KEY{if keys == 1 then "" else "S"}`,
+		accent = if keys > 0 then accent else Palette.lineSoft,
+		filled = keys > 0,
+		size = UDim2.fromOffset(78, 22),
+		position = UDim2.fromOffset(10, 10),
+	})), h("frame", {
+		Size = if stack then UDim2.new(1, 0, 1, -infoY) else UDim2.new(1, -infoX, 1, 0),
+		Position = UDim2.fromOffset(infoX, infoY),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h(Text, {
+		value = crate.Name,
+		size = 20,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 13,
+		sizeConstraint = UDim2.new(1, 0, 0, 26),
+	}), h(Text, {
+		value = crate.Description or "",
+		size = 12,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(0, 28),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
+	}), h(Text, {
+		value = pityLine,
+		size = 11,
+		color = accent,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(0, 60),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), h("frame", {
+		Size = UDim2.new(1, 0, 0, #odds * 22),
+		Position = UDim2.fromOffset(0, 82),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, oddsRows), h("frame", {
+		Name = "CrateOpen",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		Position = UDim2.new(0, 0, 1, -TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, openButton(1, 1), openButton(5, 2))))
+end
+
+local function crateStageHeight(stack, crate)
+	local rows = #RelicSystem.odds(crate and crate.Weights)
+	local info = 82 + rows * 22 + 10 + TapTarget + 28
+	return if stack then 190 + 6 + info else math.max(280, info) + 28
+end
+
+local function CrateChip(props)
+	local crate = props.crate
+	local accent = if typeof(crate.Color) == "Color3" then crate.Color else Palette.violet
+	return h("textbutton", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = if props.selected then darken(accent, 0.45) else Palette.panel,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		LayoutOrder = props.order,
+		Event = {
+			Activated = function()
+				Audio:play("tabSwitch")
+				props.onSelect()
+			end,
+		},
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
+		Color = accent,
+		Thickness = if props.selected then 2 else 1,
+		Transparency = if props.selected then 0 else 0.6,
+	}), h(Icon, {
+		kind = "Crate",
+		color = Palette.cream,
+		accent = accent,
+		size = 30,
+		position = UDim2.new(0, 10, 0.5, -15),
+		spin = false,
+	}), h(Text, {
+		value = crate.Name,
+		size = 13,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(48, 8),
+		sizeConstraint = UDim2.new(1, -56, 0, 18),
+	}), h(Text, {
+		value = if props.keys > 0 then `{props.keys} key{if props.keys == 1 then "" else "s"}` else "No keys",
+		size = 11,
+		color = if props.keys > 0 then accent else Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(48, 28),
+		sizeConstraint = UDim2.new(1, -56, 0, 16),
+	}))
+end
+
+local function CratesSection(props)
+	local state = props.state
+	local config = props.config
+	local stack = props.stack
+	local crates = (config.Items and config.Items.Crates) or {}
+	local items = state.Items or {}
+	local keys = items.Keys or {}
+	local firstWithKeys = nil
+	for _, crate in crates do
+		if (keys[crate.Id] or 0) > 0 then
+			firstWithKeys = crate.Id
+			break
+		end
+	end
+	local selected, setSelected = React.useState(firstWithKeys or (crates[1] and crates[1].Id))
+	local busy, setBusy = React.useState(false)
+	local attempt = React.useRef(0)
+	local mounted = React.useRef(true)
+	React.useEffect(function()
+		mounted.current = true
+		return function()
+			mounted.current = false
+		end
+	end, {})
+	local crate = crateById(config, selected) or crates[1]
+	if crate == nil then
+		return h(Text, { value = "No crates are configured.", size = 14, color = Palette.creamSoft })
+	end
+	local skin = state.Cosmetics and state.Cosmetics.CrateSkin
+	local onOpen = function(count)
+		if busy or props.crateRevealActive then
+			return
+		end
+		attempt.current += 1
+		local mine = attempt.current
+		setBusy(true)
+		props.dispatch("OpenItemCrate", { Id = crate.Id, Count = count }, function(response)
+			if not mounted.current or attempt.current ~= mine then
+				return
+			end
+			setBusy(false)
+			if response.ok and type(response.Rolls) == "table" and #response.Rolls > 0 and props.onCrateReveal ~= nil then
+				props.onCrateReveal({
+					crateId = crate.Id,
+					crateName = crate.Name,
+					accent = crate.Color,
+					rolls = response.Rolls,
+				})
+			end
+		end)
+	end
+	local columns = if stack then 2 elseif props.width >= 1000 then 4 else 3
+	local chips = {}
+	for index, entry in crates do
+		chips[entry.Id] = h(CrateChip, {
+			crate = entry,
+			order = index,
+			keys = keys[entry.Id] or 0,
+			selected = entry.Id == crate.Id,
+			onSelect = function()
+				setSelected(entry.Id)
+			end,
+		})
+	end
+	local chipsH = rowsHeight(#crates, columns, 58)
+	return React.createElement(PageScaffold, {
+		gap = GAP,
+		tailPad = props.tailPad,
+		scrollBarColor = Palette.violet,
+		sections = {
+			{
+				id = "hero",
+				height = heroHeight(stack),
+				element = h(Hero, {
+					title = "Crates",
+					body = "Every crate's odds, all the way up to Celestial and Astral. Your crate skin opens every one.",
+					accent = Palette.violet,
+					icon = "Crate",
+					state = state,
+					stack = stack,
+					reveal = props.reveal,
+					reducedMotion = props.reducedMotion,
+				}),
+			},
+			{
+				id = "stage",
+				height = crateStageHeight(stack, crate),
+				element = h(CrateStage, {
+					key = crate.Id,
+					crate = crate,
+					config = config,
+					stack = stack,
+					keys = keys[crate.Id] or 0,
+					pity = items.Pity and items.Pity[crate.Id] or 0,
+					skin = skin,
+					busy = busy or props.crateRevealActive == true,
+					onOpen = onOpen,
+					reducedMotion = props.reducedMotion,
+				}),
+			},
+			{
+				id = "chips",
+				height = chipsH,
+				element = h(Grid, { columns = columns, cell = 58, height = chipsH, cells = chips }),
+			},
+		},
+	})
+end
+
+-- ---------------------------------------------------------------------------------------------------
+-- Skins
+-- ---------------------------------------------------------------------------------------------------
+
+local function skinStatus(skin, cosmetics)
+	local owned = cosmetics.CrateSkins and cosmetics.CrateSkins[skin.Id] == true or skin.Default == true
+	local equipped = (cosmetics.CrateSkin or ShopCatalog.DEFAULT_SKIN) == skin.Id
+	return owned, equipped
+end
+
+local function SkinPreview(props)
+	local skin = props.skin
+	local stack = props.stack
+	local owned, equipped = skinStatus(skin, props.cosmetics)
+	local accent = skinAccent(skin.Id)
+	local price = skin.Price
+	local have = if price then tonumber(props.state[price.Currency]) or 0 else 0
+	local short = if price then math.max(0, price.Amount - have) else 0
+	local peek, setPeek = React.useState(false)
+	local action, label, enabled
+	if equipped then
+		action, label, enabled = nil, "EQUIPPED", false
+	elseif owned then
+		action, label, enabled = "EquipCrateSkin", "EQUIP", true
+	elseif skin.DailyOnly then
+		action, label, enabled = nil, "DAILY SHOP ONLY", false
+	elseif short > 0 then
+		action, label, enabled = nil, `NEED {commas(short)} {string.upper(price.Currency)}`, false
+	else
+		action, label, enabled = "BuyCrateSkin", `BUY · {commas(price.Amount)} {string.upper(price.Currency)}`, true
+	end
+	enabled = enabled and not props.busy
+	local modelSize = if stack then 200 else 250
+	return h(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = accent,
+		background = Palette.panelRaised,
+		padding = 14,
+		highlight = true,
+		reducedMotion = props.reducedMotion,
+		clips = false,
+	}, h("textbutton", {
+		Size = if stack then UDim2.new(1, 0, 0, modelSize) else UDim2.fromOffset(modelSize, modelSize),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Event = {
+			Activated = function()
+				setPeek(not peek)
+				Audio:play(if peek then "close" else "crateOpen")
+			end,
+		},
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uigradient", {
+		Color = ColorSequence.new(darken(accent, 0.5), Palette.void),
+		Rotation = 90,
+	}), h(CrateModel, {
+		skin = skin.Id,
+		spin = true,
+		open = if peek then 1 else 0,
+		live = not props.reducedMotion,
+		zoom = 0.82,
+	}), h(Text, {
+		value = if peek then "Tap to close" else "Tap to look inside",
+		size = 11,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 0, 1, -20),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	})), h("frame", {
+		Size = if stack then UDim2.new(1, 0, 1, -(modelSize + 8)) else UDim2.new(1, -(modelSize + 16), 1, 0),
+		Position = if stack then UDim2.fromOffset(0, modelSize + 8) else UDim2.fromOffset(modelSize + 16, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h(Badge, {
+		value = string.upper(skin.Tier or "Common"),
+		accent = TIER_COLOR[skin.Tier] or accent,
+		filled = true,
+		size = UDim2.fromOffset(92, 20),
+	}), h(Text, {
+		value = skin.Name,
+		size = 22,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 14,
+		position = UDim2.fromOffset(0, 26),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
+	}), h(Text, {
+		value = skin.Blurb,
+		size = 13,
+		color = Palette.creamSoft,
+		wrap = true,
+		position = UDim2.fromOffset(0, 60),
+		sizeConstraint = UDim2.new(1, 0, 0, 40),
+	}), h(Text, {
+		value = if owned then "Yours. Every crate you open wears the equipped skin." else "Cosmetic: changes how your crates look and open.",
+		size = 11,
+		color = accent,
+		weight = Enum.FontWeight.Bold,
+		wrap = true,
+		position = UDim2.fromOffset(0, 104),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
+	}), h("frame", {
+		Name = "SkinClaim",
+		Size = UDim2.new(1, 0, 0, TapTarget),
+		Position = UDim2.new(0, 0, 1, -TapTarget),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h(Button, {
+		text = label,
+		icon = if equipped then "Check" elseif enabled then "Shop" else "Lock",
+		onClick = function()
+			if action ~= nil then
+				props.onAction(action, skin.Id)
+			end
+		end,
+		color = if enabled then accent else Palette.panelSoft,
+		textColor = if enabled then Palette.ink else Palette.creamSoft,
+		size = UDim2.fromScale(1, 1),
+		disabled = not enabled,
+		reducedMotion = props.reducedMotion,
+		highlight = enabled,
+		selectable = enabled,
+	}))))
+end
+
+local function SkinCard(props)
+	local skin = props.skin
+	local owned, equipped = skinStatus(skin, props.cosmetics)
+	local accent = skinAccent(skin.Id)
+	return h("textbutton", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = if props.selected then darken(accent, 0.5) else Palette.panel,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		LayoutOrder = props.order,
+		Event = {
+			Activated = function()
+				Audio:play("tabSwitch")
+				props.onSelect()
+			end,
+		},
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+		Color = accent,
+		Thickness = if props.selected then 2 else 1,
+		Transparency = if props.selected then 0 else 0.55,
+	}), h(CrateModel, {
+		skin = skin.Id,
+		live = false,
+		size = UDim2.new(1, 0, 1, -40),
+		zoom = 0.9,
+	}), skin.Id == "Celestial" and h(PrismAura, {
+		rarity = "Celestial",
+		intensity = 0.7,
+		rays = false,
+		corner = 14,
+	}), h(Text, {
+		value = skin.Name,
+		size = 13,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 10,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 6, 1, -38),
+		sizeConstraint = UDim2.new(1, -12, 0, 18),
+	}), h(Text, {
+		value = if equipped then "EQUIPPED" elseif owned then "OWNED" elseif skin.DailyOnly then "DAILY SHOP" else `{commas(skin.Price.Amount)} {string.upper(skin.Price.Currency)}`,
+		size = 11,
+		color = if equipped then Palette.mint elseif owned then Palette.creamSoft else accent,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 6, 1, -20),
+		sizeConstraint = UDim2.new(1, -12, 0, 16),
+	}))
+end
+
+local function SkinsSection(props)
+	local state = props.state
+	local stack = props.stack
+	local cosmetics = state.Cosmetics or { CrateSkins = { Classic = true }, CrateSkin = ShopCatalog.DEFAULT_SKIN }
+	local selected, setSelected = React.useState(cosmetics.CrateSkin or ShopCatalog.DEFAULT_SKIN)
+	local busy, setBusy = React.useState(false)
+	local mounted = React.useRef(true)
+	React.useEffect(function()
+		mounted.current = true
+		return function()
+			mounted.current = false
+		end
+	end, {})
+	local skin = ShopCatalog.skin(selected) or ShopCatalog.skin(ShopCatalog.DEFAULT_SKIN)
+	local onAction = function(action, id)
+		if busy then
+			return
+		end
+		setBusy(true)
+		props.dispatch(action, { Id = id }, function(response)
+			if not mounted.current then
+				return
+			end
+			setBusy(false)
+			if response.ok then
+				Audio:play(if action == "BuyCrateSkin" then "purchase" else "confirm")
+			end
+		end)
+	end
+	local columns = if stack then 2 elseif props.width >= 1000 then 4 else 3
+	local cells = {}
+	for index, entry in ShopCatalog.SKINS do
+		cells[entry.Id] = h(SkinCard, {
+			skin = entry,
+			order = index,
+			cosmetics = cosmetics,
+			selected = entry.Id == skin.Id,
+			onSelect = function()
+				setSelected(entry.Id)
+			end,
+		})
+	end
+	local cellH = 156
+	local gridH = rowsHeight(#ShopCatalog.SKINS, columns, cellH)
+	return React.createElement(PageScaffold, {
+		gap = GAP,
+		tailPad = props.tailPad,
+		scrollBarColor = Palette.cyan,
+		sections = {
+			{
+				id = "hero",
+				height = heroHeight(stack),
+				element = h(Hero, {
+					title = "Crate Skins",
+					body = "Dress the crate you open. The Celestial Ark only ever turns up in the Daily Shop.",
+					accent = Palette.cyan,
+					icon = "Crate",
+					state = state,
+					stack = stack,
+					reveal = props.reveal,
+					reducedMotion = props.reducedMotion,
+				}),
+			},
+			{
+				id = "preview",
+				height = if stack then 200 + 8 + 140 + TapTarget + 28 else 278,
+				element = h(SkinPreview, {
+					key = skin.Id,
+					skin = skin,
+					state = state,
+					cosmetics = cosmetics,
+					stack = stack,
+					busy = busy,
+					onAction = onAction,
+					reducedMotion = props.reducedMotion,
+				}),
+			},
+			{
+				id = "grid",
+				height = gridH,
+				element = h(Grid, { columns = columns, cell = cellH, height = gridH, cells = cells }),
+			},
+		},
+	})
+end
+
+-- ---------------------------------------------------------------------------------------------------
+-- Codex
+-- ---------------------------------------------------------------------------------------------------
+
+local function CodexProgress(props)
+	local config = props.config
+	local progress = props.progress
+	local bonuses = (config.Items and config.Items.CodexBonus) or {}
+	local rows = {
+		Layout = h("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			Padding = UDim.new(0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, rarity in RelicSystem.ORDER do
+		local row = progress[rarity]
+		if row == nil or row.total == 0 then
+			continue
+		end
+		local done = row.found == row.total
+		local color = rarityColor(config, rarity)
+		rows[rarity] = h("frame", {
+			Size = UDim2.new(1, 0, 0, 22),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = index,
+		}, h(Text, {
+			value = rarity,
+			size = 12,
+			color = color,
+			weight = Enum.FontWeight.Bold,
+			position = UDim2.fromOffset(0, 3),
+			sizeConstraint = UDim2.new(0, 84, 0, 16),
+		}), h(Meter, {
+			value = row.found / row.total,
+			color = color,
+			size = UDim2.new(1, -230, 0, 8),
+			position = UDim2.fromOffset(90, 7),
+			reducedMotion = props.reducedMotion,
+		}), h(Text, {
+			value = `{row.found}/{row.total}`,
+			size = 12,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Bold,
+			align = Enum.TextXAlignment.Right,
+			position = UDim2.new(1, -134, 0, 3),
+			sizeConstraint = UDim2.fromOffset(44, 16),
+		}), h(Text, {
+			value = `{if done then "✓ " else ""}+{math.floor((tonumber(bonuses[rarity]) or 0) * 1000 + 0.5) / 10}%`,
+			size = 12,
+			color = if done then Palette.mint else Palette.muted,
+			weight = Enum.FontWeight.Bold,
+			align = Enum.TextXAlignment.Right,
+			position = UDim2.new(1, -84, 0, 3),
+			sizeConstraint = UDim2.fromOffset(84, 16),
+		}))
+	end
+	return h(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = Palette.mint,
+		background = Palette.panelRaised,
+		padding = 14,
+		reducedMotion = props.reducedMotion,
+		clips = false,
+	}, h(Text, {
+		value = `Codex bonus: +{math.floor((tonumber(props.bonus) or 0) * 1000 + 0.5) / 10}% production`,
+		size = 16,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		sizeConstraint = UDim2.new(1, 0, 0, 22),
+	}), h(Text, {
+		value = "Find every relic of a rarity to earn its bonus for good.",
+		size = 12,
+		color = Palette.creamSoft,
+		position = UDim2.fromOffset(0, 24),
+		sizeConstraint = UDim2.new(1, 0, 0, 18),
+	}), h("frame", {
+		Size = UDim2.new(1, 0, 1, -50),
+		Position = UDim2.fromOffset(0, 50),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, rows))
+end
+
+local function RelicCell(props)
+	local definition = props.definition
+	local found = props.found
+	local color = rarityColor(props.config, definition.Rarity)
+	local ascended = isAscended(definition.Rarity)
+	return h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = if found then darken(color, 0.72) else Palette.panel,
+		BorderSizePixel = 0,
+		LayoutOrder = props.order,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
+		Color = if found then color else Palette.line,
+		Thickness = 1,
+		Transparency = if found then 0.25 else 0.5,
+	}), found and ascended and h(PrismAura, {
+		rarity = definition.Rarity,
+		intensity = 1,
+		rays = false,
+		corner = 12,
+	}), h(Text, {
+		value = if found then definition.Name else "???",
+		size = 13,
+		color = if found then Palette.cream else Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(10, 8),
+		sizeConstraint = UDim2.new(1, -20, 0, 18),
+	}), h(Text, {
+		value = if found then (if props.copies > 0 then `{props.copies} owned{if props.stars > 0 then "  " .. string.rep("★", props.stars) else ""}` else "Found before") else `{definition.Slot} relic · not found yet`,
+		size = 11,
+		color = if found then color else Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(10, 28),
+		sizeConstraint = UDim2.new(1, -20, 0, 16),
+	}), props.canFuse and h(Button, {
+		text = "FUSE",
+		icon = "Forge",
+		onClick = props.onFuse,
+		color = color,
+		textColor = Palette.ink,
+		size = UDim2.new(1, -20, 0, 30),
+		position = UDim2.new(0, 10, 1, -38),
+		disabled = props.busy,
+		reducedMotion = props.reducedMotion,
+		highlight = not props.busy,
+	}))
+end
+
+local function CodexSection(props)
+	local state = props.state
+	local config = props.config
+	local stack = props.stack
+	local items = state.Items or {}
+	local discovered = items.Discovered or {}
+	local inventory = items.Inventory or {}
+	local definitions = (config.Items and config.Items.Definitions) or {}
+	local maxStars = (config.Items and config.Items.MaxStars) or 5
+	local busy, setBusy = React.useState(false)
+	local mounted = React.useRef(true)
+	React.useEffect(function()
+		mounted.current = true
+		return function()
+			mounted.current = false
+		end
+	end, {})
+	local progress = RelicSystem.codex(discovered, config.Items)
+	local copies, stars = {}, {}
+	for _, instance in inventory do
+		if type(instance) == "table" and type(instance.DefinitionId) == "string" then
+			local id = instance.DefinitionId
+			copies[id] = (copies[id] or 0) + 1
+			stars[id] = math.max(stars[id] or 0, RelicSystem.stars(instance))
+		end
+	end
+	local fuse = function(definition)
+		if busy then
+			return
+		end
+		setBusy(true)
+		props.dispatch("FuseRelics", { Id = definition.Id }, function(response)
+			if not mounted.current then
+				return
+			end
+			setBusy(false)
+			if response.ok then
+				Audio:play("forge")
+			end
+		end)
+	end
+	local columns = if stack then 2 elseif props.width >= 1000 then 4 else 3
+	local cellH = 96
+	local sections = {
+		{
+			id = "hero",
+			height = heroHeight(stack),
+			element = h(Hero, {
+				title = "Relic Codex",
+				body = `Every relic in the forge. Fuse a spare copy into a relic for a star: +{math.floor(((config.Items and config.Items.StarBonus) or 0.25) * 100)}% effect each, up to {maxStars}.`,
+				accent = Palette.mint,
+				icon = "Artifact",
+				state = state,
+				stack = stack,
+				reveal = props.reveal,
+				reducedMotion = props.reducedMotion,
+			}),
+		},
+	}
+	local progressRows = 0
+	for _, rarity in RelicSystem.ORDER do
+		if progress[rarity] and progress[rarity].total > 0 then
+			progressRows += 1
+		end
+	end
+	table.insert(sections, {
+		id = "progress",
+		height = 50 + progressRows * 26 + 24,
+		element = h(CodexProgress, {
+			config = config,
+			progress = progress,
+			bonus = items.CodexBonus,
+			reducedMotion = props.reducedMotion,
+		}),
+	})
+	-- Rarest first, so the Astral and Celestial rows lead the page.
+	for index = #RelicSystem.ORDER, 1, -1 do
+		local rarity = RelicSystem.ORDER[index]
+		local cells = {}
+		local count = 0
+		for order, definition in definitions do
+			if definition.Rarity ~= rarity then
+				continue
+			end
+			count += 1
+			local canFuse = (copies[definition.Id] or 0) >= 2 and RelicSystem.fusionPair(inventory, items.Equipped, definition.Id, maxStars) ~= nil
+			cells[definition.Id] = h(RelicCell, {
+				definition = definition,
+				order = order,
+				config = config,
+				found = discovered[definition.Id] == true or (copies[definition.Id] or 0) > 0,
+				copies = copies[definition.Id] or 0,
+				stars = stars[definition.Id] or 0,
+				canFuse = canFuse,
+				busy = busy,
+				onFuse = function()
+					fuse(definition)
+				end,
+				reducedMotion = props.reducedMotion,
+			})
+		end
+		if count == 0 then
+			continue
+		end
+		local gridH = rowsHeight(count, columns, cellH)
+		local color = rarityColor(config, rarity)
+		table.insert(sections, {
+			id = `label{rarity}`,
+			height = 22,
+			element = h(Text, {
+				value = `{string.upper(rarity)}  ·  {progress[rarity].found}/{progress[rarity].total}`,
+				size = 13,
+				color = color,
+				weight = Enum.FontWeight.Heavy,
+				sizeConstraint = UDim2.new(1, 0, 0, 20),
+			}),
+		})
+		table.insert(sections, {
+			id = `grid{rarity}`,
+			height = gridH,
+			element = h(Grid, { columns = columns, cell = cellH, height = gridH, cells = cells }),
+		})
+	end
+	return React.createElement(PageScaffold, {
+		gap = GAP,
+		tailPad = props.tailPad,
+		scrollBarColor = Palette.mint,
+		sections = sections,
+	})
+end
+
+-- ---------------------------------------------------------------------------------------------------
+-- The page
+-- ---------------------------------------------------------------------------------------------------
+
+local function StoreFront(props)
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local stack = chrome.contentStack
+	local softMotion = props.reducedMotion
+	local section, setSection = React.useState("Daily")
+	local reveal = useStagger(0, softMotion)
+	local tabH = if stack then TapTarget else 44
+	local shared = {
+		key = section,
+		state = props.state or {},
+		config = props.config or {},
+		dispatch = props.dispatch,
+		reducedMotion = softMotion,
+		stack = stack,
+		width = viewport.width,
+		reveal = reveal,
+		tailPad = scrollTail(stack, chrome.bottomSafe, 32),
+		navigate = props.navigate,
+		onCrateReveal = props.onCrateReveal,
+		crateRevealActive = props.crateRevealActive,
+	}
+	local body
+	if section == "Daily" then
+		body = h(DailySection, shared)
+	elseif section == "Crates" then
+		body = h(CratesSection, shared)
+	elseif section == "Skins" then
+		body = h(SkinsSection, shared)
+	elseif section == "Codex" then
+		body = h(CodexSection, shared)
+	else
+		body = h(__load("ShopView").ShopView, {
+			state = props.state,
+			dispatch = props.dispatch,
+			reducedMotion = softMotion,
+			onPurchasePresentationChange = props.onPurchasePresentationChange,
+		})
+	end
+	return h("frame", {
+		Name = "StoreFrontHost",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, h("frame", {
+		Name = "StoreSections",
+		Size = UDim2.new(1, 0, 0, tabH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h(SegmentedTabs, {
+		options = SECTIONS,
+		value = section,
+		onChange = function(entry)
+			setSection(entry)
+		end,
+		accent = Palette.mango,
+		columns = #SECTIONS,
+		gap = 6,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
+	})), h("frame", {
+		Name = "StoreSection",
+		Size = UDim2.new(1, 0, 1, -(tabH + GAP)),
+		Position = UDim2.fromOffset(0, tabH + GAP),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, body))
+end
+
+return {
+	StoreFront = StoreFront,
 }
 end
 

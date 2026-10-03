@@ -54,6 +54,7 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
 	"src/Client/AstralForge/pages/PagesSystem.luau#SettingsView",
 	"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
+	"src/Client/AstralForge/pages/PagesShop.luau#StoreFront",
 	"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",

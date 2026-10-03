@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	UiCore: merged module suite.
-	Members (23): ui, MainGame, AppShellChrome, TopBarChrome, NavChrome, WorkspaceChrome, ShellFx, effects, levelRoadmap, CelebrationBurst, ComboBadge, FeedbackOverlay, MobileShell, OfflineRewardsOverlay, PlayerlistOverlay, onboarding, AdminPrankOverlay, notifications, levelMoments, serverEventsUi, CreditsView, CrateRevealOverlay, CrateRevealStageSimple.
+	Members (25): ui, MainGame, AppShellChrome, TopBarChrome, NavChrome, WorkspaceChrome, ShellFx, effects, levelRoadmap, CelebrationBurst, ComboBadge, FeedbackOverlay, MobileShell, OfflineRewardsOverlay, PlayerlistOverlay, onboarding, AdminPrankOverlay, notifications, levelMoments, serverEventsUi, CreditsView, crateModel, prismFx, CrateRevealOverlay, CrateRevealStageSimple.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -8350,6 +8350,7 @@ local function AppShell(_param)
 	}), _condition_24), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
 		session = crateReveal,
 		config = config,
+		skin = if state ~= nil and state.Cosmetics ~= nil then state.Cosmetics.CrateSkin else nil,
 		reducedMotion = reducedMotion,
 		onClose = function()
 			return setCrateReveal(nil)
@@ -21965,6 +21966,372 @@ return {
 end
 
 -- ======================================================================
+-- Module: crateModel
+-- ======================================================================
+-- A crate skin in 3D: the Blender kit's Crate_<Skin>_Body and _Lid (tools/casinobuild), stood on the
+-- floor with the lid hinged along its back edge, or a part-built stand-in until the kit loads. One
+-- continuous-frame listener per mounted crate turns the camera and swings the lid; `live = false`
+-- draws a single still frame (lists of many crates).
+__defs["crateModel"] = function()
+local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local subscribeContinuous = require(script.Parent.MotionKit)("motion").subscribeContinuous
+local ShopCatalog = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
+
+local OPEN_ANGLE = 1.95
+local kitListeners = {}
+local kitWatch = nil
+
+local function rgb(value, fallback)
+	if type(value) ~= "table" then
+		return fallback
+	end
+	return Color3.fromRGB(value[1] or 255, value[2] or 255, value[3] or 255)
+end
+
+local function skinOf(id)
+	return ShopCatalog.skin(id) or ShopCatalog.skin(ShopCatalog.DEFAULT_SKIN)
+end
+
+local function kitFolder()
+	local folder = ReplicatedStorage:FindFirstChild("CasinoKit")
+	return if folder ~= nil and folder:IsA("Folder") then folder else nil
+end
+
+local function useKitReady()
+	local ready, setReady = React.useState(kitFolder() ~= nil)
+	React.useEffect(function()
+		if ready then
+			return nil
+		end
+		local listener = function()
+			setReady(true)
+		end
+		kitListeners[listener] = true
+		if kitWatch == nil then
+			kitWatch = ReplicatedStorage.ChildAdded:Connect(function(child)
+				if child.Name == "CasinoKit" then
+					for each in kitListeners do
+						task.defer(each)
+					end
+				end
+			end)
+		end
+		return function()
+			kitListeners[listener] = nil
+		end
+	end, { ready })
+	return ready
+end
+
+local function inert(part)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	return part
+end
+
+-- The crate's parts, posed closed. Returns the scene: lid, its rest pose and hinge, the inner glow.
+local function buildCrate(model, skinId)
+	local skin = skinOf(skinId)
+	local folder = kitFolder()
+	local bodySource = folder and folder:FindFirstChild(`Crate_{skin.Id}_Body`)
+	local lidSource = folder and folder:FindFirstChild(`Crate_{skin.Id}_Lid`)
+	local body, lid
+	if bodySource ~= nil and lidSource ~= nil and bodySource:IsA("MeshPart") and lidSource:IsA("MeshPart") then
+		body = bodySource:Clone()
+		lid = lidSource:Clone()
+	else
+		local accent = rgb(skin.Accent, Color3.fromRGB(255, 184, 52))
+		body = Instance.new("Part")
+		body.Size = Vector3.new(1.72, 1.04, 1.22)
+		body.Color = accent:Lerp(Color3.new(0, 0, 0), 0.55)
+		body.Material = Enum.Material.SmoothPlastic
+		lid = Instance.new("Part")
+		lid.Size = Vector3.new(1.8, 0.4, 1.3)
+		lid.Color = accent:Lerp(Color3.new(0, 0, 0), 0.25)
+		lid.Material = Enum.Material.SmoothPlastic
+	end
+	inert(body)
+	inert(lid)
+	local bodyH = body.Size.Y
+	body.CFrame = CFrame.new(0, bodyH / 2, 0)
+	body.Parent = model
+	local lidRest = CFrame.new(0, bodyH + lid.Size.Y / 2 - 0.01, 0)
+	lid.CFrame = lidRest
+	lid.Parent = model
+	-- What spills out when the lid lifts: a neon core sat just inside the rim.
+	local glow = inert(Instance.new("Part"))
+	glow.Shape = Enum.PartType.Ball
+	glow.Size = Vector3.one * 0.7
+	glow.Material = Enum.Material.Neon
+	glow.Color = rgb(skin.Glow, Color3.fromRGB(255, 220, 160))
+	glow.Transparency = 1
+	glow.CFrame = CFrame.new(0, bodyH - 0.2, 0)
+	glow.Parent = model
+	return {
+		lid = lid,
+		lidRest = lidRest,
+		hinge = CFrame.new(0, bodyH, lid.Size.Z / 2),
+		glow = glow,
+		center = Vector3.new(0, (bodyH + lid.Size.Y) * 0.46, 0),
+	}
+end
+
+local function pose(scene, camera, state, props)
+	local zoom = props.zoom or 1
+	local distance = 4.6 * zoom
+	local yaw = state.yaw
+	local lift = state.open
+	local angle = lift * OPEN_ANGLE
+	local shake = state.shake
+	local rattle = if shake > 0 then math.sin(state.t * 46) * 0.05 * shake else 0
+	scene.lid.CFrame = scene.hinge * CFrame.Angles(angle + math.abs(rattle) * 0.6, 0, 0) * scene.hinge:Inverse() * scene.lidRest
+	scene.glow.Transparency = 1 - math.clamp(lift, 0, 1) * 0.55
+	scene.glow.Size = Vector3.one * (0.5 + lift * 0.5)
+	local focus = scene.center + Vector3.new(0, lift * 0.25, 0)
+	local eye = focus + Vector3.new(math.sin(yaw) * distance, distance * 0.42, -math.cos(yaw) * distance)
+	camera.CFrame = CFrame.lookAt(eye, focus) * CFrame.Angles(0, 0, rattle)
+end
+
+-- props: skin, size, position, anchorPoint, zIndex, layoutOrder, open (0..1), shake (0..1),
+-- spin (turntable), yaw (resting angle), zoom, live (animate; default true), ambient.
+local function CrateModel(props)
+	local host = React.useRef(nil)
+	local propsRef = React.useRef(props)
+	propsRef.current = props
+	local kitReady = useKitReady()
+	local skinId = skinOf(props.skin).Id
+	local live = props.live ~= false
+	React.useEffect(function()
+		local viewport = host.current
+		if viewport == nil then
+			return nil
+		end
+		viewport:ClearAllChildren()
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 30
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		local model = Instance.new("Model")
+		model.Parent = viewport
+		local scene = buildCrate(model, skinId)
+		local first = propsRef.current
+		local state = {
+			t = 0,
+			yaw = first.yaw or -0.5,
+			open = tonumber(first.open) or 0,
+			shake = 0,
+		}
+		pose(scene, camera, state, first)
+		if not live then
+			return function()
+				viewport:ClearAllChildren()
+			end
+		end
+		local release = subscribeContinuous(function(dt)
+			local now = propsRef.current
+			state.t += dt
+			local base = now.yaw or -0.5
+			state.yaw = if now.spin then base + state.t * 0.55 else base + math.sin(state.t * 0.7) * 0.22
+			local target = math.clamp(tonumber(now.open) or 0, 0, 1)
+			-- The lid flies open fast and settles shut slowly.
+			local rate = if target > state.open then 9 else 4
+			state.open += (target - state.open) * (1 - math.exp(-dt * rate))
+			state.shake = math.clamp(tonumber(now.shake) or 0, 0, 1)
+			pose(scene, camera, state, now)
+		end)
+		return function()
+			release()
+			viewport:ClearAllChildren()
+		end
+	end, { skinId, kitReady, live })
+	return React.createElement("viewportframe", {
+		ref = host,
+		Size = props.size or UDim2.fromScale(1, 1),
+		Position = props.position,
+		AnchorPoint = props.anchorPoint,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Ambient = props.ambient or (if kitReady then Color3.fromRGB(200, 194, 208) else Color3.fromRGB(150, 140, 165)),
+		LightColor = if kitReady then Color3.fromRGB(200, 192, 180) else Color3.fromRGB(255, 244, 224),
+		LightDirection = Vector3.new(-0.5, -0.8, 1),
+		ZIndex = props.zIndex,
+		LayoutOrder = props.layoutOrder or 0,
+	})
+end
+
+return {
+	CrateModel = CrateModel,
+	skinOf = skinOf,
+	skinAccent = function(id)
+		return rgb(skinOf(id).Accent, Color3.fromRGB(255, 184, 52))
+	end,
+	skinGlow = function(id)
+		return rgb(skinOf(id).Glow, Color3.fromRGB(255, 220, 160))
+	end,
+}
+end
+
+-- ======================================================================
+-- Module: prismFx
+-- ======================================================================
+-- The look of the two rarities above Mythic. Celestial runs cyan, white and gold; Astral runs the whole
+-- spectrum. PrismAura lays a turning prismatic rim, slow light rays and twinkling sparks over whatever it
+-- is placed in. Every motion repeats on one 40 s clock (90°/s rim, 9°/s rays, sparks on whole harmonics),
+-- so the loop never jumps when the clock wraps.
+__defs["prismFx"] = function()
+local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local useClock = require(script.Parent.MotionKit)("motion").useClock
+
+local PERIOD = 40
+local TAU = math.pi * 2
+local SEQUENCES = {
+	Celestial = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 240, 255)),
+		ColorSequenceKeypoint.new(0.35, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(255, 226, 150)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 240, 255)),
+	}),
+	Astral = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 110, 200)),
+		ColorSequenceKeypoint.new(0.2, Color3.fromRGB(170, 120, 255)),
+		ColorSequenceKeypoint.new(0.4, Color3.fromRGB(100, 220, 255)),
+		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(120, 255, 190)),
+		ColorSequenceKeypoint.new(0.8, Color3.fromRGB(255, 220, 120)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 110, 200)),
+	}),
+}
+local CORE = {
+	Celestial = Color3.fromRGB(190, 248, 255),
+	Astral = Color3.fromRGB(255, 200, 240),
+}
+-- Spark spots as fractions of the box, and their harmonic (a whole number of twinkles per period).
+local SPARKS = {
+	{ 0.08, 0.18, 7 }, { 0.92, 0.12, 9 }, { 0.2, 0.86, 8 }, { 0.82, 0.8, 11 }, { 0.5, 0.06, 10 },
+	{ 0.04, 0.55, 12 }, { 0.96, 0.5, 13 }, { 0.36, 0.94, 9 }, { 0.66, 0.92, 7 }, { 0.62, 0.1, 14 },
+}
+
+local function isAscended(rarity)
+	return rarity == "Celestial" or rarity == "Astral"
+end
+
+-- props: rarity, intensity (0..1, number or binding), rays (bool), sparks (bool), corner (px), zIndex,
+-- thickness. Fills its parent.
+local function PrismAura(props)
+	local rarity = if props.rarity == "Astral" then "Astral" else "Celestial"
+	local clock = useClock(true, 1, PERIOD, false)
+	local zIndex = props.zIndex or 1
+	local intensity = props.intensity
+	if intensity == nil then
+		intensity = 1
+	end
+	local function scaled(map)
+		if type(intensity) == "number" then
+			return clock:map(function(t)
+				return map(t, intensity)
+			end)
+		end
+		return React.joinBindings({ clock, intensity }):map(function(values)
+			return map(values[1], math.clamp(values[2], 0, 1))
+		end)
+	end
+	local children = {
+		Rim = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = zIndex + 2,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, props.corner or 12),
+		}), React.createElement("uistroke", {
+			Color = Color3.new(1, 1, 1),
+			Thickness = props.thickness or 2.5,
+			Transparency = scaled(function(t, k)
+				return 1 - k * (0.82 + 0.18 * math.sin(t * TAU / PERIOD * 8))
+			end),
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}, React.createElement("uigradient", {
+			Color = SEQUENCES[rarity],
+			Rotation = clock:map(function(t)
+				return (t * 90) % 360
+			end),
+		}))),
+	}
+	if props.rays ~= false then
+		local rays = {}
+		for index = 1, 6 do
+			rays[`Ray{index}`] = React.createElement("frame", {
+				Size = UDim2.new(0, 10, 1.6, 0),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Rotation = clock:map(function(t)
+					return (index - 1) * 30 + (t * 9) % 360
+				end),
+				BackgroundColor3 = CORE[rarity],
+				BackgroundTransparency = scaled(function(t, k)
+					return 1 - k * (0.16 + 0.1 * math.sin(t * TAU / PERIOD * (3 + index)))
+				end),
+				BorderSizePixel = 0,
+				ZIndex = zIndex,
+			}, React.createElement("uigradient", {
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1),
+					NumberSequenceKeypoint.new(0.5, 0),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Rotation = 90,
+			}))
+		end
+		children.Rays = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = props.clipRays ~= false,
+			ZIndex = zIndex,
+		}, rays)
+	end
+	if props.sparks ~= false then
+		for index, spot in SPARKS do
+			children[`Spark{index}`] = React.createElement("frame", {
+				Size = scaled(function(t, k)
+					local wave = math.max(0, math.sin(t * TAU / PERIOD * spot[3] + index))
+					local px = math.round((3 + wave * 6) * k)
+					return UDim2.fromOffset(px, px)
+				end),
+				Position = UDim2.fromScale(spot[1], spot[2]),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Rotation = 45,
+				BackgroundColor3 = if index % 2 == 0 then Color3.new(1, 1, 1) else CORE[rarity],
+				BackgroundTransparency = scaled(function(t, k)
+					local wave = math.max(0, math.sin(t * TAU / PERIOD * spot[3] + index))
+					return 1 - k * wave
+				end),
+				BorderSizePixel = 0,
+				ZIndex = zIndex + 3,
+			})
+		end
+	end
+	return React.createElement("frame", {
+		Name = "PrismAura",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = zIndex,
+	}, children)
+end
+
+return {
+	PrismAura = PrismAura,
+	isAscended = isAscended,
+	SEQUENCES = SEQUENCES,
+	CORE = CORE,
+}
+end
+
+-- ======================================================================
 -- Module: CrateRevealOverlay   (merged from pages/CrateRevealOverlay.luau, 728 lines)
 -- ======================================================================
 __defs["CrateRevealOverlay"] = function()
@@ -22317,7 +22684,8 @@ local function CrateRevealExperience(_param)
 		end
 		Audio:play("crateCharge")
 		local alive = true
-		local job = task.delay(if reducedMotion then 0.28 else 0.48, function()
+		-- Long enough for the crate to rattle on its stand before the lid flies.
+		local job = task.delay(if reducedMotion then 0.32 else 0.7, function()
 			if alive then
 				setPhase("spin")
 			end
@@ -22338,9 +22706,13 @@ local function CrateRevealExperience(_param)
 		setTickEnergy(1)
 		setPhase("land")
 		if currentRoll ~= nil then
-			local mythic = currentRoll.Rarity == "Mythic"
+			local ascended = currentRoll.Rarity == "Celestial" or currentRoll.Rarity == "Astral"
+			local mythic = currentRoll.Rarity == "Mythic" or ascended
 			local special = currentRoll.New == true or currentRoll.Pity == true or currentRoll.Rarity == "Legendary" or mythic
-			if mythic then
+			if ascended then
+				Audio:playCelebration({ "crateRare", "discovery", "prestige", "reward" }, 0.12)
+				InteractionFeedback.reward()
+			elseif mythic then
 				Audio:playCelebration({ "crateRare", "discovery", "reward" }, 0.08)
 			else
 				Audio:play(if special then "crateRare" else "crateLand")
@@ -22442,7 +22814,11 @@ local function CrateRevealExperience(_param)
 			return nil
 		end
 		local alive = true
-		local job = task.delay(if rollIndex >= #rolls - 1 then 0.72 else 0.62, function()
+		local landed = rolls[rollIndex + 1]
+		local ascended = landed ~= nil and (landed.Rarity == "Celestial" or landed.Rarity == "Astral")
+		-- An ascended drop holds the stage long enough to be seen before a batch rolls on.
+		local hold = if ascended then 1.6 elseif rollIndex >= #rolls - 1 then 0.72 else 0.62
+		local job = task.delay(hold, function()
 			if not alive then
 				return nil
 			end
@@ -22550,6 +22926,7 @@ local function CrateRevealExperience(_param)
 	end)
 	return React.createElement(CrateRevealStage, {
 		crateName = session.crateName,
+		skin = _param.skin,
 		sessionAccent = session.accent,
 		cards = strip,
 		cardWidth = CARD_W,
@@ -22710,6 +23087,10 @@ local Palette = _theme.Palette
 local _ui = __load("ui")
 local Button = _ui.Button
 local Text = _ui.Text
+local CrateModel = __load("crateModel").CrateModel
+local _prism = __load("prismFx")
+local PrismAura = _prism.PrismAura
+local isAscended = _prism.isAscended
 
 local h = React.createElement
 
@@ -22726,6 +23107,15 @@ local function ReelCard(props)
 		BorderSizePixel = 0,
 		ZIndex = 433,
 	},
+		-- Celestial and Astral cards shimmer even as they fly past; the winner gets the full aura.
+		isAscended(card.rarity) and h(PrismAura, {
+			rarity = card.rarity,
+			intensity = if landedWinner then 1 else 0.55,
+			rays = false,
+			sparks = landedWinner,
+			corner = 12,
+			zIndex = 433,
+		}),
 		h("uicorner", { CornerRadius = UDim.new(0, 12) }),
 		h("uistroke", {
 			Color = if landedWinner then accent else Palette.line,
@@ -22837,6 +23227,18 @@ local function CrateRevealStage(props)
 	local actionY = panelHeight - padding - actionHeight
 	local resultY = actionY - gap - resultHeight
 	local trackY = padding + headerHeight + gap
+	local ascended = landed and isAscended(props.winnerRarity)
+	if ascended then
+		status = if props.winnerRarity == "Astral" then "ASTRAL RELIC" else "CELESTIAL RELIC"
+	end
+	local crateSize = headerHeight - 4
+	local nameX = padding + crateSize + 10
+	-- The equipped crate rattles on the reel, then its lid flies open and the reel slides in under it.
+	local introOpen = props.phase == "spin" or landed
+	local intro = props.rollIndex == 0 and props.phase ~= "exit" and props.phase ~= "done" and props.phase ~= "land"
+	local introFade = props.spinProgress:map(function(value)
+		return if props.phase == "spin" then math.clamp((value - 0.05) / 0.09, 0, 1) else 0
+	end)
 
 	local cards = {}
 	for i, card in props.cards do
@@ -22917,7 +23319,43 @@ local function CrateRevealStage(props)
 			BackgroundColor3 = accent,
 			BorderSizePixel = 0,
 			ZIndex = 442,
-		}))
+		})),
+		intro and h("frame", {
+			Name = "CrateIntro",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Palette.void,
+			BackgroundTransparency = introFade,
+			BorderSizePixel = 0,
+			ZIndex = 444,
+		},
+			h("frame", {
+				Size = UDim2.fromOffset(trackHeight * 0.9, trackHeight * 0.9),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = props.sessionAccent,
+				BackgroundTransparency = React.joinBindings({ introFade, props.chargePulse }):map(function(values)
+					return 1 - (1 - values[1]) * (0.1 + values[2] * 0.12)
+				end),
+				BorderSizePixel = 0,
+				ZIndex = 445,
+			}, h("uicorner", { CornerRadius = UDim.new(1, 0) })),
+			h("canvasgroup", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				GroupTransparency = introFade,
+				ZIndex = 446,
+			}, h(CrateModel, {
+				skin = props.skin,
+				size = UDim2.fromOffset(trackHeight * 1.15, trackHeight * 1.15),
+				position = UDim2.fromScale(0.5, 0.5),
+				anchorPoint = Vector2.new(0.5, 0.5),
+				open = if introOpen then 1 else 0,
+				shake = if props.phase == "charge" then 1 elseif props.phase == "enter" then 0.3 else 0,
+				yaw = -0.35,
+				zoom = 0.92,
+				zIndex = 447,
+			}))
+		)
 	)
 
 	return h("frame", {
@@ -22975,6 +23413,26 @@ local function CrateRevealStage(props)
 				BorderSizePixel = 0,
 				ZIndex = 419,
 			}, h("uicorner", { CornerRadius = UDim.new(1, 0) })),
+			ascended and h(PrismAura, {
+				rarity = props.winnerRarity,
+				intensity = props.landPop:map(function(value)
+					return math.clamp(value, 0, 1)
+				end),
+				corner = 16,
+				thickness = 3,
+				clipRays = false,
+				zIndex = 411,
+			}),
+			h(CrateModel, {
+				skin = props.skin,
+				size = UDim2.fromOffset(crateSize, crateSize),
+				position = UDim2.fromOffset(padding - 4, padding - 6),
+				open = if landed then 1 elseif props.phase == "spin" then 0.4 else 0,
+				shake = if props.phase == "charge" then 0.6 else 0,
+				zoom = 0.85,
+				live = not props.reducedMotion,
+				zIndex = 420,
+			}),
 			h(Text, {
 				value = props.crateName,
 				size = if compact then 19 else 23,
@@ -22982,8 +23440,8 @@ local function CrateRevealStage(props)
 				weight = Enum.FontWeight.Heavy,
 				fit = true,
 				minSize = 13,
-				position = UDim2.fromOffset(padding, padding),
-				sizeConstraint = UDim2.fromOffset(math.max(1, panelWidth - padding * 2 - 100), 29),
+				position = UDim2.fromOffset(nameX, padding),
+				sizeConstraint = UDim2.fromOffset(math.max(1, panelWidth - nameX - padding - 100), 29),
 				zIndex = 420,
 			}),
 			h("frame", {
@@ -23007,8 +23465,8 @@ local function CrateRevealStage(props)
 				size = 10,
 				color = accent,
 				weight = Enum.FontWeight.Bold,
-				position = UDim2.fromOffset(padding, padding + 30),
-				sizeConstraint = UDim2.fromOffset(math.max(1, panelWidth - padding * 2), 18),
+				position = UDim2.fromOffset(nameX, padding + 30),
+				sizeConstraint = UDim2.fromOffset(math.max(1, panelWidth - nameX - padding), 18),
 				zIndex = 420,
 			}),
 			track,

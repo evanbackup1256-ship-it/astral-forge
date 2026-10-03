@@ -162,7 +162,25 @@ for _, action in { "BuyDailyOffer", "BuyCrateSkin", "EquipCrateSkin", "FuseRelic
 	assert(string.find(server, "Protocol.Actions." .. action .. " then", 1, true), action .. " dispatched by the server")
 	assert(string.find(client, '["' .. action .. '"] = true', 1, true), action .. " allowed by the client")
 end
-assert(string.find(server, "ShopCatalog.roll(player.UserId, day, cosmetics.CrateSkins)", 1, true), "the server re-rolls the day's shop to validate a buy")
+assert(string.find(server, "ShopCatalog.roll(player.UserId, day, shop.Owned)", 1, true), "the server re-rolls the day's shop to validate a buy")
+-- The roll leaves out the skins owned when the day began, so a mid-day skin buy can't reshuffle it.
+do
+	local Bag = require("../src/Server/AstralForge/Modules/ProfileBagMath")
+	local profile = { Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" } }
+	local shop = Bag.EnsureDailyShop(profile, 20000, profile.Cosmetics.CrateSkins)
+	local before = Shop.roll(99, 20000, shop.Owned)
+	profile.Cosmetics.CrateSkins.Crystal = true
+	profile.Cosmetics.CrateSkins.Frost = true
+	shop = Bag.EnsureDailyShop(profile, 20000, profile.Cosmetics.CrateSkins)
+	assert(shop.Owned.Crystal == nil, "the day's owned-skin snapshot is fixed")
+	local after = Shop.roll(99, 20000, shop.Owned)
+	for index, offer in before do
+		assert(after[index].Id == offer.Id, "a mid-day skin buy must not reshuffle the Daily Shop")
+	end
+	shop = Bag.EnsureDailyShop(profile, 20001, profile.Cosmetics.CrateSkins)
+	assert(shop.Owned.Crystal == true and next(shop.Bought) == nil, "a new day re-snapshots and resets purchases")
+	assert(string.find(fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#StoreFront"), "ShopCatalog.roll(", 1, true), "the storefront shows the same roll")
+end
 assert(string.find(server, "DailyShop = {", 1, true) and string.find(server, "Cosmetics = {", 1, true) and string.find(server, "CodexBonus = Economy.CodexBonus(profile)", 1, true), "the snapshot carries the shop, cosmetics and codex")
 local template = fs.readFile("src/Server/AstralForge/DataTemplate.luau")
 assert(string.find(template, "DailyShop = { Day = -1, Bought = {} }", 1, true) and string.find(template, 'CrateSkin = "Classic"', 1, true), "new save bags have template defaults")

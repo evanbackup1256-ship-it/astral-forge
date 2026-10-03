@@ -921,10 +921,179 @@ def piece_ball():
     return obj
 
 
+# ------------------------------------------------------------------------------------------------
+# crate skins: every skin is a body and a lid (the lid is its own mesh so it can swing open). The
+# box is 1.6 wide, 1.1 deep and 1.0 tall (studs); the lid sits on top, its hinge along the back edge.
+# ------------------------------------------------------------------------------------------------
+
+CRATE_W, CRATE_D, CRATE_H, LID_H = 1.6, 1.1, 1.0, 0.34
+
+CRATE_STYLES = {
+    # base: (colour, colour2, metal, rough, coat), trim: (colour, colour2, metal, rough), glow: colour or None
+    "Classic": dict(base=(srgb(70, 52, 44), srgb(96, 72, 58), 0.0, 0.7, 0.0), trim=(BRASS, BRASS_DEEP, 1.0, 0.3), glow=srgb(255, 140, 60), extra="rivets"),
+    "Crystal": dict(base=(srgb(120, 220, 255), srgb(200, 245, 255), 0.0, 0.1, 1.0), trim=(srgb(220, 230, 240), srgb(150, 160, 175), 1.0, 0.2), glow=srgb(160, 240, 255), extra="crystals"),
+    "Frost": dict(base=(srgb(150, 200, 230), srgb(205, 235, 250), 0.0, 0.35, 0.6), trim=(srgb(230, 245, 255), srgb(170, 200, 220), 1.0, 0.25), glow=srgb(170, 230, 255), extra="icicles"),
+    "Molten": dict(base=(srgb(40, 30, 30), srgb(70, 50, 44), 0.0, 0.85, 0.0), trim=(srgb(90, 70, 60), srgb(50, 40, 36), 1.0, 0.5), glow=srgb(255, 120, 40), extra="cracks"),
+    "Nebula": dict(base=(srgb(36, 22, 60), srgb(90, 50, 130), 0.0, 0.08, 1.0), trim=(GOLD, BRASS_DEEP, 1.0, 0.25), glow=srgb(250, 120, 220), extra="nebula"),
+    "Void": dict(base=(srgb(20, 16, 28), srgb(40, 30, 56), 0.0, 0.6, 0.3), trim=(srgb(70, 50, 110), srgb(30, 20, 50), 1.0, 0.35), glow=srgb(180, 110, 255), extra="runes"),
+    "Gilded": dict(base=(srgb(250, 244, 230), srgb(230, 220, 200), 0.0, 0.3, 0.8), trim=(GOLD, srgb(214, 150, 50), 1.0, 0.18), glow=srgb(255, 236, 170), extra="stars"),
+    "Celestial": dict(base=(srgb(235, 250, 255), srgb(170, 230, 255), 0.0, 0.15, 1.0), trim=(srgb(255, 236, 170), srgb(200, 170, 110), 1.0, 0.15), glow=srgb(120, 240, 255), extra="halo"),
+}
+
+
+def crate_materials(skin):
+    style = CRATE_STYLES[skin]
+    b, t, g = style["base"], style["trim"], style["glow"]
+    veins = g if style["extra"] in ("cracks", "runes", "nebula") else None
+    base = material(f"{skin}Base", b[0], base2=b[1], noise_scale=6, metal=b[2], rough=b[3], coat=b[4],
+                    veins=veins, vein_scale=4 if style["extra"] == "cracks" else 7, vein_glow=0.9 if style["extra"] == "cracks" else 0.5)
+    trim = material(f"{skin}Trim", t[0], base2=t[1], noise_scale=40, metal=t[2], rough=t[3], noise=0.06)
+    glow = material(f"{skin}Glow", g, emit=g, emit_strength=0.8, rough=0.3)
+    return [base, trim, glow]
+
+
+def box_bm(sx, sy, sz, mat, center=(0, 0, 0)):
+    b = bmesh.new()
+    bmesh.ops.create_cube(b, size=1)
+    bmesh.ops.scale(b, vec=(sx, sy, sz), verts=b.verts)
+    bmesh.ops.translate(b, vec=center, verts=b.verts)
+    tag(b.faces, mat, False)
+    return b
+
+
+def crate_body(skin):
+    style = CRATE_STYLES[skin]
+    bm = bmesh.new()
+    add_mesh_from(bm, box_bm(CRATE_W, CRATE_D, CRATE_H, 0, (0, 0, CRATE_H / 2)))
+    # trim: bottom band, top rim, vertical corner posts
+    add_mesh_from(bm, box_bm(CRATE_W + 0.06, CRATE_D + 0.06, 0.12, 1, (0, 0, 0.06)))
+    add_mesh_from(bm, box_bm(CRATE_W + 0.05, CRATE_D + 0.05, 0.08, 1, (0, 0, CRATE_H - 0.04)))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            add_mesh_from(bm, box_bm(0.12, 0.12, CRATE_H, 1, (sx * (CRATE_W / 2), sy * (CRATE_D / 2), CRATE_H / 2)))
+    # the front lock plate and a glowing seam just under the lid
+    add_mesh_from(bm, box_bm(0.34, 0.06, 0.32, 1, (0, -CRATE_D / 2 - 0.03, CRATE_H - 0.24)))
+    add_mesh_from(bm, box_bm(0.14, 0.04, 0.14, 2, (0, -CRATE_D / 2 - 0.065, CRATE_H - 0.24)))
+    add_mesh_from(bm, box_bm(CRATE_W - 0.1, CRATE_D - 0.1, 0.03, 2, (0, 0, CRATE_H + 0.005)))
+    extra = style["extra"]
+    if extra == "rivets":
+        for sx in (-1, 1):
+            for z in (0.2, 0.5, 0.8):
+                for sy in (-1, 1):
+                    add_mesh_from(bm, uvsphere(0.025, 8, 5, mat=1), at(sx * (CRATE_W / 2 + 0.06), sy * (CRATE_D / 2 - 0.02), z))
+        for x in (-0.45, 0, 0.45):
+            add_mesh_from(bm, box_bm(0.03, 0.02, CRATE_H - 0.2, 1, (x, -CRATE_D / 2 - 0.01, CRATE_H / 2)))
+    elif extra == "icicles":
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                for k in range(3):
+                    p = prism(0.03 + 0.01 * k, 0.12, 6, tip=0.0, mat=2, taper=0.0)
+                    add_mesh_from(bm, p, at(sx * (CRATE_W / 2 - 0.1 - k * 0.12), sy * (CRATE_D / 2 + 0.03), 0.02) @ rot("X", 180))
+        for x in (-0.5, 0.5):
+            add_mesh_from(bm, box_bm(0.26, 0.015, 0.03, 2, (x, -CRATE_D / 2 - 0.005, 0.5)))
+            add_mesh_from(bm, box_bm(0.03, 0.015, 0.26, 2, (x, -CRATE_D / 2 - 0.005, 0.5)))
+    elif extra == "stars":
+        for x in (-0.5, 0.5):
+            for z in (0.3, 0.7):
+                star = ico(0.035, 1, mat=1, smooth=False)
+                add_mesh_from(bm, star, at(x, -CRATE_D / 2 - 0.03, z))
+    elif extra == "halo":
+        for x in (-0.55, -0.2, 0.2, 0.55):
+            add_mesh_from(bm, box_bm(0.02, 0.015, CRATE_H - 0.26, 2, (x, -CRATE_D / 2 - 0.006, CRATE_H / 2)))
+    elif extra == "crystals":
+        for x in (-0.55, 0.55):
+            add_mesh_from(bm, box_bm(0.36, 0.015, 0.6, 2, (x, -CRATE_D / 2 - 0.006, 0.5)))
+    elif extra == "nebula":
+        add_mesh_from(bm, box_bm(CRATE_W - 0.4, 0.015, 0.56, 2, (0, -CRATE_D / 2 - 0.006, 0.44)))
+    obj = new_object(f"Crate_{skin}_Body", bm, crate_materials(skin), smooth=None)
+    modifiers(obj, bevel=0.018, bevel_segments=2, angle=40)
+    return obj
+
+
+def barrel(half_w, half_d, rise, mat, base_z, segs=20, inflate=0.0):
+    """A treasure-chest lid: a half-cylinder along X (an arch over the depth), closed at both ends."""
+    b = bmesh.new()
+    rings = []
+    for x in (-half_w, half_w):
+        ring = []
+        for i in range(segs + 1):
+            a = math.pi * i / segs
+            ring.append(b.verts.new((x, math.cos(a) * (half_d + inflate), base_z + math.sin(a) * (rise + inflate))))
+        rings.append(ring)
+    for i in range(segs):
+        b.faces.new((rings[0][i], rings[0][i + 1], rings[1][i + 1], rings[1][i]))
+    b.faces.new(list(reversed(rings[0])))
+    b.faces.new(rings[1])
+    bottom = [rings[0][0], rings[0][segs], rings[1][segs], rings[1][0]]
+    b.faces.new(bottom)
+    bmesh.ops.recalc_face_normals(b, faces=b.faces)
+    tag(b.faces, mat, True)
+    return b
+
+
+def crate_lid(skin):
+    style = CRATE_STYLES[skin]
+    bm = bmesh.new()
+    base_z = CRATE_H + 0.02
+    half_w, half_d = CRATE_W / 2 + 0.04, CRATE_D / 2 + 0.04
+    # the arched lid, a rim along its base, and two trim straps that wrap over the arch
+    add_mesh_from(bm, barrel(half_w, half_d, LID_H, 0, base_z))
+    add_mesh_from(bm, box_bm(CRATE_W + 0.1, CRATE_D + 0.1, 0.06, 1, (0, 0, base_z + 0.03)))
+    for sx in (-1, 1):
+        add_mesh_from(bm, barrel(0.06, half_d, LID_H, 1, base_z, inflate=0.02), at(sx * (half_w - 0.16), 0, 0))
+    add_mesh_from(bm, barrel(0.035, half_d, LID_H, 2, base_z, inflate=0.012))
+    # handle / emblem by style, sitting on the crown of the arch
+    extra = style["extra"]
+    emblem_z = base_z + LID_H + 0.02
+    if extra == "crystals":
+        for k, (x, y, r, h, tilt, lean) in enumerate(((0, 0, 0.1, 0.5, 0, 0), (0.17, 0.04, 0.08, 0.36, 22, 6), (-0.17, -0.03, 0.08, 0.34, -24, -8), (0.06, -0.14, 0.065, 0.26, 10, -22), (-0.05, 0.13, 0.06, 0.24, -8, 20))):
+            add_mesh_from(bm, prism(r, h, 6, tip=r * 1.3, mat=2, taper=0.94), at(x, y, emblem_z - 0.06) @ rot("Y", tilt) @ rot("X", lean))
+    elif extra == "halo":
+        add_mesh_from(bm, torus(0.32, 0.025, 64, 10, mat=1), at(0, 0, emblem_z + 0.22) @ rot("X", 90))
+        add_mesh_from(bm, ico(0.09, 2, mat=2), at(0, 0, emblem_z + 0.22))
+    elif extra == "icicles":
+        for k in range(5):
+            add_mesh_from(bm, prism(0.035, 0.18 + 0.05 * (k % 2), 6, tip=0.05, mat=2), at(-0.36 + k * 0.18, 0, emblem_z - 0.04))
+    elif extra == "runes" or extra == "nebula":
+        add_mesh_from(bm, torus(0.16, 0.02, 48, 8, mat=1), at(0, 0, emblem_z - 0.02))
+        add_mesh_from(bm, ico(0.08, 2, mat=2), at(0, 0, emblem_z + 0.02))
+    elif extra == "stars":
+        star = bmesh.new()
+        rim = [star.verts.new((math.sin(TAU * i / 10) * (0.18 if i % 2 == 0 else 0.08), 0, math.cos(TAU * i / 10) * (0.18 if i % 2 == 0 else 0.08))) for i in range(10)]
+        f1 = star.verts.new((0, -0.05, 0))
+        f2 = star.verts.new((0, 0.05, 0))
+        for i in range(10):
+            star.faces.new((rim[i], rim[(i + 1) % 10], f1))
+            star.faces.new((rim[(i + 1) % 10], rim[i], f2))
+        bmesh.ops.recalc_face_normals(star, faces=star.faces)
+        tag(star.faces, 1, False)
+        add_mesh_from(bm, star, at(0, 0, emblem_z + 0.12))
+    else:
+        # a forged handle with ember gems in its feet
+        add_mesh_from(bm, box_bm(0.5, 0.06, 0.05, 1, (0, 0, emblem_z + 0.08)))
+        for sx in (-1, 1):
+            add_mesh_from(bm, box_bm(0.06, 0.06, 0.12, 1, (sx * 0.22, 0, emblem_z + 0.02)))
+            add_mesh_from(bm, ico(0.04, 1, mat=2), at(sx * 0.22, -0.05, emblem_z - 0.02))
+        if extra == "cracks":
+            for x in (-0.4, 0.4):
+                add_mesh_from(bm, ico(0.07, 1, mat=2, smooth=False), at(x, 0.1, emblem_z - 0.05))
+    obj = new_object(f"Crate_{skin}_Lid", bm, crate_materials(skin), smooth=None)
+    modifiers(obj, bevel=0.016, bevel_segments=2, angle=40)
+    return obj
+
+
+def crate_piece(skin):
+    def make():
+        return [crate_body(skin), crate_lid(skin)]
+    return make
+
+
 PIECES = {
     "Ember": piece_ember, "Dust": piece_dust, "Core": piece_core, "Comet": piece_comet, "Star": piece_star,
     "Nova": piece_nova, "Drum": piece_drum, "Coin": piece_coin, "Card": piece_card, "Wheel": piece_wheel, "Ball": piece_ball,
 }
+for _skin in CRATE_STYLES:
+    PIECES["Crate" + _skin] = crate_piece(_skin)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1063,19 +1232,25 @@ def main():
     for name, make in PIECES.items():
         if ONLY and name not in ONLY:
             continue
-        obj = make()
-        obj.location = (spacing, 0, 0)
+        made = make()
+        objs = made if isinstance(made, list) else [made]
+        for obj in objs:
+            obj.location = (spacing, 0, 0)
+            apply_modifiers(obj)
+            tris = triangles(obj)
+            label = obj.name.replace("Casino_", "")
+            print(f"[casino] {label}: {tris} triangles", flush=True)
+            if tris > 19500:
+                print(f"[casino] WARNING {label} is over Roblox's per-mesh triangle cap", flush=True)
+            built.append((label, obj))
         spacing += 8
-        apply_modifiers(obj)
-        tris = triangles(obj)
-        print(f"[casino] {name}: {tris} triangles", flush=True)
-        if tris > 19500:
-            print(f"[casino] WARNING {name} is over Roblox's per-mesh triangle cap", flush=True)
-        built.append((name, obj))
     for name, obj in built:
         if not FAST:
             unwrap(obj)
-            bake(obj, f"Casino_{name}", TEX // 2 if name in SMALL else TEX)
+            # crate parts keep their own names (Crate_<Skin>_Body/_Lid); everything else is Casino_<Piece>
+            texture_name = obj.name if obj.name.startswith("Crate_") else f"Casino_{name}"
+            small = name in SMALL or obj.name.startswith("Crate_")
+            bake(obj, texture_name, TEX // 2 if small else TEX)
             print(f"[casino] baked {name}", flush=True)
         preview(obj, name, textured=not FAST)
     if not FAST and not ONLY:

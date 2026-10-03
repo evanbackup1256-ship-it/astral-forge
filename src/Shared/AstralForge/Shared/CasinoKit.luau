@@ -4,6 +4,6 @@
 -- Id 0 means not uploaded yet: the casino keeps drawing its part-built shapes.
 -- CASINO-KIT-BEGIN (rewritten by tools/casinobuild/upload_casino.py)
 return table.freeze({
-	Id = 74396506550594,
+	Id = 76823071045654,
 })
 -- CASINO-KIT-END

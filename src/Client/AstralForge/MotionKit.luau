@@ -2378,6 +2378,7 @@ return {
 	useStagger = useStagger,
 	useClock = useClock,
 	useWallClock = useWallClock,
+	subscribeContinuous = subscribeContinuous,
 	useRotation = useRotation,
 	useFlash = useFlash,
 	usePulse = usePulse,

@@ -401,10 +401,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			end
 		end
 		-- The Shop's daily purchases and cosmetics (crate skins): rebuilt, unknown skins dropped.
-		ProfileBagMath.EnsureDailyShop(profile)
-		ProfileBagMath.EnsureCosmetics(profile, function(id)
+		local cosmetics = ProfileBagMath.EnsureCosmetics(profile, function(id)
 			return ShopCatalog.skin(id) ~= nil
 		end)
+		ProfileBagMath.EnsureDailyShop(profile, nil, cosmetics.CrateSkins)
 		ProfileBagMath.EnsureAutoSalvage(profile)
 		profile.Items.AutoSalvage.Enabled = profile.Items.AutoSalvage.Enabled == true
 		profile.Items.AutoSalvage.KeepNew = profile.Items.AutoSalvage.KeepNew ~= false

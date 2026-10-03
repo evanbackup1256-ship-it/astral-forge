@@ -1402,6 +1402,7 @@ serviceFactories["GameService"] = function()
 			DailyShop = {
 				Day = type(profile.DailyShop) == "table" and profile.DailyShop.Day or -1,
 				Bought = copyDictionary(type(profile.DailyShop) == "table" and profile.DailyShop.Bought or {}),
+				Owned = if type(profile.DailyShop) == "table" and type(profile.DailyShop.Owned) == "table" then copyDictionary(profile.DailyShop.Owned) else nil,
 			},
 			Cosmetics = {
 				CrateSkins = copyDictionary(type(profile.Cosmetics) == "table" and profile.Cosmetics.CrateSkins or { Classic = true }),
@@ -2700,11 +2701,11 @@ serviceFactories["GameService"] = function()
 		local now = os.time()
 		local day = ShopCatalog.day(now)
 		return self:_mutate(player, function(profile)
-			local shop = ProfileBagMath.EnsureDailyShop(profile, day)
 			local cosmetics = ProfileBagMath.EnsureCosmetics(profile, function(id)
 				return ShopCatalog.skin(id) ~= nil
 			end)
-			local offers = ShopCatalog.roll(player.UserId, day, cosmetics.CrateSkins)
+			local shop = ProfileBagMath.EnsureDailyShop(profile, day, cosmetics.CrateSkins)
+			local offers = ShopCatalog.roll(player.UserId, day, shop.Owned)
 			local offer = offers[math.floor(slot)]
 			if offer == nil then
 				return responseError("That daily offer does not exist.")
@@ -2782,6 +2783,8 @@ serviceFactories["GameService"] = function()
 			if cosmetics.CrateSkins[skin.Id] == true then
 				return responseError("You already own that skin.")
 			end
+			-- Pin today's Daily Shop to the skins owned before this one, so its offers stay put.
+			ProfileBagMath.EnsureDailyShop(profile, ShopCatalog.day(os.time()), cosmetics.CrateSkins)
 			local denied = spendShopCurrency(profile, skin.Price.Currency, skin.Price.Amount)
 			if denied then
 				return responseError(denied)
