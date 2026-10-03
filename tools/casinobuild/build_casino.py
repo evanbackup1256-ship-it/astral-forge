@@ -16,6 +16,7 @@ Units: studs (1 Blender unit = 1 stud). +Z up; a piece's face looks along -Y (Bl
 After import that face looks along Roblox +Z; PagesCasino turns each piece to face its camera.
 """
 
+import json
 import math
 import os
 import sys
@@ -1088,10 +1089,157 @@ def crate_piece(skin):
     return make
 
 
+# ------------------------------------------------------------------------------------------------
+# the prize wheel: a static frame with bulb sockets and a pointer, a spinning face (back plate, gold
+# dividers, pegs, jewelled hub), and one wedge the game clones and tints per prize. The wheel stands in
+# the XZ plane facing -Y (the camera); angles run clockwise from +Z, wedge 0 centred on the pointer.
+# ------------------------------------------------------------------------------------------------
+
+PRIZE_SEGMENTS = 8
+PRIZE_R_IN, PRIZE_R_OUT = 0.62, 2.36
+PRIZE_FRAME_IN, PRIZE_FRAME_OUT = 2.5, 2.98
+PRIZE_BULB_R, PRIZE_BULBS = 2.74, 24
+
+
+def polar(r, degrees, y):
+    a = math.radians(degrees)
+    return (math.sin(a) * r, y, math.cos(a) * r)
+
+
+def lathe_y(bm, profile, segments, mat=0, smooth=True):
+    """Revolve an (r, y) profile around the Y axis (the prize wheel's axle) into bm."""
+    temp = bmesh.new()
+    lathe(temp, profile, segments, mat=mat, smooth=smooth)
+    for v in temp.verts:
+        v.co = Vector((v.co.x, v.co.z, v.co.y))
+    bmesh.ops.recalc_face_normals(temp, faces=temp.faces)
+    return add_mesh_from(bm, temp)
+
+
+def piece_prize_wedge():
+    white = material("PrizeWedgeWhite", srgb(255, 255, 255), rough=0.32, coat=0.6)
+    half = 180 / PRIZE_SEGMENTS - 0.6
+    bm = bmesh.new()
+    radial, angular = 12, 14
+    front, back = [], []
+    for i in range(radial + 1):
+        r = PRIZE_R_IN + (PRIZE_R_OUT - PRIZE_R_IN) * i / radial
+        row_f, row_b = [], []
+        for j in range(angular + 1):
+            a = -half + 2 * half * j / angular
+            u = i / radial
+            v = j / angular
+            pillow = 0.05 * math.sin(math.pi * u) * math.sin(math.pi * v)
+            row_f.append(bm.verts.new(polar(r, a, -0.08 - pillow)))
+            row_b.append(bm.verts.new(polar(r, a, 0.08)))
+        front.append(row_f)
+        back.append(row_b)
+    for i in range(radial):
+        for j in range(angular):
+            bm.faces.new((front[i][j], front[i][j + 1], front[i + 1][j + 1], front[i + 1][j]))
+            bm.faces.new((back[i][j], back[i + 1][j], back[i + 1][j + 1], back[i][j + 1]))
+    for i in range(radial):
+        for j in (0, angular):
+            bm.faces.new((front[i][j], front[i + 1][j], back[i + 1][j], back[i][j]))
+    for j in range(angular):
+        for i in (0, radial):
+            bm.faces.new((front[i][j], back[i][j], back[i][j + 1], front[i][j + 1]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    tag(bm.faces, 0, True)
+    obj = new_object("Casino_PrizeWedge", bm, [white], smooth=True)
+    modifiers(obj, bevel=0.025, bevel_segments=3, angle=40)
+    return obj
+
+
+def piece_prize_face():
+    lacquer = material("PrizeLacquer", srgb(22, 16, 36), base2=srgb(40, 28, 62), noise_scale=5, rough=0.25, coat=0.9)
+    gold = material("PrizeGold", GOLD, base2=BRASS_DEEP, noise_scale=40, metal=1.0, rough=0.2, noise=0.06)
+    ruby = material("PrizeRuby", srgb(220, 30, 80), emit=srgb(255, 70, 120), emit_strength=0.35, rough=0.12, coat=1.0)
+    bm = bmesh.new()
+    # the back plate: a closed disc from y 0.1 (front) to 0.16 (back)
+    lathe_y(bm, [(0.0005, 0.1), (PRIZE_R_OUT + 0.08, 0.1), (PRIZE_R_OUT + 0.1, 0.13), (PRIZE_R_OUT + 0.08, 0.16), (0.0005, 0.16)], 96, mat=0, smooth=False)
+    lip = torus(PRIZE_R_OUT + 0.04, 0.06, 128, 12, mat=1)
+    add_mesh_from(bm, lip, rot("X", 90) @ at(0, 0, 0.0))
+    for k in range(PRIZE_SEGMENTS):
+        a = 360 * (k + 0.5) / PRIZE_SEGMENTS
+        bar = bmesh.new()
+        bmesh.ops.create_cube(bar, size=1)
+        bmesh.ops.scale(bar, vec=(0.06, 0.14, PRIZE_R_OUT - PRIZE_R_IN), verts=bar.verts)
+        tag(bar.faces, 1, False)
+        mid = (PRIZE_R_IN + PRIZE_R_OUT) / 2
+        add_mesh_from(bm, bar, rot("Y", a) @ at(0, -0.07, mid))
+        peg = prism(0.055, 0.2, 16, mat=1, smooth=True)
+        add_mesh_from(bm, peg, rot("Y", a) @ at(0, -0.04, PRIZE_R_OUT - 0.1) @ rot("X", 90))
+        knob = uvsphere(0.075, 16, 8, mat=1)
+        add_mesh_from(bm, knob, rot("Y", a) @ at(0, -0.26, PRIZE_R_OUT - 0.1))
+    # the hub: a domed gold cap over the inner ends of the wedges, ringed, with a ruby in the middle
+    lathe_y(bm, [(0.0005, 0.08), (0.7, 0.08), (0.7, -0.02), (0.68, -0.1), (0.6, -0.18), (0.46, -0.24), (0.3, -0.27), (0.0005, -0.28)], 64, mat=1)
+    ring = torus(0.62, 0.05, 64, 10, mat=1)
+    add_mesh_from(bm, ring, rot("X", 90) @ Matrix.Translation((0, 0, 0.12)))
+    gem = ico(0.2, 2, mat=2, smooth=False)
+    add_mesh_from(bm, gem, at(0, -0.3, 0) @ Matrix.Diagonal((1, 0.55, 1, 1)))
+    obj = new_object("Casino_PrizeFace", bm, [lacquer, gold, ruby], smooth=None)
+    modifiers(obj, bevel=0.01, bevel_segments=2, angle=35)
+    return obj
+
+
+def piece_prize_frame():
+    lacquer = material("FrameLacquer", srgb(70, 16, 40), base2=srgb(40, 8, 26), noise_scale=4, rough=0.22, coat=1.0)
+    gold = material("FrameGold", GOLD, base2=BRASS_DEEP, noise_scale=40, metal=1.0, rough=0.2, noise=0.06)
+    dark = material("FrameSocket", srgb(18, 12, 24), rough=0.5)
+    bm = bmesh.new()
+    profile = [(PRIZE_FRAME_IN, 0.18), (PRIZE_FRAME_IN, -0.02), (PRIZE_FRAME_IN + 0.08, -0.12),
+               (PRIZE_FRAME_OUT - 0.08, -0.12), (PRIZE_FRAME_OUT, -0.02), (PRIZE_FRAME_OUT, 0.18), (PRIZE_FRAME_IN, 0.18)]
+    lathe_y(bm, profile, 96, mat=0, smooth=False)
+    for r in (PRIZE_FRAME_IN + 0.03, PRIZE_FRAME_OUT - 0.03):
+        add_mesh_from(bm, torus(r, 0.05, 96, 8, mat=1), rot("X", 90) @ Matrix.Translation((0, 0, 0.12)))
+    for k in range(PRIZE_BULBS):
+        a = 360 * k / PRIZE_BULBS
+        cup = torus(0.085, 0.025, 14, 5, mat=1)
+        add_mesh_from(bm, cup, at(*polar(PRIZE_BULB_R, a, -0.13)) @ rot("X", 90))
+        well = prism(0.07, 0.02, 12, mat=2)
+        add_mesh_from(bm, well, at(*polar(PRIZE_BULB_R, a, -0.12)) @ rot("X", 90))
+    obj = new_object("Casino_PrizeFrame", bm, [lacquer, gold, dark], smooth=None)
+    modifiers(obj, bevel=0.012, bevel_segments=1, angle=35)
+    return obj
+
+
+def piece_prize_pointer():
+    gold = material("PointerGold", GOLD, base2=BRASS_DEEP, noise_scale=40, metal=1.0, rough=0.18, noise=0.05)
+    ruby = material("PointerRuby", srgb(230, 36, 86), emit=srgb(255, 80, 130), emit_strength=0.35, rough=0.1, coat=1.0)
+    bm = bmesh.new()
+    # a flapper: a rounded shield tapering to a point, hanging from a hinge pin above the rim
+    outline = []
+    for k in range(25):
+        t = k / 24
+        a = math.pi * t
+        outline.append((math.cos(a) * 0.32, 0.0, 0.32 + math.sin(a) * 0.22))
+    outline = [(0.0, 0.0, -0.38)] + [(0.32, 0.0, 0.32)] + outline[1:-1] + [(-0.32, 0.0, 0.32)]
+    front = [bm.verts.new((x, -0.09, z)) for x, _, z in outline]
+    back = [bm.verts.new((x, 0.09, z)) for x, _, z in outline]
+    bm.faces.new(front)
+    bm.faces.new(list(reversed(back)))
+    n = len(outline)
+    for i in range(n):
+        bm.faces.new((front[i], back[i], back[(i + 1) % n], front[(i + 1) % n]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    tag(bm.faces, 0, False)
+    pin = prism(0.06, 0.34, 16, mat=0, smooth=True)
+    add_mesh_from(bm, pin, at(0, 0.17, 0.42) @ rot("X", 90))
+    gem = ico(0.11, 2, mat=1, smooth=False)
+    add_mesh_from(bm, gem, at(0, -0.12, 0.16) @ Matrix.Diagonal((1, 0.5, 1, 1)))
+    obj = new_object("Casino_PrizePointer", bm, [gold, ruby], smooth=None)
+    modifiers(obj, bevel=0.02, bevel_segments=3, angle=35)
+    return obj
+
+
 PIECES = {
     "Ember": piece_ember, "Dust": piece_dust, "Core": piece_core, "Comet": piece_comet, "Star": piece_star,
     "Nova": piece_nova, "Drum": piece_drum, "Coin": piece_coin, "Card": piece_card, "Wheel": piece_wheel, "Ball": piece_ball,
+    "PrizeWedge": piece_prize_wedge, "PrizeFace": piece_prize_face, "PrizeFrame": piece_prize_frame,
+    "PrizePointer": piece_prize_pointer,
 }
+NOBAKE = {"PrizeWedge"}
 for _skin in CRATE_STYLES:
     PIECES["Crate" + _skin] = crate_piece(_skin)
 
@@ -1244,7 +1392,21 @@ def main():
                 print(f"[casino] WARNING {label} is over Roblox's per-mesh triangle cap", flush=True)
             built.append((label, obj))
         spacing += 8
+    centres = {}
     for name, obj in built:
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        mesh = obj.evaluated_get(depsgraph).to_mesh()
+        pts = [obj.matrix_world @ v.co - obj.location for v in mesh.vertices]
+        obj.evaluated_get(depsgraph).to_mesh_clear()
+        lo = [min(p[i] for p in pts) for i in range(3)]
+        hi = [max(p[i] for p in pts) for i in range(3)]
+        centres[obj.name] = {"centre": [(lo[i] + hi[i]) / 2 for i in range(3)], "size": [hi[i] - lo[i] for i in range(3)]}
+    with open(os.path.join(OUT, "kit_centres.json"), "w", encoding="utf-8") as handle:
+        json.dump(centres, handle, indent=1)
+    for name, obj in built:
+        if name in NOBAKE:
+            preview(obj, name, textured=False)
+            continue
         if not FAST:
             unwrap(obj)
             # crate parts keep their own names (Crate_<Skin>_Body/_Lid); everything else is Casino_<Piece>

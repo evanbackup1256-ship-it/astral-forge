@@ -2290,15 +2290,21 @@ do
 			self.assetPools[asset] = pool
 		end
 		if SoundSheet.enabled() then
-			local sheetAsset = SoundSheet.assetId()
-			local sheetPool = {}
-			for index = 1, SHEET_CHANNELS do
-				local channel = self:makeChannel(sheetAsset, 100 + index, group)
-				channel.PlaybackRegionsEnabled = true
-				table.insert(sheetPool, channel)
+			local function sheetChannels(sheetAsset, base)
+				local sheetPool = {}
+				for index = 1, SHEET_CHANNELS do
+					local channel = self:makeChannel(sheetAsset, base + index, group)
+					channel.PlaybackRegionsEnabled = true
+					table.insert(sheetPool, channel)
+				end
+				self.assetPools[sheetAsset] = sheetPool
+				return sheetPool
 			end
-			self.assetPools[sheetAsset] = sheetPool
-			self.sheetPool = sheetPool
+			local primaryAsset = SoundSheet.primaryAsset()
+			local previousAsset = SoundSheet.previousAsset()
+			self.primarySheetPool = if primaryAsset ~= nil then sheetChannels(primaryAsset, 100) else nil
+			self.previousSheetPool = if previousAsset ~= nil then sheetChannels(previousAsset, 200) else nil
+			self.sheetPool = self.primarySheetPool or self.previousSheetPool
 		end
 		local musicDirector = MusicDirector.new(musicGroup)
 		self.musicDirector = musicDirector
@@ -2921,12 +2927,24 @@ do
 		if self.sheetReady then
 			return true
 		end
-		local probe = self.sheetPool ~= nil and self.sheetPool[1] or nil
-		if probe ~= nil and probe.IsLoaded and probe.TimeLength > 1 then
+		local function loaded(pool)
+			local probe = pool ~= nil and pool[1] or nil
+			return probe ~= nil and probe.IsLoaded and probe.TimeLength > 1
+		end
+		if loaded(self.primarySheetPool) then
+			self.sheetPool = self.primarySheetPool
+			SoundSheet.use(false)
 			self.sheetReady = true
 			ClientLog:once("audio-sheet-ready", "audio", "sound sheet loaded")
+			return true
 		end
-		return self.sheetReady == true
+		if loaded(self.previousSheetPool) then
+			self.sheetPool = self.previousSheetPool
+			SoundSheet.use(true)
+			ClientLog:once("audio-sheet-previous", "audio", "new sound sheet not available yet; playing the previous one")
+			return true
+		end
+		return false
 	end
 	function Mixer:playSheet(cue, spec, start, length, speedMult, now, token)
 		local pool = self.sheetPool
@@ -3975,12 +3993,28 @@ SoundSheet.VOICE = table.freeze({
 	overviewPress = "overviewPress",
 })
 
+local Primary = Manifest.SoundSheet
+local Previous = Manifest.SoundSheetPrevious
+local active = if Primary.Id > 0 then Primary else (Previous or Primary)
+
 function SoundSheet.enabled(): boolean
-	return Manifest.SoundSheet.Id > 0
+	return Primary.Id > 0 or (Previous ~= nil and Previous.Id > 0)
 end
 
 function SoundSheet.assetId(): string
-	return `rbxassetid://{Manifest.SoundSheet.Id}`
+	return `rbxassetid://{active.Id}`
+end
+
+function SoundSheet.primaryAsset(): string?
+	return if Primary.Id > 0 then `rbxassetid://{Primary.Id}` else nil
+end
+
+function SoundSheet.previousAsset(): string?
+	return if Previous ~= nil and Previous.Id > 0 then `rbxassetid://{Previous.Id}` else nil
+end
+
+function SoundSheet.use(previous: boolean)
+	active = if previous and Previous ~= nil then Previous else Primary
 end
 
 local function voiceName(cue: string): string?
@@ -3988,7 +4022,7 @@ local function voiceName(cue: string): string?
 	if mapped ~= nil then
 		return mapped
 	end
-	if Manifest.SoundSheet.Regions[cue] ~= nil then
+	if active.Regions[cue] ~= nil then
 		return cue
 	end
 	return nil
@@ -3999,7 +4033,7 @@ function SoundSheet.region(cue: string): (number?, number?)
 		return nil, nil
 	end
 	local voice = voiceName(cue)
-	local region = if voice ~= nil then Manifest.SoundSheet.Regions[voice] else nil
+	local region = if voice ~= nil then active.Regions[voice] else nil
 	if region == nil then
 		return nil, nil
 	end
@@ -4008,7 +4042,7 @@ end
 
 function SoundSheet.gain(cue: string): number
 	local voice = voiceName(cue)
-	local level = if voice ~= nil then Manifest.SoundSheet.Loudness[voice] else nil
+	local level = if voice ~= nil then active.Loudness[voice] else nil
 	if level == nil then
 		return 1
 	end

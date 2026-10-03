@@ -237,6 +237,67 @@ def mechanism_tick(pitch: float, click_hz: float = 3800):
     return mix(out, click_transient(click_hz, 0.003), 0.0, 0.5)
 
 
+def soft_blip(pitch: float, seconds: float = 0.07, shimmer: float = 0.25):
+    """A rounded pointer blip: a sine with a 3 ms attack and a quiet octave, no click edge."""
+    body = apply_env(sine(pitch, seconds, 0.5), env_adsr(seconds, 0.003, seconds * 0.4, 0.3, seconds * 0.5))
+    mix(body, apply_env(sine(pitch * 2.0, seconds * 0.6, 0.12), env_exp(seconds * 0.6, seconds * 0.15)))
+    if shimmer > 0:
+        mix(body, apply_env(bell(pitch * 1.5, seconds * 1.6, shimmer * 0.25, GLASS, 0.7), env_exp(seconds * 1.6, seconds * 0.4)), 0.004)
+    return highpass(body, 60)
+
+
+def tactile_press(pitch: float = 900, weight: float = 1.0, ring: float = 0.25):
+    """A key press you can feel: a tight top click, a short low knock, a hint of glass ring."""
+    out = zeros(0.18)
+    mix(out, click_transient(3600, 0.004, 0.6))
+    mix(out, apply_env(glide(pitch * 0.36, pitch * 0.2, 0.05, 0.75 * weight), env_exp(0.05, 0.012)))
+    mix(out, apply_env(sine(pitch, 0.04, 0.35), env_exp(0.04, 0.008)), 0.002)
+    if ring > 0:
+        mix(out, apply_env(bell(pitch * 2.0, 0.12, ring * 0.4, GLASS, 0.6), env_exp(0.12, 0.03)), 0.006)
+    return highpass(out, 40)
+
+
+def peg_clack(pitch: float, weight: float = 1.0):
+    """A wheel peg flicking the pointer: a woody band-passed snap with a pitched knock."""
+    out = zeros(0.1)
+    mix(out, apply_env(svf(noise(0.018), 2600, 3.2), env_exp(0.018, 0.004)), 0.0, 0.9)
+    mix(out, apply_env(glide(pitch, pitch * 0.82, 0.035, 0.55 * weight), env_exp(0.035, 0.008)))
+    mix(out, thump(260, 140, 0.03, 0.25 * weight))
+    return out
+
+
+def ratchet_launch():
+    """The wind-up: four ratchet clicks speeding up, then the release whoosh."""
+    out = zeros(1.0)
+    at = 0.0
+    for k in range(4):
+        mix(out, peg_clack(1500 - k * 120, 0.7), at)
+        at += 0.075 - k * 0.012
+    mix(out, whoosh_air(320, 3400, 0.5, 0.2), 0.24)
+    mix(out, thump(160, 70, 0.12, 0.5), 0.24)
+    return out
+
+
+def friction_brake(seconds: float = 0.7):
+    rub = apply_env(svf(noise(seconds), sweep(2200, 700), 2.2), env_swell(seconds, 0.12, 0.9))
+    hum = apply_env(lowpass(glide(150, 90, seconds, 0.3, wave_shape="saw"), 900), env_swell(seconds, 0.2))
+    return reverb(mix(scale(rub, 0.45), hum), room=0.3, wet=0.12, tail=0.25)
+
+
+def win_fanfare(root: str = "D5", seed_value: int = 515):
+    """A bright stab of the tonic chord, a coin shower, and a rising sparkle tail."""
+    out = zeros(1.9)
+    chord = [note(root) * r for r in (1.0, 1.26, 1.5, 2.0)]
+    for i, f in enumerate(chord):
+        mix(out, apply_env(bell(f, 1.0, 0.5, BELL, 0.85), env_exp(1.0, 0.36)), i * 0.012)
+        mix(out, apply_env(lowpass(glide(f * 0.5, f * 0.5, 0.5, 0.18, wave_shape="saw"), 2400), env_adsr(0.5, 0.01, 0.1, 0.5, 0.3)))
+    mix(out, thump(150, 55, 0.18, 0.7))
+    for k in range(6):
+        mix(out, apply_env(bell(note(root) * (3 + k * 0.5), 0.3, 0.22, COIN), env_exp(0.3, 0.08)), 0.08 + k * 0.05)
+    mix(out, sparkle(0.9, 12, 0.14, seed_value=seed_value), 0.25)
+    return reverb(out, room=0.66, wet=0.28, tail=1.1)
+
+
 def card_snap(noise_hz: float = 3200, thump_f: float = 260):
     out = apply_env(svf(noise(0.05), noise_hz, 1.0), env_exp(0.05, 0.012))
     return mix(scale(out, 0.8), thump(thump_f, thump_f * 0.45, 0.04, 0.3))
@@ -276,7 +337,7 @@ def _build_voices():
     V = {}
 
     # -- Interface chrome ----------------------------------------------------
-    V["hover"] = lambda: chrome_blip(note("A6"), 0.09, 0.35, 101)
+    V["hover"] = lambda: soft_blip(note("A5") * 1.5, 0.07, 0.2)
     V["hoverTick"] = lambda: chrome_blip(note("B6"), 0.06, 0.2, 102)
     V["tick"] = lambda: chrome_blip(note("D7"), 0.035, 0.15, 103)
     V["scroll"] = lambda: chrome_blip(note("F#6") * 1.02, 0.04, 0.1, 104)
@@ -284,9 +345,9 @@ def _build_voices():
     V["amountChange"] = lambda: chrome_blip(note("E6"), 0.028, 0.08, 106)
     V["filterPick"] = lambda: chrome_blip(note("A6") * 0.97, 0.04, 0.22, 107)
     V["sanctuaryHover"] = lambda: chrome_blip(note("C#6"), 0.08, 0.55, 108)
-    V["navHover"] = lambda: chrome_blip(note("G#6"), 0.07, 0.28, 109)
+    V["navHover"] = lambda: soft_blip(note("F#6"), 0.06, 0.15)
 
-    V["click"] = lambda: ui_press(1046, 930, 210, 0.15, 201)
+    V["click"] = lambda: tactile_press(920, 1.0, 0.22)
     V["settings"] = lambda: ui_press(980, 860, 190, 0.35, 202)
     V["purchasePress"] = lambda: ui_press(1180, 990, 230, 0.2, 203)
     V["claimPress"] = lambda: ui_press(1120, 940, 200, 0.1, 204)
@@ -344,7 +405,7 @@ def _build_voices():
     V["gameExit"] = lambda: panel_air(False, 0.6, None, 331)
 
     V["page"] = lambda: reverb(scale(apply_env(svf(noise(0.18), sweep(1600, 4600), 1.3), env_swell(0.18, 0.4)), 0.6), room=0.3, wet=0.12, tail=0.18)
-    V["tabSwitch"] = lambda: reverb(scale(apply_env(svf(noise(0.16), sweep(1800, 5200), 1.4), env_swell(0.16, 0.42)), 0.58), room=0.28, wet=0.1, tail=0.15)
+    V["tabSwitch"] = lambda: reverb(mix(tactile_press(1180, 0.6, 0.0), apply_env(bell(note("F#6"), 0.18, 0.3, NEON, 0.7), env_exp(0.18, 0.05)), 0.012), room=0.25, wet=0.1, tail=0.15)
     V["preview"] = lambda: reverb(scale(apply_env(svf(noise(0.2), sweep(1200, 4000), 1.2), env_swell(0.2, 0.45)), 0.55), room=0.32, wet=0.14, tail=0.2)
     V["storyBeat"] = lambda: reverb(scale(apply_env(svf(noise(0.14), sweep(900, 2800), 1.1), env_swell(0.14, 0.5)), 0.5), room=0.35, wet=0.16, tail=0.22)
     V["storyPage"] = lambda: mix(V["page"](), apply_env(bell(note("F#5"), 0.2, 0.2, VOID), env_exp(0.2, 0.07)), 0.04)
@@ -404,7 +465,7 @@ def _build_voices():
     V["codeReward"] = lambda: reward_bloom(("E5", "G#5", "B5", "E6"), ("E4", "B4"), 8, 1.4, 512)
     V["tutorialFinish"] = lambda: reward_bloom(("D5", "A5", "D6"), ("A3", "D4"), 7, 1.5, 513)
     V["domainReward"] = lambda: reward_bloom(("A4", "C#5", "E5", "A5"), ("A3", "E4"), 9, 1.8, 514)
-    V["wheelLand"] = lambda: reward_bloom(("F#5", "A5", "C#6", "F#6"), ("F#4",), 8, 1.3, 515)
+    V["wheelLand"] = lambda: win_fanfare("D5", 515)
 
     V["unlock"] = lambda: reward_bloom(("A4", "D5", "F#5", "A5", "D6"), None, 8, 1.3, 521)
     V["researchUnlock"] = lambda: reward_bloom(("G4", "B4", "D5", "G5"), None, 6, 1.2, 522)
@@ -452,11 +513,11 @@ def _build_voices():
     )
 
     V["machineInstall"] = lambda: machine_clunk(150, 420, True)
-    V["wheelBrake"] = lambda: machine_clunk(130, 280, True)
+    V["wheelBrake"] = lambda: friction_brake(0.7)
     V["crateBrake"] = lambda: machine_clunk(160, 360, False)
 
     V["wheel"] = lambda: whoosh_air(420, 2600, 0.35, 0.14)
-    V["wheelStart"] = lambda: whoosh_air(360, 3000, 0.45, 0.18)
+    V["wheelStart"] = lambda: ratchet_launch()
     V["crateOpen"] = lambda: whoosh_air(500, 3400, 0.48, 0.2)
     V["expeditionLaunch"] = lambda: whoosh_air(280, 3600, 0.65, 0.24)
     V["bootStart"] = lambda: whoosh_air(320, 2800, 0.5, 0.2)
@@ -495,8 +556,8 @@ def _build_voices():
     V["domainBind"] = lambda: void_swell(1.6, ((55, 0.55), (82.4, 0.32), (110, 0.18)), (800, 3400), 7, 611)
     V["boot"] = lambda: void_swell(1.7, ((48, 0.6), (72, 0.3), (96, 0.2)), (700, 3000), 6, 612)
 
-    V["wheelTick"] = lambda: mechanism_tick(1250, 3800)
-    V["wheelSlow"] = lambda: mechanism_tick(980, 3000)
+    V["wheelTick"] = lambda: peg_clack(1700, 0.8)
+    V["wheelSlow"] = lambda: peg_clack(1250, 1.15)
     V["crateTick"] = lambda: mechanism_tick(1100, 3600)
     V["crateNear"] = lambda: mechanism_tick(1350, 4200)
 

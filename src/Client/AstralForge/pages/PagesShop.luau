@@ -2693,12 +2693,21 @@ local WHEEL_OMEGA = 1440
 local WHEEL_OMEGA_LOW = 1080
 local WHEEL_LAUNCH_SECONDS = 0.65
 local WHEEL_MIN_CRUISE_SECONDS = 0.35
+local WHEEL_WINDUP_SECONDS = 0.26
+local WHEEL_WINDUP_DEGREES = 16
+local WHEEL_SETTLE_DEGREES = 2.6
 local function sampleSpin(plan, elapsed)
 	local omega = plan.omega
-	if elapsed < WHEEL_LAUNCH_SECONDS then
-		return plan.base + omega * elapsed * elapsed / (2 * WHEEL_LAUNCH_SECONDS), omega * elapsed / WHEEL_LAUNCH_SECONDS
+	if elapsed < WHEEL_WINDUP_SECONDS then
+		local u = elapsed / WHEEL_WINDUP_SECONDS
+		return plan.base - WHEEL_WINDUP_DEGREES * math.sin(u * math.pi / 2), 0
 	end
-	return plan.base + omega * WHEEL_LAUNCH_SECONDS / 2 + omega * (elapsed - WHEEL_LAUNCH_SECONDS), omega
+	local start = plan.base - WHEEL_WINDUP_DEGREES
+	local launched = elapsed - WHEEL_WINDUP_SECONDS
+	if launched < WHEEL_LAUNCH_SECONDS then
+		return start + omega * launched * launched / (2 * WHEEL_LAUNCH_SECONDS), omega * launched / WHEEL_LAUNCH_SECONDS
+	end
+	return start + omega * WHEEL_LAUNCH_SECONDS / 2 + omega * (launched - WHEEL_LAUNCH_SECONDS), omega
 end
 local function positiveModulo(value, modulus)
 	return ((value % modulus) + modulus) % modulus
@@ -2822,7 +2831,8 @@ local function useWheelController(_param)
 			if braking then
 				progress = math.clamp(elapsed / plan.duration, 0, 1)
 				local remaining = 1 - progress
-				value = plan.base + plan.distance * (1 - remaining * remaining * remaining)
+				local settle = WHEEL_SETTLE_DEGREES * math.sin(math.pi * math.clamp((progress - 0.84) / 0.16, 0, 1))
+				value = plan.base + plan.distance * (1 - remaining * remaining * remaining) - settle
 				speed = 3 * plan.distance / plan.duration * remaining * remaining
 			else
 				progress = 0
@@ -2844,7 +2854,7 @@ local function useWheelController(_param)
 			end
 			if not braking then
 				local result = pendingResult.current
-				if result ~= nil and elapsed >= WHEEL_LAUNCH_SECONDS + WHEEL_MIN_CRUISE_SECONDS then
+				if result ~= nil and elapsed >= WHEEL_WINDUP_SECONDS + WHEEL_LAUNCH_SECONDS + WHEEL_MIN_CRUISE_SECONDS then
 					beginBrakeRef.current(result)
 				end
 				return nil
@@ -3067,7 +3077,7 @@ local function WheelBurst(_param)
 		ZIndex = 70,
 	}, _exp, _newValue, _condition)
 end
-local function PrizeWheelMachine(_param)
+local function FlatPrizeWheel(_param)
 	local rewards = _param.rewards
 	local controller = _param.controller
 	local diameter = _param.diameter
@@ -3450,6 +3460,339 @@ local function PrizeWheelMachine(_param)
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}))))
+end
+local _kit = require(script.Parent.Parent.UiCore)("crateModel")
+local kitPiece = _kit.kitPiece
+local useKitReady = _kit.useKitReady
+local kitFolder = _kit.kitFolder
+local subscribeContinuous = _motion.subscribeContinuous
+local KIT_WEDGE_LIFT = 1.4714
+local KIT_WEDGE_DEPTH = -0.025
+local KIT_FACE_DEPTH = -0.125
+local KIT_FRAME_DEPTH = 0.005
+local KIT_POINTER_HINGE = 2.98
+local KIT_POINTER_CENTRE = 0.0838
+local KIT_POINTER_PIN = 0.42
+local KIT_BULB_RADIUS = 2.74
+local KIT_BULB_COUNT = 24
+local KIT_HALF_VIEW = 3.3
+local KIT_CAMERA_DISTANCE = 15
+local KIT_ICON_RADIUS = 1.5
+local BULB_WARM = Color3.fromRGB(255, 236, 190)
+local BULB_GOLD = Color3.fromRGB(255, 186, 72)
+local BULB_OFF = Color3.fromRGB(70, 44, 30)
+local PRIZE_LIGHT = Vector3.new(-0.35, -0.55, 1)
+local function prizeIcon(reward)
+	local prize = reward.Reward or {}
+	if reward.Rarity == "MYTHIC" then
+		return "Casino_Nova"
+	elseif prize.Cores ~= nil then
+		return "Casino_Core"
+	elseif prize.Stardust ~= nil then
+		return "Casino_Dust"
+	elseif prize.Boost == "Hyperdrive" then
+		return "Casino_Star"
+	elseif prize.Boost ~= nil then
+		return "Casino_Comet"
+	end
+	return "Casino_Coin"
+end
+local function wheelCamera(viewport, roll)
+	local camera = viewport.CurrentCamera
+	if camera == nil then
+		return
+	end
+	local spin = CFrame.Angles(0, 0, -math.rad(roll))
+	camera.CFrame = spin * CFrame.lookAt(Vector3.new(0, 0, -KIT_CAMERA_DISTANCE), Vector3.zero)
+	viewport.LightDirection = spin:VectorToWorldSpace(PRIZE_LIGHT)
+end
+local function newViewportCamera(viewport)
+	viewport:ClearAllChildren()
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = math.deg(2 * math.atan(KIT_HALF_VIEW / KIT_CAMERA_DISTANCE))
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+	local model = Instance.new("Model")
+	model.Parent = viewport
+	return model
+end
+local function buildSpinningWheel(viewport, rewards)
+	local model = newViewportCamera(viewport)
+	local count = math.max(1, #rewards)
+	local face = kitPiece("Casino_PrizeFace")
+	if face ~= nil then
+		face.CFrame = CFrame.new(0, 0, KIT_FACE_DEPTH)
+		face.Parent = model
+	end
+	local wedges = {}
+	for index, reward in rewards do
+		local angle = math.rad((index - 1) * 360 / count)
+		local wedge = kitPiece("Casino_PrizeWedge")
+		if wedge ~= nil then
+			for _, child in wedge:GetChildren() do
+				if child:IsA("SurfaceAppearance") then
+					child:Destroy()
+				end
+			end
+			pcall(function()
+				wedge.TextureID = ""
+			end)
+			wedge.Material = Enum.Material.SmoothPlastic
+			wedge.Color = reward.Color
+			wedge.CFrame = CFrame.Angles(0, 0, angle) * CFrame.new(0, KIT_WEDGE_LIFT, KIT_WEDGE_DEPTH)
+			wedge.Parent = model
+			wedges[index] = wedge
+		end
+		local icon = kitPiece(prizeIcon(reward), 0.78)
+		if icon ~= nil then
+			icon.CFrame = CFrame.Angles(0, 0, angle) * CFrame.new(0, KIT_ICON_RADIUS, -0.34)
+			icon.Parent = model
+		end
+	end
+	return { wedges = wedges }
+end
+local function buildStaticWheel(viewport)
+	local model = newViewportCamera(viewport)
+	local frame = kitPiece("Casino_PrizeFrame")
+	if frame ~= nil then
+		frame.CFrame = CFrame.new(0, 0, KIT_FRAME_DEPTH)
+		frame.Parent = model
+	end
+	local bulbs = {}
+	for k = 0, KIT_BULB_COUNT - 1 do
+		local a = math.rad(360 * k / KIT_BULB_COUNT)
+		local bulb = Instance.new("Part")
+		bulb.Shape = Enum.PartType.Ball
+		bulb.Size = Vector3.one * 0.15
+		bulb.Anchored = true
+		bulb.CanCollide = false
+		bulb.CanQuery = false
+		bulb.CanTouch = false
+		bulb.CastShadow = false
+		bulb.Material = Enum.Material.Neon
+		bulb.Color = BULB_OFF
+		bulb.CFrame = CFrame.new(-math.sin(a) * KIT_BULB_RADIUS, math.cos(a) * KIT_BULB_RADIUS, -0.2)
+		bulb.Parent = model
+		bulbs[k + 1] = bulb
+	end
+	local pointer = kitPiece("Casino_PrizePointer")
+	local hinge = CFrame.new(0, KIT_POINTER_HINGE, -0.46)
+	if pointer ~= nil then
+		pointer.CFrame = hinge * CFrame.new(0, KIT_POINTER_CENTRE - KIT_POINTER_PIN, 0)
+		pointer.Parent = model
+	end
+	return { bulbs = bulbs, pointer = pointer, hinge = hinge }
+end
+local function bulbPattern(phase, mode)
+	local lit = {}
+	if mode == "celebrate" then
+		local on = math.floor(phase * 8) % 2 == 0
+		for k = 1, KIT_BULB_COUNT do
+			lit[k] = on
+		end
+		return lit, if on then 1 else 0
+	end
+	local step = math.floor(phase)
+	for k = 1, KIT_BULB_COUNT do
+		lit[k] = (k + step) % 3 == 0
+	end
+	return lit, step
+end
+local function KitPrizeWheel(_param)
+	local rewards = _param.rewards
+	local controller = _param.controller
+	local diameter = _param.diameter
+	local canSpin = _param.canSpin
+	local reducedMotion = _param.reducedMotion
+	local containedEffects = _param.containedEffects == true
+	local antilag = useAntilag()
+	local count = math.max(1, #rewards)
+	local spinHost = React.useRef(nil)
+	local staticHost = React.useRef(nil)
+	local scenes = React.useRef({})
+	local live = React.useRef({})
+	live.current.controller = controller
+	live.current.reducedMotion = reducedMotion
+	live.current.canSpin = canSpin
+	local landing = useFlash(controller.impactNonce, reducedMotion, 0.7)
+	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
+	local winnerColor = (rewards[controller.winner + 1] and rewards[controller.winner + 1].Color) or Palette.mango
+	React.useEffect(function()
+		local spinViewport = spinHost.current
+		local staticViewport = staticHost.current
+		if spinViewport == nil or staticViewport == nil then
+			return nil
+		end
+		local spinning = buildSpinningWheel(spinViewport, rewards)
+		local static = buildStaticWheel(staticViewport)
+		scenes.current = { spinning = spinning, static = static }
+		wheelCamera(spinViewport, 0)
+		wheelCamera(staticViewport, 0)
+		local state = { t = 0, chase = 0, lastStep = -1, lastRoll = nil, celebrateUntil = 0, lastImpact = 0, swing = 0, lastKick = 0, glowWinner = -1 }
+		local release = subscribeContinuous(function(dt)
+			local now = live.current
+			local ctl = now.controller
+			state.t += dt
+			local roll = ctl.rotation:getValue()
+			if roll ~= state.lastRoll then
+				state.lastRoll = roll
+				wheelCamera(spinViewport, roll)
+			end
+			if ctl.impactNonce ~= state.lastImpact then
+				state.lastImpact = ctl.impactNonce
+				if ctl.impactNonce > 0 then
+					state.celebrateUntil = state.t + 1.8
+				end
+			end
+			local energy = ctl.spinEnergy:getValue()
+			local celebrating = state.t < state.celebrateUntil
+			local rate = if now.reducedMotion then 2 elseif celebrating then 1 else 5 + energy * 22
+			state.chase += dt * rate
+			local lit, step = bulbPattern(if celebrating then state.t else state.chase, if celebrating then "celebrate" else "chase")
+			local stepKey = (if celebrating then 1000 else 0) + step
+			if stepKey ~= state.lastStep then
+				state.lastStep = stepKey
+				for k, bulb in static.bulbs do
+					bulb.Color = if lit[k] then (if k % 2 == 0 then BULB_WARM else BULB_GOLD) else BULB_OFF
+				end
+			end
+			local kick = ctl.pointerKick:getValue()
+			local target = -kick * 24
+			state.swing += (target - state.swing) * (1 - math.exp(-dt * 30))
+			if static.pointer ~= nil and math.abs(state.swing - state.lastKick) > 0.05 then
+				state.lastKick = state.swing
+				static.pointer.CFrame = static.hinge * CFrame.Angles(0, 0, math.rad(state.swing)) * CFrame.new(0, KIT_POINTER_CENTRE - KIT_POINTER_PIN, 0)
+			end
+			local winner = if celebrating then ctl.winner + 1 else -1
+			local pulse = if celebrating then 0.5 + 0.5 * math.sin(state.t * 18) else 0
+			if winner ~= state.glowWinner or celebrating then
+				state.glowWinner = winner
+				for index, wedge in spinning.wedges do
+					local base = rewards[index].Color
+					if winner == -1 then
+						wedge.Material = Enum.Material.SmoothPlastic
+						wedge.Color = base
+					elseif index == winner then
+						wedge.Material = Enum.Material.Neon
+						wedge.Color = base:Lerp(Color3.new(1, 1, 1), 0.15 + pulse * 0.35)
+					else
+						wedge.Material = Enum.Material.SmoothPlastic
+						wedge.Color = base:Lerp(Color3.new(0.05, 0.04, 0.08), 0.55)
+					end
+				end
+			end
+		end)
+		return function()
+			release()
+			spinViewport:ClearAllChildren()
+			staticViewport:ClearAllChildren()
+		end
+	end, { rewards })
+	local glow = React.joinBindings({ landing, controller.spinEnergy, launch }):map(function(values)
+		return math.clamp(0.92 - values[1] * 0.5 - values[2] * 0.12 * antilag.glowScale - values[3] * 0.15, 0.2, 1)
+	end)
+	local shake = React.joinBindings({ landing, controller.spinEnergy }):map(function(values)
+		local hit = values[1]
+		local wobble = math.sin((1 - hit) * math.pi * 5) * hit * 4
+		return UDim2.new(0.5, math.round(wobble), 0.5, -math.round(values[2] * 2))
+	end)
+	local labelRadius = diameter / 2 * (1.98 / KIT_HALF_VIEW)
+	local labels = {}
+	for index, reward in rewards do
+		local won = controller.winner == index - 1
+		labels[`label{index}`] = React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = (index - 1) * 360 / count,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement(Text, {
+			value = reward.ShortLabel or reward.Name,
+			size = math.clamp(math.floor(diameter * 0.036), 10, 15),
+			color = if won then Palette.cream else Color3.new(1, 1, 1),
+			weight = Enum.FontWeight.Heavy,
+			align = Enum.TextXAlignment.Center,
+			fit = true,
+			minSize = 8,
+			position = UDim2.new(0.5, -diameter * 0.14, 0.5, -labelRadius - 9),
+			sizeConstraint = UDim2.fromOffset(diameter * 0.28, 18),
+			zIndex = 6,
+		}))
+	end
+	return React.createElement("frame", {
+		Size = UDim2.fromOffset(diameter, diameter),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement(WheelBurst, {
+		flash = launch,
+		active = controller.launchNonce > 0 and not reducedMotion,
+		accent = Palette.mango,
+		budget = antilag.fxBudget,
+		launch = true,
+		contained = containedEffects,
+	}), React.createElement(WheelBurst, {
+		flash = landing,
+		active = controller.impactNonce > 0 and not reducedMotion,
+		accent = winnerColor,
+		budget = antilag.fxBudget,
+		contained = containedEffects,
+	}), React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = shake,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(0.96, 0.96),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = if controller.winner >= 0 then winnerColor else Palette.mango,
+		BackgroundTransparency = glow,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uigradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.5, 0.75), NumberSequenceKeypoint.new(1, 0.2) }),
+		Rotation = 45,
+	})), React.createElement("viewportframe", {
+		ref = spinHost,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Ambient = Color3.fromRGB(200, 194, 206),
+		LightColor = Color3.fromRGB(205, 198, 186),
+		LightDirection = PRIZE_LIGHT,
+		ZIndex = 2,
+	}), React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = controller.rotation,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, labels), React.createElement("viewportframe", {
+		ref = staticHost,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Ambient = Color3.fromRGB(200, 194, 206),
+		LightColor = Color3.fromRGB(205, 198, 186),
+		LightDirection = PRIZE_LIGHT,
+		ZIndex = 4,
+	})))
+end
+local function PrizeWheelMachine(props)
+	local kitReady = useKitReady()
+	local hasPieces = kitReady and kitFolder() ~= nil and kitFolder():FindFirstChild("Casino_PrizeWedge") ~= nil
+	if hasPieces then
+		return React.createElement(KitPrizeWheel, props)
+	end
+	return React.createElement(FlatPrizeWheel, props)
 end
 local function WheelConsole(_param)
 	local state = _param.state

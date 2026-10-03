@@ -104,6 +104,12 @@
         "$path": "src/Server/AstralForge"
       }
     },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "AstralForgeStories": {
+        "$path": "src/Stories"
+      }
+    },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {

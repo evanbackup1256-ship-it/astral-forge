@@ -35,7 +35,7 @@ from synth import SR, mix, write_wav, zeros  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(ROOT, "assets", "generated")
 IDS = os.path.join(ROOT, "assets", "asset_ids.json")
-MANIFEST = os.path.join(ROOT, "src", "Shared", "AstralForge", "Shared", "AssetManifest.luau")
+SUITE = os.path.join(ROOT, "src", "Shared", "AstralForge", "Shared", "SharedData.luau")
 
 GAP = 0.3  # silence between sheet entries, so a region never bleeds into the next
 
@@ -50,8 +50,23 @@ def loudness(buf):
     return round(20 * math.log10(max(rms, 1e-9)), 2)
 
 
-def pack(render, names):
-    sheet = zeros(GAP)
+SFX_GAP = 0.15  # the one-shot sheet: short gaps keep it under Open Cloud's 20 MB upload cap
+SFX_RATE = 32000  # and so does writing it at 32 kHz (the cues have nothing above 16 kHz worth keeping)
+
+
+def resample(buf, rate):
+    """Band-limited resample (FFT truncation) from SR to `rate`."""
+    import numpy as np
+
+    x = np.asarray(buf, dtype=np.float64)
+    n_out = int(round(len(x) * rate / SR))
+    spectrum = np.fft.rfft(x)
+    y = np.fft.irfft(spectrum[: n_out // 2 + 1], n_out) * (n_out / len(x))
+    return np.clip(y, -1.0, 1.0).tolist()
+
+
+def pack(render, names, gap=GAP):
+    sheet = zeros(gap)
     regions = {}
     levels = {}
     for name in names:
@@ -59,7 +74,7 @@ def pack(render, names):
         buf = render(name)
         start = len(sheet) / SR
         mix(sheet, buf, start)
-        sheet.extend(zeros(GAP))
+        sheet.extend(zeros(gap))
         regions[name] = [round(start, 4), round(len(buf) / SR, 4)]
         levels[name] = loudness(buf)
         print(f"  {name:<18} {len(buf) / SR:5.2f}s  {levels[name]:6.1f} dB  ({time.time() - started:4.1f}s to render)")
@@ -109,6 +124,8 @@ def write_manifest(build, ids):
         lines.append("")
 
     regions_block("SoundSheet", build["sfx"], ids.get("SoundSheet", 0))
+    if build.get("sfx_previous") and ids.get("SoundSheetPrevious"):
+        regions_block("SoundSheetPrevious", build["sfx_previous"], ids["SoundSheetPrevious"])
     regions_block("Ambience", build["ambience"], ids.get("Ambience", 0))
     lines.append("Manifest.Kit = {")
     lines.append(f"\tId = {int(ids.get('Kit', 0))},")
@@ -121,10 +138,27 @@ def write_manifest(build, ids):
     lines.append("}")
     lines.append("")
     lines.append("return Manifest")
-    lines.append("")
-    with open(MANIFEST, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines))
-    print(f"wrote {os.path.relpath(MANIFEST, ROOT)}")
+    # The manifest is the AssetManifest member of the merged SharedData suite: replace that member's body.
+    body = [line for line in lines if not line.lstrip().startswith("--")]
+    body = [("type Region = { number }" if line.startswith("export type Region") else line) for line in body]
+    while body and body[0] == "":
+        body.pop(0)
+    with open(SUITE, "r", encoding="utf-8", newline="") as f:
+        suite = f.read()
+    newline = "\r\n" if "\r\n" in suite else "\n"
+    header = '__defs["AssetManifest"] = function()'
+    start = suite.find(header)
+    if start < 0:
+        sys.exit("SharedData has no AssetManifest member")
+    body_start = suite.find(newline, start) + len(newline)
+    stop = suite.find(newline + "__defs[", body_start)
+    if stop < 0:
+        sys.exit("AssetManifest is not followed by another member")
+    member = newline + newline.join(body) + newline + "end" + newline
+    suite = suite[:body_start] + member + suite[stop:]
+    with open(SUITE, "w", encoding="utf-8", newline="") as f:
+        f.write(suite)
+    print(f"wrote the AssetManifest member of {os.path.relpath(SUITE, ROOT)}")
 
 
 def main():
@@ -139,10 +173,20 @@ def main():
         return
     only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
 
+    if "--rotate-sfx" in sys.argv:
+        # Keep the live sheet as the fallback the game plays until the new upload clears moderation.
+        ids = load_ids()
+        if ids.get("SoundSheet") and build.get("sfx"):
+            build["sfx_previous"] = build["sfx"]
+            ids["SoundSheetPrevious"] = ids["SoundSheet"]
+            ids["SoundSheet"] = 0
+            with open(IDS, "w", encoding="utf-8") as f:
+                json.dump(ids, f, indent=2)
+            print(f"kept sheet {ids['SoundSheetPrevious']} as the fallback; the next upload replaces it")
     if only in (None, "sfx"):
         print("sound sheet:")
-        sheet, regions, levels = pack(sfx.render, list(sfx.VOICES))
-        write_wav(os.path.join(OUT, "AstralForgeSFX.wav"), sheet)
+        sheet, regions, levels = pack(sfx.render, list(sfx.VOICES), SFX_GAP)
+        write_wav(os.path.join(OUT, "AstralForgeSFX.wav"), resample(sheet, SFX_RATE), SFX_RATE)
         build["sfx"] = {"length": round(len(sheet) / SR, 3), "regions": regions, "loudness": levels}
 
     if only in (None, "ambience"):

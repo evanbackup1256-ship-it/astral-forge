@@ -146,6 +146,15 @@ gameService = timedBuild("gameplay construction", function() return GameService.
 	Admin = adminService,
 }) end)
 
+if RunService:IsStudio() then
+	(shared :: any).AstralForgeStudio = {
+		snapshot = function(player: Player?)
+			local target = player or Players:GetPlayers()[1]
+			return if target ~= nil then gameService:_snapshot(target) else nil
+		end,
+	}
+end
+
 local runtimeClosed = false
 local function closeRuntime()
 	if runtimeClosed then

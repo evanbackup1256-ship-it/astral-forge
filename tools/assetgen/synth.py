@@ -363,11 +363,11 @@ def grit(buf: Buf, amount: float = 0.3) -> Buf:
 # Output
 # ---------------------------------------------------------------------------
 
-def write_wav(path: str, buf: Buf) -> None:
+def write_wav(path: str, buf: Buf, rate: int = SR) -> None:
     with wave.open(path, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
-        w.setframerate(SR)
+        w.setframerate(rate)
         data = bytearray()
         for v in buf:
             data += struct.pack("<h", int(max(-1.0, min(1.0, v)) * 32767))

@@ -137,6 +137,8 @@ end
 ------------------------------------------------------------------------
 local buildPy = readSource("tools/assetgen/build.py")
 assert(not string.find(buildPy, "import upload", 1, true), "a build must never upload anything")
-assert(string.find(sheet, "return Manifest.SoundSheet.Id > 0", 1, true), "the sheet is used only once uploaded")
+assert(string.find(sheet, "return Primary.Id > 0 or (Previous ~= nil and Previous.Id > 0)", 1, true), "the sheet is used only once uploaded")
+-- a replaced sheet keeps playing the previous upload until the new one has loaded (moderation)
+assert(string.find(audio, "if loaded(self.primarySheetPool) then", 1, true) and string.find(audio, "if loaded(self.previousSheetPool) then", 1, true), "the previous sheet covers a new upload until it loads")
 
 print(string.format("[INFO] [TEST] asset pipeline passed | %d cues -> %d voices", mapped, #ordered))

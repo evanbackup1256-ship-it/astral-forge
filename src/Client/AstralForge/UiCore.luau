@@ -21404,8 +21404,27 @@ local function CrateModel(props)
 	})
 end
 
+local function kitPiece(name, fit)
+	local folder = kitFolder()
+	local source = folder and folder:FindFirstChild(name)
+	if source == nil or not source:IsA("MeshPart") then
+		return nil, 1
+	end
+	local part = inert(source:Clone())
+	local size = part.Size
+	local largest = math.max(size.X, size.Y, size.Z)
+	if fit ~= nil and largest > 1e-3 then
+		part.Size = size * (fit / largest)
+		return part, fit / largest
+	end
+	return part, 1
+end
+
 return {
 	CrateModel = CrateModel,
+	kitFolder = kitFolder,
+	kitPiece = kitPiece,
+	useKitReady = useKitReady,
 	skinOf = skinOf,
 	skinAccent = function(id)
 		return rgb(skinOf(id).Accent, Color3.fromRGB(255, 184, 52))
