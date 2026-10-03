@@ -10,7 +10,7 @@ assert(string.find(worlds, "local function WorldRow", 1, true), "WorldRow missin
 assert(string.find(worlds, 'Name = "WorldsTravelClaim"', 1, true), "WorldsTravelClaim host")
 assert(string.find(worlds, "GamepadNavigationService.FocusClaim", 1, true), "Worlds FocusClaim")
 assert(
-	string.find(worlds, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+	string.find(worlds, "local softMotion = reducedMotion", 1, true),
 	"Worlds softMotion canon"
 )
 assert(string.find(worlds, "reducedMotion = softMotion", 1, true), "Worlds fold softMotion")
@@ -35,7 +35,7 @@ assert(string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewa
 assert(string.find(rewards, 'Name = "RewardsTimedClaimActions"', 1, true), "RewardsTimedClaimActions")
 assert(string.find(rewards, "GamepadNavigationService.FocusClaim", 1, true), "Rewards FocusClaim")
 assert(
-	string.find(rewards, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true),
+	string.find(rewards, "local softMotion = reducedMotion", 1, true),
 	"Rewards softMotion canon"
 )
 
@@ -50,7 +50,7 @@ assert(not string.find(router, "GamepadNavigationService", 1, true), "PageRouter
 
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChrome = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
-assert(string.find(topBarChrome, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion gate")
+assert(string.find(topBarChrome, "local softMotion = ", 1, true), "StatChip softMotion gate")
 do
 	local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 	local soft = 0

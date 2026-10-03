@@ -14,7 +14,6 @@ local PAGE_SUITES = {
 	CrewView = "PagesSocial",
 	EchoForgeView = "PagesStory",
 	ForgePathView = "PagesProgress",
-	FoundryView = "PagesProgress",
 	GuildView = "PagesSocial",
 	InventoryView = "PagesStory",
 	LabView = "PagesProgress",
@@ -83,7 +82,6 @@ local OverviewView = lazyView("OverviewView", "OverviewView")
 local WorldsView = lazyView("WorldsView", "WorldsView")
 local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
-local FoundryView = lazyView("FoundryView", "FoundryView")
 local CasinoView = lazyView("CasinoView", "CasinoView")
 local BazaarView = lazyView("BazaarView", "BazaarView")
 
@@ -345,13 +343,6 @@ local function PageContentInner(props)
 			return React.createElement(AdminView, {
 				state = state,
 				config = config,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-			})
-		end
-		if page == "Foundry" then
-			return React.createElement(FoundryView, {
-				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 			})

@@ -12,7 +12,7 @@ local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#Wo
 local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local readme = fs.readFile("README.md")
 
-local CANON = "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient"
+local CANON = "local softMotion = reducedMotion"
 
 assert(string.find(workshop, CANON, 1, true), "Workshop softMotion canon")
 assert(string.find(overview, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true), "Overview quietMotion")

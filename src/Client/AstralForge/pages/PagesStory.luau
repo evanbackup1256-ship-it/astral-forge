@@ -338,9 +338,7 @@ local function StoryBeat(_param)
 	local onResonate = _param.onResonate
 	local stack = _param.stack
 	local condensed = _param.condensed
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StoryBeat.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local enter = useEntrance(reducedMotion)
 	local visible, setVisible = React.useBinding(0)
 	local needsWarmup = not stack and not replay
@@ -799,12 +797,10 @@ local function StoryView(_param)
 	local status = _result
 	local story = if status then chapterConfig(config, status.Id) else nil
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StoryView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local intro = useEntrance(softMotion)
 	local archivePulse = usePulse(not softMotion and not started, 3.4)
-	-- Canonical softMotion antilag gate — StoryArchive.
 	local archiveReveal = useStagger(0, softMotion)
 	local archiveMotionEnabled = softMotion
 	if not story or not status then
@@ -1402,9 +1398,7 @@ end
 local function EchoLoom(_param)
 	local size = _param.size
 	local active = _param.active
-	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	local animate = not reducedMotion and antilag.allowAmbient and antilag.tier >= 2
+	local animate = true
 	local outer = useRotation(animate, 26)
 	local inner = useRotation(animate, -38)
 	local drift = useRotation(animate, 9)
@@ -1580,10 +1574,8 @@ local function ChoiceCard(_param)
 	local index = _param.index
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	-- Canonical softMotion antilag gate — EchoChoiceCard. Its KEEP button read
 	-- `softMotion` without ever declaring it, so it always got nil.
-	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local tier = quality(item)
 	local reveal = useStagger(index, reducedMotion, 0.06, 0.3)
@@ -1908,14 +1900,10 @@ local function EchoForgeView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — EchoForgeView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — EchoBoard.
 	local boardReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — EchoSlots.
 	local slotsReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — EchoInventoryGate.
 	local inventoryGateReveal = useStagger(2, softMotion)
 	local echoSoft = reducedMotion or boardReveal == nil or slotsReveal == nil or inventoryGateReveal == nil
 	local echoes = state.ForgeEchoes or EMPTY_ECHOES
@@ -2002,7 +1990,6 @@ local function EchoForgeView(_param)
 	local chargeLabel = ensureContrast(heroSurface, chargeAccent)
 	local chargeCopy = if #echoes.Choices > 0 then "CHOOSE ONE ECHO BELOW" elseif echoes.Ready then `READY  ·  {dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}` else `{dominant.label} STYLE  ·  {compactNumber(echoes.Charge)} / {compactNumber(echoes.ChargeTarget)}`
 	local chargePulse = usePulse((echoes.Ready or #echoes.Choices > 0) and not reducedMotion, 1.7)
-	-- Canonical softMotion antilag gate — EchoCharge.
 	local chargeReveal = useStagger(0, softMotion)
 	local inventoryReveal = useStagger(1, softMotion)
 	local loomSize = if stack then 72 else 128
@@ -4019,17 +4006,13 @@ local function InventoryView(_param)
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
 	-- Inventory mounts tab springs + hero shimmer together; snap when antilag already cut ambient.
-	-- Canonical softMotion antilag gate — InventoryView list/inspect drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local headerReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — InventoryTabs.
 	local tabsReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — InventoryInspect.
 	local inspectReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — InventoryBulk.
 	local bulkReveal = useStagger(3, softMotion)
 	local inventorySoft = softMotion or tabsReveal == nil or inspectReveal == nil or bulkReveal == nil
 	local tab, setTab = React.useState("Relics")
@@ -4976,11 +4959,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

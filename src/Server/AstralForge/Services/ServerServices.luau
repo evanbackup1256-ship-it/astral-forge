@@ -45,6 +45,7 @@ serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("CoreS
 
 
 serviceFactories["FluxSurgeService"] = require(script.Parent:WaitForChild("FluxSurgeService"))
+serviceFactories["ServerEventService"] = require(script.Parent:WaitForChild("CoreServices"))("ServerEventService")
 
 
 
@@ -66,6 +67,9 @@ serviceFactories["GameService"] = function()
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
+	local SharedDataSuite = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+	local LevelRewards = SharedDataSuite("LevelRewards")
+	local ForgeLevels = SharedDataSuite("ForgeLevels")
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
@@ -76,6 +80,7 @@ serviceFactories["GameService"] = function()
 	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemSalvage")
 	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitSnapshot")
 	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("PublicPlayerRecord")
+	local ReportLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ReportLedger")
 	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SettingsSeal")
 	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UnlimitedMoneySeal")
 	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("StoryMailSnapshot")
@@ -117,8 +122,8 @@ serviceFactories["GameService"] = function()
 	local ForgeEchoService = loadService("ForgeEchoService")
 	local CasinoService = loadService("CasinoService")
 	local BazaarService = loadService("BazaarService")
-	local SanctuaryFeatures = loadService("SanctuaryFeatures")
 	local FluxSurgeService = loadService("FluxSurgeService")
+	local ServerEventService = loadService("ServerEventService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 
 	local GameService = {}
@@ -709,11 +714,25 @@ serviceFactories["GameService"] = function()
 		self._analytics = PlayerAnalytics.new()
 		self._badges = PlayerBadges.new()
 		self._convergence = ConvergenceService.new(dataService)
+		self._events = ServerEventService.new({
+			random = function()
+				return self._random:NextNumber()
+			end,
+			announce = function(phase, def)
+				self:_announceServerEvent(phase, def)
+			end,
+			broadcast = function()
+				for _, online in Players:GetPlayers() do
+					self._effect:FireClient(online, { Type = "ServerEvent", Event = self._events:State(online) })
+				end
+			end,
+			payout = function(ranking, def)
+				self:_payCommunityForge(ranking, def)
+			end,
+		})
 		self._guilds = GuildService.new()
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
-		-- Ore outcrops, the Foundry, the Rift Warden and waystone travel.
-		self._sanctuaryFeatures = SanctuaryFeatures.new(self)
 		self._heartbeat = nil
 		self._playerAddedConnection = nil
 		self._playerRemovingConnection = nil
@@ -797,22 +816,14 @@ serviceFactories["GameService"] = function()
 		return responseSuccess("Thanks for the feedback!")
 	end
 
-	local REPORT_REASONS = {
-		Exploiting = true,
-		Harassment = true,
-		Trolling = true,
-		Spam = true,
-		Inappropriate = true,
-		Other = true,
-	}
+	local reportLedger = ReportLedger.new()
+	Players.PlayerRemoving:Connect(function(leaving)
+		reportLedger:forgetReporter(leaving.UserId)
+	end)
 
 	function GameService:_reportPlayer(player: Player, payload: any)
-		local endpoint = ServerStorage:GetAttribute(ServerConfig.ReportWebhookAttribute)
-		if type(endpoint) ~= "string" or not string.match(endpoint, "^https://") then
-			return responseError("Reporting isn't set up yet. Please try again later.")
-		end
 		local reason = payload and payload.Reason
-		if type(reason) ~= "string" or not REPORT_REASONS[reason] then
+		if not ReportLedger.isReason(reason) then
 			return responseError("Pick a reason before sending the report.")
 		end
 		local extracted = if RemoteFirewall.ExtractUserId then RemoteFirewall.ExtractUserId(payload and payload.UserId) else (payload and payload.UserId)
@@ -827,11 +838,28 @@ serviceFactories["GameService"] = function()
 		if not target then
 			return responseError("That player is no longer in this server.")
 		end
+		local now = os.time()
+		local allowed, refusal = reportLedger:canReport(player.UserId, targetUserId, now)
+		if not allowed then
+			return responseError(refusal)
+		end
 		local rawDetails = payload and payload.Details
 		local details = ""
 		if type(rawDetails) == "string" and #rawDetails > 0 then
 			local filteredOk, filtered = self._security.Filter:Apply(player, rawDetails, player.UserId, 400)
 			details = (filteredOk and type(filtered) == "string") and filtered or ""
+		end
+		local reportCount, reporterCount = reportLedger:record(player.UserId, targetUserId, reason, now)
+		local endpoint = ServerStorage:GetAttribute(ServerConfig.ReportWebhookAttribute)
+		if type(endpoint) ~= "string" or not string.match(endpoint, "^https://") then
+			-- No webhook configured: keep the report in the server log so it isn't lost.
+			ModuleLog.Every(
+				string.format("report:%d", targetUserId),
+				5,
+				"Report",
+				string.format("%s reported %s (%d) for %s; %d reports from %d players this hour", player.Name, target.Name, targetUserId, reason, reportCount, reporterCount)
+			)
+			return responseSuccess("Report received. Thanks for helping keep the server clean.", { Reported = targetUserId })
 		end
 		local reporterProfile = self._data:Get(player)
 		local targetProfile = self._data:Get(target)
@@ -848,6 +876,8 @@ serviceFactories["GameService"] = function()
 						{ name = "Reported by", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = true },
 						{ name = "Target progress", value = string.format("World %d · %d rebirths", targetProfile and targetProfile.Zone or 1, targetProfile and targetProfile.Rebirths or 0), inline = true },
 						{ name = "Reporter progress", value = string.format("World %d · %d rebirths", reporterProfile and reporterProfile.Zone or 1, reporterProfile and reporterProfile.Rebirths or 0), inline = true },
+						{ name = "This hour", value = string.format("%d reports from %d players", reportCount, reporterCount), inline = true },
+						{ name = "Target account", value = string.format("%d days old", target.AccountAge), inline = true },
 						{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
 					},
 					footer = { text = "Astral Forge " .. tostring(GameConfig.Game.Version) },
@@ -868,7 +898,7 @@ serviceFactories["GameService"] = function()
 				ModuleLog.Every("report-webhook", 30, "Report", "A player report could not be delivered")
 			end
 		end)
-		return responseSuccess("Report sent. Thanks for helping keep the server clean.")
+		return responseSuccess("Report sent. Thanks for helping keep the server clean.", { Reported = targetUserId })
 	end
 
 	local function itemSalvageValue(instance, definition): number
@@ -1035,7 +1065,7 @@ serviceFactories["GameService"] = function()
 				rebirths.Value = math.floor(progressionNumber(profile.Rebirths))
 			end
 		end
-		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier())))
+		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier() * self._events:ProductionMultiplier())))
 		player:SetAttribute("CurrentZone", profile.CurrentZone)
 		if GameConfig.Operations.TitlesEnabled == false then
 			player:SetAttribute("EquippedTitle", nil)
@@ -1073,13 +1103,130 @@ serviceFactories["GameService"] = function()
 		return OverchargeCombo.Multiplier(combo, OVERCHARGE_COMBO_MAX, OVERCHARGE_COMBO_BONUS)
 	end
 
+	-- Pays every Forge Level reached since the last payout (flux worth some seconds of
+	-- current production, stardust and a Forge Surge), and the halfway checkpoint toward
+	-- the next level. Runs with each snapshot, so rewards land the moment a goal is met.
+	-- Returns the public progression block for the snapshot.
+	-- Server event announcements, to everyone online.
+	function GameService:_announceServerEvent(phase: string, def)
+		local title, body, tone
+		if phase == "Warning" then
+			title, body, tone = def.Name .. " in 1 minute", def.Blurb, "Info"
+		elseif phase == "Live" then
+			title, body, tone = def.Name .. " has started!", def.How, "Special"
+		elseif phase == "Completed" then
+			title, body, tone = "Community goal reached!", "Everyone who helped has been paid. Nice work, forge.", "Success"
+		else
+			title, body, tone = def.Name .. " is over", "Thanks for playing. The next event is on its way.", "Info"
+		end
+		for _, online in Players:GetPlayers() do
+			self:_toastPlayer(online, title, body, tone)
+		end
+	end
+
+	-- Community Forge finished: every contributor gets flux worth some seconds of
+	-- their own output and stardust, with a bonus for the top three.
+	function GameService:_payCommunityForge(ranking, def)
+		for rank, entry in ranking do
+			local player = Players:GetPlayerByUserId(entry.UserId)
+			if player == nil then
+				continue
+			end
+			local stardust = def.RewardStardust + (def.TopBonusStardust[rank] or 0)
+			local paid = 0
+			self:_mutate(player, function(profile)
+				local amount = Economy.Mul(Economy.Production(profile), def.RewardFluxSeconds)
+				if Economy.AsNumber(amount) < 500 then
+					amount = 500
+				end
+				profile.Cash = Economy.Add(profile.Cash, amount)
+				profile.Stardust += stardust
+				paid = Economy.AsNumber(amount)
+				return responseSuccess(nil)
+			end)
+			local placing = if rank <= 3 then string.format(" You placed #%d!", rank) else ""
+			self:_toastPlayer(player, "Community Forge paid out", string.format("+%s flux and +%d stardust.%s", Format.Number(paid), stardust, placing), "Success")
+		end
+	end
+
+	function GameService:_settleProgression(player: Player, profile, levelState, production)
+		local progression = profile.Progression
+		if type(progression) ~= "table" then
+			progression = { RewardedLevel = -1, HalfwayPaidFor = -1, Surge = { Multiplier = 1, EndsAt = 0 } }
+			profile.Progression = progression
+		end
+		local now = os.time()
+		local firstLook = (tonumber(progression.RewardedLevel) or -1) < 0
+		local owed, settled = LevelRewards.owed(tonumber(progression.RewardedLevel) or -1, levelState.Level)
+		progression.RewardedLevel = settled
+		if firstLook then
+			progression.HalfwayPaidFor = levelState.Level
+		end
+		local function fluxFor(seconds, floor)
+			local amount = Economy.Mul(production, seconds)
+			if Economy.AsNumber(amount) < floor then
+				amount = floor
+			end
+			return amount
+		end
+		if #owed > 0 then
+			local fluxTotal = 0
+			local stardustTotal = 0
+			local surge = progression.Surge
+			for _, reached in owed do
+				local def = ForgeLevels.get(reached)
+				local reward = LevelRewards.forLevel(reached, def and def.Tier)
+				local flux = fluxFor(reward.FluxSeconds, reward.MinFlux)
+				profile.Cash = Economy.Add(profile.Cash, flux)
+				fluxTotal = Economy.Add(fluxTotal, flux)
+				profile.Stardust += reward.Stardust
+				stardustTotal += reward.Stardust
+				surge = LevelRewards.mergeSurge(surge, now, reward.SurgeMultiplier, reward.SurgeSeconds)
+			end
+			progression.Surge = surge
+			progression.HalfwayPaidFor = math.max(tonumber(progression.HalfwayPaidFor) or -1, levelState.Level)
+			self._effect:FireClient(player, {
+				Type = "LevelReward",
+				Level = levelState.Level,
+				Tier = levelState.Tier,
+				Levels = owed,
+				Flux = Economy.AsNumber(fluxTotal),
+				Stardust = stardustTotal,
+				SurgeMultiplier = surge.Multiplier,
+				SurgeEndsAt = surge.EndsAt,
+			})
+		end
+		local nextStep = levelState.Next
+		if nextStep ~= nil and LevelRewards.halfwayDue(tonumber(progression.HalfwayPaidFor) or -1, nextStep.Level, nextStep.Progress, nextStep.Target) then
+			local checkpoint = LevelRewards.halfway(nextStep.Level)
+			local flux = fluxFor(checkpoint.FluxSeconds, checkpoint.MinFlux)
+			profile.Cash = Economy.Add(profile.Cash, flux)
+			progression.HalfwayPaidFor = nextStep.Level
+			self:_toastPlayer(player, string.format("Halfway to Level %d", nextStep.Level), string.format("+%s flux. Keep going!", Format.Number(flux)), "Success")
+			self._effect:FireClient(player, { Type = "LevelHalfway", Level = nextStep.Level, Flux = Economy.AsNumber(flux) })
+		end
+		local nextReward = nil
+		if nextStep ~= nil then
+			nextReward = LevelRewards.forLevel(nextStep.Level, nextStep.Tier)
+		end
+		return {
+			Mastery = LevelRewards.mastery(settled),
+			Surge = {
+				Multiplier = LevelRewards.surgeMultiplier(progression.Surge, now),
+				EndsAt = if LevelRewards.surgeMultiplier(progression.Surge, now) > 1 then progression.Surge.EndsAt else 0,
+			},
+			HalfwayPaidFor = progression.HalfwayPaidFor,
+			NextReward = nextReward,
+		}
+	end
+
 	function GameService:_snapshot(player: Player)
 		local profile = self._data:Get(player)
 		if not profile then
 			return nil
 		end
 		local now = os.time()
-		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier())
+		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._events:ProductionMultiplier())
 		local capacity = Economy.Capacity(profile, now)
 		local prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault))
 		local domain = profile.Domain or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
@@ -1167,6 +1314,8 @@ serviceFactories["GameService"] = function()
 			end
 			runtime.FeatureUnlocks = current
 		end
+		-- After the level-up announcement, so the client pairs the unlocked names with the rewards.
+		levelState.Progression = self:_settleProgression(player, profile, levelState, production)
 		local storyState = StoryMailSnapshot.BuildStory(profile, GameConfig.Story, ProgressionGate)
 		local mailState, unreadMail = StoryMailSnapshot.BuildMailbox(profile, GameConfig.Mail, ProgressionGate)
 		local guildMembership = profile.Guild
@@ -1258,7 +1407,6 @@ serviceFactories["GameService"] = function()
 			Convergence = self._convergence:State(player, profile),
 			FeatureUnlocks = featureUnlocks,
 			Level = levelState,
-			Ore = self._sanctuaryFeatures:OreState(profile),
 			Story = storyState,
 			Mailbox = StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
 			Admin = self._admin and self._admin:State(player) or { Access = false },
@@ -1272,6 +1420,7 @@ serviceFactories["GameService"] = function()
 			CapacitySeconds = Economy.CapacitySeconds(profile, now),
 			SteadyProduction = Economy.SteadyProduction(profile, now),
 			FluxSurge = self._fluxSurge and self._fluxSurge:State(now) or FluxSurgeService.IdleState(),
+			ServerEvent = self._events:State(player),
 			PermanentMultiplier = Economy.PermanentMultiplier(profile),
 			AutoCollectRate = Economy.AutoCollectRate(profile),
 			OfflineHours = Economy.OfflineHours(profile),
@@ -1598,6 +1747,12 @@ serviceFactories["GameService"] = function()
 				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP)
 			)
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
+			-- Server events: Community Forge points, Stardust Rain drops.
+			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
+			if rainDust > 0 then
+				profile.Stardust += rainDust
+				return responseSuccess("Banked " .. Format.Number(amount) .. " flux and caught " .. rainDust .. " stardust.", { Amount = amount, Dust = rainDust })
+			end
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })
 		end)
 		if result.ok then
@@ -3966,13 +4121,6 @@ serviceFactories["GameService"] = function()
 			return self:_claimLabOrder(player, payload and payload.Id)
 		elseif action == Protocol.Actions.RouteLabPower then
 			return self:_routeLabPower(player, payload and payload.Channel, payload and payload.Delta)
-		elseif action == Protocol.Actions.LeaveSanctuary then
-			self._world:LeaveSanctuary(player)
-			return responseSuccess(nil)
-		end
-		local sanctuaryResult = self._sanctuaryFeatures:Handle(player, action, payload)
-		if sanctuaryResult ~= nil then
-			return sanctuaryResult
 		end
 		return responseError("Unknown forge command.")
 	end
@@ -4411,7 +4559,7 @@ serviceFactories["GameService"] = function()
 					if active.EndsAt > 0 and active.EndsAt <= now then
 						profile.ActiveBoost = { Id = "", EndsAt = 0 }
 					end
-					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now))
+					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now) * self._events:ProductionMultiplier())
 					local capacity = Economy.Capacity(profile, now)
 					local produced = Economy.Mul(production, step)
 					profile.Vault = Economy.Min(capacity, Economy.Add(profile.Vault, produced))
@@ -4548,6 +4696,7 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_tick(deltaTime: number)
 		self._fluxSurge:Tick(deltaTime)
+		self._events:Step(deltaTime)
 
 		self._rankPingAccumulator += deltaTime
 		if self._rankPingAccumulator >= RANK_PING_INTERVAL then
@@ -4591,7 +4740,6 @@ serviceFactories["GameService"] = function()
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		self._matter:Start()
-		self._sanctuaryFeatures:Start()
 		self._world:SetInteractionHandler(function(player, action, payload)
 			if action == "Collect" then
 				self:_collect(player)
@@ -4697,27 +4845,9 @@ serviceFactories["GameService"] = function()
 				txnClaimed = true
 			end
 			local success, result
-			if action == Protocol.Actions.EnterSanctuary then
-				-- Handled outside the action pcall. LoadCharacter is not yieldable
-				-- on this invoke (pcall reports "Callbacks cannot yield" and the
-				-- character stays nil). EnterSanctuary moves that load to a
-				-- spawned thread and only returns once the avatar is placed.
-				success = true
-				local entered, spawnCFrame, cancelled = self._world:EnterSanctuary(player)
-				if entered then
-					self._sanctuaryFeatures:OnEntered(player)
-					result = responseSuccess(nil, if typeof(spawnCFrame) == "CFrame" then { Spawn = spawnCFrame } else nil)
-				elseif cancelled then
-					-- The player closed, or a newer enter took over. Not a failure toast.
-					result = responseSuccess(nil, { Closed = true })
-				else
-					result = responseError("The sanctuary rift is shut.")
-				end
-			else
-				success, result = pcall(function()
-					return self:_handleAction(player, action, payload)
-				end)
-			end
+			success, result = pcall(function()
+				return self:_handleAction(player, action, payload)
+			end)
 			if not success then
 				if txnClaimed and txnId then
 					self._session:TxnRelease(player, txnId)
@@ -4788,7 +4918,6 @@ serviceFactories["GameService"] = function()
 		end)
 		self._playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
 			self:_onPlayerRemoving(player)
-			self._sanctuaryFeatures:Forget(player)
 			self:_queueSocialBoostRefresh()
 		end)
 		for _, player in Players:GetPlayers() do
@@ -4876,7 +5005,6 @@ serviceFactories["GameService"] = function()
 
 	function GameService:Shutdown()
 		self._running = false
-		self._sanctuaryFeatures:Stop()
 		self._joining = {}
 		self._socialBoostDirty = false
 		self._socialBoostScheduled = false
@@ -4930,11 +5058,6 @@ serviceFactories["GuildService"] = require(script.Parent:WaitForChild("CoreServi
 
 
 serviceFactories["LabService"] = require(script.Parent:WaitForChild("CoreServices"))("LabService")
--- SanctuaryFeatures returns its class table rather than a factory, so wrap it:
--- loadService calls every registry entry.
-serviceFactories["SanctuaryFeatures"] = function()
-	return require(script.Parent:WaitForChild("WorldServices"))("SanctuaryFeatures")
-end
 
 
 

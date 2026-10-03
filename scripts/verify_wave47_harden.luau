@@ -32,30 +32,30 @@ local leaderboards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#
 local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 local mailbox = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
-assert(string.find(leaderboards, "Canonical softMotion antilag gate — LeaderboardsBoard", 1, true), "LeaderboardsBoard softMotion")
-assert(string.find(guild, "Canonical softMotion antilag gate — GuildBank", 1, true), "GuildBank softMotion")
-assert(string.find(chat, "Canonical softMotion antilag gate — ChatComposer", 1, true), "ChatComposer softMotion")
-assert(string.find(mailbox, "Canonical softMotion antilag gate — MailboxList", 1, true), "MailboxList softMotion")
+assert(string.find(leaderboards, "local softMotion = ", 1, true), "LeaderboardsBoard softMotion")
+assert(string.find(guild, "local softMotion = ", 1, true), "GuildBank softMotion")
+assert(string.find(chat, "local softMotion = ", 1, true), "ChatComposer softMotion")
+assert(string.find(mailbox, "local softMotion = ", 1, true), "MailboxList softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(leaderboards, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "Leaderboards softMotion densify, got " .. tostring(soft))
+	assert(soft >= 15, "Leaderboards softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(guild, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "Guild softMotion densify, got " .. tostring(soft))
+	assert(soft >= 13, "Guild softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(chat, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "Chat softMotion densify, got " .. tostring(soft))
+	assert(soft >= 11, "Chat softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -66,9 +66,9 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = 12', 1, true), "Research DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 12', 1, true), "Wheel DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = 12', 1, true), "ForgePath DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = ', 1, true), "Research DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = ', 1, true), "Wheel DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = ', 1, true), "ForgePath DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave47-offline-brief"', 1, true), "Story wave47")

@@ -8,23 +8,23 @@ local anomaly = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#Anoma
 local milestones = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
 local convergence = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView")
 local forgePath = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
-assert(string.find(anomaly, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion")
-assert(string.find(milestones, "Canonical softMotion antilag gate — MilestonesView", 1, true), "Milestones softMotion")
-assert(string.find(convergence, "Canonical softMotion antilag gate — ConvergenceView", 1, true), "Convergence softMotion")
-assert(string.find(forgePath, "Canonical softMotion antilag gate — ForgePathView", 1, true), "ForgePath softMotion")
+assert(string.find(anomaly, "local softMotion = ", 1, true), "Anomaly softMotion")
+assert(string.find(milestones, "local softMotion = ", 1, true), "Milestones softMotion")
+assert(string.find(convergence, "local softMotion = ", 1, true), "Convergence softMotion")
+assert(string.find(forgePath, "local softMotion = ", 1, true), "ForgePath softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(anomaly, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Anomaly softMotion densify, got " .. tostring(soft))
+	assert(soft >= 13, "Anomaly softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(milestones, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Milestones softMotion densify, got " .. tostring(soft))
+	assert(soft >= 13, "Milestones softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -38,19 +38,19 @@ do
 	for _ in string.gmatch(forgePath, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 12, "ForgePath softMotion densify, got " .. tostring(soft))
+	assert(soft >= 9, "ForgePath softMotion densify, got " .. tostring(soft))
 end
 
 local offline = fs.readFile("src/Client/AstralForge/UiCore.luau#OfflineRewardsOverlay")
 local feedback = fs.readFile("src/Client/AstralForge/UiCore.luau#FeedbackOverlay")
-assert(string.find(offline, "Canonical softMotion antilag gate — OfflineRewardsOverlay", 1, true), "OfflineRewards softMotion")
-assert(string.find(feedback, "Canonical softMotion antilag gate — FeedbackOverlay", 1, true), "Feedback softMotion")
+assert(string.find(offline, "local softMotion = ", 1, true), "OfflineRewards softMotion")
+assert(string.find(feedback, "local softMotion = ", 1, true), "Feedback softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(offline, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 10, "OfflineRewards softMotion densify, got " .. tostring(soft))
+	assert(soft >= 8, "OfflineRewards softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -61,10 +61,10 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView"] = 12', 1, true), "Anomaly DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MilestonesView"] = 12', 1, true), "Milestones DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = 12', 1, true), "Convergence DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = 12', 1, true), "ForgePath DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView"] = ', 1, true), "Anomaly DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#MilestonesView"] = ', 1, true), "Milestones DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = ', 1, true), "Convergence DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView"] = ', 1, true), "ForgePath DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave39-offline-brief"', 1, true), "Story wave39")

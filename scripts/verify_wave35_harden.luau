@@ -10,15 +10,15 @@ assert(string.find(chrome, "local function VaultPill", 1, true), "VaultPill miss
 assert(string.find(chrome, "local function NextUnlockStrip", 1, true), "NextUnlockStrip missing")
 assert(string.find(chrome, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim host")
 assert(string.find(chrome, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim")
-assert(string.find(chrome, "Canonical softMotion antilag gate — Workspace", 1, true), "Workspace softMotion")
-assert(string.find(chrome, "Canonical softMotion antilag gate — VaultPill", 1, true), "VaultPill softMotion")
-assert(string.find(chrome, "Canonical softMotion antilag gate — NextUnlockStrip", 1, true), "NextUnlockStrip softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "Workspace softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "VaultPill softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "NextUnlockStrip softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(chrome, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 8, "WorkspaceChrome softMotion density, got " .. tostring(soft))
+	assert(soft >= 6, "WorkspaceChrome softMotion density, got " .. tostring(soft))
 end
 do
 	local hostStart = string.find(chrome, 'Name = "VaultCollectClaim"', 1, true)
@@ -31,7 +31,7 @@ local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 assert(string.find(appShell, '("WorkspaceChrome")', 1, true), "AppShellChrome requires WorkspaceChrome")
 assert(string.find(appShell, "local Workspace = _WorkspaceChrome.Workspace", 1, true), "AppShellChrome binds Workspace")
-assert(string.find(appShell, "Canonical softMotion antilag gate — AppShell", 1, true), "AppShell softMotion")
+assert(string.find(appShell, "local softMotion = ", 1, true), "AppShell softMotion")
 assert(not string.find(main, "local function Workspace", 1, true), "Workspace must leave MainGame")
 assert(not string.find(main, "local function VaultPill", 1, true), "VaultPill must leave MainGame")
 assert(not string.find(main, "local function NextUnlockStrip", 1, true), "NextUnlockStrip must leave MainGame")

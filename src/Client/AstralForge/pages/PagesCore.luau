@@ -81,9 +81,7 @@ local function ReleaseCountdown(_param)
 	local stack = _param.stack
 	local layoutOrder = _param.layoutOrder
 	local viewport = useViewport()
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ReleaseCountdown.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local Workspace = game:GetService("Workspace")
 	local function syncedNow()
 		local ok, value = pcall(function()
@@ -525,9 +523,8 @@ local function OverviewView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — effectsPaused/skipEntrance stay on quietMotion
 	-- so decorative Overview stagger can mute without folding pause into reducedMotion.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local quietMotion = softMotion or effectsPaused or antilag.skipEntrance
 	local stack = chrome.contentStack
@@ -1650,7 +1647,6 @@ __defs["RebirthPanel"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
@@ -1750,9 +1746,7 @@ local function RebirthPanel(_param)
 	end
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — RebirthPanel (effectsPaused stays a separate decorative mute).
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local canRebirth = gteFlux(state.PrestigeReward, 1)
@@ -1784,14 +1778,10 @@ local function RebirthPanel(_param)
 	local mountedRef = React.useRef(true)
 	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
-	-- Canonical softMotion antilag gate — RebirthConfirm.
 	local confirmReveal = useStagger(0, softMotion)
 	local heroReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — RebirthHero.
 	local meterReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — RebirthMeter.
 	local rewardReveal = useStagger(3, softMotion)
-	-- Canonical softMotion antilag gate — RebirthReward.
 	local rebirthSoft = reducedMotion or meterReveal == nil or rewardReveal == nil
 	-- Gamepad: park Selection on REBIRTH/CONFIRM (FocusClaim prefers Confirm/Claim tags).
 	React.useEffect(function()
@@ -2041,7 +2031,6 @@ end
 __defs["RewardsView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useFlipperSpring = _motion.useFlipperSpring
@@ -2071,8 +2060,7 @@ local function RewardChargeRail(_param)
 	local reducedMotion = _param.reducedMotion
 	local position = _param.position
 	local size = _param.size
-	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local progress = useFlipperSpring(math.clamp(value, 0, 1), softMotion, 420, 32)
 	local emphasis = useFlipperSpring(if ready then 1 else 0, softMotion, 460, 32)
@@ -2137,8 +2125,7 @@ local function TimedRewardQueue(_param)
 			table.insert(pending, entry)
 		end
 	end
-	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local reveal = useStagger(3, softMotion)
 	local _exp = React.createElement(Text, {
@@ -2244,10 +2231,8 @@ local function RewardsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — RewardsView.
 	local dailyReady = state.Daily.CanClaim == true
 	local timedEntries = state.TimedRewards.Rewards or {}
 	-- ▼ ReadonlyArray.find ▼
@@ -2274,7 +2259,6 @@ local function RewardsView(_param)
 	local headerReveal = useStagger(0, softMotion)
 	local dailyReveal = useStagger(1, softMotion)
 	local timedReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — RewardsTimed.
 	local streakReveal = useStagger(3, softMotion)
 	local rewardCardH = if stack then 172 else 110
 	local rewardsTail = scrollTail(stack, chrome.bottomSafe, 48)
@@ -2583,9 +2567,7 @@ local function ProgressCloseGlow(_param)
 	}))
 end
 local function useReadyPop(ready, reducedMotion)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — useReadyPop (as in MissionsView).
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local wasReady = React.useRef(ready)
 	local trigger, setTrigger = React.useState(0)
@@ -2603,9 +2585,7 @@ local function MilestoneRow(_param)
 	local achievement = _param.achievement
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MilestoneRow.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local position = _param.position
 	local stack = _param.stack
@@ -2753,8 +2733,7 @@ local function MilestonesView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MilestonesView
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local list = state.Achievements or {}
@@ -3058,9 +3037,7 @@ local function ProgressCloseGlow(_param)
 	}))
 end
 local function useReadyPop(ready, reducedMotion)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — useReadyPop.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local wasReady = React.useRef(ready)
 	local trigger, setTrigger = React.useState(0)
@@ -3094,9 +3071,7 @@ local function MissionRow(_param)
 	local quest = _param.quest
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MissionRow.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local position = _param.position
 	local stack = _param.stack
@@ -3230,8 +3205,7 @@ local function MissionsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — MissionsView
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
@@ -3477,11 +3451,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

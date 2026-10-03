@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	CoreServices: merged module suite.
-	Members (5): AnomalyService, ForgeEchoService, GuildService, LabService, ProgressionService.
+	Members (6): ServerEventService, AnomalyService, ForgeEchoService, GuildService, LabService, ProgressionService.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -611,6 +611,162 @@ return function(loadService: (string) -> any)
 	end
 
 	return table.freeze(AnomalyService)
+end
+end
+
+-- ======================================================================
+-- Module: ServerEventService
+-- ======================================================================
+__defs["ServerEventService"] = function()
+
+return function()
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
+
+	-- Runs this server's event cycle (SharedData#ServerEvents): advances the phase
+	-- every second, keeps Community Forge points, and tells GameService when to
+	-- announce, broadcast or pay out. GameService owns profiles and remotes.
+	local ServerEventService = {}
+	ServerEventService.__index = ServerEventService
+
+	-- hooks: { announce(phase, def), broadcast(), payout(ranking, def), random() }
+	function ServerEventService.new(hooks)
+		local self = setmetatable({}, ServerEventService)
+		self._hooks = hooks
+		self._state = nil
+		self._points = {}
+		self._names = {}
+		self._goal = 0
+		self._progress = 0
+		self._completed = false
+		self._accumulator = 0
+		self._broadcastDue = false
+		self._lastBroadcast = 0
+		return self
+	end
+
+	function ServerEventService:_def()
+		local state = self._state
+		return state and state.Id and ServerEvents.EVENTS[state.Id] or nil
+	end
+
+	-- Called from the game heartbeat.
+	function ServerEventService:Step(dt: number)
+		self._accumulator += dt
+		if self._accumulator < 1 then
+			return
+		end
+		self._accumulator = 0
+		local now = os.time()
+		local nextState, changed = ServerEvents.advance(self._state, now, self._hooks.random())
+		if changed then
+			local previous = self._state
+			self._state = nextState
+			self:_enter(previous, nextState)
+		end
+		-- Progress pushes are throttled to one a second.
+		if self._broadcastDue and os.clock() - self._lastBroadcast >= 1 then
+			self._broadcastDue = false
+			self._lastBroadcast = os.clock()
+			self._hooks.broadcast()
+		end
+	end
+
+	function ServerEventService:_enter(previous, state)
+		local def = self:_def()
+		if state.Phase == "Live" and state.Id == "CommunityForge" then
+			self._points = {}
+			self._names = {}
+			self._progress = 0
+			self._completed = false
+			self._goal = ServerEvents.communityGoal(#Players:GetPlayers())
+		end
+		if state.Phase == "Results" and state.Id == "CommunityForge" and not self._completed then
+			-- Time ran out first: nobody is paid, but the board stays up for the results.
+			self._completed = false
+		end
+		if def ~= nil and (state.Phase == "Warning" or state.Phase == "Live" or state.Phase == "Results") then
+			self._hooks.announce(state.Phase, def)
+		end
+		self._hooks.broadcast()
+		self._lastBroadcast = os.clock()
+		self._broadcastDue = false
+	end
+
+	function ServerEventService:ProductionMultiplier(): number
+		return ServerEvents.productionMultiplier(self._state)
+	end
+
+	-- A vault collect: Community Forge points and Stardust Rain drops. Returns the
+	-- stardust to grant (0 if none).
+	function ServerEventService:OnCollect(player: Player, collected: number, perSecond: number): number
+		local state = self._state
+		if state == nil or state.Phase ~= "Live" then
+			return 0
+		end
+		if state.Id == "StardustRain" then
+			return ServerEvents.rainDust(collected, perSecond)
+		end
+		if state.Id == "CommunityForge" and not self._completed then
+			local points = ServerEvents.collectPoints(collected, perSecond)
+			self._points[player.UserId] = (self._points[player.UserId] or 0) + points
+			self._names[player.UserId] = player.DisplayName
+			self._progress += points
+			self._broadcastDue = true
+			if self._progress >= self._goal then
+				self._completed = true
+				local ranking = ServerEvents.ranking(self._points)
+				self._hooks.payout(ranking, ServerEvents.EVENTS.CommunityForge)
+				self._hooks.announce("Completed", ServerEvents.EVENTS.CommunityForge)
+				self._hooks.broadcast()
+			end
+		end
+		return 0
+	end
+
+	-- Starts an event now (Studio and admin testing).
+	function ServerEventService:Start(id: string)
+		if ServerEvents.EVENTS[id] == nil then
+			return false
+		end
+		local previous = self._state
+		self._state = { Phase = "Live", Id = id, PhaseEndsAt = os.time() + ServerEvents.LIVE_SECONDS, LastId = previous and previous.LastId }
+		self:_enter(previous, self._state)
+		return true
+	end
+
+	-- What a player's client shows.
+	function ServerEventService:State(player: Player?)
+		local state = self._state
+		local now = os.time()
+		if state == nil then
+			return { Phase = "Rest", PhaseEndsAt = now + ServerEvents.FIRST_REST_SECONDS }
+		end
+		local public = {
+			Phase = state.Phase,
+			Id = state.Id,
+			PhaseEndsAt = state.PhaseEndsAt,
+			Multiplier = ServerEvents.productionMultiplier(state),
+		}
+		if state.Id == "CommunityForge" and (state.Phase == "Live" or state.Phase == "Results") then
+			local top = {}
+			for index, entry in ServerEvents.ranking(self._points) do
+				if index > 5 then
+					break
+				end
+				table.insert(top, { Name = self._names[entry.UserId] or tostring(entry.UserId), Points = entry.Points, UserId = entry.UserId })
+			end
+			public.Goal = self._goal
+			public.Progress = math.min(self._progress, self._goal)
+			public.Completed = self._completed
+			public.Yours = if player ~= nil then (self._points[player.UserId] or 0) else 0
+			public.Top = top
+		end
+		return public
+	end
+
+	return ServerEventService
 end
 end
 
@@ -2688,11 +2844,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

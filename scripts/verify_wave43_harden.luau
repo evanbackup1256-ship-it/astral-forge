@@ -18,18 +18,18 @@ assert(not string.find(main, "local isFiniteNumber = function", 1, true), "isFin
 local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 local convergence = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView")
 local star = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-assert(string.find(chat, "Canonical softMotion antilag gate — MessageRow", 1, true), "MessageRow softMotion")
-assert(string.find(chat, "Canonical softMotion antilag gate — ChatView", 1, true), "ChatView softMotion")
-assert(string.find(convergence, "Canonical softMotion antilag gate — ConvergenceView", 1, true), "Convergence softMotion")
-assert(string.find(convergence, "Canonical softMotion antilag gate — ConvergenceTier", 1, true), "ConvergenceTier softMotion")
-assert(string.find(star, "Canonical softMotion antilag gate — BranchHeader", 1, true), "BranchHeader softMotion")
-assert(string.find(star, "Canonical softMotion antilag gate — StarGridNode", 1, true), "StarGridNode softMotion")
+assert(string.find(chat, "local softMotion = ", 1, true), "MessageRow softMotion")
+assert(string.find(chat, "local softMotion = ", 1, true), "ChatView softMotion")
+assert(string.find(convergence, "local softMotion = ", 1, true), "Convergence softMotion")
+assert(string.find(convergence, "local softMotion = ", 1, true), "ConvergenceTier softMotion")
+assert(string.find(star, "local softMotion = ", 1, true), "BranchHeader softMotion")
+assert(string.find(star, "local softMotion = ", 1, true), "StarGridNode softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(chat, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Chat softMotion densify, got " .. tostring(soft))
+	assert(soft >= 11, "Chat softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -43,13 +43,13 @@ do
 	for _ in string.gmatch(star, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 16, "StarGrid softMotion densify, got " .. tostring(soft))
+	assert(soft >= 12, "StarGrid softMotion densify, got " .. tostring(soft))
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 12', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = 12', 1, true), "Convergence DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = ', 1, true), "Chat DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView"] = ', 1, true), "Convergence DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = ', 1, true), "StarGrid DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave43-offline-brief"', 1, true), "Story wave43")

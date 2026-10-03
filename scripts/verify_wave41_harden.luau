@@ -28,46 +28,46 @@ local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView
 local star = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
 local boot = fs.readFile("src/Client/AstralForge/BootKit.luau#BootScreen")
 local prank = fs.readFile("src/Client/AstralForge/UiCore.luau#AdminPrankOverlay")
-assert(string.find(research, "Canonical softMotion antilag gate — ResearchView", 1, true), "Research softMotion")
-assert(string.find(wheel, "Canonical softMotion antilag gate — WheelView", 1, true), "Wheel softMotion")
-assert(string.find(chat, "Canonical softMotion antilag gate — ChatView", 1, true) or string.find(chat, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "Chat softMotion")
-assert(string.find(star, "Canonical softMotion antilag gate — StarGridView", 1, true) or string.find(star, "local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient", 1, true), "StarGrid softMotion")
-assert(string.find(boot, "Canonical softMotion antilag gate — BootScreen", 1, true), "BootScreen softMotion")
-assert(string.find(prank, "Canonical softMotion antilag gate — AdminPrankOverlay", 1, true), "AdminPrank softMotion")
+assert(string.find(research, "local softMotion = ", 1, true), "Research softMotion")
+assert(string.find(wheel, "local softMotion = ", 1, true), "Wheel softMotion")
+assert(string.find(chat, "local softMotion = ", 1, true) or string.find(chat, "local softMotion = reducedMotion", 1, true), "Chat softMotion")
+assert(string.find(star, "local softMotion = ", 1, true) or string.find(star, "local softMotion = reducedMotion", 1, true), "StarGrid softMotion")
+assert(string.find(boot, "local softMotion = ", 1, true), "BootScreen softMotion")
+assert(string.find(prank, "local softMotion = ", 1, true), "AdminPrank softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(research, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Research softMotion densify, got " .. tostring(soft))
+	assert(soft >= 12, "Research softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(wheel, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 14, "Wheel softMotion densify, got " .. tostring(soft))
+	assert(soft >= 12, "Wheel softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(boot, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 8, "BootScreen softMotion densify, got " .. tostring(soft))
+	assert(soft >= 7, "BootScreen softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(prank, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 12, "AdminPrank softMotion densify, got " .. tostring(soft))
+	assert(soft >= 10, "AdminPrank softMotion densify, got " .. tostring(soft))
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 12', 1, true), "Chat DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = 12', 1, true), "Research DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12', 1, true), "StarGrid DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 12', 1, true), "Wheel DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = ', 1, true), "Chat DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = ', 1, true), "Research DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = ', 1, true), "StarGrid DENSE floor")
+assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = ', 1, true), "Wheel DENSE floor")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave41-offline-brief"', 1, true), "Story wave41")

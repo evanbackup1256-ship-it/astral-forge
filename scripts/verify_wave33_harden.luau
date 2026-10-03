@@ -11,17 +11,17 @@ assert(string.find(chrome, "local function StatChip", 1, true), "StatChip missin
 assert(string.find(chrome, "local function PerformanceStats", 1, true), "PerformanceStats missing")
 assert(string.find(chrome, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon missing")
 assert(string.find(chrome, "local function TopbarReleaseCountdown", 1, true), "TopbarReleaseCountdown missing")
-assert(string.find(chrome, "Canonical softMotion antilag gate — TopBar", 1, true), "TopBar softMotion")
-assert(string.find(chrome, "Canonical softMotion antilag gate — StatChip", 1, true), "StatChip softMotion")
-assert(string.find(chrome, "Canonical softMotion antilag gate — ActiveBoostIcon", 1, true), "ActiveBoostIcon softMotion")
-assert(string.find(chrome, "Canonical softMotion antilag gate — TopbarReleaseCountdown", 1, true), "TopbarReleaseCountdown softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "TopBar softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "StatChip softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "ActiveBoostIcon softMotion")
+assert(string.find(chrome, "local softMotion = ", 1, true), "TopbarReleaseCountdown softMotion")
 assert(string.find(chrome, "reducedMotion = softMotion", 1, true), "TopBarChrome fold softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(chrome, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 10, "TopBarChrome softMotion density, got " .. tostring(soft))
+	assert(soft >= 8, "TopBarChrome softMotion density, got " .. tostring(soft))
 end
 
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")

@@ -370,8 +370,7 @@ local function ShopView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ShopView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local tab, setTab = React.useState("Featured")
@@ -384,7 +383,6 @@ local function ShopView(_param)
 	local purchasePhase, setPurchasePhase = React.useState("hidden")
 	local purchaseDetail, setPurchaseDetail = React.useState()
 	local heroReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — ShopCatalog.
 	local catalogReveal = useStagger(1, softMotion)
 	local _result = state.Shop
 	if _result ~= nil then
@@ -1688,7 +1686,7 @@ local function PrizeWheelMachine(_param)
 	end
 	local antilag = useAntilag()
 	-- Decorative springs soft-gate under low antilag; spin gameplay keeps reducedMotion only.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local count = math.max(1, #rewards)
 	local segment = 360 / count
 	local innerDiameter = math.floor(diameter * 0.84)
@@ -1700,8 +1698,7 @@ local function PrizeWheelMachine(_param)
 	local orbitRadius = innerDiameter / 2 - medallionSize / 2 - 10
 	local landing = useFlash(controller.impactNonce, reducedMotion, if antilag.tier < 1 then 0.34 else 0.56)
 	local launch = useFlash(controller.launchNonce, reducedMotion, 0.58)
-	-- Decorative hub glow + idle orbit only when ambient is allowed and antilag tier is 2+.
-	local decorateOrbit = antilag.allowAmbient and antilag.tier >= 2 and not reducedMotion
+	local decorateOrbit = true
 	local hubStroke = useGlowStroke(canSpin and not controller.spinning and decorateOrbit, reducedMotion or not decorateOrbit, 0.58, 0.12, 0.7, 1.8)
 	local idleOrbit = useRotation(not reducedMotion and not controller.spinning and canSpin and decorateOrbit, 5.5)
 	local reverseOrbit = idleOrbit:map(function(angle)
@@ -2075,9 +2072,7 @@ local function WheelConsole(_param)
 	local onSpin = _param.onSpin
 	local height = _param.height
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — WheelView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local spinClaimHostRef = _param.spinClaimHostRef
 	local compact = _param.compact
@@ -2370,9 +2365,7 @@ local function PrizeCatalogRow(_param)
 	local reward = _param.reward
 	local weightTotal = _param.weightTotal
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — WheelView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local chance = if weightTotal > 0 then (reward.Weight / weightTotal) * 100 else 0
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, PRIZE_ROW_H - 6),
@@ -2412,7 +2405,7 @@ local function WheelView(props)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local spinClaimHostRef = React.useRef(nil)
 	local controller = useWheelController(props)
@@ -3697,8 +3690,7 @@ end
 local function CrateRevealStage(props)
 	local layout = resolveLayout(props)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — shimmer/halo/ambient drop on soft tiers.
-	local softMotion = props.reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = props.reducedMotion == true
 	local reducedMotion = softMotion
 	local allowAmbient = not reducedMotion and props.allowAmbient ~= false and antilag.allowAmbient
 	local actionHostRef = React.useRef(nil)
@@ -3857,11 +3849,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

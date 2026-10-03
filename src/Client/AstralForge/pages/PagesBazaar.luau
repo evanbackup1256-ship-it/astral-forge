@@ -183,8 +183,8 @@ end
 local function BazaarView(props)
 	local state = props.state
 	local dispatch = props.dispatch
-	-- Only the player's own Reduced Motion setting turns the Bazaar's effects off, not the shell's frame-rate governor.
-	local reducedMotion = state.Settings ~= nil and state.Settings.ReducedMotion == true
+	-- Always animated; the Reduced Motion setting softens the feel through MotionSettingsContext.
+	local reducedMotion = false
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local reveal = useStagger(0, reducedMotion)
@@ -487,11 +487,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

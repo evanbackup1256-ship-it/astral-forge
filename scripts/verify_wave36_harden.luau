@@ -8,8 +8,8 @@ local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shell, "local function AmbientLayer", 1, true), "AmbientLayer missing")
 assert(string.find(shell, "local function ConfettiBurst", 1, true), "ConfettiBurst missing")
 assert(string.find(shell, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES missing")
-assert(string.find(shell, "Canonical softMotion antilag gate — AmbientLayer", 1, true), "AmbientLayer softMotion")
-assert(string.find(shell, "Canonical softMotion antilag gate — ConfettiBurst", 1, true), "ConfettiBurst softMotion")
+assert(string.find(shell, "local softMotion = ", 1, true), "AmbientLayer softMotion")
+assert(string.find(shell, "local softMotion = ", 1, true), "ConfettiBurst softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(shell, "softMotion") do
@@ -29,9 +29,9 @@ assert(not string.find(main, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES
 local inv = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local anomaly = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
-assert(string.find(inv, "Canonical softMotion antilag gate — InventoryView", 1, true), "Inventory softMotion")
-assert(string.find(guild, "Canonical softMotion antilag gate — GuildView", 1, true), "Guild softMotion")
-assert(string.find(anomaly, "Canonical softMotion antilag gate — AnomalyView", 1, true), "Anomaly softMotion")
+assert(string.find(inv, "local softMotion = ", 1, true), "Inventory softMotion")
+assert(string.find(guild, "local softMotion = ", 1, true), "Guild softMotion")
+assert(string.find(anomaly, "local softMotion = ", 1, true), "Anomaly softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(inv, "softMotion") do

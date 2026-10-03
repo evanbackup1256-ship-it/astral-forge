@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (11): AssetKit, AssetManifest, Vfx, SanctuaryConfig, SanctuaryLayout, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock, ProcAnim.
+	Members (13): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ServerEvents, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -25,214 +25,6 @@ local function __load(name: string): any
 	if not ok then error(value, 0) end
 	__cache[name] = { value = value }
 	return value
-end
-
--- ======================================================================
--- Module: AssetKit   (merged from AssetKit.luau, 203 lines)
--- ======================================================================
-__defs["AssetKit"] = function()
--- The model kit (tools/assetgen/meshes.py -> AstralForgeKit.glb) at runtime.
---
--- Where the kit comes from, first match wins:
---   1. ServerStorage.AstralForgeKit   -- imported by hand in Studio
---   2. the uploaded model, Manifest.Kit.Id, loaded with InsertService
--- The server publishes one copy of every MeshPart to
--- ReplicatedStorage.AstralForgeKit, so clients (the Warden's body) clone the
--- same templates. With no kit at all, make() returns nil and every caller
--- falls back to its part-built shape, so the game looks as it did before.
---
---   AssetKit.load(8)                        -- server: at most 8 s; client: waits for the publish
---   AssetKit.make("Crystal", size) -> MeshPart?
---   AssetKit.sized("Obelisk", 1.4) -> Vector3  (native proportions, scaled)
-
-local InsertService = game:GetService("InsertService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local ServerStorage = if RunService:IsServer() then game:GetService("ServerStorage") else nil
-
-local Manifest = __load("AssetManifest")
-
-local AssetKit = {}
-
-local PUBLISHED = "AstralForgeKit"
-
-local templates: { [string]: MeshPart? } = {}
-local state = "idle" -- idle | loading | ready | missing
-local waiters: { thread } = {}
-
--- Importers sometimes decorate names ("Crystal.001", "Crystal_Mesh"); match
--- the longest kit name the instance's name starts with.
-local function kitName(name: string): string?
-	local best: string? = nil
-	for key in Manifest.Kit.Sizes do
-		if name == key then
-			return key
-		end
-		if string.sub(name, 1, #key) == key and not string.match(string.sub(name, #key + 1, #key + 1), "%w") then
-			if best == nil or #key > #best then
-				best = key
-			end
-		end
-	end
-	return best
-end
-
-local function collect(root: Instance)
-	for _, item in root:GetDescendants() do
-		if item:IsA("MeshPart") then
-			local key = kitName(item.Name)
-			if key ~= nil and templates[key] == nil then
-				templates[key] = item
-			end
-		end
-	end
-end
-
-local function finish(ready: boolean)
-	state = if ready then "ready" else "missing"
-	local list = waiters
-	waiters = {}
-	for _, thread in list do
-		task.spawn(thread)
-	end
-end
-
-local function publish()
-	if ReplicatedStorage:FindFirstChild(PUBLISHED) ~= nil then
-		return
-	end
-	local folder = Instance.new("Folder")
-	folder.Name = PUBLISHED
-	for key, template in templates do
-		if template == nil then
-			continue
-		end
-		local copy = template:Clone()
-		copy.Name = key
-		copy.Anchored = true
-		copy.Parent = folder
-	end
-	folder.Parent = ReplicatedStorage
-end
-
-local function loadServer()
-	local source: Instance? = if ServerStorage ~= nil then ServerStorage:FindFirstChild(PUBLISHED) else nil
-	if source == nil and Manifest.Kit.Id > 0 then
-		local ok, result = pcall(function()
-			return InsertService:LoadAsset(Manifest.Kit.Id)
-		end)
-		if ok and typeof(result) == "Instance" then
-			source = result
-		else
-			warn(`[AssetKit] couldn't load kit {Manifest.Kit.Id}: {result}. The game owner must own the asset.`)
-		end
-	end
-	if source ~= nil then
-		collect(source)
-	end
-	if next(templates) ~= nil then
-		publish()
-	end
-	finish(next(templates) ~= nil)
-end
-
-local function loadClient()
-	local folder = ReplicatedStorage:WaitForChild(PUBLISHED, 12)
-	if folder ~= nil then
-		collect(folder)
-		for _, item in folder:GetChildren() do
-			if item:IsA("MeshPart") and templates[item.Name] == nil then
-				templates[item.Name] = item
-			end
-		end
-	end
-	finish(next(templates) ~= nil)
-end
-
--- Load the kit, waiting at most `timeout` seconds. Safe to call many times.
-function AssetKit.load(timeout: number?): boolean
-	if state == "ready" or state == "missing" then
-		return state == "ready"
-	end
-	-- Nothing uploaded and nothing imported: skip the wait entirely.
-	if RunService:IsServer() and Manifest.Kit.Id == 0 and (ServerStorage == nil or ServerStorage:FindFirstChild(PUBLISHED) == nil) then
-		finish(false)
-		return false
-	end
-	if RunService:IsClient() and Manifest.Kit.Id == 0 and ReplicatedStorage:FindFirstChild(PUBLISHED) == nil then
-		finish(false)
-		return false
-	end
-	if state == "idle" then
-		state = "loading"
-		task.spawn(if RunService:IsServer() then loadServer else loadClient)
-	end
-	if state == "loading" then
-		local me = coroutine.running()
-		table.insert(waiters, me)
-		local deadline = task.delay(timeout or 8, function()
-			local index = table.find(waiters, me)
-			if index ~= nil then
-				table.remove(waiters, index)
-				task.spawn(me)
-			end
-		end)
-		coroutine.yield()
-		pcall(task.cancel, deadline)
-	end
-	return state == "ready"
-end
-
-function AssetKit.ready(): boolean
-	return state == "ready"
-end
-
-function AssetKit.has(name: string): boolean
-	return templates[name] ~= nil
-end
-
--- Native proportions of a model, scaled.
-function AssetKit.sized(name: string, scale: number): Vector3
-	local native: Vector3? = Manifest.Kit.Sizes[name]
-	return if native ~= nil then native * scale else Vector3.one * scale
-end
-
--- A fresh, anchored MeshPart of `name` at `size`, or nil if the kit isn't loaded.
-function AssetKit.make(name: string, size: Vector3, cframe: CFrame?, color: Color3?, material: Enum.Material?, collide: boolean?): MeshPart?
-	local template: MeshPart? = templates[name]
-	if template == nil then
-		return nil
-	end
-	local part = template:Clone()
-	part.Name = name
-	part.Anchored = true
-	part.Size = size
-	part.CanCollide = collide == true
-	part.CanQuery = collide == true
-	part.CanTouch = false
-	if cframe ~= nil then
-		part.CFrame = cframe
-	end
-	if color ~= nil then
-		part.Color = color
-	end
-	if material ~= nil then
-		part.Material = material
-	end
-	-- Imported meshes can carry a texture or surface appearance; the kit is
-	-- coloured by material, so drop both.
-	for _, child in part:GetChildren() do
-		if child:IsA("SurfaceAppearance") then
-			child:Destroy()
-		end
-	end
-	pcall(function()
-		part.TextureID = ""
-	end)
-	return part
-end
-
-return AssetKit
 end
 
 -- ======================================================================
@@ -972,331 +764,13 @@ return Manifest
 end
 
 -- ======================================================================
--- Module: Vfx   (merged from Vfx.luau, 311 lines)
+-- Module: OreConfig
 -- ======================================================================
-__defs["Vfx"] = function()
--- Visual effects built on the particle textures every Roblox client ships
--- with (rbxasset://textures/particles/...). Nothing here needs an upload, so
--- the effects look the same in Studio, on desktop, on phones and on console.
---
--- Presets are tuned for the sanctuary's palette and kept cheap: low rates,
--- short lifetimes, and bursts that emit once and clean themselves up.
---
---   Vfx.attach(part, "Embers", { Color = ... })   -- a continuous emitter
---   Vfx.burst(position, "Shatter", { Color = ... }) -- a one-off, auto-cleaned
---   Vfx.beam(a0, a1, "Tether", { Color = ... })    -- a textured beam
---
--- Used by the server (ambient scenery emitters, replicated) and the client
--- (moment-to-moment effects, never replicated).
-
-local Debris = game:GetService("Debris")
-local Workspace = game:GetService("Workspace")
-
-local Vfx = {}
-
-local TEX = "rbxasset://textures/particles/"
-Vfx.Textures = table.freeze({
-	Sparkle = TEX .. "sparkles_main.dds",
-	Fire = TEX .. "fire_main.dds",
-	FireSparks = TEX .. "fire_sparks_main.dds",
-	Smoke = TEX .. "smoke_main.dds",
-	Glow = TEX .. "forcefield_glow_main.dds",
-	Vortex = TEX .. "forcefield_vortex_main.dds",
-	Core = TEX .. "explosion01_core_main.dds",
-	Implosion = TEX .. "explosion01_implosion_main.dds",
-	Shockwave = TEX .. "explosion01_shockwave_main.dds",
-	BlastSmoke = TEX .. "explosion01_smoke_main.dds",
-})
-
-type Spec = { [string]: any }
-
-local function seq(...: number): NumberSequence
-	local values = { ... }
-	local points = {}
-	for i = 1, #values, 2 do
-		table.insert(points, NumberSequenceKeypoint.new(values[i], values[i + 1]))
-	end
-	return NumberSequence.new(points)
-end
-
-local function colors(a: Color3, b: Color3?): ColorSequence
-	return if b == nil then ColorSequence.new(a) else ColorSequence.new(a, b)
-end
-
--- Presets. Color/Color2 are filled in per use; everything else is a
--- ParticleEmitter property.
-local PRESETS: { [string]: Spec } = {
-	-- Ambient, continuous.
-	Embers = {
-		Texture = Vfx.Textures.FireSparks,
-		Size = seq(0, 0.35, 1, 0),
-		Transparency = seq(0, 0.1, 0.7, 0.4, 1, 1),
-		Lifetime = NumberRange.new(2, 3.6),
-		Rate = 5,
-		Speed = NumberRange.new(2, 5),
-		SpreadAngle = Vector2.new(22, 22),
-		Acceleration = Vector3.new(0, 1.2, 0),
-		RotSpeed = NumberRange.new(-60, 60),
-		LightEmission = 1,
-	},
-	Flame = {
-		Texture = Vfx.Textures.Fire,
-		Size = seq(0, 1.6, 0.5, 1.2, 1, 0.2),
-		Transparency = seq(0, 1, 0.12, 0.25, 0.7, 0.55, 1, 1),
-		Lifetime = NumberRange.new(0.7, 1.2),
-		Rate = 14,
-		Speed = NumberRange.new(2.5, 4.5),
-		SpreadAngle = Vector2.new(12, 12),
-		Rotation = NumberRange.new(-180, 180),
-		RotSpeed = NumberRange.new(-40, 40),
-		LightEmission = 0.85,
-		LightInfluence = 0,
-	},
-	Smoke = {
-		Texture = Vfx.Textures.Smoke,
-		Size = seq(0, 1.5, 1, 5),
-		Transparency = seq(0, 1, 0.2, 0.72, 1, 1),
-		Lifetime = NumberRange.new(3.5, 5.5),
-		Rate = 2.5,
-		Speed = NumberRange.new(1.5, 3),
-		SpreadAngle = Vector2.new(18, 18),
-		Rotation = NumberRange.new(-180, 180),
-		RotSpeed = NumberRange.new(-12, 12),
-		Acceleration = Vector3.new(0.6, 0.8, 0),
-		LightInfluence = 0.6,
-	},
-	Motes = {
-		Texture = Vfx.Textures.Sparkle,
-		Size = seq(0, 0, 0.3, 0.32, 1, 0),
-		Transparency = seq(0, 0.2, 1, 1),
-		Lifetime = NumberRange.new(4, 7),
-		Rate = 3,
-		Speed = NumberRange.new(0.4, 1.2),
-		SpreadAngle = Vector2.new(180, 180),
-		Acceleration = Vector3.new(0, 0.25, 0),
-		RotSpeed = NumberRange.new(-30, 30),
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-	Halo = {
-		-- A soft glow that sits on the part: one long-lived particle at a time.
-		Texture = Vfx.Textures.Glow,
-		Size = seq(0, 3.2, 0.5, 3.6, 1, 3.2),
-		Transparency = seq(0, 1, 0.25, 0.62, 0.75, 0.62, 1, 1),
-		Lifetime = NumberRange.new(2.4, 2.4),
-		Rate = 1.1,
-		Speed = NumberRange.new(0, 0),
-		LockedToPart = true,
-		LightEmission = 1,
-		LightInfluence = 0,
-		ZOffset = -0.5,
-	},
-	Swirl = {
-		Texture = Vfx.Textures.Vortex,
-		Size = seq(0, 6, 1, 7),
-		Transparency = seq(0, 1, 0.3, 0.55, 0.7, 0.55, 1, 1),
-		Lifetime = NumberRange.new(2.5, 2.5),
-		Rate = 1.2,
-		Speed = NumberRange.new(0, 0),
-		Rotation = NumberRange.new(0, 360),
-		RotSpeed = NumberRange.new(40, 40),
-		LockedToPart = true,
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-	Rising = {
-		-- Sparks drifting up a column (waystones, the Warden forming).
-		Texture = Vfx.Textures.Sparkle,
-		Size = seq(0, 0.45, 1, 0),
-		Transparency = seq(0, 0.1, 1, 1),
-		Lifetime = NumberRange.new(1.4, 2.4),
-		Rate = 10,
-		Speed = NumberRange.new(3, 7),
-		SpreadAngle = Vector2.new(8, 8),
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-
-	-- One-off bursts (Emit counts come from the burst call).
-	Shatter = {
-		Texture = Vfx.Textures.Sparkle,
-		Size = seq(0, 0.55, 1, 0),
-		Transparency = seq(0, 0, 1, 1),
-		Lifetime = NumberRange.new(0.5, 1.1),
-		Speed = NumberRange.new(10, 22),
-		SpreadAngle = Vector2.new(180, 180),
-		Acceleration = Vector3.new(0, -24, 0),
-		Drag = 2.5,
-		RotSpeed = NumberRange.new(-200, 200),
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-	Flash = {
-		Texture = Vfx.Textures.Core,
-		Size = seq(0, 2, 0.3, 6, 1, 7),
-		Transparency = seq(0, 0, 0.4, 0.4, 1, 1),
-		Lifetime = NumberRange.new(0.35, 0.45),
-		Speed = NumberRange.new(0, 0),
-		Rotation = NumberRange.new(0, 360),
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-	Implode = {
-		Texture = Vfx.Textures.Implosion,
-		Size = seq(0, 10, 1, 0.5),
-		Transparency = seq(0, 1, 0.3, 0.3, 1, 1),
-		Lifetime = NumberRange.new(0.9, 0.9),
-		Speed = NumberRange.new(0, 0),
-		Rotation = NumberRange.new(0, 360),
-		RotSpeed = NumberRange.new(-90, 90),
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-	Shockwave = {
-		-- Lies flat on the ground: the plane is perpendicular to its (upward) velocity.
-		Texture = Vfx.Textures.Shockwave,
-		Size = seq(0, 2, 1, 30),
-		Transparency = seq(0, 0.1, 0.6, 0.5, 1, 1),
-		Lifetime = NumberRange.new(0.6, 0.6),
-		Speed = NumberRange.new(0.01, 0.01),
-		EmissionDirection = Enum.NormalId.Top,
-		Orientation = Enum.ParticleOrientation.VelocityPerpendicular,
-		Rotation = NumberRange.new(0, 360),
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-	Dust = {
-		Texture = Vfx.Textures.BlastSmoke,
-		Size = seq(0, 3, 1, 9),
-		Transparency = seq(0, 0.4, 1, 1),
-		Lifetime = NumberRange.new(1, 1.8),
-		Speed = NumberRange.new(8, 16),
-		SpreadAngle = Vector2.new(80, 10),
-		EmissionDirection = Enum.NormalId.Top,
-		Drag = 3,
-		Rotation = NumberRange.new(0, 360),
-		RotSpeed = NumberRange.new(-30, 30),
-		LightInfluence = 0.7,
-	},
-	Spark = {
-		Texture = Vfx.Textures.FireSparks,
-		Size = seq(0, 0.4, 1, 0),
-		Transparency = seq(0, 0, 1, 1),
-		Lifetime = NumberRange.new(0.25, 0.5),
-		Speed = NumberRange.new(14, 26),
-		SpreadAngle = Vector2.new(70, 70),
-		Drag = 4,
-		LightEmission = 1,
-		LightInfluence = 0,
-	},
-}
-
-Vfx.PRESETS = PRESETS
-
-local function apply(emitter: ParticleEmitter, spec: Spec, overrides: Spec?)
-	for key, value in spec do
-		(emitter :: any)[key] = value
-	end
-	if overrides ~= nil then
-		for key, value in overrides do
-			if key == "Color" or key == "Color2" then
-				continue
-			end
-			(emitter :: any)[key] = value
-		end
-		local color = overrides.Color
-		if typeof(color) == "Color3" then
-			emitter.Color = colors(color, overrides.Color2)
-		elseif typeof(color) == "ColorSequence" then
-			emitter.Color = color
-		end
-	end
-end
-
--- A continuous emitter on a part or attachment.
-function Vfx.attach(parent: Instance, preset: string, overrides: Spec?): ParticleEmitter
-	local spec = PRESETS[preset]
-	assert(spec ~= nil, "unknown vfx preset " .. preset)
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Name = "Vfx" .. preset
-	apply(emitter, spec, overrides)
-	emitter.Parent = parent
-	return emitter
-end
-
--- A one-off burst at a world position, cleaned up after its longest particle.
-function Vfx.burst(position: Vector3, preset: string, count: number, overrides: Spec?, parent: Instance?): ParticleEmitter
-	local holder = Instance.new("Part")
-	holder.Name = "VfxBurst"
-	holder.Anchored = true
-	holder.CanCollide = false
-	holder.CanQuery = false
-	holder.CanTouch = false
-	holder.Transparency = 1
-	holder.Size = Vector3.new(0.2, 0.2, 0.2)
-	holder.CFrame = CFrame.new(position)
-	holder.Parent = parent or Workspace
-	local emitter = Vfx.attach(holder, preset, overrides)
-	emitter.Rate = 0
-	emitter:Emit(math.max(1, math.floor(count)))
-	Debris:AddItem(holder, emitter.Lifetime.Max + 0.5)
-	return emitter
-end
-
--- A textured beam between two attachments.
-function Vfx.beam(a0: Attachment, a1: Attachment, preset: string, overrides: Spec?): Beam
-	local beam = Instance.new("Beam")
-	beam.Name = "Vfx" .. preset
-	beam.Attachment0 = a0
-	beam.Attachment1 = a1
-	beam.LightEmission = 1
-	beam.LightInfluence = 0
-	beam.FaceCamera = true
-	beam.Segments = 16
-	if preset == "Tether" then
-		beam.Texture = Vfx.Textures.Sparkle
-		beam.TextureMode = Enum.TextureMode.Wrap
-		beam.TextureLength = 4
-		beam.TextureSpeed = 1.6
-		beam.Width0, beam.Width1 = 1.2, 0.4
-		beam.Transparency = seq(0, 0.35, 0.5, 0.1, 1, 0.5)
-		beam.CurveSize0, beam.CurveSize1 = 4, -4
-	elseif preset == "Column" then
-		beam.Texture = Vfx.Textures.Glow
-		beam.TextureMode = Enum.TextureMode.Stretch
-		beam.Width0, beam.Width1 = 5, 1.5
-		beam.Transparency = seq(0, 0.3, 1, 1)
-	else
-		error("unknown beam preset " .. preset)
-	end
-	if overrides ~= nil then
-		local color = overrides.Color
-		if typeof(color) == "Color3" then
-			beam.Color = colors(color, overrides.Color2)
-		end
-		for key, value in overrides do
-			if key ~= "Color" and key ~= "Color2" then
-				(beam :: any)[key] = value
-			end
-		end
-	end
-	beam.Parent = a0
-	return beam
-end
-
-return Vfx
-end
-
--- ======================================================================
--- Module: SanctuaryConfig   (merged from SanctuaryConfig.luau, 166 lines)
--- ======================================================================
-__defs["SanctuaryConfig"] = function()
--- Tuning for the two sanctuary features: ore outcrops and the Rift Warden.
---
--- Pure data (colours are plain RGB triples, not Color3) so the same numbers
--- are shared by the server services, the client and the Lune tests
--- (scripts/verify_sanctuary_world.luau). GameConfig exposes it as
--- GameConfig.Ore and GameConfig.RiftBoss.
+__defs["OreConfig"] = function()
+-- Ore balances and Foundry upgrade levels players earned before the sanctuary was retired.
+-- Nothing grants ore any more; this table stays so saved balances are still sanitized and the
+-- upgrades players already bought keep their effect (Economy.OreEffect). GameConfig exposes it
+-- as GameConfig.Ore.
 
 type Rgb = { number }
 
@@ -1324,9 +798,9 @@ type OreUpgrade = {
 	Scale: number,
 }
 
-local SanctuaryConfig = {}
+local OreConfig = {}
 
-SanctuaryConfig.Ore = {
+OreConfig.Ore = {
 	-- Seconds before a node a player mined grows back for that player.
 	RegrowSeconds = 90,
 	-- How long the mining prompt is held.
@@ -1417,1993 +891,7 @@ SanctuaryConfig.Ore = {
 	} :: { OreUpgrade },
 }
 
-SanctuaryConfig.RiftBoss = {
-	Name = "The Rift Warden",
-	Kind = "Warden",
-	Title = "Keeper of the Riftmaw",
-	-- Where it fights (a SanctuaryLayout id) and how players are told to find it.
-	Island = "Riftmaw",
-	Approach = "Open the rift and head south to fight it.",
-	-- Which audio cue plays for each beat. Every boss names its own so the fights sound
-	-- different; Music is the looping bed layered over the region's while it fights
-	-- (Bed is a sanctuary ambience region; set Id to an uploaded track to use that instead).
-	Cues = {
-		Forming = "wardenForming",
-		Awake = "wardenAwake",
-		Charge = "wardenSlamCharge",
-		Land = "wardenSlam",
-		Phase = "wardenAwake",
-		Defeat = "wardenDefeat",
-		Escape = "wardenEscape",
-	},
-	Music = { Bed = "amb_riftmaw", Id = 0, Pitch = 0.88, Level = 0.5 },
-	-- Colours the client dresses the boss, its telegraphs and its cinematic in.
-	Theme = {
-		Primary = { 128, 92, 255 },
-		Hot = { 214, 196, 255 },
-		Alert = { 255, 84, 120 },
-	},
-	-- Health fractions at which the boss changes phase (phase 1 above the first). Every
-	-- phase after the first speeds it up (PhaseDelayScale) and unlocks harder attacks.
-	Phases = { 0.66, 0.33 },
-	-- Multiplier on the wait between attacks, per phase (the last entry holds).
-	PhaseDelayScale = { 1, 0.8, 0.62 },
-	-- Weighted attack list. MinPhase gates an attack until the boss has reached it.
-	-- Params override what the attack reads; Slam/TwinSlam use the Slam* fields below.
-	Attacks = {
-		{ Kind = "Slam", Weight = 1 },
-		-- Four beams of the seal fan out from it, telegraphed as thin lines, then fire.
-		{ Kind = "Lances", Weight = 1, Params = { Count = 4, HalfWidth = 0.075, Range = 92, TelegraphSeconds = 1.8 } },
-		{ Kind = "TwinSlam", Weight = 0.8, MinPhase = 2 },
-		-- A well opens under a fighter and drags everyone toward it; the core then detonates.
-		{ Kind = "GravityWell", Weight = 0.9, MinPhase = 2, Params = { Radius = 30, Core = 15, PullSeconds = 3, Strength = 34, TelegraphSeconds = 0.8 } },
-		-- Rifts tear open under the fighters one after another.
-		{ Kind = "Volley", Weight = 0.9, MinPhase = 2, Params = { Count = 5, StepSeconds = 0.4, Scatter = 8, RadiusScale = 0.6, TelegraphSeconds = 1.6, Element = "Void" } },
-		-- Void wisps circle the arena and blow up unless cut down.
-		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 70, FuseSeconds = 9, Orbit = 34, OrbitSpeed = 0.5, BlastRadius = 11, TelegraphSeconds = 1.4, Element = "Void" } },
-		-- Signature: a fault races out from the boss toward a fighter, then a cage of rifts closes.
-		{ Kind = "Fissure", Weight = 0.9, Params = { Count = 6, FirstDistance = 14, Gap = 11, StepSeconds = 0.14, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Void" } },
-		{ Kind = "Cage", Weight = 0.9, MinPhase = 3, Params = { Count = 7, Distance = 15, RadiusScale = 0.55, TelegraphSeconds = 2, Element = "Void" } },
-		-- Phase 3: eight beams at once.
-		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 8, HalfWidth = 0.06, Range = 92, TelegraphSeconds = 1.7 } },
-	},
-	-- Quiet time between appearances, and the first appearance after a server starts.
-	IntervalSeconds = 540,
-	FirstDelaySeconds = 150,
-	-- The Warden takes shape in the Riftmaw before it can be struck.
-	FormingSeconds = 40,
-	-- How long it stays before slipping back into the rift.
-	ActiveSeconds = 150,
-	-- How long the defeat / escape moment plays before it goes quiet.
-	OutroSeconds = 10,
-	-- Health: a base plus a share per fighter in the sanctuary when it wakes.
-	BaseHealth = 900,
-	HealthPerFighter = 700,
-	CrowdHealth = 3400,
-	-- Strikes.
-	StrikeCooldown = 0.28,
-	StrikeRange = 64,
-	BaseDamage = 12,
-	DamagePerLevel = 2.5,
-	CritChance = 0.12,
-	CritMultiplier = 2,
-	-- Slams: a telegraphed ring on the arena floor that staggers anyone inside.
-	SlamIntervalMin = 6,
-	SlamIntervalMax = 9,
-	SlamTelegraphSeconds = 1.7,
-	SlamRadius = 24,
-	DazeSeconds = 2.2,
-	-- Fewer strikes than this and a fighter was only passing through.
-	MinStrikesForReward = 3,
-	-- Reward = Base + Share x (the fighter's share of all damage dealt).
-	Rewards = {
-		Stardust = { Base = 40, Share = 360 },
-		Starsteel = { Base = 2, Share = 6 },
-		Emberite = { Base = 4, Share = 8 },
-		Voidglass = { Base = 3, Share = 7 },
-	},
-}
-
--- The roster rotates: each appearance is the next boss in this list. Every boss after the
--- Warden inherits its timings, strikes and rewards and changes only what makes it
--- different; `Attacks` is replaced wholesale (never merged) so a boss owns its moveset.
-local function bossFrom(base, overrides)
-	local boss = table.clone(base)
-	for key, value in overrides do
-		boss[key] = value
-	end
-	return boss
-end
-
--- The Hollow Choir (Voidglass Hollows): a conductor of glass. Its attack is a ripple of
--- shockwave rings; the safe ground is the gaps between them, so the fight is about
--- reading the rhythm and stepping between beats, not about outrunning one big circle.
-local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
-	Name = "The Hollow Choir",
-	Kind = "Choir",
-	Title = "Seven voices, one silence",
-	Island = "ChoirIsle",
-	Approach = "Cross the Riftmaw's western bridge to the Hall of the Hollow Choir.",
-	Cues = {
-		Forming = "echoCapture",
-		Awake = "discovery",
-		Charge = "echoTune",
-		Land = "oreCollect",
-		Phase = "successChime",
-		Defeat = "rebirthBloom",
-		Escape = "reactorStabilize",
-	},
-	Music = { Bed = "amb_hollows", Id = 0, Pitch = 1.3, Level = 0.46, Effect = "Reverb" },
-	Theme = {
-		Primary = { 86, 200, 255 },
-		Hot = { 214, 244, 255 },
-		Alert = { 120, 255, 236 },
-	},
-	BaseHealth = 1000,
-	HealthPerFighter = 760,
-	CrowdHealth = 3400,
-	SlamIntervalMin = 5,
-	SlamIntervalMax = 8,
-	Attacks = {
-		-- Three beats out from the centre; the gaps between rings are safe.
-		{ Kind = "Rings", Weight = 1, Params = { Count = 3, FirstRadius = 16, Gap = 20, Width = 5.5, StepSeconds = 0.6, TelegraphSeconds = 2 } },
-		-- Phase 2: a longer, tighter phrase.
-		{ Kind = "Rings", Weight = 1, MinPhase = 2, Params = { Count = 4, FirstRadius = 14, Gap = 15, Width = 5, StepSeconds = 0.5, TelegraphSeconds = 2 } },
-		-- Every voice but the safe ones sings at once: stand in a pocket of calm.
-		{ Kind = "Dissonance", Weight = 1, Params = { Zones = 3, ZoneRadius = 13, TelegraphSeconds = 2.8 } },
-		-- One note struck three times in the same place, each wider than the last.
-		{ Kind = "EchoSlam", Weight = 0.8, MinPhase = 2, Params = { Hits = 3, StepSeconds = 0.7, Growth = 1.22, TelegraphSeconds = 1.5 } },
-		-- Shards of ice fall in a run of small, fast blows.
-		{ Kind = "Volley", Weight = 0.9, Params = { Count = 5, StepSeconds = 0.3, Scatter = 6, RadiusScale = 0.6, TelegraphSeconds = 1.5, Element = "Frost" } },
-		-- Frozen echoes drift round the hall; shatter them before they ring.
-		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 60, FuseSeconds = 8, Orbit = 30, OrbitSpeed = 0.6, BlastRadius = 10, TelegraphSeconds = 1.4, Element = "Frost" } },
-		-- Signature: a chord of blows blooming outward from the conductor.
-		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 2, Points = 4, FirstDistance = 20, Gap = 22, StepSeconds = 0.5, RadiusScale = 0.5, TelegraphSeconds = 1.8, Element = "Frost" } },
-		-- Phase 3: fewer pockets, a shorter warning, and the old slam on top.
-		{ Kind = "Dissonance", Weight = 1, MinPhase = 3, Params = { Zones = 2, ZoneRadius = 11, TelegraphSeconds = 2.2 } },
-		{ Kind = "Slam", Weight = 0.7, MinPhase = 3 },
-	},
-
-})
-
--- The Cinder Regent (Emberreach): a crown of fire. Its attack is a slow rotating beam; the
--- answer is to keep moving around it. It slams and twin-slams as it is worn down.
-local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
-	Name = "The Cinder Regent",
-	Kind = "Regent",
-	Title = "The last crown of Emberreach",
-	Island = "RegentIsle",
-	Approach = "Cross the Riftmaw's eastern bridge to the Cinderthrone.",
-	Cues = {
-		Forming = "domainCharge",
-		Awake = "domainImpact",
-		Charge = "bootSlamCharge",
-		Land = "bootImpact",
-		Phase = "domainCrack",
-		Defeat = "prestige",
-		Escape = "bootAftershock",
-	},
-	Music = { Bed = "amb_ember", Id = 0, Pitch = 0.72, Level = 0.56, Effect = "Distortion" },
-	Theme = {
-		Primary = { 255, 132, 48 },
-		Hot = { 255, 226, 170 },
-		Alert = { 255, 70, 40 },
-	},
-	BaseHealth = 1200,
-	HealthPerFighter = 900,
-	CrowdHealth = 3700,
-	ActiveSeconds = 165,
-	SlamIntervalMin = 6,
-	SlamIntervalMax = 9,
-	Attacks = {
-		{ Kind = "Sweep", Weight = 1, Params = { Seconds = 5.2, Speed = 0.85, HalfWidth = 0.17, Range = 84, TelegraphSeconds = 1.6 } },
-		-- Fire rains on several fighters in quick succession.
-		{ Kind = "Volley", Weight = 1, Params = { Count = 4, StepSeconds = 0.32, Scatter = 7, RadiusScale = 0.72, TelegraphSeconds = 1.5 } },
-		{ Kind = "Slam", Weight = 0.5 },
-		{ Kind = "TwinSlam", Weight = 0.6, MinPhase = 2 },
-		-- A wall of flame crosses the arena with one gap to slip through.
-		{ Kind = "Wall", Weight = 0.9, MinPhase = 2, Params = { Speed = 24, Half = 3, Range = 84, GapHalf = 9, TelegraphSeconds = 2.2 } },
-		-- Signature: a river of lava splits the floor toward a fighter, and a ring of fire cages them.
-		{ Kind = "Fissure", Weight = 0.9, Params = { Count = 7, FirstDistance = 12, Gap = 10, StepSeconds = 0.12, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Fire" } },
-		{ Kind = "Cage", Weight = 0.8, MinPhase = 3, Params = { Count = 8, Distance = 16, RadiusScale = 0.55, TelegraphSeconds = 2, Element = "Fire" } },
-		-- Fire from the sky across the whole arena.
-		{ Kind = "Meteors", Weight = 1, MinPhase = 2, Params = { Count = 7, StepSeconds = 0.35, RadiusScale = 0.7, TelegraphSeconds = 1.9, Element = "Fire" } },
-		-- Ember spirits circle the throne and burst if left alone.
-		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 90, FuseSeconds = 9, Orbit = 36, OrbitSpeed = 0.55, BlastRadius = 12, TelegraphSeconds = 1.4, Element = "Fire" } },
-		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 11, StepSeconds = 0.28, RadiusScale = 0.7, TelegraphSeconds = 1.7, Element = "Fire" } },
-		-- Phase 3: a faster beam, the other way round.
-		{ Kind = "Sweep", Weight = 1, MinPhase = 3, Params = { Seconds = 4.4, Speed = 1.25, HalfWidth = 0.2, Range = 84, TelegraphSeconds = 1.2 } },
-		{ Kind = "Volley", Weight = 1, MinPhase = 3, Params = { Count = 7, StepSeconds = 0.26, Scatter = 6, RadiusScale = 0.72, TelegraphSeconds = 1.3 } },
-	},
-
-})
-
--- The Stormbound Seraph (Tempest Aerie): a wing of lightning. Its fights are fast and loud:
--- forked volleys, a fault of thunder down the floor, and the sky itself called down.
-local StormSeraph = bossFrom(SanctuaryConfig.RiftBoss, {
-	Name = "The Stormbound Seraph",
-	Kind = "Seraph",
-	Title = "Wings of the last tempest",
-	Island = "StormIsle",
-	Approach = "Take the Riftmaw's south-western bridge to the Tempest Aerie.",
-	Cues = {
-		Forming = "reactorStabilize",
-		Awake = "domainImpact",
-		Charge = "echoTune",
-		Land = "bootImpact",
-		Phase = "domainCrack",
-		Defeat = "rebirthBloom",
-		Escape = "wardenEscape",
-	},
-	Music = { Bed = "amb_spire", Id = 0, Pitch = 1.12, Level = 0.52, Effect = "Distortion" },
-	Theme = {
-		Primary = { 96, 168, 255 },
-		Hot = { 232, 244, 255 },
-		Alert = { 255, 232, 96 },
-	},
-	BaseHealth = 1100,
-	HealthPerFighter = 820,
-	CrowdHealth = 3400,
-	SlamIntervalMin = 4.5,
-	SlamIntervalMax = 7.5,
-	PhaseDelayScale = { 1, 0.78, 0.58 },
-	Attacks = {
-		{ Kind = "Volley", Weight = 1, Params = { Count = 6, StepSeconds = 0.25, Scatter = 6, RadiusScale = 0.6, TelegraphSeconds = 1.4, Element = "Storm" } },
-		{ Kind = "Lances", Weight = 1, Params = { Count = 4, HalfWidth = 0.07, Range = 92, TelegraphSeconds = 1.7 } },
-		-- Signature: thunder runs down the floor toward a fighter in a line of blows.
-		{ Kind = "Fissure", Weight = 1, Params = { Count = 7, FirstDistance = 12, Gap = 9, StepSeconds = 0.1, RadiusScale = 0.5, TelegraphSeconds = 1.5, Element = "Storm" } },
-		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 2, Points = 4, FirstDistance = 18, Gap = 20, StepSeconds = 0.5, RadiusScale = 0.5, TelegraphSeconds = 1.7, Element = "Storm" } },
-		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 70, FuseSeconds = 8, Orbit = 32, OrbitSpeed = 0.9, BlastRadius = 10, TelegraphSeconds = 1.4, Element = "Storm" } },
-		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 10, StepSeconds = 0.26, RadiusScale = 0.6, TelegraphSeconds = 1.7, Element = "Storm" } },
-		{ Kind = "Cage", Weight = 0.9, MinPhase = 3, Params = { Count = 7, Distance = 14, RadiusScale = 0.5, TelegraphSeconds = 1.9, Element = "Storm" } },
-		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 8, HalfWidth = 0.055, Range = 92, TelegraphSeconds = 1.6 } },
-	},
-
-})
-
--- The Rimeheart (Frozen Reliquary): an ancient glacier that learned to hate. It cages, it
--- freezes the floor in bands, and buries the arena in hail.
-local Rimeheart = bossFrom(SanctuaryConfig.RiftBoss, {
-	Name = "The Rimeheart",
-	Kind = "Rime",
-	Title = "The glacier that remembers",
-	Island = "RimeIsle",
-	Approach = "Take the Riftmaw's southern bridge to the Frozen Reliquary.",
-	Cues = {
-		Forming = "echoCapture",
-		Awake = "wardenAwake",
-		Charge = "wardenSlamCharge",
-		Land = "oreCollect",
-		Phase = "successChime",
-		Defeat = "rebirthBloom",
-		Escape = "reactorStabilize",
-	},
-	Music = { Bed = "amb_hollows", Id = 0, Pitch = 0.82, Level = 0.5, Effect = "Reverb" },
-	Theme = {
-		Primary = { 150, 222, 255 },
-		Hot = { 240, 252, 255 },
-		Alert = { 80, 170, 255 },
-	},
-	BaseHealth = 1350,
-	HealthPerFighter = 960,
-	CrowdHealth = 3800,
-	ActiveSeconds = 170,
-	SlamIntervalMin = 6,
-	SlamIntervalMax = 9,
-	Attacks = {
-		-- Signature: ice closes round a fighter in a ring; only the heart of it is safe.
-		{ Kind = "Cage", Weight = 1.2, Params = { Count = 7, Distance = 15, RadiusScale = 0.55, TelegraphSeconds = 2, Element = "Frost" } },
-		{ Kind = "Rings", Weight = 1, Params = { Count = 3, FirstRadius = 14, Gap = 14, Width = 5, StepSeconds = 0.6, TelegraphSeconds = 2 } },
-		{ Kind = "Volley", Weight = 0.9, Params = { Count = 5, StepSeconds = 0.3, Scatter = 7, RadiusScale = 0.6, TelegraphSeconds = 1.5, Element = "Frost" } },
-		{ Kind = "Dissonance", Weight = 0.9, MinPhase = 2, Params = { Zones = 3, ZoneRadius = 12, TelegraphSeconds = 2.8 } },
-		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 2, Points = 4, FirstDistance = 16, Gap = 18, StepSeconds = 0.55, RadiusScale = 0.5, TelegraphSeconds = 1.8, Element = "Frost" } },
-		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 5, Health = 100, FuseSeconds = 9, Orbit = 30, OrbitSpeed = 0.45, BlastRadius = 12, TelegraphSeconds = 1.4, Element = "Frost" } },
-		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 9, StepSeconds = 0.3, RadiusScale = 0.65, TelegraphSeconds = 1.9, Element = "Frost" } },
-		{ Kind = "GravityWell", Weight = 0.8, MinPhase = 3, Params = { Radius = 28, Core = 14, PullSeconds = 3, Strength = 30, TelegraphSeconds = 0.8 } },
-	},
-
-})
-
--- The Umbral Knight (Gloaming Keep): a swordsman of pure shadow. Precise and fast: long
--- cutting lines, a hunter's sweep, cages of void, and a wall that leaves a single gap.
-local UmbralKnight = bossFrom(SanctuaryConfig.RiftBoss, {
-	Name = "The Umbral Knight",
-	Kind = "Knight",
-	Title = "Sworn to the dark between stars",
-	Island = "GloamIsle",
-	Approach = "Take the Riftmaw's far southern bridge to the Gloaming Keep.",
-	Cues = {
-		Forming = "wardenForming",
-		Awake = "domainImpact",
-		Charge = "bootSlamCharge",
-		Land = "wardenSlam",
-		Phase = "wardenAwake",
-		Defeat = "prestige",
-		Escape = "wardenEscape",
-	},
-	Music = { Bed = "amb_riftmaw", Id = 0, Pitch = 0.66, Level = 0.56, Effect = "Distortion" },
-	Theme = {
-		Primary = { 122, 82, 196 },
-		Hot = { 196, 168, 255 },
-		Alert = { 255, 60, 140 },
-	},
-	BaseHealth = 1500,
-	HealthPerFighter = 1050,
-	CrowdHealth = 4000,
-	ActiveSeconds = 175,
-	SlamIntervalMin = 4.5,
-	SlamIntervalMax = 7,
-	PhaseDelayScale = { 1, 0.75, 0.55 },
-	Attacks = {
-		-- Signature: a blade of void races from the knight to a fighter.
-		{ Kind = "Fissure", Weight = 1.2, Params = { Count = 7, FirstDistance = 12, Gap = 9, StepSeconds = 0.09, RadiusScale = 0.5, TelegraphSeconds = 1.4, Element = "Void" } },
-		{ Kind = "TwinSlam", Weight = 0.9, Params = { Element = "Void" } },
-		{ Kind = "Sweep", Weight = 1, Params = { Seconds = 4.8, Speed = 0.95, HalfWidth = 0.16, Range = 84, TelegraphSeconds = 1.5 } },
-		{ Kind = "Summon", Weight = 0.8, MinPhase = 2, Params = { Count = 4, Health = 110, FuseSeconds = 8, Orbit = 30, OrbitSpeed = 0.75, BlastRadius = 11, TelegraphSeconds = 1.3, Element = "Void" } },
-		{ Kind = "Cage", Weight = 1, MinPhase = 2, Params = { Count = 8, Distance = 14, RadiusScale = 0.5, TelegraphSeconds = 1.9, Element = "Void" } },
-		{ Kind = "Wall", Weight = 0.9, MinPhase = 2, Params = { Speed = 26, Half = 3, Range = 70, GapHalf = 8, TelegraphSeconds = 2 } },
-		{ Kind = "Starburst", Weight = 0.9, MinPhase = 3, Params = { Rings = 2, Points = 5, FirstDistance = 16, Gap = 20, StepSeconds = 0.45, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Void" } },
-		{ Kind = "Lances", Weight = 1, MinPhase = 3, Params = { Count = 6, HalfWidth = 0.06, Range = 92, TelegraphSeconds = 1.5 } },
-		{ Kind = "Meteors", Weight = 0.9, MinPhase = 3, Params = { Count = 9, StepSeconds = 0.3, RadiusScale = 0.6, TelegraphSeconds = 1.7, Element = "Void" } },
-	},
-
-})
--- Boss effect sounds by name (cast_<Element>, hit_<Element>, wisp_*, impact) -> uploaded audio id.
--- BOSS-SFX-BEGIN (rewritten by tools/assetgen/upload_boss_sfx.py)
-SanctuaryConfig.BossSfx = {
-	["armor_clank"] = 75410196239815,
-	["boom_Astraeon"] = 86443241088243,
-	["boom_Choir"] = 121783253529764,
-	["boom_Knight"] = 114051540535398,
-	["boom_Regent"] = 118488607818523,
-	["boom_Rime"] = 135269604054166,
-	["boom_Seraph"] = 137063823498914,
-	["boom_Warden"] = 120376657917041,
-	["cast_Fire"] = 133922670576399,
-	["cast_Frost"] = 72187971131986,
-	["cast_Storm"] = 92138127701089,
-	["cast_Void"] = 106692366896440,
-	["charge_Astraeon"] = 138812639576899,
-	["charge_Choir"] = 74209989827837,
-	["charge_Knight"] = 126591884216749,
-	["charge_Regent"] = 135026014097678,
-	["charge_Rime"] = 76730337330543,
-	["charge_Seraph"] = 121722729622622,
-	["charge_Warden"] = 97049983205219,
-	["cloth_whoosh"] = 107896766944931,
-	["death_Astraeon"] = 124818493091840,
-	["death_Choir"] = 140614894530556,
-	["death_Knight"] = 128773631016939,
-	["death_Regent"] = 97559340390980,
-	["death_Rime"] = 93769858227275,
-	["death_Seraph"] = 129476429582513,
-	["death_Warden"] = 115201650738474,
-	["hit_Fire"] = 88917316640445,
-	["hit_Frost"] = 123582349928047,
-	["hit_Storm"] = 116862191440594,
-	["hit_Void"] = 116315495398978,
-	["impact"] = 88257269102737,
-	["roar_Astraeon"] = 93199165787938,
-	["roar_Choir"] = 112477213188430,
-	["roar_Knight"] = 78411532764396,
-	["roar_Regent"] = 71888323612526,
-	["roar_Rime"] = 72438654390546,
-	["roar_Seraph"] = 83421337144991,
-	["roar_Warden"] = 83056913167769,
-	["step_Astraeon"] = 95199208477377,
-	["step_Choir"] = 93618602773961,
-	["step_Knight"] = 79337324769467,
-	["step_Regent"] = 84673589896879,
-	["step_Rime"] = 110427816931011,
-	["step_Seraph"] = 122665304312558,
-	["step_Warden"] = 131117341067610,
-	["wing_beat"] = 138506887464861,
-	["wisp_blast"] = 140620443596331,
-	["wisp_down"] = 80813482090323,
-	["wisp_spawn"] = 76279580661681,
-}
--- BOSS-SFX-END
-
--- Which body each boss wears: the generated textured models (default) or the procedural Blender bodies.
--- Set to "blender" for every boss, or { Knight = "blender", ... } for some.
-SanctuaryConfig.BossBodyStyle = "blender"
-
--- Boss bodies built, rigged, textured and animated in Blender (tools/bossbuild): skeleton, piece placement and clips.
--- BOSS-BODIES-BEGIN (moved to BossBodies.luau; see tools/bossbuild/export_bodies.py)
-SanctuaryConfig.BossBodies = false
--- BOSS-BODIES-END
-
--- The uploaded body models, one per boss: kind -> model id.
--- BOSS-BODYKIT-BEGIN (rewritten by tools/bossbuild/upload_bodies.py)
-SanctuaryConfig.BossBodyKit = {
-	Astraeon = 130149420787015,
-	Choir = 80226286580187,
-	Knight = 80597675859468,
-	Regent = 104686406794631,
-	Rime = 85984839083025,
-	Seraph = 100357521359703,
-	Warden = 98182115252813,
-}
--- BOSS-BODYKIT-END
-
--- The bosses' body animation, authored in Blender (tools/assetgen/blender_bossrig.py): per clip, per bone, pitch/yaw/roll at 15 fps.
--- BOSS-CLIPS-BEGIN (rewritten by tools/assetgen/blender_bossrig.py)
-SanctuaryConfig.BossClips = {
-	default = {
-		idle = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.01, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0 },
-			armL = { -0.08, 0, 0.14, -0.07, 0, 0.15, -0.06, 0, 0.15, -0.05, 0, 0.15, -0.04, 0, 0.16, -0.03, 0, 0.16, -0.02, 0, 0.17, -0.02, 0, 0.17, -0.01, 0, 0.17, -0.01, 0, 0.18, -0.01, 0, 0.18, -0.01, 0, 0.18, -0.02, 0, 0.18, -0.02, 0, 0.18, -0.03, 0, 0.18, -0.04, 0, 0.18, -0.05, 0, 0.18, -0.06, 0, 0.17, -0.07, 0, 0.17, -0.08, 0, 0.17, -0.09, 0, 0.16, -0.11, 0, 0.16, -0.12, 0, 0.15, -0.13, 0, 0.15, -0.13, 0, 0.15, -0.14, 0, 0.14, -0.15, 0, 0.13, -0.15, 0, 0.13, -0.15, 0, 0.13, -0.15, 0, 0.12, -0.15, 0, 0.12, -0.14, 0, 0.11, -0.14, 0, 0.11, -0.13, 0, 0.11, -0.12, 0, 0.1, -0.11, 0, 0.1, -0.1, 0, 0.1, -0.09, 0, 0.1, -0.07, 0, 0.1, -0.06, 0, 0.1, -0.05, 0, 0.1, -0.04, 0, 0.1, -0.03, 0, 0.11, -0.02, 0, 0.11, -0.02, 0, 0.11, -0.01, 0, 0.12 },
-			armR = { -0.02, 0, 0.17, -0.02, 0, 0.18, -0.03, 0, 0.18, -0.04, 0, 0.18, -0.05, 0, 0.18, -0.06, 0, 0.18, -0.07, 0, 0.18, -0.08, 0, 0.18, -0.09, 0, 0.18, -0.11, 0, 0.17, -0.12, 0, 0.17, -0.13, 0, 0.17, -0.13, 0, 0.16, -0.14, 0, 0.16, -0.15, 0, 0.15, -0.15, 0, 0.15, -0.15, 0, 0.15, -0.15, 0, 0.14, -0.15, 0, 0.14, -0.14, 0, 0.13, -0.14, 0, 0.13, -0.13, 0, 0.12, -0.12, 0, 0.12, -0.11, 0, 0.11, -0.1, 0, 0.11, -0.09, 0, 0.11, -0.07, 0, 0.1, -0.06, 0, 0.1, -0.05, 0, 0.1, -0.04, 0, 0.1, -0.03, 0, 0.1, -0.02, 0, 0.1, -0.02, 0, 0.1, -0.01, 0, 0.1, -0.01, 0, 0.11, -0.01, 0, 0.11, -0.01, 0, 0.11, -0.01, 0, 0.12, -0.02, 0, 0.12, -0.03, 0, 0.13, -0.03, 0, 0.13, -0.04, 0, 0.13, -0.05, 0, 0.14, -0.06, 0, 0.14, -0.08, 0, 0.15, -0.09, 0, 0.15 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		forming = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-			head = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0 },
-			armL = { -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25 },
-			armR = { -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			wingR = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		slam = { fps = 15, length = 1.8, hit = 1.1, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.15, 0, 0, -0.18, 0, 0, -0.21, 0, 0, -0.24, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.3, 0, 0, -0.31, 0, 0, -0.32, 0, 0, -0.05, 0, 0, 0.28, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.37, 0, 0, 0.29, 0, 0, 0.19, 0, 0, 0.1, 0, 0, 0.03, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.16, 0, 0, -0.19, 0, 0, -0.2, 0, 0, -0.22, 0, 0, -0.23, 0, 0, -0.24, 0, 0, -0.25, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.14, 0, 0, 0.12, 0, 0, 0.1, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0 },
-			armL = { 0, 0, 0.1, -0.02, 0, 0.1, -0.1, 0, 0.1, -0.2, 0, 0.1, -0.35, 0, 0.1, -0.52, 0, 0.1, -0.71, 0, 0.1, -0.91, 0, 0.1, -1.12, 0, 0.1, -1.33, 0, 0.1, -1.54, 0, 0.1, -1.74, 0, 0.1, -1.92, 0, 0.1, -2.08, 0, 0.1, -2.2, 0, 0.1, -2.3, 0, 0.1, -2.34, 0, 0.1, -1.41, 0, 0.1, -0.23, 0, 0.1, 0.25, 0, 0.1, 0.35, 0, 0.1, 0.34, 0, 0.1, 0.28, 0, 0.1, 0.19, 0, 0.1, 0.1, 0, 0.1, 0.01, 0, 0.1, -0.05, 0, 0.1, -0.08, 0, 0.1 },
-			armR = { 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0.01, -0.06, 0, 0.03, -0.1, 0, 0.05, -0.15, 0, 0.08, -0.21, 0, 0.11, -0.27, 0, 0.14, -0.33, 0, 0.17, -0.4, 0, 0.2, -0.46, 0, 0.23, -0.52, 0, 0.26, -0.57, 0, 0.29, -0.62, 0, 0.31, -0.66, 0, 0.33, -0.68, 0, 0.34, -0.7, 0, 0.35, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.29, -0.3, 0, 0.27, -0.3, 0, 0.24, -0.3, 0, 0.21, -0.3, 0, 0.17, -0.3, 0, 0.15, -0.3, 0, 0.14 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.44, 0, 0, 0.41, 0, 0, 0.39, 0, 0, 0.36, 0, 0, 0.33, 0, 0, 0.31, 0, 0, 0.28, 0, 0, 0.26, 0, 0, 0.23, 0, 0, 0.2, 0, 0, 0.18, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		thrust = { fps = 15, length = 1.6, hit = 0.9, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, 0.16, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.33, 0, 0, 0.27, 0, 0, 0.19, 0, 0, 0.11, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02 },
-		} },
-		pull = { fps = 15, length = 1.2, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.23, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.23, 0, 0, 0.22, 0, 0, 0.2, 0, 0, 0.18, 0, 0, 0.16, 0, 0, 0.14, 0, 0, 0.13, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0 },
-			armL = { -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2 },
-			armR = { -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 2, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0 },
-			armL = { -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05 },
-			armR = { -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0 },
-			armL = { 0.35, 0, 0.35, 0.4, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.43, 0, 0.35, 0.39, 0, 0.35, 0.34, 0, 0.35, 0.29, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.28, 0, 0.35, 0.32, 0, 0.35, 0.37, 0, 0.35, 0.42, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35 },
-			armR = { 0.43, 0, 0.35, 0.45, 0, 0.35, 0.44, 0, 0.35, 0.4, 0, 0.35, 0.35, 0, 0.35, 0.3, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.27, 0, 0.35, 0.31, 0, 0.35, 0.37, 0, 0.35, 0.41, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.42, 0, 0.35, 0.38, 0, 0.35 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09 },
-		} },
-		roar = { fps = 15, length = 1.8, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.1, 0, 0, -0.17, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, -0.17, 0, 0, -0.3, 0, 0, -0.39, 0, 0, -0.45, 0, 0, -0.48, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			armR = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			cloth = { 0.1, 0, 0, 0.01, 0, 0, -0.05, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		summon = { fps = 15, length = 2, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.04, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			armR = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.5, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.26, 0, 0.08, -0.19, 0, 0.05, -0.13, 0, 0.04, -0.08, 0, 0.02, -0.04, 0, 0.01, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { -0.3, 0, 0, -0.23, 0, 0, -0.16, 0, 0, -0.11, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			armR = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			cloth = { 0.3, 0, 0, 0.23, 0, 0, 0.16, 0, 0, 0.11, 0, 0, 0.07, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		death = { fps = 15, length = 2.4, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0.01, 0.05, 0, 0.01, 0.07, 0, 0.02, 0.1, 0, 0.03, 0.13, 0, 0.04, 0.17, 0, 0.05, 0.21, 0, 0.06, 0.24, 0, 0.08, 0.28, 0, 0.09, 0.32, 0, 0.1, 0.37, 0, 0.11, 0.41, 0, 0.12, 0.44, 0, 0.14, 0.48, 0, 0.15, 0.52, 0, 0.16, 0.55, 0, 0.17, 0.58, 0, 0.18, 0.6, 0, 0.19, 0.62, 0, 0.19, 0.64, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.03, 0, 0.01, 0.05, 0, 0.02, 0.08, 0, 0.03, 0.11, 0, 0.05, 0.14, 0, 0.06, 0.18, 0, 0.08, 0.22, 0, 0.09, 0.26, 0, 0.11, 0.31, 0, 0.13, 0.35, 0, 0.15, 0.39, 0, 0.17, 0.44, 0, 0.19, 0.48, 0, 0.21, 0.52, 0, 0.22, 0.56, 0, 0.24, 0.59, 0, 0.25, 0.62, 0, 0.27, 0.65, 0, 0.28, 0.67, 0, 0.29, 0.69, 0, 0.29, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			legR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.06, 0, 0, 0.08, 0, 0, 0.1, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.24, 0, 0, 0.26, 0, 0, 0.27, 0, 0, 0.28, 0, 0, 0.29, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-	Knight = {
-		idle = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0.04, 0, 0, 0.04, 0.01, 0, 0.05, 0.02, 0.01, 0.05, 0.03, 0.01, 0.05, 0.04, 0.01, 0.06, 0.05, 0.02, 0.06, 0.06, 0.02, 0.06, 0.07, 0.02, 0.06, 0.08, 0.02, 0.06, 0.08, 0.03, 0.06, 0.09, 0.03, 0.06, 0.1, 0.03, 0.06, 0.1, 0.03, 0.06, 0.11, 0.03, 0.06, 0.11, 0.03, 0.06, 0.12, 0.03, 0.06, 0.12, 0.03, 0.06, 0.12, 0.03, 0.05, 0.12, 0.03, 0.05, 0.12, 0.03, 0.05, 0.12, 0.02, 0.05, 0.12, 0.02, 0.04, 0.11, 0.02, 0.04, 0.11, 0.02, 0.03, 0.1, 0.01, 0.03, 0.1, 0.01, 0.03, 0.09, 0.01, 0.03, 0.08, 0, 0.02, 0.08, 0, 0.02, 0.07, 0, 0.02, 0.06, -0.01, 0.02, 0.05, -0.01, 0.02, 0.04, -0.01, 0.02, 0.03, -0.02, 0.02, 0.02, -0.02, 0.02, 0.01, -0.02, 0.02, 0, -0.02, 0.02, -0.01, -0.03, 0.02, -0.02, -0.03, 0.02, -0.03, -0.03, 0.02, -0.04, -0.03, 0.03, -0.05, -0.03, 0.03, -0.06, -0.03, 0.03, -0.07, -0.03, 0.04, -0.08, -0.03, 0.04, -0.08, -0.03 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.01, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0 },
-			armL = { -0.55, 0, 0.35, -0.54, 0, 0.35, -0.53, 0, 0.35, -0.52, 0, 0.35, -0.52, 0, 0.35, -0.51, 0, 0.35, -0.51, 0, 0.35, -0.5, 0, 0.35, -0.5, 0, 0.35, -0.5, 0, 0.35, -0.5, 0, 0.35, -0.5, 0, 0.35, -0.51, 0, 0.35, -0.51, 0, 0.35, -0.52, 0, 0.35, -0.52, 0, 0.35, -0.53, 0, 0.35, -0.54, 0, 0.35, -0.55, 0, 0.35, -0.56, 0, 0.35, -0.57, 0, 0.35, -0.57, 0, 0.35, -0.58, 0, 0.35, -0.59, 0, 0.35, -0.59, 0, 0.35, -0.6, 0, 0.35, -0.6, 0, 0.35, -0.6, 0, 0.35, -0.6, 0, 0.35, -0.6, 0, 0.35, -0.59, 0, 0.35, -0.59, 0, 0.35, -0.58, 0, 0.35, -0.57, 0, 0.35, -0.57, 0, 0.35, -0.56, 0, 0.35, -0.55, 0, 0.35, -0.54, 0, 0.35, -0.53, 0, 0.35, -0.52, 0, 0.35, -0.52, 0, 0.35, -0.51, 0, 0.35, -0.51, 0, 0.35, -0.5, 0, 0.35, -0.5, 0, 0.35, -0.5, 0, 0.35 },
-			armR = { -0.75, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.75, 0, 0.1, -0.75, 0, 0.1, -0.76, 0, 0.1, -0.77, 0, 0.1, -0.78, 0, 0.1, -0.79, 0, 0.1, -0.8, 0, 0.1, -0.81, 0, 0.1, -0.82, 0, 0.1, -0.83, 0, 0.1, -0.84, 0, 0.1, -0.84, 0, 0.1, -0.85, 0, 0.1, -0.86, 0, 0.1, -0.86, 0, 0.1, -0.86, 0, 0.1, -0.86, 0, 0.1, -0.86, 0, 0.1, -0.85, 0, 0.1, -0.85, 0, 0.1, -0.84, 0, 0.1, -0.83, 0, 0.1, -0.82, 0, 0.1, -0.81, 0, 0.1, -0.8, 0, 0.1, -0.79, 0, 0.1, -0.78, 0, 0.1, -0.77, 0, 0.1, -0.76, 0, 0.1, -0.76, 0, 0.1, -0.75, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.74, 0, 0.1, -0.75, 0, 0.1, -0.75, 0, 0.1, -0.76, 0, 0.1, -0.77, 0, 0.1 },
-			legL = { -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12, -0.18, 0, 0.12 },
-			legR = { 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		forming = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-			head = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0 },
-			armL = { -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25 },
-			armR = { -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			wingR = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		slam = { fps = 15, length = 1.8, hit = 1.1, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.15, 0, 0, -0.18, 0, 0, -0.21, 0, 0, -0.24, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.3, 0, 0, -0.31, 0, 0, -0.32, 0, 0, -0.05, 0, 0, 0.28, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.37, 0, 0, 0.29, 0, 0, 0.19, 0, 0, 0.1, 0, 0, 0.03, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.16, 0, 0, -0.19, 0, 0, -0.2, 0, 0, -0.22, 0, 0, -0.23, 0, 0, -0.24, 0, 0, -0.25, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.14, 0, 0, 0.12, 0, 0, 0.1, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0 },
-			armL = { 0, 0, 0.1, -0.02, 0, 0.1, -0.1, 0, 0.1, -0.2, 0, 0.1, -0.35, 0, 0.1, -0.52, 0, 0.1, -0.71, 0, 0.1, -0.91, 0, 0.1, -1.12, 0, 0.1, -1.33, 0, 0.1, -1.54, 0, 0.1, -1.74, 0, 0.1, -1.92, 0, 0.1, -2.08, 0, 0.1, -2.2, 0, 0.1, -2.3, 0, 0.1, -2.34, 0, 0.1, -1.41, 0, 0.1, -0.23, 0, 0.1, 0.25, 0, 0.1, 0.35, 0, 0.1, 0.34, 0, 0.1, 0.28, 0, 0.1, 0.19, 0, 0.1, 0.1, 0, 0.1, 0.01, 0, 0.1, -0.05, 0, 0.1, -0.08, 0, 0.1 },
-			armR = { 0, 0, 0.12, -0.02, 0, 0.12, -0.1, 0, 0.12, -0.2, 0, 0.12, -0.35, 0, 0.12, -0.52, 0, 0.12, -0.71, 0, 0.12, -0.91, 0, 0.12, -1.12, 0, 0.12, -1.33, 0, 0.12, -1.54, 0, 0.12, -1.74, 0, 0.12, -1.92, 0, 0.12, -2.08, 0, 0.12, -2.2, 0, 0.12, -2.3, 0, 0.12, -2.34, 0, 0.12, -1.41, 0, 0.12, -0.23, 0, 0.12, 0.25, 0, 0.12, 0.35, 0, 0.12, 0.34, 0, 0.12, 0.28, 0, 0.12, 0.19, 0, 0.12, 0.1, 0, 0.12, 0.01, 0, 0.12, -0.05, 0, 0.12, -0.08, 0, 0.12 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.04, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.07, 0, 0.05, 0.08, 0, 0.05, 0.09, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, -0.19, 0, 0.1, -0.43, 0, 0.1, -0.53, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1, -0.55, 0, 0.1 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.12, 0, 0.1, 0.27, 0, 0.1, 0.34, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.44, 0, 0, 0.41, 0, 0, 0.39, 0, 0, 0.36, 0, 0, 0.33, 0, 0, 0.31, 0, 0, 0.28, 0, 0, 0.26, 0, 0, 0.23, 0, 0, 0.2, 0, 0, 0.18, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		thrust = { fps = 15, length = 1.6, hit = 0.9, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, 0.16, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.33, 0, 0, 0.27, 0, 0, 0.19, 0, 0, 0.11, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, 0.23, 0, 0.23, 0.46, 0, 0.46, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, -0.37, 0, 0.12, -0.73, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12, -0.8, 0, 0.12 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0.21, 0, 0.1, 0.41, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1, 0.45, 0, 0.1 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02 },
-		} },
-		pull = { fps = 15, length = 1.2, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.23, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.23, 0, 0, 0.22, 0, 0, 0.2, 0, 0, 0.18, 0, 0, 0.16, 0, 0, 0.14, 0, 0, 0.13, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0 },
-			armL = { -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2 },
-			armR = { -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 2, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0.19, 0.12, 0, 0.37, 0.12, 0, 0.53, 0.12, 0, 0.67, 0.12, 0, 0.78, 0.12, 0, 0.86, 0.12, 0, 0.9, 0.12, 0, 0.9, 0.12, 0, 0.86, 0.12, 0, 0.78, 0.12, 0, 0.67, 0.12, 0, 0.53, 0.12, 0, 0.37, 0.12, 0, 0.19, 0.12, 0, 0, 0.12, 0, -0.19, 0.12, 0, -0.37, 0.12, 0, -0.53, 0.12, 0, -0.67, 0.12, 0, -0.78, 0.12, 0, -0.86, 0.12, 0, -0.9, 0.12, 0, -0.9, 0.12, 0, -0.86, 0.12, 0, -0.78, 0.12, 0, -0.67, 0.12, 0, -0.53, 0.12, 0, -0.37, 0.12, 0, -0.19, 0.12, 0, 0, 0.12 },
-			head = { 0, 0, 0, 0.01, -0.08, 0, 0.02, -0.16, 0, 0.02, -0.24, 0, 0.03, -0.3, 0, 0.03, -0.35, 0, 0.04, -0.38, 0, 0.04, -0.4, 0, 0.04, -0.4, 0, 0.04, -0.38, 0, 0.04, -0.35, 0, 0.03, -0.3, 0, 0.03, -0.24, 0, 0.02, -0.16, 0, 0.02, -0.08, 0, 0.01, 0, 0, 0, 0.08, 0, -0.01, 0.16, 0, -0.01, 0.24, 0, -0.02, 0.3, 0, -0.03, 0.35, 0, -0.03, 0.38, 0, -0.04, 0.4, 0, -0.04, 0.4, 0, -0.04, 0.38, 0, -0.04, 0.35, 0, -0.04, 0.3, 0, -0.03, 0.24, 0, -0.03, 0.16, 0, -0.02, 0.08, 0, -0.02, 0, 0 },
-			armL = { -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05 },
-			armR = { -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0 },
-			armL = { 0.35, 0, 0.35, 0.4, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.43, 0, 0.35, 0.39, 0, 0.35, 0.34, 0, 0.35, 0.29, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.28, 0, 0.35, 0.32, 0, 0.35, 0.37, 0, 0.35, 0.42, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35 },
-			armR = { 0.43, 0, 0.35, 0.45, 0, 0.35, 0.44, 0, 0.35, 0.4, 0, 0.35, 0.35, 0, 0.35, 0.3, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.27, 0, 0.35, 0.31, 0, 0.35, 0.37, 0, 0.35, 0.41, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.42, 0, 0.35, 0.38, 0, 0.35 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09 },
-		} },
-		roar = { fps = 15, length = 1.8, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.1, 0, 0, -0.17, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, -0.17, 0, 0, -0.3, 0, 0, -0.39, 0, 0, -0.45, 0, 0, -0.48, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			armR = { 0, 0, 0.2, -0.8, 0, 0.2, -1.34, 0, 0.2, -1.66, 0, 0.2, -1.83, 0, 0.2, -1.89, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2, -1.9, 0, 0.2 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			cloth = { 0.1, 0, 0, 0.01, 0, 0, -0.05, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		summon = { fps = 15, length = 2, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.04, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			armR = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.5, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.26, 0, 0.08, -0.19, 0, 0.05, -0.13, 0, 0.04, -0.08, 0, 0.02, -0.04, 0, 0.01, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { -0.3, 0, 0, -0.23, 0, 0, -0.16, 0, 0, -0.11, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			armR = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			cloth = { 0.3, 0, 0, 0.23, 0, 0, 0.16, 0, 0, 0.11, 0, 0, 0.07, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		death = { fps = 15, length = 2.4, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0.01, 0.05, 0, 0.01, 0.07, 0, 0.02, 0.1, 0, 0.03, 0.13, 0, 0.04, 0.17, 0, 0.05, 0.21, 0, 0.06, 0.24, 0, 0.08, 0.28, 0, 0.09, 0.32, 0, 0.1, 0.37, 0, 0.11, 0.41, 0, 0.12, 0.44, 0, 0.14, 0.48, 0, 0.15, 0.52, 0, 0.16, 0.55, 0, 0.17, 0.58, 0, 0.18, 0.6, 0, 0.19, 0.62, 0, 0.19, 0.64, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.03, 0, 0.01, 0.05, 0, 0.02, 0.08, 0, 0.03, 0.11, 0, 0.05, 0.14, 0, 0.06, 0.18, 0, 0.08, 0.22, 0, 0.09, 0.26, 0, 0.11, 0.31, 0, 0.13, 0.35, 0, 0.15, 0.39, 0, 0.17, 0.44, 0, 0.19, 0.48, 0, 0.21, 0.52, 0, 0.22, 0.56, 0, 0.24, 0.59, 0, 0.25, 0.62, 0, 0.27, 0.65, 0, 0.28, 0.67, 0, 0.29, 0.69, 0, 0.29, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			legR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.06, 0, 0, 0.08, 0, 0, 0.1, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.24, 0, 0, 0.26, 0, 0, 0.27, 0, 0, 0.28, 0, 0, 0.29, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-	Seraph = {
-		idle = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0.05, 0, 0, 0.05, 0, 0, 0.06, 0, 0.01, 0.06, 0, 0.01, 0.06, 0, 0.01, 0.07, 0, 0.02, 0.07, 0, 0.02, 0.07, 0, 0.02, 0.07, 0, 0.02, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.02, 0.06, 0, 0.02, 0.05, 0, 0.02, 0.05, 0, 0.02, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.03, 0, -0.01, 0.03, 0, -0.01, 0.03, 0, -0.02, 0.03, 0, -0.02, 0.03, 0, -0.02, 0.03, 0, -0.02, 0.03, 0, -0.03, 0.03, 0, -0.03, 0.03, 0, -0.03, 0.03, 0, -0.03, 0.04, 0, -0.03, 0.04, 0, -0.03, 0.04, 0, -0.03, 0.05, 0, -0.03, 0.05, 0, -0.03 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.01, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0 },
-			armL = { -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5 },
-			armR = { -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5 },
-			legL = { 0.35, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.37, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.37, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.35, 0, 0.06, 0.34, 0, 0.06, 0.34, 0, 0.06, 0.33, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.33, 0, 0.06 },
-			legR = { 0.35, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.37, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.37, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.35, 0, 0.06, 0.34, 0, 0.06, 0.34, 0, 0.06, 0.33, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.33, 0, 0.06 },
-			wingL = { 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02, 0, 0, 0.09, 0, 0, 0.17, 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02 },
-			wingR = { 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02, 0, 0, 0.09, 0, 0, 0.17, 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		forming = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0.05, 0, 0, 0.05, 0, 0, 0.06, 0, 0.01, 0.06, 0, 0.01, 0.06, 0, 0.01, 0.07, 0, 0.02, 0.07, 0, 0.02, 0.07, 0, 0.02, 0.07, 0, 0.02, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.02, 0.06, 0, 0.02, 0.05, 0, 0.02, 0.05, 0, 0.02, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.03, 0, -0.01, 0.03, 0, -0.01, 0.03, 0, -0.02, 0.03, 0, -0.02, 0.03, 0, -0.02, 0.03, 0, -0.02, 0.03, 0, -0.03, 0.03, 0, -0.03, 0.03, 0, -0.03, 0.03, 0, -0.03, 0.04, 0, -0.03, 0.04, 0, -0.03, 0.04, 0, -0.03, 0.05, 0, -0.03, 0.05, 0, -0.03 },
-			head = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0 },
-			armL = { -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5 },
-			armR = { -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5, -0.2, 0, 0.5 },
-			legL = { 0.35, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.37, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.37, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.35, 0, 0.06, 0.34, 0, 0.06, 0.34, 0, 0.06, 0.33, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.33, 0, 0.06 },
-			legR = { 0.35, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.37, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.4, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.39, 0, 0.06, 0.38, 0, 0.06, 0.38, 0, 0.06, 0.37, 0, 0.06, 0.36, 0, 0.06, 0.36, 0, 0.06, 0.35, 0, 0.06, 0.34, 0, 0.06, 0.34, 0, 0.06, 0.33, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.3, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.31, 0, 0.06, 0.32, 0, 0.06, 0.32, 0, 0.06, 0.33, 0, 0.06 },
-			wingL = { 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02, 0, 0, 0.09, 0, 0, 0.17, 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02 },
-			wingR = { 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02, 0, 0, 0.09, 0, 0, 0.17, 0, 0, 0.25, 0, 0, 0.33, 0, 0, 0.41, 0, 0, 0.48, 0, 0, 0.53, 0, 0, 0.56, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.53, 0, 0, 0.48, 0, 0, 0.41, 0, 0, 0.33, 0, 0, 0.25, 0, 0, 0.17, 0, 0, 0.09, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		slam = { fps = 15, length = 1.8, hit = 1.1, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.15, 0, 0, -0.18, 0, 0, -0.21, 0, 0, -0.24, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.3, 0, 0, -0.31, 0, 0, -0.32, 0, 0, -0.05, 0, 0, 0.28, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.37, 0, 0, 0.29, 0, 0, 0.19, 0, 0, 0.1, 0, 0, 0.03, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.16, 0, 0, -0.19, 0, 0, -0.2, 0, 0, -0.22, 0, 0, -0.23, 0, 0, -0.24, 0, 0, -0.25, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.14, 0, 0, 0.12, 0, 0, 0.1, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0 },
-			armL = { 0, 0, 0.1, -0.02, 0, 0.1, -0.1, 0, 0.1, -0.2, 0, 0.1, -0.35, 0, 0.1, -0.52, 0, 0.1, -0.71, 0, 0.1, -0.91, 0, 0.1, -1.12, 0, 0.1, -1.33, 0, 0.1, -1.54, 0, 0.1, -1.74, 0, 0.1, -1.92, 0, 0.1, -2.08, 0, 0.1, -2.2, 0, 0.1, -2.3, 0, 0.1, -2.34, 0, 0.1, -1.41, 0, 0.1, -0.23, 0, 0.1, 0.25, 0, 0.1, 0.35, 0, 0.1, 0.34, 0, 0.1, 0.28, 0, 0.1, 0.19, 0, 0.1, 0.1, 0, 0.1, 0.01, 0, 0.1, -0.05, 0, 0.1, -0.08, 0, 0.1 },
-			armR = { 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0.01, -0.06, 0, 0.03, -0.1, 0, 0.05, -0.15, 0, 0.08, -0.21, 0, 0.11, -0.27, 0, 0.14, -0.33, 0, 0.17, -0.4, 0, 0.2, -0.46, 0, 0.23, -0.52, 0, 0.26, -0.57, 0, 0.29, -0.62, 0, 0.31, -0.66, 0, 0.33, -0.68, 0, 0.34, -0.7, 0, 0.35, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.29, -0.3, 0, 0.27, -0.3, 0, 0.24, -0.3, 0, 0.21, -0.3, 0, 0.17, -0.3, 0, 0.15, -0.3, 0, 0.14 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.04, 0, 0, 0.08, 0, 0, 0.13, 0, 0, 0.2, 0, 0, 0.27, 0, 0, 0.35, 0, 0, 0.43, 0, 0, 0.51, 0, 0, 0.59, 0, 0, 0.67, 0, 0, 0.74, 0, 0, 0.8, 0, 0, 0.84, 0, 0, 0.88, 0, 0, 0.9, 0, 0, 0.23, 0, 0, -0.5, 0, 0, -0.69, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7 },
-			wingR = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.04, 0, 0, 0.08, 0, 0, 0.13, 0, 0, 0.2, 0, 0, 0.27, 0, 0, 0.35, 0, 0, 0.43, 0, 0, 0.51, 0, 0, 0.59, 0, 0, 0.67, 0, 0, 0.74, 0, 0, 0.8, 0, 0, 0.84, 0, 0, 0.88, 0, 0, 0.9, 0, 0, 0.23, 0, 0, -0.5, 0, 0, -0.69, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7, 0, 0, -0.7 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.44, 0, 0, 0.41, 0, 0, 0.39, 0, 0, 0.36, 0, 0, 0.33, 0, 0, 0.31, 0, 0, 0.28, 0, 0, 0.26, 0, 0, 0.23, 0, 0, 0.2, 0, 0, 0.18, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		thrust = { fps = 15, length = 1.6, hit = 0.9, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, 0.16, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.33, 0, 0, 0.27, 0, 0, 0.19, 0, 0, 0.11, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02 },
-		} },
-		pull = { fps = 15, length = 1.2, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.23, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.23, 0, 0, 0.22, 0, 0, 0.2, 0, 0, 0.18, 0, 0, 0.16, 0, 0, 0.14, 0, 0, 0.13, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0 },
-			armL = { -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2 },
-			armR = { -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 2, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0 },
-			armL = { -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05 },
-			armR = { -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0 },
-			armL = { 0.35, 0, 0.35, 0.4, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.43, 0, 0.35, 0.39, 0, 0.35, 0.34, 0, 0.35, 0.29, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.28, 0, 0.35, 0.32, 0, 0.35, 0.37, 0, 0.35, 0.42, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35 },
-			armR = { 0.43, 0, 0.35, 0.45, 0, 0.35, 0.44, 0, 0.35, 0.4, 0, 0.35, 0.35, 0, 0.35, 0.3, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.27, 0, 0.35, 0.31, 0, 0.35, 0.37, 0, 0.35, 0.41, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.42, 0, 0.35, 0.38, 0, 0.35 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09 },
-		} },
-		roar = { fps = 15, length = 1.8, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.1, 0, 0, -0.17, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, -0.17, 0, 0, -0.3, 0, 0, -0.39, 0, 0, -0.45, 0, 0, -0.48, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			armR = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0, 0, 0, 0.48, 0, 0, 0.69, 0, 0, 0.82, 0, 0, 0.99, 0, 0, 1.05, 0, 0, 0.96, 0, 0, 0.96, 0, 0, 1.04, 0, 0, 1.04, 0, 0, 0.95, 0, 0, 0.98, 0, 0, 1.06, 0, 0, 1.01, 0, 0, 0.94, 0, 0, 1, 0, 0, 1.06, 0, 0, 0.99, 0, 0, 0.94, 0, 0, 1.02, 0, 0, 1.05, 0, 0, 0.96, 0, 0, 0.96, 0, 0, 1.04, 0, 0, 1.04, 0, 0, 0.95, 0, 0, 0.98, 0, 0, 1.06 },
-			wingR = { 0, 0, 0, 0, 0, 0.48, 0, 0, 0.69, 0, 0, 0.82, 0, 0, 0.99, 0, 0, 1.05, 0, 0, 0.96, 0, 0, 0.96, 0, 0, 1.04, 0, 0, 1.04, 0, 0, 0.95, 0, 0, 0.98, 0, 0, 1.06, 0, 0, 1.01, 0, 0, 0.94, 0, 0, 1, 0, 0, 1.06, 0, 0, 0.99, 0, 0, 0.94, 0, 0, 1.02, 0, 0, 1.05, 0, 0, 0.96, 0, 0, 0.96, 0, 0, 1.04, 0, 0, 1.04, 0, 0, 0.95, 0, 0, 0.98, 0, 0, 1.06 },
-			cloth = { 0.1, 0, 0, 0.01, 0, 0, -0.05, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		summon = { fps = 15, length = 2, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.04, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			armR = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.7, 0, 0, 0.81, 0, 0, 0.85, 0, 0, 0.79, 0, 0, 0.67, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.64, 0, 0, 0.76, 0, 0, 0.84, 0, 0, 0.83, 0, 0, 0.73, 0, 0, 0.61, 0, 0, 0.55, 0, 0, 0.59, 0, 0, 0.7, 0, 0, 0.81, 0, 0, 0.85, 0, 0, 0.79, 0, 0, 0.67, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.64, 0, 0, 0.76, 0, 0, 0.84, 0, 0, 0.83, 0, 0, 0.73, 0, 0, 0.61, 0, 0, 0.55, 0, 0, 0.59, 0, 0, 0.7 },
-			wingR = { 0, 0, 0.7, 0, 0, 0.81, 0, 0, 0.85, 0, 0, 0.79, 0, 0, 0.67, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.64, 0, 0, 0.76, 0, 0, 0.84, 0, 0, 0.83, 0, 0, 0.73, 0, 0, 0.61, 0, 0, 0.55, 0, 0, 0.59, 0, 0, 0.7, 0, 0, 0.81, 0, 0, 0.85, 0, 0, 0.79, 0, 0, 0.67, 0, 0, 0.57, 0, 0, 0.56, 0, 0, 0.64, 0, 0, 0.76, 0, 0, 0.84, 0, 0, 0.83, 0, 0, 0.73, 0, 0, 0.61, 0, 0, 0.55, 0, 0, 0.59, 0, 0, 0.7 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.5, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.26, 0, 0.08, -0.19, 0, 0.05, -0.13, 0, 0.04, -0.08, 0, 0.02, -0.04, 0, 0.01, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { -0.3, 0, 0, -0.23, 0, 0, -0.16, 0, 0, -0.11, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			armR = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			cloth = { 0.3, 0, 0, 0.23, 0, 0, 0.16, 0, 0, 0.11, 0, 0, 0.07, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		death = { fps = 15, length = 2.4, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0.01, 0.05, 0, 0.01, 0.07, 0, 0.02, 0.1, 0, 0.03, 0.13, 0, 0.04, 0.17, 0, 0.05, 0.21, 0, 0.06, 0.24, 0, 0.08, 0.28, 0, 0.09, 0.32, 0, 0.1, 0.37, 0, 0.11, 0.41, 0, 0.12, 0.44, 0, 0.14, 0.48, 0, 0.15, 0.52, 0, 0.16, 0.55, 0, 0.17, 0.58, 0, 0.18, 0.6, 0, 0.19, 0.62, 0, 0.19, 0.64, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.03, 0, 0.01, 0.05, 0, 0.02, 0.08, 0, 0.03, 0.11, 0, 0.05, 0.14, 0, 0.06, 0.18, 0, 0.08, 0.22, 0, 0.09, 0.26, 0, 0.11, 0.31, 0, 0.13, 0.35, 0, 0.15, 0.39, 0, 0.17, 0.44, 0, 0.19, 0.48, 0, 0.21, 0.52, 0, 0.22, 0.56, 0, 0.24, 0.59, 0, 0.25, 0.62, 0, 0.27, 0.65, 0, 0.28, 0.67, 0, 0.29, 0.69, 0, 0.29, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			legR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.06, 0, 0, 0.08, 0, 0, 0.1, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.24, 0, 0, 0.26, 0, 0, 0.27, 0, 0, 0.28, 0, 0, 0.29, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-	Regent = {
-		idle = { fps = 15, length = 3.9, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0.01, 0.02, 0, 0.01, 0.02, 0, 0.01, 0.03, 0, 0.01, 0.03, 0, 0.01, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.05, 0, 0.02, 0.05, 0, 0.02, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.03, 0.04, 0, 0.03, 0.04, 0, 0.03, 0.04, 0, 0.03, 0.03, 0, 0.03, 0.03, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.02, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, -0.01, -0.04, 0, -0.01, -0.04, 0, -0.01, -0.05, 0, -0.01, -0.05, 0, -0.02, -0.05, 0, -0.02, -0.05, 0, -0.02, -0.05, 0, -0.02, -0.05, 0, -0.02, -0.05, 0, -0.02, -0.05, 0, -0.03, -0.05, 0, -0.03, -0.05, 0, -0.03, -0.05, 0, -0.03, -0.04, 0, -0.03, -0.04, 0, -0.03, -0.04, 0, -0.03, -0.03, 0, -0.03, -0.03, 0, -0.03, -0.02, 0, -0.03 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0 },
-			armL = { 0.1, 0, 0.45, 0.1, 0, 0.45, 0.11, 0, 0.45, 0.11, 0, 0.45, 0.11, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.11, 0, 0.45, 0.11, 0, 0.45, 0.1, 0, 0.45, 0.1, 0, 0.45, 0.1, 0, 0.45, 0.09, 0, 0.45, 0.09, 0, 0.45, 0.09, 0, 0.45, 0.08, 0, 0.45, 0.08, 0, 0.45, 0.08, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45 },
-			armR = { 0.1, 0, 0.45, 0.1, 0, 0.45, 0.11, 0, 0.45, 0.11, 0, 0.45, 0.11, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.14, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.13, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.12, 0, 0.45, 0.11, 0, 0.45, 0.11, 0, 0.45, 0.1, 0, 0.45, 0.1, 0, 0.45, 0.1, 0, 0.45, 0.09, 0, 0.45, 0.09, 0, 0.45, 0.09, 0, 0.45, 0.08, 0, 0.45, 0.08, 0, 0.45, 0.08, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.06, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45, 0.07, 0, 0.45 },
-			legL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			legR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.14, 0, 0, 0.08, 0, 0, 0.02, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.24, 0, 0, 0.19, 0, 0, 0.13, 0, 0, 0.07, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.14, 0, 0, 0.08, 0, 0, 0.02, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.02, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.24, 0, 0, 0.19, 0, 0, 0.13, 0, 0, 0.07, 0, 0, 0.02, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.08, 0, -0.04, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.12, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.15, 0, -0.02, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.12, 0, -0.01, 0.11, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.01 },
-		} },
-		forming = { fps = 15, length = 3.9, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-			head = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0 },
-			armL = { -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25 },
-			armR = { -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25, -0.75, 0, -0.25 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.07, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.08, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.04, 0.04, 0, 0.04, 0.02, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.08, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.09, 0, 0.04, -0.07, 0, 0.04, -0.06, 0, 0.04, -0.04, 0, 0.04, -0.02, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04 },
-			wingL = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			wingR = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.08, 0, -0.04, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.12, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.15, 0, -0.02, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.12, 0, -0.01, 0.11, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.01 },
-		} },
-		slam = { fps = 15, length = 2.34, hit = 1.43, loop = false, bones = {
-			torso = { -0.1, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.16, 0, 0, -0.18, 0, 0, -0.2, 0, 0, -0.22, 0, 0, -0.24, 0, 0, -0.27, 0, 0, -0.29, 0, 0, -0.31, 0, 0, -0.33, 0, 0, -0.35, 0, 0, -0.37, 0, 0, -0.38, 0, 0, -0.4, 0, 0, -0.41, 0, 0, -0.42, 0, 0, -0.42, 0, 0, 0.06, 0, 0, 0.36, 0, 0, 0.52, 0, 0, 0.58, 0, 0, 0.6, 0, 0, 0.59, 0, 0, 0.56, 0, 0, 0.5, 0, 0, 0.43, 0, 0, 0.35, 0, 0, 0.28, 0, 0, 0.21, 0, 0, 0.17, 0, 0, 0.15, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.16, 0, 0, -0.18, 0, 0, -0.2, 0, 0, -0.21, 0, 0, -0.22, 0, 0, -0.23, 0, 0, -0.24, 0, 0, -0.25, 0, 0, -0.25, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.14, 0, 0, 0.12, 0, 0, 0.09, 0, 0, 0.07, 0, 0, 0.04, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0 },
-			armL = { 0, 0, 0.1, -0.01, 0, 0.1, -0.06, 0, 0.1, -0.13, 0, 0.1, -0.21, 0, 0.1, -0.32, 0, 0.1, -0.45, 0, 0.1, -0.59, 0, 0.1, -0.74, 0, 0.1, -0.89, 0, 0.1, -1.06, 0, 0.1, -1.22, 0, 0.1, -1.38, 0, 0.1, -1.54, 0, 0.1, -1.7, 0, 0.1, -1.84, 0, 0.1, -1.97, 0, 0.1, -2.09, 0, 0.1, -2.19, 0, 0.1, -2.27, 0, 0.1, -2.32, 0, 0.1, -2.35, 0, 0.1, -1.54, 0, 0.1, -0.51, 0, 0.1, 0.06, 0, 0.1, 0.3, 0, 0.1, 0.35, 0, 0.1, 0.34, 0, 0.1, 0.31, 0, 0.1, 0.25, 0, 0.1, 0.19, 0, 0.1, 0.11, 0, 0.1, 0.04, 0, 0.1, -0.02, 0, 0.1, -0.06, 0, 0.1, -0.08, 0, 0.1 },
-			armR = { 0, 0, 0.2, -0.01, 0, 0.2, -0.06, 0, 0.2, -0.13, 0, 0.2, -0.21, 0, 0.2, -0.32, 0, 0.2, -0.45, 0, 0.2, -0.59, 0, 0.2, -0.74, 0, 0.2, -0.89, 0, 0.2, -1.06, 0, 0.2, -1.22, 0, 0.2, -1.38, 0, 0.2, -1.54, 0, 0.2, -1.7, 0, 0.2, -1.84, 0, 0.2, -1.97, 0, 0.2, -2.09, 0, 0.2, -2.19, 0, 0.2, -2.27, 0, 0.2, -2.32, 0, 0.2, -2.35, 0, 0.2, -1.54, 0, 0.2, -0.51, 0, 0.2, 0.06, 0, 0.2, 0.3, 0, 0.2, 0.35, 0, 0.2, 0.34, 0, 0.2, 0.31, 0, 0.2, 0.25, 0, 0.2, 0.19, 0, 0.2, 0.11, 0, 0.2, 0.04, 0, 0.2, -0.02, 0, 0.2, -0.06, 0, 0.2, -0.08, 0, 0.2 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.04, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.08, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.07, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.04, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.08, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.19, 0, 0, 0.21, 0, 0, 0.23, 0, 0, 0.25, 0, 0, 0.28, 0, 0, 0.3, 0, 0, 0.33, 0, 0, 0.35, 0, 0, 0.37, 0, 0, 0.39, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.47, 0, 0, 0.3, 0, 0, 0.06, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.12, 0, 0, -0.09, 0, 0, -0.05, 0, 0, 0, 0, 0, 0.04, 0, 0, 0.08, 0, 0, 0.11, 0, 0, 0.12 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.19, 0, 0, 0.21, 0, 0, 0.23, 0, 0, 0.25, 0, 0, 0.28, 0, 0, 0.3, 0, 0, 0.33, 0, 0, 0.35, 0, 0, 0.37, 0, 0, 0.39, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.47, 0, 0, 0.3, 0, 0, 0.06, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.12, 0, 0, -0.09, 0, 0, -0.05, 0, 0, 0, 0, 0, 0.04, 0, 0, 0.08, 0, 0, 0.11, 0, 0, 0.12 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.44, 0, 0, 0.42, 0, 0, 0.4, 0, 0, 0.38, 0, 0, 0.36, 0, 0, 0.34, 0, 0, 0.32, 0, 0, 0.3, 0, 0, 0.28, 0, 0, 0.26, 0, 0, 0.24, 0, 0, 0.22, 0, 0, 0.2, 0, 0, 0.18, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		thrust = { fps = 15, length = 2.08, hit = 1.17, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, 0.12, 0, 0, 0.28, 0, 0, 0.34, 0, 0, 0.35, 0, 0, 0.34, 0, 0, 0.3, 0, 0, 0.24, 0, 0, 0.17, 0, 0, 0.11, 0, 0, 0.05, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0.01, -0.15, 0, 0.04, -0.15, 0, 0.09, -0.15, 0, 0.15, -0.15, 0, 0.23, -0.15, 0, 0.31, -0.15, 0, 0.4, -0.15, 0, 0.5, -0.15, 0, 0.6, -0.15, 0, 0.69, -0.15, 0, 0.79, -0.15, 0, 0.88, -0.15, 0, 0.96, -0.15, 0, 1.03, -0.15, 0, 1.08, -0.15, 0, 1.12, -0.15, 0, 1.15, -0.62, 0, 0.8, -1.27, 0, 0.33, -1.51, 0, 0.15, -1.55, 0, 0.12, -1.49, 0, 0.12, -1.32, 0, 0.12, -1.08, 0, 0.13, -0.8, 0, 0.13, -0.53, 0, 0.13, -0.29, 0, 0.14, -0.13, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0.01, -0.15, 0, 0.04, -0.15, 0, 0.09, -0.15, 0, 0.15, -0.15, 0, 0.23, -0.15, 0, 0.31, -0.15, 0, 0.4, -0.15, 0, 0.5, -0.15, 0, 0.6, -0.15, 0, 0.69, -0.15, 0, 0.79, -0.15, 0, 0.88, -0.15, 0, 0.96, -0.15, 0, 1.03, -0.15, 0, 1.08, -0.15, 0, 1.12, -0.15, 0, 1.15, -0.62, 0, 0.8, -1.27, 0, 0.33, -1.51, 0, 0.15, -1.55, 0, 0.12, -1.49, 0, 0.12, -1.32, 0, 0.12, -1.08, 0, 0.13, -0.8, 0, 0.13, -0.53, 0, 0.13, -0.29, 0, 0.14, -0.13, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.14 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.14 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02 },
-		} },
-		pull = { fps = 15, length = 1.56, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.2, 0, 0, 0.21, 0, 0, 0.22, 0, 0, 0.23, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.23, 0, 0, 0.22, 0, 0, 0.21, 0, 0, 0.19, 0, 0, 0.18, 0, 0, 0.16, 0, 0, 0.15, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.17, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0 },
-			armL = { -1.05, 0, 0.4, -1.12, 0, 0.37, -1.18, 0, 0.35, -1.23, 0, 0.33, -1.27, 0, 0.31, -1.29, 0, 0.3, -1.3, 0, 0.3, -1.29, 0, 0.3, -1.26, 0, 0.32, -1.22, 0, 0.33, -1.16, 0, 0.36, -1.1, 0, 0.38, -1.03, 0, 0.41, -0.96, 0, 0.43, -0.91, 0, 0.46, -0.86, 0, 0.48, -0.82, 0, 0.49, -0.8, 0, 0.5, -0.8, 0, 0.5, -0.82, 0, 0.49, -0.85, 0, 0.48, -0.9, 0, 0.46, -0.96, 0, 0.44, -1.02, 0, 0.41 },
-			armR = { -1.05, 0, 0.4, -0.98, 0, 0.43, -0.92, 0, 0.45, -0.87, 0, 0.47, -0.83, 0, 0.49, -0.81, 0, 0.5, -0.8, 0, 0.5, -0.81, 0, 0.5, -0.84, 0, 0.48, -0.88, 0, 0.47, -0.94, 0, 0.44, -1, 0, 0.42, -1.07, 0, 0.39, -1.14, 0, 0.37, -1.19, 0, 0.34, -1.24, 0, 0.32, -1.28, 0, 0.31, -1.3, 0, 0.3, -1.3, 0, 0.3, -1.28, 0, 0.31, -1.25, 0, 0.32, -1.2, 0, 0.34, -1.14, 0, 0.36, -1.08, 0, 0.39 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07, 0, 0, 0.13, 0, 0, 0.19, 0, 0, 0.24 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 2.6, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0 },
-			armL = { -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05 },
-			armR = { -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.07, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.39, 0, 0, 0.44, 0, 0, 0.44, 0, 0, 0.38, 0, 0, 0.29, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.16, 0, 0, 0.23, 0, 0, 0.32, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.36, 0, 0, 0.26, 0, 0, 0.18, 0, 0, 0.15, 0, 0, 0.18, 0, 0, 0.25, 0, 0, 0.35, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.42, 0, 0, 0.34, 0, 0, 0.24, 0, 0, 0.17, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.28, 0, 0, 0.37, 0, 0, 0.44, 0, 0, 0.45, 0, 0, 0.4, 0, 0, 0.31, 0, 0, 0.22, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.21, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.39, 0, 0, 0.44, 0, 0, 0.44, 0, 0, 0.38, 0, 0, 0.29, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.16, 0, 0, 0.23, 0, 0, 0.32, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.36, 0, 0, 0.26, 0, 0, 0.18, 0, 0, 0.15, 0, 0, 0.18, 0, 0, 0.25, 0, 0, 0.35, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.42, 0, 0, 0.34, 0, 0, 0.24, 0, 0, 0.17, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.28, 0, 0, 0.37, 0, 0, 0.44, 0, 0, 0.45, 0, 0, 0.4, 0, 0, 0.31, 0, 0, 0.22, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.21, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.08, 0, -0.04, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1.3, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0 },
-			armL = { 0.35, 0, 0.35, 0.39, 0, 0.35, 0.42, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.44, 0, 0.35, 0.41, 0, 0.35, 0.37, 0, 0.35, 0.33, 0, 0.35, 0.29, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.25, 0, 0.35, 0.28, 0, 0.35, 0.31, 0, 0.35, 0.35, 0, 0.35, 0.39, 0, 0.35, 0.42, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.44, 0, 0.35 },
-			armR = { 0.43, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.43, 0, 0.35, 0.39, 0, 0.35, 0.35, 0, 0.35, 0.31, 0, 0.35, 0.28, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.26, 0, 0.35, 0.29, 0, 0.35, 0.32, 0, 0.35, 0.37, 0, 0.35, 0.4, 0, 0.35, 0.43, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.43, 0, 0.35, 0.39, 0, 0.35, 0.35, 0, 0.35 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.28, 0, 0, 0.31, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.29, 0, 0, 0.25, 0, 0, 0.2, 0, 0, 0.15, 0, 0, 0.09, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.06, 0, 0, -0.03, 0, 0, 0.01, 0, 0, 0.07 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08 },
-		} },
-		roar = { fps = 15, length = 2.34, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.19, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.26, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, -0.14, 0, 0, -0.25, 0, 0, -0.33, 0, 0, -0.4, 0, 0, -0.44, 0, 0, -0.47, 0, 0, -0.49, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0, -0.1, 0, 0.36, -0.17, 0, 0.65, -0.23, 0, 0.87, -0.28, 0, 1.03, -0.31, 0, 1.15, -0.33, 0, 1.23, -0.34, 0, 1.27, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			armR = { 0, 0, 0, -0.1, 0, 0.36, -0.17, 0, 0.65, -0.23, 0, 0.87, -0.28, 0, 1.03, -0.31, 0, 1.15, -0.33, 0, 1.23, -0.34, 0, 1.27, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.07, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.43, 0, 0, 0.52, 0, 0, 0.55, 0, 0, 0.59, 0, 0, 0.65, 0, 0, 0.71, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.69, 0, 0, 0.65, 0, 0, 0.66, 0, 0, 0.7, 0, 0, 0.74, 0, 0, 0.75, 0, 0, 0.71, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.68, 0, 0, 0.72, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.69, 0, 0, 0.65, 0, 0, 0.66, 0, 0, 0.7, 0, 0, 0.74, 0, 0, 0.75, 0, 0, 0.71, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.68, 0, 0, 0.72, 0, 0, 0.75, 0, 0, 0.73 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.43, 0, 0, 0.52, 0, 0, 0.55, 0, 0, 0.59, 0, 0, 0.65, 0, 0, 0.71, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.69, 0, 0, 0.65, 0, 0, 0.66, 0, 0, 0.7, 0, 0, 0.74, 0, 0, 0.75, 0, 0, 0.71, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.68, 0, 0, 0.72, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.69, 0, 0, 0.65, 0, 0, 0.66, 0, 0, 0.7, 0, 0, 0.74, 0, 0, 0.75, 0, 0, 0.71, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.68, 0, 0, 0.72, 0, 0, 0.75, 0, 0, 0.73 },
-			cloth = { 0.1, 0, 0, 0.03, 0, 0, -0.02, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		summon = { fps = 15, length = 2.6, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, -0.06, 0, 0, -0.11, 0, 0, -0.16, 0, 0, -0.19, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.29, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, -0.36, 0, 0.1, -0.68, 0, 0.19, -0.98, 0, 0.26, -1.25, 0, 0.32, -1.5, 0, 0.37, -1.7, 0, 0.41, -1.85, 0, 0.44, -1.93, 0, 0.46, -1.96, 0, 0.48, -1.95, 0, 0.49, -1.93, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.97, 0, 0.5, -2.02, 0, 0.5, -2.06, 0, 0.5, -2.08, 0, 0.5, -2.07, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.93, 0, 0.5, -1.92, 0, 0.5, -1.94, 0, 0.5, -1.98, 0, 0.5, -2.03, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2.01, 0, 0.5, -1.96, 0, 0.5, -1.93, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -1.99, 0, 0.5, -2.04, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.05, 0, 0.5, -2, 0, 0.5 },
-			armR = { 0, 0, 0, -0.36, 0, 0.1, -0.68, 0, 0.19, -0.98, 0, 0.26, -1.25, 0, 0.32, -1.5, 0, 0.37, -1.7, 0, 0.41, -1.85, 0, 0.44, -1.93, 0, 0.46, -1.96, 0, 0.48, -1.95, 0, 0.49, -1.93, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.97, 0, 0.5, -2.02, 0, 0.5, -2.06, 0, 0.5, -2.08, 0, 0.5, -2.07, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.93, 0, 0.5, -1.92, 0, 0.5, -1.94, 0, 0.5, -1.98, 0, 0.5, -2.03, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2.01, 0, 0.5, -1.96, 0, 0.5, -1.93, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -1.99, 0, 0.5, -2.04, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.05, 0, 0.5, -2, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.02, 0, 0.04, 0.04, 0, 0.04, 0.06, 0, 0.04, 0.08, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.07, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.02, 0, 0.04, -0.04, 0, 0.04, -0.06, 0, 0.04, -0.08, 0, 0.04, -0.09, 0, 0.04, -0.1, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.01, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.1, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.01, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.27, 0, 0, 0.33, 0, 0, 0.38, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.47, 0, 0, 0.49, 0, 0, 0.5, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.27, 0, 0, 0.33, 0, 0, 0.38, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.47, 0, 0, 0.49, 0, 0, 0.5, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.12, 0, 0.01, 0.13, 0, 0.02, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.12, 0, 0.05, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.07, 0, 0.04, 0.06, 0, 0.03, 0.05, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.08, 0, -0.04, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.65, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.28, 0, 0.08, -0.22, 0, 0.06, -0.17, 0, 0.05, -0.12, 0, 0.03, -0.08, 0, 0.02, -0.05, 0, 0.01, -0.03, 0, 0.01, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { -0.3, 0, 0, -0.24, 0, 0, -0.19, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.07, 0, 0, -0.04, 0, 0, -0.02, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.16, 0, 0.32, -0.13, 0, 0.25, -0.1, 0, 0.19, -0.07, 0, 0.14, -0.05, 0, 0.09, -0.03, 0, 0.06, -0.02, 0, 0.03, -0.01, 0, 0.01, 0, 0, 0, 0, 0, 0 },
-			armR = { -0.2, 0, 0.4, -0.16, 0, 0.32, -0.13, 0, 0.25, -0.1, 0, 0.19, -0.07, 0, 0.14, -0.05, 0, 0.09, -0.03, 0, 0.06, -0.02, 0, 0.03, -0.01, 0, 0.01, 0, 0, 0, 0, 0, 0 },
-			cloth = { 0.3, 0, 0, 0.24, 0, 0, 0.19, 0, 0, 0.14, 0, 0, 0.1, 0, 0, 0.07, 0, 0, 0.04, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		death = { fps = 15, length = 3.12, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0.01, 0.03, 0, 0.01, 0.05, 0, 0.02, 0.07, 0, 0.02, 0.09, 0, 0.03, 0.11, 0, 0.03, 0.14, 0, 0.04, 0.17, 0, 0.05, 0.19, 0, 0.06, 0.22, 0, 0.07, 0.25, 0, 0.08, 0.28, 0, 0.09, 0.32, 0, 0.1, 0.35, 0, 0.11, 0.38, 0, 0.12, 0.41, 0, 0.13, 0.44, 0, 0.13, 0.47, 0, 0.14, 0.5, 0, 0.15, 0.52, 0, 0.16, 0.55, 0, 0.17, 0.57, 0, 0.17, 0.59, 0, 0.18, 0.61, 0, 0.19, 0.62, 0, 0.19, 0.63, 0, 0.2, 0.64, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0.01, 0.04, 0, 0.02, 0.05, 0, 0.02, 0.07, 0, 0.03, 0.1, 0, 0.04, 0.12, 0, 0.05, 0.15, 0, 0.06, 0.18, 0, 0.08, 0.21, 0, 0.09, 0.24, 0, 0.1, 0.27, 0, 0.12, 0.31, 0, 0.13, 0.34, 0, 0.15, 0.37, 0, 0.16, 0.41, 0, 0.17, 0.44, 0, 0.19, 0.47, 0, 0.2, 0.5, 0, 0.22, 0.53, 0, 0.23, 0.56, 0, 0.24, 0.59, 0, 0.25, 0.61, 0, 0.26, 0.63, 0, 0.27, 0.65, 0, 0.28, 0.67, 0, 0.29, 0.68, 0, 0.29, 0.69, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.09, 0, 0.08, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.14, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.09, 0, 0.08, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.14, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0.1, 0, 0, 0.1, -0.01, 0, 0.1, -0.02, 0, 0.1, -0.04, 0, 0.1, -0.06, 0, 0.1, -0.08, 0, 0.1, -0.1, 0, 0.1, -0.13, 0, 0.1, -0.16, 0, 0.1, -0.19, 0, 0.1, -0.23, 0, 0.1, -0.26, 0, 0.1, -0.3, 0, 0.1, -0.34, 0, 0.1, -0.38, 0, 0.1, -0.42, 0, 0.1, -0.45, 0, 0.1, -0.49, 0, 0.1, -0.53, 0, 0.1, -0.56, 0, 0.1, -0.6, 0, 0.1, -0.63, 0, 0.1, -0.66, 0, 0.1, -0.69, 0, 0.1, -0.72, 0, 0.1, -0.74, 0, 0.1, -0.76, 0, 0.1, -0.78, 0, 0.1, -0.79, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1 },
-			legR = { 0, 0, 0.1, 0, 0, 0.1, -0.01, 0, 0.1, -0.02, 0, 0.1, -0.04, 0, 0.1, -0.06, 0, 0.1, -0.08, 0, 0.1, -0.1, 0, 0.1, -0.13, 0, 0.1, -0.16, 0, 0.1, -0.19, 0, 0.1, -0.23, 0, 0.1, -0.26, 0, 0.1, -0.3, 0, 0.1, -0.34, 0, 0.1, -0.38, 0, 0.1, -0.42, 0, 0.1, -0.45, 0, 0.1, -0.49, 0, 0.1, -0.53, 0, 0.1, -0.56, 0, 0.1, -0.6, 0, 0.1, -0.63, 0, 0.1, -0.66, 0, 0.1, -0.69, 0, 0.1, -0.72, 0, 0.1, -0.74, 0, 0.1, -0.76, 0, 0.1, -0.78, 0, 0.1, -0.79, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1, -0.8, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.08, 0, 0, -0.11, 0, 0, -0.15, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.27, 0, 0, -0.32, 0, 0, -0.37, 0, 0, -0.42, 0, 0, -0.47, 0, 0, -0.52, 0, 0, -0.57, 0, 0, -0.61, 0, 0, -0.66, 0, 0, -0.7, 0, 0, -0.74, 0, 0, -0.78, 0, 0, -0.81, 0, 0, -0.84, 0, 0, -0.86, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.08, 0, 0, -0.11, 0, 0, -0.15, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.27, 0, 0, -0.32, 0, 0, -0.37, 0, 0, -0.42, 0, 0, -0.47, 0, 0, -0.52, 0, 0, -0.57, 0, 0, -0.61, 0, 0, -0.66, 0, 0, -0.7, 0, 0, -0.74, 0, 0, -0.78, 0, 0, -0.81, 0, 0, -0.84, 0, 0, -0.86, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.11, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.17, 0, 0, 0.19, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.23, 0, 0, 0.25, 0, 0, 0.26, 0, 0, 0.27, 0, 0, 0.28, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-	Rime = {
-		idle = { fps = 15, length = 4.5, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.01, 0, -0.02, -0.01, 0, -0.02, -0.01, 0, -0.02, -0.01, 0, -0.02, 0, 0, -0.02 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.02, 0, 0 },
-			armL = { 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.03, 0, 0.3 },
-			armR = { 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.03, 0, 0.3 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, -0.01, 0, 0.04, -0.01, 0, 0.04, -0.01, 0, 0.04, -0.01, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, -0.05, 0, 0.04, -0.05, 0, 0.04, -0.05, 0, 0.04, -0.05, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, 0.01, 0, 0.04, 0.01, 0, 0.04, 0.01, 0, 0.04, 0.01, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.07 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.07 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.1, 0, -0.04, 0.1, 0, -0.04, 0.1, 0, -0.04, 0.1, 0, -0.04, 0.14, 0, -0.05, 0.14, 0, -0.05, 0.14, 0, -0.05, 0.14, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.16, 0, -0.03, 0.16, 0, -0.03, 0.16, 0, -0.03, 0.14, 0, -0.02, 0.14, 0, -0.02, 0.14, 0, -0.02, 0.14, 0, -0.02, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, 0 },
-		} },
-		forming = { fps = 15, length = 4.5, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.01, 0, -0.02, -0.01, 0, -0.02, -0.01, 0, -0.02, -0.01, 0, -0.02, 0, 0, -0.02 },
-			head = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0 },
-			armL = { 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.03, 0, 0.3 },
-			armR = { 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.07, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.06, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.05, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.04, 0, 0.3, 0.03, 0, 0.3 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.05, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, -0.01, 0, 0.04, -0.01, 0, 0.04, -0.01, 0, 0.04, -0.01, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, -0.05, 0, 0.04, -0.05, 0, 0.04, -0.05, 0, 0.04, -0.05, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.1, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, 0.01, 0, 0.04, 0.01, 0, 0.04, 0.01, 0, 0.04, 0.01, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			wingR = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.1, 0, -0.04, 0.1, 0, -0.04, 0.1, 0, -0.04, 0.1, 0, -0.04, 0.14, 0, -0.05, 0.14, 0, -0.05, 0.14, 0, -0.05, 0.14, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.16, 0, -0.03, 0.16, 0, -0.03, 0.16, 0, -0.03, 0.14, 0, -0.02, 0.14, 0, -0.02, 0.14, 0, -0.02, 0.14, 0, -0.02, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, 0 },
-		} },
-		slam = { fps = 15, length = 2.7, hit = 1.65, loop = false, bones = {
-			torso = { -0.05, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.07, 0, 0, -0.12, 0, 0, -0.12, 0, 0, -0.12, 0, 0, -0.12, 0, 0, -0.19, 0, 0, -0.19, 0, 0, -0.19, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.32, 0, 0, -0.32, 0, 0, -0.32, 0, 0, -0.32, 0, 0, -0.36, 0, 0, -0.36, 0, 0, -0.36, 0, 0, -0.36, 0, 0, 0.25, 0, 0, 0.25, 0, 0, 0.25, 0, 0, 0.55, 0, 0, 0.55, 0, 0, 0.55, 0, 0, 0.55, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.2, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.11, 0, 0, -0.11, 0, 0, -0.11, 0, 0, -0.16, 0, 0, -0.16, 0, 0, -0.16, 0, 0, -0.16, 0, 0, -0.21, 0, 0, -0.21, 0, 0, -0.21, 0, 0, -0.21, 0, 0, -0.24, 0, 0, -0.24, 0, 0, -0.24, 0, 0, -0.24, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0 },
-			armL = { 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.52, 0, 0.1, -0.52, 0, 0.1, -0.52, 0, 0.1, -0.52, 0, 0.1, -1.02, 0, 0.1, -1.02, 0, 0.1, -1.02, 0, 0.1, -1.54, 0, 0.1, -1.54, 0, 0.1, -1.54, 0, 0.1, -1.54, 0, 0.1, -2, 0, 0.1, -2, 0, 0.1, -2, 0, 0.1, -2, 0, 0.1, -2.3, 0, 0.1, -2.3, 0, 0.1, -2.3, 0, 0.1, -2.3, 0, 0.1, -0.71, 0, 0.1, -0.71, 0, 0.1, -0.71, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.35, 0, 0.1, 0.24, 0, 0.1, 0.24, 0, 0.1, 0.24, 0, 0.1, 0.24, 0, 0.1, 0.01, 0, 0.1, 0.01, 0, 0.1, 0.01, 0, 0.1 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.04, 0, 0.02, -0.04, 0, 0.02, -0.04, 0, 0.02, -0.04, 0, 0.02, -0.15, 0, 0.08, -0.15, 0, 0.08, -0.15, 0, 0.08, -0.15, 0, 0.08, -0.3, 0, 0.15, -0.3, 0, 0.15, -0.3, 0, 0.15, -0.46, 0, 0.23, -0.46, 0, 0.23, -0.46, 0, 0.23, -0.46, 0, 0.23, -0.6, 0, 0.3, -0.6, 0, 0.3, -0.6, 0, 0.3, -0.6, 0, 0.3, -0.68, 0, 0.34, -0.68, 0, 0.34, -0.68, 0, 0.34, -0.68, 0, 0.34, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.26, -0.3, 0, 0.26, -0.3, 0, 0.26, -0.3, 0, 0.26, -0.3, 0, 0.17, -0.3, 0, 0.17, -0.3, 0, 0.17 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.03, 0, 0.05, 0.03, 0, 0.05, 0.03, 0, 0.05, 0.03, 0, 0.05, 0.06, 0, 0.05, 0.06, 0, 0.05, 0.06, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.03, 0, 0.05, 0.03, 0, 0.05, 0.03, 0, 0.05, 0.03, 0, 0.05, 0.06, 0, 0.05, 0.06, 0, 0.05, 0.06, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, 0.1, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.13, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.27, 0, 0, 0.27, 0, 0, 0.27, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.11, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.2, 0, 0, 0.27, 0, 0, 0.27, 0, 0, 0.27, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.11, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.42, 0, 0, 0.36, 0, 0, 0.36, 0, 0, 0.36, 0, 0, 0.36, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-		} },
-		thrust = { fps = 15, length = 2.4, hit = 1.35, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.12, 0, 0, -0.12, 0, 0, -0.12, 0, 0, -0.12, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0.11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.36, -0.15, 0, 0.36, -0.15, 0, 0.36, -0.15, 0, 0.36, -0.15, 0, 0.67, -0.15, 0, 0.67, -0.15, 0, 0.67, -0.15, 0, 0.96, -0.15, 0, 0.96, -0.15, 0, 0.96, -0.15, 0, 0.96, -0.15, 0, 1.13, -0.15, 0, 1.13, -0.15, 0, 1.13, -0.15, 0, 1.13, -1.43, 0, 0.21, -1.43, 0, 0.21, -1.43, 0, 0.21, -1.43, 0, 0.21, -1.37, 0, 0.12, -1.37, 0, 0.12, -1.37, 0, 0.12, -0.53, 0, 0.13, -0.53, 0, 0.13, -0.53, 0, 0.13, -0.53, 0, 0.13, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.1, -0.15, 0, 0.36, -0.15, 0, 0.36, -0.15, 0, 0.36, -0.15, 0, 0.36, -0.15, 0, 0.67, -0.15, 0, 0.67, -0.15, 0, 0.67, -0.15, 0, 0.96, -0.15, 0, 0.96, -0.15, 0, 0.96, -0.15, 0, 0.96, -0.15, 0, 1.13, -0.15, 0, 1.13, -0.15, 0, 1.13, -0.15, 0, 1.13, -1.43, 0, 0.21, -1.43, 0, 0.21, -1.43, 0, 0.21, -1.43, 0, 0.21, -1.37, 0, 0.12, -1.37, 0, 0.12, -1.37, 0, 0.12, -0.53, 0, 0.13, -0.53, 0, 0.13, -0.53, 0, 0.13, -0.53, 0, 0.13, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.32, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		pull = { fps = 15, length = 1.8, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.18, 0, 0, 0.18, 0, 0, 0.18, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.23, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.21, 0, 0, 0.21, 0, 0, 0.21, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.17, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, -0.01, 0, 0 },
-			armL = { -1.25, 0, 0.2, -1.25, 0, 0.2, -1.25, 0, 0.2, -1.25, 0, 0.2, -1.44, 0, 0.12, -1.44, 0, 0.12, -1.44, 0, 0.12, -1.44, 0, 0.12, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.38, 0, 0.15, -1.38, 0, 0.15, -1.38, 0, 0.15, -1.16, 0, 0.23, -1.16, 0, 0.23, -1.16, 0, 0.23, -1.16, 0, 0.23, -1.02, 0, 0.29, -1.02, 0, 0.29, -1.02, 0, 0.29, -1.02, 0, 0.29, -1.03, 0, 0.29, -1.03, 0, 0.29, -1.03, 0, 0.29, -1.03, 0, 0.29, -1.21, 0, 0.22 },
-			armR = { -1.25, 0, 0.2, -1.25, 0, 0.2, -1.25, 0, 0.2, -1.25, 0, 0.2, -1.06, 0, 0.28, -1.06, 0, 0.28, -1.06, 0, 0.28, -1.06, 0, 0.28, -1, 0, 0.3, -1, 0, 0.3, -1, 0, 0.3, -1, 0, 0.3, -1.12, 0, 0.25, -1.12, 0, 0.25, -1.12, 0, 0.25, -1.34, 0, 0.17, -1.34, 0, 0.17, -1.34, 0, 0.17, -1.34, 0, 0.17, -1.48, 0, 0.11, -1.48, 0, 0.11, -1.48, 0, 0.11, -1.48, 0, 0.11, -1.47, 0, 0.11, -1.47, 0, 0.11, -1.47, 0, 0.11, -1.47, 0, 0.11, -1.29, 0, 0.18 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.23 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.23 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0 },
-			armL = { -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05 },
-			armR = { -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.43, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.17, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1.5, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0 },
-			armL = { 0.35, 0, 0.35, 0.35, 0, 0.35, 0.35, 0, 0.35, 0.35, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.39, 0, 0.35, 0.39, 0, 0.35, 0.39, 0, 0.35, 0.39, 0, 0.35, 0.27, 0, 0.35, 0.27, 0, 0.35, 0.27, 0, 0.35, 0.28, 0, 0.35, 0.28, 0, 0.35, 0.28, 0, 0.35, 0.28, 0, 0.35, 0.4, 0, 0.35, 0.4, 0, 0.35, 0.4, 0, 0.35, 0.4, 0, 0.35 },
-			armR = { 0.43, 0, 0.35, 0.43, 0, 0.35, 0.43, 0, 0.35, 0.43, 0, 0.35, 0.42, 0, 0.35, 0.42, 0, 0.35, 0.42, 0, 0.35, 0.42, 0, 0.35, 0.3, 0, 0.35, 0.3, 0, 0.35, 0.3, 0, 0.35, 0.3, 0, 0.35, 0.26, 0, 0.35, 0.26, 0, 0.35, 0.26, 0, 0.35, 0.37, 0, 0.35, 0.37, 0, 0.35, 0.37, 0, 0.35, 0.37, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.29, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.31, 0, 0, 0.16, 0, 0, 0.16, 0, 0, 0.16, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1 },
-		} },
-		roar = { fps = 15, length = 2.7, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.27, 0, 0, -0.27, 0, 0, -0.27, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.35, 0, 0, -0.35, 0, 0, -0.35, 0, 0, -0.35, 0, 0, -0.48, 0, 0, -0.48, 0, 0, -0.48, 0, 0, -0.48, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.25, 0, 0.91, -0.25, 0, 0.91, -0.25, 0, 0.91, -0.25, 0, 0.91, -0.34, 0, 1.25, -0.34, 0, 1.25, -0.34, 0, 1.25, -0.34, 0, 1.25, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.25, 0, 0.91, -0.25, 0, 0.91, -0.25, 0, 0.91, -0.25, 0, 0.91, -0.34, 0, 1.25, -0.34, 0, 1.25, -0.34, 0, 1.25, -0.34, 0, 1.25, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.53, 0, 0, 0.53, 0, 0, 0.53, 0, 0, 0.53, 0, 0, 0.68, 0, 0, 0.68, 0, 0, 0.68, 0, 0, 0.68, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.53, 0, 0, 0.53, 0, 0, 0.53, 0, 0, 0.53, 0, 0, 0.68, 0, 0, 0.68, 0, 0, 0.68, 0, 0, 0.68, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7, 0, 0, 0.7 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-		} },
-		summon = { fps = 15, length = 3, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.08, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.17, 0, 0, -0.17, 0, 0, -0.17, 0, 0, -0.17, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.29, 0, 0, -0.29, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.05, 0, 0.28, -1.05, 0, 0.28, -1.05, 0, 0.28, -1.05, 0, 0.28, -1.78, 0, 0.43, -1.78, 0, 0.43, -1.78, 0, 0.43, -1.78, 0, 0.43, -1.95, 0, 0.49, -1.95, 0, 0.49, -1.95, 0, 0.49, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2, 0, 0.5 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.05, 0, 0.28, -1.05, 0, 0.28, -1.05, 0, 0.28, -1.05, 0, 0.28, -1.78, 0, 0.43, -1.78, 0, 0.43, -1.78, 0, 0.43, -1.78, 0, 0.43, -1.95, 0, 0.49, -1.95, 0, 0.49, -1.95, 0, 0.49, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -2, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -1.93, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2.07, 0, 0.5, -2, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.06, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.09, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, 0.04, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.08, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.06, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.09, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, -0.04, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.11, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.08, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, 0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.34, 0, 0, 0.34, 0, 0, 0.34, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.34, 0, 0, 0.34, 0, 0, 0.34, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.46, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			cloth = { 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.14, 0, 0.02, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.16, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.14, 0, 0.05, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.1, 0, 0.04, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.06, 0, 0.03, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.04, 0, -0.02, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.06, 0, -0.03, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.06, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.75, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.35, 0, 0.1, -0.35, 0, 0.1, -0.35, 0, 0.1, -0.16, 0, 0.04, -0.16, 0, 0.04, -0.16, 0, 0.04, -0.16, 0, 0.04, -0.04, 0, 0.01, -0.04, 0, 0.01, -0.04, 0, 0.01, -0.04, 0, 0.01 },
-			head = { -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.2, 0, 0.4, -0.2, 0, 0.4, -0.2, 0, 0.4, -0.09, 0, 0.18, -0.09, 0, 0.18, -0.09, 0, 0.18, -0.09, 0, 0.18, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04 },
-			armR = { -0.2, 0, 0.4, -0.2, 0, 0.4, -0.2, 0, 0.4, -0.2, 0, 0.4, -0.09, 0, 0.18, -0.09, 0, 0.18, -0.09, 0, 0.18, -0.09, 0, 0.18, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04, -0.02, 0, 0.04 },
-			cloth = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.13, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0 },
-		} },
-		death = { fps = 15, length = 3.6, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.04, 0, 0.01, 0.1, 0, 0.03, 0.1, 0, 0.03, 0.1, 0, 0.03, 0.1, 0, 0.03, 0.19, 0, 0.06, 0.19, 0, 0.06, 0.19, 0, 0.06, 0.28, 0, 0.09, 0.28, 0, 0.09, 0.28, 0, 0.09, 0.28, 0, 0.09, 0.39, 0, 0.12, 0.39, 0, 0.12, 0.39, 0, 0.12, 0.39, 0, 0.12, 0.48, 0, 0.15, 0.48, 0, 0.15, 0.48, 0, 0.15, 0.48, 0, 0.15, 0.56, 0, 0.17, 0.56, 0, 0.17, 0.56, 0, 0.17, 0.62, 0, 0.19, 0.62, 0, 0.19, 0.62, 0, 0.19, 0.62, 0, 0.19, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.04, 0, 0.02, 0.11, 0, 0.05, 0.11, 0, 0.05, 0.11, 0, 0.05, 0.11, 0, 0.05, 0.2, 0, 0.09, 0.2, 0, 0.09, 0.2, 0, 0.09, 0.31, 0, 0.13, 0.31, 0, 0.13, 0.31, 0, 0.13, 0.31, 0, 0.13, 0.42, 0, 0.18, 0.42, 0, 0.18, 0.42, 0, 0.18, 0.42, 0, 0.18, 0.52, 0, 0.22, 0.52, 0, 0.22, 0.52, 0, 0.22, 0.52, 0, 0.22, 0.61, 0, 0.26, 0.61, 0, 0.26, 0.61, 0, 0.26, 0.67, 0, 0.29, 0.67, 0, 0.29, 0.67, 0, 0.29, 0.67, 0, 0.29, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.04, 0, 0.03, 0.04, 0, 0.03, 0.04, 0, 0.03, 0.07, 0, 0.06, 0.07, 0, 0.06, 0.07, 0, 0.06, 0.07, 0, 0.06, 0.1, 0, 0.08, 0.1, 0, 0.08, 0.1, 0, 0.08, 0.1, 0, 0.08, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.04, 0, 0.03, 0.04, 0, 0.03, 0.04, 0, 0.03, 0.07, 0, 0.06, 0.07, 0, 0.06, 0.07, 0, 0.06, 0.07, 0, 0.06, 0.1, 0, 0.08, 0.1, 0, 0.08, 0.1, 0, 0.08, 0.1, 0, 0.08, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.03, 0, 0.06, 0.03, 0, 0.06, 0.03, 0, 0.06, 0.03, 0, 0.06, 0.08, 0, 0.08, 0.08, 0, 0.08, 0.08, 0, 0.08, 0.08, 0, 0.08, 0.14, 0, 0.09, 0.14, 0, 0.09, 0.14, 0, 0.09, 0.22, 0, 0.1, 0.22, 0, 0.1, 0.22, 0, 0.1, 0.22, 0, 0.1, 0.3, 0, 0.1, 0.3, 0, 0.1, 0.3, 0, 0.1, 0.3, 0, 0.1, 0.37, 0, 0.1, 0.37, 0, 0.1, 0.37, 0, 0.1, 0.37, 0, 0.1, 0.43, 0, 0.1, 0.43, 0, 0.1, 0.43, 0, 0.1, 0.48, 0, 0.1, 0.48, 0, 0.1, 0.48, 0, 0.1, 0.48, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			legR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0, 0, 0.05, 0.03, 0, 0.06, 0.03, 0, 0.06, 0.03, 0, 0.06, 0.03, 0, 0.06, 0.08, 0, 0.08, 0.08, 0, 0.08, 0.08, 0, 0.08, 0.08, 0, 0.08, 0.14, 0, 0.09, 0.14, 0, 0.09, 0.14, 0, 0.09, 0.22, 0, 0.1, 0.22, 0, 0.1, 0.22, 0, 0.1, 0.22, 0, 0.1, 0.3, 0, 0.1, 0.3, 0, 0.1, 0.3, 0, 0.1, 0.3, 0, 0.1, 0.37, 0, 0.1, 0.37, 0, 0.1, 0.37, 0, 0.1, 0.37, 0, 0.1, 0.43, 0, 0.1, 0.43, 0, 0.1, 0.43, 0, 0.1, 0.48, 0, 0.1, 0.48, 0, 0.1, 0.48, 0, 0.1, 0.48, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.42, 0, 0, -0.42, 0, 0, -0.42, 0, 0, -0.42, 0, 0, -0.58, 0, 0, -0.58, 0, 0, -0.58, 0, 0, -0.58, 0, 0, -0.72, 0, 0, -0.72, 0, 0, -0.72, 0, 0, -0.72, 0, 0, -0.83, 0, 0, -0.83, 0, 0, -0.83, 0, 0, -0.89, 0, 0, -0.89, 0, 0, -0.89, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.13, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.26, 0, 0, -0.42, 0, 0, -0.42, 0, 0, -0.42, 0, 0, -0.42, 0, 0, -0.58, 0, 0, -0.58, 0, 0, -0.58, 0, 0, -0.58, 0, 0, -0.72, 0, 0, -0.72, 0, 0, -0.72, 0, 0, -0.72, 0, 0, -0.83, 0, 0, -0.83, 0, 0, -0.83, 0, 0, -0.89, 0, 0, -0.89, 0, 0, -0.89, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.14, 0, 0, 0.19, 0, 0, 0.19, 0, 0, 0.19, 0, 0, 0.19, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.28, 0, 0, 0.28, 0, 0, 0.28, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-	Warden = {
-		idle = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-			head = { -0.1, 0, 0, -0.09, 0.01, 0, -0.09, 0.02, 0, -0.08, 0.03, 0, -0.07, 0.03, 0, -0.07, 0.04, 0, -0.06, 0.05, 0, -0.06, 0.06, 0, -0.05, 0.07, 0, -0.05, 0.08, 0, -0.05, 0.08, 0, -0.05, 0.09, 0, -0.05, 0.1, 0, -0.05, 0.1, 0, -0.06, 0.11, 0, -0.06, 0.11, 0, -0.07, 0.12, 0, -0.07, 0.13, 0, -0.08, 0.13, 0, -0.09, 0.13, 0, -0.09, 0.14, 0, -0.1, 0.14, 0, -0.11, 0.14, 0, -0.12, 0.15, 0, -0.12, 0.15, 0, -0.13, 0.15, 0, -0.14, 0.15, 0, -0.14, 0.15, 0, -0.14, 0.15, 0, -0.15, 0.15, 0, -0.15, 0.15, 0, -0.15, 0.15, 0, -0.15, 0.14, 0, -0.15, 0.14, 0, -0.15, 0.14, 0, -0.14, 0.13, 0, -0.14, 0.13, 0, -0.13, 0.13, 0, -0.13, 0.12, 0, -0.12, 0.11, 0, -0.11, 0.11, 0, -0.1, 0.1, 0, -0.1, 0.1, 0, -0.09, 0.09, 0, -0.08, 0.08, 0, -0.08, 0.08, 0 },
-			armL = { -0.7, 0, 0.63, -0.69, 0, 0.64, -0.67, 0, 0.64, -0.66, 0, 0.65, -0.65, 0, 0.65, -0.63, 0, 0.65, -0.62, 0, 0.65, -0.61, 0, 0.65, -0.6, 0, 0.64, -0.6, 0, 0.64, -0.59, 0, 0.63, -0.59, 0, 0.63, -0.58, 0, 0.62, -0.58, 0, 0.61, -0.58, 0, 0.6, -0.58, 0, 0.59, -0.59, 0, 0.58, -0.59, 0, 0.57, -0.6, 0, 0.55, -0.6, 0, 0.54, -0.61, 0, 0.53, -0.62, 0, 0.52, -0.63, 0, 0.51, -0.65, 0, 0.5, -0.66, 0, 0.49, -0.67, 0, 0.48, -0.69, 0, 0.47, -0.7, 0, 0.47, -0.71, 0, 0.46, -0.73, 0, 0.46, -0.74, 0, 0.45, -0.75, 0, 0.45, -0.77, 0, 0.45, -0.78, 0, 0.45, -0.79, 0, 0.45, -0.8, 0, 0.46, -0.8, 0, 0.46, -0.81, 0, 0.47, -0.81, 0, 0.47, -0.82, 0, 0.48, -0.82, 0, 0.49, -0.82, 0, 0.5, -0.82, 0, 0.51, -0.81, 0, 0.52, -0.81, 0, 0.53, -0.8, 0, 0.55 },
-			armR = { -0.59, 0, 0.56, -0.6, 0, 0.55, -0.61, 0, 0.54, -0.61, 0, 0.53, -0.62, 0, 0.52, -0.64, 0, 0.51, -0.65, 0, 0.5, -0.66, 0, 0.49, -0.67, 0, 0.48, -0.69, 0, 0.47, -0.7, 0, 0.46, -0.72, 0, 0.46, -0.73, 0, 0.45, -0.74, 0, 0.45, -0.76, 0, 0.45, -0.77, 0, 0.45, -0.78, 0, 0.45, -0.79, 0, 0.45, -0.8, 0, 0.46, -0.81, 0, 0.46, -0.81, 0, 0.47, -0.82, 0, 0.48, -0.82, 0, 0.48, -0.82, 0, 0.49, -0.82, 0, 0.5, -0.82, 0, 0.51, -0.81, 0, 0.52, -0.81, 0, 0.54, -0.8, 0, 0.55, -0.79, 0, 0.56, -0.79, 0, 0.57, -0.78, 0, 0.58, -0.76, 0, 0.59, -0.75, 0, 0.6, -0.74, 0, 0.61, -0.73, 0, 0.62, -0.71, 0, 0.63, -0.7, 0, 0.64, -0.68, 0, 0.64, -0.67, 0, 0.65, -0.66, 0, 0.65, -0.64, 0, 0.65, -0.63, 0, 0.65, -0.62, 0, 0.65, -0.61, 0, 0.65, -0.6, 0, 0.64 },
-			legL = { 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02 },
-			legR = { 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		forming = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.02, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.02, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.03, 0.01, 0, 0.02, 0.01, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0.01, -0.01, 0, 0, -0.02, 0, 0, -0.02, 0, 0, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.01, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.02, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.02, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, -0.01, 0, -0.03, 0, 0, -0.03, 0, 0, -0.03 },
-			head = { -0.1, 0, 0, -0.09, 0.01, 0, -0.09, 0.02, 0, -0.08, 0.03, 0, -0.07, 0.03, 0, -0.07, 0.04, 0, -0.06, 0.05, 0, -0.06, 0.06, 0, -0.05, 0.07, 0, -0.05, 0.08, 0, -0.05, 0.08, 0, -0.05, 0.09, 0, -0.05, 0.1, 0, -0.05, 0.1, 0, -0.06, 0.11, 0, -0.06, 0.11, 0, -0.07, 0.12, 0, -0.07, 0.13, 0, -0.08, 0.13, 0, -0.09, 0.13, 0, -0.09, 0.14, 0, -0.1, 0.14, 0, -0.11, 0.14, 0, -0.12, 0.15, 0, -0.12, 0.15, 0, -0.13, 0.15, 0, -0.14, 0.15, 0, -0.14, 0.15, 0, -0.14, 0.15, 0, -0.15, 0.15, 0, -0.15, 0.15, 0, -0.15, 0.15, 0, -0.15, 0.14, 0, -0.15, 0.14, 0, -0.15, 0.14, 0, -0.14, 0.13, 0, -0.14, 0.13, 0, -0.13, 0.13, 0, -0.13, 0.12, 0, -0.12, 0.11, 0, -0.11, 0.11, 0, -0.1, 0.1, 0, -0.1, 0.1, 0, -0.09, 0.09, 0, -0.08, 0.08, 0, -0.08, 0.08, 0 },
-			armL = { -0.7, 0, 0.63, -0.69, 0, 0.64, -0.67, 0, 0.64, -0.66, 0, 0.65, -0.65, 0, 0.65, -0.63, 0, 0.65, -0.62, 0, 0.65, -0.61, 0, 0.65, -0.6, 0, 0.64, -0.6, 0, 0.64, -0.59, 0, 0.63, -0.59, 0, 0.63, -0.58, 0, 0.62, -0.58, 0, 0.61, -0.58, 0, 0.6, -0.58, 0, 0.59, -0.59, 0, 0.58, -0.59, 0, 0.57, -0.6, 0, 0.55, -0.6, 0, 0.54, -0.61, 0, 0.53, -0.62, 0, 0.52, -0.63, 0, 0.51, -0.65, 0, 0.5, -0.66, 0, 0.49, -0.67, 0, 0.48, -0.69, 0, 0.47, -0.7, 0, 0.47, -0.71, 0, 0.46, -0.73, 0, 0.46, -0.74, 0, 0.45, -0.75, 0, 0.45, -0.77, 0, 0.45, -0.78, 0, 0.45, -0.79, 0, 0.45, -0.8, 0, 0.46, -0.8, 0, 0.46, -0.81, 0, 0.47, -0.81, 0, 0.47, -0.82, 0, 0.48, -0.82, 0, 0.49, -0.82, 0, 0.5, -0.82, 0, 0.51, -0.81, 0, 0.52, -0.81, 0, 0.53, -0.8, 0, 0.55 },
-			armR = { -0.59, 0, 0.56, -0.6, 0, 0.55, -0.61, 0, 0.54, -0.61, 0, 0.53, -0.62, 0, 0.52, -0.64, 0, 0.51, -0.65, 0, 0.5, -0.66, 0, 0.49, -0.67, 0, 0.48, -0.69, 0, 0.47, -0.7, 0, 0.46, -0.72, 0, 0.46, -0.73, 0, 0.45, -0.74, 0, 0.45, -0.76, 0, 0.45, -0.77, 0, 0.45, -0.78, 0, 0.45, -0.79, 0, 0.45, -0.8, 0, 0.46, -0.81, 0, 0.46, -0.81, 0, 0.47, -0.82, 0, 0.48, -0.82, 0, 0.48, -0.82, 0, 0.49, -0.82, 0, 0.5, -0.82, 0, 0.51, -0.81, 0, 0.52, -0.81, 0, 0.54, -0.8, 0, 0.55, -0.79, 0, 0.56, -0.79, 0, 0.57, -0.78, 0, 0.58, -0.76, 0, 0.59, -0.75, 0, 0.6, -0.74, 0, 0.61, -0.73, 0, 0.62, -0.71, 0, 0.63, -0.7, 0, 0.64, -0.68, 0, 0.64, -0.67, 0, 0.65, -0.66, 0, 0.65, -0.64, 0, 0.65, -0.63, 0, 0.65, -0.62, 0, 0.65, -0.61, 0, 0.65, -0.6, 0, 0.64 },
-			legL = { 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02 },
-			legR = { 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.02 },
-			wingL = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			wingR = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		slam = { fps = 15, length = 1.8, hit = 1.1, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.15, 0, 0, -0.18, 0, 0, -0.21, 0, 0, -0.24, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.3, 0, 0, -0.31, 0, 0, -0.32, 0, 0, -0.05, 0, 0, 0.28, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.37, 0, 0, 0.29, 0, 0, 0.19, 0, 0, 0.1, 0, 0, 0.03, 0, 0, 0, 0, 0 },
-			head = { -0.15, 0, 0, -0.15, 0, 0, -0.16, 0, 0, -0.17, 0, 0, -0.19, 0, 0, -0.2, 0, 0, -0.23, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.29, 0, 0, -0.31, 0, 0, -0.34, 0, 0, -0.35, 0, 0, -0.37, 0, 0, -0.38, 0, 0, -0.39, 0, 0, -0.4, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.35, 0, 0, 0.34, 0, 0, 0.32, 0, 0, 0.3, 0, 0, 0.26, 0, 0, 0.23, 0, 0, 0.21, 0, 0, 0.2, 0, 0 },
-			armL = { 0, 0, 0.1, -0.02, 0, 0.1, -0.1, 0, 0.1, -0.2, 0, 0.1, -0.35, 0, 0.1, -0.52, 0, 0.1, -0.71, 0, 0.1, -0.91, 0, 0.1, -1.12, 0, 0.1, -1.33, 0, 0.1, -1.54, 0, 0.1, -1.74, 0, 0.1, -1.92, 0, 0.1, -2.08, 0, 0.1, -2.2, 0, 0.1, -2.3, 0, 0.1, -2.34, 0, 0.1, -1.41, 0, 0.1, -0.23, 0, 0.1, 0.25, 0, 0.1, 0.35, 0, 0.1, 0.34, 0, 0.1, 0.28, 0, 0.1, 0.19, 0, 0.1, 0.1, 0, 0.1, 0.01, 0, 0.1, -0.05, 0, 0.1, -0.08, 0, 0.1 },
-			armR = { 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0.01, -0.06, 0, 0.03, -0.1, 0, 0.05, -0.15, 0, 0.08, -0.21, 0, 0.11, -0.27, 0, 0.14, -0.33, 0, 0.17, -0.4, 0, 0.2, -0.46, 0, 0.23, -0.52, 0, 0.26, -0.57, 0, 0.29, -0.62, 0, 0.31, -0.66, 0, 0.33, -0.68, 0, 0.34, -0.7, 0, 0.35, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.3, -0.3, 0, 0.29, -0.3, 0, 0.27, -0.3, 0, 0.24, -0.3, 0, 0.21, -0.3, 0, 0.17, -0.3, 0, 0.15, -0.3, 0, 0.14 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.44, 0, 0, 0.41, 0, 0, 0.39, 0, 0, 0.36, 0, 0, 0.33, 0, 0, 0.31, 0, 0, 0.28, 0, 0, 0.26, 0, 0, 0.23, 0, 0, 0.2, 0, 0, 0.18, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		thrust = { fps = 15, length = 1.6, hit = 0.9, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, 0.16, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.33, 0, 0, 0.27, 0, 0, 0.19, 0, 0, 0.11, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02 },
-		} },
-		pull = { fps = 15, length = 1.2, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.23, 0, 0, 0.24, 0, 0, 0.24, 0, 0, 0.23, 0, 0, 0.22, 0, 0, 0.2, 0, 0, 0.18, 0, 0, 0.16, 0, 0, 0.14, 0, 0, 0.13, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0 },
-			armL = { -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2 },
-			armR = { -1.25, 0, 0.2, -1.16, 0, 0.23, -1.09, 0, 0.26, -1.03, 0, 0.29, -1, 0, 0.3, -1, 0, 0.3, -1.03, 0, 0.29, -1.09, 0, 0.26, -1.16, 0, 0.23, -1.25, 0, 0.2, -1.34, 0, 0.17, -1.41, 0, 0.14, -1.47, 0, 0.11, -1.5, 0, 0.1, -1.5, 0, 0.1, -1.47, 0, 0.11, -1.41, 0, 0.14, -1.34, 0, 0.17, -1.25, 0, 0.2 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 2, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.12 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.02, 0, 0, -0.02, 0, 0 },
-			armL = { -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05, -1.55, 0, 0.05 },
-			armR = { -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5, -0.4, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0 },
-			armL = { 0.35, 0, 0.35, 0.4, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.43, 0, 0.35, 0.39, 0, 0.35, 0.34, 0, 0.35, 0.29, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.28, 0, 0.35, 0.32, 0, 0.35, 0.37, 0, 0.35, 0.42, 0, 0.35, 0.45, 0, 0.35, 0.45, 0, 0.35 },
-			armR = { 0.43, 0, 0.35, 0.45, 0, 0.35, 0.44, 0, 0.35, 0.4, 0, 0.35, 0.35, 0, 0.35, 0.3, 0, 0.35, 0.26, 0, 0.35, 0.25, 0, 0.35, 0.27, 0, 0.35, 0.31, 0, 0.35, 0.37, 0, 0.35, 0.41, 0, 0.35, 0.44, 0, 0.35, 0.45, 0, 0.35, 0.42, 0, 0.35, 0.38, 0, 0.35 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09 },
-		} },
-		roar = { fps = 15, length = 1.8, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.1, 0, 0, -0.17, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, -0.17, 0, 0, -0.3, 0, 0, -0.39, 0, 0, -0.45, 0, 0, -0.48, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			armR = { 0, 0, 0, -0.12, 0, 0.45, -0.21, 0, 0.79, -0.27, 0, 1.02, -0.31, 0, 1.17, -0.34, 0, 1.25, -0.35, 0, 1.29, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3, -0.35, 0, 1.3 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			cloth = { 0.1, 0, 0, 0.01, 0, 0, -0.05, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		summon = { fps = 15, length = 2, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.04, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, -0.46, 0, 0.25, -0.86, 0, 0.45, -1.22, 0, 0.6, -1.54, 0, 0.71, -1.78, 0, 0.79, -1.92, 0, 0.85, -1.96, 0, 0.88, -1.94, 0, 0.89, -1.92, 0, 0.9, -1.93, 0, 0.9, -1.98, 0, 0.9, -2.05, 0, 0.9, -2.08, 0, 0.9, -2.06, 0, 0.9, -2, 0, 0.9, -1.94, 0, 0.9, -1.92, 0, 0.9, -1.95, 0, 0.9, -2.02, 0, 0.9, -2.07, 0, 0.9, -2.08, 0, 0.9, -2.03, 0, 0.9, -1.97, 0, 0.9, -1.92, 0, 0.9, -1.93, 0, 0.9, -1.98, 0, 0.9, -2.05, 0, 0.9, -2.08, 0, 0.9, -2.06, 0, 0.9, -2, 0, 0.9 },
-			armR = { 0, 0, 0, -0.46, 0, 0.25, -0.86, 0, 0.45, -1.22, 0, 0.6, -1.54, 0, 0.71, -1.78, 0, 0.79, -1.92, 0, 0.85, -1.96, 0, 0.88, -1.94, 0, 0.89, -1.92, 0, 0.9, -1.93, 0, 0.9, -1.98, 0, 0.9, -2.05, 0, 0.9, -2.08, 0, 0.9, -2.06, 0, 0.9, -2, 0, 0.9, -1.94, 0, 0.9, -1.92, 0, 0.9, -1.95, 0, 0.9, -2.02, 0, 0.9, -2.07, 0, 0.9, -2.08, 0, 0.9, -2.03, 0, 0.9, -1.97, 0, 0.9, -1.92, 0, 0.9, -1.93, 0, 0.9, -1.98, 0, 0.9, -2.05, 0, 0.9, -2.08, 0, 0.9, -2.06, 0, 0.9, -2, 0, 0.9 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.5, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.26, 0, 0.08, -0.19, 0, 0.05, -0.13, 0, 0.04, -0.08, 0, 0.02, -0.04, 0, 0.01, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { -0.3, 0, 0, -0.23, 0, 0, -0.16, 0, 0, -0.11, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			armR = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			cloth = { 0.3, 0, 0, 0.23, 0, 0, 0.16, 0, 0, 0.11, 0, 0, 0.07, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		death = { fps = 15, length = 2.4, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0.01, 0.05, 0, 0.01, 0.07, 0, 0.02, 0.1, 0, 0.03, 0.13, 0, 0.04, 0.17, 0, 0.05, 0.21, 0, 0.06, 0.24, 0, 0.08, 0.28, 0, 0.09, 0.32, 0, 0.1, 0.37, 0, 0.11, 0.41, 0, 0.12, 0.44, 0, 0.14, 0.48, 0, 0.15, 0.52, 0, 0.16, 0.55, 0, 0.17, 0.58, 0, 0.18, 0.6, 0, 0.19, 0.62, 0, 0.19, 0.64, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.03, 0, 0.01, 0.05, 0, 0.02, 0.08, 0, 0.03, 0.11, 0, 0.05, 0.14, 0, 0.06, 0.18, 0, 0.08, 0.22, 0, 0.09, 0.26, 0, 0.11, 0.31, 0, 0.13, 0.35, 0, 0.15, 0.39, 0, 0.17, 0.44, 0, 0.19, 0.48, 0, 0.21, 0.52, 0, 0.22, 0.56, 0, 0.24, 0.59, 0, 0.25, 0.62, 0, 0.27, 0.65, 0, 0.28, 0.67, 0, 0.29, 0.69, 0, 0.29, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			legR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.06, 0, 0, 0.08, 0, 0, 0.1, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.24, 0, 0, 0.26, 0, 0, 0.27, 0, 0, 0.28, 0, 0, 0.29, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-	Choir = {
-		idle = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0.01, 0, 0.01, 0.02, 0.01, 0.01, 0.04, 0.01, 0.01, 0.05, 0.01, 0.02, 0.06, 0.02, 0.02, 0.07, 0.02, 0.02, 0.08, 0.02, 0.02, 0.09, 0.02, 0.02, 0.1, 0.03, 0.02, 0.1, 0.03, 0.02, 0.11, 0.03, 0.02, 0.11, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.01, 0.11, 0.03, 0.01, 0.11, 0.03, 0.01, 0.1, 0.02, 0.01, 0.1, 0.02, 0, 0.09, 0.02, 0, 0.08, 0.02, -0.01, 0.07, 0.01, -0.01, 0.06, 0.01, -0.01, 0.05, 0.01, -0.01, 0.04, 0, -0.02, 0.02, 0, -0.02, 0.01, 0, -0.02, 0, -0.01, -0.02, -0.01, -0.01, -0.02, -0.02, -0.01, -0.02, -0.04, -0.02, -0.02, -0.05, -0.02, -0.02, -0.06, -0.02, -0.02, -0.07, -0.02, -0.02, -0.08, -0.03, -0.02, -0.09, -0.03, -0.02, -0.1, -0.03, -0.02, -0.1, -0.03, -0.01, -0.11, -0.03, -0.01, -0.11, -0.03, -0.01, -0.12, -0.03, 0, -0.12, -0.03, 0, -0.12, -0.03 },
-			head = { 0.05, 0, 0, 0.05, 0.02, 0.01, 0.05, 0.04, 0.02, 0.05, 0.06, 0.03, 0.05, 0.08, 0.04, 0.05, 0.1, 0.04, 0.05, 0.12, 0.05, 0.05, 0.13, 0.05, 0.05, 0.15, 0.05, 0.05, 0.16, 0.05, 0.05, 0.17, 0.04, 0.05, 0.18, 0.04, 0.05, 0.19, 0.03, 0.05, 0.2, 0.02, 0.05, 0.2, 0.01, 0.05, 0.2, 0, 0.05, 0.2, -0.01, 0.05, 0.2, -0.02, 0.05, 0.19, -0.03, 0.05, 0.18, -0.04, 0.05, 0.17, -0.04, 0.05, 0.16, -0.05, 0.05, 0.15, -0.05, 0.05, 0.13, -0.05, 0.05, 0.12, -0.05, 0.05, 0.1, -0.04, 0.05, 0.08, -0.04, 0.05, 0.06, -0.03, 0.05, 0.04, -0.02, 0.05, 0.02, -0.01, 0.05, 0, 0, 0.05, -0.02, 0.01, 0.05, -0.04, 0.02, 0.05, -0.06, 0.03, 0.05, -0.08, 0.04, 0.05, -0.1, 0.04, 0.05, -0.12, 0.05, 0.05, -0.13, 0.05, 0.05, -0.15, 0.05, 0.05, -0.16, 0.05, 0.05, -0.17, 0.04, 0.05, -0.18, 0.04, 0.05, -0.19, 0.03, 0.05, -0.2, 0.02, 0.05, -0.2, 0.01, 0.05, -0.2, 0 },
-			armL = { -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55, -0.53, 0, 0.63, -0.46, 0, 0.7, -0.39, 0, 0.74, -0.34, 0, 0.75, -0.3, 0, 0.72, -0.27, 0, 0.67, -0.25, 0, 0.59, -0.25, 0, 0.51, -0.27, 0, 0.43, -0.3, 0, 0.38, -0.34, 0, 0.35, -0.39, 0, 0.36, -0.46, 0, 0.4, -0.53, 0, 0.47, -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55 },
-			armR = { -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1, -1.21, 0.12, -0.09, -1.32, 0.22, -0.07, -1.42, 0.29, -0.03, -1.51, 0.3, 0.02, -1.58, 0.26, 0.08, -1.62, 0.18, 0.14, -1.65, 0.06, 0.21, -1.65, -0.06, 0.29, -1.62, -0.18, 0.36, -1.58, -0.26, 0.43, -1.51, -0.3, 0.48, -1.42, -0.29, 0.53, -1.32, -0.22, 0.57, -1.21, -0.12, 0.59, -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13, 0, 0, 0.05, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.03, 0, 0, 0.03, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.25, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.21, 0, 0, 0.13, 0, 0, 0.06, 0, 0, -0.01, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		forming = { fps = 15, length = 3, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0, 0, 0.01, 0, 0.01, 0.02, 0.01, 0.01, 0.04, 0.01, 0.01, 0.05, 0.01, 0.02, 0.06, 0.02, 0.02, 0.07, 0.02, 0.02, 0.08, 0.02, 0.02, 0.09, 0.02, 0.02, 0.1, 0.03, 0.02, 0.1, 0.03, 0.02, 0.11, 0.03, 0.02, 0.11, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.02, 0.12, 0.03, 0.01, 0.11, 0.03, 0.01, 0.11, 0.03, 0.01, 0.1, 0.02, 0.01, 0.1, 0.02, 0, 0.09, 0.02, 0, 0.08, 0.02, -0.01, 0.07, 0.01, -0.01, 0.06, 0.01, -0.01, 0.05, 0.01, -0.01, 0.04, 0, -0.02, 0.02, 0, -0.02, 0.01, 0, -0.02, 0, -0.01, -0.02, -0.01, -0.01, -0.02, -0.02, -0.01, -0.02, -0.04, -0.02, -0.02, -0.05, -0.02, -0.02, -0.06, -0.02, -0.02, -0.07, -0.02, -0.02, -0.08, -0.03, -0.02, -0.09, -0.03, -0.02, -0.1, -0.03, -0.02, -0.1, -0.03, -0.01, -0.11, -0.03, -0.01, -0.11, -0.03, -0.01, -0.12, -0.03, 0, -0.12, -0.03, 0, -0.12, -0.03 },
-			head = { 0.05, 0, 0, 0.05, 0.02, 0.01, 0.05, 0.04, 0.02, 0.05, 0.06, 0.03, 0.05, 0.08, 0.04, 0.05, 0.1, 0.04, 0.05, 0.12, 0.05, 0.05, 0.13, 0.05, 0.05, 0.15, 0.05, 0.05, 0.16, 0.05, 0.05, 0.17, 0.04, 0.05, 0.18, 0.04, 0.05, 0.19, 0.03, 0.05, 0.2, 0.02, 0.05, 0.2, 0.01, 0.05, 0.2, 0, 0.05, 0.2, -0.01, 0.05, 0.2, -0.02, 0.05, 0.19, -0.03, 0.05, 0.18, -0.04, 0.05, 0.17, -0.04, 0.05, 0.16, -0.05, 0.05, 0.15, -0.05, 0.05, 0.13, -0.05, 0.05, 0.12, -0.05, 0.05, 0.1, -0.04, 0.05, 0.08, -0.04, 0.05, 0.06, -0.03, 0.05, 0.04, -0.02, 0.05, 0.02, -0.01, 0.05, 0, 0, 0.05, -0.02, 0.01, 0.05, -0.04, 0.02, 0.05, -0.06, 0.03, 0.05, -0.08, 0.04, 0.05, -0.1, 0.04, 0.05, -0.12, 0.05, 0.05, -0.13, 0.05, 0.05, -0.15, 0.05, 0.05, -0.16, 0.05, 0.05, -0.17, 0.04, 0.05, -0.18, 0.04, 0.05, -0.19, 0.03, 0.05, -0.2, 0.02, 0.05, -0.2, 0.01, 0.05, -0.2, 0 },
-			armL = { -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55, -0.53, 0, 0.63, -0.46, 0, 0.7, -0.39, 0, 0.74, -0.34, 0, 0.75, -0.3, 0, 0.72, -0.27, 0, 0.67, -0.25, 0, 0.59, -0.25, 0, 0.51, -0.27, 0, 0.43, -0.3, 0, 0.38, -0.34, 0, 0.35, -0.39, 0, 0.36, -0.46, 0, 0.4, -0.53, 0, 0.47, -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55 },
-			armR = { -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1, -1.21, 0.12, -0.09, -1.32, 0.22, -0.07, -1.42, 0.29, -0.03, -1.51, 0.3, 0.02, -1.58, 0.26, 0.08, -1.62, 0.18, 0.14, -1.65, 0.06, 0.21, -1.65, -0.06, 0.29, -1.62, -0.18, 0.36, -1.58, -0.26, 0.43, -1.51, -0.3, 0.48, -1.42, -0.29, 0.53, -1.32, -0.22, 0.57, -1.21, -0.12, 0.59, -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.06, 0, 0.04, 0.03, 0, 0.04, 0.01, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.06, 0, 0.04, -0.03, 0, 0.04, -0.01, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04 },
-			wingL = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			wingR = { 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5, 0, 0.4, -0.5 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04, 0.11, 0, -0.05, 0.13, 0, -0.05, 0.14, 0, -0.05, 0.15, 0, -0.05, 0.16, 0, -0.05, 0.17, 0, -0.05, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.17, 0, -0.04, 0.16, 0, -0.03, 0.15, 0, -0.03, 0.14, 0, -0.02, 0.13, 0, -0.01, 0.11, 0, -0.01, 0.1, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09, 0, 0, -0.09, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.1, 0, 0, -0.09, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.06, 0, 0, -0.05, 0, 0, -0.04, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0 },
-		} },
-		slam = { fps = 15, length = 1.8, hit = 1.1, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.15, 0, 0, -0.18, 0, 0, -0.21, 0, 0, -0.24, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.3, 0, 0, -0.31, 0, 0, -0.32, 0, 0, -0.05, 0, 0, 0.28, 0, 0, 0.42, 0, 0, 0.45, 0, 0, 0.43, 0, 0, 0.37, 0, 0, 0.29, 0, 0, 0.19, 0, 0, 0.1, 0, 0, 0.03, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.04, 0, 0, -0.05, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.16, 0, 0, -0.19, 0, 0, -0.2, 0, 0, -0.22, 0, 0, -0.23, 0, 0, -0.24, 0, 0, -0.25, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.15, 0, 0, 0.14, 0, 0, 0.12, 0, 0, 0.1, 0, 0, 0.06, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0 },
-			armL = { 0, 0, 0.1, -0.02, 0, 0.1, -0.1, 0, 0.1, -0.2, 0, 0.1, -0.35, 0, 0.1, -0.52, 0, 0.1, -0.71, 0, 0.1, -0.91, 0, 0.1, -1.12, 0, 0.1, -1.33, 0, 0.1, -1.54, 0, 0.1, -1.74, 0, 0.1, -1.92, 0, 0.1, -2.08, 0, 0.1, -2.2, 0, 0.1, -2.3, 0, 0.1, -2.34, 0, 0.1, -1.41, 0, 0.1, -0.23, 0, 0.1, 0.25, 0, 0.1, 0.35, 0, 0.1, 0.34, 0, 0.1, 0.28, 0, 0.1, 0.19, 0, 0.1, 0.1, 0, 0.1, 0.01, 0, 0.1, -0.05, 0, 0.1, -0.08, 0, 0.1 },
-			armR = { 0, 0, 0.2, -0.02, 0, 0.2, -0.1, 0, 0.2, -0.2, 0, 0.2, -0.35, 0, 0.2, -0.52, 0, 0.2, -0.71, 0, 0.2, -0.91, 0, 0.2, -1.12, 0, 0.2, -1.33, 0, 0.2, -1.54, 0, 0.2, -1.74, 0, 0.2, -1.92, 0, 0.2, -2.08, 0, 0.2, -2.2, 0, 0.2, -2.3, 0, 0.2, -2.34, 0, 0.2, -1.41, 0, 0.2, -0.23, 0, 0.2, 0.25, 0, 0.2, 0.35, 0, 0.2, 0.34, 0, 0.2, 0.28, 0, 0.2, 0.19, 0, 0.2, 0.1, 0, 0.2, 0.01, 0, 0.2, -0.05, 0, 0.2, -0.08, 0, 0.2 },
-			legL = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.05, 0, 0, 0.05, 0.01, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.05, 0.03, 0, 0.05, 0.05, 0, 0.05, 0.06, 0, 0.05, 0.07, 0, 0.05, 0.09, 0, 0.05, 0.1, 0, 0.05, 0.11, 0, 0.05, 0.12, 0, 0.05, 0.13, 0, 0.05, 0.14, 0, 0.05, 0.15, 0, 0.05, 0.15, 0, 0.05, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.12, 0, 0, 0.13, 0, 0, 0.15, 0, 0, 0.17, 0, 0, 0.2, 0, 0, 0.23, 0, 0, 0.26, 0, 0, 0.29, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.38, 0, 0, 0.41, 0, 0, 0.43, 0, 0, 0.45, 0, 0, 0.46, 0, 0, 0.47, 0, 0, 0.27, 0, 0, -0.01, 0, 0, -0.13, 0, 0, -0.15, 0, 0, -0.14, 0, 0, -0.1, 0, 0, -0.05, 0, 0, 0.01, 0, 0, 0.06, 0, 0, 0.1, 0, 0, 0.12 },
-			cloth = { -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, -0.2, 0, 0, 0.44, 0, 0, 0.41, 0, 0, 0.39, 0, 0, 0.36, 0, 0, 0.33, 0, 0, 0.31, 0, 0, 0.28, 0, 0, 0.26, 0, 0, 0.23, 0, 0, 0.2, 0, 0, 0.18, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		thrust = { fps = 15, length = 1.6, hit = 0.9, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, 0.16, 0, 0, 0.32, 0, 0, 0.35, 0, 0, 0.33, 0, 0, 0.27, 0, 0, 0.19, 0, 0, 0.11, 0, 0, 0.04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.04, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.02, 0, 0, 0.01, 0, 0, 0, 0, 0, -0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.03, 0, 0, -0.04, 0, 0, -0.04, 0, 0, -0.04, 0, 0 },
-			armL = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			armR = { -0.15, 0, 0, -0.15, 0, 0.02, -0.15, 0, 0.07, -0.15, 0, 0.15, -0.15, 0, 0.24, -0.15, 0, 0.36, -0.15, 0, 0.48, -0.15, 0, 0.61, -0.15, 0, 0.73, -0.15, 0, 0.85, -0.15, 0, 0.96, -0.15, 0, 1.05, -0.15, 0, 1.11, -0.15, 0, 1.15, -0.79, 0, 0.68, -1.43, 0, 0.21, -1.55, 0, 0.12, -1.48, 0, 0.12, -1.23, 0, 0.12, -0.89, 0, 0.13, -0.53, 0, 0.13, -0.23, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14, -0.08, 0, 0.14 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.27, 0, 0, 0.2, 0, 0, 0.13 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02 },
-		} },
-		pull = { fps = 15, length = 1.2, hit = 0, loop = true, bones = {
-			torso = { 0.18, 0, 0, 0.2, 0.01, 0, 0.22, 0.02, 0, 0.23, 0.04, 0, 0.24, 0.05, 0, 0.24, 0.06, 0, 0.23, 0.07, 0, 0.22, 0.08, 0, 0.2, 0.09, 0, 0.18, 0.1, 0, 0.16, 0.1, 0, 0.14, 0.11, 0, 0.13, 0.11, 0, 0.12, 0.12, 0, 0.12, 0.12, 0, 0.13, 0.12, 0, 0.14, 0.12, 0, 0.16, 0.12, 0, 0.18, 0.11, 0 },
-			head = { 0.05, 0, 0, 0.05, 0.02, 0.01, 0.05, 0.04, 0.02, 0.05, 0.06, 0.03, 0.05, 0.08, 0.04, 0.05, 0.1, 0.04, 0.05, 0.12, 0.05, 0.05, 0.13, 0.05, 0.05, 0.15, 0.05, 0.05, 0.16, 0.05, 0.05, 0.17, 0.04, 0.05, 0.18, 0.04, 0.05, 0.19, 0.03, 0.05, 0.2, 0.02, 0.05, 0.2, 0.01, 0.05, 0.2, 0, 0.05, 0.2, -0.01, 0.05, 0.2, -0.02, 0.05, 0.19, -0.03 },
-			armL = { -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55, -0.53, 0, 0.63, -0.46, 0, 0.7, -0.39, 0, 0.74 },
-			armR = { -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1, -1.21, 0.12, -0.09, -1.32, 0.22, -0.07, -1.42, 0.29, -0.03 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04, 0, 0, 0.11, 0, 0, 0.19, 0, 0, 0.26 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06 },
-		} },
-		sweep = { fps = 15, length = 2, hit = 0, loop = true, bones = {
-			torso = { 0, 0, 0.12, 0, 0.01, 0.12, 0, 0.02, 0.12, 0, 0.04, 0.12, 0, 0.05, 0.12, 0, 0.06, 0.12, 0, 0.07, 0.12, 0, 0.08, 0.12, 0, 0.09, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.11, 0.12, 0, 0.11, 0.12, 0, 0.12, 0.12, 0, 0.12, 0.12, 0, 0.12, 0.12, 0, 0.12, 0.12, 0, 0.12, 0.12, 0, 0.11, 0.12, 0, 0.11, 0.12, 0, 0.1, 0.12, 0, 0.1, 0.12, 0, 0.09, 0.12, 0, 0.08, 0.12, 0, 0.07, 0.12, 0, 0.06, 0.12, 0, 0.05, 0.12, 0, 0.04, 0.12, 0, 0.02, 0.12, 0, 0.01, 0.12, 0, 0, 0.12 },
-			head = { 0.05, 0, 0, 0.05, 0.02, 0.01, 0.05, 0.04, 0.02, 0.05, 0.06, 0.03, 0.05, 0.08, 0.04, 0.05, 0.1, 0.04, 0.05, 0.12, 0.05, 0.05, 0.13, 0.05, 0.05, 0.15, 0.05, 0.05, 0.16, 0.05, 0.05, 0.17, 0.04, 0.05, 0.18, 0.04, 0.05, 0.19, 0.03, 0.05, 0.2, 0.02, 0.05, 0.2, 0.01, 0.05, 0.2, 0, 0.05, 0.2, -0.01, 0.05, 0.2, -0.02, 0.05, 0.19, -0.03, 0.05, 0.18, -0.04, 0.05, 0.17, -0.04, 0.05, 0.16, -0.05, 0.05, 0.15, -0.05, 0.05, 0.13, -0.05, 0.05, 0.12, -0.05, 0.05, 0.1, -0.04, 0.05, 0.08, -0.04, 0.05, 0.06, -0.03, 0.05, 0.04, -0.02, 0.05, 0.02, -0.01, 0.05, 0, 0 },
-			armL = { -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55, -0.53, 0, 0.63, -0.46, 0, 0.7, -0.39, 0, 0.74, -0.34, 0, 0.75, -0.3, 0, 0.72, -0.27, 0, 0.67, -0.25, 0, 0.59, -0.25, 0, 0.51, -0.27, 0, 0.43, -0.3, 0, 0.38, -0.34, 0, 0.35, -0.39, 0, 0.36, -0.46, 0, 0.4, -0.53, 0, 0.47, -0.6, 0, 0.55 },
-			armR = { -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1, -1.21, 0.12, -0.09, -1.32, 0.22, -0.07, -1.42, 0.29, -0.03, -1.51, 0.3, 0.02, -1.58, 0.26, 0.08, -1.62, 0.18, 0.14, -1.65, 0.06, 0.21, -1.65, -0.06, 0.29, -1.62, -0.18, 0.36, -1.58, -0.26, 0.43, -1.51, -0.3, 0.48, -1.42, -0.29, 0.53, -1.32, -0.22, 0.57, -1.21, -0.12, 0.59, -1.1, 0, 0.6 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			wingR = { 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3, 0, 0, 0.41, 0, 0, 0.45, 0, 0, 0.39, 0, 0, 0.27, 0, 0, 0.17, 0, 0, 0.16, 0, 0, 0.24, 0, 0, 0.36, 0, 0, 0.44, 0, 0, 0.43, 0, 0, 0.33, 0, 0, 0.21, 0, 0, 0.15, 0, 0, 0.19, 0, 0, 0.3 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		floor = { fps = 15, length = 1, hit = 0, loop = true, bones = {
-			torso = { 0.3, 0, 0, 0.3, 0.01, 0, 0.3, 0.02, 0, 0.3, 0.04, 0, 0.3, 0.05, 0, 0.3, 0.06, 0, 0.3, 0.07, 0, 0.3, 0.08, 0, 0.3, 0.09, 0, 0.3, 0.1, 0, 0.3, 0.1, 0, 0.3, 0.11, 0, 0.3, 0.11, 0, 0.3, 0.12, 0, 0.3, 0.12, 0, 0.3, 0.12, 0 },
-			head = { 0.05, 0, 0, 0.05, 0.02, 0.01, 0.05, 0.04, 0.02, 0.05, 0.06, 0.03, 0.05, 0.08, 0.04, 0.05, 0.1, 0.04, 0.05, 0.12, 0.05, 0.05, 0.13, 0.05, 0.05, 0.15, 0.05, 0.05, 0.16, 0.05, 0.05, 0.17, 0.04, 0.05, 0.18, 0.04, 0.05, 0.19, 0.03, 0.05, 0.2, 0.02, 0.05, 0.2, 0.01, 0.05, 0.2, 0 },
-			armL = { -0.6, 0, 0.55, -0.67, 0, 0.63, -0.74, 0, 0.7, -0.81, 0, 0.74, -0.86, 0, 0.75, -0.9, 0, 0.72, -0.93, 0, 0.67, -0.95, 0, 0.59, -0.95, 0, 0.51, -0.93, 0, 0.43, -0.9, 0, 0.38, -0.86, 0, 0.35, -0.81, 0, 0.36, -0.74, 0, 0.4, -0.67, 0, 0.47, -0.6, 0, 0.55 },
-			armR = { -1.1, 0, 0.6, -0.99, 0.12, 0.59, -0.88, 0.22, 0.57, -0.78, 0.29, 0.53, -0.69, 0.3, 0.48, -0.62, 0.26, 0.43, -0.58, 0.18, 0.36, -0.55, 0.06, 0.29, -0.55, -0.06, 0.21, -0.58, -0.18, 0.14, -0.62, -0.26, 0.08, -0.69, -0.3, 0.02, -0.78, -0.29, -0.03, -0.88, -0.22, -0.07, -0.99, -0.12, -0.09, -1.1, 0, -0.1 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.2, 0, 0, 0.26, 0, 0, 0.3, 0, 0, 0.32, 0, 0, 0.31, 0, 0, 0.26, 0, 0, 0.2, 0, 0, 0.12, 0, 0, 0.05, 0, 0, -0.02, 0, 0, -0.06, 0, 0, -0.08, 0, 0, -0.07, 0, 0, -0.02, 0, 0, 0.04 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09 },
-		} },
-		roar = { fps = 15, length = 1.8, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.1, 0, 0, -0.17, 0, 0, -0.22, 0, 0, -0.25, 0, 0, -0.27, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0, -0.28, 0, 0 },
-			head = { 0, 0, 0, -0.17, 0, 0, -0.3, 0, 0, -0.39, 0, 0, -0.45, 0, 0, -0.48, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0, -0.5, 0, 0 },
-			armL = { 0, 0, 0.9, -0.72, 0, 0.9, -1.2, 0, 0.9, -1.49, 0, 0.9, -1.64, 0, 0.9, -1.69, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9 },
-			armR = { 0, 0, 0.9, -0.72, 0, 0.9, -1.2, 0, 0.9, -1.49, 0, 0.9, -1.64, 0, 0.9, -1.69, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9, -1.7, 0, 0.9 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.34, 0, 0, 0.49, 0, 0, 0.55, 0, 0, 0.6, 0, 0, 0.68, 0, 0, 0.74, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73, 0, 0, 0.67, 0, 0, 0.65, 0, 0, 0.7, 0, 0, 0.75, 0, 0, 0.73 },
-			cloth = { 0.1, 0, 0, 0.01, 0, 0, -0.05, 0, 0, -0.1, 0, 0, -0.12, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06 },
-		} },
-		summon = { fps = 15, length = 2, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, -0.04, 0, 0, -0.07, 0, 0, -0.1, 0, 0, -0.11, 0, 0, -0.13, 0, 0, -0.14, 0, 0, -0.14, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0, -0.15, 0, 0 },
-			head = { 0, 0, 0, -0.08, 0, 0, -0.14, 0, 0, -0.19, 0, 0, -0.23, 0, 0, -0.26, 0, 0, -0.28, 0, 0, -0.29, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0, -0.3, 0, 0 },
-			armL = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			armR = { 0, 0, 0, -0.46, 0, 0.13, -0.86, 0, 0.23, -1.22, 0, 0.32, -1.54, 0, 0.38, -1.78, 0, 0.43, -1.92, 0, 0.46, -1.96, 0, 0.48, -1.94, 0, 0.49, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5, -1.94, 0, 0.5, -1.92, 0, 0.5, -1.95, 0, 0.5, -2.02, 0, 0.5, -2.07, 0, 0.5, -2.08, 0, 0.5, -2.03, 0, 0.5, -1.97, 0, 0.5, -1.92, 0, 0.5, -1.93, 0, 0.5, -1.98, 0, 0.5, -2.05, 0, 0.5, -2.08, 0, 0.5, -2.06, 0, 0.5, -2, 0, 0.5 },
-			legL = { 0, 0, 0.04, 0.03, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.09, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.1, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04 },
-			legR = { 0, 0, 0.04, -0.03, 0, 0.04, -0.05, 0, 0.04, -0.07, 0, 0.04, -0.09, 0, 0.04, -0.11, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.12, 0, 0.04, -0.11, 0, 0.04, -0.09, 0, 0.04, -0.08, 0, 0.04, -0.05, 0, 0.04, -0.03, 0, 0.04, 0, 0, 0.04, 0.02, 0, 0.04, 0.05, 0, 0.04, 0.07, 0, 0.04, 0.09, 0, 0.04, 0.11, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.12, 0, 0.04, 0.11, 0, 0.04, 0.1, 0, 0.04, 0.08, 0, 0.04, 0.05, 0, 0.04, 0.03, 0, 0.04, 0, 0, 0.04, -0.02, 0, 0.04, -0.05, 0, 0.04 },
-			wingL = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			wingR = { 0, 0, 0.12, 0, 0, 0.22, 0, 0, 0.31, 0, 0, 0.37, 0, 0, 0.43, 0, 0, 0.46, 0, 0, 0.49, 0, 0, 0.51, 0, 0, 0.51, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52, 0, 0, 0.52 },
-			cloth = { 0.1, 0, 0, 0.11, 0, 0.01, 0.13, 0, 0.01, 0.14, 0, 0.02, 0.15, 0, 0.03, 0.16, 0, 0.03, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.04, 0.17, 0, 0.05, 0.16, 0, 0.05, 0.15, 0, 0.05, 0.14, 0, 0.05, 0.13, 0, 0.05, 0.11, 0, 0.05, 0.1, 0, 0.04, 0.09, 0, 0.04, 0.07, 0, 0.03, 0.06, 0, 0.03, 0.05, 0, 0.02, 0.04, 0, 0.02, 0.03, 0, 0.01, 0.03, 0, 0, 0.03, 0, 0, 0.03, 0, -0.01, 0.04, 0, -0.02, 0.05, 0, -0.02, 0.06, 0, -0.03, 0.07, 0, -0.03, 0.09, 0, -0.04, 0.1, 0, -0.04 },
-			blades = { 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0, 0, 0.06, 0, 0, 0.07, 0, 0, 0.08, 0, 0, 0.09, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.09, 0, 0, 0.09, 0, 0, 0.08, 0, 0, 0.07, 0, 0, 0.06, 0, 0, 0.05, 0, 0, 0.03, 0, 0, 0.02, 0, 0, 0.01, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.03, 0, 0, -0.05, 0, 0, -0.06, 0, 0, -0.07, 0, 0, -0.08, 0, 0, -0.09 },
-		} },
-		hit = { fps = 15, length = 0.5, hit = 0, loop = false, bones = {
-			torso = { -0.35, 0, 0.1, -0.26, 0, 0.08, -0.19, 0, 0.05, -0.13, 0, 0.04, -0.08, 0, 0.02, -0.04, 0, 0.01, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			head = { -0.3, 0, 0, -0.23, 0, 0, -0.16, 0, 0, -0.11, 0, 0, -0.07, 0, 0, -0.03, 0, 0, -0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-			armL = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			armR = { -0.2, 0, 0.4, -0.15, 0, 0.3, -0.11, 0, 0.22, -0.07, 0, 0.14, -0.04, 0, 0.09, -0.02, 0, 0.04, -0.01, 0, 0.02, 0, 0, 0, 0, 0, 0 },
-			cloth = { 0.3, 0, 0, 0.23, 0, 0, 0.16, 0, 0, 0.11, 0, 0, 0.07, 0, 0, 0.03, 0, 0, 0.01, 0, 0, 0, 0, 0, 0, 0, 0 },
-		} },
-		death = { fps = 15, length = 2.4, hit = 0, loop = false, bones = {
-			torso = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.03, 0, 0.01, 0.05, 0, 0.01, 0.07, 0, 0.02, 0.1, 0, 0.03, 0.13, 0, 0.04, 0.17, 0, 0.05, 0.21, 0, 0.06, 0.24, 0, 0.08, 0.28, 0, 0.09, 0.32, 0, 0.1, 0.37, 0, 0.11, 0.41, 0, 0.12, 0.44, 0, 0.14, 0.48, 0, 0.15, 0.52, 0, 0.16, 0.55, 0, 0.17, 0.58, 0, 0.18, 0.6, 0, 0.19, 0.62, 0, 0.19, 0.64, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2, 0.65, 0, 0.2 },
-			head = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.03, 0, 0.01, 0.05, 0, 0.02, 0.08, 0, 0.03, 0.11, 0, 0.05, 0.14, 0, 0.06, 0.18, 0, 0.08, 0.22, 0, 0.09, 0.26, 0, 0.11, 0.31, 0, 0.13, 0.35, 0, 0.15, 0.39, 0, 0.17, 0.44, 0, 0.19, 0.48, 0, 0.21, 0.52, 0, 0.22, 0.56, 0, 0.24, 0.59, 0, 0.25, 0.62, 0, 0.27, 0.65, 0, 0.28, 0.67, 0, 0.29, 0.69, 0, 0.29, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3, 0.7, 0, 0.3 },
-			armL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			armR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0.01, 0.01, 0, 0.01, 0.02, 0, 0.02, 0.03, 0, 0.02, 0.04, 0, 0.03, 0.05, 0, 0.04, 0.06, 0, 0.05, 0.07, 0, 0.06, 0.08, 0, 0.06, 0.09, 0, 0.07, 0.1, 0, 0.08, 0.11, 0, 0.09, 0.12, 0, 0.1, 0.13, 0, 0.1, 0.14, 0, 0.11, 0.14, 0, 0.11, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12, 0.15, 0, 0.12 },
-			legL = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			legR = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.05, 0.01, 0, 0.05, 0.02, 0, 0.06, 0.04, 0, 0.07, 0.06, 0, 0.07, 0.08, 0, 0.08, 0.1, 0, 0.09, 0.13, 0, 0.09, 0.16, 0, 0.09, 0.19, 0, 0.1, 0.22, 0, 0.1, 0.25, 0, 0.1, 0.28, 0, 0.1, 0.31, 0, 0.1, 0.34, 0, 0.1, 0.37, 0, 0.1, 0.4, 0, 0.1, 0.42, 0, 0.1, 0.44, 0, 0.1, 0.46, 0, 0.1, 0.48, 0, 0.1, 0.49, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1, 0.5, 0, 0.1 },
-			wingL = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			wingR = { 0, 0, 0, 0, 0, -0.01, 0, 0, -0.02, 0, 0, -0.05, 0, 0, -0.09, 0, 0, -0.13, 0, 0, -0.18, 0, 0, -0.23, 0, 0, -0.29, 0, 0, -0.35, 0, 0, -0.42, 0, 0, -0.48, 0, 0, -0.55, 0, 0, -0.61, 0, 0, -0.67, 0, 0, -0.72, 0, 0, -0.77, 0, 0, -0.81, 0, 0, -0.85, 0, 0, -0.88, 0, 0, -0.89, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9, 0, 0, -0.9 },
-			cloth = { 0, 0, 0, 0, 0, 0, 0.01, 0, 0, 0.02, 0, 0, 0.03, 0, 0, 0.04, 0, 0, 0.06, 0, 0, 0.08, 0, 0, 0.1, 0, 0, 0.12, 0, 0, 0.14, 0, 0, 0.16, 0, 0, 0.18, 0, 0, 0.2, 0, 0, 0.22, 0, 0, 0.24, 0, 0, 0.26, 0, 0, 0.27, 0, 0, 0.28, 0, 0, 0.29, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0, 0.3, 0, 0 },
-		} },
-	},
-}
--- BOSS-CLIPS-END
-
--- The bosses' particle sprites rendered in Blender (tools/assetgen/blender_bosstex.py): name -> image id.
--- BOSS-TEX-BEGIN (rewritten by tools/assetgen/upload_boss_tex.py)
-SanctuaryConfig.BossTex = {
-	["ember"] = 85962707132226,
-	["feather"] = 104528808885003,
-	["flame_lick"] = 115929224879208,
-	["ice_shard"] = 71710010902569,
-	["note"] = 74483443066181,
-	["ripple"] = 130460545143355,
-	["rune_glyph"] = 77402760487945,
-	["shadow_wisp"] = 82088940764653,
-	["slash"] = 134047664141603,
-	["snowflake"] = 75892315918261,
-	["spark_streak"] = 91697596100117,
-	["void_wisp"] = 100854483128652,
-}
--- BOSS-TEX-END
-
--- The bosses' signature VFX meshes, modelled in Blender (tools/assetgen/blender_bossvfx.py).
--- BOSS-VFXKIT-BEGIN (rewritten by tools/assetgen/upload_boss_vfx.py)
-SanctuaryConfig.BossVfxKit = { Id = 71613840883017 }
--- BOSS-VFXKIT-END
-
--- When each word of a spoken line begins (seconds into its audio), so the text types in time with it.
--- BOSS-VOICE-TIMING-BEGIN (rewritten by tools/assetgen/voice_gen.py)
--- BOSS-VOICE-TIMING-END
-
--- Spoken lines: subtitle text -> uploaded audio id, so each boss line is voiced as well as shown.
--- BOSS-VOICE-BEGIN (rewritten by tools/assetgen/upload_voice.py)
--- BOSS-VOICE-END
-
--- Combos: after the boss finishes `After` it may chain straight into `Then` (a short gap, no breather).
-SanctuaryConfig.RiftBoss.Combos = {
-	{ After = "Fissure", Then = "Cage", Chance = 0.5, MinPhase = 3 },
-	{ After = "Volley", Then = "Lances", Chance = 0.4, MinPhase = 1 },
-	{ After = "Slam", Then = "TwinSlam", Chance = 0.45, MinPhase = 2 },
-	{ After = "Lances", Then = "GravityWell", Chance = 0.4, MinPhase = 2 },
-}
-HollowChoir.Combos = {
-	{ After = "Rings", Then = "EchoSlam", Chance = 0.5, MinPhase = 2 },
-	{ After = "Dissonance", Then = "Volley", Chance = 0.45, MinPhase = 1 },
-	{ After = "Starburst", Then = "Rings", Chance = 0.5, MinPhase = 2 },
-	{ After = "Volley", Then = "Starburst", Chance = 0.35, MinPhase = 2 },
-}
-CinderRegent.Combos = {
-	{ After = "Meteors", Then = "Slam", Chance = 0.5, MinPhase = 2 },
-	{ After = "Fissure", Then = "TwinSlam", Chance = 0.5, MinPhase = 2 },
-	{ After = "Sweep", Then = "Volley", Chance = 0.4, MinPhase = 1 },
-	{ After = "Wall", Then = "Fissure", Chance = 0.4, MinPhase = 2 },
-}
-StormSeraph.Combos = {
-	{ After = "Volley", Then = "Fissure", Chance = 0.5, MinPhase = 1 },
-	{ After = "Fissure", Then = "Starburst", Chance = 0.5, MinPhase = 2 },
-	{ After = "Lances", Then = "Volley", Chance = 0.4, MinPhase = 1 },
-	{ After = "Cage", Then = "Meteors", Chance = 0.5, MinPhase = 3 },
-}
-Rimeheart.Combos = {
-	{ After = "Cage", Then = "Volley", Chance = 0.5, MinPhase = 1 },
-	{ After = "Rings", Then = "Dissonance", Chance = 0.45, MinPhase = 2 },
-	{ After = "Meteors", Then = "GravityWell", Chance = 0.5, MinPhase = 3 },
-	{ After = "Starburst", Then = "Cage", Chance = 0.4, MinPhase = 2 },
-}
-UmbralKnight.Combos = {
-	{ After = "Fissure", Then = "TwinSlam", Chance = 0.55, MinPhase = 1 },
-	{ After = "Sweep", Then = "Cage", Chance = 0.5, MinPhase = 2 },
-	{ After = "Wall", Then = "Lances", Chance = 0.5, MinPhase = 3 },
-	{ After = "Lances", Then = "Meteors", Chance = 0.4, MinPhase = 3 },
-	{ After = "Cage", Then = "Starburst", Chance = 0.45, MinPhase = 3 },
-}
--- ASTRAEON, THE UNMADE STAR (Starforge Dais): the mega boss. A shattered star given a body: vast
--- health, four phases, every kind of attack the others use, and ULTIMATES: arena-wide set pieces
--- announced on screen and telegraphed for seconds. Fight it in a crowd: it is built for many fighters.
-local Astraeon = bossFrom(SanctuaryConfig.RiftBoss, {
-	Name = "Astraeon, the Unmade Star",
-	Kind = "Astraeon",
-	Title = "What the sky forgot to finish",
-	Island = "AstraIsle",
-	Approach = "Cross the Riftmaw's far south-eastern bridge to the Starforge Dais.",
-	Cues = {
-		Forming = "wardenForming",
-		Awake = "domainImpact",
-		Charge = "bootSlamCharge",
-		Land = "bootImpact",
-		Phase = "domainCrack",
-		Defeat = "prestige",
-		Escape = "wardenEscape",
-	},
-	Music = { Bed = "amb_heart", Id = 0, Pitch = 0.62, Level = 0.6, Effect = "Reverb" },
-	Theme = {
-		Primary = { 255, 214, 120 },
-		Hot = { 255, 246, 214 },
-		Alert = { 110, 170, 255 },
-	},
-	Phases = { 0.75, 0.5, 0.25 },
-	PhaseDelayScale = { 1, 0.85, 0.7, 0.55 },
-	BaseHealth = 4200,
-	HealthPerFighter = 1800,
-	CrowdHealth = 10400,
-	FormingSeconds = 60,
-	ActiveSeconds = 480,
-	SlamRadius = 32,
-	SlamIntervalMin = 5,
-	SlamIntervalMax = 8,
-	DazeSeconds = 2.4,
-	Rewards = {
-		Stardust = { Base = 300, Share = 2400 },
-		Starsteel = { Base = 12, Share = 40 },
-		Emberite = { Base = 20, Share = 45 },
-		Voidglass = { Base = 18, Share = 40 },
-	},
-	Attacks = {
-		{ Kind = "Slam", Weight = 1 },
-		{ Kind = "Volley", Weight = 1, Params = { Count = 6, StepSeconds = 0.3, Scatter = 10, RadiusScale = 0.6, TelegraphSeconds = 1.6, Element = "Fire" } },
-		{ Kind = "Fissure", Weight = 0.9, Params = { Count = 7, FirstDistance = 14, Gap = 10, StepSeconds = 0.12, RadiusScale = 0.5, TelegraphSeconds = 1.6, Element = "Storm" } },
-		{ Kind = "Cage", Weight = 0.8, MinPhase = 2, Params = { Count = 8, Distance = 17, RadiusScale = 0.5, TelegraphSeconds = 2, Element = "Void" } },
-		{ Kind = "Starburst", Weight = 0.9, MinPhase = 2, Params = { Rings = 3, Points = 4, FirstDistance = 16, Gap = 16, StepSeconds = 0.45, RadiusScale = 0.45, TelegraphSeconds = 1.9, Element = "Fire" } },
-		{ Kind = "Rings", Weight = 0.8, MinPhase = 2, Params = { Count = 4, FirstRadius = 14, Gap = 13, Width = 5, StepSeconds = 0.5, TelegraphSeconds = 2.2 } },
-		{ Kind = "Lances", Weight = 0.9, MinPhase = 2, Params = { Count = 6, HalfWidth = 0.065, Range = 100, TelegraphSeconds = 1.8 } },
-		{ Kind = "Summon", Weight = 0.7, MinPhase = 2, Params = { Count = 6, Health = 120, FuseSeconds = 9, Orbit = 40, OrbitSpeed = 0.6, BlastRadius = 12, TelegraphSeconds = 1.4, Element = "Fire" } },
-		{ Kind = "Meteors", Weight = 1, MinPhase = 3, Params = { Count = 12, StepSeconds = 0.26, RadiusScale = 0.6, TelegraphSeconds = 1.9, Element = "Fire" } },
-		{ Kind = "GravityWell", Weight = 0.8, MinPhase = 3, Params = { Radius = 36, Core = 16, PullSeconds = 3, Strength = 36, TelegraphSeconds = 0.8 } },
-		{ Kind = "Lances", Weight = 1, MinPhase = 4, Params = { Count = 10, HalfWidth = 0.055, Range = 100, TelegraphSeconds = 1.6 } },
-	},
-	-- Ultimates are never rolled like ordinary attacks: they come at phase changes, every UltimateEvery
-	-- seconds from phase 3, and as a last stand (FinalStand) when it is nearly beaten. Each is announced.
-	Ultimates = {
-		Starfall = { Kind = "Meteors", Params = { Count = 26, StepSeconds = 0.15, RadiusScale = 0.8, TelegraphSeconds = 2.8, Element = "Fire" } },
-		Supernova = { Kind = "Dissonance", Params = { Zones = 2, ZoneRadius = 11, TelegraphSeconds = 6.5 } },
-		EventHorizon = { Kind = "GravityWell", Params = { Radius = 66, Core = 26, PullSeconds = 5, Strength = 50, TelegraphSeconds = 1.8 } },
-		AnnihilationBeam = { Kind = "Lances", Params = { Count = 14, HalfWidth = 0.05, Range = 120, TelegraphSeconds = 3.4 } },
-		-- A black hole the size of the arena: it drags everyone in for six seconds, then the core goes off.
-		Singularity = { Kind = "GravityWell", Params = { Radius = 84, Core = 30, PullSeconds = 6, Strength = 56, TelegraphSeconds = 2.2 } },
-		LastLight = { Chain = { "Starfall", "Singularity", "Supernova" } },
-	},
-	PhaseUltimates = { [2] = "Starfall", [3] = "Supernova", [4] = "EventHorizon" },
-	UltimateRoster = { "Starfall", "Supernova", "AnnihilationBeam", "EventHorizon", "Singularity" },
-	UltimateEvery = 36,
-	FinalStand = "LastLight",
-
-})
-Astraeon.Combos = {
-	{ After = "Volley", Then = "Fissure", Chance = 0.45, MinPhase = 1 },
-	{ After = "Slam", Then = "Starburst", Chance = 0.45, MinPhase = 2 },
-	{ After = "Cage", Then = "Meteors", Chance = 0.5, MinPhase = 3 },
-	{ After = "Rings", Then = "Lances", Chance = 0.5, MinPhase = 2 },
-	{ After = "Meteors", Then = "GravityWell", Chance = 0.45, MinPhase = 3 },
-}
--- Ultimates for the other bosses (see Astraeon's for the rules): announced, never rolled, queued at phase changes,
--- on a timer from phase 3 and once as a last stand.
-SanctuaryConfig.RiftBoss.Ultimates = {
-	VoidCollapse = { Kind = "GravityWell", Params = { Radius = 52, Core = 20, PullSeconds = 4.5, Strength = 44, TelegraphSeconds = 1.6 } },
-	Spearfall = { Kind = "Lances", Params = { Count = 12, HalfWidth = 0.05, Range = 100, TelegraphSeconds = 3 } },
-	Oblivion = { Chain = { "VoidCollapse", "Spearfall" } },
-}
-SanctuaryConfig.RiftBoss.PhaseUltimates = { [3] = "VoidCollapse" }
-SanctuaryConfig.RiftBoss.UltimateRoster = { "VoidCollapse", "Spearfall" }
-SanctuaryConfig.RiftBoss.UltimateEvery = 45
-SanctuaryConfig.RiftBoss.FinalStand = "Oblivion"
-
-HollowChoir.Ultimates = {
-	Crescendo = { Kind = "Rings", Params = { Count = 6, FirstRadius = 12, Gap = 12, Width = 5, StepSeconds = 0.45, TelegraphSeconds = 2.6 } },
-	Requiem = { Kind = "Dissonance", Params = { Zones = 4, ZoneRadius = 12, TelegraphSeconds = 5 } },
-	Finale = { Chain = { "Crescendo", "Requiem" } },
-}
-HollowChoir.PhaseUltimates = { [3] = "Crescendo" }
-HollowChoir.UltimateRoster = { "Crescendo", "Requiem" }
-HollowChoir.UltimateEvery = 45
-HollowChoir.FinalStand = "Finale"
-
-CinderRegent.Ultimates = {
-	Eruption = { Kind = "Meteors", Params = { Count = 20, StepSeconds = 0.17, RadiusScale = 0.75, TelegraphSeconds = 2.4, Element = "Fire" } },
-	Cataclysm = { Kind = "Fissure", Params = { Count = 9, FirstDistance = 10, Gap = 8, StepSeconds = 0.08, RadiusScale = 0.6, TelegraphSeconds = 2.6, Element = "Fire" } },
-	Ragnarok = { Chain = { "Eruption", "Cataclysm" } },
-}
-CinderRegent.PhaseUltimates = { [3] = "Eruption" }
-CinderRegent.UltimateRoster = { "Eruption", "Cataclysm" }
-CinderRegent.UltimateEvery = 42
-CinderRegent.FinalStand = "Ragnarok"
-
-StormSeraph.Ultimates = {
-	Judgment = { Kind = "Lances", Params = { Count = 14, HalfWidth = 0.05, Range = 100, TelegraphSeconds = 3 } },
-	Tempest = { Kind = "Meteors", Params = { Count = 18, StepSeconds = 0.16, RadiusScale = 0.65, TelegraphSeconds = 2.4, Element = "Storm" } },
-	Wrath = { Chain = { "Tempest", "Judgment" } },
-}
-StormSeraph.PhaseUltimates = { [3] = "Tempest" }
-StormSeraph.UltimateRoster = { "Judgment", "Tempest" }
-StormSeraph.UltimateEvery = 40
-StormSeraph.FinalStand = "Wrath"
-
-Rimeheart.Ultimates = {
-	Whiteout = { Kind = "Cage", Params = { Count = 12, Distance = 20, RadiusScale = 0.6, TelegraphSeconds = 2.8, Element = "Frost" } },
-	AbsoluteZero = { Kind = "GravityWell", Params = { Radius = 56, Core = 22, PullSeconds = 4.5, Strength = 40, TelegraphSeconds = 1.6 } },
-	DeepWinter = { Chain = { "Whiteout", "AbsoluteZero" } },
-}
-Rimeheart.PhaseUltimates = { [3] = "Whiteout" }
-Rimeheart.UltimateRoster = { "Whiteout", "AbsoluteZero" }
-Rimeheart.UltimateEvery = 45
-Rimeheart.FinalStand = "DeepWinter"
-
-UmbralKnight.Ultimates = {
-	Duel = { Kind = "Sweep", Params = { Seconds = 6, Speed = 1.4, HalfWidth = 0.22, Range = 90, TelegraphSeconds = 1.8 } },
-	LastCut = { Kind = "Starburst", Params = { Rings = 3, Points = 6, FirstDistance = 14, Gap = 16, StepSeconds = 0.4, RadiusScale = 0.5, TelegraphSeconds = 2.2, Element = "Void" } },
-	Execution = { Chain = { "Duel", "LastCut" } },
-}
-UmbralKnight.PhaseUltimates = { [3] = "Duel" }
-UmbralKnight.UltimateRoster = { "Duel", "LastCut" }
-UmbralKnight.UltimateEvery = 40
-UmbralKnight.FinalStand = "Execution"
--- How each boss walks (studs per second) and how close it likes to stand to whoever it is fighting.
-SanctuaryConfig.RiftBoss.WalkSpeed, SanctuaryConfig.RiftBoss.StandOff = 10, 24
-HollowChoir.WalkSpeed, HollowChoir.StandOff = 7, 26
-CinderRegent.WalkSpeed, CinderRegent.StandOff = 7, 20
-StormSeraph.WalkSpeed, StormSeraph.StandOff = 9, 24
-Rimeheart.WalkSpeed, Rimeheart.StandOff = 6, 20
-UmbralKnight.WalkSpeed, UmbralKnight.StandOff = 15, 14
-Astraeon.WalkSpeed, Astraeon.StandOff = 8, 32
--- Each boss's own soundtrack: kind -> uploaded audio id (the fight layer plays it, Music.Id below).
--- BOSS-MUSIC-BEGIN (rewritten by tools/assetgen/upload_boss_music.py)
-SanctuaryConfig.BossMusic = {
-	Astraeon = 122693395660359,
-	Choir = 99711693083649,
-	Knight = 132821136179443,
-	Regent = 113802436441958,
-	Rime = 72121734420253,
-	Seraph = 120342418849966,
-	Warden = 138383890408892,
-}
--- BOSS-MUSIC-END
-for _, boss in { SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight, Astraeon } do
-	local track = SanctuaryConfig.BossMusic[boss.Kind]
-	if track ~= nil and boss.Music ~= nil then
-		boss.Music.Id = track
-		boss.Music.Pitch = 1 -- the track is already in tune
-	end
-end
-SanctuaryConfig.RiftBosses = table.freeze({ SanctuaryConfig.RiftBoss, HollowChoir, CinderRegent, StormSeraph, Rimeheart, UmbralKnight, Astraeon })
-
-return SanctuaryConfig
-end
-
--- ======================================================================
--- Module: SanctuaryLayout   (merged from SanctuaryLayout.luau, 319 lines)
--- ======================================================================
-__defs["SanctuaryLayout"] = function()
--- The shape of the sanctuary: a hub of floating stone around the forge altar,
--- four island regions reached by long sky bridges, waystones to travel between
--- them, ore outcrop sites and the Riftmaw arena.
---
---                    Starsteel Spire (N, high)
---                            |
---   Voidglass Hollows (W) -- Forge Heart -- Emberreach (E)
---                            |
---                    The Riftmaw (S, arena)
---
--- Pure data + math on plain {X, Y, Z} tables (no Vector3), relative to ORIGIN,
--- so the world builder (WorldService), the ore and boss services, the client
--- and the Lune tests (scripts/verify_sanctuary_world.luau) all read one map.
-
-type Point = { X: number, Y: number, Z: number }
-
-type Region = {
-	Id: string,
-	Name: string,
-	Center: Point,
-	-- Radius of the walkable plateau; its top surface is at Center.Y.
-	Radius: number,
-	-- Terrain materials for the plateau top and the rock beneath.
-	Top: string,
-	Under: string,
-	-- Ore that grows here (nil for the hub and the arena).
-	Ore: string?,
-	OreSites: number,
-}
-
-type Bridge = {
-	Region: string,
-	From: Point,
-	To: Point,
-	Control: Point,
-	Width: number,
-}
-
-type Waystone = { Id: string, Name: string, Region: string, Position: Point }
-type OreSite = { Id: string, Region: string, Ore: string, Position: Point }
-
-local Layout = {}
-
-Layout.ORIGIN = table.freeze({ X = 1680, Y = 248, Z = -220 })
-
--- The hub is the original hand-built forge deck. A terrain ring widens it; its
--- surface sits a little below the deck parts so they stand on top of it.
-Layout.HUB_RADIUS = 62
-Layout.HUB_TOP = -1.5
--- Everything walkable lies within this horizontal radius of the origin.
-Layout.WORLD_RADIUS = 880
--- A character this far below the origin has fallen off the world.
-Layout.KILL_DEPTH = 230
-
-local REGIONS: { Region } = {
-	{
-		Id = "Heart",
-		Name = "Forge Heart",
-		Center = { X = 0, Y = -1.5, Z = 0 },
-		Radius = 62,
-		Top = "Slate",
-		Under = "Basalt",
-		Ore = nil,
-		OreSites = 0,
-	},
-	{
-		Id = "Emberreach",
-		Name = "Emberreach",
-		Center = { X = 312, Y = 10, Z = -72 },
-		Radius = 112,
-		Top = "Basalt",
-		Under = "Rock",
-		Ore = "Emberite",
-		OreSites = 12,
-	},
-	{
-		Id = "Hollows",
-		Name = "Voidglass Hollows",
-		Center = { X = -312, Y = -2, Z = -48 },
-		Radius = 112,
-		Top = "Glacier",
-		Under = "Rock",
-		Ore = "Voidglass",
-		OreSites = 12,
-	},
-	{
-		Id = "Spire",
-		Name = "Starsteel Spire",
-		Center = { X = 0, Y = 58, Z = -362 },
-		Radius = 66,
-		Top = "Limestone",
-		Under = "Rock",
-		Ore = "Starsteel",
-		OreSites = 7,
-	},
-	{
-		Id = "Riftmaw",
-		Name = "The Riftmaw",
-		Center = { X = 0, Y = -8, Z = 362 },
-		Radius = 98,
-		Top = "Asphalt",
-		Under = "Rock",
-		Ore = nil,
-		OreSites = 0,
-	},
-}
-for _, region in REGIONS do
-	table.freeze(region.Center)
-	table.freeze(region)
-end
-table.freeze(REGIONS)
-
--- Boss islands: one arena of their own for each boss after the Warden, off the Riftmaw's
--- flanks and joined to it by a bridge. They are deliberately not in REGIONS: they have no
--- ore, no hub bridge and no waystone (the Riftmaw's is the way in), so every rule that
--- walks the five regions stays as it was.
-local ISLES: { Region } = {
-	{
-		Id = "ChoirIsle",
-		Name = "Hall of the Hollow Choir",
-		Center = { X = -300, Y = -14, Z = 330 },
-		Radius = 84,
-		Top = "Glacier",
-		Under = "Rock",
-		Ore = nil,
-		OreSites = 0,
-	},
-	{
-		Id = "RegentIsle",
-		Name = "The Cinderthrone",
-		Center = { X = 300, Y = 6, Z = 330 },
-		Radius = 84,
-		Top = "Basalt",
-		Under = "Rock",
-		Ore = nil,
-		OreSites = 0,
-	},
-	{
-		Id = "StormIsle",
-		Name = "The Tempest Aerie",
-		Center = { X = -160, Y = -4, Z = 575 },
-		Radius = 72,
-		Top = "Slate",
-		Under = "Rock",
-		Ore = nil,
-		OreSites = 0,
-	},
-	{
-		Id = "RimeIsle",
-		Name = "The Frozen Reliquary",
-		Center = { X = 160, Y = 0, Z = 575 },
-		Radius = 72,
-		Top = "Snow",
-		Under = "Glacier",
-		Ore = nil,
-		OreSites = 0,
-	},
-	{
-		Id = "AstraIsle",
-		Name = "The Starforge Dais",
-		Center = { X = 240, Y = 30, Z = 730 },
-		Radius = 80,
-		Top = "Marble",
-		Under = "Rock",
-		Ore = nil,
-		OreSites = 0,
-	},
-	{
-		Id = "GloamIsle",
-		Name = "The Gloaming Keep",
-		Center = { X = 0, Y = 10, Z = 660 },
-		Radius = 72,
-		Top = "Slate",
-		Under = "Basalt",
-		Ore = nil,
-		OreSites = 0,
-	},
-}
-for _, isle in ISLES do	table.freeze(isle.Center)
-	table.freeze(isle)
-end
-table.freeze(ISLES)
-
-local BY_ID: { [string]: Region } = {}
-for _, region in REGIONS do
-	BY_ID[region.Id] = region
-end
-for _, isle in ISLES do
-	BY_ID[isle.Id] = isle
-end
-
-local function point(x: number, y: number, z: number): Point
-	return { X = x, Y = y, Z = z }
-end
-
-local function horizontal(a: Point, b: Point): number
-	local dx, dz = b.X - a.X, b.Z - a.Z
-	return math.sqrt(dx * dx + dz * dz)
-end
-
--- Unit direction on the ground plane from a to b.
-local function heading(a: Point, b: Point): (number, number)
-	local length = horizontal(a, b)
-	if length < 1e-6 then
-		return 0, -1
-	end
-	return (b.X - a.X) / length, (b.Z - a.Z) / length
-end
-
-function Layout.regions(): { Region }
-	return REGIONS
-end
-
-function Layout.region(id: string): Region?
-	return BY_ID[id]
-end
-
-function Layout.isles(): { Region }
-	return ISLES
-end
-
--- Where an isle's bridge meets its plateau, and the direction it arrives from (pointing
--- from the isle toward the Riftmaw).
-function Layout.isleLanding(isle: Region): (Point, number, number)
-	local maw = BY_ID.Riftmaw
-	local dx, dz = heading(isle.Center, maw.Center)
-	local rim = isle.Radius - 4
-	return point(isle.Center.X + dx * rim, isle.Center.Y, isle.Center.Z + dz * rim), dx, dz
-end
-
--- The bridge from the Riftmaw's rim to each boss island.
-function Layout.isleBridges(): { Bridge }
-	local maw = BY_ID.Riftmaw
-	local result: { Bridge } = {}
-	for index, isle in ISLES do
-		local dx, dz = heading(maw.Center, isle.Center)
-		local from = point(maw.Center.X + dx * (maw.Radius - 6), maw.Center.Y, maw.Center.Z + dz * (maw.Radius - 6))
-		local to = Layout.isleLanding(isle)
-		local span = horizontal(from, to)
-		local side = if index % 2 == 0 then 1 else -1
-		local px, pz = -dz, dx
-		table.insert(result, {
-			Region = isle.Id,
-			From = from,
-			To = to,
-			Control = point((from.X + to.X) / 2 + px * span * 0.1 * side, (from.Y + to.Y) / 2, (from.Z + to.Z) / 2 + pz * span * 0.1 * side),
-			Width = 14,
-		})
-	end
-	return result
-end
-
-function Layout.distance(a: Point, b: Point): number
-	return horizontal(a, b)
-end
-
--- Where the bridge from the hub meets a region's plateau, and the direction it
--- arrives from (pointing from the region toward the hub).
-function Layout.landing(region: Region): (Point, number, number)
-	local hub = REGIONS[1].Center
-	local dx, dz = heading(region.Center, hub)
-	local rim = region.Radius - 4
-	return point(region.Center.X + dx * rim, region.Center.Y, region.Center.Z + dz * rim), dx, dz
-end
-
--- The sky bridges: one from the hub rim to each outer region, bowed gently to
--- one side so the walk reads as a path rather than a ruler line.
-function Layout.bridges(): { Bridge }
-	local hub = REGIONS[1]
-	local result: { Bridge } = {}
-	for index, region in REGIONS do
-		if region.Id == hub.Id then
-			continue
-		end
-		local dx, dz = heading(hub.Center, region.Center)
-		local from = point(hub.Center.X + dx * (Layout.HUB_RADIUS - 6), Layout.HUB_TOP, hub.Center.Z + dz * (Layout.HUB_RADIUS - 6))
-		local to = Layout.landing(region)
-		local span = horizontal(from, to)
-		local side = if index % 2 == 0 then 1 else -1
-		-- Perpendicular on the ground plane.
-		local px, pz = -dz, dx
-		local control = point(
-			(from.X + to.X) / 2 + px * span * 0.1 * side,
-			(from.Y + to.Y) / 2,
-			(from.Z + to.Z) / 2 + pz * span * 0.1 * side
-		)
-		table.insert(result, {
-			Region = region.Id,
-			From = from,
-			To = to,
-			Control = control,
-			Width = if region.Id == "Riftmaw" then 16 else 12,
-		})
-	end
-	return result
-end
-
--- Points along a bridge's curve, roughly `spacing` studs apart, ends included.
-function Layout.bridgePoints(bridge: Bridge, spacing: number): { Point }
-	local span = horizontal(bridge.From, bridge.To) + math.abs(bridge.To.Y - bridge.From.Y)
-	local steps = math.max(2, math.ceil(span / math.max(4, spacing)))
-	local points: { Point } = {}
-	for step = 0, steps do
-		local t = step / steps
-		local u = 1 - t
-		table.insert(
-			points,
-			point(
-				u * u * bridge.From.X + 2 * u * t * bridge.Control.X + t * t * bridge.To.X,
-				u * u * bridge.From.Y + 2 * u * t * bridge.Control.Y + t * t * bridge.To.Y,
-				u * u * bridge.From.Z + 2 * u * t * bridge.Control.Z + t * t * bridge.To.Z
-			)
-		)
-	end
-	return points
-end
-
--- One waystone per region, just inside the bridge landing and off to its side
--- so it never blocks the path. The hub's stands beside the spawn causeway.
-function Layout.waystones(): { Waystone }
-	local result: { Waystone } = {
-		{ Id = "Heart", Name = "Forge Heart", Region = "Heart", Position = point(24, Layout.HUB_TOP, 24) },
-	}
-	for _, region in REGIONS do
-		if region.Id == "Heart" then
-			continue
-		end
-		local landing, dx, dz = Layout.landing(region)
-		local px, pz = -dz, dx
-		table.insert(result, {
-			Id = region.Id,
-			Name = region.Name,
-			Region = region.Id,
-			Position = point(landing.X - dx * 20 + px * 16, region.Center.Y, landing.Z - dz * 20 + pz * 16),
-		})
-	end
-	return result
-end
-
--- Ore outcrops: an inner and an outer ring on each ore region's plateau, with
--- a clear corridor left where the bridge lands and around the waystone.
-function Layout.oreSites(): { OreSite }
-	local result: { OreSite } = {}
-	for _, region in REGIONS do
-		local ore = region.Ore
-		if ore == nil or region.OreSites <= 0 then
-			continue
-		end
-		local _, dx, dz = Layout.landing(region)
-		local landingAngle = math.atan2(dz, dx)
-		local inner = math.floor(region.OreSites * 0.4 + 0.5)
-		local rings = {
-			{ count = inner, radius = region.Radius * 0.42, offset = 0.35 },
-			{ count = region.OreSites - inner, radius = region.Radius * 0.74, offset = 0 },
-		}
-		local index = 0
-		for _, ring in rings do
-			-- Spread the ring's sites over the arc that avoids the landing corridor.
-			local clear = math.rad(34)
-			local arc = 2 * math.pi - clear * 2
-			for k = 1, ring.count do
-				local angle = landingAngle + clear + arc * ((k - 1 + 0.5 + ring.offset * 0.5) / ring.count)
-				index += 1
-				table.insert(result, {
-					Id = `{region.Id}-{index}`,
-					Region = region.Id,
-					Ore = ore,
-					Position = point(
-						region.Center.X + math.cos(angle) * ring.radius,
-						region.Center.Y,
-						region.Center.Z + math.sin(angle) * ring.radius
-					),
-				})
-			end
-		end
-	end
-	return result
-end
-
--- The Riftmaw arena: where the Rift Warden hovers and where strikes count.
-function Layout.arena(id: string?): { Center: Point, Radius: number, Hover: Point, PillarRadius: number }
-	local maw = BY_ID[id or "Riftmaw"] or BY_ID.Riftmaw
-	return {
-		Center = maw.Center,
-		Radius = maw.Radius - 10,
-		Hover = point(maw.Center.X, maw.Center.Y + 26, maw.Center.Z),
-		PillarRadius = maw.Radius - 12,
-	}
-end
-
--- The region a point stands in, or nil out on a bridge.
-function Layout.regionAt(p: Point): Region?
-	for _, region in REGIONS do
-		if horizontal(p, region.Center) <= region.Radius + 6 then
-			return region
-		end
-	end
-	for _, isle in ISLES do
-		if horizontal(p, isle.Center) <= isle.Radius + 6 then
-			return isle
-		end
-	end
-	return nil
-end
-
-function Layout.nearestWaystone(p: Point): Waystone
-	local best: Waystone? = nil
-	local bestDistance = math.huge
-	for _, stone in Layout.waystones() do
-		local d = horizontal(p, stone.Position)
-		if d < bestDistance then
-			best, bestDistance = stone, d
-		end
-	end
-	return best :: Waystone
-end
-
-function Layout.waystone(id: string): Waystone?
-	for _, stone in Layout.waystones() do
-		if stone.Id == id then
-			return stone
-		end
-	end
-	return nil
-end
-
--- Inside the walkable world (and not fallen through it)?
-function Layout.inBounds(p: Point): boolean
-	return horizontal(p, point(0, 0, 0)) <= Layout.WORLD_RADIUS and p.Y > -Layout.KILL_DEPTH
-end
-
-return Layout
+return table.freeze(OreConfig)
 end
 
 -- ======================================================================
@@ -3498,7 +986,7 @@ local LADDER: { LevelDef } = {
 		Level = 3,
 		Tier = "Beginner",
 		Goal = { Kind = "LifetimeCash", Target = 250, Text = "Earn 250 flux in total" },
-		Unlocks = { "Mail", "Wheel", "Inventory", "Foundry" },
+		Unlocks = { "Mail", "Wheel", "Inventory" },
 	},
 	{
 		Level = 4,
@@ -3705,6 +1193,1016 @@ function ForgeLevels.snapshot(progressOf: (string) -> number): Snapshot
 end
 
 return table.freeze(ForgeLevels)
+end
+
+-- ======================================================================
+-- Module: CreditsConfig
+-- ======================================================================
+__defs["CreditsConfig"] = function()
+-- Everything the Credits screen shows, and how it shows it.
+--
+-- Add people under Categories[].Members. A member needs a Name; UserId adds
+-- their Roblox avatar (and, with FetchNames, their live display name).
+-- Colors are Palette keys: green, mint, cyan, blue, violet, pink, coral,
+-- mango, cream, muted. Icons are Icon kinds (Admin, Forge, Crew, Guide,
+-- Check, Credits, Story, Gift, ...).
+
+local CreditsConfig = {
+	-- Header
+	Title = "ASTRAL FORGE",
+	Eyebrow = "CREDITS",
+	Tagline = "The people who built, run and test the forge.",
+	ShowVersion = true,
+	Accent = "violet",
+
+	-- Navigation inside the screen
+	CategoryTabs = true, -- a chip per category, plus "All"
+	DefaultCategory = "All", -- "All" or a category Id
+	ShowCategoryCounts = true,
+	SearchBar = true, -- filter by name or role
+	SearchMinMembers = 6, -- the search bar only shows once this many people are listed
+
+	-- People cards
+	CardStyle = "Card", -- "Card" (avatar, name, role, note) or "Compact" (one row)
+	ShowAvatars = true,
+	AvatarShape = "Rounded", -- "Rounded" or "Circle"
+	AvatarSize = 64, -- 40-96
+	ShowUsernames = true, -- @username under the display name
+	ShowRoles = true,
+	ShowNotes = true,
+	FetchNames = true, -- look up current display names for members with a UserId
+	MaxColumns = 3, -- cards per row on wide screens (1-4)
+	CardMinWidth = 220, -- cards never get narrower than this
+	CardHoverLift = true,
+
+	-- Categories
+	HideEmptyCategories = false, -- false shows EmptyText instead
+	DefaultEmptyText = "To be announced.",
+
+	-- Motion
+	EntranceStagger = true, -- cards cascade in when the screen opens
+	StaggerStep = 0.035, -- seconds between cards (0-0.1)
+
+	Categories = {
+		{
+			Id = "Owner",
+			Label = "Owner",
+			Description = "Runs the forge.",
+			Accent = "mango",
+			Icon = "Admin",
+			Members = {
+				{ Name = "usingINales", UserId = 10916707683, Role = "Founder", Note = "Design, code, worlds and story." },
+			},
+		},
+		{
+			Id = "Developers",
+			Label = "Developers",
+			Description = "Build the game.",
+			Accent = "cyan",
+			Icon = "Forge",
+			Members = {
+				{ Name = "usingINales", UserId = 10916707683, Role = "Lead developer", Note = "Client, server and economy." },
+			},
+		},
+		{
+			Id = "Moderators",
+			Label = "Moderators",
+			Description = "Keep servers friendly.",
+			Accent = "mint",
+			Icon = "Check",
+			Members = {},
+		},
+		{
+			Id = "Testers",
+			Label = "Testers",
+			Description = "Break things before you do.",
+			Accent = "pink",
+			Icon = "Guide",
+			Members = {},
+		},
+		{
+			Id = "Thanks",
+			Label = "Special Thanks",
+			Description = "",
+			Accent = "violet",
+			Icon = "Gift",
+			Members = {
+				{ Name = "You", Role = "Player", Note = "Thanks for playing." },
+			},
+		},
+	},
+
+	-- Small print under the list
+	Acknowledgements = {
+		"Interface icons by Flaticon / Freepik Company",
+	},
+	Footer = "Thanks for playing.",
+}
+
+return CreditsConfig
+end
+
+-- ======================================================================
+-- Module: CreditsModel
+-- ======================================================================
+__defs["CreditsModel"] = function()
+-- Pure helpers behind the Credits screen: clean up CreditsConfig (defaults,
+-- clamps, bad entries dropped), filter it by tab and search, and lay out the
+-- card grid. No Roblox services, so scripts/verify_credits.luau runs it.
+
+local CreditsModel = {}
+
+local CARD_STYLES = { Card = true, Compact = true }
+local AVATAR_SHAPES = { Rounded = true, Circle = true }
+
+local function text(value: any, fallback: string): string
+	if type(value) == "string" then
+		return value
+	end
+	return fallback
+end
+
+local function flag(value: any, fallback: boolean): boolean
+	if type(value) == "boolean" then
+		return value
+	end
+	return fallback
+end
+
+local function number(value: any, fallback: number, low: number, high: number): number
+	if type(value) ~= "number" or value ~= value then
+		return fallback
+	end
+	return math.clamp(value, low, high)
+end
+
+-- A clean copy of the config. Missing fields get defaults, numbers are
+-- clamped, members without a name and categories without an id are dropped,
+-- and duplicate category ids keep the first one.
+function CreditsModel.normalize(raw: any)
+	local config = if type(raw) == "table" then raw else {}
+	local model = {
+		Title = text(config.Title, "ASTRAL FORGE"),
+		Eyebrow = text(config.Eyebrow, "CREDITS"),
+		Tagline = text(config.Tagline, ""),
+		ShowVersion = flag(config.ShowVersion, true),
+		Accent = text(config.Accent, "violet"),
+		CategoryTabs = flag(config.CategoryTabs, true),
+		DefaultCategory = text(config.DefaultCategory, "All"),
+		ShowCategoryCounts = flag(config.ShowCategoryCounts, true),
+		SearchBar = flag(config.SearchBar, true),
+		SearchMinMembers = math.floor(number(config.SearchMinMembers, 6, 0, 1000)),
+		CardStyle = if CARD_STYLES[config.CardStyle] then config.CardStyle else "Card",
+		ShowAvatars = flag(config.ShowAvatars, true),
+		AvatarShape = if AVATAR_SHAPES[config.AvatarShape] then config.AvatarShape else "Rounded",
+		AvatarSize = math.floor(number(config.AvatarSize, 64, 40, 96)),
+		ShowUsernames = flag(config.ShowUsernames, true),
+		ShowRoles = flag(config.ShowRoles, true),
+		ShowNotes = flag(config.ShowNotes, true),
+		FetchNames = flag(config.FetchNames, true),
+		MaxColumns = math.floor(number(config.MaxColumns, 3, 1, 4)),
+		CardMinWidth = math.floor(number(config.CardMinWidth, 220, 140, 480)),
+		CardHoverLift = flag(config.CardHoverLift, true),
+		HideEmptyCategories = flag(config.HideEmptyCategories, false),
+		DefaultEmptyText = text(config.DefaultEmptyText, "To be announced."),
+		EntranceStagger = flag(config.EntranceStagger, true),
+		StaggerStep = number(config.StaggerStep, 0.035, 0, 0.1),
+		Acknowledgements = {},
+		Footer = text(config.Footer, ""),
+		Categories = {},
+	}
+	if type(config.Acknowledgements) == "table" then
+		for _, line in config.Acknowledgements do
+			if type(line) == "string" and line ~= "" then
+				table.insert(model.Acknowledgements, line)
+			end
+		end
+	end
+	local seen = {}
+	if type(config.Categories) == "table" then
+		for _, category in config.Categories do
+			if type(category) ~= "table" or type(category.Id) ~= "string" or category.Id == "" or category.Id == "All" or seen[category.Id] then
+				continue
+			end
+			seen[category.Id] = true
+			local members = {}
+			if type(category.Members) == "table" then
+				for _, member in category.Members do
+					if type(member) ~= "table" or type(member.Name) ~= "string" or member.Name == "" then
+						continue
+					end
+					local userId = if type(member.UserId) == "number" and member.UserId > 0 then math.floor(member.UserId) else nil
+					table.insert(members, {
+						Name = member.Name,
+						DisplayName = text(member.DisplayName, member.Name),
+						UserId = userId,
+						Role = text(member.Role, ""),
+						Note = text(member.Note, ""),
+					})
+				end
+			end
+			table.insert(model.Categories, {
+				Id = category.Id,
+				Label = text(category.Label, category.Id),
+				Description = text(category.Description, ""),
+				Accent = text(category.Accent, model.Accent),
+				Icon = text(category.Icon, "Credits"),
+				EmptyText = text(category.EmptyText, model.DefaultEmptyText),
+				Members = members,
+			})
+		end
+	end
+	if model.DefaultCategory ~= "All" and not seen[model.DefaultCategory] then
+		model.DefaultCategory = "All"
+	end
+	return model
+end
+
+-- Everyone listed, counting a person once per category they appear in.
+function CreditsModel.memberCount(model): number
+	local total = 0
+	for _, category in model.Categories do
+		total += #category.Members
+	end
+	return total
+end
+
+local function matches(member, needle: string): boolean
+	if needle == "" then
+		return true
+	end
+	for _, field in { member.Name, member.DisplayName, member.Role, member.Note } do
+		if string.find(string.lower(field), needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- The categories to draw for a tab and search text. Each entry carries its
+-- filtered members; empty categories are kept only when the config shows them
+-- and no search is narrowing the list.
+function CreditsModel.visible(model, tab: string, query: string?)
+	local needle = string.lower((string.gsub(query or "", "^%s*(.-)%s*$", "%1")))
+	local out = {}
+	for _, category in model.Categories do
+		if tab ~= "All" and category.Id ~= tab then
+			continue
+		end
+		local members = {}
+		for _, member in category.Members do
+			if matches(member, needle) then
+				table.insert(members, member)
+			end
+		end
+		if #members == 0 and (needle ~= "" or model.HideEmptyCategories) then
+			continue
+		end
+		table.insert(out, { category = category, members = members })
+	end
+	return out
+end
+
+-- The tab strip: "All" first, then each category that would show anything.
+function CreditsModel.tabs(model)
+	local tabs = { { id = "All", label = "All", count = CreditsModel.memberCount(model) } }
+	for _, category in model.Categories do
+		if #category.Members == 0 and model.HideEmptyCategories then
+			continue
+		end
+		table.insert(tabs, { id = category.Id, label = category.Label, count = #category.Members, accent = category.Accent })
+	end
+	return tabs
+end
+
+-- Cards per row for a content width: as many as fit at CardMinWidth, capped
+-- by MaxColumns. Compact rows are always one column.
+function CreditsModel.columns(model, width: number, gap: number): number
+	if model.CardStyle == "Compact" then
+		return 1
+	end
+	local fit = math.floor((width + gap) / (model.CardMinWidth + gap))
+	return math.clamp(fit, 1, model.MaxColumns)
+end
+
+-- Height of one card for the current style and options.
+function CreditsModel.cardHeight(model): number
+	if model.CardStyle == "Compact" then
+		return math.max(44, if model.ShowAvatars then math.min(model.AvatarSize, 48) + 12 else 44)
+	end
+	local textBlock = 22 + (if model.ShowUsernames then 16 else 0) + (if model.ShowRoles then 18 else 0) + (if model.ShowNotes then 34 else 0)
+	local avatar = if model.ShowAvatars then model.AvatarSize else 0
+	return math.max(avatar, textBlock) + 24
+end
+
+-- Whether the search bar is worth showing.
+function CreditsModel.showSearch(model): boolean
+	return model.SearchBar and CreditsModel.memberCount(model) >= model.SearchMinMembers
+end
+
+return table.freeze(CreditsModel)
+end
+
+-- ======================================================================
+-- Module: PlayerlistModel
+-- ======================================================================
+__defs["PlayerlistModel"] = function()
+-- Pure helpers behind the player list: report reasons, row cleanup, sorting,
+-- search and filters. No Roblox services, so scripts/verify_playerlist.luau
+-- runs it. The server's ReportLedger.REASONS must list the same ids.
+
+local PlayerlistModel = {}
+
+PlayerlistModel.REASONS = table.freeze({
+	{ id = "Exploiting", label = "Exploiting", detail = "Cheats, scripts or abusing glitches." },
+	{ id = "Scamming", label = "Scamming", detail = "Tricked someone in a trade or promised something fake." },
+	{ id = "Harassment", label = "Harassment", detail = "Targeting, bullying or threatening someone." },
+	{ id = "Trolling", label = "Trolling", detail = "Ruining the game for others on purpose." },
+	{ id = "Spam", label = "Spam", detail = "Flooding chat or invites." },
+	{ id = "Inappropriate", label = "Inappropriate", detail = "Offensive name, avatar or messages." },
+	{ id = "Other", label = "Other", detail = "Something else. Add details below." },
+})
+
+PlayerlistModel.SORTS = table.freeze({
+	{ id = "Production", label = "Output" },
+	{ id = "Rebirths", label = "Rebirths" },
+	{ id = "Name", label = "Name" },
+})
+
+PlayerlistModel.DETAILS_MAX = 400
+PlayerlistModel.SEARCH_MIN_ROWS = 6
+
+local function num(value: any): number
+	if type(value) == "number" and value == value then
+		return value
+	end
+	return 0
+end
+
+-- Rows from the server, cleaned: bad or duplicate user ids drop, numbers that
+-- came through as junk read as 0, names fall back to the user id.
+function PlayerlistModel.clean(raw: any, skipUserId: number?)
+	local rows = {}
+	local seen = {}
+	if type(raw) ~= "table" then
+		return rows
+	end
+	for _, entry in raw do
+		if type(entry) ~= "table" then
+			continue
+		end
+		local userId = tonumber(entry.UserId)
+		if userId == nil or userId ~= userId or userId <= 0 then
+			continue
+		end
+		userId = math.floor(userId)
+		if seen[userId] or userId == skipUserId then
+			continue
+		end
+		seen[userId] = true
+		local name = if type(entry.Name) == "string" and entry.Name ~= "" then entry.Name else tostring(userId)
+		table.insert(rows, {
+			UserId = userId,
+			Name = name,
+			DisplayName = if type(entry.DisplayName) == "string" and entry.DisplayName ~= "" then entry.DisplayName else name,
+			IsLocal = entry.IsLocal == true,
+			CurrentZone = math.max(1, num(entry.CurrentZone)),
+			Zone = math.max(1, num(entry.Zone)),
+			Rebirths = num(entry.Rebirths),
+			Production = num(entry.Production),
+			LifetimeCash = num(entry.LifetimeCash),
+			ItemCount = num(entry.ItemCount),
+			DomainRank = num(entry.DomainRank),
+			PlayTime = num(entry.PlayTime),
+			AccountAge = num(entry.AccountAge),
+			Premium = entry.Premium == true,
+			EquippedItems = if type(entry.EquippedItems) == "table" then entry.EquippedItems else {},
+			CurrentPage = if type(entry.CurrentPage) == "string" then entry.CurrentPage else "",
+		})
+	end
+	return rows
+end
+
+-- Sorted, searched and filtered rows. The local player always stays first.
+function PlayerlistModel.view(rows, sortId: string, query: string?, friendsOnly: boolean?, friends: { [number]: boolean }?)
+	local needle = string.lower((string.gsub(query or "", "^%s*(.-)%s*$", "%1")))
+	local out = {}
+	for _, row in rows do
+		if not row.IsLocal then
+			if friendsOnly and not (friends and friends[row.UserId]) then
+				continue
+			end
+			if needle ~= "" and not string.find(string.lower(row.DisplayName), needle, 1, true) and not string.find(string.lower(row.Name), needle, 1, true) then
+				continue
+			end
+		end
+		table.insert(out, row)
+	end
+	table.sort(out, function(left, right)
+		if left.IsLocal ~= right.IsLocal then
+			return left.IsLocal
+		end
+		if sortId == "Name" then
+			local a, b = string.lower(left.DisplayName), string.lower(right.DisplayName)
+			if a ~= b then
+				return a < b
+			end
+		elseif sortId == "Rebirths" then
+			if left.Rebirths ~= right.Rebirths then
+				return left.Rebirths > right.Rebirths
+			end
+		elseif left.Production ~= right.Production then
+			return left.Production > right.Production
+		end
+		return left.UserId < right.UserId
+	end)
+	return out
+end
+
+-- Seconds of play as "3h 12m" / "12m" / "<1m".
+function PlayerlistModel.playTime(seconds: number): string
+	local total = math.max(0, math.floor(num(seconds)))
+	local hours = total // 3600
+	local minutes = (total % 3600) // 60
+	if hours > 0 then
+		return string.format("%dh %dm", hours, minutes)
+	end
+	if minutes > 0 then
+		return string.format("%dm", minutes)
+	end
+	return "<1m"
+end
+
+-- Account age in days as a short label.
+function PlayerlistModel.accountAge(days: number): string
+	local value = math.max(0, math.floor(num(days)))
+	if value >= 365 then
+		return string.format("%dy", value // 365)
+	end
+	if value >= 30 then
+		return string.format("%dmo", value // 30)
+	end
+	return string.format("%dd", value)
+end
+
+-- Report details trimmed to what the server accepts.
+function PlayerlistModel.details(text: string?): string
+	local trimmed = (string.gsub(text or "", "^%s*(.-)%s*$", "%1"))
+	if #trimmed > PlayerlistModel.DETAILS_MAX then
+		trimmed = string.sub(trimmed, 1, PlayerlistModel.DETAILS_MAX)
+	end
+	return trimmed
+end
+
+return table.freeze(PlayerlistModel)
+end
+
+-- ======================================================================
+-- Module: TutorialScript
+-- ======================================================================
+__defs["TutorialScript"] = function()
+-- The guided tutorial: every step, what it highlights, what finishes it, and
+-- where Bolt (the guide pet) floats and points. Pure, so Lune tests run it.
+--
+-- Step fields:
+--   say        Bolt's line in the speech bubble
+--   title/body the step card
+--   goal       one-line task shown with a checkbox
+--   target     Name of the GuiObject to spotlight, or a list of names tried in
+--              order (the first one on screen wins: PC rail first, phone fallback after)
+--   page       nav page kept visible for this step (locked pages unlock for it)
+--   startPage  page the step opens on; nil keeps the player where they are
+--   watch      what finishes it: "continue", "collect", "buy", "amount",
+--              "page:<Id>" or "finish"
+--   auto       move on by itself once the goal is met
+--   cta        optional shortcut button: "collect" | "workshop" | "research"
+
+local TutorialScript = {}
+
+TutorialScript.PET_NAME = "Bolt"
+
+TutorialScript.STEPS = table.freeze({
+	{
+		id = "hello",
+		title = "Welcome to Astral Forge",
+		say = "Hi, I'm Bolt! I'll show you around the forge. Click me any time for a hint.",
+		body = "This guide points at exactly what to click. You can go back, skip or replay it from Settings.",
+		goal = "Say hi to Bolt",
+		startPage = "Overview",
+		page = "Overview",
+		watch = "continue",
+	},
+	{
+		id = "vault",
+		title = "This is your vault",
+		say = "Machines pour Flux into this vault, even while you're away.",
+		body = "Stored Flux isn't money yet. Collect it to turn it into cash you can spend.",
+		goal = "Find the vault",
+		target = "OverviewVaultClaimActions",
+		startPage = "Overview",
+		page = "Overview",
+		watch = "continue",
+	},
+	{
+		id = "collect",
+		title = "Collect your Flux",
+		say = "Click the glowing Collect button!",
+		body = "A full vault stops filling, so collect often.",
+		goal = "Collect the vault",
+		target = "OverviewVaultClaimActions",
+		page = "Overview",
+		watch = "collect",
+		auto = true,
+		cta = "collect",
+		ctaLabel = "Collect stored Flux",
+		controls = "Keyboard: E  ·  Xbox: Y",
+	},
+	{
+		id = "toWorkshop",
+		title = "Machines live in the Workshop",
+		say = "Now click Workshop. That's where you buy machines.",
+		body = "Every page is in the menu. Workshop is the one you'll use most.",
+		goal = "Open the Workshop",
+		target = "Nav_Workshop",
+		page = "Workshop",
+		watch = "page:Workshop",
+		auto = true,
+		cta = "workshop",
+		ctaLabel = "Open Workshop",
+	},
+	{
+		id = "buy",
+		title = "Buy your first machine",
+		say = "Buy a machine here. More machines, more Flux every second!",
+		body = "Each level adds Flux per second. Grey means you need more cash: collect the vault first.",
+		goal = "Buy a machine",
+		target = "WorkshopBuyClaim",
+		startPage = "Workshop",
+		page = "Workshop",
+		watch = "buy",
+		auto = true,
+	},
+	{
+		id = "amount",
+		title = "Buy many levels at once",
+		say = "Tap x5 or Max to buy lots of levels in one click.",
+		body = "x1 buys one level, x5 buys five, Max buys everything you can afford.",
+		goal = "Pick x5 or Max",
+		target = "AmountToggleTarget",
+		page = "Workshop",
+		watch = "amount",
+		auto = true,
+		controls = "Xbox: LT / RT",
+	},
+	{
+		id = "level",
+		title = "Your forge level",
+		say = "This bar is your level. Each new level opens another part of the forge.",
+		body = "Click the bar any time to see every level and what it unlocks.",
+		goal = "Look at the level bar",
+		target = { "LevelBarTarget", "MobileHeader" },
+		page = "Workshop",
+		watch = "continue",
+	},
+	{
+		id = "toResearch",
+		title = "Research lasts forever",
+		say = "Click Research. Its bonuses stay even after you rebirth.",
+		body = "Research opens properly at level 2, but you can take a look now.",
+		goal = "Open Research",
+		target = "Nav_Research",
+		page = "Research",
+		watch = "page:Research",
+		auto = true,
+		cta = "research",
+		ctaLabel = "Open Research",
+	},
+	{
+		id = "research",
+		title = "Buy the lit bonuses",
+		say = "When a bonus lights up, you can afford it. Buy them in order.",
+		body = "Research is the best long-term use of your cash.",
+		goal = "Read the research page",
+		target = "ResearchBuyClaimActions",
+		page = "Research",
+		watch = "continue",
+	},
+	{
+		id = "menu",
+		title = "Everything is in the menu",
+		say = "Every page is in the menu, grouped into sections. On a phone, it's the Menu tab.",
+		body = "Home, Daily, Progress, Games & Deals, Social and System. New pages appear as you level up.",
+		goal = "Look over the menu",
+		target = { "RailNavClaim", "Nav_Menu" },
+		page = "Research",
+		watch = "continue",
+	},
+	{
+		id = "rebirth",
+		title = "Rebirth makes every run faster",
+		say = "Later on, Rebirth trades your machines for Cores. Your research stays!",
+		body = "The Overview shows how many Cores a rebirth pays before you confirm.",
+		goal = "Learn about rebirth",
+		target = { "Nav_Overview", "Nav_Menu" },
+		startPage = "Overview",
+		page = "Overview",
+		watch = "continue",
+	},
+	{
+		id = "finish",
+		title = "You're ready",
+		say = "That's the tour! Replay me from Settings, then Guide. Now go build something huge!",
+		body = "Collect, buy machines, research, rebirth. Finishing pays a small Flux bonus.",
+		goal = "Finish the guide",
+		target = { "Nav_Settings", "Nav_Menu" },
+		page = "Overview",
+		watch = "finish",
+	},
+})
+
+-- Lines Bolt says when clicked, by mood.
+TutorialScript.QUIPS = table.freeze({
+	idle = { "Need a hint? Follow my finger!", "The glowing box is the thing to click.", "Beep boop. That tickles!", "I run on Flux. Mostly." },
+	done = { "Nice! On to the next bit.", "You're a natural!", "Woo! Keep going!" },
+})
+
+local function num(value: any, fallback: number): number
+	if type(value) == "number" and value == value then
+		return value
+	end
+	return fallback
+end
+
+-- Whether `step`'s goal is met. `live` carries page, ownedMachines, buyAmount;
+-- `collected` is true once the vault was emptied during this step.
+function TutorialScript.goalMet(step, live, collected: boolean?): boolean
+	if step == nil then
+		return false
+	end
+	local watch = step.watch
+	live = if type(live) == "table" then live else {}
+	if watch == "continue" or watch == "finish" then
+		return true
+	elseif watch == "collect" then
+		return collected == true
+	elseif watch == "buy" then
+		return num(live.ownedMachines, 0) > 0
+	elseif watch == "amount" then
+		return num(live.buyAmount, 1) ~= 1
+	elseif type(watch) == "string" and string.sub(watch, 1, 5) == "page:" then
+		return live.page == string.sub(watch, 6)
+	end
+	return false
+end
+
+-- Steps that need the player to do something (they show "Do it to continue"
+-- instead of a Continue button until the goal is met).
+function TutorialScript.needsAction(step): boolean
+	return step ~= nil and step.watch ~= "continue" and step.watch ~= "finish"
+end
+
+-- Where Bolt floats for a target rect, all in the overlay's own pixels.
+-- Bolt sits beside the target on whichever side has room (right, left, below,
+-- above), clamped inside the screen, and points at the target's nearest edge.
+-- Returns the pet centre, the pointing angle (degrees, 0 = right), and the
+-- side used. With no target Bolt sits above the step card, pointing at it.
+function TutorialScript.petPose(rect, screenW: number, screenH: number, petSize: number, dock)
+	local margin = 14
+	local half = petSize / 2
+	local function clampPoint(x, y)
+		return math.clamp(x, half + 6, math.max(half + 6, screenW - half - 6)), math.clamp(y, half + 6, math.max(half + 6, screenH - half - 6))
+	end
+	if rect == nil then
+		local dockTop = if dock ~= nil then dock.y else screenH * 0.7
+		local dockX = if dock ~= nil then dock.x + dock.w - half - 10 else screenW / 2
+		local x, y = clampPoint(dockX, dockTop - half - 10)
+		return x, y, 90, "dock"
+	end
+	local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+	local roomRight = screenW - (rect.x + rect.w)
+	local roomLeft = rect.x
+	local roomBelow = screenH - (rect.y + rect.h)
+	local side, x, y
+	if roomRight >= petSize + margin * 2 then
+		side, x, y = "right", rect.x + rect.w + margin + half, cy
+	elseif roomLeft >= petSize + margin * 2 then
+		side, x, y = "left", rect.x - margin - half, cy
+	elseif roomBelow >= petSize + margin * 2 then
+		side, x, y = "below", cx, rect.y + rect.h + margin + half
+	else
+		side, x, y = "above", cx, rect.y - margin - half
+	end
+	x, y = clampPoint(x, y)
+	-- Point at the closest point of the target rect.
+	local px = math.clamp(x, rect.x, rect.x + rect.w)
+	local py = math.clamp(y, rect.y, rect.y + rect.h)
+	local angle = math.deg(math.atan2(py - y, px - x))
+	if px == x and py == y then
+		angle = 90
+	end
+	return x, y, angle, side
+end
+
+-- Progress through the guide, 0..1, counting the current step as half done
+-- until its goal is met.
+function TutorialScript.progress(index: number, count: number, met: boolean): number
+	local total = math.max(1, count)
+	return math.clamp((index - (if met then 0 else 0.5)) / total, 0, 1)
+end
+
+return TutorialScript
+end
+
+-- ======================================================================
+-- Module: LevelRewards
+-- ======================================================================
+__defs["LevelRewards"] = function()
+-- What reaching a Forge Level pays, the moment it happens.
+--
+--   * Level-up: flux worth some seconds of your current production (so it
+--     matters at every stage of the game), stardust, and a Forge Surge: a
+--     timed production buff that stacks up to a cap.
+--   * Halfway: crossing 50% of the way to your next level pays a smaller
+--     flux bonus, so long goals keep paying out along the way.
+--   * Mastery: every level reached adds a small permanent production bonus.
+--
+-- Pure numbers: the server grants these, the client previews them, and
+-- scripts/verify_level_rewards.luau checks them.
+
+local LevelRewards = {}
+
+local TIER_INDEX = { Beginner = 1, Apprentice = 2, Journeyman = 3, Expert = 4, Master = 5, Legend = 6 }
+
+LevelRewards.MASTERY_PER_LEVEL = 0.02 -- +2% production per level past 1
+LevelRewards.SURGE_CAP_SECONDS = 1800 -- a surge never runs more than 30 minutes ahead
+LevelRewards.SURGE_MAX_MULTIPLIER = 1.6
+LevelRewards.HALFWAY_SHARE = 0.5
+
+type Reward = {
+	FluxSeconds: number,
+	MinFlux: number,
+	Stardust: number,
+	SurgeMultiplier: number,
+	SurgeSeconds: number,
+}
+
+-- The reward for reaching `level` (in `tier`).
+function LevelRewards.forLevel(level: number, tier: string?): Reward
+	local tierIndex = TIER_INDEX[tier or ""] or 1
+	level = math.max(1, math.floor(level))
+	return {
+		FluxSeconds = 90 + level * 30,
+		MinFlux = 60 * level,
+		Stardust = level * 4 + tierIndex * 8,
+		SurgeMultiplier = math.min(LevelRewards.SURGE_MAX_MULTIPLIER, 1.2 + tierIndex * 0.05),
+		SurgeSeconds = math.min(900, 240 + level * 30),
+	}
+end
+
+-- The checkpoint paid halfway to `nextLevel`.
+function LevelRewards.halfway(nextLevel: number): { FluxSeconds: number, MinFlux: number }
+	nextLevel = math.max(2, math.floor(nextLevel))
+	return { FluxSeconds = 30 + nextLevel * 10, MinFlux = 25 * nextLevel }
+end
+
+-- Permanent production bonus (a fraction) at `level`.
+function LevelRewards.mastery(level: number): number
+	return math.max(0, math.floor(level) - 1) * LevelRewards.MASTERY_PER_LEVEL
+end
+
+-- Folds a new surge into the current one: the stronger multiplier wins, and
+-- the time adds on, capped SURGE_CAP_SECONDS ahead of now.
+function LevelRewards.mergeSurge(current, now: number, multiplier: number, seconds: number)
+	local active = type(current) == "table" and type(current.EndsAt) == "number" and current.EndsAt > now
+	local baseEnd = if active then current.EndsAt else now
+	local baseMultiplier = if active and type(current.Multiplier) == "number" then current.Multiplier else 1
+	return {
+		Multiplier = math.min(LevelRewards.SURGE_MAX_MULTIPLIER, math.max(baseMultiplier, multiplier)),
+		EndsAt = math.min(now + LevelRewards.SURGE_CAP_SECONDS, baseEnd + math.max(0, seconds)),
+	}
+end
+
+-- The production multiplier a surge gives right now (1 when it has ended).
+function LevelRewards.surgeMultiplier(surge, now: number): number
+	if type(surge) ~= "table" or type(surge.EndsAt) ~= "number" or surge.EndsAt <= now then
+		return 1
+	end
+	local multiplier = tonumber(surge.Multiplier) or 1
+	return math.clamp(multiplier, 1, LevelRewards.SURGE_MAX_MULTIPLIER)
+end
+
+-- Which levels in (rewarded, level] still owe their reward. A save that has
+-- never been rewarded (rewarded < 0) is caught up silently: veterans keep
+-- their level without a flood of back-pay.
+function LevelRewards.owed(rewarded: number, level: number): ({ number }, number)
+	if type(rewarded) ~= "number" or rewarded < 0 then
+		return {}, level
+	end
+	local owed = {}
+	for value = math.floor(rewarded) + 1, math.floor(level) do
+		table.insert(owed, value)
+	end
+	return owed, math.max(math.floor(rewarded), math.floor(level))
+end
+
+-- Whether the halfway checkpoint toward `nextLevel` should pay now.
+function LevelRewards.halfwayDue(paidFor: number, nextLevel: number?, progress: number, target: number): boolean
+	if nextLevel == nil or target <= 0 or type(paidFor) ~= "number" or paidFor < 0 then
+		return false
+	end
+	return paidFor < nextLevel and progress / target >= LevelRewards.HALFWAY_SHARE
+end
+
+-- Seconds until `remaining` is covered at `ratePerSecond`, or nil when that
+-- can't be estimated (no rate, or a goal that isn't earned over time).
+function LevelRewards.eta(kind: string, remaining: number, ratePerSecond: number): number?
+	if kind ~= "LifetimeCash" or ratePerSecond <= 0 or remaining <= 0 then
+		return nil
+	end
+	return remaining / ratePerSecond
+end
+
+-- "45s", "12m", "3h 5m", "2d".
+function LevelRewards.etaText(seconds: number?): string
+	if seconds == nil or seconds ~= seconds then
+		return ""
+	end
+	local total = math.max(0, math.floor(seconds))
+	if total < 60 then
+		return `{math.max(1, total)}s`
+	elseif total < 3600 then
+		return `{total // 60}m`
+	elseif total < 86400 then
+		local minutes = (total % 3600) // 60
+		return if minutes > 0 then `{total // 3600}h {minutes}m` else `{total // 3600}h`
+	end
+	return `{total // 86400}d`
+end
+
+return table.freeze(LevelRewards)
+end
+
+-- ======================================================================
+-- Module: ServerEvents
+-- ======================================================================
+__defs["ServerEvents"] = function()
+-- Server-wide events: what each one does, when they run, and what they pay.
+--
+-- Every server runs its own cycle: a rest, a one-minute warning, the live event,
+-- then a short results screen. Events rotate without repeating back to back.
+--   * Meteor Shower: everyone's output is multiplied while it lasts.
+--   * Community Forge: the server shares one goal. Every vault collect adds
+--     points (seconds of your own output, so new and veteran players count the
+--     same); finishing pays every contributor, and the top three get a bonus.
+--   * Stardust Rain: every vault collect also drops stardust.
+--
+-- Pure: ServerEventService runs it, the client draws it, and
+-- scripts/verify_server_events.luau checks it.
+
+local ServerEvents = {}
+
+ServerEvents.REST_SECONDS = 8 * 60
+ServerEvents.WARNING_SECONDS = 60
+ServerEvents.LIVE_SECONDS = 5 * 60
+ServerEvents.RESULTS_SECONDS = 20
+-- The first event after a server starts comes sooner.
+ServerEvents.FIRST_REST_SECONDS = 3 * 60
+
+ServerEvents.EVENTS = table.freeze({
+	MeteorShower = table.freeze({
+		Id = "MeteorShower",
+		Name = "Meteor Shower",
+		Blurb = "Meteors are hitting the forge. Everyone's output is boosted!",
+		How = "Just keep earning: every machine produces more while it lasts.",
+		Icon = "Boost",
+		Accent = "mango",
+		Multiplier = 1.5,
+	}),
+	CommunityForge = table.freeze({
+		Id = "CommunityForge",
+		Name = "Community Forge",
+		Blurb = "The whole server works on one giant order. Collect your vault to help!",
+		How = "Every vault collect adds points. Fill the bar together to pay everyone who helped.",
+		Icon = "Crew",
+		Accent = "cyan",
+		PointsPerPlayer = 900,
+		MinGoal = 900,
+		MaxPointsPerCollect = 600,
+		RewardFluxSeconds = 300,
+		RewardStardust = 30,
+		TopBonusStardust = { 40, 25, 15 },
+	}),
+	StardustRain = table.freeze({
+		Id = "StardustRain",
+		Name = "Stardust Rain",
+		Blurb = "Stardust is falling. Every vault collect drops some!",
+		How = "Collect your vault as often as you can while it rains.",
+		Icon = "Dust",
+		Accent = "violet",
+		MaxDustPerCollect = 25,
+	}),
+})
+ServerEvents.ORDER = table.freeze({ "MeteorShower", "CommunityForge", "StardustRain" })
+
+-- The next event id: anything but the last one, picked by `roll` in [0, 1).
+function ServerEvents.pick(lastId: string?, roll: number): string
+	local choices = {}
+	for _, id in ServerEvents.ORDER do
+		if id ~= lastId then
+			table.insert(choices, id)
+		end
+	end
+	local index = math.clamp(math.floor(roll * #choices) + 1, 1, #choices)
+	return choices[index]
+end
+
+-- Advances the cycle. `state` is { Phase, Id, PhaseEndsAt, LastId }; returns the
+-- new state and whether the phase changed. Phases: Rest -> Warning -> Live ->
+-- Results -> Rest.
+function ServerEvents.advance(state, now: number, roll: number)
+	if state == nil or state.Phase == nil then
+		return { Phase = "Rest", Id = nil, PhaseEndsAt = now + ServerEvents.FIRST_REST_SECONDS, LastId = nil }, true
+	end
+	if now < state.PhaseEndsAt then
+		return state, false
+	end
+	if state.Phase == "Rest" then
+		local id = ServerEvents.pick(state.LastId, roll)
+		return { Phase = "Warning", Id = id, PhaseEndsAt = now + ServerEvents.WARNING_SECONDS, LastId = state.LastId }, true
+	elseif state.Phase == "Warning" then
+		return { Phase = "Live", Id = state.Id, PhaseEndsAt = now + ServerEvents.LIVE_SECONDS, LastId = state.LastId }, true
+	elseif state.Phase == "Live" then
+		return { Phase = "Results", Id = state.Id, PhaseEndsAt = now + ServerEvents.RESULTS_SECONDS, LastId = state.Id }, true
+	end
+	return { Phase = "Rest", Id = nil, PhaseEndsAt = now + ServerEvents.REST_SECONDS, LastId = state.LastId }, true
+end
+
+-- Output multiplier right now.
+function ServerEvents.productionMultiplier(state): number
+	if state ~= nil and state.Phase == "Live" and state.Id == "MeteorShower" then
+		return ServerEvents.EVENTS.MeteorShower.Multiplier
+	end
+	return 1
+end
+
+-- The Community Forge goal for `players` online when it starts.
+function ServerEvents.communityGoal(players: number): number
+	local def = ServerEvents.EVENTS.CommunityForge
+	return math.max(def.MinGoal, math.max(1, math.floor(players)) * def.PointsPerPlayer)
+end
+
+-- Points a collect is worth: the collected amount in seconds of the player's own
+-- output, capped so one huge banked vault can't finish the goal alone.
+function ServerEvents.collectPoints(collected: number, perSecond: number): number
+	if collected <= 0 then
+		return 0
+	end
+	local seconds = if perSecond > 0 then collected / perSecond else 1
+	return math.clamp(math.floor(seconds), 1, ServerEvents.EVENTS.CommunityForge.MaxPointsPerCollect)
+end
+
+-- Stardust a collect drops during Stardust Rain.
+function ServerEvents.rainDust(collected: number, perSecond: number): number
+	if collected <= 0 then
+		return 0
+	end
+	local seconds = if perSecond > 0 then collected / perSecond else 1
+	return math.clamp(math.floor(math.sqrt(seconds)), 1, ServerEvents.EVENTS.StardustRain.MaxDustPerCollect)
+end
+
+-- Contributors ranked by points (ties by user id), as { { UserId, Points } }.
+function ServerEvents.ranking(points: { [number]: number })
+	local list = {}
+	for userId, value in points do
+		if value > 0 then
+			table.insert(list, { UserId = userId, Points = value })
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.Points ~= b.Points then
+			return a.Points > b.Points
+		end
+		return a.UserId < b.UserId
+	end)
+	return list
+end
+
+-- Stardust a contributor gets when the goal is met: the base, plus a bonus for
+-- the top three.
+function ServerEvents.communityStardust(rank: number): number
+	local def = ServerEvents.EVENTS.CommunityForge
+	return def.RewardStardust + (def.TopBonusStardust[rank] or 0)
+end
+
+-- Seconds left in the current phase.
+function ServerEvents.secondsLeft(state, now: number): number
+	if state == nil or state.PhaseEndsAt == nil then
+		return 0
+	end
+	return math.max(0, state.PhaseEndsAt - now)
+end
+
+return table.freeze(ServerEvents)
 end
 
 -- ======================================================================
@@ -4148,89 +2646,23 @@ return table.freeze(ZoneUnlock)
 end
 
 -- ======================================================================
--- Module: ProcAnim   (procedural animation maths)
--- ======================================================================
-__defs["ProcAnim"] = function()
--- The numbers behind the bosses' procedural rigs: springs for weight and follow-through,
--- two-bone IK for arms, waves for trailing chains, and a strike curve with anticipation.
--- Plain numbers only (no Roblox types), so the rig code on the client and the Lune tests
--- (scripts/verify_proc_anim.luau) use exactly the same functions.
-
-local ProcAnim = {}
-
--- A damped spring pulled toward `target`. Substepped so a long frame (or a huge stiffness)
--- never blows up. Returns the new position and velocity.
-function ProcAnim.spring(position: number, velocity: number, target: number, stiffness: number, damping: number, dt: number): (number, number)
-	-- Semi-implicit Euler is stable while h*sqrt(stiffness) and h*damping stay small, so the step
-	-- shrinks for stiff or heavily damped springs (capped so one call stays cheap).
-	local limit = math.min(1 / 120, 0.4 / math.sqrt(math.max(stiffness, 1e-6)), 0.8 / math.max(damping, 1e-6))
-	local steps = math.clamp(math.ceil(dt / limit), 1, 400)
-	local h = dt / steps
-	for _ = 1, steps do
-		velocity += (stiffness * (target - position) - damping * velocity) * h
-		position += velocity * h
-	end
-	return position, velocity
-end
-
--- Damping that makes a spring of this stiffness critically damped (ratio 1), under (<1, it
--- overshoots and rings) or over damped (>1, it creeps).
-function ProcAnim.damping(stiffness: number, ratio: number): number
-	return 2 * ratio * math.sqrt(stiffness)
-end
-
--- Two-bone IK: bones of length l1 and l2 reaching a point `distance` away. The reach is
--- clamped to what the bones can span. Returns the angle at the shoulder between the line to
--- the target and the first bone, the interior angle at the elbow, and the reach used.
-function ProcAnim.twoBone(l1: number, l2: number, distance: number): (number, number, number)
-	local reach = math.clamp(distance, math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3)
-	local cosShoulder = (l1 * l1 + reach * reach - l2 * l2) / (2 * l1 * reach)
-	local cosElbow = (l1 * l1 + l2 * l2 - reach * reach) / (2 * l1 * l2)
-	return math.acos(math.clamp(cosShoulder, -1, 1)), math.acos(math.clamp(cosElbow, -1, 1)), reach
-end
-
--- A wave travelling down a chain: segment `index` of `count` lags `lag` radians behind the
--- last, and swings wider toward the tip by `taper` (0 = even).
-function ProcAnim.wave(index: number, count: number, t: number, frequency: number, lag: number, amplitude: number, taper: number): number
-	local k = (index - 1) / math.max(1, count - 1)
-	return amplitude * (1 + taper * k) * math.sin(t * frequency - index * lag)
-end
-
--- A blow over k in [0, 1]: wind back a little, snap through to a touch past the target, then
--- settle on it. 0 at the start, 1 at the end.
-function ProcAnim.strike(k: number): number
-	k = math.clamp(k, 0, 1)
-	if k < 0.25 then
-		return -0.22 * math.sin(k / 0.25 * math.pi / 2)
-	elseif k < 0.45 then
-		local u = (k - 0.25) / 0.2
-		return -0.22 + 1.32 * (u * u * (3 - 2 * u))
-	elseif k < 0.7 then
-		local u = (k - 0.45) / 0.25
-		return 1.1 - 0.1 * (u * u * (3 - 2 * u))
-	end
-	return 1
-end
-
--- Shortest signed difference between two angles, in [-pi, pi].
-function ProcAnim.angleDelta(target: number, current: number): number
-	local delta = (target - current) % (2 * math.pi)
-	if delta > math.pi then
-		delta -= 2 * math.pi
-	end
-	return delta
-end
-
-return ProcAnim
-end
--- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

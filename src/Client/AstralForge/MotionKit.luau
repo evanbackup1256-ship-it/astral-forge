@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	MotionKit: merged module suite.
-	Members (8): motionTokens, vfxMath, autoScale, motion, antilag, dynamicLayout, flexbox, shimmer.
+	Members (9): motionTokens, vfxMath, autoScale, motion, antilag, dynamicLayout, flexbox, shimmer, pageTransition.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -422,10 +422,59 @@ local function revealFocusedControl(keyboardTopY)
 		ancestor = ancestor.Parent
 	end
 end
+-- Resize signals arrive from two places (the safe host's AbsoluteSize and the camera's
+-- ViewportSize), often several per frame while a window is dragged. Each one used to re-render
+-- the whole UI. They now fold into one update per frame, at most RESIZE_HZ while the size keeps
+-- moving, with a trailing update so the final size is always exact.
+local RESIZE_HZ = 30
+local function useCoalescedScreen(initial)
+	local screen, setScreenNow = React.useState(initial)
+	local state = React.useRef(nil)
+	if state.current == nil then
+		state.current = { pending = nil, applied = screen, lastAt = 0, job = nil, alive = true }
+	end
+	React.useEffect(function()
+		local current = state.current
+		current.alive = true
+		return function()
+			current.alive = false
+			if current.job ~= nil then
+				pcall(task.cancel, current.job)
+				current.job = nil
+			end
+		end
+	end, {})
+	local request = React.useCallback(function(size)
+		local current = state.current
+		local rounded = Vector2.new(math.round(size.X), math.round(size.Y))
+		if rounded.X <= 0 or rounded.Y <= 0 then
+			return
+		end
+		current.pending = rounded
+		if current.job ~= nil then
+			return
+		end
+		local wait = math.max(0, 1 / RESIZE_HZ - (os.clock() - current.lastAt))
+		current.job = task.delay(wait, function()
+			current.job = nil
+			if not current.alive or current.pending == nil then
+				return
+			end
+			local nextSize = current.pending
+			current.pending = nil
+			current.lastAt = os.clock()
+			if nextSize ~= current.applied then
+				current.applied = nextSize
+				setScreenNow(nextSize)
+			end
+		end)
+	end, {})
+	return screen, request
+end
 local function AutoScale(_param)
 	local children = _param.children
 	local safeHostRef = React.useRef(nil)
-	local screen, setScreen = React.useState(function()
+	local screen, setScreen = useCoalescedScreen(function()
 		local rect = GuiService:GetInsetArea(Enum.ScreenInsets.CoreUISafeInsets)
 		return rect.Max - rect.Min
 	end)
@@ -997,6 +1046,7 @@ local function preloadUiLibs()
 end
 local DefaultMotionSettings = {
 	motionScale = 1,
+	soft = false,
 	viewportScale = 1,
 	textScale = 1,
 }
@@ -1007,12 +1057,27 @@ local function useMotionSettings()
 end
 local MOTION_SCALE_FLOOR = 0.32
 local MOTION_SCALE_CEIL = 1.6
+-- The Reduced Motion setting softens how motion feels instead of switching it
+-- off: everything still moves, but springs land without overshoot and a touch
+-- slower, loops run slower, and pulses and flashes swing less.
+local SOFT_STIFFNESS = 0.82
+local SOFT_DAMPING = 56
+local SOFT_CLOCK_SPEED = 0.6
+local SOFT_PULSE_DEPTH = 0.45
+local SOFT_FLASH_PEAK = 0.55
+local function softSpring(stiffness, damping, soft)
+	if not soft then
+		return stiffness, damping
+	end
+	return stiffness * SOFT_STIFFNESS, math.max(damping, SOFT_DAMPING)
+end
+local function softRatio(dampingRatio, frequency, soft)
+	if not soft then
+		return dampingRatio, frequency
+	end
+	return math.max(dampingRatio, 1), frequency * SOFT_STIFFNESS
+end
 local TAU = math.pi * 2
--- Realtime clocks (spinners, pulse needles, celebration timers) get a higher tick
--- budget than decorative shimmer, but touch devices hard-cap near 24 so rapid
--- hover/press storms cannot starve critical presence clocks.
-local REALTIME_CLOCK_BUDGET = 48
-local TOUCH_REALTIME_CLOCK_BUDGET = 24
 local listeners = {}
 local continuousListeners = {}
 local realtimeClocks = {}
@@ -1024,10 +1089,7 @@ local decorativeClockCount = 0
 local driver
 local LISTENER_SOFT_CAP = 32
 local warnedOverCap = false
-local freezeExternal = false
-local freezeHitch = false
 local freezeNav = false
-local decorativeFrozen = false
 local clockBudget = 24
 local flipperMotors = {}
 local flipperToken = {}
@@ -1055,15 +1117,6 @@ local function snapshotKeys(set, scratch)
 	end
 	return size
 end
-local function isTouchPrimary()
-	return UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-end
-local function realtimeClockBudget()
-	if UserInputService.TouchEnabled then
-		return TOUCH_REALTIME_CLOCK_BUDGET
-	end
-	return REALTIME_CLOCK_BUDGET
-end
 function armFlipper(motor)
 	-- Bump even when the motor is already stepping. A setGoal inside onStep
 	-- must outlive the complete=true return that would otherwise disarm it.
@@ -1089,21 +1142,6 @@ function disarmFlipper(motor, expectedToken)
 		flipperCount = 0
 	end
 end
-local function applyFrozenFlag()
-	local frozen = freezeExternal or freezeHitch or freezeNav
-	if decorativeFrozen == frozen then
-		return nil
-	end
-	decorativeFrozen = frozen
-	if frozen then
-		-- When hitch/nav freeze parks decorative work and nothing realtime is
-		-- left, drop the RenderStepped driver entirely instead of spinning a
-		-- no-op callback every frame until thaw.
-		stopDriverIfIdle()
-	elseif listenerCount > 0 or continuousListenerCount > 0 or flipperCount > 0 or realtimeClockCount > 0 or decorativeClockCount > 0 then
-		ensureDriver()
-	end
-end
 local function compactClocks(list)
 	local write = 0
 	for index = 0, #list - 1 do
@@ -1119,62 +1157,24 @@ local function compactClocks(list)
 		list[#list] = nil
 	end
 end
--- Rotating start offset so the budget cap doesn't always favor the same
--- earliest-registered slots — without this, once more than `budget` clocks
--- are alive at once (e.g. many buttons shimmering from rapid hover/click),
--- every slot past the first `budget` in array order never ticks again until
--- enough earlier slots die off, which reads as a permanently frozen shimmer.
---
--- Phase still advances for every live slot even past the budget: only the
--- React binding push is rate-limited. That keeps shimmer phase coherent when
--- a slot rotates into the push window without scheduling N updates/frame.
--- One offset PER LIST: the realtime and decorative lists share this function, and
--- a single shared offset let each list advance the other's start position, so
--- the "fair" rotation could keep landing on the same slots and starve the rest.
-local tickRotations = setmetatable({}, { __mode = "k" })
 local clockTicking = 0
-local function tickClocks(list, deltaTime, budget)
-	local size = #list
+local function tickClocks(list, deltaTime)
 	local live = 0
 	local dead = 0
 	clockTicking += 1
-	local tickRotation = tickRotations[list] or 0
-	if size > 0 then
-		tickRotation = tickRotation % size
-	end
-	do
-		local offset = 0
-		local _shouldIncrement = false
-		while true do
-			if _shouldIncrement then
-				offset += 1
-			else
-				_shouldIncrement = true
-			end
-			if not (offset < size) then
-				break
-			end
-			local index = (tickRotation + offset) % size
-			local slot = list[index + 1]
-			if slot == nil or not slot.alive then
-				dead += 1
-				continue
-			end
-			local advanced = (slot.phase + deltaTime * slot.speed) % slot.period
-			slot.phase = advanced
-			live += 1
-			-- Advance every clock so phase stays coherent, but only push the
-			-- rotating budget into React. Pushing every binding every frame
-			-- was the main UI cost once dozens of pulses were alive.
-			if offset < math.max(1, budget) then
-				slot.push(advanced)
-			end
+	for index = 1, #list do
+		local slot = list[index]
+		if slot == nil or not slot.alive then
+			dead += 1
+			continue
 		end
+		local advanced = (slot.phase + deltaTime * slot.speed) % slot.period
+		slot.phase = advanced
+		live += 1
+		-- Every live clock pushes every frame. Rationing pushes left the slots
+		-- outside the window still for frames at a time, which read as stutter.
+		slot.push(advanced)
 	end
-	if size > 0 then
-		tickRotation = (tickRotation + math.max(1, budget)) % size
-	end
-	tickRotations[list] = tickRotation
 	clockTicking -= 1
 	if dead >= 6 and clockTicking == 0 then
 		compactClocks(list)
@@ -1245,12 +1245,9 @@ local function dropClock(slot, realtime)
 end
 local function setContinuousMotionRate(_rate)
 end
-local function setDecorativeMotionFrozen(frozen)
-	if freezeExternal == frozen then
-		return nil
-	end
-	freezeExternal = frozen
-	applyFrozenFlag()
+local function setDecorativeMotionFrozen(_frozen)
+	-- Kept for callers. Ambient motion never parks: overlays and cinematics
+	-- used to freeze every loop behind them, and some never thawed.
 end
 local function setHitchMotionFrozen(_frozen)
 	-- A one-frame hitch must not park springs, clocks, or the driver. The flag
@@ -1361,7 +1358,7 @@ function ensureDriver()
 			end
 		end
 		if realtimeClockCount > 0 then
-			tickClocks(realtimeClocks, clamped, realtimeClockBudget())
+			tickClocks(realtimeClocks, clamped)
 		end
 		if listenerCount > 0 then
 			ranRealtime = true
@@ -1377,7 +1374,7 @@ function ensureDriver()
 		-- Decorative pulses, glows, and ambient clocks advance on the same frame
 		-- as springs. Subsampling them made sweeps hitch and read as idle.
 		if decorativeClockCount > 0 then
-			tickClocks(decorativeClocks, clamped, math.max(6, math.floor(clockBudget * (1 - 0.7 * lagPressure) + 0.5)))
+			tickClocks(decorativeClocks, clamped)
 		end
 		if continuousListenerCount > 0 then
 			local size = snapshotKeys(continuousListeners, continuousScratch)
@@ -1479,6 +1476,7 @@ local function useSpring(goal, reducedMotion, stiffness, damping, initial)
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
+	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
 	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
 	-- Same feel as every Flipper spring, so ripple-driven sliders and tabs move
 	-- like the rest of the interface.
@@ -1510,6 +1508,7 @@ local function useFlipperSpring(goal, reducedMotion, stiffness, damping, initial
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
+	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
 	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
 	local binding, setBinding = React.useBinding(initial)
 	local setBindingRef = React.useRef(setBinding)
@@ -1557,6 +1556,7 @@ local function useOtterSpring(goal, reducedMotion, initial, dampingRatio, freque
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
+	dampingRatio, frequency = softRatio(dampingRatio, frequency, _binding.soft == true)
 	local binding, setBinding = React.useBinding(initial)
 	local setBindingRef = React.useRef(setBinding)
 	setBindingRef.current = setBinding
@@ -1618,6 +1618,7 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
+	dampingRatio, frequency = softRatio(dampingRatio, frequency, _binding.soft == true)
 	local scaleRef = React.useRef()
 	local mounted = React.useRef(false)
 	-- React detaches refs before passive cleanups run, so scaleRef.current is
@@ -1694,6 +1695,7 @@ local function useOptionalFlipperSpring(goal, enabled, reducedMotion, stiffness,
 	end
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
+	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
 	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
 	local binding, setBinding = React.useBinding(if enabled then goal else 0)
 	local setBindingRef = React.useRef(setBinding)
@@ -2061,7 +2063,7 @@ local function useClock(enabled, speed, period, realtime)
 	local motionScale = _binding.motionScale
 	-- Scale clock advance by motion settings so reduced/low-motion players get
 	-- quieter ambient loops without every caller needing a second gate.
-	local scaledSpeed = speed * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
+	local scaledSpeed = speed * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL) * (if _binding.soft == true and not realtime then SOFT_CLOCK_SPEED else 1)
 	local live = enabled and speed > 0
 	local binding, setBinding = React.useBinding(0)
 	local setBindingRef = React.useRef(setBinding)
@@ -2199,16 +2201,27 @@ local function useFlash(trigger, reducedMotion, duration)
 		setBinding(1)
 		active:setGoal(0)
 	end, { duration, setBinding, trigger })
-	return binding
+	local peak = if useMotionSettings().soft == true then SOFT_FLASH_PEAK else 1
+	return React.useMemo(function()
+		if peak >= 1 then
+			return binding
+		end
+		return binding:map(function(value)
+			return value * peak
+		end)
+	end, { binding, peak })
 end
 local function usePulse(enabled, speed)
 	if speed == nil then
 		speed = 1.35
 	end
 	local clock = useClock(enabled, speed, TAU)
-	return clock:map(function(phase)
-		return (math.sin(phase) + 1) / 2
-	end)
+	local depth = if useMotionSettings().soft == true then SOFT_PULSE_DEPTH else 1
+	return React.useMemo(function()
+		return clock:map(function(phase)
+			return 0.5 + math.sin(phase) * 0.5 * depth
+		end)
+	end, { clock, depth })
 end
 local function useGlowStroke(active, reducedMotion, rest, near, far, speed)
 	-- Quieter defaults: slower breath, narrower transparency swing — keeps idle
@@ -2976,10 +2989,12 @@ local function infoFromQuality(quality, fps, pressure, hitchScore)
 		titleGlyphLimit = if tight then 12 else 18,
 		renderRate = renderRate,
 		glowScale = math.clamp(0.08 + qEff * (if tight then 0.52 else 0.72), 0.08, if tight then 0.62 else 0.86),
-		allowAmbient = qEff >= (if tight then 0.64 else 0.58),
+		-- Ambient motion always runs. Low tiers thin out particles and glow
+		-- instead of stopping loops.
+		allowAmbient = true,
 		allowConfetti = qEff >= (if tight then 0.42 else 0.34),
-		skipEntrance = tight and qEff < 0.32,
-		freezeIcons = tight and qEff < 0.22,
+		skipEntrance = false,
+		freezeIcons = false,
 		maxClocks = math.clamp(math.floor((if tight then 2 else 3) + (if tight then 6 else 8) * qEff + 0.5), if tight then 2 else 3, if tight then 8 else 12),
 		maxPops = math.clamp(math.floor(1 + (if tight then 2 else 3) * qEff + 0.5), 1, if tight then 3 else 4),
 		maxStars = if qEff < (if tight then 0.5 else 0.42) then 0 else math.clamp(math.floor(qEff * (if tight then 3.5 else 5) + 0.5), 1, if tight then 3 else 5),
@@ -3705,35 +3720,44 @@ __defs["shimmer"] = function()
 -- Sweep motion belongs on UIGradient.Offset (clipped overlays), never on
 -- oversized Offset-sized tip frames under AutomaticSize.
 
-local DEFAULT_TRAVEL = 2.2
-local TRAIL_LAG = 0.08
+local DEFAULT_TRAVEL = 2.4
+local TRAIL_LAG = 0.035
 -- Trail only on high shimmer settings — dual-pass is the main hover cost.
 local TRAIL_MIN_SCALE = 0.85
+-- Share of each period spent crossing; the rest the band waits off-surface, so
+-- the wrap from the far edge back to the start is never on screen and passes
+-- read as deliberate strokes instead of a conveyor belt.
+local SWEEP_SHARE = 0.6
+-- How much of the crossing is eased (0 = linear, 1 = full smoothstep). Partial
+-- easing glides in and out without lingering at the edges.
+local SWEEP_EASE = 0.55
 
--- Razor specular: narrow bright core, transparent flanks.
--- Transparency 0 = opaque. Peak stays low so the glint actually reads.
-local GLINT = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.4, 1),
-	NumberSequenceKeypoint.new(0.46, 0.62),
-	NumberSequenceKeypoint.new(0.5, 0.1),
-	NumberSequenceKeypoint.new(0.54, 0.62),
-	NumberSequenceKeypoint.new(0.7, 1),
-	NumberSequenceKeypoint.new(1, 1),
-})
+-- A soft specular band: bell-shaped falloff sampled from a raised cosine. No
+-- hard shoulders, so it reads as light, not a stripe.
+-- Transparency 0 = opaque.
+local function bell(halfWidth, peak, samples)
+	local points = { NumberSequenceKeypoint.new(0, 1) }
+	local low = 0.5 - halfWidth
+	table.insert(points, NumberSequenceKeypoint.new(low, 1))
+	for i = 1, samples - 1 do
+		local u = i / samples -- 0..1 across the band
+		local x = low + u * halfWidth * 2
+		-- Raised cosine: zero slope at both edges and a rounded peak.
+		local lit = (1 - math.cos(u * math.pi * 2)) * 0.5
+		table.insert(points, NumberSequenceKeypoint.new(x, 1 - (1 - peak) * lit))
+	end
+	table.insert(points, NumberSequenceKeypoint.new(0.5 + halfWidth, 1))
+	table.insert(points, NumberSequenceKeypoint.new(1, 1))
+	return NumberSequence.new(points)
+end
 
--- Soft lagging wash behind the core (optional dual-pass).
-local TRAIL = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.34, 1),
-	NumberSequenceKeypoint.new(0.48, 0.92),
-	NumberSequenceKeypoint.new(0.56, 0.72),
-	NumberSequenceKeypoint.new(0.7, 0.96),
-	NumberSequenceKeypoint.new(1, 1),
-})
+local GLINT = bell(0.17, 0.08, 12)
 
-local SWEEP_SPEED = 0.62
-local ROTATION = 16
+-- Broad soft bloom around the core (optional second pass).
+local TRAIL = bell(0.3, 0.7, 12)
+
+local SWEEP_SPEED = 0.42
+local ROTATION = 20
 
 local function clamp01(value)
 	if type(value) ~= "number" or value ~= value then
@@ -3746,6 +3770,21 @@ local function clamp01(value)
 		return 1
 	end
 	return value
+end
+
+-- Where the band is along its crossing (0 = waiting before, 1 = done/waiting after).
+local function sweepProgress(phase)
+	local t = phase
+	if type(t) ~= "number" or t ~= t then
+		t = 0
+	end
+	t = t % 1
+	if t < 0 then
+		t += 1
+	end
+	local u = math.min(t / SWEEP_SHARE, 1)
+	local smooth = u * u * (3 - 2 * u)
+	return u + (smooth - u) * SWEEP_EASE
 end
 
 local function offset(phase, travel, lag)
@@ -3762,11 +3801,7 @@ local function offset(phase, travel, lag)
 	if type(lag) == "number" and lag == lag then
 		t -= lag
 	end
-	t = t % 1
-	if t < 0 then
-		t += 1
-	end
-	return Vector2.new(t * travel - travel * 0.5, 0)
+	return Vector2.new(sweepProgress(t) * travel - travel * 0.5, 0)
 end
 
 local function sweepSpeed(shimmerScale)
@@ -3777,8 +3812,8 @@ end
 -- Peak opacity of the wash layer (0..~0.5). Must stay visible on hover.
 local function surfaceStrength(hoverAmount, idle, shimmerScale)
 	local scale = clamp01(if type(shimmerScale) == "number" then shimmerScale else 1)
-	local hoverStrength = clamp01(hoverAmount) * 0.42
-	local idleStrength = if idle then 0.14 else 0
+	local hoverStrength = clamp01(hoverAmount) * 0.4
+	local idleStrength = if idle then 0.12 else 0
 	return math.clamp(math.max(hoverStrength, idleStrength) * scale, 0, 0.5)
 end
 
@@ -3814,6 +3849,10 @@ return {
 	DEFAULT_TRAVEL = DEFAULT_TRAVEL,
 	TRAIL_LAG = TRAIL_LAG,
 	TRAIL_MIN_SCALE = TRAIL_MIN_SCALE,
+	SWEEP_SHARE = SWEEP_SHARE,
+	SWEEP_EASE = SWEEP_EASE,
+	bell = bell,
+	sweepProgress = sweepProgress,
 	offset = offset,
 	sweepSpeed = sweepSpeed,
 	surfaceStrength = surfaceStrength,
@@ -3825,13 +3864,106 @@ return {
 end
 
 -- ======================================================================
+-- Module: pageTransition   (page-change motion math)
+-- ======================================================================
+__defs["pageTransition"] = function()
+-- Pure math for the workspace page change. The page entrance is one spring
+-- (0 -> 1); everything here maps that single value so the slide, the veil and
+-- the text fade all land together on the same frame.
+
+-- How far the new page travels in (px). Phones slide along the tab bar, so a
+-- little further; Reduced Motion keeps the motion but shortens it.
+local SLIDE_DESKTOP = 18
+local SLIDE_PHONE = 28
+local SOFT_SCALE = 0.45
+-- Peak opacity of the ink veil the instant the page swaps.
+local VEIL_PEAK = 0.62
+-- Veil dissolves faster than the slide finishes: the content is readable early
+-- while the last pixels of travel ease out underneath.
+local VEIL_POWER = 2.2
+
+local function clamp01(value)
+	if type(value) ~= "number" or value ~= value then
+		return 1
+	end
+	return math.clamp(value, 0, 1)
+end
+
+local function indexOf(order, id)
+	if order == nil or id == nil then
+		return nil
+	end
+	for index, entry in order do
+		if entry == id then
+			return index
+		end
+	end
+	return nil
+end
+
+-- +1: the new page comes in from below/right (it sits after the old one in the
+-- nav), -1: from above/left. Unknown pages arrive forward.
+local function direction(fromPage, toPage, order)
+	local from = indexOf(order, fromPage)
+	local to = indexOf(order, toPage)
+	if from == nil or to == nil or from == to then
+		return 1
+	end
+	return if to > from then 1 else -1
+end
+
+local function distance(phone, soft)
+	local base = if phone then SLIDE_PHONE else SLIDE_DESKTOP
+	return if soft then math.floor(base * SOFT_SCALE + 0.5) else base
+end
+
+-- Pixel offset of the content at entrance `amount`. Rounded so text never sits
+-- on half pixels (which shimmers as it moves).
+local function offset(amount, dir, axis, travel)
+	local t = clamp01(amount)
+	local remaining = (1 - t) * (if dir == -1 then -1 else 1) * (travel or SLIDE_DESKTOP)
+	local px = math.round(remaining)
+	if axis == "x" then
+		return px, 0
+	end
+	return 0, px
+end
+
+local function veilTransparency(amount)
+	local t = clamp01(amount)
+	return 1 - VEIL_PEAK * (1 - t) ^ VEIL_POWER
+end
+
+return {
+	SLIDE_DESKTOP = SLIDE_DESKTOP,
+	SLIDE_PHONE = SLIDE_PHONE,
+	SOFT_SCALE = SOFT_SCALE,
+	VEIL_PEAK = VEIL_PEAK,
+	direction = direction,
+	distance = distance,
+	offset = offset,
+	veilTransparency = veilTransparency,
+}
+end
+
+-- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

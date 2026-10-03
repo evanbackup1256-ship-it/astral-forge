@@ -1,7 +1,7 @@
 --!nonstrict
 --[=[
 	PagesProgress: merged module suite.
-	Members (10): StarGridView, ResearchView, LabView, FoundryView, WorkshopView, ForgePathView, ContinuumView, ConvergenceView, BoostsView, WorldsView.
+	Members (9): StarGridView, ResearchView, LabView, WorkshopView, ForgePathView, ContinuumView, ConvergenceView, BoostsView, WorldsView.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -107,9 +107,7 @@ end
 -- Fires a brief flourish only on the false->true edge (node just became buyable or was just
 -- maxed out), so idle nodes never carry a flash subscription.
 local function useNodeUnlockPop(unlocked, reducedMotion)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StarGridView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local wasUnlocked = React.useRef(unlocked)
 	local trigger, setTrigger = React.useState(0)
 	React.useEffect(function()
@@ -153,9 +151,7 @@ local function BranchHeader(_param)
 	local stack = _param.stack
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BranchHeader.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(staggerIndex, reducedMotion)
 	local rowH = if stack then BRANCH_H_STACK else BRANCH_H
 	return React.createElement(Panel, {
@@ -241,9 +237,7 @@ local function NodeRow(_param)
 	local stack = _param.stack
 	local staggerIndex = _param.staggerIndex
 	local layoutOrder = _param.layoutOrder
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StarGridNode.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(staggerIndex, reducedMotion)
 	local rowH = if stack then NODE_H_STACK else NODE_H
 	local _condition = upgrade.PreviousId == nil
@@ -396,8 +390,7 @@ local function StarGridViewComponent(_param)
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — StarGridView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local buyAllHostRef = React.useRef(nil)
 	local branches = config.GridBranches or {}
@@ -989,9 +982,7 @@ local ResearchNode = React.memo(function(props)
 	local _binding = props
 	local entry = _binding.entry
 	local reducedMotion = _binding.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ResearchNode.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local index = _binding.index
 	local onBuy = _binding.onBuy
 	local stack = _binding.stack
@@ -1128,8 +1119,7 @@ local function ResearchView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ResearchView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
@@ -1424,9 +1414,7 @@ local function OrderRow(_param)
 	local stack = _param.stack
 	local ready = not state.Claimed and state.Progress >= state.Target
 	local fill = meterFill(state.Progress, state.Target, state.Claimed or ready)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LabOrderRow (computed, now applied).
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local reveal = useStagger(order, reducedMotion)
 	local claimTrigger, setClaimTrigger = React.useState(0)
@@ -1555,9 +1543,7 @@ local function PowerRow(_param)
 	local reducedMotion = _param.reducedMotion
 	local y = _param.y
 	local stack = _param.stack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LabPowerRow (computed, now applied).
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local rowH = if stack then POWER_ROW_H_STACK else POWER_ROW_H
 	local badgeX = POWER_BTN + 94 + ROW_RIGHT
@@ -1688,15 +1674,11 @@ local function LabView(_param)
 	local stack = chrome.contentStack
 	local lab = state.Lab
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — LabView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local now = useWallClock(true)
 	local headerReveal = useStagger(0, softMotion)
-	-- Canonical softMotion antilag gate — LabOrders.
 	local ordersReveal = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — LabClaim.
 	local claimReveal = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — LabBoard.
 	local boardReveal = useStagger(3, softMotion)
 	local labSoft = reducedMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
 	local labClaimHostRef = React.useRef(nil)
@@ -2091,465 +2073,11 @@ return {
 end
 
 -- ======================================================================
--- Module: FoundryView   (merged from FoundryView.luau, 447 lines)
--- ======================================================================
-__defs["FoundryView"] = function()
--- The Foundry: spend the ore mined in the sanctuary on lasting upgrades.
---
--- Balances come from state.Ore (OreMath.PublicState on the server): the three
--- ores and every upgrade with its level, bonus, next bonus and cost. Buying
--- sends BuyOreUpgrade; the server checks the cost and the level cap.
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local _ui = require(script.Parent.Parent.UiCore)("ui")
-local Panel = _ui.Panel
-local Button = _ui.Button
-local Text = _ui.Text
-local Meter = _ui.Meter
-local IconTile = _ui.IconTile
-local _motion = require(script.Parent.Parent.MotionKit)("motion")
-local useStagger = _motion.useStagger
-local useViewport = _motion.useViewport
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
-local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
-local _theme = require(script.Parent.Parent.CoreKit)("theme")
-local chromeFor = _theme.chromeFor
-local Layout = _theme.Layout
-local Palette = _theme.Palette
-local scrollTail = _theme.scrollTail
-local TapTarget = _theme.TapTarget
-local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
-local compactNumber = require(script.Parent.Parent.CoreKit)("format").compactNumber
-local SanctuaryConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SanctuaryConfig")
-
-local ACCENT = Color3.fromRGB(255, 150, 84)
-local ROW_H = 112
-local ROW_H_STACK = 176
-local BUY_W = 150
-
-local EFFECT_NOUNS = {
-	Production = "production",
-	Capacity = "vault capacity",
-	Tap = "overcharge tap power",
-	BossDamage = "damage to the Rift Warden",
-	OreYield = "ore from every outcrop",
-}
-
-local REGION_NAMES = {
-	Emberreach = "Emberreach",
-	Hollows = "Voidglass Hollows",
-	Spire = "Starsteel Spire",
-}
-
-local ORE_INFO = {}
-for index, ore in SanctuaryConfig.Ore.Types do
-	ORE_INFO[ore.Id] = {
-		order = index,
-		name = ore.Name,
-		color = Color3.fromRGB(ore.Color[1], ore.Color[2], ore.Color[3]),
-		region = REGION_NAMES[ore.Region] or ore.Region,
-	}
-end
-
-local function percent(value: number): string
-	local scaled = value * 100
-	if math.abs(scaled - math.floor(scaled + 0.5)) < 0.05 then
-		return `+{math.floor(scaled + 0.5)}%`
-	end
-	return string.format("+%.1f%%", scaled)
-end
-
--- A small gem in the ore's colour, for balances and cost chips.
-local function Gem(props)
-	return React.createElement("frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = props.position,
-		Size = UDim2.fromOffset(props.size, props.size),
-		Rotation = 45,
-		BackgroundColor3 = props.color,
-		BorderSizePixel = 0,
-		ZIndex = props.zIndex or 3,
-	})
-end
-
-local function OreBalance(props)
-	local info = ORE_INFO[props.id]
-	return React.createElement("frame", {
-		Size = props.size,
-		BackgroundColor3 = Palette.night,
-		BackgroundTransparency = 0.2,
-		BorderSizePixel = 0,
-		LayoutOrder = info.order,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement("uistroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Color = info.color,
-		Transparency = 0.72,
-		Thickness = 1,
-	}), React.createElement(Gem, {
-		position = UDim2.fromOffset(18, 20),
-		size = 10,
-		color = info.color,
-	}), React.createElement(Text, {
-		value = compactNumber(props.amount),
-		size = 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(32, 8),
-		sizeConstraint = UDim2.new(1, -40, 0, 24),
-	}), React.createElement(Text, {
-		value = info.name,
-		size = 11,
-		color = info.color,
-		weight = Enum.FontWeight.Bold,
-		position = UDim2.fromOffset(12, 36),
-		sizeConstraint = UDim2.new(1, -20, 0, 14),
-	}), React.createElement(Text, {
-		value = `Mined in {info.region}`,
-		size = 10,
-		color = Palette.muted,
-		position = UDim2.fromOffset(12, 52),
-		sizeConstraint = UDim2.new(1, -20, 0, 14),
-	}))
-end
-
-local function CostChips(props)
-	local chips = {
-		Layout = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 10),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-		}),
-	}
-	for oreId, amount in props.cost do
-		local info = ORE_INFO[oreId]
-		if info == nil then
-			continue
-		end
-		local have = tonumber(props.balances[oreId]) or 0
-		local short = have < amount
-		-- UIListLayout + fixed gem tile — never AbsolutePosition + AutomaticSize
-		-- (Scale/AABB feedback can inflate cost chips under scroll rows).
-		chips[oreId] = React.createElement("frame", {
-			Size = UDim2.fromOffset(0, 20),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = info.order,
-			ClipsDescendants = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 6),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-		}), React.createElement("frame", {
-			Size = UDim2.fromOffset(10, 20),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 1,
-		}, React.createElement(Gem, {
-			position = UDim2.fromOffset(5, 10),
-			size = 8,
-			color = info.color,
-		})), React.createElement("textlabel", {
-			Size = UDim2.fromOffset(0, 20),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 2,
-			Text = `{compactNumber(amount)} {info.name}`,
-			TextColor3 = if short then Palette.coral else Palette.creamSoft,
-			TextSize = 12,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
-			TextXAlignment = Enum.TextXAlignment.Left,
-		}))
-	end
-	return React.createElement("frame", {
-		Position = props.position,
-		Size = props.size,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, chips)
-end
-
-local function UpgradeRow(props)
-	local upgrade = props.upgrade
-	local stack = props.stack
-	local reducedMotion = props.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — UpgradeRow.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	local reveal = useStagger(props.index, softMotion, 0.02, 0.14)
-	local maxed = upgrade.Maxed == true
-	local ready = upgrade.Affordable == true and not maxed
-	local noun = EFFECT_NOUNS[upgrade.Effect] or string.lower(upgrade.Effect)
-	local levelText = `Level {upgrade.Level} of {upgrade.MaxLevel}`
-	local bonusText = if maxed
-		then `{percent(upgrade.Bonus)} {noun} · complete`
-		else `{percent(upgrade.Bonus)} → {percent(upgrade.NextBonus)} {noun}`
-	local textW = if stack then 0 else -(BUY_W + 16)
-	local buttonText = if maxed then "MAXED" elseif ready then "FORGE" else "NEED ORE"
-	local buy = React.createElement(Button, {
-		text = buttonText,
-		icon = if maxed then "Check" else "Forge",
-		onClick = function()
-			if ready then
-				props.onBuy(upgrade.Id)
-			end
-		end,
-		color = if ready then ACCENT else Palette.panelSoft,
-		textColor = if ready then Palette.ink else Palette.muted,
-		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
-		disabled = not ready,
-		highlight = ready,
-	})
-	return React.createElement("frame", {
-		Size = UDim2.new(1, -4, 0, if stack then ROW_H_STACK else ROW_H),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		LayoutOrder = props.index,
-		ClipsDescendants = false,
-	}, React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = if ready then ACCENT else Palette.lineSoft,
-		background = Palette.panel,
-		padding = 14,
-		reveal = reveal,
-		highlight = ready,
-		reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement(Text, {
-		value = upgrade.Name,
-		size = 16,
-		color = if maxed then Palette.creamSoft else Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		sizeConstraint = UDim2.new(1, textW - 110, 0, 22),
-	}), React.createElement(Text, {
-		value = levelText,
-		size = 11,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		align = Enum.TextXAlignment.Right,
-		position = UDim2.new(1, textW - 110, 0, 2),
-		sizeConstraint = UDim2.new(0, 110, 0, 18),
-	}), React.createElement(Text, {
-		value = upgrade.Description,
-		size = 12,
-		color = Palette.creamSoft,
-		wrap = true,
-		position = UDim2.fromOffset(0, 24),
-		sizeConstraint = UDim2.new(1, textW, 0, 18),
-	}), React.createElement(Meter, {
-		value = upgrade.Level / math.max(1, upgrade.MaxLevel),
-		color = if maxed then Palette.mint else ACCENT,
-		reducedMotion = softMotion,
-		shimmer = ready,
-		position = UDim2.fromOffset(0, 48),
-		size = UDim2.new(1, textW, 0, 5),
-	}), React.createElement(Text, {
-		value = bonusText,
-		size = 12,
-		color = if maxed then Palette.mint else Palette.cream,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		position = UDim2.fromOffset(0, 58),
-		sizeConstraint = UDim2.new(1, textW, 0, 18),
-	}), not maxed and React.createElement(CostChips, {
-		cost = upgrade.Cost,
-		balances = props.balances,
-		position = UDim2.fromOffset(0, 78),
-		size = UDim2.new(1, textW, 0, 20),
-	}), React.createElement("frame", {
-		Name = "FoundryClaimActions",
-		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(BUY_W, TapTarget),
-		Position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -BUY_W, 0.5, -TapTarget / 2),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ref = props.claimRef,
-	}, buy)))
-end
-
-local function FoundryViewComponent(_param)
-	local state, dispatch, reducedMotion = _param.state, _param.dispatch, _param.reducedMotion
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local stack = chrome.contentStack
-	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
-	reducedMotion = softMotion
-	local ore = if type(state.Ore) == "table" then state.Ore else {}
-	local balances = if type(ore.Balances) == "table" then ore.Balances else {}
-	local upgrades = if type(ore.Upgrades) == "table" then ore.Upgrades else {}
-	local headerReveal = useStagger(0, softMotion)
-	local claimRef = React.useRef(nil)
-
-	local total = 0
-	for _, amount in balances do
-		total += tonumber(amount) or 0
-	end
-	local firstReady = nil
-	for index, upgrade in upgrades do
-		if upgrade.Affordable == true and upgrade.Maxed ~= true then
-			firstReady = index
-			break
-		end
-	end
-
-	-- Gamepad: park Selection on the first upgrade that can be forged.
-	React.useEffect(function()
-		if firstReady == nil or not UserInputService.GamepadEnabled then
-			return nil
-		end
-		local host = claimRef.current
-		if host == nil then
-			return nil
-		end
-		local job = task.defer(function()
-			if host.Parent ~= nil then
-				GamepadNavigationService.FocusClaim(host)
-			end
-		end)
-		return function()
-			pcall(task.cancel, job)
-		end
-	end, { firstReady })
-
-	local onBuy = function(id)
-		return dispatch("BuyOreUpgrade", { Id = id })
-	end
-	local gap = if stack then chrome.panelGap else Layout.panelGap
-	local rowH = if stack then ROW_H_STACK else ROW_H
-	local oreTileH = 72
-	local oreRow = if stack then oreTileH * 3 + 16 else oreTileH
-	local heroH = (if stack then 96 else 86) + oreRow + 16
-
-	local oreTiles = {
-		Layout = React.createElement("uilistlayout", {
-			FillDirection = if stack then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	for _, oreType in SanctuaryConfig.Ore.Types do
-		oreTiles[oreType.Id] = React.createElement(OreBalance, {
-			id = oreType.Id,
-			amount = tonumber(balances[oreType.Id]) or 0,
-			size = if stack then UDim2.new(1, 0, 0, oreTileH) else UDim2.new(1 / 3, -6, 0, oreTileH),
-		})
-	end
-
-	local rows = {
-		Layout = React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			Padding = UDim.new(0, gap),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-	for index, upgrade in upgrades do
-		rows[upgrade.Id] = React.createElement(UpgradeRow, {
-			upgrade = upgrade,
-			balances = balances,
-			index = index,
-			stack = stack,
-			reducedMotion = reducedMotion,
-			onBuy = onBuy,
-			claimRef = if index == firstReady then claimRef else nil,
-		})
-	end
-	local listH = #upgrades * rowH + math.max(0, #upgrades - 1) * gap
-
-	local sections = {
-		{
-			id = "hero",
-			height = heroH,
-			element = React.createElement(Panel, {
-				size = UDim2.fromScale(1, 1),
-				accent = ACCENT,
-				background = Palette.panelRaised,
-				padding = if stack then 14 else 16,
-				reveal = headerReveal,
-				clips = false,
-			}, React.createElement(IconTile, {
-				kind = "Artifact",
-				accent = ACCENT,
-				size = 44,
-				radius = 12,
-				spin = false,
-				reducedMotion = softMotion,
-			}), React.createElement(Text, {
-				value = "FOUNDRY",
-				size = 10,
-				color = ACCENT,
-				weight = Enum.FontWeight.Heavy,
-				position = UDim2.fromOffset(58, 2),
-				sizeConstraint = UDim2.new(1, -58, 0, 14),
-			}), React.createElement(Text, {
-				value = "Turn sanctuary ore into lasting upgrades",
-				size = if stack then 16 else 19,
-				color = Palette.cream,
-				weight = Enum.FontWeight.Heavy,
-				wrap = true,
-				position = UDim2.fromOffset(58, 18),
-				sizeConstraint = UDim2.new(1, -58, 0, if stack then 40 else 24),
-			}), React.createElement(Text, {
-				value = if total > 0
-					then "Upgrades here stay through rebirth."
-					else "Enter the sanctuary and hold E at a glowing outcrop to mine your first ore.",
-				size = 12,
-				color = Palette.creamSoft,
-				wrap = true,
-				position = UDim2.fromOffset(58, if stack then 60 else 46),
-				sizeConstraint = UDim2.new(1, -58, 0, 30),
-			}), React.createElement("frame", {
-				Position = UDim2.new(0, 0, 1, -oreRow),
-				Size = UDim2.new(1, 0, 0, oreRow),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, oreTiles)),
-		},
-		{
-			id = "upgrades",
-			height = math.max(rowH, listH),
-			element = React.createElement("frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ClipsDescendants = false,
-			}, rows),
-		},
-	}
-	return React.createElement(PageScaffold, {
-		gap = gap,
-		tailPad = scrollTail(stack, chrome.bottomSafe, 48),
-		scrollBarColor = ACCENT,
-		scrollBarThickness = 4,
-		sections = sections,
-	})
-end
-
-local FoundryView = React.memo(FoundryViewComponent, function(previous, incoming)
-	return previous.dispatch == incoming.dispatch
-		and previous.reducedMotion == incoming.reducedMotion
-		and previous.state.Ore == incoming.state.Ore
-end)
-
-return { FoundryView = FoundryView }
-end
-
--- ======================================================================
 -- Module: WorkshopView   (merged from WorkshopView.luau, 1153 lines)
 -- ======================================================================
 __defs["WorkshopView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useClock = _motion.useClock
@@ -2599,12 +2127,10 @@ local function MachineRow(_param)
 	if lockShort == nil then
 		lockShort = ""
 	end
-	local antilag = useAntilag()
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	-- Canonical softMotion antilag gate — MachineRow buy springs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local rowH = PageBoardHeights.Machine(stack)
 	local price = bulkCost(machine.BaseCost, machine.CostScale, level, buyAmount, machine.MaxLevel, cash)
@@ -2612,7 +2138,7 @@ local function MachineRow(_param)
 	local ready = unlocked and gteFlux(cash, price) and not maxed
 	local accent = machine.Accent or machine.Color
 	local running = level > 0
-	local flow = useClock(running and not softMotion and antilag.allowAmbient and antilag.tier >= 2, 0.55, 1)
+	local flow = useClock(running, 0.55, 1)
 	local buyLabel = if not unlocked then (if lockShort ~= "" then lockShort else "Locked") elseif maxed then "Maxed" elseif ready then (if level < 1 then "Buy this" else "Buy level") else `Need {compactNumber(price)} Flux`
 	local _condition = machine.BaseProduction
 	if _condition == nil then
@@ -2774,11 +2300,8 @@ local function UpgradeBoard(_param)
 	end
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — VirtualGrid overscan / Buy CTAs drop on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — WorkshopBoard.
 	local workshopHostReveal = useStagger(4, softMotion)
 	local workshopBuyHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on BUY ALL (FocusClaim prefers Claim/Buy-named hosts).
@@ -3220,9 +2743,7 @@ local function AutoForgePanel(_param)
 	local reducedMotion = _param.reducedMotion
 	local height = _param.height
 	local viewport = useViewport()
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — AutoForge controls drop springs on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chromeFor(viewport).stack
 	local _condition = state.AutoForge
@@ -3788,10 +3309,7 @@ end
 local function ForgePathRow(_param)
 	local step, claimed, unlockedForClaim, affordable, xp = _param.step, _param.claimed, _param.unlockedForClaim, _param.affordable, _param.xp
 	local onClaim, reducedMotion, index, stack = _param.onClaim, _param.reducedMotion, _param.index, _param.stack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ForgePathRow.
-	-- Canonical softMotion antilag gate — ForgePathView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local reveal = useStagger(index, reducedMotion, 0.015, 0.12)
 	local ready = not claimed and unlockedForClaim and affordable
 	local locked = not claimed and not unlockedForClaim
@@ -3821,9 +3339,7 @@ end
 local function SpotlightPanel(_param)
 	local step, xp, ready, complete, guide = _param.step, _param.xp, _param.ready, _param.complete, _param.guide
 	local onClaim, reducedMotion, stack = _param.onClaim, _param.reducedMotion, _param.stack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — SpotlightPanel.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	local claimHostRef = React.useRef(nil)
 	-- Gamepad: park Selection on CLAIM NOW when ready.
 	React.useEffect(function()
@@ -3873,7 +3389,7 @@ local function ForgePathViewComponent(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local forgePath = state.ForgePath or EMPTY_FORGE_PATH
 	local guide = pageGuide(config)
@@ -3992,7 +3508,6 @@ __defs["ContinuumView"] = function()
 -- is missing, and what the rank already gives you.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local compactNumber = _format.compactNumber
@@ -4067,9 +3582,7 @@ local function ContinuumView(_param)
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ContinuumView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local continuum = state.Continuum or EMPTY_CONTINUUM
@@ -4279,7 +3792,6 @@ local _motion = require(script.Parent.Parent.MotionKit)("motion")
 local useEntrance = _motion.useEntrance
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local useWallClock = _motion.useWallClock
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
@@ -4302,20 +3814,15 @@ local function ConvergenceView(_param)
 	local event = state.Convergence
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — ConvergenceView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = chrome.contentStack
 	local now = useWallClock(event ~= nil)
 	local enter = useEntrance(softMotion)
 	local reveal = useStagger(0, softMotion)
 	local revealTiers = useStagger(1, softMotion)
-	-- Canonical softMotion antilag gate — ConvergenceTier.
 	local revealClaim = useStagger(2, softMotion)
-	-- Canonical softMotion antilag gate — ConvergenceHero.
 	local revealHero = useStagger(3, softMotion)
-	-- Canonical softMotion antilag gate — ConvergenceFill.
 	local revealFill = useStagger(4, softMotion)
 	local convergenceSoft = softMotion or revealHero == nil or revealFill == nil
 	if event == nil then
@@ -4604,9 +4111,7 @@ local function ActiveBoostHero(_param)
 	local endsAt = _param.endsAt
 	local now = _param.now
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BoostsView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local stack = _param.stack
 	local remaining = now:map(function(timestamp)
@@ -4743,9 +4248,7 @@ local function BoostCard(_param)
 	local canActivate = _param.canActivate
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — BoostsView.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local index = _param.index
 	local stack = _param.stack
@@ -4872,7 +4375,7 @@ local function BoostsView(_param)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
 	local activateHostRef = React.useRef(nil)
@@ -5194,8 +4697,7 @@ local function WorldRow(_param)
 	local coresOk = _param.coresOk
 	local rebirthOk = _param.rebirthOk
 	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — WorldRow entrance drops on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
 	local skipMotion = softMotion or layoutOrder > 4 or antilag.skipEntrance
 	local reveal = useStagger(math.min(layoutOrder, 4), skipMotion, 0.02, 0.14)
@@ -5314,11 +4816,8 @@ local function WorldsView(_param)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
-	local antilag = useAntilag()
-	-- Canonical softMotion antilag gate — Worlds travel/unlock CTAs drop springs on soft tiers.
-	local softMotion = reducedMotion or antilag.tier <= 1 or not antilag.allowAmbient
+	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	-- Canonical softMotion antilag gate — WorldsBoard.
 	local boardReveal = useStagger(0, softMotion)
 	local travelReveal = useStagger(1, softMotion)
 	local headerReveal = boardReveal
@@ -5606,11 +5105,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

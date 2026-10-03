@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	ProfileMath: merged module suite.
-	Members (20): ProfileClampMath, SettingsSeal, UnlimitedMoneySeal, PublicPlayerRecord, AutoSalvageSnapshot, ItemLoadoutMath, ItemSalvage, GeneralBoardValue, UtcClockMath, StoryMailSnapshot, VisitSnapshot, VisitorList, RankBracket, Format, ActionFeatureMaps, ActionResponse, CommandActionValidators, ShopGrantEligibility, SocialBoost, TelemetryMath.
+	Members (21): ProfileClampMath, SettingsSeal, UnlimitedMoneySeal, PublicPlayerRecord, ReportLedger, AutoSalvageSnapshot, ItemLoadoutMath, ItemSalvage, GeneralBoardValue, UtcClockMath, StoryMailSnapshot, VisitSnapshot, VisitorList, RankBracket, Format, ActionFeatureMaps, ActionResponse, CommandActionValidators, ShopGrantEligibility, SocialBoost, TelemetryMath.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -206,10 +206,126 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 		SocialFlags = 0,
 		CurrentPage = liveEntry and liveEntry.Page or "Overview",
 		PresenceAge = liveEntry and math.max(0, os.time() - liveEntry.UpdatedAt) or -1,
+		AccountAge = player.AccountAge,
+		-- Enum is nil under Lune, where tests build records from plain tables.
+		Premium = Enum ~= nil and player.MembershipType == Enum.MembershipType.Premium,
 	}
 end
 
 return PublicPlayerRecord
+end
+
+-- ======================================================================
+-- Module: ReportLedger
+-- ======================================================================
+__defs["ReportLedger"] = function()
+-- Player reports for one server: who reported whom and when. Stops repeat
+-- reports of the same player, caps how many reports one player can send,
+-- and tallies reports per target so moderators see a pattern, not one line.
+-- Pure: the caller passes `now`, so Lune tests drive it directly.
+
+local ReportLedger = {}
+ReportLedger.__index = ReportLedger
+
+-- The reasons a report can carry, in the order the client shows them.
+ReportLedger.REASONS = table.freeze({ "Exploiting", "Scamming", "Harassment", "Trolling", "Spam", "Inappropriate", "Other" })
+local REASON_SET = {}
+for _, reason in ReportLedger.REASONS do
+	REASON_SET[reason] = true
+end
+
+ReportLedger.REPEAT_SECONDS = 600 -- the same reporter and target, once per 10 minutes
+ReportLedger.WINDOW_SECONDS = 3600 -- rate limit and tally window
+ReportLedger.MAX_PER_WINDOW = 6 -- reports one player may send per window
+
+function ReportLedger.isReason(reason: any): boolean
+	return type(reason) == "string" and REASON_SET[reason] == true
+end
+
+function ReportLedger.new()
+	return setmetatable({
+		-- [reporterId] = { { target, at } ... }
+		_sent = {},
+		-- [targetId] = { { reporter, reason, at } ... }
+		_against = {},
+	}, ReportLedger)
+end
+
+local function prune(list, now: number, window: number)
+	local write = 0
+	for _, entry in list do
+		if now - entry.at < window then
+			write += 1
+			list[write] = entry
+		end
+	end
+	for index = #list, write + 1, -1 do
+		list[index] = nil
+	end
+end
+
+-- Whether `reporter` may report `target` now. Returns ok, and a player-facing
+-- reason when not.
+function ReportLedger:canReport(reporter: number, target: number, now: number): (boolean, string?)
+	local sent = self._sent[reporter]
+	if sent == nil then
+		return true, nil
+	end
+	prune(sent, now, ReportLedger.WINDOW_SECONDS)
+	for _, entry in sent do
+		if entry.target == target and now - entry.at < ReportLedger.REPEAT_SECONDS then
+			local minutes = math.max(1, math.ceil((ReportLedger.REPEAT_SECONDS - (now - entry.at)) / 60))
+			return false, string.format("You already reported this player. You can report them again in %d min.", minutes)
+		end
+	end
+	if #sent >= ReportLedger.MAX_PER_WINDOW then
+		return false, "You've sent a lot of reports this hour. Try again later."
+	end
+	return true, nil
+end
+
+-- Records a report that passed canReport. Returns the target's tally for the
+-- window: total reports and distinct reporters, this one included.
+function ReportLedger:record(reporter: number, target: number, reason: string, now: number): (number, number)
+	local sent = self._sent[reporter]
+	if sent == nil then
+		sent = {}
+		self._sent[reporter] = sent
+	end
+	table.insert(sent, { target = target, at = now })
+	local against = self._against[target]
+	if against == nil then
+		against = {}
+		self._against[target] = against
+	end
+	table.insert(against, { reporter = reporter, reason = reason, at = now })
+	return self:tally(target, now)
+end
+
+function ReportLedger:tally(target: number, now: number): (number, number)
+	local against = self._against[target]
+	if against == nil then
+		return 0, 0
+	end
+	prune(against, now, ReportLedger.WINDOW_SECONDS)
+	local reporters = {}
+	local distinct = 0
+	for _, entry in against do
+		if not reporters[entry.reporter] then
+			reporters[entry.reporter] = true
+			distinct += 1
+		end
+	end
+	return #against, distinct
+end
+
+-- Players who left take their outgoing history with them; reports against
+-- them stay until the window ends so a rejoin doesn't reset the tally.
+function ReportLedger:forgetReporter(reporter: number)
+	self._sent[reporter] = nil
+end
+
+return ReportLedger
 end
 
 -- ======================================================================
@@ -976,7 +1092,6 @@ ActionFeatureMaps.FEATURE = {
 	DeleteMail = "Mail",
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
-	BuyOreUpgrade = "Foundry",
 	CasinoPlay = "Casino",
 	BazaarPlay = "Bazaar",
 }
@@ -1051,8 +1166,6 @@ CommandActionValidators.READ_ONLY = {
 	TradeViewAway = true,
 	ReportClientIntegrity = true,
 	ReportPerformance = true,
-	EnterSanctuary = true,
-	LeaveSanctuary = true,
 	SetTutorialStep = true,
 	ReplayTutorial = true,
 }
@@ -1089,9 +1202,6 @@ CommandActionValidators.DEFERRED_SNAPSHOT = {
 	ReadMail = true,
 	ReportPresence = true,
 	SelectZone = true,
-	-- A strike changes the Warden, not the striker's profile.
-	StrikeRiftBoss = true,
-	TravelWaystone = true,
 }
 
 function CommandActionValidators.IsValidAction(action: any): boolean
@@ -1441,11 +1551,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })

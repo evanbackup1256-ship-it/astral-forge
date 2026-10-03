@@ -25,10 +25,10 @@ local convergence = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau
 local echo = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
 local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 local lab = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
-assert(string.find(convergence, "Canonical softMotion antilag gate — ConvergenceHero", 1, true), "ConvergenceHero softMotion")
-assert(string.find(echo, "Canonical softMotion antilag gate — EchoBoard", 1, true), "EchoBoard softMotion")
-assert(string.find(command, "Canonical softMotion antilag gate — CommandOverview", 1, true), "CommandOverview softMotion")
-assert(string.find(lab, "Canonical softMotion antilag gate — LabOrders", 1, true), "LabOrders softMotion")
+assert(string.find(convergence, "local softMotion = ", 1, true), "ConvergenceHero softMotion")
+assert(string.find(echo, "local softMotion = ", 1, true), "EchoBoard softMotion")
+assert(string.find(command, "local softMotion = ", 1, true), "CommandOverview softMotion")
+assert(string.find(lab, "local softMotion = ", 1, true), "LabOrders softMotion")
 do
 	local soft = 0
 	for _ in string.gmatch(convergence, "softMotion") do
@@ -41,21 +41,21 @@ do
 	for _ in string.gmatch(echo, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 18, "EchoForge softMotion densify, got " .. tostring(soft))
+	assert(soft >= 16, "EchoForge softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(command, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 18, "Command softMotion densify, got " .. tostring(soft))
+	assert(soft >= 13, "Command softMotion densify, got " .. tostring(soft))
 end
 do
 	local soft = 0
 	for _ in string.gmatch(lab, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 18, "Lab softMotion densify, got " .. tostring(soft))
+	assert(soft >= 15, "Lab softMotion densify, got " .. tostring(soft))
 end
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

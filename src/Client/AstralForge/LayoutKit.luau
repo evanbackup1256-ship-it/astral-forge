@@ -810,6 +810,53 @@ function Plan.textFloor(touch: boolean, textSize: number, scaled: boolean): numb
 	return Plan.TOUCH_TEXT_FLOOR
 end
 
+-- A label that doesn't fit gets wrapped before it gets shrunk, when its box has
+-- room for at least two lines: shrinking a sentence to 8px reads far worse than
+-- breaking it across lines.
+Plan.WRAP_LINE_FACTOR = 2.1
+function Plan.shouldWrap(textSize: number, boxHeight: number, wrapped: boolean, scaled: boolean): boolean
+	if wrapped or scaled or textSize <= 0 then
+		return false
+	end
+	return boxHeight >= textSize * Plan.WRAP_LINE_FACTOR
+end
+
+-- Two labels in the same row collide when their glyphs overlap sideways by at
+-- least this share of the narrower one, and share most of their height.
+Plan.LABEL_COLLIDE_SHARE = 0.12
+Plan.LABEL_ROW_SHARE = 0.5
+function Plan.labelsCollide(a, b): boolean
+	local width = math.min(a.x1 - a.x0, b.x1 - b.x0)
+	local height = math.min(a.y1 - a.y0, b.y1 - b.y0)
+	if width <= 0 or height <= 0 then
+		return false
+	end
+	local sideways = math.max(0, math.min(a.x1, b.x1) - math.max(a.x0, b.x0))
+	local shared = math.max(0, math.min(a.y1, b.y1) - math.max(a.y0, b.y0))
+	return sideways / width >= Plan.LABEL_COLLIDE_SHARE and shared / height >= Plan.LABEL_ROW_SHARE
+end
+
+-- How far to move a floating panel so it sits inside the screen with `margin`
+-- to spare. A panel bigger than the screen keeps its top-left edge in view.
+Plan.SCREEN_MARGIN = 6
+function Plan.nudgeIntoView(x0: number, y0: number, x1: number, y1: number, screenW: number, screenH: number): (number, number)
+	local margin = Plan.SCREEN_MARGIN
+	local dx, dy = 0, 0
+	if x1 > screenW - margin then
+		dx = (screenW - margin) - x1
+	end
+	if x0 + dx < margin then
+		dx = margin - x0
+	end
+	if y1 > screenH - margin then
+		dy = (screenH - margin) - y1
+	end
+	if y0 + dy < margin then
+		dy = margin - y0
+	end
+	return dx, dy
+end
+
 -- Frames for one full sweep of `count` instances at the steady budget.
 function Plan.sweepFrames(count: number): number
 	return math.max(1, math.ceil(math.max(0, count) / Plan.SWEEP_PER_FRAME))
@@ -1025,8 +1072,11 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local Palette = require(script.Parent.CoreKit)("theme").Palette
 local planFillHeight = __load("pageScaffoldPlan").planFillHeight
 local planFittedHeights = __load("pageScaffoldPlan").planFittedHeights
+local planOverflow = __load("pageScaffoldPlan").planOverflow
+local PageScrollContext = __load("scrolling").PageScrollContext
 local function SpringSection(props)
 	return React.createElement("frame", {
+		ref = props.frameRef,
 		Size = UDim2.new(1, 0, 0, math.max(0, props.height)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -1115,7 +1165,40 @@ local function PageScaffold(_param)
 		end
 	end
 	-- ▲ ReadonlyArray.find ▲
-	local fittedHeights = planFittedHeights(sections, available, gap, tailPad)
+	-- When the sections can't all fit (short phones, landscape), the page itself has to scroll.
+	-- A list in the fill section then joins that scroll instead of nesting a second scroller:
+	-- it reports its full content height here, and the fill section grows to hold it.
+	local overflowing = planOverflow(sections, available, gap, tailPad)
+	local fillContent, setFillContent = React.useState(0)
+	local reportFill = React.useCallback(function(height)
+		local rounded = math.max(0, math.ceil(height))
+		setFillContent(function(current)
+			return if current == rounded then current else rounded
+		end)
+	end, {})
+	local fillSectionRef = React.useRef()
+	local scrollContext = React.useMemo(function()
+		return {
+			hostRef = hostRef,
+			sectionRef = fillSectionRef,
+			overflowing = overflowing,
+			report = reportFill,
+		}
+	end, { overflowing, hostRef })
+	local planSections = sections
+	if overflowing and fillContent > 0 then
+		planSections = table.create(#sections)
+		for index, section in sections do
+			if section.fill == true then
+				local grown = table.clone(section)
+				grown.height = math.max(section.height or 0, fillContent)
+				planSections[index] = grown
+			else
+				planSections[index] = section
+			end
+		end
+	end
+	local fittedHeights = planFittedHeights(planSections, available, gap, tailPad)
 	local _exp = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1139,7 +1222,12 @@ local function PageScaffold(_param)
 		end
 		_attributes.height = _result_3
 		_attributes.layoutOrder = index
-		_attributes.element = section.element
+		_attributes.element = if section.fill == true
+			then React.createElement(PageScrollContext.Provider, { value = scrollContext }, section.element)
+			else section.element
+		if section.fill == true then
+			_attributes.frameRef = fillSectionRef
+		end
 		return React.createElement(SpringSection, _attributes)
 	end
 	for _k, _v in sections do
@@ -1262,9 +1350,32 @@ local function planFittedHeights(sections: { any }, availableHeight: number, gap
 	return heights
 end
 
+-- True when the sections' minimum total (fixed heights, gaps, tail, and the fill section's
+-- minHeight) doesn't fit, i.e. the scaffold itself has to scroll. It deliberately ignores how
+-- tall a list in the fill section wants to be, so a list joining the page scroll can't flip it.
+local function planOverflow(sections: { any }, availableHeight: number, gap: number?, tailPad: number?): boolean
+	if availableHeight <= 0 then
+		return false
+	end
+	local resolvedGap = if gap == nil then 10 else gap
+	local resolvedTail = if tailPad == nil then 8 else tailPad
+	local total = resolvedGap * math.max(0, #sections - 1) + resolvedTail
+	local hasFill = false
+	for _, section in sections do
+		if section.fill == true then
+			hasFill = true
+			total += if section.minHeight == nil then 120 else section.minHeight
+		else
+			total += section.height or 0
+		end
+	end
+	return hasFill and total > availableHeight + 0.5
+end
+
 return {
 	planFillHeight = planFillHeight,
 	planFittedHeights = planFittedHeights,
+	planOverflow = planOverflow,
 }
 end
 
@@ -1571,6 +1682,25 @@ local function clampFor(frame, value)
 	local maximum = bounds(frame)
 	return Vector2.new(math.clamp(value.X, 0, maximum.X), math.clamp(value.Y, 0, maximum.Y))
 end
+-- Whether `delta` would still move `frame` (measured from where its current fling is heading).
+local function canScrollToward(frame, delta)
+	local maximum = bounds(frame)
+	local motion = motions[frame]
+	local from = if motion ~= nil then motion.target else frame.CanvasPosition
+	if delta.Y ~= 0 then
+		if maximum.Y <= 0.5 then
+			return false
+		end
+		return if delta.Y < 0 then from.Y > 0.5 else from.Y < maximum.Y - 0.5
+	end
+	if delta.X ~= 0 then
+		if maximum.X <= 0.5 then
+			return false
+		end
+		return if delta.X < 0 then from.X > 0.5 else from.X < maximum.X - 0.5
+	end
+	return false
+end
 local ensureMotionDriver
 local function targetFor(frame)
 	local _frame = frame
@@ -1838,14 +1968,25 @@ local function installScrollPerformance()
 				if not installed then
 					return nil
 				end
-				local frame = frameUnderPointer()
-				if frame == nil then
+				local innermost = frameUnderPointer()
+				if innermost == nil then
 					return nil
 				end
 				local travel = 78 + scrollPreference * 110
 				local shift = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
-				local horizontal = frame.ScrollingDirection == Enum.ScrollingDirection.X or (shift and frame.ScrollingDirection == Enum.ScrollingDirection.XY)
-				addImpulse(frame, if horizontal then Vector2.new(-direction * travel, 0) else Vector2.new(0, -direction * travel))
+				-- Nested scrollers: the wheel goes to the innermost frame that can still move that way.
+				-- A list that is too short to scroll, or already at its end, hands the wheel to the page
+				-- around it instead of swallowing it.
+				local frame = innermost
+				while frame ~= nil do
+					local horizontal = frame.ScrollingDirection == Enum.ScrollingDirection.X or (shift and frame.ScrollingDirection == Enum.ScrollingDirection.XY)
+					local delta = if horizontal then Vector2.new(-direction * travel, 0) else Vector2.new(0, -direction * travel)
+					if canScrollToward(frame, delta) then
+						addImpulse(frame, delta)
+						return nil
+					end
+					frame = scrollingAncestor(frame.Parent)
+				end
 			end)
 			return nil
 		end
@@ -2153,7 +2294,13 @@ local function VirtualGrid(_param)
 		ClipsDescendants = false,
 	}, visible)
 end
-local function useVirtualWindow(count, stride, topOffset, overscan)
+-- The page scroll context: PageScaffold hands it to the element in its fill section so a list
+-- there can tell when the page itself has to scroll (its sections don't fit the viewport). In
+-- that case the list stops scrolling on its own and lets the page be the only scroller.
+local PageScrollContext = React.createContext(nil)
+-- `hostRef` (optional): when set, the list does not scroll itself. Its rows are windowed against
+-- the host ScrollingFrame instead, by where the list sits inside the host's visible area.
+local function useVirtualWindow(count, stride, topOffset, overscan, hostRef)
 	if overscan == nil then
 		-- Constrained devices mount fewer offscreen rows; one row of slack is enough
 		-- and cuts React mounts during fast flings roughly in half vs overscan=2.
@@ -2174,6 +2321,7 @@ local function useVirtualWindow(count, stride, topOffset, overscan)
 		end
 		local scheduled = false
 		local alive = true
+		local host = if hostRef ~= nil then hostRef.current else nil
 		local sync = function()
 			scheduled = false
 			if not alive then
@@ -2188,8 +2336,15 @@ local function useVirtualWindow(count, stride, topOffset, overscan)
 				setWindow(empty)
 				return nil
 			end
-			local top = scrolling.CanvasPosition.Y
-			local height = math.max(1, scrolling.AbsoluteWindowSize.Y)
+			local top, height
+			if host ~= nil and host.Parent ~= nil then
+				-- How far the list's own top has scrolled above the host's visible top.
+				top = host.AbsolutePosition.Y - scrolling.AbsolutePosition.Y
+				height = math.max(1, host.AbsoluteWindowSize.Y)
+			else
+				top = scrolling.CanvasPosition.Y
+				height = math.max(1, scrolling.AbsoluteWindowSize.Y)
+			end
 			local first = math.clamp(math.floor((top - topOffset) / stride) - overscan, 0, count - 1)
 			local last = math.clamp(math.ceil((top + height - topOffset) / stride) + overscan, first, count - 1)
 			local previous = latest.current
@@ -2212,14 +2367,19 @@ local function useVirtualWindow(count, stride, topOffset, overscan)
 			task.defer(sync)
 		end
 		sync()
-		local moved = scrolling:GetPropertyChangedSignal("CanvasPosition"):Connect(schedule)
-		local resized = scrolling:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(schedule)
+		local source = host or scrolling
+		local moved = source:GetPropertyChangedSignal("CanvasPosition"):Connect(schedule)
+		local resized = source:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(schedule)
+		local shifted = if host ~= nil then scrolling:GetPropertyChangedSignal("AbsolutePosition"):Connect(schedule) else nil
 		return function()
 			alive = false
 			moved:Disconnect()
 			resized:Disconnect()
+			if shifted ~= nil then
+				shifted:Disconnect()
+			end
 		end
-	end, { count, overscan, stride, topOffset })
+	end, { count, overscan, stride, topOffset, hostRef or false })
 	return {
 		frame = frame,
 		first = window.first,
@@ -2234,6 +2394,7 @@ return {
 	AutoGrid = AutoGrid,
 	VirtualGrid = VirtualGrid,
 	useVirtualWindow = useVirtualWindow,
+	PageScrollContext = PageScrollContext,
 }
 end
 
@@ -2243,6 +2404,7 @@ end
 __defs["virtualizedList"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local useVirtualWindow = __load("scrolling").useVirtualWindow
+local PageScrollContext = __load("scrolling").PageScrollContext
 local Palette = require(script.Parent.CoreKit)("theme").Palette
 local function virtualRange(count, stride, topOffset, scrollY, viewHeight, overscan)
 	if overscan == nil then
@@ -2318,10 +2480,18 @@ local function VirtualizedList(props)
 	-- overscan=1 default instead of forcing desktop overscan=2 on phones.
 	local overscan = props.overscan
 	local count = #data
-	local window = useVirtualWindow(count, itemHeight, headerHeight, overscan)
-	local embedded = props.embedded == true
-	local rangeFirst = if embedded then 0 else window.first
-	local rangeLast = if embedded then count - 1 else window.last
+	-- Inside a page that has to scroll, a list in the page's fill section joins the page's scroll
+	-- (one scroller) instead of nesting a second one. `embedded = false` opts out.
+	local scrollHost = React.useContext(PageScrollContext)
+	local autoEmbed = scrollHost ~= nil and scrollHost.overflowing == true and props.embedded ~= false
+	local embedded = props.embedded == true or autoEmbed
+	local hostRef = if embedded and scrollHost ~= nil then scrollHost.hostRef else nil
+	local window = useVirtualWindow(count, itemHeight, headerHeight, overscan, hostRef)
+	-- Embedded with a known host: still windowed (against the page's scroll). Embedded without
+	-- one (an explicit embedded list outside a fill section): every row is mounted.
+	local windowed = not embedded or hostRef ~= nil
+	local rangeFirst = if windowed then window.first else 0
+	local rangeLast = if windowed then window.last else count - 1
 	local ownedRef = React.useRef()
 	local bindRef = function(frame)
 		ownedRef.current = frame
@@ -2379,6 +2549,43 @@ local function VirtualizedList(props)
 		_condition_4 = 0
 	end
 	local emptyCanvas = _exp_1 + _condition_4
+	local reportedHeight = if count > 0 then canvasH else emptyCanvas
+	-- The section has to hold whatever sits above the list (a card header) and the gap the list
+	-- originally left below itself, not just the rows.
+	local trailing = 0
+	local declaredSize = props.Size
+	if typeof(declaredSize) == "UDim2" and declaredSize.Y.Scale >= 0.999 then
+		local declaredPosition = props.Position
+		local positionOffset = if typeof(declaredPosition) == "UDim2" then declaredPosition.Y.Offset else 0
+		trailing = math.max(0, -declaredSize.Y.Offset - positionOffset)
+	end
+	React.useEffect(function()
+		if not autoEmbed or scrollHost == nil or scrollHost.report == nil then
+			return nil
+		end
+		local lastReport = -1
+		local push = function()
+			local frame = ownedRef.current
+			local section = if scrollHost.sectionRef ~= nil then scrollHost.sectionRef.current else nil
+			local lead = 0
+			if frame ~= nil and section ~= nil then
+				lead = math.max(0, frame.AbsolutePosition.Y - section.AbsolutePosition.Y)
+			end
+			local total = math.ceil(lead + reportedHeight + trailing + 4)
+			if total ~= lastReport then
+				lastReport = total
+				scrollHost.report(total)
+			end
+		end
+		push()
+		local frame = ownedRef.current
+		local moved = if frame ~= nil then frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(push) else nil
+		return function()
+			if moved ~= nil then
+				moved:Disconnect()
+			end
+		end
+	end, { autoEmbed, reportedHeight, trailing })
 	local _attributes = {
 		ref = bindRef,
 		Size = props.Size or UDim2.fromScale(1, 1),
@@ -2444,11 +2651,21 @@ end
 -- ======================================================================
 -- Suite entry point
 -- ======================================================================
+local __members = {}
+for name in __defs do
+	table.insert(__members, name)
+end
+table.sort(__members)
+table.freeze(__members)
 return setmetatable({}, {
 	__call = function(_, name: string): any
 		return __load(name)
 	end,
 	__index = function(_, name: string): any
+		-- The boot loader reads the member list to warm every member up front.
+		if name == "__members" then
+			return __members
+		end
 		return __load(name)
 	end,
 })
