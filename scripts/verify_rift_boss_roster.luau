@@ -197,25 +197,6 @@ for _, boss in roster do
 		end
 		kinds[attack.Kind] = true
 	end
-	local speech = boss.Dialogue
-	check(speech ~= nil, label .. ": no dialogue")
-	check(#speech.Awake >= 3, label .. ": the wake-up scene needs three lines")
-	for _, key in { "Forming", "Phase2", "Phase3", "Defeat", "Escape", "Hit" } do
-		check(type(speech[key]) == "table" and #speech[key] >= 1, label .. ": no " .. key .. " dialogue")
-	end
-	for kind in kinds do
-		check(speech.Attack[kind] ~= nil and #speech.Attack[kind] >= 1, label .. ": nothing to say when it uses " .. kind)
-	end
-	for kind in speech.Attack do
-		check(kinds[kind], label .. ": dialogue for an attack it does not have (" .. kind .. ")")
-	end
-	for key, list in speech do
-		if key ~= "Attack" and key ~= "Ultimate" then
-			for _, line in list do
-				check(type(line) == "string" and #line > 0 and #line <= 140, label .. ": bad " .. key .. " line")
-			end
-		end
-	end
 end
 
 -- Dissonance: safe pockets never overlap, never leave the arena, and the rest of the floor hurts.
@@ -345,7 +326,6 @@ for _, boss in roster do
 		end
 		check(afterOk and thenOk, label .. ": combo " .. combo.After .. " -> " .. combo.Then .. " names an attack it does not have by phase " .. combo.MinPhase)
 	end
-	check(type(boss.Dialogue.Enrage) == "table" and type(boss.Dialogue.Break) == "table", label .. ": needs Enrage and Break lines")
 end
 for _, wanted in { "_queueCombo", "_enrage", "_track", "RiftBossBreak", "RiftBossEnrage", "LeadPosition", "RankTargets" } do
 	check(string.find(serviceSource, wanted, 1, true) ~= nil, "the boss service never uses " .. wanted)
@@ -369,7 +349,6 @@ for _, boss in roster do
 					check(def.Params ~= nil and def.Params[key] ~= nil, label .. ": ultimate " .. name .. " lacks " .. key)
 				end
 			end
-			check(type(boss.Dialogue.Ultimate) == "table" and type(boss.Dialogue.Ultimate[name]) == "table" and #boss.Dialogue.Ultimate[name] >= 1, label .. ": nothing to say for ultimate " .. name)
 		end
 		for phase, name in boss.PhaseUltimates or {} do
 			check(boss.Ultimates[name] ~= nil and phase >= 2 and phase <= #boss.Phases + 1, label .. ": phase " .. tostring(phase) .. " ultimate is missing")

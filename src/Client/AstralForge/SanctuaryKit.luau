@@ -5839,454 +5839,10 @@ function ScreenFx.explosion(at: Vector3, radius: number, hot: Color3, deep: Colo
 		lamp:Destroy()
 	end)
 end
--- Dialogue: a caption box low on the screen with the speaker's name in their colour and the
--- line acted out glyph by glyph. Lines carry markup (see tools/assetgen/boss_dialogue.py):
--- [shake] [wave] [glitch] [pulse] [hot] [big] [whisper] [slow] [/] and [beat]. When the line
--- has a voice, each word appears at the moment it is spoken (SanctuaryConfig.BossVoiceTiming,
--- driven by the sound's own TimePosition); otherwise it types out with pauses at the
--- punctuation. One line at a time; a new line replaces the last.
-local TextService = game:GetService("TextService")
-local speechGui: ScreenGui? = nil
-local speechBox: Frame? = nil
-local speechName: TextLabel? = nil
-local speechText: Frame? = nil
-local speechStroke: UIStroke? = nil
-local speechSeq = 0
-
-local SPEECH_FONT = Enum.Font.GothamMedium
-local SPEECH_BOLD = Enum.Font.GothamBold
-local SPEECH_SIZE = 21
-local SPEECH_LINE = 30
--- Every boss speaks in its own type: gothic for the Warden, an engraved serif for the Choir,
--- a heavy condensed face for the Regent, a hard techno face for the Seraph, a cold humanist one
--- for the Rimeheart, an antique hand for the Knight.
-local function pickFont(name: string): Enum.Font
-	local ok, value = pcall(function()
-		return (Enum.Font :: any)[name]
-	end)
-	return if ok and value ~= nil then value else Enum.Font.GothamMedium
-end
-local SPEECH_FONTS: { [string]: { Enum.Font } } = {
-	Warden = { pickFont("GrenzeGotisch"), pickFont("GrenzeGotisch") },
-	Choir = { pickFont("Fondamento"), pickFont("Fondamento") },
-	Regent = { pickFont("Oswald"), pickFont("Oswald") },
-	Seraph = { pickFont("Jura"), pickFont("Jura") },
-	Rime = { pickFont("JosefinSans"), pickFont("JosefinSans") },
-	Knight = { pickFont("Antique"), pickFont("Antique") },
-	Astraeon = { pickFont("Merriweather"), pickFont("Merriweather") },
-}local GLITCH_CHARS = "#@%&01!?/\\<>*"
-
-local function ensureSpeech(): boolean
-	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
-	if playerGui == nil then
-		return false
-	end
-	if speechGui ~= nil and speechGui.Parent ~= nil then
-		return true
-	end
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "SanctuarySpeech"
-	gui.IgnoreGuiInset = true
-	gui.ResetOnSpawn = false
-	gui.DisplayOrder = 42
-	local box = Instance.new("Frame")
-	box.Name = "Box"
-	box.AnchorPoint = Vector2.new(0.5, 1)
-	box.Position = UDim2.fromScale(0.5, 0.8)
-	box.Size = UDim2.new(0.6, 0, 0, 96)
-	box.BackgroundColor3 = Color3.fromRGB(8, 8, 18)
-	box.BackgroundTransparency = 0.25
-	box.BorderSizePixel = 0
-	box.Active = false
-	box.Visible = false
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(760, 260)
-	limit.MinSize = Vector2.new(240, 80)
-	limit.Parent = box
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
-	corner.Parent = box
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 1.5
-	stroke.Transparency = 0.45
-	stroke.Parent = box
-	local name = Instance.new("TextLabel")
-	name.Name = "Speaker"
-	name.BackgroundTransparency = 1
-	name.Position = UDim2.new(0, 16, 0, 8)
-	name.Size = UDim2.new(1, -32, 0, 18)
-	name.Font = Enum.Font.GothamBold
-	name.TextSize = 14
-	name.TextXAlignment = Enum.TextXAlignment.Left
-	name.Parent = box
-	local glyphs = Instance.new("Frame")
-	glyphs.Name = "Glyphs"
-	glyphs.BackgroundTransparency = 1
-	glyphs.Position = UDim2.new(0, 16, 0, 32)
-	glyphs.Size = UDim2.new(1, -32, 1, -40)
-	glyphs.Active = false
-	glyphs.Parent = box
-	box.Parent = gui
-	gui.Parent = playerGui
-	speechGui, speechBox, speechName, speechText, speechStroke = gui, box, name, glyphs, stroke
-	return true
-end
-
--- The boss's voice for a line, if one has been uploaded (tools/assetgen/upload_voice.py).
--- One at a time: a new line cuts off the last, like the subtitle does.
-local voiceSound: Sound? = nil
-
-local function stopVoice()
-	if voiceSound ~= nil then
-		voiceSound:Destroy()
-		voiceSound = nil
-	end
-end
-
--- How long a line takes to say: its voice's length, or an estimate from its length.
-local function lineSeconds(line: string): number
-	local timing = SanctuaryConfig.BossVoiceTiming and SanctuaryConfig.BossVoiceTiming[line]
-	if timing ~= nil and type(timing.d) == "number" then
-		return timing.d
-	end
-	local plain = string.gsub(line, "%[/?%w*%]", "")
-	return 0.9 + (utf8.len(plain) or #plain) * 0.06
-end
-
-type Spec = { char: string, fx: { [string]: boolean } }
-
--- Marked-up text -> one spec per visible character, and the indexes a [beat] follows.
-local function parseSpeech(line: string): ({ Spec }, { [number]: boolean })
-	local specs: { Spec } = {}
-	local beats: { [number]: boolean } = {}
-	local active: { string } = {}
-	local function emit(chunk: string)
-		if chunk == "" then
-			return
-		end
-		local fx: { [string]: boolean } = {}
-		for _, name in active do
-			fx[name] = true
-		end
-		for _, code in utf8.codes(chunk) do
-			table.insert(specs, { char = utf8.char(code), fx = fx })
-		end
-	end
-	local position = 1
-	while true do
-		local from, to, slash, tag = string.find(line, "%[(/?)(%w*)%]", position)
-		if from == nil then
-			emit(string.sub(line, position))
-			break
-		end
-		emit(string.sub(line, position, from - 1))
-		position = to + 1
-		if tag == "beat" then
-			beats[#specs] = true
-		elseif slash == "/" then
-			table.remove(active)
-		elseif tag ~= "" then
-			table.insert(active, tag)
-		end
-	end
-	return specs, beats
-end
-
-local widthCache: { [string]: number } = {}
-local function glyphWidth(char: string, size: number, font: Enum.Font): number
-	local key = `{char}|{size}|{font.Value}`
-	local cached = widthCache[key]
-	if cached == nil then
-		if char == " " then
-			cached = TextService:GetTextSize("a a", size, font, Vector2.new(1e4, 1e4)).X - TextService:GetTextSize("aa", size, font, Vector2.new(1e4, 1e4)).X
-		else
-			cached = TextService:GetTextSize(char, size, font, Vector2.new(1e4, 1e4)).X
-		end
-		widthCache[key] = cached
-	end
-	return cached
-end
-
-local function say(speaker: string, line: string, color: Color3?)
-	if not ensureSpeech() then
-		return
-	end
-	local box, name, container, stroke = speechBox :: Frame, speechName :: TextLabel, speechText :: Frame, speechStroke :: UIStroke
-	speechSeq += 1
-	local seq = speechSeq
-	stopVoice()
-	local accent = color or Color3.new(1, 1, 1)
-	local fonts = SPEECH_FONTS[if boss ~= nil then boss.kind else ""]
-	local fontRegular = if fonts ~= nil then fonts[1] else SPEECH_FONT
-	local fontBold = if fonts ~= nil then fonts[2] else SPEECH_BOLD
-	box.BackgroundColor3 = Color3.fromRGB(8, 8, 18):Lerp(accent, 0.16)
-	name.Font = Enum.Font.GothamBold
-	name.Text = string.upper(speaker)
-	name.TextColor3 = accent
-	stroke.Color = accent
-	container:ClearAllChildren()
-
-	local specs, beats = parseSpeech(line)
-	local count = #specs
-
-	-- Words and their schedule. With a voice every word has a start time; otherwise glyphs
-	-- type out at a pace that suits their effect, pausing at punctuation and [beat].
-	local timing = SanctuaryConfig.BossVoiceTiming and SanctuaryConfig.BossVoiceTiming[line]
-	local voiceId = SanctuaryConfig.BossVoice and SanctuaryConfig.BossVoice[line]
-	local words: { { first: number, last: number } } = {}
-	local inWord = false
-	for index, spec in specs do
-		if spec.char:match("%s") then
-			inWord = false
-		elseif not inWord then
-			inWord = true
-			table.insert(words, { first = index, last = index })
-		else
-			words[#words].last = index
-		end
-	end
-	local times: { number } = table.create(count, 0)
-	local synced = false
-	if timing ~= nil and type(timing.w) == "table" and #timing.w == #words and #words > 0 then
-		synced = true
-		for wordIndex, word in words do
-			local start = timing.w[wordIndex]
-			local nextStart = timing.w[wordIndex + 1] or math.min(timing.d or start + 0.6, start + 0.7)
-			local span = math.max(0.12, nextStart - start) * 0.82
-			local length = word.last - word.first + 1
-			for index = word.first, word.last do
-				times[index] = start + span * (index - word.first) / length
-			end
-		end
-	else
-		local clock = 0.15
-		for index, spec in specs do
-			times[index] = clock
-			local fx = spec.fx
-			local pace = if fx.slow then 0.075 elseif fx.whisper then 0.05 elseif fx.shake or fx.big then 0.026 else 0.034
-			clock += pace
-			if spec.char:match("[,;:]") then
-				clock += 0.13
-			elseif spec.char:match("[%.!%?…]") then
-				clock += 0.28
-			end
-			if beats[index] then
-				clock += 0.4
-			end
-		end
-	end
-
-	-- Layout: wrap by words, each glyph its own label so effects can move it.
-	local maxWidth = math.max(200, (if box.AbsoluteSize.X > 0 then box.AbsoluteSize.X else 640) - 32)
-	local glyphList: { { label: TextLabel, x: number, y: number, at: number, fx: { [string]: boolean }, char: string, size: number, seed: number, base: Color3, w: number } } = {}
-	local penX, penY = 0, 0
-	local function place(spec: Spec, index: number)
-		local fx = spec.fx
-		local size = if fx.big then math.floor(SPEECH_SIZE * 1.35) elseif fx.whisper then SPEECH_SIZE - 3 else SPEECH_SIZE
-		local font = if fx.big or fx.shake or fx.hot then fontBold else fontRegular
-		local width = glyphWidth(spec.char, size, font)
-		local label = Instance.new("TextLabel")
-		label.BackgroundTransparency = 1
-		label.Size = UDim2.fromOffset(math.ceil(width) + 2, size + 6)
-		label.Position = UDim2.fromOffset(penX, penY)
-		label.Font = font
-		label.TextSize = size
-		label.Text = spec.char
-		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.TextTransparency = 1
-		local base = if fx.hot or fx.pulse or fx.big then accent:Lerp(Color3.new(1, 1, 1), 0.25) else Color3.fromRGB(240, 240, 250)
-		label.TextColor3 = base
-		if fx.hot or fx.big or fx.glitch then
-			label.TextStrokeColor3 = accent
-			label.TextStrokeTransparency = 0.7
-		end
-		label.Parent = container
-		table.insert(glyphList, { label = label, x = penX, y = penY, at = times[index], fx = fx, char = spec.char, size = size, seed = math.random() * 100, base = base, w = width })
-		penX += width
-	end
-	local index = 1
-	while index <= count do
-		local spec = specs[index]
-		if spec.char:match("%s") then
-			place(spec, index)
-			index += 1
-		else
-			-- Measure the whole word to decide whether it fits on this row.
-			local stop = index
-			local length = 0
-			while stop <= count and not specs[stop].char:match("%s") do
-				local fx = specs[stop].fx
-				local size = if fx.big then math.floor(SPEECH_SIZE * 1.35) elseif fx.whisper then SPEECH_SIZE - 3 else SPEECH_SIZE
-				length += glyphWidth(specs[stop].char, size, if fx.big or fx.shake or fx.hot then fontBold else fontRegular)
-				stop += 1
-			end
-			if penX > 0 and penX + length > maxWidth then
-				penX = 0
-				penY += SPEECH_LINE
-			end
-			for cursor = index, stop - 1 do
-				place(specs[cursor], cursor)
-			end
-			index = stop
-		end
-	end
-	local rows = math.floor(penY / SPEECH_LINE) + 1
-	local height = 42 + rows * SPEECH_LINE
-	box.Size = UDim2.new(0.6, 0, 0, math.max(96, height))
-	box.BackgroundTransparency = 0.25
-	box.Visible = true
-
-	-- A line with shouted words slams the box and flares the border.
-	local shouted = false
-	for _, spec in specs do
-		if spec.fx.shake or spec.fx.big then
-			shouted = true
-			break
-		end
-	end
-
-	local total = (times[count] or 0) + 0.5
-	if timing ~= nil and type(timing.d) == "number" then
-		total = math.max(total, timing.d)
-	end
-	local startedAt = os.clock()
-	local rest = box.Position
-	local lastBlip = 0
-	local connection: RBXScriptConnection? = nil
-
-	local function begin()
-		startedAt = os.clock()
-		connection = RunService.RenderStepped:Connect(function()
-			if speechSeq ~= seq or container.Parent == nil then
-				if connection ~= nil then
-					connection:Disconnect()
-				end
-				return
-			end
-			local now = os.clock()
-			local clock = now - startedAt
-			local voice = voiceSound
-			if synced and voice ~= nil and voice.IsPlaying then
-				clock = voice.TimePosition
-			end
-			for _, glyph in glyphList do
-				local age = clock - glyph.at
-				local label = glyph.label
-				if age < 0 then
-					continue
-				end
-				local fx = glyph.fx
-				local settle = math.clamp(age / 0.14, 0, 1)
-				local dx, dy = 0, (settle - 1) * 7
-				local transparency = 1 - settle
-				if fx.whisper then
-					transparency = math.max(transparency, 0.45)
-				end
-				if fx.shake then
-					dx += (math.noise(now * 31, glyph.seed) * 2) * 2.2
-					dy += (math.noise(glyph.seed, now * 29) * 2) * 2.2
-				end
-				if fx.wave then
-					dy += math.sin(now * 4.2 + glyph.x * 0.025) * 4
-				end
-				if fx.pulse then
-					transparency = math.max(transparency, 0.25 * (1 + math.sin(now * 5 + glyph.seed)) * 0.5 * settle)
-				end
-				if fx.big then
-					label.TextSize = math.floor(glyph.size * (1 + (1 - settle) * 0.7))
-				end
-				if fx.glitch then
-					if math.noise(now * 9, glyph.seed) > 0.25 and settle >= 1 then
-						local pick = math.random(#GLITCH_CHARS)
-						label.Text = string.sub(GLITCH_CHARS, pick, pick)
-						label.TextColor3 = if math.random() < 0.5 then Color3.fromRGB(80, 255, 240) else Color3.fromRGB(255, 70, 160)
-						dx += math.random(-2, 2)
-					else
-						label.Text = glyph.char
-						label.TextColor3 = glyph.base
-					end
-				end
-				label.Position = UDim2.fromOffset(glyph.x + dx, glyph.y + dy)
-				label.TextTransparency = transparency
-			end
-			-- A shouted line shakes the box as it lands.
-			if shouted and clock < 0.45 then
-				local power = (1 - clock / 0.45) * 5
-				box.Position = rest + UDim2.fromOffset(math.noise(now * 40, 1) * power * 2, math.noise(2, now * 40) * power * 2)
-				stroke.Transparency = 0.1 + clock
-			elseif shouted then
-				box.Position = rest
-				stroke.Transparency = 0.45
-			end
-			-- Without a voice, a soft tick under every few glyphs.
-			if voice == nil and not synced then
-				local shown = 0
-				for _, glyph in glyphList do
-					if clock >= glyph.at then
-						shown += 1
-					end
-				end
-				if shown > lastBlip and shown % 3 == 0 and now - lastBlip > 0.05 then
-					lastBlip = shown
-					Audio:play("tick")
-				end
-			end
-		end)
-	end
-
-	-- Fetch the voice first (when there is one) so the text and the sound start together.
-	task.spawn(function()
-		if type(voiceId) == "number" and voiceId > 0 and speechGui ~= nil then
-			local sound = Instance.new("Sound")
-			sound.Name = "BossVoice"
-			sound.SoundId = `rbxassetid://{voiceId}`
-			sound.Volume = 1.2
-			sound.Parent = speechGui
-			local deadline = os.clock() + 2.5
-			while not sound.IsLoaded and os.clock() < deadline and speechSeq == seq do
-				task.wait()
-			end
-			if speechSeq ~= seq then
-				sound:Destroy()
-				return
-			end
-			if sound.IsLoaded then
-				voiceSound = sound
-				sound.Ended:Once(function()
-					if voiceSound == sound then
-						voiceSound = nil
-					end
-					sound:Destroy()
-				end)
-				sound:Play()
-			else
-				sound:Destroy()
-				synced = false
-			end
-		else
-			synced = false
-		end
-		if speechSeq ~= seq then
-			return
-		end
-		begin()
-		task.delay(total + 1.6, function()
-			if speechSeq == seq and box.Parent ~= nil then
-				box.Visible = false
-				box.Position = rest
-			end
-		end)
-	end)
-end
 local function clearFx()
-	speechSeq += 1
-	stopVoice()
-	for _, gui in { speechGui, flashGui } do
-		if gui ~= nil then
-			gui:Destroy()
-		end
+	if flashGui ~= nil then
+		flashGui:Destroy()
 	end
-	speechGui, speechBox, speechName, speechText, speechStroke = nil, nil, nil, nil, nil
 	flashGui, flashFrame = nil, nil
 end
 -- Cinematics: black bars slide in over the top and bottom of the screen while the camera
@@ -6395,38 +5951,10 @@ local function sequence(current: Boss, steps: { { at: number, run: () -> () } })
 	end
 end
 
--- Dialogue. Lines live in each boss's SanctuaryConfig entry; these play them at offsets, or
--- as occasional quips that are rate limited so a fight is not a monologue.
+-- Is the local player close enough to the boss to be shown its scenes?
 local function near(current: Boss): boolean
 	local root = localRoot()
 	return root ~= nil and (root.Position - current.anchor.Position).Magnitude < 300
-end
-
--- Lines play one after another, each starting when the last has been said (its voice's length
--- plus a breath), so a spoken line is never cut off by the next.
-local function speakLines(current: Boss, key: string, startAt: number, _gap: number)
-	local lines = current.config.Dialogue[key]
-	if lines == nil then
-		return
-	end
-	local at = startAt
-	for _, line in lines do
-		task.delay(at, function()
-			if boss == current and near(current) then
-				say(current.config.Name, (string.gsub(line, "{name}", Players.LocalPlayer.DisplayName)), pal.Hot)
-			end
-		end)
-		at += lineSeconds(line) + 0.7
-	end
-end
-
-local lastQuip = 0
-local function quip(current: Boss, lines: { string }?, cooldown: number, chance: number)
-	if lines == nil or #lines == 0 or os.clock() - lastQuip < cooldown or math.random() > chance or not near(current) then
-		return
-	end
-	lastQuip = os.clock()
-	say(current.config.Name, (string.gsub(lines[math.random(#lines)], "{name}", Players.LocalPlayer.DisplayName)), pal.Hot)
 end
 
 -- Each boss wakes with its own cutscene. The letterbox and title card (the HUD banner) are
@@ -6438,7 +5966,6 @@ local function awakeScene(current: Boss)
 	local kind = current.kind
 	local tops = pillarTops(current)
 	-- The boss speaks over the scene, and every pillar arcs its light into the body as it wakes.
-	speakLines(current, "Awake", 0.6, 2.1)
 	for index, top in tops do
 		task.delay(0.2 * index, function()
 			if boss == current then
@@ -6540,7 +6067,6 @@ local function defeatScene(current: Boss)
 	impactFrame(1)
 	task.delay(0.9, impactFrame, 1)
 	local kind = current.kind
-	speakLines(current, "Defeat", 0.9, 3.2)
 	-- The body comes apart in light: a great column, bolts to every pillar, a white-out.
 	screenFlash(Color3.new(1, 1, 1), 0.75, 1.6)
 	lightPillar((Controls :: any).ground.floor(current), pal.Hot, 140, 12, 2.4)
@@ -6637,7 +6163,6 @@ local function stepBoss(dt: number, t: number)
 		if phase == "Forming" then
 			ScreenFx.arena.show(current, 0.3)
 			Audio:play(bossCue("Forming"))
-			speakLines(current, "Forming", 0.4, 2)
 			setTethers(true, current.kind)
 			Vfx.burst(at, "Implode", 1, { Color = pal.Hot, Color2 = pal.Primary, Size = NumberSequence.new(40, 2) }, clientFolder)
 			Vfx.burst(at, "Shatter", 40, { Color = pal.Hot, Speed = NumberRange.new(4, 10), Acceleration = Vector3.new(0, 6, 0) }, clientFolder)
@@ -6675,7 +6200,6 @@ local function stepBoss(dt: number, t: number)
 		elseif phase == "Escaped" then
 			ScreenFx.arena.hide()
 			Audio:play(bossCue("Escape"))
-			speakLines(current, "Escape", 0.4, 2.5)
 			Ambience.fight(nil)
 			current.outroStarted = t
 			setTethers(false)
@@ -6792,9 +6316,6 @@ local function stepBoss(dt: number, t: number)
 		hover = current.anchor.Position + Vector3.new(0, bob + current.slamLift + current.conduct * 3, 0)
 	end
 	current.hoverPos = hover
-	if phase == "Active" and current.aim == nil and current.config.Dialogue.Idle ~= nil then
-		quip(current, current.config.Dialogue.Idle, 24, 0.004) -- it talks when it has nothing to hit
-	end
 	local coreScale = 1 + current.flash * 0.12 + (if phase == "Defeated" then math.clamp((t - current.outroStarted) * 0.8, 0, 1.2) else 0)
 	if kind == "Choir" then
 		coreScale *= 1 + 0.06 * math.sin(t * 3.2) + current.conduct * 0.1
@@ -7694,15 +7215,9 @@ local function onSlamLand(payload)
 end
 
 local function onStagger(payload)
-	if boss ~= nil and boss.config.Dialogue.Stagger ~= nil then
-		quip(boss, boss.config.Dialogue.Stagger, 14, 0.7)
-	end
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
 	Controls.knockback(center, 58)
 	Controls.shake(1.3)
-	if boss ~= nil then
-		quip(boss, boss.config.Dialogue.Hit, 8, 0.4)
-	end
 	local root = localRoot()
 	if root ~= nil then
 		Vfx.burst(root.Position, "Spark", 18, { Color = pal.Alert, Color2 = pal.Hot }, clientFolder)
@@ -7739,7 +7254,6 @@ local function onPhase(payload)
 			end
 		end)
 	end
-	speakLines(current, if phaseNumber >= 3 then "Phase3" else "Phase2", 0.4, 0)
 	if not ScreenFx.muted then
 		playShot(current, { Seconds = 2.4, Sweep = -0.7, Distance = 52, Height = 12, Fov = 58 })
 	end
@@ -7914,7 +7428,6 @@ local function onAttack(payload)
 		return
 	end
 	current.flash = math.max(current.flash, 0.7)
-	quip(current, current.config.Dialogue.Attack[tostring(payload.Attack)], 9, 0.7)
 end
 
 -- Lances (the Warden): thin aim lines from the body, then every beam fires at once.
@@ -8253,7 +7766,6 @@ local function onEnrage(_payload)
 	current.flash = 1
 	setAim("roar", nil, serverNow() + 1.8)
 	windUp(serverNow() + 1.8, 1.8)
-	speakLines(current, "Enrage", 0.2, 0)
 	BossVfx.layers(current.kind, (Controls :: any).ground.floor(current), 40, 1.6)
 end
 
@@ -8278,19 +7790,6 @@ local function onUltimate(payload)
 	current.flash = 1
 	setAim("roar", nil, serverNow() + seconds)
 	windUp(serverNow() + seconds, seconds)
-	local lines = current.config.Dialogue.Ultimate
-	local spoken = lines ~= nil and lines[tostring(payload.Name)] or nil
-	if spoken ~= nil then
-		local at = 0.3
-		for _, line in spoken do
-			task.delay(at, function()
-				if boss == current and near(current) then
-					say(current.config.Name, line, pal.Hot)
-				end
-			end)
-			at += lineSeconds(line) + 0.5
-		end
-	end
 	BossVfx.layers(current.kind, (Controls :: any).ground.floor(current), 60, 2.2)
 end
 -- Heavy burst damage broke its poise: it reels, goes still for a moment and is vulnerable.
@@ -8307,7 +7806,6 @@ local function onBreak(_payload)
 	screenFlash(pal.Hot, 0.35, 0.5)
 	current.flash = 1
 	Vfx.burst((Controls :: any).ground.center(current), "Shatter", 50, { Color = pal.Hot, Color2 = pal.Primary, Speed = NumberRange.new(16, 44) }, clientFolder)
-	speakLines(current, "Break", 0.4, 0)
 end
 local function onDissonanceLand(payload)
 	local center = worldPoint(type(payload) == "table" and payload.Center or nil)
