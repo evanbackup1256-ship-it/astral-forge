@@ -1816,13 +1816,13 @@ SanctuaryConfig.BossBodies = false
 -- The uploaded body models, one per boss: kind -> model id.
 -- BOSS-BODYKIT-BEGIN (rewritten by tools/bossbuild/upload_bodies.py)
 SanctuaryConfig.BossBodyKit = {
-	Astraeon = 122761215688798,
-	Choir = 120624360620684,
-	Knight = 115948050977375,
-	Regent = 136824896638647,
-	Rime = 100339874565327,
-	Seraph = 140728471169346,
-	Warden = 119016810651714,
+	Astraeon = 130149420787015,
+	Choir = 80226286580187,
+	Knight = 80597675859468,
+	Regent = 104686406794631,
+	Rime = 85984839083025,
+	Seraph = 100357521359703,
+	Warden = 98182115252813,
 }
 -- BOSS-BODYKIT-END
 
