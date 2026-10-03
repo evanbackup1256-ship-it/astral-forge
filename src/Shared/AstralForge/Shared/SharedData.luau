@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (13): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ServerEvents, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (14): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ServerEvents, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock, SettingsSchema.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -2693,6 +2693,239 @@ function ZoneUnlock.Evaluate(
 end
 
 return table.freeze(ZoneUnlock)
+end
+
+-- ======================================================================
+-- Module: SettingsSchema
+-- ======================================================================
+__defs["SettingsSchema"] = function()
+-- Every player setting in one place: where it lives in the Settings page, what it is called, what it
+-- does, how it is changed (a switch, a slider or a few named choices), its default, and whether it is an
+-- advanced knob kept out of the way. The server validates SetSetting against it and the page is drawn
+-- from it. Values are stored as numbers 0..1 under profile.Settings, exactly as before, so no save changes.
+
+type Choice = { label: string, value: number }
+export type Entry = {
+	key: string,
+	section: string,
+	label: string,
+	help: string,
+	kind: "toggle" | "slider" | "choice",
+	default: number,
+	choices: { Choice }?,
+	advanced: boolean?,
+	touchOnly: boolean?,
+}
+
+local Schema = {}
+
+Schema.SECTIONS = table.freeze({
+	{ id = "sound", label = "Sound", icon = "Wave", accent = "mint", blurb = "Volume for music, effects and alerts." },
+	{ id = "display", label = "Graphics", icon = "Boost", accent = "pink", blurb = "Effects, glow and how lively the menus move." },
+	{ id = "interface", label = "Interface", icon = "Settings", accent = "cyan", blurb = "What the screen shows and how it is laid out." },
+	{ id = "accessibility", label = "Accessibility", icon = "Guide", accent = "mango", blurb = "Text size, contrast and color-safe signals." },
+	{ id = "mobile", label = "Phone", icon = "Menu", accent = "blue", blurb = "Sizes and layout for touch screens.", touchOnly = true },
+})
+
+local SIZE4 = { { label = "S", value = 0.25 }, { label = "M", value = 0.5 }, { label = "L", value = 0.75 }, { label = "XL", value = 1 } }
+local THREE = function(a: string, b: string, c: string, va: number, vb: number, vc: number): { Choice }
+	return { { label = a, value = va }, { label = b, value = vb }, { label = c, value = vc } }
+end
+local function toggle(key, section, label, help, default, advanced)
+	return { key = key, section = section, label = label, help = help, kind = "toggle", default = default, advanced = advanced }
+end
+local function slider(key, section, label, help, default, advanced)
+	return { key = key, section = section, label = label, help = help, kind = "slider", default = default, advanced = advanced }
+end
+local function choice(key, section, label, help, default, choices, advanced)
+	return { key = key, section = section, label = label, help = help, kind = "choice", default = default, choices = choices, advanced = advanced }
+end
+
+Schema.ENTRIES = table.freeze({
+	-- Sound
+	slider("SoundVolume", "sound", "Master volume", "Everything at once.", 0.75),
+	slider("MusicVolume", "sound", "Music", "The soundtrack.", 1),
+	slider("SfxVolume", "sound", "Sound effects", "Buttons, rewards, machines.", 1),
+	toggle("PageMusic", "sound", "Background music", "Play the soundtrack at all.", 1),
+	toggle("NotificationSounds", "sound", "Alert sounds", "Mail, unlocks and other pings.", 1),
+	toggle("HoverSounds", "sound", "Hover sounds", "A soft tick when you point at a button.", 1),
+	slider("UiVolume", "sound", "Menu clicks", "Taps and page turns.", 0.6, true),
+	slider("GameplayVolume", "sound", "Gameplay sounds", "Machines, reactor, arcade.", 1, true),
+	slider("RewardVolume", "sound", "Reward sounds", "Claims, crates, the wheel.", 1, true),
+	slider("AmbientVolume", "sound", "Ambience", "The quiet forge noise under the music.", 0.75, true),
+	slider("SoundVariation", "sound", "Pitch variation", "Small changes so repeated clicks don't sound identical.", 0.7, true),
+	-- Graphics
+	slider("EffectsIntensity", "display", "Effects", "Sparks, pops and flashes.", 1),
+	slider("MotionIntensity", "display", "Animation", "How lively menus feel. Lower is calmer, never choppy.", 1),
+	toggle("ConfettiEnabled", "display", "Celebrations", "Confetti and bursts on big wins.", 1),
+	toggle("ScreenFlashes", "display", "Screen flashes", "A brief flash on big moments.", 0.8),
+	toggle("BackgroundStars", "display", "Background stars", "The starfield behind the pages.", 1),
+	toggle("ButtonShimmers", "display", "Button shine", "A light sweep across hovered buttons.", 1),
+	slider("GlowIntensity", "display", "Glow", "Light around rewards and live things.", 0.75, true),
+	slider("ParticleDensity", "display", "Particles", "How many sparks and bits fly.", 0.75, true),
+	slider("ShimmerIntensity", "display", "Shine strength", "How bright the button sweep is.", 0.8, true),
+	slider("BackgroundDetail", "display", "Background detail", "Depth and glow behind the menus.", 0.8, true),
+	toggle("AmbientGlow", "display", "Ambient light", "Soft colored light behind the interface.", 1, true),
+	toggle("PanelHover", "display", "Card lift", "Cards rise a little when you point at them.", 1, true),
+	toggle("PanelEntrances", "display", "Card entrances", "New cards ease in instead of appearing.", 1, true),
+	toggle("AnimatedTitles", "display", "Moving titles", "Titles keep a slow drift.", 1, true),
+	toggle("IconAnimations", "display", "Moving icons", "Large icons turn and orbit.", 1, true),
+	toggle("NumberAnimations", "display", "Rolling numbers", "Counters roll when they change.", 1, true),
+	toggle("OfflineRewardEffects", "display", "Welcome-back glow", "Effects when you return to offline earnings.", 1, true),
+	slider("ViewportSpeed", "display", "3D spin speed", "How fast 3D icons turn.", 0.65, true),
+	slider("ReactorMotion", "display", "Reactor motion", "How busy the reactor looks.", 0.8, true),
+	-- Interface
+	toggle("ShowFps", "interface", "FPS", "Frame rate in the top bar.", 1),
+	toggle("ShowPing", "interface", "Ping", "Connection delay in the top bar.", 1),
+	toggle("ShowResourceLabels", "interface", "Currency labels", "FLUX, CORES and DUST above the numbers.", 1),
+	toggle("ShowNextGoal", "interface", "Level bar", "Your Forge Level and next goal under page titles.", 1),
+	toggle("CompactTopBar", "interface", "Compact top bar", "A shorter header with more room below.", 0),
+	choice("UiDensity", "interface", "Spacing", "Room between things on the page.", 0.55, THREE("Tight", "Normal", "Roomy", 0.2, 0.55, 0.9)),
+	choice("ToastDensity", "interface", "Alerts on screen", "How many notifications stack up.", 0.55, THREE("Few", "Some", "Many", 0.2, 0.55, 0.9)),
+	choice("NotificationDuration", "interface", "Alert time", "How long notifications stay.", 0.55, THREE("Short", "Normal", "Long", 0.25, 0.55, 0.9)),
+	choice("PerformanceBias", "interface", "Priority", "Favor looks or frame rate when the game is busy.", 0.5, THREE("Looks", "Balanced", "Speed", 0, 0.5, 1)),
+	choice("ScrollSpeed", "interface", "Scroll speed", "How far one wheel notch moves a list.", 0.65, THREE("Slow", "Normal", "Fast", 0.35, 0.65, 0.95), true),
+	slider("ScrollMomentum", "interface", "Scroll glide", "How long a list keeps moving after you let go.", 0.75, true),
+	-- Accessibility
+	choice("DesktopTextScale", "accessibility", "Text size", "Bigger or smaller text. Buttons stay where they are.", 0.5, SIZE4),
+	toggle("HighContrast", "accessibility", "High contrast", "Stronger text and edges.", 0),
+	toggle("ColorblindMode", "accessibility", "Color-safe signals", "Blue and gold instead of green and red.", 0),
+	toggle("BoldText", "accessibility", "Bolder text", "Heavier descriptions.", 0),
+	toggle("ReducedTransparency", "accessibility", "Solid panels", "Less see-through backgrounds.", 0),
+	toggle("LargeTouchTargets", "accessibility", "Large buttons", "Bigger tap targets on touch screens.", 1),
+	slider("HapticIntensity", "accessibility", "Vibration", "How hard the phone buzzes on taps.", 0.65),
+	-- Phone
+	choice("MobileTextScale", "mobile", "Text size", "Text size on phones.", 0.5, SIZE4),
+	choice("MobileQuickReverse", "mobile", "Main thumb", "Which side the overcharge button sits on.", 0, { { label = "Right", value = 0 }, { label = "Left", value = 1 } }),
+	toggle("MobileQuickVisible", "mobile", "Quick buttons", "Vault and overcharge above the menu.", 1),
+	toggle("MobileDockVisible", "mobile", "Bottom menu", "Show the menu bar. The drawer still works.", 1),
+	toggle("MobileToastVisible", "mobile", "Alerts", "Floating notifications.", 1),
+	toggle("MobileCompactHeaders", "mobile", "Short headers", "Smaller page titles for more room.", 1),
+	toggle("MobileAutoHideDock", "mobile", "Hide menu while typing", "Also hides it in the arcade.", 1),
+	toggle("MobileLandscapeCompact", "mobile", "Compact sideways", "Fewer headers when the phone is turned.", 1),
+	toggle("MobileKeyboardCompact", "mobile", "Compact with keyboard", "Shrink the chrome while typing.", 1),
+	slider("MobileQuickScale", "mobile", "Quick button size", "Vault and overcharge buttons.", 0.5, true),
+	slider("MobileDockScale", "mobile", "Menu size", "The bottom menu.", 0.5, true),
+	slider("MobileToastScale", "mobile", "Alert size", "Notification cards.", 0.5, true),
+	slider("MobileQuickOpacity", "mobile", "Quick button opacity", "How solid the floating buttons are.", 0.9, true),
+	slider("MobileDockOpacity", "mobile", "Menu opacity", "How solid the bottom menu is.", 0.88, true),
+	slider("MobileToastOpacity", "mobile", "Alert opacity", "How solid notifications are.", 0.9, true),
+	slider("MobileButtonSpacing", "mobile", "Button spacing", "Room between thumb buttons.", 0.5, true),
+})
+
+-- Stored keys the page doesn't show but SetSetting still accepts (written by other screens).
+Schema.HIDDEN_KEYS = table.freeze({ RippleIntensity = 0.5, ButtonRipples = 1, MobileHudScale = 0.5, MobileHudOpacity = 0.85, MobilePreviewAck = 0 })
+
+local byKey: { [string]: Entry } = {}
+for _, entry in Schema.ENTRIES do
+	assert(byKey[entry.key] == nil, "duplicate setting " .. entry.key)
+	byKey[entry.key] = entry :: any
+end
+
+function Schema.entry(key: string): Entry?
+	return byKey[key]
+end
+
+-- Whether SetSetting may write `key`.
+function Schema.accepts(key: any): boolean
+	return type(key) == "string" and (byKey[key] ~= nil or Schema.HIDDEN_KEYS[key] ~= nil)
+end
+
+-- `value` made valid for `key`: a switch is 0 or 1, a choice snaps to its nearest option, the rest clamp 0..1.
+function Schema.normalize(key: string, value: number): number
+	local v = if value == value then math.clamp(value, 0, 1) else 0
+	local entry = byKey[key]
+	if entry == nil then
+		return v
+	end
+	if entry.kind == "toggle" then
+		return if v >= 0.5 then 1 else 0
+	elseif entry.kind == "choice" and entry.choices ~= nil then
+		local best, gap = entry.choices[1].value, math.huge
+		for _, option in entry.choices do
+			local d = math.abs(option.value - v)
+			if d < gap then
+				best, gap = option.value, d
+			end
+		end
+		return best
+	end
+	return v
+end
+
+-- The value a player has, or the default when the save predates the setting.
+function Schema.value(settings: any, key: string): number
+	local raw = if type(settings) == "table" then settings[key] else nil
+	if type(raw) == "number" and raw == raw then
+		return math.clamp(raw, 0, 1)
+	end
+	local entry = byKey[key]
+	if entry ~= nil then
+		return entry.default
+	end
+	return Schema.HIDDEN_KEYS[key] or 1
+end
+
+function Schema.inSection(section: string): { Entry }
+	local list = {}
+	for _, entry in Schema.ENTRIES do
+		if entry.section == section then
+			table.insert(list, entry)
+		end
+	end
+	return list
+end
+
+-- Defaults for a whole section (the page's "Reset" button).
+function Schema.sectionDefaults(section: string): { [string]: number }
+	local values = {}
+	for _, entry in Schema.ENTRIES do
+		if entry.section == section then
+			values[entry.key] = entry.default
+		end
+	end
+	return values
+end
+
+-- Graphics presets. "Balanced" is the defaults; the page shows which one the current values match.
+Schema.PRESETS = table.freeze({
+	{
+		id = "low",
+		label = "Low",
+		notice = "Low graphics: fewer effects, calmer motion.",
+		values = { EffectsIntensity = 0.25, MotionIntensity = 0.3, ParticleDensity = 0.15, GlowIntensity = 0.25, ShimmerIntensity = 0.2, ButtonShimmers = 0, ConfettiEnabled = 0, ScreenFlashes = 0, BackgroundDetail = 0.3, AnimatedTitles = 0, IconAnimations = 0, PerformanceBias = 1 },
+	},
+	{
+		id = "balanced",
+		label = "Balanced",
+		notice = "Balanced graphics.",
+		values = { EffectsIntensity = 0.7, MotionIntensity = 0.7, ParticleDensity = 0.6, GlowIntensity = 0.6, ShimmerIntensity = 0.7, ButtonShimmers = 1, ConfettiEnabled = 1, ScreenFlashes = 1, BackgroundDetail = 0.7, AnimatedTitles = 1, IconAnimations = 1, PerformanceBias = 0.5 },
+	},
+	{
+		id = "high",
+		label = "High",
+		notice = "High graphics: every effect at full.",
+		values = { EffectsIntensity = 1, MotionIntensity = 1, ParticleDensity = 1, GlowIntensity = 1, ShimmerIntensity = 1, ButtonShimmers = 1, ConfettiEnabled = 1, ScreenFlashes = 1, BackgroundDetail = 1, AnimatedTitles = 1, IconAnimations = 1, PerformanceBias = 0 },
+	},
+})
+
+function Schema.matchingPreset(settings: any): string?
+	for _, preset in Schema.PRESETS do
+		local same = true
+		for key, value in preset.values do
+			if math.abs(Schema.value(settings, key) - value) > 0.03 then
+				same = false
+				break
+			end
+		end
+		if same then
+			return preset.id
+		end
+	end
+	return nil
+end
+
+return table.freeze(Schema)
 end
 
 -- ======================================================================

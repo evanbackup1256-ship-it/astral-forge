@@ -314,9 +314,9 @@ do
 	local boostsVirt = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
 	assert(string.find(boostsVirt, "FlatList", 1, true), "Boosts long inventory must FlatList")
 	local settingsVirt = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
-	assert(string.find(settingsVirt, "FlatList", 1, true), "Settings long section catalogs must FlatList")
-	assert(string.find(settingsVirt, "virtSettings", 1, true), "Settings must gate catalog virtualization")
-	assert(string.find(settingsVirt, "VIRT_SETTINGS_MIN", 1, true), "Settings must keep VIRT_SETTINGS_MIN threshold")
+	-- Settings rows render inline in the page's one scroll (PageScaffold): no list scrolls inside another.
+	assert(string.find(settingsVirt, "PageScaffold", 1, true), "Settings must scroll as one page")
+	assert(not string.find(settingsVirt, "createElement(FlatList", 1, true), "Settings must not nest a FlatList scroller in the page")
 	assert(not string.find(settingsVirt, 'createElement("scrollingframe"', 1, true), "Settings must not keep raw scrollingframes under PageScaffold")
 	local chatVirt = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 	assert(string.find(chatVirt, "FlatList", 1, true), "Chat message list must FlatList under PageScaffold fill")
@@ -674,7 +674,7 @@ do
 	assert(string.find(settings, "GamepadNavigationService.FocusClaim", 1, true), "Settings GUIDE/UPDATES must FocusClaim")
 	assert(string.find(settings, 'Name = "SettingsClaimActions"', 1, true), "Settings GUIDE/UPDATES host must be named SettingsClaimActions")
 	assert(string.find(settings, "local softMotion = reducedMotion", 1, true), "SettingsView must softMotion via antilag")
-	assert(string.find(settings, "overscan = if softMotion then 0", 1, true), "Settings FlatList must softMotion-gate overscan")
+	assert(string.find(settings, "SettingsSchema", 1, true), "Settings must be drawn from SettingsSchema")
 
 	local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 	assert(string.find(chat, "GamepadNavigationService.FocusClaim", 1, true), "Chat SEND must FocusClaim")

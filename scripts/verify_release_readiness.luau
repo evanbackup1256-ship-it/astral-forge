@@ -263,8 +263,8 @@ mark("runquick pure domain requirements parity")
 
 -- Settings FlatList + Chat allowlist-clear residuals (offline playability parity).
 local settingsSrc = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
-assert(string.find(settingsSrc, "FlatList", 1, true), "Settings must FlatList long catalogs for release")
-assert(string.find(settingsSrc, "virtSettings", 1, true), "Settings virtSettings gate missing")
+assert(string.find(settingsSrc, "PageScaffold", 1, true), "Settings must scroll as one page for release")
+assert(not string.find(settingsSrc, "createElement(FlatList", 1, true), "Settings must not nest a scroller in the page")
 assert(not string.find(settingsSrc, 'createElement("scrollingframe"', 1, true), "Settings must not reintroduce raw scrollingframes")
 local chatSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 assert(string.find(chatSrc, "createElement(FlatList", 1, true), "Chat must FlatList messages for release")

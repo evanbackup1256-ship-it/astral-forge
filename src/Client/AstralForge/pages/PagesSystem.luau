@@ -28,849 +28,340 @@ local function __load(name: string): any
 end
 
 -- ======================================================================
--- Module: SettingsView   (merged from SettingsView.luau, 1365 lines)
+-- Module: SettingsView
 -- ======================================================================
 __defs["SettingsView"] = function()
+-- The Settings page, drawn from SharedData#SettingsSchema: a sidebar of sections (chips on phones), one
+-- tidy list per section with a switch, a slider or a few named choices on each row, search across every
+-- setting, graphics presets, a reset per section, and advanced knobs folded away until asked for.
+-- Every row lives in the page's own scroll (PageScaffold): no list scrolls inside another.
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local MobileControls = require(script.Parent.Parent.UiOverlays)("MobileControls").MobileControls
 local _mobileLayout = require(script.Parent.Parent.CoreKit)("mobileLayout")
 local fitTouchGridWidth = _mobileLayout.fitTouchGridWidth
 local moreDockHeight = _mobileLayout.moreDockHeight
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
-local useEntrance = _motion.useEntrance
 local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
-local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
 local chromeFor = _theme.chromeFor
+local darken = _theme.darken
 local Palette = _theme.Palette
 local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
-local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
-local SECTION_LABEL_H = 28
-local SCROLL_BAR = 4
--- FlatList long section catalogs once they would otherwise map-mount every row under PageScaffold.
-local VIRT_SETTINGS_MIN = 6
-local VIRT_SETTINGS_VISIBLE = 5
+local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
 local _ui = require(script.Parent.Parent.UiCore)("ui")
 local Button = _ui.Button
 local Panel = _ui.Panel
-local SectionLabel = _ui.SectionLabel
-local SegmentedTabs = _ui.SegmentedTabs
+local SearchField = _ui.SearchField
 local Slider = _ui.Slider
 local Text = _ui.Text
-local SETTINGS = { {
-	id = "SoundVolume",
-	label = "All sound",
-	description = "Master volume.",
-	accent = Palette.green,
-	section = "audio",
-}, {
-	id = "MusicVolume",
-	label = "Music",
-	description = "Set how loud the background music plays.",
-	accent = Palette.mint,
-	section = "audio",
-}, {
-	id = "SfxVolume",
-	label = "Sound effects",
-	description = "Buttons, rewards, machines, hits.",
-	accent = Palette.cyan,
-	section = "audio",
-}, {
-	id = "UiVolume",
-	label = "Menu sounds",
-	description = "Clicks when you tap around the menus.",
-	accent = Palette.cyan,
-	section = "audio",
-}, {
-	id = "GameplayVolume",
-	label = "Gameplay sounds",
-	description = "Machines, reactor, travel, arcade.",
-	accent = Palette.coral,
-	section = "audio",
-}, {
-	id = "RewardVolume",
-	label = "Reward sounds",
-	description = "Claims, crates, wheel, rebirths.",
-	accent = Palette.mango,
-	section = "audio",
-}, {
-	id = "AmbientVolume",
-	label = "Background ambience",
-	description = "The quiet shop noise under the music.",
-	accent = Palette.violet,
-	section = "audio",
-}, {
-	id = "HoverSounds",
-	label = "Hover sounds",
-	description = "A little tick when you hover a button.",
-	accent = Palette.blue,
-	section = "audio",
-	kind = "toggle",
-}, {
-	id = "NotificationSounds",
-	label = "Alert sounds",
-	description = "Mail, unlocks, and other pings.",
-	accent = Palette.pink,
-	section = "audio",
-	kind = "toggle",
-}, {
-	id = "PageMusic",
-	label = "Background music",
-	description = "One soundtrack that plays through the whole game.",
-	accent = Palette.mint,
-	section = "audio",
-	kind = "toggle",
-}, {
-	id = "SoundVariation",
-	label = "Sound variation",
-	description = "Slight pitch change so clicks don't all sound identical.",
-	accent = Palette.violet,
-	section = "audio",
-}, {
-	id = "MotionIntensity",
-	label = "Animation amount",
-	description = "How lively menus feel. Low settings stay smooth: gentler, slower, no bounce.",
-	accent = Palette.violet,
-	section = "motion",
-}, {
-	id = "ViewportSpeed",
-	label = "Icon speed",
-	description = "How fast icons spin and tilt.",
-	accent = Palette.mango,
-	section = "motion",
-}, {
-	id = "PanelHover",
-	label = "Card hover lift",
-	description = "Cards lift a bit when you hover.",
-	accent = Palette.cyan,
-	section = "motion",
-	kind = "toggle",
-}, {
-	id = "PanelEntrances",
-	label = "Card entrances",
-	description = "New cards fade in instead of popping.",
-	accent = Palette.violet,
-	section = "motion",
-	kind = "toggle",
-}, {
-	id = "AnimatedTitles",
-	label = "Animated titles",
-	description = "Title text keeps moving.",
-	accent = Palette.pink,
-	section = "motion",
-	kind = "toggle",
-}, {
-	id = "IconAnimations",
-	label = "Animated icons",
-	description = "Big icons spin and orbit.",
-	accent = Palette.blue,
-	section = "motion",
-	kind = "toggle",
-}, {
-	id = "NumberAnimations",
-	label = "Rolling numbers",
-	description = "Counters roll when they jump.",
-	accent = Palette.green,
-	section = "motion",
-	kind = "toggle",
-}, {
-	id = "ReactorMotion",
-	label = "Reactor motion",
-	description = "How busy the reactor looks.",
-	accent = Palette.pink,
-	section = "motion",
-}, {
-	id = "EffectsIntensity",
-	label = "Effect amount",
-	description = "Sparks, pops, flashes.",
-	accent = Palette.pink,
-	section = "visual",
-}, {
-	id = "BackgroundDetail",
-	label = "Background detail",
-	description = "Stars and glow behind the menus.",
-	accent = Palette.mint,
-	section = "visual",
-}, {
-	id = "ShimmerIntensity",
-	label = "Shimmer strength",
-	description = "White sweep on buttons.",
-	accent = Palette.cream,
-	section = "visual",
-}, {
-	id = "GlowIntensity",
-	label = "Glow strength",
-	description = "Bloom around rewards and live stuff.",
-	accent = Palette.violet,
-	section = "visual",
-}, {
-	id = "ParticleDensity",
-	label = "Particle density",
-	description = "Sparks, confetti, debris.",
-	accent = Palette.mango,
-	section = "visual",
-}, {
-	id = "ButtonShimmers",
-	label = "Button shimmers",
-	description = "A light sweep on hovered buttons.",
-	accent = Palette.cream,
-	section = "visual",
-	kind = "toggle",
-}, {
-	id = "ConfettiEnabled",
-	label = "Celebration effects",
-	description = "Confetti and sparks on big wins.",
-	accent = Palette.mango,
-	section = "visual",
-	kind = "toggle",
-}, {
-	id = "ScreenFlashes",
-	label = "Impact flashes",
-	description = "Flash the screen on big moments.",
-	accent = Palette.pink,
-	section = "visual",
-	kind = "toggle",
-}, {
-	id = "BackgroundStars",
-	label = "Background stars",
-	description = "Stars behind the pages.",
-	accent = Palette.blue,
-	section = "visual",
-	kind = "toggle",
-}, {
-	id = "AmbientGlow",
-	label = "Ambient glows",
-	description = "Soft colored light behind the UI.",
-	accent = Palette.violet,
-	section = "visual",
-	kind = "toggle",
-}, {
-	id = "OfflineRewardEffects",
-	label = "Welcome-back effects",
-	description = "Glow when you come back to offline cash.",
-	accent = Palette.mint,
-	section = "visual",
-	kind = "toggle",
-}, {
-	id = "ToastDensity",
-	label = "Notification stack",
-	description = "How many alerts sit on screen at once.",
-	accent = Palette.blue,
-	section = "interface",
-}, {
-	id = "UiDensity",
-	label = "Layout breathing room",
-	description = "Tighter or roomier layout. Text stays sharp.",
-	accent = Palette.coral,
-	section = "interface",
-}, {
-	id = "PerformanceBias",
-	label = "Favor performance",
-	description = "Turn this up if the game feels heavy.",
-	accent = Palette.green,
-	section = "interface",
-}, {
-	id = "ScrollSpeed",
-	label = "Mouse scroll speed",
-	description = "How far a wheel tick moves the list.",
-	accent = Palette.blue,
-	section = "interface",
-}, {
-	id = "ScrollMomentum",
-	label = "Scroll momentum",
-	description = "How long the list coasts after you let go.",
-	accent = Palette.mint,
-	section = "interface",
-}, {
-	id = "ShowFps",
-	label = "FPS readout",
-	description = "Show frame rate up top.",
-	accent = Palette.green,
-	section = "interface",
-	kind = "toggle",
-}, {
-	id = "ShowPing",
-	label = "Ping readout",
-	description = "Show ping next to FPS.",
-	accent = Palette.cyan,
-	section = "interface",
-	kind = "toggle",
-}, {
-	id = "ShowResourceLabels",
-	label = "Resource labels",
-	description = "Show DUST, CORES, FLUX above the numbers.",
-	accent = Palette.mango,
-	section = "interface",
-	kind = "toggle",
-}, {
-	id = "ShowNextGoal",
-	label = "Level bar",
-	description = "Show your Forge Level and next goal under the page title.",
-	accent = Palette.mint,
-	section = "interface",
-	kind = "toggle",
-}, {
-	id = "CompactTopBar",
-	label = "Compact top bar",
-	description = "Shorter header, more room below.",
-	accent = Palette.violet,
-	section = "interface",
-	kind = "toggle",
-}, {
-	id = "NotificationDuration",
-	label = "Notification duration",
-	description = "How long alerts stay up.",
-	accent = Palette.blue,
-	section = "interface",
-}, {
-	id = "HapticIntensity",
-	label = "Phone vibration",
-	description = "How hard the phone buzzes on taps.",
-	accent = Palette.pink,
-	section = "accessibility",
-}, {
-	id = "HighContrast",
-	label = "High contrast",
-	description = "Stronger text and edges.",
-	accent = Palette.cream,
-	section = "accessibility",
-	kind = "toggle",
-}, {
-	id = "ColorblindMode",
-	label = "Color-safe signals",
-	description = "Blue and gold instead of green and red.",
-	accent = Palette.blue,
-	section = "accessibility",
-	kind = "toggle",
-}, {
-	id = "DesktopTextScale",
-	label = "Desktop text size",
-	description = "Bigger or smaller text. Buttons stay put.",
-	accent = Palette.cyan,
-	section = "accessibility",
-}, {
-	id = "BoldText",
-	label = "Heavier body text",
-	description = "Thicker descriptions.",
-	accent = Palette.cream,
-	section = "accessibility",
-	kind = "toggle",
-}, {
-	id = "ReducedTransparency",
-	label = "Solid surfaces",
-	description = "Less see-through panels.",
-	accent = Palette.violet,
-	section = "accessibility",
-	kind = "toggle",
-}, {
-	id = "LargeTouchTargets",
-	label = "Large touch targets",
-	description = "Bigger buttons on touch.",
-	accent = Palette.green,
-	section = "accessibility",
-	kind = "toggle",
-}, {
-	id = "MobileTextScale",
-	label = "Mobile text size",
-	description = "Text size on phone, separate from the HUD.",
-	accent = Palette.mango,
-	section = "mobile",
-}, {
-	id = "MobileQuickScale",
-	label = "Quick-action size",
-	description = "Vault and overcharge button size.",
-	accent = Palette.cyan,
-	section = "mobile",
-}, {
-	id = "MobileDockScale",
-	label = "Bottom menu size",
-	description = "Size of the bottom menu.",
-	accent = Palette.violet,
-	section = "mobile",
-}, {
-	id = "MobileToastScale",
-	label = "Notification size",
-	description = "Size of alert cards.",
-	accent = Palette.blue,
-	section = "mobile",
-}, {
-	id = "MobileQuickOpacity",
-	label = "Quick-action opacity",
-	description = "How solid the floating buttons are.",
-	accent = Palette.cyan,
-	section = "mobile",
-}, {
-	id = "MobileDockOpacity",
-	label = "Navigation opacity",
-	description = "How solid the bottom menu is.",
-	accent = Palette.violet,
-	section = "mobile",
-}, {
-	id = "MobileToastOpacity",
-	label = "Notification opacity",
-	description = "How solid the alerts are.",
-	accent = Palette.blue,
-	section = "mobile",
-}, {
-	id = "MobileButtonSpacing",
-	label = "Touch spacing",
-	description = "More space between thumb buttons.",
-	accent = Palette.green,
-	section = "mobile",
-}, {
-	id = "MobileQuickReverse",
-	label = "Primary thumb side",
-	description = "Overcharge on the left or right.",
-	accent = Palette.mango,
-	section = "mobile",
-	kind = "toggle",
-	onLabel = "TAP LEFT",
-	offLabel = "TAP RIGHT",
-}, {
-	id = "MobileQuickVisible",
-	label = "Quick actions",
-	description = "Vault and overcharge above the dock.",
-	accent = Palette.cyan,
-	section = "mobile",
-	kind = "toggle",
-	onLabel = "VISIBLE",
-	offLabel = "HIDDEN",
-}, {
-	id = "MobileDockVisible",
-	label = "Bottom navigation",
-	description = "Show the bottom menu. The drawer still works.",
-	accent = Palette.violet,
-	section = "mobile",
-	kind = "toggle",
-	onLabel = "VISIBLE",
-	offLabel = "HIDDEN",
-}, {
-	id = "MobileToastVisible",
-	label = "Notifications",
-	description = "Show floating alerts on phone.",
-	accent = Palette.blue,
-	section = "mobile",
-	kind = "toggle",
-	onLabel = "VISIBLE",
-	offLabel = "HIDDEN",
-}, {
-	id = "MobileCompactHeaders",
-	label = "Compact page headers",
-	description = "Shorter titles so the page has more room.",
-	accent = Palette.cyan,
-	section = "mobile",
-	kind = "toggle",
-}, {
-	id = "MobileAutoHideDock",
-	label = "Auto-hide navigation",
-	description = "Hide the dock while you type or play arcade.",
-	accent = Palette.violet,
-	section = "mobile",
-	kind = "toggle",
-}, {
-	id = "MobileLandscapeCompact",
-	label = "Compact landscape",
-	description = "Drop extra headers when the phone is sideways.",
-	accent = Palette.mint,
-	section = "mobile",
-	kind = "toggle",
-}, {
-	id = "MobileKeyboardCompact",
-	label = "Keyboard compact mode",
-	description = "Shrink the chrome while the keyboard is up.",
-	accent = Palette.mango,
-	section = "mobile",
-	kind = "toggle",
-} }
-local NEW_DEFAULTS = {
-	UiVolume = 0.6,
-	GameplayVolume = 1,
-	RewardVolume = 1,
-	AmbientVolume = 0.75,
-	HoverSounds = 1,
-	NotificationSounds = 1,
-	PageMusic = 1,
-	SoundVariation = 0.7,
-	ReactorMotion = 0.8,
-	OfflineRewardEffects = 1,
-	ShimmerIntensity = 0.8,
-	GlowIntensity = 0.75,
-	ParticleDensity = 0.75,
-	ButtonShimmers = 1,
-	PanelHover = 1,
-	PanelEntrances = 1,
-	AnimatedTitles = 1,
-	IconAnimations = 1,
-	NumberAnimations = 1,
-	ConfettiEnabled = 1,
-	ScreenFlashes = 0.8,
-	BackgroundStars = 1,
-	AmbientGlow = 1,
-	ShowFps = 1,
-	ShowPing = 1,
-	ShowResourceLabels = 1,
-	ShowNextGoal = 1,
-	CompactTopBar = 0,
-	NotificationDuration = 0.55,
-	ScrollMomentum = 0.75,
-	DesktopTextScale = 0.5,
-	BoldText = 0,
-	ReducedTransparency = 0,
-	LargeTouchTargets = 1,
-	MobileCompactHeaders = 1,
-	MobileAutoHideDock = 1,
-	MobileLandscapeCompact = 1,
-	MobileKeyboardCompact = 1,
-}
-local FX_PRESETS = {
-	low = {
-		label = "LOW FX",
-		notice = "LOW FX is on. Motion is light, button sweeps are off.",
-		values = {
-			MusicVolume = 0.5,
-			SfxVolume = 1,
-			UiVolume = 1,
-			MotionIntensity = 0.18,
-			EffectsIntensity = 0.22,
-			ParticleDensity = 0.12,
-			ButtonShimmers = 0,
-			ShimmerIntensity = 0.2,
-			GlowIntensity = 0.2,
-			ConfettiEnabled = 0,
-			ScreenFlashes = 0.15,
-			PanelHover = 0.35,
-			PanelEntrances = 0.4,
-			AnimatedTitles = 0,
-			IconAnimations = 0.25,
-			PerformanceBias = 1,
-		},
-	},
-	normal = {
-		label = "NORMAL",
-		notice = "NORMAL is on. Sweeps, ripples, and motion are back to default.",
-		values = {
-			MusicVolume = 0.7,
-			SfxVolume = 1,
-			UiVolume = 1,
-			MotionIntensity = 0.62,
-			EffectsIntensity = 0.7,
-			ParticleDensity = 0.6,
-			ButtonShimmers = 1,
-			ShimmerIntensity = 0.8,
-			GlowIntensity = 0.75,
-			ConfettiEnabled = 1,
-			ScreenFlashes = 0.8,
-			PanelHover = 1,
-			PanelEntrances = 1,
-			AnimatedTitles = 1,
-			IconAnimations = 1,
-			PerformanceBias = 0.35,
-		},
-	},
-	high = {
-		label = "HIGH FX",
-		notice = "HIGH FX is on. Full motion, sweeps, and flashes.",
-		values = {
-			MusicVolume = 0.7,
-			SfxVolume = 1,
-			UiVolume = 1,
-			MotionIntensity = 1,
-			EffectsIntensity = 1,
-			ParticleDensity = 1,
-			ButtonShimmers = 1,
-			ShimmerIntensity = 1,
-			GlowIntensity = 1,
-			ConfettiEnabled = 1,
-			ScreenFlashes = 1,
-			PanelHover = 1,
-			PanelEntrances = 1,
-			AnimatedTitles = 1,
-			IconAnimations = 1,
-			PerformanceBias = 0,
-		},
-	},
-}
-local function matchingPreset(settings)
-	local _condition = settings.MotionIntensity
-	if _condition == nil then
-		_condition = 1
-	end
-	local motion = _condition
-	local _condition_1 = settings.ButtonShimmers
-	if _condition_1 == nil then
-		_condition_1 = 1
-	end
-	local shimmers = _condition_1
-	local _condition_2 = settings.PerformanceBias
-	if _condition_2 == nil then
-		_condition_2 = 0.5
-	end
-	local bias = _condition_2
-	if shimmers < 0.5 and bias >= 0.85 then
-		return "low"
-	end
-	if motion >= 0.92 and shimmers >= 0.5 and bias <= 0.12 then
-		return "high"
-	end
-	if motion >= 0.5 and motion <= 0.75 and shimmers >= 0.5 then
-		return "normal"
-	end
-	return nil
-end
+local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
+
+local ROW_H = 60
+local ROW_H_STACK = 94
+local NAV_W = 196
 local MOBILE_DOCK_DESTINATIONS = { "Overview", "Workshop", "Inventory", "Research", "Shop", "Settings" }
-local SECTION_META = {
-	audio = {
-		label = "AUDIO",
-		accent = Palette.green,
-	},
-	motion = {
-		label = "MOTION",
-		accent = Palette.violet,
-	},
-	visual = {
-		label = "VISUALS",
-		accent = Palette.pink,
-	},
-	interface = {
-		label = "INTERFACE",
-		accent = Palette.cyan,
-	},
-	accessibility = {
-		label = "ACCESS",
-		accent = Palette.mango,
-	},
-	mobile = {
-		label = "MOBILE",
-		accent = Palette.blue,
-	},
-}
-local function savedValue(settings, id)
-	local value = settings[id]
-	if type(value) == "number" then
-		return math.clamp(value, 0, 1)
-	end
-	local addedDefault = NEW_DEFAULTS[id]
-	if addedDefault ~= nil then
-		return addedDefault
-	end
-	if id == "SoundVolume" then
-		return 0.75
-	end
-	if id == "ToastDensity" or id == "UiDensity" or id == "MobileTextScale" or id == "MobileButtonSpacing" then
-		return 0.5
-	end
-	if id == "PerformanceBias" then
-		return 0.5
-	end
-	if id == "BackgroundDetail" then
-		return 0.8
-	end
-	if id == "ScrollSpeed" or id == "HapticIntensity" then
-		return 0.65
-	end
-	if id == "MobileQuickScale" or id == "MobileDockScale" then
-		local _condition = settings.MobileHudScale
-		if _condition == nil then
-			_condition = 0.5
-		end
-		return _condition
-	end
-	if id == "MobileToastScale" then
-		local _condition = settings.MobileHudScale
-		if _condition == nil then
-			_condition = 0.5
-		end
-		return _condition
-	end
-	if id == "MobileQuickOpacity" or id == "MobileDockOpacity" or id == "MobileToastOpacity" then
-		local _condition = settings.MobileHudOpacity
-		if _condition == nil then
-			_condition = 0.85
-		end
-		return _condition
-	end
-	if id == "MobileQuickReverse" then
-		return 0
-	end
-	if id == "HighContrast" or id == "ColorblindMode" then
-		return 0
-	end
-	if id == "MobileQuickVisible" or id == "MobileDockVisible" or id == "MobileToastVisible" then
-		return 1
-	end
-	return 1
+
+local function accentOf(section)
+	return Palette[section.accent] or Palette.cyan
 end
-local function SettingRow(_param)
-	local data = _param.data
-	local state = _param.state
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local motionSoft = _param.softMotion or reducedMotion
-	local layoutOrder = _param.layoutOrder
-	local index = _param.index
-	local stack = _param.stack
-	local touch = _param.touch
-	local saved = savedValue(state.Settings, data.id)
-	local draft, setDraft = React.useState(saved)
-	React.useEffect(function()
-		return setDraft(saved)
-	end, { saved })
-	local commit = React.useCallback(function(value)
-		dispatch("SetSetting", {
-			Key = data.id,
-			Value = value,
-		})
-	end, { data.id, dispatch })
-	local reveal = useStagger(math.min(index, 5), motionSoft, 0.01, 0.14)
-	local rowH = if stack then 112 else 96
-	local toggle = data.kind == "toggle"
-	local directionalToggle = data.id == "MobileQuickReverse"
-	local _exp = React.createElement(Text, {
-		value = data.label,
-		size = 15,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 11,
-		sizeConstraint = UDim2.new(1, if stack then -28 else -244, 0, 22),
-	})
-	local _exp_1 = React.createElement(Text, {
-		value = data.description,
-		size = 10,
-		color = Palette.muted,
-		wrap = true,
-		position = UDim2.fromOffset(0, 26),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -244, 0, if stack then 34 else 36),
-	})
-	local _result
-	if toggle then
-		local _attributes = {}
-		local _result_1
-		if draft >= 0.5 then
-			local _condition = data.onLabel
-			if _condition == nil then
-				_condition = "ON"
-			end
-			_result_1 = _condition
-		else
-			local _condition = data.offLabel
-			if _condition == nil then
-				_condition = "OFF"
-			end
-			_result_1 = _condition
-		end
-		_attributes.text = _result_1
-		_attributes.icon = if directionalToggle then (if draft >= 0.5 then "Back" else "Chevron") elseif draft >= 0.5 then "Check" elseif data.offLabel == "HIDDEN" then "Hide" else "Close"
-		_attributes.onClick = function()
-			local updated = if draft >= 0.5 then 0 else 1
-			setDraft(updated)
-			commit(updated)
-		end
-		_attributes.sound = if draft >= 0.5 then "toggleOff" else "toggleOn"
-		_attributes.color = if directionalToggle then data.accent elseif draft >= 0.5 then data.accent else Palette.panelSoft
-		_attributes.textColor = if directionalToggle or draft >= 0.5 then Palette.ink else Palette.creamSoft
-		_attributes.outline = not directionalToggle and draft < 0.5
-		_attributes.size = UDim2.fromScale(1, 1)
-		_attributes.reducedMotion = motionSoft
-		_result = React.createElement("frame", {
-			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(170, TapTarget),
-			Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -170, 0.5, -TapTarget / 2),
-			BackgroundTransparency = 1,
+local SECTION_BY_ID = {}
+for _, section in Schema.SECTIONS do
+	SECTION_BY_ID[section.id] = section
+end
+
+-- An on/off switch: a pill with a knob that springs across.
+local function Switch(_param)
+	local on = _param.on
+	local accent = _param.accent
+	local softMotion = _param.softMotion
+	local knob = useFlipperSpring(if on then 1 else 0, softMotion, 640, 34)
+	return React.createElement("textbutton", {
+		Size = UDim2.fromOffset(50, 28),
+		Position = _param.position,
+		AnchorPoint = _param.anchorPoint,
+		BackgroundColor3 = if on then accent else Palette.graphite,
+		AutoButtonColor = false,
+		BorderSizePixel = 0,
+		Text = "",
+		Selectable = true,
+		Event = {
+			Activated = function()
+				Audio:play(if on then "toggleOff" else "toggleOn")
+				_param.onToggle()
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = if on then accent else Palette.lineSoft,
+		Transparency = if on then 0.2 else 0.35,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(22, 22),
+		Position = knob:map(function(amount)
+			return UDim2.new(0, 3 + math.clamp(amount, -0.1, 1.1) * 22, 0.5, 0)
+		end),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = if on then Palette.ink else Palette.creamSoft,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})))
+end
+
+-- A row of named options; the picked one is filled with the section colour.
+local function Choice(_param)
+	local choices = _param.choices
+	local value = _param.value
+	local accent = _param.accent
+	local cells = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, option in choices do
+		local picked = math.abs(option.value - value) < 0.02
+		cells["c" .. index] = React.createElement("textbutton", {
+			Size = UDim2.new(1 / #choices, -4 * (#choices - 1) / #choices, 1, 0),
+			LayoutOrder = index,
+			BackgroundColor3 = if picked then accent else Palette.panelSoft,
+			AutoButtonColor = false,
 			BorderSizePixel = 0,
-		}, React.createElement(Button, _attributes))
-	else
-		_result = if stack then React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, TapTarget),
-			Position = UDim2.new(0, 0, 1, -(TapTarget + 4)),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Slider, {
-			value = draft,
-			accent = data.accent,
-			reducedMotion = motionSoft,
-			size = UDim2.new(1, -58, 0, TapTarget),
-			onChange = setDraft,
-			onCommit = commit,
-		}), React.createElement(Text, {
-			value = `{math.floor(draft * 100 + 0.5)}%`,
-			size = 11,
-			color = data.accent,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			position = UDim2.new(1, -52, 0, 0),
-			sizeConstraint = UDim2.new(0, 52, 0, TapTarget),
-			align = Enum.TextXAlignment.Right,
-		})) else React.createElement("frame", {
-			Size = UDim2.fromOffset(222, if touch then TapTarget else 30),
-			Position = UDim2.new(1, -222, 0.5, if touch then -TapTarget / 2 else -15),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(Slider, {
-			value = draft,
-			accent = data.accent,
-			reducedMotion = motionSoft,
-			size = UDim2.fromOffset(172, if touch then TapTarget else 30),
-			onChange = setDraft,
-			onCommit = commit,
-		}), React.createElement(Text, {
-			value = `{math.floor(draft * 100 + 0.5)}%`,
-			size = 11,
-			color = data.accent,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			position = UDim2.fromOffset(178, 0),
-			sizeConstraint = UDim2.new(0, 44, 0, if touch then TapTarget else 30),
-			align = Enum.TextXAlignment.Right,
+			Text = option.label,
+			TextColor3 = if picked then Palette.ink else Palette.creamSoft,
+			TextSize = 13,
+			FontFace = Font.fromEnum(if picked then Enum.Font.BuilderSansExtraBold else Enum.Font.BuilderSansBold),
+			Selectable = true,
+			Event = {
+				Activated = function()
+					if not picked then
+						Audio:play("tabSwitch")
+						_param.onPick(option.value)
+					end
+				end,
+			},
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 8),
+		}), not picked and React.createElement("uistroke", {
+			Color = Palette.lineSoft,
+			Transparency = 0.45,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		}))
 	end
-	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, rowH),
-		accent = data.accent,
-		background = Palette.panel,
-		padding = 13,
-		layoutOrder = layoutOrder,
-		reveal = reveal,
-		interactive = true,
-		reducedMotion = motionSoft,
-		clips = false,
-	}, _exp, _exp_1, _result)
+	return React.createElement("frame", {
+		Size = _param.size,
+		Position = _param.position,
+		AnchorPoint = _param.anchorPoint,
+		BackgroundTransparency = 1,
+	}, cells)
 end
+
+-- One setting: its name and a one-line note on the left, its control on the right (under it on phones).
+local function SettingRow(_param)
+	local entry = _param.entry
+	local saved = _param.value
+	local accent = _param.accent
+	local stack = _param.stack
+	local softMotion = _param.softMotion
+	local dispatch = _param.dispatch
+	local draft, setDraft = React.useState(saved)
+	React.useEffect(function()
+		setDraft(saved)
+	end, { saved })
+	local commit = function(value)
+		setDraft(value)
+		dispatch("SetSetting", { Key = entry.key, Value = value })
+	end
+	local controlW = if entry.kind == "toggle" then 50 elseif entry.kind == "choice" then math.min(260, 64 * #(entry.choices or {})) else 240
+	local textRight = if stack then 0 else controlW + 20
+	local control
+	if entry.kind == "toggle" then
+		control = React.createElement(Switch, {
+			on = draft >= 0.5,
+			accent = accent,
+			softMotion = softMotion,
+			position = if stack then UDim2.new(0, 0, 1, -34) else UDim2.new(1, 0, 0.5, 0),
+			anchorPoint = if stack then Vector2.new(0, 0) else Vector2.new(1, 0.5),
+			onToggle = function()
+				commit(if draft >= 0.5 then 0 else 1)
+			end,
+		})
+	elseif entry.kind == "choice" then
+		control = React.createElement(Choice, {
+			choices = entry.choices,
+			value = draft,
+			accent = accent,
+			size = if stack then UDim2.new(1, 0, 0, 34) else UDim2.fromOffset(controlW, 34),
+			position = if stack then UDim2.new(0, 0, 1, -38) else UDim2.new(1, 0, 0.5, 0),
+			anchorPoint = if stack then Vector2.new(0, 0) else Vector2.new(1, 0.5),
+			onPick = commit,
+		})
+	else
+		control = React.createElement("frame", {
+			Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(controlW, 32),
+			Position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, 0, 0.5, 0),
+			AnchorPoint = if stack then Vector2.new(0, 0) else Vector2.new(1, 0.5),
+			BackgroundTransparency = 1,
+		}, React.createElement(Slider, {
+			value = draft,
+			accent = accent,
+			reducedMotion = softMotion,
+			size = UDim2.new(1, -52, 1, 0),
+			onChange = setDraft,
+			onCommit = function(value)
+				commit(value)
+			end,
+		}), React.createElement(Text, {
+			value = `{math.floor(draft * 100 + 0.5)}%`,
+			size = 13,
+			color = Palette.creamSoft,
+			weight = Enum.FontWeight.Bold,
+			align = Enum.TextXAlignment.Right,
+			position = UDim2.new(1, -46, 0, 0),
+			sizeConstraint = UDim2.new(0, 46, 1, 0),
+		}))
+	end
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, if stack then ROW_H_STACK else ROW_H),
+		LayoutOrder = _param.layoutOrder,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Text, {
+		value = if _param.tag ~= nil then `{entry.label}  ·  {_param.tag}` else entry.label,
+		size = 15,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(0, if stack then 8 else 11),
+		sizeConstraint = UDim2.new(1, -textRight, 0, 20),
+	}), React.createElement(Text, {
+		value = entry.help,
+		size = 12,
+		color = Palette.muted,
+		position = UDim2.fromOffset(0, if stack then 29 else 32),
+		sizeConstraint = UDim2.new(1, -textRight, 0, 16),
+	}), control, React.createElement("frame", {
+		-- hairline under each row
+		Size = UDim2.new(1, 0, 0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		BackgroundColor3 = Palette.lineSoft,
+		BackgroundTransparency = 0.75,
+		BorderSizePixel = 0,
+	}))
+end
+
+-- A section in the sidebar (desktop) or a chip (phones).
+local function SectionButton(_param)
+	local section = _param.section
+	local active = _param.active
+	local accent = accentOf(section)
+	local hovered, setHovered = React.useState(false)
+	local glow = useFlipperSpring(if active then 1 elseif hovered then 0.45 else 0, _param.softMotion, 520, 36)
+	return React.createElement("textbutton", {
+		Size = _param.size,
+		LayoutOrder = _param.layoutOrder,
+		BackgroundColor3 = Palette.panelSoft,
+		BackgroundTransparency = glow:map(function(amount)
+			return 1 - amount * 0.85
+		end),
+		AutoButtonColor = false,
+		BorderSizePixel = 0,
+		Text = "",
+		Selectable = true,
+		Event = {
+			Activated = function()
+				if not active then
+					Audio:play("tabSwitch")
+					_param.onPick(section.id)
+				end
+			end,
+			MouseEnter = function()
+				setHovered(true)
+			end,
+			MouseLeave = function()
+				setHovered(false)
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 10),
+	}), React.createElement("frame", {
+		-- the active marker
+		Size = glow:map(function(amount)
+			return UDim2.fromOffset(3, math.round(18 * math.clamp(amount, 0, 1)))
+		end),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+		Visible = not _param.compact,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement(Icon, {
+		kind = section.icon,
+		color = if active then accent else Palette.muted,
+		accent = accent,
+		size = 18,
+		position = UDim2.new(0, if _param.compact then 10 else 14, 0.5, -9),
+	}), React.createElement(Text, {
+		value = section.label,
+		size = 14,
+		color = if active then Palette.cream else Palette.creamSoft,
+		weight = if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(if _param.compact then 34 else 40, 0),
+		sizeConstraint = UDim2.new(1, if _param.compact then -38 else -70, 1, 0),
+	}), not _param.compact and React.createElement(Text, {
+		value = tostring(_param.count),
+		size = 12,
+		color = Palette.muted,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.new(1, -36, 0, 0),
+		sizeConstraint = UDim2.new(0, 26, 1, 0),
+	}))
+end
+
 local function SettingsView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local mobileEdit, setMobileEdit = React.useState(false)
-	local activeSection, setActiveSection = React.useState("audio")
+	local softMotion = reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local enter = useEntrance(softMotion)
-	local audioReveal = useStagger(0, softMotion)
-	local motionReveal = useStagger(1, softMotion)
-	local visualReveal = useStagger(2, softMotion)
-	local navReveal = useStagger(3, softMotion)
-	local settingsSoft = softMotion or audioReveal == nil or motionReveal == nil or visualReveal == nil or navReveal == nil
-	-- isTouchDevice() (called with no viewport args) re-derives its own desktop/mobile guess from
-	-- the raw camera ViewportSize instead of trusting the already-computed, correctly-scaled
-	-- `viewport.desktop` that AutoScale produced -- the two can disagree (most visibly in Roblox
-	-- Studio's device emulator, which always has real mouse/keyboard hardware attached), which is
-	-- exactly what silently hid the whole "mobile" settings section and its Phone HUD editor even
-	-- while chrome.stack correctly said the layout was in mobile mode.
-	local touch = not viewport.desktop and UserInputService.TouchEnabled
 	local stack = chrome.contentStack
+	-- Touch layout: trust the viewport AutoScale already measured (Studio's emulator always has a mouse).
+	local touch = not viewport.desktop and UserInputService.TouchEnabled
 	local mobileHudAvailable = touch and chrome.stack
-	local touchRows = stack
-	local availableSections = if mobileHudAvailable then { "audio", "motion", "visual", "interface", "accessibility", "mobile" } else { "audio", "motion", "visual", "interface", "accessibility" }
+	local settings = state.Settings or {}
+	local activeSection, setActiveSection = React.useState("sound")
+	local query, setQuery = React.useState("")
+	local advancedOpen, setAdvancedOpen = React.useState({})
+	local mobileEdit, setMobileEdit = React.useState(false)
+	local reveal = useStagger(0, softMotion)
+
+	local sections = {}
+	for _, section in Schema.SECTIONS do
+		if not section.touchOnly or mobileHudAvailable then
+			table.insert(sections, section)
+		end
+	end
+	React.useEffect(function()
+		if SECTION_BY_ID[activeSection].touchOnly and not mobileHudAvailable then
+			setActiveSection("interface")
+		end
+	end, { activeSection, mobileHudAvailable })
+	local section = SECTION_BY_ID[activeSection]
+	local accent = accentOf(section)
+
+	-- Gamepad: park Selection on the tour / patch notes buttons.
 	local settingsClaimHostRef = React.useRef(nil)
-	-- Gamepad: park Selection on GUIDE/UPDATES (FocusClaim prefers Claim-named hosts).
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -879,485 +370,376 @@ local function SettingsView(_param)
 		if host == nil then
 			return nil
 		end
-		local selectJob = task.defer(function()
-			if host.Parent == nil then
-				return
+		local job = task.defer(function()
+			if host.Parent ~= nil then
+				GamepadNavigationService.FocusClaim(host)
 			end
-			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			pcall(task.cancel, selectJob)
+			pcall(task.cancel, job)
 		end
 	end, { activeSection })
-	React.useEffect(function()
-		if not mobileHudAvailable and activeSection == "mobile" then
-			setActiveSection("interface")
+
+	-- What the list shows: search results from every section, or this section (advanced folded away).
+	local needle = string.lower(query)
+	local searching = needle ~= ""
+	local rows = {}
+	local hiddenAdvanced = 0
+	for _, entry in Schema.ENTRIES do
+		local home = SECTION_BY_ID[entry.section]
+		if home.touchOnly and not mobileHudAvailable then
+			continue
 		end
-	end, { activeSection, mobileHudAvailable })
-	local activeSectionIndex = math.max(0, (table.find(availableSections, activeSection) or 0) - 1)
-	-- ▼ ReadonlyArray.map ▼
-	local _newValue = table.create(#availableSections)
-	local _callback = function(id)
-		return {
-			id = id,
-			label = SECTION_META[id].label,
-			accent = SECTION_META[id].accent,
-		}
-	end
-	for _k, _v in availableSections do
-		_newValue[_k] = _callback(_v, _k - 1, availableSections)
-	end
-	-- ▲ ReadonlyArray.map ▲
-	local sectionOptions = _newValue
-	local paneTravel = useFlipperSpring(activeSectionIndex, softMotion, 1540, 40)
-	local panePosition = paneTravel:map(function(position)
-		return UDim2.new(0, math.round(math.clamp(position - activeSectionIndex, -1, 1) * 14), 0, 0)
-	end)
-	-- ▼ ReadonlyArray.filter ▼
-	local _newValue_1 = {}
-	local _callback_1 = function(row)
-		return row.section == activeSection and (row.section ~= "mobile" or mobileHudAvailable)
-	end
-	local _length = 0
-	for _k, _v in SETTINGS do
-		if _callback_1(_v, _k - 1, SETTINGS) == true then
-			_length += 1
-			_newValue_1[_length] = _v
+		if searching then
+			if string.find(string.lower(entry.label), needle, 1, true) or string.find(string.lower(entry.help), needle, 1, true) then
+				table.insert(rows, entry)
+			end
+		elseif entry.section == activeSection then
+			if entry.advanced and not advancedOpen[activeSection] then
+				hiddenAdvanced += 1
+			else
+				table.insert(rows, entry)
+			end
 		end
 	end
-	-- ▲ ReadonlyArray.filter ▲
-	local visibleRows = _newValue_1
-	local rowStride = if touchRows then 124 else 108
-	local headerH = if stack then 176 else 156
-	local preset = matchingPreset(state.Settings)
-	local applyPreset = function(id)
-		local entry = FX_PRESETS[id]
-		dispatch("SetSetting", {
-			Values = entry.values,
-			Label = entry.notice,
-		})
+	local counts = {}
+	for _, entry in Schema.ENTRIES do
+		counts[entry.section] = (counts[entry.section] or 0) + 1
 	end
-	local tabCols = if stack then 2 else #availableSections
-	local tabRows = math.ceil(#availableSections / tabCols)
-	local tabButtonH = if stack then 40 else TapTarget
-	local tabsH = tabRows * (tabButtonH + 8) + 16
-	local editorH = if mobileHudAvailable and activeSection == "mobile" then (if stack then 138 else 92) else 0
-	-- Long section catalogs virtualize inside a fixed viewport so PageScaffold stays scrollable.
-	local virtSettings = #visibleRows >= VIRT_SETTINGS_MIN
-	local settingsListH = if virtSettings
-		then math.min(#visibleRows, VIRT_SETTINGS_VISIBLE) * rowStride
-		else #visibleRows * rowStride
-	local paneH = SECTION_LABEL_H + 14 + settingsListH + editorH
-	local headerReveal = useStagger(0, softMotion)
-	local _ = headerReveal
-	local quickScale = savedValue(state.Settings, "MobileQuickScale")
-	local dockScale = savedValue(state.Settings, "MobileDockScale")
-	local toastScale = savedValue(state.Settings, "MobileToastScale")
+
+	local preset = Schema.matchingPreset(settings)
+	local applyPreset = function(entry)
+		dispatch("SetSetting", { Values = entry.values, Label = entry.notice })
+	end
+	local resetSection = function()
+		dispatch("SetSetting", { Values = Schema.sectionDefaults(activeSection), Label = `{section.label} settings reset.` })
+	end
+
+	-- The phone HUD editor (dragging the quick buttons, the menu and the alerts round the screen).
+	local quickScale = Schema.value(settings, "MobileQuickScale")
+	local dockScale = Schema.value(settings, "MobileDockScale")
+	local toastScale = Schema.value(settings, "MobileToastScale")
 	local hudSafeTop = viewport.topInset + chrome.topbarRows + 12
-	local _condition = state.Settings.UiDensity
-	if _condition == nil then
-		_condition = 0.55
-	end
-	local densityScale = 0.82 + _condition * 0.36
+	local densityScale = 0.82 + Schema.value(settings, "UiDensity") * 0.36
 	local hudEdgePad = math.max(8, math.floor(chrome.pagePadding * densityScale))
-	local spacing = savedValue(state.Settings, "MobileButtonSpacing")
-	local dockGap = if chrome.landscape then 3 else 3 + math.floor(spacing * 5)
-	local touchTargetFloor = if savedValue(state.Settings, "LargeTouchTargets") >= 0.5 then TapTarget + 6 else TapTarget
+	local dockGap = if chrome.landscape then 3 else 3 + math.floor(Schema.value(settings, "MobileButtonSpacing") * 5)
+	local touchTargetFloor = if Schema.value(settings, "LargeTouchTargets") >= 0.5 then TapTarget + 6 else TapTarget
 	local dockCellH = math.max(touchTargetFloor, math.floor(chrome.moreCellH * (0.88 + dockScale * 0.16)))
 	local quickWidth = math.max(200, (viewport.width - math.max(hudEdgePad, chrome.sideSafe) * 2) * (0.72 + quickScale * 0.28))
 	local quickHeight = math.max(TapTarget + 8, math.floor(chrome.quickBarH * (0.86 + quickScale * 0.22)))
 	local dockWidth = fitTouchGridWidth(viewport.width, hudEdgePad, chrome.sideSafe, chrome.moreCols, dockGap, 0.72 + dockScale * 0.28)
-	-- ▼ ReadonlyArray.reduce ▼
-	local _result = 0
-	local _callback_2 = function(count, id)
-		-- MOBILE_DOCK_DESTINATIONS never includes "Admin" — this list is the fixed set of
-		-- preview destinations shown while sizing the mobile dock in the HUD editor.
-		local _result_1 = state.FeatureUnlocks
-		if _result_1 ~= nil then
-			_result_1 = _result_1[id]
-			if _result_1 ~= nil then
-				_result_1 = _result_1.Unlocked
-			end
+	local dockCount = 0
+	for _, id in MOBILE_DOCK_DESTINATIONS do
+		local unlock = state.FeatureUnlocks and state.FeatureUnlocks[id]
+		if not (unlock ~= nil and unlock.Unlocked == false) then
+			dockCount += 1
 		end
-		return if _result_1 == false then count else count + 1
 	end
-	for _i = 1, #MOBILE_DOCK_DESTINATIONS do
-		_result = _callback_2(_result, MOBILE_DOCK_DESTINATIONS[_i], _i - 1, MOBILE_DOCK_DESTINATIONS)
-	end
-	-- ▲ ReadonlyArray.reduce ▲
-	local dockCount = _result
 	local dockHeight = moreDockHeight(true, math.max(1, dockCount), chrome.moreCols, dockCellH, dockGap)
 	local toastWidth = math.min(220, math.max(180, viewport.width - 48)) * (0.8 + toastScale * 0.2)
 	local toastHeight = 2 * (48 + 4)
 	local mobileSlots = React.useMemo(function()
 		local slots = {}
-		-- v2 mobile shell: navigation lives in a fixed bottom tab bar and quick actions live in
-		-- the header, neither of which is a floating draggable HUD element anymore — only the
-		-- notification toast stack is still user-repositionable.
+		local function slot(id, label, xKey, yKey, dx, dy, width, height, anchorY)
+			table.insert(slots, {
+				id = id, label = label, xKey = xKey, yKey = yKey,
+				x = settings[xKey] or dx, y = settings[yKey] or dy, defaultX = dx, defaultY = dy,
+				width = math.floor(width), height = math.floor(height), anchorY = anchorY, safeTop = hudSafeTop,
+			})
+		end
 		if chrome.quickBarH > 0 then
-			local _object = {
-				id = "quick",
-				label = "QUICK ACTIONS",
-				xKey = "MobileQuickX",
-				yKey = "MobileQuickY",
-			}
-			local _left = "x"
-			local _condition_1 = state.Settings.MobileQuickX
-			if _condition_1 == nil then
-				_condition_1 = 0.5
-			end
-			_object[_left] = _condition_1
-			local _left_1 = "y"
-			local _condition_2 = state.Settings.MobileQuickY
-			if _condition_2 == nil then
-				_condition_2 = 0.70
-			end
-			_object[_left_1] = _condition_2
-			_object.defaultX = 0.5
-			_object.defaultY = 0.70
-			_object.width = math.floor(quickWidth)
-			_object.height = math.floor(quickHeight)
-			_object.safeTop = hudSafeTop
-			table.insert(slots, _object)
+			slot("quick", "QUICK ACTIONS", "MobileQuickX", "MobileQuickY", 0.5, 0.70, quickWidth, quickHeight)
 		end
 		if chrome.stack and viewport.height >= 480 and chrome.quickBarH > 0 then
-			local _object = {
-				id = "dock",
-				label = "NAVIGATION",
-				xKey = "MobileDockX",
-				yKey = "MobileDockY",
-			}
-			local _left = "x"
-			local _condition_1 = state.Settings.MobileDockX
-			if _condition_1 == nil then
-				_condition_1 = 0.5
-			end
-			_object[_left] = _condition_1
-			local _left_1 = "y"
-			local _condition_2 = state.Settings.MobileDockY
-			if _condition_2 == nil then
-				_condition_2 = 0.92
-			end
-			_object[_left_1] = _condition_2
-			_object.defaultX = 0.5
-			_object.defaultY = 0.92
-			_object.width = math.floor(dockWidth)
-			_object.height = math.floor(dockHeight)
-			_object.safeTop = hudSafeTop
-			table.insert(slots, _object)
+			slot("dock", "NAVIGATION", "MobileDockX", "MobileDockY", 0.5, 0.92, dockWidth, dockHeight)
 		end
-		local _object = {
-			id = "toasts",
-			label = "NOTIFICATIONS",
-			xKey = "MobileToastX",
-			yKey = "MobileToastY",
-		}
-		local _left = "x"
-		local _condition_1 = state.Settings.MobileToastX
-		if _condition_1 == nil then
-			_condition_1 = 0.84
-		end
-		_object[_left] = _condition_1
-		local _left_1 = "y"
-		local _condition_2 = state.Settings.MobileToastY
-		if _condition_2 == nil then
-			_condition_2 = 0.27
-		end
-		_object[_left_1] = _condition_2
-		_object.defaultX = 0.84
-		_object.defaultY = 0.27
-		_object.width = math.floor(toastWidth)
-		_object.height = toastHeight
-		_object.anchorY = 0
-		_object.safeTop = hudSafeTop
-		table.insert(slots, _object)
+		slot("toasts", "NOTIFICATIONS", "MobileToastX", "MobileToastY", 0.84, 0.27, toastWidth, toastHeight, 0)
 		return slots
-	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, state.Settings.MobileDockX, state.Settings.MobileDockY, state.Settings.MobileQuickX, state.Settings.MobileQuickY, state.Settings.MobileToastX, state.Settings.MobileToastY, toastHeight, toastWidth, viewport.height })
-	local controllerHints = UserInputService.GamepadEnabled
-	local controllerHintsH = if controllerHints and activeSection == "interface" then (if stack then 96 else 78) else 0
-	local _exp_2 = React.createElement(Panel, {
+	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, settings.MobileDockX, settings.MobileDockY, settings.MobileQuickX, settings.MobileQuickY, settings.MobileToastX, settings.MobileToastY, toastHeight, toastWidth, viewport.height })
+
+	-- ---- header: title, tour / patch notes, search
+	local headerH = if stack then 158 else 112
+	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = Palette.violet,
+		accent = accent,
 		background = Palette.panelRaised,
 		padding = 16,
-		reveal = if reducedMotion then audioReveal else enter,
-		highlight = not settingsSoft,
-			reducedMotion = softMotion,
+		reveal = reveal,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
-		value = "SETTINGS",
-		size = 10,
-		color = Palette.violet,
-		weight = Enum.FontWeight.Heavy,
-		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 14),
-	}), React.createElement(Text, {
-		value = "Sound, motion, display.",
-		size = if stack then 20 else 26,
+		value = "Settings",
+		size = if stack then 22 else 26,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 15,
-		position = UDim2.fromOffset(0, 16),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 30),
+		sizeConstraint = UDim2.new(1, if stack then 0 else -340, 0, 30),
 	}), React.createElement(Text, {
-		value = `v{state.Game.Version}  ·  GUIDE replays the tutorial  ·  UPDATES shows patch notes`,
-		size = 10,
+		value = `Saved to your profile automatically  ·  v{state.Game.Version}`,
+		size = 12,
 		color = Palette.muted,
-		fit = true,
-		minSize = 8,
-		position = UDim2.fromOffset(0, 46),
-		sizeConstraint = UDim2.new(1, if stack then -8 else -320, 0, 16),
+		position = UDim2.fromOffset(0, 32),
+		sizeConstraint = UDim2.new(1, if stack then 0 else -340, 0, 16),
 	}), React.createElement("frame", {
 		Name = "SettingsClaimActions",
-		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(300, 42),
-		Position = if stack then UDim2.fromOffset(0, 66) else UDim2.new(1, -300, 0, 10),
+		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(320, 40),
+		Position = if stack then UDim2.fromOffset(0, 56) else UDim2.new(1, -320, 0, 0),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		ZIndex = 6,
 		ref = settingsClaimHostRef,
 	}, React.createElement(Button, {
-		text = "GUIDE",
+		text = "REPLAY TOUR",
 		icon = "Guide",
 		onClick = function()
-			return dispatch("ReplayTutorial")
+			dispatch("ReplayTutorial")
 		end,
-		color = Palette.mint,
-		textColor = Palette.ink,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
 		size = UDim2.new(0.5, -4, 1, 0),
-			reducedMotion = softMotion,
-		highlight = true,
+		reducedMotion = softMotion,
 	}), React.createElement(Button, {
-		text = "UPDATES",
+		text = "PATCH NOTES",
 		icon = "Gift",
 		onClick = function()
-			return dispatch("OpenRelease")
+			dispatch("OpenRelease")
 		end,
-		color = Palette.violet,
-		textColor = Palette.ink,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		outline = true,
 		size = UDim2.new(0.5, -4, 1, 0),
 		position = UDim2.new(0.5, 4, 0, 0),
-			reducedMotion = softMotion,
-	})), React.createElement("frame", {
-		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(300, 42),
-		Position = if stack then UDim2.fromOffset(0, 114) else UDim2.new(1, -300, 0, 62),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ZIndex = 6,
-	}, React.createElement(Button, {
-		text = "LOW FX",
-		onClick = function()
-			return applyPreset("low")
-		end,
-		color = Palette.green,
-		textColor = Palette.ink,
-		size = UDim2.new(1 / 3, -4, 1, 0),
-			reducedMotion = softMotion,
-		highlight = preset == "low",
-	}), React.createElement(Button, {
-		text = "NORMAL",
-		onClick = function()
-			return applyPreset("normal")
-		end,
-		color = Palette.cyan,
-		textColor = Palette.ink,
-		size = UDim2.new(1 / 3, -4, 1, 0),
-		position = UDim2.new(1 / 3, 2, 0, 0),
-			reducedMotion = softMotion,
-		highlight = preset == "normal",
-	}), React.createElement(Button, {
-		text = "HIGH FX",
-		onClick = function()
-			return applyPreset("high")
-		end,
-		color = Palette.violet,
-		textColor = Palette.ink,
-		size = UDim2.new(1 / 3, -4, 1, 0),
-		position = UDim2.new(2 / 3, 4, 0, 0),
-			reducedMotion = softMotion,
-		highlight = preset == "high",
-	})))
-	local _exp_3 = React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, tabsH),
-		accent = SECTION_META[activeSection].accent,
-		background = Palette.panelRaised,
-		padding = 8,
-			reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement(SegmentedTabs, {
-		options = sectionOptions,
-		value = activeSection,
-		onChange = setActiveSection,
-		accent = SECTION_META[activeSection].accent,
-		columns = tabCols,
-		gap = 8,
-		size = UDim2.new(1, 0, 0, math.max(36, tabsH - 16)),
-			reducedMotion = softMotion,
-	}))
-	local _exp_3b = controllerHintsH > 0 and React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = Palette.cyan,
-		background = Palette.panelRaised,
-		padding = 14,
-			reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement(Text, {
-		value = "CONTROLLER",
-		size = 10,
-		color = Palette.cyan,
-		weight = Enum.FontWeight.Heavy,
-		sizeConstraint = UDim2.new(1, 0, 0, 14),
-	}), React.createElement(Text, {
-		value = "LB / RB switch pages · Y vault · X overcharge · LT / RT buy amount · B back · Start opens Settings",
-		size = 12,
-		color = Palette.creamSoft,
-		wrap = true,
-		position = UDim2.fromOffset(0, 22),
-		sizeConstraint = UDim2.new(1, 0, 0, if stack then 52 else 40),
-	}))
-	local _exp_5 = React.createElement(SectionLabel, {
-		value = `{SECTION_META[activeSection].label}  ·  {#visibleRows}`,
-		color = SECTION_META[activeSection].accent,
-		layoutOrder = 0,
-	})
-	local settingsRows
-	if virtSettings then
-		settingsRows = React.createElement(FlatList, {
-			data = visibleRows,
-			itemHeight = rowStride,
-			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-			canvasTail = 8,
-			Size = UDim2.new(1, 0, 0, settingsListH),
-			scrollBarColor = SECTION_META[activeSection].accent,
-			scrollBarThickness = SCROLL_BAR,
-			layoutOrder = 1,
-			keyExtractor = function(data)
-				return data.id
-			end,
-			renderItem = function(_param_1)
-				local data = _param_1.item
-				local index = _param_1.index
-				return React.createElement(SettingRow, {
-					data = data,
-					index = index,
-					state = state,
-					dispatch = dispatch,
-					reducedMotion = softMotion,
-					softMotion = softMotion,
-					layoutOrder = index + 1,
-					stack = touchRows,
-					touch = touch,
-				})
-			end,
-		})
-	else
-		-- ▼ ReadonlyArray.map ▼
-		local _newValue_2 = table.create(#visibleRows)
-		local _callback_3 = function(data, index)
-			return React.createElement(SettingRow, {
-				key = data.id,
-				data = data,
-				index = index,
-				state = state,
-				dispatch = dispatch,
-				reducedMotion = softMotion,
-				softMotion = softMotion,
-				layoutOrder = index + 1,
-				stack = touchRows,
-				touch = touch,
-			})
-		end
-		for _k, _v in visibleRows do
-			_newValue_2[_k] = _callback_3(_v, _k - 1, visibleRows)
-		end
-		-- ▲ ReadonlyArray.map ▲
-		settingsRows = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, settingsListH),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			LayoutOrder = 1,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 12),
-		}), _newValue_2)
-	end
-	local mobileEditor = mobileHudAvailable and activeSection == "mobile" and React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, if stack then 128 else 82),
-		accent = Palette.cyan,
-		background = Palette.panelRaised,
-		padding = 14,
-		layoutOrder = 2,
-			reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement(Text, {
-		value = "Phone HUD",
-		size = 15,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 11,
-		sizeConstraint = UDim2.new(1, if stack then 0 else -132, 0, 22),
-	}), React.createElement(Text, {
-		value = "Drag the bars, or pick a one-handed layout.",
-		size = 10,
-		color = Palette.muted,
-		wrap = true,
-		position = UDim2.fromOffset(0, 28),
-		sizeConstraint = UDim2.new(1, if stack then 0 else -132, 0, if stack then 28 else 34),
-	}), React.createElement(Button, {
-		text = "CUSTOMIZE",
-		icon = "Settings",
-		onClick = function()
-			return setMobileEdit(true)
-		end,
-		color = Palette.cyan,
-		textColor = Palette.ink,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(120, TapTarget),
-		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -120, 0.5, -TapTarget / 2),
+		reducedMotion = softMotion,
+	})), React.createElement(SearchField, {
+		value = query,
+		onChange = setQuery,
+		placeholder = "Search settings",
+		accent = accent,
+		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(340, 36),
+		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(0, 0, 1, -36),
 		reducedMotion = softMotion,
 	}))
-	local paneElement = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		Position = panePosition,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 12),
-	}), _exp_5, settingsRows, mobileEditor))
-	local sections = {
-		{
-			id = "hero",
-			height = headerH,
-			element = _exp_2,
-		},
-		{
-			id = "tabs",
-			height = tabsH,
-			element = _exp_3,
-		},
+
+	-- ---- section switcher
+	local navButtons = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = if stack then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
+			Wraps = stack,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
 	}
-	if controllerHintsH > 0 then
-		table.insert(sections, {
-			id = "controller",
-			height = controllerHintsH,
-			element = _exp_3b,
+	local chipW = if stack then math.floor((viewport.width - chrome.pagePadding * 2 - 24 - 12) / 3) else NAV_W - 16
+	for index, entry in sections do
+		navButtons[entry.id] = React.createElement(SectionButton, {
+			section = entry,
+			active = not searching and entry.id == activeSection,
+			count = counts[entry.id] or 0,
+			compact = stack,
+			size = UDim2.fromOffset(chipW, if stack then 38 else 42),
+			layoutOrder = index,
+			softMotion = softMotion,
+			onPick = function(id)
+				setQuery("")
+				setActiveSection(id)
+			end,
 		})
 	end
-	table.insert(sections, {
-		id = "pane",
-		height = paneH,
-		element = paneElement,
-	})
+	local navRows = if stack then math.ceil(#sections / 3) else #sections
+	local navH = if stack then navRows * 44 + 12 else #sections * 48 + 16
+
+	-- ---- the list
+	local listChildren = {
+		layout = React.createElement("uilistlayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 0),
+		}),
+	}
+	local rowH = if stack then ROW_H_STACK else ROW_H
+	local listH = 0
+	local order = 0
+	local function add(key, element, height)
+		order += 1
+		listChildren[key] = React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, height),
+			LayoutOrder = order,
+			BackgroundTransparency = 1,
+		}, element)
+		listH += height
+	end
+	-- Section title (or search summary) with the reset button.
+	add("title", React.createElement(React.Fragment, nil, React.createElement(Text, {
+		value = if searching then `{#rows} result{if #rows == 1 then "" else "s"} for "{query}"` else section.label,
+		size = 18,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		sizeConstraint = UDim2.new(1, -110, 0, 24),
+	}), React.createElement(Text, {
+		value = if searching then "From every section." else section.blurb,
+		size = 12,
+		color = Palette.muted,
+		position = UDim2.fromOffset(0, 26),
+		sizeConstraint = UDim2.new(1, -110, 0, 16),
+	}), not searching and React.createElement(Button, {
+		text = "RESET",
+		icon = "Refresh",
+		onClick = resetSection,
+		color = Palette.panelSoft,
+		textColor = Palette.creamSoft,
+		outline = true,
+		size = UDim2.fromOffset(100, 34),
+		position = UDim2.new(1, -100, 0, 4),
+		reducedMotion = softMotion,
+	})), 56)
+	if not searching and activeSection == "display" then
+		local presetCells = {}
+		for index, entry in Schema.PRESETS do
+			presetCells[entry.id] = React.createElement(Button, {
+				text = string.upper(entry.label),
+				onClick = function()
+					applyPreset(entry)
+				end,
+				color = if preset == entry.id then accent else Palette.panelSoft,
+				textColor = if preset == entry.id then Palette.ink else Palette.creamSoft,
+				outline = preset ~= entry.id,
+				highlight = preset == entry.id,
+				size = UDim2.new(1 / #Schema.PRESETS, -6, 1, 0),
+				position = UDim2.new((index - 1) / #Schema.PRESETS, 3, 0, 0),
+				reducedMotion = softMotion,
+			})
+		end
+		add("presets", React.createElement(React.Fragment, nil, React.createElement(Text, {
+			value = if preset == nil then "PRESET  ·  CUSTOM" else "PRESET",
+			size = 11,
+			color = accent,
+			weight = Enum.FontWeight.Heavy,
+			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}), React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, 38),
+			Position = UDim2.fromOffset(0, 18),
+			BackgroundTransparency = 1,
+		}, presetCells)), 66)
+	end
+	for index, entry in rows do
+		add("row_" .. entry.key, React.createElement(SettingRow, {
+			entry = entry,
+			value = Schema.value(settings, entry.key),
+			accent = if searching then accentOf(SECTION_BY_ID[entry.section]) else accent,
+			tag = if searching then SECTION_BY_ID[entry.section].label else nil,
+			stack = stack,
+			softMotion = softMotion,
+			dispatch = dispatch,
+			layoutOrder = index,
+		}), rowH)
+	end
+	if searching and #rows == 0 then
+		add("empty", React.createElement(Text, {
+			value = "Nothing matches. Try a shorter word, like \"music\" or \"text\".",
+			size = 13,
+			color = Palette.muted,
+			sizeConstraint = UDim2.new(1, 0, 0, 40),
+		}), 40)
+	end
+	if not searching and (hiddenAdvanced > 0 or advancedOpen[activeSection]) then
+		add("advanced", React.createElement(Button, {
+			text = if advancedOpen[activeSection] then "HIDE ADVANCED" else `SHOW {hiddenAdvanced} ADVANCED`,
+			icon = if advancedOpen[activeSection] then "Hide" else "Chevron",
+			onClick = function()
+				local nextOpen = table.clone(advancedOpen)
+				nextOpen[activeSection] = not advancedOpen[activeSection]
+				setAdvancedOpen(nextOpen)
+			end,
+			color = Palette.panelSoft,
+			textColor = Palette.creamSoft,
+			outline = true,
+			size = UDim2.new(1, 0, 0, 38),
+			position = UDim2.fromOffset(0, 12),
+			reducedMotion = softMotion,
+		}), 58)
+	end
+	if not searching and activeSection == "mobile" and mobileHudAvailable then
+		add("hud", React.createElement(Button, {
+			text = "MOVE PHONE BUTTONS",
+			icon = "Settings",
+			onClick = function()
+				setMobileEdit(true)
+			end,
+			color = accent,
+			textColor = Palette.ink,
+			size = UDim2.new(1, 0, 0, TapTarget),
+			position = UDim2.fromOffset(0, 10),
+			reducedMotion = softMotion,
+		}), TapTarget + 14)
+	end
+	if not searching and activeSection == "interface" and UserInputService.GamepadEnabled then
+		add("controller", React.createElement(React.Fragment, nil, React.createElement(Text, {
+			value = "CONTROLLER",
+			size = 11,
+			color = accent,
+			weight = Enum.FontWeight.Heavy,
+			position = UDim2.fromOffset(0, 14),
+			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}), React.createElement(Text, {
+			value = "LB / RB pages  ·  Y vault  ·  X overcharge  ·  LT / RT amount  ·  B back  ·  Start settings",
+			size = 12,
+			color = Palette.creamSoft,
+			wrap = true,
+			position = UDim2.fromOffset(0, 32),
+			sizeConstraint = UDim2.new(1, 0, 0, 34),
+		})), 72)
+	end
+	local list = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = if searching then Palette.steel else accent,
+		background = Palette.panel,
+		padding = if stack then 14 else 20,
+		reducedMotion = softMotion,
+		clips = false,
+	}, React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+	}, listChildren))
+	local listPanelH = listH + (if stack then 28 else 40)
+
+	local scaffold = {
+		{ id = "header", height = headerH, element = header },
+	}
+	if stack then
+		table.insert(scaffold, {
+			id = "sections",
+			height = navH,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+			}, React.createElement("uipadding", {
+				PaddingTop = UDim.new(0, 6),
+			}), navButtons),
+		})
+		table.insert(scaffold, { id = "list", height = listPanelH, element = list })
+	else
+		local bodyH = math.max(listPanelH, navH)
+		table.insert(scaffold, {
+			id = "body",
+			height = bodyH,
+			element = React.createElement("frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+			}, React.createElement(Panel, {
+				size = UDim2.fromOffset(NAV_W, navH),
+				background = Palette.panelRaised,
+				accent = accent,
+				padding = 8,
+				reducedMotion = softMotion,
+				clips = false,
+			}, navButtons), React.createElement("frame", {
+				Size = UDim2.new(1, -(NAV_W + 12), 0, listPanelH),
+				Position = UDim2.fromOffset(NAV_W + 12, 0),
+				BackgroundTransparency = 1,
+			}, list)),
+		})
+	end
+
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -1365,26 +747,26 @@ local function SettingsView(_param)
 	}, React.createElement(PageScaffold, {
 		gap = 12,
 		tailPad = scrollTail(stack, chrome.bottomSafe, 64),
-		scrollBarColor = Palette.violet,
+		scrollBarColor = accent,
 		scrollBarThickness = 4,
-		sections = sections,
-	}), mobileHudAvailable and activeSection == "mobile" and React.createElement(MobileControls, {
+		sections = scaffold,
+	}), mobileHudAvailable and React.createElement(MobileControls, {
 		visible = mobileEdit,
 		dispatch = dispatch,
 		reducedMotion = softMotion,
 		onClose = function()
-			return setMobileEdit(false)
+			setMobileEdit(false)
 		end,
 		slots = mobileSlots,
 		scales = {
-			quick = savedValue(state.Settings, "MobileQuickScale"),
-			dock = savedValue(state.Settings, "MobileDockScale"),
-			toasts = savedValue(state.Settings, "MobileToastScale"),
+			quick = quickScale,
+			dock = dockScale,
+			toasts = toastScale,
 		},
 		opacities = {
-			quick = savedValue(state.Settings, "MobileQuickOpacity"),
-			dock = savedValue(state.Settings, "MobileDockOpacity"),
-			toasts = savedValue(state.Settings, "MobileToastOpacity"),
+			quick = Schema.value(settings, "MobileQuickOpacity"),
+			dock = Schema.value(settings, "MobileDockOpacity"),
+			toasts = Schema.value(settings, "MobileToastOpacity"),
 		},
 	}))
 end

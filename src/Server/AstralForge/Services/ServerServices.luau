@@ -2870,77 +2870,14 @@ serviceFactories["GameService"] = function()
 		if type(payload) ~= "table" then
 			return responseError("Invalid setting request.")
 		end
-		local sliderKeys = {
-			SoundVolume = true,
-			MusicVolume = true,
-			SfxVolume = true,
-			UiVolume = true,
-			GameplayVolume = true,
-			RewardVolume = true,
-			AmbientVolume = true,
-			HoverSounds = true,
-			NotificationSounds = true,
-			PageMusic = true,
-			SoundVariation = true,
-			ReactorMotion = true,
-			OfflineRewardEffects = true,
-			EffectsIntensity = true,
-			MotionIntensity = true,
-			ViewportSpeed = true,
-			RippleIntensity = true,
-			ShimmerIntensity = true,
-			GlowIntensity = true,
-			ParticleDensity = true,
-			ButtonRipples = true,
-			ButtonShimmers = true,
-			PanelHover = true,
-			PanelEntrances = true,
-			AnimatedTitles = true,
-			IconAnimations = true,
-			NumberAnimations = true,
-			ConfettiEnabled = true,
-			ScreenFlashes = true,
-			BackgroundStars = true,
-			AmbientGlow = true,
-			ToastDensity = true,
-			UiDensity = true,
-			PerformanceBias = true,
-			BackgroundDetail = true,
-			ScrollSpeed = true,
-			ScrollMomentum = true,
-			HapticIntensity = true,
-			ShowFps = true,
-			ShowPing = true,
-			ShowResourceLabels = true,
-			ShowNextGoal = true,
-			CompactTopBar = true,
-			NotificationDuration = true,
-			DesktopTextScale = true,
-			BoldText = true,
-			ReducedTransparency = true,
-			LargeTouchTargets = true,
-			MobileHudScale = true,
-			MobileTextScale = true,
-			MobileHudOpacity = true,
-			MobileQuickScale = true,
-			MobileDockScale = true,
-			MobileToastScale = true,
-			MobileQuickOpacity = true,
-			MobileDockOpacity = true,
-			MobileToastOpacity = true,
-			MobileButtonSpacing = true,
-			MobileQuickReverse = true,
-			MobileQuickVisible = true,
-			MobileDockVisible = true,
-			MobileToastVisible = true,
-			MobileCompactHeaders = true,
-			MobileAutoHideDock = true,
-			MobileLandscapeCompact = true,
-			MobileKeyboardCompact = true,
-			MobilePreviewAck = true,
-			HighContrast = true,
-			ColorblindMode = true,
-		}
+		-- Which keys exist, and what values they take (switch 0/1, a named choice, or 0..1), come from
+		-- SettingsSchema, the same table the Settings page is drawn from.
+		local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
+		local sliderKeys = setmetatable({}, {
+			__index = function(_, key)
+				return Schema.accepts(key)
+			end,
+		})
 		local notifyKeys = {
 			NotifyGuild = true,
 		}
@@ -2955,7 +2892,7 @@ serviceFactories["GameService"] = function()
 						break
 					end
 					if type(key) == "string" and type(value) == "number" and sliderKeys[key] then
-						profile.Settings[key] = math.clamp(value, 0, 1)
+						profile.Settings[key] = Schema.normalize(key, value)
 						applied += 1
 					end
 				end
@@ -2975,7 +2912,7 @@ serviceFactories["GameService"] = function()
 		end
 		if sliderKeys[payload.Key] then
 			return self:_mutate(player, function(profile)
-				profile.Settings[payload.Key] = math.clamp(payload.Value, 0, 1)
+				profile.Settings[payload.Key] = Schema.normalize(payload.Key, payload.Value)
 				sealSettings(profile)
 				return responseSuccess("Setting updated.")
 			end)

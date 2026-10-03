@@ -207,8 +207,10 @@ for _, setting in { "MusicCrossfade", "PageStingers" } do
 	end
 end
 -- The music on/off toggle stays, under its saved key, so players keep their choice.
-assert(string.find(settingsSource, 'id = "PageMusic"', 1, true), "the Background music toggle must stay")
-assert(string.find(servicesSource, "PageMusic = true", 1, true), "the server must still accept the music toggle")
+local schemaSource = readSource("src/Shared/AstralForge/Shared/SharedData.luau#SettingsSchema")
+assert(string.find(schemaSource, 'toggle("PageMusic"', 1, true), "the Background music toggle must stay in the settings schema")
+assert(string.find(servicesSource, "Schema.accepts(key)", 1, true), "the server must accept every schema setting, the music toggle included")
+assert(string.find(settingsSource, "SettingsSchema", 1, true), "the Settings page is drawn from the schema")
 
 ------------------------------------------------------------------------
 -- 5. Paused music resumes where it stopped
