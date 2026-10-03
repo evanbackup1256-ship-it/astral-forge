@@ -59,7 +59,6 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-	"src/Client/AstralForge/pages/PagesProgress.luau#FoundryView",
 	"src/Client/AstralForge/pages/PagesCasino.luau#CasinoView",
 	"src/Client/AstralForge/pages/PagesBazaar.luau#BazaarView",
 }
@@ -383,7 +382,6 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/PagesSystem.luau#AdminView",
 	"src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel",
 	"src/Client/AstralForge/UiCore.luau#CreditsView",
-	"src/Client/AstralForge/pages/PagesProgress.luau#FoundryView",
 }
 
 for _, path in SOFT_MOTION_FILES do

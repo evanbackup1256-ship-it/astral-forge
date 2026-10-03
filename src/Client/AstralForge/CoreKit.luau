@@ -1376,9 +1376,6 @@ local GRANT_ACTIONS = {
 	["SetSetting"] = true,
 	["SyncShop"] = true,
 	["ToggleItemLock"] = true,
-	["BuyOreUpgrade"] = true,
-	["StrikeRiftBoss"] = true,
-	["TravelWaystone"] = true,
 }
 local gen = 0
 local nonce = ""
@@ -4324,7 +4321,6 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "StarGrid", label = "Star Grid", eyebrow = "Dust", icon = "StarGrid", accentKey = "mango" },
 	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
-	{ id = "Foundry", label = "Foundry", eyebrow = "Ore", icon = "Artifact", accentKey = "mango" },
 	{ id = "Milestones", label = "Milestones", eyebrow = "Goals", icon = "Milestone", accentKey = "mango" },
 	{ id = "Story", label = "Story", eyebrow = "Read", icon = "Story", accentKey = "mint" },
 	{ id = "Command", label = "Command", eyebrow = "Crew", icon = "Command", accentKey = "cyan" },
@@ -4371,7 +4367,6 @@ local PAGE_ROUTES: { string } = {
 	"Settings",
 	"Admin",
 	"ForgePath",
-	"Foundry",
 }
 
 local function indexById(routes: { RouteDef }): { [string]: RouteDef }
@@ -4472,8 +4467,7 @@ AppHelpers = {
 		local _condition = string.sub(action, 1, 3) == "Get"
 		if not _condition then
 			local _action = action
-			-- StrikeRiftBoss: the sanctuary HUD reports its own misses inline.
-			_condition = table.find({ "SyncShop", "MeasureLatency", "ReportClientIntegrity", "ReportPerformance", "StrikeRiftBoss" }, _action) ~= nil
+			_condition = table.find({ "SyncShop", "MeasureLatency", "ReportClientIntegrity", "ReportPerformance" }, _action) ~= nil
 		end
 		return _condition
 	end,

@@ -4,7 +4,7 @@
 local ENDLESS_LEVEL_CAP = 9_000_000_000_000_000
 local LiveOpsConfig = require(script.Parent:WaitForChild("SharedData"))("LiveOpsConfig")
 local ForgeLevels = require(script.Parent:WaitForChild("SharedData"))("ForgeLevels")
-local SanctuaryConfig = require(script.Parent:WaitForChild("SharedData"))("SanctuaryConfig")
+local OreConfig = require(script.Parent:WaitForChild("SharedData"))("OreConfig")
 
 -- Mirrors buildForgePathSteps()/FORGE_PATH_STEPS in src_ts/client/types.ts exactly (same
 -- step count, cost/reward/effect formulas) so the client's display and the server's granted
@@ -4089,10 +4089,8 @@ local GameConfig = {
 	LevelTiers = ForgeLevels.tiers(),
 	LevelTierBlurbs = ForgeLevels.tierBlurbs(),
 
-	-- The sanctuary's ore outcrops and the Rift Warden (see SanctuaryConfig.luau).
-	Ore = SanctuaryConfig.Ore,
-	RiftBoss = SanctuaryConfig.RiftBoss,
-	RiftBosses = SanctuaryConfig.RiftBosses,
+	-- Ore balances and Foundry upgrades earned before the sanctuary was retired (see OreConfig).
+	Ore = OreConfig.Ore,
 
 	LiveOps = {
 		ManifestVersion = LiveOpsConfig.ManifestVersion,

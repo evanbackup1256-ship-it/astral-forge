@@ -133,12 +133,6 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.ConfirmTrade] = { Cost = 1.1, Cooldown = 0.22 },
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
-		[Protocol.Actions.EnterSanctuary] = { Cost = 1, Cooldown = 0.45 },
-		[Protocol.Actions.LeaveSanctuary] = { Cost = 0.4, Cooldown = 0.2 },
-		[Protocol.Actions.BuyOreUpgrade] = { Cost = 0.6, Cooldown = 0.12 },
-		-- A Warden fight is several strikes a second: cheap, lightly spaced.
-		[Protocol.Actions.StrikeRiftBoss] = { Cost = 0.2, Cooldown = 0.2 },
-		[Protocol.Actions.TravelWaystone] = { Cost = 1, Cooldown = 1 },
 		-- Casino rounds are one tap each; the cooldown keeps a held button from becoming a macro.
 		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
@@ -490,16 +484,6 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Pick ~= nil and not stringField(payload, "Pick", 2, 24) then
 				return false, "invalid bazaar pick"
-			end
-		elseif action == Protocol.Actions.BuyOreUpgrade then			if not stringField(payload, "Id", 1, 48) then
-				return false, "invalid foundry payload"
-			end
-		elseif action == Protocol.Actions.TravelWaystone then
-			if payload.Recall ~= nil and type(payload.Recall) ~= "boolean" then
-				return false, "invalid waystone payload"
-			end
-			if payload.Recall ~= true and not stringField(payload, "To", 1, 32) then
-				return false, "invalid waystone payload"
 			end
 		elseif action == Protocol.Actions.UpgradeCrew then
 			if not stringField(payload, "Role", 1, 64) then

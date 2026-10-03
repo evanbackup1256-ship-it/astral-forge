@@ -976,7 +976,6 @@ ActionFeatureMaps.FEATURE = {
 	DeleteMail = "Mail",
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
-	BuyOreUpgrade = "Foundry",
 	CasinoPlay = "Casino",
 	BazaarPlay = "Bazaar",
 }
@@ -1051,8 +1050,6 @@ CommandActionValidators.READ_ONLY = {
 	TradeViewAway = true,
 	ReportClientIntegrity = true,
 	ReportPerformance = true,
-	EnterSanctuary = true,
-	LeaveSanctuary = true,
 	SetTutorialStep = true,
 	ReplayTutorial = true,
 }
@@ -1089,9 +1086,6 @@ CommandActionValidators.DEFERRED_SNAPSHOT = {
 	ReadMail = true,
 	ReportPresence = true,
 	SelectZone = true,
-	-- A strike changes the Warden, not the striker's profile.
-	StrikeRiftBoss = true,
-	TravelWaystone = true,
 }
 
 function CommandActionValidators.IsValidAction(action: any): boolean

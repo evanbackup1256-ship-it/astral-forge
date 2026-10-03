@@ -14,11 +14,9 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 | Lune (tests) | 0.10.5 |
 | Argon (Studio sync) | 2.0.29 |
 | Node / npm packages | Node 24; roblox-ts 3, TypeScript 7, React 17 (types only; runtime packages are vendored in endor/) |
-| Blender (boss bodies) | 5.2, headless |
 | Python (asset tools) | 3.14 |
-| Vendored Spr | MIT, endor/licenses/spr.txt |
 
-The verification suite is 90 scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
+The verification suite is the scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
 Last updated 2026-10-03.
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
@@ -87,7 +85,7 @@ Default branch is `master` on `origin` only — do not stay on feature branches 
 
 ## Checks
 
-The full suite (every module's syntax, the boss roster and rig guards, the register limits) is `lune run scripts/verify_project.luau`; commit only on exit code 0.
+The full suite (every module's syntax and the register limits) is `lune run scripts/verify_project.luau`; commit only on exit code 0.
 
 Install [Lune](https://lune-org.github.io/docs/) for the pure layout tests, then run:
 
@@ -196,25 +194,9 @@ machines are gated by rebirth COUNT, so a player who rebirths often reaches zone
 in about 2 hours while one who waits for big payouts does not reach zone 5 in two
 weeks. The rebirth screen therefore names the next count-gate and says to rebirth
 often. Do not bump `DataVersion` for balance changes: tune `GameConfig` numbers.
-## The sanctuary and its bosses
+## The sanctuary (retired)
 
-The sanctuary is a walkable world (`src/Client/AstralForge/SanctuaryKit.luau`) with seven rift bosses on a
-rotation: Warden, Choir, Regent, Seraph, Rime, Knight and the mega boss Astraeon. Fights are built for crowds
-(health scales with fighters) and every attack is telegraphed. Admins (`ServerConfig.AdminUserIds`) get a
-"Bosses" button to summon one boss, all of them in a chain, or stop the fight.
-
-- **Bodies**: modelled, rigged and animated in Blender by `tools/bossbuild` (headless, `build_all_headless.ps1`),
-  exported as one `BossBody_<Kind>.luau` per boss and uploaded with `tools/bossbuild/upload_bodies.py`.
-  Capes, skirts, wings and feathers are simulated at runtime by `Shared/BossPhysics` plus the vendored `Shared/Spr`
-  (MIT, see `vendor/licenses/spr.txt`).
-- **Spectacle**: black-hole gravity wells (every `GravityWell`, plus Astraeon's `Singularity` ultimate), a real
-  supernova (a long `Dissonance` countdown), eon-scale blasts (`ScreenFx.eon`), a summoning rite while forming, a
-  torn-sky spawn-in and a ten-second overload-and-detonation death.
-- **Sound**: `python tools/assetgen/boss_sfx_gen.py` synthesizes the effect, footstep, wing, cloth and armour
-  sounds from maths; `python tools/assetgen/upload_boss_sfx.py` uploads them and rewrites the BOSS-SFX block in
-  `SharedData.luau`. Meshes for the signature VFX come from `tools/assetgen/blender_bossvfx.py` and
-  `upload_boss_vfx.py`. There is no dialogue or voice system.
-- **Guards**: `lune run scripts/verify_project.luau` runs everything, including the roster fairness and balance
-  checks, the rig checks and the register-headroom check. `tools/playtest/` holds the Studio playtest harness.
-
-How it all fits together is in [docs/sanctuary.md](docs/sanctuary.md).
+The walkable sanctuary, its ore outcrops, waystones and rift bosses were removed. Saved ore balances and the
+Foundry upgrades players already bought are kept: `SharedData#OreConfig` (exposed as `GameConfig.Ore`) still
+sanitizes them on load and `Economy.OreEffect` still applies the upgrades, so no save migration was needed and
+`DataVersion` stays 21. The old code is in git history.

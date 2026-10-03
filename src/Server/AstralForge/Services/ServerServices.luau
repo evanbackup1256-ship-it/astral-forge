@@ -117,7 +117,6 @@ serviceFactories["GameService"] = function()
 	local ForgeEchoService = loadService("ForgeEchoService")
 	local CasinoService = loadService("CasinoService")
 	local BazaarService = loadService("BazaarService")
-	local SanctuaryFeatures = loadService("SanctuaryFeatures")
 	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 
@@ -712,8 +711,6 @@ serviceFactories["GameService"] = function()
 		self._guilds = GuildService.new()
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
-		-- Ore outcrops, the Foundry, the Rift Warden and waystone travel.
-		self._sanctuaryFeatures = SanctuaryFeatures.new(self)
 		self._heartbeat = nil
 		self._playerAddedConnection = nil
 		self._playerRemovingConnection = nil
@@ -1258,7 +1255,6 @@ serviceFactories["GameService"] = function()
 			Convergence = self._convergence:State(player, profile),
 			FeatureUnlocks = featureUnlocks,
 			Level = levelState,
-			Ore = self._sanctuaryFeatures:OreState(profile),
 			Story = storyState,
 			Mailbox = StoryMailSnapshot.MailboxPublic(mailState, unreadMail),
 			Admin = self._admin and self._admin:State(player) or { Access = false },
@@ -3966,13 +3962,6 @@ serviceFactories["GameService"] = function()
 			return self:_claimLabOrder(player, payload and payload.Id)
 		elseif action == Protocol.Actions.RouteLabPower then
 			return self:_routeLabPower(player, payload and payload.Channel, payload and payload.Delta)
-		elseif action == Protocol.Actions.LeaveSanctuary then
-			self._world:LeaveSanctuary(player)
-			return responseSuccess(nil)
-		end
-		local sanctuaryResult = self._sanctuaryFeatures:Handle(player, action, payload)
-		if sanctuaryResult ~= nil then
-			return sanctuaryResult
 		end
 		return responseError("Unknown forge command.")
 	end
@@ -4591,7 +4580,6 @@ serviceFactories["GameService"] = function()
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		self._matter:Start()
-		self._sanctuaryFeatures:Start()
 		self._world:SetInteractionHandler(function(player, action, payload)
 			if action == "Collect" then
 				self:_collect(player)
@@ -4697,27 +4685,9 @@ serviceFactories["GameService"] = function()
 				txnClaimed = true
 			end
 			local success, result
-			if action == Protocol.Actions.EnterSanctuary then
-				-- Handled outside the action pcall. LoadCharacter is not yieldable
-				-- on this invoke (pcall reports "Callbacks cannot yield" and the
-				-- character stays nil). EnterSanctuary moves that load to a
-				-- spawned thread and only returns once the avatar is placed.
-				success = true
-				local entered, spawnCFrame, cancelled = self._world:EnterSanctuary(player)
-				if entered then
-					self._sanctuaryFeatures:OnEntered(player)
-					result = responseSuccess(nil, if typeof(spawnCFrame) == "CFrame" then { Spawn = spawnCFrame } else nil)
-				elseif cancelled then
-					-- The player closed, or a newer enter took over. Not a failure toast.
-					result = responseSuccess(nil, { Closed = true })
-				else
-					result = responseError("The sanctuary rift is shut.")
-				end
-			else
-				success, result = pcall(function()
-					return self:_handleAction(player, action, payload)
-				end)
-			end
+			success, result = pcall(function()
+				return self:_handleAction(player, action, payload)
+			end)
 			if not success then
 				if txnClaimed and txnId then
 					self._session:TxnRelease(player, txnId)
@@ -4788,7 +4758,6 @@ serviceFactories["GameService"] = function()
 		end)
 		self._playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
 			self:_onPlayerRemoving(player)
-			self._sanctuaryFeatures:Forget(player)
 			self:_queueSocialBoostRefresh()
 		end)
 		for _, player in Players:GetPlayers() do
@@ -4876,7 +4845,6 @@ serviceFactories["GameService"] = function()
 
 	function GameService:Shutdown()
 		self._running = false
-		self._sanctuaryFeatures:Stop()
 		self._joining = {}
 		self._socialBoostDirty = false
 		self._socialBoostScheduled = false
@@ -4930,11 +4898,6 @@ serviceFactories["GuildService"] = require(script.Parent:WaitForChild("CoreServi
 
 
 serviceFactories["LabService"] = require(script.Parent:WaitForChild("CoreServices"))("LabService")
--- SanctuaryFeatures returns its class table rather than a factory, so wrap it:
--- loadService calls every registry entry.
-serviceFactories["SanctuaryFeatures"] = function()
-	return require(script.Parent:WaitForChild("WorldServices"))("SanctuaryFeatures")
-end
 
 
 
