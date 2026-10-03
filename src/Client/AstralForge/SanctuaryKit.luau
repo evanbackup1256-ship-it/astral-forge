@@ -3262,6 +3262,8 @@ Signals.SERVER_KINDS = table.freeze({
 	RiftBossAwake = true,
 	RiftBossSlam = true,
 	RiftBossSlamLand = true,
+	RiftBossSlamBatch = true,
+	RiftBossSlamLandBatch = true,
 	RiftBossPhase = true,
 	RiftBossRings = true,
 	RiftBossRingLand = true,
@@ -3308,6 +3310,16 @@ function Signals.on(kind: string, callback: (any) -> ()): () -> ()
 end
 
 function Signals.fire(kind: string, payload: any)
+	-- A pattern's many slams arrive as one message (see RiftBossService:_send); fire them one by one.
+	if kind == "RiftBossSlamBatch" or kind == "RiftBossSlamLandBatch" then
+		local single = if kind == "RiftBossSlamBatch" then "RiftBossSlam" else "RiftBossSlamLand"
+		if type(payload) == "table" and type(payload.Items) == "table" then
+			for _, item in payload.Items do
+				Signals.fire(single, item)
+			end
+		end
+		return
+	end
 	local bucket = listeners[kind]
 	if bucket == nil then
 		return

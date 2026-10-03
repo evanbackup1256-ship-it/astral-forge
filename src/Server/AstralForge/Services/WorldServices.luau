@@ -1109,6 +1109,7 @@ end
 function RiftBossService:_attacks(now: number, inArena: { [Player]: Vector3 })
 	local events = self._events
 	local index = 1
+	;(self :: any)._landBatch = {}
 	while index <= #events do
 		local event = events[index]
 		if self:_resolve(event, now, inArena) then
@@ -1117,6 +1118,7 @@ function RiftBossService:_attacks(now: number, inArena: { [Player]: Vector3 })
 			index += 1
 		end
 	end
+	self:_flush("_landBatch", "RiftBossSlamLandBatch")
 	if #events > 0 then
 		return
 	end
@@ -1177,14 +1179,41 @@ function RiftBossService:_slamAt(aim: Vector3, floorY: number, detonateAt: numbe
 	local center = { X = aim.X, Y = floorY, Z = aim.Z }
 	local size = radius or config.SlamRadius
 	table.insert(self._events, { Kind = "Slam", At = detonateAt, Center = center, Radius = size, Element = element })
-	self:_broadcast({
+	self:_send("_slamBatch", {
 		Type = "RiftBossSlam",
 		BossKind = config.Kind,
 		Center = center,
 		Radius = size,
 		DetonateAt = detonateAt,
 		Element = element,
-	}, true)
+	})
+end
+
+-- A pattern can mark dozens of slams in one breath (a starburst is 36). Sending each to every player is
+-- slams x players messages; collected in `field` while a pattern is being laid out, they go as one message
+-- per player instead. Outside a pattern (field is nil) a message goes out at once.
+function RiftBossService:_send(field: string, payload)
+	local batch = (self :: any)[field]
+	if batch == nil then
+		self:_broadcast(payload, true)
+	else
+		table.insert(batch, payload)
+	end
+end
+
+function RiftBossService:_flush(field: string, batchType: string)
+	local batch = (self :: any)[field]
+	;(self :: any)[field] = nil
+	if batch == nil or #batch == 0 then
+		return
+	end
+	if #batch == 1 then
+		self:_broadcast(batch[1], true)
+	elseif batchType == "RiftBossSlamBatch" then
+		self:_broadcast({ Type = "RiftBossSlamBatch", BossKind = self._config.Kind, Items = batch }, true)
+	else
+		self:_broadcast({ Type = "RiftBossSlamLandBatch", BossKind = self._config.Kind, Items = batch }, true)
+	end
 end
 
 -- Adds (the boss's summoned wisps) circle the arena on a path both sides can compute from the
@@ -1269,6 +1298,7 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 	local params = attack.Params or {}
 	local telegraph = params.TelegraphSeconds or config.SlamTelegraphSeconds
 	local targets = self:_targets(inArena, telegraph * 0.45)
+	;(self :: any)._slamBatch = {}
 	-- Tell clients which move this is: the boss winds up and speaks accordingly.
 	self:_broadcast({ Type = "RiftBossAttack", BossKind = config.Kind, Attack = attack.Kind }, true)
 	if attack.Ultimate ~= nil then
@@ -1489,6 +1519,7 @@ function RiftBossService:_begin(attack, now: number, inArena: { [Player]: Vector
 			EndAt = endAt,
 		}, true)
 	end
+	self:_flush("_slamBatch", "RiftBossSlamBatch")
 end
 
 -- Returns true once the event is finished and can be dropped.
@@ -1502,7 +1533,7 @@ function RiftBossService:_resolve(event, now: number, inArena: { [Player]: Vecto
 		for _, player in hits do
 			self:_daze(player, now, event.Center)
 		end
-		self:_broadcast({ Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius, Element = event.Element }, true)
+		self:_send("_landBatch", { Type = "RiftBossSlamLand", BossKind = config.Kind, Center = event.Center, Radius = event.Radius, Element = event.Element })
 		return true
 	elseif event.Kind == "Summon" then
 		self:_summon(event.Params, now, event.Center)
