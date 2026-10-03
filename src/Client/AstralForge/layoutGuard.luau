@@ -30,6 +30,7 @@ local stats = {
 	textUnderButtonSeen = 0,
 	textWrapped = 0,
 	labelsUntangled = 0,
+	stackSeparated = 0,
 	pulledIntoView = 0,
 	gaveUp = 0,
 }
@@ -528,6 +529,133 @@ local function checkTextUnderButtons(list)
 		end
 	end
 end
+local SOLID_MIN_GAP = 4
+local MIN_LABEL_HEIGHT = 10
+local stackPassLabels = {}
+local stackPassSolids = {}
+local function isSolid(inst)
+	if not inst:IsA("GuiObject") or not inst.Visible or inst:IsA("TextLabel") then
+		return false
+	end
+	if inst:GetAttribute(IGNORE_ATTRIBUTE) == true then
+		return false
+	end
+	if inst:IsA("TextBox") or inst:IsA("GuiButton") then
+		return true
+	end
+	if inst.BackgroundTransparency < 0.9 then
+		return true
+	end
+	return inst:FindFirstChildWhichIsA("TextBox") ~= nil or inst:FindFirstChildWhichIsA("GuiButton") ~= nil
+end
+local function innerBottom(parent)
+	local pad = parent:FindFirstChildOfClass("UIPadding")
+	local size = parent.AbsoluteSize
+	local bottom = if pad ~= nil then pad.PaddingBottom.Scale * size.Y + pad.PaddingBottom.Offset else 0
+	return parent.AbsolutePosition.Y + size.Y - bottom
+end
+local function separateStack(label, solid)
+	local textRect = textRectOf(label)
+	local solidRect = rectOf(solid)
+	local across = math.min(textRect.x1, solidRect.x1) - math.max(textRect.x0, solidRect.x0)
+	if across < 8 then
+		return false
+	end
+	local labelRect = rectOf(label)
+	if labelRect.y0 >= solidRect.y0 then
+		return false
+	end
+	local intrude = textRect.y1 + SOLID_MIN_GAP - solidRect.y0
+	if intrude <= 0.5 then
+		return false
+	end
+	if engineOwns(solid) or engineOwns(label) then
+		return false
+	end
+	local parent = solid.Parent
+	local room = if parent ~= nil and parent:IsA("GuiObject") and not parent:IsA("ScrollingFrame") then innerBottom(parent) - solidRect.y1 else 0
+	if room >= intrude and allowWrite(solid) then
+		local shift = math.ceil(intrude)
+		solid.Position = UDim2.new(solid.Position.X.Scale, solid.Position.X.Offset, solid.Position.Y.Scale, solid.Position.Y.Offset + shift)
+		stats.stackSeparated += 1
+		ClientLog:warnEvery(`layoutguard:stack:{solid:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text ran into {solid.Name}; moved {solid.Name} down {shift}px`)
+		return true
+	end
+	local available = solidRect.y0 - SOLID_MIN_GAP - labelRect.y0
+	if available < MIN_LABEL_HEIGHT or not allowWrite(label) then
+		return false
+	end
+	local current = labelRect.y1 - labelRect.y0
+	local size = label.Size
+	label.Size = UDim2.new(size.X.Scale, size.X.Offset, size.Y.Scale, size.Y.Offset + (available - current))
+	if label.TextYAlignment == Enum.TextYAlignment.Center then
+		label.TextYAlignment = Enum.TextYAlignment.Top
+	end
+	if not label.TextScaled then
+		label.TextScaled = true
+		if label:FindFirstChildOfClass("UITextSizeConstraint") == nil then
+			local constraint = Instance.new("UITextSizeConstraint")
+			constraint.Name = "LayoutGuardTextFit"
+			constraint.MinTextSize = 8
+			constraint.MaxTextSize = math.clamp(label.TextSize, 8, 42)
+			constraint.Parent = label
+		end
+	end
+	stats.stackSeparated += 1
+	ClientLog:warnEvery(`layoutguard:stack:{label:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text ran into {solid.Name}; fitted the label above it`)
+	return true
+end
+local function checkStackedText(list)
+	table.clear(stackPassLabels)
+	table.clear(stackPassSolids)
+	local seen = {}
+	local function addSolid(solid)
+		local parent = solid.Parent
+		if parent == nil or seen[solid] or not isSolid(solid) then
+			return
+		end
+		seen[solid] = true
+		local bucket = stackPassSolids[parent] or {}
+		stackPassSolids[parent] = bucket
+		table.insert(bucket, solid)
+	end
+	for _, inst in list do
+		local parent = inst.Parent
+		if parent == nil then
+			continue
+		end
+		if inst:IsA("TextLabel") then
+			if inst.Visible and inst.Text ~= "" and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+				local bucket = stackPassLabels[parent] or {}
+				stackPassLabels[parent] = bucket
+				table.insert(bucket, inst)
+			end
+		elseif inst:IsA("TextBox") or inst:IsA("GuiButton") then
+			addSolid(inst)
+			if parent:IsA("Frame") and not engineOwns(inst) then
+				addSolid(parent)
+			end
+		end
+	end
+	for parent, labels in stackPassLabels do
+		local solids = stackPassSolids[parent]
+		if solids == nil or parent:FindFirstChildWhichIsA("UIGridStyleLayout") then
+			continue
+		end
+		for _, label in labels do
+			if label.AbsoluteSize.X < 8 or label.AbsoluteSize.Y < 4 then
+				continue
+			end
+			for _, solid in solids do
+				if separateStack(label, solid) then
+					break
+				end
+			end
+		end
+	end
+	table.clear(stackPassLabels)
+	table.clear(stackPassSolids)
+end
 local function inspect(inst)
 	if inst.Parent == nil then
 		return nil
@@ -809,6 +937,7 @@ do
 			if self.pendingOverlap then
 				checkOverlappingHitboxes(self.queue)
 				checkTextUnderButtons(self.queue)
+				checkStackedText(self.queue)
 				table.clear(textPassLabels)
 				table.clear(textPassButtons)
 				self.pendingOverlap = false
@@ -841,7 +970,7 @@ do
 			return nil
 		end
 		self.lastReportAt = now
-		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.pulledIntoView
+		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.stackSeparated + stats.pulledIntoView
 		if total == self.reportedTotal then
 			return nil
 		end
@@ -853,6 +982,7 @@ do
 			textOffButton = stats.textClearedOfButton,
 			wrapped = stats.textWrapped,
 			labels = stats.labelsUntangled,
+			stacked = stats.stackSeparated,
 			intoView = stats.pulledIntoView,
 			overlap = stats.overlapDemoted,
 			outOfBox = stats.outOfBoxFixed,

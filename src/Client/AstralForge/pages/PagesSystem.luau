@@ -431,7 +431,10 @@ local function SettingsView(_param)
 		return slots
 	end, { chrome.quickBarH, chrome.stack, dockHeight, dockWidth, hudSafeTop, quickHeight, quickWidth, settings.MobileDockX, settings.MobileDockY, settings.MobileQuickX, settings.MobileQuickY, settings.MobileToastX, settings.MobileToastY, toastHeight, toastWidth, viewport.height })
 
-	local headerH = if stack then 158 else 112
+	local searchH = if stack then TapTarget else 38
+	local actionsY = 56
+	local searchY = if stack then actionsY + 40 + 10 else 64
+	local headerH = searchY + searchH + 32
 	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
@@ -445,17 +448,21 @@ local function SettingsView(_param)
 		size = if stack then 22 else 26,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 16,
 		sizeConstraint = UDim2.new(1, if stack then 0 else -340, 0, 30),
 	}), React.createElement(Text, {
 		value = `Saved to your profile automatically  ·  v{state.Game.Version}`,
 		size = 12,
 		color = Palette.muted,
-		position = UDim2.fromOffset(0, 32),
+		fit = true,
+		minSize = 9,
+		position = UDim2.fromOffset(0, 34),
 		sizeConstraint = UDim2.new(1, if stack then 0 else -340, 0, 16),
 	}), React.createElement("frame", {
 		Name = "SettingsClaimActions",
 		Size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(320, 40),
-		Position = if stack then UDim2.fromOffset(0, 56) else UDim2.new(1, -320, 0, 0),
+		Position = if stack then UDim2.fromOffset(0, actionsY) else UDim2.new(1, -320, 0, 0),
 		BackgroundTransparency = 1,
 		ClipsDescendants = false,
 		ZIndex = 6,
@@ -488,8 +495,8 @@ local function SettingsView(_param)
 		onChange = setQuery,
 		placeholder = "Search settings",
 		accent = accent,
-		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(340, 36),
-		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(0, 0, 1, -36),
+		size = if stack then UDim2.new(1, 0, 0, searchH) else UDim2.fromOffset(340, searchH),
+		position = UDim2.fromOffset(0, searchY),
 		reducedMotion = softMotion,
 	}))
 

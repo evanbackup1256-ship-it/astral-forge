@@ -4214,13 +4214,13 @@ local function SearchField(_param)
 		end),
 	}), React.createElement("frame", {
 		Size = focus:map(function(amount)
-			return UDim2.new(0, 3, 1, -16)
+			return UDim2.new(0, 3, 1, -math.round(16 + (1 - math.clamp(amount, 0, 1)) * 12))
 		end),
 		Position = UDim2.new(0, 8, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = accent,
 		BackgroundTransparency = focus:map(function(amount)
-			return 0.85 - amount * 0.7
+			return 1 - math.clamp(amount, 0, 1) * 0.85
 		end),
 		BorderSizePixel = 0,
 		ZIndex = zIndex + 1,

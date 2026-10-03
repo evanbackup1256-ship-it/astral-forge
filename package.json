@@ -19,5 +19,8 @@
     "@rbxts/types": "^1.0.953",
     "roblox-ts": "^3.0.0",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@rbxts/ui-labs": "^2.4.2"
   }
 }
