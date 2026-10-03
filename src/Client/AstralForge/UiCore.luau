@@ -1144,8 +1144,9 @@ local function CountBadge(_param)
 	end
 	return React.createElement("frame", {
 		Size = UDim2.fromOffset(size, size),
-		Position = UDim2.new(1, if compact then -2 else -3, 0, if compact then 2 else 3),
-		AnchorPoint = Vector2.new(1, 0),
+		-- Corner of the parent by default; callers with their own row layout place it inline.
+		Position = _param.position or UDim2.new(1, if compact then -2 else -3, 0, if compact then 2 else 3),
+		AnchorPoint = _param.anchorPoint or Vector2.new(1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
@@ -8345,6 +8346,7 @@ local function AppShell(_param)
 		state = state,
 	}), React.createElement(ServerEventHost, {
 		state = state,
+		inTopBar = not keyboardShellCompact and not mobileShell,
 	}), _condition_24), crateReveal ~= nil and React.createElement(CrateRevealOverlay, {
 		session = crateReveal,
 		config = config,
@@ -8621,6 +8623,66 @@ local function StatChip(_param)
 		PaddingTop = UDim.new(0, 1),
 		PaddingBottom = UDim.new(0, 1),
 	}), chip)
+end
+-- The server event as a top-bar card: same look as the stat chips, the event's colour and icon,
+-- and a countdown that ticks every second. Clicking it opens the event details.
+local function ServerEventChip(_param)
+	local events = __load("serverEventsUi")
+	local event = events.useServerEvent(_param.state.ServerEvent)
+	local now, setNow = React.useState(function()
+		return workspace:GetServerTimeNow()
+	end)
+	React.useEffect(function()
+		local alive = true
+		task.spawn(function()
+			while alive do
+				-- Wake on the next whole second so the countdown never skips or stutters.
+				local t = workspace:GetServerTimeNow()
+				task.wait(1 - (t % 1) + 0.02)
+				if alive then
+					setNow(workspace:GetServerTimeNow())
+				end
+			end
+		end)
+		return function()
+			alive = false
+		end
+	end, {})
+	if event == nil then
+		return nil
+	end
+	local def = events.EVENTS[event.Id or ""]
+	local active = def ~= nil and event.Phase ~= "Rest"
+	local left = events.clockText((event.PhaseEndsAt or now) - now)
+	local value = if not active then left
+		elseif event.Phase == "Warning" then `in {left}`
+		elseif event.Phase == "Live" then `{left} left`
+		elseif event.Completed then "Goal!"
+		else "Done"
+	return React.createElement("textbutton", {
+		Size = UDim2.fromOffset(0, 0),
+		AutomaticSize = Enum.AutomaticSize.XY,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		LayoutOrder = _param.layoutOrder,
+		ZIndex = 22,
+		Event = {
+			Activated = events.openServerEventPanel,
+		},
+	}, React.createElement(StatChip, {
+		label = if active then string.upper(def.Name) else "NEXT EVENT",
+		value = 0,
+		placeholder = value,
+		icon = if active then def.Icon else "Calendar",
+		accent = if active then events.accentOf(def) else Palette.blue,
+		reducedMotion = _param.reducedMotion,
+		reactiveFlash = false,
+		animateValue = false,
+		tall = _param.tall,
+		showLabel = true,
+	}))
 end
 local function PerformanceStats(_param)
 	local tall = _param.tall
@@ -9186,6 +9248,10 @@ local function TopBar(_param)
 		accent = Palette.mango,
 	} else nil
 	local allChips = {}
+	-- The server event sits first, so on a narrow bar it gives way before the currencies.
+	if state.ServerEvent ~= nil then
+		table.insert(allChips, { label = "EVENT", event = true })
+	end
 	if AppHelpers:featureUnlocked(state, "Rebirth") then
 		local _arg0 = {
 			label = "CORES",
@@ -9377,6 +9443,14 @@ local function TopBar(_param)
 		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#chips)
 		local _callback_1 = function(chip, index)
+			if chip.event then
+				return React.createElement(ServerEventChip, {
+					key = chip.label,
+					layoutOrder = 20 + index,
+					state = state,
+					reducedMotion = reducedMotion,
+				})
+			end
 			local _attributes = {
 				key = chip.label,
 				layoutOrder = 20 + index,
@@ -9421,6 +9495,15 @@ local function TopBar(_param)
 		-- ▼ ReadonlyArray.map ▼
 		local _newValue = table.create(#chips)
 		local _callback_1 = function(chip, index)
+			if chip.event then
+				return React.createElement(ServerEventChip, {
+					key = chip.label,
+					layoutOrder = index + 1,
+					state = state,
+					reducedMotion = reducedMotion,
+					tall = true,
+				})
+			end
 			local _attributes = {
 				key = chip.label,
 				layoutOrder = index + 1,
@@ -10667,6 +10750,11 @@ local function NavGroup(_param)
 			InteractionFeedback.tap()
 		end
 		local headerChildren = {}
+		-- A closed group still tells you something inside wants attention. On the full rail the
+		-- badge sits inline at the right edge and the route count steps left of it, so they never overlap.
+		local showBadge = not open and badgeTotal > 0
+		local badgeW = if badgeTotal > 99 then 20 elseif badgeTotal >= 10 then 16 else 14
+		local countShift = if showBadge and not collapsed then badgeW + 6 else 0
 		if collapsed then
 			-- Icon-only rail: a short rule with the chevron under it.
 			headerChildren.rule = React.createElement("frame", {
@@ -10706,7 +10794,7 @@ local function NavGroup(_param)
 				weight = Enum.FontWeight.Bold,
 				align = Enum.TextXAlignment.Right,
 				fit = false,
-				position = UDim2.new(1, -40, 0, 0),
+				position = UDim2.new(1, -40 - countShift, 0, 0),
 				sizeConstraint = UDim2.new(0, 32, 1, 0),
 			})
 			headerChildren.rule = React.createElement("frame", {
@@ -10719,12 +10807,13 @@ local function NavGroup(_param)
 				BorderSizePixel = 0,
 			})
 		end
-		-- A closed group still tells you something inside wants attention.
-		if not open and badgeTotal > 0 then
+		if showBadge then
 			headerChildren.badge = React.createElement(CountBadge, {
 				count = badgeTotal,
 				zIndex = 12,
 				compact = true,
+				position = if collapsed then nil else UDim2.new(1, -8, 0.5, 0),
+				anchorPoint = if collapsed then nil else Vector2.new(1, 0.5),
 			})
 		end
 		header = React.createElement("textbutton", {
@@ -17331,7 +17420,7 @@ local function TutorialOverlay(_param)
 	local dockRef = React.useRef(nil)
 	local frame, setFrame = React.useBinding({
 		spot = { x = 0, y = 0, w = 0, h = 0, a = 0 },
-		pet = { x = -100, y = -100, tilt = 0, sx = 1, sy = 1, lookX = 0, lookY = 0, blink = 0, point = 90, reach = 0, wing = 1, mouth = 3, happy = 0, spin = 0, bob = 0, tipX = 0, tipY = 0 },
+		pet = { x = -100, y = -100, tilt = 0, sx = 1, sy = 1, lookX = 0, lookY = 0, blink = 0, point = 90, reach = 0, poke = 0, wing = 1, mouth = 3, happy = 0, spin = 0, bob = 0, tipX = 0, tipY = 0 },
 		chars = 0,
 		sparks = {},
 		t = 0,
@@ -20297,6 +20386,14 @@ local function useServerEvent(fromSnapshot)
 	return fromSnapshot
 end
 
+-- The top bar's event card opens the panel the host owns.
+local panelOpeners = {}
+local function openServerEventPanel()
+	for opener in panelOpeners do
+		opener()
+	end
+end
+
 local function clockText(seconds)
 	local total = math.max(0, math.floor(seconds))
 	return string.format("%d:%02d", total // 60, total % 60)
@@ -20577,6 +20674,16 @@ local function ServerEventHost(_param)
 	local splashLeaving, setSplashLeaving = React.useState(false)
 	local lastPhase = React.useRef(nil)
 	React.useEffect(function()
+		local opener = function()
+			Audio:play("open")
+			setPanelOpen(true)
+		end
+		panelOpeners[opener] = true
+		return function()
+			panelOpeners[opener] = nil
+		end
+	end, {})
+	React.useEffect(function()
 		if event == nil then
 			return nil
 		end
@@ -20618,7 +20725,9 @@ local function ServerEventHost(_param)
 		else 170
 	local height = if active then (if event.Goal ~= nil then 50 else 40) else 28
 	local top = viewport.topInset + 62
-	if stack and not active then
+	-- With the desktop top bar up, the event lives there as a card beside the stats (ServerEventChip);
+	-- only the splash and the details panel are drawn here.
+	if (stack and not active) or _param.inTopBar == true then
 		return React.createElement(React.Fragment, nil, splash ~= nil and React.createElement(LiveSplash, {
 			def = splash,
 			leaving = splashLeaving,
@@ -20705,6 +20814,11 @@ end
 return {
 	pushServerEvent = pushServerEvent,
 	ServerEventHost = ServerEventHost,
+	useServerEvent = useServerEvent,
+	openServerEventPanel = openServerEventPanel,
+	accentOf = accentOf,
+	clockText = clockText,
+	EVENTS = ServerEvents.EVENTS,
 }
 end
 
