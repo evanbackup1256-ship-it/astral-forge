@@ -267,6 +267,57 @@ for _, boss in roster do
 end
 
 
+-- Crowds: a full arena striking flat out must still have a fight on its hands (neither seconds long
+-- nor longer than the boss stays), and a lone fighter's health is exactly what it always was.
+for _, boss in roster do
+	local label = boss.Name or "boss"
+	check(RiftBossMath.MaxHealth(1, boss) == boss.BaseHealth + boss.HealthPerFighter, label .. ": a lone fighter's health changed")
+	check(RiftBossMath.MaxHealth(2, boss) > RiftBossMath.MaxHealth(1, boss), label .. ": more fighters must mean more health")
+	local damage = RiftBossMath.StrikeDamage(1, 0, 0.99, boss)
+	local perSecond = damage / boss.StrikeCooldown
+	for _, crowd in { 5, 20, 60 } do
+		local seconds = RiftBossMath.MaxHealth(crowd, boss) / (crowd * perSecond)
+		check(seconds >= 0.3 * boss.ActiveSeconds, label .. ": " .. crowd .. " level-1 fighters would end it in " .. math.floor(seconds) .. "s")
+		check(seconds <= 0.9 * boss.ActiveSeconds, label .. ": " .. crowd .. " level-1 fighters could not finish it in time (" .. math.floor(seconds) .. "s)")
+	end
+end
+
+-- Fairness: every telegraph gives time to react, and every ground pattern fits the arena it is played in.
+for _, boss in roster do
+	local label = boss.Name or "boss"
+	local arena = Layout.arena(boss.Island)
+	check((boss.SlamTelegraphSeconds or 0) >= 1.2, label .. ": slam telegraph is too short to react to")
+	local function inspect(attack, where: string)
+		local p = attack.Params or {}
+		if attack.Kind == "GravityWell" then
+			-- The well opens, then pulls before it detonates: the pull is the warning.
+			check(p.TelegraphSeconds + p.PullSeconds >= 1.6, label .. ": " .. where .. " gives under 1.6s from opening to detonation")
+		elseif p.TelegraphSeconds ~= nil then
+			check(p.TelegraphSeconds >= 1.0, label .. ": " .. where .. " telegraph is under a second")
+		end
+		if attack.Kind == "Fissure" then
+			check(p.FirstDistance + (p.Count - 1) * p.Gap <= arena.Radius + 8, label .. ": " .. where .. " fissure runs far past the arena")
+		elseif attack.Kind == "Starburst" then
+			check(p.FirstDistance + (p.Rings - 1) * p.Gap <= arena.Radius + 8, label .. ": " .. where .. " starburst runs far past the arena")
+		elseif attack.Kind == "Cage" then
+			check(p.Distance <= arena.Radius * 0.5, label .. ": " .. where .. " cage is wider than half the arena")
+		elseif attack.Kind == "Wall" then
+			check(p.Range <= arena.Radius * 1.4, label .. ": " .. where .. " wall travels far past the arena")
+			check(p.GapHalf >= 7, label .. ": " .. where .. " wall gap is too narrow to slip through")
+		elseif attack.Kind == "Dissonance" then
+			check(p.Zones >= 1 and p.Zones <= 4, label .. ": " .. where .. " dissonance needs one to four safe pockets")
+		end
+	end
+	for _, attack in boss.Attacks do
+		inspect(attack, attack.Kind)
+	end
+	for name, def in boss.Ultimates or {} do
+		if def.Chain == nil then
+			inspect({ Kind = def.Kind, Params = def.Params }, "ultimate " .. name)
+		end
+	end
+end
+
 -- Behaviour: who it hunts, where it aims, when it enrages, when its poise breaks, what it chains.
 check(RiftBossMath.TargetScore(1, 8, 0) > RiftBossMath.TargetScore(0, 0, 0), "the biggest damage dealer who stands still is the favourite target")
 check(RiftBossMath.TargetScore(0, 0, 1) > RiftBossMath.TargetScore(0, 0, 0), "a roll breaks ties")

@@ -1506,6 +1506,7 @@ SanctuaryConfig.RiftBoss = {
 	-- Health: a base plus a share per fighter in the sanctuary when it wakes.
 	BaseHealth = 900,
 	HealthPerFighter = 700,
+	CrowdHealth = 3400,
 	-- Strikes.
 	StrikeCooldown = 0.28,
 	StrikeRange = 64,
@@ -1567,6 +1568,7 @@ local HollowChoir = bossFrom(SanctuaryConfig.RiftBoss, {
 	},
 	BaseHealth = 1000,
 	HealthPerFighter = 760,
+	CrowdHealth = 3400,
 	SlamIntervalMin = 5,
 	SlamIntervalMax = 8,
 	Attacks = {
@@ -1642,6 +1644,7 @@ local CinderRegent = bossFrom(SanctuaryConfig.RiftBoss, {
 	},
 	BaseHealth = 1200,
 	HealthPerFighter = 900,
+	CrowdHealth = 3700,
 	ActiveSeconds = 165,
 	SlamIntervalMin = 6,
 	SlamIntervalMax = 9,
@@ -1721,6 +1724,7 @@ local StormSeraph = bossFrom(SanctuaryConfig.RiftBoss, {
 	},
 	BaseHealth = 1100,
 	HealthPerFighter = 820,
+	CrowdHealth = 3400,
 	SlamIntervalMin = 4.5,
 	SlamIntervalMax = 7.5,
 	PhaseDelayScale = { 1, 0.78, 0.58 },
@@ -1789,6 +1793,7 @@ local Rimeheart = bossFrom(SanctuaryConfig.RiftBoss, {
 	},
 	BaseHealth = 1350,
 	HealthPerFighter = 960,
+	CrowdHealth = 3800,
 	ActiveSeconds = 170,
 	SlamIntervalMin = 6,
 	SlamIntervalMax = 9,
@@ -1858,6 +1863,7 @@ local UmbralKnight = bossFrom(SanctuaryConfig.RiftBoss, {
 	},
 	BaseHealth = 1500,
 	HealthPerFighter = 1050,
+	CrowdHealth = 4000,
 	ActiveSeconds = 175,
 	SlamIntervalMin = 4.5,
 	SlamIntervalMax = 7,
@@ -3831,6 +3837,7 @@ local Astraeon = bossFrom(SanctuaryConfig.RiftBoss, {
 	PhaseDelayScale = { 1, 0.85, 0.7, 0.55 },
 	BaseHealth = 4200,
 	HealthPerFighter = 1800,
+	CrowdHealth = 10400,
 	FormingSeconds = 60,
 	ActiveSeconds = 480,
 	SlamRadius = 32,
@@ -3933,7 +3940,7 @@ HollowChoir.FinalStand = "Finale"
 
 CinderRegent.Ultimates = {
 	Eruption = { Kind = "Meteors", Params = { Count = 20, StepSeconds = 0.17, RadiusScale = 0.75, TelegraphSeconds = 2.4, Element = "Fire" } },
-	Cataclysm = { Kind = "Fissure", Params = { Count = 12, FirstDistance = 10, Gap = 8, StepSeconds = 0.08, RadiusScale = 0.6, TelegraphSeconds = 2.6, Element = "Fire" } },
+	Cataclysm = { Kind = "Fissure", Params = { Count = 9, FirstDistance = 10, Gap = 8, StepSeconds = 0.08, RadiusScale = 0.6, TelegraphSeconds = 2.6, Element = "Fire" } },
 	Ragnarok = { Chain = { "Eruption", "Cataclysm" } },
 }
 CinderRegent.PhaseUltimates = { [3] = "Eruption" }

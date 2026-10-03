@@ -1873,6 +1873,7 @@ local function UltimateAlert(props)
 			local config = bossConfigOf(tostring(payload.BossKind or "Warden"))
 			local theme = config.Theme
 			local seconds = math.max(0.8, tonumber(payload.Seconds) or 2)
+			Audio:play("wardenSlamCharge")
 			sequence.current += 1
 			local key = sequence.current
 			setMessage({
