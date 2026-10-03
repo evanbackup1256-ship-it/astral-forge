@@ -35,7 +35,7 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local GAME_ICON_ASSET = require(script.Parent.ArtKit)("Icon").GAME_ICON_ASSET
-local EMBER_COUNT = 22
+local EMBER_COUNT = 9
 local BootStageText = __load("BootStageText").BootStageText
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
@@ -52,14 +52,27 @@ local EXIT_SPIN_SECONDS = 0.22
 local EXIT_VEIL_SECONDS = 0.32
 local STALL_SECONDS = 45
 local SYSTEMS = { "bridge", "remotes", "state", "assets", "modules", "fonts", "audio", "shell", "mail", "research", "forge", "trade", "boosts", "settings", "mobile" }
-local STAGE_LABELS = { "CONNECTING", "LOADING ASSETS", "LOADING FONTS", "LOADING SOUNDS", "LOADING ANIMATIONS", "LOADING UI", "LOADING SAVES", "LOADING MAIL", "LOADING RESEARCH", "LOADING FORGE", "LOADING TRADE", "LOADING BOOSTS", "LOADING SETTINGS", "LOADING MOBILE", "FINISHING", "READY" }
-local LOADING_TIPS = { "Tap machines to overcharge them for bonus flux.", "Research is permanent — it survives rebirths.", "Complete daily lab orders for stardust rewards.", "Build your guild hall and recruit forgemasters.", "Check the Star Grid for permanent passive boosts.", "Stabilize anomalies to charge the reactor faster.", "Trade with other players to complete your collection.", "Activate boosts before a long session for max gains.", "Rebirth at the right moment to multiply your output.", "Equip relics to specialize your forge style.", "Claim mail rewards daily for free resources.", "Unlock new worlds to access rare machines.", "Join a guild goal — everyone's contribution counts.", "Weekly directives reset every Monday with fresh rewards.", "Spin the wheel daily — pity guarantees a rare eventually.", "Command XP unlocks crew upgrades and expedition slots.", "Forge echoes stack traits — chase a matching affinity set.", "Convergence events reward a shared production boost.", "Auto-forge keeps your best machine buying while you're away.", "Milestones track lifetime stats — they never reset.", "Season tiers bank XP even before you claim a reward.", "Salvage unwanted relics for essence to reroll better ones.", "Signal shop offers rotate daily — check back often.", "Streak shields protect your daily login streak once.", "Open Settings → GUIDE anytime to replay the tutorial.", "Xbox: Y collects the vault · LB / RB switches pages." }
+-- What the player reads while it loads: a few plain steps, not one label per internal system.
+local STAGE_LABELS = { "Connecting", "Connecting", "Connecting", "Loading art", "Loading art", "Loading art", "Loading sounds", "Building the menus", "Opening your save", "Opening your save", "Opening your save", "Opening your save", "Opening your save", "Opening your save", "Almost there", "Ready" }
+local LOADING_TIPS = {
+	"Research stays with you when you rebirth.",
+	"A full vault stops filling. Collect it often.",
+	"Overcharge a machine by tapping it fast.",
+	"The Star Grid's bonuses never reset.",
+	"Boosts stack with research, so start one before a long session.",
+	"Rebirth when the Cores on offer would beat what you have now.",
+	"The wheel's pity counter guarantees a rare sooner or later.",
+	"Auto-Forge keeps buying your best machine while you're away.",
+	"Daily shop stock changes at midnight UTC.",
+	"Relics can be salvaged for essence if you pull a duplicate.",
+	"You can replay the tour from Settings.",
+}
 local function clamp01(value)
 	return math.clamp(value, 0, 1)
 end
 local function statusFor(marks, ready, stalled, loaded, total)
 	if ready then
-		return "READY"
+		return "Ready"
 	end
 	local stage = 0
 	for _, key in SYSTEMS do
@@ -70,14 +83,14 @@ local function statusFor(marks, ready, stalled, loaded, total)
 		end
 	end
 	if stalled then
-		return "FINISHING"
+		return "Almost there"
 	end
 	if stage >= #SYSTEMS then
-		return "READY"
+		return "Ready"
 	end
 	local _condition = STAGE_LABELS[math.min(stage, #STAGE_LABELS - 1) + 1]
 	if _condition == nil then
-		_condition = "LOADING"
+		_condition = "Loading"
 	end
 	return _condition
 end
@@ -270,17 +283,6 @@ local function BootScreen(_param)
 	local progress = if ready then 1 else progressFor(marks, assetsLoaded, assetsTotal, modulesLoaded, modulesTotal)
 	targetProgress.current = progress
 	local tipText = LOADING_TIPS[tipIndex + 1] or ""
-	local countText = ""
-	if not ready then
-		local pieces = {}
-		if assetsTotal ~= nil and assetsTotal > 0 then
-			table.insert(pieces, `{math.min(assetsLoaded or 0, assetsTotal)} / {assetsTotal} assets`)
-		end
-		if modulesTotal ~= nil and modulesTotal > 0 then
-			table.insert(pieces, `{math.min(modulesLoaded or 0, modulesTotal)} / {modulesTotal} modules`)
-		end
-		countText = table.concat(pieces, "   ·   ")
-	end
 	local hidden = spinFade:map(function(amount)
 		return amount
 	end)
@@ -299,49 +301,24 @@ local function BootScreen(_param)
 	for index = 1, EMBER_COUNT do
 		local seed = math.abs(math.sin(index * 12.9898) * 43758.5453) % 1
 		local seedB = math.abs(math.sin(index * 78.233) * 12345.678) % 1
-		local speed = 0.07 + seedB * 0.09
-		local size = 2 + math.floor(seed * 4)
+		local speed = 0.05 + seedB * 0.05
+		local size = 2 + math.floor(seed * 2)
 		embers["ember" .. index] = React.createElement("frame", {
 			Size = UDim2.fromOffset(size, size),
 			Position = clock:map(function(t)
 				local rise = (t * speed + seed) % 1
-				local sway = math.sin(t * (0.8 + seedB) + index) * 0.015
-				return UDim2.fromScale(0.08 + seed * 0.84 + sway, 1.02 - rise * 0.75)
+				local sway = math.sin(t * (0.6 + seedB) + index) * 0.01
+				return UDim2.fromScale(0.1 + seed * 0.8 + sway, 1.02 - rise * 0.5)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Rotation = clock:map(function(t)
-				return (t * 60 * (seedB - 0.5)) % 360
-			end),
-			BackgroundColor3 = if index % 3 == 0 then Palette.mango elseif index % 3 == 1 then Palette.ember else Palette.brass,
+			BackgroundColor3 = if index % 2 == 0 then Palette.mango else Palette.ember,
 			BackgroundTransparency = React.joinBindings({ clock, veilHide }):map(function(values)
 				local rise = (values[1] * speed + seed) % 1
-				-- Bright as it leaves the glow, gone by the time it reaches the middle.
-				return math.clamp(0.15 + rise * 1.1 + values[2], 0, 1)
+				-- Faint as they leave the glow, gone a third of the way up.
+				return math.clamp(0.45 + rise * 1.2 + values[2], 0, 1)
 			end),
 			BorderSizePixel = 0,
 			ZIndex = 2,
-		})
-	end
-
-	-- Sparks thrown back off the hot tip of the bar.
-	local sparks = {}
-	for index = 1, 6 do
-		local phase = index / 6
-		local spread = 0.6 + 0.4 * math.abs(math.sin(index * 2.3))
-		sparks["spark" .. index] = React.createElement("frame", {
-			Size = UDim2.fromOffset(3, 3),
-			Position = clock:map(function(t)
-				local k = (t * 1.7 + phase) % 1
-				return UDim2.new(0.5, -k * 30 * spread, 0.5, -k * 24 * spread + k * k * 34)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = if index % 2 == 0 then Palette.cream else Palette.mango,
-			BackgroundTransparency = React.joinBindings({ clock, spinFade }):map(function(values)
-				local k = (values[1] * 1.7 + phase) % 1
-				return math.clamp(k * 1.1 + values[2], 0, 1)
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 9,
 		})
 	end
 
@@ -400,18 +377,13 @@ local function BootScreen(_param)
 	}), React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	}), React.createElement("uistroke", {
+		-- A plain brass ring, lit from the top like the logo's own frame.
 		Color = Palette.brass,
 		Thickness = 3,
 		Transparency = fadeFrom(0.05),
 	}, React.createElement("uigradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Palette.brassDeep),
-			ColorSequenceKeypoint.new(0.5, Palette.mango),
-			ColorSequenceKeypoint.new(1, Palette.brassDeep),
-		}),
-		Rotation = clock:map(function(t)
-			return (t * 40) % 360
-		end),
+		Color = ColorSequence.new(Palette.mango, Palette.brassDeep),
+		Rotation = 90,
 	})), React.createElement("imagelabel", {
 		Size = UDim2.new(1, -10, 1, -10),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -423,27 +395,7 @@ local function BootScreen(_param)
 		ZIndex = 6,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	}))), React.createElement("frame", {
-		-- Halo behind the medallion.
-		Size = UDim2.fromOffset(190, 190),
-		Position = UDim2.new(0.5, 0, 0.4, -40),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.mango,
-		BackgroundTransparency = React.joinBindings({ progressPulse, spinFade }):map(function(values)
-			return math.clamp(0.86 - values[1] * 0.04 + values[2], 0, 1)
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 4,
-		Visible = showing,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0.2),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	})), React.createElement("textlabel", {
+	}))), React.createElement("textlabel", {
 		-- Wordmark: ASTRAL in cream, FORGE in brass.
 		Size = UDim2.new(0.9, 0, 0, 40),
 		Position = UDim2.new(0.5, 0, 0.4, 34),
@@ -499,26 +451,7 @@ local function BootScreen(_param)
 			ColorSequenceKeypoint.new(0.7, Palette.mango),
 			ColorSequenceKeypoint.new(1, Palette.cream),
 		}),
-	}), React.createElement("frame", {
-		-- The hot tip's glow.
-		Size = UDim2.fromOffset(26, 26),
-		Position = UDim2.fromScale(1, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.mango,
-		BackgroundTransparency = React.joinBindings({ progressPulse, spinFade }):map(function(values)
-			return math.clamp(0.55 - values[1] * 0.2 + values[2], 0, 1)
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 8,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uigradient", {
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.1),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		Offset = Vector2.zero,
-	}), sparks))), React.createElement("frame", {
+	}))), React.createElement("frame", {
 		Size = UDim2.new(0.9, 0, 0, 20),
 		Position = UDim2.new(0.5, 0, 0.4, 112),
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -540,8 +473,7 @@ local function BootScreen(_param)
 	AnchorPoint = Vector2.new(0.5, 0),
 	BackgroundTransparency = 1,
 	Text = shownProgress:map(function(shown)
-		local pct = `{math.floor(math.clamp(shown, 0, 1) * 100 + 0.5)}%`
-		return if countText ~= "" then pct .. "   ·   " .. countText else pct
+		return `{math.floor(math.clamp(shown, 0, 1) * 100 + 0.5)}%`
 	end),
 		TextColor3 = Palette.muted,
 		TextTransparency = fadeFrom(0.25),
@@ -549,47 +481,21 @@ local function BootScreen(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		ZIndex = 6,
 		Visible = showing,
-	}), React.createElement("frame", {
-		-- Tip card along the bottom.
-		Size = UDim2.new(0.92, 0, 0, 34),
-		Position = UDim2.new(0.5, 0, 1, -44),
+	}), React.createElement("textlabel", {
+		-- One quiet line along the bottom: a tip, or a note if loading is slow.
+		Size = UDim2.new(0.9, 0, 0, 18),
+		Position = UDim2.new(0.5, 0, 1, -40),
 		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Palette.night,
-		BackgroundTransparency = fadeFrom(0.2),
-		BorderSizePixel = 0,
-		ZIndex = 6,
-		Visible = showing,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement("uistroke", {
-		Color = if stalled then Palette.mango else Palette.line,
-		Transparency = fadeFrom(0.3),
-	}), React.createElement("uisizeconstraint", {
-		MaxSize = Vector2.new(460, 34),
-	}), React.createElement("textlabel", {
-		Size = UDim2.fromOffset(44, 34),
-		Position = UDim2.fromOffset(12, 0),
 		BackgroundTransparency = 1,
-		Text = if stalled then "WAIT" else "TIP",
-		TextColor3 = Palette.brass,
-		TextTransparency = fadeFrom(0),
-		TextSize = 11,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 7,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -66, 1, 0),
-		Position = UDim2.fromOffset(54, 0),
-		BackgroundTransparency = 1,
-		Text = if stalled then "Still loading. Hang tight, your save is safe." else tipText,
-		TextColor3 = Palette.creamSoft,
+		Text = if stalled then "Still loading. Your save is safe." else tipText,
+		TextColor3 = Palette.muted,
 		TextTransparency = fadeFrom(0.05),
-		TextSize = 12,
+		TextSize = 13,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 7,
-	})), _version ~= nil and React.createElement("textlabel", {
+		ZIndex = 6,
+		Visible = showing,
+	}), _version ~= nil and React.createElement("textlabel", {
 		Size = UDim2.fromOffset(160, 14),
 		Position = UDim2.new(1, -16, 1, -14),
 		AnchorPoint = Vector2.new(1, 1),

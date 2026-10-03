@@ -17929,61 +17929,67 @@ local function TutorialOverlay(_param)
 	}))))
 
 	-- ---- Bolt
-	local petColor = Palette.cyan
+	-- Bolt is a spark off the forge: a flat mango body with a hard cel-shade to ember underneath, a dark
+	-- outline round everything, a flame tuft on its head and two little flame fins. No gradients that
+	-- glow, no aura: it reads as drawn, in the same palette as the loading screen and the logo.
+	local petColor = Palette.mango
+	local petShade = Palette.ember
+	local petLine = Color3.fromRGB(74, 36, 18)
+	local function outline(thickness)
+		return React.createElement("uistroke", {
+			Color = petLine,
+			Thickness = thickness or 2,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		})
+	end
 	local function wing(side)
+		-- A flame fin: a teardrop that flaps from the shoulder.
 		return React.createElement("frame", {
 			Size = frame:map(function(f)
-				return UDim2.fromOffset(16, PET_SIZE * 0.5 * f.pet.wingL)
+				return UDim2.fromOffset(12, PET_SIZE * 0.42 * f.pet.wingL)
 			end),
-			Position = UDim2.new(0.5, side * (PET_SIZE * 0.42), 0.5, -4),
+			Position = UDim2.new(0.5, side * (PET_SIZE * 0.4), 0.5, 2),
 			AnchorPoint = Vector2.new(0.5, 1),
 			Rotation = frame:map(function(f)
-				return side * (40 + f.pet.wingA)
+				return side * (52 + f.pet.wingA)
 			end),
-			BackgroundColor3 = lighten(petColor, 0.45),
-			BackgroundTransparency = 0.25,
+			BackgroundColor3 = petShade,
 			BorderSizePixel = 0,
 			ZIndex = 409,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("uigradient", {
-			Color = ColorSequence.new(Palette.white, lighten(petColor, 0.3)),
-			Transparency = NumberSequence.new(0.1, 0.45),
-			Rotation = 90,
-		}))
+		}), outline(2))
 	end
 	local function eye(side)
+		-- A small ink pill that slides a little towards what Bolt looks at; blinks shut, squints when happy.
 		return React.createElement("frame", {
 			Size = frame:map(function(f)
-				-- Blinks close it; a happy face squints it into a smile.
-				local open = (1 - f.pet.blink) * (1 - f.pet.happy * 0.3)
-				return UDim2.fromOffset(12, math.max(1.5, 15 * open))
+				local open = (1 - f.pet.blink) * (1 - f.pet.happy * 0.35)
+				local wide = f.pet.pupil / 7
+				return UDim2.fromOffset(6 * wide, math.max(1.5, 11 * open * wide))
 			end),
-			Position = UDim2.new(0.5, side * 10, 0.5, -5),
+			Position = frame:map(function(f)
+				return UDim2.new(0.5, side * 9 + f.pet.lookX * 0.9, 0.5, -4 + f.pet.lookY * 0.8)
+			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = Palette.white,
+			BackgroundColor3 = petLine,
 			BorderSizePixel = 0,
-			ClipsDescendants = true,
 			ZIndex = 414,
 		}, React.createElement("uicorner", {
 			CornerRadius = UDim.new(1, 0),
 		}), React.createElement("frame", {
-			Size = frame:map(function(f)
-				return UDim2.fromOffset(f.pet.pupil, f.pet.pupil)
+			Size = UDim2.fromOffset(2, 2),
+			Position = UDim2.new(0.5, 0, 0.22, 0),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = Palette.cream,
+			BackgroundTransparency = frame:map(function(f)
+				return if f.pet.blink > 0.5 then 1 else 0
 			end),
-			Position = frame:map(function(f)
-				return UDim2.new(0.5, f.pet.lookX, 0.5, f.pet.lookY)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = Palette.ink,
 			BorderSizePixel = 0,
 			ZIndex = 415,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("frame", {
-			Size = UDim2.fromOffset(2.5, 2.5),
-			Position = UDim2.new(0.62, 0, 0.18, 0),
-			BackgroundColor3 = Palette.white,
+		}, React.createElement("frame", {
+			Size = UDim2.fromOffset(0, 0),
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ZIndex = 416,
 		}, React.createElement("uicorner", {
@@ -18014,7 +18020,7 @@ local function TutorialOverlay(_param)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Rotation = 45,
-			BackgroundColor3 = if i % 3 == 0 then Palette.mango elseif i % 3 == 1 then Palette.cream else Palette.cyan,
+			BackgroundColor3 = if i % 3 == 0 then Palette.mango elseif i % 3 == 1 then Palette.cream else Palette.ember,
 			BackgroundTransparency = frame:map(function(f)
 				local spark = get(f)
 				return if spark == nil then 1 else spark.a ^ 1.6
@@ -18083,18 +18089,19 @@ local function TutorialOverlay(_param)
 		trailEls["t" .. i] = React.createElement("frame", {
 			Size = frame:map(function(f)
 				local mote = f.trail[i]
-				local size = if mote == nil then 0 else PET_SIZE * 0.42 * (1 - mote.a)
+				local size = if mote == nil then 0 else 7 * (1 - mote.a)
 				return UDim2.fromOffset(size, size)
 			end),
 			Position = frame:map(function(f)
 				local mote = f.trail[i]
-				return if mote == nil then UDim2.fromOffset(-100, -100) else UDim2.fromOffset(mote.x, mote.y)
+				return if mote == nil then UDim2.fromOffset(-100, -100) else UDim2.fromOffset(mote.x, mote.y + PET_SIZE * 0.2)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = lighten(petColor, 0.3),
+			-- Embers shed as Bolt flies: small, warm, falling behind.
+			BackgroundColor3 = if i % 2 == 0 then petColor else petShade,
 			BackgroundTransparency = frame:map(function(f)
 				local mote = f.trail[i]
-				return if mote == nil then 1 else 0.55 + mote.a * 0.45
+				return if mote == nil then 1 else 0.15 + mote.a * 0.85
 			end),
 			BorderSizePixel = 0,
 			ZIndex = 403,
@@ -18111,36 +18118,20 @@ local function TutorialOverlay(_param)
 		BackgroundTransparency = 1,
 		ZIndex = 405,
 	}, React.createElement("frame", {
-		-- A soft glow on whatever Bolt hovers over; smaller and fainter as it bobs up.
+		-- A plain shadow under Bolt: smaller and lighter as it bobs up.
 		Size = frame:map(function(f)
-			return UDim2.fromOffset(PET_SIZE * 0.85 * f.pet.shadow, PET_SIZE * 0.22 * f.pet.shadow)
+			return UDim2.fromOffset(PET_SIZE * 0.7 * f.pet.shadow, PET_SIZE * 0.16 * f.pet.shadow)
 		end),
-		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.68),
+		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.7),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = petColor,
+		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = frame:map(function(f)
-			return math.clamp(0.82 - (f.pet.shadow - 1) * 1.5, 0.7, 0.95)
+			return math.clamp(0.6 - (f.pet.shadow - 1) * 1.5, 0.55, 0.9)
 		end),
 		BorderSizePixel = 0,
 		ZIndex = 406,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		-- Aura: breathes slowly, brightens when the cursor is on Bolt.
-		Size = frame:map(function(f)
-			local grow = PET_SIZE * (1.22 + 0.05 * math.sin(f.t * 3) + 0.12 * f.pet.glow)
-			return UDim2.fromOffset(grow * f.pet.sx, grow * f.pet.sy)
-		end),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = petColor,
-		BackgroundTransparency = frame:map(function(f)
-			return 0.86 - 0.06 * math.sin(f.t * 3) - 0.1 * f.pet.glow
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 407,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0.5, 0),
 	})), React.createElement("frame", {
 		-- Pointing arm, drawn from the body's centre towards the target; it extends as it reaches.
 		Size = frame:map(function(f)
@@ -18160,57 +18151,52 @@ local function TutorialOverlay(_param)
 		Size = UDim2.new(1, -8, 0, 6),
 		Position = UDim2.new(0, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = lighten(petColor, 0.2),
+		BackgroundColor3 = petColor,
 		BorderSizePixel = 0,
 		ZIndex = 410,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		-- The hand: a little glowing ball at the tip.
-		Size = UDim2.fromOffset(12, 12),
+	}), outline(1.5)), React.createElement("frame", {
+		-- The hand: a round fist at the tip that pokes at the target.
+		Size = UDim2.fromOffset(11, 11),
 		Position = UDim2.new(1, 0, 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundColor3 = Palette.cream,
+		BackgroundColor3 = petColor,
 		BorderSizePixel = 0,
 		ZIndex = 411,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.mango,
-		Thickness = 2,
-		Transparency = frame:map(function(f)
-			return 0.15 + 0.35 * (1 - f.pet.poke)
-		end),
-	}))), wing(-1), wing(1), React.createElement("frame", {
-		-- Antenna, its tip trailing the body's motion.
-		Size = UDim2.fromOffset(3, 14),
-		Position = UDim2.new(0.5, 0, 0, 2),
+	}), outline(2))), wing(-1), wing(1), React.createElement("frame", {
+		-- The flame tuft: three tongues of flame that flicker out of step and lean with Bolt's motion.
+		Size = UDim2.fromOffset(24, 22),
+		Position = UDim2.new(0.5, 0, 0, 6),
 		AnchorPoint = Vector2.new(0.5, 1),
 		Rotation = frame:map(function(f)
-			return math.clamp(f.pet.tipX * 6, -30, 30) + f.pet.sleep * 25
+			return math.clamp(f.pet.tipX * 5, -26, 26) + f.pet.sleep * 18
 		end),
-		BackgroundColor3 = lighten(petColor, 0.3),
-		BorderSizePixel = 0,
+		BackgroundTransparency = 1,
 		ZIndex = 410,
-	}, React.createElement("frame", {
-		Size = frame:map(function(f)
-			local size = 9 + 1.5 * math.sin(f.t * 5)
-			return UDim2.fromOffset(size, size)
-		end),
-		Position = UDim2.new(0.5, 0, 0, 0),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.mango,
-		BorderSizePixel = 0,
-		ZIndex = 411,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), React.createElement("uistroke", {
-		Color = Palette.cream,
-		Thickness = 1.5,
-		Transparency = frame:map(function(f)
-			return 0.2 + (math.sin(f.t * 5) + 1) * 0.3
-		end),
-	}))), React.createElement("textbutton", {
+	}, (function()
+		local tongues = {}
+		for index, spec in { { -7, 0.7, 0.0, -14 }, { 0, 1.0, 1.7, 0 }, { 7, 0.62, 3.1, 14 } } do
+			tongues["f" .. index] = React.createElement("frame", {
+				Size = frame:map(function(f)
+					local flicker = 1 + 0.12 * math.sin(f.t * 9 + spec[3]) + 0.06 * math.sin(f.t * 23 + spec[3] * 2)
+					local h = 20 * spec[2] * flicker * (1 - f.pet.sleep * 0.45)
+					return UDim2.fromOffset(9, h)
+				end),
+				Position = UDim2.new(0.5, spec[1], 1, 0),
+				AnchorPoint = Vector2.new(0.5, 1),
+				Rotation = spec[4],
+				BackgroundColor3 = if index == 2 then Palette.cream else petColor,
+				BorderSizePixel = 0,
+				ZIndex = if index == 2 then 411 else 410,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(1, 0),
+			}), outline(2))
+		end
+		return tongues
+	end)()), React.createElement("textbutton", {
 		-- The body: jelly squash, breathing, tilt with speed, spin when clicked.
 		Size = frame:map(function(f)
 			return UDim2.fromOffset(PET_SIZE * f.pet.sx, PET_SIZE * f.pet.sy)
@@ -18229,26 +18215,30 @@ local function TutorialOverlay(_param)
 			Activated = onPetClick,
 		},
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0.42, 0),
+		CornerRadius = UDim.new(0.48, 0),
 	}), React.createElement("uigradient", {
-		Color = ColorSequence.new(lighten(petColor, 0.35), Palette.violet),
-		Rotation = 115,
+		-- Cel shading: a hard step from the lit top to the ember underside, no soft glow.
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Palette.white),
+			ColorSequenceKeypoint.new(0.64, Palette.white),
+			ColorSequenceKeypoint.new(0.66, Color3.fromRGB(232, 150, 120)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(232, 150, 120)),
+		}),
+		Rotation = 90,
 	}), React.createElement("uistroke", {
-		Color = Palette.cream,
+		Color = petLine,
 		Thickness = frame:map(function(f)
-			return 2 + f.pet.glow
+			return 2.5 + 0.5 * f.pet.glow
 		end),
-		Transparency = frame:map(function(f)
-			return 0.3 - 0.2 * f.pet.glow
-		end),
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 	}), React.createElement("frame", {
-		-- A highlight on the top of the head.
-		Size = UDim2.fromOffset(16, 6),
-		Position = UDim2.new(0.5, -9, 0, 7),
+		-- A small hard highlight on the top of the head.
+		Size = UDim2.fromOffset(9, 5),
+		Position = UDim2.new(0.5, -11, 0, 7),
 		AnchorPoint = Vector2.new(0.5, 0),
-		Rotation = -14,
-		BackgroundColor3 = Palette.white,
-		BackgroundTransparency = 0.55,
+		Rotation = -20,
+		BackgroundColor3 = Palette.cream,
+		BackgroundTransparency = 0.1,
 		BorderSizePixel = 0,
 		ZIndex = 413,
 	}, React.createElement("uicorner", {
@@ -18258,18 +18248,18 @@ local function TutorialOverlay(_param)
 		Size = frame:map(function(f)
 			return UDim2.fromOffset(f.pet.mouthW, f.pet.mouth)
 		end),
-		Position = UDim2.new(0.5, 0, 0.5, 10),
+		Position = UDim2.new(0.5, 0, 0.5, 9),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.ink,
+		BackgroundColor3 = petLine,
 		BorderSizePixel = 0,
 		ZIndex = 414,
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(7, 4),
-		Position = UDim2.new(0.5, -18, 0.5, 6),
+		Position = UDim2.new(0.5, -16, 0.5, 5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.pink,
+		BackgroundColor3 = Palette.coral,
 		BackgroundTransparency = frame:map(function(f)
 			return 1 - f.pet.happy * 0.6
 		end),
@@ -18279,9 +18269,9 @@ local function TutorialOverlay(_param)
 		CornerRadius = UDim.new(1, 0),
 	})), React.createElement("frame", {
 		Size = UDim2.fromOffset(7, 4),
-		Position = UDim2.new(0.5, 18, 0.5, 6),
+		Position = UDim2.new(0.5, 16, 0.5, 5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.pink,
+		BackgroundColor3 = Palette.coral,
 		BackgroundTransparency = frame:map(function(f)
 			return 1 - f.pet.happy * 0.6
 		end),
