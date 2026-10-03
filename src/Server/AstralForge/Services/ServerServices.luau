@@ -45,6 +45,7 @@ serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("CoreS
 
 
 serviceFactories["FluxSurgeService"] = require(script.Parent:WaitForChild("FluxSurgeService"))
+serviceFactories["ServerEventService"] = require(script.Parent:WaitForChild("CoreServices"))("ServerEventService")
 
 
 
@@ -122,6 +123,7 @@ serviceFactories["GameService"] = function()
 	local CasinoService = loadService("CasinoService")
 	local BazaarService = loadService("BazaarService")
 	local FluxSurgeService = loadService("FluxSurgeService")
+	local ServerEventService = loadService("ServerEventService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 
 	local GameService = {}
@@ -712,6 +714,22 @@ serviceFactories["GameService"] = function()
 		self._analytics = PlayerAnalytics.new()
 		self._badges = PlayerBadges.new()
 		self._convergence = ConvergenceService.new(dataService)
+		self._events = ServerEventService.new({
+			random = function()
+				return self._random:NextNumber()
+			end,
+			announce = function(phase, def)
+				self:_announceServerEvent(phase, def)
+			end,
+			broadcast = function()
+				for _, online in Players:GetPlayers() do
+					self._effect:FireClient(online, { Type = "ServerEvent", Event = self._events:State(online) })
+				end
+			end,
+			payout = function(ranking, def)
+				self:_payCommunityForge(ranking, def)
+			end,
+		})
 		self._guilds = GuildService.new()
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
@@ -1047,7 +1065,7 @@ serviceFactories["GameService"] = function()
 				rebirths.Value = math.floor(progressionNumber(profile.Rebirths))
 			end
 		end
-		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier())))
+		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier() * self._events:ProductionMultiplier())))
 		player:SetAttribute("CurrentZone", profile.CurrentZone)
 		if GameConfig.Operations.TitlesEnabled == false then
 			player:SetAttribute("EquippedTitle", nil)
@@ -1089,6 +1107,48 @@ serviceFactories["GameService"] = function()
 	-- current production, stardust and a Forge Surge), and the halfway checkpoint toward
 	-- the next level. Runs with each snapshot, so rewards land the moment a goal is met.
 	-- Returns the public progression block for the snapshot.
+	-- Server event announcements, to everyone online.
+	function GameService:_announceServerEvent(phase: string, def)
+		local title, body, tone
+		if phase == "Warning" then
+			title, body, tone = def.Name .. " in 1 minute", def.Blurb, "Info"
+		elseif phase == "Live" then
+			title, body, tone = def.Name .. " has started!", def.How, "Special"
+		elseif phase == "Completed" then
+			title, body, tone = "Community goal reached!", "Everyone who helped has been paid. Nice work, forge.", "Success"
+		else
+			title, body, tone = def.Name .. " is over", "Thanks for playing. The next event is on its way.", "Info"
+		end
+		for _, online in Players:GetPlayers() do
+			self:_toastPlayer(online, title, body, tone)
+		end
+	end
+
+	-- Community Forge finished: every contributor gets flux worth some seconds of
+	-- their own output and stardust, with a bonus for the top three.
+	function GameService:_payCommunityForge(ranking, def)
+		for rank, entry in ranking do
+			local player = Players:GetPlayerByUserId(entry.UserId)
+			if player == nil then
+				continue
+			end
+			local stardust = def.RewardStardust + (def.TopBonusStardust[rank] or 0)
+			local paid = 0
+			self:_mutate(player, function(profile)
+				local amount = Economy.Mul(Economy.Production(profile), def.RewardFluxSeconds)
+				if Economy.AsNumber(amount) < 500 then
+					amount = 500
+				end
+				profile.Cash = Economy.Add(profile.Cash, amount)
+				profile.Stardust += stardust
+				paid = Economy.AsNumber(amount)
+				return responseSuccess(nil)
+			end)
+			local placing = if rank <= 3 then string.format(" You placed #%d!", rank) else ""
+			self:_toastPlayer(player, "Community Forge paid out", string.format("+%s flux and +%d stardust.%s", Format.Number(paid), stardust, placing), "Success")
+		end
+	end
+
 	function GameService:_settleProgression(player: Player, profile, levelState, production)
 		local progression = profile.Progression
 		if type(progression) ~= "table" then
@@ -1166,7 +1226,7 @@ serviceFactories["GameService"] = function()
 			return nil
 		end
 		local now = os.time()
-		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier())
+		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._events:ProductionMultiplier())
 		local capacity = Economy.Capacity(profile, now)
 		local prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault))
 		local domain = profile.Domain or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
@@ -1360,6 +1420,7 @@ serviceFactories["GameService"] = function()
 			CapacitySeconds = Economy.CapacitySeconds(profile, now),
 			SteadyProduction = Economy.SteadyProduction(profile, now),
 			FluxSurge = self._fluxSurge and self._fluxSurge:State(now) or FluxSurgeService.IdleState(),
+			ServerEvent = self._events:State(player),
 			PermanentMultiplier = Economy.PermanentMultiplier(profile),
 			AutoCollectRate = Economy.AutoCollectRate(profile),
 			OfflineHours = Economy.OfflineHours(profile),
@@ -1686,6 +1747,12 @@ serviceFactories["GameService"] = function()
 				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP)
 			)
 			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
+			-- Server events: Community Forge points, Stardust Rain drops.
+			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
+			if rainDust > 0 then
+				profile.Stardust += rainDust
+				return responseSuccess("Banked " .. Format.Number(amount) .. " flux and caught " .. rainDust .. " stardust.", { Amount = amount, Dust = rainDust })
+			end
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })
 		end)
 		if result.ok then
@@ -4492,7 +4559,7 @@ serviceFactories["GameService"] = function()
 					if active.EndsAt > 0 and active.EndsAt <= now then
 						profile.ActiveBoost = { Id = "", EndsAt = 0 }
 					end
-					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now))
+					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now) * self._events:ProductionMultiplier())
 					local capacity = Economy.Capacity(profile, now)
 					local produced = Economy.Mul(production, step)
 					profile.Vault = Economy.Min(capacity, Economy.Add(profile.Vault, produced))
@@ -4629,6 +4696,7 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_tick(deltaTime: number)
 		self._fluxSurge:Tick(deltaTime)
+		self._events:Step(deltaTime)
 
 		self._rankPingAccumulator += deltaTime
 		if self._rankPingAccumulator >= RANK_PING_INTERVAL then

@@ -1,7 +1,7 @@
 --!strict
 --[=[
 	SharedData: merged module suite.
-	Members (12): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
+	Members (13): AssetManifest, OreConfig, CreditsConfig, CreditsModel, PlayerlistModel, TutorialScript, LevelRewards, ServerEvents, ForgeLevels, LiveOpsConfig, MonetizationConfig, CapacityProjection, ZoneUnlock.
 
 	Each member keeps its original source inside its own closure (so every member
 	still has its own local-register budget) and is evaluated lazily, exactly once,
@@ -2039,6 +2039,169 @@ function LevelRewards.etaText(seconds: number?): string
 end
 
 return table.freeze(LevelRewards)
+end
+
+-- ======================================================================
+-- Module: ServerEvents
+-- ======================================================================
+__defs["ServerEvents"] = function()
+-- Server-wide events: what each one does, when they run, and what they pay.
+--
+-- Every server runs its own cycle: a rest, a one-minute warning, the live event,
+-- then a short results screen. Events rotate without repeating back to back.
+--   * Meteor Shower: everyone's output is multiplied while it lasts.
+--   * Community Forge: the server shares one goal. Every vault collect adds
+--     points (seconds of your own output, so new and veteran players count the
+--     same); finishing pays every contributor, and the top three get a bonus.
+--   * Stardust Rain: every vault collect also drops stardust.
+--
+-- Pure: ServerEventService runs it, the client draws it, and
+-- scripts/verify_server_events.luau checks it.
+
+local ServerEvents = {}
+
+ServerEvents.REST_SECONDS = 8 * 60
+ServerEvents.WARNING_SECONDS = 60
+ServerEvents.LIVE_SECONDS = 5 * 60
+ServerEvents.RESULTS_SECONDS = 20
+-- The first event after a server starts comes sooner.
+ServerEvents.FIRST_REST_SECONDS = 3 * 60
+
+ServerEvents.EVENTS = table.freeze({
+	MeteorShower = table.freeze({
+		Id = "MeteorShower",
+		Name = "Meteor Shower",
+		Blurb = "Meteors are hitting the forge. Everyone's output is boosted!",
+		How = "Just keep earning: every machine produces more while it lasts.",
+		Icon = "Boost",
+		Accent = "mango",
+		Multiplier = 1.5,
+	}),
+	CommunityForge = table.freeze({
+		Id = "CommunityForge",
+		Name = "Community Forge",
+		Blurb = "The whole server works on one giant order. Collect your vault to help!",
+		How = "Every vault collect adds points. Fill the bar together to pay everyone who helped.",
+		Icon = "Crew",
+		Accent = "cyan",
+		PointsPerPlayer = 900,
+		MinGoal = 900,
+		MaxPointsPerCollect = 600,
+		RewardFluxSeconds = 300,
+		RewardStardust = 30,
+		TopBonusStardust = { 40, 25, 15 },
+	}),
+	StardustRain = table.freeze({
+		Id = "StardustRain",
+		Name = "Stardust Rain",
+		Blurb = "Stardust is falling. Every vault collect drops some!",
+		How = "Collect your vault as often as you can while it rains.",
+		Icon = "Dust",
+		Accent = "violet",
+		MaxDustPerCollect = 25,
+	}),
+})
+ServerEvents.ORDER = table.freeze({ "MeteorShower", "CommunityForge", "StardustRain" })
+
+-- The next event id: anything but the last one, picked by `roll` in [0, 1).
+function ServerEvents.pick(lastId: string?, roll: number): string
+	local choices = {}
+	for _, id in ServerEvents.ORDER do
+		if id ~= lastId then
+			table.insert(choices, id)
+		end
+	end
+	local index = math.clamp(math.floor(roll * #choices) + 1, 1, #choices)
+	return choices[index]
+end
+
+-- Advances the cycle. `state` is { Phase, Id, PhaseEndsAt, LastId }; returns the
+-- new state and whether the phase changed. Phases: Rest -> Warning -> Live ->
+-- Results -> Rest.
+function ServerEvents.advance(state, now: number, roll: number)
+	if state == nil or state.Phase == nil then
+		return { Phase = "Rest", Id = nil, PhaseEndsAt = now + ServerEvents.FIRST_REST_SECONDS, LastId = nil }, true
+	end
+	if now < state.PhaseEndsAt then
+		return state, false
+	end
+	if state.Phase == "Rest" then
+		local id = ServerEvents.pick(state.LastId, roll)
+		return { Phase = "Warning", Id = id, PhaseEndsAt = now + ServerEvents.WARNING_SECONDS, LastId = state.LastId }, true
+	elseif state.Phase == "Warning" then
+		return { Phase = "Live", Id = state.Id, PhaseEndsAt = now + ServerEvents.LIVE_SECONDS, LastId = state.LastId }, true
+	elseif state.Phase == "Live" then
+		return { Phase = "Results", Id = state.Id, PhaseEndsAt = now + ServerEvents.RESULTS_SECONDS, LastId = state.Id }, true
+	end
+	return { Phase = "Rest", Id = nil, PhaseEndsAt = now + ServerEvents.REST_SECONDS, LastId = state.LastId }, true
+end
+
+-- Output multiplier right now.
+function ServerEvents.productionMultiplier(state): number
+	if state ~= nil and state.Phase == "Live" and state.Id == "MeteorShower" then
+		return ServerEvents.EVENTS.MeteorShower.Multiplier
+	end
+	return 1
+end
+
+-- The Community Forge goal for `players` online when it starts.
+function ServerEvents.communityGoal(players: number): number
+	local def = ServerEvents.EVENTS.CommunityForge
+	return math.max(def.MinGoal, math.max(1, math.floor(players)) * def.PointsPerPlayer)
+end
+
+-- Points a collect is worth: the collected amount in seconds of the player's own
+-- output, capped so one huge banked vault can't finish the goal alone.
+function ServerEvents.collectPoints(collected: number, perSecond: number): number
+	if collected <= 0 then
+		return 0
+	end
+	local seconds = if perSecond > 0 then collected / perSecond else 1
+	return math.clamp(math.floor(seconds), 1, ServerEvents.EVENTS.CommunityForge.MaxPointsPerCollect)
+end
+
+-- Stardust a collect drops during Stardust Rain.
+function ServerEvents.rainDust(collected: number, perSecond: number): number
+	if collected <= 0 then
+		return 0
+	end
+	local seconds = if perSecond > 0 then collected / perSecond else 1
+	return math.clamp(math.floor(math.sqrt(seconds)), 1, ServerEvents.EVENTS.StardustRain.MaxDustPerCollect)
+end
+
+-- Contributors ranked by points (ties by user id), as { { UserId, Points } }.
+function ServerEvents.ranking(points: { [number]: number })
+	local list = {}
+	for userId, value in points do
+		if value > 0 then
+			table.insert(list, { UserId = userId, Points = value })
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.Points ~= b.Points then
+			return a.Points > b.Points
+		end
+		return a.UserId < b.UserId
+	end)
+	return list
+end
+
+-- Stardust a contributor gets when the goal is met: the base, plus a bonus for
+-- the top three.
+function ServerEvents.communityStardust(rank: number): number
+	local def = ServerEvents.EVENTS.CommunityForge
+	return def.RewardStardust + (def.TopBonusStardust[rank] or 0)
+end
+
+-- Seconds left in the current phase.
+function ServerEvents.secondsLeft(state, now: number): number
+	if state == nil or state.PhaseEndsAt == nil then
+		return 0
+	end
+	return math.max(0, state.PhaseEndsAt - now)
+end
+
+return table.freeze(ServerEvents)
 end
 
 -- ======================================================================

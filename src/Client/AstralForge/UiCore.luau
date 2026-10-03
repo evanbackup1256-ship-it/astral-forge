@@ -6141,6 +6141,8 @@ local function MainGame(_param)
 				__load("levelMoments").pushLevelMoment(value)
 				InteractionFeedback.reward()
 				celebrate()
+			elseif kind == "ServerEvent" then
+				__load("serverEventsUi").pushServerEvent(value)
 			elseif kind == "LevelReward" then
 				-- Rewards for the level(s) just reached: the celebration card shows them.
 				__load("levelMoments").pushLevelMoment(value)
@@ -7018,6 +7020,7 @@ local _onboarding = __load("onboarding")
 local ReleaseNotesModal = _onboarding.ReleaseNotesModal
 local TutorialOverlay = _onboarding.TutorialOverlay
 local LevelMomentHost = __load("levelMoments").LevelMomentHost
+local ServerEventHost = __load("serverEventsUi").ServerEventHost
 local _clientStore = require(script.Parent.CoreKit)("clientStore")
 local ClientActions = _clientStore.ClientActions
 local useClientDispatch = _clientStore.useClientDispatch
@@ -8335,6 +8338,8 @@ local function AppShell(_param)
 		config = config,
 		reducedMotion = reducedMotion,
 	}), React.createElement(LevelMomentHost, {
+		state = state,
+	}), React.createElement(ServerEventHost, {
 		state = state,
 	}), _condition_24, not bootChromeVisible and React.createElement(MobilePreviewGate, {
 		ack = state.Settings.MobilePreviewAck,
@@ -20357,6 +20362,456 @@ end
 return {
 	pushLevelMoment = pushLevelMoment,
 	LevelMomentHost = LevelMomentHost,
+}
+end
+
+-- ======================================================================
+-- Module: serverEventsUi
+-- ======================================================================
+__defs["serverEventsUi"] = function()
+-- Server events on screen: a banner at the top (countdown, live timer, the shared
+-- goal), a splash when an event goes live, and a panel with the full details.
+-- The state comes from the snapshot and from live ServerEvent pushes.
+local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Audio = require(script.Parent.AudioKit)("audio").Audio
+local Icon = require(script.Parent.ArtKit)("Icon").Icon
+local _motion = require(script.Parent.MotionKit)("motion")
+local useClock = _motion.useClock
+local useFlipperSpring = _motion.useFlipperSpring
+local useViewport = _motion.useViewport
+local useWallClock = _motion.useWallClock
+local _theme = require(script.Parent.CoreKit)("theme")
+local Palette = _theme.Palette
+local chromeFor = _theme.chromeFor
+local darken = _theme.darken
+local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
+local _ui = __load("ui")
+local Button = _ui.Button
+local Text = _ui.Text
+local ServerEvents = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ServerEvents")
+
+-- Live pushes land here and win over the snapshot until a newer snapshot arrives.
+local latest = nil
+local listeners = {}
+local function pushServerEvent(effect)
+	if type(effect) ~= "table" or type(effect.Event) ~= "table" then
+		return
+	end
+	latest = effect.Event
+	for listener in listeners do
+		listener(latest)
+	end
+end
+local function useServerEvent(fromSnapshot)
+	local live, setLive = React.useState(latest)
+	React.useEffect(function()
+		local listener = function(event)
+			setLive(event)
+		end
+		listeners[listener] = true
+		return function()
+			listeners[listener] = nil
+		end
+	end, {})
+	-- Prefer whichever is about the later phase boundary.
+	if live ~= nil and (fromSnapshot == nil or (live.PhaseEndsAt or 0) >= (fromSnapshot.PhaseEndsAt or 0)) then
+		return live
+	end
+	return fromSnapshot
+end
+
+local function clockText(seconds)
+	local total = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", total // 60, total % 60)
+end
+local function accentOf(def)
+	return Palette[def and def.Accent or "cyan"] or Palette.cyan
+end
+local function phaseLine(event, now)
+	local left = (event.PhaseEndsAt or now) - now
+	if event.Phase == "Warning" then
+		return `Starts in {clockText(left)}`
+	elseif event.Phase == "Live" then
+		return `{clockText(left)} left`
+	elseif event.Phase == "Results" then
+		return if event.Completed then "Goal reached!" elseif event.Goal ~= nil then "Time's up" else "Finished"
+	end
+	return `Next event in {clockText(left)}`
+end
+
+local function ProgressBar(_param)
+	local fill = math.clamp(_param.value, 0, 1)
+	return React.createElement("frame", {
+		Size = _param.size,
+		Position = _param.position,
+		BackgroundColor3 = Palette.graphite,
+		BorderSizePixel = 0,
+		ZIndex = _param.zIndex,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("frame", {
+		Size = UDim2.fromScale(math.max(fill, 0.02), 1),
+		BackgroundColor3 = _param.color,
+		BorderSizePixel = 0,
+		ZIndex = _param.zIndex,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})))
+end
+
+local function EventPanel(_param)
+	local event = _param.event
+	local def = ServerEvents.EVENTS[event.Id or ""]
+	local now = useWallClock(true)
+	local viewport = useViewport()
+	local show = useFlipperSpring(1, false, 560, 34, 0)
+	local accent = accentOf(def)
+	local width = math.min(440, viewport.width - 24)
+	local rows = {}
+	rows.layout = React.createElement("uilistlayout", {
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	local order = 0
+	local function line(key, text, color, size, height)
+		order += 1
+		rows[key] = React.createElement(Text, {
+			value = text,
+			size = size or 13,
+			color = color or Palette.creamSoft,
+			wrap = true,
+			fit = false,
+			sizeConstraint = UDim2.new(1, 0, 0, height or 34),
+			layoutOrder = order,
+			zIndex = 562,
+		})
+	end
+	local height = 150
+	if def == nil then
+		line("rest", "No event right now. Events run every few minutes: when one is coming, a banner appears at the top of the screen.", Palette.creamSoft, 13, 52)
+		height += 60
+	else
+		line("how", def.How, Palette.creamSoft, 13, 40)
+		height += 48
+		if def.Id == "MeteorShower" then
+			line("effect", string.format("Effect: everyone's output ×%.1f while it lasts.", def.Multiplier), Palette.mango, 13, 20)
+			height += 28
+		elseif def.Id == "StardustRain" then
+			line("effect", string.format("Effect: every vault collect drops up to %d stardust.", def.MaxDustPerCollect), Palette.violet, 13, 20)
+			height += 28
+		elseif def.Id == "CommunityForge" then
+			line("reward", string.format("Reward for everyone who helps: %d seconds of your output in flux and %d stardust. Top 3 get +%d / +%d / +%d stardust.", def.RewardFluxSeconds, def.RewardStardust, def.TopBonusStardust[1], def.TopBonusStardust[2], def.TopBonusStardust[3]), Palette.cyan, 12, 34)
+			height += 42
+			if event.Goal ~= nil then
+				order += 1
+				rows.goal = React.createElement("frame", {
+					Size = UDim2.new(1, 0, 0, 36),
+					LayoutOrder = order,
+					BackgroundTransparency = 1,
+					ZIndex = 562,
+				}, React.createElement(Text, {
+					value = `{compactNumber(event.Progress or 0)} / {compactNumber(event.Goal)} points  ·  yours {compactNumber(event.Yours or 0)}`,
+					size = 12,
+					color = Palette.cream,
+					weight = Enum.FontWeight.Bold,
+					sizeConstraint = UDim2.new(1, 0, 0, 16),
+					zIndex = 563,
+				}), React.createElement(ProgressBar, {
+					value = (event.Progress or 0) / math.max(1, event.Goal),
+					color = accent,
+					size = UDim2.new(1, 0, 0, 10),
+					position = UDim2.fromOffset(0, 22),
+					zIndex = 563,
+				}))
+				height += 44
+				for index, entry in event.Top or {} do
+					line("top" .. index, `#{index}  {entry.Name}  ·  {compactNumber(entry.Points)} pts`, if index <= 3 then Palette.mango else Palette.muted, 12, 16)
+					height += 24
+				end
+			end
+		end
+	end
+	return React.createElement("textbutton", {
+		-- Backdrop: tap outside to close.
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = show:map(function(amount)
+			return 1 - amount * 0.5
+		end),
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 558,
+		Event = {
+			Activated = _param.onClose,
+		},
+	}, React.createElement("frame", {
+		Size = UDim2.fromOffset(width, math.min(height, viewport.height - 40)),
+		Position = show:map(function(amount)
+			return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * 24))
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.panelRaised,
+		BorderSizePixel = 0,
+		Active = true,
+		ClipsDescendants = true,
+		ZIndex = 560,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 16),
+	}), React.createElement("uistroke", {
+		Color = accent,
+		Thickness = 1.5,
+		Transparency = 0.3,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(52, 52),
+		Position = UDim2.fromOffset(16, 16),
+		BackgroundColor3 = darken(accent, 0.55),
+		BorderSizePixel = 0,
+		ZIndex = 561,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, 14),
+	}), React.createElement(Icon, {
+		kind = def and def.Icon or "Calendar",
+		color = Palette.cream,
+		accent = accent,
+		size = 52,
+	})), React.createElement(Text, {
+		value = if def then def.Name else "Server events",
+		size = 20,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 14,
+		position = UDim2.fromOffset(80, 18),
+		sizeConstraint = UDim2.new(1, -140, 0, 26),
+		zIndex = 561,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, -140, 0, 18),
+		Position = UDim2.fromOffset(80, 46),
+		BackgroundTransparency = 1,
+		Text = now:map(function(value)
+			return phaseLine(event, value)
+		end),
+		TextColor3 = accent,
+		TextSize = 14,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 561,
+	}), React.createElement("frame", {
+		Size = UDim2.fromOffset(40, 40),
+		Position = UDim2.new(1, -52, 0, 12),
+		BackgroundTransparency = 1,
+		ZIndex = 562,
+	}, React.createElement(Button, {
+		text = "",
+		icon = "Close",
+		onClick = _param.onClose,
+		color = Palette.panel,
+		textColor = Palette.cream,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		zIndex = 563,
+	})), React.createElement("frame", {
+		Size = UDim2.new(1, -32, 1, -96),
+		Position = UDim2.fromOffset(16, 84),
+		BackgroundTransparency = 1,
+		ZIndex = 561,
+	}, rows)))
+end
+
+-- The splash when an event goes live: big name across the middle for a moment.
+local function LiveSplash(_param)
+	local def = _param.def
+	local show = useFlipperSpring(if _param.leaving then 0 else 1, false, 420, 26, 0)
+	local accent = accentOf(def)
+	return React.createElement("frame", {
+		Size = UDim2.new(1, 0, 0, 120),
+		Position = UDim2.fromScale(0.5, 0.38),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = darken(accent, 0.7),
+		BackgroundTransparency = show:map(function(amount)
+			return 1 - amount * 0.25
+		end),
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = 540,
+	}, React.createElement("uigradient", {
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.2, 0),
+			NumberSequenceKeypoint.new(0.8, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	}), React.createElement("uiscale", {
+		Scale = show:map(function(amount)
+			return 0.8 + amount * 0.2
+		end),
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, 0, 0, 20),
+		Position = UDim2.fromOffset(0, 18),
+		BackgroundTransparency = 1,
+		Text = "SERVER EVENT",
+		TextColor3 = accent,
+		TextTransparency = show:map(function(amount)
+			return 1 - amount
+		end),
+		TextSize = 14,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 541,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, 0, 0, 48),
+		Position = UDim2.fromOffset(0, 38),
+		BackgroundTransparency = 1,
+		Text = string.upper(def.Name),
+		TextColor3 = Palette.cream,
+		TextTransparency = show:map(function(amount)
+			return 1 - amount
+		end),
+		TextSize = 42,
+		TextScaled = true,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		ZIndex = 541,
+	}, React.createElement("uitextsizeconstraint", {
+		MaxTextSize = 42,
+	})), React.createElement("textlabel", {
+		Size = UDim2.new(1, 0, 0, 18),
+		Position = UDim2.fromOffset(0, 90),
+		BackgroundTransparency = 1,
+		Text = def.Blurb,
+		TextColor3 = Palette.creamSoft,
+		TextTransparency = show:map(function(amount)
+			return 1 - amount
+		end),
+		TextSize = 14,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+		ZIndex = 541,
+	}))
+end
+
+local function ServerEventHost(_param)
+	local state = _param.state
+	local event = useServerEvent(state and state.ServerEvent)
+	local now = useWallClock(true)
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local pulse = useClock(true, 3, math.pi * 2)
+	local panelOpen, setPanelOpen = React.useState(false)
+	local splash, setSplash = React.useState(nil)
+	local splashLeaving, setSplashLeaving = React.useState(false)
+	local lastPhase = React.useRef(nil)
+	React.useEffect(function()
+		if event == nil then
+			return nil
+		end
+		local key = tostring(event.Phase) .. ":" .. tostring(event.Id)
+		if lastPhase.current ~= nil and lastPhase.current ~= key and event.Phase == "Live" then
+			local def = ServerEvents.EVENTS[event.Id or ""]
+			if def ~= nil then
+				Audio:play("noticeSpecial")
+				setSplashLeaving(false)
+				setSplash(def)
+				local leave = task.delay(2.4, function()
+					setSplashLeaving(true)
+				end)
+				local gone = task.delay(2.8, function()
+					setSplash(nil)
+				end)
+				lastPhase.current = key
+				return function()
+					pcall(task.cancel, leave)
+					pcall(task.cancel, gone)
+				end
+			end
+		end
+		lastPhase.current = key
+		return nil
+	end, { event and event.Phase, event and event.Id })
+	if event == nil then
+		return nil
+	end
+	local def = ServerEvents.EVENTS[event.Id or ""]
+	local active = def ~= nil and event.Phase ~= "Rest"
+	local accent = accentOf(def)
+	local width = if active then math.min(320, viewport.width - 120) else 170
+	local height = if active then (if event.Goal ~= nil then 50 else 40) else 28
+	local top = viewport.topInset + (if chrome.stack then 96 else 62)
+	local banner = React.createElement("textbutton", {
+		Size = UDim2.fromOffset(width, height),
+		Position = UDim2.new(0.5, 0, 0, top),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = if active then darken(accent, 0.62) else Palette.night,
+		BackgroundTransparency = if active then 0.04 else 0.25,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		ZIndex = 238,
+		Event = {
+			Activated = function()
+				Audio:play("open")
+				setPanelOpen(true)
+			end,
+		},
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(0, if active then 12 else 14),
+	}), React.createElement("uistroke", {
+		Color = if active then accent else Palette.line,
+		Thickness = if active then 1.5 else 1,
+		Transparency = if active and event.Phase == "Live" then pulse:map(function(angle)
+			return 0.15 + (math.sin(angle) + 1) * 0.2
+		end) else 0.4,
+	}), active and React.createElement(Icon, {
+		kind = def.Icon,
+		color = Palette.cream,
+		accent = accent,
+		size = 24,
+		position = UDim2.fromOffset(10, 8),
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 18 else height),
+		Position = UDim2.fromOffset(if active then 40 else 8, if active then 4 else 0),
+		BackgroundTransparency = 1,
+		Text = if active then def.Name else "",
+		TextColor3 = Palette.cream,
+		TextSize = 14,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Visible = active,
+		ZIndex = 239,
+	}), React.createElement("textlabel", {
+		Size = UDim2.new(1, if active then -44 else -16, 0, if active then 16 else height),
+		Position = UDim2.fromOffset(if active then 40 else 8, if active then 21 else 0),
+		BackgroundTransparency = 1,
+		Text = now:map(function(value)
+			return phaseLine(event, value)
+		end),
+		TextColor3 = if active then accent else Palette.muted,
+		TextSize = if active then 12 else 11,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		TextXAlignment = if active then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
+		ZIndex = 239,
+	}), active and event.Goal ~= nil and React.createElement(ProgressBar, {
+		value = (event.Progress or 0) / math.max(1, event.Goal),
+		color = accent,
+		size = UDim2.new(1, -52, 0, 5),
+		position = UDim2.fromOffset(40, 40),
+		zIndex = 239,
+	}))
+	return React.createElement(React.Fragment, nil, banner, splash ~= nil and React.createElement(LiveSplash, {
+		def = splash,
+		leaving = splashLeaving,
+	}), panelOpen and React.createElement(EventPanel, {
+		event = event,
+		onClose = function()
+			Audio:play("close")
+			setPanelOpen(false)
+		end,
+	}))
+end
+
+return {
+	pushServerEvent = pushServerEvent,
+	ServerEventHost = ServerEventHost,
 }
 end
 
