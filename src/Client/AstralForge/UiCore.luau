@@ -16947,7 +16947,10 @@ local function TutorialOverlay(_param)
 			local dockRect = { x = (screenW - layout.dockW) / 2, y = st.dockY, w = layout.dockW, h = cardH }
 
 			local mouseScreen = UserInputService:GetMouseLocation()
-			local screenGui = root:FindFirstAncestorOfClass("ScreenGui")
+			if st.screenGui == nil then
+				st.screenGui = root:FindFirstAncestorOfClass("ScreenGui")
+			end
+			local screenGui = st.screenGui
 			local inset = if screenGui ~= nil and screenGui.IgnoreGuiInset then Vector2.zero else GuiService:GetGuiInset()
 			local mouse = (mouseScreen - inset - origin) / k
 			local moved = (mouse - st.mouse).Magnitude
