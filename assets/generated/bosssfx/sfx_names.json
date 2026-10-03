@@ -1,4 +1,5 @@
 [
+  "armor_clank",
   "boom_Astraeon",
   "boom_Choir",
   "boom_Knight",
@@ -17,6 +18,7 @@
   "charge_Rime",
   "charge_Seraph",
   "charge_Warden",
+  "cloth_whoosh",
   "death_Astraeon",
   "death_Choir",
   "death_Knight",
@@ -36,6 +38,14 @@
   "roar_Rime",
   "roar_Seraph",
   "roar_Warden",
+  "step_Astraeon",
+  "step_Choir",
+  "step_Knight",
+  "step_Regent",
+  "step_Rime",
+  "step_Seraph",
+  "step_Warden",
+  "wing_beat",
   "wisp_blast",
   "wisp_down",
   "wisp_spawn"

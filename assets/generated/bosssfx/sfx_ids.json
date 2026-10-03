@@ -34,5 +34,19 @@
   "roar_Regent": 71888323612526,
   "roar_Rime": 72438654390546,
   "roar_Seraph": 83421337144991,
-  "roar_Warden": 83056913167769
+  "roar_Warden": 83056913167769,
+  "armor_clank": 75410196239815,
+  "boom_Astraeon": 86443241088243,
+  "charge_Astraeon": 138812639576899,
+  "cloth_whoosh": 107896766944931,
+  "death_Astraeon": 124818493091840,
+  "roar_Astraeon": 93199165787938,
+  "step_Astraeon": 95199208477377,
+  "step_Choir": 93618602773961,
+  "step_Knight": 79337324769467,
+  "step_Regent": 84673589896879,
+  "step_Rime": 110427816931011,
+  "step_Seraph": 122665304312558,
+  "step_Warden": 131117341067610,
+  "wing_beat": 138506887464861
 }
