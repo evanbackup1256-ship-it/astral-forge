@@ -3228,7 +3228,19 @@ Schema.ENTRIES = table.freeze({
 	slider("MobileButtonSpacing", "mobile", "Button spacing", "Room between thumb buttons.", 0.5, true),
 })
 
-Schema.HIDDEN_KEYS = table.freeze({ RippleIntensity = 0.5, ButtonRipples = 1, MobileHudScale = 0.5, MobileHudOpacity = 0.85, MobilePreviewAck = 0 })
+Schema.HIDDEN_KEYS = table.freeze({
+	RippleIntensity = 0.5,
+	ButtonRipples = 1,
+	MobileHudScale = 0.5,
+	MobileHudOpacity = 0.85,
+	MobilePreviewAck = 0,
+	MobileQuickX = 0.5,
+	MobileQuickY = 0.7,
+	MobileDockX = 0.5,
+	MobileDockY = 0.92,
+	MobileToastX = 0.84,
+	MobileToastY = 0.27,
+})
 
 local byKey: { [string]: Entry } = {}
 for _, entry in Schema.ENTRIES do

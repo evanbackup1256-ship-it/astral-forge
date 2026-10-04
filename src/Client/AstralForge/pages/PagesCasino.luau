@@ -2021,7 +2021,7 @@ local function CasinoView(props)
 		local market = casino.Exchange
 		local delta = math.floor((market.Mood - 1) * 100 + 0.5)
 		local trend = if market.Trend > 0.02 then "rising" elseif market.Trend < -0.02 then "falling" else "steady"
-		local remaining = math.max(0, market.NextAt - os.time())
+		local remaining = math.max(0, market.NextAt - workspace:GetServerTimeNow())
 		local function buy(count)
 			return {
 				text = `BUY {count}`,

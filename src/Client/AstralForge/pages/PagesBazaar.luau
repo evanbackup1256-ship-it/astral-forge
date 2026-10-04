@@ -60,14 +60,14 @@ local function percent(rate)
 end
 
 local function useClock()
-	local now, setNow = React.useState(os.time())
+	local now, setNow = React.useState(workspace:GetServerTimeNow())
 	React.useEffect(function()
 		local alive = true
 		task.spawn(function()
 			while alive do
 				task.wait(1)
 				if alive then
-					setNow(os.time())
+					setNow(workspace:GetServerTimeNow())
 				end
 			end
 		end)

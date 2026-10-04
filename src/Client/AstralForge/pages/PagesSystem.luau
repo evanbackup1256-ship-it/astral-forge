@@ -1038,7 +1038,7 @@ local CommandTitleCard = React.memo(function(props)
 		sizeConstraint = UDim2.fromScale(1, 1),
 	})))
 end)
-local function CommandView(_param)
+local function CommandViewReady(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
@@ -1057,7 +1057,7 @@ local function CommandView(_param)
 	local ops = config.Operations
 	local command = state.Command
 	local tab, setTab = React.useState("Overview")
-	local now, setNow = React.useState(os.time())
+	local now, setNow = React.useState(workspace:GetServerTimeNow())
 	local scrollRef = React.useRef()
 	React.useEffect(function()
 		if tab ~= "Expeditions" then
@@ -1070,7 +1070,7 @@ local function CommandView(_param)
 				if not alive then
 					break
 				end
-				setNow(os.time())
+				setNow(workspace:GetServerTimeNow())
 			end
 		end)
 		return function()
@@ -1086,18 +1086,6 @@ local function CommandView(_param)
 			frame.CanvasPosition = Vector2.new(0, 0)
 		end
 	end, { tab })
-	if not ops or not command then
-		return React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-		}, React.createElement(Text, {
-			value = "Loading your crew…",
-			size = 16,
-			color = Palette.muted,
-			align = Enum.TextXAlignment.Center,
-			sizeConstraint = UDim2.fromScale(1, 1),
-		}))
-	end
 	local titlesEnabled = ops.TitlesEnabled ~= false
 	local maxed = command.Level >= ops.MaxCommanderLevel
 	local levelProgress = if maxed then 1 else meterFill(command.XP - command.LevelFloorXP, math.max(1, command.NextLevelXP - command.LevelFloorXP))
@@ -2317,6 +2305,68 @@ local function CommandView(_param)
 		},
 	})
 end
+local function CommandView(_param)
+	local state = _param.state
+	local config = _param.config
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local onSectionChange = _param.onSectionChange
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+	local overviewReveal = useStagger(0, softMotion)
+	local expeditionsReveal = useStagger(1, softMotion)
+	local opsReveal = useStagger(2, softMotion)
+	local commandSoft = softMotion or overviewReveal == nil or expeditionsReveal == nil or opsReveal == nil
+	local claimHostRef = React.useRef(nil)
+	local stack = chrome.contentStack
+	local ops = config.Operations
+	local command = state.Command
+	local tab, setTab = React.useState("Overview")
+	local now, setNow = React.useState(workspace:GetServerTimeNow())
+	local scrollRef = React.useRef()
+	React.useEffect(function()
+		if tab ~= "Expeditions" then
+			return nil
+		end
+		local alive = true
+		local worker = task.spawn(function()
+			while alive do
+				task.wait(1)
+				if not alive then
+					break
+				end
+				setNow(workspace:GetServerTimeNow())
+			end
+		end)
+		return function()
+			alive = false
+			pcall(function()
+				task.cancel(worker)
+			end)
+		end
+	end, { tab })
+	React.useEffect(function()
+		local frame = scrollRef.current
+		if frame then
+			frame.CanvasPosition = Vector2.new(0, 0)
+		end
+	end, { tab })
+	if not ops or not command then
+		return React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+		}, React.createElement(Text, {
+			value = "Loading your crew…",
+			size = 16,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.fromScale(1, 1),
+		}))
+	end
+	return React.createElement(CommandViewReady, _param)
+end
 return {
 	CommandView = CommandView,
 }
@@ -2606,7 +2656,7 @@ local function AuditLine(_param)
 	}))
 end
 
-local function AdminView(_param)
+local function AdminViewReady(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
@@ -2700,14 +2750,6 @@ local function AdminView(_param)
 		setLastOk(admin.LastAction.Ok)
 	end, { admin and admin.LastAction })
 
-	if not (admin and admin.Access == true) then
-		return React.createElement(EmptyState, {
-			icon = "Lock",
-			title = "Owner tools locked",
-			body = "Only the game owner can open this page.",
-			accent = Palette.coral,
-		})
-	end
 
 	local online = admin.Online or {}
 	local commands = admin.Commands or {}
@@ -3242,6 +3284,110 @@ local function AdminView(_param)
 			},
 		},
 	})
+end
+local function AdminView(_param)
+	local state = _param.state
+	local config = _param.config
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local admin = state.Admin
+
+	local antilag = useAntilag()
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+
+	local targetId, setTargetId = React.useState((admin and admin.SelfUserId) or (admin and admin.Online and admin.Online[1] and admin.Online[1].UserId) or 0)
+	local command, setCommand = React.useState((admin and admin.Commands and admin.Commands[1] and admin.Commands[1].Id) or "GrantFlux")
+	local category, setCategory = React.useState("All")
+	local playerQuery, setPlayerQuery = React.useState("")
+	local commandQuery, setCommandQuery = React.useState("")
+	local amount, setAmount = React.useState("1000")
+	local option, setOption = React.useState("")
+	local reason, setReason = React.useState(reasonsFor("GrantFlux", "Economy")[1].id)
+	local armed, setArmed = React.useState(false)
+	local busy, setBusy = React.useState(false)
+	local busyRef = React.useRef(false)
+	local shakeToken, setShakeToken = React.useState(0)
+	local lastNote, setLastNote = React.useState((admin and admin.LastAction and admin.LastAction.Message) or "")
+	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
+	local mountedRef = React.useRef(true)
+	local executeAttempt = React.useRef(0)
+	local enter = useEntrance(softMotion)
+	local toolsReveal = useStagger(0, softMotion)
+
+	React.useEffect(function()
+		return function()
+			mountedRef.current = false
+			executeAttempt.current += 1
+		end
+	end, {})
+
+	React.useEffect(function()
+		if targetId == 0 and admin and admin.SelfUserId then
+			setTargetId(admin.SelfUserId)
+		end
+	end, { admin and admin.SelfUserId, targetId })
+
+	React.useEffect(function()
+		local online = (admin and admin.Online) or {}
+		if #online == 0 then return end
+		local found = false
+		for _, p in online do
+			if p.UserId == targetId then found = true break end
+		end
+		if not found then
+			setTargetId((admin and admin.SelfUserId) or online[1].UserId)
+		end
+	end, { admin and admin.Online, admin and admin.SelfUserId, targetId })
+
+	React.useEffect(function()
+		local commands = (admin and admin.Commands) or {}
+		if #commands == 0 then return end
+		local found = false
+		for _, c in commands do
+			if c.Id == command then found = true break end
+		end
+		if not found then
+			setCommand(commands[1].Id or "GrantFlux")
+		end
+	end, { admin and admin.Commands, command })
+
+	React.useEffect(function()
+		setArmed(false)
+	end, { amount, command, option, reason, targetId })
+
+	React.useEffect(function()
+		local layout = fieldsFor(command, config, admin and admin.Banned)
+		local commands = (admin and admin.Commands) or {}
+		local current = nil
+		for _, c in commands do
+			if c.Id == command then current = c break end
+		end
+		local reasonChoices = reasonsFor(command, current and current.Category)
+		setAmount(layout.defaultAmount)
+		setOption(layout.defaultOption)
+		setReason(reasonChoices[1] and reasonChoices[1].id or "Owner gameplay administration")
+		if layout.overridesTarget and layout.defaultAmount ~= "" then
+			local userId = tonumber(layout.defaultAmount)
+			if userId then setTargetId(userId) end
+		end
+	end, { command })
+
+	React.useEffect(function()
+		if not (admin and admin.LastAction) then return end
+		setLastNote(admin.LastAction.Message)
+		setLastOk(admin.LastAction.Ok)
+	end, { admin and admin.LastAction })
+
+	if not (admin and admin.Access == true) then
+		return React.createElement(EmptyState, {
+			icon = "Lock",
+			title = "Owner tools locked",
+			body = "Only the game owner can open this page.",
+			accent = Palette.coral,
+		})
+	end
+	return React.createElement(AdminViewReady, _param)
 end
 
 return {

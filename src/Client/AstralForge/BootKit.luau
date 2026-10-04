@@ -159,11 +159,16 @@ local function BootScreen(_param)
 		end
 	end, {})
 	React.useEffect(function()
-		task.spawn(function()
+		local preload = task.spawn(function()
 			pcall(function()
 				game:GetService("ContentProvider"):PreloadAsync({ GAME_ICON_ASSET })
 			end)
 		end)
+		return function()
+			if coroutine.status(preload) == "suspended" then
+				task.cancel(preload)
+			end
+		end
 	end, {})
 	React.useEffect(function()
 		local current = tipIndex

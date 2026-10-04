@@ -329,20 +329,20 @@ return function(loadService: (string) -> any)
 		if type(payload) ~= "table" or type(payload.Game) ~= "string" then
 			return false, "Pick a game.", nil
 		end
-		local game = payload.Game
-		if game == "Slots" then
+		local gameName = payload.Game
+		if gameName == "Slots" then
 			return playSlots(profile, random, payload)
-		elseif game == "Roulette" then
+		elseif gameName == "Roulette" then
 			return playRoulette(profile, random, payload)
-		elseif game == "Scratch" then
+		elseif gameName == "Scratch" then
 			return playScratch(profile, random, payload, now)
-		elseif game == "Flip" then
+		elseif gameName == "Flip" then
 			return playFlip(profile, random, payload)
-		elseif game == "HighLow" then
+		elseif gameName == "HighLow" then
 			return playHighLow(profile, random, payload)
-		elseif game == "Exchange" then
+		elseif gameName == "Exchange" then
 			return playExchange(profile, payload, now)
-		elseif game == "Club" then
+		elseif gameName == "Club" then
 			return claimRank(profile, payload)
 		end
 		return false, "Unknown game.", nil

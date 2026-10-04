@@ -4604,7 +4604,7 @@ AppHelpers = {
 					count += 1
 				end
 			end
-			if cmd.ActiveExpedition and cmd.ActiveExpedition.Id ~= "" and os.time() >= cmd.ActiveExpedition.EndsAt then
+			if cmd.ActiveExpedition and cmd.ActiveExpedition.Id ~= "" and workspace:GetServerTimeNow() >= cmd.ActiveExpedition.EndsAt then
 				count += 1
 			end
 			return count

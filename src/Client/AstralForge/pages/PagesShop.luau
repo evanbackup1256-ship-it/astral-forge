@@ -2479,7 +2479,7 @@ local function CodexSection(props)
 			end
 			setBusy(false)
 			if response.ok then
-				Audio:play("forge")
+				Audio:play("autoForge")
 			end
 		end)
 	end

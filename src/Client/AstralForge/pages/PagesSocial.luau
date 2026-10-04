@@ -2662,7 +2662,7 @@ local function goalUnitLabel(metric)
 	end
 	return "upgrades bought"
 end
-local function GuildGoalCard(_param)
+local function GuildGoalCardReady(_param)
 	local guild = _param.guild
 	local config = _param.config
 	local layoutOrder = _param.layoutOrder
@@ -2674,29 +2674,6 @@ local function GuildGoalCard(_param)
 	local goal = guild.Goal
 	local now = useWallClock(goal ~= nil)
 	local localKey = tostring(Players.LocalPlayer.UserId)
-	if goal == nil then
-		return React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, 116),
-			accent = Palette.mint,
-			background = Palette.panelRaised,
-			padding = if stack then 16 else 18,
-			layoutOrder = layoutOrder,
-			reducedMotion = reducedMotion,
-		}, React.createElement(Text, {
-			value = "GUILD GOAL",
-			size = 10,
-			color = Palette.mint,
-			weight = Enum.FontWeight.Heavy,
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		}), React.createElement(Text, {
-			value = "The next shared goal is being drawn up.",
-			size = 12,
-			color = Palette.creamSoft,
-			wrap = true,
-			position = UDim2.fromOffset(0, 22),
-			sizeConstraint = UDim2.new(1, 0, 0, 34),
-		}))
-	end
 	local definition = goalConfigFor(config, goal.TypeId)
 	local fill = math.clamp(goal.Progress / math.max(1, goal.Target), 0, 1)
 	local _condition = goal.Contributors[localKey]
@@ -2867,6 +2844,43 @@ local function GuildGoalCard(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	})))
+end
+local function GuildGoalCard(_param)
+	local guild = _param.guild
+	local config = _param.config
+	local layoutOrder = _param.layoutOrder
+	local stack = _param.stack
+	local reducedMotion = _param.reducedMotion
+	local dispatch = _param.dispatch
+	local busy = _param.busy
+	local shakeToken = _param.shakeToken
+	local goal = guild.Goal
+	local now = useWallClock(goal ~= nil)
+	local localKey = tostring(Players.LocalPlayer.UserId)
+	if goal == nil then
+		return React.createElement(Panel, {
+			size = UDim2.new(1, 0, 0, 116),
+			accent = Palette.mint,
+			background = Palette.panelRaised,
+			padding = if stack then 16 else 18,
+			layoutOrder = layoutOrder,
+			reducedMotion = reducedMotion,
+		}, React.createElement(Text, {
+			value = "GUILD GOAL",
+			size = 10,
+			color = Palette.mint,
+			weight = Enum.FontWeight.Heavy,
+			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}), React.createElement(Text, {
+			value = "The next shared goal is being drawn up.",
+			size = 12,
+			color = Palette.creamSoft,
+			wrap = true,
+			position = UDim2.fromOffset(0, 22),
+			sizeConstraint = UDim2.new(1, 0, 0, 34),
+		}))
+	end
+	return React.createElement(GuildGoalCardReady, _param)
 end
 local function UpgradeCard(_param)
 	local row = _param.row

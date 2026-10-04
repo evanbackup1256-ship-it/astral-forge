@@ -6293,7 +6293,7 @@ local function MainGame(_param)
 		_condition_4 = 1
 	end
 	local motionIntensity = _condition_4
-	local softFeel = state ~= nil and state.Settings.ReducedMotion == true
+	local softFeel = game:GetService("GuiService").ReducedMotionEnabled == true or motionIntensity < 0.3
 	local _result_28 = state
 	if _result_28 ~= nil then
 		_result_28 = _result_28.Settings.ViewportSpeed
@@ -6938,9 +6938,9 @@ local function AppShell(_param)
 		_condition_2 = 0
 	end
 	local activeBoostEndsAt = _condition_2
-	local activeBoostExpired, setActiveBoostExpired = React.useState(activeBoostEndsAt <= os.time())
+	local activeBoostExpired, setActiveBoostExpired = React.useState(activeBoostEndsAt <= workspace:GetServerTimeNow())
 	React.useEffect(function()
-		local remaining = activeBoostEndsAt - os.time()
+		local remaining = activeBoostEndsAt - workspace:GetServerTimeNow()
 		setActiveBoostExpired(remaining <= 0)
 		if activeBoostId == "" or remaining <= 0 then
 			return nil
@@ -8464,11 +8464,11 @@ local function ActiveBoostIcon(_param)
 		return Palette.panelRaised:Lerp(darken(boost.Color, 0.72), math.clamp(amount, 0, 1) * 0.24)
 	end)
 	local runningLow, setRunningLow = React.useState(function()
-		return endsAt - os.time() <= boost.Duration * 0.15
+		return endsAt - workspace:GetServerTimeNow() <= boost.Duration * 0.15
 	end)
 	React.useEffect(function()
 		local threshold = boost.Duration * 0.15
-		local remainingSeconds = endsAt - os.time()
+		local remainingSeconds = endsAt - workspace:GetServerTimeNow()
 		local shouldRunLow = remainingSeconds <= threshold
 		setRunningLow(shouldRunLow)
 		if shouldRunLow then
@@ -16892,6 +16892,9 @@ local function TutorialOverlay(_param)
 	end, { met, needsAction, step })
 
 	React.useEffect(function()
+		-- reused every frame so the pet loop does not allocate
+		local rectBuf = { x = 0, y = 0, w = 0, h = 0 }
+		local dockRect = { x = 0, y = 0, w = 0, h = 0 }
 		local connection = RunService.RenderStepped:Connect(function(rawDt)
 			local dt = math.min(rawDt, 1 / 20)
 			local st = petState.current
@@ -16923,7 +16926,8 @@ local function TutorialOverlay(_param)
 				local pad = 6
 				local p = (st.target.AbsolutePosition - origin) / k
 				local s = st.target.AbsoluteSize / k
-				rect = { x = p.X - pad, y = p.Y - pad, w = s.X + pad * 2, h = s.Y + pad * 2 }
+				rectBuf.x, rectBuf.y, rectBuf.w, rectBuf.h = p.X - pad, p.Y - pad, s.X + pad * 2, s.Y + pad * 2
+				rect = rectBuf
 			end
 			local spot = st.spot
 			local ease = 1 - math.exp(-dt * 11)
@@ -16945,7 +16949,7 @@ local function TutorialOverlay(_param)
 			local cardH = if dock ~= nil and dock.AbsoluteSize.Y > 1 then dock.AbsoluteSize.Y / k else 220
 			local goalDockY, dockSide = TutorialScript.dockPlacement(lit, screenH, cardH, layout.top / k, layout.bottom / k)
 			st.dockY = if st.dockY == nil then goalDockY else approach(st.dockY, goalDockY, 10, dt)
-			local dockRect = { x = (screenW - layout.dockW) / 2, y = st.dockY, w = layout.dockW, h = cardH }
+			dockRect.x, dockRect.y, dockRect.w, dockRect.h = (screenW - layout.dockW) / 2, st.dockY, layout.dockW, cardH
 
 			local mouseScreen = UserInputService:GetMouseLocation()
 			if st.screenGui == nil then
@@ -17083,6 +17087,7 @@ local function TutorialOverlay(_param)
 			st.mouthH = approach(st.mouthH, mouthGoal, 22, dt)
 			st.mouthW = approach(st.mouthW, if st.happy > 0.5 and not talking then 16 elseif st.sleeping then 6 else 11, 14, dt)
 
+			-- audit-ignore: per-frame (setFrame needs fresh tables each frame or React skips the render)
 			local sparkOut = {}
 			for i, spark in st.sparks do
 				if spark.age < spark.life then

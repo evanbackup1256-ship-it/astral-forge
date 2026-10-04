@@ -297,14 +297,14 @@ return function(loadService: (string) -> any)
 			return false, "Pick a counter.", nil
 		end
 		local bazaar = ensure(profile)
-		local game = payload.Game
-		if game == "Bank" then
+		local gameName = payload.Game
+		if gameName == "Bank" then
 			return bankAct(profile, bazaar, payload, now)
-		elseif game == "Market" then
+		elseif gameName == "Market" then
 			return marketAct(profile, bazaar, payload, now)
-		elseif game == "Lottery" then
+		elseif gameName == "Lottery" then
 			return lotteryAct(profile, bazaar, payload, now, random, userId)
-		elseif game == "Contracts" then
+		elseif gameName == "Contracts" then
 			return contractAct(profile, bazaar, payload, now, userId)
 		end
 		return false, "Unknown counter.", nil

@@ -442,8 +442,8 @@ return function(loadService: (string) -> any)
 				return false, "invalid forge path payload"
 			end
 		elseif action == Protocol.Actions.CasinoPlay then
-			local game = payload.Game
-			if not stringField(payload, "Game", 3, 12) or (game ~= "Slots" and game ~= "Flip" and game ~= "HighLow" and game ~= "Roulette" and game ~= "Scratch" and game ~= "Exchange" and game ~= "Club") then
+			local gameName = payload.Game
+			if not stringField(payload, "Game", 3, 12) or (gameName ~= "Slots" and gameName ~= "Flip" and gameName ~= "HighLow" and gameName ~= "Roulette" and gameName ~= "Scratch" and gameName ~= "Exchange" and gameName ~= "Club") then
 				return false, "invalid casino game"
 			end
 			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
@@ -477,8 +477,8 @@ return function(loadService: (string) -> any)
 				return false, "invalid relic"
 			end
 		elseif action == Protocol.Actions.BazaarPlay then
-			local game = payload.Game
-			if not stringField(payload, "Game", 4, 12) or (game ~= "Bank" and game ~= "Market" and game ~= "Lottery" and game ~= "Contracts") then
+			local gameName = payload.Game
+			if not stringField(payload, "Game", 4, 12) or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Lottery" and gameName ~= "Contracts") then
 				return false, "invalid bazaar counter"
 			end
 			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then

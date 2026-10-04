@@ -542,7 +542,7 @@ function Geom.sweepPairs(rects: { Rect }): { { number } }
 	table.sort(order, function(a, b)
 		return rects[a].x0 < rects[b].x0
 	end)
-	local pairs = {}
+	local overlapPairs = {}
 	local active: { number } = {}
 	for _, index in order do
 		local rect = rects[index]
@@ -554,14 +554,14 @@ function Geom.sweepPairs(rects: { Rect }): { { number } }
 				if Geom.overlapHeight(rect, orect) > EPS then
 					local lo = math.min(index, other)
 					local hi = math.max(index, other)
-					table.insert(pairs, { lo, hi })
+					table.insert(overlapPairs, { lo, hi })
 				end
 			end
 		end
 		table.insert(nextActive, index)
 		active = nextActive
 	end
-	return pairs
+	return overlapPairs
 end
 
 function Geom.readingOrder(rects: { Rect }, band: number): { number }

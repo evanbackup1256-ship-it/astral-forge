@@ -377,7 +377,7 @@ do
 	end
 	function LiveOpsContentScheduler:active(now)
 		if now == nil then
-			now = os.time()
+			now = workspace:GetServerTimeNow()
 		end
 		local _exp = self.windows
 		local _callback = function(entry)

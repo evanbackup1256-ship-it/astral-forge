@@ -1591,7 +1591,7 @@ local function PowerRow(_param)
 		reducedMotion = reducedMotion,
 	})))
 end
-local function LabView(_param)
+local function LabViewReady(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
@@ -1609,19 +1609,6 @@ local function LabView(_param)
 	local boardReveal = useStagger(3, softMotion)
 	local labSoft = reducedMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
 	local labClaimHostRef = React.useRef(nil)
-	if lab == nil then
-		return React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, 160),
-			accent = Palette.mint,
-			background = Palette.panelRaised,
-			padding = 20,
-		}, React.createElement(Text, {
-			value = "Lab's still loading — hang on a sec.",
-			size = 15,
-			color = Palette.creamSoft,
-			wrap = true,
-		}))
-	end
 	local resetText = now:map(function(timestamp)
 		return `New orders in {clockText(lab.ResetAt - timestamp)}`
 	end)
@@ -1983,6 +1970,39 @@ local function LabView(_param)
 			},
 		},
 	})
+end
+local function LabView(_param)
+	local state = _param.state
+	local config = _param.config
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local stack = chrome.contentStack
+	local lab = state.Lab
+	local antilag = useAntilag()
+	local softMotion = reducedMotion
+	local now = useWallClock(true)
+	local headerReveal = useStagger(0, softMotion)
+	local ordersReveal = useStagger(1, softMotion)
+	local claimReveal = useStagger(2, softMotion)
+	local boardReveal = useStagger(3, softMotion)
+	local labSoft = reducedMotion or ordersReveal == nil or claimReveal == nil or boardReveal == nil
+	local labClaimHostRef = React.useRef(nil)
+	if lab == nil then
+		return React.createElement(Panel, {
+			size = UDim2.new(1, 0, 0, 160),
+			accent = Palette.mint,
+			background = Palette.panelRaised,
+			padding = 20,
+		}, React.createElement(Text, {
+			value = "Lab's still loading — hang on a sec.",
+			size = 15,
+			color = Palette.creamSoft,
+			wrap = true,
+		}))
+	end
+	return React.createElement(LabViewReady, _param)
 end
 return {
 	LabView = LabView,
@@ -3401,7 +3421,7 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local SECTION_LABEL_H = 28
-local function ConvergenceView(_param)
+local function ConvergenceViewReady(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
@@ -3419,26 +3439,6 @@ local function ConvergenceView(_param)
 	local revealHero = useStagger(3, softMotion)
 	local revealFill = useStagger(4, softMotion)
 	local convergenceSoft = softMotion or revealHero == nil or revealFill == nil
-	if event == nil then
-		return React.createElement(Panel, {
-			size = UDim2.fromScale(1, 1),
-			accent = Palette.mango,
-			padding = 22,
-			reveal = if softMotion then revealHero else enter,
-			highlight = not convergenceSoft,
-			reducedMotion = softMotion,
-		}, React.createElement(Text, {
-			value = "FORGE CONVERGENCE",
-			size = 26,
-			weight = Enum.FontWeight.Heavy,
-		}), React.createElement(Text, {
-			value = "Getting this week's shared forge ready…",
-			size = 12,
-			color = Palette.muted,
-			position = UDim2.fromOffset(0, 42),
-			sizeConstraint = UDim2.new(1, 0, 0, 30),
-		}))
-	end
 	local globalFill = math.clamp(event.GlobalContribution / math.max(1, event.GlobalTarget), 0, 1)
 	local tiers = event.Tiers or {}
 	local heroHeight = if stack then 226 else 198
@@ -3636,6 +3636,46 @@ local function ConvergenceView(_param)
 		scrollBarThickness = 4,
 		sections = sections,
 	})
+end
+local function ConvergenceView(_param)
+	local state = _param.state
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local event = state.Convergence
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+	local stack = chrome.contentStack
+	local now = useWallClock(event ~= nil)
+	local enter = useEntrance(softMotion)
+	local reveal = useStagger(0, softMotion)
+	local revealTiers = useStagger(1, softMotion)
+	local revealClaim = useStagger(2, softMotion)
+	local revealHero = useStagger(3, softMotion)
+	local revealFill = useStagger(4, softMotion)
+	local convergenceSoft = softMotion or revealHero == nil or revealFill == nil
+	if event == nil then
+		return React.createElement(Panel, {
+			size = UDim2.fromScale(1, 1),
+			accent = Palette.mango,
+			padding = 22,
+			reveal = if softMotion then revealHero else enter,
+			highlight = not convergenceSoft,
+			reducedMotion = softMotion,
+		}, React.createElement(Text, {
+			value = "FORGE CONVERGENCE",
+			size = 26,
+			weight = Enum.FontWeight.Heavy,
+		}), React.createElement(Text, {
+			value = "Getting this week's shared forge ready…",
+			size = 12,
+			color = Palette.muted,
+			position = UDim2.fromOffset(0, 42),
+			sizeConstraint = UDim2.new(1, 0, 0, 30),
+		}))
+	end
+	return React.createElement(ConvergenceViewReady, _param)
 end
 return {
 	ConvergenceView = ConvergenceView,
