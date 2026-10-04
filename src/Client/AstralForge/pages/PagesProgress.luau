@@ -3648,6 +3648,7 @@ local UserInputService = game:GetService("UserInputService")
 local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
+local useClock = _motion.useClock
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local useWallClock = _motion.useWallClock
@@ -3656,10 +3657,11 @@ local Badge = _ui.Badge
 local Button = _ui.Button
 local EmptyState = _ui.EmptyState
 local IconTile = _ui.IconTile
-local Meter = _ui.Meter
 local Panel = _ui.Panel
-local SectionLabel = _ui.SectionLabel
+local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
+local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
+local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
 local chromeFor = _theme.chromeFor
 local darken = _theme.darken
@@ -3670,555 +3672,625 @@ local scrollTail = _theme.scrollTail
 local TapTarget = _theme.TapTarget
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
-local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
-local clockText = require(script.Parent.Parent.CoreKit)("format").clockText
-local SECTION_LABEL_H = 28
-local VIRT_BOOST_MIN = 8
-local SCROLL_BAR = 4
+local _format = require(script.Parent.Parent.CoreKit)("format")
+local clockText = _format.clockText
+local compactNumber = _format.compactNumber
+
+local h = React.createElement
+local GAP = 10
+local TICKS = 36
+local CARD_H = 196
+local FILTERS = {
+	{ id = "All", label = "All" },
+	{ id = "Production", label = "Production" },
+	{ id = "Vault", label = "Vault" },
+	{ id = "Owned", label = "Owned" },
+}
+
 local function boostIconKind(boostId)
 	if boostId == "DomainSurge" then
 		return "Domain"
-	end
-	if boostId == "VaultSurge" then
+	elseif boostId == "VaultSurge" or boostId == "StarforgeFlow" or boostId == "VaultTide" then
 		return "Vault"
-	end
-	if boostId == "Hyperdrive" then
+	elseif boostId == "Hyperdrive" then
 		return "World"
 	end
 	return "Reactor"
 end
-local HERO_H_STACK = 210
-local HERO_H_WIDE = 160
-local IDLE_HERO_H_STACK = 110
-local IDLE_HERO_H_WIDE = 96
-local CARD_H_STACK = 196
-local CARD_H_WIDE = 180
-local CARD_GAP = Layout.panelGap
-local function ActiveBoostHero(_param)
-	local boost = _param.boost
-	local endsAt = _param.endsAt
-	local now = _param.now
-	local reducedMotion = _param.reducedMotion
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local stack = _param.stack
-	local remaining = now:map(function(timestamp)
-		return math.max(0, endsAt - timestamp)
+
+local function headline(boost)
+	local production = tonumber(boost.Multiplier)
+	local vault = tonumber(boost.CapacityMultiplier)
+	if production ~= nil and vault ~= nil then
+		return `{production}x`, `PRODUCTION · {vault}x VAULT`
+	elseif production ~= nil then
+		return `{production}x`, "PRODUCTION"
+	elseif vault ~= nil then
+		return `{vault}x`, "VAULT"
+	end
+	return "+", "SPECIAL"
+end
+
+-- How much a boost is worth: extra production-minutes it adds (vault boosts count at a third).
+local function value(boost)
+	local production = (tonumber(boost.Multiplier) or 1) - 1
+	local vault = ((tonumber(boost.CapacityMultiplier) or 1) - 1) / 3
+	return (production + vault) * (tonumber(boost.Duration) or 0)
+end
+
+local function Gauge(props)
+	local fraction = props.fraction
+	local accent = props.accent
+	local size = props.size
+	local spin = props.spin
+	local ticks = {}
+	for index = 0, TICKS - 1 do
+		local threshold = index / TICKS
+		ticks[`t{index}`] = h("frame", {
+			Size = UDim2.fromScale(1, 1),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = index * (360 / TICKS),
+			BackgroundTransparency = 1,
+			ZIndex = 3,
+		}, h("frame", {
+			Size = UDim2.fromOffset(4, math.max(8, math.floor(size * 0.09))),
+			Position = UDim2.fromScale(0.5, 0),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundColor3 = accent,
+			BackgroundTransparency = fraction:map(function(f)
+				return if threshold < f then 0.05 else 0.82
+			end),
+			BorderSizePixel = 0,
+		}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))
+	end
+	return h("frame", {
+		Size = UDim2.fromOffset(size, size),
+		Position = props.position,
+		AnchorPoint = props.anchorPoint,
+		BackgroundTransparency = 1,
+		ZIndex = 2,
+	}, h("frame", {
+		Size = UDim2.fromScale(0.78, 0.78),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = darken(accent, 0.78),
+		BorderSizePixel = 0,
+		ZIndex = 2,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = accent,
+		Thickness = 2,
+		Transparency = 0.35,
+	}, h("uigradient", {
+		Color = ColorSequence.new(Color3.new(1, 1, 1), accent),
+		Rotation = spin,
+	}))), ticks, h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 6,
+	}, props.children))
+end
+
+local function ActiveReactor(props)
+	local boost = props.boost
+	local endsAt = props.endsAt
+	local now = props.now
+	local softMotion = props.softMotion
+	local stack = props.stack
+	local accent = boost.Color or Palette.pink
+	local spin = useClock(not softMotion, 40, 360, false)
+	local fraction = now:map(function(t)
+		return math.clamp((endsAt - t) / math.max(1, boost.Duration), 0, 1)
 	end)
-	local fraction = now:map(function(timestamp)
-		return math.clamp((endsAt - timestamp) / math.max(1, boost.Duration), 0, 1)
-	end)
-	return React.createElement(Panel, {
+	local big, small = headline(boost)
+	local gaugeSize = if stack then 132 else 150
+	return h(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = boost.Color,
+		accent = accent,
 		background = Palette.panelRaised,
-		padding = if stack then 16 else Layout.cardPadding,
+		padding = 16,
 		highlight = true,
 		reducedMotion = softMotion,
 		clips = false,
-	}, React.createElement(IconTile, {
-		kind = boostIconKind(boost.Id),
-		accent = boost.Color,
-		size = if stack then 56 else 64,
-		radius = 16,
-		position = UDim2.fromOffset(0, if stack then 4 else 8),
-		glow = true,
-		spin = false,
-		reducedMotion = softMotion,
-	}), React.createElement(Badge, {
-		value = "ACTIVE",
-		accent = boost.Color,
+	}, h(Gauge, {
+		fraction = fraction,
+		accent = accent,
+		size = gaugeSize,
+		spin = spin,
+		position = if stack then UDim2.new(0.5, 0, 0, 0) else UDim2.fromOffset(0, 0),
+		anchorPoint = if stack then Vector2.new(0.5, 0) else nil,
+	}, h(Text, {
+		value = big,
+		size = math.floor(gaugeSize * 0.22),
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 0, 0.5, -math.floor(gaugeSize * 0.17)),
+		sizeConstraint = UDim2.new(1, 0, 0, math.floor(gaugeSize * 0.24)),
+	}), h(Text, {
+		value = now:map(function(t)
+			return clockText(math.max(0, endsAt - t))
+		end),
+		size = 12,
+		color = accent,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 0, 0.5, math.floor(gaugeSize * 0.08)),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	})), h("frame", {
+		Size = if stack then UDim2.new(1, 0, 0, 96) else UDim2.new(1, -(gaugeSize + 20), 1, 0),
+		Position = if stack then UDim2.fromOffset(0, gaugeSize + 10) else UDim2.fromOffset(gaugeSize + 20, 0),
+		BackgroundTransparency = 1,
+	}, h(Badge, {
+		value = "RUNNING",
+		accent = accent,
 		filled = true,
-		position = if stack then UDim2.fromOffset(0, 76) else UDim2.new(1, -108, 0, 0),
-		size = UDim2.fromOffset(108, 26),
-	}), React.createElement(Text, {
+		size = UDim2.fromOffset(96, 22),
+	}), h(Text, {
 		value = boost.Name,
 		size = if stack then 22 else 26,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(if stack then 0 else 76, if stack then 110 else 4),
-		sizeConstraint = UDim2.new(1, if stack then 0 else -220, 0, 32),
-	}), React.createElement(Text, {
-		value = `{AppHelpers:boostEffectText(boost)}  ·  {boost.Description}`,
+		minSize = 14,
+		position = UDim2.fromOffset(0, 28),
+		sizeConstraint = UDim2.new(1, 0, 0, 30),
+	}), h(Text, {
+		value = `{big} {string.lower(small)}  ·  {boost.Description}`,
 		size = 12,
 		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(if stack then 0 else 76, if stack then 144 else 38),
-		sizeConstraint = UDim2.new(1, if stack then 0 else -220, 0, if stack then 40 else 30),
-	}), React.createElement(Meter, {
-		value = fraction,
-		color = boost.Color,
-		reducedMotion = softMotion,
-		shimmer = true,
-		position = UDim2.fromOffset(if stack then 0 else 76, if stack then HERO_H_STACK - 42 else HERO_H_WIDE - 34),
-		size = UDim2.new(1, if stack then 0 else -220, 0, 8),
-	}), React.createElement(Text, {
-		value = remaining:map(function(seconds)
-			return clockText(seconds) .. " remaining"
+		position = UDim2.fromOffset(0, 60),
+		sizeConstraint = UDim2.new(1, 0, 0, 34),
+	}), not stack and h("frame", {
+		Size = UDim2.new(1, 0, 0, 8),
+		Position = UDim2.new(0, 0, 1, -14),
+		BackgroundColor3 = Palette.ink,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("frame", {
+		Size = fraction:map(function(f)
+			return UDim2.fromScale(f, 1)
 		end),
-		size = 11,
-		color = boost.Color,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		position = UDim2.fromOffset(if stack then 0 else 76, if stack then HERO_H_STACK - 26 else HERO_H_WIDE - 18),
-		sizeConstraint = UDim2.new(1, if stack then 0 else -220, 0, 16),
-	}))
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))))
 end
-local function IdleHero(_param)
-	local stack = _param.stack
-	local boostKinds = _param.boostKinds
-	local totalBoosts = _param.totalBoosts
-	return React.createElement(Panel, {
+
+local function IdleBay(props)
+	local pick = props.pick
+	local softMotion = props.softMotion
+	local stack = props.stack
+	if pick == nil then
+		return h(Panel, {
+			size = UDim2.fromScale(1, 1),
+			accent = Palette.muted,
+			background = Palette.panelRaised,
+			padding = 16,
+			clips = false,
+		}, h(IconTile, {
+			kind = "Boost",
+			accent = Palette.muted,
+			size = 48,
+			radius = 14,
+			spin = false,
+		}), h(Text, {
+			value = "The boost bay is empty",
+			size = 18,
+			color = Palette.cream,
+			weight = Enum.FontWeight.Heavy,
+			position = UDim2.fromOffset(62, 4),
+			sizeConstraint = UDim2.new(1, -62, 0, 24),
+		}), h(Text, {
+			value = "Win boosts from the prize wheel, daily rewards and the Shop's Daily offers.",
+			size = 12,
+			color = Palette.muted,
+			wrap = true,
+			position = UDim2.fromOffset(62, 32),
+			sizeConstraint = UDim2.new(1, -62, 0, 34),
+		}))
+	end
+	local accent = pick.boost.Color or Palette.pink
+	local big, small = headline(pick.boost)
+	return h(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = Palette.muted,
+		accent = accent,
 		background = Palette.panelRaised,
-		padding = if stack then 16 else Layout.cardPadding,
+		padding = 16,
+		highlight = true,
+		reducedMotion = softMotion,
 		clips = false,
-	}, React.createElement(IconTile, {
-		kind = "Boost",
-		accent = Palette.muted,
-		size = if stack then 40 else 48,
-		radius = 12,
-		position = UDim2.fromOffset(0, if stack then 4 else 12),
-		spin = false,
-	}), React.createElement(Text, {
-		value = "No boost running",
-		size = if stack then 16 else 18,
+	}, h(Text, {
+		value = "NOTHING RUNNING · BEST PICK",
+		size = 11,
+		color = accent,
+		weight = Enum.FontWeight.Heavy,
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
+	}), h(IconTile, {
+		kind = boostIconKind(pick.boost.Id),
+		accent = accent,
+		size = if stack then 52 else 64,
+		radius = 16,
+		glow = true,
+		position = UDim2.fromOffset(0, 22),
+		reducedMotion = softMotion,
+	}), h(Text, {
+		value = pick.boost.Name,
+		size = if stack then 18 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(if stack then 0 else 62, if stack then 50 else 6),
-		sizeConstraint = UDim2.new(1, if stack then 0 else -300, 0, 24),
-	}), React.createElement(Text, {
-		value = if totalBoosts > 0 then `{totalBoosts} boost{if totalBoosts == 1 then "" else "s"} stored across {boostKinds} type{if boostKinds == 1 then "" else "s"} — activate one below.` else "Win boosts from the prize draw and timed rewards.",
-		size = 11,
-		color = Palette.muted,
+		minSize = 12,
+		position = UDim2.fromOffset(if stack then 64 else 78, 24),
+		sizeConstraint = UDim2.new(1, if stack then -64 else -(78 + 220), 0, 28),
+	}), h(Text, {
+		value = `{big} {string.lower(small)} for {clockText(pick.boost.Duration)}  ·  {compactNumber(pick.owned)} stored`,
+		size = 12,
+		color = Palette.creamSoft,
 		wrap = true,
-		position = UDim2.fromOffset(if stack then 0 else 62, if stack then 76 else 30),
-		sizeConstraint = UDim2.new(1, if stack then 0 else -300, 0, 32),
-	}))
+		position = UDim2.fromOffset(if stack then 64 else 78, 54),
+		sizeConstraint = UDim2.new(1, if stack then -64 else -(78 + 220), 0, 32),
+	}), h("frame", {
+		Name = "BoostClaimActions",
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(200, TapTarget),
+		Position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -200, 0.5, -TapTarget / 2 + 8),
+		BackgroundTransparency = 1,
+		ClipsDescendants = false,
+		ref = props.activateHostRef,
+	}, h(Button, {
+		text = `FIRE {string.upper(pick.boost.Name)}`,
+		icon = "Boost",
+		onClick = function()
+			Audio:play("boostActivate")
+			props.dispatch("ActivateBoost", { Id = pick.boost.Id })
+		end,
+		color = accent,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		highlight = true,
+		reducedMotion = softMotion,
+	})))
 end
-local function StatChip(_param)
-	local label = _param.label
-	local value = _param.value
-	local accent = _param.accent
-	local position = _param.position
-	local size = _param.size
-	return React.createElement("frame", {
-		Size = size,
-		Position = position,
-		BackgroundColor3 = darken(accent, 0.74),
+
+local function StatTile(props)
+	return h("frame", {
+		BackgroundColor3 = darken(props.accent, 0.78),
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement(Text, {
-		value = value,
+		LayoutOrder = props.order,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uistroke", {
+		Color = props.accent,
+		Transparency = 0.6,
+	}), h(Text, {
+		value = props.value,
 		size = 18,
-		color = lighten(accent, 0.1),
+		color = lighten(props.accent, 0.12),
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(10, 6),
-		sizeConstraint = UDim2.new(1, -20, 0, 24),
-	}), React.createElement(Text, {
-		value = label,
+		minSize = 11,
+		position = UDim2.fromOffset(12, 8),
+		sizeConstraint = UDim2.new(1, -24, 0, 24),
+	}), h(Text, {
+		value = props.label,
 		size = 10,
-		color = accent,
-		weight = Enum.FontWeight.Bold,
+		color = props.accent,
+		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(10, 30),
-		sizeConstraint = UDim2.new(1, -20, 0, 16),
+		minSize = 8,
+		position = UDim2.fromOffset(12, 34),
+		sizeConstraint = UDim2.new(1, -24, 0, 14),
 	}))
 end
-local function BoostCard(_param)
-	local boost = _param.boost
-	local owned = _param.owned
-	local canActivate = _param.canActivate
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local index = _param.index
-	local stack = _param.stack
-	local columns = _param.columns
-	local activateHostRef = _param.activateHostRef
-	local reveal = useStagger(index, softMotion)
-	local ready = owned > 0 and canActivate
-	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE
-	local column = index % columns
-	local row = math.floor(index / columns)
-	local cellW = 1 / columns
-	local position = UDim2.new(cellW * column, CARD_GAP * column / columns, 0, row * (cardH + CARD_GAP))
-	local size = UDim2.new(cellW, -(CARD_GAP * (columns - 1) / columns), 0, cardH)
-	return React.createElement("frame", {
-		Size = size,
-		Position = position,
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(Panel, {
+
+local function BoostCard(props)
+	local boost = props.boost
+	local owned = props.owned
+	local softMotion = props.softMotion
+	local reveal = useStagger(props.index, softMotion)
+	local ready = owned > 0 and props.canActivate
+	local accent = boost.Color or Palette.pink
+	local shown = if owned > 0 then accent else Palette.muted
+	local big, small = headline(boost)
+	return h(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = if owned > 0 then boost.Color else Palette.muted,
+		accent = shown,
 		background = Palette.panelRaised,
-		padding = if stack then 14 else Layout.cardPadding,
+		padding = 0,
 		reveal = reveal,
 		interactive = true,
 		highlight = ready,
 		reducedMotion = softMotion,
 		clips = false,
-	}, React.createElement(IconTile, {
-		kind = boostIconKind(boost.Id),
-		accent = if owned > 0 then boost.Color else Palette.panelSoft,
-		size = 42,
-		radius = 12,
-		position = UDim2.fromOffset(0, 2),
-		glow = ready,
-		reducedMotion = softMotion,
-	}), React.createElement("frame", {
-		Size = UDim2.new(1, -104, 1, -(TapTarget + 8)),
-		Position = UDim2.fromOffset(52, 0),
-		BackgroundTransparency = 1,
+	}, h("frame", {
+		Name = "Band",
+		Size = UDim2.new(1, 0, 0, 58),
+		BackgroundColor3 = darken(shown, if owned > 0 then 0.45 else 0.75),
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("uilistlayout", {
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		Padding = UDim.new(0, 3),
-	}), React.createElement(Text, {
+	}, h("uicorner", { CornerRadius = UDim.new(0, Layout.cardRadius or 14) }), h("uigradient", {
+		Color = ColorSequence.new(darken(shown, 0.3), darken(shown, 0.75)),
+		Rotation = 20,
+	}), h(Icon, {
+		kind = boostIconKind(boost.Id),
+		color = Palette.cream,
+		accent = shown,
+		size = 30,
+		position = UDim2.fromOffset(14, 14),
+		spin = false,
+	}), h(Text, {
+		value = big,
+		size = 26,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.new(0, 0, 0, 6),
+		sizeConstraint = UDim2.new(1, -14, 0, 30),
+	}), h(Text, {
+		value = small,
+		size = 10,
+		color = Palette.creamSoft,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Right,
+		fit = true,
+		minSize = 8,
+		position = UDim2.new(0, 56, 0, 36),
+		sizeConstraint = UDim2.new(1, -70, 0, 14),
+	})), h(Text, {
 		value = boost.Name,
-		size = 15,
+		size = 16,
 		color = if owned > 0 then Palette.cream else Palette.creamSoft,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 11,
-		layoutOrder = 0,
-		sizeConstraint = UDim2.new(1, 0, 0, 20),
-	}), React.createElement(Text, {
+		position = UDim2.fromOffset(14, 66),
+		sizeConstraint = UDim2.new(1, -110, 0, 20),
+	}), h(Badge, {
+		value = if owned > 0 then `×{compactNumber(owned)}` else "NONE",
+		accent = if owned > 0 then accent else Palette.lineSoft,
+		filled = owned > 0,
+		size = UDim2.fromOffset(84, 20),
+		position = UDim2.new(1, -98, 0, 66),
+	}), h(Text, {
 		value = boost.Description,
-		size = 10,
+		size = 11,
 		color = Palette.muted,
 		wrap = true,
-		fit = false,
-		layoutOrder = 1,
-		sizeConstraint = UDim2.new(1, 0, 0, 28),
-	}), React.createElement(Text, {
-		value = `{AppHelpers:boostEffectText(boost)}  ·  {clockText(boost.Duration)}`,
-		size = 10,
-		color = boost.Color,
+		position = UDim2.fromOffset(14, 90),
+		sizeConstraint = UDim2.new(1, -28, 0, 30),
+	}), h(Text, {
+		value = `Lasts {clockText(boost.Duration)}`,
+		size = 11,
+		color = shown,
 		weight = Enum.FontWeight.Bold,
-		fit = true,
-		minSize = 8,
-		layoutOrder = 2,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	}), React.createElement(Text, {
-		value = if owned > 0 then `{owned} stored` else "Not owned yet",
-		size = 10,
-		color = if owned > 0 then Palette.creamSoft else Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		minSize = 8,
-		layoutOrder = 3,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	})), React.createElement("frame", {
+		position = UDim2.fromOffset(14, 120),
+		sizeConstraint = UDim2.new(1, -28, 0, 16),
+	}), h("frame", {
 		Name = "BoostClaimActions",
-		Size = UDim2.new(1, 0, 0, TapTarget),
-		Position = UDim2.new(0, 0, 1, -TapTarget),
+		Size = UDim2.new(1, -28, 0, TapTarget),
+		Position = UDim2.new(0, 14, 1, -(TapTarget + 12)),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		ref = if ready then activateHostRef else nil,
-	}, React.createElement(Button, {
-		text = if owned <= 0 then "None owned" elseif canActivate then "Activate" else "One at a time",
-		icon = "Boost",
+		ref = if ready and props.focus then props.activateHostRef else nil,
+	}, h(Button, {
+		text = if owned <= 0 then "NONE STORED" elseif props.canActivate then "ACTIVATE" else props.busyText,
+		icon = if ready then "Boost" else "Lock",
 		onClick = function()
-			return dispatch("ActivateBoost", {
-				Id = boost.Id,
-			})
+			Audio:play("boostActivate")
+			props.dispatch("ActivateBoost", { Id = boost.Id })
 		end,
-		color = if ready then boost.Color else Palette.panelSoft,
+		color = if ready then accent else Palette.panelSoft,
 		textColor = if ready then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-		reducedMotion = softMotion,
 		disabled = not ready,
 		highlight = ready,
-	}))))
+		reducedMotion = softMotion,
+	})))
 end
+
 local function BoostsView(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
+	local filter, setFilter = React.useState("All")
 	local activateHostRef = React.useRef(nil)
-	local now = useWallClock(true):map(function(seconds)
-		return seconds
-	end)
-	local boostDefinitions = config.Boosts
-	local boosts = {}
-	if boostDefinitions ~= nil then
-		for _, definition in pairs(boostDefinitions) do
-			table.insert(boosts, definition)
-		end
+	local now = useWallClock(true)
+	local inventory = state.BoostInventory or {}
+	local all = {}
+	for _, definition in pairs(config.Boosts or {}) do
+		table.insert(all, definition)
 	end
-	table.sort(boosts, function(left, right)
-		return left.Id < right.Id
-	end)
-	local _result = state.ActiveBoost
-	if _result ~= nil then
-		_result = _result.Id
-	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = ""
-	end
-	local activeId = _condition
-	local _result_1 = state.ActiveBoost
-	if _result_1 ~= nil then
-		_result_1 = _result_1.EndsAt
-	end
-	local _condition_1 = _result_1
-	if _condition_1 == nil then
-		_condition_1 = 0
-	end
-	local activeEndsAt = _condition_1
-	local boostRunning = activeId ~= "" and activeEndsAt > os.time()
-	local activeBoost = if boostRunning and boostDefinitions ~= nil then boostDefinitions[activeId] else nil
-	local totalBoosts = 0
-	local boostKinds = 0
-	local firstReadyId = nil
-	for _, boost in boosts do
-		local _result_2 = state.BoostInventory
-		if _result_2 ~= nil then
-			_result_2 = _result_2[boost.Id]
-		end
-		local _condition_2 = _result_2
-		if _condition_2 == nil then
-			_condition_2 = 0
-		end
-		local owned = _condition_2
-		totalBoosts += owned
+	local activeId = (state.ActiveBoost and state.ActiveBoost.Id) or ""
+	local activeEndsAt = (state.ActiveBoost and tonumber(state.ActiveBoost.EndsAt)) or 0
+	local boostRunning = activeId ~= "" and activeEndsAt > workspace:GetServerTimeNow()
+	local activeBoost = if boostRunning then (config.Boosts or {})[activeId] else nil
+	local stored, types, bankedSeconds, bestMult = 0, 0, 0, 1
+	local pick = nil
+	for _, boost in all do
+		local owned = math.max(0, math.floor(tonumber(inventory[boost.Id]) or 0))
+		stored += owned
 		if owned > 0 then
-			boostKinds += 1
-		end
-		if firstReadyId == nil and owned > 0 and not boostRunning then
-			firstReadyId = boost.Id
+			types += 1
+			bankedSeconds += owned * (tonumber(boost.Duration) or 0)
+			bestMult = math.max(bestMult, tonumber(boost.Multiplier) or 1)
+			if pick == nil or value(boost) > value(pick.boost) then
+				pick = { boost = boost, owned = owned }
+			end
 		end
 	end
+	table.sort(all, function(a, b)
+		local ao = (tonumber(inventory[a.Id]) or 0) > 0
+		local bo = (tonumber(inventory[b.Id]) or 0) > 0
+		if ao ~= bo then
+			return ao
+		end
+		if value(a) ~= value(b) then
+			return value(a) > value(b)
+		end
+		return a.Id < b.Id
+	end)
+	local boosts = {}
+	for _, boost in all do
+		local owned = (tonumber(inventory[boost.Id]) or 0) > 0
+		local keep = filter == "All"
+			or (filter == "Production" and tonumber(boost.Multiplier) ~= nil)
+			or (filter == "Vault" and tonumber(boost.CapacityMultiplier) ~= nil)
+			or (filter == "Owned" and owned)
+		if keep then
+			table.insert(boosts, boost)
+		end
+	end
+	local focusId = if not boostRunning and pick ~= nil then pick.boost.Id else nil
 	React.useEffect(function()
-		if firstReadyId == nil or not UserInputService.GamepadEnabled then
+		if focusId == nil or not UserInputService.GamepadEnabled then
 			return nil
 		end
 		local host = activateHostRef.current
 		if host == nil then
 			return nil
 		end
-		local selectJob = task.defer(function()
-			if host.Parent == nil then
-				return
+		local job = task.defer(function()
+			if host.Parent ~= nil then
+				GamepadNavigationService.FocusClaim(host)
 			end
-			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			pcall(task.cancel, selectJob)
+			pcall(task.cancel, job)
 		end
-	end, { firstReadyId, boostRunning })
-	local headerReveal = useStagger(0, softMotion)
-	local heroH = if activeBoost ~= nil then (if stack then HERO_H_STACK else HERO_H_WIDE) else (if stack then IDLE_HERO_H_STACK else IDLE_HERO_H_WIDE)
-	local statsH = if stack then 88 else 72
-	local cardH = if stack then CARD_H_STACK else CARD_H_WIDE
-	local rows = math.ceil(math.max(1, #boosts) / columns)
-	local gridH = if #boosts > 0 then rows * cardH + (rows - 1) * CARD_GAP else 150
-	local headerH = if stack then 72 else 80
-	local pageGap = if stack then 12 else Layout.panelGap
-	local _exp_2 = React.createElement(Panel, {
-		size = UDim2.fromScale(1, 1),
-		accent = Palette.pink,
-		background = Palette.panelRaised,
-		padding = if stack then 14 else Layout.cardPadding,
-		reveal = headerReveal,
-		reducedMotion = softMotion,
-		clips = false,
-	}, React.createElement(Text, {
-		value = "BOOSTS",
-		size = 10,
-		color = Palette.pink,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		sizeConstraint = UDim2.new(1, -120, 0, 14),
-	}), React.createElement(Text, {
-		value = "Short bursts of extra power, activated one at a time.",
-		size = 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.new(1, -16, 0, 28),
-	}))
-	local _exp_3 = if activeBoost ~= nil then React.createElement(ActiveBoostHero, {
-		boost = activeBoost,
-		endsAt = activeEndsAt,
-		now = now,
-		reducedMotion = softMotion,
-		stack = stack,
-	}) else React.createElement(IdleHero, {
-		stack = stack,
-		boostKinds = boostKinds,
-		totalBoosts = totalBoosts,
-		reducedMotion = softMotion,
-	})
-	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(StatChip, {
-		label = "STORED",
-		value = `{totalBoosts}`,
-		accent = Palette.pink,
-		position = UDim2.fromOffset(0, 0),
-		size = if stack then UDim2.new(0.5, -4, 1, 0) else UDim2.fromOffset(160, statsH),
-		reducedMotion = softMotion,
-	}), React.createElement(StatChip, {
-		label = "TYPES OWNED",
-		value = `{boostKinds} / {#boosts}`,
-		accent = Palette.cyan,
-		position = if stack then UDim2.new(0.5, 4, 0, 0) else UDim2.fromOffset(168, 0),
-		size = if stack then UDim2.new(0.5, -4, 1, 0) else UDim2.fromOffset(160, statsH),
-		reducedMotion = softMotion,
-	}))
-	local _exp_5 = React.createElement(SectionLabel, {
-		value = "ALL BOOSTS",
-		color = Palette.pink,
-		reducedMotion = softMotion,
-	})
-	local gridElement
-	if #boosts == 0 then
-		gridElement = React.createElement(EmptyState, {
-			icon = "Forge",
-			title = "No boosts yet",
-			body = "Win them from the prize draw, then turn them on here.",
-			accent = Palette.cyan,
-		})
-	else
-		local function boostCardFor(boost, index)
-			local _attributes = {
-				key = boost.Id,
-				boost = boost,
-			}
-			local _result_2 = state.BoostInventory
-			if _result_2 ~= nil then
-				_result_2 = _result_2[boost.Id]
+	end, { focusId, boostRunning, filter })
+	local busyText = if activeBoost ~= nil then `{string.upper(activeBoost.Name)} RUNNING` else "ONE AT A TIME"
+	local heroH = if activeBoost ~= nil then (if stack then 260 else 182) else (if stack then 190 else 132)
+	local statsH = if stack then 128 else 60
+	local rowStride = CARD_H + GAP
+	local rows = {}
+	local index = 1
+	while index <= #boosts do
+		local row = { Id = `boost-row-{filter}-{index}`, cells = {} }
+		for _ = 1, columns do
+			local boost = boosts[index]
+			if boost == nil then
+				break
 			end
-			local _condition_3 = _result_2
-			if _condition_3 == nil then
-				_condition_3 = 0
-			end
-			_attributes.owned = _condition_3
-			_attributes.canActivate = not boostRunning
-			_attributes.dispatch = dispatch
-			_attributes.reducedMotion = softMotion
-			_attributes.index = index
-			_attributes.stack = stack
-			_attributes.columns = columns
-			if boost.Id == firstReadyId then
-				_attributes.activateHostRef = activateHostRef
-			end
-			return React.createElement(BoostCard, _attributes)
+			table.insert(row.cells, { boost = boost, order = index - 1 })
+			index += 1
 		end
-		if #boosts >= VIRT_BOOST_MIN then
-			local offerRows = {}
-			local index = 1
-			while index <= #boosts do
-				local row = {
-					Id = `boost-row-{index}`,
-					cells = {},
-				}
-				for col = 0, columns - 1 do
-					local boost = boosts[index]
-					if boost == nil then
-						break
-					end
-					table.insert(row.cells, { boost = boost, index = col, globalIndex = index - 1 })
-					index += 1
-				end
-				table.insert(offerRows, row)
-			end
-			local rowH = cardH + CARD_GAP
-			gridElement = React.createElement(FlatList, {
-				data = offerRows,
-				itemHeight = rowH,
-				overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-				canvasTail = 8,
-				Size = UDim2.fromScale(1, 1),
-				scrollBarColor = Palette.pink,
-				scrollBarThickness = SCROLL_BAR,
-				keyExtractor = function(row)
-					return row.Id
-				end,
-				renderItem = function(_param_1)
-					local row = _param_1.item
-					local cells = {}
-					for cellIndex, cell in row.cells do
-						cells[cellIndex] = boostCardFor(cell.boost, cell.index)
-					end
-					return React.createElement("frame", {
-						Size = UDim2.new(1, 0, 0, cardH),
-						BackgroundTransparency = 1,
-						BorderSizePixel = 0,
-					}, cells)
-				end,
-			})
-		else
-			local _newValue = table.create(#boosts)
-			for _k, _v in boosts do
-				_newValue[_k] = boostCardFor(_v, _k - 1)
-			end
-			gridElement = React.createElement("frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-			}, _newValue)
-		end
+		table.insert(rows, row)
 	end
-	local gridSectionH = if #boosts >= VIRT_BOOST_MIN then math.min(rows, 4) * (cardH + CARD_GAP) else gridH
+	local gridH = math.max(rowStride, #rows * rowStride)
+	local statTiles = {
+		Layout = h("uigridlayout", {
+			CellSize = UDim2.new(if stack then 0.5 else 0.25, -8, 0, 56),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		Stored = h(StatTile, { label = "STORED", value = compactNumber(stored), accent = Palette.pink, order = 1 }),
+		Types = h(StatTile, { label = "TYPES OWNED", value = `{types} / {#all}`, accent = Palette.cyan, order = 2 }),
+		Banked = h(StatTile, { label = "BOOST TIME BANKED", value = `{compactNumber(math.floor(bankedSeconds / 3600))}h`, accent = Palette.mango, order = 3 }),
+		Best = h(StatTile, { label = "BEST MULTIPLIER", value = `{bestMult}x`, accent = Palette.mint, order = 4 }),
+	}
+	local grid = if #boosts == 0 then h(EmptyState, {
+		icon = "Boost",
+		title = if filter == "Owned" then "Nothing stored" else "No boosts here",
+		body = if filter == "Owned" then "Win boosts from the prize wheel and daily rewards." else "Try another filter.",
+		accent = Palette.cyan,
+		reducedMotion = softMotion,
+	}) else React.createElement(FlatList, {
+		data = rows,
+		itemHeight = rowStride,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
+		canvasTail = 8,
+		embedded = true,
+		Size = UDim2.new(1, 0, 0, gridH),
+		scrollBarColor = Palette.pink,
+		scrollBarThickness = 3,
+		keyExtractor = function(row)
+			return row.Id
+		end,
+		renderItem = function(item)
+			local row = item.item
+			local cells = {
+				Layout = h("uigridlayout", {
+					CellSize = UDim2.new(1 / columns, -math.ceil(GAP * (columns - 1) / columns), 0, CARD_H),
+					CellPadding = UDim2.fromOffset(GAP, GAP),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+				}),
+			}
+			for cellIndex, cell in row.cells do
+				cells[cell.boost.Id] = h("frame", {
+					BackgroundTransparency = 1,
+					LayoutOrder = cellIndex,
+				}, h(BoostCard, {
+					boost = cell.boost,
+					owned = math.max(0, math.floor(tonumber(inventory[cell.boost.Id]) or 0)),
+					canActivate = not boostRunning,
+					busyText = busyText,
+					dispatch = dispatch,
+					softMotion = softMotion,
+					index = cell.order,
+					focus = false,
+					activateHostRef = activateHostRef,
+				}))
+			end
+			return h("frame", {
+				Size = UDim2.new(1, 0, 0, CARD_H),
+				BackgroundTransparency = 1,
+			}, cells)
+		end,
+	})
 	return React.createElement(PageScaffold, {
-		gap = pageGap,
+		gap = if stack then 12 else Layout.panelGap,
 		tailPad = scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48),
 		scrollBarColor = Palette.pink,
 		scrollBarThickness = 4,
 		sections = {
 			{
-				id = "hero-title",
-				height = headerH,
-				element = _exp_2,
-			},
-			{
-				id = "active",
+				id = "hero",
 				height = heroH,
-				element = _exp_3,
+				element = if activeBoost ~= nil then h(ActiveReactor, {
+					boost = activeBoost,
+					endsAt = activeEndsAt,
+					now = now,
+					softMotion = softMotion,
+					stack = stack,
+				}) else h(IdleBay, {
+					pick = pick,
+					dispatch = dispatch,
+					softMotion = softMotion,
+					stack = stack,
+					activateHostRef = activateHostRef,
+				}),
 			},
 			{
 				id = "stats",
 				height = statsH,
-				element = _exp_4,
+				element = h("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, statTiles),
 			},
 			{
-				id = "grid-label",
-				height = SECTION_LABEL_H,
-				element = _exp_5,
+				id = "filters",
+				height = if stack then TapTarget else 44,
+				element = h(SegmentedTabs, {
+					options = FILTERS,
+					value = filter,
+					onChange = setFilter,
+					accent = Palette.pink,
+					columns = #FILTERS,
+					size = UDim2.fromScale(1, 1),
+					reducedMotion = softMotion,
+				}),
 			},
 			{
 				id = "grid",
-				height = gridSectionH,
-				element = gridElement,
+				height = if #boosts == 0 then 170 else gridH,
+				element = grid,
 			},
 		},
 	})
 end
+
 return {
 	BoostsView = BoostsView,
 }

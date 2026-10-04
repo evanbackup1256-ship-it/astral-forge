@@ -201,9 +201,9 @@ do
 	assert(string.find(src, "createElement(FlatList", 1, true), path .. " must FlatList inbox and body catalogs")
 	assert(not string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must not keep raw body scrollingframe")
 	assert(string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true), path .. " must expose CLAIM/ARCHIVE")
-	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -footerH)", 1, true), path .. " must pin footer to bottom")
-	assert(string.find(src, "stackListH", 1, true), path .. " must reserve stack list height so detail actions stay reachable")
-	assert(string.find(src, "0.34, -7", 1, true) and string.find(src, "0.66, -7", 1, true), path .. " must keep desktop split chrome widths")
+	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -props.height)", 1, true), path .. " must pin the gift parcel to the bottom of the reader")
+	assert(string.find(src, "UDim2.new(0.38, -6, 1, 0)", 1, true) and string.find(src, "UDim2.new(0.62, -6, 1, 0)", 1, true), path .. " must keep the desktop inbox/reader split")
+	assert(string.find(src, "UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)", 1, true), path .. " must slide the reader over the inbox on phones")
 end
 
 ------------------------------------------------------------------------
