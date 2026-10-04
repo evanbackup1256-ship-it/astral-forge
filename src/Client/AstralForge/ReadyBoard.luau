@@ -118,7 +118,7 @@ local function Pill(props)
 		Text = `<b>{entry.label}</b>  <font transparency="0.35">{entry.detail}</font>`,
 		RichText = true,
 		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSans, Enum.FontWeight.Medium),
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Medium),
 		TextColor3 = Palette.cream,
 	}), h("frame", {
 		Size = UDim2.fromOffset(0, 22),
@@ -135,7 +135,7 @@ local function Pill(props)
 		BackgroundTransparency = 1,
 		Text = tostring(entry.count),
 		TextSize = 13,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSans, Enum.FontWeight.Heavy),
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 		TextColor3 = Palette.ink,
 	})))
 end
@@ -163,7 +163,7 @@ function Board.Strip(props)
 			LayoutOrder = 1,
 			Text = "Nothing waiting right now. Keep forging.",
 			TextSize = 14,
-			FontFace = Font.fromEnum(Enum.Font.BuilderSans, Enum.FontWeight.Medium),
+			FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Medium),
 			TextColor3 = Palette.muted,
 		})
 	end
@@ -185,7 +185,7 @@ function Board.Strip(props)
 		Visible = not props.compact,
 		Text = if #list > 0 then `READY · {Board.total(list)}` else "READY",
 		TextSize = 12,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSans, Enum.FontWeight.Heavy),
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Heavy),
 		TextColor3 = if #list > 0 then Palette.green else Palette.muted,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}), h("scrollingframe", {
@@ -228,7 +228,7 @@ function Board.Strip(props)
 		Text = "Find  <font transparency=\"0.5\">Ctrl+K</font>",
 		RichText = true,
 		TextSize = 14,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSans, Enum.FontWeight.Bold),
+		FontFace = Font.fromName("BuilderSans", Enum.FontWeight.Bold),
 		TextColor3 = Palette.cream,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})))
