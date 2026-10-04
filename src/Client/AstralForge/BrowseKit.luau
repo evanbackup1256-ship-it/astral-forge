@@ -139,6 +139,21 @@ function Kit.useLinkedQuery(id, initial)
 	return query, setQuery
 end
 
+-- A tab that Quick Find can open directly (links carry the tab id as `category`).
+-- An explicit `preferred` tab (a prop from the caller) wins over the last linked one.
+function Kit.useLinkedTab(id, fallback, preferred)
+	local linked = Model.recall(id)
+	local tab, setTab = React.useState(preferred or (linked and linked.category) or fallback)
+	React.useEffect(function()
+		return Model.listen(id, function(entry)
+			if entry.category ~= nil then
+				setTab(entry.category)
+			end
+		end)
+	end, { id })
+	return tab, setTab
+end
+
 -- True when `query` fuzzily matches any of the given strings (for pages with custom filters).
 function Kit.matches(query, ...)
 	if query == nil or string.match(query, "^%s*$") then

@@ -232,7 +232,11 @@ do
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
 	-- Expeditions / Weekly / Season long catalogs must VirtualGrid (or FlatList) — never map-mount.
-	assert(string.find(command, "count = #ops.Expeditions", 1, true), "Command Expeditions must VirtualGrid count")
+	-- the expedition grid virtualizes the searched/filtered list (expeditionList) rather than the raw catalog
+	assert(
+		string.find(command, "count = #ops.Expeditions", 1, true) or string.find(command, "count = #expeditionList", 1, true),
+		"Command Expeditions must VirtualGrid count"
+	)
 	assert(string.find(command, "count = #command.Weekly", 1, true), "Command Weekly must VirtualGrid count")
 	assert(string.find(command, "count = #ops.SeasonTiers", 1, true), "Command Season must VirtualGrid count")
 	assert(string.find(command, "Weekly jobs", 1, true), "Command Weekly jobs header must stay")

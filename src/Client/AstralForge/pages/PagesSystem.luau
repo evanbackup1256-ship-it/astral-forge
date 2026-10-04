@@ -813,6 +813,7 @@ local titleFxAccent = _AnimatedTitle.titleFxAccent
 local _scrolling = require(script.Parent.Parent.LayoutKit)("scrolling")
 local AutoGrid = _scrolling.AutoGrid
 local VirtualGrid = _scrolling.VirtualGrid
+local Browse = require(script.Parent.Parent.BrowseKit)
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
@@ -1128,6 +1129,32 @@ local function CommandViewReady(_param)
 			frame.CanvasPosition = Vector2.new(0, 0)
 		end
 	end, { tab })
+	local expeditionBrowse = Browse.useBrowse({
+		id = "Expeditions",
+		items = ops.Expeditions or {},
+		text = function(expedition)
+			return { expedition.Name, formatReward(expedition.Reward), `level {expedition.RequiredLevel}` }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Available", label = "Available", test = function(expedition)
+				return command.Level >= expedition.RequiredLevel
+			end },
+			{ id = "Locked", label = "Locked", test = function(expedition)
+				return command.Level < expedition.RequiredLevel
+			end },
+		},
+		sorts = {
+			{ id = "Level", label = "By level" },
+			{ id = "Shortest", label = "Shortest trip", compare = function(a, b)
+				return (tonumber(a.Duration) or 0) < (tonumber(b.Duration) or 0)
+			end },
+			{ id = "Relic", label = "Best relic odds", compare = function(a, b)
+				return (tonumber(a.ArtifactChance) or 0) > (tonumber(b.ArtifactChance) or 0)
+			end },
+		},
+	})
+	local expeditionList = expeditionBrowse.results
 	local titlesEnabled = ops.TitlesEnabled ~= false
 	local maxed = command.Level >= ops.MaxCommanderLevel
 	local levelProgress = if maxed then 1 else meterFill(command.XP - command.LevelFloorXP, math.max(1, command.NextLevelXP - command.LevelFloorXP))
@@ -1961,20 +1988,35 @@ local function CommandViewReady(_param)
 			disabled = not expeditionReady,
 			reducedMotion = reducedMotion,
 			highlight = expeditionReady,
-		}))), React.createElement(VirtualGrid, {
+		}))), React.createElement(Browse.BrowseBar, {
+			browse = expeditionBrowse,
+			placeholder = "Search adventures by name or reward",
+			accent = Palette.cyan,
+			stack = stack,
+			reducedMotion = softMotion,
+			layoutOrder = nextOrder(),
+			zIndex = 30,
+		}), #expeditionList == 0 and React.createElement(Browse.NoResults, {
+			browse = expeditionBrowse,
+			noun = "adventures",
+			icon = "World",
+			accent = Palette.cyan,
+			reducedMotion = softMotion,
+			layoutOrder = nextOrder(),
+		}), React.createElement(VirtualGrid, {
 			scrollRef = scrollRef,
-			count = #ops.Expeditions,
+			count = #expeditionList,
 			columns = 1,
 			cellHeight = expeditionRowH,
 			gap = Layout.panelGap,
 			overscanRows = if softMotion then 0 else 1,
 			layoutOrder = nextOrder(),
 			itemKey = function(index)
-				local expedition = ops.Expeditions[index + 1]
+				local expedition = expeditionList[index + 1]
 				return if expedition ~= nil then expedition.Id else `expedition-{index}`
 			end,
 			renderItem = function(index)
-				local expedition = ops.Expeditions[index + 1]
+				local expedition = expeditionList[index + 1]
 				if expedition == nil then
 					return nil
 				end
@@ -2469,7 +2511,11 @@ local function hayHas(hay, needle)
 	if #needle == 0 then
 		return true
 	end
-	return (string.find(string.lower(hay), string.lower(needle), 1, true)) ~= nil
+	-- exact substrings (player IDs) still match; fuzzy matching adds typos and initials
+	if (string.find(string.lower(hay), string.lower(needle), 1, true)) ~= nil then
+		return true
+	end
+	return require(script.Parent.Parent.BrowseKit).matches(needle, hay)
 end
 
 local function catAccent(category)

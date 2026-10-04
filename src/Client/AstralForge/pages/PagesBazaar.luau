@@ -174,7 +174,7 @@ local function BazaarView(props)
 	local bazaar = state.Bazaar
 	local now = useClock()
 
-	local tab, setTab = React.useState(props.initialTab or "Bank")
+	local tab, setTab = require(script.Parent.Parent.BrowseKit).useLinkedTab("Bazaar", "Bank", props.initialTab)
 	local tier, setTier = React.useState(2)
 	local term, setTerm = React.useState("T6")
 	local busy, setBusy = React.useState(false)

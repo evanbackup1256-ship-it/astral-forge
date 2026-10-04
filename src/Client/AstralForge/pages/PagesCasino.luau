@@ -1525,7 +1525,7 @@ local function CasinoView(props)
 	local reveal = useStagger(0, reducedMotion)
 	local casino = state.Casino
 
-	local tab, setTab = React.useState(props.initialTab or "Slots")
+	local tab, setTab = require(script.Parent.Parent.BrowseKit).useLinkedTab("Casino", "Slots", props.initialTab)
 	local tabIndexRef = React.useRef({ index = 1, direction = 1 })
 	for index, entry in TABS do
 		if entry.id == tab and index ~= tabIndexRef.current.index then

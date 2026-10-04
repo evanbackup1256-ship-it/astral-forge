@@ -78,6 +78,8 @@ local KIND_META = {
 	Story = { label = "Story", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
 	Letter = { label = "Letter", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
 	Section = { label = "Shop", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
+	Game = { label = "Casino", weight = 1.1, accent = "coral", route = "Casino", icon = "Jackpot" },
+	Deal = { label = "Bazaar", weight = 1.1, accent = "mint", route = "Bazaar", icon = "Shop" },
 }
 
 local function accentOf(key)
@@ -174,6 +176,25 @@ local function buildStatic()
 		{ id = "Premium", title = "Premium shop", body = "Packs, passes and codes", words = "robux gamepass passes packs codes redeem", icon = "Shop" },
 	} do
 		add("Section", section.id, section.title, section.body, section.words, section.icon, { route = "Shop", query = "", category = section.id })
+	end
+	for _, game in {
+		{ id = "Slots", title = "Slots", body = "Three reels, match symbols", words = "slot machine reels spin jackpot" },
+		{ id = "Flip", title = "Coin flip", body = "Heads or tails", words = "coin heads tails 50 50" },
+		{ id = "HighLow", title = "High-Low", body = "Guess the next card", words = "cards higher lower" },
+		{ id = "Roulette", title = "Roulette", body = "Red, black or a number", words = "wheel red black number" },
+		{ id = "Scratch", title = "Scratch card", body = "Scratch three gems", words = "scratch ticket gems" },
+		{ id = "Exchange", title = "Casino exchange", body = "Trade chips for rewards", words = "chips exchange cash out" },
+		{ id = "Club", title = "Casino club", body = "High roller ranks", words = "vip club rank high roller" },
+	} do
+		add("Game", game.id, game.title, game.body, game.words, "Jackpot", { route = "Casino", query = "", category = game.id })
+	end
+	for _, deal in {
+		{ id = "Bank", title = "Bank", body = "Deposit flux and earn interest", words = "deposit interest savings term", icon = "Vault" },
+		{ id = "Market", title = "Black market", body = "Rotating deals", words = "deals discount market buy", icon = "Shop" },
+		{ id = "Lottery", title = "Lottery", body = "Buy tickets for the draw", words = "tickets draw jackpot luck", icon = "Jackpot" },
+		{ id = "Contracts", title = "Contracts", body = "Daily jobs for rewards", words = "contracts jobs tasks daily", icon = "Mission" },
+	} do
+		add("Deal", deal.id, deal.title, deal.body, deal.words, deal.icon, { route = "Bazaar", query = "", category = deal.id })
 	end
 	for _, letter in GameConfig.Mail or {} do
 		if type(letter) == "table" and type(letter.Subject) == "string" then

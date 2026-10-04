@@ -1,6 +1,6 @@
 # Deep audit
 
-Files: 102 · errors: 0 · warnings: 1 · info: 261 · 3.1s
+Files: 102 · errors: 0 · warnings: 1 · info: 261 · 3.5s
 
 | Check | Findings |
 | --- | --- |
@@ -35,8 +35,8 @@ Files: 102 · errors: 0 · warnings: 1 · info: 261 · 3.1s
 - `src/Client/AstralForge/UiCore.luau:20155` %d is given 'def . TopBonusStardust [ 1 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesProgress.luau:289` %d is given 'upgrade . Tier', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesSocial.luau:141` %d is given 'seconds', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/pages/PagesSystem.luau:1358` %d is given 'command . Level', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/pages/PagesSystem.luau:2241` %d is given 'tier . Tier', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/pages/PagesSystem.luau:1385` %d is given 'command . Level', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/pages/PagesSystem.luau:2283` %d is given 'tier . Tier', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/ModuleLog.luau:29` %d is given 'value', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/Documents/DocumentService/SaveUtil.luau:109` %x is given 'v', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/EconomyMath.luau:1149` %d is given 'need', which may be fractional (truncated toward zero, NaN prints as a huge negative)
@@ -255,11 +255,11 @@ Files: 102 · errors: 0 · warnings: 1 · info: 261 · 3.1s
 - `src/Client/AstralForge/pages/PagesStory.luau:2397` function '?' is 2561 lines long
 - `src/Client/AstralForge/pages/PagesStory.luau:4021` function 'InventoryView' is 933 lines long
 - `src/Client/AstralForge/pages/PagesSystem.luau:21` function '?' is 782 lines long
-- `src/Client/AstralForge/pages/PagesSystem.luau:805` function '?' is 1610 lines long
-- `src/Client/AstralForge/pages/PagesSystem.luau:1083` function 'CommandViewReady' is 1266 lines long
-- `src/Client/AstralForge/pages/PagesSystem.luau:2417` function '?' is 1021 lines long
-- `src/Client/AstralForge/pages/PagesSystem.luau:2701` function 'AdminViewReady' is 628 lines long
-- `src/Client/AstralForge/pages/PagesSystem.luau:3444` function '?' is 1265 lines long
+- `src/Client/AstralForge/pages/PagesSystem.luau:805` function '?' is 1652 lines long
+- `src/Client/AstralForge/pages/PagesSystem.luau:1084` function 'CommandViewReady' is 1307 lines long
+- `src/Client/AstralForge/pages/PagesSystem.luau:2459` function '?' is 1025 lines long
+- `src/Client/AstralForge/pages/PagesSystem.luau:2747` function 'AdminViewReady' is 628 lines long
+- `src/Client/AstralForge/pages/PagesSystem.luau:3490` function '?' is 1265 lines long
 - `src/Client/SharedRuntime/modules/RuntimeKit.luau:50` function '?' is 609 lines long
 - `src/Server/AstralForge/Modules/EconomyMath.luau:21` function '?' is 659 lines long
 - `src/Server/AstralForge/Services/AdminService.luau:3` function '?' is 1222 lines long
