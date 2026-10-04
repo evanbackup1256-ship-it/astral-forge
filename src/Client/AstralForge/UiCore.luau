@@ -7821,7 +7821,14 @@ local function AppShell(_param)
 		end),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-	}, _exp_5, _exp_8, React.createElement(React.Fragment, nil, _condition_20, _condition_21, _exp_9, _exp_10, _exp_11, _condition_22))
+	}, _exp_5, _exp_8, React.createElement(React.Fragment, nil, _condition_20, _condition_21, _exp_9, _exp_10, _exp_11, _condition_22), React.createElement(require(script.Parent.QuickFind).QuickFind, {
+		state = state,
+		dispatch = dispatch,
+		navigate = navigateStable,
+		chatUnread = chat.unread,
+		reducedMotion = reducedMotion,
+		enabled = not hidden and not tutorialOpen and not domainOverlayActive and not showRelease,
+	}))
 	local _exp_13 = React.createElement("frame", {
 		Size = UDim2.fromOffset(186, 44),
 		Position = hideAmount:map(function(amount)
@@ -8959,7 +8966,9 @@ local function TopBar(_param)
 	local feedbackControlGap = if shortRow then 6 else 8
 	local showFeedbackControl = not (stacked and width < 360)
 	local feedbackControlW = if not showFeedbackControl then 0 elseif micro or stacked or width < 1480 then SHELL_CHROME.topbarControl else 116
-	local controlsW = SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
+	local searchControlW = if width < 340 then 0 elseif micro or stacked or width < 1280 then SHELL_CHROME.topbarControl else 112
+	local controlsBeforeSearch = SHELL_CHROME.topbarControl + playerControlGap + playerControlW + (if showFeedbackControl then feedbackControlGap + feedbackControlW else 0)
+	local controlsW = controlsBeforeSearch + (if searchControlW > 0 then feedbackControlGap + searchControlW else 0)
 	local fixedSingleRow = edgePad * 2 + (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 12 + (if visitPillWidth > 0 then visitPillWidth + 6 else 0) + (if countdownW > 0 then countdownW + 10 else 0)
 	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 6 else 0
 	local performanceW = if not stacked and fullPerformanceW > 0 and width - fixedSingleRow - fullPerformanceW - performanceGap < minimumResourceRoom then 0 else fullPerformanceW
@@ -9277,6 +9286,27 @@ local function TopBar(_param)
 			text = if feedbackControlW > SHELL_CHROME.topbarControl then "FEEDBACK" else "",
 			icon = "Chat",
 			size = UDim2.fromOffset(feedbackControlW, SHELL_CHROME.topbarControl),
+		}),
+	})), searchControlW > 0 and React.createElement("frame", {
+		Name = "QuickFindButton",
+		Size = UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
+		Position = UDim2.new(1, -(controlsRight + controlsW), 0, math.floor((row1H - SHELL_CHROME.topbarControl) / 2)),
+		BackgroundTransparency = 1,
+		ZIndex = 22,
+	}, React.createElement(Button, {
+		text = if searchControlW > SHELL_CHROME.topbarControl then "FIND" else "",
+		icon = "Search",
+		onClick = function()
+			require(script.Parent.QuickFind).open()
+		end,
+		color = Palette.panelSoft,
+		textColor = Palette.cream,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+		motion = resolvePressMotion({
+			text = if searchControlW > SHELL_CHROME.topbarControl then "FIND" else "",
+			icon = "Search",
+			size = UDim2.fromOffset(searchControlW, SHELL_CHROME.topbarControl),
 		}),
 	})))
 end

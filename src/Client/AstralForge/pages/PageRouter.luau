@@ -199,6 +199,7 @@ local function PageContentInner(props)
 		end
 		if page == "Missions" then
 			return React.createElement(MissionsView, {
+				navigate = props.navigate,
 				state = state,
 				config = config,
 				dispatch = dispatch,
@@ -207,6 +208,8 @@ local function PageContentInner(props)
 		end
 		if page == "Milestones" then
 			return React.createElement(MilestonesView, {
+				config = config,
+				navigate = props.navigate,
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
@@ -240,6 +243,8 @@ local function PageContentInner(props)
 		end
 		if page == "Rewards" then
 			return React.createElement(RewardsView, {
+				config = config,
+				navigate = props.navigate,
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
