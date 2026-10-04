@@ -1536,6 +1536,19 @@ return {
 }
 end
 
+__defs["chatText"] = function()
+local ChatText = {}
+function ChatText.limit(text, maxCharacters)
+	if type(text) ~= "string" then return "" end
+	local length = utf8.len(text)
+	if length == nil then return "" end
+	local cap = math.max(0, math.floor(maxCharacters or 160))
+	if length <= cap then return text end
+	return string.sub(text, 1, utf8.offset(text, cap + 1) - 1)
+end
+return ChatText
+end
+
 __defs["noticeMath"] = function()
 
 local NoticeMath = {}
@@ -3036,6 +3049,17 @@ local function banChoices(banned)
 	return choices
 end
 local function fieldsFor(command, config, banned)
+	if command == "SetFlux" or command == "SetVault" then
+		local choices=table.clone(FLUX)
+		table.insert(choices,1,{id="0",label="Set to zero"})
+		return pack(choices, "Exact value")
+	end
+	if command == "SetContinuumRank" or command == "SetFreeSpins" then
+		return pack(amountList({"0","1","5","10","25","50","100"}, "value", "Set"), "Exact value")
+	end
+	if command == "SetCores" or command == "SetStardust" or command == "SetRebirths" then
+		return pack(amountList({"0","1","10","100","1000","10000","1000000"}, "value", "Set"), "Exact value")
+	end
 	if command == "GrantFlux" then
 		return pack(FLUX, "How much flux")
 	end
@@ -4764,6 +4788,7 @@ local isConsoleMode = false
 local inputConnection: RBXScriptConnection? = nil
 local connectedConnection: RBXScriptConnection? = nil
 local disconnectedConnection: RBXScriptConnection? = nil
+local preferredConnection: RBXScriptConnection? = nil
 local initialized = false
 local previousAutoSelect = false
 local previousNavigation = false
@@ -4803,13 +4828,23 @@ function GamepadNavigationService.GetTVSafeInsets(viewportSize: Vector2): { top:
 end
 
 function GamepadNavigationService.GetHints(kind: string?): { { id: string, label: string } }
-	if kind == "tutorial" then
-		return TUTORIAL_HINTS
+	local source = if kind == "tutorial" then TUTORIAL_HINTS elseif kind == "crate" then CRATE_HINTS else CONTROLLER_HINTS
+	local keys = { A = Enum.KeyCode.ButtonA, B = Enum.KeyCode.ButtonB, X = Enum.KeyCode.ButtonX, Y = Enum.KeyCode.ButtonY,
+		LB = Enum.KeyCode.ButtonL1, RB = Enum.KeyCode.ButtonR1, LT = Enum.KeyCode.ButtonL2, RT = Enum.KeyCode.ButtonR2,
+		View = Enum.KeyCode.ButtonSelect, Start = Enum.KeyCode.ButtonStart }
+	local names = { ButtonCross="Cross", ButtonCircle="Circle", ButtonSquare="Square", ButtonTriangle="Triangle",
+		ButtonL1="L1", ButtonR1="R1", ButtonL2="L2", ButtonR2="R2", ButtonTouchpad="Touchpad", ButtonOptions="Options" }
+	local result = {}
+	for _, entry in source do
+		local label = string.gsub(entry.label, "%w+", function(token)
+			local key = keys[token]
+			if key == nil then return token end
+			local ok, mapped = pcall(UserInputService.GetStringForKeyCode, UserInputService, key)
+			return if ok then (names[mapped] or token) else token
+		end)
+		table.insert(result, {id=entry.id,label=label})
 	end
-	if kind == "crate" then
-		return CRATE_HINTS
-	end
-	return CONTROLLER_HINTS
+	return result
 end
 
 function GamepadNavigationService.GetHintLabels(kind: string?): { string }
@@ -4842,6 +4877,12 @@ function GamepadNavigationService.IsValidFocusTarget(object: Instance?): boolean
 		if current:IsA("GuiObject") and (current :: GuiObject).Visible == false then
 			return false
 		end
+		if current:IsA("LayerCollector") and not current.Enabled then return false end
+		if current:IsA("GuiObject") and current ~= gui and current.ClipsDescendants then
+			local p, size = current.AbsolutePosition, current.AbsoluteSize
+			local q, qs = gui.AbsolutePosition, gui.AbsoluteSize
+			if q.X+qs.X <= p.X or q.X >= p.X+size.X or q.Y+qs.Y <= p.Y or q.Y >= p.Y+size.Y then return false end
+		end
 		current = current.Parent
 	end
 	return true
@@ -4864,6 +4905,7 @@ function GamepadNavigationService.ClearSelection()
 end
 
 function GamepadNavigationService.FocusClaim(root: Instance?): GuiObject?
+	if game:GetService("VRService").VREnabled then return nil end
 	if not UserInputService.GamepadEnabled then
 		return nil
 	end
@@ -4958,7 +5000,7 @@ function GamepadNavigationService.Init()
 	previousAutoSelect = GuiService.AutoSelectGuiEnabled
 	previousNavigation = GuiService.GuiNavigationEnabled
 	local function syncGamepadMode()
-		isConsoleMode = UserInputService.GamepadEnabled
+		isConsoleMode = GuiService:IsTenFootInterface() or UserInputService.PreferredInput == Enum.PreferredInput.Gamepad
 		if isConsoleMode then
 			GamepadService:DisableGamepadCursor()
 			GuiService.AutoSelectGuiEnabled = true
@@ -4969,6 +5011,7 @@ function GamepadNavigationService.Init()
 		end
 	end
 	syncGamepadMode()
+	preferredConnection = UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(syncGamepadMode)
 	connectedConnection = UserInputService.GamepadConnected:Connect(syncGamepadMode)
 	disconnectedConnection = UserInputService.GamepadDisconnected:Connect(syncGamepadMode)
 
@@ -4992,6 +5035,7 @@ function GamepadNavigationService.Init()
 end
 
 function GamepadNavigationService.Stop()
+	if preferredConnection then preferredConnection:Disconnect(); preferredConnection = nil end
 	if inputConnection then inputConnection:Disconnect(); inputConnection = nil end
 	if connectedConnection then connectedConnection:Disconnect(); connectedConnection = nil end
 	if disconnectedConnection then disconnectedConnection:Disconnect(); disconnectedConnection = nil end

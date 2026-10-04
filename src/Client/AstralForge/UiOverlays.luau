@@ -3033,6 +3033,8 @@ local function MobileControls(_param)
 	end, { beginExit, exiting, onClose })
 	local screen = React.useState(function()
 		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+		local vrScreen = playerGui:FindFirstChild("AstralForgeVR")
+		if vrScreen and vrScreen.Enabled then return vrScreen:FindFirstChild("Overlay") end
 		local rootScreen = playerGui:FindFirstChild("AstralForgeStudioUI")
 		return if rootScreen ~= nil and rootScreen:IsA("ScreenGui") then rootScreen else playerGui
 	end)

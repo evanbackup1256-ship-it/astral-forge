@@ -36,6 +36,10 @@ return function(realFs)
 		local slice = string.sub(source, bodyStart, bodyEnd)
 		-- drop the closure's trailing `end` (and any blank lines after it)
 		slice = string.gsub(slice, "\nend%s*$", "\n")
+		-- Follow the two planning adapters to the source that actually renders them.
+		if string.find(slice, "require(script.Parent.Parent.PlanningViews)", 1, true) then
+			return readText("src/Client/AstralForge/PlanningViews.luau")
+		end
 		return slice
 	end
 

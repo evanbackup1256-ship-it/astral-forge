@@ -161,6 +161,8 @@ local function PageContentInner(props)
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
+				config = config,
+				navigate = props.navigate,
 			})
 		end
 		if page == "Convergence" then
@@ -184,6 +186,7 @@ local function PageContentInner(props)
 				config = config,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
+				navigate = props.navigate,
 			})
 		end
 		if page == "Worlds" then
@@ -232,6 +235,7 @@ local function PageContentInner(props)
 				config = config,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
+				onBusyChange = props.setArcadeBusy,
 			})
 		end
 		if page == "Rewards" then

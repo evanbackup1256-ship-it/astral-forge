@@ -149,6 +149,12 @@ function Tokens.exitSeconds(entrance: number): number
 	return math.clamp(entrance * 0.65, 0.1, 0.22)
 end
 
+function Tokens.entranceSpring(duration: number, soft: boolean?): (number, number)
+	local span = if type(duration) == "number" and duration == duration then math.clamp(duration, 0.08, 0.5) else 0.22
+	local frequency = math.clamp(4 / (2 * math.pi * span), Tokens.FREQUENCY_MIN, Tokens.FREQUENCY_MAX)
+	return frequency * 130 * (if soft then 0.82 else 1), 52
+end
+
 Tokens.STAGGER_STEP = 0.028
 Tokens.STAGGER_CAP = 0.24
 function Tokens.stagger(index: number, step: number?): number
@@ -462,13 +468,15 @@ local function AutoScale(_param)
 			end
 		end
 	end, {})
-	local screenWidth = math.max(1, screen.X)
-	local screenHeight = math.max(1, screen.Y)
+	local vrWidth = workspace:GetAttribute("AstralForgeVRCanvasWidth")
+	local vrHeight = workspace:GetAttribute("AstralForgeVRCanvasHeight")
+	local screenWidth = math.max(1, vrWidth or screen.X)
+	local screenHeight = math.max(1, vrHeight or screen.Y)
 	local safeOriginY = if safeHostRef.current then safeHostRef.current.AbsolutePosition.Y else 0
 	local keyboardOpen = UserInputService.TouchEnabled and UserInputService.OnScreenKeyboardVisible
 	local usableScreenHeight = keyboardTop(screenHeight, safeOriginY)
-	local chromeScale = Layout.chromeScale
-	local tvSafe = if UserInputService.GamepadEnabled and GuiService.ViewportDisplaySize == Enum.DisplaySize.Large
+	local chromeScale = if vrWidth then 1 else Layout.chromeScale
+	local tvSafe = if not vrWidth and GuiService:IsTenFootInterface()
 		then GamepadNavigationService.GetTVSafeInsets(Vector2.new(screenWidth, screenHeight))
 		else { top = 0, bottom = 0, left = 0, right = 0 }
 	local hostWidth = math.round(math.min(Layout.maxShellWidth, math.max(1, screenWidth - tvSafe.left - tvSafe.right)))
@@ -481,9 +489,9 @@ local function AutoScale(_param)
 	local consoleLike = UserInputService.GamepadEnabled and not UserInputService.MouseEnabled and not UserInputService.TouchEnabled
 	local tenFoot = desktop and screenWidth >= 1280 and screenHeight >= 720 and (preferredPad or consoleLike or (UserInputService.GamepadEnabled and GuiService.ViewportDisplaySize == Enum.DisplaySize.Large))
 	local scale = computeViewportScale(layoutWidth, layoutHeight)
-	local scaledInset = math.max(0, math.ceil(insets.top / chromeScale))
-	local bottomInset = if keyboardOpen then 0 else math.max(0, math.ceil(insets.bottom / chromeScale))
-	local sideInset = math.max(0, math.ceil(math.max(insets.left, insets.right) / chromeScale))
+	local scaledInset = if vrWidth then 0 else math.max(0, math.ceil(insets.top / chromeScale))
+	local bottomInset = if keyboardOpen or vrWidth then 0 else math.max(0, math.ceil(insets.bottom / chromeScale))
+	local sideInset = if vrWidth then 0 else math.max(0, math.ceil(math.max(insets.left, insets.right) / chromeScale))
 	local compact = layoutWidth < Breakpoints.compact
 	local tight = layoutWidth < Breakpoints.tight
 	local short = math.min(layoutHeight, screenHeight) < Breakpoints.short
@@ -1123,7 +1131,6 @@ local function pumpArrivals()
 			pendingArrivals[motor] = nil
 			pendingArrivalCount -= 1
 			if motor.alive == nil or motor:alive() then
-				motor:configure(MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
 				motor:setGoal(1)
 			end
 		end
@@ -1730,8 +1737,7 @@ local function useTokenEntrance(token, reducedMotion, duration)
 	local skipRef = React.useRef(skip)
 	skipRef.current = skip
 	local motor = React.useRef()
-	local stiffness = MotionTokens.SPRING.gentle.stiffness
-	local damping = MotionTokens.SPRING.gentle.damping
+	local stiffness, damping = MotionTokens.entranceSpring(duration, useMotionSettings().soft == true or reducedMotion == true)
 	if motor.current == nil then
 		motor.current = createFlipperMotor(0, stiffness, damping)
 	end
@@ -1785,8 +1791,9 @@ local function useStagger(index, reducedMotion, step, duration)
 	local skipRef = React.useRef(skip)
 	skipRef.current = skip
 	local motor = React.useRef()
+	local stiffness, damping = MotionTokens.entranceSpring(duration, useMotionSettings().soft == true or reducedMotion == true)
 	if motor.current == nil then
-		motor.current = createFlipperMotor(0, MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
+		motor.current = createFlipperMotor(0, stiffness, damping)
 	end
 	React.useEffect(function()
 		local active = motor.current
@@ -1810,12 +1817,12 @@ local function useStagger(index, reducedMotion, step, duration)
 		active:halt()
 		active:setPosition(0)
 		setBinding(0)
-		active:configure(MotionTokens.SPRING.smooth.stiffness, MotionTokens.SPRING.smooth.damping)
+		active:configure(stiffness, damping)
 		scheduleArrival(active, MotionTokens.stagger(index, step))
 		return function()
 			cancelArrival(active)
 		end
-	end, { duration, index, setBinding, step })
+	end, { damping, duration, index, setBinding, step, stiffness })
 	return binding
 end
 local function useClock(enabled, speed, period, realtime)

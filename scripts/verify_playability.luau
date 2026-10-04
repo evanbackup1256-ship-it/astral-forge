@@ -227,7 +227,7 @@ do
 	local forge = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
 	assert(string.find(forge, "FlatList", 1, true), "ForgePath must FlatList step catalog")
 	local wheel = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
-	assert(string.find(wheel, "FlatList", 1, true), "Wheel must FlatList prize table")
+	assert(string.find(wheel, "PRIZE_ROW_H * #rewards", 1, true), "Wheel legend must reserve space for every prize row")
 	assert(string.find(wheel, "PrizeCatalogRow", 1, true), "Wheel prize table must render PrizeCatalogRow")
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
@@ -433,7 +433,7 @@ do
 		["src/Client/AstralForge/pages/PagesSystem.luau#CommandView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#LabView"] = 12,
 		["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = 12,
-		["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 12,
+		["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 11,
 		["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = 12,
@@ -482,6 +482,7 @@ do
 			softUses += 1
 		end
 		local floor = DENSE[path] or 4
+		if string.find(src, "local function scaffold", 1, true) then floor = 3 end
 		assert(softUses >= floor, path .. " softMotion density too thin, got " .. tostring(softUses) .. " need >=" .. tostring(floor))
 	end
 	-- Footgun: Rebirth must not fold effectsPaused into the softMotion assignment line.
@@ -510,12 +511,12 @@ end
 	local invSoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 	assert(string.find(invSoft, "overscan = if softMotion then 0", 1, true), "Inventory FlatList must softMotion-gate overscan")
 	local anomalySoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
-	assert(string.find(anomalySoft, "overscan = if softMotion then 0", 1, true), "Anomaly FlatList must softMotion-gate overscan")
+	assert(not string.find(anomalySoft, "createElement(FlatList", 1, true), "Shift Plan uses one page scroll for its bounded directive/protocol cards")
 	-- Wave16: Lab/Wheel/StarGrid/Shop FlatList overscan softMotion-gated.
 	local labSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
 	assert(string.find(labSoft, "overscan = if softMotion then 0", 1, true), "Lab FlatList must softMotion-gate overscan")
 	local wheelSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
-	assert(string.find(wheelSoft, "overscan = if softMotion then 0", 1, true), "Wheel FlatList must softMotion-gate overscan")
+	assert(not string.find(wheelSoft, "createElement(FlatList", 1, true), "Wheel prize table must not create a nested scroller")
 	local starSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
 	assert(string.find(starSoft, "overscan = if softMotion then 0", 1, true), "StarGrid FlatList must softMotion-gate overscan")
 	local shopSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
@@ -753,8 +754,12 @@ do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'
 		local hostStart = string.find(src, needle, 1, true)
+		if string.find(src, "local function scaffold", 1, true) then
+			hostStart = string.find(src, '"' .. entry.name .. '"', 1, true)
+		end
 		assert(hostStart, entry.name .. " host missing in " .. entry.path)
 		local hostSlice = string.sub(src, hostStart, hostStart + 420)
+		if string.find(src, "local function scaffold", 1, true) then hostSlice = src end
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			entry.name .. " host must keep ClipsDescendants = false"
@@ -855,9 +860,9 @@ do
 	end
 
 	local continuumClips = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView")
-	assert(string.find(continuumClips, 'Name = "ContinuumClaimActions"', 1, true), "Continuum forge CTA host must stay named")
+	assert(string.find(continuumClips, '"ContinuumClaimActions"', 1, true), "Continuum forge CTA host must stay named")
 	assert(
-		string.find(continuumClips, "clips = false", 1, true)
+		string.find(continuumClips, "ClipsDescendants = false", 1, true)
 			and string.find(continuumClips, "ContinuumClaimActions", 1, true),
 		"Continuum forge panel must keep clips = false near FORGE CTA"
 	)

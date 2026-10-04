@@ -7152,6 +7152,7 @@ function GameConfig.ResolveExpedition(id: string)
 			CommandXP = 90 + index * 16,
 		},
 		ArtifactChance = math.clamp(0.8 - index * 0.0015, 0.12, 0.8),
+		ArtifactId = GameConfig.Operations.Artifacts[(index - 1) % #GameConfig.Operations.Artifacts + 1].Id,
 		Color = Color3.fromHSV(hue, 0.5, 0.9),
 	}
 end
@@ -7173,6 +7174,7 @@ local function generateExpeditions()
 				CommandXP = 90 + index * 16,
 			},
 			ArtifactChance = math.clamp(0.8 - index * 0.0015, 0.12, 0.8),
+			ArtifactId = GameConfig.Operations.Artifacts[(index - 1) % #GameConfig.Operations.Artifacts + 1].Id,
 			Color = Color3.fromHSV(hue, 0.5, 0.9),
 		})
 	end

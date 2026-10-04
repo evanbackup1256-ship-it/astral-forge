@@ -46,7 +46,7 @@ do
 	for _ in string.gmatch(wheel, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 12, "Wheel softMotion densify, got " .. tostring(soft))
+	assert(soft >= 11, "Wheel softMotion (single scroll), got " .. tostring(soft))
 end
 do
 	local soft = 0

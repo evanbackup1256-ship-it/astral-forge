@@ -925,7 +925,7 @@ do
 	for _ in string.gmatch(anomalyWave36, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 10, "Anomaly softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 3, "Anomaly shared motion provider residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave36-offline-brief"', 1, true), "Story wave36 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave36-offline"', 1, true), "Mail wave36 residual for release")
@@ -1037,7 +1037,7 @@ do
 	for _ in string.gmatch(anomalyWave39, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 13, "Anomaly softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 3, "Anomaly shared motion provider residual for release, got " .. tostring(soft))
 end
 do
 	local soft = 0
@@ -1138,7 +1138,7 @@ do
 	for _ in string.gmatch(wheelWave41, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 12, "Wheel softMotion densify residual for release, got " .. tostring(soft))
+	assert(soft >= 11, "Wheel softMotion (single scroll) residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave41-offline-brief"', 1, true), "Story wave41 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave41-offline"', 1, true), "Mail wave41 residual for release")

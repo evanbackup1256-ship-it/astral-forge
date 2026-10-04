@@ -2512,6 +2512,8 @@ local Meter = _ui.Meter
 local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
+local Social = require(game.ReplicatedStorage.AstralForge.Shared.SocialProgression)(require(game.ReplicatedStorage.AstralForge.Shared.OmegaMath))
+local createRequest = require(script.Parent.Parent.ActionRequest)
 local ROLE_RANK = {
 	Leader = 0,
 	Officer = 1,
@@ -2995,7 +2997,8 @@ local function MemberRow(_param)
 		_condition = 0
 	end
 	local userId = _condition
-	local manageable = canManage and not isLeader
+	local manageable = canManage and Social.canManage({Role=_param.myRole or "Leader"},{Role=role},"Kick")
+	local canPromote = (_param.myRole or "Leader") == "Leader"
 	local height = if stack then 122 elseif manageable then 112 else 84
 	return React.createElement(Panel, {
 		size = UDim2.new(1, 0, 0, height),
@@ -3042,7 +3045,7 @@ local function MemberRow(_param)
 		position = UDim2.fromOffset(44, 52),
 		sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 14),
 	}), manageable and React.createElement(React.Fragment, nil, React.createElement(Button, {
-		text = if role == "Officer" then "DEMOTE" else "PROMOTE",
+		text = if not canPromote then "LEADER ONLY" elseif role == "Officer" then "DEMOTE" else "PROMOTE",
 		onClick = function()
 			if not busy then
 				dispatch("SetGuildRole", {
@@ -3053,14 +3056,14 @@ local function MemberRow(_param)
 		end,
 		color = Palette.panelSoft,
 		textColor = Palette.creamSoft,
-		disabled = busy,
+		disabled = busy or not canPromote,
 		loading = busy,
 		shakeToken = shakeToken,
 		size = if stack then UDim2.new(0.5, -4, 0, 40) else UDim2.new(0.5, -4, 0, 40),
 		position = if stack then UDim2.new(0, 0, 1, -40) else UDim2.new(0, 0, 1, -40),
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
-		text = "KICK",
+		text = if _param.confirmKick then "CONFIRM KICK" else "KICK",
 		onClick = function()
 			if not busy then
 				dispatch("KickGuildMember", {
@@ -3337,7 +3340,14 @@ local function GuildView(_param)
 	local bankReveal = useStagger(1, softMotion)
 	local membersReveal = useStagger(2, softMotion)
 	local goalReveal = useStagger(3, softMotion)
-	local busy, setBusy = React.useState(false)
+	local _, refreshRequest = React.useState(0)
+	local request = React.useMemo(function()
+		return createRequest(dispatch,task.delay,function() refreshRequest(function(v) return v+1 end) end)
+	end,{dispatch})
+	React.useEffect(function() request.alive=true;return function() request.dispose() end end,{request})
+	local busy=request.busy
+	local confirmation=React.useRef(nil)
+	local pane,setPane=React.useState(_param.initialTab or "Overview")
 	local shakeToken, setShakeToken = React.useState(0)
 	local contributeCash, setContributeCash = React.useState("")
 	local contributeDust, setContributeDust = React.useState("")
@@ -3347,20 +3357,26 @@ local function GuildView(_param)
 	React.useEffect(function()
 		dispatch("GetGuild", {})
 	end, { dispatch })
-	local send = React.useCallback(function(action, payload, callback)
-		setBusy(true)
-		dispatch(action, payload, function(response)
-			setBusy(false)
-			if not response.ok then
-				setShakeToken(function(token)
-					return token + 1
-				end)
+	local send = function(action,payload,callback)
+		if request.busy then return false end
+		if action=="LeaveGuild" or action=="DisbandGuild" or action=="KickGuildMember" then
+			local key=action..":"..tostring(payload and payload.UserId or "")
+			if not confirmation.current or confirmation.current.key~=key or os.clock()>confirmation.current.untilTime then
+				confirmation.current={key=key,untilTime=os.clock()+8}
+				request.status="Press the same action again within 8 seconds to confirm. Leaving a guild does not refund contributions."
+				refreshRequest(function(v) return v+1 end)
+				return false
 			end
-			if callback ~= nil then
-				callback(response)
-			end
+		end
+		confirmation.current=nil
+		return request.run(action,payload,function(response)
+			if not response.ok then setShakeToken(function(token) return token+1 end) end
+			if callback then callback(response) end
 		end)
-	end, { dispatch })
+	end
+	local function statusSection()
+		return {id="guild-feedback",height=96,element=React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},React.createElement(Text,{value=if request.status~="" then request.status else "Guild actions show their results here. Your role determines which actions are available.",size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,64)}))}
+	end
 	if guild == nil or guild.Id == "" then
 		local guide = if config.ClientPageGuides ~= nil then config.ClientPageGuides.Guild else nil
 		local pageGap = if stack then 12 else Layout.panelGap
@@ -3371,6 +3387,7 @@ local function GuildView(_param)
 			scrollBarColor = Palette.violet,
 			scrollBarThickness = 4,
 			sections = {
+				statusSection(),
 				{
 					id = "empty-hero",
 					height = 128,
@@ -3482,7 +3499,7 @@ local function GuildView(_param)
 	local goalHeight = if guild.Goal == nil then 116 elseif stack then 234 else 196
 	local bankHeight = if stack then 310 else 216
 	local upgradeHeight = if stack then 180 else 140
-	local memberHeight = if stack then 122 elseif canManage then 112 else 84
+	local memberHeight = if stack then 122 elseif canBuy then 112 else 84
 	local sectionLabelH = 34
 	local heroSurface = darken(Palette.violet, 0.9)
 	local _attributes = {}
@@ -3582,7 +3599,7 @@ local function GuildView(_param)
 		reducedMotion = softMotion,
 		clips = false,
 	}, _exp_4, _exp_5, _exp_6, React.createElement(Text, _attributes_1), if canManage and #members == 1 then React.createElement(Button, {
-		text = "DISBAND",
+		text = if confirmation.current and confirmation.current.key=="DisbandGuild:" then "CONFIRM DISBAND" else "DISBAND",
 		onClick = function()
 			if not busy then
 				send("DisbandGuild", {})
@@ -3597,7 +3614,7 @@ local function GuildView(_param)
 		position = if stack then UDim2.new(0, 0, 1, -42) else UDim2.new(1, -140, 1, -42),
 		reducedMotion = softMotion,
 	}) else React.createElement(Button, {
-		text = "LEAVE",
+		text = if confirmation.current and confirmation.current.key=="LeaveGuild:" then "CONFIRM LEAVE" else "LEAVE",
 		onClick = function()
 			if not busy then
 				send("LeaveGuild", {})
@@ -3822,7 +3839,9 @@ local function GuildView(_param)
 			goalShare = share,
 			share = if totalContributed > 0 then member.contributed / totalContributed else 0,
 			isLocal = member.key == localKey,
-			canManage = canManage and member.key ~= localKey,
+			canManage = canBuy and member.key ~= localKey,
+			myRole = myRole,
+			confirmKick = confirmation.current and confirmation.current.key=="KickGuildMember:"..tostring(member.key),
 			isLeader = member.role == "Leader",
 			stack = stack,
 			reducedMotion = reducedMotion,
@@ -3849,52 +3868,36 @@ local function GuildView(_param)
 		Padding = UDim.new(0, pageGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), memberChildren)
-	return React.createElement(PageScaffold, {
-		gap = pageGap,
-		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 80),
-		scrollBarColor = Palette.violet,
-		scrollBarThickness = 4,
-		sections = {
-			{
-				id = "hero",
-				height = heroHeight,
-				element = _exp_11,
-			},
-			{
-				id = "goal",
-				height = goalHeight,
-				element = _exp_12,
-			},
-			{
-				id = "bank",
-				height = bankHeight,
-				element = _exp_19,
-			},
-			{
-				id = "upgrades-label",
-				height = sectionLabelH,
-				element = _exp_20,
-			},
-			{
-				id = "upgrades",
-				height = upgradeBlockH,
-				element = upgradeList,
-			},
-			{
-				id = "members-label",
-				height = sectionLabelH,
-				element = React.createElement(SectionLabel, {
-					value = "MEMBERS",
-					color = Palette.cyan,
-				}),
-			},
-			{
-				id = "members",
-				height = memberBlockH,
-				element = memberList,
-			},
-		},
-	})
+	local hall=Social.hall(guild)
+	local tabs={}
+	local columns=if stack then 2 else 4
+	for index,id in {"Overview","Treasury","Upgrades","Members"} do
+		tabs[index]=React.createElement(Button,{text=string.upper(id),size=UDim2.new(1/columns,-6,0,48),position=UDim2.new(((index-1)%columns)/columns,0,0,math.floor((index-1)/columns)*56),color=if pane==id then Palette.violet else Palette.panelSoft,onClick=function() setPane(id) end,reducedMotion=softMotion})
+	end
+	local sections={
+		{id="hero",height=heroHeight,element=_exp_11},
+		statusSection(),
+		{id="guild-navigation",height=if stack then 112 else 56,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
+	}
+	local function add(id,height,element) table.insert(sections,{id=id,height=height,element=element}) end
+	if pane=="Overview" then
+		add("hall-progress",174,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.mint},
+			React.createElement(Text,{value=`HALL LEVEL {hall.Level} · {hall.Title}`,size=19,wrap=true,sizeConstraint=UDim2.new(1,0,0,42)}),
+			React.createElement(Meter,{value=hall.Progress,position=UDim2.fromOffset(0,52),size=UDim2.new(1,0,0,10),color=Palette.mint,reducedMotion=softMotion}),
+			React.createElement(Text,{value=`{hall.Remaining} more hall upgrades to level up. Every five installed upgrade levels earn a hall level. Hall titles celebrate progress; upgrade bonuses apply separately.`,position=UDim2.fromOffset(0,78),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,64)})))
+		add("goal",goalHeight,_exp_12)
+	elseif pane=="Treasury" then
+		add("bank",bankHeight,_exp_19)
+	elseif pane=="Upgrades" then
+		add("upgrades-label",sectionLabelH,_exp_20)
+		add("upgrades",upgradeBlockH,upgradeList)
+	else
+		add("role-policy",176,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
+			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,sizeConstraint=UDim2.new(1,0,0,28)}),
+			React.createElement(Text,{value="Leader: assigns roles and manages the hall. Officer: buys upgrades and removes members. Member: contributes and earns goal rewards. If the leader leaves, an officer succeeds first, then the earliest joiner; user ID breaks ties.",position=UDim2.fromOffset(0,40),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,104)})))
+		add("members",memberBlockH,memberList)
+	end
+	return React.createElement(PageScaffold,{gap=12,tailPad=scrollTail(chrome.stack,chrome.bottomSafe,80),scrollBarColor=Palette.violet,scrollBarThickness=4,sections=sections})
 
 end
 return {
@@ -4723,6 +4726,12 @@ local GAP = Layout.stackGap
 local SIDE_INSET = 12
 local STATUS_RESERVE = 128
 local NEAR_BOTTOM = 96
+local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
+local EMPTY_CHAT = {
+	messages = {}, unread = 0, connected = false,
+	send = function(_, done) if done then done(false, "Chat is still connecting.") end end,
+	clear = function() end,
+}
 local TAG_COLORS = { Palette.cyan, Palette.mint, Palette.violet, Palette.mango, Palette.pink, Palette.blue }
 local function userColor(userId)
 	return TAG_COLORS[math.abs(userId) % #TAG_COLORS + 1]
@@ -4955,7 +4964,7 @@ local function MessageRow(_param)
 	})))
 end
 local function ChatView(_param)
-	local chat = _param.chat
+	local chat = _param.chat or EMPTY_CHAT
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -4974,7 +4983,7 @@ local function ChatView(_param)
 	local viewHeight, setViewHeight = React.useState(0)
 	local input = React.useRef()
 	local stickBottom = React.useRef(true)
-	local lastCount = React.useRef(0)
+	local lastMessageId = React.useRef(nil)
 	local sendAttempt = React.useRef(0)
 	local chatClaimHostRef = React.useRef(nil)
 	local headerReveal = useStagger(0, softMotion)
@@ -4989,6 +4998,7 @@ local function ChatView(_param)
 	local enteredIds = React.useRef({})
 	local listFrame = React.useRef(nil)
 	local count = #chat.messages
+	local latestMessageId = if count > 0 then chat.messages[count].id else nil
 	local stackH = math.max(0, count) * rowHeight
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local renderedIds = {}
@@ -5056,11 +5066,11 @@ local function ChatView(_param)
 		end
 	end, { listFrame, count, topPad })
 	React.useEffect(function()
-		if count > lastCount.current then
+		if latestMessageId ~= lastMessageId.current then
 			scrollToBottom()
 		end
-		lastCount.current = count
-	end, { count, scrollToBottom })
+		lastMessageId.current = latestMessageId
+	end, { latestMessageId, scrollToBottom })
 	React.useEffect(function()
 		scrollToBottom(true)
 	end, { scrollToBottom })
@@ -5311,7 +5321,7 @@ local function ChatView(_param)
 		MaxVisibleGraphemes = 160,
 		Change = {
 			Text = function(box)
-				return setDraft(string.sub(box.Text, 1, 160))
+				return setDraft(ChatText.limit(box.Text, 160))
 			end,
 		},
 		Event = {

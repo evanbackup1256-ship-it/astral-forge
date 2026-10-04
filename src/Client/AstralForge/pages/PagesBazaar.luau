@@ -178,6 +178,7 @@ local function BazaarView(props)
 	local tier, setTier = React.useState(2)
 	local term, setTerm = React.useState("T6")
 	local busy, setBusy = React.useState(false)
+	local busyRef = React.useRef(false)
 	local note, setNote = React.useState({ text = "Welcome to the Bazaar. Bank some flux, snap up a deal, or try your luck on a ticket.", good = nil })
 	local fx, setFx = React.useState({ token = 0, power = 1 })
 	local mode, setMode = React.useState("idle")
@@ -190,15 +191,17 @@ local function BazaarView(props)
 	end, {})
 
 	local function play(payload, cue, power)
-		if busy or bazaar == nil then
+		if busyRef.current or bazaar == nil then
 			return
 		end
+		busyRef.current = true
 		setBusy(true)
 		sfx("casino_chip", 0.5)
 		dispatch("BazaarPlay", payload, function(response)
 			if not mounted.current then
 				return
 			end
+			busyRef.current = false
 			setBusy(false)
 			if response.ok then
 				setNote({ text = response.message or "", good = true })

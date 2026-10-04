@@ -785,6 +785,7 @@ local TextChatService = game:GetService("TextChatService")
 local Audio = require(script.Parent.AudioKit)("audio").Audio
 local MAX_MESSAGES = 120
 local MAX_INPUT = 160
+local ChatText = require(script.Parent.CoreKit)("chatText")
 local CHANNEL_NAME = "RBXGeneral"
 local function readTitleAttrs(player)
 	if player == nil then
@@ -1011,7 +1012,7 @@ local function useGameChat(active, enabled)
 			end
 			return nil
 		end
-		local forSend = string.sub(raw, 1, MAX_INPUT)
+		local forSend = ChatText.limit(raw, MAX_INPUT)
 		local trimmed = (string.gsub((string.gsub(forSend, "^%s+", "")), "%s+$", ""))
 		if trimmed == "" then
 			local _result = done
@@ -1069,6 +1070,10 @@ local function useGameChat(active, enabled)
 				return nil
 			end
 			local delivered = result
+			if delivered == nil then
+				if done then done(false, "Roblox did not confirm the message. Try again.") end
+				return nil
+			end
 			if delivered.Status ~= Enum.TextChatMessageStatus.Success then
 				local name = tostring(delivered.Status)
 				if (string.find(name, "Sending")) == nil and (string.find(name, "Pending")) == nil then
