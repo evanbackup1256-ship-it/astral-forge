@@ -77,6 +77,7 @@ local KIND_META = {
 	Milestone = { label = "Milestone", weight = 0.85, accent = "mango", route = "Milestones", icon = "Milestone" },
 	Story = { label = "Story", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
 	Letter = { label = "Letter", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
+	Section = { label = "Shop", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
 }
 
 local function accentOf(key)
@@ -164,6 +165,15 @@ local function buildStatic()
 		if type(chapter) == "table" and type(chapter.Title) == "string" then
 			add("Story", chapter.Id or chapter.Title, chapter.Title, `{chapter.Chapter or ""} · {chapter.Summary or ""}`, "story chapter lore")
 		end
+	end
+	for _, section in {
+		{ id = "Daily", title = "Daily shop", body = "Today's rotating offers", words = "deals daily offers rotation", icon = "Calendar" },
+		{ id = "Crates", title = "Crates", body = "Open crates with your keys", words = "keys open loot boxes", icon = "Crate" },
+		{ id = "Skins", title = "Crate skins", body = "Change how your crates look", words = "cosmetics skins looks", icon = "Crate" },
+		{ id = "Codex", title = "Relic codex", body = "Every relic, fusing and stars", words = "collection codex fuse stars relics", icon = "Artifact" },
+		{ id = "Premium", title = "Premium shop", body = "Packs, passes and codes", words = "robux gamepass passes packs codes redeem", icon = "Shop" },
+	} do
+		add("Section", section.id, section.title, section.body, section.words, section.icon, { route = "Shop", query = "", category = section.id })
 	end
 	for _, letter in GameConfig.Mail or {} do
 		if type(letter) == "table" and type(letter.Subject) == "string" then

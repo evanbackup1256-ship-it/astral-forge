@@ -1251,6 +1251,7 @@ local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 local ShopCatalog = SharedData("ShopCatalog")
 local RelicSystem = SharedData("RelicSystem")
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local h = React.createElement
 local GAP = 10
@@ -2254,8 +2255,25 @@ local function SkinsSection(props)
 		end)
 	end
 	local columns = if stack then 2 elseif props.width >= 1000 then 4 else 3
+	local ownedSkins = cosmetics.CrateSkins or {}
+	local skinBrowse = Browse.useBrowse({
+		id = "Skins",
+		items = ShopCatalog.SKINS,
+		text = function(entry)
+			return { entry.Name, entry.Description, entry.Rarity }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Owned", label = "Owned", test = function(entry)
+				return ownedSkins[entry.Id] == true
+			end },
+			{ id = "Locked", label = "Not owned", test = function(entry)
+				return ownedSkins[entry.Id] ~= true
+			end },
+		},
+	})
 	local cells = {}
-	for index, entry in ShopCatalog.SKINS do
+	for index, entry in skinBrowse.results do
 		cells[entry.Id] = h(SkinCard, {
 			skin = entry,
 			order = index,
@@ -2267,7 +2285,7 @@ local function SkinsSection(props)
 		})
 	end
 	local cellH = 156
-	local gridH = rowsHeight(#ShopCatalog.SKINS, columns, cellH)
+	local gridH = rowsHeight(math.max(1, #skinBrowse.results), columns, cellH)
 	return React.createElement(PageScaffold, {
 		gap = GAP,
 		tailPad = props.tailPad,
@@ -2299,6 +2317,17 @@ local function SkinsSection(props)
 					busy = busy,
 					onAction = onAction,
 					reducedMotion = props.reducedMotion,
+				}),
+			},
+			{
+				id = "filter",
+				height = Browse.CHIP_H,
+				element = h(Browse.ChipRow, {
+					options = skinBrowse.categories,
+					value = skinBrowse.category,
+					onChange = skinBrowse.setCategory,
+					counts = skinBrowse.counts,
+					accent = Palette.cyan,
 				}),
 			},
 			{
@@ -2468,6 +2497,39 @@ local function CodexSection(props)
 			stars[id] = math.max(stars[id] or 0, RelicSystem.stars(instance))
 		end
 	end
+	local function isFound(definition)
+		return discovered[definition.Id] == true or (copies[definition.Id] or 0) > 0
+	end
+	local function canFuseRelic(definition)
+		return (copies[definition.Id] or 0) >= 2 and RelicSystem.fusionPair(inventory, items.Equipped, definition.Id, maxStars) ~= nil
+	end
+	local codexBrowse = Browse.useBrowse({
+		id = "Codex",
+		items = definitions,
+		textKey = tostring(#inventory),
+		text = function(definition)
+			-- undiscovered relics only match on slot and rarity, so search never spoils names
+			if isFound(definition) then
+				return { definition.Name, definition.Description, definition.Rarity, definition.Slot, definition.EffectKind }
+			end
+			return { nil, nil, definition.Rarity, definition.Slot }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Found", label = "Found", test = isFound },
+			{ id = "Missing", label = "Missing", test = function(definition)
+				return not isFound(definition)
+			end },
+			{ id = "Owned", label = "Owned", test = function(definition)
+				return (copies[definition.Id] or 0) > 0
+			end },
+			{ id = "Fuse", label = "Can fuse", test = canFuseRelic },
+		},
+	})
+	local shownIds = {}
+	for _, definition in codexBrowse.results do
+		shownIds[definition.Id] = true
+	end
 	local fuse = function(definition)
 		if busy then
 			return
@@ -2517,16 +2579,42 @@ local function CodexSection(props)
 			reducedMotion = props.reducedMotion,
 		}),
 	})
+	table.insert(sections, {
+		id = "browse",
+		height = Browse.barHeight(stack, true),
+		element = h(Browse.BrowseBar, {
+			browse = codexBrowse,
+			placeholder = "Search relics by name, slot or rarity",
+			accent = Palette.mint,
+			stack = stack,
+			reducedMotion = props.reducedMotion,
+			zIndex = 30,
+		}),
+	})
+	if #codexBrowse.results == 0 then
+		table.insert(sections, {
+			id = "none",
+			height = 220,
+			element = h(Browse.NoResults, {
+				browse = codexBrowse,
+				noun = "relics",
+				icon = "Artifact",
+				accent = Palette.mint,
+				reducedMotion = props.reducedMotion,
+				size = UDim2.fromScale(1, 1),
+			}),
+		})
+	end
 	for index = #RelicSystem.ORDER, 1, -1 do
 		local rarity = RelicSystem.ORDER[index]
 		local cells = {}
 		local count = 0
 		for order, definition in definitions do
-			if definition.Rarity ~= rarity then
+			if definition.Rarity ~= rarity or not shownIds[definition.Id] then
 				continue
 			end
 			count += 1
-			local canFuse = (copies[definition.Id] or 0) >= 2 and RelicSystem.fusionPair(inventory, items.Equipped, definition.Id, maxStars) ~= nil
+			local canFuse = canFuseRelic(definition)
 			cells[definition.Id] = h(RelicCell, {
 				definition = definition,
 				order = order,
@@ -2577,7 +2665,19 @@ local function StoreFront(props)
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local softMotion = props.reducedMotion
-	local section, setSection = React.useState(props.initialSection or "Daily")
+	local linked = Browse.Model.recall("Shop")
+	local section, setSection = React.useState(props.initialSection or (linked and linked.category) or "Daily")
+	-- Quick Find opens a section directly ("crates", "codex", "skins" ...)
+	React.useEffect(function()
+		return Browse.Model.listen("Shop", function(entry)
+			if entry.category ~= nil then
+				setSection(entry.category)
+			end
+		end)
+	end, {})
+	React.useEffect(function()
+		Browse.Model.remember("Shop", { query = "", category = section })
+	end, { section })
 	local reveal = useStagger(0, softMotion)
 	local tabH = if stack then TapTarget else 44
 	local shared = {

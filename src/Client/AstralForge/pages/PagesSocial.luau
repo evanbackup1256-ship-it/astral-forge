@@ -669,7 +669,7 @@ local function TradeView(_param)
 				table.insert(matches, row)
 				continue
 			end
-			if (string.find(string.lower(row.DisplayName), needle, 1, true)) ~= nil or (string.find(string.lower(row.Name), needle, 1, true)) ~= nil then
+			if require(script.Parent.Parent.BrowseKit).matches(needle, row.DisplayName, row.Name) then
 				table.insert(matches, row)
 			end
 		end
@@ -1812,6 +1812,7 @@ local compactNumber = _format.compactNumber
 local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
 local PageReadyMath = require(script.Parent.Parent.LayoutKit)("pageReadyMath")
 local PageBoardHeights = require(script.Parent.Parent.CoreKit)("pageBoardHeights")
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local function CrewRow(_param)
 	local player = _param.player
@@ -2302,6 +2303,38 @@ local function CrewView(_param)
 		})
 	end
 	local headerReveal = useStagger(0, softMotion)
+	local crewBrowse = Browse.useBrowse({
+		id = "Crew",
+		items = players,
+		text = function(player)
+			return { player.DisplayName, player.CurrentPage, `world {player.CurrentZone or ""}` }
+		end,
+		categories = {
+			{ id = "All", label = "Everyone" },
+			{ id = "SameWorld", label = "Same world", test = function(player)
+				return not player.IsLocal and player.CurrentZone ~= nil and player.CurrentZone == state.CurrentZone
+			end },
+			{ id = "Others", label = "Not me", test = function(player)
+				return not player.IsLocal
+			end },
+		},
+		sorts = {
+			{ id = "Joined", label = "Server order" },
+			{ id = "Production", label = "Top production", compare = function(a, b)
+				return (asFlux(a.Production) or 0) > (asFlux(b.Production) or 0)
+			end },
+			{ id = "Rebirths", label = "Most rebirths", compare = function(a, b)
+				return (tonumber(a.Rebirths) or 0) > (tonumber(b.Rebirths) or 0)
+			end },
+			{ id = "Name", label = "A to Z", compare = function(a, b)
+				return string.lower(tostring(a.DisplayName)) < string.lower(tostring(b.DisplayName))
+			end },
+		},
+	})
+	local showCrewBar = #players >= 3
+	local crewBarH = if showCrewBar then Browse.barHeight(stack, true) + 10 else 0
+	local allPlayers = players
+	players = crewBrowse.results
 	local _result = state.Visitors
 	if _result ~= nil then
 		_result = #_result
@@ -2312,7 +2345,7 @@ local function CrewView(_param)
 	end
 	local visitorsHere = _condition
 	local rowStride = if stack then 176 else 124
-	local headerH = if stack then 130 else 112
+	local headerH = (if stack then 130 else 112) + crewBarH
 	local listGap = if visit ~= nil then math.max(chrome.panelGap, 18) else math.max(chrome.panelGap, 12)
 	local visitBlock = if visit ~= nil then PageBoardHeights.Visit(stack) else 0
 	local crewTail = scrollTail(stack, chrome.bottomSafe, 48)
@@ -2354,8 +2387,16 @@ local function CrewView(_param)
 		color = Palette.blue,
 		textColor = Palette.ink,
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(170, 44),
-		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -170, 0, 24),
+		position = if stack then UDim2.new(0, 0, 1, -(TapTarget + crewBarH)) else UDim2.new(1, -170, 0, 24),
 		reducedMotion = softMotion,
+	}), showCrewBar and React.createElement(Browse.BrowseBar, {
+		browse = crewBrowse,
+		placeholder = "Search crew by name or activity",
+		accent = Palette.blue,
+		stack = stack,
+		reducedMotion = softMotion,
+		position = UDim2.new(0, 0, 1, -(crewBarH - 10)),
+		zIndex = 30,
 	}))
 	local visitPanel = visit ~= nil and React.createElement(VisitPanel, {
 		visit = visit,
@@ -2364,13 +2405,21 @@ local function CrewView(_param)
 		layoutOrder = 1,
 		stack = stack,
 	})
-	local emptyPanel = #players == 0 and React.createElement(EmptyState, {
+	local emptyPanel = if #allPlayers == 0 then React.createElement(EmptyState, {
 		icon = "Crew",
 		title = "No one else is on shift",
 		body = "Crew shows up here once someone else is online with you.",
 		accent = Palette.blue,
 		layoutOrder = 2,
-	})
+	}) elseif #players == 0 then React.createElement(Browse.NoResults, {
+		browse = crewBrowse,
+		noun = "crew",
+		icon = "Crew",
+		accent = Palette.blue,
+		reducedMotion = softMotion,
+		size = UDim2.fromScale(1, 1),
+		layoutOrder = 2,
+	}) else nil
 	local sections = {
 		{
 			id = "header",
@@ -2514,6 +2563,8 @@ local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local Social = require(game.ReplicatedStorage.AstralForge.Shared.SocialProgression)(require(game.ReplicatedStorage.AstralForge.Shared.OmegaMath))
 local createRequest = require(script.Parent.Parent.ActionRequest)
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
 local ROLE_RANK = {
 	Leader = 0,
 	Officer = 1,
@@ -3365,6 +3416,9 @@ local function GuildView(_param)
 	local shakeToken, setShakeToken = React.useState(0)
 	local contributeCash, setContributeCash = React.useState("")
 	local contributeDust, setContributeDust = React.useState("")
+	-- member search lives above the no-guild early return so hook order never changes
+	local memberQuery, setMemberQuery = Browse.useLinkedQuery("GuildMembers")
+	local memberRole, setMemberRole = React.useState("All")
 	local guild = state.Guild
 	local localPlayer = Players.LocalPlayer
 	local localKey = if localPlayer ~= nil then tostring(localPlayer.UserId) else ""
@@ -3838,8 +3892,19 @@ local function GuildView(_param)
 		Padding = UDim.new(0, pageGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), upgradeChildren)
+	local roleCounts = { All = 0, Leader = 0, Officer = 0, Member = 0 }
+	local shownMembers = {}
+	for _, member in members do
+		if Browse.matches(memberQuery, member.name, member.role, member.key) then
+			roleCounts.All += 1
+			roleCounts[member.role] = (roleCounts[member.role] or 0) + 1
+			if memberRole == "All" or member.role == memberRole then
+				table.insert(shownMembers, member)
+			end
+		end
+	end
 	local memberChildren = {}
-	for index, member in members do
+	for index, member in shownMembers do
 		local share = 0
 		if goalContributors ~= nil then
 			share = goalContributors[member.key] or 0
@@ -3865,11 +3930,38 @@ local function GuildView(_param)
 			layoutOrder = index,
 		})
 	end
-	local memberBlockH = if #members == 0 then 72 else #members * memberHeight + math.max(0, #members - 1) * pageGap
+	local memberBlockH = if #shownMembers == 0 then 72 else #shownMembers * memberHeight + math.max(0, #shownMembers - 1) * pageGap
 	local overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2
-	local memberList = if #members == 0 then React.createElement(EmptyState, {
-		title = "No members",
-		body = "Members show up here.",
+	local memberSearchH = if stack then TapTarget else 40
+	local memberFilter = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+	}, React.createElement(SearchField, {
+		value = memberQuery,
+		onChange = setMemberQuery,
+		placeholder = "Search members",
+		accent = Palette.violet,
+		reducedMotion = softMotion,
+		size = UDim2.new(1, 0, 0, memberSearchH),
+		zIndex = 20,
+	}), React.createElement(Browse.ChipRow, {
+		options = {
+			{ id = "All", label = "Everyone" },
+			{ id = "Leader", label = "Leader" },
+			{ id = "Officer", label = "Officers" },
+			{ id = "Member", label = "Members" },
+		},
+		value = memberRole,
+		onChange = function(id)
+			setMemberRole(id)
+		end,
+		counts = roleCounts,
+		accent = Palette.violet,
+		position = UDim2.fromOffset(0, memberSearchH + 8),
+	}))
+	local memberList = if #shownMembers == 0 then React.createElement(EmptyState, {
+		title = if #members > 0 then "No members match" else "No members",
+		body = if #members > 0 then "Clear the search or pick Everyone." else "Members show up here.",
 		icon = "Pilot",
 		accent = Palette.cyan,
 		size = UDim2.new(1, 0, 0, 72),
@@ -3909,6 +4001,9 @@ local function GuildView(_param)
 		add("role-policy",176,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
 			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,sizeConstraint=UDim2.new(1,0,0,28)}),
 			React.createElement(Text,{value="Leader: assigns roles and manages the hall. Officer: buys upgrades and removes members. Member: contributes and earns goal rewards. If the leader leaves, an officer succeeds first, then the earliest joiner; user ID breaks ties.",position=UDim2.fromOffset(0,40),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,104)})))
+		if #members > 3 then
+			add("member-filter",memberSearchH + 8 + Browse.CHIP_H,memberFilter)
+		end
 		add("members",memberBlockH,memberList)
 	end
 	return React.createElement(PageScaffold,{gap=12,tailPad=scrollTail(chrome.stack,chrome.bottomSafe,80),scrollBarColor=Palette.violet,scrollBarThickness=4,sections=sections})
@@ -4639,6 +4734,8 @@ local Button = _ui.Button
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
 local ROW_HEIGHT = 98
 local CARD_H = 90
 local SYSTEM_CARD_H = 66
@@ -4904,6 +5001,8 @@ local function ChatView(_param)
 	local draft, setDraft = React.useState("")
 	local failure, setFailure = React.useState("")
 	local viewHeight, setViewHeight = React.useState(0)
+	local searchOpen, setSearchOpen = React.useState(false)
+	local logQuery, setLogQuery = React.useState("")
 	local input = React.useRef()
 	local stickBottom = React.useRef(true)
 	local lastMessageId = React.useRef(nil)
@@ -4922,7 +5021,18 @@ local function ChatView(_param)
 	local listFrame = React.useRef(nil)
 	local count = #chat.messages
 	local latestMessageId = if count > 0 then chat.messages[count].id else nil
-	local stackH = math.max(0, count) * rowHeight
+	-- searching the log shows only matching lines; the live log keeps scrolling underneath
+	local filteringLog = searchOpen and not string.match(logQuery, "^%s*$")
+	local shownMessages = chat.messages
+	if filteringLog then
+		shownMessages = {}
+		for _, message in chat.messages do
+			if Browse.matches(logQuery, message.text, message.displayName, message.username) then
+				table.insert(shownMessages, message)
+			end
+		end
+	end
+	local stackH = math.max(0, #shownMessages) * rowHeight
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local renderedIds = {}
 	do
@@ -5104,7 +5214,7 @@ local function ChatView(_param)
 		spin = false,
 		reducedMotion = softMotion,
 	})), React.createElement("frame", {
-		Size = UDim2.new(1, -(STATUS_RESERVE + 68), 0, 48),
+		Size = UDim2.new(1, -(STATUS_RESERVE + 68 + 52), 0, 48),
 		Position = UDim2.fromOffset(68, 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -5120,7 +5230,7 @@ local function ChatView(_param)
 			return 1 - amount
 		end),
 	}), React.createElement(Text, {
-		value = `{count} log{if count == 1 then "" else "s"}  ·  Roblox-filtered`,
+		value = if filteringLog then `{#shownMessages} of {count} match` else `{count} log{if count == 1 then "" else "s"}  ·  Roblox-filtered`,
 		size = 13,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -5130,7 +5240,21 @@ local function ChatView(_param)
 		transparency = (if showBanner then bannerReveal else statusReveal):map(function(amount)
 			return 1 - amount
 		end),
-	})), React.createElement(Badge, {
+	})), React.createElement(Button, {
+		text = "",
+		icon = if searchOpen then "Close" else "Search",
+		onClick = function()
+			if searchOpen then
+				setLogQuery("")
+			end
+			setSearchOpen(not searchOpen)
+		end,
+		color = if searchOpen then Palette.cyan else Palette.panelSoft,
+		textColor = if searchOpen then Palette.ink else Palette.cream,
+		size = UDim2.fromOffset(44, 44),
+		position = UDim2.new(1, -(STATUS_RESERVE + 48), 0.5, -22),
+		reducedMotion = softMotion,
+	}), React.createElement(Badge, {
 		value = statusLabel,
 		accent = statusAccent,
 		filled = true,
@@ -5140,7 +5264,7 @@ local function ChatView(_param)
 	local composerSoft = reducedMotion or composerReveal == nil
 	local _chatSoftKeep = if composerSoft then bannerReveal else statusReveal
 	local messagesElement = React.createElement(FlatList, {
-		data = chat.messages,
+		data = shownMessages,
 		itemHeight = rowHeight,
 		headerHeight = topPad,
 		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
@@ -5287,11 +5411,33 @@ local function ChatView(_param)
 			element = statusElement,
 		})
 	end
+	if showStatus and searchOpen then
+		table.insert(sections, {
+			id = "search",
+			height = 44,
+			element = React.createElement(SearchField, {
+				value = logQuery,
+				onChange = setLogQuery,
+				placeholder = "Search the log by word or player",
+				accent = Palette.cyan,
+				reducedMotion = softMotion,
+				size = UDim2.fromScale(1, 1),
+				zIndex = 22,
+			}),
+		})
+	end
 	table.insert(sections, {
 		id = "messages",
 		fill = true,
 		minHeight = 120,
-		element = messagesElement,
+		element = if filteringLog and #shownMessages == 0 then React.createElement(Text, {
+			value = `No messages match "{logQuery}".`,
+			size = 14,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.new(1, 0, 0, 40),
+			position = UDim2.fromOffset(0, 20),
+		}) else messagesElement,
 	})
 	if showBanner then
 		table.insert(sections, {

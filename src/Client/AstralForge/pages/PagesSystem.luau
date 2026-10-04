@@ -3474,6 +3474,8 @@ local EmptyState = _ui.EmptyState
 local Panel = _ui.Panel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
 local BOARDS = { {
 	id = "Flux",
 	label = "Lifetime Flux",
@@ -4173,6 +4175,7 @@ local function LegacyLeaderboardsView(_param)
 	local boardHostRef = React.useRef(nil)
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
+	local pilotQuery, setPilotQuery = React.useState("")
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -4311,8 +4314,21 @@ local function LegacyLeaderboardsView(_param)
 	local guildHeroH = if stack then 156 else 148
 	local guildBlockH = guildHeroH + 34 + GUILD_ROWS_SHOWN * (GUILD_ROW_H + ROW_GAP)
 	local hasEntries = #ranked > 0
-	local remaining = math.max(0, #ranked - 3)
-	local ranksLabelH = 22
+	-- "find a pilot" searches the whole board and keeps each pilot's real rank
+	local searchingPilots = not string.match(pilotQuery, "^%s*$")
+	local listRows = {}
+	for index, entry in ranked do
+		if searchingPilots then
+			if Browse.matches(pilotQuery, entry.Name, tostring(entry.UserId)) then
+				table.insert(listRows, { entry = entry, rank = index })
+			end
+		elseif index > 3 then
+			table.insert(listRows, { entry = entry, rank = index })
+		end
+	end
+	local remaining = #listRows
+	local pilotSearchH = if #ranked > 3 then (if stack then TapTarget else 40) + 8 else 0
+	local ranksLabelH = 22 + pilotSearchH + (if searchingPilots and remaining == 0 then 40 else 0)
 	local rankStride = ROW_H + ROW_GAP
 	local ranksListH = if hasEntries then (
 		if remaining >= 8 then math.min(remaining, 12) * rankStride - ROW_GAP
@@ -4533,31 +4549,23 @@ local function LegacyLeaderboardsView(_param)
 			size = UDim2.fromScale(1, 1),
 		})
 	else
-		local restEntries = {}
-		local restCount = 0
-		for index, entry in ranked do
-			if index > 3 then
-				restCount += 1
-				restEntries[restCount] = entry
-			end
-		end
+		local restCount = #listRows
 		local rankStride = ROW_H + ROW_GAP
 		local virtRanks = restCount >= 8
 		local ranksBody = if virtRanks then React.createElement(FlatList, {
-			data = restEntries,
+			data = listRows,
 			itemHeight = rankStride,
 			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 			canvasTail = 8,
 			Size = UDim2.new(1, 0, 0, ranksListH),
 			scrollBarColor = meta.accent,
 			scrollBarThickness = 3,
-			keyExtractor = function(entry)
-				return `{selected}-{entry.UserId}`
+			keyExtractor = function(row)
+				return `{selected}-{row.entry.UserId}`
 			end,
 			renderItem = function(_param_1)
-				local entry = _param_1.item
-				local index = _param_1.index
-				local rank = index + 4
+				local entry = _param_1.item.entry
+				local rank = _param_1.item.rank
 				return React.createElement(RankRow, {
 					entry = entry,
 					rank = rank,
@@ -4570,11 +4578,12 @@ local function LegacyLeaderboardsView(_param)
 			end,
 		}) else (function()
 			local rest = {}
-			for index, entry in restEntries do
+			for index, row in listRows do
+				local entry = row.entry
 				rest[index] = React.createElement(RankRow, {
 					key = `{selected}-{entry.UserId}`,
 					entry = entry,
-					rank = index + 3,
+					rank = row.rank,
 					meta = meta,
 					isLocal = entry.UserId == localId,
 					layoutOrder = index + 3,
@@ -4609,6 +4618,24 @@ local function LegacyLeaderboardsView(_param)
 			weight = Enum.FontWeight.Heavy,
 			layoutOrder = 0,
 			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}), pilotSearchH > 0 and React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, pilotSearchH - 8),
+			BackgroundTransparency = 1,
+			LayoutOrder = 0,
+		}, React.createElement(SearchField, {
+			value = pilotQuery,
+			onChange = setPilotQuery,
+			placeholder = "Find a pilot on this board",
+			accent = meta.accent,
+			reducedMotion = softMotion,
+			size = UDim2.fromScale(1, 1),
+			zIndex = 12,
+		})), searchingPilots and remaining == 0 and React.createElement(Text, {
+			value = `No pilot named "{pilotQuery}" on this board.`,
+			size = 13,
+			color = Palette.muted,
+			layoutOrder = 0,
+			sizeConstraint = UDim2.new(1, 0, 0, 32),
 		}), React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, ranksListH),
 			BackgroundTransparency = 1,
