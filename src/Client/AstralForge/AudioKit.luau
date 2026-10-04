@@ -4064,17 +4064,37 @@ type Track = {
 }
 
 local TRACKS: { Track } = {
-	{ name = "ForgePulse", asset = "rbxassetid://85607718934391", gain = 0.9, low = 2, mid = 0.5, high = -1.5 },
-	{ name = "SanctuaryDrift", asset = "rbxassetid://98919050616365", gain = 1, low = 0, mid = 0.8, high = 0.8 },
-	{ name = "AstralOrbit", asset = "rbxassetid://84797482092417", gain = 0.95, low = 0, mid = 1, high = 1 },
-	{ name = "BossSurge", asset = "rbxassetid://76558769649423", gain = 0.85, low = 1.5, mid = 0, high = -2 },
+	{ name = "Space Ambient", asset = "rbxassetid://140533822783920", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Galactic Market", asset = "rbxassetid://85922328966318", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Slow Breathing Aurora (Space Ambient)", asset = "rbxassetid://140041908508788", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Return Signal Hopeful Future Ambient Music", asset = "rbxassetid://134433077845062", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Cosmic Cafe", asset = "rbxassetid://136898642923218", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Zero Gravity", asset = "rbxassetid://102039057339088", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Twilight’s Soothing Cascade", asset = "rbxassetid://139804134367647", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Nebula Dream Theta Waves", asset = "rbxassetid://139793680497894", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Deep Space Ocean", asset = "rbxassetid://136827064604146", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Liminal Space Ambient (Lost in the Halls)", asset = "rbxassetid://133670858533628", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Space Station '98", asset = "rbxassetid://128285716110465", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Hello in There Space Ambient", asset = "rbxassetid://111560725873026", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Adrenaline Arcade Synthwave", asset = "rbxassetid://138551890276730", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Feedback", asset = "rbxassetid://122703970718439", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Desperation", asset = "rbxassetid://81466105858478", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Resistance", asset = "rbxassetid://99903926483608", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Automated", asset = "rbxassetid://93964414292507", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Aloha Sunset (Hawaiian Synth)", asset = "rbxassetid://118508726012870", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Celestial String Awakening 2", asset = "rbxassetid://101244629093073", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Calm Cinematic Space", asset = "rbxassetid://137911990035159", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Soft Intro Reflections", asset = "rbxassetid://87900257498941", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Temple of Silent Light 2", asset = "rbxassetid://86497547233756", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "River of Soft Gold 2", asset = "rbxassetid://114636840398015", gain = 0.8, low = 0, mid = 0, high = 0 },
+	{ name = "Silent Cinematic Prelude", asset = "rbxassetid://85227514374326", gain = 0.8, low = 0, mid = 0, high = 0 },
 }
 
 local Soundtrack = {}
 
 Soundtrack.CROSSFADE_SECONDS = 4
 Soundtrack.BASE_VOLUME = 1
-Soundtrack.RETRY_SECONDS = 25
+Soundtrack.RETRY_SECONDS = 600
 
 function Soundtrack.tracks(): { Track }
 	return TRACKS
@@ -4098,6 +4118,39 @@ function Soundtrack.nextIndex(current: number, failedAt: { [number]: number }, n
 		end
 	end
 	return nil
+end
+
+-- Fisher-Yates shuffle bags give every healthy track a turn without repeats.
+function Soundtrack.newShuffle(randomInteger)
+    local random = randomInteger or math.random
+    local bag = {}
+    local shuffle = {}
+    function shuffle:next(current, failedAt, now)
+		if #bag == 0 or (#bag == 1 and bag[1] == current) then
+			table.clear(bag)
+            for index = 1, #TRACKS do table.insert(bag, index) end
+            for index = #bag, 2, -1 do
+                local other = random(1, index)
+                bag[index], bag[other] = bag[other], bag[index]
+            end
+        end
+        local deferred = {}
+        local chosen = nil
+        while #bag > 0 do
+            local candidate = table.remove(bag)
+            local failed = failedAt[candidate]
+            if candidate == current then
+                table.insert(deferred, candidate)
+            elseif failed == nil or now - failed >= Soundtrack.RETRY_SECONDS then
+                chosen = candidate
+                break
+            end
+        end
+        -- A boundary repeat is deferred to a later draw, not thrown away.
+        for _, candidate in deferred do table.insert(bag, 1, candidate) end
+        return chosen
+    end
+    return shuffle
 end
 
 function Soundtrack.shouldAdvance(timeLength: number, timePosition: number, playbackSpeed: number): boolean
@@ -4130,6 +4183,7 @@ end
 
 __defs["musicDirector"] = function()
 local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local Soundtrack = __load("soundtrack")
 
@@ -4137,7 +4191,7 @@ local MUSIC_ASSET_MANIFEST = Soundtrack.manifest()
 local DECK_NAMES = { "SoundtrackA", "SoundtrackB" }
 local POLL_SECONDS = 0.25
 local FADE_STEP_SECONDS = 0.05
-local LOAD_DEADLINE_SECONDS = 30
+local LOAD_DEADLINE_SECONDS = 12
 
 local activeDirector = nil
 
@@ -4182,7 +4236,8 @@ do
 		self.group = group
 		self.decks = { makeDeck(DECK_NAMES[1], group), makeDeck(DECK_NAMES[2], group) }
 		self.active = 1
-		self.trackIndex = 1
+		self.shuffle = Soundtrack.newShuffle()
+		self.trackIndex = self.shuffle:next(nil, {}, os.clock()) or 1
 		self.fading = false
 		self.fadeAlpha = 0
 		self.loopedOver = false
@@ -4195,7 +4250,7 @@ do
 		self.connections = {}
 	end
 	function MusicDirector:isLive()
-		return self.started and not self.disposed and self.audible and self.mix * self.duck > 0.001
+		return self.started and not self.disposed and self.retryAt == nil and self.audible and self.mix * self.duck > 0.001
 	end
 	function MusicDirector:spare()
 		return if self.active == 1 then 2 else 1
@@ -4207,6 +4262,9 @@ do
 		deck.sound.Volume = 0
 		deck.trackIndex = trackIndex
 		deck.loadStarted = os.clock()
+		deck.loadVersion = (deck.loadVersion or 0) + 1
+		local version = deck.loadVersion
+		deck.loadFailed = false
 		if deck.sound.SoundId ~= track.asset then
 			deck.sound.SoundId = track.asset
 		end
@@ -4215,6 +4273,19 @@ do
 		deck.equalizer.LowGain = track.low
 		deck.equalizer.MidGain = track.mid
 		deck.equalizer.HighGain = track.high
+		-- Preloading ID strings alone does not initialize a stopped Sound decoder.
+		-- Warm the actual deck instance, then Resume can start it without resetting
+		-- a paused song. Old fetch callbacks must not invalidate a replacement track.
+		task.spawn(function()
+			local ok = pcall(function()
+				ContentProvider:PreloadAsync({deck.sound}, function(_, status)
+					if not self.disposed and deck.loadVersion == version then
+						deck.loadFailed = status ~= Enum.AssetFetchStatus.Success
+					end
+				end)
+			end)
+			if not ok and not self.disposed and deck.loadVersion == version then deck.loadFailed = true end
+		end)
 	end
 	function MusicDirector:applyVolumes()
 		local activeDeck = self.decks[self.active]
@@ -4301,39 +4372,46 @@ do
 	end
 	function MusicDirector:skipActive()
 		self:markFailed(self.trackIndex)
-		local nextIndex = Soundtrack.nextIndex(self.trackIndex, self.failedAt, os.clock())
-		if nextIndex ~= nil then
-			self.trackIndex = nextIndex
+		local nextIndex = self.shuffle:next(self.trackIndex, self.failedAt, os.clock())
+		if nextIndex == nil then
+			self.retryAt = os.clock() + 30
+			self:refresh()
+			return nil
 		end
+		self.trackIndex = nextIndex
 		self:loadDeck(self.active, self.trackIndex)
 		self:refresh()
 		return nil
 	end
 	function MusicDirector:prepareSpare()
-		local nextIndex = Soundtrack.nextIndex(self.trackIndex, self.failedAt, os.clock())
-		if nextIndex == nil then
-			return nil
-		end
 		local spareIndex = self:spare()
 		local spare = self.decks[spareIndex]
+		local nextIndex = spare.trackIndex or self.shuffle:next(self.trackIndex, self.failedAt, os.clock())
+		if nextIndex == nil then return nil end
 		if spare.trackIndex ~= nextIndex then
 			self:loadDeck(spareIndex, nextIndex)
 			return nil
 		end
-		if not spare.sound.IsLoaded and os.clock() - spare.loadStarted >= LOAD_DEADLINE_SECONDS then
+		if not spare.sound.IsLoaded and (spare.loadFailed or os.clock() - spare.loadStarted >= LOAD_DEADLINE_SECONDS) then
 			self:markFailed(nextIndex)
 			spare.trackIndex = nil
 		end
 		return nil
 	end
 	function MusicDirector:step()
+		if self.retryAt ~= nil then
+			if os.clock() < self.retryAt then return nil end
+			self.retryAt = nil
+			self:skipActive()
+			return nil
+		end
 		if not self:isLive() or self.fading then
 			return nil
 		end
 		local deck = self.decks[self.active]
 		local sound = deck.sound
 		if not sound.IsLoaded then
-			if os.clock() - deck.loadStarted >= LOAD_DEADLINE_SECONDS then
+			if deck.loadFailed or os.clock() - deck.loadStarted >= LOAD_DEADLINE_SECONDS then
 				self:skipActive()
 			end
 			return nil
@@ -4372,7 +4450,9 @@ do
 			self.fadeAlpha = math.clamp(elapsed / Soundtrack.CROSSFADE_SECONDS, 0, 1)
 			self:applyVolumes()
 		end
-		local outgoing = self.decks[self.active].sound
+		local outgoingDeck = self.decks[self.active]
+		local outgoing = outgoingDeck.sound
+		outgoingDeck.trackIndex = nil
 		outgoing:Stop()
 		outgoing.Volume = 0
 		self.active = spareIndex

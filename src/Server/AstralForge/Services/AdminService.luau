@@ -22,12 +22,20 @@ return function(loadService: (string) -> any)
 	local AdminService = {}
 	AdminService.__index = AdminService
 
+	local CommandSchema = require(ReplicatedStorage.AstralForge.Shared.AdminCommandSchema)
 	local MAX_GRANT = AdminGrantMath.DEFAULT_MAX_GRANT
 	local MAX_AUDIT_MEMORY = 40
 	local MAX_AUDIT_PERSISTED = 100
 	local NONCE_TTL = 300
 
 	local COMMANDS = table.freeze({
+		SetFlux = { Label = "Set current flux", Option = false, Category = "Economy" },
+		SetVault = { Label = "Set stored vault flux", Option = false, Category = "Economy" },
+		SetContinuumRank = { Label = "Set Continuum rank", Option = false, Category = "Progress" },
+		SetFreeSpins = { Label = "Set free wheel spins", Option = false, Category = "Items" },
+		ResetAnomalyCharge = { Label = "Reset current shift charge", Option = false, Category = "Resets" },
+		ClearAnomalyCombo = { Label = "Clear shift combo", Option = false, Category = "Resets" },
+
 		GrantFlux = { Label = "Grant flux", Option = false, Category = "Economy" },
 		GrantCores = { Label = "Grant astral cores", Option = false, Category = "Economy" },
 		GrantStardust = { Label = "Grant stardust", Option = false, Category = "Economy" },
@@ -123,6 +131,7 @@ return function(loadService: (string) -> any)
 	local CATEGORY_RANK = { Economy = 1, Progress = 2, Items = 3, Resets = 4, Troll = 5, Moderation = 6 }
 
 	local function commandDanger(definition: { [string]: any }): string
+		if string.sub(definition.Label or "",1,4)=="Set " then return "arm" end
 		return AdminGrantMath.CommandDanger(definition)
 	end
 
@@ -504,6 +513,7 @@ return function(loadService: (string) -> any)
 			table.insert(commands, {
 				Id = id,
 				Label = definition.Label,
+				Input = CommandSchema.describe(id, definition),
 				NeedsOption = definition.Option == true,
 				Category = definition.Category or "Economy",
 				Danger = commandDanger(definition),
@@ -667,175 +677,271 @@ return function(loadService: (string) -> any)
 		return { ok = false, error = "Unknown moderation command." }
 	end
 
-	function AdminService:Execute(actor: Player, payload: any)
-		local role = roleFor(actor)
-		if not role then return { ok = false, error = "Administrative access denied." } end
-		if type(payload) ~= "table" then return { ok = false, error = "Malformed admin request." } end
-		local command = cleanText(payload.Command, 48)
-		local definition = COMMANDS[command]
-		if not definition then return { ok = false, error = "Unknown admin command." } end
-		local nonce = cleanText(payload.Nonce, 80)
-		if #nonce < 8 or not self:_consumeNonce(actor, nonce) then
-			return { ok = false, error = "This admin request was already processed." }
-		end
-		local reason = cleanText(payload.Reason, 96)
-		if #reason < 3 then return { ok = false, error = "Add a short audit reason." } end
-		local option = cleanText(payload.Option, 64)
-		if definition.Moderation == true then
-			local targetUserId = tonumber(payload.TargetUserId)
-			if not targetUserId or targetUserId ~= math.floor(targetUserId) then
-				return { ok = false, error = "Pick a player to moderate." }
-			end
-			return self:_moderate(actor, command, targetUserId, payload.Amount, option, reason)
-		end
-		local target = onlinePlayer(payload.TargetUserId)
-		if not target or target.Parent ~= Players then return { ok = false, error = "Target must be online in this server." } end
-		if not self._data:Get(target) then return { ok = false, error = "Target profile is still loading." } end
-		local amount = boundedAmount(payload.Amount, 1)
-		if not amount then return { ok = false, error = "Amount must be a positive finite number." } end
-
-		if definition.World == true then
-			local ok, worldMessage = applyWorld(actor, target, command, amount, option)
-			if not ok then return { ok = false, error = worldMessage } end
-			local revision = self._data:GetRevision(target)
-			self:_record(actor, target, command, amount, option, reason, revision)
-			return {
-				ok = true,
-				message = worldMessage,
-				Admin = self:State(actor),
-				TargetUserId = target.UserId,
-				Persisted = true,
-			}
-		end
-
+	-- Each profile command has one executor; the transaction wrapper owns audits and saving.
+	local profileHandlers = {}
+	profileHandlers.GrantFlux = function(profile, amount, option)
 		local changedAmount = amount
-		local success, result = self._data:AtomicUpdate(target, function(profile)
-			if command == "GrantFlux" then
 				profile.Cash = OmegaMath.Add(profile.Cash, amount)
 				profile.RunCash = OmegaMath.Add(profile.RunCash, amount)
 				profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, amount)
-			elseif command == "GrantCores" then profile.Cores += amount
-			elseif command == "GrantStardust" then profile.Stardust += amount
-			elseif command == "GrantRebirths" then profile.Rebirths += math.floor(amount)
-			elseif command == "GrantDomainEssence" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantCores = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Cores += amount
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantStardust = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Stardust += amount
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantRebirths = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Rebirths += math.floor(amount)
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantDomainEssence = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureDomain(profile).Essence += math.floor(amount)
-			elseif command == "GrantAnomalyFragments" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantAnomalyFragments = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureAnomaly(profile).Fragments += math.floor(amount)
-			elseif command == "GrantSignals" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantSignals = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.Signals += math.floor(amount)
-			elseif command == "GrantCommandXP" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantCommandXP = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.XP += math.floor(amount)
-			elseif command == "GrantSeasonXP" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantSeasonXP = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.SeasonXP += math.floor(amount)
-			elseif command == "GrantStreakShields" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantStreakShields = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				profile.Command.StreakShields += math.floor(amount)
-			elseif command == "GrantItemEssence" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantItemEssence = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureItems(profile).Essence += math.floor(amount)
-			elseif command == "GrantContinuumRanks" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantContinuumRanks = function(profile, amount, option)
+		local changedAmount = amount
 				local continuum = ProfileBagMath.EnsureContinuum(profile)
 				continuum.Rank = math.min(GameConfig.Continuum.MaxRank, continuum.Rank + math.floor(amount))
-			elseif command == "GrantAnomalyCharge" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantAnomalyCharge = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureAnomaly(profile).Charge += math.floor(amount)
-			elseif command == "GrantAnomalyStabilizations" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantAnomalyStabilizations = function(profile, amount, option)
+		local changedAmount = amount
 				local n = math.floor(amount)
 				ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
 				ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
-			elseif command == "GrantFreeSpins" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantFreeSpins = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Wheel = WheelMath.Ensure(profile.Wheel)
 				profile.Wheel.FreeSpins += math.floor(amount)
-			elseif command == "GrantCrateKeys" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantCrateKeys = function(profile, amount, option)
+		local changedAmount = amount
 				local keys = ProfileBagMath.EnsureItemKeys(profile)
 				if keys[option] == nil then return { ok = false, error = "Unknown crate id." } end
 				keys[option] += math.floor(amount)
-			elseif command == "GrantAllCrateKeys" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantAllCrateKeys = function(profile, amount, option)
+		local changedAmount = amount
 				local keys = ProfileBagMath.EnsureItemKeys(profile)
 				for crateId in keys do keys[crateId] += math.floor(amount) end
-			elseif command == "GrantPity" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantPity = function(profile, amount, option)
+		local changedAmount = amount
 				local items = ProfileBagMath.EnsureItems(profile)
 				if items.Pity[option] == nil then return { ok = false, error = "Unknown crate id." } end
 				items.Pity[option] += math.floor(amount)
-			elseif command == "GrantBoost" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantBoost = function(profile, amount, option)
+		local changedAmount = amount
 				if not GameConfig.Boosts[option] then return { ok = false, error = "Unknown boost id." } end
 				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
 				inventory[option] = (inventory[option] or 0) + math.floor(amount)
-			elseif command == "GrantAllBoosts" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantAllBoosts = function(profile, amount, option)
+		local changedAmount = amount
 				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
 				for boostId in GameConfig.Boosts do
 					inventory[boostId] = (inventory[boostId] or 0) + math.floor(amount)
 				end
-			elseif command == "GrantRelic" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantRelic = function(profile, amount, option)
+		local changedAmount = amount
 				changedAmount = 0
 				for _ = 1, math.min(10, math.floor(amount)) do
 					if not createRelic(profile, option) then break end
 					changedAmount += 1
 				end
 				if changedAmount <= 0 then return { ok = false, error = "Relic id is invalid or inventory is full." } end
-			elseif command == "ClearActiveBoost" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ClearActiveBoost = function(profile, amount, option)
+		local changedAmount = amount
 				local active = ProfileBagMath.EnsureActiveBoost(profile)
 				active.Id = ""
 				active.EndsAt = 0
-			elseif command == "ResetWheelCooldown" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetWheelCooldown = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Wheel = WheelMath.Ensure(profile.Wheel)
 				profile.Wheel.LastSpinAt = 0
-			elseif command == "ResetDailyClaim" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetDailyClaim = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
-			elseif command == "ClearVault" then profile.Vault = 0
-			elseif command == "SetZone" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ClearVault = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Vault = 0
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetZone = function(profile, amount, option)
+		local changedAmount = amount
 				local zone = math.clamp(math.floor(amount), 1, GameConfig.MaxZone)
 				profile.Zone = math.max(profile.Zone, zone)
 				profile.CurrentZone = zone
-			elseif command == "EnableUnlimitedFlux" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.EnableUnlimitedFlux = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = true
-			elseif command == "DisableUnlimitedFlux" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.DisableUnlimitedFlux = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = false
-			elseif command == "UnlockProgression" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.UnlockProgression = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Zone = GameConfig.MaxZone
 				profile.CurrentZone = profile.Zone
 				for _, machine in GameConfig.Machines do profile.Machines[machine.Id] = machine.MaxLevel end
 				for _, research in GameConfig.Research do profile.Research[research.Id] = research.MaxLevel end
 				for _, upgrade in GameConfig.GridUpgrades do profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel end
-			elseif command == "ResetTutorial" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetTutorial = function(profile, amount, option)
+		local changedAmount = amount
 				local flags = ProfileBagMath.EnsureFlags(profile)
 				flags.TutorialDone = false
 				flags.TutorialStep = 1
 				flags.TutorialRewardClaimed = false
-			elseif command == "ShowUpdates" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ShowUpdates = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureFlags(profile).LastSeenVersion = ""
-			elseif command == "WipeFlux" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.WipeFlux = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Cash = 0
 				profile.RunCash = 0
-			elseif command == "WipeVault" then profile.Vault = 0
-			elseif command == "WipeCores" then profile.Cores = 0
-			elseif command == "WipeStardust" then profile.Stardust = 0
-			elseif command == "PennyPinch" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.WipeVault = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Vault = 0
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.WipeCores = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Cores = 0
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.WipeStardust = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Stardust = 0
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.PennyPinch = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Cash = 1
 				profile.RunCash = 1
-			elseif command == "TaxHalf" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.TaxHalf = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Cash = OmegaMath.Div(profile.Cash, 2)
 				profile.RunCash = OmegaMath.Div(profile.RunCash, 2)
-			elseif command == "SwapWallet" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SwapWallet = function(profile, amount, option)
+		local changedAmount = amount
 				local parked = profile.Cash
 				profile.Cash = profile.Vault
 				profile.Vault = parked
-			elseif command == "FillVault" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.FillVault = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Vault = Economy.Capacity(profile)
-			elseif command == "DrainKeys" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.DrainKeys = function(profile, amount, option)
+		local changedAmount = amount
 				local keys = ProfileBagMath.EnsureItemKeys(profile)
 				for crateId in keys do keys[crateId] = 0 end
-			elseif command == "DrainBoosts" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.DrainBoosts = function(profile, amount, option)
+		local changedAmount = amount
 				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
 				for boostId in inventory do inventory[boostId] = 0 end
-			elseif command == "LockRelics" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.LockRelics = function(profile, amount, option)
+		local changedAmount = amount
 				local items = ProfileBagMath.EnsureItems(profile)
 				for _, instance in items.Inventory do instance.Locked = true end
-			elseif command == "UnlockRelics" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.UnlockRelics = function(profile, amount, option)
+		local changedAmount = amount
 				local items = ProfileBagMath.EnsureItems(profile)
 				for _, instance in items.Inventory do instance.Locked = false end
-			elseif command == "SalvageRelics" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SalvageRelics = function(profile, amount, option)
+		local changedAmount = amount
 				local items = ProfileBagMath.EnsureItems(profile)
 				local kept = {}
 				local salvaged = 0
@@ -853,57 +959,117 @@ return function(loadService: (string) -> any)
 				end
 				items.Inventory = kept
 				changedAmount = salvaged
-			elseif command == "SetRebirths" then profile.Rebirths = math.max(0, math.floor(amount))
-			elseif command == "SetCores" then profile.Cores = math.max(0, math.floor(amount))
-			elseif command == "SetStardust" then profile.Stardust = math.max(0, math.floor(amount))
-			elseif command == "SetDomainRank" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetRebirths = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Rebirths = math.max(0, math.floor(amount))
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetCores = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Cores = math.max(0, math.floor(amount))
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetStardust = function(profile, amount, option)
+		local changedAmount = amount
+			profile.Stardust = math.max(0, math.floor(amount))
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetDomainRank = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureDomain(profile).Rank = math.max(0, math.floor(amount))
-			elseif command == "GrantSkillPoints" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantSkillPoints = function(profile, amount, option)
+		local changedAmount = amount
 				local domain = ProfileBagMath.EnsureDomain(profile)
 				domain.SkillPoints = (domain.SkillPoints or 0) + math.floor(amount)
-			elseif command == "ResetDomain" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetDomain = function(profile, amount, option)
+		local changedAmount = amount
 				local domain = ProfileBagMath.EnsureDomain(profile)
 				domain.Rank = 0
 				domain.SkillPoints = 0
 				domain.Nodes = {}
-			elseif command == "MaxMachines" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.MaxMachines = function(profile, amount, option)
+		local changedAmount = amount
 				for _, machine in GameConfig.Machines do profile.Machines[machine.Id] = machine.MaxLevel end
-			elseif command == "ResetMachines" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetMachines = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Machines = { StellarCore = 1 }
-			elseif command == "MaxResearch" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.MaxResearch = function(profile, amount, option)
+		local changedAmount = amount
 				for _, research in GameConfig.Research do profile.Research[research.Id] = research.MaxLevel end
-			elseif command == "ResetResearch" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetResearch = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Research = {}
-			elseif command == "MaxGrid" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.MaxGrid = function(profile, amount, option)
+		local changedAmount = amount
 				for _, upgrade in GameConfig.GridUpgrades do profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel end
-			elseif command == "ResetGrid" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetGrid = function(profile, amount, option)
+		local changedAmount = amount
 				profile.GridUpgrades = {}
-			elseif command == "FillPityAll" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.FillPityAll = function(profile, amount, option)
+		local changedAmount = amount
 				local items = ProfileBagMath.EnsureItems(profile)
 				for crateId in items.Pity do items.Pity[crateId] = 99 end
-			elseif command == "ResetTrades" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetTrades = function(profile, amount, option)
+		local changedAmount = amount
 				if profile.Trade then
 					profile.Trade.Completed = 0
 					profile.Trade.Day = -1
 				end
-			elseif command == "ResetDailies" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ResetDailies = function(profile, amount, option)
+		local changedAmount = amount
 				ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
 				profile.Wheel = WheelMath.Ensure(profile.Wheel)
 				profile.Wheel.LastSpinAt = 0
 				if profile.Trade then profile.Trade.Day = -1 end
-			elseif command == "ZeroZone" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.ZeroZone = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Zone = 1
 				profile.CurrentZone = 1
-			elseif command == "GrantEchoCharge" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantEchoCharge = function(profile, amount, option)
+		local changedAmount = amount
 				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
 				profile.ForgeEchoes = echoes
 				echoes.Charge += math.floor(amount)
-			elseif command == "MaxCrew" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.MaxCrew = function(profile, amount, option)
+		local changedAmount = amount
 				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 				for roleId in profile.Command.Crew do
 					profile.Command.Crew[roleId] = 10
 				end
-			elseif command == "DiscoverArts" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.DiscoverArts = function(profile, amount, option)
+		local changedAmount = amount
 				if GameConfig.Operations and GameConfig.Operations.Artifacts then
 					profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
 					if type(profile.Command.Artifacts) ~= "table" then
@@ -914,7 +1080,10 @@ return function(loadService: (string) -> any)
 							or { Level = 1, Fragments = 0 }
 					end
 				end
-			elseif command == "GrantEverything" then
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.GrantEverything = function(profile, amount, option)
+		local changedAmount = amount
 				local bundle = math.max(amount, 1e12)
 				profile.Cash = OmegaMath.Add(profile.Cash, bundle)
 				profile.RunCash = OmegaMath.Add(profile.RunCash, bundle)
@@ -932,8 +1101,84 @@ return function(loadService: (string) -> any)
 				for crateId in keys do keys[crateId] += 100 end
 				local boosts = ProfileBagMath.EnsureBoostInventory(profile)
 				for boostId in GameConfig.Boosts do boosts[boostId] = (boosts[boostId] or 0) + 25 end
-			else return { ok = false, error = "Admin command has no executor." } end
-			return { ok = true }
+		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetFlux = function(profile,amount,option)
+		profile.Cash = amount
+		return {ok=true,amount=amount}
+	end
+	profileHandlers.SetVault = function(profile,amount,option)
+		profile.Vault = OmegaMath.Min(amount, Economy.Capacity(profile))
+		return {ok=true,amount=amount}
+	end
+	profileHandlers.SetContinuumRank = function(profile,amount,option)
+		ProfileBagMath.EnsureContinuum(profile).Rank = math.min(GameConfig.Continuum.MaxRank, amount)
+		return {ok=true,amount=amount}
+	end
+	profileHandlers.SetFreeSpins = function(profile,amount,option)
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+			profile.Wheel.FreeSpins = amount
+		return {ok=true,amount=amount}
+	end
+	profileHandlers.ResetAnomalyCharge = function(profile,amount,option)
+		ProfileBagMath.EnsureAnomaly(profile).Charge = 0
+		return {ok=true,amount=amount}
+	end
+	profileHandlers.ClearAnomalyCombo = function(profile,amount,option)
+		ProfileBagMath.EnsureAnomaly(profile).Combo = 0
+		return {ok=true,amount=amount}
+	end
+
+	function AdminService:Execute(actor: Player, payload: any)
+		local role = roleFor(actor)
+		if not role then return { ok = false, error = "Administrative access denied." } end
+		if type(payload) ~= "table" then return { ok = false, error = "Malformed admin request." } end
+		local command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS)
+		local definition = command and COMMANDS[command]
+		if not definition then return { ok = false, error = "Unknown admin command." } end
+		local nonce = cleanText(payload.Nonce, 80)
+		if #nonce < 8 or not self:_consumeNonce(actor, nonce) then
+			return { ok = false, error = "This admin request was already processed." }
+		end
+		local reason = cleanText(payload.Reason, 96)
+		if #reason < 3 then return { ok = false, error = "Add a short audit reason." } end
+		local option = cleanText(payload.Option, 64)
+		if definition.Moderation == true then
+			local duration, problem = CommandSchema.validate(command,definition,payload.Amount,option)
+			if duration == nil then return {ok=false,error=problem} end
+			local targetUserId = tonumber(payload.TargetUserId)
+			if not targetUserId or targetUserId ~= math.floor(targetUserId) then
+				return { ok = false, error = "Pick a player to moderate." }
+			end
+			return self:_moderate(actor, command, targetUserId, duration, option, reason)
+		end
+		local target = onlinePlayer(payload.TargetUserId)
+		if not target or target.Parent ~= Players then return { ok = false, error = "Target must be online in this server." } end
+		if not self._data:Get(target) then return { ok = false, error = "Target profile is still loading." } end
+		local amount, inputError = CommandSchema.validate(command, definition, payload.Amount, option)
+		if amount == nil then return { ok = false, error = inputError } end
+
+		if definition.World == true then
+			local ok, worldMessage = applyWorld(actor, target, command, amount, option)
+			if not ok then return { ok = false, error = worldMessage } end
+			local revision = self._data:GetRevision(target)
+			self:_record(actor, target, command, amount, option, reason, revision)
+			return {
+				ok = true,
+				message = worldMessage,
+				Admin = self:State(actor),
+				TargetUserId = target.UserId,
+				Persisted = true,
+			}
+		end
+
+		local changedAmount = amount
+		local success, result = self._data:AtomicUpdate(target, function(profile)
+			local handler = profileHandlers[command]
+			if not handler then return {ok=false,error="Admin command has no executor."} end
+			local applied = handler(profile,amount,option)
+			if applied.ok then changedAmount = applied.amount end
+			return applied
 		end, true, "admin:" .. command)
 		if not success then return { ok = false, error = "Profile transaction failed: " .. tostring(result) } end
 		if type(result) == "table" and result.ok == false then return result end

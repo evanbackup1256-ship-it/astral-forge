@@ -1535,6 +1535,11 @@ local function CasinoView(props)
 	local tabDirection = tabIndexRef.current.direction
 	local tier, setTier = React.useState(2)
 	local busy, setBusy = React.useState(false)
+	local busyRef = React.useRef(false)
+	React.useEffect(function()
+		if props.onBusyChange then props.onBusyChange(busy) end
+		return function() if props.onBusyChange then props.onBusyChange(false) end end
+	end, { busy, props.onBusyChange })
 	local note, setNote = React.useState({ text = "Pick a game and a stake. The house keeps a few percent, and you can walk away any time.", good = nil })
 	local last, setLast = React.useState({})
 	local pick, setPick = React.useState("Red")
@@ -1569,6 +1574,7 @@ local function CasinoView(props)
 			return
 		end
 		local result = response.Result or {}
+		busyRef.current = false
 		setBusy(false)
 		setLast(result)
 		setMode("idle")
@@ -1606,6 +1612,7 @@ local function CasinoView(props)
 		if not mounted.current then
 			return
 		end
+		busyRef.current = false
 		setBusy(false)
 		setMode("idle")
 		setNote({ text = response.error or "That didn't go through.", good = false })
@@ -1614,9 +1621,10 @@ local function CasinoView(props)
 	end
 
 	local function play(payload, onResponse)
-		if busy or casino == nil then
+		if busyRef.current or casino == nil then
 			return
 		end
+		busyRef.current = true
 		setBusy(true)
 		dispatch("CasinoPlay", payload, function(response)
 			if not mounted.current then

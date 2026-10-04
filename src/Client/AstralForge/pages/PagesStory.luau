@@ -323,21 +323,16 @@ local function StoryBeat(_param)
 	local onNext = _param.onNext
 	local onClaim = _param.onClaim
 	local onClose = _param.onClose
-	local onResonate = _param.onResonate
 	local stack = _param.stack
 	local condensed = _param.condensed
 	local softMotion = reducedMotion
 	local enter = useEntrance(reducedMotion)
 	local visible, setVisible = React.useBinding(0)
-	local needsWarmup = not stack and not replay
-	local tuning, setTuning = React.useState(if needsWarmup then 0 else 3)
-	local tuneSpring = useFlipperSpring(tuning / 3, false, 700, 32)
-	local tuned = tuning >= 3 or replay or stack
+	local tuned = true
 	React.useEffect(function()
 		local alive = true
 		local revealWorker
 		setVisible(0)
-		setTuning(if needsWarmup then 0 else 3)
 		Audio:play("storyBeat")
 		local stepDiv = if reducedMotion then 28 else 72
 		local stepWait = if reducedMotion then 0.012 else 0.022
@@ -361,22 +356,12 @@ local function StoryBeat(_param)
 				end)
 			end
 		end
-	end, { index, needsWarmup, reducedMotion, replay, text })
+	end, { index, reducedMotion, replay, text })
 	local final = index >= total - 1
-	local resonate = function()
-		if tuned then
-			return nil
-		end
-		Audio:play("reactor")
-		setTuning(function(current)
-			return math.min(3, current + 1)
-		end)
-		onResonate()
-	end
-	local action = if not tuned then resonate elseif final then if claimed then onClose else onClaim else onNext
-	local actionText = if not tuned then `Warm up  {tuning} / 3` elseif final then if claimed then "Done" else "Collect reward" else "Continue"
-	local actionIcon = if not tuned then "Anomaly" elseif final then if claimed then "Check" else "Gift" else "Chevron"
-	local tipText = if replay then "Replay — browse freely" elseif tuned then `Part {index + 1} of {total}` else "Tap Warm up three times to continue"
+	local action = if final then if claimed then onClose else onClaim else onNext
+	local actionText = if final then if claimed then "Done" else "Collect reward" else "Continue"
+	local actionIcon = if final then if claimed then "Check" else "Gift" else "Chevron"
+	local tipText = if replay then "Replay — browse freely" else `Part {index + 1} of {total}`
 	local decorated = illuminate(text, color)
 	local btnH = if stack then TapTarget else 48
 	local showTip = not condensed and (not stack or not tuned)
@@ -560,16 +545,7 @@ local function StoryBeat(_param)
 	}), React.createElement("uipadding", {
 		PaddingLeft = UDim.new(0, 12),
 		PaddingRight = UDim.new(0, 12),
-	}), not tuned and React.createElement("frame", {
-		Size = tuneSpring:map(function(amount)
-			return UDim2.new(amount, 0, 1, 0)
-		end),
-		BackgroundColor3 = color,
-		BackgroundTransparency = 0.82,
-		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 8),
-	})), React.createElement("textlabel", {
+	}), React.createElement("textlabel", {
 		Size = UDim2.new(0, 0, 1, 0),
 		AutomaticSize = Enum.AutomaticSize.X,
 		BackgroundTransparency = 1,
@@ -1185,9 +1161,6 @@ local function StoryView(_param)
 			})
 		end
 		_attributes.onClose = closeReplay
-		_attributes.onResonate = function()
-			return nil
-		end
 		_attributes.stack = stack
 		_attributes.condensed = viewport.height < 620 or viewport.keyboardOpen or chrome.landscape
 		_condition_3 = React.createElement("frame", {

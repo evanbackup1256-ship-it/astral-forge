@@ -161,7 +161,8 @@ end
 -- (every 0.25s), hand over when due, and check every track plays in turn for
 -- (nearly) its whole length.
 do
-	local lengths = { 150, 95, 180, 120 }
+	local lengths = {}
+	for index = 1, #tracks do lengths[index] = 120 + index end
 	assert(#lengths >= #tracks, "model needs a length per track")
 	local POLL = 0.25
 	local fade = Soundtrack.CROSSFADE_SECONDS

@@ -3543,11 +3543,7 @@ local function buildSpinningWheel(viewport, rewards)
 			wedge.Parent = model
 			wedges[index] = wedge
 		end
-		local icon = kitPiece(prizeIcon(reward), 0.78)
-		if icon ~= nil then
-			icon.CFrame = CFrame.Angles(0, 0, angle) * CFrame.new(0, KIT_ICON_RADIUS, -0.34)
-			icon.Parent = model
-		end
+		-- Prize artwork lives in the result card; sectors stay unobstructed.
 	end
 	return { wedges = wedges }
 end
@@ -3708,15 +3704,15 @@ local function KitPrizeWheel(_param)
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 		}, React.createElement(Text, {
-			value = reward.ShortLabel or reward.Name,
-			size = math.clamp(math.floor(diameter * 0.036), 10, 15),
+			value = tostring(index),
+			size = math.clamp(math.floor(diameter * 0.045), 11, 18),
 			color = if won then Palette.cream else Color3.new(1, 1, 1),
 			weight = Enum.FontWeight.Heavy,
 			align = Enum.TextXAlignment.Center,
 			fit = true,
 			minSize = 8,
-			position = UDim2.new(0.5, -diameter * 0.14, 0.5, -labelRadius - 9),
-			sizeConstraint = UDim2.fromOffset(diameter * 0.28, 18),
+			position = UDim2.new(0.5, -10, 0.5, -labelRadius - 10),
+			sizeConstraint = UDim2.fromOffset(20, 20),
 			zIndex = 6,
 		}))
 	end
@@ -4089,7 +4085,7 @@ local function WheelConsole(_param)
 		highlight = canSpin and not controller.spinning,
 	})))
 end
-local PRIZE_ROW_H = 56
+local PRIZE_ROW_H = 84
 local function PrizeCatalogRow(_param)
 	local reward = _param.reward
 	local weightTotal = _param.weightTotal
@@ -4104,25 +4100,26 @@ local function PrizeCatalogRow(_param)
 		reducedMotion = reducedMotion,
 		clips = false,
 	}, React.createElement(Text, {
-		value = reward.Name or reward.Id,
+		value = `{_param.index}. {reward.Name or reward.Id}`,
 		size = 14,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		sizeConstraint = UDim2.new(1, -110, 0, 20),
+		wrap = true,
+		sizeConstraint = UDim2.new(1, -110, 0, 38),
 	}), React.createElement(Text, {
 		value = `{reward.Rarity} · {string.format("%.1f", chance)}%`,
 		size = 11,
 		color = reward.Color,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
-		position = UDim2.fromOffset(0, 22),
-		sizeConstraint = UDim2.new(1, -110, 0, 16),
+		position = UDim2.fromOffset(0, 42),
+		sizeConstraint = UDim2.new(1, 0, 0, 18),
 	}), React.createElement(Badge, {
 		value = reward.ShortLabel or formatReward(reward.Reward),
 		accent = reward.Color,
 		filled = true,
-		position = UDim2.new(1, -100, 0.5, -12),
+		position = UDim2.new(1, -100, 0, 6),
 		size = UDim2.fromOffset(100, 24),
 	}))
 end
@@ -4132,6 +4129,8 @@ local function WheelView(props)
 	local config = _binding.config
 	local reducedMotion = _binding.reducedMotion
 	local viewport = useViewport()
+	local pageWidth, setPageWidth = React.useState(nil)
+	local availableWidth = pageWidth or math.max(100, viewport.width - 280)
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
 	local softMotion = reducedMotion
@@ -4159,23 +4158,18 @@ local function WheelView(props)
 	local rewards = config.Wheel.Rewards
 	local landscape = chrome.landscape or (viewport.width > viewport.height * 1.35 and viewport.height < 680)
 	local shortLandscape = landscape and viewport.width >= 480 and viewport.width < 900 and viewport.height <= 430
-	local split = shortLandscape or (not chrome.contentStack and viewport.width >= 720)
+	local split = not chrome.contentStack and availableWidth >= 760
 	local narrowPortrait = not landscape and viewport.width <= 360
-	local widthCap = if shortLandscape then viewport.width * 0.4 - 18 elseif split then viewport.width * (if landscape then 0.43 else 0.48) - 54 else viewport.width - 58
-	local heightCap = if shortLandscape then viewport.height - 105 elseif landscape then viewport.height - 250 elseif split then viewport.height - 390 else viewport.height - 300
-	local wheelDiameter = math.floor(if shortLandscape then math.clamp(math.min(widthCap, heightCap), 190, 220) else math.clamp(math.min(widthCap, heightCap), if chrome.contentStack then 226 else 264, if split then 410 else 340))
-	local headerH = if shortLandscape then 52 elseif narrowPortrait then 78 elseif chrome.contentStack then 66 else 60
+	local widthCap = if split then availableWidth * 0.48 - Layout.cardPadding * 2 - 24 else availableWidth - Layout.cardPadding * 2 - 24
+	local heightCap = if shortLandscape then 240 elseif split then 420 else 360
+	local wheelDiameter = math.floor(if shortLandscape then math.clamp(math.min(widthCap, heightCap), 190, 220) else math.clamp(math.min(widthCap, heightCap), if chrome.contentStack then 140 else 180, if split then 410 else 340))
+	wheelDiameter = math.max(100, math.min(wheelDiameter, widthCap))
+	local headerH = if shortLandscape then 64 elseif narrowPortrait then 90 else 82
 	local consoleH = if shortLandscape then 198 elseif chrome.contentStack then 230 else 232
-	local stageH = if split then math.max(wheelDiameter, consoleH) else wheelDiameter + 16 + consoleH
+	local stageH = if split then math.max(wheelDiameter + 24, consoleH) else wheelDiameter + 40 + consoleH
 	local panelH = headerH + stageH + Layout.cardPadding * 2
-	local tablePeek = 28 + 140
-	local pageBudget = math.max(420, viewport.height - 110)
-	if panelH + tablePeek > pageBudget then
-		local shrink = panelH + tablePeek - pageBudget
-		wheelDiameter = math.max(200, wheelDiameter - shrink)
-		stageH = if split then math.max(wheelDiameter, consoleH) else wheelDiameter + 16 + consoleH
-		panelH = headerH + stageH + Layout.cardPadding * 2
-	end
+	-- The legend shares the page scroll, so the wheel no longer needs to shrink
+	-- to make an artificial nested prize viewport fit above the fold.
 	local headerReveal = useStagger(0, softMotion)
 	local _result
 	if controller.winner >= 0 then
@@ -4192,33 +4186,36 @@ local function WheelView(props)
 		_result = Palette.mango
 	end
 	local accent = _result
-	local headline = if narrowPortrait then "Spin it. Win something." else "Your next prize is one spin away."
+	local headline = "Your daily prize draw"
 	local descriptor = if narrowPortrait then `{#rewards} prizes / rare-win protection` else `{#rewards} prizes  /  better odds after every miss`
 	local containedEffects = chrome.portrait or shortLandscape or viewport.width <= 420 or (landscape and viewport.height <= 480)
 	local weightTotal = 0
 	for _, reward in rewards do
 		weightTotal += reward.Weight or 0
 	end
-	local prizeList = React.createElement(FlatList, {
-		data = rewards,
-		itemHeight = PRIZE_ROW_H,
-		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-		canvasTail = 8,
-		Size = UDim2.fromScale(1, 1),
-		scrollBarColor = accent,
-		scrollBarThickness = 3,
-		keyExtractor = function(reward)
-			return reward.Id
+	-- One page scroll owns the complete legend: no clipped nested prize viewport.
+	local prizeRows = { layout = React.createElement("uilistlayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6),
+	}) }
+	for index, reward in rewards do
+		prizeRows[reward.Id] = React.createElement("frame", {
+			Size = UDim2.new(1, -6, 0, PRIZE_ROW_H - 6),
+			BackgroundTransparency = 1, LayoutOrder = index,
+		}, React.createElement(PrizeCatalogRow, {
+			reward = reward, index = index, weightTotal = weightTotal, reducedMotion = softMotion,
+		}))
+	end
+	local prizeList = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+	}, prizeRows)
+	return React.createElement("frame", {
+		Name = "WheelPage", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+		[React.Change.AbsoluteSize] = function(host)
+			local scale = if workspace:GetAttribute("AstralForgeVRCanvasWidth") then 1 else Layout.chromeScale
+			local width = math.floor(host.AbsoluteSize.X / scale)
+			if width > 0 then setPageWidth(width) end
 		end,
-		renderItem = function(_param_1)
-			return React.createElement(PrizeCatalogRow, {
-				reward = _param_1.item,
-				weightTotal = weightTotal,
-				reducedMotion = softMotion,
-			})
-		end,
-	})
-	return React.createElement(PageScaffold, {
+	}, React.createElement(PageScaffold, {
 		gap = 0,
 		tailPad = scrollTail(chrome.stack, chrome.bottomSafe, 40),
 		scrollBarColor = accent,
@@ -4276,7 +4273,7 @@ local function WheelView(props)
 					containedEffects = containedEffects,
 				})), React.createElement("frame", {
 					Size = if split then UDim2.new(0.48, -10, 0, consoleH) else UDim2.new(1, 0, 0, consoleH),
-					Position = if split then UDim2.new(0.52, 10, 0, headerH + (stageH - consoleH) / 2) else UDim2.fromOffset(0, headerH + wheelDiameter + 16),
+					Position = if split then UDim2.new(0.52, 10, 0, headerH + (stageH - consoleH) / 2) else UDim2.fromOffset(0, headerH + wheelDiameter + 40),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 				}, React.createElement(WheelConsole, {
@@ -4294,7 +4291,7 @@ local function WheelView(props)
 				id = "prizes-label",
 				height = 28,
 				element = React.createElement(Text, {
-					value = "PRIZE TABLE",
+					value = "PRIZE TABLE · MATCH THE SECTOR NUMBER",
 					size = 11,
 					color = Palette.mango,
 					weight = Enum.FontWeight.Heavy,
@@ -4303,12 +4300,11 @@ local function WheelView(props)
 			},
 			{
 				id = "prizes",
-				fill = true,
-				minHeight = math.max(140, PRIZE_ROW_H * 3),
+				height = PRIZE_ROW_H * #rewards + 8,
 				element = prizeList,
 			},
 		},
-	})
+	}))
 end
 return {
 	WheelView = WheelView,

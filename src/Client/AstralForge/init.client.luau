@@ -340,6 +340,8 @@ local function ClientBootstrap(_param)
 	local failure = _param.failure
 	local startedAt = _param.startedAt
 	local shutdownLayer = _param.shutdownLayer
+	local vrScreen = Players.LocalPlayer.PlayerGui:FindFirstChild("AstralForgeVR")
+	if vrScreen and vrScreen.Enabled then shutdownLayer = vrScreen:FindFirstChild("Overlay") end
 	local status = useClientSelector(function(state)
 		return state.boot.status
 	end)
@@ -534,6 +536,11 @@ do
 		self.shutdownLayer = shutdownLayer
 		self.store = createClientStore()
 		self.root = ReactRoblox.createRoot(screen)
+		self.vrHost = require(script.VRInterface).mount(playerGui, screen, function(host)
+			self.vrHost = host
+			if self.lastElement ~= nil then self:render(self.lastElement) end
+		end)
+		table.insert(self.disposers, self.vrHost.dispose)
 		initializeClientFramework(screen)
 		local destroying = trackBootConnection(screen.Destroying:Connect(function()
 			return self:dispose()
@@ -560,11 +567,16 @@ do
 		if self.disposed then
 			return nil
 		end
-		self.root:render(React.createElement(React.Suspense, {
+		self.lastElement = element
+		local tree = React.createElement(React.Suspense, {
 			fallback = React.createElement(PagePending),
 		}, React.createElement(PageErrorBoundary, nil, React.createElement(ClientStoreProvider, {
 			store = self.store,
-		}, element))))
+		}, element)))
+		if self.vrHost and self.vrHost.active then
+			tree = ReactRoblox.createPortal(React.createElement(MotionSettingsContext.Provider, {value={soft=true,motionScale=0,viewportScale=1,textScale=1}}, tree), self.vrHost.container)
+		end
+		self.root:render(tree)
 	end
 	function ClientRuntime:dispose()
 		if self.disposed then
@@ -593,6 +605,7 @@ do
 	end
 end
 local function configureUiOnlyWorkspace()
+	if game:GetService("VRService").VREnabled then return function() end end
 	local lighting = Lighting
 	local previous = {
 		globalShadows = lighting.GlobalShadows,
@@ -641,12 +654,14 @@ local function configureUiOnlyWorkspace()
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.CameraSubject = nil
 	end
+	local mutedScripts = {}
 	local muteScripts
 	muteScripts = function(instance)
 		if instance == nil then
 			return nil
 		end
 		if instance:IsA("BaseScript") then
+			mutedScripts[instance] = instance.Disabled
 			instance.Disabled = true
 		end
 		for _, child in instance:GetChildren() do
@@ -673,6 +688,7 @@ local function configureUiOnlyWorkspace()
 			child.Parent = lighting
 		end
 		parked:Destroy()
+		for instance, disabled in mutedScripts do if instance.Parent then instance.Disabled = disabled end end
 		if camera ~= nil then
 			if previousCameraType ~= nil then
 				camera.CameraType = previousCameraType
@@ -713,7 +729,7 @@ local function configureRobloxUi(playerGui)
 	local mobileTouch = UserInputService.TouchEnabled and (UserInputService.PreferredInput == Enum.PreferredInput.Touch or (not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled))
 	if mobileTouch then
 		pcall(function()
-			playerGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor
+			playerGui.ScreenOrientation = Enum.ScreenOrientation.Sensor
 		end)
 	end
 	pcall(function()
@@ -788,7 +804,13 @@ bootLog("runtime created")
 local restoreRobloxUi = configureRobloxUi(playerGui)
 runtime:addDisposer(restoreRobloxUi)
 runtime:addDisposer(stopInputPlatform)
-runtime:addDisposer(configureUiOnlyWorkspace())
+local restoreWorkspace = configureUiOnlyWorkspace()
+runtime:addDisposer(function() restoreWorkspace() end)
+local vrModeConnection = game:GetService("VRService"):GetPropertyChangedSignal("VREnabled"):Connect(function()
+	restoreWorkspace()
+	restoreWorkspace = configureUiOnlyWorkspace()
+end)
+runtime:addDisposer(function() vrModeConnection:Disconnect() end)
 Audio:setScene("boot")
 runtime:render(React.createElement(ClientBootstrap, {
 	startedAt = clientStartedAt,

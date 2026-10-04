@@ -6,6 +6,14 @@ local luau = require("@lune/luau")
 -- client). Keep this list to files that load as pure chunks under Lune —
 -- Studio-only test *runners* stay out; test modules are parse-checked only.
 local files = {
+	"src/Shared/AstralForge/Shared/SocialProgression.luau",
+	"src/Client/AstralForge/ActionRequest.luau",
+	"src/Client/AstralForge/RankDashboard.luau",
+	"src/Client/AstralForge/PlanningModel.luau",
+	"src/Client/AstralForge/PlanningViews.luau",
+	"src/Client/AstralForge/VRInterface.luau",
+	"src/Shared/AstralForge/Shared/AdminCommandSchema.luau",
+	"src/Server/AstralForge/Services/AdminService.luau",
 	-- Client boot / shell
 	"src/Client/AstralForge/init.client.luau",
 	"src/Client/AstralForge/ReactHosts.luau",
@@ -16,6 +24,10 @@ local files = {
 	"src/Client/AstralForge/LayoutKit.luau",
 	"src/Shared/AstralForge/Shared/SharedData.luau",
 	"src/Client/AstralForge/MotionKit.luau",
+	"src/Client/AstralForge/UpgradeModel.luau",
+	"src/Client/AstralForge/PurchaseQueue.luau",
+	"src/Client/AstralForge/UpgradeTools.luau",
+	"src/Client/AstralForge/OverviewGoals.luau",
 	"src/Client/AstralForge/UiOverlays.luau",
 	"src/Client/AstralForge/framework.luau",
 	"src/Client/AstralForge/layoutGuard.luau",

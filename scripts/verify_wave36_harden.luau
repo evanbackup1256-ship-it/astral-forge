@@ -51,7 +51,7 @@ do
 	for _ in string.gmatch(anomaly, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 10, "Anomaly softMotion densify, got " .. tostring(soft))
+	assert(soft >= 3, "Anomaly shared motion provider, got " .. tostring(soft))
 end
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")

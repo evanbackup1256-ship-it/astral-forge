@@ -7,16 +7,23 @@ local DataTemplate = require(script.Parent:WaitForChild("DataTemplate"))
 local Economy = require(script.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 local ProfileIntegrity = require(script.Parent:WaitForChild("Services"):WaitForChild("ServerServices")).ProfileIntegrity
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local OmegaMath = require(ReplicatedStorage.AstralForge.Shared.OmegaMath)
 
 local ReleaseReadiness = {}
 local MAX_VALUE = 1e308
 
 local function finite(value: any): boolean
+	if type(value) == "string" then
+		local mantissa, exponent = string.match(value, "^([%+%-]?%d*%.?%d+)[eE]([%+%-]?%d+)$")
+		local m, e = tonumber(mantissa), tonumber(exponent)
+		return m ~= nil and e ~= nil and m == m and e == e
+			and math.abs(m) < math.huge and math.abs(e) < 1e18
+	end
 	return type(value) == "number"
 		and value == value
 		and value ~= math.huge
 		and value ~= -math.huge
-		and math.abs(value) <= MAX_VALUE
+		and math.abs(value) <= 1.7976931348623157e308
 end
 
 local function expect(condition: boolean, message: string): ()
@@ -45,7 +52,7 @@ end
 
 local function validateProfile(profile): ()
 	for _, key in { "Cash", "Vault", "Cores", "Stardust", "Rebirths", "RunCash", "LifetimeCash" } do
-		expect(finite(profile[key]) and profile[key] >= 0, key .. " left its finite persistence envelope")
+		expect(finite(profile[key]) and OmegaMath.Gte(profile[key], 0), key .. " left its finite persistence envelope")
 	end
 	expect(finite(Economy.Production(profile)), "production is not finite")
 	expect(finite(Economy.Capacity(profile)), "capacity is not finite")
@@ -116,7 +123,7 @@ local function quickChecks(): { string }
 		local previous = 0
 		for _, level in { 0, 1, 10, 100, 10_000, machine.MaxLevel } do
 			local cost = Economy.MachineCost(machine.Id, level)
-			expect(finite(cost) and cost >= previous, machine.Id .. " machine cost is invalid or regressed")
+			expect(finite(cost) and OmegaMath.Gte(cost, previous), machine.Id .. " machine cost is invalid or regressed")
 			previous = cost
 		end
 	end
@@ -124,7 +131,7 @@ local function quickChecks(): { string }
 		local previous = 0
 		for _, level in { 0, 1, 10, 100, 10_000, research.MaxLevel } do
 			local cost = Economy.ResearchCost(research.Id, level)
-			expect(finite(cost) and cost >= previous, research.Id .. " research cost is invalid or regressed")
+			expect(finite(cost) and OmegaMath.Gte(cost, previous), research.Id .. " research cost is invalid or regressed")
 			previous = cost
 		end
 	end
@@ -163,16 +170,16 @@ local function simulationStep(profile, random: Random): ()
 	local machine = GameConfig.Machines[random:NextInteger(1, #GameConfig.Machines)]
 	local current = profile.Machines[machine.Id] or 0
 	local cost = Economy.MachineCost(machine.Id, current)
-	local production = math.max(1, Economy.Production(profile))
-	profile.Cash = math.min(MAX_VALUE, profile.Cash + production * random:NextNumber(0.25, 4))
-	profile.RunCash = math.min(MAX_VALUE, profile.RunCash + production)
-	profile.LifetimeCash = math.min(MAX_VALUE, profile.LifetimeCash + production)
-	if profile.Cash >= cost and current < machine.MaxLevel then
-		profile.Cash -= cost
+	local production = OmegaMath.Max(1, Economy.Production(profile))
+	profile.Cash = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.Cash, OmegaMath.Mul(production, random:NextNumber(0.25, 4))))
+	profile.RunCash = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.RunCash, production))
+	profile.LifetimeCash = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.LifetimeCash, production))
+	if OmegaMath.Gte(profile.Cash, cost) and current < machine.MaxLevel then
+		profile.Cash = OmegaMath.Sub(profile.Cash, cost)
 		profile.Machines[machine.Id] = current + 1
 	end
 	if random:NextNumber() < 0.002 then
-		profile.Cores = math.min(MAX_VALUE, profile.Cores + Economy.PrestigeReward(profile.RunCash))
+		profile.Cores = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.Cores, Economy.PrestigeReward(profile.RunCash)))
 		profile.Rebirths = math.min(MAX_VALUE, profile.Rebirths + 1)
 		profile.Cash = 0
 		profile.RunCash = 0
@@ -186,7 +193,10 @@ function ReleaseReadiness.RunQuick()
 	local random = Random.new(0xA57A1)
 	for iteration = 1, 50_000 do
 		simulationStep(profile, random)
-		if iteration % 1_000 == 0 then validateProfile(profile) end
+		if iteration % 1_000 == 0 then
+			validateProfile(profile)
+			task.wait()
+		end
 	end
 	ProfileIntegrity.Record(profile, "quick-soak", profile.Meta.Revision)
 	ProfileIntegrity.Seal(profile)

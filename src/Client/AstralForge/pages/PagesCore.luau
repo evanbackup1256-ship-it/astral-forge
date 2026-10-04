@@ -55,6 +55,7 @@ local TapTarget = _theme.TapTarget
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local asFlux = _format.asFlux
 local compactNumber = _format.compactNumber
+local overviewGoal = require(script.Parent.Parent.OverviewGoals)(require(game.ReplicatedStorage.AstralForge.Shared.OmegaMath), compactNumber)
 local gteFlux = _format.gteFlux
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
@@ -1170,10 +1171,18 @@ local function OverviewView(_param)
 				end
 			end
 		end
+		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, anomaly = anomalyReady }) else nil
+		if adaptiveGoal then
+			title, body, fillLine = adaptiveGoal.title, adaptiveGoal.body, ""
+			meter, statValue, statLabel = adaptiveGoal.progress, adaptiveGoal.value, adaptiveGoal.label
+			cta, ctaAction = adaptiveGoal.cta or "", nil
+			if adaptiveGoal.page == "Domain" then ctaAction = openDomain
+			elseif adaptiveGoal.page and navigate then ctaAction = function() navigate(adaptiveGoal.page) end end
+		end
 		local meterTop = if stack then notesH - (if cta ~= "" then TapTarget + 28 else 28) else notesH - 52
 		local bodyRoom = math.max(16, meterTop - 52 - 6)
 		local ladderSlots = math.clamp(math.floor(bodyRoom / 13), 1, 3)
-		local ladder = if vaultFill >= 0.99 then {} else progressLadder(state, config, ladderSlots)
+		local ladder = if vaultFill >= 0.99 or adaptiveGoal then {} else progressLadder(state, config, ladderSlots)
 		if #ladder > 0 then
 			local keep = {}
 			local limit = if fillLine ~= "" then math.max(0, ladderSlots - 1) else ladderSlots

@@ -883,6 +883,7 @@ end
 
 __defs["ResearchView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UpgradeTools = require(script.Parent.Parent.UpgradeTools)
 local UserInputService = game:GetService("UserInputService")
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _ui = require(script.Parent.Parent.UiCore)("ui")
@@ -1110,32 +1111,17 @@ local function ResearchView(_param)
 		end
 	end
 	local nextEntry = _result_2
-	local onBuy = React.useCallback(function(id)
-		return dispatch("BuyResearch", {
-			Id = id,
-			Amount = amountPayload(buyAmount),
-		})
-	end, { dispatch, buyAmount })
-	local onBuyAll = function()
-		local _callback_3 = function(entry)
-			if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
-				dispatch("BuyResearch", {
-					Id = entry.config.Id,
-					Amount = "Max",
-				})
-			end
-		end
-		for _k, _v in entries do
-			_callback_3(_v, _k - 1, entries)
-		end
-	end
-	local canBuyAll = false
-	for _, entry in entries do
-		if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
-			canBuyAll = true
-			break
-		end
-	end
+	local query, setQuery = React.useState("")
+	local filter, setFilter = React.useState("Available")
+	local visible = UpgradeTools.Model.filter(entries, query, filter, buyAmount, state.Cash)
+	local batch = UpgradeTools.useBatch(dispatch, "BuyResearch", visible, buyAmount, state.Cash)
+	local onBuy = batch.buy
+	local onBuyAll = batch.start
+	local canBuyAll = batch.count > 0 and not batch.busy
+	React.useEffect(function()
+		local host = scrollRef.current
+		if host then host.CanvasPosition = Vector2.zero end
+	end, { query, filter })
 	React.useEffect(function()
 		if not canBuyAll or not UserInputService.GamepadEnabled then
 			return nil
@@ -1161,7 +1147,7 @@ local function ResearchView(_param)
 		researchGate = researchGate.Research
 	end
 	local researchLocked = researchGate ~= nil and researchGate.Unlocked == false
-	local chainCount = #entries
+	local chainCount = #visible
 	local rowStride = (if stack then NODE_ROW_HEIGHT_STACK else NODE_ROW_HEIGHT) + CONNECTOR_HEIGHT
 	local chainH = math.max(rowStride, chainCount * rowStride)
 	return React.createElement(PageScaffold, {
@@ -1229,7 +1215,7 @@ local function ResearchView(_param)
 					ClipsDescendants = false,
 					ref = if canBuyAll then buyAllHostRef else nil,
 				}, React.createElement(Button, {
-					text = "BUY ALL AFFORDABLE",
+					text = if batch.busy then batch.status else `BUY BATCH · {batch.count}`,
 					icon = "Flux",
 					onClick = onBuyAll,
 					color = if canBuyAll then Palette.cyan else Palette.panelSoft,
@@ -1243,18 +1229,18 @@ local function ResearchView(_param)
 					onChange = setBuyAmount,
 					accent = Palette.cyan,
 					position = UDim2.new(0, 0, 0, 132),
-					size = UDim2.new(1, -(TapTarget + 8), 0, TapTarget),
+					size = UDim2.new(1, -104, 0, TapTarget),
 						reducedMotion = softMotion,
 				}), React.createElement("frame", {
 					Name = "ResearchBuyClaimActions",
-					Size = UDim2.fromOffset(TapTarget, TapTarget),
-					Position = UDim2.new(1, -TapTarget, 0, 132),
+					Size = UDim2.fromOffset(96, TapTarget),
+					Position = UDim2.new(1, -96, 0, 132),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					ClipsDescendants = false,
 					ref = if canBuyAll then buyAllHostRef else nil,
 				}, React.createElement(Button, {
-					text = "ALL",
+					text = if batch.busy then "…" else `BUY {batch.count}`,
 					icon = "Flux",
 					onClick = onBuyAll,
 					color = if canBuyAll then Palette.cyan else Palette.panelSoft,
@@ -1266,9 +1252,14 @@ local function ResearchView(_param)
 				})))),
 			},
 			{
+				id = "research-controls",
+				height = if stack then 164 else 96,
+				element = React.createElement(UpgradeTools.ResearchControls, { query = query, setQuery = setQuery, filter = filter, setFilter = setFilter, count = #visible, stack = stack, reducedMotion = softMotion, batch = batch }),
+			},
+			{
 				id = "chain",
 				height = chainH,
-				element = React.createElement(VirtualGrid, {
+				element = if #visible == 0 then React.createElement(_ui.EmptyState, { title = "No matching research", body = "Try another search or choose All research.", icon = "Research", accent = Palette.cyan, reducedMotion = softMotion, size = UDim2.fromScale(1, 1) }) else React.createElement(VirtualGrid, {
 					scrollRef = scrollRef,
 					count = chainCount,
 					columns = 1,
@@ -1276,12 +1267,12 @@ local function ResearchView(_param)
 					gap = 0,
 					overscanRows = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 					itemKey = function(index)
-						local entry = entries[index + 1]
+						local entry = visible[index + 1]
 						return if entry ~= nil then entry.config.Id else `node-{index}`
 					end,
 					renderItem = function(index)
 						return React.createElement(ResearchNode, {
-							entry = entries[index + 1],
+							entry = visible[index + 1],
 							buyAmount = buyAmount,
 							cash = state.Cash,
 							reducedMotion = softMotion,
@@ -2000,6 +1991,7 @@ end
 
 __defs["WorkshopView"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+local UpgradeTools = require(script.Parent.Parent.UpgradeTools)
 local UserInputService = game:GetService("UserInputService")
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
@@ -2184,6 +2176,9 @@ local function MachineRow(_param)
 	})))
 end
 local SORT_OPTIONS = { {
+	id = "Return",
+	label = "Best level return",
+}, {
 	id = "Default",
 	label = "Tier order",
 }, {
@@ -2191,7 +2186,7 @@ local SORT_OPTIONS = { {
 	label = "Cheapest first",
 }, {
 	id = "Output",
-	label = "Highest output",
+	label = "Biggest level gain",
 }, {
 	id = "Level",
 	label = "Highest level",
@@ -2206,8 +2201,6 @@ local function UpgradeBoard(_param)
 	local buyAmount = _param.buyAmount
 	local setBuyAmount = _param.setBuyAmount
 	local reducedMotion = _param.reducedMotion
-	local onBuy = _param.onBuy
-	local onBuyAll = _param.onBuyAll
 	local featurePanel = _param.featurePanel
 	local featurePanelHeight = _param.featurePanelHeight
 	if featurePanelHeight == nil then
@@ -2246,7 +2239,7 @@ local function UpgradeBoard(_param)
 	local gridReveal = useStagger(3, softMotion)
 	local cash = state.Cash
 	local canBuy = function(entry)
-		return entry.unlocked and not entry.maxed and gteFlux(cash, entry.price)
+		return UpgradeTools.Model.quote(entry, buyAmount, cash).ready
 	end
 	local _result = 0
 	local _callback = function(total, entry)
@@ -2290,7 +2283,7 @@ local function UpgradeBoard(_param)
 		label = "Coming up",
 		count = nextCount,
 	} }
-	local needle = string.lower(query)
+	local needle = string.lower(string.match(query, "^%s*(.-)%s*$"))
 	local pool = if needle ~= "" then entries else near
 	local visible = {}
 	local _callback_3 = function(entry)
@@ -2317,25 +2310,25 @@ local function UpgradeBoard(_param)
 		_callback_3(_v, _k - 1, pool)
 	end
 	table.sort(visible, function(left, right)
-		if sort == "Cheapest" then
-			return compareFlux(left.price, right.price) < 0
-		end
-		if sort == "Output" then
-			local _condition = right.config.BaseProduction
-			if _condition == nil then
-				_condition = 0
-			end
-			local _condition_1 = left.config.BaseProduction
-			if _condition_1 == nil then
-				_condition_1 = 0
-			end
-			return _condition < _condition_1
-		end
-		if sort == "Level" then
-			return right.level < left.level
-		end
+		if sort == "Return" then
+			local leftRank = if canBuy(left) then 0 elseif left.unlocked and not left.maxed then 1 else 2
+			local rightRank = if canBuy(right) then 0 elseif right.unlocked and not right.maxed then 1 else 2
+			if leftRank ~= rightRank then return leftRank < rightRank end
+			local a, b = UpgradeTools.Model.returnScore(left), UpgradeTools.Model.returnScore(right)
+			if a ~= b then return a > b end
+		elseif sort == "Cheapest" then
+			local comparison = compareFlux(UpgradeTools.Model.quote(left, buyAmount, cash).cost, UpgradeTools.Model.quote(right, buyAmount, cash).cost)
+			if comparison ~= 0 then return comparison < 0 end
+		elseif sort == "Output" then
+			local a = UpgradeTools.Model.gainScore(left)
+			local b = UpgradeTools.Model.gainScore(right)
+			if a ~= b then return a > b end
+		elseif sort == "Level" and left.level ~= right.level then return left.level > right.level end
 		return left.order < right.order
 	end)
+	local batch = UpgradeTools.useBatch(_param.dispatch, "BuyMachine", visible, buyAmount, cash)
+	local onBuy = batch.buy
+	local onBuyAll = batch.start
 	local stack = chrome.contentStack
 	local touchLayout = chrome.mobile
 	local searchW = 252
@@ -2353,6 +2346,10 @@ local function UpgradeBoard(_param)
 	local machinesBlock = if #visible == 0 then 150 else (gridRows * rowH + math.max(0, gridRows - 1) * gap)
 	local machineScrollTail = if stack then scrollTail(stack, chrome.bottomSafe, if chrome.landscape then 52 else 80) else scrollTail(stack, chrome.bottomSafe, 28)
 	local scrollRef = React.useRef()
+	React.useEffect(function()
+		local host = scrollRef.current
+		if host then host.CanvasPosition = Vector2.zero end
+	end, { query, sort, filter })
 	local controlH = TapTarget
 	local desktopControlH = if touchLayout then TapTarget else 40
 	local controlsY = if controlsWrap then 98 else 100
@@ -2409,7 +2406,7 @@ local function UpgradeBoard(_param)
 		size = UDim2.fromOffset(228, desktopControlH),
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
-		text = if affordableCount > 0 then `Buy all you can · {affordableCount}` else "Nothing to buy yet",
+		text = if batch.busy then batch.status elseif batch.count > 0 then `Buy batch · {batch.count}` else "Nothing to buy yet",
 		icon = "Flux",
 		onClick = function()
 			local _result_3 = onBuyAll
@@ -2422,7 +2419,7 @@ local function UpgradeBoard(_param)
 		textColor = if affordableCount > 0 then Palette.ink else Palette.muted,
 		size = UDim2.fromOffset(228, 30),
 		position = UDim2.new(1, -236, 0, 66),
-		disabled = affordableCount <= 0 or onBuyAll == nil,
+		disabled = batch.count <= 0 or batch.busy or onBuyAll == nil,
 		reducedMotion = reducedMotion,
 		highlight = affordableCount > 0,
 	}), React.createElement(SearchField, {
@@ -2478,7 +2475,7 @@ local function UpgradeBoard(_param)
 		size = UDim2.new(0.62, -6, 0, controlH),
 		reducedMotion = reducedMotion,
 	}), React.createElement(Button, {
-		text = if affordableCount > 0 then "Buy all you can" else "Nothing to buy",
+		text = if batch.busy then batch.status elseif batch.count > 0 then `Buy batch · {batch.count}` else "Nothing to buy",
 		icon = "Flux",
 		onClick = function()
 			local _result_3 = onBuyAll
@@ -2491,7 +2488,7 @@ local function UpgradeBoard(_param)
 		textColor = if affordableCount > 0 then Palette.ink else Palette.muted,
 		size = UDim2.new(0.38, -6, 0, controlH),
 		position = UDim2.new(0.62, 6, 0, stackControlsY),
-		disabled = affordableCount <= 0 or onBuyAll == nil,
+		disabled = batch.count <= 0 or batch.busy or onBuyAll == nil,
 		reducedMotion = reducedMotion,
 		highlight = affordableCount > 0,
 	}), not stackCompact and React.createElement(SearchField, {
@@ -2583,6 +2580,11 @@ local function UpgradeBoard(_param)
 			id = "header",
 			height = headerHeight,
 			element = headerPanel,
+		},
+		{
+			id = "purchase-plan",
+			height = 128,
+			element = React.createElement(UpgradeTools.Planner, { entries = visible, amount = buyAmount, cash = cash, batch = batch, accent = accent }),
 		},
 		{
 			id = "machines",
@@ -3081,25 +3083,7 @@ local function WorkshopView(_param)
 		buyAmount = buyAmount,
 		setBuyAmount = setBuyAmount,
 		reducedMotion = reducedMotion,
-		onBuy = function(id)
-			return dispatch("BuyMachine", {
-				Id = id,
-				Amount = amountPayload(buyAmount),
-			})
-		end,
-		onBuyAll = function()
-			local _callback = function(entry)
-				if entry.unlocked and not entry.maxed and gteFlux(state.Cash, entry.price) then
-					dispatch("BuyMachine", {
-						Id = entry.config.Id,
-						Amount = "Max",
-					})
-				end
-			end
-			for _k, _v in entries do
-				_callback(_v, _k - 1, entries)
-			end
-		end,
+		dispatch = dispatch,
 		featurePanelHeight = featureHeight,
 		featurePanel = React.createElement(AutoForgePanel, {
 			state = state,
@@ -3388,276 +3372,7 @@ return { ForgePathView = ForgePathView }
 end
 
 __defs["ContinuumView"] = function()
-local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local UserInputService = game:GetService("UserInputService")
-local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
-local _format = require(script.Parent.Parent.CoreKit)("format")
-local compactNumber = _format.compactNumber
-local gteFlux = _format.gteFlux
-local asFlux = _format.asFlux
-local _motion = require(script.Parent.Parent.MotionKit)("motion")
-local useViewport = _motion.useViewport
-local _theme = require(script.Parent.Parent.CoreKit)("theme")
-local chromeFor = _theme.chromeFor
-local Layout = _theme.Layout
-local Palette = _theme.Palette
-local scrollTail = _theme.scrollTail
-local TapTarget = _theme.TapTarget
-local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
-local _ui = require(script.Parent.Parent.UiCore)("ui")
-local Button = _ui.Button
-local Meter = _ui.Meter
-local meterFill = _ui.meterFill
-local Panel = _ui.Panel
-local Text = _ui.Text
-
-local EMPTY_CONTINUUM = {
-	Rank = 0,
-	FluxCost = 2500000,
-	StardustCost = 12,
-	CanUpgrade = false,
-	ProductionMultiplier = 1,
-	CapacityMultiplier = 1,
-	TapMultiplier = 1,
-	OfflineBonus = 0,
-}
-
-local function showMult(value)
-	if type(value) ~= "number" then
-		return compactNumber(value)
-	end
-	return string.format("%.2f", value)
-end
-
-local function advice(canUpgrade, canFlux, canDust, rank)
-	if canUpgrade then
-		return "You can raise the rank now. It is permanent, so it is worth more than spending the same flux on a machine you will rebirth away."
-	end
-	local nextRank = rank + 1
-	local milestone = nextRank % 25 == 0
-	if not canFlux and not canDust then
-		return if milestone
-			then "Rank " .. tostring(nextRank) .. " is a milestone (an extra 1.5x). You still need both flux and stardust."
-			else "You need more flux and more stardust. Bank the vault, then claim a reward or finish a shift."
-	end
-	if not canFlux then
-		return "Flux is the only thing missing. Bank the vault, then press Raise Rank."
-	end
-	return "Stardust is the only thing missing. Claim rewards, finish a lab order, or bank a full shift, then come back."
-end
-
-local function BonusLine(props)
-	return React.createElement(Text, {
-		value = `{props.label}   {props.value}`,
-		size = 14,
-		color = props.color,
-		weight = Enum.FontWeight.Heavy,
-		layoutOrder = props.order,
-		sizeConstraint = UDim2.new(1, 0, 0, 22),
-		reducedMotion = props.reducedMotion,
-	})
-end
-
-local function ContinuumView(_param)
-	local state = _param.state
-	local dispatch = _param.dispatch
-	local reducedMotion = _param.reducedMotion
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local stack = chrome.contentStack
-	local continuum = state.Continuum or EMPTY_CONTINUUM
-	local canFlux = gteFlux(state.Cash, continuum.FluxCost)
-	local canDust = gteFlux(state.Stardust, continuum.StardustCost)
-	local fluxFill = meterFill(asFlux(state.Cash), math.max(1, asFlux(continuum.FluxCost)))
-	local dustFill = meterFill(asFlux(state.Stardust), math.max(1, asFlux(continuum.StardustCost)))
-	local claimRef = React.useRef(nil)
-	React.useEffect(function()
-		if not continuum.CanUpgrade or not UserInputService.GamepadEnabled then
-			return nil
-		end
-		local host = claimRef.current
-		if host == nil then
-			return nil
-		end
-		local selectJob = task.defer(function()
-			if host.Parent ~= nil then
-				GamepadNavigationService.FocusClaim(host)
-			end
-		end)
-		return function()
-			pcall(task.cancel, selectJob)
-		end
-	end, { continuum.CanUpgrade, continuum.Rank })
-	local ranksIntoSet = continuum.Rank % 25
-	local ranksLeft = if ranksIntoSet == 0 and continuum.Rank > 0 then 25 else 25 - ranksIntoSet
-	local sectionGap = if stack then chrome.panelGap else Layout.panelGap
-	return React.createElement(PageScaffold, {
-		gap = sectionGap,
-		tailPad = scrollTail(stack, chrome.bottomSafe, if stack then 56 else 48),
-		scrollBarColor = Palette.violet,
-		scrollBarThickness = 4,
-		sections = {
-			{
-				id = "plan",
-				height = if stack then 210 else 188,
-				element = React.createElement(Panel, {
-					size = UDim2.fromScale(1, 1),
-					accent = Palette.violet,
-					background = Palette.panelRaised,
-					padding = if stack then 14 else 18,
-					reducedMotion = softMotion,
-					clips = true,
-				}, React.createElement(Text, {
-					value = "NEXT RANK",
-					size = 11,
-					color = Palette.cyan,
-					weight = Enum.FontWeight.Heavy,
-					sizeConstraint = UDim2.new(1, 0, 0, 16),
-					reducedMotion = softMotion,
-				}), React.createElement(Text, {
-					value = `Raise rank {compactNumber(continuum.Rank)} to {compactNumber(continuum.Rank + 1)}`,
-					size = if stack then 22 else 28,
-					color = Palette.cream,
-					weight = Enum.FontWeight.Heavy,
-					fit = true,
-					minSize = 16,
-					position = UDim2.fromOffset(0, 20),
-					sizeConstraint = UDim2.new(1, 0, 0, 36),
-					reducedMotion = softMotion,
-				}), React.createElement(Text, {
-					value = advice(continuum.CanUpgrade, canFlux, canDust, continuum.Rank),
-					size = 15,
-					color = Palette.creamSoft,
-					wrap = true,
-					position = UDim2.fromOffset(0, 62),
-					sizeConstraint = UDim2.new(1, 0, 0, 72),
-					reducedMotion = softMotion,
-				}), React.createElement(Text, {
-					value = `{ranksLeft} ranks until the next 1.5x milestone`,
-					size = 12,
-					color = Palette.pink,
-					weight = Enum.FontWeight.Bold,
-					position = UDim2.fromOffset(0, 140),
-					sizeConstraint = UDim2.new(1, 0, 0, 18),
-					reducedMotion = softMotion,
-				})),
-			},
-			{
-				id = "cost",
-				height = if stack then 250 else 168,
-				element = React.createElement(Panel, {
-					size = UDim2.fromScale(1, 1),
-					accent = if continuum.CanUpgrade then Palette.mint else Palette.violet,
-					background = Palette.panel,
-					padding = 14,
-					highlight = continuum.CanUpgrade,
-					reducedMotion = softMotion,
-					clips = false,
-				}, React.createElement(Text, {
-					value = if canFlux then "Flux ready" else `Flux  {compactNumber(state.Cash)} / {compactNumber(continuum.FluxCost)}`,
-					size = 13,
-					color = if canFlux then Palette.mint else Palette.cream,
-					weight = Enum.FontWeight.Heavy,
-					sizeConstraint = UDim2.new(1, 0, 0, 18),
-					reducedMotion = softMotion,
-				}), React.createElement(Meter, {
-					value = math.min(1, fluxFill),
-					color = Palette.cyan,
-					reducedMotion = softMotion,
-					position = UDim2.fromOffset(0, 24),
-					size = UDim2.new(1, 0, 0, 8),
-				}), React.createElement(Text, {
-					value = if canDust then "Stardust ready" else `Stardust  {compactNumber(state.Stardust)} / {compactNumber(continuum.StardustCost)}`,
-					size = 13,
-					color = if canDust then Palette.mango else Palette.cream,
-					weight = Enum.FontWeight.Heavy,
-					position = UDim2.fromOffset(0, 42),
-					sizeConstraint = UDim2.new(1, 0, 0, 18),
-					reducedMotion = softMotion,
-				}), React.createElement(Meter, {
-					value = math.min(1, dustFill),
-					color = Palette.mango,
-					reducedMotion = softMotion,
-					position = UDim2.fromOffset(0, 66),
-					size = UDim2.new(1, 0, 0, 8),
-				}), React.createElement("frame", {
-					Name = "ContinuumClaimActions",
-					Size = UDim2.new(1, 0, 0, TapTarget),
-					Position = UDim2.new(0, 0, 1, -(TapTarget + 4)),
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ClipsDescendants = false,
-					ref = claimRef,
-				}, React.createElement(Button, {
-					text = if continuum.CanUpgrade then "RAISE RANK" else "NEED BOTH RESOURCES",
-					icon = "Rebirth",
-					color = if continuum.CanUpgrade then Palette.mint else Palette.panelSoft,
-					textColor = if continuum.CanUpgrade then Palette.ink else Palette.cream,
-					size = UDim2.fromOffset(220, 40),
-					disabled = not continuum.CanUpgrade,
-					highlight = false,
-					reducedMotion = softMotion,
-					onClick = function()
-						return dispatch("UpgradeContinuum")
-					end,
-				}))),
-			},
-			{
-				id = "have",
-				height = if stack then 168 else 132,
-				element = React.createElement(Panel, {
-					size = UDim2.fromScale(1, 1),
-					accent = Palette.cyan,
-					background = Palette.panelRaised,
-					padding = 14,
-					reducedMotion = softMotion,
-				}, React.createElement("uilistlayout", {
-					FillDirection = Enum.FillDirection.Vertical,
-					Padding = UDim.new(0, 4),
-					SortOrder = Enum.SortOrder.LayoutOrder,
-				}), React.createElement(Text, {
-					value = "ALREADY YOURS  ·  kept after rebirth",
-					size = 11,
-					color = Palette.muted,
-					weight = Enum.FontWeight.Heavy,
-					layoutOrder = 0,
-					sizeConstraint = UDim2.new(1, 0, 0, 16),
-					reducedMotion = softMotion,
-				}), React.createElement(BonusLine, {
-					label = "Production",
-					value = `{showMult(continuum.ProductionMultiplier)}x`,
-					color = Palette.cyan,
-					order = 1,
-					reducedMotion = softMotion,
-				}), React.createElement(BonusLine, {
-					label = "Vault",
-					value = `{showMult(continuum.CapacityMultiplier)}x`,
-					color = Palette.violet,
-					order = 2,
-					reducedMotion = softMotion,
-				}), React.createElement(BonusLine, {
-					label = "Clicks",
-					value = `{showMult(continuum.TapMultiplier)}x`,
-					color = Palette.mango,
-					order = 3,
-					reducedMotion = softMotion,
-				}), React.createElement(BonusLine, {
-					label = "Offline",
-					value = `+{string.format("%.1f", (tonumber(continuum.OfflineBonus) or 0) * 100)}%`,
-					color = Palette.mint,
-					order = 4,
-					reducedMotion = softMotion,
-				})),
-			},
-		},
-	})
-end
-
-return {
-	ContinuumView = ContinuumView,
-}
+return { ContinuumView = require(script.Parent.Parent.PlanningViews).NextPlan }
 end
 
 __defs["ConvergenceView"] = function()

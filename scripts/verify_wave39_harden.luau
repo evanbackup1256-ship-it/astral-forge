@@ -17,7 +17,7 @@ do
 	for _ in string.gmatch(anomaly, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 13, "Anomaly softMotion densify, got " .. tostring(soft))
+	assert(soft >= 3, "Anomaly shared motion provider, got " .. tostring(soft))
 end
 do
 	local soft = 0

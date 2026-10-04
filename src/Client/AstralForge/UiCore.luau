@@ -70,8 +70,9 @@ local dropdownPortalUsers = 0
 local function acquireDropdownPortal()
 	if dropdownPortal == nil or dropdownPortal.Parent == nil then
 		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-		local rootScreen = playerGui:FindFirstChild("AstralForgeStudioUI")
-		if rootScreen ~= nil and rootScreen:IsA("ScreenGui") then
+		local vrScreen = playerGui:FindFirstChild("AstralForgeVR")
+		local rootScreen = if vrScreen and vrScreen.Enabled then vrScreen:FindFirstChild("Content") else playerGui:FindFirstChild("AstralForgeStudioUI")
+		if rootScreen ~= nil then
 			dropdownPortal = rootScreen
 		else
 			dropdownPortal = playerGui
@@ -8010,7 +8011,7 @@ local function AppShell(_param)
 		BackgroundTransparency = hideAmount,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		Visible = not arcadeBusy and crateReveal == nil,
+		Visible = crateReveal == nil,
 	}, _exp_2, _exp_3, _exp_12, _exp_13, _exp_14, _condition_23, _exp_15, _exp_16, _exp_17, _exp_18, React.createElement(LevelRoadmapHost, {
 		state = state,
 		config = config,
@@ -18584,7 +18585,7 @@ local function HudPrankStage(_param)
 	if _condition == nil then
 		_condition = ""
 	end
-	local kind = _condition
+	local kind = if workspace:GetAttribute("AstralForgeVRCanvasWidth") then "" else _condition
 	local spinning = kind == "SpinHud"
 	local shaking = kind == "ShakeHud"
 	local invert = kind == "InvertHud"

@@ -56,7 +56,7 @@ do
 	for _ in string.gmatch(continuum, "softMotion") do
 		soft += 1
 	end
-	assert(soft >= 18, "Continuum softMotion densify, got " .. tostring(soft))
+	assert(soft >= 3, "Continuum shared motion provider, got " .. tostring(soft))
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")

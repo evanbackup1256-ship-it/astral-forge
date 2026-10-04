@@ -953,6 +953,7 @@ return function()
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 
+	local Social = require(game.ReplicatedStorage.AstralForge.Shared.SocialProgression)(OmegaMath)
 	local GuildService = {}
 	GuildService.__index = GuildService
 
@@ -1303,7 +1304,7 @@ return function()
 			blockedLastMember = false
 			local key = tostring(player.UserId)
 			local member = guild.Members[key]
-			if not member then return guild end
+			if not member then return nil end
 			local otherCount = 0
 			for otherKey in guild.Members do
 				if otherKey ~= key then otherCount += 1 end
@@ -1313,8 +1314,7 @@ return function()
 				return nil
 			end
 			if member.Role == "Leader" then
-				local successor
-				for otherKey, other in guild.Members do if otherKey ~= key then successor = otherKey; break end end
+				local successor = Social.successor(guild.Members,key)
 				if successor then
 					guild.Members[successor].Role = "Leader"
 					guild.OwnerUserId = tonumber(successor) or 0
@@ -1376,8 +1376,7 @@ return function()
 		local guildId = profile.Guild and profile.Guild.Id or ""
 		local ok, message, updated = self:_update(guildId, function(guild)
 			local actor, target = guild.Members[tostring(player.UserId)], guild.Members[tostring(targetUserId)]
-			if not actor or not target or (actor.Role ~= "Leader" and actor.Role ~= "Officer") or target.Role == "Leader" then return nil end
-			if actor.Role == "Officer" and target.Role == "Officer" then return nil end
+			if player.UserId == targetUserId or not Social.canManage(actor,target,"Kick") then return nil end
 			guild.Members[tostring(targetUserId)] = nil
 			return guild
 		end)
@@ -1389,7 +1388,7 @@ return function()
 		local guildId = profile.Guild and profile.Guild.Id or ""
 		local ok, message, updated = self:_update(guildId, function(guild)
 			local actor, target = guild.Members[tostring(player.UserId)], guild.Members[tostring(targetUserId)]
-			if not actor or actor.Role ~= "Leader" or not target or target.Role == "Leader" then return nil end
+			if player.UserId == targetUserId or not Social.canManage(actor,target,"Role") then return nil end
 			target.Role = role
 			return guild
 		end)
