@@ -52,6 +52,7 @@ local Stroke = _ui.Stroke
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
+local Browse = require(script.Parent.Parent.BrowseKit)
 local GRID_CHUNK = 8
 local GRID_MAX_VISIBLE = 16
 local VIRT_NODE_MIN = 8
@@ -399,7 +400,55 @@ local function StarGridViewComponent(_param)
 		end
 		return indexed
 	end, { config.GridUpgrades })
-	local headerH = if stack then 188 else 148
+	local branchById = {}
+	for _, branch in branches do
+		branchById[branch.Id] = branch
+	end
+	local function nodeLevel(upgrade)
+		return grid[upgrade.Id] or 0
+	end
+	local function nodeBlocked(upgrade)
+		if state.Rebirths < upgrade.RequiredRebirths then
+			return true
+		end
+		local previous = if upgrade.PreviousId ~= nil then upgradesById[upgrade.PreviousId] else nil
+		return previous ~= nil and (grid[previous.Id] or 0) < previous.MaxLevel
+	end
+	local browse = Browse.useBrowse({
+		id = "StarGrid",
+		items = config.GridUpgrades or {},
+		text = function(upgrade)
+			local branch = branchById[upgrade.Branch]
+			return { upgrade.Name, upgrade.Description, if branch then branch.Name else nil }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Available", label = "Available", test = function(upgrade)
+				return nodeLevel(upgrade) < upgrade.MaxLevel and not nodeBlocked(upgrade)
+			end },
+			{ id = "Owned", label = "Owned", test = function(upgrade)
+				return nodeLevel(upgrade) > 0
+			end },
+			{ id = "Maxed", label = "Maxed", test = function(upgrade)
+				return nodeLevel(upgrade) >= upgrade.MaxLevel
+			end },
+			{ id = "Locked", label = "Locked", test = function(upgrade)
+				return nodeLevel(upgrade) < upgrade.MaxLevel and nodeBlocked(upgrade)
+			end },
+		},
+		sorts = {
+			{ id = "Branch", label = "Grid order" },
+			{ id = "Progress", label = "Most levels", compare = function(a, b)
+				return nodeLevel(a) / math.max(1, a.MaxLevel) > nodeLevel(b) / math.max(1, b.MaxLevel)
+			end },
+			{ id = "Name", label = "A to Z", compare = function(a, b)
+				return tostring(a.Name) < tostring(b.Name)
+			end },
+		},
+	})
+	local browsing = browse.filtered or browse.sort ~= "Branch"
+	local barH = Browse.barHeight(stack, true)
+	local headerH = (if stack then 188 else 148) + barH + 12
 	local headerTextReserve = if stack then 0 else -292
 	local branchH = if stack then BRANCH_H_STACK else BRANCH_H
 	local nodeH = if stack then NODE_H_STACK else NODE_H
@@ -631,7 +680,15 @@ local function StarGridViewComponent(_param)
 		reducedMotion = softMotion,
 		disabled = not canBuyAll,
 		highlight = canBuyAll,
-	})))
+	})), React.createElement(Browse.BrowseBar, {
+		browse = browse,
+		placeholder = "Search the Star Grid",
+		accent = Palette.mango,
+		stack = stack,
+		reducedMotion = softMotion,
+		position = UDim2.new(0, 0, 1, -barH),
+		zIndex = 30,
+	}))
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -826,6 +883,45 @@ local function StarGridViewComponent(_param)
 	end
 	for _k, _v in branches do
 		_newValue[_k] = _callback(_v, _k - 1, branches)
+	end
+	if browsing then
+		-- search and filters show matching nodes from every branch in one list
+		local matches = {}
+		for index, upgrade in browse.results do
+			if index > 40 then
+				break
+			end
+			local previous = if upgrade.PreviousId ~= nil then upgradesById[upgrade.PreviousId] else nil
+			table.insert(matches, React.createElement(NodeRow, {
+				key = upgrade.Id,
+				upgrade = upgrade,
+				branch = branchById[upgrade.Branch] or branches[1],
+				level = nodeLevel(upgrade),
+				buyAmount = buyAmount,
+				stardust = state.Stardust,
+				rebirths = state.Rebirths,
+				grid = grid,
+				previousMaxLevel = if previous ~= nil then previous.MaxLevel else 0,
+				dispatch = dispatch,
+				reducedMotion = softMotion,
+				stack = stack,
+				staggerIndex = math.min(index, 5),
+				layoutOrder = index,
+			}))
+		end
+		if #matches == 0 then
+			matches = { React.createElement(Browse.NoResults, {
+				key = "none",
+				browse = browse,
+				noun = "nodes",
+				icon = "StarGrid",
+				accent = Palette.mango,
+				reducedMotion = softMotion,
+				size = UDim2.new(1, 0, 0, 200),
+			}) }
+		end
+		_newValue = matches
+		bodyIntrinsic = 24 + math.max(200, math.min(40, #browse.results) * nodeStride)
 	end
 	local bodyPane = React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -1111,9 +1207,9 @@ local function ResearchView(_param)
 		end
 	end
 	local nextEntry = _result_2
-	local query, setQuery = React.useState("")
-	local filter, setFilter = React.useState("Available")
-	local visible = UpgradeTools.Model.filter(entries, query, filter, buyAmount, state.Cash)
+	local query, setQuery = require(script.Parent.Parent.BrowseKit).useLinkedQuery("Research")
+	local filter, setFilter = React.useState(if query ~= "" then "All" else "Available")
+	local visible = UpgradeTools.Model.filter(entries, query, filter, buyAmount, state.Cash, require(script.Parent.Parent.BrowseKit).matches)
 	local batch = UpgradeTools.useBatch(dispatch, "BuyResearch", visible, buyAmount, state.Cash)
 	local onBuy = batch.buy
 	local onBuyAll = batch.start
@@ -1805,7 +1901,28 @@ local function LabViewReady(_param)
 		value = "TODAY'S ORDERS",
 		color = Palette.mint,
 	})
-	local _exp_5 = lab.Orders
+	local orderBrowse = require(script.Parent.Parent.BrowseKit).useBrowse({
+		id = "Lab",
+		items = lab.Orders or {},
+		text = function(orderState)
+			local orderConfig = orderConfigs[orderState.Id]
+			return { if orderConfig then orderConfig.Name else orderState.Id, if orderConfig then orderConfig.Description else nil }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Ready", label = "Ready", test = function(o)
+				return (not o.Claimed and (tonumber(o.Target) or 0) > 0 and (tonumber(o.Progress) or 0) >= (tonumber(o.Target) or 0))
+			end },
+			{ id = "Running", label = "In progress", test = function(o)
+				return not o.Claimed and not (not o.Claimed and (tonumber(o.Target) or 0) > 0 and (tonumber(o.Progress) or 0) >= (tonumber(o.Target) or 0))
+			end },
+			{ id = "Claimed", label = "Claimed", test = function(o)
+				return o.Claimed == true
+			end },
+		},
+	})
+	local _exp_5 = orderBrowse.results
+	orderBlock = if #_exp_5 > 0 then #_exp_5 * orderH + math.max(0, #_exp_5 - 1) * ORDER_GAP else 160
 	local _newValue = table.create(#_exp_5)
 	local _callback = function(orderState, index)
 		local _id = orderState.Id
@@ -1824,15 +1941,23 @@ local function LabViewReady(_param)
 		_newValue[_k] = _callback(_v, _k - 1, _exp_5)
 	end
 	local orderStride = orderH + ORDER_GAP
-	local virtOrders = #lab.Orders >= 6
+	local virtOrders = #_exp_5 >= 6
 	local ordersBlock = if #lab.Orders == 0 then React.createElement(EmptyState, {
 		icon = "Lab",
 		title = "No orders yet",
 		body = (guide and guide.EmptyOrders) or "Orders refresh at the lab reset clock.",
 		accent = Palette.mint,
 		reducedMotion = reducedMotion,
+	}) elseif #_exp_5 == 0 then React.createElement(require(script.Parent.Parent.BrowseKit).NoResults, {
+		browse = orderBrowse,
+		noun = "orders",
+		icon = "Lab",
+		accent = Palette.mint,
+		reducedMotion = softMotion,
+		compact = true,
+		size = UDim2.fromScale(1, 1),
 	}) elseif virtOrders then React.createElement(FlatList, {
-		data = lab.Orders,
+		data = _exp_5,
 		itemHeight = orderStride,
 		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
@@ -1946,6 +2071,17 @@ local function LabViewReady(_param)
 				id = "orders-label",
 				height = SECTION_LABEL_H,
 				element = _exp_4,
+			},
+			{
+				id = "orders-filter",
+				height = if #lab.Orders > 2 then require(script.Parent.Parent.BrowseKit).CHIP_H else 0,
+				element = #lab.Orders > 2 and React.createElement(require(script.Parent.Parent.BrowseKit).ChipRow, {
+					options = orderBrowse.categories,
+					value = orderBrowse.category,
+					onChange = orderBrowse.setCategory,
+					counts = orderBrowse.counts,
+					accent = Palette.mint,
+				}) or nil,
 			},
 			{
 				id = "orders",
@@ -2250,7 +2386,7 @@ local function UpgradeBoard(_param)
 			pcall(task.cancel, selectJob)
 		end
 	end, { buyAmount, #entries })
-	local query, setQuery = React.useState("")
+	local query, setQuery = require(script.Parent.Parent.BrowseKit).useLinkedQuery("Workshop")
 	local sort, setSort = React.useState("Default")
 	local filter, setFilter = React.useState("All")
 	local headerReveal = useStagger(0, softMotion)
@@ -2316,12 +2452,8 @@ local function UpgradeBoard(_param)
 		if filter == "Next" and entry.unlocked then
 			return nil
 		end
-		if needle ~= "" then
-			local haystack = string.lower((entry.config.Name .. " " .. entry.config.Description))
-			local found = string.find(haystack, needle, 1, true)
-			if found == nil then
-				return nil
-			end
+		if needle ~= "" and not require(script.Parent.Parent.BrowseKit).matches(needle, entry.config.Name, entry.config.Description) then
+			return nil
 		end
 		local _entry = entry
 		table.insert(visible, _entry)
@@ -3150,6 +3282,7 @@ local _format = require(script.Parent.Parent.CoreKit)("format")
 local compactNumber = _format.compactNumber
 local formatReward = _format.formatReward
 local decorateForgePathSteps = require(script.Parent.Parent.CoreKit)("types").decorateForgePathSteps
+local Browse = require(script.Parent.Parent.BrowseKit)
 local STEP_ROW_HEIGHT = 168
 local STEP_ROW_HEIGHT_STACK = 224
 local SPOTLIGHT_H = 148
@@ -3311,14 +3444,37 @@ local function ForgePathViewComponent(_param)
 	local progressFrac = if totalCount > 0 then claimedCount / totalCount else 0
 	local heroBlurb = (guide and guide.HeroBlurb) or "One track. Every step pays out."
 	local stepStride = stepRowHeight + listGap
-	local stepsElement = if totalCount == 0 then React.createElement(EmptyState, {
+	local browse = Browse.useBrowse({
+		id = "ForgePath",
+		items = steps,
+		text = function(step)
+			return { effectLabel(step), formatReward(step.Reward), `step {step.Step}`, step.EffectKind }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Upcoming", label = "Upcoming", test = function(step)
+				return claimedSet[step.Step] == nil
+			end },
+			{ id = "Claimed", label = "Claimed", test = function(step)
+				return claimedSet[step.Step] ~= nil
+			end },
+		},
+	})
+	local stepsElement = if totalCount > 0 and #browse.results == 0 then React.createElement(Browse.NoResults, {
+		browse = browse,
+		noun = "steps",
+		icon = "Forge",
+		accent = Palette.violet,
+		reducedMotion = softMotion,
+		size = UDim2.fromScale(1, 1),
+	}) elseif totalCount == 0 then React.createElement(EmptyState, {
 		icon = "Forge",
 		title = "Forge Path offline",
 		body = "Steps load from GameConfig.ForgePath.Steps.",
 		accent = Palette.violet,
 		reducedMotion = softMotion,
 	}) else React.createElement(FlatList, {
-		data = steps,
+		data = browse.results,
 		itemHeight = stepStride,
 		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 8,
@@ -3369,6 +3525,18 @@ local function ForgePathViewComponent(_param)
 				id = "spotlight",
 				height = spotlightH,
 				element = React.createElement(SpotlightPanel, { step = nextStep, xp = forgePath.XP, ready = nextReady, complete = pathComplete, guide = guide, onClaim = onClaim, reducedMotion = reducedMotion, stack = stack }),
+			},
+			{
+				id = "browse",
+				height = Browse.barHeight(stack, true),
+				element = React.createElement(Browse.BrowseBar, {
+					browse = browse,
+					placeholder = "Search steps by reward or bonus",
+					accent = Palette.violet,
+					stack = stack,
+					reducedMotion = softMotion,
+					zIndex = 30,
+				}),
 			},
 			{
 				id = "steps",
@@ -3716,16 +3884,11 @@ local _format = require(script.Parent.Parent.CoreKit)("format")
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
 
+local Browse = require(script.Parent.Parent.BrowseKit)
 local h = React.createElement
 local GAP = 10
 local TICKS = 36
 local CARD_H = 196
-local FILTERS = {
-	{ id = "All", label = "All" },
-	{ id = "Production", label = "Production" },
-	{ id = "Vault", label = "Vault" },
-	{ id = "Owned", label = "Owned" },
-}
 
 local function boostIconKind(boostId)
 	if boostId == "DomainSurge" then
@@ -4136,7 +4299,6 @@ local function BoostsView(_param)
 	local stack = chrome.contentStack
 	local antilag = useAntilag()
 	local columns = if stack then 1 elseif viewport.width >= 1280 then 3 else 2
-	local filter, setFilter = React.useState("All")
 	local activateHostRef = React.useRef(nil)
 	local now = useWallClock(true)
 	local inventory = state.BoostInventory or {}
@@ -4173,17 +4335,40 @@ local function BoostsView(_param)
 		end
 		return a.Id < b.Id
 	end)
-	local boosts = {}
-	for _, boost in all do
-		local owned = (tonumber(inventory[boost.Id]) or 0) > 0
-		local keep = filter == "All"
-			or (filter == "Production" and tonumber(boost.Multiplier) ~= nil)
-			or (filter == "Vault" and tonumber(boost.CapacityMultiplier) ~= nil)
-			or (filter == "Owned" and owned)
-		if keep then
-			table.insert(boosts, boost)
-		end
-	end
+	local browse = Browse.useBrowse({
+		id = "Boosts",
+		items = all,
+		textKey = activeId,
+		text = function(boost)
+			return { boost.Name, boost.Description, headline(boost) }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Owned", label = "Owned", test = function(boost)
+				return (tonumber(inventory[boost.Id]) or 0) > 0
+			end },
+			{ id = "Production", label = "Production", test = function(boost)
+				return tonumber(boost.Multiplier) ~= nil
+			end },
+			{ id = "Vault", label = "Vault", test = function(boost)
+				return tonumber(boost.CapacityMultiplier) ~= nil
+			end },
+		},
+		sorts = {
+			{ id = "Recommended", label = "Owned first" },
+			{ id = "Strongest", label = "Strongest", compare = function(a, b)
+				return (tonumber(a.Multiplier) or tonumber(a.CapacityMultiplier) or 1) > (tonumber(b.Multiplier) or tonumber(b.CapacityMultiplier) or 1)
+			end },
+			{ id = "Longest", label = "Longest", compare = function(a, b)
+				return (tonumber(a.Duration) or 0) > (tonumber(b.Duration) or 0)
+			end },
+			{ id = "Name", label = "A to Z", compare = function(a, b)
+				return tostring(a.Name) < tostring(b.Name)
+			end },
+		},
+	})
+	local filter = browse.category
+	local boosts = browse.results
 	local focusId = if not boostRunning and pick ~= nil then pick.boost.Id else nil
 	React.useEffect(function()
 		if focusId == nil or not UserInputService.GamepadEnabled then
@@ -4232,12 +4417,15 @@ local function BoostsView(_param)
 		Banked = h(StatTile, { label = "BOOST TIME BANKED", value = `{compactNumber(math.floor(bankedSeconds / 3600))}h`, accent = Palette.mango, order = 3 }),
 		Best = h(StatTile, { label = "BEST MULTIPLIER", value = `{bestMult}x`, accent = Palette.mint, order = 4 }),
 	}
-	local grid = if #boosts == 0 then h(EmptyState, {
+	local grid = if #boosts == 0 then h(Browse.NoResults, {
+		browse = browse,
+		noun = "boosts",
 		icon = "Boost",
-		title = if filter == "Owned" then "Nothing stored" else "No boosts here",
-		body = if filter == "Owned" then "Win boosts from the prize wheel and daily rewards." else "Try another filter.",
+		filteredTitle = if filter == "Owned" then "Nothing stored" else nil,
+		filteredBody = if filter == "Owned" then "Win boosts from the prize wheel and daily rewards." else nil,
 		accent = Palette.cyan,
 		reducedMotion = softMotion,
+		size = UDim2.new(1, 0, 0, 220),
 	}) else React.createElement(FlatList, {
 		data = rows,
 		itemHeight = rowStride,
@@ -4311,20 +4499,19 @@ local function BoostsView(_param)
 			},
 			{
 				id = "filters",
-				height = if stack then TapTarget else 44,
-				element = h(SegmentedTabs, {
-					options = FILTERS,
-					value = filter,
-					onChange = setFilter,
+				height = Browse.barHeight(stack, true),
+				element = h(Browse.BrowseBar, {
+					browse = browse,
+					placeholder = "Search boosts",
 					accent = Palette.pink,
-					columns = #FILTERS,
-					size = UDim2.fromScale(1, 1),
+					stack = stack,
 					reducedMotion = softMotion,
+					zIndex = 30,
 				}),
 			},
 			{
 				id = "grid",
-				height = if #boosts == 0 then 170 else gridH,
+				height = if #boosts == 0 then 220 else gridH,
 				element = grid,
 			},
 		},
@@ -4362,6 +4549,9 @@ local compactNumber = _format.compactNumber
 local gteFlux = _format.gteFlux
 local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
 local PageBoardHeights = require(script.Parent.Parent.CoreKit)("pageBoardHeights")
+local Browse = require(script.Parent.Parent.BrowseKit)
+local WORLD_SCAN = 600
+local WORLD_RESULTS = 60
 
 local function WorldRow(_param)
 	local zone = _param.zone
@@ -4519,7 +4709,8 @@ local function WorldsView(_param)
 			pcall(task.cancel, selectJob)
 		end
 	end, { state.CurrentZone, state.Zone })
-	local headerHeight = if stack then 168 else 112
+	local barH = Browse.barHeight(stack, true)
+	local headerHeight = (if stack then 168 else 112) + barH + 10
 	local rowHeight = PageBoardHeights.World(stack)
 	local rowGap = if stack then chrome.panelGap else Layout.panelGap
 	local worldColumns = if stack then 1 elseif viewport.width >= 1700 then 3 elseif viewport.width >= 1100 then 2 else 1
@@ -4595,52 +4786,108 @@ local function WorldsView(_param)
 		end)
 	end
 	local moreLabel = if remainingBelow > 0 then `SHOW MORE  ({remainingBelow} left)` elseif remainingAbove > 0 then `SHOW EARLIER  ({remainingAbove})` else "SHOW MORE"
-	local gridRows = math.ceil(math.max(1, shownCount) / worldColumns)
-	local rowsHeight = math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap)
 	local worldTail = scrollTail(stack, chrome.bottomSafe, 40)
-	local rows = {}
-	do
-		local index = range.start
-		local _shouldIncrement = false
-		while true do
-			if _shouldIncrement then
-				index += 1
-			else
-				_shouldIncrement = true
+	local function resolveZone(id)
+		return if config.ResolveZone ~= nil then config.ResolveZone(id) else config.Zones[id]
+	end
+	-- search covers the newest WORLD_SCAN worlds you can see (owned plus the next stops)
+	local zoneItems = React.useMemo(function()
+		local list = {}
+		for id = math.max(1, total - WORLD_SCAN + 1), total do
+			local zone = resolveZone(id)
+			if zone ~= nil then
+				table.insert(list, zone)
 			end
-			if not (index < rangeEnd) then
+		end
+		return list
+	end, { total })
+	local browse = Browse.useBrowse({
+		id = "Worlds",
+		items = zoneItems,
+		text = function(zone)
+			return { zone.Name, zone.Tagline, table.concat(zone.Features or {}, " "), zone.Description, `world {zone.Id}` }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Owned", label = "Owned", test = function(zone)
+				return state.Zone >= zone.Id
+			end },
+			{ id = "Locked", label = "Next stops", test = function(zone)
+				return state.Zone < zone.Id
+			end },
+			{ id = "Current", label = "Current", test = function(zone)
+				return state.CurrentZone == zone.Id
+			end },
+		},
+		sorts = {
+			{ id = "Order", label = "World order" },
+			{ id = "Newest", label = "Newest first", compare = function(a, b)
+				return a.Id > b.Id
+			end },
+			{ id = "Multiplier", label = "Best multiplier", compare = function(a, b)
+				return (tonumber(a.Multiplier) or 0) > (tonumber(b.Multiplier) or 0)
+			end },
+			{ id = "Name", label = "A to Z", compare = function(a, b)
+				return tostring(a.Name) < tostring(b.Name)
+			end },
+		},
+	})
+	local browsing = browse.filtered or browse.sort ~= "Order"
+	local function worldRow(zone, localOrder)
+		local unlocked = state.Zone >= zone.Id
+		local rebirthOk = state.Rebirths >= zone.RequiredRebirths
+		local coresOk = state.Cores >= zone.CoreCost
+		local cashOk = gteFlux(state.Cash, zone.Cost)
+		local canUnlock = not unlocked and zone.Id == state.Zone + 1 and rebirthOk and coresOk and cashOk
+		return React.createElement(WorldRow, {
+			key = zone.Id,
+			zone = zone,
+			current = state.CurrentZone == zone.Id,
+			unlocked = unlocked,
+			canUnlock = canUnlock,
+			cashOk = cashOk,
+			coresOk = coresOk,
+			rebirthOk = rebirthOk,
+			reducedMotion = reducedMotion,
+			onSelect = function()
+				return dispatch(if unlocked then "SelectZone" else "UnlockZone", {
+					Id = zone.Id,
+				})
+			end,
+			layoutOrder = localOrder,
+			stack = stack,
+		})
+	end
+	local rows = {}
+	if browsing then
+		for order, zone in browse.results do
+			if order > WORLD_RESULTS then
 				break
 			end
-			local zone = if config.ResolveZone ~= nil then config.ResolveZone(index + 1) else config.Zones[index + 1]
-			if zone == nil then
-				continue
-			end
-			local unlocked = state.Zone >= zone.Id
-			local rebirthOk = state.Rebirths >= zone.RequiredRebirths
-			local coresOk = state.Cores >= zone.CoreCost
-			local cashOk = gteFlux(state.Cash, zone.Cost)
-			local canUnlock = not unlocked and zone.Id == state.Zone + 1 and rebirthOk and coresOk and cashOk
-			local localOrder = index - range.start + 1
-			local _arg0 = React.createElement(WorldRow, {
-				key = zone.Id,
-				zone = zone,
-				current = state.CurrentZone == zone.Id,
-				unlocked = unlocked,
-				canUnlock = canUnlock,
-				cashOk = cashOk,
-				coresOk = coresOk,
-				rebirthOk = rebirthOk,
-				reducedMotion = reducedMotion,
-				onSelect = function()
-					return dispatch(if unlocked then "SelectZone" else "UnlockZone", {
-						Id = zone.Id,
-					})
-				end,
-				layoutOrder = localOrder,
-				stack = stack,
-			})
-			table.insert(rows, _arg0)
+			table.insert(rows, worldRow(zone, order))
 		end
+		shownCount = #rows
+		canShowMore = false
+	else
+		for index = range.start, rangeEnd - 1 do
+			local zone = resolveZone(index + 1)
+			if zone ~= nil then
+				table.insert(rows, worldRow(zone, index - range.start + 1))
+			end
+		end
+	end
+	local gridRows = math.ceil(math.max(1, shownCount) / worldColumns)
+	local rowsHeight = math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap)
+	if browsing and #rows == 0 then
+		rows = { React.createElement(Browse.NoResults, {
+			key = "none",
+			browse = browse,
+			noun = "worlds",
+			icon = "World",
+			accent = Palette.mint,
+			reducedMotion = softMotion,
+			size = UDim2.new(1, 0, 0, rowHeight),
+		}) }
 	end
 	local rowsBlock = React.createElement("frame", {
 		Size = UDim2.new(1, 0, 0, math.max(rowHeight, gridRows * (rowHeight + rowGap) - rowGap)),
@@ -4715,7 +4962,11 @@ local function WorldsView(_param)
 	}), React.createElement(Button, {
 		text = "FIND CURRENT",
 		icon = "Search",
-		onClick = jumpToCurrent,
+		onClick = function()
+			browse.reset()
+			browse.setSort("Order")
+			jumpToCurrent()
+		end,
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.fromOffset(0, 42),
@@ -4724,12 +4975,24 @@ local function WorldsView(_param)
 	})), stack and React.createElement(Button, {
 		text = "FIND CURRENT",
 		icon = "Search",
-		onClick = jumpToCurrent,
+		onClick = function()
+			browse.reset()
+			browse.setSort("Order")
+			jumpToCurrent()
+		end,
 		color = Palette.mint,
 		textColor = Palette.ink,
 		size = UDim2.new(1, 0, 0, TapTarget),
-		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
+		position = UDim2.new(0, 0, 1, -(TapTarget + 8 + barH + 10)),
 		reducedMotion = softMotion,
+	}), React.createElement(Browse.BrowseBar, {
+		browse = browse,
+		placeholder = "Search worlds by name or feature",
+		accent = Palette.mint,
+		stack = stack,
+		reducedMotion = softMotion,
+		position = UDim2.new(0, 0, 1, -barH),
+		zIndex = 30,
 	})),
 		},
 		{

@@ -122,6 +122,38 @@ function Kit.useBrowse(config)
 	return browse
 end
 
+-- For pages with their own filter logic: a search string that is remembered per page and
+-- that Quick Find deep links fill in. Returns query, setQuery like useState.
+function Kit.useLinkedQuery(id, initial)
+	local saved = Model.recall(id)
+	local query, setQuery = React.useState(if saved then saved.query else (initial or ""))
+	React.useEffect(function()
+		local previous = Model.recall(id)
+		Model.remember(id, { query = query, category = if previous then previous.category else nil, sort = if previous then previous.sort else nil })
+	end, { query })
+	React.useEffect(function()
+		return Model.listen(id, function(entry)
+			setQuery(entry.query or "")
+		end)
+	end, { id })
+	return query, setQuery
+end
+
+-- True when `query` fuzzily matches any of the given strings (for pages with custom filters).
+function Kit.matches(query, ...)
+	if query == nil or string.match(query, "^%s*$") then
+		return true
+	end
+	local fields = {}
+	for i = 1, select("#", ...) do
+		local value = select(i, ...)
+		if value ~= nil then
+			table.insert(fields, Model.normalize(value))
+		end
+	end
+	return Model.score(query, fields) > 0
+end
+
 -- Server time that re-renders every `period` seconds (countdowns to UTC resets and deadlines).
 function Kit.useServerNow(period)
 	local now, setNow = React.useState(function()

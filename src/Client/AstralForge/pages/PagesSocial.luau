@@ -3947,6 +3947,8 @@ local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local measureWrappedTextHeight = _ui.measureWrappedTextHeight
 local ScriptedText = require(script.Parent.Parent.ReactHosts)("RichTextHost").ScriptedText
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local h = React.createElement
 local ROW_H = 84
@@ -4242,6 +4244,7 @@ local function MailboxView(_param)
 		end
 	end, {})
 	local filter, setFilter = React.useState("All")
+	local query, setQuery = Browse.useLinkedQuery("Mail")
 	local claimToken, setClaimToken = React.useState(0)
 	local messages = (state.Mailbox and state.Mailbox.Messages) or {}
 	local defs = {}
@@ -4260,6 +4263,9 @@ local function MailboxView(_param)
 				gifts += 1
 			end
 			local keep = filter == "All" or (filter == "Unread" and not mail.Read) or (filter == "Gifts" and gift) or (filter == "Collected" and mail.Claimed)
+			if keep and query ~= "" then
+				keep = Browse.matches(query, item.Subject, item.Sender, if type(item.Body) == "table" then table.concat(item.Body, " ") else nil)
+			end
 			if keep then
 				table.insert(rows, { Id = item.Id, item = item, mail = mail })
 			end
@@ -4377,20 +4383,25 @@ local function MailboxView(_param)
 		reducedMotion = softMotion,
 	})))
 	local selectedRowId = selected and selected.Id or ""
-	local list = if #rows == 0 then h(EmptyState, {
-		icon = "Mail",
-		title = if filter == "All" then "Your tray is empty" else "Nothing in " .. string.lower(filter),
-		body = "Patch notes, letters and gifts land here.",
+	local searchH = if stack then TapTarget else 40
+	local list = if #rows == 0 then h("frame", {
+		Size = UDim2.new(1, 0, 1, -(searchH + 12)),
+		Position = UDim2.fromOffset(0, searchH + 12),
+		BackgroundTransparency = 1,
+	}, h(EmptyState, {
+		icon = if query ~= "" then "Search" else "Mail",
+		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" else "Nothing in " .. string.lower(filter),
+		body = if query ~= "" then "Try the sender's name or one word from the subject." else "Patch notes, letters and gifts land here.",
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = softMotion,
-	}) else React.createElement(FlatList, {
+	})) else React.createElement(FlatList, {
 		data = rows,
 		itemHeight = ROW_H + ROW_GAP,
 		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 		canvasTail = 6,
-		Size = UDim2.new(1, -12, 1, -12),
-		Position = UDim2.fromOffset(6, 6),
+		Size = UDim2.new(1, -12, 1, -(searchH + 18)),
+		Position = UDim2.fromOffset(6, searchH + 12),
 		scrollBarColor = Palette.cyan,
 		scrollBarThickness = 3,
 		keyExtractor = function(row)
@@ -4569,7 +4580,19 @@ local function MailboxView(_param)
 		end) else true,
 		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), list), bodyArea ~= nil and h("frame", {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(SearchField, {
+		value = query,
+		onChange = function(text)
+			setQuery(text)
+			setSelectedId("")
+		end,
+		placeholder = "Search letters",
+		accent = Palette.cyan,
+		reducedMotion = softMotion,
+		position = UDim2.fromOffset(6, 6),
+		size = UDim2.new(1, -12, 0, searchH),
+		zIndex = 6,
+	}), list), bodyArea ~= nil and h("frame", {
 		Name = "Reader",
 		Size = if mobileRoute then UDim2.fromScale(1, 1) else UDim2.new(0.62, -6, 1, 0),
 		Position = if mobileRoute then slide:map(function(a)

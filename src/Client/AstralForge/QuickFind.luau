@@ -76,6 +76,7 @@ local KIND_META = {
 	Boost = { label = "Boost", weight = 0.95, accent = "pink", route = "Boosts", icon = "Boost" },
 	Milestone = { label = "Milestone", weight = 0.85, accent = "mango", route = "Milestones", icon = "Milestone" },
 	Story = { label = "Story", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
+	Letter = { label = "Letter", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
 }
 
 local function accentOf(key)
@@ -162,6 +163,11 @@ local function buildStatic()
 	for _, chapter in GameConfig.Story or {} do
 		if type(chapter) == "table" and type(chapter.Title) == "string" then
 			add("Story", chapter.Id or chapter.Title, chapter.Title, `{chapter.Chapter or ""} · {chapter.Summary or ""}`, "story chapter lore")
+		end
+	end
+	for _, letter in GameConfig.Mail or {} do
+		if type(letter) == "table" and type(letter.Subject) == "string" then
+			add("Letter", letter.Id or letter.Subject, letter.Subject, `From {letter.Sender or "the forge"}`, "mail letter inbox")
 		end
 	end
 	staticIndex = list

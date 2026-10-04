@@ -2330,7 +2330,8 @@ function InventoryMath.FilterOwned(list: any, filter: any): { any }
 	return out
 end
 
-function InventoryMath.SearchOwned(list: any, query: any, rarity: any): { any }
+-- `matcher(query, ...)` swaps in fuzzy matching (Quick Find style); substring otherwise.
+function InventoryMath.SearchOwned(list: any, query: any, rarity: any, matcher: any?): { any }
 	if type(list) ~= "table" then
 		return {}
 	end
@@ -2348,10 +2349,16 @@ function InventoryMath.SearchOwned(list: any, query: any, rarity: any): { any }
 			table.insert(out, item)
 			continue
 		end
-		local haystack = string.lower(
-			`{item.definition.Name or ""} {item.definition.Description or ""} {item.definition.EffectKind or ""} {item.uid or ""}`
-		)
-		if string.find(haystack, needle, 1, true) ~= nil then
+		local found
+		if matcher ~= nil then
+			found = matcher(needle, item.definition.Name, item.definition.Description, item.definition.EffectKind, item.definition.Rarity, item.definition.Slot, item.uid)
+		else
+			local haystack = string.lower(
+				`{item.definition.Name or ""} {item.definition.Description or ""} {item.definition.EffectKind or ""} {item.uid or ""}`
+			)
+			found = string.find(haystack, needle, 1, true) ~= nil
+		end
+		if found then
 			table.insert(out, item)
 		end
 	end

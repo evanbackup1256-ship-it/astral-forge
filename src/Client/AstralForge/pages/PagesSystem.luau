@@ -47,6 +47,7 @@ local SearchField = _ui.SearchField
 local Slider = _ui.Slider
 local Text = _ui.Text
 local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local ROW_H = 60
 local ROW_H_STACK = 94
@@ -326,7 +327,8 @@ local function SettingsView(_param)
 	local mobileHudAvailable = touch and chrome.stack
 	local settings = state.Settings or {}
 	local activeSection, setActiveSection = React.useState("sound")
-	local query, setQuery = React.useState("")
+	local query, setQuery = Browse.useLinkedQuery("Settings")
+	local changedOnly, setChangedOnly = React.useState(false)
 	local advancedOpen, setAdvancedOpen = React.useState({})
 	local mobileEdit, setMobileEdit = React.useState(false)
 	local reveal = useStagger(0, softMotion)
@@ -364,8 +366,19 @@ local function SettingsView(_param)
 		end
 	end, { activeSection })
 
-	local needle = string.lower(query)
-	local searching = needle ~= ""
+	local searching = not string.match(query, "^%s*$")
+	local function isChanged(entry)
+		return math.abs(Schema.value(settings, entry.key) - (tonumber(entry.default) or 0)) > 0.01
+	end
+	local changedEntries = {}
+	for _, entry in Schema.ENTRIES do
+		local home = SECTION_BY_ID[entry.section]
+		if not (home.touchOnly and not mobileHudAvailable) and isChanged(entry) then
+			table.insert(changedEntries, entry)
+		end
+	end
+	local showChanged = changedOnly and not searching
+	local listing = searching or showChanged
 	local rows = {}
 	local hiddenAdvanced = 0
 	for _, entry in Schema.ENTRIES do
@@ -374,7 +387,11 @@ local function SettingsView(_param)
 			continue
 		end
 		if searching then
-			if string.find(string.lower(entry.label), needle, 1, true) or string.find(string.lower(entry.help), needle, 1, true) then
+			if Browse.matches(query, entry.label, entry.help, home.label, entry.key) then
+				table.insert(rows, entry)
+			end
+		elseif showChanged then
+			if isChanged(entry) then
 				table.insert(rows, entry)
 			end
 		elseif entry.section == activeSection then
@@ -442,7 +459,8 @@ local function SettingsView(_param)
 	local searchH = if stack then TapTarget else 38
 	local actionsY = 56
 	local searchY = if stack then actionsY + 40 + 10 else 64
-	local headerH = searchY + searchH + 32
+	local chipsY = searchY + searchH + 8
+	local headerH = chipsY + Browse.CHIP_H + 32
 	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
@@ -506,6 +524,23 @@ local function SettingsView(_param)
 		size = if stack then UDim2.new(1, 0, 0, searchH) else UDim2.fromOffset(340, searchH),
 		position = UDim2.fromOffset(0, searchY),
 		reducedMotion = softMotion,
+	}), React.createElement(Browse.ChipRow, {
+		options = {
+			{ id = "sections", label = "By section", icon = "Settings" },
+			{ id = "changed", label = "Changed from default", icon = "Refresh" },
+		},
+		value = if changedOnly then "changed" else "sections",
+		counts = { changed = #changedEntries },
+		onChange = function(id)
+			if id == "changed" then
+				setQuery("")
+			end
+			Audio:play("tabSwitch")
+			setChangedOnly(id == "changed")
+		end,
+		accent = accent,
+		position = UDim2.fromOffset(0, chipsY),
+		size = UDim2.new(1, 0, 0, Browse.CHIP_H),
 	}))
 
 	local navButtons = {
@@ -520,7 +555,7 @@ local function SettingsView(_param)
 	for index, entry in sections do
 		navButtons[entry.id] = React.createElement(SectionButton, {
 			section = entry,
-			active = not searching and entry.id == activeSection,
+			active = not listing and entry.id == activeSection,
 			count = counts[entry.id] or 0,
 			compact = stack,
 			size = UDim2.fromOffset(chipW, if stack then TapTarget else 42),
@@ -528,6 +563,7 @@ local function SettingsView(_param)
 			softMotion = softMotion,
 			onPick = function(id)
 				setQuery("")
+				setChangedOnly(false)
 				setActiveSection(id)
 			end,
 		})
@@ -555,21 +591,27 @@ local function SettingsView(_param)
 		listH += height
 	end
 	add("title", React.createElement(React.Fragment, nil, React.createElement(Text, {
-		value = if searching then `{#rows} result{if #rows == 1 then "" else "s"} for "{query}"` else section.label,
+		value = if searching then `{#rows} result{if #rows == 1 then "" else "s"} for "{query}"` elseif showChanged then `{#rows} changed setting{if #rows == 1 then "" else "s"}` else section.label,
 		size = 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, -110, 0, 24),
 	}), React.createElement(Text, {
-		value = if searching then "From every section." else section.blurb,
+		value = if searching then "From every section." elseif showChanged then "Everything you set differently from the defaults." else section.blurb,
 		size = 12,
 		color = Palette.muted,
 		position = UDim2.fromOffset(0, 26),
 		sizeConstraint = UDim2.new(1, -110, 0, 16),
-	}), not searching and React.createElement(Button, {
-		text = "RESET",
+	}), (not searching or showChanged) and React.createElement(Button, {
+		text = if showChanged then "RESET ALL" else "RESET",
 		icon = "Refresh",
-		onClick = resetSection,
+		onClick = if showChanged then function()
+			local values = {}
+			for _, entry in changedEntries do
+				values[entry.key] = entry.default
+			end
+			dispatch("SetSetting", { Values = values, Label = "Settings back to defaults." })
+		end else resetSection,
 		color = Palette.panelSoft,
 		textColor = Palette.creamSoft,
 		outline = true,
@@ -577,7 +619,7 @@ local function SettingsView(_param)
 		position = UDim2.new(1, -100, 0, 4),
 		reducedMotion = softMotion,
 	})), 56)
-	if not searching and activeSection == "display" then
+	if not listing and activeSection == "display" then
 		local presetCells = {}
 		for index, entry in Schema.PRESETS do
 			presetCells[entry.id] = React.createElement(Button, {
@@ -610,23 +652,23 @@ local function SettingsView(_param)
 		add("row_" .. entry.key, React.createElement(SettingRow, {
 			entry = entry,
 			value = Schema.value(settings, entry.key),
-			accent = if searching then accentOf(SECTION_BY_ID[entry.section]) else accent,
-			tag = if searching then SECTION_BY_ID[entry.section].label else nil,
+			accent = if listing then accentOf(SECTION_BY_ID[entry.section]) else accent,
+			tag = if listing then SECTION_BY_ID[entry.section].label elseif isChanged(entry) then "changed" else nil,
 			stack = stack,
 			softMotion = softMotion,
 			dispatch = dispatch,
 			layoutOrder = index,
 		}), rowH)
 	end
-	if searching and #rows == 0 then
+	if listing and #rows == 0 then
 		add("empty", React.createElement(Text, {
-			value = "Nothing matches. Try a shorter word, like \"music\" or \"text\".",
+			value = if showChanged then "Everything is on its default." else "Nothing matches. Try a shorter word, like \"music\" or \"text\".",
 			size = 13,
 			color = Palette.muted,
 			sizeConstraint = UDim2.new(1, 0, 0, 40),
 		}), 40)
 	end
-	if not searching and (hiddenAdvanced > 0 or advancedOpen[activeSection]) then
+	if not listing and (hiddenAdvanced > 0 or advancedOpen[activeSection]) then
 		add("advanced", React.createElement(Button, {
 			text = if advancedOpen[activeSection] then "HIDE ADVANCED" else `SHOW {hiddenAdvanced} ADVANCED`,
 			icon = if advancedOpen[activeSection] then "Hide" else "Chevron",
@@ -643,7 +685,7 @@ local function SettingsView(_param)
 			reducedMotion = softMotion,
 		}), 58)
 	end
-	if not searching and activeSection == "mobile" and mobileHudAvailable then
+	if not listing and activeSection == "mobile" and mobileHudAvailable then
 		add("hud", React.createElement(Button, {
 			text = "MOVE PHONE BUTTONS",
 			icon = "Settings",
@@ -657,7 +699,7 @@ local function SettingsView(_param)
 			reducedMotion = softMotion,
 		}), TapTarget + 14)
 	end
-	if not searching and activeSection == "interface" and UserInputService.GamepadEnabled then
+	if not listing and activeSection == "interface" and UserInputService.GamepadEnabled then
 		add("controller", React.createElement(React.Fragment, nil, React.createElement(Text, {
 			value = "CONTROLLER",
 			size = 11,
@@ -676,7 +718,7 @@ local function SettingsView(_param)
 	end
 	local list = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = if searching then Palette.steel else accent,
+		accent = if listing then Palette.steel else accent,
 		background = Palette.panel,
 		padding = if stack then 14 else 20,
 		reducedMotion = softMotion,
