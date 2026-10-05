@@ -1,8 +1,6 @@
 --!strict
 
 return function()
-
-
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
@@ -51,10 +49,7 @@ return function()
 	end
 
 	function MatterRuntime:SpawnPlayer(player: Player, runtime: any, _profile: any): number
-		return self.World:spawn(
-			PlayerComponent({ Value = player }),
-			RuntimeComponent({ Value = runtime })
-		)
+		return self.World:spawn(PlayerComponent({ Value = player }), RuntimeComponent({ Value = runtime }))
 	end
 
 	function MatterRuntime:Despawn(entity: number): ()

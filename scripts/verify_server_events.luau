@@ -62,7 +62,7 @@ for _, needle in { "function ServerEventService:Step", "function ServerEventServ
 end
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(server, "self._events:Step(deltaTime)", 1, true), "the heartbeat runs the cycle")
-assert(string.find(server, "self._fluxSurge:Multiplier(now) * self._events:ProductionMultiplier()", 1, true), "production ticks include the event multiplier")
+assert(string.match(server, "self%._fluxSurge:Multiplier%(now%)%s*%*%s*self%._events:ProductionMultiplier%(%)"), "production ticks include the event multiplier")
 assert(string.find(server, "self._events:OnCollect(player, amountNumber", 1, true), "collects feed the event")
 assert(string.find(server, "ServerEvent = self._events:State(player)", 1, true), "the snapshot carries the event")
 assert(string.find(server, "function GameService:_payCommunityForge", 1, true), "community payouts")

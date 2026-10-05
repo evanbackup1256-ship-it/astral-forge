@@ -1,9 +1,8 @@
 --!strict
 
-
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+local OmegaMath =
+	require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 
 local LeaderboardCodec = {}
 

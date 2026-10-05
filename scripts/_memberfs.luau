@@ -36,7 +36,19 @@ return function(realFs)
 		local slice = string.sub(source, bodyStart, bodyEnd)
 		-- drop the closure's trailing `end` (and any blank lines after it)
 		slice = string.gsub(slice, "\nend%s*$", "\n")
+		-- Members are indented once inside their factory by the project formatter.
+		-- Remove only that common outer indent, keeping relative block nesting.
+		if string.match(slice, "^\t") then
+			slice = string.gsub(slice, "^\t", "")
+			slice = string.gsub(slice, "\n\t", "\n")
+		end
 		-- Follow the two planning adapters to the source that actually renders them.
+		if string.find(slice, "require(script.Parent.PurchasePresentation)", 1, true) then
+			return readText("src/Client/AstralForge/PurchasePresentation.luau")
+		end
+		if string.find(slice, "require(script.Parent.TitleEffects)", 1, true) then
+			return readText("src/Client/AstralForge/TitleEffects.luau")
+		end
 		if string.find(slice, "require(script.Parent.Parent.PlanningViews)", 1, true) then
 			return readText("src/Client/AstralForge/PlanningViews.luau")
 		end

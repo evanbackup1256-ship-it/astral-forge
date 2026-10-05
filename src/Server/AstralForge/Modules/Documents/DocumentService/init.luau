@@ -1,6 +1,5 @@
 --!strict
 
-
 local Document = require(script:FindFirstChild("Document"))
 local DocumentStore = require(script:FindFirstChild("DocumentStore"))
 local Types = require(script:FindFirstChild("Types"))
@@ -16,7 +15,6 @@ export type DataStoreInterface = Types.DataStoreInterface
 export type Migrations = Types.Migrations
 export type DocumentStore<T> = DocumentStore.DocumentStore<T>
 export type DocumentStoreProps<T> = DocumentStore.DocumentStoreProps<T>
-
 
 return {
 	DocumentStore = DocumentStore,

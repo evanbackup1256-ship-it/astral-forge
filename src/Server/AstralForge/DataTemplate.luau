@@ -1,6 +1,8 @@
 --!strict
 
-local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local GameConfig = require(
+	game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig")
+)
 
 local DataTemplate = {}
 
@@ -156,8 +158,24 @@ function DataTemplate.New()
 			Discovered = {},
 			Equipped = {},
 			Essence = 0,
-			Keys = { ForgeCrate = 2, CrystalCrate = 0, HorizonCrate = 0, NebulaCrate = 0, OrbitCrate = 0, SingularityCrate = 0, EchoCrate = 0 },
-			Pity = { ForgeCrate = 0, CrystalCrate = 0, HorizonCrate = 0, NebulaCrate = 0, OrbitCrate = 0, SingularityCrate = 0, EchoCrate = 0 },
+			Keys = {
+				ForgeCrate = 2,
+				CrystalCrate = 0,
+				HorizonCrate = 0,
+				NebulaCrate = 0,
+				OrbitCrate = 0,
+				SingularityCrate = 0,
+				EchoCrate = 0,
+			},
+			Pity = {
+				ForgeCrate = 0,
+				CrystalCrate = 0,
+				HorizonCrate = 0,
+				NebulaCrate = 0,
+				OrbitCrate = 0,
+				SingularityCrate = 0,
+				EchoCrate = 0,
+			},
 			Shop = { Day = -1, Purchased = {}, Stock = {} },
 			AutoSalvage = {
 				Enabled = false,

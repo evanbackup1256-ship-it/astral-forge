@@ -103,33 +103,47 @@ local function DeviceFrame(props)
 			connection:Disconnect()
 		end
 	end, { size.X, size.Y })
-	return React.createElement("frame", {
-		ref = hostRef,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.fromRGB(8, 6, 12),
-		BorderSizePixel = 0,
-	}, React.createElement("frame", {
-		Name = "DeviceScreen",
-		Size = UDim2.fromOffset(size.X, size.Y),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.void,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, React.createElement("uiscale", {
-		Scale = fit,
-	}), React.createElement("uistroke", {
-		Color = Palette.lineSoft,
-		Thickness = 2,
-	}), React.createElement(autoScale.ViewportScaleContext.Provider, {
-		value = info,
-	}, React.createElement("frame", {
-		Name = "SafeArea",
-		Size = UDim2.new(1, -info.sideInset * 2, 1, -(info.topInset + info.bottomInset)),
-		Position = UDim2.fromOffset(info.sideInset, info.topInset),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, props.children))))
+	return React.createElement(
+		"frame",
+		{
+			ref = hostRef,
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Color3.fromRGB(8, 6, 12),
+			BorderSizePixel = 0,
+		},
+		React.createElement(
+			"frame",
+			{
+				Name = "DeviceScreen",
+				Size = UDim2.fromOffset(size.X, size.Y),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Palette.void,
+				BorderSizePixel = 0,
+				ClipsDescendants = true,
+			},
+			React.createElement("uiscale", {
+				Scale = fit,
+			}),
+			React.createElement("uistroke", {
+				Color = Palette.lineSoft,
+				Thickness = 2,
+			}),
+			React.createElement(
+				autoScale.ViewportScaleContext.Provider,
+				{
+					value = info,
+				},
+				React.createElement("frame", {
+					Name = "SafeArea",
+					Size = UDim2.new(1, -info.sideInset * 2, 1, -(info.topInset + info.bottomInset)),
+					Position = UDim2.fromOffset(info.sideInset, info.topInset),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+				}, props.children)
+			)
+		)
+	)
 end
 StoryKit.DeviceFrame = DeviceFrame
 
@@ -152,7 +166,9 @@ function Boundary:render()
 			TextYAlignment = Enum.TextYAlignment.Top,
 			Font = Enum.Font.Code,
 			TextSize = 14,
-			Text = "This story could not render.\n\n" .. self.state.message .. "\n\nPages that read deep server state need a captured snapshot: see src/Stories/README.md.",
+			Text = "This story could not render.\n\n"
+				.. self.state.message
+				.. "\n\nPages that read deep server state need a captured snapshot: see src/Stories/README.md.",
 		})
 	end
 	return self.props.children
@@ -280,7 +296,12 @@ function StoryKit.serialize(value, indent: string?)
 	elseif kind == "boolean" or kind == "nil" then
 		return tostring(value)
 	elseif kind == "Color3" then
-		return string.format("Color3.fromRGB(%d, %d, %d)", math.round(value.R * 255), math.round(value.G * 255), math.round(value.B * 255))
+		return string.format(
+			"Color3.fromRGB(%d, %d, %d)",
+			math.round(value.R * 255),
+			math.round(value.G * 255),
+			math.round(value.B * 255)
+		)
 	elseif kind == "Vector3" then
 		return string.format("Vector3.new(%s, %s, %s)", value.X, value.Y, value.Z)
 	elseif kind == "Vector2" then
@@ -300,7 +321,9 @@ function StoryKit.serialize(value, indent: string?)
 			return tostring(a) < tostring(b)
 		end)
 		for _, key in keys do
-			local keyText = if type(key) == "string" and string.match(key, "^[%a_][%w_]*$") then key else `[{StoryKit.serialize(key)}]`
+			local keyText = if type(key) == "string" and string.match(key, "^[%a_][%w_]*$")
+				then key
+				else `[{StoryKit.serialize(key)}]`
 			table.insert(parts, `{inner}{keyText} = {StoryKit.serialize(value[key], inner)},`)
 		end
 		if #parts == 0 then
@@ -345,15 +368,37 @@ function StoryKit.audit(root: GuiObject, minTap: number?)
 		if (gui:IsA("TextLabel") or gui:IsA("TextButton")) and gui.Text ~= "" and not gui.TextFits then
 			table.insert(issues, { kind = "text-overflow", path = name, detail = gui.Text })
 		end
-		if gui:IsA("GuiButton") and gui.Active and (size.X / scale < tap - 0.5 or size.Y / scale < tap - 0.5) and gui.BackgroundTransparency < 1 then
-			table.insert(issues, { kind = "small-tap", path = name, detail = string.format("%dx%d", size.X / scale, size.Y / scale) })
+		if
+			gui:IsA("GuiButton")
+			and gui.Active
+			and (size.X / scale < tap - 0.5 or size.Y / scale < tap - 0.5)
+			and gui.BackgroundTransparency < 1
+		then
+			table.insert(
+				issues,
+				{ kind = "small-tap", path = name, detail = string.format("%dx%d", size.X / scale, size.Y / scale) }
+			)
 		end
-		if pos.X + size.X < screen.X - 1 or pos.Y + size.Y < screen.Y - 1 or pos.X > screen.X + screenSize.X + 1 or pos.Y > screen.Y + screenSize.Y + 1 then
+		if
+			pos.X + size.X < screen.X - 1
+			or pos.Y + size.Y < screen.Y - 1
+			or pos.X > screen.X + screenSize.X + 1
+			or pos.Y > screen.Y + screenSize.Y + 1
+		then
 			continue
 		end
 		if pos.X < screen.X - 2 or pos.X + size.X > screen.X + screenSize.X + 2 then
 			if gui:IsA("TextLabel") or gui:IsA("GuiButton") or gui:IsA("TextBox") then
-				table.insert(issues, { kind = "offscreen-x", path = name, detail = string.format("%d..%d of %d", (pos.X - screen.X) / scale, (pos.X + size.X - screen.X) / scale, screenSize.X / scale) })
+				table.insert(issues, {
+					kind = "offscreen-x",
+					path = name,
+					detail = string.format(
+						"%d..%d of %d",
+						(pos.X - screen.X) / scale,
+						(pos.X + size.X - screen.X) / scale,
+						screenSize.X / scale
+					),
+				})
 			end
 		end
 	end

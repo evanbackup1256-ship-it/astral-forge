@@ -29,7 +29,7 @@ assert(string.find(mailbox, "local softMotion = ", 1, true), "MailRow softMotion
 assert(string.find(echo, "local softMotion = ", 1, true), "EchoCharge softMotion")
 do
 	local soft = 0
-	for _ in string.gmatch(overview, "softMotion") do
+	for _ in string.gmatch(overview .. fs.readFile("src/Client/AstralForge/GoalSummary.luau"), "softMotion") do
 		soft += 1
 	end
 	assert(soft >= 14, "Overview softMotion densify, got " .. tostring(soft))
@@ -57,11 +57,26 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#MailboxView"] = ', 1, true), "Mailbox DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = ', 1, true), "Echo DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#OverviewView"] = ', 1, true), "Overview DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#FeedbackOverlay"] = ', 1, true), "Feedback DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView"] = ', 1, true), "Leaderboards DENSE floor")
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau#MailboxView"] = ', 1, true),
+	"Mailbox DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = ', 1, true),
+	"Echo DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#OverviewView"] = ', 1, true),
+	"Overview DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/UiCore.luau#FeedbackOverlay"] = ', 1, true),
+	"Feedback DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView"] = ', 1, true),
+	"Leaderboards DENSE floor"
+)
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave44-offline-brief"', 1, true), "Story wave44")

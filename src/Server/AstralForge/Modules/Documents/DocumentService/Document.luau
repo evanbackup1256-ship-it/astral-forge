@@ -92,7 +92,6 @@ type SchemaError = Types.SchemaError
 local INTERNAL_SCHEMA_VERSION = 0
 
 local function runHooks(hooks: { () -> () })
-
 	for _, hook in table.clone(hooks) do
 		hook()
 	end
@@ -248,7 +247,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 	runHooks(self._preHooks.Open)
 
 	local updateOk, updatedKeyData = SaveUtil.updateAsync(function(abortAttempt, getValue): KeyData<T>?
-
 		lockedByOther = false
 		incompatibleVersion = false
 		failedCheck = false
@@ -291,7 +289,6 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 		local migratedData = migrateResult
 
 		if keyData then
-
 			if #self._migrations < keyData.lastCompatibleVersion then
 				incompatibleVersion = true
 
@@ -303,8 +300,8 @@ function Document.Open<T>(self: Document<T>): OpenResult<T>
 
 			if locked and not lockedByUs and not self._shouldSteal then
 				lockedByOther = true
-				abortAttempt(`Session lock held by another session for {self}.`)
-
+				-- Returning nil cancels UpdateAsync without writing or retrying an
+				-- expected ownership conflict as though Roblox's API had failed.
 				return
 			end
 		end
@@ -631,7 +628,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 	local notStorableErr: string
 
 	if self._lockSessions then
-
 		local updatedData = transform(self._cache)
 		if updatedData ~= self._cache then
 			self:SetCache(updatedData)
@@ -639,7 +635,6 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 	end
 
 	local success, updatedKeyData = SaveUtil.updateAsync(function(_abortAttempt, value: unknown): KeyData<T>?
-
 		lockedByOther = false
 		transformInvalid = false
 		notStorable = false

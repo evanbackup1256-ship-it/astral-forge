@@ -30,15 +30,45 @@ BazaarMath.MARKET_SECONDS = 3600
 BazaarMath.MARKET_OFFERS = 4
 
 BazaarMath.CATALOG = table.freeze({
-	table.freeze({ Id = "overdrive", Name = "Overdrive Cell", Reward = table.freeze({ Boost = "Overdrive" }), Seconds = 2400 }),
-	table.freeze({ Id = "vaultsurge", Name = "Vault Surge Cell", Reward = table.freeze({ Boost = "VaultSurge" }), Seconds = 2400 }),
-	table.freeze({ Id = "hyperdrive", Name = "Hyperdrive Cell", Reward = table.freeze({ Boost = "Hyperdrive" }), Seconds = 4200 }),
-	table.freeze({ Id = "domainsurge", Name = "Domain Surge Cell", Reward = table.freeze({ Boost = "DomainSurge" }), Seconds = 5400 }),
+	table.freeze({
+		Id = "overdrive",
+		Name = "Overdrive Cell",
+		Reward = table.freeze({ Boost = "Overdrive" }),
+		Seconds = 2400,
+	}),
+	table.freeze({
+		Id = "vaultsurge",
+		Name = "Vault Surge Cell",
+		Reward = table.freeze({ Boost = "VaultSurge" }),
+		Seconds = 2400,
+	}),
+	table.freeze({
+		Id = "hyperdrive",
+		Name = "Hyperdrive Cell",
+		Reward = table.freeze({ Boost = "Hyperdrive" }),
+		Seconds = 4200,
+	}),
+	table.freeze({
+		Id = "domainsurge",
+		Name = "Domain Surge Cell",
+		Reward = table.freeze({ Boost = "DomainSurge" }),
+		Seconds = 5400,
+	}),
 	table.freeze({ Id = "stardust", Name = "Stardust Pouch", Reward = table.freeze({ Stardust = 40 }), Seconds = 6000 }),
-	table.freeze({ Id = "stardustbig", Name = "Stardust Crate", Reward = table.freeze({ Stardust = 150 }), Seconds = 20000 }),
+	table.freeze({
+		Id = "stardustbig",
+		Name = "Stardust Crate",
+		Reward = table.freeze({ Stardust = 150 }),
+		Seconds = 20000,
+	}),
 	table.freeze({ Id = "core", Name = "Loose Core", Reward = table.freeze({ Cores = 1 }), Seconds = 9000 }),
 	table.freeze({ Id = "spins", Name = "Wheel Tokens", Reward = table.freeze({ FreeSpins = 3 }), Seconds = 3600 }),
-	table.freeze({ Id = "keys", Name = "Forge Keys", Reward = table.freeze({ Keys = table.freeze({ ForgeCrate = 3 }) }), Seconds = 3000 }),
+	table.freeze({
+		Id = "keys",
+		Name = "Forge Keys",
+		Reward = table.freeze({ Keys = table.freeze({ ForgeCrate = 3 }) }),
+		Seconds = 3000,
+	}),
 	table.freeze({ Id = "essence", Name = "Domain Essence", Reward = table.freeze({ Essence = 6 }), Seconds = 7000 }),
 	table.freeze({ Id = "signals", Name = "Signal Burst", Reward = table.freeze({ Signals = 25 }), Seconds = 3200 }),
 	table.freeze({ Id = "shield", Name = "Streak Shield", Reward = table.freeze({ StreakShield = 1 }), Seconds = 2800 }),
@@ -120,12 +150,54 @@ function BazaarMath.LotteryBucket(now: number): number
 end
 
 BazaarMath.CONTRACTS = table.freeze({
-	table.freeze({ Id = "rounds", Name = "Regular", Text = "Play casino rounds", Counter = "Rounds", Target = 10, Reward = table.freeze({ CashMinutes = 8, Stardust = 6 }) }),
-	table.freeze({ Id = "wins", Name = "Hot Hand", Text = "Win casino rounds", Counter = "Wins", Target = 4, Reward = table.freeze({ CashMinutes = 10, FreeSpins = 1 }) }),
-	table.freeze({ Id = "deals", Name = "Haggler", Text = "Buy black market deals", Counter = "Deals", Target = 2, Reward = table.freeze({ CashMinutes = 12, Stardust = 8 }) }),
-	table.freeze({ Id = "deposits", Name = "Saver", Text = "Make bank deposits", Counter = "Deposits", Target = 2, Reward = table.freeze({ CashMinutes = 6, Stardust = 5 }) }),
-	table.freeze({ Id = "tickets", Name = "Gambler", Text = "Buy lottery tickets", Counter = "Tickets", Target = 5, Reward = table.freeze({ CashMinutes = 8, FreeSpins = 1 }) }),
-	table.freeze({ Id = "interest", Name = "Collector", Text = "Collect bank interest", Counter = "Interest", Target = 3, Reward = table.freeze({ CashMinutes = 7, Stardust = 6 }) }),
+	table.freeze({
+		Id = "rounds",
+		Name = "Regular",
+		Text = "Play casino rounds",
+		Counter = "Rounds",
+		Target = 10,
+		Reward = table.freeze({ CashMinutes = 8, Stardust = 6 }),
+	}),
+	table.freeze({
+		Id = "wins",
+		Name = "Hot Hand",
+		Text = "Win casino rounds",
+		Counter = "Wins",
+		Target = 4,
+		Reward = table.freeze({ CashMinutes = 10, FreeSpins = 1 }),
+	}),
+	table.freeze({
+		Id = "deals",
+		Name = "Haggler",
+		Text = "Buy black market deals",
+		Counter = "Deals",
+		Target = 2,
+		Reward = table.freeze({ CashMinutes = 12, Stardust = 8 }),
+	}),
+	table.freeze({
+		Id = "deposits",
+		Name = "Saver",
+		Text = "Make bank deposits",
+		Counter = "Deposits",
+		Target = 2,
+		Reward = table.freeze({ CashMinutes = 6, Stardust = 5 }),
+	}),
+	table.freeze({
+		Id = "tickets",
+		Name = "Gambler",
+		Text = "Buy lottery tickets",
+		Counter = "Tickets",
+		Target = 5,
+		Reward = table.freeze({ CashMinutes = 8, FreeSpins = 1 }),
+	}),
+	table.freeze({
+		Id = "interest",
+		Name = "Collector",
+		Text = "Collect bank interest",
+		Counter = "Interest",
+		Target = 3,
+		Reward = table.freeze({ CashMinutes = 7, Stardust = 6 }),
+	}),
 })
 BazaarMath.CONTRACTS_PER_DAY = 3
 BazaarMath.COUNTERS = table.freeze({ "Rounds", "Wins", "Deals", "Deposits", "Tickets", "Interest" })
@@ -164,7 +236,11 @@ local function count(value: any, ceiling: number?): number
 end
 
 local function persist(value: any): number | string
-	if type(value) == "string" and #value <= 40 and (value == "inf" or (string.match(value, "^[%d%.eE%+]+$") ~= nil and tonumber(value) ~= nil)) then
+	if
+		type(value) == "string"
+		and #value <= 40
+		and (value == "inf" or (string.match(value, "^[%d%.eE%+]+$") ~= nil and tonumber(value) ~= nil))
+	then
 		return value
 	end
 	local n = tonumber(value)

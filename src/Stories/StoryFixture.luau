@@ -39,9 +39,36 @@ local function deepCopy(value)
 end
 
 local PRESETS = {
-	["New player"] = { cash = 120, lifetime = 400, stardust = 0, cores = 0, rebirths = 0, levels = 1, relics = 0, keys = 1 },
-	["Mid game"] = { cash = 2.4e6, lifetime = 9.6e7, stardust = 640, cores = 22, rebirths = 4, levels = 18, relics = 9, keys = 6 },
-	["Late game"] = { cash = 8.1e14, lifetime = 3.3e16, stardust = 48000, cores = 940, rebirths = 37, levels = 60, relics = 40, keys = 30 },
+	["New player"] = {
+		cash = 120,
+		lifetime = 400,
+		stardust = 0,
+		cores = 0,
+		rebirths = 0,
+		levels = 1,
+		relics = 0,
+		keys = 1,
+	},
+	["Mid game"] = {
+		cash = 2.4e6,
+		lifetime = 9.6e7,
+		stardust = 640,
+		cores = 22,
+		rebirths = 4,
+		levels = 18,
+		relics = 9,
+		keys = 6,
+	},
+	["Late game"] = {
+		cash = 8.1e14,
+		lifetime = 3.3e16,
+		stardust = 48000,
+		cores = 940,
+		rebirths = 37,
+		levels = 60,
+		relics = 40,
+		keys = 30,
+	},
 }
 
 local function profileFor(save)
@@ -73,7 +100,12 @@ local function profileFor(save)
 	for index = 1, math.min(preset.relics, #definitions) do
 		local definition = definitions[(index * 7) % #definitions + 1]
 		local uid = string.format("story%04d", index)
-		profile.Items.Inventory[uid] = { DefinitionId = definition.Id, Level = 1 + index % 6, Stars = if index % 5 == 0 then index % 4 else nil, Locked = index % 9 == 0 }
+		profile.Items.Inventory[uid] = {
+			DefinitionId = definition.Id,
+			Level = 1 + index % 6,
+			Stars = if index % 5 == 0 then index % 4 else nil,
+			Locked = index % 9 == 0,
+		}
 		profile.Items.Discovered[definition.Id] = true
 	end
 	for _, crate in GameConfig.Items and GameConfig.Items.Crates or {} do
@@ -156,8 +188,21 @@ function StoryFixture.build(save: string?)
 		OfflineHours = 8,
 		OfflineEfficiency = 0.5,
 		Wheel = WheelMath and try("wheel", function()
-			return WheelMath.Snapshot(now, profile.Wheel or { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 1 }, GameConfig.Wheel.CooldownSeconds, GameConfig.Wheel.PityAfter)
-		end, nil) or { CanSpin = true, ReadyAt = now, Spins = 3, FreeSpins = 1, PityMisses = 2, PityAfter = 8, PityArmed = false },
+			return WheelMath.Snapshot(
+				now,
+				profile.Wheel or { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 1 },
+				GameConfig.Wheel.CooldownSeconds,
+				GameConfig.Wheel.PityAfter
+			)
+		end, nil) or {
+			CanSpin = true,
+			ReadyAt = now,
+			Spins = 3,
+			FreeSpins = 1,
+			PityMisses = 2,
+			PityAfter = 8,
+			PityArmed = false,
+		},
 		Items = {
 			Inventory = profile.Items.Inventory,
 			Equipped = profile.Items.Equipped,
@@ -173,7 +218,10 @@ function StoryFixture.build(save: string?)
 			CodexBonus = 0.01,
 		},
 		DailyShop = { Day = ShopCatalog.day(now), Bought = { ["2"] = 1 } },
-		Cosmetics = { CrateSkins = { Classic = true, Crystal = true, Molten = save == "Late game" }, CrateSkin = "Crystal" },
+		Cosmetics = {
+			CrateSkins = { Classic = true, Crystal = true, Molten = save == "Late game" },
+			CrateSkin = "Crystal",
+		},
 		Shop = { OwnedPasses = {} },
 		SocialRewards = { CreatorFollowClaimed = false, CreatorName = "usingINales" },
 		Quests = {},

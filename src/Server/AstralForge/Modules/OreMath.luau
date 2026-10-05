@@ -4,16 +4,18 @@ local OreMath = {}
 
 type OreConfig = {
 	Types: { { Id: string, Name: string, YieldMin: number, YieldMax: number } },
-	Upgrades: { {
-		Id: string,
-		Name: string,
-		Description: string,
-		Effect: string,
-		PerLevel: number,
-		MaxLevel: number,
-		Cost: { [string]: number },
-		Scale: number,
-	} },
+	Upgrades: {
+		{
+			Id: string,
+			Name: string,
+			Description: string,
+			Effect: string,
+			PerLevel: number,
+			MaxLevel: number,
+			Cost: { [string]: number },
+			Scale: number,
+		}
+	},
 }
 
 local function whole(value: any): number
@@ -99,7 +101,12 @@ function OreMath.Yield(config: OreConfig, oreId: string, yieldBonus: number, rol
 	return 0
 end
 
-function OreMath.Purchase(config: OreConfig, balances: { [string]: number }, levels: { [string]: number }, id: any): (boolean, string)
+function OreMath.Purchase(
+	config: OreConfig,
+	balances: { [string]: number },
+	levels: { [string]: number },
+	id: any
+): (boolean, string)
 	local upgrade = OreMath.Upgrade(config, id)
 	if upgrade == nil then
 		return false, "That foundry upgrade doesn't exist."

@@ -21,7 +21,10 @@ end)
 local function requiredChild(parent: Instance, name: string, className: string, timeout: number): Instance
 	local child = parent:WaitForChild(name, timeout)
 	if child == nil then
-		error(string.format("[AF/boot] %s did not appear under %s within %.0fs", name, parent:GetFullName(), timeout), 0)
+		error(
+			string.format("[AF/boot] %s did not appear under %s within %.0fs", name, parent:GetFullName(), timeout),
+			0
+		)
 	end
 	if not child:IsA(className) then
 		error(string.format("[AF/boot] %s must be %s, got %s", child:GetFullName(), className, child.ClassName), 0)
@@ -39,8 +42,10 @@ end
 
 local astralRoot = requiredChild(ReplicatedStorage, "AstralForge", "Folder", 30) :: Folder
 local sharedRoot = requiredChild(astralRoot, "Shared", "Folder", 15) :: Folder
-local Protocol = ModuleLog.Require(requiredChild(sharedRoot, "Protocol", "ModuleScript", 15) :: ModuleScript, "shared protocol")
-local GameConfig = ModuleLog.Require(requiredChild(sharedRoot, "GameConfig", "ModuleScript", 15) :: ModuleScript, "game settings")
+local Protocol =
+	ModuleLog.Require(requiredChild(sharedRoot, "Protocol", "ModuleScript", 15) :: ModuleScript, "shared protocol")
+local GameConfig =
+	ModuleLog.Require(requiredChild(sharedRoot, "GameConfig", "ModuleScript", 15) :: ModuleScript, "game settings")
 
 local priorBridge = ReplicatedStorage:FindFirstChild(Protocol.FolderName)
 if priorBridge ~= nil then
@@ -109,42 +114,65 @@ local function timedBuild(label: string, builder: () -> any): any
 	return result
 end
 
-local DataService = timedRequire("player data module", function() return Services.DataService end)
-local AdminService = timedRequire("administration module", function() return Services.AdminService end)
-local GameService = timedRequire("gameplay module", function() return Services.GameService end)
-local WorldService = timedRequire("world module", function() return Services.WorldService end)
-local FluxSurgeService = timedRequire("flux surge module", function() return Services.FluxSurgeService end)
-local Security = timedRequire("security module", function() return Services.Security end)
-local CharacterIntegrity = timedRequire("integrity module", function() return Services.CharacterIntegrity end)
+local DataService = timedRequire("player data module", function()
+	return Services.DataService
+end)
+local AdminService = timedRequire("administration module", function()
+	return Services.AdminService
+end)
+local GameService = timedRequire("gameplay module", function()
+	return Services.GameService
+end)
+local WorldService = timedRequire("world module", function()
+	return Services.WorldService
+end)
+local FluxSurgeService = timedRequire("flux surge module", function()
+	return Services.FluxSurgeService
+end)
+local Security = timedRequire("security module", function()
+	return Services.Security
+end)
+local CharacterIntegrity = timedRequire("integrity module", function()
+	return Services.CharacterIntegrity
+end)
 
-local dataService = timedBuild("player data construction", function() return DataService.new() end)
-local adminService = timedBuild("administration construction", function() return AdminService.new(dataService) end)
-local worldService = timedBuild("world construction", function() return WorldService.new() end)
+local dataService = timedBuild("player data construction", function()
+	return DataService.new()
+end)
+local adminService = timedBuild("administration construction", function()
+	return AdminService.new(dataService)
+end)
+local worldService = timedBuild("world construction", function()
+	return WorldService.new()
+end)
 local gameService
 local fluxSurgeService = timedBuild("flux surge construction", function()
-	return FluxSurgeService.new(
-		function(player, title, body, kind)
-			if gameService then
-				gameService:_toastPlayer(player, title, body, kind)
-			end
-		end,
-		function(player, payload)
-			if gameService then
-				gameService._effect:FireClient(player, payload)
-			end
+	return FluxSurgeService.new(function(player, title, body, kind)
+		if gameService then
+			gameService:_toastPlayer(player, title, body, kind)
 		end
-	)
+	end, function(player, payload)
+		if gameService then
+			gameService._effect:FireClient(player, payload)
+		end
+	end)
 end)
-local securityPipeline = timedBuild("security construction", function() return Security.new() end)
-local characterIntegrity = timedBuild("integrity construction", function() return CharacterIntegrity.new() end)
-gameService = timedBuild("gameplay construction", function() return GameService.new(dataService, worldService, fluxSurgeService, {
-	Request = request,
-	State = state,
-	Toast = toast,
-	Effect = effect,
-	Security = securityPipeline,
-	Admin = adminService,
-}) end)
+local securityPipeline = timedBuild("security construction", function()
+	return Security.new()
+end)
+local characterIntegrity = timedBuild("integrity construction", function()
+	return CharacterIntegrity.new()
+end)
+gameService = timedBuild("gameplay construction", function()
+	return GameService.new(dataService, worldService, fluxSurgeService, {
+		Request = request,
+		State = state,
+		Toast = toast,
+		Effect = effect,
+		Security = securityPipeline,
+		Admin = adminService,
+	})
+end)
 
 if RunService:IsStudio() then
 	local snapshotHook = Instance.new("BindableFunction")
@@ -163,10 +191,30 @@ local function closeRuntime()
 	end
 	runtimeClosed = true
 	local operations = {
-		{ "character integrity", function() characterIntegrity:Destroy() end },
-		{ "security pipeline", function() securityPipeline:Destroy() end },
-		{ "game service", function() gameService:Shutdown() end },
-		{ "data service", function() dataService:Shutdown() end },
+		{
+			"character integrity",
+			function()
+				characterIntegrity:Destroy()
+			end,
+		},
+		{
+			"security pipeline",
+			function()
+				securityPipeline:Destroy()
+			end,
+		},
+		{
+			"game service",
+			function()
+				gameService:Shutdown()
+			end,
+		},
+		{
+			"data service",
+			function()
+				dataService:Shutdown()
+			end,
+		},
 	}
 	for _, operation in operations do
 		local ok, problem = xpcall(operation[2] :: () -> (), debug.traceback)
@@ -183,11 +231,21 @@ local function startRuntime()
 		fn()
 		ModuleLog.Info("BOOT", label, { ElapsedMs = math.floor((os.clock() - t) * 1000) })
 	end
-	step("security start", function() securityPipeline:Start() end)
-	step("integrity start", function() characterIntegrity:Start() end)
-	step("world start", function() worldService:Start() end)
-	step("game start", function() gameService:Start() end)
-	step("autosave start", function() dataService:StartAutosave(GameConfig.Game.AutosaveSeconds) end)
+	step("security start", function()
+		securityPipeline:Start()
+	end)
+	step("integrity start", function()
+		characterIntegrity:Start()
+	end)
+	step("world start", function()
+		worldService:Start()
+	end)
+	step("game start", function()
+		gameService:Start()
+	end)
+	step("autosave start", function()
+		dataService:StartAutosave(GameConfig.Game.AutosaveSeconds)
+	end)
 	ModuleLog.Info("BOOT", "runtime started", { ElapsedMs = math.floor((os.clock() - start) * 1000) })
 end
 
@@ -267,9 +325,11 @@ end
 
 game:BindToClose(function()
 	local production = not RunService:IsStudio()
-	publishShutdown("Saving", production
-		and "Securing your forge before the server refreshes."
-		or "Tempering a fresh test server. Your progress is safe.")
+	publishShutdown(
+		"Saving",
+		production and "Securing your forge before the server refreshes."
+			or "Tempering a fresh test server. Your progress is safe."
+	)
 	closeRuntime()
 	if not production then
 		return

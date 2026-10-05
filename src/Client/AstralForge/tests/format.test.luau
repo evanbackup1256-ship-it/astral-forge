@@ -19,8 +19,7 @@ do
 		local self = setmetatable({}, FormatTests)
 		return self:constructor(...) or self
 	end
-	function FormatTests:constructor()
-	end
+	function FormatTests:constructor() end
 	function FormatTests:compactNumberKeepsSmallValues()
 		Assert:equal(compactNumber(0), "0")
 		Assert:equal(compactNumber(999), "999")
@@ -41,7 +40,12 @@ do
 		Assert["true"](Assert, (string.find(compactNumber(1e243), "Skewes", 1, true)) ~= nil)
 	end
 	function FormatTests:compactNumberFormatsOmegaPersist()
-		Assert["true"](Assert, (string.find(compactNumber("1.23e400"), "e400", 1, true)) ~= nil or (string.find(compactNumber("1.23e400"), "Boundless", 1, true)) ~= nil or (string.find(compactNumber("1.23e400"), "Horizon", 1, true)) ~= nil)
+		Assert["true"](
+			Assert,
+			(string.find(compactNumber("1.23e400"), "e400", 1, true)) ~= nil
+				or (string.find(compactNumber("1.23e400"), "Boundless", 1, true)) ~= nil
+				or (string.find(compactNumber("1.23e400"), "Horizon", 1, true)) ~= nil
+		)
 		Assert["true"](Assert, gteFlux("1e400", "9e399"))
 		Assert["true"](Assert, not gteFlux("1e300", "1e400"))
 	end
@@ -59,10 +63,13 @@ do
 	end
 	function FormatTests:formatRewardJoinsParts()
 		Assert:equal(formatReward(nil), "")
-		Assert:equal(formatReward({
-			Cash = 250,
-			Stardust = 5,
-		}), "+250 flux, +5 stardust")
+		Assert:equal(
+			formatReward({
+				Cash = 250,
+				Stardust = 5,
+			}),
+			"+250 flux, +5 stardust"
+		)
 	end
 	local _descriptor = Test(FormatTests, "compactNumberKeepsSmallValues", {
 		value = FormatTests.compactNumberKeepsSmallValues,

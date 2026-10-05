@@ -5,9 +5,17 @@ return function(Math)
 	function Model.quote(entry, amount, cash)
 		local item = entry.config
 		local remaining = math.max(0, item.MaxLevel - entry.level)
-		local count = if amount == 0 then Math.AffordableCount(item.BaseCost, item.CostScale, entry.level, cash, remaining) else math.min(amount, 50, remaining)
-		local cost = if count > 0 then Math.GeometricSum(item.BaseCost, item.CostScale, entry.level, count) else Math.ScaledCost(item.BaseCost, item.CostScale, entry.level)
-		return { count = count, cost = cost, ready = entry.unlocked and not entry.maxed and count > 0 and Math.Gte(cash, cost) }
+		local count = if amount == 0
+			then Math.AffordableCount(item.BaseCost, item.CostScale, entry.level, cash, remaining)
+			else math.min(amount, 50, remaining)
+		local cost = if count > 0
+			then Math.GeometricSum(item.BaseCost, item.CostScale, entry.level, count)
+			else Math.ScaledCost(item.BaseCost, item.CostScale, entry.level)
+		return {
+			count = count,
+			cost = cost,
+			ready = entry.unlocked and not entry.maxed and count > 0 and Math.Gte(cash, cost),
+		}
 	end
 	function Model.returnScore(entry)
 		-- Marginal raw production from the same level/growth formula as the server.
@@ -33,7 +41,9 @@ return function(Math)
 		end
 		local candidates = {}
 		for _, entry in entries do
-			if Model.quote(entry, amount, cash).ready then table.insert(candidates, entry) end
+			if Model.quote(entry, amount, cash).ready then
+				table.insert(candidates, entry)
+			end
 		end
 		-- Bound a click to 24 requests. Max divides the budget rather than exhausting it on row one.
 		local orders, remaining = {}, cash
@@ -55,13 +65,29 @@ return function(Math)
 		end
 		return orders, remaining
 	end
-	function Model.filter(entries, query, filter, amount, cash)
+	-- `matcher(query, name, description)` swaps in fuzzy matching; plain substring otherwise.
+	function Model.filter(entries, query, filter, amount, cash, matcher)
 		local visible = {}
 		local needle = string.lower(string.match(query or "", "^%s*(.-)%s*$"))
 		for _, entry in entries do
-			local keep = if filter == "Affordable" then Model.quote(entry, amount, cash).ready elseif filter == "Owned" then entry.level > 0 elseif filter == "Next" then not entry.unlocked elseif filter == "Available" then entry.unlocked and not entry.maxed else true
-			local haystack = string.lower(entry.config.Name .. " " .. (entry.config.Description or ""))
-			if keep and (needle == "" or string.find(haystack, needle, 1, true)) then table.insert(visible, entry) end
+			local keep = if filter == "Affordable"
+				then Model.quote(entry, amount, cash).ready
+				elseif filter == "Owned" then entry.level > 0
+				elseif filter == "Next" then not entry.unlocked
+				elseif filter == "Available" then entry.unlocked and not entry.maxed
+				else true
+			local found = needle == ""
+			if not found then
+				if matcher ~= nil then
+					found = matcher(needle, entry.config.Name, entry.config.Description)
+				else
+					local haystack = string.lower(entry.config.Name .. " " .. (entry.config.Description or ""))
+					found = string.find(haystack, needle, 1, true) ~= nil
+				end
+			end
+			if keep and found then
+				table.insert(visible, entry)
+			end
 		end
 		return visible
 	end

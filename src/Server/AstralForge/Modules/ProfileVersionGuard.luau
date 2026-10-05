@@ -9,7 +9,10 @@ function ProfileVersionGuard.ReadCompatible(raw: any, targetVersion: number): nu
 		return 0
 	end
 	local sourceVersion = tonumber(raw.DataVersion)
-	assert(sourceVersion ~= nil and sourceVersion >= 0 and sourceVersion % 1 == 0, "stored profile has an invalid schema")
+	assert(
+		sourceVersion ~= nil and sourceVersion >= 0 and sourceVersion % 1 == 0,
+		"stored profile has an invalid schema"
+	)
 	assert(sourceVersion <= targetVersion, "stored profile has a newer schema")
 	return sourceVersion
 end

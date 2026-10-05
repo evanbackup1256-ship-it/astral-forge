@@ -55,7 +55,11 @@ do
 					_condition = -1
 				end
 				_self[SYMBOL_ATTRIBUTE_SETTER](_self, "AstralSnapshot", _condition)
-				self[SYMBOL_ATTRIBUTE_SETTER](self, "AstralStateStatus", if state.session == nil then "waiting for profile" else "live")
+				self[SYMBOL_ATTRIBUTE_SETTER](
+					self,
+					"AstralStateStatus",
+					if state.session == nil then "waiting for profile" else "live"
+				)
 			end
 			syncDebugState(store:getState())
 			if self.stateConnection ~= nil then
@@ -91,37 +95,39 @@ do
 		Reflect.defineMetadata(UiRootComponent, "flamework:implements", { "$:flamework@OnStart" })
 	end
 end
-Reflect.decorate(UiRootComponent, "$c:components@Component", Component, { {
-	tag = UI_ROOT_TAG,
-	warningTimeout = 0,
-	defaults = {
-		AstralFramework = "0",
-		AstralFrameworkReady = false,
-		AstralRoute = "",
-		AstralSnapshot = -1,
-		AstralStateStatus = "starting",
-		AstralAntilagTier = 3,
-		AstralAntilagQuality = 1,
-		AstralFps = 60,
-		AstralHitchScore = 0,
-		AstralRenderFps = 60,
-		AstralStepMs = 16,
+Reflect.decorate(UiRootComponent, "$c:components@Component", Component, {
+	{
+		tag = UI_ROOT_TAG,
+		warningTimeout = 0,
+		defaults = {
+			AstralFramework = "0",
+			AstralFrameworkReady = false,
+			AstralRoute = "",
+			AstralSnapshot = -1,
+			AstralStateStatus = "starting",
+			AstralAntilagTier = 3,
+			AstralAntilagQuality = 1,
+			AstralFps = 60,
+			AstralHitchScore = 0,
+			AstralRenderFps = 60,
+			AstralStepMs = 16,
+		},
+		attributes = {
+			AstralFramework = t.string,
+			AstralFrameworkReady = t.boolean,
+			AstralRoute = t.string,
+			AstralSnapshot = t.number,
+			AstralStateStatus = t.string,
+			AstralAntilagTier = t.number,
+			AstralAntilagQuality = t.number,
+			AstralFps = t.number,
+			AstralHitchScore = t.number,
+			AstralRenderFps = t.number,
+			AstralStepMs = t.number,
+		},
+		instanceGuard = t.instanceIsA("ScreenGui"),
 	},
-	attributes = {
-		AstralFramework = t.string,
-		AstralFrameworkReady = t.boolean,
-		AstralRoute = t.string,
-		AstralSnapshot = t.number,
-		AstralStateStatus = t.string,
-		AstralAntilagTier = t.number,
-		AstralAntilagQuality = t.number,
-		AstralFps = t.number,
-		AstralHitchScore = t.number,
-		AstralRenderFps = t.number,
-		AstralStepMs = t.number,
-	},
-	instanceGuard = t.instanceIsA("ScreenGui"),
-} })
+})
 local UiRuntimeController
 do
 	UiRuntimeController = setmetatable({}, {
@@ -201,7 +207,11 @@ do
 	do
 		Reflect.defineMetadata(UiRuntimeController, "identifier", "client/framework/init@UiRuntimeController")
 		Reflect.defineMetadata(UiRuntimeController, "flamework:parameters", { "$c:components@Components" })
-		Reflect.defineMetadata(UiRuntimeController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart" })
+		Reflect.defineMetadata(
+			UiRuntimeController,
+			"flamework:implements",
+			{ "$:flamework@OnInit", "$:flamework@OnStart" }
+		)
 	end
 end
 Reflect.decorate(UiRuntimeController, "$:flamework@Controller", Controller, { {
@@ -278,13 +288,26 @@ do
 			target[SYMBOL_ATTRIBUTE_SETTER](target, "AstralHitchScore", math.floor(info.hitchScore * 100) / 100)
 		end)
 		if not ok then
-			ClientLog:warnEvery("diagnostics-tick", 15, "framework", `DiagnosticsController onTick failed: {tostring(reason)}`)
+			ClientLog:warnEvery(
+				"diagnostics-tick",
+				15,
+				"framework",
+				`DiagnosticsController onTick failed: {tostring(reason)}`
+			)
 		end
 	end
 	do
 		Reflect.defineMetadata(DiagnosticsController, "identifier", "client/framework/init@DiagnosticsController")
-		Reflect.defineMetadata(DiagnosticsController, "flamework:parameters", { "$c:components@Components", "client/framework/init@UiRuntimeController" })
-		Reflect.defineMetadata(DiagnosticsController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" })
+		Reflect.defineMetadata(
+			DiagnosticsController,
+			"flamework:parameters",
+			{ "$c:components@Components", "client/framework/init@UiRuntimeController" }
+		)
+		Reflect.defineMetadata(
+			DiagnosticsController,
+			"flamework:implements",
+			{ "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" }
+		)
 	end
 end
 Reflect.decorate(DiagnosticsController, "$:flamework@Controller", Controller, { {
@@ -338,7 +361,12 @@ do
 			self:publish("AstralRenderFps", fps)
 		end)
 		if not ok then
-			ClientLog:warnEvery("shell-render", 15, "framework", `ShellClockController onRender failed: {tostring(reason)}`)
+			ClientLog:warnEvery(
+				"shell-render",
+				15,
+				"framework",
+				`ShellClockController onRender failed: {tostring(reason)}`
+			)
 		end
 	end
 	function ShellClockController:onPhysics(dt)
@@ -354,13 +382,26 @@ do
 			self:publish("AstralStepMs", ms)
 		end)
 		if not ok then
-			ClientLog:warnEvery("shell-physics", 15, "framework", `ShellClockController onPhysics failed: {tostring(reason)}`)
+			ClientLog:warnEvery(
+				"shell-physics",
+				15,
+				"framework",
+				`ShellClockController onPhysics failed: {tostring(reason)}`
+			)
 		end
 	end
 	do
 		Reflect.defineMetadata(ShellClockController, "identifier", "client/framework/init@ShellClockController")
-		Reflect.defineMetadata(ShellClockController, "flamework:parameters", { "client/framework/init@UiRuntimeController" })
-		Reflect.defineMetadata(ShellClockController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnRender", "$:flamework@OnPhysics" })
+		Reflect.defineMetadata(
+			ShellClockController,
+			"flamework:parameters",
+			{ "client/framework/init@UiRuntimeController" }
+		)
+		Reflect.defineMetadata(
+			ShellClockController,
+			"flamework:implements",
+			{ "$:flamework@OnInit", "$:flamework@OnRender", "$:flamework@OnPhysics" }
+		)
 	end
 end
 Reflect.decorate(ShellClockController, "$:flamework@Controller", Controller, { {

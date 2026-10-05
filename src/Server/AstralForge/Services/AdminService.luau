@@ -6,11 +6,15 @@ return function(loadService: (string) -> any)
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local RunService = game:GetService("RunService")
 
-	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
-	local OmegaMath = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+	local GameConfig =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local Protocol =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
+	local OmegaMath =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
-	local AdminGrantMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("AdminGrantMath")
+	local AdminGrantMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("AdminGrantMath")
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
@@ -131,7 +135,9 @@ return function(loadService: (string) -> any)
 	local CATEGORY_RANK = { Economy = 1, Progress = 2, Items = 3, Resets = 4, Troll = 5, Moderation = 6 }
 
 	local function commandDanger(definition: { [string]: any }): string
-		if string.sub(definition.Label or "",1,4)=="Set " then return "arm" end
+		if string.sub(definition.Label or "", 1, 4) == "Set " then
+			return "arm"
+		end
 		return AdminGrantMath.CommandDanger(definition)
 	end
 
@@ -145,31 +151,50 @@ return function(loadService: (string) -> any)
 
 	local function onlinePlayer(userId: any): Player?
 		local id = tonumber(userId)
-		if not id or id ~= math.floor(id) then return nil end
+		if not id or id ~= math.floor(id) then
+			return nil
+		end
 		return Players:GetPlayerByUserId(id)
 	end
 
 	local function roleFor(player: Player): string?
 		local configured = ServerConfig.AdminUserIds[player.UserId]
-		if type(configured) == "string" and configured ~= "" then return configured end
-		if RunService:IsStudio() and ServerConfig.AllowStudioAdmins == true then return "Studio Developer" end
+		if type(configured) == "string" and configured ~= "" then
+			return configured
+		end
+		if RunService:IsStudio() and ServerConfig.AllowStudioAdmins == true then
+			return "Studio Developer"
+		end
 		return nil
 	end
 
 	local function createRelic(profile, definitionId: string): boolean
 		local definition = nil
 		for _, candidate in GameConfig.Items.Definitions do
-			if candidate.Id == definitionId then definition = candidate break end
+			if candidate.Id == definitionId then
+				definition = candidate
+				break
+			end
 		end
-		if not definition then return false end
+		if not definition then
+			return false
+		end
 		local items = ProfileBagMath.EnsureItems(profile)
 		local count = 0
-		for _ in items.Inventory do count += 1 end
-		if count >= GameConfig.Items.InventoryLimit then return false end
+		for _ in items.Inventory do
+			count += 1
+		end
+		if count >= GameConfig.Items.InventoryLimit then
+			return false
+		end
 		local uid, nextId = AdminGrantMath.NextRelicUid(items.Inventory, items.NextId)
-		if uid == nil then return false end
+		if uid == nil then
+			return false
+		end
 		local instance = AdminGrantMath.BuildRelicInstance(definition.Id, os.time())
-		if instance == nil then return false end
+		if instance == nil then
+			return false
+		end
 		items.NextId = nextId
 		items.Inventory[uid] = instance
 		ProfileBagMath.BumpStat(profile, "ItemsFound", 1)
@@ -178,17 +203,25 @@ return function(loadService: (string) -> any)
 
 	local function effectRemote(): RemoteEvent?
 		local folder = ReplicatedStorage:FindFirstChild(Protocol.FolderName)
-		if folder == nil then return nil end
+		if folder == nil then
+			return nil
+		end
 		local remote = folder:FindFirstChild(Protocol.EffectName)
-		if remote and remote:IsA("RemoteEvent") then return remote end
+		if remote and remote:IsA("RemoteEvent") then
+			return remote
+		end
 		return nil
 	end
 
 	local function toastRemote(): RemoteEvent?
 		local folder = ReplicatedStorage:FindFirstChild(Protocol.FolderName)
-		if folder == nil then return nil end
+		if folder == nil then
+			return nil
+		end
 		local remote = folder:FindFirstChild(Protocol.ToastName)
-		if remote and remote:IsA("RemoteEvent") then return remote end
+		if remote and remote:IsA("RemoteEvent") then
+			return remote
+		end
 		return nil
 	end
 
@@ -199,11 +232,19 @@ return function(loadService: (string) -> any)
 		end
 	end
 
-	local function applyWorld(_actor: Player, target: Player, command: string, amount: number, option: string): (boolean, string)
+	local function applyWorld(
+		_actor: Player,
+		target: Player,
+		command: string,
+		amount: number,
+		option: string
+	): (boolean, string)
 		local duration = math.clamp(math.floor(amount), 3, 20)
 		if command == "Honk" then
 			local toast = toastRemote()
-			if toast then toast:FireClient(target, { Title = "HONK", Body = "An admin honked at you.", Tone = "Special" }) end
+			if toast then
+				toast:FireClient(target, { Title = "HONK", Body = "An admin honked at you.", Tone = "Special" })
+			end
 			return true, "Honked at " .. target.Name
 		end
 		firePrank(target, command, duration, option)
@@ -232,13 +273,20 @@ return function(loadService: (string) -> any)
 		self._discordQueueWorker = task.spawn(function()
 			while self._alive do
 				task.wait(ServerConfig.DiscordModQueuePollSeconds)
-				if not self._alive then break end
+				if not self._alive then
+					break
+				end
 				local ok, err = pcall(function()
-				return self:_pollDiscordQueue()
-			end)
-			if not ok then
-				ModuleLog.Every("discord-queue-poll", 60, "Admin", "Discord mod queue poll crashed: " .. tostring(err))
-			end
+					return self:_pollDiscordQueue()
+				end)
+				if not ok then
+					ModuleLog.Every(
+						"discord-queue-poll",
+						60,
+						"Admin",
+						"Discord mod queue poll crashed: " .. tostring(err)
+					)
+				end
 			end
 		end)
 		return self
@@ -255,11 +303,11 @@ return function(loadService: (string) -> any)
 		end
 		while true do
 			local itemsOk, items = pcall(function()
-			return pages:GetCurrentPage()
-		end)
-		if not itemsOk or type(items) ~= "table" then
-			break
-		end
+				return pages:GetCurrentPage()
+			end)
+			if not itemsOk or type(items) ~= "table" then
+				break
+			end
 			for _, item in items do
 				local key = item.KeyName
 				if not self._discordSeenIds[key] then
@@ -267,10 +315,19 @@ return function(loadService: (string) -> any)
 					self:_claimDiscordEntry(key)
 				end
 			end
-			if pages.IsFinished then break end
-			local advanceOk, advanceErr = pcall(function() pages:AdvanceToNextPageAsync() end)
+			if pages.IsFinished then
+				break
+			end
+			local advanceOk, advanceErr = pcall(function()
+				pages:AdvanceToNextPageAsync()
+			end)
 			if not advanceOk then
-				ModuleLog.Every("discord-queue-page", 60, "Admin", "Discord mod queue page advance failed: " .. tostring(advanceErr))
+				ModuleLog.Every(
+					"discord-queue-page",
+					60,
+					"Admin",
+					"Discord mod queue page advance failed: " .. tostring(advanceErr)
+				)
 				break
 			end
 		end
@@ -283,16 +340,28 @@ return function(loadService: (string) -> any)
 		end)
 		if not getOk then
 			self._discordSeenIds[key] = nil
-			ModuleLog.Every("discord-queue-get:" .. key, 60, "Admin", "Discord mod queue read failed: " .. tostring(getErr))
+			ModuleLog.Every(
+				"discord-queue-get:" .. key,
+				60,
+				"Admin",
+				"Discord mod queue read failed: " .. tostring(getErr)
+			)
 			return
 		end
-		if type(entry) ~= "table" then return end
+		if type(entry) ~= "table" then
+			return
+		end
 		local removed, removeErr = pcall(function()
 			self._discordQueueStore:RemoveAsync(key)
 		end)
 		if not removed then
 			self._discordSeenIds[key] = nil
-			ModuleLog.Every("discord-queue-remove:" .. key, 60, "Admin", "Discord mod queue remove failed: " .. tostring(removeErr))
+			ModuleLog.Every(
+				"discord-queue-remove:" .. key,
+				60,
+				"Admin",
+				"Discord mod queue remove failed: " .. tostring(removeErr)
+			)
 			return
 		end
 		self:_executeDiscordAction(entry)
@@ -301,24 +370,39 @@ return function(loadService: (string) -> any)
 	function AdminService:_executeDiscordAction(entry: any)
 		local action = entry.Action
 		local userId = tonumber(entry.UserId)
-		if type(action) ~= "string" or type(userId) ~= "number" then return end
+		if type(action) ~= "string" or type(userId) ~= "number" then
+			return
+		end
 		userId = math.floor(userId)
-		local reason = type(entry.Reason) == "string" and entry.Reason ~= "" and entry.Reason or "Moderated via Discord."
+		local reason = type(entry.Reason) == "string" and entry.Reason ~= "" and entry.Reason
+			or "Moderated via Discord."
 		local moderator = type(entry.Moderator) == "string" and entry.Moderator or "Discord staff"
 		local subject = { UserId = userId, Name = tostring(userId) }
 		local target = Players:GetPlayerByUserId(userId)
-		if target then subject.Name = target.Name end
+		if target then
+			subject.Name = target.Name
+		end
 
 		if action == "Kick" then
 			if target and target.Parent == Players then
 				target:Kick(string.format("Kicked by %s: %s", moderator, reason))
-				self:_record({ Name = "Discord:" .. moderator, UserId = 0 } :: any, subject, "DiscordKick", 0, "", reason, 0)
+				self:_record(
+					{ Name = "Discord:" .. moderator, UserId = 0 } :: any,
+					subject,
+					"DiscordKick",
+					0,
+					"",
+					reason,
+					0
+				)
 			end
 			return
 		end
 
 		if action == "Ban" then
-			local permanent = entry.DurationSeconds == nil or tonumber(entry.DurationSeconds) == nil or (tonumber(entry.DurationSeconds) :: number) <= 0
+			local permanent = entry.DurationSeconds == nil
+				or tonumber(entry.DurationSeconds) == nil
+				or (tonumber(entry.DurationSeconds) :: number) <= 0
 			local duration = permanent and -1 or math.max(60, math.floor(tonumber(entry.DurationSeconds) :: number))
 			local displayReason = string.sub(string.format("Banned by %s: %s", moderator, reason), 1, 400)
 			local banOk, banError = pcall(function()
@@ -335,12 +419,25 @@ return function(loadService: (string) -> any)
 			self._banLog[userId] = { Name = subject.Name, Scope = "Global", Until = untilTime, Reason = displayReason }
 			if not banOk then
 				ModuleLog.Warn("Admin", "Discord BanAsync failed: " .. tostring(banError))
-				self._serverBans[userId] = { Name = subject.Name, Scope = "Server", Until = untilTime == -1 and 0 or untilTime, Reason = displayReason }
+				self._serverBans[userId] = {
+					Name = subject.Name,
+					Scope = "Server",
+					Until = untilTime == -1 and 0 or untilTime,
+					Reason = displayReason,
+				}
 			end
 			if target and target.Parent == Players then
 				target:Kick(displayReason)
 			end
-			self:_record({ Name = "Discord:" .. moderator, UserId = 0 } :: any, subject, "DiscordBan", permanent and 0 or duration, "", reason, 0)
+			self:_record(
+				{ Name = "Discord:" .. moderator, UserId = 0 } :: any,
+				subject,
+				"DiscordBan",
+				permanent and 0 or duration,
+				"",
+				reason,
+				0
+			)
 			return
 		end
 
@@ -353,7 +450,15 @@ return function(loadService: (string) -> any)
 			if not unbanOk then
 				ModuleLog.Warn("Admin", "Discord UnbanAsync failed: " .. tostring(unbanError))
 			end
-			self:_record({ Name = "Discord:" .. moderator, UserId = 0 } :: any, subject, "DiscordUnban", 0, "", reason, 0)
+			self:_record(
+				{ Name = "Discord:" .. moderator, UserId = 0 } :: any,
+				subject,
+				"DiscordUnban",
+				0,
+				"",
+				reason,
+				0
+			)
 		end
 	end
 
@@ -372,8 +477,14 @@ return function(loadService: (string) -> any)
 		local now = os.time()
 		local bucket = self._nonces[actor.UserId] or {}
 		self._nonces[actor.UserId] = bucket
-		for id, expiresAt in bucket do if expiresAt <= now then bucket[id] = nil end end
-		if bucket[nonce] then return false end
+		for id, expiresAt in bucket do
+			if expiresAt <= now then
+				bucket[id] = nil
+			end
+		end
+		if bucket[nonce] then
+			return false
+		end
 		bucket[nonce] = now + NONCE_TTL
 		return true
 	end
@@ -391,7 +502,15 @@ return function(loadService: (string) -> any)
 		return true
 	end
 
-	function AdminService:_record(actor: Player, target: { UserId: number, Name: string }, command: string, amount: number?, option: string, reason: string, revision: number)
+	function AdminService:_record(
+		actor: Player,
+		target: { UserId: number, Name: string },
+		command: string,
+		amount: number?,
+		option: string,
+		reason: string,
+		revision: number
+	)
 		local entry = {
 			Id = string.format("%s:%d:%d:%d:%d", game.JobId, actor.UserId, target.UserId, revision, os.time()),
 			At = os.time(),
@@ -407,9 +526,13 @@ return function(loadService: (string) -> any)
 			JobId = game.JobId,
 		}
 		table.insert(self._audit, 1, entry)
-		while #self._audit > MAX_AUDIT_MEMORY do table.remove(self._audit) end
+		while #self._audit > MAX_AUDIT_MEMORY do
+			table.remove(self._audit)
+		end
 		ModuleLog.Info("Admin", string.format("%s -> %s: %s (%s)", actor.Name, target.Name, command, reason))
-		if not self._alive then return end
+		if not self._alive then
+			return
+		end
 		local token = {}
 		local worker = task.defer(function()
 			if not self._alive then
@@ -420,11 +543,15 @@ return function(loadService: (string) -> any)
 				self._auditStore:UpdateAsync("Recent", function(previous)
 					local records = type(previous) == "table" and previous or {}
 					table.insert(records, 1, entry)
-					while #records > MAX_AUDIT_PERSISTED do table.remove(records) end
+					while #records > MAX_AUDIT_PERSISTED do
+						table.remove(records)
+					end
 					return records
 				end)
 			end)
-			if not ok then ModuleLog.Warn("Admin", "couldn't write the audit log: " .. tostring(err)) end
+			if not ok then
+				ModuleLog.Warn("Admin", "couldn't write the audit log: " .. tostring(err))
+			end
 			self._workers[token] = nil
 		end)
 		self._workers[token] = worker
@@ -455,7 +582,9 @@ return function(loadService: (string) -> any)
 
 	function AdminService:State(viewer: Player)
 		local role = roleFor(viewer)
-		if not role then return { Access = false } end
+		if not role then
+			return { Access = false }
+		end
 		local online = {}
 		for _, player in Players:GetPlayers() do
 			local profile = self._data:Get(player)
@@ -507,7 +636,9 @@ return function(loadService: (string) -> any)
 				})
 			end
 		end
-		table.sort(online, function(left, right) return left.Name < right.Name end)
+		table.sort(online, function(left, right)
+			return left.Name < right.Name
+		end)
 		local commands = {}
 		for id, definition in COMMANDS do
 			table.insert(commands, {
@@ -523,16 +654,24 @@ return function(loadService: (string) -> any)
 		table.sort(commands, function(left, right)
 			local leftRank = CATEGORY_RANK[left.Category] or 9
 			local rightRank = CATEGORY_RANK[right.Category] or 9
-			if leftRank ~= rightRank then return leftRank < rightRank end
+			if leftRank ~= rightRank then
+				return leftRank < rightRank
+			end
 			return left.Label < right.Label
 		end)
 		local audit = {}
-		for index = 1, math.min(12, #self._audit) do audit[index] = self._audit[index] end
+		for index = 1, math.min(12, #self._audit) do
+			audit[index] = self._audit[index]
+		end
 		local banned = {}
 		local seenBan = {}
 		local function pushBan(userId: number, record: any)
-			if seenBan[userId] or type(record) ~= "table" then return end
-			if type(record.Until) == "number" and record.Until > 0 and record.Until <= os.time() then return end
+			if seenBan[userId] or type(record) ~= "table" then
+				return
+			end
+			if type(record.Until) == "number" and record.Until > 0 and record.Until <= os.time() then
+				return
+			end
 			seenBan[userId] = true
 			table.insert(banned, {
 				UserId = userId,
@@ -542,9 +681,15 @@ return function(loadService: (string) -> any)
 				Reason = record.Reason or "",
 			})
 		end
-		for userId, record in self._serverBans do pushBan(userId, record) end
-		for userId, record in self._banLog do pushBan(userId, record) end
-		table.sort(banned, function(left, right) return left.Name < right.Name end)
+		for userId, record in self._serverBans do
+			pushBan(userId, record)
+		end
+		for userId, record in self._banLog do
+			pushBan(userId, record)
+		end
+		table.sort(banned, function(left, right)
+			return left.Name < right.Name
+		end)
 		return {
 			Access = true,
 			Role = role,
@@ -565,7 +710,14 @@ return function(loadService: (string) -> any)
 		return AdminGrantMath.PlayerFacingReason(command, reason, AUDIT_ONLY_REASONS)
 	end
 
-	function AdminService:_moderate(actor: Player, command: string, targetUserId: number, amountRaw: any, option: string, reason: string)
+	function AdminService:_moderate(
+		actor: Player,
+		command: string,
+		targetUserId: number,
+		amountRaw: any,
+		option: string,
+		reason: string
+	)
 		local target = Players:GetPlayerByUserId(targetUserId)
 		local listed = self._serverBans[targetUserId] or self._banLog[targetUserId]
 		local targetName = (target and target.Name) or (listed and listed.Name) or tostring(targetUserId)
@@ -589,7 +741,11 @@ return function(loadService: (string) -> any)
 			self:_record(actor, subject, command, 0, option, reason, 0)
 			return {
 				ok = true,
-				message = string.format("Cleared bans for %s%s.", targetName, unbanOk and "" or " (experience ban service unavailable)"),
+				message = string.format(
+					"Cleared bans for %s%s.",
+					targetName,
+					unbanOk and "" or " (experience ban service unavailable)"
+				),
 				Admin = self:State(actor),
 				TargetUserId = targetUserId,
 				Persisted = true,
@@ -614,18 +770,32 @@ return function(loadService: (string) -> any)
 		end
 
 		local seconds = tonumber(amountRaw)
-		if seconds == nil then seconds = 0 end
+		if seconds == nil then
+			seconds = 0
+		end
 		if command == "ServerBan" then
 			local untilTime = (seconds <= 0) and 0 or (os.time() + math.max(60, math.floor(seconds)))
 			local kickMessage = playerFacingReason(command, reason)
 			local record = { Name = targetName, Scope = "Server", Until = untilTime, Reason = kickMessage }
 			self._serverBans[targetUserId] = record
 			self._banLog[targetUserId] = record
-			self:_record(actor, subject, command, math.max(0, math.floor(seconds)), option, reason, self._data:GetRevision(target) or 0)
+			self:_record(
+				actor,
+				subject,
+				command,
+				math.max(0, math.floor(seconds)),
+				option,
+				reason,
+				self._data:GetRevision(target) or 0
+			)
 			target:Kick(kickMessage)
 			return {
 				ok = true,
-				message = string.format("Server-banned %s%s.", targetName, untilTime == 0 and " for this session" or ""),
+				message = string.format(
+					"Server-banned %s%s.",
+					targetName,
+					untilTime == 0 and " for this session" or ""
+				),
 				Admin = self:State(actor),
 				TargetUserId = targetUserId,
 				Persisted = true,
@@ -651,15 +821,29 @@ return function(loadService: (string) -> any)
 				Players:BanAsync(banConfig)
 			end)
 			local untilTime = permanent and -1 or (os.time() + duration)
-			self._banLog[targetUserId] = { Name = targetName, Scope = "Global", Until = untilTime, Reason = displayReason }
+			self._banLog[targetUserId] =
+				{ Name = targetName, Scope = "Global", Until = untilTime, Reason = displayReason }
 			if not banOk then
-				self._serverBans[targetUserId] = { Name = targetName, Scope = "Server", Until = untilTime == -1 and 0 or untilTime, Reason = displayReason }
+				self._serverBans[targetUserId] = {
+					Name = targetName,
+					Scope = "Server",
+					Until = untilTime == -1 and 0 or untilTime,
+					Reason = displayReason,
+				}
 				ModuleLog.Warn("Admin", "BanAsync failed: " .. tostring(banError))
 				if target.Parent == Players then
 					target:Kick(displayReason)
 				end
 			end
-			self:_record(actor, subject, command, permanent and 0 or duration, option, reason, self._data:GetRevision(target) or 0)
+			self:_record(
+				actor,
+				subject,
+				command,
+				permanent and 0 or duration,
+				option,
+				reason,
+				self._data:GetRevision(target) or 0
+			)
 			return {
 				ok = true,
 				message = string.format(
@@ -681,471 +865,524 @@ return function(loadService: (string) -> any)
 	local profileHandlers = {}
 	profileHandlers.GrantFlux = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Cash = OmegaMath.Add(profile.Cash, amount)
-				profile.RunCash = OmegaMath.Add(profile.RunCash, amount)
-				profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, amount)
+		profile.Cash = OmegaMath.Add(profile.Cash, amount)
+		profile.RunCash = OmegaMath.Add(profile.RunCash, amount)
+		profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantCores = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Cores += amount
+		profile.Cores += amount
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantStardust = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Stardust += amount
+		profile.Stardust += amount
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantRebirths = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Rebirths += math.floor(amount)
+		profile.Rebirths += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantDomainEssence = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureDomain(profile).Essence += math.floor(amount)
+		ProfileBagMath.EnsureDomain(profile).Essence += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantAnomalyFragments = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureAnomaly(profile).Fragments += math.floor(amount)
+		ProfileBagMath.EnsureAnomaly(profile).Fragments += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantSignals = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-				profile.Command.Signals += math.floor(amount)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.Signals += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantCommandXP = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-				profile.Command.XP += math.floor(amount)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.XP += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantSeasonXP = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-				profile.Command.SeasonXP += math.floor(amount)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.SeasonXP += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantStreakShields = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-				profile.Command.StreakShields += math.floor(amount)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.StreakShields += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantItemEssence = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureItems(profile).Essence += math.floor(amount)
+		ProfileBagMath.EnsureItems(profile).Essence += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantContinuumRanks = function(profile, amount, option)
 		local changedAmount = amount
-				local continuum = ProfileBagMath.EnsureContinuum(profile)
-				continuum.Rank = math.min(GameConfig.Continuum.MaxRank, continuum.Rank + math.floor(amount))
+		local continuum = ProfileBagMath.EnsureContinuum(profile)
+		continuum.Rank = math.min(GameConfig.Continuum.MaxRank, continuum.Rank + math.floor(amount))
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantAnomalyCharge = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureAnomaly(profile).Charge += math.floor(amount)
+		ProfileBagMath.EnsureAnomaly(profile).Charge += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantAnomalyStabilizations = function(profile, amount, option)
 		local changedAmount = amount
-				local n = math.floor(amount)
-				ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
-				ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
+		local n = math.floor(amount)
+		ProfileBagMath.EnsureAnomaly(profile).Stabilizations += n
+		ProfileBagMath.BumpStat(profile, "AnomalyStabilizations", n)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantFreeSpins = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Wheel = WheelMath.Ensure(profile.Wheel)
-				profile.Wheel.FreeSpins += math.floor(amount)
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+		profile.Wheel.FreeSpins += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantCrateKeys = function(profile, amount, option)
 		local changedAmount = amount
-				local keys = ProfileBagMath.EnsureItemKeys(profile)
-				if keys[option] == nil then return { ok = false, error = "Unknown crate id." } end
-				keys[option] += math.floor(amount)
+		local keys = ProfileBagMath.EnsureItemKeys(profile)
+		if keys[option] == nil then
+			return { ok = false, error = "Unknown crate id." }
+		end
+		keys[option] += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantAllCrateKeys = function(profile, amount, option)
 		local changedAmount = amount
-				local keys = ProfileBagMath.EnsureItemKeys(profile)
-				for crateId in keys do keys[crateId] += math.floor(amount) end
+		local keys = ProfileBagMath.EnsureItemKeys(profile)
+		for crateId in keys do
+			keys[crateId] += math.floor(amount)
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantPity = function(profile, amount, option)
 		local changedAmount = amount
-				local items = ProfileBagMath.EnsureItems(profile)
-				if items.Pity[option] == nil then return { ok = false, error = "Unknown crate id." } end
-				items.Pity[option] += math.floor(amount)
+		local items = ProfileBagMath.EnsureItems(profile)
+		if items.Pity[option] == nil then
+			return { ok = false, error = "Unknown crate id." }
+		end
+		items.Pity[option] += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantBoost = function(profile, amount, option)
 		local changedAmount = amount
-				if not GameConfig.Boosts[option] then return { ok = false, error = "Unknown boost id." } end
-				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
-				inventory[option] = (inventory[option] or 0) + math.floor(amount)
+		if not GameConfig.Boosts[option] then
+			return { ok = false, error = "Unknown boost id." }
+		end
+		local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+		inventory[option] = (inventory[option] or 0) + math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantAllBoosts = function(profile, amount, option)
 		local changedAmount = amount
-				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
-				for boostId in GameConfig.Boosts do
-					inventory[boostId] = (inventory[boostId] or 0) + math.floor(amount)
-				end
+		local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+		for boostId in GameConfig.Boosts do
+			inventory[boostId] = (inventory[boostId] or 0) + math.floor(amount)
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantRelic = function(profile, amount, option)
 		local changedAmount = amount
-				changedAmount = 0
-				for _ = 1, math.min(10, math.floor(amount)) do
-					if not createRelic(profile, option) then break end
-					changedAmount += 1
-				end
-				if changedAmount <= 0 then return { ok = false, error = "Relic id is invalid or inventory is full." } end
+		changedAmount = 0
+		for _ = 1, math.min(10, math.floor(amount)) do
+			if not createRelic(profile, option) then
+				break
+			end
+			changedAmount += 1
+		end
+		if changedAmount <= 0 then
+			return { ok = false, error = "Relic id is invalid or inventory is full." }
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ClearActiveBoost = function(profile, amount, option)
 		local changedAmount = amount
-				local active = ProfileBagMath.EnsureActiveBoost(profile)
-				active.Id = ""
-				active.EndsAt = 0
+		local active = ProfileBagMath.EnsureActiveBoost(profile)
+		active.Id = ""
+		active.EndsAt = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetWheelCooldown = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Wheel = WheelMath.Ensure(profile.Wheel)
-				profile.Wheel.LastSpinAt = 0
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+		profile.Wheel.LastSpinAt = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetDailyClaim = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
+		ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ClearVault = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Vault = 0
+		profile.Vault = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SetZone = function(profile, amount, option)
 		local changedAmount = amount
-				local zone = math.clamp(math.floor(amount), 1, GameConfig.MaxZone)
-				profile.Zone = math.max(profile.Zone, zone)
-				profile.CurrentZone = zone
+		local zone = math.clamp(math.floor(amount), 1, GameConfig.MaxZone)
+		profile.Zone = math.max(profile.Zone, zone)
+		profile.CurrentZone = zone
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.EnableUnlimitedFlux = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = true
+		ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = true
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.DisableUnlimitedFlux = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = false
+		ProfileBagMath.EnsureFlags(profile).UnlimitedMoney = false
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.UnlockProgression = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Zone = GameConfig.MaxZone
-				profile.CurrentZone = profile.Zone
-				for _, machine in GameConfig.Machines do profile.Machines[machine.Id] = machine.MaxLevel end
-				for _, research in GameConfig.Research do profile.Research[research.Id] = research.MaxLevel end
-				for _, upgrade in GameConfig.GridUpgrades do profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel end
+		profile.Zone = GameConfig.MaxZone
+		profile.CurrentZone = profile.Zone
+		for _, machine in GameConfig.Machines do
+			profile.Machines[machine.Id] = machine.MaxLevel
+		end
+		for _, research in GameConfig.Research do
+			profile.Research[research.Id] = research.MaxLevel
+		end
+		for _, upgrade in GameConfig.GridUpgrades do
+			profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetTutorial = function(profile, amount, option)
 		local changedAmount = amount
-				local flags = ProfileBagMath.EnsureFlags(profile)
-				flags.TutorialDone = false
-				flags.TutorialStep = 1
-				flags.TutorialRewardClaimed = false
+		local flags = ProfileBagMath.EnsureFlags(profile)
+		flags.TutorialDone = false
+		flags.TutorialStep = 1
+		flags.TutorialRewardClaimed = false
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ShowUpdates = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureFlags(profile).LastSeenVersion = ""
+		ProfileBagMath.EnsureFlags(profile).LastSeenVersion = ""
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.WipeFlux = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Cash = 0
-				profile.RunCash = 0
+		profile.Cash = 0
+		profile.RunCash = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.WipeVault = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Vault = 0
+		profile.Vault = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.WipeCores = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Cores = 0
+		profile.Cores = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.WipeStardust = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Stardust = 0
+		profile.Stardust = 0
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.PennyPinch = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Cash = 1
-				profile.RunCash = 1
+		profile.Cash = 1
+		profile.RunCash = 1
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.TaxHalf = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Cash = OmegaMath.Div(profile.Cash, 2)
-				profile.RunCash = OmegaMath.Div(profile.RunCash, 2)
+		profile.Cash = OmegaMath.Div(profile.Cash, 2)
+		profile.RunCash = OmegaMath.Div(profile.RunCash, 2)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SwapWallet = function(profile, amount, option)
 		local changedAmount = amount
-				local parked = profile.Cash
-				profile.Cash = profile.Vault
-				profile.Vault = parked
+		local parked = profile.Cash
+		profile.Cash = profile.Vault
+		profile.Vault = parked
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.FillVault = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Vault = Economy.Capacity(profile)
+		profile.Vault = Economy.Capacity(profile)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.DrainKeys = function(profile, amount, option)
 		local changedAmount = amount
-				local keys = ProfileBagMath.EnsureItemKeys(profile)
-				for crateId in keys do keys[crateId] = 0 end
+		local keys = ProfileBagMath.EnsureItemKeys(profile)
+		for crateId in keys do
+			keys[crateId] = 0
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.DrainBoosts = function(profile, amount, option)
 		local changedAmount = amount
-				local inventory = ProfileBagMath.EnsureBoostInventory(profile)
-				for boostId in inventory do inventory[boostId] = 0 end
+		local inventory = ProfileBagMath.EnsureBoostInventory(profile)
+		for boostId in inventory do
+			inventory[boostId] = 0
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.LockRelics = function(profile, amount, option)
 		local changedAmount = amount
-				local items = ProfileBagMath.EnsureItems(profile)
-				for _, instance in items.Inventory do instance.Locked = true end
+		local items = ProfileBagMath.EnsureItems(profile)
+		for _, instance in items.Inventory do
+			instance.Locked = true
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.UnlockRelics = function(profile, amount, option)
 		local changedAmount = amount
-				local items = ProfileBagMath.EnsureItems(profile)
-				for _, instance in items.Inventory do instance.Locked = false end
+		local items = ProfileBagMath.EnsureItems(profile)
+		for _, instance in items.Inventory do
+			instance.Locked = false
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SalvageRelics = function(profile, amount, option)
 		local changedAmount = amount
-				local items = ProfileBagMath.EnsureItems(profile)
-				local kept = {}
-				local salvaged = 0
-				for uid, instance in items.Inventory do
-					local equipped = false
-					for _, equippedUid in items.Equipped do
-						if equippedUid == uid then equipped = true break end
-					end
-					if equipped or instance.Locked == true then
-						kept[uid] = instance
-					else
-						salvaged += 1
-						items.Essence += 8
-					end
+		local items = ProfileBagMath.EnsureItems(profile)
+		local kept = {}
+		local salvaged = 0
+		for uid, instance in items.Inventory do
+			local equipped = false
+			for _, equippedUid in items.Equipped do
+				if equippedUid == uid then
+					equipped = true
+					break
 				end
-				items.Inventory = kept
-				changedAmount = salvaged
+			end
+			if equipped or instance.Locked == true then
+				kept[uid] = instance
+			else
+				salvaged += 1
+				items.Essence += 8
+			end
+		end
+		items.Inventory = kept
+		changedAmount = salvaged
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SetRebirths = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Rebirths = math.max(0, math.floor(amount))
+		profile.Rebirths = math.max(0, math.floor(amount))
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SetCores = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Cores = math.max(0, math.floor(amount))
+		profile.Cores = math.max(0, math.floor(amount))
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SetStardust = function(profile, amount, option)
 		local changedAmount = amount
-			profile.Stardust = math.max(0, math.floor(amount))
+		profile.Stardust = math.max(0, math.floor(amount))
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.SetDomainRank = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureDomain(profile).Rank = math.max(0, math.floor(amount))
+		ProfileBagMath.EnsureDomain(profile).Rank = math.max(0, math.floor(amount))
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantSkillPoints = function(profile, amount, option)
 		local changedAmount = amount
-				local domain = ProfileBagMath.EnsureDomain(profile)
-				domain.SkillPoints = (domain.SkillPoints or 0) + math.floor(amount)
+		local domain = ProfileBagMath.EnsureDomain(profile)
+		domain.SkillPoints = (domain.SkillPoints or 0) + math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetDomain = function(profile, amount, option)
 		local changedAmount = amount
-				local domain = ProfileBagMath.EnsureDomain(profile)
-				domain.Rank = 0
-				domain.SkillPoints = 0
-				domain.Nodes = {}
+		local domain = ProfileBagMath.EnsureDomain(profile)
+		domain.Rank = 0
+		domain.SkillPoints = 0
+		domain.Nodes = {}
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.MaxMachines = function(profile, amount, option)
 		local changedAmount = amount
-				for _, machine in GameConfig.Machines do profile.Machines[machine.Id] = machine.MaxLevel end
+		for _, machine in GameConfig.Machines do
+			profile.Machines[machine.Id] = machine.MaxLevel
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetMachines = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Machines = { StellarCore = 1 }
+		profile.Machines = { StellarCore = 1 }
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.MaxResearch = function(profile, amount, option)
 		local changedAmount = amount
-				for _, research in GameConfig.Research do profile.Research[research.Id] = research.MaxLevel end
+		for _, research in GameConfig.Research do
+			profile.Research[research.Id] = research.MaxLevel
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetResearch = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Research = {}
+		profile.Research = {}
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.MaxGrid = function(profile, amount, option)
 		local changedAmount = amount
-				for _, upgrade in GameConfig.GridUpgrades do profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel end
+		for _, upgrade in GameConfig.GridUpgrades do
+			profile.GridUpgrades[upgrade.Id] = upgrade.MaxLevel
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetGrid = function(profile, amount, option)
 		local changedAmount = amount
-				profile.GridUpgrades = {}
+		profile.GridUpgrades = {}
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.FillPityAll = function(profile, amount, option)
 		local changedAmount = amount
-				local items = ProfileBagMath.EnsureItems(profile)
-				for crateId in items.Pity do items.Pity[crateId] = 99 end
+		local items = ProfileBagMath.EnsureItems(profile)
+		for crateId in items.Pity do
+			items.Pity[crateId] = 99
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetTrades = function(profile, amount, option)
 		local changedAmount = amount
-				if profile.Trade then
-					profile.Trade.Completed = 0
-					profile.Trade.Day = -1
-				end
+		if profile.Trade then
+			profile.Trade.Completed = 0
+			profile.Trade.Day = -1
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ResetDailies = function(profile, amount, option)
 		local changedAmount = amount
-				ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
-				profile.Wheel = WheelMath.Ensure(profile.Wheel)
-				profile.Wheel.LastSpinAt = 0
-				if profile.Trade then profile.Trade.Day = -1 end
+		ProfileBagMath.EnsureDaily(profile).LastClaimDay = -1
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+		profile.Wheel.LastSpinAt = 0
+		if profile.Trade then
+			profile.Trade.Day = -1
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.ZeroZone = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Zone = 1
-				profile.CurrentZone = 1
+		profile.Zone = 1
+		profile.CurrentZone = 1
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantEchoCharge = function(profile, amount, option)
 		local changedAmount = amount
-				local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
-				profile.ForgeEchoes = echoes
-				echoes.Charge += math.floor(amount)
+		local echoes = ForgeEchoMath.Ensure(profile.ForgeEchoes)
+		profile.ForgeEchoes = echoes
+		echoes.Charge += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.MaxCrew = function(profile, amount, option)
 		local changedAmount = amount
-				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-				for roleId in profile.Command.Crew do
-					profile.Command.Crew[roleId] = 10
-				end
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		for roleId in profile.Command.Crew do
+			profile.Command.Crew[roleId] = 10
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.DiscoverArts = function(profile, amount, option)
 		local changedAmount = amount
-				if GameConfig.Operations and GameConfig.Operations.Artifacts then
-					profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-					if type(profile.Command.Artifacts) ~= "table" then
-						profile.Command.Artifacts = {}
-					end
-					for _, artifact in GameConfig.Operations.Artifacts do
-						profile.Command.Artifacts[artifact.Id] = profile.Command.Artifacts[artifact.Id]
-							or { Level = 1, Fragments = 0 }
-					end
-				end
+		if GameConfig.Operations and GameConfig.Operations.Artifacts then
+			profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+			if type(profile.Command.Artifacts) ~= "table" then
+				profile.Command.Artifacts = {}
+			end
+			for _, artifact in GameConfig.Operations.Artifacts do
+				profile.Command.Artifacts[artifact.Id] = profile.Command.Artifacts[artifact.Id]
+					or { Level = 1, Fragments = 0 }
+			end
+		end
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantEverything = function(profile, amount, option)
 		local changedAmount = amount
-				local bundle = math.max(amount, 1e12)
-				profile.Cash = OmegaMath.Add(profile.Cash, bundle)
-				profile.RunCash = OmegaMath.Add(profile.RunCash, bundle)
-				profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, bundle)
-				profile.Cores += math.max(1000, math.floor(amount))
-				profile.Stardust += math.max(100000, math.floor(amount))
-				profile.Rebirths += math.max(100, math.floor(amount))
-				ProfileBagMath.EnsureDomain(profile).Essence += math.max(100, math.floor(amount))
-				ProfileBagMath.EnsureAnomaly(profile).Fragments += math.max(10000, math.floor(amount))
-				profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
-				profile.Command.Signals += math.max(10000, math.floor(amount))
-				profile.Wheel = WheelMath.Ensure(profile.Wheel)
-				profile.Wheel.FreeSpins += math.max(100, math.floor(amount))
-				local keys = ProfileBagMath.EnsureItemKeys(profile)
-				for crateId in keys do keys[crateId] += 100 end
-				local boosts = ProfileBagMath.EnsureBoostInventory(profile)
-				for boostId in GameConfig.Boosts do boosts[boostId] = (boosts[boostId] or 0) + 25 end
+		local bundle = math.max(amount, 1e12)
+		profile.Cash = OmegaMath.Add(profile.Cash, bundle)
+		profile.RunCash = OmegaMath.Add(profile.RunCash, bundle)
+		profile.LifetimeCash = OmegaMath.Add(profile.LifetimeCash, bundle)
+		profile.Cores += math.max(1000, math.floor(amount))
+		profile.Stardust += math.max(100000, math.floor(amount))
+		profile.Rebirths += math.max(100, math.floor(amount))
+		ProfileBagMath.EnsureDomain(profile).Essence += math.max(100, math.floor(amount))
+		ProfileBagMath.EnsureAnomaly(profile).Fragments += math.max(10000, math.floor(amount))
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.Signals += math.max(10000, math.floor(amount))
+		profile.Wheel = WheelMath.Ensure(profile.Wheel)
+		profile.Wheel.FreeSpins += math.max(100, math.floor(amount))
+		local keys = ProfileBagMath.EnsureItemKeys(profile)
+		for crateId in keys do
+			keys[crateId] += 100
+		end
+		local boosts = ProfileBagMath.EnsureBoostInventory(profile)
+		for boostId in GameConfig.Boosts do
+			boosts[boostId] = (boosts[boostId] or 0) + 25
+		end
 		return { ok = true, amount = changedAmount }
 	end
-	profileHandlers.SetFlux = function(profile,amount,option)
+	profileHandlers.SetFlux = function(profile, amount, option)
 		profile.Cash = amount
-		return {ok=true,amount=amount}
+		return { ok = true, amount = amount }
 	end
-	profileHandlers.SetVault = function(profile,amount,option)
+	profileHandlers.SetVault = function(profile, amount, option)
 		profile.Vault = OmegaMath.Min(amount, Economy.Capacity(profile))
-		return {ok=true,amount=amount}
+		return { ok = true, amount = amount }
 	end
-	profileHandlers.SetContinuumRank = function(profile,amount,option)
+	profileHandlers.SetContinuumRank = function(profile, amount, option)
 		ProfileBagMath.EnsureContinuum(profile).Rank = math.min(GameConfig.Continuum.MaxRank, amount)
-		return {ok=true,amount=amount}
+		return { ok = true, amount = amount }
 	end
-	profileHandlers.SetFreeSpins = function(profile,amount,option)
+	profileHandlers.SetFreeSpins = function(profile, amount, option)
 		profile.Wheel = WheelMath.Ensure(profile.Wheel)
-			profile.Wheel.FreeSpins = amount
-		return {ok=true,amount=amount}
+		profile.Wheel.FreeSpins = amount
+		return { ok = true, amount = amount }
 	end
-	profileHandlers.ResetAnomalyCharge = function(profile,amount,option)
+	profileHandlers.ResetAnomalyCharge = function(profile, amount, option)
 		ProfileBagMath.EnsureAnomaly(profile).Charge = 0
-		return {ok=true,amount=amount}
+		return { ok = true, amount = amount }
 	end
-	profileHandlers.ClearAnomalyCombo = function(profile,amount,option)
+	profileHandlers.ClearAnomalyCombo = function(profile, amount, option)
 		ProfileBagMath.EnsureAnomaly(profile).Combo = 0
-		return {ok=true,amount=amount}
+		return { ok = true, amount = amount }
 	end
 
 	function AdminService:Execute(actor: Player, payload: any)
 		local role = roleFor(actor)
-		if not role then return { ok = false, error = "Administrative access denied." } end
-		if type(payload) ~= "table" then return { ok = false, error = "Malformed admin request." } end
+		if not role then
+			return { ok = false, error = "Administrative access denied." }
+		end
+		if type(payload) ~= "table" then
+			return { ok = false, error = "Malformed admin request." }
+		end
 		local command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS)
 		local definition = command and COMMANDS[command]
-		if not definition then return { ok = false, error = "Unknown admin command." } end
+		if not definition then
+			return { ok = false, error = "Unknown admin command." }
+		end
 		local nonce = cleanText(payload.Nonce, 80)
 		if #nonce < 8 or not self:_consumeNonce(actor, nonce) then
 			return { ok = false, error = "This admin request was already processed." }
 		end
 		local reason = cleanText(payload.Reason, 96)
-		if #reason < 3 then return { ok = false, error = "Add a short audit reason." } end
+		if #reason < 3 then
+			return { ok = false, error = "Add a short audit reason." }
+		end
 		local option = cleanText(payload.Option, 64)
 		if definition.Moderation == true then
-			local duration, problem = CommandSchema.validate(command,definition,payload.Amount,option)
-			if duration == nil then return {ok=false,error=problem} end
+			local duration, problem = CommandSchema.validate(command, definition, payload.Amount, option)
+			if duration == nil then
+				return { ok = false, error = problem }
+			end
 			local targetUserId = tonumber(payload.TargetUserId)
 			if not targetUserId or targetUserId ~= math.floor(targetUserId) then
 				return { ok = false, error = "Pick a player to moderate." }
@@ -1153,14 +1390,22 @@ return function(loadService: (string) -> any)
 			return self:_moderate(actor, command, targetUserId, duration, option, reason)
 		end
 		local target = onlinePlayer(payload.TargetUserId)
-		if not target or target.Parent ~= Players then return { ok = false, error = "Target must be online in this server." } end
-		if not self._data:Get(target) then return { ok = false, error = "Target profile is still loading." } end
+		if not target or target.Parent ~= Players then
+			return { ok = false, error = "Target must be online in this server." }
+		end
+		if not self._data:Get(target) then
+			return { ok = false, error = "Target profile is still loading." }
+		end
 		local amount, inputError = CommandSchema.validate(command, definition, payload.Amount, option)
-		if amount == nil then return { ok = false, error = inputError } end
+		if amount == nil then
+			return { ok = false, error = inputError }
+		end
 
 		if definition.World == true then
 			local ok, worldMessage = applyWorld(actor, target, command, amount, option)
-			if not ok then return { ok = false, error = worldMessage } end
+			if not ok then
+				return { ok = false, error = worldMessage }
+			end
 			local revision = self._data:GetRevision(target)
 			self:_record(actor, target, command, amount, option, reason, revision)
 			return {
@@ -1175,13 +1420,21 @@ return function(loadService: (string) -> any)
 		local changedAmount = amount
 		local success, result = self._data:AtomicUpdate(target, function(profile)
 			local handler = profileHandlers[command]
-			if not handler then return {ok=false,error="Admin command has no executor."} end
-			local applied = handler(profile,amount,option)
-			if applied.ok then changedAmount = applied.amount end
+			if not handler then
+				return { ok = false, error = "Admin command has no executor." }
+			end
+			local applied = handler(profile, amount, option)
+			if applied.ok then
+				changedAmount = applied.amount
+			end
 			return applied
 		end, true, "admin:" .. command)
-		if not success then return { ok = false, error = "Profile transaction failed: " .. tostring(result) } end
-		if type(result) == "table" and result.ok == false then return result end
+		if not success then
+			return { ok = false, error = "Profile transaction failed: " .. tostring(result) }
+		end
+		if type(result) == "table" and result.ok == false then
+			return result
+		end
 		local revision = self._data:GetRevision(target)
 		self:_record(actor, target, command, changedAmount, option, reason, revision)
 

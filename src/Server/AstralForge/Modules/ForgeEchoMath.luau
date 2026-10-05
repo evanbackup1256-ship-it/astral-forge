@@ -40,8 +40,7 @@ function ForgeEchoMath.Ensure(echoes: any): ForgeEchoesBag
 	echoes.Draft = type(echoes.Draft) == "table" and echoes.Draft or { Id = "", Choices = {} }
 	echoes.Draft.Choices = type(echoes.Draft.Choices) == "table" and echoes.Draft.Choices or {}
 	echoes.Inventory = type(echoes.Inventory) == "table" and echoes.Inventory or {}
-	echoes.Equipped = type(echoes.Equipped) == "table" and echoes.Equipped
-		or { ["1"] = "", ["2"] = "", ["3"] = "" }
+	echoes.Equipped = type(echoes.Equipped) == "table" and echoes.Equipped or { ["1"] = "", ["2"] = "", ["3"] = "" }
 	echoes.Charge = math.max(0, tonumber(echoes.Charge) or 0)
 	echoes.Resonance = math.max(0, math.floor(tonumber(echoes.Resonance) or 0))
 	echoes.Captures = math.max(0, math.floor(tonumber(echoes.Captures) or 0))
@@ -60,11 +59,7 @@ function ForgeEchoMath.InventoryCount(inventory: any): number
 	return count
 end
 
-function ForgeEchoMath.UnlockedSlots(
-	captures: any,
-	slotCaptureRequirements: { number },
-	maxSlots: number
-): number
+function ForgeEchoMath.UnlockedSlots(captures: any, slotCaptureRequirements: { number }, maxSlots: number): number
 	local safeCaptures = math.max(0, math.floor(tonumber(captures) or 0))
 	local slots = 1
 	for index, requirement in slotCaptureRequirements do
@@ -85,12 +80,7 @@ function ForgeEchoMath.EffectValue(
 	return (trait.BaseEffect + trait.EffectPerLevel * (level - 1)) * strength
 end
 
-function ForgeEchoMath.UpgradeCost(
-	level: any,
-	maxLevel: number,
-	upgradeBaseDust: number,
-	upgradeScale: number
-): number
+function ForgeEchoMath.UpgradeCost(level: any, maxLevel: number, upgradeBaseDust: number, upgradeScale: number): number
 	local safeLevel = math.clamp(math.floor(tonumber(level) or 1), 1, maxLevel)
 	if safeLevel >= maxLevel then
 		return 0
@@ -98,10 +88,7 @@ function ForgeEchoMath.UpgradeCost(
 	return math.max(1, math.floor(upgradeBaseDust * (upgradeScale ^ (safeLevel - 1)) + 0.5))
 end
 
-function ForgeEchoMath.DominantPattern(
-	pattern: any,
-	patternAffinity: { [string]: string }?
-): (string, string)
+function ForgeEchoMath.DominantPattern(pattern: any, patternAffinity: { [string]: string }?): (string, string)
 	local affinity = patternAffinity or ForgeEchoMath.PATTERN_AFFINITY
 	local best = "Collect"
 	local value = -1

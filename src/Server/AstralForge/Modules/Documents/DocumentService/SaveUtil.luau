@@ -1,6 +1,5 @@
 --!strict
 
-
 local DataStoreService
 do
 	DataStoreService = game:GetService("DataStoreService")
@@ -11,16 +10,12 @@ local Types = require(script.Parent:FindFirstChild("Types"))
 
 type DataStoreInterface = Types.DataStoreInterface
 
-
 local SaveUtil = {}
-
 
 local RETRY = {
 	ATTEMPTS = 5,
 	INITIAL_WAIT = 1,
 }
-
-
 
 function SaveUtil.assertStorable(data: unknown, fieldName: string?)
 	local indexDataType
@@ -28,7 +23,6 @@ function SaveUtil.assertStorable(data: unknown, fieldName: string?)
 	if not fieldName then
 		fieldName = "Data"
 	end
-
 
 	assert(data == data, `NaN is not storable. Field: {fieldName}`)
 
@@ -98,10 +92,8 @@ function SaveUtil.getGetBudget()
 	end
 end
 
-
 function SaveUtil.uuid(): string
 	local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
-
 
 	local uuid = string.gsub(template, "[xy]", function(match)
 		local v = if match == "x" then math.random(0, 0xf) else math.random(8, 0xb)
@@ -112,21 +104,18 @@ function SaveUtil.uuid(): string
 	return uuid
 end
 
-
 function SaveUtil.updateAsync<T>(
 	transform: ((err: string) -> (), unknown, DataStoreKeyInfo) -> (any, { number }?, {}?),
 	dataStore: DataStoreInterface,
 	key: string
 ): (boolean, any, DataStoreKeyInfo)
 	local result = Retry(RETRY.ATTEMPTS, RETRY.INITIAL_WAIT, function(): (any, DataStoreKeyInfo)
-
 		local shouldAbort = false
 		local abortError: string
 		local function abortAttempt(err: string)
 			shouldAbort = true
 			abortError = err
 		end
-
 
 		assert(SaveUtil.getUpdateBudget() > 0, "Ran out of budget")
 
@@ -150,7 +139,6 @@ function SaveUtil.updateAsync<T>(
 	return result.success, result.returnValues[1], result.returnValues[2]
 end
 
-
 function SaveUtil.getAsync<T>(dataStore: DataStoreInterface, key: string): (boolean, any, DataStoreKeyInfo)
 	local result = Retry(RETRY.ATTEMPTS, RETRY.INITIAL_WAIT, function(): (any, DataStoreKeyInfo)
 		local options
@@ -168,7 +156,6 @@ function SaveUtil.getAsync<T>(dataStore: DataStoreInterface, key: string): (bool
 
 	return result.success, result.returnValues[1], result.returnValues[2]
 end
-
 
 function SaveUtil.removeAsync<T>(dataStore: DataStoreInterface, key: string): boolean
 	local result = Retry(RETRY.ATTEMPTS, RETRY.INITIAL_WAIT, function()

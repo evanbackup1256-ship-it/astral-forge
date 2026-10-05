@@ -6,7 +6,7 @@ local Soundtrack=require("../src/Client/AstralForge/AudioKit")("soundtrack")
 local fs=require("@lune/fs")
 local luau=require("@lune/luau")
 local audioSource=fs.readFile("src/Client/AstralForge/AudioKit.luau")
-assert(audioSource:find("ContentProvider:PreloadAsync({deck.sound}",1,true),"warm the actual Sound instance, not just asset-ID strings")
+assert(audioSource:match("ContentProvider:PreloadAsync%(%s*{%s*deck%.sound%s*}"),"warm the actual Sound instance, not just asset-ID strings")
 assert(audioSource:find("deck.loadVersion == version",1,true),"late preload callbacks must not fail a newer track")
 
 local loadout,problem=Plan.toggleLoadout({Loadout={"Flux","Strike"},LoadoutSlots=3},"Fortune")
@@ -50,7 +50,7 @@ assert(Schema.canonical("  setcores ",{SetCores={}})=="SetCores")
 
 -- Execute the actual registry, isolated from networking/persistence; never touch a live profile.
 local source=fs.readFile("src/Server/AstralForge/Services/AdminService.luau"):gsub("\r\n","\n")
-local registry=source:match("local profileHandlers = {}(.-)\n\tfunction AdminService:Execute")
+local registry=source:match("local profileHandlers = {}(.-)\n%s+function AdminService:Execute")
 assert(registry,"profile executor registry missing")
 local factory=luau.load("return function(OmegaMath,ProfileBagMath,GameConfig,Economy) local profileHandlers={} "..registry.." return profileHandlers end")()
 local bag=require("../src/Server/AstralForge/Modules/ProfileBagMath")
@@ -61,7 +61,7 @@ assert(handlers.SetCores(profile,0,"").ok and profile.Cores==0)
 handlers.SetVault(profile,700,"");assert(profile.Vault==500)
 handlers.TaxHalf(profile,1,"");assert(profile.Cash==56)
 handlers.ResetMachines(profile,1,"");assert(profile.Machines.StellarCore==1)
-local catalog=source:match("local COMMANDS = table.freeze%((%b{})%)")
+local catalog=source:match("local COMMANDS = table.freeze%(%s*(%b{})%s*%)")
 local commands=luau.load("return "..catalog)()
 local count=0
 for id,definition in commands do

@@ -16,25 +16,31 @@ return StoryKit.story({
 		Sparks = true,
 	},
 }, function(controls)
-	return h("frame", {
-		Size = UDim2.fromOffset(260, 180),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.panelRaised,
-	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(prism.PrismAura, {
-		rarity = controls.Rarity,
-		intensity = controls.Intensity,
-		rays = controls.Rays,
-		sparks = controls.Sparks,
-		corner = 14,
-		clipRays = false,
-	}), h("textlabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Text = string.upper(controls.Rarity) .. " RELIC",
-		TextColor3 = Palette.cream,
-		Font = Enum.Font.BuilderSansExtraBold,
-		TextSize = 22,
-		ZIndex = 10,
-	}))
+	return h(
+		"frame",
+		{
+			Size = UDim2.fromOffset(260, 180),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = Palette.panelRaised,
+		},
+		h("uicorner", { CornerRadius = UDim.new(0, 14) }),
+		h(prism.PrismAura, {
+			rarity = controls.Rarity,
+			intensity = controls.Intensity,
+			rays = controls.Rays,
+			sparks = controls.Sparks,
+			corner = 14,
+			clipRays = false,
+		}),
+		h("textlabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = string.upper(controls.Rarity) .. " RELIC",
+			TextColor3 = Palette.cream,
+			Font = Enum.Font.BuilderSansExtraBold,
+			TextSize = 22,
+			ZIndex = 10,
+		})
+	)
 end)

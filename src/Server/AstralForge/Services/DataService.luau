@@ -1,13 +1,12 @@
 --!strict
 
 return function(loadService: (string) -> any)
-
 	local DataStoreService = game:GetService("DataStoreService")
 	local RunService = game:GetService("RunService")
 
 	local DataTemplate = require(script.Parent.Parent:WaitForChild("DataTemplate"))
-local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
-local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
+	local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
+	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
@@ -17,10 +16,26 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
 	local OreMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OreMath"))
-	local ProfileVersionGuard = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
-	local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-	local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
-	local ShopCatalog = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ShopCatalog")
+	local ProfileVersionGuard =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileVersionGuard"))
+	local GameConfig = require(
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("AstralForge")
+			:WaitForChild("Shared")
+			:WaitForChild("GameConfig")
+	)
+	local OmegaMath = require(
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("AstralForge")
+			:WaitForChild("Shared")
+			:WaitForChild("OmegaMath")
+	)
+	local ShopCatalog = require(
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("AstralForge")
+			:WaitForChild("Shared")
+			:WaitForChild("SharedData")
+	)("ShopCatalog")
 	local AtomicState = loadService("AtomicState")
 	local ProfileIntegrity = loadService("ProfileIntegrity")
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -130,11 +145,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Domain.TotalRebirthsSpent = math.floor(nonNegative(profile.Domain.TotalRebirthsSpent))
 		profile.Domain.TotalCoresSpent = math.floor(nonNegative(profile.Domain.TotalCoresSpent))
 		ProfileBagMath.EnsureContinuum(profile)
-		profile.Continuum.Rank = math.clamp(
-			math.floor(nonNegative(profile.Continuum.Rank)),
-			0,
-			GameConfig.Continuum.MaxRank
-		)
+		profile.Continuum.Rank =
+			math.clamp(math.floor(nonNegative(profile.Continuum.Rank)), 0, GameConfig.Continuum.MaxRank)
 		profile.Continuum.TotalFluxSpent = nonNegative(profile.Continuum.TotalFluxSpent)
 		profile.Continuum.TotalStardustSpent = nonNegative(profile.Continuum.TotalStardustSpent)
 		local retired = type(profile.Infinite) == "table" and profile.Infinite or nil
@@ -153,15 +165,16 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			end
 			profile.Infinite = nil
 		end
-		if profile.Dungeons ~= nil then profile.Dungeons = nil end
-		if profile.Minigames ~= nil then profile.Minigames = nil end
+		if profile.Dungeons ~= nil then
+			profile.Dungeons = nil
+		end
+		if profile.Minigames ~= nil then
+			profile.Minigames = nil
+		end
 
 		profile.Domain.Rank = math.floor(nonNegative(profile.Domain.Rank))
-		profile.Continuum.Rank = math.clamp(
-			math.floor(nonNegative(profile.Continuum.Rank)),
-			0,
-			GameConfig.Continuum.MaxRank
-		)
+		profile.Continuum.Rank =
+			math.clamp(math.floor(nonNegative(profile.Continuum.Rank)), 0, GameConfig.Continuum.MaxRank)
 		profile.ForgeEchoes = ForgeEchoMath.Sanitize(profile.ForgeEchoes, echoTraitById, {
 			ChargeTarget = GameConfig.ForgeEchoes.ChargeTarget,
 			MaxLevel = GameConfig.ForgeEchoes.MaxLevel,
@@ -171,12 +184,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Zone = math.clamp(math.floor(nonNegative(profile.Zone)), 1, GameConfig.MaxZone)
 		profile.CurrentZone = math.clamp(math.floor(nonNegative(profile.CurrentZone)), 1, profile.Zone)
 		DataSanitizeMath.ClampLevelBag(profile.Machines, machineById, nonNegative)
-		profile.AutoForge = DataSanitizeMath.ClampAutoForge(
-			profile.AutoForge,
-			machineById,
-			"StellarCore",
-			nonNegative
-		)
+		profile.AutoForge = DataSanitizeMath.ClampAutoForge(profile.AutoForge, machineById, "StellarCore", nonNegative)
 		DataSanitizeMath.ClampLevelBag(profile.Research, researchById, nonNegative)
 		DataSanitizeMath.ClampLevelBag(profile.GridUpgrades, gridById, nonNegative)
 		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
@@ -185,7 +193,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Command.StreakShields = math.floor(nonNegative(profile.Command.StreakShields))
 		profile.Command.ExpeditionsCompleted = math.floor(nonNegative(profile.Command.ExpeditionsCompleted))
 		profile.Command.SeasonXP = math.floor(nonNegative(profile.Command.SeasonXP))
-		if profile.Flags.InfiniteMoney == true then profile.Flags.UnlimitedMoney = true end
+		if profile.Flags.InfiniteMoney == true then
+			profile.Flags.UnlimitedMoney = true
+		end
 		profile.Flags.InfiniteMoney = nil
 		profile.Flags.UnlimitedMoney = profile.Flags.UnlimitedMoney == true
 		profile.Flags.TutorialStep = math.clamp(math.floor(nonNegative(profile.Flags.TutorialStep)), 1, 15)
@@ -196,13 +206,20 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			profile.Flags.LastSeenVersion = ""
 		end
 		profile.Settings.SoundVolume = math.clamp(nonNegative(profile.Settings.SoundVolume), 0, 1)
-		profile.Settings.MusicVolume = math.clamp(nonNegative(profile.Settings.MusicVolume ~= nil and profile.Settings.MusicVolume or 1), 0, 1)
-		profile.Settings.SfxVolume = math.clamp(nonNegative(profile.Settings.SfxVolume ~= nil and profile.Settings.SfxVolume or 1), 0, 1)
+		profile.Settings.MusicVolume =
+			math.clamp(nonNegative(profile.Settings.MusicVolume ~= nil and profile.Settings.MusicVolume or 1), 0, 1)
+		profile.Settings.SfxVolume =
+			math.clamp(nonNegative(profile.Settings.SfxVolume ~= nil and profile.Settings.SfxVolume or 1), 0, 1)
 		profile.Settings.EffectsIntensity = math.clamp(nonNegative(profile.Settings.EffectsIntensity), 0, 1)
 		profile.Settings.MotionIntensity = math.clamp(nonNegative(profile.Settings.MotionIntensity), 0, 1)
 		profile.Settings.ViewportSpeed = math.clamp(nonNegative(profile.Settings.ViewportSpeed), 0, 1)
-		profile.Settings.ToastDensity = math.clamp(nonNegative(profile.Settings.ToastDensity ~= nil and profile.Settings.ToastDensity or 0.55), 0, 1)
-		profile.Settings.UiDensity = math.clamp(nonNegative(profile.Settings.UiDensity ~= nil and profile.Settings.UiDensity or 0.55), 0, 1)
+		profile.Settings.ToastDensity = math.clamp(
+			nonNegative(profile.Settings.ToastDensity ~= nil and profile.Settings.ToastDensity or 0.55),
+			0,
+			1
+		)
+		profile.Settings.UiDensity =
+			math.clamp(nonNegative(profile.Settings.UiDensity ~= nil and profile.Settings.UiDensity or 0.55), 0, 1)
 		local normalizedSettingDefaults = {
 			PerformanceBias = 0.5,
 			BackgroundDetail = 0.8,
@@ -235,7 +252,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			ColorblindMode = 0,
 		}
 		for key, defaultValue in normalizedSettingDefaults do
-			profile.Settings[key] = math.clamp(nonNegative(profile.Settings[key] ~= nil and profile.Settings[key] or defaultValue), 0, 1)
+			profile.Settings[key] =
+				math.clamp(nonNegative(profile.Settings[key] ~= nil and profile.Settings[key] or defaultValue), 0, 1)
 		end
 		profile.Settings.NotifyGuild = profile.Settings.NotifyGuild == true and 1
 			or math.clamp(nonNegative(profile.Settings.NotifyGuild ~= nil and profile.Settings.NotifyGuild or 0), 0, 1)
@@ -243,7 +261,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			profile.LiveOps = { ManifestVersion = GameConfig.Game.LiveOpsManifestVersion, Convergence = {} }
 		end
 		profile.LiveOps.ManifestVersion = GameConfig.Game.LiveOpsManifestVersion
-		if type(profile.LiveOps.Convergence) ~= "table" then profile.LiveOps.Convergence = {} end
+		if type(profile.LiveOps.Convergence) ~= "table" then
+			profile.LiveOps.Convergence = {}
+		end
 		local convergence = profile.LiveOps.Convergence
 		convergence.EventId = type(convergence.EventId) == "string" and convergence.EventId or ""
 		convergence.Contribution = math.floor(nonNegative(convergence.Contribution))
@@ -271,9 +291,14 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				Multiplier = 1,
 			}
 		end
-		profile.SocialBoost.FriendCount = math.clamp(math.floor(nonNegative(profile.SocialBoost.FriendCount)), 0, GameConfig.Social.MaxBoostedFriends)
+		profile.SocialBoost.FriendCount =
+			math.clamp(math.floor(nonNegative(profile.SocialBoost.FriendCount)), 0, GameConfig.Social.MaxBoostedFriends)
 		profile.SocialBoost.FriendLimit = GameConfig.Social.MaxBoostedFriends
-		profile.SocialBoost.FriendBonus = math.clamp(nonNegative(profile.SocialBoost.FriendBonus), 0, GameConfig.Social.FriendProductionPerPlayer * GameConfig.Social.MaxBoostedFriends)
+		profile.SocialBoost.FriendBonus = math.clamp(
+			nonNegative(profile.SocialBoost.FriendBonus),
+			0,
+			GameConfig.Social.FriendProductionPerPlayer * GameConfig.Social.MaxBoostedFriends
+		)
 		profile.SocialBoost.Premium = profile.SocialBoost.Premium == true
 		profile.SocialBoost.PremiumBonus = profile.SocialBoost.Premium and GameConfig.Social.PremiumProductionBonus or 0
 		profile.SocialBoost.Multiplier = 1 + profile.SocialBoost.FriendBonus + profile.SocialBoost.PremiumBonus
@@ -295,17 +320,25 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		if type(profile.ActiveBoost) ~= "table" then
 			profile.ActiveBoost = { Id = "", EndsAt = 0 }
 		end
-		if type(profile.ActiveBoost.Id) ~= "string" or (profile.ActiveBoost.Id ~= "" and not GameConfig.Boosts[profile.ActiveBoost.Id]) then
+		if
+			type(profile.ActiveBoost.Id) ~= "string"
+			or (profile.ActiveBoost.Id ~= "" and not GameConfig.Boosts[profile.ActiveBoost.Id])
+		then
 			profile.ActiveBoost.Id = ""
 			profile.ActiveBoost.EndsAt = 0
 		else
 			profile.ActiveBoost.EndsAt = math.floor(nonNegative(profile.ActiveBoost.EndsAt))
 		end
 		if type(profile.Trade) ~= "table" then
-			profile.Trade = { Day = -1, Completed = 0, Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 } }
+			profile.Trade = {
+				Day = -1,
+				Completed = 0,
+				Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 },
+			}
 		end
 		if type(profile.Trade.Sent) ~= "table" then
-			profile.Trade.Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 }
+			profile.Trade.Sent =
+				{ Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 }
 		end
 		profile.Trade.Day = math.floor(nonNegative(profile.Trade.Day))
 		profile.Trade.Completed = math.floor(nonNegative(profile.Trade.Completed))
@@ -376,7 +409,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Items.AutoSalvage.Enabled = profile.Items.AutoSalvage.Enabled == true
 		profile.Items.AutoSalvage.KeepNew = profile.Items.AutoSalvage.KeepNew ~= false
 		profile.Items.AutoSalvage.Rarities = type(profile.Items.AutoSalvage.Rarities) == "table"
-			and profile.Items.AutoSalvage.Rarities or {}
+				and profile.Items.AutoSalvage.Rarities
+			or {}
 		for rarity in profile.Items.AutoSalvage.Rarities do
 			if not GameConfig.Items.Rarities[rarity] then
 				profile.Items.AutoSalvage.Rarities[rarity] = nil
@@ -386,8 +420,11 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		profile.Items.Discovered = type(profile.Items.Discovered) == "table" and profile.Items.Discovered or {}
 		for definitionId in profile.Items.Discovered do
-			if not itemById[definitionId] then profile.Items.Discovered[definitionId] = nil
-			else profile.Items.Discovered[definitionId] = true end
+			if not itemById[definitionId] then
+				profile.Items.Discovered[definitionId] = nil
+			else
+				profile.Items.Discovered[definitionId] = true
+			end
 		end
 		local inventoryCount = 0
 		for uid, instance in profile.Items.Inventory do
@@ -464,7 +501,12 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			local seen = {}
 			local sanitizedLoadout = {}
 			for _, channelId in profile.Anomaly.Loadout do
-				if type(channelId) == "string" and GameConfig.Anomalies.Channels[channelId] and not seen[channelId] and #sanitizedLoadout < slots then
+				if
+					type(channelId) == "string"
+					and GameConfig.Anomalies.Channels[channelId]
+					and not seen[channelId]
+					and #sanitizedLoadout < slots
+				then
 					seen[channelId] = true
 					table.insert(sanitizedLoadout, channelId)
 				end
@@ -543,7 +585,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			end
 		end
 		profile.ForgePath.XP = math.floor(nonNegative(profile.ForgePath.XP))
-		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay) or -1
+		profile.ForgePath.XPDay = type(profile.ForgePath.XPDay) == "number" and math.floor(profile.ForgePath.XPDay)
+			or -1
 		profile.ForgePath.XPEarnedToday = math.floor(nonNegative(profile.ForgePath.XPEarnedToday))
 		profile.Lab = LabOrderMath.Ensure(profile.Lab, GameConfig.Lab.Power.BaseCells)
 		profile.Lab.Day = type(profile.Lab.Day) == "number" and math.max(-1, math.floor(profile.Lab.Day)) or -1
@@ -586,8 +629,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		for role, value in profile.Command.Crew do
 			local item = GameConfig.Operations.Crew[role]
-			profile.Command.Crew[role] = item and math.clamp(math.floor(nonNegative(value)), 1, item.MaxLevel)
-				or nil
+			profile.Command.Crew[role] = item and math.clamp(math.floor(nonNegative(value)), 1, item.MaxLevel) or nil
 		end
 		for id, value in profile.Command.MachineMastery do
 			local nextValue = machineById[id] and math.floor(nonNegative(value)) or 0
@@ -693,7 +735,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 
 	function DataService:_clearPlayer(player: Player)
 		local cacheThread = self._cacheSyncThreads[player]
-		if cacheThread then task.cancel(cacheThread) end
+		if cacheThread then
+			task.cancel(cacheThread)
+		end
 		self._cacheSyncThreads[player] = nil
 		self._lastCacheSyncAt[player] = nil
 		ServerTelemetry.RecordPlayerLeft(player.UserId)
@@ -709,15 +753,18 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	end
 
 	function DataService:_queueDocumentSync(player: Player)
-		if self._cacheSyncThreads[player] then return end
+		if self._cacheSyncThreads[player] then
+			return
+		end
 		local elapsed = os.clock() - (self._lastCacheSyncAt[player] or -math.huge)
 		local delaySeconds = math.max(0.05, CACHE_SYNC_INTERVAL - elapsed)
 		self._cacheSyncThreads[player] = task.delay(delaySeconds, function()
 			self._cacheSyncThreads[player] = nil
 			local profile = self._profiles[player]
-			if not profile then return end
+			if not profile then
+				return
+			end
 			local ok, reason = pcall(function()
-
 				local snapshot = sanitize(deepCopy(profile))
 				ProfileIntegrity.Seal(snapshot)
 				self:_syncDocumentCache(player, snapshot)
@@ -748,7 +795,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	end
 
 	function DataService:_pushLeaderboard(player: Player, profile)
-
 		if self._closing then
 			return
 		end
@@ -762,7 +808,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			Domain = math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0)),
 			Worlds = math.max(1, math.floor(tonumber(profile.Zone) or 1)),
 		}
-		if self._leaderboardPushBusy[userId] then return end
+		if self._leaderboardPushBusy[userId] then
+			return
+		end
 		self._leaderboardPushBusy[userId] = true
 		self._leaderboardWorkers[userId] = task.defer(function()
 			local mirror = self._leaderboardMirrors[userId] or {}
@@ -794,7 +842,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			self._leaderboardPushBusy[userId] = nil
 			self._leaderboardWorkers[userId] = nil
 			if not workerOk then
-				ModuleLog.Warn("Data", string.format("leaderboard push crashed for %d — %s", userId, tostring(workerErr)))
+				ModuleLog.Warn(
+					"Data",
+					string.format("leaderboard push crashed for %d — %s", userId, tostring(workerErr))
+				)
 			end
 
 			if self._profiles[player] == nil then
@@ -840,7 +891,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				document:Steal()
 			end)
 			if not stole then
-				ModuleLog.Warn("Data", string.format("could not steal %s's session lock — %s", player.Name, tostring(stealErr)))
+				ModuleLog.Warn(
+					"Data",
+					string.format("could not steal %s's session lock — %s", player.Name, tostring(stealErr))
+				)
 			end
 		end
 
@@ -863,7 +917,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			local cached = document:GetCache()
 			local function rejectUnsafeProfile(reason: string)
 				pcall(function()
-					if document:IsOpen() then document:Close() end
+					if document:IsOpen() then
+						document:Close()
+					end
 				end)
 				ModuleLog.Error("Data", "profile load rejected", { UserId = player.UserId, Reason = reason })
 				ServerTelemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false)
@@ -875,7 +931,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			if not copied or type(candidate) ~= "table" then
 				return rejectUnsafeProfile("unreadable profile graph")
 			end
-			local versionOk, versionProblem = pcall(ProfileVersionGuard.ReadCompatible, candidate, GameConfig.Game.DataVersion)
+			local versionOk, versionProblem =
+				pcall(ProfileVersionGuard.ReadCompatible, candidate, GameConfig.Game.DataVersion)
 			if not versionOk then
 				return rejectUnsafeProfile(tostring(versionProblem))
 			end
@@ -897,7 +954,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				return rejectUnsafeProfile("schema preparation failed: " .. tostring(prepared))
 			end
 			local profile = prepared
-			local previousLastSeen = if type(profile.Meta) == "table" and type(profile.Meta.LastSeen) == "number"
+			local previousLastSeen = if type(profile.Meta) == "table"
+					and type(profile.Meta.LastSeen) == "number"
 				then profile.Meta.LastSeen
 				else now
 
@@ -909,11 +967,15 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				document:SetCache(deepCopy(profile))
 			end)
 			if not cacheReady then
-
 				pcall(function()
-					if document:IsOpen() then document:Close() end
+					if document:IsOpen() then
+						document:Close()
+					end
 				end)
-				ModuleLog.Warn("Data", string.format("could not stage %s profile - %s", player.Name, tostring(cacheProblem)))
+				ModuleLog.Warn(
+					"Data",
+					string.format("could not stage %s profile - %s", player.Name, tostring(cacheProblem))
+				)
 				ServerTelemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false)
 				return false, "Your save changed while loading. Please rejoin in a moment."
 			end
@@ -938,7 +1000,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 
 		local reason = DocumentCommon.reason(openResult) or "Unknown"
-		if reason == "SessionLockedError" then
+		if
+			reason == "SessionLockedError" and not (RunService:IsStudio() and ServerConfig.AllowStudioMemoryFallback)
+		then
 			ServerTelemetry.Observe("ProfileLoad", os.clock() - loadStartedAt, false)
 			return false, "Your data is still active on another server. Please wait a moment and rejoin."
 		end
@@ -985,7 +1049,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	function DataService:GetIntegrityStatus(player: Player)
 		local profile = self._profiles[player]
 		local status = self._integrityStatus[player] or { Healthy = true, Message = "pending", CheckedAt = 0 }
-		if not profile then return status end
+		if not profile then
+			return status
+		end
 		local envelope = ProfileIntegrity.Status(profile)
 		return {
 			Healthy = status.Healthy,
@@ -1024,7 +1090,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		local transactionLabel = label or "unnamed"
 		local success, result = atom:Transact(function(draft, revision)
-
 			if self._releasing[player] then
 				return { ok = false, message = "Profile session is closing" }
 			end
@@ -1058,7 +1123,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			profile = committed
 		end
 		self._dirty[player] = true
-		if transactionLabel ~= "production" then self:_queueDocumentSync(player) end
+		if transactionLabel ~= "production" then
+			self:_queueDocumentSync(player)
+		end
 		return true, result
 	end
 
@@ -1069,7 +1136,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	function DataService:MarkDirty(player: Player)
 		local profile = self._profiles[player]
 		if profile then
-
 			self._dirty[player] = true
 			self:_queueDocumentSync(player)
 		end
@@ -1113,12 +1179,19 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			else
 				safeSnapshot.Meta.SessionJobId = game.JobId
 			end
-			ProfileIntegrity.Record(safeSnapshot, releaseSession and "session-release" or "save", safeSnapshot.Meta.Revision)
+			ProfileIntegrity.Record(
+				safeSnapshot,
+				releaseSession and "session-release" or "save",
+				safeSnapshot.Meta.Revision
+			)
 			ProfileIntegrity.Seal(safeSnapshot)
 			return safeSnapshot
 		end)
 		if not preparedOk then
-			ModuleLog.Warn("Data", string.format("save preparation failed for %s — %s", player.Name, tostring(snapshot)))
+			ModuleLog.Warn(
+				"Data",
+				string.format("save preparation failed for %s — %s", player.Name, tostring(snapshot))
+			)
 			ServerTelemetry.Observe("ProfileSave", os.clock() - saveStartedAt, false)
 			return false
 		end
@@ -1180,7 +1253,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				profile.Meta.Integrity = deepCopy(snapshot.Meta.Integrity)
 				self._dirty[player] = false
 			else
-
 				self._dirty[player] = true
 			end
 			self:_pushLeaderboard(player, current or profile)
@@ -1198,7 +1270,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				ModuleLog.Player(player, "save released")
 			end
 		elseif saved then
-
 			profile.Meta.LastSave = now
 		end
 		ServerTelemetry.Observe("ProfileSave", os.clock() - saveStartedAt, saved)
@@ -1206,31 +1277,52 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	end
 
 	function DataService:Save(player: Player, releaseSession: boolean?): boolean
-
-		if releaseSession then self._releasing[player] = true end
+		if releaseSession then
+			self._releasing[player] = true
+		end
 		local deadline = os.clock() + (releaseSession and 12 or 6)
-		while self._saveBusy[player] and os.clock() < deadline do task.wait() end
+		while self._saveBusy[player] and os.clock() < deadline do
+			task.wait()
+		end
 		if self._saveBusy[player] then
-			if releaseSession then self._releasing[player] = nil end
-			ModuleLog.Every("save-busy:" .. tostring(player.UserId), 5, "Data", player.Name .. " save is still in progress")
+			if releaseSession then
+				self._releasing[player] = nil
+			end
+			ModuleLog.Every(
+				"save-busy:" .. tostring(player.UserId),
+				5,
+				"Data",
+				player.Name .. " save is still in progress"
+			)
 			return false
 		end
 		local atom = self._atoms[player]
-		while releaseSession and atom and atom:IsBusy() and os.clock() < deadline do task.wait() end
+		while releaseSession and atom and atom:IsBusy() and os.clock() < deadline do
+			task.wait()
+		end
 		if releaseSession and atom and atom:IsBusy() then
 			self._releasing[player] = nil
-			ModuleLog.Every("release-busy:" .. tostring(player.UserId), 5, "Data", player.Name .. " mutation did not settle before release")
+			ModuleLog.Every(
+				"release-busy:" .. tostring(player.UserId),
+				5,
+				"Data",
+				player.Name .. " mutation did not settle before release"
+			)
 			return false
 		end
 		self._saveBusy[player] = true
 		local ok, saved = pcall(self._saveUnlocked, self, player, releaseSession)
 		self._saveBusy[player] = nil
 		if not ok then
-			if releaseSession then self._releasing[player] = nil end
+			if releaseSession then
+				self._releasing[player] = nil
+			end
 			ModuleLog.Warn("Data", string.format("save crashed safely for %s - %s", player.Name, tostring(saved)))
 			return false
 		end
-		if releaseSession and not saved then self._releasing[player] = nil end
+		if releaseSession and not saved then
+			self._releasing[player] = nil
+		end
 		return saved
 	end
 
@@ -1252,7 +1344,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 						self:Save(target, true)
 					end)
 					if not ok then
-						ModuleLog.Warn("Data", string.format("shutdown save failed for %s — %s", target.Name, tostring(err)))
+						ModuleLog.Warn(
+							"Data",
+							string.format("shutdown save failed for %s — %s", target.Name, tostring(err))
+						)
 					end
 					remaining -= 1
 				end)
@@ -1262,7 +1357,10 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				task.wait()
 			end
 			if remaining > 0 then
-				ModuleLog.Warn("Data", string.format("shutdown save deadline reached with %d profile(s) still closing", remaining))
+				ModuleLog.Warn(
+					"Data",
+					string.format("shutdown save deadline reached with %d profile(s) still closing", remaining)
+				)
 				return false
 			end
 			return true
@@ -1304,15 +1402,14 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		local released = self:SaveAll(true)
 		if not released then
-
 			return
 		end
 
 		pcall(function()
-			self._playerStore:CloseAllDocuments()
+			self._playerStore:CloseAllDocuments(3)
 		end)
 		pcall(function()
-			self._sharedStore:CloseAllDocuments()
+			self._sharedStore:CloseAllDocuments(3)
 		end)
 	end
 

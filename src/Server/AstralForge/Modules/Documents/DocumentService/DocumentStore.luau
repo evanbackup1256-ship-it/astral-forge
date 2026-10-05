@@ -1,13 +1,11 @@
 --!strict
 
-
 local Document = require(script.Parent:FindFirstChild("Document"))
 local Types = require(script.Parent:FindFirstChild("Types"))
 local Util = require(script.Parent:FindFirstChild("SaveUtil"))
 local deepFreeze = require(script.Parent:FindFirstChild("DeepFreeze"))
 
 local CLOSE_PASS_INTERVAL = 1
-
 
 local DocumentStore = {}
 DocumentStore.__index = DocumentStore
@@ -44,8 +42,6 @@ type Migrations = Types.Migrations
 
 type DataStoreInterface = Types.DataStoreInterface
 
-
-
 function DocumentStore.new<T>(props: DocumentStoreProps<T>): DocumentStore<T>
 	local self = setmetatable({
 		_dataStore = props.dataStore,
@@ -58,7 +54,6 @@ function DocumentStore.new<T>(props: DocumentStoreProps<T>): DocumentStore<T>
 		_documentsToClose = 0,
 	}, DocumentStore)
 
-
 	if props.bindToClose ~= false then
 		game:BindToClose(function()
 			gameClosing = true
@@ -69,7 +64,6 @@ function DocumentStore.new<T>(props: DocumentStoreProps<T>): DocumentStore<T>
 
 	return self
 end
-
 
 function DocumentStore.GetDocument<T>(self: DocumentStore<T>, key: string): (Document<T>, boolean)
 	assert(not gameClosing, "Cannot retrieve document, game closing")
@@ -109,15 +103,41 @@ function DocumentStore.GetDocument<T>(self: DocumentStore<T>, key: string): (Doc
 	return document, true
 end
 
-
-function DocumentStore.CloseAllDocuments<T>(self: DocumentStore<T>)
+function DocumentStore.CloseAllDocuments<T>(self: DocumentStore<T>, timeoutSeconds: number?): boolean
+	if timeoutSeconds ~= nil then
+		local deadline = os.clock() + math.max(0, timeoutSeconds)
+		local pending: { [Document<T>]: boolean } = {}
+		while self._documentsToClose > 0 or self._openingDocuments > 0 do
+			if os.clock() >= deadline then
+				return false
+			end
+			local budget = Util.getUpdateBudget()
+			for _, document: Document<T> in pairs(self._documents) do
+				if budget <= 0 then
+					break
+				end
+				if document:IsOpen() and not document:IsClosing() and not pending[document] then
+					pending[document] = true
+					budget -= 1
+					task.spawn(function()
+						pcall(function()
+							if document:IsOpen() and not document:IsClosing() then
+								document:Close()
+							end
+						end)
+						pending[document] = nil
+					end)
+				end
+			end
+			task.wait(math.min(0.1, math.max(0, deadline - os.clock())))
+		end
+		return true
+	end
 	local thread = coroutine.running()
 
 	local complete = self._documentsToClose == 0 and self._openingDocuments == 0
 
-
 	while not complete do
-
 		local budget = Util.getUpdateBudget()
 		local documentsToClose = math.min(self._documentsToClose, budget)
 		local requestCount = 0
@@ -144,7 +164,6 @@ function DocumentStore.CloseAllDocuments<T>(self: DocumentStore<T>)
 					until not v:IsClosing()
 				end
 
-
 				documentsToClose -= 1
 
 				if documentsToClose == 0 then
@@ -157,7 +176,6 @@ function DocumentStore.CloseAllDocuments<T>(self: DocumentStore<T>)
 			end)
 		end
 
-
 		if documentsToClose > 0 then
 			coroutine.yield()
 		end
@@ -168,8 +186,8 @@ function DocumentStore.CloseAllDocuments<T>(self: DocumentStore<T>)
 			task.wait(CLOSE_PASS_INTERVAL)
 		end
 	end
+	return true
 end
-
 
 function DocumentStore.isDocumentStore(instance: any): boolean
 	return getmetatable(instance).__index == DocumentStore

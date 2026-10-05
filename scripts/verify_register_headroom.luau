@@ -40,8 +40,18 @@ local function scan(path: string)
 		-- so this fits only if the function's worst point has SPARE to spare.
 		local indent = (string.match(lines[at], "^(%s*)") or "") .. "\t"
 		local copy = table.clone(lines)
+		local headerEnd = at
+		local depth = 0
+		for i = at, #lines do
+			for character in string.gmatch(lines[i], ".") do
+				if character == "(" then depth += 1 end
+				if character == ")" then depth -= 1 end
+			end
+			headerEnd = i
+			if depth == 0 then break end
+		end
 		for k = SPARE, 1, -1 do
-			table.insert(copy, at + 1, indent .. "local __headroom" .. k .. " = " .. k)
+			table.insert(copy, headerEnd + 1, indent .. "local __headroom" .. k .. " = " .. k)
 		end
 		local ok = pcall(luau.compile, table.concat(copy, "\n"), { optimizationLevel = 0, debugLevel = 1 })
 		if not ok then

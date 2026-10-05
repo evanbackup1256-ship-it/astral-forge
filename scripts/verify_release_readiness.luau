@@ -57,7 +57,7 @@ end
 -- Bare Id = "..." (not CrateId / PreviousId suffixes) + numeric Id = N for zones.
 local function collectStringIds(body)
 	local ids = {}
-	for prefix, id in string.gmatch(body, "([^%w_])Id = \"([^\"]+)\"") do
+	for prefix, id in string.gmatch(body, '([^%w_])Id = "([^"]+)"') do
 		table.insert(ids, id)
 	end
 	return ids
@@ -147,7 +147,10 @@ mark("configuration references")
 local achievementIds = assertUnique("achievements", collectStringIds(extractSection(cfg, "\n\tAchievements = {")))
 local mailIds = assertUnique("mail", collectStringIds(extractSection(cfg, "\n\tMail = {")))
 local storyIds = assertUnique("story", collectStringIds(extractSection(cfg, "\n\tStory = {")))
-assert(countKeys(achievementIds) >= 8, "achievements must keep a release catalog, got " .. tostring(countKeys(achievementIds)))
+assert(
+	countKeys(achievementIds) >= 8,
+	"achievements must keep a release catalog, got " .. tostring(countKeys(achievementIds))
+)
 assert(countKeys(mailIds) >= 4, "mail must keep dock notes, got " .. tostring(countKeys(mailIds)))
 assert(countKeys(storyIds) >= 4, "story beats must stay catalogued, got " .. tostring(countKeys(storyIds)))
 mark("content envelopes")
@@ -159,7 +162,12 @@ assert(string.find(tradingBody, "PerTrade", 1, true), "Trading.PerTrade envelope
 assert(string.find(tradingBody, "Daily", 1, true), "Trading.Daily envelope missing")
 local guildBody = extractSection(cfg, "\n\tGuild = {")
 assert(string.find(guildBody, "Upgrades", 1, true), "Guild.Upgrades missing")
-assert(string.find(guildBody, "MaxMembers", 1, true) or string.find(guildBody, "MemberCap", 1, true) or string.find(guildBody, "Capacity", 1, true), "Guild member capacity knob missing")
+assert(
+	string.find(guildBody, "MaxMembers", 1, true)
+		or string.find(guildBody, "MemberCap", 1, true)
+		or string.find(guildBody, "Capacity", 1, true),
+	"Guild member capacity knob missing"
+)
 mark("trading and guild envelopes")
 
 local firewallBody = extractSection(cfg, "\n\tRemoteFirewall = {")
@@ -175,11 +183,26 @@ assert(string.find(continuumBody, "BaseFluxCost", 1, true), "Continuum.BaseFluxC
 assert(string.find(continuumBody, "MaxRank", 1, true), "Continuum.MaxRank missing")
 assert(string.find(continuumBody, "MilestoneEvery", 1, true), "Continuum.MilestoneEvery missing")
 local labBody = extractSection(cfg, "\n\tLab = {")
-assert(string.find(labBody, "Orders", 1, true) or string.find(labBody, "Power", 1, true) or string.find(labBody, "Slots", 1, true), "Lab progression knobs missing")
+assert(
+	string.find(labBody, "Orders", 1, true)
+		or string.find(labBody, "Power", 1, true)
+		or string.find(labBody, "Slots", 1, true),
+	"Lab progression knobs missing"
+)
 local forgePathBody = extractSection(cfg, "\n\tForgePath = {")
-assert(string.find(forgePathBody, "Steps", 1, true) or string.find(forgePathBody, "Tracks", 1, true) or string.find(forgePathBody, "XP", 1, true), "ForgePath envelope missing")
+assert(
+	string.find(forgePathBody, "Steps", 1, true)
+		or string.find(forgePathBody, "Tracks", 1, true)
+		or string.find(forgePathBody, "XP", 1, true),
+	"ForgePath envelope missing"
+)
 local wheelBody = extractSection(cfg, "\n\tWheel = {")
-assert(string.find(wheelBody, "Rewards", 1, true) or string.find(wheelBody, "Segments", 1, true) or string.find(wheelBody, "Cost", 1, true), "Wheel envelope missing")
+assert(
+	string.find(wheelBody, "Rewards", 1, true)
+		or string.find(wheelBody, "Segments", 1, true)
+		or string.find(wheelBody, "Cost", 1, true),
+	"Wheel envelope missing"
+)
 mark("progression envelopes")
 
 -- Trade settle orchestration extract must stay Lune-wired for host→guest AtomicUpdate.
@@ -191,7 +214,10 @@ assert(not string.find(settleSrc, "vendor/", 1, true), "TradeSettle must not ref
 assert(not string.find(settleSrc, "Packages/", 1, true), "TradeSettle must not reference Packages/")
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(servicesSrc, "TradeSettle.RunHostGuest", 1, true), "ConfirmTrade must delegate RunHostGuest")
-assert(string.find(servicesSrc, "trade-host", 1, true) and string.find(servicesSrc, "trade-guest", 1, true), "host/guest AtomicUpdate labels")
+assert(
+	string.find(servicesSrc, "trade-host", 1, true) and string.find(servicesSrc, "trade-guest", 1, true),
+	"host/guest AtomicUpdate labels"
+)
 assert(string.find(tradingBody, "InviteSeconds", 1, true), "Trading.InviteSeconds missing")
 assert(string.find(tradingBody, "SessionSeconds", 1, true), "Trading.SessionSeconds missing")
 assert(string.find(tradingBody, "MaxItems", 1, true), "Trading.MaxItems missing")
@@ -202,11 +228,17 @@ mark("trade settle orchestration")
 local dataSrc = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService:IsBusy missing")
 assert(string.find(servicesSrc, "self._data:IsBusy(player)", 1, true), "production must consult IsBusy")
-assert(string.find(servicesSrc, "maxCatchUp = GameConfig.Game.ProductionTick * 4", 1, true), "busy-window catch-up missing")
+assert(
+	string.find(servicesSrc, "maxCatchUp = GameConfig.Game.ProductionTick * 4", 1, true),
+	"busy-window catch-up missing"
+)
 local guildSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#GuildService")
 assert(string.find(guildSrc, "function GuildService:ClaimGoal", 1, true), "GuildService:ClaimGoal missing")
 assert(string.find(guildSrc, "goal.Claimed[userKey] = true", 1, true), "Guild claim must stamp Claimed")
-assert(string.find(guildBody, "MinContributionForReward", 1, true) or string.find(cfg, "MinContributionForReward", 1, true), "Guild MinContributionForReward missing")
+assert(
+	string.find(guildBody, "MinContributionForReward", 1, true) or string.find(cfg, "MinContributionForReward", 1, true),
+	"Guild MinContributionForReward missing"
+)
 local gateSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#SessionGate")
 assert(string.find(gateSrc, "TXN_RING", 1, true), "SessionGate TXN_RING missing")
 assert(string.find(gateSrc, "function SessionGate:TxnClaim", 1, true), "SessionGate:TxnClaim missing")
@@ -215,36 +247,72 @@ mark("busy-window guild claim residual txn")
 
 -- Document Studio-only remainder so npm test never silently pretends soak/integrity ran.
 local initSrc = fs.readFile("src/Server/AstralForge/init.server.luau")
-assert(string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true) or string.find(initSrc, "ReleaseReadiness.RunSoak", 1, true),
-	"init.server must still expose Studio ReleaseReadiness runners")
+assert(
+	string.find(initSrc, "ReleaseReadiness.RunQuick", 1, true)
+		or string.find(initSrc, "ReleaseReadiness.RunSoak", 1, true),
+	"init.server must still expose Studio ReleaseReadiness runners"
+)
 mark("studio runners still wired")
 
 -- Pure RunQuick parity: ContinuumDomainMath + ProfileIntegrity markers (offline;
 -- full 50k soak stays Studio-only behind ReleaseReadiness.RunQuick).
 local continuumMathSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
-assert(string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumCosts", 1, true), "ContinuumDomainMath.ContinuumCosts missing")
-assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRequirements", 1, true), "ContinuumDomainMath.DomainRequirements missing")
-assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRewards", 1, true), "ContinuumDomainMath.DomainRewards missing")
+assert(
+	string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumCosts", 1, true),
+	"ContinuumDomainMath.ContinuumCosts missing"
+)
+assert(
+	string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRequirements", 1, true),
+	"ContinuumDomainMath.DomainRequirements missing"
+)
+assert(
+	string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRewards", 1, true),
+	"ContinuumDomainMath.DomainRewards missing"
+)
 local economyBody = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#Economy")
 assert(string.find(economyBody, "ContinuumDomainMath.ContinuumCosts", 1, true), "Economy must delegate ContinuumCosts")
-assert(string.find(economyBody, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy must delegate DomainRequirements")
+assert(
+	string.find(economyBody, "ContinuumDomainMath.DomainRequirements", 1, true),
+	"Economy must delegate DomainRequirements"
+)
 assert(string.find(economyBody, "ContinuumDomainMath.DomainRewards", 1, true), "Economy must delegate DomainRewards")
-assert(string.find(economyBody, "RebirthGate.PrestigeReward", 1, true), "Economy PrestigeReward must stay pure-delegated")
+assert(
+	string.find(economyBody, "RebirthGate.PrestigeReward", 1, true),
+	"Economy PrestigeReward must stay pure-delegated"
+)
 local integrityBody = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#ProfileIntegrity")
-assert(string.find(integrityBody, "function ProfileIntegrity.VerifyAndRecover", 1, true), "ProfileIntegrity.VerifyAndRecover missing")
+assert(
+	string.find(integrityBody, "function ProfileIntegrity.VerifyAndRecover", 1, true),
+	"ProfileIntegrity.VerifyAndRecover missing"
+)
 assert(string.find(integrityBody, "function ProfileIntegrity.Seal", 1, true), "ProfileIntegrity.Seal missing")
-assert(string.find(releaseSrc, 'passed("endless economy envelope")', 1, true), "RunQuick endless economy envelope marker")
-assert(string.find(releaseSrc, 'passed("profile corruption recovery")', 1, true), "RunQuick profile corruption recovery marker")
+assert(
+	string.find(releaseSrc, 'passed("endless economy envelope")', 1, true),
+	"RunQuick endless economy envelope marker"
+)
+assert(
+	string.find(releaseSrc, 'passed("profile corruption recovery")', 1, true),
+	"RunQuick profile corruption recovery marker"
+)
 assert(string.find(dataSrc, "CommandMath.Ensure", 1, true), "DataService CommandMath residual for release")
 assert(string.find(dataSrc, "LabOrderMath.Ensure", 1, true), "DataService LabOrderMath residual for release")
 mark("runquick pure continuum domain parity")
 
 -- Pure RunQuick prestige reward parity (RebirthGate; soak still Studio-only).
 local rebirthGateSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#RebirthGate")
-assert(string.find(rebirthGateSrc, "function RebirthGate.PrestigeReward", 1, true), "RebirthGate.PrestigeReward missing")
+assert(
+	string.find(rebirthGateSrc, "function RebirthGate.PrestigeReward", 1, true),
+	"RebirthGate.PrestigeReward missing"
+)
 assert(string.find(rebirthGateSrc, "function RebirthGate.CanRebirth", 1, true), "RebirthGate.CanRebirth missing")
-assert(string.find(rebirthGateSrc, "function RebirthGate.StardustReward", 1, true), "RebirthGate.StardustReward missing")
-assert(string.find(economyBody, "RebirthGate.PrestigeReward", 1, true), "Economy.PrestigeReward must delegate RebirthGate")
+assert(
+	string.find(rebirthGateSrc, "function RebirthGate.StardustReward", 1, true),
+	"RebirthGate.StardustReward missing"
+)
+assert(
+	string.find(economyBody, "RebirthGate.PrestigeReward", 1, true),
+	"Economy.PrestigeReward must delegate RebirthGate"
+)
 assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick must exercise PrestigeReward")
 assert(not string.find(rebirthGateSrc, "vendor/", 1, true), "RebirthGate must not reference vendor/")
 assert(not string.find(rebirthGateSrc, "Packages/", 1, true), "RebirthGate must not reference Packages/")
@@ -253,10 +321,22 @@ mark("runquick pure prestige reward parity")
 -- Pure RunQuick domain requirements/rewards parity (ContinuumDomainMath; soak Studio-only).
 assert(string.find(releaseSrc, "Economy.DomainRequirements", 1, true), "RunQuick must exercise DomainRequirements")
 assert(string.find(releaseSrc, "Economy.DomainRewards", 1, true), "RunQuick must exercise DomainRewards")
-assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRequirements", 1, true), "ContinuumDomainMath.DomainRequirements missing")
-assert(string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRewards", 1, true), "ContinuumDomainMath.DomainRewards missing")
-assert(string.find(economyBody, "ContinuumDomainMath.DomainRequirements", 1, true), "Economy.DomainRequirements must delegate ContinuumDomainMath")
-assert(string.find(economyBody, "ContinuumDomainMath.DomainRewards", 1, true), "Economy.DomainRewards must delegate ContinuumDomainMath")
+assert(
+	string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRequirements", 1, true),
+	"ContinuumDomainMath.DomainRequirements missing"
+)
+assert(
+	string.find(continuumMathSrc, "function ContinuumDomainMath.DomainRewards", 1, true),
+	"ContinuumDomainMath.DomainRewards missing"
+)
+assert(
+	string.find(economyBody, "ContinuumDomainMath.DomainRequirements", 1, true),
+	"Economy.DomainRequirements must delegate ContinuumDomainMath"
+)
+assert(
+	string.find(economyBody, "ContinuumDomainMath.DomainRewards", 1, true),
+	"Economy.DomainRewards must delegate ContinuumDomainMath"
+)
 assert(not string.find(continuumMathSrc, "vendor/", 1, true), "ContinuumDomainMath must not reference vendor/")
 assert(not string.find(continuumMathSrc, "Packages/", 1, true), "ContinuumDomainMath must not reference Packages/")
 mark("runquick pure domain requirements parity")
@@ -265,10 +345,16 @@ mark("runquick pure domain requirements parity")
 local settingsSrc = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
 assert(string.find(settingsSrc, "PageScaffold", 1, true), "Settings must scroll as one page for release")
 assert(not string.find(settingsSrc, "createElement(FlatList", 1, true), "Settings must not nest a scroller in the page")
-assert(not string.find(settingsSrc, 'createElement("scrollingframe"', 1, true), "Settings must not reintroduce raw scrollingframes")
+assert(
+	not string.find(settingsSrc, 'createElement("scrollingframe"', 1, true),
+	"Settings must not reintroduce raw scrollingframes"
+)
 local chatSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 assert(string.find(chatSrc, "createElement(FlatList", 1, true), "Chat must FlatList messages for release")
-assert(not string.find(chatSrc, 'createElement("scrollingframe"', 1, true), "Chat raw scrollingframe allowlist must stay cleared")
+assert(
+	not string.find(chatSrc, 'createElement("scrollingframe"', 1, true),
+	"Chat raw scrollingframe allowlist must stay cleared"
+)
 assert(not string.find(chatSrc, "vendor/", 1, true), "Chat must not reference vendor/")
 assert(not string.find(settingsSrc, "Packages/", 1, true), "Settings must not reference Packages/")
 mark("settings chat virtualization residuals")
@@ -280,19 +366,40 @@ assert(string.find(dataSrc, "atom:Transact", 1, true), "DataService atom:Transac
 assert(string.find(dataSrc, "function DataService:IsBusy", 1, true), "DataService IsBusy residual for release")
 assert(string.find(servicesSrc, 'serviceFactories["AtomicState"]', 1, true), "AtomicState factory residual for release")
 assert(string.find(servicesSrc, 'serviceFactories["Security"]', 1, true), "Security factory residual for release")
-assert(string.find(servicesSrc, 'serviceFactories["GameAntiCheat"]', 1, true), "GameAntiCheat factory residual for release")
-assert(string.find(servicesSrc, "self._security.Authority:Validate", 1, true), "Authority:Validate residual for release")
+assert(
+	string.find(servicesSrc, 'serviceFactories["GameAntiCheat"]', 1, true),
+	"GameAntiCheat factory residual for release"
+)
+assert(
+	string.find(servicesSrc, "self._security.Authority:Validate", 1, true),
+	"Authority:Validate residual for release"
+)
 assert(string.find(servicesSrc, "self._antiCheat:Observe", 1, true), "GameAntiCheat Observe residual for release")
-assert(string.find(servicesSrc, "self._antiCheat:SyncBaseline", 1, true), "GameAntiCheat SyncBaseline residual for release")
+assert(
+	string.find(servicesSrc, "self._antiCheat:SyncBaseline", 1, true),
+	"GameAntiCheat SyncBaseline residual for release"
+)
 local atomicReleaseSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#AtomicState")
-assert(string.find(atomicReleaseSrc, "function AtomicState:Transact", 1, true), "AtomicState:Transact missing for release")
-assert(string.find(atomicReleaseSrc, "CONTENTION_TIMEOUT_SECONDS", 1, true), "AtomicState contention residual for release")
+assert(
+	string.find(atomicReleaseSrc, "function AtomicState:Transact", 1, true),
+	"AtomicState:Transact missing for release"
+)
+assert(
+	string.find(atomicReleaseSrc, "CONTENTION_TIMEOUT_SECONDS", 1, true),
+	"AtomicState contention residual for release"
+)
 local securityReleaseSrc = fs.readFile("src/Server/AstralForge/Services/SecurityServices.luau#Security")
-assert(string.find(securityReleaseSrc, "function Authority:Validate", 1, true), "Security Authority residual for release")
+assert(
+	string.find(securityReleaseSrc, "function Authority:Validate", 1, true),
+	"Security Authority residual for release"
+)
 assert(string.find(securityReleaseSrc, "function Rate:Allow", 1, true), "Security Rate residual for release")
 local antiReleaseSrc = fs.readFile("src/Server/AstralForge/Services/GameAntiCheat.luau")
 assert(string.find(antiReleaseSrc, "function AntiCheat:Observe", 1, true), "GameAntiCheat Observe residual for release")
-assert(string.find(antiReleaseSrc, "function AntiCheat:SyncBaseline", 1, true), "GameAntiCheat SyncBaseline residual for release")
+assert(
+	string.find(antiReleaseSrc, "function AntiCheat:SyncBaseline", 1, true),
+	"GameAntiCheat SyncBaseline residual for release"
+)
 assert(not string.find(atomicReleaseSrc, "vendor/", 1, true), "AtomicState must not reference vendor/")
 assert(not string.find(securityReleaseSrc, "Packages/", 1, true), "Security must not reference Packages/")
 assert(not string.find(antiReleaseSrc, "vendor/", 1, true), "GameAntiCheat must not reference vendor/")
@@ -310,15 +417,39 @@ assert(not string.find(economyBody, "Packages/", 1, true), "Economy must not ref
 mark("runquick pure production capacity tapPower parity")
 
 -- Pure RunQuick continuum effects / prestige target / offline envelope parity.
-assert(string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumEffects", 1, true), "ContinuumDomainMath.ContinuumEffects missing")
-assert(string.find(economyBody, "ContinuumDomainMath.ContinuumEffects", 1, true), "Economy ContinuumEffects must delegate for release")
-assert(string.find(rebirthGateSrc, "function RebirthGate.NextPrestigeTarget", 1, true), "RebirthGate.NextPrestigeTarget missing")
-assert(string.find(economyBody, "RebirthGate.NextPrestigeTarget", 1, true), "Economy NextPrestigeTarget must delegate for release")
+assert(
+	string.find(continuumMathSrc, "function ContinuumDomainMath.ContinuumEffects", 1, true),
+	"ContinuumDomainMath.ContinuumEffects missing"
+)
+assert(
+	string.find(economyBody, "ContinuumDomainMath.ContinuumEffects", 1, true),
+	"Economy ContinuumEffects must delegate for release"
+)
+assert(
+	string.find(rebirthGateSrc, "function RebirthGate.NextPrestigeTarget", 1, true),
+	"RebirthGate.NextPrestigeTarget missing"
+)
+assert(
+	string.find(economyBody, "RebirthGate.NextPrestigeTarget", 1, true),
+	"Economy NextPrestigeTarget must delegate for release"
+)
 local envelopeSrc = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#EconomyEnvelopeMath")
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.OfflineHours", 1, true), "EconomyEnvelopeMath.OfflineHours missing")
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.AutoCollectRate", 1, true), "EconomyEnvelopeMath.AutoCollectRate missing")
-assert(string.find(economyBody, "EconomyEnvelopeMath.OfflineHours", 1, true), "Economy OfflineHours residual for release")
-assert(string.find(economyBody, "EconomyEnvelopeMath.AutoCollectRate", 1, true), "Economy AutoCollectRate residual for release")
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.OfflineHours", 1, true),
+	"EconomyEnvelopeMath.OfflineHours missing"
+)
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.AutoCollectRate", 1, true),
+	"EconomyEnvelopeMath.AutoCollectRate missing"
+)
+assert(
+	string.find(economyBody, "EconomyEnvelopeMath.OfflineHours", 1, true),
+	"Economy OfflineHours residual for release"
+)
+assert(
+	string.find(economyBody, "EconomyEnvelopeMath.AutoCollectRate", 1, true),
+	"Economy AutoCollectRate residual for release"
+)
 assert(string.find(economyBody, "ForgePathClaim.Effect", 1, true), "Economy ForgePathEffect residual for release")
 assert(not string.find(envelopeSrc, "vendor/", 1, true), "EconomyEnvelopeMath must not reference vendor/")
 assert(not string.find(envelopeSrc, "Packages/", 1, true), "EconomyEnvelopeMath must not reference Packages/")
@@ -326,58 +457,124 @@ mark("runquick pure continuum effects offline envelope parity")
 
 -- InventoryMath extract + ItemSalvage parity residual (offline inventory tooling).
 local inventoryMathSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#inventoryMath")
-assert(string.find(inventoryMathSrc, "function InventoryMath.SalvageValue", 1, true), "InventoryMath.SalvageValue missing")
-assert(string.find(inventoryMathSrc, "function InventoryMath.FilterOwned", 1, true), "InventoryMath.FilterOwned missing")
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.SalvageValue", 1, true),
+	"InventoryMath.SalvageValue missing"
+)
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.FilterOwned", 1, true),
+	"InventoryMath.FilterOwned missing"
+)
 local invViewSrc = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
-assert(string.find(invViewSrc, "InventoryMath.SalvagePreview", 1, true), "InventoryView SalvagePreview residual for release")
+assert(
+	string.find(invViewSrc, "InventoryMath.SalvagePreview", 1, true),
+	"InventoryView SalvagePreview residual for release"
+)
 assert(string.find(invViewSrc, "InventoryMath.FilterOwned", 1, true), "InventoryView FilterOwned residual for release")
 assert(not string.find(inventoryMathSrc, "vendor/", 1, true), "InventoryMath must not reference vendor/")
 assert(not string.find(inventoryMathSrc, "Packages/", 1, true), "InventoryMath must not reference Packages/")
 mark("inventory math salvage filter residuals")
 
 -- DataService / Admin / Progression / RemoteFirewall residuals for release past checks=16.
-assert(string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true), "DataService EnsureAutoSalvage residual for release")
+assert(
+	string.find(dataSrc, "ProfileBagMath.EnsureAutoSalvage", 1, true),
+	"DataService EnsureAutoSalvage residual for release"
+)
 assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService ForgeEchoMath residual for release")
 assert(string.find(dataSrc, "ProfileBagMath.EnsureAnomaly", 1, true), "DataService EnsureAnomaly residual for release")
-assert(string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true), "DataService DataSanitizeMath residual for release")
+assert(
+	string.find(dataSrc, "DataSanitizeMath.NonNegative", 1, true),
+	"DataService DataSanitizeMath residual for release"
+)
 assert(string.find(dataSrc, "DataSanitizeMath.Reconcile", 1, true), "DataService Reconcile residual for release")
 local adminReleaseSrc = fs.readFile("src/Server/AstralForge/Services/AdminService.luau")
 assert(string.find(adminReleaseSrc, "ProfileBagMath.EnsureFlags", 1, true), "Admin EnsureFlags residual for release")
 assert(string.find(adminReleaseSrc, "ForgeEchoMath.Ensure", 1, true), "Admin ForgeEchoMath residual for release")
-assert(string.find(adminReleaseSrc, "AdminGrantMath.PlayerFacingReason", 1, true), "Admin PlayerFacingReason residual for release")
+assert(
+	string.find(adminReleaseSrc, "AdminGrantMath.PlayerFacingReason", 1, true),
+	"Admin PlayerFacingReason residual for release"
+)
 local progressionReleaseSrc = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
-assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.WeeklyValue", 1, true), "Progression WeeklyValue residual for release")
-assert(string.find(progressionReleaseSrc, "ForgePathClaim.Ensure", 1, true), "Progression ForgePathClaim residual for release")
-assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.AchievementProgress", 1, true), "Progression AchievementProgress residual for release")
+assert(
+	string.find(progressionReleaseSrc, "ProgressionOpsMath.WeeklyValue", 1, true),
+	"Progression WeeklyValue residual for release"
+)
+assert(
+	string.find(progressionReleaseSrc, "ForgePathClaim.Ensure", 1, true),
+	"Progression ForgePathClaim residual for release"
+)
+assert(
+	string.find(progressionReleaseSrc, "ProgressionOpsMath.AchievementProgress", 1, true),
+	"Progression AchievementProgress residual for release"
+)
 local firewallReleaseSrc = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
 assert(string.find(firewallReleaseSrc, "BulkSalvageItems", 1, true), "RemoteFirewall BulkSalvage residual for release")
-assert(string.find(firewallReleaseSrc, "SetItemAutoSalvage", 1, true), "RemoteFirewall AutoSalvage residual for release")
-assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.CooldownKey", 1, true), "RemoteFirewall CooldownKey residual for release")
-assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.CoerceUserId", 1, true), "RemoteFirewall CoerceUserId residual for release")
+assert(
+	string.find(firewallReleaseSrc, "SetItemAutoSalvage", 1, true),
+	"RemoteFirewall AutoSalvage residual for release"
+)
+assert(
+	string.find(firewallReleaseSrc, "RemoteFirewallMath.CooldownKey", 1, true),
+	"RemoteFirewall CooldownKey residual for release"
+)
+assert(
+	string.find(firewallReleaseSrc, "RemoteFirewallMath.CoerceUserId", 1, true),
+	"RemoteFirewall CoerceUserId residual for release"
+)
 mark("data admin progression firewall residuals")
 
 -- Pure RunQuick LabPowerEffect envelope parity (finite; soak Studio-only).
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.LabPowerEffect", 1, true), "EconomyEnvelopeMath.LabPowerEffect missing")
-assert(string.find(economyBody, "EconomyEnvelopeMath.LabPowerEffect", 1, true), "Economy LabPowerEffect residual for release")
-assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for LabPower adjacency")
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.LabPowerEffect", 1, true),
+	"EconomyEnvelopeMath.LabPowerEffect missing"
+)
+assert(
+	string.find(economyBody, "EconomyEnvelopeMath.LabPowerEffect", 1, true),
+	"Economy LabPowerEffect residual for release"
+)
+assert(
+	string.find(releaseSrc, "Economy.Production", 1, true),
+	"RunQuick Production still present for LabPower adjacency"
+)
 mark("runquick pure lab power envelope parity")
 
 -- Inventory CollectOwned / SocketTargets / market clock residuals past checks=19.
-assert(string.find(inventoryMathSrc, "function InventoryMath.CollectOwned", 1, true), "InventoryMath.CollectOwned missing")
-assert(string.find(inventoryMathSrc, "function InventoryMath.SocketTargets", 1, true), "InventoryMath.SocketTargets missing")
-assert(string.find(inventoryMathSrc, "function InventoryMath.RestockClock", 1, true), "InventoryMath.RestockClock missing")
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.CollectOwned", 1, true),
+	"InventoryMath.CollectOwned missing"
+)
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.SocketTargets", 1, true),
+	"InventoryMath.SocketTargets missing"
+)
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.RestockClock", 1, true),
+	"InventoryMath.RestockClock missing"
+)
 assert(string.find(inventoryMathSrc, "function InventoryMath.OfferStock", 1, true), "InventoryMath.OfferStock missing")
-assert(string.find(invViewSrc, "InventoryMath.CollectOwned", 1, true), "InventoryView CollectOwned residual for release")
+assert(
+	string.find(invViewSrc, "InventoryMath.CollectOwned", 1, true),
+	"InventoryView CollectOwned residual for release"
+)
 assert(string.find(invViewSrc, "InventoryMath.OfferStock", 1, true), "InventoryView OfferStock residual for release")
 mark("inventory collect socket market residuals")
 
 -- RemoteFirewallMath + DataSanitizeMath modules present for offline RunQuick-adjacent gates.
 local firewallMathSrc = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#RemoteFirewallMath")
 local sanitizeMathSrc = fs.readFile("src/Server/AstralForge/Modules/DataSanitizeMath.luau")
-assert(string.find(firewallMathSrc, "function RemoteFirewallMath.CoerceUserId", 1, true), "RemoteFirewallMath.CoerceUserId missing")
-assert(string.find(firewallMathSrc, "function RemoteFirewallMath.ExtractUserId", 1, true), "RemoteFirewallMath.ExtractUserId missing")
+assert(
+	string.find(firewallMathSrc, "function RemoteFirewallMath.CoerceUserId", 1, true),
+	"RemoteFirewallMath.CoerceUserId missing"
+)
+assert(
+	string.find(firewallMathSrc, "function RemoteFirewallMath.ExtractUserId", 1, true),
+	"RemoteFirewallMath.ExtractUserId missing"
+)
 assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.DeepCopy", 1, true), "DataSanitizeMath.DeepCopy missing")
-assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.NonNegative", 1, true), "DataSanitizeMath.NonNegative missing")
+assert(
+	string.find(sanitizeMathSrc, "function DataSanitizeMath.NonNegative", 1, true),
+	"DataSanitizeMath.NonNegative missing"
+)
 assert(not string.find(firewallMathSrc, "GetService", 1, true), "RemoteFirewallMath must stay pure")
 assert(not string.find(sanitizeMathSrc, "GetService", 1, true), "DataSanitizeMath must stay pure")
 mark("firewall sanitize pure module residuals")
@@ -385,17 +582,35 @@ mark("firewall sanitize pure module residuals")
 -- TradeOfferMath + AnomalyOpsMath.ApplyCoreXP residuals past checks=19.
 local tradeOfferSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeOfferMath")
 assert(string.find(tradeOfferSrc, "function TradeOfferMath.CopyOffer", 1, true), "TradeOfferMath.CopyOffer missing")
-assert(string.find(tradeOfferSrc, "function TradeOfferMath.EnsureLedger", 1, true), "TradeOfferMath.EnsureLedger missing")
+assert(
+	string.find(tradeOfferSrc, "function TradeOfferMath.EnsureLedger", 1, true),
+	"TradeOfferMath.EnsureLedger missing"
+)
 assert(string.find(tradeOfferSrc, "function TradeOfferMath.OfferEmpty", 1, true), "TradeOfferMath.OfferEmpty missing")
 local deskReleaseSrc = fs.readFile("src/Server/AstralForge/Modules/TradeSuite.luau#TradeDesk")
 assert(string.find(deskReleaseSrc, "TradeOfferMath.CopyOffer", 1, true), "TradeDesk CopyOffer residual for release")
-assert(string.find(deskReleaseSrc, "TradeOfferMath.EnsureLedger", 1, true), "TradeDesk EnsureLedger residual for release")
+assert(
+	string.find(deskReleaseSrc, "TradeOfferMath.EnsureLedger", 1, true),
+	"TradeDesk EnsureLedger residual for release"
+)
 local anomalyOpsRelease = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#AnomalyOpsMath")
-assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.ApplyCoreXP", 1, true), "AnomalyOpsMath.ApplyCoreXP missing")
-assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.NextCoreTier", 1, true), "AnomalyOpsMath.NextCoreTier missing")
+assert(
+	string.find(anomalyOpsRelease, "function AnomalyOpsMath.ApplyCoreXP", 1, true),
+	"AnomalyOpsMath.ApplyCoreXP missing"
+)
+assert(
+	string.find(anomalyOpsRelease, "function AnomalyOpsMath.NextCoreTier", 1, true),
+	"AnomalyOpsMath.NextCoreTier missing"
+)
 local anomalyServiceRelease = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#AnomalyService")
-assert(string.find(anomalyServiceRelease, "AnomalyOpsMath.ApplyCoreXP", 1, true), "AnomalyService ApplyCoreXP residual for release")
-assert(string.find(anomalyServiceRelease, "AnomalyOpsMath.NextCoreTier", 1, true), "AnomalyService NextCoreTier residual for release")
+assert(
+	string.find(anomalyServiceRelease, "AnomalyOpsMath.ApplyCoreXP", 1, true),
+	"AnomalyService ApplyCoreXP residual for release"
+)
+assert(
+	string.find(anomalyServiceRelease, "AnomalyOpsMath.NextCoreTier", 1, true),
+	"AnomalyService NextCoreTier residual for release"
+)
 assert(not string.find(tradeOfferSrc, "GetService", 1, true), "TradeOfferMath must stay pure")
 assert(not string.find(tradeOfferSrc, "vendor/", 1, true), "TradeOfferMath must not reference vendor/")
 assert(not string.find(anomalyOpsRelease, "Packages/", 1, true), "AnomalyOpsMath must not reference Packages/")
@@ -403,12 +618,18 @@ mark("trade offer corexp pure module residuals")
 
 -- CrateRevealOverlay / ShopClaimCode / UpgradeBoard softMotion residuals.
 local crateOverlayRelease = fs.readFile("src/Client/AstralForge/UiCore.luau#CrateRevealOverlay")
-assert(string.find(crateOverlayRelease, 'Name = "CrateClaim"', 1, true), "CrateRevealOverlay CrateClaim residual for release")
+assert(
+	string.find(crateOverlayRelease, 'Name = "CrateClaim"', 1, true),
+	"CrateRevealOverlay CrateClaim residual for release"
+)
 do
 	local hostStart = string.find(crateOverlayRelease, 'Name = "CrateClaim"', 1, true)
 	assert(hostStart, "CrateClaim host missing for release")
 	local hostSlice = string.sub(crateOverlayRelease, hostStart, hostStart + 420)
-	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "CrateRevealOverlay CrateClaim clips residual for release")
+	assert(
+		string.find(hostSlice, "ClipsDescendants = false", 1, true),
+		"CrateRevealOverlay CrateClaim clips residual for release"
+	)
 end
 local shopRelease = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
 do
@@ -434,23 +655,41 @@ local mainReleaseSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame"
 local routerReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 local ssReleaseSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(networkPolicySrc, "function NetworkPolicy.Cooldown", 1, true), "NetworkPolicy.Cooldown missing")
-assert(string.find(networkPolicySrc, "function NetworkPolicy.IsPipelined", 1, true), "NetworkPolicy.IsPipelined missing")
+assert(
+	string.find(networkPolicySrc, "function NetworkPolicy.IsPipelined", 1, true),
+	"NetworkPolicy.IsPipelined missing"
+)
 assert(string.find(mainReleaseSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame NetworkPolicy residual for release")
 assert(string.find(pageBoardSrc, "function PageBoardHeights.Machine", 1, true), "PageBoardHeights.Machine missing")
 local workshopReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
-assert(string.find(workshopReleaseSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView PageBoardHeights residual for release")
+assert(
+	string.find(workshopReleaseSrc, "PageBoardHeights.Machine", 1, true),
+	"WorkshopView PageBoardHeights residual for release"
+)
 local overviewReleaseReady = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewReleaseReady, "PageReadyMath.AnomalyReady", 1, true), "OverviewView AnomalyReady residual for release")
+assert(
+	string.find(overviewReleaseReady, "PageReadyMath.AnomalyReady", 1, true),
+	"OverviewView AnomalyReady residual for release"
+)
 assert(string.find(telemetrySrc, "function TelemetryMath.Encode", 1, true), "TelemetryMath.Encode missing")
 assert(string.find(ssReleaseSrc, "TelemetryMath.Encode", 1, true), "ServerServices Telemetry residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Day", 1, true), "UtcClockMath.Day missing")
 assert(string.find(ssReleaseSrc, "UtcClockMath.Day", 1, true), "ServerServices UtcClock residual for release")
 assert(string.find(ssReleaseSrc, "DataSanitizeMath.DeepCopy", 1, true), "ServerServices DeepCopy residual for release")
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.GridEffect", 1, true), "EconomyEnvelopeMath.GridEffect missing")
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.EffectAtLevel", 1, true), "EconomyEnvelopeMath.EffectAtLevel missing")
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.GridEffect", 1, true),
+	"EconomyEnvelopeMath.GridEffect missing"
+)
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.EffectAtLevel", 1, true),
+	"EconomyEnvelopeMath.EffectAtLevel missing"
+)
 assert(string.find(economyBody, "EconomyEnvelopeMath.GridEffect", 1, true), "Economy GridEffect residual for release")
 assert(string.find(economyBody, "EconomyEnvelopeMath.ItemEffect", 1, true), "Economy ItemEffect residual for release")
-assert(string.find(inventoryMathSrc, "function InventoryMath.RarityColor", 1, true), "InventoryMath.RarityColor missing")
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.RarityColor", 1, true),
+	"InventoryMath.RarityColor missing"
+)
 assert(string.find(invViewSrc, "InventoryMath.RarityColor", 1, true), "InventoryView RarityColor residual for release")
 assert(not string.find(networkPolicySrc, "GetService", 1, true), "NetworkPolicy must stay pure")
 assert(not string.find(telemetrySrc, "GetService", 1, true), "TelemetryMath must stay pure")
@@ -459,29 +698,53 @@ mark("wave20 monolith network telemetry board residuals")
 
 -- Wave21: ProfileClampMath + AdvanceQuestProgress/CanClaimQuest + Trade/Admin/Story clips.
 local profileClampSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ProfileClampMath")
-assert(string.find(profileClampSrc, "function ProfileClampMath.ClampProgressionNumbers", 1, true), "ProfileClampMath.ClampProgressionNumbers missing")
-assert(string.find(ssReleaseSrc, "ProfileClampMath.ClampProgressionNumbers", 1, true), "ServerServices ProfileClamp residual for release")
+assert(
+	string.find(profileClampSrc, "function ProfileClampMath.ClampProgressionNumbers", 1, true),
+	"ProfileClampMath.ClampProgressionNumbers missing"
+)
+assert(
+	string.find(ssReleaseSrc, "ProfileClampMath.ClampProgressionNumbers", 1, true),
+	"ServerServices ProfileClamp residual for release"
+)
 assert(not string.find(profileClampSrc, "GetService", 1, true), "ProfileClampMath must stay pure")
 assert(not string.find(profileClampSrc, "vendor/", 1, true), "ProfileClampMath must not reference vendor/")
 local progressionOpsRelease = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ProgressionOpsMath")
-assert(string.find(progressionOpsRelease, "function ProgressionOpsMath.AdvanceQuestProgress", 1, true), "AdvanceQuestProgress missing")
-assert(string.find(progressionOpsRelease, "function ProgressionOpsMath.CanClaimQuest", 1, true), "CanClaimQuest missing")
+assert(
+	string.find(progressionOpsRelease, "function ProgressionOpsMath.AdvanceQuestProgress", 1, true),
+	"AdvanceQuestProgress missing"
+)
+assert(
+	string.find(progressionOpsRelease, "function ProgressionOpsMath.CanClaimQuest", 1, true),
+	"CanClaimQuest missing"
+)
 local progressionRelease = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#ProgressionService")
-assert(string.find(progressionRelease, "ProgressionOpsMath.AdvanceQuestProgress", 1, true), "Progression AdvanceQuestProgress residual for release")
-assert(string.find(progressionRelease, "ProgressionOpsMath.CanClaimQuest", 1, true), "Progression CanClaimQuest residual for release")
+assert(
+	string.find(progressionRelease, "ProgressionOpsMath.AdvanceQuestProgress", 1, true),
+	"Progression AdvanceQuestProgress residual for release"
+)
+assert(
+	string.find(progressionRelease, "ProgressionOpsMath.CanClaimQuest", 1, true),
+	"Progression CanClaimQuest residual for release"
+)
 local tradeRelease = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 do
 	local hostStart = string.find(tradeRelease, 'Name = "TradeSessionActions"', 1, true)
 	assert(hostStart, "TradeSessionActions host missing for release")
 	local hostSlice = string.sub(tradeRelease, hostStart, hostStart + 420)
-	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "TradeSessionActions clips residual for release")
+	assert(
+		string.find(hostSlice, "ClipsDescendants = false", 1, true),
+		"TradeSessionActions clips residual for release"
+	)
 end
 local adminRelease = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
 do
 	local hostStart = string.find(adminRelease, 'Name = "AdminExecuteActions"', 1, true)
 	assert(hostStart, "AdminExecuteActions host missing for release")
 	local hostSlice = string.sub(adminRelease, hostStart, hostStart + 420)
-	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "AdminExecuteActions clips residual for release")
+	assert(
+		string.find(hostSlice, "ClipsDescendants = false", 1, true),
+		"AdminExecuteActions clips residual for release"
+	)
 end
 local storyRelease = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
 do
@@ -501,70 +764,158 @@ mark("wave21 clamp quest trade admin story residuals")
 -- Wave21 extract-checks residuals (complement wave21-harden ProfileClamp/quest):
 -- RemoteFirewall Inspect, ForgeEcho EquippedEffect, PermanentMultiplier,
 -- ClampLevelBag, Admin relic uid, UtcClock Week, Inventory UpgradeState.
-assert(string.find(firewallMathSrc, "function RemoteFirewallMath.Inspect", 1, true), "RemoteFirewallMath.Inspect missing")
-assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.Inspect", 1, true), "RemoteFirewall Inspect residual for release")
+assert(
+	string.find(firewallMathSrc, "function RemoteFirewallMath.Inspect", 1, true),
+	"RemoteFirewallMath.Inspect missing"
+)
+assert(
+	string.find(firewallReleaseSrc, "RemoteFirewallMath.Inspect", 1, true),
+	"RemoteFirewall Inspect residual for release"
+)
 local forgeEchoRelease = fs.readFile("src/Server/AstralForge/Modules/ForgeEchoMath.luau")
-assert(string.find(forgeEchoRelease, "function ForgeEchoMath.EquippedEffect", 1, true), "ForgeEchoMath.EquippedEffect missing")
+assert(
+	string.find(forgeEchoRelease, "function ForgeEchoMath.EquippedEffect", 1, true),
+	"ForgeEchoMath.EquippedEffect missing"
+)
 assert(string.find(economyBody, "ForgeEchoMath.EquippedEffect", 1, true), "Economy EquippedEffect residual for release")
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.PermanentMultiplier", 1, true), "EconomyEnvelopeMath.PermanentMultiplier missing")
-assert(string.find(economyBody, "EconomyEnvelopeMath.PermanentMultiplier", 1, true), "Economy PermanentMultiplier residual for release")
-assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampLevelBag", 1, true), "DataSanitizeMath.ClampLevelBag missing")
-assert(string.find(dataSrc, "DataSanitizeMath.ClampLevelBag", 1, true), "DataService ClampLevelBag residual for release")
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.PermanentMultiplier", 1, true),
+	"EconomyEnvelopeMath.PermanentMultiplier missing"
+)
+assert(
+	string.find(economyBody, "EconomyEnvelopeMath.PermanentMultiplier", 1, true),
+	"Economy PermanentMultiplier residual for release"
+)
+assert(
+	string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampLevelBag", 1, true),
+	"DataSanitizeMath.ClampLevelBag missing"
+)
+assert(
+	string.find(dataSrc, "DataSanitizeMath.ClampLevelBag", 1, true),
+	"DataService ClampLevelBag residual for release"
+)
 local adminGrantRelease = fs.readFile("src/Server/AstralForge/Modules/OpsMath.luau#AdminGrantMath")
-assert(string.find(adminGrantRelease, "function AdminGrantMath.NextRelicUid", 1, true), "AdminGrantMath.NextRelicUid missing")
+assert(
+	string.find(adminGrantRelease, "function AdminGrantMath.NextRelicUid", 1, true),
+	"AdminGrantMath.NextRelicUid missing"
+)
 assert(string.find(adminReleaseSrc, "AdminGrantMath.NextRelicUid", 1, true), "Admin NextRelicUid residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Week", 1, true), "UtcClockMath.Week missing")
 assert(string.find(progressionReleaseSrc, "UtcClockMath.Week", 1, true), "Progression Week residual for release")
-assert(string.find(inventoryMathSrc, "function InventoryMath.UpgradeState", 1, true), "InventoryMath.UpgradeState missing")
-assert(string.find(invViewSrc, "InventoryMath.UpgradeState", 1, true), "InventoryView UpgradeState residual for release")
-assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick PrestigeReward still present for wave21 adjacency")
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.UpgradeState", 1, true),
+	"InventoryMath.UpgradeState missing"
+)
+assert(
+	string.find(invViewSrc, "InventoryMath.UpgradeState", 1, true),
+	"InventoryView UpgradeState residual for release"
+)
+assert(
+	string.find(releaseSrc, "Economy.PrestigeReward", 1, true),
+	"RunQuick PrestigeReward still present for wave21 adjacency"
+)
 assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for wave21 adjacency")
 assert(not string.find(forgeEchoRelease, "GetService", 1, true), "ForgeEchoMath must stay pure")
 assert(not string.find(adminGrantRelease, "GetService", 1, true), "AdminGrantMath must stay pure")
 mark("wave21 extract firewall echo envelope residuals")
 
 local labOrderRelease = fs.readFile("src/Server/AstralForge/Modules/LabOrderMath.luau")
-assert(string.find(labOrderRelease, "tonumber(state and state.Progress)", 1, true), "LabOrderMath Progress coerce missing")
+assert(
+	string.find(labOrderRelease, "tonumber(state and state.Progress)", 1, true),
+	"LabOrderMath Progress coerce missing"
+)
 assert(string.find(dataSrc, "nonNegative(tonumber(order.Progress)", 1, true), "DataService Progress coerce residual")
 local anomalyOpsRelease = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#AnomalyOpsMath")
 assert(string.find(anomalyOpsRelease, "function AnomalyOpsMath.Effect", 1, true), "AnomalyOpsMath.Effect missing")
 assert(string.find(economyBody, "AnomalyOpsMath.Effect", 1, true), "Economy AnomalyEffect residual")
 assert(string.find(economyBody, "AnomalyOpsMath.SurgeMultiplier", 1, true), "Economy Surge residual")
 local continuumDomainRelease = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
-assert(string.find(continuumDomainRelease, "function ContinuumDomainMath.DomainProductionMultiplier", 1, true), "DomainProductionMultiplier missing")
-assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ssReleaseSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true), "SS DomainProduction residual")
+assert(
+	string.find(continuumDomainRelease, "function ContinuumDomainMath.DomainProductionMultiplier", 1, true),
+	"DomainProductionMultiplier missing"
+)
+assert(
+	string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true)
+		or string.find(ssReleaseSrc, "ContinuumDomainMath.DomainProductionMultiplier", 1, true),
+	"SS DomainProduction residual"
+)
 assert(string.find(ssReleaseSrc, "ShopGrantEligibility.RemainingStock", 1, true), "SS RemainingStock residual")
 mark("wave22 lab anomaly domain mail inspect residuals")
 
 -- Wave22 extract-checks residuals (complement wave22-harden Lab/Anomaly/clips):
-assert(string.find(firewallMathSrc, "function RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "RemoteFirewallMath.IsSessionOnlyPayload missing")
-assert(string.find(firewallReleaseSrc, "RemoteFirewallMath.IsSessionOnlyPayload", 1, true), "RemoteFirewall session residual for release")
+assert(
+	string.find(firewallMathSrc, "function RemoteFirewallMath.IsSessionOnlyPayload", 1, true),
+	"RemoteFirewallMath.IsSessionOnlyPayload missing"
+)
+assert(
+	string.find(firewallReleaseSrc, "RemoteFirewallMath.IsSessionOnlyPayload", 1, true),
+	"RemoteFirewall session residual for release"
+)
 assert(string.find(forgeEchoRelease, "function ForgeEchoMath.Sanitize", 1, true), "ForgeEchoMath.Sanitize missing")
 assert(string.find(dataSrc, "ForgeEchoMath.Sanitize", 1, true), "DataService Sanitize residual for release")
-assert(string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampAutoForge", 1, true), "DataSanitizeMath.ClampAutoForge missing")
-assert(string.find(dataSrc, "DataSanitizeMath.ClampAutoForge", 1, true), "DataService ClampAutoForge residual for release")
-assert(string.find(envelopeSrc, "function EconomyEnvelopeMath.ItemEffect", 1, true), "EconomyEnvelopeMath.ItemEffect missing")
+assert(
+	string.find(sanitizeMathSrc, "function DataSanitizeMath.ClampAutoForge", 1, true),
+	"DataSanitizeMath.ClampAutoForge missing"
+)
+assert(
+	string.find(dataSrc, "DataSanitizeMath.ClampAutoForge", 1, true),
+	"DataService ClampAutoForge residual for release"
+)
+assert(
+	string.find(envelopeSrc, "function EconomyEnvelopeMath.ItemEffect", 1, true),
+	"EconomyEnvelopeMath.ItemEffect missing"
+)
 assert(string.find(economyBody, "EconomyEnvelopeMath.ItemEffect", 1, true), "Economy ItemEffect residual for release")
 local itemLoadoutSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#ItemLoadoutMath")
-assert(string.find(itemLoadoutSrc, "function ItemLoadoutMath.PlanEquipBest", 1, true), "ItemLoadoutMath.PlanEquipBest missing")
-assert(string.find(ssReleaseSrc, "ItemLoadoutMath.PlanEquipBest", 1, true), "ServerServices EquipBest residual for release")
-assert(string.find(progressionReleaseSrc, "ProgressionOpsMath.ApplyCommandXP", 1, true), "Progression ApplyCommandXP residual for release")
+assert(
+	string.find(itemLoadoutSrc, "function ItemLoadoutMath.PlanEquipBest", 1, true),
+	"ItemLoadoutMath.PlanEquipBest missing"
+)
+assert(
+	string.find(ssReleaseSrc, "ItemLoadoutMath.PlanEquipBest", 1, true),
+	"ServerServices EquipBest residual for release"
+)
+assert(
+	string.find(progressionReleaseSrc, "ProgressionOpsMath.ApplyCommandXP", 1, true),
+	"Progression ApplyCommandXP residual for release"
+)
 assert(string.find(inventoryMathSrc, "function InventoryMath.ChipRows", 1, true), "InventoryMath.ChipRows missing")
 assert(string.find(invViewSrc, "InventoryMath.ChipRows", 1, true), "InventoryView ChipRows residual for release")
-assert(string.find(inventoryMathSrc, "function InventoryMath.LoadoutEffectLines", 1, true), "InventoryMath.LoadoutEffectLines missing")
-assert(string.find(invViewSrc, "InventoryMath.LoadoutEffectLines", 1, true), "InventoryView LoadoutEffectLines residual for release")
+assert(
+	string.find(inventoryMathSrc, "function InventoryMath.LoadoutEffectLines", 1, true),
+	"InventoryMath.LoadoutEffectLines missing"
+)
+assert(
+	string.find(invViewSrc, "InventoryMath.LoadoutEffectLines", 1, true),
+	"InventoryView LoadoutEffectLines residual for release"
+)
 local releaseClockSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#releaseClockMath")
-assert(string.find(releaseClockSrc, "function ReleaseClockMath.Remaining", 1, true), "ReleaseClockMath.Remaining missing")
+assert(
+	string.find(releaseClockSrc, "function ReleaseClockMath.Remaining", 1, true),
+	"ReleaseClockMath.Remaining missing"
+)
 local mainReleaseSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChromeReleaseSrc = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local routerReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(topBarChromeReleaseSrc, "ReleaseClockMath.Remaining", 1, true), "TopBarChrome ReleaseClock residual for release")
+assert(
+	string.find(topBarChromeReleaseSrc, "ReleaseClockMath.Remaining", 1, true),
+	"TopBarChrome ReleaseClock residual for release"
+)
 local overviewReleaseClock = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewReleaseClock, "ReleaseClockMath.Remaining", 1, true), "OverviewView ReleaseClock residual for release")
+assert(
+	string.find(overviewReleaseClock, "ReleaseClockMath.Remaining", 1, true),
+	"OverviewView ReleaseClock residual for release"
+)
 assert(string.find(utcClockSrc, "function UtcClockMath.Remaining", 1, true), "UtcClockMath.Remaining missing")
-assert(string.find(releaseSrc, "Economy.PrestigeReward", 1, true), "RunQuick PrestigeReward still present for wave22 adjacency")
+assert(
+	string.find(releaseSrc, "Economy.PrestigeReward", 1, true),
+	"RunQuick PrestigeReward still present for wave22 adjacency"
+)
 assert(string.find(releaseSrc, "Economy.Production", 1, true), "RunQuick Production still present for wave22 adjacency")
-assert(string.find(releaseSrc, "ProfileIntegrity.VerifyAndRecover", 1, true), "RunQuick profile recovery still present for wave22 adjacency")
+assert(
+	string.find(releaseSrc, "ProfileIntegrity.VerifyAndRecover", 1, true),
+	"RunQuick profile recovery still present for wave22 adjacency"
+)
 assert(not string.find(itemLoadoutSrc, "GetService", 1, true), "ItemLoadoutMath must stay pure")
 assert(not string.find(releaseClockSrc, "GetService", 1, true), "ReleaseClockMath must stay pure")
 mark("wave22 extract session echo loadout residuals")
@@ -589,12 +940,7 @@ assert(
 	"Crew FlatList softMotion overscan residual for release"
 )
 assert(
-	string.find(
-		overviewWave24,
-		"local softMotion = reducedMotion",
-		1,
-		true
-	),
+	string.find(overviewWave24, "local softMotion = reducedMotion", 1, true),
 	"Overview softMotion canon residual for release"
 )
 assert(
@@ -602,23 +948,13 @@ assert(
 	"Overview quietMotion fold residual for release"
 )
 assert(
-	string.find(
-		crewWave24,
-		"local softMotion = reducedMotion",
-		1,
-		true
-	),
+	string.find(crewWave24, "local softMotion = reducedMotion", 1, true),
 	"Crew softMotion canon residual for release"
 )
 -- Rewards owns a softMotion canon line inside RewardsView; UpgradeBoard lives in WorkshopView.
 local rewardsWave24Canon = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RewardsView")
 assert(
-	string.find(
-		rewardsWave24Canon,
-		"local softMotion = reducedMotion",
-		1,
-		true
-	),
+	string.find(rewardsWave24Canon, "local softMotion = reducedMotion", 1, true),
 	"Rewards softMotion canon residual for release"
 )
 local guildWave24 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
@@ -631,21 +967,33 @@ mark("wave24 crew flatlist focusclaim overview softmotion residuals")
 
 -- Wave25: Leaderboards FocusClaim + CrateRevealStage softMotion + DV21 content.
 local boardsRelease = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-assert(string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true), "LeaderboardConfirm host missing for release")
+assert(
+	string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true),
+	"LeaderboardConfirm host missing for release"
+)
 do
 	local hostStart = string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true)
 	assert(hostStart, "LeaderboardConfirm host missing")
 	local hostSlice = string.sub(boardsRelease, hostStart, hostStart + 420)
 	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "LeaderboardConfirm clips residual for release")
 end
-assert(string.find(boardsRelease, 'Name = "LeaderboardConfirmFilters"', 1, true), "LeaderboardConfirmFilters residual for release")
-assert(string.find(boardsRelease, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim residual for release")
+assert(
+	string.find(boardsRelease, 'Name = "LeaderboardConfirmFilters"', 1, true),
+	"LeaderboardConfirmFilters residual for release"
+)
+assert(
+	string.find(boardsRelease, "GamepadNavigationService.FocusClaim", 1, true),
+	"Leaderboards FocusClaim residual for release"
+)
 local stageRelease = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage")
 assert(
 	string.find(stageRelease, "local softMotion = props.reducedMotion == true", 1, true),
 	"CrateRevealStage softMotion canon residual for release"
 )
-assert(string.find(stageRelease, "local reducedMotion = softMotion", 1, true), "CrateRevealStage softMotion fold residual for release")
+assert(
+	string.find(stageRelease, "local reducedMotion = softMotion", 1, true),
+	"CrateRevealStage softMotion fold residual for release"
+)
 assert(string.find(cfg, 'Id = "wave24-offline-brief"', 1, true), "Story wave24 residual for release")
 assert(string.find(cfg, 'Id = "wave25-offline-brief"', 1, true), "Story wave25 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave24-offline"', 1, true), "Mail wave24 residual for release")
@@ -655,7 +1003,10 @@ mark("wave25 leaderboards focusclaim crate softmotion content residuals")
 -- Wave26: Mailbox body FlatList + Items EnsureShop snapshot + Boosts density + DV21 content.
 local mailboxWave26 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
 assert(string.find(mailboxWave26, "createElement(FlatList", 1, true), "Mailbox FlatList residual for release")
-assert(not string.find(mailboxWave26, 'createElement("scrollingframe"', 1, true), "Mailbox raw scrollingframe residual for release")
+assert(
+	not string.find(mailboxWave26, 'createElement("scrollingframe"', 1, true),
+	"Mailbox raw scrollingframe residual for release"
+)
 assert(string.find(mailboxWave26, 'Name = "MailClaimActions"', 1, true), "MailClaimActions residual for release")
 do
 	local hostStart = string.find(mailboxWave26, 'Name = "MailClaimActions"', 1, true)
@@ -677,12 +1028,22 @@ mark("wave26 mailbox flatlist items ensure boosts content residuals")
 
 -- Wave27: InventoryMath direct calls + SnapshotDomainInts + Trade/Credits softMotion + DV21 content.
 local invWave27 = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
-assert(not string.find(invWave27, "local function relicRowHeight", 1, true), "Inventory relicRowHeight wrapper residual for release")
+assert(
+	not string.find(invWave27, "local function relicRowHeight", 1, true),
+	"Inventory relicRowHeight wrapper residual for release"
+)
 assert(string.find(invWave27, "InventoryMath.RelicRowHeight", 1, true), "Inventory RelicRowHeight residual for release")
 assert(string.find(invWave27, "InventoryMath.OfferStock", 1, true), "Inventory OfferStock residual for release")
 local continuumWave27 = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
-assert(string.find(continuumWave27, "function ContinuumDomainMath.SnapshotDomainInts", 1, true), "SnapshotDomainInts missing for release")
-assert(string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true) or string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainInts", 1, true), "SS SnapshotDomainInts residual for release")
+assert(
+	string.find(continuumWave27, "function ContinuumDomainMath.SnapshotDomainInts", 1, true),
+	"SnapshotDomainInts missing for release"
+)
+assert(
+	string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainPublic", 1, true)
+		or string.find(ssReleaseSrc, "ContinuumDomainMath.SnapshotDomainInts", 1, true),
+	"SS SnapshotDomainInts residual for release"
+)
 assert(not string.find(continuumWave27, "GetService", 1, true), "ContinuumDomainMath must stay pure for release")
 local tradeWave27 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
 local tradeSoft = 0
@@ -704,11 +1065,20 @@ mark("wave27 inventory continuum trade credits content residuals")
 local crewWave28 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 assert(string.find(crewWave28, "createElement(FlatList", 1, true), "Crew FlatList residual for release")
 assert(string.find(crewWave28, "FocusClaim", 1, true), "Crew FocusClaim residual for release")
-assert(string.find(crewWave28, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true), "Crew overscan residual for release")
+assert(
+	string.find(crewWave28, "overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2", 1, true),
+	"Crew overscan residual for release"
+)
 local routerWave28 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(routerWave28, 'lazyView("CrewView", "CrewView")', 1, true), "PageRouter lazy CrewView residual for release")
+assert(
+	string.find(routerWave28, 'lazyView("CrewView", "CrewView")', 1, true),
+	"PageRouter lazy CrewView residual for release"
+)
 assert(not string.find(routerWave28, "local function CrewRow", 1, true), "CrewRow must leave PageRouter for release")
-assert(not string.find(routerWave28, "local FlatList = require", 1, true), "PageRouter FlatList import residual for release")
+assert(
+	not string.find(routerWave28, "local FlatList = require", 1, true),
+	"PageRouter FlatList import residual for release"
+)
 local mainWave28 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChromeWave28 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local navChromeWave28 = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
@@ -720,17 +1090,35 @@ mark("wave28 crew extract maingame softMotion content residuals")
 
 -- Wave29: OverviewView extract + Collect FocusClaim + Rail/Navigation softMotion + DV21 content.
 local overviewWave29 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewWave29, 'Name = "OverviewVaultClaimActions"', 1, true), "OverviewVaultClaimActions residual for release")
-assert(string.find(overviewWave29, "GamepadNavigationService.FocusClaim", 1, true), "Overview FocusClaim residual for release")
-assert(string.find(overviewWave29, "LayoutSectionPlan.planOverview", 1, true), "Overview planOverview residual for release")
+assert(
+	string.find(overviewWave29, 'Name = "OverviewVaultClaimActions"', 1, true),
+	"OverviewVaultClaimActions residual for release"
+)
+assert(
+	string.find(overviewWave29, "GamepadNavigationService.FocusClaim", 1, true),
+	"Overview FocusClaim residual for release"
+)
+assert(
+	string.find(overviewWave29, "LayoutSectionPlan.planOverview", 1, true),
+	"Overview planOverview residual for release"
+)
 assert(
 	string.find(overviewWave29, "local quietMotion = softMotion or effectsPaused or antilag.skipEntrance", 1, true),
 	"Overview quietMotion residual for release"
 )
 local routerWave29 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(routerWave29, 'lazyView("OverviewView", "OverviewView")', 1, true), "PageRouter lazy OverviewView residual for release")
-assert(not string.find(routerWave29, "local function OverviewView", 1, true), "inline OverviewView must leave PageRouter for release")
-assert(not string.find(routerWave29, "local function ReleaseCountdown", 1, true), "ReleaseCountdown must leave PageRouter for release")
+assert(
+	string.find(routerWave29, 'lazyView("OverviewView", "OverviewView")', 1, true),
+	"PageRouter lazy OverviewView residual for release"
+)
+assert(
+	not string.find(routerWave29, "local function OverviewView", 1, true),
+	"inline OverviewView must leave PageRouter for release"
+)
+assert(
+	not string.find(routerWave29, "local function ReleaseCountdown", 1, true),
+	"ReleaseCountdown must leave PageRouter for release"
+)
 local mainWave29 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local navChromeWave29 = fs.readFile("src/Client/AstralForge/UiCore.luau#NavChrome")
 assert(string.find(navChromeWave29, "local softMotion = ", 1, true), "RailButton softMotion residual for release")
@@ -749,17 +1137,35 @@ mark("wave29 overview extract maingame rail softMotion content residuals")
 -- Wave30: WorldsView + RewardsView extracts + StatChip softMotion + DV21 content.
 local worldsWave30 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorldsView")
 assert(string.find(worldsWave30, 'Name = "WorldsTravelClaim"', 1, true), "WorldsTravelClaim residual for release")
-assert(string.find(worldsWave30, "GamepadNavigationService.FocusClaim", 1, true), "Worlds FocusClaim residual for release")
+assert(
+	string.find(worldsWave30, "GamepadNavigationService.FocusClaim", 1, true),
+	"Worlds FocusClaim residual for release"
+)
 assert(string.find(worldsWave30, "reducedMotion = softMotion", 1, true), "Worlds softMotion fold residual for release")
 local rewardsWave30 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RewardsView")
 assert(string.find(rewardsWave30, 'Name = "RewardsDailyClaimActions"', 1, true), "RewardsDaily residual for release")
 assert(string.find(rewardsWave30, 'Name = "RewardsTimedClaimActions"', 1, true), "RewardsTimed residual for release")
-assert(string.find(rewardsWave30, "GamepadNavigationService.FocusClaim", 1, true), "Rewards FocusClaim residual for release")
+assert(
+	string.find(rewardsWave30, "GamepadNavigationService.FocusClaim", 1, true),
+	"Rewards FocusClaim residual for release"
+)
 local routerWave30 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(routerWave30, 'lazyView("WorldsView", "WorldsView")', 1, true), "PageRouter lazy Worlds residual for release")
-assert(string.find(routerWave30, 'lazyView("RewardsView", "RewardsView")', 1, true), "PageRouter lazy Rewards residual for release")
-assert(not string.find(routerWave30, "local function RewardsView", 1, true), "inline RewardsView must leave PageRouter for release")
-assert(not string.find(routerWave30, "GamepadNavigationService", 1, true), "PageRouter GamepadNavigation residual for release")
+assert(
+	string.find(routerWave30, 'lazyView("WorldsView", "WorldsView")', 1, true),
+	"PageRouter lazy Worlds residual for release"
+)
+assert(
+	string.find(routerWave30, 'lazyView("RewardsView", "RewardsView")', 1, true),
+	"PageRouter lazy Rewards residual for release"
+)
+assert(
+	not string.find(routerWave30, "local function RewardsView", 1, true),
+	"inline RewardsView must leave PageRouter for release"
+)
+assert(
+	not string.find(routerWave30, "GamepadNavigationService", 1, true),
+	"PageRouter GamepadNavigation residual for release"
+)
 local mainWave30 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChromeWave30 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 assert(string.find(topBarChromeWave30, "local softMotion = ", 1, true), "StatChip softMotion residual for release")
@@ -770,14 +1176,29 @@ mark("wave30 worlds rewards extract statchip softMotion content residuals")
 -- Wave31: WorkshopView extract + Buy FocusClaim + thin PageRouter + DV21 content.
 local workshopWave31 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopWave31, 'Name = "WorkshopBuyClaim"', 1, true), "WorkshopBuyClaim residual for release")
-assert(string.find(workshopWave31, "GamepadNavigationService.FocusClaim", 1, true), "Workshop FocusClaim residual for release")
-assert(string.find(workshopWave31, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true), "UpgradeBoard overscan residual for release")
+assert(
+	string.find(workshopWave31, "GamepadNavigationService.FocusClaim", 1, true),
+	"Workshop FocusClaim residual for release"
+)
+assert(
+	string.find(workshopWave31, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
+	"UpgradeBoard overscan residual for release"
+)
 local routerWave31 = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-assert(string.find(routerWave31, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter lazy Workshop residual for release")
-assert(not string.find(routerWave31, "local function UpgradeBoard", 1, true), "UpgradeBoard must leave PageRouter for release")
+assert(
+	string.find(routerWave31, 'lazyView("WorkshopView", "WorkshopView")', 1, true),
+	"PageRouter lazy Workshop residual for release"
+)
+assert(
+	not string.find(routerWave31, "local function UpgradeBoard", 1, true),
+	"UpgradeBoard must leave PageRouter for release"
+)
 assert(not string.find(routerWave31, "softMotion", 1, true), "PageRouter softMotion residual for release")
 local overviewWave31 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewWave31, "PageReadyMath.CountReadyQuests", 1, true), "Overview CountReadyQuests residual for release")
+assert(
+	string.find(overviewWave31, "PageReadyMath.CountReadyQuests", 1, true),
+	"Overview CountReadyQuests residual for release"
+)
 assert(string.find(cfg, 'Id = "wave31-offline-brief"', 1, true), "Story wave31 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave31-offline"', 1, true), "Mail wave31 residual for release")
 mark("wave31 workshop extract buy claim thin pagerouter content residuals")
@@ -786,11 +1207,20 @@ mark("wave31 workshop extract buy claim thin pagerouter content residuals")
 local mainWave32 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local topBarChromeWave32 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 local workspaceChromeWave32 = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
-assert(string.find(workspaceChromeWave32, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
-assert(string.find(workspaceChromeWave32, "GamepadNavigationService.FocusClaim", 1, true), "Workspace FocusClaim residual for release")
+assert(
+	string.find(workspaceChromeWave32, 'Name = "VaultCollectClaim"', 1, true),
+	"VaultCollectClaim residual for release"
+)
+assert(
+	string.find(workspaceChromeWave32, "GamepadNavigationService.FocusClaim", 1, true),
+	"Workspace FocusClaim residual for release"
+)
 local shellFxWave32 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shellFxWave32, "local softMotion = ", 1, true), "TradeReturnPill softMotion residual for release")
-assert(string.find(topBarChromeWave32, "local softMotion = ", 1, true), "ActiveBoostIcon softMotion residual for release")
+assert(
+	string.find(topBarChromeWave32, "local softMotion = ", 1, true),
+	"ActiveBoostIcon softMotion residual for release"
+)
 assert(string.find(shellFxWave32, "local softMotion = ", 1, true), "ConfettiBurst softMotion residual for release")
 assert(string.find(workspaceChromeWave32, "local softMotion = ", 1, true), "Workspace softMotion residual for release")
 do
@@ -809,14 +1239,30 @@ mark("wave32 vault collect claim chrome softMotion content residuals")
 local topBarChromeWave33 = fs.readFile("src/Client/AstralForge/UiCore.luau#TopBarChrome")
 assert(string.find(topBarChromeWave33, "local function TopBar", 1, true), "TopBar extract residual for release")
 assert(string.find(topBarChromeWave33, "local function StatChip", 1, true), "StatChip extract residual for release")
-assert(string.find(topBarChromeWave33, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon extract residual for release")
-assert(string.find(topBarChromeWave33, "local softMotion = ", 1, true), "TopbarReleaseCountdown softMotion residual for release")
+assert(
+	string.find(topBarChromeWave33, "local function ActiveBoostIcon", 1, true),
+	"ActiveBoostIcon extract residual for release"
+)
+assert(
+	string.find(topBarChromeWave33, "local softMotion = ", 1, true),
+	"TopbarReleaseCountdown softMotion residual for release"
+)
 local mainWave33 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
-assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("TopBarChrome")', 1, true), "AppShellChrome TopBarChrome require residual for release")
-assert(string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true) or string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx"), 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
+assert(
+	string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("TopBarChrome")', 1, true),
+	"AppShellChrome TopBarChrome require residual for release"
+)
+assert(
+	string.find(mainWave33, 'Name = "TradeReturnClaim"', 1, true)
+		or string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx"), 'Name = "TradeReturnClaim"', 1, true),
+	"TradeReturnClaim residual for release"
+)
 assert(not string.find(mainWave33, "local function TopBar", 1, true), "TopBar must leave MainGame for release")
 assert(not string.find(mainWave33, "local function StatChip", 1, true), "StatChip must leave MainGame for release")
-assert(not string.find(mainWave33, "local function ActiveBoostIcon", 1, true), "ActiveBoostIcon must leave MainGame for release")
+assert(
+	not string.find(mainWave33, "local function ActiveBoostIcon", 1, true),
+	"ActiveBoostIcon must leave MainGame for release"
+)
 do
 	local shellFxWave33 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 	local hostStart = string.find(shellFxWave33, 'Name = "TradeReturnClaim"', 1, true)
@@ -834,12 +1280,18 @@ assert(string.find(navChromeWave34, "local function Navigation", 1, true), "Navi
 assert(string.find(navChromeWave34, "local function RailButton", 1, true), "RailButton extract residual for release")
 assert(string.find(navChromeWave34, "local function MoreDock", 1, true), "MoreDock extract residual for release")
 assert(string.find(navChromeWave34, 'Name = "RailNavClaim"', 1, true), "RailNavClaim residual for release")
-assert(string.find(navChromeWave34, "GamepadNavigationService.FocusClaim", 1, true), "RailNav FocusClaim residual for release")
+assert(
+	string.find(navChromeWave34, "GamepadNavigationService.FocusClaim", 1, true),
+	"RailNav FocusClaim residual for release"
+)
 assert(string.find(navChromeWave34, "local softMotion = ", 1, true), "MoreDockButton softMotion residual for release")
 assert(string.find(navChromeWave34, "local softMotion = ", 1, true), "MoreDockPopover softMotion residual for release")
 assert(string.find(navChromeWave34, "local softMotion = ", 1, true), "MoreCell softMotion residual for release")
 local mainWave34 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
-assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("NavChrome")', 1, true), "AppShellChrome NavChrome require residual for release")
+assert(
+	string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("NavChrome")', 1, true),
+	"AppShellChrome NavChrome require residual for release"
+)
 local shellFxWave34 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shellFxWave34, "local softMotion = ", 1, true), "AmbientLayer softMotion residual for release")
 local workspaceChromeWave34 = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
@@ -866,18 +1318,39 @@ mark("wave34 navchrome extract rail claim softMotion content residuals")
 
 -- Wave35: WorkspaceChrome extract + NextUnlock/AppShell softMotion + DV21 content.
 local workspaceChromeWave35 = fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome")
-assert(string.find(workspaceChromeWave35, "local function Workspace", 1, true), "Workspace extract residual for release")
-assert(string.find(workspaceChromeWave35, "local function VaultPill", 1, true), "VaultPill extract residual for release")
-assert(string.find(workspaceChromeWave35, "local function NextUnlockStrip", 1, true), "NextUnlockStrip extract residual for release")
-assert(string.find(workspaceChromeWave35, 'Name = "VaultCollectClaim"', 1, true), "VaultCollectClaim residual for release")
-assert(string.find(workspaceChromeWave35, "local softMotion = ", 1, true), "NextUnlockStrip softMotion residual for release")
+assert(
+	string.find(workspaceChromeWave35, "local function Workspace", 1, true),
+	"Workspace extract residual for release"
+)
+assert(
+	string.find(workspaceChromeWave35, "local function VaultPill", 1, true),
+	"VaultPill extract residual for release"
+)
+assert(
+	string.find(workspaceChromeWave35, "local function NextUnlockStrip", 1, true),
+	"NextUnlockStrip extract residual for release"
+)
+assert(
+	string.find(workspaceChromeWave35, 'Name = "VaultCollectClaim"', 1, true),
+	"VaultCollectClaim residual for release"
+)
+assert(
+	string.find(workspaceChromeWave35, "local softMotion = ", 1, true),
+	"NextUnlockStrip softMotion residual for release"
+)
 local mainWave35 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local appShellWave35 = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
-assert(string.find(appShellWave35, '("WorkspaceChrome")', 1, true), "AppShellChrome WorkspaceChrome require residual for release")
+assert(
+	string.find(appShellWave35, '("WorkspaceChrome")', 1, true),
+	"AppShellChrome WorkspaceChrome require residual for release"
+)
 assert(string.find(appShellWave35, "local softMotion = ", 1, true), "AppShell softMotion residual for release")
 assert(not string.find(mainWave35, "local function Workspace", 1, true), "Workspace must leave MainGame for release")
 assert(not string.find(mainWave35, "local function VaultPill", 1, true), "VaultPill must leave MainGame for release")
-assert(not string.find(mainWave35, "local function NextUnlockStrip", 1, true), "NextUnlockStrip must leave MainGame for release")
+assert(
+	not string.find(mainWave35, "local function NextUnlockStrip", 1, true),
+	"NextUnlockStrip must leave MainGame for release"
+)
 do
 	local soft = 0
 	for _ in string.gmatch(workspaceChromeWave35, "softMotion") do
@@ -892,13 +1365,25 @@ mark("wave35 workspacechrome extract nextunlock appshell content residuals")
 -- Wave36: ShellFx extract + Inventory/Guild/Anomaly softMotion densify + DV21 content.
 local shellFxWave36 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
 assert(string.find(shellFxWave36, "local function AmbientLayer", 1, true), "AmbientLayer extract residual for release")
-assert(string.find(shellFxWave36, "local function ConfettiBurst", 1, true), "ConfettiBurst extract residual for release")
+assert(
+	string.find(shellFxWave36, "local function ConfettiBurst", 1, true),
+	"ConfettiBurst extract residual for release"
+)
 assert(string.find(shellFxWave36, "local softMotion = ", 1, true), "AmbientLayer softMotion residual for release")
 assert(string.find(shellFxWave36, "local softMotion = ", 1, true), "ConfettiBurst softMotion residual for release")
 local mainWave36 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
-assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("ShellFx")', 1, true), "AppShellChrome ShellFx require residual for release")
-assert(not string.find(mainWave36, "local function AmbientLayer", 1, true), "AmbientLayer must leave MainGame for release")
-assert(not string.find(mainWave36, "local function ConfettiBurst", 1, true), "ConfettiBurst must leave MainGame for release")
+assert(
+	string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), '("ShellFx")', 1, true),
+	"AppShellChrome ShellFx require residual for release"
+)
+assert(
+	not string.find(mainWave36, "local function AmbientLayer", 1, true),
+	"AmbientLayer must leave MainGame for release"
+)
+assert(
+	not string.find(mainWave36, "local function ConfettiBurst", 1, true),
+	"ConfettiBurst must leave MainGame for release"
+)
 assert(not string.find(mainWave36, "local CONFETTI_PIECES", 1, true), "CONFETTI_PIECES must leave MainGame for release")
 local invWave36 = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 local guildWave36 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
@@ -933,11 +1418,25 @@ mark("wave36 shellfx extract inventory guild anomaly softMotion content residual
 
 -- Wave37: TradeReturn into ShellFx + Command/Settings/Lab/Continuum densify + DENSE floors + DV21.
 local shellFxWave37 = fs.readFile("src/Client/AstralForge/UiCore.luau#ShellFx")
-assert(string.find(shellFxWave37, "local function TradeReturnPill", 1, true), "TradeReturnPill extract residual for release")
+assert(
+	string.find(shellFxWave37, "local function TradeReturnPill", 1, true),
+	"TradeReturnPill extract residual for release"
+)
 assert(string.find(shellFxWave37, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim residual for release")
 local mainWave37 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
-assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"), "local TradeReturnPill = _ShellFx.TradeReturnPill", 1, true), "AppShellChrome TradeReturnPill bind residual for release")
-assert(not string.find(mainWave37, "local function TradeReturnPill", 1, true), "TradeReturnPill must leave MainGame for release")
+assert(
+	string.find(
+		fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome"),
+		"local TradeReturnPill = _ShellFx.TradeReturnPill",
+		1,
+		true
+	),
+	"AppShellChrome TradeReturnPill bind residual for release"
+)
+assert(
+	not string.find(mainWave37, "local function TradeReturnPill", 1, true),
+	"TradeReturnPill must leave MainGame for release"
+)
 local commandWave37 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 local settingsWave37 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
 local labWave37 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
@@ -961,8 +1460,14 @@ do
 	assert(soft >= 14, "Settings softMotion densify residual for release, got " .. tostring(soft))
 end
 local playabilityWave37 = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playabilityWave37, '["src/Client/AstralForge/pages/PagesStory.luau#InventoryView"] = 12', 1, true), "Inventory DENSE floor residual for release")
-assert(string.find(playabilityWave37, '["src/Client/AstralForge/pages/PagesSystem.luau#CommandView"] = 12', 1, true), "Command DENSE floor residual for release")
+assert(
+	string.find(playabilityWave37, '["src/Client/AstralForge/pages/PagesStory.luau#InventoryView"] = 12', 1, true),
+	"Inventory DENSE floor residual for release"
+)
+assert(
+	string.find(playabilityWave37, '["src/Client/AstralForge/pages/PagesSystem.luau#CommandView"] = 12', 1, true),
+	"Command DENSE floor residual for release"
+)
 assert(string.find(cfg, 'Id = "wave37-offline-brief"', 1, true), "Story wave37 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave37-offline"', 1, true), "Mail wave37 residual for release")
 mark("wave37 tradereturn shellfx command settings lab continuum densify content residuals")
@@ -972,8 +1477,11 @@ local appShellWave38 = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellC
 assert(string.find(appShellWave38, "local function AppShell", 1, true), "AppShell extract residual for release")
 assert(string.find(appShellWave38, "local softMotion = ", 1, true), "AppShell softMotion residual for release")
 local mainWave38 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
-assert(string.find(mainWave38, "(\"AppShellChrome\")", 1, true), "MainGame AppShellChrome require residual for release")
-assert(string.find(mainWave38, "local Shell = _AppShellChrome.Shell", 1, true), "MainGame Shell bind residual for release")
+assert(string.find(mainWave38, '("AppShellChrome")', 1, true), "MainGame AppShellChrome require residual for release")
+assert(
+	string.find(mainWave38, "local Shell = _AppShellChrome.Shell", 1, true),
+	"MainGame Shell bind residual for release"
+)
 assert(not string.find(mainWave38, "local function AppShell", 1, true), "AppShell must leave MainGame for release")
 assert(not string.find(mainWave38, "local TUTORIAL_STEPS", 1, true), "TUTORIAL_STEPS must leave MainGame for release")
 do
@@ -1084,10 +1592,19 @@ mark("wave39 anomaly milestones convergence forgepath overlay softMotion densify
 
 -- Wave40: VisitSnapshot peel + DomainExpansion/Purchase/Boosts densify + DENSE floors + DV21.
 local visitSnapWave40 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#VisitSnapshot")
-assert(string.find(visitSnapWave40, "function VisitSnapshot.Build", 1, true), "VisitSnapshot.Build residual for release")
+assert(
+	string.find(visitSnapWave40, "function VisitSnapshot.Build", 1, true),
+	"VisitSnapshot.Build residual for release"
+)
 local serverWave40 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(serverWave40, '("VisitSnapshot")', 1, true), "ServerServices VisitSnapshot require residual for release")
-assert(string.find(serverWave40, "VisitSnapshot.Build", 1, true), "ServerServices VisitSnapshot.Build residual for release")
+assert(
+	string.find(serverWave40, '("VisitSnapshot")', 1, true),
+	"ServerServices VisitSnapshot require residual for release"
+)
+assert(
+	string.find(serverWave40, "VisitSnapshot.Build", 1, true),
+	"ServerServices VisitSnapshot.Build residual for release"
+)
 local domainWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
 local purchaseWave40 = fs.readFile("src/Client/AstralForge/UiOverlays.luau#purchaseOverlay")
 local boostsWave40 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
@@ -1114,12 +1631,21 @@ mark("wave40 visitsnapshot peel domain purchase boosts softMotion densify conten
 
 -- Wave41: PublicPlayerRecord/SettingsSeal peels + Research/Wheel/Boot/AdminPrank densify + DENSE floors + DV21.
 local publicRecWave41 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#PublicPlayerRecord")
-assert(string.find(publicRecWave41, "function PublicPlayerRecord.Build", 1, true), "PublicPlayerRecord.Build residual for release")
+assert(
+	string.find(publicRecWave41, "function PublicPlayerRecord.Build", 1, true),
+	"PublicPlayerRecord.Build residual for release"
+)
 local sealWave41 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#SettingsSeal")
 assert(string.find(sealWave41, "function SettingsSeal.Apply", 1, true), "SettingsSeal.Apply residual for release")
 local serverWave41 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(serverWave41, '("PublicPlayerRecord")', 1, true), "ServerServices PublicPlayerRecord require residual for release")
-assert(string.find(serverWave41, "SettingsSeal.Apply", 1, true), "ServerServices SettingsSeal.Apply residual for release")
+assert(
+	string.find(serverWave41, '("PublicPlayerRecord")', 1, true),
+	"ServerServices PublicPlayerRecord require residual for release"
+)
+assert(
+	string.find(serverWave41, "SettingsSeal.Apply", 1, true),
+	"ServerServices SettingsSeal.Apply residual for release"
+)
 local researchWave41 = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
 local wheelWave41 = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
 local bootWave41 = fs.readFile("src/Client/AstralForge/BootKit.luau#BootScreen")
@@ -1146,12 +1672,24 @@ mark("wave41 publicplayer settingsseal research wheel boot densify content resid
 
 -- Wave42: NoticeMath peel + Missions/Worlds densify + DENSE floors + DV21.
 local noticeWave42 = fs.readFile("src/Client/AstralForge/CoreKit.luau#noticeMath")
-assert(string.find(noticeWave42, "function NoticeMath.NormalizeTitle", 1, true), "NoticeMath.NormalizeTitle residual for release")
-assert(string.find(noticeWave42, "function NoticeMath.ShouldDedupe", 1, true), "NoticeMath.ShouldDedupe residual for release")
+assert(
+	string.find(noticeWave42, "function NoticeMath.NormalizeTitle", 1, true),
+	"NoticeMath.NormalizeTitle residual for release"
+)
+assert(
+	string.find(noticeWave42, "function NoticeMath.ShouldDedupe", 1, true),
+	"NoticeMath.ShouldDedupe residual for release"
+)
 local mainWave42 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 assert(string.find(mainWave42, '("noticeMath")', 1, true), "MainGame noticeMath require residual for release")
-assert(string.find(mainWave42, "NoticeMath.NormalizeTitle", 1, true), "MainGame NoticeMath.NormalizeTitle residual for release")
-assert(not string.find(mainWave42, 'if title == "Boost online" then "Boost on"', 1, true), "title normalize must leave MainGame for release")
+assert(
+	string.find(mainWave42, "NoticeMath.NormalizeTitle", 1, true),
+	"MainGame NoticeMath.NormalizeTitle residual for release"
+)
+assert(
+	not string.find(mainWave42, 'if title == "Boost online" then "Boost on"', 1, true),
+	"title normalize must leave MainGame for release"
+)
 local missionsWave42 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 assert(string.find(missionsWave42, "local softMotion = ", 1, true), "MissionRow softMotion residual for release")
 do
@@ -1167,12 +1705,27 @@ mark("wave42 noticemath peel missions worlds densify content residuals")
 
 -- Wave43: SnapshotEnvelopeMath peel + Chat/Convergence/StarGrid densify + DENSE floors + DV21.
 local envelopeWave43 = fs.readFile("src/Client/AstralForge/CoreKit.luau#snapshotEnvelopeMath")
-assert(string.find(envelopeWave43, "function SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "SnapshotEnvelopeMath.IsValidEnvelope residual for release")
-assert(string.find(envelopeWave43, "function SnapshotEnvelopeMath.IsFiniteNumber", 1, true), "SnapshotEnvelopeMath.IsFiniteNumber residual for release")
+assert(
+	string.find(envelopeWave43, "function SnapshotEnvelopeMath.IsValidEnvelope", 1, true),
+	"SnapshotEnvelopeMath.IsValidEnvelope residual for release"
+)
+assert(
+	string.find(envelopeWave43, "function SnapshotEnvelopeMath.IsFiniteNumber", 1, true),
+	"SnapshotEnvelopeMath.IsFiniteNumber residual for release"
+)
 local mainWave43 = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
-assert(string.find(mainWave43, '("snapshotEnvelopeMath")', 1, true), "MainGame snapshotEnvelopeMath require residual for release")
-assert(string.find(mainWave43, "SnapshotEnvelopeMath.IsValidEnvelope", 1, true), "MainGame IsValidEnvelope residual for release")
-assert(not string.find(mainWave43, 'local numericKeys = { "Revision", "SnapshotId"', 1, true), "numericKeys must leave MainGame for release")
+assert(
+	string.find(mainWave43, '("snapshotEnvelopeMath")', 1, true),
+	"MainGame snapshotEnvelopeMath require residual for release"
+)
+assert(
+	string.find(mainWave43, "SnapshotEnvelopeMath.IsValidEnvelope", 1, true),
+	"MainGame IsValidEnvelope residual for release"
+)
+assert(
+	not string.find(mainWave43, 'local numericKeys = { "Revision", "SnapshotId"', 1, true),
+	"numericKeys must leave MainGame for release"
+)
 local chatWave43 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 assert(string.find(chatWave43, "local softMotion = ", 1, true), "MessageRow softMotion residual for release")
 do
@@ -1197,18 +1750,35 @@ mark("wave43 snapshotenvelope chat convergence stargrid densify content residual
 
 -- Wave44: UnlimitedMoneySeal/StoryMailSnapshot peels + Overview/Feedback/Mailbox/Echo densify + DENSE floors + DV21.
 local moneyWave44 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#UnlimitedMoneySeal")
-assert(string.find(moneyWave44, "function UnlimitedMoneySeal.Apply", 1, true), "UnlimitedMoneySeal.Apply residual for release")
+assert(
+	string.find(moneyWave44, "function UnlimitedMoneySeal.Apply", 1, true),
+	"UnlimitedMoneySeal.Apply residual for release"
+)
 local storyMailWave44 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#StoryMailSnapshot")
-assert(string.find(storyMailWave44, "function StoryMailSnapshot.BuildStory", 1, true), "StoryMailSnapshot.BuildStory residual for release")
+assert(
+	string.find(storyMailWave44, "function StoryMailSnapshot.BuildStory", 1, true),
+	"StoryMailSnapshot.BuildStory residual for release"
+)
 local servicesWave44 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(servicesWave44, "UnlimitedMoneySeal.Apply", 1, true), "ServerServices UnlimitedMoneySeal residual for release")
-assert(string.find(servicesWave44, "StoryMailSnapshot.BuildMailbox", 1, true), "ServerServices StoryMailSnapshot residual for release")
-assert(not string.find(servicesWave44, "profile.Cash = MAX_SAFE_CURRENCY", 1, true), "cash seal must leave ServerServices for release")
+assert(
+	string.find(servicesWave44, "UnlimitedMoneySeal.Apply", 1, true),
+	"ServerServices UnlimitedMoneySeal residual for release"
+)
+assert(
+	string.find(servicesWave44, "StoryMailSnapshot.BuildMailbox", 1, true),
+	"ServerServices StoryMailSnapshot residual for release"
+)
+assert(
+	not string.find(servicesWave44, "profile.Cash = MAX_SAFE_CURRENCY", 1, true),
+	"cash seal must leave ServerServices for release"
+)
 local overviewWave44 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
 assert(string.find(overviewWave44, "local softMotion = ", 1, true), "ReleaseCountdown softMotion residual for release")
 do
 	local soft = 0
-	for _ in string.gmatch(overviewWave44, "softMotion") do
+	local goalSummary = fs.readFile("src/Client/AstralForge/GoalSummary.luau")
+	assert(string.find(goalSummary, "reducedMotion = softMotion", 1, true), "Goal summary must forward reduced motion")
+	for _ in string.gmatch(overviewWave44 .. goalSummary, "softMotion") do
 		soft += 1
 	end
 	assert(soft >= 14, "Overview softMotion densify residual for release, got " .. tostring(soft))
@@ -1230,11 +1800,20 @@ mark("wave44 unlimitedmoney storymail overview feedback mailbox echo densify con
 local visitorWave45 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#VisitorList")
 assert(string.find(visitorWave45, "function VisitorList.Build", 1, true), "VisitorList.Build residual for release")
 local salvageWave45 = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#AutoSalvageSnapshot")
-assert(string.find(salvageWave45, "function AutoSalvageSnapshot.Public", 1, true), "AutoSalvageSnapshot.Public residual for release")
+assert(
+	string.find(salvageWave45, "function AutoSalvageSnapshot.Public", 1, true),
+	"AutoSalvageSnapshot.Public residual for release"
+)
 local servicesWave45 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(servicesWave45, "VisitorList.Build", 1, true), "ServerServices VisitorList residual for release")
-assert(string.find(servicesWave45, "AutoSalvageSnapshot.Public", 1, true), "ServerServices AutoSalvageSnapshot residual for release")
-assert(not string.find(servicesWave45, 'Enabled = false, MachineId = "StellarCore", Reserve = 0.25', 1, true), "AutoForge default must leave ServerServices for release")
+assert(
+	string.find(servicesWave45, "AutoSalvageSnapshot.Public", 1, true),
+	"ServerServices AutoSalvageSnapshot residual for release"
+)
+assert(
+	not string.find(servicesWave45, 'Enabled = false, MachineId = "StellarCore", Reserve = 0.25', 1, true),
+	"AutoForge default must leave ServerServices for release"
+)
 local shopWave45 = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
 assert(string.find(shopWave45, "local softMotion = ", 1, true), "ShopCatalog softMotion residual for release")
 do
@@ -1259,11 +1838,23 @@ mark("wave45 visitorlist autosalvage shop admin story rebirth densify content re
 
 -- Wave46: Domain/Continuum SnapshotPublic peels + Credits/Worlds/Rewards/Workshop densify + DENSE floors + DV21.
 local continuumWave46 = fs.readFile("src/Server/AstralForge/Modules/EconomyMath.luau#ContinuumDomainMath")
-assert(string.find(continuumWave46, "function ContinuumDomainMath.SnapshotDomainPublic", 1, true), "SnapshotDomainPublic residual for release")
-assert(string.find(continuumWave46, "function ContinuumDomainMath.SnapshotContinuumPublic", 1, true), "SnapshotContinuumPublic residual for release")
+assert(
+	string.find(continuumWave46, "function ContinuumDomainMath.SnapshotDomainPublic", 1, true),
+	"SnapshotDomainPublic residual for release"
+)
+assert(
+	string.find(continuumWave46, "function ContinuumDomainMath.SnapshotContinuumPublic", 1, true),
+	"SnapshotContinuumPublic residual for release"
+)
 local servicesWave46 = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
-assert(string.find(servicesWave46, "ContinuumDomainMath.SnapshotDomainPublic", 1, true), "ServerServices SnapshotDomainPublic residual for release")
-assert(not string.find(servicesWave46, "Domain = (function()", 1, true), "Domain IIFE must leave ServerServices for release")
+assert(
+	string.find(servicesWave46, "ContinuumDomainMath.SnapshotDomainPublic", 1, true),
+	"ServerServices SnapshotDomainPublic residual for release"
+)
+assert(
+	not string.find(servicesWave46, "Domain = (function()", 1, true),
+	"Domain IIFE must leave ServerServices for release"
+)
 local creditsWave46 = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
 assert(string.find(creditsWave46, "local softMotion = ", 1, true), "CreditsRoles softMotion residual for release")
 do
@@ -1304,21 +1895,25 @@ mark("wave49 mailbox shop effects fluxsurge credits inventory rebirth settings t
 -- Wave49 residuals raise the offline subset past checks=54.
 assert(#passed > 54, "release-readiness offline subset must stay beyond checks=54, got " .. tostring(#passed))
 
-print(string.format(
-	"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",
-	#passed,
-	countKeys(machineIds),
-	countKeys(researchIds),
-	countKeys(zoneIds),
-	countKeys(crateIds),
-	countKeys(artifactIds),
-	countKeys(expeditionIds),
-	countKeys(weeklyIds),
-	countKeys(shopIds),
-	countKeys(defIds),
-	countKeys(achievementIds),
-	countKeys(mailIds),
-	countKeys(storyIds),
-	countKeys(boostIds)
-))
-print("[INFO] [TEST] Studio-only remainder: ReleaseReadiness.RunQuick/RunSoak + Device Simulator (not claimed by npm test)")
+print(
+	string.format(
+		"[INFO] [TEST] release-readiness offline subset passed | checks=%d machines=%d research=%d zones=%d crates=%d artifacts=%d expeditions=%d weekly=%d shop=%d relics=%d achievements=%d mail=%d story=%d boosts=%d",
+		#passed,
+		countKeys(machineIds),
+		countKeys(researchIds),
+		countKeys(zoneIds),
+		countKeys(crateIds),
+		countKeys(artifactIds),
+		countKeys(expeditionIds),
+		countKeys(weeklyIds),
+		countKeys(shopIds),
+		countKeys(defIds),
+		countKeys(achievementIds),
+		countKeys(mailIds),
+		countKeys(storyIds),
+		countKeys(boostIds)
+	)
+)
+print(
+	"[INFO] [TEST] Studio-only remainder: ReleaseReadiness.RunQuick/RunSoak + Device Simulator (not claimed by npm test)"
+)

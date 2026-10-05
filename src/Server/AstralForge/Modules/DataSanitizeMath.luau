@@ -69,11 +69,7 @@ function DataSanitizeMath.ScrubNonFinite(value: any, depth: number?, budget: { n
 	return value
 end
 
-function DataSanitizeMath.ClampLevelBag(
-	bag: any,
-	byId: any,
-	nonNegative: ((any) -> number)?
-): any
+function DataSanitizeMath.ClampLevelBag(bag: any, byId: any, nonNegative: ((any) -> number)?): any
 	if type(bag) ~= "table" then
 		return bag
 	end
@@ -87,9 +83,7 @@ function DataSanitizeMath.ClampLevelBag(
 	for key, value in bag do
 		local item = catalog[key]
 		local maxLevel = type(item) == "table" and tonumber(item.MaxLevel) or nil
-		local nextValue = if maxLevel ~= nil
-			then math.clamp(math.floor(clamp(value)), 0, maxLevel)
-			else 0
+		local nextValue = if maxLevel ~= nil then math.clamp(math.floor(clamp(value)), 0, maxLevel) else 0
 		bag[key] = if nextValue > 0 then nextValue else nil
 	end
 	return bag
@@ -111,16 +105,16 @@ function DataSanitizeMath.ClampAutoForge(
 			return DataSanitizeMath.NonNegative(value)
 		end
 	end
-	local bag = if type(autoForge) == "table" then autoForge else {
-		Enabled = false,
-		MachineId = fallback,
-		Reserve = 0.25,
-		Bought = 0,
-	}
+	local bag = if type(autoForge) == "table"
+		then autoForge
+		else {
+			Enabled = false,
+			MachineId = fallback,
+			Reserve = 0.25,
+			Bought = 0,
+		}
 	bag.Enabled = bag.Enabled == true
-	bag.MachineId = if type(bag.MachineId) == "string" and catalog[bag.MachineId]
-		then bag.MachineId
-		else fallback
+	bag.MachineId = if type(bag.MachineId) == "string" and catalog[bag.MachineId] then bag.MachineId else fallback
 	bag.Reserve = math.clamp(clamp(bag.Reserve), 0, 0.9)
 	bag.Bought = math.floor(clamp(bag.Bought))
 	return bag

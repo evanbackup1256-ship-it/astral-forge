@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "lune run scripts/verify_project.luau",
+    "format": "npx --yes @johnnymorganz/stylua-bin@2.5.2 --verify src --glob '**/*.luau'",
+    "format:check": "npx --yes @johnnymorganz/stylua-bin@2.5.2 --check src --glob '**/*.luau'",
     "generate-config": "lune run build/GenerateGameConfig.luau"
   },
   "keywords": [],

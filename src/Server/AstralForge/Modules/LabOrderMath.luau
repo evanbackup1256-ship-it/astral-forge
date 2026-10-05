@@ -85,19 +85,10 @@ function LabOrderMath.NormalizeRouting(
 	return changed
 end
 
-function LabOrderMath.TotalCells(
-	rebirths: number,
-	baseCells: number,
-	rebirthsPerCell: number,
-	maxCells: number
-): number
+function LabOrderMath.TotalCells(rebirths: number, baseCells: number, rebirthsPerCell: number, maxCells: number): number
 	local safeRebirths = math.max(0, math.floor(tonumber(rebirths) or 0))
 	local per = math.max(1, math.floor(tonumber(rebirthsPerCell) or 1))
-	return math.clamp(
-		baseCells + math.floor(safeRebirths / per),
-		baseCells,
-		maxCells
-	)
+	return math.clamp(baseCells + math.floor(safeRebirths / per), baseCells, maxCells)
 end
 
 function LabOrderMath.OrderTarget(order: OrderDefinition, rebirths: number, bankFluxTarget: number?): number

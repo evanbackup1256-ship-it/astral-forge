@@ -122,8 +122,24 @@ function CasinoMath.HighLowWins(card: number, nextCard: number, guess: string): 
 end
 
 CasinoMath.RED = table.freeze({
-	[1] = true, [3] = true, [5] = true, [7] = true, [9] = true, [12] = true, [14] = true, [16] = true, [18] = true,
-	[19] = true, [21] = true, [23] = true, [25] = true, [27] = true, [30] = true, [32] = true, [34] = true, [36] = true,
+	[1] = true,
+	[3] = true,
+	[5] = true,
+	[7] = true,
+	[9] = true,
+	[12] = true,
+	[14] = true,
+	[16] = true,
+	[18] = true,
+	[19] = true,
+	[21] = true,
+	[23] = true,
+	[25] = true,
+	[27] = true,
+	[30] = true,
+	[32] = true,
+	[34] = true,
+	[36] = true,
 })
 
 function CasinoMath.RouletteSpin(rand: Rand): number
@@ -172,7 +188,20 @@ function CasinoMath.RoulettePickValid(pick: any): boolean
 	if type(pick) ~= "string" then
 		return false
 	end
-	local fixed = { Red = true, Black = true, Odd = true, Even = true, Low = true, High = true, D1 = true, D2 = true, D3 = true, C1 = true, C2 = true, C3 = true }
+	local fixed = {
+		Red = true,
+		Black = true,
+		Odd = true,
+		Even = true,
+		Low = true,
+		High = true,
+		D1 = true,
+		D2 = true,
+		D3 = true,
+		C1 = true,
+		C2 = true,
+		C3 = true,
+	}
 	if fixed[pick] then
 		return true
 	end
@@ -260,8 +289,16 @@ CasinoMath.CLUB_RANKS = table.freeze({
 	table.freeze({ Name = "Gambler", XP = 150, Reward = table.freeze({ Stardust = 12, FreeSpins = 1 }) }),
 	table.freeze({ Name = "High Roller", XP = 400, Reward = table.freeze({ Cores = 1, FreeSpins = 2 }) }),
 	table.freeze({ Name = "Whale", XP = 1000, Reward = table.freeze({ Stardust = 40, Cores = 2, FreeSpins = 2 }) }),
-	table.freeze({ Name = "Starlit Legend", XP = 2500, Reward = table.freeze({ Stardust = 100, Cores = 5, FreeSpins = 3 }) }),
-	table.freeze({ Name = "Casino Royale", XP = 6000, Reward = table.freeze({ Stardust = 250, Cores = 10, FreeSpins = 5 }) }),
+	table.freeze({
+		Name = "Starlit Legend",
+		XP = 2500,
+		Reward = table.freeze({ Stardust = 100, Cores = 5, FreeSpins = 3 }),
+	}),
+	table.freeze({
+		Name = "Casino Royale",
+		XP = 6000,
+		Reward = table.freeze({ Stardust = 250, Cores = 10, FreeSpins = 5 }),
+	}),
 })
 
 function CasinoMath.ClubXp(stakeTier: number): number
@@ -289,7 +326,11 @@ end
 function CasinoMath.Ensure(bag: any): any
 	local source = if type(bag) == "table" then bag else {}
 	local function persist(value: any): number | string
-		if type(value) == "string" and #value <= 40 and (value == "inf" or (string.match(value, "^[%d%.eE%+]+$") ~= nil and tonumber(value) ~= nil)) then
+		if
+			type(value) == "string"
+			and #value <= 40
+			and (value == "inf" or (string.match(value, "^[%d%.eE%+]+$") ~= nil and tonumber(value) ~= nil))
+		then
 			return value
 		end
 		local n = tonumber(value)
@@ -314,6 +355,7 @@ function CasinoMath.Ensure(bag: any): any
 	end
 	return {
 		Played = count(source.Played),
+		Arcade = if type(source.Arcade) == "table" then source.Arcade else nil,
 		Won = count(source.Won),
 		Streak = count(source.Streak, 1000),
 		BestStreak = count(source.BestStreak, 1000),

@@ -75,7 +75,12 @@ local function engineOwns(gui)
 		return false
 	end
 	for _, child in parent:GetChildren() do
-		if child:IsA("UIListLayout") or child:IsA("UIGridLayout") or child:IsA("UIPageLayout") or child:IsA("UITableLayout") then
+		if
+			child:IsA("UIListLayout")
+			or child:IsA("UIGridLayout")
+			or child:IsA("UIPageLayout")
+			or child:IsA("UITableLayout")
+		then
 			return true
 		end
 	end
@@ -98,7 +103,12 @@ local function isFloatingPanel(instance)
 	return instance:IsA("Frame") and instance.Parent ~= nil and instance.Parent:IsA("LayerCollector")
 end
 local function isTrackedClass(instance)
-	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame") or isFloatingPanel(instance)
+	return instance:IsA("TextLabel")
+		or instance:IsA("TextBox")
+		or instance:IsA("GuiButton")
+		or instance:IsA("CanvasGroup")
+		or instance:IsA("ScrollingFrame")
+		or isFloatingPanel(instance)
 end
 local function applyTextFloor(label): boolean
 	local original = pendingFloor[label]
@@ -196,7 +206,12 @@ local function repairButton(button)
 	local top = if pad ~= nil then pad.PaddingTop.Scale * parentSize.Y + pad.PaddingTop.Offset else 0
 	local right = if pad ~= nil then pad.PaddingRight.Scale * parentSize.X + pad.PaddingRight.Offset else 0
 	local bottom = if pad ~= nil then pad.PaddingBottom.Scale * parentSize.Y + pad.PaddingBottom.Offset else 0
-	local box = Geom.rect(parentPos.X + left, parentPos.Y + top, parentPos.X + parentSize.X - right, parentPos.Y + parentSize.Y - bottom)
+	local box = Geom.rect(
+		parentPos.X + left,
+		parentPos.Y + top,
+		parentPos.X + parentSize.X - right,
+		parentPos.Y + parentSize.Y - bottom
+	)
 	local pos = button.AbsolutePosition
 	local size = button.AbsoluteSize
 	if not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
@@ -216,9 +231,16 @@ local function repairButton(button)
 	local fitted = Geom.fitRect(rect, box, button.AnchorPoint.X, button.AnchorPoint.Y, 28, 28)
 	local dw = Geom.rectWidth(fitted) - size.X
 	local dh = Geom.rectHeight(fitted) - size.Y
-	local shift = Geom.offsetDelta(button.AnchorPoint.X, button.AnchorPoint.Y, fitted.x0 - pos.X, fitted.y0 - pos.Y, dw, dh)
-	button.Size = UDim2.new(button.Size.X.Scale, button.Size.X.Offset + dw, button.Size.Y.Scale, button.Size.Y.Offset + dh)
-	button.Position = UDim2.new(button.Position.X.Scale, button.Position.X.Offset + shift.x, button.Position.Y.Scale, button.Position.Y.Offset + shift.y)
+	local shift =
+		Geom.offsetDelta(button.AnchorPoint.X, button.AnchorPoint.Y, fitted.x0 - pos.X, fitted.y0 - pos.Y, dw, dh)
+	button.Size =
+		UDim2.new(button.Size.X.Scale, button.Size.X.Offset + dw, button.Size.Y.Scale, button.Size.Y.Offset + dh)
+	button.Position = UDim2.new(
+		button.Position.X.Scale,
+		button.Position.X.Offset + shift.x,
+		button.Position.Y.Scale,
+		button.Position.Y.Offset + shift.y
+	)
 	stats.outOfBoxFixed += 1
 end
 local function repairFloatingPanel(panel)
@@ -248,7 +270,12 @@ local function repairFloatingPanel(panel)
 	if not allowWrite(panel) then
 		return nil
 	end
-	panel.Position = UDim2.new(panel.Position.X.Scale, panel.Position.X.Offset + dx, panel.Position.Y.Scale, panel.Position.Y.Offset + dy)
+	panel.Position = UDim2.new(
+		panel.Position.X.Scale,
+		panel.Position.X.Offset + dx,
+		panel.Position.Y.Scale,
+		panel.Position.Y.Offset + dy
+	)
 	stats.pulledIntoView += 1
 end
 local function repairCanvasGroup(group)
@@ -257,7 +284,12 @@ local function repairCanvasGroup(group)
 	end
 	local size = group.AbsoluteSize
 	local pos = group.AbsolutePosition
-	if not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y) or not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) then
+	if
+		not isFiniteNumber(pos.X)
+		or not isFiniteNumber(pos.Y)
+		or not isFiniteNumber(size.X)
+		or not isFiniteNumber(size.Y)
+	then
 		return nil
 	end
 	if math.max(size.X, size.Y) > CANVAS_SHARP_EDGE then
@@ -272,7 +304,12 @@ local function repairCanvasGroup(group)
 	if not allowWrite(group) then
 		return nil
 	end
-	group.Position = UDim2.new(group.Position.X.Scale, group.Position.X.Offset + dx, group.Position.Y.Scale, group.Position.Y.Offset + dy)
+	group.Position = UDim2.new(
+		group.Position.X.Scale,
+		group.Position.X.Offset + dx,
+		group.Position.Y.Scale,
+		group.Position.Y.Offset + dy
+	)
 	stats.canvasSharpFixed += 1
 end
 local function repairScrollingFrame(descendant)
@@ -280,12 +317,21 @@ local function repairScrollingFrame(descendant)
 		return nil
 	end
 	local heldScroll = false
-	if not descendant.ScrollingEnabled and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true then
+	if
+		not descendant.ScrollingEnabled
+		and descendant:GetAttribute("LayoutGuardAllowDisabledScroll") ~= true
+		and descendant:GetAttribute("AF_ScrollLocked") ~= true
+	then
 		heldScroll = true
 		if allowWrite(descendant) then
 			descendant.ScrollingEnabled = true
 			stats.scrollingReenabled += 1
-			ClientLog:warnEvery(`layoutguard:scrolldisabled:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`)
+			ClientLog:warnEvery(
+				`layoutguard:scrolldisabled:{descendant:GetFullName()}`,
+				30,
+				"LayoutGuard",
+				`{descendant.Name} had ScrollingEnabled=false with no opt-out attribute — re-enabled`
+			)
 		end
 	end
 	if descendant.AutomaticCanvasSize ~= Enum.AutomaticSize.None then
@@ -306,7 +352,10 @@ local function repairScrollingFrame(descendant)
 			if not child:IsA("GuiObject") or not child.Visible then
 				continue
 			end
-			local bottom = child.Position.Y.Scale * descendant.AbsoluteSize.Y + child.Position.Y.Offset + child.Size.Y.Scale * descendant.AbsoluteSize.Y + child.Size.Y.Offset
+			local bottom = child.Position.Y.Scale * descendant.AbsoluteSize.Y
+				+ child.Position.Y.Offset
+				+ child.Size.Y.Scale * descendant.AbsoluteSize.Y
+				+ child.Size.Y.Offset
 			if isFiniteNumber(bottom) then
 				maxBottom = math.max(maxBottom, bottom)
 			end
@@ -325,9 +374,18 @@ local function repairScrollingFrame(descendant)
 	if not allowWrite(descendant) then
 		return nil
 	end
-	descendant.CanvasSize = UDim2.new(descendant.CanvasSize.X.Scale, descendant.CanvasSize.X.Offset, 0, math.ceil(maxBottom))
+	descendant.CanvasSize =
+		UDim2.new(descendant.CanvasSize.X.Scale, descendant.CanvasSize.X.Offset, 0, math.ceil(maxBottom))
 	stats.canvasDesyncFixed += 1
-	ClientLog:warnEvery(`layoutguard:canvas:{descendant:GetFullName()}`, 30, "LayoutGuard", `{descendant.Name} CanvasSize ({currentCanvas}px) was shorter than its content ({string.format("%.0f", maxBottom)}px) — resynced`)
+	ClientLog:warnEvery(
+		`layoutguard:canvas:{descendant:GetFullName()}`,
+		30,
+		"LayoutGuard",
+		`{descendant.Name} CanvasSize ({currentCanvas}px) was shorter than its content ({string.format(
+			"%.0f",
+			maxBottom
+		)}px) — resynced`
+	)
 end
 local function checkOverlappingHitboxes(root)
 	local byParent = {}
@@ -381,7 +439,15 @@ local function checkOverlappingHitboxes(root)
 				end
 				b.ZIndex = a.ZIndex + 1
 				stats.overlapDemoted += 1
-				ClientLog:warnEvery(`layoutguard:overlap:{a:GetFullName()}`, 30, "LayoutGuard", `{a.Name} and {b.Name} share ZIndex {a.ZIndex} and overlap {string.format("%.0f", (overlap / smaller) * 100)}% — separated so input reaches the top one`)
+				ClientLog:warnEvery(
+					`layoutguard:overlap:{a:GetFullName()}`,
+					30,
+					"LayoutGuard",
+					`{a.Name} and {b.Name} share ZIndex {a.ZIndex} and overlap {string.format(
+						"%.0f",
+						(overlap / smaller) * 100
+					)}% — separated so input reaches the top one`
+				)
 			end
 		end
 	end
@@ -489,7 +555,12 @@ local function checkTextUnderButtons(list)
 					if rightText.x0 > leftText.x0 + 4 and Plan.labelsCollide(leftText, rightText) then
 						if clearTextOfButton(left, right, rightText) then
 							stats.labelsUntangled += 1
-							ClientLog:warnEvery(`layoutguard:labels:{left:GetFullName()}`, 60, "LayoutGuard", `{left.Name} ran into {right.Name}; narrowed to clear it`)
+							ClientLog:warnEvery(
+								`layoutguard:labels:{left:GetFullName()}`,
+								60,
+								"LayoutGuard",
+								`{left.Name} ran into {right.Name}; narrowed to clear it`
+							)
 						end
 						break
 					end
@@ -522,7 +593,12 @@ local function checkTextUnderButtons(list)
 				end
 				stats.textUnderButtonSeen += 1
 				if clearTextOfButton(label, button, buttonRect) then
-					ClientLog:warnEvery(`layoutguard:textcover:{label:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text was under {button.Name}; label narrowed to clear it`)
+					ClientLog:warnEvery(
+						`layoutguard:textcover:{label:GetFullName()}`,
+						60,
+						"LayoutGuard",
+						`{label.Name} text was under {button.Name}; label narrowed to clear it`
+					)
 				end
 				break
 			end
@@ -573,12 +649,26 @@ local function separateStack(label, solid)
 		return false
 	end
 	local parent = solid.Parent
-	local room = if parent ~= nil and parent:IsA("GuiObject") and not parent:IsA("ScrollingFrame") then innerBottom(parent) - solidRect.y1 else 0
+	local room = if parent ~= nil
+			and parent:IsA("GuiObject")
+			and not parent:IsA("ScrollingFrame")
+		then innerBottom(parent) - solidRect.y1
+		else 0
 	if room >= intrude and allowWrite(solid) then
 		local shift = math.ceil(intrude)
-		solid.Position = UDim2.new(solid.Position.X.Scale, solid.Position.X.Offset, solid.Position.Y.Scale, solid.Position.Y.Offset + shift)
+		solid.Position = UDim2.new(
+			solid.Position.X.Scale,
+			solid.Position.X.Offset,
+			solid.Position.Y.Scale,
+			solid.Position.Y.Offset + shift
+		)
 		stats.stackSeparated += 1
-		ClientLog:warnEvery(`layoutguard:stack:{solid:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text ran into {solid.Name}; moved {solid.Name} down {shift}px`)
+		ClientLog:warnEvery(
+			`layoutguard:stack:{solid:GetFullName()}`,
+			60,
+			"LayoutGuard",
+			`{label.Name} text ran into {solid.Name}; moved {solid.Name} down {shift}px`
+		)
 		return true
 	end
 	local available = solidRect.y0 - SOLID_MIN_GAP - labelRect.y0
@@ -602,7 +692,12 @@ local function separateStack(label, solid)
 		end
 	end
 	stats.stackSeparated += 1
-	ClientLog:warnEvery(`layoutguard:stack:{label:GetFullName()}`, 60, "LayoutGuard", `{label.Name} text ran into {solid.Name}; fitted the label above it`)
+	ClientLog:warnEvery(
+		`layoutguard:stack:{label:GetFullName()}`,
+		60,
+		"LayoutGuard",
+		`{label.Name} text ran into {solid.Name}; fitted the label above it`
+	)
 	return true
 end
 local function checkStackedText(list)
@@ -662,12 +757,20 @@ local function inspect(inst)
 	end
 	local size = inst.AbsoluteSize
 	local pos = inst.AbsolutePosition
-	local broken = not isFiniteNumber(size.X) or not isFiniteNumber(size.Y) or not isFiniteNumber(pos.X) or not isFiniteNumber(pos.Y)
+	local broken = not isFiniteNumber(size.X)
+		or not isFiniteNumber(size.Y)
+		or not isFiniteNumber(pos.X)
+		or not isFiniteNumber(pos.Y)
 	if broken and inst:IsA("GuiObject") and inst.Visible and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
 		if allowWrite(inst) then
 			inst.Visible = false
 			stats.degenerateHidden += 1
-			ClientLog:warnEvery(`layoutguard:degenerate:{inst:GetFullName()}`, 30, "LayoutGuard", `{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`)
+			ClientLog:warnEvery(
+				`layoutguard:degenerate:{inst:GetFullName()}`,
+				30,
+				"LayoutGuard",
+				`{inst.Name} rendered with non-finite geometry — hidden to avoid a broken/mispositioned element on screen`
+			)
 		end
 		return nil
 	end
@@ -782,16 +885,22 @@ do
 		for _, descendant in layer:GetDescendants() do
 			self:track(descendant)
 		end
-		table.insert(self.rootConnections, layer.DescendantAdded:Connect(function(instance)
-			self:track(instance)
-			self:markDirty(instance)
-		end))
-		table.insert(self.rootConnections, layer.DescendantRemoving:Connect(function(instance)
-			self:untrack(instance)
-			tryCount[instance] = nil
-			abandoned[instance] = nil
-			pendingFloor[instance] = nil
-		end))
+		table.insert(
+			self.rootConnections,
+			layer.DescendantAdded:Connect(function(instance)
+				self:track(instance)
+				self:markDirty(instance)
+			end)
+		)
+		table.insert(
+			self.rootConnections,
+			layer.DescendantRemoving:Connect(function(instance)
+				self:untrack(instance)
+				tryCount[instance] = nil
+				abandoned[instance] = nil
+				pendingFloor[instance] = nil
+			end)
+		)
 	end
 	function LayoutGuardController:bindRoot(root)
 		for _, connection in self.rootConnections do
@@ -816,16 +925,22 @@ do
 				consider(layer)
 			end
 			table.insert(self.rootConnections, playerGui.ChildAdded:Connect(consider))
-			table.insert(self.rootConnections, playerGui.ChildRemoved:Connect(function(layer)
-				self.watchedLayers[layer] = nil
-				for _, descendant in layer:GetDescendants() do
-					self:untrack(descendant)
-				end
-			end))
+			table.insert(
+				self.rootConnections,
+				playerGui.ChildRemoved:Connect(function(layer)
+					self.watchedLayers[layer] = nil
+					for _, descendant in layer:GetDescendants() do
+						self:untrack(descendant)
+					end
+				end)
+			)
 		end
-		table.insert(self.rootConnections, root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			self:checkResize(root)
-		end))
+		table.insert(
+			self.rootConnections,
+			root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+				self:checkResize(root)
+			end)
+		)
 		self.lastWidth = -1
 		self.lastHeight = -1
 		self:checkResize(root)
@@ -970,7 +1085,19 @@ do
 			return nil
 		end
 		self.lastReportAt = now
-		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.stackSeparated + stats.pulledIntoView
+		local total = stats.canvasDesyncFixed
+			+ stats.scrollingReenabled
+			+ stats.degenerateHidden
+			+ stats.overlapDemoted
+			+ stats.outOfBoxFixed
+			+ stats.textFitFixed
+			+ stats.textFloorRaised
+			+ stats.canvasSharpFixed
+			+ stats.textClearedOfButton
+			+ stats.textWrapped
+			+ stats.labelsUntangled
+			+ stats.stackSeparated
+			+ stats.pulledIntoView
 		if total == self.reportedTotal then
 			return nil
 		end
@@ -991,8 +1118,16 @@ do
 	end
 	do
 		Reflect.defineMetadata(LayoutGuardController, "identifier", "client/layoutGuard@LayoutGuardController")
-		Reflect.defineMetadata(LayoutGuardController, "flamework:parameters", { "$c:components@Components", "client/framework/init@UiRuntimeController" })
-		Reflect.defineMetadata(LayoutGuardController, "flamework:implements", { "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" })
+		Reflect.defineMetadata(
+			LayoutGuardController,
+			"flamework:parameters",
+			{ "$c:components@Components", "client/framework/init@UiRuntimeController" }
+		)
+		Reflect.defineMetadata(
+			LayoutGuardController,
+			"flamework:implements",
+			{ "$:flamework@OnInit", "$:flamework@OnStart", "$:flamework@OnTick" }
+		)
 	end
 end
 Reflect.decorate(LayoutGuardController, "$:flamework@Controller", Controller, { {

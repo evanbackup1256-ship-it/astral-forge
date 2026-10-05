@@ -1,0 +1,11 @@
+src\Client\AstralForge\DonationJar.luau
+src\Client\AstralForge\OverviewGoals.luau
+src\Client\AstralForge\PlanningModel.luau
+src\Client\AstralForge\ReadyBoard.luau
+src\Client\AstralForge\pages\PagesCore.luau
+src\Client\AstralForge\pages\PagesProgress.luau
+src\Client\AstralForge\pages\PagesShop.luau
+src\Client\AstralForge\pages\PagesSocial.luau
+src\Shared\AstralForge\Shared\CommerceCatalog.luau
+src\Shared\AstralForge\Shared\GameConfig.luau
+src\Shared\AstralForge\Shared\GameConfigGenerated.luau

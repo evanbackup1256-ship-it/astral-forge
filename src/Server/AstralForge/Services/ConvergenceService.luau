@@ -6,8 +6,11 @@ return function()
 	local Players = game:GetService("Players")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-	local LiveOps = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("LiveOpsConfig")
-	local ConvergenceOpsMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("ConvergenceOpsMath")
+	local LiveOps = require(
+		ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData")
+	)("LiveOpsConfig")
+	local ConvergenceOpsMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("ConvergenceOpsMath")
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
 	local ConvergenceService = {}
@@ -19,7 +22,12 @@ return function()
 
 	local function applyReward(profile, reward)
 		local cash = math.max(0, tonumber(reward.Cash) or 0)
-		local OmegaMath = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+		local OmegaMath = require(
+			game:GetService("ReplicatedStorage")
+				:WaitForChild("AstralForge")
+				:WaitForChild("Shared")
+				:WaitForChild("OmegaMath")
+		)
 		ConvergenceOpsMath.EnsureRewardBags(profile)
 		profile.Cash = OmegaMath.Add(profile.Cash, cash)
 		profile.RunCash = OmegaMath.Add(profile.RunCash, cash)
@@ -28,7 +36,8 @@ return function()
 		profile.Stardust = (tonumber(profile.Stardust) or 0) + math.max(0, tonumber(reward.Stardust) or 0)
 		profile.Cores = (tonumber(profile.Cores) or 0) + math.max(0, tonumber(reward.Cores) or 0)
 		if reward.Signals then
-			profile.Command.Signals = (tonumber(profile.Command.Signals) or 0) + math.max(0, tonumber(reward.Signals) or 0)
+			profile.Command.Signals = (tonumber(profile.Command.Signals) or 0)
+				+ math.max(0, tonumber(reward.Signals) or 0)
 		end
 		if reward.Boost then
 			profile.BoostInventory[reward.Boost] = (tonumber(profile.BoostInventory[reward.Boost]) or 0) + 1
@@ -63,30 +72,36 @@ return function()
 	function ConvergenceService:RecordAction(player: Player, action: string)
 		self:_manifest()
 		local amount = LiveOps.Convergence.ContributionByAction[action]
-		if type(amount) ~= "number" or amount <= 0 then return end
+		if type(amount) ~= "number" or amount <= 0 then
+			return
+		end
 		self._pending[player] = (self._pending[player] or 0) + amount
 		self._pendingGlobal += amount
 	end
 
 	function ConvergenceService:FlushPlayer(player: Player)
-
 		local manifest = self:_manifest()
 		local amount = self._pending[player] or 0
-		if amount <= 0 then return true end
+		if amount <= 0 then
+			return true
+		end
 		self._pending[player] = 0
 		local ok = self._data:AtomicUpdate(player, function(profile)
 			local state = ConvergenceOpsMath.EnsureEventProfile(profile, manifest.EventId)
 			state.Contribution += amount
 		end, true, "convergence")
-		if not ok then self._pending[player] = (self._pending[player] or 0) + amount end
+		if not ok then
+			self._pending[player] = (self._pending[player] or 0) + amount
+		end
 		return ok
 	end
 
 	function ConvergenceService:_flushGlobal()
-
 		local manifest = self:_manifest()
 		local amount = self._pendingGlobal
-		if amount <= 0 then return end
+		if amount <= 0 then
+			return
+		end
 		self._pendingGlobal = 0
 		local expiry = math.max(60, manifest.EndsAt - os.time() + 86_400)
 		local ok, total = pcall(function()
@@ -96,7 +111,9 @@ return function()
 		end)
 		if ok and type(total) == "number" then
 			self._global = total
-			pcall(function() MessagingService:PublishAsync(TOPIC, { EventId = manifest.EventId, Total = total }) end)
+			pcall(function()
+				MessagingService:PublishAsync(TOPIC, { EventId = manifest.EventId, Total = total })
+			end)
 		else
 			self._pendingGlobal += amount
 			ModuleLog.Every("convergence-flush", 30, "LiveOps", tostring(total))
@@ -105,8 +122,12 @@ return function()
 
 	function ConvergenceService:_refresh()
 		local manifest = self:_manifest()
-		local ok, total = pcall(function() return self._map:GetAsync(manifest.EventId) end)
-		if ok then self._global = math.max(self._global, tonumber(total) or 0) end
+		local ok, total = pcall(function()
+			return self._map:GetAsync(manifest.EventId)
+		end)
+		if ok then
+			self._global = math.max(self._global, tonumber(total) or 0)
+		end
 	end
 
 	function ConvergenceService:Multiplier(): number
@@ -122,48 +143,65 @@ return function()
 		local saved = ConvergenceOpsMath.ReadEventProfile(profile, manifest.EventId)
 		local personal = saved.Contribution + (self._pending[player] or 0)
 		local total = self._global + self._pendingGlobal
-		local phaseIndex, phaseName, nextTarget =
-			ConvergenceOpsMath.PhaseState(total, LiveOps.Convergence.GlobalPhases)
+		local phaseIndex, phaseName, nextTarget = ConvergenceOpsMath.PhaseState(total, LiveOps.Convergence.GlobalPhases)
 		local tiers = {}
 		for index, tier in LiveOps.Convergence.PersonalTiers do
 			tiers[index] = {
-				Tier = index, Required = tier.Required, Reward = tier.Reward,
+				Tier = index,
+				Required = tier.Required,
+				Reward = tier.Reward,
 				Claimed = saved.Claimed[tostring(index)] == true,
 				CanClaim = ConvergenceOpsMath.CanClaimTier(personal, tier.Required, saved.Claimed, index),
 			}
 		end
 		return {
-			EventId = manifest.EventId, Name = manifest.Name, StartsAt = manifest.StartsAt, EndsAt = manifest.EndsAt,
-			GlobalContribution = total, GlobalTarget = nextTarget,
-			Phase = phaseIndex, PhaseName = phaseName, ProductionMultiplier = self:Multiplier(),
-			PersonalContribution = personal, Tiers = tiers,
+			EventId = manifest.EventId,
+			Name = manifest.Name,
+			StartsAt = manifest.StartsAt,
+			EndsAt = manifest.EndsAt,
+			GlobalContribution = total,
+			GlobalTarget = nextTarget,
+			Phase = phaseIndex,
+			PhaseName = phaseName,
+			ProductionMultiplier = self:Multiplier(),
+			PersonalContribution = personal,
+			Tiers = tiers,
 		}
 	end
 
 	function ConvergenceService:Claim(player: Player, rawTier: any)
-
 		if not self:FlushPlayer(player) then
 			return { ok = false, error = "The convergence is busy. Try again." }
 		end
 		local tierIndex = math.floor(tonumber(rawTier) or 0)
 		local tier = LiveOps.Convergence.PersonalTiers[tierIndex]
-		if not tier then return { ok = false, error = "That convergence reward does not exist." } end
+		if not tier then
+			return { ok = false, error = "That convergence reward does not exist." }
+		end
 		local manifest = self:_manifest()
 		local ok, result = self._data:AtomicUpdate(player, function(profile)
 			local state = ConvergenceOpsMath.EnsureEventProfile(profile, manifest.EventId)
 			local key = tostring(tierIndex)
-			if state.Claimed[key] then return { ok = false, error = "That reward was already claimed." } end
-			if state.Contribution < tier.Required then return { ok = false, error = "Keep forging to unlock this reward." } end
+			if state.Claimed[key] then
+				return { ok = false, error = "That reward was already claimed." }
+			end
+			if state.Contribution < tier.Required then
+				return { ok = false, error = "Keep forging to unlock this reward." }
+			end
 			state.Claimed[key] = true
 			applyReward(profile, tier.Reward)
 			return { ok = true, message = "Convergence reward claimed.", Reward = tier.Reward }
 		end, true, "convergence-claim")
-		if not ok then return { ok = false, error = "The convergence is busy. Try again." } end
+		if not ok then
+			return { ok = false, error = "The convergence is busy. Try again." }
+		end
 		return result
 	end
 
 	function ConvergenceService:Start()
-		if self._running then return end
+		if self._running then
+			return
+		end
 		self._running = true
 		local ok, subscription = pcall(function()
 			return MessagingService:SubscribeAsync(TOPIC, function(message)
@@ -173,13 +211,19 @@ return function()
 				end
 			end)
 		end)
-		if ok then self._subscription = subscription end
+		if ok then
+			self._subscription = subscription
+		end
 		self._worker = task.spawn(function()
 			while self._running do
 				task.wait(15)
 
-				if not self._running then break end
-				for _, player in Players:GetPlayers() do self:FlushPlayer(player) end
+				if not self._running then
+					break
+				end
+				for _, player in Players:GetPlayers() do
+					self:FlushPlayer(player)
+				end
 				self:_flushGlobal()
 				self:_refresh()
 			end
@@ -188,7 +232,6 @@ return function()
 	end
 
 	function ConvergenceService:PlayerRemoving(player: Player)
-
 		local deadline = os.clock() + 6
 		local flushed = self:FlushPlayer(player)
 		while not flushed and self._data:Get(player) ~= nil and os.clock() < deadline do
@@ -222,13 +265,18 @@ return function()
 				self:_flushGlobal()
 				finished = true
 			end)
-			while not finished and os.clock() < deadline do task.wait() end
+			while not finished and os.clock() < deadline do
+				task.wait()
+			end
 			if not finished then
 				pcall(task.cancel, worker)
 				ModuleLog.Warn("LiveOps", "skipped the convergence write — shutdown is already late")
 			end
 		end
-		if self._subscription then self._subscription:Disconnect(); self._subscription = nil end
+		if self._subscription then
+			self._subscription:Disconnect()
+			self._subscription = nil
+		end
 	end
 
 	return ConvergenceService

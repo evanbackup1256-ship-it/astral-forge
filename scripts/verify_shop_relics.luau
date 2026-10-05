@@ -43,7 +43,7 @@ assert(count.Celestial >= 3 and count.Astral >= 2, "there must be Celestial and 
 
 -- Crate odds: every crate can drop both, rarely
 local crates = 0
-for crateId, weights in string.gmatch(config, '{ Id = "(%w+Crate)", Name = "[^"]+", Description = "[^"]+", PityAfter = %d+, PityRarity = "%a+", Color = [^,]+,[^,]+,[^,]+, Weights = (%b{}) }') do
+for crateId, weights in string.gmatch(config, 'Id = "(%w+Crate)",%s*Name = "[^"]+",%s*Description = "[^"]+",%s*PityAfter = %d+,%s*PityRarity = "%a+",%s*Color = Color3.fromRGB%(%s*%d+,%s*%d+,%s*%d+%s*%),%s*Weights = (%b{})') do
 	crates += 1
 	local parsed = {}
 	for rarity, weight in string.gmatch(weights, "(%a+) = ([%d%.]+)") do

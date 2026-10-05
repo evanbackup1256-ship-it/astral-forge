@@ -191,48 +191,60 @@ local function DomainApp(props)
 				dispatchStore(ClientActions.setDomainOverlay(_object))
 			end)
 		end
-		return React.createElement(React.Fragment, nil, children, state.Domain ~= nil and overlay ~= nil and overlay.mode == "tree" and React.createElement(DomainSkillTree, {
-			domain = state.Domain,
-			dispatch = dispatch,
-			reducedMotion = false,
-			onClose = function()
-				return dispatchStore(ClientActions.setDomainOverlay(nil))
-			end,
-		}), state.Domain ~= nil and overlay ~= nil and overlay.mode ~= "tree" and React.createElement(DomainExpansionOverlay, {
-			key = overlay.mode,
-			mode = overlay.mode,
-			domain = state.Domain,
-			currentRebirths = state.Rebirths,
-			currentCores = state.Cores,
-			result = if overlay.mode == "result" then overlay.result else nil,
-			busy = busy,
-			reducedMotion = false,
-			onConfirm = confirm,
-			onClose = function()
-				if busy then
-					return nil
-				end
-				local _condition = overlay.mode == "result"
-				if _condition then
-					local _result = state.Domain
-					if _result ~= nil then
-						_result = _result.Rank
-					end
-					local _condition_1 = _result
-					if _condition_1 == nil then
-						_condition_1 = 0
-					end
-					_condition = _condition_1 > 0
-				end
-				if _condition then
-					dispatchStore(ClientActions.setDomainOverlay({
-						mode = "tree",
-					}))
-				else
-					dispatchStore(ClientActions.setDomainOverlay(nil))
-				end
-			end,
-		}))
+		return React.createElement(
+			React.Fragment,
+			nil,
+			children,
+			state.Domain ~= nil
+				and overlay ~= nil
+				and overlay.mode == "tree"
+				and React.createElement(DomainSkillTree, {
+					domain = state.Domain,
+					dispatch = dispatch,
+					reducedMotion = false,
+					onClose = function()
+						return dispatchStore(ClientActions.setDomainOverlay(nil))
+					end,
+				}),
+			state.Domain ~= nil
+				and overlay ~= nil
+				and overlay.mode ~= "tree"
+				and React.createElement(DomainExpansionOverlay, {
+					key = overlay.mode,
+					mode = overlay.mode,
+					domain = state.Domain,
+					currentRebirths = state.Rebirths,
+					currentCores = state.Cores,
+					result = if overlay.mode == "result" then overlay.result else nil,
+					busy = busy,
+					reducedMotion = false,
+					onConfirm = confirm,
+					onClose = function()
+						if busy then
+							return nil
+						end
+						local _condition = overlay.mode == "result"
+						if _condition then
+							local _result = state.Domain
+							if _result ~= nil then
+								_result = _result.Rank
+							end
+							local _condition_1 = _result
+							if _condition_1 == nil then
+								_condition_1 = 0
+							end
+							_condition = _condition_1 > 0
+						end
+						if _condition then
+							dispatchStore(ClientActions.setDomainOverlay({
+								mode = "tree",
+							}))
+						else
+							dispatchStore(ClientActions.setDomainOverlay(nil))
+						end
+					end,
+				})
+		)
 	end, { busy, dispatchStore, overlay })
 	local domainUi = React.useMemo(function()
 		return {
@@ -249,63 +261,76 @@ end
 local StableApp = React.memo(DomainApp)
 local function StartupFailure(_param)
 	local message = _param.message
-	return React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Palette.void,
-		BorderSizePixel = 0,
-		Active = true,
-		ZIndex = 500,
-	}, React.createElement("frame", {
-		Size = UDim2.new(1, -32, 0, 190),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.night,
-		BorderSizePixel = 0,
-		ZIndex = 501,
-	}, React.createElement("uisizeconstraint", {
-		MaxSize = Vector2.new(420, 190),
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 18),
-	}), React.createElement("uistroke", {
-		Color = Palette.coral,
-		Thickness = 2,
-		Transparency = 0.22,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -36, 0, 24),
-		Position = UDim2.fromOffset(18, 20),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "STARTUP LINK LOST",
-		TextColor3 = Palette.coral,
-		TextSize = 16,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 502,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -42, 0, 70),
-		Position = UDim2.fromOffset(21, 58),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = message,
-		TextColor3 = Palette.creamSoft,
-		TextSize = 12,
-		TextWrapped = true,
-		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		ZIndex = 502,
-	}), React.createElement("textlabel", {
-		Size = UDim2.new(1, -36, 0, 20),
-		Position = UDim2.fromOffset(18, 149),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "REJOIN TO RETRY  //  CHECK SERVER OUTPUT IN STUDIO",
-		TextColor3 = Palette.muted,
-		TextSize = 12,
-		FontFace = Font.fromEnum(Enum.Font.RobotoMono),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 502,
-	})))
+	return React.createElement(
+		"frame",
+		{
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Palette.void,
+			BorderSizePixel = 0,
+			Active = true,
+			ZIndex = 500,
+		},
+		React.createElement(
+			"frame",
+			{
+				Size = UDim2.new(1, -32, 0, 190),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Palette.night,
+				BorderSizePixel = 0,
+				ZIndex = 501,
+			},
+			React.createElement("uisizeconstraint", {
+				MaxSize = Vector2.new(420, 190),
+			}),
+			React.createElement("uicorner", {
+				CornerRadius = UDim.new(0, 18),
+			}),
+			React.createElement("uistroke", {
+				Color = Palette.coral,
+				Thickness = 2,
+				Transparency = 0.22,
+			}),
+			React.createElement("textlabel", {
+				Size = UDim2.new(1, -36, 0, 24),
+				Position = UDim2.fromOffset(18, 20),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Text = "STARTUP LINK LOST",
+				TextColor3 = Palette.coral,
+				TextSize = 16,
+				FontFace = Font.fromEnum(Enum.Font.BuilderSansExtraBold),
+				TextXAlignment = Enum.TextXAlignment.Center,
+				ZIndex = 502,
+			}),
+			React.createElement("textlabel", {
+				Size = UDim2.new(1, -42, 0, 70),
+				Position = UDim2.fromOffset(21, 58),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Text = message,
+				TextColor3 = Palette.creamSoft,
+				TextSize = 12,
+				TextWrapped = true,
+				FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+				TextXAlignment = Enum.TextXAlignment.Center,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				ZIndex = 502,
+			}),
+			React.createElement("textlabel", {
+				Size = UDim2.new(1, -36, 0, 20),
+				Position = UDim2.fromOffset(18, 149),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Text = "REJOIN TO RETRY  //  CHECK SERVER OUTPUT IN STUDIO",
+				TextColor3 = Palette.muted,
+				TextSize = 12,
+				FontFace = Font.fromEnum(Enum.Font.RobotoMono),
+				TextXAlignment = Enum.TextXAlignment.Center,
+				ZIndex = 502,
+			})
+		)
+	)
 end
 local function normalizeShutdown(raw, fallbackRevision)
 	local _raw = raw
@@ -314,7 +339,9 @@ local function normalizeShutdown(raw, fallbackRevision)
 	end
 	local payload = raw
 	local revisionRaw = payload.Revision
-	local revision = if type(revisionRaw) == "number" and revisionRaw == revisionRaw then math.max(0, math.floor(revisionRaw)) else fallbackRevision
+	local revision = if type(revisionRaw) == "number" and revisionRaw == revisionRaw
+		then math.max(0, math.floor(revisionRaw))
+		else fallbackRevision
 	local _object = {
 		revision = revision,
 	}
@@ -341,7 +368,9 @@ local function ClientBootstrap(_param)
 	local startedAt = _param.startedAt
 	local shutdownLayer = _param.shutdownLayer
 	local vrScreen = Players.LocalPlayer.PlayerGui:FindFirstChild("AstralForgeVR")
-	if vrScreen and vrScreen.Enabled then shutdownLayer = vrScreen:FindFirstChild("Overlay") end
+	if vrScreen and vrScreen.Enabled then
+		shutdownLayer = vrScreen:FindFirstChild("Overlay")
+	end
 	local status = useClientSelector(function(state)
 		return state.boot.status
 	end)
@@ -367,7 +396,8 @@ local function ClientBootstrap(_param)
 				return StarterGui:SetCore("TopbarEnabled", true)
 			end)
 		end
-		local changed = trackBootConnection(connection.remotes.Bridge:GetAttributeChangedSignal("BootFailure"):Connect(syncFailure))
+		local changed =
+			trackBootConnection(connection.remotes.Bridge:GetAttributeChangedSignal("BootFailure"):Connect(syncFailure))
 		syncFailure()
 		return function()
 			disconnectBootConnection(changed)
@@ -400,7 +430,9 @@ local function ClientBootstrap(_param)
 			})
 		end
 		local eventConnection = trackBootConnection(connection.remotes.Shutdown.OnClientEvent:Connect(accept))
-		local attributeConnection = trackBootConnection(connection.remotes.Bridge:GetAttributeChangedSignal("ShutdownRevision"):Connect(syncBridge))
+		local attributeConnection = trackBootConnection(
+			connection.remotes.Bridge:GetAttributeChangedSignal("ShutdownRevision"):Connect(syncBridge)
+		)
 		syncBridge()
 		return function()
 			disconnectBootConnection(eventConnection)
@@ -434,15 +466,16 @@ local function ClientBootstrap(_param)
 			message = activeFailure,
 		})
 	end
-	local _exp = connection ~= nil and React.createElement(StableApp, {
-		key = "app",
-		remotes = connection.remotes,
-		config = connection.config,
-		bootStartedAt = startedAt,
-		externalBoot = true,
-		externalAntilag = true,
-		onBootStatus = handleBootStatus,
-	})
+	local _exp = connection ~= nil
+		and React.createElement(StableApp, {
+			key = "app",
+			remotes = connection.remotes,
+			config = connection.config,
+			bootStartedAt = startedAt,
+			externalBoot = true,
+			externalAntilag = true,
+			onBootStatus = handleBootStatus,
+		})
 	local _condition_1 = bootVisible
 	if _condition_1 then
 		local _attributes = {
@@ -471,10 +504,20 @@ local function ClientBootstrap(_param)
 			value = BOOT_MOTION,
 		}, React.createElement(BootScreen, _attributes))
 	end
-	return React.createElement(AntilagProvider, nil, _exp, _condition_1, shutdownState ~= nil and ReactRoblox.createPortal(React.createElement(SoftShutdownScreen, {
-		state = shutdownState,
-		reducedMotion = status.reducedMotion,
-	}), shutdownLayer))
+	return React.createElement(
+		AntilagProvider,
+		nil,
+		_exp,
+		_condition_1,
+		shutdownState ~= nil
+			and ReactRoblox.createPortal(
+				React.createElement(SoftShutdownScreen, {
+					state = shutdownState,
+					reducedMotion = status.reducedMotion,
+				}),
+				shutdownLayer
+			)
+	)
 end
 local ClientRuntime
 do
@@ -538,7 +581,9 @@ do
 		self.root = ReactRoblox.createRoot(screen)
 		self.vrHost = require(script.VRInterface).mount(playerGui, screen, function(host)
 			self.vrHost = host
-			if self.lastElement ~= nil then self:render(self.lastElement) end
+			if self.lastElement ~= nil then
+				self:render(self.lastElement)
+			end
 		end)
 		table.insert(self.disposers, self.vrHost.dispose)
 		initializeClientFramework(screen)
@@ -568,13 +613,28 @@ do
 			return nil
 		end
 		self.lastElement = element
-		local tree = React.createElement(React.Suspense, {
-			fallback = React.createElement(PagePending),
-		}, React.createElement(PageErrorBoundary, nil, React.createElement(ClientStoreProvider, {
-			store = self.store,
-		}, element)))
+		local tree = React.createElement(
+			React.Suspense,
+			{
+				fallback = React.createElement(PagePending),
+			},
+			React.createElement(
+				PageErrorBoundary,
+				nil,
+				React.createElement(ClientStoreProvider, {
+					store = self.store,
+				}, element)
+			)
+		)
 		if self.vrHost and self.vrHost.active then
-			tree = ReactRoblox.createPortal(React.createElement(MotionSettingsContext.Provider, {value={soft=true,motionScale=0,viewportScale=1,textScale=1}}, tree), self.vrHost.container)
+			tree = ReactRoblox.createPortal(
+				React.createElement(
+					MotionSettingsContext.Provider,
+					{ value = { soft = true, motionScale = 0, viewportScale = 1, textScale = 1 } },
+					tree
+				),
+				self.vrHost.container
+			)
 		end
 		self.root:render(tree)
 	end
@@ -605,7 +665,9 @@ do
 	end
 end
 local function configureUiOnlyWorkspace()
-	if game:GetService("VRService").VREnabled then return function() end end
+	if game:GetService("VRService").VREnabled then
+		return function() end
+	end
 	local lighting = Lighting
 	local previous = {
 		globalShadows = lighting.GlobalShadows,
@@ -688,7 +750,11 @@ local function configureUiOnlyWorkspace()
 			child.Parent = lighting
 		end
 		parked:Destroy()
-		for instance, disabled in mutedScripts do if instance.Parent then instance.Disabled = disabled end end
+		for instance, disabled in mutedScripts do
+			if instance.Parent then
+				instance.Disabled = disabled
+			end
+		end
 		if camera ~= nil then
 			if previousCameraType ~= nil then
 				camera.CameraType = previousCameraType
@@ -699,7 +765,13 @@ local function configureUiOnlyWorkspace()
 end
 local function configureRobloxUi(playerGui)
 	local orientation = playerGui.ScreenOrientation
-	local coreTypes = { Enum.CoreGuiType.Backpack, Enum.CoreGuiType.Health, Enum.CoreGuiType.PlayerList, Enum.CoreGuiType.EmotesMenu, Enum.CoreGuiType.Chat }
+	local coreTypes = {
+		Enum.CoreGuiType.Backpack,
+		Enum.CoreGuiType.Health,
+		Enum.CoreGuiType.PlayerList,
+		Enum.CoreGuiType.EmotesMenu,
+		Enum.CoreGuiType.Chat,
+	}
 	local coreStates = {}
 	for _, coreType in coreTypes do
 		pcall(function()
@@ -726,7 +798,11 @@ local function configureRobloxUi(playerGui)
 		_bubblesEnabled = _bubblesEnabled.Enabled
 	end
 	local bubblesEnabled = _bubblesEnabled
-	local mobileTouch = UserInputService.TouchEnabled and (UserInputService.PreferredInput == Enum.PreferredInput.Touch or (not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled))
+	local mobileTouch = UserInputService.TouchEnabled
+		and (
+			UserInputService.PreferredInput == Enum.PreferredInput.Touch
+			or (not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled)
+		)
 	if mobileTouch then
 		pcall(function()
 			playerGui.ScreenOrientation = Enum.ScreenOrientation.Sensor
@@ -805,12 +881,16 @@ local restoreRobloxUi = configureRobloxUi(playerGui)
 runtime:addDisposer(restoreRobloxUi)
 runtime:addDisposer(stopInputPlatform)
 local restoreWorkspace = configureUiOnlyWorkspace()
-runtime:addDisposer(function() restoreWorkspace() end)
+runtime:addDisposer(function()
+	restoreWorkspace()
+end)
 local vrModeConnection = game:GetService("VRService"):GetPropertyChangedSignal("VREnabled"):Connect(function()
 	restoreWorkspace()
 	restoreWorkspace = configureUiOnlyWorkspace()
 end)
-runtime:addDisposer(function() vrModeConnection:Disconnect() end)
+runtime:addDisposer(function()
+	vrModeConnection:Disconnect()
+end)
 Audio:setScene("boot")
 runtime:render(React.createElement(ClientBootstrap, {
 	startedAt = clientStartedAt,
@@ -843,13 +923,46 @@ local function loadModule(moduleScript, label)
 	end
 	return result
 end
-local astralRoot = requiredChild(ReplicatedStorage, "AstralForge", "Folder", REPLICATION_TIMEOUT, "AstralForge did not replicate within 15 seconds.")
-local sharedRoot = requiredChild(astralRoot, "Shared", "Folder", CHILD_TIMEOUT, "Shared client modules did not replicate within 8 seconds.")
-local protocolScript = requiredChild(sharedRoot, "Protocol", "ModuleScript", CHILD_TIMEOUT, "Protocol module is missing or has the wrong class.")
-local configScript = requiredChild(sharedRoot, "GameConfig", "ModuleScript", CHILD_TIMEOUT, "GameConfig module is missing or has the wrong class.")
+local astralRoot = requiredChild(
+	ReplicatedStorage,
+	"AstralForge",
+	"Folder",
+	REPLICATION_TIMEOUT,
+	"AstralForge did not replicate within 15 seconds."
+)
+local sharedRoot = requiredChild(
+	astralRoot,
+	"Shared",
+	"Folder",
+	CHILD_TIMEOUT,
+	"Shared client modules did not replicate within 8 seconds."
+)
+local protocolScript = requiredChild(
+	sharedRoot,
+	"Protocol",
+	"ModuleScript",
+	CHILD_TIMEOUT,
+	"Protocol module is missing or has the wrong class."
+)
+local configScript = requiredChild(
+	sharedRoot,
+	"GameConfig",
+	"ModuleScript",
+	CHILD_TIMEOUT,
+	"GameConfig module is missing or has the wrong class."
+)
 local protocol = loadModule(protocolScript, "Protocol")
 local config = loadModule(configScript, "GameConfig")
-for _, name in { protocol.FolderName, protocol.RequestName, protocol.StateName, protocol.ToastName, protocol.EffectName, protocol.ShutdownName } do
+for _, name in
+	{
+		protocol.FolderName,
+		protocol.RequestName,
+		protocol.StateName,
+		protocol.ToastName,
+		protocol.EffectName,
+		protocol.ShutdownName,
+	}
+do
 	if not (type(name) == "string") or #name < 1 or #name > 64 then
 		failBootstrap("Protocol contains an invalid bridge name.")
 	end
@@ -870,14 +983,50 @@ pcall(function()
 		require(spinner)
 	end
 end)
-local bridge = requiredChild(ReplicatedStorage, protocol.FolderName, "Folder", REPLICATION_TIMEOUT, "Server bridge was not published within 15 seconds. Check the first Server error.")
+local bridge = requiredChild(
+	ReplicatedStorage,
+	protocol.FolderName,
+	"Folder",
+	REPLICATION_TIMEOUT,
+	"Server bridge was not published within 15 seconds. Check the first Server error."
+)
 local remotes = {
 	Bridge = bridge,
-	Request = requiredChild(bridge, protocol.RequestName, "RemoteFunction", 5, "Server request remote is missing or has the wrong class."),
-	State = requiredChild(bridge, protocol.StateName, "RemoteEvent", 5, "Server state remote is missing or has the wrong class."),
-	Toast = requiredChild(bridge, protocol.ToastName, "RemoteEvent", 5, "Server toast remote is missing or has the wrong class."),
-	Effect = requiredChild(bridge, protocol.EffectName, "RemoteEvent", 5, "Server effect remote is missing or has the wrong class."),
-	Shutdown = requiredChild(bridge, protocol.ShutdownName, "RemoteEvent", 5, "Server shutdown remote is missing or has the wrong class."),
+	Request = requiredChild(
+		bridge,
+		protocol.RequestName,
+		"RemoteFunction",
+		5,
+		"Server request remote is missing or has the wrong class."
+	),
+	State = requiredChild(
+		bridge,
+		protocol.StateName,
+		"RemoteEvent",
+		5,
+		"Server state remote is missing or has the wrong class."
+	),
+	Toast = requiredChild(
+		bridge,
+		protocol.ToastName,
+		"RemoteEvent",
+		5,
+		"Server toast remote is missing or has the wrong class."
+	),
+	Effect = requiredChild(
+		bridge,
+		protocol.EffectName,
+		"RemoteEvent",
+		5,
+		"Server effect remote is missing or has the wrong class."
+	),
+	Shutdown = requiredChild(
+		bridge,
+		protocol.ShutdownName,
+		"RemoteEvent",
+		5,
+		"Server shutdown remote is missing or has the wrong class."
+	),
 }
 local stopPerformanceTelemetry = startPerformanceTelemetry(remotes.Request)
 runtime:addDisposer(stopPerformanceTelemetry)

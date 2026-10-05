@@ -36,7 +36,7 @@ local phonePortrait = LayoutSectionPlan.planOverview({
 assert(phonePortrait.heroH == 272, "phone portrait hero")
 assert(phonePortrait.rebirthH == 300, "phone portrait rebirth")
 assert(phonePortrait.domainH == 320, "phone portrait domain")
-assert(phonePortrait.notesH == 168, "phone portrait notes")
+assert(phonePortrait.notesH == 224, "phone portrait notes")
 assert(phonePortrait.opsH == 196, "phone portrait ops")
 assert(phonePortrait.metricCardH == 92, "phone portrait metric card")
 assert(phonePortrait.metricsH == 92 * 3 + 16, "phone portrait metrics")
@@ -69,7 +69,7 @@ local landscapePhone = LayoutSectionPlan.planOverview({
 	layoutPanelGap = 14,
 })
 assert(landscapePhone.heroH == 176, "landscape phone hero")
-assert(landscapePhone.notesH == 132, "landscape phone notes")
+assert(landscapePhone.notesH == 200, "landscape phone notes")
 assert(landscapePhone.opsH == 156, "landscape phone ops")
 assert(landscapePhone.countdownH == 128, "landscape phone countdown")
 assert(landscapePhone.rebirthH == 0 and landscapePhone.domainH == 0, "hidden sections zero")
@@ -225,28 +225,57 @@ local routeSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#navRouteTable"
 local vaultSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#vaultCollectEligibility")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
-assert(string.find(overviewSrc, "LayoutSectionPlan.planOverview", 1, true), "OverviewView must plan Overview via LayoutSectionPlan")
-assert(string.find(overviewSrc, "VaultCollectEligibility.isEligible", 1, true), "OverviewView must use vault eligibility")
+assert(
+	string.find(overviewSrc, "LayoutSectionPlan.planOverview", 1, true),
+	"OverviewView must plan Overview via LayoutSectionPlan"
+)
+assert(
+	string.find(overviewSrc, "VaultCollectEligibility.isEligible", 1, true),
+	"OverviewView must use vault eligibility"
+)
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView must use OpsClaims")
 assert(string.find(overviewSrc, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
 assert(string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView must use AnomalyReady")
 local workshopSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView must use PageBoardHeights")
-assert(string.find(routerSrc, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter must lazy-load WorkshopView")
+assert(
+	string.find(routerSrc, 'lazyView("WorkshopView", "WorkshopView")', 1, true),
+	"PageRouter must lazy-load WorkshopView"
+)
 local readySrc = fs.readFile("src/Client/AstralForge/LayoutKit.luau#pageReadyMath")
 assert(not string.find(readySrc, "GetService", 1, true), "pageReadyMath must stay pure")
 assert(string.find(readySrc, "function PageReadyMath.AnomalyReady", 1, true), "AnomalyReady must exist")
 local boardSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#pageBoardHeights")
 assert(not string.find(boardSrc, "GetService", 1, true), "pageBoardHeights must stay pure")
-assert(string.find(mainSrc, "LayoutSectionPlan.planWorkspace", 1, true) or string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"), "LayoutSectionPlan.planWorkspace", 1, true), "WorkspaceChrome must plan Workspace via LayoutSectionPlan")
-assert(string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"), "VaultCollectEligibility.isEligible", 1, true), "WorkspaceChrome must use vault eligibility")
+assert(
+	string.find(mainSrc, "LayoutSectionPlan.planWorkspace", 1, true)
+		or string.find(
+			fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"),
+			"LayoutSectionPlan.planWorkspace",
+			1,
+			true
+		),
+	"WorkspaceChrome must plan Workspace via LayoutSectionPlan"
+)
+assert(
+	string.find(
+		fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"),
+		"VaultCollectEligibility.isEligible",
+		1,
+		true
+	),
+	"WorkspaceChrome must use vault eligibility"
+)
 assert(string.find(mainSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame must use NetworkPolicy")
 assert(string.find(navSrc, "navRouteTable", 1, true), "appNav must require navRouteTable")
 assert(string.find(navSrc, "NavRouteTable.PRIMARY_ROUTES", 1, true), "appNav must build PRIMARY from table")
 assert(string.find(navSrc, "NavRouteTable.MORE_ROUTES", 1, true), "appNav must build MORE from table")
 
 -- Inline thresholds should not reappear in wired call sites (eligibility module owns them).
-assert(not string.find(routerSrc, "asFlux(state.Vault) >= 0.01", 1, true), "PageRouter must not inline collect threshold")
+assert(
+	not string.find(routerSrc, "asFlux(state.Vault) >= 0.01", 1, true),
+	"PageRouter must not inline collect threshold"
+)
 assert(not string.find(mainSrc, "asFlux(state.Vault) >= 0.01", 1, true), "MainGame must not inline collect threshold")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")

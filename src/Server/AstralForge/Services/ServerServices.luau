@@ -6,21 +6,33 @@ local serviceLoaded: { [string]: boolean } = {}
 local serviceLoading: { [string]: boolean } = {}
 local loadService: (string) -> any
 
-serviceFactories["AdminService"] = function() return require(script.Parent:WaitForChild("AdminService"))(loadService) end
+serviceFactories["AdminService"] = function()
+	return require(script.Parent:WaitForChild("AdminService"))(loadService)
+end
 
-serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("CoreServices"))("AnomalyService")(loadService) end
+serviceFactories["AnomalyService"] = function()
+	return require(script.Parent:WaitForChild("CoreServices"))("AnomalyService")(loadService)
+end
 
-serviceFactories["CasinoService"] = function() return require(script.Parent:WaitForChild("CasinoService"))(loadService) end
+serviceFactories["CasinoService"] = function()
+	return require(script.Parent:WaitForChild("CasinoService"))(loadService)
+end
 
-serviceFactories["BazaarService"] = function() return require(script.Parent:WaitForChild("BazaarService"))(loadService) end
+serviceFactories["BazaarService"] = function()
+	return require(script.Parent:WaitForChild("BazaarService"))(loadService)
+end
 
 serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
 
-serviceFactories["CharacterIntegrity"] = function() return require(script.Parent:WaitForChild("CharacterIntegrity"))(loadService) end
+serviceFactories["CharacterIntegrity"] = function()
+	return require(script.Parent:WaitForChild("CharacterIntegrity"))(loadService)
+end
 
 serviceFactories["ConvergenceService"] = require(script.Parent:WaitForChild("ConvergenceService"))
 
-serviceFactories["DataService"] = function() return require(script.Parent:WaitForChild("DataService"))(loadService) end
+serviceFactories["DataService"] = function()
+	return require(script.Parent:WaitForChild("DataService"))(loadService)
+end
 
 serviceFactories["ForgeEchoService"] = require(script.Parent:WaitForChild("CoreServices"))("ForgeEchoService")
 
@@ -42,47 +54,75 @@ serviceFactories["GameService"] = function()
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
-	local ProgressionGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
-	local SharedDataSuite = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+	local ProgressionGate =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
+	local SharedDataSuite =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 	local LevelRewards = SharedDataSuite("LevelRewards")
 	local ForgeLevels = SharedDataSuite("ForgeLevels")
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
 	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("CrateRoll")
-	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ShopGrantEligibility")
-	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("CommandActionValidators")
+	local ShopGrantEligibility =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ShopGrantEligibility")
+	local CommandActionValidators =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("CommandActionValidators")
 	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SocialBoost")
 	local ItemSalvage = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemSalvage")
-	local VisitSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitSnapshot")
-	local PublicPlayerRecord = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("PublicPlayerRecord")
-	local ReportLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ReportLedger")
-	local SettingsSeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SettingsSeal")
-	local UnlimitedMoneySeal = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UnlimitedMoneySeal")
-	local StoryMailSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("StoryMailSnapshot")
+	local VisitSnapshot =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitSnapshot")
+	local PublicPlayerRecord =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("PublicPlayerRecord")
+	local ReportLedger =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ReportLedger")
+	local SettingsSeal =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SettingsSeal")
+	local UnlimitedMoneySeal =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UnlimitedMoneySeal")
+	local StoryMailSnapshot =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("StoryMailSnapshot")
 	local VisitorList = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("VisitorList")
-	local AutoSalvageSnapshot = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("AutoSalvageSnapshot")
-	local OverchargeCombo = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OverchargeCombo")
+	local AutoSalvageSnapshot =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("AutoSalvageSnapshot")
+	local OverchargeCombo =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OverchargeCombo")
 	local RankBracket = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("RankBracket")
-	local ActionFeatureMaps = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ActionFeatureMaps")
-	local ActionResponse = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ActionResponse")
-	local GeneralBoardValue = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("GeneralBoardValue")
-	local TelemetryMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("TelemetryMath")
-	local UtcClockMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UtcClockMath")
+	local ActionFeatureMaps =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ActionFeatureMaps")
+	local ActionResponse =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ActionResponse")
+	local GeneralBoardValue =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("GeneralBoardValue")
+	local TelemetryMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("TelemetryMath")
+	local UtcClockMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UtcClockMath")
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
-	local ProfileClampMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ProfileClampMath")
+	local ProfileClampMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ProfileClampMath")
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
-	local ContinuumDomainMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ContinuumDomainMath")
-	local ItemLoadoutMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemLoadoutMath")
+	local ContinuumDomainMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ContinuumDomainMath")
+	local ItemLoadoutMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ItemLoadoutMath")
 	local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildMath")
-	local ForgePathClaim = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
-	local OfflineProjection = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OfflineProjection")
+	local ForgePathClaim =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
+	local OfflineProjection =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("OfflineProjection")
 	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
-	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
-	local MonetizationConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("MonetizationConfig")
-	local ZoneUnlock = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("ZoneUnlock")
+	local GameConfig =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local Protocol =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
+	local MonetizationConfig = require(
+		ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData")
+	)("MonetizationConfig")
+	local ZoneUnlock = require(
+		ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData")
+	)("ZoneUnlock")
 
 	local ProgressionService = loadService("ProgressionService")
 	local AnomalyService = loadService("AnomalyService")
@@ -378,11 +418,34 @@ serviceFactories["GameService"] = function()
 	end
 
 	local PRESENCE_PAGES = {
-		Overview = true, Workshop = true, Inventory = true, Research = true, StarGrid = true,
-		Echoes = true, Continuum = true, Lab = true, Anomaly = true, Worlds = true,
-		Missions = true, Wheel = true, Casino = true, Bazaar = true, Rewards = true, Command = true, Story = true, Mail = true,
-		Chat = true, Crew = true, Milestones = true, Convergence = true, Leaderboards = true,
-		Trade = true, Credits = true, Admin = true, Settings = true, Shop = true,
+		Overview = true,
+		Workshop = true,
+		Inventory = true,
+		Research = true,
+		StarGrid = true,
+		Echoes = true,
+		Continuum = true,
+		Lab = true,
+		Anomaly = true,
+		Worlds = true,
+		Missions = true,
+		Wheel = true,
+		Casino = true,
+		Bazaar = true,
+		Rewards = true,
+		Command = true,
+		Story = true,
+		Mail = true,
+		Chat = true,
+		Crew = true,
+		Milestones = true,
+		Convergence = true,
+		Leaderboards = true,
+		Trade = true,
+		Credits = true,
+		Admin = true,
+		Settings = true,
+		Shop = true,
 	}
 
 	function GameService:_reportPresence(player: Player, payload: any)
@@ -463,7 +526,12 @@ serviceFactories["GameService"] = function()
 				return responseError(err)
 			end
 			if target then
-				self:_toastPlayer(target, "Trade invite", player.DisplayName .. " wants to trade. Open Trade to accept.", "Info")
+				self:_toastPlayer(
+					target,
+					"Trade invite",
+					player.DisplayName .. " wants to trade. Open Trade to accept.",
+					"Info"
+				)
 				self:_pushState(target, true)
 			end
 			self:_pushState(player, true)
@@ -477,7 +545,12 @@ serviceFactories["GameService"] = function()
 			if fromId then
 				local host = Players:GetPlayerByUserId(fromId)
 				if host then
-					self:_toastPlayer(host, accept and "Trade opened" or "Invite declined", accept and (player.DisplayName .. " accepted.") or (player.DisplayName .. " declined."), accept and "Success" or "Info")
+					self:_toastPlayer(
+						host,
+						accept and "Trade opened" or "Invite declined",
+						accept and (player.DisplayName .. " accepted.") or (player.DisplayName .. " declined."),
+						accept and "Success" or "Info"
+					)
 					self:_pushState(host, true)
 				end
 			end
@@ -604,8 +677,8 @@ serviceFactories["GameService"] = function()
 			if not session then
 				return responseSuccess()
 			end
-		local otherId = session.Host == player.UserId and session.Guest or session.Host
-		local other = Players:GetPlayerByUserId(otherId)
+			local otherId = session.Host == player.UserId and session.Guest or session.Host
+			local other = Players:GetPlayerByUserId(otherId)
 			if other then
 				if payload and payload.Away == true then
 					self:_toastPlayer(other, "Trade", player.DisplayName .. " stepped away from the table.", "Info")
@@ -718,9 +791,16 @@ serviceFactories["GameService"] = function()
 		self._saveFailedToastAt = {}
 		dataService.OnSaveFailed = function(player: Player, reason: string)
 			local lastToastAt = self._saveFailedToastAt[player] or 0
-			if os.clock() - lastToastAt < 120 then return end
+			if os.clock() - lastToastAt < 120 then
+				return
+			end
 			self._saveFailedToastAt[player] = os.clock()
-			self:_toastPlayer(player, "Save trouble", "Your progress couldn't save just now — stay online and we'll keep retrying.", "Warning")
+			self:_toastPlayer(
+				player,
+				"Save trouble",
+				"Your progress couldn't save just now — stay online and we'll keep retrying.",
+				"Warning"
+			)
 		end
 		return self
 	end
@@ -749,8 +829,20 @@ serviceFactories["GameService"] = function()
 					description = filtered,
 					color = 5959144,
 					fields = {
-						{ name = "Player", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = false },
-						{ name = "Progress", value = string.format("World %d · %d rebirths", profile and profile.Zone or 1, profile and profile.Rebirths or 0), inline = true },
+						{
+							name = "Player",
+							value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId),
+							inline = false,
+						},
+						{
+							name = "Progress",
+							value = string.format(
+								"World %d · %d rebirths",
+								profile and profile.Zone or 1,
+								profile and profile.Rebirths or 0
+							),
+							inline = true,
+						},
 						{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
 					},
 					footer = { text = "Astral Forge " .. tostring(GameConfig.Game.Version) },
@@ -784,8 +876,11 @@ serviceFactories["GameService"] = function()
 		if not ReportLedger.isReason(reason) then
 			return responseError("Pick a reason before sending the report.")
 		end
-		local extracted = if RemoteFirewall.ExtractUserId then RemoteFirewall.ExtractUserId(payload and payload.UserId) else (payload and payload.UserId)
-		local targetUserId = RemoteFirewall.CoerceUserId(extracted) or RemoteFirewall.CoerceUserId(payload and payload.UserId)
+		local extracted = if RemoteFirewall.ExtractUserId
+			then RemoteFirewall.ExtractUserId(payload and payload.UserId)
+			else (payload and payload.UserId)
+		local targetUserId = RemoteFirewall.CoerceUserId(extracted)
+			or RemoteFirewall.CoerceUserId(payload and payload.UserId)
 		if targetUserId == nil then
 			return responseError("Couldn't find that player.")
 		end
@@ -814,9 +909,20 @@ serviceFactories["GameService"] = function()
 				string.format("report:%d", targetUserId),
 				5,
 				"Report",
-				string.format("%s reported %s (%d) for %s; %d reports from %d players this hour", player.Name, target.Name, targetUserId, reason, reportCount, reporterCount)
+				string.format(
+					"%s reported %s (%d) for %s; %d reports from %d players this hour",
+					player.Name,
+					target.Name,
+					targetUserId,
+					reason,
+					reportCount,
+					reporterCount
+				)
 			)
-			return responseSuccess("Report received. Thanks for helping keep the server clean.", { Reported = targetUserId })
+			return responseSuccess(
+				"Report received. Thanks for helping keep the server clean.",
+				{ Reported = targetUserId }
+			)
 		end
 		local reporterProfile = self._data:Get(player)
 		local targetProfile = self._data:Get(target)
@@ -829,12 +935,44 @@ serviceFactories["GameService"] = function()
 					description = details ~= "" and details or "(no details provided)",
 					color = 15548997,
 					fields = {
-						{ name = "Reported", value = string.format("%s (@%s) · %d", target.DisplayName, target.Name, target.UserId), inline = true },
-						{ name = "Reported by", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = true },
-						{ name = "Target progress", value = string.format("World %d · %d rebirths", targetProfile and targetProfile.Zone or 1, targetProfile and targetProfile.Rebirths or 0), inline = true },
-						{ name = "Reporter progress", value = string.format("World %d · %d rebirths", reporterProfile and reporterProfile.Zone or 1, reporterProfile and reporterProfile.Rebirths or 0), inline = true },
-						{ name = "This hour", value = string.format("%d reports from %d players", reportCount, reporterCount), inline = true },
-						{ name = "Target account", value = string.format("%d days old", target.AccountAge), inline = true },
+						{
+							name = "Reported",
+							value = string.format("%s (@%s) · %d", target.DisplayName, target.Name, target.UserId),
+							inline = true,
+						},
+						{
+							name = "Reported by",
+							value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId),
+							inline = true,
+						},
+						{
+							name = "Target progress",
+							value = string.format(
+								"World %d · %d rebirths",
+								targetProfile and targetProfile.Zone or 1,
+								targetProfile and targetProfile.Rebirths or 0
+							),
+							inline = true,
+						},
+						{
+							name = "Reporter progress",
+							value = string.format(
+								"World %d · %d rebirths",
+								reporterProfile and reporterProfile.Zone or 1,
+								reporterProfile and reporterProfile.Rebirths or 0
+							),
+							inline = true,
+						},
+						{
+							name = "This hour",
+							value = string.format("%d reports from %d players", reportCount, reporterCount),
+							inline = true,
+						},
+						{
+							name = "Target account",
+							value = string.format("%d days old", target.AccountAge),
+							inline = true,
+						},
 						{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
 					},
 					footer = { text = "Astral Forge " .. tostring(GameConfig.Game.Version) },
@@ -869,7 +1007,9 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_spawnWorker(callback)
-		if not self._running then return nil end
+		if not self._running then
+			return nil
+		end
 		local token = {}
 		local worker = task.defer(function()
 			if self._running then
@@ -895,7 +1035,7 @@ serviceFactories["GameService"] = function()
 		end
 		self._socialBoostScheduled = true
 		self._socialBoostWorker = task.spawn(function()
-				repeat
+			repeat
 				self._socialBoostDirty = false
 				task.wait(0.15)
 				if not self._running then
@@ -949,10 +1089,14 @@ serviceFactories["GameService"] = function()
 								player.MembershipType == Enum.MembershipType.Premium
 							)
 
-							if not changed then return { ok = false, noop = true } end
+							if not changed then
+								return { ok = false, noop = true }
+							end
 							return { ok = true }
 						end, true, "social-boost")
-						if committed and changed then self:_pushState(player) end
+						if committed and changed then
+							self:_pushState(player)
+						end
 					end)
 					if not updated then
 						ModuleLog.Every("social-boost:" .. tostring(player.UserId), 30, "Social", tostring(updateError))
@@ -973,8 +1117,9 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_toastPlayer(player: Player, title: string, body: string, tone: string?)
-
-		if player.Parent ~= Players then return end
+		if player.Parent ~= Players then
+			return
+		end
 		self._toast:FireClient(player, {
 			Title = title,
 			Body = body,
@@ -1004,7 +1149,9 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_syncLeaderstats(player: Player, profile)
-		if player.Parent ~= Players or type(profile) ~= "table" then return end
+		if player.Parent ~= Players or type(profile) ~= "table" then
+			return
+		end
 		local leaderstats = player:FindFirstChild("leaderstats")
 		if leaderstats then
 			local flux = leaderstats:FindFirstChild("Flux")
@@ -1020,7 +1167,15 @@ serviceFactories["GameService"] = function()
 				rebirths.Value = math.floor(progressionNumber(profile.Rebirths))
 			end
 		end
-		player:SetAttribute("ProductionPerSecond", progressionNumber(Economy.Mul(Economy.Production(profile), self._convergence:Multiplier() * self._events:ProductionMultiplier())))
+		player:SetAttribute(
+			"ProductionPerSecond",
+			progressionNumber(
+				Economy.Mul(
+					Economy.Production(profile),
+					self._convergence:Multiplier() * self._events:ProductionMultiplier()
+				)
+			)
+		)
 		player:SetAttribute("CurrentZone", profile.CurrentZone)
 		if GameConfig.Operations.TitlesEnabled == false then
 			player:SetAttribute("EquippedTitle", nil)
@@ -1028,7 +1183,11 @@ serviceFactories["GameService"] = function()
 			player:SetAttribute("EquippedTitleFx", nil)
 		else
 			local titleId = "Cadet"
-			if profile.Command and type(profile.Command.EquippedTitle) == "string" and profile.Command.EquippedTitle ~= "" then
+			if
+				profile.Command
+				and type(profile.Command.EquippedTitle) == "string"
+				and profile.Command.EquippedTitle ~= ""
+			then
 				titleId = profile.Command.EquippedTitle
 			end
 			local titleName = "Forge Cadet"
@@ -1065,7 +1224,8 @@ serviceFactories["GameService"] = function()
 		elseif phase == "Live" then
 			title, body, tone = def.Name .. " has started!", def.How, "Special"
 		elseif phase == "Completed" then
-			title, body, tone = "Community goal reached!", "Everyone who helped has been paid. Nice work, forge.", "Success"
+			title, body, tone =
+				"Community goal reached!", "Everyone who helped has been paid. Nice work, forge.", "Success"
 		else
 			title, body, tone = def.Name .. " is over", "Thanks for playing. The next event is on its way.", "Info"
 		end
@@ -1093,7 +1253,12 @@ serviceFactories["GameService"] = function()
 				return responseSuccess(nil)
 			end)
 			local placing = if rank <= 3 then string.format(" You placed #%d!", rank) else ""
-			self:_toastPlayer(player, "Community Forge paid out", string.format("+%s flux and +%d stardust.%s", Format.Number(paid), stardust, placing), "Success")
+			self:_toastPlayer(
+				player,
+				"Community Forge paid out",
+				string.format("+%s flux and +%d stardust.%s", Format.Number(paid), stardust, placing),
+				"Success"
+			)
 		end
 	end
 
@@ -1145,13 +1310,29 @@ serviceFactories["GameService"] = function()
 			})
 		end
 		local nextStep = levelState.Next
-		if nextStep ~= nil and LevelRewards.halfwayDue(tonumber(progression.HalfwayPaidFor) or -1, nextStep.Level, nextStep.Progress, nextStep.Target) then
+		if
+			nextStep ~= nil
+			and LevelRewards.halfwayDue(
+				tonumber(progression.HalfwayPaidFor) or -1,
+				nextStep.Level,
+				nextStep.Progress,
+				nextStep.Target
+			)
+		then
 			local checkpoint = LevelRewards.halfway(nextStep.Level)
 			local flux = fluxFor(checkpoint.FluxSeconds, checkpoint.MinFlux)
 			profile.Cash = Economy.Add(profile.Cash, flux)
 			progression.HalfwayPaidFor = nextStep.Level
-			self:_toastPlayer(player, string.format("Halfway to Level %d", nextStep.Level), string.format("+%s flux. Keep going!", Format.Number(flux)), "Success")
-			self._effect:FireClient(player, { Type = "LevelHalfway", Level = nextStep.Level, Flux = Economy.AsNumber(flux) })
+			self:_toastPlayer(
+				player,
+				string.format("Halfway to Level %d", nextStep.Level),
+				string.format("+%s flux. Keep going!", Format.Number(flux)),
+				"Success"
+			)
+			self._effect:FireClient(
+				player,
+				{ Type = "LevelHalfway", Level = nextStep.Level, Flux = Economy.AsNumber(flux) }
+			)
 		end
 		local nextReward = nil
 		if nextStep ~= nil then
@@ -1161,7 +1342,9 @@ serviceFactories["GameService"] = function()
 			Mastery = LevelRewards.mastery(settled),
 			Surge = {
 				Multiplier = LevelRewards.surgeMultiplier(progression.Surge, now),
-				EndsAt = if LevelRewards.surgeMultiplier(progression.Surge, now) > 1 then progression.Surge.EndsAt else 0,
+				EndsAt = if LevelRewards.surgeMultiplier(progression.Surge, now) > 1
+					then progression.Surge.EndsAt
+					else 0,
 			},
 			HalfwayPaidFor = progression.HalfwayPaidFor,
 			NextReward = nextReward,
@@ -1174,10 +1357,14 @@ serviceFactories["GameService"] = function()
 			return nil
 		end
 		local now = os.time()
-		local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._events:ProductionMultiplier())
+		local production = Economy.Mul(
+			Economy.Production(profile, now),
+			self._convergence:Multiplier() * self._events:ProductionMultiplier()
+		)
 		local capacity = Economy.Capacity(profile, now)
 		local prestigeReward = Economy.PrestigeReward(Economy.Add(profile.RunCash, profile.Vault))
-		local domain = profile.Domain or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
+		local domain = profile.Domain
+			or { Rank = 0, Essence = 0, LastExpandedAt = 0, TotalRebirthsSpent = 0, TotalCoresSpent = 0 }
 		local domainRank = math.max(0, math.floor(tonumber(domain.Rank) or 0))
 		local domainRequiredRebirths, domainRequiredCores = Economy.DomainRequirements(domainRank)
 		local domainEssenceReward, domainStardustReward = Economy.DomainRewards(domainRank)
@@ -1225,7 +1412,12 @@ serviceFactories["GameService"] = function()
 					then "New: " .. table.concat(names, ", ") .. ". Find them in the Forge menu."
 					elseif nextStep ~= nil then "Next goal: " .. nextStep.Text .. "."
 					else "You've reached the top of the forge."
-				self:_toastPlayer(player, string.format("Level %d · %s", levelState.Level, levelState.Tier), body, "Special")
+				self:_toastPlayer(
+					player,
+					string.format("Level %d · %s", levelState.Level, levelState.Tier),
+					body,
+					"Special"
+				)
 				self._effect:FireClient(player, {
 					Type = "LevelUp",
 					Level = levelState.Level,
@@ -1241,7 +1433,8 @@ serviceFactories["GameService"] = function()
 				self:_toastPlayer(
 					player,
 					single and (single.State.Name .. " unlocked") or "New systems unlocked",
-					single and "You can open it from the Forge menu." or (table.concat(names, ", ") .. " are ready in the Forge menu."),
+					single and "You can open it from the Forge menu."
+						or (table.concat(names, ", ") .. " are ready in the Forge menu."),
 					"Special"
 				)
 				self._effect:FireClient(player, {
@@ -1322,7 +1515,7 @@ serviceFactories["GameService"] = function()
 			Daily = ProgressionService.DailyState(profile),
 			Wheel = ProgressionService.WheelState(profile),
 			Casino = CasinoService.State(profile, os.time()),
-				Bazaar = BazaarService.State(profile, os.time(), player.UserId),
+			Bazaar = BazaarService.State(profile, os.time(), player.UserId),
 			Command = ProgressionService.CommandState(profile),
 			ForgePath = ProgressionService.ForgePathState(profile),
 			TimedRewards = ProgressionService.TimedRewardState(profile),
@@ -1343,17 +1536,25 @@ serviceFactories["GameService"] = function()
 			DailyShop = {
 				Day = type(profile.DailyShop) == "table" and profile.DailyShop.Day or -1,
 				Bought = copyDictionary(type(profile.DailyShop) == "table" and profile.DailyShop.Bought or {}),
-				Owned = if type(profile.DailyShop) == "table" and type(profile.DailyShop.Owned) == "table" then copyDictionary(profile.DailyShop.Owned) else nil,
+				Owned = if type(profile.DailyShop) == "table" and type(profile.DailyShop.Owned) == "table"
+					then copyDictionary(profile.DailyShop.Owned)
+					else nil,
 			},
 			Cosmetics = {
-				CrateSkins = copyDictionary(type(profile.Cosmetics) == "table" and profile.Cosmetics.CrateSkins or { Classic = true }),
+				CrateSkins = copyDictionary(
+					type(profile.Cosmetics) == "table" and profile.Cosmetics.CrateSkins or { Classic = true }
+				),
 				CrateSkin = type(profile.Cosmetics) == "table" and profile.Cosmetics.CrateSkin or "Classic",
 			},
 			Anomaly = AnomalyService.State(profile),
 			Lab = LabService.State(profile),
 			Guild = GuildMath.SnapshotPublic(guildMembership, guildCachedPublic),
 			GuildBonuses = copyDictionary(profile.GuildBonuses),
-			SocialBoost = SocialBoost.PublicSnapshot(profile.SocialBoost, GameConfig.Social.MaxBoostedFriends, copyDictionary),
+			SocialBoost = SocialBoost.PublicSnapshot(
+				profile.SocialBoost,
+				GameConfig.Social.MaxBoostedFriends,
+				copyDictionary
+			),
 			SocialRewards = SocialBoost.CreatorRewardsPublic(profile.SocialRewards, ServerConfig.CreatorUsername),
 			AutoForge = AutoSalvageSnapshot.PublicAutoForge(profile.AutoForge, copyDictionary),
 			Trade = if self._trades then self._trades:StatePublic(profile, player, now) else TradeDesk.LockedPublic(),
@@ -1425,7 +1626,12 @@ serviceFactories["GameService"] = function()
 			local runtime = self._runtime[player]
 			local now = os.clock()
 			local revision = tonumber(snapshot.Revision) or 0
-			if not force and runtime and runtime.LastPushRevision == revision and (now - (runtime.LastPushAt or 0)) < 0.55 then
+			if
+				not force
+				and runtime
+				and runtime.LastPushRevision == revision
+				and (now - (runtime.LastPushAt or 0)) < 0.55
+			then
 				return
 			end
 			if runtime then
@@ -1459,9 +1665,13 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_progressAnomalyFromAction(player: Player, action: string)
-		if not anomalyChargeByAction[action] then return end
+		if not anomalyChargeByAction[action] then
+			return
+		end
 		local runtime = self._runtime[player]
-		if not runtime then return end
+		if not runtime then
+			return
+		end
 		runtime.PendingAnomalyActions = runtime.PendingAnomalyActions or {}
 
 		if #runtime.PendingAnomalyActions < 64 then
@@ -1633,7 +1843,9 @@ serviceFactories["GameService"] = function()
 			local ok, message, payload = ForgeEchoService.Capture(profile, self._random)
 			return ok and responseSuccess(message, payload) or responseError(message)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoCapture" }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "EchoCapture" })
+		end
 		return result
 	end
 
@@ -1642,7 +1854,9 @@ serviceFactories["GameService"] = function()
 			local ok, message, payload = ForgeEchoService.Claim(profile, choiceId)
 			return ok and responseSuccess(message, payload) or responseError(message)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoClaim", Uid = result.EchoUid }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "EchoClaim", Uid = result.EchoUid })
+		end
 		return result
 	end
 
@@ -1651,7 +1865,9 @@ serviceFactories["GameService"] = function()
 			local ok, message = ForgeEchoService.Equip(profile, uid, slot)
 			return ok and responseSuccess(message) or responseError(message)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoEquip" }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "EchoEquip" })
+		end
 		return result
 	end
 
@@ -1660,7 +1876,9 @@ serviceFactories["GameService"] = function()
 			local ok, message, payload = ForgeEchoService.Upgrade(profile, uid)
 			return ok and responseSuccess(message, payload) or responseError(message)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoUpgrade" }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "EchoUpgrade" })
+		end
 		return result
 	end
 
@@ -1669,7 +1887,9 @@ serviceFactories["GameService"] = function()
 			local ok, message, payload = ForgeEchoService.Dismantle(profile, uid)
 			return ok and responseSuccess(message, payload) or responseError(message)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "EchoDismantle" }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "EchoDismantle" })
+		end
 		return result
 	end
 
@@ -1696,11 +1916,18 @@ serviceFactories["GameService"] = function()
 				profile,
 				ForgePathClaim.XpFromBankedAmount(amountNumber, GameConfig.Economy.ForgePathXP)
 			)
-			ForgeEchoService.Record(profile, "Collect", math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12))
+			ForgeEchoService.Record(
+				profile,
+				"Collect",
+				math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12)
+			)
 			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
 			if rainDust > 0 then
 				profile.Stardust += rainDust
-				return responseSuccess("Banked " .. Format.Number(amount) .. " flux and caught " .. rainDust .. " stardust.", { Amount = amount, Dust = rainDust })
+				return responseSuccess(
+					"Banked " .. Format.Number(amount) .. " flux and caught " .. rainDust .. " stardust.",
+					{ Amount = amount, Dust = rainDust }
+				)
 			end
 			return responseSuccess("Banked " .. Format.Number(amount) .. " flux.", { Amount = amount })
 		end)
@@ -1807,12 +2034,7 @@ serviceFactories["GameService"] = function()
 			local count
 			local cost
 			if requestedAmount == "Max" then
-				count, cost = Economy.AffordableMachineLevels(
-					machineId,
-					level,
-					profile.Cash,
-					remainingLevels
-				)
+				count, cost = Economy.AffordableMachineLevels(machineId, level, profile.Cash, remainingLevels)
 			else
 				count = type(requestedAmount) == "number" and math.clamp(math.floor(requestedAmount), 1, 50) or 1
 				count = math.min(count, remainingLevels)
@@ -1845,10 +2067,14 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_queueStatePush(player: Player)
-		if self._queuedStatePushes[player] then return end
+		if self._queuedStatePushes[player] then
+			return
+		end
 		self._queuedStatePushes[player] = task.defer(function()
 			self._queuedStatePushes[player] = nil
-			if self._running and player.Parent == Players then self:_pushState(player) end
+			if self._running and player.Parent == Players then
+				self:_pushState(player)
+			end
 		end)
 	end
 
@@ -1868,7 +2094,14 @@ serviceFactories["GameService"] = function()
 			profile.AutoForge.Reserve = reserve
 			profile.AutoForge.Bought = math.max(0, math.floor(tonumber(profile.AutoForge.Bought) or 0))
 			local state = payload.Enabled and "online" or "paused"
-			return responseSuccess(string.format("Auto-Forge %s — %s targeted with %d%% held in reserve.", state, machine.Name, math.floor(reserve * 100 + 0.5)))
+			return responseSuccess(
+				string.format(
+					"Auto-Forge %s — %s targeted with %d%% held in reserve.",
+					state,
+					machine.Name,
+					math.floor(reserve * 100 + 0.5)
+				)
+			)
 		end)
 	end
 
@@ -1956,12 +2189,7 @@ serviceFactories["GameService"] = function()
 			local count
 			local cost
 			if requestedAmount == "Max" then
-				count, cost = Economy.AffordableResearchLevels(
-					researchId,
-					level,
-					profile.Cash,
-					remainingLevels
-				)
+				count, cost = Economy.AffordableResearchLevels(researchId, level, profile.Cash, remainingLevels)
 			else
 				count = type(requestedAmount) == "number" and math.clamp(math.floor(requestedAmount), 1, 50) or 1
 				count = math.min(count, remainingLevels)
@@ -2025,7 +2253,9 @@ serviceFactories["GameService"] = function()
 				return responseError("You need more Stardust for this node.")
 			end
 			if Economy.Lt(profile.Stardust, cost) then
-				return responseError("You need " .. Format.Number(Economy.Sub(cost, profile.Stardust)) .. " more Stardust.")
+				return responseError(
+					"You need " .. Format.Number(Economy.Sub(cost, profile.Stardust)) .. " more Stardust."
+				)
 			end
 			profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
 			profile.GridUpgrades[upgradeId] = level + count
@@ -2072,7 +2302,9 @@ serviceFactories["GameService"] = function()
 			end
 			if kind == "Error" then
 				if err == "NEED_MORE_FLUX" then
-					return responseError("You need " .. Format.Number(Economy.Sub(zone.Cost, profile.Cash)) .. " more flux.")
+					return responseError(
+						"You need " .. Format.Number(Economy.Sub(zone.Cost, profile.Cash)) .. " more flux."
+					)
 				end
 				return responseError(err :: string)
 			end
@@ -2118,19 +2350,16 @@ serviceFactories["GameService"] = function()
 		local result = self:_mutate(player, function(profile)
 			local rebirthConfig = GameConfig.Economy.Rebirth or {}
 			local bankVault = rebirthConfig.BankVaultIntoRun ~= false
-			local effectiveRun = if bankVault
-				then Economy.Add(profile.RunCash, profile.Vault)
-				else profile.RunCash
+			local effectiveRun = if bankVault then Economy.Add(profile.RunCash, profile.Vault) else profile.RunCash
 			local reward = Economy.PrestigeReward(effectiveRun)
 			if not RebirthGate.CanRebirth(reward, Economy.Gte) then
 				return responseError(
-					"Bank at least "
-						.. Format.Number(GameConfig.Economy.PrestigeRequirement)
-						.. " run flux first."
+					"Bank at least " .. Format.Number(GameConfig.Economy.PrestigeRequirement) .. " run flux first."
 				)
 			end
 			local bankedVault = profile.Vault
-			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
+			reward =
+				Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
 			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
 			local stardustMinimum = tonumber(rebirthConfig.StardustMinimum) or 4
@@ -2161,13 +2390,16 @@ serviceFactories["GameService"] = function()
 					end
 				end
 			end
-			return responseSuccess(string.format("Rebirth complete. +%d cores, +%d stardust.", reward, stardustReward), {
-				Reward = reward,
-				StardustReward = stardustReward,
-				BankedVault = bankedVault,
-				CelebrationBoost = celebrationBoost,
-				NextTarget = GameConfig.Economy.PrestigeRequirement,
-			})
+			return responseSuccess(
+				string.format("Rebirth complete. +%d cores, +%d stardust.", reward, stardustReward),
+				{
+					Reward = reward,
+					StardustReward = stardustReward,
+					BankedVault = bankedVault,
+					CelebrationBoost = celebrationBoost,
+					NextTarget = GameConfig.Economy.PrestigeRequirement,
+				}
+			)
 		end)
 		if result.ok then
 			self._world:RefreshPlot(player, self._data:Get(player))
@@ -2380,8 +2612,7 @@ serviceFactories["GameService"] = function()
 				return responseError("You already redeemed that code.")
 			end
 			profile.Codes[code] = true
-			local rewardText =
-				ProgressionService.ApplyReward(profile, codeData.Reward, Economy.Production(profile))
+			local rewardText = ProgressionService.ApplyReward(profile, codeData.Reward, Economy.Production(profile))
 			return responseSuccess(rewardText)
 		end)
 		if result.ok then
@@ -2391,6 +2622,9 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_grantDevProduct(profile, productDef): string
+		if productDef.Donation then
+			return "Thanks for supporting Astral Forge!"
+		end
 		return ProgressionService.ApplyReward(profile, productDef.Reward, Economy.Production(profile))
 	end
 
@@ -2415,6 +2649,12 @@ serviceFactories["GameService"] = function()
 				return
 			end
 			rewardText = self:_grantDevProduct(profile, productDef)
+			if productDef.Donation then
+				require(ReplicatedStorage.AstralForge.Shared.CommerceCatalog).RecordDonation(
+					profile,
+					receiptInfo.CurrencySpent
+				)
+			end
 		end)
 		if not updated then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
@@ -2427,14 +2667,41 @@ serviceFactories["GameService"] = function()
 		if not already then
 			self:_syncLeaderstats(player, self._data:Get(player))
 			self:_pushState(player)
-			self:_toastPlayer(player, "Purchase complete", rewardText ~= "" and rewardText or productDef.Name, "Special")
-			self._effect:FireClient(player, { Type = "FeatureUnlocked" })
+			self:_toastPlayer(
+				player,
+				"Purchase complete",
+				rewardText ~= "" and rewardText or productDef.Name,
+				"Special"
+			)
+			if productDef.Donation then
+				self._effect:FireClient(player, {
+					Type = "Donation",
+					Tier = productDef.StudioPrice,
+					Amount = receiptInfo.CurrencySpent,
+					Key = purchaseKey,
+				})
+			else
+				self._effect:FireClient(player, { Type = "FeatureUnlocked" })
+			end
 		end
+		-- A previous receipt attempt may have applied the grant but failed its save.
+		-- Send the celebration after the successful retry too; the client deduplicates by receipt ID.
+		if already and productDef.Donation then
+			self._effect:FireClient(player, {
+				Type = "Donation",
+				Tier = productDef.StudioPrice,
+				Amount = receiptInfo.CurrencySpent,
+				Key = purchaseKey,
+			})
+		end
+		self._effect:FireClient(
+			player,
+			{ Type = "PurchaseConfirmed", ProductId = receiptInfo.ProductId, Key = purchaseKey, Label = productDef.Name }
+		)
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
 	function GameService:_syncShop(player: Player)
-
 		local ownedPasses = {}
 		for _, passDef in MonetizationConfig.GamePasses do
 			if passDef.PassId > 0 then
@@ -2458,6 +2725,9 @@ serviceFactories["GameService"] = function()
 			end
 			return responseSuccess("Dock inventory synced.")
 		end)
+		if result.ok then
+			result.OwnedPasses = ownedPasses
+		end
 		return result
 	end
 
@@ -2482,10 +2752,16 @@ serviceFactories["GameService"] = function()
 				profile.OwnedPasses[passDef.Key] = true
 				local parts = {}
 				if (passDef.ProductionBonus or 0) > 0 then
-					table.insert(parts, string.format("+%d%% production", math.floor((passDef.ProductionBonus or 0) * 100 + 0.5)))
+					table.insert(
+						parts,
+						string.format("+%d%% production", math.floor((passDef.ProductionBonus or 0) * 100 + 0.5))
+					)
 				end
 				if (passDef.CapacityBonus or 0) > 0 then
-					table.insert(parts, string.format("+%d%% vault", math.floor((passDef.CapacityBonus or 0) * 100 + 0.5)))
+					table.insert(
+						parts,
+						string.format("+%d%% vault", math.floor((passDef.CapacityBonus or 0) * 100 + 0.5))
+					)
 				end
 				local detail = #parts > 0 and table.concat(parts, " · ") or "Pass linked"
 				return responseSuccess(passDef.Name .. " — " .. detail)
@@ -2544,18 +2820,11 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_rollItemDefinition(crate, pity: number)
-		return CrateRoll.Roll(
-			crate,
-			pity,
-			GameConfig.Items.Rarities,
-			GameConfig.Items.Definitions,
-			function(lo, hi)
-				return self._random:NextNumber(lo, hi)
-			end,
-			function(lo, hi)
-				return self._random:NextInteger(lo, hi)
-			end
-		)
+		return CrateRoll.Roll(crate, pity, GameConfig.Items.Rarities, GameConfig.Items.Definitions, function(lo, hi)
+			return self._random:NextNumber(lo, hi)
+		end, function(lo, hi)
+			return self._random:NextInteger(lo, hi)
+		end)
 	end
 
 	function GameService:_buyItemOffer(player: Player, offerId: any)
@@ -2605,7 +2874,8 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function shopShared()
-		local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
+		local SharedData =
+			require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 		return SharedData("ShopCatalog"), SharedData("RelicSystem")
 	end
 
@@ -2683,7 +2953,17 @@ serviceFactories["GameService"] = function()
 				if not uid then
 					return responseError("Your relic inventory is full.")
 				end
-				detail.Rolls = { { Uid = uid, DefinitionId = definition.Id, Rarity = definition.Rarity, New = not wasOwned, Pity = false, AutoSalvaged = false, Essence = 0 } }
+				detail.Rolls = {
+					{
+						Uid = uid,
+						DefinitionId = definition.Id,
+						Rarity = definition.Rarity,
+						New = not wasOwned,
+						Pity = false,
+						AutoSalvaged = false,
+						Essence = 0,
+					},
+				}
 			else
 				return responseError("That offer is misconfigured.")
 			end
@@ -2749,7 +3029,8 @@ serviceFactories["GameService"] = function()
 		return self:_mutate(player, function(profile)
 			local items = ProfileBagMath.EnsureItems(profile)
 			local maxStars = GameConfig.Items.MaxStars or 5
-			local targetUid, fodderUid, reason = RelicSystem.fusionPair(items.Inventory, items.Equipped, definitionId, maxStars)
+			local targetUid, fodderUid, reason =
+				RelicSystem.fusionPair(items.Inventory, items.Equipped, definitionId, maxStars)
 			if targetUid == nil or fodderUid == nil then
 				return responseError(reason or "Those relics can't be fused.")
 			end
@@ -2760,12 +3041,15 @@ serviceFactories["GameService"] = function()
 			target.Level = math.min(level, definition.MaxLevel)
 			items.Inventory[fodderUid] = nil
 			bumpStat(profile, "RelicsFused", 1)
-			return responseSuccess(string.format("%s fused to %d star%s.", definition.Name, stars, if stars == 1 then "" else "s"), {
-				Uid = targetUid,
-				Stars = stars,
-				DefinitionId = definitionId,
-				Rarity = definition.Rarity,
-			})
+			return responseSuccess(
+				string.format("%s fused to %d star%s.", definition.Name, stars, if stars == 1 then "" else "s"),
+				{
+					Uid = targetUid,
+					Stars = stars,
+					DefinitionId = definitionId,
+					Rarity = definition.Rarity,
+				}
+			)
 		end)
 	end
 
@@ -2782,11 +3066,7 @@ serviceFactories["GameService"] = function()
 			local items = ProfileBagMath.EnsureItems(profile)
 			if (items.Keys[crateId] or 0) < count then
 				return responseError(
-					string.format(
-						"You need %d more %s keys.",
-						count - (items.Keys[crateId] or 0),
-						crate.Name
-					)
+					string.format("You need %d more %s keys.", count - (items.Keys[crateId] or 0), crate.Name)
 				)
 			end
 			local autoRules = ensureAutoSalvage(profile)
@@ -2794,12 +3074,8 @@ serviceFactories["GameService"] = function()
 				and profile.OwnedPasses
 				and profile.OwnedPasses.AutoSalvage == true
 
-			local guaranteedRecycle = CrateRoll.GuaranteedRecycle(
-				crate.Weights,
-				autoEnabled,
-				autoRules.KeepNew,
-				autoRules.Rarities
-			)
+			local guaranteedRecycle =
+				CrateRoll.GuaranteedRecycle(crate.Weights, autoEnabled, autoRules.KeepNew, autoRules.Rarities)
 			local requiredSlots = CrateRoll.RequiredSlots(count, guaranteedRecycle)
 			if inventoryCount(profile) + requiredSlots > GameConfig.Items.InventoryLimit then
 				return responseError("Your item inventory does not have enough open slots.")
@@ -2830,7 +3106,9 @@ serviceFactories["GameService"] = function()
 				else
 					uid = self:_createItem(profile, definition.Id)
 					if not uid then
-						return responseError("The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot.")
+						return responseError(
+							"The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot."
+						)
 					end
 				end
 				items.Pity[crateId] = pityHit and 0 or pity + 1
@@ -2866,9 +3144,7 @@ serviceFactories["GameService"] = function()
 			end
 			local slot, targetId = string.match(target, "^(%a+):([%w_]+)$")
 			if definition.Slot ~= slot then
-				return responseError(
-					string.format("%s items only fit %s sockets.", definition.Name, definition.Slot)
-				)
+				return responseError(string.format("%s items only fit %s sockets.", definition.Name, definition.Slot))
 			end
 			if definition.Targets and not table.find(definition.Targets, targetId) then
 				return responseError(definition.Name .. " is not compatible with that upgrade.")
@@ -2934,9 +3210,7 @@ serviceFactories["GameService"] = function()
 			end
 			local cost = math.floor(definition.EssenceBase * 1.55 ^ math.max(0, instance.Level - 1))
 			if profile.Items.Essence < cost then
-				return responseError(
-					string.format("You need %d more item essence.", cost - profile.Items.Essence)
-				)
+				return responseError(string.format("You need %d more item essence.", cost - profile.Items.Essence))
 			end
 			profile.Items.Essence -= cost
 			instance.Level += 1
@@ -2977,7 +3251,9 @@ serviceFactories["GameService"] = function()
 		if type(payload) ~= "table" then
 			return responseError("Invalid setting request.")
 		end
-		local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
+		local Schema = require(
+			ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData")
+		)("SettingsSchema")
 		local sliderKeys = setmetatable({}, {
 			__index = function(_, key)
 				return Schema.accepts(key)
@@ -3033,11 +3309,12 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_upgradeContinuum(player: Player)
 		return self:_mutate(player, function(profile)
-			profile.Continuum = profile.Continuum or {
-				Rank = 0,
-				TotalFluxSpent = 0,
-				TotalStardustSpent = 0,
-			}
+			profile.Continuum = profile.Continuum
+				or {
+					Rank = 0,
+					TotalFluxSpent = 0,
+					TotalStardustSpent = 0,
+				}
 			local rank = math.max(0, math.floor(tonumber(profile.Continuum.Rank) or 0))
 			if rank >= GameConfig.Continuum.MaxRank then
 				return responseError("The Continuum has reached the exact-integer engine limit.")
@@ -3047,22 +3324,19 @@ serviceFactories["GameService"] = function()
 				return responseError("You need " .. Format.Number(Economy.Sub(fluxCost, profile.Cash)) .. " more flux.")
 			end
 			if Economy.Lt(profile.Stardust, stardustCost) then
-				return responseError("You need " .. Format.Number(Economy.Sub(stardustCost, profile.Stardust)) .. " more Stardust.")
+				return responseError(
+					"You need " .. Format.Number(Economy.Sub(stardustCost, profile.Stardust)) .. " more Stardust."
+				)
 			end
 
 			profile.Cash = Economy.Sub(profile.Cash, fluxCost)
 			profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, stardustCost))
 			profile.Continuum.Rank = rank + 1
 			profile.Continuum.TotalFluxSpent = Economy.Persist(Economy.Add(profile.Continuum.TotalFluxSpent, fluxCost))
-			profile.Continuum.TotalStardustSpent = math.min(
-				1e308,
-				math.max(0, tonumber(profile.Continuum.TotalStardustSpent) or 0) + stardustCost
-			)
+			profile.Continuum.TotalStardustSpent =
+				math.min(1e308, math.max(0, tonumber(profile.Continuum.TotalStardustSpent) or 0) + stardustCost)
 			local stats = ensureStats(profile)
-			stats.ContinuumUpgrades = math.min(
-				1e308,
-				math.max(0, tonumber(stats.ContinuumUpgrades) or 0) + 1
-			)
+			stats.ContinuumUpgrades = math.min(1e308, math.max(0, tonumber(stats.ContinuumUpgrades) or 0) + 1)
 			ProgressionService.AwardCommandXP(profile, 20 + math.min(480, rank * 2))
 
 			local nextProduction = select(1, Economy.ContinuumEffects(profile))
@@ -3137,12 +3411,21 @@ serviceFactories["GameService"] = function()
 				end
 			end
 			if removed == 0 then
-				return responseError(protected > 0 and "Every selected relic is equipped or protected." or "Those relics are no longer available.")
+				return responseError(
+					protected > 0 and "Every selected relic is equipped or protected."
+						or "Those relics are no longer available."
+				)
 			end
 			profile.Items.Essence += essence
 			bumpStat(profile, "ItemsSalvaged", removed)
 			return responseSuccess(
-				string.format("Salvaged %d relic%s for %d essence%s.", removed, removed == 1 and "" or "s", essence, protected > 0 and string.format("; %d protected", protected) or ""),
+				string.format(
+					"Salvaged %d relic%s for %d essence%s.",
+					removed,
+					removed == 1 and "" or "s",
+					essence,
+					protected > 0 and string.format("; %d protected", protected) or ""
+				),
 				{ Count = removed, Amount = essence, Protected = protected }
 			)
 		end)
@@ -3168,32 +3451,43 @@ serviceFactories["GameService"] = function()
 					})
 				end
 			end
-			local nextEquipped, equippedCount, changed = ItemLoadoutMath.PlanEquipBest(
-				targets,
-				candidates,
-				GameConfig.Items.Rarities,
-				profile.Items.Equipped
-			)
+			local nextEquipped, equippedCount, changed =
+				ItemLoadoutMath.PlanEquipBest(targets, candidates, GameConfig.Items.Rarities, profile.Items.Equipped)
 			profile.Items.Equipped = nextEquipped
 			return responseSuccess(
 				#targets == 0 and "Unlock a machine or research socket first."
 					or equippedCount == 0 and "No compatible relics are available yet."
-					or string.format("Best loadout equipped across %d socket%s.", equippedCount, equippedCount == 1 and "" or "s"),
+					or string.format(
+						"Best loadout equipped across %d socket%s.",
+						equippedCount,
+						equippedCount == 1 and "" or "s"
+					),
 				{ Equipped = equippedCount, Changed = changed }
 			)
 		end)
 	end
 
 	function GameService:_setItemAutoSalvage(player: Player, payload: any)
-		if type(payload) ~= "table" or type(payload.Enabled) ~= "boolean" or type(payload.KeepNew) ~= "boolean" or type(payload.Rarities) ~= "table" then
+		if
+			type(payload) ~= "table"
+			or type(payload.Enabled) ~= "boolean"
+			or type(payload.KeepNew) ~= "boolean"
+			or type(payload.Rarities) ~= "table"
+		then
 			return responseError("Invalid auto-salvage request.")
 		end
 		return self:_mutate(player, function(profile)
 			if not profile.OwnedPasses or profile.OwnedPasses.AutoSalvage ~= true then
-				return { ok = false, error = "Relic Recycler is required for auto-salvage.", RequiresPass = "AutoSalvage" }
+				return {
+					ok = false,
+					error = "Relic Recycler is required for auto-salvage.",
+					RequiresPass = "AutoSalvage",
+				}
 			end
 			local rarities = {}
-			for rarity in GameConfig.Items.Rarities do rarities[rarity] = false end
+			for rarity in GameConfig.Items.Rarities do
+				rarities[rarity] = false
+			end
 			local count = 0
 			for _, rarity in payload.Rarities do
 				if type(rarity) ~= "string" or not GameConfig.Items.Rarities[rarity] then
@@ -3201,7 +3495,9 @@ serviceFactories["GameService"] = function()
 				end
 				if not rarities[rarity] then
 					count += 1
-					if count > 6 then return responseError("Too many auto-salvage rarities.") end
+					if count > 6 then
+						return responseError("Too many auto-salvage rarities.")
+					end
 					rarities[rarity] = true
 				end
 			end
@@ -3254,13 +3550,14 @@ serviceFactories["GameService"] = function()
 	function GameService:_domainExpansion(player: Player)
 		local details = nil
 		local result = self:_mutate(player, function(profile)
-			profile.Domain = profile.Domain or {
-				Rank = 0,
-				Essence = 0,
-				LastExpandedAt = 0,
-				TotalRebirthsSpent = 0,
-				TotalCoresSpent = 0,
-			}
+			profile.Domain = profile.Domain
+				or {
+					Rank = 0,
+					Essence = 0,
+					LastExpandedAt = 0,
+					TotalRebirthsSpent = 0,
+					TotalCoresSpent = 0,
+				}
 			local expansion = GameConfig.Domain.Expansion or {}
 			local cooldown = math.max(1, math.floor(tonumber(expansion.CooldownSeconds) or 6))
 			local rank = math.max(0, math.floor(tonumber(profile.Domain.Rank) or 0))
@@ -3282,16 +3579,22 @@ serviceFactories["GameService"] = function()
 			local overflowCores = math.max(0, spentCores - requiredCores)
 			local overflowRebirthScale = tonumber(expansion.OverflowRebirthScale) or 18
 			local overflowCoreScale = tonumber(expansion.OverflowCoreSqrtScale) or 6
-			local overflowReward = math.floor(overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale)
+			local overflowReward =
+				math.floor(overflowRebirths * overflowRebirthScale + math.sqrt(overflowCores) * overflowCoreScale)
 			local nextRank = rank + 1
 			profile.Domain.Rank = nextRank
 			profile.Domain.Nodes = type(profile.Domain.Nodes) == "table" and profile.Domain.Nodes or {}
-			profile.Domain.SkillPoints = math.max(0, math.floor(tonumber(profile.Domain.SkillPoints) or 0)) + (GameConfig.Domain.SkillPointPerRank or 2)
+			profile.Domain.SkillPoints = math.max(0, math.floor(tonumber(profile.Domain.SkillPoints) or 0))
+				+ (GameConfig.Domain.SkillPointPerRank or 2)
 			essenceReward += Economy.DomainTreeBonus(profile, "EssenceGain")
 			profile.Domain.Essence = math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0)) + essenceReward
 			profile.Domain.LastExpandedAt = os.time()
-			profile.Domain.TotalRebirthsSpent = math.max(0, math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0)) + spentRebirths
-			profile.Domain.TotalCoresSpent = math.max(0, math.floor(tonumber(profile.Domain.TotalCoresSpent) or 0)) + spentCores
+			profile.Domain.TotalRebirthsSpent = math.max(
+				0,
+				math.floor(tonumber(profile.Domain.TotalRebirthsSpent) or 0)
+			) + spentRebirths
+			profile.Domain.TotalCoresSpent = math.max(0, math.floor(tonumber(profile.Domain.TotalCoresSpent) or 0))
+				+ spentCores
 
 			ForgeEchoService.Record(profile, "Explore", 14)
 
@@ -3368,7 +3671,9 @@ serviceFactories["GameService"] = function()
 
 	function GameService:_verifyCreatorFollow(player: Player)
 		local profile = self._data:Get(player)
-		if not profile then return responseError("Your save is still loading. Try again in a moment.") end
+		if not profile then
+			return responseError("Your save is still loading. Try again in a moment.")
+		end
 		local socialRewards = type(profile.SocialRewards) == "table" and profile.SocialRewards or nil
 		if socialRewards and socialRewards.CreatorFollowClaimed == true then
 			return responseSuccess("You already claimed this reward.")
@@ -3379,10 +3684,13 @@ serviceFactories["GameService"] = function()
 				return responseSuccess("You already claimed this reward.")
 			end
 			current.SocialRewards.CreatorFollowClaimed = true
-			local rewardText = ProgressionService.ApplyReward(current, ServerConfig.FollowReward, Economy.Production(current))
+			local rewardText =
+				ProgressionService.ApplyReward(current, ServerConfig.FollowReward, Economy.Production(current))
 			return responseSuccess(rewardText)
 		end)
-		if result.ok then self._effect:FireClient(player, { Type = "FeatureUnlocked" }) end
+		if result.ok then
+			self._effect:FireClient(player, { Type = "FeatureUnlocked" })
+		end
 		return result
 	end
 
@@ -3560,8 +3868,7 @@ serviceFactories["GameService"] = function()
 			end
 			profile.Mailbox.Read[messageId] = true
 			profile.Mailbox.Claimed[messageId] = true
-			local reward =
-				ProgressionService.ApplyReward(profile, message.Attachment, Economy.Production(profile))
+			local reward = ProgressionService.ApplyReward(profile, message.Attachment, Economy.Production(profile))
 			return responseSuccess("Mail attachment: " .. reward)
 		end)
 		if result.ok then
@@ -3617,7 +3924,9 @@ serviceFactories["GameService"] = function()
 	local GUILD_ACTIVITY_MILESTONE_STEP = 250_000
 
 	function GameService:_toastGuild(guildId: string, title: string, body: string, tone: string?, skip: Player?)
-		if type(guildId) ~= "string" or guildId == "" then return end
+		if type(guildId) ~= "string" or guildId == "" then
+			return
+		end
 		for _, online in Players:GetPlayers() do
 			if online ~= skip then
 				local profile = self._data:Get(online)
@@ -3629,13 +3938,19 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_announceGuildActivity(guildId: string, previousActivity: number, guild)
-		if type(guild) ~= "table" then return end
+		if type(guild) ~= "table" then
+			return
+		end
 		local current = math.max(0, math.floor(tonumber(guild.Activity) or 0))
 		local previous = math.max(0, math.floor(tonumber(previousActivity) or 0))
-		if current <= previous then return end
+		if current <= previous then
+			return
+		end
 		local reached = math.floor(current / GUILD_ACTIVITY_MILESTONE_STEP)
 		local before = math.floor(previous / GUILD_ACTIVITY_MILESTONE_STEP)
-		if reached <= before then return end
+		if reached <= before then
+			return
+		end
 		local milestone = reached * GUILD_ACTIVITY_MILESTONE_STEP
 		self:_toastGuild(
 			guildId,
@@ -3646,10 +3961,15 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_guildAction(player: Player, action: string, payload: any)
-
-		if action == Protocol.Actions.KickGuildMember or action == Protocol.Actions.SetGuildRole or action == Protocol.Actions.BuyGuildUpgrade then
+		if
+			action == Protocol.Actions.KickGuildMember
+			or action == Protocol.Actions.SetGuildRole
+			or action == Protocol.Actions.BuyGuildUpgrade
+		then
 			local profile = self._data:Get(player)
-			if not profile then return responseError("Your profile is not ready. Please try again.") end
+			if not profile then
+				return responseError("Your profile is not ready. Please try again.")
+			end
 			local ok, message, guild
 			local previousActivity = 0
 			if action == Protocol.Actions.BuyGuildUpgrade then
@@ -3663,7 +3983,9 @@ serviceFactories["GameService"] = function()
 			else
 				ok, message, guild = self._guilds:BuyUpgrade(player, profile, payload.Id)
 			end
-			if not ok then return responseError(message) end
+			if not ok then
+				return responseError(message)
+			end
 			if action == Protocol.Actions.BuyGuildUpgrade then
 				local expectedGuildId = profile.Guild and profile.Guild.Id or ""
 				local bonuses = self._guilds:GetCachedBonuses(expectedGuildId)
@@ -3680,8 +4002,7 @@ serviceFactories["GameService"] = function()
 				self:_toastGuild(
 					expectedGuildId,
 					"Guild upgrade",
-					level
-						and string.format("Your guild unlocked %s (level %d)!", upgradeName, level)
+					level and string.format("Your guild unlocked %s (level %d)!", upgradeName, level)
 						or string.format("Your guild unlocked %s!", upgradeName),
 					"Special"
 				)
@@ -3711,7 +4032,6 @@ serviceFactories["GameService"] = function()
 				local balanceField = payload.Currency == "Cash" and "Cash" or "Stardust"
 				local amount = payload.Amount
 				if type(payload.Fraction) == "number" then
-
 					amount = math.max(1, math.floor((profile[balanceField] or 0) * payload.Fraction))
 				end
 				ok, message, guild = self._guilds:ContributeBank(player, profile, math.floor(amount), payload.Currency)
@@ -3726,7 +4046,6 @@ serviceFactories["GameService"] = function()
 				end
 			end
 			if ok then
-
 				profile.GuildBonuses = self._guilds:GetCachedBonuses(profile.Guild.Id)
 				return responseSuccess(message, { Guild = guild })
 			end
@@ -3792,11 +4111,15 @@ serviceFactories["GameService"] = function()
 				end
 			end
 		end
-		if #missing == 0 then return end
+		if #missing == 0 then
+			return
+		end
 		local ok, infos = pcall(function()
 			return Players:GetUserInfosByUserIdsAsync(missing)
 		end)
-		if not ok or type(infos) ~= "table" then return end
+		if not ok or type(infos) ~= "table" then
+			return
+		end
 		for _, info in infos do
 			local userId = tonumber(info.Id)
 			local username = info.Username
@@ -3812,7 +4135,9 @@ serviceFactories["GameService"] = function()
 	local RANK_PING_UNRANKED = RankBracket.UNRANKED
 
 	function GameService:_announceRankClimbs(id: string, rows)
-		if id ~= RANK_PING_BOARD then return end
+		if id ~= RANK_PING_BOARD then
+			return
+		end
 		local rankByUser = {}
 		for index, row in rows do
 			rankByUser[row.UserId] = index
@@ -3858,13 +4183,17 @@ serviceFactories["GameService"] = function()
 			for _, row in pages:GetCurrentPage() do
 				local userId = tonumber(row.key)
 				local value = LeaderboardCodec.Decode(row.value)
-				if userId then byUser[userId] = value end
+				if userId then
+					byUser[userId] = value
+				end
 			end
 		end
 
 		for _, online in Players:GetPlayers() do
 			local profile = self._data:Get(online)
-			if profile then byUser[online.UserId] = generalBoardValue(profile, id) end
+			if profile then
+				byUser[online.UserId] = generalBoardValue(profile, id)
+			end
 		end
 		local rows = {}
 		for userId, value in byUser do
@@ -3908,8 +4237,7 @@ serviceFactories["GameService"] = function()
 				payload and payload.ActionType,
 				payload and payload.PenaltyCode
 			)
-			return accepted and responseSuccess(nil)
-				or responseError("Integrity report rejected.")
+			return accepted and responseSuccess(nil) or responseError("Integrity report rejected.")
 		end
 		if action == Protocol.Actions.ReportPerformance then
 			return self._analytics:RecordPerformance(player, payload) and responseSuccess(nil)
@@ -3918,34 +4246,34 @@ serviceFactories["GameService"] = function()
 		local featureId = featureByAction[action]
 		if featureId then
 			local profile = self._data:Get(player)
-			local domainOpen = featureId == "Domain" and profile and profile.Domain and (tonumber(profile.Domain.Rank) or 0) >= 1
+			local domainOpen = featureId == "Domain"
+				and profile
+				and profile.Domain
+				and (tonumber(profile.Domain.Rank) or 0) >= 1
 			if profile and not domainOpen and not ProgressionGate.IsFeatureUnlocked(profile, featureId) then
 				local rule = GameConfig.Unlocks[featureId]
 				local name = rule and rule.Name or featureId
 				if rule and rule.Kind == "Level" then
 					local levelDef = GameConfig.Levels[rule.Target]
-					return responseError(string.format(
-						"%s opens at Level %d (%s). You're Level %d.",
-						name,
-						rule.Target,
-						levelDef and levelDef.Tier or "",
-						ProgressionGate.Level(profile)
-					))
+					return responseError(
+						string.format(
+							"%s opens at Level %d (%s). You're Level %d.",
+							name,
+							rule.Target,
+							levelDef and levelDef.Tier or "",
+							ProgressionGate.Level(profile)
+						)
+					)
 				end
 				return responseError(
-					name
-						.. " unlocks when you "
-						.. string.lower(rule and rule.Requirement or "progress further")
-						.. "."
+					name .. " unlocks when you " .. string.lower(rule and rule.Requirement or "progress further") .. "."
 				)
 			end
 		end
 		if action == Protocol.Actions.GetState then
 			local snapshot = self:_snapshot(player)
-			return snapshot and responseSuccess(nil, { State = snapshot })
-				or responseError("Profile is still loading.")
+			return snapshot and responseSuccess(nil, { State = snapshot }) or responseError("Profile is still loading.")
 		elseif action == Protocol.Actions.MeasureLatency then
-
 			return responseSuccess(nil)
 		elseif action == Protocol.Actions.SubmitFeedback then
 			return self:_submitFeedback(player, payload)
@@ -3965,16 +4293,24 @@ serviceFactories["GameService"] = function()
 			return self:_reportPresence(player, payload)
 		elseif action == Protocol.Actions.GetGuild then
 			local profile = self._data:Get(player)
-			return responseSuccess(nil, { Guild = profile and self._guilds:GetPublic(profile.Guild and profile.Guild.Id or "") })
+			return responseSuccess(
+				nil,
+				{ Guild = profile and self._guilds:GetPublic(profile.Guild and profile.Guild.Id or "") }
+			)
 		elseif action == Protocol.Actions.GetGuildLeaderboard then
-			return responseSuccess(nil, { GuildLeaderboard = self._guilds:GetLeaderboard(payload and payload.Page or 1) })
+			return responseSuccess(
+				nil,
+				{ GuildLeaderboard = self._guilds:GetLeaderboard(payload and payload.Page or 1) }
+			)
 		elseif action == Protocol.Actions.GetLeaderboard then
 			return self:_getLeaderboard(payload and payload.Id)
 		elseif action == Protocol.Actions.GetAdminState then
 			return self._admin and responseSuccess(nil, { Admin = self._admin:State(player) })
 				or responseError("Administration is unavailable.")
 		elseif action == Protocol.Actions.AdminExecute then
-			if not self._admin then return responseError("Administration is unavailable.") end
+			if not self._admin then
+				return responseError("Administration is unavailable.")
+			end
 			local result = self._admin:Execute(player, payload)
 			if result.ok and type(result.TargetUserId) == "number" then
 				local target = Players:GetPlayerByUserId(result.TargetUserId)
@@ -3983,12 +4319,18 @@ serviceFactories["GameService"] = function()
 					self:_syncLeaderstats(target, targetProfile)
 					if target ~= player then
 						self:_pushState(target)
-						self:_toastPlayer(target, "Forgemaster grant", result.message or "Your profile was updated.", "Special")
+						self:_toastPlayer(
+							target,
+							"Forgemaster grant",
+							result.message or "Your profile was updated.",
+							"Special"
+						)
 					end
 				end
 			end
 			return result
-		elseif action == Protocol.Actions.CreateGuild
+		elseif
+			action == Protocol.Actions.CreateGuild
 			or action == Protocol.Actions.JoinGuild
 			or action == Protocol.Actions.LeaveGuild
 			or action == Protocol.Actions.DisbandGuild
@@ -3999,7 +4341,8 @@ serviceFactories["GameService"] = function()
 			or action == Protocol.Actions.ClaimGuildGoal
 		then
 			return self:_guildAction(player, action, payload or {})
-		elseif action == Protocol.Actions.GetTrade
+		elseif
+			action == Protocol.Actions.GetTrade
 			or action == Protocol.Actions.InviteTrade
 			or action == Protocol.Actions.RespondTrade
 			or action == Protocol.Actions.UpdateTradeOffer
@@ -4172,8 +4515,7 @@ serviceFactories["GameService"] = function()
 	function GameService:_processOffline(player: Player, profile)
 		local previousLastSeen = self._data:GetPreviousLastSeen(player)
 		local now = os.time()
-		local reward, elapsed, averageEfficiency, capped =
-			Economy.OfflineEarnings(profile, previousLastSeen, now)
+		local reward, elapsed, averageEfficiency, capped = Economy.OfflineEarnings(profile, previousLastSeen, now)
 		local awaySeconds = math.max(elapsed, math.max(0, now - (tonumber(previousLastSeen) or now)))
 		local capHours = Economy.OfflineHours(profile)
 		if Economy.Gt(reward, 0) then
@@ -4297,7 +4639,9 @@ serviceFactories["GameService"] = function()
 		end)
 
 		local previousCharacterConnection = self._characterConnections[player]
-		if previousCharacterConnection then previousCharacterConnection:Disconnect() end
+		if previousCharacterConnection then
+			previousCharacterConnection:Disconnect()
+		end
 		self._characterConnections[player] = player.CharacterAdded:Connect(function(character)
 			task.defer(function()
 				local animate = character:WaitForChild("Animate", 3)
@@ -4344,7 +4688,6 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_safePlayerAdded(player: Player)
-
 		if self:_refreshing() or self._joining[player] or self._runtime[player] then
 			return
 		end
@@ -4375,7 +4718,8 @@ serviceFactories["GameService"] = function()
 					string.format("%s join retry %d — %s", player.Name, attempts, tostring(problem))
 				)
 			end
-			local locked = type(problem) == "string" and string.find(string.lower(tostring(problem)), "another server", 1, true) ~= nil
+			local locked = type(problem) == "string"
+				and string.find(string.lower(tostring(problem)), "another server", 1, true) ~= nil
 			if locked then
 				if lockSince == nil then
 					lockSince = os.clock()
@@ -4391,7 +4735,11 @@ serviceFactories["GameService"] = function()
 				end
 				if stealLock and os.clock() - stealNoticeAt > 60 then
 					stealNoticeAt = os.clock()
-					ModuleLog.Warn("Player", string.format("%s save lock held %.0fs — stealing it", player.Name, os.clock() - lockSince), { UserId = player.UserId })
+					ModuleLog.Warn(
+						"Player",
+						string.format("%s save lock held %.0fs — stealing it", player.Name, os.clock() - lockSince),
+						{ UserId = player.UserId }
+					)
 					self:_toastPlayer(
 						player,
 						"Taking over your session",
@@ -4405,7 +4753,16 @@ serviceFactories["GameService"] = function()
 			lockSince = nil
 			if attempts >= 10 then
 				if attempts == 10 then
-					ModuleLog.Error("Player", string.format("%s join retries degraded to slow retry after %d attempts — %s", player.Name, attempts, tostring(problem)), { UserId = player.UserId })
+					ModuleLog.Error(
+						"Player",
+						string.format(
+							"%s join retries degraded to slow retry after %d attempts — %s",
+							player.Name,
+							attempts,
+							tostring(problem)
+						),
+						{ UserId = player.UserId }
+					)
 					self:_toastPlayer(
 						player,
 						"Still connecting",
@@ -4434,10 +4791,14 @@ serviceFactories["GameService"] = function()
 		self._joining[player] = nil
 		self._saveFailedToastAt[player] = nil
 		local characterConnection = self._characterConnections[player]
-		if characterConnection then characterConnection:Disconnect() end
+		if characterConnection then
+			characterConnection:Disconnect()
+		end
 		self._characterConnections[player] = nil
 		local pendingPush = self._queuedStatePushes[player]
-		if pendingPush then task.cancel(pendingPush) end
+		if pendingPush then
+			task.cancel(pendingPush)
+		end
 		self._queuedStatePushes[player] = nil
 		self._presence[player.UserId] = nil
 		self:_clearVisit(player, true)
@@ -4477,11 +4838,12 @@ serviceFactories["GameService"] = function()
 		self._firewall:Forget(player)
 		self._session:Forget(player)
 		self._antiCheat:Forget(player)
-		if self._admin then self._admin:Forget(player) end
+		if self._admin then
+			self._admin:Forget(player)
+		end
 		self._analytics:Forget(player)
 		self._badges:Forget(player)
 		if not self._data:Save(player, true) then
-
 			self:_spawnWorker(function()
 				for attempt = 1, 3 do
 					task.wait(attempt * 2)
@@ -4500,14 +4862,20 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_queueGuildMembershipRefresh(player: Player, runtime)
-		if runtime.GuildRefreshBusy then return end
+		if runtime.GuildRefreshBusy then
+			return
+		end
 		local profile = self._data:Get(player)
 		local guildId = profile and profile.Guild and profile.Guild.Id or ""
-		if guildId == "" then return end
+		if guildId == "" then
+			return
+		end
 		runtime.GuildRefreshBusy = true
 		local shadow = {
 			Guild = copyDictionary(profile.Guild),
-			GuildBonuses = copyDictionary(profile.GuildBonuses or { Production = 0, Capacity = 0, Offline = 0, Automation = 0, Tap = 0 }),
+			GuildBonuses = copyDictionary(
+				profile.GuildBonuses or { Production = 0, Capacity = 0, Offline = 0, Automation = 0, Tap = 0 }
+			),
 		}
 		self:_spawnWorker(function()
 			local resolved, problem = pcall(function()
@@ -4520,7 +4888,8 @@ serviceFactories["GameService"] = function()
 						return { ok = false, noop = true }
 					end
 					local desiredGuild = shadow.Guild or { Id = "", Role = "", JoinedAt = 0, Tag = "" }
-					local desiredBonuses = shadow.GuildBonuses or { Production = 0, Capacity = 0, Offline = 0, Automation = 0, Tap = 0 }
+					local desiredBonuses = shadow.GuildBonuses
+						or { Production = 0, Capacity = 0, Offline = 0, Automation = 0, Tap = 0 }
 					local currentBonuses = current.GuildBonuses or {}
 					changed = current.Guild.Id ~= desiredGuild.Id
 						or current.Guild.Role ~= desiredGuild.Role
@@ -4529,12 +4898,16 @@ serviceFactories["GameService"] = function()
 						or currentBonuses.Production ~= desiredBonuses.Production
 						or currentBonuses.Capacity ~= desiredBonuses.Capacity
 						or currentBonuses.Offline ~= desiredBonuses.Offline
-					if not changed then return { ok = false, noop = true } end
+					if not changed then
+						return { ok = false, noop = true }
+					end
 					current.Guild = copyDictionary(desiredGuild)
 					current.GuildBonuses = copyDictionary(desiredBonuses)
 					return { ok = true }
 				end, true, "guild-refresh")
-				if committed and changed then self:_queueStatePush(player) end
+				if committed and changed then
+					self:_queueStatePush(player)
+				end
 			elseif not resolved then
 				ModuleLog.Every("guild-refresh:" .. tostring(player.UserId), 30, "Guild", tostring(problem))
 			end
@@ -4556,10 +4929,14 @@ serviceFactories["GameService"] = function()
 				if not self._antiCheat:Observe(player, "Maintenance", profile) then
 					changed = true
 				end
-				if not changed then return { ok = false, noop = true } end
+				if not changed then
+					return { ok = false, noop = true }
+				end
 				return { ok = true }
 			end, true, "maintenance")
-			if committed and changed then self:_queueStatePush(player) end
+			if committed and changed then
+				self:_queueStatePush(player)
+			end
 		end
 		if runtime.GuildRefreshAccumulator >= GUILD_REFRESH_INTERVAL then
 			runtime.GuildRefreshAccumulator %= GUILD_REFRESH_INTERVAL
@@ -4584,14 +4961,18 @@ serviceFactories["GameService"] = function()
 					if active.EndsAt > 0 and active.EndsAt <= now then
 						profile.ActiveBoost = { Id = "", EndsAt = 0 }
 					end
-					local production = Economy.Mul(Economy.Production(profile, now), self._convergence:Multiplier() * self._fluxSurge:Multiplier(now) * self._events:ProductionMultiplier())
+					local production = Economy.Mul(
+						Economy.Production(profile, now),
+						self._convergence:Multiplier()
+							* self._fluxSurge:Multiplier(now)
+							* self._events:ProductionMultiplier()
+					)
 					local capacity = Economy.Capacity(profile, now)
 					local produced = Economy.Mul(production, step)
 					profile.Vault = Economy.Min(capacity, Economy.Add(profile.Vault, produced))
 
 					local autoRate = Economy.AutoCollectRate(profile)
 					if autoRate > 0 and Economy.Gt(profile.Vault, 0) then
-
 						local fromVault = Economy.Mul(profile.Vault, autoRate * step)
 						local fromProd = Economy.Mul(produced, autoRate)
 						local collected = Economy.Min(profile.Vault, Economy.Max(fromVault, fromProd))
@@ -4618,7 +4999,9 @@ serviceFactories["GameService"] = function()
 							totalAmount += amount
 							becameReady = becameReady or ready
 							local signal = anomalySignalByAction[action]
-							if signal then AnomalyService.Signal(profile, signal, 1) end
+							if signal then
+								AnomalyService.Signal(profile, signal, 1)
+							end
 						end
 						anomalyDetails = {
 							Amount = totalAmount,
@@ -4690,11 +5073,14 @@ serviceFactories["GameService"] = function()
 		local workToken = (runtime.MatterWorkToken or 0) + 1
 		runtime.MatterWorkToken = workToken
 		self:_spawnWorker(function()
-
 			local watchdog = task.delay(15, function()
 				if runtime.MatterWorkToken == workToken and runtime.MatterWorkQueued then
 					runtime.MatterWorkQueued = false
-					ModuleLog.Warn("game loop", string.format("player tick watchdog released %s after 15s", player.Name), { UserId = player.UserId })
+					ModuleLog.Warn(
+						"game loop",
+						string.format("player tick watchdog released %s after 15s", player.Name),
+						{ UserId = player.UserId }
+					)
 				end
 			end)
 			if not self._running or player.Parent ~= Players or self._runtime[player] ~= runtime then
@@ -4783,7 +5169,8 @@ serviceFactories["GameService"] = function()
 		self._request.OnServerInvoke = function(player, action, payload)
 			local requestStartedAt = os.clock()
 
-			if player:GetAttribute("AstralForgeLoaded") ~= true
+			if
+				player:GetAttribute("AstralForgeLoaded") ~= true
 				and action ~= Protocol.Actions.MeasureLatency
 				and action ~= Protocol.Actions.ReportClientIntegrity
 				and action ~= Protocol.Actions.ReportPerformance
@@ -4798,14 +5185,17 @@ serviceFactories["GameService"] = function()
 						string.format("gate:%d", player.UserId),
 						8,
 						"gate",
-						string.format("u=%d authority %s %s", player.UserId, tostring(action), tostring(authorityMessage))
+						string.format(
+							"u=%d authority %s %s",
+							player.UserId,
+							tostring(action),
+							tostring(authorityMessage)
+						)
 					)
 					return responseError(authorityMessage or "Request rejected.")
 				end
 
-				if
-					not self._security.Rate:Allow(player, action == Protocol.Actions.AdminExecute and 1 or 0.1)
-				then
+				if not self._security.Rate:Allow(player, action == Protocol.Actions.AdminExecute and 1 or 0.1) then
 					ModuleLog.Every(
 						string.format("gate:%d", player.UserId),
 						8,
@@ -4900,7 +5290,8 @@ serviceFactories["GameService"] = function()
 					self._session:TxnRelease(player, txnId)
 				end
 			end
-			if result.ok == false
+			if
+				result.ok == false
 				and action ~= Protocol.Actions.ReportPresence
 				and action ~= Protocol.Actions.ReportPerformance
 			then
@@ -4912,18 +5303,26 @@ serviceFactories["GameService"] = function()
 				)
 			end
 			if result.ok and not readOnly then
-
 				self:_spawnWorker(function()
-					if player.Parent ~= Players then return end
+					if player.Parent ~= Players then
+						return
+					end
 					self:_progressAnomalyFromAction(player, action)
 					local profile = self._data:Get(player)
 					if profile then
 						self._convergence:RecordAction(player, tostring(action))
-						self._analytics:RecordAction(player, tostring(action), profile, (os.clock() - requestStartedAt) * 1000)
+						self._analytics:RecordAction(
+							player,
+							tostring(action),
+							profile,
+							(os.clock() - requestStartedAt) * 1000
+						)
 						self._badges:Evaluate(player, profile, tostring(action))
 					end
 					self:_syncLeaderstats(player, profile)
-					if not CommandActionValidators.IsDeferredSnapshot(action) then self:_queueStatePush(player) end
+					if not CommandActionValidators.IsDeferredSnapshot(action) then
+						self:_queueStatePush(player)
+					end
 				end)
 			end
 			if not readOnly and result.Gen == nil then
@@ -5006,7 +5405,12 @@ serviceFactories["GameService"] = function()
 		end
 
 		self:_pushState(player)
-		self:_toastPlayer(player, "Free wheel spins", tostring(grant) .. " spins added (" .. tostring(total) .. " ready).", "Success")
+		self:_toastPlayer(
+			player,
+			"Free wheel spins",
+			tostring(grant) .. " spins added (" .. tostring(total) .. " ready).",
+			"Success"
+		)
 		return true, "Granted " .. tostring(grant) .. " free wheel spins (" .. tostring(total) .. " total).", total
 	end
 
@@ -5046,7 +5450,9 @@ serviceFactories["GameService"] = function()
 			self._characterConnections[player] = nil
 		end
 		table.clear(self._joining)
-		if self._admin then self._admin:Destroy() end
+		if self._admin then
+			self._admin:Destroy()
+		end
 
 		self._request.OnServerInvoke = function()
 			return responseError("The server is shutting down.")
@@ -5078,7 +5484,9 @@ serviceFactories["LabService"] = require(script.Parent:WaitForChild("CoreService
 
 serviceFactories["MatterRuntime"] = require(script.Parent:WaitForChild("MatterRuntime"))
 
-serviceFactories["PlayerAnalytics"] = function() return require(script.Parent:WaitForChild("PlayerAnalytics"))(loadService) end
+serviceFactories["PlayerAnalytics"] = function()
+	return require(script.Parent:WaitForChild("PlayerAnalytics"))(loadService)
+end
 
 serviceFactories["PlayerBadges"] = require(script.Parent:WaitForChild("PlayerBadges"))
 
@@ -5086,7 +5494,9 @@ serviceFactories["ProfileIntegrity"] = require(script.Parent:WaitForChild("Secur
 
 serviceFactories["ProgressionService"] = require(script.Parent:WaitForChild("CoreServices"))("ProgressionService")
 
-serviceFactories["RemoteFirewall"] = function() return require(script.Parent:WaitForChild("RemoteFirewall"))(loadService) end
+serviceFactories["RemoteFirewall"] = function()
+	return require(script.Parent:WaitForChild("RemoteFirewall"))(loadService)
+end
 
 serviceFactories["Security"] = require(script.Parent:WaitForChild("SecurityServices"))("Security")
 

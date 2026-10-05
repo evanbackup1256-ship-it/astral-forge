@@ -5,10 +5,13 @@ return function(loadService: (string) -> any)
 	local RunService = game:GetService("RunService")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
-	local Protocol = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
+	local GameConfig =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local Protocol =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
-	local RemoteFirewallMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
+	local RemoteFirewallMath =
+		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
 	local ServerTelemetry = loadService("ServerTelemetry")
 
 	type Rule = {
@@ -156,9 +159,16 @@ return function(loadService: (string) -> any)
 
 	local function applyFirewallOverrides()
 		local overrides = GameConfig.RemoteFirewall and GameConfig.RemoteFirewall.Overrides
-		if type(overrides) ~= "table" then return end
+		if type(overrides) ~= "table" then
+			return
+		end
 		for action, rule in overrides do
-			if type(action) == "string" and type(rule) == "table" and type(rule.Cost) == "number" and type(rule.Cooldown) == "number" then
+			if
+				type(action) == "string"
+				and type(rule) == "table"
+				and type(rule.Cost) == "number"
+				and type(rule.Cooldown) == "number"
+			then
 				RULES[action] = { Cost = rule.Cost, Cooldown = rule.Cooldown }
 			end
 		end
@@ -222,7 +232,13 @@ return function(loadService: (string) -> any)
 		return RemoteFirewallMath.StringField(payload, key, minimum, maximum)
 	end
 
-	local function stringArrayField(payload: { [any]: any }, key: string, maxEntries: number, entryMinLen: number, entryMaxLen: number): boolean
+	local function stringArrayField(
+		payload: { [any]: any },
+		key: string,
+		maxEntries: number,
+		entryMinLen: number,
+		entryMaxLen: number
+	): boolean
 		return RemoteFirewallMath.StringArrayField(payload, key, maxEntries, entryMinLen, entryMaxLen)
 	end
 
@@ -311,7 +327,6 @@ return function(loadService: (string) -> any)
 			elseif not stringField(payload, "Key", 1, 40) or not numberField(payload, "Value", 0, 1) then
 				return false, "invalid setting payload"
 			end
-
 		elseif action == Protocol.Actions.SetMobileLayout then
 			if type(payload.Values) ~= "table" then
 				return false, "mobile layout values are missing"
@@ -377,9 +392,15 @@ return function(loadService: (string) -> any)
 					return false, "invalid bulk salvage selection"
 				end
 			end
-			if count < 1 then return false, "bulk salvage selection is empty" end
+			if count < 1 then
+				return false, "bulk salvage selection is empty"
+			end
 		elseif action == Protocol.Actions.SetItemAutoSalvage then
-			if type(payload.Enabled) ~= "boolean" or type(payload.KeepNew) ~= "boolean" or type(payload.Rarities) ~= "table" then
+			if
+				type(payload.Enabled) ~= "boolean"
+				or type(payload.KeepNew) ~= "boolean"
+				or type(payload.Rarities) ~= "table"
+			then
 				return false, "invalid auto-salvage payload"
 			end
 			local count = 0
@@ -442,8 +463,23 @@ return function(loadService: (string) -> any)
 				return false, "invalid forge path payload"
 			end
 		elseif action == Protocol.Actions.CasinoPlay then
-			local game = payload.Game
-			if not stringField(payload, "Game", 3, 12) or (game ~= "Slots" and game ~= "Flip" and game ~= "HighLow" and game ~= "Roulette" and game ~= "Scratch" and game ~= "Exchange" and game ~= "Club") then
+			local gameName = payload.Game
+			if
+				not stringField(payload, "Game", 3, 20)
+				or (
+					gameName ~= "Slots"
+					and gameName ~= "Flip"
+					and gameName ~= "HighLow"
+					and gameName ~= "Roulette"
+					and gameName ~= "Scratch"
+					and gameName ~= "Exchange"
+					and gameName ~= "Club"
+					and gameName ~= "TableRoulette"
+					and gameName ~= "QuantumRoulette"
+					and gameName ~= "CardTower"
+					and gameName ~= "DiceTable"
+				)
+			then
 				return false, "invalid casino game"
 			end
 			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
@@ -464,6 +500,41 @@ return function(loadService: (string) -> any)
 			if payload.Free ~= nil and type(payload.Free) ~= "boolean" then
 				return false, "invalid casino card"
 			end
+			if payload.Action ~= nil and not stringField(payload, "Action", 3, 12) then
+				return false, "invalid table action"
+			end
+			for _, field in { "Version", "RoundId" } do
+				if payload[field] ~= nil and not numberField(payload, field, 0, 1e9, true) then
+					return false, "invalid table version"
+				end
+			end
+			if payload.Slots ~= nil and not numberField(payload, "Slots", 3, 4, true) then
+				return false, "invalid tower width"
+			end
+			if payload.Column ~= nil and not numberField(payload, "Column", 1, 4, true) then
+				return false, "invalid tower column"
+			end
+			if payload.Bets ~= nil then
+				if type(payload.Bets) ~= "table" then
+					return false, "invalid table bets"
+				end
+				local count = 0
+				for key, amount in payload.Bets do
+					count += 1
+					if
+						count > 12
+						or type(key) ~= "string"
+						or #key > 12
+						or type(amount) ~= "number"
+						or amount ~= amount
+						or amount % 1 ~= 0
+						or amount < 10
+						or amount > 1000
+					then
+						return false, "invalid table bet"
+					end
+				end
+			end
 		elseif action == Protocol.Actions.BuyDailyOffer then
 			if not numberField(payload, "Slot", 1, 12, true) then
 				return false, "invalid daily offer"
@@ -477,8 +548,11 @@ return function(loadService: (string) -> any)
 				return false, "invalid relic"
 			end
 		elseif action == Protocol.Actions.BazaarPlay then
-			local game = payload.Game
-			if not stringField(payload, "Game", 4, 12) or (game ~= "Bank" and game ~= "Market" and game ~= "Lottery" and game ~= "Contracts") then
+			local gameName = payload.Game
+			if
+				not stringField(payload, "Game", 4, 12)
+				or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Lottery" and gameName ~= "Contracts")
+			then
 				return false, "invalid bazaar counter"
 			end
 			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
@@ -532,9 +606,12 @@ return function(loadService: (string) -> any)
 				return false, "invalid guide payload"
 			end
 		elseif action == Protocol.Actions.ClaimConvergenceReward then
-			if not numberField(payload, "Tier", 1, 10, true) then return false, "invalid convergence payload" end
+			if not numberField(payload, "Tier", 1, 10, true) then
+				return false, "invalid convergence payload"
+			end
 		elseif action == Protocol.Actions.ReportPerformance then
-			if not numberField(payload, "FPS", 0, 360)
+			if
+				not numberField(payload, "FPS", 0, 360)
 				or not numberField(payload, "P95Ms", 0, 1000)
 				or not numberField(payload, "JankPct", 0, 1)
 				or not numberField(payload, "PingMs", 0, 10_000)
@@ -542,7 +619,9 @@ return function(loadService: (string) -> any)
 				or not numberField(payload, "Height", 1, 16_384)
 				or not numberField(payload, "BootMs", 0, 120_000)
 				or not stringField(payload, "Input", 1, 16)
-			then return false, "invalid performance payload" end
+			then
+				return false, "invalid performance payload"
+			end
 		elseif action == Protocol.Actions.ClaimTimedReward then
 			if not numberField(payload, "Index", 1, 100, true) then
 				return false, "invalid reward payload"
@@ -572,17 +651,11 @@ return function(loadService: (string) -> any)
 					string.format("bad-userid:%s", action),
 					12,
 					"Requests",
-					string.format(
-						"%s payload UserId type=%s value=%s",
-						action,
-						typeof(raw),
-						tostring(raw)
-					)
+					string.format("%s payload UserId type=%s value=%s", action, typeof(raw), tostring(raw))
 				)
 				return false, "invalid player id"
 			end
 		elseif action == Protocol.Actions.LeavePlot then
-
 		elseif action == Protocol.Actions.ClaimCommanderReward or action == Protocol.Actions.ClaimSeasonTier then
 			local key = action == Protocol.Actions.ClaimCommanderReward and "Level" or "Tier"
 			if not numberField(payload, key, 1, 10_000, true) then
@@ -631,16 +704,24 @@ return function(loadService: (string) -> any)
 					payload.Tag = string.upper((payload.Tag:gsub("%s+", "")))
 				end
 			end
-			if not stringField(payload, "Name", 3, 28) or not stringField(payload, "Tag", 3, 4) then return false, "invalid guild charter payload" end
+			if not stringField(payload, "Name", 3, 28) or not stringField(payload, "Tag", 3, 4) then
+				return false, "invalid guild charter payload"
+			end
 		elseif action == Protocol.Actions.JoinGuild then
 			if type(payload) == "table" and type(payload.Tag) == "string" then
 				payload.Tag = string.upper((payload.Tag:gsub("%s+", "")))
 			end
-			if not stringField(payload, "Tag", 3, 4) then return false, "invalid guild tag" end
+			if not stringField(payload, "Tag", 3, 4) then
+				return false, "invalid guild tag"
+			end
 		elseif action == Protocol.Actions.KickGuildMember then
-			if not userIdField(payload) then return false, "invalid guild member" end
+			if not userIdField(payload) then
+				return false, "invalid guild member"
+			end
 		elseif action == Protocol.Actions.SetGuildRole then
-			if not userIdField(payload) or (payload.Role ~= "Officer" and payload.Role ~= "Member") then return false, "invalid guild role" end
+			if not userIdField(payload) or (payload.Role ~= "Officer" and payload.Role ~= "Member") then
+				return false, "invalid guild role"
+			end
 		elseif action == Protocol.Actions.ContributeGuild then
 			local hasAmount = payload.Amount ~= nil
 			local hasFraction = payload.Fraction ~= nil
@@ -653,14 +734,17 @@ return function(loadService: (string) -> any)
 				return false, "invalid guild contribution"
 			end
 		elseif action == Protocol.Actions.BuyGuildUpgrade then
-			if not stringField(payload, "Id", 1, 48) then return false, "invalid guild upgrade" end
+			if not stringField(payload, "Id", 1, 48) then
+				return false, "invalid guild upgrade"
+			end
 		elseif action == Protocol.Actions.GetGuildLeaderboard then
 			if payload.Page ~= nil and not numberField(payload, "Page", 1, 100, true) then
 				return false, "invalid guild leaderboard page"
 			end
 		elseif action == Protocol.Actions.GetLeaderboard then
 			local id = type(payload) == "table" and payload.Id or nil
-			if id ~= "Flux"
+			if
+				id ~= "Flux"
 				and id ~= "Rebirths"
 				and id ~= "PlayTime"
 				and id ~= "Dust"
@@ -684,21 +768,14 @@ return function(loadService: (string) -> any)
 				return false, "invalid admin command option"
 			end
 		elseif action == Protocol.Actions.ReportClientIntegrity then
-			if
-				not stringField(payload, "ActionType", 1, 48)
-				or not stringField(payload, "PenaltyCode", 1, 48)
-			then
+			if not stringField(payload, "ActionType", 1, 48) or not stringField(payload, "PenaltyCode", 1, 48) then
 				return false, "invalid integrity envelope"
 			end
 		end
 		return true
 	end
 
-	local function processFirewallViolation(
-		player: Player,
-		actionType: any,
-		penaltyCode: any
-	): (boolean, string?)
+	local function processFirewallViolation(player: Player, actionType: any, penaltyCode: any): (boolean, string?)
 		if player.Parent ~= Players then
 			return false, "player is not active"
 		end
@@ -777,7 +854,6 @@ return function(loadService: (string) -> any)
 			Players:BanAsync(banConfig)
 		end)
 		if not success then
-
 			banConfig.ApplyDeviceBlock = nil
 			success, banError = pcall(function()
 				Players:BanAsync(banConfig)
@@ -842,7 +918,13 @@ return function(loadService: (string) -> any)
 				string.format("request:%d:%s", player.UserId, reason),
 				8,
 				"Requests",
-				string.format("%s · %s rejected — %s (score %.1f)", player.Name, tostring(actionLabel), reason, state.Strikes)
+				string.format(
+					"%s · %s rejected — %s (score %.1f)",
+					player.Name,
+					tostring(actionLabel),
+					reason,
+					state.Strikes
+				)
 			)
 		end
 		if state.Strikes >= 24 and player.Parent == Players then
@@ -898,7 +980,6 @@ return function(loadService: (string) -> any)
 		local actionKey = cooldownKey(action, payload)
 		local previous = state.LastAction[actionKey] or -math.huge
 		if now - previous < rule.Cooldown then
-
 			ServerTelemetry.RecordRemote(false, "action cooldown")
 			return false, "That action is still cooling down."
 		end
@@ -922,8 +1003,12 @@ return function(loadService: (string) -> any)
 				end
 			end
 			if #retained > 256 then
-				table.sort(retained, function(left, right) return left.At > right.At end)
-				for index = 257, #retained do state.LastAction[retained[index].Key] = nil end
+				table.sort(retained, function(left, right)
+					return left.At > right.At
+				end)
+				for index = 257, #retained do
+					state.LastAction[retained[index].Key] = nil
+				end
 			end
 			state.LastActionCount = math.min(#retained, 256)
 		end

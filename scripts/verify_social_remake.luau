@@ -31,9 +31,9 @@ local fs=require("@lune/fs")
 local luau=require("@lune/luau")
 local source=fs.readFile("src/Server/AstralForge/Services/CoreServices.luau"):gsub("\r\n","\n")
 local first=assert(source:find("\tfunction GuildService:Leave(",1,true))
-local leaveEnd=assert(source:find("\n\tfunction GuildService:Disband(",first,true))
+local leaveEnd=assert(source:find("\n%s+function GuildService:Disband%(",first))
 local kickStart=assert(source:find("\tfunction GuildService:Kick(",leaveEnd,true))
-local kickEnd=assert(source:find("\n\tfunction GuildService:ContributeBank(",kickStart,true))
+local kickEnd=assert(source:find("\n%s+function GuildService:ContributeBank%(",kickStart))
 local factory=luau.load("return function(Social,emptyBonuses) local GuildService={} "..source:sub(first,leaveEnd-1)..source:sub(kickStart,kickEnd-1).." return GuildService end")()
 local methods=factory(Social,function() return {} end)
 local document={Members={ ["1"]={Role="Leader",JoinedAt=1},["2"]={Role="Officer",JoinedAt=2},["3"]={Role="Member",JoinedAt=3}},OwnerUserId=1}
@@ -56,7 +56,7 @@ print("[TEST] actual guild service fixtures: permission denial, role change, suc
 -- Exercise the real ranks effect with controlled replies and timers.
 local dashboard=fs.readFile("src/Client/AstralForge/RankDashboard.luau"):gsub("\r\n","\n")
 local effectStart=assert(dashboard:find("React.useEffect(function()",1,true))+#"React.useEffect(function()"
-local effectEnd=assert(dashboard:find("end,{props.dispatch,selected,scope,revision})",effectStart,true))
+local effectEnd=assert(dashboard:find("end,%s*{%s*props%.dispatch,%s*selected,%s*scope,%s*revision%s*}%s*%)",effectStart))
 local effectBody=dashboard:sub(effectStart,effectEnd-1)
 for _,guildBoard in {false,true} do
 	local scheduled,replies,actions={}, {}, {}

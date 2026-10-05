@@ -9,7 +9,8 @@ local emitted: { [string]: boolean } = {}
 
 export type Severity = "INFO" | "WARN" | "ERROR" | "FATAL" | "NETWORK"
 
-local LEVEL_COLUMN: { [string]: string } = { INFO = "info ", WARN = "warn ", ERROR = "error", FATAL = "fatal", NETWORK = "net  " }
+local LEVEL_COLUMN: { [string]: string } =
+	{ INFO = "info ", WARN = "warn ", ERROR = "error", FATAL = "fatal", NETWORK = "net  " }
 local SCOPE_COLUMN_WIDTH = 12
 local startedAt = os.clock()
 local function field(value: any): string
@@ -34,7 +35,7 @@ local function formatValue(value: any): string
 		return tostring(value)
 	end
 	local text = field(value)
-	if text == "" or string.find(text, "[%s=\"]") then
+	if text == "" or string.find(text, '[%s="]') then
 		return '"' .. string.gsub(text, '"', "'") .. '"'
 	end
 	return text
@@ -69,7 +70,14 @@ local function formatLine(severity: string, scope: string, message: string, para
 	if #scopeText < SCOPE_COLUMN_WIDTH then
 		scopeText ..= string.rep(" ", SCOPE_COLUMN_WIDTH - #scopeText)
 	end
-	return string.format("%8.3f  %s  %s  %s%s", os.clock() - startedAt, LEVEL_COLUMN[severity] or string.lower(severity), scopeText, field(message), pairsText)
+	return string.format(
+		"%8.3f  %s  %s  %s%s",
+		os.clock() - startedAt,
+		LEVEL_COLUMN[severity] or string.lower(severity),
+		scopeText,
+		field(message),
+		pairsText
+	)
 end
 local function debugEnabled(): boolean
 	return ReplicatedStorage:GetAttribute("AstralDebugLogs") == true
@@ -136,7 +144,11 @@ function ModuleLog.Require(moduleScript: ModuleScript, label: string): any
 	local ok, result = pcall(require, moduleScript)
 	local elapsed = os.clock() - started
 	if not ok then
-		ModuleLog.Error("BOOT", string.format("%s failed", label), { ElapsedMs = math.floor(elapsed * 1000), Error = tostring(result) })
+		ModuleLog.Error(
+			"BOOT",
+			string.format("%s failed", label),
+			{ ElapsedMs = math.floor(elapsed * 1000), Error = tostring(result) }
+		)
 		error(result)
 	end
 	if elapsed >= 0.15 then

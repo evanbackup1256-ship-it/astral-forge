@@ -5,7 +5,8 @@ return function()
 	local RunService = game:GetService("RunService")
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
-	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local GameConfig =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
 	local AntiCheat = {}
@@ -171,7 +172,13 @@ return function()
 
 		if type(profile.Items) ~= "table" then
 			profile.Items = {
-				Inventory = {}, Discovered = {}, Equipped = {}, Essence = 0, Keys = {}, Pity = {}, Shop = {},
+				Inventory = {},
+				Discovered = {},
+				Equipped = {},
+				Essence = 0,
+				Keys = {},
+				Pity = {},
+				Shop = {},
 				AutoSalvage = { Enabled = false, KeepNew = true, Rarities = {} },
 			}
 			repairs += 1
@@ -322,7 +329,6 @@ return function()
 		end
 
 		if repairs > 0 then
-
 			local now2 = os.clock()
 			if
 				state.LastRepairAction ~= action
@@ -363,7 +369,10 @@ return function()
 								string.format("velocity:%d", player.UserId),
 								30,
 								"Security",
-								string.format("u=%d Cash jump exceeded production ceiling (observed only, not corrected)", player.UserId)
+								string.format(
+									"u=%d Cash jump exceeded production ceiling (observed only, not corrected)",
+									player.UserId
+								)
 							)
 						end
 					end

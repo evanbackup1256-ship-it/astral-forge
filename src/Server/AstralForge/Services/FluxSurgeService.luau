@@ -4,7 +4,8 @@ return function()
 	local Players = game:GetService("Players")
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
-	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local GameConfig =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 	local FluxSurgeService = {}
 	FluxSurgeService.__index = FluxSurgeService
@@ -22,7 +23,10 @@ return function()
 		}
 	end
 
-	function FluxSurgeService.new(toastCallback: (Player, string, string, string) -> (), effectCallback: (Player, any) -> ())
+	function FluxSurgeService.new(
+		toastCallback: (Player, string, string, string) -> (),
+		effectCallback: (Player, any) -> ()
+	)
 		local self = setmetatable({}, FluxSurgeService)
 		self._endsAt = 0
 		self._accumulator = 0

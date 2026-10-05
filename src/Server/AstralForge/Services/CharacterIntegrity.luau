@@ -87,11 +87,7 @@ return function(loadService: (string) -> any)
 			or state == Enum.HumanoidStateType.Climbing
 	end
 
-	local function crossedBarrier(
-		params: RaycastParams,
-		from: Vector3,
-		to: Vector3
-	): boolean
+	local function crossedBarrier(params: RaycastParams, from: Vector3, to: Vector3): boolean
 		local delta = to - from
 		local horizontal = Vector3.new(delta.X, 0, delta.Z)
 		if horizontal.Magnitude < MIN_BARRIER_DISTANCE then
@@ -118,9 +114,7 @@ return function(loadService: (string) -> any)
 		end
 		local repeatedTraversal = state.BarrierCrossings >= 3
 		local repeatedFlight = state.FlightBursts >= 8
-		return state.SpeedBursts >= 12
-			and state.Corrections >= 2
-			and (repeatedTraversal or repeatedFlight)
+		return state.SpeedBursts >= 12 and state.Corrections >= 2 and (repeatedTraversal or repeatedFlight)
 	end
 
 	local function correctMotion(player: Player, state: PlayerState, root: BasePart, now: number): boolean
@@ -161,7 +155,9 @@ return function(loadService: (string) -> any)
 	end
 
 	function CharacterIntegrity:_enforce(player: Player, evidence): ()
-		if not self._alive then return end
+		if not self._alive then
+			return
+		end
 		local token = {}
 		local worker = task.defer(function()
 			if self._alive then
@@ -224,7 +220,8 @@ return function(loadService: (string) -> any)
 		end
 		local airborneGrace = now - state.LastGroundedAt < 0.4
 		local fallingSlowly = root.AssemblyLinearVelocity.Y < -20 and horizontalSpeed < allowedSpeed * 0.8
-		local speedFlag = (not airborneGrace or fallingSlowly) and (horizontalSpeed > allowedSpeed or root.AssemblyLinearVelocity.Magnitude > 275)
+		local speedFlag = (not airborneGrace or fallingSlowly)
+			and (horizontalSpeed > allowedSpeed or root.AssemblyLinearVelocity.Magnitude > 275)
 		local barrierFlag = crossedBarrier(state.Raycast :: RaycastParams, lastPosition, root.Position)
 		local flightFlag = not airborneGrace and airbornePlatformMotion(state.Raycast :: RaycastParams, root, humanoid)
 
@@ -270,7 +267,6 @@ return function(loadService: (string) -> any)
 				corrected = correctMotion(player, state, root, now)
 			end
 			if not corrected then
-
 				state.LastPosition = root.Position
 			end
 		else
@@ -285,10 +281,7 @@ return function(loadService: (string) -> any)
 		if not character then
 			return
 		end
-		character:SetAttribute(
-			SERVER_GRACE_ATTRIBUTE,
-			Workspace:GetServerTimeNow() + math.clamp(seconds or 2, 0.1, 30)
-		)
+		character:SetAttribute(SERVER_GRACE_ATTRIBUTE, Workspace:GetServerTimeNow() + math.clamp(seconds or 2, 0.1, 30))
 	end
 
 	function CharacterIntegrity:Start(): ()

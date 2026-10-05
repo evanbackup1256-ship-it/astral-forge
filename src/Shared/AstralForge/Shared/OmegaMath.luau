@@ -409,7 +409,13 @@ function OmegaMath.GeometricSum(baseCost: number, scale: number, level: number, 
 	return OmegaMath.Floor(OmegaMath.Div(OmegaMath.Mul(first, numerator), safeScale - 1))
 end
 
-function OmegaMath.AffordableCount(baseCost: number, scale: number, level: number, cash: any, maximum: number): (number, Persist)
+function OmegaMath.AffordableCount(
+	baseCost: number,
+	scale: number,
+	level: number,
+	cash: any,
+	maximum: number
+): (number, Persist)
 	local remaining = math.max(0, math.floor(maximum))
 	if remaining <= 0 then
 		return 0, 0

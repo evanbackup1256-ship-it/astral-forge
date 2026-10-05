@@ -28,7 +28,7 @@ local luau = require("@lune/luau")
 for _, gameName in { "Casino", "Bazaar" } do
 	local source = fs.readFile("src/Client/AstralForge/pages/Pages" .. gameName .. ".luau")
 	local start = assert(string.find(source, "\tlocal function play(", 1, true))
-	local stop = assert(string.find(source, "\n\tif " .. string.lower(gameName) .. " == nil", start, true))
+	local stop = assert(string.find(source, "\n%s+if " .. string.lower(gameName) .. " == nil", start))
 	local body = string.sub(source, start, stop - 1)
 	local callbacks = {}
 	local latch = { current = false }

@@ -1,5 +1,3 @@
-
-
 export type Connection = {
 	Disconnect: (self: Connection) -> (),
 	Destroy: (self: Connection) -> (),
@@ -17,9 +15,7 @@ export type Signal<T...> = {
 	Wait: (self: Signal<T...>) -> T...,
 }
 
-
 local freeRunnerThread
-
 
 local function acquireRunnerThreadAndCallEventHandler(fn, ...)
 	local acquiredRunnerThread = freeRunnerThread
@@ -29,16 +25,12 @@ local function acquireRunnerThreadAndCallEventHandler(fn, ...)
 	freeRunnerThread = acquiredRunnerThread
 end
 
-
 local function runEventHandlerInFreeThread(...)
 	acquireRunnerThreadAndCallEventHandler(...)
 	while true do
 		acquireRunnerThreadAndCallEventHandler(coroutine.yield())
 	end
 end
-
-
-
 
 local Connection = {}
 Connection.__index = Connection
@@ -48,7 +40,6 @@ function Connection:Disconnect()
 		return
 	end
 	self.Connected = false
-
 
 	if self._signal._handlerListHead == self then
 		self._signal._handlerListHead = self._next
@@ -65,7 +56,6 @@ end
 
 Connection.Destroy = Connection.Disconnect
 
-
 setmetatable(Connection, {
 	__index = function(_tb, key)
 		error(("Attempt to get Connection::%s (not a valid member)"):format(tostring(key)), 2)
@@ -75,12 +65,8 @@ setmetatable(Connection, {
 	end,
 })
 
-
-
-
 local Signal = {}
 Signal.__index = Signal
-
 
 function Signal.new<T...>(): Signal<T...>
 	local self = setmetatable({
@@ -91,7 +77,6 @@ function Signal.new<T...>(): Signal<T...>
 
 	return self
 end
-
 
 function Signal.Wrap<T...>(rbxScriptSignal: RBXScriptSignal): Signal<T...>
 	assert(
@@ -107,11 +92,9 @@ function Signal.Wrap<T...>(rbxScriptSignal: RBXScriptSignal): Signal<T...>
 	return signal
 end
 
-
 function Signal.Is(obj: any): boolean
 	return type(obj) == "table" and getmetatable(obj) == Signal
 end
-
 
 function Signal:Connect(fn)
 	local connection = setmetatable({
@@ -131,11 +114,9 @@ function Signal:Connect(fn)
 	return connection
 end
 
-
 function Signal:ConnectOnce(fn)
 	return self:Once(fn)
 end
-
 
 function Signal:Once(fn)
 	local connection
@@ -166,8 +147,6 @@ function Signal:GetConnections()
 	return items
 end
 
-
-
 function Signal:DisconnectAll()
 	local item = self._handlerListHead
 	while item do
@@ -188,8 +167,6 @@ function Signal:DisconnectAll()
 	end
 end
 
-
-
 function Signal:Fire(...)
 	local item = self._handlerListHead
 	while item do
@@ -203,7 +180,6 @@ function Signal:Fire(...)
 	end
 end
 
-
 function Signal:FireDeferred(...)
 	local item = self._handlerListHead
 	while item do
@@ -216,7 +192,6 @@ function Signal:FireDeferred(...)
 		item = item._next
 	end
 end
-
 
 function Signal:Wait()
 	local yieldedThreads = rawget(self, "_yieldedThreads")
@@ -236,7 +211,6 @@ function Signal:Wait()
 	return coroutine.yield()
 end
 
-
 function Signal:Destroy()
 	self:DisconnectAll()
 
@@ -245,7 +219,6 @@ function Signal:Destroy()
 		proxyHandler:Disconnect()
 	end
 end
-
 
 setmetatable(Signal, {
 	__index = function(_tb, key)

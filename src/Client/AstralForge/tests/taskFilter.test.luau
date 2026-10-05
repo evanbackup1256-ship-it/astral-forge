@@ -16,63 +16,87 @@ do
 		local self = setmetatable({}, TaskFilterTests)
 		return self:constructor(...) or self
 	end
-	function TaskFilterTests:constructor()
-	end
+	function TaskFilterTests:constructor() end
 	function TaskFilterTests:readyMatchesUnclaimedComplete()
-		Assert["true"](Assert, taskMatchesFilter({
-			Progress = 5,
-			Target = 5,
-			Claimed = false,
-		}, "Ready"))
-		Assert["false"](Assert, taskMatchesFilter({
-			Progress = 5,
-			Target = 5,
-			Claimed = true,
-		}, "Ready"))
-		Assert["false"](Assert, taskMatchesFilter({
-			Progress = 2,
-			Target = 5,
-			Claimed = false,
-		}, "Ready"))
+		Assert["true"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 5,
+				Target = 5,
+				Claimed = false,
+			}, "Ready")
+		)
+		Assert["false"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 5,
+				Target = 5,
+				Claimed = true,
+			}, "Ready")
+		)
+		Assert["false"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 2,
+				Target = 5,
+				Claimed = false,
+			}, "Ready")
+		)
 	end
 	function TaskFilterTests:activeMatchesIncomplete()
-		Assert["true"](Assert, taskMatchesFilter({
-			Progress = 1,
-			Target = 4,
-			Claimed = false,
-		}, "Active"))
-		Assert["false"](Assert, taskMatchesFilter({
-			Progress = 4,
-			Target = 4,
-			Claimed = false,
-		}, "Active"))
+		Assert["true"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 1,
+				Target = 4,
+				Claimed = false,
+			}, "Active")
+		)
+		Assert["false"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 4,
+				Target = 4,
+				Claimed = false,
+			}, "Active")
+		)
 	end
 	function TaskFilterTests:doneMatchesClaimed()
-		Assert["true"](Assert, taskMatchesFilter({
-			Progress = 0,
-			Target = 1,
-			Claimed = true,
-		}, "Done"))
-		Assert["true"](Assert, taskMatchesFilter({
-			Progress = 0,
-			Target = 1,
-			Claimed = false,
-		}, "All"))
+		Assert["true"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 0,
+				Target = 1,
+				Claimed = true,
+			}, "Done")
+		)
+		Assert["true"](
+			Assert,
+			taskMatchesFilter({
+				Progress = 0,
+				Target = 1,
+				Claimed = false,
+			}, "All")
+		)
 	end
 	function TaskFilterTests:countsSplitBuckets()
-		local counts = taskFilterCounts({ {
-			Progress = 1,
-			Target = 4,
-			Claimed = false,
-		}, {
-			Progress = 4,
-			Target = 4,
-			Claimed = false,
-		}, {
-			Progress = 4,
-			Target = 4,
-			Claimed = true,
-		} })
+		local counts = taskFilterCounts({
+			{
+				Progress = 1,
+				Target = 4,
+				Claimed = false,
+			},
+			{
+				Progress = 4,
+				Target = 4,
+				Claimed = false,
+			},
+			{
+				Progress = 4,
+				Target = 4,
+				Claimed = true,
+			},
+		})
 		Assert:equal(counts.All, 3)
 		Assert:equal(counts.Active, 1)
 		Assert:equal(counts.Ready, 1)

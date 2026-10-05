@@ -14,8 +14,7 @@ do
 		local self = setmetatable({}, VirtualizedListTests)
 		return self:constructor(...) or self
 	end
-	function VirtualizedListTests:constructor()
-	end
+	function VirtualizedListTests:constructor() end
 	function VirtualizedListTests:emptyListHasNoRows()
 		local range = virtualRange(0, 80, 0, 0, 400, 2)
 		Assert:equal(range.first, 0)

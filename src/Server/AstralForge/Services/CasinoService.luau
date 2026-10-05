@@ -5,6 +5,7 @@ return function(loadService: (string) -> any)
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
+	local PracticeTables = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoExpansionMath"))
 	local ProgressionService = loadService("ProgressionService")
 
 	local CasinoService = {}
@@ -98,8 +99,13 @@ return function(loadService: (string) -> any)
 		end
 		local won = multiplier >= 1
 		recordRound(casino, tier, won, payout)
-		local message = if kind == "Triple" then `Three {reels[1]}! x{multiplier}` elseif kind == "Pair" and multiplier > 0 then `A pair of {reels[1] == reels[2] and reels[1] or reels[3]}.` else "No match."
-		return true, message, result("Slots", won, stake, payout, { Reels = reels, Multiplier = multiplier, Kind = kind })
+		local message = if kind == "Triple"
+			then `Three {reels[1]}! x{multiplier}`
+			elseif kind == "Pair" and multiplier > 0 then `A pair of {reels[1] == reels[2] and reels[1] or reels[3]}.`
+			else "No match."
+		return true,
+			message,
+			result("Slots", won, stake, payout, { Reels = reels, Multiplier = multiplier, Kind = kind })
 	end
 
 	local function playRoulette(profile, random: Random, payload): (boolean, string, any?)
@@ -127,8 +133,18 @@ return function(loadService: (string) -> any)
 		end
 		recordRound(casino, tier, multiplier > 0, payout)
 		local color = CasinoMath.RouletteColor(number)
-		local message = if multiplier > 0 then `{number} {color}: your {pick} wins x{multiplier}.` else `{number} {color}. Your {pick} loses.`
-		return true, message, result("Roulette", multiplier > 0, stake, payout, { Number = number, Color = color, Pick = pick, Multiplier = multiplier })
+		local message = if multiplier > 0
+			then `{number} {color}: your {pick} wins x{multiplier}.`
+			else `{number} {color}. Your {pick} loses.`
+		return true,
+			message,
+			result(
+				"Roulette",
+				multiplier > 0,
+				stake,
+				payout,
+				{ Number = number, Color = color, Pick = pick, Multiplier = multiplier }
+			)
 	end
 
 	local function playScratch(profile, random: Random, payload, now: number): (boolean, string, any?)
@@ -151,16 +167,34 @@ return function(loadService: (string) -> any)
 		local cells, multiplier, symbol = CasinoMath.ScratchCard(function()
 			return random:NextNumber()
 		end)
-		local payout = if multiplier > 0 then capped(base, if free then 0 else stake, Economy.Mul(stake, multiplier)) else 0
+		local payout = if multiplier > 0
+			then capped(base, if free then 0 else stake, Economy.Mul(stake, multiplier))
+			else 0
 		if multiplier > 0 then
 			pay(profile, payout)
 		end
 		recordRound(casino, tier, multiplier >= 1 or (free and multiplier > 0), payout)
 		local message = if symbol ~= nil then `Three {symbol}! x{multiplier}` else "Nothing matched."
-		return true, message, result("Scratch", multiplier > 0, if free then 0 else stake, payout, { Cells = cells, Multiplier = multiplier, Symbol = symbol, Free = free })
+		return true,
+			message,
+			result(
+				"Scratch",
+				multiplier > 0,
+				if free then 0 else stake,
+				payout,
+				{ Cells = cells, Multiplier = multiplier, Symbol = symbol, Free = free }
+			)
 	end
 
-	local function settleLadder(profile, casino, round, multiplier: number, tier: number, game: string, extra: any): (boolean, string, any?)
+	local function settleLadder(
+		profile,
+		casino,
+		round,
+		multiplier: number,
+		tier: number,
+		game: string,
+		extra: any
+	): (boolean, string, any?)
 		local payout = capped(round.Base, round.Stake, Economy.Mul(round.Stake, multiplier))
 		pay(profile, payout)
 		local stake = round.Stake
@@ -182,7 +216,15 @@ return function(loadService: (string) -> any)
 			if not flip.Active or flip.Streak < 1 then
 				return false, "Flip at least once before cashing out."
 			end
-			return settleLadder(profile, casino, flip, CasinoMath.FlipMultiplier(flip.Streak), flip.Tier, "Flip", { Streak = flip.Streak })
+			return settleLadder(
+				profile,
+				casino,
+				flip,
+				CasinoMath.FlipMultiplier(flip.Streak),
+				flip.Tier,
+				"Flip",
+				{ Streak = flip.Streak }
+			)
 		end
 		if not flip.Active then
 			local tier = tierOf(payload)
@@ -194,7 +236,8 @@ return function(loadService: (string) -> any)
 			if not take(profile, stake) then
 				return false, "Not enough flux for that stake."
 			end
-			flip.Active, flip.Streak, flip.Stake, flip.Tier, flip.Base = true, 0, Economy.Persist(stake), tier, Economy.Persist(base)
+			flip.Active, flip.Streak, flip.Stake, flip.Tier, flip.Base =
+				true, 0, Economy.Persist(stake), tier, Economy.Persist(base)
 		end
 		local heads = CasinoMath.FlipRoll(function()
 			return random:NextNumber()
@@ -204,14 +247,32 @@ return function(loadService: (string) -> any)
 			local streak = flip.Streak
 			flip.Active, flip.Streak, flip.Stake, flip.Base = false, 0, 0, 0
 			recordRound(casino, tier, false, 0)
-			return true, "Tails. The stake is gone.", result("Flip", false, stake, 0, { Heads = false, Streak = streak, Lost = true })
+			return true,
+				"Tails. The stake is gone.",
+				result("Flip", false, stake, 0, { Heads = false, Streak = streak, Lost = true })
 		end
 		flip.Streak += 1
 		local multiplier = CasinoMath.FlipMultiplier(flip.Streak)
 		if flip.Streak >= CasinoMath.FLIP_MAX_STREAK then
-			return settleLadder(profile, casino, flip, multiplier, flip.Tier, "Flip", { Heads = true, Streak = flip.Streak, Maxed = true })
+			return settleLadder(
+				profile,
+				casino,
+				flip,
+				multiplier,
+				flip.Tier,
+				"Flip",
+				{ Heads = true, Streak = flip.Streak, Maxed = true }
+			)
 		end
-		return true, `Heads! x{string.format("%.2f", multiplier)} and counting.`, result("Flip", true, flip.Stake, 0, { Heads = true, Streak = flip.Streak, Multiplier = multiplier, Open = true })
+		return true,
+			`Heads! x{string.format("%.2f", multiplier)} and counting.`,
+			result(
+				"Flip",
+				true,
+				flip.Stake,
+				0,
+				{ Heads = true, Streak = flip.Streak, Multiplier = multiplier, Open = true }
+			)
 	end
 
 	local function playHighLow(profile, random: Random, payload): (boolean, string, any?)
@@ -234,9 +295,12 @@ return function(loadService: (string) -> any)
 			if not take(profile, stake) then
 				return false, "Not enough flux for that stake."
 			end
-			round.Active, round.Streak, round.Multiplier, round.Stake, round.Tier, round.Base = true, 0, 1, Economy.Persist(stake), tier, Economy.Persist(base)
+			round.Active, round.Streak, round.Multiplier, round.Stake, round.Tier, round.Base =
+				true, 0, 1, Economy.Persist(stake), tier, Economy.Persist(base)
 			round.Card = CasinoMath.HighLowDraw(rand)
-			return true, "The first card is down.", result("HighLow", true, stake, 0, { Card = round.Card, Open = true, Started = true })
+			return true,
+				"The first card is down.",
+				result("HighLow", true, stake, 0, { Card = round.Card, Open = true, Started = true })
 		end
 		if not round.Active then
 			return false, "Start a round first."
@@ -245,7 +309,15 @@ return function(loadService: (string) -> any)
 			if round.Streak < 1 then
 				return false, "Win a guess before cashing out."
 			end
-			return settleLadder(profile, casino, round, round.Multiplier, round.Tier, "HighLow", { Card = round.Card, Streak = round.Streak })
+			return settleLadder(
+				profile,
+				casino,
+				round,
+				round.Multiplier,
+				round.Tier,
+				"HighLow",
+				{ Card = round.Card, Streak = round.Streak }
+			)
 		end
 		if op ~= "Guess" then
 			return false, "Unknown move."
@@ -265,14 +337,32 @@ return function(loadService: (string) -> any)
 			round.Streak += 1
 			round.Multiplier = math.min(CasinoMath.HL_MAX_MULT, round.Multiplier * step)
 			if round.Streak >= CasinoMath.HL_MAX_STREAK or round.Multiplier >= CasinoMath.HL_MAX_MULT then
-				return settleLadder(profile, casino, round, round.Multiplier, round.Tier, "HighLow", { Card = nextCard, Previous = previous, Streak = round.Streak, Maxed = true })
+				return settleLadder(
+					profile,
+					casino,
+					round,
+					round.Multiplier,
+					round.Tier,
+					"HighLow",
+					{ Card = nextCard, Previous = previous, Streak = round.Streak, Maxed = true }
+				)
 			end
-			return true, `{nextCard}: right! x{string.format("%.2f", round.Multiplier)}.`, result("HighLow", true, round.Stake, 0, { Card = nextCard, Previous = previous, Streak = round.Streak, Multiplier = round.Multiplier, Open = true })
+			return true,
+				`{nextCard}: right! x{string.format("%.2f", round.Multiplier)}.`,
+				result("HighLow", true, round.Stake, 0, {
+					Card = nextCard,
+					Previous = previous,
+					Streak = round.Streak,
+					Multiplier = round.Multiplier,
+					Open = true,
+				})
 		end
 		local stake, tier = round.Stake, round.Tier
 		round.Active, round.Streak, round.Stake, round.Base, round.Multiplier = false, 0, 0, 0, 1
 		recordRound(casino, tier, false, 0)
-		return true, `{nextCard}: wrong. The stake is gone.`, result("HighLow", false, stake, 0, { Card = nextCard, Previous = previous, Lost = true })
+		return true,
+			`{nextCard}: wrong. The stake is gone.`,
+			result("HighLow", false, stake, 0, { Card = nextCard, Previous = previous, Lost = true })
 	end
 
 	local function exchangePrice(profile, mood: number): any
@@ -294,7 +384,8 @@ return function(loadService: (string) -> any)
 		end
 		local left = CasinoMath.EXCHANGE_DAILY_CAP - exchange.Bought
 		if amount > left then
-			return false, if left <= 0 then "You have bought today's whole allowance." else `Only {left} Stardust left today.`
+			return false,
+				if left <= 0 then "You have bought today's whole allowance." else `Only {left} Stardust left today.`
 		end
 		local mood = CasinoMath.ExchangeMood(CasinoMath.ExchangeBucket(now))
 		local unit = exchangePrice(profile, mood)
@@ -329,20 +420,27 @@ return function(loadService: (string) -> any)
 		if type(payload) ~= "table" or type(payload.Game) ~= "string" then
 			return false, "Pick a game.", nil
 		end
-		local game = payload.Game
-		if game == "Slots" then
+		local gameName = payload.Game
+		if table.find({ "TableRoulette", "QuantumRoulette", "CardTower", "DiceTable" }, gameName) then
+			local casino = ensure(profile)
+			casino.Arcade = PracticeTables.Ensure(casino.Arcade)
+			return PracticeTables.Play(casino.Arcade, payload, function()
+				return random:NextNumber()
+			end)
+		end
+		if gameName == "Slots" then
 			return playSlots(profile, random, payload)
-		elseif game == "Roulette" then
+		elseif gameName == "Roulette" then
 			return playRoulette(profile, random, payload)
-		elseif game == "Scratch" then
+		elseif gameName == "Scratch" then
 			return playScratch(profile, random, payload, now)
-		elseif game == "Flip" then
+		elseif gameName == "Flip" then
 			return playFlip(profile, random, payload)
-		elseif game == "HighLow" then
+		elseif gameName == "HighLow" then
 			return playHighLow(profile, random, payload)
-		elseif game == "Exchange" then
+		elseif gameName == "Exchange" then
 			return playExchange(profile, payload, now)
-		elseif game == "Club" then
+		elseif gameName == "Club" then
 			return claimRank(profile, payload)
 		end
 		return false, "Unknown game.", nil
@@ -350,9 +448,15 @@ return function(loadService: (string) -> any)
 
 	function CasinoService.State(profile, now: number): any
 		local casino = ensure(profile)
+		casino.Arcade = PracticeTables.Ensure(casino.Arcade)
 		local stakes = {}
 		for tier, share in CasinoMath.STAKES do
-			table.insert(stakes, { Tier = tier, Name = CasinoMath.STAKE_NAMES[tier], Share = share, Amount = Economy.Persist(stakeAmount(profile, tier)) })
+			table.insert(stakes, {
+				Tier = tier,
+				Name = CasinoMath.STAKE_NAMES[tier],
+				Share = share,
+				Amount = Economy.Persist(stakeAmount(profile, tier)),
+			})
 		end
 		local flip, round = casino.Flip, casino.HighLow
 		local bucket = CasinoMath.ExchangeBucket(now)
@@ -380,7 +484,14 @@ return function(loadService: (string) -> any)
 		local nextRank = CasinoMath.CLUB_RANKS[rank + 1]
 		return {
 			Stakes = stakes,
-			Stats = { Played = casino.Played, Won = casino.Won, Streak = casino.Streak, BestStreak = casino.BestStreak, BiggestWin = casino.BiggestWin },
+			Arcade = PracticeTables.State(casino.Arcade),
+			Stats = {
+				Played = casino.Played,
+				Won = casino.Won,
+				Streak = casino.Streak,
+				BestStreak = casino.BestStreak,
+				BiggestWin = casino.BiggestWin,
+			},
 			Slots = { Symbols = CasinoMath.SLOT_SYMBOLS, Rtp = SLOTS_RTP },
 			Roulette = { Zero = "Green" },
 			Flip = {
@@ -389,7 +500,11 @@ return function(loadService: (string) -> any)
 				Stake = flip.Stake,
 				Multiplier = CasinoMath.FlipMultiplier(flip.Streak),
 				NextMultiplier = CasinoMath.FlipMultiplier(flip.Streak + 1),
-				Cashout = if flip.Active and flip.Streak > 0 then Economy.Persist(capped(flip.Base, flip.Stake, Economy.Mul(flip.Stake, CasinoMath.FlipMultiplier(flip.Streak)))) else 0,
+				Cashout = if flip.Active and flip.Streak > 0
+					then Economy.Persist(
+						capped(flip.Base, flip.Stake, Economy.Mul(flip.Stake, CasinoMath.FlipMultiplier(flip.Streak)))
+					)
+					else 0,
 				MaxStreak = CasinoMath.FLIP_MAX_STREAK,
 				Chance = CasinoMath.FLIP_WIN_CHANCE,
 			},
@@ -399,11 +514,17 @@ return function(loadService: (string) -> any)
 				Streak = round.Streak,
 				Multiplier = round.Multiplier,
 				Stake = round.Stake,
-				Cashout = if round.Active and round.Streak > 0 then Economy.Persist(capped(round.Base, round.Stake, Economy.Mul(round.Stake, round.Multiplier))) else 0,
+				Cashout = if round.Active and round.Streak > 0
+					then Economy.Persist(capped(round.Base, round.Stake, Economy.Mul(round.Stake, round.Multiplier)))
+					else 0,
 				High = { Chance = highChance, Step = highStep },
 				Low = { Chance = lowChance, Step = lowStep },
 			},
-			Scratch = { FreeReady = casino.Scratch.FreeDay ~= today, Symbols = CasinoMath.SCRATCH_SYMBOLS, Rtp = SCRATCH_RTP },
+			Scratch = {
+				FreeReady = casino.Scratch.FreeDay ~= today,
+				Symbols = CasinoMath.SCRATCH_SYMBOLS,
+				Rtp = SCRATCH_RTP,
+			},
 			Exchange = {
 				Mood = mood,
 				History = history,
@@ -414,7 +535,13 @@ return function(loadService: (string) -> any)
 				NextAt = (bucket + 1) * CasinoMath.EXCHANGE_BUCKET_SECONDS,
 				Trend = CasinoMath.ExchangeMood(bucket + 1) - mood,
 			},
-			Club = { XP = casino.Club.XP, Rank = rank, RankName = CasinoMath.CLUB_RANKS[rank].Name, NextXP = if nextRank ~= nil then nextRank.XP else nil, Ranks = ranks },
+			Club = {
+				XP = casino.Club.XP,
+				Rank = rank,
+				RankName = CasinoMath.CLUB_RANKS[rank].Name,
+				NextXP = if nextRank ~= nil then nextRank.XP else nil,
+				Ranks = ranks,
+			},
 		}
 	end
 

@@ -133,7 +133,11 @@ function ProfileBagMath.EnsureAutoSalvage(profile: any): any
 	return items.AutoSalvage
 end
 
-function ProfileBagMath.EnsureDailyShop(profile: any, day: number?, owned: any?): { Day: number, Bought: { [string]: number }, Owned: { [string]: boolean } }
+function ProfileBagMath.EnsureDailyShop(
+	profile: any,
+	day: number?,
+	owned: any?
+): { Day: number, Bought: { [string]: number }, Owned: { [string]: boolean } }
 	if type(profile.DailyShop) ~= "table" then
 		profile.DailyShop = { Day = -1, Bought = {} }
 	end
@@ -174,7 +178,10 @@ function ProfileBagMath.EnsureDailyShop(profile: any, day: number?, owned: any?)
 	return shop
 end
 
-function ProfileBagMath.EnsureCosmetics(profile: any, knownSkin: ((string) -> boolean)?): { CrateSkins: { [string]: boolean }, CrateSkin: string }
+function ProfileBagMath.EnsureCosmetics(
+	profile: any,
+	knownSkin: ((string) -> boolean)?
+): { CrateSkins: { [string]: boolean }, CrateSkin: string }
 	if type(profile.Cosmetics) ~= "table" then
 		profile.Cosmetics = { CrateSkins = { Classic = true }, CrateSkin = "Classic" }
 	end
@@ -289,14 +296,17 @@ function ProfileBagMath.EnsureAnomaly(profile: any): any
 	profile.Anomaly.Fragments = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Fragments, 0))
 	profile.Anomaly.Stabilizations = math.floor(ProfileBagMath.AddFinite(profile.Anomaly.Stabilizations, 0))
 	local cycle = tonumber(profile.Anomaly.Cycle)
-	profile.Anomaly.Cycle = if type(cycle) == "number" and cycle == cycle and cycle ~= math.huge and cycle ~= -math.huge
+	profile.Anomaly.Cycle = if type(cycle) == "number"
+			and cycle == cycle
+			and cycle ~= math.huge
+			and cycle ~= -math.huge
 		then math.floor(cycle)
 		else -1
 	local directiveCycle = tonumber(profile.Anomaly.DirectiveCycle)
 	profile.Anomaly.DirectiveCycle = if type(directiveCycle) == "number"
-		and directiveCycle == directiveCycle
-		and directiveCycle ~= math.huge
-		and directiveCycle ~= -math.huge
+			and directiveCycle == directiveCycle
+			and directiveCycle ~= math.huge
+			and directiveCycle ~= -math.huge
 		then math.floor(directiveCycle)
 		else -1
 	profile.Anomaly.LastActionAt = ProfileBagMath.AddFinite(profile.Anomaly.LastActionAt, 0)

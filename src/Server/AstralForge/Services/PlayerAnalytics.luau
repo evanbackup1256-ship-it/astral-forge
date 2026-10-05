@@ -15,13 +15,18 @@ return function(loadService: (string) -> any)
 	}
 
 	local CUSTOM_ACTIONS = {
-		CollectVault = true, BuyMachine = true, BuyResearch = true, OpenItemCrate = true,
+		CollectVault = true,
+		BuyMachine = true,
+		BuyResearch = true,
+		OpenItemCrate = true,
 		ClaimConvergenceReward = true,
 	}
 
 	local function emit(key: string, callback: () -> ())
 		local ok, issue = pcall(callback)
-		if not ok then ModuleLog.Every("analytics:" .. key, 60, "Analytics", tostring(issue)) end
+		if not ok then
+			ModuleLog.Every("analytics:" .. key, 60, "Analytics", tostring(issue))
+		end
 	end
 
 	function PlayerAnalytics.new()
@@ -52,7 +57,7 @@ return function(loadService: (string) -> any)
 	function PlayerAnalytics:RecordAction(player: Player, action: string, profile, elapsedMs: number)
 		local progression = PROGRESSION_ACTIONS[action]
 		if progression then
-				emit("progression:" .. action, function()
+			emit("progression:" .. action, function()
 				local level = action == "DomainExpansion" and profile.Domain.Rank
 					or action == "UnlockZone" and profile.CurrentZone
 					or profile.Rebirths
@@ -69,12 +74,21 @@ return function(loadService: (string) -> any)
 		if action == "SetTutorialStep" or action == "CompleteTutorial" then
 			emit("onboarding", function()
 				local step = action == "CompleteTutorial" and 16 or math.clamp(profile.Flags.TutorialStep, 1, 15)
-				AnalyticsService:LogOnboardingFunnelStepEvent(player, step, action == "CompleteTutorial" and "First Shift complete" or "First Shift")
+				AnalyticsService:LogOnboardingFunnelStepEvent(
+					player,
+					step,
+					action == "CompleteTutorial" and "First Shift complete" or "First Shift"
+				)
 			end)
 		elseif CUSTOM_ACTIONS[action] then
 			local seen = self._seenActions[player]
-			if not seen then seen = {}; self._seenActions[player] = seen end
-			if seen[action] then return end
+			if not seen then
+				seen = {}
+				self._seenActions[player] = seen
+			end
+			if seen[action] then
+				return
+			end
 			seen[action] = true
 			emit("action:" .. action, function()
 				AnalyticsService:LogCustomEvent(player, "AF_" .. action, 1, {
@@ -87,7 +101,9 @@ return function(loadService: (string) -> any)
 
 	function PlayerAnalytics:RecordPerformance(player: Player, payload): boolean
 		local now = os.clock()
-		if now - (self._lastPerformance[player] or 0) < 45 then return true end
+		if now - (self._lastPerformance[player] or 0) < 45 then
+			return true
+		end
 		self._lastPerformance[player] = now
 		ServerTelemetry.RecordClientPerformance(payload)
 		emit("performance", function()

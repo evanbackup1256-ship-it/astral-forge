@@ -41,11 +41,9 @@ do
 	assert(soft >= 11, "DomainExpansion softMotion densify, got " .. tostring(soft))
 end
 do
-	local soft = 0
-	for _ in string.gmatch(purchase, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 7, "Purchase softMotion densify, got " .. tostring(soft))
+    assert(string.find(purchase, "useClock(shown and not softMotion", 1, true), "Purchase clock must stop for reduced motion")
+    assert(string.find(purchase, "useExitTransition(softMotion", 1, true), "Purchase exit must respect reduced motion")
+    assert(string.find(purchase, "reducedMotion = softMotion", 1, true), "Purchase action must respect reduced motion")
 end
 do
 	local soft = 0

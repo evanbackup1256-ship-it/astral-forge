@@ -22,7 +22,18 @@ local function rollsFor(config, rarity, count)
 	pick = pick or config.Items.Definitions[1]
 	local rolls = {}
 	for index = 1, count do
-		table.insert(rolls, { Uid = `story{index}`, DefinitionId = pick.Id, Rarity = pick.Rarity, New = index == 1, Pity = false, AutoSalvaged = false, Essence = 0 })
+		table.insert(
+			rolls,
+			{
+				Uid = `story{index}`,
+				DefinitionId = pick.Id,
+				Rarity = pick.Rarity,
+				New = index == 1,
+				Pity = false,
+				AutoSalvaged = false,
+				Essence = 0,
+			}
+		)
 	end
 	return rolls
 end

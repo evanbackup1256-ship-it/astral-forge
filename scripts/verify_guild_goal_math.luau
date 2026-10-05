@@ -182,7 +182,7 @@ assert(
 	"ClaimGoal must persist Claimed/Contributors repairs on deny"
 )
 assert(
-	string.find(serviceSrc, "if failure then return false, failure, updated end", 1, true),
+	string.match(serviceSrc, "if failure then%s+return false, failure, updated%s+end"),
 	"ClaimGoal must not report success when deny persisted a repair"
 )
 

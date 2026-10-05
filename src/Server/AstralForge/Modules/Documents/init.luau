@@ -1,6 +1,5 @@
 --!strict
 
-
 local DocumentCommon = require(script:WaitForChild("DocumentKit"))("DocumentCommon")
 local SessionDocument = require(script:WaitForChild("DocumentKit"))("SessionDocument")
 local SessionDocumentStore = require(script:WaitForChild("DocumentKit"))("SessionDocumentStore")

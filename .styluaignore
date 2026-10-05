@@ -1,0 +1,4 @@
+src/Shared/Packages/**
+src/Shared/rbxts_include/**
+node_modules/**
+src/Shared/AstralForge/Vendor/**

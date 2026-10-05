@@ -14,8 +14,7 @@ do
 		local self = setmetatable({}, ShimmerTests)
 		return self:constructor(...) or self
 	end
-	function ShimmerTests:constructor()
-	end
+	function ShimmerTests:constructor() end
 
 	function ShimmerTests:offsetCentersAtHalfPhase()
 		local mid = ShimmerMath.offset(0.5, 2)

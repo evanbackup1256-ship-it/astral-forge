@@ -29,7 +29,6 @@ DUMMY_LABEL.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 DUMMY_LABEL.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
 
-
 local MAX_ABS = 1e24
 
 local function clampNumber(value: number): number
@@ -44,7 +43,6 @@ local function clampNumber(value: number): number
 	end
 	return math.clamp(value, -MAX_ABS, MAX_ABS)
 end
-
 
 local function wholeDigitString(absValue: number): string
 	local n = math.floor(absValue + 0.5)
@@ -91,13 +89,11 @@ local function newSpinner()
 		Suffix = "",
 		Commas = false,
 
-
 		Digits = {
 			Whole = table.create(3),
 			Decimal = table.create(2),
 		},
 		CommaLabels = table.create(2),
-
 
 		Frame = nil,
 		Layout = nil,
@@ -250,7 +246,6 @@ local function newSpinner()
 		end
 
 		if Spinner.Commas then
-
 			local commaIndex = 0
 			for fromRight = 3, numWhole - 1, 3 do
 				local afterDigit = numWhole - fromRight
@@ -277,7 +272,6 @@ local function newSpinner()
 
 					Spinner.CommaLabels[commaIndex] = CommaLabel
 				end
-
 
 				CommaLabel.LayoutOrder = afterDigit * 2 - 899
 				CommaLabel.Visible = true

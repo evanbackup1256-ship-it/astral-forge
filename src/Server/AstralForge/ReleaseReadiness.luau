@@ -6,7 +6,8 @@ local RunService = game:GetService("RunService")
 local DataTemplate = require(script.Parent:WaitForChild("DataTemplate"))
 local Economy = require(script.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 local ProfileIntegrity = require(script.Parent:WaitForChild("Services"):WaitForChild("ServerServices")).ProfileIntegrity
-local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local GameConfig =
+	require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local OmegaMath = require(ReplicatedStorage.AstralForge.Shared.OmegaMath)
 
 local ReleaseReadiness = {}
@@ -16,8 +17,7 @@ local function finite(value: any): boolean
 	if type(value) == "string" then
 		local mantissa, exponent = string.match(value, "^([%+%-]?%d*%.?%d+)[eE]([%+%-]?%d+)$")
 		local m, e = tonumber(mantissa), tonumber(exponent)
-		return m ~= nil and e ~= nil and m == m and e == e
-			and math.abs(m) < math.huge and math.abs(e) < 1e18
+		return m ~= nil and e ~= nil and m == m and e == e and math.abs(m) < math.huge and math.abs(e) < 1e18
 	end
 	return type(value) == "number"
 		and value == value
@@ -27,7 +27,9 @@ local function finite(value: any): boolean
 end
 
 local function expect(condition: boolean, message: string): ()
-	if not condition then error(message, 2) end
+	if not condition then
+		error(message, 2)
+	end
 end
 
 local function uniqueIds(list: { any }, label: string): ()
@@ -46,7 +48,9 @@ end
 
 local function idSet(list: { any }): { [any]: boolean }
 	local result = {}
-	for _, item in list do result[item.Id] = true end
+	for _, item in list do
+		result[item.Id] = true
+	end
 	return result
 end
 
@@ -66,7 +70,10 @@ local function quickChecks(): { string }
 	end
 
 	expect(type(GameConfig.Game.Version) == "string" and GameConfig.Game.Version ~= "", "game version is missing")
-	expect(type(GameConfig.Game.DataVersion) == "number" and GameConfig.Game.DataVersion >= 1, "data version is invalid")
+	expect(
+		type(GameConfig.Game.DataVersion) == "number" and GameConfig.Game.DataVersion >= 1,
+		"data version is invalid"
+	)
 	passed("version and data schema")
 
 	uniqueIds(GameConfig.Machines, "machines")
@@ -86,32 +93,49 @@ local function quickChecks(): { string }
 	local artifactIds = idSet(GameConfig.Operations.Artifacts)
 	local crateIds = idSet(GameConfig.Items.Crates)
 	for _, machine in GameConfig.Machines do
-		if machine.PreviousId then expect(machineIds[machine.PreviousId] == true, machine.Id .. " references a missing machine prerequisite") end
+		if machine.PreviousId then
+			expect(machineIds[machine.PreviousId] == true, machine.Id .. " references a missing machine prerequisite")
+		end
 	end
 	for _, research in GameConfig.Research do
-		if research.PreviousId then expect(researchIds[research.PreviousId] == true, research.Id .. " references a missing research prerequisite") end
+		if research.PreviousId then
+			expect(
+				researchIds[research.PreviousId] == true,
+				research.Id .. " references a missing research prerequisite"
+			)
+		end
 	end
 	for _, node in GameConfig.GridUpgrades do
-		if node.PreviousId then expect(gridIds[node.PreviousId] == true, node.Id .. " references a missing Star Grid prerequisite") end
+		if node.PreviousId then
+			expect(gridIds[node.PreviousId] == true, node.Id .. " references a missing Star Grid prerequisite")
+		end
 	end
 	for _, expedition in GameConfig.Operations.Expeditions do
 		expect(artifactIds[expedition.ArtifactId] == true, expedition.Id .. " references a missing artifact")
 	end
 	for _, offer in GameConfig.Items.ShopOffers do
-		if offer.CrateId then expect(crateIds[offer.CrateId] == true, offer.Id .. " references a missing crate") end
+		if offer.CrateId then
+			expect(crateIds[offer.CrateId] == true, offer.Id .. " references a missing crate")
+		end
 	end
 	local seen = {}
 	local function validateRewards(value, path: string)
-		if type(value) ~= "table" or seen[value] then return end
+		if type(value) ~= "table" or seen[value] then
+			return
+		end
 		seen[value] = true
 		if type(value.Boost) == "string" then
 			expect(GameConfig.Boosts[value.Boost] ~= nil, path .. " references a missing boost " .. value.Boost)
 		end
 		if type(value.Keys) == "table" then
-			for crateId in value.Keys do expect(crateIds[crateId] == true, path .. " references a missing crate key " .. tostring(crateId)) end
+			for crateId in value.Keys do
+				expect(crateIds[crateId] == true, path .. " references a missing crate key " .. tostring(crateId))
+			end
 		end
 		for key, child in value do
-			if type(child) == "table" then validateRewards(child, path .. "." .. tostring(key)) end
+			if type(child) == "table" then
+				validateRewards(child, path .. "." .. tostring(key))
+			end
 		end
 	end
 	validateRewards(GameConfig, "GameConfig")
@@ -123,7 +147,10 @@ local function quickChecks(): { string }
 		local previous = 0
 		for _, level in { 0, 1, 10, 100, 10_000, machine.MaxLevel } do
 			local cost = Economy.MachineCost(machine.Id, level)
-			expect(finite(cost) and OmegaMath.Gte(cost, previous), machine.Id .. " machine cost is invalid or regressed")
+			expect(
+				finite(cost) and OmegaMath.Gte(cost, previous),
+				machine.Id .. " machine cost is invalid or regressed"
+			)
 			previous = cost
 		end
 	end
@@ -131,7 +158,10 @@ local function quickChecks(): { string }
 		local previous = 0
 		for _, level in { 0, 1, 10, 100, 10_000, research.MaxLevel } do
 			local cost = Economy.ResearchCost(research.Id, level)
-			expect(finite(cost) and OmegaMath.Gte(cost, previous), research.Id .. " research cost is invalid or regressed")
+			expect(
+				finite(cost) and OmegaMath.Gte(cost, previous),
+				research.Id .. " research cost is invalid or regressed"
+			)
 			previous = cost
 		end
 	end
@@ -171,7 +201,8 @@ local function simulationStep(profile, random: Random): ()
 	local current = profile.Machines[machine.Id] or 0
 	local cost = Economy.MachineCost(machine.Id, current)
 	local production = OmegaMath.Max(1, Economy.Production(profile))
-	profile.Cash = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.Cash, OmegaMath.Mul(production, random:NextNumber(0.25, 4))))
+	profile.Cash =
+		OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.Cash, OmegaMath.Mul(production, random:NextNumber(0.25, 4))))
 	profile.RunCash = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.RunCash, production))
 	profile.LifetimeCash = OmegaMath.Min(MAX_VALUE, OmegaMath.Add(profile.LifetimeCash, production))
 	if OmegaMath.Gte(profile.Cash, cost) and current < machine.MaxLevel then

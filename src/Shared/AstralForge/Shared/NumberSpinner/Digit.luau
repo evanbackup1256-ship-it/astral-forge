@@ -7,7 +7,6 @@ local function rollTweenInfo(duration: number): TweenInfo
 end
 
 local function digitSize(textSize: number): (number, number)
-
 	local h = math.max(14, math.floor(textSize + 4))
 
 	local w = math.max(6, math.floor(textSize * 0.7 + 0.5))

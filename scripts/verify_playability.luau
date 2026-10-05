@@ -89,7 +89,7 @@ for _, path in HOT_PAGES do
 		string.find(src, "pageScaffold", 1, true) and string.find(src, "PageScaffold", 1, true),
 		path .. " must import PageScaffold"
 	)
-	assert(string.find(src, "createElement(PageScaffold", 1, true), path .. " must mount PageScaffold")
+	assert(string.match(src, "createElement%(%s*PageScaffold"), path .. " must mount PageScaffold")
 end
 
 -- Completeness: every pages/*.luau that imports pageScaffold must be hot (or allowlisted).
@@ -201,9 +201,9 @@ do
 	assert(string.find(src, "createElement(FlatList", 1, true), path .. " must FlatList inbox and body catalogs")
 	assert(not string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must not keep raw body scrollingframe")
 	assert(string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true), path .. " must expose CLAIM/ARCHIVE")
-	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -footerH)", 1, true), path .. " must pin footer to bottom")
-	assert(string.find(src, "stackListH", 1, true), path .. " must reserve stack list height so detail actions stay reachable")
-	assert(string.find(src, "0.34, -7", 1, true) and string.find(src, "0.66, -7", 1, true), path .. " must keep desktop split chrome widths")
+	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -props.height)", 1, true), path .. " must pin the gift parcel to the bottom of the reader")
+	assert(string.find(src, "UDim2.new(0.38, -6, 1, 0)", 1, true) and string.find(src, "UDim2.new(0.62, -6, 1, 0)", 1, true), path .. " must keep the desktop inbox/reader split")
+	assert(string.find(src, "UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)", 1, true), path .. " must slide the reader over the inbox on phones")
 end
 
 ------------------------------------------------------------------------
@@ -232,7 +232,7 @@ do
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
 	-- Expeditions / Weekly / Season long catalogs must VirtualGrid (or FlatList) — never map-mount.
-	assert(string.find(command, "count = #ops.Expeditions", 1, true), "Command Expeditions must VirtualGrid count")
+	assert(string.find(command, "count = #ops.Expeditions", 1, true) or string.find(command, "count = #expeditionList", 1, true), "Command Expeditions must VirtualGrid count")
 	assert(string.find(command, "count = #command.Weekly", 1, true), "Command Weekly must VirtualGrid count")
 	assert(string.find(command, "count = #ops.SeasonTiers", 1, true), "Command Season must VirtualGrid count")
 	assert(string.find(command, "Weekly jobs", 1, true), "Command Weekly jobs header must stay")
@@ -870,7 +870,7 @@ do
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	-- Wave28: CrewView extract owns this panel; keep the footgun assert on the extract.
 	local crewViewSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
-	local crewClips = string.match(crewViewSrc, 'clips = (%w+),%s*}, React.createElement%(Text, %{%s*value = "CREW ROSTER"')
+	local crewClips = string.match(crewViewSrc, 'clips = (%w+),%s*},%s*React.createElement%(%s*Text,%s*%{%s*value = "CREW ROSTER"')
 	assert(crewClips == "false", "Crew header must keep clips = false so REFRESH stays reachable")
 	assert(string.find(crewViewSrc, "GamepadNavigationService.FocusClaim", 1, true), "Crew must FocusClaim VISIT/REFRESH hosts")
 	assert(string.find(crewViewSrc, 'Name = "CrewVisitClaim"', 1, true), "Crew Visit host must stay named CrewVisitClaim")

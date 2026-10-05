@@ -1,6 +1,5 @@
 --!strict
 
-
 function deepFreeze<T>(object: T): T
 	if typeof(object) ~= "table" then
 		return object

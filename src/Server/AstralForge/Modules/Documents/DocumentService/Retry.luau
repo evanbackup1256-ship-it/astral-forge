@@ -1,7 +1,5 @@
 --!strict
 
-
-
 local function Retry<T...>(
 	maxAttempts: number,
 	initialWait: number,

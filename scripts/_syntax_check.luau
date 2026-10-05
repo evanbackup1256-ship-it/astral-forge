@@ -66,6 +66,21 @@ local files = {
 	"src/Client/AstralForge/tests/TestBootstrap.luau",
 }
 
+local seen = {}
+for _, path in files do seen[path] = true end
+local function collect(directory)
+	for _, name in fs.readDir(directory) do
+		local path = directory .. "/" .. name
+		if fs.isDir(path) then
+			if name ~= "Vendor" and name ~= "Packages" and name ~= "rbxts_include" then collect(path) end
+		elseif name:match("%.luau$") and not seen[path] then
+			seen[path] = true
+			table.insert(files, path)
+		end
+	end
+end
+collect("src")
+table.sort(files)
 local bad = 0
 for _, f in files do
 	local ok, err = pcall(function()
