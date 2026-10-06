@@ -452,6 +452,127 @@ Compare the raw saved value against the raw default for non-numeric types.
 
 ---
 
+
+
+---
+
+### R-19: Trade receiver UID collision can overwrite owned relics
+- **System:** Inventory / trade
+- **Severity:** High
+- **File:line:** `src/Server/AstralForge/Modules/TradeSuite.luau:749`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Host owns relic with UID `IT0000001`.
+2. Guest owns relic with UID `IT0000001` (different profile, same sequence value).
+3. Guest trades that relic to Host.
+4. Host receives it under `IT0000001`.
+
+#### Expected
+Host receives the traded relic under a fresh UID that does not collide with existing inventory.
+
+#### Actual
+Host's existing `IT0000001` is silently overwritten by the received relic (permanent loss).
+
+#### Fix
+`TradeExchange.ApplyExchange` now mints a new UID from the receiver's `profile.Items.NextId` and stores `payload.NewUid`; `RevertExchange` removes by `NewUid` when present. `verify_trade.luau` updated to assert re-keying.
+
+#### Verification
+`npm test` trade exchange + settle invariants pass.
+
+---
+
+### R-20: Free scratch card whale exploit
+- **System:** Casino / economy
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CasinoService.luau:154`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Accumulate a very large `profile.Cash`.
+2. Scratch the free daily card.
+3. Observe payout ceiling uses `profile.Cash * 4`.
+
+#### Expected
+Free daily card has a modest, fixed maximum payout.
+
+#### Actual
+Whales can win up to 4x their whole balance with no stake.
+
+#### Fix
+Introduce `FREE_SCRATCH_BASE = 100` and use it as the cap base for free scratch payouts.
+
+#### Verification
+`npm test` casino math guards pass.
+
+---
+
+### R-21: Flip accepts arbitrary op strings on active rounds
+- **System:** Casino / input
+- **Severity:** Low
+- **File:line:** `src/Server/AstralForge/Services/CasinoService.luau:187`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Start a Flip round.
+2. Invoke `CasinoPlay` with `Op = "Flop"` (any non-Cashout string).
+3. Observe the round flips as if `Op == "Flip"`.
+
+#### Expected
+Unknown op is rejected.
+
+#### Actual
+Any garbage string advances the round.
+
+#### Fix
+Reject `Op` unless it is `"Flip"` or `"Cashout"`.
+
+#### Verification
+`npm test` casino math guards pass.
+
+---
+
+### R-22: Guild name lacks TextService filtering
+- **System:** Guild / safety
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau:1243`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Call `CreateGuild` with a filtered name.
+2. Observe name stored and broadcast raw.
+
+#### Expected
+Name is run through `TextService:FilterStringAsync` before persistence/display.
+
+#### Fix
+`ServerServices:_guildAction` filters `payload.Name` via `self._security.Filter:Apply` before calling `GuildService:Create`.
+
+#### Verification
+`npm test` guild service fixtures pass.
+
+---
+
+### R-23: Guild leaderboard page parameter ignored
+- **System:** Guild / UX
+- **Severity:** Low
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau:1577`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Call `GetLeaderboard(1)`.
+2. Observe result is always the top 20 guilds.
+
+#### Expected
+Page 1 returns guilds ranked 21–40.
+
+#### Fix
+Fetch up to 100 entries, slice by `page * 20 + 1 .. page * 20 + 20`, cache only page 0.
+
+#### Verification
+`npm test` guild service fixtures pass.
+
+
 ## Pending reproductions
 
 The following areas still need explicit repro entries:

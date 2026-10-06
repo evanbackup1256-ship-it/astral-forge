@@ -24,13 +24,13 @@
 | Remotes | Partial | Yes | Yes | Partial | Partial | — |
 | Replication | Partial | Partial | Partial | No | No | — |
 | Currency / economy | Partial | Yes | Yes | Partial | Partial | — |
-| Inventory | No | No | No | No | No | — |
+| Inventory | Partial | Yes (R-19) | Partial | Partial | Partial | — |
 | Cooldowns / rate limits | Partial | Yes | Yes | Partial | Partial | — |
-| Guild | No | No | No | No | No | — |
+| Guild | Partial | Yes (R-22–R-23) | Partial | Partial | Partial | — |
 | Ranks | No | No | No | No | No | — |
-| Casino | Partial | Partial | Partial | No | No | — |
+| Casino | Partial | Yes (R-20–R-21) | Partial | Partial | Partial | — |
 | Bazaar / trade | Partial | Yes | Yes | Partial | Partial | — |
-| Astral Forge | Partial | Yes (R-13–R-18) | Partial | Partial | Partial | — |
+| Astral Forge | Partial | Yes (R-13–R-23) | Partial | Partial | Partial | — |
 
 ## Release blockers
 
@@ -47,3 +47,4 @@
 
 - 2026-10-05: Initial defensive bug/security pass completed and committed (`8e6e8e2`, `07b9fb5`). This is an audit foundation, not full spec completion.
 - 2026-10-05: Focused Astral Forge bug fixes + ForgeTheme/ForgeConfig/decomposition skeleton. R-13–R-18 fixed; `npm test` + `argon build` pass.
+- 2026-10-05: Audit-driven bug fixes (R-19–R-23) + trade UID collision fix, casino free-scratch cap, guild name filter/leaderboard pagination. `npm test` + `argon build` pass.

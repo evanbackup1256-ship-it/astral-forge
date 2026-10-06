@@ -701,6 +701,11 @@ function TradeExchange.SnapshotOfferItems(offer, profile)
 	return payloads
 end
 
+local function mintItemUid(profile): string
+	profile.Items.NextId = (tonumber(profile.Items.NextId) or 0) + 1
+	return string.format("IT%07d", profile.Items.NextId)
+end
+
 function TradeExchange.ApplyExchange(gameConfig, omegaMath, profile, give, take, giveItems, takeItems, now: number, validateOffer): string?
 	ensureLedger(profile, now)
 	ensureTradeBags(profile)
@@ -746,7 +751,11 @@ function TradeExchange.ApplyExchange(gameConfig, omegaMath, profile, give, take,
 		for _, uid in take.ItemIds do
 			local payload = takeItems and takeItems[uid]
 			if payload ~= nil then
-				profile.Items.Inventory[uid] = TradeExchange.CopyItemInstance(payload)
+				-- Receiver UIDs are per-profile monotonic sequences; re-key incoming
+				-- items so a sender's UID can never overwrite a different relic here.
+				local newUid = mintItemUid(profile)
+				payload.NewUid = newUid
+				profile.Items.Inventory[newUid] = TradeExchange.CopyItemInstance(payload)
 			end
 		end
 	end
@@ -790,7 +799,9 @@ function TradeExchange.RevertExchange(omegaMath, profile, give, take, giveItems,
 	end
 	if type(take.ItemIds) == "table" then
 		for _, uid in take.ItemIds do
-			profile.Items.Inventory[uid] = nil
+			local payload = takeItems and takeItems[uid]
+			local removeUid = (type(payload) == "table" and payload.NewUid) or uid
+			profile.Items.Inventory[removeUid] = nil
 		end
 	end
 	for _, uid in give.ItemIds do

@@ -1575,12 +1575,13 @@ function GuildService:_findByTag(tag: string)
 	end
 
 	function GuildService:GetLeaderboard(page: number)
-		if self._leaderboardCache and self._leaderboardCacheExpires > os.clock() then
+		local pageIndex = math.max(0, math.floor(tonumber(page) or 0))
+		if pageIndex == 0 and self._leaderboardCache and self._leaderboardCacheExpires > os.clock() then
 			return copy(self._leaderboardCache)
 		end
 		local entries = {}
 		local hasPlaceholders = false
-		local ok, pages = pcall(function() return self._leaderboard:GetSortedAsync(false, 20, nil, nil) end)
+		local ok, pages = pcall(function() return self._leaderboard:GetSortedAsync(false, 100, nil, nil) end)
 		if ok and pages then
 			for _, row in pages:GetCurrentPage() do
 				local doc = self._cache[row.key] or self._studio[row.key]
@@ -1597,9 +1598,16 @@ function GuildService:_findByTag(tag: string)
 			for _, doc in self._cache do table.insert(entries, { Id = doc.Id, Name = doc.Name, Tag = doc.Tag, Activity = doc.Activity, Level = doc.Level }) end
 			table.sort(entries, function(a, b) return a.Activity > b.Activity end)
 		end
-		self._leaderboardCache = copy(entries)
-		self._leaderboardCacheExpires = os.clock() + (hasPlaceholders and 3 or 15)
-		return copy(entries)
+		local start = pageIndex * 20 + 1
+		local sliced = {}
+		for i = start, math.min(#entries, start + 19) do
+			table.insert(sliced, entries[i])
+		end
+		if pageIndex == 0 then
+			self._leaderboardCache = copy(sliced)
+			self._leaderboardCacheExpires = os.clock() + (hasPlaceholders and 3 or 15)
+		end
+		return copy(sliced)
 	end
 
 	function GuildService:GetBonuses(guildId: string)

@@ -12,6 +12,7 @@ return function(loadService: (string) -> any)
 	local DAY = 86400
 	local SLOTS_RTP = CasinoMath.SlotsRtp()
 	local SCRATCH_RTP = CasinoMath.ScratchRtp()
+	local FREE_SCRATCH_BASE = Economy.New(100) -- free scratch cap is flat, not % of balance
 
 	local function day(now: number): number
 		return math.floor(now / DAY)
@@ -151,7 +152,8 @@ return function(loadService: (string) -> any)
 		local cells, multiplier, symbol = CasinoMath.ScratchCard(function()
 			return random:NextNumber()
 		end)
-		local payout = if multiplier > 0 then capped(base, if free then 0 else stake, Economy.Mul(stake, multiplier)) else 0
+		local effectiveBase = if free then FREE_SCRATCH_BASE else base
+		local payout = if multiplier > 0 then capped(effectiveBase, if free then 0 else stake, Economy.Mul(stake, multiplier)) else 0
 		if multiplier > 0 then
 			pay(profile, payout)
 		end
@@ -174,10 +176,14 @@ return function(loadService: (string) -> any)
 		return true, `Cashed out x{string.format("%.2f", multiplier)}.`, result(game, true, stake, payout, extra)
 	end
 
+	local VALID_FLIP_OPS = table.freeze({ Cashout = true, Flip = true })
 	local function playFlip(profile, random: Random, payload): (boolean, string, any?)
 		local casino = ensure(profile)
 		local flip = casino.Flip
 		local op = payload and payload.Op
+		if op ~= "Cashout" and op ~= "Flip" then
+			return false, "Unknown flip move.", nil
+		end
 		if op == "Cashout" then
 			if not flip.Active or flip.Streak < 1 then
 				return false, "Flip at least once before cashing out."

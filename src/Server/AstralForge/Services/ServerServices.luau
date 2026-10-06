@@ -3733,6 +3733,15 @@ serviceFactories["GameService"] = function()
 			end
 			return responseSuccess(message, { Guild = guild })
 		end
+		if action == Protocol.Actions.CreateGuild then
+			local rawName = type(payload.Name) == "string" and payload.Name or ""
+			local filteredOk, filtered = self._security.Filter:Apply(player, rawName, player.UserId, 28)
+			if not filteredOk or type(filtered) ~= "string" or #filtered < 3 then
+				return responseError("That guild name couldn't be checked. Please try different wording.")
+			end
+			payload = table.clone(payload)
+			payload.Name = filtered
+		end
 		local contributeActivity = 0
 		local contributeGuildId = ""
 		if action == Protocol.Actions.ContributeGuild then
