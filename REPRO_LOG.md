@@ -648,6 +648,58 @@ Kicked player's profile is cleared and state is pushed so the client stops recei
 `npm test` guild service fixtures pass.
 
 
+
+
+---
+
+### R-27: Casino rounds are not logged
+- **System:** Casino / compliance
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CasinoService.luau`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Play any casino game.
+2. Inspect `profile.Casino`.
+3. Observe no record of the round outcome.
+
+#### Expected
+Each round outcome is stored in a bounded history log for verification and player review.
+
+#### Actual
+Only lifetime aggregates (`Played`, `Won`, `Streak`, `BiggestWin`) exist.
+
+#### Fix
+- Added `HISTORY_MAX = 50` bounded ring buffer `casino.History`.
+- `logRound` stores game, win/loss, stake, payout, and round-specific fields after each completed round.
+- `CasinoService.State` exposes the latest 20 entries.
+
+#### Verification
+`npm test` casino math guards pass; `argon build` succeeds.
+
+---
+
+### R-28: Casino outcomes lack provably-fair seeds
+- **System:** Casino / compliance
+- **Severity:** High
+- **File:line:** `src/Server/AstralForge/Services/CasinoService.luau`
+- **Status:** In progress
+
+#### Repro steps
+1. Inspect `CasinoService.Play`.
+2. Observe outcomes use `random:NextNumber()` from a shared unseeded `Random.new()`.
+
+#### Expected
+Server publishes a server-seed hash before play; client can supply a client seed; nonce increments per round; outcome derivation is deterministic and reproducible.
+
+#### Fix (partial)
+- Added `src/Server/AstralForge/Modules/CasinoRng.luau` with `State`, `GenerateSeed`, `HashSeed`, `Ensure`, `SetClientSeed`, `NextNumber`.
+- Next pass: replace `random:NextNumber()` calls with `CasinoRng.NextNumber(casino.Rng)` and expose seed proof in state/history.
+
+#### Verification
+Module parses cleanly; integration pending.
+
+
 ## Pending reproductions
 
 The following areas still need explicit repro entries:

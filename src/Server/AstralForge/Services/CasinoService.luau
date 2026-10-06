@@ -18,9 +18,21 @@ return function(loadService: (string) -> any)
 		return math.floor(now / DAY)
 	end
 
+	local HISTORY_MAX = 50
+
 	local function ensure(profile): any
 		profile.Casino = CasinoMath.Ensure(profile.Casino)
+		if type(profile.Casino) == "table" and type(profile.Casino.History) ~= "table" then
+			profile.Casino.History = {}
+		end
 		return profile.Casino
+	end
+	local function logRound(casino, entry)
+		entry.At = os.time()
+		table.insert(casino.History, 1, entry)
+		if #casino.History > HISTORY_MAX then
+			table.remove(casino.History)
+		end
 	end
 
 	local function stakeAmount(profile, tier: number): any
@@ -100,7 +112,9 @@ return function(loadService: (string) -> any)
 		local won = multiplier >= 1
 		recordRound(casino, tier, won, payout)
 		local message = if kind == "Triple" then `Three {reels[1]}! x{multiplier}` elseif kind == "Pair" and multiplier > 0 then `A pair of {reels[1] == reels[2] and reels[1] or reels[3]}.` else "No match."
-		return true, message, result("Slots", won, stake, payout, { Reels = reels, Multiplier = multiplier, Kind = kind })
+		local res = result("Slots", won, stake, payout, { Reels = reels, Multiplier = multiplier, Kind = kind })
+		logRound(casino, { Game = "Slots", Won = won, Stake = Economy.Persist(stake), Payout = Economy.Persist(payout), Reels = reels, Multiplier = multiplier, Kind = kind })
+		return true, message, res
 	end
 
 	local function playRoulette(profile, random: Random, payload): (boolean, string, any?)
@@ -129,7 +143,9 @@ return function(loadService: (string) -> any)
 		recordRound(casino, tier, multiplier > 0, payout)
 		local color = CasinoMath.RouletteColor(number)
 		local message = if multiplier > 0 then `{number} {color}: your {pick} wins x{multiplier}.` else `{number} {color}. Your {pick} loses.`
-		return true, message, result("Roulette", multiplier > 0, stake, payout, { Number = number, Color = color, Pick = pick, Multiplier = multiplier })
+		local res = result("Roulette", multiplier > 0, stake, payout, { Number = number, Color = color, Pick = pick, Multiplier = multiplier })
+		logRound(casino, { Game = "Roulette", Won = multiplier > 0, Stake = Economy.Persist(stake), Payout = Economy.Persist(payout), Number = number, Color = color, Pick = pick, Multiplier = multiplier })
+		return true, message, res
 	end
 
 	local function playScratch(profile, random: Random, payload, now: number): (boolean, string, any?)
@@ -159,7 +175,9 @@ return function(loadService: (string) -> any)
 		end
 		recordRound(casino, tier, multiplier >= 1 or (free and multiplier > 0), payout)
 		local message = if symbol ~= nil then `Three {symbol}! x{multiplier}` else "Nothing matched."
-		return true, message, result("Scratch", multiplier > 0, if free then 0 else stake, payout, { Cells = cells, Multiplier = multiplier, Symbol = symbol, Free = free })
+		local res = result("Scratch", multiplier > 0, if free then 0 else stake, payout, { Cells = cells, Multiplier = multiplier, Symbol = symbol, Free = free })
+		logRound(casino, { Game = "Scratch", Won = multiplier > 0, Stake = free and 0 or Economy.Persist(stake), Payout = Economy.Persist(payout), Cells = cells, Multiplier = multiplier, Symbol = symbol, Free = free })
+		return true, message, res
 	end
 
 	local function settleLadder(profile, casino, round, multiplier: number, tier: number, game: string, extra: any): (boolean, string, any?)
@@ -210,12 +228,16 @@ return function(loadService: (string) -> any)
 			local streak = flip.Streak
 			flip.Active, flip.Streak, flip.Stake, flip.Base = false, 0, 0, 0
 			recordRound(casino, tier, false, 0)
-			return true, "Tails. The stake is gone.", result("Flip", false, stake, 0, { Heads = false, Streak = streak, Lost = true })
+			local res = result("Flip", false, stake, 0, { Heads = false, Streak = streak, Lost = true })
+			logRound(casino, { Game = "Flip", Won = false, Stake = Economy.Persist(stake), Payout = 0, Heads = false, Streak = streak, Lost = true })
+			return true, "Tails. The stake is gone.", res
 		end
 		flip.Streak += 1
 		local multiplier = CasinoMath.FlipMultiplier(flip.Streak)
 		if flip.Streak >= CasinoMath.FLIP_MAX_STREAK then
-			return settleLadder(profile, casino, flip, multiplier, flip.Tier, "Flip", { Heads = true, Streak = flip.Streak, Maxed = true })
+			local res = settleLadder(profile, casino, flip, multiplier, flip.Tier, "Flip", { Heads = true, Streak = flip.Streak, Maxed = true })
+			if type(res) == "table" and res[3] then logRound(casino, { Game = "Flip", Won = true, Stake = Economy.Persist(flip.Stake), Payout = Economy.Persist(res[3].Payout or 0), Heads = true, Streak = flip.Streak, Maxed = true, Cashed = true }) end
+			return res
 		end
 		return true, `Heads! x{string.format("%.2f", multiplier)} and counting.`, result("Flip", true, flip.Stake, 0, { Heads = true, Streak = flip.Streak, Multiplier = multiplier, Open = true })
 	end
@@ -278,7 +300,9 @@ return function(loadService: (string) -> any)
 		local stake, tier = round.Stake, round.Tier
 		round.Active, round.Streak, round.Stake, round.Base, round.Multiplier = false, 0, 0, 0, 1
 		recordRound(casino, tier, false, 0)
-		return true, `{nextCard}: wrong. The stake is gone.`, result("HighLow", false, stake, 0, { Card = nextCard, Previous = previous, Lost = true })
+		local res = result("HighLow", false, stake, 0, { Card = nextCard, Previous = previous, Lost = true })
+		logRound(casino, { Game = "HighLow", Won = false, Stake = Economy.Persist(stake), Payout = 0, Card = nextCard, Previous = previous, Lost = true })
+		return true, `{nextCard}: wrong. The stake is gone.`, res
 	end
 
 	local function exchangePrice(profile, mood: number): any
@@ -384,9 +408,14 @@ return function(loadService: (string) -> any)
 			})
 		end
 		local nextRank = CasinoMath.CLUB_RANKS[rank + 1]
+		local publicHistory = {}
+		for i = 1, math.min(#(casino.History or {}), 20) do
+			table.insert(publicHistory, casino.History[i])
+		end
 		return {
 			Stakes = stakes,
 			Stats = { Played = casino.Played, Won = casino.Won, Streak = casino.Streak, BestStreak = casino.BestStreak, BiggestWin = casino.BiggestWin },
+			History = publicHistory,
 			Slots = { Symbols = CasinoMath.SLOT_SYMBOLS, Rtp = SLOTS_RTP },
 			Roulette = { Zero = "Green" },
 			Flip = {
