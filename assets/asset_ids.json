@@ -2,6 +2,8 @@
   "SoundSheet": 102790009136082,
   "Ambience": 134085646747854,
   "Kit": 0,
+  "KitPlaceholder": 0,
+  "KitReady": false,
   "ForgePulse": 85607718934391,
   "SanctuaryDrift": 98919050616365,
   "AstralOrbit": 84797482092417,

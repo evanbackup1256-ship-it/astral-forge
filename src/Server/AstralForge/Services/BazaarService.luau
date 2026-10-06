@@ -2,10 +2,12 @@
 
 return function(loadService: (string) -> any)
 	local Players = game:GetService("Players")
+	local DataStoreService = game:GetService("DataStoreService")
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ProgressionService = loadService("ProgressionService")
+	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
 	local BazaarService = {}
 
@@ -15,6 +17,54 @@ return function(loadService: (string) -> any)
 	local TICKET_BATCH = { 1, 5, 20 }
 
 	local lottery = { Bucket = -1, Tickets = {} :: { [number]: number }, Pot = 0 :: any, Last = nil :: any, Pending = {} :: { [number]: any } }
+
+	-- Lottery rollover persistence: the pot and pending prizes live in server memory.
+	-- Use a dedicated DataStore key so the next server can roll them over after shutdown.
+	local LOTTERY_ROLLOVER_KEY = "AF_LotteryRollover_v1"
+	local LOTTERY_ROLLOVER_MAX_AGE = 86400
+	local lotteryStore = DataStoreService:GetDataStore("AstralForgeBazaar")
+
+	local function loadLotteryRollover()
+		local ok, saved = pcall(function()
+			return lotteryStore:GetAsync(LOTTERY_ROLLOVER_KEY)
+		end)
+		if ok and type(saved) == "table" then
+			local age = os.time() - (tonumber(saved.SavedAt) or 0)
+			if age < LOTTERY_ROLLOVER_MAX_AGE then
+				lottery.Pot = saved.Pot or lottery.Pot
+				lottery.Pending = saved.Pending or lottery.Pending
+				lottery.Bucket = saved.Bucket or lottery.Bucket
+			end
+		end
+		local clearOk, clearErr = pcall(function()
+			lotteryStore:RemoveAsync(LOTTERY_ROLLOVER_KEY)
+		end)
+		if not clearOk then
+			ModuleLog.Warn("Bazaar", "lottery rollover clear failed: " .. tostring(clearErr))
+		end
+	end
+
+	local function saveLotteryRollover()
+		local ok, err = pcall(function()
+			lotteryStore:SetAsync(LOTTERY_ROLLOVER_KEY, {
+				Pot = lottery.Pot,
+				Pending = lottery.Pending,
+				Bucket = lottery.Bucket,
+				SavedAt = os.time(),
+			})
+		end)
+		if not ok then
+			ModuleLog.Warn("Bazaar", "lottery rollover save failed: " .. tostring(err))
+		end
+	end
+
+	-- Attempt to recover the previous server's pot/pending prizes once at startup.
+	pcall(loadLotteryRollover)
+
+	-- Record the current pot and any unclaimed prizes when this server shuts down.
+	game:BindToClose(function()
+		saveLotteryRollover()
+	end)
 
 	local function day(now: number): number
 		return math.floor(now / DAY)

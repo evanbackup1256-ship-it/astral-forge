@@ -2,23 +2,56 @@
 
 return function()
 
-
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
-	local include = ReplicatedStorage:FindFirstChild("rbxts_include")
-	assert(include, "Matter requires ReplicatedStorage.rbxts_include")
-	local nodeModules = include:FindFirstChild("node_modules")
-	assert(nodeModules, "Matter requires the replicated node_modules folder")
-	local rbxts = nodeModules:FindFirstChild("@rbxts")
-	assert(rbxts, "Matter requires the replicated @rbxts folder")
-	local matterPackage = rbxts:FindFirstChild("matter")
-	assert(matterPackage, "@rbxts/matter is not replicated; run npm install and restart Rojo")
-	local matterModule = matterPackage:FindFirstChild("lib")
-	assert(matterModule and matterModule:IsA("ModuleScript"), "@rbxts/matter/lib is not a ModuleScript")
+	-- If Argon/Rojo does not sync the rbxts include tree, Matter will be unavailable.
+	-- Wrap the entire require chain so the server can still boot without the ECS runtime.
+	local matterOk, Matter = pcall(function(): any
+		local include = ReplicatedStorage:FindFirstChild("rbxts_include")
+		assert(include, "Matter requires ReplicatedStorage.rbxts_include")
+		local nodeModules = include:FindFirstChild("node_modules")
+		assert(nodeModules, "Matter requires the replicated node_modules folder")
+		local rbxts = nodeModules:FindFirstChild("@rbxts")
+		assert(rbxts, "Matter requires the replicated @rbxts folder")
+		local matterPackage = rbxts:FindFirstChild("matter")
+		assert(matterPackage, "@rbxts/matter is not replicated; run npm install and restart Rojo")
+		local matterModule = matterPackage:FindFirstChild("lib")
+		assert(matterModule and matterModule:IsA("ModuleScript"), "@rbxts/matter/lib is not a ModuleScript")
 
-	local Matter = ModuleLog.Require(matterModule, "Matter ECS")
+		return ModuleLog.Require(matterModule, "Matter ECS")
+	end)
+
+	-- No-op fallback: GameService nil-guards and empty implementations let the rest of the server start.
+	if not matterOk then
+		ModuleLog.Warn("Matter", "Matter ECS unavailable; runtime disabled. " .. tostring(Matter))
+
+		local NoOpMatterRuntime = {}
+		NoOpMatterRuntime.__index = NoOpMatterRuntime
+
+		function NoOpMatterRuntime.new(_service: any)
+			return setmetatable({}, NoOpMatterRuntime)
+		end
+
+		function NoOpMatterRuntime:SpawnPlayer(_player: Player, _runtime: any, _profile: any): number
+			return 0
+		end
+
+		function NoOpMatterRuntime:Despawn(_entity: number): ()
+		end
+
+		function NoOpMatterRuntime:Start(): ()
+		end
+
+		function NoOpMatterRuntime:Step(): ()
+		end
+
+		function NoOpMatterRuntime:Stop(): ()
+		end
+
+		return table.freeze(NoOpMatterRuntime)
+	end
 
 	local PlayerComponent = Matter.component("AstralForge.Player")
 	local RuntimeComponent = Matter.component("AstralForge.Runtime")

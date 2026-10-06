@@ -42,6 +42,20 @@ local astralRoot = requiredChild(ReplicatedStorage, "AstralForge", "Folder", 30)
 local sharedRoot = requiredChild(astralRoot, "Shared", "Folder", 15) :: Folder
 local Protocol = ModuleLog.Require(requiredChild(sharedRoot, "Protocol", "ModuleScript", 15) :: ModuleScript, "shared protocol")
 local GameConfig = ModuleLog.Require(requiredChild(sharedRoot, "GameConfig", "ModuleScript", 15) :: ModuleScript, "game settings")
+local SharedData = ModuleLog.Require(requiredChild(sharedRoot, "SharedData", "ModuleScript", 15) :: ModuleScript, "shared data")
+
+-- Release guard: report every placeholder without interrupting server startup.
+local missingMonetization = SharedData.ValidateMonetizationIds()
+local missingIdLines = {}
+for category, keys in missingMonetization do
+	for _, key in keys do
+		table.insert(missingIdLines, `{category}.{key}`)
+	end
+end
+if #missingIdLines > 0 then
+	table.sort(missingIdLines)
+	warn("[ASTRAL FORGE / RELEASE BLOCKER] Missing monetization IDs: " .. table.concat(missingIdLines, ", "))
+end
 
 local priorBridge = ReplicatedStorage:FindFirstChild(Protocol.FolderName)
 if priorBridge ~= nil then
@@ -201,6 +215,27 @@ end
 
 remoteFolder:SetAttribute("Ready", true)
 remoteFolder:SetAttribute("ReadyAt", workspace:GetServerTimeNow())
+
+-- Single startup banner listing every Studio bypass and whether enforcement is actually active.
+-- Production behavior is unchanged; this only surfaces the current security posture.
+do
+	local ServerConfig = require(script:WaitForChild("ServerConfig"))
+	local isStudio = RunService:IsStudio()
+	ModuleLog.Warn(
+		"SECURITY",
+		"Studio bypass audit",
+		{
+			IsStudio = isStudio,
+			AllowStudioAdmins = ServerConfig.AllowStudioAdmins,
+			AllowStudioMemoryFallback = ServerConfig.AllowStudioMemoryFallback,
+			AllowStudioFollowVerification = ServerConfig.AllowStudioFollowVerification,
+			FirewallStudioPassThrough = isStudio,
+			AntiCheatObservationalOnly = ServerConfig.GameAntiCheat.EnforcementEnabled == false,
+			EnforcementActive = not isStudio,
+		}
+	)
+end
+
 task.spawn(function()
 	local ok, problem = pcall(require(script:WaitForChild("CasinoKitLoader")).load)
 	if not ok then

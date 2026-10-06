@@ -159,6 +159,8 @@ def write_manifest(build, ids):
     regions_block("Ambience", build["ambience"], ids.get("Ambience", 0))
     lines.append("Manifest.Kit = {")
     lines.append(f"\tId = {int(ids.get('Kit', 0))},")
+    lines.append(f"\tPlaceholderId = {int(ids.get('KitPlaceholder', 0))},")
+    lines.append(f"\tKitReady = {str(bool(ids.get('KitReady', False))).lower()},")
     lines.append("\t-- Native size of each model (studs, as generated). The game sets")
     lines.append("\t-- MeshPart.Size itself; these keep proportions when it scales one axis.")
     lines.append("\tSizes = {")

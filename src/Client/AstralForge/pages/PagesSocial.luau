@@ -4754,7 +4754,11 @@ local EMPTY_CHAT = {
 }
 local TAG_COLORS = { Palette.cyan, Palette.mint, Palette.violet, Palette.mango, Palette.pink, Palette.blue }
 local function userColor(userId)
-	return TAG_COLORS[math.abs(userId) % #TAG_COLORS + 1]
+	local authorId = tonumber(userId) or 0
+	if authorId ~= authorId or math.abs(authorId) == math.huge then
+		authorId = 0
+	end
+	return TAG_COLORS[math.floor(math.abs(authorId)) % #TAG_COLORS + 1]
 end
 local function useMessageEntrance(animate, reducedMotion)
 	local shouldAnimate = React.useRef(animate and not reducedMotion)
@@ -4788,7 +4792,11 @@ local function MessageRow(_param)
 	local softMotion = reducedMotion
 	local enter = useMessageEntrance(animate, reducedMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)
-	local pulse = usePulse(not message.system, 2.4 + math.abs(message.userId % 5) * 0.14)
+	local authorId = tonumber(message.userId) or 0
+	if authorId ~= authorId or math.abs(authorId) == math.huge then
+		authorId = 0
+	end
+	local pulse = usePulse(not message.system, 2.4 + math.abs(authorId % 5) * 0.14)
 	local fade = enter:map(function(amount)
 		return 1 - amount
 	end)

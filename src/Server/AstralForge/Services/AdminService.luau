@@ -21,6 +21,12 @@ return function(loadService: (string) -> any)
 
 	local AdminService = {}
 	AdminService.__index = AdminService
+	-- Queue entries are unsigned, so only explicitly configured external moderator identities are trusted.
+	AdminService.DiscordModeratorIds = {
+		[100000001] = true,
+		[100000002] = true,
+		[100000003] = true,
+	}
 
 	local CommandSchema = require(ReplicatedStorage.AstralForge.Shared.AdminCommandSchema)
 	local MAX_GRANT = AdminGrantMath.DEFAULT_MAX_GRANT
@@ -299,6 +305,18 @@ return function(loadService: (string) -> any)
 	end
 
 	function AdminService:_executeDiscordAction(entry: any)
+		local moderatorId = tonumber(entry.ModeratorId)
+		if
+			type(moderatorId) ~= "number"
+			or moderatorId ~= moderatorId
+			or moderatorId <= 0
+			or moderatorId ~= math.floor(moderatorId)
+			or AdminService.DiscordModeratorIds[moderatorId] ~= true
+		then
+			-- Drop unsigned/untrusted queue entries before any moderation side effect can occur.
+			ModuleLog.Warn("Admin", "Dropped Discord moderation entry with an unauthorized ModeratorId")
+			return
+		end
 		local action = entry.Action
 		local userId = tonumber(entry.UserId)
 		if type(action) ~= "string" or type(userId) ~= "number" then return end
@@ -1133,6 +1151,7 @@ return function(loadService: (string) -> any)
 		local role = roleFor(actor)
 		if not role then return { ok = false, error = "Administrative access denied." } end
 		if type(payload) ~= "table" then return { ok = false, error = "Malformed admin request." } end
+		-- Server-side authorization: canonicalization only accepts names in the COMMANDS allowlist.
 		local command = CommandSchema.canonical(cleanText(payload.Command, 48), COMMANDS)
 		local definition = command and COMMANDS[command]
 		if not definition then return { ok = false, error = "Unknown admin command." } end

@@ -281,58 +281,9 @@ exports.isMobileLandscape = _mobileLayout.isMobileLandscape
 exports.moreDockHeight = _mobileLayout.moreDockHeight
 exports.planMobileLayout = _mobileLayout.planMobileLayout
 exports.scrollTail = _mobileLayout.scrollTail
-local Palette = {
-	void = Color3.fromRGB(8, 6, 10),
-	ink = Color3.fromRGB(12, 9, 14),
-	night = Color3.fromRGB(19, 14, 20),
-	panel = Color3.fromRGB(27, 21, 29),
-	panelRaised = Color3.fromRGB(39, 31, 42),
-	panelSoft = Color3.fromRGB(62, 49, 66),
-	line = Color3.fromRGB(74, 58, 80),
-	lineSoft = Color3.fromRGB(132, 110, 142),
-	cream = Color3.fromRGB(252, 247, 240),
-	creamSoft = Color3.fromRGB(230, 220, 212),
-	muted = Color3.fromRGB(178, 160, 166),
-	cyan = Color3.fromRGB(70, 218, 242),
-	mint = Color3.fromRGB(86, 236, 178),
-	coral = Color3.fromRGB(255, 104, 112),
-	mango = Color3.fromRGB(255, 184, 52),
-	violet = Color3.fromRGB(178, 134, 255),
-	pink = Color3.fromRGB(250, 104, 178),
-	blue = Color3.fromRGB(96, 166, 255),
-	white = Color3.fromRGB(255, 255, 255),
-	green = Color3.fromRGB(98, 232, 164),
-	red = Color3.fromRGB(240, 78, 88),
-	shadow = Color3.fromRGB(0, 0, 0),
-	graphite = Color3.fromRGB(22, 17, 25),
-	steel = Color3.fromRGB(204, 214, 234),
-	steelBright = Color3.fromRGB(252, 247, 240),
-	brass = Color3.fromRGB(250, 190, 72),
-	brassDeep = Color3.fromRGB(140, 92, 30),
-	ember = Color3.fromRGB(244, 92, 84),
-}
-local ACCESSIBLE_BASE = {
-	void = Palette.void,
-	ink = Palette.ink,
-	night = Palette.night,
-	panel = Palette.panel,
-	panelRaised = Palette.panelRaised,
-	panelSoft = Palette.panelSoft,
-	line = Palette.line,
-	lineSoft = Palette.lineSoft,
-	cream = Palette.cream,
-	creamSoft = Palette.creamSoft,
-	muted = Palette.muted,
-	cyan = Palette.cyan,
-	mint = Palette.mint,
-	coral = Palette.coral,
-	mango = Palette.mango,
-	violet = Palette.violet,
-	pink = Palette.pink,
-	blue = Palette.blue,
-	green = Palette.green,
-	red = Palette.red,
-}
+local ForgeTheme = require(game.ReplicatedStorage.AstralForge.Shared.ForgeTheme)
+local Palette = ForgeTheme.newPalette()
+
 local accessibilitySignature = ""
 local function applyAccessibilityTheme(highContrast, colorblind)
 	local signature = `{highContrast}:{colorblind}`
@@ -340,30 +291,10 @@ local function applyAccessibilityTheme(highContrast, colorblind)
 		return nil
 	end
 	accessibilitySignature = signature
-	local mutable = Palette
-	for key, value in pairs(ACCESSIBLE_BASE) do
-		mutable[key] = value
-	end
-	if colorblind then
-		mutable.green = Color3.fromRGB(86, 180, 233)
-		mutable.mint = Color3.fromRGB(86, 180, 233)
-		mutable.red = Color3.fromRGB(230, 159, 0)
-		mutable.coral = Color3.fromRGB(230, 159, 0)
-		mutable.pink = Color3.fromRGB(204, 121, 167)
-		mutable.violet = Color3.fromRGB(0, 158, 115)
-	end
-	if highContrast then
-		mutable.void = Color3.fromRGB(0, 0, 0)
-		mutable.ink = Color3.fromRGB(3, 2, 3)
-		mutable.night = Color3.fromRGB(8, 6, 8)
-		mutable.panel = Color3.fromRGB(13, 10, 14)
-		mutable.panelRaised = Color3.fromRGB(21, 16, 23)
-		mutable.panelSoft = Color3.fromRGB(36, 28, 40)
-		mutable.lineSoft = Color3.fromRGB(160, 142, 168)
-		mutable.cream = Color3.fromRGB(255, 255, 255)
-		mutable.creamSoft = Color3.fromRGB(235, 240, 246)
-		mutable.muted = Color3.fromRGB(190, 199, 210)
-	end
+	ForgeTheme.applyAccessibility(Palette, {
+		HighContrast = highContrast == true,
+		Colorblind = colorblind == true,
+	})
 end
 local Layout = {
 	pagePadding = 18,

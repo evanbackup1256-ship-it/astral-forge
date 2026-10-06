@@ -26,7 +26,8 @@ return {
 
 	GuildLeaderboardStoreName = resetStore("AstralForge_GuildLB_v2"),
 
-	SessionLockSeconds = 180,
+	-- Must stay in sync with DocumentService/Document.luau SESSION_EXPIRE_TIME.
+	SessionLockSeconds = 600,
 	SaveRetries = 3,
 	AllowStudioMemoryFallback = true,
 
@@ -45,6 +46,9 @@ return {
 	CreatorUsername = "usingINales",
 	AllowStudioFollowVerification = true,
 	FollowReward = { CashMinutes = 12, Stardust = 35, Signals = 10 },
+
+	-- Enforcement stays opt-in for Studio QA, but protects live economy mutations by default.
+	GameAntiCheat = { EnforcementEnabled = not game:GetService("RunService"):IsStudio() },
 
 	DiscordModQueuePollSeconds = 20,
 	DiscordModQueuePrefix = "DiscordMod_",

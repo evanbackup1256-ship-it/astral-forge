@@ -543,8 +543,12 @@ function PageErrorBoundary.getDerivedStateFromError(err)
 		message = tostring(err),
 	}
 end
-function PageErrorBoundary:componentDidCatch(err)
-	ClientLog:warnEvery("react-page", 5, "React", tostring(err))
+function PageErrorBoundary:componentDidCatch(err, info)
+	local page = self.props.page or "AppShell"
+	local stack = if type(info) == "table" and type(info.componentStack) == "string"
+		then info.componentStack
+		else ""
+	ClientLog:warnEvery(`react-page-{page}`, 5, "React", `{page}: {tostring(err)}{stack}`)
 end
 function PageErrorBoundary:render()
 	if self.state.failed then
@@ -623,6 +627,7 @@ local PageFrame = React.memo(React.forwardRef(function(props, ref)
 		fallback = React.createElement(PagePending),
 	}, React.createElement(PageErrorBoundary, {
 		key = `{page}:{retryCount}`,
+		page = page,
 	}, React.createElement(React.Profiler, {
 		id = if page ~= "" then page else "Game",
 		onRender = onPageRender,

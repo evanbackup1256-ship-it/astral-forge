@@ -49,6 +49,7 @@ serviceFactories["GameService"] = function()
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
+	local TradeRecovery = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeRecovery")
 	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("CrateRoll")
 	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ShopGrantEligibility")
 	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("CommandActionValidators")
@@ -528,7 +529,30 @@ serviceFactories["GameService"] = function()
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseError(planErr or "That trade could not be settled.")
 				end
+
+				-- Durability hook: stamp a per-profile fault journal so a faulted trade
+				-- can be reconciled the next time the affected profile loads.
+				local function writeTradeJournal(targetPlayer: Player, side: string, status: string, reason: string?)
+					if status ~= "faulted" then
+						return
+					end
+					local ok, err = pcall(function()
+						return self._data:AtomicUpdate(targetPlayer, function(profile)
+							local entry = TradeRecovery.MakeFaultedEntry(session, side, plan, reason or "unknown", now)
+							profile.Trade.FaultedJournal = entry
+							return { ok = true }
+						end, true, "trade-journal-" .. side)
+					end)
+					if not ok then
+						ModuleLog.Warn(
+							"Trade",
+							string.format("Could not write %s fault journal: %s", side, tostring(err))
+						)
+					end
+				end
+
 				local outcome = TradeSettle.RunHostGuest(session, {
+					plan = plan,
 					applyHost = function()
 						return self._data:AtomicUpdate(host, function(profile)
 							local applyErr = self._trades:ApplyExchange(
@@ -577,6 +601,12 @@ serviceFactories["GameService"] = function()
 							return { ok = true }
 						end, true, "trade-revert")
 						return TradeSettle.IsCommitOk(revertOk, revertResult)
+					end,
+					writeHostJournal = function(status: string, reason: string?)
+						writeTradeJournal(host, "host", status, reason)
+					end,
+					writeGuestJournal = function(status: string, reason: string?)
+						writeTradeJournal(guest, "guest", status, reason)
 					end,
 				})
 				self:_pushTradePartners(session.Host, session.Guest)
@@ -1446,7 +1476,11 @@ serviceFactories["GameService"] = function()
 			clampProgressionNumbers(profile)
 			enforceUnlimitedMoney(profile)
 
-			self._antiCheat:Observe(player, "Mutation", profile)
+			local _, wouldReject = self._antiCheat:Observe(player, "Mutation", profile)
+			if wouldReject then
+				-- Returning a failed transaction quarantines the whole mutation, including the illegal credit.
+				return responseError("That economy change was rejected.")
+			end
 			return callbackResult
 		end, incrementRevision)
 		if not success then
@@ -3367,6 +3401,16 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_verifyCreatorFollow(player: Player)
+		-- Roblox exposes no trusted follow check here; only the explicit Studio QA bypass may award it.
+		if not RunService:IsStudio() or ServerConfig.AllowStudioFollowVerification ~= true then
+			ModuleLog.Every(
+				string.format("creator-follow-unverified:%d", player.UserId),
+				30,
+				"Security",
+				string.format("u=%d Creator follow claim denied because verification is unavailable", player.UserId)
+			)
+			return responseError("Creator follow verification is unavailable.")
+		end
 		local profile = self._data:Get(player)
 		if not profile then return responseError("Your save is still loading. Try again in a moment.") end
 		local socialRewards = type(profile.SocialRewards) == "table" and profile.SocialRewards or nil
@@ -4256,7 +4300,9 @@ serviceFactories["GameService"] = function()
 			return
 		end
 		local spawned, spawnProblem = pcall(function()
-			self._runtime[player].MatterEntity = self._matter:SpawnPlayer(player, self._runtime[player], profile)
+			if self._matter then
+				self._runtime[player].MatterEntity = self._matter:SpawnPlayer(player, self._runtime[player], profile)
+			end
 		end)
 		if not spawned then
 			if not self._running then
@@ -4470,7 +4516,7 @@ serviceFactories["GameService"] = function()
 		end
 		self._world:RemovePlot(player)
 		local runtime = self._runtime[player]
-		if runtime and runtime.MatterEntity then
+		if runtime and runtime.MatterEntity and self._matter then
 			self._matter:Despawn(runtime.MatterEntity)
 		end
 		self._runtime[player] = nil
@@ -4744,7 +4790,9 @@ serviceFactories["GameService"] = function()
 			return
 		end
 		self._matterAccumulator = 0
-		self._matter:Step()
+		if self._matter then
+			self._matter:Step()
+		end
 	end
 
 	function GameService:Start()
@@ -4763,7 +4811,9 @@ serviceFactories["GameService"] = function()
 			ModuleLog.Warn("Shop", "ProcessReceipt failed — " .. tostring(decision))
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
-		self._matter:Start()
+		if self._matter then
+			self._matter:Start()
+		end
 		self._world:SetInteractionHandler(function(player, action, payload)
 			if action == "Collect" then
 				self:_collect(player)
@@ -5063,7 +5113,9 @@ serviceFactories["GameService"] = function()
 			self._heartbeat:Disconnect()
 			self._heartbeat = nil
 		end
-		self._matter:Stop()
+		if self._matter then
+			self._matter:Stop()
+		end
 		self._convergence:Stop()
 		self._guilds:Destroy()
 		self._badges:Destroy()

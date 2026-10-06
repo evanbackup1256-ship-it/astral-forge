@@ -4,6 +4,12 @@ local __defs: { [string]: () -> any } = {}
 local __cache: { [string]: { value: any } } = {}
 local __loading: { [string]: boolean } = {}
 
+local KIT_READY = false
+if not KIT_READY then
+	-- Release guard mirrored from assets/asset_ids.json.
+	warn("[ASTRAL FORGE / RELEASE BLOCKER] Casino/crate kit is not uploaded; KitReady is false.")
+end
+
 local function __load(name: string): any
 	local hit = __cache[name]
 	if hit then return hit.value end
@@ -16,6 +22,26 @@ local function __load(name: string): any
 	if not ok then error(value, 0) end
 	__cache[name] = { value = value }
 	return value
+end
+
+local function validateMonetizationIds(): { [string]: { string } }
+	local config = __load("MonetizationConfig")
+	local missing = {
+		DevProducts = {},
+		GamePasses = {},
+	}
+	-- Keep runtime purchase gates unchanged while making every placeholder visible at boot.
+	for _, entry in config.DevProducts do
+		if entry.ProductId <= 0 then
+			table.insert(missing.DevProducts, entry.Key)
+		end
+	end
+	for _, entry in config.GamePasses do
+		if entry.PassId <= 0 then
+			table.insert(missing.GamePasses, entry.Key)
+		end
+	end
+	return missing
 end
 
 __defs["AssetManifest"] = function()
@@ -1391,6 +1417,8 @@ Manifest.Ambience = {
 
 Manifest.Kit = {
 	Id = 0,
+	PlaceholderId = 0,
+	KitReady = KIT_READY,
 	Sizes = {
 		Crystal = Vector3.new(0.9201, 3.05, 1.0186),
 		CrystalShard = Vector3.new(0.7224, 2.45, 0.8424),
@@ -3648,6 +3676,8 @@ return setmetatable({}, {
 	__index = function(_, name: string): any
 		if name == "__members" then
 			return __members
+		elseif name == "ValidateMonetizationIds" then
+			return validateMonetizationIds
 		end
 		return __load(name)
 	end,

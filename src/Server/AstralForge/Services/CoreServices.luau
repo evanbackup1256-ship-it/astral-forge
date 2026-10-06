@@ -1133,62 +1133,87 @@ return function()
 	end
 
 	function GuildService:_read(id: string)
-		self:_pruneCache()
-		if RunService:IsStudio() and self._studio[id] then return copy(self._studio[id]) end
-		local cached = self._cache[id]
-		if cached and (self._cacheExpiry[id] or 0) > os.clock() then return copy(cached) end
-		local ok, result = pcall(function() return self._store:GetAsync(id) end)
-		if ok and type(result) == "table" then
-			self._cache[id] = result
-			self._cacheExpiry[id] = os.clock() + 60
-			return copy(result)
-		end
+	self:_pruneCache()
+	if RunService:IsStudio() and self._studio[id] then
+		return copy(self._studio[id])
+	end
+	local cached = self._cache[id]
+	if cached and (self._cacheExpiry[id] or 0) > os.clock() then
+		return copy(cached)
+	end
+	local ok, result = pcall(function()
+		return self._store:GetAsync(id)
+	end)
+	if ok and type(result) == "table" then
+		self._cache[id] = result
+		self._cacheExpiry[id] = os.clock() + 60
+		return copy(result)
+	end
 
-		if cached then return copy(cached) end
+	if ok and result == nil and not RunService:IsStudio() then
+		self._cache[id] = nil
+		self._cacheExpiry[id] = nil
 		return nil
 	end
-
-	function GuildService:_update(id: string, transform)
-		local updated
-		local function apply(current)
-			local doc = type(current) == "table" and current or self._studio[id] or self._cache[id]
-			if type(doc) ~= "table" then return nil end
-			local nextDoc = transform(copy(doc))
-
-			if nextDoc == nil then
-				updated = nil
-				return doc
-			end
-			updated = nextDoc
-			return nextDoc
-		end
-		local ok, err = pcall(function()
-			return self._store:UpdateAsync(id, apply)
-		end)
-		if not ok then
-
-			if not RunService:IsStudio() then
-				return false, tostring(err), nil
-			end
-			local fallback = self._studio[id] or self._cache[id]
-			if type(fallback) == "table" then
-				updated = transform(copy(fallback))
-				if type(updated) == "table" then
-					self._studio[id] = updated
-				end
-			else
-				return false, tostring(err), nil
-			end
-		end
-		if type(updated) ~= "table" then return false, "Guild request was denied.", nil end
-		self._cache[id] = updated
-		self._cacheExpiry[id] = os.clock() + 60
-		if RunService:IsStudio() then self._studio[id] = updated end
-		self:_queueLeaderboard(id, updated.Activity)
-		return true, nil, copy(updated)
+	if cached then
+		return copy(cached)
 	end
+	return nil
+end
 
-	function GuildService:_findByTag(tag: string)
+
+function GuildService:_update(id: string, transform)
+	local updated
+	local function apply(current)
+		-- UpdateAsync can invoke this callback again after a concurrent write.
+		-- No approval from an earlier attempt may survive a cancelled final attempt.
+		updated = nil
+		local doc = if type(current) == "table" then current else nil
+		if doc == nil and RunService:IsStudio() then
+			doc = self._studio[id] or self._cache[id]
+		end
+		if type(doc) ~= "table" then
+			return nil
+		end
+		local nextDoc = transform(copy(doc))
+
+		if nextDoc == nil then
+			return nil
+		end
+		updated = nextDoc
+		return nextDoc
+	end
+	local ok, err = pcall(function()
+		return self._store:UpdateAsync(id, apply)
+	end)
+	if not ok then
+		if not RunService:IsStudio() then
+			return false, tostring(err), nil
+		end
+		local fallback = self._studio[id] or self._cache[id]
+		if type(fallback) == "table" then
+			updated = transform(copy(fallback))
+			if type(updated) == "table" then
+				self._studio[id] = updated
+			end
+		else
+			return false, tostring(err), nil
+		end
+	end
+	if type(updated) ~= "table" then
+		return false, "Guild request was denied.", nil
+	end
+	self._cache[id] = updated
+	self._cacheExpiry[id] = os.clock() + 60
+	if RunService:IsStudio() then
+		self._studio[id] = updated
+	end
+	self:_queueLeaderboard(id, updated.Activity)
+	return true, nil, copy(updated)
+end
+
+
+function GuildService:_findByTag(tag: string)
 		self:_pruneCache()
 		local wanted = normalTag(tag)
 		for _, doc in self._cache do

@@ -29,11 +29,14 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	local DocumentCommon = Documents.DocumentCommon
 	local SessionDocumentStore = Documents.SessionDocumentStore
 	local UnlockedDocumentStore = Documents.UnlockedDocumentStore
+	local TradeSuite = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))
+	local TradeRecovery = TradeSuite("TradeRecovery")
 
 	local DataService = {}
 	DataService.__index = DataService
 
 	local CACHE_SYNC_INTERVAL = 1.5
+	local SHUTDOWN_SAVE_BUDGET = 5 -- Leave BindToClose time for the stores' final document cleanup.
 
 	local MAX_PERSISTED_NUMBER = DataSanitizeMath.MAX_PERSISTED_NUMBER
 
@@ -306,6 +309,13 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		end
 		if type(profile.Trade.Sent) ~= "table" then
 			profile.Trade.Sent = { Cash = 0, Stardust = 0, Cores = 0, Signals = 0, Essence = 0, Boost = 0, Keys = 0, Items = 0 }
+		end
+		-- Preserve faulted trade journals for recovery; wipe malformed entries.
+		if type(profile.Trade.Journal) ~= "table" then
+			profile.Trade.Journal = {}
+		end
+		if profile.Trade.FaultedJournal ~= nil and type(profile.Trade.FaultedJournal) ~= "table" then
+			profile.Trade.FaultedJournal = nil
 		end
 		profile.Trade.Day = math.floor(nonNegative(profile.Trade.Day))
 		profile.Trade.Completed = math.floor(nonNegative(profile.Trade.Completed))
@@ -681,6 +691,7 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		self._lastCacheSyncAt = {}
 		self._saveBusy = {}
 		self._releasing = {}
+		self._broken = {}
 		self._closing = false
 		self._autosaveThread = nil
 		self.OnSaveFailed = nil
@@ -706,6 +717,26 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		self._integrityStatus[player] = nil
 		self._saveBusy[player] = nil
 		self._releasing[player] = nil
+		self._broken[player] = nil
+	end
+
+	function DataService:_markProfileBroken(player: Player, reason: string)
+		-- A lost session lock makes every further mutation unsafe until the player leaves.
+		self._broken[player] = reason
+		self._releasing[player] = true
+		local cacheThread = self._cacheSyncThreads[player]
+		if cacheThread then
+			task.cancel(cacheThread)
+			self._cacheSyncThreads[player] = nil
+		end
+		ModuleLog.Warn("Data", string.format("marking %s profile read-only — %s", player.Name, reason))
+		task.defer(function()
+			if player.Parent then
+				player:Kick("Your data session changed servers and was closed safely. Please rejoin.")
+			else
+				self:_clearPlayer(player)
+			end
+		end)
 	end
 
 	function DataService:_queueDocumentSync(player: Player)
@@ -897,6 +928,17 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				return rejectUnsafeProfile("schema preparation failed: " .. tostring(prepared))
 			end
 			local profile = prepared
+
+			-- Reconcile any faulted trade journal from a previous interrupted settlement.
+			local recovered, recoveryErr = pcall(function()
+				TradeRecovery.RecoverFaulted(profile, now, function(message: string)
+					ModuleLog.Warn("Trade", message, { UserId = player.UserId })
+				end)
+			end)
+			if not recovered then
+				ModuleLog.Warn("Trade", string.format("trade recovery crashed for %s: %s", player.Name, tostring(recoveryErr)), { UserId = player.UserId })
+			end
+
 			local previousLastSeen = if type(profile.Meta) == "table" and type(profile.Meta.LastSeen) == "number"
 				then profile.Meta.LastSeen
 				else now
@@ -1131,7 +1173,13 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 
 		local saved = false
 		local lastReason = "Unknown"
+		local retryDeadline = if self._closing and releaseSession then os.clock() + SHUTDOWN_SAVE_BUDGET else math.huge
 		for attempt = 1, ServerConfig.SaveRetries do
+			if os.clock() >= retryDeadline then
+				-- Bound shutdown retries so final store cleanup still gets a chance to run.
+				lastReason = "ShutdownSaveDeadline"
+				break
+			end
 			if releaseSession and not document:IsOpen() then
 				saved = true
 				break
@@ -1147,6 +1195,9 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 				break
 			end
 			lastReason = if callOk then (DocumentCommon.reason(result) or "Unknown") else tostring(result)
+			if lastReason == "SessionLockedError" then
+				self:_markProfileBroken(player, lastReason)
+			end
 			ModuleLog.Warn(
 				"Data",
 				string.format(
@@ -1157,11 +1208,12 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 					lastReason
 				)
 			)
-			if releaseSession and not document:IsOpen() then
+			if lastReason == "SessionLockedError" or (releaseSession and not document:IsOpen()) then
 				break
 			end
 			if attempt < ServerConfig.SaveRetries then
-				task.wait(attempt)
+				local retryWait = math.min(attempt, retryDeadline - os.clock())
+				if retryWait > 0 then task.wait(retryWait) end
 			end
 		end
 
@@ -1208,17 +1260,18 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 	function DataService:Save(player: Player, releaseSession: boolean?): boolean
 
 		if releaseSession then self._releasing[player] = true end
-		local deadline = os.clock() + (releaseSession and 12 or 6)
+		local releaseWait = if self._closing and releaseSession then SHUTDOWN_SAVE_BUDGET else 12
+		local deadline = os.clock() + (releaseSession and releaseWait or 6)
 		while self._saveBusy[player] and os.clock() < deadline do task.wait() end
 		if self._saveBusy[player] then
-			if releaseSession then self._releasing[player] = nil end
+			if releaseSession and not self._broken[player] then self._releasing[player] = nil end
 			ModuleLog.Every("save-busy:" .. tostring(player.UserId), 5, "Data", player.Name .. " save is still in progress")
 			return false
 		end
 		local atom = self._atoms[player]
 		while releaseSession and atom and atom:IsBusy() and os.clock() < deadline do task.wait() end
 		if releaseSession and atom and atom:IsBusy() then
-			self._releasing[player] = nil
+			if not self._broken[player] then self._releasing[player] = nil end
 			ModuleLog.Every("release-busy:" .. tostring(player.UserId), 5, "Data", player.Name .. " mutation did not settle before release")
 			return false
 		end
@@ -1226,11 +1279,11 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		local ok, saved = pcall(self._saveUnlocked, self, player, releaseSession)
 		self._saveBusy[player] = nil
 		if not ok then
-			if releaseSession then self._releasing[player] = nil end
+			if releaseSession and not self._broken[player] then self._releasing[player] = nil end
 			ModuleLog.Warn("Data", string.format("save crashed safely for %s - %s", player.Name, tostring(saved)))
 			return false
 		end
-		if releaseSession and not saved then self._releasing[player] = nil end
+		if releaseSession and not saved and not self._broken[player] then self._releasing[player] = nil end
 		return saved
 	end
 
@@ -1257,7 +1310,8 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 					remaining -= 1
 				end)
 			end
-			local deadline = os.clock() + 22
+			-- Match each shutdown save's short budget instead of consuming BindToClose here.
+			local deadline = os.clock() + SHUTDOWN_SAVE_BUDGET + 1
 			while remaining > 0 and os.clock() < deadline do
 				task.wait()
 			end
@@ -1302,12 +1356,12 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			self._leaderboardPushBusy[userId] = nil
 			self._leaderboardPending[userId] = nil
 		end
-		local released = self:SaveAll(true)
-		if not released then
-
-			return
+		local saveOk, saveResult = pcall(self.SaveAll, self, true)
+		if not saveOk or not saveResult then
+			ModuleLog.Warn("Data", string.format("shutdown SaveAll did not complete — %s", tostring(saveResult)))
 		end
 
+		-- Always close stores, even when the concurrent release-save phase fails or times out.
 		pcall(function()
 			self._playerStore:CloseAllDocuments()
 		end)
