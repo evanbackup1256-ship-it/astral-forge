@@ -30,7 +30,7 @@
 | Ranks | No | No | No | No | No | — |
 | Casino | Partial | Partial | Partial | No | No | — |
 | Bazaar / trade | Partial | Yes | Yes | Partial | Partial | — |
-| Astral Forge | No | No | No | No | No | — |
+| Astral Forge | Partial | Yes (R-13–R-18) | Partial | Partial | Partial | — |
 
 ## Release blockers
 
@@ -46,3 +46,4 @@
 ## Sign-off notes
 
 - 2026-10-05: Initial defensive bug/security pass completed and committed (`8e6e8e2`, `07b9fb5`). This is an audit foundation, not full spec completion.
+- 2026-10-05: Focused Astral Forge bug fixes + ForgeTheme/ForgeConfig/decomposition skeleton. R-13–R-18 fixed; `npm test` + `argon build` pass.

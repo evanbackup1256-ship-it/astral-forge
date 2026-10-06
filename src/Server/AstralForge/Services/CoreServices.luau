@@ -191,9 +191,17 @@ return function(loadService: (string) -> any)
 		return amount, not wasReady and profile.Anomaly.Charge >= target
 	end
 
+	local PULSE_MIN_INTERVAL = (GameConfig.Anomalies.PulseCooldownSeconds or 0.25) :: number
+
 	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
 		AnomalyService.Ensure(profile)
 		local now = pulseNow()
+		local lastAction = profile.Anomaly.LastActionAt or 0
+		if now - lastAction < PULSE_MIN_INTERVAL then
+			return false, string.format("Pulse recharging (%.2fs).", PULSE_MIN_INTERVAL - (now - lastAction)), nil
+		end
+		profile.Anomaly.LastActionAt = now
+
 		local accurate = AnomalyPulseScore.IsAccurate(
 			now,
 			profile.Anomaly.PulseWindowStartedAt,
@@ -768,7 +776,11 @@ return function()
 		local used = {}
 		local preferred = {}
 		for _, trait in pool do if trait.Affinity == affinity then table.insert(preferred, trait) end end
-		local first = preferred[random:NextInteger(1, #preferred)]
+		-- Guard empty preferred list; if no trait matches the dominant affinity, fall back
+		-- to a uniform pick from the full pool so capture never hard-errors.
+		local firstPool = if #preferred > 0 then preferred else pool
+		local first = firstPool[random:NextInteger(1, #firstPool)]
+		if not first then return false, "No echo traits available for capture.", nil end
 		table.insert(selected, first)
 		used[first.Id] = true
 		while #selected < 3 do

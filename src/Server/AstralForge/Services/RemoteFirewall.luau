@@ -154,6 +154,19 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.VerifyCreatorFollow] = true,
 	}
 
+	-- Exempt actions skip the token/window/strike enforcement, but some still
+	-- need a per-action cooldown to prevent spam (e.g. Rebirth, daily claims).
+	-- Core click actions (CollectVault, Overcharge) remain fully uncapped.
+	local EXEMPT_COOLDOWNS: { [string]: number } = {
+		[Protocol.Actions.ConfirmTrade] = 0.22,
+		[Protocol.Actions.CancelTrade] = 0.18,
+		[Protocol.Actions.TradeViewAway] = 0.35,
+		[Protocol.Actions.Rebirth] = 1,
+		[Protocol.Actions.ClaimDaily] = 1,
+		[Protocol.Actions.ClaimAllMail] = 1,
+		[Protocol.Actions.VerifyCreatorFollow] = 5,
+	}
+
 	local function applyFirewallOverrides()
 		local overrides = GameConfig.RemoteFirewall and GameConfig.RemoteFirewall.Overrides
 		if type(overrides) ~= "table" then return end
@@ -879,6 +892,18 @@ return function(loadService: (string) -> any)
 			return false, payloadReason or "That request could not be validated."
 		end
 		if EXEMPT_ACTIONS[action] then
+			-- Even exempt actions can carry a per-action cooldown to prevent abuse
+			-- of high-impact actions like Rebirth or daily claims.
+			local exemptCooldown = EXEMPT_COOLDOWNS[action]
+			if exemptCooldown and exemptCooldown > 0 then
+				local actionKey = cooldownKey(action, payload)
+				local previous = state.LastAction[actionKey] or -math.huge
+				if now - previous < exemptCooldown then
+					ServerTelemetry.RecordRemote(false, "exempt action cooldown")
+					return false, "That action is still cooling down."
+				end
+				state.LastAction[actionKey] = now
+			end
 			ServerTelemetry.RecordRemote(true)
 			return true
 		end

@@ -4677,8 +4677,15 @@ serviceFactories["GameService"] = function()
 				end, false, "production")
 				if not ok then
 					runtime.ProductionAccumulator += step
-				elseif pendingAnomalyCount > 0 and runtime.PendingAnomalyActions == pendingAnomalyActions then
-					runtime.PendingAnomalyActions = {}
+				elseif pendingAnomalyCount > 0 then
+					-- Drain only the actions we processed; any appended during the tick
+					-- remain queued for the next production tick.
+					local currentPending = runtime.PendingAnomalyActions or {}
+					local remaining = {}
+					for i = pendingAnomalyCount + 1, #currentPending do
+						table.insert(remaining, currentPending[i])
+					end
+					runtime.PendingAnomalyActions = remaining
 					self:_queueStatePush(player)
 					if anomalyDetails and anomalyDetails.BecameReady then
 						self._effect:FireClient(player, {

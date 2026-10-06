@@ -340,11 +340,12 @@ local function SettingsView(_param)
 		end
 	end
 	React.useEffect(function()
-		if SECTION_BY_ID[activeSection].touchOnly and not mobileHudAvailable then
+		local sectionInfo = SECTION_BY_ID[activeSection]
+		if sectionInfo and sectionInfo.touchOnly and not mobileHudAvailable then
 			setActiveSection("interface")
 		end
 	end, { activeSection, mobileHudAvailable })
-	local section = SECTION_BY_ID[activeSection]
+	local section = SECTION_BY_ID[activeSection] or SECTION_BY_ID["interface"]
 	local accent = accentOf(section)
 
 	local settingsClaimHostRef = React.useRef(nil)
@@ -368,11 +369,19 @@ local function SettingsView(_param)
 
 	local searching = not string.match(query, "^%s*$")
 	local function isChanged(entry)
-		return math.abs(Schema.value(settings, entry.key) - (tonumber(entry.default) or 0)) > 0.01
+		local current = Schema.value(settings, entry.key)
+		local defaultValue = entry.default
+		if typeof(current) == "number" and typeof(defaultValue) == "number" then
+			return math.abs(current - defaultValue) > 0.01
+		end
+		return tostring(current) ~= tostring(defaultValue)
 	end
 	local changedEntries = {}
 	for _, entry in Schema.ENTRIES do
 		local home = SECTION_BY_ID[entry.section]
+		if not home then
+			continue
+		end
 		if not (home.touchOnly and not mobileHudAvailable) and isChanged(entry) then
 			table.insert(changedEntries, entry)
 		end
@@ -383,7 +392,7 @@ local function SettingsView(_param)
 	local hiddenAdvanced = 0
 	for _, entry in Schema.ENTRIES do
 		local home = SECTION_BY_ID[entry.section]
-		if home.touchOnly and not mobileHudAvailable then
+		if not home or (home.touchOnly and not mobileHudAvailable) then
 			continue
 		end
 		if searching then

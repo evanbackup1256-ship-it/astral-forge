@@ -3,11 +3,36 @@
 -- Owner: Astral Forge presentation. Dependencies: Roblox Color3. Last-reviewed: 2026-10-05.
 
 export type Palette = { [string]: Color3 }
+export type NamedPalette = { [string]: string }
 export type AccessibilitySettings = { HighContrast: boolean, Colorblind: boolean }
 export type AccessibilityPalettes = { Colorblind: Palette, HighContrast: Palette }
+export type RarityPalette = { [string]: Color3 }
+export type FeaturePalette = NamedPalette
+export type StatPalette = NamedPalette
+export type FxPalette = Palette
+export type ViewportLightPalette = {
+	Ambient: Color3,
+	LightColor: Color3,
+	FallbackAmbient: Color3,
+	FallbackLight: Color3,
+}
+export type BootPalette = {
+	dim: Color3,
+	bar: Color3,
+	textBright: Color3,
+	textDim: Color3,
+	textFaint: Color3,
+}
 export type Theme = {
 	Base: Palette,
 	Accessibility: AccessibilityPalettes,
+	Feature: FeaturePalette,
+	Tier: NamedPalette,
+	Rarity: RarityPalette,
+	Fx: FxPalette,
+	ViewportLight: ViewportLightPalette,
+	Stat: StatPalette,
+	Boot: BootPalette,
 	newPalette: () -> Palette,
 	applyAccessibility: (palette: Palette, settings: AccessibilitySettings) -> (),
 }
@@ -69,6 +94,83 @@ table.freeze(accessibility.Colorblind)
 table.freeze(accessibility.HighContrast)
 table.freeze(accessibility)
 
+-- Semantic feature-to-base-color mapping. Keep color names here, literal RGBs in Base.
+local feature: FeaturePalette = table.freeze({
+	flux = "cyan",
+	dust = "mango",
+	essence = "violet",
+	cores = "pink",
+	season = "mango",
+	guild = "violet",
+	expedition = "green",
+	artifact = "violet",
+	echo = "mango",
+	milestone = "cyan",
+	anomaly = "violet",
+	continuum = "blue",
+	starGrid = "mango",
+	wheel = "mango",
+	convergence = "mint",
+})
+
+local tier: NamedPalette = table.freeze({
+	Beginner = "mint",
+	Apprentice = "cyan",
+	Journeyman = "blue",
+	Expert = "violet",
+	Master = "mango",
+	Legend = "pink",
+})
+
+local rarity: RarityPalette = table.freeze({
+	Common = Color3.fromRGB(200, 196, 188),
+	Rare = Color3.fromRGB(110, 190, 255),
+	Epic = Color3.fromRGB(190, 120, 255),
+	Legendary = Color3.fromRGB(255, 190, 70),
+	Mythic = Color3.fromRGB(255, 110, 150),
+	Celestial = Color3.fromRGB(190, 248, 255),
+	Astral = Color3.fromRGB(255, 200, 240),
+})
+
+-- FX, viewport, and one-off accents that do not fit the base palette.
+local fx: FxPalette = table.freeze({
+	bulbWarm = Color3.fromRGB(255, 236, 190),
+	bulbGold = Color3.fromRGB(255, 186, 72),
+	bulbOff = Color3.fromRGB(70, 44, 30),
+	alertBlue = Color3.fromRGB(0, 94, 184),
+	alertBlueText = Color3.fromRGB(190, 220, 255),
+	petLine = Color3.fromRGB(74, 36, 18),
+	emberTail = Color3.fromRGB(232, 150, 120),
+	editBounds = Color3.fromRGB(72, 190, 255),
+	wheelDark = Color3.fromRGB(13, 10, 20),
+})
+
+local viewportLight: ViewportLightPalette = table.freeze({
+	Ambient = Color3.fromRGB(200, 194, 206),
+	LightColor = Color3.fromRGB(205, 198, 186),
+	FallbackAmbient = Color3.fromRGB(150, 140, 165),
+	FallbackLight = Color3.fromRGB(255, 244, 224),
+})
+
+local stat: StatPalette = table.freeze({
+	Production = "coral",
+	TapPower = "mango",
+	Capacity = "violet",
+	CriticalChance = "cyan",
+	AutoCollect = "violet",
+	Offline = "cyan",
+	CriticalMultiplier = "mango",
+	RebirthMultiplier = "pink",
+})
+
+local boot: BootPalette = table.freeze({
+	dim = Color3.fromRGB(14, 10, 17),
+	bar = Color3.fromRGB(46, 36, 50),
+	textBright = Color3.fromRGB(190, 174, 178),
+	textDim = Color3.fromRGB(140, 122, 128),
+	textFaint = Color3.fromRGB(108, 92, 100),
+})
+
 local function newPalette(): Palette
 	return table.clone(base)
 end
@@ -92,6 +194,13 @@ end
 local theme: Theme = {
 	Base = base,
 	Accessibility = accessibility,
+	Feature = feature,
+	Tier = tier,
+	Rarity = rarity,
+	Fx = fx,
+	ViewportLight = viewportLight,
+	Stat = stat,
+	Boot = boot,
 	newPalette = newPalette,
 	applyAccessibility = applyAccessibility,
 }

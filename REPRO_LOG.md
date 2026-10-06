@@ -324,6 +324,134 @@ Add `GameAntiCheat.EnforcementEnabled` flag; return `wouldReject`; callers abort
 
 ---
 
+### R-13: RemoteFirewall EXEMPT_ACTIONS bypass per-action cooldowns
+- **System:** Security / cooldowns
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/RemoteFirewall.luau:143`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Rapidly invoke `Rebirth`, `ClaimDaily`, or trade actions.
+2. Observe they skip the per-action cooldown table in `RemoteFirewall`.
+3. Only the generic 8/s token-bucket rate limit applies.
+
+#### Expected
+Each action respects a per-action minimum cooldown appropriate to its cost/risk.
+
+#### Actual
+Exempt actions can fire at ~8 Hz with no dedicated cooldown.
+
+#### Fix
+Add per-action cooldowns for non-spammable exempt actions (`Rebirth`, `ClaimDaily`, `ClaimAllMail`, trade actions); keep `CollectVault`/`Overcharge` exempt only from payload cost, not from rate limits if needed.
+
+#### Verification
+`npm test` passes; `argon build default.project.json -x -o "Astral Forge v2.rbxlx"` succeeds.---
+
+### R-14: PulseAnomaly has no server-enforced minimum interval
+- **System:** Astral Forge / anomaly
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau:183`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Repeatedly invoke `PulseAnomaly` as fast as the 0.08s firewall cooldown allows.
+2. Observe every pulse grants charge regardless of `LastActionAt`.
+
+#### Expected
+A server-enforced minimum interval prevents spam-pulsing outside the intended window.
+
+#### Actual
+`LastActionAt` is written but never read; charge accrues every 0.08s.
+
+#### Fix
+Read `profile.Anomaly.LastActionAt` and reject pulses within the configured minimum interval.
+
+#### Verification
+`npm test` passes; `argon build default.project.json -x -o "Astral Forge v2.rbxlx"` succeeds.---
+
+### R-15: Echo Capture can error with empty preferred trait list
+- **System:** Astral Forge / echoes
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau:771`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Configure an affinity with no matching traits.
+2. Invoke `CaptureEcho`.
+3. `random:NextInteger(1, 0)` throws.
+
+#### Expected
+Capture falls back gracefully (random trait or explicit failure message).
+
+#### Fix
+Guard `NextInteger` lower bound ≤ upper bound; if no preferred trait, pick uniformly from all traits.
+
+#### Verification
+`npm test` passes; `argon build default.project.json -x -o "Astral Forge v2.rbxlx"` succeeds.---
+
+### R-16: PendingAnomalyActions can drop actions between snapshot and clear
+- **System:** Astral Forge / anomaly / data
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/ServerServices.luau:4680`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Queue many anomaly charge actions rapidly.
+2. Have the production tick skip or run while `IsBusy`.
+3. Observe pending actions appended after the snapshot reference are lost on clear.
+
+#### Expected
+All pending anomaly actions are eventually applied or explicitly discarded.
+
+#### Fix
+Drain pending actions by value/index rather than clearing by table-reference identity, or snapshot before draining.
+
+#### Verification
+`npm test` passes; `argon build default.project.json -x -o "Astral Forge v2.rbxlx"` succeeds.---
+
+### R-17: SettingsView crashes on stale activeSection id
+- **System:** Client / settings UI
+- **Severity:** Low
+- **File:line:** `src/Client/AstralForge/pages/PagesSystem.luau:343`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Navigate to a settings section that is later removed from `SECTION_BY_ID`.
+2. Render `SettingsView`.
+
+#### Expected
+Settings falls back to a valid section or shows empty state.
+
+#### Actual
+`SECTION_BY_ID[activeSection].touchOnly` indexes nil and throws.
+
+#### Fix
+Nil-check the section lookup before accessing fields.
+
+#### Verification
+`npm test` passes; `argon build default.project.json -x -o "Astral Forge v2.rbxlx"` succeeds.---
+
+### R-18: Setting isChanged treats non-numeric defaults as 0
+- **System:** Client / settings UI
+- **Severity:** Low
+- **File:line:** `src/Client/AstralForge/pages/PagesSystem.luau:371`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Define a setting with a non-empty string default.
+2. Change the value to another non-zero string.
+
+#### Expected
+`isChanged` correctly reflects that the value differs from default.
+
+#### Actual
+`tonumber(entry.default) or 0` compares the new string against 0, so the change is hidden.
+
+#### Fix
+Compare the raw saved value against the raw default for non-numeric types.
+
+---
+
 ## Pending reproductions
 
 The following areas still need explicit repro entries:
@@ -335,3 +463,6 @@ The following areas still need explicit repro entries:
 - Casino provably-fair seed verification
 - Bazaar anti-scam / price validation
 - Astral Forge state-machine transitions under lag
+
+#### Verification
+`npm test` passes; `argon build default.project.json -x -o "Astral Forge v2.rbxlx"` succeeds.
