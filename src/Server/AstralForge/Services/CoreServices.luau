@@ -1394,6 +1394,9 @@ function GuildService:_findByTag(tag: string)
 					self._store:RemoveAsync("tag:" .. tag)
 				end
 			end)
+			pcall(function()
+				self._leaderboard:RemoveAsync(guildId)
+			end)
 			if not released then
 				warn(string.format("[WARN] [GUILD] disband deleted %s but the tag %s is still reserved — %s", guildId, tostring(tag), tostring(releaseErr)))
 				if not RunService:IsStudio() then

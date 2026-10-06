@@ -33,6 +33,7 @@ return function(loadService: (string) -> any)
 			if age < LOTTERY_ROLLOVER_MAX_AGE then
 				lottery.Pot = saved.Pot or lottery.Pot
 				lottery.Pending = saved.Pending or lottery.Pending
+				lottery.Tickets = saved.Tickets or lottery.Tickets
 				lottery.Bucket = saved.Bucket or lottery.Bucket
 			end
 		end
@@ -49,6 +50,7 @@ return function(loadService: (string) -> any)
 			lotteryStore:SetAsync(LOTTERY_ROLLOVER_KEY, {
 				Pot = lottery.Pot,
 				Pending = lottery.Pending,
+				Tickets = lottery.Tickets,
 				Bucket = lottery.Bucket,
 				SavedAt = os.time(),
 			})

@@ -3702,6 +3702,17 @@ serviceFactories["GameService"] = function()
 			end
 			if action == Protocol.Actions.KickGuildMember then
 				ok, message, guild = self._guilds:Kick(player, profile, payload.UserId or payload.Id)
+			if ok then
+				local target = Players:GetPlayerByUserId(tonumber(payload.UserId or payload.Id) or 0)
+				if target then
+					self._data:AtomicUpdate(target, function(victimProfile)
+						victimProfile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+						victimProfile.GuildBonuses = emptyBonuses()
+						return { ok = true }
+					end, true, "guild-kick")
+					self:_pushState(target)
+				end
+			end
 			elseif action == Protocol.Actions.SetGuildRole then
 				ok, message, guild = self._guilds:SetRole(player, profile, payload.UserId or payload.Id, payload.Role)
 			else

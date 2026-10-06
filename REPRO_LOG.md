@@ -573,6 +573,81 @@ Fetch up to 100 entries, slice by `page * 20 + 1 .. page * 20 + 20`, cache only 
 `npm test` guild service fixtures pass.
 
 
+
+
+---
+
+### R-24: Bazaar lottery tickets lost on server shutdown
+- **System:** Bazaar / lottery
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/BazaarService.luau:19`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Buy lottery tickets.
+2. Shut down the server before the next draw.
+3. Restart and inspect `lottery.Tickets`.
+
+#### Expected
+Paid tickets survive into the next server instance within the rollover window.
+
+#### Actual
+Only `Pot`, `Pending`, and `Bucket` were saved/restored; `Tickets` reset to empty.
+
+#### Fix
+Include `lottery.Tickets` in the `saveLotteryRollover` / `loadLotteryRollover` snapshot.
+
+#### Verification
+`npm test` bazaar math guards pass.
+
+---
+
+### R-25: Disbanded guild leaves orphan leaderboard row
+- **System:** Guild / cleanup
+- **Severity:** Low
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau:1386`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Disband a guild that has leaderboard activity.
+2. Fetch `GetLeaderboard(0)`.
+3. Observe an "Uncharted Guild" placeholder for the deleted guild.
+
+#### Expected
+Disband removes the guild's OrderedDataStore entry.
+
+#### Fix
+`Disband` now calls `self._leaderboard:RemoveAsync(guildId)` after releasing the tag.
+
+#### Verification
+`npm test` guild service fixtures pass.
+
+---
+
+### R-26: Kicked guild member keeps bonuses until rejoin
+- **System:** Guild / membership
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau:1412` / `ServerServices.luau`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Have a guild member receive guild bonuses.
+2. Kick them while they are still in the server.
+3. Observe their `profile.Guild` and `GuildBonuses`.
+
+#### Expected
+Kicked player's profile is cleared and state is pushed so the client stops receiving bonuses.
+
+#### Actual
+`profile.Guild` remains populated until the next login.
+
+#### Fix
+`GameService:_guildAction` clears the victim's `profile.Guild`/`GuildBonuses` via `AtomicUpdate` and pushes state when the target is in-server.
+
+#### Verification
+`npm test` guild service fixtures pass.
+
+
 ## Pending reproductions
 
 The following areas still need explicit repro entries:
