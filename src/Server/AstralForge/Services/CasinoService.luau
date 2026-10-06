@@ -13,7 +13,7 @@ return function(loadService: (string) -> any)
 	local DAY = 86400
 	local SLOTS_RTP = CasinoMath.SlotsRtp()
 	local SCRATCH_RTP = CasinoMath.ScratchRtp()
-	local FREE_SCRATCH_BASE = Economy.New(100) -- free scratch cap is flat, not % of balance
+	local FREE_SCRATCH_BASE = Economy.Persist(100) -- free scratch cap is flat, not % of balance
 
 	local function day(now: number): number
 		return math.floor(now / DAY)
