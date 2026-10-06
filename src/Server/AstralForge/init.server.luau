@@ -8,6 +8,7 @@ local TextChatService = game:GetService("TextChatService")
 
 local ModuleLog = require(script:WaitForChild("ModuleLog"))
 local Services = require(script:WaitForChild("Services"):WaitForChild("ServerServices"))
+ModuleLog.AttachTelemetry(Services.ServerTelemetry)
 
 Players.CharacterAutoLoads = false
 

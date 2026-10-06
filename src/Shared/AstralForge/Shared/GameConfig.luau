@@ -7222,12 +7222,27 @@ local generatedOk, Generated = pcall(function()
 	return require(script.Parent:WaitForChild("GameConfigGenerated"))
 end)
 if generatedOk then
-	GameConfig.Machines = Generated.Machines
-	GameConfig.Research = Generated.Research
-	GameConfig.Zones = Generated.Zones
-	GameConfig.GridUpgrades = Generated.GridUpgrades
-	GameConfig.Operations.SeasonTiers = Generated.SeasonTiers
-	GameConfig.Anomalies.Milestones = Generated.Milestones
+	-- Adopt generated tables only when they exist. The generated module is
+	-- allowed to omit sections (e.g. SeasonTiers / Milestones); if we blindly
+	-- assign nil we wipe the lazy-loader tables and downstream code crashes.
+	if Generated.Machines then
+		GameConfig.Machines = Generated.Machines
+	end
+	if Generated.Research then
+		GameConfig.Research = Generated.Research
+	end
+	if Generated.Zones then
+		GameConfig.Zones = Generated.Zones
+	end
+	if Generated.GridUpgrades then
+		GameConfig.GridUpgrades = Generated.GridUpgrades
+	end
+	if Generated.SeasonTiers then
+		GameConfig.Operations.SeasonTiers = Generated.SeasonTiers
+	end
+	if Generated.Milestones then
+		GameConfig.Anomalies.Milestones = Generated.Milestones
+	end
 end
 
 for featureId, level in ForgeLevels.unlockLevels() do

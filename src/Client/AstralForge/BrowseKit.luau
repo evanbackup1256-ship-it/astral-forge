@@ -178,7 +178,7 @@ function Kit.useServerNow(period)
 		local alive = true
 		task.spawn(function()
 			while alive do
-				task.wait(period or 1)
+				task.wait(math.max(0.1, period or 1))
 				if alive then
 					setNow(workspace:GetServerTimeNow())
 				end

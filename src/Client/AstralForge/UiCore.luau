@@ -5598,13 +5598,20 @@ local function MainGame(_param)
 					end
 				end
 				if remaining > 384 then
-					for key in sentAt.current do
-						sentAt.current[key] = nil
-						remaining -= 1
-						if remaining <= 256 then
-							break
-						end
+					-- Evict oldest timestamps first so unrelated action signatures do not
+					-- lose their cooldowns arbitrarily.
+					local entries = {}
+					for key, timestamp in sentAt.current do
+						table.insert(entries, { key = key, timestamp = timestamp })
 					end
+					table.sort(entries, function(a, b)
+						return a.timestamp < b.timestamp
+					end)
+					local target = remaining - 256
+					for i = 1, target do
+						sentAt.current[entries[i].key] = nil
+					end
+					remaining -= target
 				end
 				sentAtCount.current = remaining
 			end

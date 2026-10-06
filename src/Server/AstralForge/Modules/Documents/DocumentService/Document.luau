@@ -92,9 +92,15 @@ type SchemaError = Types.SchemaError
 local INTERNAL_SCHEMA_VERSION = 0
 
 local function runHooks(hooks: { () -> () })
-
+	local failures = {}
 	for _, hook in table.clone(hooks) do
-		hook()
+		local ok, err = pcall(hook)
+		if not ok then
+			table.insert(failures, tostring(err))
+		end
+	end
+	if #failures > 0 then
+		warn("[Document] hook failure(s): " .. table.concat(failures, "; "))
 	end
 end
 

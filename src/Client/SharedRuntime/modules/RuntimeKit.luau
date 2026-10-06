@@ -702,7 +702,7 @@ end
 local function encodeTelemetry(record)
 	local packed = buffer.create(TELEMETRY_BYTES)
 	buffer.writeu8(packed, 0, TELEMETRY_VERSION)
-	buffer.writeu8(packed, 1, bit32.band(record.flags, 0xff))
+	buffer.writeu8(packed, 1, bit32.band(safeU32(record.flags), 0xff))
 	buffer.writeu32(packed, 2, safeU32(record.revision))
 	buffer.writef32(packed, 6, safeF32(record.cash))
 	buffer.writef32(packed, 10, safeF32(record.vault))
@@ -967,30 +967,38 @@ do
 		if not self.lock:enter("drain") then
 			return nil
 		end
-		local processed = 0
-		while processed < self.batchSize and #self.queue > 0 do
-			local job = table.remove(self.queue, 1)
-			if not job then
-				break
-			end
-			if self.parallel then
-				task.desynchronize()
-			end
-			local ok, result = pcall(job.compute)
-			if self.parallel then
-				task.synchronize()
-			end
-			if ok then
-				job.complete(result)
-			else
-				local _result = job.failed
-				if _result ~= nil then
-					_result(result)
+		local drainOk, drainErr = pcall(function()
+			local processed = 0
+			while processed < self.batchSize and #self.queue > 0 do
+				local job = table.remove(self.queue, 1)
+				if not job then
+					break
 				end
+				if self.parallel then
+					task.desynchronize()
+				end
+				local ok, result = pcall(job.compute)
+				if self.parallel then
+					task.synchronize()
+				end
+				if ok then
+					pcall(job.complete, result)
+				else
+					local failed = job.failed
+					if failed ~= nil then
+						pcall(failed, result)
+					end
+				end
+				processed += 1
 			end
-			processed += 1
-		end
+		end)
 		self.lock:leave("drain")
+		if not drainOk then
+			warn("[AsynchronousActorScheduler] drain error: " .. tostring(drainErr))
+		end
+		if self.destroyed then
+			return nil
+		end
 		if #self.queue > 0 then
 			task.defer(function()
 				return self:drain()
