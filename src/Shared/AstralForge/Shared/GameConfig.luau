@@ -892,6 +892,8 @@ local GameConfig = {
 
 	Guild = {
 		CreateCost = 5_000,
+		RenameCost = 10_000,
+		RenameCooldownSeconds = 7 * 86400,
 		MaxMembers = 20,
 		UpgradeOrder = { "ProductionBoost", "VaultBoost", "OfflineBoost", "AutomationBoost", "TapBoost" },
 		Upgrades = {

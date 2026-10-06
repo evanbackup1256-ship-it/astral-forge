@@ -97,6 +97,7 @@ local Protocol = {
 		DisbandGuild = "DisbandGuild",
 		KickGuildMember = "KickGuildMember",
 		SetGuildRole = "SetGuildRole",
+		RenameGuild = "RenameGuild",
 		ContributeGuild = "ContributeGuild",
 		BuyGuildUpgrade = "BuyGuildUpgrade",
 		ClaimGuildGoal = "ClaimGuildGoal",

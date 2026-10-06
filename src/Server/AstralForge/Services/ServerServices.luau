@@ -3744,7 +3744,7 @@ serviceFactories["GameService"] = function()
 			end
 			return responseSuccess(message, { Guild = guild })
 		end
-		if action == Protocol.Actions.CreateGuild then
+		if action == Protocol.Actions.CreateGuild or action == Protocol.Actions.RenameGuild then
 			local rawName = type(payload.Name) == "string" and payload.Name or ""
 			local filteredOk, filtered = self._security.Filter:Apply(player, rawName, player.UserId, 28)
 			if not filteredOk or type(filtered) ~= "string" or #filtered < 3 then
@@ -3761,6 +3761,11 @@ serviceFactories["GameService"] = function()
 			local before = self._guilds:GetCachedPublic(contributeGuildId)
 			contributeActivity = before and tonumber(before.Activity) or 0
 		end
+		local renameGuildId = ""
+		if action == Protocol.Actions.RenameGuild then
+			local existing = self._data:Get(player)
+			renameGuildId = existing and existing.Guild and existing.Guild.Id or ""
+		end
 		local result = self:_mutate(player, function(profile)
 			local ok, message, guild
 			if action == Protocol.Actions.CreateGuild then
@@ -3771,6 +3776,8 @@ serviceFactories["GameService"] = function()
 				ok, message, guild = self._guilds:Leave(player, profile)
 			elseif action == Protocol.Actions.DisbandGuild then
 				ok, message, guild = self._guilds:Disband(player, profile)
+			elseif action == Protocol.Actions.RenameGuild then
+				ok, message, guild = self._guilds:Rename(player, profile, payload.Name, payload.Tag)
 			elseif action == Protocol.Actions.ContributeGuild then
 				local balanceField = payload.Currency == "Cash" and "Cash" or "Stardust"
 				local amount = payload.Amount
@@ -3798,6 +3805,27 @@ serviceFactories["GameService"] = function()
 		end)
 		if result.ok and action == Protocol.Actions.ContributeGuild and contributeGuildId ~= "" then
 			self:_announceGuildActivity(contributeGuildId, contributeActivity, result.Guild)
+		end
+		if result.ok and action == Protocol.Actions.RenameGuild and renameGuildId ~= "" and result.Guild then
+			local guild = result.Guild
+			local oldTag = guild.AuditLog and type(guild.AuditLog[1]) == "table" and guild.AuditLog[1].FromTag or nil
+			local newTag = guild.AuditLog and type(guild.AuditLog[1]) == "table" and guild.AuditLog[1].ToTag or nil
+			local tagText = oldTag and newTag and oldTag ~= newTag and string.format(" Tag changed from %s to %s.", oldTag, newTag) or ""
+			self:_toastGuild(
+				renameGuildId,
+				"Guild renamed",
+				string.format("%s renamed the guild to %s.%s", player.DisplayName, guild.Name or "", tagText),
+				"Special",
+				player
+			)
+			for _, online in Players:GetPlayers() do
+				if online ~= player then
+					local onlineProfile = self._data:Get(online)
+					if onlineProfile and onlineProfile.Guild and onlineProfile.Guild.Id == renameGuildId then
+						self:_pushState(online)
+					end
+				end
+			end
 		end
 		return result
 	end
@@ -4058,6 +4086,7 @@ serviceFactories["GameService"] = function()
 			or action == Protocol.Actions.DisbandGuild
 			or action == Protocol.Actions.KickGuildMember
 			or action == Protocol.Actions.SetGuildRole
+			or action == Protocol.Actions.RenameGuild
 			or action == Protocol.Actions.ContributeGuild
 			or action == Protocol.Actions.BuyGuildUpgrade
 			or action == Protocol.Actions.ClaimGuildGoal

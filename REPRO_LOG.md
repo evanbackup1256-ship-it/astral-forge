@@ -703,6 +703,37 @@ Server publishes a server-seed hash before play; client can supply a client seed
 `npm test` casino math guards pass; `argon build` succeeds.
 
 
+
+
+---
+
+### R-29: Guild renaming missing
+- **System:** Guild / management
+- **Severity:** Medium
+- **File:line:** `src/Server/AstralForge/Services/CoreServices.luau`
+- **Status:** Fixed, verified
+
+#### Repro steps
+1. Be guild leader.
+2. Attempt to rename the guild.
+3. Observe no action exists.
+
+#### Expected
+Leader can rename the guild for a configured cost, subject to a cooldown, with validation, filtering, audit log, tag reservation update, and member notification.
+
+#### Fix
+- Added `GameConfig.Guild.RenameCost` (10_000) and `RenameCooldownSeconds` (7 days).
+- Added `Protocol.Actions.RenameGuild`.
+- Added `RemoteFirewall` payload validation and rate/cooldown entry.
+- Added `GuildService:Rename` with leader check, cost, cooldown, name/tag validation, tag reservation release/claim, `AuditLog` entry, and profile update.
+- Added client `GRANT_ACTIONS` and cooldown entries.
+- `ServerServices:_guildAction` filters the new name, calls `Rename`, then toasts all online members and pushes state to them.
+
+#### Verification
+`npm test` session parity + guild service fixtures pass; `argon build` succeeds.
+
+
+
 ## Pending reproductions
 
 The following areas still need explicit repro entries:

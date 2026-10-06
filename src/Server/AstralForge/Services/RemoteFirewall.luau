@@ -110,6 +110,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.DisbandGuild] = { Cost = 2, Cooldown = 2 },
 		[Protocol.Actions.KickGuildMember] = { Cost = 1.5, Cooldown = 0.5 },
 		[Protocol.Actions.SetGuildRole] = { Cost = 1.5, Cooldown = 0.5 },
+		[Protocol.Actions.RenameGuild] = { Cost = 2, Cooldown = 2 },
 		[Protocol.Actions.ContributeGuild] = { Cost = 1, Cooldown = 0.25 },
 		[Protocol.Actions.BuyGuildUpgrade] = { Cost = 1.5, Cooldown = 0.7 },
 		[Protocol.Actions.ClaimGuildGoal] = { Cost = 1.5, Cooldown = 0.4 },
@@ -654,6 +655,15 @@ return function(loadService: (string) -> any)
 			if not userIdField(payload) then return false, "invalid guild member" end
 		elseif action == Protocol.Actions.SetGuildRole then
 			if not userIdField(payload) or (payload.Role ~= "Officer" and payload.Role ~= "Member") then return false, "invalid guild role" end
+		elseif action == Protocol.Actions.RenameGuild then
+			if type(payload) == "table" and type(payload.Name) == "string" then
+				payload.Name = payload.Name:gsub("^%s+", ""):gsub("%s+$", "")
+			end
+			if type(payload) == "table" and type(payload.Tag) == "string" then
+				payload.Tag = string.upper((payload.Tag:gsub("%s+", "")))
+			end
+			if not stringField(payload, "Name", 3, 28) then return false, "invalid guild rename name" end
+			if payload.Tag ~= nil and not stringField(payload, "Tag", 3, 4) then return false, "invalid guild rename tag" end
 		elseif action == Protocol.Actions.ContributeGuild then
 			local hasAmount = payload.Amount ~= nil
 			local hasFraction = payload.Fraction ~= nil
