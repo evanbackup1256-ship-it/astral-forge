@@ -52,3 +52,4 @@
 - 2026-10-05: Casino round-history logging foundation (R-27) + `CasinoRng` foundation module (R-28). `npm test` + `argon build` pass.
 - 2026-10-05: Wired `CasinoRng` into all casino games; round history now carries seed proof (R-28 complete). `npm test` + `argon build` pass.
 - 2026-10-05: Guild rename implemented server-side with cost, cooldown, filtering, audit log, tag reservation, and member notification (R-29). Client UI remains pending. `npm test` + `argon build` pass.
+- 2026-10-05: Added `docs/PRODUCTION_IDS.md` checklist for the two external release blockers (Casino kit asset ID and monetization Product/Pass IDs). These cannot be fixed without creating/uploading Roblox assets and products from the account that owns the experience. Code already falls back gracefully in Studio.
