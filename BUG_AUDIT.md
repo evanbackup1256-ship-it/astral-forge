@@ -88,7 +88,7 @@
 ## 4. Additional findings fixed
 
 | Medium | Casino / compliance | `src/Server/AstralForge/Services/CasinoService.luau` | No per-round outcome log; players cannot review bet history and RTP cannot be verified from data. | **Fixed** (R-27: bounded `Casino.History` ring, exposed in state) |
-| High | Casino / compliance | `src/Server/AstralForge/Services/CasinoService.luau` | Outcomes from shared unseeded `Random.new()`; no server seed/client seed/nonce for provably-fair verification. | **In progress** (R-28: `CasinoRng` module added; wiring in next pass) |
+| High | Casino / compliance | `src/Server/AstralForge/Services/CasinoService.luau` | Outcomes from shared unseeded `Random.new()`; no server seed/client seed/nonce for provably-fair verification. | **Fixed** (R-28: `CasinoRng` wired into all games; seed hash + client seed + nonce exposed in state/history) |
 
 ## 4. Unresolved / release-blocker items
 

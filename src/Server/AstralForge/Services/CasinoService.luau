@@ -5,6 +5,7 @@ return function(loadService: (string) -> any)
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
+	local CasinoRng = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoRng"))
 	local ProgressionService = loadService("ProgressionService")
 
 	local CasinoService = {}
@@ -22,16 +23,33 @@ return function(loadService: (string) -> any)
 
 	local function ensure(profile): any
 		profile.Casino = CasinoMath.Ensure(profile.Casino)
-		if type(profile.Casino) == "table" and type(profile.Casino.History) ~= "table" then
-			profile.Casino.History = {}
+		if type(profile.Casino) == "table" then
+			profile.Casino.Rng = CasinoRng.Ensure(profile.Casino.Rng)
+			if type(profile.Casino.History) ~= "table" then
+				profile.Casino.History = {}
+			end
 		end
 		return profile.Casino
 	end
 	local function logRound(casino, entry)
 		entry.At = os.time()
+		entry.Proof = {
+			ServerSeedHash = casino.Rng.ServerSeedHash,
+			ClientSeed = casino.Rng.ClientSeed,
+			Nonce = casino.Rng.Nonce,
+		}
 		table.insert(casino.History, 1, entry)
 		if #casino.History > HISTORY_MAX then
 			table.remove(casino.History)
+		end
+	end
+	local function nextRand(casino): number
+		return CasinoRng.NextNumber(casino.Rng)
+	end
+	local function applyClientSeed(casino, payload)
+		local seed = payload and payload.Seed
+		if type(seed) == "string" and #seed > 0 and #seed <= 64 then
+			CasinoRng.SetClientSeed(casino.Rng, seed)
 		end
 	end
 
@@ -97,13 +115,14 @@ return function(loadService: (string) -> any)
 			return false, "Pick a stake."
 		end
 		local casino = ensure(profile)
+		applyClientSeed(casino, payload)
 		local stake = stakeAmount(profile, tier)
 		local base = profile.Cash
 		if not take(profile, stake) then
 			return false, "Not enough flux for that stake."
 		end
 		local reels, multiplier, kind = CasinoMath.SlotsSpin(function()
-			return random:NextNumber()
+			return nextRand(casino)
 		end)
 		local payout = if multiplier > 0 then capped(base, stake, Economy.Mul(stake, multiplier)) else 0
 		if multiplier > 0 then
@@ -127,13 +146,14 @@ return function(loadService: (string) -> any)
 			return false, "Pick something to bet on."
 		end
 		local casino = ensure(profile)
+		applyClientSeed(casino, payload)
 		local stake = stakeAmount(profile, tier)
 		local base = profile.Cash
 		if not take(profile, stake) then
 			return false, "Not enough flux for that stake."
 		end
 		local number = CasinoMath.RouletteSpin(function()
-			return random:NextNumber()
+			return nextRand(casino)
 		end)
 		local multiplier = CasinoMath.RoulettePay(pick :: string, number)
 		local payout = if multiplier > 0 then capped(base, stake, Economy.Mul(stake, multiplier)) else 0
@@ -150,6 +170,7 @@ return function(loadService: (string) -> any)
 
 	local function playScratch(profile, random: Random, payload, now: number): (boolean, string, any?)
 		local casino = ensure(profile)
+		applyClientSeed(casino, payload)
 		local free = payload and payload.Free == true
 		local tier = if free then 1 else tierOf(payload)
 		if tier == nil then
@@ -166,7 +187,7 @@ return function(loadService: (string) -> any)
 			return false, "Not enough flux for that stake."
 		end
 		local cells, multiplier, symbol = CasinoMath.ScratchCard(function()
-			return random:NextNumber()
+			return nextRand(casino)
 		end)
 		local effectiveBase = if free then FREE_SCRATCH_BASE else base
 		local payout = if multiplier > 0 then capped(effectiveBase, if free then 0 else stake, Economy.Mul(stake, multiplier)) else 0
@@ -197,6 +218,7 @@ return function(loadService: (string) -> any)
 	local VALID_FLIP_OPS = table.freeze({ Cashout = true, Flip = true })
 	local function playFlip(profile, random: Random, payload): (boolean, string, any?)
 		local casino = ensure(profile)
+		applyClientSeed(casino, payload)
 		local flip = casino.Flip
 		local op = payload and payload.Op
 		if op ~= "Cashout" and op ~= "Flip" then
@@ -221,7 +243,7 @@ return function(loadService: (string) -> any)
 			flip.Active, flip.Streak, flip.Stake, flip.Tier, flip.Base = true, 0, Economy.Persist(stake), tier, Economy.Persist(base)
 		end
 		local heads = CasinoMath.FlipRoll(function()
-			return random:NextNumber()
+			return nextRand(casino)
 		end)
 		if not heads then
 			local stake, tier = flip.Stake, flip.Tier
@@ -244,10 +266,11 @@ return function(loadService: (string) -> any)
 
 	local function playHighLow(profile, random: Random, payload): (boolean, string, any?)
 		local casino = ensure(profile)
+		applyClientSeed(casino, payload)
 		local round = casino.HighLow
 		local op = payload and payload.Op
 		local function rand(): number
-			return random:NextNumber()
+			return nextRand(casino)
 		end
 		if op == "Start" then
 			if round.Active then
@@ -412,9 +435,15 @@ return function(loadService: (string) -> any)
 		for i = 1, math.min(#(casino.History or {}), 20) do
 			table.insert(publicHistory, casino.History[i])
 		end
+		local rngState = {
+			ServerSeedHash = casino.Rng.ServerSeedHash,
+			ClientSeed = casino.Rng.ClientSeed,
+			Nonce = casino.Rng.Nonce,
+		}
 		return {
 			Stakes = stakes,
 			Stats = { Played = casino.Played, Won = casino.Won, Streak = casino.Streak, BestStreak = casino.BestStreak, BiggestWin = casino.BiggestWin },
+			Rng = rngState,
 			History = publicHistory,
 			Slots = { Symbols = CasinoMath.SLOT_SYMBOLS, Rtp = SLOTS_RTP },
 			Roulette = { Zero = "Green" },

@@ -683,7 +683,7 @@ Only lifetime aggregates (`Played`, `Won`, `Streak`, `BiggestWin`) exist.
 - **System:** Casino / compliance
 - **Severity:** High
 - **File:line:** `src/Server/AstralForge/Services/CasinoService.luau`
-- **Status:** In progress
+- **Status:** Fixed, verified
 
 #### Repro steps
 1. Inspect `CasinoService.Play`.
@@ -692,12 +692,15 @@ Only lifetime aggregates (`Played`, `Won`, `Streak`, `BiggestWin`) exist.
 #### Expected
 Server publishes a server-seed hash before play; client can supply a client seed; nonce increments per round; outcome derivation is deterministic and reproducible.
 
-#### Fix (partial)
+#### Fix
 - Added `src/Server/AstralForge/Modules/CasinoRng.luau` with `State`, `GenerateSeed`, `HashSeed`, `Ensure`, `SetClientSeed`, `NextNumber`.
-- Next pass: replace `random:NextNumber()` calls with `CasinoRng.NextNumber(casino.Rng)` and expose seed proof in state/history.
+- Wired `CasinoRng.NextNumber(casino.Rng)` into Slots, Roulette, Scratch, Flip, and HighLow.
+- `applyClientSeed` lets clients set a seed per round; empty or oversized seeds are ignored.
+- Each `logRound` entry includes `{ServerSeedHash, ClientSeed, Nonce}` so players can verify.
+- `CasinoService.State` exposes the current `Rng` state.
 
 #### Verification
-Module parses cleanly; integration pending.
+`npm test` casino math guards pass; `argon build` succeeds.
 
 
 ## Pending reproductions

@@ -28,7 +28,7 @@
 | Cooldowns / rate limits | Partial | Yes | Yes | Partial | Partial | — |
 | Guild | Partial | Yes (R-22–R-26) | Partial | Partial | Partial | — |
 | Ranks | No | No | No | No | No | — |
-| Casino | Partial | Yes (R-20–R-21, R-27–R-28 in progress) | Partial | Partial | Partial | — |
+| Casino | Partial | Yes (R-20–R-21, R-27–R-28) | Partial | Partial | Partial | — |
 | Bazaar / trade | Partial | Yes (R-24) | Yes | Partial | Partial | — |
 | Astral Forge | Partial | Yes (R-13–R-26) | Partial | Partial | Partial | — |
 
@@ -50,3 +50,4 @@
 - 2026-10-05: Audit-driven bug fixes (R-19–R-23) + trade UID collision fix, casino free-scratch cap, guild name filter/leaderboard pagination. `npm test` + `argon build` pass.
 - 2026-10-05: Additional audit fixes (R-24–R-26): lottery ticket rollover persistence, guild disband leaderboard cleanup, kicked-member profile cleanup. `npm test` + `argon build` pass.
 - 2026-10-05: Casino round-history logging foundation (R-27) + `CasinoRng` foundation module (R-28). `npm test` + `argon build` pass.
+- 2026-10-05: Wired `CasinoRng` into all casino games; round history now carries seed proof (R-28 complete). `npm test` + `argon build` pass.
