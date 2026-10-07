@@ -2031,6 +2031,7 @@ __defs["networkPolicy"] = function()
 		GetLeaderboard = 1.1,
 		GetBazaarListings = 1.1,
 		GetMyBazaarListings = 1.5,
+		GetMyBazaarPurchases = 1.5,
 		GetGuildLeaderboard = 1.1,
 		GetAdminState = 0.9,
 		ReportClientIntegrity = 30.5,
@@ -2063,6 +2064,7 @@ __defs["networkPolicy"] = function()
 		GetLeaderboard = 8,
 		GetBazaarListings = 8,
 		GetMyBazaarListings = 8,
+		GetMyBazaarPurchases = 8,
 		GetAdminState = 8,
 	}
 

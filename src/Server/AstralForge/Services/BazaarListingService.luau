@@ -37,6 +37,7 @@ export type Context = {
 local MAX_SELLER_LISTINGS = 50
 local MAX_SELLER_HISTORY = 100
 local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY
+local MAX_BUYER_HISTORY = 100
 local LIST_PAGE_SIZE = 20
 local MY_LIST_PAGE_SIZE = 6
 local MAX_PRICE_DIGITS = 80
@@ -255,14 +256,28 @@ return function(context: Context)
 				uid = string.format("IT%07d", items.NextId)
 				items.NextId += 1
 			until items.Inventory[uid] == nil
+			local acquiredAt = os.time()
 			items.Inventory[uid] = {
 				DefinitionId = listing.Item.DefinitionId,
 				Level = listing.Item.Level,
-				AcquiredAt = os.time(),
+				AcquiredAt = acquiredAt,
 			}
 			items.Discovered[listing.Item.DefinitionId] = true
 			bazaar.PendingPurchases[listing.Id] = nil
 			bazaar.CompletedPurchases[listing.Id] = true
+			bazaar.PurchaseHistory[listing.Id] = {
+				Id = listing.Id,
+				SellerUserId = listing.SellerUserId,
+				ItemUid = uid,
+				Item = {
+					DefinitionId = listing.Item.DefinitionId,
+					Level = listing.Item.Level,
+					AcquiredAt = acquiredAt,
+				},
+				Price = listing.Price,
+				PurchasedAt = listing.SoldAt or acquiredAt,
+			}
+			profile.Bazaar = BazaarMath.Ensure(bazaar)
 			ProfileBagMath.BumpStat(profile, "ItemsFound", 1)
 			return responseSuccess(
 				"Purchase complete. The item is in your inventory.",
@@ -706,6 +721,39 @@ return function(context: Context)
 		return responseSuccess("Your listings loaded.", {
 			Listings = mine,
 			NextCursor = nextCursor,
+			Total = #entries,
+		})
+	end
+
+	function Marketplace.Purchases(player: Player, cursorValue: any): Reply
+		local cursor = if type(cursorValue) == "number" and cursorValue == cursorValue
+			then math.clamp(math.floor(cursorValue), 0, MAX_BUYER_HISTORY)
+			else 0
+		local profile = context.get(player)
+		if type(profile) ~= "table" then
+			return responseError("Your profile is still loading. Try again shortly.")
+		end
+		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
+		local entries = {}
+		for id, receipt in profile.Bazaar.PurchaseHistory do
+			entries[#entries + 1] = { Id = id, Receipt = receipt }
+		end
+		table.sort(entries, function(left, right)
+			local leftReceipt = left.Receipt
+			local rightReceipt = right.Receipt
+			if leftReceipt.PurchasedAt ~= rightReceipt.PurchasedAt then
+				return leftReceipt.PurchasedAt > rightReceipt.PurchasedAt
+			end
+			return left.Id < right.Id
+		end)
+		local receipts = {}
+		local finish = math.min(#entries, cursor + MY_LIST_PAGE_SIZE)
+		for index = cursor + 1, finish do
+			receipts[#receipts + 1] = entries[index].Receipt
+		end
+		return responseSuccess("Your purchase history loaded.", {
+			Receipts = receipts,
+			NextCursor = if finish < #entries then finish else nil,
 			Total = #entries,
 		})
 	end

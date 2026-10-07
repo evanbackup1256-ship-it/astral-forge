@@ -4634,6 +4634,8 @@ serviceFactories["GameService"] = function()
 			return self._bazaarListings.Latest()
 		elseif action == Protocol.Actions.GetMyBazaarListings then
 			return self._bazaarListings.Mine(player, payload and payload.Cursor)
+		elseif action == Protocol.Actions.GetMyBazaarPurchases then
+			return self._bazaarListings.Purchases(player, payload and payload.Cursor)
 		elseif action == Protocol.Actions.CreateBazaarListing then
 			return self._bazaarListings.Create(player, payload and payload.Uid, payload and payload.Price, os.time())
 		elseif action == Protocol.Actions.CancelBazaarListing then

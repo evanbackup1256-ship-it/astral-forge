@@ -1182,6 +1182,7 @@ __defs["CommandActionValidators"] = function()
 		GetLeaderboard = true,
 		GetBazaarListings = true,
 		GetMyBazaarListings = true,
+		GetMyBazaarPurchases = true,
 		GetAdminState = true,
 		GetTrade = true,
 		TradeViewAway = true,

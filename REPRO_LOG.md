@@ -146,7 +146,9 @@ The escrow-backed service existed without a player-facing route for browsing off
 
 Evidence: `verify_bazaar_listing_service` now checks the player page route, seller cursor size, purchase confirmation, exact-price disclosure, fee text and buy/sell/cancel/payout action wiring. The listing-specific verifier, `verify_server_events`, Luau compile sweep, formatter and Argon project build passed after the changes. These checks do not render the page or exercise a live DataStore/multi-player transfer.
 
-Open: buy orders, offers, price history, durable buyer receipts and stale-index cleanup; live item/currency transfer, payout retry and save recovery; responsive phone/controller/VR review and published-server parity. The full goal remains unsigned.
+Open: buy orders, offers, price history, stale-index cleanup; live item/currency transfer, payout retry and save recovery; responsive phone/controller/VR review and published-server parity. The full goal remains unsigned.
+
+Buyer receipts are now stored in the buyer's profile in the same mutation that inserts the purchased item and marks it complete. A bounded read-only six-row cursor route returns the latest 100 sanitized receipts, and the Bazaar includes a Bought tab. `verify_bazaar_listing_math` checks invalid-record rejection and deterministic retention; `verify_bazaar_listing_service` checks route, rate limit, persistence, and UI wiring. Studio purchase recovery and rendered receipt review remain open.
 
 ## BUG-008: Claimed Bazaar sales consumed active-listing capacity
 

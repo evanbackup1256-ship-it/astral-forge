@@ -67,6 +67,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 - [ ] 47. Verify purchase delivery, payout, cancellation, and retry flows against two real Studio profiles.
 - [ ] 48. Verify market escrow across DataStore restart, server hopping, item-capacity failure, and save outage.
 - [ ] 49. Add market pagination, stale-index cleanup, seller listing history, and buyer receipts.
+  - Pagination, seller history, and bounded buyer receipts now have source/wiring and sanitizer tests; stale-index cleanup and live persistence verification remain open.
 - [ ] 50. Add persistent buy orders, offers, trade escrow, and anti-scam checks.
 
 ## Bazaar player experience and commerce surfaces

@@ -21,6 +21,7 @@ for _, action in
 	{
 		"GetBazaarListings",
 		"GetMyBazaarListings",
+		"GetMyBazaarPurchases",
 		"CreateBazaarListing",
 		"CancelBazaarListing",
 		"PurchaseBazaarListing",
@@ -37,6 +38,7 @@ has(client, '["PurchaseBazaarListing"] = true', "purchases must carry an authent
 has(client, '["ClaimBazaarPayout"] = true', "payout claims must carry an authenticated session grant")
 has(validators, "GetBazaarListings = true", "listing reads must be read-only")
 has(validators, "GetMyBazaarListings = true", "seller listing reads must be read-only")
+has(validators, "GetMyBazaarPurchases = true", "buyer receipt reads must be read-only")
 has(validators, "CreateBazaarListing = true", "escrow creation must be a high-value session action")
 has(validators, "CancelBazaarListing = true", "escrow return must be a high-value session action")
 has(validators, "PurchaseBazaarListing = true", "market purchases must be high-value session actions")
@@ -44,11 +46,18 @@ has(validators, "ClaimBazaarPayout = true", "payout claims must be high-value se
 has(firewall, 'not stringField(payload, "Uid", 3, 48)', "listing UID must be bounded")
 has(firewall, 'not stringField(payload, "Price", 1, 80)', "listing price must be bounded")
 has(firewall, 'not stringField(payload, "Id", 8, 64)', "listing ID must be bounded")
+has(firewall, 'numberField(payload, "Cursor", 0, 100, true)', "buyer receipt pagination must be bounded")
+has(
+	firewall,
+	"[Protocol.Actions.GetMyBazaarPurchases] = { Cost = 0.8, Cooldown = 1.5 }",
+	"buyer receipt reads must be rate limited"
+)
 
 has(config, "BazaarListingStoreName", "a separate durable listing store must be configured")
 has(config, "BazaarListingIndexStoreName", "a separate ordered browse index must be configured")
 has(profile, "EscrowListings = {}", "profile schema must preserve escrow references")
 has(profile, "ListingHistory = {}", "profile schema must preserve the bounded completed-sale history")
+has(profile, "PurchaseHistory = {}", "profile schema must preserve bounded buyer receipts")
 has(profile, "RestoredListings = {}", "profile schema must preserve idempotent returns")
 has(bazaarMath, "validEscrowListing(id, listing)", "profile sanitization must validate escrowed listings")
 
@@ -75,9 +84,20 @@ has(
 	"function Marketplace.Mine",
 	"seller history must reconcile durable local records with latest global listing state"
 )
+has(server, "function Marketplace.Purchases", "buyers must be able to load saved receipts")
+has(server, "bazaar.PurchaseHistory[listing.Id] =", "delivery must persist a receipt in the buyer profile")
+has(server, "PurchasedAt = listing.SoldAt or acquiredAt", "receipt timestamp must use server settlement time")
 has(server, "local MY_LIST_PAGE_SIZE = 6", "seller history page size must match the six-card layout")
-has(server, "local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY", "seller history pagination must cover active and archived records")
-has(firewall, 'numberField(payload, "Cursor", 0, 150, true)', "seller pagination firewall must admit the bounded history range")
+has(
+	server,
+	"local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY",
+	"seller history pagination must cover active and archived records"
+)
+has(
+	firewall,
+	'numberField(payload, "Cursor", 0, 150, true)',
+	"seller pagination firewall must admit the bounded history range"
+)
 has(
 	server,
 	"local latest = readListing(entry.Id) or entry.Listing",
@@ -91,6 +111,7 @@ has(server, "indexStore:SetAsync(keyFor(listingId), now)", "active listings must
 has(server, 'current.Status ~= "Escrowed"', "activation must reject state changes")
 has(server, 'elseif current.Status ~= "Cancelled" then', "cancel retry must proceed to profile recovery")
 has(gameService, "self._data:Save(player, false)", "profile escrow needs a save boundary")
+has(gameService, "self._bazaarListings.Purchases(player", "receipt reads must dispatch through the listing service")
 has(
 	bazaarPage,
 	"require(script.Parent.BazaarListings).BazaarListings",
@@ -103,6 +124,13 @@ has(
 	'props.dispatch("GetMyBazaarListings", { Cursor = requestedCursor }',
 	"seller history UI must load server-paged records"
 )
+has(
+	listingsUI,
+	'props.dispatch("GetMyBazaarPurchases", { Cursor = requestedCursor }',
+	"buyer history UI must load server-paged receipts"
+)
+has(listingsUI, 'openTab("Purchase History")', "Bazaar must expose purchase history")
+has(listingsUI, 'actionDisabled = tab ~= "Browse"', "saved receipts must never expose active purchase actions")
 has(listingsUI, 'perform("CreateBazaarListing"', "seller UI must create escrowed listings")
 has(listingsUI, 'perform("CancelBazaarListing"', "seller UI must offer cancellation and item recovery")
 has(listingsUI, 'perform("ClaimBazaarPayout"', "seller UI must expose unclaimed sale proceeds")

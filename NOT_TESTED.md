@@ -22,6 +22,8 @@ All gaps below are open. They prevent final sign-off.
 - Mapped third-party packages are inventoried. Their compatibility and interpretation under "every script" have not been signed off or silently exempted.
 - Existing regressions include source-pattern checks and headless models. They do not by themselves establish actual responsive UI quality or runtime persistence semantics.
 - BUG-005 source correction and actual-renderer regression pass, but no post-fix Studio capture at the 991.2 × 635.2 viewport with enlarged accessibility text has been reviewed.
+- Bazaar buyer receipts now persist in the same profile mutation as item delivery, pass bounded profile sanitization, and have a six-record authenticated pagination route and Bazaar tab. Offline verifiers cover malformed records and the 100-receipt retention cap; Studio receipt rendering, live DataStore persistence, and two-profile purchase recovery remain untested.
+- The Argon server serves this worktree and the linked branch is pushed, but the open Studio DataModel still lacks the latest Bazaar history/page changes. An active Argon plugin connection and full object-by-object sync have not been verified.
 
 
 ## Current crate/native-preview gaps — 2026-10-07

@@ -161,6 +161,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
 		[Protocol.Actions.GetBazaarListings] = { Cost = 0.5, Cooldown = 1 },
 		[Protocol.Actions.GetMyBazaarListings] = { Cost = 0.8, Cooldown = 1.5 },
+		[Protocol.Actions.GetMyBazaarPurchases] = { Cost = 0.8, Cooldown = 1.5 },
 		[Protocol.Actions.CreateBazaarListing] = { Cost = 2, Cooldown = 1.5 },
 		[Protocol.Actions.CancelBazaarListing] = { Cost = 1.5, Cooldown = 0.75 },
 		[Protocol.Actions.PurchaseBazaarListing] = { Cost = 3, Cooldown = 2 },
@@ -637,6 +638,15 @@ return function(loadService: (string) -> any)
 			for key in payload do
 				if key ~= "Cursor" then
 					return false, "unexpected Bazaar listing page field"
+				end
+			end
+		elseif action == Protocol.Actions.GetMyBazaarPurchases then
+			if not numberField(payload, "Cursor", 0, 100, true) then
+				return false, "invalid Bazaar receipt page"
+			end
+			for key in payload do
+				if key ~= "Cursor" then
+					return false, "unexpected Bazaar receipt page field"
 				end
 			end
 		elseif action == Protocol.Actions.CancelBazaarListing then

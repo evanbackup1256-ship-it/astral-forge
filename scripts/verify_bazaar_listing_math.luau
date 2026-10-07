@@ -97,11 +97,42 @@ for _, record in boundedHistory do
 end
 expect(historyCount == 100 and oldestSaved, "only the newest one hundred valid sales are retained deterministically")
 
+local purchaseInput = {}
+for index = 1, 105 do
+	local id = string.format("PURCHASE-%03d", index)
+	purchaseInput[id] = {
+		Id = id,
+		SellerUserId = 20,
+		ItemUid = string.format("IT%07d", index),
+		Item = { DefinitionId = "ember_relic", Level = 2, AcquiredAt = 200 + index },
+		Price = "2500",
+		PurchasedAt = 300 + index,
+	}
+end
+purchaseInput["PURCHASE-INVALID"] = {
+	Id = "PURCHASE-INVALID",
+	SellerUserId = 20,
+	ItemUid = "IT9999999",
+	Item = { DefinitionId = "ember_relic", Level = 2, AcquiredAt = 200 },
+	Price = "0",
+	PurchasedAt = 500,
+}
+local buyerHistory = BazaarMath.Ensure({ PurchaseHistory = purchaseInput }).PurchaseHistory
+local purchaseCount, oldestPurchaseSaved = 0, false
+for _, receipt in buyerHistory do
+	purchaseCount += 1
+	oldestPurchaseSaved = oldestPurchaseSaved or receipt.Id == "PURCHASE-006"
+end
+expect(
+	purchaseCount == 100 and oldestPurchaseSaved and buyerHistory["PURCHASE-INVALID"] == nil,
+	"buyer receipts reject invalid records and retain only the newest one hundred"
+)
+
 local expiring, expiringErr = BazaarListingMath.Reserve(normalized :: any, 11, "TOKEN-0002", 990, 120)
 expect(expiring ~= nil and expiring.LeaseUntil == 1000, "lease never extends beyond listing expiry")
 local cancelled = BazaarListingMath.ReleaseExpired(expiring :: any, 1000)
 expect(cancelled ~= nil and cancelled.Status == "Cancelled", "expired listing with lease is retired")
 
 print(
-	"[TEST] Bazaar listing math passed | price sanitization, self-buy protection, bounded leases, sale idempotency and archived payout history"
+	"[TEST] Bazaar listing math passed | price sanitization, self-buy protection, bounded leases, sale idempotency, seller archive and buyer receipt retention"
 )

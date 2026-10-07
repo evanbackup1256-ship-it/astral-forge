@@ -93,6 +93,7 @@ function DataTemplate.New()
 			Contracts = { Day = -1, Baseline = {}, Claimed = {} },
 			EscrowListings = {},
 			ListingHistory = {},
+			PurchaseHistory = {},
 			RestoredListings = {},
 			PendingPurchases = {},
 			CompletedPurchases = {},

@@ -27,10 +27,11 @@ type ListingRecord = {
 	ItemUid: string,
 	Item: ItemRecord,
 	Price: number | string,
-	CreatedAt: number,
-	ExpiresAt: number,
+	CreatedAt: number?,
+	ExpiresAt: number?,
 	Status: string?,
 	PayoutClaimed: boolean?,
+	PurchasedAt: number?,
 }
 
 type GameState = {
@@ -46,6 +47,7 @@ type Reply = {
 	error: string?,
 	message: string?,
 	Listings: { ListingRecord }?,
+	Receipts: { ListingRecord }?,
 	NextCursor: number?,
 	Total: number?,
 }
@@ -222,11 +224,16 @@ local function BazaarListings(props: Props)
 	local tab, setTab = React.useState("Browse")
 	local listings, setListings = React.useState({} :: { ListingRecord })
 	local myListings, setMyListings = React.useState({} :: { ListingRecord })
+	local purchaseHistory, setPurchaseHistory = React.useState({} :: { ListingRecord })
 	local myCursor, setMyCursor = React.useState(0)
 	local myNextCursor, setMyNextCursor = React.useState(nil :: number?)
 	local myTotal, setMyTotal = React.useState(0)
+	local purchaseCursor, setPurchaseCursor = React.useState(0)
+	local purchaseNextCursor, setPurchaseNextCursor = React.useState(nil :: number?)
+	local purchaseTotal, setPurchaseTotal = React.useState(0)
 	local loading, setLoading = React.useState(false)
 	local loadingMine, setLoadingMine = React.useState(false)
+	local loadingPurchases, setLoadingPurchases = React.useState(false)
 	local busy, setBusy = React.useState(false)
 	local message, setMessage = React.useState("Browse current offers or list one eligible relic from your inventory.")
 	local messageGood, setMessageGood = React.useState(true :: boolean?)
@@ -241,6 +248,7 @@ local function BazaarListings(props: Props)
 	local mounted = React.useRef(true)
 	local requestGeneration = React.useRef(0)
 	local mineGeneration = React.useRef(0)
+	local purchaseGeneration = React.useRef(0)
 	local busyRef = React.useRef(false)
 
 	local function loadListings()
@@ -293,10 +301,39 @@ local function BazaarListings(props: Props)
 		end)
 	end
 
+	local function loadPurchases(cursor: number?)
+		if busyRef.current or loadingPurchases then
+			return
+		end
+		local requestedCursor = math.clamp(math.floor(cursor or 0), 0, 100)
+		purchaseGeneration.current += 1
+		local generation = purchaseGeneration.current
+		setLoadingPurchases(true)
+		props.dispatch("GetMyBazaarPurchases", { Cursor = requestedCursor }, function(response)
+			if not mounted.current or generation ~= purchaseGeneration.current then
+				return
+			end
+			setLoadingPurchases(false)
+			if response.ok then
+				setPurchaseHistory(response.Receipts or {})
+				setPurchaseCursor(requestedCursor)
+				setPurchaseNextCursor(response.NextCursor)
+				setPurchaseTotal(response.Total or 0)
+				setMessage(response.message or "Your purchase history is up to date.")
+				setMessageGood(true)
+			else
+				setMessage(response.error or "Your purchase history could not load. Try again.")
+				setMessageGood(false)
+			end
+		end)
+	end
+
 	local function openTab(nextTab: string)
 		setTab(nextTab)
 		if nextTab == "My Listings" then
 			loadMine(0)
+		elseif nextTab == "Purchase History" then
+			loadPurchases(0)
 		elseif nextTab == "Browse" then
 			loadListings()
 		end
@@ -308,6 +345,7 @@ local function BazaarListings(props: Props)
 		return function()
 			mounted.current = false
 			requestGeneration.current += 1
+			purchaseGeneration.current += 1
 		end
 	end, {})
 
@@ -332,6 +370,9 @@ local function BazaarListings(props: Props)
 				elseif action == "CancelBazaarListing" or action == "ClaimBazaarPayout" then
 					loadMine(myCursor)
 					loadListings()
+				elseif action == "PurchaseBazaarListing" then
+					loadListings()
+					loadPurchases(0)
 				else
 					loadListings()
 				end
@@ -345,7 +386,10 @@ local function BazaarListings(props: Props)
 		end)
 	end
 
-	local sourceListings = if tab == "My Listings" then myListings else listings
+	local sourceListings = if tab == "My Listings"
+		then myListings
+		elseif tab == "Purchase History" then purchaseHistory
+		else listings
 	local filteredListings = {}
 	local loweredQuery = string.lower(query)
 	for _, listing in sourceListings do
@@ -367,17 +411,23 @@ local function BazaarListings(props: Props)
 		end)
 	else
 		table.sort(filteredListings, function(left, right)
-			return left.CreatedAt > right.CreatedAt
+			local leftTime = left.PurchasedAt or left.CreatedAt or 0
+			local rightTime = right.PurchasedAt or right.CreatedAt or 0
+			if leftTime ~= rightTime then
+				return leftTime > rightTime
+			end
+			return left.Id < right.Id
 		end)
 	end
-	local pageCount = if tab == "My Listings"
-		then math.max(1, math.ceil(myTotal / PAGE_SIZE))
+	local isServerPaged = tab == "My Listings" or tab == "Purchase History"
+	local serverTotal = if tab == "My Listings" then myTotal else purchaseTotal
+	local serverCursor = if tab == "My Listings" then myCursor else purchaseCursor
+	local pageCount = if isServerPaged
+		then math.max(1, math.ceil(serverTotal / PAGE_SIZE))
 		else math.max(1, math.ceil(#filteredListings / PAGE_SIZE))
-	local safePage = if tab == "My Listings"
-		then math.floor(myCursor / PAGE_SIZE) + 1
-		else math.clamp(page, 1, pageCount)
+	local safePage = if isServerPaged then math.floor(serverCursor / PAGE_SIZE) + 1 else math.clamp(page, 1, pageCount)
 	local visibleListings = {}
-	if tab == "My Listings" then
+	if isServerPaged then
 		visibleListings = filteredListings
 	else
 		for index = (safePage - 1) * PAGE_SIZE + 1, math.min(safePage * PAGE_SIZE, #filteredListings) do
@@ -438,55 +488,77 @@ local function BazaarListings(props: Props)
 			BackgroundTransparency = 1,
 		}, {
 			Browse = React.createElement(Button, {
-				text = "BROWSE",
+				text = if compact then "MARKET" else "BROWSE",
 				onClick = function()
 					openTab("Browse")
 				end,
-				size = UDim2.new(0.33, -4, 1, 0),
+				size = UDim2.new(0.25, -4, 1, 0),
 				color = if tab == "Browse" then Palette.violet else Palette.panelSoft,
 				textColor = if tab == "Browse" then Palette.ink else Palette.cream,
 			}),
 			Sell = React.createElement(Button, {
-				text = "SELL A RELIC",
+				text = "SELL",
 				onClick = function()
 					setTab("Sell")
 				end,
-				size = UDim2.new(0.33, -4, 1, 0),
-				position = UDim2.new(0.335, 0, 0, 0),
+				size = UDim2.new(0.25, -4, 1, 0),
+				position = UDim2.new(0.25, 0, 0, 0),
 				color = if tab == "Sell" then Palette.violet else Palette.panelSoft,
 				textColor = if tab == "Sell" then Palette.ink else Palette.cream,
 			}),
 			MyListings = React.createElement(Button, {
-				text = "MY LISTINGS",
+				text = if compact then "MINE" else "LISTED",
 				onClick = function()
 					openTab("My Listings")
 				end,
-				size = UDim2.new(0.33, -4, 1, 0),
-				position = UDim2.new(0.67, 0, 0, 0),
+				size = UDim2.new(0.25, -4, 1, 0),
+				position = UDim2.new(0.5, 0, 0, 0),
 				color = if tab == "My Listings" then Palette.violet else Palette.panelSoft,
 				textColor = if tab == "My Listings" then Palette.ink else Palette.cream,
+			}),
+			PurchaseHistory = React.createElement(Button, {
+				text = "BOUGHT",
+				onClick = function()
+					openTab("Purchase History")
+				end,
+				size = UDim2.new(0.25, -4, 1, 0),
+				position = UDim2.new(0.75, 0, 0, 0),
+				color = if tab == "Purchase History" then Palette.violet else Palette.panelSoft,
+				textColor = if tab == "Purchase History" then Palette.ink else Palette.cream,
 			}),
 		}),
 	}
 
-	if tab == "Browse" or tab == "My Listings" then
+	if tab == "Browse" or tab == "My Listings" or tab == "Purchase History" then
+		local isMine = tab == "My Listings"
+		local isHistory = tab == "Purchase History"
 		children.Refresh = React.createElement(Button, {
-			text = if (tab == "My Listings" and loadingMine) or (tab == "Browse" and loading)
+			text = if isMine and loadingMine
 				then "LOADING LISTINGS"
-				else if tab == "My Listings" then "REFRESH MY LISTINGS" else "REFRESH MARKET",
+				elseif isHistory and loadingPurchases then "LOADING RECEIPTS"
+				elseif loading then "LOADING MARKET"
+				elseif isMine then "REFRESH MY LISTINGS"
+				elseif isHistory then "REFRESH PURCHASES"
+				else "REFRESH MARKET",
 			onClick = if tab == "My Listings"
 				then function()
 					loadMine(myCursor)
+				end
+				elseif isHistory then function()
+					loadPurchases(purchaseCursor)
 				end
 				else loadListings,
 			size = UDim2.fromOffset(178, 38),
 			position = UDim2.new(1, -178, 0, 174),
 			color = Palette.panelSoft,
-			disabled = loading or loadingMine or busy,
+			disabled = loading or loadingMine or loadingPurchases or busy,
 		})
 		children.Search = textBox(
 			query,
-			if tab == "My Listings" then "Search these listings" else "Search relics or seller ID",
+			if isMine
+				then "Search your listings"
+				elseif isHistory then "Search bought relics or seller ID"
+				else "Search relics or seller ID",
 			function(value)
 				setQuery(value)
 				setPage(1)
@@ -505,11 +577,15 @@ local function BazaarListings(props: Props)
 			color = Palette.panelSoft,
 		})
 		local rowChildren = {}
-		local emptyMessage = if tab == "My Listings"
+		local emptyMessage = if isMine
 			then if loadingMine
 				then "Loading your listings…"
 				elseif myTotal == 0 then "You have no listings yet. List a relic to see it here."
 				else "No matching listings on this page. Clear the search to see them."
+			elseif isHistory then if loadingPurchases
+				then "Loading your receipts…"
+				elseif purchaseTotal == 0 then "Completed player-market purchases will appear here."
+				else "No matching receipts on this page. Clear the search to see them."
 			else if loading
 				then "Loading the public listings…"
 				else "No matching listings yet. Check back later."
@@ -524,10 +600,11 @@ local function BazaarListings(props: Props)
 		end
 		for index, listing in visibleListings do
 			local status = listing.Status or "Active"
-			local canCancel = tab == "My Listings" and (status == "Active" or status == "Escrowed")
-			local canClaim = tab == "My Listings" and status == "Sold" and listing.PayoutClaimed ~= true
+			local canCancel = isMine and (status == "Active" or status == "Escrowed")
+			local canClaim = isMine and status == "Sold" and listing.PayoutClaimed ~= true
 			local actionText = if tab == "Browse"
 				then "BUY"
+				elseif isHistory then "PURCHASED"
 				elseif canCancel then "CANCEL"
 				elseif canClaim then "CLAIM FLUX"
 				elseif status == "Sold" then "PAID"
@@ -536,7 +613,12 @@ local function BazaarListings(props: Props)
 				else status:upper()
 			rowChildren[`listing_{listing.Id}`] = React.createElement(ListingCard, {
 				listing = listing,
-				details = if tab == "My Listings" then `{status} · Level {listing.Item.Level or 1}` else nil,
+				details = if isMine
+					then `{status} · Level {listing.Item.Level or 1}`
+					elseif
+						isHistory
+					then `Bought {os.date("%Y-%m-%d", listing.PurchasedAt or 0)} · seller {listing.SellerUserId or "Unknown"}`
+					else nil,
 				order = index,
 				position = UDim2.fromOffset(0, 220 + (index - 1) * (82 + rowGap)),
 				busy = busy,
@@ -550,7 +632,7 @@ local function BazaarListings(props: Props)
 						perform("ClaimBazaarPayout", { Id = listing.Id }, "Sale proceeds added to your Flux balance.")
 					end
 				end,
-				actionDisabled = tab == "My Listings" and not canCancel and not canClaim,
+				actionDisabled = tab ~= "Browse",
 			})
 		end
 		for key, child in rowChildren do
@@ -562,8 +644,12 @@ local function BazaarListings(props: Props)
 			BackgroundTransparency = 1,
 		}, {
 			Count = React.createElement(Text, {
-				value = if tab == "My Listings"
+				value = if isMine
 					then `{math.min(myCursor + 1, myTotal)}–{math.min(myCursor + #myListings, myTotal)} of {myTotal} listings`
+					elseif isHistory then `{math.min(purchaseCursor + 1, purchaseTotal)}–{math.min(
+						purchaseCursor + #purchaseHistory,
+						purchaseTotal
+					)} of {purchaseTotal} purchases`
 					else `Page {safePage}/{pageCount} · {#filteredListings} listings`,
 				size = 11,
 				color = Palette.muted,
@@ -572,22 +658,31 @@ local function BazaarListings(props: Props)
 			Previous = React.createElement(Button, {
 				text = "PREVIOUS",
 				onClick = function()
-					if tab == "My Listings" then
+					if isMine then
 						loadMine(math.max(0, myCursor - PAGE_SIZE))
+					elseif isHistory then
+						loadPurchases(math.max(0, purchaseCursor - PAGE_SIZE))
 					else
 						setPage(math.max(1, safePage - 1))
 					end
 				end,
 				size = UDim2.fromOffset(96, 34),
 				position = UDim2.new(1, -202, 0, 2),
-				disabled = if tab == "My Listings" then myCursor <= 0 or loadingMine else safePage <= 1,
+				disabled = if isMine
+					then myCursor <= 0 or loadingMine
+					elseif isHistory then purchaseCursor <= 0 or loadingPurchases
+					else safePage <= 1,
 			}),
 			Next = React.createElement(Button, {
 				text = "NEXT",
 				onClick = function()
-					if tab == "My Listings" then
+					if isMine then
 						if myNextCursor ~= nil then
 							loadMine(myNextCursor)
+						end
+					elseif isHistory then
+						if purchaseNextCursor ~= nil then
+							loadPurchases(purchaseNextCursor)
 						end
 					else
 						setPage(math.min(pageCount, safePage + 1))
@@ -595,7 +690,10 @@ local function BazaarListings(props: Props)
 				end,
 				size = UDim2.fromOffset(96, 34),
 				position = UDim2.new(1, -96, 0, 2),
-				disabled = if tab == "My Listings" then myNextCursor == nil or loadingMine else safePage >= pageCount,
+				disabled = if isMine
+					then myNextCursor == nil or loadingMine
+					elseif isHistory then purchaseNextCursor == nil or loadingPurchases
+					else safePage >= pageCount,
 			}),
 		})
 	elseif tab == "Sell" then
@@ -747,7 +845,9 @@ local function BazaarListings(props: Props)
 					zIndex = 22,
 				}),
 				Cost = React.createElement(Text, {
-					value = `Cost: {displayPrice(pendingPurchase.Price)} FLUX  ·  Balance: {compactNumber(props.state.Cash)}`,
+					value = `Cost: {displayPrice(pendingPurchase.Price)} FLUX  ·  Balance: {compactNumber(
+						props.state.Cash
+					)}`,
 					size = 13,
 					color = Palette.mint,
 					weight = Enum.FontWeight.Bold,

@@ -83,6 +83,43 @@ local function validHistoryListing(id: any, value: any): any?
 	return clean
 end
 
+local function validPurchaseReceipt(id: any, value: any): any?
+	if type(id) ~= "string" or #id < 8 or #id > 64 or type(value) ~= "table" or value.Id ~= id then
+		return nil
+	end
+	local sellerId = finiteInteger(value.SellerUserId, 1, 2 ^ 31 - 1)
+	local purchasedAt = finiteInteger(value.PurchasedAt, 1, 2 ^ 31 - 1)
+	local item = value.Item
+	local price = value.Price
+	local validPrice = if type(price) == "string"
+		then #price > 0 and #price <= 80 and string.match(price, "^%d+$") ~= nil and string.match(price, "^0+$") == nil
+		else type(price) == "number" and price > 0 and price % 1 == 0 and price < math.huge
+	if
+		sellerId == nil
+		or purchasedAt == nil
+		or type(value.ItemUid) ~= "string"
+		or #value.ItemUid < 3
+		or #value.ItemUid > 48
+		or type(item) ~= "table"
+		or type(item.DefinitionId) ~= "string"
+		or #item.DefinitionId < 1
+		or #item.DefinitionId > 64
+		or finiteInteger(item.Level, 1, 1000) == nil
+		or finiteInteger(item.AcquiredAt, 0, 2 ^ 31 - 1) == nil
+		or not validPrice
+	then
+		return nil
+	end
+	return {
+		Id = id,
+		SellerUserId = sellerId,
+		ItemUid = value.ItemUid,
+		Item = { DefinitionId = item.DefinitionId, Level = item.Level, AcquiredAt = item.AcquiredAt },
+		Price = price,
+		PurchasedAt = purchasedAt,
+	}
+end
+
 BazaarMath.BANK = table.freeze({
 	SavingsRate = 0.03,
 	CapSeconds = 7200,
@@ -334,6 +371,26 @@ function BazaarMath.Ensure(bag: any): any
 		local listing = historyEntries[index]
 		listingHistory[listing.Id] = listing
 	end
+	local purchaseEntries = {}
+	if type(source.PurchaseHistory) == "table" then
+		for id, receipt in source.PurchaseHistory do
+			local cleanReceipt = validPurchaseReceipt(id, receipt)
+			if cleanReceipt then
+				table.insert(purchaseEntries, cleanReceipt)
+			end
+		end
+	end
+	table.sort(purchaseEntries, function(left, right)
+		if left.PurchasedAt ~= right.PurchasedAt then
+			return left.PurchasedAt > right.PurchasedAt
+		end
+		return left.Id < right.Id
+	end)
+	local purchaseHistory = {}
+	for index = 1, math.min(#purchaseEntries, 100) do
+		local receipt = purchaseEntries[index]
+		purchaseHistory[receipt.Id] = receipt
+	end
 	local restoredListings = {}
 	if type(source.RestoredListings) == "table" then
 		local count = 0
@@ -421,6 +478,7 @@ function BazaarMath.Ensure(bag: any): any
 		Contracts = { Day = math.floor(tonumber(contracts.Day) or -1), Baseline = baseline, Claimed = claimed },
 		EscrowListings = escrowListings,
 		ListingHistory = listingHistory,
+		PurchaseHistory = purchaseHistory,
 		RestoredListings = restoredListings,
 		PendingPurchases = pendingPurchases,
 		CompletedPurchases = cleanMarkers(source.CompletedPurchases),
