@@ -58,6 +58,11 @@ do
 	copyFields[key] = true
 end
 local checked = 0
+local hiddenAchievementIds = {
+	EventHorizon = true,
+	ForgeApex = true,
+	StoryArchivist = true,
+}
 local function compare(left, right, location)
 	assert(typeof(left) == typeof(right), location .. ": type changed")
 	if type(left) == "function" then
@@ -83,6 +88,12 @@ local function compare(left, right, location)
 		end
 	end
 	for key in right do
+		local hiddenAchievementMetadata =
+			key == "Hidden"
+			and left[key] == nil
+			and right[key] == true
+			and string.sub(location, 1, #"GameConfig.Achievements.") == "GameConfig.Achievements."
+			and hiddenAchievementIds[right.Id] == true
 		local crateAddition = (
 			location == "GameConfig.Items.Crates"
 			and type(key) == "number"
@@ -105,6 +116,7 @@ local function compare(left, right, location)
 				or copyFields[key]
 				or crateAddition
 				or keyAddition
+				or hiddenAchievementMetadata
 				or ascensionConfigAddition
 				or expeditionPlannerConfigAddition,
 			location .. ": field added " .. tostring(key)

@@ -20,6 +20,7 @@ local categories = {
 	"ArcadeScore",
 	"BazaarDeals",
 	"Events",
+	"HiddenSecrets",
 	"Seasonal",
 }
 
@@ -56,7 +57,14 @@ local storeSuffix = {
 	ArcadeScore = "ArcadeScoreLeaderboardStoreName",
 	BazaarDeals = "BazaarDealsLeaderboardStoreName",
 	Events = "EventsLeaderboardStoreName",
+	HiddenSecrets = "HiddenSecretsLeaderboardStoreName",
 	Seasonal = "SeasonLeaderboardStoreName",
+}
+local achievementDefinitions = {
+	{ Id = "EventHorizon", Hidden = true },
+	{ Id = "ForgeApex", Hidden = true },
+	{ Id = "StoryArchivist", Hidden = true },
+	{ Id = "CoreOnline", Hidden = false },
 }
 local profile = {
 	LifetimeCash = "1e100",
@@ -69,14 +77,16 @@ local profile = {
 	Arcade = { Stats = { TotalScore = 12345 } },
 	Bazaar = { Counters = { Deals = 19 } },
 	Command = { SeasonXP = statValues.SeasonXP },
+	Achievements = { EventHorizon = true, StoryArchivist = true, CoreOnline = true },
 }
 
-assert(#categories == 18, "expected eighteen player boards before the guild board")
+assert(#categories == 19, "expected nineteen player boards before the guild board")
 for _, id in categories do
 	local suffix = storeSuffix[id] or `{id}LeaderboardStoreName`
 	local dataStoreSuffix = if id == "Rebirths" then "RebirthLeaderboardStoreName" else suffix
 	local statField = if id == "BazaarDeals" then "BazaarDeals"
 		elseif id == "Events" then "EventParticipations"
+		elseif id == "HiddenSecrets" then "HiddenSecrets"
 		elseif id == "Combat"
 		then "WardenDefeats"
 		elseif id == "Crafting" then "OreMined"
@@ -109,6 +119,13 @@ for _, id in categories do
 					and dataService:find("profile.Bazaar.Counters.Deals", 1, true),
 				"saved Bazaar Deals score is missing"
 			)
+		elseif id == "HiddenSecrets" then
+			assert(
+				dataService:find("HiddenSecrets = hiddenSecrets", 1, true)
+					and dataService:find("achievement.Hidden == true", 1, true)
+					and dataService:find("claimedAchievements[achievement.Id] == true", 1, true),
+				"secret achievement claims are missing from the durable board score"
+			)
 		elseif id == "Seasonal" then
 			assert(
 				dataService:find(
@@ -134,7 +151,7 @@ for _, id in categories do
 	assert(
 		GeneralBoardValue.Of(profile, id, function(value)
 			return value
-		end)
+		end, achievementDefinitions)
 			== (
 				statValues[statField]
 				or (id == "Worlds" and 9)
@@ -145,6 +162,7 @@ for _, id in categories do
 				or (id == "PlayTime" and 0)
 				or (id == "ArcadeScore" and 12345)
 				or (id == "BazaarDeals" and 19)
+				or (id == "HiddenSecrets" and 2)
 				or "1e100"
 			),
 		`score projection mismatch {id}`
@@ -191,10 +209,12 @@ assert(
 	)
 )
 assert(publicRecord:find("BazaarDeals = profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals or 0", 1, true))
+assert(publicRecord:find("HiddenSecrets = deps.HiddenSecrets or 0", 1, true))
 assert(
 	client:find('id = "ArcadeScore"', 1, true)
 		and client:find('id = "BazaarDeals"', 1, true)
 		and client:find('id = "Events"', 1, true)
+		and client:find('id = "HiddenSecrets"', 1, true)
 		and client:find('id = "Seasonal"', 1, true)
 )
 local bazaarService = fs.readFile("src/Server/AstralForge/Services/BazaarService.luau")
@@ -203,13 +223,13 @@ assert(client:find("return counters and counters.Deals or 0", 1, true), "same-se
 for _, category in
 	{
 		"Economy",
-		"Progression",
 		"Exploration",
 		"Combat",
 		"Forge",
-		"Arcade",
+		"Casino",
 		"Bazaar",
 		"Events",
+		"Hidden/Secret",
 		"Seasonal",
 		"Prestige",
 		"Social",
@@ -221,4 +241,8 @@ end
 assert(rankDashboard:find("ui.SegmentedTabs", 1, true), "rank boards need category-first navigation")
 assert(rankDashboard:find("ui.SearchField", 1, true), "rank board list needs search")
 assert(rankDashboard:find("matchesCategory", 1, true) and rankDashboard:find("matchesSearch", 1, true))
-print("[TEST] eighteen persisted boards, firewall parity, twelve category filters, Bazaar and Events profile/ordered-store/client projections, board search and guild separation passed")
+assert(client:find("No currency is staked or paid.", 1, true), "Casino rank must describe the public score-only arcade")
+assert(client:find("if id == \"HiddenSecrets\" then", 1, true), "own secret score mapping is missing")
+assert(client:find("return summary.HiddenSecrets or 0", 1, true), "same-server secret score mapping is missing")
+assert(serverServices:find('HiddenSecrets = generalBoardValue(profile, "HiddenSecrets")', 1, true))
+print("[TEST] nineteen persisted boards, twelve requested categories, Bazaar/Event/secret projections and score-only Casino labeling passed")

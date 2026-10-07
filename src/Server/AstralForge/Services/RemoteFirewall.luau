@@ -933,6 +933,7 @@ return function(loadService: (string) -> any)
 				and id ~= "ArcadeScore"
 				and id ~= "BazaarDeals"
 				and id ~= "Events"
+				and id ~= "HiddenSecrets"
 				and id ~= "Seasonal"
 			then
 				return false, "invalid leaderboard"

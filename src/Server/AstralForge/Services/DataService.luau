@@ -737,6 +737,7 @@ return function(loadService: (string) -> any)
 			ArcadeScore = getOrderedStore(ServerConfig.ArcadeScoreLeaderboardStoreName),
 			BazaarDeals = getOrderedStore(ServerConfig.BazaarDealsLeaderboardStoreName),
 			Events = getOrderedStore(ServerConfig.EventsLeaderboardStoreName),
+			HiddenSecrets = getOrderedStore(ServerConfig.HiddenSecretsLeaderboardStoreName),
 			Seasonal = getOrderedStore(ServerConfig.SeasonLeaderboardStoreName),
 		}
 
@@ -831,6 +832,13 @@ return function(loadService: (string) -> any)
 			return
 		end
 		local userId = player.UserId
+		local hiddenSecrets = 0
+		local claimedAchievements = type(profile.Achievements) == "table" and profile.Achievements or {}
+		for _, achievement in GameConfig.Achievements do
+			if achievement.Hidden == true and claimedAchievements[achievement.Id] == true then
+				hiddenSecrets += 1
+			end
+		end
 		self._leaderboardPending[userId] = {
 			Flux = profile.LifetimeCash,
 			Rebirths = math.max(0, math.floor(tonumber(profile.Rebirths) or 0)),
@@ -856,6 +864,7 @@ return function(loadService: (string) -> any)
 				math.floor(tonumber(profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals) or 0)
 			),
 			Events = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.EventParticipations) or 0)),
+			HiddenSecrets = hiddenSecrets,
 			Seasonal = math.max(0, math.floor(tonumber(profile.Command and profile.Command.SeasonXP) or 0)),
 		}
 		if self._leaderboardPushBusy[userId] then

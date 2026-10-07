@@ -2486,18 +2486,24 @@ __defs["ProgressionService"] = function()
 			local states = {}
 			local claimed = type(profile.Achievements) == "table" and profile.Achievements or {}
 			for _, achievement in GameConfig.Achievements do
-				table.insert(states, {
-					Id = achievement.Id,
-					Name = achievement.Name,
-					Description = achievement.Description,
-					Target = achievement.Target,
-					Progress = math.min(
-						achievement.Target,
-						ProgressionService.AchievementProgress(profile, achievement.Kind)
-					),
-					Reward = copyReward(achievement.Reward),
-					Claimed = claimed[achievement.Id] == true,
-				})
+				local isClaimed = claimed[achievement.Id] == true
+				local progress = math.min(
+					achievement.Target,
+					ProgressionService.AchievementProgress(profile, achievement.Kind)
+				)
+				local isHidden = achievement.Hidden == true
+				if not isHidden or isClaimed or progress >= achievement.Target then
+					table.insert(states, {
+						Id = achievement.Id,
+						Name = achievement.Name,
+						Description = achievement.Description,
+						Target = achievement.Target,
+						Progress = progress,
+						Reward = copyReward(achievement.Reward),
+						Claimed = isClaimed,
+						Hidden = isHidden,
+					})
+				end
 			end
 			return states
 		end

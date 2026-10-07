@@ -181,11 +181,12 @@ serviceFactories["GameService"] = function()
 		ArcadeScore = ServerConfig.ArcadeScoreLeaderboardStoreName,
 		BazaarDeals = ServerConfig.BazaarDealsLeaderboardStoreName,
 		Events = ServerConfig.EventsLeaderboardStoreName,
+		HiddenSecrets = ServerConfig.HiddenSecretsLeaderboardStoreName,
 		Seasonal = ServerConfig.SeasonLeaderboardStoreName,
 	}
 
 	local function generalBoardValue(profile, id: string)
-		return GeneralBoardValue.Of(profile, id, Economy.Persist)
+		return GeneralBoardValue.Of(profile, id, Economy.Persist, GameConfig.Achievements)
 	end
 
 	local anomalyChargeByAction = ActionFeatureMaps.ANOMALY_CHARGE
@@ -310,6 +311,7 @@ serviceFactories["GameService"] = function()
 			EnsureItems = ProfileBagMath.EnsureItems,
 			itemById = itemById,
 			Economy = Economy,
+			HiddenSecrets = generalBoardValue(profile, "HiddenSecrets"),
 		})
 	end
 
@@ -1574,6 +1576,7 @@ serviceFactories["GameService"] = function()
 			Cores = profile.Cores,
 			Stardust = profile.Stardust,
 			Rebirths = profile.Rebirths,
+			HiddenSecrets = generalBoardValue(profile, "HiddenSecrets"),
 			Domain = ContinuumDomainMath.SnapshotDomainPublic({
 				domain = domain,
 				rank = domainRank,

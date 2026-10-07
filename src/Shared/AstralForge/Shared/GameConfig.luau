@@ -2959,6 +2959,7 @@ local GameConfig = {
 			Description = "Stabilize 50 quantum anomalies.",
 			Kind = "AnomalyStabilizations",
 			Target = 50,
+			Hidden = true,
 			Reward = { Stardust = 500, Cores = 10, Boost = "Hyperdrive" },
 		},
 		{
@@ -3007,6 +3008,7 @@ local GameConfig = {
 			Description = "Claim all 96 Forge Path steps.",
 			Kind = "ForgePathSteps",
 			Target = 96,
+			Hidden = true,
 			Reward = { Stardust = 500, Cores = 15, Essence = 8, Boost = "DomainSurge" },
 		},
 		{
@@ -3087,6 +3089,7 @@ local GameConfig = {
 			Description = "Claim 16 story chapter rewards.",
 			Kind = "StoryClaims",
 			Target = 16,
+			Hidden = true,
 			Reward = { Stardust = 140, Signals = 40, CashMinutes = 15 },
 		},
 		{

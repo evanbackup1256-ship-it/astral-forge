@@ -110,7 +110,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 
 ## Ranks, UI consistency, accessibility, and release
 
-- [x] 81. Add eighteen separately queried player boards and category metadata, including persisted Bazaar Deals and live-event participation counters.
+- [x] 81. Add nineteen separately queried player boards and category metadata, including persisted Bazaar Deals, live-event participation, and claimed hidden-achievement counts.
 - [x] 82. Add board category filters, search, current-player queries, and stale-response guards.
 - [ ] 83. Complete all twelve requested rank categories with authoritative criteria and migration.
 - [ ] 84. Add rank reward previews, one-time claims, history, closest-to-completion, and analytics.
@@ -136,7 +136,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 - `lune run scripts/verify_project.luau`: passed on 2026-10-07.
 - `lune run scripts/compile_all.luau`: passed (348 files at O0/O1/O2).
 - `argon build default.project.json -x`: passed.
-- Rank firewall parity is now covered: all eighteen configured player boards pass the `GetLeaderboard` source allowlist check. Bazaar Deals is projected through persistence, global/store, own-score, and same-server paths. Event participation is persisted once per positive-collection live event window and covered by a production-service fixture. Hidden/Secret criteria and live cloud reads remain open.
+- Rank firewall parity is now covered: all nineteen configured player boards pass the `GetLeaderboard` source allowlist check. Bazaar Deals is projected through persistence, global/store, own-score, and same-server paths. Event participation counts once per positive-collection live event window. Hidden/Secret ranks count claimed hidden milestones, reveal only after completion, and stay out of Quick Find before server disclosure. The production method fixtures pass; live HiddenSecrets remote/claim checks, cloud behavior, rewards and history remain open.
 - Studio Play accepted read-only `GetLeaderboard(BazaarDeals)` and `GetLeaderboard(Events)` requests; Events returned an empty board, and the Studio console showed the game booted to `5.1.0 ui is up` without game-source errors. Studio returned to Edit mode.
 - Bazaar actions have pure/source-wiring coverage only; live two-player and DataStore verification remains open.
 - Guild create/rename now has production-source regression coverage for actual broadcast filtering, censorship, missing/error responses, input bounds, and fail-closed routing; live TextService and saved-profile verification remain open.

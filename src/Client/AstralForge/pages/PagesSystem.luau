@@ -4518,7 +4518,7 @@ __defs["LeaderboardsView"] = function()
 			id = "ArcadeScore",
 			label = "Arcade Score",
 			short = "ARCADE",
-			description = "Practice-table points earned across the score-only arcade.",
+			description = "Practice-table points earned across the score-only arcade. No currency is staked or paid.",
 			icon = "Games",
 			accent = Palette.cyan,
 		},
@@ -4537,6 +4537,14 @@ __defs["LeaderboardsView"] = function()
 			description = "Live server events you have helped complete.",
 			icon = "Meteor",
 			accent = Palette.mango,
+		},
+		{
+			id = "HiddenSecrets",
+			label = "Secrets Uncovered",
+			short = "SECRETS",
+			description = "Hidden milestones you have earned and claimed.",
+			icon = "Anomaly",
+			accent = Palette.violet,
 		},
 		{
 			id = "Seasonal",
@@ -4659,6 +4667,9 @@ __defs["LeaderboardsView"] = function()
 			local counters = bazaar and bazaar.Counters
 			return counters and counters.Deals or 0
 		end
+		if id == "HiddenSecrets" then
+			return state.HiddenSecrets or 0
+		end
 		if id == "Seasonal" then
 			local command = state.Command
 			return command and command.SeasonXP or 0
@@ -4719,6 +4730,9 @@ __defs["LeaderboardsView"] = function()
 		end
 		if id == "BazaarDeals" then
 			return summary.BazaarDeals or 0
+		end
+		if id == "HiddenSecrets" then
+			return summary.HiddenSecrets or 0
 		end
 		local statName = STAT_BOARD_FIELDS[id]
 		if statName then

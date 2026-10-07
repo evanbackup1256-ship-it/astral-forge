@@ -683,8 +683,14 @@ function QuickFind.QuickFind(props)
 			byKey[entry.key] = entry
 		end
 		local static = buildStatic()
+		local revealedMilestones = {}
+		for _, achievement in state.Achievements or {} do
+			revealedMilestones["Milestone:" .. tostring(achievement.Id)] = true
+		end
 		for _, entry in static do
-			byKey[entry.key] = entry
+			if entry.kind ~= "Milestone" or revealedMilestones[entry.key] then
+				byKey[entry.key] = entry
+			end
 		end
 		local tokens = Model.tokens(query)
 		if #tokens == 0 then

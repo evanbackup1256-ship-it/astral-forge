@@ -175,6 +175,7 @@ __defs["PublicPlayerRecord"] = function()
 			ArcadeScore = profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore or 0,
 			BazaarDeals = profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals or 0,
 			EventParticipations = profile.Stats and profile.Stats.EventParticipations or 0,
+			HiddenSecrets = deps.HiddenSecrets or 0,
 			SeasonXP = profile.Command and profile.Command.SeasonXP or 0,
 			ItemCount = itemCount,
 			EquippedItems = equippedItems,
@@ -513,7 +514,12 @@ __defs["GeneralBoardValue"] = function()
 		Events = "EventParticipations",
 	}
 
-	function GeneralBoardValue.Of(profile: any, id: string, persist: (any) -> any): number
+	function GeneralBoardValue.Of(
+		profile: any,
+		id: string,
+		persist: (any) -> any,
+		achievementDefinitions: { any }?
+	): number
 		if id == "Flux" then
 			return persist(profile.LifetimeCash)
 		end
@@ -544,6 +550,16 @@ __defs["GeneralBoardValue"] = function()
 				0,
 				math.floor(tonumber(profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals) or 0)
 			)
+		end
+		if id == "HiddenSecrets" then
+			local claimed = type(profile.Achievements) == "table" and profile.Achievements or {}
+			local count = 0
+			for _, achievement in achievementDefinitions or {} do
+				if achievement.Hidden == true and claimed[achievement.Id] == true then
+					count += 1
+				end
+			end
+			return count
 		end
 		local statName = STAT_BY_BOARD[id]
 		if statName then
