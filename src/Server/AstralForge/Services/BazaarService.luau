@@ -1,8 +1,6 @@
 --!strict
 
 return function(loadService: (string) -> any)
-	local Players = game:GetService("Players")
-
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ProgressionService = loadService("ProgressionService")
@@ -12,16 +10,6 @@ return function(loadService: (string) -> any)
 	local DAY = 86400
 	local DEPOSIT_SHARES = { 0.1, 0.25, 0.5, 1 }
 	local WITHDRAW_SHARES = { 0.25, 0.5, 1 }
-	local TICKET_BATCH = { 1, 5, 20 }
-
-	local lottery = {
-		Bucket = -1,
-		Tickets = {} :: { [number]: number },
-		Pot = 0 :: any,
-		Last = nil :: any,
-		Pending = {} :: { [number]: any },
-	}
-
 	local function day(now: number): number
 		return math.floor(now / DAY)
 	end
@@ -78,7 +66,7 @@ return function(loadService: (string) -> any)
 			local casino = profile.Casino
 			contracts.Baseline.Rounds = if type(casino) == "table" then math.floor(tonumber(casino.Played) or 0) else 0
 			contracts.Baseline.Wins = if type(casino) == "table" then math.floor(tonumber(casino.Won) or 0) else 0
-			for _, name in { "Deals", "Deposits", "Tickets", "Interest" } do
+			for _, name in { "Deals", "Deposits", "Interest" } do
 				contracts.Baseline[name] = bazaar.Counters[name]
 			end
 		end
@@ -93,51 +81,6 @@ return function(loadService: (string) -> any)
 			return if type(casino) == "table" then math.floor(tonumber(casino.Won) or 0) else 0
 		end
 		return bazaar.Counters[counter]
-	end
-
-	local function present(userId: number): boolean
-		return Players:GetPlayerByUserId(userId) ~= nil
-	end
-
-	local function lotteryTick(now: number, random: Random?)
-		local bucket = BazaarMath.LotteryBucket(now)
-		if lottery.Bucket < 0 then
-			lottery.Bucket = bucket
-			return
-		end
-		if bucket <= lottery.Bucket then
-			return
-		end
-		local entries: { [number]: number } = {}
-		for userId, count in lottery.Tickets do
-			if present(userId) then
-				entries[userId] = count
-			end
-		end
-		local roll = if random ~= nil then random:NextNumber() else math.random()
-		local winner = BazaarMath.LotteryDraw(entries, roll)
-		if winner ~= nil and Economy.Gt(lottery.Pot, 0) then
-			local prize = Economy.Floor(Economy.Mul(lottery.Pot, 1 - BazaarMath.LOTTERY_RAKE))
-			lottery.Pending[winner] = Economy.Add(lottery.Pending[winner] or 0, prize)
-			local who = Players:GetPlayerByUserId(winner)
-			lottery.Last = {
-				Winner = if who then who.DisplayName else "Someone",
-				UserId = winner,
-				Prize = Economy.Persist(prize),
-				Bucket = lottery.Bucket,
-			}
-			lottery.Pot = 0
-		end
-		lottery.Tickets = {}
-		lottery.Bucket = bucket
-	end
-
-	local function ticketPrice(profile): any
-		return Economy.Max(100, Economy.Floor(Economy.Mul(profile.Cash, BazaarMath.LOTTERY_TICKET_SHARE)))
-	end
-
-	local function myTickets(userId: number): number
-		return lottery.Tickets[userId] or 0
 	end
 
 	local function bankAct(profile, bazaar, payload, now: number): (boolean, string, any?)
@@ -251,45 +194,6 @@ return function(loadService: (string) -> any)
 		return true, `{offer.Name}: {message}`, { Game = "Market", Pick = offer.Id, Cost = Economy.Persist(price) }
 	end
 
-	local function lotteryAct(
-		profile,
-		bazaar,
-		payload,
-		now: number,
-		random: Random,
-		userId: number
-	): (boolean, string, any?)
-		lotteryTick(now, random)
-		local op = payload.Op
-		if op == "Prize" then
-			local pending = lottery.Pending[userId]
-			if pending == nil or not Economy.Gt(pending, 0) then
-				return false, "No prize waiting."
-			end
-			lottery.Pending[userId] = nil
-			profile.Cash = Economy.Add(profile.Cash, pending)
-			return true, "Prize collected.", { Game = "Lottery", Amount = Economy.Persist(pending), Prize = true }
-		end
-		local count = TICKET_BATCH[tonumber(payload.Tier) or 0]
-		if count == nil then
-			return false, "Pick how many tickets."
-		end
-		local have = myTickets(userId)
-		count = math.min(count, BazaarMath.LOTTERY_MAX_TICKETS - have)
-		if count <= 0 then
-			return false, "You hold the most tickets allowed this draw."
-		end
-		local each = ticketPrice(profile)
-		local total = Economy.Mul(each, count)
-		if not take(profile, total) then
-			return false, "Not enough flux for those tickets."
-		end
-		lottery.Tickets[userId] = have + count
-		lottery.Pot = Economy.Add(lottery.Pot, total)
-		bump(bazaar, "Tickets", count)
-		return true, `Bought {count} ticket{if count == 1 then "" else "s"}.`, { Game = "Lottery", Count = count }
-	end
-
 	local function contractAct(profile, bazaar, payload, now: number, userId: number): (boolean, string, any?)
 		local list = contractsFor(profile, bazaar, now, userId)
 		local contract
@@ -318,13 +222,7 @@ return function(loadService: (string) -> any)
 		contractsFor(profile, ensure(profile), now, userId)
 	end
 
-	function BazaarService.Play(
-		profile,
-		random: Random,
-		payload: any,
-		now: number,
-		userId: number
-	): (boolean, string, any?)
+	function BazaarService.Play(profile, payload: any, now: number, userId: number): (boolean, string, any?)
 		if type(payload) ~= "table" or type(payload.Game) ~= "string" then
 			return false, "Pick a counter.", nil
 		end
@@ -334,8 +232,6 @@ return function(loadService: (string) -> any)
 			return bankAct(profile, bazaar, payload, now)
 		elseif gameName == "Market" then
 			return marketAct(profile, bazaar, payload, now)
-		elseif gameName == "Lottery" then
-			return lotteryAct(profile, bazaar, payload, now, random, userId)
 		elseif gameName == "Contracts" then
 			return contractAct(profile, bazaar, payload, now, userId)
 		end
@@ -344,7 +240,6 @@ return function(loadService: (string) -> any)
 
 	function BazaarService.State(profile, now: number, userId: number): any
 		local bazaar = ensure(profile)
-		lotteryTick(now, nil)
 		local ghost = { Since = bazaar.Bank.Since, Balance = bazaar.Bank.Balance, Accrued = bazaar.Bank.Accrued }
 		if ghost.Since > 0 and Economy.Gt(ghost.Balance, 0) then
 			local hours = BazaarMath.AccrualHours(now - ghost.Since)
@@ -363,18 +258,15 @@ return function(loadService: (string) -> any)
 		for _, offer in BazaarMath.Offers(bucket) do
 			local price =
 				Economy.Max(1000, Economy.Floor(Economy.Mul(production(profile), offer.Seconds * (1 - offer.Discount))))
-			table.insert(
-				offers,
-				{
-					Id = offer.Id,
-					Name = offer.Name,
-					Reward = offer.Reward,
-					Discount = offer.Discount,
-					Price = Economy.Persist(price),
-					Left = offer.Stock - (bought[offer.Id] or 0),
-					Stock = offer.Stock,
-				}
-			)
+			table.insert(offers, {
+				Id = offer.Id,
+				Name = offer.Name,
+				Reward = offer.Reward,
+				Discount = offer.Discount,
+				Price = Economy.Persist(price),
+				Left = offer.Stock - (bought[offer.Id] or 0),
+				Stock = offer.Stock,
+			})
 		end
 		local baseline = if bazaar.Contracts.Day == day(now) then bazaar.Contracts.Baseline else nil
 		local contracts = {}
@@ -382,21 +274,30 @@ return function(loadService: (string) -> any)
 			local start = if baseline then (baseline[entry.Counter] or 0) else currentOf(profile, bazaar, entry.Counter)
 			local progress = math.clamp(currentOf(profile, bazaar, entry.Counter) - start, 0, entry.Target)
 			local claimed = bazaar.Contracts.Day == day(now) and bazaar.Contracts.Claimed[entry.Id] == true
-			table.insert(
-				contracts,
-				{
-					Id = entry.Id,
-					Name = entry.Name,
-					Text = entry.Text,
-					Target = entry.Target,
-					Progress = progress,
-					Reward = entry.Reward,
-					Claimed = claimed,
-					Claimable = not claimed and progress >= entry.Target,
-				}
-			)
+			table.insert(contracts, {
+				Id = entry.Id,
+				Name = entry.Name,
+				Text = entry.Text,
+				Target = entry.Target,
+				Progress = progress,
+				Reward = entry.Reward,
+				Claimed = claimed,
+				Claimable = not claimed and progress >= entry.Target,
+			})
 		end
-		local pending = lottery.Pending[userId]
+		local myListings = {}
+		for _, listing in bazaar.EscrowListings do
+			if listing.Status == "Escrowed" or listing.Status == "Active" then
+				table.insert(myListings, {
+					Id = listing.Id,
+					ItemUid = listing.ItemUid,
+					Item = listing.Item,
+					Price = listing.Price,
+					Status = listing.Status,
+					ExpiresAt = listing.ExpiresAt,
+				})
+			end
+		end
 		return {
 			Bank = {
 				Balance = bazaar.Bank.Balance,
@@ -414,16 +315,8 @@ return function(loadService: (string) -> any)
 				},
 			},
 			Market = { Offers = offers, EndsAt = (bucket + 1) * BazaarMath.MARKET_SECONDS },
-			Lottery = {
-				Pot = Economy.Persist(lottery.Pot),
-				Mine = myTickets(userId),
-				Max = BazaarMath.LOTTERY_MAX_TICKETS,
-				Price = Economy.Persist(ticketPrice(profile)),
-				NextAt = (BazaarMath.LotteryBucket(now) + 1) * BazaarMath.LOTTERY_SECONDS,
-				Last = lottery.Last,
-				Prize = if pending ~= nil then Economy.Persist(pending) else 0,
-			},
 			Contracts = contracts,
+			MyListings = myListings,
 		}
 	end
 

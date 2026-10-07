@@ -6,6 +6,22 @@ local luau = require("@lune/luau")
 -- client). Keep this list to files that load as pure chunks under Lune —
 -- Studio-only test *runners* stay out; test modules are parse-checked only.
 local files = {
+	"src/Client/AstralForge/ArcadePage.luau",
+	"src/Client/AstralForge/ViewportLifetime.luau",
+	"src/Server/AstralForge/Modules/ArcadeMigration.luau",
+	"src/Shared/AstralForge/Shared/ProofHash.luau",
+	"src/Shared/AstralForge/Shared/FairRandom.luau",
+	"src/Shared/AstralForge/Shared/ArcadeTypes.luau",
+	"src/Shared/AstralForge/Shared/ArcadeConfig.luau",
+	"src/Shared/AstralForge/Shared/ArcadeCards.luau",
+	"src/Shared/AstralForge/Shared/ArcadeInstantGames.luau",
+	"src/Shared/AstralForge/Shared/ArcadeCardGames.luau",
+	"src/Shared/AstralForge/Shared/ArcadeActionGames.luau",
+	"src/Shared/AstralForge/Shared/ArcadeViews.luau",
+	"src/Shared/AstralForge/Shared/ArcadeEngine.luau",
+	"src/Shared/AstralForge/Shared/RemoteRegistry.luau",
+	"src/Server/AstralForge/Services/ArcadeService.luau",
+	"src/Shared/AstralForge/Shared/ForgeTheme.luau",
 	"src/Shared/AstralForge/Shared/SocialProgression.luau",
 	"src/Client/AstralForge/ActionRequest.luau",
 	"src/Client/AstralForge/RankDashboard.luau",
@@ -26,6 +42,10 @@ local files = {
 	"src/Client/AstralForge/MotionKit.luau",
 	"src/Client/AstralForge/UpgradeModel.luau",
 	"src/Client/AstralForge/PurchaseQueue.luau",
+	"src/Client/AstralForge/PurchaseSession.luau",
+	"src/Client/AstralForge/PurchasePresentation.luau",
+	"src/Client/AstralForge/PremiumShop.luau",
+	"src/Client/AstralForge/LayoutGuardEngine.luau",
 	"src/Client/AstralForge/UpgradeTools.luau",
 	"src/Client/AstralForge/OverviewGoals.luau",
 	"src/Client/AstralForge/UiOverlays.luau",
@@ -39,6 +59,7 @@ local files = {
 	"src/Client/AstralForge/pages/PagesBazaar.luau",
 	"src/Client/AstralForge/pages/PagesSystem.luau",
 	"src/Client/AstralForge/pages/PagesSocial.luau",
+	"src/Client/AstralForge/pages/GuildCommunityPanel.luau",
 	"src/Client/AstralForge/pages/PagesStory.luau",
 	"src/Client/AstralForge/pages/PagesShop.luau",
 	-- Shared catalog (parse only — no require)
@@ -67,12 +88,16 @@ local files = {
 }
 
 local seen = {}
-for _, path in files do seen[path] = true end
+for _, path in files do
+	seen[path] = true
+end
 local function collect(directory)
 	for _, name in fs.readDir(directory) do
 		local path = directory .. "/" .. name
 		if fs.isDir(path) then
-			if name ~= "Vendor" and name ~= "Packages" and name ~= "rbxts_include" then collect(path) end
+			if name ~= "Vendor" and name ~= "Packages" and name ~= "rbxts_include" then
+				collect(path)
+			end
 		elseif name:match("%.luau$") and not seen[path] then
 			seen[path] = true
 			table.insert(files, path)

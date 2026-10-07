@@ -46,6 +46,7 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#GuildView",
+	"src/Client/AstralForge/pages/GuildCommunityPanel.luau",
 	"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
 	"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
@@ -89,7 +90,10 @@ for _, path in HOT_PAGES do
 		string.find(src, "pageScaffold", 1, true) and string.find(src, "PageScaffold", 1, true),
 		path .. " must import PageScaffold"
 	)
-	assert(string.match(src, "createElement%(%s*PageScaffold"), path .. " must mount PageScaffold")
+	assert(
+		string.match(src, "createElement%(%s*PageScaffold") or string.match(src, "h%(%s*PageScaffold"),
+		path .. " must mount PageScaffold"
+	)
 end
 
 -- Completeness: every pages/*.luau that imports pageScaffold must be hot (or allowlisted).
@@ -142,11 +146,9 @@ end
 -- VirtualGrid / PageScaffold fill instead of page-local scrollingframe literals.
 -- Chat message list migrated onto FlatList (virtualizedList owns the scroller) so the
 -- raw-scroll allowlist stays empty — reintroduce entries only with a >40-char justification.
-local RAW_SCROLL_ALLOWLIST = {
-}
+local RAW_SCROLL_ALLOWLIST = {}
 
-local RAW_SCROLL_BUDGET = {
-}
+local RAW_SCROLL_BUDGET = {}
 
 local function countRawScrollingFrames(src)
 	local count = 0
@@ -167,7 +169,10 @@ for _, path in HOT_PAGES do
 	if rawCount > 0 then
 		assert(
 			reason ~= nil and #reason > 40,
-			path .. " has " .. tostring(rawCount) .. " raw scrollingframe(s); migrate to PageScaffold or document allowlist justification"
+			path
+				.. " has "
+				.. tostring(rawCount)
+				.. " raw scrollingframe(s); migrate to PageScaffold or document allowlist justification"
 		)
 		-- Allowlisted pages must still show CanvasSize / AutomaticCanvasSize near the raw frame
 		-- so we are auditing the real canvas pattern, not a false-positive element name.
@@ -199,11 +204,27 @@ do
 	local src = fs.readFile(path)
 	assert(not string.find(src, "pageScaffold", 1, true), path .. " must not nest PageScaffold (double-scroll trap)")
 	assert(string.find(src, "createElement(FlatList", 1, true), path .. " must FlatList inbox and body catalogs")
-	assert(not string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must not keep raw body scrollingframe")
-	assert(string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true), path .. " must expose CLAIM/ARCHIVE")
-	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -props.height)", 1, true), path .. " must pin the gift parcel to the bottom of the reader")
-	assert(string.find(src, "UDim2.new(0.38, -6, 1, 0)", 1, true) and string.find(src, "UDim2.new(0.62, -6, 1, 0)", 1, true), path .. " must keep the desktop inbox/reader split")
-	assert(string.find(src, "UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)", 1, true), path .. " must slide the reader over the inbox on phones")
+	assert(
+		not string.find(src, 'createElement("scrollingframe"', 1, true),
+		path .. " must not keep raw body scrollingframe"
+	)
+	assert(
+		string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true),
+		path .. " must expose CLAIM/ARCHIVE"
+	)
+	assert(
+		string.find(src, "Position = UDim2.new(0, 0, 1, -props.height)", 1, true),
+		path .. " must pin the gift parcel to the bottom of the reader"
+	)
+	assert(
+		string.find(src, "UDim2.new(0.38, -6, 1, 0)", 1, true)
+			and string.find(src, "UDim2.new(0.62, -6, 1, 0)", 1, true),
+		path .. " must keep the desktop inbox/reader split"
+	)
+	assert(
+		string.find(src, "UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)", 1, true),
+		path .. " must slide the reader over the inbox on phones"
+	)
 end
 
 ------------------------------------------------------------------------
@@ -217,9 +238,15 @@ do
 	assert(string.find(story, "measureWrappedTextHeight", 1, true), "StoryBeat content floor must measure wrap")
 	assert(string.find(story, "Position = UDim2.new(0, 0, 1, -actionsH)", 1, true), "StoryBeat must pin Continue/Back")
 	local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-	assert(not string.find(boards, 'createElement("scrollingframe"', 1, true), "Leaderboards must not X-scroll filter tabs")
+	assert(
+		not string.find(boards, 'createElement("scrollingframe"', 1, true),
+		"Leaderboards must not X-scroll filter tabs"
+	)
 	assert(string.find(boards, "filterColumns = 4", 1, true), "Leaderboards must wrap RANK_TABS in a 4-column grid")
-	assert(string.find(boards, "ClipsDescendants = false", 1, true), "Leaderboards filter strip must not clip selection")
+	assert(
+		string.find(boards, "ClipsDescendants = false", 1, true),
+		"Leaderboards filter strip must not clip selection"
+	)
 	assert(string.find(boards, "FlatList", 1, true), "Leaderboards must FlatList long rank catalogs")
 	local lab = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
 	assert(string.find(lab, "FlatList", 1, true), "Lab must FlatList long order catalogs")
@@ -232,11 +259,18 @@ do
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
 	-- Expeditions / Weekly / Season long catalogs must VirtualGrid (or FlatList) — never map-mount.
-	assert(string.find(command, "count = #ops.Expeditions", 1, true) or string.find(command, "count = #expeditionList", 1, true), "Command Expeditions must VirtualGrid count")
+	assert(
+		string.find(command, "count = #ops.Expeditions", 1, true)
+			or string.find(command, "count = #expeditionList", 1, true),
+		"Command Expeditions must VirtualGrid count"
+	)
 	assert(string.find(command, "count = #command.Weekly", 1, true), "Command Weekly must VirtualGrid count")
 	assert(string.find(command, "count = #ops.SeasonTiers", 1, true), "Command Season must VirtualGrid count")
 	assert(string.find(command, "Weekly jobs", 1, true), "Command Weekly jobs header must stay")
-	assert(string.find(command, "overscanRows = if softMotion then 0 else 1", 1, true), "Command catalogs must softMotion-gate overscan")
+	assert(
+		string.find(command, "overscanRows = if softMotion then 0 else 1", 1, true),
+		"Command catalogs must softMotion-gate overscan"
+	)
 end
 
 ------------------------------------------------------------------------
@@ -259,28 +293,34 @@ local FOCUS_OVERLAYS = {
 for _, path in FOCUS_OVERLAYS do
 	assert(fs.isFile(path), "overlay missing: " .. path)
 	local src = fs.readFile(path)
-	assert(
-		string.find(src, "GamepadNavigationService.BeginOverlayFocus", 1, true),
-		path .. " must BeginOverlayFocus"
-	)
-	assert(
-		string.find(src, "GamepadNavigationService.FocusClaim", 1, true),
-		path .. " must FocusClaim"
-	)
+	assert(string.find(src, "GamepadNavigationService.BeginOverlayFocus", 1, true), path .. " must BeginOverlayFocus")
+	assert(string.find(src, "GamepadNavigationService.FocusClaim", 1, true), path .. " must FocusClaim")
 end
 
 -- High-traffic pinned CTAs (page chrome, not full-screen overlays) still FocusClaim.
 do
 	local trade = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
-	assert(string.find(trade, "GamepadNavigationService.BeginOverlayFocus", 1, true), "TradeView session must BeginOverlayFocus")
-	assert(string.find(trade, "GamepadNavigationService.EndOverlayFocus", 1, true), "TradeView session must EndOverlayFocus")
+	assert(
+		string.find(trade, "GamepadNavigationService.BeginOverlayFocus", 1, true),
+		"TradeView session must BeginOverlayFocus"
+	)
+	assert(
+		string.find(trade, "GamepadNavigationService.EndOverlayFocus", 1, true),
+		"TradeView session must EndOverlayFocus"
+	)
 	assert(string.find(trade, "GamepadNavigationService.FocusClaim", 1, true), "TradeView session must FocusClaim")
 	assert(string.find(trade, "TradeSessionActions", 1, true), "TradeView must host FocusClaim on TradeSessionActions")
 	local story = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
-	assert(string.find(story, "GamepadNavigationService.FocusClaim", 1, true), "StoryBeat must FocusClaim pinned Continue/Back")
+	assert(
+		string.find(story, "GamepadNavigationService.FocusClaim", 1, true),
+		"StoryBeat must FocusClaim pinned Continue/Back"
+	)
 	assert(string.find(story, "StoryBeatActions", 1, true), "StoryBeat must name the pinned actions host")
 	local mailbox = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
-	assert(string.find(mailbox, "GamepadNavigationService.FocusClaim", 1, true), "Mailbox must FocusClaim CLAIM/ARCHIVE")
+	assert(
+		string.find(mailbox, "GamepadNavigationService.FocusClaim", 1, true),
+		"Mailbox must FocusClaim CLAIM/ARCHIVE"
+	)
 	assert(string.find(mailbox, "MailClaimActions", 1, true), "Mailbox must host FocusClaim on MailClaimActions")
 	-- CLAIM/ARCHIVE footgun: parent clips=true buried claimSlide overshoot on short phones.
 	do
@@ -303,7 +343,10 @@ do
 	assert(string.find(admin, "Capacity or 0", 1, true), "Admin VAULT cell must show vault/capacity")
 	assert(string.find(admin, "FlatList", 1, true), "Admin long player/command lists must FlatList")
 	assert(string.find(admin, "createElement(PageScaffold", 1, true), "Admin must mount PageScaffold")
-	assert(not string.find(admin, 'createElement("scrollingframe"', 1, true), "Admin must not keep raw scrollingframes under PageScaffold")
+	assert(
+		not string.find(admin, 'createElement("scrollingframe"', 1, true),
+		"Admin must not keep raw scrollingframes under PageScaffold"
+	)
 	local invCrates = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
 	assert(string.find(invCrates, 'id = "crates"', 1, true), "Inventory Crates tab must stay named")
 	assert(string.find(invCrates, "crateStride", 1, true), "Inventory Crates must FlatList with crateStride")
@@ -315,34 +358,70 @@ do
 	local settingsVirt = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
 	-- Settings rows render inline in the page's one scroll (PageScaffold): no list scrolls inside another.
 	assert(string.find(settingsVirt, "PageScaffold", 1, true), "Settings must scroll as one page")
-	assert(not string.find(settingsVirt, "createElement(FlatList", 1, true), "Settings must not nest a FlatList scroller in the page")
-	assert(not string.find(settingsVirt, 'createElement("scrollingframe"', 1, true), "Settings must not keep raw scrollingframes under PageScaffold")
+	assert(
+		not string.find(settingsVirt, "createElement(FlatList", 1, true),
+		"Settings must not nest a FlatList scroller in the page"
+	)
+	assert(
+		not string.find(settingsVirt, 'createElement("scrollingframe"', 1, true),
+		"Settings must not keep raw scrollingframes under PageScaffold"
+	)
 	local chatVirt = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 	assert(string.find(chatVirt, "FlatList", 1, true), "Chat message list must FlatList under PageScaffold fill")
-	assert(not string.find(chatVirt, 'createElement("scrollingframe"', 1, true), "Chat must not keep raw scrollingframes (allowlist cleared)")
-	assert(string.find(chatVirt, "headerHeight = topPad", 1, true), "Chat FlatList must stick short logs via headerHeight topPad")
-	assert(string.find(chatVirt, "overscan = if softMotion then 0", 1, true), "Chat FlatList must softMotion-gate overscan")
+	assert(
+		not string.find(chatVirt, 'createElement("scrollingframe"', 1, true),
+		"Chat must not keep raw scrollingframes (allowlist cleared)"
+	)
+	assert(
+		string.find(chatVirt, "headerHeight = topPad", 1, true),
+		"Chat FlatList must stick short logs via headerHeight topPad"
+	)
+	assert(
+		string.find(chatVirt, "overscan = if softMotion then 0", 1, true),
+		"Chat FlatList must softMotion-gate overscan"
+	)
 	local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
-	assert(string.find(rebirth, "GamepadNavigationService.FocusClaim", 1, true), "RebirthPanel must FocusClaim REBIRTH/CONFIRM")
-	assert(string.find(rebirth, "RebirthClaimActions", 1, true), "RebirthPanel must host FocusClaim on RebirthClaimActions")
+	assert(
+		string.find(rebirth, "GamepadNavigationService.FocusClaim", 1, true),
+		"RebirthPanel must FocusClaim REBIRTH/CONFIRM"
+	)
+	assert(
+		string.find(rebirth, "RebirthClaimActions", 1, true),
+		"RebirthPanel must host FocusClaim on RebirthClaimActions"
+	)
 	local continuum = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView")
-	assert(string.find(continuum, "GamepadNavigationService.FocusClaim", 1, true), "Continuum must FocusClaim forge CTA")
-	assert(string.find(continuum, "ContinuumClaimActions", 1, true), "Continuum must host FocusClaim on ContinuumClaimActions")
+	assert(
+		string.find(continuum, "GamepadNavigationService.FocusClaim", 1, true),
+		"Continuum must FocusClaim forge CTA"
+	)
+	assert(
+		string.find(continuum, "ContinuumClaimActions", 1, true),
+		"Continuum must host FocusClaim on ContinuumClaimActions"
+	)
 	local missions = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 	assert(string.find(missions, "GamepadNavigationService.FocusClaim", 1, true), "Missions must FocusClaim CLAIM ALL")
-	assert(string.find(missions, "MissionClaimActions", 1, true), "Missions must host FocusClaim on MissionClaimActions")
+	assert(
+		string.find(missions, "MissionClaimActions", 1, true),
+		"Missions must host FocusClaim on MissionClaimActions"
+	)
 	local lab = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
 	assert(string.find(lab, "GamepadNavigationService.FocusClaim", 1, true), "Lab must FocusClaim CLAIM ALL")
 	assert(string.find(lab, "LabClaimActions", 1, true), "Lab must host FocusClaim on LabClaimActions")
 	local anomaly = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
-	assert(string.find(anomaly, "GamepadNavigationService.FocusClaim", 1, true), "Anomaly must FocusClaim PULSE/BANK strip")
+	assert(
+		string.find(anomaly, "GamepadNavigationService.FocusClaim", 1, true),
+		"Anomaly must FocusClaim PULSE/BANK strip"
+	)
 	assert(string.find(anomaly, "AnomalyClaimActions", 1, true), "Anomaly must host FocusClaim on AnomalyClaimActions")
 	local wheel = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
 	assert(string.find(wheel, "GamepadNavigationService.FocusClaim", 1, true), "Wheel must FocusClaim SPIN CTA")
 	assert(string.find(wheel, "WheelSpinClaimActions", 1, true), "Wheel must host FocusClaim on WheelSpinClaimActions")
 	local forge = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
 	assert(string.find(forge, "GamepadNavigationService.FocusClaim", 1, true), "ForgePath spotlight must FocusClaim")
-	assert(string.find(forge, "ForgePathClaimActions", 1, true), "ForgePath must host FocusClaim on ForgePathClaimActions")
+	assert(
+		string.find(forge, "ForgePathClaimActions", 1, true),
+		"ForgePath must host FocusClaim on ForgePathClaimActions"
+	)
 end
 
 ------------------------------------------------------------------------
@@ -385,10 +464,7 @@ local SOFT_MOTION_FILES = {
 for _, path in SOFT_MOTION_FILES do
 	local src = fs.readFile(path)
 	assert(string.find(src, "softMotion", 1, true), path .. " must define/use softMotion")
-	assert(
-		string.find(src, "local softMotion =", 1, true),
-		path .. " must declare local softMotion ="
-	)
+	assert(string.find(src, "local softMotion =", 1, true), path .. " must declare local softMotion =")
 	-- The frame-rate governor never switches motion off: softMotion follows only
 	-- an explicit reducedMotion prop, never antilag tier or allowAmbient.
 	for softLine in string.gmatch(src, "local softMotion = ([^\n]+)") do
@@ -432,7 +508,7 @@ do
 		["src/Client/AstralForge/pages/PagesSocial.luau#ChatView"] = 11,
 		["src/Client/AstralForge/pages/PagesSystem.luau#CommandView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#LabView"] = 12,
-		["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = 12,
+		["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = 4,
 		["src/Client/AstralForge/pages/PagesShop.luau#WheelView"] = 11,
 		["src/Client/AstralForge/pages/PagesProgress.luau#StarGridView"] = 12,
 		["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = 12,
@@ -441,49 +517,63 @@ do
 		["src/Client/AstralForge/pages/PagesCore.luau#OverviewView"] = 12,
 		["src/Client/AstralForge/UiCore.luau#FeedbackOverlay"] = 12,
 	}
-	for _, path in {
-		"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#CommandView",
-		"src/Client/AstralForge/pages/PagesSocial.luau#GuildView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#AdminView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#BoostsView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#SettingsView",
-		"src/Client/AstralForge/UiCore.luau#CreditsView",
-		"src/Client/AstralForge/pages/PagesSocial.luau#CrewView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#WorldsView",
-		"src/Client/AstralForge/pages/PagesCore.luau#RewardsView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView",
-		"src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel",
-		"src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView",
-		"src/Client/AstralForge/pages/PagesSocial.luau#MailboxView",
-		"src/Client/AstralForge/pages/PagesCore.luau#MissionsView",
-		"src/Client/AstralForge/pages/PagesCore.luau#MilestonesView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView",
-		"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
-		"src/Client/AstralForge/pages/PagesSocial.luau#ChatView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
-		"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
-		"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
-		"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
-		"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
-		"src/Client/AstralForge/pages/PagesCore.luau#OverviewView",
-		"src/Client/AstralForge/UiCore.luau#FeedbackOverlay",
-	} do
+	for _, path in
+		{
+			"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#CommandView",
+			"src/Client/AstralForge/pages/PagesSocial.luau#GuildView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#AdminView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#BoostsView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#SettingsView",
+			"src/Client/AstralForge/UiCore.luau#CreditsView",
+			"src/Client/AstralForge/pages/PagesSocial.luau#CrewView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#WorldsView",
+			"src/Client/AstralForge/pages/PagesCore.luau#RewardsView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView",
+			"src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel",
+			"src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView",
+			"src/Client/AstralForge/pages/PagesSocial.luau#MailboxView",
+			"src/Client/AstralForge/pages/PagesCore.luau#MissionsView",
+			"src/Client/AstralForge/pages/PagesCore.luau#MilestonesView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView",
+			"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
+			"src/Client/AstralForge/pages/PagesSocial.luau#ChatView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
+			"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
+			"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
+			"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
+			"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
+			"src/Client/AstralForge/pages/PagesCore.luau#OverviewView",
+			"src/Client/AstralForge/UiCore.luau#FeedbackOverlay",
+		}
+	do
 		local src = fs.readFile(path)
+		if path == "src/Client/AstralForge/pages/PagesShop.luau#ShopView" then
+			assert(string.find(src, "motion.useMotionSettings().soft", 1, true), "Shop must inherit reduced motion")
+			continue
+		end
 		assert(string.find(src, CANON, 1, true), path .. " must use canonical softMotion antilag line")
-		assert(string.find(src, "reducedMotion = softMotion", 1, true), path .. " must fold softMotion into reducedMotion")
+		assert(
+			string.find(src, "reducedMotion = softMotion", 1, true),
+			path .. " must fold softMotion into reducedMotion"
+		)
 		local softUses = 0
 		for _ in string.gmatch(src, "softMotion") do
 			softUses += 1
 		end
 		local floor = DENSE[path] or 4
-		if string.find(src, "local function scaffold", 1, true) then floor = 3 end
-		assert(softUses >= floor, path .. " softMotion density too thin, got " .. tostring(softUses) .. " need >=" .. tostring(floor))
+		if string.find(src, "local function scaffold", 1, true) then
+			floor = 3
+		end
+		assert(
+			softUses >= floor,
+			path .. " softMotion density too thin, got " .. tostring(softUses) .. " need >=" .. tostring(floor)
+		)
 	end
 	-- Footgun: Rebirth must not fold effectsPaused into the softMotion assignment line.
 	local rebirth = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
@@ -495,88 +585,152 @@ end
 
 ------------------------------------------------------------------------
 
-	-- Wave14: Missions claimAllReady must tonumber Progress/Target; Research overscan softMotion-gated.
-	local missions = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
-	assert(string.find(missions, "tonumber(quest.Progress)", 1, true), "Missions claimAllReady must tonumber Progress")
-	assert(string.find(missions, 'type(quests) ~= "table"', 1, true), "Missions claimAllReady must nil-guard quests")
-	local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
-	assert(string.find(research, "overscanRows = if softMotion then 0", 1, true), "Research VirtualGrid must softMotion-gate overscan")
-	local routerReady = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
-	assert(string.find(routerReady, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter must lazy-load WorkshopView")
-	local overviewReady = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-	assert(string.find(overviewReady, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
-	-- Wave15: Boosts/Inventory/Anomaly overscan softMotion-gated.
-	local boostsSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
-	assert(string.find(boostsSoft, "overscan = if softMotion then 0", 1, true), "Boosts FlatList must softMotion-gate overscan")
-	local invSoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
-	assert(string.find(invSoft, "overscan = if softMotion then 0", 1, true), "Inventory FlatList must softMotion-gate overscan")
-	local anomalySoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
-	assert(not string.find(anomalySoft, "createElement(FlatList", 1, true), "Shift Plan uses one page scroll for its bounded directive/protocol cards")
-	-- Wave16: Lab/Wheel/StarGrid/Shop FlatList overscan softMotion-gated.
-	local labSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
-	assert(string.find(labSoft, "overscan = if softMotion then 0", 1, true), "Lab FlatList must softMotion-gate overscan")
-	local wheelSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
-	assert(not string.find(wheelSoft, "createElement(FlatList", 1, true), "Wheel prize table must not create a nested scroller")
-	local starSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
-	assert(string.find(starSoft, "overscan = if softMotion then 0", 1, true), "StarGrid FlatList must softMotion-gate overscan")
-	local shopSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
-	assert(string.find(shopSoft, "overscan = if softMotion then 0", 1, true), "Shop FlatList must softMotion-gate overscan to 0")
-	-- Wave17: ForgePath/Echo/Story FlatList overscan softMotion-gated to 0.
-	local forgeSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
-	assert(string.find(forgeSoft, "overscan = if softMotion then 0", 1, true), "ForgePath FlatList must softMotion-gate overscan")
-	local echoSoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
-	assert(string.find(echoSoft, "overscan = if softMotion then 0", 1, true), "EchoForge FlatList must softMotion-gate overscan")
-	local storySoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
-	assert(string.find(storySoft, "overscan = if softMotion then 0", 1, true), "Story FlatList must softMotion-gate overscan")
-	-- Wave18: Missions/Mailbox/Guild/Trade/Admin/Leaderboards FlatList overscan softMotion-gated.
-	local missionsSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
-	assert(string.find(missionsSoft, "overscan = if softMotion then 0", 1, true), "Missions FlatList must softMotion-gate overscan")
-	local mailboxSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
-	assert(string.find(mailboxSoft, "overscan = if softMotion then 0", 1, true), "Mailbox FlatList must softMotion-gate overscan")
-	local guildSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
-	assert(string.find(guildSoft, "overscan = if softMotion then 0", 1, true), "Guild FlatList must softMotion-gate overscan")
-	local tradeSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
-	assert(string.find(tradeSoft, "overscan = if softMotion then 0", 1, true), "Trade FlatList must softMotion-gate overscan")
-	local adminSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
-	assert(string.find(adminSoft, "overscan = if softMotion then 0", 1, true), "Admin FlatList must softMotion-gate overscan")
-	local boardsSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-	assert(string.find(boardsSoft, "overscan = if softMotion then 0", 1, true), "Leaderboards FlatList must softMotion-gate overscan")
-	-- Wave19: Milestones FlatList overscan softMotion-gated (Echo/Command ClaimActions clips below).
-	local milestonesSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
-	assert(string.find(milestonesSoft, "overscan = if softMotion then 0", 1, true), "Milestones FlatList must softMotion-gate overscan")
-	-- Wave20: UpgradeBoard (WorkshopView) VirtualGrid overscan softMotion-gated.
-	local upgradeSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
-	assert(
-		string.find(upgradeSoft, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
-		"UpgradeBoard VirtualGrid must softMotion-gate overscanRows"
-	)
-	assert(
-		string.find(upgradeSoft, "local softMotion = reducedMotion", 1, true),
-		"UpgradeBoard must declare canonical softMotion"
-	)
-	-- Wave21: Command titles VirtualGrid overscan softMotion-gated (catalogs already gated).
-	local commandTitlesSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
-	local titleGateCount = 0
-	for _ in string.gmatch(commandTitlesSoft, "overscanRows = if softMotion then 0 else 1") do
-		titleGateCount += 1
-	end
-	assert(titleGateCount >= 3, "Command catalogs + titles must softMotion-gate overscanRows, got " .. tostring(titleGateCount))
+-- Wave14: Missions claimAllReady must tonumber Progress/Target; Research overscan softMotion-gated.
+local missions = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
+assert(string.find(missions, "tonumber(quest.Progress)", 1, true), "Missions claimAllReady must tonumber Progress")
+assert(string.find(missions, 'type(quests) ~= "table"', 1, true), "Missions claimAllReady must nil-guard quests")
+local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
+assert(
+	string.find(research, "overscanRows = if softMotion then 0", 1, true),
+	"Research VirtualGrid must softMotion-gate overscan"
+)
+local routerReady = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
+assert(
+	string.find(routerReady, 'lazyView("WorkshopView", "WorkshopView")', 1, true),
+	"PageRouter must lazy-load WorkshopView"
+)
+local overviewReady = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
+assert(string.find(overviewReady, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
+-- Wave15: Boosts/Inventory/Anomaly overscan softMotion-gated.
+local boostsSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
+assert(
+	string.find(boostsSoft, "overscan = if softMotion then 0", 1, true),
+	"Boosts FlatList must softMotion-gate overscan"
+)
+local invSoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#InventoryView")
+assert(
+	string.find(invSoft, "overscan = if softMotion then 0", 1, true),
+	"Inventory FlatList must softMotion-gate overscan"
+)
+local anomalySoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView")
+assert(
+	not string.find(anomalySoft, "createElement(FlatList", 1, true),
+	"Shift Plan uses one page scroll for its bounded directive/protocol cards"
+)
+-- Wave16: Lab/Wheel/StarGrid/Shop FlatList overscan softMotion-gated.
+local labSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
+assert(string.find(labSoft, "overscan = if softMotion then 0", 1, true), "Lab FlatList must softMotion-gate overscan")
+local wheelSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#WheelView")
+assert(
+	not string.find(wheelSoft, "createElement(FlatList", 1, true),
+	"Wheel prize table must not create a nested scroller"
+)
+local starSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
+assert(
+	string.find(starSoft, "overscan = if softMotion then 0", 1, true),
+	"StarGrid FlatList must softMotion-gate overscan"
+)
+local shopSoft = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
+assert(
+	not string.find(shopSoft, "createElement(FlatList", 1, true),
+	"centered Shop cards must use the single page scroller"
+)
+-- Wave17: ForgePath/Echo/Story FlatList overscan softMotion-gated to 0.
+local forgeSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView")
+assert(
+	string.find(forgeSoft, "overscan = if softMotion then 0", 1, true),
+	"ForgePath FlatList must softMotion-gate overscan"
+)
+local echoSoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView")
+assert(
+	string.find(echoSoft, "overscan = if softMotion then 0", 1, true),
+	"EchoForge FlatList must softMotion-gate overscan"
+)
+local storySoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
+assert(
+	string.find(storySoft, "overscan = if softMotion then 0", 1, true),
+	"Story FlatList must softMotion-gate overscan"
+)
+-- Wave18: Missions/Mailbox/Guild/Trade/Admin/Leaderboards FlatList overscan softMotion-gated.
+local missionsSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
+assert(
+	string.find(missionsSoft, "overscan = if softMotion then 0", 1, true),
+	"Missions FlatList must softMotion-gate overscan"
+)
+local mailboxSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
+assert(
+	string.find(mailboxSoft, "overscan = if softMotion then 0", 1, true),
+	"Mailbox FlatList must softMotion-gate overscan"
+)
+local guildSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
+assert(
+	string.find(guildSoft, "overscan = if softMotion then 0", 1, true),
+	"Guild FlatList must softMotion-gate overscan"
+)
+local tradeSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
+assert(
+	string.find(tradeSoft, "overscan = if softMotion then 0", 1, true),
+	"Trade FlatList must softMotion-gate overscan"
+)
+local adminSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
+assert(
+	string.find(adminSoft, "overscan = if softMotion then 0", 1, true),
+	"Admin FlatList must softMotion-gate overscan"
+)
+local boardsSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
+assert(
+	string.find(boardsSoft, "overscan = if softMotion then 0", 1, true),
+	"Leaderboards FlatList must softMotion-gate overscan"
+)
+-- Wave19: Milestones FlatList overscan softMotion-gated (Echo/Command ClaimActions clips below).
+local milestonesSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
+assert(
+	string.find(milestonesSoft, "overscan = if softMotion then 0", 1, true),
+	"Milestones FlatList must softMotion-gate overscan"
+)
+-- Wave20: UpgradeBoard (WorkshopView) VirtualGrid overscan softMotion-gated.
+local upgradeSoft = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
+assert(
+	string.find(upgradeSoft, "overscanRows = if softMotion then 0 else (if stack then 2 else 3)", 1, true),
+	"UpgradeBoard VirtualGrid must softMotion-gate overscanRows"
+)
+assert(
+	string.find(upgradeSoft, "local softMotion = reducedMotion", 1, true),
+	"UpgradeBoard must declare canonical softMotion"
+)
+-- Wave21: Command titles VirtualGrid overscan softMotion-gated (catalogs already gated).
+local commandTitlesSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
+local titleGateCount = 0
+for _ in string.gmatch(commandTitlesSoft, "overscanRows = if softMotion then 0 else 1") do
+	titleGateCount += 1
+end
+assert(
+	titleGateCount >= 3,
+	"Command catalogs + titles must softMotion-gate overscanRows, got " .. tostring(titleGateCount)
+)
 
-	-- Wave22: MailClaim + Inspect SOCKET/UPGRADE nested hosts must not clip CTA overshoot.
-	for _, entry in {
+-- Wave22: MailClaim + Inspect SOCKET/UPGRADE nested hosts must not clip CTA overshoot.
+for _, entry in
+	{
 		{ path = "src/Client/AstralForge/pages/PagesSocial.luau#MailboxView", name = "MailClaim" },
 		{ path = "src/Client/AstralForge/pages/PagesStory.luau#InventoryView", name = "InspectSocketClaim" },
 		{ path = "src/Client/AstralForge/pages/PagesStory.luau#InventoryView", name = "InspectUpgradeClaim" },
-	} do
-		local src = fs.readFile(entry.path)
-		local hostStart = string.find(src, 'Name = "' .. entry.name .. '"', 1, true)
-		assert(hostStart, entry.name .. " host missing")
-		assert(string.find(string.sub(src, hostStart, hostStart + 280), "ClipsDescendants = false", 1, true), entry.name .. " clips")
-	end
-	local rebirthSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
-	local rebirthSoftUses = 0
-	for _ in string.gmatch(rebirthSoft, "softMotion") do rebirthSoftUses += 1 end
-	assert(rebirthSoftUses >= 8, "RebirthPanel softMotion density too thin after wave22")
+	}
+do
+	local src = fs.readFile(entry.path)
+	local hostStart = string.find(src, 'Name = "' .. entry.name .. '"', 1, true)
+	assert(hostStart, entry.name .. " host missing")
+	assert(
+		string.find(string.sub(src, hostStart, hostStart + 280), "ClipsDescendants = false", 1, true),
+		entry.name .. " clips"
+	)
+end
+local rebirthSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
+local rebirthSoftUses = 0
+for _ in string.gmatch(rebirthSoft, "softMotion") do
+	rebirthSoftUses += 1
+end
+assert(rebirthSoftUses >= 8, "RebirthPanel softMotion density too thin after wave22")
 
 ------------------------------------------------------------------------
 -- Known CTA / FocusClaim footguns (offline)
@@ -596,28 +750,62 @@ do
 		string.find(echo, "LINK SLOT", 1, true) and string.find(echo, "clips = false", 1, true),
 		"EchoForge inventory cards must keep clips = false near LINK SLOT CTAs"
 	)
-	assert(string.find(echo, "GamepadNavigationService.FocusClaim", 1, true), "EchoForge LINK must FocusClaim when actionable")
-	assert(string.find(echo, 'Name = "EchoClaimActions"', 1, true), "EchoForge LINK host must be named EchoClaimActions")
+	assert(
+		string.find(echo, "GamepadNavigationService.FocusClaim", 1, true),
+		"EchoForge LINK must FocusClaim when actionable"
+	)
+	assert(
+		string.find(echo, 'Name = "EchoClaimActions"', 1, true),
+		"EchoForge LINK host must be named EchoClaimActions"
+	)
 	assert(string.find(echo, "FlatList", 1, true), "EchoForge vault must FlatList long inventory catalogs")
 
 	local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
-	assert(string.find(research, "GamepadNavigationService.FocusClaim", 1, true), "Research BUY ALL must FocusClaim when affordable")
-	assert(string.find(research, 'Name = "ResearchBuyClaimActions"', 1, true), "Research BUY ALL host must be named ResearchBuyClaimActions")
+	assert(
+		string.find(research, "GamepadNavigationService.FocusClaim", 1, true),
+		"Research BUY ALL must FocusClaim when affordable"
+	)
+	assert(
+		string.find(research, 'Name = "ResearchBuyClaimActions"', 1, true),
+		"Research BUY ALL host must be named ResearchBuyClaimActions"
+	)
 	assert(string.find(research, "VirtualGrid", 1, true), "Research chain must stay VirtualGrid")
 
 	local boosts = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#BoostsView")
 	assert(string.find(boosts, "clips = false", 1, true), "Boosts cards must keep clips = false for Activate CTA")
-	assert(string.find(boosts, "position = UDim2.new(0, 0, 1, -TapTarget)", 1, true) or string.find(boosts, 'Name = "BoostClaimActions"', 1, true), "Boosts Activate must stay bottom-pinned")
-	assert(string.find(boosts, "GamepadNavigationService.FocusClaim", 1, true), "Boosts Activate must FocusClaim when ready")
-	assert(string.find(boosts, 'Name = "BoostClaimActions"', 1, true), "Boosts Activate host must be named BoostClaimActions")
+	assert(
+		string.find(boosts, "position = UDim2.new(0, 0, 1, -TapTarget)", 1, true)
+			or string.find(boosts, 'Name = "BoostClaimActions"', 1, true),
+		"Boosts Activate must stay bottom-pinned"
+	)
+	assert(
+		string.find(boosts, "GamepadNavigationService.FocusClaim", 1, true),
+		"Boosts Activate must FocusClaim when ready"
+	)
+	assert(
+		string.find(boosts, 'Name = "BoostClaimActions"', 1, true),
+		"Boosts Activate host must be named BoostClaimActions"
+	)
 
 	local milestones = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
-	assert(string.find(milestones, "GamepadNavigationService.FocusClaim", 1, true), "Milestones CLAIM must FocusClaim when ready")
-	assert(string.find(milestones, 'Name = "MilestoneClaimActions"', 1, true), "Milestones CLAIM host must be named MilestoneClaimActions")
+	assert(
+		string.find(milestones, "GamepadNavigationService.FocusClaim", 1, true),
+		"Milestones CLAIM must FocusClaim when ready"
+	)
+	assert(
+		string.find(milestones, 'Name = "MilestoneClaimActions"', 1, true),
+		"Milestones CLAIM host must be named MilestoneClaimActions"
+	)
 
 	local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
-	assert(string.find(guild, "GamepadNavigationService.FocusClaim", 1, true), "Guild CLAIM REWARD must FocusClaim when ready")
-	assert(string.find(guild, 'Name = "GuildClaimActions"', 1, true), "Guild CLAIM host must be named GuildClaimActions")
+	assert(
+		string.find(guild, "GamepadNavigationService.FocusClaim", 1, true),
+		"Guild CLAIM REWARD must FocusClaim when ready"
+	)
+	assert(
+		string.find(guild, 'Name = "GuildClaimActions"', 1, true),
+		"Guild CLAIM host must be named GuildClaimActions"
+	)
 	-- CLAIM REWARD footgun: parent clips=true buried claimSlide overshoot on short phones.
 	do
 		local hostStart = string.find(guild, 'Name = "GuildClaimActions"', 1, true)
@@ -630,12 +818,21 @@ do
 	end
 
 	local convergence = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ConvergenceView")
-	assert(string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true), "Convergence CLAIM must FocusClaim when ready")
-	assert(string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true), "Convergence CLAIM host must be named ConvergenceClaimActions")
+	assert(
+		string.find(convergence, "GamepadNavigationService.FocusClaim", 1, true),
+		"Convergence CLAIM must FocusClaim when ready"
+	)
+	assert(
+		string.find(convergence, 'Name = "ConvergenceClaimActions"', 1, true),
+		"Convergence CLAIM host must be named ConvergenceClaimActions"
+	)
 
 	local starGrid = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#StarGridView")
 	assert(string.find(starGrid, "GamepadNavigationService.FocusClaim", 1, true), "StarGrid BUY ALL must FocusClaim")
-	assert(string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true), "StarGrid BUY ALL host must be named StarGridBuyClaimActions")
+	assert(
+		string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true),
+		"StarGrid BUY ALL host must be named StarGridBuyClaimActions"
+	)
 	do
 		local hostStart = string.find(starGrid, 'Name = "StarGridBuyClaimActions"', 1, true)
 		assert(hostStart, "StarGridBuyClaimActions host missing")
@@ -647,33 +844,72 @@ do
 	end
 
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
-	assert(string.find(command, "GamepadNavigationService.FocusClaim", 1, true), "Command claim CTAs must FocusClaim when ready")
-	assert(string.find(command, 'Name = "CommandClaimActions"', 1, true), "Command claim hosts must be named CommandClaimActions")
-	assert(string.find(command, "clips = false", 1, true), "Command weekly panel must keep clips = false near CLAIM CTAs")
+	assert(
+		string.find(command, "GamepadNavigationService.FocusClaim", 1, true),
+		"Command claim CTAs must FocusClaim when ready"
+	)
+	assert(
+		string.find(command, 'Name = "CommandClaimActions"', 1, true),
+		"Command claim hosts must be named CommandClaimActions"
+	)
+	assert(
+		string.find(command, "clips = false", 1, true),
+		"Command weekly panel must keep clips = false near CLAIM CTAs"
+	)
 
 	local shop = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
 	assert(string.find(shop, 'Name = "ShopClaimCode"', 1, true), "Shop CLAIM CODE host must stay named ShopClaimCode")
-	assert(string.find(shop, "GamepadNavigationService.FocusClaim", 1, true), "Shop must FocusClaim CLAIM CODE / offer hosts")
-	assert(string.find(shop, "ref = if tab == \"Codes\" then shopHostRef else nil", 1, true), "Shop Codes tab must park FocusClaim on ShopClaimCode")
+	assert(
+		string.find(shop, "GamepadNavigationService.FocusClaim", 1, true),
+		"Shop must FocusClaim CLAIM CODE / offer hosts"
+	)
+	assert(
+		string.find(shop, 'ref = if tab == "Codes" then shopHostRef else nil', 1, true),
+		"Shop Codes tab must park FocusClaim on ShopClaimCode"
+	)
 
 	local router = fs.readFile("src/Client/AstralForge/pages/PageRouter.luau")
 	local rewards = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RewardsView")
-	assert(string.find(rewards, "GamepadNavigationService.FocusClaim", 1, true), "Rewards Daily/Timed CLAIM must FocusClaim when ready")
-	assert(string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true), "Rewards Daily Claim host must be named RewardsDailyClaimActions")
-	assert(string.find(rewards, 'Name = "RewardsTimedClaimActions"', 1, true), "Rewards Timed CLAIM host must be named RewardsTimedClaimActions")
+	assert(
+		string.find(rewards, "GamepadNavigationService.FocusClaim", 1, true),
+		"Rewards Daily/Timed CLAIM must FocusClaim when ready"
+	)
+	assert(
+		string.find(rewards, 'Name = "RewardsDailyClaimActions"', 1, true),
+		"Rewards Daily Claim host must be named RewardsDailyClaimActions"
+	)
+	assert(
+		string.find(rewards, 'Name = "RewardsTimedClaimActions"', 1, true),
+		"Rewards Timed CLAIM host must be named RewardsTimedClaimActions"
+	)
 	assert(string.find(rewards, "local softMotion = reducedMotion", 1, true), "RewardsView must softMotion via antilag")
 	local workshop = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
-	assert(string.find(workshop, "local softMotion = reducedMotion", 1, true), "UpgradeBoard/Workshop must softMotion via antilag")
+	assert(
+		string.find(workshop, "local softMotion = reducedMotion", 1, true),
+		"UpgradeBoard/Workshop must softMotion via antilag"
+	)
 	assert(string.find(workshop, 'Name = "WorkshopBuyClaim"', 1, true), "WorkshopBuyClaim host must stay named")
 	assert(string.find(workshop, "GamepadNavigationService.FocusClaim", 1, true), "Workshop must FocusClaim BUY ALL")
 
 	local credits = fs.readFile("src/Client/AstralForge/UiCore.luau#CreditsView")
-	assert(string.find(credits, 'Name = "CreditsClaimActions"', 1, true), "Credits primary CTA host must be named CreditsClaimActions")
+	assert(
+		string.find(credits, 'Name = "CreditsClaimActions"', 1, true),
+		"Credits primary CTA host must be named CreditsClaimActions"
+	)
 
 	local settings = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#SettingsView")
-	assert(string.find(settings, "GamepadNavigationService.FocusClaim", 1, true), "Settings GUIDE/UPDATES must FocusClaim")
-	assert(string.find(settings, 'Name = "SettingsClaimActions"', 1, true), "Settings GUIDE/UPDATES host must be named SettingsClaimActions")
-	assert(string.find(settings, "local softMotion = reducedMotion", 1, true), "SettingsView must softMotion via antilag")
+	assert(
+		string.find(settings, "GamepadNavigationService.FocusClaim", 1, true),
+		"Settings GUIDE/UPDATES must FocusClaim"
+	)
+	assert(
+		string.find(settings, 'Name = "SettingsClaimActions"', 1, true),
+		"Settings GUIDE/UPDATES host must be named SettingsClaimActions"
+	)
+	assert(
+		string.find(settings, "local softMotion = reducedMotion", 1, true),
+		"SettingsView must softMotion via antilag"
+	)
 	assert(string.find(settings, "SettingsSchema", 1, true), "Settings must be drawn from SettingsSchema")
 
 	local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
@@ -681,7 +917,10 @@ do
 	assert(string.find(chat, 'Name = "ChatClaimActions"', 1, true), "Chat SEND host must be named ChatClaimActions")
 	assert(string.find(chat, "reducedMotion = softMotion", 1, true), "ChatView must fold softMotion into reducedMotion")
 	assert(string.find(chat, "createElement(FlatList", 1, true), "ChatView must mount FlatList for messages")
-	assert(not string.find(chat, "useVirtualizedList", 1, true), "ChatView must not hand-roll useVirtualizedList + raw scrollingframe")
+	assert(
+		not string.find(chat, "useVirtualizedList", 1, true),
+		"ChatView must not hand-roll useVirtualizedList + raw scrollingframe"
+	)
 
 	-- Wave16: Lab CLAIM ALL / Wheel SPIN hosts must not clip CTA overshoot.
 	local labClips = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
@@ -736,21 +975,23 @@ do
 		)
 	end
 	-- Wave18: Research/Missions/Continuum/Boosts/Anomaly/Settings/Rewards/Rebirth/Credits ClaimActions must not clip CTA overshoot.
-	for _, entry in {
-		{ path = "src/Client/AstralForge/pages/PagesProgress.luau#ResearchView", name = "ResearchBuyClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesCore.luau#MissionsView", name = "MissionClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView", name = "ContinuumClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesProgress.luau#BoostsView", name = "BoostClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView", name = "AnomalyClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSystem.luau#SettingsView", name = "SettingsClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesCore.luau#RewardsView", name = "RewardsDailyClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesCore.luau#RewardsView", name = "RewardsTimedClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesCore.luau#OverviewView", name = "OverviewVaultClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesProgress.luau#WorldsView", name = "WorldsTravelClaim" },
-		{ path = "src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel", name = "RebirthClaimActions" },
-		{ path = "src/Client/AstralForge/UiCore.luau#CreditsView", name = "CreditsClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSystem.luau#AdminView", name = "AdminConfirmRun" },
-	} do
+	for _, entry in
+		{
+			{ path = "src/Client/AstralForge/pages/PagesProgress.luau#ResearchView", name = "ResearchBuyClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesCore.luau#MissionsView", name = "MissionClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView", name = "ContinuumClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesProgress.luau#BoostsView", name = "BoostClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView", name = "AnomalyClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSystem.luau#SettingsView", name = "SettingsClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesCore.luau#RewardsView", name = "RewardsDailyClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesCore.luau#RewardsView", name = "RewardsTimedClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesCore.luau#OverviewView", name = "OverviewVaultClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesProgress.luau#WorldsView", name = "WorldsTravelClaim" },
+			{ path = "src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel", name = "RebirthClaimActions" },
+			{ path = "src/Client/AstralForge/UiCore.luau#CreditsView", name = "CreditsClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSystem.luau#AdminView", name = "AdminConfirmRun" },
+		}
+	do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'
 		local hostStart = string.find(src, needle, 1, true)
@@ -759,7 +1000,9 @@ do
 		end
 		assert(hostStart, entry.name .. " host missing in " .. entry.path)
 		local hostSlice = string.sub(src, hostStart, hostStart + 420)
-		if string.find(src, "local function scaffold", 1, true) then hostSlice = src end
+		if string.find(src, "local function scaffold", 1, true) then
+			hostSlice = src
+		end
 		assert(
 			string.find(hostSlice, "ClipsDescendants = false", 1, true),
 			entry.name .. " host must keep ClipsDescendants = false"
@@ -768,14 +1011,16 @@ do
 
 	-- Wave19: Echo/Chat/Command/Guild/Inventory/StarGrid ClaimActions must not clip CTA overshoot.
 	-- Evidence: EchoClaimActions and Overview CommandClaimActions previously omitted ClipsDescendants.
-	for _, entry in {
-		{ path = "src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView", name = "EchoClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSocial.luau#ChatView", name = "ChatClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSystem.luau#CommandView", name = "CommandClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSocial.luau#GuildView", name = "GuildClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesStory.luau#InventoryView", name = "InspectClaimActions" },
-		{ path = "src/Client/AstralForge/pages/PagesProgress.luau#StarGridView", name = "StarGridBuyClaimActions" },
-	} do
+	for _, entry in
+		{
+			{ path = "src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView", name = "EchoClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSocial.luau#ChatView", name = "ChatClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSystem.luau#CommandView", name = "CommandClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSocial.luau#GuildView", name = "GuildClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesStory.luau#InventoryView", name = "InspectClaimActions" },
+			{ path = "src/Client/AstralForge/pages/PagesProgress.luau#StarGridView", name = "StarGridBuyClaimActions" },
+		}
+	do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'
 		local hostStart = string.find(src, needle, 1, true)
@@ -812,11 +1057,13 @@ do
 
 	-- Wave21: TradeSessionActions / AdminExecuteActions / StoryBeatActions must not clip CTA overshoot.
 	-- Evidence: Trade Ready/Confirm/Cancel, Admin ARM/RUN, and Story Continue/Back previously omitted ClipsDescendants.
-	for _, entry in {
-		{ path = "src/Client/AstralForge/pages/PagesSocial.luau#TradeView", name = "TradeSessionActions" },
-		{ path = "src/Client/AstralForge/pages/PagesSystem.luau#AdminView", name = "AdminExecuteActions" },
-		{ path = "src/Client/AstralForge/pages/PagesStory.luau#StoryView", name = "StoryBeatActions" },
-	} do
+	for _, entry in
+		{
+			{ path = "src/Client/AstralForge/pages/PagesSocial.luau#TradeView", name = "TradeSessionActions" },
+			{ path = "src/Client/AstralForge/pages/PagesSystem.luau#AdminView", name = "AdminExecuteActions" },
+			{ path = "src/Client/AstralForge/pages/PagesStory.luau#StoryView", name = "StoryBeatActions" },
+		}
+	do
 		local src = fs.readFile(entry.path)
 		local needle = 'Name = "' .. entry.name .. '"'
 		local hostStart = string.find(src, needle, 1, true)
@@ -832,31 +1079,36 @@ do
 	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken) and Chat/Command/StarGrid/ForgePath
 	-- (wave softmotion-ungated-layout).
 	local CANON_SOFT = "local softMotion = reducedMotion"
-	for _, path in {
-		"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
-		"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#BoostsView",
-		"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
-		"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
-		"src/Client/AstralForge/UiCore.luau#CrateRevealOverlay",
-		"src/Client/AstralForge/pages/PagesSocial.luau#MailboxView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
-		"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-		"src/Client/AstralForge/pages/PagesSocial.luau#ChatView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#CommandView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
-		"src/Client/AstralForge/pages/PagesSocial.luau#CrewView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#WorldsView",
-		"src/Client/AstralForge/pages/PagesCore.luau#RewardsView",
-		"src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView",
-	} do
+	for _, path in
+		{
+			"src/Client/AstralForge/pages/PagesShop.luau#ShopView",
+			"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#BoostsView",
+			"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
+			"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
+			"src/Client/AstralForge/UiCore.luau#CrateRevealOverlay",
+			"src/Client/AstralForge/pages/PagesSocial.luau#MailboxView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
+			"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
+			"src/Client/AstralForge/pages/PagesSocial.luau#ChatView",
+			"src/Client/AstralForge/pages/PagesSystem.luau#CommandView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#StarGridView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
+			"src/Client/AstralForge/pages/PagesSocial.luau#CrewView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#WorldsView",
+			"src/Client/AstralForge/pages/PagesCore.luau#RewardsView",
+			"src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView",
+		}
+	do
 		local softSrc = fs.readFile(path)
 		assert(string.find(softSrc, CANON_SOFT, 1, true), path .. " must use canonical softMotion antilag line")
-		assert(string.find(softSrc, "reducedMotion = softMotion", 1, true), path .. " must fold softMotion into reducedMotion")
+		assert(
+			string.find(softSrc, "reducedMotion = softMotion", 1, true),
+			path .. " must fold softMotion into reducedMotion"
+		)
 	end
 
 	local continuumClips = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ContinuumView")
@@ -870,17 +1122,26 @@ do
 	-- Crew header pins REFRESH to the panel floor — clips=true buried it on short phones.
 	-- Wave28: CrewView extract owns this panel; keep the footgun assert on the extract.
 	local crewViewSrc = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
-	local crewClips = string.match(crewViewSrc, 'clips = (%w+),%s*},%s*React.createElement%(%s*Text,%s*%{%s*value = "CREW ROSTER"')
+	local crewClips =
+		string.match(crewViewSrc, 'clips = (%w+),%s*},%s*React.createElement%(%s*Text,%s*%{%s*value = "CREW ROSTER"')
 	assert(crewClips == "false", "Crew header must keep clips = false so REFRESH stays reachable")
-	assert(string.find(crewViewSrc, "GamepadNavigationService.FocusClaim", 1, true), "Crew must FocusClaim VISIT/REFRESH hosts")
-	assert(string.find(crewViewSrc, 'Name = "CrewVisitClaim"', 1, true), "Crew Visit host must stay named CrewVisitClaim")
+	assert(
+		string.find(crewViewSrc, "GamepadNavigationService.FocusClaim", 1, true),
+		"Crew must FocusClaim VISIT/REFRESH hosts"
+	)
+	assert(
+		string.find(crewViewSrc, 'Name = "CrewVisitClaim"', 1, true),
+		"Crew Visit host must stay named CrewVisitClaim"
+	)
 
 	-- Crate reveal claim hosts (stage + overlay) must FocusClaim so D-pad/A can reach CLAIM.
-	for _, path in {
-		"src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage",
-		"src/Client/AstralForge/UiCore.luau#CrateRevealStageSimple",
-		"src/Client/AstralForge/UiCore.luau#CrateRevealOverlay",
-	} do
+	for _, path in
+		{
+			"src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage",
+			"src/Client/AstralForge/UiCore.luau#CrateRevealStageSimple",
+			"src/Client/AstralForge/UiCore.luau#CrateRevealOverlay",
+		}
+	do
 		local src = fs.readFile(path)
 		assert(string.find(src, "GamepadNavigationService.FocusClaim", 1, true), path .. " must FocusClaim claim CTA")
 	end
@@ -913,16 +1174,18 @@ do
 	assert(not string.find(services, "Packages/", 1, true), "ServerServices must not reference Packages/")
 end
 
-print(string.format(
-	"[INFO] [TEST] playability audit passed | hot=%d overlays=%d softMotion=%d allowlist=%d",
-	#HOT_PAGES,
-	#FOCUS_OVERLAYS,
-	#SOFT_MOTION_FILES,
-	(function()
-		local n = 0
-		for _ in pairs(RAW_SCROLL_ALLOWLIST) do
-			n += 1
-		end
-		return n
-	end)()
-))
+print(
+	string.format(
+		"[INFO] [TEST] playability audit passed | hot=%d overlays=%d softMotion=%d allowlist=%d",
+		#HOT_PAGES,
+		#FOCUS_OVERLAYS,
+		#SOFT_MOTION_FILES,
+		(function()
+			local n = 0
+			for _ in pairs(RAW_SCROLL_ALLOWLIST) do
+				n += 1
+			end
+			return n
+		end)()
+	)
+)

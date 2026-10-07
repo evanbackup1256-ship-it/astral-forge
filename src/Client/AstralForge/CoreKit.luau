@@ -296,58 +296,9 @@ __defs["theme"] = function()
 	exports.moreDockHeight = _mobileLayout.moreDockHeight
 	exports.planMobileLayout = _mobileLayout.planMobileLayout
 	exports.scrollTail = _mobileLayout.scrollTail
-	local Palette = {
-		void = Color3.fromRGB(8, 6, 10),
-		ink = Color3.fromRGB(12, 9, 14),
-		night = Color3.fromRGB(19, 14, 20),
-		panel = Color3.fromRGB(27, 21, 29),
-		panelRaised = Color3.fromRGB(39, 31, 42),
-		panelSoft = Color3.fromRGB(62, 49, 66),
-		line = Color3.fromRGB(74, 58, 80),
-		lineSoft = Color3.fromRGB(132, 110, 142),
-		cream = Color3.fromRGB(252, 247, 240),
-		creamSoft = Color3.fromRGB(230, 220, 212),
-		muted = Color3.fromRGB(178, 160, 166),
-		cyan = Color3.fromRGB(70, 218, 242),
-		mint = Color3.fromRGB(86, 236, 178),
-		coral = Color3.fromRGB(255, 104, 112),
-		mango = Color3.fromRGB(255, 184, 52),
-		violet = Color3.fromRGB(178, 134, 255),
-		pink = Color3.fromRGB(250, 104, 178),
-		blue = Color3.fromRGB(96, 166, 255),
-		white = Color3.fromRGB(255, 255, 255),
-		green = Color3.fromRGB(98, 232, 164),
-		red = Color3.fromRGB(240, 78, 88),
-		shadow = Color3.fromRGB(0, 0, 0),
-		graphite = Color3.fromRGB(22, 17, 25),
-		steel = Color3.fromRGB(204, 214, 234),
-		steelBright = Color3.fromRGB(252, 247, 240),
-		brass = Color3.fromRGB(250, 190, 72),
-		brassDeep = Color3.fromRGB(140, 92, 30),
-		ember = Color3.fromRGB(244, 92, 84),
-	}
-	local ACCESSIBLE_BASE = {
-		void = Palette.void,
-		ink = Palette.ink,
-		night = Palette.night,
-		panel = Palette.panel,
-		panelRaised = Palette.panelRaised,
-		panelSoft = Palette.panelSoft,
-		line = Palette.line,
-		lineSoft = Palette.lineSoft,
-		cream = Palette.cream,
-		creamSoft = Palette.creamSoft,
-		muted = Palette.muted,
-		cyan = Palette.cyan,
-		mint = Palette.mint,
-		coral = Palette.coral,
-		mango = Palette.mango,
-		violet = Palette.violet,
-		pink = Palette.pink,
-		blue = Palette.blue,
-		green = Palette.green,
-		red = Palette.red,
-	}
+	local ForgeTheme = require(game.ReplicatedStorage.AstralForge.Shared.ForgeTheme)
+	local Palette = ForgeTheme.newPalette()
+
 	local accessibilitySignature = ""
 	local function applyAccessibilityTheme(highContrast, colorblind)
 		local signature = `{highContrast}:{colorblind}`
@@ -355,30 +306,10 @@ __defs["theme"] = function()
 			return nil
 		end
 		accessibilitySignature = signature
-		local mutable = Palette
-		for key, value in pairs(ACCESSIBLE_BASE) do
-			mutable[key] = value
-		end
-		if colorblind then
-			mutable.green = Color3.fromRGB(86, 180, 233)
-			mutable.mint = Color3.fromRGB(86, 180, 233)
-			mutable.red = Color3.fromRGB(230, 159, 0)
-			mutable.coral = Color3.fromRGB(230, 159, 0)
-			mutable.pink = Color3.fromRGB(204, 121, 167)
-			mutable.violet = Color3.fromRGB(0, 158, 115)
-		end
-		if highContrast then
-			mutable.void = Color3.fromRGB(0, 0, 0)
-			mutable.ink = Color3.fromRGB(3, 2, 3)
-			mutable.night = Color3.fromRGB(8, 6, 8)
-			mutable.panel = Color3.fromRGB(13, 10, 14)
-			mutable.panelRaised = Color3.fromRGB(21, 16, 23)
-			mutable.panelSoft = Color3.fromRGB(36, 28, 40)
-			mutable.lineSoft = Color3.fromRGB(160, 142, 168)
-			mutable.cream = Color3.fromRGB(255, 255, 255)
-			mutable.creamSoft = Color3.fromRGB(235, 240, 246)
-			mutable.muted = Color3.fromRGB(190, 199, 210)
-		end
+		ForgeTheme.applyAccessibility(Palette, {
+			HighContrast = highContrast == true,
+			Colorblind = colorblind == true,
+		})
 	end
 	local Layout = {
 		pagePadding = 18,
@@ -1428,6 +1359,7 @@ __defs["session"] = function()
 		["Rebirth"] = true,
 		["DomainExpansion"] = true,
 		["UnlockDomainNode"] = true,
+		["RespecDomainTree"] = true,
 		["UpgradeContinuum"] = true,
 		["CaptureEcho"] = true,
 		["ClaimEcho"] = true,
@@ -1440,7 +1372,13 @@ __defs["session"] = function()
 		["ClaimTimedReward"] = true,
 		["SpinWheel"] = true,
 		["CasinoPlay"] = true,
+		["ArcadePlay"] = true,
+		["GetArcade"] = true,
 		["BazaarPlay"] = true,
+		["CreateBazaarListing"] = true,
+		["CancelBazaarListing"] = true,
+		["PurchaseBazaarListing"] = true,
+		["ClaimBazaarPayout"] = true,
 		["LaunchExpedition"] = true,
 		["ClaimExpedition"] = true,
 		["EquipArtifact"] = true,
@@ -1480,9 +1418,23 @@ __defs["session"] = function()
 		["DisbandGuild"] = true,
 		["KickGuildMember"] = true,
 		["SetGuildRole"] = true,
+		["RenameGuild"] = true,
 		["ContributeGuild"] = true,
 		["BuyGuildUpgrade"] = true,
 		["ClaimGuildGoal"] = true,
+		["SendGuildChat"] = true,
+		["SetGuildSettings"] = true,
+		["MuteGuildMember"] = true,
+		["UnmuteGuildMember"] = true,
+		["BanGuildMember"] = true,
+		["UnbanGuildMember"] = true,
+		["CreateGuildAnnouncement"] = true,
+		["EditGuildAnnouncement"] = true,
+		["PinGuildAnnouncement"] = true,
+		["ArchiveGuildAnnouncement"] = true,
+		["SetGuildAnnouncementExpiry"] = true,
+		["UploadGuildLogo"] = true,
+		["ModerateGuildLogo"] = true,
 		["AdminExecute"] = true,
 		["ClaimConvergenceReward"] = true,
 		["ConfirmTrade"] = true,
@@ -2030,13 +1982,20 @@ __defs["networkPolicy"] = function()
 		PulseAnomaly = 0.05,
 		SpinWheel = 1.4,
 		CasinoPlay = 0.4,
+		ArcadePlay = 0.25,
+		GetArcade = 0.6,
 		BazaarPlay = 0.35,
+		CreateBazaarListing = 1.6,
+		CancelBazaarListing = 0.8,
+		PurchaseBazaarListing = 2,
+		ClaimBazaarPayout = 1,
 		OpenItemCrate = 0.24,
 		BuyDailyOffer = 0.4,
 		BuyCrateSkin = 0.55,
 		EquipCrateSkin = 0.3,
 		FuseRelics = 0.4,
 		UpgradeContinuum = 0.4,
+		RespecDomainTree = 1.2,
 		CaptureEcho = 1.2,
 		ClaimEcho = 0.48,
 		EquipEcho = 0.24,
@@ -2077,8 +2036,13 @@ __defs["networkPolicy"] = function()
 		CreateGuild = 2.1,
 		JoinGuild = 1.1,
 		GetGuild = 0.32,
+		GetGuildChatHistory = 0.5,
+		GetGuildAnnouncements = 0.5,
+		GetGuildSettings = 0.5,
+		GetGuildLogoReview = 1.1,
 		KickGuildMember = 0.6,
 		SetGuildRole = 0.6,
+		RenameGuild = 2.1,
 		ContributeGuild = 0.45,
 		BuyGuildUpgrade = 0.8,
 		LeaveGuild = 1.1,
@@ -2089,6 +2053,10 @@ __defs["networkPolicy"] = function()
 		GetPlayers = 8,
 		GetPlayerMirror = 8,
 		GetGuild = 8,
+		GetGuildChatHistory = 8,
+		GetGuildAnnouncements = 8,
+		GetGuildSettings = 8,
+		GetGuildLogoReview = 8,
 		GetGuildLeaderboard = 8,
 		GetLeaderboard = 8,
 		GetAdminState = 8,
@@ -4593,8 +4561,15 @@ __defs["navRouteTable"] = function()
 		{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost", accentKey = "pink" },
 		{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
 		{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
-		{ id = "Anomaly", label = "Shift Plan", eyebrow = "Do this", icon = "Reactor", accentKey = "pink" },
-		{ id = "Continuum", label = "Next Rank", eyebrow = "Plan", icon = "Continuum", accentKey = "pink" },
+		{ id = "Anomaly", label = "Anomaly", eyebrow = "Field work", icon = "Reactor", accentKey = "pink" },
+		{ id = "ExpeditionPlanner", label = "Expeditions", eyebrow = "Plan a run", icon = "World", accentKey = "mint" },
+		{
+			id = "AscensionPath",
+			label = "Ascension Path",
+			eyebrow = "Skill tree",
+			icon = "Continuum",
+			accentKey = "pink",
+		},
 		{ id = "StarGrid", label = "Star Grid", eyebrow = "Dust", icon = "StarGrid", accentKey = "mango" },
 		{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
 		{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
@@ -4618,7 +4593,8 @@ __defs["navRouteTable"] = function()
 		"Research",
 		"StarGrid",
 		"Echoes",
-		"Continuum",
+		"AscensionPath",
+		"ExpeditionPlanner",
 		"Convergence",
 		"Lab",
 		"Anomaly",
@@ -4653,7 +4629,17 @@ __defs["navRouteTable"] = function()
 		{
 			key = "Progress",
 			label = "Progress",
-			routes = { "Worlds", "Lab", "Anomaly", "Continuum", "StarGrid", "Echoes", "ForgePath", "Story" },
+			routes = {
+				"Worlds",
+				"Lab",
+				"Anomaly",
+				"ExpeditionPlanner",
+				"AscensionPath",
+				"StarGrid",
+				"Echoes",
+				"ForgePath",
+				"Story",
+			},
 		},
 		{ key = "Games", label = "Games & Deals", routes = { "Casino", "Bazaar" } },
 		{

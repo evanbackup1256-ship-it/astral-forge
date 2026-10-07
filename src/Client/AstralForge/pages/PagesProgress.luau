@@ -4651,6 +4651,21 @@ __defs["ContinuumView"] = function()
 	return { ContinuumView = require(script.Parent.Parent.PlanningViews).NextPlan }
 end
 
+__defs["AscensionPathView"] = function()
+	local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+	local DomainSkillTree = require(script.Parent.Parent.UiOverlays)("DomainSkillTree").DomainSkillTree
+	local function AscensionPathView(props)
+		return React.createElement(DomainSkillTree, {
+			domain = props.state.Domain or {},
+			stardust = props.state.Stardust or 0,
+			dispatch = props.dispatch,
+			reducedMotion = props.reducedMotion,
+			onClose = props.onClose,
+		})
+	end
+	return { AscensionPathView = AscensionPathView }
+end
+
 __defs["ConvergenceView"] = function()
 	local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 	local UserInputService = game:GetService("UserInputService")

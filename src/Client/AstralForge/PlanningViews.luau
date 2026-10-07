@@ -284,8 +284,8 @@ function Views.NextPlan(props)
 					64,
 					14
 				),
-				button("OPEN SHIFT PLAN", 106, function()
-					navigate("Anomaly")
+				button("OPEN EXPEDITION PLANNER", 106, function()
+					navigate("ExpeditionPlanner")
 				end, false, P.pink),
 				button("COMPARE WORKSHOP UPGRADES", 166, function()
 					navigate("Workshop")
@@ -296,7 +296,7 @@ function Views.NextPlan(props)
 	return scaffold(sections, viewport, props, "ContinuumClaimActions")
 end
 
-function Views.ShiftPlan(props)
+function Views.AnomalyLab(props)
 	local viewport = useViewport()
 	local state, config = props.state, props.config
 	local anomaly = state.Anomaly or {}
@@ -308,7 +308,7 @@ function Views.ShiftPlan(props)
 			"shift-next",
 			240,
 			panel(P.pink, {
-				copy("THIS SHIFT", 0, 22, 12, P.pink, true),
+				copy("ANOMALY FIELD", 0, 22, 12, P.pink, true),
 				copy(plan.title, 30, 58, 23, P.cream, true),
 				copy(if status ~= "" then status else plan.body, 96, 58, 14),
 				button(
@@ -340,14 +340,14 @@ function Views.ShiftPlan(props)
 					106,
 					42
 				),
-				button("BANK COMPLETED SHIFT", 158, function()
+				button("STABILIZE ANOMALY", 158, function()
 					run("StabilizeAnomaly", {})
 				end, busy or not anomaly.Ready, P.mint),
 			})
 		),
 	}
 	local compactTabs = viewport.width < 760
-	local tabs = { copy("SHIFT WORKBENCH", 0, 24, 13, P.cyan, true) }
+	local tabs = { copy("ANOMALY LAB", 0, 24, 13, P.cyan, true) }
 	for index, id in { "Directives", "Loadout", "Milestones", "Protocols" } do
 		local columns = if compactTabs then 2 else 4
 		local column = (index - 1) % columns
@@ -452,10 +452,10 @@ function Views.ShiftPlan(props)
 				`milestone-{milestone.Tier}`,
 				172,
 				panel(P.mint, {
-					copy(`SHIFT MILESTONE · TIER {milestone.Tier}`, 0, 26, 13, P.mint, true),
-					copy(`{anomaly.Stabilizations or 0} / {milestone.Required} completed shifts`, 34, 36, 14),
+					copy(`STABILIZATION MILESTONE · TIER {milestone.Tier}`, 0, 26, 13, P.mint, true),
+					copy(`{anomaly.Stabilizations or 0} / {milestone.Required} stabilized anomalies`, 34, 36, 14),
 					meter(Model.ratio(anomaly.Stabilizations, milestone.Required), 80, P.mint),
-					button(if ready then "CLAIM MILESTONE" else "KEEP BANKING SHIFTS", 104, function()
+					button(if ready then "CLAIM MILESTONE" else "KEEP STABILIZING", 104, function()
 						run("ClaimAnomalyMilestone", { Tier = milestone.Tier })
 					end, busy or not ready, P.mint),
 				})

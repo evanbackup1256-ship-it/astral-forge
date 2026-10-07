@@ -2,6 +2,72 @@
 
 local BazaarMath = {}
 
+local function finiteInteger(value: any, minimum: number, maximum: number): number?
+	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+		return nil
+	end
+	if value % 1 ~= 0 or value < minimum or value > maximum then
+		return nil
+	end
+	return value
+end
+
+local function validEscrowListing(id: any, value: any): any?
+	if type(id) ~= "string" or #id < 8 or #id > 64 or type(value) ~= "table" or value.Id ~= id then
+		return nil
+	end
+	local sellerId = finiteInteger(value.SellerUserId, 1, 2 ^ 31 - 1)
+	local revision = finiteInteger(value.Revision, 1, 2 ^ 31 - 1)
+	local createdAt = finiteInteger(value.CreatedAt, 1, 2 ^ 31 - 1)
+	local expiresAt = finiteInteger(value.ExpiresAt, 1, 2 ^ 31 - 1)
+	local item = value.Item
+	local itemUid = value.ItemUid
+	local status = value.Status
+	local priceValid = if type(value.Price) == "string"
+		then #value.Price > 0 and #value.Price <= 80 and string.match(value.Price, "^%d+$") ~= nil and string.match(
+			value.Price,
+			"^0+$"
+		) == nil
+		else type(value.Price) == "number" and value.Price > 0 and value.Price % 1 == 0 and value.Price < math.huge
+	if
+		sellerId == nil
+		or revision == nil
+		or createdAt == nil
+		or expiresAt == nil
+		or expiresAt <= createdAt
+		or expiresAt - createdAt > 30 * 86400
+		or type(itemUid) ~= "string"
+		or #itemUid < 3
+		or #itemUid > 48
+		or type(item) ~= "table"
+		or type(item.DefinitionId) ~= "string"
+		or #item.DefinitionId < 1
+		or #item.DefinitionId > 64
+		or finiteInteger(item.Level, 1, 1000) == nil
+		or finiteInteger(item.AcquiredAt, 0, 2 ^ 31 - 1) == nil
+		or not priceValid
+		or (status ~= "Escrowed" and status ~= "Active")
+	then
+		return nil
+	end
+	return {
+		Id = id,
+		SellerUserId = sellerId,
+		ItemUid = itemUid,
+		Item = {
+			DefinitionId = item.DefinitionId,
+			Level = item.Level,
+			AcquiredAt = item.AcquiredAt,
+		},
+		Price = value.Price,
+		Status = status,
+		Revision = revision,
+		CreatedAt = createdAt,
+		ExpiresAt = expiresAt,
+		PayoutClaimed = false,
+	}
+end
+
 BazaarMath.BANK = table.freeze({
 	SavingsRate = 0.03,
 	CapSeconds = 7200,
@@ -116,39 +182,6 @@ function BazaarMath.OfferById(bucket: number, id: any): any
 	return nil
 end
 
-BazaarMath.LOTTERY_SECONDS = 300
-BazaarMath.LOTTERY_RAKE = 0.1
-BazaarMath.LOTTERY_MAX_TICKETS = 20
-
-BazaarMath.LOTTERY_TICKET_SHARE = 0.01
-
-function BazaarMath.LotteryDraw(tickets: { [number]: number }, roll: number): number?
-	local total = 0
-	local ids = {}
-	for userId, count in tickets do
-		if count > 0 then
-			total += count
-			table.insert(ids, userId)
-		end
-	end
-	if total <= 0 then
-		return nil
-	end
-	table.sort(ids)
-	local target = math.clamp(roll, 0, 0.9999999) * total
-	for _, userId in ids do
-		target -= tickets[userId]
-		if target < 0 then
-			return userId
-		end
-	end
-	return ids[#ids]
-end
-
-function BazaarMath.LotteryBucket(now: number): number
-	return math.floor(now / BazaarMath.LOTTERY_SECONDS)
-end
-
 BazaarMath.CONTRACTS = table.freeze({
 	table.freeze({
 		Id = "rounds",
@@ -183,14 +216,6 @@ BazaarMath.CONTRACTS = table.freeze({
 		Reward = table.freeze({ CashMinutes = 6, Stardust = 5 }),
 	}),
 	table.freeze({
-		Id = "tickets",
-		Name = "Gambler",
-		Text = "Buy lottery tickets",
-		Counter = "Tickets",
-		Target = 5,
-		Reward = table.freeze({ CashMinutes = 8, FreeSpins = 1 }),
-	}),
-	table.freeze({
 		Id = "interest",
 		Name = "Collector",
 		Text = "Collect bank interest",
@@ -200,7 +225,7 @@ BazaarMath.CONTRACTS = table.freeze({
 	}),
 })
 BazaarMath.CONTRACTS_PER_DAY = 3
-BazaarMath.COUNTERS = table.freeze({ "Rounds", "Wins", "Deals", "Deposits", "Tickets", "Interest" })
+BazaarMath.COUNTERS = table.freeze({ "Rounds", "Wins", "Deals", "Deposits", "Interest" })
 
 function BazaarMath.ContractsFor(day: number, userId: number): { any }
 	local pool = {}
@@ -257,6 +282,68 @@ function BazaarMath.Ensure(bag: any): any
 	local market = if type(source.Market) == "table" then source.Market else {}
 	local contracts = if type(source.Contracts) == "table" then source.Contracts else {}
 	local counters = if type(source.Counters) == "table" then source.Counters else {}
+	local escrowListings = {}
+	if type(source.EscrowListings) == "table" then
+		local count = 0
+		for id, listing in source.EscrowListings do
+			local cleanListing = validEscrowListing(id, listing)
+			if
+				type(id) == "string"
+				and cleanListing ~= nil
+				and cleanListing.Id == id
+				and count < 50
+				and (cleanListing.Status == "Escrowed" or cleanListing.Status == "Active")
+			then
+				escrowListings[id] = cleanListing
+				count += 1
+			end
+		end
+	end
+	local restoredListings = {}
+	if type(source.RestoredListings) == "table" then
+		local count = 0
+		for id, restored in source.RestoredListings do
+			if type(id) == "string" and #id >= 8 and #id <= 64 and restored == true and count < 100 then
+				restoredListings[id] = true
+				count += 1
+			end
+		end
+	end
+	local pendingPurchases = {}
+	if type(source.PendingPurchases) == "table" then
+		local count = 0
+		for id, pending in source.PendingPurchases do
+			if
+				type(id) == "string"
+				and #id >= 8
+				and #id <= 64
+				and type(pending) == "table"
+				and type(pending.Token) == "string"
+				and #pending.Token >= 8
+				and #pending.Token <= 64
+				and type(pending.Price) == "string"
+				and #pending.Price > 0
+				and #pending.Price <= 80
+				and string.match(pending.Price, "^%d+$") ~= nil
+				and string.match(pending.Price, "^0+$") == nil
+				and count < 10
+			then
+				pendingPurchases[id] = { Token = pending.Token, Price = pending.Price }
+				count += 1
+			end
+		end
+	end
+	local function cleanMarkers(value: any): { [string]: boolean }
+		local markers = {}
+		if type(value) == "table" then
+			for id, claimed in value do
+				if type(id) == "string" and #id >= 8 and #id <= 64 and claimed == true then
+					markers[id] = true
+				end
+			end
+		end
+		return markers
+	end
 	local bought = {}
 	if type(market.Bought) == "table" then
 		for id, amount in market.Bought do
@@ -294,8 +381,14 @@ function BazaarMath.Ensure(bag: any): any
 			},
 		},
 		Market = { Bucket = math.floor(tonumber(market.Bucket) or -1), Bought = bought },
+		-- Legacy lottery records are intentionally left untouched and are never exposed or paid out.
 		Lottery = { PendingPrize = persist(if type(source.Lottery) == "table" then source.Lottery.PendingPrize else 0) },
 		Contracts = { Day = math.floor(tonumber(contracts.Day) or -1), Baseline = baseline, Claimed = claimed },
+		EscrowListings = escrowListings,
+		RestoredListings = restoredListings,
+		PendingPurchases = pendingPurchases,
+		CompletedPurchases = cleanMarkers(source.CompletedPurchases),
+		ClaimedPayouts = cleanMarkers(source.ClaimedPayouts),
 		Counters = clean,
 	}
 end

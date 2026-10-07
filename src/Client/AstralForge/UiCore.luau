@@ -5964,7 +5964,7 @@ __defs["MainGame"] = function()
 				if _condition_6 == nil then
 					_condition_6 = detail
 				end
-				ClientLog:warn("action", `{_exp_2} failed — {_condition_6}`)
+				ClientLog:warn("action", `{_exp_2} failed â€” {_condition_6}`)
 				if AppHelpers:isPassiveRequest(action) then
 					return nil
 				end
@@ -6318,7 +6318,7 @@ __defs["MainGame"] = function()
 				Audio:play("crewNudge")
 				local _condition_4 = response.message
 				if _condition_4 == nil then
-					_condition_4 = "They’ll see it."
+					_condition_4 = "Theyâ€™ll see it."
 				end
 				addNotice("Waved", _condition_4, "Info")
 			elseif action == "VisitPlot" then
@@ -6661,8 +6661,8 @@ __defs["MainGame"] = function()
 				addNotice(
 					"Daily streak",
 					if day > 1
-						then `Day {day} is ready — claim it in Rewards.`
-						else "Today’s daily is ready in Rewards.",
+						then `Day {day} is ready â€” claim it in Rewards.`
+						else "Todayâ€™s daily is ready in Rewards.",
 					"Special"
 				)
 			end
@@ -6800,8 +6800,6 @@ __defs["MainGame"] = function()
 					end
 				elseif kind == "PurchaseConfirmed" then
 					require(script.Parent.PurchaseSignals).confirm(value)
-				elseif kind == "Donation" then
-					require(script.Parent.DonationJar).push(value)
 				elseif kind == "FeatureUnlocked" and not purchasePresentationActive.current then
 					Audio:play("unlock")
 					InteractionFeedback.reward()
@@ -6992,7 +6990,7 @@ __defs["MainGame"] = function()
 						lastConnectNotice = os.clock()
 						addNotice(
 							"Still connecting",
-							"Your save is taking longer than usual to load — if Astral Forge is open on another device or Studio session, close it.",
+							"Your save is taking longer than usual to load â€” if Astral Forge is open on another device or Studio session, close it.",
 							"Info",
 							false
 						)
@@ -8978,7 +8976,6 @@ __defs["AppShellChrome"] = function()
 				_exp_11,
 				_condition_22
 			),
-			React.createElement(require(script.Parent.DonationJar).Overlay),
 			React.createElement(require(script.Parent.QuickFind).QuickFind, {
 				state = state,
 				dispatch = dispatch,
@@ -9662,7 +9659,7 @@ __defs["TopBarChrome"] = function()
 			_attributes.reducedMotion = reducedMotion
 			_attributes.reactiveFlash = false
 			_attributes.animateValue = false
-			_attributes.placeholder = if ping == nil then "—" else `{ping}`
+			_attributes.placeholder = if ping == nil then "â€”" else `{ping}`
 			_attributes.tall = tall
 			_attributes.layoutOrder = 2
 			_condition = React.createElement(StatChip, _attributes)
@@ -12872,7 +12869,7 @@ __defs["WorkspaceChrome"] = function()
 			nextStep ~= nil
 				and React.createElement(Text, {
 					value = `{compactNumber(nextStep.Progress)} / {compactNumber(nextStep.Target)}`
-						.. (if etaText ~= "" then `  ·  ~{etaText}` else ""),
+						.. (if etaText ~= "" then `  Â·  ~{etaText}` else ""),
 					size = 12,
 					color = Palette.muted,
 					weight = Enum.FontWeight.Bold,
@@ -12895,7 +12892,7 @@ __defs["WorkspaceChrome"] = function()
 				}),
 			onOpen ~= nil
 				and React.createElement(Text, {
-					value = "›",
+					value = "â€º",
 					size = 16,
 					color = if hovered then Palette.cream else Palette.muted,
 					weight = Enum.FontWeight.Bold,
@@ -14198,7 +14195,7 @@ __defs["levelRoadmap"] = function()
 		local goalText = if def.Goal ~= nil and type(def.Goal.Text) == "string"
 			then def.Goal.Text
 			else "Where every forge starts"
-		local detail = if _param.opens ~= "" then `Level {def.Level} · Opens {_param.opens}` else `Level {def.Level}`
+		local detail = if _param.opens ~= "" then `Level {def.Level} Â· Opens {_param.opens}` else `Level {def.Level}`
 		if def.Level > 1 and status ~= "done" and not here then
 			local LevelRewards = require(
 				game:GetService("ReplicatedStorage")
@@ -14207,7 +14204,7 @@ __defs["levelRoadmap"] = function()
 					:WaitForChild("SharedData")
 			)("LevelRewards")
 			local reward = LevelRewards.forLevel(def.Level, def.Tier)
-			detail ..= string.format(" · +%d stardust, Surge ×%.2f", reward.Stardust, reward.SurgeMultiplier)
+			detail ..= string.format(" Â· +%d stardust, Surge Ã—%.2f", reward.Stardust, reward.SurgeMultiplier)
 		end
 		local rightText = if here then "Current" elseif isNext and nextStep ~= nil then progressText(nextStep) else ""
 		return React.createElement(
@@ -14543,7 +14540,7 @@ __defs["levelRoadmap"] = function()
 								zIndex = 474,
 							}),
 							React.createElement(Text, {
-								value = `{tier}  ·  {level} of {maxLevel}`,
+								value = `{tier}  Â·  {level} of {maxLevel}`,
 								size = 13,
 								color = accent,
 								weight = Enum.FontWeight.Bold,
@@ -15940,7 +15937,7 @@ __defs["ComboBadge"] = function()
 						)
 					),
 					React.createElement(Text, {
-						value = `×{math.floor(combo)}`,
+						value = `Ã—{math.floor(combo)}`,
 						size = if maxed then 19 else 16,
 						color = ensureContrast(
 							darken(accent, 0.58),
@@ -16422,7 +16419,7 @@ __defs["FeedbackOverlay"] = function()
 									}),
 									React.createElement(Text, {
 										value = if #trimmed < 8
-											then `{math.max(0, 8 - #trimmed)} more to send  ·  {#message} / 600`
+											then `{math.max(0, 8 - #trimmed)} more to send  Â·  {#message} / 600`
 											else `{#message} / 600`,
 										size = 11,
 										color = if #trimmed < 8
@@ -17764,7 +17761,7 @@ __defs["OfflineRewardsOverlay"] = function()
 			end
 			_result = `{compactNumber(_condition_3)}/s`
 		else
-			_result = "—"
+			_result = "â€”"
 		end
 		_object[_left] = _result
 		_object.color = Palette.mango
@@ -18218,7 +18215,7 @@ __defs["PlayerlistOverlay"] = function()
 		if blocked then
 			table.insert(tags, "BLOCKED")
 		end
-		local subtitle = `WORLD {compactNumber(row.CurrentZone)}  ·  {compactNumber(row.Rebirths)} REBIRTHS`
+		local subtitle = `WORLD {compactNumber(row.CurrentZone)}  Â·  {compactNumber(row.Rebirths)} REBIRTHS`
 		local actions = nil
 		if not row.IsLocal then
 			local actionRows = if width < 600 then 2 else 1
@@ -18273,7 +18270,7 @@ __defs["PlayerlistOverlay"] = function()
 				})
 			)
 		end
-		local relics = if #row.EquippedItems > 0 then table.concat(row.EquippedItems, " · ") else "No relics equipped"
+		local relics = if #row.EquippedItems > 0 then table.concat(row.EquippedItems, " Â· ") else "No relics equipped"
 		return React.createElement(
 			"frame",
 			{
@@ -18341,7 +18338,7 @@ __defs["PlayerlistOverlay"] = function()
 					zIndex = 623,
 				}),
 				React.createElement(Text, {
-					value = if #tags > 0 then table.concat(tags, " · ") .. "  ·  " .. subtitle else subtitle,
+					value = if #tags > 0 then table.concat(tags, " Â· ") .. "  Â·  " .. subtitle else subtitle,
 					size = 10,
 					color = if away then Palette.mango else accent,
 					weight = Enum.FontWeight.Bold,
@@ -18463,8 +18460,8 @@ __defs["PlayerlistOverlay"] = function()
 				),
 				not row.IsLocal
 					and React.createElement(Text, {
-						value = `{relics}  ·  ACCOUNT {Model.accountAge(row.AccountAge)}{if row.Premium
-							then "  ·  PREMIUM"
+						value = `{relics}  Â·  ACCOUNT {Model.accountAge(row.AccountAge)}{if row.Premium
+							then "  Â·  PREMIUM"
 							else ""}`,
 						size = 10,
 						color = Palette.muted,
@@ -19400,7 +19397,7 @@ __defs["PlayerlistOverlay"] = function()
 							Transparency = 0.55,
 						}),
 						React.createElement(Text, {
-							value = `FRIEND BOOST  {social.FriendCount}/{social.FriendLimit}  ·  +{math.floor(
+							value = `FRIEND BOOST  {social.FriendCount}/{social.FriendLimit}  Â·  +{math.floor(
 								social.FriendBonus * 100 + 0.5
 							)}%`,
 							size = 11,
@@ -20459,7 +20456,7 @@ __defs["onboarding"] = function()
 				end),
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				Text = "♥",
+				Text = "â™¥",
 				TextColor3 = Palette.pink,
 				TextSize = frame:map(function(f)
 					local heart = get(f)
@@ -20941,7 +20938,7 @@ __defs["onboarding"] = function()
 					ZIndex = 402,
 				},
 				React.createElement(Text, {
-					value = `STEP {step} OF {count}  ·  {string.upper(TutorialScript.PET_NAME)}'S TOUR`,
+					value = `STEP {step} OF {count}  Â·  {string.upper(TutorialScript.PET_NAME)}'S TOUR`,
 					size = 10,
 					color = Palette.mango,
 					weight = Enum.FontWeight.Heavy,
@@ -21313,7 +21310,7 @@ __defs["onboarding"] = function()
 			local _callback = function(line, lineIndex)
 				return React.createElement(Text, {
 					key = lineIndex,
-					value = `•  {line}`,
+					value = `â€¢  {line}`,
 					size = 12,
 					color = Palette.creamSoft,
 					wrap = true,
@@ -22365,7 +22362,7 @@ __defs["AdminPrankOverlay"] = function()
 			emptyBag
 				and React.createElement(PrankCard, {
 					title = "Inventory",
-					body = "0 / 100 bag. No relics. This is a fake empty-bag card — your relics are still there.",
+					body = "0 / 100 bag. No relics. This is a fake empty-bag card â€” your relics are still there.",
 					action = "CLOSE",
 					accent = Palette.violet,
 					height = 248,
@@ -22841,7 +22838,7 @@ __defs["notifications"] = function()
 							CornerRadius = UDim.new(1, 0),
 						}),
 						React.createElement(Text, {
-							value = `×{count}`,
+							value = `Ã—{count}`,
 							size = 11,
 							color = Palette.ink,
 							weight = Enum.FontWeight.Heavy,
@@ -22917,7 +22914,7 @@ __defs["notifications"] = function()
 						Size = UDim2.fromScale(1, 1),
 						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
-						Text = "×",
+						Text = "Ã—",
 						TextColor3 = if hovered then color else mutedX,
 						TextTransparency = fade,
 						TextSize = if props.touch then 22 else 20,
@@ -23303,7 +23300,7 @@ __defs["levelMoments"] = function()
 				"surge",
 				"Boost",
 				Palette.pink,
-				string.format("Forge Surge ×%.2f for %s", moment.SurgeMultiplier, clockText(seconds))
+				string.format("Forge Surge Ã—%.2f for %s", moment.SurgeMultiplier, clockText(seconds))
 			)
 		end
 		add(
@@ -23318,7 +23315,7 @@ __defs["levelMoments"] = function()
 		local width = math.min(380, viewport.width - 28)
 		local height = 128 + count * 40
 		local levels = moment.Levels or {}
-		local title = if #levels > 1 then `Levels {levels[1]}–{levels[#levels]}` else `Level {moment.Level}`
+		local title = if #levels > 1 then `Levels {levels[1]}â€“{levels[#levels]}` else `Level {moment.Level}`
 		return React.createElement(
 			"textbutton",
 			{
@@ -23493,7 +23490,7 @@ __defs["levelMoments"] = function()
 				Position = UDim2.fromOffset(32, 0),
 				BackgroundTransparency = 1,
 				Text = now:map(function(value)
-					return string.format("SURGE ×%.2f  %s", surge.Multiplier, clockText(surge.EndsAt - value))
+					return string.format("SURGE Ã—%.2f  %s", surge.Multiplier, clockText(surge.EndsAt - value))
 				end),
 				TextColor3 = Palette.cream,
 				TextSize = 13,
@@ -23717,7 +23714,7 @@ __defs["serverEventsUi"] = function()
 			if def.Id == "MeteorShower" then
 				line(
 					"effect",
-					string.format("Effect: everyone's output ×%.1f while it lasts.", def.Multiplier),
+					string.format("Effect: everyone's output Ã—%.1f while it lasts.", def.Multiplier),
 					Palette.mango,
 					13,
 					20
@@ -23759,7 +23756,7 @@ __defs["serverEventsUi"] = function()
 							ZIndex = 562,
 						},
 						React.createElement(Text, {
-							value = `{compactNumber(event.Progress or 0)} / {compactNumber(event.Goal)} points  ·  yours {compactNumber(
+							value = `{compactNumber(event.Progress or 0)} / {compactNumber(event.Goal)} points  Â·  yours {compactNumber(
 								event.Yours or 0
 							)}`,
 							size = 12,
@@ -23780,7 +23777,7 @@ __defs["serverEventsUi"] = function()
 					for index, entry in event.Top or {} do
 						line(
 							"top" .. index,
-							`#{index}  {entry.Name}  ·  {compactNumber(entry.Points)} pts`,
+							`#{index}  {entry.Name}  Â·  {compactNumber(entry.Points)} pts`,
 							if index <= 3 then Palette.mango else Palette.muted,
 							12,
 							16
@@ -24466,7 +24463,7 @@ __defs["CreditsView"] = function()
 				reducedMotion = _param.reducedMotion,
 			})
 		end
-		local count = if MODEL.ShowCategoryCounts and #members > 0 then ` · {#members}` else ""
+		local count = if MODEL.ShowCategoryCounts and #members > 0 then ` Â· {#members}` else ""
 		return React.createElement(
 			"frame",
 			{
@@ -24940,7 +24937,7 @@ __defs["CreditsView"] = function()
 							}, if MODEL.ShowVersion
 									and version ~= nil
 									and MODEL.Tagline ~= ""
-								then "  ·  "
+								then "  Â·  "
 								else ""),
 							size = 11,
 							color = Palette.muted,
@@ -25056,23 +25053,22 @@ __defs["crateModel"] = function()
 	end
 
 	local function kitFolder()
-		local folder = ReplicatedStorage:FindFirstChild("CasinoKit")
+		local folder = ReplicatedStorage:FindFirstChild("CrateKit") or ReplicatedStorage:FindFirstChild("CasinoKit")
 		return if folder ~= nil and folder:IsA("Folder") then folder else nil
 	end
 
 	local function useKitReady()
-		local ready, setReady = React.useState(kitFolder() ~= nil)
+		local ready, setReady = React.useState(if kitFolder() ~= nil then 1 else 0)
 		React.useEffect(function()
-			if ready then
-				return nil
-			end
-			local listener = function()
-				setReady(true)
+						local listener = function()
+				setReady(function(revision)
+					return revision + 1
+				end)
 			end
 			kitListeners[listener] = true
 			if kitWatch == nil then
 				kitWatch = ReplicatedStorage.ChildAdded:Connect(function(child)
-					if child.Name == "CasinoKit" then
+					if child.Name == "CasinoKit" or child.Name == "CrateKit" then
 						for each in kitListeners do
 							task.defer(each)
 						end
@@ -25120,6 +25116,9 @@ __defs["crateModel"] = function()
 		local bodyH = body.Size.Y
 		body.CFrame = CFrame.new(0, bodyH / 2, 0)
 		body.Parent = model
+		if bodySource == nil or lidSource == nil then
+			require(script.Parent.CrateDetails).build(model, body, rgb(skin.Accent, body.Color), skinId)
+		end
 		local lidRest = CFrame.new(0, bodyH + lid.Size.Y / 2 - 0.01, 0)
 		lid.CFrame = lidRest
 		lid.Parent = model
@@ -25216,8 +25215,8 @@ __defs["crateModel"] = function()
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Ambient = props.ambient
-				or (if kitReady then Color3.fromRGB(200, 194, 208) else Color3.fromRGB(150, 140, 165)),
-			LightColor = if kitReady then Color3.fromRGB(200, 192, 180) else Color3.fromRGB(255, 244, 224),
+				or (if kitReady > 0 then Color3.fromRGB(200, 194, 208) else Color3.fromRGB(150, 140, 165)),
+			LightColor = if kitReady > 0 then Color3.fromRGB(200, 192, 180) else Color3.fromRGB(255, 244, 224),
 			LightDirection = Vector3.new(-0.5, -0.8, 1),
 			ZIndex = props.zIndex,
 			LayoutOrder = props.layoutOrder or 0,
@@ -25225,7 +25224,7 @@ __defs["crateModel"] = function()
 	end
 
 	local function kitPiece(name, fit)
-		local folder = kitFolder()
+		local folder = ReplicatedStorage:FindFirstChild("CasinoKit")
 		local source = folder and folder:FindFirstChild(name)
 		if source == nil or not source:IsA("MeshPart") then
 			return nil, 1
@@ -26040,7 +26039,7 @@ __defs["CrateRevealOverlay"] = function()
 		end)
 		return React.createElement(CrateRevealStage, {
 			crateName = session.crateName,
-			skin = _param.skin,
+			skin = require(game.ReplicatedStorage.AstralForge.Shared.CrateAppearance).resolve(_param.skin, session.crateId, config.Items.Crates),
 			sessionAccent = session.accent,
 			cards = strip,
 			cardWidth = CARD_W,
@@ -26359,8 +26358,8 @@ __defs["CrateRevealStageSimple"] = function()
 		local accent = if landed then props.winnerAccent else props.sessionAccent
 		local resultTitle = if landed
 			then props.winnerName
-			elseif props.phase == "spin" then "Finding your relic…"
-			else "Opening crate…"
+			elseif props.phase == "spin" then "Finding your relicâ€¦"
+			else "Opening crateâ€¦"
 		local resultSubtitle = if landed
 			then props.resultDetail
 			elseif props.phase == "spin" then "Tap to skip the roll"
@@ -26668,7 +26667,7 @@ __defs["CrateRevealStageSimple"] = function()
 						ZIndex = 451,
 					}, h("uicorner", { CornerRadius = UDim.new(1, 0) })),
 					h(Text, {
-						value = if landed then `{string.upper(props.winnerRarity)}  ·  {props.resultTag}` else status,
+						value = if landed then `{string.upper(props.winnerRarity)}  Â·  {props.resultTag}` else status,
 						size = 10,
 						color = accent,
 						weight = Enum.FontWeight.Bold,

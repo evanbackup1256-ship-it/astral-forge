@@ -1,0 +1,162 @@
+[
+  {
+    "Skin": "Classic",
+    "Body": "Crate_Classic_Body",
+    "Lid": "Crate_Classic_Lid",
+    "Motif": "brace",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Crystal",
+    "Body": "Crate_Crystal_Body",
+    "Lid": "Crate_Crystal_Lid",
+    "Motif": "prism",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Frost",
+    "Body": "Crate_Frost_Body",
+    "Lid": "Crate_Frost_Lid",
+    "Motif": "fins",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Molten",
+    "Body": "Crate_Molten_Body",
+    "Lid": "Crate_Molten_Lid",
+    "Motif": "coil",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Nebula",
+    "Body": "Crate_Nebula_Body",
+    "Lid": "Crate_Nebula_Lid",
+    "Motif": "orbit",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Void",
+    "Body": "Crate_Void_Body",
+    "Lid": "Crate_Void_Lid",
+    "Motif": "seal",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Gilded",
+    "Body": "Crate_Gilded_Body",
+    "Lid": "Crate_Gilded_Lid",
+    "Motif": "crown",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Celestial",
+    "Body": "Crate_Celestial_Body",
+    "Lid": "Crate_Celestial_Lid",
+    "Motif": "halo",
+    "Width": 1.0,
+    "Height": 1.0
+  },
+  {
+    "Skin": "Salvage",
+    "Body": "Crate_Salvage_Body",
+    "Lid": "Crate_Salvage_Lid",
+    "Motif": "brace",
+    "Width": 1.18,
+    "Height": 0.82
+  },
+  {
+    "Skin": "Reactor",
+    "Body": "Crate_Reactor_Body",
+    "Lid": "Crate_Reactor_Lid",
+    "Motif": "coil",
+    "Width": 0.88,
+    "Height": 1.25
+  },
+  {
+    "Skin": "Glacier",
+    "Body": "Crate_Glacier_Body",
+    "Lid": "Crate_Glacier_Lid",
+    "Motif": "fins",
+    "Width": 0.92,
+    "Height": 1.15
+  },
+  {
+    "Skin": "Solar",
+    "Body": "Crate_Solar_Body",
+    "Lid": "Crate_Solar_Lid",
+    "Motif": "solar",
+    "Width": 1.22,
+    "Height": 0.75
+  },
+  {
+    "Skin": "Storm",
+    "Body": "Crate_Storm_Body",
+    "Lid": "Crate_Storm_Lid",
+    "Motif": "antenna",
+    "Width": 0.85,
+    "Height": 1.3
+  },
+  {
+    "Skin": "Lunar",
+    "Body": "Crate_Lunar_Body",
+    "Lid": "Crate_Lunar_Lid",
+    "Motif": "orbit",
+    "Width": 1.1,
+    "Height": 0.9
+  },
+  {
+    "Skin": "DeepSea",
+    "Body": "Crate_DeepSea_Body",
+    "Lid": "Crate_DeepSea_Lid",
+    "Motif": "pressure",
+    "Width": 0.9,
+    "Height": 1.12
+  },
+  {
+    "Skin": "Prism",
+    "Body": "Crate_Prism_Body",
+    "Lid": "Crate_Prism_Lid",
+    "Motif": "prism",
+    "Width": 1.15,
+    "Height": 0.85
+  },
+  {
+    "Skin": "Obsidian",
+    "Body": "Crate_Obsidian_Body",
+    "Lid": "Crate_Obsidian_Lid",
+    "Motif": "seal",
+    "Width": 1.18,
+    "Height": 1.05
+  },
+  {
+    "Skin": "Chrono",
+    "Body": "Crate_Chrono_Body",
+    "Lid": "Crate_Chrono_Lid",
+    "Motif": "dial",
+    "Width": 0.95,
+    "Height": 1.18
+  },
+  {
+    "Skin": "Aurora",
+    "Body": "Crate_Aurora_Body",
+    "Lid": "Crate_Aurora_Lid",
+    "Motif": "halo",
+    "Width": 1.25,
+    "Height": 0.9
+  },
+  {
+    "Skin": "Titan",
+    "Body": "Crate_Titan_Body",
+    "Lid": "Crate_Titan_Lid",
+    "Motif": "armor",
+    "Width": 1.3,
+    "Height": 1.2
+  }
+]

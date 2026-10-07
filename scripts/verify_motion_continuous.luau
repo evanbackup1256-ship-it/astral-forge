@@ -51,8 +51,8 @@ for _, path in {
 	assert(not string.find(src, "Settings.ReducedMotion == true,", 1, true) or path == "src/Client/AstralForge/UiCore.luau", path .. ": Reduced Motion passed down as an off switch")
 end
 
--- Casino: viewports stay cheap and every animation runs at the frame rate.
-local casino = fs.readFile("src/Client/AstralForge/pages/PagesCasino.luau#CasinoView")
+-- Retained casino presentation helpers: inspect their real deployed source, not the replacement page adapter.
+local casino = fs.readFile("src/Client/AstralForge/pages/PagesCasino.luau")
 assert(string.find(casino, "local function showAround(pos)", 1, true), "reels keep only the cells near the window")
 assert(not string.find(casino, "reducedMotion, 20)", 1, true) and not string.find(casino, "reducedMotion, 30)", 1, true), "no throttled casino animation")
 assert(not string.find(casino, "drift.current < 1 / 24", 1, true), "the idle wheel turns every frame")

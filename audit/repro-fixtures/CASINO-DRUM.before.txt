@@ -1,0 +1,76 @@
+	local function buildDrum(index)
+		return function(viewport, camera)
+			local model = newModel(viewport)
+			local radius = 1.7
+			local drum = kitPiece("Drum", (radius + 0.06) * 2)
+			if drum ~= nil then
+				drum.CFrame = KIT_FACE
+				drum.Parent = model
+			else
+				solid(
+					model,
+					CYL,
+					Vector3.new(1.3, radius * 2 - 0.12, radius * 2 - 0.12),
+					Color3.fromRGB(34, 26, 40),
+					PLASTIC,
+					CFrame.new()
+				)
+				for _, x in { -0.62, 0.62 } do
+					solid(
+						model,
+						CYL,
+						Vector3.new(0.12, radius * 2 + 0.02, radius * 2 + 0.02),
+						Palette.brass,
+						PLASTIC,
+						CFrame.new(x, 0, 0)
+					)
+				end
+			end
+			local cells = {}
+			for k = 0, CYCLE - 1 do
+				local cell = Instance.new("Model")
+				addSymbol(
+					cell,
+					STRIPS[index][k + 1],
+					CFrame.Angles(k / CYCLE * math.tau, 0, 0) * CFrame.new(0, 0, -(radius + 0.02)),
+					0.62
+				)
+				cells[k] = cell
+			end
+			local front = nil
+			local function showAround(pos)
+				local nextFront = math.round(pos) % CYCLE
+				if nextFront == front then
+					return
+				end
+				front = nextFront
+				for k, cell in cells do
+					local gap = math.abs(k - nextFront)
+					gap = math.min(gap, CYCLE - gap)
+					local parent = if gap <= VISIBLE_CELLS then model else nil
+					if cell.Parent ~= parent then
+						cell.Parent = parent
+					end
+				end
+			end
+			local baseLight = Vector3.new(-0.5, -0.8, 1)
+			local home = CFrame.lookAt(Vector3.new(0, 0, -6.4), Vector3.zero)
+			local lastAngle = math.huge
+			camera.FieldOfView = 24
+			camera.CFrame = home
+			showAround(0)
+			return {
+				set = function(pos)
+					local angle = pos / CYCLE * math.tau
+					if math.abs(angle - lastAngle) < 1e-4 then
+						return
+					end
+					lastAngle = angle
+					showAround(pos)
+					local swing = CFrame.Angles(angle, 0, 0)
+					camera.CFrame = swing * home
+					viewport.LightDirection = swing:VectorToWorldSpace(baseLight)
+				end,
+			}
+		end
+	end

@@ -10,6 +10,7 @@ return function(loadService: (string) -> any)
 	local Protocol =
 		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("Protocol"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
+	local Registry = require("@game/ReplicatedStorage/AstralForge/Shared/RemoteRegistry")
 	local RemoteFirewallMath =
 		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("RemoteFirewallMath")
 	local ServerTelemetry = loadService("ServerTelemetry")
@@ -104,6 +105,23 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.StudioGrantProduct] = { Cost = 1, Cooldown = 0.4 },
 		[Protocol.Actions.GetGuild] = { Cost = 0.4, Cooldown = 0.25 },
 		[Protocol.Actions.GetGuildLeaderboard] = { Cost = 0.7, Cooldown = 1 },
+		[Protocol.Actions.SendGuildChat] = { Cost = 0.25, Cooldown = 0.4 },
+		[Protocol.Actions.GetGuildChatHistory] = { Cost = 0.25, Cooldown = 0.2 },
+		[Protocol.Actions.GetGuildAnnouncements] = { Cost = 0.25, Cooldown = 0.25 },
+		[Protocol.Actions.GetGuildSettings] = { Cost = 0.2, Cooldown = 0.5 },
+		[Protocol.Actions.SetGuildSettings] = { Cost = 0.75, Cooldown = 1 },
+		[Protocol.Actions.GetGuildLogoReview] = { Cost = 0.3, Cooldown = 1 },
+		[Protocol.Actions.CreateGuildAnnouncement] = { Cost = 1, Cooldown = 2 },
+		[Protocol.Actions.EditGuildAnnouncement] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.PinGuildAnnouncement] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.ArchiveGuildAnnouncement] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.SetGuildAnnouncementExpiry] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.MuteGuildMember] = { Cost = 0.5, Cooldown = 0.6 },
+		[Protocol.Actions.UnmuteGuildMember] = { Cost = 0.5, Cooldown = 0.6 },
+		[Protocol.Actions.BanGuildMember] = { Cost = 1, Cooldown = 1 },
+		[Protocol.Actions.UnbanGuildMember] = { Cost = 0.5, Cooldown = 0.6 },
+		[Protocol.Actions.UploadGuildLogo] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.ModerateGuildLogo] = { Cost = 0.5, Cooldown = 1 },
 		[Protocol.Actions.GetLeaderboard] = { Cost = 0.8, Cooldown = 1 },
 		[Protocol.Actions.GetAdminState] = { Cost = 0.5, Cooldown = 0.8 },
 		[Protocol.Actions.AdminExecute] = { Cost = 4, Cooldown = 0.8 },
@@ -113,11 +131,13 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.DisbandGuild] = { Cost = 2, Cooldown = 2 },
 		[Protocol.Actions.KickGuildMember] = { Cost = 1.5, Cooldown = 0.5 },
 		[Protocol.Actions.SetGuildRole] = { Cost = 1.5, Cooldown = 0.5 },
+		[Protocol.Actions.RenameGuild] = { Cost = 2, Cooldown = 2 },
 		[Protocol.Actions.ContributeGuild] = { Cost = 1, Cooldown = 0.25 },
 		[Protocol.Actions.BuyGuildUpgrade] = { Cost = 1.5, Cooldown = 0.7 },
 		[Protocol.Actions.ClaimGuildGoal] = { Cost = 1.5, Cooldown = 0.4 },
 		[Protocol.Actions.DomainExpansion] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UnlockDomainNode] = { Cost = 1, Cooldown = 0.2 },
+		[Protocol.Actions.RespecDomainTree] = { Cost = 2.5, Cooldown = 1.5 },
 		[Protocol.Actions.UpgradeContinuum] = { Cost = 1.5, Cooldown = 0.35 },
 		[Protocol.Actions.CaptureEcho] = { Cost = 2, Cooldown = 1.1 },
 		[Protocol.Actions.ClaimEcho] = { Cost = 1.5, Cooldown = 0.4 },
@@ -136,7 +156,14 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
 		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
+		[Protocol.Actions.ArcadePlay] = Registry.limits.ArcadePlay,
+		[Protocol.Actions.GetArcade] = Registry.limits.GetArcade,
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
+		[Protocol.Actions.GetBazaarListings] = { Cost = 0.5, Cooldown = 1 },
+		[Protocol.Actions.CreateBazaarListing] = { Cost = 2, Cooldown = 1.5 },
+		[Protocol.Actions.CancelBazaarListing] = { Cost = 1.5, Cooldown = 0.75 },
+		[Protocol.Actions.PurchaseBazaarListing] = { Cost = 3, Cooldown = 2 },
+		[Protocol.Actions.ClaimBazaarPayout] = { Cost = 2, Cooldown = 1 },
 		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
 		[Protocol.Actions.BuyCrateSkin] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.EquipCrateSkin] = { Cost = 0.5, Cooldown = 0.25 },
@@ -181,6 +208,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.MeasureLatency] = true,
 		[Protocol.Actions.GetPlayers] = true,
 		[Protocol.Actions.GetTrade] = true,
+		[Protocol.Actions.GetBazaarListings] = true,
 		[Protocol.Actions.ConfirmTrade] = true,
 		[Protocol.Actions.CancelTrade] = true,
 		[Protocol.Actions.GetAdminState] = true,
@@ -188,6 +216,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.Overcharge] = true,
 		[Protocol.Actions.Rebirth] = true,
 		[Protocol.Actions.DomainExpansion] = true,
+		[Protocol.Actions.RespecDomainTree] = true,
 		[Protocol.Actions.UpgradeContinuum] = true,
 		[Protocol.Actions.CaptureEcho] = true,
 		[Protocol.Actions.ClaimDaily] = true,
@@ -287,6 +316,18 @@ return function(loadService: (string) -> any)
 		local ok, reason = inspect(payload, 0, {}, { Value = 0 })
 		if not ok then
 			return false, reason
+		end
+		if
+			action == Protocol.Actions.GetGuildChatHistory
+			or action == Protocol.Actions.GetGuildAnnouncements
+			or action == Protocol.Actions.GetGuildSettings
+			or action == Protocol.Actions.GetGuildLogoReview
+		then
+			for key in payload do
+				if key ~= "BeforeId" and key ~= "Limit" and key ~= "Gen" and key ~= "N" and key ~= "TxnId" then
+					return false, "unexpected read-only guild field"
+				end
+			end
 		end
 		if NO_PAYLOAD_ACTIONS[action] then
 			if not RemoteFirewallMath.IsSessionOnlyPayload(payload) then
@@ -454,6 +495,13 @@ return function(loadService: (string) -> any)
 				end
 				return false, "invalid action payload"
 			end
+			if
+				action == Protocol.Actions.LaunchExpedition
+				and payload.PlanId ~= nil
+				and not stringField(payload, "PlanId", 1, 40)
+			then
+				return false, "invalid expedition route plan"
+			end
 		elseif action == Protocol.Actions.SetAnomalyLoadout then
 			if not stringArrayField(payload, "Loadout", GameConfig.Anomalies.LoadoutSlots, 1, 32) then
 				return false, "invalid reactor loadout payload"
@@ -461,6 +509,16 @@ return function(loadService: (string) -> any)
 		elseif action == Protocol.Actions.ClaimForgePathStep then
 			if not numberField(payload, "Step", 1, 10_000, true) then
 				return false, "invalid forge path payload"
+			end
+		elseif action == Protocol.Actions.ArcadePlay then
+			local parsed, errorMessage = Registry.arcade(payload)
+			if not parsed then
+				return false, errorMessage or "invalid arcade request"
+			end
+		elseif action == Protocol.Actions.GetArcade then
+			local valid, problem = Registry.readOnly(payload)
+			if not valid then
+				return false, problem or "invalid arcade state request"
 			end
 		elseif action == Protocol.Actions.CasinoPlay then
 			local gameName = payload.Game
@@ -551,7 +609,7 @@ return function(loadService: (string) -> any)
 			local gameName = payload.Game
 			if
 				not stringField(payload, "Game", 4, 12)
-				or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Lottery" and gameName ~= "Contracts")
+				or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Contracts")
 			then
 				return false, "invalid bazaar counter"
 			end
@@ -566,6 +624,18 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Pick ~= nil and not stringField(payload, "Pick", 2, 24) then
 				return false, "invalid bazaar pick"
+			end
+		elseif action == Protocol.Actions.CreateBazaarListing then
+			if not stringField(payload, "Uid", 3, 48) or not stringField(payload, "Price", 1, 80) then
+				return false, "invalid bazaar listing"
+			end
+		elseif action == Protocol.Actions.CancelBazaarListing then
+			if not stringField(payload, "Id", 8, 64) then
+				return false, "invalid bazaar listing"
+			end
+		elseif action == Protocol.Actions.PurchaseBazaarListing or action == Protocol.Actions.ClaimBazaarPayout then
+			if not stringField(payload, "Id", 8, 64) then
+				return false, "invalid bazaar listing"
 			end
 		elseif action == Protocol.Actions.UpgradeCrew then
 			if not stringField(payload, "Role", 1, 64) then
@@ -695,6 +765,101 @@ return function(loadService: (string) -> any)
 			then
 				return false, "invalid power route payload"
 			end
+		elseif action == Protocol.Actions.SendGuildChat then
+			if not stringField(payload, "Content", 1, 800) then
+				return false, "invalid guild message"
+			end
+		elseif action == Protocol.Actions.GetGuildChatHistory then
+			if payload.BeforeId ~= nil and not stringField(payload, "BeforeId", 1, 64) then
+				return false, "invalid guild history cursor"
+			end
+			if payload.Limit ~= nil and not numberField(payload, "Limit", 1, 50, true) then
+				return false, "invalid guild history limit"
+			end
+		elseif action == Protocol.Actions.GetGuildAnnouncements then
+			if payload.BeforeId ~= nil and not stringField(payload, "BeforeId", 1, 64) then
+				return false, "invalid announcement cursor"
+			end
+			if payload.Limit ~= nil and not numberField(payload, "Limit", 1, 50, true) then
+				return false, "invalid announcement limit"
+			end
+		elseif action == Protocol.Actions.GetGuildSettings or action == Protocol.Actions.GetGuildLogoReview then
+			-- These guild reads are scoped to the caller's current membership.
+		elseif action == Protocol.Actions.SetGuildSettings then
+			if
+				type(payload.Settings) ~= "table"
+				or (payload.Settings.ChatEnabled ~= nil and type(payload.Settings.ChatEnabled) ~= "boolean")
+				or (payload.Settings.AnnouncementsEnabled ~= nil and type(payload.Settings.AnnouncementsEnabled) ~= "boolean")
+				or (payload.Settings.LogoEnabled ~= nil and type(payload.Settings.LogoEnabled) ~= "boolean")
+			then
+				return false, "invalid guild settings"
+			end
+			local count = 0
+			for key in payload.Settings do
+				count += 1
+				if count > 3 or (key ~= "ChatEnabled" and key ~= "AnnouncementsEnabled" and key ~= "LogoEnabled") then
+					return false, "invalid guild settings"
+				end
+			end
+			if count == 0 then
+				return false, "empty guild settings"
+			end
+		elseif
+			action == Protocol.Actions.CreateGuildAnnouncement or action == Protocol.Actions.EditGuildAnnouncement
+		then
+			if not stringField(payload, "Title", 1, 120) or not stringField(payload, "Body", 1, 800) then
+				return false, "invalid guild announcement"
+			end
+			if
+				action == Protocol.Actions.EditGuildAnnouncement and not stringField(payload, "AnnouncementId", 1, 64)
+			then
+				return false, "invalid announcement id"
+			end
+		elseif
+			action == Protocol.Actions.PinGuildAnnouncement
+			or action == Protocol.Actions.ArchiveGuildAnnouncement
+			or action == Protocol.Actions.SetGuildAnnouncementExpiry
+		then
+			if not stringField(payload, "AnnouncementId", 1, 64) then
+				return false, "invalid announcement id"
+			end
+			if
+				action == Protocol.Actions.PinGuildAnnouncement
+				and payload.Pinned ~= nil
+				and type(payload.Pinned) ~= "boolean"
+			then
+				return false, "invalid announcement pin state"
+			end
+			if
+				action == Protocol.Actions.SetGuildAnnouncementExpiry
+				and payload.ExpiresAt ~= nil
+				and not numberField(payload, "ExpiresAt", 0, 4102444800, true)
+			then
+				return false, "invalid announcement expiry"
+			end
+		elseif
+			action == Protocol.Actions.MuteGuildMember
+			or action == Protocol.Actions.UnmuteGuildMember
+			or action == Protocol.Actions.BanGuildMember
+			or action == Protocol.Actions.UnbanGuildMember
+		then
+			if not userIdField(payload) then
+				return false, "invalid guild moderation target"
+			end
+		elseif action == Protocol.Actions.UploadGuildLogo then
+			if not stringField(payload, "URL", 1, 1024) then
+				return false, "invalid guild logo URL"
+			end
+		elseif action == Protocol.Actions.ModerateGuildLogo then
+			if
+				not stringField(payload, "LogoId", 1, 64)
+				or (payload.Decision ~= "approved" and payload.Decision ~= "rejected")
+			then
+				return false, "invalid guild logo decision"
+			end
+			if payload.Reason ~= nil and not stringField(payload, "Reason", 1, 500) then
+				return false, "invalid guild logo decision reason"
+			end
 		elseif action == Protocol.Actions.CreateGuild then
 			if type(payload) == "table" then
 				if type(payload.Name) == "string" then
@@ -721,6 +886,13 @@ return function(loadService: (string) -> any)
 		elseif action == Protocol.Actions.SetGuildRole then
 			if not userIdField(payload) or (payload.Role ~= "Officer" and payload.Role ~= "Member") then
 				return false, "invalid guild role"
+			end
+		elseif action == Protocol.Actions.RenameGuild then
+			if type(payload.Name) == "string" then
+				payload.Name = payload.Name:gsub("^%s+", ""):gsub("%s+$", "")
+			end
+			if not stringField(payload, "Name", 3, 28) then
+				return false, "invalid guild rename name"
 			end
 		elseif action == Protocol.Actions.ContributeGuild then
 			local hasAmount = payload.Amount ~= nil

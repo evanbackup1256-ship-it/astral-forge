@@ -1,6 +1,8 @@
 --!strict
--- Astral Bazaar rules: the market's hourly stock is deterministic and well-formed, the lottery draw is fair
--- and weighted by tickets, contracts are stable per player and day, and the saved bag rebuilds from garbage.
+-- Astral Bazaar rules: hourly stock is deterministic, contracts are stable per player and day,
+-- legacy lottery data is preserved without an active route or payout, and saved bags rebuild safely.
+
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local BazaarMath = require("../src/Server/AstralForge/Modules/BazaarMath")
 
@@ -39,17 +41,14 @@ for _, term in BazaarMath.BANK.Terms do
 	assert(term.Rate > BazaarMath.BANK.SavingsRate, "a locked term pays more than savings")
 end
 
--- --- lottery -----------------------------------------------------------------
-assert(BazaarMath.LotteryDraw({}, 0.5) == nil and BazaarMath.LotteryDraw({ [1] = 0 }, 0.5) == nil, "no tickets, no winner")
-assert(BazaarMath.LotteryDraw({ [7] = 3 }, 0.99) == 7, "a lone holder always wins")
-local counts: { [number]: number } = { 0, 0, 0 }
-local tickets = { [1] = 1, [2] = 3, [3] = 6 }
-for step = 0, 9999 do
-	local winner = BazaarMath.LotteryDraw(tickets, step / 10000) :: number
-	counts[winner] += 1
-end
-assert(counts[1] == 1000 and counts[2] == 3000 and counts[3] == 6000, "a draw is weighted exactly by tickets")
-assert(BazaarMath.LotteryBucket(299) == 0 and BazaarMath.LotteryBucket(300) == 1, "lottery rounds")
+-- The public Bazaar exposes no ticket purchase, draw, or chance-based currency payout.
+local service = fs.readFile("src/Server/AstralForge/Services/BazaarService.luau")
+local firewall = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
+local page = fs.readFile("src/Client/AstralForge/pages/PagesBazaar.luau")
+assert(BazaarMath.LotteryDraw == nil and BazaarMath.LotteryBucket == nil, "lottery math must not ship")
+assert(not string.find(service, "lotteryAct", 1, true), "lottery service path must not ship")
+assert(not string.find(firewall, 'gameName ~= "Lottery"', 1, true), "remote firewall must reject lottery actions")
+assert(not string.find(page, 'label = "Lottery"', 1, true), "public Bazaar must not advertise lottery")
 
 -- --- contracts ---------------------------------------------------------------
 for day = 0, 60 do
@@ -79,6 +78,7 @@ end
 local dirty = BazaarMath.Ensure({
 	Bank = { Balance = "garbage", Accrued = math.huge, Since = "x", Term = { Id = "T99", Principal = -4, EndsAt = 0 / 0 } },
 	Market = { Bucket = "x", Bought = { overdrive = 999, [5] = 1 } },
+	Lottery = { PendingPrize = 12345 },
 	Contracts = { Day = 3, Baseline = { Rounds = -1 }, Claimed = { rounds = true, fake = true } },
 	Counters = { Rounds = math.huge, Wins = -9 },
 })
@@ -88,5 +88,6 @@ assert(BazaarMath.Ensure({ Bank = { Balance = "inf" } }).Bank.Balance == "inf", 
 assert(dirty.Market.Bought.overdrive == 20 and dirty.Market.Bought[5] == nil, "market stock counts clamp")
 assert(dirty.Contracts.Claimed.rounds == true and dirty.Contracts.Claimed.fake == nil, "claims keep only real contracts")
 assert(dirty.Counters.Rounds == 0 and dirty.Counters.Wins == 0, "non-finite counters become zero")
+assert(dirty.Lottery.PendingPrize == 12345, "legacy records remain intact while no longer payable")
 
-print("[TEST] bazaar math guards passed | market stock, bank terms, lottery weights, contracts, bag rebuild")
+print("[TEST] bazaar math guards passed | market stock, bank terms, wager route removal, contracts, legacy preservation")

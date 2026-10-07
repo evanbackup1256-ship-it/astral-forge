@@ -236,6 +236,8 @@ function ProfileBagMath.EnsureDomain(profile: any): any
 			TotalCoresSpent = 0,
 			SkillPoints = 0,
 			Nodes = {},
+			TreeVersion = 1,
+			RespecCount = 0,
 		}
 	elseif type(profile.Domain.Nodes) ~= "table" then
 		profile.Domain.Nodes = {}
@@ -243,6 +245,8 @@ function ProfileBagMath.EnsureDomain(profile: any): any
 	profile.Domain.Rank = math.max(0, math.floor(tonumber(profile.Domain.Rank) or 0))
 	profile.Domain.Essence = math.max(0, math.floor(tonumber(profile.Domain.Essence) or 0))
 	profile.Domain.SkillPoints = math.max(0, math.floor(tonumber(profile.Domain.SkillPoints) or 0))
+	profile.Domain.TreeVersion = math.max(1, math.floor(tonumber(profile.Domain.TreeVersion) or 1))
+	profile.Domain.RespecCount = math.max(0, math.floor(tonumber(profile.Domain.RespecCount) or 0))
 	return profile.Domain
 end
 

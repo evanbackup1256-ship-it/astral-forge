@@ -15,11 +15,13 @@ assert(fresh.XP == 0 and fresh.Signals == 0 and fresh.SeasonId == "SEASON_TEST",
 assert(fresh.Crew.Pilot == 1 and fresh.Crew.Engineer == 1 and fresh.Crew.Navigator == 1, "default crew")
 assert(type(fresh.Artifacts) == "table" and type(fresh.Weekly.Claimed) == "table", "nested bags")
 assert(type(fresh.Shop.Purchased) == "table" and fresh.ActiveExpedition.Id == "", "shop + expedition")
+assert(fresh.ActiveExpedition.Plan.Id == "Standard" and fresh.ExpeditionPlanVersion == 1, "expedition plan defaults")
 
 local partial = CommandMath.Ensure({ Signals = 12 }, "DEEP_SPACE_01")
 assert(partial.Signals == 12 and partial.XP == 0, "Signals-only preserves Signals")
 assert(partial.Crew.Pilot == 1 and type(partial.Artifacts) == "table", "Signals-only fills Crew/Artifacts")
 assert(partial.Weekly.Week == -1 and partial.Shop.Day == -1, "Signals-only fills Weekly/Shop")
+assert(partial.ActiveExpedition.Plan.Id == "Standard", "legacy active expedition receives a direct-route snapshot")
 assert(partial.SeasonId == "DEEP_SPACE_01", "season injected")
 local same = CommandMath.Ensure(partial, "DEEP_SPACE_01")
 assert(same == partial, "Ensure mutates in place when table provided")

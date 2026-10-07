@@ -12,6 +12,12 @@ return function(loadService: (string) -> any)
 	local LabOrderMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LabOrderMath"))
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local AscensionPathMath = require(
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("AstralForge")
+			:WaitForChild("Shared")
+			:WaitForChild("AscensionPathMath")
+	)
 	local ForgeEchoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ForgeEchoMath"))
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ReceiptLedger = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ReceiptLedger"))
@@ -137,6 +143,7 @@ return function(loadService: (string) -> any)
 		end
 		profile.Ore = OreMath.SanitizeBalances(profile.Ore, GameConfig.Ore)
 		profile.OreUpgrades = OreMath.SanitizeLevels(profile.OreUpgrades, GameConfig.Ore)
+		profile.Domain = AscensionPathMath.Migrate(profile.Domain, GameConfig.Domain.TreeSchemaVersion)
 		ProfileBagMath.EnsureDomain(profile)
 		profile.Domain.SkillPoints = math.floor(nonNegative(profile.Domain.SkillPoints))
 		profile.Domain.Rank = math.floor(nonNegative(profile.Domain.Rank))
@@ -187,7 +194,11 @@ return function(loadService: (string) -> any)
 		profile.AutoForge = DataSanitizeMath.ClampAutoForge(profile.AutoForge, machineById, "StellarCore", nonNegative)
 		DataSanitizeMath.ClampLevelBag(profile.Research, researchById, nonNegative)
 		DataSanitizeMath.ClampLevelBag(profile.GridUpgrades, gridById, nonNegative)
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command.XP = math.floor(nonNegative(profile.Command.XP))
 		profile.Command.Signals = math.floor(nonNegative(profile.Command.Signals))
 		profile.Command.StreakShields = math.floor(nonNegative(profile.Command.StreakShields))
@@ -669,10 +680,18 @@ return function(loadService: (string) -> any)
 		return sanitize(reconcile(data, DataTemplate.New()))
 	end
 
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+	local getOrderedStore = StoreAccess.ordered
+	local getDataStore = StoreAccess.data
+	local previewEnabled = StoreAccess.isPreview()
+
 	function DataService.new()
 		local self = setmetatable({}, DataService)
+		if previewEnabled then
+			ModuleLog.Info("Data", "unpublished Studio preview is using isolated memory stores")
+		end
 
-		local dataStore = DataStoreService:GetDataStore(ServerConfig.DataStoreName)
+		local dataStore = getDataStore(ServerConfig.DataStoreName)
 		local defaultProfile = DataTemplate.New()
 
 		self._playerStore = SessionDocumentStore.new({
@@ -690,22 +709,31 @@ return function(loadService: (string) -> any)
 		})
 
 		self._sharedStore = UnlockedDocumentStore.new({
-			dataStore = DataStoreService:GetDataStore(ServerConfig.SharedDataStoreName) :: any,
+			dataStore = getDataStore(ServerConfig.SharedDataStoreName) :: any,
 			check = DocumentCommon.permissiveTableCheck,
 			default = { Version = 1, Entries = {} },
 			migrations = {},
 			bindToClose = false,
 		})
 
-		self._leaderboardStore = DataStoreService:GetOrderedDataStore(ServerConfig.LeaderboardStoreName)
+		self._leaderboardStore = getOrderedStore(ServerConfig.LeaderboardStoreName)
 		self._leaderboardStores = {
 			Flux = self._leaderboardStore,
-			Rebirths = DataStoreService:GetOrderedDataStore(ServerConfig.RebirthLeaderboardStoreName),
-			PlayTime = DataStoreService:GetOrderedDataStore(ServerConfig.PlayTimeLeaderboardStoreName),
-			Dust = DataStoreService:GetOrderedDataStore(ServerConfig.DustLeaderboardStoreName),
-			Cores = DataStoreService:GetOrderedDataStore(ServerConfig.CoresLeaderboardStoreName),
-			Domain = DataStoreService:GetOrderedDataStore(ServerConfig.DomainLeaderboardStoreName),
-			Worlds = DataStoreService:GetOrderedDataStore(ServerConfig.WorldLeaderboardStoreName),
+			Rebirths = getOrderedStore(ServerConfig.RebirthLeaderboardStoreName),
+			PlayTime = getOrderedStore(ServerConfig.PlayTimeLeaderboardStoreName),
+			Dust = getOrderedStore(ServerConfig.DustLeaderboardStoreName),
+			Cores = getOrderedStore(ServerConfig.CoresLeaderboardStoreName),
+			Domain = getOrderedStore(ServerConfig.DomainLeaderboardStoreName),
+			Worlds = getOrderedStore(ServerConfig.WorldLeaderboardStoreName),
+			Taps = getOrderedStore(ServerConfig.TapsLeaderboardStoreName),
+			ItemsFound = getOrderedStore(ServerConfig.ItemsFoundLeaderboardStoreName),
+			CratesOpened = getOrderedStore(ServerConfig.CratesOpenedLeaderboardStoreName),
+			AnomalyPulses = getOrderedStore(ServerConfig.AnomalyPulsesLeaderboardStoreName),
+			OrdersCompleted = getOrderedStore(ServerConfig.OrdersCompletedLeaderboardStoreName),
+			Combat = getOrderedStore(ServerConfig.CombatLeaderboardStoreName),
+			Crafting = getOrderedStore(ServerConfig.CraftingLeaderboardStoreName),
+			ArcadeScore = getOrderedStore(ServerConfig.ArcadeScoreLeaderboardStoreName),
+			Seasonal = getOrderedStore(ServerConfig.SeasonLeaderboardStoreName),
 		}
 
 		self._leaderboardMirrors = {}
@@ -807,6 +835,19 @@ return function(loadService: (string) -> any)
 			Cores = math.max(0, math.floor(tonumber(profile.Cores) or 0)),
 			Domain = math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0)),
 			Worlds = math.max(1, math.floor(tonumber(profile.Zone) or 1)),
+			Taps = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.Taps) or 0)),
+			ItemsFound = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.ItemsFound) or 0)),
+			CratesOpened = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.CratesOpened) or 0)),
+			AnomalyPulses = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.AnomalyPulses) or 0)),
+			OrdersCompleted = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.OrdersCompleted) or 0)),
+			Combat = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.WardenDefeats) or 0)),
+			Crafting = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.OreMined) or 0)),
+			ArcadeScore = math.clamp(
+				math.floor(tonumber(profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore) or 0),
+				0,
+				9007199254740991
+			),
+			Seasonal = math.max(0, math.floor(tonumber(profile.Command and profile.Command.SeasonXP) or 0)),
 		}
 		if self._leaderboardPushBusy[userId] then
 			return

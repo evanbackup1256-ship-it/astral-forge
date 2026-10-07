@@ -561,7 +561,7 @@ __defs["reactHost"] = function()
 		}
 	end
 	function PageErrorBoundary:componentDidCatch(err, info)
-		local page = self.props.page or "Unknown"
+		local page = self.props.page or "AppShell"
 		local stack = if type(info) == "table" and type(info.componentStack) == "string"
 			then info.componentStack
 			else ""
@@ -653,6 +653,7 @@ __defs["reactHost"] = function()
 					PageErrorBoundary,
 					{
 						key = `{page}:{retryCount}`,
+						page = page,
 					},
 					React.createElement(React.Profiler, {
 						id = if page ~= "" then page else "Game",

@@ -81,7 +81,7 @@ function Board.collect(state, config)
 	local okAnomaly, anomalyReady = pcall(PageReadyMath.AnomalyReady, state.Anomaly)
 	add(
 		"Anomaly",
-		"Shift Plan",
+		"Anomaly",
 		"Directive complete",
 		if okAnomaly and anomalyReady then 1 else 0,
 		"Reactor",

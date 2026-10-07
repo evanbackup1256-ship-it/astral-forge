@@ -1,4 +1,5 @@
 --!strict
+local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 
 return function(loadService: (string) -> any)
 	local DataStoreService = game:GetService("DataStoreService")
@@ -261,8 +262,8 @@ return function(loadService: (string) -> any)
 		self._workers = {}
 		self._serverBans = {}
 		self._banLog = {}
-		self._auditStore = DataStoreService:GetDataStore(ServerConfig.AdminAuditStoreName)
-		self._discordQueueStore = DataStoreService:GetDataStore(ServerConfig.DiscordModQueueStoreName)
+		self._auditStore = StoreAccess.data(ServerConfig.AdminAuditStoreName)
+		self._discordQueueStore = StoreAccess.data(ServerConfig.DiscordModQueueStoreName)
 		self._discordSeenIds = {}
 		self._playerAdded = Players.PlayerAdded:Connect(function(player)
 			self:EnforceServerBan(player)
@@ -897,25 +898,41 @@ return function(loadService: (string) -> any)
 	end
 	profileHandlers.GrantSignals = function(profile, amount, option)
 		local changedAmount = amount
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command.Signals += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantCommandXP = function(profile, amount, option)
 		local changedAmount = amount
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command.XP += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantSeasonXP = function(profile, amount, option)
 		local changedAmount = amount
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command.SeasonXP += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
 	profileHandlers.GrantStreakShields = function(profile, amount, option)
 		local changedAmount = amount
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command.StreakShields += math.floor(amount)
 		return { ok = true, amount = changedAmount }
 	end
@@ -1285,7 +1302,11 @@ return function(loadService: (string) -> any)
 	end
 	profileHandlers.MaxCrew = function(profile, amount, option)
 		local changedAmount = amount
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		for roleId in profile.Command.Crew do
 			profile.Command.Crew[roleId] = 10
 		end
@@ -1294,7 +1315,11 @@ return function(loadService: (string) -> any)
 	profileHandlers.DiscoverArts = function(profile, amount, option)
 		local changedAmount = amount
 		if GameConfig.Operations and GameConfig.Operations.Artifacts then
-			profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+			profile.Command = CommandMath.Ensure(
+				profile.Command,
+				GameConfig.Operations.SeasonId,
+				GameConfig.Operations.ExpeditionPlanVersion
+			)
 			if type(profile.Command.Artifacts) ~= "table" then
 				profile.Command.Artifacts = {}
 			end
@@ -1316,7 +1341,11 @@ return function(loadService: (string) -> any)
 		profile.Rebirths += math.max(100, math.floor(amount))
 		ProfileBagMath.EnsureDomain(profile).Essence += math.max(100, math.floor(amount))
 		ProfileBagMath.EnsureAnomaly(profile).Fragments += math.max(10000, math.floor(amount))
-		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command.Signals += math.max(10000, math.floor(amount))
 		profile.Wheel = WheelMath.Ensure(profile.Wheel)
 		profile.Wheel.FreeSpins += math.max(100, math.floor(amount))

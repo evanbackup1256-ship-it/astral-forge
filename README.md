@@ -1,5 +1,12 @@
 # Astral Forge v2
 
+## Canonical project links
+
+- GitHub repository: [evanbackup1256-ship-it/astral-forge](https://github.com/evanbackup1256-ship-it/astral-forge) (`origin`).
+- Roblox Studio target: Astral Forge, place ID `135153679037687`.
+- Argon project: this checkout's `default.project.json`; `argon serve default.project.json` connects Studio through `localhost:8000`.
+- The Studio DataModel is a sync target. Commit and push source changes to GitHub separately; Argon synchronization does not publish the Roblox experience.
+
 Argon-synced project for Astral Forge 5.1.0. Argon reads the existing
 `default.project.json` mapping (its Rojo-compatible project format). The game version is **not** the save-schema
 version: live saves currently use `GameConfig.Game.DataVersion = 21`. Do not bump

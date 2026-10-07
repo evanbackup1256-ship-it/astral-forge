@@ -1,0 +1,238 @@
+00:17.359  blend            | Read blend: "C:\Users\evanm\.codex\worktrees\ded6\Astral Forge v2\assets\generated\crates\CrateWorkshop.blend"
+00:17.422  reports          | WARNING Library file, loading empty scene
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:37:04)
+BlenderMCP addon registered
+Initializing Blender texture baker
+00:18.266  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+Using OptiX GPU
+Loaded 40 crate meshes
+Unwrapping Crate_Classic_Body
+Resumed completed texture: Crate_Classic_Body
+Baked 1/40: Crate_Classic_Body (6300 triangles)
+Unwrapping Crate_Classic_Lid
+Resumed completed texture: Crate_Classic_Lid
+Baked 2/40: Crate_Classic_Lid (2836 triangles)
+Unwrapping Crate_Crystal_Body
+Resumed completed texture: Crate_Crystal_Body
+Baked 3/40: Crate_Crystal_Body (4648 triangles)
+Unwrapping Crate_Crystal_Lid
+Resumed completed texture: Crate_Crystal_Lid
+Baked 4/40: Crate_Crystal_Lid (2702 triangles)
+Unwrapping Crate_Frost_Body
+Resumed completed texture: Crate_Frost_Body
+Baked 5/40: Crate_Frost_Body (7584 triangles)
+Unwrapping Crate_Frost_Lid
+Resumed completed texture: Crate_Frost_Lid
+Baked 6/40: Crate_Frost_Lid (2702 triangles)
+Unwrapping Crate_Molten_Body
+Resumed completed texture: Crate_Molten_Body
+Baked 7/40: Crate_Molten_Body (6548 triangles)
+Unwrapping Crate_Molten_Lid
+Resumed completed texture: Crate_Molten_Lid
+Baked 8/40: Crate_Molten_Lid (3356 triangles)
+Unwrapping Crate_Nebula_Body
+Resumed completed texture: Crate_Nebula_Body
+Baked 9/40: Crate_Nebula_Body (5308 triangles)
+Unwrapping Crate_Nebula_Lid
+Resumed completed texture: Crate_Nebula_Lid
+Baked 10/40: Crate_Nebula_Lid (4376 triangles)
+Unwrapping Crate_Void_Body
+Resumed completed texture: Crate_Void_Body
+Baked 11/40: Crate_Void_Body (7520 triangles)
+Unwrapping Crate_Void_Lid
+Resumed completed texture: Crate_Void_Lid
+Baked 12/40: Crate_Void_Lid (4376 triangles)
+Unwrapping Crate_Gilded_Body
+Resumed completed texture: Crate_Gilded_Body
+Baked 13/40: Crate_Gilded_Body (6240 triangles)
+Unwrapping Crate_Gilded_Lid
+Resumed completed texture: Crate_Gilded_Lid
+Baked 14/40: Crate_Gilded_Lid (2152 triangles)
+Unwrapping Crate_Celestial_Body
+Resumed completed texture: Crate_Celestial_Body
+Baked 15/40: Crate_Celestial_Body (5820 triangles)
+Unwrapping Crate_Celestial_Lid
+Resumed completed texture: Crate_Celestial_Lid
+Baked 16/40: Crate_Celestial_Lid (3352 triangles)
+Unwrapping Crate_Salvage_Body
+Resumed completed texture: Crate_Salvage_Body
+Baked 17/40: Crate_Salvage_Body (3728 triangles)
+Unwrapping Crate_Salvage_Lid
+Resumed completed texture: Crate_Salvage_Lid
+Baked 18/40: Crate_Salvage_Lid (952 triangles)
+Unwrapping Crate_Reactor_Body
+Resumed completed texture: Crate_Reactor_Body
+Baked 19/40: Crate_Reactor_Body (7000 triangles)
+Unwrapping Crate_Reactor_Lid
+Resumed completed texture: Crate_Reactor_Lid
+Baked 20/40: Crate_Reactor_Lid (3524 triangles)
+Unwrapping Crate_Glacier_Body
+Baking Crate_Glacier_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 21/40: Crate_Glacier_Body (4248 triangles)
+Unwrapping Crate_Glacier_Lid
+Baking Crate_Glacier_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 22/40: Crate_Glacier_Lid (2536 triangles)
+Unwrapping Crate_Solar_Body
+Baking Crate_Solar_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 23/40: Crate_Solar_Body (3728 triangles)
+Unwrapping Crate_Solar_Lid
+Baking Crate_Solar_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 24/40: Crate_Solar_Lid (952 triangles)
+Unwrapping Crate_Storm_Body
+Baking Crate_Storm_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 25/40: Crate_Storm_Body (3892 triangles)
+Unwrapping Crate_Storm_Lid
+Baking Crate_Storm_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 26/40: Crate_Storm_Lid (2768 triangles)
+Unwrapping Crate_Lunar_Body
+Baking Crate_Lunar_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 27/40: Crate_Lunar_Body (4828 triangles)
+Unwrapping Crate_Lunar_Lid
+Baking Crate_Lunar_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 28/40: Crate_Lunar_Lid (3108 triangles)
+Unwrapping Crate_DeepSea_Body
+Baking Crate_DeepSea_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 29/40: Crate_DeepSea_Body (6760 triangles)
+Unwrapping Crate_DeepSea_Lid
+Baking Crate_DeepSea_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 30/40: Crate_DeepSea_Lid (2588 triangles)
+Unwrapping Crate_Prism_Body
+Baking Crate_Prism_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 31/40: Crate_Prism_Body (3884 triangles)
+Unwrapping Crate_Prism_Lid
+Baking Crate_Prism_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 32/40: Crate_Prism_Lid (2932 triangles)
+Unwrapping Crate_Obsidian_Body
+Baking Crate_Obsidian_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 33/40: Crate_Obsidian_Body (6816 triangles)
+Unwrapping Crate_Obsidian_Lid
+Baking Crate_Obsidian_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 34/40: Crate_Obsidian_Lid (952 triangles)
+Unwrapping Crate_Chrono_Body
+Baking Crate_Chrono_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 35/40: Crate_Chrono_Body (4960 triangles)
+Unwrapping Crate_Chrono_Lid
+Baking Crate_Chrono_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 36/40: Crate_Chrono_Lid (2692 triangles)
+Unwrapping Crate_Aurora_Body
+Baking Crate_Aurora_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 37/40: Crate_Aurora_Body (4684 triangles)
+Unwrapping Crate_Aurora_Lid
+Baking Crate_Aurora_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 38/40: Crate_Aurora_Lid (952 triangles)
+Unwrapping Crate_Titan_Body
+Baking Crate_Titan_Body
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 39/40: Crate_Titan_Body (4104 triangles)
+Unwrapping Crate_Titan_Lid
+Baking Crate_Titan_Lid
+Info: Baking map saved to internal image, save it externally or pack it
+Baked 40/40: Crate_Titan_Lid (952 triangles)
+INFO Draco is available, use library at C:\Program Files\Blender Foundation\Blender 5.2\5.2\scripts\addons_core\io_scene_gltf2\bf_intern_draco_bridge.dll
+INFO MeshOptimizer is available, use library at C:\Program Files\Blender Foundation\Blender 5.2\5.2\scripts\addons_core\io_scene_gltf2\bf_intern_meshopt_bridge.dll
+16:51:15 | INFO: Starting glTF 2.0 export
+16:51:15 | INFO: Extracting primitive: Crate_Aurora_Body.001
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Aurora_Lid.001
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Celestial_Body.003
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Celestial_Lid.003
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Chrono_Body.001
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Chrono_Lid.001
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Classic_Body.005
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Classic_Lid.005
+16:51:16 | INFO: Primitives created: 1
+16:51:16 | INFO: Extracting primitive: Crate_Crystal_Body.004
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Crystal_Lid.004
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_DeepSea_Body.001
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_DeepSea_Lid.001
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Frost_Body.003
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Frost_Lid.003
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Gilded_Body.003
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Gilded_Lid.003
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Glacier_Body.001
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Glacier_Lid.001
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Lunar_Body.001
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Lunar_Lid.001
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Molten_Body.004
+16:51:17 | INFO: Primitives created: 1
+16:51:17 | INFO: Extracting primitive: Crate_Molten_Lid.004
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Nebula_Body.003
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Nebula_Lid.003
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Obsidian_Body.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Obsidian_Lid.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Prism_Body.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Prism_Lid.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Reactor_Body.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Reactor_Lid.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Salvage_Body.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Salvage_Lid.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Solar_Body.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Solar_Lid.001
+16:51:18 | INFO: Primitives created: 1
+16:51:18 | INFO: Extracting primitive: Crate_Storm_Body.001
+16:51:19 | INFO: Primitives created: 1
+16:51:19 | INFO: Extracting primitive: Crate_Storm_Lid.001
+16:51:19 | INFO: Primitives created: 1
+16:51:19 | INFO: Extracting primitive: Crate_Titan_Body.001
+16:51:19 | INFO: Primitives created: 1
+16:51:19 | INFO: Extracting primitive: Crate_Titan_Lid.001
+16:51:19 | INFO: Primitives created: 1
+16:51:19 | INFO: Extracting primitive: Crate_Void_Body.003
+16:51:19 | INFO: Primitives created: 1
+16:51:19 | INFO: Extracting primitive: Crate_Void_Lid.003
+16:51:19 | INFO: Primitives created: 1
+16:51:19 | INFO: Finished glTF 2.0 export in 4.125304222106934 s
+
+Info: Saved as "CrateKit.blend"
+Exported complete textured crate kit.
+BlenderMCP addon unregistered
+
+Blender quit

@@ -1,0 +1,162 @@
+[
+  {
+    "part": "Crate_Aurora_Body",
+    "triangles": 4684
+  },
+  {
+    "part": "Crate_Aurora_Lid",
+    "triangles": 952
+  },
+  {
+    "part": "Crate_Celestial_Body",
+    "triangles": 5820
+  },
+  {
+    "part": "Crate_Celestial_Lid",
+    "triangles": 2588
+  },
+  {
+    "part": "Crate_Chrono_Body",
+    "triangles": 4960
+  },
+  {
+    "part": "Crate_Chrono_Lid",
+    "triangles": 2692
+  },
+  {
+    "part": "Crate_Classic_Body",
+    "triangles": 6300
+  },
+  {
+    "part": "Crate_Classic_Lid",
+    "triangles": 2072
+  },
+  {
+    "part": "Crate_Crystal_Body",
+    "triangles": 4648
+  },
+  {
+    "part": "Crate_Crystal_Lid",
+    "triangles": 1938
+  },
+  {
+    "part": "Crate_DeepSea_Body",
+    "triangles": 6760
+  },
+  {
+    "part": "Crate_DeepSea_Lid",
+    "triangles": 2588
+  },
+  {
+    "part": "Crate_Frost_Body",
+    "triangles": 7584
+  },
+  {
+    "part": "Crate_Frost_Lid",
+    "triangles": 1938
+  },
+  {
+    "part": "Crate_Gilded_Body",
+    "triangles": 6240
+  },
+  {
+    "part": "Crate_Gilded_Lid",
+    "triangles": 1388
+  },
+  {
+    "part": "Crate_Glacier_Body",
+    "triangles": 4248
+  },
+  {
+    "part": "Crate_Glacier_Lid",
+    "triangles": 2536
+  },
+  {
+    "part": "Crate_Lunar_Body",
+    "triangles": 4828
+  },
+  {
+    "part": "Crate_Lunar_Lid",
+    "triangles": 3108
+  },
+  {
+    "part": "Crate_Molten_Body",
+    "triangles": 6548
+  },
+  {
+    "part": "Crate_Molten_Lid",
+    "triangles": 2592
+  },
+  {
+    "part": "Crate_Nebula_Body",
+    "triangles": 5308
+  },
+  {
+    "part": "Crate_Nebula_Lid",
+    "triangles": 3612
+  },
+  {
+    "part": "Crate_Obsidian_Body",
+    "triangles": 6816
+  },
+  {
+    "part": "Crate_Obsidian_Lid",
+    "triangles": 952
+  },
+  {
+    "part": "Crate_Prism_Body",
+    "triangles": 3884
+  },
+  {
+    "part": "Crate_Prism_Lid",
+    "triangles": 2932
+  },
+  {
+    "part": "Crate_Reactor_Body",
+    "triangles": 7000
+  },
+  {
+    "part": "Crate_Reactor_Lid",
+    "triangles": 3524
+  },
+  {
+    "part": "Crate_Salvage_Body",
+    "triangles": 3728
+  },
+  {
+    "part": "Crate_Salvage_Lid",
+    "triangles": 952
+  },
+  {
+    "part": "Crate_Solar_Body",
+    "triangles": 3728
+  },
+  {
+    "part": "Crate_Solar_Lid",
+    "triangles": 952
+  },
+  {
+    "part": "Crate_Storm_Body",
+    "triangles": 3892
+  },
+  {
+    "part": "Crate_Storm_Lid",
+    "triangles": 2768
+  },
+  {
+    "part": "Crate_Titan_Body",
+    "triangles": 4104
+  },
+  {
+    "part": "Crate_Titan_Lid",
+    "triangles": 952
+  },
+  {
+    "part": "Crate_Void_Body",
+    "triangles": 7520
+  },
+  {
+    "part": "Crate_Void_Lid",
+    "triangles": 3612
+  }
+]

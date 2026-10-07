@@ -200,6 +200,7 @@ local function DomainApp(props)
 				and overlay.mode == "tree"
 				and React.createElement(DomainSkillTree, {
 					domain = state.Domain,
+					stardust = state.Stardust or 0,
 					dispatch = dispatch,
 					reducedMotion = false,
 					onClose = function()

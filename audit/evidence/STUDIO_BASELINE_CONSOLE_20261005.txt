@@ -1,0 +1,174 @@
+ 204.128  warn   data          usingINales save is still in progress
+   0.134  info   boot          player data module loaded  elapsed=125ms
+   0.239  info   boot          administration module loaded  elapsed=103ms
+   0.461  info   boot          gameplay module loaded  elapsed=221ms
+   0.467  info   boot          world module loaded  elapsed=6ms
+   0.468  info   boot          flux surge module loaded  elapsed=0ms
+   0.468  info   boot          security module loaded  elapsed=0ms
+   0.471  info   boot          integrity module loaded  elapsed=2ms
+   0.475  info   boot          player data construction complete  elapsed=3ms
+   0.476  info   boot          administration construction complete  elapsed=0ms
+   0.476  info   boot          world construction complete  elapsed=0ms
+   0.477  info   boot          flux surge construction complete  elapsed=0ms
+   0.477  info   boot          security construction complete  elapsed=0ms
+   0.477  info   boot          integrity construction complete  elapsed=0ms
+   0.479  info   boot          gameplay construction complete  elapsed=1ms
+   0.480  info   boot          security start  elapsed=0ms
+   0.480  info   boot          integrity start  elapsed=0ms
+   0.481  info   boot          world start  elapsed=1ms
+   2.078  info   tick          5 Hz loop started
+   2.079  info   boot          game start  elapsed=1597ms
+   2.079  info   boot          autosave start  elapsed=0ms
+   2.079  info   boot          runtime started  elapsed=1599ms
+   2.085  info   server        Astral Forge 5.1.0 is up
+   3.507  info   casino        kit ready (31 pieces)
+   4.276  info   data          usingINales is using a temporary Studio save
+AnalyticsService: LogCustomEvent event fired.
+   4.309  info   player        joined world 1 after 10m away  player=usingINales userId=10916707683
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileShareLinks.ProfileShareLinks.Enums.ProfileSharePolicyEnum] Script timeout: exhausted allowed execution time
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileShareLinks.ProfileShareLinks.Enums.ProfileSharePolicyEnum', Line 9
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileShareLinks.ProfileShareLinks] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileShareLinks.ProfileShareLinks', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileShareLinks] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileShareLinks', Line 6
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.Components.ProfileQRCodePage.ProfileQRCodePage] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.Components.ProfileQRCodePage.ProfileQRCodePage', Line 10
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.Components.ProfileQRCodeEntryPoint.ProfileQRCodeEntryPoint] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.Components.ProfileQRCodeEntryPoint.ProfileQRCodeEntryPoint', Line 9
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.Components.ProfileQRCodeEntryPoint] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.Components.ProfileQRCodeEntryPoint', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.profileQRCodeApi] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode.profileQRCodeApi', Line 4
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ProfileQRCode.ProfileQRCode', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsLanding.ProfileQRCode] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsLanding.ProfileQRCode', Line 6
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsLanding.FriendsLanding.dependencies] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsLanding.FriendsLanding.dependencies', Line 84
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsLanding.FriendsLanding.Components.NoFriendsView] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsLanding.FriendsLanding.Components.NoFriendsView', Line 5
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsLanding.FriendsLanding.Components] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsLanding.FriendsLanding.Components', Line 2
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.FriendsLanding.Components] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.FriendsLanding.Components', Line 6
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding.ChatLandingContainer] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding.ChatLandingContainer', Line 11
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding.ChatLandingScreen] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding.ChatLandingScreen', Line 12
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding.api] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding.api', Line 16
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components.ChatLanding', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.AppChat.Components', Line 11
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.AppChat.AppChat] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.AppChat.AppChat', Line 10
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsChat.AppChat] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsChat.AppChat', Line 6
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsChat.FriendsChat.ConversationList.FriendsChatConversationList] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsChat.FriendsChat.ConversationList.FriendsChatConversationList', Line 14
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsChat.FriendsChat.ConversationList] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsChat.FriendsChat.ConversationList', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.FriendsChat.FriendsChat.FriendsChatMain] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.FriendsChat.FriendsChat.FriendsChatMain', Line 34
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.FriendsChat.FriendsChatMain] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.FriendsChat.FriendsChatMain', Line 6
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppLayout.AppLayout] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppLayout.AppLayout', Line 28
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppLayout] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppLayout', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppContainer.AppContainer] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppContainer.AppContainer', Line 15
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppContainer] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.AppContainer', Line 1
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.App] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.App', Line 11
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.mountClientApp] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat.mountClientApp', Line 57
+Stack End
+[Roblox][CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages._Workspace.ExpChat.ExpChat', Line 11
+Stack End
+[Roblox][CorePackages.Workspace.Packages.ExpChat] Requested module experienced an error while loading
+Stack Begin
+Script 'CorePackages.Workspace.Packages.ExpChat', Line 6
+Stack End
+[Roblox][Script Context.StarterScript] Requested module experienced an error while loading
+Stack Begin
+Script 'Script Context.StarterScript', Line 157
+Stack End
+  31.978  info   boot          playerGui acquired  elapsed=0ms
+  31.997  info   framework     flamework present
+  32.079  info   framework     framework started
+  32.080  info   framework     ui root ready
+  32.080  info   boot          runtime created  elapsed=102ms
+  32.161  info   ui            5.1.0 ui is up
+  32.953  info   profile       loaded world 1
+  33.399  info   audio         25 sounds cached
+  35.020  info   modules       134 modules and 152 suite members warm
+  35.589  info   audio         sound sheet loaded
+  42.974  warn   assets        89 assets and 0 batches will stream on demand
+  42.980  info   assets        2054 assets ready in 10.01s
+AnalyticsService: LogCustomEvent event fired.
+  96.273  info   player        left — saving  player=usingINales userId=10916707683
+AnalyticsService: LogCustomEvent event fired.

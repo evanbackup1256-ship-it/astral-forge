@@ -1,6 +1,7 @@
 --!strict
 
 return function()
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 	local MemoryStoreService = game:GetService("MemoryStoreService")
 	local MessagingService = game:GetService("MessagingService")
 	local Players = game:GetService("Players")
@@ -47,7 +48,7 @@ return function()
 	function ConvergenceService.new(dataService)
 		return setmetatable({
 			_data = dataService,
-			_map = MemoryStoreService:GetHashMap(MAP_NAME),
+			_map = if StoreAccess.isPreview() then nil else MemoryStoreService:GetHashMap(MAP_NAME),
 			_pending = {},
 			_pendingGlobal = 0,
 			_global = 0,
@@ -103,6 +104,10 @@ return function()
 			return
 		end
 		self._pendingGlobal = 0
+		if self._map == nil then
+			self._global += amount
+			return
+		end
 		local expiry = math.max(60, manifest.EndsAt - os.time() + 86_400)
 		local ok, total = pcall(function()
 			return self._map:UpdateAsync(manifest.EventId, function(previous)
@@ -121,6 +126,9 @@ return function()
 	end
 
 	function ConvergenceService:_refresh()
+		if self._map == nil then
+			return
+		end
 		local manifest = self:_manifest()
 		local ok, total = pcall(function()
 			return self._map:GetAsync(manifest.EventId)
@@ -203,14 +211,17 @@ return function()
 			return
 		end
 		self._running = true
-		local ok, subscription = pcall(function()
-			return MessagingService:SubscribeAsync(TOPIC, function(message)
-				local data = message.Data
-				if type(data) == "table" and data.EventId == self:_manifest().EventId then
-					self._global = math.max(self._global, tonumber(data.Total) or 0)
-				end
+		local ok, subscription = false, nil
+		if self._map ~= nil then
+			ok, subscription = pcall(function()
+				return MessagingService:SubscribeAsync(TOPIC, function(message)
+					local data = message.Data
+					if type(data) == "table" and data.EventId == self:_manifest().EventId then
+						self._global = math.max(self._global, tonumber(data.Total) or 0)
+					end
+				end)
 			end)
-		end)
+		end
 		if ok then
 			self._subscription = subscription
 		end

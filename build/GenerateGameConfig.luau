@@ -81,6 +81,7 @@ local env = {
 
 env.script = {
 	Parent = {
+		CrateExpansion = "./build/CrateExpansion",
 		WaitForChild = function(_self, name: string)
 			return "./build/" .. name
 		end,
@@ -104,7 +105,9 @@ function env.require(path: any)
 		return chunk()
 	end
 	-- Pure shared modules GameConfig requires (no Roblox APIs) load as-is.
-	local pureName = if type(path) == "string" then (path:match("(ForgeLevels)$") or path:match("(SanctuaryConfig)$")) else nil
+	local pureName = if type(path) == "string"
+		then (path:match("(SharedData)$") or path:match("(ForgeLevels)$") or path:match("(SanctuaryConfig)$") or path:match("(CrateExpansion)$"))
+		else nil
 	if pureName then
 		local pureSource = fs.readFile("src/Shared/AstralForge/Shared/" .. pureName .. ".luau")
 		local okCompile, compiledOrErr = pcall(luau.compile, pureSource)
@@ -341,7 +344,8 @@ end
 
 table.insert(lines, "}")
 
-fs.writeFile("src/Shared/AstralForge/Shared/GameConfigGenerated.luau", table.concat(lines, "\n"))
+local outputPath = process.args[1] or "src/Shared/AstralForge/Shared/GameConfigGenerated.luau"
+fs.writeFile(outputPath, table.concat(lines, "\n"))
 print(string.format(
 	"Wrote GameConfigGenerated | machines=%d research=%d zones=%d grid=%d seasons=%d milestones=%d expeditions=%d maxZone=%d",
 	#GameConfig.Machines,

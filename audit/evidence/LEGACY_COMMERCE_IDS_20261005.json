@@ -1,0 +1,23 @@
+{
+  "UniverseId": 10767559102,
+  "Ids": {
+    "StardustParcel": 3716811152,
+    "FluxCrate": 3716811274,
+    "RelayBooster": 3716811317,
+    "CoreCluster": 3716811360,
+    "VIP": 2005587679,
+    "DoubleProduction": 2006769725,
+    "DoubleCapacity": 2005557744,
+    "AutoSalvage": 2006703685
+  },
+  "Prices": {
+    "StardustParcel": 49,
+    "FluxCrate": 99,
+    "RelayBooster": 75,
+    "CoreCluster": 199,
+    "VIP": 399,
+    "DoubleProduction": 499,
+    "DoubleCapacity": 349,
+    "AutoSalvage": 299
+  }
+}

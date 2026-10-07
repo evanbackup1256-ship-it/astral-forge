@@ -1650,7 +1650,7 @@ __defs["ForgeLevels"] = function()
 			Level = 11,
 			Tier = "Journeyman",
 			Goal = { Kind = "Rebirths", Target = 1, Text = "Complete your first rebirth" },
-			Unlocks = { "Anomaly", "Command", "Crew", "Trade" },
+			Unlocks = { "Anomaly", "Command", "Crew", "Trade", "ExpeditionPlanner" },
 		},
 		{
 			Level = 12,
@@ -1674,7 +1674,7 @@ __defs["ForgeLevels"] = function()
 			Level = 15,
 			Tier = "Master",
 			Goal = { Kind = "Rebirths", Target = 10, Text = "Complete 10 rebirths" },
-			Unlocks = { "Domain" },
+			Unlocks = { "Domain", "AscensionPath" },
 		},
 		{
 			Level = 16,
@@ -2288,7 +2288,7 @@ __defs["TutorialScript"] = function()
 			auto = true,
 			cta = "collect",
 			ctaLabel = "Collect stored Flux",
-			controls = "Keyboard: E  ·  Xbox: Y",
+			controls = "Keyboard: E  Ã‚Â·  Xbox: Y",
 		},
 		{
 			id = "toWorkshop",
@@ -2875,7 +2875,7 @@ __defs["MonetizationConfig"] = function()
 		DevProducts = {
 			{
 				Key = "StardustParcel",
-				ProductId = 0,
+				ProductId = 3716811152,
 				Name = "Stardust Pack",
 				Description = "80 stardust for grid upgrades.",
 				Category = "Packs",
@@ -2887,7 +2887,7 @@ __defs["MonetizationConfig"] = function()
 			},
 			{
 				Key = "FluxCrate",
-				ProductId = 0,
+				ProductId = 3716811274,
 				Name = "Flux Drop",
 				Description = "120k flux you can spend right now.",
 				Category = "Packs",
@@ -2899,7 +2899,7 @@ __defs["MonetizationConfig"] = function()
 			},
 			{
 				Key = "RelayBooster",
-				ProductId = 0,
+				ProductId = 3716811317,
 				Name = "Overdrive Charge",
 				Description = "One Overdrive boost for the Rewards tab.",
 				Category = "Boosts",
@@ -2911,7 +2911,7 @@ __defs["MonetizationConfig"] = function()
 			},
 			{
 				Key = "CoreCluster",
-				ProductId = 0,
+				ProductId = 3716811360,
 				Name = "Core Bundle",
 				Description = "3 permanent cores. No rebirth needed.",
 				Category = "Packs",
@@ -2926,7 +2926,7 @@ __defs["MonetizationConfig"] = function()
 		GamePasses = {
 			{
 				Key = "VIP",
-				PassId = 0,
+				PassId = 2005587679,
 				Name = "VIP",
 				Description = "+12% production forever.",
 				Category = "Passes",
@@ -2938,7 +2938,7 @@ __defs["MonetizationConfig"] = function()
 			},
 			{
 				Key = "DoubleProduction",
-				PassId = 0,
+				PassId = 2006769725,
 				Name = "Overclock",
 				Description = "+25% line output forever.",
 				Category = "Passes",
@@ -2950,7 +2950,7 @@ __defs["MonetizationConfig"] = function()
 			},
 			{
 				Key = "DoubleCapacity",
-				PassId = 0,
+				PassId = 2005557744,
 				Name = "Bigger Vault",
 				Description = "+35% vault size forever.",
 				Category = "Passes",
@@ -2962,7 +2962,7 @@ __defs["MonetizationConfig"] = function()
 			},
 			{
 				Key = "AutoSalvage",
-				PassId = 0,
+				PassId = 2006703685,
 				Name = "Relic Recycler",
 				Description = "Automatically salvage selected crate rarities. First discoveries stay protected by default.",
 				Category = "Passes",
@@ -3838,7 +3838,9 @@ __defs["ShopCatalog"] = function()
 		},
 	})
 
-	local skinById = {}
+	ShopCatalog.SKINS = require(script.Parent.CrateExpansion).extendSkins(ShopCatalog.SKINS)
+
+local skinById = {}
 	for _, skin in ShopCatalog.SKINS do
 		skinById[skin.Id] = skin
 	end

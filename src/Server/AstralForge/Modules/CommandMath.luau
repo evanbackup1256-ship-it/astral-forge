@@ -7,7 +7,13 @@ export type CommandBag = {
 	Signals: number,
 	StreakShields: number,
 	ExpeditionsCompleted: number,
-	ActiveExpedition: { Id: string, StartedAt: number, EndsAt: number },
+	ActiveExpedition: {
+		Id: string,
+		StartedAt: number,
+		EndsAt: number,
+		Plan: { Id: string, SignalCost: number, RewardScale: number, ArtifactChanceBonus: number },
+	},
+	ExpeditionPlanVersion: number,
 	Artifacts: { [string]: any },
 	EquippedArtifact: string,
 	Crew: { [string]: number },
@@ -24,15 +30,30 @@ export type CommandBag = {
 local DEFAULT_CREW = { Pilot = 1, Engineer = 1, Navigator = 1 }
 local DEFAULT_SEASON = "DEEP_SPACE_01"
 
-function CommandMath.Ensure(command: any, seasonId: string?): CommandBag
+local function boundedNumber(value: any, fallback: number, minimum: number, maximum: number): number
+	local parsed = tonumber(value)
+	if parsed == nil or parsed ~= parsed or parsed == math.huge or parsed == -math.huge then
+		return fallback
+	end
+	return math.clamp(parsed, minimum, maximum)
+end
+
+function CommandMath.Ensure(command: any, seasonId: string?, expeditionPlanVersion: number?): CommandBag
 	local season = if type(seasonId) == "string" and seasonId ~= "" then seasonId else DEFAULT_SEASON
+	local planVersion = math.max(1, math.floor(boundedNumber(expeditionPlanVersion, 1, 1, 1_000_000)))
 	if type(command) ~= "table" then
 		return {
 			XP = 0,
 			Signals = 0,
 			StreakShields = 0,
 			ExpeditionsCompleted = 0,
-			ActiveExpedition = { Id = "", StartedAt = 0, EndsAt = 0 },
+			ActiveExpedition = {
+				Id = "",
+				StartedAt = 0,
+				EndsAt = 0,
+				Plan = { Id = "Standard", SignalCost = 0, RewardScale = 1, ArtifactChanceBonus = 0 },
+			},
+			ExpeditionPlanVersion = planVersion,
 			Artifacts = {},
 			EquippedArtifact = "",
 			Crew = table.clone(DEFAULT_CREW),
@@ -50,6 +71,10 @@ function CommandMath.Ensure(command: any, seasonId: string?): CommandBag
 	command.Signals = math.max(0, math.floor(tonumber(command.Signals) or 0))
 	command.StreakShields = math.max(0, math.floor(tonumber(command.StreakShields) or 0))
 	command.ExpeditionsCompleted = math.max(0, math.floor(tonumber(command.ExpeditionsCompleted) or 0))
+	command.ExpeditionPlanVersion = math.max(
+		planVersion,
+		math.floor(boundedNumber(command.ExpeditionPlanVersion, planVersion, 1, 1_000_000))
+	)
 	command.SeasonXP = math.max(0, math.floor(tonumber(command.SeasonXP) or 0))
 	if type(command.SeasonId) ~= "string" or command.SeasonId == "" then
 		command.SeasonId = season
@@ -61,13 +86,32 @@ function CommandMath.Ensure(command: any, seasonId: string?): CommandBag
 		command.EquippedTitle = "Cadet"
 	end
 	if type(command.ActiveExpedition) ~= "table" then
-		command.ActiveExpedition = { Id = "", StartedAt = 0, EndsAt = 0 }
+		command.ActiveExpedition = {
+			Id = "",
+			StartedAt = 0,
+			EndsAt = 0,
+			Plan = { Id = "Standard", SignalCost = 0, RewardScale = 1, ArtifactChanceBonus = 0 },
+		}
 	else
 		command.ActiveExpedition.Id = if type(command.ActiveExpedition.Id) == "string"
 			then command.ActiveExpedition.Id
 			else ""
 		command.ActiveExpedition.StartedAt = math.max(0, math.floor(tonumber(command.ActiveExpedition.StartedAt) or 0))
 		command.ActiveExpedition.EndsAt = math.max(0, math.floor(tonumber(command.ActiveExpedition.EndsAt) or 0))
+		local plan = command.ActiveExpedition.Plan
+		if type(plan) ~= "table" then
+			command.ActiveExpedition.Plan = {
+				Id = "Standard",
+				SignalCost = 0,
+				RewardScale = 1,
+				ArtifactChanceBonus = 0,
+			}
+		else
+			plan.Id = if type(plan.Id) == "string" and #plan.Id <= 40 then plan.Id else "Standard"
+			plan.SignalCost = math.floor(boundedNumber(plan.SignalCost, 0, 0, 1_000_000_000))
+			plan.RewardScale = boundedNumber(plan.RewardScale, 1, 0.5, 2)
+			plan.ArtifactChanceBonus = boundedNumber(plan.ArtifactChanceBonus, 0, -0.5, 0.5)
+		end
 	end
 	if type(command.Artifacts) ~= "table" then
 		command.Artifacts = {}

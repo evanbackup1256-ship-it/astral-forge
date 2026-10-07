@@ -3,10 +3,12 @@ local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"
 local PAGE_SUITES = {
 	AdminView = "PagesSystem",
 	AnomalyView = "PagesSystem",
+	AscensionPathView = "PagesProgress",
 	BoostsView = "PagesProgress",
 	ChatView = "PagesSocial",
 	CommandView = "PagesSystem",
 	ContinuumView = "PagesProgress",
+	ExpeditionPlannerView = "PagesSystem",
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
 	CasinoView = "PagesCasino",
@@ -58,6 +60,7 @@ end
 local MissionsView = lazyView("MissionsView", "MissionsView")
 local MilestonesView = lazyView("MilestonesView", "MilestonesView")
 local AnomalyView = lazyView("AnomalyView", "AnomalyView")
+local AscensionPathView = lazyView("AscensionPathView", "AscensionPathView")
 local LabView = lazyView("LabView", "LabView")
 local StoryView = lazyView("StoryView", "StoryView")
 local StarGridView = lazyView("StarGridView", "StarGridView")
@@ -71,6 +74,7 @@ local LeaderboardsView = lazyView("LeaderboardsView", "LeaderboardsView")
 local TradeView = lazyView("TradeView", "TradeView")
 local SettingsView = lazyView("SettingsView", "SettingsView")
 local ContinuumView = lazyView("ContinuumView", "ContinuumView")
+local ExpeditionPlannerView = lazyView("ExpeditionPlannerView", "ExpeditionPlannerView")
 local ConvergenceView = lazyView("ConvergenceView", "ConvergenceView")
 local AdminView = lazyView("AdminView", "AdminView")
 local EchoForgeView = lazyView("EchoForgeView", "EchoForgeView")
@@ -156,13 +160,25 @@ local function PageContentInner(props)
 				reducedMotion = reducedMotion,
 			})
 		end
-		if page == "Continuum" then
-			return React.createElement(ContinuumView, {
+		if page == "AscensionPath" then
+			return React.createElement(AscensionPathView, {
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
 				config = config,
-				navigate = props.navigate,
+				onClose = function()
+					if props.navigate then
+						props.navigate("Overview")
+					end
+				end,
+			})
+		end
+		if page == "ExpeditionPlanner" then
+			return React.createElement(ExpeditionPlannerView, {
+				state = state,
+				config = config,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
 			})
 		end
 		if page == "Convergence" then

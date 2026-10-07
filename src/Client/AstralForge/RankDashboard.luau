@@ -8,10 +8,43 @@ local compact = require(script.Parent.CoreKit)("format").compactNumber
 local useViewport = require(script.Parent.MotionKit)("motion").useViewport
 local Scaffold = require(script.Parent.LayoutKit)("pageScaffold").PageScaffold
 local P = theme.Palette
+local BOARD_CATEGORIES = {
+	Flux = "Economy",
+	Dust = "Economy",
+	Cores = "Economy",
+	Rebirths = "Prestige",
+	Domain = "Prestige",
+	PlayTime = "Social",
+	Worlds = "Exploration",
+	ItemsFound = "Exploration",
+	Taps = "Progression",
+	AnomalyPulses = "Combat",
+	Combat = "Combat",
+	OrdersCompleted = "Forge",
+	Crafting = "Forge",
+	CratesOpened = "Forge",
+	ArcadeScore = "Arcade",
+	Seasonal = "Seasonal",
+	Guilds = "Guild",
+}
+local CATEGORY_ORDER = {
+	"Economy",
+	"Progression",
+	"Exploration",
+	"Combat",
+	"Forge",
+	"Arcade",
+	"Seasonal",
+	"Prestige",
+	"Social",
+	"Guild",
+}
 return function(helpers)
 	return function(props)
 		local viewport = useViewport()
 		local selected, setSelected = React.useState("Flux")
+		local category, setCategory = React.useState("All")
+		local boardQuery, setBoardQuery = React.useState("")
 		local scope, setScope = React.useState("Global")
 		local revision, reload = React.useState(0)
 		local result, setResult = React.useState({ rows = {}, loading = true, status = "Loading rankings…" })
@@ -164,22 +197,96 @@ return function(helpers)
 				P.creamSoft
 			),
 		})
-		local tabs = {}
 		local boards = table.clone(helpers.boards)
-		table.insert(boards, { id = "Guilds", short = "GUILDS" })
+		table.insert(boards, { id = "Guilds", short = "GUILDS", category = "Guild" })
+		local categoryOptions =
+			{ { id = "All", label = `ALL · {#boards}`, icon = "Leaderboard", accent = meta.accent } }
+		for _, categoryId in CATEGORY_ORDER do
+			local count = 0
+			for _, board in boards do
+				if (board.category or BOARD_CATEGORIES[board.id]) == categoryId then
+					count += 1
+				end
+			end
+			if count > 0 then
+				table.insert(categoryOptions, {
+					id = categoryId,
+					label = `{string.upper(categoryId)} · {count}`,
+					icon = "Leaderboard",
+					accent = meta.accent,
+				})
+			end
+		end
+		local visibleBoards = {}
+		local needle = string.lower((string.gsub(boardQuery, "^%s*(.-)%s*$", "%1")))
+		for _, board in boards do
+			local boardCategory = board.category or BOARD_CATEGORIES[board.id] or "Other"
+			local matchesCategory = category == "All" or boardCategory == category
+			local matchesSearch = needle == ""
+				or string.find(
+						string.lower(`{board.short} {board.label or board.id} {boardCategory}`),
+						needle,
+						1,
+						true
+					)
+					~= nil
+			if matchesCategory and matchesSearch then
+				table.insert(visibleBoards, board)
+			end
+		end
+		local boardTabs = {}
 		local columns = if viewport.width < 600 then 2 else 4
-		for index, board in boards do
-			tabs[index] = React.createElement(ui.Button, {
+		for index, board in visibleBoards do
+			boardTabs[index] = React.createElement(ui.Button, {
 				text = board.short,
 				size = UDim2.new(1 / columns, -6, 0, 48),
 				position = UDim2.new(((index - 1) % columns) / columns, 0, 0, math.floor((index - 1) / columns) * 56),
-				color = if selected == board.id then meta.accent else P.panelSoft,
+				color = if selected == board.id then board.accent or meta.accent else P.panelSoft,
 				onClick = function()
 					setSelected(board.id)
+					setCategory(board.category or BOARD_CATEGORIES[board.id] or "Other")
 				end,
 			})
 		end
-		section("rank-categories", math.ceil(#boards / columns) * 56 + 24, tabs)
+		local categoryColumns = if viewport.width < 600 then 2 else 4
+		local categoryTabs = React.createElement(ui.SegmentedTabs, {
+			options = categoryOptions,
+			value = category,
+			onChange = function(nextCategory)
+				setCategory(nextCategory)
+				for _, board in boards do
+					if nextCategory == "All" or (board.category or BOARD_CATEGORIES[board.id]) == nextCategory then
+						setSelected(board.id)
+						break
+					end
+				end
+			end,
+			columns = categoryColumns,
+			gap = 6,
+			size = UDim2.new(1, 0, 0, math.ceil(#categoryOptions / categoryColumns) * 44),
+			accent = meta.accent,
+		})
+		section("rank-category-groups", math.ceil(#categoryOptions / categoryColumns) * 44 + 18, categoryTabs)
+		section(
+			"rank-board-search",
+			62,
+			React.createElement(ui.SearchField, {
+				value = boardQuery,
+				onChange = setBoardQuery,
+				placeholder = "Find a board",
+				accent = meta.accent,
+				size = UDim2.new(1, 0, 0, 42),
+				position = UDim2.fromOffset(0, 0),
+				clearButton = true,
+			})
+		)
+		if #visibleBoards > 0 then
+			section("rank-boards", math.ceil(#visibleBoards / columns) * 56 + 24, boardTabs)
+		else
+			section("rank-boards-empty", 68, {
+				text("No boards match that search.", 0, 36, 14, P.creamSoft),
+			})
+		end
 		local controls = { text(result.status or "Rankings unavailable.", 0, 42, 12, P.creamSoft) }
 		for index, id in { "Global", "Server" } do
 			controls[index + 1] = React.createElement(ui.Button, {

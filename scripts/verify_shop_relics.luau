@@ -11,8 +11,16 @@
 local luau = require("@lune/luau")
 local fs = require("./_memberfs")(require("@lune/fs"))
 
+local Expansion = require("../src/Shared/AstralForge/Shared/CrateExpansion")
 local function member(path: string, name: string): any
-	return luau.load(fs.readFile(path .. "#" .. name), { chunkName = name })()
+	local environment = setmetatable({
+		script = { Parent = { CrateExpansion = "CrateExpansion" } },
+		require = function(dependency)
+			assert(dependency == "CrateExpansion", "Unexpected dependency")
+			return Expansion
+		end,
+	}, { __index = getfenv(0) })
+	return luau.load(fs.readFile(path .. "#" .. name), { chunkName = name, environment = environment })()
 end
 local Shop = member("src/Shared/AstralForge/Shared/SharedData.luau", "ShopCatalog")
 local Relics = member("src/Shared/AstralForge/Shared/SharedData.luau", "RelicSystem")

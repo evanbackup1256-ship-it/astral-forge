@@ -1356,6 +1356,9 @@ __defs["DomainSkillTree"] = function()
 	local Text = _ui.Text
 	local GameConfig =
 		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local AscensionPathMath = require(
+		ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionPathMath")
+	)
 
 	local h = React.createElement
 	local TREE = (GameConfig.Domain and GameConfig.Domain.Tree) or {}
@@ -1780,13 +1783,24 @@ __defs["DomainSkillTree"] = function()
 		end
 		local points = props.points
 		local canBind = not owned and missing == 0 and points >= node.Cost and not props.busy
-		local status = if owned
+		local bindStatus = if owned
 			then "Bound to your Domain."
 			elseif missing > 0 then "Bind the linked branches first."
 			elseif points < node.Cost then `Needs {node.Cost - points} more point{if node.Cost - points == 1
 				then ""
 				else "s"}.`
 			else `Costs {node.Cost} point{if node.Cost == 1 then "" else "s"}.`
+		local respecStatus = if props.confirmingRespec
+			then `Reset {props.respecQuote.OwnedNodes} branches for {compactNumber(props.respecQuote.Cost)} Stardust?`
+			else if props.respecQuote.OwnedNodes > 0
+			then if props.respecQuote.CanRespec
+				then `Reset returns {compactNumber(props.respecQuote.RefundPoints)} points · {compactNumber(props.respecQuote.Cost)} Stardust.`
+				else props.respecQuote.Reason
+			else bindStatus
+		local canRespec = props.respecQuote.CanRespec and not props.busy
+		local splitActions = props.respecQuote.OwnedNodes > 0
+		local bindSize = if splitActions then UDim2.new(0.57, -4, 1, 0) else UDim2.fromScale(1, 1)
+		local bindPosition = if splitActions then UDim2.new(0.43, 4, 0, 0) else UDim2.fromScale(0, 0)
 		return h(
 			"frame",
 			{
@@ -1862,31 +1876,52 @@ __defs["DomainSkillTree"] = function()
 					ZIndex = 31,
 				}, prereqs),
 			h(Text, {
-				value = status,
-				size = 12,
-				color = if owned then Palette.mint elseif canBind then Palette.mango else Palette.muted,
+				value = respecStatus,
+				size = 11,
+				color = if props.confirmingRespec
+					then Palette.coral
+					elseif owned then Palette.mint
+					elseif canBind then Palette.mango
+					else Palette.muted,
 				weight = Enum.FontWeight.Bold,
 				position = UDim2.new(0, 12, 1, -(TapTarget + 34)),
-				sizeConstraint = UDim2.new(1, -24, 0, 16),
+				fit = true,
+				minSize = 8,
+				sizeConstraint = UDim2.new(1, -24, 0, 18),
 				zIndex = 31,
 			}),
 			h(
 				"frame",
 				{
 					Name = "DomainClaim",
-					Size = UDim2.new(1, -24, 0, TapTarget),
+				Size = UDim2.new(1, -24, 0, TapTarget),
 					Position = UDim2.new(0, 12, 1, -(TapTarget + 12)),
 					BackgroundTransparency = 1,
 					ClipsDescendants = false,
 					ZIndex = 32,
 				},
+				splitActions
+					and h(Button, {
+						text = if props.confirmingRespec
+							then "CONFIRM RESET"
+							else `RESPEC · {compactNumber(props.respecQuote.Cost)}`,
+						onClick = props.onRespec,
+						color = if props.confirmingRespec then Palette.coral else darken(Palette.coral, 0.2),
+						textColor = Palette.cream,
+						size = UDim2.new(0.43, -4, 1, 0),
+						disabled = not canRespec,
+						highlight = canRespec,
+						reducedMotion = softMotion,
+						zIndex = 33,
+					}),
 				h(Button, {
 					text = if owned then "BOUND" elseif props.busy then "BINDING…" else `BIND · {node.Cost}`,
 					icon = if owned then "Check" else "Domain",
 					onClick = props.onBind,
 					color = if canBind then style.accent else Palette.panelSoft,
 					textColor = if canBind then Palette.ink else Palette.muted,
-					size = UDim2.fromScale(1, 1),
+					size = bindSize,
+					position = bindPosition,
 					disabled = not canBind,
 					highlight = canBind,
 					reducedMotion = softMotion,
@@ -1899,6 +1934,7 @@ __defs["DomainSkillTree"] = function()
 	local function DomainSkillTree(_param)
 		local domain = _param.domain
 		local dispatch = _param.dispatch
+		local stardust = _param.stardust or 0
 		local reducedMotion = _param.reducedMotion
 		local softMotion = reducedMotion
 		local onClose = _param.onClose
@@ -1917,7 +1953,7 @@ __defs["DomainSkillTree"] = function()
 		local nodes = domain.Nodes or {}
 		local owned = {}
 		for id, value in nodes do
-			if value == true then
+			if value == true or value == 1 then
 				owned[id] = true
 			end
 		end
@@ -1938,8 +1974,17 @@ __defs["DomainSkillTree"] = function()
 		end
 		local selectedId, setSelectedId = React.useState(firstReady or (TREE[1] and TREE[1].Id))
 		local busy, setBusy = React.useState(false)
+		local confirmingRespec, setConfirmingRespec = React.useState(false)
 		local boundId, setBoundId = React.useState(nil)
 		local boundToken, setBoundToken = React.useState(0)
+		local respecConfig = GameConfig.Domain.TreeRespec
+		local respecQuote = AscensionPathMath.QuoteRespec(domain, TREE, stardust, {
+			SchemaVersion = GameConfig.Domain.TreeSchemaVersion,
+			BaseStardust = respecConfig.BaseStardust,
+			StardustPerRank = respecConfig.StardustPerRank,
+			RepeatScale = respecConfig.RepeatScale,
+			MaxStardust = respecConfig.MaxStardust,
+		})
 		local boundCount = 0
 		for _, node in TREE do
 			if owned[node.Id] then
@@ -2018,6 +2063,31 @@ __defs["DomainSkillTree"] = function()
 					setBoundToken(function(n)
 						return n + 1
 					end)
+				else
+					Audio:play("locked")
+				end
+			end)
+		end
+		local respec = function()
+			if busy or not respecQuote.CanRespec then
+				return
+			end
+			if not confirmingRespec then
+				setConfirmingRespec(true)
+				Audio:play("click")
+				return
+			end
+			setBusy(true)
+			Audio:play("domainImpact")
+			dispatch("RespecDomainTree", {}, function(response)
+				if not alive.current then
+					return
+				end
+				setBusy(false)
+				setConfirmingRespec(false)
+				if type(response) == "table" and response.ok then
+					Audio:play("domainBind")
+					InteractionFeedback.reward()
 				else
 					Audio:play("locked")
 				end
@@ -2204,7 +2274,7 @@ __defs["DomainSkillTree"] = function()
 							})
 						),
 						h(Text, {
-							value = "DOMAIN LATTICE",
+							value = "ASCENSION PATH",
 							size = 11,
 							color = Palette.pink,
 							weight = Enum.FontWeight.Heavy,
@@ -2282,6 +2352,9 @@ __defs["DomainSkillTree"] = function()
 						busy = busy,
 						softMotion = softMotion,
 						onBind = bind,
+						respecQuote = respecQuote,
+						confirmingRespec = confirmingRespec,
+						onRespec = respec,
 						size = UDim2.fromOffset(detailW, detailH),
 						position = if stack
 							then UDim2.new(0, 12, 1, -(detailH + 12))

@@ -29,7 +29,7 @@ return function(realFs)
 		end
 		local bodyStart = start + #header
 		-- a member runs to the next member's header, or to the suite's entry point after the last one
-		local nextDef = string.find(source, "\n__defs[\"", bodyStart, true)
+		local nextDef = string.find(source, '\n__defs["', bodyStart, true)
 		local entry = string.find(source, "\nlocal __members = {}", bodyStart, true)
 		local stop = math.min(nextDef or math.huge, entry or math.huge)
 		local bodyEnd = if stop == math.huge then #source else stop - 1
@@ -41,6 +41,12 @@ return function(realFs)
 		if string.match(slice, "^\t") then
 			slice = string.gsub(slice, "^\t", "")
 			slice = string.gsub(slice, "\n\t", "\n")
+		end
+		if string.find(slice, "require(script.Parent.Parent.ArcadePage)", 1, true) then
+			return readText("src/Client/AstralForge/ArcadePage.luau")
+		end
+		if string.find(slice, "require(script.Parent.Parent.PremiumShop)", 1, true) then
+			return readText("src/Client/AstralForge/PremiumShop.luau")
 		end
 		-- Follow the two planning adapters to the source that actually renders them.
 		if string.find(slice, "require(script.Parent.PurchasePresentation)", 1, true) then

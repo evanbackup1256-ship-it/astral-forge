@@ -1816,13 +1816,8 @@ assert(
 )
 local shopWave45 = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
 assert(string.find(shopWave45, "local softMotion = ", 1, true), "ShopCatalog softMotion residual for release")
-do
-	local soft = 0
-	for _ in string.gmatch(shopWave45, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 14, "Shop softMotion densify residual for release, got " .. tostring(soft))
-end
+assert(string.find(shopWave45, "motion.useMotionSettings().soft", 1, true), "Shop must read global motion preferences")
+assert(string.find(shopWave45, "reducedMotion = props.soft", 1, true), "shared offer cards must receive reduced motion")
 local rebirthWave45 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel")
 assert(string.find(rebirthWave45, "local softMotion = ", 1, true), "RebirthConfirm softMotion residual for release")
 do

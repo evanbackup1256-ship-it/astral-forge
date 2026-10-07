@@ -64,25 +64,19 @@ assert(count == 5 and countErr == nil, "five ok")
 count, countErr = CrateRoll.NormalizeOpenCount(3)
 assert(count == nil and type(countErr) == "string", "three rejected")
 
-assert(
-	CrateRoll.GuaranteedRecycle(weights, true, false, {
-		Common = true,
-		Uncommon = true,
-		Rare = true,
-		Epic = true,
-	}) == true,
-	"all salvage"
-)
+assert(CrateRoll.GuaranteedRecycle(weights, true, false, {
+	Common = true,
+	Uncommon = true,
+	Rare = true,
+	Epic = true,
+}) == true, "all salvage")
 assert(CrateRoll.GuaranteedRecycle(weights, true, false, { Common = true }) == false, "missing rarity")
-assert(
-	CrateRoll.GuaranteedRecycle(weights, true, true, {
-		Common = true,
-		Uncommon = true,
-		Rare = true,
-		Epic = true,
-	}) == false,
-	"keepNew blocks"
-)
+assert(CrateRoll.GuaranteedRecycle(weights, true, true, {
+	Common = true,
+	Uncommon = true,
+	Rare = true,
+	Epic = true,
+}) == false, "keepNew blocks")
 assert(CrateRoll.RequiredSlots(5, true) == 0, "recycle → 0 slots")
 assert(CrateRoll.RequiredSlots(5, false) == 5, "keep → count slots")
 
@@ -159,7 +153,10 @@ local highValueCount = 0
 for _ in CommandActionValidators.HIGH_VALUE_GRANT do
 	highValueCount += 1
 end
-assert(highValueCount == 9, "nine high-value grants (the casino and the bazaar join the wheel and crates)")
+assert(
+	highValueCount == 13,
+	"thirteen high-value grants include escrow create/cancel, purchase, payout and casino/crate actions"
+)
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
@@ -168,7 +165,10 @@ local shopSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#Sho
 local cmdSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#CommandActionValidators")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
-assert(string.find(servicesSrc, "CrateRoll.Roll", 1, true), "ServerServices must delegate CrateRoll.Roll")
+assert(
+	string.find(servicesSrc, "CrateRollResolver.roll", 1, true),
+	"ServerServices must delegate crate selection to the typed Forge resolver"
+)
 assert(string.find(servicesSrc, "CrateRoll.NormalizeOpenCount", 1, true), "ServerServices must normalize open count")
 assert(string.find(servicesSrc, "ShopGrantEligibility.EnsureShop", 1, true), "ServerServices must EnsureShop")
 assert(string.find(servicesSrc, "ShopGrantEligibility.EvaluateBuy", 1, true), "ServerServices must EvaluateBuy")
@@ -177,7 +177,10 @@ assert(
 	string.find(servicesSrc, "CommandActionValidators.RequiresHighValueNonce", 1, true),
 	"ServerServices must RequiresHighValueNonce"
 )
-assert(not string.find(servicesSrc, "local HIGH_VALUE_GRANT_ACTIONS = {", 1, true), "inline HIGH_VALUE table must be removed")
+assert(
+	not string.find(servicesSrc, "local HIGH_VALUE_GRANT_ACTIONS = {", 1, true),
+	"inline HIGH_VALUE table must be removed"
+)
 assert(string.find(servicesSrc, "ShopGrantEligibility.StockMax", 1, true), "stock max delegates")
 
 local dv = string.match(configSrc, "DataVersion%s*=%s*(%d+)")

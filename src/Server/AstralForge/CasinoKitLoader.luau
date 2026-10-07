@@ -8,6 +8,9 @@ local ModuleLog = require(script.Parent:WaitForChild("ModuleLog"))
 local CasinoKitLoader = {}
 
 function CasinoKitLoader.load()
+	task.spawn(function()
+		require(script.Parent.CrateKitLoader).load()
+	end)
 	if ReplicatedStorage:FindFirstChild("CasinoKit") ~= nil then
 		return
 	end

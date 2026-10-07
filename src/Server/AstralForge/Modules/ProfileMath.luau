@@ -165,6 +165,15 @@ __defs["PublicPlayerRecord"] = function()
 			Cores = profile.Cores,
 			DomainRank = profile.Domain and profile.Domain.Rank or 0,
 			PlayTime = profile.Stats and profile.Stats.PlayTime or 0,
+			Taps = profile.Stats and profile.Stats.Taps or 0,
+			ItemsFound = profile.Stats and profile.Stats.ItemsFound or 0,
+			CratesOpened = profile.Stats and profile.Stats.CratesOpened or 0,
+			AnomalyPulses = profile.Stats and profile.Stats.AnomalyPulses or 0,
+			OrdersCompleted = profile.Stats and profile.Stats.OrdersCompleted or 0,
+			WardenDefeats = profile.Stats and profile.Stats.WardenDefeats or 0,
+			OreMined = profile.Stats and profile.Stats.OreMined or 0,
+			ArcadeScore = profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore or 0,
+			SeasonXP = profile.Command and profile.Command.SeasonXP or 0,
 			ItemCount = itemCount,
 			EquippedItems = equippedItems,
 			IsLocal = player == viewer,
@@ -490,6 +499,16 @@ end
 
 __defs["GeneralBoardValue"] = function()
 	local GeneralBoardValue = {}
+	local STAT_BY_BOARD = {
+		Taps = "Taps",
+		ItemsFound = "ItemsFound",
+		CratesOpened = "CratesOpened",
+		AnomalyPulses = "AnomalyPulses",
+		OrdersCompleted = "OrdersCompleted",
+		Combat = "WardenDefeats",
+		Crafting = "OreMined",
+		Seasonal = "SeasonXP",
+	}
 
 	function GeneralBoardValue.Of(profile: any, id: string, persist: (any) -> any): number
 		if id == "Flux" then
@@ -512,6 +531,17 @@ __defs["GeneralBoardValue"] = function()
 		end
 		if id == "Worlds" then
 			return math.max(1, math.floor(tonumber(profile.Zone) or 1))
+		end
+		if id == "ArcadeScore" then
+			local score = tonumber(profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore) or 0
+			return math.clamp(math.floor(score), 0, 9007199254740991)
+		end
+		local statName = STAT_BY_BOARD[id]
+		if statName then
+			local value = if id == "Seasonal"
+				then profile.Command and profile.Command.SeasonXP
+				else profile.Stats and profile.Stats[statName]
+			return math.max(0, math.floor(tonumber(value) or 0))
 		end
 		return 0
 	end
@@ -1009,6 +1039,7 @@ __defs["ActionFeatureMaps"] = function()
 		Rebirth = "Rebirth",
 		DomainExpansion = "Domain",
 		UnlockDomainNode = "Domain",
+		RespecDomainTree = "Domain",
 		UpgradeContinuum = "Continuum",
 		CaptureEcho = "Echoes",
 		ClaimEcho = "Echoes",
@@ -1066,6 +1097,8 @@ __defs["ActionFeatureMaps"] = function()
 		GetLeaderboard = "Leaderboards",
 		ClaimConvergenceReward = "Convergence",
 		CasinoPlay = "Casino",
+		ArcadePlay = "Casino",
+		GetArcade = "Casino",
 		BazaarPlay = "Bazaar",
 	}
 
@@ -1117,7 +1150,12 @@ __defs["CommandActionValidators"] = function()
 		ReportPresence = true,
 		GetGuild = true,
 		GetGuildLeaderboard = true,
+		GetGuildChatHistory = true,
+		GetGuildAnnouncements = true,
+		GetGuildSettings = true,
+		GetGuildLogoReview = true,
 		GetLeaderboard = true,
+		GetBazaarListings = true,
 		GetAdminState = true,
 		GetTrade = true,
 		TradeViewAway = true,
@@ -1131,6 +1169,10 @@ __defs["CommandActionValidators"] = function()
 		SpinWheel = true,
 		CasinoPlay = true,
 		BazaarPlay = true,
+		CreateBazaarListing = true,
+		CancelBazaarListing = true,
+		PurchaseBazaarListing = true,
+		ClaimBazaarPayout = true,
 		OpenItemCrate = true,
 		CollectVault = true,
 		Rebirth = true,

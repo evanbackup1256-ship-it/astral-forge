@@ -417,33 +417,8 @@ return function(loadService: (string) -> any)
 	end
 
 	function CasinoService.Play(profile, random: Random, payload: any, now: number): (boolean, string, any?)
-		if type(payload) ~= "table" or type(payload.Game) ~= "string" then
-			return false, "Pick a game.", nil
-		end
-		local gameName = payload.Game
-		if table.find({ "TableRoulette", "QuantumRoulette", "CardTower", "DiceTable" }, gameName) then
-			local casino = ensure(profile)
-			casino.Arcade = PracticeTables.Ensure(casino.Arcade)
-			return PracticeTables.Play(casino.Arcade, payload, function()
-				return random:NextNumber()
-			end)
-		end
-		if gameName == "Slots" then
-			return playSlots(profile, random, payload)
-		elseif gameName == "Roulette" then
-			return playRoulette(profile, random, payload)
-		elseif gameName == "Scratch" then
-			return playScratch(profile, random, payload, now)
-		elseif gameName == "Flip" then
-			return playFlip(profile, random, payload)
-		elseif gameName == "HighLow" then
-			return playHighLow(profile, random, payload)
-		elseif gameName == "Exchange" then
-			return playExchange(profile, payload, now)
-		elseif gameName == "Club" then
-			return claimRank(profile, payload)
-		end
-		return false, "Unknown game.", nil
+		-- Public arcade amendment: no legacy stake, cashout, token-wager or random currency-grant route remains callable.
+		return false, "Arcade games do not use currency wagers. Open the new arcade to play.", nil
 	end
 
 	function CasinoService.State(profile, now: number): any

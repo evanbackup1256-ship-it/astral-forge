@@ -1,0 +1,44 @@
+		function GuildService:_update(id: string, transform)
+			local updated
+			local function apply(current)
+				local doc = type(current) == "table" and current or self._studio[id] or self._cache[id]
+				if type(doc) ~= "table" then
+					return nil
+				end
+				local nextDoc = transform(copy(doc))
+
+				if nextDoc == nil then
+					updated = nil
+					return doc
+				end
+				updated = nextDoc
+				return nextDoc
+			end
+			local ok, err = pcall(function()
+				return self._store:UpdateAsync(id, apply)
+			end)
+			if not ok then
+				if not RunService:IsStudio() then
+					return false, tostring(err), nil
+				end
+				local fallback = self._studio[id] or self._cache[id]
+				if type(fallback) == "table" then
+					updated = transform(copy(fallback))
+					if type(updated) == "table" then
+						self._studio[id] = updated
+					end
+				else
+					return false, tostring(err), nil
+				end
+			end
+			if type(updated) ~= "table" then
+				return false, "Guild request was denied.", nil
+			end
+			self._cache[id] = updated
+			self._cacheExpiry[id] = os.clock() + 60
+			if RunService:IsStudio() then
+				self._studio[id] = updated
+			end
+			self:_queueLeaderboard(id, updated.Activity)
+			return true, nil, copy(updated)
+		end

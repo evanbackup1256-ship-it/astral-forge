@@ -1394,6 +1394,13 @@ local GameConfig = {
 		OfflineEfficiencyPerRank = 0.06,
 		SurgeBoostId = "DomainSurge",
 		SkillPointPerRank = 2,
+		TreeSchemaVersion = 1,
+		TreeRespec = {
+			BaseStardust = 400,
+			StardustPerRank = 125,
+			RepeatScale = 1.35,
+			MaxStardust = 1_000_000_000,
+		},
 		Expansion = {
 			FreeSpins = 3,
 			BonusBoostId = "DomainSurge",
@@ -1922,7 +1929,7 @@ local GameConfig = {
 			Name = "Solar Foundry",
 			Tagline = "Hot forges around a young star.",
 			Description = "Industrial ring skimming solar heat.",
-			Lore = "Solar Foundry is loud and fast. Outer rails are safer; inner platforms melt flux quicker. Bank early — heat doesn't wait.",
+			Lore = "Solar Foundry is loud and fast. Outer rails are safer; inner platforms melt flux quicker. Bank early â€” heat doesn't wait.",
 			Features = { "Heat forges", "Core presses", "Tight schedules" },
 			Layout = "Foundry",
 			ThemeIndex = 3,
@@ -1954,7 +1961,7 @@ local GameConfig = {
 			Name = "Event Horizon",
 			Tagline = "Endgame shop on a black hole's rim.",
 			Description = "Last stop. Huge mult. Don't drop the ball.",
-			Lore = "Event Horizon milks the thin energy that escapes a quiet black hole. Automate hard — missed windows hurt — and treat every core like it matters.",
+			Lore = "Event Horizon milks the thin energy that escapes a quiet black hole. Automate hard â€” missed windows hurt â€” and treat every core like it matters.",
 			Features = { "Max multipliers", "Deep vaults", "Endgame flux" },
 			Layout = "Horizon",
 			ThemeIndex = 5,
@@ -1970,7 +1977,7 @@ local GameConfig = {
 			Name = "Halo Foundry",
 			Tagline = "A ring of forges around a dead star.",
 			Description = "Late-game shop with clean, wide rails.",
-			Lore = "Halo Foundry is built on the leftover heat of a collapsed sun. Costs are steep, but the multiplier is honest — no hidden taxes, just a bigger anvil.",
+			Lore = "Halo Foundry is built on the leftover heat of a collapsed sun. Costs are steep, but the multiplier is honest â€” no hidden taxes, just a bigger anvil.",
 			Features = { "Wide rails", "Fair late multipliers", "Room for big machines" },
 			Layout = "Foundry",
 			ThemeIndex = 3,
@@ -1986,7 +1993,7 @@ local GameConfig = {
 			Name = "Pale Orbit",
 			Tagline = "Quiet lanes. Heavy flux.",
 			Description = "A cold dock where seconds stretch.",
-			Lore = "Pale Orbit pays crews that already know the loop. Nothing here is cheap, but nothing here is a trap either — every level still moves the needle.",
+			Lore = "Pale Orbit pays crews that already know the loop. Nothing here is cheap, but nothing here is a trap either â€” every level still moves the needle.",
 			Features = { "Longer offline windows", "Heavy late machines", "Stable vaults" },
 			Layout = "Horizon",
 			ThemeIndex = 5,
@@ -2001,7 +2008,7 @@ local GameConfig = {
 			Id = 8,
 			Name = "Origin Well",
 			Tagline = "The first spark, drawn back out.",
-			Description = "End of the published map — not a wall.",
+			Description = "End of the published map â€” not a wall.",
 			Lore = "Origin Well is the last named dock. Multipliers are large, gates are rebirth-fair, and the forge still has room to grow after you park here.",
 			Features = { "Peak published mult", "Origin Press", "Open-ended levels" },
 			Layout = "Rift",
@@ -2535,6 +2542,37 @@ local GameConfig = {
 				ArtifactId = "CrownOfHours",
 				ArtifactChance = 0.12,
 				Color = Color3.fromRGB(255, 92, 181),
+			},
+		},
+		ExpeditionPlanVersion = 1,
+		ExpeditionPlanOrder = { "Standard", "Charted", "Salvage" },
+		ExpeditionPlans = {
+			Standard = {
+				ShortName = "DIRECT",
+				Name = "Direct route",
+				Description = "Free · normal pace and yield.",
+				SignalCost = 0,
+				DurationScale = 1,
+				RewardScale = 1,
+				ArtifactChanceBonus = 0,
+			},
+			Charted = {
+				ShortName = "CHARTED",
+				Name = "Charted route",
+				Description = "10 Signals · 10% slower · +5% haul · +12 pp artifact chance.",
+				SignalCost = 10,
+				DurationScale = 1.1,
+				RewardScale = 1.05,
+				ArtifactChanceBonus = 0.12,
+			},
+			Salvage = {
+				ShortName = "SALVAGE",
+				Name = "Salvage route",
+				Description = "18 Signals · 25% slower · +35% haul · −8 pp artifact chance.",
+				SignalCost = 18,
+				DurationScale = 1.25,
+				RewardScale = 1.35,
+				ArtifactChanceBonus = -0.08,
 			},
 		},
 		WeeklyDirectives = {
@@ -4548,6 +4586,8 @@ local GameConfig = {
 		Convergence = { Name = "Forge Convergence" },
 		Continuum = { Name = "Continuum" },
 		Domain = { Name = "Domain Expansion" },
+		AscensionPath = { Name = "Ascension Path" },
+		ExpeditionPlanner = { Name = "Expedition Planner" },
 		Admin = { Name = "Admin", Kind = "Always", Target = 0, Requirement = "Owner access only" },
 	},
 
@@ -4584,7 +4624,7 @@ local GameConfig = {
 		},
 		ForgePath = {
 			HeroBlurb = "One track. Every step pays a permanent bonus and a chest.",
-			NeedXp = "Earn Forge Path XP by banking flux — it trickles in as you play.",
+			NeedXp = "Earn Forge Path XP by banking flux â€” it trickles in as you play.",
 			Complete = "Path cleared. Permanent bonuses stay through rebirth.",
 		},
 		Missions = {
@@ -4604,7 +4644,7 @@ local GameConfig = {
 			Benefits = "Shared production, vault, offline, automation, and tap boosts.",
 		},
 		Trade = {
-			EmptyBoard = "No open offers — post one or wait for the board to fill.",
+			EmptyBoard = "No open offers â€” post one or wait for the board to fill.",
 			EmptySession = "Start a trade or accept an offer from the board.",
 		},
 		Wheel = {
@@ -4613,7 +4653,7 @@ local GameConfig = {
 		},
 		Anomaly = {
 			EmptyDirectives = "Stabilize the rift to unlock today's directives.",
-			ReadyClaim = "Directive complete — claim the reward.",
+			ReadyClaim = "Directive complete â€” claim the reward.",
 		},
 		Inventory = {
 			EmptyItems = "Open a crate to get your first relic.",
@@ -4637,7 +4677,7 @@ local GameConfig = {
 			Summary = "A dark dock answers your first core.",
 			Body = {
 				"Nebula Dock has been empty for nineteen years. The guild stripped it, locked the rails, and painted one line on Bay Seven: leave the engine alone.",
-				"Your first Stellar Core kicks, and something under the floor kicks back — steady, too deep to be normal gear. Dust on the console spells ILYRA VALE.",
+				"Your first Stellar Core kicks, and something under the floor kicks back â€” steady, too deep to be normal gear. Dust on the console spells ILYRA VALE.",
 				"Old logs say Vale built the Astral Forge. They also say she vanished the night the stars started drifting inward.",
 			},
 			Kind = "Always",
@@ -4651,7 +4691,7 @@ local GameConfig = {
 			Chapter = "CHAPTER ONE",
 			Summary = "An old message loops between cycles.",
 			Body = {
-				"Between production ticks you catch Vale's voice — calm, like she left notes for whoever showed up next.",
+				"Between production ticks you catch Vale's voice â€” calm, like she left notes for whoever showed up next.",
 				"Build slow. Keep clean books. The forge doesn't invent energy; it scrapes leftover power from dead timelines. Sloppy machines burn those leftovers for nothing.",
 				"She drops Crystal Expanse coords and a line the dock computer won't translate: THE HOLLOW STAR IS LISTENING.",
 			},
@@ -4682,8 +4722,8 @@ local GameConfig = {
 			Summary = "Rebirth opens Vale's notebook.",
 			Body = {
 				"The world comes back almost the same. Almost. A sealed cabinet sits by the reactor with Vale's field notes inside.",
-				"The dark isn't eating stars — it's pruning timelines where something called the Hollow Star loses.",
-				"The forge lives between those cuts. So do you now. That makes this shop a shelter… and a target.",
+				"The dark isn't eating stars â€” it's pruning timelines where something called the Hollow Star loses.",
+				"The forge lives between those cuts. So do you now. That makes this shop a shelterâ€¦ and a target.",
 			},
 			Kind = "Rebirths",
 			Target = 1,
@@ -4696,7 +4736,7 @@ local GameConfig = {
 			Chapter = "CHAPTER FOUR",
 			Summary = "A pocket sun talks like Vale.",
 			Body = {
-				"At Solar Foundry the old reactor reads her notebook and opens the cage. The flame talks — not a recording.",
+				"At Solar Foundry the old reactor reads her notebook and opens the cage. The flame talks â€” not a recording.",
 				"Vale copied pieces of herself into the forge before she disappeared. They've been waking each other for nineteen years, waiting on someone strong enough to wire them back together.",
 				"One ask: when the last gate opens, don't assume whatever's scared on the other side is your enemy.",
 			},
@@ -4712,7 +4752,7 @@ local GameConfig = {
 			Summary = "The anomaly is asking for help.",
 			Body = {
 				"Every stabilize leaves the same beat in the fragments: three long, two short, silence. Distress call from dying worlds.",
-				"The Hollow Star isn't one monster — it's a shelter made of timelines, stuffed with everyone it tried to save. The pruning is triage, not a conquest plan.",
+				"The Hollow Star isn't one monster â€” it's a shelter made of timelines, stuffed with everyone it tried to save. The pruning is triage, not a conquest plan.",
 				"Vale thinks the forge can build a safer vessel. You have to walk a clean signal through the Quantum Rift to prove it.",
 			},
 			Kind = "AnomalyStabilizations",
@@ -4727,7 +4767,7 @@ local GameConfig = {
 			Summary = "Old runs pay one last invoice.",
 			Body = {
 				"Quantum Rift overlays past workshops on your current line. Ghost machines still grind in worlds you already left.",
-				"You dump their last output into Vale's vessel. One by one they quiet — finished, not erased. The rift opens a clear road.",
+				"You dump their last output into Vale's vessel. One by one they quiet â€” finished, not erased. The rift opens a clear road.",
 				"A note waits at the edge: BRING A HOME, NOT A WEAPON.",
 			},
 			Kind = "Zone",
@@ -4739,10 +4779,10 @@ local GameConfig = {
 			Id = "room-for-stars",
 			Title = "Room for the Stars",
 			Chapter = "FINALE: PART ONE",
-			Summary = "Launch day — what the forge was for.",
+			Summary = "Launch day â€” what the forge was for.",
 			Body = {
-				"The vessel isn't a ship. It's a wider kind of timeline — room for messy choices without deleting them.",
-				"Vale's fragments join launch. She won't promise the Hollow Star trusts you — only that it's been alone with bad options too long.",
+				"The vessel isn't a ship. It's a wider kind of timeline â€” room for messy choices without deleting them.",
+				"Vale's fragments join launch. She won't promise the Hollow Star trusts you â€” only that it's been alone with bad options too long.",
 				"The rail points past every mapped world. Next chapter starts where the scoreboard isn't the only thing that counts.",
 			},
 			Kind = "Rebirths",
@@ -4769,9 +4809,9 @@ local GameConfig = {
 			Chapter = "LORE: FIELD NOTES",
 			Summary = "A page from the sealed cabinet.",
 			Body = {
-				"Day 4,112 — the forge scrapes cleaner when the operator treats production like bookkeeping, not a race.",
-				"Day 4,119 — Hollow Star signal is triage triage triage. Every prune is a world it couldn't hold.",
-				"Day 4,120 — If someone finds this: build a home wide enough for messy choices. Bring patience. Bring a core you earned.",
+				"Day 4,112 â€” the forge scrapes cleaner when the operator treats production like bookkeeping, not a race.",
+				"Day 4,119 â€” Hollow Star signal is triage triage triage. Every prune is a world it couldn't hold.",
+				"Day 4,120 â€” If someone finds this: build a home wide enough for messy choices. Bring patience. Bring a core you earned.",
 			},
 			Kind = "ResearchLevels",
 			Target = 8,
@@ -4786,7 +4826,7 @@ local GameConfig = {
 			Body = {
 				"The guild called it a temporary evacuation. The trains never came back.",
 				"They took the good tools, the spare cores, and every map that pointed past Crystal Expanse. They left Bay Seven locked and a rumor that Vale caused the drift.",
-				"Dock rats still swear they saw her walking the rails the night the stars moved — carrying something that glowed like a second sun.",
+				"Dock rats still swear they saw her walking the rails the night the stars moved â€” carrying something that glowed like a second sun.",
 			},
 			Kind = "MachineLevels",
 			Target = 30,
@@ -4799,7 +4839,7 @@ local GameConfig = {
 			Chapter = "LORE: SIGNAL THEORY",
 			Summary = "What the dock computer almost translates.",
 			Body = {
-				"THE HOLLOW STAR IS LISTENING isn't a threat string. It's a handshake — the same three-long, two-short beat you hear in anomaly fragments.",
+				"THE HOLLOW STAR IS LISTENING isn't a threat string. It's a handshake â€” the same three-long, two-short beat you hear in anomaly fragments.",
 				"Listening means counting timelines that still have room. When the count drops, pruning starts.",
 				"Vale's bet: a forge-built vessel can raise the count without deleting the messy ones.",
 			},
@@ -4814,7 +4854,7 @@ local GameConfig = {
 			Chapter = "SIDE STORY: EXPANSE",
 			Summary = "Ghost shops talk if you stand still.",
 			Body = {
-				"In Crystal Expanse the shards replay unfinished shifts — operators mid-sentence, vaults half-full, rebirth buttons never pressed.",
+				"In Crystal Expanse the shards replay unfinished shifts â€” operators mid-sentence, vaults half-full, rebirth buttons never pressed.",
 				'One echo loops Vale arguing with herself: "We don\'t need a weapon. We need a wider now."',
 				"Touching the shard cold-burns your gloves. The next world marker burns itself onto your map anyway.",
 			},
@@ -4830,7 +4870,7 @@ local GameConfig = {
 			Summary = "The pocket sun bargains in light.",
 			Body = {
 				"Solar Foundry's flame wants witnesses more than fuel. It asks for clean books and honest rebirths.",
-				"Keep the covenant and the cage stays open. Break it — the flame dims to a pilot light and the next gate costs double.",
+				"Keep the covenant and the cage stays open. Break it â€” the flame dims to a pilot light and the next gate costs double.",
 				"Vale's copy in the fire laughs like someone who already paid that price once.",
 			},
 			Kind = "Zone",
@@ -4874,7 +4914,7 @@ local GameConfig = {
 			Chapter = "LORE: STAR GRID",
 			Summary = "Why dust sticks after rebirth.",
 			Body = {
-				"Stardust isn't spare change. It's residue from pruned timelines — dense enough to solder permanent routes.",
+				"Stardust isn't spare change. It's residue from pruned timelines â€” dense enough to solder permanent routes.",
 				"The Star Grid is Vale's slow constellation: output, vault, charge, critical, offline, automation.",
 				"Light the nodes in order. Skip ahead and the previous dark node eats the spark.",
 			},
@@ -4889,7 +4929,7 @@ local GameConfig = {
 			Chapter = "LORE: INBOX",
 			Summary = "Someone still writes from Bay Seven.",
 			Body = {
-				"Unsigned letters keep arriving in the forge mailbox — tips, warnings, small gifts of dust.",
+				"Unsigned letters keep arriving in the forge mailbox â€” tips, warnings, small gifts of dust.",
 				"The handwriting matches Vale's field notes and also doesn't. Copies arguing with copies.",
 				"One letter is just a schedule: when the vessel launches, leave a light on for anyone still walking home.",
 			},
@@ -4905,7 +4945,7 @@ local GameConfig = {
 			Summary = "The vessel asks for a second witness.",
 			Body = {
 				"First launch proved the vessel can hold messy choices. Second launch needs a crew that has been reset and kept their research anyway.",
-				"The Hollow Star sends a clearer handshake — less triage panic, more curiosity.",
+				"The Hollow Star sends a clearer handshake â€” less triage panic, more curiosity.",
 				"Vale's fragments settle into one voice long enough to say thank you. Then they scatter again, working.",
 			},
 			Kind = "Rebirths",
@@ -4934,7 +4974,7 @@ local GameConfig = {
 			Body = {
 				"Bank before the vault burns. Buy what you can explain. Research in order. Rebirth when the core is earned, not chased.",
 				"Visit other shops with curiosity, not theft. Wave. Leave.",
-				"If the engine sings, answer with patience — and keep the books clean.",
+				"If the engine sings, answer with patience â€” and keep the books clean.",
 			},
 			Kind = "MachineLevels",
 			Target = 50,
@@ -4962,7 +5002,7 @@ local GameConfig = {
 			Chapter = "LORE: FORGE PATH",
 			Summary = "Why the forge path has ninety-six notches.",
 			Body = {
-				"Vale carved ninety-six notches into Bay Seven's rail — one for every failed rewrite she refused to delete.",
+				"Vale carved ninety-six notches into Bay Seven's rail â€” one for every failed rewrite she refused to delete.",
 				"Claiming a step doesn't erase the notch. It lights it. The path is a ledger of patience.",
 				"When the last mark lights, leave three free spins for the next operator. That's the dock rule.",
 			},
@@ -4977,7 +5017,7 @@ local GameConfig = {
 			Chapter = "SIDE STORY: ECHOES",
 			Summary = "How forge echoes learn your shift habits.",
 			Body = {
-				"Echoes aren't ghosts. They're drafts — patterns the forge records when you collect, surge, build, and explore in the same breath.",
+				"Echoes aren't ghosts. They're drafts â€” patterns the forge records when you collect, surge, build, and explore in the same breath.",
 				"Slot three of the same affinity and the table hums harmony. Mix affinities and the draft stays polite but quieter.",
 				"Vale's rule: never salvage a draft you haven't read twice.",
 			},
@@ -4992,7 +5032,7 @@ local GameConfig = {
 			Chapter = "LORE: CONTINUUM",
 			Summary = "Rank is a receipt, not a crown.",
 			Body = {
-				"Continuum spends flux and stardust to buy a slower kind of power — the kind that survives a bad click.",
+				"Continuum spends flux and stardust to buy a slower kind of power â€” the kind that survives a bad click.",
 				"Every rank is a receipt stapled to Bay Seven: paid, stamped, and still waiting for the next invoice.",
 				"Milestones arrive every few ranks. Don't skip the quiet ones; they fund the loud ones.",
 			},
@@ -5022,7 +5062,7 @@ local GameConfig = {
 			Chapter = "SIDE STORY: LAB",
 			Summary = "Orders refresh with the UTC clock, not your mood.",
 			Body = {
-				"Three orders. Three rails of power. No heroics — just clean books and finished work.",
+				"Three orders. Three rails of power. No heroics â€” just clean books and finished work.",
 				"Bank targets size from steady production. Surges make the vault feel big; they do not rewrite the job sheet.",
 				"Claim what you finish. Leaving pay on the board insults the quiet engine.",
 			},
@@ -5052,7 +5092,7 @@ local GameConfig = {
 			Chapter = "SIDE STORY: DOMAIN",
 			Summary = "Expansion is a rewrite with witnesses.",
 			Body = {
-				"Domain Expansion isn't a wipe — it's a treaty. Rebirths spent become essence; cores spent become proof.",
+				"Domain Expansion isn't a wipe â€” it's a treaty. Rebirths spent become essence; cores spent become proof.",
 				"The lattice only opens for operators who can explain every node they light.",
 				"Bring overflow. The crown feeds on honesty more than greed.",
 			},
@@ -5080,7 +5120,7 @@ local GameConfig = {
 			Id = "glass-meridian-notes",
 			Title = "Glass Meridian Notes",
 			Chapter = "LORE: WORLD 9",
-			Summary = "Mirrors reward clean banks — fog punishes greed.",
+			Summary = "Mirrors reward clean banks â€” fog punishes greed.",
 			Body = {
 				"Glass Meridian is not a prettier Crystal Expanse. The mirrors only double what you already proved on the beat.",
 				"Miss a vault window and the panes fog. Hit them and the ledger writes twice without arguing.",
@@ -5098,7 +5138,7 @@ local GameConfig = {
 			Summary = "Industrial ring still warm from a dead nova.",
 			Body = {
 				"Ash Spindle is loud but fair. Kilns run hot, machine bays take room, and every core still shows on the books.",
-				"The foundry crew says the ember never fully died — it just learned to wait for operators who can afford the heat.",
+				"The foundry crew says the ember never fully died â€” it just learned to wait for operators who can afford the heat.",
 				"Bring cores. Leave the speeches at the gate.",
 			},
 			Kind = "Zone",
@@ -5113,7 +5153,7 @@ local GameConfig = {
 			Summary = "Cold shelves where theorems outrun forges.",
 			Body = {
 				"Quiet Lattice is for crews who already own their machines. Research stacks deeper here while the vault waits.",
-				"The soft hum is not ambient — it's unfinished proofs trying to finish themselves.",
+				"The soft hum is not ambient â€” it's unfinished proofs trying to finish themselves.",
 				"Read before you spend. The shelves remember who skipped the footnotes.",
 			},
 			Kind = "Zone",
@@ -5143,7 +5183,7 @@ local GameConfig = {
 			Summary = "Automate hard on the black hole's lip.",
 			Body = {
 				"Event Horizon milks the thin energy that escapes a quiet black hole. Miss a window and the rim goes dark.",
-				"Cores here aren't decorations — every one is a ballast against the pull.",
+				"Cores here aren't decorations â€” every one is a ballast against the pull.",
 				"Vale's chalk on the outer rail: AUTOMATE FIRST. ARGUE LATER.",
 			},
 			Kind = "Zone",
@@ -5159,7 +5199,7 @@ local GameConfig = {
 			Body = {
 				"Halo Foundry spends leftover heat from a collapsed sun. Costs bite; the ledger stays fair.",
 				"Wide rails mean big machines. Bring cores you can explain.",
-				"The ring crew stamps every invoice twice — once for flux, once for pride.",
+				"The ring crew stamps every invoice twice â€” once for flux, once for pride.",
 			},
 			Kind = "Zone",
 			Target = 6,
@@ -5173,7 +5213,7 @@ local GameConfig = {
 			Summary = "Quiet seconds, heavy flux.",
 			Body = {
 				"Pale Orbit stretches the clock. Offline windows run long; levels still move the needle.",
-				"Nothing here is a trap — just expensive honesty for crews that already know the loop.",
+				"Nothing here is a trap â€” just expensive honesty for crews that already know the loop.",
 				"Dock rats call it the listening lane. The Hollow Star prefers quiet operators.",
 			},
 			Kind = "Zone",
@@ -5185,7 +5225,7 @@ local GameConfig = {
 			Id = "origin-well-spark",
 			Title = "Origin Well Spark",
 			Chapter = "LORE: WORLD 8",
-			Summary = "Last published dock — not a wall.",
+			Summary = "Last published dock â€” not a wall.",
 			Body = {
 				"Origin Well is the last named dock before the authored map frays into Glass Meridian.",
 				"Gates are rebirth-fair. Multipliers are large. The forge still has room after you park.",
@@ -5202,7 +5242,7 @@ local GameConfig = {
 			Chapter = "LORE: TRADE DESK",
 			Summary = "When a handshake fails mid-apply.",
 			Body = {
-				"If a desk sticks on RevertFailed, cancel clears the residual — don't keep offering into a dead settle.",
+				"If a desk sticks on RevertFailed, cancel clears the residual â€” don't keep offering into a dead settle.",
 				"Admins treat settle recovery as bug recovery: reset the day ledger only after the table is closed.",
 				"Confirm once. Wait for both sides. The forge logs the permanent failures so Bay Seven can help.",
 			},
@@ -6539,9 +6579,9 @@ local GameConfig = {
 			Subject = "Progression update",
 			Sender = "Mara",
 			Date = "SEP 23, 2026",
-			Preview = "Next Plan and Shift Plan show costs, progress, and ready rewards.",
+			Preview = "Expedition routes now show their costs and rewards before launch. Anomaly directives are grouped in a dedicated field lab.",
 			Body = {
-				"Next Plan and Shift Plan show costs, progress, and ready rewards. Guilds and Ranks now have simpler layouts.",
+				"Expedition routes now show their costs and rewards before launch. The Anomaly lab groups directives, protocols, and milestones.",
 			},
 			Attachment = { CashMinutes = 45, Stardust = 75, FreeSpins = 1 },
 			Color = Color3.fromRGB(90, 210, 255),
@@ -6578,13 +6618,13 @@ local GameConfig = {
 		},
 		{
 			Id = "update-4-0-a-new-forge",
-			Subject = "Update 4.0 — A New Forge",
+			Subject = "Update 4.0 â€” A New Forge",
 			Sender = "Mara / Dockmaster",
 			Date = "AUG 23, 2026",
 			Preview = "Trading got a whole new floor, and every action tells you what happened now.",
 			Body = {
-				"Big one this shift. Trade Floor is rebuilt top to bottom — the practice bot is retired, so it's real players only now.",
-				"Every button that used to go quiet now tells you what it did. Buying, equipping, unlocking, salvaging — it all confirms.",
+				"Big one this shift. Trade Floor is rebuilt top to bottom â€” the practice bot is retired, so it's real players only now.",
+				"Every button that used to go quiet now tells you what it did. Buying, equipping, unlocking, salvaging â€” it all confirms.",
 				"Toasts moved down to the bottom of the screen. Swipe one away, or hover to hold it open while you read.",
 				"Boosts got their own page with a clearer layout, and the anti-cheat stopped flagging normal rapid clicking.",
 				"Cleared out the old mail and update history to make room. Thanks for sticking around through all of it.",
@@ -6613,7 +6653,7 @@ local GameConfig = {
 		History = {
 			{
 				Version = "5.0.0",
-				Title = "Update 5.0 — The Grand Overhaul",
+				Title = "Update 5.0 â€” The Grand Overhaul",
 				Date = "SEP 22",
 				Highlights = {
 					"Astral Forge 5.0 is officially live.",
@@ -7575,5 +7615,7 @@ for featureId, level in ForgeLevels.unlockLevels() do
 	rule.Target = level
 	rule.Requirement = ForgeLevels.requirementText(level)
 end
+
+require(script.Parent.CrateExpansion).extendItems(GameConfig.Items)
 
 return GameConfig

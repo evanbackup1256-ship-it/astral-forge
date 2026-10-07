@@ -6,6 +6,8 @@ local UserInputService = game:GetService("UserInputService")
 local ClientLog = require(script.Parent.CoreKit)("log").ClientLog
 local Geom = require(script.Parent.LayoutKit)("layoutGeom")
 local Plan = require(script.Parent.LayoutKit)("layoutGuardPlan")
+local GuardEngine = require(script.Parent.LayoutGuardEngine)
+local guardEngine = GuardEngine.new()
 local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
 local IGNORE_ATTRIBUTE = "LayoutGuardIgnore"
 local FIT_SLOP = 6
@@ -87,6 +89,9 @@ local function engineOwns(gui)
 	return false
 end
 local function allowWrite(inst)
+	if GuardEngine.mode(inst) ~= "repair" or not guardEngine.hasBudget() or not guardEngine.mayRepair(inst) then
+		return false
+	end
 	if abandoned[inst] then
 		return false
 	end
@@ -751,7 +756,7 @@ local function checkStackedText(list)
 	table.clear(stackPassLabels)
 	table.clear(stackPassSolids)
 end
-local function inspect(inst)
+local function inspectRaw(inst)
 	if inst.Parent == nil then
 		return nil
 	end
@@ -784,6 +789,12 @@ local function inspect(inst)
 		repairButton(inst)
 	elseif inst:IsA("TextLabel") or inst:IsA("TextBox") then
 		repairText(inst)
+	end
+end
+local function inspect(inst)
+	local result = guardEngine.inspect(inst, inspectRaw)
+	if followUp and (result == "deferred" or result == "verify") then
+		followUp(inst)
 	end
 end
 local function readTouchProfile()
@@ -823,6 +834,9 @@ do
 		self.armed = false
 		self.rootConnections = {}
 		self.watchedLayers = {}
+		self.propertyConnections = {}
+		self.pairBuilder = nil
+		self.overlapGroups = {}
 		self.pendingOverlap = false
 	end
 	function LayoutGuardController:onInit()
@@ -838,7 +852,9 @@ do
 		UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(refresh)
 	end
 	function LayoutGuardController:enqueue(instance, delay)
-		if self.freshSet[instance] or not isTrackedClass(instance) then
+		if
+			self.freshSet[instance] or (not isTrackedClass(instance) and not guardEngine.needsVerification(instance))
+		then
 			return nil
 		end
 		if #self.fresh >= Plan.FRESH_CAP then
@@ -856,6 +872,22 @@ do
 		local index = #tracked + 1
 		tracked[index] = instance
 		self.trackedIndex[instance] = index
+		self.propertyConnections[instance] = instance.Changed:Connect(function(property)
+			if guardEngine.isWriting() then
+				return
+			end
+			if
+				property == "Text"
+				or property == "Size"
+				or property == "Position"
+				or property == "Visible"
+				or property == "TextSize"
+				or property == "TextWrapped"
+				or property == "CanvasSize"
+			then
+				self:markDirty(instance)
+			end
+		end)
 	end
 	function LayoutGuardController:untrack(instance)
 		local index = self.trackedIndex[instance]
@@ -869,9 +901,16 @@ do
 		self.trackedIndex[moved] = index
 		tracked[last] = nil
 		self.trackedIndex[instance] = nil
+		local connection = self.propertyConnections[instance]
+		if connection then
+			connection:Disconnect()
+		end
+		self.propertyConnections[instance] = nil
+		guardEngine.remove(instance)
 	end
 	function LayoutGuardController:markDirty(instance)
 		if instance ~= nil then
+			guardEngine.invalidate(instance)
 			tryCount[instance] = nil
 			abandoned[instance] = nil
 			self:enqueue(instance, Plan.SETTLE_FRAMES)
@@ -907,6 +946,16 @@ do
 			connection:Disconnect()
 		end
 		table.clear(self.rootConnections)
+		for instance, connection in self.propertyConnections do
+			connection:Disconnect()
+			guardEngine.remove(instance)
+		end
+		table.clear(self.propertyConnections)
+		table.clear(self.freshSet)
+		table.clear(self.fresh)
+		table.clear(self.freshReady)
+		self.pairBuilder = nil
+		table.clear(self.overlapGroups)
 		table.clear(self.tracked)
 		table.clear(self.trackedIndex)
 		self.watchedLayers = {}
@@ -917,7 +966,15 @@ do
 		local playerGui = root:FindFirstAncestorOfClass("PlayerGui")
 		if playerGui ~= nil then
 			local function consider(layer)
-				if layer:IsA("LayerCollector") and layer ~= root and layer:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+				if
+					layer:IsA("LayerCollector")
+					and layer ~= root
+					and layer:GetAttribute(IGNORE_ATTRIBUTE) ~= true
+					and (
+						string.sub(layer.Name, 1, 10) == "AstralForge"
+						or layer:GetAttribute("AF_LayoutManaged") == true
+					)
+				then
 					self:watchLayer(layer)
 				end
 			end
@@ -956,10 +1013,15 @@ do
 		if not first then
 			table.clear(tryCount)
 			table.clear(abandoned)
+			for _, instance in self.tracked do
+				guardEngine.invalidate(instance)
+			end
 		end
 		self.cursor = 1
 		self.sinceSweep = Plan.MIN_SWEEP_SECONDS
-		self.pendingOverlap = false
+		self.pendingOverlap = true
+		self.pairBuilder = nil
+		table.clear(self.overlapGroups)
 		self.burstLeft = Plan.BURST_FRAMES
 		stats.bursts += 1
 		return true
@@ -1001,7 +1063,7 @@ do
 		local done = 0
 		for index = 1, count do
 			local instance = fresh[index]
-			if done < budget and ready[index] <= self.frame then
+			if done < budget and ready[index] <= self.frame and guardEngine.hasBudget() then
 				done += 1
 				self.freshSet[instance] = nil
 				if instance.Parent ~= nil then
@@ -1042,6 +1104,7 @@ do
 		self.frame += 1
 		self.sinceSweep += _dt
 		self:checkResize(root)
+		guardEngine.beginFrame(_dt, self.burstLeft > 0)
 		local budget = Plan.budget(self.burstLeft, #self.fresh)
 		if self.burstLeft > 0 then
 			self.burstLeft -= 1
@@ -1050,33 +1113,71 @@ do
 		local tracked = self.tracked
 		if self.cursor > #tracked then
 			if self.pendingOverlap then
-				checkOverlappingHitboxes(self.queue)
-				checkTextUnderButtons(self.queue)
-				checkStackedText(self.queue)
-				table.clear(textPassLabels)
-				table.clear(textPassButtons)
+				local groups = self.overlapGroups
+				self.pairBuilder = coroutine.wrap(function()
+					for _, siblings in groups do
+						local nextPair = GuardEngine.pairIterator(siblings)
+						while true do
+							local pair = nextPair()
+							if pair == nil then
+								break
+							end
+							coroutine.yield(pair)
+						end
+					end
+				end)
 				self.pendingOverlap = false
 			end
+			while self.pairBuilder and guardEngine.hasBudget() do
+				local group = self.pairBuilder()
+				if group == nil then
+					self.pairBuilder = nil
+				elseif group then
+					local edited = guardEngine.repairGroup(group, function(items)
+						checkOverlappingHitboxes(items)
+						checkTextUnderButtons(items)
+						checkStackedText(items)
+					end)
+					for _, instance in edited do
+						self:enqueue(instance, Plan.SETTLE_FRAMES)
+					end
+				end
+			end
+			if self.pairBuilder then
+				guardEngine.endFrame()
+				return
+			end
 			if self.sinceSweep < Plan.MIN_SWEEP_SECONDS then
+				guardEngine.endFrame()
 				self:report()
 				return nil
 			end
 			self.sinceSweep = 0
 			self.cursor = 1
 			self.pendingOverlap = true
+			table.clear(self.overlapGroups)
 			stats.scans += 1
 		end
 		local sweepBudget = budget.sweep
-		while sweepBudget > 0 and self.cursor <= #tracked do
+		while sweepBudget > 0 and self.cursor <= #tracked and guardEngine.hasBudget() do
 			local inst = tracked[self.cursor]
 			self.cursor += 1
 			sweepBudget -= 1
 			if inst.Parent == nil or self.freshSet[inst] then
 				continue
 			end
+			if inst.Parent and GuardEngine.mode(inst) == "repair" then
+				local group = self.overlapGroups[inst.Parent]
+				if not group then
+					group = {}
+					self.overlapGroups[inst.Parent] = group
+				end
+				table.insert(group, inst)
+			end
 			inspect(inst)
 			stats.sweepChecked += 1
 		end
+		guardEngine.endFrame()
 		self:report()
 	end
 	function LayoutGuardController:report()
@@ -1134,9 +1235,13 @@ Reflect.decorate(LayoutGuardController, "$:flamework@Controller", Controller, { 
 	loadOrder = 10,
 } })
 local function layoutGuardStats()
-	return stats
+	return table.clone(stats)
+end
+local function layoutGuardDiagnostics()
+	return guardEngine.diagnostics()
 end
 return {
 	layoutGuardStats = layoutGuardStats,
+	layoutGuardDiagnostics = layoutGuardDiagnostics,
 	LayoutGuardController = LayoutGuardController,
 }

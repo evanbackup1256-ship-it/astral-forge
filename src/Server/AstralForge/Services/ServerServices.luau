@@ -54,6 +54,8 @@ serviceFactories["GameService"] = function()
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local Format = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("Format")
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
+	local CreateArcadeService = require(script.Parent.ArcadeService)
+	local ArcadeMigration = require(script.Parent.Parent.Modules.ArcadeMigration)
 	local ProgressionGate =
 		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionGate")
 	local SharedDataSuite =
@@ -64,6 +66,8 @@ serviceFactories["GameService"] = function()
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
 	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("CrateRoll")
+	local CrateRollResolver = require(script.Parent.Parent.Modules.CrateRollResolver)
+	local CrateConfig = require(ReplicatedStorage.AstralForge.Shared.CrateConfig)
 	local ShopGrantEligibility =
 		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ShopGrantEligibility")
 	local CommandActionValidators =
@@ -100,6 +104,8 @@ serviceFactories["GameService"] = function()
 		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("UtcClockMath")
 	local DataSanitizeMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("DataSanitizeMath"))
 	local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
+	local AscensionPathMath =
+		require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("AscensionPathMath"))
 	local ProfileClampMath =
 		require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ProfileClampMath")
 	local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
@@ -128,6 +134,7 @@ serviceFactories["GameService"] = function()
 	local AnomalyService = loadService("AnomalyService")
 	local LabService = loadService("LabService")
 	local GuildService = loadService("GuildService")
+	local GuildCommunity = require(script.Parent:WaitForChild("GuildCommunity"))
 	local MatterRuntime = loadService("MatterRuntime")
 	local RemoteFirewall = loadService("RemoteFirewall")
 	local SessionGate = loadService("SessionGate")
@@ -164,6 +171,15 @@ serviceFactories["GameService"] = function()
 		Cores = ServerConfig.CoresLeaderboardStoreName,
 		Domain = ServerConfig.DomainLeaderboardStoreName,
 		Worlds = ServerConfig.WorldLeaderboardStoreName,
+		Taps = ServerConfig.TapsLeaderboardStoreName,
+		ItemsFound = ServerConfig.ItemsFoundLeaderboardStoreName,
+		CratesOpened = ServerConfig.CratesOpenedLeaderboardStoreName,
+		AnomalyPulses = ServerConfig.AnomalyPulsesLeaderboardStoreName,
+		OrdersCompleted = ServerConfig.OrdersCompletedLeaderboardStoreName,
+		Combat = ServerConfig.CombatLeaderboardStoreName,
+		Crafting = ServerConfig.CraftingLeaderboardStoreName,
+		ArcadeScore = ServerConfig.ArcadeScoreLeaderboardStoreName,
+		Seasonal = ServerConfig.SeasonLeaderboardStoreName,
 	}
 
 	local function generalBoardValue(profile, id: string)
@@ -266,7 +282,11 @@ serviceFactories["GameService"] = function()
 	end
 
 	local function ensureCommandMastery(profile)
-		local command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		local command = CommandMath.Ensure(
+			profile.Command,
+			GameConfig.Operations.SeasonId,
+			GameConfig.Operations.ExpeditionPlanVersion
+		)
 		profile.Command = command
 		return command.MachineMastery
 	end
@@ -723,9 +743,65 @@ serviceFactories["GameService"] = function()
 		return responseError("That player is no longer in this server.")
 	end
 
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+	local getOrderedStore = StoreAccess.ordered
+	local getDataStore = StoreAccess.data
+	local previewEnabled = StoreAccess.isPreview()
+
 	function GameService.new(dataService, worldService, fluxSurgeService, remotes)
 		local self = setmetatable({}, GameService)
 		self._data = dataService
+		self._bazaarListings = require(script.Parent.BazaarListingService)({
+			mutate = function(player, callback)
+				return self:_mutate(player, callback)
+			end,
+			get = function(player)
+				return self._data:Get(player)
+			end,
+			save = function(player)
+				return self._data:Save(player, false)
+			end,
+			newId = function()
+				return HttpService:GenerateGUID(false)
+			end,
+			log = function(event, userId, listingId)
+				ModuleLog.Info("Bazaar", event, { UserId = userId, ListingId = listingId })
+			end,
+		})
+		self._arcade = CreateArcadeService({
+			mutate = function(player, transform)
+				return self:_mutate(player, function(profile)
+					ArcadeMigration.apply(profile, Economy, os.time())
+					return transform(profile)
+				end)
+			end,
+			get = function(player)
+				return self._data:Get(player)
+			end,
+			save = function(player)
+				return self._data:Save(player, false)
+			end,
+			newSeed = function()
+				-- Unique engine GUIDs supply the private seed. Entropy is not cryptographically certified by this audit.
+				return HttpService:GenerateGUID(false) .. HttpService:GenerateGUID(false)
+			end,
+			newId = function()
+				return HttpService:GenerateGUID(false)
+			end,
+			now = function()
+				return workspace:GetServerTimeNow()
+			end,
+			log = function(player, result)
+				ModuleLog.Info("Arcade", "round completed", {
+					UserId = player.UserId,
+					Round = result.Id,
+					Game = result.Game,
+					Score = result.Score,
+					Nonce = result.Proof.Nonce,
+					Draws = result.Draws,
+				})
+			end,
+		})
 		self._world = worldService
 		self._fluxSurge = fluxSurgeService
 		self._request = remotes.Request
@@ -765,6 +841,33 @@ serviceFactories["GameService"] = function()
 			end,
 		})
 		self._guilds = GuildService.new()
+		self._guildCommunity = GuildCommunity.new(
+			self._guilds,
+			dataService,
+			self._security,
+			self._effect,
+			function(target: Player, guildId: string)
+				local updated, result = self._data:AtomicUpdate(target, function(profile)
+					if profile.Guild and profile.Guild.Id == guildId then
+						profile.Guild = nil
+						profile.GuildBonuses = {}
+					end
+					return { ok = true }
+				end, true, "guild-ban")
+				if not updated then
+					return false, result
+				end
+				local profile = self._data:Get(target)
+				if profile then
+					self:_pushState(target)
+				end
+				self._effect:FireClient(target, { Type = "GuildBanned", GuildId = guildId })
+				if target.Parent == Players then
+					target:Kick("You were removed from your guild.")
+				end
+				return true, nil
+			end
+		)
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
 		self._heartbeat = nil
@@ -775,7 +878,7 @@ serviceFactories["GameService"] = function()
 		self._running = false
 		self._leaderboardStores = {}
 		for id, storeName in GENERAL_BOARD_STORE_NAMES do
-			self._leaderboardStores[id] = DataStoreService:GetOrderedDataStore(storeName)
+			self._leaderboardStores[id] = getOrderedStore(storeName)
 		end
 
 		self._playerNameCache = {}
@@ -1515,6 +1618,7 @@ serviceFactories["GameService"] = function()
 			Daily = ProgressionService.DailyState(profile),
 			Wheel = ProgressionService.WheelState(profile),
 			Casino = CasinoService.State(profile, os.time()),
+			Arcade = self._arcade.snapshot(profile),
 			Bazaar = BazaarService.State(profile, os.time(), player.UserId),
 			Command = ProgressionService.CommandState(profile),
 			ForgePath = ProgressionService.ForgePathState(profile),
@@ -2469,7 +2573,7 @@ serviceFactories["GameService"] = function()
 		return self:_mutate(player, function(profile)
 			local now = os.time()
 			BazaarService.Roll(profile, now, player.UserId)
-			local ok, message, extra = BazaarService.Play(profile, self._random, payload, now, player.UserId)
+			local ok, message, extra = BazaarService.Play(profile, payload, now, player.UserId)
 			if not ok then
 				return responseError(message)
 			end
@@ -2491,12 +2595,12 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
-	function GameService:_launchExpedition(player: Player, expeditionId: any)
-		if type(expeditionId) ~= "string" then
+	function GameService:_launchExpedition(player: Player, expeditionId: any, planId: any)
+		if type(expeditionId) ~= "string" or (planId ~= nil and type(planId) ~= "string") then
 			return responseError("Invalid expedition request.")
 		end
 		return self:_mutate(player, function(profile)
-			local ok, message = ProgressionService.LaunchExpedition(profile, expeditionId)
+			local ok, message = ProgressionService.LaunchExpedition(profile, expeditionId, planId)
 			return ok and responseSuccess(message) or responseError(message)
 		end)
 	end
@@ -2694,10 +2798,12 @@ serviceFactories["GameService"] = function()
 				Key = purchaseKey,
 			})
 		end
-		self._effect:FireClient(
-			player,
-			{ Type = "PurchaseConfirmed", ProductId = receiptInfo.ProductId, Key = purchaseKey, Label = productDef.Name }
-		)
+		self._effect:FireClient(player, {
+			Type = "PurchaseConfirmed",
+			ProductId = receiptInfo.ProductId,
+			Key = purchaseKey,
+			Label = productDef.Name,
+		})
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
@@ -2820,11 +2926,23 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_rollItemDefinition(crate, pity: number)
-		return CrateRoll.Roll(crate, pity, GameConfig.Items.Rarities, GameConfig.Items.Definitions, function(lo, hi)
-			return self._random:NextNumber(lo, hi)
-		end, function(lo, hi)
-			return self._random:NextInteger(lo, hi)
-		end)
+		return CrateRollResolver.roll(
+			crate,
+			pity,
+			GameConfig.Items.Rarities,
+			GameConfig.Items.Definitions,
+			function(definition)
+				return definition.Rarity
+			end,
+			function(lo, hi)
+				return self._random:NextNumber(lo, hi)
+			end,
+			function(lo, hi)
+				return self._random:NextInteger(lo, hi)
+			end,
+			CrateConfig.RarityOrder,
+			CrateConfig.MinimumRollInterval
+		)
 	end
 
 	function GameService:_buyItemOffer(player: Player, offerId: any)
@@ -3122,11 +3240,16 @@ serviceFactories["GameService"] = function()
 					Essence = autoEssence,
 				}
 			end
+			local cosmetics = ProfileBagMath.EnsureCosmetics(profile)
+			local shopCatalog = require(game.ReplicatedStorage.AstralForge.Shared.SharedData)("ShopCatalog")
+			local expansion = require(game.ReplicatedStorage.AstralForge.Shared.CrateExpansion)
+			local skinBonus = expansion.openBonus(cosmetics, shopCatalog.skin(cosmetics.CrateSkin), count)
+			items.Essence += skinBonus
 			bumpStat(profile, "CratesOpened", count)
 			LabService.Progress(profile, "OpenCrate", count)
 			return responseSuccess(
 				string.format("Decoded %d %s%s.", count, crate.Name, count == 1 and "" or "s"),
-				{ Rolls = rolls, CrateId = crateId, Pity = items.Pity[crateId] }
+				{ Rolls = rolls, CrateId = crateId, Pity = items.Pity[crateId], SkinEssence = skinBonus }
 			)
 		end)
 		return result
@@ -3547,6 +3670,39 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
+	function GameService:_respecDomainTree(player: Player)
+		return self:_mutate(player, function(profile)
+			local domain = ProfileBagMath.EnsureDomain(profile)
+			local result, problem = AscensionPathMath.ApplyRespec(domain, GameConfig.Domain.Tree, profile.Stardust, {
+				SchemaVersion = GameConfig.Domain.TreeSchemaVersion,
+				BaseStardust = GameConfig.Domain.TreeRespec.BaseStardust,
+				StardustPerRank = GameConfig.Domain.TreeRespec.StardustPerRank,
+				RepeatScale = GameConfig.Domain.TreeRespec.RepeatScale,
+				MaxStardust = GameConfig.Domain.TreeRespec.MaxStardust,
+			})
+			if result == nil then
+				return responseError(problem or "The Ascension Path cannot be reset right now.")
+			end
+
+			domain = result.Domain
+			profile.Domain = domain
+			profile.Stardust = result.Stardust
+			return responseSuccess(
+				string.format(
+					"Ascension Path reset. %d point%s returned for %s Stardust.",
+					result.Quote.RefundPoints,
+					if result.Quote.RefundPoints == 1 then "" else "s",
+					tostring(result.Quote.Cost)
+				),
+				{
+					StardustSpent = result.Quote.Cost,
+					PointsReturned = result.Quote.RefundPoints,
+					BranchesReset = result.Quote.OwnedNodes,
+				}
+			)
+		end)
+	end
+
 	function GameService:_domainExpansion(player: Player)
 		local details = nil
 		local result = self:_mutate(player, function(profile)
@@ -3961,9 +4117,46 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_guildAction(player: Player, action: string, payload: any)
+		if action == Protocol.Actions.CreateGuild or action == Protocol.Actions.RenameGuild then
+			if type(payload) ~= "table" or type(payload.Name) ~= "string" then
+				return responseError("Guild names must be 3–28 letters, numbers, spaces, - or _.")
+			end
+			local filter = self._security and self._security.Filter
+			if not filter or type(filter.Apply) ~= "function" then
+				return responseError("Guild names are temporarily unavailable. Try again shortly.")
+			end
+			local filteredOk, filteredName = filter:Apply(player, payload.Name, player.UserId, 28)
+			if filteredOk ~= true or type(filteredName) ~= "string" or filteredName == "" then
+				return responseError("That guild name could not be checked. Please choose another name.")
+			end
+			payload = table.clone(payload)
+			payload.Name = filteredName
+		end
+		if
+			action == Protocol.Actions.SendGuildChat
+			or action == Protocol.Actions.GetGuildChatHistory
+			or action == Protocol.Actions.GetGuildAnnouncements
+			or action == Protocol.Actions.GetGuildSettings
+			or action == Protocol.Actions.SetGuildSettings
+			or action == Protocol.Actions.GetGuildLogoReview
+			or action == Protocol.Actions.CreateGuildAnnouncement
+			or action == Protocol.Actions.EditGuildAnnouncement
+			or action == Protocol.Actions.PinGuildAnnouncement
+			or action == Protocol.Actions.ArchiveGuildAnnouncement
+			or action == Protocol.Actions.SetGuildAnnouncementExpiry
+			or action == Protocol.Actions.MuteGuildMember
+			or action == Protocol.Actions.UnmuteGuildMember
+			or action == Protocol.Actions.BanGuildMember
+			or action == Protocol.Actions.UnbanGuildMember
+			or action == Protocol.Actions.UploadGuildLogo
+			or action == Protocol.Actions.ModerateGuildLogo
+		then
+			return self._guildCommunity:Handle(player, action, payload)
+		end
 		if
 			action == Protocol.Actions.KickGuildMember
 			or action == Protocol.Actions.SetGuildRole
+			or action == Protocol.Actions.RenameGuild
 			or action == Protocol.Actions.BuyGuildUpgrade
 		then
 			local profile = self._data:Get(player)
@@ -3980,6 +4173,8 @@ serviceFactories["GameService"] = function()
 				ok, message, guild = self._guilds:Kick(player, profile, payload.UserId or payload.Id)
 			elseif action == Protocol.Actions.SetGuildRole then
 				ok, message, guild = self._guilds:SetRole(player, profile, payload.UserId or payload.Id, payload.Role)
+			elseif action == Protocol.Actions.RenameGuild then
+				ok, message, guild = self._guilds:Rename(player, profile, payload.Name)
 			else
 				ok, message, guild = self._guilds:BuyUpgrade(player, profile, payload.Id)
 			end
@@ -4293,15 +4488,36 @@ serviceFactories["GameService"] = function()
 			return self:_reportPresence(player, payload)
 		elseif action == Protocol.Actions.GetGuild then
 			local profile = self._data:Get(player)
-			return responseSuccess(
-				nil,
-				{ Guild = profile and self._guilds:GetPublic(profile.Guild and profile.Guild.Id or "") }
-			)
+			local guild = profile and self._guilds:GetPublic(profile.Guild and profile.Guild.Id or "")
+			if guild then
+				guild.Community = self._guildCommunity:Snapshot(guild.Id)
+			end
+			return responseSuccess(nil, { Guild = guild })
 		elseif action == Protocol.Actions.GetGuildLeaderboard then
 			return responseSuccess(
 				nil,
 				{ GuildLeaderboard = self._guilds:GetLeaderboard(payload and payload.Page or 1) }
 			)
+		elseif
+			action == Protocol.Actions.SendGuildChat
+			or action == Protocol.Actions.GetGuildChatHistory
+			or action == Protocol.Actions.GetGuildAnnouncements
+			or action == Protocol.Actions.GetGuildSettings
+			or action == Protocol.Actions.SetGuildSettings
+			or action == Protocol.Actions.GetGuildLogoReview
+			or action == Protocol.Actions.CreateGuildAnnouncement
+			or action == Protocol.Actions.EditGuildAnnouncement
+			or action == Protocol.Actions.PinGuildAnnouncement
+			or action == Protocol.Actions.ArchiveGuildAnnouncement
+			or action == Protocol.Actions.SetGuildAnnouncementExpiry
+			or action == Protocol.Actions.MuteGuildMember
+			or action == Protocol.Actions.UnmuteGuildMember
+			or action == Protocol.Actions.BanGuildMember
+			or action == Protocol.Actions.UnbanGuildMember
+			or action == Protocol.Actions.UploadGuildLogo
+			or action == Protocol.Actions.ModerateGuildLogo
+		then
+			return self:_guildAction(player, action, payload)
 		elseif action == Protocol.Actions.GetLeaderboard then
 			return self:_getLeaderboard(payload and payload.Id)
 		elseif action == Protocol.Actions.GetAdminState then
@@ -4386,6 +4602,8 @@ serviceFactories["GameService"] = function()
 			return self:_domainExpansion(player)
 		elseif action == Protocol.Actions.UnlockDomainNode then
 			return self:_unlockDomainNode(player, payload and payload.Id)
+		elseif action == Protocol.Actions.RespecDomainTree then
+			return self:_respecDomainTree(player)
 		elseif action == Protocol.Actions.ClaimConvergenceReward then
 			return self._convergence:Claim(player, payload and payload.Tier)
 		elseif action == Protocol.Actions.ClaimQuest then
@@ -4398,12 +4616,26 @@ serviceFactories["GameService"] = function()
 			return self:_claimTimedReward(player, payload and payload.Index)
 		elseif action == Protocol.Actions.SpinWheel then
 			return self:_spinWheel(player)
+		elseif action == Protocol.Actions.GetArcade then
+			return self._arcade.get(player)
+		elseif action == Protocol.Actions.ArcadePlay then
+			return self._arcade.request(player, payload)
 		elseif action == Protocol.Actions.CasinoPlay then
 			return self:_casinoPlay(player, payload)
 		elseif action == Protocol.Actions.BazaarPlay then
 			return self:_bazaarPlay(player, payload)
+		elseif action == Protocol.Actions.GetBazaarListings then
+			return self._bazaarListings.Latest()
+		elseif action == Protocol.Actions.CreateBazaarListing then
+			return self._bazaarListings.Create(player, payload and payload.Uid, payload and payload.Price, os.time())
+		elseif action == Protocol.Actions.CancelBazaarListing then
+			return self._bazaarListings.Cancel(player, payload and payload.Id, os.time())
+		elseif action == Protocol.Actions.PurchaseBazaarListing then
+			return self._bazaarListings.Purchase(player, payload and payload.Id, os.time())
+		elseif action == Protocol.Actions.ClaimBazaarPayout then
+			return self._bazaarListings.ClaimPayout(player, payload and payload.Id)
 		elseif action == Protocol.Actions.LaunchExpedition then
-			return self:_launchExpedition(player, payload and payload.Id)
+			return self:_launchExpedition(player, payload and payload.Id, payload and payload.PlanId)
 		elseif action == Protocol.Actions.ClaimExpedition then
 			return self:_claimExpedition(player)
 		elseif action == Protocol.Actions.EquipArtifact then
@@ -5471,6 +5703,7 @@ serviceFactories["GameService"] = function()
 		end
 		self._matter:Stop()
 		self._convergence:Stop()
+		self._guildCommunity:Shutdown()
 		self._guilds:Destroy()
 		self._badges:Destroy()
 	end

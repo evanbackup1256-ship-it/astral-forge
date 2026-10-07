@@ -1320,7 +1320,9 @@ __defs["CommandView"] = function()
 		local stack = chrome.contentStack
 		local ops = config.Operations
 		local command = state.Command
-		local tab, setTab = React.useState("Overview")
+		local initialTab = _param.initialTab == "Expeditions" and "Expeditions" or "Overview"
+		local tab, setTab = React.useState(initialTab)
+		local selectedPlanId, setSelectedPlanId = React.useState("Standard")
 		local now, setNow = React.useState(workspace:GetServerTimeNow())
 		local scrollRef = React.useRef()
 		React.useEffect(function()
@@ -1392,6 +1394,32 @@ __defs["CommandView"] = function()
 			},
 		})
 		local expeditionList = expeditionBrowse.results
+		local expeditionPlans = ops.ExpeditionPlans or {}
+		local selectedPlan = expeditionPlans[selectedPlanId] or expeditionPlans.Standard
+		if selectedPlan == nil then
+			selectedPlanId = "Standard"
+		end
+		local routePlanButtons = {}
+		local routePlanOrder = ops.ExpeditionPlanOrder or { "Standard" }
+		for index, planId in routePlanOrder do
+			local plan = expeditionPlans[planId]
+			if plan then
+				local cost = math.max(0, math.floor(tonumber(plan.SignalCost) or 0))
+				local chosen = planId == selectedPlanId
+				routePlanButtons[index] = React.createElement(Button, {
+					key = planId,
+					text = `{plan.ShortName or planId} · {if cost == 0 then "FREE" else tostring(cost)}`,
+					onClick = function()
+						setSelectedPlanId(planId)
+					end,
+					color = if chosen then Palette.cyan else Palette.panelSoft,
+					textColor = if chosen then Palette.ink else Palette.creamSoft,
+					size = UDim2.new(1 / math.max(1, #routePlanOrder), -6, 0, 40),
+					position = UDim2.new((index - 1) / math.max(1, #routePlanOrder), 0, 0, 0),
+					reducedMotion = reducedMotion,
+				})
+			end
+		end
 		local titlesEnabled = ops.TitlesEnabled ~= false
 		local maxed = command.Level >= ops.MaxCommanderLevel
 		local levelProgress = if maxed
@@ -2390,6 +2418,37 @@ __defs["CommandView"] = function()
 					layoutOrder = nextOrder(),
 					zIndex = 30,
 				}),
+				React.createElement(
+					Panel,
+					{
+						size = UDim2.new(1, 0, 0, 96),
+						accent = Palette.violet,
+						background = Palette.panelRaised,
+						padding = 10,
+						layoutOrder = nextOrder(),
+						reducedMotion = reducedMotion,
+					},
+					React.createElement(SectionLabel, {
+						value = "EXPEDITION ROUTE PLAN · SIGNALS COMMIT ON LAUNCH",
+						color = Palette.violet,
+					}),
+					React.createElement("frame", {
+						Size = UDim2.new(1, 0, 0, 40),
+						Position = UDim2.fromOffset(0, 24),
+						BackgroundTransparency = 1,
+					}, routePlanButtons),
+					React.createElement(Text, {
+						value = if selectedPlan == nil
+							then "A direct route is always available."
+							else selectedPlan.Description,
+						size = 10,
+						color = if selectedPlan == nil then Palette.muted else Palette.creamSoft,
+						fit = true,
+						minSize = 8,
+						position = UDim2.fromOffset(0, 68),
+						sizeConstraint = UDim2.new(1, 0, 0, 15),
+					})
+				),
 				#expeditionList == 0
 					and React.createElement(Browse.NoResults, {
 						browse = expeditionBrowse,
@@ -2418,7 +2477,10 @@ __defs["CommandView"] = function()
 						end
 						local locked = command.Level < expedition.RequiredLevel
 						local busy = activeId ~= ""
-						local can = not locked and not busy
+						local planCost =
+							math.max(0, math.floor(tonumber(selectedPlan and selectedPlan.SignalCost) or 0))
+						local canCommitPlan = command.Signals >= planCost
+						local can = not locked and not busy and canCommitPlan
 						local _attributes_1 = {}
 						local _condition_6 = expedition.ArtifactId
 						if _condition_6 == nil then
@@ -2476,10 +2538,12 @@ __defs["CommandView"] = function()
 								text = if locked
 									then `Need lv {expedition.RequiredLevel}`
 									elseif busy then "Crew away"
+									elseif not canCommitPlan then `Need {planCost} Signals`
 									else "LAUNCH",
 								onClick = function()
 									return dispatch("LaunchExpedition", {
 										Id = expedition.Id,
+										PlanId = selectedPlanId,
 									})
 								end,
 								color = expedition.Color,
@@ -4284,7 +4348,22 @@ __defs["AdminView"] = function()
 end
 
 __defs["AnomalyView"] = function()
-	return { AnomalyView = require(script.Parent.Parent.PlanningViews).ShiftPlan }
+	return { AnomalyView = require(script.Parent.Parent.PlanningViews).AnomalyLab }
+end
+
+__defs["ExpeditionPlannerView"] = function()
+	local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+	local CommandView = __load("CommandView").CommandView
+	local function ExpeditionPlannerView(props)
+		return React.createElement(CommandView, {
+			state = props.state,
+			config = props.config,
+			dispatch = props.dispatch,
+			reducedMotion = props.reducedMotion,
+			initialTab = "Expeditions",
+		})
+	end
+	return { ExpeditionPlannerView = ExpeditionPlannerView }
 end
 
 __defs["LeaderboardsView"] = function()
@@ -4379,6 +4458,88 @@ __defs["LeaderboardsView"] = function()
 			icon = "World",
 			accent = Palette.green,
 		},
+		{
+			id = "Taps",
+			label = "Most Taps",
+			short = "TAPS",
+			description = "Total manual taps recorded across each pilot's career.",
+			icon = "Tap",
+			accent = Palette.cyan,
+		},
+		{
+			id = "ItemsFound",
+			label = "Items Discovered",
+			short = "DISCOVERIES",
+			description = "Artifacts and equipment discovered throughout the forge.",
+			icon = "Find",
+			accent = Palette.violet,
+		},
+		{
+			id = "CratesOpened",
+			label = "Crates Opened",
+			short = "CRATES",
+			description = "Crates opened during regular play.",
+			icon = "Crate",
+			accent = Palette.mango,
+		},
+		{
+			id = "AnomalyPulses",
+			label = "Anomaly Pulses",
+			short = "ANOMALIES",
+			description = "Anomaly pulses completed across every world.",
+			icon = "Anomaly",
+			accent = Palette.pink,
+		},
+		{
+			id = "OrdersCompleted",
+			label = "Lab Orders",
+			short = "LAB ORDERS",
+			description = "Research lab orders completed and collected.",
+			icon = "Lab",
+			accent = Palette.mint,
+		},
+		{
+			id = "Combat",
+			label = "Warden Defeats",
+			short = "COMBAT",
+			description = "Wardens defeated across every world.",
+			icon = "Anomaly",
+			accent = Palette.pink,
+		},
+		{
+			id = "Crafting",
+			label = "Ore Mined",
+			short = "CRAFTING",
+			description = "Ore mined while building a stronger forge.",
+			icon = "Forge",
+			accent = Palette.mango,
+		},
+		{
+			id = "ArcadeScore",
+			label = "Arcade Score",
+			short = "ARCADE",
+			description = "Practice-table points earned across the score-only arcade.",
+			icon = "Games",
+			accent = Palette.cyan,
+		},
+		{
+			id = "Seasonal",
+			label = "Season XP",
+			short = "SEASON",
+			description = "Progress earned during the current season.",
+			icon = "Mission",
+			accent = Palette.violet,
+		},
+	}
+	local STAT_BOARD_FIELDS = {
+		Taps = "Taps",
+		ItemsFound = "ItemsFound",
+		CratesOpened = "CratesOpened",
+		AnomalyPulses = "AnomalyPulses",
+		OrdersCompleted = "OrdersCompleted",
+		Combat = "WardenDefeats",
+		Crafting = "OreMined",
+		Seasonal = "SeasonXP",
 	}
 	local _array = {}
 	local _length = #_array
@@ -4429,6 +4590,15 @@ __defs["LeaderboardsView"] = function()
 			local _value = value
 			return clockText(if type(_value) == "number" then value else asFlux(value))
 		end
+		if id == "ArcadeScore" then
+			local arcade = state.Arcade
+			local stats = arcade and arcade.Stats
+			return stats and stats.TotalScore or 0
+		end
+		if id == "Seasonal" then
+			local command = state.Command
+			return command and command.SeasonXP or 0
+		end
 		if id == "Worlds" then
 			return `WORLD {math.max(1, math.floor(asFlux(value)))}`
 		end
@@ -4461,6 +4631,17 @@ __defs["LeaderboardsView"] = function()
 				_condition = 0
 			end
 			return _condition
+		end
+		if id == "ArcadeScore" then
+			return summary.ArcadeScore or 0
+		end
+		if id == "Seasonal" then
+			return summary.SeasonXP or 0
+		end
+		local statName = STAT_BOARD_FIELDS[id]
+		if statName then
+			local stats = state.Stats
+			return stats and stats[statName] or 0
 		end
 		if id == "Dust" then
 			return state.Stardust
@@ -4510,6 +4691,10 @@ __defs["LeaderboardsView"] = function()
 				_condition = 0
 			end
 			return _condition
+		end
+		local statName = STAT_BOARD_FIELDS[id]
+		if statName then
+			return summary[statName] or 0
 		end
 		if id == "Dust" then
 			local _condition = summary.Stardust

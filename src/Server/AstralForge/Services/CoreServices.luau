@@ -1098,14 +1098,19 @@ __defs["GuildService"] = function()
 			return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
 		end
 
+		local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+		local getOrderedStore = StoreAccess.ordered
+		local getDataStore = StoreAccess.data
+		local previewEnabled = StoreAccess.isPreview()
+
 		function GuildService.new()
 			local self = setmetatable({}, GuildService)
 			self._cache = {}
 			self._cacheExpiry = {}
 			self._cachePruneAt = 0
 			self._studio = {}
-			self._store = DataStoreService:GetDataStore(ServerConfig.GuildStoreName)
-			self._leaderboard = DataStoreService:GetOrderedDataStore(ServerConfig.GuildLeaderboardStoreName)
+			self._store = getDataStore(ServerConfig.GuildStoreName)
+			self._leaderboard = getOrderedStore(ServerConfig.GuildLeaderboardStoreName)
 			self._leaderboardPending = {}
 			self._leaderboardBusy = {}
 			self._leaderboardCache = nil
@@ -1279,6 +1284,11 @@ __defs["GuildService"] = function()
 				return copy(result)
 			end
 
+			if ok and result == nil and not RunService:IsStudio() then
+				self._cache[id] = nil
+				self._cacheExpiry[id] = nil
+				return nil
+			end
 			if cached then
 				return copy(cached)
 			end
@@ -1288,15 +1298,20 @@ __defs["GuildService"] = function()
 		function GuildService:_update(id: string, transform)
 			local updated
 			local function apply(current)
-				local doc = type(current) == "table" and current or self._studio[id] or self._cache[id]
+				-- UpdateAsync can invoke this callback again after a concurrent write.
+				-- No approval from an earlier attempt may survive a cancelled final attempt.
+				updated = nil
+				local doc = if type(current) == "table" then current else nil
+				if doc == nil and RunService:IsStudio() then
+					doc = self._studio[id] or self._cache[id]
+				end
 				if type(doc) ~= "table" then
 					return nil
 				end
 				local nextDoc = transform(copy(doc))
 
 				if nextDoc == nil then
-					updated = nil
-					return doc
+					return nil
 				end
 				updated = nextDoc
 				return nextDoc
@@ -1668,6 +1683,29 @@ __defs["GuildService"] = function()
 				return guild
 			end)
 			return ok, ok and "Role updated." or (message or "Only the leader can set roles."), updated
+		end
+
+		function GuildService:Rename(player, profile, rawName: string)
+			if type(rawName) ~= "string" then
+				return false, "Guild names must be 3–28 letters, numbers, spaces, - or _."
+			end
+			local name = rawName:gsub("^%s+", ""):gsub("%s+$", "")
+			if #name < 3 or #name > 28 or not string.match(name, "^[%w%s%-_]+$") then
+				return false, "Guild names must be 3–28 letters, numbers, spaces, - or _."
+			end
+			local guildId = profile.Guild and profile.Guild.Id or ""
+			local ok, message, updated = self:_update(guildId, function(guild)
+				local actor = guild.Members[tostring(player.UserId)]
+				if not actor or actor.Role ~= "Leader" then
+					return nil
+				end
+				guild.Name = name
+				guild.RenamedAt = os.time()
+				return guild
+			end)
+			return ok,
+				ok and "Guild name updated." or (message or "Only the guild leader can rename the guild."),
+				updated
 		end
 
 		function GuildService:ContributeBank(player, profile, amount: number, currency: string)
@@ -2159,6 +2197,7 @@ __defs["ProgressionService"] = function()
 			require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ForgePathClaim")
 		local WheelMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("WheelMath")
 		local CommandMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CommandMath"))
+		local ExpeditionPlanMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ExpeditionPlanMath"))
 		local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 		local ProgressionOpsMath =
 			require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("ProgressionOpsMath")
@@ -2196,7 +2235,11 @@ __defs["ProgressionService"] = function()
 		end
 
 		local function ensureCommand(profile)
-			profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+			profile.Command = CommandMath.Ensure(
+				profile.Command,
+				GameConfig.Operations.SeasonId,
+				GameConfig.Operations.ExpeditionPlanVersion
+			)
 			return profile.Command
 		end
 
@@ -2667,9 +2710,18 @@ __defs["ProgressionService"] = function()
 			return false, "That signal offer is not in today's rotation."
 		end
 
-		function ProgressionService.LaunchExpedition(profile, expeditionId: string): (boolean, string)
+		function ProgressionService.LaunchExpedition(profile, expeditionId: string, planId: string?): (boolean, string)
 			if profile.Command.ActiveExpedition.Id ~= "" then
 				return false, "Claim or finish the active expedition first."
+			end
+			local selectedPlanId = if type(planId) == "string" and planId ~= "" then planId else "Standard"
+			local routePlan = ExpeditionPlanMath.Resolve(GameConfig.Operations.ExpeditionPlans, selectedPlanId)
+			if not routePlan then
+				return false, "That route plan is no longer available."
+			end
+			local canCommit, signalCost = ExpeditionPlanMath.Quote(profile.Command.Signals, routePlan)
+			if not canCommit then
+				return false, string.format("This route requires %d Signals.", signalCost)
 			end
 			local expedition = Economy.GetExpedition(expeditionId)
 				or findOperation(GameConfig.Operations.Expeditions, expeditionId)
@@ -2680,11 +2732,16 @@ __defs["ProgressionService"] = function()
 				return false, string.format("Commander level %d is required.", expedition.RequiredLevel)
 			end
 			local pilotLevel = profile.Command.Crew.Pilot or 1
-			local durationScale = math.max(0.35, 1 - (pilotLevel - 1) * 0.05)
 			local now = os.time()
-			local duration = math.max(10, math.floor(expedition.Duration * durationScale))
-			profile.Command.ActiveExpedition = { Id = expedition.Id, StartedAt = now, EndsAt = now + duration }
-			return true, expedition.Name .. " launched."
+			local duration = ExpeditionPlanMath.Duration(expedition.Duration, pilotLevel, routePlan)
+			profile.Command.Signals -= signalCost
+			profile.Command.ActiveExpedition = {
+				Id = expedition.Id,
+				StartedAt = now,
+				EndsAt = now + duration,
+				Plan = ExpeditionPlanMath.Snapshot(selectedPlanId, routePlan),
+			}
+			return true, string.format("%s launched · %s route · %d Signals committed.", expedition.Name, routePlan.Name, signalCost)
 		end
 
 		function ProgressionService.ClaimExpedition(profile, random: Random): (boolean, string, string?, boolean?)
@@ -2702,18 +2759,16 @@ __defs["ProgressionService"] = function()
 				return false, "The expedition route could not be recovered."
 			end
 
-			local reward = copyReward(expedition.Reward)
 			local engineerLevel = profile.Command.Crew.Engineer or 1
-			local yieldScale = 1 + (engineerLevel - 1) * 0.08
-			if reward.CashMinutes then
-				reward.CashMinutes *= yieldScale
-			end
-			if reward.Stardust then
-				reward.Stardust = math.floor(reward.Stardust * yieldScale)
-			end
-			if reward.Signals then
-				reward.Signals = math.floor(reward.Signals * yieldScale)
-			end
+			local routeSnapshot = ExpeditionPlanMath.MigrateSnapshot(active.Plan)
+			local reward = ExpeditionPlanMath.ScaleReward(copyReward(expedition.Reward), engineerLevel, {
+				Name = routeSnapshot.Id,
+				Description = "",
+				SignalCost = routeSnapshot.SignalCost,
+				DurationScale = 1,
+				RewardScale = routeSnapshot.RewardScale,
+				ArtifactChanceBonus = routeSnapshot.ArtifactChanceBonus,
+			})
 
 			profile.Command.ExpeditionsCompleted += 1
 			bumpStat(profile, "Expeditions", 1)
@@ -2721,7 +2776,14 @@ __defs["ProgressionService"] = function()
 			local message = ProgressionService.ApplyReward(profile, reward, Economy.Production(profile))
 
 			local navigatorLevel = profile.Command.Crew.Navigator or 1
-			local chance = math.min(0.95, expedition.ArtifactChance + (navigatorLevel - 1) * 0.03)
+			local chance = ExpeditionPlanMath.ArtifactChance(expedition.ArtifactChance, navigatorLevel, {
+				Name = routeSnapshot.Id,
+				Description = "",
+				SignalCost = routeSnapshot.SignalCost,
+				DurationScale = 1,
+				RewardScale = routeSnapshot.RewardScale,
+				ArtifactChanceBonus = routeSnapshot.ArtifactChanceBonus,
+			})
 			local artifactState = profile.Command.Artifacts[expedition.ArtifactId]
 			local discovered = artifactState == nil
 			local shouldDiscover = discovered and next(profile.Command.Artifacts) == nil

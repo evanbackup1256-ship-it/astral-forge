@@ -16,7 +16,10 @@ do
 	assert(start, "buildVisitSnapshot wrapper missing")
 	local slice = string.sub(server, start, start + 220)
 	assert(string.find(slice, "VisitSnapshot.Build", 1, true), "buildVisitSnapshot must delegate")
-	assert(not string.find(slice, "MachineKinds = machineCount", 1, true), "visit machine loop must leave ServerServices")
+	assert(
+		not string.find(slice, "MachineKinds = machineCount", 1, true),
+		"visit machine loop must leave ServerServices"
+	)
 end
 
 local domain = fs.readFile("src/Client/AstralForge/UiOverlays.luau#DomainExpansionOverlay")
@@ -41,9 +44,12 @@ do
 	assert(soft >= 11, "DomainExpansion softMotion densify, got " .. tostring(soft))
 end
 do
-    assert(string.find(purchase, "useClock(shown and not softMotion", 1, true), "Purchase clock must stop for reduced motion")
-    assert(string.find(purchase, "useExitTransition(softMotion", 1, true), "Purchase exit must respect reduced motion")
-    assert(string.find(purchase, "reducedMotion = softMotion", 1, true), "Purchase action must respect reduced motion")
+	assert(
+		string.find(purchase, "useClock(shown and waiting and not softMotion", 1, true),
+		"Purchase clock must stop for reduced motion"
+	)
+	assert(string.find(purchase, "useExitTransition(softMotion", 1, true), "Purchase exit must respect reduced motion")
+	assert(string.find(purchase, "reducedMotion = softMotion", 1, true), "Purchase action must respect reduced motion")
 end
 do
 	local soft = 0
@@ -68,9 +74,18 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#BoostsView"] = ', 1, true), "Boosts DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = ', 1, true), "Credits DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true), "Rebirth DENSE floor")
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesProgress.luau#BoostsView"] = ', 1, true),
+	"Boosts DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/UiCore.luau#CreditsView"] = ', 1, true),
+	"Credits DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true),
+	"Rebirth DENSE floor"
+)
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave40-offline-brief"', 1, true), "Story wave40")

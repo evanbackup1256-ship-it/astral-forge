@@ -18,8 +18,14 @@ assert(string.find(services, '("AutoSalvageSnapshot")', 1, true), "ServerService
 assert(string.find(services, "VisitorList.Build", 1, true), "ServerServices uses VisitorList.Build")
 assert(string.find(services, "AutoSalvageSnapshot.Public", 1, true), "ServerServices uses AutoSalvageSnapshot.Public")
 assert(string.find(services, "SocialBoost.PublicSnapshot", 1, true), "ServerServices uses SocialBoost.PublicSnapshot")
-assert(not string.find(services, "left.DisplayName < right.DisplayName", 1, true), "visitor sort must leave ServerServices")
-assert(not string.find(services, 'Enabled = false, MachineId = "StellarCore", Reserve = 0.25', 1, true), "AutoForge default must leave ServerServices")
+assert(
+	not string.find(services, "left.DisplayName < right.DisplayName", 1, true),
+	"visitor sort must leave ServerServices"
+)
+assert(
+	not string.find(services, 'Enabled = false, MachineId = "StellarCore", Reserve = 0.25', 1, true),
+	"AutoForge default must leave ServerServices"
+)
 
 local shop = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#ShopView")
 local admin = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
@@ -29,13 +35,8 @@ assert(string.find(shop, "local softMotion = ", 1, true), "ShopCatalog softMotio
 assert(string.find(admin, "local softMotion = ", 1, true), "AdminTools softMotion")
 assert(string.find(story, "local softMotion = ", 1, true), "StoryArchive softMotion")
 assert(string.find(rebirth, "local softMotion = ", 1, true), "RebirthConfirm softMotion")
-do
-	local soft = 0
-	for _ in string.gmatch(shop, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 14, "Shop softMotion densify, got " .. tostring(soft))
-end
+assert(string.find(shop, "motion.useMotionSettings().soft", 1, true), "Shop must read global motion preferences")
+assert(string.find(shop, "reducedMotion = props.soft", 1, true), "shared offer cards must receive reduced motion")
 do
 	local soft = 0
 	for _ in string.gmatch(admin, "softMotion") do
@@ -59,10 +60,22 @@ do
 end
 
 local playability = fs.readFile("scripts/verify_playability.luau")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = ', 1, true), "Shop DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#AdminView"] = ', 1, true), "Admin DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = ', 1, true), "Story DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true), "Rebirth DENSE floor")
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesShop.luau#ShopView"] = ', 1, true),
+	"Shop DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#AdminView"] = ', 1, true),
+	"Admin DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesStory.luau#StoryView"] = ', 1, true),
+	"Story DENSE floor"
+)
+assert(
+	string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#RebirthPanel"] = ', 1, true),
+	"Rebirth DENSE floor"
+)
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave45-offline-brief"', 1, true), "Story wave45")

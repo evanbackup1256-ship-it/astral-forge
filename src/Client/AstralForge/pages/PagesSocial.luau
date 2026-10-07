@@ -2926,6 +2926,7 @@ end
 
 __defs["GuildView"] = function()
 	local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+	local GuildCommunityPanel = require(script.Parent:WaitForChild("GuildCommunityPanel"))
 	local Players = game:GetService("Players")
 	local UserInputService = game:GetService("UserInputService")
 	local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
@@ -3518,6 +3519,16 @@ __defs["GuildView"] = function()
 		local manageable = canManage and Social.canManage({ Role = _param.myRole or "Leader" }, { Role = role }, "Kick")
 		local canPromote = (_param.myRole or "Leader") == "Leader"
 		local height = if stack then 122 elseif manageable then 112 else 84
+		local goalProgressText = if goalShare > 0
+			then React.createElement(Text, {
+				value = `{compactNumber(goalShare)} toward this goal`,
+				size = 9,
+				color = ensureContrast(surface, Palette.mint),
+				weight = Enum.FontWeight.Heavy,
+				position = UDim2.fromOffset(44, 52),
+				sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 14),
+			})
+			else nil
 		return React.createElement(
 			Panel,
 			{
@@ -3562,15 +3573,7 @@ __defs["GuildView"] = function()
 				position = UDim2.fromOffset(44, 36),
 				sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 16),
 			}),
-			goalShare > 0
-				and React.createElement(Text, {
-					value = `{compactNumber(goalShare)} toward this goal`,
-					size = 9,
-					color = ensureContrast(surface, Palette.mint),
-					weight = Enum.FontWeight.Heavy,
-					position = UDim2.fromOffset(44, 52),
-					sizeConstraint = UDim2.new(1, if stack then -44 else -44, 0, 14),
-				}),
+			goalProgressText,
 			manageable
 				and React.createElement(
 					React.Fragment,
@@ -4075,6 +4078,19 @@ __defs["GuildView"] = function()
 						),
 					},
 				},
+			})
+		end
+		if pane == "Community" then
+			local member = guild.Members[localKey]
+			return React.createElement(GuildCommunityPanel, {
+				guild = guild,
+				dispatch = dispatch,
+				reducedMotion = softMotion,
+				stack = stack,
+				role = member and member.Role or "Member",
+				onBack = function()
+					setPane("Overview")
+				end,
 			})
 		end
 		local members = {}
@@ -4587,8 +4603,8 @@ __defs["GuildView"] = function()
 			)
 		local hall = Social.hall(guild)
 		local tabs = {}
-		local columns = if stack then 2 else 4
-		for index, id in { "Overview", "Treasury", "Upgrades", "Members" } do
+		local columns = if stack then 2 else 5
+		for index, id in { "Overview", "Treasury", "Upgrades", "Members", "Community" } do
 			tabs[index] = React.createElement(Button, {
 				text = string.upper(id),
 				size = UDim2.new(1 / columns, -6, 0, 48),
@@ -4605,7 +4621,7 @@ __defs["GuildView"] = function()
 			statusSection(),
 			{
 				id = "guild-navigation",
-				height = if stack then 112 else 56,
+				height = if stack then 168 else 56,
 				element = React.createElement(
 					"frame",
 					{ Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },

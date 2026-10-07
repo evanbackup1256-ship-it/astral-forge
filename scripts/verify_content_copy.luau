@@ -2,6 +2,7 @@ local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local process = require("@lune/process")
 local Roblox = require("@lune/roblox")
+local Expansion = require("../src/Shared/AstralForge/Shared/CrateExpansion")
 local Shared = require("../src/Shared/AstralForge/Shared/SharedData")
 local path = "src/Shared/AstralForge/Shared/GameConfig.luau"
 local previous = process.exec("git", { "show", "HEAD:" .. path })
@@ -10,12 +11,18 @@ local function config(source)
 	return luau.load(source, {
 		environment = setmetatable({
 			Color3 = Roblox.Color3,
-			script = { Parent = {
-				WaitForChild = function(_, name)
-					return name
-				end,
-			} },
+			script = {
+				Parent = {
+					CrateExpansion = "CrateExpansion",
+					WaitForChild = function(_, name)
+						return name
+					end,
+				},
+			},
 			require = function(name)
+				if name == "CrateExpansion" then
+					return Expansion
+				end
 				if name == "SharedData" then
 					return Shared
 				end
@@ -76,7 +83,32 @@ local function compare(left, right, location)
 		end
 	end
 	for key in right do
-		assert(left[key] ~= nil or copyFields[key], location .. ": field added " .. tostring(key))
+		local crateAddition = (
+			location == "GameConfig.Items.Crates"
+			and type(key) == "number"
+			and key > 9
+			and key <= 21
+		)
+		local keyAddition = (
+			location == "GameConfig.Items.ShopOffers"
+			and type(key) == "number"
+			and key > 16
+			and key <= 28
+		)
+		local ascensionConfigAddition =
+			location == "GameConfig.Domain" and (key == "TreeSchemaVersion" or key == "TreeRespec")
+		local expeditionPlannerConfigAddition =
+			location == "GameConfig.Operations"
+			and (key == "ExpeditionPlanVersion" or key == "ExpeditionPlanOrder" or key == "ExpeditionPlans")
+		assert(
+			left[key] ~= nil
+				or copyFields[key]
+				or crateAddition
+				or keyAddition
+				or ascensionConfigAddition
+				or expeditionPlannerConfigAddition,
+			location .. ": field added " .. tostring(key)
+		)
 	end
 end
 compare(before, after, "GameConfig")

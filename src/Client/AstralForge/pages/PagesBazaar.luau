@@ -55,7 +55,6 @@ __defs["BazaarView"] = function()
 	local TABS = {
 		{ id = "Bank", label = "Bank", accent = Palette.mint },
 		{ id = "Market", label = "Black Market", accent = Palette.violet },
-		{ id = "Lottery", label = "Lottery", accent = Palette.mango },
 		{ id = "Contracts", label = "Contracts", accent = Palette.cyan },
 	}
 
@@ -268,34 +267,6 @@ __defs["BazaarView"] = function()
 		)
 	end
 
-	local function TicketStrip(props)
-		local kids = {
-			Layout = React.createElement(
-				"uilistlayout",
-				{
-					FillDirection = Enum.FillDirection.Horizontal,
-					Padding = UDim.new(0, 3),
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					VerticalAlignment = Enum.VerticalAlignment.Center,
-					SortOrder = Enum.SortOrder.LayoutOrder,
-				}
-			),
-		}
-		for index = 1, props.max do
-			kids["t" .. index] = React.createElement("frame", {
-				Size = UDim2.new(1 / props.max, -3, 0, 22),
-				BackgroundColor3 = if index <= props.mine then Palette.mango else Palette.panelSoft,
-				BackgroundTransparency = if index <= props.mine then 0 else 0.3,
-				BorderSizePixel = 0,
-				LayoutOrder = index,
-			}, { Corner = React.createElement("uicorner", { CornerRadius = UDim.new(0, 4) }) })
-		end
-		return React.createElement(
-			"frame",
-			{ Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = props.order },
-			kids
-		)
-	end
 
 	local function BazaarView(props)
 		local state = props.state
@@ -307,13 +278,14 @@ __defs["BazaarView"] = function()
 		local bazaar = state.Bazaar
 		local now = useClock()
 
-		local tab, setTab = require(script.Parent.Parent.BrowseKit).useLinkedTab("Bazaar", "Bank", props.initialTab)
+		local storedTab, setTab = require(script.Parent.Parent.BrowseKit).useLinkedTab("Bazaar", "Bank", props.initialTab)
+		local tab = if storedTab == "Lottery" then "Contracts" else storedTab
 		local tier, setTier = React.useState(2)
 		local term, setTerm = React.useState("T6")
 		local busy, setBusy = React.useState(false)
 		local busyRef = React.useRef(false)
 		local note, setNote = React.useState({
-			text = "Welcome to the Bazaar. Bank some flux, snap up a deal, or try your luck on a ticket.",
+			text = "Welcome to the Bazaar. Bank your flux, find a deal, and work through today's contracts.",
 			good = nil,
 		})
 		local fx, setFx = React.useState({ token = 0, power = 1 })
@@ -678,144 +650,6 @@ __defs["BazaarView"] = function()
 			return children
 		end
 
-		local function lotteryBody()
-			local lottery = bazaar.Lottery
-			local last = lottery.Last
-			local lastLine = "No draw yet."
-			if last then
-				lastLine = `Last draw: {last.Winner} won {compactNumber(last.Prize)} flux.`
-			end
-			local children = {
-				React.createElement(
-					Line,
-					{
-						value = "SERVER LOTTERY",
-						size = 11,
-						color = Palette.mango,
-						weight = Enum.FontWeight.Heavy,
-						height = 16,
-						order = 1,
-					}
-				),
-				React.createElement(
-					Row,
-					{
-						height = 78,
-						order = 2,
-						gap = 8,
-						children = {
-							React.createElement(
-								Tile,
-								{
-									value = `Pot {compactNumber(lottery.Pot)}`,
-									color = Palette.mango,
-									textSize = 22,
-									size = UDim2.new(0.6, 0, 1, 0),
-									order = 1,
-								}
-							),
-							React.createElement(
-								Tile,
-								{
-									value = clockText(math.max(0, lottery.NextAt - now)),
-									color = Palette.cream,
-									textSize = 20,
-									size = UDim2.new(0.36, 0, 1, 0),
-									order = 2,
-								}
-							),
-						},
-					}
-				),
-				React.createElement(TicketStrip, { max = lottery.Max, mine = lottery.Mine, order = 3 }),
-				React.createElement(
-					Line,
-					{
-						value = `{note.text}  You hold {lottery.Mine} of {lottery.Max} tickets. {lastLine}`,
-						size = 12,
-						color = noteColor,
-						height = 48,
-						order = 4,
-					}
-				),
-				React.createElement(
-					Buttons,
-					{
-						items = {
-							{
-								text = `1 TICKET ({compactNumber(lottery.Price)})`,
-								onClick = function()
-									play({ Game = "Lottery", Tier = 1 }, "casino_chip")
-								end,
-								color = Palette.mango,
-								textColor = Palette.ink,
-								disabled = busy,
-							},
-							{
-								text = "5 TICKETS",
-								onClick = function()
-									play({ Game = "Lottery", Tier = 2 }, "casino_chip")
-								end,
-								color = Palette.mango,
-								textColor = Palette.ink,
-								disabled = busy,
-							},
-							{
-								text = "20 TICKETS",
-								onClick = function()
-									play({ Game = "Lottery", Tier = 3 }, "casino_chip")
-								end,
-								color = Palette.mango,
-								textColor = Palette.ink,
-								disabled = busy,
-							},
-						},
-						height = 50,
-						order = 5,
-						reducedMotion = reducedMotion,
-					}
-				),
-			}
-			if lottery.Prize ~= 0 then
-				table.insert(
-					children,
-					React.createElement(
-						Buttons,
-						{
-							items = {
-								{
-									text = `COLLECT PRIZE {compactNumber(lottery.Prize)}`,
-									onClick = function()
-										sfx("casino_jackpot", 0.8)
-										play({ Game = "Lottery", Op = "Prize" }, "casino_win_big", 2)
-									end,
-									color = Palette.mint,
-									textColor = Palette.ink,
-									disabled = busy,
-									highlight = true,
-								},
-							},
-							height = 54,
-							order = 6,
-							reducedMotion = reducedMotion,
-						}
-					)
-				)
-			end
-			table.insert(
-				children,
-				React.createElement(
-					Line,
-					{
-						value = "A draw every five minutes: one winner takes the pot, less the house's tenth. A ticket costs 1% of your flux. Only players still in the server can win; with nobody to win, the pot rolls over.",
-						size = 11,
-						height = 58,
-						order = 7,
-					}
-				)
-			)
-			return children
-		end
 
 		local function contractsBody()
 			local children = {
@@ -855,7 +689,7 @@ __defs["BazaarView"] = function()
 			children[#children + 1] = React.createElement(
 				Line,
 				{
-					value = "Contracts count what you do from the moment today's board is drawn: casino rounds and wins, deals, deposits, tickets and interest.",
+					value = "Contracts track today's play, market purchases, deposits, and collected interest.",
 					size = 11,
 					height = 44,
 					order = 20,
@@ -864,8 +698,8 @@ __defs["BazaarView"] = function()
 			return children
 		end
 
-		local bodies = { Bank = bankBody, Market = marketBody, Lottery = lotteryBody, Contracts = contractsBody }
-		local heights = { Bank = 548, Market = 458, Lottery = 440, Contracts = 366 }
+		local bodies = { Bank = bankBody, Market = marketBody, Contracts = contractsBody }
+		local heights = { Bank = 548, Market = 458, Contracts = 366 }
 
 		return React.createElement(PageScaffold, {
 			gap = 8,
@@ -912,7 +746,7 @@ __defs["BazaarView"] = function()
 							sizeConstraint = UDim2.new(1, 0, 0, 28),
 						}),
 						React.createElement(Text, {
-							value = "Bank it, bargain for it, bet on it, or work for it.",
+						value = "Save it, browse the market, or complete a contract.",
 							size = 11,
 							color = Palette.muted,
 							position = UDim2.fromOffset(0, 58),
@@ -930,7 +764,7 @@ __defs["BazaarView"] = function()
 							sfx("casino_tick", 0.5)
 							setTab(id)
 						end,
-						columns = 4,
+						columns = 3,
 						accent = accent,
 						size = UDim2.new(1, 0, 0, 48),
 						reducedMotion = reducedMotion,

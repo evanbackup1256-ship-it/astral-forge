@@ -1,0 +1,362 @@
+[
+  {
+    "name": "Crate_Classic_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3366
+  },
+  {
+    "name": "Crate_Classic_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1440
+  },
+  {
+    "name": "Crate_Crystal_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2452
+  },
+  {
+    "name": "Crate_Crystal_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1363
+  },
+  {
+    "name": "Crate_Frost_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3912
+  },
+  {
+    "name": "Crate_Frost_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1363
+  },
+  {
+    "name": "Crate_Molten_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3398
+  },
+  {
+    "name": "Crate_Molten_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1720
+  },
+  {
+    "name": "Crate_Nebula_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2782
+  },
+  {
+    "name": "Crate_Nebula_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2230
+  },
+  {
+    "name": "Crate_Void_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3872
+  },
+  {
+    "name": "Crate_Void_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2230
+  },
+  {
+    "name": "Crate_Gilded_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3288
+  },
+  {
+    "name": "Crate_Gilded_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1088
+  },
+  {
+    "name": "Crate_Celestial_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3042
+  },
+  {
+    "name": "Crate_Celestial_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1718
+  },
+  {
+    "name": "Crate_Salvage_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2000
+  },
+  {
+    "name": "Crate_Salvage_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 550
+  },
+  {
+    "name": "Crate_Reactor_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3628
+  },
+  {
+    "name": "Crate_Reactor_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1832
+  },
+  {
+    "name": "Crate_Glacier_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2270
+  },
+  {
+    "name": "Crate_Glacier_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1338
+  },
+  {
+    "name": "Crate_Solar_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2000
+  },
+  {
+    "name": "Crate_Solar_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 550
+  },
+  {
+    "name": "Crate_Storm_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2080
+  },
+  {
+    "name": "Crate_Storm_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1460
+  },
+  {
+    "name": "Crate_Lunar_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2538
+  },
+  {
+    "name": "Crate_Lunar_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1624
+  },
+  {
+    "name": "Crate_DeepSea_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3508
+  },
+  {
+    "name": "Crate_DeepSea_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1364
+  },
+  {
+    "name": "Crate_Prism_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2074
+  },
+  {
+    "name": "Crate_Prism_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1544
+  },
+  {
+    "name": "Crate_Obsidian_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 3528
+  },
+  {
+    "name": "Crate_Obsidian_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 550
+  },
+  {
+    "name": "Crate_Chrono_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2600
+  },
+  {
+    "name": "Crate_Chrono_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 1416
+  },
+  {
+    "name": "Crate_Aurora_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2482
+  },
+  {
+    "name": "Crate_Aurora_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 550
+  },
+  {
+    "name": "Crate_Titan_Body",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 2196
+  },
+  {
+    "name": "Crate_Titan_Lid",
+    "textureSize": [
+      1024,
+      1024
+    ],
+    "hasUvs": true,
+    "polygons": 550
+  }
+]

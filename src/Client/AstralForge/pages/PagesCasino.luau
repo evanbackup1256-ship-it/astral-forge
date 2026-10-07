@@ -706,6 +706,10 @@ __defs["CasinoView"] = function()
 		local builtWithKit = React.useRef(false)
 		local kitReady = useKitReady()
 		local function build(viewport)
+			if scene.current and scene.current.dispose then
+				scene.current.dispose()
+			end
+			scene.current = nil
 			viewport:ClearAllChildren()
 			local camera = Instance.new("Camera")
 			camera.Name = "CasinoCamera"
@@ -748,6 +752,7 @@ __defs["CasinoView"] = function()
 	local function buildDrum(index)
 		return function(viewport, camera)
 			local model = newModel(viewport)
+			local lifetime = require(script.Parent.Parent.ViewportLifetime).new(model)
 			local radius = 1.7
 			local drum = kitPiece("Drum", (radius + 0.06) * 2)
 			if drum ~= nil then
@@ -783,9 +788,13 @@ __defs["CasinoView"] = function()
 					0.62
 				)
 				cells[k] = cell
+				lifetime.own(cell)
 			end
 			local front = nil
 			local function showAround(pos)
+				if not lifetime.alive() then
+					return
+				end
 				local nextFront = math.round(pos) % CYCLE
 				if nextFront == front then
 					return
@@ -807,7 +816,11 @@ __defs["CasinoView"] = function()
 			camera.CFrame = home
 			showAround(0)
 			return {
+				dispose = lifetime.dispose,
 				set = function(pos)
+					if not lifetime.alive() then
+						return
+					end
 					local angle = pos / CYCLE * math.tau
 					if math.abs(angle - lastAngle) < 1e-4 then
 						return
@@ -2932,7 +2945,7 @@ __defs["CasinoView"] = function()
 	end
 
 	return {
-		CasinoView = CasinoView,
+		CasinoView = require(script.Parent.Parent.ArcadePage).ArcadePage,
 		SlotMachine = SlotMachine,
 		Coin = Coin,
 		Card = Card,

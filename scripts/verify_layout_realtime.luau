@@ -42,7 +42,10 @@ assert(Plan.FRESH_PER_FRAME + Plan.SWEEP_PER_FRAME <= 160, "a steady frame must 
 ------------------------------------------------------------------------
 local tree = 3000
 local caught = Plan.worstCatchSeconds(tree, 60)
-assert(caught <= 1.1, string.format("a changed label on a %d-element screen takes %.2fs to catch at 60 fps", tree, caught))
+assert(
+	caught <= 1.1,
+	string.format("a changed label on a %d-element screen takes %.2fs to catch at 60 fps", tree, caught)
+)
 assert(Plan.worstCatchSeconds(tree, 30) <= 2.1, "still under ~2 s at 30 fps")
 local oldSeconds = math.ceil(tree / 280) * 2
 assert(oldSeconds / caught >= 10, "the real-time sweep must be an order of magnitude faster than the old slices")
@@ -74,7 +77,10 @@ assert(Plan.TOUCH_TEXT_FLOOR >= 11, "the touch floor must be readable")
 ------------------------------------------------------------------------
 assert(Plan.shouldWrap(14, 40, false, false), "a two-line box wraps")
 assert(not Plan.shouldWrap(14, 20, false, false), "a one-line box does not")
-assert(not Plan.shouldWrap(14, 40, true, false) and not Plan.shouldWrap(14, 40, false, true), "already wrapped or scaled: leave it")
+assert(
+	not Plan.shouldWrap(14, 40, true, false) and not Plan.shouldWrap(14, 40, false, true),
+	"already wrapped or scaled: leave it"
+)
 local a1 = { x0 = 0, y0 = 0, x1 = 100, y1 = 20 }
 assert(Plan.labelsCollide(a1, { x0 = 80, y0 = 2, x1 = 160, y1 = 22 }), "overlapping row labels collide")
 assert(not Plan.labelsCollide(a1, { x0 = 104, y0 = 0, x1 = 160, y1 = 20 }), "side by side is fine")
@@ -90,20 +96,41 @@ assert(dx == 6, "wider than the screen keeps its left edge in view")
 -- 5. Wiring
 ------------------------------------------------------------------------
 local guard = readSource("src/Client/AstralForge/layoutGuard.luau")
-assert(string.find(guard, "(\"layoutGuardPlan\")", 1, true), "the guard schedules from layoutGuardPlan")
+assert(string.find(guard, '("layoutGuardPlan")', 1, true), "the guard schedules from layoutGuardPlan")
 assert(string.find(guard, "Plan.budget(self.burstLeft, #self.fresh)", 1, true), "every frame spends the planned budget")
 assert(string.find(guard, "layer.DescendantAdded:Connect", 1, true), "new elements enter the fresh queue")
-assert(string.find(guard, "playerGui.ChildAdded:Connect(consider)", 1, true), "portaled layers (dropdowns, sheets, toasts) are watched too")
-assert(string.find(guard, "Plan.shouldWrap(label.TextSize, size.Y, label.TextWrapped, label.TextScaled)", 1, true), "text wraps before it shrinks")
-assert(string.find(guard, "Plan.labelsCollide(leftText, rightText)", 1, true), "labels that run into each other are untangled")
+assert(
+	string.find(guard, "playerGui.ChildAdded:Connect(consider)", 1, true),
+	"portaled layers (dropdowns, sheets, toasts) are watched too"
+)
+assert(
+	string.find(guard, "Plan.shouldWrap(label.TextSize, size.Y, label.TextWrapped, label.TextScaled)", 1, true),
+	"text wraps before it shrinks"
+)
+assert(
+	string.find(guard, "Plan.labelsCollide(leftText, rightText)", 1, true),
+	"labels that run into each other are untangled"
+)
 assert(string.find(guard, "repairFloatingPanel(inst)", 1, true), "floating panels are pulled back on screen")
 local autoScale = readSource("src/Client/AstralForge/MotionKit.luau#autoScale")
-assert(string.find(autoScale, "useCoalescedScreen(function()", 1, true), "resize signals fold into one update per frame")
-assert(string.find(guard, 'root:GetPropertyChangedSignal("AbsoluteSize")', 1, true), "a resize is handled the frame it happens")
+assert(
+	string.find(autoScale, "useCoalescedScreen(function()", 1, true),
+	"resize signals fold into one update per frame"
+)
+assert(
+	string.find(guard, 'root:GetPropertyChangedSignal("AbsoluteSize")', 1, true),
+	"a resize is handled the frame it happens"
+)
 assert(string.find(guard, "applyTextFloor(label)", 1, true), "text goes through the touch floor")
-assert(string.find(guard, "if not label.TextFits then\n\t\t\tlabel.TextSize = original", 1, true), "a raised label that stops fitting is put back")
+assert(
+	string.find(guard, "if not label.TextFits then\n\t\t\tlabel.TextSize = original", 1, true),
+	"a raised label that stops fitting is put back"
+)
 assert(not string.find(guard, "SCAN_INTERVAL_SECONDS = 2", 1, true), "the two-second scan is gone")
-assert(string.find(guard, "checkOverlappingHitboxes(self.queue)", 1, true), "the hitbox pass runs over each finished sweep")
+assert(
+	string.find(guard, "checkOverlappingHitboxes(items)", 1, true),
+	"the hitbox pass runs through incremental collision work after each sweep"
+)
 local syntax = readSource("scripts/_syntax_check.luau")
 assert(string.find(syntax, "LayoutKit.luau", 1, true), "layoutGuardPlan is in the O0 compile gate")
 
