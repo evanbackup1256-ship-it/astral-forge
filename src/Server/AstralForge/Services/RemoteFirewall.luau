@@ -160,6 +160,7 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.GetArcade] = Registry.limits.GetArcade,
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
 		[Protocol.Actions.GetBazaarListings] = { Cost = 0.5, Cooldown = 1 },
+		[Protocol.Actions.GetMyBazaarListings] = { Cost = 0.8, Cooldown = 1.5 },
 		[Protocol.Actions.CreateBazaarListing] = { Cost = 2, Cooldown = 1.5 },
 		[Protocol.Actions.CancelBazaarListing] = { Cost = 1.5, Cooldown = 0.75 },
 		[Protocol.Actions.PurchaseBazaarListing] = { Cost = 3, Cooldown = 2 },
@@ -628,6 +629,15 @@ return function(loadService: (string) -> any)
 		elseif action == Protocol.Actions.CreateBazaarListing then
 			if not stringField(payload, "Uid", 3, 48) or not stringField(payload, "Price", 1, 80) then
 				return false, "invalid bazaar listing"
+			end
+		elseif action == Protocol.Actions.GetMyBazaarListings then
+			if not numberField(payload, "Cursor", 0, 50, true) then
+				return false, "invalid Bazaar listing page"
+			end
+			for key in payload do
+				if key ~= "Cursor" then
+					return false, "unexpected Bazaar listing page field"
+				end
 			end
 		elseif action == Protocol.Actions.CancelBazaarListing then
 			if not stringField(payload, "Id", 8, 64) then

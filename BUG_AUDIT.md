@@ -63,11 +63,11 @@ Status: pending full reproduction, adversarial tests, cross-system tests and app
 
 ### SYS-08: Bazaar and player commerce
 
-Source owners/integration points: BazaarService; BazaarMath; trade services; PagesBazaar.
-Required audit: Persistent listings, orders, offers, price history, escrow, replay, anti-scam.
-Existing candidate evidence: verify_bazaar_math; verify_trade; verify_trade_settle; verify_settle_orchestrate. Coverage must be inspected before those tests support sign-off.
-New partial evidence: `BazaarListingMath` and `verify_bazaar_listing_math` define/test a pure record and reservation state model. It is not wired to a DataStore, profile escrow, or marketplace action, so this does not close the persistence or anti-scam audit.
-Status: pending full reproduction, adversarial tests, cross-system tests and applicable visual evidence.
+Source owners/integration points: BazaarListingService; BazaarListingMath; DataService; PagesBazaar; BazaarListings.
+Required audit: Persistent listings, orders, offers, price history, escrow, replay, anti-scam, migration and recovery.
+Existing evidence: `verify_bazaar_listing_math` tests listing transitions; `verify_bazaar_listing_service` checks DataStore/profile escrow ordering, idempotent settlement, authenticated firewall/session routes, seller-history loading, browse/sell/my-listing integration and buyer confirmation wiring. The public catalog, listing form, seller history, cancellation and payout actions now have a player-facing route. Offline source and syntax checks do not prove live service semantics or rendered UI.
+Remaining scope: Persistent buy orders, offers, trade escrow, price history, stale-index cleanup, migration/rollback and buyer receipts are incomplete. Real StoreAccess behavior, multi-player transfer, restart recovery, responsive layouts and cross-system anti-scam tests remain open.
+Status: partial implementation; pending adversarial tests, cross-system tests and applicable visual evidence.
 
 ### SYS-09: Replacement progression and planning
 

@@ -71,7 +71,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 
 ## Bazaar player experience and commerce surfaces
 
-- [ ] 51. Add a player-facing listing browser with rarity-aware item cards and transparent prices.
+- [x] 51. Add a player-facing listing browser with rarity-aware item cards and transparent prices.
 - [ ] 52. Add an item listing form with server-validated price bounds and clear fee/payout preview.
 - [ ] 53. Add My Listings with status, expiry, sale, cancellation, and recovery states.
 - [ ] 54. Add a buyer confirmation panel showing item, seller, price, and resulting balance.
@@ -140,6 +140,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 - Studio Play accepted read-only `GetLeaderboard(BazaarDeals)`, `GetLeaderboard(Events)`, and `GetLeaderboard(HiddenSecrets)` requests; Events and HiddenSecrets returned empty boards, and the Studio console showed the game booted to `5.1.0 ui is up` without game-source errors. Studio returned to Edit mode.
 - Argon Edit-mode readback confirms the current Studio place has the compact wordmark fit/minimum-size change from this worktree. Matching screenshot review at the baseline viewport remains open.
 - Bazaar actions have pure/source-wiring coverage only; live two-player and DataStore verification remains open.
+- Player-market slice: a separate Bazaar Player Listings tab now contains rarity-tinted public offers, search/price sorting, listing pagination, an inventory/lock/equip-aware sell form, explicit no-fee payout copy, server-paged My Listings, cancellation and payout claims, and a centered purchase confirmation. Source verification covers service/firewall wiring and the new UI routes. This does not complete buy orders, offers, price history, receipts, stale-index cleanup, multi-client or device review.
 - Guild create/rename now has production-source regression coverage for actual broadcast filtering, censorship, missing/error responses, input bounds, and fail-closed routing; live TextService and saved-profile verification remain open.
 - Studio is in Edit mode. Argon is connected to this worktree; selected Guild/Bazaar sources were checked after sync, while a complete source/object comparison remains open.
 - `SIGNOFF.md` remains unsigned.

@@ -131,7 +131,10 @@ local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau"
 assert(string.find(server, "self._events:Step(deltaTime)", 1, true), "the heartbeat runs the cycle")
 assert(string.match(server, "self%._fluxSurge:Multiplier%(now%)%s*%*%s*self%._events:ProductionMultiplier%(%)"), "production ticks include the event multiplier")
 assert(string.find(server, "self._events:OnCollect(", 1, true), "collects feed the event")
-assert(string.find(server, "profile,\n\t\t\t\tamountNumber,", 1, true), "event hook receives the saved profile and collected amount")
+assert(
+	string.match(server, "self%._events:OnCollect%(%s*player,%s*profile,%s*amountNumber,") ~= nil,
+	"event hook receives the player, saved profile, and collected amount"
+)
 assert(string.find(server, "ServerEvent = self._events:State(player)", 1, true), "the snapshot carries the event")
 assert(string.find(server, "function GameService:_payCommunityForge", 1, true), "community payouts")
 local ui = fs.readFile("src/Client/AstralForge/UiCore.luau#serverEventsUi")

@@ -139,3 +139,11 @@ Correction: added Table Roulette, Quantum Roulette, Dice Table and The Infinite 
 Evidence: `scripts/verify_arcade_engine.luau` now runs all fourteen score-only definitions and exercises Tower validation, replay protection, cloned public state, JSON persistence, expiry score retention, and six quantum rounds across two board shifts. `scripts/verify_casino_expansion.luau` covers zone coverage/uniqueness, phase and shift cadence, active-route wiring, and absence of the retired wager modules. `lune run scripts/verify_project.luau`, `lune run scripts/compile_all.luau` (348 files), and `npm run format:check` pass. Argon synchronized the source to the confirmed Studio place; Edit-mode readback found all four definitions and both new shared modules.
 
 Boundary: Studio Play input/result flow, real save/rejoin behavior, fourteen distinct viewport models, phone/controller/VR rendering, live multiplayer, and published-server behavior remain unverified. This is an implementation checkpoint, not casino sign-off.
+
+## Bazaar marketplace — player listing surfaces
+
+The escrow-backed service existed without a player-facing route for browsing offers or managing seller listings. Added a dedicated Player Listings tab with rarity-tinted browse cards, search and exact-string price sorting, client pagination over the active catalog, an inventory-backed listing form that excludes locked/equipped items, a no-fee seller payout disclosure, and server-paged My Listings with cancellation and payout claim actions. A centered confirmation now shows the exact item, seller, price and current balance before the server-authoritative purchase request.
+
+Evidence: `verify_bazaar_listing_service` now checks the player page route, seller cursor size, purchase confirmation, exact-price disclosure, fee text and buy/sell/cancel/payout action wiring. The listing-specific verifier, `verify_server_events`, Luau compile sweep, formatter and Argon project build passed after the changes. These checks do not render the page or exercise a live DataStore/multi-player transfer.
+
+Open: buy orders, offers, price history, durable buyer receipts and stale-index cleanup; live item/currency transfer, payout retry and save recovery; responsive phone/controller/VR review and published-server parity. The full goal remains unsigned.

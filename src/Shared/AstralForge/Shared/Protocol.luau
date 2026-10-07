@@ -139,6 +139,7 @@ local Protocol = {
 		GetArcade = "GetArcade",
 		BazaarPlay = "BazaarPlay",
 		GetBazaarListings = "GetBazaarListings",
+		GetMyBazaarListings = "GetMyBazaarListings",
 		CreateBazaarListing = "CreateBazaarListing",
 		CancelBazaarListing = "CancelBazaarListing",
 		PurchaseBazaarListing = "PurchaseBazaarListing",

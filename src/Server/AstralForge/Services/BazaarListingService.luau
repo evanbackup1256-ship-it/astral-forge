@@ -36,6 +36,7 @@ export type Context = {
 
 local MAX_SELLER_LISTINGS = 50
 local LIST_PAGE_SIZE = 20
+local MY_LIST_PAGE_SIZE = 6
 local MAX_PRICE_DIGITS = 80
 local LIFETIME_SECONDS = 7 * 86400
 
@@ -141,7 +142,10 @@ return function(context: Context)
 			return nil, "That listing could not be found."
 		end
 		if current.Status ~= "Active" then
-			return nil, if current.Status == "Cancelled" then "That listing was cancelled." else "That listing is already being purchased."
+			return nil,
+				if current.Status == "Cancelled"
+					then "That listing was cancelled."
+					else "That listing is already being purchased."
 		end
 		local proposed, problem = BazaarListingMath.Reserve(current, buyerId, token, now, 90)
 		if proposed == nil then
@@ -258,7 +262,10 @@ return function(context: Context)
 			bazaar.PendingPurchases[listing.Id] = nil
 			bazaar.CompletedPurchases[listing.Id] = true
 			ProfileBagMath.BumpStat(profile, "ItemsFound", 1)
-			return responseSuccess("Purchase complete. The item is in your inventory.", { ListingId = listing.Id, ItemUid = uid })
+			return responseSuccess(
+				"Purchase complete. The item is in your inventory.",
+				{ ListingId = listing.Id, ItemUid = uid }
+			)
 		end)
 		if not result.ok then
 			return result
@@ -314,7 +321,10 @@ return function(context: Context)
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
 		local savedBazaar = profile.Bazaar
 		if savedBazaar.CompletedPurchases[listingId] == true then
-			return responseSuccess("That item is already in your inventory.", { ListingId = listingId, Completed = true })
+			return responseSuccess(
+				"That item is already in your inventory.",
+				{ ListingId = listingId, Completed = true }
+			)
 		end
 		local savedPending = savedBazaar.PendingPurchases[listingId]
 		local listing = readListing(listingId)
@@ -622,7 +632,7 @@ return function(context: Context)
 			local id = if type(row.key) == "string" then string.gsub(row.key, "^L_", "") else ""
 			if id ~= "" then
 				local listing = readListing(id)
-				if listing and listing.Status == "Active" then
+				if listing and listing.Status == "Active" and listing.ExpiresAt > os.time() then
 					listings[#listings + 1] = {
 						Id = listing.Id,
 						SellerUserId = listing.SellerUserId,
@@ -636,6 +646,48 @@ return function(context: Context)
 			end
 		end
 		return responseSuccess("Bazaar listings loaded.", { Listings = listings })
+	end
+
+	function Marketplace.Mine(player: Player, cursorValue: any): Reply
+		local cursor = if type(cursorValue) == "number" and cursorValue == cursorValue
+			then math.clamp(math.floor(cursorValue), 0, MAX_SELLER_LISTINGS)
+			else 0
+		local profile = context.get(player)
+		if type(profile) ~= "table" then
+			return responseError("Your profile is still loading. Try again shortly.")
+		end
+		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
+		local saved = profile.Bazaar
+		local entries = {}
+		for id, listing in saved.EscrowListings do
+			entries[#entries + 1] = { Id = id, CreatedAt = listing.CreatedAt, Listing = listing }
+		end
+		table.sort(entries, function(left, right)
+			return left.CreatedAt > right.CreatedAt
+		end)
+
+		local mine = {}
+		local finish = math.min(#entries, cursor + MY_LIST_PAGE_SIZE)
+		for index = cursor + 1, finish do
+			local entry = entries[index]
+			local latest = readListing(entry.Id) or entry.Listing
+			mine[#mine + 1] = {
+				Id = latest.Id,
+				ItemUid = latest.ItemUid,
+				Item = latest.Item,
+				Price = latest.Price,
+				Status = latest.Status,
+				CreatedAt = latest.CreatedAt,
+				ExpiresAt = latest.ExpiresAt,
+				PayoutClaimed = latest.PayoutClaimed == true or saved.ClaimedPayouts[entry.Id] == true,
+			}
+		end
+		local nextCursor = if finish < #entries then finish else nil
+		return responseSuccess("Your listings loaded.", {
+			Listings = mine,
+			NextCursor = nextCursor,
+			Total = #entries,
+		})
 	end
 
 	return table.freeze(Marketplace)

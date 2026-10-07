@@ -28,6 +28,7 @@ end
 
 __defs["BazaarView"] = function()
 	local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
+	local BazaarListingsPanel = require(script.Parent.BazaarListings).BazaarListings
 	local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 	local _format = require(script.Parent.Parent.CoreKit)("format")
 	local compactNumber = _format.compactNumber
@@ -56,6 +57,7 @@ __defs["BazaarView"] = function()
 		{ id = "Bank", label = "Bank", accent = Palette.mint },
 		{ id = "Market", label = "Black Market", accent = Palette.violet },
 		{ id = "Contracts", label = "Contracts", accent = Palette.cyan },
+		{ id = "Listings", label = "Player Listings", accent = Palette.violet },
 	}
 
 	local TERM_NAMES = { T1 = "1 hour", T6 = "6 hours", T24 = "24 hours" }
@@ -699,7 +701,14 @@ __defs["BazaarView"] = function()
 		end
 
 		local bodies = { Bank = bankBody, Market = marketBody, Contracts = contractsBody }
-		local heights = { Bank = 548, Market = 458, Contracts = 366 }
+		local heights = { Bank = 548, Market = 458, Contracts = 366, Listings = 920 }
+		local bodyContents = if tab == "Listings"
+			then React.createElement(BazaarListingsPanel, {
+				state = state,
+				dispatch = dispatch,
+				viewportWidth = viewport.Width,
+			})
+			else React.createElement(Stack, { gap = 8, children = bodies[tab]() })
 
 		return React.createElement(PageScaffold, {
 			gap = 8,
@@ -764,7 +773,7 @@ __defs["BazaarView"] = function()
 							sfx("casino_tick", 0.5)
 							setTab(id)
 						end,
-						columns = 3,
+						columns = 4,
 						accent = accent,
 						size = UDim2.new(1, 0, 0, 48),
 						reducedMotion = reducedMotion,
@@ -783,7 +792,7 @@ __defs["BazaarView"] = function()
 								background = Palette.panelRaised,
 								padding = Layout.cardPadding,
 								reducedMotion = reducedMotion,
-							}, React.createElement(Stack, { gap = 8, children = bodies[tab]() })),
+							}, bodyContents),
 							Coins = React.createElement(
 								Confetti,
 								{ token = fx.token, power = fx.power, reducedMotion = reducedMotion }
