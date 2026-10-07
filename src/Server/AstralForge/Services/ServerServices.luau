@@ -179,6 +179,7 @@ serviceFactories["GameService"] = function()
 		Combat = ServerConfig.CombatLeaderboardStoreName,
 		Crafting = ServerConfig.CraftingLeaderboardStoreName,
 		ArcadeScore = ServerConfig.ArcadeScoreLeaderboardStoreName,
+		BazaarDeals = ServerConfig.BazaarDealsLeaderboardStoreName,
 		Seasonal = ServerConfig.SeasonLeaderboardStoreName,
 	}
 

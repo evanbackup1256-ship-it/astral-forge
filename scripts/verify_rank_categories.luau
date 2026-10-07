@@ -18,6 +18,7 @@ local categories = {
 	"Combat",
 	"Crafting",
 	"ArcadeScore",
+	"BazaarDeals",
 	"Seasonal",
 }
 
@@ -51,6 +52,7 @@ local storeSuffix = {
 	Rebirths = "RebirthLeaderboardStoreName",
 	Worlds = "WorldLeaderboardStoreName",
 	ArcadeScore = "ArcadeScoreLeaderboardStoreName",
+	BazaarDeals = "BazaarDealsLeaderboardStoreName",
 	Seasonal = "SeasonLeaderboardStoreName",
 }
 local profile = {
@@ -62,14 +64,16 @@ local profile = {
 	Domain = { Rank = 4 },
 	Zone = 9,
 	Arcade = { Stats = { TotalScore = 12345 } },
+	Bazaar = { Counters = { Deals = 19 } },
 	Command = { SeasonXP = statValues.SeasonXP },
 }
 
-assert(#categories == 16, "expected sixteen player boards before the guild board")
+assert(#categories == 17, "expected seventeen player boards before the guild board")
 for _, id in categories do
 	local suffix = storeSuffix[id] or `{id}LeaderboardStoreName`
 	local dataStoreSuffix = if id == "Rebirths" then "RebirthLeaderboardStoreName" else suffix
-	local statField = if id == "Combat"
+	local statField = if id == "BazaarDeals" then "BazaarDeals"
+		elseif id == "Combat"
 		then "WardenDefeats"
 		elseif id == "Crafting" then "OreMined"
 		elseif id == "Seasonal" then "SeasonXP"
@@ -94,6 +98,12 @@ for _, id in categories do
 				dataService:find("ArcadeScore = math.clamp(", 1, true)
 					and dataService:find("profile.Arcade.Stats.TotalScore", 1, true),
 				"saved score missing ArcadeScore"
+			)
+		elseif id == "BazaarDeals" then
+			assert(
+				dataService:find("BazaarDeals = math.max(", 1, true)
+					and dataService:find("profile.Bazaar.Counters.Deals", 1, true),
+				"saved Bazaar Deals score is missing"
 			)
 		elseif id == "Seasonal" then
 			assert(
@@ -130,6 +140,7 @@ for _, id in categories do
 				or (id == "Domain" and 4)
 				or (id == "PlayTime" and 0)
 				or (id == "ArcadeScore" and 12345)
+				or (id == "BazaarDeals" and 19)
 				or "1e100"
 			),
 		`score projection mismatch {id}`
@@ -173,13 +184,17 @@ assert(
 		true
 	)
 )
-assert(client:find('id = "ArcadeScore"', 1, true) and client:find('id = "Seasonal"', 1, true))
+assert(publicRecord:find("BazaarDeals = profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals or 0", 1, true))
+assert(client:find('id = "ArcadeScore"', 1, true) and client:find('id = "BazaarDeals"', 1, true) and client:find('id = "Seasonal"', 1, true))
+local bazaarService = fs.readFile("src/Server/AstralForge/Services/BazaarService.luau")
+assert(bazaarService:find("Counters = { Deals = bazaar.Counters.Deals }", 1, true), "client Bazaar state does not expose its saved deal count")
+assert(client:find("return counters and counters.Deals or 0", 1, true), "same-server Bazaar score projection missing")
 for _, category in
-	{ "Economy", "Progression", "Exploration", "Combat", "Forge", "Arcade", "Seasonal", "Prestige", "Social", "Guild" }
+	{ "Economy", "Progression", "Exploration", "Combat", "Forge", "Arcade", "Bazaar", "Seasonal", "Prestige", "Social", "Guild" }
 do
 	assert(rankDashboard:find('"' .. category .. '"', 1, true), `rank category missing {category}`)
 end
 assert(rankDashboard:find("ui.SegmentedTabs", 1, true), "rank boards need category-first navigation")
 assert(rankDashboard:find("ui.SearchField", 1, true), "rank board list needs search")
 assert(rankDashboard:find("matchesCategory", 1, true) and rankDashboard:find("matchesSearch", 1, true))
-print("[TEST] sixteen persisted boards, firewall parity, ten category filters, board search, live rows and guild separation passed")
+print("[TEST] seventeen persisted boards, firewall parity, eleven category filters, Bazaar profile/ordered-store/client projections, board search and guild separation passed")

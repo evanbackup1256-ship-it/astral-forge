@@ -733,6 +733,7 @@ return function(loadService: (string) -> any)
 			Combat = getOrderedStore(ServerConfig.CombatLeaderboardStoreName),
 			Crafting = getOrderedStore(ServerConfig.CraftingLeaderboardStoreName),
 			ArcadeScore = getOrderedStore(ServerConfig.ArcadeScoreLeaderboardStoreName),
+			BazaarDeals = getOrderedStore(ServerConfig.BazaarDealsLeaderboardStoreName),
 			Seasonal = getOrderedStore(ServerConfig.SeasonLeaderboardStoreName),
 		}
 
@@ -846,6 +847,10 @@ return function(loadService: (string) -> any)
 				math.floor(tonumber(profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore) or 0),
 				0,
 				9007199254740991
+			),
+			BazaarDeals = math.max(
+				0,
+				math.floor(tonumber(profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals) or 0)
 			),
 			Seasonal = math.max(0, math.floor(tonumber(profile.Command and profile.Command.SeasonXP) or 0)),
 		}

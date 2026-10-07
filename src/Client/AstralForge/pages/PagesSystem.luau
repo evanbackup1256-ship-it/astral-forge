@@ -4523,6 +4523,14 @@ __defs["LeaderboardsView"] = function()
 			accent = Palette.cyan,
 		},
 		{
+			id = "BazaarDeals",
+			label = "Bazaar Deals",
+			short = "BAZAAR",
+			description = "Deals completed through the Bazaar's rotating market.",
+			icon = "Shop",
+			accent = Palette.mint,
+		},
+		{
 			id = "Seasonal",
 			label = "Season XP",
 			short = "SEASON",
@@ -4633,10 +4641,18 @@ __defs["LeaderboardsView"] = function()
 			return _condition
 		end
 		if id == "ArcadeScore" then
-			return summary.ArcadeScore or 0
+			local arcade = state.Arcade
+			local stats = arcade and arcade.Stats
+			return stats and stats.TotalScore or 0
+		end
+		if id == "BazaarDeals" then
+			local bazaar = state.Bazaar
+			local counters = bazaar and bazaar.Counters
+			return counters and counters.Deals or 0
 		end
 		if id == "Seasonal" then
-			return summary.SeasonXP or 0
+			local command = state.Command
+			return command and command.SeasonXP or 0
 		end
 		local statName = STAT_BOARD_FIELDS[id]
 		if statName then
@@ -4691,6 +4707,9 @@ __defs["LeaderboardsView"] = function()
 				_condition = 0
 			end
 			return _condition
+		end
+		if id == "BazaarDeals" then
+			return summary.BazaarDeals or 0
 		end
 		local statName = STAT_BOARD_FIELDS[id]
 		if statName then

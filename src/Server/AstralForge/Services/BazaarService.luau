@@ -317,6 +317,7 @@ return function(loadService: (string) -> any)
 			Market = { Offers = offers, EndsAt = (bucket + 1) * BazaarMath.MARKET_SECONDS },
 			Contracts = contracts,
 			MyListings = myListings,
+			Counters = { Deals = bazaar.Counters.Deals },
 		}
 	end
 

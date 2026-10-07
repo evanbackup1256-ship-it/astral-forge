@@ -110,7 +110,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 
 ## Ranks, UI consistency, accessibility, and release
 
-- [x] 81. Add sixteen separately queried player boards and category metadata.
+- [x] 81. Add seventeen separately queried player boards and category metadata, including the persisted Bazaar Deals counter.
 - [x] 82. Add board category filters, search, current-player queries, and stale-response guards.
 - [ ] 83. Complete all twelve requested rank categories with authoritative criteria and migration.
 - [ ] 84. Add rank reward previews, one-time claims, history, closest-to-completion, and analytics.
@@ -136,7 +136,8 @@ Checked items have current repository or test evidence. An unchecked item remain
 - `lune run scripts/verify_project.luau`: passed on 2026-10-07.
 - `lune run scripts/compile_all.luau`: passed (348 files at O0/O1/O2).
 - `argon build default.project.json -x`: passed.
-- Rank firewall parity is now covered: all sixteen configured player boards pass the `GetLeaderboard` source allowlist check. Live cloud leaderboard requests remain unverified.
+- Rank firewall parity is now covered: all seventeen configured player boards pass the `GetLeaderboard` source allowlist check. Bazaar Deals is projected through persistence, global/store, own-score, and same-server paths. Event and hidden/secret categories plus live cloud reads remain open.
+- Studio Play accepted a read-only `GetLeaderboard(BazaarDeals)` request and returned one row; Studio was stopped back to Edit mode after the smoke check.
 - Bazaar actions have pure/source-wiring coverage only; live two-player and DataStore verification remains open.
 - Guild create/rename now has production-source regression coverage for actual broadcast filtering, censorship, missing/error responses, input bounds, and fail-closed routing; live TextService and saved-profile verification remain open.
 - Studio is in Edit mode. Argon is connected to this worktree; selected Guild/Bazaar sources were checked after sync, while a complete source/object comparison remains open.

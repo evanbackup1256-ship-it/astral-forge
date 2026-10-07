@@ -173,6 +173,7 @@ __defs["PublicPlayerRecord"] = function()
 			WardenDefeats = profile.Stats and profile.Stats.WardenDefeats or 0,
 			OreMined = profile.Stats and profile.Stats.OreMined or 0,
 			ArcadeScore = profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore or 0,
+			BazaarDeals = profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals or 0,
 			SeasonXP = profile.Command and profile.Command.SeasonXP or 0,
 			ItemCount = itemCount,
 			EquippedItems = equippedItems,
@@ -535,6 +536,12 @@ __defs["GeneralBoardValue"] = function()
 		if id == "ArcadeScore" then
 			local score = tonumber(profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore) or 0
 			return math.clamp(math.floor(score), 0, 9007199254740991)
+		end
+		if id == "BazaarDeals" then
+			return math.max(
+				0,
+				math.floor(tonumber(profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals) or 0)
+			)
 		end
 		local statName = STAT_BY_BOARD[id]
 		if statName then
