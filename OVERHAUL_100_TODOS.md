@@ -133,11 +133,12 @@ Checked items have current repository or test evidence. An unchecked item remain
 
 ## Current verification snapshot
 
-- `lune run scripts/verify_project.luau`: passed on 2026-10-07.
+- `lune run scripts/verify_project.luau`: passed on 2026-10-07, including the production `LogoLockup` render regression for compact branding.
 - `lune run scripts/compile_all.luau`: passed (348 files at O0/O1/O2).
 - `argon build default.project.json -x`: passed.
 - Rank firewall parity is now covered: all nineteen configured player boards pass the `GetLeaderboard` source allowlist check. Bazaar Deals is projected through persistence, global/store, own-score, and same-server paths. Event participation counts once per positive-collection live event window. Hidden/Secret ranks count claimed hidden milestones, reveal only after completion, and stay out of Quick Find before server disclosure. The production method fixtures pass; live HiddenSecrets remote/claim checks, cloud behavior, rewards and history remain open.
-- Studio Play accepted read-only `GetLeaderboard(BazaarDeals)` and `GetLeaderboard(Events)` requests; Events returned an empty board, and the Studio console showed the game booted to `5.1.0 ui is up` without game-source errors. Studio returned to Edit mode.
+- Studio Play accepted read-only `GetLeaderboard(BazaarDeals)`, `GetLeaderboard(Events)`, and `GetLeaderboard(HiddenSecrets)` requests; Events and HiddenSecrets returned empty boards, and the Studio console showed the game booted to `5.1.0 ui is up` without game-source errors. Studio returned to Edit mode.
+- Argon Edit-mode readback confirms the current Studio place has the compact wordmark fit/minimum-size change from this worktree. Matching screenshot review at the baseline viewport remains open.
 - Bazaar actions have pure/source-wiring coverage only; live two-player and DataStore verification remains open.
 - Guild create/rename now has production-source regression coverage for actual broadcast filtering, censorship, missing/error responses, input bounds, and fail-closed routing; live TextService and saved-profile verification remain open.
 - Studio is in Edit mode. Argon is connected to this worktree; selected Guild/Bazaar sources were checked after sync, while a complete source/object comparison remains open.

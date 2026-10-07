@@ -1,5 +1,11 @@
 # Reproduction log
 
+## BUG-005: Top-bar branding truncates at compact desktop widths
+
+Reproduction: the preserved Studio screenshot at `audit/evidence/AF_BASELINE_DESKTOP_20261005.png` shows the top-bar wordmark clipped to `ASTRA` at a 991.2 × 635.2 client viewport. `LogoLockup` used a fixed 18 px label with truncation while accessibility text scaling could enlarge it beyond its responsive slot. The wordmark now uses the shared text-fit constraint with a 12 px floor, retaining the existing icon, colors, and layout.
+
+Verification: `scripts/verify_ui_consistency.luau` extracts and executes the production `LogoLockup` renderer, checks that compact mode supplies the full `ASTRAL` string with bounded fitting, and checks micro mode intentionally uses icon-only branding. This is source-renderer evidence; a matching Studio screenshot at the original viewport and enlarged text-scale setting remains required before closing the visual issue.
+
 ## BUG-001: Missing icon atlas entry
 
 Repro source: the preserved old primary ArtKit, copied before repair to the local temporary backup. The permanent baseline source digest is retained in source inventory; the old offending expression was VECTOR_ICON_INDEX[kind] % 2.

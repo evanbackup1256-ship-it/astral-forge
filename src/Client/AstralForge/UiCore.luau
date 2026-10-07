@@ -5226,7 +5226,8 @@ __defs["ui"] = function()
 					size = if compact then 18 else 20,
 					color = Palette.cream,
 					weight = Enum.FontWeight.Heavy,
-					fit = false,
+					fit = true,
+					minSize = 12,
 					position = UDim2.fromOffset(textX, 0),
 					sizeConstraint = UDim2.new(1, -textX, 1, 0),
 				})

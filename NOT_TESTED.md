@@ -20,6 +20,7 @@ All gaps below are open. They prevent final sign-off.
 - Global strict typing, public data-shape aliases, module headers, bounded critical WaitForChild calls, complete decomposition and color centralization remain incomplete. Baseline inventories list the current gaps.
 - Mapped third-party packages are inventoried. Their compatibility and interpretation under "every script" have not been signed off or silently exempted.
 - Existing regressions include source-pattern checks and headless models. They do not by themselves establish actual responsive UI quality or runtime persistence semantics.
+- BUG-005 source correction and actual-renderer regression pass, but no post-fix Studio capture at the 991.2 × 635.2 viewport with enlarged accessibility text has been reviewed.
 
 
 ## Current crate/native-preview gaps — 2026-10-07

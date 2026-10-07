@@ -151,6 +151,84 @@ for _, stack in { false, true } do
 end
 print("[TEST] controller/click audio dedup, disabled/disposed controls and toolbar geometry passed")
 
+-- Execute the production top-bar wordmark renderer so text scaling cannot
+-- silently clip the game's name inside its fixed responsive slot.
+local uiCore = read("src/Client/AstralForge/UiCore.luau")
+local logoStart = assert(uiCore:find("local function LogoLockup(_param)", 1, true))
+local logoEnd = assert(uiCore:find("\n\treturn {\n\t\tacquireDropdownPortal", logoStart, true))
+local logoEnvironment = setmetatable({
+	React = {
+		createElement = function(tag, props, ...)
+			if type(tag) == "function" then
+				return tag(props)
+			end
+			return { tag = tag, props = props or {}, children = { ... } }
+		end,
+	},
+	Color3 = {
+		fromRGB = function()
+			return {}
+		end,
+	},
+	Palette = { cyan = {}, cream = {} },
+	GAME_ICON_ASSET = "",
+	Enum = {
+		FontWeight = { Heavy = {} },
+		ApplyStrokeMode = { Border = {} },
+		LineJoinMode = { Round = {} },
+		ScaleType = { Fit = {} },
+	},
+	UDim = {
+		new = function()
+			return {}
+		end,
+	},
+	UDim2 = {
+		new = function(...)
+			return { ... }
+		end,
+		fromScale = function(...)
+			return { ... }
+		end,
+		fromOffset = function(...)
+			return { ... }
+		end,
+	},
+	Text = function(props)
+		return { tag = "Text", props = props }
+	end,
+	Vector2 = {
+		new = function(...)
+			return { ... }
+		end,
+	},
+}, { __index = getfenv(0) })
+local renderLogo =
+	luau.load(uiCore:sub(logoStart, logoEnd - 1) .. "\nreturn LogoLockup", { environment = logoEnvironment })()
+for _, variant in
+	{
+		{ compact = true, micro = false, expectedWordmark = true },
+		{ compact = true, micro = true, expectedWordmark = false },
+	}
+do
+	local node = renderLogo(variant)
+	local wordmark
+	for _, child in node.children do
+		if type(child) == "table" and child.tag == "Text" then
+			wordmark = child
+		end
+	end
+	assert((wordmark ~= nil) == variant.expectedWordmark, "responsive logo variant exposes the expected wordmark")
+	if wordmark then
+		assert(wordmark.props.value == "ASTRAL", "top-bar branding retains the full wordmark")
+		assert(
+			wordmark.props.fit == true and wordmark.props.minSize == 12,
+			"wordmark scales down instead of truncating"
+		)
+	end
+end
+print("[TEST] top-bar wordmark retains full branding and fits compact slots")
+
 -- Execute the new goal renderer with portrait, landscape and desktop panel bounds.
 local goalSource = read("src/Client/AstralForge/GoalSummary.luau")
 local goalStart = assert(goalSource:find("return function(props)", 1, true))
