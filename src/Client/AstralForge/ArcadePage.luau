@@ -10,6 +10,7 @@ local QuantumBoard = require("@game/ReplicatedStorage/AstralForge/Shared/ArcadeQ
 local cardName = require("./ArcadeText").cardName
 local Hash = require("@game/ReplicatedStorage/AstralForge/Shared/ProofHash")
 local Fair = require("@game/ReplicatedStorage/AstralForge/Shared/FairRandom")(Hash)
+local ArcadeViewport = require(script.Parent.ArcadeViewport)
 local ui = require(script.Parent.UiCore)("ui")
 local motion = require(script.Parent.MotionKit)("motion")
 local Palette = require(script.Parent.CoreKit)("theme").Palette
@@ -23,8 +24,7 @@ type Section = { id: string, height: number, element: Element }
 type Ref<T> = { current: T }
 
 local function towerCardName(rank: number): string
-	return ({ "Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King" })[rank]
-		or "Card"
+	return ({ "Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King" })[rank] or "Card"
 end
 
 local function towerTotal(cards: Types.Numbers): number
@@ -184,20 +184,17 @@ local function ArcadePage(props: Props): Element
 		disabled: boolean?,
 		customColor: Color3?
 	): Element
-		return React.createElement(
-			ui.Button,
-			{
-				text = text,
-				onClick = onClick,
-				position = at,
-				size = size,
-				color = customColor or accent,
-				textColor = Palette.ink,
-				disabled = busy or disabled == true,
-				reducedMotion = softMotion,
-				sound = "button",
-			}
-		)
+		return React.createElement(ui.Button, {
+			text = text,
+			onClick = onClick,
+			position = at,
+			size = size,
+			color = customColor or accent,
+			textColor = Palette.ink,
+			disabled = busy or disabled == true,
+			reducedMotion = softMotion,
+			sound = "button",
+		})
 	end
 	local tabs: Children = {}
 	local columns = if viewport.width < 700 then 2 else 5
@@ -230,43 +227,57 @@ local function ArcadePage(props: Props): Element
 		{
 			id = "heading",
 			height = 80,
-			element = React.createElement(
-				ui.Text,
-				{
-					value = "Arcade\nFree rounds. Play for scores; no wagers or payouts.",
-					size = 21,
-					weight = Enum.FontWeight.Heavy,
-					wrap = true,
-					sizeConstraint = UDim2.fromScale(1, 1),
-				}
-			),
+			element = React.createElement(ui.Text, {
+				value = "Arcade\nFree rounds. Play for scores; no wagers or payouts.",
+				size = 21,
+				weight = Enum.FontWeight.Heavy,
+				wrap = true,
+				sizeConstraint = UDim2.fromScale(1, 1),
+			}),
 		},
 		{
 			id = "games",
 			height = math.ceil(#Config.Games / columns) * 54,
 			element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, tabs),
 		},
+		{
+			id = "game-scene",
+			height = 248,
+			element = React.createElement(
+				ui.Panel,
+				{ size = UDim2.fromScale(1, 1), padding = 14, accent = accent, reducedMotion = softMotion },
+				{
+					Label = React.createElement(ui.Text, {
+						value = definition.Name .. " · 3D preview",
+						size = 12,
+						weight = Enum.FontWeight.Bold,
+						position = UDim2.fromOffset(0, 0),
+						sizeConstraint = UDim2.new(1, 0, 0, 24),
+					}),
+					Scene = React.createElement(ArcadeViewport, {
+						kind = selected,
+						size = UDim2.new(1, 0, 1, -28),
+						position = UDim2.fromOffset(0, 28),
+						animate = true,
+					}),
+				}
+			),
+		},
 	}
 	local controls: Children = {
-		Title = React.createElement(
-			ui.Text,
-			{
-				value = definition.Name,
-				size = 24,
-				weight = Enum.FontWeight.Heavy,
-				sizeConstraint = UDim2.new(1, 0, 0, 32),
-			}
-		),
-		Rules = React.createElement(
-			ui.Text,
-			{
-				value = definition.Description,
-				size = 14,
-				wrap = true,
-				position = UDim2.fromOffset(0, 38),
-				sizeConstraint = UDim2.new(1, 0, 0, 46),
-			}
-		),
+		Title = React.createElement(ui.Text, {
+			value = definition.Name,
+			size = 24,
+			weight = Enum.FontWeight.Heavy,
+			sizeConstraint = UDim2.new(1, 0, 0, 32),
+		}),
+		Rules = React.createElement(ui.Text, {
+			value = definition.Description,
+			size = 14,
+			wrap = true,
+			position = UDim2.fromOffset(0, 38),
+			sizeConstraint = UDim2.new(1, 0, 0, 46),
+		}),
 	}
 	local height = 240
 	if active and (selected == "Blackjack" or selected == "Poker") then
@@ -279,15 +290,12 @@ local function ArcadePage(props: Props): Element
 			{ value = hand, size = 22, position = UDim2.fromOffset(0, 94), sizeConstraint = UDim2.new(1, 0, 0, 36) }
 		)
 		if selected == "Blackjack" then
-			controls.Dealer = React.createElement(
-				ui.Text,
-				{
-					value = "Dealer: " .. cardName(active.DealerCards[1]) .. "  ?",
-					size = 16,
-					position = UDim2.fromOffset(0, 138),
-					sizeConstraint = UDim2.new(1, 0, 0, 28),
-				}
-			)
+			controls.Dealer = React.createElement(ui.Text, {
+				value = "Dealer: " .. cardName(active.DealerCards[1]) .. "  ?",
+				size = 16,
+				position = UDim2.fromOffset(0, 138),
+				sizeConstraint = UDim2.new(1, 0, 0, 28),
+			})
 			controls.Hit = button("Hit", function(): ()
 				play("Hit")
 			end, UDim2.fromOffset(0, 180), UDim2.new(0.5, -6, 0, 48))
@@ -331,16 +339,13 @@ local function ArcadePage(props: Props): Element
 		height = 450
 	elseif active and selected == "CardTower" and active.Tower then
 		local tower = active.Tower
-		controls.CurrentCard = React.createElement(
-			ui.Text,
-			{
-				value = `Next card: {towerCardName(tower.CurrentCard)}   ·   {tower.Hands} cleared   ·   {active.Score} points`,
-				size = 18,
-				weight = Enum.FontWeight.Bold,
-				position = UDim2.fromOffset(0, 94),
-				sizeConstraint = UDim2.new(1, 0, 0, 42),
-			}
-		)
+		controls.CurrentCard = React.createElement(ui.Text, {
+			value = `Next card: {towerCardName(tower.CurrentCard)}   ·   {tower.Hands} cleared   ·   {active.Score} points`,
+			size = 18,
+			weight = Enum.FontWeight.Bold,
+			position = UDim2.fromOffset(0, 94),
+			sizeConstraint = UDim2.new(1, 0, 0, 42),
+		})
 		for index = 1, tower.Slots do
 			local cards = tower.Columns[index]
 			local names = {}
@@ -353,7 +358,12 @@ local function ArcadePage(props: Props): Element
 				function(): ()
 					play("Place", index)
 				end,
-				UDim2.new(((index - 1) % 2) * 0.5, if index % 2 == 1 then 0 else 6, 0, 150 + math.floor((index - 1) / 2) * 62),
+				UDim2.new(
+					((index - 1) % 2) * 0.5,
+					if index % 2 == 1 then 0 else 6,
+					0,
+					150 + math.floor((index - 1) / 2) * 62
+				),
 				UDim2.new(0.5, -6, 0, 54),
 				not data or busy
 			)
@@ -375,7 +385,12 @@ local function ArcadePage(props: Props): Element
 	elseif selected == "CardTower" then
 		controls.SlotsLabel = React.createElement(
 			ui.Text,
-			{ value = "Choose your columns", size = 14, position = UDim2.fromOffset(0, 96), sizeConstraint = UDim2.new(1, 0, 0, 24) }
+			{
+				value = "Choose your columns",
+				size = 14,
+				position = UDim2.fromOffset(0, 96),
+				sizeConstraint = UDim2.new(1, 0, 0, 24),
+			}
 		)
 		for _, slots in { 3, 4 } do
 			controls[`Slots{slots}`] = button(
@@ -393,7 +408,26 @@ local function ArcadePage(props: Props): Element
 		end, UDim2.fromOffset(0, 182), UDim2.new(1, 0, 0, 48), data == nil)
 		height = 244
 	elseif selected == "TableRoulette" then
-		local red = { [1] = true, [3] = true, [5] = true, [7] = true, [9] = true, [12] = true, [14] = true, [16] = true, [18] = true, [19] = true, [21] = true, [23] = true, [25] = true, [27] = true, [30] = true, [32] = true, [34] = true, [36] = true }
+		local red = {
+			[1] = true,
+			[3] = true,
+			[5] = true,
+			[7] = true,
+			[9] = true,
+			[12] = true,
+			[14] = true,
+			[16] = true,
+			[18] = true,
+			[19] = true,
+			[21] = true,
+			[23] = true,
+			[25] = true,
+			[27] = true,
+			[30] = true,
+			[32] = true,
+			[34] = true,
+			[36] = true,
+		}
 		for pocket = 0, 36 do
 			local color = if pocket == 0 then Palette.mint elseif red[pocket] then Palette.coral else Palette.steel
 			controls[`Pocket{pocket}`] = button(
@@ -412,16 +446,13 @@ local function ArcadePage(props: Props): Element
 		end, UDim2.fromOffset(0, 352), UDim2.new(1, 0, 0, 48), data == nil)
 		height = 416
 	elseif selected == "QuantumRoulette" then
-		controls.BoardInfo = React.createElement(
-			ui.Text,
-			{
-				value = `{quantumBoard.Phase}   ·   Gravity Sink: {quantumBoard.Sink}   ·   shifts after {quantumBoard.UntilShift} round(s)`,
-				size = 14,
-				wrap = true,
-				position = UDim2.fromOffset(0, 94),
-				sizeConstraint = UDim2.new(1, 0, 0, 36),
-			}
-		)
+		controls.BoardInfo = React.createElement(ui.Text, {
+			value = `{quantumBoard.Phase}   ·   Gravity Sink: {quantumBoard.Sink}   ·   shifts after {quantumBoard.UntilShift} round(s)`,
+			size = 14,
+			wrap = true,
+			position = UDim2.fromOffset(0, 94),
+			sizeConstraint = UDim2.new(1, 0, 0, 36),
+		})
 		local zoneIndex = 0
 		local function zoneButton(startNumber: number, numbers: { number }): ()
 			zoneIndex += 1
@@ -473,37 +504,31 @@ local function ArcadePage(props: Props): Element
 	else
 		local needsChoice = selected == "Roulette" or selected == "Dice" or selected == "Keno" or selected == "Mines"
 		if needsChoice then
-			controls.Input = React.createElement(
-				ui.SearchField,
-				{
-					value = choice,
-					onChange = setChoice,
-					placeholder = if selected == "Keno"
-						then "Numbers separated by commas"
-						elseif selected == "Mines" then "Number of hazards (1–12)"
-						else "Your number",
-					position = UDim2.fromOffset(0, 94),
-					size = UDim2.new(1, 0, 0, 48),
-					reducedMotion = softMotion,
-				}
-			)
+			controls.Input = React.createElement(ui.SearchField, {
+				value = choice,
+				onChange = setChoice,
+				placeholder = if selected == "Keno"
+					then "Numbers separated by commas"
+					elseif selected == "Mines" then "Number of hazards (1–12)"
+					else "Your number",
+				position = UDim2.fromOffset(0, 94),
+				size = UDim2.new(1, 0, 0, 48),
+				reducedMotion = softMotion,
+			})
 		end
 		controls.Play = button("Play " .. definition.Name, function(): ()
 			play("Start", if selected == "Dice" or selected == "Roulette" then tonumber(choice) else nil)
 		end, UDim2.fromOffset(0, if needsChoice then 154 else 110), UDim2.new(1, 0, 0, 48), data == nil)
 	end
-	table.insert(
-		sections,
-		{
-			id = "controls",
-			height = height,
-			element = React.createElement(
-				ui.Panel,
-				{ size = UDim2.fromScale(1, 1), padding = 16, accent = accent, reducedMotion = softMotion },
-				controls
-			),
-		}
-	)
+	table.insert(sections, {
+		id = "controls",
+		height = height,
+		element = React.createElement(
+			ui.Panel,
+			{ size = UDim2.fromScale(1, 1), padding = 16, accent = accent, reducedMotion = softMotion },
+			controls
+		),
+	})
 	local feedback: Children = {
 		Status = React.createElement(
 			ui.Text,
@@ -518,18 +543,11 @@ local function ArcadePage(props: Props): Element
 			end
 		end, UDim2.new(0.5, 6, 0, 54), UDim2.new(0.5, -6, 0, 48))
 	end
-	table.insert(
-		sections,
-		{
-			id = "feedback",
-			height = 118,
-			element = React.createElement(
-				"frame",
-				{ Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 },
-				feedback
-			),
-		}
-	)
+	table.insert(sections, {
+		id = "feedback",
+		height = 118,
+		element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, feedback),
+	})
 	if data then
 		local latest = data.History[1]
 		local history = "Total score: "
@@ -555,18 +573,15 @@ local function ArcadePage(props: Props): Element
 				)
 			end, UDim2.fromOffset(0, 128), UDim2.new(1, 0, 0, 48))
 		end
-		table.insert(
-			sections,
-			{
-				id = "history",
-				height = 210,
-				element = React.createElement(
-					ui.Panel,
-					{ size = UDim2.fromScale(1, 1), padding = 16, accent = accent, reducedMotion = softMotion },
-					children
-				),
-			}
-		)
+		table.insert(sections, {
+			id = "history",
+			height = 210,
+			element = React.createElement(
+				ui.Panel,
+				{ size = UDim2.fromScale(1, 1), padding = 16, accent = accent, reducedMotion = softMotion },
+				children
+			),
+		})
 	end
 	return React.createElement(PageScaffold, { sections = sections, gap = 16, tailPad = 28, scrollBarColor = accent })
 end

@@ -159,3 +159,13 @@ Reproduction: `Marketplace.Create` counts the seller's `Bazaar.EscrowListings`, 
 Correction: payout settlement now archives the validated listing snapshot in `ListingHistory`, records the claim marker, and removes that ID from active `EscrowListings` in the same profile mutation. `BazaarMath.Ensure` keeps the newest 100 valid claimed-sale records deterministically; the seller-history endpoint pages across those and up to 50 active escrow records.
 
 Evidence: `verify_bazaar_listing_math` executes profile sanitization fixtures for active-vs-archived separation and the 100-record bound; `verify_bazaar_listing_service` checks the payout write ordering, archive, slot release, and 0–150 cursor validation. Live DataStore/cross-server retries and player UI rendering remain unverified.
+
+## ARCADE-VIEWPORT-001 — active arcade had no distinct per-game 3D preview
+
+Source reproduction: the active `ArcadePage` had no viewport scene, and the older `CasinoViewport` used one roulette-wheel fallback for most kinds beyond Jar, Cards, and Dice. Expected: each of the fourteen public score-only games displays its own recognizable scene, with an isolated camera/world lifetime and reduced-motion behavior. Actual: the active page displayed no game model, and the older fallback could misrepresent unrelated games as roulette.
+
+Correction: added `ArcadeViewport` with dedicated cabinet/table/board/conveyor/graph scenes for all fourteen `ArcadeConfig` IDs, then added a selected-game preview section to `ArcadePage`. Scene instances use isolated `WorldModel` and `Camera` instances, clean up their render connection and world on unmount, and suppress idle movement when soft motion is enabled.
+
+Evidence: `verify_arcade_viewports` verifies every configured game has an explicit builder, the active page selects the scene by game ID, reduced-motion gating exists, and cleanup destroys the world/disconnects the connection. `scripts/compile_all.luau`, the full `scripts/verify_project.luau` suite, `npm run format:check`, and `argon build default.project.json -x` pass. This is source and build evidence only.
+
+Open: reconnect Argon to Studio, render all fourteen scenes, review model composition/framing/materials/lighting, and verify phone/controller/VR layout and performance. No casino viewport quality sign-off is claimed.

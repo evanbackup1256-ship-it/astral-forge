@@ -59,6 +59,7 @@ Status: pending full reproduction, adversarial tests, cross-system tests and app
 Source owners/integration points: ArcadeEngine; ArcadeInstantGames; ArcadeActionGames; ArcadeCardGames; ArcadeTower; ArcadeQuantumBoard; ArcadeService; ArcadePage; CasinoService.
 Required audit: All public arcade games, score-only fairness/proofs, caps, history, authority, rejoin, distinct rendered models, and zero public wagering/payout routes.
 Existing evidence: verify_arcade_engine covers fourteen kernels, Tower state/replay/persistence, privacy projection and action fences. verify_casino_expansion guards the free public route, retired wager modules and three-round quantum-board shifts. This is offline/source evidence only.
+New finding ARCADE-VIEWPORT-001: the active ArcadePage rendered no game-specific viewport, while the legacy CasinoViewport fell back to a roulette wheel for most unrecognized game kinds. Added a dedicated `ArcadeViewport` with an explicit builder per configured game, and added a selected-game preview section to the active arcade. `verify_arcade_viewports` checks all fourteen builder registrations, route selection, reduced-motion gating, and per-instance cleanup. No rendered Studio quality/device review has been completed; item 35 remains open.
 Status: pending full reproduction, adversarial tests, cross-system tests and applicable visual evidence.
 
 ### SYS-08: Bazaar and player commerce
