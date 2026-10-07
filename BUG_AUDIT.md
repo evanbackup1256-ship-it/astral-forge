@@ -44,6 +44,7 @@ Source owners/integration points: InventoryMath; EconomyMath#CrateRoll; ProfileB
 Required audit: Full/empty inventory, stacks, duplicate receipts, pity, item conservation.
 Existing candidate evidence: verify_inventory_math; verify_shop_relics; verify_donation_receipts. Coverage must be inspected before those tests support sign-off.
 New finding CRATE-ROLL-001: corrected title-case pity labels for the twelve added crates and extracted weighted selection to CrateRollResolver. Deterministic parity, pity-boundary and invalid-weight checks pass; native Studio Edit-mode fixture confirmed a Legendary pity result.
+New finding CRATE-TEXTURE-001: removed three unverified standalone image overrides so baked Blender GLB maps remain authoritative. Main-place Studio Play returned successful ContentProvider fetch status for all 40 crate-part textures; rendered visual quality and published/fresh-user delivery remain open.
 Status: partial fix verified; full persistence, client reveal, multiplayer and published-server coverage remain pending.
 
 ### SYS-06: Astral Forge and visual theme
@@ -55,9 +56,9 @@ Status: pending full reproduction, adversarial tests, cross-system tests and app
 
 ### SYS-07: Casino
 
-Source owners/integration points: CasinoService; CasinoMath; CasinoExpansionMath; CasinoTables; CasinoViewport; PagesCasino.
-Required audit: Ten games, fair-seed protocol, edge math, caps, history, authority, rejoin, ten unique models.
-Existing candidate evidence: verify_casino_math; verify_casino_expansion. Coverage must be inspected before those tests support sign-off.
+Source owners/integration points: ArcadeEngine; ArcadeInstantGames; ArcadeActionGames; ArcadeCardGames; ArcadeTower; ArcadeQuantumBoard; ArcadeService; ArcadePage; CasinoService.
+Required audit: All public arcade games, score-only fairness/proofs, caps, history, authority, rejoin, distinct rendered models, and zero public wagering/payout routes.
+Existing evidence: verify_arcade_engine covers fourteen kernels, Tower state/replay/persistence, privacy projection and action fences. verify_casino_expansion guards the free public route, retired wager modules and three-round quantum-board shifts. This is offline/source evidence only.
 Status: pending full reproduction, adversarial tests, cross-system tests and applicable visual evidence.
 
 ### SYS-08: Bazaar and player commerce
@@ -160,10 +161,11 @@ Every closed item must link to REPRO_LOG.md, the exact correction, meaningful re
 
 ## Arcade server implementation stage
 
-The user-approved arcade amendment is recorded in audit/MASTER_SPEC.md. New strict modules implement ten score-only kernels, seed commitments, sealed schemas, private/public projections, replay/version fences and a server gateway. The legacy CasinoService.Play wagering entry point is disabled. UI, ten bespoke models, legacy in-flight stake refund/archive migration, real type analysis and runtime sign-off remain pending. The arcade is not marked shipped.
+The user-approved arcade amendment is recorded in audit/MASTER_SPEC.md. The active score-only arcade includes fourteen game definitions, seed commitments, sealed schemas, private/public projections, replay/version fences and a server gateway. Four additional games now use the active ArcadePage; CardTower state is persisted and projected without exposing the upcoming deck. The legacy CasinoService.Play wagering entry point is disabled. Bespoke models, legacy in-flight stake refund/archive migration, real type analysis and runtime sign-off remain pending. The arcade is not marked shipped.
 
 The public-game scan also found an active Bazaar lottery that sold flux tickets and paid a random flux pot. It is removed from Bazaar UI, service routing, remote validation, and lottery math. Existing saved legacy lottery fields are retained unchanged and are no longer exposed or claimable. `scripts/verify_bazaar_math.luau` now guards the public route and saved-data preservation. No live server session was used to reproduce this path.
 
 - BUG-005: Initial runtime screenshot shows truncated top-bar branding at a 991.2 × 635.2 client viewport. The production wordmark renderer now fits `ASTRAL` within the existing slot, and a renderer regression covers compact and micro variants. Matching Studio screenshot review at the reproduced viewport and enlarged text scale remains open. Evidence: `REPRO_LOG.md` and `scripts/verify_ui_consistency.luau`.
 - ENV-001: Roblox CorePackages ProfileSharePolicyEnum timed out during startup and cascaded through the platform chat/QR modules. Full console evidence is retained. This is separated from game-owned errors; repeatability and mitigation are unverified.
+- BUG-008: Four requested arcade titles existed only in unreachable wager-based table code, while the active ArcadePage had no score-only controls for them and the CasinoService snapshot still exposed practice-chip state. Added score-only Table Roulette, Quantum Roulette, Dice Table, and persistent Infinite Card Tower kernels and controls, routed them through the existing ArcadeService, removed the orphaned wager-table UI/math, and stopped exposing practice-chip state. Offline regressions and Studio Edit source readback pass; Play interaction, device layout, custom viewport models, and published behavior remain open. Evidence: `REPRO_LOG.md` / ARCADE-NEW-GAMES-001.
 - STUDIO-UI-001: The confirmed place's older `PagesSocial` source diverges from the current split worktree implementation and had four extra closing parentheses across Guild chat, announcements, moderation, and logo sections. The corrected full source compiles and its module requires in Studio Edit mode. A clean Play boot followed the initial two fixes, but no Play run followed the final two-expression correction. Specific Guild interactions and published servers remain unverified. Evidence: `REPRO_LOG.md`.

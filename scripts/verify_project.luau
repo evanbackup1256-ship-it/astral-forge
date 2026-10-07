@@ -1,4 +1,5 @@
 require("./verify_crate_appearance")
+require("./verify_crate_asset_manifest")
 require("./verify_preview_stores")
 require("./verify_crate_expansion")
 require("./verify_forge_roll_resolver")

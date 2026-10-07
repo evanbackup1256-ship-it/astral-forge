@@ -4,6 +4,23 @@
 local Types = require("./ArcadeTypes")
 local Hash = require("./ProofHash")
 local Fair = require("./FairRandom")(Hash)
+
+local function cloneTower(source: Types.TowerState?): Types.PublicTower?
+	if not source then
+		return nil
+	end
+	local result: Types.PublicTower = {
+		Slots = source.Slots,
+		Columns = {},
+		CurrentCard = source.CurrentCard,
+		Hands = source.Hands,
+		Placed = source.Placed,
+	}
+	for index, column in source.Columns do
+		result.Columns[index] = table.clone(column)
+	end
+	return result
+end
 export type API = {
 	round: (round: Types.Round) -> Types.PublicRound,
 	finished: (round: Types.Round) -> Types.FinishedRound,
@@ -38,6 +55,7 @@ local function round(source: Types.Round): Types.PublicRound
 		Label = source.Label,
 		Choice = source.Choice,
 		Proof = Fair.proof(source.ServerSeed, source.ClientSeed, source.Nonce, "Arcade." .. source.Game),
+		Tower = cloneTower(source.Tower),
 	}
 end
 
@@ -59,6 +77,7 @@ local function finished(source: Types.Round): Types.FinishedRound
 		Label = public.Label,
 		Choice = public.Choice,
 		Proof = public.Proof,
+		Tower = cloneTower(public.Tower),
 		Reveal = {
 			Algorithm = public.Proof.Algorithm,
 			Commitment = public.Proof.Commitment,
@@ -80,6 +99,7 @@ local function cloneRound(source: Types.PublicRound): Types.PublicRound
 	result.DealerCards = table.clone(source.DealerCards)
 	result.Revealed = table.clone(source.Revealed)
 	result.Proof = table.clone(source.Proof)
+	result.Tower = cloneTower(source.Tower)
 	return result
 end
 
@@ -89,6 +109,7 @@ local function cloneFinished(source: Types.FinishedRound): Types.FinishedRound
 	result.DealerCards = table.clone(source.DealerCards)
 	result.Revealed = table.clone(source.Revealed)
 	result.Proof = table.clone(source.Proof)
+	result.Tower = cloneTower(source.Tower)
 	result.Reveal = table.clone(source.Reveal)
 	result.Numbers = table.clone(source.Numbers)
 	result.Moves = moves(source.Moves)

@@ -4,7 +4,8 @@ Run lune run REGRESSION_SUITE/run.luau from the repository root. The entry calls
 
 Current audited groups:
 
-- Arcade engine: verify_arcade_engine exercises ten game kernels, privacy projections, save/load, action receipt/version fences, expiry and breaks. Native isolated gateway evidence is in audit/evidence/ARCADE_SERVER_STAGE_20261005.md; the full production request path remains unverified.
+- Crate kit metadata: `verify_crate_asset_manifest` requires a valid uploaded kit ID, exactly twenty unique skin IDs, and no standalone texture overrides until delivery has been separately verified. Studio Play texture fetching and visual review are recorded separately in `audit/evidence/CRATE_RUNTIME_20261006.md`.
+- Arcade engine: verify_arcade_engine exercises fourteen score-only game kernels, including all four added games, Tower state/replay/persistence/expiry, privacy projections, save/load, action receipt/version fences, expiry and breaks. verify_casino_expansion checks quantum shifts and prevents the retired wager UI/chip state from returning. Native isolated gateway evidence is in audit/evidence/ARCADE_SERVER_STAGE_20261005.md; Studio Play interaction and the complete production request path remain unverified.
 - Roll proofs: verify_roll_proofs checks SHA/HMAC against independently generated fixtures and verifies deterministic streams/commitments. The player-facing full outcome verifier remains incomplete.
 - Arcade migration: verify_arcade_migration checks one-time refunds for unfinished legacy stakes, duplicate calls, restored profiles and huge/malformed balances. Live rollout and failure recovery remain open.
 

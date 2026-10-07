@@ -8,6 +8,7 @@ local Registry = require("../src/Shared/AstralForge/Shared/RemoteRegistry")
 local Hash = require("../src/Shared/AstralForge/Shared/ProofHash")
 local Fair = require("../src/Shared/AstralForge/Shared/FairRandom")(Hash)
 local Config = require("../src/Shared/AstralForge/Shared/ArcadeConfig")
+local Tower = require("../src/Shared/AstralForge/Shared/ArcadeTower")
 local serde = require("@lune/serde")
 type Fixture = { Dependencies: Types.Dependencies, Time: number, Id: number, Seed: number }
 
@@ -125,9 +126,11 @@ for _, entry in Config.Games do
 		state,
 		f,
 		entry.Id,
-		if entry.Id == "Roulette"
+		if entry.Id == "Roulette" or entry.Id == "TableRoulette"
 			then 12
-			elseif entry.Id == "Dice" then 7
+			elseif entry.Id == "QuantumRoulette" then 1
+			elseif entry.Id == "Dice" or entry.Id == "DiceTable" then 7
+			elseif entry.Id == "CardTower" then 3
 			elseif entry.Id == "CoinFlip" then "Heads"
 			else nil,
 		if entry.Id == "Keno" then { 1, 2, 3, 4, 5 } else nil,
@@ -168,7 +171,50 @@ for _, entry in Config.Games do
 	assert(Fair.verifyCommitment(finished.Reveal))
 	assert(state.Commitment ~= finished.Proof.Commitment, "finished rounds rotate the seed before another round")
 end
-assert(state.Stats.Played == 10)
+assert(state.Stats.Played == 14)
+
+local towerFixture = fixture()
+local towerState = Engine.new(towerFixture.Dependencies)
+local towerStarted, towerRequest = start(towerState, towerFixture, "CardTower", 3, nil, nil)
+assert(towerStarted.ok and towerStarted.Round and towerStarted.Round.Tower)
+assert(towerStarted.Round.Tower.Slots == 3 and towerStarted.Round.Tower.CurrentCard >= 1)
+local towerPublic = Engine.snapshot(towerState)
+assert(towerPublic.Active and towerPublic.Active.Tower)
+assert(not serde.encode("json", towerPublic.Active):find("Numbers", 1, true), "active card stream stays private")
+assert(not serde.encode("json", towerPublic.Active):find(towerState.ServerSeed, 1, true))
+towerPublic.Active.Tower.Columns[1][1] = -1
+assert(towerState.Active and towerState.Active.Tower and towerState.Active.Tower.Columns[1][1] ~= -1, "public tower columns cannot alias saved state")
+local badColumn, badColumnRequest = finishAction(towerState, towerFixture, "Place", 4, nil)
+assert(not badColumn.ok and towerState.Active and towerState.Active.Version == 1)
+local nextCard, placeRequest = finishAction(towerState, towerFixture, "Place", 1, nil)
+assert(nextCard.ok and (nextCard.Round or nextCard.Result))
+local towerPlayed = towerState.Stats.Played
+local placeReplay = Engine.apply(towerState, placeRequest, towerFixture.Dependencies)
+assert(placeReplay.ok and placeReplay.Replayed and towerState.Stats.Played == towerPlayed)
+local restoredTower: Types.State = serde.decode("json", serde.encode("json", towerState))
+assert(restoredTower.Active and restoredTower.Active.Tower)
+assert(restoredTower.Active.Tower.CurrentCard == towerState.Active.Tower.CurrentCard)
+assert(restoredTower.Active.Tower.Columns[1][1] == towerState.Active.Tower.Columns[1][1])
+local expiredTower: Types.State = serde.decode("json", serde.encode("json", towerState))
+local expiryFixture = fixture()
+expiryFixture.Time = towerFixture.Time + Config.RoundLifetime + 1
+local expiredResult = Engine.tick(expiredTower, expiryFixture.Dependencies)
+assert(expiredResult and expiredResult.Score == 5 and expiredResult.Label:find("score saved", 1, true))
+if restoredTower.Active then
+	local stopped, stopRequest = finishAction(restoredTower, towerFixture, "Stop", nil, nil)
+	assert(stopped.ok and stopped.Result and stopped.Result.Score <= Config.MaximumScore)
+	local duplicateStop = Engine.apply(restoredTower, stopRequest, towerFixture.Dependencies)
+	assert(duplicateStop.ok and duplicateStop.Replayed)
+end
+assert(not Tower.begin(assert(towerState.Active), { Choice = 5 } :: Types.Request, Fair.create(string.rep("tower-seed-", 4), "tower-test", 0, "Arcade.CardTower")))
+
+local quantumFixture = fixture()
+local quantumState = Engine.new(quantumFixture.Dependencies)
+for roundIndex = 0, 5 do
+	local quantumResult = start(quantumState, quantumFixture, "QuantumRoulette", 1, nil, nil)
+	assert(quantumResult.ok and quantumResult.Result)
+	assert(quantumResult.Result.Numbers[3] == math.floor(roundIndex / 3), "quantum layout shifts after every three completed games")
+end
 
 local activeFixture = fixture()
 local activeState = Engine.new(activeFixture.Dependencies)
@@ -241,6 +287,17 @@ local wire: Registry.WireValue = {
 	ClientSeed = "seed",
 }
 assert(Registry.arcade(wire))
+assert(Registry.arcade({
+	RequestId = "valid-tower-start-01",
+	Game = "CardTower",
+	Action = "Start",
+	Choice = 4,
+	Commitment = state.Commitment,
+	Nonce = state.Nonce,
+	ClientSeed = "seed",
+}))
+assert(Registry.arcade({ RequestId = "valid-tower-place-01", Game = "CardTower", Action = "Place", Choice = 3, RoundId = "round", Version = 1 }))
+assert(not Registry.arcade({ RequestId = "valid-cashout-01", Game = "CardTower", Action = "Cashout", RoundId = "round", Version = 1 }))
 assert(Registry.readOnly({ Gen = 1, N = "session-nonce", TxnId = "transaction-id-01" }))
 assert(not Registry.readOnly({ Gen = 1, N = "session-nonce", TxnId = "transaction-id-01", Stake = 1 }))
 assert(not Registry.readOnly({ Gen = 0 / 0, N = "session-nonce", TxnId = "transaction-id-01" }))
@@ -300,5 +357,5 @@ assert(Registry.arcade({
 	Choice = "<b>Heads</b>",
 }) == nil)
 print(
-	"[TEST] ten score-only games, decks/hand categories, action replay/version fences, persisted rounds, private projections and break limits passed"
+	"[TEST] fourteen score-only games, tower state/replay/persistence, decks/hand categories, action fences, private projections and break limits passed"
 )

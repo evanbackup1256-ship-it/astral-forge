@@ -30,7 +30,7 @@ local ALLOWED: { [string]: boolean } = {
 }
 local AUTH_FIELDS: { [string]: boolean } = { Gen = true, N = true, TxnId = true }
 local ACTIONS: { [string]: boolean } =
-	{ Start = true, Hit = true, Stand = true, Draw = true, Stop = true, Reveal = true }
+	{ Start = true, Hit = true, Stand = true, Draw = true, Stop = true, Reveal = true, Place = true }
 
 local function text(value: WireValue, minimum: number, maximum: number): string?
 	if type(value) ~= "string" or #value < minimum or #value > maximum or value:find("%c") then

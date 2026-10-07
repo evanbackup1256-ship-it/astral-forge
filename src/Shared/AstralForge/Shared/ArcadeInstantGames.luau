@@ -1,8 +1,9 @@
 --!strict
--- Purpose: Six score-only round resolvers; there are no wallet, wager, payout or inventory mutations.
+-- Purpose: Score-only round resolvers; there are no wallet, wager, payout or inventory mutations.
 -- Owner: Astral Forge arcade. Dependencies: ArcadeTypes/ArcadeConfig. Last-reviewed: 2026-10-05.
 local Types = require("./ArcadeTypes")
 local Config = require("./ArcadeConfig")
+local QuantumBoard = require("./ArcadeQuantumBoard")
 export type API = { resolve: (round: Types.Round, request: Types.Request, stream: Types.Stream) -> (boolean, string?) }
 
 local function integer(value: Types.Selection?, minimum: number, maximum: number): number?
@@ -33,6 +34,62 @@ local function resolve(round: Types.Round, request: Types.Request, stream: Types
 		round.Numbers = { landing }
 		round.Score = if choice == landing then 100 else 0
 		round.Label = "Landed on " .. tostring(landing)
+	elseif round.Game == "TableRoulette" then
+		local choice = integer(request.Choice, 0, Config.RoulettePockets - 1)
+		if choice == nil then
+			return false, "Choose a table pocket from 0 to 36."
+		end
+		local landing = stream.integer(0, Config.RoulettePockets - 1)
+		local wheel = { 0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26 }
+		local wheelIndex: { [number]: number } = {}
+		for index, pocket in wheel do
+			wheelIndex[pocket] = index
+		end
+		local directDistance = math.abs(wheelIndex[choice] - wheelIndex[landing])
+		local distance = math.min(directDistance, #wheel - directDistance)
+		round.Choice = choice
+		round.Numbers = { landing }
+		round.Score = if distance == 0 then 300 elseif distance == 1 then 40 else 0
+		round.Label = if distance == 0
+			then `Exact pocket: {landing}`
+			elseif distance == 1 then `One pocket away: {landing}`
+			else `Ball landed on {landing}`
+	elseif round.Game == "QuantumRoulette" then
+		local zoneStart = integer(request.Choice, 1, 36)
+		local board = QuantumBoard.of(round.GameRound or 0)
+		local selectedZone
+		for _, zone in board.Zones do
+			if zone.Start == zoneStart then
+				selectedZone = zone
+				break
+			end
+		end
+		if selectedZone == nil and zoneStart == 0 then
+			selectedZone = { Id = "Q0", Start = 0, Numbers = { 0 } }
+		end
+		if selectedZone == nil then
+			return false, "Choose a zone from the current quantum layout."
+		end
+		local landing = stream.integer(0, Config.RoulettePockets - 1)
+		local hitsSink = landing == board.Sink
+		local hitsZone = table.find(selectedZone.Numbers, landing) ~= nil
+		local adjacentToSink = if landing == 0
+			then board.Sink >= 1 and board.Sink <= 3
+			elseif board.Sink == 0 then landing <= 3
+			else math.abs(landing - board.Sink) == 3
+				or (math.floor((landing - 1) / 3) == math.floor((board.Sink - 1) / 3)
+					and math.abs(landing - board.Sink) == 1)
+		local baseScore = math.floor(900 / #selectedZone.Numbers)
+		round.Choice = zoneStart
+		round.Numbers = { landing, board.Sink, board.Version }
+		round.Score = if hitsZone and not hitsSink
+			then math.min(Config.MaximumScore, baseScore * (if adjacentToSink then 2 else 1))
+			else 0
+		round.Label = if hitsSink
+			then `Gravity Sink swallowed pocket {landing}`
+			elseif hitsZone and adjacentToSink then `Pocket {landing} hit beside the Sink · score doubled`
+			elseif hitsZone then `Pocket {landing} matched your zone`
+			else `Pocket {landing} missed your zone`
 	elseif round.Game == "Dice" then
 		local choice = integer(request.Choice, 2, 12)
 		if choice == nil then
@@ -43,6 +100,16 @@ local function resolve(round: Types.Round, request: Types.Request, stream: Types
 		round.Choice = choice
 		round.Score = if sum == choice then 100 elseif math.abs(sum - choice) == 1 then 10 else 0
 		round.Label = "Rolled " .. tostring(sum)
+	elseif round.Game == "DiceTable" then
+		local choice = integer(request.Choice, 2, 12)
+		if choice == nil then
+			return false, "Choose a total from 2 to 12."
+		end
+		round.Numbers = { stream.integer(1, 6), stream.integer(1, 6) }
+		local sum = round.Numbers[1] + round.Numbers[2]
+		round.Choice = choice
+		round.Score = if sum == choice then 120 elseif math.abs(sum - choice) == 1 then 15 else 0
+		round.Label = `Dice: {round.Numbers[1]} + {round.Numbers[2]} = {sum}`
 	elseif round.Game == "CoinFlip" then
 		if request.Choice ~= "Heads" and request.Choice ~= "Tails" and request.Choice ~= "Edge" then
 			return false, "Choose heads, tails or edge."

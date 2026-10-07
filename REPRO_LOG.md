@@ -59,6 +59,13 @@ Pre-fix reproduction: the twelve added crate definitions used uppercase `PityRar
 Evidence: `scripts/verify_crate_expansion.luau` asserts every added pity rarity is a catalog label; `scripts/verify_forge_roll_resolver.luau` compares deterministic valid-input results against the established roll function across boundaries and pity levels, and checks rejection of negative weights. The full headless regression suite passed. Studio Edit-mode execution loaded the resolver/config and verified an activated pity roll returns the Legendary definition. This does not verify a live player profile save, network receipt path, client reveal, or published server.
 
 
+## CRATE-TEXTURE-001 — standalone override delivery and baked-map fallback
+
+Reproduction: in the 2026-10-06 main-place Studio gallery, Classic, Frost and Molten body maps reported `Failure` after retry. The source manifest also replaced those embedded Blender maps with separately uploaded IDs, so the fallback path was coupled to the same unverified delivery channel. Removed the three overrides and kept the uploaded GLB material maps as the source of truth.
+
+Verification: 2026-10-07 Studio Play exposed all 40 crate MeshParts to the client. A `ContentProvider:PreloadAsync` pass returned 40 callbacks, all `Enum.AssetFetchStatus.Success`; the server boot had no crate-loader error. `scripts/verify_crate_asset_manifest.luau` checks the uploaded kit ID, 20 unique skins, and absence of unverified texture overrides. This is fetch evidence for one Studio account/session; visual quality, fresh-user access, published-client delivery and device review remain open.
+
+
 ## ADMIN-MOD-001 — reported nil modulo crash
 
 The reported error was not reproduced in the current worktree build. Source inspection found no modulo expression in `AdminService`; a disposable local Studio play session completed `GetAdminState` and a `GrantFlux` action through the real remote and persistence preview, with no error in Output. The local UI booted and rendered at the tested mobile viewport. This is only a smoke test: the full command catalog, malformed inputs, moderation, and the specific screenshot build have not been exercised, so the reported issue remains open.
@@ -121,3 +128,14 @@ Verification: `scripts/verify_rank_categories.luau` checks all twelve category m
 ## STUDIO-UI-002 follow-up — latest attached boot log and fresh synced Play run
 
 The newly attached 2026-10-07 log still contained the old `PagesSocial:3573` parse failure and Guild lazy-module cascade. The confirmed place had since been Argon-synced from the current worktree: Studio script search found `goalProgressText` at the expected declaration/use sites in `StarterPlayerScripts.AstralForge.pages.PagesSocial`. A fresh Play run reached `5.1.0 ui is up`, loaded 155 modules, and emitted no PagesSocial parse, Guild module-load, or other game-source error. Studio was returned to Edit mode afterward. This establishes a clean boot of the synced source, not a click-through of Guild interactions or proof about already-published servers; Roblox CorePackages/analytics errors are outside the game-source result.
+
+
+## ARCADE-NEW-GAMES-001 — requested casino games were not connected to the public arcade
+
+Reproduction: the active Casino view exports `ArcadePage`, whose game catalogue originally contained ten score-only games. Four additional games were represented in a dormant `CasinoTables` page backed by `CasinoExpansionMath`; those modules used practice-chip wagers and were not reachable through the active score-only route. `CasinoService.State` also normalized and returned the legacy practice-chip state. Expected: all requested public arcade games use the same fair, persisted score-only protocol, with no wager, cashout, or chance-based currency payout path. Actual: the added games were unreachable through the active route, and their dormant implementation contradicted the user's public-arcade amendment.
+
+Correction: added Table Roulette, Quantum Roulette, Dice Table and The Infinite Card Tower to the shared arcade catalogue and implemented their controls on the active `ArcadePage`. The server engine now creates verified zero-stake rounds for each; Tower column state, score and next card are persisted, while the future deck remains private until a finished round reveals its proof. Quantum board layouts cover 0–36, remain stable for three completed rounds, then change phase and Gravity Sink position. Removed the dormant practice-chip UI/math modules and removed the saved legacy chip object from the public Casino snapshot without deleting or migrating saved player fields. The legacy `CasinoService.Play` route continues to reject wager requests.
+
+Evidence: `scripts/verify_arcade_engine.luau` now runs all fourteen score-only definitions and exercises Tower validation, replay protection, cloned public state, JSON persistence, expiry score retention, and six quantum rounds across two board shifts. `scripts/verify_casino_expansion.luau` covers zone coverage/uniqueness, phase and shift cadence, active-route wiring, and absence of the retired wager modules. `lune run scripts/verify_project.luau`, `lune run scripts/compile_all.luau` (348 files), and `npm run format:check` pass. Argon synchronized the source to the confirmed Studio place; Edit-mode readback found all four definitions and both new shared modules.
+
+Boundary: Studio Play input/result flow, real save/rejoin behavior, fourteen distinct viewport models, phone/controller/VR rendering, live multiplayer, and published-server behavior remain unverified. This is an implementation checkpoint, not casino sign-off.

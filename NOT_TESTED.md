@@ -9,6 +9,7 @@ All gaps below are open. They prevent final sign-off.
 - Hash/HMAC primitives match independent vectors, but seed entropy is not certified. Full player-facing outcome replay still needs integration.
 - Starts and completions use explicit save boundaries. Intermediate steps use autosave/leave-save. Live save-failure/rejoin/crash recovery and audit-log delivery remain unverified.
 - Strict flags and declared types are not a substitute for a real Roblox-aware analyzer.
+- ARCADE-NEW-GAMES-001: fourteen kernels and the four new controls pass offline engine, serialization, replay, private-projection, quantum-shift, routing, compile and format checks. Argon synchronized the changed source to the confirmed place and Studio Edit readback found the new Quantum board, Tower module, and game definitions. A Play-mode click-through of all four games, mobile/controller/VR layout review, unique 3D viewport models, and published-server behavior remain unverified.
 
 - Direct Studio play launch remains unreliable: MCP reports "Start play hasn't finished yet" and Argon debug play fails with Windows error 126. A scripted StudioTestService.ExecutePlayModeAsync session did launch successfully, boot the game and render the client. The full device/multiplayer/failure matrix is still untested.
 - Published Roblox version and existing server rollout: no new place publish or live-server source verification has occurred.
@@ -25,7 +26,7 @@ All gaps below are open. They prevent final sign-off.
 
 ## Current crate/native-preview gaps — 2026-10-07
 
-- Blender geometry/bake/export and native40-part asset import passed. Three runtime body textures initially failed fetching; retry/delivery investigation remains open.
+- Blender geometry/bake/export and native40-part asset import passed. On 2026-10-07, the confirmed main-place Studio Play client reported `Enum.AssetFetchStatus.Success` for all 40 crate mesh textures after creator permissions had propagated. This verifies fetch status for that Studio session only; rendered material review, fresh-user delivery, and published-server behavior remain open.
 - Native crate method fixtures passed owned/unowned bonus and key/inventory/count boundaries using a private profile. Full remote replay, actual persisted save/load, multi-client and device/VR testing remain incomplete.
 - An unpublished local Studio bundle exposed startup failures in player/admin/guild persistence and Convergence MemoryStore construction. Isolated preview providers are implemented; native boot/save-open now succeeds. This does not validate live DataStore durability, MemoryStore distribution or MessagingService behavior.
 - GuildCommunity is now integrated in this worktree. The confirmed main Studio place received only the audited GuildCommunity module and the narrowly scoped guild-name filter guard; source markers were verified. Live guild chat, cross-server delivery, moderation, and TextService behavior remain untested.
@@ -49,3 +50,5 @@ All gaps below are open. They prevent final sign-off.
 - STUDIO-UI-002 latest-log follow-up: the confirmed Studio bundle contains the current `goalProgressText` fix; fresh Play reached `5.1.0 ui is up`, warmed 155 modules, and rendered Guild → Community without a game-source error. Studio returned to Edit mode. Other Guild interaction paths and published-server behavior remain unverified.
 
 - Bazaar listing actions: compile, pure state tests, and source-level wiring checks pass; the purchase and payout routes are synced in Studio. No live create/cancel/purchase action was run because it would affect a real saved player's items or currency; marketplace UI, preview-store multiplayer fixtures, buyer delivery, payout claims, cross-server recovery, and published behavior remain open.
+
+- ARCADE-NEW-GAMES-001 Studio boundary: the confirmed Studio Edit DataModel contains the synchronized 14-game ArcadeConfig plus ArcadeQuantumBoard and ArcadeTower modules. Studio Play was not run for this slice; no button flow, score result, or client-server save was exercised in Studio. The 14 unique viewport/model requirement remains open, as do input-device layouts and published servers.

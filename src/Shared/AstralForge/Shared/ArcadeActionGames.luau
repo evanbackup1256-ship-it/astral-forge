@@ -44,7 +44,12 @@ local function timeout(round: Types.Round, now: number): boolean
 		round.Finished, round.Score, round.Label = true, 0, "Engine cut out"
 		return true
 	elseif now >= round.ExpiresAt then
-		round.Finished, round.Score, round.Label = true, 0, "Round expired"
+		round.Finished = true
+		if round.Game == "CardTower" then
+			round.Label = "Tower run expired · score saved"
+		else
+			round.Score, round.Label = 0, "Round expired"
+		end
 		return true
 	end
 	return false

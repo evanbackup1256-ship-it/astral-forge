@@ -5,7 +5,6 @@ return function(loadService: (string) -> any)
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
-	local PracticeTables = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoExpansionMath"))
 	local ProgressionService = loadService("ProgressionService")
 
 	local CasinoService = {}
@@ -423,7 +422,6 @@ return function(loadService: (string) -> any)
 
 	function CasinoService.State(profile, now: number): any
 		local casino = ensure(profile)
-		casino.Arcade = PracticeTables.Ensure(casino.Arcade)
 		local stakes = {}
 		for tier, share in CasinoMath.STAKES do
 			table.insert(stakes, {
@@ -459,7 +457,6 @@ return function(loadService: (string) -> any)
 		local nextRank = CasinoMath.CLUB_RANKS[rank + 1]
 		return {
 			Stakes = stakes,
-			Arcade = PracticeTables.State(casino.Arcade),
 			Stats = {
 				Played = casino.Played,
 				Won = casino.Won,

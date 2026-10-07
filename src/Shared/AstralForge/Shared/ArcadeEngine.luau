@@ -8,6 +8,7 @@ local Fair = require("./FairRandom")(Hash)
 local Instant = require("./ArcadeInstantGames")
 local Cards = require("./ArcadeCardGames")
 local Action = require("./ArcadeActionGames")
+local Tower = require("./ArcadeTower")
 local Views = require("./ArcadeViews")
 export type API = {
 	new: (dependencies: Types.Dependencies) -> Types.State,
@@ -67,6 +68,12 @@ local function cloneRound(round: Types.Round): Types.Round
 	result.DealerCards = table.clone(round.DealerCards)
 	result.Revealed = table.clone(round.Revealed)
 	result.Moves = table.clone(round.Moves)
+	if round.Tower then
+		result.Tower = { Slots = round.Tower.Slots, Columns = {}, CurrentCard = round.Tower.CurrentCard, Hands = round.Tower.Hands, Placed = round.Tower.Placed }
+		for index, column in round.Tower.Columns do
+			result.Tower.Columns[index] = table.clone(column)
+		end
+	end
 	return result
 end
 
@@ -140,6 +147,7 @@ local function apply(state: Types.State, request: Types.Request, dependencies: T
 		round = {
 			Id = dependencies.newId(),
 			Game = request.Game,
+			GameRound = (state.Stats.ByGame[request.Game] or { Played = 0, BestScore = 0, TotalScore = 0 }).Played,
 			Version = 1,
 			StartedAt = now,
 			ExpiresAt = now + Config.RoundLifetime,
@@ -162,7 +170,9 @@ local function apply(state: Types.State, request: Types.Request, dependencies: T
 		}
 		local ok: boolean = true
 		local problem: string? = nil
-		if request.Game == "Blackjack" or request.Game == "Poker" then
+		if request.Game == "CardTower" then
+			ok, problem = Tower.begin(round, request, stream)
+		elseif request.Game == "Blackjack" or request.Game == "Poker" then
 			Cards.begin(round, stream)
 		elseif request.Game == "Crash" or request.Game == "Mines" then
 			ok, problem = Action.begin(round, request, stream)
@@ -183,7 +193,11 @@ local function apply(state: Types.State, request: Types.Request, dependencies: T
 		round = cloneRound(active)
 		local ok: boolean = true
 		local problem: string? = nil
-		if request.Game == "Blackjack" or request.Game == "Poker" then
+		if request.Game == "CardTower" then
+			if not Action.timeout(round, now) then
+				ok, problem = Tower.act(round, request)
+			end
+		elseif request.Game == "Blackjack" or request.Game == "Poker" then
 			if not Action.timeout(round, now) then
 				ok, problem = Cards.act(round, request)
 			end

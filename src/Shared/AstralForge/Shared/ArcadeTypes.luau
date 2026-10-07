@@ -12,6 +12,10 @@ export type GameId =
 	| "Keno"
 	| "Mines"
 	| "Plinko"
+	| "TableRoulette"
+	| "QuantumRoulette"
+	| "CardTower"
+	| "DiceTable"
 export type Numbers = { number }
 export type Selection = number | string
 export type Request = {
@@ -30,9 +34,18 @@ export type Request = {
 export type Proof = { Algorithm: string, Commitment: string, ClientSeed: string, Nonce: number, Domain: string }
 export type Reveal = Proof & { ServerSeed: string }
 export type Move = { Action: string, Choice: Selection?, Picks: Numbers, At: number }
+export type TowerState = {
+	Slots: number,
+	Columns: { Numbers },
+	CurrentCard: number,
+	Hands: number,
+	Placed: number,
+}
+export type PublicTower = TowerState
 export type Round = {
 	Id: string,
 	Game: GameId,
+	GameRound: number?,
 	Version: number,
 	StartedAt: number,
 	ExpiresAt: number,
@@ -52,6 +65,7 @@ export type Round = {
 	Label: string,
 	Moves: { Move },
 	Draws: number,
+	Tower: TowerState?,
 }
 export type PublicRound = {
 	Id: string,
@@ -68,6 +82,7 @@ export type PublicRound = {
 	Label: string,
 	Choice: Selection?,
 	Proof: Proof,
+	Tower: PublicTower?,
 }
 export type FinishedRound = PublicRound & { Reveal: Reveal, Numbers: Numbers, Moves: { Move }, Draws: number }
 export type GameStats = { Played: number, BestScore: number, TotalScore: number }

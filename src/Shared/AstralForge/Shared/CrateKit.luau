@@ -1,12 +1,9 @@
 --!strict
 -- Uploaded Blender kit; the server validates all body/lid pairs before exposing it.
+-- Keep the baked GLB material maps as the source of truth. Standalone image overrides
+-- previously failed delivery for three body meshes and replaced valid embedded maps.
 return table.freeze({
 	Id = 88755990794383,
-	TextureOverrides = table.freeze({
-		Crate_Classic_Body = 72350144126150,
-		Crate_Frost_Body = 117772155065961,
-		Crate_Molten_Body = 116049081200129,
-	}),
 	Skins = table.freeze({
 		"Classic",
 		"Crystal",

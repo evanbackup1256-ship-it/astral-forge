@@ -62,10 +62,6 @@ __defs["CasinoView"] = function()
 		{ id = "Scratch", label = "Scratch", accent = Palette.pink },
 		{ id = "Exchange", label = "Exchange", accent = Palette.mint },
 		{ id = "Club", label = "Club", accent = Palette.mango },
-		{ id = "TableRoulette", label = "Table Roulette", accent = Palette.cyan },
-		{ id = "QuantumRoulette", label = "Quantum", accent = Palette.violet },
-		{ id = "CardTower", label = "Card Tower", accent = Palette.mint },
-		{ id = "DiceTable", label = "Dice Table", accent = Palette.coral },
 	}
 
 	local SYMBOL_COLORS = {
@@ -2807,15 +2803,6 @@ __defs["CasinoView"] = function()
 			return children
 		end
 
-		if table.find({ "TableRoulette", "QuantumRoulette", "CardTower", "DiceTable" }, tab) then
-			return React.createElement(require(script.Parent.Parent.CasinoTables), {
-				state = state,
-				dispatch = dispatch,
-				gameName = tab,
-				tabs = TABS,
-				onTab = setTab,
-			})
-		end
 		local bodies = {
 			Slots = slotsBody,
 			Flip = flipBody,

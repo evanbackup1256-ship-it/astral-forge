@@ -17,3 +17,6 @@ Native actual method boundary fixture additionally confirmed cloned-profile roll
 
 
 2026-10-06 continuation: consolidated duplicated persistence selection through StoreAccess. Full regression suite passed. Direct Blender PNG reuploads produced Classic72350144126150, Frost117772155065961 and Molten116049081200129; native preload still returned Failure. Texture override references are recorded in the manifest, but delivery remains unverified and this does not close the visual defect. Keep the full goal and crate sign-off open.
+
+
+2026-10-07 follow-up: removed the three standalone `TextureOverrides` from `CrateKit.luau`, leaving the imported Blender model's baked maps authoritative instead of replacing them with separate image assets. In the confirmed main Astral Forge Studio Play session, `CrateKitLoader` exposed 40 MeshParts to the client; `ContentProvider:PreloadAsync` produced 40 callbacks and all 40 were `Enum.AssetFetchStatus.Success`. The server booted without crate-loader errors. This changes the previous delivery result after creator permission setup; it does not establish rendered material quality, fresh-user access, published-client delivery, or device/persistence coverage. Studio was returned to Edit mode. The generated gallery remains historical evidence, not the post-change appearance.

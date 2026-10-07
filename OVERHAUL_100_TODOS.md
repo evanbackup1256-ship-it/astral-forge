@@ -48,8 +48,8 @@ Checked items have current repository or test evidence. An unchecked item remain
 - [x] 31. Replace the public casino route with a score-only arcade model without wagers or cashout.
 - [x] 32. Add the four requested arcade games and persist their score-only rounds.
 - [x] 33. Add replay/version fences and private state projections to the arcade engine.
-- [ ] 34. Independently audit all ten arcade games, their scoring rules, and edge cases.
-- [ ] 35. Verify ten distinct, high-quality game-specific 3D viewport models in rendered Studio views.
+- [ ] 34. Independently audit all fourteen arcade games, their scoring rules, and edge cases.
+- [ ] 35. Verify fourteen distinct, high-quality game-specific 3D viewport models in rendered Studio views.
 - [ ] 36. Remove duplicate, generic, placeholder, or incorrectly reused viewport models.
 - [ ] 37. Verify viewport cleanup, camera lifetime, object disposal, and loading fallbacks per game.
 - [ ] 38. Add per-game motion, lighting, VFX, sound, and reduced-motion behavior.
@@ -143,3 +143,5 @@ Checked items have current repository or test evidence. An unchecked item remain
 - Guild create/rename now has production-source regression coverage for actual broadcast filtering, censorship, missing/error responses, input bounds, and fail-closed routing; live TextService and saved-profile verification remain open.
 - Studio is in Edit mode. Argon is connected to this worktree; selected Guild/Bazaar sources were checked after sync, while a complete source/object comparison remains open.
 - `SIGNOFF.md` remains unsigned.
+- Crate texture follow-up: removed unverified standalone overrides from the uploaded 20-skin Blender kit; the main-place Studio Play client fetched all 40 baked mesh textures successfully in one session. Regression suite includes the kit manifest test. Rendered post-change appearance, new-user and published-client delivery, ownership/equip UI, and persistence/device coverage remain open; item 94 stays unchecked.
+- Arcade integration slice: fourteen score-only games pass engine/privacy/replay/save tests; the four added games have dedicated active-page controls, Quantum board-cycle checks, CardTower state recovery, and legacy practice-table removal tests. Studio Edit source readback confirms Argon sync. No Play interaction, phone/controller/VR render, distinct-model review, or published-server verification has been performed.
