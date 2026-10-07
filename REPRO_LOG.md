@@ -169,3 +169,12 @@ Correction: added `ArcadeViewport` with dedicated cabinet/table/board/conveyor/g
 Evidence: `verify_arcade_viewports` verifies every configured game has an explicit builder, the active page selects the scene by game ID, reduced-motion gating exists, and cleanup destroys the world/disconnects the connection. `scripts/compile_all.luau`, the full `scripts/verify_project.luau` suite, `npm run format:check`, and `argon build default.project.json -x` pass. This is source and build evidence only.
 
 Open: reconnect Argon to Studio, render all fourteen scenes, review model composition/framing/materials/lighting, and verify phone/controller/VR layout and performance. No casino viewport quality sign-off is claimed.
+
+
+## ARCADE-VIEWPORT-002 — viewport builder exceeded the module-size guideline
+
+Reproduction: after ARCADE-VIEWPORT-001, `ArcadeViewport.luau` had 643 lines and combined the React component, scene lifetime, geometry helpers and all fourteen builders. The master engineering requirement calls for modules near or below 400 lines so they can be reviewed and changed independently.
+
+Correction: split the component, shared geometry helpers, seven instant/action builders, seven table/card builders and resolver into five modules (72, 160, 198, 235 and 30 lines). The resolver remains explicit and errors on an unknown game kind; every configured game uses its own builder function.
+
+Evidence: `scripts/verify_arcade_viewports.luau` parses both registries, checks complete unique mappings, selected-scene wiring, lifecycle cleanup, reduced-motion handling, unknown-ID validation order and the 400-line ceiling. In an isolated compiled Studio Edit snapshot, all fourteen builders instantiated successfully (Slots 19, Blackjack 25, Roulette 43, Poker 27, Crash 19, Dice 19, Coin Flip 12, Keno 42, Mines 52, Plinko 53, Table Roulette 39, Quantum Roulette 39, Card Tower 36, Dice Table 21 BaseParts). An unknown ID was rejected without creating any Workspace child. The focused check, prior full project suite, `scripts/compile_all.luau`, `npm run format:check`, `git diff --check`, and `argon build default.project.json -x` passed. Rendered ViewportFrame quality, camera framing, mobile/controller/VR fit, frame cost and main-place Argon readback remain unproven.
