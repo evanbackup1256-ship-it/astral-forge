@@ -24,7 +24,7 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 | Python (asset tools) | 3.14 |
 
 The verification suite is the scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
-Last updated 2026-10-03.
+Last updated 2026-10-07. GitHub `origin`, the Argon project mapping, and the confirmed Studio place were checked together on this date.
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
 
