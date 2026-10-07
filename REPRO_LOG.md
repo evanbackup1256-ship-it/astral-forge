@@ -16,7 +16,11 @@ Reproduction harness: scripts/verify_guild_document_lifecycle.luau, which compil
 
 ## BUG-003: Unfiltered guild identity
 
-Source observation: GuildService.Create placed validated raw Name directly in the persisted document without a TextService call. No live creation reproduction was recorded. The create/rename route now calls the server `Filter:Apply` broadcast filter before persistence and fails closed if filtering is unavailable or returns no text. The actual `GuildService:Rename` method has memory-fixture checks for leader permission, valid length, and allowed characters; route parity checks verify the filter call. Live TextService failure/censorship and filtered-name rendering still need Studio verification.
+Source reproduction: `GuildService.Create` accepts a name argument and persists it into the guild document. Before the route guard, raw player text could reach this argument unfiltered. The create/rename route now calls the production `SecurityServices.Filter:Apply` broadcast filter before persistence and fails closed if filtering is unavailable or returns no text. The service still validates length and allowed characters after filtering; censorship placeholders that fail this rule are rejected rather than persisted. The caller payload is cloned before the filtered name replaces its value.
+
+Verification: `scripts/verify_guild_identity_filter.luau` extracts and executes the production `Filter:Apply` method and the production create/rename route guard. It checks raw-input truncation to the 28-character bound, user attribution, successful filtered result, censorship-placeholder output, TextService exceptions, nil output, missing filter service, failed filter result, payload immutability, and that unrelated actions do not run the identity filter. It is part of `scripts/verify_project.luau`. `verify_guild_community_wire` independently guards route-to-service wiring.
+
+Boundary: no actual guild was created or renamed in a saved player profile. Live Roblox TextService censoring, filtered-name rendering, and published-server parity remain unverified.
 
 Studio parity: in Edit mode for the confirmed Astral Forge place (PlaceId 135153679037687), the `GuildCommunity` ModuleScript was updated to the bounded MessagingService implementation from this worktree, and `ServerServices` received the same fail-closed create/rename filter guard. Read-back confirmed the message subscription and guard are present. No Play session was run, so runtime delivery and live filter results remain unverified.
 
