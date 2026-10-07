@@ -40,6 +40,7 @@ return {
 	CraftingLeaderboardStoreName = resetStore("AstralForge_Crafting_v2"),
 	ArcadeScoreLeaderboardStoreName = resetStore("AstralForge_ArcadeScore_v2"),
 	BazaarDealsLeaderboardStoreName = resetStore("AstralForge_BazaarDeals_v2"),
+	EventsLeaderboardStoreName = resetStore("AstralForge_Events_v2"),
 	SeasonLeaderboardStoreName = resetStore("AstralForge_Season_" .. seasonId .. "_v2"),
 	AdminAuditStoreName = "AstralForge_AdminAudit_v1",
 	DiscordModQueueStoreName = "AstralForge_DiscordModQueue_v1",

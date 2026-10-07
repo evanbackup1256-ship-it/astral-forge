@@ -4531,6 +4531,14 @@ __defs["LeaderboardsView"] = function()
 			accent = Palette.mint,
 		},
 		{
+			id = "Events",
+			label = "Event Participation",
+			short = "EVENTS",
+			description = "Live server events you have helped complete.",
+			icon = "Meteor",
+			accent = Palette.mango,
+		},
+		{
 			id = "Seasonal",
 			label = "Season XP",
 			short = "SEASON",
@@ -4547,6 +4555,7 @@ __defs["LeaderboardsView"] = function()
 		OrdersCompleted = "OrdersCompleted",
 		Combat = "WardenDefeats",
 		Crafting = "OreMined",
+		Events = "EventParticipations",
 		Seasonal = "SeasonXP",
 	}
 	local _array = {}

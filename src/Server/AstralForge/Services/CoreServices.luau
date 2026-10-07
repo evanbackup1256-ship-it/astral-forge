@@ -574,6 +574,7 @@ __defs["ServerEventService"] = function()
 		local ServerEvents = require(
 			ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData")
 		)("ServerEvents")
+		local ProfileBagMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileBagMath"))
 
 		local ServerEventService = {}
 		ServerEventService.__index = ServerEventService
@@ -642,10 +643,26 @@ __defs["ServerEventService"] = function()
 			return ServerEvents.productionMultiplier(self._state)
 		end
 
-		function ServerEventService:OnCollect(player: Player, collected: number, perSecond: number): number
+		function ServerEventService:OnCollect(
+			player: Player,
+			profile: any,
+			collected: number,
+			perSecond: number
+		): number
 			local state = self._state
 			if state == nil or state.Phase ~= "Live" then
 				return 0
+			end
+			local contributes = state.Id ~= "CommunityForge" or not self._completed
+			if contributes and collected > 0 and type(profile) == "table" then
+				if type(profile.LiveOps) ~= "table" then
+					profile.LiveOps = {}
+				end
+				local eventKey = state.Id .. ":" .. tostring(state.PhaseEndsAt)
+				if profile.LiveOps.LastServerEventKey ~= eventKey then
+					profile.LiveOps.LastServerEventKey = eventKey
+					ProfileBagMath.BumpStat(profile, "EventParticipations", 1)
+				end
 			end
 			if state.Id == "StardustRain" then
 				return ServerEvents.rainDust(collected, perSecond)

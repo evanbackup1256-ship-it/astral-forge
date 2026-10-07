@@ -180,6 +180,7 @@ serviceFactories["GameService"] = function()
 		Crafting = ServerConfig.CraftingLeaderboardStoreName,
 		ArcadeScore = ServerConfig.ArcadeScoreLeaderboardStoreName,
 		BazaarDeals = ServerConfig.BazaarDealsLeaderboardStoreName,
+		Events = ServerConfig.EventsLeaderboardStoreName,
 		Seasonal = ServerConfig.SeasonLeaderboardStoreName,
 	}
 
@@ -2026,7 +2027,12 @@ serviceFactories["GameService"] = function()
 				"Collect",
 				math.clamp(2 + math.log(amountNumber + 1) / math.log(10), 2, 12)
 			)
-			local rainDust = self._events:OnCollect(player, amountNumber, Economy.AsNumber(Economy.Production(profile)))
+			local rainDust = self._events:OnCollect(
+				player,
+				profile,
+				amountNumber,
+				Economy.AsNumber(Economy.Production(profile))
+			)
 			if rainDust > 0 then
 				profile.Stardust += rainDust
 				return responseSuccess(

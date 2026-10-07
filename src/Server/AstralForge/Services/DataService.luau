@@ -272,6 +272,8 @@ return function(loadService: (string) -> any)
 			profile.LiveOps = { ManifestVersion = GameConfig.Game.LiveOpsManifestVersion, Convergence = {} }
 		end
 		profile.LiveOps.ManifestVersion = GameConfig.Game.LiveOpsManifestVersion
+		profile.LiveOps.LastServerEventKey =
+			type(profile.LiveOps.LastServerEventKey) == "string" and string.sub(profile.LiveOps.LastServerEventKey, 1, 80) or ""
 		if type(profile.LiveOps.Convergence) ~= "table" then
 			profile.LiveOps.Convergence = {}
 		end
@@ -734,6 +736,7 @@ return function(loadService: (string) -> any)
 			Crafting = getOrderedStore(ServerConfig.CraftingLeaderboardStoreName),
 			ArcadeScore = getOrderedStore(ServerConfig.ArcadeScoreLeaderboardStoreName),
 			BazaarDeals = getOrderedStore(ServerConfig.BazaarDealsLeaderboardStoreName),
+			Events = getOrderedStore(ServerConfig.EventsLeaderboardStoreName),
 			Seasonal = getOrderedStore(ServerConfig.SeasonLeaderboardStoreName),
 		}
 
@@ -852,6 +855,7 @@ return function(loadService: (string) -> any)
 				0,
 				math.floor(tonumber(profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals) or 0)
 			),
+			Events = math.max(0, math.floor(tonumber(profile.Stats and profile.Stats.EventParticipations) or 0)),
 			Seasonal = math.max(0, math.floor(tonumber(profile.Command and profile.Command.SeasonXP) or 0)),
 		}
 		if self._leaderboardPushBusy[userId] then

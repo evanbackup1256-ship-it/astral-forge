@@ -241,6 +241,7 @@ function DataTemplate.New()
 		LiveOps = {
 			ManifestVersion = GameConfig.Game.LiveOpsManifestVersion,
 			Convergence = { EventId = "", Contribution = 0, Claimed = {} },
+			LastServerEventKey = "",
 		},
 
 		DailyShop = { Day = -1, Bought = {} },
@@ -372,6 +373,7 @@ function DataTemplate.New()
 			AnomalyProtocols = 0,
 			AnomalyDirectives = 0,
 			OrdersCompleted = 0,
+			EventParticipations = 0,
 			PowerMoves = 0,
 			ContinuumUpgrades = 0,
 			Joins = 0,

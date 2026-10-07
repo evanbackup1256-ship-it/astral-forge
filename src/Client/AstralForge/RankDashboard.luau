@@ -25,6 +25,7 @@ local BOARD_CATEGORIES = {
 	CratesOpened = "Forge",
 	ArcadeScore = "Arcade",
 	BazaarDeals = "Bazaar",
+	Events = "Events",
 	Seasonal = "Seasonal",
 	Guilds = "Guild",
 }
@@ -36,6 +37,7 @@ local CATEGORY_ORDER = {
 	"Forge",
 	"Arcade",
 	"Bazaar",
+	"Events",
 	"Seasonal",
 	"Prestige",
 	"Social",

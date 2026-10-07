@@ -60,10 +60,78 @@ local service = fs.readFile("src/Server/AstralForge/Services/CoreServices.luau#S
 for _, needle in { "function ServerEventService:Step", "function ServerEventService:OnCollect", "function ServerEventService:State", "function ServerEventService:Start" } do
 	assert(string.find(service, needle, 1, true), "service has " .. needle)
 end
+local bumped = 0
+local ProfileBagMath = {
+	BumpStat = function(profile, key, amount)
+		profile.Stats[key] = (profile.Stats[key] or 0) + amount
+		bumped += amount
+	end,
+}
+local function folder(children)
+	return {
+		WaitForChild = function(_, name)
+			return assert(children[name], `unexpected fixture lookup: {name}`)
+		end,
+	}
+end
+local sharedDataModule = {}
+local sharedData = folder({ SharedData = sharedDataModule })
+local replicatedStorage = folder({ AstralForge = folder({ Shared = sharedData }) })
+local moduleFolder = folder({ ProfileBagMath = {} })
+local scriptFixture = { Parent = { Parent = folder({ Modules = moduleFolder }) } }
+local environment = {
+	game = {
+		GetService = function(_, name)
+			if name == "ReplicatedStorage" then
+				return replicatedStorage
+			end
+			assert(name == "Players", `unexpected service: {name}`)
+			return { GetPlayers = function() return {} end }
+		end,
+	},
+	script = scriptFixture,
+	require = function(module)
+		if module == sharedDataModule then
+			return function(name)
+				assert(name == "ServerEvents")
+				return Events
+			end
+		end
+		assert(module == moduleFolder:WaitForChild("ProfileBagMath"))
+		return ProfileBagMath
+	end,
+}
+local ServerEventService = luau.load(service, { environment = environment })()()
+local eventService = ServerEventService.new({})
+local pilot = { UserId = 42, DisplayName = "Pilot" }
+local eventProfile = { LiveOps = {}, Stats = { EventParticipations = 0 } }
+eventService._state = { Phase = "Live", Id = "MeteorShower", PhaseEndsAt = 100 }
+eventService:OnCollect(pilot, eventProfile, 10, 5)
+eventService:OnCollect(pilot, eventProfile, 20, 5)
+assert(eventProfile.Stats.EventParticipations == 1 and bumped == 1, "one collection event only counts once per live window")
+eventService._state.PhaseEndsAt = 200
+eventService:OnCollect(pilot, eventProfile, 10, 5)
+assert(eventProfile.Stats.EventParticipations == 2 and bumped == 2, "a later live event window counts separately")
+eventService._state = { Phase = "Live", Id = "StardustRain", PhaseEndsAt = 300 }
+eventService:OnCollect(pilot, eventProfile, 0, 5)
+assert(eventProfile.Stats.EventParticipations == 2, "an empty collect does not count as event participation")
+eventService._state = { Phase = "Results", Id = "StardustRain", PhaseEndsAt = 300 }
+eventService:OnCollect(pilot, eventProfile, 10, 5)
+assert(eventProfile.Stats.EventParticipations == 2, "results phase does not count")
+eventService._state = { Phase = "Live", Id = "CommunityForge", PhaseEndsAt = 400 }
+eventService._goal = 1_000_000
+eventService:OnCollect(pilot, eventProfile, 10, 5)
+assert(eventProfile.Stats.EventParticipations == 3, "active community forge participation counts")
+eventService._state.PhaseEndsAt = 500
+eventService._completed = true
+eventService:OnCollect(pilot, eventProfile, 10, 5)
+assert(eventProfile.Stats.EventParticipations == 3, "completed community forge does not count")
+
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 assert(string.find(server, "self._events:Step(deltaTime)", 1, true), "the heartbeat runs the cycle")
 assert(string.match(server, "self%._fluxSurge:Multiplier%(now%)%s*%*%s*self%._events:ProductionMultiplier%(%)"), "production ticks include the event multiplier")
-assert(string.find(server, "self._events:OnCollect(player, amountNumber", 1, true), "collects feed the event")
+assert(string.find(server, "self._events:OnCollect(", 1, true), "collects feed the event")
+assert(string.find(server, "profile,\n\t\t\t\tamountNumber,", 1, true), "event hook receives the saved profile and collected amount")
 assert(string.find(server, "ServerEvent = self._events:State(player)", 1, true), "the snapshot carries the event")
 assert(string.find(server, "function GameService:_payCommunityForge", 1, true), "community payouts")
 local ui = fs.readFile("src/Client/AstralForge/UiCore.luau#serverEventsUi")
@@ -71,4 +139,4 @@ for _, needle in { "local function ServerEventHost", "local function EventPanel"
 	assert(string.find(ui, needle, 1, true), "client has " .. needle)
 end
 
-print("verify_server_events: ok")
+print("verify_server_events: ok (participation counts once per positive live event window)")

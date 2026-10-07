@@ -174,6 +174,7 @@ __defs["PublicPlayerRecord"] = function()
 			OreMined = profile.Stats and profile.Stats.OreMined or 0,
 			ArcadeScore = profile.Arcade and profile.Arcade.Stats and profile.Arcade.Stats.TotalScore or 0,
 			BazaarDeals = profile.Bazaar and profile.Bazaar.Counters and profile.Bazaar.Counters.Deals or 0,
+			EventParticipations = profile.Stats and profile.Stats.EventParticipations or 0,
 			SeasonXP = profile.Command and profile.Command.SeasonXP or 0,
 			ItemCount = itemCount,
 			EquippedItems = equippedItems,
@@ -509,6 +510,7 @@ __defs["GeneralBoardValue"] = function()
 		Combat = "WardenDefeats",
 		Crafting = "OreMined",
 		Seasonal = "SeasonXP",
+		Events = "EventParticipations",
 	}
 
 	function GeneralBoardValue.Of(profile: any, id: string, persist: (any) -> any): number
