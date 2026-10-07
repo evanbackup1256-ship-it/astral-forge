@@ -48,6 +48,7 @@ has(firewall, 'not stringField(payload, "Id", 8, 64)', "listing ID must be bound
 has(config, "BazaarListingStoreName", "a separate durable listing store must be configured")
 has(config, "BazaarListingIndexStoreName", "a separate ordered browse index must be configured")
 has(profile, "EscrowListings = {}", "profile schema must preserve escrow references")
+has(profile, "ListingHistory = {}", "profile schema must preserve the bounded completed-sale history")
 has(profile, "RestoredListings = {}", "profile schema must preserve idempotent returns")
 has(bazaarMath, "validEscrowListing(id, listing)", "profile sanitization must validate escrowed listings")
 
@@ -67,19 +68,23 @@ has(server, "bazaar.EscrowListings[listingId] = normalized", "seller profile mus
 has(server, "bazaar.RestoredListings[listingId] == true", "item return must be idempotent")
 has(server, "function Marketplace.Purchase", "purchase settlement must be implemented")
 has(server, "function Marketplace.ClaimPayout", "seller payout claim must be implemented")
+has(server, "bazaar.EscrowListings[listingId] = nil", "claiming proceeds must free a completed listing slot")
+has(server, "bazaar.ListingHistory[listingId] = history", "claimed sales must remain visible in seller history")
 has(
 	server,
 	"function Marketplace.Mine",
 	"seller history must reconcile durable local records with latest global listing state"
 )
 has(server, "local MY_LIST_PAGE_SIZE = 6", "seller history page size must match the six-card layout")
+has(server, "local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY", "seller history pagination must cover active and archived records")
+has(firewall, 'numberField(payload, "Cursor", 0, 150, true)', "seller pagination firewall must admit the bounded history range")
 has(
 	server,
 	"local latest = readListing(entry.Id) or entry.Listing",
 	"seller history must recover when global state is temporarily unavailable"
 )
 has(server, "bazaar.CompletedPurchases[listing.Id] == true", "delivery must be idempotent")
-has(server, "profile.Bazaar.ClaimedPayouts[listingId] == true", "seller payout must be idempotent")
+has(server, "bazaar.ClaimedPayouts[listingId] == true", "seller payout must be idempotent")
 has(server, "beginPaymentIntent(listingId", "payment intents must be durable before buyer debit")
 has(server, "settlePayment(listingId", "reserved listings must be atomically settled")
 has(server, "indexStore:SetAsync(keyFor(listingId), now)", "active listings must be inserted into the browse index")

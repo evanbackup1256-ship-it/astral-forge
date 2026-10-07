@@ -92,6 +92,7 @@ function DataTemplate.New()
 			Lottery = { PendingPrize = 0 },
 			Contracts = { Day = -1, Baseline = {}, Claimed = {} },
 			EscrowListings = {},
+			ListingHistory = {},
 			RestoredListings = {},
 			PendingPurchases = {},
 			CompletedPurchases = {},

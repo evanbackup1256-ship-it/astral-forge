@@ -68,6 +68,21 @@ local function validEscrowListing(id: any, value: any): any?
 	}
 end
 
+local function validHistoryListing(id: any, value: any): any?
+	if type(value) ~= "table" or value.Status ~= "Sold" or value.PayoutClaimed ~= true then
+		return nil
+	end
+	local activeSnapshot = table.clone(value)
+	activeSnapshot.Status = "Active"
+	local clean = validEscrowListing(id, activeSnapshot)
+	if clean == nil then
+		return nil
+	end
+	clean.Status = "Sold"
+	clean.PayoutClaimed = true
+	return clean
+end
+
 BazaarMath.BANK = table.freeze({
 	SavingsRate = 0.03,
 	CapSeconds = 7200,
@@ -299,6 +314,26 @@ function BazaarMath.Ensure(bag: any): any
 			end
 		end
 	end
+	local historyEntries = {}
+	if type(source.ListingHistory) == "table" then
+		for id, listing in source.ListingHistory do
+			local cleanListing = validHistoryListing(id, listing)
+			if cleanListing then
+				table.insert(historyEntries, cleanListing)
+			end
+		end
+	end
+	table.sort(historyEntries, function(left, right)
+		if left.CreatedAt ~= right.CreatedAt then
+			return left.CreatedAt > right.CreatedAt
+		end
+		return left.Id < right.Id
+	end)
+	local listingHistory = {}
+	for index = 1, math.min(#historyEntries, 100) do
+		local listing = historyEntries[index]
+		listingHistory[listing.Id] = listing
+	end
 	local restoredListings = {}
 	if type(source.RestoredListings) == "table" then
 		local count = 0
@@ -385,6 +420,7 @@ function BazaarMath.Ensure(bag: any): any
 		Lottery = { PendingPrize = persist(if type(source.Lottery) == "table" then source.Lottery.PendingPrize else 0) },
 		Contracts = { Day = math.floor(tonumber(contracts.Day) or -1), Baseline = baseline, Claimed = claimed },
 		EscrowListings = escrowListings,
+		ListingHistory = listingHistory,
 		RestoredListings = restoredListings,
 		PendingPurchases = pendingPurchases,
 		CompletedPurchases = cleanMarkers(source.CompletedPurchases),

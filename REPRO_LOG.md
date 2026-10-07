@@ -147,3 +147,11 @@ The escrow-backed service existed without a player-facing route for browsing off
 Evidence: `verify_bazaar_listing_service` now checks the player page route, seller cursor size, purchase confirmation, exact-price disclosure, fee text and buy/sell/cancel/payout action wiring. The listing-specific verifier, `verify_server_events`, Luau compile sweep, formatter and Argon project build passed after the changes. These checks do not render the page or exercise a live DataStore/multi-player transfer.
 
 Open: buy orders, offers, price history, durable buyer receipts and stale-index cleanup; live item/currency transfer, payout retry and save recovery; responsive phone/controller/VR review and published-server parity. The full goal remains unsigned.
+
+## BUG-008: Claimed Bazaar sales consumed active-listing capacity
+
+Reproduction: `Marketplace.Create` counts the seller's `Bazaar.EscrowListings`, while `Marketplace.ClaimPayout` credited proceeds but left the completed listing in that map. After enough successful sales, the “50 active-listing limit” could reject new listings even when the seller had no active offers. Expected: a claimed sale frees active escrow capacity and remains visible in bounded seller history. Actual: the paid record continued to count as escrow.
+
+Correction: payout settlement now archives the validated listing snapshot in `ListingHistory`, records the claim marker, and removes that ID from active `EscrowListings` in the same profile mutation. `BazaarMath.Ensure` keeps the newest 100 valid claimed-sale records deterministically; the seller-history endpoint pages across those and up to 50 active escrow records.
+
+Evidence: `verify_bazaar_listing_math` executes profile sanitization fixtures for active-vs-archived separation and the 100-record bound; `verify_bazaar_listing_service` checks the payout write ordering, archive, slot release, and 0–150 cursor validation. Live DataStore/cross-server retries and player UI rendering remain unverified.

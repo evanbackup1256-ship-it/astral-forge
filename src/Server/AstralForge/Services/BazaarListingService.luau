@@ -35,6 +35,8 @@ export type Context = {
 }
 
 local MAX_SELLER_LISTINGS = 50
+local MAX_SELLER_HISTORY = 100
+local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY
 local LIST_PAGE_SIZE = 20
 local MY_LIST_PAGE_SIZE = 6
 local MAX_PRICE_DIGITS = 80
@@ -391,11 +393,18 @@ return function(context: Context)
 		end
 		local result = context.mutate(player, function(profile)
 			profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
-			if profile.Bazaar.ClaimedPayouts[listingId] == true then
+			local bazaar = profile.Bazaar
+			if bazaar.ClaimedPayouts[listingId] == true then
 				return responseSuccess("Those sale proceeds were already collected.", { AlreadyClaimed = true })
 			end
 			profile.Cash = Economy.Add(profile.Cash, listing.Price)
-			profile.Bazaar.ClaimedPayouts[listingId] = true
+			bazaar.ClaimedPayouts[listingId] = true
+			local history = table.clone(bazaar.EscrowListings[listingId] or listing)
+			history.Status = "Sold"
+			history.PayoutClaimed = true
+			bazaar.EscrowListings[listingId] = nil
+			bazaar.ListingHistory[listingId] = history
+			profile.Bazaar = BazaarMath.Ensure(bazaar)
 			return responseSuccess("Sale proceeds added to your Flux balance.", { Price = tostring(listing.Price) })
 		end)
 		if not result.ok then
@@ -650,7 +659,7 @@ return function(context: Context)
 
 	function Marketplace.Mine(player: Player, cursorValue: any): Reply
 		local cursor = if type(cursorValue) == "number" and cursorValue == cursorValue
-			then math.clamp(math.floor(cursorValue), 0, MAX_SELLER_LISTINGS)
+			then math.clamp(math.floor(cursorValue), 0, MAX_SELLER_CURSOR)
 			else 0
 		local profile = context.get(player)
 		if type(profile) ~= "table" then
@@ -659,11 +668,21 @@ return function(context: Context)
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
 		local saved = profile.Bazaar
 		local entries = {}
+		local entryById = {}
 		for id, listing in saved.EscrowListings do
-			entries[#entries + 1] = { Id = id, CreatedAt = listing.CreatedAt, Listing = listing }
+			entryById[id] = { Id = id, CreatedAt = listing.CreatedAt, Listing = listing }
+		end
+		for id, listing in saved.ListingHistory do
+			entryById[id] = entryById[id] or { Id = id, CreatedAt = listing.CreatedAt, Listing = listing }
+		end
+		for _, entry in entryById do
+			entries[#entries + 1] = entry
 		end
 		table.sort(entries, function(left, right)
-			return left.CreatedAt > right.CreatedAt
+			if left.CreatedAt ~= right.CreatedAt then
+				return left.CreatedAt > right.CreatedAt
+			end
+			return left.Id < right.Id
 		end)
 
 		local mine = {}
@@ -673,6 +692,7 @@ return function(context: Context)
 			local latest = readListing(entry.Id) or entry.Listing
 			mine[#mine + 1] = {
 				Id = latest.Id,
+				SellerUserId = latest.SellerUserId,
 				ItemUid = latest.ItemUid,
 				Item = latest.Item,
 				Price = latest.Price,

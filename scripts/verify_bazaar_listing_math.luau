@@ -1,5 +1,6 @@
 --!strict
 local BazaarListingMath = require("../src/Server/AstralForge/Modules/BazaarListingMath")
+local BazaarMath = require("../src/Server/AstralForge/Modules/BazaarMath")
 
 local function expect(condition: boolean, message: string)
 	if not condition then
@@ -62,11 +63,45 @@ expect(
 expect(BazaarListingMath.ClaimPayout(payout, 10) == nil, "seller payout is idempotent")
 expect(BazaarListingMath.ClaimPayout(sold, 11) == nil, "buyer cannot claim seller proceeds")
 
+local activeEscrow = table.clone(base)
+activeEscrow.Id = "LISTING-ACTIVE"
+activeEscrow.Status = "Escrowed"
+local archivedSale = table.clone(sold)
+archivedSale.Id = "LISTING-SOLD"
+archivedSale.PayoutClaimed = true
+local sellerBazaar = BazaarMath.Ensure({
+	EscrowListings = { [activeEscrow.Id] = activeEscrow },
+	ListingHistory = { [archivedSale.Id] = archivedSale },
+})
+expect(sellerBazaar.EscrowListings[activeEscrow.Id] ~= nil, "an unsettled item remains in the seller's active escrow")
+expect(sellerBazaar.EscrowListings[archivedSale.Id] == nil, "a claimed sale does not consume an active listing slot")
+expect(
+	sellerBazaar.ListingHistory[archivedSale.Id] ~= nil
+		and sellerBazaar.ListingHistory[archivedSale.Id].Status == "Sold"
+		and sellerBazaar.ListingHistory[archivedSale.Id].PayoutClaimed,
+	"a claimed sale remains as a validated seller-history record"
+)
+
+local historyInput = {}
+for index = 1, 105 do
+	local record = table.clone(archivedSale)
+	record.Id = string.format("LISTING-H%03d", index)
+	record.CreatedAt = 100 + index
+	historyInput[record.Id] = record
+end
+local boundedHistory = BazaarMath.Ensure({ ListingHistory = historyInput }).ListingHistory
+local historyCount, oldestSaved = 0, false
+for _, record in boundedHistory do
+	historyCount += 1
+	oldestSaved = oldestSaved or record.Id == "LISTING-H006"
+end
+expect(historyCount == 100 and oldestSaved, "only the newest one hundred valid sales are retained deterministically")
+
 local expiring, expiringErr = BazaarListingMath.Reserve(normalized :: any, 11, "TOKEN-0002", 990, 120)
 expect(expiring ~= nil and expiring.LeaseUntil == 1000, "lease never extends beyond listing expiry")
 local cancelled = BazaarListingMath.ReleaseExpired(expiring :: any, 1000)
 expect(cancelled ~= nil and cancelled.Status == "Cancelled", "expired listing with lease is retired")
 
 print(
-	"[TEST] Bazaar listing math passed | price sanitization, self-buy protection, bounded leases, compare-and-transition, sale idempotency, seller-only payout"
+	"[TEST] Bazaar listing math passed | price sanitization, self-buy protection, bounded leases, sale idempotency and archived payout history"
 )

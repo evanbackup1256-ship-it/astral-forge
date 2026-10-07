@@ -270,7 +270,7 @@ local function BazaarListings(props: Props)
 		if busyRef.current or loadingMine then
 			return
 		end
-		local requestedCursor = math.clamp(math.floor(cursor or 0), 0, 50)
+		local requestedCursor = math.clamp(math.floor(cursor or 0), 0, 150)
 		mineGeneration.current += 1
 		local generation = mineGeneration.current
 		setLoadingMine(true)

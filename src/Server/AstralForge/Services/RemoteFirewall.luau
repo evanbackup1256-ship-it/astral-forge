@@ -631,7 +631,7 @@ return function(loadService: (string) -> any)
 				return false, "invalid bazaar listing"
 			end
 		elseif action == Protocol.Actions.GetMyBazaarListings then
-			if not numberField(payload, "Cursor", 0, 50, true) then
+			if not numberField(payload, "Cursor", 0, 150, true) then
 				return false, "invalid Bazaar listing page"
 			end
 			for key in payload do
