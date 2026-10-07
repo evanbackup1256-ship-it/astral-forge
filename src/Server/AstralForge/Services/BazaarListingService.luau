@@ -39,6 +39,7 @@ local MAX_SELLER_HISTORY = 100
 local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY
 local MAX_BUYER_HISTORY = 100
 local LIST_PAGE_SIZE = 20
+local MAX_INDEX_SCAN_PAGES = 2
 local MY_LIST_PAGE_SIZE = 6
 local MAX_PRICE_DIGITS = 80
 local LIFETIME_SECONDS = 7 * 86400
@@ -63,14 +64,19 @@ return function(context: Context)
 		return "L_" .. id
 	end
 
-	local function readListing(id: string): any?
+	local function readListingState(id: string): (any?, boolean)
 		local ok, value = pcall(function()
 			return listingStore:GetAsync(keyFor(id))
 		end)
 		if not ok then
-			return nil
+			return nil, false
 		end
-		return BazaarListingMath.Normalize(value)
+		return BazaarListingMath.Normalize(value), true
+	end
+
+	local function readListing(id: string): any?
+		local listing = readListingState(id)
+		return listing
 	end
 
 	local function writeListing(id: string, transform: (any?) -> any?): (boolean, any?)
@@ -651,22 +657,53 @@ return function(context: Context)
 			return responseError("The Bazaar listings could not load. Please retry.")
 		end
 		local listings = {}
-		local rows = pages:GetCurrentPage()
-		for _, row in rows do
-			local id = if type(row.key) == "string" then string.gsub(row.key, "^L_", "") else ""
-			if id ~= "" then
-				local listing = readListing(id)
-				if listing and listing.Status == "Active" and listing.ExpiresAt > os.time() then
-					listings[#listings + 1] = {
-						Id = listing.Id,
-						SellerUserId = listing.SellerUserId,
-						ItemUid = listing.ItemUid,
-						Item = listing.Item,
-						Price = listing.Price,
-						CreatedAt = listing.CreatedAt,
-						ExpiresAt = listing.ExpiresAt,
-					}
+		local now = os.time()
+		local pagesScanned = 0
+		while #listings < LIST_PAGE_SIZE and pagesScanned < MAX_INDEX_SCAN_PAGES do
+			pagesScanned += 1
+			local readFailed = false
+			for _, row in pages:GetCurrentPage() do
+				local key = row.key
+				if type(key) == "string" then
+					local id = string.match(key, "^L_(.+)$")
+					if id == nil or #id < 8 or #id > 64 then
+						pcall(function()
+							indexStore:RemoveAsync(key)
+						end)
+					else
+						local listing, loaded = readListingState(id)
+						if not loaded then
+							readFailed = true
+							break
+						elseif BazaarListingMath.ShouldRemoveIndexEntry(listing, now) then
+							pcall(function()
+								indexStore:RemoveAsync(key)
+							end)
+						elseif listing and listing.Status == "Active" then
+							listings[#listings + 1] = {
+								Id = listing.Id,
+								SellerUserId = listing.SellerUserId,
+								ItemUid = listing.ItemUid,
+								Item = listing.Item,
+								Price = listing.Price,
+								CreatedAt = listing.CreatedAt,
+								ExpiresAt = listing.ExpiresAt,
+							}
+						end
+					end
 				end
+				if #listings >= LIST_PAGE_SIZE then
+					break
+				end
+			end
+			if readFailed or #listings >= LIST_PAGE_SIZE or pages.IsFinished then
+				break
+			end
+			local advanced = pcall(function()
+				pages:AdvanceToNextPageAsync()
+			end)
+			if not advanced then
+				break
 			end
 		end
 		return responseSuccess("Bazaar listings loaded.", { Listings = listings })

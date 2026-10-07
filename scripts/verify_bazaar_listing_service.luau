@@ -88,6 +88,11 @@ has(server, "function Marketplace.Purchases", "buyers must be able to load saved
 has(server, "bazaar.PurchaseHistory[listing.Id] =", "delivery must persist a receipt in the buyer profile")
 has(server, "PurchasedAt = listing.SoldAt or acquiredAt", "receipt timestamp must use server settlement time")
 has(server, "local MY_LIST_PAGE_SIZE = 6", "seller history page size must match the six-card layout")
+has(server, "local MAX_INDEX_SCAN_PAGES = 2", "index cleanup scanning must have a fixed per-request work budget")
+has(server, "readListingState(id)", "index cleanup must distinguish missing records from DataStore failures")
+has(server, "BazaarListingMath.ShouldRemoveIndexEntry(listing, now)", "browse must prune only stale terminal records")
+has(server, "indexStore:RemoveAsync(key)", "stale ordered-index entries must be deleted")
+has(server, "if not loaded then", "transient listing reads must stop cleanup without deleting index data")
 has(
 	server,
 	"local MAX_SELLER_CURSOR = MAX_SELLER_LISTINGS + MAX_SELLER_HISTORY",

@@ -23,6 +23,10 @@ local base = {
 
 local normalized = BazaarListingMath.Normalize(base)
 expect(normalized ~= nil and normalized.Price == base.Price, "normalization preserves big-integer currency text")
+expect(not BazaarListingMath.ShouldRemoveIndexEntry(normalized, 500), "active unexpired records remain indexed")
+expect(BazaarListingMath.ShouldRemoveIndexEntry(normalized, 1000), "expired active records are prunable")
+expect(BazaarListingMath.ShouldRemoveIndexEntry(nil, 500), "missing records are prunable")
+expect(not BazaarListingMath.ShouldRemoveIndexEntry(nil, math.huge), "invalid cleanup timestamps fail closed")
 local dirty = table.clone(base)
 dirty.Price = -10
 expect(BazaarListingMath.Normalize(dirty) == nil, "negative numeric price is rejected")
@@ -53,6 +57,8 @@ released = BazaarListingMath.ReleaseExpired(reserved, 320)
 expect(released ~= nil and released.Status == "Active" and released.BuyerUserId == nil, "expired lease is reusable")
 local sold, settleError = BazaarListingMath.Settle(reserved, 11, "TOKEN-0001", 250)
 expect(sold ~= nil and settleError == "" and sold.Status == "Sold", "valid reserved buyer settles")
+expect(BazaarListingMath.ShouldRemoveIndexEntry(sold, 250), "sold records are removed from the browse index")
+expect(not BazaarListingMath.ShouldRemoveIndexEntry(reserved, 250), "reserved records stay indexed during settlement")
 expect(BazaarListingMath.Settle(sold, 11, "TOKEN-0001", 251) == nil, "sold listing cannot settle twice")
 
 local payout = BazaarListingMath.ClaimPayout(sold, 10)
@@ -134,5 +140,5 @@ local cancelled = BazaarListingMath.ReleaseExpired(expiring :: any, 1000)
 expect(cancelled ~= nil and cancelled.Status == "Cancelled", "expired listing with lease is retired")
 
 print(
-	"[TEST] Bazaar listing math passed | price sanitization, self-buy protection, bounded leases, sale idempotency, seller archive and buyer receipt retention"
+	"[TEST] Bazaar listing math passed | price/self-buy guards, bounded leases, sale idempotency, seller archive, buyer receipts and index cleanup"
 )

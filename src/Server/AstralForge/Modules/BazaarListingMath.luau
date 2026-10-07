@@ -138,6 +138,23 @@ function BazaarListingMath.Normalize(value: any): Listing?
 	}
 end
 
+function BazaarListingMath.ShouldRemoveIndexEntry(value: any, now: number): boolean
+	if finiteInteger(now, 0, 2 ^ 31 - 1) == nil then
+		return false
+	end
+	local listing = BazaarListingMath.Normalize(value)
+	if listing == nil then
+		return true
+	end
+	if listing.Status == "Escrowed" or listing.Status == "Reserved" then
+		return false
+	end
+	if listing.Status == "Active" then
+		return listing.ExpiresAt <= now
+	end
+	return true
+end
+
 function BazaarListingMath.CanReserve(listing: Listing, buyerUserId: number, now: number): (boolean, string)
 	if finiteInteger(buyerUserId, 1, 2 ^ 31 - 1) == nil or finiteInteger(now, 0, 2 ^ 31 - 1) == nil then
 		return false, "Invalid purchase request."
@@ -214,8 +231,8 @@ function BazaarListingMath.Settle(
 	nextListing.Status = "Sold"
 	nextListing.Revision += 1
 	nextListing.SoldAt = now
-		nextListing.PayoutClaimed = false
-		nextListing.PaymentIntent = listing.PaymentIntent
+	nextListing.PayoutClaimed = false
+	nextListing.PaymentIntent = listing.PaymentIntent
 	nextListing.LeaseToken = nil
 	return nextListing, ""
 end

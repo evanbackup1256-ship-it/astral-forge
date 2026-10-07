@@ -150,6 +150,8 @@ Open: buy orders, offers, price history, stale-index cleanup; live item/currency
 
 Buyer receipts are now stored in the buyer's profile in the same mutation that inserts the purchased item and marks it complete. A bounded read-only six-row cursor route returns the latest 100 sanitized receipts, and the Bazaar includes a Bought tab. `verify_bazaar_listing_math` checks invalid-record rejection and deterministic retention; `verify_bazaar_listing_service` checks route, rate limit, persistence, and UI wiring. Studio purchase recovery and rendered receipt review remain open.
 
+The ordered Bazaar index could let missing or terminal records permanently occupy the first page and hide newer active offers. `Marketplace.Latest` now scans at most two pages, removes malformed, missing, expired, sold, and cancelled IDs, preserves escrowed/reserved entries, and stops without deletion if an authoritative listing read fails. Pure state cases and static route-budget checks pass; live OrderedDataStore paging, quotas, and races remain untested.
+
 ## BUG-008: Claimed Bazaar sales consumed active-listing capacity
 
 Reproduction: `Marketplace.Create` counts the seller's `Bazaar.EscrowListings`, while `Marketplace.ClaimPayout` credited proceeds but left the completed listing in that map. After enough successful sales, the “50 active-listing limit” could reject new listings even when the seller had no active offers. Expected: a claimed sale frees active escrow capacity and remains visible in bounded seller history. Actual: the paid record continued to count as escrow.
