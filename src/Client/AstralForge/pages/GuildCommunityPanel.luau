@@ -295,6 +295,79 @@ local function GuildCommunityPanel(_param)
 			})
 		end
 	end
+	local settingsAccessRows = {}
+	local memberCount = 0
+	for _ in guild.Members or {} do
+		memberCount += 1
+	end
+	local memberCap = math.floor(tonumber(settings.MemberCap) or tonumber(settings.MemberCapMax) or 20)
+	local memberCapMax = math.floor(tonumber(settings.MemberCapMax) or 20)
+	local memberCapMin = math.max(2, memberCount)
+	local joinMode = if settings.JoinMode == "Closed" then "Closed" else "Open"
+	local function saveAccessSetting(key, value)
+		local previous = table.clone(settings)
+		local updated = table.clone(settings)
+		updated[key] = value
+		setSettings(updated)
+		run("SetGuildSettings", { Settings = { [key] = value } }, function(result)
+			if not result.ok then
+				setSettings(previous)
+			end
+		end)
+	end
+	if leader then
+		settingsAccessRows[1] = React.createElement(Button, {
+			text = if joinMode == "Open" then "JOIN · OPEN" else "JOIN · CLOSED",
+			onClick = function()
+				saveAccessSetting("JoinMode", if joinMode == "Open" then "Closed" else "Open")
+			end,
+			color = if joinMode == "Open" then Palette.mint else Palette.panelSoft,
+			textColor = if joinMode == "Open" then Palette.ink else Palette.cream,
+			size = UDim2.new(0.46, -4, 0, 38),
+			position = UDim2.fromOffset(0, 0),
+			disabled = busy ~= "",
+			reducedMotion = reducedMotion,
+		})
+		settingsAccessRows[2] = React.createElement(
+			"frame",
+			{
+				Name = "MemberCapControl",
+				Size = UDim2.new(0.54, 0, 0, 38),
+				Position = UDim2.new(0.46, 4, 0, 0),
+				BackgroundTransparency = 1,
+			},
+			React.createElement(Button, {
+				text = "−",
+				onClick = function()
+					saveAccessSetting("MemberCap", memberCap - 1)
+				end,
+				color = Palette.panelSoft,
+				size = UDim2.fromOffset(36, 38),
+				position = UDim2.fromOffset(0, 0),
+				disabled = busy ~= "" or memberCap <= memberCapMin,
+				reducedMotion = reducedMotion,
+			}),
+			React.createElement(Text, {
+				value = `{memberCount} / {memberCap} MEMBERS`,
+				size = 10,
+				color = Palette.cream,
+				alignX = Enum.TextXAlignment.Center,
+				position = UDim2.fromOffset(38, 0),
+				sizeConstraint = UDim2.new(1, -76, 0, 38),
+			}),
+			React.createElement(Button, {
+				text = "+",
+				onClick = function()
+					saveAccessSetting("MemberCap", memberCap + 1)
+				end,
+				color = Palette.panelSoft,
+				size = UDim2.fromOffset(36, 38),
+				position = UDim2.new(1, -36, 0, 0),
+				disabled = busy ~= "" or memberCap >= memberCapMax,
+				reducedMotion = reducedMotion,
+			})
+		)
+	end
 	local sections = {
 		{
 			id = "guild-community-back",
@@ -472,7 +545,7 @@ local function GuildCommunityPanel(_param)
 	if leader then
 		table.insert(sections, {
 			id = "guild-community-settings",
-			height = 150,
+			height = 210,
 			element = React.createElement(
 				Panel,
 				{ size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14, clips = false },
@@ -482,16 +555,21 @@ local function GuildCommunityPanel(_param)
 					{ Size = UDim2.new(1, 0, 0, 42), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 },
 					settingsRows
 				),
+				React.createElement(
+					"frame",
+					{ Size = UDim2.new(1, 0, 0, 38), Position = UDim2.fromOffset(0, 72), BackgroundTransparency = 1 },
+					settingsAccessRows
+				),
 				React.createElement(Text, {
 					value = "Guild name",
 					size = 11,
 					color = Palette.muted,
-					position = UDim2.fromOffset(0, 78),
+					position = UDim2.fromOffset(0, 118),
 					sizeConstraint = UDim2.new(1, 0, 0, 16),
 				}),
 				input("3–28 letters, numbers, spaces, - or _", guildNameDraft, function(value)
 					setGuildNameDraft(string.sub(value, 1, 28))
-				end, 40, UDim2.fromOffset(0, 98), UDim2.new(1, -142, 0, 40)),
+				end, 40, UDim2.fromOffset(0, 138), UDim2.new(1, -142, 0, 40)),
 				React.createElement(Button, {
 					text = "SAVE NAME",
 					onClick = function()
@@ -500,7 +578,7 @@ local function GuildCommunityPanel(_param)
 					color = Palette.violet,
 					textColor = Palette.cream,
 					size = UDim2.fromOffset(132, 40),
-					position = UDim2.new(1, -132, 0, 98),
+					position = UDim2.new(1, -132, 0, 138),
 					disabled = busy ~= "" or #guildNameDraft < 3,
 					reducedMotion = reducedMotion,
 				})

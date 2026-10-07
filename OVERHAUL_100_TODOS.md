@@ -105,6 +105,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 - [ ] 75. Add persistent announcement editing, pin/archive/expiry, attribution, and notifications.
 - [ ] 76. Complete guild logo selection, moderation, caching, fallback, and change history.
 - [ ] 77. Complete configurable join mode, member cap, and role permission matrix.
+  - Partial: leader-managed Open/Closed recruitment and a configurable cap are implemented and boundary-tested; the per-action role permission matrix and live multiplayer verification remain open.
 - [ ] 78. Define and verify guild tax, treasury, and diplomacy rules.
 - [ ] 79. Complete rename reservation, cost, cooldown, audit log, and member notification.
 - [ ] 80. Review Guild UI on phone, desktop, controller, and with long names/large rosters.

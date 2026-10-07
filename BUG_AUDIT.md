@@ -84,14 +84,15 @@ Status: partial implementation only. The respec action has not been run against 
 Source owners/integration points: CoreServices#GuildService; OpsMath#GuildMath; SocialProgression; PagesSocial#GuildView.
 Required audit: Membership races, deleted documents, roles, contributions, disband, leader succession.
 Existing candidate evidence: verify_busy_guild_txn; verify_guild_math; verify_guild_goal_math; verify_guild_document_lifecycle. Coverage must be inspected before those tests support sign-off.
-Status: pending full reproduction, adversarial tests, cross-system tests and applicable visual evidence.
+Progress GUILD-ACCESS-001: leaders can set Open/Closed recruitment and a roster cap between 2 and the existing global maximum. Join policy and cap are checked inside the guild UpdateAsync transform; legacy records default to Open/global cap. `verify_guild_access_math` exercises defaults, closed/full joins, existing-member continuity, malformed/fractional/out-of-range caps and roster shrink guards. The feature is not yet present in the confirmed main Studio DataModel; direct UI, multiplayer join races and live DataStore behavior remain open.
+Status: partial implementation; membership races, deleted documents, roles, contributions, disband, succession, live persistence and applicable visual evidence remain open.
 
 ### SYS-11: Guild announcements, chat, logos and governance
 
 Source owners/integration points: GuildCommunity; CoreServices#GuildService; ServerServices; RemoteFirewall; Protocol; PagesSocial#GuildView; pages/GuildCommunityPanel.
 Required audit: Filtering, permissions, persistence, expiry, edits, moderation, rename reservation and tax rules.
 Existing evidence: GuildCommunity now supplies persistent filtered chat/history, announcement lifecycle, leader-controlled community settings, logo submission/review, moderation, MessagingService publication, and leader rename. Protocol, firewall, SessionGate grants, ServerServices and GuildView are wired together. `scripts/verify_guild_community_wire.luau` checks this chain and the full offline suite/build pass.
-Status: partial implementation; live TextService/DataStore/MessagingService, multi-server moderation, visual interaction, name reservation/cost/cooldown/history, role permission matrix, tax, and diplomacy remain unverified or missing.
+Status: partial implementation; live TextService/DataStore/MessagingService, multi-server moderation, visual interaction, name reservation/cost/cooldown/history, per-action role permission matrix, tax, and diplomacy remain unverified or missing. GUILD-ACCESS-001 adds leader-managed join mode/member cap; it does not complete the broader settings matrix.
 
 ### SYS-12: Ranks and leaderboards
 

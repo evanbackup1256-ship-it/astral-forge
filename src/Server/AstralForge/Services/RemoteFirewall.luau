@@ -811,13 +811,27 @@ return function(loadService: (string) -> any)
 				or (payload.Settings.ChatEnabled ~= nil and type(payload.Settings.ChatEnabled) ~= "boolean")
 				or (payload.Settings.AnnouncementsEnabled ~= nil and type(payload.Settings.AnnouncementsEnabled) ~= "boolean")
 				or (payload.Settings.LogoEnabled ~= nil and type(payload.Settings.LogoEnabled) ~= "boolean")
+				or (payload.Settings.JoinMode ~= nil and payload.Settings.JoinMode ~= "Open" and payload.Settings.JoinMode ~= "Closed")
+				or (
+					payload.Settings.MemberCap ~= nil
+					and not numberField(payload.Settings, "MemberCap", 2, GameConfig.Guild.MaxMembers, true)
+				)
 			then
 				return false, "invalid guild settings"
 			end
 			local count = 0
 			for key in payload.Settings do
 				count += 1
-				if count > 3 or (key ~= "ChatEnabled" and key ~= "AnnouncementsEnabled" and key ~= "LogoEnabled") then
+				if
+					count > 5
+					or (
+						key ~= "ChatEnabled"
+						and key ~= "AnnouncementsEnabled"
+						and key ~= "LogoEnabled"
+						and key ~= "JoinMode"
+						and key ~= "MemberCap"
+					)
+				then
 					return false, "invalid guild settings"
 				end
 			end

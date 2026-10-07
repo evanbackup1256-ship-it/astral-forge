@@ -1056,6 +1056,7 @@ __defs["GuildService"] = function()
 		local GuildMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildMath")
 		local GuildGoalMath =
 			require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("OpsMath"))("GuildGoalMath")
+		local GuildAccessMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("GuildAccessMath"))
 		local GameConfig =
 			require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 		local OmegaMath =
@@ -1064,6 +1065,19 @@ __defs["GuildService"] = function()
 		local Social = require(game.ReplicatedStorage.AstralForge.Shared.SocialProgression)(OmegaMath)
 		local GuildService = {}
 		GuildService.__index = GuildService
+		type JoinMode = "Open" | "Closed"
+		type GuildAccessSettings = {
+			JoinMode: JoinMode,
+			MemberCap: number,
+			MemberCapMax: number,
+		}
+		type GuildAccessRequest = {
+			JoinMode: JoinMode?,
+			MemberCap: number?,
+		}
+		type GuildProfile = {
+			Guild: { Id: string }?,
+		}
 
 		local function finiteNonNegative(value): number
 			return GuildMath.FiniteNonNegative(value)
@@ -1500,9 +1514,9 @@ __defs["GuildService"] = function()
 			if not doc then
 				return false, "No guild has that tag."
 			end
-			local blockedFull = false
+			local joinFailure: string? = nil
 			local ok, message, updated = self:_update(doc.Id, function(guild)
-				blockedFull = false
+				joinFailure = nil
 				local key = tostring(player.UserId)
 				if guild.Members[key] then
 					return guild
@@ -1511,8 +1525,15 @@ __defs["GuildService"] = function()
 				for _ in guild.Members do
 					count += 1
 				end
-				if count >= GameConfig.Guild.MaxMembers then
-					blockedFull = true
+				local canJoin, joinError = GuildAccessMath.CanJoin(
+					guild.JoinMode,
+					count,
+					guild.MemberCap,
+					GameConfig.Guild.MaxMembers,
+					false
+				)
+				if not canJoin then
+					joinFailure = joinError
 					return nil
 				end
 				guild.Members[key] = {
@@ -1524,10 +1545,7 @@ __defs["GuildService"] = function()
 				return guild
 			end)
 			if not ok then
-				if blockedFull then
-					return false, "That guild is full."
-				end
-				return false, message
+				return false, joinFailure or message
 			end
 			local membership = updated.Members[tostring(player.UserId)]
 			if not membership then
@@ -1536,6 +1554,66 @@ __defs["GuildService"] = function()
 			profile.Guild =
 				{ Id = updated.Id, Role = membership.Role or "Member", JoinedAt = os.time(), Tag = updated.Tag }
 			return true, "Joined " .. updated.Name .. ".", updated
+		end
+
+		function GuildService:GetAccessSettings(guildId: string): GuildAccessSettings?
+			local guild = self:GetPublic(guildId)
+			if not guild then
+				return nil
+			end
+			local mode = GuildAccessMath.NormalizeJoinMode(guild.JoinMode)
+			local memberCap = GuildAccessMath.NormalizeMemberCap(guild.MemberCap, 0, GameConfig.Guild.MaxMembers)
+			return {
+				JoinMode = mode or "Open",
+				MemberCap = memberCap or GameConfig.Guild.MaxMembers,
+				MemberCapMax = GameConfig.Guild.MaxMembers,
+			}
+		end
+
+		function GuildService:SetAccessSettings(
+			player: Player,
+			profile: GuildProfile,
+			requested: GuildAccessRequest
+		): (boolean, string)
+			local guildId = profile.Guild and profile.Guild.Id or ""
+			local failure: string? = nil
+			local ok, message = self:_update(guildId, function(guild)
+				failure = nil
+				local actor = guild.Members[tostring(player.UserId)]
+				if not actor or actor.Role ~= "Leader" then
+					failure = "Only the guild leader can change guild access settings."
+					return nil
+				end
+				if requested.JoinMode ~= nil then
+					local mode, modeError = GuildAccessMath.NormalizeJoinMode(requested.JoinMode)
+					if not mode then
+						failure = modeError
+						return nil
+					end
+					guild.JoinMode = mode
+				end
+				if requested.MemberCap ~= nil then
+					local memberCount = 0
+					for _ in guild.Members do
+						memberCount += 1
+					end
+					local cap, capError = GuildAccessMath.NormalizeMemberCap(
+						requested.MemberCap,
+						memberCount,
+						GameConfig.Guild.MaxMembers
+					)
+					if not cap then
+						failure = capError
+						return nil
+					end
+					guild.MemberCap = cap
+				end
+				return guild
+			end)
+			if not ok then
+				return false, failure or message or "Could not update guild access settings."
+			end
+			return true, "Guild access settings saved."
 		end
 
 		function GuildService:Leave(player, profile)

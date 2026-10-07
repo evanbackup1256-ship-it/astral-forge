@@ -411,7 +411,14 @@ function GuildCommunity:Handle(player: Player, action: string, payload: any)
 	self:_watch(guildId)
 
 	if action == "GetGuildSettings" then
-		return { ok = true, Settings = copy(document.Settings) }
+		local settings = copy(document.Settings)
+		local access = self._guilds:GetAccessSettings(guildId)
+		if access then
+			for key, value in access do
+				settings[key] = value
+			end
+		end
+		return { ok = true, Settings = settings }
 	end
 	if action == "GetGuildLogoReview" then
 		if role ~= "Leader" then
@@ -514,6 +521,28 @@ function GuildCommunity:Handle(player: Player, action: string, payload: any)
 			return { ok = false, error = "Only the guild leader can change guild settings." }
 		end
 		local requested = if type(payload.Settings) == "table" then payload.Settings else {}
+		local hasAccessSettings = requested.JoinMode ~= nil or requested.MemberCap ~= nil
+		local hasCommunitySettings = requested.ChatEnabled ~= nil
+			or requested.AnnouncementsEnabled ~= nil
+			or requested.LogoEnabled ~= nil
+		if hasAccessSettings and hasCommunitySettings then
+			return { ok = false, error = "Save guild access and community switches separately." }
+		end
+		if hasAccessSettings then
+			local saved, message = self._guilds:SetAccessSettings(player, profile, requested)
+			if not saved then
+				return { ok = false, error = message }
+			end
+			local settings = copy(document.Settings)
+			local access = self._guilds:GetAccessSettings(guildId)
+			if access then
+				for key, value in access do
+					settings[key] = value
+				end
+			end
+			self:_broadcast(guildId, { Type = "GuildSettings", GuildId = guildId, Settings = settings })
+			return { ok = true, message = message, Settings = settings }
+		end
 		local saved, result = self:_update(guildId, function(doc)
 			for key, value in requested do
 				if DEFAULT_SETTINGS[key] ~= nil and type(value) == "boolean" then
@@ -525,8 +554,15 @@ function GuildCommunity:Handle(player: Player, action: string, payload: any)
 		if not saved then
 			return { ok = false, error = result }
 		end
-		self:_broadcast(guildId, { Type = "GuildSettings", GuildId = guildId, Settings = result })
-		return { ok = true, message = "Guild settings saved.", Settings = result }
+		local settings = copy(result)
+		local access = self._guilds:GetAccessSettings(guildId)
+		if access then
+			for key, value in access do
+				settings[key] = value
+			end
+		end
+		self:_broadcast(guildId, { Type = "GuildSettings", GuildId = guildId, Settings = settings })
+		return { ok = true, message = "Guild settings saved.", Settings = settings }
 	end
 
 	if action == "CreateGuildAnnouncement" or action == "EditGuildAnnouncement" then

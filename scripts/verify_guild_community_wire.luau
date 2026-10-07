@@ -62,7 +62,13 @@ contains(community, "#encoded > 900", "Cross-server messages must stay below Rob
 contains(community, "SpeakerUserId", "Guild chat must preserve author identity")
 contains(community, "AnnouncementsEnabled", "Guild announcement settings missing")
 contains(community, "LogoEnabled", "Guild logo settings missing")
+contains(community, "GetAccessSettings", "Guild access settings must be returned to the leader UI")
+contains(community, "SetAccessSettings", "Guild access settings must route through the authoritative guild store")
 contains(guildService, "function GuildService:Rename", "Guild rename service missing")
+contains(guildService, "function GuildService:SetAccessSettings", "Guild access mutation must be server-owned")
+contains(guildService, "GuildAccessMath.CanJoin", "Join policy must be checked inside the atomic guild update")
+contains(firewall, 'payload.Settings.JoinMode ~= "Closed"', "Guild join-mode payload must be validated")
+contains(firewall, '"MemberCap"', "Guild member-cap payload must be validated")
 contains(server, "filter:Apply", "New guild names and renames must be broadcast-filtered before saving")
 contains(guildPage, '"Community"', "Guild page must expose a Community tab")
 contains(guildPage, '"GuildCommunityPanel"', "Guild page must route to community panel")
@@ -70,6 +76,8 @@ contains(panel, "SendGuildChat", "Guild chat composer missing")
 contains(panel, "CreateGuildAnnouncement", "Guild announcements UI missing")
 contains(panel, "UploadGuildLogo", "Guild logo submission UI missing")
 contains(panel, "RenameGuild", "Leader guild rename UI missing")
+contains(panel, 'saveAccessSetting("JoinMode"', "Guild leaders must be able to change join mode")
+contains(panel, 'saveAccessSetting("MemberCap"', "Guild leaders must be able to change the member cap")
 
 print(
 	"[TEST] guild community routes, auth, filtering, persistence, chat, announcements, logo workflow and rename parity passed"
