@@ -28,6 +28,12 @@ Studio parity: in Edit mode for the confirmed Astral Forge place (PlaceId 135153
 
 Source repro: the public Bazaar still displayed “Lottery”, charged flux for tickets, selected a winner from active players, and exposed a prize-claim action after the casino had been converted to score-only play. Expected: no public wager, lottery draw, or random currency/item payout anywhere in the experience. Actual: `BazaarService` accepted `Game = "Lottery"`, and the client presented ticket purchase and prize collection controls. Removed the lottery service, active math, remote allow-list entry, client tab, and controls. The legacy player-profile field is preserved without being presented or paid. The regression checks both the route surface and profile-data preservation. Studio play/publish and old-server migration behavior remain unverified.
 
+## BUG-007: Most expanded rank boards were rejected by the request firewall
+
+Reproduction: compare the `GetLeaderboard` IDs presented by `PagesSystem.BOARDS` to the `RemoteFirewall` branch for `Protocol.Actions.GetLeaderboard`, then submit one of the nine additional IDs (`Taps`, `ItemsFound`, `CratesOpened`, `AnomalyPulses`, `OrdersCompleted`, `Combat`, `Crafting`, `ArcadeScore`, or `Seasonal`). Expected: a configured board ID passes validation and reaches the server's mapped OrderedDataStore. Actual: the guard accepted only `Flux`, `Rebirths`, `PlayTime`, `Dust`, `Cores`, `Domain`, and `Worlds`, so each additional board was rejected as `invalid leaderboard` before service dispatch.
+
+Correction and evidence: added the nine configured IDs to the firewall allowlist. `scripts/verify_rank_categories.luau` now checks that every current player board is also admitted by the live firewall source, in addition to its existing client/store/value projections. The focused test, full suite, Luau compile sweep, and Argon build pass. Direct Roblox remote calls, cloud OrderedDataStore availability, and cross-server results remain unverified.
+
 
 ## PREVIEW-STARTUP — unpublished Studio bundle
 

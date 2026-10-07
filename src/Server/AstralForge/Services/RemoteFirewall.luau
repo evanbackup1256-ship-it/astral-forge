@@ -923,6 +923,15 @@ return function(loadService: (string) -> any)
 				and id ~= "Cores"
 				and id ~= "Domain"
 				and id ~= "Worlds"
+				and id ~= "Taps"
+				and id ~= "ItemsFound"
+				and id ~= "CratesOpened"
+				and id ~= "AnomalyPulses"
+				and id ~= "OrdersCompleted"
+				and id ~= "Combat"
+				and id ~= "Crafting"
+				and id ~= "ArcadeScore"
+				and id ~= "Seasonal"
 			then
 				return false, "invalid leaderboard"
 			end

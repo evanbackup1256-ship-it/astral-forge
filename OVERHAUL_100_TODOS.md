@@ -136,6 +136,7 @@ Checked items have current repository or test evidence. An unchecked item remain
 - `lune run scripts/verify_project.luau`: passed on 2026-10-07.
 - `lune run scripts/compile_all.luau`: passed (348 files at O0/O1/O2).
 - `argon build default.project.json -x`: passed.
+- Rank firewall parity is now covered: all sixteen configured player boards pass the `GetLeaderboard` source allowlist check. Live cloud leaderboard requests remain unverified.
 - Bazaar actions have pure/source-wiring coverage only; live two-player and DataStore verification remains open.
 - Guild create/rename now has production-source regression coverage for actual broadcast filtering, censorship, missing/error responses, input bounds, and fail-closed routing; live TextService and saved-profile verification remain open.
 - Studio is in Edit mode. Argon is connected to this worktree; selected Guild/Bazaar sources were checked after sync, while a complete source/object comparison remains open.

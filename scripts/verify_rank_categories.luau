@@ -33,6 +33,7 @@ local profileMath = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau
 local dataService = fs.readFile("src/Server/AstralForge/Services/DataService.luau")
 local serverServices = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local serverConfig = fs.readFile("src/Server/AstralForge/ServerConfig.luau")
+local remoteFirewall = fs.readFile("src/Server/AstralForge/Services/RemoteFirewall.luau")
 local publicRecord = assert(profileMath:match('__defs%["PublicPlayerRecord"%] = function%(.-\nend'))
 
 local statValues = {
@@ -74,6 +75,10 @@ for _, id in categories do
 		elseif id == "Seasonal" then "SeasonXP"
 		else id
 	assert(configuredBoards[id], `missing client board {id}`)
+	assert(
+		remoteFirewall:find('id ~= "' .. id .. '"', 1, true),
+		`GetLeaderboard firewall rejects configured board {id}`
+	)
 	assert(serverServices:find(`{id} = ServerConfig.{suffix}`, 1, true), `server query store missing {id}`)
 	assert(serverConfig:find(`{suffix} = resetStore(`, 1, true), `store name missing {id}`)
 	if id == "Flux" then
@@ -177,4 +182,4 @@ end
 assert(rankDashboard:find("ui.SegmentedTabs", 1, true), "rank boards need category-first navigation")
 assert(rankDashboard:find("ui.SearchField", 1, true), "rank board list needs search")
 assert(rankDashboard:find("matchesCategory", 1, true) and rankDashboard:find("matchesSearch", 1, true))
-print("[TEST] sixteen persisted boards, ten category filters, board search, live rows and guild separation passed")
+print("[TEST] sixteen persisted boards, firewall parity, ten category filters, board search, live rows and guild separation passed")
