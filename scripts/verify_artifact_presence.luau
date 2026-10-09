@@ -1,4 +1,4 @@
-local fs = require("@lune/fs")
+local fs = require("./_memberfs")(require("@lune/fs"))
 
 local server = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
 local profileMath = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau")
