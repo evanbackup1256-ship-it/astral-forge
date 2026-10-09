@@ -68,6 +68,12 @@ audibility are still not signed off. The actual director's failure, retry,
 stale-callback, crossfade, pause/resume and disposal control flow now has
 executable tests.
 
+Player-list and notification entrances were sampled in isolated local UI tests:
+11 and 13 fractional frames respectively, settling at their intended positions.
+The player-list probe used local responses rather than requesting network
+rosters or taking social actions. This is motion verification, not a real
+multiplayer/social-flow signoff.
+
 Edit-mode rendering isolation also remained blank with an opaque neon cube
 after temporarily hiding an unrelated plugin welcome overlay. The overlay's
 original state was restored and the cube removed. This excludes that overlay

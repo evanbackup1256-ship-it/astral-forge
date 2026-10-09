@@ -16658,6 +16658,7 @@ local function PlayerlistOverlay(_param)
 
 	local padFocus = useGamepadAutofocus(true)
 	local social = state.SocialBoost or { FriendCount = 0, FriendLimit = 5, FriendBonus = 0, Premium = false, PremiumBonus = 0 }
+	local listParentSize = useGuiSize(padFocus, true)
 	local side = math.max(chrome.sideSafe, viewport.sideInset, 8) + 6
 	local top = math.max(viewport.topInset, 36) + 8
 	local bottom = math.max(chrome.bottomSafe, viewport.bottomInset, 8) + 8
@@ -16811,8 +16812,8 @@ local function PlayerlistOverlay(_param)
 	}), React.createElement("frame", {
 		ref = padFocus,
 		Size = UDim2.fromOffset(width, height),
-		Position = showAmount:map(function(amount)
-			return UDim2.new(1, -(side - math.round((1 - amount) * 24)), 0, top)
+		Position = React.joinBindings({ showAmount, listParentSize }):map(function(values)
+			return pixelPosition(values[2], 1, -side + (1 - values[1]) * 24, 0, top)
 		end),
 		AnchorPoint = Vector2.new(1, 0),
 		BackgroundColor3 = Palette.ink,
@@ -19362,6 +19363,8 @@ local Layout = _theme.Layout
 local _ui = __load("ui")
 local Stroke = _ui.Stroke
 local Text = _ui.Text
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
 local NOTICE_LIFETIME = 4.2
 local NOTICE_EXIT_SECONDS = 0.24
 local SWIPE_DISMISS_PX = 56
@@ -19427,6 +19430,8 @@ local function densityVisibleCap(density, stack)
 	return math.clamp(math.floor(2 + clamped * 3 + 0.5), 2, 5)
 end
 local function NoticeCard(props)
+	local slotRef = React.useRef(nil)
+	local slotSizePixels = useGuiSize(slotRef)
 	local isActive = useComponentIsActive(props)
 	useComponentLifetime(props, NOTICE_EXIT_SECONDS)
 	local notice = props.notice
@@ -19550,7 +19555,7 @@ local function NoticeCard(props)
 		return UDim2.new(1, widen, 0, math.max(0, math.round(cardH * squish)))
 	end)
 	local enterX = progress:map(function(shown)
-		return if leavingRef.current then 0 else math.round((1 - math.clamp(shown, 0, 1)) * 22)
+		return if leavingRef.current then 0 else (1 - math.clamp(shown, 0, 1)) * 22
 	end)
 	local swipeFade = swipeX:map(function(amount)
 		return math.clamp(math.abs(amount) / SWIPE_DISMISS_PX, 0, 1) * 0.7
@@ -19579,10 +19584,10 @@ local function NoticeCard(props)
 	end
 	local count = _condition
 	local lift = hover:map(function(amount)
-		return math.round(-amount)
+		return -amount
 	end)
-	local cardPosition = React.joinBindings({ enterX, swipeX, lift }):map(function(values)
-		return UDim2.new(0.5, math.round(values[1] + values[2]), 0.5, values[3])
+	local cardPosition = React.joinBindings({ enterX, swipeX, lift, slotSizePixels }):map(function(values)
+		return pixelPosition(values[4], 0.5, values[1] + values[2], 0.5, values[3])
 	end)
 	local beginDrag = function(frame, input)
 		if leavingRef.current then
@@ -19645,6 +19650,7 @@ local function NoticeCard(props)
 		end)
 	end
 	return React.createElement("frame", {
+		ref = slotRef,
 		Size = slotSize,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,

@@ -1,6 +1,6 @@
 # Deep audit
 
-Files: 132 · errors: 0 · warnings: 1 · info: 271 · 6.8s
+Files: 132 · errors: 0 · warnings: 1 · info: 271 · 6.4s
 
 | Check | Findings |
 | --- | --- |
@@ -25,14 +25,14 @@ Files: 132 · errors: 0 · warnings: 1 · info: 271 · 6.8s
 - `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'hours', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:12217` %d is given 'reward . Stardust', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20096` %d is given 'total % 60', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20439` %d is given 'total % 60', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20515` %d is given 'def . MaxDustPerCollect', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20518` %d is given 'def . TopBonusStardust [ 1 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20518` %d is given 'def . RewardStardust', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20518` %d is given 'def . TopBonusStardust [ 3 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20518` %d is given 'def . RewardFluxSeconds', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20518` %d is given 'def . TopBonusStardust [ 2 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20102` %d is given 'total % 60', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20445` %d is given 'total % 60', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20521` %d is given 'def . MaxDustPerCollect', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20524` %d is given 'def . TopBonusStardust [ 1 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20524` %d is given 'def . RewardStardust', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20524` %d is given 'def . TopBonusStardust [ 3 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20524` %d is given 'def . RewardFluxSeconds', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20524` %d is given 'def . TopBonusStardust [ 2 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesProgress.luau:289` %d is given 'upgrade . Tier', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesSocial.luau:159` %d is given 'seconds', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesSystem.luau:1397` %d is given 'command . Level', which may be fractional (truncated toward zero, NaN prints as a huge negative)
@@ -227,14 +227,14 @@ Files: 132 · errors: 0 · warnings: 1 · info: 271 · 6.8s
 - `src/Client/AstralForge/UiCore.luau:12041` function '?' is 619 lines long
 - `src/Client/AstralForge/UiCore.luau:12662` function '?' is 753 lines long
 - `src/Client/AstralForge/UiCore.luau:14243` function '?' is 905 lines long
-- `src/Client/AstralForge/UiCore.luau:15566` function '?' is 1415 lines long
-- `src/Client/AstralForge/UiCore.luau:16983` function '?' is 1884 lines long
-- `src/Client/AstralForge/UiCore.luau:17097` function 'TutorialOverlay' is 1209 lines long
-- `src/Client/AstralForge/UiCore.luau:19335` function '?' is 716 lines long
-- `src/Client/AstralForge/UiCore.luau:20379` function '?' is 633 lines long
-- `src/Client/AstralForge/UiCore.luau:21014` function '?' is 759 lines long
-- `src/Client/AstralForge/UiCore.luau:22613` function '?' is 825 lines long
-- `src/Client/AstralForge/UiCore.luau:23440` function '?' is 687 lines long
+- `src/Client/AstralForge/UiCore.luau:15566` function '?' is 1416 lines long
+- `src/Client/AstralForge/UiCore.luau:16984` function '?' is 1884 lines long
+- `src/Client/AstralForge/UiCore.luau:17098` function 'TutorialOverlay' is 1209 lines long
+- `src/Client/AstralForge/UiCore.luau:19336` function '?' is 721 lines long
+- `src/Client/AstralForge/UiCore.luau:20385` function '?' is 633 lines long
+- `src/Client/AstralForge/UiCore.luau:21020` function '?' is 759 lines long
+- `src/Client/AstralForge/UiCore.luau:22619` function '?' is 825 lines long
+- `src/Client/AstralForge/UiCore.luau:23446` function '?' is 687 lines long
 - `src/Client/AstralForge/UiOverlays.luau:21` function '?' is 1062 lines long
 - `src/Client/AstralForge/UiOverlays.luau:1085` function '?' is 1760 lines long
 - `src/Client/AstralForge/UiOverlays.luau:1911` function 'LatticeStage' is 627 lines long
