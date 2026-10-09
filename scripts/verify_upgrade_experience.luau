@@ -63,4 +63,19 @@ assert(Goals({Rebirths = 3}, {missions = 2, lab = 0, path = false, anomaly = fal
 assert(Goals({Rebirths = 3, FeatureUnlocks = {Missions = {Unlocked = false}}}, {missions = 2, lab = 0, path = false, anomaly = false}).page == "Workshop")
 assert(Goals({Rebirths = 3, PrestigeReward = "1e309"}, zero).label == "CORES READY")
 assert(Goals({Rebirths = 3, Level = {Next = {Level = 15, Text = "Earn Flux", Progress = "1e309", Target = "1e310"}}}, zero).progress < 1)
+local fs = require("./_memberfs")(require("@lune/fs"))
+local research = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#ResearchView")
+local textColumns = 0
+for _ in research:gmatch("sizeConstraint = UDim2%.new%(1, if stack then %-8 else %-332, 0,") do
+	textColumns += 1
+end
+assert(textColumns == 3, "all research hero labels reserve their 72px inset and the batch controls")
+for _, width in { 640, 835, 1100 } do
+	local labelRight = 72 + width - 332
+	local actionsLeft = width - 240
+	assert(labelRight <= actionsLeft - 20, "research heading and actions need a clear gutter")
+end
+local storefront = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#StoreFront")
+local wallet = assert(storefront:match("(local function Wallet.-)\nlocal function Hero"))
+assert(wallet:find("value = compactNumber(state[currency])", 1, true), "wallet balances use the shared large-number formatter")
 print("[TEST] upgrade experience passed | budget distribution, Omega currency, amount filters, request sequencing/cancel/timeout, adaptive goals")

@@ -378,6 +378,32 @@ local function Text(_param)
 		LayoutOrder = layoutOrder,
 	}, constraint)
 end
+local function useGuiSize(ref, useParent)
+	local size, setSize = React.useBinding(Vector2.zero)
+	React.useEffect(function()
+		local node = ref.current
+		local host = if node ~= nil and useParent then node.Parent else node
+		if host == nil or not host:IsA("GuiObject") then
+			return nil
+		end
+		local function update()
+			setSize(host.AbsoluteSize)
+		end
+		update()
+		local connection = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
+		return function()
+			connection:Disconnect()
+		end
+	end, { ref, useParent })
+	return size
+end
+local function pixelPosition(size, xScale, xPixels, yScale, yPixels)
+	-- UDim offsets are integers; scale coordinates retain fractional pixel travel.
+	if size.X <= 0 or size.Y <= 0 then
+		return UDim2.new(xScale, xPixels, yScale, yPixels)
+	end
+	return UDim2.fromScale(xScale + xPixels / size.X, yScale + yPixels / size.Y)
+end
 local function fontForWeight(weight)
 	return if weight == Enum.FontWeight.Heavy then Enum.Font.BuilderSansExtraBold elseif weight == Enum.FontWeight.Bold then Enum.Font.BuilderSansBold else Enum.Font.BuilderSansMedium
 end
@@ -2066,9 +2092,6 @@ function Button(_param)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local presence = useExitPresence()
 	local arrival = useEntrance(reducedMotion or effectsPaused)
-	local visualPosition = React.joinBindings({ arrival, shakeOffsetX }):map(function(values)
-		return UDim2.new(0.5, values[2], 0.5, (1 - math.clamp(values[1], 0, 1)) * 8)
-	end)
 	local _condition = selectable
 	if _condition == nil then
 		_condition = not disabled
@@ -2077,6 +2100,16 @@ function Button(_param)
 	local breatheWanted = highlight and active
 	local breatheStroke = useGlowStroke(breatheWanted, reducedMotion or effectsPaused, 0.32, 0.22, 0.46, 1.15)
 	local buttonRef = React.useRef()
+	local hostSize = useGuiSize(buttonRef)
+	local visualPosition = React.joinBindings({ arrival, shakeOffsetX, hostSize }):map(function(values)
+		return pixelPosition(values[3], 0.5, values[2], 0.5, (1 - math.clamp(values[1], 0, 1)) * 8)
+	end)
+	local surfacePosition = React.joinBindings({ offsetY, hostSize }):map(function(values)
+		return pixelPosition(values[2], 0, 0, 0, values[1])
+	end)
+	local shadowPosition = React.joinBindings({ offsetY, hostSize }):map(function(values)
+		return pixelPosition(values[2], 0, 0, 0, 5 - values[1])
+	end)
 	local assistId = React.useRef(nil)
 	if assistId.current == nil then
 		nextAssistId += 1
@@ -2192,9 +2225,7 @@ function Button(_param)
 		Scale = touchScale,
 	}), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = offsetY:map(function(amount)
-			return UDim2.new(0, 0, 0, 5 - amount)
-		end),
+		Position = shadowPosition,
 		BackgroundColor3 = Palette.shadow,
 		BackgroundTransparency = shadowTransparency,
 		BorderSizePixel = 0,
@@ -2203,9 +2234,7 @@ function Button(_param)
 		CornerRadius = UDim.new(0, Layout.buttonRadius),
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = offsetY:map(function(amount)
-			return UDim2.new(0, 0, 0, amount)
-		end),
+		Position = surfacePosition,
 		BackgroundColor3 = fill,
 		BackgroundTransparency = surfaceFade,
 		BorderSizePixel = 0,
@@ -2375,9 +2404,7 @@ function Button(_param)
 		Rotation = 90,
 	})))), (outline or highlight) and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = offsetY:map(function(amount)
-			return UDim2.new(0, 0, 0, amount)
-		end),
+		Position = surfacePosition,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Active = false,
@@ -2390,9 +2417,7 @@ function Button(_param)
 		transparency = outlineTransparency,
 	})), highlight and active and React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = offsetY:map(function(amount)
-			return UDim2.new(0, 0, 0, amount)
-		end),
+		Position = surfacePosition,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Active = false,
@@ -2406,9 +2431,7 @@ function Button(_param)
 		transparency = breatheRingTransparency,
 	})), React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
-		Position = offsetY:map(function(amount)
-			return UDim2.new(0, 0, 0, amount)
-		end),
+		Position = surfacePosition,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Active = false,
@@ -4467,6 +4490,8 @@ return {
 	Panel = Panel,
 	Divider = Divider,
 	useButtonChrome = useButtonChrome,
+	useGuiSize = useGuiSize,
+	pixelPosition = pixelPosition,
 	resolvePressMotion = resolvePressMotion,
 	ButtonShimmer = ButtonShimmer,
 	Button = Button,
@@ -13683,7 +13708,9 @@ local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
 local CATEGORIES = { "Bug", "Suggestion", "Balance", "Performance", "Interface", "Other" }
-local CATEGORY_LABELS = { Performance = "LAG", Interface = "UI" }
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
+local CATEGORY_LABELS = { Suggestion = "IDEA", Performance = "LAG", Interface = "UI" }
 local CATEGORY_HINTS = {
 	Bug = "What did you do, what did you expect, and what happened instead?",
 	Suggestion = "What should we add or change, and why would it be fun?",
@@ -13745,7 +13772,7 @@ local function FeedbackOverlay(_param)
 	local categoryColumns = if narrow then 3 else 6
 	local categoryH = if keyboardCompact then 0 elseif categoryColumns == 3 then 96 else 44
 	local impactTop = categoryTop + categoryH + 8
-	local impactH = if keyboardCompact or sent then 0 else 30
+	local impactH = if keyboardCompact or sent then 0 elseif narrow then 30 + TapTarget + 4 else 30
 	local editorTop = if keyboardCompact then categoryTop + 6 else impactTop + impactH + (if impactH > 0 then 8 else 2)
 	local footerH = TapTarget + (if keyboardCompact then 4 else 14)
 	local editorH = math.max(44, contentHeight - editorTop - footerH - 8)
@@ -13822,6 +13849,7 @@ local function FeedbackOverlay(_param)
 	end, { canSend, category, dispatch, notify, trimmed, impact, attachDevice })
 	local padFocus = useGamepadAutofocus(true)
 	local overlayHostRef = React.useRef(nil)
+	local parentSize = useGuiSize(overlayHostRef, true)
 	React.useEffect(function()
 		GamepadNavigationService.BeginOverlayFocus()
 		return function()
@@ -13847,8 +13875,8 @@ local function FeedbackOverlay(_param)
 		end
 	end, { sent })
 	local cardTravel = 16
-	local cardPosition = motion:map(function(amount)
-		return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * cardTravel))
+	local cardPosition = React.joinBindings({ motion, parentSize }):map(function(values)
+		return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * cardTravel)
 	end)
 	local scrimTransparency = motion:map(function(amount)
 		return 1 - amount * 0.72
@@ -13997,8 +14025,9 @@ local function FeedbackOverlay(_param)
 		for level = 1, 5 do
 			local lit = impact >= level
 			pips["pip" .. level] = React.createElement("textbutton", {
+				Name = "Impact" .. level,
 				LayoutOrder = level,
-				Size = UDim2.fromOffset(if narrow then 22 else 28, 18),
+				Size = UDim2.fromOffset(if narrow then math.min(TapTarget, (width - 28 - 16) / 5) else 28, if narrow then TapTarget else 30),
 				BackgroundColor3 = if lit then impactAccent else Palette.ink,
 				BackgroundTransparency = if lit then 0.05 else 0.2,
 				BorderSizePixel = 0,
@@ -14016,6 +14045,14 @@ local function FeedbackOverlay(_param)
 			}), React.createElement("uistroke", {
 				Color = if lit then impactAccent else Palette.lineSoft,
 				Transparency = if lit then 0.2 else 0.55,
+			}), React.createElement(Text, {
+				value = tostring(level),
+				size = 13,
+				color = if lit then Palette.ink else Palette.creamSoft,
+				weight = Enum.FontWeight.Bold,
+				align = Enum.TextXAlignment.Center,
+				sizeConstraint = UDim2.fromScale(1, 1),
+				zIndex = 477,
 			}))
 		end
 		impactRow = React.createElement("frame", {
@@ -14034,12 +14071,12 @@ local function FeedbackOverlay(_param)
 			sizeConstraint = UDim2.new(0, if narrow then 120 else 170, 0, 16),
 			zIndex = 475,
 		}), React.createElement("frame", {
-			Size = UDim2.new(0, if narrow then 130 else 160, 1, 0),
-			Position = UDim2.fromOffset(if narrow then 118 else 170, 0),
+			Size = if narrow then UDim2.new(1, 0, 0, TapTarget) else UDim2.new(0, 160, 1, 0),
+			Position = if narrow then UDim2.fromOffset(0, 30 + 4) else UDim2.fromOffset(170, 0),
 			BackgroundTransparency = 1,
 			ZIndex = 475,
 		}, pips), React.createElement("textbutton", {
-			Size = UDim2.new(0, if narrow then 92 else 150, 1, 0),
+			Size = UDim2.fromOffset(if narrow then 92 else 150, 30),
 			Position = UDim2.new(1, 0, 0, 0),
 			AnchorPoint = Vector2.new(1, 0),
 			BackgroundTransparency = 1,

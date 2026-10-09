@@ -25,6 +25,23 @@ before/after benchmark or a guarantee of smoothness on other hardware.
   standalone plain-cube viewport rendered blank. The diagnostic was removed.
 - [ ] Confirm audible playback, not merely successful audio loading.
 
+The follow-up live sweep opened Workshop, Research, the Daily and Artifact Shop,
+Inventory, Settings and Feedback. Inventory search produced its empty state;
+feedback category, impact and minimum-length states were exercised without
+submitting a message. Research's heading now has a measured 20-pixel gutter
+before its batch controls. Shop wallet labels fit their chips with compact
+amounts. Feedback impact controls measured 48 by 48 pixels in phone simulation.
+Shared button motion uses measured scale coordinates because Roblox truncates
+fractional UDim pixel offsets; regression tests verify fractional travel, resize
+updates and subscription cleanup.
+
+The rendering isolation was extended: neither a ViewportFrame with direct parts,
+a ViewportFrame with a WorldModel, nor a neon cube directly in Workspace appeared
+in the current capture environment. This is not specific to the domain tree.
+The temporary objects were removed and UI visibility restored. The renderer's
+cause still needs independent Studio/client confirmation; no 3D feature was
+replaced or disabled.
+
 The existing feature set is preserved. Offline regression and compilation results
 are not proof of live multiplayer behavior or full visual quality. Older casino and
 replacement-feature checklist entries below are historical, not instructions to

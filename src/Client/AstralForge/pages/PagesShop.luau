@@ -1278,6 +1278,7 @@ local ARTIFACT_RARITY = {
 	MYTHIC = { rank = 6, color = Color3.fromRGB(255, 110, 150), label = "Mythic" },
 }
 local CURRENCY_ICON = { Stardust = "Dust", Cores = "Core" }
+local compactNumber = require(script.Parent.Parent.CoreKit)("format").compactNumber
 local KIND_ICON = { Key = "Crate", Essence = "Artifact", Flux = "Flux", Boost = "Boost", Cache = "Gift", Skin = "Crate" }
 local TIER_COLOR = {
 	Common = Color3.fromRGB(200, 196, 188),
@@ -1371,7 +1372,7 @@ local function Wallet(props)
 			position = UDim2.fromOffset(6, 5),
 			spin = false,
 		}), h(Text, {
-			value = commas(state[currency]),
+			value = compactNumber(state[currency]),
 			size = 13,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Bold,

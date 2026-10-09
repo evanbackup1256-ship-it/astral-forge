@@ -208,4 +208,57 @@ assert(target.Suffix == " K CORES", "unit labels update even when the numeric am
 style.current.spacedSuffix = false
 pushDisplay(target, 10, 0, false)
 assert(target.Suffix == "K CORES", "spacing changes propagate without requiring a numeric update")
+local feedback = source("src/Client/AstralForge/UiCore.luau#FeedbackOverlay")
+local pixelSource = extract(ui, "local function pixelPosition(", "local function fontForWeight(")
+local pixelPosition = load(pixelSource .. "\nreturn pixelPosition", { UDim2 = roblox.UDim2 })
+local resize, cleanup, disconnected = nil, nil, 0
+local measured = {}
+local host = {
+	AbsoluteSize = roblox.Vector2.new(200, 48),
+	IsA = function(_, class) return class == "GuiObject" end,
+	GetPropertyChangedSignal = function(_, property)
+		assert(property == "AbsoluteSize")
+		return { Connect = function(_, callback)
+			resize = callback
+			return { Disconnect = function() disconnected += 1 end }
+		end }
+	end,
+}
+local useSize = load(extract(ui, "local function useGuiSize(", "local function pixelPosition(") .. "\nreturn useGuiSize", {
+	Vector2 = roblox.Vector2,
+	React = {
+		useBinding = function(initial)
+			measured.current = initial
+			return measured, function(value) measured.current = value end
+		end,
+		useEffect = function(effect) cleanup = effect() end,
+	},
+})
+assert(useSize({ current = { Parent = host } }, true).current.Y == 48)
+host.AbsoluteSize = roblox.Vector2.new(360, 80)
+resize()
+assert(measured.current.Y == 80, "motion responds to resized hosts without a per-frame size lookup")
+cleanup()
+assert(disconnected == 1, "motion size subscriptions disconnect when the component leaves")
+assert(roblox.UDim2.fromOffset(0.16, 0.16).Y.Offset == 0, "reproduce Roblox's integer offset truncation")
+for _, dimensions in { roblox.Vector2.new(360, 740), roblox.Vector2.new(991, 537) } do
+	for _, offset in { -1.4, -0.01, 0, 0.16, 16 } do
+		local position = pixelPosition(dimensions, 0.5, offset, 0.5, offset)
+		local x = (position.X.Scale - 0.5) * dimensions.X + position.X.Offset
+		local y = (position.Y.Scale - 0.5) * dimensions.Y + position.Y.Offset
+		assert(math.abs(x - offset) < 0.0001 and math.abs(y - offset) < 0.0001, "measured coordinates retain fractional pixel travel")
+	end
+end
+assert(feedback:find("pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * cardTravel)", 1, true))
+assert(ui:find("Position = surfacePosition", 1, true), "shared buttons apply measured subpixel motion")
+assert(feedback:find('Name = "Impact" .. level', 1, true), "feedback impact controls are individually identifiable")
+assert(feedback:find("value = tostring(level)", 1, true), "impact levels must be visible before selection")
+assert(feedback:find('Suggestion = "IDEA"', 1, true), "the suggestion category fits its selected tab")
+assert(feedback:find("elseif narrow then 30 + TapTarget + 4 else 30", 1, true), "phone impact controls have a separate touch-sized row")
+local tapTarget = assert(tonumber(source("src/Client/AstralForge/CoreKit.luau#theme"):match("local TapTarget = (%d+)")))
+for _, width in { 288, 340, 390, 620 } do
+	local pipWidth = math.min(tapTarget, (width - 28 - 16) / 5)
+	assert(pipWidth * 5 + 4 * 4 <= width - 28, "all five impact controls fit inside the card")
+	if width >= 288 then assert(pipWidth >= tapTarget, "standard phone cards retain touch-sized impact controls") end
+end
 print(`[INFO] [TEST] 7.0 polish passed | trade, stale sessions, motor cleanup, subpixel motion, layout deadlines, sprite timing at 15-144 fps, {count} title styles`)

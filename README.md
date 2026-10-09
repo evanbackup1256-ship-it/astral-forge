@@ -35,6 +35,12 @@ all animated-title styles. Artifact sprites retain their animation speed across
 dropped frames. Selected domain labels retain foreground priority, and projected
 UI owns its geometry instead of competing with generic layout repairs.
 Number units update correctly even while their amounts remain unchanged.
+Research headings reserve space for batch controls, Shop wallets use compact
+currency labels, and feedback impact controls have numbered levels with a
+separate touch-sized phone row. Shared buttons and feedback dialog travel use
+measured scale coordinates for genuine fractional-pixel movement: Roblox's
+UDim offsets truncate fractions even without explicit rounding. The motion
+regression checks resize updates and measurement-subscription cleanup.
 Existing features remain intact; full visual and multiplayer
 review is tracked in `NOT_TESTED.md`.
 
