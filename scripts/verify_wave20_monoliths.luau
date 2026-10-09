@@ -49,6 +49,10 @@ assert(PageReadyMath.AnomalyReady({
 		{ Claimed = false, Progress = 1, Target = 5 },
 	},
 }) == false, "no ready directive")
+assert(PageReadyMath.CipherOpen(nil) == false, "no sky state")
+assert(PageReadyMath.CipherOpen({ Cipher = {} }) == true, "unsolved cipher is open")
+assert(PageReadyMath.CipherOpen({ Cipher = { Solved = true } }) == false, "solved cipher closed")
+assert(PageReadyMath.CipherOpen({ Cipher = { Failed = true } }) == false, "failed cipher closed")
 assert(PageReadyMath.OpsClaims(2, 1, true, true) == 5, "ops claims sum")
 assert(PageReadyMath.OpsClaims(0, 0, false, false) == 0, "ops claims empty")
 
@@ -111,7 +115,7 @@ assert(string.find(mainSrc, "NetworkPolicy.Cooldown", 1, true), "MainGame Networ
 assert(string.find(mainSrc, "NetworkPolicy.IsPipelined", 1, true), "MainGame IsPipelined")
 assert(string.find(mainSrc, "(\"networkPolicy\")", 1, true), "MainGame require networkPolicy")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView board heights")
-assert(string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView AnomalyReady")
+assert(string.find(overviewSrc, "PageReadyMath.CipherOpen", 1, true), "OverviewView CipherOpen")
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView OpsClaims")
 assert(string.find(ssSrc, "TelemetryMath.Encode", 1, true), "ServerServices TelemetryMath")
 assert(string.find(ssSrc, "UtcClockMath.Day", 1, true), "ServerServices UtcClockMath")

@@ -151,7 +151,7 @@ assert(CommandActionValidators.IsReadOnly("GetState") == true, "GetState read-on
 assert(CommandActionValidators.IsReadOnly("CollectVault") == false, "CollectVault mutates")
 assert(CommandActionValidators.RequiresHighValueNonce("OpenItemCrate") == true, "crate high-value")
 assert(CommandActionValidators.RequiresHighValueNonce("BuyMachine") == false, "buy not high-value")
-assert(CommandActionValidators.RequiresHighValueNonce("CasinoPlay") == true, "casino rounds are high-value")
+assert(CommandActionValidators.RequiresHighValueNonce("BazaarPlay") == true, "bazaar plays are high-value")
 assert(CommandActionValidators.IsDeferredSnapshot("Overcharge") == true, "overcharge deferred")
 assert(CommandActionValidators.IsDeferredSnapshot("CollectVault") == false, "collect not deferred")
 
@@ -159,7 +159,7 @@ local highValueCount = 0
 for _ in CommandActionValidators.HIGH_VALUE_GRANT do
 	highValueCount += 1
 end
-assert(highValueCount == 9, "nine high-value grants (the casino and the bazaar join the wheel and crates)")
+assert(highValueCount == 8, "eight high-value grants (the bazaar joins the wheel and crates)")
 
 -- --- Source wiring + HARD constraints ----------------------------------------
 local servicesSrc = fs.readFile("src/Server/AstralForge/Services/ServerServices.luau")
@@ -168,7 +168,10 @@ local shopSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#Sho
 local cmdSrc = fs.readFile("src/Server/AstralForge/Modules/ProfileMath.luau#CommandActionValidators")
 local configSrc = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 
-assert(string.find(servicesSrc, "CrateRoll.Roll", 1, true), "ServerServices must delegate CrateRoll.Roll")
+assert(
+	string.find(servicesSrc, "CrateRoll.Roll", 1, true) or string.find(servicesSrc, "CrateRollResolver.roll", 1, true),
+	"ServerServices must delegate crate rolls"
+)
 assert(string.find(servicesSrc, "CrateRoll.NormalizeOpenCount", 1, true), "ServerServices must normalize open count")
 assert(string.find(servicesSrc, "ShopGrantEligibility.EnsureShop", 1, true), "ServerServices must EnsureShop")
 assert(string.find(servicesSrc, "ShopGrantEligibility.EvaluateBuy", 1, true), "ServerServices must EvaluateBuy")

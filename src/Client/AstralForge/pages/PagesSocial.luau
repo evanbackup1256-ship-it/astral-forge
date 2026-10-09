@@ -118,6 +118,24 @@ local function emptyOffer()
 		Items = {},
 	}
 end
+local function wireOffer(offer)
+	local result = {
+		Cash = offer.Cash, Stardust = offer.Stardust, Cores = offer.Cores,
+		Signals = offer.Signals, Essence = offer.Essence,
+		Boosts = {}, Keys = {}, ItemIds = table.clone(offer.ItemIds),
+	}
+	for _, id in BOOSTS do
+		if (offer.Boosts[id] or 0) > 0 then
+			result.Boosts[id] = offer.Boosts[id]
+		end
+	end
+	for _, id in KEYS do
+		if (offer.Keys[id] or 0) > 0 then
+			result.Keys[id] = offer.Keys[id]
+		end
+	end
+	return result
+end
 local function itemName(config, definitionId)
 	local _result = config.Items
 	if _result ~= nil then
@@ -458,6 +476,9 @@ local function TradeView(_param)
 	local offerTab, setOfferTab = React.useState("You")
 	local dirtyRef = React.useRef(false)
 	local flushRef = React.useRef(nil)
+	local offerRevisionRef = React.useRef(0)
+	local offerSessionRef = React.useRef(if session ~= nil then session.Id else nil)
+	local offerPending, setOfferPending = React.useState(false)
 	local sessionActionsHostRef = React.useRef(nil)
 	local _result_1 = state.Items
 	if _result_1 ~= nil then
@@ -532,7 +553,24 @@ local function TradeView(_param)
 	end
 	React.useEffect(_exp, { loadRoster, _result_3 })
 	local _exp_1 = function()
+		local sessionId = if session ~= nil then session.Id else nil
+		if offerSessionRef.current ~= sessionId then
+			offerSessionRef.current = sessionId
+			offerRevisionRef.current += 1
+			if flushRef.current ~= nil then
+				pcall(task.cancel, flushRef.current)
+				flushRef.current = nil
+			end
+			dirtyRef.current = false
+			setOfferPending(false)
+		end
 		if session == nil then
+			if flushRef.current ~= nil then
+				pcall(task.cancel, flushRef.current)
+				flushRef.current = nil
+			end
+			offerRevisionRef.current += 1
+			setOfferPending(false)
 			setDraft(emptyOffer())
 			setYouReadyLocal(false)
 			dirtyRef.current = false
@@ -566,6 +604,7 @@ local function TradeView(_param)
 	React.useEffect(_exp_1, { _result_4, _result_5, _result_6, _result_7, _result_8 })
 	React.useEffect(function()
 		return function()
+			offerRevisionRef.current += 1
 			if flushRef.current ~= nil then
 				pcall(task.cancel, flushRef.current)
 			end
@@ -575,15 +614,27 @@ local function TradeView(_param)
 		setDraft(offer)
 		setYouReadyLocal(false)
 		dirtyRef.current = true
+		setOfferPending(true)
+		offerRevisionRef.current += 1
+		local revision = offerRevisionRef.current
 		if flushRef.current ~= nil then
 			pcall(task.cancel, flushRef.current)
 		end
 		flushRef.current = task.delay(0.14, function()
 			flushRef.current = nil
-			dirtyRef.current = false
 			dispatch("UpdateTradeOffer", {
-				Offer = offer,
-			})
+				Offer = wireOffer(offer),
+			}, function(response)
+				if revision ~= offerRevisionRef.current then
+					return
+				end
+				dirtyRef.current = false
+				setOfferPending(false)
+				if not response.ok and session ~= nil then
+					setDraft(session.You)
+					setYouReadyLocal(false)
+				end
+			end)
 		end)
 	end
 	local run = function(action, payload)
@@ -597,6 +648,9 @@ local function TradeView(_param)
 		dispatch(action, payload, function(response)
 			setBusy("")
 			if not response.ok then
+				if action == "SetTradeReady" then
+					setYouReadyLocal(session ~= nil and session.YouReady == true)
+				end
 				setShakeAction(function(current)
 					local _object = {
 						action = action,
@@ -669,7 +723,7 @@ local function TradeView(_param)
 				table.insert(matches, row)
 				continue
 			end
-			if (string.find(string.lower(row.DisplayName), needle, 1, true)) ~= nil or (string.find(string.lower(row.Name), needle, 1, true)) ~= nil then
+			if require(script.Parent.Parent.BrowseKit).matches(needle, row.DisplayName, row.Name) then
 				table.insert(matches, row)
 			end
 		end
@@ -1139,7 +1193,7 @@ local function TradeView(_param)
 	local dailyLimit = _condition_4
 	local dailyLabel = if daily ~= nil and dailyLimit ~= nil then `{daily.Completed} / {dailyLimit} trades today` else "Daily limits on every side"
 	local function onReadyClick()
-		if tableEmpty and not youReadyLocal then
+		if offerPending or (tableEmpty and not youReadyLocal) then
 			return nil
 		end
 		local following = not youReadyLocal
@@ -1154,8 +1208,8 @@ local function TradeView(_param)
 	local function onCancelClick()
 		return run("CancelTrade")
 	end
-	local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)
-	local confirmDisabled = busy ~= "" or not bothReady
+	local readyDisabled = busy ~= "" or offerPending or (tableEmpty and not youReadyLocal)
+	local confirmDisabled = busy ~= "" or offerPending or not bothReady
 	React.useEffect(function()
 		if session == nil then
 			GamepadNavigationService.EndOverlayFocus()
@@ -1198,7 +1252,7 @@ local function TradeView(_param)
 		}, not vertical and React.createElement("uiflexitem", {
 			FlexMode = Enum.UIFlexMode.Fill,
 		}), React.createElement(Button, {
-			text = if youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
+			text = if offerPending then "SYNCING OFFER" elseif youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
 			onClick = onReadyClick,
 			color = if youReadyLocal then Palette.panelSoft else accent,
 			textColor = if youReadyLocal then Palette.cream else Palette.ink,
@@ -1243,7 +1297,8 @@ local function TradeView(_param)
 			text = "CANCEL",
 			onClick = onCancelClick,
 			color = Palette.coral,
-			textColor = Palette.ink,
+			textColor = Palette.coral,
+			outline = true,
 			size = UDim2.fromScale(1, 1),
 			disabled = busy ~= "",
 			loading = busy == "CancelTrade",
@@ -1812,6 +1867,7 @@ local compactNumber = _format.compactNumber
 local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
 local PageReadyMath = require(script.Parent.Parent.LayoutKit)("pageReadyMath")
 local PageBoardHeights = require(script.Parent.Parent.CoreKit)("pageBoardHeights")
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local function CrewRow(_param)
 	local player = _param.player
@@ -2302,6 +2358,38 @@ local function CrewView(_param)
 		})
 	end
 	local headerReveal = useStagger(0, softMotion)
+	local crewBrowse = Browse.useBrowse({
+		id = "Crew",
+		items = players,
+		text = function(player)
+			return { player.DisplayName, player.CurrentPage, `world {player.CurrentZone or ""}` }
+		end,
+		categories = {
+			{ id = "All", label = "Everyone" },
+			{ id = "SameWorld", label = "Same world", test = function(player)
+				return not player.IsLocal and player.CurrentZone ~= nil and player.CurrentZone == state.CurrentZone
+			end },
+			{ id = "Others", label = "Not me", test = function(player)
+				return not player.IsLocal
+			end },
+		},
+		sorts = {
+			{ id = "Joined", label = "Server order" },
+			{ id = "Production", label = "Top production", compare = function(a, b)
+				return (asFlux(a.Production) or 0) > (asFlux(b.Production) or 0)
+			end },
+			{ id = "Rebirths", label = "Most rebirths", compare = function(a, b)
+				return (tonumber(a.Rebirths) or 0) > (tonumber(b.Rebirths) or 0)
+			end },
+			{ id = "Name", label = "A to Z", compare = function(a, b)
+				return string.lower(tostring(a.DisplayName)) < string.lower(tostring(b.DisplayName))
+			end },
+		},
+	})
+	local showCrewBar = #players >= 3
+	local crewBarH = if showCrewBar then Browse.barHeight(stack, true) + 10 else 0
+	local allPlayers = players
+	players = crewBrowse.results
 	local _result = state.Visitors
 	if _result ~= nil then
 		_result = #_result
@@ -2312,7 +2400,7 @@ local function CrewView(_param)
 	end
 	local visitorsHere = _condition
 	local rowStride = if stack then 176 else 124
-	local headerH = if stack then 130 else 112
+	local headerH = (if stack then 130 else 112) + crewBarH
 	local listGap = if visit ~= nil then math.max(chrome.panelGap, 18) else math.max(chrome.panelGap, 12)
 	local visitBlock = if visit ~= nil then PageBoardHeights.Visit(stack) else 0
 	local crewTail = scrollTail(stack, chrome.bottomSafe, 48)
@@ -2354,8 +2442,16 @@ local function CrewView(_param)
 		color = Palette.blue,
 		textColor = Palette.ink,
 		size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(170, 44),
-		position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -170, 0, 24),
+		position = if stack then UDim2.new(0, 0, 1, -(TapTarget + crewBarH)) else UDim2.new(1, -170, 0, 24),
 		reducedMotion = softMotion,
+	}), showCrewBar and React.createElement(Browse.BrowseBar, {
+		browse = crewBrowse,
+		placeholder = "Search crew by name or activity",
+		accent = Palette.blue,
+		stack = stack,
+		reducedMotion = softMotion,
+		position = UDim2.new(0, 0, 1, -(crewBarH - 10)),
+		zIndex = 30,
 	}))
 	local visitPanel = visit ~= nil and React.createElement(VisitPanel, {
 		visit = visit,
@@ -2364,13 +2460,21 @@ local function CrewView(_param)
 		layoutOrder = 1,
 		stack = stack,
 	})
-	local emptyPanel = #players == 0 and React.createElement(EmptyState, {
+	local emptyPanel = if #allPlayers == 0 then React.createElement(EmptyState, {
 		icon = "Crew",
 		title = "No one else is on shift",
 		body = "Crew shows up here once someone else is online with you.",
 		accent = Palette.blue,
 		layoutOrder = 2,
-	})
+	}) elseif #players == 0 then React.createElement(Browse.NoResults, {
+		browse = crewBrowse,
+		noun = "crew",
+		icon = "Crew",
+		accent = Palette.blue,
+		reducedMotion = softMotion,
+		size = UDim2.fromScale(1, 1),
+		layoutOrder = 2,
+	}) else nil
 	local sections = {
 		{
 			id = "header",
@@ -2514,6 +2618,9 @@ local SectionLabel = _ui.SectionLabel
 local Text = _ui.Text
 local Social = require(game.ReplicatedStorage.AstralForge.Shared.SocialProgression)(require(game.ReplicatedStorage.AstralForge.Shared.OmegaMath))
 local createRequest = require(script.Parent.Parent.ActionRequest)
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
+local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
 local ROLE_RANK = {
 	Leader = 0,
 	Officer = 1,
@@ -2662,7 +2769,7 @@ local function goalUnitLabel(metric)
 	end
 	return "upgrades bought"
 end
-local function GuildGoalCard(_param)
+local function GuildGoalCardReady(_param)
 	local guild = _param.guild
 	local config = _param.config
 	local layoutOrder = _param.layoutOrder
@@ -2674,29 +2781,6 @@ local function GuildGoalCard(_param)
 	local goal = guild.Goal
 	local now = useWallClock(goal ~= nil)
 	local localKey = tostring(Players.LocalPlayer.UserId)
-	if goal == nil then
-		return React.createElement(Panel, {
-			size = UDim2.new(1, 0, 0, 116),
-			accent = Palette.mint,
-			background = Palette.panelRaised,
-			padding = if stack then 16 else 18,
-			layoutOrder = layoutOrder,
-			reducedMotion = reducedMotion,
-		}, React.createElement(Text, {
-			value = "GUILD GOAL",
-			size = 10,
-			color = Palette.mint,
-			weight = Enum.FontWeight.Heavy,
-			sizeConstraint = UDim2.new(1, 0, 0, 14),
-		}), React.createElement(Text, {
-			value = "The next shared goal is being drawn up.",
-			size = 12,
-			color = Palette.creamSoft,
-			wrap = true,
-			position = UDim2.fromOffset(0, 22),
-			sizeConstraint = UDim2.new(1, 0, 0, 34),
-		}))
-	end
 	local definition = goalConfigFor(config, goal.TypeId)
 	local fill = math.clamp(goal.Progress / math.max(1, goal.Target), 0, 1)
 	local _condition = goal.Contributors[localKey]
@@ -2867,6 +2951,43 @@ local function GuildGoalCard(_param)
 		size = UDim2.fromScale(1, 1),
 		reducedMotion = reducedMotion,
 	})))
+end
+local function GuildGoalCard(_param)
+	local guild = _param.guild
+	local config = _param.config
+	local layoutOrder = _param.layoutOrder
+	local stack = _param.stack
+	local reducedMotion = _param.reducedMotion
+	local dispatch = _param.dispatch
+	local busy = _param.busy
+	local shakeToken = _param.shakeToken
+	local goal = guild.Goal
+	local now = useWallClock(goal ~= nil)
+	local localKey = tostring(Players.LocalPlayer.UserId)
+	if goal == nil then
+		return React.createElement(Panel, {
+			size = UDim2.new(1, 0, 0, 116),
+			accent = Palette.mint,
+			background = Palette.panelRaised,
+			padding = if stack then 16 else 18,
+			layoutOrder = layoutOrder,
+			reducedMotion = reducedMotion,
+		}, React.createElement(Text, {
+			value = "GUILD GOAL",
+			size = 10,
+			color = Palette.mint,
+			weight = Enum.FontWeight.Heavy,
+			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}), React.createElement(Text, {
+			value = "The next shared goal is being drawn up.",
+			size = 12,
+			color = Palette.creamSoft,
+			wrap = true,
+			position = UDim2.fromOffset(0, 22),
+			sizeConstraint = UDim2.new(1, 0, 0, 34),
+		}))
+	end
+	return React.createElement(GuildGoalCardReady, _param)
 end
 local function UpgradeCard(_param)
 	local row = _param.row
@@ -3171,7 +3292,7 @@ local function JoinOrCreate(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		Change = {
 			Text = function(box)
-				local value = string.sub(box.Text, 1, 28)
+				local value = ChatText.cutBytes(box.Text, 28)
 				nameRef.current = value
 				setName(value)
 			end,
@@ -3324,6 +3445,346 @@ local function JoinOrCreate(_param)
 		reducedMotion = reducedMotion,
 	})))
 end
+local function GuildCommunityPanel(_param)
+	local guild = _param.guild
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local stack = _param.stack
+	local role = _param.role
+	local onBack = _param.onBack
+	local guildConfig = (_param.config and _param.config.Guild) or {}
+	local community = guild.Community or {}
+	local settings, setSettings = React.useState(community.Settings or { ChatEnabled = true, AnnouncementsEnabled = true, LogoEnabled = true })
+	local messages, setMessages = React.useState(community.Chat or {})
+	local announcements, setAnnouncements = React.useState(community.Announcements or {})
+	local logos, setLogos = React.useState({})
+	local chatDraft, setChatDraft = React.useState("")
+	local announcementTitle, setAnnouncementTitle = React.useState("")
+	local announcementBody, setAnnouncementBody = React.useState("")
+	local logoAsset, setLogoAsset = React.useState("")
+	local moderationUserId, setModerationUserId = React.useState("")
+	local renameName, setRenameName = React.useState("")
+	local renameTag, setRenameTag = React.useState("")
+	local chatScroll = React.useRef(nil)
+	local localUserId = game:GetService("Players").LocalPlayer.UserId
+	local busy, setBusy = React.useState("")
+	local leader = role == "Leader"
+	local manager = leader or role == "Officer"
+	local requestCommunity = React.useCallback(function()
+		dispatch("GetGuildChatHistory", { Limit = 50 }, function(result)
+			if result.ok then setMessages(result.Messages or {}) end
+		end)
+		dispatch("GetGuildAnnouncements", {}, function(result)
+			if result.ok then setAnnouncements(result.Announcements or {}) end
+		end)
+		dispatch("GetGuildSettings", {}, function(result)
+			if result.ok then setSettings(result.Settings or {}) end
+		end)
+		if leader then
+			dispatch("GetGuildLogoReview", {}, function(result)
+				if result.ok then setLogos(result.Logos or {}) end
+			end)
+		end
+	end, { dispatch, manager, guild.Id })
+	React.useEffect(function()
+		requestCommunity()
+		local alive = true
+		local worker = task.spawn(function()
+			while alive do
+				task.wait(8)
+				if alive then requestCommunity() end
+			end
+		end)
+		local connection = game:GetService("ReplicatedStorage"):WaitForChild("__AFX_BRIDGE_31"):WaitForChild("re_e31").OnClientEvent:Connect(function(packet)
+			if not alive or type(packet) ~= "table" or packet.GuildId ~= guild.Id then return end
+			if packet.Type == "GuildChat" and type(packet.Message) == "table" then					setMessages(function(previous)
+						local updated = table.clone(previous)
+						for _, existing in updated do if existing.Id == packet.Message.Id then return previous end end
+						updated[#updated + 1] = packet.Message
+
+					while #updated > 50 do table.remove(updated, 1) end
+					return updated
+				end)
+			elseif packet.Refresh == true or packet.Type == "GuildAnnouncement" or packet.Type == "GuildSettings" or packet.Type == "GuildLogo" or packet.Type == "GuildModeration" then
+				-- Refresh: another server changed something too large to relay inline
+				requestCommunity()
+			end
+		end)
+		return function()
+			alive = false
+			connection:Disconnect()
+			pcall(task.cancel, worker)
+		end
+	end, { requestCommunity, guild.Id })
+	local run = function(action, payload, done)
+		if busy ~= "" then return end
+		setBusy(action)
+		dispatch(action, payload, function(result)
+			setBusy("")
+			if result.ok then requestCommunity() end
+			if done then done(result) end
+		end)
+	end
+	local fieldStyle = { BackgroundColor3 = Palette.void, BorderSizePixel = 0, TextColor3 = Palette.cream, PlaceholderColor3 = Palette.muted, TextSize = 14, ClearTextOnFocus = false, FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium) }
+	local function input(placeholder, value, onChange, height, position)
+		return React.createElement("textbox", {
+			Size = UDim2.new(1, 0, 0, height or 42),
+			Position = position or UDim2.fromOffset(0, 0),
+			PlaceholderText = placeholder,
+			Text = value,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Change = { Text = function(box) onChange(ChatText.cutBytes(box.Text, 800)) end },
+			BackgroundColor3 = fieldStyle.BackgroundColor3,
+			BorderSizePixel = fieldStyle.BorderSizePixel,
+			TextColor3 = fieldStyle.TextColor3,
+			PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+			TextSize = fieldStyle.TextSize,
+			ClearTextOnFocus = false,
+			FontFace = fieldStyle.FontFace,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }))
+	end
+	local ROLE_COLORS = { Leader = Palette.mango, Officer = Palette.cyan, Member = Palette.creamSoft }
+	local chatRows = {}
+	local previousSpeaker = nil
+	for index, message in messages do
+		local own = message.SpeakerUserId == localUserId
+		local grouped = previousSpeaker == message.SpeakerUserId
+		previousSpeaker = message.SpeakerUserId
+		local stamp = if type(message.PublishedAt) == "number" then os.date("%H:%M", message.PublishedAt) else ""
+		local roleColor = ROLE_COLORS[message.SpeakerRole] or Palette.creamSoft
+		chatRows[#chatRows + 1] = React.createElement("frame", {
+			key = message.Id or tostring(index),
+			LayoutOrder = index,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+		}, React.createElement("uipadding", { PaddingLeft = UDim.new(0, if own then 40 else 0), PaddingRight = UDim.new(0, if own then 0 else 40), PaddingTop = UDim.new(0, if grouped then 0 else 4) }),
+			React.createElement("frame", {
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundColor3 = if own then Palette.cyan else Palette.panelSoft,
+				BackgroundTransparency = if own then 0.82 else 0.35,
+				BorderSizePixel = 0,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
+				React.createElement("uipadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }),
+				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }),
+				not grouped and React.createElement("textlabel", {
+					LayoutOrder = 1,
+					Size = UDim2.new(1, 0, 0, 16),
+					BackgroundTransparency = 1,
+					Text = `{message.SpeakerName or tostring(message.SpeakerUserId)}{if message.SpeakerRole and message.SpeakerRole ~= "Member" then "  ·  " .. string.upper(message.SpeakerRole) else ""}   {stamp}`,
+					TextColor3 = roleColor,
+					TextSize = 12,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+				}),
+				React.createElement("textlabel", {
+					LayoutOrder = 2,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					Text = tostring(message.Message or ""),
+					TextColor3 = Palette.cream,
+					TextSize = 14,
+					TextWrapped = true,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+				})))
+	end
+	if #chatRows == 0 then chatRows[1] = React.createElement(Text, { key = "no-chat", value = "No messages yet. Chat is visible only to this guild's members.", size = 12, color = Palette.muted, wrap = true, sizeConstraint = UDim2.new(1, 0, 0, 34) }) end
+	React.useEffect(function()
+		local frame = chatScroll.current
+		if frame == nil then return nil end
+		local job = task.defer(function()
+			if frame.Parent then frame.CanvasPosition = Vector2.new(0, math.max(0, frame.AbsoluteCanvasSize.Y - frame.AbsoluteWindowSize.Y)) end
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { #messages })
+	local function sendChat()
+		if chatDraft == "" or settings.ChatEnabled == false then return end
+		run("SendGuildChat", { Content = chatDraft }, function(result) if result.ok then setChatDraft("") end end)
+	end
+	local announcementRows = {}
+	for index, item in announcements do
+		local label = `{if item.Pinned then "[PINNED] " else ""}{item.Title}  ·  {item.AuthorName or "Guild staff"}`
+		announcementRows[index] = React.createElement(Panel, {
+			key = item.Id,
+			size = UDim2.new(1, 0, 0, 116),
+			accent = item.Pinned and Palette.mango or Palette.cyan,
+			padding = 12,
+			reducedMotion = reducedMotion,
+		}, React.createElement(Text, { value = label, size = 13, weight = Enum.FontWeight.Bold, fit = true, sizeConstraint = UDim2.new(1, 0, 0, 22) }), React.createElement(Text, { value = item.Body, size = 11, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(0, 28), sizeConstraint = UDim2.new(1, 0, 0, 52) }), manager and React.createElement(Button, {
+			text = item.Pinned and "UNPIN" or "PIN",
+			onClick = function() run("PinGuildAnnouncement", { AnnouncementId = item.Id, Pinned = not item.Pinned }) end,
+			color = Palette.panelSoft,
+			size = UDim2.fromOffset(92, 32),
+			position = UDim2.new(1, -96, 1, -32),
+			disabled = busy ~= "",
+			reducedMotion = reducedMotion,
+		}), manager and React.createElement(Button, {
+			text = "ARCHIVE",
+			onClick = function() run("ArchiveGuildAnnouncement", { AnnouncementId = item.Id }) end,
+			color = Palette.panelSoft,
+			textColor = Palette.coral,
+			size = UDim2.fromOffset(92, 32),
+			position = UDim2.new(1, -194, 1, -32),
+			disabled = busy ~= "",
+			reducedMotion = reducedMotion,
+		}), React.createElement(Text, {
+			value = if type(item.PublishedAt) == "number" then os.date("%b %d · %H:%M", item.PublishedAt) .. (if item.EditedAt then " · edited" else "") else "",
+			size = 10,
+			color = Palette.muted,
+			position = UDim2.new(0, 0, 1, -24),
+			sizeConstraint = UDim2.new(1, -200, 0, 18),
+		}))
+	end
+	if #announcementRows == 0 then announcementRows[1] = React.createElement(Text, { key = "no-announcements", value = "No current announcements.", size = 12, color = Palette.muted }) end
+	local logoRows = {}
+	for index, logo in logos do
+		logoRows[index] = React.createElement(Panel, { key = logo.Id, size = UDim2.new(1, 0, 0, 84), accent = Palette.violet, padding = 10 },
+
+			React.createElement("imagelabel", { Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 1, Image = logo.URL or "", ScaleType = Enum.ScaleType.Fit }),
+			React.createElement(Text, { value = `Logo {string.sub(logo.Id, 1, 8)} · pending`, size = 12, fit = true, position = UDim2.fromOffset(58, 4), sizeConstraint = UDim2.new(1, -220, 0, 22) }),
+
+			React.createElement(Button, { text = "APPROVE", onClick = function() run("ModerateGuildLogo", { LogoId = logo.Id, Decision = "approved" }) end, color = Palette.mint, size = UDim2.fromOffset(92, 34), position = UDim2.new(1, -196, 0, 12), disabled = busy ~= "", reducedMotion = reducedMotion }),
+			React.createElement(Button, { text = "REJECT", onClick = function() run("ModerateGuildLogo", { LogoId = logo.Id, Decision = "rejected", Reason = "Did not meet guild logo guidelines." }) end, color = Palette.panelSoft, textColor = Palette.coral, size = UDim2.fromOffset(92, 34), position = UDim2.new(1, -98, 0, 12), disabled = busy ~= "", reducedMotion = reducedMotion }))
+	end
+	local settingsRows = {}
+	if leader then
+		local SETTING_LABELS = {
+			ChatEnabled = "CHAT",
+			AnnouncementsEnabled = "NEWS",
+			LogoEnabled = "LOGOS",
+			OfficerAnnouncements = "OFFICER NEWS",
+			OfficerModeration = "OFFICER MODS",
+			SlowMode = "SLOW MODE",
+		}
+		for index, key in { "ChatEnabled", "AnnouncementsEnabled", "LogoEnabled", "OfficerAnnouncements", "OfficerModeration", "SlowMode" } do
+			local enabled = if key == "SlowMode" then settings[key] == true else settings[key] ~= false
+			settingsRows[index] = React.createElement(Button, {
+				key = key,
+				text = `{SETTING_LABELS[key]}  {if enabled then "ON" else "OFF"}`,
+				onClick = function()
+					local updated = table.clone(settings)
+					updated[key] = not enabled
+					setSettings(updated)
+					run("SetGuildSettings", { Settings = { [key] = updated[key] } })
+				end,
+				color = if enabled then Palette.mint else Palette.panelSoft,
+				textColor = if enabled then Palette.ink else Palette.cream,
+				size = UDim2.new(1 / 3, -6, 0, 42),
+				position = UDim2.new(((index - 1) % 3) / 3, 0, 0, math.floor((index - 1) / 3) * 48),
+				disabled = busy ~= "",
+				reducedMotion = reducedMotion,
+			})
+		end
+	end
+	local sections = {
+		{ id = "guild-community-back", height = 48, element = React.createElement(Button, { text = "‹  GUILD OVERVIEW", onClick = onBack, color = Palette.panelSoft, textColor = Palette.cream, size = UDim2.new(1, 0, 0, 44), reducedMotion = reducedMotion }) },
+		{ id = "guild-community-chat", height = 430, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.cyan, padding = 14, reducedMotion = reducedMotion, clips = false },
+			React.createElement(Text, { value = `GUILD CHANNEL · {#messages} MESSAGES{if settings.SlowMode == true then " · SLOW MODE" else ""}`, size = 12, color = Palette.cyan, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 20) }),
+			React.createElement("scrollingframe", {
+				ref = chatScroll,
+				Size = UDim2.new(1, 0, 0, 308),
+				Position = UDim2.fromOffset(0, 26),
+				BackgroundColor3 = Palette.void,
+				BackgroundTransparency = 0.35,
+				BorderSizePixel = 0,
+				CanvasSize = UDim2.new(),
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				ScrollingDirection = Enum.ScrollingDirection.Y,
+				ScrollBarThickness = 3,
+				ScrollBarImageColor3 = Palette.cyan,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }),
+				React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }),
+				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }), chatRows),
+			React.createElement("textbox", {
+				Size = UDim2.new(1, -112, 0, 42),
+				Position = UDim2.fromOffset(0, 344),
+				PlaceholderText = if settings.ChatEnabled == false then "Chat is disabled by the leader" else "Message your guild…  (Enter to send)",
+				Text = chatDraft,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Change = { Text = function(box) setChatDraft(ChatText.cutBytes(box.Text, 400)) end },
+				Event = { FocusLost = function(_, enterPressed) if enterPressed then sendChat() end end },
+				BackgroundColor3 = fieldStyle.BackgroundColor3,
+				BorderSizePixel = 0,
+				TextColor3 = fieldStyle.TextColor3,
+				PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+				TextSize = fieldStyle.TextSize,
+				ClearTextOnFocus = false,
+				TextEditable = settings.ChatEnabled ~= false,
+				FontFace = fieldStyle.FontFace,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) })),
+			React.createElement(Button, { text = "SEND", onClick = sendChat, color = Palette.cyan, textColor = Palette.ink, size = UDim2.new(0, 104, 0, 42), position = UDim2.new(1, -104, 0, 344), disabled = busy ~= "" or settings.ChatEnabled == false or chatDraft == "", loading = busy == "SendGuildChat", reducedMotion = reducedMotion }),
+			React.createElement(Text, { value = `{#chatDraft}/400 · filtered by Roblox · members only`, size = 10, color = Palette.muted, position = UDim2.fromOffset(0, 390), sizeConstraint = UDim2.new(1, 0, 0, 16) })) },
+		{ id = "guild-community-announcements", height = math.max(168, #announcementRows * 126 + (manager and 164 or 64)), element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0 }, React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10) }),
+			React.createElement(SectionLabel, { value = "ANNOUNCEMENTS", color = Palette.mango }),
+			manager and React.createElement(Panel, { size = UDim2.new(1, 0, 0, 154), accent = Palette.mango, padding = 12, clips = false }, input("Announcement title", announcementTitle, function(value) setAnnouncementTitle(ChatText.cutBytes(value, 120)) end, 40, UDim2.fromOffset(0, 0)), input("Announcement body", announcementBody, setAnnouncementBody, 46, UDim2.fromOffset(0, 44)), React.createElement(Button, { text = "PUBLISH", onClick = function() run("CreateGuildAnnouncement", { Title = announcementTitle, Body = announcementBody }, function(result) if result.ok then setAnnouncementTitle(""); setAnnouncementBody("") end end) end, color = Palette.mango, textColor = Palette.ink, size = UDim2.new(1, 0, 0, 36), position = UDim2.new(0, 0, 1, -36), disabled = busy ~= "" or settings.AnnouncementsEnabled == false or announcementTitle == "" or announcementBody == "", reducedMotion = reducedMotion }), settings.AnnouncementsEnabled == false and React.createElement(Text, { value = "Announcements are disabled by the guild leader.", size = 11, color = Palette.coral, position = UDim2.fromOffset(0, -16) })),
+			announcementRows) },
+	}
+	if manager then
+		local moderationButtons = {}
+		for index, action in { "MuteGuildMember", "BanGuildMember", "UnmuteGuildMember", "UnbanGuildMember" } do
+			local labels = { MuteGuildMember = "MUTE", BanGuildMember = "BAN", UnmuteGuildMember = "UNMUTE", UnbanGuildMember = "UNBAN" }
+			local colors = { MuteGuildMember = Palette.mango, BanGuildMember = Palette.coral, UnmuteGuildMember = Palette.cyan, UnbanGuildMember = Palette.violet }
+			moderationButtons[index] = React.createElement(Button, { key = action, text = labels[action], onClick = function()
+				local id = tonumber(moderationUserId)
+				if id and id > 0 then run(action, { UserId = math.floor(id) }) end
+			end, color = colors[action], textColor = Palette.ink, size = UDim2.new(0.25, -6, 0, 40), position = UDim2.new((index - 1) * 0.25, 0, 0, 0), disabled = busy ~= "" or tonumber(moderationUserId) == nil, reducedMotion = reducedMotion })
+		end
+		table.insert(sections, { id = "guild-community-moderation", height = 146, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.coral, padding = 14, clips = false }, React.createElement(SectionLabel, { value = "MEMBER MODERATION · USER ID", color = Palette.coral }), input("Guild member user ID", moderationUserId, function(value) setModerationUserId(string.sub(value, 1, 20)) end, 42, UDim2.fromOffset(0, 28)), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 76), BackgroundTransparency = 1 }, moderationButtons)) })
+	end
+	if leader then
+		table.insert(sections, { id = "guild-community-settings", height = 160, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14 }, React.createElement(SectionLabel, { value = "GUILD RULES", color = Palette.violet }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 }, settingsRows), React.createElement(Text, { value = "Officer toggles decide whether officers may post news and moderate. Slow mode spaces member messages 6s apart.", size = 10, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 116), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
+		local cooldownDays = math.floor((tonumber(guildConfig.RenameCooldownSeconds) or 604800) / 86400)
+		local renameReady = #renameName >= 3 or #renameTag >= 3
+		table.insert(sections, { id = "guild-community-rename", height = 178, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mango, padding = 14, clips = false },
+			React.createElement(SectionLabel, { value = `RENAME · NOW {string.upper(tostring(guild.Name or ""))} [{guild.Tag or "?"}]`, color = Palette.mango }),
+			React.createElement("textbox", {
+				Size = UDim2.new(0.7, -6, 0, 42),
+				Position = UDim2.fromOffset(0, 28),
+				PlaceholderText = "New guild name (3–28)",
+				Text = renameName,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Change = { Text = function(box) setRenameName(ChatText.cutBytes(box.Text, 28)) end },
+				BackgroundColor3 = fieldStyle.BackgroundColor3,
+				BorderSizePixel = 0,
+				TextColor3 = fieldStyle.TextColor3,
+				PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+				TextSize = fieldStyle.TextSize,
+				ClearTextOnFocus = false,
+				FontFace = fieldStyle.FontFace,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) })),
+			React.createElement("textbox", {
+				Size = UDim2.new(0.3, 0, 0, 42),
+				Position = UDim2.new(0.7, 0, 0, 28),
+				PlaceholderText = "TAG",
+				Text = renameTag,
+				Change = { Text = function(box) setRenameTag(string.upper(string.sub((string.gsub(box.Text, "[^%w]", "")), 1, 4))) end },
+				BackgroundColor3 = fieldStyle.BackgroundColor3,
+				BorderSizePixel = 0,
+				TextColor3 = fieldStyle.TextColor3,
+				PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+				TextSize = fieldStyle.TextSize,
+				ClearTextOnFocus = false,
+				FontFace = fieldStyle.FontFace,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) })),
+			React.createElement(Button, { text = "RENAME GUILD", onClick = function()
+				local nextName = if #renameName >= 3 then renameName else tostring(guild.Name or "")
+				run("RenameGuild", { Name = nextName, Tag = if #renameTag >= 3 then renameTag else nil }, function(result) if result.ok then setRenameName(""); setRenameTag("") end end)
+			end, color = Palette.mango, textColor = Palette.ink, size = UDim2.new(1, 0, 0, 40), position = UDim2.fromOffset(0, 78), disabled = busy ~= "" or not renameReady, loading = busy == "RenameGuild", reducedMotion = reducedMotion }),
+			React.createElement(Text, { value = `Costs {tostring(guildConfig.RenameCost or 10000)} flux · once every {cooldownDays} days · names are filtered`, size = 10, color = Palette.muted, position = UDim2.fromOffset(0, 124), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
+	end
+	if manager then
+		local activeLogo = community.Logo
+		local logoPreview = activeLogo and activeLogo.URL and React.createElement("imagelabel", { Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -60, 0, 0), BackgroundTransparency = 1, Image = activeLogo.URL, ScaleType = Enum.ScaleType.Fit })
+		table.insert(sections, { id = "guild-community-logo", height = 164 + #logoRows * 94, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14, clips = false }, React.createElement(SectionLabel, { value = "ROBLOX IMAGE LOGO · REVIEW REQUIRED", color = Palette.violet }), logoPreview, input("Roblox image asset ID", logoAsset, setLogoAsset, 42, UDim2.fromOffset(0, 28)), React.createElement(Button, { text = "SUBMIT FOR REVIEW", onClick = function() run("UploadGuildLogo", { URL = logoAsset }, function(result) if result.ok then setLogoAsset("") end end) end, color = Palette.violet, textColor = Palette.cream, size = UDim2.new(1, 0, 0, 38), position = UDim2.fromOffset(0, 76), disabled = busy ~= "" or settings.LogoEnabled == false or logoAsset == "", reducedMotion = reducedMotion }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, #logoRows * 90), Position = UDim2.fromOffset(0, 120), BackgroundTransparency = 1 }, React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }), logoRows)) })
+	end
+	return React.createElement(PageScaffold, { gap = 10, tailPad = scrollTail(stack, 0, 72), scrollBarColor = Palette.cyan, scrollBarThickness = 4, sections = sections })
+end
+
 local function GuildView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -3341,6 +3802,7 @@ local function GuildView(_param)
 	local membersReveal = useStagger(2, softMotion)
 	local goalReveal = useStagger(3, softMotion)
 	local _, refreshRequest = React.useState(0)
+
 	local request = React.useMemo(function()
 		return createRequest(dispatch,task.delay,function() refreshRequest(function(v) return v+1 end) end)
 	end,{dispatch})
@@ -3351,6 +3813,9 @@ local function GuildView(_param)
 	local shakeToken, setShakeToken = React.useState(0)
 	local contributeCash, setContributeCash = React.useState("")
 	local contributeDust, setContributeDust = React.useState("")
+	-- member search lives above the no-guild early return so hook order never changes
+	local memberQuery, setMemberQuery = Browse.useLinkedQuery("GuildMembers")
+	local memberRole, setMemberRole = React.useState("All")
 	local guild = state.Guild
 	local localPlayer = Players.LocalPlayer
 	local localKey = if localPlayer ~= nil then tostring(localPlayer.UserId) else ""
@@ -3447,7 +3912,19 @@ local function GuildView(_param)
 			},
 		})
 	end
+	if pane == "Community" then
+		return React.createElement(GuildCommunityPanel, {
+			guild = guild,
+			dispatch = dispatch,
+			reducedMotion = softMotion,
+			stack = stack,
+			role = guild.Members[localKey] and guild.Members[localKey].Role or "Member",
+			config = config,
+			onBack = function() setPane("Overview") end,
+		})
+	end
 	local members = {}
+
 	for key, member in pairs(guild.Members) do
 		local _arg0 = {
 			key = key,
@@ -3824,8 +4301,19 @@ local function GuildView(_param)
 		Padding = UDim.new(0, pageGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), upgradeChildren)
+	local roleCounts = { All = 0, Leader = 0, Officer = 0, Member = 0 }
+	local shownMembers = {}
+	for _, member in members do
+		if Browse.matches(memberQuery, member.name, member.role, member.key) then
+			roleCounts.All += 1
+			roleCounts[member.role] = (roleCounts[member.role] or 0) + 1
+			if memberRole == "All" or member.role == memberRole then
+				table.insert(shownMembers, member)
+			end
+		end
+	end
 	local memberChildren = {}
-	for index, member in members do
+	for index, member in shownMembers do
 		local share = 0
 		if goalContributors ~= nil then
 			share = goalContributors[member.key] or 0
@@ -3851,11 +4339,38 @@ local function GuildView(_param)
 			layoutOrder = index,
 		})
 	end
-	local memberBlockH = if #members == 0 then 72 else #members * memberHeight + math.max(0, #members - 1) * pageGap
+	local memberBlockH = if #shownMembers == 0 then 72 else #shownMembers * memberHeight + math.max(0, #shownMembers - 1) * pageGap
 	local overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2
-	local memberList = if #members == 0 then React.createElement(EmptyState, {
-		title = "No members",
-		body = "Members show up here.",
+	local memberSearchH = if stack then TapTarget else 40
+	local memberFilter = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+	}, React.createElement(SearchField, {
+		value = memberQuery,
+		onChange = setMemberQuery,
+		placeholder = "Search members",
+		accent = Palette.violet,
+		reducedMotion = softMotion,
+		size = UDim2.new(1, 0, 0, memberSearchH),
+		zIndex = 20,
+	}), React.createElement(Browse.ChipRow, {
+		options = {
+			{ id = "All", label = "Everyone" },
+			{ id = "Leader", label = "Leader" },
+			{ id = "Officer", label = "Officers" },
+			{ id = "Member", label = "Members" },
+		},
+		value = memberRole,
+		onChange = function(id)
+			setMemberRole(id)
+		end,
+		counts = roleCounts,
+		accent = Palette.violet,
+		position = UDim2.fromOffset(0, memberSearchH + 8),
+	}))
+	local memberList = if #shownMembers == 0 then React.createElement(EmptyState, {
+		title = if #members > 0 then "No members match" else "No members",
+		body = if #members > 0 then "Clear the search or pick Everyone." else "Members show up here.",
 		icon = "Pilot",
 		accent = Palette.cyan,
 		size = UDim2.new(1, 0, 0, 72),
@@ -3870,14 +4385,16 @@ local function GuildView(_param)
 	}), memberChildren)
 	local hall=Social.hall(guild)
 	local tabs={}
-	local columns=if stack then 2 else 4
-	for index,id in {"Overview","Treasury","Upgrades","Members"} do
+	local columns=if stack then 2 else 3
+	local guildTabs={"Overview","Treasury","Upgrades","Members","Community"}
+	for index,id in guildTabs do
 		tabs[index]=React.createElement(Button,{text=string.upper(id),size=UDim2.new(1/columns,-6,0,48),position=UDim2.new(((index-1)%columns)/columns,0,0,math.floor((index-1)/columns)*56),color=if pane==id then Palette.violet else Palette.panelSoft,onClick=function() setPane(id) end,reducedMotion=softMotion})
 	end
+	local navigationHeight=math.ceil(#guildTabs/columns)*56
 	local sections={
 		{id="hero",height=heroHeight,element=_exp_11},
 		statusSection(),
-		{id="guild-navigation",height=if stack then 112 else 56,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
+		{id="guild-navigation",height=navigationHeight,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
 	}
 	local function add(id,height,element) table.insert(sections,{id=id,height=height,element=element}) end
 	if pane=="Overview" then
@@ -3895,6 +4412,9 @@ local function GuildView(_param)
 		add("role-policy",176,React.createElement(Panel,{size=UDim2.fromScale(1,1),padding=16,accent=Palette.cyan},
 			React.createElement(Text,{value="ROLES & SUCCESSION",size=17,sizeConstraint=UDim2.new(1,0,0,28)}),
 			React.createElement(Text,{value="Leader: assigns roles and manages the hall. Officer: buys upgrades and removes members. Member: contributes and earns goal rewards. If the leader leaves, an officer succeeds first, then the earliest joiner; user ID breaks ties.",position=UDim2.fromOffset(0,40),size=13,wrap=true,sizeConstraint=UDim2.new(1,0,0,104)})))
+		if #members > 3 then
+			add("member-filter",memberSearchH + 8 + Browse.CHIP_H,memberFilter)
+		end
 		add("members",memberBlockH,memberList)
 	end
 	return React.createElement(PageScaffold,{gap=12,tailPad=scrollTail(chrome.stack,chrome.bottomSafe,80),scrollBarColor=Palette.violet,scrollBarThickness=4,sections=sections})
@@ -3914,326 +4434,406 @@ local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
 local useAntilag = require(script.Parent.Parent.MotionKit)("antilag").useAntilag
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _motion = require(script.Parent.Parent.MotionKit)("motion")
+local useFlash = _motion.useFlash
 local useFlipperSpring = _motion.useFlipperSpring
 local useStagger = _motion.useStagger
 local useViewport = _motion.useViewport
 local _theme = require(script.Parent.Parent.CoreKit)("theme")
-local Layout = _theme.Layout
 local chromeFor = _theme.chromeFor
 local Palette = _theme.Palette
 local darken = _theme.darken
+local lighten = _theme.lighten
 local TapTarget = _theme.TapTarget
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local _ui = require(script.Parent.Parent.UiCore)("ui")
 local Badge = _ui.Badge
 local Button = _ui.Button
 local EmptyState = _ui.EmptyState
+local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
 local measureWrappedTextHeight = _ui.measureWrappedTextHeight
 local ScriptedText = require(script.Parent.Parent.ReactHosts)("RichTextHost").ScriptedText
-local LIST_HEADER = 72
-local LIST_CARD = 124
-local LIST_CARD_MOBILE = 132
-local LIST_GAP = 10
-local DETAIL_HEADER = 96
-local FOOTER_HEIGHT = 84
-local FOOTER_HEIGHT_MOBILE = 168
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
+local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
+
+local h = React.createElement
+local ROW_H = 84
+local ROW_GAP = 8
+local FILTERS = {
+	{ id = "All", label = "All" },
+	{ id = "Unread", label = "Unread" },
+	{ id = "Gifts", label = "Gifts" },
+	{ id = "Collected", label = "Collected" },
+}
+
 local function paragraphHeight(value, width, size)
-	return math.max(20, measureWrappedTextHeight(value, width, size, Enum.FontWeight.Regular) + 4)
+	return math.max(20, measureWrappedTextHeight(value, width, size, Enum.FontWeight.Regular) + 6)
 end
-local function MailRow(_param)
-	local item = _param.item
-	local active = _param.active
-	local unread = _param.unread
-	local cardH = _param.cardH
-	local stack = _param.stack
-	local reducedMotion = _param.reducedMotion
-	local layoutOrder = _param.layoutOrder
-	local onChoose = _param.onChoose
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local reveal = useStagger(layoutOrder, softMotion)
-	return React.createElement("imagebutton", {
-		LayoutOrder = layoutOrder,
-		Size = UDim2.new(1, -4, 0, cardH),
-		BackgroundTransparency = reveal:map(function(amount)
-			return 1 - amount
-		end),
-		BackgroundColor3 = if active then item.Color:Lerp(Palette.panelRaised, 0.82) else Palette.panelRaised,
+
+local function hasGift(item)
+	return item.Attachment ~= nil and next(item.Attachment) ~= nil
+end
+
+local function Avatar(props)
+	local item = props.item
+	local letter = ChatText.initial(item.Sender)
+	return h("frame", {
+		Size = UDim2.fromOffset(props.size, props.size),
+		Position = props.position,
+		BackgroundColor3 = darken(item.Color, if props.unread then 0.25 else 0.65),
 		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = item.Color,
+		Thickness = 1.5,
+		Transparency = if props.unread then 0.05 else 0.55,
+	}), h(Text, {
+		value = letter,
+		size = math.floor(props.size * 0.42),
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		sizeConstraint = UDim2.fromScale(1, 1),
+		zIndex = 4,
+	}))
+end
+
+local function MailRow(props)
+	local item = props.item
+	local mail = props.mail
+	local unread = not mail.Read
+	local gift = hasGift(item) and not mail.Claimed
+	local softMotion = props.softMotion
+	local reveal = useStagger(props.order, softMotion, 0.02, 0.2)
+	local hover, setHover = React.useState(false)
+	local glow = useFlipperSpring(if props.active then 1 elseif hover then 0.5 else 0, softMotion, 640, 36)
+	return h("imagebutton", {
+		Name = "MailRow",
+		Size = UDim2.new(1, -4, 0, ROW_H),
+		BackgroundColor3 = Palette.panelRaised,
+		BackgroundTransparency = reveal:map(function(a)
+			return 1 - a
+		end),
 		AutoButtonColor = false,
-		Active = true,
+		BorderSizePixel = 0,
 		Selectable = true,
 		ClipsDescendants = false,
 		Event = {
 			Activated = function()
-				return onChoose(item.Id)
+				props.onChoose(item.Id)
 			end,
 			MouseEnter = function()
-				return Audio:play("hover")
+				setHover(true)
+				Audio:play("hover")
+			end,
+			MouseLeave = function()
+				setHover(false)
 			end,
 			SelectionGained = function()
-				return Audio:play("hover")
+				setHover(true)
+			end,
+			SelectionLost = function()
+				setHover(false)
 			end,
 		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement("uistroke", {
-		Color = if active or unread then item.Color else Palette.lineSoft,
-		Thickness = 1,
-		Transparency = if active then 0.16 elseif unread then 0.38 else 0.7,
-	}), unread and React.createElement("frame", {
-		Size = UDim2.new(0, 3, 1, -18),
-		Position = UDim2.fromOffset(0, 9),
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+		Color = if props.active or unread then item.Color else Palette.lineSoft,
+		Thickness = glow:map(function(a)
+			return 1 + a
+		end),
+		Transparency = glow:map(function(a)
+			return if unread then 0.35 - a * 0.3 else 0.7 - a * 0.5
+		end),
+	}), h("frame", {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = item.Color,
+		BackgroundTransparency = glow:map(function(a)
+			return 1 - a * 0.1
+		end),
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 2),
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(TapTarget, TapTarget),
-		Position = UDim2.fromOffset(12, math.floor((cardH - TapTarget) / 2)),
-		BackgroundColor3 = item.Color,
-		BackgroundTransparency = if unread then 0.08 else 0.8,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 12),
-	}), React.createElement(Icon, {
-		kind = "Mail",
-		color = if unread then Palette.ink else Palette.creamSoft,
-		accent = item.Color,
-		size = 26,
-		position = UDim2.fromOffset(11, 11),
-		spin = false,
-			reducedMotion = softMotion,
-	})), React.createElement("frame", {
-		Size = UDim2.new(1, -80, 1, -16),
-		Position = UDim2.fromOffset(72, 12),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement(Text, {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) })), h(Avatar, {
+		item = item,
+		unread = unread,
+		size = 44,
+		position = UDim2.new(0, 12, 0.5, -22),
+	}), h(Text, {
 		value = item.Subject,
-		size = if stack then 15 else 14,
+		size = 15,
 		color = Palette.cream,
 		weight = if unread then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
 		fit = true,
-		minSize = 10,
-		sizeConstraint = UDim2.new(1, -14, 0, 22),
-	}), React.createElement(Text, {
+		minSize = 11,
+		position = UDim2.fromOffset(68, 12),
+		sizeConstraint = UDim2.new(1, -150, 0, 20),
+		zIndex = 3,
+	}), h(Text, {
 		value = item.Sender,
-		size = 13,
+		size = 12,
 		color = item.Color,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
-		minSize = 10,
-		position = UDim2.fromOffset(0, 26),
-		sizeConstraint = UDim2.new(1, -14, 0, 18),
-	}), React.createElement(Text, {
-		value = item.Preview,
+		minSize = 9,
+		position = UDim2.fromOffset(68, 33),
+		sizeConstraint = UDim2.new(1, -150, 0, 16),
+		zIndex = 3,
+	}), h(Text, {
+		value = item.Preview or "",
 		size = 12,
 		color = Palette.muted,
-		wrap = true,
-		position = UDim2.fromOffset(0, 48),
-		sizeConstraint = UDim2.new(1, -10, 0, 52),
-	})), unread and React.createElement("frame", {
-		Size = UDim2.fromOffset(9, 9),
-		Position = UDim2.new(1, -18, 0, 14),
-		BackgroundColor3 = item.Color,
+		position = UDim2.fromOffset(68, 52),
+		sizeConstraint = UDim2.new(1, -80, 0, 18),
+		zIndex = 3,
+	}), h(Text, {
+		value = item.Date or "",
+		size = 11,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.new(1, -94, 0, 12),
+		sizeConstraint = UDim2.fromOffset(82, 16),
+		zIndex = 3,
+	}), h("frame", {
+		Size = UDim2.fromOffset(70, 20),
+		Position = UDim2.new(1, -82, 0, 32),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+	}, h("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		Padding = UDim.new(0, 4),
+	}), unread and h(Badge, {
+		value = "NEW",
+		accent = item.Color,
+		filled = true,
+		size = UDim2.fromOffset(40, 18),
+	}), gift and h("frame", {
+		Size = UDim2.fromOffset(22, 18),
+		BackgroundColor3 = Palette.mint,
 		BorderSizePixel = 0,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))
+	}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), h(Icon, {
+		kind = "Gift",
+		color = Palette.ink,
+		accent = Palette.mint,
+		size = 14,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		spin = false,
+	})), not gift and mail.Claimed and hasGift(item) and h("frame", {
+		Size = UDim2.fromOffset(22, 18),
+		BackgroundColor3 = Palette.panelSoft,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 6) }), h(Icon, {
+		kind = "Check",
+		color = Palette.mint,
+		accent = Palette.mint,
+		size = 14,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		spin = false,
+	}))))
 end
+
+local function Parcel(props)
+	local item = props.item
+	local claimed = props.claimed
+	local softMotion = props.softMotion
+	local stack = props.stack
+	local pop = useFlash(props.claimToken, softMotion, 0.7)
+	return h("frame", {
+		Name = "MailClaimActions",
+		Size = UDim2.new(1, 0, 0, props.height),
+		Position = UDim2.new(0, 0, 1, -props.height),
+		BackgroundColor3 = darken(item.Color, if claimed then 0.85 else 0.72),
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 6,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+		Color = if claimed then Palette.lineSoft else item.Color,
+		Thickness = pop:map(function(a)
+			return 1.5 + a * 2
+		end),
+		Transparency = if claimed then 0.6 else 0.15,
+	}), h("frame", {
+		Size = UDim2.fromOffset(48, 48),
+		Position = UDim2.fromOffset(14, 14),
+		BackgroundColor3 = if claimed then Palette.panelSoft else item.Color,
+		BorderSizePixel = 0,
+		ZIndex = 7,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uiscale", {
+		Scale = pop:map(function(a)
+			return 1 + a * 0.3
+		end),
+	}), h(Icon, {
+		kind = if claimed then "Check" else "Gift",
+		color = if claimed then Palette.mint else Palette.ink,
+		accent = item.Color,
+		size = 28,
+		position = UDim2.fromScale(0.5, 0.5),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		spin = false,
+		reducedMotion = softMotion,
+	})), h(Text, {
+		value = if claimed then "COLLECTED" else "ATTACHED GIFT",
+		size = 11,
+		color = if claimed then Palette.mint else item.Color,
+		weight = Enum.FontWeight.Heavy,
+		position = UDim2.fromOffset(74, 16),
+		sizeConstraint = UDim2.new(1, if stack then -86 else -340, 0, 14),
+		zIndex = 7,
+	}), h(Text, {
+		value = formatReward(item.Attachment),
+		size = 15,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 10,
+		position = UDim2.fromOffset(74, 34),
+		sizeConstraint = UDim2.new(1, if stack then -86 else -340, 0, 22),
+		zIndex = 7,
+	}), h("frame", {
+		Size = if stack then UDim2.new(1, -28, 0, TapTarget) else UDim2.fromOffset(310, TapTarget),
+		Position = if stack then UDim2.new(0, 14, 1, -(TapTarget + 14)) else UDim2.new(1, -324, 0.5, -TapTarget / 2),
+		BackgroundTransparency = 1,
+		ClipsDescendants = false,
+		ZIndex = 8,
+	}, h("frame", {
+		Name = "MailClaim",
+		Size = UDim2.new(0.62, -4, 1, 0),
+		BackgroundTransparency = 1,
+		ClipsDescendants = false,
+	}, h(Button, {
+		text = if claimed then "COLLECTED" else "CLAIM GIFT",
+		icon = "Gift",
+		onClick = props.onClaim,
+		color = if claimed then Palette.panelSoft else item.Color,
+		textColor = if claimed then Palette.muted else Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		disabled = claimed,
+		highlight = not claimed,
+		reducedMotion = softMotion,
+	})), h("frame", {
+		Name = "MailArchive",
+		Size = UDim2.new(0.38, -4, 1, 0),
+		Position = UDim2.new(0.62, 4, 0, 0),
+		BackgroundTransparency = 1,
+	}, h(Button, {
+		text = "ARCHIVE",
+		icon = "Close",
+		onClick = props.onArchive,
+		color = Palette.coral,
+		textColor = if claimed then Palette.cream else Palette.muted,
+		outline = true,
+		size = UDim2.fromScale(1, 1),
+		disabled = not claimed,
+		reducedMotion = softMotion,
+	}))))
+end
+
 local function MailboxView(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local antilag = useAntilag()
+	local stack = chrome.contentStack
+	local mobileRoute = chrome.mobile or viewport.width < 760
 	local mountedRef = React.useRef(true)
 	local mailActionsHostRef = React.useRef(nil)
 	React.useEffect(function()
+		mountedRef.current = true
 		return function()
 			mountedRef.current = false
 		end
 	end, {})
-	local viewport = useViewport()
-	local chrome = chromeFor(viewport)
-	local antilag = useAntilag()
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local stack = chrome.contentStack
-	local mobileRoute = chrome.mobile
-	local compactChrome = chrome.landscape or viewport.keyboardOpen or viewport.height < 700
-	local listHeaderH = if compactChrome then 56 else LIST_HEADER
-	local detailHeaderH = if compactChrome then 56 else DETAIL_HEADER
-	local cardH = if stack then LIST_CARD_MOBILE else LIST_CARD
-	local footerH = if stack then FOOTER_HEIGHT_MOBILE else FOOTER_HEIGHT
-	local rowStride = cardH + LIST_GAP
-	local listReveal = useStagger(0, softMotion)
-	local detailSoftReveal = useStagger(1, softMotion)
-	local footerReveal = useStagger(2, softMotion)
-	local mailboxSoft = softMotion or listReveal == nil or detailSoftReveal == nil or footerReveal == nil
-	local _result = state.Mailbox
-	if _result ~= nil then
-		_result = _result.Messages
+	local filter, setFilter = React.useState("All")
+	local query, setQuery = Browse.useLinkedQuery("Mail")
+	local claimToken, setClaimToken = React.useState(0)
+	local messages = (state.Mailbox and state.Mailbox.Messages) or {}
+	local defs = {}
+	for _, def in config.Mail or {} do
+		defs[def.Id] = def
 	end
-	local _condition = _result
-	if _condition == nil then
-		_condition = {}
-	end
-	local messages = _condition
-	local inboxRows = {}
-	for _, mailState in messages do
-		local mailDef
-		for _, value in config.Mail do
-			if value.Id == mailState.Id then
-				mailDef = value
-				break
+	local rows, unread, gifts = {}, 0, 0
+	for _, mail in messages do
+		local item = defs[mail.Id]
+		if item ~= nil then
+			local gift = hasGift(item) and not mail.Claimed
+			if not mail.Read then
+				unread += 1
+			end
+			if gift then
+				gifts += 1
+			end
+			local keep = filter == "All" or (filter == "Unread" and not mail.Read) or (filter == "Gifts" and gift) or (filter == "Collected" and mail.Claimed)
+			if keep and query ~= "" then
+				keep = Browse.matches(query, item.Subject, item.Sender, if type(item.Body) == "table" then table.concat(item.Body, " ") else nil)
+			end
+			if keep then
+				table.insert(rows, { Id = item.Id, item = item, mail = mail })
 			end
 		end
-		if mailDef ~= nil then
-			table.insert(inboxRows, {
-				Id = mailDef.Id,
-				item = mailDef,
-				mailState = mailState,
-			})
+	end
+	local selectedId, setSelectedId = React.useState(if mobileRoute then "" else (rows[1] and rows[1].Id or ""))
+	local selected = nil
+	for _, row in rows do
+		if row.Id == selectedId then
+			selected = row
 		end
 	end
-	local _result_1 = state.Mailbox
-	if _result_1 ~= nil then
-		_result_1 = _result_1.Unread
+	if selected == nil and not mobileRoute then
+		selected = rows[1]
 	end
-	local _condition_1 = _result_1
-	if _condition_1 == nil then
-		_condition_1 = 0
-	end
-	local unreadCount = _condition_1
-	local _result_2 = 0
-	local _callback = function(count, item)
-		return count + (if item.Claimed then 0 else 1)
-	end
-	for _i = 1, #messages do
-		_result_2 = _callback(_result_2, messages[_i], _i - 1, messages)
-	end
-	local claimableCount = _result_2
-	local _result_3 = messages[1]
-	if _result_3 ~= nil then
-		_result_3 = _result_3.Id
-	end
-	local _condition_2 = _result_3
-	if _condition_2 == nil then
-		_condition_2 = ""
-	end
-	local firstId = _condition_2
-	local selectedId, setSelectedId = React.useState(if mobileRoute then "" else firstId)
-	local _callback_1 = function(item)
-		return item.Id == selectedId
-	end
-	local _result_4
-	for _i, _v in messages do
-		if _callback_1(_v, _i - 1, messages) == true then
-			_result_4 = _v
-			break
-		end
-	end
-	local explicitSelection = _result_4
-	local selectedState = explicitSelection or (if mobileRoute then nil else messages[1])
-	local _exp = config.Mail
-	local _callback_2 = function(item)
-		local _exp_1 = item.Id
-		local _result_5 = selectedState
-		if _result_5 ~= nil then
-			_result_5 = _result_5.Id
-		end
-		return _exp_1 == _result_5
-	end
-	local _result_5
-	for _i, _v in _exp do
-		if _callback_2(_v, _i - 1, _exp) == true then
-			_result_5 = _v
-			break
-		end
-	end
-	local message = _result_5
-	local detailPaneWidth = if mobileRoute or stack then viewport.width else viewport.width * 0.66 - 7
-	local paragraphWidth = math.max(40, detailPaneWidth - 8)
-	local bodyTextSize = if stack then 16 else 15
-	local _result_7 = selectedState
-	if _result_7 ~= nil then
-		_result_7 = _result_7.Claimed
-	end
-	local claimed = _result_7 == true
-	local inboxEmpty = #inboxRows == 0
-	local showMobileDetail = mobileRoute and explicitSelection ~= nil
-	local detailReveal = useFlipperSpring(if showMobileDetail then 1 else 0, softMotion, 720, 40)
-	local _exp_1 = function()
-		if not explicitSelection or explicitSelection.Read then
-			return nil
-		end
-		dispatch("ReadMail", {
-			Id = explicitSelection.Id,
-		})
-	end
-	local _result_8 = explicitSelection
-	if _result_8 ~= nil then
-		_result_8 = _result_8.Id
-	end
-	local _result_9 = explicitSelection
-	if _result_9 ~= nil then
-		_result_9 = _result_9.Read
-	end
-	React.useEffect(_exp_1, { _result_8, _result_9 })
+	local showReader = mobileRoute and selected ~= nil
+	local slide = useFlipperSpring(if showReader then 1 else 0, softMotion, 700, 40)
+	local selectedKey = selected and selected.Id or ""
+	local selectedRead = selected ~= nil and selected.mail.Read
 	React.useEffect(function()
-		if message == nil or not UserInputService.GamepadEnabled then
+		if selected ~= nil and not selected.mail.Read then
+			dispatch("ReadMail", { Id = selected.Id })
+		end
+	end, { selectedKey, selectedRead })
+	React.useEffect(function()
+		if selected == nil or not UserInputService.GamepadEnabled then
 			return nil
 		end
 		local host = mailActionsHostRef.current
 		if host == nil then
 			return nil
 		end
-		local selectJob = task.defer(function()
-			if host.Parent == nil then
-				return
+		local job = task.defer(function()
+			if host.Parent ~= nil then
+				GamepadNavigationService.FocusClaim(host)
 			end
-			GamepadNavigationService.FocusClaim(host)
 		end)
 		return function()
-			pcall(task.cancel, selectJob)
+			pcall(task.cancel, job)
 		end
-	end, { selectedId, claimed, message ~= nil })
+	end, { selectedKey, selected ~= nil and selected.mail.Claimed })
 	local choose = function(id)
-		if id == selectedId then
-			return nil
+		if id ~= selectedId then
+			Audio:play("mailRead")
+			setSelectedId(id)
 		end
-		Audio:play("mailRead")
-		setSelectedId(id)
 	end
-	local listPanePosition = if mobileRoute then detailReveal:map(function(amount)
-		return UDim2.new(-math.clamp(amount, 0, 1), 0, 0, 0)
-	end) else nil
-	local _exp_2 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	})
-	local _exp_3 = React.createElement("uistroke", {
+	local headerH = if stack then 118 else 64
+	local header = h("frame", {
+		Size = UDim2.new(1, 0, 0, headerH),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
 		Color = Palette.lineSoft,
-		Thickness = 1,
-		Transparency = 0.36,
-	})
-	local _exp_4 = React.createElement("frame", {
-		Size = UDim2.new(1, 0, 0, listHeaderH),
-		BackgroundTransparency = 1,
+		Transparency = 0.5,
+	}), h("frame", {
+		Size = UDim2.fromOffset(40, 40),
+		Position = UDim2.fromOffset(12, 12),
+		BackgroundColor3 = darken(Palette.cyan, 0.6),
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(36, 36),
-		Position = UDim2.fromOffset(14, math.floor((listHeaderH - 36) / 2)),
-		BackgroundColor3 = darken(Palette.cyan, 0.7),
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement(Icon, {
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h(Icon, {
 		kind = "Mail",
 		color = Palette.cream,
 		accent = Palette.cyan,
@@ -4241,447 +4841,277 @@ local function MailboxView(_param)
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		reducedMotion = softMotion,
-	})), React.createElement(Text, {
-		value = "INBOX",
+	})), h(Text, {
+		value = "MAILBOX",
 		size = 11,
 		color = Palette.cyan,
 		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		minSize = 8,
-		position = UDim2.fromOffset(60, 14),
-		sizeConstraint = UDim2.new(1, -180, 0, 18),
-	}), React.createElement(Text, {
-		value = if inboxEmpty then "No letters" else `{#inboxRows} letter{if #inboxRows == 1 then "" else "s"}`,
+		position = UDim2.fromOffset(62, 12),
+		sizeConstraint = UDim2.new(0, 160, 0, 14),
+	}), h(Text, {
+		value = if unread == 0 and gifts == 0 then "All caught up" else `{unread} unread · {gifts} gift{if gifts == 1 then "" else "s"} waiting`,
 		size = 16,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
 		minSize = 11,
-		position = UDim2.fromOffset(60, 34),
-		sizeConstraint = UDim2.new(1, -180, 0, 24),
-	}), if claimableCount > 0 then React.createElement(Button, {
-		text = if compactChrome then "CLAIM ALL" else `CLAIM ALL ({claimableCount})`,
+		position = UDim2.fromOffset(62, 28),
+		sizeConstraint = UDim2.new(if stack then 1 else 0, if stack then -(62 + 150) else 260, 0, 22),
+	}), gifts > 0 and h(Button, {
+		text = `CLAIM ALL ({gifts})`,
 		icon = "Gift",
 		onClick = function()
-			return dispatch("ClaimAllMail", {})
+			Audio:play("mailClaim")
+			setClaimToken(function(n)
+				return n + 1
+			end)
+			dispatch("ClaimAllMail", {})
 		end,
 		color = Palette.mint,
 		textColor = Palette.ink,
-		size = UDim2.fromOffset(if compactChrome then 108 else 132, TapTarget),
+		size = UDim2.fromOffset(140, TapTarget - 4),
+		position = UDim2.new(1, -152, 0, 10),
+		highlight = true,
 		reducedMotion = softMotion,
-		highlight = not mailboxSoft,
-	}) else React.createElement(Badge, {
-		value = if unreadCount > 0 then `{unreadCount} NEW` else "CAUGHT UP",
-		accent = if unreadCount > 0 then Palette.coral else Palette.mint,
-		filled = unreadCount > 0,
-		position = UDim2.new(1, -118, 0.5, -13),
-		size = UDim2.fromOffset(106, 26),
-	}))
-	local _result_10
-	if inboxEmpty then
-		_result_10 = React.createElement("frame", {
-			Size = UDim2.new(1, -16, 1, -(listHeaderH + 12)),
-			Position = UDim2.fromOffset(8, listHeaderH + 4),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-		}, React.createElement(EmptyState, {
-			icon = "Mail",
-			title = "Tray empty",
-			body = "Patch notes and gifts land here.",
-			accent = Palette.cyan,
-			size = UDim2.fromScale(1, 1),
-			titleSize = 20,
-			bodySize = 15,
-			iconSize = 52,
-			reducedMotion = softMotion,
-		}))
-	else
-		local _result_11 = selectedState
-		if _result_11 ~= nil then
-			_result_11 = _result_11.Id
-		end
-		local selectedRowId = _result_11
-		_result_10 = React.createElement(FlatList, {
-			data = inboxRows,
-			itemHeight = rowStride,
-			headerHeight = 0,
-			footerHeight = TapTarget + 8,
-			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
-			canvasTail = 4,
-			Size = UDim2.new(1, -20, 1, -(listHeaderH + 12)),
-			Position = UDim2.fromOffset(10, listHeaderH + 4),
-			scrollBarColor = Palette.cyan,
-			scrollBarThickness = 3,
-			scrollBarTransparency = 0.28,
-			keyExtractor = function(row)
-				return row.Id
-			end,
-			renderItem = function(_param_1)
-				local row = _param_1.item
-				return React.createElement(MailRow, {
-					item = row.item,
-					active = row.Id == selectedRowId,
-					unread = not row.mailState.Read,
-					cardH = cardH,
-					stack = stack,
-					reducedMotion = softMotion,
-					layoutOrder = 0,
-					onChoose = choose,
-				})
-			end,
-			ListFooterComponent = React.createElement("frame", {
-				Size = UDim2.new(1, -4, 0, TapTarget),
-				Position = UDim2.fromOffset(0, #inboxRows * rowStride + 4),
-				BackgroundColor3 = Palette.panelRaised,
-				BackgroundTransparency = 0.55,
-				BorderSizePixel = 0,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 10),
-			}), React.createElement(Text, {
-				value = if #inboxRows == 1 then "Caught up" else "End of inbox",
-				size = 13,
-				color = Palette.muted,
-				weight = Enum.FontWeight.Bold,
-				align = Enum.TextXAlignment.Center,
-				fit = false,
-				sizeConstraint = UDim2.fromScale(1, 1),
-			})),
-		})
-	end
-	local stackListH = if stack and not mobileRoute then math.clamp(listHeaderH + cardH + 28, math.floor(viewport.height * 0.28), math.floor(viewport.height * 0.38)) else 0
-	local listPane = React.createElement("frame", {
-		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 0, stackListH) else UDim2.new(0.34, -7, 1, 0),
-		Position = listPanePosition,
-		BackgroundColor3 = Palette.panel,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, _exp_2, _exp_3, _exp_4, _result_10)
-	local detailPanePosition = if mobileRoute then detailReveal:map(function(amount)
-		return UDim2.new(1 - math.clamp(amount, 0, 1), 0, 0, 0)
-	end) elseif stack then UDim2.new(0, 0, 0, stackListH + 8) else UDim2.new(0.34, 7, 0, 0)
-	local _exp_5 = React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 14),
-	})
-	local _attributes = {}
-	local _result_11 = message
-	if _result_11 ~= nil then
-		_result_11 = _result_11.Color
-	end
-	local _condition_4 = _result_11
-	if _condition_4 == nil then
-		_condition_4 = Palette.lineSoft
-	end
-	_attributes.Color = _condition_4
-	_attributes.Thickness = 1
-	_attributes.Transparency = 0.45
-	local _exp_6 = React.createElement("uistroke", _attributes)
-	local _exp_7 = message == nil and React.createElement("frame", {
-		Size = UDim2.new(1, -40, 1, -40),
-		Position = UDim2.fromOffset(20, 20),
+	}), h("frame", {
+		Size = if stack then UDim2.new(1, -24, 0, 40) else UDim2.new(1, -(380 + (if gifts > 0 then 164 else 12)), 0, 40),
+		Position = if stack then UDim2.fromOffset(12, headerH - 50) else UDim2.fromOffset(372, 12),
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-	}, React.createElement(EmptyState, {
-		icon = "Mail",
-		title = "Inbox empty",
-		body = "Patch notes, letters, and gifts land here.",
+	}, h(SegmentedTabs, {
+		options = FILTERS,
+		value = filter,
+		onChange = function(id)
+			setFilter(id)
+			setSelectedId("")
+		end,
+		accent = Palette.cyan,
+		columns = #FILTERS,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
+	})))
+	local selectedRowId = selected and selected.Id or ""
+	local searchH = if stack then TapTarget else 40
+	local list = if #rows == 0 then h("frame", {
+		Size = UDim2.new(1, 0, 1, -(searchH + 12)),
+		Position = UDim2.fromOffset(0, searchH + 12),
+		BackgroundTransparency = 1,
+	}, h(EmptyState, {
+		icon = if query ~= "" then "Search" else "Mail",
+		title = if query ~= "" then `No letters match "{query}"` elseif filter == "All" then "Your tray is empty" else "Nothing in " .. string.lower(filter),
+		body = if query ~= "" then "Try the sender's name or one word from the subject." else "Patch notes, letters and gifts land here.",
 		accent = Palette.cyan,
 		size = UDim2.fromScale(1, 1),
-		titleSize = 24,
-		bodySize = 16,
-		iconSize = 64,
-		reducedMotion = reducedMotion,
-	}))
-	local _condition_5 = message ~= nil
-	if _condition_5 then
-		local _exp_8 = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, detailHeaderH),
-			Position = UDim2.fromOffset(0, 0),
-			BackgroundColor3 = message.Color,
-			BackgroundTransparency = 0.9,
+		reducedMotion = softMotion,
+	})) else React.createElement(FlatList, {
+		data = rows,
+		itemHeight = ROW_H + ROW_GAP,
+		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
+		canvasTail = 6,
+		Size = UDim2.new(1, -12, 1, -(searchH + 18)),
+		Position = UDim2.fromOffset(6, searchH + 12),
+		scrollBarColor = Palette.cyan,
+		scrollBarThickness = 3,
+		keyExtractor = function(row)
+			return row.Id
+		end,
+		renderItem = function(entry)
+			local row = entry.item
+			return h(MailRow, {
+				item = row.item,
+				mail = row.mail,
+				active = row.Id == selectedRowId,
+				order = 0,
+				softMotion = softMotion,
+				onChoose = choose,
+			})
+		end,
+	})
+	local bodyArea = nil
+	if selected ~= nil then
+		local item = selected.item
+		local readerW = if mobileRoute then viewport.width - 24 else viewport.width * 0.6
+		local textW = math.max(60, readerW - 64)
+		local bodySize = if stack then 16 else 15
+		local bodyRows = {}
+		local stride = 28
+		for index, paragraph in item.Body or {} do
+			local height = paragraphHeight(paragraph, textW, bodySize)
+			stride = math.max(stride, height + 10)
+			bodyRows[index] = { Id = `{item.Id}:{index}`, Text = paragraph, Index = index - 1, Height = height }
+		end
+		local gift = hasGift(item)
+		local claimed = selected.mail.Claimed == true
+		local parcelH = if not gift then 0 elseif stack then 138 else 78
+		local letterTop = if stack then 74 else 92
+		bodyArea = h("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = lighten(Palette.panel, 0.02),
 			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			ZIndex = 5,
-		}, mobileRoute and React.createElement(Button, {
+			ClipsDescendants = true,
+		}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+			Color = item.Color,
+			Transparency = 0.5,
+		}), h("frame", {
+			Name = "LetterHead",
+			Size = UDim2.new(1, 0, 0, letterTop),
+			BackgroundColor3 = darken(item.Color, 0.8),
+			BorderSizePixel = 0,
+		}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), mobileRoute and h(Button, {
 			text = "",
 			icon = "Back",
 			onClick = function()
-				return setSelectedId("")
+				setSelectedId("")
 			end,
 			color = Palette.panelSoft,
-			textColor = message.Color,
+			textColor = item.Color,
 			outline = true,
 			size = UDim2.fromOffset(TapTarget, TapTarget),
-			position = UDim2.fromOffset(8, math.floor((detailHeaderH - TapTarget) / 2)),
-			reducedMotion = reducedMotion,
-			zIndex = 8,
-		}), not mobileRoute and React.createElement(Icon, {
-			kind = "Mail",
-			color = Palette.cream,
-			accent = message.Color,
-			size = 42,
-			position = UDim2.fromOffset(18, math.floor((detailHeaderH - 42) / 2)),
+			position = UDim2.new(0, 10, 0.5, -TapTarget / 2),
 			reducedMotion = softMotion,
-		}), React.createElement(Text, {
-			value = message.Subject,
-			size = if compactChrome then 16 elseif stack then 18 else 20,
+		}), not mobileRoute and h(Avatar, {
+			item = item,
+			unread = true,
+			size = 52,
+			position = UDim2.new(0, 18, 0.5, -26),
+		}), h(Text, {
+			value = item.Subject,
+			size = if stack then 18 else 22,
 			color = Palette.cream,
 			weight = Enum.FontWeight.Heavy,
 			fit = true,
 			minSize = 12,
-			position = UDim2.fromOffset(if mobileRoute then 66 else 74, if compactChrome then 7 else 18),
-			sizeConstraint = UDim2.new(1, if mobileRoute then -78 else -94, 0, if compactChrome then 22 else 30),
-		}), React.createElement(Text, {
-			value = `From {message.Sender}`,
-			size = if compactChrome then 11 else 13,
-			color = message.Color,
+			position = UDim2.fromOffset(if mobileRoute then 64 else 84, if stack then 12 else 20),
+			sizeConstraint = UDim2.new(1, if mobileRoute then -76 else -104, 0, if stack then 24 else 30),
+		}), h(Text, {
+			value = `From {item.Sender}{if item.Date then "  ·  " .. item.Date else ""}`,
+			size = 12,
+			color = item.Color,
 			weight = Enum.FontWeight.Bold,
 			fit = true,
 			minSize = 9,
-			position = UDim2.fromOffset(if mobileRoute then 66 else 74, if compactChrome then 30 else 54),
-			sizeConstraint = UDim2.new(1, if mobileRoute then -78 elseif stack then -24 else -220, 0, 18),
-		}), not stack and React.createElement(Text, {
-			value = message.Date,
-			size = 12,
-			color = Palette.muted,
-			weight = Enum.FontWeight.Bold,
-			fit = false,
-			align = Enum.TextXAlignment.Right,
-			position = UDim2.new(1, -200, 0, 56),
-			sizeConstraint = UDim2.fromOffset(180, 16),
-		}))
-		local _exp_10 = message.Body
-		local bodyRows = table.create(#_exp_10)
-		local bodyStride = 28
-		for index, paragraph in _exp_10 do
-			local height = paragraphHeight(paragraph, paragraphWidth, bodyTextSize)
-			bodyStride = math.max(bodyStride, height + 8)
-			bodyRows[index] = {
-				Id = `{message.Id}:{index}`,
-				Text = paragraph,
-				Index = index - 1,
-				Height = height,
-			}
-		end
-		_condition_5 = React.createElement(React.Fragment, nil, _exp_8, React.createElement(FlatList, {
-			key = message.Id,
+			position = UDim2.fromOffset(if mobileRoute then 64 else 84, if stack then 40 else 54),
+			sizeConstraint = UDim2.new(1, if mobileRoute then -76 else -104, 0, 18),
+		})), React.createElement(FlatList, {
+			key = item.Id,
 			data = bodyRows,
-			itemHeight = bodyStride,
+			itemHeight = stride,
 			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 			canvasTail = 8,
-			Size = UDim2.new(1, -40, 1, -(detailHeaderH + footerH + 8)),
-			Position = UDim2.fromOffset(20, detailHeaderH + 4),
-			scrollBarColor = message.Color,
+			Size = UDim2.new(1, -40, 1, -(letterTop + parcelH + 24)),
+			Position = UDim2.fromOffset(20, letterTop + 10),
+			scrollBarColor = item.Color,
 			scrollBarThickness = 3,
-			scrollBarTransparency = 0.18,
 			keyExtractor = function(row)
 				return row.Id
 			end,
-			renderItem = function(_param_1)
-				local row = _param_1.item
-				local index = row.Index
-				local paragraph = row.Text
-				if index == 0 then
-					return React.createElement(ScriptedText, {
+			renderItem = function(entry)
+				local row = entry.item
+				if row.Index == 0 then
+					return h(ScriptedText, {
 						key = row.Id,
-						layoutOrder = 0,
-						text = paragraph,
-						width = paragraphWidth,
+						text = row.Text,
+						width = textW,
 						height = row.Height,
-						size = bodyTextSize,
-						color = Palette.creamSoft,
+						size = bodySize,
+						color = Palette.cream,
 						weight = Enum.FontWeight.SemiBold,
-						typewriterInterval = 0.012,
+						typewriterInterval = 0.01,
 						reducedMotion = softMotion,
 					})
 				end
-				return React.createElement(Text, {
+				return h(Text, {
 					key = row.Id,
-					layoutOrder = index,
-					value = paragraph,
-					size = bodyTextSize,
+					value = row.Text,
+					size = bodySize,
 					color = Palette.creamSoft,
 					wrap = true,
-					weight = Enum.FontWeight.Regular,
 					sizeConstraint = UDim2.new(1, -8, 0, row.Height),
 				})
 			end,
-		}), React.createElement("frame", {
+		}), gift and h("frame", {
 			ref = mailActionsHostRef,
-			key = "footer",
-			Name = "MailClaimActions",
-			Size = UDim2.new(1, 0, 0, footerH),
-			Position = UDim2.new(0, 0, 1, -footerH),
-			BackgroundColor3 = Palette.panel,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			ZIndex = 6,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 12),
-		}), React.createElement("uistroke", {
-			Color = Palette.lineSoft,
-			Thickness = 1,
-			Transparency = 0.58,
-		}), React.createElement(Icon, {
-			kind = "Gift",
-			color = Palette.cream,
-			accent = message.Color,
-			size = 30,
-			position = UDim2.fromOffset(14, 20),
-				reducedMotion = softMotion,
-		}), React.createElement(Text, {
-			value = "ATTACHMENT",
-			size = 12,
-			color = message.Color,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			position = UDim2.fromOffset(56, 14),
-			sizeConstraint = UDim2.new(1, if stack then -(56 + 20) else -300, 0, 16),
-		}), React.createElement(Text, {
-			value = formatReward(message.Attachment),
-			size = 14,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Bold,
-			fit = true,
-			minSize = 10,
-			position = UDim2.fromOffset(56, 34),
-			sizeConstraint = UDim2.new(1, if stack then -(56 + 20) else -300, 0, 22),
-		}), if stack then React.createElement("frame", {
-			Size = UDim2.new(1, -16, 0, TapTarget * 2 + 8),
-			Position = UDim2.new(0, 8, 1, -(TapTarget * 2 + 18)),
+			Size = UDim2.new(1, -20, 0, parcelH),
+			Position = UDim2.new(0, 10, 1, -(parcelH + 10)),
 			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
 			ClipsDescendants = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Vertical,
-			HorizontalAlignment = Enum.HorizontalAlignment.Left,
-			VerticalAlignment = Enum.VerticalAlignment.Top,
-			Padding = UDim.new(0, chrome.controlGap),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), React.createElement("frame", {
-			Name = "MailClaim",
-			Size = UDim2.new(1, 0, 0, TapTarget),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			LayoutOrder = 1,
-		}, React.createElement(Button, {
-			text = if claimed then "COLLECTED" else "CLAIM",
-			icon = "Gift",
-			onClick = function()
-				return dispatch("ClaimMail", {
-					Id = message.Id,
-				})
+		}, h(Parcel, {
+			item = item,
+			claimed = claimed,
+			stack = stack,
+			height = parcelH,
+			softMotion = softMotion,
+			claimToken = claimToken,
+			onClaim = function()
+				Audio:play("mailClaim")
+				setClaimToken(function(n)
+					return n + 1
+				end)
+				dispatch("ClaimMail", { Id = item.Id })
 			end,
-			color = if claimed then Palette.panelSoft else message.Color,
-			textColor = if claimed then Palette.muted else Palette.ink,
-			size = UDim2.fromScale(1, 1),
-			disabled = claimed,
-				reducedMotion = softMotion,
-			highlight = not claimed,
-		})), React.createElement("frame", {
-			Name = "MailArchive",
-			Size = UDim2.new(1, 0, 0, TapTarget),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 2,
-		}, React.createElement(Button, {
-			text = "ARCHIVE",
-			icon = "Close",
-			onClick = function()
-				return dispatch("DeleteMail", {
-					Id = message.Id,
-				}, function(response)
+			onArchive = function()
+				dispatch("DeleteMail", { Id = item.Id }, function(response)
 					if mountedRef.current and response.ok then
 						setSelectedId("")
 					end
 				end)
 			end,
-			color = Palette.coral,
-			textColor = if claimed then Palette.cream else Palette.muted,
-			outline = true,
+		})))
+	elseif not mobileRoute then
+		bodyArea = h(EmptyState, {
+			icon = "Mail",
+			title = "Pick a letter",
+			body = "Choose a message on the left to read it.",
+			accent = Palette.cyan,
 			size = UDim2.fromScale(1, 1),
-			disabled = not claimed,
-				reducedMotion = softMotion,
-		}))) else React.createElement("frame", {
-			Size = UDim2.fromOffset(0, TapTarget),
-			AutomaticSize = Enum.AutomaticSize.X,
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -10, 0.5, 0),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-		}, React.createElement("uilistlayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			HorizontalAlignment = Enum.HorizontalAlignment.Right,
-			VerticalAlignment = Enum.VerticalAlignment.Center,
-			Padding = UDim.new(0, Layout.controlGap),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}), React.createElement("frame", {
-			Name = "MailClaim",
-			Size = UDim2.fromOffset(0, TapTarget),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ClipsDescendants = false,
-			LayoutOrder = 1,
-		}, React.createElement(Button, {
-			text = if claimed then "COLLECTED" else "CLAIM",
-			icon = "Gift",
-			onClick = function()
-				return dispatch("ClaimMail", {
-					Id = message.Id,
-				})
-			end,
-			color = if claimed then Palette.panelSoft else message.Color,
-			textColor = if claimed then Palette.muted else Palette.ink,
-			size = UDim2.fromOffset(0, TapTarget),
-			hug = true,
-			disabled = claimed,
-				reducedMotion = softMotion,
-			highlight = not claimed,
-		})), React.createElement("frame", {
-			Name = "MailArchive",
-			Size = UDim2.fromOffset(0, TapTarget),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			LayoutOrder = 2,
-		}, React.createElement(Button, {
-			text = "ARCHIVE",
-			icon = "Close",
-			onClick = function()
-				return dispatch("DeleteMail", {
-					Id = message.Id,
-				}, function(response)
-					if mountedRef.current and response.ok then
-						setSelectedId("")
-					end
-				end)
-			end,
-			color = Palette.coral,
-			textColor = if claimed then Palette.cream else Palette.muted,
-			outline = true,
-			size = UDim2.fromOffset(0, TapTarget),
-			hug = true,
-			disabled = not claimed,
-				reducedMotion = softMotion,
-		})))))
+			reducedMotion = softMotion,
+		})
 	end
-
-	local detailPane = React.createElement("frame", {
-		Size = if mobileRoute then UDim2.fromScale(1, 1) elseif stack then UDim2.new(1, 0, 1, -(stackListH + 8)) else UDim2.new(0.66, -7, 1, 0),
-		Position = detailPanePosition,
-		BackgroundColor3 = Palette.panelRaised,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, _exp_5, _exp_6, _exp_7, _condition_5)
-	return React.createElement("frame", {
+	local bodyTop = headerH + 10
+	return h("frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+	}, header, h("frame", {
+		Size = UDim2.new(1, 0, 1, -bodyTop),
+		Position = UDim2.fromOffset(0, bodyTop),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+	}, h("frame", {
+		Name = "Inbox",
+		Size = if mobileRoute then UDim2.fromScale(1, 1) else UDim2.new(0.38, -6, 1, 0),
+		Position = if mobileRoute then slide:map(function(a)
+			return UDim2.fromScale(-math.clamp(a, 0, 1), 0)
+		end) else nil,
+		Visible = if mobileRoute then slide:map(function(a)
+			return a < 0.99
+		end) else true,
+		BackgroundColor3 = Palette.panel,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-	}, listPane, detailPane)
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h(SearchField, {
+		value = query,
+		onChange = function(text)
+			setQuery(text)
+			setSelectedId("")
+		end,
+		placeholder = "Search letters",
+		accent = Palette.cyan,
+		reducedMotion = softMotion,
+		position = UDim2.fromOffset(6, 6),
+		size = UDim2.new(1, -12, 0, searchH),
+		zIndex = 6,
+	}), list), bodyArea ~= nil and h("frame", {
+		Name = "Reader",
+		Size = if mobileRoute then UDim2.fromScale(1, 1) else UDim2.new(0.62, -6, 1, 0),
+		Position = if mobileRoute then slide:map(function(a)
+			return UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)
+		end) else UDim2.new(0.38, 6, 0, 0),
+		Visible = if mobileRoute then slide:map(function(a)
+			return a > 0.01
+		end) else true,
+		BackgroundTransparency = 1,
+	}, bodyArea)))
 end
+
 return {
 	MailboxView = MailboxView,
 }
@@ -4716,6 +5146,10 @@ local Button = _ui.Button
 local Text = _ui.Text
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
+local ElementFx = require(script.Parent.Parent.ElementFx).ElementFx
+local ARTIFACT_CHIP_W = 124
 local ROW_HEIGHT = 98
 local CARD_H = 90
 local SYSTEM_CARD_H = 66
@@ -4734,7 +5168,11 @@ local EMPTY_CHAT = {
 }
 local TAG_COLORS = { Palette.cyan, Palette.mint, Palette.violet, Palette.mango, Palette.pink, Palette.blue }
 local function userColor(userId)
-	return TAG_COLORS[math.abs(userId) % #TAG_COLORS + 1]
+	local authorId = tonumber(userId) or 0
+	if authorId ~= authorId or math.abs(authorId) == math.huge then
+		authorId = 0
+	end
+	return TAG_COLORS[math.floor(math.abs(authorId)) % #TAG_COLORS + 1]
 end
 local function useMessageEntrance(animate, reducedMotion)
 	local shouldAnimate = React.useRef(animate and not reducedMotion)
@@ -4768,7 +5206,11 @@ local function MessageRow(_param)
 	local softMotion = reducedMotion
 	local enter = useMessageEntrance(animate, reducedMotion)
 	local accent = if message.system then Palette.mango else userColor(message.userId)
-	local pulse = usePulse(not message.system, 2.4 + math.abs(message.userId % 5) * 0.14)
+	local authorId = tonumber(message.userId) or 0
+	if authorId ~= authorId or math.abs(authorId) == math.huge then
+		authorId = 0
+	end
+	local pulse = usePulse(not message.system, 2.4 + math.abs(authorId % 5) * 0.14)
 	local fade = enter:map(function(amount)
 		return 1 - amount
 	end)
@@ -4878,6 +5320,13 @@ local function MessageRow(_param)
 		Transparency = fade:map(function(amount)
 			return (if message.localPlayer then 0.32 else 0.58) + amount * 0.42
 		end),
+	}), message.artifactElement ~= nil and React.createElement(ElementFx, {
+		element = message.artifactElement,
+		size = UDim2.fromOffset(64, 64),
+		position = UDim2.fromOffset(33, 38),
+		tint = message.artifactColor,
+		transparency = 0.25,
+		reducedMotion = reducedMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(42, 42),
 		Position = UDim2.fromOffset(12, 17),
@@ -4917,9 +5366,42 @@ local function MessageRow(_param)
 		fit = true,
 		minSize = 10,
 		position = UDim2.fromOffset(66, 8),
-		sizeConstraint = UDim2.new(1, -(STATUS_RESERVE + 72), 0, 18),
+		sizeConstraint = UDim2.new(1, -(STATUS_RESERVE + 72 + (if message.artifactName ~= nil then ARTIFACT_CHIP_W - 52 else 0)), 0, 18),
 		transparency = fade,
-	}), if message.titleName ~= nil then React.createElement(AnimatedTitle, {
+	}), message.artifactName ~= nil and React.createElement("frame", {
+		Size = UDim2.fromOffset(ARTIFACT_CHIP_W, 20),
+		Position = UDim2.new(1, -(78 + ARTIFACT_CHIP_W), 0, 9),
+		BackgroundColor3 = darken(message.artifactColor or accent, 0.72),
+		BackgroundTransparency = fade:map(function(amount)
+			return 0.1 + amount * 0.9
+		end),
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = message.artifactColor or accent,
+		Thickness = 1,
+		Transparency = pulse:map(function(amount)
+			return 0.25 + amount * 0.35
+		end),
+	}), message.artifactElement ~= nil and React.createElement(ElementFx, {
+		element = message.artifactElement,
+		size = UDim2.fromOffset(22, 22),
+		position = UDim2.fromOffset(12, 10),
+		tint = message.artifactColor,
+		reducedMotion = reducedMotion,
+	}), React.createElement(Text, {
+		value = string.upper(message.artifactName),
+		size = 10,
+		color = lighten(message.artifactColor or accent, 0.2),
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 8,
+		position = UDim2.fromOffset(24, 3),
+		sizeConstraint = UDim2.new(1, -30, 0, 14),
+		transparency = fade,
+	})), if message.titleName ~= nil then React.createElement(AnimatedTitle, {
 		text = message.titleName,
 		fx = message.titleFx,
 		size = 12,
@@ -4981,6 +5463,8 @@ local function ChatView(_param)
 	local draft, setDraft = React.useState("")
 	local failure, setFailure = React.useState("")
 	local viewHeight, setViewHeight = React.useState(0)
+	local searchOpen, setSearchOpen = React.useState(false)
+	local logQuery, setLogQuery = React.useState("")
 	local input = React.useRef()
 	local stickBottom = React.useRef(true)
 	local lastMessageId = React.useRef(nil)
@@ -4999,7 +5483,18 @@ local function ChatView(_param)
 	local listFrame = React.useRef(nil)
 	local count = #chat.messages
 	local latestMessageId = if count > 0 then chat.messages[count].id else nil
-	local stackH = math.max(0, count) * rowHeight
+	-- searching the log shows only matching lines; the live log keeps scrolling underneath
+	local filteringLog = searchOpen and not string.match(logQuery, "^%s*$")
+	local shownMessages = chat.messages
+	if filteringLog then
+		shownMessages = {}
+		for _, message in chat.messages do
+			if Browse.matches(logQuery, message.text, message.displayName, message.username) then
+				table.insert(shownMessages, message)
+			end
+		end
+	end
+	local stackH = math.max(0, #shownMessages) * rowHeight
 	local topPad = if viewHeight > 0 then math.max(0, viewHeight - stackH) else 0
 	local renderedIds = {}
 	do
@@ -5181,7 +5676,7 @@ local function ChatView(_param)
 		spin = false,
 		reducedMotion = softMotion,
 	})), React.createElement("frame", {
-		Size = UDim2.new(1, -(STATUS_RESERVE + 68), 0, 48),
+		Size = UDim2.new(1, -(STATUS_RESERVE + 68 + 52), 0, 48),
 		Position = UDim2.fromOffset(68, 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -5197,7 +5692,7 @@ local function ChatView(_param)
 			return 1 - amount
 		end),
 	}), React.createElement(Text, {
-		value = `{count} log{if count == 1 then "" else "s"}  ·  Roblox-filtered`,
+		value = if filteringLog then `{#shownMessages} of {count} match` else `{count} log{if count == 1 then "" else "s"}  ·  Roblox-filtered`,
 		size = 13,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
@@ -5207,7 +5702,21 @@ local function ChatView(_param)
 		transparency = (if showBanner then bannerReveal else statusReveal):map(function(amount)
 			return 1 - amount
 		end),
-	})), React.createElement(Badge, {
+	})), React.createElement(Button, {
+		text = "",
+		icon = if searchOpen then "Close" else "Search",
+		onClick = function()
+			if searchOpen then
+				setLogQuery("")
+			end
+			setSearchOpen(not searchOpen)
+		end,
+		color = if searchOpen then Palette.cyan else Palette.panelSoft,
+		textColor = if searchOpen then Palette.ink else Palette.cream,
+		size = UDim2.fromOffset(44, 44),
+		position = UDim2.new(1, -(STATUS_RESERVE + 48), 0.5, -22),
+		reducedMotion = softMotion,
+	}), React.createElement(Badge, {
 		value = statusLabel,
 		accent = statusAccent,
 		filled = true,
@@ -5217,7 +5726,7 @@ local function ChatView(_param)
 	local composerSoft = reducedMotion or composerReveal == nil
 	local _chatSoftKeep = if composerSoft then bannerReveal else statusReveal
 	local messagesElement = React.createElement(FlatList, {
-		data = chat.messages,
+		data = shownMessages,
 		itemHeight = rowHeight,
 		headerHeight = topPad,
 		overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
@@ -5364,11 +5873,33 @@ local function ChatView(_param)
 			element = statusElement,
 		})
 	end
+	if showStatus and searchOpen then
+		table.insert(sections, {
+			id = "search",
+			height = 44,
+			element = React.createElement(SearchField, {
+				value = logQuery,
+				onChange = setLogQuery,
+				placeholder = "Search the log by word or player",
+				accent = Palette.cyan,
+				reducedMotion = softMotion,
+				size = UDim2.fromScale(1, 1),
+				zIndex = 22,
+			}),
+		})
+	end
 	table.insert(sections, {
 		id = "messages",
 		fill = true,
 		minHeight = 120,
-		element = messagesElement,
+		element = if filteringLog and #shownMessages == 0 then React.createElement(Text, {
+			value = `No messages match "{logQuery}".`,
+			size = 14,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.new(1, 0, 0, 40),
+			position = UDim2.fromOffset(0, 20),
+		}) else messagesElement,
 	})
 	if showBanner then
 		table.insert(sections, {

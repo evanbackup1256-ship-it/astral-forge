@@ -6,6 +6,7 @@ return function()
 
 	local Economy = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("Economy")
 	local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local ModuleLog = require(script.Parent.Parent:WaitForChild("ModuleLog"))
 
 	local AntiCheat = {}
@@ -102,15 +103,15 @@ return function()
 		return self
 	end
 
-	function AntiCheat:Observe(player: Player, action: string, profile): boolean
+	function AntiCheat:Observe(player: Player, action: string, profile): (boolean, boolean)
 		if type(profile) ~= "table" then
-			return false
+			return false, false
 		end
 		local state = stateOf(self, player)
 		local now = os.clock()
 		if state.LastAction == action and now - state.LastActionAt < 0.2 then
 			state.LastActionAt = now
-			return true
+			return true, false
 		end
 		state.LastAction = action
 		state.LastActionAt = now
@@ -336,8 +337,8 @@ return function()
 			end
 		end
 
+		local wouldReject = false
 		local skipVelocity = not state.BaselineReady
-			or RunService:IsStudio()
 			or action == "Load"
 			or action == "Production"
 			or action == "AutoForge"
@@ -359,11 +360,17 @@ return function()
 						local ceiling = Economy.Mul(Economy.Mul(productionRate, burstSeconds), CEILING_MULTIPLIER)
 						local ceilingFloor = Economy.Max(ceiling, 10_000)
 						if Economy.Gt(delta, ceilingFloor) then
+							-- Flag the containing transaction so callers can discard an illegal credit when enforcement is enabled.
+							wouldReject = ServerConfig.GameAntiCheat.EnforcementEnabled == true
 							ModuleLog.Every(
 								string.format("velocity:%d", player.UserId),
 								30,
 								"Security",
-								string.format("u=%d Cash jump exceeded production ceiling (observed only, not corrected)", player.UserId)
+								string.format(
+									"u=%d Cash jump exceeded production ceiling (%s)",
+									player.UserId,
+									if wouldReject then "rejected" else "observed only, not corrected"
+								)
 							)
 						end
 					end
@@ -371,10 +378,12 @@ return function()
 			end
 		end
 
-		state.LastCash = profile.Cash
-		state.LastSeen = os.clock()
-		state.BaselineReady = true
-		return repairs == 0
+		if not wouldReject then
+			state.LastCash = profile.Cash
+			state.LastSeen = os.clock()
+			state.BaselineReady = true
+		end
+		return repairs == 0, wouldReject
 	end
 
 	function AntiCheat:SyncBaseline(player: Player, profile): ()

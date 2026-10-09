@@ -1,6 +1,7 @@
 --!strict
 
 return function()
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 	local MemoryStoreService = game:GetService("MemoryStoreService")
 	local MessagingService = game:GetService("MessagingService")
 	local Players = game:GetService("Players")
@@ -16,6 +17,7 @@ return function()
 	local MAP_NAME = "AF_Convergence_v1"
 	local TOPIC = "AF_ConvergenceChanged_v1"
 	local SHUTDOWN_FLUSH_SECONDS = 2.5
+	local BINDTOCLOSE_FLUSH_SECONDS = 10
 
 	local function applyReward(profile, reward)
 		local cash = math.max(0, tonumber(reward.Cash) or 0)
@@ -38,14 +40,16 @@ return function()
 	function ConvergenceService.new(dataService)
 		return setmetatable({
 			_data = dataService,
-			_map = MemoryStoreService:GetHashMap(MAP_NAME),
+			_map = if StoreAccess.isPreview() then nil else MemoryStoreService:GetHashMap(MAP_NAME),
 			_pending = {},
+			_stashed = {},
 			_pendingGlobal = 0,
 			_global = 0,
 			_eventId = "",
 			_running = false,
 			_subscription = nil,
 			_worker = nil,
+			_shutdownBound = false,
 		}, ConvergenceService)
 	end
 
@@ -66,6 +70,12 @@ return function()
 		if type(amount) ~= "number" or amount <= 0 then return end
 		self._pending[player] = (self._pending[player] or 0) + amount
 		self._pendingGlobal += amount
+		-- Drain any contribution that was orphaned when a previous flush failed during PlayerRemoving.
+		local stashed = self._stashed[player.UserId]
+		if stashed and stashed > 0 then
+			self._pending[player] = (self._pending[player] or 0) + stashed
+			self._stashed[player.UserId] = nil
+		end
 	end
 
 	function ConvergenceService:FlushPlayer(player: Player)
@@ -88,6 +98,10 @@ return function()
 		local amount = self._pendingGlobal
 		if amount <= 0 then return end
 		self._pendingGlobal = 0
+		if self._map == nil then
+			self._global += amount
+			return
+		end
 		local expiry = math.max(60, manifest.EndsAt - os.time() + 86_400)
 		local ok, total = pcall(function()
 			return self._map:UpdateAsync(manifest.EventId, function(previous)
@@ -104,6 +118,7 @@ return function()
 	end
 
 	function ConvergenceService:_refresh()
+		if self._map == nil then return end
 		local manifest = self:_manifest()
 		local ok, total = pcall(function() return self._map:GetAsync(manifest.EventId) end)
 		if ok then self._global = math.max(self._global, tonumber(total) or 0) end
@@ -165,7 +180,9 @@ return function()
 	function ConvergenceService:Start()
 		if self._running then return end
 		self._running = true
-		local ok, subscription = pcall(function()
+		local ok, subscription = false, nil
+		if self._map ~= nil then
+			ok, subscription = pcall(function()
 			return MessagingService:SubscribeAsync(TOPIC, function(message)
 				local data = message.Data
 				if type(data) == "table" and data.EventId == self:_manifest().EventId then
@@ -173,6 +190,7 @@ return function()
 				end
 			end)
 		end)
+		end
 		if ok then self._subscription = subscription end
 		self._worker = task.spawn(function()
 			while self._running do
@@ -185,6 +203,49 @@ return function()
 			end
 			self._worker = nil
 		end)
+
+		-- Ensure pending contributions are written to profiles before the server closes,
+		-- using a dedicated BindToClose handler with a larger budget than normal cleanup.
+		if not self._shutdownBound then
+			self._shutdownBound = true
+			game:BindToClose(function()
+				self:ShutdownFlush()
+			end)
+		end
+	end
+
+	-- Await flushing all per-player and global pending contributions within the shutdown budget.
+	function ConvergenceService:ShutdownFlush()
+		local deadline = os.clock() + BINDTOCLOSE_FLUSH_SECONDS
+		local pendingCount = 0
+		for _, player in Players:GetPlayers() do
+			local ok = self:FlushPlayer(player)
+			local attempts = 1
+			while not ok and os.clock() < deadline do
+				task.wait(0.1)
+				ok = self:FlushPlayer(player)
+				attempts += 1
+				if attempts > 50 then break end
+			end
+			if not ok then
+				pendingCount += 1
+			end
+		end
+		if pendingCount > 0 then
+			ModuleLog.Warn("LiveOps", string.format("shutdown flush left %d player contribution(s) pending", pendingCount))
+		end
+		if self._pendingGlobal > 0 and os.clock() < deadline then
+			local finished = false
+			local worker = task.spawn(function()
+				self:_flushGlobal()
+				finished = true
+			end)
+			while not finished and os.clock() < deadline do task.wait() end
+			if not finished then
+				pcall(task.cancel, worker)
+				ModuleLog.Warn("LiveOps", "shutdown flush could not complete global convergence write")
+			end
+		end
 	end
 
 	function ConvergenceService:PlayerRemoving(player: Player)
@@ -195,8 +256,11 @@ return function()
 			task.wait(0.1)
 			flushed = self:FlushPlayer(player)
 		end
-		if not flushed and (self._pending[player] or 0) > 0 then
-			ModuleLog.Warn("LiveOps", string.format("could not flush %s contribution before leave", player.Name))
+		local remaining = self._pending[player] or 0
+		if not flushed and remaining > 0 then
+			-- Do not drop the data: stash it by userId so it can be recovered on rejoin.
+			self._stashed[player.UserId] = (self._stashed[player.UserId] or 0) + remaining
+			ModuleLog.Warn("LiveOps", string.format("could not flush %s contribution before leave; stashed for rejoin", player.Name))
 		end
 		self._pending[player] = nil
 	end
@@ -208,13 +272,21 @@ return function()
 			self._worker = nil
 		end
 
+		-- Fallback flush path; the main shutdown flush is handled by BindToClose in Start().
 		local deadline = os.clock() + SHUTDOWN_FLUSH_SECONDS
 		for _, player in Players:GetPlayers() do
 			if os.clock() >= deadline then
 				ModuleLog.Warn("LiveOps", "ran out of time flushing contributions")
 				break
 			end
-			self:FlushPlayer(player)
+			local ok = self:FlushPlayer(player)
+			local attempts = 1
+			while not ok and os.clock() < deadline do
+				task.wait(0.1)
+				ok = self:FlushPlayer(player)
+				attempts += 1
+				if attempts > 20 then break end
+			end
 		end
 		if self._pendingGlobal > 0 and os.clock() < deadline then
 			local finished = false

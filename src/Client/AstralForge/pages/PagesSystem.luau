@@ -47,6 +47,7 @@ local SearchField = _ui.SearchField
 local Slider = _ui.Slider
 local Text = _ui.Text
 local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("SettingsSchema")
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local ROW_H = 60
 local ROW_H_STACK = 94
@@ -326,7 +327,8 @@ local function SettingsView(_param)
 	local mobileHudAvailable = touch and chrome.stack
 	local settings = state.Settings or {}
 	local activeSection, setActiveSection = React.useState("sound")
-	local query, setQuery = React.useState("")
+	local query, setQuery = Browse.useLinkedQuery("Settings")
+	local changedOnly, setChangedOnly = React.useState(false)
 	local advancedOpen, setAdvancedOpen = React.useState({})
 	local mobileEdit, setMobileEdit = React.useState(false)
 	local reveal = useStagger(0, softMotion)
@@ -338,11 +340,12 @@ local function SettingsView(_param)
 		end
 	end
 	React.useEffect(function()
-		if SECTION_BY_ID[activeSection].touchOnly and not mobileHudAvailable then
+		local sectionInfo = SECTION_BY_ID[activeSection]
+		if sectionInfo and sectionInfo.touchOnly and not mobileHudAvailable then
 			setActiveSection("interface")
 		end
 	end, { activeSection, mobileHudAvailable })
-	local section = SECTION_BY_ID[activeSection]
+	local section = SECTION_BY_ID[activeSection] or SECTION_BY_ID["interface"]
 	local accent = accentOf(section)
 
 	local settingsClaimHostRef = React.useRef(nil)
@@ -364,17 +367,40 @@ local function SettingsView(_param)
 		end
 	end, { activeSection })
 
-	local needle = string.lower(query)
-	local searching = needle ~= ""
+	local searching = not string.match(query, "^%s*$")
+	local function isChanged(entry)
+		local current = Schema.value(settings, entry.key)
+		local defaultValue = entry.default
+		if typeof(current) == "number" and typeof(defaultValue) == "number" then
+			return math.abs(current - defaultValue) > 0.01
+		end
+		return tostring(current) ~= tostring(defaultValue)
+	end
+	local changedEntries = {}
+	for _, entry in Schema.ENTRIES do
+		local home = SECTION_BY_ID[entry.section]
+		if not home then
+			continue
+		end
+		if not (home.touchOnly and not mobileHudAvailable) and isChanged(entry) then
+			table.insert(changedEntries, entry)
+		end
+	end
+	local showChanged = changedOnly and not searching
+	local listing = searching or showChanged
 	local rows = {}
 	local hiddenAdvanced = 0
 	for _, entry in Schema.ENTRIES do
 		local home = SECTION_BY_ID[entry.section]
-		if home.touchOnly and not mobileHudAvailable then
+		if not home or (home.touchOnly and not mobileHudAvailable) then
 			continue
 		end
 		if searching then
-			if string.find(string.lower(entry.label), needle, 1, true) or string.find(string.lower(entry.help), needle, 1, true) then
+			if Browse.matches(query, entry.label, entry.help, home.label, entry.key) then
+				table.insert(rows, entry)
+			end
+		elseif showChanged then
+			if isChanged(entry) then
 				table.insert(rows, entry)
 			end
 		elseif entry.section == activeSection then
@@ -442,7 +468,8 @@ local function SettingsView(_param)
 	local searchH = if stack then TapTarget else 38
 	local actionsY = 56
 	local searchY = if stack then actionsY + 40 + 10 else 64
-	local headerH = searchY + searchH + 32
+	local chipsY = searchY + searchH + 8
+	local headerH = chipsY + Browse.CHIP_H + 32
 	local header = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = accent,
@@ -506,6 +533,23 @@ local function SettingsView(_param)
 		size = if stack then UDim2.new(1, 0, 0, searchH) else UDim2.fromOffset(340, searchH),
 		position = UDim2.fromOffset(0, searchY),
 		reducedMotion = softMotion,
+	}), React.createElement(Browse.ChipRow, {
+		options = {
+			{ id = "sections", label = "By section", icon = "Settings" },
+			{ id = "changed", label = "Changed from default", icon = "Refresh" },
+		},
+		value = if changedOnly then "changed" else "sections",
+		counts = { changed = #changedEntries },
+		onChange = function(id)
+			if id == "changed" then
+				setQuery("")
+			end
+			Audio:play("tabSwitch")
+			setChangedOnly(id == "changed")
+		end,
+		accent = accent,
+		position = UDim2.fromOffset(0, chipsY),
+		size = UDim2.new(1, 0, 0, Browse.CHIP_H),
 	}))
 
 	local navButtons = {
@@ -520,7 +564,7 @@ local function SettingsView(_param)
 	for index, entry in sections do
 		navButtons[entry.id] = React.createElement(SectionButton, {
 			section = entry,
-			active = not searching and entry.id == activeSection,
+			active = not listing and entry.id == activeSection,
 			count = counts[entry.id] or 0,
 			compact = stack,
 			size = UDim2.fromOffset(chipW, if stack then TapTarget else 42),
@@ -528,6 +572,7 @@ local function SettingsView(_param)
 			softMotion = softMotion,
 			onPick = function(id)
 				setQuery("")
+				setChangedOnly(false)
 				setActiveSection(id)
 			end,
 		})
@@ -555,21 +600,27 @@ local function SettingsView(_param)
 		listH += height
 	end
 	add("title", React.createElement(React.Fragment, nil, React.createElement(Text, {
-		value = if searching then `{#rows} result{if #rows == 1 then "" else "s"} for "{query}"` else section.label,
+		value = if searching then `{#rows} result{if #rows == 1 then "" else "s"} for "{query}"` elseif showChanged then `{#rows} changed setting{if #rows == 1 then "" else "s"}` else section.label,
 		size = 18,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		sizeConstraint = UDim2.new(1, -110, 0, 24),
 	}), React.createElement(Text, {
-		value = if searching then "From every section." else section.blurb,
+		value = if searching then "From every section." elseif showChanged then "Everything you set differently from the defaults." else section.blurb,
 		size = 12,
 		color = Palette.muted,
 		position = UDim2.fromOffset(0, 26),
 		sizeConstraint = UDim2.new(1, -110, 0, 16),
-	}), not searching and React.createElement(Button, {
-		text = "RESET",
+	}), (not searching or showChanged) and React.createElement(Button, {
+		text = if showChanged then "RESET ALL" else "RESET",
 		icon = "Refresh",
-		onClick = resetSection,
+		onClick = if showChanged then function()
+			local values = {}
+			for _, entry in changedEntries do
+				values[entry.key] = entry.default
+			end
+			dispatch("SetSetting", { Values = values, Label = "Settings back to defaults." })
+		end else resetSection,
 		color = Palette.panelSoft,
 		textColor = Palette.creamSoft,
 		outline = true,
@@ -577,7 +628,7 @@ local function SettingsView(_param)
 		position = UDim2.new(1, -100, 0, 4),
 		reducedMotion = softMotion,
 	})), 56)
-	if not searching and activeSection == "display" then
+	if not listing and activeSection == "display" then
 		local presetCells = {}
 		for index, entry in Schema.PRESETS do
 			presetCells[entry.id] = React.createElement(Button, {
@@ -610,23 +661,23 @@ local function SettingsView(_param)
 		add("row_" .. entry.key, React.createElement(SettingRow, {
 			entry = entry,
 			value = Schema.value(settings, entry.key),
-			accent = if searching then accentOf(SECTION_BY_ID[entry.section]) else accent,
-			tag = if searching then SECTION_BY_ID[entry.section].label else nil,
+			accent = if listing then accentOf(SECTION_BY_ID[entry.section]) else accent,
+			tag = if listing then SECTION_BY_ID[entry.section].label elseif isChanged(entry) then "changed" else nil,
 			stack = stack,
 			softMotion = softMotion,
 			dispatch = dispatch,
 			layoutOrder = index,
 		}), rowH)
 	end
-	if searching and #rows == 0 then
+	if listing and #rows == 0 then
 		add("empty", React.createElement(Text, {
-			value = "Nothing matches. Try a shorter word, like \"music\" or \"text\".",
+			value = if showChanged then "Everything is on its default." else "Nothing matches. Try a shorter word, like \"music\" or \"text\".",
 			size = 13,
 			color = Palette.muted,
 			sizeConstraint = UDim2.new(1, 0, 0, 40),
 		}), 40)
 	end
-	if not searching and (hiddenAdvanced > 0 or advancedOpen[activeSection]) then
+	if not listing and (hiddenAdvanced > 0 or advancedOpen[activeSection]) then
 		add("advanced", React.createElement(Button, {
 			text = if advancedOpen[activeSection] then "HIDE ADVANCED" else `SHOW {hiddenAdvanced} ADVANCED`,
 			icon = if advancedOpen[activeSection] then "Hide" else "Chevron",
@@ -643,7 +694,7 @@ local function SettingsView(_param)
 			reducedMotion = softMotion,
 		}), 58)
 	end
-	if not searching and activeSection == "mobile" and mobileHudAvailable then
+	if not listing and activeSection == "mobile" and mobileHudAvailable then
 		add("hud", React.createElement(Button, {
 			text = "MOVE PHONE BUTTONS",
 			icon = "Settings",
@@ -657,7 +708,7 @@ local function SettingsView(_param)
 			reducedMotion = softMotion,
 		}), TapTarget + 14)
 	end
-	if not searching and activeSection == "interface" and UserInputService.GamepadEnabled then
+	if not listing and activeSection == "interface" and UserInputService.GamepadEnabled then
 		add("controller", React.createElement(React.Fragment, nil, React.createElement(Text, {
 			value = "CONTROLLER",
 			size = 11,
@@ -676,7 +727,7 @@ local function SettingsView(_param)
 	end
 	local list = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
-		accent = if searching then Palette.steel else accent,
+		accent = if listing then Palette.steel else accent,
 		background = Palette.panel,
 		padding = if stack then 14 else 20,
 		reducedMotion = softMotion,
@@ -771,6 +822,7 @@ local titleFxAccent = _AnimatedTitle.titleFxAccent
 local _scrolling = require(script.Parent.Parent.LayoutKit)("scrolling")
 local AutoGrid = _scrolling.AutoGrid
 local VirtualGrid = _scrolling.VirtualGrid
+local Browse = require(script.Parent.Parent.BrowseKit)
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local clockText = _format.clockText
 local compactNumber = _format.compactNumber
@@ -799,6 +851,9 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
+local _elementFx = require(script.Parent.Parent.ElementFx)
+local ElementFx = _elementFx.ElementFx
+local elementSheet = _elementFx.sheet
 local function gridPanelHeight(headerH, rows, cellH, gap, pad)
 	local safeRows = math.max(1, rows)
 	local gridH = safeRows * cellH + math.max(0, safeRows - 1) * gap
@@ -1038,7 +1093,7 @@ local CommandTitleCard = React.memo(function(props)
 		sizeConstraint = UDim2.fromScale(1, 1),
 	})))
 end)
-local function CommandView(_param)
+local function CommandViewReady(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
@@ -1057,7 +1112,7 @@ local function CommandView(_param)
 	local ops = config.Operations
 	local command = state.Command
 	local tab, setTab = React.useState("Overview")
-	local now, setNow = React.useState(os.time())
+	local now, setNow = React.useState(workspace:GetServerTimeNow())
 	local scrollRef = React.useRef()
 	React.useEffect(function()
 		if tab ~= "Expeditions" then
@@ -1070,7 +1125,7 @@ local function CommandView(_param)
 				if not alive then
 					break
 				end
-				setNow(os.time())
+				setNow(workspace:GetServerTimeNow())
 			end
 		end)
 		return function()
@@ -1086,18 +1141,32 @@ local function CommandView(_param)
 			frame.CanvasPosition = Vector2.new(0, 0)
 		end
 	end, { tab })
-	if not ops or not command then
-		return React.createElement("frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-		}, React.createElement(Text, {
-			value = "Loading your crew…",
-			size = 16,
-			color = Palette.muted,
-			align = Enum.TextXAlignment.Center,
-			sizeConstraint = UDim2.fromScale(1, 1),
-		}))
-	end
+	local expeditionBrowse = Browse.useBrowse({
+		id = "Expeditions",
+		items = ops.Expeditions or {},
+		text = function(expedition)
+			return { expedition.Name, formatReward(expedition.Reward), `level {expedition.RequiredLevel}` }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Available", label = "Available", test = function(expedition)
+				return command.Level >= expedition.RequiredLevel
+			end },
+			{ id = "Locked", label = "Locked", test = function(expedition)
+				return command.Level < expedition.RequiredLevel
+			end },
+		},
+		sorts = {
+			{ id = "Level", label = "By level" },
+			{ id = "Shortest", label = "Shortest trip", compare = function(a, b)
+				return (tonumber(a.Duration) or 0) < (tonumber(b.Duration) or 0)
+			end },
+			{ id = "Relic", label = "Best relic odds", compare = function(a, b)
+				return (tonumber(a.ArtifactChance) or 0) > (tonumber(b.ArtifactChance) or 0)
+			end },
+		},
+	})
+	local expeditionList = expeditionBrowse.results
 	local titlesEnabled = ops.TitlesEnabled ~= false
 	local maxed = command.Level >= ops.MaxCommanderLevel
 	local levelProgress = if maxed then 1 else meterFill(command.XP - command.LevelFloorXP, math.max(1, command.NextLevelXP - command.LevelFloorXP))
@@ -1931,20 +2000,35 @@ local function CommandView(_param)
 			disabled = not expeditionReady,
 			reducedMotion = reducedMotion,
 			highlight = expeditionReady,
-		}))), React.createElement(VirtualGrid, {
+		}))), React.createElement(Browse.BrowseBar, {
+			browse = expeditionBrowse,
+			placeholder = "Search adventures by name or reward",
+			accent = Palette.cyan,
+			stack = stack,
+			reducedMotion = softMotion,
+			layoutOrder = nextOrder(),
+			zIndex = 30,
+		}), #expeditionList == 0 and React.createElement(Browse.NoResults, {
+			browse = expeditionBrowse,
+			noun = "adventures",
+			icon = "World",
+			accent = Palette.cyan,
+			reducedMotion = softMotion,
+			layoutOrder = nextOrder(),
+		}), React.createElement(VirtualGrid, {
 			scrollRef = scrollRef,
-			count = #ops.Expeditions,
+			count = #expeditionList,
 			columns = 1,
 			cellHeight = expeditionRowH,
 			gap = Layout.panelGap,
 			overscanRows = if softMotion then 0 else 1,
 			layoutOrder = nextOrder(),
 			itemKey = function(index)
-				local expedition = ops.Expeditions[index + 1]
+				local expedition = expeditionList[index + 1]
 				return if expedition ~= nil then expedition.Id else `expedition-{index}`
 			end,
 			renderItem = function(index)
-				local expedition = ops.Expeditions[index + 1]
+				local expedition = expeditionList[index + 1]
 				if expedition == nil then
 					return nil
 				end
@@ -2074,15 +2158,30 @@ local function CommandView(_param)
 				background = if owned then Palette.panel else Palette.panelSoft,
 				padding = 14,
 				reducedMotion = reducedMotion,
-			}, React.createElement(IconTile, {
-				kind = artifactIcon(artifact.Id),
-				accent = if owned then artifact.Color else Palette.muted,
-				size = 46,
-				radius = 12,
-				position = UDim2.fromOffset(0, if stack then 6 else 18),
+			}, React.createElement("frame", {
+				Name = "ElementTile",
+				Size = UDim2.fromOffset(48, 48),
+				Position = UDim2.fromOffset(0, if stack then 5 else 17),
+				BackgroundColor3 = Palette.void,
+				BackgroundTransparency = 0.15,
+				BorderSizePixel = 0,
+				ClipsDescendants = true,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(0, 12),
+			}), React.createElement("uistroke", {
+				Color = if owned then (elementSheet(artifact.Element) or { Color = artifact.Color }).Color else Palette.lineSoft,
+				Transparency = if equipped then 0 else 0.45,
+				Thickness = if equipped then 2 else 1,
+			}), React.createElement(ElementFx, {
+				element = artifact.Element,
+				size = UDim2.fromOffset(66, 66),
+				position = UDim2.fromScale(0.5, 0.6),
+				-- undiscovered relics show a dim still of their element
+				still = not owned,
+				transparency = if owned then 0 else 0.7,
 				reducedMotion = reducedMotion,
-			}), React.createElement(Text, {
-				value = if owned then `{artifact.Rarity}  ·  Lv {owned.Level}/10` else artifact.Rarity,
+			})), React.createElement(Text, {
+				value = if owned then `{artifact.Rarity}  ·  {(elementSheet(artifact.Element) or { Label = "" }).Label}  ·  Lv {owned.Level}/10` else artifact.Rarity,
 				size = 11,
 				color = if owned then artifact.Color else Palette.muted,
 				weight = Enum.FontWeight.Bold,
@@ -2317,6 +2416,68 @@ local function CommandView(_param)
 		},
 	})
 end
+local function CommandView(_param)
+	local state = _param.state
+	local config = _param.config
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local onSectionChange = _param.onSectionChange
+	local viewport = useViewport()
+	local chrome = chromeFor(viewport)
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+	local overviewReveal = useStagger(0, softMotion)
+	local expeditionsReveal = useStagger(1, softMotion)
+	local opsReveal = useStagger(2, softMotion)
+	local commandSoft = softMotion or overviewReveal == nil or expeditionsReveal == nil or opsReveal == nil
+	local claimHostRef = React.useRef(nil)
+	local stack = chrome.contentStack
+	local ops = config.Operations
+	local command = state.Command
+	local tab, setTab = React.useState("Overview")
+	local now, setNow = React.useState(workspace:GetServerTimeNow())
+	local scrollRef = React.useRef()
+	React.useEffect(function()
+		if tab ~= "Expeditions" then
+			return nil
+		end
+		local alive = true
+		local worker = task.spawn(function()
+			while alive do
+				task.wait(1)
+				if not alive then
+					break
+				end
+				setNow(workspace:GetServerTimeNow())
+			end
+		end)
+		return function()
+			alive = false
+			pcall(function()
+				task.cancel(worker)
+			end)
+		end
+	end, { tab })
+	React.useEffect(function()
+		local frame = scrollRef.current
+		if frame then
+			frame.CanvasPosition = Vector2.new(0, 0)
+		end
+	end, { tab })
+	if not ops or not command then
+		return React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+		}, React.createElement(Text, {
+			value = "Loading your crew…",
+			size = 16,
+			color = Palette.muted,
+			align = Enum.TextXAlignment.Center,
+			sizeConstraint = UDim2.fromScale(1, 1),
+		}))
+	end
+	return React.createElement(CommandViewReady, _param)
+end
 return {
 	CommandView = CommandView,
 }
@@ -2377,7 +2538,11 @@ local function hayHas(hay, needle)
 	if #needle == 0 then
 		return true
 	end
-	return (string.find(string.lower(hay), string.lower(needle), 1, true)) ~= nil
+	-- exact substrings (player IDs) still match; fuzzy matching adds typos and initials
+	if (string.find(string.lower(hay), string.lower(needle), 1, true)) ~= nil then
+		return true
+	end
+	return require(script.Parent.Parent.BrowseKit).matches(needle, hay)
 end
 
 local function catAccent(category)
@@ -2606,7 +2771,7 @@ local function AuditLine(_param)
 	}))
 end
 
-local function AdminView(_param)
+local function AdminViewReady(_param)
 	local state = _param.state
 	local config = _param.config
 	local dispatch = _param.dispatch
@@ -2700,14 +2865,6 @@ local function AdminView(_param)
 		setLastOk(admin.LastAction.Ok)
 	end, { admin and admin.LastAction })
 
-	if not (admin and admin.Access == true) then
-		return React.createElement(EmptyState, {
-			icon = "Lock",
-			title = "Owner tools locked",
-			body = "Only the game owner can open this page.",
-			accent = Palette.coral,
-		})
-	end
 
 	local online = admin.Online or {}
 	local commands = admin.Commands or {}
@@ -3243,6 +3400,110 @@ local function AdminView(_param)
 		},
 	})
 end
+local function AdminView(_param)
+	local state = _param.state
+	local config = _param.config
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local admin = state.Admin
+
+	local antilag = useAntilag()
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
+
+	local targetId, setTargetId = React.useState((admin and admin.SelfUserId) or (admin and admin.Online and admin.Online[1] and admin.Online[1].UserId) or 0)
+	local command, setCommand = React.useState((admin and admin.Commands and admin.Commands[1] and admin.Commands[1].Id) or "GrantFlux")
+	local category, setCategory = React.useState("All")
+	local playerQuery, setPlayerQuery = React.useState("")
+	local commandQuery, setCommandQuery = React.useState("")
+	local amount, setAmount = React.useState("1000")
+	local option, setOption = React.useState("")
+	local reason, setReason = React.useState(reasonsFor("GrantFlux", "Economy")[1].id)
+	local armed, setArmed = React.useState(false)
+	local busy, setBusy = React.useState(false)
+	local busyRef = React.useRef(false)
+	local shakeToken, setShakeToken = React.useState(0)
+	local lastNote, setLastNote = React.useState((admin and admin.LastAction and admin.LastAction.Message) or "")
+	local lastOk, setLastOk = React.useState((admin and admin.LastAction and admin.LastAction.Ok) or true)
+	local mountedRef = React.useRef(true)
+	local executeAttempt = React.useRef(0)
+	local enter = useEntrance(softMotion)
+	local toolsReveal = useStagger(0, softMotion)
+
+	React.useEffect(function()
+		return function()
+			mountedRef.current = false
+			executeAttempt.current += 1
+		end
+	end, {})
+
+	React.useEffect(function()
+		if targetId == 0 and admin and admin.SelfUserId then
+			setTargetId(admin.SelfUserId)
+		end
+	end, { admin and admin.SelfUserId, targetId })
+
+	React.useEffect(function()
+		local online = (admin and admin.Online) or {}
+		if #online == 0 then return end
+		local found = false
+		for _, p in online do
+			if p.UserId == targetId then found = true break end
+		end
+		if not found then
+			setTargetId((admin and admin.SelfUserId) or online[1].UserId)
+		end
+	end, { admin and admin.Online, admin and admin.SelfUserId, targetId })
+
+	React.useEffect(function()
+		local commands = (admin and admin.Commands) or {}
+		if #commands == 0 then return end
+		local found = false
+		for _, c in commands do
+			if c.Id == command then found = true break end
+		end
+		if not found then
+			setCommand(commands[1].Id or "GrantFlux")
+		end
+	end, { admin and admin.Commands, command })
+
+	React.useEffect(function()
+		setArmed(false)
+	end, { amount, command, option, reason, targetId })
+
+	React.useEffect(function()
+		local layout = fieldsFor(command, config, admin and admin.Banned)
+		local commands = (admin and admin.Commands) or {}
+		local current = nil
+		for _, c in commands do
+			if c.Id == command then current = c break end
+		end
+		local reasonChoices = reasonsFor(command, current and current.Category)
+		setAmount(layout.defaultAmount)
+		setOption(layout.defaultOption)
+		setReason(reasonChoices[1] and reasonChoices[1].id or "Owner gameplay administration")
+		if layout.overridesTarget and layout.defaultAmount ~= "" then
+			local userId = tonumber(layout.defaultAmount)
+			if userId then setTargetId(userId) end
+		end
+	end, { command })
+
+	React.useEffect(function()
+		if not (admin and admin.LastAction) then return end
+		setLastNote(admin.LastAction.Message)
+		setLastOk(admin.LastAction.Ok)
+	end, { admin and admin.LastAction })
+
+	if not (admin and admin.Access == true) then
+		return React.createElement(EmptyState, {
+			icon = "Lock",
+			title = "Owner tools locked",
+			body = "Only the game owner can open this page.",
+			accent = Palette.coral,
+		})
+	end
+	return React.createElement(AdminViewReady, _param)
+end
 
 return {
 	AdminView = AdminView,
@@ -3286,6 +3547,8 @@ local EmptyState = _ui.EmptyState
 local Panel = _ui.Panel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
 local BOARDS = { {
 	id = "Flux",
 	label = "Lifetime Flux",
@@ -3335,7 +3598,82 @@ local BOARDS = { {
 	description = "The farthest forge worlds unlocked.",
 	icon = "World",
 	accent = Palette.green,
+	group = "Progression",
+}, {
+	id = "Crates",
+	label = "Crates Opened",
+	short = "CRATES",
+	description = "Every sealed crate cracked open, any tier, any skin.",
+	icon = "Crate",
+	accent = Palette.mango,
+	group = "Collection",
+}, {
+	id = "Finds",
+	label = "Items Found",
+	short = "FINDS",
+	description = "Relics, tools and oddities pulled into the vault.",
+	icon = "Artifact",
+	accent = Palette.cyan,
+	group = "Collection",
+}, {
+	id = "Ore",
+	label = "Ore Mined",
+	short = "ORE",
+	description = "Raw ore hauled out of the deep veins.",
+	icon = "Forge",
+	accent = Palette.mango,
+	group = "Activity",
+}, {
+	id = "Wardens",
+	label = "Wardens Felled",
+	short = "WARDENS",
+	description = "Vault wardens brought down in combat.",
+	icon = "Milestone",
+	accent = Palette.pink,
+	group = "Activity",
+}, {
+	id = "Orders",
+	label = "Orders Filled",
+	short = "ORDERS",
+	description = "Contracts and work orders delivered on time.",
+	icon = "Mission",
+	accent = Palette.mint,
+	group = "Activity",
+}, {
+	id = "Stars",
+	label = "Stars Plotted",
+	short = "STARS",
+	description = "Stars fixed onto the Star Charts across every constellation.",
+	icon = "StarGrid",
+	accent = Palette.violet,
+	group = "Sky",
+}, {
+	id = "Cipher",
+	label = "Ciphers Cracked",
+	short = "CIPHERS",
+	description = "Daily signal ciphers decoded before the seventh guess.",
+	icon = "Code",
+	accent = Palette.cyan,
+	group = "Sky",
 } }
+local BOARD_GROUP = {
+	Flux = "Economy",
+	Dust = "Economy",
+	Cores = "Economy",
+	Rebirths = "Progression",
+	Domain = "Progression",
+	PlayTime = "Activity",
+}
+for _, board in BOARDS do
+	board.group = board.group or BOARD_GROUP[board.id] or "Progression"
+end
+local STAT_BOARD_KEYS = {
+	Crates = "CratesOpened",
+	Finds = "ItemsFound",
+	Ore = "OreMined",
+	Wardens = "WardenDefeats",
+	Orders = "OrdersCompleted",
+}
 local _array = {}
 local _length = #_array
 local _newValue = table.create(#BOARDS)
@@ -3401,6 +3739,24 @@ local function scoreCounts(id, value)
 	return asFlux(value) > 0
 end
 local function ownValue(state, id)
+	if STAT_BOARD_KEYS[id] then
+		local stats = state.Stats
+		return math.max(0, math.floor(tonumber(stats and stats[STAT_BOARD_KEYS[id]]) or 0))
+	end
+	if id == "Stars" then
+		local total = 0
+		local sky = state.Sky
+		if type(sky) == "table" and type(sky.Plotted) == "table" then
+			for _, count in sky.Plotted do
+				total += math.max(0, math.floor(tonumber(count) or 0))
+			end
+		end
+		return total
+	end
+	if id == "Cipher" then
+		local sky = state.Sky
+		return math.max(0, math.floor(tonumber(type(sky) == "table" and type(sky.Cipher) == "table" and sky.Cipher.Solves) or 0))
+	end
 	if id == "Flux" then
 		return state.LifetimeCash
 	end
@@ -3447,6 +3803,10 @@ local SCOPE_TABS = { {
 	icon = "Command",
 } }
 local function serverValueFor(summary, id)
+	if STAT_BOARD_KEYS[id] or id == "Stars" or id == "Cipher" then
+		local boards = summary.Boards
+		return if type(boards) == "table" then tonumber(boards[id]) or 0 else 0
+	end
 	if id == "Flux" then
 		local _condition = summary.LifetimeCash
 		if _condition == nil then
@@ -3985,6 +4345,7 @@ local function LegacyLeaderboardsView(_param)
 	local boardHostRef = React.useRef(nil)
 	local selected, setSelected = React.useState("Flux")
 	local scope, setScope = React.useState("Global")
+	local pilotQuery, setPilotQuery = React.useState("")
 	React.useEffect(function()
 		if not UserInputService.GamepadEnabled then
 			return nil
@@ -4123,8 +4484,21 @@ local function LegacyLeaderboardsView(_param)
 	local guildHeroH = if stack then 156 else 148
 	local guildBlockH = guildHeroH + 34 + GUILD_ROWS_SHOWN * (GUILD_ROW_H + ROW_GAP)
 	local hasEntries = #ranked > 0
-	local remaining = math.max(0, #ranked - 3)
-	local ranksLabelH = 22
+	-- "find a pilot" searches the whole board and keeps each pilot's real rank
+	local searchingPilots = not string.match(pilotQuery, "^%s*$")
+	local listRows = {}
+	for index, entry in ranked do
+		if searchingPilots then
+			if Browse.matches(pilotQuery, entry.Name, tostring(entry.UserId)) then
+				table.insert(listRows, { entry = entry, rank = index })
+			end
+		elseif index > 3 then
+			table.insert(listRows, { entry = entry, rank = index })
+		end
+	end
+	local remaining = #listRows
+	local pilotSearchH = if #ranked > 3 then (if stack then TapTarget else 40) + 8 else 0
+	local ranksLabelH = 22 + pilotSearchH + (if searchingPilots and remaining == 0 then 40 else 0)
 	local rankStride = ROW_H + ROW_GAP
 	local ranksListH = if hasEntries then (
 		if remaining >= 8 then math.min(remaining, 12) * rankStride - ROW_GAP
@@ -4345,31 +4719,23 @@ local function LegacyLeaderboardsView(_param)
 			size = UDim2.fromScale(1, 1),
 		})
 	else
-		local restEntries = {}
-		local restCount = 0
-		for index, entry in ranked do
-			if index > 3 then
-				restCount += 1
-				restEntries[restCount] = entry
-			end
-		end
+		local restCount = #listRows
 		local rankStride = ROW_H + ROW_GAP
 		local virtRanks = restCount >= 8
 		local ranksBody = if virtRanks then React.createElement(FlatList, {
-			data = restEntries,
+			data = listRows,
 			itemHeight = rankStride,
 			overscan = if softMotion then 0 elseif antilag.constrained then 1 else 2,
 			canvasTail = 8,
 			Size = UDim2.new(1, 0, 0, ranksListH),
 			scrollBarColor = meta.accent,
 			scrollBarThickness = 3,
-			keyExtractor = function(entry)
-				return `{selected}-{entry.UserId}`
+			keyExtractor = function(row)
+				return `{selected}-{row.entry.UserId}`
 			end,
 			renderItem = function(_param_1)
-				local entry = _param_1.item
-				local index = _param_1.index
-				local rank = index + 4
+				local entry = _param_1.item.entry
+				local rank = _param_1.item.rank
 				return React.createElement(RankRow, {
 					entry = entry,
 					rank = rank,
@@ -4382,11 +4748,12 @@ local function LegacyLeaderboardsView(_param)
 			end,
 		}) else (function()
 			local rest = {}
-			for index, entry in restEntries do
+			for index, row in listRows do
+				local entry = row.entry
 				rest[index] = React.createElement(RankRow, {
 					key = `{selected}-{entry.UserId}`,
 					entry = entry,
-					rank = index + 3,
+					rank = row.rank,
 					meta = meta,
 					isLocal = entry.UserId == localId,
 					layoutOrder = index + 3,
@@ -4421,6 +4788,24 @@ local function LegacyLeaderboardsView(_param)
 			weight = Enum.FontWeight.Heavy,
 			layoutOrder = 0,
 			sizeConstraint = UDim2.new(1, 0, 0, 14),
+		}), pilotSearchH > 0 and React.createElement("frame", {
+			Size = UDim2.new(1, 0, 0, pilotSearchH - 8),
+			BackgroundTransparency = 1,
+			LayoutOrder = 0,
+		}, React.createElement(SearchField, {
+			value = pilotQuery,
+			onChange = setPilotQuery,
+			placeholder = "Find a pilot on this board",
+			accent = meta.accent,
+			reducedMotion = softMotion,
+			size = UDim2.fromScale(1, 1),
+			zIndex = 12,
+		})), searchingPilots and remaining == 0 and React.createElement(Text, {
+			value = `No pilot named "{pilotQuery}" on this board.`,
+			size = 13,
+			color = Palette.muted,
+			layoutOrder = 0,
+			sizeConstraint = UDim2.new(1, 0, 0, 32),
 		}), React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, ranksListH),
 			BackgroundTransparency = 1,

@@ -10,9 +10,10 @@ serviceFactories["AdminService"] = function() return require(script.Parent:WaitF
 
 serviceFactories["AnomalyService"] = function() return require(script.Parent:WaitForChild("CoreServices"))("AnomalyService")(loadService) end
 
-serviceFactories["CasinoService"] = function() return require(script.Parent:WaitForChild("CasinoService"))(loadService) end
 
 serviceFactories["BazaarService"] = function() return require(script.Parent:WaitForChild("BazaarService"))(loadService) end
+
+serviceFactories["SkyService"] = function() return require(script.Parent:WaitForChild("SkyService"))(loadService) end
 
 serviceFactories["AtomicState"] = require(script.Parent:WaitForChild("SecurityServices"))("AtomicState")
 
@@ -49,7 +50,10 @@ serviceFactories["GameService"] = function()
 	local RebirthGate = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("RebirthGate")
 	local TradeDesk = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeDesk")
 	local TradeSettle = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeSettle")
+	local TradeRecovery = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("TradeSuite"))("TradeRecovery")
 	local CrateRoll = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("EconomyMath"))("CrateRoll")
+	local CrateRollResolver = require(script.Parent.Parent.Modules.CrateRollResolver)
+	local CrateConfig = require(ReplicatedStorage.AstralForge.Shared.CrateConfig)
 	local ShopGrantEligibility = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("ShopGrantEligibility")
 	local CommandActionValidators = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("CommandActionValidators")
 	local SocialBoost = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("ProfileMath"))("SocialBoost")
@@ -96,14 +100,20 @@ serviceFactories["GameService"] = function()
 	local PlayerAnalytics = loadService("PlayerAnalytics")
 	local PlayerBadges = loadService("PlayerBadges")
 	local ForgeEchoService = loadService("ForgeEchoService")
-	local CasinoService = loadService("CasinoService")
 	local BazaarService = loadService("BazaarService")
+	local SkyService = loadService("SkyService")
+	local GuildCommunity = require(script.Parent:WaitForChild("GuildCommunity"))
 	local FluxSurgeService = loadService("FluxSurgeService")
 	local ServerEventService = loadService("ServerEventService")
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 
 	local GameService = {}
 	GameService.__index = GameService
+
+	-- guild kick/ban/reconcile paths reset bonuses; this lived only in CoreServices before
+	local function emptyBonuses()
+		return GuildMath.EmptyBonuses()
+	end
 
 	local MAX_SAFE_CURRENCY = 1e308
 	local AUTO_FORGE_INTERVAL = 2
@@ -124,6 +134,13 @@ serviceFactories["GameService"] = function()
 		Cores = ServerConfig.CoresLeaderboardStoreName,
 		Domain = ServerConfig.DomainLeaderboardStoreName,
 		Worlds = ServerConfig.WorldLeaderboardStoreName,
+		Crates = ServerConfig.CratesLeaderboardStoreName,
+		Finds = ServerConfig.FindsLeaderboardStoreName,
+		Ore = ServerConfig.OreLeaderboardStoreName,
+		Wardens = ServerConfig.WardensLeaderboardStoreName,
+		Orders = ServerConfig.OrdersLeaderboardStoreName,
+		Stars = ServerConfig.StarsLeaderboardStoreName,
+		Cipher = ServerConfig.CipherLeaderboardStoreName,
 	}
 
 	local function generalBoardValue(profile, id: string)
@@ -380,7 +397,7 @@ serviceFactories["GameService"] = function()
 	local PRESENCE_PAGES = {
 		Overview = true, Workshop = true, Inventory = true, Research = true, StarGrid = true,
 		Echoes = true, Continuum = true, Lab = true, Anomaly = true, Worlds = true,
-		Missions = true, Wheel = true, Casino = true, Bazaar = true, Rewards = true, Command = true, Story = true, Mail = true,
+		Missions = true, Wheel = true, Bazaar = true, Charts = true, Cipher = true, Rewards = true, Command = true, Story = true, Mail = true,
 		Chat = true, Crew = true, Milestones = true, Convergence = true, Leaderboards = true,
 		Trade = true, Credits = true, Admin = true, Settings = true, Shop = true,
 	}
@@ -528,7 +545,30 @@ serviceFactories["GameService"] = function()
 					self:_pushTradePartners(session.Host, session.Guest)
 					return responseError(planErr or "That trade could not be settled.")
 				end
+
+				-- Durability hook: stamp a per-profile fault journal so a faulted trade
+				-- can be reconciled the next time the affected profile loads.
+				local function writeTradeJournal(targetPlayer: Player, side: string, status: string, reason: string?)
+					if status ~= "faulted" then
+						return
+					end
+					local ok, err = pcall(function()
+						return self._data:AtomicUpdate(targetPlayer, function(profile)
+							local entry = TradeRecovery.MakeFaultedEntry(session, side, plan, reason or "unknown", now)
+							profile.Trade.FaultedJournal = entry
+							return { ok = true }
+						end, true, "trade-journal-" .. side)
+					end)
+					if not ok then
+						ModuleLog.Warn(
+							"Trade",
+							string.format("Could not write %s fault journal: %s", side, tostring(err))
+						)
+					end
+				end
+
 				local outcome = TradeSettle.RunHostGuest(session, {
+					plan = plan,
 					applyHost = function()
 						return self._data:AtomicUpdate(host, function(profile)
 							local applyErr = self._trades:ApplyExchange(
@@ -577,6 +617,12 @@ serviceFactories["GameService"] = function()
 							return { ok = true }
 						end, true, "trade-revert")
 						return TradeSettle.IsCommitOk(revertOk, revertResult)
+					end,
+					writeHostJournal = function(status: string, reason: string?)
+						writeTradeJournal(host, "host", status, reason)
+					end,
+					writeGuestJournal = function(status: string, reason: string?)
+						writeTradeJournal(guest, "guest", status, reason)
 					end,
 				})
 				self:_pushTradePartners(session.Host, session.Guest)
@@ -650,6 +696,11 @@ serviceFactories["GameService"] = function()
 		return responseError("That player is no longer in this server.")
 	end
 
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+	local getOrderedStore = StoreAccess.ordered
+	local getDataStore = StoreAccess.data
+	local previewEnabled = StoreAccess.isPreview()
+
 	function GameService.new(dataService, worldService, fluxSurgeService, remotes)
 		local self = setmetatable({}, GameService)
 		self._data = dataService
@@ -692,6 +743,20 @@ serviceFactories["GameService"] = function()
 			end,
 		})
 		self._guilds = GuildService.new()
+		self._guildCommunity = GuildCommunity.new(self._guilds, dataService, self._security, self._effect, function(target: Player, guildId: string)
+			local updated, result = self._data:AtomicUpdate(target, function(targetProfile)
+				if targetProfile.Guild and targetProfile.Guild.Id == guildId then
+					targetProfile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+					targetProfile.GuildBonuses = emptyBonuses()
+				end
+				return { ok = true }
+			end, true, "guild-ban")
+			if not updated then return false, result end
+			self:_pushState(target)
+			-- a guild ban removes guild access only (the client shows the notice); never disconnect the player
+			self._effect:FireClient(target, { Type = "GuildBanned", GuildId = guildId })
+			return true, nil
+		end)
 		self._trades = TradeDesk.new()
 		self._random = Random.new()
 		self._heartbeat = nil
@@ -702,7 +767,7 @@ serviceFactories["GameService"] = function()
 		self._running = false
 		self._leaderboardStores = {}
 		for id, storeName in GENERAL_BOARD_STORE_NAMES do
-			self._leaderboardStores[id] = DataStoreService:GetOrderedDataStore(storeName)
+			self._leaderboardStores[id] = getOrderedStore(storeName)
 		end
 
 		self._playerNameCache = {}
@@ -740,6 +805,24 @@ serviceFactories["GameService"] = function()
 			return responseError("That note couldn't be checked. Please try different wording.")
 		end
 		local profile = self._data:Get(player)
+		local categoryColors = { Bug = 15548997, Suggestion = 5959144, Balance = 16762880, Performance = 10181046, Interface = 3447003, Other = 9807270 }
+		local impactLabels = { "Minor", "Noticeable", "Annoying", "Major", "Blocking" }
+		local impact = payload and payload.Impact
+		local fields = {
+			{ name = "Player", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = false },
+			{ name = "Progress", value = string.format("World %d · %d rebirths", profile and profile.Zone or 1, profile and profile.Rebirths or 0), inline = true },
+			{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
+		}
+		if type(impact) == "number" and impactLabels[impact] then
+			table.insert(fields, { name = "Impact", value = string.format("%s (%d/5)", impactLabels[impact], impact), inline = true })
+		end
+		if type(payload.Device) == "string" then
+			local screen = if type(payload.Screen) == "string" then " · " .. payload.Screen else ""
+			table.insert(fields, { name = "Device", value = payload.Device .. screen, inline = true })
+		end
+		if type(payload.Page) == "string" then
+			table.insert(fields, { name = "Page", value = payload.Page, inline = true })
+		end
 		local body = {
 			username = "Astral Forge Feedback",
 			allowed_mentions = { parse = {} },
@@ -747,12 +830,8 @@ serviceFactories["GameService"] = function()
 				{
 					title = category .. " feedback",
 					description = filtered,
-					color = 5959144,
-					fields = {
-						{ name = "Player", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = false },
-						{ name = "Progress", value = string.format("World %d · %d rebirths", profile and profile.Zone or 1, profile and profile.Rebirths or 0), inline = true },
-						{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
-					},
+					color = categoryColors[category] or 5959144,
+					fields = fields,
 					footer = { text = "Astral Forge " .. tostring(GameConfig.Game.Version) },
 					timestamp = DateTime.now():ToIsoDate(),
 				},
@@ -808,6 +887,9 @@ serviceFactories["GameService"] = function()
 			details = (filteredOk and type(filtered) == "string") and filtered or ""
 		end
 		local reportCount, reporterCount = reportLedger:record(player.UserId, targetUserId, reason, now)
+		local severity = if payload.Severity == "Serious" or payload.Severity == "Urgent" then payload.Severity else "Minor"
+		local when = if payload.When == "Earlier" or payload.When == "Repeated" then payload.When else "Now"
+		local where = if payload.Where == "Chat" or payload.Where == "Trade" or payload.Where == "Guild" then payload.Where else "World"
 		local endpoint = ServerStorage:GetAttribute(ServerConfig.ReportWebhookAttribute)
 		if type(endpoint) ~= "string" or not string.match(endpoint, "^https://") then
 			ModuleLog.Every(
@@ -825,9 +907,9 @@ serviceFactories["GameService"] = function()
 			allowed_mentions = { parse = {} },
 			embeds = {
 				{
-					title = "Player report: " .. reason,
+					title = string.format("[%s] Player report: %s", severity, reason),
 					description = details ~= "" and details or "(no details provided)",
-					color = 15548997,
+					color = ReportLedger.SEVERITY_COLORS[severity] or 15548997,
 					fields = {
 						{ name = "Reported", value = string.format("%s (@%s) · %d", target.DisplayName, target.Name, target.UserId), inline = true },
 						{ name = "Reported by", value = string.format("%s (@%s) · %d", player.DisplayName, player.Name, player.UserId), inline = true },
@@ -835,6 +917,7 @@ serviceFactories["GameService"] = function()
 						{ name = "Reporter progress", value = string.format("World %d · %d rebirths", reporterProfile and reporterProfile.Zone or 1, reporterProfile and reporterProfile.Rebirths or 0), inline = true },
 						{ name = "This hour", value = string.format("%d reports from %d players", reportCount, reporterCount), inline = true },
 						{ name = "Target account", value = string.format("%d days old", target.AccountAge), inline = true },
+						{ name = "Context", value = string.format("%s · %s", where, when), inline = true },
 						{ name = "Server", value = game.JobId ~= "" and game.JobId or "Studio", inline = true },
 					},
 					footer = { text = "Astral Forge " .. tostring(GameConfig.Game.Version) },
@@ -1043,6 +1126,30 @@ serviceFactories["GameService"] = function()
 			player:SetAttribute("EquippedTitle", titleId)
 			player:SetAttribute("EquippedTitleName", titleName)
 			player:SetAttribute("EquippedTitleFx", titleFx)
+		end
+		-- the equipped artifact is public: every client reads these for the overhead aura, the
+		-- player list and chat, so it has to be visible to the whole server, not just its owner
+		local command = profile.Command
+		local artifactId = command and type(command.EquippedArtifact) == "string" and command.EquippedArtifact or ""
+		local artifact = artifactId ~= "" and Economy.GetArtifact(artifactId) or nil
+		local owned = artifact and type(command.Artifacts) == "table" and command.Artifacts[artifactId] or nil
+		if artifact and type(owned) == "table" then
+			local level = math.max(1, math.floor(tonumber(owned.Level) or 1))
+			local power = (tonumber(artifact.EffectPerLevel) or 0) * level
+			local effectText = if artifact.EffectKind == "OfflineHours"
+				then string.format("+%.1fh offline", power)
+				else string.format("+%.0f%% %s", power * 100, string.lower(tostring(artifact.EffectKind)))
+			player:SetAttribute("EquippedArtifactName", tostring(artifact.Name))
+			player:SetAttribute("EquippedArtifactElement", tostring(artifact.Element or ""))
+			player:SetAttribute("EquippedArtifactRarity", tostring(artifact.Rarity or "COMMON"))
+			player:SetAttribute("EquippedArtifactLevel", level)
+			player:SetAttribute("EquippedArtifactColor", if typeof(artifact.Color) == "Color3" then artifact.Color else Color3.fromRGB(170, 139, 255))
+			player:SetAttribute("EquippedArtifactEffect", effectText)
+			player:SetAttribute("EquippedArtifact", artifactId)
+		elseif player:GetAttribute("EquippedArtifact") ~= nil then
+			for _, key in { "EquippedArtifact", "EquippedArtifactName", "EquippedArtifactElement", "EquippedArtifactRarity", "EquippedArtifactLevel", "EquippedArtifactColor", "EquippedArtifactEffect" } do
+				player:SetAttribute(key, nil)
+			end
 		end
 	end
 
@@ -1263,6 +1370,8 @@ serviceFactories["GameService"] = function()
 		local guildMembership = profile.Guild
 		local guildId = guildMembership and guildMembership.Id or ""
 		local guildCachedPublic = if guildId ~= "" then self._guilds:GetCachedPublic(guildId) else nil
+		local guildSnapshot = GuildMath.SnapshotPublic(guildMembership, guildCachedPublic)
+		if guildSnapshot and guildId ~= "" then guildSnapshot.Community = self._guildCommunity:Snapshot(guildId) end
 		local overchargeCombo, overchargeMultiplier = self:_overchargeCombo(runtime, profile)
 
 		return {
@@ -1321,8 +1430,8 @@ serviceFactories["GameService"] = function()
 			Achievements = ProgressionService.AchievementStates(profile),
 			Daily = ProgressionService.DailyState(profile),
 			Wheel = ProgressionService.WheelState(profile),
-			Casino = CasinoService.State(profile, os.time()),
-				Bazaar = BazaarService.State(profile, os.time(), player.UserId),
+			Bazaar = BazaarService.State(profile, os.time(), player.UserId),
+			Sky = SkyService.State(profile, os.time(), player.UserId),
 			Command = ProgressionService.CommandState(profile),
 			ForgePath = ProgressionService.ForgePathState(profile),
 			TimedRewards = ProgressionService.TimedRewardState(profile),
@@ -1351,7 +1460,7 @@ serviceFactories["GameService"] = function()
 			},
 			Anomaly = AnomalyService.State(profile),
 			Lab = LabService.State(profile),
-			Guild = GuildMath.SnapshotPublic(guildMembership, guildCachedPublic),
+			Guild = guildSnapshot,
 			GuildBonuses = copyDictionary(profile.GuildBonuses),
 			SocialBoost = SocialBoost.PublicSnapshot(profile.SocialBoost, GameConfig.Social.MaxBoostedFriends, copyDictionary),
 			SocialRewards = SocialBoost.CreatorRewardsPublic(profile.SocialRewards, ServerConfig.CreatorUsername),
@@ -1446,7 +1555,11 @@ serviceFactories["GameService"] = function()
 			clampProgressionNumbers(profile)
 			enforceUnlimitedMoney(profile)
 
-			self._antiCheat:Observe(player, "Mutation", profile)
+			local _, wouldReject = self._antiCheat:Observe(player, "Mutation", profile)
+			if wouldReject then
+				-- Returning a failed transaction quarantines the whole mutation, including the illegal credit.
+				return responseError("That economy change was rejected.")
+			end
 			return callbackResult
 		end, incrementRevision)
 		if not success then
@@ -2130,6 +2243,7 @@ serviceFactories["GameService"] = function()
 				)
 			end
 			local bankedVault = profile.Vault
+			local multiplierBefore = Economy.PermanentMultiplier(profile)
 			reward = Economy.Max(1, Economy.Floor(Economy.Mul(reward, 1 + Economy.DomainTreeBonus(profile, "RebirthYield"))))
 			profile.Cores = Economy.AsNumber(Economy.Add(profile.Cores, reward))
 			local stardustScale = tonumber(rebirthConfig.StardustSqrtScale) or 5
@@ -2161,7 +2275,11 @@ serviceFactories["GameService"] = function()
 					end
 				end
 			end
-			return responseSuccess(string.format("Rebirth complete. +%d cores, +%d stardust.", reward, stardustReward), {
+			-- reward can be a persisted big-number string, so %d would throw on late-game rebirths
+			return responseSuccess("Rebirth complete. +" .. Format.Number(reward) .. " cores, +" .. Format.Number(stardustReward) .. " stardust.", {
+				Rebirths = profile.Rebirths,
+				MultiplierBefore = multiplierBefore,
+				MultiplierAfter = Economy.PermanentMultiplier(profile),
 				Reward = reward,
 				StardustReward = stardustReward,
 				BankedVault = bankedVault,
@@ -2222,10 +2340,11 @@ serviceFactories["GameService"] = function()
 		return result
 	end
 
-	function GameService:_casinoPlay(player: Player, payload: any)
+	function GameService:_bazaarPlay(player: Player, payload: any)
 		return self:_mutate(player, function(profile)
-			BazaarService.Roll(profile, os.time(), player.UserId)
-			local ok, message, extra = CasinoService.Play(profile, self._random, payload, os.time())
+			local now = os.time()
+			BazaarService.Roll(profile, now, player.UserId)
+			local ok, message, extra = BazaarService.Play(profile, self._random, payload, now, player.UserId)
 			if not ok then
 				return responseError(message)
 			end
@@ -2233,11 +2352,19 @@ serviceFactories["GameService"] = function()
 		end)
 	end
 
-	function GameService:_bazaarPlay(player: Player, payload: any)
+	function GameService:_plotStar(player: Player, payload: any)
 		return self:_mutate(player, function(profile)
-			local now = os.time()
-			BazaarService.Roll(profile, now, player.UserId)
-			local ok, message, extra = BazaarService.Play(profile, self._random, payload, now, player.UserId)
+			local ok, message, extra = SkyService.PlotStar(profile, payload)
+			if not ok then
+				return responseError(message)
+			end
+			return responseSuccess(message, { Result = extra })
+		end)
+	end
+
+	function GameService:_submitCipher(player: Player, payload: any)
+		return self:_mutate(player, function(profile)
+			local ok, message, extra = SkyService.Guess(profile, payload, os.time(), player.UserId)
 			if not ok then
 				return responseError(message)
 			end
@@ -2285,6 +2412,16 @@ serviceFactories["GameService"] = function()
 		return self:_mutate(player, function(profile)
 			local ok, message = ProgressionService.EquipArtifact(profile, artifactId)
 			return ok and responseSuccess(message) or responseError(message)
+		end)
+	end
+
+	function GameService:_buyArtifact(player: Player, artifactId: any)
+		if type(artifactId) ~= "string" then
+			return responseError("Invalid artifact request.")
+		end
+		return self:_mutate(player, function(profile)
+			local ok, message, fresh = ProgressionService.BuyArtifact(profile, artifactId)
+			return ok and responseSuccess(message, { ArtifactId = artifactId, ArtifactNew = fresh }) or responseError(message)
 		end)
 	end
 
@@ -2544,17 +2681,22 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_rollItemDefinition(crate, pity: number)
-		return CrateRoll.Roll(
+		return CrateRollResolver.roll(
 			crate,
 			pity,
 			GameConfig.Items.Rarities,
 			GameConfig.Items.Definitions,
+			function(definition)
+				return definition.Rarity
+			end,
 			function(lo, hi)
 				return self._random:NextNumber(lo, hi)
 			end,
 			function(lo, hi)
 				return self._random:NextInteger(lo, hi)
-			end
+			end,
+			CrateConfig.RarityOrder,
+			CrateConfig.MinimumRollInterval
 		)
 	end
 
@@ -2806,6 +2948,11 @@ serviceFactories["GameService"] = function()
 			end
 			items.Keys[crateId] -= count
 			local rolls = {}
+			local cosmetics = ProfileBagMath.EnsureCosmetics(profile)
+			local shopCatalog = require(game.ReplicatedStorage.AstralForge.Shared.SharedData)("ShopCatalog")
+			local expansion = require(game.ReplicatedStorage.AstralForge.Shared.CrateExpansion)
+			local equippedSkin = shopCatalog.skin(cosmetics.CrateSkin)
+			local pityStep = expansion.pityStep(cosmetics, equippedSkin)
 			for index = 1, count do
 				local pity = items.Pity[crateId] or 0
 				local definition, rarity, pityHit = self:_rollItemDefinition(crate, pity)
@@ -2820,7 +2967,7 @@ serviceFactories["GameService"] = function()
 				local uid
 				local autoEssence = 0
 				if shouldAutoSalvage then
-					autoEssence = itemSalvageValue({ Level = 1 }, definition)
+					autoEssence = expansion.salvageEssence(cosmetics, equippedSkin, itemSalvageValue({ Level = 1 }, definition))
 					items.Essence += autoEssence
 					bumpStat(profile, "ItemsFound", 1)
 					bumpStat(profile, "ItemsSalvaged", 1)
@@ -2833,7 +2980,7 @@ serviceFactories["GameService"] = function()
 						return responseError("The crate decoder ran out of inventory space. Adjust auto-salvage or clear a slot.")
 					end
 				end
-				items.Pity[crateId] = pityHit and 0 or pity + 1
+				items.Pity[crateId] = pityHit and 0 or pity + pityStep
 				rolls[index] = {
 					Uid = uid,
 					DefinitionId = definition.Id,
@@ -2844,11 +2991,13 @@ serviceFactories["GameService"] = function()
 					Essence = autoEssence,
 				}
 			end
+			local skinBonus = expansion.openBonus(cosmetics, equippedSkin, count)
+			items.Essence += skinBonus
 			bumpStat(profile, "CratesOpened", count)
 			LabService.Progress(profile, "OpenCrate", count)
 			return responseSuccess(
 				string.format("Decoded %d %s%s.", count, crate.Name, count == 1 and "" or "s"),
-				{ Rolls = rolls, CrateId = crateId, Pity = items.Pity[crateId] }
+				{ Rolls = rolls, CrateId = crateId, Pity = items.Pity[crateId], SkinEssence = skinBonus }
 			)
 		end)
 		return result
@@ -3007,7 +3156,9 @@ serviceFactories["GameService"] = function()
 				sealSettings(profile)
 				local label = payload.Label
 				if type(label) == "string" and label ~= "" then
-					return responseSuccess(string.sub(label, 1, 80))
+					label = string.sub(label, 1, 80)
+					local _, brokenAt = utf8.len(label)
+					return responseSuccess(if brokenAt then string.sub(label, 1, brokenAt - 1) else label)
 				end
 				return responseSuccess("Settings updated.")
 			end)
@@ -3367,6 +3518,16 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_verifyCreatorFollow(player: Player)
+		-- Roblox exposes no trusted follow check here; only the explicit Studio QA bypass may award it.
+		if not RunService:IsStudio() or ServerConfig.AllowStudioFollowVerification ~= true then
+			ModuleLog.Every(
+				string.format("creator-follow-unverified:%d", player.UserId),
+				30,
+				"Security",
+				string.format("u=%d Creator follow claim denied because verification is unavailable", player.UserId)
+			)
+			return responseError("Creator follow verification is unavailable.")
+		end
 		local profile = self._data:Get(player)
 		if not profile then return responseError("Your save is still loading. Try again in a moment.") end
 		local socialRewards = type(profile.SocialRewards) == "table" and profile.SocialRewards or nil
@@ -3646,6 +3807,26 @@ serviceFactories["GameService"] = function()
 	end
 
 	function GameService:_guildAction(player: Player, action: string, payload: any)
+		if action == Protocol.Actions.SendGuildChat
+			or action == Protocol.Actions.GetGuildChatHistory
+			or action == Protocol.Actions.GetGuildAnnouncements
+			or action == Protocol.Actions.GetGuildSettings
+			or action == Protocol.Actions.GetGuildLogoReview
+			or action == Protocol.Actions.SetGuildSettings
+			or action == Protocol.Actions.CreateGuildAnnouncement
+			or action == Protocol.Actions.EditGuildAnnouncement
+			or action == Protocol.Actions.PinGuildAnnouncement
+			or action == Protocol.Actions.ArchiveGuildAnnouncement
+			or action == Protocol.Actions.SetGuildAnnouncementExpiry
+			or action == Protocol.Actions.MuteGuildMember
+			or action == Protocol.Actions.UnmuteGuildMember
+			or action == Protocol.Actions.BanGuildMember
+			or action == Protocol.Actions.UnbanGuildMember
+			or action == Protocol.Actions.UploadGuildLogo
+			or action == Protocol.Actions.ModerateGuildLogo
+		then
+			return self._guildCommunity:Handle(player, action, payload)
+		end
 
 		if action == Protocol.Actions.KickGuildMember or action == Protocol.Actions.SetGuildRole or action == Protocol.Actions.BuyGuildUpgrade then
 			local profile = self._data:Get(player)
@@ -3658,6 +3839,17 @@ serviceFactories["GameService"] = function()
 			end
 			if action == Protocol.Actions.KickGuildMember then
 				ok, message, guild = self._guilds:Kick(player, profile, payload.UserId or payload.Id)
+			if ok then
+				local target = Players:GetPlayerByUserId(tonumber(payload.UserId or payload.Id) or 0)
+				if target then
+					self._data:AtomicUpdate(target, function(victimProfile)
+						victimProfile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+						victimProfile.GuildBonuses = emptyBonuses()
+						return { ok = true }
+					end, true, "guild-kick")
+					self:_pushState(target)
+				end
+			end
 			elseif action == Protocol.Actions.SetGuildRole then
 				ok, message, guild = self._guilds:SetRole(player, profile, payload.UserId or payload.Id, payload.Role)
 			else
@@ -3689,6 +3881,15 @@ serviceFactories["GameService"] = function()
 			end
 			return responseSuccess(message, { Guild = guild })
 		end
+		if action == Protocol.Actions.CreateGuild or action == Protocol.Actions.RenameGuild then
+			local rawName = type(payload.Name) == "string" and payload.Name or ""
+			local filteredOk, filtered = self._security.Filter:Apply(player, rawName, player.UserId, 28)
+			if not filteredOk or type(filtered) ~= "string" or #filtered < 3 then
+				return responseError("That guild name couldn't be checked. Please try different wording.")
+			end
+			payload = table.clone(payload)
+			payload.Name = filtered
+		end
 		local contributeActivity = 0
 		local contributeGuildId = ""
 		if action == Protocol.Actions.ContributeGuild then
@@ -3696,6 +3897,15 @@ serviceFactories["GameService"] = function()
 			contributeGuildId = existing and existing.Guild and existing.Guild.Id or ""
 			local before = self._guilds:GetCachedPublic(contributeGuildId)
 			contributeActivity = before and tonumber(before.Activity) or 0
+		end
+		local renameGuildId = ""
+		if action == Protocol.Actions.RenameGuild then
+			local existing = self._data:Get(player)
+			renameGuildId = existing and existing.Guild and existing.Guild.Id or ""
+		end
+		if action == Protocol.Actions.JoinGuild then
+			local canJoin, joinError = self._guildCommunity:CanJoinByTag(payload.Tag, player.UserId)
+			if not canJoin then return responseError(joinError or "You cannot join that guild.") end
 		end
 		local result = self:_mutate(player, function(profile)
 			local ok, message, guild
@@ -3707,6 +3917,8 @@ serviceFactories["GameService"] = function()
 				ok, message, guild = self._guilds:Leave(player, profile)
 			elseif action == Protocol.Actions.DisbandGuild then
 				ok, message, guild = self._guilds:Disband(player, profile)
+			elseif action == Protocol.Actions.RenameGuild then
+				ok, message, guild = self._guilds:Rename(player, profile, payload.Name, payload.Tag)
 			elseif action == Protocol.Actions.ContributeGuild then
 				local balanceField = payload.Currency == "Cash" and "Cash" or "Stardust"
 				local amount = payload.Amount
@@ -3734,6 +3946,27 @@ serviceFactories["GameService"] = function()
 		end)
 		if result.ok and action == Protocol.Actions.ContributeGuild and contributeGuildId ~= "" then
 			self:_announceGuildActivity(contributeGuildId, contributeActivity, result.Guild)
+		end
+		if result.ok and action == Protocol.Actions.RenameGuild and renameGuildId ~= "" and result.Guild then
+			local guild = result.Guild
+			local oldTag = guild.AuditLog and type(guild.AuditLog[1]) == "table" and guild.AuditLog[1].FromTag or nil
+			local newTag = guild.AuditLog and type(guild.AuditLog[1]) == "table" and guild.AuditLog[1].ToTag or nil
+			local tagText = oldTag and newTag and oldTag ~= newTag and string.format(" Tag changed from %s to %s.", oldTag, newTag) or ""
+			self:_toastGuild(
+				renameGuildId,
+				"Guild renamed",
+				string.format("%s renamed the guild to %s.%s", player.DisplayName, guild.Name or "", tagText),
+				"Special",
+				player
+			)
+			for _, online in Players:GetPlayers() do
+				if online ~= player then
+					local onlineProfile = self._data:Get(online)
+					if onlineProfile and onlineProfile.Guild and onlineProfile.Guild.Id == renameGuildId then
+						self:_pushState(online)
+					end
+				end
+			end
 		end
 		return result
 	end
@@ -3994,9 +4227,27 @@ serviceFactories["GameService"] = function()
 			or action == Protocol.Actions.DisbandGuild
 			or action == Protocol.Actions.KickGuildMember
 			or action == Protocol.Actions.SetGuildRole
+			or action == Protocol.Actions.RenameGuild
 			or action == Protocol.Actions.ContributeGuild
 			or action == Protocol.Actions.BuyGuildUpgrade
 			or action == Protocol.Actions.ClaimGuildGoal
+			or action == Protocol.Actions.SendGuildChat
+			or action == Protocol.Actions.GetGuildChatHistory
+			or action == Protocol.Actions.GetGuildAnnouncements
+			or action == Protocol.Actions.GetGuildSettings
+			or action == Protocol.Actions.SetGuildSettings
+			or action == Protocol.Actions.GetGuildLogoReview
+			or action == Protocol.Actions.CreateGuildAnnouncement
+			or action == Protocol.Actions.EditGuildAnnouncement
+			or action == Protocol.Actions.PinGuildAnnouncement
+			or action == Protocol.Actions.ArchiveGuildAnnouncement
+			or action == Protocol.Actions.SetGuildAnnouncementExpiry
+			or action == Protocol.Actions.MuteGuildMember
+			or action == Protocol.Actions.UnmuteGuildMember
+			or action == Protocol.Actions.BanGuildMember
+			or action == Protocol.Actions.UnbanGuildMember
+			or action == Protocol.Actions.UploadGuildLogo
+			or action == Protocol.Actions.ModerateGuildLogo
 		then
 			return self:_guildAction(player, action, payload or {})
 		elseif action == Protocol.Actions.GetTrade
@@ -4055,10 +4306,12 @@ serviceFactories["GameService"] = function()
 			return self:_claimTimedReward(player, payload and payload.Index)
 		elseif action == Protocol.Actions.SpinWheel then
 			return self:_spinWheel(player)
-		elseif action == Protocol.Actions.CasinoPlay then
-			return self:_casinoPlay(player, payload)
 		elseif action == Protocol.Actions.BazaarPlay then
 			return self:_bazaarPlay(player, payload)
+		elseif action == Protocol.Actions.PlotStar then
+			return self:_plotStar(player, payload)
+		elseif action == Protocol.Actions.SubmitCipher then
+			return self:_submitCipher(player, payload)
 		elseif action == Protocol.Actions.LaunchExpedition then
 			return self:_launchExpedition(player, payload and payload.Id)
 		elseif action == Protocol.Actions.ClaimExpedition then
@@ -4067,6 +4320,8 @@ serviceFactories["GameService"] = function()
 			return self:_equipArtifact(player, payload and payload.Id)
 		elseif action == Protocol.Actions.UpgradeArtifact then
 			return self:_upgradeArtifact(player, payload and payload.Id)
+		elseif action == Protocol.Actions.BuyArtifact then
+			return self:_buyArtifact(player, payload and payload.Id)
 		elseif action == Protocol.Actions.UpgradeCrew then
 			return self:_upgradeCrew(player, payload and payload.Role)
 		elseif action == Protocol.Actions.ClaimCommanderReward then
@@ -4211,7 +4466,17 @@ serviceFactories["GameService"] = function()
 			return
 		end
 		self._antiCheat:Observe(player, "Load", profile)
+		local membershipBeforeReconcile = profile.Guild
+		local membershipGuildId = membershipBeforeReconcile and membershipBeforeReconcile.Id or ""
 		self._guilds:ReconcileMembership(profile, player.UserId)
+		if membershipGuildId ~= "" and self._guildCommunity:IsBanned(membershipGuildId, player.UserId) then
+			self._guilds:_update(membershipGuildId, function(current)
+				current.Members[tostring(player.UserId)] = nil
+				return current
+			end)
+			profile.Guild = { Id = "", Role = "", JoinedAt = 0, Tag = "" }
+			profile.GuildBonuses = emptyBonuses()
+		end
 		if not self._running or player.Parent ~= Players then
 			self._data:Save(player, true)
 			return
@@ -4256,7 +4521,9 @@ serviceFactories["GameService"] = function()
 			return
 		end
 		local spawned, spawnProblem = pcall(function()
-			self._runtime[player].MatterEntity = self._matter:SpawnPlayer(player, self._runtime[player], profile)
+			if self._matter then
+				self._runtime[player].MatterEntity = self._matter:SpawnPlayer(player, self._runtime[player], profile)
+			end
 		end)
 		if not spawned then
 			if not self._running then
@@ -4470,7 +4737,7 @@ serviceFactories["GameService"] = function()
 		end
 		self._world:RemovePlot(player)
 		local runtime = self._runtime[player]
-		if runtime and runtime.MatterEntity then
+		if runtime and runtime.MatterEntity and self._matter then
 			self._matter:Despawn(runtime.MatterEntity)
 		end
 		self._runtime[player] = nil
@@ -4631,8 +4898,15 @@ serviceFactories["GameService"] = function()
 				end, false, "production")
 				if not ok then
 					runtime.ProductionAccumulator += step
-				elseif pendingAnomalyCount > 0 and runtime.PendingAnomalyActions == pendingAnomalyActions then
-					runtime.PendingAnomalyActions = {}
+				elseif pendingAnomalyCount > 0 then
+					-- Drain only the actions we processed; any appended during the tick
+					-- remain queued for the next production tick.
+					local currentPending = runtime.PendingAnomalyActions or {}
+					local remaining = {}
+					for i = pendingAnomalyCount + 1, #currentPending do
+						table.insert(remaining, currentPending[i])
+					end
+					runtime.PendingAnomalyActions = remaining
 					self:_queueStatePush(player)
 					if anomalyDetails and anomalyDetails.BecameReady then
 						self._effect:FireClient(player, {
@@ -4744,7 +5018,9 @@ serviceFactories["GameService"] = function()
 			return
 		end
 		self._matterAccumulator = 0
-		self._matter:Step()
+		if self._matter then
+			self._matter:Step()
+		end
 	end
 
 	function GameService:Start()
@@ -4763,7 +5039,9 @@ serviceFactories["GameService"] = function()
 			ModuleLog.Warn("Shop", "ProcessReceipt failed — " .. tostring(decision))
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
-		self._matter:Start()
+		if self._matter then
+			self._matter:Start()
+		end
 		self._world:SetInteractionHandler(function(player, action, payload)
 			if action == "Collect" then
 				self:_collect(player)
@@ -5063,9 +5341,12 @@ serviceFactories["GameService"] = function()
 			self._heartbeat:Disconnect()
 			self._heartbeat = nil
 		end
-		self._matter:Stop()
+		if self._matter then
+			self._matter:Stop()
+		end
 		self._convergence:Stop()
 		self._guilds:Destroy()
+		self._guildCommunity:Shutdown()
 		self._badges:Destroy()
 	end
 

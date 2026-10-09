@@ -25,7 +25,7 @@ print("[TEST] client polish passed | Unicode chat limits + entrance timing + sof
 -- Two clicks before React's next render must issue only one request.
 local fs = require("./_memberfs")(require("@lune/fs"))
 local luau = require("@lune/luau")
-for _, gameName in { "Casino", "Bazaar" } do
+for _, gameName in { "Bazaar" } do
 	local source = fs.readFile("src/Client/AstralForge/pages/Pages" .. gameName .. ".luau")
 	local start = assert(string.find(source, "\tlocal function play(", 1, true))
 	local stop = assert(string.find(source, "\n\tif " .. string.lower(gameName) .. " == nil", start, true))
@@ -33,7 +33,7 @@ for _, gameName in { "Casino", "Bazaar" } do
 	local callbacks = {}
 	local latch = { current = false }
 	local env: any = {
-		busyRef = latch, mounted = { current = true }, casino = {}, bazaar = {},
+		busyRef = latch, mounted = { current = true }, bazaar = {},
 		stopWhir = {}, stopRoll = {}, slot = {}, coin = {}, wheel = {},
 		setBusy = function() end, sfx = function() end,
 		Audio = { play = function() end },
@@ -52,9 +52,9 @@ for _, gameName in { "Casino", "Bazaar" } do
 	play({})
 	assert(#callbacks == 2, gameName .. " did not unlock after rejection")
 end
-print("[TEST] casino + bazaar same-frame double-click and retry guards passed")
+print("[TEST] bazaar same-frame double-click and retry guards passed")
 
--- Exercise the shell's actual visibility expression during a casino round.
+-- Exercise the shell's actual visibility expression during a bazaar round.
 local shell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
 local root = assert(shell:match("BackgroundTransparency = hideAmount,(.-)LevelRoadmapHost"))
 local visibility = assert(root:match("Visible = ([^\n]+)")):gsub(",%s*$", "")
@@ -63,7 +63,7 @@ for _, busy in { false, true } do
 		local visible = luau.load("return " .. visibility, { environment = {
 			arcadeBusy = busy, crateReveal = if reveal then {} else nil,
 		} })()
-		assert(visible == not reveal, "casino activity must keep the main shell visible")
+		assert(visible == not reveal, "bazaar activity must keep the main shell visible")
 	end
 end
-print("[TEST] casino idle/active shell visibility + crate overlay isolation passed")
+print("[TEST] bazaar idle/active shell visibility + crate overlay isolation passed")

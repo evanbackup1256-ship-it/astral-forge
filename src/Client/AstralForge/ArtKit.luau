@@ -103,8 +103,17 @@ local VECTOR_ICON_INDEX = {
 	Wave = 62,
 	Visit = 63,
 }
+local function vectorIconIndex(kind)
+	if type(kind) == "string" then
+		local index = VECTOR_ICON_INDEX[kind]
+		if index ~= nil then
+			return index
+		end
+	end
+	return VECTOR_ICON_INDEX.Guide
+end
 local function vectorIconDirection(kind)
-	return if VECTOR_ICON_INDEX[kind] % 2 == 0 then -1 else 1
+	return if vectorIconIndex(kind) % 2 == 0 then -1 else 1
 end
 local function VectorIconFace(_param)
 	local kind = _param.kind
@@ -117,7 +126,7 @@ local function VectorIconFace(_param)
 	local faded = React.useMemo(function()
 		return fadeWithPresence(transparency, presence)
 	end, { transparency, presence })
-	local index = VECTOR_ICON_INDEX[kind]
+	local index = vectorIconIndex(kind)
 	local column = index % VECTOR_ICON_COLUMNS
 	local row = math.floor(index / VECTOR_ICON_COLUMNS)
 	return React.createElement("imagelabel", {

@@ -55,13 +55,22 @@ return function(Math)
 		end
 		return orders, remaining
 	end
-	function Model.filter(entries, query, filter, amount, cash)
+	-- `matcher(query, name, description)` swaps in fuzzy matching; plain substring otherwise.
+	function Model.filter(entries, query, filter, amount, cash, matcher)
 		local visible = {}
 		local needle = string.lower(string.match(query or "", "^%s*(.-)%s*$"))
 		for _, entry in entries do
 			local keep = if filter == "Affordable" then Model.quote(entry, amount, cash).ready elseif filter == "Owned" then entry.level > 0 elseif filter == "Next" then not entry.unlocked elseif filter == "Available" then entry.unlocked and not entry.maxed else true
-			local haystack = string.lower(entry.config.Name .. " " .. (entry.config.Description or ""))
-			if keep and (needle == "" or string.find(haystack, needle, 1, true)) then table.insert(visible, entry) end
+			local found = needle == ""
+			if not found then
+				if matcher ~= nil then
+					found = matcher(needle, entry.config.Name, entry.config.Description)
+				else
+					local haystack = string.lower(entry.config.Name .. " " .. (entry.config.Description or ""))
+					found = string.find(haystack, needle, 1, true) ~= nil
+				end
+			end
+			if keep and found then table.insert(visible, entry) end
 		end
 		return visible
 	end

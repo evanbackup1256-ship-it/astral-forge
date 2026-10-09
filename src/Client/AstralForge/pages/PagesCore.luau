@@ -62,6 +62,7 @@ local AppHelpers = require(script.Parent.Parent.CoreKit)("appNav").AppHelpers
 local LayoutSectionPlan = require(script.Parent.Parent.LayoutKit)("layoutSectionPlan")
 local VaultCollectEligibility = require(script.Parent.Parent.CoreKit)("vaultCollectEligibility")
 local PageReadyMath = require(script.Parent.Parent.LayoutKit)("pageReadyMath")
+local ReadyBoard = require(script.Parent.Parent.ReadyBoard)
 local ReleaseClockMath = require(script.Parent.Parent.CoreKit)("releaseClockMath")
 
 local function ReleaseCountdown(_param)
@@ -487,6 +488,13 @@ local function progressLadder(state, config, limit: number): { string }
 	return lines
 end
 
+-- puts the "Ready now" strip first when it is shown
+local function withReady(entry, sections)
+	if entry ~= nil then
+		table.insert(sections, 1, entry)
+	end
+	return sections
+end
 local function OverviewView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -554,8 +562,9 @@ local function OverviewView(_param)
 	local missionsReady = PageReadyMath.CountReadyQuests(state.Quests)
 	local labReady = PageReadyMath.CountReadyLabOrders(state.Lab)
 	local pathReady = PageReadyMath.ForgePathReady(state, config)
-	local anomalyReady = PageReadyMath.AnomalyReady(state.Anomaly)
-	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, anomalyReady)
+	local cipherGate = state.FeatureUnlocks and state.FeatureUnlocks.Cipher
+	local cipherOpen = (cipherGate == nil or cipherGate.Unlocked ~= false) and PageReadyMath.CipherOpen(state.Sky)
+	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, false)
 	local opsGuide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Overview else nil
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
 	local overchargeReadyAt, setOverchargeReadyAt = React.useState(0)
@@ -697,6 +706,20 @@ local function OverviewView(_param)
 		SkillPoints = 0,
 		Nodes = {},
 	}
+	local readyList = ReadyBoard.collect(state, config)
+	local readySection = if tutorialDone and navigate ~= nil then {
+		id = "ready",
+		height = if phone then 52 else 58,
+		element = React.createElement(ReadyBoard.Strip, {
+			list = readyList,
+			compact = phone,
+			pillHeight = if phone then 38 else 40,
+			onOpen = navigate,
+			onFind = function()
+				require(script.Parent.Parent.QuickFind).open()
+			end,
+		}),
+	} else nil
 	local domainProgress = math.min(math.clamp(asFlux(state.Rebirths) / math.max(1, asFlux(domain.RequiredRebirths)), 0, 1), math.clamp(asFlux(state.Cores) / math.max(1, asFlux(domain.RequiredCores)), 0, 1))
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -717,7 +740,7 @@ local function OverviewView(_param)
 		tailPad = scrollTail(stack, chrome.bottomSafe, overviewTail),
 		scrollBarColor = Palette.green,
 		scrollBarThickness = 4,
-		sections = {
+		sections = withReady(readySection, {
 			{
 				id = "top",
 				height = topBandH,
@@ -1171,7 +1194,7 @@ local function OverviewView(_param)
 				end
 			end
 		end
-		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, anomaly = anomalyReady }) else nil
+		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, cipher = cipherOpen }) else nil
 		if adaptiveGoal then
 			title, body, fillLine = adaptiveGoal.title, adaptiveGoal.body, ""
 			meter, statValue, statLabel = adaptiveGoal.progress, adaptiveGoal.value, adaptiveGoal.label
@@ -1394,20 +1417,20 @@ local function OverviewView(_param)
 		highlight = pathReady,
 		layoutOrder = 2,
 	}), React.createElement(Button, {
-		text = if anomalyReady then "ANOMALY · READY" else "ANOMALY",
-		icon = "Anomaly",
+		text = if cipherOpen then "CIPHER · OPEN" else "CIPHER",
+		icon = "Code",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
-				_result = _result("Anomaly")
+				_result = _result("Cipher")
 			end
 			return _result
 		end,
-		color = if anomalyReady then Palette.pink else Palette.panelSoft,
-		textColor = if anomalyReady then Palette.ink else Palette.creamSoft,
+		color = if cipherOpen then Palette.pink else Palette.panelSoft,
+		textColor = if cipherOpen then Palette.ink else Palette.creamSoft,
 		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
-		highlight = anomalyReady,
+		highlight = cipherOpen,
 		layoutOrder = 3,
 	}))),
 			},
@@ -1607,7 +1630,7 @@ local function OverviewView(_param)
 					BorderSizePixel = 0,
 				}),
 			},
-		},
+		}),
 	})))
 end
 
@@ -1619,6 +1642,7 @@ end
 __defs["RebirthPanel"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _format = require(script.Parent.Parent.CoreKit)("format")
@@ -1673,9 +1697,10 @@ local function featuresOpeningOnNextRebirth(config, nextCount: number): string
 	return table.concat(names, ", ")
 end
 
-local function nextMachineRebirthNote(config, rebirths: number): string
+local function rebirthGate(config, rebirths: number)
 	local bestName = ""
 	local bestNeed = math.huge
+	local lastNeed = 0
 	local function consider(list)
 		if type(list) ~= "table" then
 			return
@@ -1686,6 +1711,8 @@ local function nextMachineRebirthNote(config, rebirths: number): string
 				if need > rebirths and need < bestNeed then
 					bestNeed = need
 					bestName = entry.Name
+				elseif need <= rebirths and need > lastNeed then
+					lastNeed = need
 				end
 			end
 		end
@@ -1695,10 +1722,67 @@ local function nextMachineRebirthNote(config, rebirths: number): string
 		consider(config.Zones)
 	end
 	if bestName == "" then
+		return nil
+	end
+	return { name = bestName, need = bestNeed, last = lastNeed }
+end
+
+local function nextMachineRebirthNote(config, rebirths: number): string
+	local gate = rebirthGate(config, rebirths)
+	if gate == nil then
 		return ""
 	end
-	local away = bestNeed - rebirths
-	return `Next gate: {bestName} at {bestNeed} rebirth{if bestNeed == 1 then "" else "s"} ({away} to go).`
+	local away = gate.need - rebirths
+	return `Next gate: {gate.name} at {gate.need} rebirth{if gate.need == 1 then "" else "s"} ({away} to go).`
+end
+
+local DIAL_DOTS = 18
+local GATE_PIPS = 12
+
+-- ring of dots around the rebirth glyph; fills with run progress, then with the ignition charge
+local function ChargeDial(props)
+	local size = props.size
+	local radius = size * 0.5 - 4
+	local children = {}
+	for i = 1, DIAL_DOTS do
+		local angle = -math.pi / 2 + (i - 1) / DIAL_DOTS * math.pi * 2
+		local threshold = (i - 0.5) / DIAL_DOTS
+		children["d" .. i] = React.createElement("frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius),
+			Size = UDim2.fromOffset(4, 4),
+			BorderSizePixel = 0,
+			BackgroundColor3 = props.fill:map(function(amount)
+				return if amount >= threshold then props.accent else Palette.panelSoft
+			end),
+			BackgroundTransparency = props.fill:map(function(amount)
+				return if amount >= threshold then 0 else 0.35
+			end),
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))
+	end
+	return React.createElement("frame", {
+		Name = "ChargeDial",
+		Size = UDim2.fromOffset(size, size),
+		Position = props.position,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, children, React.createElement("frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(size - 2, size - 2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = props.accent,
+		Thickness = 2,
+		Transparency = props.charge:map(function(amount)
+			return 1 - amount * 0.75
+		end),
+	})), props.children)
 end
 
 local function RebirthPanel(_param)
@@ -1733,19 +1817,24 @@ local function RebirthPanel(_param)
 	local rebirthRate = if economy ~= nil and type(economy.RebirthMultiplier) == "number" then economy.RebirthMultiplier else 0.14
 	local rebirthPercent = math.floor(rebirthRate * 100 + 0.5)
 	local opens = featuresOpeningOnNextRebirth(config, rebirths + 1)
+	local gate = rebirthGate(config, rebirths)
 	local machineNote = nextMachineRebirthNote(config, rebirths)
-	local payoff = `You keep research, stardust, relics, milestones, Domain, and Continuum. You gain cores and +{rebirthPercent}% production per rebirth.`
+	local payoff = `You gain cores, stardust, and +{rebirthPercent}% production per rebirth.`
 	if opens ~= "" then
 		payoff ..= ` Opens {opens}.`
 	end
-	if machineNote ~= "" then
+	if machineNote ~= "" and stack then
 		payoff ..= ` {machineNote}`
 	end
-	local confirmCopy = `You lose this run's flux and worlds. Machines reset, and Stellar Core comes back at level 1. You keep research, stardust, relics, milestones, Domain, and Continuum. You still gain cores and +{rebirthPercent}% production.`
+	local keepCopy = "Research, stardust, relics, milestones, Domain, Continuum"
+	local resetCopy = "Run flux, worlds, machines (Stellar Core back to Lv 1)"
 	local confirming, setConfirming = React.useState(false)
 	local busy, setBusy = React.useState(false)
+	local igniting, setIgniting = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
+	local ignite, setIgnite = React.useBinding(0)
 	local mountedRef = React.useRef(true)
+	local ignitionRef = React.useRef(nil)
 	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
 	local confirmReveal = useStagger(0, softMotion)
@@ -1753,6 +1842,13 @@ local function RebirthPanel(_param)
 	local meterReveal = useStagger(2, softMotion)
 	local rewardReveal = useStagger(3, softMotion)
 	local rebirthSoft = reducedMotion or meterReveal == nil or rewardReveal == nil
+	local function stopIgnition()
+		local connection = ignitionRef.current
+		if connection ~= nil then
+			ignitionRef.current = nil
+			connection:Disconnect()
+		end
+	end
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
 			return nil
@@ -1774,36 +1870,25 @@ local function RebirthPanel(_param)
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
+			stopIgnition()
 		end
 	end, {})
 	React.useEffect(function()
 		if not canRebirth then
+			stopIgnition()
+			setIgnite(0)
+			setIgniting(false)
 			setConfirming(false)
 		end
 	end, { canRebirth })
-	local rebirth = function()
-		if not canRebirth or busy then
-			return nil
-		end
-		if not confirming then
-			setConfirming(true)
-			Audio:play("preview")
-			return nil
-		end
+	local commit = function()
 		setBusy(true)
-		Audio:play("prestige")
-		task.delay(0.16, function()
-			return Audio:play("domainCrack")
-		end)
-		task.delay(0.38, function()
-			return Audio:play("unlock")
-		end)
-		InteractionFeedback.reward()
 		dispatch("Rebirth", {}, function(response)
 			if not mountedRef.current then
 				return nil
 			end
 			setBusy(false)
+			setIgnite(0)
 			if response.ok then
 				setConfirming(false)
 			else
@@ -1813,56 +1898,171 @@ local function RebirthPanel(_param)
 			end
 		end)
 	end
-	local accent = if confirming then Palette.coral else Palette.violet
+	-- a short, cancellable charge before the reset actually fires; softMotion compresses it
+	local beginIgnition = function()
+		if igniting or ignitionRef.current ~= nil then
+			return
+		end
+		setIgniting(true)
+		Audio:play("rebirthCharge")
+		local duration = if softMotion then 0.35 else 1.15
+		local ticks = if softMotion then 0 else 6
+		local started = os.clock()
+		local ticked = 0
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			local amount = math.clamp((os.clock() - started) / duration, 0, 1)
+			setIgnite(amount)
+			local due = math.floor(amount * ticks)
+			if due > ticked and due < ticks then
+				ticked = due
+				Audio:play("countTick", 0.9 + due * 0.08)
+			end
+			if amount >= 1 then
+				connection:Disconnect()
+				if ignitionRef.current == connection then
+					ignitionRef.current = nil
+				end
+				if not mountedRef.current then
+					return
+				end
+				setIgniting(false)
+				InteractionFeedback.reward()
+				commit()
+			end
+		end)
+		ignitionRef.current = connection
+	end
+	local cancelIgnition = function()
+		stopIgnition()
+		setIgnite(0)
+		setIgniting(false)
+		Audio:play("close")
+	end
+	local rebirth = function()
+		if not canRebirth or busy or igniting then
+			return nil
+		end
+		if not confirming then
+			setConfirming(true)
+			Audio:play("preview")
+			return nil
+		end
+		beginIgnition()
+	end
+	local accent = if igniting then Palette.mango elseif confirming then Palette.coral else Palette.violet
 	local ctaH = TapTarget
+	local dialSize = if stack then 56 else 64
+	local dialFill = ignite:map(function(amount)
+		return if igniting or busy then amount else progress
+	end)
+	local gateSpan = if gate ~= nil then math.max(1, gate.need - gate.last) else 1
+	local gatePips = math.min(GATE_PIPS, gateSpan)
+	local gateFilled = if gate ~= nil then math.floor((rebirths - gate.last) / gateSpan * gatePips + 0.0001) else 0
+	local gatePipChildren = {}
+	if gate ~= nil and not stack then
+		for i = 1, gatePips do
+			gatePipChildren["p" .. i] = React.createElement("frame", {
+				Size = UDim2.new(1 / gatePips, -3, 1, 0),
+				Position = UDim2.new((i - 1) / gatePips, 0, 0, 0),
+				BackgroundColor3 = if i <= gateFilled then Palette.mint elseif i == gateFilled + 1 then accent else Palette.panelSoft,
+				BackgroundTransparency = if i <= gateFilled then 0 elseif i == gateFilled + 1 then 0.25 else 0.45,
+				BorderSizePixel = 0,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(1, 0),
+			}))
+		end
+	end
+	local ledgerH = if stack then 74 else 46
+	local function ledgerColumn(title, body, tint, x)
+		return React.createElement("frame", {
+			Size = UDim2.new(0.5, -6, 1, 0),
+			Position = UDim2.new(x, if x > 0 then 6 else 0, 0, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement("frame", {
+			Size = UDim2.new(0, 2, 1, -2),
+			BackgroundColor3 = tint,
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+		}), React.createElement(Text, {
+			value = title,
+			size = 10,
+			color = tint,
+			weight = Enum.FontWeight.Heavy,
+			fit = false,
+			position = UDim2.fromOffset(8, 0),
+			sizeConstraint = UDim2.new(1, -8, 0, 13),
+		}), React.createElement(Text, {
+			value = body,
+			size = if stack then 11 else 10,
+			color = Palette.creamSoft,
+			wrap = true,
+			fit = false,
+			position = UDim2.fromOffset(8, 14),
+			sizeConstraint = UDim2.new(1, -8, 1, -14),
+		}))
+	end
 	return React.createElement(Panel, {
 		layoutOrder = layoutOrder,
 		size = UDim2.new(1, 0, 0, height),
 		accent = accent,
-		background = if confirming then darken(Palette.coral, 0.92) else Palette.panelRaised,
+		background = if confirming then darken(accent, 0.92) else Palette.panelRaised,
 		padding = if stack then chrome.cardPadding else 18,
 		reveal = reveal or (if confirming then confirmReveal else heroReveal),
 		highlight = (canRebirth or confirming) and not effectsPaused and not softMotion and not rebirthSoft,
 		reducedMotion = softMotion or effectsPaused,
 		clips = false,
+	}, React.createElement(ChargeDial, {
+		size = dialSize,
+		position = UDim2.fromOffset(-3, if stack then 2 else 6),
+		accent = accent,
+		fill = dialFill,
+		charge = ignite,
 	}, React.createElement(IconTile, {
 		kind = "Rebirth",
 		accent = accent,
-		size = if stack then 52 else 58,
-		radius = 16,
-		position = UDim2.fromOffset(0, if stack then 4 else 10),
+		size = dialSize - 18,
+		radius = 14,
+		position = UDim2.fromOffset(9, 9),
 		glow = canRebirth and not effectsPaused and not softMotion,
-		spin = canRebirth and not effectsPaused and not softMotion,
+		spin = (canRebirth or igniting) and not effectsPaused and not softMotion,
 		reducedMotion = softMotion or effectsPaused,
-	}), React.createElement("frame", {
+	})), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, -66, 0, 126) else UDim2.new(1, -(76 + 310), 1, 0),
 		Position = UDim2.fromOffset(if stack then 66 else 76, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement(Text, {
-		value = if confirming then "CHECK YOUR REBIRTH" else "REBIRTH",
+		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH {rebirths + 1}`,
 		size = 10,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
+		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
 		size = if stack then 19 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		position = UDim2.fromOffset(0, 21),
 		sizeConstraint = UDim2.new(1, 0, 0, 31),
-	}), React.createElement(Text, {
-		value = if confirming then confirmCopy else payoff,
+	}), if confirming or igniting then React.createElement("frame", {
+		Name = "RebirthLedger",
+		Position = UDim2.fromOffset(0, 57),
+		Size = UDim2.new(1, 0, 0, ledgerH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, ledgerColumn("YOU KEEP", keepCopy, Palette.mint, 0), ledgerColumn("RESETS", resetCopy, Palette.coral, 0.5)) else React.createElement(Text, {
+		value = payoff,
 		size = if stack then 11 else 10,
 		color = Palette.creamSoft,
 		wrap = true,
 		fit = false,
 		position = UDim2.fromOffset(0, 57),
-		sizeConstraint = UDim2.new(1, 0, 0, if stack then 74 else 46),
+		sizeConstraint = UDim2.new(1, 0, 0, ledgerH),
 	}), not stack and React.createElement(Text, {
 		value = `{compactNumber(conversionFlux)} / {compactNumber(target)} flux needed`,
 		size = 10,
@@ -1875,7 +2075,7 @@ local function RebirthPanel(_param)
 		value = progress,
 		color = accent,
 		reducedMotion = softMotion or effectsPaused,
-		shimmer = canRebirth and not effectsPaused,
+		shimmer = canRebirth and not effectsPaused and not softMotion,
 		position = UDim2.fromOffset(0, 132),
 		size = UDim2.new(1, 0, 0, 9),
 	}), not stack and React.createElement(Text, {
@@ -1909,8 +2109,8 @@ local function RebirthPanel(_param)
 	}), React.createElement(Meter, {
 		value = progress,
 		color = accent,
-		reducedMotion = reducedMotion or effectsPaused,
-		shimmer = canRebirth and not effectsPaused,
+		reducedMotion = softMotion or effectsPaused,
+		shimmer = canRebirth and not effectsPaused and not softMotion,
 		position = UDim2.fromOffset(12, 34),
 		size = UDim2.new(1, -24, 0, 9),
 	}), React.createElement(Text, {
@@ -1945,7 +2145,7 @@ local function RebirthPanel(_param)
 		ClipsDescendants = false,
 		ref = rebirthClaimHostRef,
 	}, React.createElement(Button, {
-		text = if busy then "REBIRTHING…" elseif confirming then "CONFIRM REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
+		text = if busy then "REBIRTHING…" elseif igniting then "IGNITING…" elseif confirming then "IGNITE REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
 		icon = "Rebirth",
 		onClick = rebirth,
 		color = if canRebirth then accent else Palette.panelSoft,
@@ -1955,14 +2155,25 @@ local function RebirthPanel(_param)
 		disabled = not canRebirth or busy,
 		loading = busy,
 		shakeToken = shakeToken,
-		highlight = canRebirth,
-	}), React.createElement(Button, {
-		text = if confirming then "CANCEL" else "OPEN WORKSHOP",
-		icon = if confirming then "Close" else "Forge",
-		onClick = if confirming then function()
+		highlight = canRebirth and not igniting,
+	}), React.createElement("frame", {
+		Name = "IgnitionBar",
+		Size = ignite:map(function(amount)
+			return UDim2.new(amount, 0, 0, 3)
+		end),
+		Position = UDim2.new(0, 0, 0, ctaH + 2),
+		BackgroundColor3 = Palette.mango,
+		BorderSizePixel = 0,
+		Visible = igniting,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement(Button, {
+		text = if igniting then "STOP" elseif confirming then "CANCEL" else "OPEN WORKSHOP",
+		icon = if confirming or igniting then "Close" else "Forge",
+		onClick = if igniting then cancelIgnition elseif confirming then function()
 			return setConfirming(false)
 		end else openWorkshop,
-		sound = "page",
+		sound = if igniting then nil else "page",
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
 		outline = true,
@@ -1970,7 +2181,25 @@ local function RebirthPanel(_param)
 		position = UDim2.fromOffset(0, ctaH + 8),
 		reducedMotion = softMotion,
 		disabled = busy,
-	})), canRebirth and not effectsPaused and not softMotion and React.createElement("frame", {
+	})), gate ~= nil and not stack and React.createElement("frame", {
+		Name = "RebirthGateTrack",
+		Size = UDim2.fromOffset(286, 22),
+		Position = UDim2.new(1, -286, 0, 40 + ctaH * 2 + 12),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Text, {
+		value = `NEXT GATE  {string.upper(gate.name)}  ·  {gate.need - rebirths} TO GO`,
+		size = 9,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		sizeConstraint = UDim2.new(1, 0, 0, 12),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 3, 0, 5),
+		Position = UDim2.fromOffset(0, 16),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, gatePipChildren)), canRebirth and not effectsPaused and not softMotion and React.createElement("frame", {
 		Size = readiness:map(function(amount)
 			return UDim2.fromOffset(18 + amount * 54, 18 + amount * 54)
 		end),
@@ -2018,6 +2247,8 @@ local TapTarget = _theme.TapTarget
 local _format = require(script.Parent.Parent.CoreKit)("format")
 local clockText = _format.clockText
 local formatReward = _format.formatReward
+local Icon = require(script.Parent.Parent.ArtKit)("Icon").Icon
+local Browse = require(script.Parent.Parent.BrowseKit)
 
 local function RewardChargeRail(_param)
 	local value = _param.value
@@ -2080,152 +2311,219 @@ local function RewardChargeRail(_param)
 		end),
 	})))
 end
-local function TimedRewardQueue(_param)
-	local entries = _param.entries
-	local played = _param.played
-	local reducedMotion = _param.reducedMotion
-	local layoutOrder = _param.layoutOrder
-	local pending = {}
-	for _, entry in entries do
-		if not entry.Claimed and #pending < 3 then
-			table.insert(pending, entry)
-		end
-	end
-	local softMotion = reducedMotion
-	reducedMotion = softMotion
-	local reveal = useStagger(3, softMotion)
-	local _exp = React.createElement(Text, {
-		value = "COMING UP",
-		size = 10,
-		color = Palette.cyan,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		sizeConstraint = UDim2.new(1, 0, 0, 16),
-	})
-	local _exp_1 = #pending == 0 and React.createElement(Text, {
-		value = "Today's playtime drops are all collected.",
-		size = 13,
-		color = Palette.creamSoft,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		position = UDim2.fromOffset(0, 27),
-		sizeConstraint = UDim2.new(1, 0, 0, 36),
-	})
-	local _condition = #pending > 0
-	if _condition then
-		local _exp_2 = React.createElement("uilistlayout", {
+local function StreakStrip(_param)
+	local daily = _param.daily
+	local softMotion = _param.reducedMotion
+	local reducedMotion = softMotion
+	local rewards = daily.Rewards or {}
+	local count = math.max(1, #rewards)
+	local canClaim = daily.CanClaim == true
+	local current = if canClaim then (tonumber(daily.NextStreak) or 1) else (tonumber(daily.Streak) or 0)
+	current = math.max(1, current)
+	local weekStart = ((current - 1) // 7) * 7 + 1
+	local cells = {
+		layout = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 8),
-		})
-		local _newValue = table.create(#pending)
-		local _callback = function(entry, index)
-			local ready = played >= entry.Seconds
-			local accent = if ready then Palette.mint else Palette.cyan
-			local _exp_3 = React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 8),
-			})
-			local _exp_4 = React.createElement("uistroke", {
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				LineJoinMode = Enum.LineJoinMode.Round,
-				Color = accent,
-				Thickness = 1,
-				Transparency = if ready then 0.34 else 0.76,
-			})
-			local _exp_5 = React.createElement(Text, {
-				value = if ready then "READY" else `IN {clockText(entry.Seconds - played)}`,
-				size = 9,
-				color = accent,
-				weight = Enum.FontWeight.Heavy,
-				fit = true,
-				position = UDim2.fromOffset(10, 5),
-				sizeConstraint = UDim2.new(1, -20, 0, 14),
-			})
-			local _attributes = {}
-			local _condition_1 = formatReward(entry.Reward)
-			if not (_condition_1 ~= "" and _condition_1) then
-				_condition_1 = "Mystery parcel"
-			end
-			_attributes.value = _condition_1
-			_attributes.size = 10
-			_attributes.color = Palette.creamSoft
-			_attributes.weight = Enum.FontWeight.Bold
-			_attributes.fit = true
-			_attributes.position = UDim2.fromOffset(10, 23)
-			_attributes.sizeConstraint = UDim2.new(1, -20, 0, 20)
-			return React.createElement("frame", {
-				key = entry.Index,
-				Size = UDim2.new(0.333, -6, 1, 0),
-				LayoutOrder = index,
-				BackgroundColor3 = if ready then Palette.panelRaised else Palette.panelSoft,
-				BorderSizePixel = 0,
-			}, _exp_3, _exp_4, _exp_5, React.createElement(Text, _attributes), React.createElement(RewardChargeRail, {
-				value = played / math.max(1, entry.Seconds),
-				accent = accent,
-				ready = ready,
-				reducedMotion = softMotion,
-				position = UDim2.new(0, 8, 1, -4),
-				size = UDim2.new(1, -16, 0, 3),
-			}))
-		end
-		for _k, _v in pending do
-			_newValue[_k] = _callback(_v, _k - 1, pending)
-		end
-		_condition = React.createElement("frame", {
-			Size = UDim2.new(1, 0, 0, 52),
-			Position = UDim2.fromOffset(0, 24),
-			BackgroundTransparency = 1,
+			Padding = UDim.new(0, 6),
+		}),
+	}
+	for offset = 0, 6 do
+		local day = weekStart + offset
+		local reward = rewards[((day - 1) % count) + 1]
+		local claimed = day < current or (day == current and not canClaim)
+		local today = day == current and canClaim
+		local accent = if today then Palette.mint elseif claimed then Palette.muted else Palette.cyan
+		cells["d" .. day] = React.createElement("frame", {
+			Size = UDim2.new(1 / 7, -6 * 6 / 7, 1, 0),
+			LayoutOrder = offset,
+			BackgroundColor3 = if today then darken(Palette.mint, 0.55) else Palette.panelSoft,
+			BackgroundTransparency = if claimed then 0.45 else 0,
 			BorderSizePixel = 0,
-		}, _exp_2, _newValue)
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 9),
+		}), React.createElement("uistroke", {
+			Color = accent,
+			Transparency = if today then 0.1 else 0.7,
+			Thickness = if today then 1.5 else 1,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}), React.createElement(Text, {
+			value = if today then "TODAY" else `DAY {day}`,
+			size = 11,
+			color = accent,
+			weight = Enum.FontWeight.Heavy,
+			fit = true,
+			minSize = 8,
+			align = Enum.TextXAlignment.Center,
+			position = UDim2.fromOffset(4, 6),
+			sizeConstraint = UDim2.new(1, -8, 0, 14),
+		}), claimed and React.createElement("frame", {
+			Size = UDim2.fromOffset(18, 18),
+			Position = UDim2.new(0.5, 0, 0, 24),
+			AnchorPoint = Vector2.new(0.5, 0),
+			BackgroundTransparency = 1,
+		}, React.createElement(Icon, {
+			kind = "Check",
+			color = Palette.muted,
+			accent = Palette.muted,
+			size = 18,
+			spin = false,
+		})) or React.createElement(Text, {
+			value = formatReward(reward),
+			size = 11,
+			color = if today then Palette.cream else Palette.creamSoft,
+			weight = Enum.FontWeight.Bold,
+			wrap = true,
+			fit = true,
+			minSize = 8,
+			align = Enum.TextXAlignment.Center,
+			position = UDim2.fromOffset(4, 22),
+			sizeConstraint = UDim2.new(1, -8, 1, -26),
+		}))
 	end
-	return React.createElement(Panel, {
-		size = UDim2.new(1, 0, 0, 104),
-		accent = Palette.cyan,
-		background = Palette.panel,
-		padding = 14,
-		layoutOrder = layoutOrder,
-		reveal = reveal,
-		reducedMotion = softMotion,
-	}, _exp, _exp_1, _condition)
+	return React.createElement("frame", {
+		Size = _param.size,
+		Position = _param.position,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, cells)
+end
+local function TimedTimeline(_param)
+	local entries = _param.entries
+	local played = _param.played
+	local dispatch = _param.dispatch
+	local columns = _param.columns
+	local softMotion = _param.reducedMotion
+	local reducedMotion = softMotion
+	local cellH = 92
+	local cells = {
+		grid = React.createElement("uigridlayout", {
+			CellSize = UDim2.new(1 / columns, -8 * (columns - 1) / columns, 0, cellH),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, entry in entries do
+		local seconds = tonumber(entry.Seconds) or 0
+		local ready = not entry.Claimed and played >= seconds
+		local accent = if entry.Claimed then Palette.muted elseif ready then Palette.violet else Palette.cyan
+		local reward = formatReward(entry.Reward)
+		cells["t" .. tostring(entry.Index or index)] = React.createElement("frame", {
+			LayoutOrder = index,
+			BackgroundColor3 = if ready then Palette.panelRaised else Palette.panelSoft,
+			BackgroundTransparency = if entry.Claimed then 0.45 else 0,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(0, 10),
+		}), React.createElement("uistroke", {
+			Color = accent,
+			Transparency = if ready then 0.2 else 0.72,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}), React.createElement(Text, {
+			value = if entry.Claimed then `{clockText(seconds)} · COLLECTED` elseif ready then "READY" else `AT {clockText(seconds)} · IN {clockText(seconds - played)}`,
+			size = 11,
+			color = accent,
+			weight = Enum.FontWeight.Heavy,
+			fit = true,
+			minSize = 8,
+			position = UDim2.fromOffset(10, 8),
+			sizeConstraint = UDim2.new(1, -20, 0, 14),
+		}), React.createElement(Text, {
+			value = if reward ~= "" then reward else "Mystery parcel",
+			size = 13,
+			color = if entry.Claimed then Palette.muted else Palette.cream,
+			weight = Enum.FontWeight.Bold,
+			fit = true,
+			minSize = 9,
+			position = UDim2.fromOffset(10, 26),
+			sizeConstraint = UDim2.new(1, -20, 0, 18),
+		}), if ready then React.createElement(Button, {
+			text = "CLAIM",
+			icon = "Timer",
+			onClick = function()
+				dispatch("ClaimTimedReward", { Index = entry.Index })
+			end,
+			color = Palette.violet,
+			textColor = Palette.ink,
+			size = UDim2.new(1, -16, 0, 34),
+			position = UDim2.new(0, 8, 1, -40),
+			reducedMotion = softMotion,
+			highlight = true,
+		}) else React.createElement(RewardChargeRail, {
+			value = if entry.Claimed then 1 else played / math.max(1, seconds),
+			accent = accent,
+			ready = false,
+			reducedMotion = reducedMotion,
+			position = UDim2.new(0, 10, 1, -16),
+			size = UDim2.new(1, -20, 0, 5),
+		}))
+	end
+	return React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, cells)
+end
+local function ShortcutTile(_param)
+	local softMotion = _param.reducedMotion
+	local reducedMotion = softMotion
+	return React.createElement("frame", {
+		LayoutOrder = _param.layoutOrder,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Button, {
+		text = if _param.badge and _param.badge > 0 then `{_param.label} · {_param.badge}` else _param.label,
+		icon = _param.icon,
+		onClick = _param.onClick,
+		color = if _param.badge and _param.badge > 0 then _param.accent else Palette.panelSoft,
+		textColor = if _param.badge and _param.badge > 0 then Palette.ink else Palette.cream,
+		outline = not (_param.badge and _param.badge > 0),
+		highlight = _param.badge ~= nil and _param.badge > 0,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = reducedMotion,
+	}))
 end
 local function RewardsView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
+	local navigate = _param.navigate
 	local reducedMotion = _param.reducedMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack
 	local softMotion = reducedMotion
 	reducedMotion = softMotion
-	local dailyReady = state.Daily.CanClaim == true
-	local timedEntries = state.TimedRewards.Rewards or {}
-	local _callback = function(entry)
-		return not entry.Claimed
-	end
-	local _result
-	for _i, _v in timedEntries do
-		if _callback(_v, _i - 1, timedEntries) == true then
-			_result = _v
-			break
+	local daily = state.Daily or {}
+	local dailyReady = daily.CanClaim == true
+	local timed = state.TimedRewards or {}
+	local timedEntries = timed.Rewards or {}
+	local played = tonumber(timed.PlaySeconds) or 0
+	local nextTimed = nil
+	local readyTimed = {}
+	for _, entry in timedEntries do
+		if not entry.Claimed then
+			if nextTimed == nil then
+				nextTimed = entry
+			end
+			if played >= (tonumber(entry.Seconds) or math.huge) then
+				table.insert(readyTimed, entry)
+			end
 		end
 	end
-	local nextTimed = _result
-	local _condition = state.TimedRewards.PlaySeconds
-	if _condition == nil then
-		_condition = 0
-	end
-	local played = _condition
 	local timedReady = nextTimed ~= nil and played >= nextTimed.Seconds
 	local timedProgress = if nextTimed ~= nil then math.clamp(played / math.max(1, nextTimed.Seconds), 0, 1) else 1
-	local dailyReward = state.Daily.Rewards[state.Daily.RewardIndex]
+	local dailyReward = (daily.Rewards or {})[daily.RewardIndex]
+	local now = Browse.useServerNow(1)
+	local resetIn = Browse.untilUtcReset(now)
 	local headerReveal = useStagger(0, softMotion)
 	local dailyReveal = useStagger(1, softMotion)
 	local timedReveal = useStagger(2, softMotion)
 	local streakReveal = useStagger(3, softMotion)
-	local rewardCardH = if stack then 172 else 110
 	local rewardsTail = scrollTail(stack, chrome.bottomSafe, 48)
 	local rewardsClaimHostRef = React.useRef(nil)
-	local rewardsClaimReady = dailyReady or timedReady
+	local readyCount = (if dailyReady then 1 else 0) + #readyTimed
+	local rewardsClaimReady = readyCount > 0
 	React.useEffect(function()
 		if not rewardsClaimReady or not UserInputService.GamepadEnabled then
 			return nil
@@ -2244,6 +2542,30 @@ local function RewardsView(_param)
 			pcall(task.cancel, selectJob)
 		end
 	end, { dailyReady, timedReady, rewardsClaimReady })
+	local claimEverything = function()
+		if dailyReady then
+			dispatch("ClaimDaily")
+		end
+		for _, entry in readyTimed do
+			dispatch("ClaimTimedReward", { Index = entry.Index })
+		end
+	end
+
+	-- counts for the shortcut tiles
+	local readyMissions = 0
+	for _, quest in (if type(state.Quests) == "table" then state.Quests else {}) do
+		if type(quest) == "table" and not quest.Claimed and (tonumber(quest.Progress) or 0) >= (tonumber(quest.Target) or math.huge) then
+			readyMissions += 1
+		end
+	end
+	local readyMilestones = 0
+	for _, achievement in state.Achievements or {} do
+		if type(achievement) == "table" and not achievement.Claimed and (tonumber(achievement.Progress) or 0) >= (tonumber(achievement.Target) or math.huge) then
+			readyMilestones += 1
+		end
+	end
+
+	local heroH = if stack then 116 + (if readyCount > 0 then TapTarget + 8 else 0) else 96
 	local headerPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.pink,
@@ -2251,52 +2573,53 @@ local function RewardsView(_param)
 		padding = 14,
 		layoutOrder = 0,
 		reveal = headerReveal,
+		reducedMotion = softMotion,
 		clips = false,
 	}, React.createElement(Text, {
 		value = "REWARDS",
-		size = 10,
+		size = 11,
 		color = Palette.pink,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		sizeConstraint = UDim2.new(1, -120, 0, 14),
 	}), React.createElement(Text, {
-		value = "Dailies and playtime drops. Boosts moved to their own page.",
-		size = 20,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = false,
-		position = UDim2.fromOffset(0, 18),
-		sizeConstraint = UDim2.new(1, -16, 0, 28),
-	}))
-	local _exp_3 = React.createElement(IconTile, {
-		kind = "Calendar",
-		accent = if dailyReady then Palette.mint else Palette.panelSoft,
-		size = 46,
-		radius = 12,
-		position = UDim2.fromOffset(0, if stack then 4 else 18),
-		glow = dailyReady,
-		reducedMotion = softMotion,
-	})
-	local _exp_4 = React.createElement(Text, {
-		value = "Daily parcel",
-		size = 16,
+		value = if readyCount > 0 then `{readyCount} reward{if readyCount == 1 then "" else "s"} waiting.` else "All caught up.",
+		size = if stack then 20 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = true,
-		position = UDim2.fromOffset(60, 6),
-		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 23),
-	})
-	local _attributes = {}
-	local _condition_1 = formatReward(dailyReward)
-	if not (_condition_1 ~= "" and _condition_1) then
-		_condition_1 = (if dailyReady then "Ready to open" else "Already collected today")
-	end
-	_attributes.value = _condition_1
-	_attributes.size = 11
-	_attributes.color = Palette.muted
-	_attributes.wrap = true
-	_attributes.position = UDim2.fromOffset(60, 32)
-	_attributes.sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 20)
+		minSize = 14,
+		position = UDim2.fromOffset(0, 18),
+		sizeConstraint = UDim2.new(1, if stack then 0 else -240, 0, 28),
+	}), React.createElement(Text, {
+		value = `Daily parcel and playtime drops reset in {Browse.shortDuration(resetIn)} (midnight UTC).`,
+		size = 12,
+		color = Palette.muted,
+		wrap = true,
+		position = UDim2.fromOffset(0, 50),
+		sizeConstraint = UDim2.new(1, if stack then 0 else -240, 0, if stack then 32 else 16),
+	}), readyCount > 0 and React.createElement("frame", {
+		Name = "RewardsClaimAllActions",
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(220, 44),
+		Position = if stack then UDim2.new(0, 0, 1, -TapTarget) else UDim2.new(1, -220, 0.5, -22),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ref = rewardsClaimHostRef,
+	}, React.createElement(Button, {
+		text = `CLAIM EVERYTHING · {readyCount}`,
+		icon = "Gift",
+		onClick = claimEverything,
+		color = Palette.pink,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
+		highlight = true,
+	})))
+
+	local stripH = 72
+	local stripY = if stack then 80 + TapTarget + 8 else 84
+	local dailyCardH = stripY + stripH + 28
 	local dailyPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.mint,
@@ -2307,29 +2630,47 @@ local function RewardsView(_param)
 		highlight = dailyReady,
 		reducedMotion = softMotion,
 		clips = false,
-	}, _exp_3, _exp_4, React.createElement(Text, _attributes), React.createElement(Text, {
-		value = "Streak " .. tostring(state.Daily.Streak) .. "  ·  next at " .. tostring(state.Daily.NextStreak),
-		size = 10,
+	}, React.createElement(IconTile, {
+		kind = "Calendar",
+		accent = if dailyReady then Palette.mint else Palette.panelSoft,
+		size = 46,
+		radius = 12,
+		position = UDim2.fromOffset(0, if stack then 4 else 18),
+		glow = dailyReady,
+		reducedMotion = softMotion,
+	}), React.createElement(Text, {
+		value = "Daily parcel",
+		size = 16,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		position = UDim2.fromOffset(60, 6),
+		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 23),
+	}), React.createElement(Text, {
+		value = if formatReward(dailyReward) ~= "" then formatReward(dailyReward) elseif dailyReady then "Ready to open" else "Already collected today",
+		size = 12,
+		color = Palette.muted,
+		wrap = true,
+		position = UDim2.fromOffset(60, 32),
+		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 20),
+	}), React.createElement(Text, {
+		value = if dailyReady
+			then `Streak {daily.Streak or 0} → {daily.NextStreak or 1} when you claim`
+			else `Streak {daily.Streak or 0} · next parcel in {Browse.shortDuration(resetIn)}`,
+		size = 12,
 		color = Palette.mint,
 		weight = Enum.FontWeight.Bold,
 		fit = true,
 		position = UDim2.fromOffset(60, 56),
 		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 16),
-	}), React.createElement(RewardChargeRail, {
-		value = 1,
-		accent = if dailyReady then Palette.mint else Palette.lineSoft,
-		ready = dailyReady,
-		reducedMotion = softMotion,
-		position = UDim2.fromOffset(if stack then 0 else 60, if stack then 80 else 76),
-		size = UDim2.new(1, if stack then 0 else -230, 0, 5),
 	}), React.createElement("frame", {
 		Name = "RewardsDailyClaimActions",
 		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(150, 44),
-		Position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 4)) else UDim2.new(1, -150, 0.5, -22),
+		Position = if stack then UDim2.fromOffset(0, 80) else UDim2.new(1, -150, 0, 18),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		ref = if dailyReady then rewardsClaimHostRef else nil,
+		ref = if dailyReady and readyCount == 0 then rewardsClaimHostRef else nil,
 	}, React.createElement(Button, {
 		text = if dailyReady then "Claim" else "Claimed",
 		icon = "Calendar",
@@ -2342,42 +2683,14 @@ local function RewardsView(_param)
 		reducedMotion = softMotion,
 		disabled = not dailyReady,
 		highlight = dailyReady,
-	})))
-	local _exp_6 = React.createElement(IconTile, {
-		kind = "Timer",
-		accent = if timedReady then Palette.violet else Palette.panelSoft,
-		size = 46,
-		radius = 12,
-		position = UDim2.fromOffset(0, if stack then 4 else 18),
-		glow = timedReady,
+	})), React.createElement(StreakStrip, {
+		daily = daily,
 		reducedMotion = softMotion,
-	})
-	local _exp_7 = React.createElement(Text, {
-		value = "Timed drop",
-		size = 16,
-		color = Palette.cream,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.fromOffset(60, 6),
-		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 23),
-	})
-	local _attributes_1 = {}
-	local _result_1
-	if nextTimed ~= nil then
-		local _condition_2 = formatReward(nextTimed.Reward)
-		if not (_condition_2 ~= "" and _condition_2) then
-			_condition_2 = (if timedReady then "Ready to collect" else clockText(played) .. " of " .. clockText(nextTimed.Seconds) .. " played")
-		end
-		_result_1 = _condition_2
-	else
-		_result_1 = "All caught up"
-	end
-	_attributes_1.value = _result_1
-	_attributes_1.size = 10
-	_attributes_1.color = Palette.muted
-	_attributes_1.fit = true
-	_attributes_1.position = UDim2.fromOffset(60, 32)
-	_attributes_1.sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 17)
+		position = UDim2.fromOffset(0, stripY),
+		size = UDim2.new(1, 0, 0, stripH),
+	}))
+
+	local timedCardH = if stack then 172 else 110
 	local timedPanel = React.createElement(Panel, {
 		size = UDim2.fromScale(1, 1),
 		accent = Palette.violet,
@@ -2388,7 +2701,33 @@ local function RewardsView(_param)
 		highlight = timedReady and not softMotion,
 		reducedMotion = softMotion,
 		clips = false,
-	}, _exp_6, _exp_7, React.createElement(Text, _attributes_1), React.createElement(RewardChargeRail, {
+	}, React.createElement(IconTile, {
+		kind = "Timer",
+		accent = if timedReady then Palette.violet else Palette.panelSoft,
+		size = 46,
+		radius = 12,
+		position = UDim2.fromOffset(0, if stack then 4 else 18),
+		glow = timedReady,
+		reducedMotion = softMotion,
+	}), React.createElement(Text, {
+		value = "Next playtime drop",
+		size = 16,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		position = UDim2.fromOffset(60, 6),
+		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 23),
+	}), React.createElement(Text, {
+		value = if nextTimed == nil then "All caught up for today"
+			elseif formatReward(nextTimed.Reward) ~= "" then formatReward(nextTimed.Reward)
+			elseif timedReady then "Ready to collect"
+			else clockText(played) .. " of " .. clockText(nextTimed.Seconds) .. " played",
+		size = 12,
+		color = Palette.muted,
+		fit = true,
+		position = UDim2.fromOffset(60, 32),
+		sizeConstraint = UDim2.new(1, if stack then -60 else -230, 0, 17),
+	}), React.createElement(RewardChargeRail, {
 		value = timedProgress,
 		accent = if timedReady then Palette.violet else Palette.cyan,
 		ready = timedReady,
@@ -2402,9 +2741,8 @@ local function RewardsView(_param)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
-		ref = if timedReady and not dailyReady then rewardsClaimHostRef else nil,
 	}, React.createElement(Button, {
-		text = if timedReady then "CLAIM" else "CHARGING",
+		text = if timedReady then "CLAIM" elseif nextTimed == nil then "DONE" else `IN {clockText(nextTimed.Seconds - played)}`,
 		icon = "Timer",
 		onClick = function()
 			if nextTimed ~= nil then
@@ -2416,43 +2754,95 @@ local function RewardsView(_param)
 		color = if timedReady then Palette.violet else Palette.panelSoft,
 		textColor = if timedReady then Palette.ink else Palette.muted,
 		size = UDim2.fromScale(1, 1),
-			reducedMotion = softMotion,
+		reducedMotion = softMotion,
 		disabled = not timedReady,
 		highlight = timedReady,
 	})))
-	local queuePanel =  React.createElement(TimedRewardQueue, {
+
+	local columns = if stack then 2 elseif viewport.width >= 1200 then 4 else 3
+	local timelineRows = math.max(1, math.ceil(#timedEntries / columns))
+	local timelineH = 40 + timelineRows * 100
+	local timelinePanel = React.createElement(Panel, {
+		size = UDim2.fromScale(1, 1),
+		accent = Palette.cyan,
+		background = Palette.panel,
+		padding = 14,
+		layoutOrder = 3,
+		reveal = streakReveal,
+		reducedMotion = softMotion,
+		clips = false,
+	}, React.createElement(Text, {
+		value = `TODAY'S PLAYTIME DROPS · {clockText(played)} PLAYED`,
+		size = 11,
+		color = Palette.cyan,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 0, 1, -26),
+		Position = UDim2.fromOffset(0, 26),
+		BackgroundTransparency = 1,
+	}, React.createElement(TimedTimeline, {
 		entries = timedEntries,
 		played = played,
+		dispatch = dispatch,
+		columns = columns,
 		reducedMotion = softMotion,
-		layoutOrder = 3,
-	})
+	})))
+
+	local shortcuts = {
+		{ id = "Wheel", label = "SPIN THE WHEEL", icon = "Wheel", accent = Palette.mango },
+		{ id = "Missions", label = "MISSIONS", icon = "Mission", accent = Palette.green, badge = readyMissions },
+		{ id = "Milestones", label = "MILESTONES", icon = "Milestone", accent = Palette.mango, badge = readyMilestones },
+		{ id = "Boosts", label = "BOOSTS", icon = "Boost", accent = Palette.pink },
+	}
+	local shortcutCols = if stack then 2 else 4
+	local shortcutChildren = {
+		grid = React.createElement("uigridlayout", {
+			CellSize = UDim2.new(1 / shortcutCols, -8 * (shortcutCols - 1) / shortcutCols, 0, TapTarget),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	}
+	for index, entry in shortcuts do
+		shortcutChildren[entry.id] = React.createElement(ShortcutTile, {
+			label = entry.label,
+			icon = entry.icon,
+			accent = entry.accent,
+			badge = entry.badge,
+			layoutOrder = index,
+			reducedMotion = softMotion,
+			onClick = function()
+				if navigate ~= nil then
+					navigate(entry.id)
+				end
+			end,
+		})
+	end
+	local shortcutsH = math.ceil(#shortcuts / shortcutCols) * (TapTarget + 8)
+	local shortcutsRow = React.createElement("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, shortcutChildren)
+
+	local sections = {
+		{ id = "header", height = heroH, element = headerPanel },
+		{ id = "daily", height = dailyCardH, element = dailyPanel },
+		{ id = "timed", height = timedCardH, element = timedPanel },
+	}
+	if #timedEntries > 0 then
+		table.insert(sections, { id = "timeline", height = timelineH, element = timelinePanel })
+	end
+	if navigate ~= nil then
+		table.insert(sections, { id = "shortcuts", height = shortcutsH, element = shortcutsRow })
+	end
 	return React.createElement(PageScaffold, {
 		gap = 12,
 		tailPad = rewardsTail,
 		scrollBarColor = Palette.pink,
 		scrollBarThickness = 4,
-		sections = {
-			{
-				id = "header",
-				height = 72,
-				element = headerPanel,
-			},
-			{
-				id = "daily",
-				height = rewardCardH,
-				element = dailyPanel,
-			},
-			{
-				id = "timed",
-				height = rewardCardH,
-				element = timedPanel,
-			},
-			{
-				id = "queue",
-				height = 104,
-				element = queuePanel,
-			},
-		},
+		sections = sections,
 	})
 end
 return {
@@ -2492,8 +2882,10 @@ local _MissionsView = __load("MissionsView")
 local TASK_FILTERS = _MissionsView.TASK_FILTERS
 local taskFilterCounts = _MissionsView.taskFilterCounts
 local taskMatchesFilter = _MissionsView.taskMatchesFilter
+local TaskSummary = _MissionsView.TaskSummary
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").PageScaffold
+local Browse = require(script.Parent.Parent.BrowseKit)
 local NEAR_COMPLETE_THRESHOLD = 0.85
 local function ProgressCloseGlow(_param)
 	local progress = _param.progress
@@ -2616,13 +3008,13 @@ local function MilestoneRow(_param)
 		position = UDim2.fromOffset(56, if stack then 66 else 58),
 		sizeConstraint = UDim2.new(1, if stack then -(56 + 12) else -182, 0, 16),
 	}), React.createElement(Text, {
-		value = if ready then "Reward ready" elseif achievement.Claimed then "Claimed" else `{compactNumber(achievement.Progress)} / {compactNumber(achievement.Target)}`,
+		value = if ready then "Reward ready" elseif achievement.Claimed then "Claimed" else `{compactNumber(achievement.Progress)} / {compactNumber(achievement.Target)}  ·  {math.floor(progressFrac * 100)}%`,
 		size = 11,
 		color = Palette.muted,
 		weight = Enum.FontWeight.Bold,
 		fit = false,
 		position = UDim2.fromOffset(0, progressY),
-		sizeConstraint = UDim2.new(0, 160, 0, 16),
+		sizeConstraint = UDim2.new(0, 220, 0, 16),
 	}), React.createElement(Meter, {
 		value = if achievement.Claimed or ready then 1 else progressFrac,
 		color = if achievement.Claimed then Palette.muted else accent,
@@ -2683,66 +3075,68 @@ local function MilestoneRow(_param)
 		highlight = ready,
 	})))
 end
+local function taskProgress(entry)
+	return math.clamp((tonumber(entry.Progress) or 0) / math.max(1, tonumber(entry.Target) or 1), 0, 1)
+end
+local function taskRank(entry)
+	if not entry.Claimed and (tonumber(entry.Progress) or 0) >= (tonumber(entry.Target) or 0) then
+		return 0
+	elseif entry.Claimed then
+		return 2
+	end
+	return 1
+end
 local function MilestonesView(_param)
 	local state = _param.state
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
+	local softMotion = reducedMotion
+	reducedMotion = softMotion
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local antilag = useAntilag()
-	local softMotion = reducedMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
 	local list = state.Achievements or {}
-	local filter, setFilter = React.useState("All")
 	local counts = taskFilterCounts(list)
-	local _newValue = table.create(#TASK_FILTERS)
-	local _callback = function(option)
-		local _object = table.clone(option)
-		setmetatable(_object, nil)
-		_object.count = counts[option.id]
-		return _object
+	local categories = {}
+	for _, option in TASK_FILTERS do
+		table.insert(categories, {
+			id = option.id,
+			label = option.short or option.label,
+			test = if option.id == "All" then nil else function(achievement)
+				return taskMatchesFilter(achievement, option.id)
+			end,
+		})
 	end
-	for _k, _v in TASK_FILTERS do
-		_newValue[_k] = _callback(_v, _k - 1, TASK_FILTERS)
-	end
-	local options = _newValue
-	local _newValue_1 = {}
-	local _callback_1 = function(achievement)
-		return taskMatchesFilter(achievement, filter)
-	end
-	local _length = 0
-	for _k, _v in list do
-		if _callback_1(_v, _k - 1, list) == true then
-			_length += 1
-			_newValue_1[_length] = _v
-		end
-	end
-	local visible = _newValue_1
-	local sourceOrder = {}
-	for index, achievement in visible do
-		sourceOrder[achievement] = index
-	end
-	local function milestoneRank(achievement)
-		if not achievement.Claimed and achievement.Progress >= achievement.Target then
-			return 0
-		elseif achievement.Claimed then
-			return 2
-		end
-		return 1
-	end
-	table.sort(visible, function(left, right)
-		local leftRank = milestoneRank(left)
-		local rightRank = milestoneRank(right)
-		if leftRank ~= rightRank then
-			return leftRank < rightRank
-		end
-		return (sourceOrder[left] or 0) < (sourceOrder[right] or 0)
-	end)
+	local browse = Browse.useBrowse({
+		id = "Milestones",
+		items = list,
+		text = function(achievement)
+			return { achievement.Name, achievement.Description, formatReward(achievement.Reward) }
+		end,
+		categories = categories,
+		sorts = {
+			{ id = "Recommended", label = "Ready first", compare = function(a, b)
+				return taskRank(a) < taskRank(b)
+			end },
+			{ id = "Closest", label = "Almost done", compare = function(a, b)
+				local ra, rb = taskRank(a), taskRank(b)
+				if ra ~= rb then
+					return ra < rb
+				end
+				return taskProgress(a) > taskProgress(b)
+			end },
+			{ id = "Name", label = "A to Z", compare = function(a, b)
+				return tostring(a.Name) < tostring(b.Name)
+			end },
+		},
+	})
+	local visible = browse.results
 	local claimHostRef = React.useRef(nil)
 	local firstReadyId = nil
 	for _, achievement in visible do
-		if not achievement.Claimed and achievement.Progress >= achievement.Target then
+		if taskRank(achievement) == 0 then
 			firstReadyId = achievement.Id
 			break
 		end
@@ -2764,8 +3158,18 @@ local function MilestonesView(_param)
 		return function()
 			pcall(task.cancel, selectJob)
 		end
-	end, { firstReadyId, filter })
-	local headerHeight = if stack then (if chrome.landscape then 144 else 176) else 148
+	end, { firstReadyId, browse.category })
+	local claimAllReady = function()
+		for _, achievement in list do
+			if type(achievement) == "table" and taskRank(achievement) == 0 then
+				dispatch("ClaimAchievement", { Id = achievement.Id })
+			end
+		end
+	end
+	local barH = Browse.barHeight(stack, true)
+	local introH = if stack then 40 else 70
+	local claimRowH = if stack and counts.Ready > 0 then TapTarget + 10 else 0
+	local headerHeight = 32 + introH + claimRowH + 10 + barH
 	local rowStride = (if stack then 220 else 148) + 16
 	local pageGap = if stack then chrome.panelGap else 10
 	local headerPanel = React.createElement(Panel, {
@@ -2777,93 +3181,67 @@ local function MilestonesView(_param)
 		reducedMotion = softMotion,
 		zIndex = 30,
 		clips = false,
-	},  if stack then React.createElement(React.Fragment, nil, not chrome.landscape and React.createElement(React.Fragment, nil, React.createElement(Text, {
-			value = "MILESTONES",
-			size = 10,
-			color = Palette.mango,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			sizeConstraint = UDim2.new(1, -8, 0, 16),
-		}), React.createElement(Text, {
-			value = "Long-term goals.",
-			size = 20,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			position = UDim2.fromOffset(0, 16),
-			sizeConstraint = UDim2.new(1, -8, 0, 30),
-		})), React.createElement(Text, {
-			value = if counts.Ready > 0 then `{counts.Ready} to claim. They stay after a rebirth.` else "Big achievements that stay even after a rebirth.",
-			size = 12,
-			color = if counts.Ready > 0 then Palette.green else Palette.muted,
-			wrap = true,
-			position = UDim2.fromOffset(0, if chrome.landscape then 0 else 48),
-			sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 32),
-		}), React.createElement(Dropdown, {
-			options = options,
-			value = filter,
-			onChange = setFilter,
-			accent = Palette.mango,
-			position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
-			size = UDim2.new(1, 0, 0, TapTarget),
-			reducedMotion = softMotion,
-			zIndex = 44,
-		})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
-			value = "MILESTONES",
-			size = 10,
-			color = Palette.mango,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			sizeConstraint = UDim2.new(1, -160, 0, 16),
-		}), React.createElement(Text, {
-			value = "Long-term goals.",
-			size = 22,
-			color = Palette.cream,
-			weight = Enum.FontWeight.Heavy,
-			fit = false,
-			position = UDim2.fromOffset(0, 16),
-			sizeConstraint = UDim2.new(1, -180, 0, 30),
-		}), React.createElement(Text, {
-			value = "Big achievements that stay even after a rebirth.",
-			size = 10,
-			color = Palette.muted,
-			wrap = true,
-			position = UDim2.fromOffset(0, 48),
-			sizeConstraint = UDim2.new(1, -180, 0, 16),
-		}), React.createElement(Dropdown, {
-			options = options,
-			value = filter,
-			onChange = setFilter,
-			accent = Palette.mango,
-			position = UDim2.new(0, 0, 0, 70),
-			size = UDim2.fromOffset(224, 48),
-			reducedMotion = softMotion,
-			zIndex = 44,
-		}), React.createElement(Text, {
-			value = `{counts.Done} / {#list}`,
-			size = 18,
-			color = Palette.mango,
-			weight = Enum.FontWeight.Heavy,
-			fit = true,
-			position = UDim2.new(1, -120, 0, 4),
-			sizeConstraint = UDim2.new(0, 120, 0, 26),
-			align = Enum.TextXAlignment.Right,
-		}), counts.Ready > 0 and React.createElement(Badge, {
-			value = `{counts.Ready} TO CLAIM`,
-			accent = Palette.green,
-			filled = true,
-			position = UDim2.new(1, -120, 0, 34),
-			size = UDim2.fromOffset(120, 22),
-		}), React.createElement(Text, {
-			value = `{#visible} shown`,
-			size = 10,
-			color = Palette.muted,
-			weight = Enum.FontWeight.Bold,
-			fit = true,
-			align = Enum.TextXAlignment.Right,
-			position = UDim2.new(1, -120, 0, 72),
-			sizeConstraint = UDim2.new(0, 120, 0, 24),
-		})))
+	}, if stack then React.createElement(Text, {
+		value = if counts.Ready > 0 then `{counts.Ready} to claim · {counts.Done} of {#list} done` else `{counts.Done} of {#list} done · they stay after a rebirth`,
+		size = 13,
+		color = if counts.Ready > 0 then Palette.green else Palette.creamSoft,
+		weight = Enum.FontWeight.Bold,
+		wrap = true,
+		sizeConstraint = UDim2.new(1, -8, 0, 34),
+	}) else React.createElement(React.Fragment, nil, React.createElement(Text, {
+		value = "MILESTONES",
+		size = 11,
+		color = Palette.mango,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		sizeConstraint = UDim2.new(1, -420, 0, 16),
+	}), React.createElement(Text, {
+		value = "Long-term goals.",
+		size = 22,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = false,
+		position = UDim2.fromOffset(0, 16),
+		sizeConstraint = UDim2.new(1, -420, 0, 30),
+	}), React.createElement(Text, {
+		value = "Big achievements that stay even after a rebirth.",
+		size = 12,
+		color = Palette.muted,
+		wrap = true,
+		position = UDim2.fromOffset(0, 48),
+		sizeConstraint = UDim2.new(1, -420, 0, 16),
+	}), React.createElement(TaskSummary, {
+		done = counts.Done,
+		total = #list,
+		accent = Palette.mango,
+		reducedMotion = softMotion,
+		position = UDim2.new(1, -190, 0, 4),
+		size = UDim2.fromOffset(190, 56),
+	})), counts.Ready > 0 and React.createElement("frame", {
+		Name = "MilestoneClaimAllActions",
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(200, 44),
+		Position = if stack then UDim2.fromOffset(0, introH) else UDim2.new(1, -404, 0, 10),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+	}, React.createElement(Button, {
+		text = `CLAIM ALL · {counts.Ready}`,
+		icon = "Gift",
+		onClick = claimAllReady,
+		color = Palette.green,
+		textColor = Palette.ink,
+		size = UDim2.fromScale(1, 1),
+		reducedMotion = softMotion,
+		highlight = true,
+	})), React.createElement(Browse.BrowseBar, {
+		browse = browse,
+		placeholder = "Search milestones and rewards",
+		accent = Palette.mango,
+		stack = stack,
+		reducedMotion = softMotion,
+		position = UDim2.fromOffset(0, introH + claimRowH + 10),
+		zIndex = 40,
+	}))
 	local milestonesList = React.createElement(FlatList, {
 		data = visible,
 		itemHeight = rowStride,
@@ -2882,17 +3260,20 @@ local function MilestonesView(_param)
 			return React.createElement(MilestoneRow, {
 				achievement = item,
 				dispatch = dispatch,
-				reducedMotion = reducedMotion,
+				reducedMotion = softMotion,
+				query = browse.query,
 				position = UDim2.fromOffset(0, 0),
 				stack = stack,
 				claimHostRef = if item.Id == firstReadyId then claimHostRef else nil,
 			})
 		end,
-		ListEmptyComponent = if #visible == 0 then React.createElement(EmptyState, {
-			icon = "Settings",
-			title = if #list == 0 then "No milestones yet" else "Nothing in this filter",
-			body = if #list == 0 then "Keep playing — they'll show up." else "Switch the filter back to Everything.",
+		ListEmptyComponent = if #visible == 0 then React.createElement(Browse.NoResults, {
+			browse = browse,
+			noun = "milestones",
+			icon = "Milestone",
+			emptyBody = "Keep playing and they will show up.",
 			accent = Palette.mango,
+			reducedMotion = softMotion,
 			size = UDim2.fromScale(1, 1),
 		}) else nil,
 	})
@@ -2956,6 +3337,7 @@ local _taskFilter = require(script.Parent.Parent.CoreKit)("taskFilter")
 local taskFilterCounts = _taskFilter.taskFilterCounts
 local taskMatchesFilter = _taskFilter.taskMatchesFilter
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
+local Browse = require(script.Parent.Parent.BrowseKit)
 local NEAR_COMPLETE_THRESHOLD = 0.85
 local function ProgressCloseGlow(_param)
 	local progress = _param.progress
@@ -3006,15 +3388,19 @@ exports.taskMatchesFilter = _taskFilter_1.taskMatchesFilter
 local TASK_FILTERS = { {
 	id = "All",
 	label = "Everything",
+	short = "All",
 }, {
 	id = "Ready",
 	label = "Ready to claim",
+	short = "Ready",
 }, {
 	id = "Active",
 	label = "Still in progress",
+	short = "In progress",
 }, {
 	id = "Done",
 	label = "Already claimed",
+	short = "Claimed",
 } }
 local function MissionRow(_param)
 	local quest = _param.quest
@@ -3146,6 +3532,54 @@ local function MissionRow(_param)
 		highlight = ready,
 	}))
 end
+local function TaskSummary(_param)
+	local softMotion = _param.reducedMotion
+	local reducedMotion = softMotion
+	local done = _param.done
+	local total = _param.total
+	local accent = _param.accent
+	local fraction = if total > 0 then done / total else 0
+	return React.createElement("frame", {
+		Size = _param.size,
+		Position = _param.position,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Text, {
+		value = `{done} / {total}`,
+		size = 20,
+		color = accent,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		align = Enum.TextXAlignment.Right,
+		sizeConstraint = UDim2.new(1, 0, 0, 26),
+	}), React.createElement(Text, {
+		value = `{math.floor(fraction * 100 + 0.5)}% complete`,
+		size = 12,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		align = Enum.TextXAlignment.Right,
+		position = UDim2.fromOffset(0, 26),
+		sizeConstraint = UDim2.new(1, 0, 0, 16),
+	}), React.createElement(Meter, {
+		value = fraction,
+		color = accent,
+		reducedMotion = reducedMotion,
+		position = UDim2.fromOffset(0, 46),
+		size = UDim2.new(1, 0, 0, 6),
+	}))
+end
+local function questRank(quest)
+	if not quest.Claimed and (tonumber(quest.Progress) or 0) >= (tonumber(quest.Target) or 0) then
+		return 0
+	elseif quest.Claimed then
+		return 2
+	end
+	return 1
+end
+local function questFraction(quest)
+	return math.clamp((tonumber(quest.Progress) or 0) / math.max(1, tonumber(quest.Target) or 1), 0, 1)
+end
 local function MissionsView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -3158,9 +3592,40 @@ local function MissionsView(_param)
 	reducedMotion = softMotion
 	local enter = useEntrance(softMotion)
 	local stack = chrome.contentStack
-	local quests = state.Quests
-	local filter, setFilter = React.useState("All")
+	local quests = if type(state.Quests) == "table" then state.Quests else {}
 	local counts = taskFilterCounts(quests)
+	local categories = {}
+	for _, option in TASK_FILTERS do
+		table.insert(categories, {
+			id = option.id,
+			label = option.short or option.label,
+			test = if option.id == "All" then nil else function(quest)
+				return taskMatchesFilter(quest, option.id)
+			end,
+		})
+	end
+	local browse = Browse.useBrowse({
+		id = "Missions",
+		items = quests,
+		text = function(quest)
+			return { quest.Name, quest.Description, formatReward(quest.Reward), quest.Kind }
+		end,
+		categories = categories,
+		sorts = {
+			{ id = "Recommended", label = "Ready first", compare = function(a, b)
+				return questRank(a) < questRank(b)
+			end },
+			{ id = "Closest", label = "Almost done", compare = function(a, b)
+				local ra, rb = questRank(a), questRank(b)
+				if ra ~= rb then
+					return ra < rb
+				end
+				return questFraction(a) > questFraction(b)
+			end },
+			{ id = "List", label = "Daily order" },
+		},
+	})
+	local visible = browse.results
 	local missionClaimHostRef = React.useRef(nil)
 	React.useEffect(function()
 		if counts.Ready <= 0 or not UserInputService.GamepadEnabled then
@@ -3179,7 +3644,7 @@ local function MissionsView(_param)
 		return function()
 			pcall(task.cancel, selectJob)
 		end
-	end, { counts.Ready, filter })
+	end, { counts.Ready, browse.category })
 	local guide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Missions else nil
 	local claimAllReady = function()
 		if type(quests) ~= "table" then
@@ -3195,30 +3660,10 @@ local function MissionsView(_param)
 			end
 		end
 	end
-	local _newValue = table.create(#TASK_FILTERS)
-	local _callback = function(option)
-		local _object = table.clone(option)
-		setmetatable(_object, nil)
-		_object.count = counts[option.id]
-		return _object
-	end
-	for _k, _v in TASK_FILTERS do
-		_newValue[_k] = _callback(_v, _k - 1, TASK_FILTERS)
-	end
-	local options = _newValue
-	local _newValue_1 = {}
-	local _callback_1 = function(quest)
-		return taskMatchesFilter(quest, filter)
-	end
-	local _length = 0
-	for _k, _v in quests do
-		if _callback_1(_v, _k - 1, quests) == true then
-			_length += 1
-			_newValue_1[_length] = _v
-		end
-	end
-	local visible = _newValue_1
-	local headerHeight = if stack then (if chrome.landscape then 188 else 204) else 168
+	local barH = Browse.barHeight(stack, true)
+	local introH = if stack then 40 else 70
+	local claimRowH = if stack and counts.Ready > 0 then TapTarget + 10 else 0
+	local headerHeight = 32 + introH + claimRowH + 10 + barH
 	local rowStride = (if stack then 220 else 148) + 16
 	local pageGap = 10
 	local headerPanel = React.createElement(Panel, {
@@ -3230,45 +3675,20 @@ local function MissionsView(_param)
 		reducedMotion = softMotion,
 		zIndex = 30,
 		clips = false,
-	}, if stack then React.createElement(React.Fragment, nil, React.createElement(Text, {
-		value = "Finish these for flux and stardust. They refresh every day.",
-		size = 12,
-		color = Palette.muted,
+	}, if stack then React.createElement(Text, {
+		value = if counts.Ready > 0 then `{counts.Ready} ready · {counts.Done} of {#quests} claimed today` else `{counts.Done} of {#quests} claimed · new missions every day`,
+		size = 13,
+		color = if counts.Ready > 0 then Palette.green else Palette.creamSoft,
+		weight = Enum.FontWeight.Bold,
 		wrap = true,
-		sizeConstraint = UDim2.new(1, -8, 0, if chrome.landscape then 28 else 36),
-	}), counts.Ready > 0 and React.createElement("frame", {
-		Name = "MissionClaimActions",
-		Size = UDim2.new(1, 0, 0, TapTarget),
-		Position = UDim2.new(0, 0, 1, -(TapTarget * 2 + 16)),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ref = missionClaimHostRef,
-	}, React.createElement(Button, {
-		text = `CLAIM ALL READY · {counts.Ready}`,
-		icon = "Gift",
-		onClick = claimAllReady,
-		color = Palette.green,
-		textColor = Palette.ink,
-		size = UDim2.fromScale(1, 1),
-			reducedMotion = softMotion,
-		highlight = true,
-	})), React.createElement(Dropdown, {
-		options = options,
-		value = filter,
-		onChange = setFilter,
-		accent = Palette.cyan,
-		position = UDim2.new(0, 0, 1, -(TapTarget + 8)),
-		size = UDim2.new(1, 0, 0, TapTarget),
-			reducedMotion = softMotion,
-		zIndex = 44,
-	})) else React.createElement(React.Fragment, nil, React.createElement(Text, {
+		sizeConstraint = UDim2.new(1, -8, 0, 34),
+	}) else React.createElement(React.Fragment, nil, React.createElement(Text, {
 		value = "MISSIONS",
-		size = 10,
+		size = 11,
 		color = Palette.cyan,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		sizeConstraint = UDim2.new(1, -160, 0, 16),
+		sizeConstraint = UDim2.new(1, -420, 0, 16),
 	}), React.createElement(Text, {
 		value = "Daily checklist.",
 		size = 22,
@@ -3276,27 +3696,25 @@ local function MissionsView(_param)
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		position = UDim2.fromOffset(0, 16),
-		sizeConstraint = UDim2.new(1, -180, 0, 30),
+		sizeConstraint = UDim2.new(1, -420, 0, 30),
 	}), React.createElement(Text, {
 		value = "Finish these for flux and stardust. They refresh every day.",
-		size = 10,
+		size = 12,
 		color = Palette.muted,
 		wrap = true,
 		position = UDim2.fromOffset(0, 48),
-		sizeConstraint = UDim2.new(1, -180, 0, 16),
-	}), React.createElement(Dropdown, {
-		options = options,
-		value = filter,
-		onChange = setFilter,
+		sizeConstraint = UDim2.new(1, -420, 0, 16),
+	}), React.createElement(TaskSummary, {
+		done = counts.Done,
+		total = #quests,
 		accent = Palette.cyan,
-		position = UDim2.new(0, 0, 0, 70),
-		size = UDim2.fromOffset(224, 48),
-			reducedMotion = softMotion,
-		zIndex = 44,
-	}), counts.Ready > 0 and React.createElement("frame", {
+		reducedMotion = softMotion,
+		position = UDim2.new(1, -190, 0, 4),
+		size = UDim2.fromOffset(190, 56),
+	})), counts.Ready > 0 and React.createElement("frame", {
 		Name = "MissionClaimActions",
-		Size = UDim2.fromOffset(168, 40),
-		Position = UDim2.new(0, 236, 0, 74),
+		Size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(200, 44),
+		Position = if stack then UDim2.fromOffset(0, introH) else UDim2.new(1, -404, 0, 10),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -3308,33 +3726,17 @@ local function MissionsView(_param)
 		color = Palette.green,
 		textColor = Palette.ink,
 		size = UDim2.fromScale(1, 1),
-			reducedMotion = softMotion,
+		reducedMotion = softMotion,
 		highlight = true,
-	})), React.createElement(Text, {
-		value = `{counts.Done} / {#quests}`,
-		size = 18,
-		color = Palette.cyan,
-		weight = Enum.FontWeight.Heavy,
-		fit = true,
-		position = UDim2.new(1, -120, 0, 4),
-		sizeConstraint = UDim2.new(0, 120, 0, 26),
-		align = Enum.TextXAlignment.Right,
-	}), counts.Ready > 0 and React.createElement(Badge, {
-		value = `{counts.Ready} READY`,
-		accent = Palette.green,
-		filled = true,
-		position = UDim2.new(1, -120, 0, 34),
-		size = UDim2.fromOffset(120, 22),
-	}), React.createElement(Text, {
-		value = `{#visible} shown`,
-		size = 10,
-		color = Palette.muted,
-		weight = Enum.FontWeight.Bold,
-		fit = true,
-		align = Enum.TextXAlignment.Right,
-		position = UDim2.new(1, -120, 0, 72),
-		sizeConstraint = UDim2.new(0, 120, 0, 24),
-	})))
+	})), React.createElement(Browse.BrowseBar, {
+		browse = browse,
+		placeholder = "Search missions and rewards",
+		accent = Palette.cyan,
+		stack = stack,
+		reducedMotion = softMotion,
+		position = UDim2.fromOffset(0, introH + claimRowH + 10),
+		zIndex = 40,
+	}))
 	local missionsList = React.createElement(FlatList, {
 		data = visible,
 		itemHeight = rowStride,
@@ -3358,11 +3760,14 @@ local function MissionsView(_param)
 				stack = stack,
 			})
 		end,
-		ListEmptyComponent = if #visible == 0 then React.createElement(EmptyState, {
+		ListEmptyComponent = if #visible == 0 then React.createElement(Browse.NoResults, {
+			browse = browse,
+			noun = "missions",
 			icon = "Mission",
-			title = if #quests == 0 then "No missions yet" else "Nothing in this filter",
-			body = if #quests == 0 then ((guide and guide.EmptyNone) or "New dailies land at reset.") else ((guide and guide.EmptyFilter) or "Switch the filter back to Everything."),
+			emptyBody = (guide and guide.EmptyNone) or "New dailies land at reset.",
+			filteredBody = (guide and guide.EmptyFilter) or "Switch the filter back to All.",
 			accent = Palette.cyan,
+			reducedMotion = softMotion,
 			size = UDim2.fromScale(1, 1),
 		}) else nil,
 	})
@@ -3388,6 +3793,7 @@ local function MissionsView(_param)
 end
 exports.MissionsView = MissionsView
 exports.TASK_FILTERS = TASK_FILTERS
+exports.TaskSummary = TaskSummary
 return exports
 end
 

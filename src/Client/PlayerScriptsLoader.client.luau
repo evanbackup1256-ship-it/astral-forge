@@ -21,10 +21,25 @@ end
 if playerScripts then
 	mute(playerScripts:FindFirstChild("PlayerModule"))
 	mute(playerScripts:FindFirstChild("RbxCharacterSounds"))
+else
+	warn("[PlayerScriptsLoader] PlayerScripts not found within timeout; default controls/sounds may remain active.")
 end
 
-local camera = Workspace.CurrentCamera
-if camera then
+local function configureCamera(camera: Camera?)
+	if not camera then
+		return
+	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CameraSubject = nil
 end
+
+configureCamera(Workspace.CurrentCamera)
+local cameraConnection = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+	configureCamera(Workspace.CurrentCamera)
+end)
+
+player.Destroying:Once(function()
+	if cameraConnection then
+		cameraConnection:Disconnect()
+	end
+end)

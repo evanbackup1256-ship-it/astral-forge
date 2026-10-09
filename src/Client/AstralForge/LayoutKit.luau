@@ -542,7 +542,7 @@ function Geom.sweepPairs(rects: { Rect }): { { number } }
 	table.sort(order, function(a, b)
 		return rects[a].x0 < rects[b].x0
 	end)
-	local pairs = {}
+	local overlapPairs = {}
 	local active: { number } = {}
 	for _, index in order do
 		local rect = rects[index]
@@ -554,14 +554,14 @@ function Geom.sweepPairs(rects: { Rect }): { { number } }
 				if Geom.overlapHeight(rect, orect) > EPS then
 					local lo = math.min(index, other)
 					local hi = math.max(index, other)
-					table.insert(pairs, { lo, hi })
+					table.insert(overlapPairs, { lo, hi })
 				end
 			end
 		end
 		table.insert(nextActive, index)
 		active = nextActive
 	end
-	return pairs
+	return overlapPairs
 end
 
 function Geom.readingOrder(rects: { Rect }, band: number): { number }
@@ -1375,6 +1375,12 @@ function PageReadyMath.AnomalyReady(anomaly: any): boolean
 		end
 	end
 	return false
+end
+
+-- Signal Cipher replaced Shift Plan as the daily call to action: open until solved or failed today
+function PageReadyMath.CipherOpen(sky: any): boolean
+	local cipher = if type(sky) == "table" then sky.Cipher else nil
+	return type(cipher) == "table" and cipher.Solved ~= true and cipher.Failed ~= true
 end
 
 function PageReadyMath.OpsClaims(missionsReady: any, labReady: any, pathReady: any, anomalyReady: any): number

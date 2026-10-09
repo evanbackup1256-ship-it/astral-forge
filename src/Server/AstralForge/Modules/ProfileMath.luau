@@ -133,6 +133,7 @@ end
 __defs["PublicPlayerRecord"] = function()
 
 local PublicPlayerRecord = {}
+local GeneralBoardValue = __load("GeneralBoardValue")
 
 function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, presence, deps)
 	local EnsureItems = deps.EnsureItems
@@ -152,6 +153,20 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 		end
 	end
 	local liveEntry = presence and presence[player.UserId]
+	local artifact = nil
+	local command = profile.Command
+	local artifactId = command and type(command.EquippedArtifact) == "string" and command.EquippedArtifact or ""
+	local definition = artifactId ~= "" and Economy.GetArtifact and Economy.GetArtifact(artifactId) or nil
+	local ownedArtifact = definition and type(command.Artifacts) == "table" and command.Artifacts[artifactId] or nil
+	if definition and type(ownedArtifact) == "table" then
+		artifact = {
+			Id = artifactId,
+			Name = tostring(definition.Name),
+			Element = tostring(definition.Element or ""),
+			Rarity = tostring(definition.Rarity or "COMMON"),
+			Level = math.max(1, math.floor(tonumber(ownedArtifact.Level) or 1)),
+		}
+	end
 	return {
 		UserId = math.floor(player.UserId),
 		Name = player.Name,
@@ -165,8 +180,18 @@ function PublicPlayerRecord.Build(player: Player, profile, viewer: Player, prese
 		Cores = profile.Cores,
 		DomainRank = profile.Domain and profile.Domain.Rank or 0,
 		PlayTime = profile.Stats and profile.Stats.PlayTime or 0,
+		Boards = {
+			Crates = GeneralBoardValue.Of(profile, "Crates", tostring),
+			Finds = GeneralBoardValue.Of(profile, "Finds", tostring),
+			Ore = GeneralBoardValue.Of(profile, "Ore", tostring),
+			Wardens = GeneralBoardValue.Of(profile, "Wardens", tostring),
+			Orders = GeneralBoardValue.Of(profile, "Orders", tostring),
+			Stars = GeneralBoardValue.Of(profile, "Stars", tostring),
+			Cipher = GeneralBoardValue.Of(profile, "Cipher", tostring),
+		},
 		ItemCount = itemCount,
 		EquippedItems = equippedItems,
+		Artifact = artifact,
 		IsLocal = player == viewer,
 		SocialFlags = 0,
 		CurrentPage = liveEntry and liveEntry.Page or "Overview",
@@ -184,7 +209,8 @@ __defs["ReportLedger"] = function()
 local ReportLedger = {}
 ReportLedger.__index = ReportLedger
 
-ReportLedger.REASONS = table.freeze({ "Exploiting", "Scamming", "Harassment", "Trolling", "Spam", "Inappropriate", "Other" })
+ReportLedger.REASONS = table.freeze({ "Exploiting", "Scamming", "Harassment", "Trolling", "Spam", "Inappropriate", "Impersonating", "Botting", "Other" })
+ReportLedger.SEVERITY_COLORS = table.freeze({ Minor = 16762880, Serious = 15548997, Urgent = 10038562 })
 local REASON_SET = {}
 for _, reason in ReportLedger.REASONS do
 	REASON_SET[reason] = true
@@ -489,6 +515,14 @@ __defs["GeneralBoardValue"] = function()
 
 local GeneralBoardValue = {}
 
+local STAT_BOARDS = {
+	Crates = "CratesOpened",
+	Finds = "ItemsFound",
+	Ore = "OreMined",
+	Wardens = "WardenDefeats",
+	Orders = "OrdersCompleted",
+}
+
 function GeneralBoardValue.Of(profile: any, id: string, persist: (any) -> any): number
 	if id == "Flux" then
 		return persist(profile.LifetimeCash)
@@ -510,6 +544,24 @@ function GeneralBoardValue.Of(profile: any, id: string, persist: (any) -> any): 
 	end
 	if id == "Worlds" then
 		return math.max(1, math.floor(tonumber(profile.Zone) or 1))
+	end
+	local statKey = STAT_BOARDS[id]
+	if statKey then
+		return math.max(0, math.floor(tonumber(type(profile.Stats) == "table" and profile.Stats[statKey]) or 0))
+	end
+	local sky = type(profile.Sky) == "table" and profile.Sky or nil
+	if id == "Stars" then
+		local total = 0
+		local plotted = sky and type(sky.Charts) == "table" and sky.Charts.Plotted
+		if type(plotted) == "table" then
+			for _, count in plotted do
+				total += math.max(0, math.floor(tonumber(count) or 0))
+			end
+		end
+		return total
+	end
+	if id == "Cipher" then
+		return math.max(0, math.floor(tonumber(sky and type(sky.Cipher) == "table" and sky.Cipher.Solves) or 0))
 	end
 	return 0
 end
@@ -753,6 +805,10 @@ local function formatFromLog10(log10: number): string
 		scaled /= 1000
 	end
 	local suffix = SUFFIXES[group]
+	-- word tiers ("Googol", "Horizon") get a space so "1.01 Horizon" doesn't read as one garbled word
+	if #suffix >= 5 then
+		suffix = " " .. suffix
+	end
 	local precision = if scaled < 10 then 2 elseif scaled < 100 then 1 else 0
 	local formatted = string.format("%." .. tostring(precision) .. "f", scaled)
 	formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
@@ -973,8 +1029,9 @@ ActionFeatureMaps.FEATURE = {
 	DeleteMail = "Mail",
 	GetLeaderboard = "Leaderboards",
 	ClaimConvergenceReward = "Convergence",
-	CasinoPlay = "Casino",
 	BazaarPlay = "Bazaar",
+	PlotStar = "Charts",
+	SubmitCipher = "Cipher",
 }
 
 function ActionFeatureMaps.AnomalyCharge(action: string): number?
@@ -1026,6 +1083,10 @@ CommandActionValidators.READ_ONLY = {
 	NudgeCrew = true,
 	ReportPresence = true,
 	GetGuild = true,
+	GetGuildChatHistory = true,
+	GetGuildAnnouncements = true,
+	GetGuildSettings = true,
+	GetGuildLogoReview = true,
 	GetGuildLeaderboard = true,
 	GetLeaderboard = true,
 	GetAdminState = true,
@@ -1039,7 +1100,6 @@ CommandActionValidators.READ_ONLY = {
 
 CommandActionValidators.HIGH_VALUE_GRANT = {
 	SpinWheel = true,
-	CasinoPlay = true,
 	BazaarPlay = true,
 	OpenItemCrate = true,
 	CollectVault = true,

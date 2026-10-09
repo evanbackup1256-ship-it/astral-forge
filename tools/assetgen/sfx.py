@@ -837,8 +837,11 @@ def _build_voices():
     V["queueStop"] = lambda: mix(toggle_off(), thump(140, 70, 0.08, 0.4))
 
     from sfx_bank import extra_voices
+    from ui_voices import voices as interface_voices
 
     V.update(extra_voices())
+    # the interface family (pointer, press, page and panel sounds) replaces both sets above
+    V.update(interface_voices())
     return V
 
 

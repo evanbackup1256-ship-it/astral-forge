@@ -48,6 +48,8 @@ local Meter = _ui.Meter
 local meterFill = _ui.meterFill
 local measureWrappedTextHeight = _ui.measureWrappedTextHeight
 local Text = _ui.Text
+local SearchField = _ui.SearchField
+local Browse = require(script.Parent.Parent.BrowseKit)
 local CHAPTER_ROW_H = 58
 local CHAPTER_ROW_GAP = 8
 local CHAPTER_ROW_STRIDE = CHAPTER_ROW_H + CHAPTER_ROW_GAP
@@ -753,6 +755,40 @@ local function StoryView(_param)
 	local archivePulse = usePulse(not softMotion and not started, 3.4)
 	local archiveReveal = useStagger(0, softMotion)
 	local archiveMotionEnabled = softMotion
+	local chapterBrowse = Browse.useBrowse({
+		id = "Story",
+		items = chapters,
+		text = function(chapter)
+			local entry = chapterConfig(config, chapter.Id)
+			return { if entry then entry.Title else chapter.Id, if entry then entry.Chapter else nil, if entry then entry.Summary else nil }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "New", label = "New", test = function(chapter)
+				return chapter.Unlocked == true and chapter.Read ~= true
+			end },
+			{ id = "Reward", label = "Reward", test = function(chapter)
+				return chapter.Unlocked == true and chapter.Claimed ~= true and chapter.Read == true
+			end },
+			{ id = "Read", label = "Read", test = function(chapter)
+				return chapter.Read == true
+			end },
+			{ id = "Locked", label = "Locked", test = function(chapter)
+				return chapter.Unlocked ~= true
+			end },
+		},
+	})
+	-- a deep link from Quick Find opens the best match directly
+	React.useEffect(function()
+		if chapterBrowse.searching and chapterBrowse.relevance and chapterBrowse.results[1] ~= nil then
+			local top = chapterBrowse.results[1]
+			if top.Id ~= selectedId then
+				setSelectedId(top.Id)
+				setStarted(false)
+				setBeat(0)
+			end
+		end
+	end, { chapterBrowse.query })
 	if not story or not status then
 		return React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
@@ -871,7 +907,7 @@ local function StoryView(_param)
 		local _condition_2 = not stack and multi
 		if _condition_2 then
 			local railChapters = {}
-			for _, chapter in chapters do
+			for _, chapter in chapterBrowse.results do
 				local entry = chapterConfig(config, chapter.Id)
 				if entry ~= nil then
 					table.insert(railChapters, {
@@ -881,7 +917,7 @@ local function StoryView(_param)
 				end
 			end
 			local railListTop = railMarkH + 10
-			local railHeaderH = 20
+			local railHeaderH = 20 + TapTarget + 8 + Browse.CHIP_H + 8
 			_condition_2 = React.createElement("frame", {
 				Size = UDim2.new(1, 0, 1, -railListTop),
 				Position = UDim2.fromOffset(0, railListTop),
@@ -897,6 +933,29 @@ local function StoryView(_param)
 				transparency = archiveReveal:map(function(amount)
 					return 1 - amount
 				end),
+			}), React.createElement(SearchField, {
+				value = chapterBrowse.query,
+				onChange = chapterBrowse.setQuery,
+				placeholder = "Search chapters",
+				accent = story.Color,
+				reducedMotion = softMotion,
+				position = UDim2.fromOffset(0, 20),
+				size = UDim2.new(1, -4, 0, TapTarget),
+				zIndex = 12,
+			}), React.createElement(Browse.ChipRow, {
+				options = chapterBrowse.categories,
+				value = chapterBrowse.category,
+				onChange = chapterBrowse.setCategory,
+				counts = chapterBrowse.counts,
+				accent = story.Color,
+				position = UDim2.fromOffset(0, 20 + TapTarget + 8),
+				size = UDim2.new(1, -4, 0, Browse.CHIP_H),
+			}), #railChapters == 0 and React.createElement(Text, {
+				value = "No chapters match.",
+				size = 13,
+				color = Palette.muted,
+				position = UDim2.fromOffset(0, railHeaderH + 8),
+				sizeConstraint = UDim2.new(1, 0, 0, 20),
 			}), React.createElement(FlatList, {
 				data = railChapters,
 				itemHeight = CHAPTER_ROW_STRIDE,
@@ -1004,7 +1063,7 @@ local function StoryView(_param)
 			}),
 		}
 		local archiveChapterCount = 0
-		for _, chapter in chapters do
+		for _, chapter in chapterBrowse.results do
 			if chapterConfig(config, chapter.Id) ~= nil then
 				archiveChapterCount += 1
 			end
@@ -1021,7 +1080,8 @@ local function StoryView(_param)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, 8),
 		})
-		local _newValue = table.create(#chapters)
+		local shownChapters = chapterBrowse.results
+		local _newValue = table.create(#shownChapters)
 		local _callback_1 = function(chapter, index)
 			local entry = chapterConfig(config, chapter.Id)
 			if not entry then
@@ -1038,8 +1098,8 @@ local function StoryView(_param)
 				layoutOrder = index,
 			})
 		end
-		for _k, _v in chapters do
-			_newValue[_k] = _callback_1(_v, _k - 1, chapters)
+		for _k, _v in shownChapters do
+			_newValue[_k] = _callback_1(_v, _k - 1, shownChapters)
 		end
 		_object[_left] = React.createElement("frame", {
 			Size = UDim2.fromScale(1, 1),
@@ -1052,7 +1112,18 @@ local function StoryView(_param)
 			BorderSizePixel = 0,
 			LayoutOrder = 99,
 		}))
-		_attributes.sections = { _exp_5, _exp_6, _object, {
+		_attributes.sections = { _exp_5, _exp_6, {
+			id = "archive-browse",
+			height = Browse.barHeight(true, true),
+			element = React.createElement(Browse.BrowseBar, {
+				browse = chapterBrowse,
+				placeholder = "Search chapters",
+				accent = story.Color,
+				stack = true,
+				reducedMotion = softMotion,
+				zIndex = 30,
+			}),
+		}, _object, {
 			id = "archive-read",
 			height = TapTarget,
 			element = React.createElement(Button, {
@@ -1228,6 +1299,7 @@ local SweptRing = _ui.SweptRing
 local Text = _ui.Text
 local SECTION_LABEL_H = 30
 local INVENTORY_CARD_H = 196
+local Browse = require(script.Parent.Parent.BrowseKit)
 local VIRT_INVENTORY_MIN = 6
 local VIRT_INVENTORY_VISIBLE_ROWS = 4
 local EMPTY_ECHOES = {
@@ -1842,6 +1914,46 @@ local function EchoForgeView(_param)
 	React.useEffect(function()
 		return setArmedUid(nil)
 	end, { #echoes.Inventory })
+	local linkedUids = {}
+	for _, slot in echoes.Equipped do
+		if slot.Echo ~= nil then
+			linkedUids[slot.Echo.Uid] = true
+		end
+	end
+	local echoBrowse = Browse.useBrowse({
+		id = "Echoes",
+		items = echoes.Inventory,
+		text = function(item)
+			return { item.Name, effectText(item), quality(item).label, item.Pattern }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Linked", label = "Linked", test = function(item)
+				return linkedUids[item.Uid] == true
+			end },
+			{ id = "Resonant", label = "Resonant", test = function(item)
+				return item.Strength >= 1.2
+			end },
+			{ id = "Clear", label = "Clear", test = function(item)
+				return item.Strength >= 1.06 and item.Strength < 1.2
+			end },
+			{ id = "Faint", label = "Faint", test = function(item)
+				return item.Strength < 1.06
+			end },
+		},
+		sorts = {
+			{ id = "Newest", label = "Vault order" },
+			{ id = "Strongest", label = "Strongest", compare = function(a, b)
+				return (tonumber(a.EffectValue) or 0) > (tonumber(b.EffectValue) or 0)
+			end },
+			{ id = "Level", label = "Highest level", compare = function(a, b)
+				return (tonumber(a.Level) or 0) > (tonumber(b.Level) or 0)
+			end },
+		},
+	})
+	local vaultItems = echoBrowse.results
+	local showVaultBar = #echoes.Inventory >= 4
+	local vaultBarH = if showVaultBar then Browse.barHeight(stack, true) + 10 else 0
 	local linkHostRef = React.useRef(nil)
 	local firstLinkUid = nil
 	for _, item in echoes.Inventory do
@@ -1905,13 +2017,13 @@ local function EchoForgeView(_param)
 	local patternSectionH = 30 + patternRows * 88 + math.max(0, patternRows - 1) * sectionGap
 	local inventoryColumns = if stack then 1 else 2
 	local EMPTY_VAULT_H = 96
-	local inventoryRows = if #echoes.Inventory == 0 then 0 elseif stack then #echoes.Inventory else math.ceil(#echoes.Inventory / inventoryColumns)
+	local inventoryRows = if #vaultItems == 0 then 0 elseif stack then #vaultItems else math.ceil(#vaultItems / inventoryColumns)
 	local inventoryGridH = if inventoryRows == 0 then EMPTY_VAULT_H else inventoryRows * INVENTORY_CARD_H + math.max(0, inventoryRows - 1) * sectionGap
-	local virtInventory = #echoes.Inventory >= VIRT_INVENTORY_MIN
+	local virtInventory = #vaultItems >= VIRT_INVENTORY_MIN
 	local inventoryRowStride = INVENTORY_CARD_H + sectionGap
 	local inventoryViewportRows = if virtInventory then math.min(inventoryRows, VIRT_INVENTORY_VISIBLE_ROWS) else inventoryRows
-	local inventoryViewportH = if #echoes.Inventory == 0 then EMPTY_VAULT_H elseif virtInventory then inventoryViewportRows * inventoryRowStride else inventoryGridH
-	local inventorySectionH = 30 + inventoryViewportH
+	local inventoryViewportH = if #vaultItems == 0 then EMPTY_VAULT_H elseif virtInventory then inventoryViewportRows * inventoryRowStride else inventoryGridH
+	local inventorySectionH = 30 + vaultBarH + inventoryViewportH
 	local dominant = PATTERN_COPY[echoes.DominantPattern]
 	local chargeFill = echoes.Charge / math.max(1, echoes.ChargeTarget)
 	local chargeAccent = if echoes.Ready or #echoes.Choices > 0 then Palette.mango else dominant.color
@@ -2119,7 +2231,7 @@ local function EchoForgeView(_param)
 		}), _newValue_1)),
 	})
 	local inventoryBody
-	if #echoes.Inventory > 0 then
+	if #vaultItems > 0 then
 		local makeCard = function(item, index)
 			return React.createElement(InventoryCard, {
 				key = item.Uid,
@@ -2139,13 +2251,13 @@ local function EchoForgeView(_param)
 		if virtInventory then
 			local offerRows = {}
 			local index = 1
-			while index <= #echoes.Inventory do
+			while index <= #vaultItems do
 				local row = {
 					Id = `echo-row-{index}`,
 					cells = {},
 				}
 				for col = 0, inventoryColumns - 1 do
-					local item = echoes.Inventory[index]
+					local item = vaultItems[index]
 					if item == nil then
 						break
 					end
@@ -2192,12 +2304,22 @@ local function EchoForgeView(_param)
 				end,
 			})
 		else
-			local _newValue_2 = table.create(#echoes.Inventory)
-			for _k, _v in echoes.Inventory do
+			local _newValue_2 = table.create(#vaultItems)
+			for _k, _v in vaultItems do
 				_newValue_2[_k] = makeCard(_v, _k - 1)
 			end
 			inventoryBody = _newValue_2
 		end
+	elseif #echoes.Inventory > 0 then
+		inventoryBody = React.createElement(Browse.NoResults, {
+			browse = echoBrowse,
+			noun = "echoes",
+			icon = "Wave",
+			accent = Palette.cyan,
+			reducedMotion = softMotion,
+			compact = true,
+			size = UDim2.new(1, 0, 0, EMPTY_VAULT_H),
+		})
 	else
 		inventoryBody = React.createElement(Panel, {
 			size = UDim2.new(1, 0, 0, EMPTY_VAULT_H),
@@ -2240,12 +2362,20 @@ local function EchoForgeView(_param)
 		}, React.createElement(SectionLabel, {
 			value = `ECHO VAULT · {#echoes.Inventory}/{echoes.InventoryLimit}`,
 			color = Palette.cyan,
+		}), showVaultBar and React.createElement(Browse.BrowseBar, {
+			browse = echoBrowse,
+			placeholder = "Search echoes by bonus",
+			accent = Palette.cyan,
+			stack = stack,
+			reducedMotion = softMotion,
+			position = UDim2.fromOffset(0, SECTION_LABEL_H),
+			zIndex = 30,
 		}), React.createElement("frame", {
 			Size = UDim2.new(1, 0, 0, inventoryViewportH),
-			Position = UDim2.fromOffset(0, SECTION_LABEL_H),
+			Position = UDim2.fromOffset(0, SECTION_LABEL_H + vaultBarH),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-		}, if #echoes.Inventory > 0 and not virtInventory then React.createElement(AutoGrid, {
+		}, if #vaultItems > 0 and not virtInventory then React.createElement(AutoGrid, {
 			columns = inventoryColumns,
 			cellHeight = INVENTORY_CARD_H,
 			gap = sectionGap,
@@ -2333,6 +2463,12 @@ local FILTERS = { {
 }, {
 	id = "Protected",
 	label = "Protected only",
+}, {
+	id = "Duplicates",
+	label = "Duplicates",
+}, {
+	id = "Starred",
+	label = "Starred only",
 } }
 local SORTS = { {
 	id = "Rarity",
@@ -2346,6 +2482,12 @@ local SORTS = { {
 }, {
 	id = "Newest",
 	label = "Newest first",
+}, {
+	id = "Stars",
+	label = "Most stars",
+}, {
+	id = "Salvage",
+	label = "Salvage value",
 }, {
 	id = "Name",
 	label = "Name A-Z",
@@ -3195,6 +3337,7 @@ local function DetailPanel(_param)
 			text = if locked then "UNPROTECT" else "PROTECT",
 			icon = "Lock",
 			onClick = function()
+				Audio:play(if locked then "favoriteOff" else "favoriteOn")
 				return dispatch("ToggleItemLock", {
 					Uid = item.uid,
 				})
@@ -3920,7 +4063,7 @@ local function InventoryView(_param)
 	local filter, setFilter = React.useState("All")
 	local sort, setSort = React.useState("Rarity")
 	local rarity, setRarity = React.useState("Any")
-	local search, setSearch = React.useState("")
+	local search, setSearch = require(script.Parent.Parent.BrowseKit).useLinkedQuery("Inventory")
 	local bulkMode, setBulkModeState = React.useState(false)
 	local bulkSelected, setBulkSelected = React.useState({})
 	local bulkBusy, setBulkBusy = React.useState(false)
@@ -3952,7 +4095,7 @@ local function InventoryView(_param)
 	end
 	local owned = React.useMemo(_exp, { _exp_1, _result, _result_1 })
 	local filtered = React.useMemo(function()
-		return InventoryMath.SortOwned(InventoryMath.SearchOwned(InventoryMath.FilterOwned(owned, filter), search, rarity), config, sort)
+		return InventoryMath.SortOwned(InventoryMath.SearchOwned(InventoryMath.FilterOwned(owned, filter), search, rarity, require(script.Parent.Parent.BrowseKit).matches), config, sort)
 	end, { config.Items, filter, owned, rarity, search, sort })
 	local _callback_1 = function(entry)
 		return entry.uid == selectedUid

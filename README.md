@@ -1,6 +1,6 @@
 # Astral Forge v2
 
-Argon-synced project for Astral Forge 5.1.0. Argon reads the existing
+Argon-synced project for Astral Forge 7.0.0. Argon reads the existing
 `default.project.json` mapping (its Rojo-compatible project format). The game version is **not** the save-schema
 version: live saves currently use `GameConfig.Game.DataVersion = 21`. Do not bump
 that value or delete the `DataService` legacy transfer without save fixtures.
@@ -9,7 +9,7 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 
 | What | Version |
 |------|---------|
-| Game (GameConfig.Game.Version, package.json) | 5.1.0 |
+| Game (GameConfig.Game.Version, package.json) | 7.0.0 |
 | Save schema (GameConfig.Game.DataVersion) | 21 (do not bump without save fixtures) |
 | Lune (tests) | 0.10.5 |
 | Argon (Studio sync) | 2.0.29 |
@@ -17,7 +17,25 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 | Python (asset tools) | 3.14 |
 
 The verification suite is the scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
-Last updated 2026-10-03.
+Last updated 2026-10-09.
+
+## Release 7.0
+
+The 7.0 revamp removes casino gameplay and expands the Bazaar, Sky features,
+inventory, crate perks and artifact presentation. Equipped artifacts are visible
+in the world, custom chat and player list. Guild community tools, domain-tree
+visuals, UI audio, context-aware motion, mobile editing and rebirth presentation
+are updated alongside reports, feedback, ranks, admin tools and event effects.
+Save schema remains **21**. Offline guards and compilation do not replace Studio
+multiplayer, device, audio-permission and save/load testing before Roblox publish.
+
+The polish pass fixes dense trade-offer transport, blocks Ready/Confirm until
+offer synchronization finishes, and corrects Comet title markup. Shared controls
+keep spring timing responsive across motion-intensity settings and retain
+subpixel movement. LayoutGuard scanning has a 1.5 ms cooperative frame budget;
+collision passes run on separate frames, and animated title glyphs are left to
+their renderer. Actual layout latency and frame rate still require Studio
+measurement; count-based scheduler estimates are not runtime guarantees.
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
 

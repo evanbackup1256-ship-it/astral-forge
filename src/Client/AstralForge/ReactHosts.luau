@@ -543,8 +543,12 @@ function PageErrorBoundary.getDerivedStateFromError(err)
 		message = tostring(err),
 	}
 end
-function PageErrorBoundary:componentDidCatch(err)
-	ClientLog:warnEvery("react-page", 5, "React", tostring(err))
+function PageErrorBoundary:componentDidCatch(err, info)
+	local page = self.props.page or "AppShell"
+	local stack = if type(info) == "table" and type(info.componentStack) == "string"
+		then info.componentStack
+		else ""
+	ClientLog:warnEvery(`react-page-{page}`, 5, "React", `{page}: {tostring(err)}{stack}`)
 end
 function PageErrorBoundary:render()
 	if self.state.failed then
@@ -623,6 +627,7 @@ local PageFrame = React.memo(React.forwardRef(function(props, ref)
 		fallback = React.createElement(PagePending),
 	}, React.createElement(PageErrorBoundary, {
 		key = `{page}:{retryCount}`,
+		page = page,
 	}, React.createElement(React.Profiler, {
 		id = if page ~= "" then page else "Game",
 		onRender = onPageRender,
@@ -644,7 +649,7 @@ local _theme = require(script.Parent.CoreKit)("theme")
 local darken = _theme.darken
 local lighten = _theme.lighten
 local Palette = _theme.Palette
-local TITLE_FX_KINDS = { "wave", "fire", "ice", "glitch", "galaxy", "rainbow", "glow", "neon", "sparkle", "shake", "pulse", "gradient-shift", "holographic", "void", "plasma", "chrome", "ember", "frost", "aurora", "matrix", "static", "bounce-in", "blur-resolve", "shimmer", "toxic", "solar", "ocean", "candy", "voltage", "prism", "phantom" }
+local TITLE_FX_KINDS = { "wave", "fire", "ice", "glitch", "galaxy", "rainbow", "glow", "neon", "sparkle", "shake", "pulse", "gradient-shift", "holographic", "void", "plasma", "chrome", "ember", "frost", "aurora", "matrix", "static", "bounce-in", "blur-resolve", "shimmer", "toxic", "solar", "ocean", "candy", "voltage", "prism", "phantom", "eclipse", "nebula", "molten", "circuit", "comet", "starforge" }
 local _set = {}
 for _, _v in TITLE_FX_KINDS do
 	_set[_v] = true
@@ -689,6 +694,12 @@ local FX_ACCENT = {
 	voltage = Palette.cyan,
 	prism = Palette.pink,
 	phantom = Palette.violet,
+	eclipse = Color3.fromRGB(255, 214, 140),
+	nebula = Palette.violet,
+	molten = Color3.fromRGB(255, 120, 40),
+	circuit = Palette.mint,
+	comet = Palette.cyan,
+	starforge = Color3.fromRGB(255, 226, 150),
 }
 local function titleFxAccent(fx)
 	local kind = parseFx(fx)
@@ -795,6 +806,25 @@ local function buildKindMarkup(kind, body)
 		end
 		if kind == "phantom" then
 			return `<italic=true><anim=slide dir=up offset=.2 rot=4 loop=true><trans=.18 tweenDur=1.3 tweenFrom=.62 loopTween=true><color={colorTag(Palette.violet)}>{body}</color></trans></anim></italic>`
+		end
+		-- dark core with a thin corona: stroke carries the light, fill stays near-black
+		if kind == "eclipse" then
+			return `<anim=grow startScale=.94 exp=1.2 loop=true><stroke=true color={colorTag(Color3.fromRGB(255, 214, 140))} thickness=.05><strokeGradient=true colors={colorTag(Color3.fromRGB(255, 160, 60))};{colorTag(Color3.fromRGB(255, 246, 210))};{colorTag(Color3.fromRGB(255, 160, 60))} individual=false moveDir=right moveSpeed=.35><color={colorTag(Color3.fromRGB(22, 16, 30))}>{body}</color></strokeGradient></stroke></anim>`
+		end
+		if kind == "nebula" then
+			return `<fog=true color={colorTag(Palette.violet)} rate=.4 chance=45 lifetime=1.1,1.8 startSize=.5,.9 endSize=.2,.35 velX=-.12,.12 velY=-.1,.1 startTrans=.55,.7 endTrans=1,1><anim=wiggle freq=.3 amp=.12 offset=.3 rot=false loop=true><gradient=true colors={colorTag(Palette.pink)};{colorTag(Palette.violet)};{colorTag(Color3.fromRGB(80, 110, 255))};{colorTag(Palette.pink)} individual=false moveDir=left moveSpeed=.16 spacing=.2>{body}</gradient></anim></fog>`
+		end
+		if kind == "molten" then
+			return `<anim=bounce dir=down offset=.12 exp=2.2 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 200, 90))} rate=.4 chance=35 lifetime=.6,1.1 startSize=.16,.26 endSize=0,0 velY=.4,.9 startPosY=.3,.5 accelY=.6,1><shadow=true color={colorTag(Color3.fromRGB(60, 12, 4))} offset=0,.16 trans=.3><gradient=true colors={colorTag(Color3.fromRGB(150, 24, 8))};{colorTag(Color3.fromRGB(255, 120, 40))};{colorTag(Color3.fromRGB(255, 226, 120))} individual=false moveDir=up moveSpeed=.5 rot=90>{body}</gradient></shadow></shiny></anim>`
+		end
+		if kind == "circuit" then
+			return `<decode=true dur=.3 freq=5 loop=false><stroke=true color={colorTag(Color3.fromRGB(10, 40, 30))} thickness=.04><gradient=true colors={colorTag(Palette.mint)};{colorTag(Color3.fromRGB(20, 120, 90))};{colorTag(Palette.mint)} individual=true moveDir=right moveSpeed=1.4>{body}</gradient></stroke></decode>`
+		end
+		if kind == "comet" then
+			return `<anim=slide dir=up offset=.14 rot=0 loop=true><shiny=true color={colorTag(Palette.white)} rate=.6 chance=45 lifetime=.4,.8 startSize=.18,.3 endSize=0,0 velX=-1.4,-.8 velY=-.08,.08><gradient=true colors={colorTag(Color3.fromRGB(40, 90, 200))};{colorTag(Palette.cyan)};{colorTag(Palette.white)} individual=false moveDir=right moveSpeed=.9>{body}</gradient></shiny></anim>`
+		end
+		if kind == "starforge" then
+			return `<anim=grow startScale=.9 exp=1.3 loop=true><shiny=true color={colorTag(Color3.fromRGB(255, 240, 190))} rate=.55 chance=35 lifetime=.5,1 startSize=.2,.36 endSize=0,0 velX=-.5,.5 velY=-.6,-.1><stroke=true color={colorTag(Color3.fromRGB(70, 40, 10))} thickness=.04><gradient=true colors={colorTag(Color3.fromRGB(255, 190, 90))};{colorTag(Color3.fromRGB(255, 250, 225))};{colorTag(Palette.cyan)};{colorTag(Color3.fromRGB(255, 190, 90))} individual=false moveDir=right moveSpeed=.6 rot=20>{body}</gradient></stroke></shiny></anim>`
 		end
 		if kind == "bounce-in" then
 			return `<anim=bounce dir=up offset=.7 exp=1.55><color={colorTag(Palette.mango)}>{body}</color></anim>`
@@ -1005,7 +1035,12 @@ local function AnimatedTitle(_param)
 		ZIndex = 2,
 		ClipsDescendants = true,
 	}, React.createElement("frame", {
-		ref = hostRef,
+		ref = function(host)
+			hostRef.current = host
+			if host ~= nil then
+				host:SetAttribute("LayoutGuardIgnore", true)
+			end
+		end,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,

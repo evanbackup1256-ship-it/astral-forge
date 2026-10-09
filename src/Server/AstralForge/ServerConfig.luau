@@ -20,13 +20,21 @@ return {
 	CoresLeaderboardStoreName = resetStore("AstralForge_Cores_v2"),
 	DomainLeaderboardStoreName = resetStore("AstralForge_Domain_v2"),
 	WorldLeaderboardStoreName = resetStore("AstralForge_World_v2"),
+	CratesLeaderboardStoreName = resetStore("AstralForge_Crates_v2"),
+	FindsLeaderboardStoreName = resetStore("AstralForge_Finds_v2"),
+	OreLeaderboardStoreName = resetStore("AstralForge_Ore_v2"),
+	WardensLeaderboardStoreName = resetStore("AstralForge_Wardens_v2"),
+	OrdersLeaderboardStoreName = resetStore("AstralForge_Orders_v2"),
+	StarsLeaderboardStoreName = resetStore("AstralForge_Stars_v2"),
+	CipherLeaderboardStoreName = resetStore("AstralForge_Cipher_v2"),
 	AdminAuditStoreName = "AstralForge_AdminAudit_v1",
 	DiscordModQueueStoreName = "AstralForge_DiscordModQueue_v1",
 	GuildStoreName = resetStore("AstralForge_Guilds_v1"),
 
 	GuildLeaderboardStoreName = resetStore("AstralForge_GuildLB_v2"),
 
-	SessionLockSeconds = 180,
+	-- Must stay in sync with DocumentService/Document.luau SESSION_EXPIRE_TIME.
+	SessionLockSeconds = 600,
 	SaveRetries = 3,
 	AllowStudioMemoryFallback = true,
 
@@ -45,6 +53,9 @@ return {
 	CreatorUsername = "usingINales",
 	AllowStudioFollowVerification = true,
 	FollowReward = { CashMinutes = 12, Stardust = 35, Signals = 10 },
+
+	-- Enforcement stays opt-in for Studio QA, but protects live economy mutations by default.
+	GameAntiCheat = { EnforcementEnabled = not game:GetService("RunService"):IsStudio() },
 
 	DiscordModQueuePollSeconds = 20,
 	DiscordModQueuePrefix = "DiscordMod_",

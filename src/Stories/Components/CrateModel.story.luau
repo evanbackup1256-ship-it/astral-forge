@@ -12,7 +12,7 @@ end
 
 return StoryKit.story({
 	name = "Crate skin",
-	summary = "A crate skin from the casino kit (Crate_<Skin>_Body/_Lid), as the Shop and the crate reveal show it.",
+	summary = "A crate skin from the prop kit (Crate_<Skin>_Body/_Lid), as the Shop and the crate reveal show it.",
 	controls = {
 		Skin = UILabs.Choose(skins, 1),
 		Open = UILabs.Slider(0, 0, 1, 0.05),

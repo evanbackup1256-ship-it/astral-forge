@@ -701,6 +701,11 @@ function TradeExchange.SnapshotOfferItems(offer, profile)
 	return payloads
 end
 
+local function mintItemUid(profile): string
+	profile.Items.NextId = (tonumber(profile.Items.NextId) or 0) + 1
+	return string.format("IT%07d", profile.Items.NextId)
+end
+
 function TradeExchange.ApplyExchange(gameConfig, omegaMath, profile, give, take, giveItems, takeItems, now: number, validateOffer): string?
 	ensureLedger(profile, now)
 	ensureTradeBags(profile)
@@ -746,7 +751,11 @@ function TradeExchange.ApplyExchange(gameConfig, omegaMath, profile, give, take,
 		for _, uid in take.ItemIds do
 			local payload = takeItems and takeItems[uid]
 			if payload ~= nil then
-				profile.Items.Inventory[uid] = TradeExchange.CopyItemInstance(payload)
+				-- Receiver UIDs are per-profile monotonic sequences; re-key incoming
+				-- items so a sender's UID can never overwrite a different relic here.
+				local newUid = mintItemUid(profile)
+				payload.NewUid = newUid
+				profile.Items.Inventory[newUid] = TradeExchange.CopyItemInstance(payload)
 			end
 		end
 	end
@@ -790,7 +799,9 @@ function TradeExchange.RevertExchange(omegaMath, profile, give, take, giveItems,
 	end
 	if type(take.ItemIds) == "table" then
 		for _, uid in take.ItemIds do
-			profile.Items.Inventory[uid] = nil
+			local payload = takeItems and takeItems[uid]
+			local removeUid = (type(payload) == "table" and payload.NewUid) or uid
+			profile.Items.Inventory[removeUid] = nil
 		end
 	end
 	for _, uid in give.ItemIds do
@@ -1126,8 +1137,28 @@ function TradeSettle.RunHostGuest(session, hooks: any): any
 	assert(type(hooks.applyGuest) == "function", "hooks.applyGuest required")
 	assert(type(hooks.revertHostOnce) == "function", "hooks.revertHostOnce required")
 
+	-- Optional per-profile journal hooks for durable trade settlement.
+	local writeHostJournal = hooks.writeHostJournal
+	local writeGuestJournal = hooks.writeGuestJournal
+	local plan = hooks.plan
+
+	local function safeHostJournal(status: string, reason: string?)
+		if type(writeHostJournal) ~= "function" then return end
+		pcall(writeHostJournal, status, reason)
+	end
+	local function safeGuestJournal(status: string, reason: string?)
+		if type(writeGuestJournal) ~= "function" then return end
+		pcall(writeGuestJournal, status, reason)
+	end
+
+	-- Record intent on both profiles before any mutation commits.
+	safeHostJournal("pending")
+	safeGuestJournal("pending")
+
 	local hostCommitted, hostResult = hooks.applyHost()
 	if not TradeSettle.IsCommitOk(hostCommitted, hostResult) then
+		safeHostJournal("aborted", TradeSettle.CommitError(hostResult) or "host-apply-failed")
+		safeGuestJournal("aborted")
 		TradeSettle.Fail(session, false)
 		return {
 			ok = false,
@@ -1137,8 +1168,18 @@ function TradeSettle.RunHostGuest(session, hooks: any): any
 		}
 	end
 
+	-- Host side is now committed; mark it locked/escrow before attempting guest commit.
+	-- This in-memory flag and the journal status let recovery know the host side
+	-- may need to be reverted if the guest side cannot complete.
+	session.HostCommitted = true
+	safeHostJournal("locked")
+
 	if not hooks.guestPresent() then
+		safeGuestJournal("aborted", "guest-absent")
 		local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, hooks.revertHostOnce)
+		if reverted then
+			safeHostJournal("reverted", TradeSettle.REASON_GUEST_LEFT)
+		end
 		TradeSettle.Fail(session, not reverted, TradeSettle.REASON_GUEST_LEFT)
 		local outcome: any = {
 			ok = false,
@@ -1154,6 +1195,9 @@ function TradeSettle.RunHostGuest(session, hooks: any): any
 				session.Guest,
 				TradeSettle.REASON_GUEST_LEFT
 			)
+			-- Never silently fault: stamp a durable faulted journal entry.
+			safeHostJournal("faulted", TradeSettle.REASON_GUEST_LEFT)
+			safeGuestJournal("faulted", TradeSettle.REASON_GUEST_LEFT)
 		end
 		return outcome
 	end
@@ -1161,6 +1205,9 @@ function TradeSettle.RunHostGuest(session, hooks: any): any
 	local guestCommitted, guestResult = hooks.applyGuest()
 	if not TradeSettle.IsCommitOk(guestCommitted, guestResult) then
 		local reverted = TradeSettle.RevertWithRetries(TradeSettle.REVERT_ATTEMPTS, hooks.revertHostOnce)
+		if reverted then
+			safeHostJournal("reverted", TradeSettle.REASON_GUEST_APPLY)
+		end
 		TradeSettle.Fail(session, not reverted, TradeSettle.REASON_GUEST_APPLY)
 		local outcome: any = {
 			ok = false,
@@ -1176,10 +1223,15 @@ function TradeSettle.RunHostGuest(session, hooks: any): any
 				session.Guest,
 				TradeSettle.REASON_GUEST_APPLY
 			)
+			-- Never silently fault: stamp a durable faulted journal entry.
+			safeHostJournal("faulted", TradeSettle.REASON_GUEST_APPLY)
+			safeGuestJournal("faulted", TradeSettle.REASON_GUEST_APPLY)
 		end
 		return outcome
 	end
 
+	safeHostJournal("settled")
+	safeGuestJournal("settled")
 	return {
 		ok = true,
 		kind = TradeSettle.KIND_COMPLETE,
@@ -1188,6 +1240,103 @@ function TradeSettle.RunHostGuest(session, hooks: any): any
 end
 
 return table.freeze(TradeSettle)
+end
+
+__defs["TradeRecovery"] = function()
+
+local TradeRecovery = {}
+
+local TradeExchange = __load("TradeExchange")
+
+local function safeRequireOmegaMath(): any
+	local ok, OmegaMath = pcall(function()
+		return require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("OmegaMath"))
+	end)
+	if ok then return OmegaMath end
+	return nil
+end
+
+local function ensureTradeJournal(profile)
+	if type(profile.Trade) ~= "table" then
+		profile.Trade = { Day = -1, Completed = 0, Sent = {}, Journal = {}, FaultedJournal = nil }
+	end
+	if type(profile.Trade.Journal) ~= "table" then
+		profile.Trade.Journal = {}
+	end
+end
+
+-- Build a serializable record of a faulted trade for later reconciliation.
+function TradeRecovery.MakeFaultedEntry(session, side: string, plan: any, reason: string, now: number): any
+	local entry: any = {
+		SessionId = session.Id,
+		Side = side,
+		Host = session.Host,
+		Guest = session.Guest,
+		Status = "faulted",
+		Reason = reason,
+		At = now,
+		HostCommitted = session.HostCommitted == true,
+		GuestCommitted = session.GuestCommitted == true,
+		HostReverted = false,
+		GuestReverted = false,
+	}
+	if side == "host" and type(plan) == "table" then
+		entry.Give = plan.HostOffer
+		entry.Take = plan.GuestOffer
+		entry.GiveItems = plan.HostItems
+		entry.TakeItems = plan.GuestItems
+	elseif side == "guest" and type(plan) == "table" then
+		entry.Give = plan.GuestOffer
+		entry.Take = plan.HostOffer
+		entry.GiveItems = plan.GuestItems
+		entry.TakeItems = plan.HostItems
+	end
+	return entry
+end
+
+-- Reconcile a faulted trade journal against a freshly loaded profile.
+-- Only touches the local profile; each side recovers independently on load.
+function TradeRecovery.RecoverFaulted(profile, now: number, log: ((string) -> ())?)
+	ensureTradeJournal(profile)
+	local entry = profile.Trade.FaultedJournal
+	if type(entry) ~= "table" or entry.Status ~= "faulted" then
+		profile.Trade.FaultedJournal = nil
+		return
+	end
+
+	local OmegaMath = safeRequireOmegaMath()
+	if not OmegaMath then
+		-- OmegaMath is not available outside runtime; leave the entry for manual review.
+		return
+	end
+
+	local side = entry.Side
+	local committed = side == "host" and entry.HostCommitted or entry.GuestCommitted
+	local reverted = side == "host" and entry.HostReverted or entry.GuestReverted
+	if committed and not reverted and type(entry.Give) == "table" and type(entry.Take) == "table" then
+		TradeExchange.RevertExchange(OmegaMath, profile, entry.Give, entry.Take, entry.GiveItems, entry.TakeItems, now)
+		if side == "host" then
+			entry.HostReverted = true
+		else
+			entry.GuestReverted = true
+		end
+		entry.RecoveredAt = now
+		entry.Status = "recovered"
+		if type(log) == "function" then
+			log(string.format(
+				"Recovered faulted trade session=%s side=%s host=%d guest=%d reason=%s",
+				tostring(entry.SessionId),
+				tostring(side),
+				tonumber(entry.Host) or 0,
+				tonumber(entry.Guest) or 0,
+				tostring(entry.Reason)
+			))
+		end
+	end
+	profile.Trade.FaultedJournal = nil
+end
+
+return table.freeze(TradeRecovery)
 end
 
 local __members = {}

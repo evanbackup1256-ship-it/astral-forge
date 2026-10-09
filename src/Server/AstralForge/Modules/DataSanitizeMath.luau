@@ -26,6 +26,8 @@ function DataSanitizeMath.Reconcile(target: any, template: any): any
 		elseif currentValue == nil then
 			target[key] = DataSanitizeMath.DeepCopy(defaultValue)
 		elseif type(defaultValue) == "number" and type(currentValue) == "string" then
+			-- Economy fields use number|string persistence. Keep the original value
+			-- for the field-specific sanitizer; tonumber can overflow valid saves.
 		elseif type(defaultValue) ~= type(currentValue) then
 			target[key] = DataSanitizeMath.DeepCopy(defaultValue)
 		end

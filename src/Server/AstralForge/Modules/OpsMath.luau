@@ -446,7 +446,13 @@ function AdminGrantMath.CleanText(raw: any, maximum: number): string
 	local value = string.gsub(raw, "[%c]", " ")
 	value = string.gsub(value, "^%s+", "")
 	value = string.gsub(value, "%s+$", "")
-	return string.sub(value, 1, cap)
+	value = string.sub(value, 1, cap)
+	-- a byte cap can split a multi-byte character; drop the broken tail
+	local _, brokenAt = utf8.len(value)
+	if brokenAt then
+		value = string.sub(value, 1, brokenAt - 1)
+	end
+	return value
 end
 
 function AdminGrantMath.CommandDanger(definition: { [string]: any }?): string
@@ -818,16 +824,19 @@ function RemoteFirewallMath.StringArrayField(
 		return false
 	end
 	local count = 0
-	for _, entry in value do
+	for index, entry in value do
 		count += 1
 		if count > maxEntries then
+			return false
+		end
+		if type(index) ~= "number" or index % 1 ~= 0 or index < 1 or index > #value then
 			return false
 		end
 		if type(entry) ~= "string" or entry:len() < entryMinLen or entry:len() > entryMaxLen then
 			return false
 		end
 	end
-	return true
+	return count == #value
 end
 
 function RemoteFirewallMath.NumberField(
@@ -846,15 +855,51 @@ end
 
 RemoteFirewallMath.INSPECT_MAX_DEPTH = 3
 RemoteFirewallMath.INSPECT_MAX_ENTRIES = 32
+RemoteFirewallMath.TRADE_MAX_ENTRIES = 64
 RemoteFirewallMath.INSPECT_MAX_STRING = 600
 RemoteFirewallMath.INSPECT_MAX_KEY_LEN = 64
 RemoteFirewallMath.INSPECT_MAX_INDEX = 10000
+
+function RemoteFirewallMath.ValidateTradeOffer(offer: any, maxItems: number): (boolean, string?)
+	if type(offer) ~= "table" then
+		return false, "invalid trade offer"
+	end
+	for key, value in offer do
+		if key == "Cash" or key == "Stardust" or key == "Cores" or key == "Signals" or key == "Essence" then
+			if not RemoteFirewallMath.NumberField(offer, key, 0, RemoteFirewallMath.MAX_SAFE_USER_ID, true) then
+				return false, "invalid trade currency"
+			end
+		elseif key == "Boosts" or key == "Keys" then
+			if type(value) ~= "table" then
+				return false, "invalid trade consumables"
+			end
+			local count = 0
+			for id in value do
+				count += 1
+				if type(id) ~= "string" or not RemoteFirewallMath.NumberField(value, id, 0, RemoteFirewallMath.MAX_SAFE_USER_ID, true) then
+					return false, "invalid trade consumable count"
+				end
+			end
+			if count > (if key == "Boosts" then 14 else 7) then
+				return false, "too many trade consumable types"
+			end
+		elseif key == "ItemIds" then
+			if not RemoteFirewallMath.StringArrayField(offer, "ItemIds", maxItems, 1, 48) then
+				return false, "invalid trade items"
+			end
+		else
+			return false, "unexpected trade offer field"
+		end
+	end
+	return true
+end
 
 function RemoteFirewallMath.Inspect(
 	value: any,
 	depth: number?,
 	seen: { [any]: boolean }?,
-	budget: { Value: number }?
+	budget: { Value: number }?,
+	maxEntries: number?
 ): (boolean, string?)
 	local nest = math.max(0, math.floor(tonumber(depth) or 0))
 	local visited = seen or {}
@@ -881,7 +926,7 @@ function RemoteFirewallMath.Inspect(
 	visited[value] = true
 	for key, child in value do
 		entries.Value += 1
-		if entries.Value > RemoteFirewallMath.INSPECT_MAX_ENTRIES then
+		if entries.Value > (maxEntries or RemoteFirewallMath.INSPECT_MAX_ENTRIES) then
 			visited[value] = nil
 			return false, "payload is too large"
 		end
@@ -905,7 +950,7 @@ function RemoteFirewallMath.Inspect(
 			visited[value] = nil
 			return false, "payload index is outside the safe range"
 		end
-		local ok, reason = RemoteFirewallMath.Inspect(child, nest + 1, visited, entries)
+		local ok, reason = RemoteFirewallMath.Inspect(child, nest + 1, visited, entries, maxEntries)
 		if not ok then
 			visited[value] = nil
 			return false, reason

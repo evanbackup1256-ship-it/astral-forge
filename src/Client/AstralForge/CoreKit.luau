@@ -281,58 +281,9 @@ exports.isMobileLandscape = _mobileLayout.isMobileLandscape
 exports.moreDockHeight = _mobileLayout.moreDockHeight
 exports.planMobileLayout = _mobileLayout.planMobileLayout
 exports.scrollTail = _mobileLayout.scrollTail
-local Palette = {
-	void = Color3.fromRGB(8, 6, 10),
-	ink = Color3.fromRGB(12, 9, 14),
-	night = Color3.fromRGB(19, 14, 20),
-	panel = Color3.fromRGB(27, 21, 29),
-	panelRaised = Color3.fromRGB(39, 31, 42),
-	panelSoft = Color3.fromRGB(62, 49, 66),
-	line = Color3.fromRGB(74, 58, 80),
-	lineSoft = Color3.fromRGB(132, 110, 142),
-	cream = Color3.fromRGB(252, 247, 240),
-	creamSoft = Color3.fromRGB(230, 220, 212),
-	muted = Color3.fromRGB(178, 160, 166),
-	cyan = Color3.fromRGB(70, 218, 242),
-	mint = Color3.fromRGB(86, 236, 178),
-	coral = Color3.fromRGB(255, 104, 112),
-	mango = Color3.fromRGB(255, 184, 52),
-	violet = Color3.fromRGB(178, 134, 255),
-	pink = Color3.fromRGB(250, 104, 178),
-	blue = Color3.fromRGB(96, 166, 255),
-	white = Color3.fromRGB(255, 255, 255),
-	green = Color3.fromRGB(98, 232, 164),
-	red = Color3.fromRGB(240, 78, 88),
-	shadow = Color3.fromRGB(0, 0, 0),
-	graphite = Color3.fromRGB(22, 17, 25),
-	steel = Color3.fromRGB(204, 214, 234),
-	steelBright = Color3.fromRGB(252, 247, 240),
-	brass = Color3.fromRGB(250, 190, 72),
-	brassDeep = Color3.fromRGB(140, 92, 30),
-	ember = Color3.fromRGB(244, 92, 84),
-}
-local ACCESSIBLE_BASE = {
-	void = Palette.void,
-	ink = Palette.ink,
-	night = Palette.night,
-	panel = Palette.panel,
-	panelRaised = Palette.panelRaised,
-	panelSoft = Palette.panelSoft,
-	line = Palette.line,
-	lineSoft = Palette.lineSoft,
-	cream = Palette.cream,
-	creamSoft = Palette.creamSoft,
-	muted = Palette.muted,
-	cyan = Palette.cyan,
-	mint = Palette.mint,
-	coral = Palette.coral,
-	mango = Palette.mango,
-	violet = Palette.violet,
-	pink = Palette.pink,
-	blue = Palette.blue,
-	green = Palette.green,
-	red = Palette.red,
-}
+local ForgeTheme = require(game.ReplicatedStorage.AstralForge.Shared.ForgeTheme)
+local Palette = ForgeTheme.newPalette()
+
 local accessibilitySignature = ""
 local function applyAccessibilityTheme(highContrast, colorblind)
 	local signature = `{highContrast}:{colorblind}`
@@ -340,30 +291,10 @@ local function applyAccessibilityTheme(highContrast, colorblind)
 		return nil
 	end
 	accessibilitySignature = signature
-	local mutable = Palette
-	for key, value in pairs(ACCESSIBLE_BASE) do
-		mutable[key] = value
-	end
-	if colorblind then
-		mutable.green = Color3.fromRGB(86, 180, 233)
-		mutable.mint = Color3.fromRGB(86, 180, 233)
-		mutable.red = Color3.fromRGB(230, 159, 0)
-		mutable.coral = Color3.fromRGB(230, 159, 0)
-		mutable.pink = Color3.fromRGB(204, 121, 167)
-		mutable.violet = Color3.fromRGB(0, 158, 115)
-	end
-	if highContrast then
-		mutable.void = Color3.fromRGB(0, 0, 0)
-		mutable.ink = Color3.fromRGB(3, 2, 3)
-		mutable.night = Color3.fromRGB(8, 6, 8)
-		mutable.panel = Color3.fromRGB(13, 10, 14)
-		mutable.panelRaised = Color3.fromRGB(21, 16, 23)
-		mutable.panelSoft = Color3.fromRGB(36, 28, 40)
-		mutable.lineSoft = Color3.fromRGB(160, 142, 168)
-		mutable.cream = Color3.fromRGB(255, 255, 255)
-		mutable.creamSoft = Color3.fromRGB(235, 240, 246)
-		mutable.muted = Color3.fromRGB(190, 199, 210)
-	end
+	ForgeTheme.applyAccessibility(Palette, {
+		HighContrast = highContrast == true,
+		Colorblind = colorblind == true,
+	})
 end
 local Layout = {
 	pagePadding = 18,
@@ -892,6 +823,11 @@ local function formatFromLog10(log10, sign)
 		scaled /= 1000
 	end
 	local suffix = suffixForGroup(group)
+	-- past the Latin abbreviations the tiers are whole words; glued to the digits they read as
+	-- garbled text ("1.01Horizon"), so words get a space while "1.20K" stays tight
+	if #suffix >= 5 then
+		suffix = " " .. suffix
+	end
 	local absolute = math.abs(scaled)
 	if absolute >= 100 then
 		return string.format("%.0f%s", scaled, suffix)
@@ -1226,12 +1162,14 @@ local GRANT_ACTIONS = {
 	["ClaimDaily"] = true,
 	["ClaimTimedReward"] = true,
 	["SpinWheel"] = true,
-	["CasinoPlay"] = true,
 	["BazaarPlay"] = true,
+	["PlotStar"] = true,
+	["SubmitCipher"] = true,
 	["LaunchExpedition"] = true,
 	["ClaimExpedition"] = true,
 	["EquipArtifact"] = true,
 	["UpgradeArtifact"] = true,
+	["BuyArtifact"] = true,
 	["UpgradeCrew"] = true,
 	["ClaimCommanderReward"] = true,
 	["ClaimWeeklyDirective"] = true,
@@ -1267,9 +1205,23 @@ local GRANT_ACTIONS = {
 	["DisbandGuild"] = true,
 	["KickGuildMember"] = true,
 	["SetGuildRole"] = true,
+	["RenameGuild"] = true,
 	["ContributeGuild"] = true,
 	["BuyGuildUpgrade"] = true,
 	["ClaimGuildGoal"] = true,
+	["SendGuildChat"] = true,
+	["SetGuildSettings"] = true,
+	["CreateGuildAnnouncement"] = true,
+	["EditGuildAnnouncement"] = true,
+	["PinGuildAnnouncement"] = true,
+	["ArchiveGuildAnnouncement"] = true,
+	["SetGuildAnnouncementExpiry"] = true,
+	["MuteGuildMember"] = true,
+	["UnmuteGuildMember"] = true,
+	["BanGuildMember"] = true,
+	["UnbanGuildMember"] = true,
+	["UploadGuildLogo"] = true,
+	["ModerateGuildLogo"] = true,
 	["AdminExecute"] = true,
 	["ClaimConvergenceReward"] = true,
 	["ConfirmTrade"] = true,
@@ -1546,6 +1498,24 @@ function ChatText.limit(text, maxCharacters)
 	if length <= cap then return text end
 	return string.sub(text, 1, utf8.offset(text, cap + 1) - 1)
 end
+-- byte cap (servers measure #text) that never leaves half a UTF-8 character behind
+function ChatText.cutBytes(text, maxBytes)
+	if type(text) ~= "string" then return "" end
+	local stop = math.max(0, math.floor(maxBytes or 0))
+	if #text <= stop then return text end
+	local index = stop + 1
+	while index > 1 and index > stop - 3 do
+		local byte = string.byte(text, index)
+		if byte < 0x80 or byte >= 0xC0 then break end
+		index -= 1
+	end
+	return string.sub(text, 1, index - 1)
+end
+-- first visible character for monogram badges
+function ChatText.initial(text, fallback)
+	local first = if type(text) == "string" then string.match(text, utf8.charpattern) else nil
+	return string.upper(first or fallback or "?")
+end
 return ChatText
 end
 
@@ -1746,7 +1716,6 @@ NetworkPolicy.ACTION_COOLDOWNS = {
 	Overcharge = 0.05,
 	PulseAnomaly = 0.05,
 	SpinWheel = 1.4,
-	CasinoPlay = 0.4,
 	BazaarPlay = 0.35,
 	OpenItemCrate = 0.24,
 	BuyDailyOffer = 0.4,
@@ -1794,8 +1763,26 @@ NetworkPolicy.ACTION_COOLDOWNS = {
 	CreateGuild = 2.1,
 	JoinGuild = 1.1,
 	GetGuild = 0.32,
+	SendGuildChat = 0.45,
+	GetGuildChatHistory = 0.25,
+	GetGuildAnnouncements = 0.3,
+	GetGuildSettings = 0.6,
+	GetGuildLogoReview = 1.1,
+	SetGuildSettings = 1.1,
+	CreateGuildAnnouncement = 2.1,
+	EditGuildAnnouncement = 0.6,
+	PinGuildAnnouncement = 0.6,
+	ArchiveGuildAnnouncement = 0.6,
+	SetGuildAnnouncementExpiry = 0.6,
+	MuteGuildMember = 0.7,
+	UnmuteGuildMember = 0.7,
+	BanGuildMember = 1.1,
+	UnbanGuildMember = 0.7,
+	UploadGuildLogo = 0.6,
+	ModerateGuildLogo = 1.1,
 	KickGuildMember = 0.6,
 	SetGuildRole = 0.6,
+	RenameGuild = 2.1,
 	ContributeGuild = 0.45,
 	BuyGuildUpgrade = 0.8,
 	LeaveGuild = 1.1,
@@ -1806,6 +1793,10 @@ NetworkPolicy.REQUEST_TIMEOUTS = {
 	GetPlayers = 8,
 	GetPlayerMirror = 8,
 	GetGuild = 8,
+	GetGuildChatHistory = 8,
+	GetGuildAnnouncements = 8,
+	GetGuildSettings = 8,
+	GetGuildLogoReview = 8,
 	GetGuildLeaderboard = 8,
 	GetLeaderboard = 8,
 	GetAdminState = 8,
@@ -1997,6 +1988,7 @@ ActionCopy.FAILURE_BODY_BY_ACTION = {
 	ClaimExpedition = "That expedition isn't back yet.",
 	EquipArtifact = "Choose an artifact to equip.",
 	UpgradeArtifact = "Choose an artifact to upgrade.",
+	BuyArtifact = "Choose an artifact to buy.",
 	BuySignalOffer = "That signal offer isn't available.",
 	EquipTitle = "Choose a title to wear.",
 	ActivateBoost = "Choose a boost to activate.",
@@ -2308,13 +2300,29 @@ function InventoryMath.FilterOwned(list: any, filter: any): { any }
 	if filter == "All" or filter == nil then
 		return list
 	end
+	local defCounts = {}
+	if filter == "Duplicates" then
+		for _, item in list do
+			if type(item) == "table" and type(item.definition) == "table" then
+				local id = item.definition.Id or item.definition.Name
+				if id ~= nil then
+					defCounts[id] = (defCounts[id] or 0) + 1
+				end
+			end
+		end
+	end
 	local out = {}
 	for _, item in list do
 		if type(item) ~= "table" then
 			continue
 		end
 		local keep = false
-		if filter == "Equipped" then
+		if filter == "Duplicates" then
+			local id = type(item.definition) == "table" and (item.definition.Id or item.definition.Name) or nil
+			keep = id ~= nil and (defCounts[id] or 0) > 1
+		elseif filter == "Starred" then
+			keep = type(item.instance) == "table" and (tonumber(item.instance.Stars) or 0) > 0
+		elseif filter == "Equipped" then
 			keep = item.equippedOn ~= nil
 		elseif filter == "Unequipped" then
 			keep = item.equippedOn == nil
@@ -2330,7 +2338,8 @@ function InventoryMath.FilterOwned(list: any, filter: any): { any }
 	return out
 end
 
-function InventoryMath.SearchOwned(list: any, query: any, rarity: any): { any }
+-- `matcher(query, ...)` swaps in fuzzy matching (Quick Find style); substring otherwise.
+function InventoryMath.SearchOwned(list: any, query: any, rarity: any, matcher: any?): { any }
 	if type(list) ~= "table" then
 		return {}
 	end
@@ -2348,10 +2357,16 @@ function InventoryMath.SearchOwned(list: any, query: any, rarity: any): { any }
 			table.insert(out, item)
 			continue
 		end
-		local haystack = string.lower(
-			`{item.definition.Name or ""} {item.definition.Description or ""} {item.definition.EffectKind or ""} {item.uid or ""}`
-		)
-		if string.find(haystack, needle, 1, true) ~= nil then
+		local found
+		if matcher ~= nil then
+			found = matcher(needle, item.definition.Name, item.definition.Description, item.definition.EffectKind, item.definition.Rarity, item.definition.Slot, item.uid)
+		else
+			local haystack = string.lower(
+				`{item.definition.Name or ""} {item.definition.Description or ""} {item.definition.EffectKind or ""} {item.uid or ""}`
+			)
+			found = string.find(haystack, needle, 1, true) ~= nil
+		end
+		if found then
 			table.insert(out, item)
 		end
 	end
@@ -2382,6 +2397,21 @@ function InventoryMath.SortOwned(list: any, config: any, sort: any): { any }
 			return (aDef.Name or "") < (bDef.Name or "")
 		end
 		if sort == "Name" then
+			return (aDef.Name or "") < (bDef.Name or "")
+		end
+		if sort == "Stars" then
+			local sa, sb = tonumber(aInst.Stars) or 0, tonumber(bInst.Stars) or 0
+			if sa ~= sb then
+				return sa > sb
+			end
+			return InventoryMath.RarityRank(config, aDef.Rarity) > InventoryMath.RarityRank(config, bDef.Rarity)
+		end
+		if sort == "Salvage" then
+			local va = InventoryMath.SalvageValue(aInst.Level, InventoryMath.RarityRank(config, aDef.Rarity))
+			local vb = InventoryMath.SalvageValue(bInst.Level, InventoryMath.RarityRank(config, bDef.Rarity))
+			if va ~= vb then
+				return va > vb
+			end
 			return (aDef.Name or "") < (bDef.Name or "")
 		end
 		if sort == "Newest" then
@@ -3060,7 +3090,13 @@ local function fieldsFor(command, config, banned)
 	if command == "SetCores" or command == "SetStardust" or command == "SetRebirths" then
 		return pack(amountList({"0","1","10","100","1000","10000","1000000"}, "value", "Set"), "Exact value")
 	end
-	if command == "GrantFlux" then
+	if command == "SetDomainEssence" or command == "SetItemEssence" or command == "SetSignals" or command == "SetStreakShields" or command == "SetAnomalyFragments" then
+		return pack(amountList({"0","1","10","100","1000","10000"}, "value", "Set"), "Exact value")
+	end
+	if command == "SetSeasonXP" then
+		return pack(amountList({"0","100","1000","10000","100000"}, "XP", "Set"), "Exact value")
+	end
+	if command == "GrantFlux" or command == "GrantVaultFlux" then
 		return pack(FLUX, "How much flux")
 	end
 	if command == "GrantCores" or command == "SetCores" then
@@ -4127,13 +4163,12 @@ local MORE_ROUTES: { RouteDef } = {
 	{ id = "Missions", label = "Missions", eyebrow = "Jobs", icon = "Mission", accentKey = "cyan" },
 	{ id = "Rewards", label = "Rewards", eyebrow = "Dailies", icon = "Rewards", accentKey = "pink" },
 	{ id = "Wheel", label = "Wheel", eyebrow = "Spin", icon = "Wheel", accentKey = "mango" },
-	{ id = "Casino", label = "Casino", eyebrow = "Take a chance", icon = "Jackpot", accentKey = "coral" },
 	{ id = "Bazaar", label = "Bazaar", eyebrow = "Bank and deals", icon = "Shop", accentKey = "mint" },
 	{ id = "Boosts", label = "Boosts", eyebrow = "Power up", icon = "Boost", accentKey = "pink" },
 	{ id = "Worlds", label = "Worlds", eyebrow = "Zones", icon = "World", accentKey = "mint" },
 	{ id = "Lab", label = "Lab", eyebrow = "Orders", icon = "Lab", accentKey = "mint" },
-	{ id = "Anomaly", label = "Shift Plan", eyebrow = "Do this", icon = "Reactor", accentKey = "pink" },
-	{ id = "Continuum", label = "Next Rank", eyebrow = "Plan", icon = "Continuum", accentKey = "pink" },
+	{ id = "Charts", label = "Star Charts", eyebrow = "Plot the sky", icon = "Dust", accentKey = "pink" },
+	{ id = "Cipher", label = "Signal Cipher", eyebrow = "Daily puzzle", icon = "Code", accentKey = "pink" },
 	{ id = "StarGrid", label = "Star Grid", eyebrow = "Dust", icon = "StarGrid", accentKey = "mango" },
 	{ id = "Echoes", label = "Echoes", eyebrow = "Keep", icon = "Wave", accentKey = "cyan" },
 	{ id = "ForgePath", label = "Forge Path", eyebrow = "Upgrades", icon = "Forge", accentKey = "violet" },
@@ -4165,8 +4200,9 @@ local PAGE_ROUTES: { string } = {
 	"Missions",
 	"Milestones",
 	"Wheel",
-	"Casino",
 	"Bazaar",
+	"Charts",
+	"Cipher",
 	"Rewards",
 	"Boosts",
 	"Command",
@@ -4189,8 +4225,8 @@ type NavGroup = { key: string, label: string, routes: { string } }
 local NAV_GROUPS: { NavGroup } = {
 	{ key = "Home", label = "Home", routes = { "Overview", "Workshop", "Inventory", "Research", "Shop" } },
 	{ key = "Daily", label = "Daily", routes = { "Missions", "Rewards", "Boosts", "Milestones", "Wheel" } },
-	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "Anomaly", "Continuum", "StarGrid", "Echoes", "ForgePath", "Story" } },
-	{ key = "Games", label = "Games & Deals", routes = { "Casino", "Bazaar" } },
+	{ key = "Progress", label = "Progress", routes = { "Worlds", "Lab", "StarGrid", "Echoes", "ForgePath", "Story" } },
+	{ key = "Games", label = "Games & Deals", routes = { "Bazaar", "Charts", "Cipher" } },
 	{ key = "Social", label = "Social", routes = { "Command", "Convergence", "Guild", "Crew", "Chat", "Mail", "Trade", "Leaderboards" } },
 	{ key = "System", label = "System", routes = { "Settings", "Credits", "Admin" } },
 }
@@ -4604,7 +4640,7 @@ AppHelpers = {
 					count += 1
 				end
 			end
-			if cmd.ActiveExpedition and cmd.ActiveExpedition.Id ~= "" and os.time() >= cmd.ActiveExpedition.EndsAt then
+			if cmd.ActiveExpedition and cmd.ActiveExpedition.Id ~= "" and workspace:GetServerTimeNow() >= cmd.ActiveExpedition.EndsAt then
 				count += 1
 			end
 			return count

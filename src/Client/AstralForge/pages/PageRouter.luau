@@ -9,8 +9,9 @@ local PAGE_SUITES = {
 	ContinuumView = "PagesProgress",
 	ConvergenceView = "PagesProgress",
 	CrateRevealStage = "PagesShop",
-	CasinoView = "PagesCasino",
 	BazaarView = "PagesBazaar",
+	StarChartsView = "PagesSky",
+	CipherView = "PagesSky",
 	CrewView = "PagesSocial",
 	EchoForgeView = "PagesStory",
 	ForgePathView = "PagesProgress",
@@ -83,8 +84,9 @@ local OverviewView = lazyView("OverviewView", "OverviewView")
 local WorldsView = lazyView("WorldsView", "WorldsView")
 local RewardsView = lazyView("RewardsView", "RewardsView")
 local WorkshopView = lazyView("WorkshopView", "WorkshopView")
-local CasinoView = lazyView("CasinoView", "CasinoView")
 local BazaarView = lazyView("BazaarView", "BazaarView")
+local StarChartsView = lazyView("StarChartsView", "StarChartsView")
+local CipherView = lazyView("CipherView", "CipherView")
 
 local function PageContentInner(props)
 	local _binding = props
@@ -199,6 +201,7 @@ local function PageContentInner(props)
 		end
 		if page == "Missions" then
 			return React.createElement(MissionsView, {
+				navigate = props.navigate,
 				state = state,
 				config = config,
 				dispatch = dispatch,
@@ -207,6 +210,8 @@ local function PageContentInner(props)
 		end
 		if page == "Milestones" then
 			return React.createElement(MilestonesView, {
+				config = config,
+				navigate = props.navigate,
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,
@@ -221,6 +226,20 @@ local function PageContentInner(props)
 				onLand = props.onWheelLand,
 			})
 		end
+		if page == "Charts" then
+			return React.createElement(StarChartsView, {
+				state = state,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+			})
+		end
+		if page == "Cipher" then
+			return React.createElement(CipherView, {
+				state = state,
+				dispatch = dispatch,
+				reducedMotion = reducedMotion,
+			})
+		end
 		if page == "Bazaar" then
 			return React.createElement(BazaarView, {
 				state = state,
@@ -229,17 +248,10 @@ local function PageContentInner(props)
 				reducedMotion = reducedMotion,
 			})
 		end
-		if page == "Casino" then
-			return React.createElement(CasinoView, {
-				state = state,
-				config = config,
-				dispatch = dispatch,
-				reducedMotion = reducedMotion,
-				onBusyChange = props.setArcadeBusy,
-			})
-		end
 		if page == "Rewards" then
 			return React.createElement(RewardsView, {
+				config = config,
+				navigate = props.navigate,
 				state = state,
 				dispatch = dispatch,
 				reducedMotion = reducedMotion,

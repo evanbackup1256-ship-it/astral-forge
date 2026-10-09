@@ -690,11 +690,14 @@ function RichText:_PrintString(str : string)
 	-- in case it does not fit, should wrap, and isn't whitespace it starts a new row,
 	-- and when occupying more than config.MAX_WORD_WIDTH_FRACTION of the current row
 	-- it'll split the word before that
+	-- step over whole UTF-8 characters: byte-wise slicing split "·", "—" and "…"
+	-- into lone bytes that render as garbage glyphs
+	local characterPattern = "()(" .. utf8.charpattern .. ")"
 	local wordWidth = 0
-	for i = 1, string.len(str) do
+	for i, character in string.gmatch(str, characterPattern) do
 		local size = self:_GetProportionalSize()
 		local dashWidth = util.fetchTextBounds(self._id, "-", self._renderProperties, size).X
-		local characterWidth = util.fetchTextBounds(self._id, string.sub(str, i, i), self._renderProperties, size).X
+		local characterWidth = util.fetchTextBounds(self._id, character, self._renderProperties, size).X
 		
 		local totalWidth = ((row and util.getWidthOfChildren(row)) or 0)
 			+ wordWidth
@@ -757,15 +760,15 @@ function RichText:_PrintString(str : string)
 		)
 	end
 
-	for i = 1, string.len(str) do
+	for _, character in string.gmatch(str, characterPattern) do
 		local size = self:_GetProportionalSize()
-		local isWhitespace = string.match(str, "%s")
-		local characterWidth = util.fetchTextBounds(self._id, string.sub(str, i, i), self._renderProperties, size).X
-		
+		local isWhitespace = string.match(character, "%s")
+		local characterWidth = util.fetchTextBounds(self._id, character, self._renderProperties, size).X
+
 		local container = Instance.new("Frame", row)
 		container.SizeConstraint = Enum.SizeConstraint.RelativeXX
 		container.Size = UDim2.fromScale(characterWidth/row.AbsoluteSize.X, size/row.AbsoluteSize.X)
-		container.Name = string.sub(str, i, i)
+		container.Name = character
 		container.BackgroundTransparency = 1
 		container.ZIndex = self._baseZIndex
 		
@@ -779,7 +782,7 @@ function RichText:_PrintString(str : string)
 			local char = Instance.new("TextLabel", animContainer)
 			char.Size = UDim2.fromScale(1, 1)
 			char.BackgroundTransparency = 1
-			char.Text = string.sub(str, i, i)
+			char.Text = character
 			char.TextColor3 = self._renderProperties.Color
 			char.TextXAlignment = Enum.TextXAlignment.Left
 			char.TextTransparency = self._renderProperties.Transparency

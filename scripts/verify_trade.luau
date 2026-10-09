@@ -63,6 +63,7 @@ local function makeProfile(cash, stardust, itemUid, definitionId)
 		Cores = 4,
 		Command = { Signals = 20 },
 		Items = {
+			NextId = 0,
 			Essence = 50,
 			Keys = { ForgeCrate = 2 },
 			Inventory = {
@@ -113,14 +114,18 @@ do
 	local applyErr = TradeExchange.ApplyExchange(gameConfig, OmegaMath, host, give, take, giveItems, takeItems, now, nil)
 	assert(applyErr == nil, "apply should succeed: " .. tostring(applyErr))
 	assert(host.Items.Inventory["uid-host-1"] == nil, "gave relic should leave host inventory")
-	assert(host.Items.Inventory["uid-guest-1"] ~= nil, "taken relic should land on host")
+	local receivedUid = takeItems["uid-guest-1"].NewUid
+	assert(type(receivedUid) == "string" and #receivedUid > 0, "taken relic should be re-keyed with a NewUid")
+	assert(host.Items.Inventory[receivedUid] ~= nil, "taken relic should land on host under a new UID")
+	assert(host.Items.Inventory["uid-guest-1"] == nil, "sender UID should not exist on host")
 	assert(host.Trade.Completed == 1, "completed should bump")
 	local cashAfter = OmegaMath.ToNumber(host.Cash)
 	assert(math.abs(cashAfter - 9700) < 0.01, "cash net after apply, got " .. tostring(cashAfter))
 
 	TradeExchange.RevertExchange(OmegaMath, host, give, take, giveItems, takeItems, now)
 	assert(host.Items.Inventory["uid-host-1"] ~= nil, "revert restores given relic")
-	assert(host.Items.Inventory["uid-guest-1"] == nil, "revert removes taken relic")
+	assert(host.Items.Inventory[receivedUid] == nil, "revert removes taken relic by NewUid")
+	assert(host.Items.Inventory["uid-guest-1"] == nil, "sender UID should not exist on host after revert")
 	assert(host.Trade.Completed == 0, "completed should roll back")
 	local cashRestored = OmegaMath.ToNumber(host.Cash)
 	assert(math.abs(cashRestored - OmegaMath.ToNumber(hostSnap.Cash)) < 0.01, "cash restored")
@@ -221,12 +226,12 @@ do
 	end
 	assert(confirmRuns == 1, "ConfirmTrade should funnel through one shared handler, got " .. tostring(confirmRuns))
 	assert(
-		string.find(view, 'local confirmDisabled = busy ~= "" or not bothReady', 1, true),
-		"confirmDisabled must share the bothReady gate"
+		string.find(view, 'local confirmDisabled = busy ~= "" or offerPending or not bothReady', 1, true),
+		"confirmDisabled must require bothReady and a synchronized offer"
 	)
 	assert(
-		string.find(view, 'local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)', 1, true),
-		"readyDisabled must share the tableEmpty gate"
+		string.find(view, 'local readyDisabled = busy ~= "" or offerPending or (tableEmpty and not youReadyLocal)', 1, true),
+		"readyDisabled must require a synchronized, nonempty offer"
 	)
 	local disabledConfirm = 0
 	for _ in string.gmatch(view, "disabled = confirmDisabled") do

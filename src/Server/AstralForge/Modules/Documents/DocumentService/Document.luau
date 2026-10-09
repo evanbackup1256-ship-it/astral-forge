@@ -5,6 +5,7 @@ local SaveUtil = require(script.Parent:FindFirstChild("SaveUtil"))
 local deepFreeze = require(script.Parent:FindFirstChild("DeepFreeze"))
 local Signal = require(script.Parent:FindFirstChild("Signal"))
 
+-- Must stay in sync with ServerConfig.SessionLockSeconds.
 local SESSION_EXPIRE_TIME = 600
 local AUTOSAVE_INTERVAL = 150
 
@@ -92,9 +93,15 @@ type SchemaError = Types.SchemaError
 local INTERNAL_SCHEMA_VERSION = 0
 
 local function runHooks(hooks: { () -> () })
-
+	local failures = {}
 	for _, hook in table.clone(hooks) do
-		hook()
+		local ok, err = pcall(hook)
+		if not ok then
+			table.insert(failures, tostring(err))
+		end
+	end
+	if #failures > 0 then
+		warn("[Document] hook failure(s): " .. table.concat(failures, "; "))
 	end
 end
 
@@ -630,12 +637,10 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 	local schemaError: boolean
 	local notStorableErr: string
 
+	local pendingData: T?
 	if self._lockSessions then
-
-		local updatedData = transform(self._cache)
-		if updatedData ~= self._cache then
-			self:SetCache(updatedData)
-		end
+		-- Keep the live cache unchanged until DataStore confirms the write.
+		pendingData = transform(self._cache)
 	end
 
 	local success, updatedKeyData = SaveUtil.updateAsync(function(_abortAttempt, value: unknown): KeyData<T>?
@@ -664,7 +669,7 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 
 		local newData
 		if self._lockSessions then
-			newData = self._cache
+			newData = pendingData
 		else
 			newData = transform(keyData.data)
 		end
@@ -741,6 +746,10 @@ function Document.Update<T>(self: Document<T>, transform: Transform<T>): WriteRe
 	end
 
 	local updatedData: T = (updatedKeyData :: KeyData<T>).data
+	if self._lockSessions and updatedData ~= self._cache then
+		-- Publish the optimistic cache value only after persistence succeeds.
+		self:SetCache(updatedData)
+	end
 
 	runHooks(self._postHooks.Update)
 

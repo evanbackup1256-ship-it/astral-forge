@@ -191,9 +191,17 @@ return function(loadService: (string) -> any)
 		return amount, not wasReady and profile.Anomaly.Charge >= target
 	end
 
+	local PULSE_MIN_INTERVAL = (GameConfig.Anomalies.PulseCooldownSeconds or 0.25) :: number
+
 	function AnomalyService.Pulse(profile, random: Random): (boolean, string, any)
 		AnomalyService.Ensure(profile)
 		local now = pulseNow()
+		local lastAction = profile.Anomaly.LastActionAt or 0
+		if now - lastAction < PULSE_MIN_INTERVAL then
+			return false, string.format("Pulse recharging (%.2fs).", PULSE_MIN_INTERVAL - (now - lastAction)), nil
+		end
+		profile.Anomaly.LastActionAt = now
+
 		local accurate = AnomalyPulseScore.IsAccurate(
 			now,
 			profile.Anomaly.PulseWindowStartedAt,
@@ -768,7 +776,11 @@ return function()
 		local used = {}
 		local preferred = {}
 		for _, trait in pool do if trait.Affinity == affinity then table.insert(preferred, trait) end end
-		local first = preferred[random:NextInteger(1, #preferred)]
+		-- Guard empty preferred list; if no trait matches the dominant affinity, fall back
+		-- to a uniform pick from the full pool so capture never hard-errors.
+		local firstPool = if #preferred > 0 then preferred else pool
+		local first = firstPool[random:NextInteger(1, #firstPool)]
+		if not first then return false, "No echo traits available for capture.", nil end
 		table.insert(selected, first)
 		used[first.Id] = true
 		while #selected < 3 do
@@ -1003,14 +1015,19 @@ return function()
 		return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
 	end
 
-	function GuildService.new()
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+		local getOrderedStore = StoreAccess.ordered
+		local getDataStore = StoreAccess.data
+		local previewEnabled = StoreAccess.isPreview()
+
+		function GuildService.new()
 		local self = setmetatable({}, GuildService)
 		self._cache = {}
 		self._cacheExpiry = {}
 		self._cachePruneAt = 0
 		self._studio = {}
-		self._store = DataStoreService:GetDataStore(ServerConfig.GuildStoreName)
-		self._leaderboard = DataStoreService:GetOrderedDataStore(ServerConfig.GuildLeaderboardStoreName)
+		self._store = getDataStore(ServerConfig.GuildStoreName)
+		self._leaderboard = getOrderedStore(ServerConfig.GuildLeaderboardStoreName)
 		self._leaderboardPending = {}
 		self._leaderboardBusy = {}
 		self._leaderboardCache = nil
@@ -1133,62 +1150,87 @@ return function()
 	end
 
 	function GuildService:_read(id: string)
-		self:_pruneCache()
-		if RunService:IsStudio() and self._studio[id] then return copy(self._studio[id]) end
-		local cached = self._cache[id]
-		if cached and (self._cacheExpiry[id] or 0) > os.clock() then return copy(cached) end
-		local ok, result = pcall(function() return self._store:GetAsync(id) end)
-		if ok and type(result) == "table" then
-			self._cache[id] = result
-			self._cacheExpiry[id] = os.clock() + 60
-			return copy(result)
-		end
+	self:_pruneCache()
+	if RunService:IsStudio() and self._studio[id] then
+		return copy(self._studio[id])
+	end
+	local cached = self._cache[id]
+	if cached and (self._cacheExpiry[id] or 0) > os.clock() then
+		return copy(cached)
+	end
+	local ok, result = pcall(function()
+		return self._store:GetAsync(id)
+	end)
+	if ok and type(result) == "table" then
+		self._cache[id] = result
+		self._cacheExpiry[id] = os.clock() + 60
+		return copy(result)
+	end
 
-		if cached then return copy(cached) end
+	if ok and result == nil and not RunService:IsStudio() then
+		self._cache[id] = nil
+		self._cacheExpiry[id] = nil
 		return nil
 	end
-
-	function GuildService:_update(id: string, transform)
-		local updated
-		local function apply(current)
-			local doc = type(current) == "table" and current or self._studio[id] or self._cache[id]
-			if type(doc) ~= "table" then return nil end
-			local nextDoc = transform(copy(doc))
-
-			if nextDoc == nil then
-				updated = nil
-				return doc
-			end
-			updated = nextDoc
-			return nextDoc
-		end
-		local ok, err = pcall(function()
-			return self._store:UpdateAsync(id, apply)
-		end)
-		if not ok then
-
-			if not RunService:IsStudio() then
-				return false, tostring(err), nil
-			end
-			local fallback = self._studio[id] or self._cache[id]
-			if type(fallback) == "table" then
-				updated = transform(copy(fallback))
-				if type(updated) == "table" then
-					self._studio[id] = updated
-				end
-			else
-				return false, tostring(err), nil
-			end
-		end
-		if type(updated) ~= "table" then return false, "Guild request was denied.", nil end
-		self._cache[id] = updated
-		self._cacheExpiry[id] = os.clock() + 60
-		if RunService:IsStudio() then self._studio[id] = updated end
-		self:_queueLeaderboard(id, updated.Activity)
-		return true, nil, copy(updated)
+	if cached then
+		return copy(cached)
 	end
+	return nil
+end
 
-	function GuildService:_findByTag(tag: string)
+
+function GuildService:_update(id: string, transform)
+	local updated
+	local function apply(current)
+		-- UpdateAsync can invoke this callback again after a concurrent write.
+		-- No approval from an earlier attempt may survive a cancelled final attempt.
+		updated = nil
+		local doc = if type(current) == "table" then current else nil
+		if doc == nil and RunService:IsStudio() then
+			doc = self._studio[id] or self._cache[id]
+		end
+		if type(doc) ~= "table" then
+			return nil
+		end
+		local nextDoc = transform(copy(doc))
+
+		if nextDoc == nil then
+			return nil
+		end
+		updated = nextDoc
+		return nextDoc
+	end
+	local ok, err = pcall(function()
+		return self._store:UpdateAsync(id, apply)
+	end)
+	if not ok then
+		if not RunService:IsStudio() then
+			return false, tostring(err), nil
+		end
+		local fallback = self._studio[id] or self._cache[id]
+		if type(fallback) == "table" then
+			updated = transform(copy(fallback))
+			if type(updated) == "table" then
+				self._studio[id] = updated
+			end
+		else
+			return false, tostring(err), nil
+		end
+	end
+	if type(updated) ~= "table" then
+		return false, "Guild request was denied.", nil
+	end
+	self._cache[id] = updated
+	self._cacheExpiry[id] = os.clock() + 60
+	if RunService:IsStudio() then
+		self._studio[id] = updated
+	end
+	self:_queueLeaderboard(id, updated.Activity)
+	return true, nil, copy(updated)
+end
+
+
+function GuildService:_findByTag(tag: string)
 		self:_pruneCache()
 		local wanted = normalTag(tag)
 		for _, doc in self._cache do
@@ -1262,6 +1304,98 @@ return function()
 		profile.Cash = OmegaMath.Sub(profile.Cash, GameConfig.Guild.CreateCost)
 		profile.Guild = { Id = id, Role = "Leader", JoinedAt = os.time(), Tag = tag }
 		return true, "Guild Hall chartered.", copy(doc)
+	end
+
+	function GuildService:Rename(player, profile, newName: string, newTag: string?)
+		local guildId = profile.Guild and profile.Guild.Id or ""
+		if guildId == "" then return false, "You are not in a guild." end
+		local membership = profile.Guild
+		if type(membership) ~= "table" or membership.Role ~= "Leader" then
+			return false, "Only the guild leader can rename the guild."
+		end
+		local name = newName:gsub("^%s+", ""):gsub("%s+$", "")
+		if #name < 3 or #name > 28 or not string.match(name, "^[%w%s%-_]+$") then
+			return false, "Guild names must be 3–28 letters, numbers, spaces, - or _."
+		end
+		local changeTag = type(newTag) == "string" and #newTag > 0
+		local tag = changeTag and normalTag(newTag :: string) or ""
+		if changeTag and (#tag < 3 or #tag > 4 or not string.match(tag, "^[A-Z0-9]+$")) then
+			return false, "Guild tags must be 3–4 letters or numbers."
+		end
+		if OmegaMath.Lt(profile.Cash, GameConfig.Guild.RenameCost) then
+			return false, "You need more flux to rename the guild."
+		end
+		local guild = self:_read(guildId)
+		if type(guild) ~= "table" then return false, "Guild records are unavailable." end
+		local now = os.time()
+		local cooldown = tonumber(guild.LastRenamedAt) or 0
+		if cooldown + GameConfig.Guild.RenameCooldownSeconds > now then
+			return false, "The guild was renamed too recently."
+		end
+		local oldName, oldTag = guild.Name, guild.Tag
+		if name == oldName and (not changeTag or tag == oldTag) then
+			return false, "Pick a new name or tag."
+		end
+		if changeTag then
+			local existing = self:_findByTag(tag)
+			if existing and existing.Id ~= guildId then
+				return false, "That guild tag is already in use."
+			end
+		end
+		local ok, message, updated = self:_update(guildId, function(doc)
+			if type(doc) ~= "table" then return nil end
+			local docCooldown = tonumber(doc.LastRenamedAt) or 0
+			if docCooldown + GameConfig.Guild.RenameCooldownSeconds > now then
+				return nil
+			end
+			doc.Name = name
+			doc.LastRenamedAt = now
+			if changeTag then
+				doc.Tag = tag
+			end
+			if type(doc.AuditLog) ~= "table" then
+				doc.AuditLog = {}
+			end
+			table.insert(doc.AuditLog, 1, {
+				At = now,
+				By = player.UserId,
+				Action = "Rename",
+				FromName = oldName,
+				ToName = name,
+				FromTag = changeTag and oldTag or nil,
+				ToTag = changeTag and tag or nil,
+				Cost = GameConfig.Guild.RenameCost,
+			})
+			if #doc.AuditLog > 50 then
+				table.remove(doc.AuditLog)
+			end
+			return doc
+		end)
+		if not ok then return false, message or "Could not rename the guild." end
+		if changeTag then
+			local released, releaseErr = pcall(function()
+				if self._store:GetAsync("tag:" .. oldTag) == guildId then
+					self._store:RemoveAsync("tag:" .. oldTag)
+				end
+			end)
+			if not released then
+				warn(string.format("[WARN] [GUILD] rename could not release old tag %s — %s", oldTag, tostring(releaseErr)))
+			end
+			local claimed, claimErr = pcall(function()
+				self._store:UpdateAsync("tag:" .. tag, function(existing)
+					if existing == nil or existing == guildId then
+						return guildId
+					end
+					return existing
+				end)
+			end)
+			if not claimed then
+				warn(string.format("[WARN] [GUILD] rename could not claim new tag %s — %s", tag, tostring(claimErr)))
+			end
+		end
+		profile.Cash = OmegaMath.Sub(profile.Cash, GameConfig.Guild.RenameCost)
+		profile.Guild.Tag = changeTag and tag or profile.Guild.Tag
+		return true, "Guild renamed.", updated
 	end
 
 	function GuildService:JoinByTag(player, profile, rawTag: string)
@@ -1356,6 +1490,9 @@ return function()
 				if self._store:GetAsync("tag:" .. tag) == guildId then
 					self._store:RemoveAsync("tag:" .. tag)
 				end
+			end)
+			pcall(function()
+				self._leaderboard:RemoveAsync(guildId)
 			end)
 			if not released then
 				warn(string.format("[WARN] [GUILD] disband deleted %s but the tag %s is still reserved — %s", guildId, tostring(tag), tostring(releaseErr)))
@@ -1538,12 +1675,13 @@ return function()
 	end
 
 	function GuildService:GetLeaderboard(page: number)
-		if self._leaderboardCache and self._leaderboardCacheExpires > os.clock() then
+		local pageIndex = math.max(0, math.floor(tonumber(page) or 0))
+		if pageIndex == 0 and self._leaderboardCache and self._leaderboardCacheExpires > os.clock() then
 			return copy(self._leaderboardCache)
 		end
 		local entries = {}
 		local hasPlaceholders = false
-		local ok, pages = pcall(function() return self._leaderboard:GetSortedAsync(false, 20, nil, nil) end)
+		local ok, pages = pcall(function() return self._leaderboard:GetSortedAsync(false, 100, nil, nil) end)
 		if ok and pages then
 			for _, row in pages:GetCurrentPage() do
 				local doc = self._cache[row.key] or self._studio[row.key]
@@ -1560,9 +1698,16 @@ return function()
 			for _, doc in self._cache do table.insert(entries, { Id = doc.Id, Name = doc.Name, Tag = doc.Tag, Activity = doc.Activity, Level = doc.Level }) end
 			table.sort(entries, function(a, b) return a.Activity > b.Activity end)
 		end
-		self._leaderboardCache = copy(entries)
-		self._leaderboardCacheExpires = os.clock() + (hasPlaceholders and 3 or 15)
-		return copy(entries)
+		local start = pageIndex * 20 + 1
+		local sliced = {}
+		for i = start, math.min(#entries, start + 19) do
+			table.insert(sliced, entries[i])
+		end
+		if pageIndex == 0 then
+			self._leaderboardCache = copy(sliced)
+			self._leaderboardCacheExpires = os.clock() + (hasPlaceholders and 3 or 15)
+		end
+		return copy(sliced)
 	end
 
 	function GuildService:GetBonuses(guildId: string)
@@ -2423,6 +2568,27 @@ return function()
 		owned.Level += 1
 		awardCommandXP(profile, 45 * owned.Level)
 		return true, string.format("%s upgraded to level %d.", artifact.Name, owned.Level)
+	end
+
+	function ProgressionService.BuyArtifact(profile, artifactId: string): (boolean, string, boolean?)
+		local artifact = findOperation(GameConfig.Operations.Artifacts, artifactId)
+		local price = artifact and GameConfig.Operations.ArtifactShop[artifact.Rarity]
+		if not artifact or not price then
+			return false, "That artifact is not sold here."
+		end
+		local owned = profile.Command.Artifacts[artifactId]
+		local cost = if owned then price.Refill else price.Stardust
+		if Economy.Lt(profile.Stardust, cost) then
+			return false, string.format("Requires %d stardust.", cost)
+		end
+		profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
+		if owned then
+			owned.Fragments += price.Fragments
+			return true, string.format("+%d %s fragments.", price.Fragments, artifact.Name), false
+		end
+		profile.Command.Artifacts[artifactId] = { Level = 1, Fragments = 0 }
+		bumpStat(profile, "ArtifactsFound", 1)
+		return true, artifact.Name .. " acquired.", true
 	end
 
 	function ProgressionService.UpgradeCrew(profile, roleId: string): (boolean, string)

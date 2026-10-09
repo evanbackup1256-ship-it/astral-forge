@@ -27,6 +27,9 @@ local MusicDirector = __load("musicDirector").MusicDirector
 local MUSIC_DECK_NAMES = __load("musicDirector").DECK_NAMES
 local Voicing = __load("audioVoicing")
 local SoundSheet = __load("soundSheet")
+local AssetManifest = require(game:GetService("ReplicatedStorage"):WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))("AssetManifest")
+local AMBIENCE_BED = "amb_heart"
+local AMBIENCE_VOLUME = 0.32
 local SHEET_CHANNELS = 14
 local UI_HOVER = "rbxassetid://10066931761"
 local UI_CLICK = "rbxassetid://10066921516"
@@ -288,11 +291,11 @@ local CUES = {
 	},
 	domainCharge = {
 		asset = SFX_GATE,
-		volume = 0.4,
+		volume = 0.46,
 		speed = 0.76,
 		variance = 0,
 		cooldown = 0.12,
-		stopAfter = 1.05,
+		stopAfter = 0.72,
 	},
 	domainCrack = {
 		asset = SFX_DEEP,
@@ -312,11 +315,11 @@ local CUES = {
 	},
 	domainReward = {
 		asset = SFX_GLINT,
-		volume = 0.4,
+		volume = 0.46,
 		speed = 1.06,
 		variance = 0,
 		cooldown = 0.14,
-		stopAfter = 0.95,
+		stopAfter = 0.72,
 	},
 	hoverTick = {
 		asset = UI_TICK,
@@ -1622,6 +1625,230 @@ local CUES = {
 		cooldown = 0.06,
 		stopAfter = 0.08,
 	},
+	dropdownOpen = {
+		asset = UI_CLICK,
+		volume = 0.22,
+		speed = 1.22,
+		variance = 0.008,
+		cooldown = 0.05,
+		stopAfter = 0.12,
+	},
+	dropdownClose = {
+		asset = UI_CLICK,
+		volume = 0.2,
+		speed = 1.0,
+		variance = 0.008,
+		cooldown = 0.05,
+		stopAfter = 0.1,
+	},
+	copyDone = {
+		asset = UI_SELECT,
+		volume = 0.24,
+		speed = 1.3,
+		variance = 0.008,
+		cooldown = 0.12,
+		stopAfter = 0.16,
+	},
+	dragGrab = {
+		asset = UI_CLICK,
+		volume = 0.22,
+		speed = 0.9,
+		variance = 0.008,
+		cooldown = 0.06,
+		stopAfter = 0.1,
+	},
+	dragDrop = {
+		asset = UI_CLICK,
+		volume = 0.26,
+		speed = 0.8,
+		variance = 0.008,
+		cooldown = 0.06,
+		stopAfter = 0.14,
+	},
+	dragSnap = {
+		asset = UI_HOVER,
+		volume = 0.2,
+		speed = 1.5,
+		variance = 0.008,
+		cooldown = 0.04,
+		stopAfter = 0.06,
+	},
+	favoriteOn = {
+		asset = UI_SELECT,
+		volume = 0.28,
+		speed = 1.2,
+		variance = 0.008,
+		cooldown = 0.12,
+		stopAfter = 0.26,
+	},
+	favoriteOff = {
+		asset = UI_CLICK,
+		volume = 0.2,
+		speed = 0.9,
+		variance = 0.008,
+		cooldown = 0.1,
+		stopAfter = 0.12,
+	},
+	ratingStar = {
+		asset = UI_SELECT,
+		volume = 0.22,
+		speed = 1.1,
+		variance = 0.008,
+		cooldown = 0.05,
+		stopAfter = 0.12,
+	},
+	reportSubmit = {
+		asset = UI_SELECT,
+		volume = 0.32,
+		speed = 0.92,
+		variance = 0.008,
+		cooldown = 0.4,
+		stopAfter = 0.4,
+	},
+	feedbackSubmit = {
+		asset = UI_SELECT,
+		volume = 0.32,
+		speed = 1.1,
+		variance = 0.008,
+		cooldown = 0.4,
+		stopAfter = 0.4,
+	},
+	searchType = {
+		asset = UI_HOVER,
+		volume = 0.12,
+		speed = 1.6,
+		variance = 0.008,
+		cooldown = 0.03,
+		stopAfter = 0.04,
+	},
+	countTick = {
+		asset = UI_HOVER,
+		volume = 0.12,
+		speed = 1.8,
+		variance = 0.008,
+		cooldown = 0.03,
+		stopAfter = 0.03,
+	},
+	badgeEarn = {
+		asset = SFX_BLOOM,
+		volume = 0.34,
+		speed = 1.2,
+		variance = 0.008,
+		cooldown = 0.3,
+		stopAfter = 0.5,
+	},
+	stepNext = {
+		asset = UI_CLICK,
+		volume = 0.24,
+		speed = 1.12,
+		variance = 0.008,
+		cooldown = 0.08,
+		stopAfter = 0.14,
+	},
+	stepBack = {
+		asset = UI_CLICK,
+		volume = 0.22,
+		speed = 0.94,
+		variance = 0.008,
+		cooldown = 0.08,
+		stopAfter = 0.14,
+	},
+	guildAnnounce = {
+		asset = SFX_BLOOM,
+		volume = 0.34,
+		speed = 1.0,
+		variance = 0.008,
+		cooldown = 0.6,
+		stopAfter = 0.7,
+	},
+	artifactEquip = {
+		asset = UI_SELECT,
+		volume = 0.3,
+		speed = 0.9,
+		variance = 0.008,
+		cooldown = 0.15,
+		stopAfter = 0.3,
+	},
+	artifactUpgrade = {
+		asset = SFX_BLOOM,
+		volume = 0.38,
+		speed = 1.1,
+		variance = 0.008,
+		cooldown = 0.25,
+		stopAfter = 0.55,
+	},
+	crateSeal = {
+		asset = SFX_SHIFT,
+		volume = 0.4,
+		speed = 0.9,
+		variance = 0.008,
+		cooldown = 0.2,
+		stopAfter = 0.4,
+	},
+	crateOrbit = {
+		asset = SFX_WHOOSH_SOFT,
+		volume = 0.34,
+		speed = 0.9,
+		variance = 0.008,
+		cooldown = 0.4,
+		stopAfter = 0.62,
+	},
+	crateRarityStep = {
+		asset = UI_SELECT,
+		volume = 0.3,
+		speed = 1.25,
+		variance = 0.008,
+		cooldown = 0.06,
+		stopAfter = 0.16,
+	},
+	crateRevealEpic = {
+		asset = SFX_BLOOM,
+		volume = 0.44,
+		speed = 1.0,
+		variance = 0.008,
+		cooldown = 0.3,
+		stopAfter = 0.7,
+	},
+	crateRevealMythic = {
+		asset = SFX_BLOOM,
+		volume = 0.5,
+		speed = 0.86,
+		variance = 0.008,
+		cooldown = 0.4,
+		stopAfter = 1.0,
+	},
+	rebirthIgnite = {
+		asset = SFX_WHOOSH_SOFT,
+		volume = 0.42,
+		speed = 0.7,
+		variance = 0.008,
+		cooldown = 0.5,
+		stopAfter = 1.1,
+	},
+	rebirthShockwave = {
+		asset = SFX_SHIFT,
+		volume = 0.48,
+		speed = 0.7,
+		variance = 0.008,
+		cooldown = 0.4,
+		stopAfter = 0.8,
+	},
+	rebirthTierUp = {
+		asset = SFX_BLOOM,
+		volume = 0.4,
+		speed = 1.2,
+		variance = 0.008,
+		cooldown = 0.12,
+		stopAfter = 0.4,
+	},
+	rebirthAscend = {
+		asset = SFX_BLOOM,
+		volume = 0.5,
+		speed = 0.8,
+		variance = 0.008,
+		cooldown = 0.6,
+		stopAfter = 1.25,
+	},
 }
 local UI_CUES = {}
 for _, cue in {
@@ -1635,29 +1862,50 @@ for _, cue in {
 	"errorBuzz", "velocitySlide", "purchase", "purchasePress", "reward",
 	"collect", "travel", "researchUnlock", "claimPress",
 	"sanctuaryHover", "sanctuaryClick", "navHover", "curtainOpen", "curtainClose",
+	"dropdownOpen", "dropdownClose", "copyDone", "dragGrab", "dragDrop", "dragSnap",
+	"favoriteOn", "favoriteOff", "ratingStar", "reportSubmit", "feedbackSubmit", "searchType",
+	"countTick", "badgeEarn", "stepNext", "stepBack", "guildAnnounce",
 } do
 	UI_CUES[cue] = true
+end
+-- the page, hover and icon-press families (navOpenShop, claimPressHover, corePress...) are interface
+-- sounds too: they share the UI group, the UI mix and the UI overlap cap
+setmetatable(UI_CUES, {
+	__index = function(_, cue)
+		if type(cue) ~= "string" then
+			return nil
+		end
+		return string.sub(cue, 1, 3) == "nav" or string.sub(cue, -5) == "Hover" or string.sub(cue, -5) == "Press" or nil
+	end,
+})
+local function isHoverCue(cue)
+	return cue == "hover" or string.sub(cue, -5) == "Hover" or string.sub(cue, 1, 8) == "navHover"
 end
 local PRELOAD_BATCH_SIZE = 11
 local VOICE_CAP = 22
 local UI_OVERLAP_CAP = 2
 local TRIM_RELEASE_STEPS = 3
 local CUE_GAIN = 0.9
-local SHEET_CUE_VOLUME = 0.22
+local SHEET_CUE_VOLUME = 0.3
+-- relative level of a UI cue inside the UI mix (1 = as authored on the sheet); pointer chatter sits
+-- a step below presses so a sweep across a menu never drowns what you click
 local UI_TRIM = {
-	hover = 0.12, hoverTick = 0.12, tick = 0.2, scroll = 0.1, sliderStep = 0.16,
-	click = 0.3, tabSwitch = 0.24, amountChange = 0.2, inputFocus = 0.2, inputClear = 0.2,
-	page = 0.26, open = 0.3, close = 0.26, confirm = 0.3, toggleOn = 0.26, toggleOff = 0.24,
-	filterOpen = 0.24, filterPick = 0.24, settings = 0.26,
+	hover = 0.75, hoverTick = 0.75, navHover = 0.75, sanctuaryHover = 0.75, tick = 0.85, scroll = 0.5,
+	sliderStep = 0.8, amountChange = 0.9, inputFocus = 0.95, inputClear = 0.95, filterPick = 0.95,
+	searchType = 0.7, countTick = 0.7, dragSnap = 0.85,
 }
-local UI_TRIM_DEFAULT = 0.3
+local UI_TRIM_DEFAULT = 1.15
+-- Interface cues are short transients that sit under a full music bed, so the UI bus runs hot;
+-- without this a hover landed near 0.04 Sound volume and read as silence.
+local UI_BUS_GAIN = 1.8
+local SFX_BUS_GAIN = 1.3
+local function uiCurve(linear)
+	return math.sqrt(math.clamp(linear, 0, 1))
+end
+-- only the cues that can fire many times a second (or for other players' activity) stay silent
 local SILENT_CUES = {
-	hover = true, hoverTick = true, navHover = true, sanctuaryHover = true, tick = true,
-	scroll = true, sliderStep = true, inputFocus = true, inputClear = true,
-	amountChange = true, filterOpen = true, filterPick = true, tabSwitch = true,
-	toggleOff = true, playerlistOpen = true, playerlistSelect = true,
-	playerlistClose = true, modalPop = true, noticeInfo = true, noticeClose = true,
-	chatReceive = true, settings = true, page = true, sanctuaryClick = true,
+	scroll = true,
+	chatReceive = true,
 	velocitySlide = true,
 }
 local CHANNEL_CLAIM_SECONDS = 0.05
@@ -1944,7 +2192,7 @@ local function softSfx(linear)
 	local t = math.clamp(linear, 0, 1)
 	return math.clamp(t * 1.05 + t * t * 0.12, 0, 1.15)
 end
-local function paintCue(channel, cue)
+local function paintCue(channel, cue, authored)
 	local voice = Voicing.voiceFor(cue)
 
 	local color = channel:FindFirstChild("CueColor")
@@ -1953,12 +2201,13 @@ local function paintCue(channel, cue)
 		color.Name = "CueColor"
 		color.Parent = channel
 	end
-	color.HighGain = Voicing.clampGain(voice.high)
-	color.MidGain = Voicing.clampGain(voice.mid)
-	color.LowGain = Voicing.clampGain(voice.low)
+	-- Authored sheet regions already have their own timbre and space.
+	color.HighGain = if authored then 0 else Voicing.clampGain(voice.high)
+	color.MidGain = if authored then 0 else Voicing.clampGain(voice.mid)
+	color.LowGain = if authored then 0 else Voicing.clampGain(voice.low)
 
 	local space = channel:FindFirstChild("CueSpace")
-	if voice.reverbWet > 0.001 then
+	if not authored and voice.reverbWet > 0.001 then
 		if space == nil then
 			space = Instance.new("ReverbSoundEffect")
 			space.Name = "CueSpace"
@@ -1973,7 +2222,7 @@ local function paintCue(channel, cue)
 	end
 
 	local grit = channel:FindFirstChild("CueDrive")
-	if voice.drive > 0.001 then
+	if not authored and voice.drive > 0.001 then
 		if grit == nil then
 			grit = Instance.new("DistortionSoundEffect")
 			grit.Name = "CueDrive"
@@ -2034,7 +2283,7 @@ do
 		self.releasePump = nil
 	end
 	function Mixer:cueMix(cue)
-		if cue == "hover" and not self.hoverSounds then
+		if isHoverCue(cue) and not self.hoverSounds then
 			return 0
 		end
 		if (cue == "notification" or cue == "systemAlert" or cue == "chatReceive" or cue == "crewNudge" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose") and not self.notificationSounds then
@@ -2044,7 +2293,10 @@ do
 			return self.rewardMix
 		end
 		if cue == "hover" or cue == "click" or cue == "tick" or cue == "confirm" or cue == "locked" or cue == "error" or cue == "page" or cue == "open" or cue == "close" or cue == "settings" or cue == "scroll" or cue == "toggleOn" or cue == "toggleOff" or cue == "sliderStep" or cue == "sliderCommit" or cue == "inputFocus" or cue == "inputClear" or cue == "tabSwitch" or cue == "filterOpen" or cue == "filterPick" or cue == "amountChange" or cue == "modalOpen" or cue == "modalPop" or cue == "modalDismiss" or cue == "purchaseExit" or cue == "playerlistOpen" or cue == "playerlistSelect" or cue == "playerlistAction" or cue == "playerlistClose" or cue == "noticeInfo" or cue == "noticeSuccess" or cue == "noticeWarning" or cue == "noticeError" or cue == "noticeSpecial" or cue == "noticeClose" or cue == "tutorialStep" or cue == "hoverTick" or cue == "velocitySlide" or cue == "purchase" or cue == "purchasePress" or cue == "claimPress" or cue == "researchUnlock" or cue == "travel" or cue == "collect" then
-			return self.uiMix * (UI_TRIM[cue] or UI_TRIM_DEFAULT)
+			return uiCurve(self.uiMix) * (UI_TRIM[cue] or UI_TRIM_DEFAULT)
+		end
+		if UI_CUES[cue] then
+			return uiCurve(self.uiMix) * (if isHoverCue(cue) then UI_TRIM.hover else UI_TRIM_DEFAULT)
 		end
 		return self.gameplayMix
 	end
@@ -2203,11 +2455,11 @@ do
 		if not group then
 			group = Instance.new("SoundGroup")
 			group.Name = "ForgeSfx"
-			group.Volume = 1
+			group.Volume = SFX_BUS_GAIN
 			group.Parent = masterGroup
 		end
 		self.group = group
-		group.Volume = 1
+		group.Volume = SFX_BUS_GAIN
 
 		local uiGroup = masterGroup:FindFirstChild("ForgeUI") :: SoundGroup
 		if not uiGroup then
@@ -2216,7 +2468,7 @@ do
 			uiGroup.Parent = masterGroup
 		end
 		self.uiGroup = uiGroup
-		uiGroup.Volume = 0.45
+		uiGroup.Volume = UI_BUS_GAIN
 
 		local ambientGroup = masterGroup:FindFirstChild("ForgeAmbient") :: SoundGroup
 		if not ambientGroup then
@@ -2310,9 +2562,40 @@ do
 		self.musicDirector = musicDirector
 		self:syncMusicState()
 		musicDirector:start()
+		self:startAmbienceBed(ambientGroup)
 		local preload = self:preloadChannels()
 		ClientLog:debug("audio", `{#preload.channels} sounds ready`)
 		self:preloadSoundBank(preload.channels, preload.priorityCount, lifecycle)
+	end
+	-- The quiet forge bed under the music, driven by the Ambience slider (ForgeAmbient group). It
+	-- played per sanctuary region until the sanctuary was removed; the uploaded beds were left unused.
+	function Mixer:startAmbienceBed(ambientGroup)
+		local ambience = AssetManifest.Ambience
+		local region = if ambience ~= nil and ambience.Id > 0 then ambience.Regions[AMBIENCE_BED] else nil
+		if region == nil then
+			return
+		end
+		local bed = self.ambienceBed
+		if bed == nil or bed.Parent == nil then
+			bed = Instance.new("Sound")
+			bed.Name = "ForgeAmbienceBed"
+			bed.SoundId = `rbxassetid://{ambience.Id}`
+			bed.PlaybackRegionsEnabled = true
+			bed.PlaybackRegion = NumberRange.new(region[1], region[1] + region[2])
+			bed.LoopRegion = NumberRange.new(region[1], region[1] + region[2])
+			bed.Looped = true
+			local loudness = ambience.Loudness and ambience.Loudness[AMBIENCE_BED]
+			bed.Volume = AMBIENCE_VOLUME * (if loudness then math.clamp(10 ^ ((-20 - loudness) / 20), 0.6, 1.4) else 1)
+			bed.Parent = SoundService
+			self.ambienceBed = bed
+		end
+		bed.SoundGroup = ambientGroup
+		if not bed.IsPlaying then
+			bed.TimePosition = region[1]
+			pcall(function()
+				bed:Play()
+			end)
+		end
 	end
 	function Mixer:ensureStarted()
 		if self.ready then
@@ -2808,6 +3091,15 @@ do
 		end
 		local spec = CUES[cue]
 		if spec == nil then
+			if string.sub(cue, 1, 8) == "navHover" then
+				spec = CUES.navHover
+			elseif string.sub(cue, -5) == "Hover" then
+				spec = CUES.hover
+			elseif cue == "button" then
+				spec = CUES.click
+			end
+		end
+		if spec == nil then
 			local start = SoundSheet.region(cue)
 			if start ~= nil then
 				spec = {
@@ -2834,7 +3126,7 @@ do
 			_condition = -math.huge
 		end
 		local previous = _condition
-		if not bypassCooldown and cue == "hover" and now - previous < spec.cooldown then
+		if not bypassCooldown and isHoverCue(cue) and now - previous < math.max(0.12, spec.cooldown) then
 			return false
 		end
 		local _condition_1 = cue == "hover"
@@ -2886,8 +3178,8 @@ do
 		_channelCue[channel] = _cue_1
 		self.channelLayerGain[channel] = nil
 		local voice = Voicing.voiceFor(cue)
-		local pitchSpread = if BUTTON_PITCH_CUES[cue] then math.random(95, 105) / 100 else 1
-		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * spec.variance * self.soundVariation else 0
+		local pitchSpread = if BUTTON_PITCH_CUES[cue] then 1 + (math.random() * 2 - 1) * 0.01 * self.soundVariation else 1
+		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * math.min(spec.variance, 0.015) * self.soundVariation else 0
 		local speed = math.clamp(spec.speed * voice.pitch * math.clamp(speedMult, 0.82, 1.28) * pitchSpread + variance, 0.28, 2.1)
 		local ambientCue = cue == "reactor" or cue == "reactorReady" or cue == "reactorPulse" or cue == "reactorChannel" or cue == "reactorStabilize" or cue == "autoForge"
 		channel.SoundGroup = if UI_CUES[cue] then self.uiGroup elseif ambientCue then self.ambientGroup else self.group
@@ -2970,7 +3262,8 @@ do
 		local level = SoundSheet.gain(cue)
 		self.channelLayerGain[channel] = level
 		local variance = if spec.variance > 0 then (math.random() * 2 - 1) * math.min(spec.variance, 0.03) * self.soundVariation else 0
-		local spread = if BUTTON_PITCH_CUES[cue] then math.random(97, 103) / 100 else 1
+		-- the sheet's interface voices are tuned to one scale, so only a hair of spread keeps them in tune
+		local spread = if BUTTON_PITCH_CUES[cue] then 1 + (math.random() * 2 - 1) * 0.01 * self.soundVariation else 1
 		local speed = math.clamp(math.clamp(speedMult, 0.82, 1.28) * spread + variance, 0.5, 2)
 		local cueMix = self:cueMix(cue)
 		local ambientCue = cue == "reactor" or cue == "reactorReady" or cue == "reactorPulse" or cue == "reactorChannel" or cue == "reactorStabilize" or cue == "autoForge"
@@ -2982,6 +3275,7 @@ do
 		channel.PlaybackRegion = NumberRange.new(start, start + length)
 		channel.PlaybackSpeed = speed
 		channel.Volume = spec.volume * CUE_GAIN * Voicing.voiceFor(cue).gain * level * softSfx(self.sfxMix) * cueMix
+		paintCue(channel, cue, true)
 		channel.TimePosition = start
 		if token ~= self.sfxToken or channel.Parent == nil then
 			return false
@@ -2996,6 +3290,7 @@ do
 		self.claimedUntil[channel] = now + CHANNEL_CLAIM_SECONDS
 		self.busyUntil[channel] = now + length / speed
 		self.lastPlayed[cue] = now
+		ClientLog:once("audio-first-sheet-cue", "audio", `first cue {cue} volume={string.format("%.3f", channel.Volume)} bus={channel.SoundGroup and channel.SoundGroup.Name or "none"} master={string.format("%.2f", softMaster(self.masterLinear))} ui={string.format("%.2f", self.uiMix)} sfx={string.format("%.2f", self.sfxMix)}`)
 		local duckDepth = MUSIC_DUCK_CUES[cue]
 		if duckDepth ~= nil then
 			self:duckMusic(duckDepth, math.max(0.18, length * 0.45), 0.62)
@@ -3209,6 +3504,7 @@ do
 		end
 		self.musicGroup = nil
 		if self.uiGroup then self.uiGroup:Destroy(); self.uiGroup = nil end
+		if self.ambienceBed then self.ambienceBed:Destroy(); self.ambienceBed = nil end
 		if self.ambientGroup then self.ambientGroup:Destroy(); self.ambientGroup = nil end
 		if self.masterGroup then
 			if #self.masterGroup:GetChildren() == 0 then self.masterGroup:Destroy() end
@@ -3418,74 +3714,74 @@ local Voicing = {} :: {
 
 local FAMILIES: { [string]: Voice } = {
 	chrome = {
-		high = 9, mid = -10, low = -24,
+		high = 5, mid = -12, low = -24,
 		reverbDecay = 0, reverbWet = 0,
-		drive = 0, pitch = 1.34, decay = 0.55, gain = 0.72,
+		drive = 0, pitch = 1.34, decay = 0.36, gain = 0.61,
 	},
 	interface = {
-		high = 2, mid = 6, low = -6,
-		reverbDecay = 0.4, reverbWet = 0.06,
-		drive = 0, pitch = 1, decay = 1, gain = 1,
+		high = -2, mid = 4, low = -6,
+		reverbDecay = 0.25, reverbWet = 0.024,
+		drive = 0, pitch = 1, decay = 0.65, gain = 0.85,
 	},
 	motion = {
-		high = 7, mid = -8, low = -12,
-		reverbDecay = 1.1, reverbWet = 0.18,
-		drive = 0, pitch = 0.94, decay = 1.35, gain = 0.88,
+		high = 3, mid = -10, low = -12,
+		reverbDecay = 0.55, reverbWet = 0.072,
+		drive = 0, pitch = 0.94, decay = 0.88, gain = 0.75,
 	},
 	forge = {
-		high = -6, mid = 4, low = 9,
-		reverbDecay = 0.9, reverbWet = 0.14,
-		drive = 0.22, pitch = 0.74, decay = 1.5, gain = 1.12,
+		high = -10, mid = 2, low = 9,
+		reverbDecay = 0.45, reverbWet = 0.056,
+		drive = 0.044, pitch = 0.74, decay = 0.98, gain = 0.95,
 	},
 	currency = {
-		high = 10, mid = 2, low = -14,
-		reverbDecay = 0.8, reverbWet = 0.12,
-		drive = 0, pitch = 1.46, decay = 0.9, gain = 1,
+		high = 6, mid = 0, low = -14,
+		reverbDecay = 0.4, reverbWet = 0.048,
+		drive = 0, pitch = 1.46, decay = 0.59, gain = 0.85,
 	},
 	reward = {
-		high = 8, mid = 5, low = -2,
-		reverbDecay = 1.8, reverbWet = 0.26,
-		drive = 0, pitch = 1.08, decay = 1.7, gain = 1.16,
+		high = 4, mid = 3, low = -2,
+		reverbDecay = 0.9, reverbWet = 0.104,
+		drive = 0, pitch = 1.08, decay = 1.11, gain = 0.99,
 	},
 	arcane = {
-		high = 5, mid = -2, low = 6,
-		reverbDecay = 3.2, reverbWet = 0.42,
-		drive = 0.08, pitch = 0.66, decay = 2.2, gain = 1.2,
+		high = 1, mid = -4, low = 2,
+		reverbDecay = 1.6, reverbWet = 0.168,
+		drive = 0.016, pitch = 0.66, decay = 1.43, gain = 1.02,
 	},
 	reactor = {
-		high = -4, mid = -6, low = 7,
-		reverbDecay = 2.4, reverbWet = 0.3,
-		drive = 0.12, pitch = 0.82, decay = 1.8, gain = 0.82,
+		high = -8, mid = -8, low = 7,
+		reverbDecay = 1.2, reverbWet = 0.12,
+		drive = 0.024, pitch = 0.82, decay = 1.17, gain = 0.7,
 	},
 	denial = {
-		high = -26, mid = -6, low = 8,
-		reverbDecay = 0.3, reverbWet = 0.04,
-		drive = 0.34, pitch = 0.58, decay = 1.2, gain = 1,
+		high = -30, mid = -8, low = 8,
+		reverbDecay = 0.15, reverbWet = 0.016,
+		drive = 0.068, pitch = 0.58, decay = 0.78, gain = 0.85,
 	},
 	alert = {
-		high = -10, mid = 6, low = 4,
-		reverbDecay = 0.6, reverbWet = 0.1,
-		drive = 0.14, pitch = 0.88, decay = 1.25, gain = 1.06,
+		high = -14, mid = 4, low = 4,
+		reverbDecay = 0.3, reverbWet = 0.04,
+		drive = 0.028, pitch = 0.88, decay = 0.81, gain = 0.9,
 	},
 	notice = {
-		high = 6, mid = 0, low = -8,
-		reverbDecay = 1.3, reverbWet = 0.2,
-		drive = 0, pitch = 1.12, decay = 1.1, gain = 0.9,
+		high = 2, mid = -2, low = -8,
+		reverbDecay = 0.65, reverbWet = 0.08,
+		drive = 0, pitch = 1.12, decay = 0.72, gain = 0.77,
 	},
 	ceremony = {
-		high = 4, mid = 2, low = 10,
-		reverbDecay = 2.2, reverbWet = 0.28,
-		drive = 0.14, pitch = 0.62, decay = 2.4, gain = 1.14,
+		high = 0, mid = 0, low = 10,
+		reverbDecay = 1.1, reverbWet = 0.112,
+		drive = 0.028, pitch = 0.62, decay = 1.56, gain = 0.97,
 	},
 	mechanism = {
-		high = 8, mid = -4, low = -10,
-		reverbDecay = 0.35, reverbWet = 0.05,
-		drive = 0.06, pitch = 1.22, decay = 0.6, gain = 0.86,
+		high = 4, mid = -6, low = -16,
+		reverbDecay = 0.18, reverbWet = 0.02,
+		drive = 0.012, pitch = 1.22, decay = 0.39, gain = 0.73,
 	},
 	social = {
-		high = 5, mid = 8, low = -6,
-		reverbDecay = 0.7, reverbWet = 0.11,
-		drive = 0, pitch = 1.26, decay = 0.9, gain = 0.8,
+		high = 1, mid = 6, low = -6,
+		reverbDecay = 0.35, reverbWet = 0.044,
+		drive = 0, pitch = 1.26, decay = 0.59, gain = 0.68,
 	},
 }
 
@@ -3744,6 +4040,34 @@ SoundSheet.VOICE = table.freeze({
 	sanctuaryClick = "sanctuaryClick",
 	sanctuaryRecall = "sanctuaryRecall",
 	navHover = "navHover",
+	dropdownOpen = "dropdownOpen",
+	dropdownClose = "dropdownClose",
+	copyDone = "copyDone",
+	dragGrab = "dragGrab",
+	dragDrop = "dragDrop",
+	dragSnap = "dragSnap",
+	favoriteOn = "favoriteOn",
+	favoriteOff = "favoriteOff",
+	ratingStar = "ratingStar",
+	searchType = "searchType",
+	countTick = "countTick",
+	stepNext = "stepNext",
+	stepBack = "stepBack",
+	reportSubmit = "reportSubmit",
+	feedbackSubmit = "feedbackSubmit",
+	guildAnnounce = "guildAnnounce",
+	badgeEarn = "badgeEarn",
+	artifactEquip = "artifactEquip",
+	artifactUpgrade = "artifactUpgrade",
+	crateSeal = "crateSeal",
+	crateOrbit = "crateOrbit",
+	crateRarityStep = "crateRarityStep",
+	crateRevealEpic = "crateRevealEpic",
+	crateRevealMythic = "crateRevealMythic",
+	rebirthIgnite = "rebirthIgnite",
+	rebirthShockwave = "rebirthShockwave",
+	rebirthTierUp = "rebirthTierUp",
+	rebirthAscend = "rebirthAscend",
 
 	purchase = "purchase",
 	reward = "reward",
@@ -3909,10 +4233,14 @@ SoundSheet.VOICE = table.freeze({
 	navHoverForgePath = "navHoverForgePath",
 	navOpenFoundry = "navOpenFoundry",
 	navHoverFoundry = "navHoverFoundry",
-	navOpenCasino = "navOpenWheel",
-	navHoverCasino = "navHoverWheel",
 	navOpenBazaar = "navOpenWheel",
 	navHoverBazaar = "navHoverWheel",
+	-- Star Charts and Signal Cipher replaced Next Rank (Continuum) and Shift Plan (Anomaly) in the nav,
+	-- so they inherit those pages' voices
+	navOpenCharts = "navOpenContinuum",
+	navHoverCharts = "navHoverContinuum",
+	navOpenCipher = "navOpenAnomaly",
+	navHoverCipher = "navHoverAnomaly",
 	oreMineEmberite = "oreMineEmberite",
 	oreCollectEmberite = "oreCollectEmberite",
 	oreMineVoidglass = "oreMineVoidglass",

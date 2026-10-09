@@ -110,9 +110,27 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.DisbandGuild] = { Cost = 2, Cooldown = 2 },
 		[Protocol.Actions.KickGuildMember] = { Cost = 1.5, Cooldown = 0.5 },
 		[Protocol.Actions.SetGuildRole] = { Cost = 1.5, Cooldown = 0.5 },
+		[Protocol.Actions.RenameGuild] = { Cost = 2, Cooldown = 2 },
 		[Protocol.Actions.ContributeGuild] = { Cost = 1, Cooldown = 0.25 },
 		[Protocol.Actions.BuyGuildUpgrade] = { Cost = 1.5, Cooldown = 0.7 },
 		[Protocol.Actions.ClaimGuildGoal] = { Cost = 1.5, Cooldown = 0.4 },
+		[Protocol.Actions.SendGuildChat] = { Cost = 0.25, Cooldown = 0.4 },
+		[Protocol.Actions.GetGuildChatHistory] = { Cost = 0.25, Cooldown = 0.2 },
+		[Protocol.Actions.GetGuildAnnouncements] = { Cost = 0.25, Cooldown = 0.25 },
+		[Protocol.Actions.GetGuildSettings] = { Cost = 0.2, Cooldown = 0.5 },
+		[Protocol.Actions.SetGuildSettings] = { Cost = 0.75, Cooldown = 1 },
+		[Protocol.Actions.GetGuildLogoReview] = { Cost = 0.3, Cooldown = 1 },
+		[Protocol.Actions.CreateGuildAnnouncement] = { Cost = 1, Cooldown = 2 },
+		[Protocol.Actions.EditGuildAnnouncement] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.PinGuildAnnouncement] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.ArchiveGuildAnnouncement] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.SetGuildAnnouncementExpiry] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.MuteGuildMember] = { Cost = 0.5, Cooldown = 0.6 },
+		[Protocol.Actions.UnmuteGuildMember] = { Cost = 0.5, Cooldown = 0.6 },
+		[Protocol.Actions.BanGuildMember] = { Cost = 1, Cooldown = 1 },
+		[Protocol.Actions.UnbanGuildMember] = { Cost = 0.5, Cooldown = 0.6 },
+		[Protocol.Actions.UploadGuildLogo] = { Cost = 0.25, Cooldown = 0.5 },
+		[Protocol.Actions.ModerateGuildLogo] = { Cost = 0.5, Cooldown = 1 },
 		[Protocol.Actions.DomainExpansion] = { Cost = 5, Cooldown = 5 },
 		[Protocol.Actions.UnlockDomainNode] = { Cost = 1, Cooldown = 0.2 },
 		[Protocol.Actions.UpgradeContinuum] = { Cost = 1.5, Cooldown = 0.35 },
@@ -132,8 +150,9 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.ConfirmTrade] = { Cost = 1.1, Cooldown = 0.22 },
 		[Protocol.Actions.CancelTrade] = { Cost = 0.45, Cooldown = 0.18 },
 		[Protocol.Actions.TradeViewAway] = { Cost = 0.2, Cooldown = 0.35 },
-		[Protocol.Actions.CasinoPlay] = { Cost = 1.2, Cooldown = 0.35 },
 		[Protocol.Actions.BazaarPlay] = { Cost = 1, Cooldown = 0.3 },
+		[Protocol.Actions.PlotStar] = { Cost = 0.6, Cooldown = 0.15 },
+		[Protocol.Actions.SubmitCipher] = { Cost = 1, Cooldown = 0.4 },
 		[Protocol.Actions.BuyDailyOffer] = { Cost = 1, Cooldown = 0.35 },
 		[Protocol.Actions.BuyCrateSkin] = { Cost = 1, Cooldown = 0.5 },
 		[Protocol.Actions.EquipCrateSkin] = { Cost = 0.5, Cooldown = 0.25 },
@@ -152,6 +171,19 @@ return function(loadService: (string) -> any)
 		[Protocol.Actions.ClaimDaily] = true,
 		[Protocol.Actions.ClaimAllMail] = true,
 		[Protocol.Actions.VerifyCreatorFollow] = true,
+	}
+
+	-- Exempt actions skip the token/window/strike enforcement, but some still
+	-- need a per-action cooldown to prevent spam (e.g. Rebirth, daily claims).
+	-- Core click actions (CollectVault, Overcharge) remain fully uncapped.
+	local EXEMPT_COOLDOWNS: { [string]: number } = {
+		[Protocol.Actions.ConfirmTrade] = 0.22,
+		[Protocol.Actions.CancelTrade] = 0.18,
+		[Protocol.Actions.TradeViewAway] = 0.35,
+		[Protocol.Actions.Rebirth] = 1,
+		[Protocol.Actions.ClaimDaily] = 1,
+		[Protocol.Actions.ClaimAllMail] = 1,
+		[Protocol.Actions.VerifyCreatorFollow] = 5,
 	}
 
 	local function applyFirewallOverrides()
@@ -213,9 +245,10 @@ return function(loadService: (string) -> any)
 		value: any,
 		depth: number,
 		seen: { [any]: boolean },
-		budget: { Value: number }
+		budget: { Value: number },
+		maxEntries: number?
 	): (boolean, string?)
-		return RemoteFirewallMath.Inspect(value, depth, seen, budget)
+		return RemoteFirewallMath.Inspect(value, depth, seen, budget, maxEntries)
 	end
 
 	local function stringField(payload: { [any]: any }, key: string, minimum: number, maximum: number): boolean
@@ -268,7 +301,8 @@ return function(loadService: (string) -> any)
 		if type(payload) ~= "table" then
 			return false, "payload must be a table"
 		end
-		local ok, reason = inspect(payload, 0, {}, { Value = 0 })
+		local maxEntries = if action == Protocol.Actions.UpdateTradeOffer then RemoteFirewallMath.TRADE_MAX_ENTRIES else nil
+		local ok, reason = inspect(payload, 0, {}, { Value = 0 }, maxEntries)
 		if not ok then
 			return false, reason
 		end
@@ -277,14 +311,38 @@ return function(loadService: (string) -> any)
 				return false, "this action does not accept a payload"
 			end
 		end
+		if action == Protocol.Actions.GetGuildChatHistory or action == Protocol.Actions.GetGuildAnnouncements or action == Protocol.Actions.GetGuildSettings or action == Protocol.Actions.GetGuildLogoReview then
+			for key in payload do
+				if key ~= "BeforeId" and key ~= "Limit" and key ~= "Gen" and key ~= "N" and key ~= "TxnId" then
+					return false, "unexpected read-only guild field"
+				end
+			end
+		end
 
-		if action == Protocol.Actions.SubmitFeedback then
+		if action == Protocol.Actions.UpdateTradeOffer then
+			local validOffer, offerReason = RemoteFirewallMath.ValidateTradeOffer(payload.Offer, GameConfig.Trading.MaxItems)
+			if not validOffer then
+				return false, offerReason
+			end
+		elseif action == Protocol.Actions.SubmitFeedback then
 			if not stringField(payload, "Category", 3, 16) or not stringField(payload, "Message", 8, 600) then
 				return false, "invalid feedback"
 			end
 			local category = payload.Category
-			if category ~= "Bug" and category ~= "Suggestion" and category ~= "Balance" and category ~= "Other" then
+			if category ~= "Bug" and category ~= "Suggestion" and category ~= "Balance" and category ~= "Performance" and category ~= "Interface" and category ~= "Other" then
 				return false, "invalid feedback category"
+			end
+			if payload.Impact ~= nil and not numberField(payload, "Impact", 1, 5, true) then
+				return false, "invalid feedback impact"
+			end
+			if payload.Device ~= nil and not stringField(payload, "Device", 1, 16) then
+				return false, "invalid feedback device"
+			end
+			if payload.Screen ~= nil and not stringField(payload, "Screen", 3, 16) then
+				return false, "invalid feedback screen"
+			end
+			if payload.Page ~= nil and not stringField(payload, "Page", 1, 32) then
+				return false, "invalid feedback page"
 			end
 		elseif action == Protocol.Actions.ReportPlayer then
 			if not stringField(payload, "Reason", 3, 16) or not userIdField(payload) then
@@ -292,6 +350,15 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Details ~= nil and not stringField(payload, "Details", 0, 400) then
 				return false, "invalid report details"
+			end
+			if payload.Severity ~= nil and payload.Severity ~= "Minor" and payload.Severity ~= "Serious" and payload.Severity ~= "Urgent" then
+				return false, "invalid report severity"
+			end
+			if payload.When ~= nil and payload.When ~= "Now" and payload.When ~= "Earlier" and payload.When ~= "Repeated" then
+				return false, "invalid report timing"
+			end
+			if payload.Where ~= nil and payload.Where ~= "Chat" and payload.Where ~= "Trade" and payload.Where ~= "Guild" and payload.Where ~= "World" then
+				return false, "invalid report location"
 			end
 		elseif action == Protocol.Actions.SetSetting then
 			if type(payload.Values) == "table" then
@@ -393,6 +460,7 @@ return function(loadService: (string) -> any)
 			action == Protocol.Actions.LaunchExpedition
 			or action == Protocol.Actions.EquipArtifact
 			or action == Protocol.Actions.UpgradeArtifact
+			or action == Protocol.Actions.BuyArtifact
 			or action == Protocol.Actions.BuySignalOffer
 			or action == Protocol.Actions.EquipTitle
 			or action == Protocol.Actions.ActivateBoost
@@ -408,7 +476,7 @@ return function(loadService: (string) -> any)
 			if not stringField(payload, "Id", 1, 96) then
 				if action == Protocol.Actions.LaunchExpedition then
 					return false, "invalid expedition"
-				elseif action == Protocol.Actions.EquipArtifact or action == Protocol.Actions.UpgradeArtifact then
+				elseif action == Protocol.Actions.EquipArtifact or action == Protocol.Actions.UpgradeArtifact or action == Protocol.Actions.BuyArtifact then
 					return false, "invalid artifact"
 				elseif action == Protocol.Actions.BuySignalOffer then
 					return false, "invalid signal offer"
@@ -441,29 +509,6 @@ return function(loadService: (string) -> any)
 			if not numberField(payload, "Step", 1, 10_000, true) then
 				return false, "invalid forge path payload"
 			end
-		elseif action == Protocol.Actions.CasinoPlay then
-			local game = payload.Game
-			if not stringField(payload, "Game", 3, 12) or (game ~= "Slots" and game ~= "Flip" and game ~= "HighLow" and game ~= "Roulette" and game ~= "Scratch" and game ~= "Exchange" and game ~= "Club") then
-				return false, "invalid casino game"
-			end
-			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
-				return false, "invalid casino move"
-			end
-			if payload.Tier ~= nil and not numberField(payload, "Tier", 1, 5, true) then
-				return false, "invalid casino stake"
-			end
-			if payload.Pick ~= nil and not stringField(payload, "Pick", 1, 8) then
-				return false, "invalid casino pick"
-			end
-			if payload.Count ~= nil and not numberField(payload, "Count", 1, 20, true) then
-				return false, "invalid casino amount"
-			end
-			if payload.Rank ~= nil and not numberField(payload, "Rank", 2, 12, true) then
-				return false, "invalid casino rank"
-			end
-			if payload.Free ~= nil and type(payload.Free) ~= "boolean" then
-				return false, "invalid casino card"
-			end
 		elseif action == Protocol.Actions.BuyDailyOffer then
 			if not numberField(payload, "Slot", 1, 12, true) then
 				return false, "invalid daily offer"
@@ -477,8 +522,8 @@ return function(loadService: (string) -> any)
 				return false, "invalid relic"
 			end
 		elseif action == Protocol.Actions.BazaarPlay then
-			local game = payload.Game
-			if not stringField(payload, "Game", 4, 12) or (game ~= "Bank" and game ~= "Market" and game ~= "Lottery" and game ~= "Contracts") then
+			local gameName = payload.Game
+			if not stringField(payload, "Game", 4, 12) or (gameName ~= "Bank" and gameName ~= "Market" and gameName ~= "Lottery" and gameName ~= "Contracts") then
 				return false, "invalid bazaar counter"
 			end
 			if payload.Op ~= nil and not stringField(payload, "Op", 3, 12) then
@@ -492,6 +537,14 @@ return function(loadService: (string) -> any)
 			end
 			if payload.Pick ~= nil and not stringField(payload, "Pick", 2, 24) then
 				return false, "invalid bazaar pick"
+			end
+		elseif action == Protocol.Actions.PlotStar then
+			if not stringField(payload, "Id", 2, 24) then
+				return false, "invalid constellation"
+			end
+		elseif action == Protocol.Actions.SubmitCipher then
+			if not stringField(payload, "Code", 4, 4) or not string.match(payload.Code, "^[1-6][1-6][1-6][1-6]$") then
+				return false, "invalid cipher"
 			end
 		elseif action == Protocol.Actions.UpgradeCrew then
 			if not stringField(payload, "Role", 1, 64) then
@@ -622,6 +675,27 @@ return function(loadService: (string) -> any)
 			then
 				return false, "invalid power route payload"
 			end
+		elseif action == Protocol.Actions.SendGuildChat then
+			if not stringField(payload, "Content", 1, 800) then return false, "invalid guild message" end
+		elseif action == Protocol.Actions.GetGuildChatHistory then
+			if payload.BeforeId ~= nil and not stringField(payload, "BeforeId", 1, 64) then return false, "invalid guild history cursor" end
+			if payload.Limit ~= nil and not numberField(payload, "Limit", 1, 50, true) then return false, "invalid guild history limit" end
+		elseif action == Protocol.Actions.GetGuildAnnouncements then
+			if payload.BeforeId ~= nil and not stringField(payload, "BeforeId", 1, 64) then return false, "invalid announcement cursor" end
+			if payload.Limit ~= nil and not numberField(payload, "Limit", 1, 50, true) then return false, "invalid announcement limit" end
+		elseif action == Protocol.Actions.GetGuildSettings or action == Protocol.Actions.GetGuildLogoReview then
+			-- Read-only guild-scoped requests accept no caller-controlled fields.
+		elseif action == Protocol.Actions.SetGuildSettings then
+			if type(payload.Settings) ~= "table" then
+				return false, "invalid guild settings"
+			end
+			local allowed = { ChatEnabled = true, AnnouncementsEnabled = true, LogoEnabled = true, OfficerAnnouncements = true, OfficerModeration = true, SlowMode = true }
+			local count = 0
+			for key, value in payload.Settings do
+				count += 1
+				if count > 6 or not allowed[key] or type(value) ~= "boolean" then return false, "invalid guild settings" end
+			end
+			if count == 0 then return false, "empty guild settings" end
 		elseif action == Protocol.Actions.CreateGuild then
 			if type(payload) == "table" then
 				if type(payload.Name) == "string" then
@@ -641,6 +715,15 @@ return function(loadService: (string) -> any)
 			if not userIdField(payload) then return false, "invalid guild member" end
 		elseif action == Protocol.Actions.SetGuildRole then
 			if not userIdField(payload) or (payload.Role ~= "Officer" and payload.Role ~= "Member") then return false, "invalid guild role" end
+		elseif action == Protocol.Actions.RenameGuild then
+			if type(payload) == "table" and type(payload.Name) == "string" then
+				payload.Name = payload.Name:gsub("^%s+", ""):gsub("%s+$", "")
+			end
+			if type(payload) == "table" and type(payload.Tag) == "string" then
+				payload.Tag = string.upper((payload.Tag:gsub("%s+", "")))
+			end
+			if not stringField(payload, "Name", 3, 28) then return false, "invalid guild rename name" end
+			if payload.Tag ~= nil and not stringField(payload, "Tag", 3, 4) then return false, "invalid guild rename tag" end
 		elseif action == Protocol.Actions.ContributeGuild then
 			local hasAmount = payload.Amount ~= nil
 			local hasFraction = payload.Fraction ~= nil
@@ -654,6 +737,20 @@ return function(loadService: (string) -> any)
 			end
 		elseif action == Protocol.Actions.BuyGuildUpgrade then
 			if not stringField(payload, "Id", 1, 48) then return false, "invalid guild upgrade" end
+		elseif action == Protocol.Actions.CreateGuildAnnouncement or action == Protocol.Actions.EditGuildAnnouncement then
+			if not stringField(payload, "Title", 1, 120) or not stringField(payload, "Body", 1, 800) then return false, "invalid guild announcement" end
+			if action == Protocol.Actions.EditGuildAnnouncement and not stringField(payload, "AnnouncementId", 1, 64) then return false, "invalid announcement id" end
+		elseif action == Protocol.Actions.PinGuildAnnouncement or action == Protocol.Actions.ArchiveGuildAnnouncement or action == Protocol.Actions.SetGuildAnnouncementExpiry then
+			if not stringField(payload, "AnnouncementId", 1, 64) then return false, "invalid announcement id" end
+			if action == Protocol.Actions.PinGuildAnnouncement and payload.Pinned ~= nil and type(payload.Pinned) ~= "boolean" then return false, "invalid announcement pin state" end
+			if action == Protocol.Actions.SetGuildAnnouncementExpiry and payload.ExpiresAt ~= nil and not numberField(payload, "ExpiresAt", 0, 4102444800, true) then return false, "invalid announcement expiry" end
+		elseif action == Protocol.Actions.MuteGuildMember or action == Protocol.Actions.UnmuteGuildMember or action == Protocol.Actions.BanGuildMember or action == Protocol.Actions.UnbanGuildMember then
+			if not userIdField(payload) then return false, "invalid guild moderation target" end
+		elseif action == Protocol.Actions.UploadGuildLogo then
+			if not stringField(payload, "URL", 1, 1024) then return false, "invalid guild logo URL" end
+		elseif action == Protocol.Actions.ModerateGuildLogo then
+			if not stringField(payload, "LogoId", 1, 64) or (payload.Decision ~= "approved" and payload.Decision ~= "rejected") then return false, "invalid guild logo decision" end
+			if payload.Reason ~= nil and not stringField(payload, "Reason", 1, 500) then return false, "invalid guild logo decision reason" end
 		elseif action == Protocol.Actions.GetGuildLeaderboard then
 			if payload.Page ~= nil and not numberField(payload, "Page", 1, 100, true) then
 				return false, "invalid guild leaderboard page"
@@ -667,6 +764,13 @@ return function(loadService: (string) -> any)
 				and id ~= "Cores"
 				and id ~= "Domain"
 				and id ~= "Worlds"
+				and id ~= "Crates"
+				and id ~= "Finds"
+				and id ~= "Ore"
+				and id ~= "Wardens"
+				and id ~= "Orders"
+				and id ~= "Stars"
+				and id ~= "Cipher"
 			then
 				return false, "invalid leaderboard"
 			end
@@ -879,6 +983,18 @@ return function(loadService: (string) -> any)
 			return false, payloadReason or "That request could not be validated."
 		end
 		if EXEMPT_ACTIONS[action] then
+			-- Even exempt actions can carry a per-action cooldown to prevent abuse
+			-- of high-impact actions like Rebirth or daily claims.
+			local exemptCooldown = EXEMPT_COOLDOWNS[action]
+			if exemptCooldown and exemptCooldown > 0 then
+				local actionKey = cooldownKey(action, payload)
+				local previous = state.LastAction[actionKey] or -math.huge
+				if now - previous < exemptCooldown then
+					ServerTelemetry.RecordRemote(false, "exempt action cooldown")
+					return false, "That action is still cooling down."
+				end
+				state.LastAction[actionKey] = now
+			end
 			ServerTelemetry.RecordRemote(true)
 			return true
 		end

@@ -1,9 +1,15 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerTelemetry = require(script.Parent:WaitForChild("Services"):WaitForChild("ServerServices")).ServerTelemetry
 
 local ModuleLog = {}
+
+-- Injected at boot by init.server.luau to avoid a circular require between
+-- ModuleLog and the service registry.
+local telemetry = nil
+function ModuleLog.AttachTelemetry(service)
+	telemetry = service
+end
 local recent: { [string]: number } = {}
 local emitted: { [string]: boolean } = {}
 
@@ -76,33 +82,33 @@ local function debugEnabled(): boolean
 end
 
 function ModuleLog.Info(scope: string, message: string, params: { [string]: any }?): ()
-	ServerTelemetry.RecordLog("Info")
+	if telemetry then telemetry.RecordLog("Info") end
 	print(formatLine("INFO", scope, message, params))
 end
 
 function ModuleLog.Warn(scope: string, message: string, params: { [string]: any }?): ()
-	ServerTelemetry.RecordLog("Warning")
+	if telemetry then telemetry.RecordLog("Warning") end
 	warn(formatLine("WARN", scope, message, params))
 end
 
 function ModuleLog.Error(scope: string, message: string, params: { [string]: any }?): ()
-	ServerTelemetry.RecordLog("Error")
+	if telemetry then telemetry.RecordLog("Error") end
 	warn(formatLine("ERROR", scope, message, params))
 end
 
 function ModuleLog.Fatal(scope: string, message: string, params: { [string]: any }?): ()
-	ServerTelemetry.RecordLog("Fatal")
+	if telemetry then telemetry.RecordLog("Fatal") end
 	warn(formatLine("FATAL", scope, message, params))
 end
 
 function ModuleLog.Network(scope: string, message: string, params: { [string]: any }?): ()
-	ServerTelemetry.RecordLog("Network")
+	if telemetry then telemetry.RecordLog("Network") end
 	print(formatLine("NETWORK", scope, message, params))
 end
 
 function ModuleLog.Debug(scope: string, message: string, params: { [string]: any }?): ()
 	if debugEnabled() then
-		ServerTelemetry.RecordLog("Debug")
+		if telemetry then telemetry.RecordLog("Debug") end
 		print(formatLine("INFO", scope, message, params))
 	end
 end

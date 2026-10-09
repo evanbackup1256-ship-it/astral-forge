@@ -59,8 +59,9 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-	"src/Client/AstralForge/pages/PagesCasino.luau#CasinoView",
 	"src/Client/AstralForge/pages/PagesBazaar.luau#BazaarView",
+	"src/Client/AstralForge/pages/PagesSky.luau#StarChartsView",
+	"src/Client/AstralForge/pages/PagesSky.luau#CipherView",
 }
 
 -- Playability scaffolding + hot pages must stay free of vendor/Packages coupling.
@@ -143,9 +144,11 @@ end
 -- Chat message list migrated onto FlatList (virtualizedList owns the scroller) so the
 -- raw-scroll allowlist stays empty — reintroduce entries only with a >40-char justification.
 local RAW_SCROLL_ALLOWLIST = {
+	["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = "Guild channel log is a fixed-height inner pane inside one section card; it must scroll and pin to newest independently of the page scaffold.",
 }
 
 local RAW_SCROLL_BUDGET = {
+	["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = 1,
 }
 
 local function countRawScrollingFrames(src)
@@ -201,9 +204,9 @@ do
 	assert(string.find(src, "createElement(FlatList", 1, true), path .. " must FlatList inbox and body catalogs")
 	assert(not string.find(src, 'createElement("scrollingframe"', 1, true), path .. " must not keep raw body scrollingframe")
 	assert(string.find(src, "CLAIM", 1, true) and string.find(src, "ARCHIVE", 1, true), path .. " must expose CLAIM/ARCHIVE")
-	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -footerH)", 1, true), path .. " must pin footer to bottom")
-	assert(string.find(src, "stackListH", 1, true), path .. " must reserve stack list height so detail actions stay reachable")
-	assert(string.find(src, "0.34, -7", 1, true) and string.find(src, "0.66, -7", 1, true), path .. " must keep desktop split chrome widths")
+	assert(string.find(src, "Position = UDim2.new(0, 0, 1, -props.height)", 1, true), path .. " must pin the gift parcel to the bottom of the reader")
+	assert(string.find(src, "UDim2.new(0.38, -6, 1, 0)", 1, true) and string.find(src, "UDim2.new(0.62, -6, 1, 0)", 1, true), path .. " must keep the desktop inbox/reader split")
+	assert(string.find(src, "UDim2.fromScale(1 - math.clamp(a, 0, 1), 0)", 1, true), path .. " must slide the reader over the inbox on phones")
 end
 
 ------------------------------------------------------------------------
@@ -232,7 +235,11 @@ do
 	local command = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#CommandView")
 	assert(string.find(command, "VirtualGrid", 1, true), "Command grid must stay virtual")
 	-- Expeditions / Weekly / Season long catalogs must VirtualGrid (or FlatList) — never map-mount.
-	assert(string.find(command, "count = #ops.Expeditions", 1, true), "Command Expeditions must VirtualGrid count")
+	-- the expedition grid virtualizes the searched/filtered list (expeditionList) rather than the raw catalog
+	assert(
+		string.find(command, "count = #ops.Expeditions", 1, true) or string.find(command, "count = #expeditionList", 1, true),
+		"Command Expeditions must VirtualGrid count"
+	)
 	assert(string.find(command, "count = #command.Weekly", 1, true), "Command Weekly must VirtualGrid count")
 	assert(string.find(command, "count = #ops.SeasonTiers", 1, true), "Command Season must VirtualGrid count")
 	assert(string.find(command, "Weekly jobs", 1, true), "Command Weekly jobs header must stay")
