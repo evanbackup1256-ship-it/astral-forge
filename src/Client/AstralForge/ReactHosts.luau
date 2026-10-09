@@ -1787,9 +1787,9 @@ local function NumberSpinnerHost(_param)
 				spinner.Prefix = style.prefix
 				quiet.prefix = style.prefix
 			end
-			if quiet.suffix ~= style.suffix then
-				spinner.Suffix = style.suffix
-				quiet.suffix = style.suffix
+			if quiet.suffix ~= display.suffix then
+				spinner.Suffix = display.suffix
+				quiet.suffix = display.suffix
 			end
 			return nil
 		end
@@ -1807,7 +1807,7 @@ local function NumberSpinnerHost(_param)
 		quietChromeRef.current.color = style.color
 		quietChromeRef.current.align = style.align
 		quietChromeRef.current.prefix = style.prefix
-		quietChromeRef.current.suffix = style.suffix
+		quietChromeRef.current.suffix = display.suffix
 		spinner.Value = mantissa
 		setDigitTracking(spinner, style.digitWidthScale, style.digitGap)
 		lastMantissaRef.current = mantissa

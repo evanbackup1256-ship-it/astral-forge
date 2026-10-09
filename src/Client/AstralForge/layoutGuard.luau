@@ -428,7 +428,7 @@ local function checkOverlappingHitboxes(root)
 	local byParent = {}
 	local list = if typeof(root) == "table" then root else root:GetDescendants()
 	for _, descendant in list do
-		if descendant.Parent == nil or not descendant:IsA("GuiButton") then
+		if descendant.Parent == nil or not descendant:IsA("GuiButton") or not isTrackedClass(descendant) then
 			continue
 		end
 		if not descendant.Visible or not descendant.Active then
@@ -545,7 +545,7 @@ local function checkTextUnderButtons(list)
 	table.clear(textPassLabels)
 	table.clear(textPassButtons)
 	for _, inst in list do
-		if inst.Parent == nil then
+		if inst.Parent == nil or not isTrackedClass(inst) then
 			continue
 		end
 		if inst:IsA("GuiButton") then
@@ -716,7 +716,7 @@ local function checkStackedText(list)
 	end
 	for _, inst in list do
 		local parent = inst.Parent
-		if parent == nil then
+		if parent == nil or not isTrackedClass(inst) then
 			continue
 		end
 		if inst:IsA("TextLabel") then
@@ -760,7 +760,7 @@ local function inspect(inst)
 	end
 end
 function inspectOnce(inst)
-	if inst.Parent == nil then
+	if inst.Parent == nil or not isTrackedClass(inst) then
 		return nil
 	end
 	local size = inst.AbsoluteSize

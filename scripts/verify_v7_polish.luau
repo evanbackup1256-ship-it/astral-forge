@@ -44,8 +44,8 @@ for _, malformed in {
 	{ Cash = -1 }, { Cash = 0.5 }, { Cash = math.huge }, { Cash = "50" },
 	{ Boosts = { Overdrive = -1 } }, { Keys = { ForgeCrate = 0.5 } },
 	{ ItemIds = { "1", "2", "3", "4", "5", "6", "7" } }, { ItemIds = { "" } },
-	{ ItemIds = { [2] = "sparse" } }, { ItemIds = { string.rep("x", 49) } },
-	{ Unknown = 0 },
+	{ ItemIds = { [2] = "sparse" } }, { ItemIds = { Named = "not-an-array" } },
+	{ ItemIds = { string.rep("x", 49) } }, { Unknown = 0 },
 } do
 	assert(not Firewall.ValidateTradeOffer(malformed, 6), "invalid trade offer must be rejected")
 end
@@ -131,6 +131,7 @@ assert(arms == 1, "instant positioning does not restart a settled motor")
 motor:destroy()
 motor:setGoal(1)
 assert(arms == 1 and motor.raw.destroyed, "disposed motors cannot rearm")
+
 local ui = source("src/Client/AstralForge/UiCore.luau#ui")
 assert(not ui:find("math.round(-lift", 1, true), "panel motion retains subpixel precision")
 assert(ui:find("setNarrow(instance.AbsoluteSize.X < 360)", 1, true), "steppers respond to their own row width")
@@ -138,6 +139,32 @@ local guard = source("src/Client/AstralForge/layoutGuard.luau")
 assert(guard:find("FRAME_BUDGET_SECONDS = 0.0015", 1, true))
 assert(guard:find("os.clock() < self.deadline", 1, true), "layout scanning yields to the frame deadline")
 assert(guard:find("elseif self.overlapPhase == 2 then", 1, true), "collision passes are spread across frames")
+local trackedClass = extract(guard, "local function isTrackedClass(", "local function applyTextFloor(")
+local isTracked = load(trackedClass .. "\nreturn isTrackedClass", { IGNORE_ATTRIBUTE = "LayoutGuardIgnore", isFloatingPanel = function() return false end })
+local function instance(class, parent, ignored)
+	return {
+		Parent = parent,
+		IsA = function(_, wanted) return wanted == class end,
+		GetAttribute = function(_, attribute) return attribute == "LayoutGuardIgnore" and ignored == true end,
+	}
+end
+local layer = instance("LayerCollector")
+local root = instance("Frame", layer, true)
+local glyph = instance("TextLabel", instance("Frame", root))
+assert(not isTracked(glyph), "layout-owned descendants inherit their ancestor's exclusion")
+root.GetAttribute = function() return false end
+assert(isTracked(glyph), "ordinary text still receives layout repairs")
+local presence = source("src/Client/AstralForge/ArtifactPresence.luau")
+local spriteStep = extract(presence, "spriteClock += dt", "local offset =")
+local sprites = load(source("src/Shared/AstralForge/Shared/ElementSprites.luau"), { Color3 = roblox.Color3, Vector2 = roblox.Vector2 })
+local tickSprite = load("return function(spriteClock, spriteFrame, dt)\nlocal frameStep = 1 / ElementSprites.FRAMERATE\n"
+	.. spriteStep .. "\nreturn spriteClock, spriteFrame\nend", { ElementSprites = sprites })
+for _, fps in { 15, 30, 60, 144 } do
+	local clock, frame = 0, 0
+	for _ = 1, fps * 2 do clock, frame = tickSprite(clock, frame, 1 / fps) end
+	local expected = (sprites.FRAMERATE * 2) % sprites.COUNT
+	assert(math.abs(frame - expected) <= 1, "dropped frames must not slow artifact sprites")
+end
 
 local titles = source("src/Client/AstralForge/ReactHosts.luau#HyperTextHost")
 local kinds = assert(titles:match("local TITLE_FX_KINDS = (%b{})"))
@@ -159,4 +186,26 @@ for _, kind in load("return " .. kinds) do
 	count += 1
 end
 assert(count >= 37, "all title styles are exercised")
-print(`[INFO] [TEST] 7.0 polish passed | dense/sparse trade, malformed payloads, motion at 15–144 fps, layout scheduling, {count} title styles`)
+local spinner = source("src/Client/AstralForge/ReactHosts.luau#NumberSpinnerHost")
+local display = extract(spinner, "local function spinDisplay(", "local function formatRawLabel(")
+local callback = extract(spinner, "local pushDisplay = React.useCallback(", "local ensureSpinner =")
+local style = { current = { size = 20, color = "cream", align = "left", prefix = "+", extraSuffix = " FLUX", spacedSuffix = true } }
+local quiet = { current = {} }
+local pushDisplay = load(display .. callback .. "\nreturn pushDisplay", {
+	React = { useCallback = function(fn) return fn end },
+	compactSpinParts = function(value) return { value = value, decimals = 0, suffix = "K" } end,
+	styleRef = style, quietChromeRef = quiet, lastMantissaRef = {}, lastBandRef = {}, lastRawRef = {},
+	sanitizeValue = function(value) return value end,
+	applyChrome = function(target, opts) target.Suffix = opts.suffix end,
+	setDigitTracking = function() end, pulseAccent = function() end,
+})
+local target = {}
+pushDisplay(target, 10, 0, false)
+assert(target.Suffix == " K FLUX")
+style.current.extraSuffix = " CORES"
+pushDisplay(target, 10, 0, false)
+assert(target.Suffix == " K CORES", "unit labels update even when the numeric amount is unchanged")
+style.current.spacedSuffix = false
+pushDisplay(target, 10, 0, false)
+assert(target.Suffix == "K CORES", "spacing changes propagate without requiring a numeric update")
+print(`[INFO] [TEST] 7.0 polish passed | trade, stale sessions, motor cleanup, subpixel motion, layout deadlines, sprite timing at 15-144 fps, {count} title styles`)

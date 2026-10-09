@@ -372,8 +372,9 @@ function ArtifactPresence.attach()
 		spriteClock += dt
 		local advance = false
 		if spriteClock >= frameStep then
+			local frames = math.floor(spriteClock / frameStep)
 			spriteClock %= frameStep
-			spriteFrame = (spriteFrame + 1) % ElementSprites.COUNT
+			spriteFrame = (spriteFrame + frames) % ElementSprites.COUNT
 			advance = true
 		end
 		local offset = Vector2.new((spriteFrame % 6) * grid, math.floor(spriteFrame / 6) * grid)

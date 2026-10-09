@@ -13,7 +13,7 @@ that value or delete the `DataService` legacy transfer without save fixtures.
 | Save schema (GameConfig.Game.DataVersion) | 21 (do not bump without save fixtures) |
 | Lune (tests) | 0.10.5 |
 | Argon (Studio sync) | 2.0.29 |
-| Node / npm packages | Node 24; roblox-ts 3, TypeScript 7, React 17 (types only; runtime packages are vendored in endor/) |
+| Node / npm packages | Node 24; roblox-ts 3, TypeScript 7, React 17 (types only; runtime packages are vendored in `vendor/`) |
 | Python (asset tools) | 3.14 |
 
 The verification suite is the scripts/verify_*.luau guards run by lune run scripts/verify_project.luau.
@@ -29,13 +29,15 @@ are updated alongside reports, feedback, ranks, admin tools and event effects.
 Save schema remains **21**. Offline guards and compilation do not replace Studio
 multiplayer, device, audio-permission and save/load testing before Roblox publish.
 
-The polish pass fixes dense trade-offer transport, blocks Ready/Confirm until
-offer synchronization finishes, and corrects Comet title markup. Shared controls
-keep spring timing responsive across motion-intensity settings and retain
-subpixel movement. LayoutGuard scanning has a 1.5 ms cooperative frame budget;
-collision passes run on separate frames, and animated title glyphs are left to
-their renderer. Actual layout latency and frame rate still require Studio
-measurement; count-based scheduler estimates are not runtime guarantees.
+The polish regression guard checks dense and compact trade envelopes, invalid
+item arrays, pending-offer/session safeguards, motion timing at 15-144 fps and
+all animated-title styles. Artifact sprites retain their animation speed across
+dropped frames. Selected domain labels retain foreground priority, and projected
+UI owns its geometry instead of competing with generic layout repairs.
+Number units update correctly even while their amounts remain unchanged.
+Existing features remain intact; full visual and multiplayer
+review is tracked in `NOT_TESTED.md`.
+
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
 
