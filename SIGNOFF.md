@@ -27,6 +27,14 @@ Full multiplayer, viewport rendering,
 audio playback and game-wide visual sign-off remain pending; see
 `NOT_TESTED.md`. No full-game runtime sign-off is claimed.
 
+The next live sweep fixed Research header overlap, compacted the Shop wallet
+with the shared number formatter, and made feedback impact levels readable with
+a separate touch-sized phone row. Shared buttons and the feedback dialog now
+encode fractional pixel movement in measured scale coordinates rather than
+integer UDim offsets. The regression covers actual coordinates, host resizing
+and cleanup. No reports, feedback messages or purchases were submitted during
+the nondestructive smoke tests.
+
 ## Master spec checklist
 
 | # | Deliverable | Status | Evidence | Signed |
