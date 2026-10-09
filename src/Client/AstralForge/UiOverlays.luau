@@ -39,6 +39,8 @@ local _ui = require(script.Parent.UiCore)("ui")
 local Button = _ui.Button
 local OverlayPresence = _ui.OverlayPresence
 local Text = _ui.Text
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
 local Icon = require(script.Parent.ArtKit)("Icon").Icon
 local _theme = require(script.Parent.CoreKit)("theme")
 local Palette = _theme.Palette
@@ -530,6 +532,8 @@ local function HoldButton(props)
 end
 
 local function ConfirmView(props)
+	local cardRef = React.useRef(nil)
+	local parentSize = useGuiSize(cardRef, true)
 	local domain = props.domain
 	local viewport = props.viewport
 	local softMotion = props.softMotion
@@ -648,10 +652,11 @@ local function ConfirmView(props)
 			ZIndex = 30,
 		}, h("uipadding", { PaddingBottom = UDim.new(0, 12) }), details)
 	end
-	local cardIn = props.enter:map(function(a)
-		return UDim2.new(0.5, 0, 0.5, math.round((1 - a) * 30))
+	local cardIn = React.joinBindings({ props.enter, parentSize }):map(function(values)
+		return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 30)
 	end)
 	return h("frame", {
+		ref = cardRef,
 		Size = UDim2.fromOffset(cardW, cardH),
 		Position = cardIn,
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1107,6 +1112,8 @@ local OverlayPresence = _ui.OverlayPresence
 local Text = _ui.Text
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 local DomainKit = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainKit"))
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
 local _elementFx = require(script.Parent.ElementFx)
 local ElementFx = _elementFx.ElementFx
 local elementSheet = _elementFx.sheet
@@ -2548,6 +2555,7 @@ local function DomainSkillTree(_param)
 	local beginExit = _binding[3]
 	local motion = composePresence(enter, leave)
 	local hostRef = React.useRef(nil)
+	local hostSize = useGuiSize(hostRef)
 	local alive = React.useRef(true)
 	local nodes = domain.Nodes or {}
 	local owned = {}
@@ -2728,8 +2736,8 @@ local function DomainSkillTree(_param)
 		ZIndex = 700,
 	}), h("frame", {
 		Size = UDim2.fromOffset(panelW, panelH),
-		Position = motion:map(function(a)
-			return UDim2.new(0.5, 0, 0.5, math.round((1 - a) * 22))
+		Position = React.joinBindings({ motion, hostSize }):map(function(values)
+			return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 22)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.night,

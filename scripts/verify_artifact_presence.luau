@@ -36,5 +36,31 @@ has(presence, 'GetAttributeChangedSignal("EquippedArtifact")', "presence follows
 has(presence, "Players.PlayerRemoving:Connect(unwatch)", "presence cleans up leaving players")
 has(presence, "folder:Destroy()", "presence disposer tears down")
 has(presence, "burst(rig)", "equip burst")
+has(presence, "rigBuilds[player] = nil", "clearing a rig invalidates unfinished builds")
+local guardStart = assert(presence:find("if rigBuilds[player] ~= buildToken", 1, true))
+local guardEnd = assert(presence:find("rigs[player] = rig", guardStart, true))
+local guard = presence:sub(guardStart, guardEnd - 1)
+local luau = require("@lune/luau")
+for _, state in { "current", "newer-build", "departed", "respawned", "unequipped", "disposed", "unwatched" } do
+	local character, token, player = {}, {}, { Parent = {} }
+	player.Character = if state == "respawned" then {} else character
+	player.GetAttribute = function() return if state == "unequipped" then nil else "DroneCrown" end
+	if state == "departed" then player.Parent = nil end
+	local destroyed = 0
+	local environment = setmetatable({
+		rigBuilds = { [player] = if state == "newer-build" then {} else token },
+		buildToken = token, alive = state ~= "disposed",
+		watchers = { [player] = if state == "unwatched" then nil else {} },
+		player = player, character = character, info = { Id = "DroneCrown" },
+		rig = { instances = {
+			{ Destroy = function() destroyed += 1 end },
+			{ Destroy = function() destroyed += 1 end },
+		} },
+	}, { __index = getfenv(0) })
+	local commit = luau.load("return function()\n" .. guard .. "\nreturn true\nend", { environment = environment })()
+	local accepted = commit()
+	assert((accepted == true) == (state == "current"), state .. ": only the current live build may commit")
+	assert(destroyed == (if state == "current" then 0 else 2), state .. ": rejected builds destroy every partial visual")
+end
 
 print("artifact presence ok")

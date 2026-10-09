@@ -40,7 +40,10 @@ currency labels, and feedback impact controls have numbered levels with a
 separate touch-sized phone row. Shared buttons and feedback dialog travel use
 measured scale coordinates for genuine fractional-pixel movement: Roblox's
 UDim offsets truncate fractions even without explicit rounding. The motion
-regression checks resize updates and measurement-subscription cleanup.
+regression checks resize updates and measurement-subscription cleanup. Shared
+panels and domain confirmation/tree overlays use the same measured motion.
+Artifact visuals reject unfinished builds after departures, respawns, unequips
+or a newer refresh, preventing stale nameplates and partial visual leaks.
 Existing features remain intact; full visual and multiplayer
 review is tracked in `NOT_TESTED.md`.
 

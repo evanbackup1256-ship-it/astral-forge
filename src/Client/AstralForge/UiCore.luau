@@ -1215,6 +1215,8 @@ local function Panel(_param)
 	end
 	local hovered, setHovered = React.useState(false)
 	local hoverArmed, setHoverArmed = React.useState(false)
+	local panelRef = React.useRef(nil)
+	local panelSize = useGuiSize(panelRef)
 	local effectsPaused = React.useContext(UiEffectsPausedContext)
 	local _binding = useMotionSettings()
 	local panelHoverScale = _binding.panelHoverScale
@@ -1283,11 +1285,11 @@ local function Panel(_param)
 			strokeColor = highlightOn:map(function(amount)
 				return if amount >= 0.45 then accentColor else Palette.lineSoft
 			end),
-			shadowPosition = surfaceY:map(function(y)
-				return UDim2.new(0, -4, 0, 7 + y)
+			shadowPosition = React.joinBindings({ surfaceY, panelSize }):map(function(values)
+				return pixelPosition(values[2], 0, -4, 0, 7 + values[1])
 			end),
-			surfacePosition = surfaceY:map(function(y)
-				return UDim2.new(0, 0, 0, y)
+			surfacePosition = React.joinBindings({ surfaceY, panelSize }):map(function(values)
+				return pixelPosition(values[2], 0, 0, 0, values[1])
 			end),
 			shadowTransparency = if revealFade ~= nil then revealFade:map(function(amount)
 				return math.clamp(Chrome.panelShadow + amount * (1 - Chrome.panelShadow), 0, 1)
@@ -1317,13 +1319,14 @@ local function Panel(_param)
 				return 1 - amount * 0.78
 			end),
 		}
-	end, { lift, highlightOn, activeReveal, revealFade, accentColor, hoverGlow })
+	end, { lift, highlightOn, activeReveal, revealFade, accentColor, hoverGlow, panelSize })
 	local strokeColor = derived.strokeColor
 	local hoverWashVisible = derived.hoverWashVisible
 	local hoverWashAlpha = derived.hoverWashAlpha
 	local highlightWashVisible = derived.highlightWashVisible
 	local highlightWashAlpha = derived.highlightWashAlpha
 	return React.createElement("frame", {
+		ref = panelRef,
 		Size = size,
 		Position = position,
 		BackgroundTransparency = 1,

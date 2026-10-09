@@ -148,8 +148,10 @@ function ArtifactPresence.attach()
 	local spriteFrame = 0
 	local alive = true
 	local refreshJobs = {}
+	local rigBuilds = {}
 
 	local function clearRig(player)
+		rigBuilds[player] = nil
 		local rig = rigs[player]
 		if rig == nil then
 			return
@@ -203,6 +205,8 @@ function ArtifactPresence.attach()
 		if info == nil or root == nil then
 			return
 		end
+		local buildToken = {}
+		rigBuilds[player] = buildToken
 		local tier = tierOf(info.Rarity)
 		local rig = {
 			id = info.Id,
@@ -280,6 +284,14 @@ function ArtifactPresence.attach()
 		table.insert(rig.instances, plate)
 		rig.glyph = if animated then glyph else nil
 
+		if rigBuilds[player] ~= buildToken or not alive or watchers[player] == nil
+			or player.Parent == nil or player.Character ~= character
+			or player:GetAttribute("EquippedArtifact") ~= info.Id then
+			for _, instance in rig.instances do
+				instance:Destroy()
+			end
+			return
+		end
 		rigs[player] = rig
 		if announce then
 			burst(rig)

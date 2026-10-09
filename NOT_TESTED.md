@@ -8,7 +8,7 @@
 - [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects to the synced 7.0 place; the separate executor bridge remains disconnected.
 - [ ] Measured UI frame times, rapid navigation, title rendering, audio playback and responsive trade controls on actual clients.
 - [ ] Two-player trade: edit while syncing, switch sessions, reject stale replies, ready/unready, confirm and reconnect.
-- [ ] Public artifact effects across respawns, unequips, upgrades and player departures.
+- [ ] Public artifact network replication across real-player respawns, unequips, upgrades and player departures.
 - [ ] Human visual review of every screen for consistency with the game's palette, typography and restrained motion.
 
 Desktop startup, inventory, quick search and domain overlay were smoke-tested,
@@ -41,6 +41,20 @@ in the current capture environment. This is not specific to the domain tree.
 The temporary objects were removed and UI visibility restored. The renderer's
 cause still needs independent Studio/client confirmation; no 3D feature was
 replaced or disabled.
+
+An isolated Studio presentation harness subsequently exercised two simulated
+players through equip, upgrade, unequip, respawn, departure during refresh,
+late join and disposal. It reproduced a stale-completion leak after departure;
+the fixed module passed all eight lifecycle checks. Offline regressions also
+execute the actual completion guard against newer builds, departures, changed
+characters, unequips, disposal and removed watchers. This is not a two-client
+replication test. Temporary characters and test modules were removed.
+
+Live shared Panel samples retained 0.16, 1.4 and 7.75 pixels of travel at two
+host sizes, including matching shadow travel. Domain-tree entrance produced 17
+fractional-motion frames and settled at center; its confirmation dialog now
+uses measured coordinates too. These checks address coordinate stepping, not
+hardware-specific frame pacing.
 
 The existing feature set is preserved. Offline regression and compilation results
 are not proof of live multiplayer behavior or full visual quality. Older casino and
