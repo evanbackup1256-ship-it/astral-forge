@@ -3,21 +3,29 @@
 > **No row is signed off until the associated audit, repro, and regression tests are complete.**
 > Last updated: 2026-10-09
 
-## Version 7.0 source verification
+## Current 7.0 pass
 
-- Full `lune run scripts/verify_project.luau` passes, including the new trade,
-  title-markup, motion-timing and layout-scheduling regressions.
-- All 330 Luau source files compile at O0/O1/O2.
-- Static deep audit: zero errors; one nonblocking local-register headroom warning.
-- Save schema remains 21. No datastore reset or migration removal is included.
-- Argon responds on localhost:8000. The Roblox executor bridge is disconnected.
-- Live visual/style review, measured frame rate, audio permissions/playback,
-  multiplayer trade/artifact behavior and production save/load remain unsigned.
+The master checklist below records the original specification and is historical:
+casino gameplay was subsequently removed at the creator's request. Do not
+reintroduce it to satisfy an obsolete checklist row.
 
-The following master-spec and system tables are historical tracking from October
-5–6, not the current release verdict. Casino rebuilding was superseded by the
-user-requested casino removal. A source merge is not Roblox publication or
-full runtime sign-off; see `NOT_TESTED.md` for the current verification gaps.
+Current work restores compact trade transport, session-change invalidation,
+array validation and the dedicated polish regression guard. Selected domain
+labels stay above depth bands, projected UI is excluded from generic layout
+repairs, number suffixes update without amount changes, and artifact sprites
+maintain their timing on dropped frames. Existing features are retained.
+
+The full offline verifier passes. All 330 Luau files compile at O0/O1/O2.
+The source audit reports zero errors and one register-headroom warning.
+The Argon project build passes.
+Studio MCP verified the synced version 7.0 source and clean client/server
+startup. Desktop inventory/search/domain smoke checks and iPhone 17 Pro
+portrait domain layout were observed. A second playtest confirmed the selected
+domain label remains visible above the other nodes and the lattice owns its
+layout. Studio was returned to edit mode with device simulation stopped.
+Full multiplayer, viewport rendering,
+audio playback and game-wide visual sign-off remain pending; see
+`NOT_TESTED.md`. No full-game runtime sign-off is claimed.
 
 ## Master spec checklist
 

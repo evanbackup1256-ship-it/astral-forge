@@ -15383,6 +15383,7 @@ local function OfflineRewardsOverlay(_param)
 		duration = 0.85,
 		prefix = "+",
 		extraSuffix = " FLUX",
+		spacedSuffix = true,
 		size = if stack then 24 else 30,
 		color = Palette.mint,
 		position = UDim2.fromOffset(14, 28),

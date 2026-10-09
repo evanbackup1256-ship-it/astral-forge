@@ -2242,7 +2242,7 @@ local function LatticeStage(props)
 				button.Visible = true
 				button.Position = UDim2.fromOffset(w / 2 + q.X / z * focal, hgt / 2 - q.Y / z * focal + 8)
 				local band = bandOf(z)
-				button.ZIndex = 3 + (band - 1) * 10 + 6
+				button.ZIndex = if id == state.focusId then 3 + BANDS * 10 + 20 else 3 + (band - 1) * 10 + 6
 				local depthScale = depthScaleOf(anchor, button)
 				if depthScale then
 					-- nodes pop in tier by tier, root first
@@ -2325,7 +2325,13 @@ local function LatticeStage(props)
 		})
 	end
 	return h("frame", {
-		ref = containerRef,
+		ref = function(container)
+			containerRef.current = container
+			if container ~= nil then
+				container:SetAttribute("LayoutGuardIgnore", true)
+				container:SetAttribute("NoMotion", true)
+			end
+		end,
 		Name = "LatticeStage",
 		Size = props.size,
 		Position = props.position,

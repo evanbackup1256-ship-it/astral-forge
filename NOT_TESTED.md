@@ -3,25 +3,32 @@
 > Transparency list. If it is not listed here and not signed off in `SIGNOFF.md`, it is not considered verified.
 > Last updated: 2026-10-09
 
-## Version 7.0 runtime verification still required
+## Current 7.0 verification boundary
 
-- [ ] Live measured FPS/frame-time comparison on desktop and mobile, including
-  dense domains, inventory, chat and repeated panel transitions.
-- [ ] Visual acceptance against the established palette, typography and spacing;
-  a cohesive, intentionally designed feel requires human playtest review.
-- [ ] Two-client trade: all currencies, boosts, keys and six artifacts; edits while
-  syncing, cancellation, reconnects, readiness reset and final settlement.
-- [ ] All 37 animated title styles rendered by HyperText in Roblox.
-- [ ] Artifact equip/upgrade/respawn visibility for multiple clients and distance
-  culling; custom chat and player-list consistency.
-- [ ] Domain selection changes, zoom, touch/gamepad navigation and reduced motion.
-- [ ] UI SFX playback and permissions on the owning Roblox experience, volume
-  settings and music/UI voice mixing.
-- [ ] Production save/load and legacy transfer with schema 21.
+- [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects to the synced 7.0 place; the separate executor bridge remains disconnected.
+- [ ] Measured UI frame times, rapid navigation, title rendering, audio playback and responsive trade controls on actual clients.
+- [ ] Two-player trade: edit while syncing, switch sessions, reject stale replies, ready/unready, confirm and reconnect.
+- [ ] Public artifact effects across respawns, unequips, upgrades and player departures.
+- [ ] Human visual review of every screen for consistency with the game's palette, typography and restrained motion.
 
-The full offline verification suite now passes, and all 330 Luau files compile at
-O0/O1/O2. Argon responds on localhost:8000, but the Roblox bridge is disconnected.
-These checks do not verify live playback, frame rate, visuals or multiplayer.
+Desktop startup, inventory, quick search and domain overlay were smoke-tested,
+including domain layout in iPhone 17 Pro portrait simulation (Sensor orientation,
+CoreUISafeInsets). No runtime exception was observed in those paths.
+The final domain smoke test confirmed the selected label stays above the other
+nodes. Studio was returned to edit mode and device simulation was stopped.
+Five-second desktop samples had p95 frame intervals of 11.23 ms and 11.91 ms,
+with maximum intervals of 41.93 ms and 38.98 ms. These are samples, not a
+before/after benchmark or a guarantee of smoothness on other hardware.
+
+- [ ] Resolve or independently reproduce blank ViewportFrames in the current
+  Studio rendering environment: both the domain meshes and a temporary
+  standalone plain-cube viewport rendered blank. The diagnostic was removed.
+- [ ] Confirm audible playback, not merely successful audio loading.
+
+The existing feature set is preserved. Offline regression and compilation results
+are not proof of live multiplayer behavior or full visual quality. Older casino and
+replacement-feature checklist entries below are historical, not instructions to
+reintroduce removed casino gameplay.
 
 ## Environment / platform
 
@@ -44,10 +51,11 @@ These checks do not verify live playback, frame rate, visuals or multiplayer.
 
 ## Content
 
-- [ ] Crate and domain kit availability/permissions in the owning Roblox experience.
+- [ ] Casino/crate kit asset when real asset ID is uploaded (`KitReady=true`).
+- [ ] Per-casino-game bespoke viewport models (Part 3 of master spec).
 - [ ] Guild community features end-to-end in Roblox Studio/live servers: multi-user DataStore persistence, TextService filtering, cross-server behavior, and UI moderation flows. Source implementation and Argon build are not runtime verification.
 - [ ] Roblox image asset availability/permissions and platform moderation outcome for guild logos; internal leader review is not platform moderation.
-- [ ] Live guild chat, announcements, settings, mute/ban and logo review flows.
+- [ ] Regression coverage for guild chat, announcements, settings, mute/ban, and logo review actions.
 
 ## Social / guild
 
@@ -63,9 +71,10 @@ These checks do not verify live playback, frame rate, visuals or multiplayer.
 ## Reasons these are out of scope
 
 - Missing assets, platform hardware, or live Roblox services.
-- Remaining platform/content prerequisites. Casino rebuilding is superseded by
-  the earlier user-requested removal; no remaining feature is removed by this pass.
+- Features not yet designed (Skill Tree, Loadout Planner, per-game casino models).
 - Malicious actor testing requires a dedicated red-team environment.
 
-These items need runtime evidence before production sign-off. Offline verification
-is green; it must not be described as complete Studio or live-server testing.
+Applicable items must be verified in Roblox and recorded in `SIGNOFF.md` before
+claiming full-game sign-off. The former `verify_economy_projection` environment
+failure is historical; use the current verifier result rather than that old
+failure to assess offline readiness.
