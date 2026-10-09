@@ -13,6 +13,8 @@ local P=theme.Palette
 local e=React.createElement
 local Players=game:GetService("Players")
 local TweenService=game:GetService("TweenService")
+local UserInputService=game:GetService("UserInputService")
+local GamepadNavigationService=require(script.Parent.CoreKit)("GamepadNavigationService")
 
 local GROUPS={
 	{id="Economy",label="ECONOMY",icon="Flux"},
@@ -190,6 +192,15 @@ return function(helpers)
 		local scope,setScope=React.useState("Global")
 		local revision,reload=React.useState(0)
 		local query,setQuery=React.useState("")
+		React.useEffect(function()
+			if not UserInputService.GamepadEnabled then return end
+			local host=hostRef.current
+			if host==nil then return end
+			local focusJob=task.defer(function()
+				if host.Parent~=nil then GamepadNavigationService.FocusClaim(host) end
+			end)
+			return function() pcall(task.cancel,focusJob) end
+		end,{selected,scope})
 		local mineOnly,setMineOnly=React.useState(false)
 		local result,setResult=React.useState({rows={},loading=true,status="Loading rankings…"})
 		local guildBoard=selected=="Guilds"
@@ -364,7 +375,7 @@ return function(helpers)
 				})
 			end
 		end
-		return e("frame",{Name="RankDashboard",ref=hostRef,Size=UDim2.fromScale(1,1),BackgroundTransparency=1},{
+		return e("frame",{Name="RankDashboard",ref=hostRef,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ClipsDescendants=false},{
 			Content=e(Scaffold,{sections=sections,gap=10,tailPad=80,scrollBarColor=meta.accent,scrollBarThickness=4}),
 		})
 	end

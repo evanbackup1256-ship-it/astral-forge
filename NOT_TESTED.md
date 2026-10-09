@@ -5,6 +5,14 @@
 
 ## Current 7.0 verification boundary
 
+- [ ] Accept the pending Argon Edit-mode synchronization and verify the
+  persistent sources, including DomainHexStage, SkyViewport, the authored
+  Bolt atlas, MobileResourceRail and the ranks cleanup. The last Edit-mode
+  source check still contained the older code despite PR #67 being merged.
+- [ ] Run the current ranks focus/cleanup follow-up in Studio after sync;
+  executable offline focus and adapter fixtures are not a physical
+  controller or live-rendering sign-off.
+
 The new hex domain, authored Bolt atlas, tutorial pointer masks, aurora and
 minigame scene lifecycle have bounded offline/live checks recorded in
 `SIGNOFF.md`. Both minigames rendered in phone portrait simulation. Four
@@ -41,7 +49,7 @@ The latest UI playtest also logged soundtrack load timeouts across the playlist;
 audible music remains unverified. A diagnostic dispatch guard rejected an
 attempted report action; no report reached the production server.
 
-- [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects to the synced 7.0 place; the separate executor bridge remains disconnected.
+- [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects, but the latest Edit synchronization still requires confirmation; the separate executor bridge remains disconnected.
 - [ ] Measured UI frame times, rapid navigation, title rendering, audio playback and responsive trade controls on actual clients.
 - [ ] Two-player trade: edit while syncing, switch sessions, reject stale replies, ready/unready, confirm and reconnect.
 - [ ] Public artifact network replication across real-player respawns, unequips, upgrades and player departures.

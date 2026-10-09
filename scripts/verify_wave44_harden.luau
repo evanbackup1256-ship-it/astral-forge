@@ -61,7 +61,7 @@ assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSocial.luau
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView"] = ', 1, true), "Echo DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/pages/PagesCore.luau#OverviewView"] = ', 1, true), "Overview DENSE floor")
 assert(string.find(playability, '["src/Client/AstralForge/UiCore.luau#FeedbackOverlay"] = ', 1, true), "Feedback DENSE floor")
-assert(string.find(playability, '["src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView"] = ', 1, true), "Leaderboards DENSE floor")
+assert(string.find(playability, "src/Client/AstralForge/RankDashboard.luau", 1, true), "Ranks actual-renderer coverage")
 
 local config = fs.readFile("src/Shared/AstralForge/Shared/GameConfig.luau")
 assert(string.find(config, 'Id = "wave44-offline-brief"', 1, true), "Story wave44")

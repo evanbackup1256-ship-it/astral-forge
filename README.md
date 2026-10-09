@@ -90,6 +90,13 @@ revamp. Trading, changelogs, mail, crew, overview, research, milestones and
 artifact/crate refinements still need the additional design work requested.
 Physical gamepad/mobile, human audio and multiplayer sign-off remain open.
 
+The ranks follow-up removes over 1,000 lines of unreachable presentation,
+retaining the active avatar podium, all fourteen player categories and their
+data adapters. Gamepad focus now lives in the active dashboard. Regression
+checks exercise that dashboard and its adapters rather than the retired code.
+Studio's pending Argon Edit confirmation must be accepted before treating
+these saved source changes as synchronized; see `SIGNOFF.md`.
+
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
 

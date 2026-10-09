@@ -1,11 +1,11 @@
 # Deep audit
 
-Files: 134 · errors: 0 · warnings: 1 · info: 270 · 6.6s
+Files: 134 · errors: 0 · warnings: 1 · info: 269 · 4.7s
 
 | Check | Findings |
 | --- | --- |
 | format-int | 189 |
-| long-function | 72 |
+| long-function | 71 |
 | print | 9 |
 | registers | 1 |
 
@@ -20,19 +20,19 @@ Files: 134 · errors: 0 · warnings: 1 · info: 270 · 6.6s
 - `src/Client/AstralForge/CoreKit.luau:817` %d is given 'exponent', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/CoreKit.luau:960` %d is given 'exponent', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'minutes', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'hours', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'minutes', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/CoreKit.luau:1054` %d is given 'hours', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:12272` %d is given 'reward . Stardust', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:20001` %d is given 'total % 60', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:20344` %d is given 'total % 60', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:20420` %d is given 'def . MaxDustPerCollect', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . TopBonusStardust [ 2 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . TopBonusStardust [ 1 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . TopBonusStardust [ 3 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . RewardFluxSeconds', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . TopBonusStardust [ 2 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . RewardStardust', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Client/AstralForge/UiCore.luau:20423` %d is given 'def . TopBonusStardust [ 1 ]', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesProgress.luau:289` %d is given 'upgrade . Tier', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesSocial.luau:159` %d is given 'seconds', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Client/AstralForge/pages/PagesSystem.luau:1362` %d is given 'command . Level', which may be fractional (truncated toward zero, NaN prints as a huge negative)
@@ -46,25 +46,25 @@ Files: 134 · errors: 0 · warnings: 1 · info: 270 · 6.6s
 - `src/Server/AstralForge/Modules/OpsMath.luau:502` %d is given 'cursor', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:256` %d is given 'minutes', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:797` %d is given 'exponent', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Modules/ProfileMath.luau:898` %d is given 'days', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:898` %d is given 'hours', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Modules/ProfileMath.luau:898` %d is given 'days', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:900` %d is given 'minutes', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:900` %d is given 'hours', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Modules/ProfileMath.luau:902` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:902` %d is given 'minutes', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Modules/ProfileMath.luau:902` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/ProfileMath.luau:904` %d is given 'remaining', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Modules/TradeSuite.luau:126` %d is given 'self . _nextId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/TradeSuite.luau:126` %d is given 'os . time ( )', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Modules/TradeSuite.luau:126` %d is given 'self . _nextId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/TradeSuite.luau:706` %d is given 'profile . Items . NextId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/TradeSuite.luau:1112` %d is given 'hostId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/TradeSuite.luau:1112` %d is given 'guestId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Modules/TradeSuite.luau:1326` %d is given 'tonumber ( entry . Host ) or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Modules/TradeSuite.luau:1326` %d is given 'tonumber ( entry . Guest ) or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Modules/TradeSuite.luau:1326` %d is given 'tonumber ( entry . Host ) or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/AdminService.luau:229` %d is given 'duration', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/AdminService.luau:427` %d is given 'target . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/AdminService.luau:427` %d is given 'actor . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/AdminService.luau:427` %d is given 'os . time ( )', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/AdminService.luau:427` %d is given 'revision', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/AdminService.luau:427` %d is given 'os . time ( )', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/AdminService.luau:427` %d is given 'actor . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/AdminService.luau:1279` %d is given 'revision', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/CharacterIntegrity.luau:144` %d is given 'player . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/CharacterIntegrity.luau:255` %d is given 'player . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
@@ -114,24 +114,24 @@ Files: 134 · errors: 0 · warnings: 1 · info: 270 · 6.6s
 - `src/Server/AstralForge/Services/ServerServices.luau:814` %d is given 'profile and profile . Rebirths or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:818` %d is given 'impact', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:897` %d is given 'targetUserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/ServerServices.luau:900` %d is given 'reportCount', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/ServerServices.luau:900` %d is given 'targetUserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:900` %d is given 'reporterCount', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/ServerServices.luau:900` %d is given 'targetUserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/ServerServices.luau:900` %d is given 'reportCount', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:915` %d is given 'target . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:916` %d is given 'player . UserId', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/ServerServices.luau:917` %d is given 'targetProfile and targetProfile . Rebirths or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:917` %d is given 'targetProfile and targetProfile . Zone or 1', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/ServerServices.luau:918` %d is given 'reporterProfile and reporterProfile . Rebirths or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/ServerServices.luau:917` %d is given 'targetProfile and targetProfile . Rebirths or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:918` %d is given 'reporterProfile and reporterProfile . Zone or 1', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/ServerServices.luau:919` %d is given 'reportCount', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/ServerServices.luau:918` %d is given 'reporterProfile and reporterProfile . Rebirths or 0', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:919` %d is given 'reporterCount', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/ServerServices.luau:919` %d is given 'reportCount', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:920` %d is given 'target . AccountAge', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:1203` %d is given 'rank', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:1204` %d is given 'stardust', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:1261` %d is given 'nextStep . Level', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:1336` %d is given 'levelState . Level', which may be fractional (truncated toward zero, NaN prints as a huge negative)
-- `src/Server/AstralForge/Services/ServerServices.luau:1951` %d is given 'count', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:1951` %d is given 'level + count', which may be fractional (truncated toward zero, NaN prints as a huge negative)
+- `src/Server/AstralForge/Services/ServerServices.luau:1951` %d is given 'count', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:2098` %d is given 'count', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:2098` %d is given 'level + count', which may be fractional (truncated toward zero, NaN prints as a huge negative)
 - `src/Server/AstralForge/Services/ServerServices.luau:2149` %d is given 'count', which may be fractional (truncated toward zero, NaN prints as a huge negative)
@@ -268,7 +268,6 @@ Files: 134 · errors: 0 · warnings: 1 · info: 270 · 6.6s
 - `src/Client/AstralForge/pages/PagesSystem.luau:1061` function 'CommandViewReady' is 1322 lines long
 - `src/Client/AstralForge/pages/PagesSystem.luau:2451` function '?' is 1025 lines long
 - `src/Client/AstralForge/pages/PagesSystem.luau:2739` function 'AdminViewReady' is 628 lines long
-- `src/Client/AstralForge/pages/PagesSystem.luau:3482` function '?' is 1362 lines long
 - `src/Client/SharedRuntime/modules/RuntimeKit.luau:50` function '?' is 609 lines long
 - `src/Server/AstralForge/Modules/EconomyMath.luau:21` function '?' is 659 lines long
 - `src/Server/AstralForge/Services/AdminService.luau:4` function '?' is 1309 lines long

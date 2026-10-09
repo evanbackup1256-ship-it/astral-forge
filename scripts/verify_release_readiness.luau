@@ -630,15 +630,9 @@ assert(guildSoft >= 8, "Guild softMotion density residual for release, got " .. 
 mark("wave24 crew flatlist focusclaim overview softmotion residuals")
 
 -- Wave25: Leaderboards FocusClaim + CrateRevealStage softMotion + DV21 content.
-local boardsRelease = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-assert(string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true), "LeaderboardConfirm host missing for release")
-do
-	local hostStart = string.find(boardsRelease, 'Name = "LeaderboardConfirm"', 1, true)
-	assert(hostStart, "LeaderboardConfirm host missing")
-	local hostSlice = string.sub(boardsRelease, hostStart, hostStart + 420)
-	assert(string.find(hostSlice, "ClipsDescendants = false", 1, true), "LeaderboardConfirm clips residual for release")
-end
-assert(string.find(boardsRelease, 'Name = "LeaderboardConfirmFilters"', 1, true), "LeaderboardConfirmFilters residual for release")
+local boardsRelease = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
+assert(string.find(boardsRelease, 'Name="RankDashboard"', 1, true), "Ranks host missing for release")
+assert(string.find(boardsRelease, "ClipsDescendants=false", 1, true), "Ranks host clips residual for release")
 assert(string.find(boardsRelease, "GamepadNavigationService.FocusClaim", 1, true), "Leaderboards FocusClaim residual for release")
 local stageRelease = fs.readFile("src/Client/AstralForge/pages/PagesShop.luau#CrateRevealStage")
 assert(
@@ -986,11 +980,11 @@ end
 local crewWave38 = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#CrewView")
 local missionsWave38 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 local milestonesWave38 = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
-local boardsWave38 = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
+local boardsWave38 = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
 assert(string.find(crewWave38, "local softMotion = ", 1, true), "Crew softMotion residual for release")
 assert(string.find(missionsWave38, "local softMotion = ", 1, true), "Missions softMotion residual for release")
 assert(string.find(milestonesWave38, "local softMotion = ", 1, true), "Milestones softMotion residual for release")
-assert(string.find(boardsWave38, "local softMotion = ", 1, true), "Leaderboards softMotion residual for release")
+assert(string.find(boardsWave38, "if animate and not props.reducedMotion then", 1, true), "Ranks reduced-motion gate for release")
 do
 	local soft = 0
 	for _ in string.gmatch(crewWave38, "softMotion") do
@@ -1011,13 +1005,6 @@ do
 		soft += 1
 	end
 	assert(soft >= 10, "Milestones softMotion densify residual for release, got " .. tostring(soft))
-end
-do
-	local soft = 0
-	for _ in string.gmatch(boardsWave38, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 12, "Leaderboards softMotion densify residual for release, got " .. tostring(soft))
 end
 assert(string.find(cfg, 'Id = "wave38-offline-brief"', 1, true), "Story wave38 residual for release")
 assert(string.find(cfg, 'Id = "update-5-1-wave38-offline"', 1, true), "Mail wave38 residual for release")

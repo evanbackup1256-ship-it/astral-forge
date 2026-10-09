@@ -28,21 +28,14 @@ assert(not string.find(services, "Trade = (function()", 1, true), "Trade IIFE mu
 assert(not string.find(services, "Visit = (function()", 1, true), "Visit IIFE must leave ServerServices")
 assert(not string.find(services, 'Name = "Guild Hall"', 1, true), "Guild Hall fallback must leave ServerServices")
 
-local leaderboards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
+local leaderboards = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
 local guild = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#GuildView")
 local chat = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#ChatView")
 local mailbox = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
-assert(string.find(leaderboards, "local softMotion = ", 1, true), "LeaderboardsBoard softMotion")
+assert(string.find(leaderboards, "reducedMotion=reducedMotion", 1, true), "Ranks shared controls receive reduced motion")
 assert(string.find(guild, "local softMotion = ", 1, true), "GuildBank softMotion")
 assert(string.find(chat, "local softMotion = ", 1, true), "ChatComposer softMotion")
 assert(string.find(mailbox, "local softMotion = ", 1, true), "MailboxList softMotion")
-do
-	local soft = 0
-	for _ in string.gmatch(leaderboards, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 15, "Leaderboards softMotion densify, got " .. tostring(soft))
-end
 do
 	local soft = 0
 	for _ in string.gmatch(guild, "softMotion") do

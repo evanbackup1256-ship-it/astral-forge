@@ -48,7 +48,7 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesSocial.luau#GuildView",
 	"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#LabView",
-	"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
+	"src/Client/AstralForge/RankDashboard.luau",
 	"src/Client/AstralForge/pages/PagesCore.luau#MilestonesView",
 	"src/Client/AstralForge/pages/PagesCore.luau#MissionsView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
@@ -90,7 +90,11 @@ for _, path in HOT_PAGES do
 		string.find(src, "pageScaffold", 1, true) and string.find(src, "PageScaffold", 1, true),
 		path .. " must import PageScaffold"
 	)
-	assert(string.find(src, "createElement(PageScaffold", 1, true), path .. " must mount PageScaffold")
+	if path == "src/Client/AstralForge/RankDashboard.luau" then
+		assert(string.find(src, "Content=e(Scaffold", 1, true), path .. " must mount its PageScaffold alias")
+	else
+		assert(string.find(src, "createElement(PageScaffold", 1, true), path .. " must mount PageScaffold")
+	end
 end
 
 -- Completeness: every pages/*.luau that imports pageScaffold must be hot (or allowlisted).
@@ -219,11 +223,12 @@ do
 	assert(string.find(story, "estimatedBodyH", 1, true), "StoryBeat must keep content-floor estimate")
 	assert(string.find(story, "measureWrappedTextHeight", 1, true), "StoryBeat content floor must measure wrap")
 	assert(string.find(story, "Position = UDim2.new(0, 0, 1, -actionsH)", 1, true), "StoryBeat must pin Continue/Back")
-	local boards = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-	assert(not string.find(boards, 'createElement("scrollingframe"', 1, true), "Leaderboards must not X-scroll filter tabs")
-	assert(string.find(boards, "filterColumns = 4", 1, true), "Leaderboards must wrap RANK_TABS in a 4-column grid")
-	assert(string.find(boards, "ClipsDescendants = false", 1, true), "Leaderboards filter strip must not clip selection")
-	assert(string.find(boards, "FlatList", 1, true), "Leaderboards must FlatList long rank catalogs")
+	local boards = fs.readFile("src/Client/AstralForge/RankDashboard.luau")
+	assert(string.find(boards, "local groupCols=if measuredWidth<480 then 2 elseif measuredWidth<1000 then 3 else 6", 1, true), "Ranks groups must wrap at measured host width")
+	assert(string.find(boards, "local boardCols=math.min(#inGroup,if narrow then 2 else 4)", 1, true), "Ranks board picker must wrap")
+	assert(string.find(boards, "Content=e(Scaffold", 1, true), "Ranks must use shared scrolling scaffold")
+	assert(string.find(boards, "ClipsDescendants=false", 1, true), "Ranks host must not clip selection")
+	assert(string.find(boards, "if animate and not props.reducedMotion then", 1, true), "Ranks avatar motion respects accessibility")
 	local lab = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#LabView")
 	assert(string.find(lab, "FlatList", 1, true), "Lab must FlatList long order catalogs")
 	assert(string.find(lab, "virtOrders", 1, true), "Lab must gate order virtualization")
@@ -372,7 +377,6 @@ local SOFT_MOTION_FILES = {
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
-	"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#BoostsView",
 	"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
 	"src/Client/AstralForge/pages/PagesProgress.luau#ForgePathView",
@@ -407,8 +411,8 @@ for _, path in SOFT_MOTION_FILES do
 end
 
 -- Thicken softMotion density on Trade/Command + Guild/Admin/Convergence/Settings/Credits/Rebirth
--- plus Continuum/Mailbox/Missions/Milestones/Research/Leaderboards thin surfaces.
--- Continuum/Mailbox/Missions/Milestones/Research/Leaderboards must stay past floor=4
+-- plus Continuum/Mailbox/Missions/Milestones/Research thin surfaces.
+-- Continuum/Mailbox/Missions/Milestones/Research must stay past floor=4
 -- (wave softmotion-thin-surfaces). Guild/Convergence/Settings/Trade stay past floor=4 too.
 -- Admin/Boosts must stay past softUses=5 toward DENSE≥6 (wave softmotion-admin-boosts).
 -- Chat/Command/Lab/Shop/Wheel/StarGrid/Story/Echo/ForgePath must stay DENSE≥6
@@ -425,7 +429,6 @@ do
 		["src/Client/AstralForge/pages/PagesCore.luau#MissionsView"] = 12,
 		["src/Client/AstralForge/pages/PagesCore.luau#MilestonesView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#ResearchView"] = 12,
-		["src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView"] = 12,
 		["src/Client/AstralForge/pages/PagesSystem.luau#AdminView"] = 12,
 		["src/Client/AstralForge/pages/PagesProgress.luau#BoostsView"] = 12,
 		["src/Client/AstralForge/UiCore.luau#CreditsView"] = 9,
@@ -467,7 +470,6 @@ do
 		"src/Client/AstralForge/pages/PagesCore.luau#MissionsView",
 		"src/Client/AstralForge/pages/PagesCore.luau#MilestonesView",
 		"src/Client/AstralForge/pages/PagesProgress.luau#ResearchView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
 		"src/Client/AstralForge/pages/PagesSystem.luau#AnomalyView",
 		"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
 		"src/Client/AstralForge/pages/PagesSocial.luau#ChatView",
@@ -535,7 +537,7 @@ end
 	assert(string.find(echoSoft, "overscan = if softMotion then 0", 1, true), "EchoForge FlatList must softMotion-gate overscan")
 	local storySoft = fs.readFile("src/Client/AstralForge/pages/PagesStory.luau#StoryView")
 	assert(string.find(storySoft, "overscan = if softMotion then 0", 1, true), "Story FlatList must softMotion-gate overscan")
-	-- Wave18: Missions/Mailbox/Guild/Trade/Admin/Leaderboards FlatList overscan softMotion-gated.
+	-- Wave18: Missions/Mailbox/Guild/Trade/Admin FlatList overscan softMotion-gated.
 	local missionsSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MissionsView")
 	assert(string.find(missionsSoft, "overscan = if softMotion then 0", 1, true), "Missions FlatList must softMotion-gate overscan")
 	local mailboxSoft = fs.readFile("src/Client/AstralForge/pages/PagesSocial.luau#MailboxView")
@@ -546,8 +548,6 @@ end
 	assert(string.find(tradeSoft, "overscan = if softMotion then 0", 1, true), "Trade FlatList must softMotion-gate overscan")
 	local adminSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#AdminView")
 	assert(string.find(adminSoft, "overscan = if softMotion then 0", 1, true), "Admin FlatList must softMotion-gate overscan")
-	local boardsSoft = fs.readFile("src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView")
-	assert(string.find(boardsSoft, "overscan = if softMotion then 0", 1, true), "Leaderboards FlatList must softMotion-gate overscan")
 	-- Wave19: Milestones FlatList overscan softMotion-gated (Echo/Command ClaimActions clips below).
 	local milestonesSoft = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#MilestonesView")
 	assert(string.find(milestonesSoft, "overscan = if softMotion then 0", 1, true), "Milestones FlatList must softMotion-gate overscan")
@@ -835,7 +835,7 @@ do
 		)
 	end
 
-	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory/Leaderboards
+	-- softMotion density polish: fold into reducedMotion on Shop/Echo/Boosts/Inventory
 	-- plus Mailbox/Lab/Anomaly/Research/Wheel (wave13 thicken) and Chat/Command/StarGrid/ForgePath
 	-- (wave softmotion-ungated-layout).
 	local CANON_SOFT = "local softMotion = reducedMotion"
@@ -844,7 +844,6 @@ do
 		"src/Client/AstralForge/pages/PagesStory.luau#EchoForgeView",
 		"src/Client/AstralForge/pages/PagesProgress.luau#BoostsView",
 		"src/Client/AstralForge/pages/PagesStory.luau#InventoryView",
-		"src/Client/AstralForge/pages/PagesSystem.luau#LeaderboardsView",
 		"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 		"src/Client/AstralForge/UiCore.luau#CrateRevealOverlay",
 		"src/Client/AstralForge/pages/PagesSocial.luau#MailboxView",

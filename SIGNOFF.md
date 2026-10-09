@@ -5,6 +5,28 @@
 
 ## Current 7.0 pass
 
+### Ranks cleanup and Edit synchronization boundary
+
+The active ranks dashboard now owns gamepad focus on entry and category/scope
+changes. Executable fixtures verify live-host focus, mouse isolation,
+missing/destroyed hosts and cancellation on cleanup. The retired ranks
+renderer, podium/row/guild helpers and unused dependencies were removed:
+1,070 presentation lines, without deleting the current dashboard or its
+fourteen categories. Tests execute the retained metadata, score eligibility,
+self-score and server adapters, including Omega ordering and stable ties.
+Legacy guards now inspect the active renderer instead of counting motion
+keywords in dead code. Physical controller behavior remains unverified.
+The full project verifier passes after the cleanup. All 332 source/build
+files compile at O0/O1/O2, the strict audit has zero errors and one existing
+register-headroom warning, and the Argon place build succeeds.
+
+PR #67 is merged and the presentation changes are saved in the repository.
+However, the latest Edit-mode check still found the older Studio sources.
+Argon is serving on port 8000 and waiting for its plugin's **Accept**
+confirmation. A desktop click did not apply the changes, and the user was
+unavailable to confirm them. Do not treat earlier Play-mode observations or
+a successful Argon build as evidence of persistent Edit synchronization.
+
 ### Hex, tutorial and minigame follow-up
 
 The 2D domain hex layout passed geometry sweeps across 1-16 nodes, eight tiers
