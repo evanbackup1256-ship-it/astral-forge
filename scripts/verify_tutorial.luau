@@ -121,4 +121,90 @@ local overlayFn = string.match(overlay, "local function TutorialOverlay%(_param%
 assert(not string.find(overlayFn, "dockH", 1, true), "the step card sizes itself from its content")
 assert(not string.find(overlayFn, "math.floor(t * 12)", 1, true), "wings flap continuously, not in stepped frames")
 
+local confirmStart = assert(overlay:find('ContextActionService:BindActionAtPriority("AstralForgeTutorialConfirm", ', 1, true))
+local callbackStart = assert(overlay:find("function(_name, inputState)", confirmStart, true))
+local callbackEnd = assert(overlay:find("end, false, 2300", callbackStart, true))
+local stateRef = { current = {} }
+local enum = require("@lune/roblox").Enum
+local confirm = luau.load("return " .. overlay:sub(callbackStart, callbackEnd + 2), {
+	environment = { stateRef = stateRef, Enum = enum },
+})()
+local nextCalls, ctaCalls = 0, 0
+stateRef.current = { needsAction = true, met = false, exiting = false, requestNext = function() nextCalls += 1 end }
+assert(confirm("", enum.UserInputState.Begin) == enum.ContextActionResult.Pass, "required target activation must reach the underlying button")
+assert(confirm("", enum.UserInputState.End) == enum.ContextActionResult.Pass and nextCalls == 0, "unmet actions do not skip the tutorial")
+stateRef.current.onCta = function() ctaCalls += 1 end
+assert(confirm("", enum.UserInputState.Begin) == enum.ContextActionResult.Sink and ctaCalls == 1, "available CTA handles gamepad confirm once")
+confirm("", enum.UserInputState.End)
+assert(ctaCalls == 1, "key release must not repeat the CTA")
+stateRef.current.met = true
+confirm("", enum.UserInputState.Begin)
+assert(nextCalls == 1, "completed steps advance")
+stateRef.current.exiting = true
+confirm("", enum.UserInputState.Begin)
+assert(nextCalls == 1 and ctaCalls == 1, "exit transition rejects duplicate actions")
+
+local focusStart = assert(overlay:find("local function constrainSelection()", 1, true))
+local focusEnd = assert(overlay:find('local connection = GuiService:GetPropertyChangedSignal("SelectedObject")', focusStart, true))
+local function node(parent, selectable)
+	local value = { parent = parent, selectable = selectable, children = {} }
+	function value:IsDescendantOf(other)
+		local ancestor = self.parent
+		while ancestor do
+			if ancestor == other then return true end
+			ancestor = ancestor.parent
+		end
+		return false
+	end
+	function value:GetDescendants() return self.children end
+	function value:IsA(class) return class == "GuiButton" and self.selectable end
+	return value
+end
+local root, target, dock = node(nil, false), node(nil, true), node(nil, false)
+local targetChild, dockButton, outside = node(target, true), node(root, true), node(nil, true)
+dock.children = { dockButton }
+local rootRef, petState, dockRef = { current = root }, { current = { target = target } }, { current = dock }
+local gui = { SelectedObject = outside }
+local input = { GamepadEnabled = true }
+local redirects, clears = 0, 0
+local constrain = luau.load("local redirecting = false\n" .. overlay:sub(focusStart, focusEnd - 1) .. "\nreturn constrainSelection", {
+	environment = {
+		rootRef = rootRef, petState = petState, dockRef = dockRef, GuiService = gui, UserInputService = input,
+		GamepadNavigationService = {
+			AssignSelection = function(candidate)
+				if not candidate.selectable then return false end
+				gui.SelectedObject = candidate
+				redirects += 1
+				return true
+			end,
+			ClearSelection = function() gui.SelectedObject = nil; clears += 1 end,
+		},
+	},
+})()
+constrain()
+assert(gui.SelectedObject == target and redirects == 1, "unrelated gamepad focus redirects to the required action")
+gui.SelectedObject = targetChild
+constrain()
+assert(redirects == 1, "required target descendants retain focus")
+gui.SelectedObject = dockButton
+constrain()
+assert(redirects == 1, "tutorial controls retain focus")
+petState.current.target = nil
+gui.SelectedObject = outside
+constrain()
+assert(gui.SelectedObject == dockButton and redirects == 2, "missing target falls back to tutorial controls")
+dock.children = {}
+gui.SelectedObject = outside
+constrain()
+assert(gui.SelectedObject == nil and clears == 1, "missing selectable controls clear unrelated focus")
+input.GamepadEnabled = false
+gui.SelectedObject = outside
+constrain()
+assert(gui.SelectedObject == outside, "mouse and keyboard selection are not hijacked")
+local maskStart = assert(overlay:find("local function dim(", 1, true))
+local maskEnd = assert(overlay:find("local spotlight =", maskStart, true))
+local masks = overlay:sub(maskStart, maskEnd - 1)
+assert(masks:find('createElement("textbutton"', 1, true) and masks:find("Selectable = false", 1, true), "tutorial masks block pointers without becoming gamepad targets")
+assert(overlay:find("local sizedFrame = React.joinBindings({ frame, rootSize })", 1, true), "Bolt and trails use measured fractional coordinates")
+
 print("verify_tutorial: ok")

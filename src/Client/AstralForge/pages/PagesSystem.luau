@@ -50,7 +50,7 @@ local Schema = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChil
 local Browse = require(script.Parent.Parent.BrowseKit)
 
 local ROW_H = 60
-local ROW_H_STACK = 94
+local ROW_H_STACK = 110
 local NAV_W = 196
 local MOBILE_DOCK_DESTINATIONS = { "Overview", "Workshop", "Inventory", "Research", "Shop", "Settings" }
 
@@ -122,31 +122,21 @@ local function Choice(_param)
 	}
 	for index, option in choices do
 		local picked = math.abs(option.value - value) < 0.02
-		cells["c" .. index] = React.createElement("textbutton", {
-			Size = UDim2.new(1 / #choices, -4 * (#choices - 1) / #choices, 1, 0),
+		cells["c" .. index] = React.createElement("frame", {
+			Size = UDim2.new(1 / #choices, -math.ceil(4 * (#choices - 1) / #choices), 1, 0),
 			LayoutOrder = index,
-			BackgroundColor3 = if picked then accent else Palette.panelSoft,
-			AutoButtonColor = false,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			Text = option.label,
-			TextColor3 = if picked then Palette.ink else Palette.creamSoft,
-			TextSize = 13,
-			FontFace = Font.fromEnum(if picked then Enum.Font.BuilderSansExtraBold else Enum.Font.BuilderSansBold),
-			Selectable = true,
-			Event = {
-				Activated = function()
-					if not picked then
-						Audio:play("tabSwitch")
-						_param.onPick(option.value)
-					end
-				end,
-			},
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 8),
-		}), not picked and React.createElement("uistroke", {
-			Color = Palette.lineSoft,
-			Transparency = 0.45,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		}, React.createElement(Button, {
+			text = "", size = UDim2.fromScale(1, 1),
+			color = if picked then accent else Palette.panelSoft, highlight = picked,
+			reducedMotion = _param.softMotion, sound = if picked then false else "tabSwitch",
+			onClick = function() if not picked then _param.onPick(option.value) end end,
+			children = React.createElement(Text, {
+				value = option.label, size = 12, color = if picked then Palette.ink else Palette.creamSoft,
+				weight = Enum.FontWeight.Bold, fit = true, minSize = 9, align = Enum.TextXAlignment.Center,
+				position = UDim2.fromOffset(4, 4), sizeConstraint = UDim2.new(1, -8, 1, -8), zIndex = 11,
+			}),
 		}))
 	end
 	return React.createElement("frame", {
@@ -191,10 +181,11 @@ local function SettingRow(_param)
 			choices = entry.choices,
 			value = draft,
 			accent = accent,
-			size = if stack then UDim2.new(1, 0, 0, 40) else UDim2.fromOffset(controlW, 34),
-			position = if stack then UDim2.new(0, 0, 1, -44) else UDim2.new(1, 0, 0.5, 0),
+			size = if stack then UDim2.new(1, 0, 0, TapTarget) else UDim2.fromOffset(controlW, TapTarget),
+			position = if stack then UDim2.new(0, 0, 1, -(TapTarget + 2)) else UDim2.new(1, 0, 0.5, 0),
 			anchorPoint = if stack then Vector2.new(0, 0) else Vector2.new(1, 0.5),
 			onPick = commit,
+			softMotion = softMotion,
 		})
 	else
 		control = React.createElement("frame", {
@@ -252,47 +243,18 @@ local function SectionButton(_param)
 	local section = _param.section
 	local active = _param.active
 	local accent = accentOf(section)
-	local hovered, setHovered = React.useState(false)
-	local glow = useFlipperSpring(if active then 1 elseif hovered then 0.45 else 0, _param.softMotion, 520, 36)
-	return React.createElement("textbutton", {
+	return React.createElement("frame", {
 		Size = _param.size,
 		LayoutOrder = _param.layoutOrder,
-		BackgroundColor3 = Palette.panelSoft,
-		BackgroundTransparency = glow:map(function(amount)
-			return 1 - amount * 0.85
-		end),
-		AutoButtonColor = false,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Text = "",
-		Selectable = true,
-		Event = {
-			Activated = function()
-				if not active then
-					Audio:play("tabSwitch")
-					_param.onPick(section.id)
-				end
-			end,
-			MouseEnter = function()
-				setHovered(true)
-			end,
-			MouseLeave = function()
-				setHovered(false)
-			end,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0, 10),
-	}), React.createElement("frame", {
-		Size = glow:map(function(amount)
-			return UDim2.fromOffset(3, math.round(18 * math.clamp(amount, 0, 1)))
-		end),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = accent,
-		BorderSizePixel = 0,
-		Visible = not _param.compact,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement(Icon, {
+	}, React.createElement(Button, {
+		text = "", size = UDim2.fromScale(1, 1), color = if active then darken(accent, 0.62) else Palette.panelSoft,
+		highlight = active, reducedMotion = _param.softMotion, sound = if active then false else "tabSwitch",
+		onClick = function() if not active then _param.onPick(section.id) end end,
+		children = React.createElement(React.Fragment, nil, React.createElement("frame", {
+			Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 11,
+		}, React.createElement(Icon, {
 		kind = section.icon,
 		color = if active then accent else Palette.muted,
 		accent = accent,
@@ -305,6 +267,7 @@ local function SectionButton(_param)
 		weight = if active then Enum.FontWeight.Heavy else Enum.FontWeight.Bold,
 		position = UDim2.fromOffset(if _param.compact then 34 else 40, 0),
 		sizeConstraint = UDim2.new(1, if _param.compact then -38 else -70, 1, 0),
+		zIndex = 11,
 	}), not _param.compact and React.createElement(Text, {
 		value = tostring(_param.count),
 		size = 12,
@@ -312,6 +275,8 @@ local function SectionButton(_param)
 		align = Enum.TextXAlignment.Right,
 		position = UDim2.new(1, -36, 0, 0),
 		sizeConstraint = UDim2.new(0, 26, 1, 0),
+		zIndex = 11,
+	}))),
 	}))
 end
 

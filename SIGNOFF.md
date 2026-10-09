@@ -5,6 +5,45 @@
 
 ## Current 7.0 pass
 
+### Hex, tutorial and minigame follow-up
+
+The 2D domain hex layout passed geometry sweeps across 1-16 nodes, eight tiers
+and three zoom levels, plus desktop and phone portrait captures. Retired
+3D-domain presentation was removed without changing progression. Report
+reason/context/block controls and settings choices/navigation use shared
+chrome; report tests execute payload preservation, failed-response retry and
+success-only blocking. No real reports or blocks were submitted.
+
+The final 128-pixel Bolt atlas loaded live and displayed four distinct frames.
+All 57 sampled movement frames retained fractional coordinates; the pointer's
+start-position error was zero in the sampled pose. A physical mouse test
+registered one required-target click and zero hidden unrelated clicks through
+the updated TextButton masks. Executable tests cover gamepad confirm
+pass-through, CTA/next dispatch, exit duplicate suppression and focus confinement.
+Physical controller navigation has not been signed off.
+
+Cipher displayed four distinct 3D glyph models after local key presses:
+44 inert parts, four changing model poses and zero network dispatches.
+Phone captures showed both minigames and shared settings controls. Star Charts
+mounted 47 parts for the first configured constellation. Reduced motion kept
+its scene still, and replacement disposed of the preceding WorldModel.
+Aurora mounted 14 curtains live; executable tests cover constrained/disabled
+ambient, reduced-motion clock gating and continuous geometry at clock wrap.
+Mobile-header geometry tests cover seven widths at two heights and preserve
+all three unlocked resources, rather than dropping currencies that do not fit.
+The real phone header mounted three chips in a 300-pixel canvas with a
+161-pixel visible rail. Scrolling 139 pixels exposed the final chip; its right
+edge was within 0.2 pixels of the rail edge. Aurora motion was observed live,
+and a freshly loaded chart scene confirmed the next star's neon highlight.
+
+The full offline verifier passes, and all 332 source/build Luau files compile
+at O0/O1/O2. The strict audit reports zero errors and one register-headroom
+warning. Argon responds and builds the place. These bounded checks do not
+complete the remaining screen redesigns or establish game-wide visual,
+audible, hardware or multiplayer sign-off.
+
+### Earlier 7.0 checks
+
 The ranks/player-card follow-up replaces fractional grid gutters with safe
 integer reservation in shared, inventory, shortcut and world layouts. A live
 70-case Studio sweep (14 widths, 2-6 columns) retained every intended column.
