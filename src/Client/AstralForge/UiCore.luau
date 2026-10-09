@@ -12059,6 +12059,8 @@ local Button = _ui.Button
 local OverlayPresence = _ui.OverlayPresence
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
 local compactNumber = require(script.Parent.CoreKit)("format").compactNumber
 
 local UNIT = 4
@@ -12265,6 +12267,8 @@ local function LevelRow(_param)
 end
 
 local function LevelRoadmap(_param)
+	local cardRef = React.useRef(nil)
+	local parentSize = useGuiSize(cardRef, true)
 	local state = _param.state
 	local config = _param.config
 	local onClose = _param.onClose
@@ -12415,8 +12419,8 @@ local function LevelRoadmap(_param)
 		return nil
 	end, {})
 
-	local cardPosition = motion:map(function(amount)
-		return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * 12))
+	local cardPosition = React.joinBindings({ motion, parentSize }):map(function(values)
+		return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 12)
 	end)
 	local cardScale = motion:map(function(amount)
 		return 0.96 + amount * 0.04
@@ -12455,6 +12459,7 @@ local function LevelRoadmap(_param)
 	}), React.createElement("frame", {
 		ref = function(node)
 			padFocus.current = node
+			cardRef.current = node
 		end,
 		Size = UDim2.fromOffset(width, height),
 		Position = cardPosition,
@@ -15170,6 +15175,8 @@ local IconTile = _ui.IconTile
 local OverlayPresence = _ui.OverlayPresence
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
 local function StatTile(_param)
 	local label = _param.label
 	local value = _param.value
@@ -15235,6 +15242,7 @@ local function OfflineRewardsOverlay(_param)
 	local motion = composePresence(enter, leave)
 	local padFocus = useGamepadAutofocus(true)
 	local overlayHostRef = React.useRef(nil)
+	local parentSize = useGuiSize(overlayHostRef, true)
 	React.useEffect(function()
 		GamepadNavigationService.BeginOverlayFocus()
 		return function()
@@ -15302,8 +15310,8 @@ local function OfflineRewardsOverlay(_param)
 			Audio:play("offlineOpen")
 		end
 	end, {})
-	local cardPosition = motion:map(function(amount)
-		return UDim2.new(0.5, 0, 0.5, math.round((1 - amount) * 18))
+	local cardPosition = React.joinBindings({ motion, parentSize }):map(function(values)
+		return pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * 18)
 	end)
 	local cardScale = motion:map(function(amount)
 		return 0.94 + amount * 0.06
@@ -15583,6 +15591,8 @@ local OverlayPresence = _ui.OverlayPresence
 local SearchField = _ui.SearchField
 local Text = _ui.Text
 local useGamepadAutofocus = _ui.useGamepadAutofocus
+local useGuiSize = _ui.useGuiSize
+local pixelPosition = _ui.pixelPosition
 
 local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("SharedData"))
 local Model = SharedData("PlayerlistModel")
@@ -15966,6 +15976,8 @@ local function PlayerRow(_param)
 end
 
 local function ReportSheet(_param)
+	local hostRef = React.useRef(nil)
+	local hostSize = useGuiSize(hostRef)
 	local target = _param.target
 	local reducedMotion = _param.reducedMotion
 	local reason, setReason = React.useState(nil)
@@ -16357,6 +16369,7 @@ local function ReportSheet(_param)
 	end
 	local sheetH = if phase == "sent" then 230 else formH
 	return React.createElement("frame", {
+		ref = hostRef,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.void,
 		BackgroundTransparency = enter:map(function(amount)
@@ -16367,8 +16380,8 @@ local function ReportSheet(_param)
 		ZIndex = 700,
 	}, React.createElement("frame", {
 		Size = UDim2.fromOffset(width, math.min(sheetH, _param.maxHeight)),
-		Position = enter:map(function(amount)
-			return UDim2.new(0.5, 0, 0.5, math.round((1 - math.clamp(amount, 0, 1)) * 24))
+		Position = React.joinBindings({ enter, hostSize }):map(function(values)
+			return pixelPosition(values[2], 0.5, 0, 0.5, (1 - math.clamp(values[1], 0, 1)) * 24)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Palette.panelRaised,

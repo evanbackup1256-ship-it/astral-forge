@@ -46,6 +46,12 @@ matched 0.16, 1.4 and 7.75 pixels at two host sizes. A live domain-overlay
 entrance sample recorded 17 fractional frames and settled at zero displacement.
 Domain confirmation uses the same measured-coordinate path.
 
+The report sheet, level roadmap and offline-reward dialog were mounted in
+isolated live Studio checks. They recorded 7, 7 and 12 fractional entrance
+frames respectively and all settled at zero displacement. Report submission,
+blocking and reward collection callbacks were prohibited by the harness; no
+such actions were taken. The diagnostic report module was removed afterward.
+
 ## Master spec checklist
 
 | # | Deliverable | Status | Evidence | Signed |

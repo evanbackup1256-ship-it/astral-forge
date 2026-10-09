@@ -56,6 +56,18 @@ fractional-motion frames and settled at center; its confirmation dialog now
 uses measured coordinates too. These checks address coordinate stepping, not
 hardware-specific frame pacing.
 
+Report-sheet, level-roadmap and offline-reward entrances were subsequently
+sampled live: 7, 7 and 12 fractional frames respectively, each settling at
+center. No report, block or reward-collection action was submitted. The test
+module and GUI were removed. The console reported load timeouts for
+"Celestial String Awakening 2" and "Space Station '98"; the music director
+logged and skipped them. Their availability/audibility remains unconfirmed.
+
+Edit-mode rendering isolation also remained blank with an opaque neon cube
+after temporarily hiding an unrelated plugin welcome overlay. The overlay's
+original state was restored and the cube removed. This excludes that overlay
+as the explanation, but does not establish the renderer's root cause.
+
 The existing feature set is preserved. Offline regression and compilation results
 are not proof of live multiplayer behavior or full visual quality. Older casino and
 replacement-feature checklist entries below are historical, not instructions to
