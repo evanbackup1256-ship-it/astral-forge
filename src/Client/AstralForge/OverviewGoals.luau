@@ -7,7 +7,7 @@ return function(Math, compact)
 			local gate = state.FeatureUnlocks and state.FeatureUnlocks[page]
 			return gate == nil or gate.Unlocked ~= false
 		end
-		for _, reward in { {"Missions", ready.missions, "mission rewards"}, {"Lab", ready.lab, "Lab rewards"}, {"ForgePath", if ready.path then 1 else 0, "Forge Path reward"}, {"Anomaly", if ready.anomaly then 1 else 0, "Anomaly reward"} } do
+		for _, reward in { {"Missions", ready.missions, "mission rewards"}, {"Lab", ready.lab, "Lab rewards"}, {"ForgePath", if ready.path then 1 else 0, "Forge Path reward"} } do
 			if reward[2] > 0 and unlocked(reward[1]) then
 				return { title = `Claim your {reward[3]}`, body = `{reward[2]} ready to collect. Bank these rewards before your next upgrade.`, page = reward[1], cta = "Open " .. (if reward[1] == "ForgePath" then "Forge Path" else reward[1]), value = tostring(reward[2]), label = "REWARDS READY", progress = 1 }
 			end
@@ -17,6 +17,9 @@ return function(Math, compact)
 		end
 		if Math.Gte(state.PrestigeReward or 0, 1) and unlocked("Rebirth") then
 			return { title = "Rebirth rewards are ready", body = `Review the panel below to reset machines and collect {compact(state.PrestigeReward)} Cores. Research stays permanent.`, value = "+" .. compact(state.PrestigeReward), label = "CORES READY", progress = 1 }
+		end
+		if ready.cipher and unlocked("Cipher") then
+			return { title = "Today's signal is open", body = "Crack the daily Signal Cipher before the reset to grow your streak.", page = "Cipher", cta = "Open Signal Cipher", value = "NEW", label = "DAILY PUZZLE", progress = 0 }
 		end
 		local nextLevel = state.Level and state.Level.Next
 		if type(nextLevel) == "table" and type(nextLevel.Text) == "string" then

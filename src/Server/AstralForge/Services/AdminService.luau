@@ -1,4 +1,5 @@
 --!strict
+local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 
 return function(loadService: (string) -> any)
 	local DataStoreService = game:GetService("DataStoreService")
@@ -78,6 +79,18 @@ return function(loadService: (string) -> any)
 		WipeVault = { Label = "Wipe vault", Option = false, Category = "Resets" },
 		WipeCores = { Label = "Wipe cores", Option = false, Category = "Resets" },
 		WipeStardust = { Label = "Wipe stardust", Option = false, Category = "Resets" },
+		SetDomainEssence = { Label = "Set domain essence", Option = false, Category = "Progress" },
+		SetItemEssence = { Label = "Set relic essence", Option = false, Category = "Items" },
+		SetSignals = { Label = "Set command signals", Option = false, Category = "Progress" },
+		SetSeasonXP = { Label = "Set season XP", Option = false, Category = "Progress" },
+		SetStreakShields = { Label = "Set streak shields", Option = false, Category = "Progress" },
+		SetAnomalyFragments = { Label = "Set reactor fragments", Option = false, Category = "Progress" },
+		GrantVaultFlux = { Label = "Grant flux into vault", Option = false, Category = "Economy" },
+		DoubleFlux = { Label = "Double current flux", Option = false, Category = "Economy" },
+		BankVault = { Label = "Move vault into wallet", Option = false, Category = "Economy" },
+		WipeItemEssence = { Label = "Wipe relic essence", Option = false, Category = "Resets" },
+		ResetPityAll = { Label = "Reset pity on every crate", Option = false, Category = "Resets" },
+		ResetCommandXP = { Label = "Reset command XP", Option = false, Category = "Resets" },
 		PennyPinch = { Label = "Set flux to 1", Option = false, Category = "Troll" },
 		TaxHalf = { Label = "Tax half their flux", Option = false, Category = "Troll" },
 		SwapWallet = { Label = "Swap cash and vault", Option = false, Category = "Troll" },
@@ -226,8 +239,8 @@ return function(loadService: (string) -> any)
 		self._workers = {}
 		self._serverBans = {}
 		self._banLog = {}
-		self._auditStore = DataStoreService:GetDataStore(ServerConfig.AdminAuditStoreName)
-		self._discordQueueStore = DataStoreService:GetDataStore(ServerConfig.DiscordModQueueStoreName)
+		self._auditStore = StoreAccess.data(ServerConfig.AdminAuditStoreName)
+		self._discordQueueStore = StoreAccess.data(ServerConfig.DiscordModQueueStoreName)
 		self._discordSeenIds = {}
 		self._playerAdded = Players.PlayerAdded:Connect(function(player)
 			self:EnforceServerBan(player)
@@ -909,6 +922,62 @@ return function(loadService: (string) -> any)
 		local changedAmount = amount
 			profile.Stardust = 0
 		return { ok = true, amount = changedAmount }
+	end
+	profileHandlers.SetDomainEssence = function(profile, amount, option)
+		ProfileBagMath.EnsureDomain(profile).Essence = math.max(0, math.floor(amount))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.SetItemEssence = function(profile, amount, option)
+		ProfileBagMath.EnsureItems(profile).Essence = math.max(0, math.floor(amount))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.SetSignals = function(profile, amount, option)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.Signals = math.max(0, math.floor(amount))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.SetSeasonXP = function(profile, amount, option)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.SeasonXP = math.max(0, math.floor(amount))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.SetStreakShields = function(profile, amount, option)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.StreakShields = math.max(0, math.floor(amount))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.SetAnomalyFragments = function(profile, amount, option)
+		ProfileBagMath.EnsureAnomaly(profile).Fragments = math.max(0, math.floor(amount))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.GrantVaultFlux = function(profile, amount, option)
+		profile.Vault = OmegaMath.Min(OmegaMath.Add(profile.Vault, amount), Economy.Capacity(profile))
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.DoubleFlux = function(profile, amount, option)
+		profile.Cash = OmegaMath.Add(profile.Cash, profile.Cash)
+		profile.RunCash = OmegaMath.Add(profile.RunCash, profile.RunCash)
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.BankVault = function(profile, amount, option)
+		profile.Cash = OmegaMath.Add(profile.Cash, profile.Vault)
+		profile.RunCash = OmegaMath.Add(profile.RunCash, profile.Vault)
+		profile.Vault = 0
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.WipeItemEssence = function(profile, amount, option)
+		ProfileBagMath.EnsureItems(profile).Essence = 0
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.ResetPityAll = function(profile, amount, option)
+		local items = ProfileBagMath.EnsureItems(profile)
+		for crateId in items.Pity do items.Pity[crateId] = 0 end
+		return { ok = true, amount = amount }
+	end
+	profileHandlers.ResetCommandXP = function(profile, amount, option)
+		profile.Command = CommandMath.Ensure(profile.Command, GameConfig.Operations.SeasonId)
+		profile.Command.XP = 0
+		return { ok = true, amount = amount }
 	end
 	profileHandlers.PennyPinch = function(profile, amount, option)
 		local changedAmount = amount

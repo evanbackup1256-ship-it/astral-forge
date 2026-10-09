@@ -1,0 +1,21 @@
+--!strict
+return table.freeze({
+	bazaar_ball_drop = 133160951623250,
+	bazaar_ball_roll = 85756498956643,
+	bazaar_buy = 73687832737256,
+	bazaar_card_flip = 118282027007806,
+	bazaar_cash = 88257302398170,
+	bazaar_chip = 106949670807200,
+	bazaar_coin_land = 120685088453234,
+	bazaar_coin_spin = 129396807989702,
+	bazaar_jackpot = 93828275210246,
+	bazaar_lose = 132164364210277,
+	bazaar_rank = 103464459404658,
+	bazaar_reel_stop = 136936441393214,
+	bazaar_scratch = 94492323275253,
+	bazaar_spin = 108243310200279,
+	bazaar_streak = 124288525161746,
+	bazaar_tick = 100987900043820,
+	bazaar_win_big = 136313947867677,
+	bazaar_win_small = 77333367613346,
+})

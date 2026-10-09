@@ -1106,24 +1106,32 @@ local Button = _ui.Button
 local OverlayPresence = _ui.OverlayPresence
 local Text = _ui.Text
 local GameConfig = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local DomainKit = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("DomainKit"))
+local _elementFx = require(script.Parent.ElementFx)
+local ElementFx = _elementFx.ElementFx
+local elementSheet = _elementFx.sheet
+local easeOutBack = _motion.easeOutBack
+local useMotionSettings = _motion.useMotionSettings
+local RunService = game:GetService("RunService")
 
 local h = React.createElement
 local TREE = (GameConfig.Domain and GameConfig.Domain.Tree) or {}
 local FIELD_ORDER = { "Production", "Capacity", "Tap", "Offline", "Luck", "EchoCharge", "WorldDiscount", "RebirthYield", "EssenceGain", "ContinuumDiscount", "Critical", "ForgePathXP", "CommandXP" }
+-- element: the animated aura a bound node of that field burns with (Shared/ElementSprites)
 local FIELD_STYLE = {
-	Production = { icon = "Flux", accent = Palette.cyan, label = "production" },
-	Capacity = { icon = "Vault", accent = Palette.mango, label = "vault capacity" },
-	Tap = { icon = "Overcharge", accent = Palette.coral, label = "overcharge power" },
-	Offline = { icon = "Timer", accent = Palette.violet, label = "offline yield" },
-	Luck = { icon = "Crate", accent = Palette.pink, label = "crate & market luck" },
-	EchoCharge = { icon = "Wave", accent = Palette.mint, label = "echo charge speed" },
-	WorldDiscount = { icon = "World", accent = Palette.violet, label = "off world unlocks" },
-	RebirthYield = { icon = "Core", accent = Palette.mango, label = "rebirth cores" },
-	EssenceGain = { icon = "Domain", accent = Palette.pink, label = "essence per expansion", flat = true },
-	ContinuumDiscount = { icon = "Rebirth", accent = Palette.cyan, label = "off continuum ranks" },
-	Critical = { icon = "Jackpot", accent = Palette.coral, label = "critical chance" },
-	ForgePathXP = { icon = "Forge", accent = Palette.mango, label = "forge path XP" },
-	CommandXP = { icon = "Mission", accent = Palette.mint, label = "command XP" },
+	Production = { icon = "Flux", accent = Palette.cyan, label = "production", element = "Lightning" },
+	Capacity = { icon = "Vault", accent = Palette.mango, label = "vault capacity", element = "Earth" },
+	Tap = { icon = "Overcharge", accent = Palette.coral, label = "overcharge power", element = "Fire" },
+	Offline = { icon = "Timer", accent = Palette.violet, label = "offline yield", element = "Cosmic" },
+	Luck = { icon = "Crate", accent = Palette.pink, label = "crate & market luck", element = "Prism" },
+	EchoCharge = { icon = "Wave", accent = Palette.mint, label = "echo charge speed", element = "Sonic" },
+	WorldDiscount = { icon = "World", accent = Palette.violet, label = "off world unlocks", element = "Void" },
+	RebirthYield = { icon = "Core", accent = Palette.mango, label = "rebirth cores", element = "Magma" },
+	EssenceGain = { icon = "Domain", accent = Palette.pink, label = "essence per expansion", flat = true, element = "Spirit" },
+	ContinuumDiscount = { icon = "Rebirth", accent = Palette.cyan, label = "off continuum ranks", element = "Chrono" },
+	Critical = { icon = "Jackpot", accent = Palette.coral, label = "critical chance", element = "Blood" },
+	ForgePathXP = { icon = "Forge", accent = Palette.mango, label = "forge path XP", element = "Solar" },
+	CommandXP = { icon = "Mission", accent = Palette.mint, label = "command XP", element = "Arcane" },
 }
 
 local function fieldOf(node)
@@ -1213,46 +1221,254 @@ local function buildLayout()
 end
 local LAYOUT = buildLayout()
 
-local function Link(props)
-	local a, b = props.from, props.to
-	local dx, dy = b.X - a.X, b.Y - a.Y
-	local length = math.sqrt(dx * dx + dy * dy)
-	local color = props.color
-	return h("frame", {
-		Size = UDim2.fromOffset(length, props.thickness),
-		Position = UDim2.fromOffset((a.X + b.X) / 2, (a.Y + b.Y) / 2),
+-- Front-facing terraces keep prerequisites legible while retaining depth when orbiting.
+local STEP_Y = 3.2
+local BANDS = 5
+local FOV = 38
+local function buildSpace()
+	local tiers = math.max(1, LAYOUT.tierCount)
+	local points = {}
+	local radiusMax = 0
+	local depthMax = 0
+	local baseY = -(tiers - 1) * STEP_Y / 2
+	for id, slotInfo in LAYOUT.slot do
+		local t = slotInfo.tier
+		local x = (slotInfo.index - (slotInfo.count + 1) / 2) * 3.4
+		local z = 0.8 - (x / math.max(1, LAYOUT.widest)) ^ 2 * 0.25
+		radiusMax = math.max(radiusMax, Vector3.new(x, 0, z).Magnitude)
+		depthMax = math.max(depthMax, math.abs(z))
+		points[id] = { pos = Vector3.new(x, baseY + t * STEP_Y, z), angle = math.atan2(x, z), tier = t }
+	end
+	return {
+		points = points,
+		radius = radiusMax + 0.6,
+		depth = depthMax + 0.6,
+		bottom = baseY - 1.6,
+		top = baseY + (tiers - 1) * STEP_Y + 0.6,
+		height = (tiers - 1) * STEP_Y + 3,
+	}
+end
+local SPACE = buildSpace()
+
+local function smoothDomainValue(current, target, dt, reducedMotion)
+	if reducedMotion then return target end
+	return current + (target - current) * (1 - math.exp(-math.max(0, dt) * 8))
+end
+
+local function bezier(a, c, b, t)
+	local u = 1 - t
+	return a * (u * u) + c * (2 * u * t) + b * (t * t)
+end
+
+local function rod(a, b, thickness, color, material, transparency)
+	local part = Instance.new("Part")
+	part.Shape = Enum.PartType.Cylinder
+	part.Size = Vector3.new(math.max(0.01, (b - a).Magnitude), thickness, thickness)
+	part.CFrame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.pi / 2, 0)
+	part.Color = color
+	part.Material = material
+	part.Transparency = transparency
+	part.Anchored = true
+	part.CanCollide = false
+	part.CastShadow = false
+	return part
+end
+
+local function orb(position, size, color, material, transparency)
+	local part = Instance.new("Part")
+	part.Shape = Enum.PartType.Ball
+	part.Size = Vector3.new(size, size, size)
+	part.CFrame = CFrame.new(position)
+	part.Color = color
+	part.Material = material
+	part.Transparency = transparency
+	part.Anchored = true
+	part.CanCollide = false
+	part.CastShadow = false
+	return part
+end
+
+local function wrapAngle(target, current)
+	local tau = math.pi * 2
+	return current + ((target - current + math.pi) % tau - math.pi)
+end
+
+local GEM_SIZE = 2.2
+local GEM_CAMERA = CFrame.lookAt(Vector3.new(0, 0.9, 4.4), Vector3.zero)
+
+local function fitted(piece, target)
+	local size = piece.Size
+	piece.Size = size * (target / math.max(size.X, size.Y, size.Z, 0.01))
+	return piece
+end
+
+-- One field's gem for a viewport: the kit mesh as a tinted shell around a neon heart, or the original
+-- glass orb while the kit has not arrived. `spin` lists the parts the caller turns each frame.
+local function buildGem(kit, field, accent, owned, available)
+	local shape = DomainKit.Fields[field] or "Brilliant"
+	local piece = if kit ~= nil then kit:FindFirstChild("Domain_" .. shape) else nil
+	local tone = if owned then accent elseif available then darken(accent, 0.2) else Color3.fromRGB(96, 92, 112)
+	if piece == nil or not piece:IsA("BasePart") then
+		local shell = orb(Vector3.zero, 2, tone, Enum.Material.Glass, if owned then 0.35 else 0.55)
+		local core = orb(Vector3.zero, if owned then 1.15 else 0.8, if owned then lighten(accent, 0.2) else tone, if owned or available then Enum.Material.Neon else Enum.Material.SmoothPlastic, if owned then 0 elseif available then 0.25 else 0.4)
+		return { parts = { shell, core }, spin = {}, base = CFrame.identity, sway = false, spinLocal = false }
+	end
+	local tableUp = DomainKit.TableUp[shape] == true
+	-- table cuts tip their table toward the camera; the cube stands on a corner
+	local base = if tableUp then CFrame.Angles(math.rad(58), 0, 0) elseif shape == "Cube" then CFrame.Angles(math.rad(35.26), 0, math.rad(45)) else CFrame.Angles(math.rad(8), 0, 0)
+	local shell = fitted(piece:Clone(), GEM_SIZE)
+	shell.Color = if owned then lighten(accent, 0.12) else tone
+	shell.Material = Enum.Material.SmoothPlastic
+	shell.Reflectance = if owned then 0.2 else 0
+	shell.Transparency = if owned then 0.32 elseif available then 0.22 else 0.1
+	shell.CFrame = base
+	local parts = { shell }
+	if owned or available then
+		local heart = fitted(piece:Clone(), GEM_SIZE * (if owned then 0.6 else 0.48))
+		heart.Color = if owned then lighten(accent, 0.4) else accent
+		heart.Material = Enum.Material.Neon
+		heart.Transparency = if owned then 0 else 0.5
+		heart.CFrame = base
+		table.insert(parts, heart)
+	end
+	return { parts = parts, spin = parts, base = base, sway = DomainKit.Sway[shape] == true, spinLocal = tableUp }
+end
+
+local function gemFrame(gem, seconds, speed, phase)
+	local turn = CFrame.Angles(0, if gem.sway then math.sin(seconds * 0.9 + phase) * 0.55 else seconds * speed + phase, 0)
+	return if gem.spinLocal then gem.base * turn else turn * gem.base
+end
+
+-- The server publishes the gem kit a moment after start; anything opened before then upgrades in place.
+local function useDomainKit()
+	local kit, setKit = React.useState(function()
+		return ReplicatedStorage:FindFirstChild("DomainKit")
+	end)
+	React.useEffect(function()
+		if kit ~= nil then
+			return nil
+		end
+		local connection = ReplicatedStorage.ChildAdded:Connect(function(child)
+			if child.Name == "DomainKit" then
+				setKit(child)
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { kit })
+	return kit
+end
+
+-- A self-contained turning gem, for places outside the lattice (the detail panel).
+local function GemView(props)
+	local ref = React.useRef(nil)
+	React.useEffect(function()
+		local viewport = ref.current
+		if viewport == nil then
+			return nil
+		end
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 40
+		camera.CFrame = GEM_CAMERA
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		local gem = buildGem(props.kit, props.field, props.accent, props.owned, props.available)
+		for _, part in gem.parts do
+			part.Parent = viewport
+		end
+		local connection = nil
+		if not props.softMotion and #gem.spin > 0 then
+			local started = os.clock()
+			connection = RunService.RenderStepped:Connect(function()
+				local frame = gemFrame(gem, os.clock() - started, 0.8, 0)
+				for _, part in gem.spin do
+					part.CFrame = frame
+				end
+			end)
+		end
+		return function()
+			if connection ~= nil then
+				connection:Disconnect()
+			end
+			camera:Destroy()
+			for _, part in gem.parts do
+				part:Destroy()
+			end
+		end
+	end, { props.kit, props.field, props.accent, props.owned, props.available, props.softMotion })
+	return h("viewportframe", {
+		ref = ref,
+		Size = props.size,
+		Position = props.position,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = math.deg(math.atan2(dy, dx)),
-		BackgroundColor3 = color,
-		BackgroundTransparency = props.transparency,
-		BorderSizePixel = 0,
-		ZIndex = 4,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), props.flow ~= nil and h("frame", {
-		Size = UDim2.fromOffset(10, props.thickness + 4),
-		Position = props.flow:map(function(t)
-			return UDim2.new(t % 1, 0, 0.5, 0)
-		end),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BackgroundTransparency = 0.15,
-		BorderSizePixel = 0,
-		ZIndex = 5,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })))
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(120, 110, 160),
+		LightColor = Color3.new(1, 1, 1),
+		LightDirection = Vector3.new(-0.6, -1, -0.5),
+		ZIndex = props.zIndex,
+	})
 end
 
 local function NodeButton(props)
 	local node = props.node
-	local style = FIELD_STYLE[fieldOf(node)]
+	local field = fieldOf(node)
+	local style = FIELD_STYLE[field]
 	local accent = style.accent
 	local owned, available, affordable, selected = props.owned, props.available, props.affordable, props.selected
 	local softMotion = props.softMotion
 	local hovered, setHovered = React.useState(false)
 	local lift = useFlipperSpring(if selected then 1 elseif hovered then 0.5 else 0, softMotion, 620, 32)
-	local beat = usePulse((owned or (available and affordable)) and not softMotion, if owned then 0.9 else 1.8)
+	local beat = usePulse((selected or (available and affordable)) and not softMotion, 0.65)
 	local burst = useFlash(if props.bound then props.boundToken else 0, softMotion, 0.8)
 	local size = props.size
-	local fill = if owned then darken(accent, 0.25) elseif available then darken(accent, 0.7) else Palette.panel
+	local fill = if owned then darken(accent, 0.55) elseif available then darken(accent, 0.75) else Palette.panel
+	local buttonRef = React.useRef(nil)
+	local gemRef = React.useRef(nil)
+	local fogRef = React.useRef(nil)
+	React.useEffect(function()
+		local viewport = gemRef.current
+		if viewport == nil then
+			return nil
+		end
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 40
+		camera.CFrame = GEM_CAMERA
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		local gem = buildGem(props.kit, field, accent, owned, available)
+		for _, part in gem.parts do
+			part.Parent = viewport
+		end
+		local phase = 0
+		for index = 1, #node.Id do
+			phase += string.byte(node.Id, index)
+		end
+		local registry = props.registry
+		if registry ~= nil then
+			-- the lattice's render loop places the button and turns the gem
+			registry[node.Id] = {
+				button = buttonRef.current,
+				camera = camera,
+				fog = fogRef.current,
+				gem = gem,
+				speed = if owned then 0.3 elseif available then 0.18 else 0,
+				phase = (phase * 0.37) % (math.pi * 2),
+			}
+		end
+		return function()
+			if registry ~= nil and registry[node.Id] ~= nil and registry[node.Id].camera == camera then
+				registry[node.Id] = nil
+			end
+			camera:Destroy()
+			for _, part in gem.parts do
+				part:Destroy()
+			end
+		end
+	end, { owned, available, props.registry, props.kit })
+	local centre = UDim2.new(0.5, 0, 0, size / 2)
 	return h("imagebutton", {
+		ref = buttonRef,
 		Name = "Node" .. node.Id,
 		Size = UDim2.fromOffset(math.max(size, TapTarget), math.max(size, TapTarget) + 16),
 		Position = UDim2.fromOffset(props.center.X, props.center.Y + 8),
@@ -1263,56 +1479,116 @@ local function NodeButton(props)
 		ZIndex = 10,
 		Event = {
 			Activated = function()
-				Audio:play(if owned then "tick" elseif available then "domainCharge" else "locked")
+				Audio:play(if owned or available then "filterPick" else "locked")
 				props.onSelect()
-			end,
-			MouseEnter = function()
-				setHovered(true)
-			end,
-			MouseLeave = function()
-				setHovered(false)
 			end,
 			SelectionGained = function()
 				setHovered(true)
+				props.onFocus()
+			end,
+			MouseEnter = function()
+				setHovered(true)
+				Audio:play("navHover")
+			end,
+			MouseLeave = function()
+				setHovered(false)
 			end,
 			SelectionLost = function()
 				setHovered(false)
 			end,
 		},
-	}, h("frame", {
+	}, h("uiscale", { Name = "Depth", Scale = 1 }), selected and h(ElementFx, {
+		-- the picked node stands on a turning rune circle
+		element = "Arcane",
+		size = UDim2.fromOffset(math.floor(size * 1.65), math.floor(size * 1.65)),
+		position = centre,
+		transparency = 0.55,
+		framerate = 12,
+		reducedMotion = softMotion,
+		zIndex = 10,
+	}), selected and h(ElementFx, {
+		-- the node's own element breathes through the selected crown
+		element = style.element,
+		size = UDim2.fromOffset(math.floor(size * 1.92), math.floor(size * 1.92)),
+		position = centre,
+		transparency = 0.72,
+		framerate = 16,
+		reducedMotion = softMotion,
+		zIndex = 10,
+	}), owned and hovered and not selected and h(ElementFx, {
+		-- bound nodes burn with their field's element
+		element = style.element,
+		size = UDim2.fromOffset(math.floor(size * 1.6), math.floor(size * 1.6)),
+		position = centre,
+		transparency = 0.6,
+		framerate = 16,
+		reducedMotion = softMotion,
+		zIndex = 10,
+	}), h("frame", {
 		Name = "Gem",
 		Size = UDim2.fromOffset(size, size),
 		Position = lift:map(function(a)
-			return UDim2.new(0.5, 0, 0, size / 2 - math.round(a * 4))
+			return UDim2.new(0.5, 0, 0, size / 2 - a * 3)
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = fill,
+		BackgroundTransparency = if owned then 0.3 else 0.08,
 		BorderSizePixel = 0,
 		ZIndex = 11,
 	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uiscale", {
 		Scale = React.joinBindings({ lift, burst }):map(function(v)
-			return 1 + v[1] * 0.1 + v[2] * 0.25
+			return 1 + v[1] * 0.06 + v[2] * 0.12
 		end),
 	}), h("uigradient", {
 		Color = ColorSequence.new(lighten(fill, 0.25), darken(fill, 0.15)),
 		Rotation = 90,
 	}), h("uistroke", {
 		Color = if selected then Palette.cream elseif owned or available then accent else Palette.lineSoft,
-		Thickness = if selected then 3 else 2,
+		Thickness = if selected then 2 else 1,
 		Transparency = if owned then beat:map(function(a)
 			return 0.05 + (1 - a) * 0.3
 		end) elseif available and affordable then beat:map(function(a)
 			return 0.1 + (1 - a) * 0.55
 		end) elseif available then 0.35 else 0.65,
+	}), h("viewportframe", {
+		Name = "Orb",
+		ref = gemRef,
+		Size = UDim2.fromScale(1.3, 1.3),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(120, 110, 160),
+		LightColor = Color3.new(1, 1, 1),
+		LightDirection = Vector3.new(-0.6, -1, -0.5),
+		ZIndex = 11,
+	}), h("frame", {
+		Name = "Fog",
+		ref = fogRef,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.night,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 16,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) })), h("frame", {
+		-- the gem's cut already says which field it is; the badge confirms it (or shows the lock)
+		Name = "Field",
+		Size = UDim2.fromOffset(18, 18),
+		Position = UDim2.fromOffset(-2, -2),
+		BackgroundColor3 = if owned or available then darken(accent, 0.45) else Palette.panelSoft,
+		BorderSizePixel = 0,
+		ZIndex = 13,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = if owned or available then accent else Palette.lineSoft,
+		Transparency = 0.25,
 	}), h(Icon, {
 		kind = if available or owned then style.icon else "Lock",
 		color = if owned or available then Palette.cream else Palette.muted,
 		accent = accent,
-		size = math.floor(size * 0.48),
+		size = 12,
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		spin = false,
-	}), owned and h("frame", {
+	})), owned and h("frame", {
 		Size = UDim2.fromOffset(16, 16),
 		Position = UDim2.new(1, -2, 0, 2),
 		AnchorPoint = Vector2.new(1, 0),
@@ -1341,7 +1617,18 @@ local function NodeButton(props)
 		Transparency = burst:map(function(a)
 			return 1 - a
 		end),
-	}))), not owned and h("frame", {
+	}))), props.bound and h(ElementFx, {
+		-- binding flashes holy light through the node
+		element = "Radiance",
+		size = UDim2.fromOffset(math.floor(size * 2.8), math.floor(size * 2.8)),
+		position = centre,
+		transparency = burst:map(function(a)
+			return 1 - a
+		end),
+		framerate = 30,
+		reducedMotion = softMotion,
+		zIndex = 15,
+	}), not owned and h("frame", {
 		Name = "Cost",
 		Size = UDim2.fromOffset(34, 16),
 		Position = UDim2.new(0.5, 0, 1, -2),
@@ -1357,7 +1644,21 @@ local function NodeButton(props)
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.fromScale(1, 1),
 		zIndex = 13,
-	})))
+	})), (selected or hovered) and h("textlabel", {
+		Name = "NodeName",
+		Size = UDim2.fromOffset(144, 26),
+		Position = UDim2.new(0.5, 0, 0, -30),
+		AnchorPoint = Vector2.new(0.5, 0),
+		BackgroundColor3 = Palette.night,
+		BackgroundTransparency = 0.08,
+		BorderSizePixel = 0,
+		Text = node.Name,
+		TextColor3 = Palette.cream,
+		TextSize = 12,
+		TextWrapped = true,
+		FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+		ZIndex = 20,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 6) })))
 end
 
 local function TotalsStrip(props)
@@ -1466,8 +1767,15 @@ local function DetailPanel(props)
 		}))
 	end
 	local points = props.points
-	local canBind = not owned and missing == 0 and points >= node.Cost and not props.busy
+	local available = missing == 0
+	local canBind = not owned and available and points >= node.Cost and not props.busy
 	local status = if owned then "Bound to your Domain." elseif missing > 0 then "Bind the linked branches first." elseif points < node.Cost then `Needs {node.Cost - points} more point{if node.Cost - points == 1 then "" else "s"}.` else `Costs {node.Cost} point{if node.Cost == 1 then "" else "s"}.`
+	-- the tall side panel has room between the text and the button for the gem itself
+	local width, height = props.size.X.Offset, props.size.Y.Offset
+	local showTop = if #(node.Requires or {}) > 0 then 156 else 104
+	local showH = height - (TapTarget + 44) - showTop
+	local stage = math.min(showH, width - 24)
+	local sheet = elementSheet(style.element)
 	return h("frame", {
 		Name = "DomainClaimActions",
 		Size = props.size,
@@ -1485,14 +1793,19 @@ local function DetailPanel(props)
 		BackgroundColor3 = darken(style.accent, 0.6),
 		BorderSizePixel = 0,
 		ZIndex = 31,
-	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h(Icon, {
-		kind = style.icon,
-		color = Palette.cream,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = style.accent,
+		Transparency = 0.4,
+	}), h(GemView, {
+		kit = props.kit,
+		field = field,
 		accent = style.accent,
-		size = 24,
+		owned = owned,
+		available = available,
+		softMotion = softMotion,
+		size = UDim2.fromOffset(58, 58),
 		position = UDim2.fromScale(0.5, 0.5),
-		anchorPoint = Vector2.new(0.5, 0.5),
-		spin = false,
+		zIndex = 32,
 	})), h(Text, {
 		value = node.Name,
 		size = 17,
@@ -1526,7 +1839,40 @@ local function DetailPanel(props)
 		Position = UDim2.fromOffset(12, 98),
 		BackgroundTransparency = 1,
 		ZIndex = 31,
-	}, prereqs), h(Text, {
+	}, prereqs), showH >= 150 and h("frame", {
+		Name = "Showcase",
+		Size = UDim2.fromOffset(width - 24, showH),
+		Position = UDim2.fromOffset(12, showTop),
+		BackgroundTransparency = 1,
+		ZIndex = 31,
+	}, h(ElementFx, {
+		element = style.element,
+		size = UDim2.fromOffset(stage, stage),
+		position = UDim2.fromScale(0.5, 0.46),
+		transparency = if owned then 0.08 elseif available then 0.45 else 0.75,
+		still = not owned and not available,
+		reducedMotion = softMotion,
+		zIndex = 31,
+	}), h(GemView, {
+		kit = props.kit,
+		field = field,
+		accent = style.accent,
+		owned = owned,
+		available = available,
+		softMotion = softMotion,
+		size = UDim2.fromOffset(math.floor(stage * 0.78), math.floor(stage * 0.78)),
+		position = UDim2.fromScale(0.5, 0.46),
+		zIndex = 32,
+	}), sheet ~= nil and h(Text, {
+		value = `{sheet.Label} AFFINITY`,
+		size = 11,
+		color = if owned then sheet.Glow else Palette.muted,
+		weight = Enum.FontWeight.Heavy,
+		align = Enum.TextXAlignment.Center,
+		position = UDim2.new(0, 0, 1, -16),
+		sizeConstraint = UDim2.new(1, 0, 0, 14),
+		zIndex = 33,
+	})), h(Text, {
 		value = status,
 		size = 12,
 		color = if owned then Palette.mint elseif canBind then Palette.mango else Palette.muted,
@@ -1555,12 +1901,637 @@ local function DetailPanel(props)
 	})))
 end
 
+local function LatticeStage(props)
+	local containerRef = React.useRef(nil)
+	local bandRefHolder = React.useRef(nil)
+	if bandRefHolder.current == nil then
+		local refs = {}
+		for band = 1, BANDS do
+			refs[band] = React.createRef()
+		end
+		bandRefHolder.current = refs
+	end
+	local bandRefs = bandRefHolder.current
+	local starsRef = React.useRef(nil)
+	local sigilRef = React.useRef(nil)
+	local focusHaloRef = React.useRef(nil)
+	local view = React.useRef({
+		yaw = 0,
+		pitch = 0.12,
+		targetYaw = 0,
+		targetPitch = 0.12,
+		zoom = 1,
+		targetZoom = 1,
+		idle = 0,
+		drag = nil,
+		segments = {},
+		flows = {},
+		cameras = {},
+		stars = {},
+		born = os.clock(),
+		settled = false,
+	})
+	local softMotion = props.softMotion
+	local registry = props.registry
+	local kit = props.kit
+	-- cameras + starfield, once
+	React.useEffect(function()
+		local state = view.current
+		state.born = os.clock()
+		for band = 1, BANDS do
+			local viewport = bandRefs[band].current
+			if viewport ~= nil then
+				local camera = Instance.new("Camera")
+				camera.FieldOfView = FOV
+				camera.Parent = viewport
+				viewport.CurrentCamera = camera
+				state.cameras[band] = camera
+			end
+		end
+		local random = Random.new(41)
+		local field = starsRef.current
+		if field ~= nil then
+			for index = 1, if props.compact then 18 else 42 do
+				local theta = random:NextNumber(0, math.pi * 2)
+				local phi = math.acos(random:NextNumber(-0.7, 0.9))
+				local dot = Instance.new("Frame")
+				dot.Name = "Star" .. index
+				dot.AnchorPoint = Vector2.new(0.5, 0.5)
+				local px = random:NextInteger(1, 3)
+				dot.Size = UDim2.fromOffset(px, px)
+				dot.BackgroundColor3 = Color3.fromRGB(255, 240 - px * 10, 255)
+				dot.BackgroundTransparency = 0.2 + random:NextNumber() * 0.5
+				dot.BorderSizePixel = 0
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(1, 0)
+				corner.Parent = dot
+				dot.Parent = field
+				table.insert(state.stars, {
+					frame = dot,
+					pos = Vector3.new(math.sin(phi) * math.sin(theta), math.cos(phi), math.sin(phi) * math.cos(theta)) * 34,
+					base = dot.BackgroundTransparency,
+					twinkle = random:NextNumber(0, math.pi * 2),
+				})
+			end
+		end
+		return function()
+			for _, camera in state.cameras do
+				camera:Destroy()
+			end
+			for _, star in state.stars do
+				star.frame:Destroy()
+			end
+			table.clear(state.cameras)
+			table.clear(state.stars)
+		end
+	end, {})
+	-- branch geometry, rebuilt when ownership changes (or the gem kit arrives)
+	React.useEffect(function()
+		local state = view.current
+		local holder = bandRefs[1].current
+		if holder == nil then
+			return nil
+		end
+		local segments, flows = {}, {}
+		local function add(part)
+			part.Parent = holder
+			table.insert(segments, { part = part, mid = part.Position, band = 1 })
+		end
+		local owned = props.owned
+		local spire = if kit ~= nil then kit:FindFirstChild("Domain_Spire") else nil
+		local seed = if kit ~= nil then kit:FindFirstChild("Domain_Seed") else nil
+		local height = SPACE.top - SPACE.bottom
+		if spire ~= nil and spire:IsA("BasePart") then
+			-- the trunk: one twisting crystal column with a neon vein running up its heart
+			local trunk = spire:Clone()
+			trunk.Size = Vector3.new(1.25, height + 0.8, 1.25)
+			trunk.CFrame = CFrame.new(0, SPACE.bottom + (height + 0.8) / 2 - 0.2, 0)
+			trunk.Color = Color3.fromRGB(104, 84, 160)
+			trunk.Material = Enum.Material.SmoothPlastic
+			trunk.Reflectance = 0.15
+			trunk.Transparency = 0.2
+			add(trunk)
+			add(rod(Vector3.new(0, SPACE.bottom, 0), Vector3.new(0, SPACE.top + 0.1, 0), 0.16, Palette.pink, Enum.Material.Neon, 0.35))
+		else
+			local trunkColor = Color3.fromRGB(70, 58, 104)
+			local trunkSteps = 6
+			for step = 1, trunkSteps do
+				local a = Vector3.new(0, SPACE.bottom + (step - 1) / trunkSteps * height, 0)
+				local b = Vector3.new(0, SPACE.bottom + step / trunkSteps * height, 0)
+				add(rod(a, b, 0.55 - step * 0.06, trunkColor:Lerp(Color3.fromRGB(140, 110, 200), step / trunkSteps), Enum.Material.Glass, 0.25))
+			end
+		end
+		if seed ~= nil and seed:IsA("BasePart") then
+			local root = seed:Clone()
+			root.Size = Vector3.new(1.3, 1.3, 1.3)
+			root.CFrame = CFrame.new(0, SPACE.bottom, 0)
+			root.Color = Palette.pink
+			root.Material = Enum.Material.Neon
+			root.Transparency = 0.1
+			add(root)
+		else
+			add(orb(Vector3.new(0, SPACE.bottom, 0), 1.1, Palette.pink, Enum.Material.Neon, 0.2))
+		end
+		if not props.compact then
+			for tier = 0, 1 do
+				local radius = 1.6 + tier * 0.6
+				local y = SPACE.bottom + tier * 0.12
+				local pieces = 18
+				for piece = 1, pieces do
+					local t0 = (piece - 1) / pieces * math.pi * 2
+					local t1 = piece / pieces * math.pi * 2
+					add(rod(Vector3.new(math.sin(t0) * radius, y, math.cos(t0) * radius), Vector3.new(math.sin(t1) * radius, y, math.cos(t1) * radius), 0.03, Palette.violet, Enum.Material.Neon, 0.82))
+				end
+			end
+		end
+		local function branch(a, b, accent, live, reachable, nodeId)
+			local mid = (a + b) / 2
+			local outward = Vector3.new(mid.X, 0, mid.Z)
+			outward = if outward.Magnitude > 0.01 then outward.Unit else Vector3.new(0, 0, 1)
+			local control = mid + outward * 0.7 + Vector3.new(0, 0.35, 0)
+			local color = if live then accent elseif reachable then darken(accent, 0.35) else Color3.fromRGB(84, 80, 104)
+			local material = if live then Enum.Material.Neon else Enum.Material.Glass
+			local alpha = if live then 0.22 elseif reachable then 0.42 else 0.8
+			local thickness = if live then 0.085 elseif reachable then 0.065 else 0.045
+			local pieces = if props.compact then 5 else 8
+			local previous = a
+			for piece = 1, pieces do
+				local point = bezier(a, control, b, piece / pieces)
+				local segment = rod(previous, point, thickness, color, material, alpha)
+				add(segment)
+				segments[#segments].baseAlpha = alpha
+				segments[#segments].nodeId = nodeId
+				if piece < pieces then
+					-- a bead on every joint hides the seam between the straight pieces
+					add(orb(point, thickness * 1.05, color, material, alpha))
+				end
+				previous = point
+			end
+			if live and not softMotion then
+				-- One restrained pulse per owned path avoids a trail over every node.
+				local phase = (#flows * 0.37) % 1
+				for k, spec in { { 0.16, 0.2 } } do
+					local pulse = orb(a, spec[1], if k == 1 then Color3.new(1, 1, 1) else lighten(accent, 0.3), Enum.Material.Neon, spec[2])
+					pulse.Parent = holder
+					local entry = { part = pulse, mid = mid, band = 1 }
+					table.insert(segments, entry)
+					table.insert(flows, { entry = entry, a = a, c = control, b = b, phase = phase - (k - 1) * 0.035 })
+				end
+			end
+		end
+		for _, node in TREE do
+			local point = SPACE.points[node.Id]
+			if point == nil then
+				continue
+			end
+			local accent = FIELD_STYLE[fieldOf(node)].accent
+			local requires = node.Requires or {}
+			if #requires == 0 then
+				branch(Vector3.new(0, point.pos.Y - STEP_Y * 0.6, 0), point.pos, accent, owned[node.Id] == true, true, node.Id)
+			end
+			for _, parentId in requires do
+				local parent = SPACE.points[parentId]
+				if parent ~= nil then
+					branch(parent.pos, point.pos, accent, owned[parentId] == true and owned[node.Id] == true, owned[parentId] == true, node.Id)
+				end
+			end
+		end
+		state.segments = segments
+		state.flows = flows
+		state.forceBands = true
+		return function()
+			for _, entry in segments do
+				entry.part:Destroy()
+			end
+			if state.segments == segments then
+				state.segments = {}
+				state.flows = {}
+			end
+		end
+	end, { props.ownedKey, props.compact, softMotion, kit })
+	-- swing the selected node to face the camera
+	React.useEffect(function()
+		local selectedPath = {}
+		local function visit(id)
+			if selectedPath[id] then return end
+			selectedPath[id] = true
+			local node = LAYOUT.byId[id]
+			for _, parentId in (node and node.Requires) or {} do visit(parentId) end
+		end
+		if props.focusId ~= nil then visit(props.focusId) end
+		view.current.selectedPath = selectedPath
+		view.current.focusId = props.focusId
+		local point = SPACE.points[props.focusId]
+		if point ~= nil then
+			local state = view.current
+			state.targetYaw = wrapAngle(math.clamp(point.angle * 0.12, -0.18, 0.18), state.yaw)
+			state.idle = 0
+		end
+	end, { props.focusId })
+	-- the render loop: orbit, band sorting, projection of DOM nodes onto the 3D positions
+	React.useEffect(function()
+		local state = view.current
+		local inputChanged = UserInputService.InputChanged:Connect(function(input)
+			local drag = state.drag
+			if drag == nil then
+				return
+			end
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				local delta = input.Position - drag
+				state.drag = input.Position
+				state.targetYaw -= delta.X * 0.005
+				state.targetPitch = math.clamp(state.targetPitch + delta.Y * 0.003, 0.02, 0.6)
+				state.idle = 0
+			end
+		end)
+		local inputEnded = UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				state.drag = nil
+			end
+		end)
+		-- Depth scalers are looked up once per anchor, not every frame
+		local function depthScaleOf(anchor, button)
+			local depthScale = anchor.depthScale
+			if depthScale == nil or depthScale.Parent ~= button then
+				depthScale = button:FindFirstChild("Depth")
+				anchor.depthScale = depthScale
+			end
+			return depthScale
+		end
+		local loop = RunService.RenderStepped:Connect(function(dt)
+			dt = math.min(dt, 0.1)
+			local container = containerRef.current
+			if container == nil then
+				return
+			end
+			local size = container.AbsoluteSize
+			local w, hgt = size.X, size.Y
+			if w < 4 or hgt < 4 then
+				return
+			end
+			local now = os.clock()
+			local age = now - state.born
+			state.idle += dt
+			state.yaw = smoothDomainValue(state.yaw, state.targetYaw, dt, softMotion)
+			state.pitch = smoothDomainValue(state.pitch, state.targetPitch, dt, softMotion)
+			state.zoom = smoothDomainValue(state.zoom, state.targetZoom, dt, softMotion)
+			local tanHalf = math.tan(math.rad(FOV / 2))
+			local aspect = w / hgt
+			local fitV = (SPACE.height / 2 + 0.9) / tanHalf
+			local fitH = (SPACE.radius + 0.4) / (tanHalf * aspect)
+			local distance = (math.max(fitV, fitH) + SPACE.depth + math.abs(math.sin(state.yaw)) * SPACE.radius) * state.zoom
+			local focus = Vector3.new(0, (SPACE.top + SPACE.bottom) / 2, 0)
+			local camCF = CFrame.new(focus) * CFrame.Angles(0, state.yaw, 0) * CFrame.Angles(-state.pitch, 0, 0) * CFrame.new(0, 0, distance)
+			for _, camera in state.cameras do
+				camera.CFrame = camCF
+			end
+			-- the 3D lattice fades up as the panel opens
+			if not state.settled then
+				local progress = math.clamp(age / 0.75, 0, 1)
+				local fade = if softMotion then 0 else 1 - progress * progress * (3 - 2 * progress)
+				for band = 1, BANDS do
+					local viewport = bandRefs[band].current
+					if viewport ~= nil then
+						viewport.ImageTransparency = fade
+					end
+				end
+				state.settled = fade <= 0
+			end
+			local focal = (hgt / 2) / tanHalf
+			local zNear = distance - SPACE.radius - 1
+			local zFar = distance + SPACE.radius + 1
+			local span = math.max(0.01, zFar - zNear)
+			local function bandOf(z)
+				return math.clamp(BANDS - math.floor((z - zNear) / span * BANDS), 1, BANDS)
+			end
+			for _, flow in state.flows do
+				local t = (now * 0.26 + flow.phase) % 1
+				local position = bezier(flow.a, flow.c, flow.b, t)
+				flow.entry.part.CFrame = CFrame.new(position)
+				flow.entry.mid = position
+			end
+			for _, entry in state.segments do
+				if entry.baseAlpha ~= nil then
+					local focused = state.selectedPath and state.selectedPath[entry.nodeId]
+					local target = if focused then entry.baseAlpha * 0.65 else math.min(0.9, entry.baseAlpha + 0.12)
+					entry.part.Transparency = smoothDomainValue(entry.part.Transparency, target, dt, softMotion)
+				end
+				local z = -camCF:PointToObjectSpace(entry.mid).Z
+				local band = bandOf(z)
+				if band ~= entry.band or state.forceBands then
+					entry.band = band
+					local viewport = bandRefs[band].current
+					if viewport ~= nil and entry.part.Parent ~= viewport then
+						entry.part.Parent = viewport
+					end
+				end
+			end
+			state.forceBands = false
+			for id, anchor in registry do
+				local point = SPACE.points[id]
+				local button = anchor.button
+				if point == nil or button == nil then
+					continue
+				end
+				local q = camCF:PointToObjectSpace(point.pos)
+				local z = -q.Z
+				if z < 0.1 then
+					button.Visible = false
+					continue
+				end
+				button.Visible = true
+				button.Position = UDim2.fromOffset(w / 2 + q.X / z * focal, hgt / 2 - q.Y / z * focal + 8)
+				local band = bandOf(z)
+				button.ZIndex = 3 + (band - 1) * 10 + 6
+				local depthScale = depthScaleOf(anchor, button)
+				if depthScale then
+					-- nodes pop in tier by tier, root first
+					local progress = math.clamp((age - 0.08 - point.tier * 0.05) / 0.65, 0, 1)
+					local grow = if softMotion then 1 else 0.85 + 0.15 * progress * progress * (3 - 2 * progress)
+					depthScale.Scale = math.clamp(distance / z, 0.85, 1.12) * grow
+				end
+				if anchor.fog then
+					anchor.fog.BackgroundTransparency = math.clamp(0.4 + (1 - (z - zNear) / span) * 0.9, 0.4, 1)
+				end
+				local gem = anchor.gem
+				if gem ~= nil and not softMotion and #gem.spin > 0 then
+					local frame = gemFrame(gem, now, anchor.speed, anchor.phase)
+					for _, part in gem.spin do
+						part.CFrame = frame
+					end
+				end
+			end
+			-- the root sigil lies flat under the seed, so it squashes as the camera levels out
+			local sigil = sigilRef.current
+			if sigil ~= nil then
+				local q = camCF:PointToObjectSpace(Vector3.new(0, SPACE.bottom, 0))
+				local z = -q.Z
+				sigil.Visible = z > 0.1
+				if z > 0.1 then
+					local across = 5.4 / z * focal
+					sigil.Position = UDim2.fromOffset(w / 2 + q.X / z * focal, hgt / 2 - q.Y / z * focal)
+					sigil.Size = UDim2.fromOffset(across, across * math.clamp(math.sin(state.pitch + 0.14), 0.16, 0.9))
+				end
+			end
+			local focusHalo = focusHaloRef.current
+			local focusPoint = if state.focusId ~= nil then SPACE.points[state.focusId] else nil
+			if focusHalo ~= nil then
+				if focusPoint == nil then
+					focusHalo.Visible = false
+				else
+					local q = camCF:PointToObjectSpace(focusPoint.pos)
+					local z = -q.Z
+					focusHalo.Visible = z > 0.1
+					if z > 0.1 then
+						local across = math.clamp(2.7 / z * focal, 54, 140)
+						focusHalo.Position = UDim2.fromOffset(w / 2 + q.X / z * focal, hgt / 2 - q.Y / z * focal + 8)
+						focusHalo.Size = UDim2.fromOffset(across, across)
+						focusHalo.Rotation = if softMotion then 0 else now * 18
+						focusHalo.BackgroundTransparency = math.clamp(0.9 + math.sin(now * 1.6) * 0.03, 0.84, 0.96)
+					end
+				end
+			end
+			for _, star in state.stars do
+				local q = camCF.Rotation:PointToObjectSpace(star.pos)
+				local z = -q.Z
+				if z <= 0.5 then
+					star.frame.Visible = false
+				else
+					star.frame.Visible = true
+					star.frame.Position = UDim2.fromOffset(w / 2 + q.X / z * focal, hgt / 2 - q.Y / z * focal)
+					if not softMotion then
+						star.frame.BackgroundTransparency = math.clamp(star.base + math.sin(now * 0.7 + star.twinkle) * 0.1, 0, 0.95)
+					end
+				end
+			end
+		end)
+		return function()
+			inputChanged:Disconnect()
+			inputEnded:Disconnect()
+			loop:Disconnect()
+		end
+	end, { softMotion })
+	local bands = {}
+	for band = 1, BANDS do
+		bands[`Band{band}`] = h("viewportframe", {
+			ref = bandRefs[band],
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ImageTransparency = if softMotion then 0 else 1,
+			Ambient = Color3.fromRGB(110, 96, 150),
+			LightColor = Color3.fromRGB(255, 236, 250),
+			LightDirection = Vector3.new(-0.5, -1, -0.35),
+			ZIndex = 3 + (band - 1) * 10,
+		})
+	end
+	return h("frame", {
+		ref = containerRef,
+		Name = "LatticeStage",
+		Size = props.size,
+		Position = props.position,
+		BackgroundColor3 = darken(Palette.void, 0.02),
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 3,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uigradient", {
+		Color = ColorSequence.new(darken(Palette.violet, 0.92), Palette.void),
+		Rotation = 90,
+	}), h("frame", {
+		Name = "NebulaA",
+		Size = UDim2.fromScale(1.2, 0.7),
+		Position = UDim2.fromScale(-0.08, -0.04),
+		BackgroundColor3 = Palette.violet,
+		BackgroundTransparency = if softMotion then 0.93 else 0.88,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, h("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), h("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, darken(Palette.violet, 0.3)),
+			ColorSequenceKeypoint.new(0.52, lighten(Palette.pink, 0.08)),
+			ColorSequenceKeypoint.new(1, darken(Palette.cyan, 0.28)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.28, 0.55),
+			NumberSequenceKeypoint.new(0.52, 0.14),
+			NumberSequenceKeypoint.new(0.78, 0.6),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Rotation = 18,
+	})), h("frame", {
+		Name = "NebulaB",
+		Size = UDim2.fromScale(1.0, 0.58),
+		Position = UDim2.fromScale(0.18, 0.72),
+		AnchorPoint = Vector2.new(0, 1),
+		BackgroundColor3 = Palette.cyan,
+		BackgroundTransparency = if softMotion then 0.95 else 0.9,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	}, h("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), h("uigradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, darken(Palette.cyan, 0.26)),
+			ColorSequenceKeypoint.new(0.48, lighten(Palette.cyan, 0.18)),
+			ColorSequenceKeypoint.new(1, darken(Palette.violet, 0.28)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.25, 0.62),
+			NumberSequenceKeypoint.new(0.5, 0.22),
+			NumberSequenceKeypoint.new(0.78, 0.68),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Rotation = -12,
+	})), h(ElementFx, {
+		element = "Cosmic",
+		size = UDim2.fromScale(0.92, 0.92),
+		position = UDim2.fromScale(0.2, 0.26),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		transparency = if softMotion then 0.92 else 0.86,
+		scaleType = Enum.ScaleType.Stretch,
+		framerate = 10,
+		reducedMotion = softMotion,
+		zIndex = 1,
+	}), h(ElementFx, {
+		element = "Prism",
+		size = UDim2.fromScale(0.72, 0.72),
+		position = UDim2.fromScale(0.82, 0.72),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		transparency = if softMotion then 0.95 else 0.9,
+		scaleType = Enum.ScaleType.Stretch,
+		framerate = 8,
+		reducedMotion = softMotion,
+		zIndex = 1,
+	}), h("frame", {
+		Name = "Stars",
+		ref = starsRef,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+	}), h("frame", {
+		-- a rune circle turning under the seed of the lattice
+		Name = "RootSigil",
+		ref = sigilRef,
+		Size = UDim2.fromOffset(0, 0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		ZIndex = 2,
+	}, h(ElementFx, {
+		element = "Arcane",
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0.5, 0.5),
+		transparency = 0.7,
+		framerate = 10,
+		scaleType = Enum.ScaleType.Stretch,
+		reducedMotion = softMotion,
+		zIndex = 2,
+	})), h("frame", {
+		Name = "FocusHalo",
+		ref = focusHaloRef,
+		Visible = false,
+		Size = UDim2.fromOffset(0, 0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 0.9,
+		BorderSizePixel = 0,
+		ZIndex = 25,
+	}, h("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), h("uistroke", {
+		Color = lighten(Palette.cyan, 0.2),
+		Thickness = 2,
+		Transparency = 0.18,
+	}), h(ElementFx, {
+		element = "Arcane",
+		size = UDim2.fromScale(1.08, 1.08),
+		position = UDim2.fromScale(0.5, 0.5),
+		transparency = 0.38,
+		framerate = 18,
+		reducedMotion = softMotion,
+		zIndex = 26,
+	}), h(ElementFx, {
+		element = "Radiance",
+		size = UDim2.fromScale(1.34, 1.34),
+		position = UDim2.fromScale(0.5, 0.5),
+		transparency = 0.66,
+		framerate = 12,
+		reducedMotion = softMotion,
+		zIndex = 25,
+	})), h("textbutton", {
+		Name = "Orbit",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		Selectable = false,
+		ZIndex = 2,
+		Event = {
+			InputBegan = function(_rbx, input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					view.current.drag = input.Position
+					view.current.idle = 0
+				end
+			end,
+			InputChanged = function(_rbx, input)
+				if input.UserInputType == Enum.UserInputType.MouseWheel then
+					local state = view.current
+					state.targetZoom = math.clamp(state.targetZoom - input.Position.Z * 0.08, 0.62, 1.5)
+					state.idle = 0
+				end
+			end,
+		},
+	}), bands, props.children, h("frame", {
+		Name = "ViewControls",
+		Size = UDim2.fromOffset(TapTarget * 3 + 12, TapTarget),
+		Position = UDim2.new(1, -12, 0, 12),
+		AnchorPoint = Vector2.new(1, 0),
+		BackgroundTransparency = 1,
+		ZIndex = 80,
+	}, h("uilistlayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 6),
+	}), h(Button, {
+		text = "-", layoutOrder = 1,
+		size = UDim2.fromOffset(TapTarget, TapTarget),
+		color = Palette.panelSoft, reducedMotion = softMotion,
+		onClick = function() view.current.targetZoom = math.min(1.5, view.current.targetZoom + 0.12) end,
+	}), h(Button, {
+		text = "+", layoutOrder = 2,
+		size = UDim2.fromOffset(TapTarget, TapTarget),
+		color = Palette.panelSoft, reducedMotion = softMotion,
+		onClick = function() view.current.targetZoom = math.max(0.62, view.current.targetZoom - 0.12) end,
+	}), h(Button, {
+		text = "FIT", layoutOrder = 3,
+		size = UDim2.fromOffset(TapTarget, TapTarget),
+		color = Palette.panelSoft, reducedMotion = softMotion,
+		onClick = function()
+			local state = view.current
+			state.targetYaw = wrapAngle(0, state.yaw)
+			state.targetPitch = 0.12
+			state.targetZoom = 1
+			state.drag = nil
+		end,
+	})), h(Text, {
+		value = if props.compact then "Drag to orbit / + - zoom / FIT reset" else "Drag to orbit / scroll to zoom / select a node to inspect",
+		size = 11,
+		color = Palette.muted,
+		position = UDim2.new(0, 12, 1, -22),
+		sizeConstraint = UDim2.new(1, -24, 0, 16),
+		zIndex = 80,
+	}))
+end
+
 local function DomainSkillTree(_param)
 	local domain = _param.domain
 	local dispatch = _param.dispatch
 	local reducedMotion = _param.reducedMotion
-	local softMotion = reducedMotion
+	-- the host passes no preference, so honour the player's motion setting from context
+	local softMotion = reducedMotion or useMotionSettings().soft == true
 	local onClose = _param.onClose
+	local kit = useDomainKit()
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
 	local stack = chrome.contentStack or viewport.width < 760
@@ -1570,7 +2541,6 @@ local function DomainSkillTree(_param)
 	local leaving = _binding[2]
 	local beginExit = _binding[3]
 	local motion = composePresence(enter, leave)
-	local flow = useClock(not softMotion, 0.6, 1)
 	local hostRef = React.useRef(nil)
 	local alive = React.useRef(true)
 	local nodes = domain.Nodes or {}
@@ -1686,85 +2656,48 @@ local function DomainSkillTree(_param)
 	local detailH = if stack then 210 else panelH - headerH - totalsH - 40
 	local canvasW = if stack then panelW - 24 else panelW - detailW - 36
 	local canvasViewH = if stack then panelH - headerH - totalsH - detailH - 40 else panelH - headerH - totalsH - 40
-	local tierCount = math.max(1, LAYOUT.tierCount)
-	local nodeSize = math.clamp(math.floor((if stack then canvasW else canvasViewH) / (LAYOUT.widest + 0.6)) - 6, 40, 58)
-	local rowGap = nodeSize + 46
-	local canvasH, centers = 0, {}
-	if stack then
-		canvasH = 30 + (tierCount - 1) * rowGap + nodeSize + 30
-		for id, slotInfo in LAYOUT.slot do
-			centers[id] = Vector2.new((slotInfo.index - 0.5) / slotInfo.count * canvasW, 30 + nodeSize / 2 + slotInfo.tier * rowGap)
-		end
-	else
-		canvasH = canvasViewH
-		local colGap = (canvasW - nodeSize - 40) / math.max(1, tierCount - 1)
-		for id, slotInfo in LAYOUT.slot do
-			centers[id] = Vector2.new(20 + nodeSize / 2 + slotInfo.tier * colGap, (slotInfo.index - 0.5) / slotInfo.count * (canvasViewH - 20) + 4)
+	local nodeSize = math.clamp(math.floor(math.min(canvasW, canvasViewH) / 9), 40, 56)
+	local registry = React.useRef({}).current
+	local ownedKeyParts = {}
+	for _, node in TREE do
+		if owned[node.Id] then
+			table.insert(ownedKeyParts, node.Id)
 		end
 	end
-	local links, gems = {}, {}
+	local gems = {}
 	for _, node in TREE do
-		local to = centers[node.Id]
-		for _, parentId in node.Requires or {} do
-			local from = centers[parentId]
-			if from ~= nil and to ~= nil then
-				local live = owned[parentId] == true and owned[node.Id] == true
-				local reachable = owned[parentId] == true
-				local accent = FIELD_STYLE[fieldOf(node)].accent
-				links[`{parentId}>{node.Id}`] = h(Link, {
-					from = from,
-					to = to,
-					thickness = if live then 4 else 3,
-					color = if live then accent elseif reachable then darken(accent, 0.35) else Palette.lineSoft,
-					transparency = if live then 0.05 elseif reachable then 0.35 else 0.7,
-					flow = if live and not softMotion then flow else nil,
-				})
-			end
-		end
-		local available = availableFor(node)
 		gems[node.Id] = h(NodeButton, {
 			node = node,
-			center = to,
+			center = Vector2.new(canvasW / 2, canvasViewH / 2),
 			size = nodeSize,
 			owned = owned[node.Id] == true,
-			available = available,
+			available = availableFor(node),
 			affordable = points >= node.Cost,
 			selected = selectedId == node.Id,
 			bound = boundId == node.Id,
 			boundToken = boundToken,
 			softMotion = softMotion,
+			registry = registry,
+			kit = kit,
 			onSelect = function()
+				setSelectedId(node.Id)
+			end,
+			onFocus = function()
 				setSelectedId(node.Id)
 			end,
 		})
 	end
-	local canvas = h("frame", {
-		Size = UDim2.fromOffset(canvasW, canvasH),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-	}, links, gems)
-	local canvasHost
-	if stack and canvasH > canvasViewH then
-		canvasHost = h("scrollingframe", {
-			Size = UDim2.fromOffset(canvasW, canvasViewH),
-			Position = UDim2.fromOffset(12, headerH + 8),
-			BackgroundColor3 = darken(Palette.void, 0.02),
-			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
-			ScrollBarImageColor3 = Palette.pink,
-			CanvasSize = UDim2.fromOffset(0, canvasH),
-			ScrollingDirection = Enum.ScrollingDirection.Y,
-			ZIndex = 3,
-		}, canvas)
-	else
-		canvasHost = h("frame", {
-			Size = UDim2.fromOffset(canvasW, canvasViewH),
-			Position = UDim2.fromOffset(12, headerH + 8),
-			BackgroundColor3 = darken(Palette.void, 0.02),
-			BorderSizePixel = 0,
-			ZIndex = 3,
-		}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), canvas)
-	end
+	local canvasHost = h(LatticeStage, {
+		size = UDim2.fromOffset(canvasW, canvasViewH),
+		position = UDim2.fromOffset(12, headerH + 8),
+		owned = owned,
+		ownedKey = table.concat(ownedKeyParts, ","),
+		focusId = selectedId,
+		registry = registry,
+		compact = stack,
+		softMotion = softMotion,
+		kit = kit,
+	}, gems)
 	local nextPoints = GameConfig.Domain.SkillPointPerRank or 2
 	return h(OverlayPresence, {
 		amount = motion,
@@ -1824,7 +2757,7 @@ local function DomainSkillTree(_param)
 		align = Enum.TextXAlignment.Center,
 		sizeConstraint = UDim2.fromScale(1, 1),
 	})), h(Text, {
-		value = "DOMAIN LATTICE",
+		value = "DOMAIN TREE",
 		size = 11,
 		color = Palette.pink,
 		weight = Enum.FontWeight.Heavy,
@@ -1885,6 +2818,7 @@ local function DomainSkillTree(_param)
 		points = points,
 		busy = busy,
 		softMotion = softMotion,
+		kit = kit,
 		onBind = bind,
 		size = UDim2.fromOffset(detailW, detailH),
 		position = if stack then UDim2.new(0, 12, 1, -(detailH + 12)) else UDim2.fromOffset(panelW - detailW - 12, headerH + 8),
@@ -2471,7 +3405,7 @@ local function ensureDragging()
 		end
 		if cellX ~= dragLastCell.X or cellY ~= dragLastCell.Y then
 			dragLastCell = Vector2.new(cellX, cellY)
-			Audio:play("sliderStep", 1.1)
+			Audio:play("dragSnap")
 		end
 	end)
 	dragEnded = UserInputService.InputEnded:Connect(function(input)
@@ -2481,6 +3415,9 @@ local function ensureDragging()
 		local exactTouch = dragInput.UserInputType == Enum.UserInputType.Touch and input == dragInput
 		local mouseRelease = dragInput.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1
 		if exactTouch or mouseRelease then
+			if dragId ~= nil then
+				Audio:play("dragDrop")
+			end
 			cancelDrag()
 		end
 	end)
@@ -2517,7 +3454,7 @@ local MobileDragging = {
 		if handle == nil then
 			return nil
 		end
-		Audio:play("filterPick", 0.92)
+		Audio:play("dragGrab")
 		dragId = id
 		dragInput = input
 		dragOffset = Vector2.new(input.Position.X - handle.position.X, input.Position.Y - handle.position.Y)
@@ -2619,6 +3556,8 @@ local function safeSlotPosition(slot, position, width, height, sideInset, topIns
 	local bounds = slotBounds(slot, width, height, sideInset, topInset, bottomInset)
 	return Vector2.new(math.clamp(position.X, bounds.minX, bounds.maxX), math.clamp(position.Y, bounds.minY, bounds.maxY))
 end
+-- Session-scoped layout memory; fractions so a stored layout survives rotation.
+local MOBILE_LAYOUT_MEMORY = {}
 local function MobileControls(_param)
 	local slots = _param.slots
 	local dispatch = _param.dispatch
@@ -2638,6 +3577,8 @@ local function MobileControls(_param)
 	local history, setHistory = React.useState({})
 	local redo, setRedo = React.useState({})
 	local positions, setPositions = React.useState({})
+	local memoryIndex, setMemoryIndex = React.useState(1)
+	local memoryRevision, setMemoryRevision = React.useState(0)
 	local _binding = useExitTransition(reducedMotion, 0.38, visible)
 	local exit = _binding[1]
 	local exiting = _binding[2]
@@ -3253,6 +4194,106 @@ local function MobileControls(_param)
 			})
 		end
 	end
+	local slotSize = function(slot)
+		return slot.width or 112, slot.height or 62
+	end
+	local commitLayout = function(nextPos)
+		applyPositions(nextPos)
+		if not layoutOverlaps(nextPos) then
+			save(nextPos)
+		end
+	end
+	local mirrorLayout = function()
+		pushHistory(positionsRef.current)
+		Audio:play("filterPick", 0.94)
+		local nextPos = table.clone(positionsRef.current)
+		for _, slot in slots do
+			if locked[slot.id] == true then
+				continue
+			end
+			local pos = nextPos[slot.id] or slotPixels(slot, viewport.width, viewport.height)
+			local width = slotSize(slot)
+			nextPos[slot.id] = safeSlotPosition(slot, Vector2.new(viewport.width - pos.X - width, pos.Y), viewport.width, viewport.height, viewport.sideInset, viewport.topInset, viewport.bottomInset)
+		end
+		commitLayout(nextPos)
+	end
+	local cycleSelection = function()
+		if #slots == 0 then
+			return nil
+		end
+		local nextIndex = 1
+		for index, slot in slots do
+			if slot.id == selectedId then
+				nextIndex = index % #slots + 1
+				break
+			end
+		end
+		setSelectedId(slots[nextIndex].id)
+		Audio:play("filterPick", 1.08)
+	end
+	local swapSelected = function()
+		if #slots < 2 then
+			return nil
+		end
+		local fromIndex = 1
+		for index, slot in slots do
+			if slot.id == selectedId then
+				fromIndex = index
+				break
+			end
+		end
+		local fromSlot = slots[fromIndex]
+		local toSlot = nil
+		for step = 1, #slots - 1 do
+			local candidate = slots[(fromIndex - 1 + step) % #slots + 1]
+			if locked[candidate.id] ~= true then
+				toSlot = candidate
+				break
+			end
+		end
+		if toSlot == nil or locked[fromSlot.id] == true then
+			return nil
+		end
+		pushHistory(positionsRef.current)
+		local nextPos = table.clone(positionsRef.current)
+		local fromPos = nextPos[fromSlot.id] or slotPixels(fromSlot, viewport.width, viewport.height)
+		local toPos = nextPos[toSlot.id] or slotPixels(toSlot, viewport.width, viewport.height)
+		local fromW, fromH = slotSize(fromSlot)
+		local toW, toH = slotSize(toSlot)
+		-- Swap centres, not corners, so blocks of different sizes trade places cleanly.
+		local fromCentre = fromPos + Vector2.new(fromW, fromH) / 2
+		local toCentre = toPos + Vector2.new(toW, toH) / 2
+		nextPos[fromSlot.id] = safeSlotPosition(fromSlot, toCentre - Vector2.new(fromW, fromH) / 2, viewport.width, viewport.height, viewport.sideInset, viewport.topInset, viewport.bottomInset)
+		nextPos[toSlot.id] = safeSlotPosition(toSlot, fromCentre - Vector2.new(toW, toH) / 2, viewport.width, viewport.height, viewport.sideInset, viewport.topInset, viewport.bottomInset)
+		Audio:play("filterPick", 1.0)
+		commitLayout(nextPos)
+	end
+	local storeMemory = function()
+		local stored = {}
+		for _, slot in slots do
+			local pos = positionsRef.current[slot.id] or slotPixels(slot, viewport.width, viewport.height)
+			stored[slot.id] = { x = pos.X / math.max(1, viewport.width), y = pos.Y / math.max(1, viewport.height) }
+		end
+		MOBILE_LAYOUT_MEMORY[memoryIndex] = stored
+		setMemoryRevision(memoryRevision + 1)
+		Audio:play("copyDone")
+	end
+	local recallMemory = function()
+		local stored = MOBILE_LAYOUT_MEMORY[memoryIndex]
+		if stored == nil then
+			return nil
+		end
+		pushHistory(positionsRef.current)
+		local nextPos = table.clone(positionsRef.current)
+		for _, slot in slots do
+			local entry = stored[slot.id]
+			if entry ~= nil and locked[slot.id] ~= true then
+				nextPos[slot.id] = safeSlotPosition(slot, Vector2.new(entry.x * viewport.width, entry.y * viewport.height), viewport.width, viewport.height, viewport.sideInset, viewport.topInset, viewport.bottomInset)
+			end
+		end
+		Audio:play("filterPick", 0.9)
+		commitLayout(nextPos)
+	end
 	local overlaps = function(slot, pos)
 		local _condition = slot.width
 		if _condition == nil then
@@ -3775,7 +4816,11 @@ local function MobileControls(_param)
 			if _condition_4 == nil then
 				_condition_4 = "HUD"
 			end
-			_result_1 = `{_condition_4}  ·  drag, nudge, align, size  ·  red means overlap`
+			local selectedScale = if scales ~= nil and selectedSlot ~= nil then scales[selectedSlot.id] else nil
+			local selectedFade = if opacities ~= nil and selectedSlot ~= nil then opacities[selectedSlot.id] else nil
+			local xPct = math.floor(selectedPos.X / math.max(1, viewport.width) * 100 + 0.5)
+			local yPct = math.floor(selectedPos.Y / math.max(1, viewport.height) * 100 + 0.5)
+			_result_1 = `{_condition_4}  ·  X {xPct}%  Y {yPct}%  ·  SIZE {math.floor((selectedScale or 0.5) * 100 + 0.5)}  FADE {math.floor((selectedFade or 0.85) * 100 + 0.5)}{if selectedLocked then "  ·  LOCKED" else ""}{if collisionPresent then "  ·  OVERLAP" else ""}`
 		else
 			_result_1 = "DRAG A BLOCK"
 		end
@@ -3787,7 +4832,71 @@ local function MobileControls(_param)
 		_attributes.position = UDim2.new(0, viewport.sideInset + 12, 0, editorToolbarY + TapTarget * 2 + 16)
 		_attributes.sizeConstraint = UDim2.new(1, -(viewport.sideInset * 2 + 24), 0, 18)
 		_attributes.zIndex = 506
-		_condition_3 = React.createElement(React.Fragment, nil, _exp, _exp_1, _exp_2, _exp_3, React.createElement(Text, _attributes))
+		local toolRowY = bottomBarY - TapTarget - 6
+		local memoryFilled = MOBILE_LAYOUT_MEMORY[memoryIndex] ~= nil
+		local _exp_4 = toolRowY >= topToolbarBottom + 18 and React.createElement("frame", {
+			key = `tools-{memoryRevision}`,
+			Size = UDim2.new(1, -(viewport.sideInset * 2 + 16), 0, TapTarget),
+			Position = UDim2.fromOffset(viewport.sideInset + 8, toolRowY),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = 510,
+		}, React.createElement(Button, {
+			text = "NEXT",
+			onClick = cycleSelection,
+			color = Palette.panelSoft,
+			textColor = Palette.cyan,
+			outline = true,
+			size = UDim2.new(0.15, -3, 1, 0),
+			reducedMotion = reducedMotion,
+		}), React.createElement(Button, {
+			text = "SWAP",
+			onClick = swapSelected,
+			color = Palette.panelSoft,
+			textColor = Palette.cream,
+			size = UDim2.new(0.15, -3, 1, 0),
+			position = UDim2.new(0.15, 1, 0, 0),
+			disabled = selectedLocked,
+			reducedMotion = reducedMotion,
+		}), React.createElement(Button, {
+			text = "MIRROR",
+			onClick = mirrorLayout,
+			color = Palette.panelSoft,
+			textColor = Palette.cream,
+			size = UDim2.new(0.18, -3, 1, 0),
+			position = UDim2.new(0.3, 2, 0, 0),
+			reducedMotion = reducedMotion,
+		}), React.createElement(Button, {
+			text = `M{memoryIndex}`,
+			onClick = function()
+				setMemoryIndex(memoryIndex % 3 + 1)
+			end,
+			color = if memoryFilled then Palette.violet else Palette.panelSoft,
+			textColor = if memoryFilled then Palette.ink else Palette.creamSoft,
+			outline = not memoryFilled,
+			size = UDim2.new(0.12, -3, 1, 0),
+			position = UDim2.new(0.48, 3, 0, 0),
+			reducedMotion = reducedMotion,
+		}), React.createElement(Button, {
+			text = "STORE",
+			onClick = storeMemory,
+			color = Palette.panelSoft,
+			textColor = Palette.violet,
+			outline = true,
+			size = UDim2.new(0.2, -3, 1, 0),
+			position = UDim2.new(0.6, 4, 0, 0),
+			reducedMotion = reducedMotion,
+		}), React.createElement(Button, {
+			text = "RECALL",
+			onClick = recallMemory,
+			color = if memoryFilled then Palette.violet else Palette.panelSoft,
+			textColor = if memoryFilled then Palette.ink else Palette.muted,
+			size = UDim2.new(0.2, -3, 1, 0),
+			position = UDim2.new(0.8, 5, 0, 0),
+			disabled = not memoryFilled,
+			reducedMotion = reducedMotion,
+		}))
+		_condition_3 = React.createElement(React.Fragment, nil, _exp, _exp_1, _exp_2, _exp_3, _exp_4 or nil, React.createElement(Text, _attributes))
 	end
 	return ReactRoblox.createPortal(React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),

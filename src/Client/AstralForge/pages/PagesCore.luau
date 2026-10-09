@@ -562,8 +562,9 @@ local function OverviewView(_param)
 	local missionsReady = PageReadyMath.CountReadyQuests(state.Quests)
 	local labReady = PageReadyMath.CountReadyLabOrders(state.Lab)
 	local pathReady = PageReadyMath.ForgePathReady(state, config)
-	local anomalyReady = PageReadyMath.AnomalyReady(state.Anomaly)
-	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, anomalyReady)
+	local cipherGate = state.FeatureUnlocks and state.FeatureUnlocks.Cipher
+	local cipherOpen = (cipherGate == nil or cipherGate.Unlocked ~= false) and PageReadyMath.CipherOpen(state.Sky)
+	local opsClaims = PageReadyMath.OpsClaims(missionsReady, labReady, pathReady, false)
 	local opsGuide = if config ~= nil and config.ClientPageGuides ~= nil then config.ClientPageGuides.Overview else nil
 	local overchargeTrigger, setOverchargeTrigger = React.useState(0)
 	local overchargeReadyAt, setOverchargeReadyAt = React.useState(0)
@@ -1193,7 +1194,7 @@ local function OverviewView(_param)
 				end
 			end
 		end
-		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, anomaly = anomalyReady }) else nil
+		local adaptiveGoal = if vaultFill < 0.99 then overviewGoal(state, { missions = missionsReady, lab = labReady, path = pathReady, cipher = cipherOpen }) else nil
 		if adaptiveGoal then
 			title, body, fillLine = adaptiveGoal.title, adaptiveGoal.body, ""
 			meter, statValue, statLabel = adaptiveGoal.progress, adaptiveGoal.value, adaptiveGoal.label
@@ -1416,20 +1417,20 @@ local function OverviewView(_param)
 		highlight = pathReady,
 		layoutOrder = 2,
 	}), React.createElement(Button, {
-		text = if anomalyReady then "ANOMALY · READY" else "ANOMALY",
-		icon = "Anomaly",
+		text = if cipherOpen then "CIPHER · OPEN" else "CIPHER",
+		icon = "Code",
 		onClick = function()
 			local _result = navigate
 			if _result ~= nil then
-				_result = _result("Anomaly")
+				_result = _result("Cipher")
 			end
 			return _result
 		end,
-		color = if anomalyReady then Palette.pink else Palette.panelSoft,
-		textColor = if anomalyReady then Palette.ink else Palette.creamSoft,
+		color = if cipherOpen then Palette.pink else Palette.panelSoft,
+		textColor = if cipherOpen then Palette.ink else Palette.creamSoft,
 		size = if stack then UDim2.new(0.5, -4, 0, TapTarget) else UDim2.new(0.25, -6, 0, TapTarget),
 		reducedMotion = reducedMotion,
-		highlight = anomalyReady,
+		highlight = cipherOpen,
 		layoutOrder = 3,
 	}))),
 			},
@@ -1641,6 +1642,7 @@ end
 __defs["RebirthPanel"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.Parent.AudioKit)("audio").Audio
 local GamepadNavigationService = require(script.Parent.Parent.CoreKit)("GamepadNavigationService")
 local _format = require(script.Parent.Parent.CoreKit)("format")
@@ -1695,9 +1697,10 @@ local function featuresOpeningOnNextRebirth(config, nextCount: number): string
 	return table.concat(names, ", ")
 end
 
-local function nextMachineRebirthNote(config, rebirths: number): string
+local function rebirthGate(config, rebirths: number)
 	local bestName = ""
 	local bestNeed = math.huge
+	local lastNeed = 0
 	local function consider(list)
 		if type(list) ~= "table" then
 			return
@@ -1708,6 +1711,8 @@ local function nextMachineRebirthNote(config, rebirths: number): string
 				if need > rebirths and need < bestNeed then
 					bestNeed = need
 					bestName = entry.Name
+				elseif need <= rebirths and need > lastNeed then
+					lastNeed = need
 				end
 			end
 		end
@@ -1717,10 +1722,67 @@ local function nextMachineRebirthNote(config, rebirths: number): string
 		consider(config.Zones)
 	end
 	if bestName == "" then
+		return nil
+	end
+	return { name = bestName, need = bestNeed, last = lastNeed }
+end
+
+local function nextMachineRebirthNote(config, rebirths: number): string
+	local gate = rebirthGate(config, rebirths)
+	if gate == nil then
 		return ""
 	end
-	local away = bestNeed - rebirths
-	return `Next gate: {bestName} at {bestNeed} rebirth{if bestNeed == 1 then "" else "s"} ({away} to go).`
+	local away = gate.need - rebirths
+	return `Next gate: {gate.name} at {gate.need} rebirth{if gate.need == 1 then "" else "s"} ({away} to go).`
+end
+
+local DIAL_DOTS = 18
+local GATE_PIPS = 12
+
+-- ring of dots around the rebirth glyph; fills with run progress, then with the ignition charge
+local function ChargeDial(props)
+	local size = props.size
+	local radius = size * 0.5 - 4
+	local children = {}
+	for i = 1, DIAL_DOTS do
+		local angle = -math.pi / 2 + (i - 1) / DIAL_DOTS * math.pi * 2
+		local threshold = (i - 0.5) / DIAL_DOTS
+		children["d" .. i] = React.createElement("frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, math.cos(angle) * radius, 0.5, math.sin(angle) * radius),
+			Size = UDim2.fromOffset(4, 4),
+			BorderSizePixel = 0,
+			BackgroundColor3 = props.fill:map(function(amount)
+				return if amount >= threshold then props.accent else Palette.panelSoft
+			end),
+			BackgroundTransparency = props.fill:map(function(amount)
+				return if amount >= threshold then 0 else 0.35
+			end),
+		}, React.createElement("uicorner", {
+			CornerRadius = UDim.new(1, 0),
+		}))
+	end
+	return React.createElement("frame", {
+		Name = "ChargeDial",
+		Size = UDim2.fromOffset(size, size),
+		Position = props.position,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, children, React.createElement("frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(size - 2, size - 2),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = props.accent,
+		Thickness = 2,
+		Transparency = props.charge:map(function(amount)
+			return 1 - amount * 0.75
+		end),
+	})), props.children)
 end
 
 local function RebirthPanel(_param)
@@ -1755,19 +1817,24 @@ local function RebirthPanel(_param)
 	local rebirthRate = if economy ~= nil and type(economy.RebirthMultiplier) == "number" then economy.RebirthMultiplier else 0.14
 	local rebirthPercent = math.floor(rebirthRate * 100 + 0.5)
 	local opens = featuresOpeningOnNextRebirth(config, rebirths + 1)
+	local gate = rebirthGate(config, rebirths)
 	local machineNote = nextMachineRebirthNote(config, rebirths)
-	local payoff = `You keep research, stardust, relics, milestones, Domain, and Continuum. You gain cores and +{rebirthPercent}% production per rebirth.`
+	local payoff = `You gain cores, stardust, and +{rebirthPercent}% production per rebirth.`
 	if opens ~= "" then
 		payoff ..= ` Opens {opens}.`
 	end
-	if machineNote ~= "" then
+	if machineNote ~= "" and stack then
 		payoff ..= ` {machineNote}`
 	end
-	local confirmCopy = `You lose this run's flux and worlds. Machines reset, and Stellar Core comes back at level 1. You keep research, stardust, relics, milestones, Domain, and Continuum. You still gain cores and +{rebirthPercent}% production.`
+	local keepCopy = "Research, stardust, relics, milestones, Domain, Continuum"
+	local resetCopy = "Run flux, worlds, machines (Stellar Core back to Lv 1)"
 	local confirming, setConfirming = React.useState(false)
 	local busy, setBusy = React.useState(false)
+	local igniting, setIgniting = React.useState(false)
 	local shakeToken, setShakeToken = React.useState(0)
+	local ignite, setIgnite = React.useBinding(0)
 	local mountedRef = React.useRef(true)
+	local ignitionRef = React.useRef(nil)
 	local rebirthClaimHostRef = React.useRef(nil)
 	local readiness = useFlash(if canRebirth then math.floor(conversionFlux) + 1 else 0, softMotion or effectsPaused, 0.8)
 	local confirmReveal = useStagger(0, softMotion)
@@ -1775,6 +1842,13 @@ local function RebirthPanel(_param)
 	local meterReveal = useStagger(2, softMotion)
 	local rewardReveal = useStagger(3, softMotion)
 	local rebirthSoft = reducedMotion or meterReveal == nil or rewardReveal == nil
+	local function stopIgnition()
+		local connection = ignitionRef.current
+		if connection ~= nil then
+			ignitionRef.current = nil
+			connection:Disconnect()
+		end
+	end
 	React.useEffect(function()
 		if not canRebirth or not UserInputService.GamepadEnabled then
 			return nil
@@ -1796,36 +1870,25 @@ local function RebirthPanel(_param)
 	React.useEffect(function()
 		return function()
 			mountedRef.current = false
+			stopIgnition()
 		end
 	end, {})
 	React.useEffect(function()
 		if not canRebirth then
+			stopIgnition()
+			setIgnite(0)
+			setIgniting(false)
 			setConfirming(false)
 		end
 	end, { canRebirth })
-	local rebirth = function()
-		if not canRebirth or busy then
-			return nil
-		end
-		if not confirming then
-			setConfirming(true)
-			Audio:play("preview")
-			return nil
-		end
+	local commit = function()
 		setBusy(true)
-		Audio:play("prestige")
-		task.delay(0.16, function()
-			return Audio:play("domainCrack")
-		end)
-		task.delay(0.38, function()
-			return Audio:play("unlock")
-		end)
-		InteractionFeedback.reward()
 		dispatch("Rebirth", {}, function(response)
 			if not mountedRef.current then
 				return nil
 			end
 			setBusy(false)
+			setIgnite(0)
 			if response.ok then
 				setConfirming(false)
 			else
@@ -1835,56 +1898,171 @@ local function RebirthPanel(_param)
 			end
 		end)
 	end
-	local accent = if confirming then Palette.coral else Palette.violet
+	-- a short, cancellable charge before the reset actually fires; softMotion compresses it
+	local beginIgnition = function()
+		if igniting or ignitionRef.current ~= nil then
+			return
+		end
+		setIgniting(true)
+		Audio:play("rebirthCharge")
+		local duration = if softMotion then 0.35 else 1.15
+		local ticks = if softMotion then 0 else 6
+		local started = os.clock()
+		local ticked = 0
+		local connection
+		connection = RunService.Heartbeat:Connect(function()
+			local amount = math.clamp((os.clock() - started) / duration, 0, 1)
+			setIgnite(amount)
+			local due = math.floor(amount * ticks)
+			if due > ticked and due < ticks then
+				ticked = due
+				Audio:play("countTick", 0.9 + due * 0.08)
+			end
+			if amount >= 1 then
+				connection:Disconnect()
+				if ignitionRef.current == connection then
+					ignitionRef.current = nil
+				end
+				if not mountedRef.current then
+					return
+				end
+				setIgniting(false)
+				InteractionFeedback.reward()
+				commit()
+			end
+		end)
+		ignitionRef.current = connection
+	end
+	local cancelIgnition = function()
+		stopIgnition()
+		setIgnite(0)
+		setIgniting(false)
+		Audio:play("close")
+	end
+	local rebirth = function()
+		if not canRebirth or busy or igniting then
+			return nil
+		end
+		if not confirming then
+			setConfirming(true)
+			Audio:play("preview")
+			return nil
+		end
+		beginIgnition()
+	end
+	local accent = if igniting then Palette.mango elseif confirming then Palette.coral else Palette.violet
 	local ctaH = TapTarget
+	local dialSize = if stack then 56 else 64
+	local dialFill = ignite:map(function(amount)
+		return if igniting or busy then amount else progress
+	end)
+	local gateSpan = if gate ~= nil then math.max(1, gate.need - gate.last) else 1
+	local gatePips = math.min(GATE_PIPS, gateSpan)
+	local gateFilled = if gate ~= nil then math.floor((rebirths - gate.last) / gateSpan * gatePips + 0.0001) else 0
+	local gatePipChildren = {}
+	if gate ~= nil and not stack then
+		for i = 1, gatePips do
+			gatePipChildren["p" .. i] = React.createElement("frame", {
+				Size = UDim2.new(1 / gatePips, -3, 1, 0),
+				Position = UDim2.new((i - 1) / gatePips, 0, 0, 0),
+				BackgroundColor3 = if i <= gateFilled then Palette.mint elseif i == gateFilled + 1 then accent else Palette.panelSoft,
+				BackgroundTransparency = if i <= gateFilled then 0 elseif i == gateFilled + 1 then 0.25 else 0.45,
+				BorderSizePixel = 0,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(1, 0),
+			}))
+		end
+	end
+	local ledgerH = if stack then 74 else 46
+	local function ledgerColumn(title, body, tint, x)
+		return React.createElement("frame", {
+			Size = UDim2.new(0.5, -6, 1, 0),
+			Position = UDim2.new(x, if x > 0 then 6 else 0, 0, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, React.createElement("frame", {
+			Size = UDim2.new(0, 2, 1, -2),
+			BackgroundColor3 = tint,
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+		}), React.createElement(Text, {
+			value = title,
+			size = 10,
+			color = tint,
+			weight = Enum.FontWeight.Heavy,
+			fit = false,
+			position = UDim2.fromOffset(8, 0),
+			sizeConstraint = UDim2.new(1, -8, 0, 13),
+		}), React.createElement(Text, {
+			value = body,
+			size = if stack then 11 else 10,
+			color = Palette.creamSoft,
+			wrap = true,
+			fit = false,
+			position = UDim2.fromOffset(8, 14),
+			sizeConstraint = UDim2.new(1, -8, 1, -14),
+		}))
+	end
 	return React.createElement(Panel, {
 		layoutOrder = layoutOrder,
 		size = UDim2.new(1, 0, 0, height),
 		accent = accent,
-		background = if confirming then darken(Palette.coral, 0.92) else Palette.panelRaised,
+		background = if confirming then darken(accent, 0.92) else Palette.panelRaised,
 		padding = if stack then chrome.cardPadding else 18,
 		reveal = reveal or (if confirming then confirmReveal else heroReveal),
 		highlight = (canRebirth or confirming) and not effectsPaused and not softMotion and not rebirthSoft,
 		reducedMotion = softMotion or effectsPaused,
 		clips = false,
+	}, React.createElement(ChargeDial, {
+		size = dialSize,
+		position = UDim2.fromOffset(-3, if stack then 2 else 6),
+		accent = accent,
+		fill = dialFill,
+		charge = ignite,
 	}, React.createElement(IconTile, {
 		kind = "Rebirth",
 		accent = accent,
-		size = if stack then 52 else 58,
-		radius = 16,
-		position = UDim2.fromOffset(0, if stack then 4 else 10),
+		size = dialSize - 18,
+		radius = 14,
+		position = UDim2.fromOffset(9, 9),
 		glow = canRebirth and not effectsPaused and not softMotion,
-		spin = canRebirth and not effectsPaused and not softMotion,
+		spin = (canRebirth or igniting) and not effectsPaused and not softMotion,
 		reducedMotion = softMotion or effectsPaused,
-	}), React.createElement("frame", {
+	})), React.createElement("frame", {
 		Size = if stack then UDim2.new(1, -66, 0, 126) else UDim2.new(1, -(76 + 310), 1, 0),
 		Position = UDim2.fromOffset(if stack then 66 else 76, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement(Text, {
-		value = if confirming then "CHECK YOUR REBIRTH" else "REBIRTH",
+		value = if igniting then "IGNITING" elseif confirming then "CHECK YOUR REBIRTH" else `REBIRTH {rebirths + 1}`,
 		size = 10,
 		color = accent,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		sizeConstraint = UDim2.new(1, 0, 0, 16),
 	}), React.createElement(Text, {
-		value = if confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
+		value = if igniting then "Cancel now or the run resets." elseif confirming then "Reset this run for permanent power?" elseif rebirths < 1 then "Your first rebirth pays you back." else "Rebirth often: gates open by count.",
 		size = if stack then 19 else 22,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
 		position = UDim2.fromOffset(0, 21),
 		sizeConstraint = UDim2.new(1, 0, 0, 31),
-	}), React.createElement(Text, {
-		value = if confirming then confirmCopy else payoff,
+	}), if confirming or igniting then React.createElement("frame", {
+		Name = "RebirthLedger",
+		Position = UDim2.fromOffset(0, 57),
+		Size = UDim2.new(1, 0, 0, ledgerH),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, ledgerColumn("YOU KEEP", keepCopy, Palette.mint, 0), ledgerColumn("RESETS", resetCopy, Palette.coral, 0.5)) else React.createElement(Text, {
+		value = payoff,
 		size = if stack then 11 else 10,
 		color = Palette.creamSoft,
 		wrap = true,
 		fit = false,
 		position = UDim2.fromOffset(0, 57),
-		sizeConstraint = UDim2.new(1, 0, 0, if stack then 74 else 46),
+		sizeConstraint = UDim2.new(1, 0, 0, ledgerH),
 	}), not stack and React.createElement(Text, {
 		value = `{compactNumber(conversionFlux)} / {compactNumber(target)} flux needed`,
 		size = 10,
@@ -1897,7 +2075,7 @@ local function RebirthPanel(_param)
 		value = progress,
 		color = accent,
 		reducedMotion = softMotion or effectsPaused,
-		shimmer = canRebirth and not effectsPaused,
+		shimmer = canRebirth and not effectsPaused and not softMotion,
 		position = UDim2.fromOffset(0, 132),
 		size = UDim2.new(1, 0, 0, 9),
 	}), not stack and React.createElement(Text, {
@@ -1931,8 +2109,8 @@ local function RebirthPanel(_param)
 	}), React.createElement(Meter, {
 		value = progress,
 		color = accent,
-		reducedMotion = reducedMotion or effectsPaused,
-		shimmer = canRebirth and not effectsPaused,
+		reducedMotion = softMotion or effectsPaused,
+		shimmer = canRebirth and not effectsPaused and not softMotion,
 		position = UDim2.fromOffset(12, 34),
 		size = UDim2.new(1, -24, 0, 9),
 	}), React.createElement(Text, {
@@ -1967,7 +2145,7 @@ local function RebirthPanel(_param)
 		ClipsDescendants = false,
 		ref = rebirthClaimHostRef,
 	}, React.createElement(Button, {
-		text = if busy then "REBIRTHING…" elseif confirming then "CONFIRM REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
+		text = if busy then "REBIRTHING…" elseif igniting then "IGNITING…" elseif confirming then "IGNITE REBIRTH" elseif canRebirth then "REBIRTH NOW" else "NOT READY",
 		icon = "Rebirth",
 		onClick = rebirth,
 		color = if canRebirth then accent else Palette.panelSoft,
@@ -1977,14 +2155,25 @@ local function RebirthPanel(_param)
 		disabled = not canRebirth or busy,
 		loading = busy,
 		shakeToken = shakeToken,
-		highlight = canRebirth,
-	}), React.createElement(Button, {
-		text = if confirming then "CANCEL" else "OPEN WORKSHOP",
-		icon = if confirming then "Close" else "Forge",
-		onClick = if confirming then function()
+		highlight = canRebirth and not igniting,
+	}), React.createElement("frame", {
+		Name = "IgnitionBar",
+		Size = ignite:map(function(amount)
+			return UDim2.new(amount, 0, 0, 3)
+		end),
+		Position = UDim2.new(0, 0, 0, ctaH + 2),
+		BackgroundColor3 = Palette.mango,
+		BorderSizePixel = 0,
+		Visible = igniting,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	})), React.createElement(Button, {
+		text = if igniting then "STOP" elseif confirming then "CANCEL" else "OPEN WORKSHOP",
+		icon = if confirming or igniting then "Close" else "Forge",
+		onClick = if igniting then cancelIgnition elseif confirming then function()
 			return setConfirming(false)
 		end else openWorkshop,
-		sound = "page",
+		sound = if igniting then nil else "page",
 		color = Palette.panelSoft,
 		textColor = Palette.cream,
 		outline = true,
@@ -1992,7 +2181,25 @@ local function RebirthPanel(_param)
 		position = UDim2.fromOffset(0, ctaH + 8),
 		reducedMotion = softMotion,
 		disabled = busy,
-	})), canRebirth and not effectsPaused and not softMotion and React.createElement("frame", {
+	})), gate ~= nil and not stack and React.createElement("frame", {
+		Name = "RebirthGateTrack",
+		Size = UDim2.fromOffset(286, 22),
+		Position = UDim2.new(1, -286, 0, 40 + ctaH * 2 + 12),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, React.createElement(Text, {
+		value = `NEXT GATE  {string.upper(gate.name)}  ·  {gate.need - rebirths} TO GO`,
+		size = 9,
+		color = Palette.muted,
+		weight = Enum.FontWeight.Bold,
+		fit = true,
+		sizeConstraint = UDim2.new(1, 0, 0, 12),
+	}), React.createElement("frame", {
+		Size = UDim2.new(1, 3, 0, 5),
+		Position = UDim2.fromOffset(0, 16),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, gatePipChildren)), canRebirth and not effectsPaused and not softMotion and React.createElement("frame", {
 		Size = readiness:map(function(amount)
 			return UDim2.fromOffset(18 + amount * 54, 18 + amount * 54)
 		end),

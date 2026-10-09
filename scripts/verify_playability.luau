@@ -59,8 +59,9 @@ local HOT_PAGES = {
 	"src/Client/AstralForge/pages/PagesStory.luau#StoryView",
 	"src/Client/AstralForge/pages/PagesSocial.luau#TradeView",
 	"src/Client/AstralForge/pages/PagesShop.luau#WheelView",
-	"src/Client/AstralForge/pages/PagesCasino.luau#CasinoView",
 	"src/Client/AstralForge/pages/PagesBazaar.luau#BazaarView",
+	"src/Client/AstralForge/pages/PagesSky.luau#StarChartsView",
+	"src/Client/AstralForge/pages/PagesSky.luau#CipherView",
 }
 
 -- Playability scaffolding + hot pages must stay free of vendor/Packages coupling.
@@ -143,9 +144,11 @@ end
 -- Chat message list migrated onto FlatList (virtualizedList owns the scroller) so the
 -- raw-scroll allowlist stays empty — reintroduce entries only with a >40-char justification.
 local RAW_SCROLL_ALLOWLIST = {
+	["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = "Guild channel log is a fixed-height inner pane inside one section card; it must scroll and pin to newest independently of the page scaffold.",
 }
 
 local RAW_SCROLL_BUDGET = {
+	["src/Client/AstralForge/pages/PagesSocial.luau#GuildView"] = 1,
 }
 
 local function countRawScrollingFrames(src)

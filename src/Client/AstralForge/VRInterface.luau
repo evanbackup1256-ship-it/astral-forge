@@ -38,7 +38,7 @@ function VRInterface.mount(playerGui,screen,changed,forcePreview)
 	header.Name="VRRecenter";header.Size=UDim2.new(1,0,0,64)
 	header.Position=UDim2.new(0,0,1,-64)
 	header.BackgroundColor3=Color3.fromRGB(27,23,39);header.TextColor3=Color3.fromRGB(230,239,255)
-	header.Font=Enum.Font.GothamBold;header.TextSize=23
+	header.FontFace=Font.fromName("BuilderSans",Enum.FontWeight.Bold);header.TextSize=23
 	header.Text="ASTRAL FORGE  ·  RECENTER PANEL  ·  L3 recenter / R3 show or hide"
 	header.Selectable=true;header.Parent=surface
 	local previousLaser,previousModels=VRService.LaserPointer,VRService.ControllerModels

@@ -851,6 +851,9 @@ local Panel = _ui.Panel
 local SectionLabel = _ui.SectionLabel
 local SegmentedTabs = _ui.SegmentedTabs
 local Text = _ui.Text
+local _elementFx = require(script.Parent.Parent.ElementFx)
+local ElementFx = _elementFx.ElementFx
+local elementSheet = _elementFx.sheet
 local function gridPanelHeight(headerH, rows, cellH, gap, pad)
 	local safeRows = math.max(1, rows)
 	local gridH = safeRows * cellH + math.max(0, safeRows - 1) * gap
@@ -2155,15 +2158,30 @@ local function CommandViewReady(_param)
 				background = if owned then Palette.panel else Palette.panelSoft,
 				padding = 14,
 				reducedMotion = reducedMotion,
-			}, React.createElement(IconTile, {
-				kind = artifactIcon(artifact.Id),
-				accent = if owned then artifact.Color else Palette.muted,
-				size = 46,
-				radius = 12,
-				position = UDim2.fromOffset(0, if stack then 6 else 18),
+			}, React.createElement("frame", {
+				Name = "ElementTile",
+				Size = UDim2.fromOffset(48, 48),
+				Position = UDim2.fromOffset(0, if stack then 5 else 17),
+				BackgroundColor3 = Palette.void,
+				BackgroundTransparency = 0.15,
+				BorderSizePixel = 0,
+				ClipsDescendants = true,
+			}, React.createElement("uicorner", {
+				CornerRadius = UDim.new(0, 12),
+			}), React.createElement("uistroke", {
+				Color = if owned then (elementSheet(artifact.Element) or { Color = artifact.Color }).Color else Palette.lineSoft,
+				Transparency = if equipped then 0 else 0.45,
+				Thickness = if equipped then 2 else 1,
+			}), React.createElement(ElementFx, {
+				element = artifact.Element,
+				size = UDim2.fromOffset(66, 66),
+				position = UDim2.fromScale(0.5, 0.6),
+				-- undiscovered relics show a dim still of their element
+				still = not owned,
+				transparency = if owned then 0 else 0.7,
 				reducedMotion = reducedMotion,
-			}), React.createElement(Text, {
-				value = if owned then `{artifact.Rarity}  ·  Lv {owned.Level}/10` else artifact.Rarity,
+			})), React.createElement(Text, {
+				value = if owned then `{artifact.Rarity}  ·  {(elementSheet(artifact.Element) or { Label = "" }).Label}  ·  Lv {owned.Level}/10` else artifact.Rarity,
 				size = 11,
 				color = if owned then artifact.Color else Palette.muted,
 				weight = Enum.FontWeight.Bold,
@@ -3580,7 +3598,82 @@ local BOARDS = { {
 	description = "The farthest forge worlds unlocked.",
 	icon = "World",
 	accent = Palette.green,
+	group = "Progression",
+}, {
+	id = "Crates",
+	label = "Crates Opened",
+	short = "CRATES",
+	description = "Every sealed crate cracked open, any tier, any skin.",
+	icon = "Crate",
+	accent = Palette.mango,
+	group = "Collection",
+}, {
+	id = "Finds",
+	label = "Items Found",
+	short = "FINDS",
+	description = "Relics, tools and oddities pulled into the vault.",
+	icon = "Artifact",
+	accent = Palette.cyan,
+	group = "Collection",
+}, {
+	id = "Ore",
+	label = "Ore Mined",
+	short = "ORE",
+	description = "Raw ore hauled out of the deep veins.",
+	icon = "Forge",
+	accent = Palette.mango,
+	group = "Activity",
+}, {
+	id = "Wardens",
+	label = "Wardens Felled",
+	short = "WARDENS",
+	description = "Vault wardens brought down in combat.",
+	icon = "Milestone",
+	accent = Palette.pink,
+	group = "Activity",
+}, {
+	id = "Orders",
+	label = "Orders Filled",
+	short = "ORDERS",
+	description = "Contracts and work orders delivered on time.",
+	icon = "Mission",
+	accent = Palette.mint,
+	group = "Activity",
+}, {
+	id = "Stars",
+	label = "Stars Plotted",
+	short = "STARS",
+	description = "Stars fixed onto the Star Charts across every constellation.",
+	icon = "StarGrid",
+	accent = Palette.violet,
+	group = "Sky",
+}, {
+	id = "Cipher",
+	label = "Ciphers Cracked",
+	short = "CIPHERS",
+	description = "Daily signal ciphers decoded before the seventh guess.",
+	icon = "Code",
+	accent = Palette.cyan,
+	group = "Sky",
 } }
+local BOARD_GROUP = {
+	Flux = "Economy",
+	Dust = "Economy",
+	Cores = "Economy",
+	Rebirths = "Progression",
+	Domain = "Progression",
+	PlayTime = "Activity",
+}
+for _, board in BOARDS do
+	board.group = board.group or BOARD_GROUP[board.id] or "Progression"
+end
+local STAT_BOARD_KEYS = {
+	Crates = "CratesOpened",
+	Finds = "ItemsFound",
+	Ore = "OreMined",
+	Wardens = "WardenDefeats",
+	Orders = "OrdersCompleted",
+}
 local _array = {}
 local _length = #_array
 local _newValue = table.create(#BOARDS)
@@ -3646,6 +3739,24 @@ local function scoreCounts(id, value)
 	return asFlux(value) > 0
 end
 local function ownValue(state, id)
+	if STAT_BOARD_KEYS[id] then
+		local stats = state.Stats
+		return math.max(0, math.floor(tonumber(stats and stats[STAT_BOARD_KEYS[id]]) or 0))
+	end
+	if id == "Stars" then
+		local total = 0
+		local sky = state.Sky
+		if type(sky) == "table" and type(sky.Plotted) == "table" then
+			for _, count in sky.Plotted do
+				total += math.max(0, math.floor(tonumber(count) or 0))
+			end
+		end
+		return total
+	end
+	if id == "Cipher" then
+		local sky = state.Sky
+		return math.max(0, math.floor(tonumber(type(sky) == "table" and type(sky.Cipher) == "table" and sky.Cipher.Solves) or 0))
+	end
 	if id == "Flux" then
 		return state.LifetimeCash
 	end
@@ -3692,6 +3803,10 @@ local SCOPE_TABS = { {
 	icon = "Command",
 } }
 local function serverValueFor(summary, id)
+	if STAT_BOARD_KEYS[id] or id == "Stars" or id == "Cipher" then
+		local boards = summary.Boards
+		return if type(boards) == "table" then tonumber(boards[id]) or 0 else 0
+	end
 	if id == "Flux" then
 		local _condition = summary.LifetimeCash
 		if _condition == nil then

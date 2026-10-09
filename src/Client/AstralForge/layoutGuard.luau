@@ -33,8 +33,12 @@ local stats = {
 	stackSeparated = 0,
 	pulledIntoView = 0,
 	gaveUp = 0,
+	learnedUpdates = 0,
+	hotChecked = 0,
+	signaturesSuppressed = 0,
 }
 local REPORT_EVERY = 60
+local FRAME_BUDGET_SECONDS = 0.0015
 local TEXT_COVER_SHARE = 0.08
 local TEXT_COVER_HEIGHT = 0.3
 local MIN_LABEL_WIDTH = 40
@@ -45,6 +49,89 @@ local pendingFloor = setmetatable({}, { __mode = "k" })
 local floorRejected = setmetatable({}, { __mode = "k" })
 local followUp: ((Instance) -> ())? = nil
 local touchProfile = false
+-- Online repair model. Every inspection is a labelled sample ("did this element need a
+-- repair?") for its signature: class + name + parent name, which is stable across
+-- remounts of the same React tree. Each signature keeps a running repair probability
+-- (a 1/n mean that settles into an exponential average), so the guard learns which
+-- parts of the UI actually break on this device and re-checks those between sweeps.
+-- Signatures whose repairs keep getting undone by their owner are learned as
+-- "fighting" and left alone instead of burning budget every frame.
+local LEARN_RATE = 0.18
+local HOT_THRESHOLD = 0.3
+local HOT_CAP = 48
+local HOT_EVERY_FRAMES = 6
+local HOT_BUDGET = 8
+local THRASH_LIMIT = 3
+local MODEL_CAP = 2048
+local signatureCache = setmetatable({}, { __mode = "k" })
+local model = {}
+local modelSize = 0
+local hotList = {}
+local hotSet = setmetatable({}, { __mode = "k" })
+local function signatureOf(inst)
+	local cached = signatureCache[inst]
+	if cached ~= nil then
+		return cached
+	end
+	local parent = inst.Parent
+	local signature = `{inst.ClassName}|{inst.Name}|{if parent ~= nil then parent.Name else ""}`
+	signatureCache[inst] = signature
+	return signature
+end
+local function forgetWeakest()
+	local kept = 0
+	for signature, entry in model do
+		if entry.thrash == 0 and entry.p < 0.05 then
+			model[signature] = nil
+		else
+			kept += 1
+		end
+	end
+	if kept >= MODEL_CAP then
+		table.clear(model)
+		kept = 0
+	end
+	modelSize = kept
+end
+local function entryFor(signature)
+	local entry = model[signature]
+	if entry == nil then
+		if modelSize >= MODEL_CAP then
+			forgetWeakest()
+		end
+		entry = { p = 0, n = 0, thrash = 0 }
+		model[signature] = entry
+		modelSize += 1
+	end
+	return entry
+end
+local function learn(inst, repaired)
+	local entry = entryFor(signatureOf(inst))
+	entry.n += 1
+	local rate = math.max(LEARN_RATE, 1 / entry.n)
+	entry.p += ((if repaired then 1 else 0) - entry.p) * rate
+	stats.learnedUpdates += 1
+	if entry.p >= HOT_THRESHOLD and not hotSet[inst] and #hotList < HOT_CAP then
+		hotSet[inst] = true
+		hotList[#hotList + 1] = inst
+	end
+end
+local function suppressed(inst)
+	local entry = model[signatureOf(inst)]
+	return entry ~= nil and entry.thrash >= THRASH_LIMIT
+end
+local function noteThrash(inst)
+	local signature = signatureOf(inst)
+	local entry = entryFor(signature)
+	entry.thrash += 1
+	if entry.thrash == THRASH_LIMIT then
+		stats.signaturesSuppressed += 1
+		ClientLog:warnEvery(`layoutguard:fight:{signature}`, 120, "LayoutGuard", `{signature} keeps undoing repairs; learned to leave it alone`)
+	end
+end
+local function repairTotal()
+	return stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.stackSeparated + stats.pulledIntoView
+end
 local function isFiniteNumber(value)
 	return value == value and value ~= math.huge and value ~= -math.huge
 end
@@ -82,13 +169,14 @@ local function engineOwns(gui)
 	return false
 end
 local function allowWrite(inst)
-	if abandoned[inst] then
+	if abandoned[inst] or suppressed(inst) then
 		return false
 	end
 	local tries = tryCount[inst] or 0
 	if tries >= MAX_TRIES then
 		abandoned[inst] = true
 		stats.gaveUp += 1
+		noteThrash(inst)
 		return false
 	end
 	tryCount[inst] = tries + 1
@@ -98,6 +186,13 @@ local function isFloatingPanel(instance)
 	return instance:IsA("Frame") and instance.Parent ~= nil and instance.Parent:IsA("LayerCollector")
 end
 local function isTrackedClass(instance)
+	local ancestor = instance
+	while ancestor ~= nil and not ancestor:IsA("LayerCollector") do
+		if ancestor:GetAttribute(IGNORE_ATTRIBUTE) == true then
+			return false
+		end
+		ancestor = ancestor.Parent
+	end
 	return instance:IsA("TextLabel") or instance:IsA("TextBox") or instance:IsA("GuiButton") or instance:IsA("CanvasGroup") or instance:IsA("ScrollingFrame") or isFloatingPanel(instance)
 end
 local function applyTextFloor(label): boolean
@@ -656,7 +751,15 @@ local function checkStackedText(list)
 	table.clear(stackPassLabels)
 	table.clear(stackPassSolids)
 end
+local inspectOnce
 local function inspect(inst)
+	local before = repairTotal()
+	inspectOnce(inst)
+	if inst.Parent ~= nil and inst:GetAttribute(IGNORE_ATTRIBUTE) ~= true then
+		learn(inst, repairTotal() > before)
+	end
+end
+function inspectOnce(inst)
 	if inst.Parent == nil then
 		return nil
 	end
@@ -721,6 +824,32 @@ do
 		self.rootConnections = {}
 		self.watchedLayers = {}
 		self.pendingOverlap = false
+		self.hotCursor = 1
+		self.deadline = math.huge
+		self.overlapPhase = 1
+	end
+	function LayoutGuardController:hotPass(budget)
+		local cursor = self.hotCursor or 1
+		while budget > 0 and #hotList > 0 and os.clock() < self.deadline do
+			if cursor > #hotList then
+				cursor = 1
+			end
+			local inst = hotList[cursor]
+			local entry = model[signatureOf(inst)]
+			if inst.Parent == nil or entry == nil or entry.p < HOT_THRESHOLD * 0.5 or entry.thrash >= THRASH_LIMIT then
+				hotSet[inst] = nil
+				hotList[cursor] = hotList[#hotList]
+				hotList[#hotList] = nil
+			else
+				cursor += 1
+				budget -= 1
+				if not self.freshSet[inst] then
+					inspect(inst)
+					stats.hotChecked += 1
+				end
+			end
+		end
+		self.hotCursor = cursor
 	end
 	function LayoutGuardController:onInit()
 		self.armed = true
@@ -841,10 +970,15 @@ do
 		if not first then
 			table.clear(tryCount)
 			table.clear(abandoned)
+			-- A new viewport is new evidence: halve learned fights so they get re-tested.
+			for _, entry in model do
+				entry.thrash = entry.thrash // 2
+			end
 		end
 		self.cursor = 1
 		self.sinceSweep = Plan.MIN_SWEEP_SECONDS
 		self.pendingOverlap = false
+		self.overlapPhase = 1
 		self.burstLeft = Plan.BURST_FRAMES
 		stats.bursts += 1
 		return true
@@ -886,7 +1020,7 @@ do
 		local done = 0
 		for index = 1, count do
 			local instance = fresh[index]
-			if done < budget and ready[index] <= self.frame then
+			if done < budget and ready[index] <= self.frame and os.clock() < self.deadline then
 				done += 1
 				self.freshSet[instance] = nil
 				if instance.Parent ~= nil then
@@ -925,6 +1059,7 @@ do
 			return nil
 		end
 		self.frame += 1
+		self.deadline = os.clock() + FRAME_BUDGET_SECONDS
 		self.sinceSweep += _dt
 		self:checkResize(root)
 		local budget = Plan.budget(self.burstLeft, #self.fresh)
@@ -935,12 +1070,22 @@ do
 		local tracked = self.tracked
 		if self.cursor > #tracked then
 			if self.pendingOverlap then
-				checkOverlappingHitboxes(self.queue)
-				checkTextUnderButtons(self.queue)
-				checkStackedText(self.queue)
-				table.clear(textPassLabels)
-				table.clear(textPassButtons)
-				self.pendingOverlap = false
+				if os.clock() >= self.deadline then
+					return nil
+				end
+				if self.overlapPhase == 1 then
+					checkOverlappingHitboxes(self.queue)
+				elseif self.overlapPhase == 2 then
+					checkTextUnderButtons(self.queue)
+				else
+					checkStackedText(self.queue)
+					table.clear(textPassLabels)
+					table.clear(textPassButtons)
+					self.pendingOverlap = false
+				end
+				self.overlapPhase = self.overlapPhase % 3 + 1
+				self:report()
+				return nil
 			end
 			if self.sinceSweep < Plan.MIN_SWEEP_SECONDS then
 				self:report()
@@ -952,7 +1097,7 @@ do
 			stats.scans += 1
 		end
 		local sweepBudget = budget.sweep
-		while sweepBudget > 0 and self.cursor <= #tracked do
+		while sweepBudget > 0 and self.cursor <= #tracked and os.clock() < self.deadline do
 			local inst = tracked[self.cursor]
 			self.cursor += 1
 			sweepBudget -= 1
@@ -962,6 +1107,9 @@ do
 			inspect(inst)
 			stats.sweepChecked += 1
 		end
+		if self.frame % HOT_EVERY_FRAMES == 0 then
+			self:hotPass(HOT_BUDGET)
+		end
 		self:report()
 	end
 	function LayoutGuardController:report()
@@ -970,7 +1118,7 @@ do
 			return nil
 		end
 		self.lastReportAt = now
-		local total = stats.canvasDesyncFixed + stats.scrollingReenabled + stats.degenerateHidden + stats.overlapDemoted + stats.outOfBoxFixed + stats.textFitFixed + stats.textFloorRaised + stats.canvasSharpFixed + stats.textClearedOfButton + stats.textWrapped + stats.labelsUntangled + stats.stackSeparated + stats.pulledIntoView
+		local total = repairTotal()
 		if total == self.reportedTotal then
 			return nil
 		end
@@ -987,6 +1135,10 @@ do
 			overlap = stats.overlapDemoted,
 			outOfBox = stats.outOfBoxFixed,
 			gaveUp = stats.gaveUp,
+			learned = modelSize,
+			hot = #hotList,
+			hotChecked = stats.hotChecked,
+			fighting = stats.signaturesSuppressed,
 		})
 	end
 	do

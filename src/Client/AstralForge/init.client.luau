@@ -523,6 +523,10 @@ do
 		local _disposers = self.disposers
 		local _arg0 = hookGuiClicks(playerGui)
 		table.insert(_disposers, _arg0)
+		-- every button shares the press/hover motion, including hand-built ones outside ui.Button
+		table.insert(_disposers, require(script.ButtonMotion).attach(playerGui))
+		-- equipped artifacts orbit every character so other players can see them in the world
+		table.insert(_disposers, require(script.ArtifactPresence).attach())
 		local shutdownLayer = Instance.new("ScreenGui")
 		shutdownLayer.Name = "AstralForgeShutdown"
 		shutdownLayer.ResetOnSpawn = false

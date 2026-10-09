@@ -15,7 +15,7 @@
 | Currency / economy | `src/Server/AstralForge/Modules/EconomyMath.luau`, `src/Server/AstralForge/Services/CoreServices.luau` | Critical | Devin | In progress |
 | Inventory | `src/Server/AstralForge/Modules/ProfileBagMath.luau`, `InventoryMath` | High | Devin | Pending |
 | Cooldowns / rate limits | `src/Server/AstralForge/Services/SecurityServices.luau`, `src/Client/AstralForge/CoreKit.luau` | High | Devin | In progress |
-| Guild system | `src/Server/AstralForge/Services/CoreServices.luau` (GuildService) | High | Devin | Pending |
+| Guild system | `src/Server/AstralForge/Services/CoreServices.luau` (GuildService), `Services/GuildCommunity.luau`, `pages/PagesSocial.luau#GuildView` | High | Devin | Partial; community implementation awaiting Roblox runtime audit |
 | Ranks / progression | `src/Server/AstralForge/Services/PlayerBadges.luau`, Rank dashboard | Medium | Devin | Pending |
 | Casino | `src/Server/AstralForge/Services/CasinoService.luau`, `CasinoKitLoader` | High | Devin | In progress |
 | Bazaar / trade | `src/Server/AstralForge/Services/BazaarService.luau`, `Modules/TradeSuite.luau` | High | Devin | In progress |
@@ -84,6 +84,7 @@
 | Medium | Bazaar / lottery | `src/Server/AstralForge/Services/BazaarService.luau:19` | Lottery tickets live only in server memory; players lose paid tickets on shutdown even though the pot rolls over. | **Fixed** (persist Tickets in rollover snapshot) |
 | Low | Guild / cleanup | `src/Server/AstralForge/Services/CoreServices.luau:1386` | Disband deletes guild doc and tag but leaves OrderedDataStore leaderboard row as an orphan placeholder. | **Fixed** (remove leaderboard entry on disband) |
 | Medium | Guild / membership | `src/Server/AstralForge/Services/CoreServices.luau:1412` | Kick removes member from guild doc but does not clear the victim's `profile.Guild`; kicked player keeps bonuses until rejoin. | **Fixed** (clear victim profile + push state if in-server) |
+| High | Guild / community | `src/Server/AstralForge/Services/GuildCommunity.luau`, `ServerServices.luau`, `RemoteFirewall.luau`, `pages/PagesSocial.luau#GuildView` | Persistent chat/announcements, membership-scoped messaging, moderation, settings, logo review, request validation and client UI added. DataStore failure handling, TextService policy, role boundaries, ban/unban and multi-user UI still require Roblox Studio/live-service verification. | Implemented; not audited or signed off |
 
 ## 4. Additional findings fixed
 

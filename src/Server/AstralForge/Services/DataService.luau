@@ -6,7 +6,6 @@ return function(loadService: (string) -> any)
 	local RunService = game:GetService("RunService")
 
 	local DataTemplate = require(script.Parent.Parent:WaitForChild("DataTemplate"))
-local CasinoMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("CasinoMath"))
 local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("BazaarMath"))
 	local ServerConfig = require(script.Parent.Parent:WaitForChild("ServerConfig"))
 	local LeaderboardCodec = require(script.Parent.Parent:WaitForChild("Modules"):WaitForChild("LeaderboardCodec"))
@@ -333,7 +332,6 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		profile.Settings.SoundEffects = profile.Settings.SoundVolume > 0.001
 		profile.Settings.UIEffects = profile.Settings.EffectsIntensity > 0.001
 		profile.Settings.ReducedMotion = profile.Settings.MotionIntensity <= 0.03
-		profile.Casino = CasinoMath.Ensure(profile.Casino)
 		profile.Bazaar = BazaarMath.Ensure(profile.Bazaar)
 		if type(profile.Wheel) ~= "table" then
 			profile.Wheel = { LastSpinAt = 0, Spins = 0, PityMisses = 0, FreeSpins = 0 }
@@ -637,10 +635,19 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		return sanitize(reconcile(data, DataTemplate.New()))
 	end
 
+
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+	local getOrderedStore = StoreAccess.ordered
+	local getDataStore = StoreAccess.data
+	local previewEnabled = StoreAccess.isPreview()
+
 	function DataService.new()
 		local self = setmetatable({}, DataService)
+		if previewEnabled then
+			ModuleLog.Info("Data", "unpublished Studio preview is using isolated memory stores")
+		end
 
-		local dataStore = DataStoreService:GetDataStore(ServerConfig.DataStoreName)
+		local dataStore = getDataStore(ServerConfig.DataStoreName)
 		local defaultProfile = DataTemplate.New()
 
 		self._playerStore = SessionDocumentStore.new({
@@ -658,22 +665,29 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 		})
 
 		self._sharedStore = UnlockedDocumentStore.new({
-			dataStore = DataStoreService:GetDataStore(ServerConfig.SharedDataStoreName) :: any,
+			dataStore = getDataStore(ServerConfig.SharedDataStoreName) :: any,
 			check = DocumentCommon.permissiveTableCheck,
 			default = { Version = 1, Entries = {} },
 			migrations = {},
 			bindToClose = false,
 		})
 
-		self._leaderboardStore = DataStoreService:GetOrderedDataStore(ServerConfig.LeaderboardStoreName)
+		self._leaderboardStore = getOrderedStore(ServerConfig.LeaderboardStoreName)
 		self._leaderboardStores = {
 			Flux = self._leaderboardStore,
-			Rebirths = DataStoreService:GetOrderedDataStore(ServerConfig.RebirthLeaderboardStoreName),
-			PlayTime = DataStoreService:GetOrderedDataStore(ServerConfig.PlayTimeLeaderboardStoreName),
-			Dust = DataStoreService:GetOrderedDataStore(ServerConfig.DustLeaderboardStoreName),
-			Cores = DataStoreService:GetOrderedDataStore(ServerConfig.CoresLeaderboardStoreName),
-			Domain = DataStoreService:GetOrderedDataStore(ServerConfig.DomainLeaderboardStoreName),
-			Worlds = DataStoreService:GetOrderedDataStore(ServerConfig.WorldLeaderboardStoreName),
+			Rebirths = getOrderedStore(ServerConfig.RebirthLeaderboardStoreName),
+			PlayTime = getOrderedStore(ServerConfig.PlayTimeLeaderboardStoreName),
+			Dust = getOrderedStore(ServerConfig.DustLeaderboardStoreName),
+			Cores = getOrderedStore(ServerConfig.CoresLeaderboardStoreName),
+			Domain = getOrderedStore(ServerConfig.DomainLeaderboardStoreName),
+			Worlds = getOrderedStore(ServerConfig.WorldLeaderboardStoreName),
+			Crates = getOrderedStore(ServerConfig.CratesLeaderboardStoreName),
+			Finds = getOrderedStore(ServerConfig.FindsLeaderboardStoreName),
+			Ore = getOrderedStore(ServerConfig.OreLeaderboardStoreName),
+			Wardens = getOrderedStore(ServerConfig.WardensLeaderboardStoreName),
+			Orders = getOrderedStore(ServerConfig.OrdersLeaderboardStoreName),
+			Stars = getOrderedStore(ServerConfig.StarsLeaderboardStoreName),
+			Cipher = getOrderedStore(ServerConfig.CipherLeaderboardStoreName),
 		}
 
 		self._leaderboardMirrors = {}
@@ -793,6 +807,24 @@ local BazaarMath = require(script.Parent.Parent:WaitForChild("Modules"):WaitForC
 			Domain = math.max(0, math.floor(tonumber(profile.Domain and profile.Domain.Rank) or 0)),
 			Worlds = math.max(1, math.floor(tonumber(profile.Zone) or 1)),
 		}
+		local stats = type(profile.Stats) == "table" and profile.Stats or {}
+		local function stat(key)
+			return math.max(0, math.floor(tonumber(stats[key]) or 0))
+		end
+		local pending = self._leaderboardPending[userId]
+		pending.Crates = stat("CratesOpened")
+		pending.Finds = stat("ItemsFound")
+		pending.Ore = stat("OreMined")
+		pending.Wardens = stat("WardenDefeats")
+		pending.Orders = stat("OrdersCompleted")
+		local sky = type(profile.Sky) == "table" and profile.Sky or {}
+		local plotted = type(sky.Charts) == "table" and type(sky.Charts.Plotted) == "table" and sky.Charts.Plotted or {}
+		local stars = 0
+		for _, count in plotted do
+			stars += math.max(0, math.floor(tonumber(count) or 0))
+		end
+		pending.Stars = stars
+		pending.Cipher = math.max(0, math.floor(tonumber(type(sky.Cipher) == "table" and sky.Cipher.Solves) or 0))
 		if self._leaderboardPushBusy[userId] then return end
 		self._leaderboardPushBusy[userId] = true
 		self._leaderboardWorkers[userId] = task.defer(function()

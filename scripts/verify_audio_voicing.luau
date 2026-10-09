@@ -52,6 +52,14 @@ for name, voice in families do
 	assert(voice.gain > 0 and voice.gain <= 2, name .. ".gain out of range")
 end
 assert(familyCount >= 10, "expected a full family set, got " .. tostring(familyCount))
+-- Keep the cleaner mix from drifting back to bright, distorted, long-tailed UI.
+for name, voice in families do
+	assert(voice.high <= 6, name .. " has excessive high-frequency boost")
+	assert(voice.drive <= 0.07, name .. " has excessive distortion")
+	assert(voice.reverbWet <= 0.17, name .. " has excessive reverb")
+	assert(voice.decay <= 1.6, name .. " has an excessive release tail")
+end
+assert(string.find(audioSource, "paintCue(channel, cue, true)", 1, true), "sheet playback must apply its clean authored mix")
 
 ------------------------------------------------------------------------
 -- 2. Families must be audibly distinct

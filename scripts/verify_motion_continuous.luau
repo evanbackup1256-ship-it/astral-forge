@@ -41,7 +41,6 @@ for _, path in {
 	"src/Client/AstralForge/pages/PagesSocial.luau",
 	"src/Client/AstralForge/pages/PagesStory.luau",
 	"src/Client/AstralForge/pages/PagesSystem.luau",
-	"src/Client/AstralForge/pages/PagesCasino.luau",
 	"src/Client/AstralForge/pages/PagesBazaar.luau",
 } do
 	local src = fs.readFile(path)
@@ -50,12 +49,5 @@ for _, path in {
 	end
 	assert(not string.find(src, "Settings.ReducedMotion == true,", 1, true) or path == "src/Client/AstralForge/UiCore.luau", path .. ": Reduced Motion passed down as an off switch")
 end
-
--- Casino: viewports stay cheap and every animation runs at the frame rate.
-local casino = fs.readFile("src/Client/AstralForge/pages/PagesCasino.luau#CasinoView")
-assert(string.find(casino, "local function showAround(pos)", 1, true), "reels keep only the cells near the window")
-assert(not string.find(casino, "reducedMotion, 20)", 1, true) and not string.find(casino, "reducedMotion, 30)", 1, true), "no throttled casino animation")
-assert(not string.find(casino, "drift.current < 1 / 24", 1, true), "the idle wheel turns every frame")
-assert(string.find(casino, "local function TabSwap", 1, true), "switching games animates")
 
 print("verify_motion_continuous: ok")

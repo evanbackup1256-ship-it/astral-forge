@@ -1015,14 +1015,19 @@ return function()
 		return GuildMath.BonusesFromUpgrades(guild.Upgrades, GameConfig.Guild.Upgrades)
 	end
 
-	function GuildService.new()
+	local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
+		local getOrderedStore = StoreAccess.ordered
+		local getDataStore = StoreAccess.data
+		local previewEnabled = StoreAccess.isPreview()
+
+		function GuildService.new()
 		local self = setmetatable({}, GuildService)
 		self._cache = {}
 		self._cacheExpiry = {}
 		self._cachePruneAt = 0
 		self._studio = {}
-		self._store = DataStoreService:GetDataStore(ServerConfig.GuildStoreName)
-		self._leaderboard = DataStoreService:GetOrderedDataStore(ServerConfig.GuildLeaderboardStoreName)
+		self._store = getDataStore(ServerConfig.GuildStoreName)
+		self._leaderboard = getOrderedStore(ServerConfig.GuildLeaderboardStoreName)
 		self._leaderboardPending = {}
 		self._leaderboardBusy = {}
 		self._leaderboardCache = nil
@@ -2563,6 +2568,27 @@ return function()
 		owned.Level += 1
 		awardCommandXP(profile, 45 * owned.Level)
 		return true, string.format("%s upgraded to level %d.", artifact.Name, owned.Level)
+	end
+
+	function ProgressionService.BuyArtifact(profile, artifactId: string): (boolean, string, boolean?)
+		local artifact = findOperation(GameConfig.Operations.Artifacts, artifactId)
+		local price = artifact and GameConfig.Operations.ArtifactShop[artifact.Rarity]
+		if not artifact or not price then
+			return false, "That artifact is not sold here."
+		end
+		local owned = profile.Command.Artifacts[artifactId]
+		local cost = if owned then price.Refill else price.Stardust
+		if Economy.Lt(profile.Stardust, cost) then
+			return false, string.format("Requires %d stardust.", cost)
+		end
+		profile.Stardust = Economy.AsNumber(Economy.Sub(profile.Stardust, cost))
+		if owned then
+			owned.Fragments += price.Fragments
+			return true, string.format("+%d %s fragments.", price.Fragments, artifact.Name), false
+		end
+		profile.Command.Artifacts[artifactId] = { Level = 1, Fragments = 0 }
+		bumpStat(profile, "ArtifactsFound", 1)
+		return true, artifact.Name .. " acquired.", true
 	end
 
 	function ProgressionService.UpgradeCrew(profile, roleId: string): (boolean, string)

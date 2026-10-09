@@ -237,9 +237,9 @@ do
 end
 
 task.spawn(function()
-	local ok, problem = pcall(require(script:WaitForChild("CasinoKitLoader")).load)
+	local ok, problem = pcall(require(script:WaitForChild("PropKitLoader")).load)
 	if not ok then
-		ModuleLog.Warn("Casino", "kit loader failed - " .. tostring(problem))
+		ModuleLog.Warn("PropKit", "kit loader failed - " .. tostring(problem))
 	end
 end)
 ModuleLog.Debug("world", "ui-only server")

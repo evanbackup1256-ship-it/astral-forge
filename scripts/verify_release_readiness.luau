@@ -440,7 +440,7 @@ assert(string.find(pageBoardSrc, "function PageBoardHeights.Machine", 1, true), 
 local workshopReleaseSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopReleaseSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView PageBoardHeights residual for release")
 local overviewReleaseReady = fs.readFile("src/Client/AstralForge/pages/PagesCore.luau#OverviewView")
-assert(string.find(overviewReleaseReady, "PageReadyMath.AnomalyReady", 1, true), "OverviewView AnomalyReady residual for release")
+assert(string.find(overviewReleaseReady, "PageReadyMath.CipherOpen", 1, true), "OverviewView CipherOpen residual for release")
 assert(string.find(telemetrySrc, "function TelemetryMath.Encode", 1, true), "TelemetryMath.Encode missing")
 assert(string.find(ssReleaseSrc, "TelemetryMath.Encode", 1, true), "ServerServices Telemetry residual for release")
 assert(string.find(utcClockSrc, "function UtcClockMath.Day", 1, true), "UtcClockMath.Day missing")

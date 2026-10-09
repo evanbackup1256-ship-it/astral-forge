@@ -1252,6 +1252,9 @@ local SharedData = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitFor
 local ShopCatalog = SharedData("ShopCatalog")
 local RelicSystem = SharedData("RelicSystem")
 local Browse = require(script.Parent.Parent.BrowseKit)
+local _elementFx = require(script.Parent.Parent.ElementFx)
+local ElementFx = _elementFx.ElementFx
+local elementSheet = _elementFx.sheet
 
 local h = React.createElement
 local GAP = 10
@@ -1260,7 +1263,19 @@ local SECTIONS = {
 	{ id = "Crates", label = "Crates" },
 	{ id = "Skins", label = "Skins" },
 	{ id = "Codex", label = "Codex" },
+	{ id = "Artifacts", label = "Artifacts" },
 	{ id = "Premium", label = "Premium" },
+}
+-- assets/generated/artifact_flare_sheet.png (4x4 frames, 256px), uploaded through Studio
+local ARTIFACT_FLARE_SHEET_ID = 98407517239854
+local ARTIFACT_SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
+local ARTIFACT_RARITY = {
+	COMMON = { rank = 1, color = Color3.fromRGB(200, 196, 188), label = "Common" },
+	UNCOMMON = { rank = 2, color = Color3.fromRGB(120, 220, 150), label = "Uncommon" },
+	RARE = { rank = 3, color = Color3.fromRGB(110, 190, 255), label = "Rare" },
+	EPIC = { rank = 4, color = Color3.fromRGB(190, 120, 255), label = "Epic" },
+	LEGENDARY = { rank = 5, color = Color3.fromRGB(255, 190, 70), label = "Legendary" },
+	MYTHIC = { rank = 6, color = Color3.fromRGB(255, 110, 150), label = "Mythic" },
 }
 local CURRENCY_ICON = { Stardust = "Dust", Cores = "Core" }
 local KIND_ICON = { Key = "Crate", Essence = "Artifact", Flux = "Flux", Boost = "Boost", Cache = "Gift", Skin = "Crate" }
@@ -1835,7 +1850,7 @@ local function CrateStage(props)
 		Color = ColorSequence.new(darken(accent, 0.55), Palette.void),
 		Rotation = 90,
 	}), h(CrateModel, {
-		skin = props.skin,
+		skin = require(game.ReplicatedStorage.AstralForge.Shared.CrateAppearance).resolve(props.skin, crate.Id, config.Items.Crates),
 		spin = true,
 		open = if props.busy then 0.35 else 0,
 		shake = if props.busy then 1 else 0,
@@ -2142,7 +2157,7 @@ local function SkinPreview(props)
 		position = UDim2.fromOffset(0, 60),
 		sizeConstraint = UDim2.new(1, 0, 0, 40),
 	}), h(Text, {
-		value = if owned then "Yours. Every crate you open wears the equipped skin." else "Cosmetic: changes how your crates look and open.",
+		value = if owned then "Yours. Every crate you open wears the equipped skin." else "Equip this skin for its guaranteed essence bonus.",
 		size = 11,
 		color = accent,
 		weight = Enum.FontWeight.Bold,
@@ -2660,6 +2675,487 @@ local function CodexSection(props)
 	})
 end
 
+local RunService = game:GetService("RunService")
+
+-- layered light rig: flipbook flare (once uploaded), counter-rotating beam fans, breathing halo, rising motes, glass sheen
+local function ArtifactLight(props)
+	local rank = props.rank
+	local color = props.color
+	local fanA = React.useRef(nil)
+	local fanB = React.useRef(nil)
+	local halo = React.useRef(nil)
+	local flare = React.useRef(nil)
+	local sheen = React.useRef(nil)
+	local motes = React.useRef(nil)
+	React.useEffect(function()
+		if props.reducedMotion then
+			return nil
+		end
+		local clock = (props.seed or 1) * 1.37
+		local speed = 0.6 + rank * 0.18
+		local moteList, moteField = nil, nil
+		local function refreshMotes(field)
+			moteField = field
+			moteList = if field then field:GetChildren() else nil
+		end
+		local connection = RunService.RenderStepped:Connect(function(dt)
+			clock += math.min(dt, 0.1)
+			if fanA.current then
+				fanA.current.Rotation = clock * 9 * speed
+			end
+			if fanB.current then
+				fanB.current.Rotation = -clock * 14 * speed + 22.5
+			end
+			if halo.current then
+				local breathe = 0.5 + 0.5 * math.sin(clock * (1.4 + rank * 0.2))
+				halo.current.ImageTransparency = 0.5 - breathe * 0.12 * rank / 6
+				halo.current.Size = UDim2.fromScale(0.92 + breathe * 0.08, 0.92 + breathe * 0.08)
+			end
+			if flare.current then
+				local frame = math.floor(clock * 14) % 16
+				flare.current.ImageRectOffset = Vector2.new((frame % 4) * 256, (frame // 4) * 256)
+			end
+			if sheen.current then
+				sheen.current.Offset = Vector2.new((clock * 0.32) % 1.6 * 2 - 1.6, 0)
+			end
+			local field = motes.current
+			if field ~= moteField then
+				refreshMotes(field)
+			end
+			if moteList then
+				for index, mote in moteList do
+					local phase = clock * (0.18 + (index % 3) * 0.07) + index * 0.61
+					local life = phase % 1
+					local lane = math.sin(index * 12.9898) * 0.5 + 0.5
+					mote.Position = UDim2.fromScale(0.15 + lane * 0.7 + math.sin(phase * 4) * 0.04, 0.85 - life * 0.7)
+					mote.ImageTransparency = 0.25 + math.abs(life - 0.5) * 1.5
+				end
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { props.reducedMotion, rank })
+	local beams = {}
+	local beamCount = 2 + rank
+	for index = 1, beamCount do
+		beams[`B{index}`] = h("frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(1.5, 0, 0, if index % 2 == 0 then 2 else 4),
+			Rotation = (index - 1) * 180 / beamCount,
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+		}, h("uigradient", {
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.42, 0.55 + (6 - rank) * 0.06),
+				NumberSequenceKeypoint.new(0.5, 0.25),
+				NumberSequenceKeypoint.new(0.58, 0.55 + (6 - rank) * 0.06),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}))
+	end
+	local function fan(ref, name, scale)
+		return h("frame", {
+			Name = name,
+			ref = ref,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(scale, scale),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, beams)
+	end
+	local moteChildren = {}
+	for index = 1, math.min(8, 2 + rank) do
+		moteChildren[`M{index}`] = h("imagelabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.fromOffset(10 + (index % 3) * 4, 10 + (index % 3) * 4),
+			Position = UDim2.fromScale(0.2 + (index * 0.13) % 0.6, 0.5),
+			BackgroundTransparency = 1,
+			Image = ARTIFACT_SPARKLE,
+			ImageColor3 = color:Lerp(Color3.new(1, 1, 1), 0.4),
+			ImageTransparency = if props.reducedMotion then 0.6 else 1,
+		})
+	end
+	return h("frame", {
+		Name = "ArtifactLight",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("imagelabel", {
+		Name = "Halo",
+		ref = halo,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.95, 0.95),
+		BackgroundTransparency = 1,
+		Image = ARTIFACT_SPARKLE,
+		ImageColor3 = color,
+		ImageTransparency = 0.5,
+	}), fan(fanA, "FanA", 1), if rank >= 3 then fan(fanB, "FanB", 0.8) else nil, if ARTIFACT_FLARE_SHEET_ID > 0
+		then h("imagelabel", {
+			Name = "Flare",
+			ref = flare,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1.1, 1.1),
+			BackgroundTransparency = 1,
+			Image = `rbxassetid://{ARTIFACT_FLARE_SHEET_ID}`,
+			ImageRectSize = Vector2.new(256, 256),
+			ImageColor3 = color:Lerp(Color3.new(1, 1, 1), 0.35),
+			ImageTransparency = 0.15,
+		})
+		else nil, h("frame", {
+		Name = "Motes",
+		ref = motes,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, moteChildren), h("frame", {
+		Name = "Sheen",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 0.88,
+		BorderSizePixel = 0,
+	}, h("uigradient", {
+		ref = sheen,
+		Rotation = 18,
+		Offset = Vector2.new(-1.6, 0),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.45, 1),
+			NumberSequenceKeypoint.new(0.5, 0.2),
+			NumberSequenceKeypoint.new(0.55, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	})))
+end
+
+local function artifactEffectText(artifact)
+	local per = tonumber(artifact.EffectPerLevel) or 0
+	if artifact.EffectKind == "OfflineHours" then
+		return `+{string.format("%.2f", per)}h offline cap per level`
+	end
+	return `+{string.format("%.1f", per * 100)}% {artifact.EffectKind} per level`
+end
+
+local function ArtifactCard(props)
+	local artifact = props.artifact
+	local tone = ARTIFACT_RARITY[artifact.Rarity] or ARTIFACT_RARITY.COMMON
+	local accent = artifact.Color or tone.color
+	local element = artifact.Element or "Void"
+	local sheet = elementSheet(element)
+	local elementColor = if sheet then sheet.Color else accent
+	local elementGlow = if sheet then sheet.Glow else accent
+	local owned = props.owned
+	local price = props.price
+	local cost = if price == nil then nil elseif owned then price.Refill else price.Stardust
+	local have = tonumber(props.dust) or 0
+	local enabled = cost ~= nil and have >= cost and not props.busy
+	local label = if cost == nil
+		then "NOT SOLD"
+		elseif have < cost then `NEED {commas(cost - have)} DUST`
+		elseif owned then `+{price.Fragments} FRAGMENTS · {commas(cost)}`
+		else `ACQUIRE · {commas(cost)} DUST`
+	local hovered, setHovered = React.useState(false)
+	local lightH = if props.stack then 116 else 132
+	local fxSize = math.floor(lightH * 1.32)
+	local elementBadgeW = math.max(62, #(if sheet then sheet.Label else element) * 7 + 14)
+	return h("frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.panel,
+		BorderSizePixel = 0,
+		LayoutOrder = props.order,
+		Event = {
+			MouseEnter = function()
+				setHovered(true)
+			end,
+			MouseLeave = function()
+				setHovered(false)
+			end,
+		},
+	}, h("uicorner", { CornerRadius = UDim.new(0, 14) }), h("uistroke", {
+		Color = elementColor:Lerp(accent, 0.35),
+		Thickness = if hovered or tone.rank >= 5 then 2 else 1,
+		Transparency = if hovered then 0.05 elseif owned then 0.3 else 0.55,
+	}), h("uipadding", {
+		PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 8),
+		PaddingLeft = UDim.new(0, 8),
+		PaddingRight = UDim.new(0, 8),
+	}), h("frame", {
+		Name = "Stage",
+		Size = UDim2.new(1, 0, 0, lightH),
+		BackgroundColor3 = Palette.void,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, h("uicorner", { CornerRadius = UDim.new(0, 12) }), h("uigradient", {
+		Color = ColorSequence.new(darken(elementColor, 0.6), Palette.void),
+		Rotation = 90,
+	}), h("imagelabel", {
+		Name = "Halo",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.56),
+		Size = UDim2.fromOffset(fxSize, fxSize),
+		BackgroundTransparency = 1,
+		Image = ARTIFACT_SPARKLE,
+		ImageColor3 = elementGlow,
+		ImageTransparency = if hovered then 0.55 else 0.72,
+		ZIndex = 1,
+	}), if tone.rank >= 5
+		then h(ArtifactLight, {
+			rank = tone.rank,
+			color = elementColor,
+			seed = props.order,
+			reducedMotion = props.reducedMotion,
+		})
+		else nil, h(ElementFx, {
+		element = element,
+		size = UDim2.fromOffset(fxSize, fxSize),
+		position = UDim2.fromScale(0.5, 0.6),
+		framerate = if hovered then 36 else 24,
+		reducedMotion = props.reducedMotion,
+		zIndex = 2,
+	}), h("frame", {
+		Name = "IconDisc",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.56),
+		Size = UDim2.fromOffset(52, 52),
+		BackgroundColor3 = Palette.void,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, h("uicorner", { CornerRadius = UDim.new(1, 0) }), h("uistroke", {
+		Color = elementGlow,
+		Transparency = if hovered then 0.15 else 0.5,
+		Thickness = 1,
+	}), h(Icon, {
+		kind = "Artifact",
+		color = Palette.cream,
+		accent = elementColor,
+		size = 34,
+		position = UDim2.fromOffset(9, 9),
+		spin = false,
+	})), h(Badge, {
+		value = string.upper(tone.label),
+		accent = tone.color,
+		filled = tone.rank >= 4,
+		size = UDim2.fromOffset(84, 18),
+		position = UDim2.fromOffset(6, 6),
+	}), h(Badge, {
+		value = if sheet then sheet.Label else string.upper(element),
+		accent = elementColor,
+		filled = true,
+		size = UDim2.fromOffset(elementBadgeW, 18),
+		position = UDim2.new(1, -(elementBadgeW + 6), 0, 6),
+	}), if artifact.ShopOnly and not owned
+		then h(Badge, {
+			value = "VAULT ONLY",
+			accent = elementGlow,
+			filled = false,
+			size = UDim2.fromOffset(80, 18),
+			position = UDim2.new(1, -86, 1, -24),
+		})
+		else nil, if owned
+		then h(Badge, {
+			value = `LV {owned.Level or 1} · {owned.Fragments or 0} FRAG`,
+			accent = Palette.cream,
+			filled = false,
+			size = UDim2.fromOffset(112, 18),
+			position = UDim2.new(0, 6, 1, -24),
+		})
+		else nil), h(Text, {
+		value = artifact.Name,
+		size = 15,
+		color = Palette.cream,
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 11,
+		position = UDim2.fromOffset(2, lightH + 8),
+		sizeConstraint = UDim2.new(1, -4, 0, 20),
+	}), h(Text, {
+		value = artifactEffectText(artifact),
+		size = 11,
+		color = elementColor:Lerp(Palette.cream, 0.25),
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.fromOffset(2, lightH + 28),
+		sizeConstraint = UDim2.new(1, -4, 0, 14),
+	}), h(Text, {
+		value = artifact.Description,
+		size = 11,
+		color = Palette.muted,
+		wrap = true,
+		position = UDim2.fromOffset(2, lightH + 44),
+		sizeConstraint = UDim2.new(1, -4, 0, 28),
+	}), h("frame", {
+		Size = UDim2.new(1, 0, 0, 36),
+		Position = UDim2.new(0, 0, 1, -36),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+	}, h(Button, {
+		text = label,
+		icon = if enabled then "Shop" else "Lock",
+		onClick = function()
+			if enabled then
+				props.onBuy(artifact)
+			end
+		end,
+		color = if enabled then elementColor else Palette.panelSoft,
+		textColor = if enabled then Palette.ink else Palette.creamSoft,
+		size = UDim2.fromScale(1, 1),
+		disabled = not enabled,
+		reducedMotion = props.reducedMotion,
+		highlight = enabled and tone.rank >= 4,
+		selectable = enabled,
+	})))
+end
+
+local function ArtifactsSection(props)
+	local state = props.state
+	local config = props.config
+	local stack = props.stack
+	local ops = config.Operations or {}
+	local artifacts = ops.Artifacts or {}
+	local prices = ops.ArtifactShop or {}
+	local owned = (state.Command and state.Command.Artifacts) or {}
+	local busy, setBusy = React.useState(false)
+	local mounted = React.useRef(true)
+	React.useEffect(function()
+		mounted.current = true
+		return function()
+			mounted.current = false
+		end
+	end, {})
+	local ordered = table.clone(artifacts)
+	table.sort(ordered, function(a, b)
+		local ra = (ARTIFACT_RARITY[a.Rarity] or ARTIFACT_RARITY.COMMON).rank
+		local rb = (ARTIFACT_RARITY[b.Rarity] or ARTIFACT_RARITY.COMMON).rank
+		if ra ~= rb then
+			return ra > rb
+		end
+		return a.Name < b.Name
+	end)
+	local dust = tonumber(state.Stardust) or 0
+	local browse = Browse.useBrowse({
+		id = "Artifacts",
+		items = ordered,
+		textKey = tostring(dust),
+		text = function(artifact)
+			return { artifact.Name, artifact.Description, artifact.Rarity, artifact.EffectKind }
+		end,
+		categories = {
+			{ id = "All", label = "All" },
+			{ id = "Missing", label = "Missing", test = function(artifact)
+				return owned[artifact.Id] == nil
+			end },
+			{ id = "Owned", label = "Owned", test = function(artifact)
+				return owned[artifact.Id] ~= nil
+			end },
+			{ id = "Exclusive", label = "Vault only", test = function(artifact)
+				return artifact.ShopOnly == true
+			end },
+			{ id = "Affordable", label = "Affordable", test = function(artifact)
+				local price = prices[artifact.Rarity]
+				local cost = price and (if owned[artifact.Id] then price.Refill else price.Stardust)
+				return cost ~= nil and dust >= cost
+			end },
+		},
+	})
+	local onBuy = function(artifact)
+		if busy then
+			return
+		end
+		setBusy(true)
+		props.dispatch("BuyArtifact", { Id = artifact.Id }, function(response)
+			if not mounted.current then
+				return
+			end
+			setBusy(false)
+			Audio:play(if response.ok then "purchase" else "error")
+		end)
+	end
+	local columns = if stack then 2 elseif props.width >= 1000 then 4 else 3
+	local cellH = if stack then 262 else 282
+	local cells = {}
+	for order, artifact in browse.results do
+		cells[artifact.Id] = h(ArtifactCard, {
+			artifact = artifact,
+			order = order,
+			owned = owned[artifact.Id],
+			price = prices[artifact.Rarity],
+			dust = dust,
+			busy = busy,
+			stack = stack,
+			onBuy = onBuy,
+			reducedMotion = props.reducedMotion,
+		})
+	end
+	local ownedCount = 0
+	for _, artifact in artifacts do
+		if owned[artifact.Id] ~= nil then
+			ownedCount += 1
+		end
+	end
+	local sections = {
+		{
+			id = "hero",
+			height = heroHeight(stack),
+			element = h(Hero, {
+				title = "Artifact Vault",
+				body = `Buy rare artifacts outright for stardust. Ones you hold restock as upgrade fragments. {ownedCount}/{#artifacts} held.`,
+				accent = Palette.violet,
+				icon = "Artifact",
+				state = state,
+				stack = stack,
+				reveal = props.reveal,
+				reducedMotion = props.reducedMotion,
+			}),
+		},
+		{
+			id = "browse",
+			height = Browse.barHeight(stack, true),
+			element = h(Browse.BrowseBar, {
+				browse = browse,
+				placeholder = "Search artifacts by name, effect or rarity",
+				accent = Palette.violet,
+				stack = stack,
+				reducedMotion = props.reducedMotion,
+				zIndex = 30,
+			}),
+		},
+	}
+	if #browse.results == 0 then
+		table.insert(sections, {
+			id = "none",
+			height = 220,
+			element = h(Browse.NoResults, {
+				browse = browse,
+				noun = "artifacts",
+				icon = "Artifact",
+				accent = Palette.violet,
+				reducedMotion = props.reducedMotion,
+				size = UDim2.fromScale(1, 1),
+			}),
+		})
+	else
+		local gridH = rowsHeight(#browse.results, columns, cellH)
+		table.insert(sections, {
+			id = "grid",
+			height = gridH,
+			element = h(Grid, { columns = columns, cell = cellH, height = gridH, cells = cells }),
+		})
+	end
+	return React.createElement(PageScaffold, {
+		gap = GAP,
+		tailPad = props.tailPad,
+		scrollBarColor = Palette.violet,
+		sections = sections,
+	})
+end
+
 local function StoreFront(props)
 	local viewport = useViewport()
 	local chrome = chromeFor(viewport)
@@ -2703,6 +3199,8 @@ local function StoreFront(props)
 		body = h(SkinsSection, shared)
 	elseif section == "Codex" then
 		body = h(CodexSection, shared)
+	elseif section == "Artifacts" then
+		body = h(ArtifactsSection, shared)
 	else
 		body = h(__load("ShopView").ShopView, {
 			state = props.state,

@@ -118,6 +118,24 @@ local function emptyOffer()
 		Items = {},
 	}
 end
+local function wireOffer(offer)
+	local result = {
+		Cash = offer.Cash, Stardust = offer.Stardust, Cores = offer.Cores,
+		Signals = offer.Signals, Essence = offer.Essence,
+		Boosts = {}, Keys = {}, ItemIds = table.clone(offer.ItemIds),
+	}
+	for _, id in BOOSTS do
+		if (offer.Boosts[id] or 0) > 0 then
+			result.Boosts[id] = offer.Boosts[id]
+		end
+	end
+	for _, id in KEYS do
+		if (offer.Keys[id] or 0) > 0 then
+			result.Keys[id] = offer.Keys[id]
+		end
+	end
+	return result
+end
 local function itemName(config, definitionId)
 	local _result = config.Items
 	if _result ~= nil then
@@ -458,6 +476,9 @@ local function TradeView(_param)
 	local offerTab, setOfferTab = React.useState("You")
 	local dirtyRef = React.useRef(false)
 	local flushRef = React.useRef(nil)
+	local offerRevisionRef = React.useRef(0)
+	local offerSessionRef = React.useRef(if session ~= nil then session.Id else nil)
+	local offerPending, setOfferPending = React.useState(false)
 	local sessionActionsHostRef = React.useRef(nil)
 	local _result_1 = state.Items
 	if _result_1 ~= nil then
@@ -532,7 +553,24 @@ local function TradeView(_param)
 	end
 	React.useEffect(_exp, { loadRoster, _result_3 })
 	local _exp_1 = function()
+		local sessionId = if session ~= nil then session.Id else nil
+		if offerSessionRef.current ~= sessionId then
+			offerSessionRef.current = sessionId
+			offerRevisionRef.current += 1
+			if flushRef.current ~= nil then
+				pcall(task.cancel, flushRef.current)
+				flushRef.current = nil
+			end
+			dirtyRef.current = false
+			setOfferPending(false)
+		end
 		if session == nil then
+			if flushRef.current ~= nil then
+				pcall(task.cancel, flushRef.current)
+				flushRef.current = nil
+			end
+			offerRevisionRef.current += 1
+			setOfferPending(false)
 			setDraft(emptyOffer())
 			setYouReadyLocal(false)
 			dirtyRef.current = false
@@ -566,6 +604,7 @@ local function TradeView(_param)
 	React.useEffect(_exp_1, { _result_4, _result_5, _result_6, _result_7, _result_8 })
 	React.useEffect(function()
 		return function()
+			offerRevisionRef.current += 1
 			if flushRef.current ~= nil then
 				pcall(task.cancel, flushRef.current)
 			end
@@ -575,15 +614,27 @@ local function TradeView(_param)
 		setDraft(offer)
 		setYouReadyLocal(false)
 		dirtyRef.current = true
+		setOfferPending(true)
+		offerRevisionRef.current += 1
+		local revision = offerRevisionRef.current
 		if flushRef.current ~= nil then
 			pcall(task.cancel, flushRef.current)
 		end
 		flushRef.current = task.delay(0.14, function()
 			flushRef.current = nil
-			dirtyRef.current = false
 			dispatch("UpdateTradeOffer", {
-				Offer = offer,
-			})
+				Offer = wireOffer(offer),
+			}, function(response)
+				if revision ~= offerRevisionRef.current then
+					return
+				end
+				dirtyRef.current = false
+				setOfferPending(false)
+				if not response.ok and session ~= nil then
+					setDraft(session.You)
+					setYouReadyLocal(false)
+				end
+			end)
 		end)
 	end
 	local run = function(action, payload)
@@ -597,6 +648,9 @@ local function TradeView(_param)
 		dispatch(action, payload, function(response)
 			setBusy("")
 			if not response.ok then
+				if action == "SetTradeReady" then
+					setYouReadyLocal(session ~= nil and session.YouReady == true)
+				end
 				setShakeAction(function(current)
 					local _object = {
 						action = action,
@@ -1139,7 +1193,7 @@ local function TradeView(_param)
 	local dailyLimit = _condition_4
 	local dailyLabel = if daily ~= nil and dailyLimit ~= nil then `{daily.Completed} / {dailyLimit} trades today` else "Daily limits on every side"
 	local function onReadyClick()
-		if tableEmpty and not youReadyLocal then
+		if offerPending or (tableEmpty and not youReadyLocal) then
 			return nil
 		end
 		local following = not youReadyLocal
@@ -1154,8 +1208,8 @@ local function TradeView(_param)
 	local function onCancelClick()
 		return run("CancelTrade")
 	end
-	local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)
-	local confirmDisabled = busy ~= "" or not bothReady
+	local readyDisabled = busy ~= "" or offerPending or (tableEmpty and not youReadyLocal)
+	local confirmDisabled = busy ~= "" or offerPending or not bothReady
 	React.useEffect(function()
 		if session == nil then
 			GamepadNavigationService.EndOverlayFocus()
@@ -1198,7 +1252,7 @@ local function TradeView(_param)
 		}, not vertical and React.createElement("uiflexitem", {
 			FlexMode = Enum.UIFlexMode.Fill,
 		}), React.createElement(Button, {
-			text = if youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
+			text = if offerPending then "SYNCING OFFER" elseif youReadyLocal then "UNREADY" elseif tableEmpty then "ADD SOMETHING FIRST" else "READY",
 			onClick = onReadyClick,
 			color = if youReadyLocal then Palette.panelSoft else accent,
 			textColor = if youReadyLocal then Palette.cream else Palette.ink,
@@ -1243,7 +1297,8 @@ local function TradeView(_param)
 			text = "CANCEL",
 			onClick = onCancelClick,
 			color = Palette.coral,
-			textColor = Palette.ink,
+			textColor = Palette.coral,
+			outline = true,
 			size = UDim2.fromScale(1, 1),
 			disabled = busy ~= "",
 			loading = busy == "CancelTrade",
@@ -2565,6 +2620,7 @@ local Social = require(game.ReplicatedStorage.AstralForge.Shared.SocialProgressi
 local createRequest = require(script.Parent.Parent.ActionRequest)
 local SearchField = _ui.SearchField
 local Browse = require(script.Parent.Parent.BrowseKit)
+local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
 local ROLE_RANK = {
 	Leader = 0,
 	Officer = 1,
@@ -3236,7 +3292,7 @@ local function JoinOrCreate(_param)
 		FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
 		Change = {
 			Text = function(box)
-				local value = string.sub(box.Text, 1, 28)
+				local value = ChatText.cutBytes(box.Text, 28)
 				nameRef.current = value
 				setName(value)
 			end,
@@ -3389,6 +3445,346 @@ local function JoinOrCreate(_param)
 		reducedMotion = reducedMotion,
 	})))
 end
+local function GuildCommunityPanel(_param)
+	local guild = _param.guild
+	local dispatch = _param.dispatch
+	local reducedMotion = _param.reducedMotion
+	local stack = _param.stack
+	local role = _param.role
+	local onBack = _param.onBack
+	local guildConfig = (_param.config and _param.config.Guild) or {}
+	local community = guild.Community or {}
+	local settings, setSettings = React.useState(community.Settings or { ChatEnabled = true, AnnouncementsEnabled = true, LogoEnabled = true })
+	local messages, setMessages = React.useState(community.Chat or {})
+	local announcements, setAnnouncements = React.useState(community.Announcements or {})
+	local logos, setLogos = React.useState({})
+	local chatDraft, setChatDraft = React.useState("")
+	local announcementTitle, setAnnouncementTitle = React.useState("")
+	local announcementBody, setAnnouncementBody = React.useState("")
+	local logoAsset, setLogoAsset = React.useState("")
+	local moderationUserId, setModerationUserId = React.useState("")
+	local renameName, setRenameName = React.useState("")
+	local renameTag, setRenameTag = React.useState("")
+	local chatScroll = React.useRef(nil)
+	local localUserId = game:GetService("Players").LocalPlayer.UserId
+	local busy, setBusy = React.useState("")
+	local leader = role == "Leader"
+	local manager = leader or role == "Officer"
+	local requestCommunity = React.useCallback(function()
+		dispatch("GetGuildChatHistory", { Limit = 50 }, function(result)
+			if result.ok then setMessages(result.Messages or {}) end
+		end)
+		dispatch("GetGuildAnnouncements", {}, function(result)
+			if result.ok then setAnnouncements(result.Announcements or {}) end
+		end)
+		dispatch("GetGuildSettings", {}, function(result)
+			if result.ok then setSettings(result.Settings or {}) end
+		end)
+		if leader then
+			dispatch("GetGuildLogoReview", {}, function(result)
+				if result.ok then setLogos(result.Logos or {}) end
+			end)
+		end
+	end, { dispatch, manager, guild.Id })
+	React.useEffect(function()
+		requestCommunity()
+		local alive = true
+		local worker = task.spawn(function()
+			while alive do
+				task.wait(8)
+				if alive then requestCommunity() end
+			end
+		end)
+		local connection = game:GetService("ReplicatedStorage"):WaitForChild("__AFX_BRIDGE_31"):WaitForChild("re_e31").OnClientEvent:Connect(function(packet)
+			if not alive or type(packet) ~= "table" or packet.GuildId ~= guild.Id then return end
+			if packet.Type == "GuildChat" and type(packet.Message) == "table" then					setMessages(function(previous)
+						local updated = table.clone(previous)
+						for _, existing in updated do if existing.Id == packet.Message.Id then return previous end end
+						updated[#updated + 1] = packet.Message
+
+					while #updated > 50 do table.remove(updated, 1) end
+					return updated
+				end)
+			elseif packet.Refresh == true or packet.Type == "GuildAnnouncement" or packet.Type == "GuildSettings" or packet.Type == "GuildLogo" or packet.Type == "GuildModeration" then
+				-- Refresh: another server changed something too large to relay inline
+				requestCommunity()
+			end
+		end)
+		return function()
+			alive = false
+			connection:Disconnect()
+			pcall(task.cancel, worker)
+		end
+	end, { requestCommunity, guild.Id })
+	local run = function(action, payload, done)
+		if busy ~= "" then return end
+		setBusy(action)
+		dispatch(action, payload, function(result)
+			setBusy("")
+			if result.ok then requestCommunity() end
+			if done then done(result) end
+		end)
+	end
+	local fieldStyle = { BackgroundColor3 = Palette.void, BorderSizePixel = 0, TextColor3 = Palette.cream, PlaceholderColor3 = Palette.muted, TextSize = 14, ClearTextOnFocus = false, FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium) }
+	local function input(placeholder, value, onChange, height, position)
+		return React.createElement("textbox", {
+			Size = UDim2.new(1, 0, 0, height or 42),
+			Position = position or UDim2.fromOffset(0, 0),
+			PlaceholderText = placeholder,
+			Text = value,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Change = { Text = function(box) onChange(ChatText.cutBytes(box.Text, 800)) end },
+			BackgroundColor3 = fieldStyle.BackgroundColor3,
+			BorderSizePixel = fieldStyle.BorderSizePixel,
+			TextColor3 = fieldStyle.TextColor3,
+			PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+			TextSize = fieldStyle.TextSize,
+			ClearTextOnFocus = false,
+			FontFace = fieldStyle.FontFace,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }))
+	end
+	local ROLE_COLORS = { Leader = Palette.mango, Officer = Palette.cyan, Member = Palette.creamSoft }
+	local chatRows = {}
+	local previousSpeaker = nil
+	for index, message in messages do
+		local own = message.SpeakerUserId == localUserId
+		local grouped = previousSpeaker == message.SpeakerUserId
+		previousSpeaker = message.SpeakerUserId
+		local stamp = if type(message.PublishedAt) == "number" then os.date("%H:%M", message.PublishedAt) else ""
+		local roleColor = ROLE_COLORS[message.SpeakerRole] or Palette.creamSoft
+		chatRows[#chatRows + 1] = React.createElement("frame", {
+			key = message.Id or tostring(index),
+			LayoutOrder = index,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+		}, React.createElement("uipadding", { PaddingLeft = UDim.new(0, if own then 40 else 0), PaddingRight = UDim.new(0, if own then 0 else 40), PaddingTop = UDim.new(0, if grouped then 0 else 4) }),
+			React.createElement("frame", {
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundColor3 = if own then Palette.cyan else Palette.panelSoft,
+				BackgroundTransparency = if own then 0.82 else 0.35,
+				BorderSizePixel = 0,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }),
+				React.createElement("uipadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }),
+				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }),
+				not grouped and React.createElement("textlabel", {
+					LayoutOrder = 1,
+					Size = UDim2.new(1, 0, 0, 16),
+					BackgroundTransparency = 1,
+					Text = `{message.SpeakerName or tostring(message.SpeakerUserId)}{if message.SpeakerRole and message.SpeakerRole ~= "Member" then "  ·  " .. string.upper(message.SpeakerRole) else ""}   {stamp}`,
+					TextColor3 = roleColor,
+					TextSize = 12,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					FontFace = Font.fromEnum(Enum.Font.BuilderSansBold),
+				}),
+				React.createElement("textlabel", {
+					LayoutOrder = 2,
+					Size = UDim2.new(1, 0, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					Text = tostring(message.Message or ""),
+					TextColor3 = Palette.cream,
+					TextSize = 14,
+					TextWrapped = true,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					FontFace = Font.fromEnum(Enum.Font.BuilderSansMedium),
+				})))
+	end
+	if #chatRows == 0 then chatRows[1] = React.createElement(Text, { key = "no-chat", value = "No messages yet. Chat is visible only to this guild's members.", size = 12, color = Palette.muted, wrap = true, sizeConstraint = UDim2.new(1, 0, 0, 34) }) end
+	React.useEffect(function()
+		local frame = chatScroll.current
+		if frame == nil then return nil end
+		local job = task.defer(function()
+			if frame.Parent then frame.CanvasPosition = Vector2.new(0, math.max(0, frame.AbsoluteCanvasSize.Y - frame.AbsoluteWindowSize.Y)) end
+		end)
+		return function()
+			pcall(task.cancel, job)
+		end
+	end, { #messages })
+	local function sendChat()
+		if chatDraft == "" or settings.ChatEnabled == false then return end
+		run("SendGuildChat", { Content = chatDraft }, function(result) if result.ok then setChatDraft("") end end)
+	end
+	local announcementRows = {}
+	for index, item in announcements do
+		local label = `{if item.Pinned then "[PINNED] " else ""}{item.Title}  ·  {item.AuthorName or "Guild staff"}`
+		announcementRows[index] = React.createElement(Panel, {
+			key = item.Id,
+			size = UDim2.new(1, 0, 0, 116),
+			accent = item.Pinned and Palette.mango or Palette.cyan,
+			padding = 12,
+			reducedMotion = reducedMotion,
+		}, React.createElement(Text, { value = label, size = 13, weight = Enum.FontWeight.Bold, fit = true, sizeConstraint = UDim2.new(1, 0, 0, 22) }), React.createElement(Text, { value = item.Body, size = 11, color = Palette.creamSoft, wrap = true, position = UDim2.fromOffset(0, 28), sizeConstraint = UDim2.new(1, 0, 0, 52) }), manager and React.createElement(Button, {
+			text = item.Pinned and "UNPIN" or "PIN",
+			onClick = function() run("PinGuildAnnouncement", { AnnouncementId = item.Id, Pinned = not item.Pinned }) end,
+			color = Palette.panelSoft,
+			size = UDim2.fromOffset(92, 32),
+			position = UDim2.new(1, -96, 1, -32),
+			disabled = busy ~= "",
+			reducedMotion = reducedMotion,
+		}), manager and React.createElement(Button, {
+			text = "ARCHIVE",
+			onClick = function() run("ArchiveGuildAnnouncement", { AnnouncementId = item.Id }) end,
+			color = Palette.panelSoft,
+			textColor = Palette.coral,
+			size = UDim2.fromOffset(92, 32),
+			position = UDim2.new(1, -194, 1, -32),
+			disabled = busy ~= "",
+			reducedMotion = reducedMotion,
+		}), React.createElement(Text, {
+			value = if type(item.PublishedAt) == "number" then os.date("%b %d · %H:%M", item.PublishedAt) .. (if item.EditedAt then " · edited" else "") else "",
+			size = 10,
+			color = Palette.muted,
+			position = UDim2.new(0, 0, 1, -24),
+			sizeConstraint = UDim2.new(1, -200, 0, 18),
+		}))
+	end
+	if #announcementRows == 0 then announcementRows[1] = React.createElement(Text, { key = "no-announcements", value = "No current announcements.", size = 12, color = Palette.muted }) end
+	local logoRows = {}
+	for index, logo in logos do
+		logoRows[index] = React.createElement(Panel, { key = logo.Id, size = UDim2.new(1, 0, 0, 84), accent = Palette.violet, padding = 10 },
+
+			React.createElement("imagelabel", { Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 1, Image = logo.URL or "", ScaleType = Enum.ScaleType.Fit }),
+			React.createElement(Text, { value = `Logo {string.sub(logo.Id, 1, 8)} · pending`, size = 12, fit = true, position = UDim2.fromOffset(58, 4), sizeConstraint = UDim2.new(1, -220, 0, 22) }),
+
+			React.createElement(Button, { text = "APPROVE", onClick = function() run("ModerateGuildLogo", { LogoId = logo.Id, Decision = "approved" }) end, color = Palette.mint, size = UDim2.fromOffset(92, 34), position = UDim2.new(1, -196, 0, 12), disabled = busy ~= "", reducedMotion = reducedMotion }),
+			React.createElement(Button, { text = "REJECT", onClick = function() run("ModerateGuildLogo", { LogoId = logo.Id, Decision = "rejected", Reason = "Did not meet guild logo guidelines." }) end, color = Palette.panelSoft, textColor = Palette.coral, size = UDim2.fromOffset(92, 34), position = UDim2.new(1, -98, 0, 12), disabled = busy ~= "", reducedMotion = reducedMotion }))
+	end
+	local settingsRows = {}
+	if leader then
+		local SETTING_LABELS = {
+			ChatEnabled = "CHAT",
+			AnnouncementsEnabled = "NEWS",
+			LogoEnabled = "LOGOS",
+			OfficerAnnouncements = "OFFICER NEWS",
+			OfficerModeration = "OFFICER MODS",
+			SlowMode = "SLOW MODE",
+		}
+		for index, key in { "ChatEnabled", "AnnouncementsEnabled", "LogoEnabled", "OfficerAnnouncements", "OfficerModeration", "SlowMode" } do
+			local enabled = if key == "SlowMode" then settings[key] == true else settings[key] ~= false
+			settingsRows[index] = React.createElement(Button, {
+				key = key,
+				text = `{SETTING_LABELS[key]}  {if enabled then "ON" else "OFF"}`,
+				onClick = function()
+					local updated = table.clone(settings)
+					updated[key] = not enabled
+					setSettings(updated)
+					run("SetGuildSettings", { Settings = { [key] = updated[key] } })
+				end,
+				color = if enabled then Palette.mint else Palette.panelSoft,
+				textColor = if enabled then Palette.ink else Palette.cream,
+				size = UDim2.new(1 / 3, -6, 0, 42),
+				position = UDim2.new(((index - 1) % 3) / 3, 0, 0, math.floor((index - 1) / 3) * 48),
+				disabled = busy ~= "",
+				reducedMotion = reducedMotion,
+			})
+		end
+	end
+	local sections = {
+		{ id = "guild-community-back", height = 48, element = React.createElement(Button, { text = "‹  GUILD OVERVIEW", onClick = onBack, color = Palette.panelSoft, textColor = Palette.cream, size = UDim2.new(1, 0, 0, 44), reducedMotion = reducedMotion }) },
+		{ id = "guild-community-chat", height = 430, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.cyan, padding = 14, reducedMotion = reducedMotion, clips = false },
+			React.createElement(Text, { value = `GUILD CHANNEL · {#messages} MESSAGES{if settings.SlowMode == true then " · SLOW MODE" else ""}`, size = 12, color = Palette.cyan, weight = Enum.FontWeight.Heavy, sizeConstraint = UDim2.new(1, 0, 0, 20) }),
+			React.createElement("scrollingframe", {
+				ref = chatScroll,
+				Size = UDim2.new(1, 0, 0, 308),
+				Position = UDim2.fromOffset(0, 26),
+				BackgroundColor3 = Palette.void,
+				BackgroundTransparency = 0.35,
+				BorderSizePixel = 0,
+				CanvasSize = UDim2.new(),
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				ScrollingDirection = Enum.ScrollingDirection.Y,
+				ScrollBarThickness = 3,
+				ScrollBarImageColor3 = Palette.cyan,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 12) }),
+				React.createElement("uipadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }),
+				React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }), chatRows),
+			React.createElement("textbox", {
+				Size = UDim2.new(1, -112, 0, 42),
+				Position = UDim2.fromOffset(0, 344),
+				PlaceholderText = if settings.ChatEnabled == false then "Chat is disabled by the leader" else "Message your guild…  (Enter to send)",
+				Text = chatDraft,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Change = { Text = function(box) setChatDraft(ChatText.cutBytes(box.Text, 400)) end },
+				Event = { FocusLost = function(_, enterPressed) if enterPressed then sendChat() end end },
+				BackgroundColor3 = fieldStyle.BackgroundColor3,
+				BorderSizePixel = 0,
+				TextColor3 = fieldStyle.TextColor3,
+				PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+				TextSize = fieldStyle.TextSize,
+				ClearTextOnFocus = false,
+				TextEditable = settings.ChatEnabled ~= false,
+				FontFace = fieldStyle.FontFace,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) })),
+			React.createElement(Button, { text = "SEND", onClick = sendChat, color = Palette.cyan, textColor = Palette.ink, size = UDim2.new(0, 104, 0, 42), position = UDim2.new(1, -104, 0, 344), disabled = busy ~= "" or settings.ChatEnabled == false or chatDraft == "", loading = busy == "SendGuildChat", reducedMotion = reducedMotion }),
+			React.createElement(Text, { value = `{#chatDraft}/400 · filtered by Roblox · members only`, size = 10, color = Palette.muted, position = UDim2.fromOffset(0, 390), sizeConstraint = UDim2.new(1, 0, 0, 16) })) },
+		{ id = "guild-community-announcements", height = math.max(168, #announcementRows * 126 + (manager and 164 or 64)), element = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0 }, React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10) }),
+			React.createElement(SectionLabel, { value = "ANNOUNCEMENTS", color = Palette.mango }),
+			manager and React.createElement(Panel, { size = UDim2.new(1, 0, 0, 154), accent = Palette.mango, padding = 12, clips = false }, input("Announcement title", announcementTitle, function(value) setAnnouncementTitle(ChatText.cutBytes(value, 120)) end, 40, UDim2.fromOffset(0, 0)), input("Announcement body", announcementBody, setAnnouncementBody, 46, UDim2.fromOffset(0, 44)), React.createElement(Button, { text = "PUBLISH", onClick = function() run("CreateGuildAnnouncement", { Title = announcementTitle, Body = announcementBody }, function(result) if result.ok then setAnnouncementTitle(""); setAnnouncementBody("") end end) end, color = Palette.mango, textColor = Palette.ink, size = UDim2.new(1, 0, 0, 36), position = UDim2.new(0, 0, 1, -36), disabled = busy ~= "" or settings.AnnouncementsEnabled == false or announcementTitle == "" or announcementBody == "", reducedMotion = reducedMotion }), settings.AnnouncementsEnabled == false and React.createElement(Text, { value = "Announcements are disabled by the guild leader.", size = 11, color = Palette.coral, position = UDim2.fromOffset(0, -16) })),
+			announcementRows) },
+	}
+	if manager then
+		local moderationButtons = {}
+		for index, action in { "MuteGuildMember", "BanGuildMember", "UnmuteGuildMember", "UnbanGuildMember" } do
+			local labels = { MuteGuildMember = "MUTE", BanGuildMember = "BAN", UnmuteGuildMember = "UNMUTE", UnbanGuildMember = "UNBAN" }
+			local colors = { MuteGuildMember = Palette.mango, BanGuildMember = Palette.coral, UnmuteGuildMember = Palette.cyan, UnbanGuildMember = Palette.violet }
+			moderationButtons[index] = React.createElement(Button, { key = action, text = labels[action], onClick = function()
+				local id = tonumber(moderationUserId)
+				if id and id > 0 then run(action, { UserId = math.floor(id) }) end
+			end, color = colors[action], textColor = Palette.ink, size = UDim2.new(0.25, -6, 0, 40), position = UDim2.new((index - 1) * 0.25, 0, 0, 0), disabled = busy ~= "" or tonumber(moderationUserId) == nil, reducedMotion = reducedMotion })
+		end
+		table.insert(sections, { id = "guild-community-moderation", height = 146, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.coral, padding = 14, clips = false }, React.createElement(SectionLabel, { value = "MEMBER MODERATION · USER ID", color = Palette.coral }), input("Guild member user ID", moderationUserId, function(value) setModerationUserId(string.sub(value, 1, 20)) end, 42, UDim2.fromOffset(0, 28)), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 76), BackgroundTransparency = 1 }, moderationButtons)) })
+	end
+	if leader then
+		table.insert(sections, { id = "guild-community-settings", height = 160, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14 }, React.createElement(SectionLabel, { value = "GUILD RULES", color = Palette.violet }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, 90), Position = UDim2.fromOffset(0, 26), BackgroundTransparency = 1 }, settingsRows), React.createElement(Text, { value = "Officer toggles decide whether officers may post news and moderate. Slow mode spaces member messages 6s apart.", size = 10, color = Palette.muted, wrap = true, position = UDim2.fromOffset(0, 116), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
+		local cooldownDays = math.floor((tonumber(guildConfig.RenameCooldownSeconds) or 604800) / 86400)
+		local renameReady = #renameName >= 3 or #renameTag >= 3
+		table.insert(sections, { id = "guild-community-rename", height = 178, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.mango, padding = 14, clips = false },
+			React.createElement(SectionLabel, { value = `RENAME · NOW {string.upper(tostring(guild.Name or ""))} [{guild.Tag or "?"}]`, color = Palette.mango }),
+			React.createElement("textbox", {
+				Size = UDim2.new(0.7, -6, 0, 42),
+				Position = UDim2.fromOffset(0, 28),
+				PlaceholderText = "New guild name (3–28)",
+				Text = renameName,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Change = { Text = function(box) setRenameName(ChatText.cutBytes(box.Text, 28)) end },
+				BackgroundColor3 = fieldStyle.BackgroundColor3,
+				BorderSizePixel = 0,
+				TextColor3 = fieldStyle.TextColor3,
+				PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+				TextSize = fieldStyle.TextSize,
+				ClearTextOnFocus = false,
+				FontFace = fieldStyle.FontFace,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) }), React.createElement("uipadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) })),
+			React.createElement("textbox", {
+				Size = UDim2.new(0.3, 0, 0, 42),
+				Position = UDim2.new(0.7, 0, 0, 28),
+				PlaceholderText = "TAG",
+				Text = renameTag,
+				Change = { Text = function(box) setRenameTag(string.upper(string.sub((string.gsub(box.Text, "[^%w]", "")), 1, 4))) end },
+				BackgroundColor3 = fieldStyle.BackgroundColor3,
+				BorderSizePixel = 0,
+				TextColor3 = fieldStyle.TextColor3,
+				PlaceholderColor3 = fieldStyle.PlaceholderColor3,
+				TextSize = fieldStyle.TextSize,
+				ClearTextOnFocus = false,
+				FontFace = fieldStyle.FontFace,
+			}, React.createElement("uicorner", { CornerRadius = UDim.new(0, 10) })),
+			React.createElement(Button, { text = "RENAME GUILD", onClick = function()
+				local nextName = if #renameName >= 3 then renameName else tostring(guild.Name or "")
+				run("RenameGuild", { Name = nextName, Tag = if #renameTag >= 3 then renameTag else nil }, function(result) if result.ok then setRenameName(""); setRenameTag("") end end)
+			end, color = Palette.mango, textColor = Palette.ink, size = UDim2.new(1, 0, 0, 40), position = UDim2.fromOffset(0, 78), disabled = busy ~= "" or not renameReady, loading = busy == "RenameGuild", reducedMotion = reducedMotion }),
+			React.createElement(Text, { value = `Costs {tostring(guildConfig.RenameCost or 10000)} flux · once every {cooldownDays} days · names are filtered`, size = 10, color = Palette.muted, position = UDim2.fromOffset(0, 124), sizeConstraint = UDim2.new(1, 0, 0, 16) })) })
+	end
+	if manager then
+		local activeLogo = community.Logo
+		local logoPreview = activeLogo and activeLogo.URL and React.createElement("imagelabel", { Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -60, 0, 0), BackgroundTransparency = 1, Image = activeLogo.URL, ScaleType = Enum.ScaleType.Fit })
+		table.insert(sections, { id = "guild-community-logo", height = 164 + #logoRows * 94, element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = Palette.violet, padding = 14, clips = false }, React.createElement(SectionLabel, { value = "ROBLOX IMAGE LOGO · REVIEW REQUIRED", color = Palette.violet }), logoPreview, input("Roblox image asset ID", logoAsset, setLogoAsset, 42, UDim2.fromOffset(0, 28)), React.createElement(Button, { text = "SUBMIT FOR REVIEW", onClick = function() run("UploadGuildLogo", { URL = logoAsset }, function(result) if result.ok then setLogoAsset("") end end) end, color = Palette.violet, textColor = Palette.cream, size = UDim2.new(1, 0, 0, 38), position = UDim2.fromOffset(0, 76), disabled = busy ~= "" or settings.LogoEnabled == false or logoAsset == "", reducedMotion = reducedMotion }), React.createElement("frame", { Size = UDim2.new(1, 0, 0, #logoRows * 90), Position = UDim2.fromOffset(0, 120), BackgroundTransparency = 1 }, React.createElement("uilistlayout", { FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }), logoRows)) })
+	end
+	return React.createElement(PageScaffold, { gap = 10, tailPad = scrollTail(stack, 0, 72), scrollBarColor = Palette.cyan, scrollBarThickness = 4, sections = sections })
+end
+
 local function GuildView(_param)
 	local state = _param.state
 	local config = _param.config
@@ -3406,6 +3802,7 @@ local function GuildView(_param)
 	local membersReveal = useStagger(2, softMotion)
 	local goalReveal = useStagger(3, softMotion)
 	local _, refreshRequest = React.useState(0)
+
 	local request = React.useMemo(function()
 		return createRequest(dispatch,task.delay,function() refreshRequest(function(v) return v+1 end) end)
 	end,{dispatch})
@@ -3515,7 +3912,19 @@ local function GuildView(_param)
 			},
 		})
 	end
+	if pane == "Community" then
+		return React.createElement(GuildCommunityPanel, {
+			guild = guild,
+			dispatch = dispatch,
+			reducedMotion = softMotion,
+			stack = stack,
+			role = guild.Members[localKey] and guild.Members[localKey].Role or "Member",
+			config = config,
+			onBack = function() setPane("Overview") end,
+		})
+	end
 	local members = {}
+
 	for key, member in pairs(guild.Members) do
 		local _arg0 = {
 			key = key,
@@ -3976,14 +4385,16 @@ local function GuildView(_param)
 	}), memberChildren)
 	local hall=Social.hall(guild)
 	local tabs={}
-	local columns=if stack then 2 else 4
-	for index,id in {"Overview","Treasury","Upgrades","Members"} do
+	local columns=if stack then 2 else 3
+	local guildTabs={"Overview","Treasury","Upgrades","Members","Community"}
+	for index,id in guildTabs do
 		tabs[index]=React.createElement(Button,{text=string.upper(id),size=UDim2.new(1/columns,-6,0,48),position=UDim2.new(((index-1)%columns)/columns,0,0,math.floor((index-1)/columns)*56),color=if pane==id then Palette.violet else Palette.panelSoft,onClick=function() setPane(id) end,reducedMotion=softMotion})
 	end
+	local navigationHeight=math.ceil(#guildTabs/columns)*56
 	local sections={
 		{id="hero",height=heroHeight,element=_exp_11},
 		statusSection(),
-		{id="guild-navigation",height=if stack then 112 else 56,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
+		{id="guild-navigation",height=navigationHeight,element=React.createElement("frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},tabs)},
 	}
 	local function add(id,height,element) table.insert(sections,{id=id,height=height,element=element}) end
 	if pane=="Overview" then
@@ -4044,6 +4455,7 @@ local measureWrappedTextHeight = _ui.measureWrappedTextHeight
 local ScriptedText = require(script.Parent.Parent.ReactHosts)("RichTextHost").ScriptedText
 local SearchField = _ui.SearchField
 local Browse = require(script.Parent.Parent.BrowseKit)
+local ChatText = require(script.Parent.Parent.CoreKit)("chatText")
 
 local h = React.createElement
 local ROW_H = 84
@@ -4065,7 +4477,7 @@ end
 
 local function Avatar(props)
 	local item = props.item
-	local letter = string.upper(string.sub(item.Sender or "?", 1, 1))
+	local letter = ChatText.initial(item.Sender)
 	return h("frame", {
 		Size = UDim2.fromOffset(props.size, props.size),
 		Position = props.position,
@@ -4736,6 +5148,8 @@ local PageScaffold = require(script.Parent.Parent.LayoutKit)("pageScaffold").Pag
 local FlatList = require(script.Parent.Parent.LayoutKit)("virtualizedList").FlatList
 local SearchField = _ui.SearchField
 local Browse = require(script.Parent.Parent.BrowseKit)
+local ElementFx = require(script.Parent.Parent.ElementFx).ElementFx
+local ARTIFACT_CHIP_W = 124
 local ROW_HEIGHT = 98
 local CARD_H = 90
 local SYSTEM_CARD_H = 66
@@ -4906,6 +5320,13 @@ local function MessageRow(_param)
 		Transparency = fade:map(function(amount)
 			return (if message.localPlayer then 0.32 else 0.58) + amount * 0.42
 		end),
+	}), message.artifactElement ~= nil and React.createElement(ElementFx, {
+		element = message.artifactElement,
+		size = UDim2.fromOffset(64, 64),
+		position = UDim2.fromOffset(33, 38),
+		tint = message.artifactColor,
+		transparency = 0.25,
+		reducedMotion = reducedMotion,
 	}), React.createElement("frame", {
 		Size = UDim2.fromOffset(42, 42),
 		Position = UDim2.fromOffset(12, 17),
@@ -4945,9 +5366,42 @@ local function MessageRow(_param)
 		fit = true,
 		minSize = 10,
 		position = UDim2.fromOffset(66, 8),
-		sizeConstraint = UDim2.new(1, -(STATUS_RESERVE + 72), 0, 18),
+		sizeConstraint = UDim2.new(1, -(STATUS_RESERVE + 72 + (if message.artifactName ~= nil then ARTIFACT_CHIP_W - 52 else 0)), 0, 18),
 		transparency = fade,
-	}), if message.titleName ~= nil then React.createElement(AnimatedTitle, {
+	}), message.artifactName ~= nil and React.createElement("frame", {
+		Size = UDim2.fromOffset(ARTIFACT_CHIP_W, 20),
+		Position = UDim2.new(1, -(78 + ARTIFACT_CHIP_W), 0, 9),
+		BackgroundColor3 = darken(message.artifactColor or accent, 0.72),
+		BackgroundTransparency = fade:map(function(amount)
+			return 0.1 + amount * 0.9
+		end),
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, React.createElement("uicorner", {
+		CornerRadius = UDim.new(1, 0),
+	}), React.createElement("uistroke", {
+		Color = message.artifactColor or accent,
+		Thickness = 1,
+		Transparency = pulse:map(function(amount)
+			return 0.25 + amount * 0.35
+		end),
+	}), message.artifactElement ~= nil and React.createElement(ElementFx, {
+		element = message.artifactElement,
+		size = UDim2.fromOffset(22, 22),
+		position = UDim2.fromOffset(12, 10),
+		tint = message.artifactColor,
+		reducedMotion = reducedMotion,
+	}), React.createElement(Text, {
+		value = string.upper(message.artifactName),
+		size = 10,
+		color = lighten(message.artifactColor or accent, 0.2),
+		weight = Enum.FontWeight.Heavy,
+		fit = true,
+		minSize = 8,
+		position = UDim2.fromOffset(24, 3),
+		sizeConstraint = UDim2.new(1, -30, 0, 14),
+		transparency = fade,
+	})), if message.titleName ~= nil then React.createElement(AnimatedTitle, {
 		text = message.titleName,
 		fx = message.titleFx,
 		size = 12,

@@ -1,4 +1,5 @@
 --!strict
+local StoreAccess = require(script.Parent.Parent.Modules.StoreAccess)
 
 return function(loadService: (string) -> any)
 	local Players = game:GetService("Players")
@@ -22,13 +23,17 @@ return function(loadService: (string) -> any)
 	-- Use a dedicated DataStore key so the next server can roll them over after shutdown.
 	local LOTTERY_ROLLOVER_KEY = "AF_LotteryRollover_v1"
 	local LOTTERY_ROLLOVER_MAX_AGE = 86400
-	local lotteryStore = DataStoreService:GetDataStore("AstralForgeBazaar")
+	local lotteryStore = StoreAccess.data("AstralForgeBazaar")
 
 	local function loadLotteryRollover()
 		local ok, saved = pcall(function()
 			return lotteryStore:GetAsync(LOTTERY_ROLLOVER_KEY)
 		end)
-		if ok and type(saved) == "table" then
+		if not ok then
+			ModuleLog.Warn("Bazaar", "lottery rollover read failed: " .. tostring(saved))
+			return
+		end
+		if type(saved) == "table" then
 			local age = os.time() - (tonumber(saved.SavedAt) or 0)
 			if age < LOTTERY_ROLLOVER_MAX_AGE then
 				lottery.Pot = saved.Pot or lottery.Pot
@@ -61,7 +66,7 @@ return function(loadService: (string) -> any)
 	end
 
 	-- Attempt to recover the previous server's pot/pending prizes once at startup.
-	pcall(loadLotteryRollover)
+	task.defer(loadLotteryRollover)
 
 	-- Record the current pot and any unclaimed prizes when this server shuts down.
 	game:BindToClose(function()
@@ -120,9 +125,6 @@ return function(loadService: (string) -> any)
 			for _, name in BazaarMath.COUNTERS do
 				contracts.Baseline[name] = 0
 			end
-			local casino = profile.Casino
-			contracts.Baseline.Rounds = if type(casino) == "table" then math.floor(tonumber(casino.Played) or 0) else 0
-			contracts.Baseline.Wins = if type(casino) == "table" then math.floor(tonumber(casino.Won) or 0) else 0
 			for _, name in { "Deals", "Deposits", "Tickets", "Interest" } do
 				contracts.Baseline[name] = bazaar.Counters[name]
 			end
@@ -131,12 +133,6 @@ return function(loadService: (string) -> any)
 	end
 
 	local function currentOf(profile, bazaar, counter: string): number
-		local casino = profile.Casino
-		if counter == "Rounds" then
-			return if type(casino) == "table" then math.floor(tonumber(casino.Played) or 0) else 0
-		elseif counter == "Wins" then
-			return if type(casino) == "table" then math.floor(tonumber(casino.Won) or 0) else 0
-		end
 		return bazaar.Counters[counter]
 	end
 

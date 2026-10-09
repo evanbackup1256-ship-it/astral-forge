@@ -226,12 +226,12 @@ do
 	end
 	assert(confirmRuns == 1, "ConfirmTrade should funnel through one shared handler, got " .. tostring(confirmRuns))
 	assert(
-		string.find(view, 'local confirmDisabled = busy ~= "" or not bothReady', 1, true),
-		"confirmDisabled must share the bothReady gate"
+		string.find(view, 'local confirmDisabled = busy ~= "" or offerPending or not bothReady', 1, true),
+		"confirmDisabled must require bothReady and a synchronized offer"
 	)
 	assert(
-		string.find(view, 'local readyDisabled = busy ~= "" or (tableEmpty and not youReadyLocal)', 1, true),
-		"readyDisabled must share the tableEmpty gate"
+		string.find(view, 'local readyDisabled = busy ~= "" or offerPending or (tableEmpty and not youReadyLocal)', 1, true),
+		"readyDisabled must require a synchronized, nonempty offer"
 	)
 	local disabledConfirm = 0
 	for _ in string.gmatch(view, "disabled = confirmDisabled") do

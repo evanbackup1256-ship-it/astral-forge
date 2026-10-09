@@ -2463,6 +2463,12 @@ local FILTERS = { {
 }, {
 	id = "Protected",
 	label = "Protected only",
+}, {
+	id = "Duplicates",
+	label = "Duplicates",
+}, {
+	id = "Starred",
+	label = "Starred only",
 } }
 local SORTS = { {
 	id = "Rarity",
@@ -2476,6 +2482,12 @@ local SORTS = { {
 }, {
 	id = "Newest",
 	label = "Newest first",
+}, {
+	id = "Stars",
+	label = "Most stars",
+}, {
+	id = "Salvage",
+	label = "Salvage value",
 }, {
 	id = "Name",
 	label = "Name A-Z",
@@ -3325,6 +3337,7 @@ local function DetailPanel(_param)
 			text = if locked then "UNPROTECT" else "PROTECT",
 			icon = "Lock",
 			onClick = function()
+				Audio:play(if locked then "favoriteOff" else "favoriteOn")
 				return dispatch("ToggleItemLock", {
 					Uid = item.uid,
 				})

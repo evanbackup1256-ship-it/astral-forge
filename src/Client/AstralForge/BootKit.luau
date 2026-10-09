@@ -512,6 +512,15 @@ local function easeOutCubic(t: number): number
 	return 1 - u * u * u
 end
 
+-- whole UTF-8 characters; byte slots split "…" and "·" into garbage glyphs
+local function characters(text: string): { string }
+	local list = {}
+	for character in string.gmatch(text, utf8.charpattern) do
+		table.insert(list, character)
+	end
+	return list
+end
+
 type Props = {
 	text: string,
 	clock: React.Binding<number>,
@@ -554,18 +563,14 @@ local function BootStageText(props: Props)
 		rollStartRef.current = os.clock()
 	end, { text, reducedMotion } :: { any })
 
-	local glyphCount = math.min(MAX_CHARS, math.max(#text, #fromRef.current, 8))
+	local targetChars = characters(text)
+	local fromChars = characters(fromRef.current)
+	local glyphCount = math.min(MAX_CHARS, math.max(#targetChars, #fromChars, 8))
 	local children = table.create(glyphCount)
 
 	for i = 1, glyphCount do
-		local targetChar = string.sub(text, i, i)
-		if targetChar == "" then
-			targetChar = " "
-		end
-		local fromChar = string.sub(fromRef.current, i, i)
-		if fromChar == "" then
-			fromChar = " "
-		end
+		local targetChar = targetChars[i] or " "
+		local fromChar = fromChars[i] or " "
 		local x = (i - 0.5) * CHAR_W + (width - glyphCount * CHAR_W) * 0.5
 
 		local motion = React.joinBindings({

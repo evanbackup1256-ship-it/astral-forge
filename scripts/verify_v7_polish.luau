@@ -1,0 +1,162 @@
+--!nonstrict
+local fs = require("./_memberfs")(require("@lune/fs"))
+local luau = require("@lune/luau")
+local roblox = require("@lune/roblox")
+local Firewall = require("../src/Server/AstralForge/Modules/OpsMath")("RemoteFirewallMath")
+local Tokens = require("../src/Client/AstralForge/MotionKit")("motionTokens")
+
+local function source(path)
+	return (fs.readFile(path):gsub("\r\n", "\n"))
+end
+local function extract(body, first, last)
+	local start = assert(body:find(first, 1, true), first)
+	local stop = assert(body:find(last, start, true), last)
+	return body:sub(start, stop - 1)
+end
+local function load(body, environment)
+	return luau.load(body, { environment = setmetatable(environment or {}, { __index = getfenv(0) }) })()
+end
+local Theme = load(source("src/Shared/AstralForge/Shared/ForgeTheme.luau"), { Color3 = roblox.Color3 })
+
+local trade = source("src/Client/AstralForge/pages/PagesSocial.luau#TradeView")
+local lists = extract(trade, "local BOOSTS =", "local BOOST_LABELS =")
+local offerFunctions = extract(trade, "local function emptyOffer()", "local function itemName(")
+local emptyOffer, wireOffer = load(lists .. offerFunctions .. "\nreturn emptyOffer, wireOffer")
+local offer = emptyOffer()
+offer.Cash = 50
+offer.Boosts.Overdrive = 1
+offer.Keys.ForgeCrate = 1
+offer.ItemIds = { "item-1", "item-2", "item-3", "item-4", "item-5", "item-6" }
+offer.Items = { { Name = "Server display only", Stats = { Damage = 100 } } }
+local envelope = { Offer = table.clone(offer), Gen = 1, N = 2, Auth = "test", Txn = "test", TxnId = "test" }
+envelope.Offer.Items = nil
+assert(not Firewall.Inspect(envelope), "dense trade reproduces the default 32-entry rejection")
+assert(Firewall.Inspect(envelope, nil, nil, nil, Firewall.TRADE_MAX_ENTRIES), "trade budget accepts all supported fields, six items and transport metadata")
+assert(Firewall.ValidateTradeOffer(envelope.Offer, 6))
+local compact = wireOffer(offer)
+assert(compact.Items == nil and compact.Boosts.DomainSurge == nil and compact.Keys.EchoCrate == nil)
+assert(compact.Boosts.Overdrive == 1 and compact.Keys.ForgeCrate == 1 and compact.Cash == 50)
+assert(#compact.ItemIds == 6 and compact.ItemIds ~= offer.ItemIds, "wire IDs are isolated from the draft")
+envelope.Offer = compact
+assert(Firewall.Inspect(envelope), "normal sparse trade also fits the default budget")
+assert(not Firewall.ValidateTradeOffer(offer, 6), "client cannot supply display snapshots")
+for _, malformed in {
+	{ Cash = -1 }, { Cash = 0.5 }, { Cash = math.huge }, { Cash = "50" },
+	{ Boosts = { Overdrive = -1 } }, { Keys = { ForgeCrate = 0.5 } },
+	{ ItemIds = { "1", "2", "3", "4", "5", "6", "7" } }, { ItemIds = { "" } },
+	{ ItemIds = { [2] = "sparse" } }, { ItemIds = { string.rep("x", 49) } },
+	{ Unknown = 0 },
+} do
+	assert(not Firewall.ValidateTradeOffer(malformed, 6), "invalid trade offer must be rejected")
+end
+local excess = {}
+for index = 1, 65 do excess[index] = index end
+assert(not Firewall.Inspect(excess, nil, nil, nil, Firewall.TRADE_MAX_ENTRIES))
+local cycle = {}
+cycle.Self = cycle
+assert(not Firewall.Inspect(cycle, nil, nil, nil, Firewall.TRADE_MAX_ENTRIES))
+assert(not Firewall.Inspect({ A = { B = { C = { D = {} } } } }, nil, nil, nil, Firewall.TRADE_MAX_ENTRIES))
+local firewallSource = source("src/Server/AstralForge/Services/RemoteFirewall.luau")
+assert(firewallSource:find("if action == Protocol.Actions.UpdateTradeOffer then RemoteFirewallMath.TRADE_MAX_ENTRIES else nil", 1, true))
+assert(firewallSource:find("RemoteFirewallMath.ValidateTradeOffer(payload.Offer, GameConfig.Trading.MaxItems)", 1, true))
+assert(trade:find("offerSessionRef.current ~= sessionId", 1, true), "session changes invalidate pending offers")
+assert(trade:find("revision ~= offerRevisionRef.current", 1, true), "stale offer replies cannot overwrite newer drafts")
+
+for _, intensity in { 0, 0.1, 0.5, 1 } do
+	local feel = Tokens.feel(620 * Tokens.responseScale(intensity), 48)
+	assert(Tokens.settleSeconds(feel) <= 0.4, "low motion intensity must not slow controls")
+	local referenceX, referenceV = Tokens.step(0, 0, 1, feel, 1)
+	for _, fps in { 15, 30, 60, 144 } do
+		local x, v = 0, 0
+		for _ = 1, fps do x, v = Tokens.step(x, v, 1, feel, 1 / fps) end
+		assert(math.abs(x - referenceX) < 1e-8 and math.abs(v - referenceV) < 1e-8, "spring timing is frame-rate independent")
+	end
+end
+local motion = source("src/Client/AstralForge/MotionKit.luau#motion")
+assert(motion:find("if atRest and math.abs(raw:getValue() - goal) < 1e-7 then", 1, true), "settled motors are not restarted by unchanged goals")
+assert(motion:find("driver:Disconnect()", 1, true), "idle motion driver disconnects")
+local driverBody = extract(motion, "function stopDriverIfIdle()", "local function subscribe(")
+local countNames = { "flipperCount", "listenerCount", "continuousListenerCount", "realtimeClockCount", "decorativeClockCount", "pendingArrivalCount" }
+local stopDriver = load("return function(driver, " .. table.concat(countNames, ", ") .. ")\n"
+	.. driverBody:gsub("function stopDriverIfIdle", "local function stopDriverIfIdle")
+	.. "\nstopDriverIfIdle()\nreturn driver\nend")
+for activeIndex, activeCount in countNames do
+	local disconnects = 0
+	local driver = { Disconnect = function() disconnects += 1 end }
+	local counts = { 0, 0, 0, 0, 0, 0 }
+	counts[activeIndex] = 1
+	driver = stopDriver(driver, table.unpack(counts))
+	assert(disconnects == 0 and driver ~= nil, activeCount .. " keeps the shared driver alive")
+	counts[activeIndex] = 0
+	driver = stopDriver(driver, table.unpack(counts))
+	driver = stopDriver(driver, table.unpack(counts))
+	assert(disconnects == 1 and driver == nil, "idle disconnect is idempotent")
+end
+local arms = 0
+local fakeMotor = {}
+function fakeMotor.new(initial)
+	local raw = { value = initial }
+	function raw:onComplete(callback) self.complete = callback end
+	function raw:onStep(callback) self.change = callback end
+	function raw:getValue() return self.value end
+	function raw:setGoal(goal) self.goal = goal end
+	function raw:step()
+		self.value = self.goal._targetValue
+		self.change(self.value)
+		self.complete()
+		return true
+	end
+	function raw:stop() end
+	function raw:destroy() self.destroyed = true end
+	return raw
+end
+local createMotor = load(extract(motion, "local function createFlipperMotor(", "local nativePackageCache =") .. "\nreturn createFlipperMotor", {
+	SingleMotor = fakeMotor, MotionTokens = Tokens,
+	Spring = { new = function(initial) return { _targetValue = initial } end },
+	Instant = { new = function(initial) return { _targetValue = initial } end },
+	armFlipper = function() arms += 1 end,
+	disarmFlipper = function() end, stopDriverIfIdle = function() end,
+})
+local motor = createMotor(0, 620, 48)
+motor:setGoal(0)
+assert(arms == 0, "unchanged initial goals do not allocate driver work")
+motor:setGoal(1)
+assert(arms == 1, "changed goals still animate")
+motor.raw:step()
+motor:setGoal(1)
+assert(arms == 1, "completed goals remain idle")
+motor:setPosition(0)
+motor:setGoal(0)
+assert(arms == 1, "instant positioning does not restart a settled motor")
+motor:destroy()
+motor:setGoal(1)
+assert(arms == 1 and motor.raw.destroyed, "disposed motors cannot rearm")
+local ui = source("src/Client/AstralForge/UiCore.luau#ui")
+assert(not ui:find("math.round(-lift", 1, true), "panel motion retains subpixel precision")
+assert(ui:find("setNarrow(instance.AbsoluteSize.X < 360)", 1, true), "steppers respond to their own row width")
+local guard = source("src/Client/AstralForge/layoutGuard.luau")
+assert(guard:find("FRAME_BUDGET_SECONDS = 0.0015", 1, true))
+assert(guard:find("os.clock() < self.deadline", 1, true), "layout scanning yields to the frame deadline")
+assert(guard:find("elseif self.overlapPhase == 2 then", 1, true), "collision passes are spread across frames")
+
+local titles = source("src/Client/AstralForge/ReactHosts.luau#HyperTextHost")
+local kinds = assert(titles:match("local TITLE_FX_KINDS = (%b{})"))
+local accents = extract(titles, "local FX_ACCENT =", "local function titleFxAccent")
+local markupFunctions = extract(titles, "local function colorTag(", "local function buildMarkup(")
+local colorFunctions = extract(source("src/Client/AstralForge/CoreKit.luau#theme"), "local function lighten(", "local function linearChannel(")
+local buildKindMarkup = load(colorFunctions .. accents .. markupFunctions .. "\nreturn buildKindMarkup", { Palette = Theme.newPalette(), Color3 = roblox.Color3 })
+local count = 0
+for _, kind in load("return " .. kinds) do
+	local markup = buildKindMarkup(kind, "ASTRAL")
+	assert(type(markup) == "string" and markup:find("ASTRAL", 1, true), kind .. " retains its title text")
+	for tag in markup:gmatch("<anim=[^>]+>") do
+		local animation = tag:match("<anim=([%w%-]+)")
+		if animation == "slide" or animation == "bounce" then
+			local direction = tag:match("dir=([%w%-]+)")
+			assert(direction == "up" or direction == "down", kind .. " has an unsupported vertical animation direction")
+		end
+	end
+	count += 1
+end
+assert(count >= 37, "all title styles are exercised")
+print(`[INFO] [TEST] 7.0 polish passed | dense/sparse trade, malformed payloads, motion at 15–144 fps, layout scheduling, {count} title styles`)

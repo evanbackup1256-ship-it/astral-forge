@@ -1,5 +1,7 @@
 # Project place file
 /Astral Forge v2.rbxlx
+/Astral Forge v2.rbxl
+/Astral Forge v2 - fresh build.rbxlx
 # Timestamped backups taken before a rebuild
 /*.rbxlx.bak-*
 
@@ -25,3 +27,8 @@ assets/generated/piper/
 assets/generated/bosses/*_atlas.png
 assets/generated/bosses/*_prev_*.png
 *.blend1
+
+# Local agent coordination and scratch output
+/.aaa_*.txt
+/.freebuff/
+/_ul

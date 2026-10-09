@@ -56,8 +56,8 @@ function Board.collect(state, config)
 	add("Lab", "Lab", "Finished orders", PageReadyMath.CountReadyLabOrders(state.Lab), "Lab", Palette.mint)
 	local okPath, pathReady = pcall(PageReadyMath.ForgePathReady, state, config)
 	add("ForgePath", "Forge Path", "Step ready", if okPath and pathReady then 1 else 0, "Forge", Palette.violet)
-	local okAnomaly, anomalyReady = pcall(PageReadyMath.AnomalyReady, state.Anomaly)
-	add("Anomaly", "Shift Plan", "Directive complete", if okAnomaly and anomalyReady then 1 else 0, "Reactor", Palette.pink)
+	local okCipher, cipherOpen = pcall(PageReadyMath.CipherOpen, state.Sky)
+	add("Cipher", "Signal Cipher", "Today's signal is open", if okCipher and cipherOpen then 1 else 0, "Code", Palette.pink)
 	local invite = state.Trade and state.Trade.Invite
 	add("Trade", "Trade", "Trade invite waiting", if invite ~= nil then 1 else 0, "Send", Palette.mint)
 	return list

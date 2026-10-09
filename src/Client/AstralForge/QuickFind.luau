@@ -41,13 +41,12 @@ local PAGE_WORDS = {
 	Missions = "quests jobs tasks daily weekly",
 	Rewards = "daily login streak claim free timed gifts",
 	Wheel = "spin daily prize lucky",
-	Casino = "gamble slots roulette scratch flip high low exchange club",
 	Bazaar = "bank market lottery contracts deals interest",
+	Charts = "star charts constellation stardust plot sky",
+	Cipher = "signal cipher daily puzzle code glyph streak",
 	Boosts = "potions buffs multiplier overdrive surge",
 	Worlds = "zones maps travel expedition",
 	Lab = "orders cells power",
-	Anomaly = "shift plan directives rift",
-	Continuum = "next rank prestige",
 	StarGrid = "dust stardust grid nodes tree",
 	Echoes = "echo forge keep",
 	ForgePath = "path pass track xp chests",
@@ -78,7 +77,6 @@ local KIND_META = {
 	Story = { label = "Story", weight = 0.85, accent = "mint", route = "Story", icon = "Story" },
 	Letter = { label = "Letter", weight = 0.8, accent = "cyan", route = "Mail", icon = "Mail" },
 	Section = { label = "Shop", weight = 1.15, accent = "mango", route = "Shop", icon = "Shop" },
-	Game = { label = "Casino", weight = 1.1, accent = "coral", route = "Casino", icon = "Jackpot" },
 	Deal = { label = "Bazaar", weight = 1.1, accent = "mint", route = "Bazaar", icon = "Shop" },
 }
 
@@ -176,17 +174,6 @@ local function buildStatic()
 		{ id = "Premium", title = "Premium shop", body = "Packs, passes and codes", words = "robux gamepass passes packs codes redeem", icon = "Shop" },
 	} do
 		add("Section", section.id, section.title, section.body, section.words, section.icon, { route = "Shop", query = "", category = section.id })
-	end
-	for _, game in {
-		{ id = "Slots", title = "Slots", body = "Three reels, match symbols", words = "slot machine reels spin jackpot" },
-		{ id = "Flip", title = "Coin flip", body = "Heads or tails", words = "coin heads tails 50 50" },
-		{ id = "HighLow", title = "High-Low", body = "Guess the next card", words = "cards higher lower" },
-		{ id = "Roulette", title = "Roulette", body = "Red, black or a number", words = "wheel red black number" },
-		{ id = "Scratch", title = "Scratch card", body = "Scratch three gems", words = "scratch ticket gems" },
-		{ id = "Exchange", title = "Casino exchange", body = "Trade chips for rewards", words = "chips exchange cash out" },
-		{ id = "Club", title = "Casino club", body = "High roller ranks", words = "vip club rank high roller" },
-	} do
-		add("Game", game.id, game.title, game.body, game.words, "Jackpot", { route = "Casino", query = "", category = game.id })
 	end
 	for _, deal in {
 		{ id = "Bank", title = "Bank", body = "Deposit flux and earn interest", words = "deposit interest savings term", icon = "Vault" },
@@ -720,6 +707,9 @@ function QuickFind.QuickFind(props)
 		Change = {
 			Text = function(box)
 				if box.Text ~= query then
+					if box:IsFocused() and #box.Text > #query then
+						Audio:play("searchType")
+					end
 					setQuery(box.Text)
 					setSelected(1)
 				end

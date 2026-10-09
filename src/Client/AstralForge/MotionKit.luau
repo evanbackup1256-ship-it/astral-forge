@@ -29,6 +29,10 @@ Tokens.FREQUENCY_MAX = 8.5
 Tokens.DAMPING_MIN = 0.76
 Tokens.DAMPING_MAX = 1.0
 
+function Tokens.responseScale(intensity: number): number
+	return 0.9 + math.clamp(intensity, 0, 1) * 0.2
+end
+
 function Tokens.feel(stiffness: number, damping: number): Feel
 	local frequency = math.clamp(stiffness / 130, Tokens.FREQUENCY_MIN, Tokens.FREQUENCY_MAX)
 	local raw = damping / 52
@@ -156,7 +160,7 @@ function Tokens.entranceSpring(duration: number, soft: boolean?): (number, numbe
 end
 
 Tokens.STAGGER_STEP = 0.028
-Tokens.STAGGER_CAP = 0.24
+Tokens.STAGGER_CAP = 0.16
 function Tokens.stagger(index: number, step: number?): number
 	local s = step or Tokens.STAGGER_STEP
 	local i = math.max(0, index)
@@ -580,6 +584,7 @@ local ViewportScaleContext = __load("autoScale").ViewportScaleContext
 local MotionTokens = __load("motionTokens")
 local Breakpoints = require(script.Parent.CoreKit)("theme").Breakpoints
 local usesDesktopStructure = require(script.Parent.CoreKit)("interaction").usesDesktopStructure
+local MotionIntent = require(ReplicatedStorage:WaitForChild("AstralForge"):WaitForChild("Shared"):WaitForChild("MotionIntent"))
 local BEZIER_CIRCLE_KAPPA = 0.5522847498
 local function cubicPoint(alpha, p0, p1, p2, p3)
 	local point = BezierCurve:cubicBezier(math.clamp(alpha, 0, 1), p0, p1, p2, p3)
@@ -682,6 +687,10 @@ local function createFlipperMotor(initial, stiffness, damping)
 		damping = 22
 	end
 	local raw = SingleMotor.new(initial, false)
+	local atRest = true
+	raw:onComplete(function()
+		atRest = true
+	end)
 	local feel = MotionTokens.feel(stiffness, damping)
 	local frequency = feel.frequency
 	local dampingRatio = feel.dampingRatio
@@ -765,6 +774,10 @@ local function createFlipperMotor(initial, stiffness, damping)
 			if destroyed then
 				return nil
 			end
+			if atRest and math.abs(raw:getValue() - goal) < 1e-7 then
+				return nil
+			end
+			atRest = false
 			springGoal._targetValue = goal
 			springGoal._frequency = frequency
 			springGoal._dampingRatio = dampingRatio
@@ -776,6 +789,7 @@ local function createFlipperMotor(initial, stiffness, damping)
 				return nil
 			end
 			instantGoal._targetValue = position
+			atRest = true
 			suppressEmit = true
 			raw:setGoal(instantGoal)
 			local complete = raw:step(0)
@@ -1144,7 +1158,7 @@ function ensureDriver()
 		return nil
 	end
 	driver = RunService.RenderStepped:Connect(function(deltaTime)
-		local clamped = math.min(deltaTime, 0.05)
+		local clamped = math.clamp(deltaTime, 0, 0.25)
 		local sample = math.min(deltaTime, 0.1)
 		frameEma += (sample - frameEma) * math.min(1, sample * 2.5)
 		local pressureTarget = math.clamp((frameEma - LAG_START_SECONDS) / (LAG_FULL_SECONDS - LAG_START_SECONDS), 0, 1)
@@ -1192,11 +1206,14 @@ function ensureDriver()
 			end
 		end
 		pumpArrivals()
+		stopDriverIfIdle()
 	end)
 end
 function stopDriverIfIdle()
-	if driver == nil then
-		ensureDriver()
+	if driver ~= nil and flipperCount == 0 and listenerCount == 0 and continuousListenerCount == 0
+		and realtimeClockCount == 0 and decorativeClockCount == 0 and pendingArrivalCount == 0 then
+		driver:Disconnect()
+		driver = nil
 	end
 end
 local function subscribe(listener)
@@ -1275,7 +1292,7 @@ local function useSpring(goal, reducedMotion, stiffness, damping, initial)
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
 	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
-	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
+	local effectiveStiffness = stiffness * MotionTokens.responseScale(motionScale)
 	local feel = MotionTokens.feel(effectiveStiffness, damping)
 	local binding, ripple = useRippleSpring(initial, {
 		start = true,
@@ -1303,7 +1320,7 @@ local function useFlipperSpring(goal, reducedMotion, stiffness, damping, initial
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
 	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
-	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
+	local effectiveStiffness = stiffness * MotionTokens.responseScale(motionScale)
 	local binding, setBinding = React.useBinding(initial)
 	local setBindingRef = React.useRef(setBinding)
 	setBindingRef.current = setBinding
@@ -1389,7 +1406,7 @@ local function useOtterSpring(goal, reducedMotion, initial, dampingRatio, freque
 		end
 		motor:setGoal(otter.spring(goal, {
 			dampingRatio = math.clamp(dampingRatio, 0.6, 1.25),
-			frequency = math.max(0.5, frequency * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)),
+			frequency = math.max(0.5, frequency * MotionTokens.responseScale(motionScale)),
 			restingVelocityLimit = 0.001,
 			restingPositionLimit = 0.001,
 		}))
@@ -1435,7 +1452,7 @@ local function useSprScale(goal, reducedMotion, initial, dampingRatio, frequency
 			scale.Scale = initial
 		end
 		if scale.Parent ~= nil and scaleRef.current == scale then
-			spr.target(scale, math.clamp(dampingRatio, 0.6, 1.25), math.max(1, frequency * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)), {
+			spr.target(scale, math.clamp(dampingRatio, 0.6, 1.25), math.max(1, frequency * MotionTokens.responseScale(motionScale)), {
 				Scale = goal,
 			})
 		end
@@ -1483,7 +1500,7 @@ local function useOptionalFlipperSpring(goal, enabled, reducedMotion, stiffness,
 	local _binding = useMotionSettings()
 	local motionScale = _binding.motionScale
 	stiffness, damping = softSpring(stiffness, damping, _binding.soft == true)
-	local effectiveStiffness = stiffness * math.clamp(motionScale, MOTION_SCALE_FLOOR, MOTION_SCALE_CEIL)
+	local effectiveStiffness = stiffness * MotionTokens.responseScale(motionScale)
 	local binding, setBinding = React.useBinding(if enabled then goal else 0)
 	local setBindingRef = React.useRef(setBinding)
 	setBindingRef.current = setBinding
@@ -2109,8 +2126,42 @@ local function useViewport()
 		}
 	end, { host, size, keyboardOpen })
 end
+local function resolveIntent(request)
+	return MotionIntent.resolve(request)
+end
+-- Picks springs/travel/flash/cues from what the element is; callers pass role or name.
+local function useIntent(request, antilagInfo)
+	local settings = useMotionSettings()
+	local reduced = request.reduced
+	if reduced == nil then
+		reduced = settings ~= nil and (settings.soft == true or (settings.motionScale or 1) <= MOTION_SCALE_FLOOR)
+	end
+	local info = antilagInfo or {}
+	return React.useMemo(function()
+		return MotionIntent.resolve({
+			role = request.role,
+			name = request.name,
+			rarity = request.rarity,
+			tone = request.tone,
+			emphasis = request.emphasis,
+			reduced = reduced,
+			tier = info.tier,
+			particleBudget = info.particleBudget,
+			glowScale = info.glowScale,
+			allowConfetti = info.allowConfetti,
+		})
+	end, { request.role, request.name, request.rarity, request.tone, request.emphasis, reduced, info.tier, info.particleBudget, info.glowScale, info.allowConfetti } :: { any })
+end
+local function useIntentSpring(goal, plan)
+	local spring = if goal > 0.5 then plan.enter else plan.exit
+	return useFlipperSpring(goal, plan.reduced, spring.stiffness, spring.damping)
+end
 ensureDriver()
 return {
+	MotionIntent = MotionIntent,
+	resolveIntent = resolveIntent,
+	useIntent = useIntent,
+	useIntentSpring = useIntentSpring,
 	bezierOrbit = bezierOrbit,
 	createFlipperMotor = createFlipperMotor,
 	loadOtter = loadOtter,

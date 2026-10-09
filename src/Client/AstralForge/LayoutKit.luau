@@ -1377,6 +1377,12 @@ function PageReadyMath.AnomalyReady(anomaly: any): boolean
 	return false
 end
 
+-- Signal Cipher replaced Shift Plan as the daily call to action: open until solved or failed today
+function PageReadyMath.CipherOpen(sky: any): boolean
+	local cipher = if type(sky) == "table" then sky.Cipher else nil
+	return type(cipher) == "table" and cipher.Solved ~= true and cipher.Failed ~= true
+end
+
 function PageReadyMath.OpsClaims(missionsReady: any, labReady: any, pathReady: any, anomalyReady: any): number
 	local total = math.max(0, math.floor(tonumber(missionsReady) or 0))
 		+ math.max(0, math.floor(tonumber(labReady) or 0))

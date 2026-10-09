@@ -1,1428 +1,1540 @@
 {
   "sfx": {
-    "length": 258.574,
+    "length": 256.484,
     "regions": {
       "hover": [
         0.15,
-        0.116
+        0.04
       ],
       "hoverTick": [
-        0.416,
-        0.084
+        0.34,
+        0.035
       ],
       "tick": [
-        0.65,
-        0.049
+        0.525,
+        0.03
       ],
       "scroll": [
-        0.849,
-        0.056
+        0.705,
+        0.025
       ],
       "sliderStep": [
-        1.055,
-        0.042
+        0.88,
+        0.025
       ],
       "amountChange": [
-        1.247,
-        0.0392
+        1.055,
+        0.03
       ],
       "filterPick": [
-        1.4362,
-        0.056
+        1.235,
+        0.07
       ],
       "sanctuaryHover": [
-        1.6422,
-        0.112
+        1.455,
+        0.045
       ],
       "navHover": [
-        1.9042,
-        0.1
+        1.65,
+        0.04
       ],
       "click": [
-        2.1542,
-        0.146
+        1.84,
+        0.092
       ],
       "settings": [
-        2.4502,
-        0.14
+        2.082,
+        0.092
       ],
       "purchasePress": [
-        2.7402,
-        0.14
+        2.3239,
+        0.18
       ],
       "claimPress": [
-        3.0302,
-        0.1396
+        2.6539,
+        0.25
       ],
       "codeSubmit": [
-        3.3198,
+        3.0539,
         0.1398
       ],
       "zoneSelect": [
-        3.6097,
+        3.3438,
         0.14
       ],
       "labRoute": [
-        3.8997,
+        3.6338,
         0.14
       ],
       "playerlistAction": [
-        4.1897,
-        0.14
+        3.9238,
+        0.092
       ],
       "playerlistSelect": [
-        4.4797,
-        0.1377
+        4.1658,
+        0.045
       ],
       "puzzleTap": [
-        4.7674,
+        4.3608,
         0.1276
       ],
       "sanctuaryClick": [
-        5.045,
-        0.1399
+        4.6384,
+        0.092
       ],
       "curtainOpen": [
-        5.3349,
-        1.182
+        4.8804,
+        0.4729
       ],
       "curtainClose": [
-        6.6669,
-        1.142
+        5.5033,
+        0.34
       ],
       "confirm": [
-        7.9589,
-        0.8615
+        5.9933,
+        0.3718
       ],
       "successChime": [
-        8.9704,
-        0.7339
+        6.5151,
+        0.5101
       ],
       "equip": [
-        9.8543,
-        0.7715
+        7.1752,
+        0.7749
       ],
       "itemLink": [
-        10.7758,
+        8.1001,
         0.623
       ],
       "tutorialStep": [
-        11.5488,
+        8.8731,
         0.7051
       ],
       "roleChange": [
-        12.4039,
+        9.7282,
         0.8496
       ],
       "reactorStabilize": [
-        13.4035,
+        10.7278,
         0.9596
       ],
       "toggleOn": [
-        14.5131,
-        0.16
+        11.8374,
+        0.1
       ],
       "toggleOff": [
-        14.8231,
-        0.16
+        12.0874,
+        0.1
       ],
       "queueStart": [
-        15.1331,
+        12.3374,
         0.24
       ],
       "queueStop": [
-        15.5231,
+        12.7274,
         0.16
       ],
       "open": [
-        15.8331,
-        0.7169
+        13.0374,
+        0.2738
       ],
       "modalOpen": [
-        16.7,
-        0.722
+        13.4612,
+        0.3505
       ],
       "filterOpen": [
-        17.572,
-        0.6477
+        13.9617,
+        0.09
       ],
       "boostOpen": [
-        18.3697,
+        14.2017,
         0.7217
       ],
       "offlineOpen": [
-        19.2414,
+        15.0734,
         0.722
       ],
       "playerlistOpen": [
-        20.1134,
-        0.646
+        15.9454,
+        0.12
       ],
       "story": [
-        20.9094,
-        0.722
+        16.2154,
+        0.3982
       ],
       "storyOpen": [
-        21.7814,
+        16.7637,
         0.722
       ],
       "crate": [
-        22.6534,
+        17.6356,
         0.722
       ],
       "close": [
-        23.5254,
-        0.662
+        18.5076,
+        0.14
       ],
       "modalDismiss": [
-        24.3373,
-        0.592
+        18.7976,
+        0.14
       ],
       "purchaseExit": [
-        25.0793,
-        0.6186
+        19.0876,
+        0.12
       ],
       "playerlistClose": [
-        25.8479,
-        0.662
+        19.3576,
+        0.11
       ],
       "noticeClose": [
-        26.6599,
-        0.6135
+        19.6176,
+        0.07
       ],
       "itemUnlink": [
-        27.4234,
+        19.8376,
         0.662
       ],
       "reset": [
-        28.2354,
+        20.6496,
         0.602
       ],
       "memberRemove": [
-        28.9874,
+        21.4016,
         0.662
       ],
       "guildLeave": [
-        29.7994,
+        22.2136,
         0.662
       ],
       "gamePause": [
-        30.6114,
+        23.0256,
         0.6599
       ],
       "gameExit": [
-        31.4213,
+        23.8355,
         0.602
       ],
       "page": [
-        32.1733,
-        0.372
+        24.5875,
+        0.12
       ],
       "tabSwitch": [
-        32.6953,
-        0.354
+        24.8575,
+        0.07
       ],
       "preview": [
-        33.1993,
+        25.0775,
         0.412
       ],
       "storyBeat": [
-        33.7613,
+        25.6395,
         0.372
       ],
       "storyPage": [
-        34.2833,
-        0.372
+        26.1615,
+        0.24
       ],
       "mailRead": [
-        34.8053,
-        0.372
+        26.5515,
+        0.21
       ],
       "leaderboardSwitch": [
-        35.3273,
-        0.354
+        26.9115,
+        0.07
       ],
       "cardEndTurn": [
-        35.8312,
-        0.372
+        27.1315,
+        0.12
       ],
       "modalPop": [
-        36.3532,
+        27.4015,
         0.08
       ],
       "sliderCommit": [
-        36.5832,
-        0.07
+        27.6315,
+        0.15
       ],
       "inputClear": [
-        36.8032,
-        0.07
+        27.9315,
+        0.08
       ],
       "chatSend": [
-        37.0232,
-        0.455
+        28.1615,
+        0.08
       ],
       "inputFocus": [
-        37.6283,
-        0.02
+        28.3915,
+        0.08
       ],
       "error": [
-        37.7983,
-        0.592
+        28.6215,
+        0.24
       ],
       "errorBuzz": [
-        38.5403,
-        0.71
+        29.0115,
+        0.32
       ],
       "noticeError": [
-        39.4002,
-        0.5821
+        29.4815,
+        0.24
       ],
       "dangerPress": [
-        40.1323,
+        29.8715,
         0.4336
       ],
       "locked": [
-        40.7159,
-        0.21
+        30.4551,
+        0.125
       ],
       "requestBlocked": [
-        41.0759,
+        30.7301,
         0.21
       ],
       "cardBlock": [
-        41.4359,
+        31.0901,
         0.21
       ],
       "noticeWarning": [
-        41.7959,
-        0.7843
+        31.4501,
+        0.26
       ],
       "systemAlert": [
-        42.7302,
+        31.8601,
         0.862
       ],
       "requestTimeout": [
-        43.7422,
+        32.8721,
         0.862
       ],
       "adminArm": [
-        44.7542,
+        33.8841,
         0.7449
       ],
       "mail": [
-        45.6492,
-        1.0813
+        34.779,
+        0.409
       ],
       "notification": [
-        46.8805,
+        35.338,
         0.8914
       ],
       "noticeInfo": [
-        47.9219,
-        0.7937
+        36.3794,
+        0.2389
       ],
       "noticeSuccess": [
-        48.8656,
-        0.9066
+        36.7683,
+        0.379
       ],
       "noticeSpecial": [
-        49.9223,
-        1.8273
+        37.2973,
+        0.5519
       ],
       "boostReady": [
-        51.8996,
-        0.9263
+        37.9993,
+        0.9331
       ],
       "reactorReady": [
-        52.976,
+        39.0824,
         0.7375
       ],
       "crewNudge": [
-        53.8635,
+        39.9698,
         0.612
       ],
       "invite": [
-        54.6255,
+        40.7318,
         0.5808
       ],
       "chatReceive": [
-        55.3563,
-        0.612
+        41.4627,
+        0.12
       ],
       "gameResume": [
-        56.1183,
+        41.7327,
         0.722
       ],
       "velocitySlide": [
-        56.9903,
-        0.862
+        42.6047,
+        0.16
       ],
       "travel": [
-        58.0023,
+        42.9147,
         1.012
       ],
       "purchase": [
-        59.1643,
+        44.0767,
         0.6257
       ],
       "purchaseResult": [
-        59.94,
+        44.8523,
         0.5742
       ],
       "vaultDeposit": [
-        60.6642,
+        45.5766,
         0.6477
       ],
       "vaultBank": [
-        61.4618,
+        46.3742,
         0.6247
       ],
       "guildDeposit": [
-        62.2365,
+        47.1489,
         0.6778
       ],
       "collect": [
-        63.0644,
+        47.9767,
         0.8909
       ],
       "boost": [
-        64.1053,
+        49.0176,
         0.8283
       ],
       "boostActivate": [
-        65.0836,
+        49.996,
         0.8659
       ],
       "offlineCollect": [
-        66.0995,
+        51.0118,
         0.9968
       ],
       "puzzleClear": [
-        67.2463,
+        52.1586,
         0.8141
       ],
       "oreCollect": [
-        68.2103,
+        53.1227,
         0.7881
       ],
       "reward": [
-        69.1484,
+        54.0608,
         2.1409
       ],
       "codeReward": [
-        71.4393,
+        56.3517,
         1.6946
       ],
       "tutorialFinish": [
-        73.2839,
+        58.1963,
         1.8705
       ],
       "domainReward": [
-        75.3044,
+        60.2168,
         1.9866
       ],
       "wheelLand": [
-        77.441,
+        62.3534,
         1.5242
       ],
       "unlock": [
-        79.1152,
+        64.0276,
         1.7267
       ],
       "researchUnlock": [
-        80.9919,
+        65.9043,
         1.5673
       ],
       "achievementClaim": [
-        82.7092,
+        67.6216,
         1.7686
       ],
       "seasonClaim": [
-        84.6278,
+        69.5402,
         1.6384
       ],
       "comboMilestone": [
-        86.4163,
+        71.3286,
         1.6132
       ],
       "discovery": [
-        88.1794,
+        73.0918,
         1.6436
       ],
       "zoneUnlock": [
-        89.973,
+        74.8854,
         1.8092
       ],
       "guildCreate": [
-        91.9322,
+        76.8446,
         1.5137
       ],
       "echoCapture": [
-        93.5959,
+        78.5083,
         1.8834
       ],
       "storyReveal": [
-        95.6293,
+        80.5417,
         1.9675
       ],
       "missionClaim": [
-        97.7468,
+        82.6592,
         1.1684
       ],
       "dailyClaim": [
-        99.0652,
+        83.9776,
         1.0257
       ],
       "timedClaim": [
-        100.2409,
+        85.1532,
         1.1425
       ],
       "mailClaim": [
-        101.5334,
+        86.4457,
         1.0252
       ],
       "crateClaim": [
-        102.7085,
+        87.6209,
         1.0375
       ],
       "echoClaim": [
-        103.8961,
+        88.8085,
         1.0602
       ],
       "guildJoin": [
-        105.1062,
+        90.0186,
         1.0286
       ],
       "expeditionReturn": [
-        106.2848,
+        91.1972,
         1.1433
       ],
       "prestige": [
-        107.5781,
+        92.4905,
         4.0907
       ],
       "rebirthBloom": [
-        111.8188,
+        96.7312,
         3.9206
       ],
       "crateRare": [
-        115.8894,
+        100.8018,
         3.8797
       ],
       "salvage": [
-        119.9191,
+        104.8315,
         0.9537
       ],
       "salvageCrunch": [
-        121.0229,
+        105.9352,
         0.8393
       ],
       "echoDismantle": [
-        122.0122,
+        106.9246,
         1.0821
       ],
       "autoForge": [
-        123.2443,
+        108.1566,
         0.8313
       ],
       "bootStrike": [
-        124.2256,
+        109.138,
         0.9657
       ],
       "bootClang": [
-        125.3413,
+        110.2537,
         0.8437
       ],
       "bootAnvilSplit": [
-        126.335,
+        111.2474,
         1.1455
       ],
       "wardenStrike": [
-        127.6305,
+        112.5429,
         0.6598
       ],
       "wardenCrit": [
-        128.4403,
+        113.3527,
         1.0989
       ],
       "machineInstall": [
-        129.6892,
+        114.6015,
         0.8055
       ],
       "wheelBrake": [
-        130.6447,
+        115.5571,
         0.931
       ],
       "crateBrake": [
-        131.7257,
+        116.6381,
         0.8182
       ],
       "wheel": [
-        132.6939,
+        117.6062,
         0.812
       ],
       "wheelStart": [
-        133.6559,
+        118.5682,
         1.1665
       ],
       "crateOpen": [
-        134.9724,
+        119.8847,
         0.942
       ],
       "expeditionLaunch": [
-        136.0644,
+        120.9767,
         1.112
       ],
       "bootStart": [
-        137.3263,
+        122.2387,
         0.962
       ],
       "bootWhoosh": [
-        138.4383,
+        123.3507,
         1.012
       ],
       "bootFinaleFlip": [
-        139.6003,
+        124.5127,
         0.862
       ],
       "bootSlamAir": [
-        140.6123,
+        125.5247,
         1.162
       ],
       "reactor": [
-        141.9243,
+        126.8367,
         1.2
       ],
       "bootRumble": [
-        143.2743,
+        128.1867,
         1.4
       ],
       "bootFractureTail": [
-        144.8243,
+        129.7367,
         1.6
       ],
       "bootGravity": [
-        146.5743,
+        131.4867,
         1.5
       ],
       "bootAftershock": [
-        148.2243,
+        133.1367,
         1.3
       ],
       "reactorSurge": [
-        149.6743,
+        134.5867,
         1.7988
       ],
       "adminExecute": [
-        151.6232,
+        136.5356,
         1.8074
       ],
       "crateLand": [
-        153.5806,
+        138.493,
         1.8215
       ],
       "domainImpact": [
-        155.5521,
+        140.4645,
         1.7422
       ],
       "bootImpact": [
-        157.4444,
+        142.3568,
         1.777
       ],
       "bootFinaleBang": [
-        159.3714,
+        144.2838,
         1.8544
       ],
       "reactorChannel": [
-        161.3758,
+        146.2881,
         1.6466
       ],
       "rebirthCharge": [
-        163.1724,
+        148.0847,
         1.862
       ],
       "wheelCharge": [
-        165.1844,
+        150.0967,
         1.462
       ],
       "crateCharge": [
-        166.7963,
+        151.7087,
         1.562
       ],
       "domainCharge": [
-        168.5083,
+        153.4207,
         1.962
       ],
       "cardPower": [
-        170.6203,
+        155.5327,
         1.3555
       ],
       "bootTension": [
-        172.1258,
+        157.0382,
         1.712
       ],
       "reactorPulse": [
-        173.9878,
+        158.9002,
         0.518
       ],
       "domainCrack": [
-        174.6558,
+        159.5682,
         0.5265
       ],
       "cardEnergy": [
-        175.3323,
+        160.2447,
         0.5173
       ],
       "bootSpark": [
-        175.9996,
+        160.912,
         0.5309
       ],
       "bootFizz": [
-        176.6805,
+        161.5929,
         0.5377
       ],
       "bootDebris": [
-        177.3681,
+        162.2805,
         0.5204
       ],
       "domainBind": [
-        178.0385,
+        162.9509,
         2.6862
       ],
       "boot": [
-        180.8747,
+        165.7871,
         2.6663
       ],
       "wheelTick": [
-        183.691,
+        168.6034,
         0.055
       ],
       "wheelSlow": [
-        183.896,
+        168.8084,
         0.055
       ],
       "crateTick": [
-        184.101,
+        169.0134,
         0.03
       ],
       "crateNear": [
-        184.281,
+        169.1934,
         0.03
       ],
       "cardPlay": [
-        184.461,
+        169.3734,
         0.05
       ],
       "cardDraw": [
-        184.661,
+        169.5734,
         0.05
       ],
       "bootIgnite": [
-        184.861,
+        169.7734,
         1.8256
       ],
       "bootReady": [
-        186.8367,
+        171.749,
         1.8383
       ],
       "bootSlamCharge": [
-        188.825,
+        173.7374,
         2.112
       ],
       "oreMine": [
-        191.087,
+        175.9994,
         0.9218
       ],
       "wardenForming": [
-        192.1588,
+        177.0712,
         4.612
       ],
       "wardenAwake": [
-        196.9208,
+        181.8332,
         2.962
       ],
       "wardenSlam": [
-        200.0328,
+        184.9452,
         3.362
       ],
       "wardenDefeat": [
-        203.5448,
+        188.4572,
         4.5411
       ],
       "wardenEscape": [
-        208.2359,
+        193.1483,
         3.212
       ],
       "waystoneTravel": [
-        211.5979,
+        196.5103,
         2.3711
       ],
       "regionEnter": [
-        214.119,
+        199.0314,
         3.0588
       ],
       "echoEquip": [
-        217.3278,
+        202.2402,
         0.8345
       ],
       "echoTune": [
-        218.3123,
+        203.2246,
         0.056
       ],
       "wardenSlamCharge": [
-        218.5183,
+        203.4307,
         2.412
       ],
       "navOpenOverview": [
-        221.0803,
-        0.2
+        205.9927,
+        0.24
       ],
       "navHoverOverview": [
-        221.4303,
-        0.07
+        206.3827,
+        0.04
       ],
       "navOpenWorkshop": [
-        221.6503,
-        0.2
+        206.5727,
+        0.251
       ],
       "navHoverWorkshop": [
-        222.0003,
-        0.07
+        206.9736,
+        0.04
       ],
       "navOpenInventory": [
-        222.2203,
-        0.2
+        207.1636,
+        0.2508
       ],
       "navHoverInventory": [
-        222.5703,
-        0.07
+        207.5644,
+        0.04
       ],
       "navOpenResearch": [
-        222.7903,
-        0.2
+        207.7544,
+        0.2508
       ],
       "navHoverResearch": [
-        223.1403,
-        0.07
+        208.1552,
+        0.04
       ],
       "navOpenShop": [
-        223.3603,
-        0.2
+        208.3452,
+        0.2509
       ],
       "navHoverShop": [
-        223.7103,
-        0.07
+        208.746,
+        0.04
       ],
       "navOpenSettings": [
-        223.9303,
-        0.2
+        208.936,
+        0.2688
       ],
       "navHoverSettings": [
-        224.2803,
-        0.07
+        209.3548,
+        0.04
       ],
       "navOpenWorlds": [
-        224.5003,
-        0.1993
+        209.5448,
+        0.2688
       ],
       "navHoverWorlds": [
-        224.8495,
-        0.07
+        209.9635,
+        0.04
       ],
       "navOpenMissions": [
-        225.0695,
-        0.2
+        210.1535,
+        0.2506
       ],
       "navHoverMissions": [
-        225.4195,
-        0.07
+        210.5541,
+        0.04
       ],
       "navOpenRewards": [
-        225.6395,
-        0.2
+        210.7441,
+        0.2574
       ],
       "navHoverRewards": [
-        225.9895,
-        0.07
+        211.1515,
+        0.04
       ],
       "navOpenBoosts": [
-        226.2095,
-        0.2
+        211.3415,
+        0.2564
       ],
       "navHoverBoosts": [
-        226.5595,
-        0.07
+        211.7479,
+        0.04
       ],
       "navOpenStarGrid": [
-        226.7795,
-        0.2
+        211.9379,
+        0.2509
       ],
       "navHoverStarGrid": [
-        227.1295,
-        0.07
+        212.3388,
+        0.04
       ],
       "navOpenEchoes": [
-        227.3495,
-        0.2
+        212.5288,
+        0.251
       ],
       "navHoverEchoes": [
-        227.6995,
-        0.07
+        212.9298,
+        0.04
       ],
       "navOpenContinuum": [
-        227.9195,
-        0.2
+        213.1198,
+        0.251
       ],
       "navHoverContinuum": [
-        228.2695,
-        0.07
+        213.5208,
+        0.04
       ],
       "navOpenLab": [
-        228.4895,
-        0.2
+        213.7108,
+        0.2508
       ],
       "navHoverLab": [
-        228.8395,
-        0.07
+        214.1115,
+        0.04
       ],
       "navOpenAnomaly": [
-        229.0595,
-        0.2
+        214.3015,
+        0.2505
       ],
       "navHoverAnomaly": [
-        229.4095,
-        0.07
+        214.702,
+        0.04
       ],
       "navOpenWheel": [
-        229.6295,
-        0.1997
+        214.892,
+        0.2508
       ],
       "navHoverWheel": [
-        229.9792,
-        0.07
+        215.2929,
+        0.04
       ],
       "navOpenCommand": [
-        230.1992,
-        0.2
+        215.4829,
+        0.2688
       ],
       "navHoverCommand": [
-        230.5492,
-        0.07
+        215.9016,
+        0.04
       ],
       "navOpenStory": [
-        230.7692,
-        0.2
+        216.0916,
+        0.2516
       ],
       "navHoverStory": [
-        231.1192,
-        0.07
+        216.4932,
+        0.04
       ],
       "navOpenMail": [
-        231.3392,
-        0.2
+        216.6832,
+        0.2506
       ],
       "navHoverMail": [
-        231.6892,
-        0.07
+        217.0838,
+        0.04
       ],
       "navOpenChat": [
-        231.9092,
-        0.2
+        217.2738,
+        0.2569
       ],
       "navHoverChat": [
-        232.2592,
-        0.07
+        217.6807,
+        0.04
       ],
       "navOpenCrew": [
-        232.4792,
-        0.2
+        217.8707,
+        0.2509
       ],
       "navHoverCrew": [
-        232.8292,
-        0.07
+        218.2715,
+        0.04
       ],
       "navOpenMilestones": [
-        233.0492,
-        0.2
+        218.4615,
+        0.24
       ],
       "navHoverMilestones": [
-        233.3992,
-        0.07
+        218.8515,
+        0.04
       ],
       "navOpenConvergence": [
-        233.6192,
-        0.2
+        219.0415,
+        0.251
       ],
       "navHoverConvergence": [
-        233.9692,
-        0.07
+        219.4425,
+        0.04
       ],
       "navOpenGuild": [
-        234.1892,
-        0.2
+        219.6325,
+        0.2508
       ],
       "navHoverGuild": [
-        234.5392,
-        0.07
+        220.0333,
+        0.04
       ],
       "navOpenLeaderboards": [
-        234.7592,
-        0.1991
+        220.2233,
+        0.2508
       ],
       "navHoverLeaderboards": [
-        235.1083,
-        0.07
+        220.6241,
+        0.04
       ],
       "navOpenTrade": [
-        235.3283,
-        0.2
+        220.8141,
+        0.2509
       ],
       "navHoverTrade": [
-        235.6783,
-        0.07
+        221.2149,
+        0.04
       ],
       "navOpenCredits": [
-        235.8983,
-        0.2
+        221.4049,
+        0.2688
       ],
       "navHoverCredits": [
-        236.2483,
-        0.07
+        221.8237,
+        0.04
       ],
       "navOpenAdmin": [
-        236.4683,
-        0.2
+        222.0137,
+        0.2683
       ],
       "navHoverAdmin": [
-        236.8183,
-        0.07
+        222.432,
+        0.04
       ],
       "navOpenForgePath": [
-        237.0383,
-        0.2
+        222.622,
+        0.2506
       ],
       "navHoverForgePath": [
-        237.3883,
-        0.07
+        223.0226,
+        0.04
       ],
       "navOpenFoundry": [
-        237.6083,
-        0.2
+        223.2126,
+        0.2569
       ],
       "navHoverFoundry": [
-        237.9583,
-        0.07
+        223.6195,
+        0.04
       ],
       "oreMineEmberite": [
-        238.1783,
+        223.8095,
         0.32
       ],
       "oreCollectEmberite": [
-        238.6483,
+        224.2795,
         0.36
       ],
       "oreMineVoidglass": [
-        239.1583,
+        224.7895,
         0.3063
       ],
       "oreCollectVoidglass": [
-        239.6146,
+        225.2457,
         0.3525
       ],
       "oreMineStarsteel": [
-        240.1171,
+        225.7482,
         0.32
       ],
       "oreCollectStarsteel": [
-        240.5871,
+        226.2182,
         0.36
       ],
       "waystoneHeart": [
-        241.0971,
+        226.7282,
         0.2174
       ],
       "waystoneEmberreach": [
-        241.4645,
+        227.0956,
         0.22
       ],
       "waystoneHollows": [
-        241.8345,
+        227.4656,
         0.22
       ],
       "waystoneSpire": [
-        242.2045,
+        227.8356,
         0.22
       ],
       "waystoneRiftmaw": [
-        242.5745,
+        228.2056,
         0.22
       ],
       "sanctuaryRecall": [
-        242.9445,
+        228.5756,
         0.26
       ],
       "sanctuaryMenu": [
-        243.3545,
+        228.9856,
         0.09
       ],
       "sanctuarySheetClose": [
-        243.5945,
+        229.2256,
         0.14
       ],
       "clickHover": [
-        243.8845,
-        0.065
+        229.5156,
+        0.035
       ],
       "confirmHover": [
-        244.0995,
-        0.065
+        229.7006,
+        0.035
       ],
       "settingsHover": [
-        244.3145,
-        0.065
+        229.8856,
+        0.035
       ],
       "purchasePressHover": [
-        244.5295,
-        0.065
+        230.0706,
+        0.035
       ],
       "claimPressHover": [
-        244.7444,
-        0.065
+        230.2556,
+        0.035
       ],
       "codeSubmitHover": [
-        244.9594,
-        0.065
+        230.4406,
+        0.035
       ],
       "zoneSelectHover": [
-        245.1744,
-        0.065
+        230.6256,
+        0.035
       ],
       "labRouteHover": [
-        245.3894,
-        0.065
+        230.8106,
+        0.035
       ],
       "playerlistActionHover": [
-        245.6044,
-        0.065
+        230.9956,
+        0.035
       ],
       "playerlistSelectHover": [
-        245.8194,
-        0.065
+        231.1805,
+        0.035
       ],
       "puzzleTapHover": [
-        246.0344,
-        0.065
+        231.3655,
+        0.035
       ],
       "sanctuaryClickHover": [
-        246.2494,
-        0.065
+        231.5505,
+        0.035
       ],
       "equipHover": [
-        246.4644,
-        0.065
+        231.7355,
+        0.035
       ],
       "dangerPressHover": [
-        246.6793,
-        0.065
+        231.9205,
+        0.035
       ],
       "closeHover": [
-        246.8943,
-        0.065
+        232.1055,
+        0.035
       ],
       "tickHover": [
-        247.1093,
-        0.065
+        232.2905,
+        0.035
       ],
       "openHover": [
-        247.3243,
-        0.065
+        232.4755,
+        0.035
       ],
       "tabSwitchHover": [
-        247.5393,
-        0.065
+        232.6605,
+        0.035
       ],
       "mailHover": [
-        247.7543,
-        0.065
+        232.8454,
+        0.035
       ],
       "storyHover": [
-        247.9693,
-        0.065
+        233.0304,
+        0.035
       ],
       "toggleOnHover": [
-        248.1843,
-        0.065
+        233.2154,
+        0.035
       ],
       "toggleOffHover": [
-        248.3993,
-        0.065
+        233.4004,
+        0.035
       ],
       "lockedHover": [
-        248.6142,
-        0.065
+        233.5854,
+        0.035
       ],
       "errorHover": [
-        248.8292,
-        0.065
+        233.7704,
+        0.035
       ],
       "prestigeHover": [
-        249.0442,
-        0.065
+        233.9554,
+        0.035
       ],
       "domainChargeHover": [
-        249.2592,
-        0.065
+        234.1404,
+        0.035
       ],
       "cardEndTurnHover": [
-        249.4742,
-        0.065
+        234.3254,
+        0.035
       ],
       "cardPowerHover": [
-        249.6892,
-        0.065
+        234.5103,
+        0.035
       ],
       "cardEnergyHover": [
-        249.9042,
-        0.065
+        234.6953,
+        0.035
       ],
       "vaultBankHover": [
-        250.1192,
-        0.065
+        234.8803,
+        0.035
       ],
       "guildCreateHover": [
-        250.3341,
-        0.065
+        235.0653,
+        0.035
       ],
       "guildJoinHover": [
-        250.5491,
-        0.065
+        235.2503,
+        0.035
       ],
       "inviteHover": [
-        250.7641,
-        0.065
+        235.4353,
+        0.035
       ],
       "travelHover": [
-        250.9791,
-        0.065
+        235.6203,
+        0.035
       ],
       "gameResumeHover": [
-        251.1941,
-        0.065
+        235.8053,
+        0.035
       ],
       "gamePauseHover": [
-        251.4091,
-        0.065
+        235.9902,
+        0.035
       ],
       "queueStopHover": [
-        251.6241,
-        0.065
+        236.1752,
+        0.035
       ],
       "queueStartHover": [
-        251.8391,
-        0.065
+        236.3602,
+        0.035
       ],
       "boostHover": [
-        252.0541,
-        0.065
+        236.5452,
+        0.035
       ],
       "reactorPulseHover": [
-        252.269,
-        0.065
+        236.7302,
+        0.035
       ],
       "crateOpenHover": [
-        252.484,
-        0.065
+        236.9152,
+        0.035
       ],
       "wheelStartHover": [
-        252.699,
-        0.065
+        237.1002,
+        0.035
       ],
       "rewardHover": [
-        252.914,
-        0.065
+        237.2852,
+        0.035
       ],
       "rebirthChargeHover": [
-        253.129,
-        0.065
+        237.4702,
+        0.035
       ],
       "missionClaimHover": [
-        253.344,
-        0.065
+        237.6551,
+        0.035
       ],
       "leaderboardSwitchHover": [
-        253.559,
-        0.065
+        237.8401,
+        0.035
       ],
       "adminArmHover": [
-        253.774,
-        0.065
+        238.0251,
+        0.035
       ],
       "memberRemoveHover": [
-        253.989,
-        0.065
+        238.2101,
+        0.035
       ],
       "roleChangeHover": [
-        254.2039,
-        0.065
+        238.3951,
+        0.035
       ],
       "previewHover": [
-        254.4189,
-        0.065
+        238.5801,
+        0.035
       ],
       "resetHover": [
-        254.6339,
-        0.065
+        238.7651,
+        0.035
       ],
       "chatSendHover": [
-        254.8489,
-        0.065
+        238.9501,
+        0.035
       ],
       "boostOpenHover": [
-        255.0639,
-        0.065
+        239.1351,
+        0.035
       ],
       "vaultDepositHover": [
-        255.2789,
-        0.065
+        239.32,
+        0.035
       ],
       "forgePress": [
-        255.4939,
-        0.13
+        239.505,
+        0.092
       ],
       "corePress": [
-        255.7739,
-        0.13
+        239.747,
+        0.092
       ],
       "wavePress": [
-        256.0539,
-        0.13
+        239.989,
+        0.092
       ],
       "labPress": [
-        256.3339,
-        0.13
+        240.231,
+        0.092
       ],
       "commandPress": [
-        256.6139,
-        0.13
+        240.473,
+        0.092
       ],
       "adminPress": [
-        256.8939,
-        0.13
+        240.715,
+        0.092
       ],
       "creditsPress": [
-        257.1739,
-        0.13
+        240.957,
+        0.092
       ],
       "chatPress": [
-        257.4539,
-        0.13
+        241.199,
+        0.092
       ],
       "continuumPress": [
-        257.7339,
-        0.13
+        241.441,
+        0.092
       ],
       "missionPress": [
-        258.0139,
-        0.13
+        241.683,
+        0.092
       ],
       "overviewPress": [
-        258.2939,
+        241.925,
+        0.092
+      ],
+      "dropdownOpen": [
+        242.167,
+        0.09
+      ],
+      "dropdownClose": [
+        242.407,
+        0.08
+      ],
+      "copyDone": [
+        242.637,
+        0.145
+      ],
+      "dragGrab": [
+        242.932,
+        0.064
+      ],
+      "dragDrop": [
+        243.146,
+        0.106
+      ],
+      "dragSnap": [
+        243.402,
+        0.03
+      ],
+      "favoriteOn": [
+        243.582,
+        0.3155
+      ],
+      "favoriteOff": [
+        244.0474,
+        0.08
+      ],
+      "ratingStar": [
+        244.2774,
+        0.11
+      ],
+      "searchType": [
+        244.5374,
+        0.022
+      ],
+      "countTick": [
+        244.7094,
+        0.02
+      ],
+      "stepNext": [
+        244.8794,
         0.13
+      ],
+      "stepBack": [
+        245.1594,
+        0.13
+      ],
+      "reportSubmit": [
+        245.4394,
+        0.32
+      ],
+      "feedbackSubmit": [
+        245.9094,
+        0.429
+      ],
+      "guildAnnounce": [
+        246.4884,
+        0.652
+      ],
+      "badgeEarn": [
+        247.2904,
+        0.4201
+      ],
+      "artifactEquip": [
+        247.8605,
+        0.329
+      ],
+      "artifactUpgrade": [
+        248.3395,
+        0.6532
+      ],
+      "crateSeal": [
+        249.1427,
+        0.3432
+      ],
+      "crateOrbit": [
+        249.6359,
+        0.6
+      ],
+      "crateRarityStep": [
+        250.3859,
+        0.14
+      ],
+      "crateRevealEpic": [
+        250.6759,
+        0.6083
+      ],
+      "crateRevealMythic": [
+        251.4342,
+        0.8988
+      ],
+      "rebirthIgnite": [
+        252.4831,
+        1.1149
+      ],
+      "rebirthShockwave": [
+        253.748,
+        0.777
+      ],
+      "rebirthTierUp": [
+        254.675,
+        0.3702
+      ],
+      "rebirthAscend": [
+        255.1952,
+        1.139
       ]
     },
     "loudness": {
-      "hover": -12.73,
-      "hoverTick": -17.14,
-      "tick": -17.38,
-      "scroll": -16.25,
-      "sliderStep": -16.65,
-      "amountChange": -15.88,
-      "filterPick": -16.23,
-      "sanctuaryHover": -16.32,
-      "navHover": -12.53,
-      "click": -16.62,
-      "settings": -15.76,
-      "purchasePress": -16.83,
-      "claimPress": -16.53,
+      "hover": -14.25,
+      "hoverTick": -13.92,
+      "tick": -12.99,
+      "scroll": -12.39,
+      "sliderStep": -12.7,
+      "amountChange": -13.38,
+      "filterPick": -15.76,
+      "sanctuaryHover": -14.55,
+      "navHover": -14.32,
+      "click": -16.82,
+      "settings": -16.82,
+      "purchasePress": -17.82,
+      "claimPress": -17.59,
       "codeSubmit": -16.61,
       "zoneSelect": -16.32,
       "labRoute": -17.83,
-      "playerlistAction": -16.02,
-      "playerlistSelect": -17.38,
+      "playerlistAction": -16.68,
+      "playerlistSelect": -14.49,
       "puzzleTap": -16.72,
-      "sanctuaryClick": -17.6,
-      "curtainOpen": -17.13,
-      "curtainClose": -17.61,
-      "confirm": -17.24,
-      "successChime": -15.79,
-      "equip": -15.67,
-      "itemLink": -17.54,
+      "sanctuaryClick": -15.83,
+      "curtainOpen": -15.34,
+      "curtainClose": -15.49,
+      "confirm": -14.92,
+      "successChime": -14.94,
+      "equip": -15.46,
+      "itemLink": -17.67,
       "tutorialStep": -17.42,
-      "roleChange": -16.59,
-      "reactorStabilize": -16.69,
-      "toggleOn": -13.79,
-      "toggleOff": -13.69,
+      "roleChange": -16.54,
+      "reactorStabilize": -16.63,
+      "toggleOn": -15.8,
+      "toggleOff": -15.67,
       "queueStart": -16.98,
-      "queueStop": -15.82,
-      "open": -15.0,
-      "modalOpen": -14.67,
-      "filterOpen": -14.65,
+      "queueStop": -15.87,
+      "open": -14.74,
+      "modalOpen": -15.27,
+      "filterOpen": -13.98,
       "boostOpen": -14.89,
       "offlineOpen": -14.41,
-      "playerlistOpen": -14.98,
-      "story": -14.34,
+      "playerlistOpen": -14.82,
+      "story": -15.55,
       "storyOpen": -15.0,
       "crate": -14.28,
-      "close": -16.77,
-      "modalDismiss": -16.79,
-      "purchaseExit": -16.72,
-      "playerlistClose": -16.6,
-      "noticeClose": -16.34,
+      "close": -15.06,
+      "modalDismiss": -15.21,
+      "purchaseExit": -15.28,
+      "playerlistClose": -15.07,
+      "noticeClose": -14.1,
       "itemUnlink": -16.53,
       "reset": -18.13,
       "memberRemove": -17.02,
       "guildLeave": -16.62,
       "gamePause": -16.98,
       "gameExit": -18.41,
-      "page": -16.82,
-      "tabSwitch": -17.76,
-      "preview": -16.57,
-      "storyBeat": -18.44,
-      "storyPage": -17.56,
-      "mailRead": -15.06,
-      "leaderboardSwitch": -18.3,
-      "cardEndTurn": -17.66,
-      "modalPop": -11.05,
-      "sliderCommit": -11.0,
-      "inputClear": -13.47,
-      "chatSend": -17.44,
-      "inputFocus": -13.68,
-      "error": -12.23,
-      "errorBuzz": -11.73,
-      "noticeError": -11.94,
+      "page": -15.01,
+      "tabSwitch": -16.05,
+      "preview": -17.32,
+      "storyBeat": -16.35,
+      "storyPage": -17.07,
+      "mailRead": -16.37,
+      "leaderboardSwitch": -16.41,
+      "cardEndTurn": -15.1,
+      "modalPop": -14.88,
+      "sliderCommit": -14.8,
+      "inputClear": -14.23,
+      "chatSend": -14.02,
+      "inputFocus": -14.23,
+      "error": -15.87,
+      "errorBuzz": -15.21,
+      "noticeError": -15.93,
       "dangerPress": -14.23,
-      "locked": -14.65,
-      "requestBlocked": -14.28,
-      "cardBlock": -14.8,
-      "noticeWarning": -12.03,
+      "locked": -16.81,
+      "requestBlocked": -14.23,
+      "cardBlock": -14.43,
+      "noticeWarning": -15.38,
       "systemAlert": -12.7,
       "requestTimeout": -12.79,
       "adminArm": -15.89,
-      "mail": -14.8,
-      "notification": -16.48,
-      "noticeInfo": -15.03,
-      "noticeSuccess": -16.6,
-      "noticeSpecial": -18.47,
-      "boostReady": -17.85,
-      "reactorReady": -17.44,
+      "mail": -14.82,
+      "notification": -16.49,
+      "noticeInfo": -15.84,
+      "noticeSuccess": -15.39,
+      "noticeSpecial": -15.25,
+      "boostReady": -17.76,
+      "reactorReady": -17.62,
       "crewNudge": -13.72,
       "invite": -13.75,
-      "chatReceive": -12.61,
+      "chatReceive": -15.05,
       "gameResume": -14.61,
-      "velocitySlide": -17.46,
-      "travel": -18.14,
-      "purchase": -17.87,
+      "velocitySlide": -14.9,
+      "travel": -17.39,
+      "purchase": -17.84,
       "purchaseResult": -18.08,
       "vaultDeposit": -18.25,
       "vaultBank": -18.23,
@@ -1525,66 +1637,66 @@
       "echoEquip": -17.38,
       "echoTune": -15.83,
       "wardenSlamCharge": -18.1,
-      "navOpenOverview": -13.23,
-      "navHoverOverview": -11.27,
-      "navOpenWorkshop": -15.56,
-      "navHoverWorkshop": -17.28,
-      "navOpenInventory": -12.6,
-      "navHoverInventory": -13.43,
-      "navOpenResearch": -10.59,
-      "navHoverResearch": -11.78,
-      "navOpenShop": -17.2,
-      "navHoverShop": -13.97,
-      "navOpenSettings": -15.17,
-      "navHoverSettings": -13.51,
-      "navOpenWorlds": -14.44,
-      "navHoverWorlds": -12.35,
-      "navOpenMissions": -9.74,
-      "navHoverMissions": -10.97,
-      "navOpenRewards": -14.26,
-      "navHoverRewards": -12.78,
-      "navOpenBoosts": -13.3,
-      "navHoverBoosts": -11.22,
-      "navOpenStarGrid": -15.28,
-      "navHoverStarGrid": -16.98,
-      "navOpenEchoes": -12.57,
-      "navHoverEchoes": -13.39,
-      "navOpenContinuum": -10.58,
-      "navHoverContinuum": -11.67,
-      "navOpenLab": -17.14,
-      "navHoverLab": -14.09,
-      "navOpenAnomaly": -15.26,
-      "navHoverAnomaly": -13.79,
-      "navOpenWheel": -14.56,
-      "navHoverWheel": -12.6,
-      "navOpenCommand": -9.73,
-      "navHoverCommand": -11.31,
-      "navOpenStory": -14.34,
-      "navHoverStory": -12.81,
-      "navOpenMail": -12.53,
-      "navHoverMail": -11.24,
-      "navOpenChat": -15.39,
-      "navHoverChat": -16.69,
-      "navOpenCrew": -12.56,
-      "navHoverCrew": -13.49,
-      "navOpenMilestones": -10.59,
-      "navHoverMilestones": -11.52,
-      "navOpenConvergence": -16.36,
-      "navHoverConvergence": -14.21,
-      "navOpenGuild": -15.17,
-      "navHoverGuild": -12.65,
-      "navOpenLeaderboards": -14.48,
-      "navHoverLeaderboards": -12.45,
-      "navOpenTrade": -9.73,
-      "navHoverTrade": -11.16,
-      "navOpenCredits": -14.32,
-      "navHoverCredits": -12.81,
-      "navOpenAdmin": -12.52,
-      "navHoverAdmin": -11.17,
-      "navOpenForgePath": -15.03,
-      "navHoverForgePath": -17.07,
-      "navOpenFoundry": -12.59,
-      "navHoverFoundry": -13.75,
+      "navOpenOverview": -15.02,
+      "navHoverOverview": -14.31,
+      "navOpenWorkshop": -14.74,
+      "navHoverWorkshop": -14.19,
+      "navOpenInventory": -14.71,
+      "navHoverInventory": -14.35,
+      "navOpenResearch": -15.02,
+      "navHoverResearch": -14.31,
+      "navOpenShop": -14.52,
+      "navHoverShop": -14.19,
+      "navOpenSettings": -14.96,
+      "navHoverSettings": -14.35,
+      "navOpenWorlds": -15.25,
+      "navHoverWorlds": -14.31,
+      "navOpenMissions": -15.09,
+      "navHoverMissions": -14.19,
+      "navOpenRewards": -14.58,
+      "navHoverRewards": -14.35,
+      "navOpenBoosts": -14.84,
+      "navHoverBoosts": -14.31,
+      "navOpenStarGrid": -15.13,
+      "navHoverStarGrid": -14.19,
+      "navOpenEchoes": -14.57,
+      "navHoverEchoes": -14.35,
+      "navOpenContinuum": -15.08,
+      "navHoverContinuum": -14.31,
+      "navOpenLab": -15.06,
+      "navHoverLab": -14.19,
+      "navOpenAnomaly": -15.07,
+      "navHoverAnomaly": -14.35,
+      "navOpenWheel": -14.71,
+      "navHoverWheel": -14.31,
+      "navOpenCommand": -14.84,
+      "navHoverCommand": -14.19,
+      "navOpenStory": -15.13,
+      "navHoverStory": -14.35,
+      "navOpenMail": -14.67,
+      "navHoverMail": -14.31,
+      "navOpenChat": -14.98,
+      "navHoverChat": -14.19,
+      "navOpenCrew": -15.17,
+      "navHoverCrew": -14.35,
+      "navOpenMilestones": -14.93,
+      "navHoverMilestones": -14.31,
+      "navOpenConvergence": -14.67,
+      "navHoverConvergence": -14.19,
+      "navOpenGuild": -14.61,
+      "navHoverGuild": -14.35,
+      "navOpenLeaderboards": -15.0,
+      "navHoverLeaderboards": -14.31,
+      "navOpenTrade": -14.71,
+      "navHoverTrade": -14.19,
+      "navOpenCredits": -14.89,
+      "navHoverCredits": -14.35,
+      "navOpenAdmin": -15.31,
+      "navHoverAdmin": -14.31,
+      "navOpenForgePath": -15.18,
+      "navHoverForgePath": -14.19,
+      "navOpenFoundry": -14.74,
+      "navHoverFoundry": -14.35,
       "oreMineEmberite": -10.68,
       "oreCollectEmberite": -12.15,
       "oreMineVoidglass": -17.53,
@@ -1599,71 +1711,99 @@
       "sanctuaryRecall": -14.52,
       "sanctuaryMenu": -12.41,
       "sanctuarySheetClose": -11.73,
-      "clickHover": -14.29,
-      "confirmHover": -16.8,
-      "settingsHover": -11.55,
-      "purchasePressHover": -13.49,
-      "claimPressHover": -9.89,
-      "codeSubmitHover": -11.36,
-      "zoneSelectHover": -16.9,
-      "labRouteHover": -14.43,
-      "playerlistActionHover": -14.62,
-      "playerlistSelectHover": -13.42,
-      "puzzleTapHover": -13.08,
-      "sanctuaryClickHover": -12.53,
-      "equipHover": -9.97,
-      "dangerPressHover": -12.52,
-      "closeHover": -13.58,
-      "tickHover": -12.56,
-      "openHover": -12.33,
-      "tabSwitchHover": -11.04,
-      "mailHover": -14.73,
-      "storyHover": -17.05,
-      "toggleOnHover": -11.68,
-      "toggleOffHover": -13.74,
-      "lockedHover": -9.79,
-      "errorHover": -11.59,
-      "prestigeHover": -17.09,
-      "domainChargeHover": -13.37,
-      "cardEndTurnHover": -14.76,
-      "cardPowerHover": -12.51,
-      "cardEnergyHover": -12.72,
-      "vaultBankHover": -12.51,
-      "guildCreateHover": -9.99,
-      "guildJoinHover": -12.14,
-      "inviteHover": -12.99,
-      "travelHover": -12.54,
-      "gameResumeHover": -12.45,
-      "gamePauseHover": -11.06,
-      "queueStopHover": -14.22,
-      "queueStartHover": -16.84,
-      "boostHover": -11.6,
-      "reactorPulseHover": -14.0,
-      "crateOpenHover": -9.85,
-      "wheelStartHover": -11.97,
-      "rewardHover": -17.08,
-      "rebirthChargeHover": -13.01,
-      "missionClaimHover": -14.34,
-      "leaderboardSwitchHover": -13.7,
-      "adminArmHover": -13.05,
-      "memberRemoveHover": -12.59,
-      "roleChangeHover": -9.95,
-      "previewHover": -10.88,
-      "resetHover": -13.65,
-      "chatSendHover": -12.48,
-      "boostOpenHover": -12.64,
-      "vaultDepositHover": -11.2,
-      "forgePress": -14.78,
-      "corePress": -17.78,
-      "wavePress": -12.37,
-      "labPress": -14.54,
-      "commandPress": -10.38,
-      "adminPress": -11.93,
-      "creditsPress": -17.44,
-      "chatPress": -14.36,
-      "continuumPress": -14.31,
-      "missionPress": -14.23,
-      "overviewPress": -13.95
+      "clickHover": -13.76,
+      "confirmHover": -13.55,
+      "settingsHover": -13.75,
+      "purchasePressHover": -13.82,
+      "claimPressHover": -13.5,
+      "codeSubmitHover": -13.76,
+      "zoneSelectHover": -13.55,
+      "labRouteHover": -13.75,
+      "playerlistActionHover": -13.82,
+      "playerlistSelectHover": -13.5,
+      "puzzleTapHover": -13.76,
+      "sanctuaryClickHover": -13.55,
+      "equipHover": -13.75,
+      "dangerPressHover": -13.82,
+      "closeHover": -13.5,
+      "tickHover": -13.76,
+      "openHover": -13.55,
+      "tabSwitchHover": -13.75,
+      "mailHover": -13.82,
+      "storyHover": -13.5,
+      "toggleOnHover": -13.76,
+      "toggleOffHover": -13.55,
+      "lockedHover": -13.75,
+      "errorHover": -13.82,
+      "prestigeHover": -13.5,
+      "domainChargeHover": -13.76,
+      "cardEndTurnHover": -13.55,
+      "cardPowerHover": -13.75,
+      "cardEnergyHover": -13.82,
+      "vaultBankHover": -13.5,
+      "guildCreateHover": -13.76,
+      "guildJoinHover": -13.55,
+      "inviteHover": -13.75,
+      "travelHover": -13.82,
+      "gameResumeHover": -13.5,
+      "gamePauseHover": -13.76,
+      "queueStopHover": -13.55,
+      "queueStartHover": -13.75,
+      "boostHover": -13.82,
+      "reactorPulseHover": -13.5,
+      "crateOpenHover": -13.76,
+      "wheelStartHover": -13.55,
+      "rewardHover": -13.75,
+      "rebirthChargeHover": -13.82,
+      "missionClaimHover": -13.5,
+      "leaderboardSwitchHover": -13.76,
+      "adminArmHover": -13.55,
+      "memberRemoveHover": -13.75,
+      "roleChangeHover": -13.82,
+      "previewHover": -13.5,
+      "resetHover": -13.76,
+      "chatSendHover": -13.55,
+      "boostOpenHover": -13.75,
+      "vaultDepositHover": -13.82,
+      "forgePress": -15.83,
+      "corePress": -16.92,
+      "wavePress": -16.52,
+      "labPress": -16.19,
+      "commandPress": -16.68,
+      "adminPress": -16.61,
+      "creditsPress": -16.82,
+      "chatPress": -16.65,
+      "continuumPress": -15.83,
+      "missionPress": -16.92,
+      "overviewPress": -16.52,
+      "dropdownOpen": -13.89,
+      "dropdownClose": -15.45,
+      "copyDone": -16.13,
+      "dragGrab": -14.78,
+      "dragDrop": -15.98,
+      "dragSnap": -13.38,
+      "favoriteOn": -14.94,
+      "favoriteOff": -14.24,
+      "ratingStar": -16.61,
+      "searchType": -12.06,
+      "countTick": -12.27,
+      "stepNext": -14.29,
+      "stepBack": -14.44,
+      "reportSubmit": -18.58,
+      "feedbackSubmit": -17.01,
+      "guildAnnounce": -16.61,
+      "badgeEarn": -15.66,
+      "artifactEquip": -16.19,
+      "artifactUpgrade": -15.96,
+      "crateSeal": -17.52,
+      "crateOrbit": -12.28,
+      "crateRarityStep": -14.13,
+      "crateRevealEpic": -16.02,
+      "crateRevealMythic": -15.71,
+      "rebirthIgnite": -20.55,
+      "rebirthShockwave": -18.18,
+      "rebirthTierUp": -15.02,
+      "rebirthAscend": -15.62
     }
   },
   "ambience": {
@@ -1788,1670 +1928,1670 @@
     }
   },
   "sfx_previous": {
-    "length": 308.235,
+    "length": 242.167,
     "regions": {
       "hover": [
-        0.3,
-        0.126
+        0.15,
+        0.04
       ],
       "hoverTick": [
-        0.726,
-        0.084
+        0.34,
+        0.035
       ],
       "tick": [
-        1.11,
-        0.049
+        0.525,
+        0.03
       ],
       "scroll": [
-        1.459,
-        0.056
+        0.705,
+        0.025
       ],
       "sliderStep": [
-        1.815,
-        0.042
+        0.88,
+        0.025
       ],
       "amountChange": [
-        2.157,
-        0.0392
+        1.055,
+        0.03
       ],
       "filterPick": [
-        2.4962,
-        0.056
+        1.235,
+        0.07
       ],
       "sanctuaryHover": [
-        2.8522,
-        0.112
+        1.455,
+        0.045
       ],
       "navHover": [
-        3.2642,
-        0.098
+        1.65,
+        0.04
       ],
       "click": [
-        3.6622,
-        0.1396
+        1.84,
+        0.092
       ],
       "settings": [
-        4.1019,
-        0.14
+        2.082,
+        0.092
       ],
       "purchasePress": [
-        4.5419,
-        0.14
+        2.3239,
+        0.18
       ],
       "claimPress": [
-        4.9819,
-        0.1396
+        2.6539,
+        0.25
       ],
       "codeSubmit": [
-        5.4215,
+        3.0539,
         0.1398
       ],
       "zoneSelect": [
-        5.8613,
+        3.3438,
         0.14
       ],
       "labRoute": [
-        6.3013,
+        3.6338,
         0.14
       ],
       "playerlistAction": [
-        6.7413,
-        0.14
+        3.9238,
+        0.092
       ],
       "playerlistSelect": [
-        7.1813,
-        0.1377
+        4.1658,
+        0.045
       ],
       "puzzleTap": [
-        7.619,
+        4.3608,
         0.1276
       ],
       "sanctuaryClick": [
-        8.0467,
-        0.1399
+        4.6384,
+        0.092
       ],
       "curtainOpen": [
-        8.4866,
-        1.182
+        4.8804,
+        0.4729
       ],
       "curtainClose": [
-        9.9686,
-        1.142
+        5.5033,
+        0.34
       ],
       "confirm": [
-        11.4106,
-        0.8615
+        5.9933,
+        0.3718
       ],
       "successChime": [
-        12.572,
-        0.7339
+        6.5151,
+        0.5101
       ],
       "equip": [
-        13.6059,
-        0.7715
+        7.1752,
+        0.7749
       ],
       "itemLink": [
-        14.6775,
+        8.1001,
         0.623
       ],
       "tutorialStep": [
-        15.6005,
+        8.8731,
         0.7051
       ],
       "roleChange": [
-        16.6056,
+        9.7282,
         0.8496
       ],
       "reactorStabilize": [
-        17.7552,
+        10.7278,
         0.9596
       ],
       "toggleOn": [
-        19.0148,
-        0.16
+        11.8374,
+        0.1
       ],
       "toggleOff": [
-        19.4748,
-        0.16
+        12.0874,
+        0.1
       ],
       "queueStart": [
-        19.9348,
+        12.3374,
         0.24
       ],
       "queueStop": [
-        20.4748,
+        12.7274,
         0.16
       ],
       "open": [
-        20.9348,
-        0.7169
+        13.0374,
+        0.2738
       ],
       "modalOpen": [
-        21.9517,
-        0.722
+        13.4612,
+        0.3505
       ],
       "filterOpen": [
-        22.9737,
-        0.6477
+        13.9617,
+        0.09
       ],
       "boostOpen": [
-        23.9214,
+        14.2017,
         0.7217
       ],
       "offlineOpen": [
-        24.9431,
+        15.0734,
         0.722
       ],
       "playerlistOpen": [
-        25.9651,
-        0.646
+        15.9454,
+        0.12
       ],
       "story": [
-        26.911,
-        0.722
+        16.2154,
+        0.3982
       ],
       "storyOpen": [
-        27.933,
+        16.7637,
         0.722
       ],
       "crate": [
-        28.955,
+        17.6356,
         0.722
       ],
       "close": [
-        29.977,
-        0.662
+        18.5076,
+        0.14
       ],
       "modalDismiss": [
-        30.939,
-        0.592
+        18.7976,
+        0.14
       ],
       "purchaseExit": [
-        31.831,
-        0.6186
+        19.0876,
+        0.12
       ],
       "playerlistClose": [
-        32.7495,
-        0.662
+        19.3576,
+        0.11
       ],
       "noticeClose": [
-        33.7115,
-        0.6135
+        19.6176,
+        0.07
       ],
       "itemUnlink": [
-        34.6251,
+        19.8376,
         0.662
       ],
       "reset": [
-        35.5871,
+        20.6496,
         0.602
       ],
       "memberRemove": [
-        36.489,
+        21.4016,
         0.662
       ],
       "guildLeave": [
-        37.451,
+        22.2136,
         0.662
       ],
       "gamePause": [
-        38.413,
+        23.0256,
         0.6599
       ],
       "gameExit": [
-        39.3729,
+        23.8355,
         0.602
       ],
       "page": [
-        40.2749,
-        0.372
+        24.5875,
+        0.12
       ],
       "tabSwitch": [
-        40.9469,
-        0.322
+        24.8575,
+        0.07
       ],
       "preview": [
-        41.5689,
+        25.0775,
         0.412
       ],
       "storyBeat": [
-        42.2809,
+        25.6395,
         0.372
       ],
       "storyPage": [
-        42.9529,
-        0.372
+        26.1615,
+        0.24
       ],
       "mailRead": [
-        43.6249,
-        0.372
+        26.5515,
+        0.21
       ],
       "leaderboardSwitch": [
-        44.2969,
-        0.322
+        26.9115,
+        0.07
       ],
       "cardEndTurn": [
-        44.9189,
-        0.372
+        27.1315,
+        0.12
       ],
       "modalPop": [
-        45.5909,
+        27.4015,
         0.08
       ],
       "sliderCommit": [
-        45.9709,
-        0.07
+        27.6315,
+        0.15
       ],
       "inputClear": [
-        46.3409,
-        0.07
+        27.9315,
+        0.08
       ],
       "chatSend": [
-        46.7109,
-        0.455
+        28.1615,
+        0.08
       ],
       "inputFocus": [
-        47.4659,
-        0.02
+        28.3915,
+        0.08
       ],
       "error": [
-        47.7859,
-        0.592
+        28.6215,
+        0.24
       ],
       "errorBuzz": [
-        48.6779,
-        0.71
+        29.0115,
+        0.32
       ],
       "noticeError": [
-        49.6879,
-        0.5821
+        29.4815,
+        0.24
       ],
       "dangerPress": [
-        50.57,
+        29.8715,
         0.4336
       ],
       "locked": [
-        51.3036,
-        0.21
+        30.4551,
+        0.125
       ],
       "requestBlocked": [
-        51.8136,
+        30.7301,
         0.21
       ],
       "cardBlock": [
-        52.3236,
+        31.0901,
         0.21
       ],
       "noticeWarning": [
-        52.8336,
-        0.7843
+        31.4501,
+        0.26
       ],
       "systemAlert": [
-        53.9179,
+        31.8601,
         0.862
       ],
       "requestTimeout": [
-        55.0799,
+        32.8721,
         0.862
       ],
       "adminArm": [
-        56.2419,
+        33.8841,
         0.7449
       ],
       "mail": [
-        57.2868,
-        1.0814
+        34.779,
+        0.409
       ],
       "notification": [
-        58.6682,
+        35.338,
         0.8914
       ],
       "noticeInfo": [
-        59.8596,
-        0.7937
+        36.3794,
+        0.2389
       ],
       "noticeSuccess": [
-        60.9533,
-        0.9066
+        36.7683,
+        0.379
       ],
       "noticeSpecial": [
-        62.16,
-        1.8273
+        37.2973,
+        0.5519
       ],
       "boostReady": [
-        64.2873,
-        0.9263
+        37.9993,
+        0.9331
       ],
       "reactorReady": [
-        65.5137,
+        39.0824,
         0.7375
       ],
       "crewNudge": [
-        66.5512,
+        39.9698,
         0.612
       ],
       "invite": [
-        67.4632,
+        40.7318,
         0.5808
       ],
       "chatReceive": [
-        68.344,
-        0.612
+        41.4627,
+        0.12
       ],
       "gameResume": [
-        69.256,
+        41.7327,
         0.722
       ],
       "velocitySlide": [
-        70.278,
-        0.862
+        42.6047,
+        0.16
       ],
       "travel": [
-        71.44,
+        42.9147,
         1.012
       ],
       "purchase": [
-        72.752,
+        44.0767,
         0.6257
       ],
       "purchaseResult": [
-        73.6776,
+        44.8523,
         0.5742
       ],
       "vaultDeposit": [
-        74.5519,
+        45.5766,
         0.6477
       ],
       "vaultBank": [
-        75.4995,
+        46.3742,
         0.6247
       ],
       "guildDeposit": [
-        76.4242,
+        47.1489,
         0.6778
       ],
       "collect": [
-        77.402,
+        47.9767,
         0.8909
       ],
       "boost": [
-        78.5929,
+        49.0176,
         0.8283
       ],
       "boostActivate": [
-        79.7213,
+        49.996,
         0.8659
       ],
       "offlineCollect": [
-        80.8871,
+        51.0118,
         0.9968
       ],
       "puzzleClear": [
-        82.1839,
+        52.1586,
         0.8141
       ],
       "oreCollect": [
-        83.298,
+        53.1227,
         0.7881
       ],
       "reward": [
-        84.3861,
+        54.0608,
         2.1409
       ],
       "codeReward": [
-        86.827,
+        56.3517,
         1.6946
       ],
       "tutorialFinish": [
-        88.8216,
+        58.1963,
         1.8705
       ],
       "domainReward": [
-        90.9921,
+        60.2168,
         1.9866
       ],
       "wheelLand": [
-        93.2787,
-        1.7486
+        62.3534,
+        1.5242
       ],
       "unlock": [
-        95.3273,
-        1.7335
+        64.0276,
+        1.7267
       ],
       "researchUnlock": [
-        97.3608,
+        65.9043,
         1.5673
       ],
       "achievementClaim": [
-        99.2281,
+        67.6216,
         1.7686
       ],
       "seasonClaim": [
-        101.2967,
+        69.5402,
         1.6384
       ],
       "comboMilestone": [
-        103.2351,
+        71.3286,
         1.6132
       ],
       "discovery": [
-        105.1483,
+        73.0918,
         1.6436
       ],
       "zoneUnlock": [
-        107.0919,
+        74.8854,
         1.8092
       ],
       "guildCreate": [
-        109.2011,
+        76.8446,
         1.5137
       ],
       "echoCapture": [
-        111.0148,
+        78.5083,
         1.8834
       ],
       "storyReveal": [
-        113.1982,
+        80.5417,
         1.9675
       ],
       "missionClaim": [
-        115.4657,
+        82.6592,
         1.1684
       ],
       "dailyClaim": [
-        116.9341,
+        83.9776,
         1.0257
       ],
       "timedClaim": [
-        118.2598,
+        85.1532,
         1.1425
       ],
       "mailClaim": [
-        119.7022,
+        86.4457,
         1.0252
       ],
       "crateClaim": [
-        121.0274,
+        87.6209,
         1.0375
       ],
       "echoClaim": [
-        122.365,
+        88.8085,
         1.0602
       ],
       "guildJoin": [
-        123.7251,
+        90.0186,
         1.0286
       ],
       "expeditionReturn": [
-        125.0537,
+        91.1972,
         1.1433
       ],
       "prestige": [
-        126.497,
+        92.4905,
         4.0907
       ],
       "rebirthBloom": [
-        130.8877,
+        96.7312,
         3.9206
       ],
       "crateRare": [
-        135.1083,
+        100.8018,
         3.8797
       ],
       "salvage": [
-        139.288,
+        104.8315,
         0.9537
       ],
       "salvageCrunch": [
-        140.5417,
+        105.9352,
         0.8393
       ],
       "echoDismantle": [
-        141.6811,
+        106.9246,
         1.0821
       ],
       "autoForge": [
-        143.0632,
+        108.1566,
         0.8313
       ],
       "bootStrike": [
-        144.1945,
+        109.138,
         0.9657
       ],
       "bootClang": [
-        145.4602,
+        110.2537,
         0.8437
       ],
       "bootAnvilSplit": [
-        146.6039,
+        111.2474,
         1.1455
       ],
       "wardenStrike": [
-        148.0494,
+        112.5429,
         0.6598
       ],
       "wardenCrit": [
-        149.0092,
+        113.3527,
         1.0989
       ],
       "machineInstall": [
-        150.408,
+        114.6015,
         0.8055
       ],
       "wheelBrake": [
-        151.5136,
-        0.8
+        115.5571,
+        0.931
       ],
       "crateBrake": [
-        152.6136,
+        116.6381,
         0.8182
       ],
       "wheel": [
-        153.7318,
+        117.6062,
         0.812
       ],
       "wheelStart": [
-        154.8438,
-        0.912
+        118.5682,
+        1.1665
       ],
       "crateOpen": [
-        156.0558,
-        0.9368
+        119.8847,
+        0.942
       ],
       "expeditionLaunch": [
-        157.2926,
+        120.9767,
         1.112
       ],
       "bootStart": [
-        158.7046,
+        122.2387,
         0.962
       ],
       "bootWhoosh": [
-        159.9666,
-        1.0096
+        123.3507,
+        1.012
       ],
       "bootFinaleFlip": [
-        161.2762,
-        0.8448
+        124.5127,
+        0.862
       ],
       "bootSlamAir": [
-        162.421,
+        125.5247,
         1.162
       ],
       "reactor": [
-        163.883,
+        126.8367,
         1.2
       ],
       "bootRumble": [
-        165.383,
+        128.1867,
         1.4
       ],
       "bootFractureTail": [
-        167.083,
+        129.7367,
         1.6
       ],
       "bootGravity": [
-        168.983,
+        131.4867,
         1.5
       ],
       "bootAftershock": [
-        170.783,
+        133.1367,
         1.3
       ],
       "reactorSurge": [
-        172.383,
+        134.5867,
         1.7988
       ],
       "adminExecute": [
-        174.4819,
+        136.5356,
         1.8074
       ],
       "crateLand": [
-        176.5892,
-        1.8216
+        138.493,
+        1.8215
       ],
       "domainImpact": [
-        178.7108,
+        140.4645,
         1.7422
       ],
       "bootImpact": [
-        180.753,
+        142.3568,
         1.777
       ],
       "bootFinaleBang": [
-        182.83,
+        144.2838,
         1.8544
       ],
       "reactorChannel": [
-        184.9844,
+        146.2881,
         1.6466
       ],
       "rebirthCharge": [
-        186.931,
+        148.0847,
         1.862
       ],
       "wheelCharge": [
-        189.093,
+        150.0967,
         1.462
       ],
       "crateCharge": [
-        190.855,
+        151.7087,
         1.562
       ],
       "domainCharge": [
-        192.717,
+        153.4207,
         1.962
       ],
       "cardPower": [
-        194.979,
-        1.362
+        155.5327,
+        1.3555
       ],
       "bootTension": [
-        196.641,
-        1.7095
+        157.0382,
+        1.712
       ],
       "reactorPulse": [
-        198.6505,
-        0.4933
+        158.9002,
+        0.518
       ],
       "domainCrack": [
-        199.4437,
-        0.5328
+        159.5682,
+        0.5265
       ],
       "cardEnergy": [
-        200.2766,
-        0.5035
+        160.2447,
+        0.5173
       ],
       "bootSpark": [
-        201.0801,
-        0.5283
+        160.912,
+        0.5309
       ],
       "bootFizz": [
-        201.9084,
-        0.541
+        161.5929,
+        0.5377
       ],
       "bootDebris": [
-        202.7494,
-        0.5163
+        162.2805,
+        0.5204
       ],
       "domainBind": [
-        203.5657,
+        162.9509,
         2.6862
       ],
       "boot": [
-        206.5519,
+        165.7871,
         2.6663
       ],
       "wheelTick": [
-        209.5182,
-        0.03
+        168.6034,
+        0.055
       ],
       "wheelSlow": [
-        209.8482,
-        0.03
+        168.8084,
+        0.055
       ],
       "crateTick": [
-        210.1782,
+        169.0134,
         0.03
       ],
       "crateNear": [
-        210.5082,
+        169.1934,
         0.03
       ],
       "cardPlay": [
-        210.8382,
+        169.3734,
         0.05
       ],
       "cardDraw": [
-        211.1882,
+        169.5734,
         0.05
       ],
       "bootIgnite": [
-        211.5382,
-        1.8341
+        169.7734,
+        1.8256
       ],
       "bootReady": [
-        213.6723,
+        171.749,
         1.8383
       ],
       "bootSlamCharge": [
-        215.8106,
+        173.7374,
         2.112
       ],
       "oreMine": [
-        218.2226,
+        175.9994,
         0.9218
       ],
       "wardenForming": [
-        219.4445,
+        177.0712,
         4.612
       ],
       "wardenAwake": [
-        224.3565,
+        181.8332,
         2.962
       ],
       "wardenSlam": [
-        227.6185,
+        184.9452,
         3.362
       ],
       "wardenDefeat": [
-        231.2805,
+        188.4572,
         4.5411
       ],
       "wardenEscape": [
-        236.1216,
+        193.1483,
         3.212
       ],
       "waystoneTravel": [
-        239.6336,
+        196.5103,
         2.3711
       ],
       "regionEnter": [
-        242.3046,
+        199.0314,
         3.0588
       ],
       "echoEquip": [
-        245.6634,
+        202.2402,
         0.8345
       ],
       "echoTune": [
-        246.7979,
+        203.2246,
         0.056
       ],
       "wardenSlamCharge": [
-        247.1539,
+        203.4307,
         2.412
       ],
       "navOpenOverview": [
-        249.8659,
-        0.2
+        205.9927,
+        0.24
       ],
       "navHoverOverview": [
-        250.3659,
-        0.07
+        206.3827,
+        0.04
       ],
       "navOpenWorkshop": [
-        250.7359,
-        0.2
+        206.5727,
+        0.251
       ],
       "navHoverWorkshop": [
-        251.2359,
-        0.07
+        206.9736,
+        0.04
       ],
       "navOpenInventory": [
-        251.6059,
-        0.2
+        207.1636,
+        0.2508
       ],
       "navHoverInventory": [
-        252.1059,
-        0.07
+        207.5644,
+        0.04
       ],
       "navOpenResearch": [
-        252.4759,
-        0.2
+        207.7544,
+        0.2508
       ],
       "navHoverResearch": [
-        252.9759,
-        0.07
+        208.1552,
+        0.04
       ],
       "navOpenShop": [
-        253.3459,
-        0.2
+        208.3452,
+        0.2509
       ],
       "navHoverShop": [
-        253.8459,
-        0.07
+        208.746,
+        0.04
       ],
       "navOpenSettings": [
-        254.2159,
-        0.2
+        208.936,
+        0.2688
       ],
       "navHoverSettings": [
-        254.7159,
-        0.07
+        209.3548,
+        0.04
       ],
       "navOpenWorlds": [
-        255.0859,
-        0.2
+        209.5448,
+        0.2688
       ],
       "navHoverWorlds": [
-        255.5859,
-        0.07
+        209.9635,
+        0.04
       ],
       "navOpenMissions": [
-        255.9559,
-        0.2
+        210.1535,
+        0.2506
       ],
       "navHoverMissions": [
-        256.4559,
-        0.07
+        210.5541,
+        0.04
       ],
       "navOpenRewards": [
-        256.8259,
-        0.2
+        210.7441,
+        0.2574
       ],
       "navHoverRewards": [
-        257.3259,
-        0.07
+        211.1515,
+        0.04
       ],
       "navOpenBoosts": [
-        257.6959,
-        0.2
+        211.3415,
+        0.2564
       ],
       "navHoverBoosts": [
-        258.1959,
-        0.07
+        211.7479,
+        0.04
       ],
       "navOpenStarGrid": [
-        258.5659,
-        0.2
+        211.9379,
+        0.2509
       ],
       "navHoverStarGrid": [
-        259.0659,
-        0.07
+        212.3388,
+        0.04
       ],
       "navOpenEchoes": [
-        259.4359,
-        0.2
+        212.5288,
+        0.251
       ],
       "navHoverEchoes": [
-        259.9359,
-        0.07
+        212.9298,
+        0.04
       ],
       "navOpenContinuum": [
-        260.3059,
-        0.2
+        213.1198,
+        0.251
       ],
       "navHoverContinuum": [
-        260.8059,
-        0.07
+        213.5208,
+        0.04
       ],
       "navOpenLab": [
-        261.1759,
-        0.2
+        213.7108,
+        0.2508
       ],
       "navHoverLab": [
-        261.6759,
-        0.07
+        214.1115,
+        0.04
       ],
       "navOpenAnomaly": [
-        262.0459,
-        0.2
+        214.3015,
+        0.2505
       ],
       "navHoverAnomaly": [
-        262.5459,
-        0.07
+        214.702,
+        0.04
       ],
       "navOpenWheel": [
-        262.9159,
-        0.2
+        214.892,
+        0.2508
       ],
       "navHoverWheel": [
-        263.4159,
-        0.07
+        215.2929,
+        0.04
       ],
       "navOpenCommand": [
-        263.7859,
-        0.2
+        215.4829,
+        0.2688
       ],
       "navHoverCommand": [
-        264.2859,
-        0.07
+        215.9016,
+        0.04
       ],
       "navOpenStory": [
-        264.6559,
-        0.2
+        216.0916,
+        0.2516
       ],
       "navHoverStory": [
-        265.1559,
-        0.07
+        216.4932,
+        0.04
       ],
       "navOpenMail": [
-        265.5259,
-        0.2
+        216.6832,
+        0.2506
       ],
       "navHoverMail": [
-        266.0259,
-        0.07
+        217.0838,
+        0.04
       ],
       "navOpenChat": [
-        266.3959,
-        0.2
+        217.2738,
+        0.2569
       ],
       "navHoverChat": [
-        266.8959,
-        0.07
+        217.6807,
+        0.04
       ],
       "navOpenCrew": [
-        267.2659,
-        0.2
+        217.8707,
+        0.2509
       ],
       "navHoverCrew": [
-        267.7659,
-        0.07
+        218.2715,
+        0.04
       ],
       "navOpenMilestones": [
-        268.1359,
-        0.2
+        218.4615,
+        0.24
       ],
       "navHoverMilestones": [
-        268.6359,
-        0.07
+        218.8515,
+        0.04
       ],
       "navOpenConvergence": [
-        269.0059,
-        0.2
+        219.0415,
+        0.251
       ],
       "navHoverConvergence": [
-        269.5059,
-        0.07
+        219.4425,
+        0.04
       ],
       "navOpenGuild": [
-        269.8759,
-        0.2
+        219.6325,
+        0.2508
       ],
       "navHoverGuild": [
-        270.3759,
-        0.07
+        220.0333,
+        0.04
       ],
       "navOpenLeaderboards": [
-        270.7459,
-        0.2
+        220.2233,
+        0.2508
       ],
       "navHoverLeaderboards": [
-        271.2459,
-        0.07
+        220.6241,
+        0.04
       ],
       "navOpenTrade": [
-        271.6159,
-        0.2
+        220.8141,
+        0.2509
       ],
       "navHoverTrade": [
-        272.1159,
-        0.07
+        221.2149,
+        0.04
       ],
       "navOpenCredits": [
-        272.4859,
-        0.2
+        221.4049,
+        0.2688
       ],
       "navHoverCredits": [
-        272.9859,
-        0.07
+        221.8237,
+        0.04
       ],
       "navOpenAdmin": [
-        273.3559,
-        0.2
+        222.0137,
+        0.2683
       ],
       "navHoverAdmin": [
-        273.8559,
-        0.07
+        222.432,
+        0.04
       ],
       "navOpenForgePath": [
-        274.2259,
-        0.2
+        222.622,
+        0.2506
       ],
       "navHoverForgePath": [
-        274.7259,
-        0.07
+        223.0226,
+        0.04
       ],
       "navOpenFoundry": [
-        275.0959,
-        0.2
+        223.2126,
+        0.2569
       ],
       "navHoverFoundry": [
-        275.5959,
-        0.07
+        223.6195,
+        0.04
       ],
       "oreMineEmberite": [
-        275.9659,
+        223.8095,
         0.32
       ],
       "oreCollectEmberite": [
-        276.5859,
+        224.2795,
         0.36
       ],
       "oreMineVoidglass": [
-        277.2459,
-        0.32
+        224.7895,
+        0.3063
       ],
       "oreCollectVoidglass": [
-        277.8659,
-        0.36
+        225.2457,
+        0.3525
       ],
       "oreMineStarsteel": [
-        278.5259,
+        225.7482,
         0.32
       ],
       "oreCollectStarsteel": [
-        279.1459,
+        226.2182,
         0.36
       ],
       "waystoneHeart": [
-        279.8059,
-        0.22
+        226.7282,
+        0.2174
       ],
       "waystoneEmberreach": [
-        280.3259,
+        227.0956,
         0.22
       ],
       "waystoneHollows": [
-        280.8459,
+        227.4656,
         0.22
       ],
       "waystoneSpire": [
-        281.3659,
+        227.8356,
         0.22
       ],
       "waystoneRiftmaw": [
-        281.8859,
+        228.2056,
         0.22
       ],
       "sanctuaryRecall": [
-        282.4059,
+        228.5756,
         0.26
       ],
       "sanctuaryMenu": [
-        282.9659,
+        228.9856,
         0.09
       ],
       "sanctuarySheetClose": [
-        283.3559,
+        229.2256,
         0.14
       ],
       "clickHover": [
-        283.7959,
-        0.065
+        229.5156,
+        0.035
       ],
       "confirmHover": [
-        284.1609,
-        0.065
+        229.7006,
+        0.035
       ],
       "settingsHover": [
-        284.5259,
-        0.065
+        229.8856,
+        0.035
       ],
       "purchasePressHover": [
-        284.8909,
-        0.065
+        230.0706,
+        0.035
       ],
       "claimPressHover": [
-        285.2559,
-        0.065
+        230.2556,
+        0.035
       ],
       "codeSubmitHover": [
-        285.6209,
-        0.065
+        230.4406,
+        0.035
       ],
       "zoneSelectHover": [
-        285.9859,
-        0.065
+        230.6256,
+        0.035
       ],
       "labRouteHover": [
-        286.3508,
-        0.065
+        230.8106,
+        0.035
       ],
       "playerlistActionHover": [
-        286.7158,
-        0.065
+        230.9956,
+        0.035
       ],
       "playerlistSelectHover": [
-        287.0808,
-        0.065
+        231.1805,
+        0.035
       ],
       "puzzleTapHover": [
-        287.4458,
-        0.065
+        231.3655,
+        0.035
       ],
       "sanctuaryClickHover": [
-        287.8108,
-        0.065
+        231.5505,
+        0.035
       ],
       "equipHover": [
-        288.1758,
-        0.065
+        231.7355,
+        0.035
       ],
       "dangerPressHover": [
-        288.5408,
-        0.065
+        231.9205,
+        0.035
       ],
       "closeHover": [
-        288.9058,
-        0.065
+        232.1055,
+        0.035
       ],
       "tickHover": [
-        289.2707,
-        0.065
+        232.2905,
+        0.035
       ],
       "openHover": [
-        289.6357,
-        0.065
+        232.4755,
+        0.035
       ],
       "tabSwitchHover": [
-        290.0007,
-        0.065
+        232.6605,
+        0.035
       ],
       "mailHover": [
-        290.3657,
-        0.065
+        232.8454,
+        0.035
       ],
       "storyHover": [
-        290.7307,
-        0.065
+        233.0304,
+        0.035
       ],
       "toggleOnHover": [
-        291.0957,
-        0.065
+        233.2154,
+        0.035
       ],
       "toggleOffHover": [
-        291.4607,
-        0.065
+        233.4004,
+        0.035
       ],
       "lockedHover": [
-        291.8257,
-        0.065
+        233.5854,
+        0.035
       ],
       "errorHover": [
-        292.1907,
-        0.065
+        233.7704,
+        0.035
       ],
       "prestigeHover": [
-        292.5556,
-        0.065
+        233.9554,
+        0.035
       ],
       "domainChargeHover": [
-        292.9206,
-        0.065
+        234.1404,
+        0.035
       ],
       "cardEndTurnHover": [
-        293.2856,
-        0.065
+        234.3254,
+        0.035
       ],
       "cardPowerHover": [
-        293.6506,
-        0.065
+        234.5103,
+        0.035
       ],
       "cardEnergyHover": [
-        294.0156,
-        0.065
+        234.6953,
+        0.035
       ],
       "vaultBankHover": [
-        294.3806,
-        0.065
+        234.8803,
+        0.035
       ],
       "guildCreateHover": [
-        294.7456,
-        0.065
+        235.0653,
+        0.035
       ],
       "guildJoinHover": [
-        295.1106,
-        0.065
+        235.2503,
+        0.035
       ],
       "inviteHover": [
-        295.4756,
-        0.065
+        235.4353,
+        0.035
       ],
       "travelHover": [
-        295.8405,
-        0.065
+        235.6203,
+        0.035
       ],
       "gameResumeHover": [
-        296.2055,
-        0.065
+        235.8053,
+        0.035
       ],
       "gamePauseHover": [
-        296.5705,
-        0.065
+        235.9902,
+        0.035
       ],
       "queueStopHover": [
-        296.9355,
-        0.065
+        236.1752,
+        0.035
       ],
       "queueStartHover": [
-        297.3005,
-        0.065
+        236.3602,
+        0.035
       ],
       "boostHover": [
-        297.6655,
-        0.065
+        236.5452,
+        0.035
       ],
       "reactorPulseHover": [
-        298.0305,
-        0.065
+        236.7302,
+        0.035
       ],
       "crateOpenHover": [
-        298.3955,
-        0.065
+        236.9152,
+        0.035
       ],
       "wheelStartHover": [
-        298.7605,
-        0.065
+        237.1002,
+        0.035
       ],
       "rewardHover": [
-        299.1254,
-        0.065
+        237.2852,
+        0.035
       ],
       "rebirthChargeHover": [
-        299.4904,
-        0.065
+        237.4702,
+        0.035
       ],
       "missionClaimHover": [
-        299.8554,
-        0.065
+        237.6551,
+        0.035
       ],
       "leaderboardSwitchHover": [
-        300.2204,
-        0.065
+        237.8401,
+        0.035
       ],
       "adminArmHover": [
-        300.5854,
-        0.065
+        238.0251,
+        0.035
       ],
       "memberRemoveHover": [
-        300.9504,
-        0.065
+        238.2101,
+        0.035
       ],
       "roleChangeHover": [
-        301.3154,
-        0.065
+        238.3951,
+        0.035
       ],
       "previewHover": [
-        301.6804,
-        0.065
+        238.5801,
+        0.035
       ],
       "resetHover": [
-        302.0454,
-        0.065
+        238.7651,
+        0.035
       ],
       "chatSendHover": [
-        302.4103,
-        0.065
+        238.9501,
+        0.035
       ],
       "boostOpenHover": [
-        302.7753,
-        0.065
+        239.1351,
+        0.035
       ],
       "vaultDepositHover": [
-        303.1403,
-        0.065
+        239.32,
+        0.035
       ],
       "forgePress": [
-        303.5053,
-        0.13
+        239.505,
+        0.092
       ],
       "corePress": [
-        303.9353,
-        0.13
+        239.747,
+        0.092
       ],
       "wavePress": [
-        304.3653,
-        0.13
+        239.989,
+        0.092
       ],
       "labPress": [
-        304.7953,
-        0.13
+        240.231,
+        0.092
       ],
       "commandPress": [
-        305.2253,
-        0.13
+        240.473,
+        0.092
       ],
       "adminPress": [
-        305.6553,
-        0.13
+        240.715,
+        0.092
       ],
       "creditsPress": [
-        306.0853,
-        0.13
+        240.957,
+        0.092
       ],
       "chatPress": [
-        306.5153,
-        0.13
+        241.199,
+        0.092
       ],
       "continuumPress": [
-        306.9453,
-        0.13
+        241.441,
+        0.092
       ],
       "missionPress": [
-        307.3753,
-        0.13
+        241.683,
+        0.092
       ],
       "overviewPress": [
-        307.8053,
-        0.13
+        241.925,
+        0.092
       ]
     },
     "loudness": {
-      "hover": -16.9,
-      "hoverTick": -17.12,
-      "tick": -17.36,
-      "scroll": -16.24,
-      "sliderStep": -16.62,
-      "amountChange": -15.87,
-      "filterPick": -16.21,
-      "sanctuaryHover": -16.33,
-      "navHover": -16.11,
-      "click": -16.81,
-      "settings": -15.76,
-      "purchasePress": -16.78,
-      "claimPress": -16.41,
-      "codeSubmit": -16.41,
-      "zoneSelect": -16.24,
-      "labRoute": -17.64,
-      "playerlistAction": -15.96,
-      "playerlistSelect": -17.32,
-      "puzzleTap": -16.66,
-      "sanctuaryClick": -17.42,
-      "curtainOpen": -17.11,
-      "curtainClose": -17.59,
-      "confirm": -17.22,
-      "successChime": -15.78,
-      "equip": -15.68,
-      "itemLink": -17.52,
-      "tutorialStep": -17.4,
-      "roleChange": -16.57,
-      "reactorStabilize": -16.66,
-      "toggleOn": -13.76,
-      "toggleOff": -13.68,
-      "queueStart": -16.94,
-      "queueStop": -15.72,
-      "open": -14.98,
-      "modalOpen": -14.66,
-      "filterOpen": -14.63,
-      "boostOpen": -14.87,
-      "offlineOpen": -14.39,
-      "playerlistOpen": -14.96,
-      "story": -14.32,
+      "hover": -14.25,
+      "hoverTick": -13.92,
+      "tick": -12.99,
+      "scroll": -12.39,
+      "sliderStep": -12.7,
+      "amountChange": -13.38,
+      "filterPick": -15.76,
+      "sanctuaryHover": -14.55,
+      "navHover": -14.32,
+      "click": -16.82,
+      "settings": -16.82,
+      "purchasePress": -17.82,
+      "claimPress": -17.59,
+      "codeSubmit": -16.61,
+      "zoneSelect": -16.32,
+      "labRoute": -17.83,
+      "playerlistAction": -16.68,
+      "playerlistSelect": -14.49,
+      "puzzleTap": -16.72,
+      "sanctuaryClick": -15.83,
+      "curtainOpen": -15.34,
+      "curtainClose": -15.49,
+      "confirm": -14.92,
+      "successChime": -14.94,
+      "equip": -15.46,
+      "itemLink": -17.67,
+      "tutorialStep": -17.42,
+      "roleChange": -16.54,
+      "reactorStabilize": -16.63,
+      "toggleOn": -15.8,
+      "toggleOff": -15.67,
+      "queueStart": -16.98,
+      "queueStop": -15.87,
+      "open": -14.74,
+      "modalOpen": -15.27,
+      "filterOpen": -13.98,
+      "boostOpen": -14.89,
+      "offlineOpen": -14.41,
+      "playerlistOpen": -14.82,
+      "story": -15.55,
       "storyOpen": -15.0,
-      "crate": -14.27,
-      "close": -16.74,
-      "modalDismiss": -16.76,
-      "purchaseExit": -16.69,
-      "playerlistClose": -16.57,
-      "noticeClose": -16.32,
-      "itemUnlink": -16.51,
-      "reset": -18.11,
-      "memberRemove": -16.98,
-      "guildLeave": -16.6,
-      "gamePause": -16.94,
-      "gameExit": -18.39,
-      "page": -16.8,
-      "tabSwitch": -18.26,
-      "preview": -16.68,
-      "storyBeat": -16.84,
-      "storyPage": -17.61,
-      "mailRead": -15.84,
-      "leaderboardSwitch": -16.95,
-      "cardEndTurn": -16.35,
-      "modalPop": -11.05,
-      "sliderCommit": -10.97,
-      "inputClear": -13.36,
-      "chatSend": -17.42,
-      "inputFocus": -14.98,
-      "error": -12.26,
-      "errorBuzz": -11.68,
-      "noticeError": -11.89,
-      "dangerPress": -13.89,
-      "locked": -14.39,
-      "requestBlocked": -14.3,
-      "cardBlock": -14.5,
-      "noticeWarning": -12.0,
+      "crate": -14.28,
+      "close": -15.06,
+      "modalDismiss": -15.21,
+      "purchaseExit": -15.28,
+      "playerlistClose": -15.07,
+      "noticeClose": -14.1,
+      "itemUnlink": -16.53,
+      "reset": -18.13,
+      "memberRemove": -17.02,
+      "guildLeave": -16.62,
+      "gamePause": -16.98,
+      "gameExit": -18.41,
+      "page": -15.01,
+      "tabSwitch": -16.05,
+      "preview": -17.32,
+      "storyBeat": -16.35,
+      "storyPage": -17.07,
+      "mailRead": -16.37,
+      "leaderboardSwitch": -16.41,
+      "cardEndTurn": -15.1,
+      "modalPop": -14.88,
+      "sliderCommit": -14.8,
+      "inputClear": -14.23,
+      "chatSend": -14.02,
+      "inputFocus": -14.23,
+      "error": -15.87,
+      "errorBuzz": -15.21,
+      "noticeError": -15.93,
+      "dangerPress": -14.23,
+      "locked": -16.81,
+      "requestBlocked": -14.23,
+      "cardBlock": -14.43,
+      "noticeWarning": -15.38,
       "systemAlert": -12.7,
-      "requestTimeout": -12.81,
-      "adminArm": -15.78,
-      "mail": -14.63,
-      "notification": -16.44,
-      "noticeInfo": -15.16,
-      "noticeSuccess": -16.58,
-      "noticeSpecial": -18.43,
-      "boostReady": -17.83,
-      "reactorReady": -17.41,
-      "crewNudge": -13.69,
-      "invite": -13.74,
-      "chatReceive": -12.58,
-      "gameResume": -14.59,
-      "velocitySlide": -17.44,
-      "travel": -18.12,
-      "purchase": -17.83,
-      "purchaseResult": -18.04,
-      "vaultDeposit": -18.19,
-      "vaultBank": -18.18,
+      "requestTimeout": -12.79,
+      "adminArm": -15.89,
+      "mail": -14.82,
+      "notification": -16.49,
+      "noticeInfo": -15.84,
+      "noticeSuccess": -15.39,
+      "noticeSpecial": -15.25,
+      "boostReady": -17.76,
+      "reactorReady": -17.62,
+      "crewNudge": -13.72,
+      "invite": -13.75,
+      "chatReceive": -15.05,
+      "gameResume": -14.61,
+      "velocitySlide": -14.9,
+      "travel": -17.39,
+      "purchase": -17.84,
+      "purchaseResult": -18.08,
+      "vaultDeposit": -18.25,
+      "vaultBank": -18.23,
       "guildDeposit": -17.69,
-      "collect": -16.77,
-      "boost": -15.06,
-      "boostActivate": -16.72,
-      "offlineCollect": -15.42,
-      "puzzleClear": -15.08,
-      "oreCollect": -17.5,
-      "reward": -18.92,
-      "codeReward": -19.89,
-      "tutorialFinish": -18.25,
-      "domainReward": -19.0,
-      "wheelLand": -19.29,
-      "unlock": -19.4,
-      "researchUnlock": -19.21,
-      "achievementClaim": -18.6,
-      "seasonClaim": -19.91,
-      "comboMilestone": -19.03,
-      "discovery": -18.64,
-      "zoneUnlock": -19.31,
-      "guildCreate": -19.81,
-      "echoCapture": -19.26,
-      "storyReveal": -19.95,
-      "missionClaim": -18.89,
-      "dailyClaim": -17.59,
-      "timedClaim": -18.32,
-      "mailClaim": -18.64,
-      "crateClaim": -18.74,
-      "echoClaim": -19.04,
-      "guildJoin": -19.49,
-      "expeditionReturn": -18.03,
-      "prestige": -19.25,
-      "rebirthBloom": -19.45,
-      "crateRare": -19.57,
-      "salvage": -13.92,
-      "salvageCrunch": -13.48,
-      "echoDismantle": -13.63,
-      "autoForge": -13.86,
-      "bootStrike": -13.84,
-      "bootClang": -13.74,
-      "bootAnvilSplit": -13.36,
-      "wardenStrike": -18.91,
-      "wardenCrit": -12.84,
-      "machineInstall": -20.35,
-      "wheelBrake": -20.29,
-      "crateBrake": -20.16,
-      "wheel": -16.77,
-      "wheelStart": -17.57,
-      "crateOpen": -17.18,
-      "expeditionLaunch": -17.26,
-      "bootStart": -17.44,
-      "bootWhoosh": -17.22,
-      "bootFinaleFlip": -16.87,
-      "bootSlamAir": -17.67,
-      "reactor": -13.45,
-      "bootRumble": -13.61,
-      "bootFractureTail": -12.73,
-      "bootGravity": -13.8,
-      "bootAftershock": -13.05,
-      "reactorSurge": -12.29,
-      "adminExecute": -12.19,
-      "crateLand": -12.31,
-      "domainImpact": -12.39,
-      "bootImpact": -12.18,
-      "bootFinaleBang": -12.43,
-      "reactorChannel": -19.46,
-      "rebirthCharge": -18.83,
-      "wheelCharge": -19.72,
-      "crateCharge": -18.57,
-      "domainCharge": -19.62,
-      "cardPower": -18.84,
-      "bootTension": -19.3,
-      "reactorPulse": -18.33,
-      "domainCrack": -18.07,
-      "cardEnergy": -16.46,
-      "bootSpark": -16.37,
-      "bootFizz": -16.91,
-      "bootDebris": -18.1,
-      "domainBind": -15.67,
-      "boot": -16.49,
-      "wheelTick": -13.69,
-      "wheelSlow": -13.35,
-      "crateTick": -13.41,
-      "crateNear": -13.21,
-      "cardPlay": -17.74,
-      "cardDraw": -18.04,
-      "bootIgnite": -13.09,
+      "collect": -16.79,
+      "boost": -15.08,
+      "boostActivate": -16.73,
+      "offlineCollect": -15.44,
+      "puzzleClear": -15.11,
+      "oreCollect": -17.53,
+      "reward": -18.96,
+      "codeReward": -19.91,
+      "tutorialFinish": -18.29,
+      "domainReward": -19.01,
+      "wheelLand": -20.33,
+      "unlock": -19.44,
+      "researchUnlock": -19.25,
+      "achievementClaim": -18.63,
+      "seasonClaim": -19.92,
+      "comboMilestone": -19.06,
+      "discovery": -18.66,
+      "zoneUnlock": -19.33,
+      "guildCreate": -19.87,
+      "echoCapture": -19.31,
+      "storyReveal": -20.0,
+      "missionClaim": -18.91,
+      "dailyClaim": -17.61,
+      "timedClaim": -18.33,
+      "mailClaim": -18.66,
+      "crateClaim": -18.75,
+      "echoClaim": -19.05,
+      "guildJoin": -19.52,
+      "expeditionReturn": -18.05,
+      "prestige": -19.41,
+      "rebirthBloom": -19.63,
+      "crateRare": -19.74,
+      "salvage": -13.83,
+      "salvageCrunch": -13.39,
+      "echoDismantle": -13.49,
+      "autoForge": -13.78,
+      "bootStrike": -13.78,
+      "bootClang": -13.68,
+      "bootAnvilSplit": -13.3,
+      "wardenStrike": -18.94,
+      "wardenCrit": -12.85,
+      "machineInstall": -20.55,
+      "wheelBrake": -16.99,
+      "crateBrake": -20.32,
+      "wheel": -17.59,
+      "wheelStart": -19.37,
+      "crateOpen": -17.51,
+      "expeditionLaunch": -17.4,
+      "bootStart": -17.27,
+      "bootWhoosh": -17.43,
+      "bootFinaleFlip": -17.12,
+      "bootSlamAir": -17.68,
+      "reactor": -15.65,
+      "bootRumble": -15.62,
+      "bootFractureTail": -15.41,
+      "bootGravity": -15.76,
+      "bootAftershock": -15.86,
+      "reactorSurge": -12.58,
+      "adminExecute": -12.65,
+      "crateLand": -12.53,
+      "domainImpact": -12.87,
+      "bootImpact": -12.57,
+      "bootFinaleBang": -12.89,
+      "reactorChannel": -18.7,
+      "rebirthCharge": -18.62,
+      "wheelCharge": -19.11,
+      "crateCharge": -18.75,
+      "domainCharge": -19.45,
+      "cardPower": -19.24,
+      "bootTension": -18.63,
+      "reactorPulse": -15.47,
+      "domainCrack": -18.63,
+      "cardEnergy": -16.21,
+      "bootSpark": -16.19,
+      "bootFizz": -16.71,
+      "bootDebris": -19.38,
+      "domainBind": -16.84,
+      "boot": -17.51,
+      "wheelTick": -19.02,
+      "wheelSlow": -18.73,
+      "crateTick": -13.58,
+      "crateNear": -13.41,
+      "cardPlay": -17.96,
+      "cardDraw": -16.9,
+      "bootIgnite": -13.69,
       "bootReady": -19.89,
-      "bootSlamCharge": -19.32,
-      "oreMine": -18.51,
-      "wardenForming": -17.72,
-      "wardenAwake": -11.33,
-      "wardenSlam": -11.55,
-      "wardenDefeat": -18.75,
-      "wardenEscape": -15.26,
-      "waystoneTravel": -18.48,
-      "regionEnter": -16.13,
-      "echoEquip": -17.35,
-      "echoTune": -15.87,
-      "wardenSlamCharge": -17.89,
-      "navOpenOverview": -13.12,
-      "navHoverOverview": -14.33,
-      "navOpenWorkshop": -15.31,
-      "navHoverWorkshop": -19.37,
-      "navOpenInventory": -12.81,
-      "navHoverInventory": -15.14,
-      "navOpenResearch": -10.75,
-      "navHoverResearch": -14.83,
-      "navOpenShop": -20.6,
-      "navHoverShop": -17.97,
-      "navOpenSettings": -15.12,
-      "navHoverSettings": -16.35,
-      "navOpenWorlds": -14.91,
-      "navHoverWorlds": -15.82,
-      "navOpenMissions": -11.54,
-      "navHoverMissions": -13.62,
-      "navOpenRewards": -14.54,
-      "navHoverRewards": -16.52,
-      "navOpenBoosts": -13.27,
-      "navHoverBoosts": -14.83,
-      "navOpenStarGrid": -15.31,
-      "navHoverStarGrid": -20.7,
-      "navOpenEchoes": -12.99,
-      "navHoverEchoes": -15.39,
-      "navOpenContinuum": -10.72,
-      "navHoverContinuum": -15.92,
-      "navOpenLab": -20.57,
-      "navHoverLab": -18.7,
-      "navOpenAnomaly": -15.29,
-      "navHoverAnomaly": -16.65,
-      "navOpenWheel": -14.92,
-      "navHoverWheel": -16.73,
-      "navOpenCommand": -16.56,
-      "navHoverCommand": -14.67,
-      "navOpenStory": -14.35,
-      "navHoverStory": -16.24,
-      "navOpenMail": -12.49,
-      "navHoverMail": -14.68,
-      "navOpenChat": -15.59,
-      "navHoverChat": -19.08,
-      "navOpenCrew": -12.98,
-      "navHoverCrew": -15.9,
-      "navOpenMilestones": -10.73,
-      "navHoverMilestones": -15.41,
-      "navOpenConvergence": -19.89,
-      "navHoverConvergence": -18.78,
-      "navOpenGuild": -15.49,
-      "navHoverGuild": -18.17,
-      "navOpenLeaderboards": -14.78,
-      "navHoverLeaderboards": -17.18,
-      "navOpenTrade": -12.95,
-      "navHoverTrade": -13.95,
-      "navOpenCredits": -14.55,
-      "navHoverCredits": -16.33,
-      "navOpenAdmin": -12.46,
-      "navHoverAdmin": -14.76,
-      "navOpenForgePath": -15.25,
-      "navHoverForgePath": -19.44,
-      "navOpenFoundry": -12.94,
-      "navHoverFoundry": -15.99,
-      "oreMineEmberite": -10.52,
-      "oreCollectEmberite": -12.13,
-      "oreMineVoidglass": -17.3,
-      "oreCollectVoidglass": -15.36,
-      "oreMineStarsteel": -15.32,
-      "oreCollectStarsteel": -14.33,
-      "waystoneHeart": -14.75,
-      "waystoneEmberreach": -13.49,
-      "waystoneHollows": -17.26,
-      "waystoneSpire": -14.07,
-      "waystoneRiftmaw": -13.54,
-      "sanctuaryRecall": -14.49,
-      "sanctuaryMenu": -13.79,
-      "sanctuarySheetClose": -12.24,
-      "clickHover": -18.4,
-      "confirmHover": -19.93,
-      "settingsHover": -17.3,
-      "purchasePressHover": -16.43,
-      "claimPressHover": -13.48,
-      "codeSubmitHover": -16.02,
-      "zoneSelectHover": -23.58,
-      "labRouteHover": -17.54,
-      "playerlistActionHover": -17.47,
-      "playerlistSelectHover": -16.77,
-      "puzzleTapHover": -17.59,
-      "sanctuaryClickHover": -17.81,
-      "equipHover": -15.05,
-      "dangerPressHover": -17.03,
-      "closeHover": -17.46,
-      "tickHover": -16.2,
-      "openHover": -15.18,
-      "tabSwitchHover": -14.33,
-      "mailHover": -18.05,
-      "storyHover": -20.24,
-      "toggleOnHover": -16.61,
-      "toggleOffHover": -16.93,
-      "lockedHover": -14.49,
-      "errorHover": -16.57,
-      "prestigeHover": -23.23,
-      "domainChargeHover": -18.17,
-      "cardEndTurnHover": -16.9,
-      "cardPowerHover": -16.98,
-      "cardEnergyHover": -18.12,
-      "vaultBankHover": -19.02,
-      "guildCreateHover": -19.63,
-      "guildJoinHover": -17.7,
-      "inviteHover": -17.4,
-      "travelHover": -16.22,
-      "gameResumeHover": -14.83,
-      "gamePauseHover": -14.96,
-      "queueStopHover": -17.93,
-      "queueStartHover": -21.66,
-      "boostHover": -16.52,
-      "reactorPulseHover": -16.05,
-      "crateOpenHover": -13.36,
-      "wheelStartHover": -15.56,
-      "rewardHover": -23.54,
-      "rebirthChargeHover": -19.38,
-      "missionClaimHover": -17.23,
-      "leaderboardSwitchHover": -15.44,
-      "adminArmHover": -18.36,
-      "memberRemoveHover": -18.1,
-      "roleChangeHover": -16.43,
-      "previewHover": -14.33,
-      "resetHover": -16.23,
-      "chatSendHover": -17.17,
-      "boostOpenHover": -14.28,
-      "vaultDepositHover": -14.72,
-      "forgePress": -15.86,
-      "corePress": -18.24,
-      "wavePress": -13.58,
-      "labPress": -14.77,
-      "commandPress": -11.14,
-      "adminPress": -13.0,
-      "creditsPress": -21.55,
-      "chatPress": -16.22,
-      "continuumPress": -15.35,
-      "missionPress": -14.93,
-      "overviewPress": -15.49
+      "bootSlamCharge": -19.36,
+      "oreMine": -18.53,
+      "wardenForming": -18.14,
+      "wardenAwake": -11.91,
+      "wardenSlam": -11.81,
+      "wardenDefeat": -18.87,
+      "wardenEscape": -15.51,
+      "waystoneTravel": -18.62,
+      "regionEnter": -16.18,
+      "echoEquip": -17.38,
+      "echoTune": -15.83,
+      "wardenSlamCharge": -18.1,
+      "navOpenOverview": -15.02,
+      "navHoverOverview": -14.31,
+      "navOpenWorkshop": -14.74,
+      "navHoverWorkshop": -14.19,
+      "navOpenInventory": -14.71,
+      "navHoverInventory": -14.35,
+      "navOpenResearch": -15.02,
+      "navHoverResearch": -14.31,
+      "navOpenShop": -14.52,
+      "navHoverShop": -14.19,
+      "navOpenSettings": -14.96,
+      "navHoverSettings": -14.35,
+      "navOpenWorlds": -15.25,
+      "navHoverWorlds": -14.31,
+      "navOpenMissions": -15.09,
+      "navHoverMissions": -14.19,
+      "navOpenRewards": -14.58,
+      "navHoverRewards": -14.35,
+      "navOpenBoosts": -14.84,
+      "navHoverBoosts": -14.31,
+      "navOpenStarGrid": -15.13,
+      "navHoverStarGrid": -14.19,
+      "navOpenEchoes": -14.57,
+      "navHoverEchoes": -14.35,
+      "navOpenContinuum": -15.08,
+      "navHoverContinuum": -14.31,
+      "navOpenLab": -15.06,
+      "navHoverLab": -14.19,
+      "navOpenAnomaly": -15.07,
+      "navHoverAnomaly": -14.35,
+      "navOpenWheel": -14.71,
+      "navHoverWheel": -14.31,
+      "navOpenCommand": -14.84,
+      "navHoverCommand": -14.19,
+      "navOpenStory": -15.13,
+      "navHoverStory": -14.35,
+      "navOpenMail": -14.67,
+      "navHoverMail": -14.31,
+      "navOpenChat": -14.98,
+      "navHoverChat": -14.19,
+      "navOpenCrew": -15.17,
+      "navHoverCrew": -14.35,
+      "navOpenMilestones": -14.93,
+      "navHoverMilestones": -14.31,
+      "navOpenConvergence": -14.67,
+      "navHoverConvergence": -14.19,
+      "navOpenGuild": -14.61,
+      "navHoverGuild": -14.35,
+      "navOpenLeaderboards": -15.0,
+      "navHoverLeaderboards": -14.31,
+      "navOpenTrade": -14.71,
+      "navHoverTrade": -14.19,
+      "navOpenCredits": -14.89,
+      "navHoverCredits": -14.35,
+      "navOpenAdmin": -15.31,
+      "navHoverAdmin": -14.31,
+      "navOpenForgePath": -15.18,
+      "navHoverForgePath": -14.19,
+      "navOpenFoundry": -14.74,
+      "navHoverFoundry": -14.35,
+      "oreMineEmberite": -10.68,
+      "oreCollectEmberite": -12.15,
+      "oreMineVoidglass": -17.53,
+      "oreCollectVoidglass": -15.52,
+      "oreMineStarsteel": -15.49,
+      "oreCollectStarsteel": -14.52,
+      "waystoneHeart": -14.6,
+      "waystoneEmberreach": -13.67,
+      "waystoneHollows": -9.73,
+      "waystoneSpire": -13.92,
+      "waystoneRiftmaw": -13.91,
+      "sanctuaryRecall": -14.52,
+      "sanctuaryMenu": -12.41,
+      "sanctuarySheetClose": -11.73,
+      "clickHover": -13.76,
+      "confirmHover": -13.55,
+      "settingsHover": -13.75,
+      "purchasePressHover": -13.82,
+      "claimPressHover": -13.5,
+      "codeSubmitHover": -13.76,
+      "zoneSelectHover": -13.55,
+      "labRouteHover": -13.75,
+      "playerlistActionHover": -13.82,
+      "playerlistSelectHover": -13.5,
+      "puzzleTapHover": -13.76,
+      "sanctuaryClickHover": -13.55,
+      "equipHover": -13.75,
+      "dangerPressHover": -13.82,
+      "closeHover": -13.5,
+      "tickHover": -13.76,
+      "openHover": -13.55,
+      "tabSwitchHover": -13.75,
+      "mailHover": -13.82,
+      "storyHover": -13.5,
+      "toggleOnHover": -13.76,
+      "toggleOffHover": -13.55,
+      "lockedHover": -13.75,
+      "errorHover": -13.82,
+      "prestigeHover": -13.5,
+      "domainChargeHover": -13.76,
+      "cardEndTurnHover": -13.55,
+      "cardPowerHover": -13.75,
+      "cardEnergyHover": -13.82,
+      "vaultBankHover": -13.5,
+      "guildCreateHover": -13.76,
+      "guildJoinHover": -13.55,
+      "inviteHover": -13.75,
+      "travelHover": -13.82,
+      "gameResumeHover": -13.5,
+      "gamePauseHover": -13.76,
+      "queueStopHover": -13.55,
+      "queueStartHover": -13.75,
+      "boostHover": -13.82,
+      "reactorPulseHover": -13.5,
+      "crateOpenHover": -13.76,
+      "wheelStartHover": -13.55,
+      "rewardHover": -13.75,
+      "rebirthChargeHover": -13.82,
+      "missionClaimHover": -13.5,
+      "leaderboardSwitchHover": -13.76,
+      "adminArmHover": -13.55,
+      "memberRemoveHover": -13.75,
+      "roleChangeHover": -13.82,
+      "previewHover": -13.5,
+      "resetHover": -13.76,
+      "chatSendHover": -13.55,
+      "boostOpenHover": -13.75,
+      "vaultDepositHover": -13.82,
+      "forgePress": -15.83,
+      "corePress": -16.92,
+      "wavePress": -16.52,
+      "labPress": -16.19,
+      "commandPress": -16.68,
+      "adminPress": -16.61,
+      "creditsPress": -16.82,
+      "chatPress": -16.65,
+      "continuumPress": -15.83,
+      "missionPress": -16.92,
+      "overviewPress": -16.52
     }
   }
 }

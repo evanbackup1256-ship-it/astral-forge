@@ -9,7 +9,12 @@ for id in string.gmatch(string.sub(source, start, stop - 1), 'Id = "([^"]+)"') d
 	table.insert(artifacts, { Id = id })
 	ids[id] = true
 end
-assert(#artifacts == 12, "authored artifact catalog drifted")
+assert(#artifacts >= 12, "authored artifact catalog drifted")
+-- generated routes only draw from the first 12 (the drop pool); shop-only relics follow
+local dropPool = {}
+for i = 1, 12 do
+	dropPool[artifacts[i].Id] = true
+end
 local config = {
 	MaxGeneratedExpeditions = assert(tonumber((string.gsub(assert(string.match(source, "GameConfig.MaxGeneratedExpeditions = ([%d_]+)")), "_", "")))),
 	Operations = { Artifacts = artifacts, Expeditions = {} },
@@ -26,6 +31,7 @@ for index = 1, config.MaxGeneratedExpeditions do
 end
 for _, route in generate() do
 	assert(ids[route.ArtifactId], route.Id .. " generated artifact missing")
+	assert(dropPool[route.ArtifactId], route.Id .. " drew a shop-only artifact")
 	assert(route.ArtifactId == resolved[route.Id].ArtifactId, route.Id .. " artifact differs between builders")
 end
 assert(#config.Operations.Expeditions == config.MaxGeneratedExpeditions)

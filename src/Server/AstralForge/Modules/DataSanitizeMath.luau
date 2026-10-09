@@ -4,13 +4,6 @@ local DataSanitizeMath = {}
 
 DataSanitizeMath.MAX_PERSISTED_NUMBER = 1e308
 
-local OMEGA_PERSIST_FIELDS = {
-	Cash = true,
-	Vault = true,
-	RunCash = true,
-	LifetimeCash = true,
-}
-
 function DataSanitizeMath.DeepCopy(value: any): any
 	if type(value) ~= "table" then
 		return value
@@ -33,11 +26,8 @@ function DataSanitizeMath.Reconcile(target: any, template: any): any
 		elseif currentValue == nil then
 			target[key] = DataSanitizeMath.DeepCopy(defaultValue)
 		elseif type(defaultValue) == "number" and type(currentValue) == "string" then
-			if not OMEGA_PERSIST_FIELDS[key] then
-				-- Only OmegaMath Persist fields may retain strings; coerce all unexpected numeric strings.
-				warn(string.format("DataSanitizeMath.Reconcile coerced unexpected numeric field %s", tostring(key)))
-				target[key] = tonumber(currentValue) or 0
-			end
+			-- Economy fields use number|string persistence. Keep the original value
+			-- for the field-specific sanitizer; tonumber can overflow valid saves.
 		elseif type(defaultValue) ~= type(currentValue) then
 			target[key] = DataSanitizeMath.DeepCopy(defaultValue)
 		end

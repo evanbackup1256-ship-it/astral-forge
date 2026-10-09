@@ -794,10 +794,17 @@ local function readTitleAttrs(player)
 	local titleId = player:GetAttribute("EquippedTitle")
 	local titleName = player:GetAttribute("EquippedTitleName")
 	local titleFx = player:GetAttribute("EquippedTitleFx")
+	local artifactName = player:GetAttribute("EquippedArtifactName")
+	local artifactElement = player:GetAttribute("EquippedArtifactElement")
+	local artifactColor = player:GetAttribute("EquippedArtifactColor")
+	local hasArtifact = type(player:GetAttribute("EquippedArtifact")) == "string" and player:GetAttribute("EquippedArtifact") ~= ""
 	return {
 		titleId = if type(titleId) == "string" and titleId ~= "" then titleId else nil,
 		titleName = if type(titleName) == "string" and titleName ~= "" then titleName else nil,
 		titleFx = if type(titleFx) == "string" and titleFx ~= "" then titleFx else nil,
+		artifactName = if hasArtifact and type(artifactName) == "string" and artifactName ~= "" then artifactName else nil,
+		artifactElement = if hasArtifact and type(artifactElement) == "string" and artifactElement ~= "" then artifactElement else nil,
+		artifactColor = if hasArtifact and typeof(artifactColor) == "Color3" then artifactColor else nil,
 	}
 end
 local function systemMessage(text)
@@ -917,6 +924,9 @@ local function useGameChat(active, enabled)
 			_object.titleId = title.titleId
 			_object.titleName = title.titleName
 			_object.titleFx = title.titleFx
+			_object.artifactName = title.artifactName
+			_object.artifactElement = title.artifactElement
+			_object.artifactColor = title.artifactColor
 			local record = _object
 			setMessages(function(current)
 				local _callback = function(entry)

@@ -23,7 +23,9 @@ lacks(guildSrc, "if existing == guildId then return nil end", "Disband must not 
 has(guildSrc, "self._cache[guildId] = nil\n\t\tself._cacheExpiry[guildId] = nil\n\t\tlocal guild = self:_read(guildId)", "Disband must drop the cache before its fresh read")
 
 -- Kick: an Officer must not be able to kick another Officer.
-has(guildSrc, 'if actor.Role == "Officer" and target.Role == "Officer" then return nil end', "Kick must block Officer kicking Officer")
+has(guildSrc, 'not Social.canManage(actor,target,"Kick") then return nil end', "Kick must go through the rank check")
+local socialSrc = fs.readFile("src/Shared/AstralForge/Shared/SocialProgression.luau")
+has(socialSrc, "return a >= 2 and b > 0 and a > b", "Kick needs a strictly higher rank, so an Officer cannot kick an Officer")
 
 -- Closure flags are reset at the top of every UpdateAsync transform (transforms can retry).
 has(guildSrc, "documentCreated = false\n\t\t\t\tif existing ~= nil", "Create doc transform must reset documentCreated")

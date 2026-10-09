@@ -178,7 +178,7 @@ assert(landscapeWs.headerHeight == 0, "landscape keyboard collapses header")
 
 -- --- NavRouteTable -----------------------------------------------------------
 assert(#NavRouteTable.PRIMARY_ROUTES == 6, "primary route count")
-assert(#NavRouteTable.MORE_ROUTES == 25, "more route count (the Foundry left with the sanctuary)")
+assert(#NavRouteTable.MORE_ROUTES == 24, "more route count (the casino closed)")
 assert(NavRouteTable.PRIMARY_ROUTES[1].id == "Overview", "primary starts Overview")
 assert(NavRouteTable.find("Trade") ~= nil, "find Trade")
 assert(NavRouteTable.find("Trade").accentKey == "mint", "Trade accent key")
@@ -187,10 +187,10 @@ assert(NavRouteTable.isNavRoute("Credits") == true, "Credits is nav")
 assert(NavRouteTable.isPageRoute("Credits") == false, "Credits not PageRouter page")
 assert(NavRouteTable.isPageRoute("Overview") == true, "Overview is page")
 assert(NavRouteTable.isPageRoute("Workshop") == true, "Workshop is page")
-assert(#NavRouteTable.PAGE_ROUTES == 30, "page route count")
+assert(#NavRouteTable.PAGE_ROUTES == 31, "page route count")
 
 local ids = NavRouteTable.allNavIds()
-assert(#ids == 31, "all nav ids")
+assert(#ids == 30, "all nav ids")
 local seen = {}
 for _, id in ids do
 	assert(seen[id] == nil, "duplicate nav id " .. id)
@@ -211,8 +211,11 @@ for _, id in ids do
 	assert(grouped[id] ~= nil, id .. " is in no rail group")
 end
 -- Every page route except nothing — Chat/Admin are both nav + page.
+-- Anomaly (Shift Plan) and Continuum (Next Rank) left the nav for Star Charts and Signal Cipher;
+-- they stay as link-only pages (deep links only; Overview now points at Signal Cipher).
+local LINK_ONLY = { Anomaly = true, Continuum = true }
 for _, pageId in NavRouteTable.PAGE_ROUTES do
-	assert(NavRouteTable.isNavRoute(pageId), "page route " .. pageId .. " must appear in nav tables")
+	assert(LINK_ONLY[pageId] or NavRouteTable.isNavRoute(pageId), "page route " .. pageId .. " must appear in nav tables")
 end
 
 -- --- Source wiring + HARD constraints ----------------------------------------
@@ -229,13 +232,15 @@ assert(string.find(overviewSrc, "LayoutSectionPlan.planOverview", 1, true), "Ove
 assert(string.find(overviewSrc, "VaultCollectEligibility.isEligible", 1, true), "OverviewView must use vault eligibility")
 assert(string.find(overviewSrc, "PageReadyMath.OpsClaims", 1, true), "OverviewView must use OpsClaims")
 assert(string.find(overviewSrc, "PageReadyMath.CountReadyQuests", 1, true), "OverviewView must use PageReadyMath")
-assert(string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView must use AnomalyReady")
+assert(string.find(overviewSrc, "PageReadyMath.CipherOpen", 1, true), "OverviewView must use CipherOpen (Signal Cipher replaced Shift Plan)")
+assert(not string.find(overviewSrc, "PageReadyMath.AnomalyReady", 1, true), "OverviewView must not surface the retired Shift Plan")
 local workshopSrc = fs.readFile("src/Client/AstralForge/pages/PagesProgress.luau#WorkshopView")
 assert(string.find(workshopSrc, "PageBoardHeights.Machine", 1, true), "WorkshopView must use PageBoardHeights")
 assert(string.find(routerSrc, 'lazyView("WorkshopView", "WorkshopView")', 1, true), "PageRouter must lazy-load WorkshopView")
 local readySrc = fs.readFile("src/Client/AstralForge/LayoutKit.luau#pageReadyMath")
 assert(not string.find(readySrc, "GetService", 1, true), "pageReadyMath must stay pure")
 assert(string.find(readySrc, "function PageReadyMath.AnomalyReady", 1, true), "AnomalyReady must exist")
+assert(string.find(readySrc, "function PageReadyMath.CipherOpen", 1, true), "CipherOpen must exist")
 local boardSrc = fs.readFile("src/Client/AstralForge/CoreKit.luau#pageBoardHeights")
 assert(not string.find(boardSrc, "GetService", 1, true), "pageBoardHeights must stay pure")
 assert(string.find(mainSrc, "LayoutSectionPlan.planWorkspace", 1, true) or string.find(fs.readFile("src/Client/AstralForge/UiCore.luau#WorkspaceChrome"), "LayoutSectionPlan.planWorkspace", 1, true), "WorkspaceChrome must plan Workspace via LayoutSectionPlan")

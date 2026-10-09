@@ -79,14 +79,14 @@ end
 local dirty = BazaarMath.Ensure({
 	Bank = { Balance = "garbage", Accrued = math.huge, Since = "x", Term = { Id = "T99", Principal = -4, EndsAt = 0 / 0 } },
 	Market = { Bucket = "x", Bought = { overdrive = 999, [5] = 1 } },
-	Contracts = { Day = 3, Baseline = { Rounds = -1 }, Claimed = { rounds = true, fake = true } },
-	Counters = { Rounds = math.huge, Wins = -9 },
+	Contracts = { Day = 3, Baseline = { Deals = -1 }, Claimed = { deals = true, fake = true } },
+	Counters = { Deals = math.huge, Tickets = -9 },
 })
 assert(dirty.Bank.Balance == 0 and dirty.Bank.Accrued == 0 and dirty.Bank.Term.Id == "" and dirty.Bank.Term.Principal == 0, "bank fields rebuild")
 assert(BazaarMath.Ensure({ Bank = { Balance = "1.5e400" } }).Bank.Balance == "1.5e400", "a huge saved balance survives")
 assert(BazaarMath.Ensure({ Bank = { Balance = "inf" } }).Bank.Balance == "inf", "an inf balance survives")
 assert(dirty.Market.Bought.overdrive == 20 and dirty.Market.Bought[5] == nil, "market stock counts clamp")
-assert(dirty.Contracts.Claimed.rounds == true and dirty.Contracts.Claimed.fake == nil, "claims keep only real contracts")
-assert(dirty.Counters.Rounds == 0 and dirty.Counters.Wins == 0, "non-finite counters become zero")
+assert(dirty.Contracts.Claimed.deals == true and dirty.Contracts.Claimed.fake == nil, "claims keep only real contracts")
+assert(dirty.Counters.Deals == 0 and dirty.Counters.Tickets == 0, "non-finite counters become zero")
 
 print("[TEST] bazaar math guards passed | market stock, bank terms, lottery weights, contracts, bag rebuild")
