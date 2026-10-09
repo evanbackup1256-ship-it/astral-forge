@@ -61,7 +61,12 @@ sampled live: 7, 7 and 12 fractional frames respectively, each settling at
 center. No report, block or reward-collection action was submitted. The test
 module and GUI were removed. The console reported load timeouts for
 "Celestial String Awakening 2" and "Space Station '98"; the music director
-logged and skipped them. Their availability/audibility remains unconfirmed.
+logged and skipped them. An independent follow-up preload returned Success for
+both assets in about 0.16 seconds, with durations of about 213 and 225 seconds.
+Availability was confirmed in that later run; intermittent loading and human
+audibility are still not signed off. The actual director's failure, retry,
+stale-callback, crossfade, pause/resume and disposal control flow now has
+executable tests.
 
 Edit-mode rendering isolation also remained blank with an opaque neon cube
 after temporarily hiding an unrelated plugin welcome overlay. The overlay's

@@ -52,6 +52,15 @@ frames respectively and all settled at zero displacement. Report submission,
 blocking and reward collection callbacks were prohibited by the harness; no
 such actions were taken. The diagnostic report module was removed afterward.
 
+Audio follow-up independently preloaded both previously timed-out music assets.
+"Celestial String Awakening 2" and "Space Station '98" returned successful fetch
+status and nonzero durations (about 213 and 225 seconds). A subsequent director
+snapshot showed the active deck loaded, playing and advancing, with a loaded
+silent spare. The soundtrack regression now executes the actual director
+against controlled Sound/task mocks: stale callbacks, active failure recovery,
+pause/resume position, completed crossfade, all-failed retry and disposal passed.
+This verifies control flow and asset availability in this run, not human audibility.
+
 ## Master spec checklist
 
 | # | Deliverable | Status | Evidence | Signed |

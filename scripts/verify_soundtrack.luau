@@ -221,6 +221,83 @@ assert(string.find(settingsSource, "SettingsSchema", 1, true), "the Settings pag
 assert(not string.find(directorSource, ":Play()", 1, true), "the director must resume with :Resume(), never :Play()")
 assert(string.find(directorSource, "activeSound:Resume()", 1, true), "the active deck must resume in place")
 
+do
+	local luau = require("@lune/luau")
+	local clock, warnings = 0, 0
+	local jobs, callbacks = {}, {}
+	local success, failure = {}, {}
+	local function soundInstance(className)
+		local node = { IsLoaded = false, IsPlaying = false, SoundId = "", Volume = 0, TimePosition = 0, TimeLength = 120 }
+		node.DidLoop = { Connect = function() return { Disconnect = function() end } end }
+		function node:Stop() self.IsPlaying = false; self.TimePosition = 0 end
+		function node:Resume() self.IsPlaying = true end
+		function node:Pause() self.IsPlaying = false end
+		function node:Destroy() self.destroyed = true end
+		node.className = className
+		return node
+	end
+	local start = assert(directorSource:find("local MUSIC_ASSET_MANIFEST", 1, true))
+	local director = luau.load(directorSource:sub(start), {
+		environment = setmetatable({
+			Soundtrack = Soundtrack, SoundService = {},
+			Instance = { new = soundInstance },
+			Enum = { AssetFetchStatus = { Success = success } },
+			ContentProvider = { PreloadAsync = function(_, _, callback) table.insert(callbacks, callback) end },
+			ClientLog = { warnEvery = function() warnings += 1 end, debug = function() end },
+			os = { clock = function() return clock end },
+			task = {
+				spawn = function(fn) table.insert(jobs, fn); return fn end,
+				cancel = function() end,
+				wait = function(seconds) clock += seconds; return seconds end,
+			},
+		}, { __index = getfenv(0) }),
+	})().MusicDirector
+	local music = director.new({})
+	music.started = true
+	music:loadDeck(1, 1)
+	jobs[#jobs]()
+	local obsolete = callbacks[#callbacks]
+	music:loadDeck(1, 2)
+	jobs[#jobs]()
+	obsolete("", failure)
+	assert(not music.decks[1].loadFailed, "stale preload callbacks cannot invalidate a replacement")
+	callbacks[#callbacks]("", failure)
+	music.trackIndex = 2
+	music:step()
+	assert(music.trackIndex ~= 2 and warnings == 1, "failed active tracks are logged and replaced")
+	local active = music.decks[music.active]
+	active.sound.IsLoaded = true
+	music:refresh()
+	active.sound.TimePosition = 37
+	music:setAudible(false)
+	assert(not active.sound.IsPlaying and active.sound.Volume == 0, "inaudible music pauses and mutes")
+	music:setAudible(true)
+	assert(active.sound.IsPlaying and active.sound.TimePosition == 37, "audible music resumes without seeking")
+	music:loadDeck(music:spare(), Soundtrack.nextIndex(music.trackIndex, {}, clock))
+	local spare = music.decks[music:spare()]
+	spare.sound.IsLoaded = true
+	local nextTrack = spare.trackIndex
+	music:handOver()
+	assert(music.trackIndex == nextTrack and not music.fading, "actual crossfade commits the incoming track")
+	assert(active.trackIndex == nil and not active.sound.IsPlaying and active.sound.Volume == 0, "outgoing deck stops after handover")
+	music.decks[music.active].sound.IsLoaded = false
+	music.decks[music.active].loadFailed = true
+	music.shuffle = { next = function() return nil end }
+	music:step()
+	assert(music.retryAt ~= nil and not music:isLive(), "all unavailable tracks enter a silent retry window")
+	local retryAt = music.retryAt
+	clock = retryAt - 0.1
+	music:step()
+	assert(music.retryAt == retryAt, "retry window cannot spin prematurely")
+	music.shuffle = { next = function() return 1 end }
+	clock = retryAt
+	music:step()
+	assert(music.retryAt == nil and music.trackIndex == 1, "recovery loads an eligible track at the retry deadline")
+	music:dispose()
+	for _, deck in music.decks do assert(deck.sound.destroyed, "disposal destroys both soundtrack decks") end
+	music:dispose()
+end
+
 print(
 	string.format(
 		"[INFO] [TEST] soundtrack guards passed | %d tracks, %.0fs equal-power hand-over, no per-page music",
