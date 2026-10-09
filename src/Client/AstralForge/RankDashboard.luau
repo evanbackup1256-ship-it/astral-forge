@@ -11,6 +11,8 @@ local Art=require(script.Parent.ArtKit)("Icon")
 local Scaffold=require(script.Parent.LayoutKit)("pageScaffold").PageScaffold
 local P=theme.Palette
 local e=React.createElement
+local Players=game:GetService("Players")
+local TweenService=game:GetService("TweenService")
 
 local GROUPS={
 	{id="Economy",label="ECONOMY",icon="Flux"},
@@ -32,6 +34,11 @@ local function share(value,top)
 	return math.clamp(ratio,0,1)
 end
 
+local function matchesRank(row,query)
+	local needle=string.lower(query):match("^%s*(.-)%s*$")
+	return needle=="" or string.find(string.lower(tostring(row.Name or "").." "..tostring(row.Tag or "").." "..tostring(row.UserId or row.Id or "")),needle,1,true)~=nil
+end
+
 local function bar(ratio,color,position,size)
 	return e("frame",{BackgroundColor3=Color3.fromRGB(20,24,38),BackgroundTransparency=0.2,BorderSizePixel=0,Position=position,Size=size},{
 		Corner=e("uicorner",{CornerRadius=UDim.new(1,0)}),
@@ -42,18 +49,103 @@ local function bar(ratio,color,position,size)
 end
 
 local function chip(props)
-	local active=props.active
-	return e("textbutton",{
-		AutoButtonColor=false,Text="",BorderSizePixel=0,
-		BackgroundColor3=if active then props.accent else Color3.fromRGB(26,30,46),
-		BackgroundTransparency=if active then 0.78 else 0.1,
-		Position=props.position,Size=props.size,
-		Event={Activated=props.onClick},
-	},{
-		Corner=e("uicorner",{CornerRadius=UDim.new(0,10)}),
-		Stroke=e("uistroke",{Color=if active then props.accent else Color3.fromRGB(60,66,92),Transparency=if active then 0.15 else 0.55,Thickness=1}),
-		Icon=e(Art.Icon,{kind=props.icon,color=if active then props.accent else P.muted,accent=props.accent,size=16,spin=false,position=UDim2.new(0,10,0.5,-8)}),
-		Label=e(ui.Text,{value=props.text,size=12,weight=Enum.FontWeight.Bold,color=if active then P.cream else P.creamSoft,position=UDim2.fromOffset(32,0),sizeConstraint=UDim2.new(1,-38,1,0)}),
+	return e(ui.Button,{
+		text=props.text,icon=props.icon,color=props.accent,
+		outline=not props.active,highlight=props.active,
+		position=props.position,size=props.size,disabled=props.disabled,
+		reducedMotion=props.reducedMotion,onClick=props.onClick,
+	})
+end
+
+local function AvatarView(props)
+	local ref=React.useRef(nil)
+	local scene=React.useRef(nil)
+	local status,setStatus=React.useState("Loading avatar…")
+	local revision,retry=React.useState(0)
+	local angle,turn=React.useState(0)
+	local previousAngle=React.useRef(0)
+	React.useEffect(function()
+		local viewport=ref.current
+		if viewport==nil then return end
+		local alive=true
+		local world=Instance.new("WorldModel")
+		world.Parent=viewport
+		local camera=Instance.new("Camera")
+		camera.FieldOfView=34
+		camera.Parent=viewport
+		viewport.CurrentCamera=camera
+		setStatus("Loading avatar…")
+		local timeout=task.delay(12,function()
+			if alive and scene.current==nil then setStatus("Avatar taking too long. Retry.") end
+		end)
+		task.spawn(function()
+			local ok,model=pcall(function() return Players:CreateHumanoidModelFromUserIdAsync(props.userId) end)
+			if not alive then if ok then model:Destroy() end;return end
+			if not ok then
+				warn(`Ranks avatar {props.userId}: {model}`)
+				setStatus("Avatar unavailable. Retry.")
+				return
+			end
+			for _,item in model:GetDescendants() do
+				if item:IsA("LuaSourceContainer") then item:Destroy()
+				elseif item:IsA("BasePart") then item.Anchored=item.Name=="HumanoidRootPart";item.CanCollide=false end
+			end
+			model:PivotTo(CFrame.new())
+			model.Parent=world
+			task.wait()
+			if not alive then model:Destroy();return end
+			local bounds,size=model:GetBoundingBox()
+			scene.current={camera=camera,target=bounds.Position,size=size}
+			setStatus(nil)
+		end)
+		return function()
+			alive=false
+			task.cancel(timeout)
+			scene.current=nil
+			viewport.CurrentCamera=nil
+			world:Destroy()
+			camera:Destroy()
+		end
+	end,{props.userId,revision})
+	React.useEffect(function()
+		local viewport=ref.current
+		local current=scene.current
+		if current==nil or viewport==nil then return end
+		local tween
+		local function fit(animate)
+			if tween then tween:Cancel() end
+			local aspect=math.max(viewport.AbsoluteSize.X,1)/math.max(viewport.AbsoluteSize.Y,1)
+			local size=current.size
+			local distance=(math.max(size.Y,size.X/math.max(aspect,0.1))*0.56)/math.tan(math.rad(current.camera.FieldOfView/2))+size.Z/2
+			local yaw=math.rad(angle)
+			local eye=current.target+Vector3.new(math.sin(yaw)*distance,distance*0.08,-math.cos(yaw)*distance)
+			local target=CFrame.lookAt(eye,current.target)
+			if animate and not props.reducedMotion then
+				tween=TweenService:Create(current.camera,TweenInfo.new(0.4,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{CFrame=target})
+				tween:Play()
+			else current.camera.CFrame=target end
+		end
+		fit(previousAngle.current~=angle)
+		previousAngle.current=angle
+		local connection=viewport:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() fit(false) end)
+		return function() connection:Disconnect();if tween then tween:Cancel() end end
+	end,{status,angle,props.reducedMotion})
+	return e("frame",{Name="RankAvatar",Size=props.size,Position=props.position,BackgroundTransparency=1},{
+		View=e("viewportframe",{
+			Name="AvatarViewport",ref=ref,Size=UDim2.new(1,0,1,-54),BackgroundTransparency=1,
+			Ambient=Color3.fromRGB(180,185,205),LightColor=Color3.fromRGB(255,235,215),LightDirection=Vector3.new(-1,-1,-2),
+		}),
+		Status=status and e(ui.Text,{value=status,size=11,color=P.creamSoft,wrap=true,align=Enum.TextXAlignment.Center,position=UDim2.fromOffset(0,8),sizeConstraint=UDim2.new(1,0,1,-62)}),
+		Turn=e(ui.Button,{
+			text=if status and status~="Loading avatar…" then "RETRY" else "TURN",
+			icon=if status then "Refresh" else "Crew",color=props.accent,outline=true,
+			size=UDim2.new(1,0,0,48),position=UDim2.new(0,0,1,-48),
+			disabled=status=="Loading avatar…",reducedMotion=props.reducedMotion,
+			onClick=function()
+				if status then retry(function(v) return v+1 end)
+				else turn(function(v) return if v==0 then 30 elseif v==30 then -30 else 0 end) end
+			end,
+		}),
 	})
 end
 
@@ -82,10 +174,23 @@ return function(helpers)
 	end
 	return function(props)
 		local viewport=useViewport()
-		local narrow=viewport.width<600
+		local hostRef=React.useRef(nil)
+		local measuredWidth,setMeasuredWidth=React.useState(viewport.width)
+		React.useEffect(function()
+			local host=hostRef.current
+			if host==nil then return end
+			local function resize() setMeasuredWidth(host.AbsoluteSize.X) end
+			resize()
+			local connection=host:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+			return function() connection:Disconnect() end
+		end,{})
+		local narrow=measuredWidth<620
+		local reducedMotion=props.reducedMotion
 		local selected,setSelected=React.useState("Flux")
 		local scope,setScope=React.useState("Global")
 		local revision,reload=React.useState(0)
+		local query,setQuery=React.useState("")
+		local mineOnly,setMineOnly=React.useState(false)
 		local result,setResult=React.useState({rows={},loading=true,status="Loading rankings…"})
 		local guildBoard=selected=="Guilds"
 		local meta=if guildBoard then GUILD_META else helpers.metaFor(selected)
@@ -150,7 +255,7 @@ return function(helpers)
 		-- Standing card: your rank, your score and the climb to the next seat.
 		local nextRatio=if ahead then share(own,ahead.Value) elseif personalIndex==1 then 1 else share(own,top)
 		local standing=if personalIndex then `#{personalIndex}` else "—"
-		section("rank-standing",narrow and 196 or 168,{
+		section("rank-standing",narrow and 220 or 190,{
 			Icon=e(Art.Icon,{kind=meta.icon or "Leaderboard",color=meta.accent,accent=meta.accent,size=28,spin=false,position=UDim2.fromOffset(0,2)}),
 			Eyebrow=text(`RANKS · {string.upper(group)} · {if guildBoard then "GUILD HALLS" else string.upper(scope)}`,40,0,1,16,11,meta.accent,{weight=Enum.FontWeight.Bold}),
 			Title=text(meta.label,40,16,1,28,22,P.cream,{weight=Enum.FontWeight.Bold}),
@@ -163,12 +268,12 @@ return function(helpers)
 
 		-- Category picker: group strip, then the boards inside the group.
 		local groupKids={}
-		local groupCols=if narrow then 3 else 6
+		local groupCols=if measuredWidth<480 then 2 elseif measuredWidth<1000 then 3 else 6
 		for index,entry in GROUPS do
 			local col=(index-1)%groupCols
 			local row=math.floor((index-1)/groupCols)
 			groupKids[entry.id]=chip({text=entry.label,icon=entry.icon,accent=if group==entry.id then meta.accent else P.muted,active=group==entry.id,
-				position=UDim2.new(col/groupCols,2,0,row*42),size=UDim2.new(1/groupCols,-4,0,36),
+				position=UDim2.new(col/groupCols,2,0,row*56),size=UDim2.new(1/groupCols,-8,0,48),reducedMotion=reducedMotion,
 				onClick=function() local first=boardsIn(entry.id)[1];if first then setSelected(first.id) end end})
 		end
 		local groupRows=math.ceil(#GROUPS/groupCols)
@@ -178,20 +283,24 @@ return function(helpers)
 			local col=(index-1)%boardCols
 			local row=math.floor((index-1)/boardCols)
 			groupKids["board-"..board.id]=chip({text=board.short or board.label,icon=board.icon,accent=board.accent,active=selected==board.id,
-				position=UDim2.new(col/boardCols,2,0,groupRows*42+14+row*48),size=UDim2.new(1/boardCols,-4,0,42),
+				position=UDim2.new(col/boardCols,2,0,groupRows*56+14+row*56),size=UDim2.new(1/boardCols,-8,0,48),reducedMotion=reducedMotion,
 				onClick=function() setSelected(board.id) end})
 		end
-		groupKids.Divider=e("frame",{BackgroundColor3=meta.accent,BackgroundTransparency=0.75,BorderSizePixel=0,Position=UDim2.fromOffset(0,groupRows*42+5),Size=UDim2.new(1,0,0,1)})
-		section("rank-categories",groupRows*42+14+math.ceil(#inGroup/boardCols)*48+30,groupKids)
+		groupKids.Divider=e("frame",{BackgroundColor3=meta.accent,BackgroundTransparency=0.75,BorderSizePixel=0,Position=UDim2.fromOffset(0,groupRows*56+5),Size=UDim2.new(1,0,0,1)})
+		section("rank-categories",groupRows*56+14+math.ceil(#inGroup/boardCols)*56+32,groupKids)
 
 		-- Scope and refresh.
 		local controls={Status=text(result.status or "Rankings unavailable.",0,0,1,18,11,P.creamSoft)}
 		for index,id in {"Global","Server"} do
 			controls[id]=chip({text=if id=="Global" then "GLOBAL" else "THIS SERVER",icon=if id=="Global" then "World" else "Command",accent=meta.accent,active=scope==id and not guildBoard,
-				position=UDim2.new((index-1)/3,2,0,24),size=UDim2.new(1/3,-4,0,40),onClick=function() if not guildBoard then setScope(id) end end})
+				position=UDim2.new((index-1)/3,2,0,24),size=UDim2.new(1/3,-8,0,48),disabled=guildBoard,reducedMotion=reducedMotion,onClick=function() if not guildBoard then setScope(id) end end})
 		end
-		controls.Refresh=e(ui.Button,{text=if result.loading then "LOADING…" else "REFRESH",position=UDim2.new(2/3,2,0,24),size=UDim2.new(1/3,-4,0,40),disabled=result.loading,onClick=function() reload(function(v) return v+1 end) end,color=P.mint})
-		section("rank-controls",96,controls)
+		controls.Refresh=e(ui.Button,{text=if result.loading then "LOADING…" else "REFRESH",position=UDim2.new(2/3,2,0,24),size=UDim2.new(1/3,-8,0,48),disabled=result.loading,reducedMotion=reducedMotion,onClick=function() reload(function(v) return v+1 end) end,color=P.mint})
+		section("rank-controls",110,controls)
+		section("rank-find",154,{
+			Search=e(ui.SearchField,{value=query,onChange=setQuery,placeholder=if guildBoard then "Find a guild or tag" else "Find a player or user ID",accent=meta.accent,reducedMotion=reducedMotion,size=UDim2.new(1,0,0,48)}),
+			Mine=e(ui.Button,{text=if mineOnly then "SHOW EVERYONE" else "MY STANDING",icon="Crew",color=P.mint,outline=not mineOnly,reducedMotion=reducedMotion,position=UDim2.fromOffset(0,60),size=UDim2.new(1,0,0,48),onClick=function() setMineOnly(function(v) return not v end) end}),
+		})
 
 		if #rows==0 then
 			section("rank-empty",120,{
@@ -201,17 +310,22 @@ return function(helpers)
 		else
 			-- Podium: second, first, third, with stepped plinths.
 			local podium={}
-			for slot,place in PODIUM_ORDER do
+			for slot,place in (if narrow then {1,2,3} else PODIUM_ORDER) do
 				local row=rows[place]
 				if row then
 					local lift=PODIUM_LIFT[place]
 					local color=MEDAL[place]
 					local plinth=math.floor(64*lift)
-					podium["seat"..place]=e("frame",{BackgroundTransparency=1,Position=UDim2.new((slot-1)/3,4,0,0),Size=UDim2.new(1/3,-8,1,0)},{
-						Mark=mark(row,guildBoard,color,if place==1 then 58 else 46,UDim2.new(0.5,0,1,-(plinth+(if place==1 then 120 else 106)))),
-						Name=text(`{row.Name or "Unknown"}{if isMine(row) then " · YOU" else ""}`,0,0,1,16,12,if isMine(row) then P.mint else P.cream,{weight=Enum.FontWeight.Bold,align=Enum.TextXAlignment.Center,wrap=false,position=UDim2.new(0,0,1,-(plinth+56))}),
-						Value=text(valueText(row.Value),0,0,1,14,11,P.creamSoft,{align=Enum.TextXAlignment.Center,wrap=false,position=UDim2.new(0,0,1,-(plinth+38))}),
-						Plinth=e("frame",{BackgroundColor3=color,BackgroundTransparency=0.72,BorderSizePixel=0,AnchorPoint=Vector2.new(0,1),Position=UDim2.fromScale(0,1),Size=UDim2.new(1,0,0,plinth)},{
+					local seatHeight=if narrow then 230 else 352
+					local infoX=if narrow then 0.5 else 0
+					local infoWidth=if narrow then 0.5 else 1
+					podium["seat"..place]=e("frame",{Name=`PodiumSeat{place}`,BackgroundTransparency=1,Position=if narrow then UDim2.fromOffset(0,(slot-1)*242) else UDim2.new((slot-1)/3,4,0,0),Size=UDim2.new(if narrow then 1 else 1/3,if narrow then 0 else -8,0,seatHeight)},{
+						Avatar=not guildBoard and e(AvatarView,{userId=row.UserId,accent=color,reducedMotion=reducedMotion,position=UDim2.fromOffset(4,0),size=UDim2.new(if narrow then 0.46 else 1,-8,0,if narrow then 222 else 230)}),
+						Mark=guildBoard and mark(row,true,color,70,if narrow then UDim2.new(0.23,0,0,58) else UDim2.new(0.5,0,0,90)),
+						Name=text(`{row.Name or "Unknown"}{if isMine(row) then " · YOU" else ""}`,0,0,1,36,14,if isMine(row) then P.mint else P.cream,{weight=Enum.FontWeight.Bold,align=Enum.TextXAlignment.Center,fit=true,minSize=10,position=UDim2.new(infoX,0,0,if narrow then 34 else 236),sizeConstraint=UDim2.new(infoWidth,0,0,36)}),
+						Value=text(valueText(row.Value),0,0,1,28,12,P.creamSoft,{align=Enum.TextXAlignment.Center,fit=true,minSize=9,position=UDim2.new(infoX,0,0,if narrow then 80 else 273),sizeConstraint=UDim2.new(infoWidth,0,0,28)}),
+						Share=bar(share(row.Value,top),color,UDim2.new(infoX,8,0,if narrow then 118 else 307),UDim2.new(infoWidth,-16,0,4)),
+						Plinth=e("frame",{BackgroundColor3=color,BackgroundTransparency=0.72,BorderSizePixel=0,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(infoX,0,1,0),Size=UDim2.new(infoWidth,0,0,if narrow then plinth else 32)},{
 							Corner=e("uicorner",{CornerRadius=UDim.new(0,8)}),
 							Stroke=e("uistroke",{Color=color,Transparency=0.35,Thickness=1}),
 							Shade=e("uigradient",{Rotation=90,Transparency=NumberSequence.new(0,0.65)}),
@@ -220,12 +334,15 @@ return function(helpers)
 					})
 				end
 			end
-			section("rank-podium",236,podium,MEDAL[1])
+			section("rank-podium",if narrow then math.min(#rows,3)*242+24 else 384,podium,MEDAL[1])
 
 			-- Remaining rows: compact, with a share-of-leader bar.
-			for index=4,#rows do
+			local shown=0
+			for index=if query~="" or mineOnly then 1 else 4,#rows do
 				local row=rows[index]
 				local mine=isMine(row)
+				if not matchesRank(row,query) or (mineOnly and not mine) then continue end
+				shown+=1
 				local accent=if mine then P.mint else meta.accent
 				table.insert(sections,{id=`rank-row-{index}`,height=58,element=e("frame",{
 					BackgroundColor3=if mine then Color3.fromRGB(22,48,44) else Color3.fromRGB(22,26,40),
@@ -235,12 +352,20 @@ return function(helpers)
 					Stroke=e("uistroke",{Color=accent,Transparency=if mine then 0.2 else 0.8,Thickness=1}),
 					Place=e(ui.Text,{value=`{index}`,size=15,weight=Enum.FontWeight.Bold,color=P.muted,align=Enum.TextXAlignment.Center,position=UDim2.fromOffset(4,0),sizeConstraint=UDim2.new(0,36,1,0)}),
 					Mark=mark(row,guildBoard,accent,34,UDim2.new(0,62,0.5,-17)),
-					Name=e(ui.Text,{value=`{row.Name or "Unknown pilot"}{if mine then " · YOU" else ""}{if guildBoard and row.Tag then ` [{row.Tag}]` else ""}`,size=14,weight=Enum.FontWeight.SemiBold,color=if mine then P.mint else P.cream,position=UDim2.fromOffset(90,9),sizeConstraint=UDim2.new(0.6,-90,0,18)}),
-					Value=e(ui.Text,{value=valueText(row.Value),size=13,weight=Enum.FontWeight.Bold,color=P.cream,align=Enum.TextXAlignment.Right,position=UDim2.new(0.6,0,0,9),sizeConstraint=UDim2.new(0.4,-14,0,18)}),
-					Share=bar(share(row.Value,top),accent,UDim2.new(0,90,0,36),UDim2.new(1,-104,0,4)),
+					Name=e(ui.Text,{value=`{row.Name or "Unknown pilot"}{if mine then " · YOU" else ""}{if guildBoard and row.Tag then ` [{row.Tag}]` else ""}`,size=14,fit=true,minSize=9,weight=Enum.FontWeight.SemiBold,color=if mine then P.mint else P.cream,position=UDim2.fromOffset(90,9),sizeConstraint=UDim2.new(if narrow then 1 else 0.6,if narrow then -104 else -90,0,18)}),
+					Value=e(ui.Text,{value=valueText(row.Value),size=13,fit=true,minSize=9,weight=Enum.FontWeight.Bold,color=P.cream,align=Enum.TextXAlignment.Right,position=if narrow then UDim2.fromOffset(90,29) else UDim2.new(0.6,0,0,9),sizeConstraint=UDim2.new(if narrow then 1 else 0.4,if narrow then -104 else -14,0,18)}),
+					Share=bar(share(row.Value,top),accent,UDim2.new(0,90,0,if narrow then 51 else 36),UDim2.new(1,-104,0,4)),
 				})})
 			end
+			if shown==0 and (query~="" or mineOnly) then
+				section("rank-no-match",106,{
+					text(if mineOnly and not personalIndex then "Your entry is outside this board." else "No matching entries.",0,0,1,28,16),
+					text("Clear the search or show everyone. The podium remains the current top three.",0,34,1,40,12,P.creamSoft),
+				})
+			end
 		end
-		return e(Scaffold,{sections=sections,gap=10,tailPad=80,scrollBarColor=meta.accent,scrollBarThickness=4})
+		return e("frame",{Name="RankDashboard",ref=hostRef,Size=UDim2.fromScale(1,1),BackgroundTransparency=1},{
+			Content=e(Scaffold,{sections=sections,gap=10,tailPad=80,scrollBarColor=meta.accent,scrollBarThickness=4}),
+		})
 	end
 end

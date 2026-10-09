@@ -55,7 +55,8 @@ print("[TEST] actual guild service fixtures: permission denial, role change, suc
 
 -- Exercise the real ranks effect with controlled replies and timers.
 local dashboard=fs.readFile("src/Client/AstralForge/RankDashboard.luau"):gsub("\r\n","\n")
-local effectStart=assert(dashboard:find("React.useEffect(function()",1,true))+#"React.useEffect(function()"
+local refreshStart=assert(dashboard:find("local localId=",1,true))
+local effectStart=assert(dashboard:find("React.useEffect(function()",refreshStart,true))+#"React.useEffect(function()"
 local effectEnd=assert(dashboard:find("end,{props.dispatch,selected,scope,revision})",effectStart,true))
 local effectBody=dashboard:sub(effectStart,effectEnd-1)
 for _,guildBoard in {false,true} do
@@ -83,3 +84,120 @@ for _,guildBoard in {false,true} do
 	cleanup();scheduled[#scheduled].callback();assert(#replies==2,"unmounted ranks cannot keep polling")
 end
 print("[TEST] actual ranks refresh: player/guild queries, zero-score filtering, timeout retention, stale replies, polling cleanup passed")
+
+local matchStart=assert(dashboard:find("local function matchesRank(",1,true))
+local matchEnd=assert(dashboard:find("local function bar(",matchStart,true))
+local matches=luau.load(dashboard:sub(matchStart,matchEnd-1).."\nreturn matchesRank")()
+assert(matches({Name="Pilot [One]",UserId=123},"  PILOT  "))
+assert(matches({Name="Pilot [One]"},"[One]"),"search treats pattern characters literally")
+assert(matches({Name="Hall",Tag="STAR",Id="guild-9"},"star"))
+assert(matches({UserId=123},"123"))
+assert(not matches({Name="Pilot"},"unknown"))
+local chipStart=assert(dashboard:find("local function chip(",1,true))
+local chipEnd=assert(dashboard:find("local function AvatarView(",chipStart,true))
+local chip=dashboard:sub(chipStart,chipEnd-1)
+assert(chip:find("e(ui.Button",1,true) and not chip:find('e("textbutton"',1,true),"rank filters use shared button chrome, motion and SFX")
+assert(dashboard:find('Search=e(ui.SearchField',1,true),"ranks reuse the shared search control")
+
+local avatarStart=assert(dashboard:find("local function AvatarView(",1,true))
+local loadStart=assert(dashboard:find("React.useEffect(function()",avatarStart,true))+#"React.useEffect(function()"
+local loadEnd=assert(dashboard:find("end,{props.userId,revision})",loadStart,true))
+local loadBody=dashboard:sub(loadStart,loadEnd-1)
+for _,scenario in {"success","late","failure","late-joints"} do
+	local jobs={}
+	local viewport={}
+	local status
+	local warned=false
+	local created={}
+	local model={destroyed=false,descendants={}}
+	function model:Destroy() self.destroyed=true end
+	function model:GetDescendants() return self.descendants end
+	function model:PivotTo() end
+	function model:GetBoundingBox() return {Position="center"},"bounds" end
+	local scriptItem={destroyed=false}
+	function scriptItem:IsA(class) return class=="LuaSourceContainer" end
+	function scriptItem:Destroy() self.destroyed=true end
+	local part={Name="HumanoidRootPart"}
+	function part:IsA(class) return class=="BasePart" end
+	local limb={Name="Head"}
+	function limb:IsA(class) return class=="BasePart" end
+	model.descendants={scriptItem,part,limb}
+	local worker
+	local scene={current=nil}
+	local environment={
+		ref={current=viewport},scene=scene,props={userId=123},
+		setStatus=function(value) status=value end,
+		Instance={new=function(class)
+			local object={class=class,destroyed=false}
+			function object:Destroy() self.destroyed=true end
+			table.insert(created,object);return object
+		end},
+		CFrame={new=function() return {} end},
+		Players={CreateHumanoidModelFromUserIdAsync=function(_,id)
+			assert(id==123);coroutine.yield()
+			if scenario=="failure" then error("asset denied") end
+			return model
+		end},
+		task={
+			delay=function(_,callback) local job={callback=callback};table.insert(jobs,job);return job end,
+			cancel=function(job) job.cancelled=true end,
+			spawn=function(callback) worker=coroutine.create(callback);assert(coroutine.resume(worker)) end,
+			wait=function() coroutine.yield() end,
+		},
+		warn=function() warned=true end,
+	}
+	setmetatable(environment,{__index=_G})
+	local cleanup=luau.load("return function() "..loadBody.." end",{environment=environment})()()
+	jobs[1].callback()
+	assert(status=="Avatar taking too long. Retry.","slow avatar has an explicit retry state")
+	if scenario=="late" then cleanup() end
+	assert(coroutine.resume(worker))
+	if scenario=="late-joints" then cleanup() end
+	if coroutine.status(worker)=="suspended" then assert(coroutine.resume(worker)) end
+	if scenario=="success" then
+		assert(status==nil and scene.current.target=="center")
+		assert(model.Parent==created[1] and part.Anchored and limb.Anchored==false and part.CanCollide==false and scriptItem.destroyed,"avatar is presentation-only and accessory welds can settle")
+	elseif scenario=="late" or scenario=="late-joints" then
+		assert(model.destroyed and scene.current==nil,"late avatar completion is destroyed after unmount or retry")
+	else assert(warned and status=="Avatar unavailable. Retry.","avatar failure is visible and logged") end
+	if scenario~="late" and scenario~="late-joints" then cleanup() end
+	assert(jobs[1].cancelled and created[1].destroyed and created[2].destroyed and viewport.CurrentCamera==nil,"camera, world and deadline cleaned up")
+end
+print("[TEST] ranks: literal search, shared buttons, real avatar loader success/failure/timeout/stale completion/disposal passed")
+local roblox=require("@lune/roblox")
+local cameraStart=assert(dashboard:find("React.useEffect(function()",loadEnd,true))+#"React.useEffect(function()"
+local cameraEnd=assert(dashboard:find("end,{status,angle,props.reducedMotion})",cameraStart,true))
+for _,reducedMotion in {false,true} do
+	local camera={FieldOfView=34,CFrame=roblox.CFrame.new()}
+	local viewport={AbsoluteSize=roblox.Vector2.new(272,176)}
+	local resize
+	local disconnected=false
+	function viewport:GetPropertyChangedSignal(property)
+		assert(property=="AbsoluteSize")
+		return {Connect=function(_,callback) resize=callback;return {Disconnect=function() disconnected=true end} end}
+	end
+	local tween
+	local environment={
+		ref={current=viewport},scene={current={camera=camera,target=roblox.Vector3.zero,size=roblox.Vector3.new(4,7,2)}},
+		angle=30,previousAngle={current=0},props={reducedMotion=reducedMotion},
+		Vector3=roblox.Vector3,CFrame=roblox.CFrame,
+		Enum={EasingStyle={Quart="Quart"},EasingDirection={Out="Out"}},
+		TweenInfo={new=function(seconds) assert(seconds==0.4);return {} end},
+		TweenService={Create=function(_,target,_,goal)
+			tween={cancelled=false}
+			function tween:Play() target.CFrame=goal.CFrame end
+			function tween:Cancel() self.cancelled=true end
+			return tween
+		end},
+	}
+	setmetatable(environment,{__index=_G})
+	local cleanup=luau.load("return function() "..dashboard:sub(cameraStart,cameraEnd-1).." end",{environment=environment})()()
+	assert((tween==nil)==reducedMotion,"turns animate only when reduced motion is off")
+	assert(camera.CFrame.Position.X>0,"turn changes the viewing angle")
+	local before=camera.CFrame.Position.Magnitude
+	viewport.AbsoluteSize=roblox.Vector2.new(90,176);resize()
+	assert(camera.CFrame.Position.Magnitude>before,"narrow previews fit the full model rather than cropping it")
+	cleanup()
+	assert(disconnected and (not tween or tween.cancelled),"camera resize and animation resources are disposed")
+end
+print("[TEST] actual ranks camera: animated/reduced-motion turns, aspect fitting, tween cancellation and resize cleanup passed")

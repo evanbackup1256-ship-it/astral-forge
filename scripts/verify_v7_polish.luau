@@ -251,6 +251,10 @@ for _, dimensions in { roblox.Vector2.new(360, 740), roblox.Vector2.new(991, 537
 end
 assert(feedback:find("pixelPosition(values[2], 0.5, 0, 0.5, (1 - values[1]) * cardTravel)", 1, true))
 assert(ui:find("Position = surfacePosition", 1, true), "shared buttons apply measured subpixel motion")
+local buttonStart=assert(ui:find("function Button(",1,true))
+local iconLabelStart=assert(ui:find("ref = pinButtonLabel",buttonStart,true))
+local iconLabelEnd=assert(ui:find("})), not iconOnly and not hasIcon",iconLabelStart,true))
+assert(ui:sub(iconLabelStart,iconLabelEnd):find("ZIndex = zIndex + 3",1,true),"icon-bearing button labels stay above the button surface even on Global-Z hosts")
 local panel = extract(ui, "local function Panel(", "local function Divider(")
 assert(panel:find("local panelSize = useGuiSize(panelRef)", 1, true), "shared panels measure their motion host")
 assert(panel:find("ref = panelRef", 1, true), "panel measurement is attached to its stable outer frame")

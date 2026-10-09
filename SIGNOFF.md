@@ -5,6 +5,25 @@
 
 ## Current 7.0 pass
 
+The ranks/player-card follow-up replaces fractional grid gutters with safe
+integer reservation in shared, inventory, shortcut and world layouts. A live
+70-case Studio sweep (14 widths, 2-6 columns) retained every intended column.
+Expanded player cards now measure their own padded width: the real list at
+431 pixels produced a three-by-two stat grid and two-by-two 48-pixel action
+grid, with Report inside the expanded card. Isolated 288/439/440-pixel cards
+also fit every action. Shared icon-bearing button labels explicitly remain
+above their surfaces on Global-Z hosts.
+
+Ranks now shares the game's buttons, SFX and search input. Desktop screenshots
+confirmed three fully rendered avatars, medal podiums, names and scores;
+a 380-pixel panel stacked the avatar cards with wrapped names. Turn was
+exercised and changed the camera. Avatar accessory joints must settle before
+camera framing; anchoring only the root corrected an initially oversized
+bounding box. Offline tests execute actual loader success, failure, timeout
+and disposal during both loading stages, plus literal search and existing
+player/guild refresh behavior. No social/report/purchase mutation was submitted.
+These are bounded checks, not a game-wide or multiplayer sign-off.
+
 The master checklist below records the original specification and is historical:
 casino gameplay was subsequently removed at the creator's request. Do not
 reintroduce it to satisfy an obsolete checklist row.

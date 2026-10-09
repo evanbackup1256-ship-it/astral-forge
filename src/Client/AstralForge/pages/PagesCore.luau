@@ -2398,7 +2398,7 @@ local function TimedTimeline(_param)
 	local cellH = 92
 	local cells = {
 		grid = React.createElement("uigridlayout", {
-			CellSize = UDim2.new(1 / columns, -8 * (columns - 1) / columns, 0, cellH),
+			CellSize = UDim2.new(1 / columns, -math.ceil(8 * (columns - 1) / columns), 0, cellH),
 			CellPadding = UDim2.fromOffset(8, 8),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
@@ -2799,7 +2799,7 @@ local function RewardsView(_param)
 	local shortcutCols = if stack then 2 else 4
 	local shortcutChildren = {
 		grid = React.createElement("uigridlayout", {
-			CellSize = UDim2.new(1 / shortcutCols, -8 * (shortcutCols - 1) / shortcutCols, 0, TapTarget),
+			CellSize = UDim2.new(1 / shortcutCols, -math.ceil(8 * (shortcutCols - 1) / shortcutCols), 0, TapTarget),
 			CellPadding = UDim2.fromOffset(8, 8),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),

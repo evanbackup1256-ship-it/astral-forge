@@ -1993,7 +1993,7 @@ local function AutoGrid(_param)
 	local count = math.max(1, math.floor(columns))
 	return React.createElement("uigridlayout", {
 		ref = layoutRef,
-		CellSize = UDim2.new(1 / count, -(columnGap * (count - 1)) / count, 0, cellHeight),
+		CellSize = UDim2.new(1 / count, -math.ceil(columnGap * (count - 1) / count), 0, cellHeight),
 		CellPadding = UDim2.fromOffset(columnGap, rowGap),
 		FillDirection = fillDirection,
 		FillDirectionMaxCells = count,

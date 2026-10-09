@@ -86,5 +86,45 @@ assert(string.find(server, "reportLedger:record(player.UserId, targetUserId, rea
 local view = fs.readFile("src/Client/AstralForge/UiCore.luau#PlayerlistOverlay")
 assert(string.find(view, 'SharedData("PlayerlistModel")', 1, true), "player list uses the model")
 assert(string.find(view, "local function ReportSheet", 1, true), "report sheet")
+local start = assert(view:find("local function playerActionLayout(", 1, true))
+local finish = assert(view:find("local function PlayerRow(", start, true))
+local geometry = view:sub(start, finish - 1)
+local tapTarget = 48
+local layout, height = luau.load(geometry .. "\nreturn playerActionLayout, detailsHeight", {
+	environment = setmetatable({ TapTarget = tapTarget }, { __index = getfenv(0) }),
+})()
+for _, width in { 266, 288, 339, 359, 360, 417, 439, 440, 460, 544 } do
+	local action = layout(width)
+	local available = width - 16
+	assert(action.columns * action.cellWidth + (action.columns - 1) * 6 <= available, "integer cells must not wrap to an unreserved row")
+	assert(action.rows * action.columns == 4, "all four social actions have reserved slots")
+	local actionTop = 8 + 2 * 40 + 6 + 22
+	assert(height({ IsLocal = false }, width) >= actionTop + action.height + 10, "report button and shadow stay inside the expanded card")
+	assert(action.height == action.rows * tapTarget + (action.rows - 1) * 6, "actions retain touch-target height")
+end
+assert(view:find("CellSize = UDim2.fromOffset(actionLayout.cellWidth, TapTarget)", 1, true), "rendered cells use tested integer geometry")
+assert(view:find("FillDirectionMaxCells = actionLayout.columns", 1, true), "rendered action columns are explicit")
+assert(view:find("FillDirectionMaxCells = 3", 1, true), "stat grid stays three columns")
+assert(view:find("setWidth(math.floor(host.AbsoluteSize.X))",1,true),"card geometry follows its actual padded/scrollbar-constrained width")
+assert(view:find("connection:Disconnect()",1,true),"card measurement unsubscribes on unmount")
+for _,file in {
+	"src/Client/AstralForge/LayoutKit.luau",
+	"src/Client/AstralForge/pages/PagesCore.luau",
+	"src/Client/AstralForge/pages/PagesProgress.luau",
+} do
+	local source=fs.readFile(file)
+	assert(not source:find("CellSize = UDim2.new(1 / count, -(columnGap",1,true), "shared grid must reserve integer gutters")
+	assert(not source:find("CellSize = UDim2.new(1 / columns, -8 *",1,true), "inventory grid must reserve integer gutters")
+	assert(not source:find("CellSize = UDim2.new(1 / shortcutCols, -8 *",1,true), "shortcut grid must reserve integer gutters")
+	assert(not source:find("-math.floor(rowGap * (worldColumns",1,true), "world grid must round gutter reservation up")
+end
+for columns=2,6 do
+	for gap=6,10 do
+		for width=266,550 do
+			local cell=math.floor(width/columns-math.ceil(gap*(columns-1)/columns))
+			assert(cell*columns+gap*(columns-1)<=width, "scale grids must fit their declared columns at every pixel width")
+		end
+	end
+end
 
 print("verify_playerlist: ok")

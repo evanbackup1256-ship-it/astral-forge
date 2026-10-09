@@ -46,6 +46,16 @@ Report sheets, the level roadmap and offline-reward dialogs also preserve
 fractional entrance travel without changing their actions or focus behavior.
 Player-list entrances and notification entrance, swipe and hover positions use
 the same measured-coordinate helper.
+Player cards measure their actual width after padding and scrollbar changes;
+their stat/action grids reserve integer-sized cells and all social actions have
+48-pixel touch targets. Shared, inventory, shortcut and world grids round gutter
+reservation up to avoid accidental extra rows.
+Ranks uses the shared button chrome, sounds and search field. Its top three
+players have live avatar viewmodels with turn controls, medal-colored podiums
+and score comparison bars; narrow panels stack the podium cards. Player/name/ID
+and guild/tag search preserves original rank numbers, and a personal-standing
+filter complements the existing standing card. Avatar loading exposes retry
+states and cleans up cameras, worlds and late completions.
 Artifact visuals reject unfinished builds after departures, respawns, unequips
 or a newer refresh, preventing stale nameplates and partial visual leaks.
 Existing features remain intact; full visual and multiplayer

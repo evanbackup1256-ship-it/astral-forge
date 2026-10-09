@@ -2337,6 +2337,7 @@ function Button(_param)
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ZIndex = zIndex + 3,
 	}, React.createElement(Icon, {
 		kind = icon,
 		color = labelColor,
@@ -2363,6 +2364,7 @@ function Button(_param)
 		TextWrapped = false,
 		TextScaled = false,
 		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = zIndex + 3,
 	})), not iconOnly and not hasIcon and React.createElement("textlabel", {
 		ref = pinButtonLabel,
 		Size = UDim2.new(1, -14, 1, 0),
@@ -15702,18 +15704,39 @@ local function ActionButton(_param)
 	}))
 end
 
+local function playerActionLayout(width)
+	local columns = if width < 440 then 2 else 4
+	local rows = math.ceil(4 / columns)
+	return {
+		columns = columns,
+		rows = rows,
+		cellWidth = math.floor((math.max(0, width - 16) - (columns - 1) * 6) / columns),
+		height = rows * TapTarget + (rows - 1) * 6,
+	}
+end
+
 local function detailsHeight(row, width)
 	if row.IsLocal then
 		return 8 + 2 * 40 + 6 + 22 + 8
 	end
-	local actionRows = if width < 360 then 2 else 1
-	return 8 + 2 * 40 + 6 + 22 + actionRows * 38 + (actionRows - 1) * 6 + 10
+	return 8 + 2 * 40 + 6 + 22 + playerActionLayout(width).height + 10
 end
 
 local function PlayerRow(_param)
 	local row = _param.row
 	local expanded = _param.expanded
-	local width = _param.width
+	local rowRef = React.useRef(nil)
+	local width, setWidth = React.useState(_param.width)
+	React.useEffect(function()
+		local host = rowRef.current
+		if host == nil then return end
+		local function resize()
+			if host.AbsoluteSize.X > 0 then setWidth(math.floor(host.AbsoluteSize.X)) end
+		end
+		resize()
+		local connection = host:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+		return function() connection:Disconnect() end
+	end, {})
 	local reducedMotion = _param.reducedMotion
 	local friend = _param.friend
 	local blocked = _param.blocked
@@ -15745,15 +15768,16 @@ local function PlayerRow(_param)
 	end
 	local actions = nil
 	if not row.IsLocal then
-		local actionRows = if width < 360 then 2 else 1
-		local perRow = if actionRows == 2 then 2 else 4
+		local actionLayout = playerActionLayout(width)
 		actions = React.createElement("frame", {
-			Size = UDim2.new(1, -16, 0, actionRows * 38 + (actionRows - 1) * 6),
+			Name = "PlayerActions",
+			Size = UDim2.new(1, -16, 0, actionLayout.height),
 			Position = UDim2.fromOffset(8, 8 + 2 * 40 + 6 + 22),
 			BackgroundTransparency = 1,
 			ZIndex = 625,
 		}, React.createElement("uigridlayout", {
-			CellSize = UDim2.new(1 / perRow, -6 * (perRow - 1) / perRow, 0, 38),
+			CellSize = UDim2.fromOffset(actionLayout.cellWidth, TapTarget),
+			FillDirectionMaxCells = actionLayout.columns,
 			CellPadding = UDim2.fromOffset(6, 6),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}), React.createElement(ActionButton, {
@@ -15791,6 +15815,8 @@ local function PlayerRow(_param)
 	end
 	local relics = if #row.EquippedItems > 0 then table.concat(row.EquippedItems, " · ") else "No relics equipped"
 	return React.createElement("frame", {
+		Name = "PlayerCard",
+		ref = rowRef,
 		Size = openAmount:map(function(amount)
 			return UDim2.new(1, 0, 0, ROW_H + math.round(detailsH * math.clamp(amount, 0, 1)))
 		end),
@@ -15921,7 +15947,8 @@ local function PlayerRow(_param)
 		BackgroundTransparency = 1,
 		ZIndex = 624,
 	}, React.createElement("uigridlayout", {
-		CellSize = UDim2.new(1 / 3, -4, 0, 40),
+		CellSize = UDim2.fromOffset(math.floor((math.max(0, width - 16) - 12) / 3), 40),
+		FillDirectionMaxCells = 3,
 		CellPadding = UDim2.fromOffset(6, 6),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), React.createElement(StatCell, {
@@ -16692,7 +16719,7 @@ local function PlayerlistOverlay(_param)
 			row = row,
 			artifact = Model.artifactOf(if row.IsLocal then localPlayer else peer, row.Artifact),
 			order = order,
-			width = innerW,
+			width = innerW - 9,
 			expanded = expandedId == row.UserId,
 			friend = friends[row.UserId] == true,
 			blocked = blocked[row.UserId] == true,

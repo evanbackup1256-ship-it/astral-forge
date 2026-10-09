@@ -4896,7 +4896,7 @@ local function WorldsView(_param)
 		LayoutOrder = 1,
 		ClipsDescendants = false,
 	}, (if worldColumns > 1 then React.createElement("uigridlayout", {
-		CellSize = UDim2.new(1 / worldColumns, -math.floor(rowGap * (worldColumns - 1) / worldColumns), 0, rowHeight),
+		CellSize = UDim2.new(1 / worldColumns, -math.ceil(rowGap * (worldColumns - 1) / worldColumns), 0, rowHeight),
 		CellPadding = UDim2.fromOffset(rowGap, rowGap),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		FillDirectionMaxCells = worldColumns,

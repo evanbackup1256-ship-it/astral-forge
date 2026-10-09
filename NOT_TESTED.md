@@ -5,6 +5,18 @@
 
 ## Current 7.0 verification boundary
 
+The new ranks avatars rendered successfully in desktop and narrow-panel
+captures. This supersedes the blank-render observation for ranks only; it
+does not establish a fix or sign-off for every other 3D feature. Arbitrary
+avatar bundles/accessories, actual phone hardware, network-latency behavior
+and human audio confirmation still need broader coverage. Ranks loader
+failures/timeouts/disposal and refresh/search behavior have offline regressions.
+Player-card and shared-grid geometry were checked live without submitting
+friendship, trade, block, report or purchase actions.
+The latest UI playtest also logged soundtrack load timeouts across the playlist;
+audible music remains unverified. A diagnostic dispatch guard rejected an
+attempted report action; no report reached the production server.
+
 - [ ] Full live gameplay walkthrough after the current fixes. Studio MCP connects to the synced 7.0 place; the separate executor bridge remains disconnected.
 - [ ] Measured UI frame times, rapid navigation, title rendering, audio playback and responsive trade controls on actual clients.
 - [ ] Two-player trade: edit while syncing, switch sessions, reject stale replies, ready/unready, confirm and reconnect.
