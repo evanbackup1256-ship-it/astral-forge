@@ -35,6 +35,17 @@ integer UDim offsets. The regression covers actual coordinates, host resizing
 and cleanup. No reports, feedback messages or purchases were submitted during
 the nondestructive smoke tests.
 
+The continued sweep reproduced and fixed an artifact visual rebuild completing
+after player departure. Per-build identity and live-player/character checks now
+reject stale completions and destroy their partial visuals. An isolated Studio
+harness using two simulated players passed initial equip, level/effect refresh,
+unequip, respawn, equip burst, departure during refresh, late join and disposer
+cleanup. This verifies the presentation lifecycle, not network replication.
+Shared Panel motion also retains fractional travel: live surface/shadow samples
+matched 0.16, 1.4 and 7.75 pixels at two host sizes. A live domain-overlay
+entrance sample recorded 17 fractional frames and settled at zero displacement.
+Domain confirmation uses the same measured-coordinate path.
+
 ## Master spec checklist
 
 | # | Deliverable | Status | Evidence | Signed |
