@@ -44,6 +44,8 @@ regression checks resize updates and measurement-subscription cleanup. Shared
 panels and domain confirmation/tree overlays use the same measured motion.
 Report sheets, the level roadmap and offline-reward dialogs also preserve
 fractional entrance travel without changing their actions or focus behavior.
+Player-list entrances and notification entrance, swipe and hover positions use
+the same measured-coordinate helper.
 Artifact visuals reject unfinished builds after departures, respawns, unequips
 or a newer refresh, preventing stale nameplates and partial visual leaks.
 Existing features remain intact; full visual and multiplayer

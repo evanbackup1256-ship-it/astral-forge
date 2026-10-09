@@ -61,6 +61,13 @@ against controlled Sound/task mocks: stale callbacks, active failure recovery,
 pause/resume position, completed crossfade, all-failed retry and disposal passed.
 This verifies control flow and asset availability in this run, not human audibility.
 
+Player-list and notification position bindings now use measured scale
+coordinates. Isolated live entrances recorded 11 and 13 fractional frames.
+The player list settled at its intended 14-pixel right inset; the notification
+settled at zero displacement. Notification slot/size animation, lifetimes,
+swipe thresholds and gameplay actions were unchanged. Network dispatch was
+replaced with a local response in the player-list probe.
+
 ## Master spec checklist
 
 | # | Deliverable | Status | Evidence | Signed |
