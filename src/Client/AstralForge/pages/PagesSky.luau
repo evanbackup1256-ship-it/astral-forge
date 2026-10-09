@@ -20,30 +20,7 @@ end
 
 __defs["SkyKit"] = function()
 local React = require(game.ReplicatedStorage.rbxts_include.node_modules["@rbxts"].react)
-local RunService = game:GetService("RunService")
 local Palette = require(script.Parent.Parent.CoreKit)("theme").Palette
-
-local function useTicker(callback, enabled, hz)
-	local latest = React.useRef(callback)
-	latest.current = callback
-	React.useEffect(function()
-		if not enabled then
-			return nil
-		end
-		local step = 1 / (hz or 30)
-		local acc = 0
-		local connection = RunService.RenderStepped:Connect(function(dt)
-			acc += dt
-			if acc >= step then
-				acc = 0
-				latest.current(os.clock())
-			end
-		end)
-		return function()
-			connection:Disconnect()
-		end
-	end, { enabled })
-end
 
 local function useClock()
 	local now, setNow = React.useState(workspace:GetServerTimeNow())
@@ -83,21 +60,6 @@ local function dot(size, position, color, transparency, extra)
 		BackgroundTransparency = transparency or 0,
 		BorderSizePixel = 0,
 	}, kids)
-end
-
-local function segment(a: Vector2, b: Vector2, thickness, color, transparency, z)
-	local delta = b - a
-	local mid = (a + b) / 2
-	return React.createElement("frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = UDim2.fromOffset(delta.Magnitude, thickness),
-		Position = UDim2.fromOffset(mid.X, mid.Y),
-		Rotation = math.deg(math.atan2(delta.Y, delta.X)),
-		BackgroundColor3 = color,
-		BackgroundTransparency = transparency or 0,
-		BorderSizePixel = 0,
-		ZIndex = z or 1,
-	})
 end
 
 local GLYPH_COLORS = {
@@ -181,11 +143,9 @@ local function Glyph(props)
 end
 
 return {
-	useTicker = useTicker,
 	useClock = useClock,
 	corner = corner,
 	dot = dot,
-	segment = segment,
 	Glyph = Glyph,
 	GLYPH_COLORS = GLYPH_COLORS,
 }
@@ -212,7 +172,8 @@ local Button = _ui.Button
 local Panel = _ui.Panel
 local Text = _ui.Text
 local Kit = __load("SkyKit")
-local useTicker, dot, segment, corner = Kit.useTicker, Kit.dot, Kit.segment, Kit.corner
+local corner = Kit.corner
+local SkyViewport = require(script.Parent.Parent.SkyViewport)
 
 local PLATE = 280
 local INK = Palette.ink
@@ -221,35 +182,10 @@ local function rgb(color)
 	return Color3.fromRGB(color[1], color[2], color[3])
 end
 
-local function starPoint(star): Vector2
-	local margin = 28
-	return Vector2.new(margin + star[1] * (PLATE - margin * 2), margin + star[2] * (PLATE - margin * 2))
-end
-
 local function Plate(props)
 	local entry = props.entry
 	local plotted = props.plotted
 	local color = rgb(entry.Color)
-	local glows = React.useRef({})
-	local halo = React.useRef(nil)
-
-	useTicker(function(now)
-		for index, frame in glows.current do
-			if frame and frame.Parent then
-				frame.BackgroundTransparency = 0.55 + 0.3 * math.sin(now * 1.7 + index * 1.9) ^ 2
-			end
-		end
-		local ring = halo.current
-		if ring then
-			local phase = (now * 0.8) % 1
-			ring.Size = UDim2.fromOffset(14 + phase * 22, 14 + phase * 22)
-			local stroke = ring:FindFirstChildOfClass("UIStroke")
-			if stroke then
-				stroke.Transparency = phase
-			end
-		end
-	end, not props.reducedMotion, 24)
-
 	local kids = {
 		Corner = corner(UDim.new(0, 18)),
 		Stroke = React.createElement("uistroke", { Color = color, Thickness = 1, Transparency = 0.55 }),
@@ -257,50 +193,8 @@ local function Plate(props)
 			Color = ColorSequence.new(INK, color:Lerp(INK, 0.82)),
 			Rotation = 120,
 		}),
+		Scene = React.createElement(SkyViewport, { entry = entry, plotted = plotted, accent = color, reducedMotion = props.reducedMotion }),
 	}
-	local dust = Random.new(#entry.Id * 977 + #entry.Stars)
-	for index = 1, 46 do
-		local size = if dust:NextNumber() < 0.15 then 3 else 2
-		kids["d" .. index] = dot(size, UDim2.fromOffset(dust:NextNumber() * PLATE, dust:NextNumber() * PLATE), Palette.cream, 0.55 + dust:NextNumber() * 0.4)
-	end
-	for index, edge in entry.Edges do
-		local a, b = entry.Stars[edge[1]], entry.Stars[edge[2]]
-		local lit = edge[1] <= plotted and edge[2] <= plotted
-		kids["e" .. index] = segment(starPoint(a), starPoint(b), if lit then 2 else 1, if lit then color else Palette.cream, if lit then 0.15 else 0.86, 2)
-	end
-	for index, star in entry.Stars do
-		local point = starPoint(star)
-		local position = UDim2.fromOffset(point.X, point.Y)
-		local lit = index <= plotted
-		if lit then
-			kids["g" .. index] = React.createElement("frame", {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Size = UDim2.fromOffset(20, 20),
-				Position = position,
-				BackgroundColor3 = color,
-				BackgroundTransparency = 0.7,
-				BorderSizePixel = 0,
-				ZIndex = 3,
-				ref = function(frame)
-					glows.current[index] = frame
-				end,
-			}, { Corner = corner() })
-			kids["s" .. index] = dot(8, position, Color3.new(1, 1, 1), 0, { Tint = React.createElement("uistroke", { Color = color, Thickness = 2 }) })
-		else
-			kids["s" .. index] = dot(8, position, INK, 0, { Ring = React.createElement("uistroke", { Color = Palette.cream, Thickness = 1, Transparency = if index == plotted + 1 then 0.1 else 0.6 }) })
-			if index == plotted + 1 and props.open then
-				kids.Next = React.createElement("frame", {
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Size = UDim2.fromOffset(18, 18),
-					Position = position,
-					BackgroundTransparency = 1,
-					BorderSizePixel = 0,
-					ZIndex = 4,
-					ref = halo,
-				}, { Corner = corner(), Stroke = React.createElement("uistroke", { Color = color, Thickness = 2 }) })
-			end
-		end
-	end
 	if not props.open then
 		kids.Lock = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = INK, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 6 }, {
 			Corner = corner(UDim.new(0, 18)),
@@ -425,22 +319,22 @@ local function StarChartsView(props)
 			},
 			{
 				id = "plate",
-				height = PLATE + 92,
+				height = PLATE + 110,
 				element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = color, background = Palette.panelRaised, padding = Layout.cardPadding, reducedMotion = reducedMotion },
-					React.createElement("frame", { Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, BorderSizePixel = 0 }, {
-						Prev = React.createElement(Button, { text = "<", size = UDim2.fromOffset(36, 30), color = Palette.panelSoft, disabled = index <= 1, reducedMotion = reducedMotion, onClick = function() setSelected(index - 1); setNote(nil) end }),
-						Name = React.createElement(Text, { value = `{entry.Name}  ·  {plotted}/{total}`, size = 15, color = Palette.cream, weight = Enum.FontWeight.Heavy, align = Enum.TextXAlignment.Center, position = UDim2.fromOffset(44, 5), sizeConstraint = UDim2.new(1, -88, 0, 20) }),
-						Next = React.createElement(Button, { text = ">", size = UDim2.fromOffset(36, 30), position = UDim2.new(1, -36, 0, 0), color = Palette.panelSoft, disabled = index >= #list, reducedMotion = reducedMotion, onClick = function() setSelected(index + 1); setNote(nil) end }),
+					React.createElement("frame", { Size = UDim2.new(1, 0, 0, 48), BackgroundTransparency = 1, BorderSizePixel = 0 }, {
+						Prev = React.createElement(Button, { text = "<", size = UDim2.fromOffset(48, 48), color = Palette.panelSoft, disabled = index <= 1, reducedMotion = reducedMotion, onClick = function() setSelected(index - 1); setNote(nil) end }),
+						Name = React.createElement(Text, { value = `{entry.Name}  ·  {plotted}/{total}`, size = 15, color = Palette.cream, weight = Enum.FontWeight.Heavy, fit = true, minSize = 11, align = Enum.TextXAlignment.Center, position = UDim2.fromOffset(56, 12), sizeConstraint = UDim2.new(1, -112, 0, 24) }),
+						Next = React.createElement(Button, { text = ">", size = UDim2.fromOffset(48, 48), position = UDim2.new(1, -48, 0, 0), color = Palette.panelSoft, disabled = index >= #list, reducedMotion = reducedMotion, onClick = function() setSelected(index + 1); setNote(nil) end }),
 					}),
-					React.createElement("frame", { Size = UDim2.new(1, 0, 0, PLATE), Position = UDim2.fromOffset(0, 36), BackgroundTransparency = 1, BorderSizePixel = 0 }, {
+					React.createElement("frame", { Size = UDim2.new(1, 0, 0, PLATE), Position = UDim2.fromOffset(0, 54), BackgroundTransparency = 1, BorderSizePixel = 0 }, {
 						Plate = React.createElement(Plate, { entry = entry, plotted = plotted, open = open, reducedMotion = reducedMotion }),
 					}),
-					React.createElement("frame", { Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, PLATE + 44), BackgroundTransparency = 1, BorderSizePixel = 0 }, pips)
+					React.createElement("frame", { Size = UDim2.new(1, 0, 0, 16), Position = UDim2.fromOffset(0, PLATE + 62), BackgroundTransparency = 1, BorderSizePixel = 0 }, pips)
 				),
 			},
 			{
 				id = "actions",
-				height = 150,
+				height = 158,
 				element = React.createElement(Panel, { size = UDim2.fromScale(1, 1), accent = color, background = Palette.panelRaised, padding = Layout.cardPadding, reducedMotion = reducedMotion },
 					React.createElement(Text, { value = entry.Lore, size = 12, color = Palette.muted, sizeConstraint = UDim2.new(1, 0, 0, 32) }),
 					React.createElement(Text, { value = `Reward: {formatReward(entry.Reward)}`, size = 12, color = color, weight = Enum.FontWeight.Bold, position = UDim2.fromOffset(0, 34), sizeConstraint = UDim2.new(1, 0, 0, 18) }),
@@ -448,7 +342,7 @@ local function StarChartsView(props)
 					React.createElement(Button, {
 						text = if done then "CHARTED" elseif not open then "LOCKED" else `PLOT STAR · {compactNumber(cost)}`,
 						onClick = plot,
-						size = UDim2.new(1, 0, 0, 46),
+						size = UDim2.new(1, 0, 0, 48),
 						position = UDim2.fromOffset(0, 78),
 						color = if done or not open then Palette.panelSoft else color,
 						textColor = if done or not open then Palette.muted else Palette.ink,
@@ -489,6 +383,7 @@ local Panel = _ui.Panel
 local Text = _ui.Text
 local Kit = __load("SkyKit")
 local useClock, corner, dot, Glyph = Kit.useClock, Kit.corner, Kit.dot, Kit.Glyph
+local SkyViewport = require(script.Parent.Parent.SkyViewport)
 
 local CELL = 38
 local ROW_H = 46
@@ -626,20 +521,20 @@ local function CipherView(props)
 
 	local keys = { Grid = React.createElement("uigridlayout", { CellSize = UDim2.new(1 / 3, -6, 0, 52), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }) }
 	for glyph, name in GLYPHS do
-		keys["k" .. glyph] = React.createElement("textbutton", {
-			Text = "",
-			AutoButtonColor = true,
-			BackgroundColor3 = Palette.panelSoft,
+		keys["k" .. glyph] = React.createElement("frame", {
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			LayoutOrder = glyph,
-			[React.Event.Activated] = function()
-				push(glyph)
-			end,
 		}, {
-			Corner = corner(UDim.new(0, 12)),
-			Stroke = React.createElement("uistroke", { Color = Kit.GLYPH_COLORS[glyph], Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
-			Icon = React.createElement(Glyph, { glyph = glyph, size = 30, position = UDim2.new(0, 10, 0.5, 0), anchor = Vector2.new(0, 0.5) }),
-			Label = React.createElement(Text, { value = name, size = 12, color = Palette.cream, weight = Enum.FontWeight.Bold, position = UDim2.new(0, 46, 0.5, -8), sizeConstraint = UDim2.new(1, -50, 0, 16) }),
+			Button = React.createElement(Button, {
+				text = "", size = UDim2.fromScale(1, 1), color = Palette.panelSoft,
+				reducedMotion = reducedMotion, sound = false,
+				disabled = busy or finished or #draft >= LENGTH, onClick = function() push(glyph) end,
+				children = React.createElement("frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 11 },
+					React.createElement(Glyph, { glyph = glyph, size = 24, position = UDim2.new(0, 10, 0.5, 0), anchor = Vector2.new(0, 0.5) }),
+					React.createElement(Text, { value = name, size = 12, color = Palette.cream, fit = true, minSize = 9, position = UDim2.new(0, 42, 0.5, -9), sizeConstraint = UDim2.new(1, -48, 0, 18), zIndex = 11 })
+				),
+			}),
 		})
 	end
 
@@ -686,6 +581,13 @@ local function CipherView(props)
 					React.createElement(Text, { value = status, size = 11, color = if note and note.good == false then Palette.coral else Palette.muted, position = UDim2.fromOffset(0, 44), sizeConstraint = UDim2.new(1, 0, 0, 16) }),
 					answer
 				),
+			},
+			{
+				id = "receiver",
+				height = 128,
+				element = React.createElement(SkyViewport, {
+					glyphs = draft, colors = Kit.GLYPH_COLORS, accent = accent, reducedMotion = reducedMotion,
+				}),
 			},
 			{
 				id = "board",

@@ -61,6 +61,35 @@ or a newer refresh, preventing stale nameplates and partial visual leaks.
 Existing features remain intact; full visual and multiplayer
 review is tracked in `NOT_TESTED.md`.
 
+### Hex and authored-sprite presentation pass
+
+The domain now uses a scrollable 2D hex grid with ancestor-path highlighting,
+zoom controls and a stacked phone detail panel. Retired 3D-domain rendering
+code was removed; progression and unlock rules are unchanged. Ambient
+decoration uses slow mint/cyan/violet aurora curtains, with a seamless clock
+wrap, fewer curtains on constrained devices and a still reduced-motion mode.
+
+Bolt uses a custom twelve-pose sprite atlas, retaining his interactions,
+pointer, speech and particles. Regenerate the local atlas with
+`node scripts/draw_bolt.cjs`; uploading a replacement also requires updating
+the image asset reference. Tutorial masks hide and block unrelated controls
+while leaving the current required target accessible. Bolt, his pointer and
+trails use fractional coordinates rather than stepped pixel offsets.
+
+Star Charts and Signal Cipher now have real, inert WorldModel previews.
+Cipher's six glyphs have distinct authored shapes; the next chart star remains
+highlighted even with reduced motion. Scene cameras fit the viewport aspect,
+and animation, cameras and worlds are released on replacement or unmount.
+Reports and settings choices/navigation reuse the shared controls. Resource
+chips scroll horizontally instead of being discarded to fit either the desktop
+topbar or the separate mobile header.
+The logo uses custom vector strokes, and shared Text supports subtle shadows.
+
+This is a verified presentation pass, not completion of the entire expanded
+revamp. Trading, changelogs, mail, crew, overview, research, milestones and
+artifact/crate refinements still need the additional design work requested.
+Physical gamepad/mobile, human audio and multiplayer sign-off remain open.
+
 ## Getting Started
 Install the npm dependencies, then sync Studio from **source** (source of truth):
 

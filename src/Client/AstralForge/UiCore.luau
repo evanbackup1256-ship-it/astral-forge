@@ -357,9 +357,8 @@ local function Text(_param)
 			MaxTextSize = scaledSize,
 		})
 	end
-	return React.createElement("textlabel", {
-		Size = sizeConstraint or UDim2.fromScale(1, 1),
-		Position = position,
+	local face = {
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		AutoLocalize = true,
@@ -374,9 +373,25 @@ local function Text(_param)
 		TextScaled = fit,
 		LineHeight = if wrap then 1.12 else 1,
 		TextTruncate = if wrap or fit then Enum.TextTruncate.None else Enum.TextTruncate.AtEnd,
+		ZIndex = zIndex + 1,
+	}
+	local shadow = table.clone(face)
+	shadow.Name = "TextShadow"
+	shadow.Position = UDim2.fromOffset(0, 1)
+	shadow.TextColor3 = Palette.void
+	shadow.TextTransparency = faded:map(function(v) return 0.78 + v * 0.22 end)
+	shadow.ZIndex = zIndex
+	shadow.ref = function(label)
+		if label then label:SetAttribute("LayoutGuardIgnore", true) end
+	end
+	return React.createElement("frame", {
+		Size = sizeConstraint or UDim2.fromScale(1, 1),
+		Position = position,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
 		ZIndex = zIndex,
 		LayoutOrder = layoutOrder,
-	}, constraint)
+	}, _param.shadow ~= false and React.createElement("textlabel", shadow, constraint), React.createElement("textlabel", face, constraint))
 end
 local function useGuiSize(ref, useParent)
 	local size, setSize = React.useBinding(Vector2.zero)
@@ -4431,6 +4446,25 @@ local function LogoLockup(_param)
 	end
 	local mark = if micro then 40 else 48
 	local textX = mark + 12
+	local strokes = {}
+	for index, segment in {
+		{ 0.27, 0.75, 0.5, 0.23 },
+		{ 0.5, 0.23, 0.73, 0.75 },
+		{ 0.36, 0.55, 0.64, 0.55 },
+		{ 0.79, 0.18, 0.79, 0.36 },
+		{ 0.7, 0.27, 0.88, 0.27 },
+	} do
+		local delta = Vector2.new(segment[3] - segment[1], segment[4] - segment[2])
+		strokes[index] = React.createElement("frame", {
+			Size = UDim2.fromOffset(delta.Magnitude * mark, if index <= 3 then 2.5 else 1.5),
+			Position = UDim2.fromScale((segment[1] + segment[3]) / 2, (segment[2] + segment[4]) / 2),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = math.deg(math.atan2(delta.Y, delta.X)),
+			BackgroundColor3 = if index <= 3 then Palette.cream else accent,
+			BorderSizePixel = 0,
+			ZIndex = 2,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }))
+	end
 	return React.createElement("frame", {
 		Size = UDim2.fromScale(1, 1),
 		Position = position,
@@ -4445,30 +4479,34 @@ local function LogoLockup(_param)
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
+		CornerRadius = UDim.new(0, 12),
 	}), React.createElement("uistroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		LineJoinMode = Enum.LineJoinMode.Round,
 		Color = accent,
 		Thickness = 1.25,
 		Transparency = 0.18,
-	}), React.createElement("imagelabel", {
+	}), React.createElement("frame", {
+		Name = "ForgeMonogram",
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.fromRGB(14, 10, 17),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Image = GAME_ICON_ASSET,
-		ScaleType = Enum.ScaleType.Fit,
 		ZIndex = 2,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))), not micro and React.createElement(Text, {
+	}, strokes)), not micro and React.createElement(Text, {
 		value = "ASTRAL",
 		size = if compact then 18 else 20,
 		color = Palette.cream,
 		weight = Enum.FontWeight.Heavy,
 		fit = false,
-		position = UDim2.fromOffset(textX, 0),
-		sizeConstraint = UDim2.new(1, -textX, 1, 0),
+		position = UDim2.new(0, textX, 0.5, -18),
+		sizeConstraint = UDim2.new(1, -textX, 0, 22),
+	}), not micro and React.createElement(Text, {
+		value = "F O R G E",
+		size = 10,
+		color = accent,
+		weight = Enum.FontWeight.Bold,
+		position = UDim2.new(0, textX, 0.5, 7),
+		sizeConstraint = UDim2.new(1, -textX, 0, 12),
 	}))
 end
 return {
@@ -9053,18 +9091,7 @@ local function TopBar(_param)
 	local fixedSingleRow = edgePad * 2 + (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) + controlsW + 12 + (if visitPillWidth > 0 then visitPillWidth + 6 else 0) + (if countdownW > 0 then countdownW + 10 else 0)
 	local minimumResourceRoom = if #allChips > 0 then chipWidthEstimate + 6 else 0
 	local performanceW = if not stacked and fullPerformanceW > 0 and width - fixedSingleRow - fullPerformanceW - performanceGap < minimumResourceRoom then 0 else fullPerformanceW
-	local spare = if stacked then width - edgePad * 2 - 24 - performanceW - performanceGap else width - edgePad * 2 - (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - (if pageTitleW > 0 then pageTitleW + 10 else 0) - controlsW - 12 - (if visitPillWidth > 0 then visitPillWidth + 6 else 0) - performanceW - performanceGap - (if countdownW > 0 then countdownW + 10 else 0)
-	local fitCount = if stacked then math.clamp(math.floor((spare + 6) / (chipWidthEstimate + 6)), 1, math.min(2, #allChips)) else math.clamp(math.floor((spare + 6) / (chipWidthEstimate + 6)), 0, #allChips)
-	local chips = {}
-	local _callback = function(chip, index)
-		if index >= #allChips - fitCount then
-			local _chip = chip
-			table.insert(chips, _chip)
-		end
-	end
-	for _k, _v in allChips do
-		_callback(_v, _k - 1, allChips)
-	end
+	local chips = allChips
 	local controlsRight = edgePad + 4
 	local hasRightCluster = not stacked and (#chips > 0 or visitPill ~= nil or performanceW > 0)
 	local row1H = if stacked then 62 else barHeight
@@ -9152,7 +9179,7 @@ local function TopBar(_param)
 		local _exp_9 = React.createElement("uilistlayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 			Padding = UDim.new(0, 8),
 		})
@@ -9219,15 +9246,20 @@ local function TopBar(_param)
 		for _k, _v in chips do
 			_newValue[_k] = _callback_1(_v, _k - 1, chips)
 		end
-		_condition_3 = React.createElement("frame", {
-			Size = UDim2.fromOffset(0, chipRowH + 4),
-			AutomaticSize = Enum.AutomaticSize.X,
+		_condition_3 = React.createElement("scrollingframe", {
+			Name = "TopbarResourceRail",
+			Size = UDim2.fromOffset(math.max(48, width - edgePad * 2 - (logoWidth + 14 + SHELL_CHROME.topbarControl + SHELL_CHROME.topbarControlGap) - controlsW - 12), chipRowH + 4),
+			AutomaticCanvasSize = Enum.AutomaticSize.X,
+			CanvasSize = UDim2.new(),
+			ScrollingDirection = Enum.ScrollingDirection.X,
+			ScrollBarThickness = 2,
+			ScrollBarImageColor3 = accent,
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -(controlsW + controlsRight + 12), 0.5, 0),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ZIndex = 22,
-			ClipsDescendants = false,
+			ClipsDescendants = true,
 		}, _exp_9, _condition_4, _exp_10, _newValue)
 	end
 	local _condition_4 = stacked
@@ -9271,13 +9303,19 @@ local function TopBar(_param)
 		for _k, _v in chips do
 			_newValue[_k] = _callback_1(_v, _k - 1, chips)
 		end
-		_condition_4 = React.createElement("frame", {
+		_condition_4 = React.createElement("scrollingframe", {
+			Name = "TopbarResourceRail",
+			AutomaticCanvasSize = Enum.AutomaticSize.X,
+			CanvasSize = UDim2.new(),
+			ScrollingDirection = Enum.ScrollingDirection.X,
+			ScrollBarThickness = 2,
+			ScrollBarImageColor3 = accent,
 			Size = UDim2.new(1, -(24 + (if performanceW > 0 then performanceW + performanceGap else 0)), 0, TapTarget + 6),
 			Position = UDim2.fromOffset(12, row1H + 2),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ZIndex = 22,
-			ClipsDescendants = false,
+			ClipsDescendants = true,
 		}, _exp_9, _newValue)
 	end
 	local _condition_5 = stacked and performanceW > 0
@@ -11545,50 +11583,65 @@ local function TradeReturnPill(_param)
 	}))
 end
 local function AmbientLayer(_param)
-	local accent = _param.accent
 	local reducedMotion = _param.reducedMotion
 	local intensity = _param.intensity
 	if intensity == nil then
 		intensity = 1
 	end
 	local antilag = useAntilag()
-	local softMotion = reducedMotion
 	local strength = math.clamp(intensity, 0, 1)
 	local enabled = not reducedMotion and antilag.allowAmbient and strength > 0.02
-	local slow = useClock(enabled, 0.17)
-	local breath = useClock(enabled, 0.09)
-	local orbA = slow:map(function(phase)
-		return UDim2.new(0, 130 + math.sin(phase) * 30, 0, 108 + math.cos(phase) * 20)
-	end)
-	local orbScale = breath:map(function(phase)
-		return 1 + math.sin(phase) * 0.12 * antilag.glowScale * strength
-	end)
-	if not enabled then
+	local slow = useClock(enabled, 0.08)
+	if strength <= 0.02 or not antilag.allowAmbient then
 		return React.createElement("frame", {
+			Name = "AuroraBorealis",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			ZIndex = 1,
 		})
 	end
+	local curtains = {}
+	local count = if antilag.constrained then 8 else 14
+	for index = 1, count do
+		local offset = index / count
+		curtains[index] = React.createElement("frame", {
+			Name = "AuroraCurtain" .. index,
+			Size = slow:map(function(t)
+				return UDim2.fromScale(2.4 / count, 0.48 + math.sin(offset * 5 + t * 2) * 0.09)
+			end),
+			Position = slow:map(function(t)
+				return UDim2.fromScale(offset - 0.12 + math.sin(t + offset * 4) * 0.025, 0.24 + math.sin(offset * 6 + t * 2) * 0.09)
+			end),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Rotation = slow:map(function(t) return -18 + math.sin(t + offset * 3) * 8 end),
+			BackgroundColor3 = Palette.white,
+			BackgroundTransparency = 1 - 0.2 * strength * antilag.glowScale,
+			BorderSizePixel = 0,
+			ZIndex = 1,
+		}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), React.createElement("uigradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Palette.mint),
+				ColorSequenceKeypoint.new(0.4, Palette.cyan),
+				ColorSequenceKeypoint.new(1, Palette.violet),
+			}),
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.3, 0.25),
+				NumberSequenceKeypoint.new(0.55, 0.08),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Rotation = 90,
+		}))
+	end
 	return React.createElement("frame", {
+		Name = "AuroraBorealis",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 1,
 		ClipsDescendants = true,
-	}, React.createElement("frame", {
-		Size = UDim2.fromOffset(240, 240),
-		Position = orbA,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = accent,
-		BackgroundTransparency = 1 - 0.03 * strength,
-		BorderSizePixel = 0,
-	}, React.createElement("uiscale", {
-		Scale = orbScale,
-	}), React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})))
+	}, curtains)
 end
 local function ConfettiBurst(_param)
 	local onDone = _param.onDone
@@ -14851,7 +14904,7 @@ local function MobileHeader(_param)
 	local short = barHeight <= 40
 	local width = viewport.width - edgePad * 2
 	local chipH = if short then 24 else 30
-	local chipW = if short then 62 else 70
+	local chipW = if short then 84 else 96
 	local playersW = barHeight - 8
 	local iconSize = if short then 24 else 30
 	local wanted = { { key = "flux", value = state.Cash, accent = Palette.cyan } }
@@ -14862,18 +14915,16 @@ local function MobileHeader(_param)
 		table.insert(wanted, { key = "cores", value = state.Cores, accent = Palette.violet })
 	end
 	local titleMin = 110
-	local room = width - (10 + iconSize + 8 + titleMin) - playersW - 12
-	local fit = math.clamp(math.floor((room + 6) / (chipW + 6)), 0, #wanted)
+	local room = width - (8 + iconSize + 8 + titleMin + playersW + 22)
 	local chips = {}
 	chips.layout = React.createElement("uilistlayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
-		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		HorizontalAlignment = Enum.HorizontalAlignment.Left,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
 		Padding = UDim.new(0, 6),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	})
-	for index = 1, fit do
-		local item = wanted[index]
+	for index, item in wanted do
 		chips[item.key] = React.createElement(Chip, {
 			order = index,
 			value = item.value,
@@ -14882,7 +14933,8 @@ local function MobileHeader(_param)
 			height = chipH,
 		})
 	end
-	local chipsW = fit * chipW + math.max(0, fit - 1) * 6
+	local contentW = #wanted * chipW + math.max(0, #wanted - 1) * 6
+	local chipsW = math.min(contentW, math.max(48, room))
 	local visitors = if type(state.Visitors) == "table" then #state.Visitors else 0
 	local roadmap = __load("levelRoadmap")
 	local level, _tier, nextStep = roadmap.readLevelState(state)
@@ -14939,8 +14991,15 @@ local function MobileHeader(_param)
 		},
 	}, React.createElement("uicorner", {
 		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(chipsW, chipH),
+	})), React.createElement("scrollingframe", {
+		Name = "MobileResourceRail",
+		Size = UDim2.fromOffset(chipsW, chipH + 4),
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		CanvasSize = UDim2.new(),
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = accent,
+		Active = true,
 		Position = UDim2.new(1, -(playersW + 12), 0.5, 0),
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
@@ -16056,55 +16115,48 @@ local function ReportSheet(_param)
 	end
 	local reasonCells = {}
 	reasonCells.layout = React.createElement("uigridlayout", {
-		CellSize = UDim2.new(0.5, -4, 0, 48),
+		CellSize = UDim2.new(0.5, -4, 0, 64),
 		CellPadding = UDim2.fromOffset(8, 8),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	})
 	for order, entry in Model.REASONS do
 		local picked = reason == entry.id
-		reasonCells[entry.id] = React.createElement("textbutton", {
+		reasonCells[entry.id] = React.createElement("frame", {
 			LayoutOrder = order,
-			BackgroundColor3 = if picked then darken(Palette.coral, 0.45) else Palette.panel,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Text = "",
 			ZIndex = 704,
-			Event = {
-				Activated = function()
-					setReason(entry.id)
-					Audio:play("tabSwitch")
-				end,
-			},
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 10),
-		}), React.createElement("uistroke", {
-			Color = if picked then Palette.coral else Palette.lineSoft,
-			Thickness = if picked then 1.5 else 1,
-			Transparency = if picked then 0.1 else 0.6,
-		}), React.createElement(Text, {
+		}, React.createElement(Button, {
+			text = "", size = UDim2.fromScale(1, 1),
+			color = if picked then darken(Palette.coral, 0.45) else Palette.panelSoft,
+			reducedMotion = reducedMotion, highlight = picked, sound = "tabSwitch",
+			disabled = phase ~= "form", zIndex = 704,
+			onClick = function() setReason(entry.id) end,
+			children = React.createElement(React.Fragment, nil, React.createElement(Text, {
 			value = string.upper(entry.label),
 			size = 11,
 			color = if picked then Palette.cream else Palette.creamSoft,
 			weight = Enum.FontWeight.Heavy,
 			fit = true,
 			minSize = 9,
-			position = UDim2.fromOffset(10, 5),
+			position = UDim2.fromOffset(10, 10),
 			sizeConstraint = UDim2.new(1, -16, 0, 16),
-			zIndex = 705,
+			zIndex = 710,
 		}), React.createElement(Text, {
 			value = entry.detail,
 			size = 10,
 			color = Palette.muted,
 			wrap = true,
 			fit = false,
-			position = UDim2.fromOffset(10, 21),
-			sizeConstraint = UDim2.new(1, -16, 0, 24),
-			zIndex = 705,
+			position = UDim2.fromOffset(10, 29),
+			sizeConstraint = UDim2.new(1, -16, 0, 28),
+			zIndex = 710,
+		})),
 		}))
 	end
 	local width = _param.width
 	local reasonRows = math.ceil(#Model.REASONS / 2)
-	local CHIP_ROW = 30
+	local CHIP_ROW = 52
 	local contextH = CHIP_ROW * 3 + 4
 	local function chipRow(label, options, value, onPick, accent, order)
 		local cells = {
@@ -16117,36 +16169,23 @@ local function ReportSheet(_param)
 		}
 		for index, option in options do
 			local picked = value == option.id
-			cells[option.id] = React.createElement("textbutton", {
+			cells[option.id] = React.createElement("frame", {
 				LayoutOrder = index,
-				Size = UDim2.new(1 / #options, -6, 0, 24),
-				BackgroundColor3 = if picked then darken(accent, 0.5) else Palette.panel,
+				Size = UDim2.new(1 / #options, -math.ceil(6 * (#options - 1) / #options), 0, 48),
+				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				AutoButtonColor = false,
-				Text = "",
 				ZIndex = 705,
-				Event = {
-					Activated = function()
-						onPick(option.id)
-						Audio:play("tabSwitch")
-					end,
-				},
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(0, 8),
-			}), React.createElement("uistroke", {
-				Color = if picked then accent else Palette.lineSoft,
-				Transparency = if picked then 0.15 else 0.6,
-			}), React.createElement(Text, {
-				value = string.upper(option.label),
-				size = 10,
-				color = if picked then Palette.cream else Palette.creamSoft,
-				weight = Enum.FontWeight.Heavy,
-				align = Enum.TextXAlignment.Center,
-				fit = true,
-				minSize = 8,
-				position = UDim2.fromOffset(4, 5),
-				sizeConstraint = UDim2.new(1, -8, 0, 14),
-				zIndex = 706,
+			}, React.createElement(Button, {
+				text = "", size = UDim2.fromScale(1, 1),
+				color = if picked then darken(accent, 0.5) else Palette.panelSoft,
+				textColor = Palette.creamSoft, highlight = picked,
+				onClick = function() onPick(option.id) end, sound = "tabSwitch",
+				reducedMotion = reducedMotion, disabled = phase ~= "form", zIndex = 705,
+				children = React.createElement(Text, {
+					value = string.upper(option.label), size = 11, fit = true, minSize = 9, wrap = true,
+					align = Enum.TextXAlignment.Center, weight = Enum.FontWeight.Bold,
+					position = UDim2.fromOffset(4, 4), sizeConstraint = UDim2.new(1, -8, 1, -8), zIndex = 711,
+				}),
 			}))
 		end
 		return React.createElement("frame", {
@@ -16161,7 +16200,7 @@ local function ReportSheet(_param)
 			weight = Enum.FontWeight.Heavy,
 			fit = true,
 			minSize = 8,
-			position = UDim2.fromOffset(0, 8),
+			position = UDim2.fromOffset(0, 18),
 			sizeConstraint = UDim2.new(0, 58, 0, 14),
 			zIndex = 705,
 		}), React.createElement("frame", {
@@ -16174,14 +16213,14 @@ local function ReportSheet(_param)
 	local severityAccent = if severity == "Urgent" then Palette.coral elseif severity == "Serious" then Palette.mango else Palette.cyan
 	local contextBlock = React.createElement("frame", {
 		Size = UDim2.new(1, -28, 0, contextH),
-		Position = UDim2.fromOffset(14, 48 + reasonRows * 56),
+		Position = UDim2.fromOffset(14, 48 + reasonRows * 72),
 		BackgroundTransparency = 1,
 		ZIndex = 703,
 	}, React.createElement("uilistlayout", {
 		Padding = UDim.new(0, 2),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}), chipRow("HOW BAD", Model.SEVERITIES, severity, setSeverity, severityAccent, 1), chipRow("WHEN", Model.WHENS, when, setWhen, Palette.cyan, 2), chipRow("WHERE", Model.WHERES, where, setWhere, Palette.cyan, 3))
-	local formH = 40 + reasonRows * 56 + contextH + 8 + 70 + 34 + 46 + (if errorText then 18 else 0)
+	local formH = 48 + reasonRows * 72 + contextH + 8 + 70 + 54 + 64 + (if errorText then 18 else 0)
 	local body
 	if phase == "sent" then
 		body = React.createElement("frame", {
@@ -16254,13 +16293,13 @@ local function ReportSheet(_param)
 			sizeConstraint = UDim2.new(1, -28, 0, 14),
 			zIndex = 704,
 		}), React.createElement("frame", {
-			Size = UDim2.new(1, -28, 0, reasonRows * 56),
+			Size = UDim2.new(1, -28, 0, reasonRows * 72),
 			Position = UDim2.fromOffset(14, 48),
 			BackgroundTransparency = 1,
 			ZIndex = 703,
 		}, reasonCells), contextBlock, React.createElement("frame", {
 			Size = UDim2.new(1, -28, 0, 62),
-			Position = UDim2.fromOffset(14, 48 + reasonRows * 56 + contextH + 4),
+			Position = UDim2.fromOffset(14, 48 + reasonRows * 72 + contextH + 4),
 			BackgroundColor3 = Palette.panel,
 			BorderSizePixel = 0,
 			ZIndex = 704,
@@ -16307,42 +16346,19 @@ local function ReportSheet(_param)
 			position = UDim2.new(0, 8, 1, -14),
 			sizeConstraint = UDim2.new(1, -16, 0, 12),
 			zIndex = 705,
-		})), React.createElement("textbutton", {
-			Size = UDim2.new(1, -28, 0, 28),
-			Position = UDim2.fromOffset(14, 48 + reasonRows * 56 + contextH + 72),
+		})), React.createElement("frame", {
+			Size = UDim2.new(1, -28, 0, 48),
+			Position = UDim2.fromOffset(14, 48 + reasonRows * 72 + contextH + 78),
 			BackgroundTransparency = 1,
-			Text = "",
 			ZIndex = 704,
-			Event = {
-				Activated = function()
-					setAlsoBlock(not alsoBlock)
-					Audio:play(if alsoBlock then "toggleOff" else "toggleOn")
-				end,
-			},
-		}, React.createElement("frame", {
-			Size = UDim2.fromOffset(20, 20),
-			Position = UDim2.new(0, 0, 0.5, 0),
-			AnchorPoint = Vector2.new(0, 0.5),
-			BackgroundColor3 = if alsoBlock then Palette.coral else Palette.panel,
-			BorderSizePixel = 0,
-			ZIndex = 705,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(0, 6),
-		}), React.createElement("uistroke", {
-			Color = Palette.coral,
-			Transparency = 0.3,
-		}), alsoBlock and React.createElement(Icon, {
-			kind = "Check",
-			color = Palette.ink,
-			accent = Palette.ink,
-			size = 20,
-		})), React.createElement(Text, {
-			value = `Also block {target.DisplayName}`,
-			size = 12,
-			color = Palette.creamSoft,
-			weight = Enum.FontWeight.Bold,
-			position = UDim2.fromOffset(30, 6),
-			sizeConstraint = UDim2.new(1, -30, 0, 16),
+		}, React.createElement(Button, {
+			text = `Also block {target.DisplayName}: {if alsoBlock then "ON" else "OFF"}`,
+			icon = if alsoBlock then "Check" else "Lock",
+			size = UDim2.fromScale(1, 1),
+			color = if alsoBlock then darken(Palette.coral, 0.45) else Palette.panelSoft,
+			textColor = Palette.creamSoft, highlight = alsoBlock, reducedMotion = reducedMotion,
+			disabled = phase ~= "form", sound = if alsoBlock then "toggleOff" else "toggleOn",
+			onClick = function() setAlsoBlock(not alsoBlock) end,
 			zIndex = 705,
 		})), errorText ~= nil and React.createElement(Text, {
 			value = errorText,
@@ -16355,8 +16371,8 @@ local function ReportSheet(_param)
 			sizeConstraint = UDim2.new(1, -28, 0, 16),
 			zIndex = 704,
 		}), React.createElement("frame", {
-			Size = UDim2.new(1, -28, 0, 40),
-			Position = UDim2.new(0, 14, 1, -50),
+			Size = UDim2.new(1, -28, 0, 48),
+			Position = UDim2.new(0, 14, 1, -58),
 			BackgroundTransparency = 1,
 			ZIndex = 704,
 		}, React.createElement("uilistlayout", {
@@ -17048,6 +17064,8 @@ local HEARTS = 5
 local TRAIL = 9
 local ZZZ = 3
 local SLEEP_AFTER = 14
+local pixelPosition = _ui.pixelPosition
+local useGuiSize = _ui.useGuiSize
 local function approach(current, goal, rate, dt)
 	return current + (goal - current) * (1 - math.exp(-rate * dt))
 end
@@ -17206,6 +17224,9 @@ local function TutorialOverlay(_param)
 		end, false, 2300, Enum.KeyCode.ButtonB)
 		ContextActionService:BindActionAtPriority("AstralForgeTutorialConfirm", function(_name, inputState)
 			local current = stateRef.current
+			if not current.exiting and current.needsAction and not current.met and current.onCta == nil then
+				return Enum.ContextActionResult.Pass
+			end
 			if inputState == Enum.UserInputState.Begin and not current.exiting then
 				if current.needsAction and not current.met and current.onCta ~= nil then
 					current.onCta()
@@ -17232,9 +17253,11 @@ local function TutorialOverlay(_param)
 	layoutRef.current = { dockW = dockW, top = viewport.topInset, bottom = viewport.bottomInset }
 
 	local rootRef = React.useRef(nil)
+	local rootSize = useGuiSize(rootRef, false)
 	local probeRef = React.useRef(nil)
 	local dockRef = React.useRef(nil)
 	local frame, setFrame = React.useBinding(blankFrame(viewport.width, viewport.height))
+	local sizedFrame = React.joinBindings({ frame, rootSize })
 	local petState = React.useRef(nil)
 	if petState.current == nil then
 		local sparks, hearts, trail = {}, {}, {}
@@ -17264,6 +17287,29 @@ local function TutorialOverlay(_param)
 			t = 0,
 		}
 	end
+	React.useEffect(function()
+		local redirecting = false
+		local function constrainSelection()
+			if redirecting or not UserInputService.GamepadEnabled then return end
+			local selected = GuiService.SelectedObject
+			local root, target = rootRef.current, petState.current.target
+			if selected == nil or (root and selected:IsDescendantOf(root)) or (target and (selected == target or selected:IsDescendantOf(target))) then return end
+			redirecting = true
+			local assigned = target and GamepadNavigationService.AssignSelection(target)
+			for _, scope in { target, dockRef.current } do
+				if scope and not assigned then
+					for _, candidate in scope:GetDescendants() do
+						if candidate:IsA("GuiButton") and GamepadNavigationService.AssignSelection(candidate) then assigned = true; break end
+					end
+				end
+			end
+			if not assigned then GamepadNavigationService.ClearSelection() end
+			redirecting = false
+		end
+		local connection = GuiService:GetPropertyChangedSignal("SelectedObject"):Connect(constrainSelection)
+		constrainSelection()
+		return function() connection:Disconnect() end
+	end, {})
 	local quip, setQuip = React.useState(nil)
 	local quipToken = React.useRef(0)
 	local sayQuip = React.useCallback(function(pool)
@@ -17637,19 +17683,21 @@ local function TutorialOverlay(_param)
 	end
 
 	local dimColor = Palette.void
-	local dimAlpha = 0.55
+	local dimAlpha = 1
 	local function dim(key, sizeFn, posFn)
-		return React.createElement("frame", {
+		return React.createElement("textbutton", {
 			key = key,
+			Text = "",
+			AutoButtonColor = false,
+			Selectable = false,
 			Size = frame:map(sizeFn),
 			Position = frame:map(posFn),
 			BackgroundColor3 = dimColor,
 			BackgroundTransparency = React.joinBindings({ frame, reveal }):map(function(values)
-				local spot = values[1].spot
-				return 1 - math.clamp(values[2], 0, 1) * (dimAlpha * math.clamp(spot.a, 0, 1))
+				return 1 - math.clamp(values[2], 0, 1) * dimAlpha
 			end),
 			BorderSizePixel = 0,
-			Active = false,
+			Active = true,
 			ZIndex = 380,
 		})
 	end
@@ -17710,58 +17758,6 @@ local function TutorialOverlay(_param)
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		})
 	end
-	local function wing(side)
-		return React.createElement("frame", {
-			Size = frame:map(function(f)
-				return UDim2.fromOffset(12, PET_SIZE * 0.42 * f.pet.wingL)
-			end),
-			Position = UDim2.new(0.5, side * (PET_SIZE * 0.4), 0.5, 2),
-			AnchorPoint = Vector2.new(0.5, 1),
-			Rotation = frame:map(function(f)
-				return side * (52 + f.pet.wingA)
-			end),
-			BackgroundColor3 = petShade,
-			BorderSizePixel = 0,
-			ZIndex = 409,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), outline(2))
-	end
-	local function eye(side)
-		return React.createElement("frame", {
-			Size = frame:map(function(f)
-				local open = (1 - f.pet.blink) * (1 - f.pet.happy * 0.35)
-				local wide = f.pet.pupil / 7
-				return UDim2.fromOffset(6 * wide, math.max(1.5, 11 * open * wide))
-			end),
-			Position = frame:map(function(f)
-				return UDim2.new(0.5, side * 9 + f.pet.lookX * 0.9, 0.5, -4 + f.pet.lookY * 0.8)
-			end),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = petLine,
-			BorderSizePixel = 0,
-			ZIndex = 414,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}), React.createElement("frame", {
-			Size = UDim2.fromOffset(2, 2),
-			Position = UDim2.new(0.5, 0, 0.22, 0),
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundColor3 = Palette.cream,
-			BackgroundTransparency = frame:map(function(f)
-				return if f.pet.blink > 0.5 then 1 else 0
-			end),
-			BorderSizePixel = 0,
-			ZIndex = 415,
-		}, React.createElement("frame", {
-			Size = UDim2.fromOffset(0, 0),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			ZIndex = 416,
-		}, React.createElement("uicorner", {
-			CornerRadius = UDim.new(1, 0),
-		}))))
-	end
 	local function poolLabels(prefix, n, getList, build)
 		local out = {}
 		for i = 1, n do
@@ -17778,11 +17774,11 @@ local function TutorialOverlay(_param)
 			Size = frame:map(function(f)
 				local spark = get(f)
 				local size = if spark == nil then 0 else 7 * (1 - spark.a * 0.6)
-				return UDim2.fromOffset(size, size)
+				return UDim2.fromScale(size / PET_SIZE, size / PET_SIZE)
 			end),
 			Position = frame:map(function(f)
 				local spark = get(f)
-				return if spark == nil then UDim2.fromOffset(-50, -50) else UDim2.new(0.5, spark.x, 0.5, spark.y)
+				return if spark == nil then UDim2.fromOffset(-50, -50) else UDim2.fromScale(0.5 + spark.x / PET_SIZE, 0.5 + spark.y / PET_SIZE)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Rotation = 45,
@@ -17802,7 +17798,7 @@ local function TutorialOverlay(_param)
 			Size = UDim2.fromOffset(18, 18),
 			Position = frame:map(function(f)
 				local heart = get(f)
-				return if heart == nil then UDim2.fromOffset(-50, -50) else UDim2.new(0.5, heart.x, 0.5, heart.y)
+				return if heart == nil then UDim2.fromOffset(-50, -50) else UDim2.fromScale(0.5 + heart.x / PET_SIZE, 0.5 + heart.y / PET_SIZE)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
@@ -17826,7 +17822,7 @@ local function TutorialOverlay(_param)
 			Size = UDim2.fromOffset(16, 16),
 			Position = frame:map(function(f)
 				local phase = (f.t * 0.45 + i / ZZZ) % 1
-				return UDim2.new(0.5, PET_SIZE * 0.32 + phase * 18 + math.sin(phase * 6 + i) * 4, 0.5, -PET_SIZE * 0.42 - phase * 34)
+				return UDim2.fromScale(0.82 + (phase * 18 + math.sin(phase * 6 + i) * 4) / PET_SIZE, 0.08 - phase * 34 / PET_SIZE)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
@@ -17853,14 +17849,14 @@ local function TutorialOverlay(_param)
 	local trailEls = {}
 	for i = 1, TRAIL do
 		trailEls["t" .. i] = React.createElement("frame", {
-			Size = frame:map(function(f)
-				local mote = f.trail[i]
+			Size = sizedFrame:map(function(values)
+				local mote = values[1].trail[i]
 				local size = if mote == nil then 0 else 7 * (1 - mote.a)
-				return UDim2.fromOffset(size, size)
+				return pixelPosition(values[2], 0, size, 0, size)
 			end),
-			Position = frame:map(function(f)
-				local mote = f.trail[i]
-				return if mote == nil then UDim2.fromOffset(-100, -100) else UDim2.fromOffset(mote.x, mote.y + PET_SIZE * 0.2)
+			Position = sizedFrame:map(function(values)
+				local mote = values[1].trail[i]
+				return if mote == nil then UDim2.fromOffset(-100, -100) else pixelPosition(values[2], 0, mote.x, 0, mote.y + PET_SIZE * 0.2)
 			end),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = if i % 2 == 0 then petColor else petShade,
@@ -17875,179 +17871,55 @@ local function TutorialOverlay(_param)
 		}))
 	end
 	local pet = React.createElement("frame", {
+		Name = "Bolt",
 		Size = UDim2.fromOffset(PET_SIZE, PET_SIZE),
+		Position = sizedFrame:map(function(values)
+			return pixelPosition(values[2], 0, values[1].pet.x, 0, values[1].pet.y)
+		end),
+		AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 405,
+	}, React.createElement("frame", {
+		Size = frame:map(function(f) return UDim2.fromScale(0.7 * f.pet.shadow, 0.12 * f.pet.shadow) end),
+		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.7), AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = Palette.void, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 406,
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) })),
+	React.createElement("frame", {
+		Name = "BoltPointer",
+		Size = frame:map(function(f) return UDim2.fromScale((PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach / PET_SIZE, 5 / PET_SIZE) end),
 		Position = frame:map(function(f)
-			return UDim2.fromOffset(f.pet.x, f.pet.y)
+			local length = (PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach
+			local angle = math.rad(f.pet.point)
+			return UDim2.fromScale(0.5 + math.cos(angle) * length / (2 * PET_SIZE), 0.5 + math.sin(angle) * length / (2 * PET_SIZE))
 		end),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		ZIndex = 405,
-	}, React.createElement("frame", {
-		Size = frame:map(function(f)
-			return UDim2.fromOffset(PET_SIZE * 0.7 * f.pet.shadow, PET_SIZE * 0.16 * f.pet.shadow)
+		Rotation = frame:map(function(f) return f.pet.point end),
+		BackgroundColor3 = petColor, BorderSizePixel = 0, ZIndex = 410,
+		Visible = frame:map(function(f) return f.pet.reach > 0.03 end),
+	}, React.createElement("uicorner", { CornerRadius = UDim.new(1, 0) }), outline(1.5)),
+	React.createElement("textbutton", {
+		Name = "BoltTouchTarget", Text = "", BackgroundTransparency = 1, AutoButtonColor = false, BorderSizePixel = 0,
+		Size = frame:map(function(f) return UDim2.fromScale(f.pet.sx, f.pet.sy) end),
+		Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
+		Rotation = frame:map(function(f) return f.pet.tilt end), ZIndex = 412,
+		Event = { Activated = onPetClick },
+	}, React.createElement("imagelabel", {
+		Name = "BoltSprite", Image = "rbxassetid://70681368255210", ImageRectSize = Vector2.new(128, 128),
+		ImageRectOffset = frame:map(function(f)
+			local phase = if reducedMotion or soft then 0 else math.floor(f.t * 8) % 4
+			local index = if f.pet.sleep > 0.5 then 6 + phase % 2 elseif f.pet.blink > 0.5 then 4 + phase % 2 elseif f.pet.happy > 0.4 then 8 + phase else phase
+			return Vector2.new((index % 4) * 128, math.floor(index / 4) * 128)
 		end),
-		Position = UDim2.new(0.5, 0, 0.5, PET_SIZE * 0.7),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.void,
-		BackgroundTransparency = frame:map(function(f)
-			return math.clamp(0.6 - (f.pet.shadow - 1) * 1.5, 0.55, 0.9)
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 406,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
+		Size = UDim2.fromScale(2, 2), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.625),
+		BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 413,
 	})), React.createElement("frame", {
-		Size = frame:map(function(f)
-			return UDim2.fromOffset((PET_SIZE * 0.5 + 16 + f.pet.poke * 8) * f.pet.reach, 7)
-		end),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0, 0.5),
-		Rotation = frame:map(function(f)
-			return f.pet.point
-		end),
-		BackgroundTransparency = 1,
-		Visible = frame:map(function(f)
-			return f.pet.reach > 0.03
-		end),
-		ZIndex = 410,
-	}, React.createElement("frame", {
-		Size = UDim2.new(1, -8, 0, 6),
-		Position = UDim2.new(0, 0, 0.5, 0),
-		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = petColor,
-		BorderSizePixel = 0,
-		ZIndex = 410,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), outline(1.5)), React.createElement("frame", {
-		Size = UDim2.fromOffset(11, 11),
-		Position = UDim2.new(1, 0, 0.5, 0),
-		AnchorPoint = Vector2.new(1, 0.5),
-		BackgroundColor3 = petColor,
-		BorderSizePixel = 0,
-		ZIndex = 411,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}), outline(2))), wing(-1), wing(1), React.createElement("frame", {
-		Size = UDim2.fromOffset(24, 22),
-		Position = UDim2.new(0.5, 0, 0, 6),
-		AnchorPoint = Vector2.new(0.5, 1),
-		Rotation = frame:map(function(f)
-			return math.clamp(f.pet.tipX * 5, -26, 26) + f.pet.sleep * 18
-		end),
-		BackgroundTransparency = 1,
-		ZIndex = 410,
-	}, (function()
-		local tongues = {}
-		for index, spec in { { -7, 0.7, 0.0, -14 }, { 0, 1.0, 1.7, 0 }, { 7, 0.62, 3.1, 14 } } do
-			tongues["f" .. index] = React.createElement("frame", {
-				Size = frame:map(function(f)
-					local flicker = 1 + 0.12 * math.sin(f.t * 9 + spec[3]) + 0.06 * math.sin(f.t * 23 + spec[3] * 2)
-					local h = 20 * spec[2] * flicker * (1 - f.pet.sleep * 0.45)
-					return UDim2.fromOffset(9, h)
-				end),
-				Position = UDim2.new(0.5, spec[1], 1, 0),
-				AnchorPoint = Vector2.new(0.5, 1),
-				Rotation = spec[4],
-				BackgroundColor3 = if index == 2 then Palette.cream else petColor,
-				BorderSizePixel = 0,
-				ZIndex = if index == 2 then 411 else 410,
-			}, React.createElement("uicorner", {
-				CornerRadius = UDim.new(1, 0),
-			}), outline(2))
-		end
-		return tongues
-	end)()), React.createElement("textbutton", {
-		Size = frame:map(function(f)
-			return UDim2.fromOffset(PET_SIZE * f.pet.sx, PET_SIZE * f.pet.sy)
-		end),
-		Position = UDim2.fromScale(0.5, 0.5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Rotation = frame:map(function(f)
-			return f.pet.tilt
-		end),
-		BackgroundColor3 = petColor,
-		BorderSizePixel = 0,
-		AutoButtonColor = false,
-		Text = "",
-		ZIndex = 412,
-		Event = {
-			Activated = onPetClick,
-		},
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(0.48, 0),
-	}), React.createElement("uigradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Palette.white),
-			ColorSequenceKeypoint.new(0.64, Palette.white),
-			ColorSequenceKeypoint.new(0.66, Color3.fromRGB(232, 150, 120)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(232, 150, 120)),
-		}),
-		Rotation = 90,
-	}), React.createElement("uistroke", {
-		Color = petLine,
-		Thickness = frame:map(function(f)
-			return 2.5 + 0.5 * f.pet.glow
-		end),
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	}), React.createElement("frame", {
-		Size = UDim2.fromOffset(9, 5),
-		Position = UDim2.new(0.5, -11, 0, 7),
-		AnchorPoint = Vector2.new(0.5, 0),
-		Rotation = -20,
-		BackgroundColor3 = Palette.cream,
-		BackgroundTransparency = 0.1,
-		BorderSizePixel = 0,
-		ZIndex = 413,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), eye(-1), eye(1), React.createElement("frame", {
-		Size = frame:map(function(f)
-			return UDim2.fromOffset(f.pet.mouthW, f.pet.mouth)
-		end),
-		Position = UDim2.new(0.5, 0, 0.5, 9),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = petLine,
-		BorderSizePixel = 0,
-		ZIndex = 414,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(7, 4),
-		Position = UDim2.new(0.5, -16, 0.5, 5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.coral,
-		BackgroundTransparency = frame:map(function(f)
-			return 1 - f.pet.happy * 0.6
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 414,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	})), React.createElement("frame", {
-		Size = UDim2.fromOffset(7, 4),
-		Position = UDim2.new(0.5, 16, 0.5, 5),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Palette.coral,
-		BackgroundTransparency = frame:map(function(f)
-			return 1 - f.pet.happy * 0.6
-		end),
-		BorderSizePixel = 0,
-		ZIndex = 414,
-	}, React.createElement("uicorner", {
-		CornerRadius = UDim.new(1, 0),
-	}))), React.createElement("frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 417,
+		Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 417,
 	}, effectEls))
 
 	local bubbleW = math.min(250, viewport.width - 24)
 	local bubble = React.createElement("frame", {
 		Size = UDim2.fromOffset(bubbleW, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Position = frame:map(function(f)
-			return UDim2.fromOffset(f.bubbleX, f.bubbleY)
+		Position = sizedFrame:map(function(values)
+			return pixelPosition(values[2], 0, values[1].bubbleX, 0, values[1].bubbleY)
 		end),
 		AnchorPoint = frame:map(function(f)
 			return Vector2.new(0, if f.bubbleAbove then 1 else 0)

@@ -5,6 +5,30 @@
 
 ## Current 7.0 verification boundary
 
+The new hex domain, authored Bolt atlas, tutorial pointer masks, aurora and
+minigame scene lifecycle have bounded offline/live checks recorded in
+`SIGNOFF.md`. Both minigames rendered in phone portrait simulation. Four
+Cipher glyph models changed pose after local key presses without submitting
+a puzzle action. Settings' shared controls were captured on phone; this is
+not a complete settings interaction/save-persistence test.
+
+- [ ] Finish the additional trading, changelog, mail, crew, overview, research
+  and milestone redesigns requested in the expanded pass.
+- [ ] Finish artifact/crate art and animation refinements and wider shared
+  control/text-shadow coverage.
+- [ ] Tutorial touch/gamepad walkthrough across every step, missing targets,
+  back/skip, safe areas and real controller navigation. Pointer blocking and
+  callback/focus regressions do not establish physical gamepad behavior.
+- [ ] Topbar access to every resource and control across phone landscape,
+  narrow desktop, changing resources and active visitors/events.
+- [ ] Human approval of the logo, sprite art, aurora, shadows and every screen.
+- [ ] Frame-time measurements on actual mobile hardware and real-player
+  multiplayer, audio and profile persistence testing.
+- [ ] Remove or consolidate more unused presentation only after checking
+  live callers and replacing obsolete regression assumptions.
+
+### Earlier observations
+
 The new ranks avatars rendered successfully in desktop and narrow-panel
 captures. This supersedes the blank-render observation for ranks only; it
 does not establish a fix or sign-off for every other 3D feature. Arbitrary

@@ -9,13 +9,8 @@ assert(string.find(shell, "local function TradeReturnPill", 1, true), "TradeRetu
 assert(string.find(shell, 'Name = "TradeReturnClaim"', 1, true), "TradeReturnClaim host")
 assert(string.find(shell, "GamepadNavigationService.FocusClaim", 1, true), "TradeReturn FocusClaim")
 assert(string.find(shell, "local softMotion = ", 1, true), "TradeReturn softMotion")
-do
-	local soft = 0
-	for _ in string.gmatch(shell, "softMotion") do
-		soft += 1
-	end
-	assert(soft >= 8, "ShellFx softMotion density, got " .. tostring(soft))
-end
+assert(string.find(shell, "not reducedMotion and antilag.allowAmbient", 1, true), "aurora animation respects reduced motion and ambient settings")
+assert(string.find(shell, "useClock(enabled, 0.08)", 1, true), "aurora uses its gated slow clock")
 
 local main = fs.readFile("src/Client/AstralForge/UiCore.luau#MainGame")
 local appShell = fs.readFile("src/Client/AstralForge/UiCore.luau#AppShellChrome")
